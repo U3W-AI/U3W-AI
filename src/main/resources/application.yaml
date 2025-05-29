@@ -1,0 +1,11 @@
+server:
+  port: 8083
+
+
+cube:
+  url: https://qkx.meooota.com/cubeServer/aigc
+  wssurl:
+  datadir: C:\AGI\user-data-dir
+  uploadurl: https://qkx.meooota.com/cubeServer/common/upload
+
+
