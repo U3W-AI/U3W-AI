@@ -116,9 +116,9 @@ public class DouBaoUtil {
 
                 // 更新上次内容为当前内容
                 lastContent = currentContent;
-                logInfo.sendTaskLog( "豆包内容已自动提取完成",userId,"豆包");
                 page.waitForTimeout(10000);  // 等待10秒再次检查
             }
+            logInfo.sendTaskLog( "豆包内容已自动提取完成",userId,"豆包");
             return currentContent;
 
         } catch (Exception e) {
