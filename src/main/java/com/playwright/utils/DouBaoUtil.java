@@ -28,7 +28,7 @@ public class DouBaoUtil {
                     new Page.WaitForSelectorOptions()
                             .setState(WaitForSelectorState.VISIBLE)
                             .setTimeout(600000));  // 600秒超时
-            logInfo.sendTaskLog( "评分完成，正在自动获取评分内容",userId,"悟空评分");
+            logInfo.sendTaskLog( "评分完成，正在自动获取评分内容",userId,"智能评分");
             Thread.sleep(2000);  // 额外等待确保按钮可点击
 
             // 点击复制按钮
@@ -79,5 +79,55 @@ public class DouBaoUtil {
         }
         return "获取内容失败";
     }
+
+    /**
+     * html片段获取（核心监控方法）
+     * @param page Playwright页面实例
+     */
+    public String waitDBHtmlDom(Page page,String userId)  {
+        try {
+            // 等待聊天框的内容稳定
+            String currentContent = "";
+            String lastContent = "";
+            // 设置最大等待时间（单位：毫秒），比如 10 分钟
+            long timeout = 600000; // 10 分钟
+            long startTime = System.currentTimeMillis();  // 获取当前时间戳
+
+            // 进入循环，直到内容不再变化或者超时
+            while (true) {
+                // 获取当前时间戳
+                long elapsedTime = System.currentTimeMillis() - startTime;
+
+                // 如果超时，退出循环
+                if (elapsedTime > timeout) {
+                    System.out.println("超时，AI未完成回答！");
+                    break;
+                }
+                // 获取最新内容
+                Locator outputLocator = page.locator(".flow-markdown-body").last();
+                currentContent = outputLocator.innerHTML();
+
+                System.out.println(currentContent);
+                // 如果当前内容和上次内容相同，认为 AI 已经完成回答，退出循环
+                if (currentContent.equals(lastContent)) {
+                    logInfo.sendTaskLog( "豆包回答完成，正在自动提取内容",userId,"豆包");
+                    break;
+                }
+
+                // 更新上次内容为当前内容
+                lastContent = currentContent;
+                logInfo.sendTaskLog( "豆包内容已自动提取完成",userId,"豆包");
+                page.waitForTimeout(10000);  // 等待10秒再次检查
+            }
+            return currentContent;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "获取内容失败";
+    }
+
+
+
 
 }

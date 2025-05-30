@@ -106,8 +106,10 @@ public class TencentUtil {
         }, 0, 10, TimeUnit.SECONDS);
         try {
             logInfo.sendTaskLog( "开启自动监听任务，持续监听"+agentName+"回答中",userId,agentName);
+            //等待复制按钮出现并点击
 //            String copiedText = waitAndClickYBCopyButton(page,userId,aiName,initialCount,agentName);
-            String copiedText = waitHtmlDom(page);
+            //等待html片段获取完成
+            String copiedText = waitHtmlDom(page,agentName,userId);
             // 日志记录与数据保存
             logInfo.sendTaskLog( "执行完成",userId,agentName);
             logInfo.sendResData(copiedText,userId,agentName,resName);
@@ -281,8 +283,10 @@ public class TencentUtil {
                 agentName = "腾讯元宝DS";
                 logInfo.sendTaskLog( "开启自动监听任务，持续监听腾讯元宝DS回答中",userId,agentName);
             }
+            //等待复制按钮出现并点击
 //            String copiedText = waitAndClickYBCopyButton(page,userId,aiName,initialCount,agentName);
-            String copiedText = waitHtmlDom(page);
+            //等待html片段获取
+            String copiedText = waitHtmlDom(page,agentName,userId);
             Thread.sleep(1000);
 
             //关闭截图
@@ -400,7 +404,7 @@ public class TencentUtil {
      * html片段获取（核心监控方法）
      * @param page Playwright页面实例
      */
-    private String waitHtmlDom(Page page)  {
+    private String waitHtmlDom(Page page,String agentName,String userId)  {
         try {
             // 等待聊天框的内容稳定
             String currentContent = "";
@@ -425,7 +429,7 @@ public class TencentUtil {
 
                 // 如果当前内容和上次内容相同，认为 AI 已经完成回答，退出循环
                 if (currentContent.equals(lastContent)) {
-                    System.out.println("AI回答完成。。。");
+                    logInfo.sendTaskLog( agentName+"回答完成，正在自动提取内容",userId,agentName);
                     break;
                 }
 
@@ -433,9 +437,14 @@ public class TencentUtil {
                 lastContent = currentContent;
 
                 // 等待 2 秒后再次检查
-                page.waitForTimeout(10000);  // 等待2秒
+                page.waitForTimeout(15000);  // 等待2秒
             }
             currentContent = currentContent.replaceAll("<div class=\"hyc-common-markdown__ref-list\".*?</div>|<span>.*?</span>","");
+            currentContent = currentContent.replaceAll(
+                    "<div class=\"hyc-common-markdown__ref-list__trigger\"[^>]*>\\s*<div class=\"hyc-common-markdown__ref-list__item\"></div>\\s*</div>",
+                    ""
+            );
+            logInfo.sendTaskLog( agentName+"内容已自动提取完成",userId,agentName);
             return currentContent;
 
         } catch (Exception e) {

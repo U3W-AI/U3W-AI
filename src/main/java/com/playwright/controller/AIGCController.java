@@ -109,10 +109,10 @@ public class AIGCController {
                   wrightCopyCount = tencentUtil.handelAgentAI(pages[3],userPrompt,agentUrl,"搜狗搜索@元器",userId,isNewChat);
               }
               if(roles.contains("cube-lwss-agent")){
-                  logInfo.sendTaskLog( "官方搜索@元器准备就绪，正在打开页面",userId,"官方搜索@元器");
+                  logInfo.sendTaskLog( "KIMI@元器准备就绪，正在打开页面",userId,"KIMI@元器");
                   pages[4] = context.newPage();
                   String agentUrl = "https://yuanbao.tencent.com/chat/oq4esMyN9VS2/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[4],userPrompt,agentUrl,"官方搜索@元器",userId,isNewChat);
+                  wrightCopyCount = tencentUtil.handelAgentAI(pages[4],userPrompt,agentUrl,"KIMI@元器",userId,isNewChat);
               }
 
              // 保存各代理生成的数据并拼接结果
@@ -129,7 +129,7 @@ public class AIGCController {
                   copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[3],userInfoRequest,"cube-sogou-agent",userId,wrightCopyCount,"搜狗搜索@元器","RETURN_SOGOU_RES");
               }
               if(roles.contains("cube-lwss-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[4],userInfoRequest,"cube-lwss-agent",userId,wrightCopyCount,"官方搜索@元器","RETURN_LWSS_RES");
+                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[4],userInfoRequest,"cube-lwss-agent",userId,wrightCopyCount,"KIMI@元器","RETURN_LWSS_RES");
               }
                return copiedText;
         } catch (Exception e) {
@@ -301,7 +301,9 @@ public class AIGCController {
 
             logInfo.sendTaskLog( "开启自动监听任务，持续监听豆包回答中",userId,"豆包");
             // 等待复制按钮出现并点击
-            String copiedText =  douBaoUtil.waitAndClickDBCopyButton(page,userId,roles);
+//            String copiedText =  douBaoUtil.waitAndClickDBCopyButton(page,userId,roles);
+            //等待html片段获取完成
+            String copiedText =  douBaoUtil.waitDBHtmlDom(page,userId);
             Thread.sleep(1000);
             //关闭截图
             screenshotFuture.cancel(false);
@@ -329,7 +331,7 @@ public class AIGCController {
 
             // 初始化变量
             String userId = userInfoRequest.getUserId();
-            logInfo.sendTaskLog( "评分准备就绪，正在打开页面",userId,"悟空评分");
+            logInfo.sendTaskLog( "评分准备就绪，正在打开页面",userId,"智能评分");
             String roles = userInfoRequest.getRoles();
             String userPrompt = userInfoRequest.getUserPrompt();
 
@@ -338,7 +340,7 @@ public class AIGCController {
             page.navigate("https://www.doubao.com/chat/");
             page.waitForLoadState(LoadState.LOAD);
             Thread.sleep(500);
-            logInfo.sendTaskLog( "悟空评分页面打开完成",userId,"悟空评分");
+            logInfo.sendTaskLog( "智能评分页面打开完成",userId,"智能评分");
             // 定位深度思考按钮
             Locator deepThoughtButton = page.locator("button.semi-button:has-text('深度思考')");
             // 检查按钮是否包含以 active- 开头的类名
@@ -367,7 +369,7 @@ public class AIGCController {
             page.locator("[data-testid='chat_input_input']").click();
             Thread.sleep(500);
             page.locator("[data-testid='chat_input_input']").fill(userPrompt);
-            logInfo.sendTaskLog( "初稿已录入评分系统完成",userId,"悟空评分");
+            logInfo.sendTaskLog( "初稿已录入评分系统完成",userId,"智能评分");
             Thread.sleep(500);
             page.locator("[data-testid='chat_input_input']").press("Enter");
 
@@ -384,7 +386,7 @@ public class AIGCController {
                 }
             }, 0, 9, TimeUnit.SECONDS);
 
-            logInfo.sendTaskLog( "开启自动监听任务，持续监听评分结果",userId,"悟空评分");
+            logInfo.sendTaskLog( "开启自动监听任务，持续监听评分结果",userId,"智能评分");
             // 等待复制按钮出现并点击
             douBaoUtil.waitAndClickDBScoreCopyButton(page,userId);
 
@@ -392,11 +394,11 @@ public class AIGCController {
             screenshotExecutor.shutdown();
             Thread.sleep(1000);
             String copiedText = (String) page.evaluate("navigator.clipboard.readText()");
-            logInfo.sendTaskLog( "执行完成",userId,"悟空评分");
-            logInfo.sendResData(copiedText,userId,"悟空评分","RETURN_WKPF_RES");
+            logInfo.sendTaskLog( "执行完成",userId,"智能评分");
+            logInfo.sendResData(copiedText,userId,"智能评分","RETURN_WKPF_RES");
 
             userInfoRequest.setDraftContent(copiedText);
-            userInfoRequest.setAiName("悟空评分");
+            userInfoRequest.setAiName("智能评分");
             RestUtils.post(url+"/saveDraftContent", userInfoRequest);
 
             return copiedText;
@@ -405,5 +407,6 @@ public class AIGCController {
         }
         return "获取内容失败";
     }
+
 
 }

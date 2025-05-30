@@ -44,7 +44,7 @@ public class UserInfoRequest {
      * cube-turbos-large-agent: TurboS长文版@元器
      * cube-mini-max-agent: MiniMax@元器
      * cube-sogou-agent: 搜狗搜索@元器
-     * cube-lwss-agent: 官方搜索@元器
+     * cube-lwss-agent: KIMI@元器
      *
      * zj-db: 豆包基础版
      * zj-db-sdsk: 豆包深度思考能力
