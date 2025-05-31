@@ -64,6 +64,9 @@ Slogan：Unique³ Wisdom（独特智慧三次方）
 
 #### 3.1.3 核心功能
 
+![a002ef6dbff4e8f8baafda249936f2db](https://github.com/user-attachments/assets/125e539e-c2b9-4e0e-82ba-69265f76755b)
+
+
 基于 Java 和 Playwright 的浏览器自动化控制核心，支持团队协作基础能力：
 
 ##### 3.1.3.1 一问多答功能
@@ -160,6 +163,9 @@ Slogan：Unique³ Wisdom（独特智慧三次方）
 
 支持复杂的商业场景（如公众号内容全流程创作、跨平台内容多语言优化与分发），满足团队在不同业务场景下的协作需求。
 
+![31564afb142e96101b647f6c8152785b](https://github.com/user-attachments/assets/19e50cf3-68b4-4504-888f-ad66b5d62a94)
+
+
 ##### 3.2.3.7 商业授权
 
 可在企业环境中部署、定制（支持更换 Logo、名称），并获得悟空共创提供的完整部署指导、企业级技术支持与更新服务。
@@ -171,6 +177,9 @@ Slogan：Unique³ Wisdom（独特智慧三次方）
 ## 4. 系统架构与技术实现
 
 优立方 AI 主机采用先进的模块化、分布式架构，确保高效率、高稳定性和易于扩展性。
+
+![企业微信截图_17485946247920](https://github.com/user-attachments/assets/df1d62b7-a8ab-465a-a8cb-ce02a42a878a)
+
 
 ### 4.1 整体架构概览
 
@@ -198,6 +207,9 @@ Slogan：Unique³ Wisdom（独特智慧三次方）
 | 优立方 AI 主机 | Java 17、Playwright | Windows 主机 | 浏览器自动化控制、模拟用户行为、AI 任务指令执行、执行过程截图与日志回传、未来集成多源 AI 能力，支持团队任务自动化执行 |
 
 ### 4.3 模块间协作与数据流
+
+![企业微信截图_17485946949455](https://github.com/user-attachments/assets/375cf963-08e3-480c-a07f-e71265e5198f)
+
 
 优立方 AI 主机各模块之间通过标准化的通信协议和接口紧密协作，形成高效的数据流闭环：
 
