@@ -4,8 +4,9 @@ server:
 
 cube:
   url: https://qkx.meooota.com/cubeServer/aigc
-  wssurl:
+  wssurl: ws://127.0.0.1:8081/websocket?clientId=play-ylf100002
   datadir: C:\AGI\user-data-dir
   uploadurl: https://qkx.meooota.com/cubeServer/common/upload
+
 
 
