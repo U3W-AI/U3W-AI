@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.thirdapp.mapper.RmUserExternalSynMapper">
+  <resultMap id="BaseResultMap" type="com.cube.wechat.thirdapp.entiy.RmUserExternalSyn">
+    <id column="id" jdbcType="VARCHAR" property="id" />
+    <result column="user_id" jdbcType="VARCHAR" property="userId" />
+    <result column="corp_id" jdbcType="VARCHAR" property="corpId" />
+    <result column="is_syn_contacts" jdbcType="INTEGER" property="isSynContacts" />
+    <result column="syn_date" jdbcType="TIMESTAMP" property="synDate" />
+    <result column="syn_type" jdbcType="INTEGER" property="synType" />
+
+  </resultMap>
+  <sql id="Base_Column_List">
+    id, user_id, corp_id, is_syn_contacts, syn_date,syn_type
+  </sql>
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    select
+    <include refid="Base_Column_List" />
+    from rm_user_external_syn
+    where id = #{id,jdbcType=VARCHAR}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.String">
+    delete from rm_user_external_syn
+    where id = #{id,jdbcType=VARCHAR}
+  </delete>
+  <select id="selectIsSynContractByUserId" parameterType="com.cube.wechat.thirdapp.entiy.RmUserExternalSyn" resultMap="BaseResultMap">
+    SELECT *FROM rm_user_external_syn WHERE user_id=#{userId} and corp_id=#{corpId} and syn_type=#{synType}
+    limit 1
+  </select>
+  <insert id="insert" parameterType="com.cube.wechat.thirdapp.entiy.RmUserExternalSyn">
+    insert into rm_user_external_syn (id, user_id, corp_id,
+      is_syn_contacts, syn_date)
+    values (#{id,jdbcType=VARCHAR}, #{userId,jdbcType=VARCHAR}, #{corpId,jdbcType=VARCHAR},
+      #{isSynContacts,jdbcType=INTEGER}, #{synDate,jdbcType=TIMESTAMP})
+  </insert>
+  <insert id="insertSelective" parameterType="com.cube.wechat.thirdapp.entiy.RmUserExternalSyn">
+    insert into rm_user_external_syn
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="id != null">
+        id,
+      </if>
+      <if test="userId != null">
+        user_id,
+      </if>
+      <if test="corpId != null">
+        corp_id,
+      </if>
+      <if test="isSynContacts != null">
+        is_syn_contacts,
+      </if>
+      <if test="synDate != null">
+        syn_date,
+      </if>
+      <if test="synType != null">
+       syn_type,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides=",">
+      <if test="id != null">
+        #{id,jdbcType=VARCHAR},
+      </if>
+      <if test="userId != null">
+        #{userId,jdbcType=VARCHAR},
+      </if>
+      <if test="corpId != null">
+        #{corpId,jdbcType=VARCHAR},
+      </if>
+      <if test="isSynContacts != null">
+        #{isSynContacts,jdbcType=INTEGER},
+      </if>
+      <if test="synDate != null">
+        #{synDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="synType != null">
+        #{synType},
+      </if>
+    </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.cube.wechat.thirdapp.entiy.RmUserExternalSyn">
+    update rm_user_external_syn
+    <set>
+      <if test="userId != null">
+        user_id = #{userId,jdbcType=VARCHAR},
+      </if>
+      <if test="corpId != null">
+        corp_id = #{corpId,jdbcType=VARCHAR},
+      </if>
+      <if test="isSynContacts != null">
+        is_syn_contacts = #{isSynContacts,jdbcType=INTEGER},
+      </if>
+      <if test="synDate != null">
+        syn_date = #{synDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="synType != null">
+        syn_type=#{synType},
+      </if>
+    </set>
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.cube.wechat.thirdapp.entiy.RmUserExternalSyn">
+    update rm_user_external_syn
+    set user_id = #{userId,jdbcType=VARCHAR},
+      corp_id = #{corpId,jdbcType=VARCHAR},
+      is_syn_contacts = #{isSynContacts,jdbcType=INTEGER},
+      syn_date = #{synDate,jdbcType=TIMESTAMP}
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+</mapper>

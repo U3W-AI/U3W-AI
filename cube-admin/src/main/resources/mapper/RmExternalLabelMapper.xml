@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.thirdapp.mapper.RmExternalLabelMapper">
+    <resultMap id="BaseResultMap" type="com.cube.wechat.thirdapp.entiy.RmExternalLabel">
+        <id column="id" jdbcType="VARCHAR" property="id"/>
+        <result column="external_user_id" jdbcType="VARCHAR" property="externalUserId"/>
+        <result column="label_group_id" jdbcType="VARCHAR" property="labelGroupId"/>
+        <result column="label_id" jdbcType="VARCHAR" property="labelId"/>
+        <result column="user_id" jdbcType="VARCHAR" property="userId"/>
+        <result column="corp_id" jdbcType="VARCHAR" property="corpId"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id
+        , external_user_id, label_group_id, label_id, user_id, corp_id, create_time
+    </sql>
+    <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from rm_external_label
+        where id = #{id,jdbcType=VARCHAR}
+    </select>
+    <select id="selectExternalLabelByExternalUserId" parameterType="java.util.Map" resultType="java.util.Map">
+        SELECT rel.label_id,
+               rl.label_name,
+               rel.external_user_id,
+               rel.user_id
+        FROM rm_external_label rel
+                 INNER JOIN qywx_user_path qup on qup.user_id = rel.user_id
+            AND qup.corp_id = rel.corp_id
+                 INNER JOIN rm_label rl ON rl.label_id = rel.label_id
+            AND rel.corp_id = rl.corp_id
+        WHERE rel.external_user_id = #{externalUserId}
+          AND rl.is_delete = 0
+          AND rel.corp_id = #{corpId}
+        GROUP BY label_id
+        ORDER BY rl.group_id,
+                 rl.label_id
+    </select>
+    <select id="selectExternalLabel" parameterType="java.lang.String" resultType="java.lang.String">
+        SELECT GROUP_CONCAT(label_name ORDER BY label_group_id, label_name SEPARATOR ', ') AS concatenated_labels
+        FROM (SELECT rl.label_name, rel.label_group_id
+              FROM rm_external_label rel
+                       INNER JOIN rm_label rl ON rel.label_id = rl.label_id
+              WHERE rel.user_id = #{userId}
+                AND rel.external_user_id = #{externalUserId}
+                AND rel.corp_id = #{corpId}
+              GROUP BY rel.label_id
+              ORDER BY rel.label_group_id, rl.label_name) AS subquery
+    </select>
+    <select id="selectLabelIdsByExternalUserIdAndCropId" resultType="java.lang.String">
+        SELECT id
+        FROM rm_external_label
+        WHERE external_user_id = #{externalUserId}
+          AND corp_id = #{corpId}
+    </select>
+    <select id="selectLabelListByExternalUserIdAndCropId" resultType="java.util.Map" parameterType="java.lang.String">
+        SELECT rl.id,
+               rl.label_name
+        FROM rm_external_label rel
+                 INNER JOIN rm_label rl on rl.label_id = rel.label_id AND rl.corp_id = rel.corp_id
+        WHERE rel.external_user_id = #{externalUserId}
+          AND rl.is_delete = 0
+          AND rel.corp_id = #{corpId}
+        GROUP BY rel.label_id
+        ORDER BY rel.label_group_id, rl.label_name
+    </select>
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.String">
+        delete
+        from rm_external_label
+        where id = #{id,jdbcType=VARCHAR}
+    </delete>
+    <insert id="insert" parameterType="com.cube.wechat.thirdapp.entiy.RmExternalLabel">
+        insert into rm_external_label (id, external_user_id, label_group_id,
+                                       label_id, user_id, corp_id,
+                                       create_time)
+        values (#{id,jdbcType=VARCHAR}, #{externalUserId,jdbcType=VARCHAR}, #{labelGroupId,jdbcType=VARCHAR},
+                #{labelId,jdbcType=VARCHAR}, #{userId,jdbcType=VARCHAR}, #{corpId,jdbcType=VARCHAR},
+                #{createTime,jdbcType=TIMESTAMP})
+    </insert>
+    <insert id="insertSelective" parameterType="com.cube.wechat.thirdapp.entiy.RmExternalLabel">
+        insert into rm_external_label
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="externalUserId != null">
+                external_user_id,
+            </if>
+            <if test="labelGroupId != null">
+                label_group_id,
+            </if>
+            <if test="labelId != null">
+                label_id,
+            </if>
+            <if test="userId != null">
+                user_id,
+            </if>
+            <if test="corpId != null">
+                corp_id,
+            </if>
+            <if test="createTime != null">
+                create_time,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=VARCHAR},
+            </if>
+            <if test="externalUserId != null">
+                #{externalUserId,jdbcType=VARCHAR},
+            </if>
+            <if test="labelGroupId != null">
+                #{labelGroupId,jdbcType=VARCHAR},
+            </if>
+            <if test="labelId != null">
+                #{labelId,jdbcType=VARCHAR},
+            </if>
+            <if test="userId != null">
+                #{userId,jdbcType=VARCHAR},
+            </if>
+            <if test="corpId != null">
+                #{corpId,jdbcType=VARCHAR},
+            </if>
+            <if test="createTime != null">
+                #{createTime,jdbcType=TIMESTAMP},
+            </if>
+        </trim>
+    </insert>
+    <update id="updateByPrimaryKeySelective" parameterType="com.cube.wechat.thirdapp.entiy.RmExternalLabel">
+        update rm_external_label
+        <set>
+            <if test="externalUserId != null">
+                external_user_id = #{externalUserId,jdbcType=VARCHAR},
+            </if>
+            <if test="labelGroupId != null">
+                label_group_id = #{labelGroupId,jdbcType=VARCHAR},
+            </if>
+            <if test="labelId != null">
+                label_id = #{labelId,jdbcType=VARCHAR},
+            </if>
+            <if test="userId != null">
+                user_id = #{userId,jdbcType=VARCHAR},
+            </if>
+            <if test="corpId != null">
+                corp_id = #{corpId,jdbcType=VARCHAR},
+            </if>
+            <if test="createTime != null">
+                create_time = #{createTime,jdbcType=TIMESTAMP},
+            </if>
+        </set>
+        where id = #{id,jdbcType=VARCHAR}
+    </update>
+    <update id="updateByPrimaryKey" parameterType="com.cube.wechat.thirdapp.entiy.RmExternalLabel">
+        update rm_external_label
+        set external_user_id = #{externalUserId,jdbcType=VARCHAR},
+            label_group_id   = #{labelGroupId,jdbcType=VARCHAR},
+            label_id         = #{labelId,jdbcType=VARCHAR},
+            user_id          = #{userId,jdbcType=VARCHAR},
+            corp_id          = #{corpId,jdbcType=VARCHAR},
+            create_time      = #{createTime,jdbcType=TIMESTAMP}
+        where id = #{id,jdbcType=VARCHAR}
+    </update>
+    <delete id="deleteExternalLabel" parameterType="com.cube.wechat.thirdapp.entiy.RmExternalLabel">
+        DELETE
+        FROM rm_external_label
+        WHERE user_id = #{userId}
+          and corp_id = #{corpId}
+          and external_user_id = #{externalUserId}
+    </delete>
+    <delete id="deleteExternalByUserInfo" parameterType="com.cube.wechat.thirdapp.entiy.RmExternalLabel">
+        DELETE
+        FROM rm_external_label
+        WHERE user_id = #{userId}
+          and corp_id = #{corpId}
+    </delete>
+    <select id="selectExternalLabelUserByExternalUserId" parameterType="java.lang.String" resultType="java.lang.String">
+        SELECT user_id
+        FROM rm_external_label
+        WHERE corp_id = #{corpId}
+          AND external_user_id = #{externalUserId}
+        GROUP BY user_id
+    </select>
+
+    <delete id="deleteExternalLabelByExternalUserId" parameterType="java.lang.String">
+        DELETE FROM rm_external_label WHERE corp_id = #{corpId} and external_user_id = #{externalUserId}
+        <if test="userId!=null and userId!=''">
+            and user_id=#{userId}
+        </if>
+    </delete>
+    <delete id="deleteByLabelIdAndlabelGroupId">
+        DELETE FROM rm_external_label
+        WHERE corp_id = #{corpId}
+        <if test="labelId != null and labelId !='' ">
+            AND label_id = #{labelId}
+        </if>
+        <if test="labelGroupId != null and labelGroupId !=''">
+            AND label_group_id = #{labelGroupId}
+        </if>
+    </delete>
+    <select id="selectExternalLabelNum" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT count(*)   as totalNum,
+               '好友总数' as `name`,
+               user_id    as id,
+               '1'           dataType
+        FROM rm_external_statistics_num
+        WHERE corp_id = #{corpId}
+          AND is_lost = 0
+          AND user_id = #{userId}
+        GROUP BY user_id
+        UNION ALL
+
+        SELECT *
+        FROM (SELECT COUNT(rel.external_user_id) as totalNum,
+                     rl.label_name               as `name`,
+                     rel.label_id                as id,
+                     '2'                         as dataType
+              from rm_external_statistics_num resn
+                       INNER JOIN rm_external_label rel on rel.external_user_id = resn.external_user_id
+                       AND rel.user_id=resn.user_id
+                       INNER JOIN rm_label rl on rl.label_id = rel.label_id
+              WHERE rl.is_delete = 0
+                AND resn.user_id = #{userId}
+                AND resn.corp_id = #{corpId}
+              group by rel.label_id
+              order by rel.label_group_id, rl.label_name) t1
+    </select>
+    <select id="selectExternalNotHaveLabelNum" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT COUNT(resn.external_user_id) AS totalNum,
+               '无标签好友'                 AS `name`,
+               '-1'                         AS id,
+               '1'                          AS dataType
+        FROM rm_external_statistics_num resn
+        WHERE resn.external_user_id NOT IN (SELECT external_user_id
+                                            FROM rm_external_label rel
+                                                     INNER JOIN rm_label rl ON rl.label_id = rel.label_id
+                                            WHERE rl.is_delete = 0
+                                              AND rel.user_id = #{userId}
+                                              AND rel.corp_id = #{corpId}
+                                            GROUP BY external_user_id)
+          AND is_lost = 0
+          AND resn.user_id = #{userId}
+          AND resn.corp_id = #{corpId}
+    </select>
+
+    <select id="selectExternalLabelUserIdById" resultType="java.lang.String">
+        SELECT user_id
+        FROM rm_external_label
+        WHERE id = #{id}
+    </select>
+    <insert id="insertExternalLabelSelectiveBatch" parameterType="java.util.List">
+        insert into rm_external_label
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="list != null and !list.isEmpty()">
+                id,
+                external_user_id,
+                label_group_id,
+                label_id,
+                user_id,
+                corp_id,
+                create_time
+            </if>
+        </trim>
+        values
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.id,jdbcType=VARCHAR},
+            #{item.externalUserId,jdbcType=VARCHAR},
+            #{item.labelGroupId,jdbcType=VARCHAR},
+            #{item.labelId,jdbcType=VARCHAR},
+            #{item.userId,jdbcType=VARCHAR},
+            #{item.corpId,jdbcType=VARCHAR},
+            #{item.createTime,jdbcType=TIMESTAMP}
+            )
+        </foreach>
+    </insert>
+
+    <select id="selectExternalQywxLabelByExternalLabel" resultType="java.util.Map"
+            parameterType="com.cube.wechat.thirdapp.entiy.RmExternalLabel">
+        SELECT rl.label_id,
+               rl.label_name,
+               rel.user_id,
+               external_user_id
+        FROM rm_external_label rel
+                 INNER JOIN rm_label rl ON rl.label_id = rel.label_id
+            AND rl.corp_id = rel.corp_id
+        WHERE rl.is_delete = 0
+          AND rel.corp_id = #{corpId}
+          AND external_user_id = #{externalUserId}
+          AND user_id = #{userId}
+    </select>
+    <select id="selectExternalLabelByAllConditions" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM `rm_external_label`
+        WHERE external_user_id = #{externalUserId}
+          AND user_id = #{userId}
+          AND corp_id = #{corpId}
+          AND label_id = #{labelId}
+          AND label_group_id = #{groupId}
+    </select>
+
+</mapper>

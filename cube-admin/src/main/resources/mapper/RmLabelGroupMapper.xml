@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.thirdapp.mapper.RmLabelGroupMapper">
+    <resultMap id="BaseResultMap" type="com.cube.wechat.thirdapp.entiy.RmLabelGroup">
+        <id column="id" jdbcType="VARCHAR" property="id"/>
+        <result column="group_name" jdbcType="VARCHAR" property="groupName"/>
+        <result column="group_type" jdbcType="INTEGER" property="groupType"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="create_user" jdbcType="VARCHAR" property="createUser"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="update_user" jdbcType="VARCHAR" property="updateUser"/>
+        <result column="is_delete" jdbcType="INTEGER" property="isDelete"/>
+        <result column="corp_id" jdbcType="VARCHAR" property="corpId"/>
+        <result column="is_top" jdbcType="INTEGER" property="isTop"/>
+        <result column="is_system" jdbcType="INTEGER" property="isSystem"/>
+        <result column="group_id" jdbcType="VARCHAR" property="groupId"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id
+        , group_name, group_type, create_time, is_delete, corp_id,group_id,is_system,create_user,update_time,update_user
+    </sql>
+    <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from rm_label_group
+        where id = #{id,jdbcType=VARCHAR}
+    </select>
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.String">
+        delete
+        from rm_label_group
+        where id = #{id,jdbcType=VARCHAR}
+    </delete>
+    <insert id="insert" parameterType="com.cube.wechat.thirdapp.entiy.RmLabelGroup">
+        insert into rm_label_group (id, group_name, group_type,
+                                    create_time, is_delete, corp_id)
+        values (#{id,jdbcType=VARCHAR}, #{groupName,jdbcType=VARCHAR}, #{groupType,jdbcType=INTEGER},
+                #{createTime,jdbcType=TIMESTAMP}, #{isDelete,jdbcType=INTEGER}, #{corpId,jdbcType=VARCHAR})
+    </insert>
+    <select id="selectLabelGroupByGroupName" resultMap="BaseResultMap">
+        SELECT *
+        FROM rm_label_group
+        where group_name = #{groupName}
+          and corp_id = #{corpId}
+        <if test="createUser!=null and createUser!=''">
+            and create_user=#{createUser}
+        </if>
+          and is_delete = 0
+    </select>
+    <select id="selectLabelGroupByCorpId" resultMap="BaseResultMap">
+        SELECT *
+        FROM rm_label_group
+        where corp_id = #{corpId}
+          and is_delete = 0
+        order by is_top DESC,create_time DESC, group_name
+    </select>
+    <select id="selectLabelGroupNameById" resultType="java.lang.String">
+        SELECT group_name
+        FROM rm_label_group
+        where id = #{id}
+    </select>
+    <insert id="insertSelective" parameterType="com.cube.wechat.thirdapp.entiy.RmLabelGroup">
+        insert into rm_label_group
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="groupName != null">
+                group_name,
+            </if>
+            <if test="groupType != null">
+                group_type,
+            </if>
+            <if test="createTime != null">
+                create_time,
+            </if>
+            <if test="createUser != null">
+                create_user,
+            </if>
+            <if test="updateTime != null">
+                update_time,
+            </if>
+            <if test="updateUser != null">
+                update_user,
+            </if>
+            <if test="isDelete != null">
+                is_delete,
+            </if>
+            <if test="corpId != null">
+                corp_id,
+            </if>
+            <if test="isTop != null">
+                is_top,
+            </if>
+            <if test="groupId != null">
+                group_id,
+            </if>
+            <if test="isSystem != null">
+                is_system,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=VARCHAR},
+            </if>
+            <if test="groupName != null">
+                #{groupName,jdbcType=VARCHAR},
+            </if>
+            <if test="groupType != null">
+                #{groupType,jdbcType=INTEGER},
+            </if>
+            <if test="createTime != null">
+                #{createTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="createUser != null">
+                #{createUser},
+            </if>
+            <if test="updateTime != null">
+                #{updateTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="updateUser != null">
+                #{updateUser},
+            </if>
+            <if test="isDelete != null">
+                #{isDelete,jdbcType=INTEGER},
+            </if>
+            <if test="corpId != null">
+                #{corpId,jdbcType=VARCHAR},
+            </if>
+            <if test="isTop != null">
+                #{isTop,jdbcType=INTEGER},
+            </if>
+            <if test="groupId != null">
+                #{groupId,jdbcType=VARCHAR},
+            </if>
+            <if test="isSystem != null">
+                #{isSystem,jdbcType=INTEGER},
+            </if>
+        </trim>
+    </insert>
+    <update id="updateByPrimaryKeySelective" parameterType="com.cube.wechat.thirdapp.entiy.RmLabelGroup">
+        update rm_label_group
+        <set>
+            <if test="groupName != null">
+                group_name = #{groupName,jdbcType=VARCHAR},
+            </if>
+            <if test="groupType != null">
+                group_type = #{groupType,jdbcType=INTEGER},
+            </if>
+            <if test="createTime != null">
+                create_time = #{createTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="createUser != null">
+                create_user= #{createUser},
+            </if>
+            <if test="updateTime != null">
+                update_time = #{updateTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="updateUser != null">
+                update_user= #{updateUser},
+            </if>
+            <if test="isDelete != null">
+                is_delete = #{isDelete,jdbcType=INTEGER},
+            </if>
+            <if test="corpId != null">
+                corp_id = #{corpId,jdbcType=VARCHAR},
+            </if>
+            <if test="isTop != null">
+                is_top = #{isTop,jdbcType=INTEGER},
+            </if>
+            <if test="groupId != null">
+                group_id = #{groupId,jdbcType=VARCHAR},
+            </if>
+            <if test="isSystem != null">
+                is_system = #{isSystem,jdbcType=INTEGER},
+            </if>
+        </set>
+        where id = #{id,jdbcType=VARCHAR}
+    </update>
+    <insert id="insertBatchInsertLabelGroupSelective" parameterType="java.util.List">
+        insert into rm_label_group
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            id,
+            group_name,
+            group_type,
+            create_time,
+            create_user,
+            is_delete,
+            corp_id,
+            is_top,
+            group_id
+        </trim>
+        values
+        <foreach collection="list" item="item" separator=",">
+            <trim suffixOverrides=",">
+                ( #{item.id,jdbcType=VARCHAR},
+                #{item.groupName,jdbcType=VARCHAR},
+                #{item.groupType,jdbcType=INTEGER},
+                #{item.createTime,jdbcType=TIMESTAMP},
+                #{item.createUser},
+                #{item.isDelete,jdbcType=INTEGER},
+                #{item.corpId,jdbcType=VARCHAR},
+                #{item.isTop,jdbcType=INTEGER},
+                #{item.groupId,jdbcType=VARCHAR}
+                )
+            </trim>
+        </foreach>
+    </insert>
+    <update id="updateBatchRmLabelGroupByPrimaryKeySelective" parameterType="java.util.List">
+        <foreach collection="list" item="item" close=";">
+            update rm_label_group
+            <set>
+                <trim suffixOverrides="," >
+                    <if test="item.groupName != null" >
+                        group_name = #{item.groupName,jdbcType=VARCHAR},
+                    </if>
+                    <if test="item.groupType != null">
+                        group_type = #{item.groupType,jdbcType=INTEGER},
+                    </if>
+                    <if test="item.createTime != null">
+                        create_time = #{item.createTime,jdbcType=TIMESTAMP},
+                    </if>
+                    <if test="item.createUser != null">
+                        create_user = #{item.createUser},
+                    </if>
+                    <if test="item.isDelete != null">
+                        is_delete = #{item.isDelete,jdbcType=INTEGER},
+                    </if>
+                    <if test="item.corpId != null">
+                        corp_id = #{item.corpId,jdbcType=VARCHAR},
+                    </if>
+                    <if test="item.isTop != null">
+                        is_top = #{item.isTop,jdbcType=INTEGER},
+                    </if>
+                    <if test="item.groupId != null">
+                        group_id = #{item.groupId,jdbcType=VARCHAR},
+                    </if>
+                </trim>
+            </set>
+            where id = #{item.id,jdbcType=VARCHAR};
+        </foreach>
+    </update>
+    <update id="updateByGroupIdAndCorpId">
+        update rm_label_group
+        <set>
+            <if test="groupName != null">
+                group_name = #{groupName,jdbcType=VARCHAR},
+            </if>
+            <if test="groupType != null">
+                group_type = #{groupType,jdbcType=INTEGER},
+            </if>
+            <if test="createTime != null">
+                create_time = #{createTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="createUser != null">
+                create_user= #{createUser},
+            </if>
+            <if test="updateTime != null">
+                update_time = #{updateTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="updateUser != null">
+                update_user= #{updateUser},
+            </if>
+            <if test="isDelete != null">
+                is_delete = #{isDelete,jdbcType=INTEGER},
+            </if>
+            <if test="corpId != null">
+                corp_id = #{corpId,jdbcType=VARCHAR},
+            </if>
+            <if test="isTop != null">
+                is_top = #{isTop,jdbcType=INTEGER},
+            </if>
+            <if test="groupId != null">
+                group_id = #{groupId,jdbcType=VARCHAR},
+            </if>
+            <if test="isSystem != null">
+                is_system = #{isSystem,jdbcType=INTEGER},
+            </if>
+        </set>
+        where group_id = #{groupId,jdbcType=VARCHAR} AND  corp_id = #{corpId}
+    </update>
+    <select id="selectLabelGroupByGroupId" parameterType="com.cube.wechat.thirdapp.entiy.RmLabelGroup"
+            resultMap="BaseResultMap">
+        SELECT *
+        FROM rm_label_group
+        where  corp_id = #{corpId}
+          and group_id=#{groupId}
+    </select>
+
+
+    <select id="selectInitializeAntifraudLabel" resultMap="BaseResultMap">
+        SELECT *
+        FROM rm_label_group
+        WHERE group_name = 'AI反诈自动画像'
+          AND is_delete = 0
+          AND corp_id = '-1'
+    </select>
+    <select id="selectByQywxGroupIdAndCorpId" resultMap="BaseResultMap">
+        SELECT *
+        FROM rm_label_group
+        WHERE is_delete = 0
+        <if test="qywxTagGroupId != null">
+            AND group_id = #{qywxTagGroupId}
+        </if>
+        <if test="corpId != null">
+            AND corp_id = #{corpId}
+        </if>
+        <if test="groupName != null">
+            AND group_name = #{groupName}
+        </if>
+
+    </select>
+
+</mapper>

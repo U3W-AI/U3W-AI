@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.selfapp.app.mapper.WeChatOrderMapper">
+
+    <insert id="saveOrderDetail" parameterType="java.util.Map">
+        insert into wc_order_detail values(uuid(),#{order_id},#{openid},#{unionid},#{status},1,#{phone},#{product_infos},#{create_time},#{update_time},#{urlLink})
+    </insert>
+</mapper>

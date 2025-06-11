@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.thirdapp.mapper.WeChatUserDepartmentMapper">
+    <resultMap id="BaseResultMap" type="com.cube.wechat.thirdapp.entiy.WeChatUserDepartment">
+        <result column="system_user_id" jdbcType="VARCHAR" property="systemUserId"/>
+        <result column="user_id" jdbcType="VARCHAR" property="userId"/>
+        <result column="department_id" jdbcType="VARCHAR" property="departmentId"/>
+        <result column="corp_id" jdbcType="VARCHAR" property="corpId"/>
+        <result column="suite_id" jdbcType="VARCHAR" property="suiteId"/>
+    </resultMap>
+    <resultMap id="WeChatHierarchicalReturnResultResultMap" type="com.cube.wechat.thirdapp.entiy.WeChatHierarchicalReturnResult">
+        <id column="id" jdbcType="VARCHAR" property="id"/>
+        <result column="name" jdbcType="VARCHAR" property="name"/>
+        <result column="dataType" jdbcType="INTEGER" property="dataType"/>
+        <result column="parentId" jdbcType="VARCHAR" property="parentId"/>
+        <result column="corpId" jdbcType="VARCHAR" property="corpId"/>
+    </resultMap>
+    <select id="selectUserDepartByUserId" parameterType="com.cube.wechat.thirdapp.entiy.WeChatUserDepartment"
+            resultMap="BaseResultMap">
+        SELECT *
+        FROM qywx_user_department
+        WHERE user_id = #{userId}
+          and corp_id = #{corpId}
+          and suite_id = #{suiteId}
+          and department_id = #{departmentId}
+    </select>
+    <select id="selectUserDeptByParam" parameterType="com.cube.wechat.thirdapp.entiy.WeChatUserDepartment"
+            resultMap="BaseResultMap">
+        SELECT
+        ud.*
+        FROM
+        qywx_user_department ud
+        INNER JOIN qywx_corp_department cd ON cd.department_id = ud.department_id
+        AND ud.corp_id = cd.corp_id
+        AND ud.suite_id = cd.suite_id
+        WHERE
+        cd.department_status=1
+        <if test="suiteId!=null">
+            AND ud.suite_id=#{suiteId}
+        </if>
+        <if test="corpId!=null">
+            AND ud.corp_id=#{corpId}
+        </if>
+        <if test="systemUserId!=null">
+            AND ud.system_user_id=#{systemUserId}
+        </if>
+        <if test="userId!=null">
+            AND ud.user_id=#{userId}
+        </if>
+        ORDER BY CAST( cd.department_order AS SIGNED);
+    </select>
+    <insert id="insertSelective" parameterType="com.cube.wechat.thirdapp.entiy.WeChatUserDepartment">
+        insert into qywx_user_department
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="systemUserId != null">
+                system_user_id,
+            </if>
+            <if test="userId != null">
+                user_id,
+            </if>
+            <if test="departmentId != null">
+                department_id,
+            </if>
+            <if test="corpId != null">
+                corp_id,
+            </if>
+            <if test="suiteId != null">
+                suite_id,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="systemUserId != null">
+                #{systemUserId,jdbcType=VARCHAR},
+            </if>
+            <if test="userId != null">
+                #{userId,jdbcType=VARCHAR},
+            </if>
+            <if test="departmentId != null">
+                #{departmentId,jdbcType=VARCHAR},
+            </if>
+            <if test="corpId != null">
+                #{corpId,jdbcType=VARCHAR},
+            </if>
+            <if test="suiteId != null">
+                #{suiteId,jdbcType=VARCHAR},
+            </if>
+        </trim>
+    </insert>
+    <insert id="insertBatch" parameterType="java.util.List">
+        insert into qywx_user_department
+        (system_user_id, user_id, department_id, corp_id, suite_id)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.systemUserId,jdbcType=VARCHAR},
+            #{item.userId,jdbcType=VARCHAR},
+            #{item.departmentId,jdbcType=VARCHAR},
+            #{item.corpId,jdbcType=VARCHAR},
+            #{item.suiteId,jdbcType=VARCHAR}
+            )
+        </foreach>
+    </insert>
+    <delete id="deleteUserDepartment" parameterType="com.cube.wechat.thirdapp.entiy.WeChatUserDepartment">
+        DELETE
+        FROM qywx_user_department
+        WHERE corp_id = #{corpId}
+          and suite_id = #{suiteId}
+    </delete>
+    <select id="queryPersonnelUnderTheDepartment" parameterType="com.cube.wechat.thirdapp.entiy.WeChatUserDepartment"
+            resultType="java.lang.String">
+        SELECT qud.user_id,
+               qud.corp_id,
+               qud.department_id
+        FROM qywx_user_department qud
+                 INNER JOIN qywx_corp_user qcu ON qcu.user_id = qud.user_id
+            AND qcu.corp_id = qud.corp_id
+            AND qud.suite_id = qcu.suite_id
+        WHERE qud.department_id IN (WITH RECURSIVE DepartmentPath AS (SELECT department_id
+                                                                      FROM qywx_corp_department
+                                                                      WHERE department_id = #{departmentId}
+                                                                        AND corp_id = #{corpId}
+                                                                        AND suite_id = #{suiteId}
+                                                                        AND department_status = 1
+                                                                      UNION ALL
+                                                                      SELECT q.department_id
+                                                                      FROM DepartmentPath dp
+                                                                               JOIN qywx_corp_department q ON dp.department_id = q.department_parent_id
+                                                                      WHERE q.corp_id = #{corpId}
+                                                                        AND q.department_status = 1
+                                                                        AND q.suite_id = #{suiteId})
+                                    SELECT *
+                                    FROM DepartmentPath)
+          AND qcu.`status` = 1
+          AND qud.corp_id = #{corpId}
+          AND qud.suite_id = #{suiteId}
+
+    </select>
+    <update id="deleteUserDepartmentByUserId" parameterType="com.cube.wechat.thirdapp.entiy.WeChatUserDepartment">
+        DELETE
+        FROM qywx_user_department
+        WHERE corp_id = #{corpId}
+          and suite_id = #{suiteId}
+          and user_id = #{userId}
+    </update>
+    <delete id="deleteUserDeparementByDepartmentId" parameterType="com.cube.wechat.thirdapp.entiy.WeChatUserDepartment">
+        DELETE
+        FROM qywx_user_department
+        WHERE department_id = #{departmentId}
+          AND corp_id = #{corpId}
+          AND suite_id = #{suiteId}
+    </delete>
+    <select id="selectAllUserDepartmentByCorpId" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT *
+        FROM qywx_user_department
+        WHERE corp_id = #{corpId}
+          AND suite_id = #{suiteId}
+    </select>
+    <select id="selectUserListByCorpId" parameterType="com.cube.wechat.thirdapp.entiy.WeChatUserDepartment"
+            resultMap="WeChatHierarchicalReturnResultResultMap">
+        SELECT
+            qud.user_id as id,
+            2 as dataType,
+            qud.corp_id as parentId,
+            qud.corp_id as corpId
+        FROM
+            qywx_user_department qud
+                INNER JOIN qywx_corp_user qcu ON qcu.corp_id = qud.corp_id  AND qud.user_id=qcu.user_id
+                AND qcu.suite_id = qud.suite_id
+        WHERE
+            qud.corp_id = #{corpId}
+          AND qcu.`status` = 1
+          AND qud.suite_id = #{suiteId}
+    </select>
+
+
+    <select id="selectUserDepartmentListByCorpId" parameterType="com.cube.wechat.thirdapp.entiy.WeChatUserDepartment"
+            resultType="java.util.Map">
+        SELECT
+            qud.user_id as id,
+            qud.department_id as parentId,
+            qud.corp_id as corpId
+        FROM
+            qywx_user_department qud
+                INNER JOIN qywx_corp_user qcu ON qcu.corp_id = qud.corp_id  AND qud.user_id=qcu.user_id
+                AND qcu.suite_id = qud.suite_id
+        WHERE
+            qud.corp_id = #{corpId}
+          AND qcu.`status` = 1
+          AND qud.suite_id = #{suiteId}
+    </select>
+    <select id="selectUserDepartmentByDepartmentId" resultType="java.lang.String">
+        SELECT user_id
+        FROM qywx_user_department
+        WHERE department_id = #{departmentId}
+          AND corp_id = #{corpId}
+          AND suite_id = #{suiteId}
+    </select>
+</mapper>

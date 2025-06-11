@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.thirdapp.mapper.RmRoleMapper">
+  <resultMap id="BaseResultMap" type="com.cube.wechat.thirdapp.entiy.RmRole">
+    <id column="id" jdbcType="VARCHAR" property="id" />
+    <result column="role_name" jdbcType="VARCHAR" property="roleName" />
+    <result column="role_code" jdbcType="VARCHAR" property="roleCode" />
+    <result column="is_system" jdbcType="INTEGER" property="isSystem" />
+    <result column="is_del" jdbcType="INTEGER" property="isDel" />
+    <result column="corp_id" jdbcType="VARCHAR" property="corpId" />
+    <result column="create_date" jdbcType="TIMESTAMP" property="createDate" />
+  </resultMap>
+  <sql id="Base_Column_List">
+    id, role_name, role_code, is_system, corp_id, create_date
+  </sql>
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    select
+    <include refid="Base_Column_List" />
+    from rm_role
+    where id = #{id,jdbcType=VARCHAR}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.String">
+    delete from rm_role
+    where id = #{id,jdbcType=VARCHAR}
+  </delete>
+  <select id="selectRoleByRoleCode" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT *FROM rm_role WHERE role_code=#{roleCode} LIMIT 1;
+  </select>
+  <select id="selectAllRole" parameterType="com.cube.wechat.thirdapp.entiy.RmRole" resultMap="BaseResultMap">
+      SELECT *FROM rm_role
+      WHERE
+      is_system=0
+      and is_del=0
+      and corp_id=#{corpId}
+      <if test="roleCode!=null and roleCode!=''">
+          AND role_code=#{roleCode}
+      </if>
+      <if test="roleName!=null and roleName!=''">
+          AND role_name LIKE CONCAT('%',#{roleName},'%')
+      </if>
+      order by create_date DESC
+  </select>
+  <select id="selectRoleByRoleName" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT *FROM rm_role WHERE role_name=#{roleName} LIMIT 1;
+  </select>
+  <select id="selectAllAdminRole" resultType="java.lang.String">
+    SELECT
+      rur.user_id
+    FROM rm_role rr
+    INNER JOIN rm_user_role rur on rur.role_id=rr.id
+    WHERE rur.corp_id=#{corpId} AND rr.is_del=0
+    AND rr.role_code='WechatAdministrator'
+  </select>
+  <select id="selectByCorpIdAndUserId" resultMap="BaseResultMap">
+    SELECT
+      rr.*
+    FROM rm_role rr
+    INNER JOIN rm_user_role rur on rur.role_id=rr.id
+    WHERE rur.user_id=#{userId} AND rr.is_del=0
+    AND rur.corp_id=#{corpId}
+    AND rr.role_code='WechatAdministrator'
+      limit 1
+  </select>
+  <select id="selectUserRoleByUser" parameterType="com.cube.wechat.thirdapp.entiy.RmUserRole" resultMap="BaseResultMap">
+    SELECT
+      rr.*
+    FROM
+      rm_role rr
+        INNER JOIN rm_user_role rur ON rur.role_id = rr.id
+    WHERE
+      rur.user_id = #{userId}
+      AND rr.is_del = 0
+      AND rur.corp_id =#{corpId}
+  </select>
+  <insert id="insert" parameterType="com.cube.wechat.thirdapp.entiy.RmRole">
+    insert into rm_role (id, role_name, role_code,
+      is_system, corp_id, create_date
+      )
+    values (#{id,jdbcType=VARCHAR}, #{roleName,jdbcType=VARCHAR}, #{roleCode,jdbcType=VARCHAR},
+      #{isSystem,jdbcType=INTEGER}, #{corpId,jdbcType=VARCHAR}, #{createDate,jdbcType=TIMESTAMP}
+      )
+  </insert>
+  <insert id="insertSelective" parameterType="com.cube.wechat.thirdapp.entiy.RmRole">
+    insert into rm_role
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="id != null">
+        id,
+      </if>
+      <if test="roleName != null">
+        role_name,
+      </if>
+      <if test="roleCode != null">
+        role_code,
+      </if>
+      <if test="isSystem != null">
+        is_system,
+      </if>
+      <if test="corpId != null">
+        corp_id,
+      </if>
+      <if test="createDate != null">
+        create_date,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides=",">
+      <if test="id != null">
+        #{id,jdbcType=VARCHAR},
+      </if>
+      <if test="roleName != null">
+        #{roleName,jdbcType=VARCHAR},
+      </if>
+      <if test="roleCode != null">
+        #{roleCode,jdbcType=VARCHAR},
+      </if>
+      <if test="isSystem != null">
+        #{isSystem,jdbcType=INTEGER},
+      </if>
+      <if test="corpId != null">
+        #{corpId,jdbcType=VARCHAR},
+      </if>
+      <if test="createDate != null">
+        #{createDate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.cube.wechat.thirdapp.entiy.RmRole">
+    update rm_role
+    <set>
+      <if test="roleName != null">
+        role_name = #{roleName,jdbcType=VARCHAR},
+      </if>
+      <if test="roleCode != null">
+        role_code = #{roleCode,jdbcType=VARCHAR},
+      </if>
+      <if test="isSystem != null">
+        is_system = #{isSystem,jdbcType=INTEGER},
+      </if>
+      <if test="corpId != null">
+        corp_id = #{corpId,jdbcType=VARCHAR},
+      </if>
+      <if test="createDate != null">
+        create_date = #{createDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="isDel != null">
+        is_del = #{isDel},
+      </if>
+    </set>
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.cube.wechat.thirdapp.entiy.RmRole">
+    update rm_role
+    set role_name = #{roleName,jdbcType=VARCHAR},
+      role_code = #{roleCode,jdbcType=VARCHAR},
+      is_system = #{isSystem,jdbcType=INTEGER},
+      corp_id = #{corpId,jdbcType=VARCHAR},
+      create_date = #{createDate,jdbcType=TIMESTAMP}
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+</mapper>

@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.thirdapp.mapper.RmExternalGroupChatMapper">
+  <resultMap id="BaseResultMap" type="com.cube.wechat.thirdapp.entiy.RmExternalGroupChat">
+      <id column="id" jdbcType="VARCHAR" property="id" />
+      <result column="chat_id" jdbcType="VARCHAR" property="chatId" />
+      <result column="chat_status" jdbcType="INTEGER" property="chatStatus" />
+      <result column="chat_name" jdbcType="VARCHAR" property="chatName" />
+      <result column="chat_group_leader_id" jdbcType="VARCHAR" property="chatGroupLeaderId" />
+      <result column="chat_create_time" jdbcType="TIMESTAMP" property="chatCreateTime" />
+      <result column="chat_dismiss_time" jdbcType="TIMESTAMP" property="chatDismissTime" />
+      <result column="chat_notice" jdbcType="VARCHAR" property="chatNotice" />
+      <result column="chat_update_time" jdbcType="TIMESTAMP" property="chatUpdateTime" />
+      <result column="corp_id" jdbcType="VARCHAR" property="corpId" />
+      <result column="chat_member_version" jdbcType="VARCHAR" property="chatMemberVersion" />
+      <result column="chat_group_status" jdbcType="INTEGER" property="chatGroupStatus" />
+      <result  column="userGroupChatTotal" jdbcType="INTEGER" property="userGroupChatTotal"/>
+      <result  column="totalQuit" jdbcType="INTEGER" property="totalQuit"/>
+      <result  column="newAddWeek" jdbcType="INTEGER" property="newAddWeek"/>
+      <result  column="memberTotal" jdbcType="INTEGER" property="memberTotal"/>
+  </resultMap>
+  <sql id="Base_Column_List">
+    id, chat_id, chat_status, chat_name, chat_group_leader_id, chat_create_time,chat_dismiss_time, chat_notice,
+    chat_update_time, corp_id,chat_member_version,chat_group_status
+  </sql>
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    select
+    <include refid="Base_Column_List" />
+    from rm_external_group_chat
+    where id = #{id,jdbcType=VARCHAR}
+  </select>
+    <select id="selectByChatId" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT *fROM rm_external_group_chat WHERE chat_id=#{chatId}
+    </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.String">
+    delete from rm_external_group_chat
+    where id = #{id,jdbcType=VARCHAR}
+  </delete>
+  <delete id="deleteGroupChatByUserId" parameterType="java.lang.String">
+    DELETE FROM rm_external_group_chat WHERE chat_group_leader_id=#{userId}
+  </delete>
+  <insert id="insertBatchSelective" parameterType="java.util.List">
+    INSERT INTO rm_external_group_chat
+    (id, chat_id, chat_status, chat_name, chat_group_leader_id, chat_create_time, chat_notice, chat_update_time, corp_id,chat_member_version,chat_group_status)
+    VALUES
+    <foreach collection="list" item="item" separator=",">
+      (
+      #{item.id,jdbcType=VARCHAR},
+      #{item.chatId,jdbcType=VARCHAR},
+      #{item.chatStatus,jdbcType=INTEGER},
+      #{item.chatName,jdbcType=VARCHAR},
+      #{item.chatGroupLeaderId,jdbcType=VARCHAR},
+      #{item.chatCreateTime,jdbcType=TIMESTAMP},
+      #{item.chatNotice,jdbcType=VARCHAR},
+      #{item.chatUpdateTime,jdbcType=TIMESTAMP},
+      #{item.corpId,jdbcType=VARCHAR},
+      #{item.chatMemberVersion,jdbcType=VARCHAR},
+      #{item.chatGroupStatus,jdbcType=VARCHAR}
+      )
+    </foreach>
+  </insert>
+
+  <insert id="insertSelective" parameterType="com.cube.wechat.thirdapp.entiy.RmExternalGroupChat">
+      insert into rm_external_group_chat
+      <trim prefix="(" suffix=")" suffixOverrides=",">
+          <if test="id != null">
+              id,
+          </if>
+          <if test="chatId != null">
+              chat_id,
+          </if>
+          <if test="chatStatus != null">
+              chat_status,
+          </if>
+          <if test="chatName != null">
+              chat_name,
+          </if>
+          <if test="chatGroupLeaderId != null">
+              chat_group_leader_id,
+          </if>
+          <if test="chatCreateTime != null">
+              chat_create_time,
+          </if>
+          <if test="chatDismissTime != null">
+              chat_dismiss_time,
+          </if>
+          <if test="chatNotice != null">
+              chat_notice,
+          </if>
+          <if test="chatUpdateTime != null">
+              chat_update_time,
+          </if>
+          <if test="corpId != null">
+              corp_id,
+          </if>
+          <if test="chatMemberVersion!=null">
+              chat_member_version,
+          </if>
+          <if test="chatGroupStatus!=null">
+              chat_group_status,
+          </if>
+      </trim>
+      <trim prefix="values (" suffix=")" suffixOverrides=",">
+          <if test="id != null">
+              #{id,jdbcType=VARCHAR},
+          </if>
+          <if test="chatId != null">
+              #{chatId,jdbcType=VARCHAR},
+          </if>
+          <if test="chatStatus != null">
+              #{chatStatus,jdbcType=INTEGER},
+          </if>
+          <if test="chatName != null">
+              #{chatName,jdbcType=VARCHAR},
+          </if>
+          <if test="chatGroupLeaderId != null">
+              #{chatGroupLeaderId,jdbcType=VARCHAR},
+          </if>
+          <if test="chatCreateTime != null">
+              #{chatCreateTime,jdbcType=TIMESTAMP},
+          </if>
+          <if test="chatDismissTime != null">
+              #{chatDismissTime},
+          </if>
+          <if test="chatNotice != null">
+              #{chatNotice,jdbcType=VARCHAR},
+          </if>
+          <if test="chatUpdateTime != null">
+              #{chatUpdateTime,jdbcType=TIMESTAMP},
+          </if>
+          <if test="corpId != null">
+              #{corpId,jdbcType=VARCHAR},
+          </if>
+          <if test="chatMemberVersion!=null">
+              #{chatMemberVersion},
+          </if>
+          <if test="chatGroupStatus!=null">
+              #{chatGroupStatus},
+          </if>
+      </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.cube.wechat.thirdapp.entiy.RmExternalGroupChat">
+      update rm_external_group_chat
+      <set>
+          <if test="chatId != null">
+              chat_id = #{chatId,jdbcType=VARCHAR},
+          </if>
+          <if test="chatStatus != null">
+              chat_status = #{chatStatus,jdbcType=INTEGER},
+          </if>
+          <if test="chatName != null">
+              chat_name = #{chatName,jdbcType=VARCHAR},
+          </if>
+          <if test="chatGroupLeaderId != null">
+              chat_group_leader_id = #{chatGroupLeaderId,jdbcType=VARCHAR},
+          </if>
+          <if test="chatCreateTime != null">
+              chat_create_time = #{chatCreateTime,jdbcType=TIMESTAMP},
+          </if>
+          <if test="chatDismissTime != null">
+              chat_dismiss_time=#{chatDismissTime},
+          </if>
+          <if test="chatNotice != null">
+              chat_notice = #{chatNotice,jdbcType=VARCHAR},
+          </if>
+          <if test="chatUpdateTime != null">
+              chat_update_time = #{chatUpdateTime,jdbcType=TIMESTAMP},
+          </if>
+          <if test="corpId != null">
+              corp_id = #{corpId,jdbcType=VARCHAR},
+          </if>
+          <if test="chatMemberVersion!=null">
+              chat_member_version=#{chatMemberVersion},
+          </if>
+          <if test="chatGroupStatus!=null">
+              chat_group_status=#{chatGroupStatus},
+          </if>
+      </set>
+      where id = #{id,jdbcType=VARCHAR}
+  </update>
+
+    <update id="updateByChatIdSelective" parameterType="com.cube.wechat.thirdapp.entiy.RmExternalGroupChat">
+        update rm_external_group_chat
+        <set>
+            <if test="chatId != null">
+                chat_id = #{chatId,jdbcType=VARCHAR},
+            </if>
+            <if test="chatStatus != null">
+                chat_status = #{chatStatus,jdbcType=INTEGER},
+            </if>
+            <if test="chatName != null">
+                chat_name = #{chatName,jdbcType=VARCHAR},
+            </if>
+            <if test="chatGroupLeaderId != null">
+                chat_group_leader_id = #{chatGroupLeaderId,jdbcType=VARCHAR},
+            </if>
+            <if test="chatCreateTime != null">
+                chat_create_time = #{chatCreateTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="chatDismissTime != null">
+                chat_dismiss_time=#{chatDismissTime},
+            </if>
+            <if test="chatNotice != null">
+                chat_notice = #{chatNotice,jdbcType=VARCHAR},
+            </if>
+            <if test="chatUpdateTime != null">
+                chat_update_time = #{chatUpdateTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="corpId != null">
+                corp_id = #{corpId,jdbcType=VARCHAR},
+            </if>
+            <if test="chatMemberVersion!=null">
+                chat_member_version=#{chatMemberVersion},
+            </if>
+            <if test="chatGroupStatus!=null">
+                chat_group_status=#{chatGroupStatus},
+            </if>
+        </set>
+        where chat_id = #{chatId}
+        and corp_id=#{corpId}
+    </update>
+   <!-- <select id="queryGroupChatStatisticsData" parameterType="java.util.Map" resultType="java.util.Map">
+        SELECT
+        result_type,
+        SUM(result_value) AS result_value
+        FROM (
+        SELECT
+        'TotalCount' AS result_type,
+        count(*) AS result_value
+        FROM
+        rm_external_group_chat
+        WHERE
+        (
+        <foreach collection="corpIdList" item="corpId" separator="OR">
+            corp_id = #{corpId}
+        </foreach>
+        )
+        AND (
+        <foreach collection="userIdList" item="userId" separator="OR">
+            chat_group_leader_id = #{userId}
+        </foreach>
+        )
+        AND chat_group_status = 1
+        UNION ALL
+        SELECT
+        'NewToday' AS result_type,
+        count(*) AS result_value
+        FROM
+        rm_external_group_chat
+        WHERE
+        (
+        <foreach collection="corpIdList" item="corpId" separator="OR">
+            corp_id = #{corpId}
+        </foreach>
+        )
+        AND (
+        <foreach collection="userIdList" item="userId" separator="OR">
+            chat_group_leader_id = #{userId}
+        </foreach>
+        )
+        AND chat_group_status = 1
+        AND DATE(chat_create_time) = CURDATE()
+        UNION ALL
+        SELECT
+        'LossToday' AS result_type,
+        count(*) AS result_value
+        FROM
+        rm_external_group_chat
+        WHERE
+        (
+        <foreach collection="corpIdList" item="corpId" separator="OR">
+            corp_id = #{corpId}
+        </foreach>
+        )
+        AND (
+        <foreach collection="userIdList" item="userId" separator="OR">
+            chat_group_leader_id = #{userId}
+        </foreach>
+        )
+        AND chat_group_status = 2
+        AND DATE(chat_dismiss_time) = CURDATE()
+        ) AS subquery
+        GROUP BY result_type
+    </select>-->
+    <select id="queryGroupChatStatisticsData" parameterType="java.util.Map" resultType="java.util.Map">
+        SELECT
+        IFNULL( SUM( chat_group_status = 1 ), 0 ) AS totalCount,
+        IFNULL( SUM( chat_group_status = 1 AND DATE ( chat_create_time ) = CURDATE() ), 0 ) AS newToday,
+        IFNULL( SUM( chat_group_status = 2 AND DATE ( chat_dismiss_time ) = CURDATE()), 0 ) AS lossToday
+        FROM
+        rm_external_group_chat
+        WHERE
+        (
+        <foreach collection="corpIdList" item="corpId" separator="OR">
+            corp_id = #{corpId}
+        </foreach>
+        )
+        AND (
+        <foreach collection="userIdList" item="userId" separator="OR">
+            chat_group_leader_id = #{userId}
+        </foreach>
+        )
+    </select>
+
+    <select id="queryGroupChatStatisticsList" parameterType="java.util.Map" resultMap="BaseResultMap">
+        SELECT
+        regc.chat_id,
+        regc.chat_create_time,
+        regc.chat_name,
+        regc.chat_notice,
+        regc.chat_group_leader_id,
+        regc.corp_id,
+        s1.userGroupChatTotal,
+        COUNT(DISTINCT CASE WHEN regcm.member_status = 2 THEN regcm.member_user_id END) AS totalQuit,
+        COUNT(DISTINCT CASE WHEN regcm.member_status = 1 AND YEARWEEK(regcm.member_join_time, 1) = YEARWEEK(CURDATE(),
+        1) THEN regcm.member_user_id END) AS newAddWeek,
+        COUNT(DISTINCT CASE WHEN regcm.member_status = 1 THEN regcm.member_user_id END) AS memberTotal
+        FROM
+        rm_external_group_chat regc
+        LEFT JOIN rm_external_group_chat_member regcm ON regcm.chat_id = regc.chat_id
+        LEFT JOIN (
+        SELECT
+        chat_group_leader_id,
+        COUNT(DISTINCT chat_id) AS userGroupChatTotal
+        FROM
+        rm_external_group_chat
+        WHERE
+        corp_id in (${corpIds})
+        AND chat_group_leader_id IN (${userIds})
+        AND chat_group_status=1
+        <if test="chatName!=null and chatName!=''">
+            AND chat_name like CONCAT('%',#{chatName},'%')
+        </if>
+        <if test="type!=null and type==1">
+            AND DATE(chat_create_time) = CURDATE()
+        </if>
+        GROUP BY
+        chat_group_leader_id
+        ) s1 on s1.chat_group_leader_id=regc.chat_group_leader_id
+        WHERE
+        regc.corp_id in (${corpIds})
+        AND regc.chat_group_leader_id IN (${userIds})
+        AND regc.chat_group_status = 1
+        <if test="chatName!=null and chatName!=''">
+            AND regc.chat_name like CONCAT('%',#{chatName},'%')
+        </if>
+        <if test="type!=null and type==1">
+            AND DATE(regc.chat_create_time) = CURDATE()
+        </if>
+        GROUP BY
+        regc.chat_id,
+        regc.chat_group_leader_id
+        order by regc.chat_group_leader_id,LEFT(regc.chat_name, 1)
+    </select>
+    <select id="selectAllGroupChatByCorpId" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT *FROM rm_external_group_chat WHERE chat_group_status = 1
+        <if test="corpId!=null and corpId!=''">
+            AND corp_id=#{corpId}
+        </if>
+        order by chat_create_time desc
+    </select>
+</mapper>

@@ -1,0 +1,419 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.thirdapp.mapper.WeChatCorpDepartmentMapper">
+  <resultMap id="BaseResultMap" type="com.cube.wechat.thirdapp.entiy.WeChatCorpDepartment">
+    <id column="id" jdbcType="VARCHAR" property="id" />
+    <result column="department_id" jdbcType="VARCHAR" property="departmentId" />
+    <result column="department_name" jdbcType="VARCHAR" property="departmentName" />
+    <result column="department_parent_id" jdbcType="VARCHAR" property="departmentParentId" />
+    <result column="department_order" jdbcType="VARCHAR" property="departmentOrder" />
+    <result column="department_status" jdbcType="INTEGER" property="departmentStatus" />
+    <result column="suite_id" jdbcType="VARCHAR" property="suiteId" />
+    <result column="corp_id" jdbcType="VARCHAR" property="corpId" />
+    <result column="create_date" jdbcType="TIMESTAMP" property="createDate" />
+    <result column="update_date" jdbcType="TIMESTAMP" property="updateDate" />
+  </resultMap>
+  <sql id="Base_Column_List">
+    id, department_id, department_name, department_parent_id, department_order, department_status,
+    suite_id, corp_id, create_date, update_date
+  </sql>
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    select
+    <include refid="Base_Column_List" />
+    from qywx_corp_department
+    where id = #{id,jdbcType=VARCHAR}
+  </select>
+  <select id="selectAllDepartmentByCorpId" parameterType="java.lang.String" resultMap="BaseResultMap">
+    select
+    <include refid="Base_Column_List" />
+    from qywx_corp_department
+    where corp_id = #{corpId}
+    and suite_id=#{suiteId}
+  </select>
+  <select id="selectTreeUserDepartment" resultType="java.util.Map" parameterType="com.cube.wechat.thirdapp.entiy.WeChatCorpDepartment">
+    SELECT
+      *
+    FROM
+      (
+        SELECT
+          department_id AS id,
+          department_parent_id AS parentId,
+          '1' AS dataType
+        FROM
+          qywx_corp_department
+        WHERE
+          corp_id = #{corpId}
+          AND suite_id = #{suiteId}
+          AND department_status = #{departmentStatus}
+        UNION ALL
+        SELECT
+          qud.user_id AS id,
+          qud.department_id AS parentId,
+          '2' AS dataType
+        FROM
+          qywx_user_department qud
+            INNER JOIN qywx_corp_department qcd ON qcd.department_id = qud.department_id AND qcd.corp_id=qud.corp_id
+            INNER JOIN qywx_corp_user qcu on qcu.user_id=qud.user_id and qcu.`status`=1
+            AND qcu.corp_id=qcd.corp_id
+        WHERE
+          qcd.corp_id = #{corpId}
+          AND qcd.suite_id = #{suiteId}
+
+          AND qcd.department_status = #{departmentStatus}
+        UNION ALL
+        SELECT
+          qud.user_id AS id,
+          qcd.department_id AS parentId,
+          2 AS dataType
+        FROM
+          qywx_user_department qud
+            INNER JOIN qywx_corp_user qcd ON qcd.user_id = qud.user_id  AND qcd.corp_id=qud.corp_id
+            AND qcd.id = qud.system_user_id
+        WHERE
+          qcd.`status` = 1
+          AND qud.department_id = 1
+          AND qcd.suite_id = #{suiteId}
+
+          AND qcd.corp_id = #{corpId}
+
+      ) AS s
+    GROUP BY id,parentid
+    ORDER BY
+      CAST( id AS SIGNED );
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.String">
+    delete from qywx_corp_department
+    where id = #{id,jdbcType=VARCHAR}
+  </delete>
+  <update id="updateStautsByCorpIdAndSuiteId" parameterType="java.lang.String">
+    UPDATE qywx_corp_department SET department_status=#{departmentStatus} WHERE corp_id=#{corpId} AND suite_id=#{suiteId}
+  </update>
+  <select id="selectSubordinateDepartments" parameterType="java.util.Map" resultType="java.util.Map">
+    SELECT
+      department_id AS id,
+      department_name AS `name`,
+      1 AS dataType,
+      department_parent_id AS parentId
+    FROM
+      qywx_corp_department
+    WHERE
+      department_status = 1
+      AND department_parent_id = #{parentId}
+      AND suite_id=#{suiteId}
+      AND corp_id=#{corpId}
+    ORDER BY
+      CAST(
+              department_id AS UNSIGNED
+      )
+  </select>
+  <select id="selectSubordinatePersonnel" parameterType="java.util.Map" resultType="java.util.Map">
+    SELECT
+      qud.user_id AS id,
+      2 AS dataType,
+      '' AS `name`,
+      qcd.department_id AS parentId
+    FROM
+      qywx_user_department qud
+        INNER JOIN qywx_corp_user qcd ON qcd.user_id = qud.user_id and qud.corp_id=qcd.corp_id
+        AND qcd.id = qud.system_user_id
+    WHERE
+      qcd.`status` = 1
+      AND qud.department_id =#{parentId}
+      AND qcd.suite_id=#{suiteId}
+      AND qcd.corp_id=#{corpId}
+    order by qud.user_id
+  </select>
+  <!--<select id="selectPrimaryDepartment" resultType="java.util.Map" parameterType="java.util.Map">
+    SELECT
+      department_id as id,
+      department_name as name,
+      1 as dataType,
+      department_parent_id as parentId
+    FROM
+      qywx_corp_department
+    WHERE
+       department_status = 1
+      AND department_parent_id NOT IN (
+      SELECT department_id FROM qywx_corp_department
+      WHERE department_parent_id != 0
+      AND suite_id=#{suiteId}
+      AND corp_id=#{corpId}
+      AND department_status = 1
+      )
+      AND department_parent_id != 0
+      AND suite_id=#{suiteId}
+      AND corp_id=#{corpId}
+    ORDER BY
+      CAST( department_id AS UNSIGNED )
+  </select>-->
+  <select id="selectPrimaryDepartment" resultType="java.util.Map" parameterType="java.util.Map">
+  SELECT
+    department_id as id,
+    department_name as name,
+    1 as dataType,
+    department_parent_id as parentId
+  FROM
+    qywx_corp_department
+  WHERE
+     department_status = 1
+    AND department_parent_id=1
+    AND suite_id=#{suiteId}
+    AND corp_id=#{corpId}
+  ORDER BY
+    CAST( department_id AS UNSIGNED )
+</select>
+  <select id="selectPaimaryDepartmentUser" parameterType="java.util.Map" resultType="java.util.Map">
+    SELECT
+      qud.user_id AS id,
+      2 AS dataType,
+      '' AS `name`,
+      qcd.department_id AS parentId
+    FROM
+      qywx_user_department qud
+        INNER JOIN qywx_corp_user qcd ON qcd.user_id = qud.user_id
+        AND qcd.id = qud.system_user_id
+    WHERE
+      qcd.`status` = 1
+      AND qud.department_id =1
+      AND qcd.suite_id=#{suiteId}
+      AND qcd.corp_id=#{corpId}
+    order by qud.user_id
+  </select>
+  <select id="selectDepartmentByIdAndSuiteIdAndCorpId" parameterType="com.cube.wechat.thirdapp.entiy.WeChatCorpDepartment" resultMap="BaseResultMap">
+      SELECT *
+      FROM qywx_corp_department
+      WHERE corp_id = #{corpId}
+        AND suite_id = #{suiteId}
+        AND department_id = #{departmentId} limit 1;
+  </select>
+  <select id="selectAllDepartmentIdByCorpId" resultType="java.lang.String">
+    SELECT department_id
+    FROM qywx_corp_department
+    WHERE corp_id = #{corpId}
+    AND suite_id = #{suiteId}
+    AND department_status = 1
+    AND department_parent_id IN (#{departmentParentId})
+  </select>
+  <insert id="insertSelective" parameterType="com.cube.wechat.thirdapp.entiy.WeChatCorpDepartment">
+    insert into qywx_corp_department
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="id != null">
+        id,
+      </if>
+      <if test="departmentId != null">
+        department_id,
+      </if>
+      <if test="departmentName != null">
+        department_name,
+      </if>
+      <if test="departmentParentId != null">
+        department_parent_id,
+      </if>
+      <if test="departmentOrder != null">
+        department_order,
+      </if>
+      <if test="departmentStatus != null">
+        department_status,
+      </if>
+      <if test="suiteId != null">
+        suite_id,
+      </if>
+      <if test="corpId != null">
+        corp_id,
+      </if>
+      <if test="createDate != null">
+        create_date,
+      </if>
+      <if test="updateDate != null">
+        update_date,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides=",">
+      <if test="id != null">
+        #{id,jdbcType=VARCHAR},
+      </if>
+      <if test="departmentId != null">
+        #{departmentId,jdbcType=VARCHAR},
+      </if>
+      <if test="departmentName != null">
+        #{departmentName,jdbcType=VARCHAR},
+      </if>
+      <if test="departmentParentId != null">
+        #{departmentParentId,jdbcType=VARCHAR},
+      </if>
+      <if test="departmentOrder != null">
+        #{departmentOrder,jdbcType=VARCHAR},
+      </if>
+      <if test="departmentStatus != null">
+        #{departmentStatus,jdbcType=INTEGER},
+      </if>
+      <if test="suiteId != null">
+        #{suiteId,jdbcType=VARCHAR},
+      </if>
+      <if test="corpId != null">
+        #{corpId,jdbcType=VARCHAR},
+      </if>
+      <if test="createDate != null">
+        #{createDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="updateDate != null">
+        #{updateDate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+  <insert id="insertBatch" parameterType="java.util.List">
+    insert into qywx_corp_department
+    (id, department_id, department_parent_id, department_order, department_status, suite_id, corp_id, create_date, update_date)
+    values
+    <foreach collection="list" item="item" separator=",">
+      (
+      <if test="item.id != null">
+        #{item.id,jdbcType=VARCHAR},
+      </if>
+      <if test="item.departmentId != null">
+        #{item.departmentId,jdbcType=VARCHAR},
+      </if>
+      <if test="item.departmentParentId != null">
+        #{item.departmentParentId,jdbcType=VARCHAR},
+      </if>
+      <if test="item.departmentOrder != null">
+        #{item.departmentOrder,jdbcType=VARCHAR},
+      </if>
+      <if test="item.departmentStatus != null">
+        #{item.departmentStatus,jdbcType=INTEGER},
+      </if>
+      <if test="item.suiteId != null">
+        #{item.suiteId,jdbcType=VARCHAR},
+      </if>
+      <if test="item.corpId != null">
+        #{item.corpId,jdbcType=VARCHAR},
+      </if>
+      <if test="item.createDate != null">
+        #{item.createDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="item.updateDate != null">
+        #{item.updateDate,jdbcType=TIMESTAMP}
+      </if>
+      )
+    </foreach>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.cube.wechat.thirdapp.entiy.WeChatCorpDepartment">
+    update qywx_corp_department
+    <set>
+      <if test="departmentId != null">
+        department_id = #{departmentId,jdbcType=VARCHAR},
+      </if>
+      <if test="departmentName != null">
+        department_name = #{departmentName,jdbcType=VARCHAR},
+      </if>
+      <if test="departmentParentId != null">
+        department_parent_id = #{departmentParentId,jdbcType=VARCHAR},
+      </if>
+      <if test="departmentOrder != null">
+        department_order = #{departmentOrder,jdbcType=VARCHAR},
+      </if>
+      <if test="departmentStatus != null">
+        department_status = #{departmentStatus,jdbcType=INTEGER},
+      </if>
+      <if test="suiteId != null">
+        suite_id = #{suiteId,jdbcType=VARCHAR},
+      </if>
+      <if test="corpId != null">
+        corp_id = #{corpId,jdbcType=VARCHAR},
+      </if>
+      <if test="createDate != null">
+        create_date = #{createDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="updateDate != null">
+        update_date = #{updateDate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+  <update id="updateBatchByPrimaryKey" parameterType="java.util.List">
+    <foreach collection="list" item="item" separator=";" close=";">
+      update qywx_corp_department
+      <set>
+        <if test="item.departmentId != null">
+          department_id = #{item.departmentId,jdbcType=VARCHAR},
+        </if>
+        <if test="item.departmentName != null">
+          department_name = #{item.departmentName,jdbcType=VARCHAR},
+        </if>
+        <if test="item.departmentParentId != null">
+          department_parent_id = #{item.departmentParentId,jdbcType=VARCHAR},
+        </if>
+        <if test="item.departmentOrder != null">
+          department_order = #{item.departmentOrder,jdbcType=VARCHAR},
+        </if>
+        <if test="item.departmentStatus != null">
+          department_status = #{item.departmentStatus,jdbcType=INTEGER},
+        </if>
+        <if test="item.suiteId != null">
+          suite_id = #{item.suiteId,jdbcType=VARCHAR},
+        </if>
+        <if test="item.corpId != null">
+          corp_id = #{item.corpId,jdbcType=VARCHAR},
+        </if>
+        <if test="item.createDate != null">
+          create_date = #{item.createDate,jdbcType=TIMESTAMP},
+        </if>
+        <if test="item.updateDate != null">
+          update_date = #{item.updateDate,jdbcType=TIMESTAMP},
+        </if>
+      </set>
+      where id = #{item.id,jdbcType=VARCHAR}
+    </foreach>
+  </update>
+
+  <update id="updateDepartmentFullPath"  parameterType="java.lang.String">
+    -- 更新 qywx_corp_department 表中的 fullPath 字段
+    WITH RECURSIVE DepartmentPaths AS (
+    -- 基础情况，从最顶层的部门开始
+    SELECT
+    department_id,
+    department_parent_id,
+    CAST(department_id AS CHAR(1000)) AS fullpath,
+    corp_id
+    FROM
+    qywx_corp_department
+    WHERE
+    department_status = 1
+    AND department_parent_id = 0
+    <if test="corpId!=null and corpId!=''">
+      AND corp_id=#{corpId}
+    </if>
+    UNION ALL
+    -- 递归部分，查找每个部门的父部门，构建路径
+    SELECT
+    d.department_id,
+    d.department_parent_id,
+    CONCAT(dp.fullpath, '>', d.department_id) AS fullpath,
+    d.corp_id
+    FROM
+    qywx_corp_department d
+    JOIN
+    DepartmentPaths dp ON d.department_parent_id = dp.department_id
+    WHERE
+    d.department_status = 1
+    AND d.corp_id = dp.corp_id
+    <if test="corpId!=null and corpId!=''">
+      AND d.corp_id=#{corpId}
+    </if>
+    )
+    -- 更新 qywx_corp_department 表
+    UPDATE qywx_corp_department q
+    SET q.department_full_path = (
+    SELECT CONCAT('>', dp.fullpath, '>')
+    FROM DepartmentPaths dp
+    WHERE dp.department_id = q.department_id
+    AND dp.corp_id = q.corp_id
+    )
+    WHERE EXISTS (
+    SELECT 1
+    FROM DepartmentPaths dp
+    WHERE dp.department_id = q.department_id
+    AND dp.corp_id = q.corp_id
+    );
+  </update>
+</mapper>

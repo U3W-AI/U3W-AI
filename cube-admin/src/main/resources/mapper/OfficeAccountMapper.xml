@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.selfapp.officeaccount.mapper.OfficeAccountMapper">
+    <insert id="saveOfficeAccount" parameterType="cn.hutool.json.JSONObject">
+        INSERT INTO `wechat_office_account` (`id`, `openid`, `unionid`, `subscribe`, `nickname`, `sex`, `language`, `city`, `province`, `country`, `headimgurl`, `subscribe_time`, `remark`, `groupid`, `subscribe_scene`, `qr_scene`, `qr_scene_str`)
+         VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+             uuid(),
+             #{item.openid},
+             #{item.unionid},
+             #{item.subscribe},
+             #{item.nickname},
+             #{item.sex},
+             #{item.language},
+             #{item.city},
+             #{item.province},
+             #{item.country},
+             #{item.headimgurl},
+             #{item.subscribe_time},
+             #{item.remark},
+             #{item.groupid},
+             #{item.subscribe_scene},
+             #{item.qr_scene},
+             #{item.qr_scene_str}
+            )
+        </foreach>
+    </insert>
+
+    <select id="getOpenIdList" resultType="java.util.Map">
+        select openid,unionid from wechat_office_account
+    </select>
+
+    <update id="updateOfficeAccount" parameterType="cn.hutool.json.JSONObject">
+        <foreach collection="list" item="item" index="index" open="" close="" separator=";">
+            UPDATE wechat_office_account
+            SET external_userid_info = #{item.external_userid_info}
+            WHERE openid = #{item.openid}
+        </foreach>
+    </update>
+    <update id="updateOfficeAccountTwo" parameterType="cn.hutool.json.JSONObject">
+        <foreach collection="list" item="item" index="index" open="" close="" separator=";">
+            UPDATE wechat_office_account
+            SET pending_id = #{item.pending_id}
+            WHERE openid = #{item.openid}
+        </foreach>
+    </update>
+</mapper>

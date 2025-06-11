@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.selfapp.wecom.mapper.WeComMapper">
+
+    <!--获取群聊集合-->
+    <select id="getRoomList" resultType="java.lang.String">
+        SELECT
+            roomid
+        FROM
+            message_ww722362817b3c466a
+        where roomid !=''
+        GROUP BY
+            roomid
+    </select>
+
+    <delete id="delRoomData">
+        TRUNCATE TABLE wc_work_room;
+    </delete>
+    <insert id="saveRoomData" parameterType="java.util.Map">
+        insert into wc_work_room (corp_id,wx_chat_id,name,owner_id,notice,status,create_time)
+        values(10,#{roomId},#{roomname},#{creator},#{notice},0,#{room_create_time})
+    </insert>
+
+    <select id="getUserId" parameterType="java.lang.String" resultType="java.lang.String">
+        select user_id from sys_user where user_name =#{creator}
+    </select>
+</mapper>

@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.selfapp.app.mapper.ResearchMapper">
+
+
+    <select id="getReportList" parameterType="com.cube.wechat.selfapp.app.domain.Research" resultType="java.util.Map">
+        SELECT
+            distinct
+            id,
+            title,
+            keyword,
+            res_url resUrl,
+            tag,
+            flow_status flowStatus,
+            industry,
+            reason,
+            istop,
+            down_num downNum,
+            collection_num collectionNum,
+            browse_num browseNum,
+            user_id userId,
+            user_name userName,
+            create_time createTime,
+            upd_user_name updUserName,
+            update_time updateTime,
+            resource
+        FROM
+            wc_research_report
+        where isdel = 0
+        <if test="keyWord !=null and keyWord !=''">
+            and (title like '%${keyWord}%' or keyword like '%${keyWord}%')
+        </if>
+order by create_time desc
+    </select>
+    <select id="getReportDetail" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+            distinct
+            id,
+            title,
+            keyWord,
+            res_url resUrl,
+            tag,
+            flow_status flowStatus,
+            industry,
+            reason,
+            istop,
+            down_num down_num,
+            collection_num collectionNum,
+            browse_num browseNum,
+            user_id userId,
+            user_name userName,
+            DATE_FORMAT(create_time, '%Y-%c-%d') createTime,
+            resource
+        FROM
+            wc_research_report
+        where isdel = 0 and id =#{resId}
+    </select>
+
+    <insert id="addReport" parameterType="com.cube.wechat.selfapp.app.domain.Research">
+        insert into wc_research_report
+            (id,
+             title,
+             keyword,
+             res_url,
+             flow_status,
+             industry,
+             tag,
+             resource,
+             istop,
+             isdel,
+             down_num,
+             browse_num,
+             collection_num,
+             user_id,
+             user_name,
+             create_time
+             )
+         values(
+                uuid(),
+                #{title},
+                #{keyWord},
+                #{resUrl},
+                0,
+                #{industry},
+                #{tag},
+                #{resource},
+                0,
+                0,
+                0,0,0,
+                #{userId},
+                #{userName},now()
+               )
+    </insert>
+
+    <update id="updateReport" parameterType="com.cube.wechat.selfapp.app.domain.Research">
+        update wc_research_report set title =#{title},
+                                      keyword = #{keyWord},
+                                      res_url = #{resUrl},
+                                      industry =#{industry},
+                                      tag =#{tag},
+                                      flow_status =0,
+                                      resource =#{resource},
+                                      upd_user_id = #{userId},
+                                      upd_user_name =#{userName},
+                                      update_time = now() where id =#{id}
+    </update>
+
+    <update id="changeResportFlowStatus" parameterType="com.cube.wechat.selfapp.app.domain.Research">
+        update wc_research_report set flow_status = #{flowStatus},
+                                      upd_user_id = #{userId},
+                                      upd_user_name =#{userName},update_time = now()
+                                      <if test="changeAmount != null and changeAmount !=0 ">
+                                          ,change_amount =#{changeAmount}
+                                      </if>
+                                      <if test="reason != null and reason !=''">
+                                          ,reason =#{reason}
+                                      </if>
+                                where id =#{id}
+
+    </update>
+
+    <select id="getResDownRecord" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+            wdr.res_id resId,
+            wrr.title,
+            u.nick_name nickName,
+            wdr.create_time  createTime
+        FROM
+            wc_down_record wdr
+                LEFT JOIN wc_research_report wrr ON wdr.res_id = wrr.id
+                LEFT JOIN sys_user u ON wdr.user_id = u.user_id
+        where wdr.res_id = #{resId}
+        order by wdr.create_time desc
+    </select>
+    <select id="getResCollectionRecord" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+            wdr.res_id resId,
+            wrr.title,
+            u.nick_name nickName,
+            wdr.create_time  createTime
+        FROM
+            wc_collection_record wdr
+                LEFT JOIN wc_research_report wrr ON wdr.res_id = wrr.id
+                LEFT JOIN sys_user u ON wdr.user_id = u.user_id
+        where wdr.res_id = #{resId}
+        order by wdr.create_time desc
+    </select>
+    <select id="getResBrowseRecord" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+            wdr.res_id resId,
+            wrr.title,
+            u.nick_name nickName,
+            wdr.create_time  createTime
+        FROM
+            wc_browse_record wdr
+                LEFT JOIN wc_research_report wrr ON wdr.res_id = wrr.id
+                LEFT JOIN sys_user u ON wdr.user_id = u.user_id
+        where wdr.res_id = #{resId}
+        order by wdr.create_time desc
+    </select>
+</mapper>

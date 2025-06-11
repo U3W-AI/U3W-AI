@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.thirdapp.mapper.RmCompanyLabelMapper">
+    <resultMap id="BaseResultMap" type="com.cube.wechat.thirdapp.entiy.RmCompanyLabel">
+        <id column="id" jdbcType="VARCHAR" property="id"/>
+        <result column="label_name" jdbcType="VARCHAR" property="labelName"/>
+        <result column="group_id" jdbcType="VARCHAR" property="groupId"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="create_by" jdbcType="VARCHAR" property="createBy"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="update_by" jdbcType="VARCHAR" property="updateBy"/>
+        <result column="corp_id" jdbcType="VARCHAR" property="corpId"/>
+        <result column="is_delete" jdbcType="INTEGER" property="isDelete"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id,label_name, group_id, create_time, create_by, update_time, update_by,corp_id, is_delete
+    </sql>
+    <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from rm_company_label
+        where id = #{id,jdbcType=VARCHAR}
+    </select>
+
+
+
+    <select id="getLabelByName" resultMap="BaseResultMap">
+        SELECT *
+        FROM rm_company_label
+        WHERE label_name LIKE CONCAT('%', #{labelName}, '%')
+          and is_delete = 0
+          and corp_id = #{corpId}
+        order by create_by
+    </select>
+    <select id="selectLabelNames" resultMap="BaseResultMap">
+        SELECT
+        *
+        FROM
+        rm_company_label
+        WHERE
+        label_name IN
+        <foreach item="labelName" collection="labelNames" open="(" separator="," close=")">
+            #{labelName}
+        </foreach>
+        AND corp_id = #{corpId}
+        AND is_delete = 0
+    </select>
+    <select id="selectByGroupId" resultMap="BaseResultMap">
+        SELECT *
+        FROM rm_company_label
+        WHERE group_id = #{groupId}
+          and corp_id = #{corpId}
+          and is_delete = 0
+        order by create_time DESC, label_name
+    </select>
+    <select id="selectByIds" resultMap="BaseResultMap">
+        SELECT
+        *
+        FROM
+        rm_company_label
+        WHERE
+        id IN
+        <foreach item="id" collection="labelIds" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        AND corp_id = #{corpId}
+        AND is_delete = 0
+    </select>
+
+    <select id="selectAllLabelByCorpId" resultMap="BaseResultMap">
+        SELECT
+        *
+        FROM
+        rm_company_label
+        WHERE
+         corp_id = #{corpId}
+        AND is_delete = 0
+    </select>
+
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.String">
+        delete
+        from rm_company_label
+        where id = #{id,jdbcType=VARCHAR}
+    </delete>
+    <insert id="insertSelective" parameterType="com.cube.wechat.thirdapp.entiy.RmCompanyLabel">
+        insert into rm_company_label
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="labelName != null">
+                label_name,
+            </if>
+            <if test="groupId != null">
+                group_id,
+            </if>
+            <if test="createTime != null">
+                create_time,
+            </if>
+            <if test="createBy != null">
+                create_by,
+            </if>
+            <if test="updateTime != null">
+                update_time,
+            </if>
+            <if test="updateBy != null">
+                update_by,
+            </if>
+            <if test="corpId != null">
+                corp_id,
+            </if>
+            <if test="isDelete != null">
+                is_delete,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=VARCHAR},
+            </if>
+            <if test="labelName != null">
+                #{labelName,jdbcType=VARCHAR},
+            </if>
+            <if test="groupId != null">
+                #{groupId,jdbcType=VARCHAR},
+            </if>
+            <if test="createTime != null">
+                #{createTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="createBy != null">
+                #{createBy,jdbcType=VARCHAR},
+            </if>
+            <if test="updateTime != null">
+                #{updateTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="updateBy != null">
+                #{updateBy,jdbcType=VARCHAR},
+            </if>
+            <if test="corpId != null">
+                #{corpId,jdbcType=VARCHAR},
+            </if>
+            <if test="isDelete != null">
+                #{isDelete,jdbcType=INTEGER},
+            </if>
+        </trim>
+    </insert>
+    <update id="updateByPrimaryKeySelective" parameterType="com.cube.wechat.thirdapp.entiy.RmCompanyLabel">
+        update rm_company_label
+        <set>
+            <if test="labelName != null">
+                label_name = #{labelName,jdbcType=VARCHAR},
+            </if>
+            <if test="groupId != null">
+                group_id = #{groupId,jdbcType=VARCHAR},
+            </if>
+            <if test="createTime != null">
+                create_time = #{createTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="createBy != null">
+                create_by = #{createBy,jdbcType=VARCHAR},
+            </if>
+            <if test="updateTime != null">
+                update_time = #{updateTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="updateBy != null">
+                update_by = #{updateBy,jdbcType=VARCHAR},
+            </if>
+            <if test="corpId != null">
+                corp_id = #{corpId,jdbcType=VARCHAR},
+            </if>
+            <if test="isDelete != null">
+                is_delete = #{isDelete},
+            </if>
+        </set>
+        where id = #{id,jdbcType=VARCHAR}
+    </update>
+    <update id="updateByGroupId">
+        update rm_company_label
+        <set>
+            <if test="labelName != null">
+                label_name = #{labelName,jdbcType=VARCHAR},
+            </if>
+            <if test="groupId != null">
+                group_id = #{groupId,jdbcType=VARCHAR},
+            </if>
+            <if test="createTime != null">
+                create_time = #{createTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="createBy != null">
+                create_by = #{createBy,jdbcType=VARCHAR},
+            </if>
+            <if test="updateTime != null">
+                update_time = #{updateTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="updateBy != null">
+                update_by = #{updateBy,jdbcType=VARCHAR},
+            </if>
+            <if test="corpId != null">
+                corp_id = #{corpId,jdbcType=VARCHAR},
+            </if>
+            <if test="isDelete != null">
+                is_delete = #{isDelete,jdbcType=INTEGER},
+            </if>
+        </set>
+        where group_id = #{groupId,jdbcType=VARCHAR} and corp_id = #{corpId,jdbcType=VARCHAR}
+    </update>
+
+
+
+
+</mapper>

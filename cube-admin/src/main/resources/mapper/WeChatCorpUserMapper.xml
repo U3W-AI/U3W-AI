@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.thirdapp.mapper.WeChatCorpUserMapper">
+  <resultMap id="BaseResultMap" type="com.cube.wechat.thirdapp.entiy.WeChatCorpUser">
+    <id column="id" jdbcType="VARCHAR" property="id" />
+    <result column="user_id" jdbcType="VARCHAR" property="userId" />
+    <result column="user_name" jdbcType="VARCHAR" property="userName" />
+    <result column="thumb_avatar" jdbcType="VARCHAR" property="thumbAvatar" />
+    <result column="open_userid" jdbcType="VARCHAR" property="openUserid" />
+    <result column="position" jdbcType="VARCHAR" property="position" />
+    <result column="status" jdbcType="INTEGER" property="status" />
+    <result column="department_id" jdbcType="VARCHAR" property="departmentId" />
+    <result column="suite_id" jdbcType="VARCHAR" property="suiteId" />
+    <result column="corp_id" jdbcType="VARCHAR" property="corpId" />
+    <result column="order" jdbcType="INTEGER" property="order" />
+    <result column="create_date" jdbcType="TIMESTAMP" property="createDate" />
+    <result column="update_date" jdbcType="TIMESTAMP" property="updateDate" />
+  </resultMap>
+  <sql id="Base_Column_List">
+    id, user_id, user_name, thumb_avatar, open_userid, `position`, `status`, department_id,
+    suite_id, corp_id, `order`, create_date, update_date
+  </sql>
+  <select id="selectCorpUserByOpenUserId" parameterType="com.cube.wechat.thirdapp.entiy.WeChatCorpUser" resultMap="BaseResultMap">
+    SELECT *FROM qywx_corp_user WHERE open_userid=#{openUserid} and suite_id=#{suiteId} and corp_Id=#{corpId} LIMIT 1
+  </select>
+  <update id="updateCorpUserStatus" parameterType="com.cube.wechat.thirdapp.entiy.WeChatCorpUser">
+    UPDATE qywx_corp_user SET status=#{status}  WHERE suite_id=#{suiteId} and corp_Id=#{corpId}
+  </update>
+  <update id="deleteCorpUserByUserId" parameterType="com.cube.wechat.thirdapp.entiy.WeChatCorpUser">
+      UPDATE qywx_corp_user
+      set status=#{status},update_date=NOW()
+      WHERE open_userid = #{openUserid}
+        AND suite_id = #{suiteId}
+        AND corp_id = #{corpId}
+  </update>
+  <select id="selectCorpUserInfo" parameterType="com.cube.wechat.thirdapp.entiy.WeChatCorpUser" resultMap="BaseResultMap">
+      SELECT *
+      FROM qywx_corp_user
+      WHERE `status` = #{status}
+        AND open_userid = #{openUserid}
+        AND suite_id = #{suiteId}
+        AND corp_id = #{corpId} limit 1
+  </select>
+  <select id="selectCorpUserId" parameterType="com.cube.wechat.thirdapp.entiy.WeChatCorpUser" resultMap="BaseResultMap">
+    SELECT *
+    FROM qywx_corp_user
+    WHERE `status` = #{status}
+      AND user_id = #{userId}
+      AND suite_id = #{suiteId}
+      AND corp_id = #{corpId} limit 1
+  </select>
+  <select id="selectAllUserByCorpId" parameterType="com.cube.wechat.thirdapp.entiy.WeChatCorpUser" resultMap="BaseResultMap">
+    SELECT *
+    FROM qywx_corp_user
+    WHERE  1=1
+    <if test="status!=null">
+     AND  `status` = #{status}
+    </if>
+      AND corp_id = #{corpId}
+      AND suite_id = #{suiteId}
+  </select>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    select
+    <include refid="Base_Column_List" />
+    from qywx_corp_user
+    where id = #{id,jdbcType=VARCHAR}
+  </select>
+
+    <select id="selectUserNameIsNullByCorpId" resultMap="BaseResultMap">
+      SELECT *
+      FROM qywx_corp_user
+      WHERE user_name = ''
+         or user_name IS null
+        AND status = 1
+        AND corp_id = #{corpId}
+        AND suite_id = #{suiteId}
+    </select>
+
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.String">
+    delete from qywx_corp_user
+    where id = #{id,jdbcType=VARCHAR}
+  </delete>
+  <insert id="insertSelective" parameterType="com.cube.wechat.thirdapp.entiy.WeChatCorpUser">
+    insert into qywx_corp_user
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="id != null">
+        id,
+      </if>
+      <if test="userId != null">
+        user_id,
+      </if>
+      <if test="userName != null">
+        user_name,
+      </if>
+      <if test="thumbAvatar != null">
+        thumb_avatar,
+      </if>
+      <if test="openUserid != null">
+        open_userid,
+      </if>
+      <if test="position != null">
+        `position`,
+      </if>
+      <if test="status != null">
+        `status`,
+      </if>
+      <if test="departmentId != null">
+        department_id,
+      </if>
+      <if test="suiteId != null">
+        suite_id,
+      </if>
+      <if test="corpId != null">
+        corp_id,
+      </if>
+      <if test="order != null">
+        `order`,
+      </if>
+      <if test="createDate != null">
+        create_date,
+      </if>
+      <if test="updateDate != null">
+        update_date,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides=",">
+      <if test="id != null">
+        #{id,jdbcType=VARCHAR},
+      </if>
+      <if test="userId != null">
+        #{userId,jdbcType=VARCHAR},
+      </if>
+      <if test="userName != null">
+        #{userName,jdbcType=VARCHAR},
+      </if>
+      <if test="thumbAvatar != null">
+        #{thumbAvatar,jdbcType=VARCHAR},
+      </if>
+      <if test="openUserid != null">
+        #{openUserid,jdbcType=VARCHAR},
+      </if>
+      <if test="position != null">
+        #{position,jdbcType=VARCHAR},
+      </if>
+      <if test="status != null">
+        #{status,jdbcType=INTEGER},
+      </if>
+      <if test="departmentId != null">
+        #{departmentId,jdbcType=VARCHAR},
+      </if>
+      <if test="suiteId != null">
+        #{suiteId,jdbcType=VARCHAR},
+      </if>
+      <if test="corpId != null">
+        #{corpId,jdbcType=VARCHAR},
+      </if>
+      <if test="order != null">
+        #{order,jdbcType=INTEGER},
+      </if>
+      <if test="createDate != null">
+        #{createDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="updateDate != null">
+        #{updateDate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+  <insert id="insertBatchCorpUser" parameterType="java.util.List">
+    INSERT INTO qywx_corp_user (id, user_id, user_name, thumb_avatar, open_userid, `position`, `status`, department_id, suite_id, corp_id, `order`, create_date, update_date)
+    VALUES
+    <foreach collection="list" item="item" separator=",">
+      (
+      #{item.id,jdbcType=VARCHAR},
+      #{item.userId,jdbcType=VARCHAR},
+      #{item.userName,jdbcType=VARCHAR},
+      #{item.thumbAvatar,jdbcType=VARCHAR},
+      #{item.openUserid,jdbcType=VARCHAR},
+      #{item.position,jdbcType=VARCHAR},
+      #{item.status,jdbcType=INTEGER},
+      #{item.departmentId,jdbcType=VARCHAR},
+      #{item.suiteId,jdbcType=VARCHAR},
+      #{item.corpId,jdbcType=VARCHAR},
+      #{item.order,jdbcType=INTEGER},
+      #{item.createDate,jdbcType=TIMESTAMP},
+      #{item.updateDate,jdbcType=TIMESTAMP}
+      )
+    </foreach>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.cube.wechat.thirdapp.entiy.WeChatCorpUser">
+    update qywx_corp_user
+    <set>
+      <if test="userId != null">
+        user_id = #{userId,jdbcType=VARCHAR},
+      </if>
+      <if test="userName != null">
+        user_name = #{userName,jdbcType=VARCHAR},
+      </if>
+      <if test="thumbAvatar != null">
+        thumb_avatar = #{thumbAvatar,jdbcType=VARCHAR},
+      </if>
+      <if test="openUserid != null">
+        open_userid = #{openUserid,jdbcType=VARCHAR},
+      </if>
+      <if test="position != null">
+        `position` = #{position,jdbcType=VARCHAR},
+      </if>
+      <if test="status != null">
+        `status` = #{status,jdbcType=INTEGER},
+      </if>
+      <if test="departmentId != null">
+        department_id = #{departmentId,jdbcType=VARCHAR},
+      </if>
+      <if test="suiteId != null">
+        suite_id = #{suiteId,jdbcType=VARCHAR},
+      </if>
+      <if test="corpId != null">
+        corp_id = #{corpId,jdbcType=VARCHAR},
+      </if>
+      <if test="order != null">
+        `order` = #{order,jdbcType=INTEGER},
+      </if>
+      <if test="createDate != null">
+        create_date = #{createDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="updateDate != null">
+        update_date = #{updateDate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+  <update id="updateBatchByPrimaryKey" parameterType="java.util.List">
+    <foreach collection="list" item="item"  separator=";" close=";">
+      update qywx_corp_user
+      <set>
+        <if test="item.userId != null">
+          user_id = #{item.userId,jdbcType=VARCHAR},
+        </if>
+        <if test="item.userName != null">
+          user_name = #{item.userName,jdbcType=VARCHAR},
+        </if>
+        <if test="item.thumbAvatar != null">
+          thumb_avatar = #{item.thumbAvatar,jdbcType=VARCHAR},
+        </if>
+        <if test="item.openUserid != null">
+          open_userid = #{item.openUserid,jdbcType=VARCHAR},
+        </if>
+        <if test="item.position != null">
+          `position` = #{item.position,jdbcType=VARCHAR},
+        </if>
+        <if test="item.status != null">
+          `status` = #{item.status,jdbcType=INTEGER},
+        </if>
+        <if test="item.departmentId != null">
+          department_id = #{item.departmentId,jdbcType=VARCHAR},
+        </if>
+        <if test="item.suiteId != null">
+          suite_id = #{item.suiteId,jdbcType=VARCHAR},
+        </if>
+        <if test="item.corpId != null">
+          corp_id = #{item.corpId,jdbcType=VARCHAR},
+        </if>
+        <if test="item.order != null">
+          `order` = #{item.order,jdbcType=INTEGER},
+        </if>
+        <if test="item.createDate != null">
+          create_date = #{item.createDate,jdbcType=TIMESTAMP},
+        </if>
+        <if test="item.updateDate != null">
+          update_date = #{item.updateDate,jdbcType=TIMESTAMP},
+        </if>
+      </set>
+      where id = #{item.id,jdbcType=VARCHAR}
+    </foreach>
+  </update>
+  <update id="updateCorpUserAvatar" parameterType="com.cube.wechat.thirdapp.entiy.WeChatCorpUser">
+    update qywx_corp_user SET thumb_avatar = IFNULL(#{thumbAvatar},thumb_avatar) WHERE suite_id=#{suiteId} AND open_userid=#{openUserid}
+  </update>
+
+  <select id="selectUserBasicInformationByUserId" parameterType="com.cube.wechat.thirdapp.entiy.WeChatCorpUser" resultMap="BaseResultMap">
+    SELECT  *FROM qywx_corp_user where user_id=#{userId} and corp_id=#{corpId} LIMIT 1
+  </select>
+</mapper>

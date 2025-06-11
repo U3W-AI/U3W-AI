@@ -1,0 +1,537 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.thirdapp.mapper.RmExternalInfoArchivesMapper">
+    <resultMap id="BaseResultMap" type="com.cube.wechat.thirdapp.entiy.RmExternalInfoArchives">
+        <id column="id" jdbcType="VARCHAR" property="id"/>
+        <result column="info_value" jdbcType="VARCHAR" property="infoValue"/>
+        <result column="info_id" jdbcType="VARCHAR" property="infoId"/>
+        <result column="external_user_id" jdbcType="VARCHAR" property="externalUserId"/>
+        <result column="corp_id" jdbcType="VARCHAR" property="corpId"/>
+        <result column="create_user_id" jdbcType="VARCHAR" property="createUserId"/>
+        <result column="update_user_id" jdbcType="VARCHAR" property="updateUserId"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="is_there_multiple" jdbcType="INTEGER" property="isThereMultiple"/>
+        <result column="control_name" jdbcType="VARCHAR" property="controlName"/>
+        <result column="source_type" jdbcType="INTEGER" property="sourceType"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id, info_value,info_id,source_type, external_user_id, corp_id, create_user_id, update_user_id, create_time,
+    update_time
+    </sql>
+    <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from rm_external_info_archives
+        where id = #{id,jdbcType=VARCHAR}
+    </select>
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.String">
+        delete
+        from rm_external_info_archives
+        where id = #{id,jdbcType=VARCHAR}
+    </delete>
+    <insert id="insert" parameterType="com.cube.wechat.thirdapp.entiy.RmExternalInfoArchives">
+        insert into rm_external_info_archives (id, info_value, external_user_id,
+                                               corp_id, create_user_id, update_user_id,
+                                               create_time, update_time)
+        values (#{id,jdbcType=VARCHAR}, #{infoValue,jdbcType=VARCHAR}, #{externalUserId,jdbcType=VARCHAR},
+                #{corpId,jdbcType=VARCHAR}, #{createUserId,jdbcType=VARCHAR}, #{updateUserId,jdbcType=VARCHAR},
+                #{createTime,jdbcType=TIMESTAMP}, #{updateTime,jdbcType=TIMESTAMP})
+    </insert>
+    <insert id="insertSelective" parameterType="com.cube.wechat.thirdapp.entiy.RmExternalInfoArchives">
+        insert into rm_external_info_archives
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="infoId != null">
+                info_id,
+            </if>
+            <if test="sourceType != null">
+                source_type,
+            </if>
+            <if test="infoValue != null">
+                info_value,
+            </if>
+            <if test="externalUserId != null">
+                external_user_id,
+            </if>
+            <if test="corpId != null">
+                corp_id,
+            </if>
+            <if test="createUserId != null">
+                create_user_id,
+            </if>
+            <if test="updateUserId != null">
+                update_user_id,
+            </if>
+            <if test="createTime != null">
+                create_time,
+            </if>
+            <if test="updateTime != null">
+                update_time,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=VARCHAR},
+            </if>
+            <if test="infoId != null">
+                #{infoId},
+            </if>
+            <if test="sourceType != null">
+                #{sourceType},
+            </if>
+            <if test="infoValue != null">
+                #{infoValue,jdbcType=VARCHAR},
+            </if>
+            <if test="externalUserId != null">
+                #{externalUserId,jdbcType=VARCHAR},
+            </if>
+            <if test="corpId != null">
+                #{corpId,jdbcType=VARCHAR},
+            </if>
+            <if test="createUserId != null">
+                #{createUserId,jdbcType=VARCHAR},
+            </if>
+            <if test="updateUserId != null">
+                #{updateUserId,jdbcType=VARCHAR},
+            </if>
+            <if test="createTime != null">
+                #{createTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="updateTime != null">
+                #{updateTime,jdbcType=TIMESTAMP},
+            </if>
+        </trim>
+    </insert>
+    <update id="updateByPrimaryKeySelective" parameterType="com.cube.wechat.thirdapp.entiy.RmExternalInfoArchives">
+        update rm_external_info_archives
+        <set>
+            <if test="infoValue != null">
+                info_value = #{infoValue,jdbcType=VARCHAR},
+            </if>
+            <if test="infoId != null">
+                info_id = #{infoId},
+            </if>
+            <if test="sourceType != null">
+                source_type = #{sourceType},
+            </if>
+            <if test="externalUserId != null">
+                external_user_id = #{externalUserId,jdbcType=VARCHAR},
+            </if>
+            <if test="corpId != null">
+                corp_id = #{corpId,jdbcType=VARCHAR},
+            </if>
+            <if test="createUserId != null">
+                create_user_id = #{createUserId,jdbcType=VARCHAR},
+            </if>
+            <if test="updateUserId != null">
+                update_user_id = #{updateUserId,jdbcType=VARCHAR},
+            </if>
+            <if test="createTime != null">
+                create_time = #{createTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="updateTime != null">
+                update_time = #{updateTime,jdbcType=TIMESTAMP},
+            </if>
+        </set>
+        where id = #{id,jdbcType=VARCHAR}
+    </update>
+    <update id="updateByPrimaryKey" parameterType="com.cube.wechat.thirdapp.entiy.RmExternalInfoArchives">
+        update rm_external_info_archives
+        set info_value       = #{infoValue,jdbcType=VARCHAR},
+            external_user_id = #{externalUserId,jdbcType=VARCHAR},
+            corp_id          = #{corpId,jdbcType=VARCHAR},
+            create_user_id   = #{createUserId,jdbcType=VARCHAR},
+            update_user_id   = #{updateUserId,jdbcType=VARCHAR},
+            create_time      = #{createTime,jdbcType=TIMESTAMP},
+            update_time      = #{updateTime,jdbcType=TIMESTAMP}
+        where id = #{id,jdbcType=VARCHAR}
+    </update>
+    <update id="updateInfoValueById">
+        UPDATE rm_external_info_archives
+        SET info_value     = REPLACE(info_value, #{oldCorpName}, #{newCorpName}),
+            update_user_id = #{userId},
+            update_time    = now()
+        WHERE id = #{id}
+    </update>
+    <delete id="deleteExternalArchivesByInfoId" parameterType="java.util.Map">
+        DELETE FROM rm_external_info_archives WHERE info_id = #{infoId}
+        <if test="corpId != null and corpId != ''">
+            AND corp_id = #{corpId}
+        </if>
+        <if test="externalUserId != null and externalUserId != ''">
+            AND external_user_id = #{externalUserId}
+        </if>
+        <if test="infoValue != null and infoValue != ''">
+            AND info_value = #{infoValue}
+        </if>
+    </delete>
+    <select id="selectExternalInfoArchivesByExternalInfoArchives"
+            parameterType="com.cube.wechat.thirdapp.entiy.RmExternalInfoArchives" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from rm_external_info_archives
+        <where>
+            <if test="id != null and id != ''">
+                and id = #{id,jdbcType=VARCHAR}
+            </if>
+            <if test="infoId != null and infoId != ''">
+                and info_id = #{infoId,jdbcType=VARCHAR}
+            </if>
+            <if test="infoValue != null and infoValue != '' and  infoValue!='NOTNULL'.toString()">
+                and info_value = #{infoValue,jdbcType=VARCHAR}
+            </if>
+            <if test="externalUserId != null and externalUserId != ''">
+                and external_user_id = #{externalUserId,jdbcType=VARCHAR}
+            </if>
+            <if test="corpId != null and corpId != ''">
+                and corp_id = #{corpId,jdbcType=VARCHAR}
+            </if>
+            <if test="createUserId != null and createUserId != ''">
+                and create_user_id = #{createUserId,jdbcType=VARCHAR}
+            </if>
+            <if test="infoId != null and infoId!=''">
+                AND info_id=#{infoId}
+            </if>
+            <if test="infoValue!=null and infoValue!='' and infoValue=='NOTNULL'.toString()">
+                AND info_value IS NOT NULL
+                AND info_value != ''
+            </if>
+        </where>
+    </select>
+    <select id="selectExternalInfoArchivesByInfo" resultType="java.util.Map" parameterType="java.util.Map">
+        SELECT ifc.is_there_multiple,
+               eia.info_value
+        FROM rm_external_info_field_config ifc
+                 INNER JOIN rm_external_info_archives eia ON eia.corp_id = ifc.corp_id
+            AND ifc.id = eia.info_id
+        WHERE control_name = #{controlName}
+          AND eia.corp_id = #{corpId}
+          AND eia.external_user_id = #{externalUserId}
+        LIMIT 1
+    </select>
+    <select id="selectTheTotalNumberOfFriendsAndProfilesByUserIds" parameterType="java.util.Map"
+            resultType="java.util.Map">
+        SELECT 'friendsTotalNum' AS total_type,
+        COUNT(*) AS total_value
+        FROM (SELECT *
+        FROM rm_external_statistics_num resn
+        WHERE is_lost = 0
+        AND resn.corp_id = #{corpId}
+        AND resn.user_id IN (${userIds})
+        <if test="startDate!=null and startDate!='' and endDate!=null and endDate!=''">
+            AND resn.add_time BETWEEN #{startDate} AND #{endDate}
+        </if>
+        GROUP BY resn.user_id,
+        resn.external_user_id) s1
+        UNION ALL
+        SELECT 'filesTotalNum' AS total_type,
+        COUNT(*) AS total_value
+        FROM (SELECT resn.*
+        FROM rm_external_statistics_num resn
+        WHERE resn.is_lost = 0
+        AND resn.corp_id = #{corpId}
+        AND resn.user_id IN (${userIds})
+        <if test="startDate!=null and startDate!='' and endDate!=null and endDate!=''">
+            AND resn.add_time BETWEEN #{startDate} AND #{endDate}
+        </if>
+        GROUP BY resn.external_user_id) s2
+        UNION ALL
+        SELECT 'bscTotalNum' AS total_type,
+        COUNT(*) AS total_value
+        FROM (SELECT resn.*
+        FROM rm_external_statistics_num resn
+        WHERE resn.is_deleted_by_contact = 1
+        AND resn.is_deleted_by_person = 0
+        AND resn.corp_id = #{corpId}
+        AND resn.user_id IN (${userIds})
+        <if test="startDate!=null and startDate!='' and endDate!=null and endDate!=''">
+            AND resn.add_time BETWEEN #{startDate} AND #{endDate}
+        </if>
+        GROUP BY user_id, external_user_id) s3
+        UNION ALL
+        SELECT 'zdscTotalNum' AS total_type,
+        COUNT(*) AS total_value
+        FROM (SELECT resn.*
+        FROM rm_external_statistics_num resn
+        WHERE resn.is_deleted_by_person = 1
+        AND resn.is_deleted_by_contact=0
+        AND resn.corp_id = #{corpId}
+        AND resn.user_id IN (${userIds})
+        <if test="startDate!=null and startDate!='' and endDate!=null and endDate!=''">
+            AND resn.add_time BETWEEN #{startDate} AND #{endDate}
+        </if>
+        GROUP BY user_id, external_user_id) s4
+        UNION ALL
+        SELECT 'sxscTotalNum' AS total_type,
+        COUNT(*) AS total_value
+        FROM (SELECT resn.*
+        FROM rm_external_statistics_num resn
+        WHERE resn.is_deleted_by_person = 1
+        AND resn.is_deleted_by_contact = 1
+        AND resn.corp_id = #{corpId}
+        AND resn.user_id IN (${userIds})
+        <if test="startDate!=null and startDate!='' and endDate!=null and endDate!=''">
+            AND resn.add_time BETWEEN #{startDate} AND #{endDate}
+        </if>
+        GROUP BY user_id, external_user_id) s5
+    </select>
+
+    <select id="selectLabelPerfectNumber" resultType="java.util.Map" parameterType="java.util.Map">
+        SELECT
+        'labelPerfectNumber' AS result_type,
+        COUNT(*) AS result_value
+        FROM
+        (
+        SELECT
+        resn.*
+        FROM
+        rm_external_statistics_num resn
+        INNER JOIN rm_external_label rel ON rel.external_user_id = resn.external_user_id
+        AND rel.corp_id = resn.corp_id
+        WHERE
+        is_lost = 0
+        AND resn.corp_id = #{corpId}
+        AND resn.user_id IN ( ${userIds} )
+        <if test="startDate!=null and startDate!='' and endDate!=null and endDate!=''">
+            AND resn.add_time BETWEEN #{startDate} AND #{endDate}
+        </if>
+        GROUP BY
+        resn.external_user_id
+        HAVING
+        COUNT( DISTINCT CASE WHEN rel.label_id IN ( ${labelIds} ) THEN rel.label_id END ) = #{labelLength}
+        ) s1
+    </select>
+    <select id="selectNothingLabelPerfectNumber" resultType="java.util.Map" parameterType="java.util.Map">
+        SELECT
+        'labelPerfectNumber' AS result_type,
+        COUNT(*) AS result_value
+        FROM
+        (
+        SELECT
+        resn.*
+        FROM
+        rm_external_statistics_num resn
+        LEFT JOIN rm_external_label rel ON rel.external_user_id = resn.external_user_id
+        AND rel.corp_id = resn.corp_id
+        WHERE
+        is_lost = 0
+        AND rel.external_user_id IS NULL
+        AND resn.corp_id = #{corpId}
+        AND resn.user_id IN ( ${userIds} )
+        <if test="startDate!=null and startDate!='' and endDate!=null and endDate!=''">
+            AND resn.add_time BETWEEN #{startDate} AND #{endDate}
+        </if>
+        GROUP BY
+        resn.external_user_id
+        ) s1
+    </select>
+    <select id="selectAllLabelPerfectNumber" resultType="java.util.Map" parameterType="java.util.Map">
+        SELECT
+        'labelPerfectNumber' AS result_type,
+        COUNT(*) AS result_value
+        FROM
+        (
+        SELECT
+        resn.*
+        FROM
+        rm_external_statistics_num resn
+        LEFT JOIN rm_external_label rel ON rel.external_user_id = resn.external_user_id
+        AND rel.corp_id = resn.corp_id
+        WHERE
+        is_lost = 0
+        AND rel.external_user_id IS NOT NULL
+        AND resn.corp_id = #{corpId}
+        AND resn.user_id IN ( ${userIds} )
+        <if test="startDate!=null and startDate!='' and endDate!=null and endDate!=''">
+            AND resn.add_time BETWEEN #{startDate} AND #{endDate}
+        </if>
+        GROUP BY
+        resn.external_user_id
+        ) s1
+    </select>
+    <select id="selectExternalArchivesNumber" resultType="java.util.Map" parameterType="java.util.Map">
+        SELECT
+        'archivesNumber' AS result_type,
+        COUNT(*) AS result_value
+        FROM
+        (
+        SELECT
+        resn.*
+        FROM
+        rm_external_statistics_num resn
+        INNER JOIN rm_external_info_archives reia ON reia.external_user_id = resn.external_user_id
+        AND reia.corp_id = resn.corp_id
+        WHERE
+        is_lost = 0
+        AND resn.corp_id = #{corpId}
+        AND resn.user_id IN ( ${userIds} )
+        <if test="startDate!=null and startDate!='' and endDate!=null and endDate!=''">
+            AND resn.add_time BETWEEN #{startDate} AND #{endDate}
+        </if>
+        AND info_value IS NOT NULL
+        AND info_value != ''
+        GROUP BY
+        resn.external_user_id
+        HAVING
+        COUNT( DISTINCT CASE WHEN reia.info_id IN ( ${infoIds} ) THEN reia.info_id END ) = #{infoIdLength}
+        ) s2
+    </select>
+    <select id="selectAllExternalArchivesNumber" resultType="java.util.Map" parameterType="java.util.Map">
+        SELECT
+        'archivesNumber' AS result_type,
+        COUNT(*) AS result_value
+        FROM
+        (
+        SELECT
+        resn.*
+        FROM
+        rm_external_statistics_num resn
+        LEFT JOIN rm_external_info_archives reia ON reia.external_user_id = resn.external_user_id
+        AND reia.corp_id = resn.corp_id
+        WHERE
+        is_lost = 0
+        AND resn.corp_id = #{corpId}
+        AND resn.user_id IN ( ${userIds} )
+        <if test="startDate!=null and startDate!='' and endDate!=null and endDate!=''">
+            AND resn.add_time BETWEEN #{startDate} AND #{endDate}
+        </if>
+        AND info_value IS NOT NULL
+        AND info_value != ''
+        AND reia.external_user_id IS NOT NULL
+        GROUP BY
+        resn.external_user_id
+        ) s2
+    </select>
+    <select id="selectNothingExternalArchivesNumber" resultType="java.util.Map" parameterType="java.util.Map">
+        SELECT
+        'archivesNumber' AS result_type,
+        COUNT(*) AS result_value
+        FROM
+        (
+        SELECT
+        resn.*
+        FROM
+        rm_external_statistics_num resn
+        LEFT JOIN rm_external_info_archives reia ON reia.external_user_id = resn.external_user_id
+        AND reia.corp_id = resn.corp_id
+        WHERE
+        is_lost = 0
+        AND resn.corp_id = #{corpId}
+        AND resn.user_id IN ( ${userIds} )
+        <if test="startDate!=null and startDate!='' and endDate!=null and endDate!=''">
+            AND resn.add_time BETWEEN #{startDate} AND #{endDate}
+        </if>
+        AND reia.external_user_id IS NULL
+        GROUP BY
+        resn.external_user_id
+        ) s2
+    </select>
+    <select id="selectByInfoIdAndInfoValue" resultMap="BaseResultMap">
+        SELECT *
+        FROM `rm_external_info_archives`
+        WHERE info_id = #{infoId}
+          AND corp_id = #{corpId}
+          and info_value != ''
+    </select>
+    <select id="selectFilterStatisticsResidentList" parameterType="java.util.Map" resultType="java.util.Map">
+        SELECT resn.external_user_id,
+        resn.user_id,
+        rei.`name`,
+        rei.corp_full_name,
+        rei.corp_name,
+        DATE_FORMAT(resn.add_time, '%Y-%m-%d') AS add_time,
+        rei.type,
+        rei.description,
+        rei.remark,
+        GROUP_CONCAT(DISTINCT rl.label_name ORDER BY rl.group_id, rl.label_name SEPARATOR ', ') AS label_names
+        FROM rm_external_statistics_num resn
+        LEFT JOIN rm_external_label rel ON rel.corp_id = resn.corp_id
+        AND rel.external_user_id = resn.external_user_id
+        LEFT JOIN rm_label rl ON rl.id = rel.label_id AND rl.corp_id = rel.corp_id
+        LEFT JOIN rm_external_info rei
+        on rei.external_user_id = resn.external_user_id and rei.user_id = resn.user_id
+        LEFT JOIN rm_external_info_archives reia ON reia.corp_id = resn.corp_id
+        AND reia.external_user_id = resn.external_user_id
+        WHERE resn.corp_id = #{corpId}
+        AND resn.is_lost = 0
+        AND resn.user_id IN ( ${userIds} )
+        <if test="startDate!=null and startDate!='' and endDate!=null and endDate!=''">
+            AND resn.add_time BETWEEN #{startDate} AND #{endDate}
+        </if>
+        <if test="labelType==0">
+            AND rel.label_id IS NULL
+        </if>
+        <if test="infoType==0">
+            AND reia.info_id IS NULL
+        </if>
+        GROUP BY resn.user_id,
+        resn.external_user_id
+        <if test="labelType==1">
+            HAVING COUNT(DISTINCT CASE
+            WHEN rel.label_id IN
+            ( ${labelIds} )
+            THEN rel.label_id END) = #{labelLength}
+        </if>
+        <if test="infoType==1">
+            AND COUNT(
+            DISTINCT
+            CASE
+            WHEN reia.info_id IN
+            ( ${infoIds} )
+            AND reia.info_value IS NOT NULL
+            AND reia.info_value != ''
+            THEN
+            reia.info_id
+            END
+            ) = #{infoIdLength}
+            order by resn.add_time desc
+        </if>
+
+    </select>
+    <select id="selectByInfoValueAndCorpId" resultMap="BaseResultMap">
+        SELECT reia.*
+        FROM `rm_external_info_archives` reia
+                 LEFT JOIN rm_external_info_field_config reifc ON reia.info_id = reifc.id
+        WHERE reia.corp_id = #{corpId}
+          AND reifc.info_name = '单位'
+          AND reia.info_value LIKE CONCAT('%', #{infoValue}, '%')
+    </select>
+
+
+    <select id="selectArchiveByCorpId" resultType="java.util.Map">
+        SELECT rei.external_user_id,
+               rei.user_id,
+               rei.corp_name,
+               rei.corp_full_name,
+               reia.id as reiaId,
+               reia.info_value,
+               reia.info_id
+        FROM `rm_external_info` rei
+                 LEFT JOIN `rm_external_info_archives` reia ON reia.corp_id = rei.corp_id
+            AND reia.external_user_id = rei.external_user_id
+                 INNER JOIN rm_external_info_field_config reifc ON reifc.id = reia.info_id
+            AND reifc.corp_id = reia.corp_id
+            AND reifc.control_name = '单位'
+        WHERE rei.type = '2'
+          AND rei.corp_id = #{corpId}
+    </select>
+
+    <select id="selectArchiveByExternalId" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT reia.id,
+               reia.corp_id,
+               reia.external_user_id,
+               reia.info_value,
+               reia.info_id,
+               reif.is_there_multiple,
+               reif.control_name,
+               reia.source_type
+        FROM rm_external_info_archives reia
+                 INNER JOIN rm_external_info_field_config reif ON reia.corp_id = reif.corp_id
+            AND reia.info_id = reif.id
+        WHERE reia.corp_id = #{corpId}
+          AND reia.external_user_id = #{externalUserId}
+    </select>
+</mapper>

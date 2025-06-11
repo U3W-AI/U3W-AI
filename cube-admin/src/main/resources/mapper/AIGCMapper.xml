@@ -1,0 +1,327 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.selfapp.app.mapper.AIGCMapper">
+
+
+    <delete id="delLink" parameterType="java.lang.String">
+        delete from wc_chrome_hotlink where link_id =#{id}
+    </delete>
+
+
+    <select id="getChromeDataList" parameterType="com.cube.wechat.selfapp.app.domain.WcChromeData" resultType="java.util.Map">
+        SELECT
+        wd.id,
+        wd.prompt,
+        wd.promptNum,
+        MAX(CASE WHEN aiName = '豆包' THEN answer END) AS doubao,
+        MAX(CASE WHEN aiName = '豆包' THEN answerNum END) AS doubaoNum,
+        MAX(CASE WHEN aiName = '知乎直答' THEN answer END) AS zhihu,
+        MAX(CASE WHEN aiName = '知乎直答' THEN answerNum END) AS zhihuNum,
+        MAX(CASE WHEN aiName = '天工' THEN answer END) AS tiangong,
+        MAX(CASE WHEN aiName = '腾讯元宝' THEN answer END) AS yuanbao,
+        MAX(CASE WHEN aiName = '腾讯元宝' THEN answerNum END) AS yuanbaoNum,
+        MAX(CASE WHEN aiName = '嘟嘟' THEN answer END) AS yqznt,
+        MAX(CASE WHEN aiName = '嘟嘟' THEN answerNum END) AS yqNum,
+        MAX(CASE WHEN aiName = '通义千问' THEN answer END) AS tongyi,
+        MAX(CASE WHEN aiName = '通义千问' THEN answerNum END) AS tongyiNum,
+        DATE_FORMAT( wd.create_time, '%Y-%c-%d %H:%i:%s') createTime,
+        u.nick_name nickName
+        FROM
+        wc_chrome_data wd left join sys_user u on wd.user_name = u.user_name
+      where
+        aiName !='嘟嘟'
+        <if test="username !='o3lds67b1zyFvifHTC_32epnmzqM'">
+           and wd.user_name = #{username}
+        </if>
+        <if test="keyWord !=null and keyWord !=''">
+            and (wd.prompt like '%${keyWord}%' or u.nick_name like '%${keyWord}%')
+        </if>
+        GROUP BY
+        wd.id
+        order by wd.create_time desc
+    </select>
+
+    <select id="getChromeLinkList" parameterType="com.cube.wechat.selfapp.app.domain.WcChromeData" resultType="java.util.Map">
+        SELECT
+        wck.link_id id,
+        wck.prompt,
+        wck.userPrompt,
+        wck.userPromptTwo,
+        wck.promptNum,
+        wck.answer,
+        wck.answerNum,
+        wck.summary,
+        wck.aiName,
+        wck.title,
+        wck.author,
+        wck.text,
+            case when isPush =0 then '未收录' else '已收录' end isPush,
+        wck.create_time createTime,
+        u.nick_name nickName
+from wc_chrome_hotlink wck left join sys_user u on wck.user_name = u.user_name
+
+        where
+              1=1
+        <if test="username !='o3lds67b1zyFvifHTC_32epnmzqM'">
+            and wck.user_name = #{username}
+        </if>
+        <if test="keyWord !=null and keyWord !=''">
+            and (prompt like '%${keyWord}%'  or u.nick_name like '%${keyWord}%')
+        </if>
+        <if test="id !=null and id !=''">
+            and link_id = #{id}
+        </if>
+        order by wck.create_time desc
+    </select>
+
+    <select id="getChromeLinkIds" parameterType="com.cube.wechat.selfapp.app.domain.WcChromeData" resultType="java.lang.String">
+        SELECT
+            link_id id
+        FROM
+            wc_chrome_hotlink
+        WHERE
+            user_name = #{username} and summary is null
+        group by answer
+    </select>
+
+    <delete id="delRepeatLink" parameterType="java.lang.String">
+        delete from wc_chrome_hotlink where user_name = #{username} AND summary IS  NULL   and link_id not in
+        <foreach collection="list" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+
+    <select id="getChromeLinkListFor" parameterType="com.cube.wechat.selfapp.app.domain.WcChromeData" resultType="java.util.Map">
+        SELECT
+            link_id id,
+            answer
+        FROM
+            wc_chrome_hotlink
+        WHERE
+            user_name = #{username} and summary is  null
+        <if test="selVal ==4">
+            GROUP BY
+            answer
+        </if>
+        ORDER BY
+            create_time DESC
+    </select>
+    <select id="getChromeLinkListByTaskId" parameterType="com.cube.wechat.selfapp.app.domain.WcChromeData" resultType="java.util.Map">
+        SELECT
+            link_id id,
+            answer
+        FROM
+            wc_chrome_hotlink
+        WHERE
+            id = #{taskId} and summary is  null
+        ORDER BY
+            create_time DESC
+    </select>
+    <select id="getChromeKeyWordFor" parameterType="com.cube.wechat.selfapp.app.domain.WcChromeData" resultType="java.util.Map">
+        SELECT
+               id,
+            CONCAT(prompt,',',answer) hotword
+        FROM
+            wc_chrome_hotword where isFetch = 0
+       and
+            user_name = #{username}
+    and prompt is not null and answer is not null
+        ORDER BY
+            create_time DESC
+    </select>
+    <select id="getChromeKeyWordByTaskId"  parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+               id,
+               CASE
+                   WHEN prompt = answer THEN prompt
+                   ELSE CONCAT(prompt, ',', answer)
+                   END AS hotword
+        FROM
+            wc_chrome_hotword where isFetch = 0
+       and
+           id = #{taskId}
+    and prompt is not null and answer is not null
+    </select>
+
+    <select id="getPlayWrightDraftList" resultType="java.util.Map">
+        SELECT
+            wpd.task_id taskId,
+            u.nick_name userName,
+            u.avatar userAvatar,
+            wpd.user_prompt question,
+            DATE_FORMAT( wpd.create_time, '%Y-%c-%d %H:%i:%s') questionTime
+        FROM
+            wc_playwright_draft  wpd
+                left join sys_user u on wpd.user_name = u.user_id
+        WHERE
+           1 = 1
+          <if test="keyWord !=null and keyWord !=''">
+              and wpd.user_prompt like '%${keyWord}%'
+          </if>
+          <if test="userId !=22">
+              and wpd.user_name = #{userId}
+          </if>
+        group by wpd.task_id
+         order by wpd.create_time desc
+    </select>
+
+    <select id="getNodeLogList" resultType="java.util.Map">
+        select user_id,user_prompt question from wc_node_log group by user_prompt
+    </select>
+
+    <select id="getPlayWrightNodeList" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+            node_name name,
+            res preview,
+            res content,
+            DATE_FORMAT(create_time, '%Y-%c-%d %H:%i:%s')  responseTime
+            from wc_node_log where user_prompt = #{userPrompt} order by create_time
+        </select>
+
+    <select id="getPlayWrightDraftAiList" parameterType="java.lang.String" resultType="java.util.Map">
+
+        SELECT
+
+            case ai_name when '腾讯元宝-yb-hunyuan-pt'  then '腾讯元宝T1'
+                         when '腾讯元宝-yb-hunyuan-sdsk' then '腾讯元宝T1-深度思考(T1)'
+                         when '腾讯元宝-yb-hunyuan-lwss' then '腾讯元宝T1-深度思考(T1)+联网搜索'
+                         when '腾讯元宝-yb-deepseek-pt' then '腾讯元宝DS'
+                         when '腾讯元宝-yb-deepseek-sdsk' then '腾讯元宝DS-深度思考(R1)'
+                         when '腾讯元宝-yb-deepseek-lwss' then '腾讯元宝DS-深度思考(R1)+联网'
+                         when 'Agent-cube-trubos-agent' then 'TurboS@元器'
+                         when 'Agent-cube-turbos-large-agent' then 'TurboS长文版@元器'
+                         when 'Agent-cube-mini-max-agent' then 'MiniMax@元器'
+                         when 'Agent-cube-sogou-agent' then '搜狗搜索@元器'
+                         when 'Agent-cube-lwss-agent' then 'KIMI@元器'
+                         when '豆包' then '豆包'
+                         when '智能评分' then '智能评分'
+                         else null end name,
+            draft_content preview,
+            draft_content content,
+            DATE_FORMAT(create_time, '%Y-%c-%d %H:%i:%s')  responseTime
+        FROM
+            wc_playwright_draft
+        WHERE
+            task_id = #{taskId}
+          AND ai_name NOT IN ( '腾讯元宝', 'Agent' ) order by create_time desc
+    </select>
+
+
+    <select id="getHotKeyWordList" parameterType="com.cube.wechat.selfapp.app.domain.WcChromeData" resultType="java.util.Map">
+        SELECT
+            wch.id,
+            wch.prompt,
+            wch.userPrompt,
+            wch.answer,
+            wch.aiName,
+            case when wch.isFetch =1 then '已抓取' else '未抓取' end isFetch,
+            u.nick_name nickName,
+            DATE_FORMAT(wch.create_time, '%Y-%c-%d %H:%i:%s') createTime
+        FROM
+            wc_chrome_hotword wch left join sys_user u on wch.user_name = u.user_name
+        where
+        1 =1
+        <if test="username !='o3lds67b1zyFvifHTC_32epnmzqM'">
+            and wch.user_name = #{username}
+        </if>
+        <if test="keyWord !=null and keyWord !=''">
+            and (wch.prompt like '%${keyWord}%' or u.nick_name like '%${keyWord}%')
+        </if>
+        order by wch.create_time desc
+    </select>
+    <select id="getHotKeyWordById" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+            wch.id,
+            wch.prompt,
+            wch.answer,
+            wch.aiName,
+            wch.isFetch,
+            DATE_FORMAT(wch.create_time, '%Y-%c-%d %H:%i:%s') createTime
+        FROM
+            wc_chrome_hotword wch
+        where
+         wch.id = #{id} limit 1
+    </select>
+
+    <select id="getHotKeyWordLog" parameterType="java.lang.String" resultType="java.util.Map">
+        select
+            old_prompt oldPrompt,
+            old_answer oldAnswer,
+            prompt,
+            answer,
+            u.nick_name nickName,
+            DATE_FORMAT(wch.create_time, '%Y-%c-%d %H:%i:%s') createTime
+        from
+            wc_chrome_hotword_log wch left join sys_user u on wch.user_name = u.user_name
+          where key_id = #{id}
+    </select>
+
+    <update id="updateHotKeyWord" parameterType="java.util.Map">
+        update wc_chrome_hotword set prompt =#{prompt},answer = #{answer},update_time = now() where id =#{id}
+    </update>
+
+    <insert id="saveHotKeyWordLog" parameterType="java.util.Map">
+        insert into wc_chrome_hotword_log values (uuid(),#{id},#{oldPrompt},#{oldAnswer},#{prompt},#{answer},#{username},now())
+    </insert>
+
+    <insert id="saveHotKeyWord" parameterType="java.util.Map">
+        insert into wc_chrome_hotword(id,prompt,answer,aiName,isFetch,create_time,user_name)
+        values
+               (uuid(),#{prompt},#{answer},'自建',0,now(),#{username})
+    </insert>
+
+    <update id="updateArticleLink">
+        update wc_chrome_hotlink
+        set author = #{author}, title = #{title}, summary = #{summary}, text = #{text}
+        where link_id = #{id}
+    </update>
+
+    <insert id="saveDraftContent" parameterType="java.util.Map">
+        insert into wc_playwright_draft (id,task_id,keyword,user_prompt,draft_content,is_push,ai_name,create_time,user_name)
+        values
+        (uuid(),#{taskId},#{keyWord},#{userPrompt},#{draftContent},0,#{aiName},now(),#{userId})
+    </insert>
+
+    <select id="getDraftContent" parameterType="java.lang.String" resultType="java.lang.String">
+        select draft_content from wc_playwright_draft where task_id =#{taskId} and ai_name =#{aiName} limit 1
+    </select>
+
+    <select id="getDraftContentList" parameterType="java.lang.String" resultType="java.util.Map">
+        select draft_content,ai_name from wc_playwright_draft where task_id =#{taskId} and ai_name like '%${aiName}%'
+    </select>
+
+    <delete id="delBatchLink">
+        delete from wc_chrome_hotlink where link_id in
+        <foreach collection="list" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+
+
+    <insert id="savePlayWrightTaskData" parameterType="java.util.Map">
+        INSERT INTO wc_chrome_task (`id`, `task_id`, `task_name`, `status`, `order`, `start_time`, `end_time`, `plan_time`, `user_id`,corp_id) VALUES
+        <foreach item="item" index="index" collection="list" separator=",">
+            (uuid(), #{item.taskId}, #{item.taskName}, #{item.status}, 1, now(), NULL, #{item.planTime},#{item.userid},#{item.corpId})
+        </foreach>
+    </insert>
+
+    <select id="getUserInfoByYqId" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+            user_id userId,
+            corp_id corpId
+        FROM
+            wc_user_yq
+        WHERE
+            yq_id = #{userId}
+    </select>
+
+    <insert id="saveUserChatData" parameterType="java.util.Map">
+       delete from wc_chat_history where userPrompt = #{userPrompt};
+        insert into wc_chat_history values (uuid(),#{userId},#{userPrompt},#{data},now(),#{toneChatId},#{ybDsChatId},#{dbChatId},#{chatId});
+    </insert>
+
+    <select id="getChatHistory" parameterType="java.lang.String" resultType="java.util.Map">
+        select userPrompt,data,DATE_FORMAT(create_time, '%Y-%c-%d %H:%i:%s') createTime,chat_id chatId,tone_chat_id toneChatId,ybds_chat_id ybDsChatId,db_chat_id dbChatId
+   from wc_chat_history where user_id =#{userId} order by create_time desc limit 10
+    </select>
+</mapper>

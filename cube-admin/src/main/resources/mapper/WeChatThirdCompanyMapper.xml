@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.thirdapp.mapper.WeChatThirdCompanyMapper">
+  <resultMap id="BaseResultMap" type="com.cube.wechat.thirdapp.entiy.WeChatThirdCompany">
+    <id column="id" jdbcType="VARCHAR" property="id" />
+    <result column="corp_id" jdbcType="VARCHAR" property="corpId" />
+    <result column="suite_id" jdbcType="VARCHAR" property="suiteId" />
+    <result column="permanent_code" jdbcType="VARCHAR" property="permanentCode" />
+    <result column="corp_name" jdbcType="VARCHAR" property="corpName" />
+    <result column="corp_full_name" jdbcType="VARCHAR" property="corpFullName" />
+    <result column="subject_type" jdbcType="VARCHAR" property="subjectType" />
+    <result column="verified_end_time" jdbcType="VARCHAR" property="verifiedEndTime" />
+    <result column="agent_id" jdbcType="VARCHAR" property="agentId" />
+    <result column="status" jdbcType="INTEGER" property="status" />
+    <result column="addtime" jdbcType="TIMESTAMP" property="addtime" />
+    <result column="modtime" jdbcType="TIMESTAMP" property="modtime" />
+    <result column="rectime" jdbcType="TIMESTAMP" property="rectime" />
+  </resultMap>
+  <sql id="Base_Column_List">
+    id, corp_id, permanent_code, corp_name, corp_full_name, subject_type, verified_end_time,
+    agent_id, `status`, addtime, modtime, rectime
+  </sql>
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    select
+    <include refid="Base_Column_List" />
+    from qywx_third_company
+    where id = #{id,jdbcType=VARCHAR}
+  </select>
+  <select id="selectByCorpId" parameterType="java.lang.String" resultMap="BaseResultMap">
+    select
+    <include refid="Base_Column_List" />
+    from qywx_third_company
+    where corp_id = #{corpId}
+    and suite_id=#{suiteId}
+    and status=1
+  </select>
+  <select id="selectAllCorp" parameterType="java.lang.String" resultMap="BaseResultMap">
+    select
+    <include refid="Base_Column_List" />
+    from qywx_third_company
+    where suite_id=#{suiteId}
+    and status=1
+  </select>
+  <select id="selectCorpServerName" parameterType="java.util.Map" resultType="java.lang.String">
+    SELECT server_name FROM qywx_corp_server WHERE corp_id=#{corpId} and suite_id=#{suiteId} limit 1
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.String">
+    delete from qywx_third_company
+    where id = #{id,jdbcType=VARCHAR}
+  </delete>
+  <insert id="insertSelective" parameterType="com.cube.wechat.thirdapp.entiy.WeChatThirdCompany">
+    insert into qywx_third_company
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="id != null">
+        id,
+      </if>
+      <if test="corpId != null">
+        corp_id,
+      </if>
+      <if test="permanentCode != null">
+        permanent_code,
+      </if>
+      <if test="corpName != null">
+        corp_name,
+      </if>
+      <if test="corpFullName != null">
+        corp_full_name,
+      </if>
+      <if test="subjectType != null">
+        subject_type,
+      </if>
+      <if test="verifiedEndTime != null">
+        verified_end_time,
+      </if>
+      <if test="suiteId != null">
+        suite_id,
+      </if>
+      <if test="agentId != null">
+        agent_id,
+      </if>
+      <if test="status != null">
+        `status`,
+      </if>
+      <if test="addtime != null">
+        addtime,
+      </if>
+      <if test="modtime != null">
+        modtime,
+      </if>
+      <if test="rectime != null">
+        rectime,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides=",">
+      <if test="id != null">
+        #{id,jdbcType=VARCHAR},
+      </if>
+      <if test="corpId != null">
+        #{corpId,jdbcType=VARCHAR},
+      </if>
+      <if test="permanentCode != null">
+        #{permanentCode,jdbcType=VARCHAR},
+      </if>
+      <if test="corpName != null">
+        #{corpName,jdbcType=VARCHAR},
+      </if>
+      <if test="corpFullName != null">
+        #{corpFullName,jdbcType=VARCHAR},
+      </if>
+      <if test="subjectType != null">
+        #{subjectType,jdbcType=VARCHAR},
+      </if>
+      <if test="verifiedEndTime != null">
+        #{verifiedEndTime,jdbcType=VARCHAR},
+      </if>
+      <if test="suiteId != null">
+        #{suiteId},
+      </if>
+      <if test="agentId != null">
+        #{agentId,jdbcType=VARCHAR},
+      </if>
+
+      <if test="status != null">
+        #{status,jdbcType=INTEGER},
+      </if>
+      <if test="addtime != null">
+        #{addtime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="modtime != null">
+        #{modtime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="rectime != null">
+        #{rectime,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.cube.wechat.thirdapp.entiy.WeChatThirdCompany">
+    update qywx_third_company
+    <set>
+      <if test="corpId != null">
+        corp_id = #{corpId,jdbcType=VARCHAR},
+      </if>
+      <if test="permanentCode != null">
+        permanent_code = #{permanentCode,jdbcType=VARCHAR},
+      </if>
+      <if test="corpName != null">
+        corp_name = #{corpName,jdbcType=VARCHAR},
+      </if>
+      <if test="corpFullName != null">
+        corp_full_name = #{corpFullName,jdbcType=VARCHAR},
+      </if>
+      <if test="subjectType != null">
+        subject_type = #{subjectType,jdbcType=VARCHAR},
+      </if>
+      <if test="verifiedEndTime != null">
+        verified_end_time = #{verifiedEndTime,jdbcType=VARCHAR},
+      </if>
+      <if test="agentId != null">
+        agent_id = #{agentId,jdbcType=VARCHAR},
+      </if>
+      <if test="suiteId != null">
+        suite_id=#{suiteId},
+      </if>
+      <if test="status != null">
+        `status` = #{status,jdbcType=INTEGER},
+      </if>
+      <if test="addtime != null">
+        addtime = #{addtime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="modtime != null">
+        modtime = #{modtime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="rectime != null">
+        rectime = #{rectime,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+</mapper>

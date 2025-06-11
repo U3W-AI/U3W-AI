@@ -1,0 +1,665 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.selfapp.app.mapper.UserInfoMapper">
+
+    <select id="getUserCount" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+            (SELECT points FROM sys_user WHERE user_id = #{userId}) AS points,
+            (SELECT COUNT(1) FROM wc_down_record WHERE user_id = #{userId}) AS reportNum,
+            (SELECT COUNT(1) FROM wc_collection_record WHERE user_id = #{userId}) AS collectionNum,
+            (SELECT COUNT(1) FROM wc_browse_record WHERE user_id = #{userId}) AS browseNum;
+    </select>
+
+    <select id="getUserPointsRecord" parameterType="java.util.Map" resultType="java.util.Map">
+        SELECT
+        u.nick_name,
+        wpr.change_amount,
+        wpr.balance_after,
+        wpr.change_type,
+        DATE_FORMAT( wpr.create_time, '%Y-%c-%d %H:%i:%s') create_time
+        FROM
+            wc_points_record wpr
+        left join sys_user u on u.user_id = wpr.user_id
+        where wpr.user_id = #{userId}
+          <if test="start !=''">
+              and wpr.create_time &gt;= concat(#{start},' 00:00:00')
+              and wpr.create_time &lt;= concat(#{end},' 23:59:59')
+          </if>
+          <if test="type == 1">
+              and wpr.change_amount >0
+          </if>
+        <if test="type == 2">
+            and wpr.change_amount &lt; 0
+        </if>
+order by wpr.create_time desc
+    </select>
+
+    <select id="getUserDownReportList" parameterType="java.util.Map" resultType="java.util.Map">
+        SELECT
+            wrr.id,
+            wrr.title,
+            wrr.res_url,
+            wrr.tag,
+            DATE_FORMAT( wrr.create_time, '%Y-%c-%d') create_time,
+            wrr.resource,
+            DATE_FORMAT( wdr.create_time, '%Y-%c-%d %H:%i:%s') biz_time
+        FROM
+            wc_down_record wdr
+                JOIN wc_research_report wrr ON wdr.res_id = wrr.id
+        where wdr.user_id = #{userId}
+        <if test="keyWord !=null and keyWord!=''">
+             and (wrr.title like '%${keyWord}%' or wrr.tag like '%${keyWord}%')
+        </if>
+    </select>
+
+    <select id="getUserBrowseReportList" parameterType="java.util.Map" resultType="java.util.Map">
+        SELECT
+            wrr.id,
+            wrr.title,
+            wrr.res_url,
+            wrr.tag,
+            DATE_FORMAT( wrr.create_time, '%Y-%c-%d') create_time,
+            wrr.resource,
+            DATE_FORMAT( wbr.create_time, '%Y-%c-%d %H:%i:%s') biz_time
+        FROM
+            wc_browse_record wbr
+                JOIN wc_research_report wrr ON wbr.res_id = wrr.id
+        where wbr.user_id = #{userId}
+        <if test="keyWord !=null and keyWord!=''">
+             and (wrr.title like '%${keyWord}%' or wrr.tag like '%${keyWord}%')
+        </if>
+    </select>
+    <select id="getUserBrowseStraList" parameterType="java.util.Map" resultType="java.util.Map">
+        SELECT
+        a.id,
+        a.strategy_title as title,
+        a.strategy_content as strategyContent,
+        a.author resource,
+        DATE_FORMAT( a.create_time, '%Y-%c-%d %H:%i:%s')  AS  create_time,
+        a.tag,
+        a.desc,
+        a.pic_url as picUrl,
+        COALESCE((SELECT COUNT(1) FROM wc_collection_record wcr WHERE wcr.res_id = a.id), 0) AS collectionNum,
+        COALESCE((SELECT COUNT(1) FROM wc_user_like wul WHERE wul.com_id = a.id), 0) AS likeNum,
+        COALESCE((SELECT COUNT(1) FROM wc_browse_record wbr WHERE wbr.res_id = a.id), 0) AS browseNum,
+        COALESCE((SELECT COUNT(1) FROM wc_comment_res wbr WHERE wbr.res_id = a.id), 0) AS comNum,
+        DATE_FORMAT( wbr.create_time, '%Y-%c-%d %H:%i:%s') biz_time
+        FROM
+            wc_browse_record wbr
+                JOIN wc_strategy a ON wbr.res_id = a.id
+        where wbr.user_id = #{userId}
+        <if test="keyWord !=null and keyWord!=''">
+             and (a.strategy_title like '%${keyWord}%' or wrr.tag like '%${keyWord}%')
+        </if>
+    </select>
+
+    <select id="getUserCollectionReportList" parameterType="java.util.Map" resultType="java.util.Map">
+        SELECT
+            wrr.id,
+            wrr.title,
+            wrr.res_url,
+            wrr.tag,
+            DATE_FORMAT( wrr.create_time, '%Y-%c-%d') create_time,
+            wrr.resource,
+            DATE_FORMAT( wcr.create_time, '%Y-%c-%d %H:%i:%s') biz_time
+        FROM
+            wc_collection_record wcr
+                JOIN wc_research_report wrr ON wcr.res_id = wrr.id
+        where wcr.user_id = #{userId}
+        <if test="keyWord !=null and keyWord!=''">
+             and (wrr.title like '%${keyWord}%' or wrr.tag like '%${keyWord}%')
+        </if>
+    </select>
+    <select id="getUserCollectionStraList" parameterType="java.util.Map" resultType="java.util.Map">
+        SELECT
+        a.id,
+        a.strategy_title as title,
+        a.strategy_content as strategyContent,
+        a.author resource,
+        DATE_FORMAT( a.create_time, '%Y-%c-%d %H:%i:%s')  AS  create_time,
+        a.tag,
+        a.desc,
+        a.pic_url as picUrl,
+        COALESCE((SELECT COUNT(1) FROM wc_collection_record wcr WHERE wcr.res_id = a.id), 0) AS collectionNum,
+        COALESCE((SELECT COUNT(1) FROM wc_user_like wul WHERE wul.com_id = a.id), 0) AS likeNum,
+        COALESCE((SELECT COUNT(1) FROM wc_browse_record wbr WHERE wbr.res_id = a.id), 0) AS browseNum,
+        COALESCE((SELECT COUNT(1) FROM wc_comment_res wbr WHERE wbr.res_id = a.id), 0) AS comNum,
+        DATE_FORMAT( wbr.create_time, '%Y-%c-%d %H:%i:%s') biz_time
+        FROM
+        wc_collection_record wbr
+        JOIN wc_strategy a ON wbr.res_id = a.id
+        where wbr.user_id = #{userId}
+        <if test="keyWord !=null and keyWord!=''">
+            and (a.strategy_title like '%${keyWord}%' or wrr.tag like '%${keyWord}%')
+        </if>
+    </select>
+
+    <select id="getReportList" parameterType="java.util.Map" resultType="java.util.Map">
+        SELECT
+            distinct
+            wrr.id,
+            wrr.title,
+            wrr.res_url,
+            wrr.tag,
+            DATE_FORMAT( wrr.create_time, '%Y-%c-%d') create_time,
+            wrr.resource,
+            browse_num,
+            istop,
+            CASE
+            WHEN wcr.id IS NOT NULL THEN 1
+            ELSE 0
+            END AS isCol
+        FROM
+            wc_research_report wrr
+        LEFT JOIN
+        wc_collection_record wcr
+        ON
+        wrr.id = wcr.res_id AND wcr.user_id = #{userId}
+
+        where wrr.isdel = 0 and flow_status =1
+        <if test="keyWord !=null and keyWord!=''">
+             and (wrr.title like '%${keyWord}%' or wrr.tag like '%${keyWord}%')
+        </if>
+        <if test="order == 2 ">
+            and wrr.industry in (select industry from wc_subscribe where user_id =#{userId})
+        </if>
+        <if test="order == 3 ">
+            and wrr.industry ='出海专题'
+        </if>
+
+        <if test="resCode !=null and resCode != ''">
+
+        </if>
+
+        <choose>
+            <!-- 年龄条件 -->
+            <when test="resCode == '1002'">
+                and wrr.keyword like '62%'
+            </when>
+
+            <!-- 职业条件 -->
+            <when test="resCode == null || resCode =='' || resCode =='1001'">
+                and wrr.keyword not like '62%'
+            </when>
+            <!-- 默认条件 -->
+            <otherwise>
+
+            </otherwise>
+        </choose>
+
+
+
+        <if test="order =='' ">
+            order by isCol desc,
+            wrr.create_time desc
+        </if>
+        <if test="order == 1 ">
+            order by isCol desc,
+            wrr.browse_num desc
+        </if>
+    </select>
+
+    <select id="getUserTag" parameterType="java.lang.String" resultType="java.lang.String">
+        select GROUP_CONCAT(tag) from wc_user_tag where user_id = (select qw_id from sys_user where user_id =#{userId})
+    </select>
+
+    <select id="getUserLike" parameterType="java.util.Map" resultType="java.util.Map">
+        SELECT
+            distinct
+            wrr.id,
+            wrr.title,
+            wrr.res_url,
+            wrr.tag,
+            DATE_FORMAT( wrr.create_time, '%Y-%c-%d') create_time,
+            wrr.resource,
+            browse_num,
+            istop
+        FROM
+            wc_research_report wrr
+        where wrr.isdel = 0 and (${tag}) order by wrr.create_time desc limit 3
+    </select>
+
+    <select id="getReportDetail" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+            distinct
+            wrr.id,
+            wrr.title,
+            wrr.res_url,
+            wrr.tag,
+            DATE_FORMAT( wrr.create_time, '%Y-%c-%d') create_time,
+            wrr.resource,
+            browse_num,
+            istop,
+            chat_qrcode
+        FROM
+            wc_research_report wrr
+        where wrr.id = #{id}
+    </select>
+
+    <insert id="saveCollection" parameterType="java.lang.String">
+        INSERT INTO `wc_collection_record` (`id`, `res_id`, `user_id`, `create_time`)
+         VALUES (uuid(), #{resId}, #{userId}, now());
+    </insert>
+
+    <select id="getBrowseCount" parameterType="java.lang.String" resultType="java.lang.Integer">
+        select count(1) from wc_browse_record where res_id =#{resId} and user_id =#{userId}
+    </select>
+
+    <select id="getDownCount" parameterType="java.lang.String" resultType="java.lang.Integer">
+        select count(1) from wc_down_record where res_id =#{resId} and user_id =#{userId}
+    </select>
+    <select id="getShareCount" parameterType="java.lang.String" resultType="java.lang.Integer">
+        select count(1) from wc_user_share where biz_id =#{bizId} and user_id =#{userId}
+    </select>
+
+    <insert id="saveBrowseRecord" parameterType="java.lang.String">
+        insert into wc_browse_record values(uuid(),#{resId},#{userId},now())
+    </insert>
+
+    <insert id="saveDownRecord" parameterType="java.lang.String">
+        insert into wc_down_record values(uuid(),#{resId},#{userId},now())
+    </insert>
+
+    <insert id="saveShareRecord" parameterType="java.lang.String">
+        insert into wc_user_share values(uuid(),#{userId},#{path},#{bizId},now())
+    </insert>
+
+    <delete id="delCollection" parameterType="java.lang.String">
+        delete from wc_collection_record where res_id = #{resId} and user_id =#{userId}
+    </delete>
+
+    <update id="addResCollectionNum" parameterType="java.lang.String">
+        update wc_research_report set collection_num = collection_num + 1 where id =#{resId}
+    </update>
+
+    <update id="delResCollectionNum" parameterType="java.lang.String">
+        update wc_research_report set collection_num = collection_num - 1 where id =#{resId}
+    </update>
+
+    <update id="addResDownNum" parameterType="java.lang.String">
+        update wc_research_report set down_num = down_num + 1 where id =#{resId}
+    </update>
+
+    <update id="delResDownNum" parameterType="java.lang.String">
+        update wc_research_report set down_num = down_num - 1 where id =#{resId}
+    </update>
+
+    <update id="addResBrowseNum" parameterType="java.lang.String">
+        update wc_research_report set browse_num = browse_num + 1 where id =#{resId}
+    </update>
+
+    <update id="addStraBrowseNum" parameterType="java.lang.String">
+        update wc_strategy set browse_num = browse_num + 1 where id =#{resId}
+    </update>
+
+    <update id="delResBrowseNum" parameterType="java.lang.String">
+        update wc_research_report set browse_num = browse_num - 1 where id =#{resId}
+    </update>
+
+    <select id="getSubscribe" parameterType="java.lang.String" resultType="java.lang.String">
+        select industry from wc_subscribe where user_id =#{userId}
+    </select>
+
+    <delete id="delSubscribe" parameterType="java.lang.String">
+        delete from wc_subscribe where user_id =#{userId}
+    </delete>
+
+    <insert id="saveSubscribe">
+        insert into wc_subscribe  values
+        <foreach item="item" index="index" collection="list" separator=",">
+            (uuid(),#{userId},#{item})
+        </foreach>
+
+    </insert>
+
+    <select id="getResComment" parameterType="java.lang.String" resultType="java.util.Map">
+        select
+          wcr.user_id userid,
+          wcr.id comId,
+          wcr.res_id resId,
+          u.nick_name nickName,
+          wcr.comment,
+        CASE
+        WHEN TIMESTAMPDIFF(SECOND, STR_TO_DATE(wcr.create_time, '%Y-%m-%d %H:%i:%s'), NOW()) &lt; 60 THEN '刚刚'
+        WHEN TIMESTAMPDIFF(MINUTE, STR_TO_DATE(wcr.create_time, '%Y-%m-%d %H:%i:%s'), NOW()) &lt; 60 THEN CONCAT(TIMESTAMPDIFF(MINUTE, STR_TO_DATE(wcr.create_time, '%Y-%m-%d %H:%i:%s'), NOW()), '分钟前')
+        WHEN TIMESTAMPDIFF(HOUR, STR_TO_DATE(wcr.create_time, '%Y-%m-%d %H:%i:%s'), NOW()) &lt; 24 THEN CONCAT(TIMESTAMPDIFF(HOUR, STR_TO_DATE(wcr.create_time, '%Y-%m-%d %H:%i:%s'), NOW()), '小时前')
+        WHEN TIMESTAMPDIFF(DAY, STR_TO_DATE(wcr.create_time, '%Y-%m-%d %H:%i:%s'), NOW()) &lt; 30 THEN CONCAT(TIMESTAMPDIFF(DAY, STR_TO_DATE(wcr.create_time, '%Y-%m-%d %H:%i:%s'), NOW()), '天前')
+        WHEN TIMESTAMPDIFF(MONTH, STR_TO_DATE(wcr.create_time, '%Y-%m-%d %H:%i:%s'), NOW()) &lt; 12 THEN CONCAT(TIMESTAMPDIFF(MONTH, STR_TO_Date(wcr.create_time, '%Y-%m-%d %H:%i:%s'), NOW()), '个月前')
+        ELSE CONCAT(TIMESTAMPDIFF(YEAR, STR_TO_DATE(wcr.create_time, '%Y-%m-%d %H:%i:%s'), NOW()), '年前')
+        END AS create_time,
+          u.avatar,
+          wcr.userlike,
+          CASE
+              WHEN wul.id IS NOT NULL THEN 1
+              ELSE 0
+              END AS isLike
+        from wc_comment_res wcr left join  sys_user u on wcr.user_id = u.user_id
+        left join wc_user_like wul on wul.com_id = wcr.id and wul.user_id = wcr.user_id
+        where wcr.res_id =#{resId} and wcr.flow_status =1  order by wcr.userlike desc
+    </select>
+
+    <insert id="saveUserLike" parameterType="java.util.Map">
+        insert into wc_user_like values
+        (uuid(),#{comId},#{creator},now())
+    </insert>
+
+    <delete id="delUserLike" parameterType="java.util.Map">
+        delete from  wc_user_like where com_id = #{comId} and user_id =#{creator}
+    </delete>
+
+    <update id="addCommentLike" parameterType="java.lang.String">
+        update wc_comment_res set userlike = userlike + 1 where id =#{comId}
+    </update>
+
+    <update id="delCommentLike" parameterType="java.lang.String">
+        update wc_comment_res set userlike = userlike - 1 where id =#{comId}
+    </update>
+
+    <insert id="saveUserComment" parameterType="java.util.Map">
+        insert into wc_comment_res values (uuid(),#{resId},#{userId},#{comment},now(),0,0)
+    </insert>
+
+    <insert id="saveAIChatHistory" parameterType="com.cube.wechat.selfapp.app.domain.AIParam">
+        insert into msg values (#{userPrompt},#{response},now(),#{fileUrl},#{chatHistory},#{userId})
+    </insert>
+
+    <insert id="saveAINodeLog" parameterType="com.cube.wechat.selfapp.app.domain.AINodeLog">
+        insert into wc_node_log values (uuid(),#{userId},#{nodeName},#{userPrompt},#{res},now())
+    </insert>
+
+    <select id="getUserTask" parameterType="java.lang.String" resultType="java.lang.String">
+        SELECT
+            change_type taskName
+        FROM
+            wc_points_record
+        WHERE
+            user_id = #{userId}
+          AND (DATE ( create_time ) = CURDATE() or change_type in('首次登录','首次完善资料'))
+    </select>
+
+    <insert id="saveUserChat" parameterType="java.util.Map">
+        insert into wc_user_chat values(#{userId},#{title},#{chatHistory},#{conversationId},now())
+    </insert>
+
+    <update id="updateUserChat" parameterType="java.util.Map">
+        update wc_user_chat set chat_history = #{chatHistory},create_time = now() where user_id =#{userId} and conversation_id = #{conversationId}
+    </update>
+
+    <select id="getUserChatHistoryList" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+            user_id userId,
+            title,
+            conversation_id conversationId,
+            DATE_FORMAT(create_time, '%Y-%c-%d %H:%i:%s') createTime
+        FROM
+            wc_user_chat
+        WHERE
+            user_id = #{userId}
+<if test="title!=null and title !=''">
+    and title like '%${title}%'
+</if>
+    </select>
+
+    <select id="getChatHistoryDetail" parameterType="java.lang.String" resultType="java.lang.String">
+        select chat_history chatHistory from wc_user_chat where conversation_id = #{conversationId} limit 1
+    </select>
+
+    <delete id="deleteUserChatHistory" parameterType="java.lang.String">
+        delete from wc_user_chat where conversation_id = #{conversationId}
+    </delete>
+
+    <insert id="saveChromeData" parameterType="java.util.Map">
+        insert into wc_chrome_data values (#{id},#{prompt},#{promptNum},#{answer},#{answerNum},#{name},now(),#{username})
+    </insert>
+    <insert id="saveChromeKeyWord" parameterType="java.util.Map">
+        insert into wc_chrome_hotword values (#{id},#{prompt},#{userPrompt},#{promptNum},#{answer},#{answerNum},#{name},0,now(),#{username},null)
+    </insert>
+
+    <insert id="saveChromeKeyWordLink" parameterType="java.util.Map">
+        insert into wc_chrome_hotlink(id,link_id,prompt,userPrompt,promptNum,answer,title,author,answerNum,summary,isPush,aiName,create_time,user_name,text) values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.id},uuid(),#{item.prompt},#{item.userPrompt},#{item.promptNum},#{item.answer},#{item.title},#{item.author},#{item.answerNum},null,0,#{item.name},now(),#{item.username},#{item.text})
+        </foreach>
+    </insert>
+
+    <update id="updateHotWordStatus" parameterType="java.lang.String">
+        update wc_chrome_hotword set isFetch =1 where id =#{id}
+    </update>
+
+    <update id="updateLinkStatus" parameterType="java.util.Map">
+        update wc_chrome_hotlink set isPush =1 where link_id in
+        <foreach collection="list" item="item" open="(" separator="," close=")">
+            #{item.id}
+        </foreach>
+    </update>
+    <update id="updateChromeKeyWordLink" parameterType="java.util.Map">
+        update wc_chrome_hotlink set summary = #{answer},userPromptTwo = #{userPrompt} where answer = #{prompt} and user_name =#{username}
+    </update>
+    <update id="updateChatTitle" parameterType="java.util.Map">
+        update wc_user_chat set title = #{title} where conversation_id = #{conversationId}
+    </update>
+
+    <select id="getPushOfficeData" resultType="java.util.Map">
+        SELECT
+            link_id id,
+            prompt,
+            answer,
+            summary,
+            title,
+            author
+        FROM
+            wc_chrome_hotlink
+        WHERE
+            isPush = 0
+        <if test="ids != null and ids.size > 0">
+            AND link_id IN
+            <foreach item="id" index="index" collection="ids" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+        </if>
+          AND summary IS NOT NULL
+          AND user_name = #{userName}
+
+    </select>
+
+    <select id="getPushAutoOfficeData" resultType="java.util.Map">
+        SELECT
+            link_id id,
+            prompt,
+            answer,
+            summary,
+            title,
+            author
+        FROM
+            wc_chrome_hotlink
+        WHERE
+            isPush = 0
+           AND id = #{taskId}
+          AND summary IS NOT NULL
+          AND user_name = #{userName}
+    </select>
+
+    <select id="getPushViewOfficeData" resultType="java.util.Map">
+        SELECT
+            link_id id,
+            prompt,
+            answer,
+            summary,
+            title,
+            author
+        FROM
+            wc_chrome_hotlink
+        WHERE
+            id = #{taskId}
+          AND summary IS NOT NULL group by answer
+    </select>
+    <select id="getOfficeAccountByUserId" resultType="com.cube.wechat.selfapp.app.domain.WcOfficeAccount">
+        select id, app_id appId,app_secret appSecret,office_account_name officeAccountName,user_id userId,user_name userName, media_id mediaId, pic_url picUrl
+        from wc_office_account
+        where user_id = #{userId}
+    </select>
+
+    <insert id="saveOfficeAccount" useGeneratedKeys="true" keyProperty="id">
+        insert into wc_office_account (app_id,app_secret,office_account_name,user_id,user_name,media_id,pic_url)
+        values (#{appId},#{appSecret},#{officeAccountName},#{userId},#{userName},#{mediaId},#{picUrl})
+    </insert>
+    <update id="updateOfficeAccount">
+        update wc_office_account
+        set
+            app_id = #{appId},
+            app_secret = #{appSecret},
+            office_account_name = #{officeAccountName},
+            user_name = #{userName},
+            media_id = #{mediaId},
+            pic_url = #{picUrl}
+        where id = #{id}
+    </update>
+
+    <select id="getOfficeAccountByUserName" resultType="com.cube.wechat.selfapp.app.domain.WcOfficeAccount">
+        select app_id appId,app_secret appSecret,office_account_name officeAccountName,user_id userId,user_name userName,media_id mediaId,pic_url picUrl
+        from wc_office_account
+        where user_name = #{userName}
+    </select>
+
+    <insert id="saveChromeTaskData" parameterType="java.util.Map">
+        INSERT INTO wc_chrome_task (`id`, `task_id`, `task_name`, `status`, `order`, `start_time`, `end_time`, `plan_time`, `user_id`,corp_id) VALUES
+        <foreach item="item" index="index" collection="list" separator=",">
+            (uuid(), #{item.taskId}, #{item.taskName}, #{item.status}, 1, now(), NULL, #{item.planTime},#{item.userid},#{item.corpId})
+        </foreach>
+    </insert>
+
+    <select id="getTaskStatus" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+            id,
+            task_name title,
+            status,
+            case when status ='running' then '正在执行中...' when status ='waiting' then '等待开始...'  when status ='success' then '执行完成' else '' end progress
+        FROM
+            wc_chrome_task
+        WHERE
+            task_id = #{taskId}
+    </select>
+
+
+    <select id="getUserPromptTem" parameterType="java.lang.String" resultType="java.lang.String">
+        SELECT
+            task_prompt promptTemplate
+        FROM
+            wc_chrome_task_prompt
+        where user_id = #{userId}
+          <if test="agentId !=null and agentId !=''">
+              and task_name = #{agentId}
+          </if>
+        and task_prompt is not null and task_name !='desc'
+        limit 1
+    </select>
+
+    <select id="getPromptTem" resultType="java.util.Map">
+        select prompt content,name text,id value from wc_prompt_template where type = 1 and isdel = 0
+    </select>
+    <select id="getUserLikeSet" resultType="java.lang.String" parameterType="java.lang.String">
+        select prompt likeContent from wc_prompt_template where type = 2 and isdel = 0 and user_id = #{userId}
+    </select>
+
+    <select id="getUserHotWordByTaskId" parameterType="java.lang.String" resultType="java.util.Map">
+        select prompt,answer from wc_chrome_hotword where id = #{taskId} limit 1
+    </select>
+
+    <select id="getUserPromptTemByUnionid" parameterType="java.lang.String" resultType="java.lang.String">
+        select task_prompt from wc_chrome_task_prompt where user_name = #{username} and task_name=#{taskName} limit 1
+    </select>
+
+    <update id="updateTaskStatus" parameterType="java.lang.String">
+        update wc_chrome_task set status =#{status}
+        <if test="status =='success'">
+            ,end_time =now()
+        </if>
+        <if test="status =='running'">
+            ,plan_time =now()
+        </if>
+where task_id =#{taskId} and task_name =#{taskName}
+    </update>
+
+    <update id="updateUserPromptTem" parameterType="java.util.Map">
+        <foreach collection="prompts" item="item" index="key" separator=";">
+            update wc_chrome_task_prompt
+            set task_prompt = #{item.prompt}
+            where user_id = #{userId}
+            and task_name = #{item.taskName}
+        </foreach>
+    </update>
+    <select id="getCorpIdByUserId" parameterType="java.lang.String" resultType="java.lang.String">
+        select corp_id corpId from sys_user where user_id =#{userId} limit 1
+    </select>
+
+    <select id="getUserIdsByCorpId" parameterType="java.lang.String" resultType="java.lang.String">
+        select user_id userId from sys_user where corp_id = #{corpId}
+    </select>
+
+    <select id="getIsChangeByCorpId" parameterType="java.lang.String" resultType="java.lang.Integer">
+        SELECT
+        count( 1 )
+        FROM
+        wc_chrome_task
+        WHERE
+        corp_id = #{corpId}
+        AND `status` != 'success'
+        AND start_time > #{timeTenMinutesBefore}
+        AND start_time &lt; #{currentTime}
+    </select>
+
+    <delete id="delTaskPromptByUserId" parameterType="java.lang.String">
+        delete from wc_chrome_task_prompt where user_id = #{userId} and task_name !='desc'
+    </delete>
+
+    <insert id="saveAllTaskPromptByUserId" parameterType="java.lang.String">
+        INSERT INTO `wc_chrome_task_prompt` (`id`, `task_name`, `task_prompt`, `user_id`) VALUES (uuid(), 'Y1',#{promptTemplate}, #{userId});
+        INSERT INTO `wc_chrome_task_prompt` (`id`, `task_name`, `task_prompt`, `user_id`) VALUES (uuid(), 'Y2',#{promptTemplate}, #{userId});
+        INSERT INTO `wc_chrome_task_prompt` (`id`, `task_name`, `task_prompt`, `user_id`) VALUES (uuid(), 'F1',#{promptTemplate}, #{userId});
+        INSERT INTO `wc_chrome_task_prompt` (`id`, `task_name`, `task_prompt`, `user_id`) VALUES (uuid(), 'F2',#{promptTemplate}, #{userId});
+        INSERT INTO `wc_chrome_task_prompt` (`id`, `task_name`, `task_prompt`, `user_id`) VALUES (uuid(), 'F3',#{promptTemplate}, #{userId});
+        INSERT INTO `wc_chrome_task_prompt` (`id`, `task_name`, `task_prompt`, `user_id`) VALUES (uuid(), 'F4',#{promptTemplate}, #{userId});
+        INSERT INTO `wc_chrome_task_prompt` (`id`, `task_name`, `task_prompt`, `user_id`) VALUES (uuid(), 'F5',#{promptTemplate}, #{userId});
+        INSERT INTO `wc_chrome_task_prompt` (`id`, `task_name`, `task_prompt`, `user_id`) VALUES (uuid(), 'F6',#{promptTemplate}, #{userId});
+        INSERT INTO `wc_chrome_task_prompt` (`id`, `task_name`, `task_prompt`, `user_id`) VALUES (uuid(), 'F7',#{promptTemplate}, #{userId});
+        INSERT INTO `wc_chrome_task_prompt` (`id`, `task_name`, `task_prompt`, `user_id`) VALUES (uuid(), 'F8',#{promptTemplate}, #{userId});
+    </insert>
+
+    <select id="getTaskPromptById" parameterType="java.lang.String" resultType="java.lang.String">
+        select task_prompt taskPrompt from wc_chrome_task_prompt where task_name = #{agentId} and user_id =#{userId} limit 1
+    </select>
+
+    <insert id="saveTaskPromptByUserId" parameterType="java.lang.String">
+        INSERT INTO `wc_chrome_task_prompt` (`id`, `task_name`, `task_prompt`, `user_id`) VALUES (uuid(), #{agentId},#{promptTemplate}, #{userId});
+    </insert>
+
+    <update id="updateTaskPromptByUserId" parameterType="java.lang.String">
+        update wc_chrome_task_prompt set task_prompt =#{promptTemplate} where user_id =#{userId} and task_name = #{agentId}
+    </update>
+
+    <select id="getAgentTokenByUserId" parameterType="java.lang.String" resultType="java.util.Map">
+        select agent_id,agent_token from sys_user where user_id =#{userId} limit 1
+    </select>
+    <select id="getSpaceInfoByUserId" parameterType="java.lang.String" resultType="java.util.Map">
+        select space_id spaceId,space_name spaceName from sys_user where user_id =#{userId} limit 1
+    </select>
+
+    <select id="getJsPromptByName" parameterType="java.lang.String" resultType="java.util.Map">
+        select js_prompt jsPrompt,expent_point expentPoint from  wc_js_template where js_name =#{templateName} limit 1
+    </select>
+
+    <update id="saveAgentBind" parameterType="java.util.Map" >
+        update sys_user set agent_id =#{agentId},agent_token =#{agentToken} where user_id =#{userId}
+    </update>
+    <update id="saveSpaceBind" parameterType="java.util.Map" >
+        update sys_user set space_id =#{spaceId},space_name =#{spaceName} where user_id =#{userId}
+    </update>
+
+    <insert id="saveUserFlowId" parameterType="java.util.Map">
+        INSERT INTO wc_user_flow (`user_id`, `flow_id`, `flow_name`, `create_time`) VALUES (#{userId}, #{flowId}, #{flowName}, now());
+    </insert>
+
+    <select id="getUserCountByUserName" parameterType="java.lang.String" resultType="java.lang.Integer">
+        select count(1) from sys_user where user_name = #{userName}
+    </select>
+</mapper>
