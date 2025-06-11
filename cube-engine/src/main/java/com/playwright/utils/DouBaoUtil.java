@@ -119,6 +119,10 @@ public class DouBaoUtil {
                 page.waitForTimeout(20000);  // 等待10秒再次检查
             }
             logInfo.sendTaskLog( "豆包内容已自动提取完成",userId,"豆包");
+
+            String regex = "<span>\\s*<span[^>]*?>\\d+</span>\\s*</span>";
+
+            currentContent = currentContent.replaceAll(regex,"");
             return currentContent;
 
         } catch (Exception e) {
