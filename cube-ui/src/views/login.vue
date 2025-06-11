@@ -11,6 +11,11 @@
         <span style="padding-top: 10px;text-align: center;font-size: 12px;color: rgba(153, 153, 153, 1)">关注"优立方服务号"进行登录/注册</span>
       </div>
     </el-form>
+    <div class="footer-beian">
+      <a href="https://beian.miit.gov.cn/" target="_blank" style="text-decoration: none; color: #666;">
+        浙ICP备2025176978号-1
+      </a>
+    </div>
   </div>
 </template>
 
@@ -163,6 +168,22 @@ export default {
 </script>
 
 <style rel="stylesheet/scss" lang="scss">
+/* 新增备案号样式 */
+.footer-beian {
+  position: fixed;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 12px;
+  color: #666;
+}
+
+.login {
+  /* 确保登录容器有相对定位 */
+  position: relative;
+  min-height: 100%;
+}
 .login {
   display: flex;
   justify-content: center;

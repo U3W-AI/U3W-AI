@@ -1122,16 +1122,16 @@ export default {
           progressLogs: [],
           isExpanded: true
         },
-        {
-          name: 'KIMI@元器',
-          avatar: require('../../../assets/ai/yuanbao.png'),
-          capabilities: [],
-          selectedCapabilities: [],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
+        // {
+        //   name: 'KIMI@元器',
+        //   avatar: require('../../../assets/ai/yuanbao.png'),
+        //   capabilities: [],
+        //   selectedCapabilities: [],
+        //   enabled: true,
+        //   status: 'idle',
+        //   progressLogs: [],
+        //   isExpanded: true
+        // },
         {
           name: '腾讯元宝T1',
           avatar: require('../../../assets/ai/yuanbao.png'),
