@@ -181,7 +181,7 @@
                 </div>
               </div>
               <div class="screenshots">
-                <el-carousel :interval="3000" :autoplay="false" indicator-position="outside" height="400px">
+                <el-carousel :interval="3000" :autoplay="false" indicator-position="outside" height="700px">
                   <el-carousel-item v-for="(screenshot, index) in screenshots" :key="index">
                     <img :src="screenshot" alt="执行截图" class="screenshot-image" @click="showLargeImage(screenshot)">
                   </el-carousel-item>
@@ -786,12 +786,6 @@ export default {
         case 'RETURN_MINI_MAX_RES':
           targetAI = this.enabledAIs.find(ai => ai.name === 'MiniMax@元器');
           break;
-        case 'RETURN_SOGOU_RES':
-          targetAI = this.enabledAIs.find(ai => ai.name === '搜狗搜索@元器');
-          break;
-        case 'RETURN_LWSS_RES':
-          targetAI = this.enabledAIs.find(ai => ai.name === 'KIMI@元器');
-          break;
       }
 
       if (targetAI) {
@@ -821,16 +815,17 @@ export default {
           });
           this.activeResultTab = 'result-0';
         }
+        this.saveHistory();
       }
 
       // 检查是否所有任务都已完成
-      const allCompleted = this.enabledAIs.every(ai =>
-        ai.status === 'completed' || ai.status === 'failed'
-      );
+      // const allCompleted = this.enabledAIs.every(ai =>
+      //   ai.status === 'completed' || ai.status === 'failed'
+      // );
 
-      if (allCompleted) {
-        this.saveHistory();
-      }
+      // if (allCompleted) {
+      //
+      // }
     },
 
     closeWebSocket() {
@@ -1032,9 +1027,9 @@ export default {
 
     // 保存历史记录
     async saveHistory() {
-      if (!this.taskStarted || this.enabledAIs.some(ai => ai.status === 'running')) {
-        return;
-      }
+      // if (!this.taskStarted || this.enabledAIs.some(ai => ai.status === 'running')) {
+      //   return;
+      // }
 
       const historyData = {
         aiList: this.aiList,
@@ -1351,7 +1346,7 @@ export default {
 }
 
 .task-flow-card, .screenshots-card {
-  height: 500px;
+  height: 800px;
 }
 
 .card-header {
@@ -1362,7 +1357,7 @@ export default {
 
 .task-flow {
   padding: 15px;
-  height: 500px;
+  height: 800px;
   overflow-y: auto;
   background-color: #f5f7fa;
   border-radius: 4px;
