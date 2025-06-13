@@ -52,10 +52,8 @@ public class BrowserController {
             if (locator.count() > 0 && locator.isVisible()) {
                 return "false";
             } else {
-                Thread.sleep(3000);
-                page.click("span.icon-yb-setting");
                 Thread.sleep(2000);
-                Locator phone = page.locator("//*[@id=\"app\"]/div/div[2]/div/div[2]/div[1]/ul/li[1]/div/div[2]/h4");
+                Locator phone = page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/div[2]/p");
                 if(phone.count()>0){
                     String phoneText = phone.textContent();
                     if(phoneText.equals("未登录")){
@@ -88,10 +86,8 @@ public class BrowserController {
             if (locator.count() > 0 && locator.isVisible()) {
                 return "false";
             } else {
-                Thread.sleep(3000);
-                page.click("span.icon-yb-setting");
                 Thread.sleep(2000);
-                Locator phone = page.locator("//*[@id=\"app\"]/div/div[2]/div/div[2]/div[1]/ul/li[1]/div/div[2]/h4");
+                Locator phone = page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/div[2]/p");
                 if(phone.count()>0){
                     String phoneText = phone.textContent();
                     if(phoneText.equals("未登录")){
@@ -130,10 +126,8 @@ public class BrowserController {
             webSocketClientService.sendMessage(jsonObject.toJSONString());
             Locator locator = page.getByText("登录成功");
             locator.waitFor(new Locator.WaitForOptions().setTimeout(60000));
-            Thread.sleep(3000);
-            page.click("span.icon-yb-setting");
             Thread.sleep(2000);
-            Locator phone = page.locator("//*[@id=\"app\"]/div/div[2]/div/div[2]/div[1]/ul/li[1]/div/div[2]/h4");
+            Locator phone = page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/div[2]/p");
             if(phone.count()>0){
                 String phoneText = phone.textContent();
                 JSONObject jsonObjectTwo = new JSONObject();
