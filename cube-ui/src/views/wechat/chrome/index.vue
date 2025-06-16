@@ -341,16 +341,16 @@ export default {
           progressLogs: [],
           isExpanded: true
         },
-        {
-          name: 'MiniMax@元器',
-          avatar: require('../../../assets/ai/yuanbao.png'),
-          capabilities: [],
-          selectedCapabilities: [],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
+        // {
+        //   name: 'MiniMax@元器',
+        //   avatar: require('../../../assets/ai/yuanbao.png'),
+        //   capabilities: [],
+        //   selectedCapabilities: [],
+        //   enabled: true,
+        //   status: 'idle',
+        //   progressLogs: [],
+        //   isExpanded: true
+        // },
         // {
         //   name: '搜狗搜索@元器',
         //   avatar: require('../../../assets/ai/yuanbao.png'),
@@ -783,9 +783,9 @@ export default {
         case 'RETURN_TURBOS_LARGE_RES':
           targetAI = this.enabledAIs.find(ai => ai.name === 'TurboS长文版@元器');
           break;
-        case 'RETURN_MINI_MAX_RES':
-          targetAI = this.enabledAIs.find(ai => ai.name === 'MiniMax@元器');
-          break;
+        // case 'RETURN_MINI_MAX_RES':
+        //   targetAI = this.enabledAIs.find(ai => ai.name === 'MiniMax@元器');
+        //   break;
       }
 
       if (targetAI) {
@@ -1107,16 +1107,16 @@ export default {
           progressLogs: [],
           isExpanded: true
         },
-        {
-          name: 'MiniMax@元器',
-          avatar: require('../../../assets/ai/yuanbao.png'),
-          capabilities: [],
-          selectedCapabilities: [],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
+        // {
+        //   name: 'MiniMax@元器',
+        //   avatar: require('../../../assets/ai/yuanbao.png'),
+        //   capabilities: [],
+        //   selectedCapabilities: [],
+        //   enabled: true,
+        //   status: 'idle',
+        //   progressLogs: [],
+        //   isExpanded: true
+        // },
         // {
         //   name: 'KIMI@元器',
         //   avatar: require('../../../assets/ai/yuanbao.png'),
