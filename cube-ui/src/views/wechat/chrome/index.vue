@@ -730,7 +730,7 @@ export default {
           targetAI.progressLogs.unshift({
             content: dataObj.content,
             timestamp: new Date(),
-            isCompleted: false // 添加完成状态标记
+            isCompleted: false
           });
         }
         return;
