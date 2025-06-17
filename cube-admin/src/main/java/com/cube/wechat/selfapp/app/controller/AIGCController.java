@@ -348,7 +348,6 @@ public class AIGCController extends BaseController {
             userInfoReq.setTaskId(uuid.toString());
             userInfoReq.setType("START_DOC");
 
-//            myWebSocketHandler.sendMsgToClient(userInfoReq.getUserId(),userInfoReq.getUserPrompt(),userInfoReq);
             long startTime = System.currentTimeMillis();
             long timeout = 600000;
             boolean isCompleted = false;

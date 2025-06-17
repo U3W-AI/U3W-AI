@@ -107,7 +107,6 @@ public class DouBaoUtil {
                 Locator outputLocator = page.locator(".flow-markdown-body").last();
                 currentContent = outputLocator.innerHTML();
                 if(currentContent.contains("改用对话直接回答")){
-                    System.out.println("新样式切换");
                     page.getByText("改用对话直接回答").click();
                 }
 
