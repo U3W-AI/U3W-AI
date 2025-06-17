@@ -250,8 +250,8 @@ public class AIGCController extends BaseController {
         return ResultBody.success("成功");
     }
     @GetMapping("/getChatHistory")
-    public ResultBody getChatHistory(String userId){
-        return ResultBody.success(aigcMapper.getChatHistory(userId));
+    public ResultBody getChatHistory(String userId,int isAll){
+        return ResultBody.success(aigcMapper.getChatHistory(userId,isAll));
     }
 
     @GetMapping("/getAIResult")

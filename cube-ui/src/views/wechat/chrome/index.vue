@@ -499,7 +499,7 @@ export default {
     console.log(this.userId);
     console.log(this.corpId);
     this.initWebSocket(this.userId);
-    this.loadChatHistory(); // 加载历史记录
+    this.loadChatHistory(0); // 加载历史记录
     this.loadLastChat(); // 加载上次会话
   },
   methods: {
@@ -933,7 +933,7 @@ export default {
     // 显示历史记录抽屉
     showHistoryDrawer() {
       this.historyDrawerVisible = true;
-      this.loadChatHistory();
+      this.loadChatHistory(1);
     },
 
     // 关闭历史记录抽屉
@@ -942,9 +942,9 @@ export default {
     },
 
     // 加载历史记录
-    async loadChatHistory() {
+    async loadChatHistory(isAll) {
       try {
-        const res = await getChatHistory(this.userId);
+        const res = await getChatHistory(this.userId, isAll);
         if (res.code === 200) {
           this.chatHistory = res.data || [];
         }
@@ -1175,7 +1175,7 @@ export default {
     // 加载上次会话
     async loadLastChat() {
       try {
-        const res = await getChatHistory(this.userId);
+        const res = await getChatHistory(this.userId,0);
         if (res.code === 200 && res.data && res.data.length > 0) {
           // 获取最新的会话记录
           const lastChat = res.data[0];

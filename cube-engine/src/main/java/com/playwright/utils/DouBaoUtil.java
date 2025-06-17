@@ -106,6 +106,10 @@ public class DouBaoUtil {
                 // 获取最新内容
                 Locator outputLocator = page.locator(".flow-markdown-body").last();
                 currentContent = outputLocator.innerHTML();
+                if(currentContent.contains("改用对话直接回答")){
+                    System.out.println("新样式切换");
+                    page.getByText("改用对话直接回答").click();
+                }
 
                 System.out.println(currentContent);
                 // 如果当前内容和上次内容相同，认为 AI 已经完成回答，退出循环
@@ -116,7 +120,7 @@ public class DouBaoUtil {
 
                 // 更新上次内容为当前内容
                 lastContent = currentContent;
-                page.waitForTimeout(20000);  // 等待10秒再次检查
+                page.waitForTimeout(10000);  // 等待10秒再次检查
             }
             logInfo.sendTaskLog( "豆包内容已自动提取完成",userId,"豆包");
 
