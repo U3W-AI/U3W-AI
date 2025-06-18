@@ -207,6 +207,17 @@
             :label="result.aiName"
             :name="'result-' + index">
             <div class="result-content">
+              <div class="result-header" v-if="result.shareUrl">
+                <div class="result-title">{{ result.aiName }}的执行结果</div>
+                <el-button 
+                  size="mini" 
+                  type="primary" 
+                  icon="el-icon-link" 
+                  @click="openShareUrl(result.shareUrl)"
+                  class="share-link-btn">
+                  查看原链接
+                </el-button>
+              </div>
               <div class="markdown-content" v-html="renderMarkdown(result.content)"></div>
               <div class="action-buttons">
                 <el-button size="small" type="primary" @click="copyResult(result.content)">复制</el-button>
@@ -665,6 +676,14 @@ export default {
       URL.revokeObjectURL(link.href);
       this.$message.success('已导出Markdown文件');
     },
+
+    openShareUrl(shareUrl) {
+      if (shareUrl) {
+        window.open(shareUrl, '_blank');
+      } else {
+        this.$message.warning('暂无原链接');
+      }
+    },
     showLargeImage(imageUrl) {
       this.currentLargeImage = imageUrl;
       this.showImageDialog = true;
@@ -709,7 +728,7 @@ export default {
     },
 
     handleWebSocketMessage(data) {
-      console.log('收到消息:', data);
+      
       const datastr = data;
       const dataObj = JSON.parse(datastr);
 
@@ -743,7 +762,7 @@ export default {
         return;
       }
 
-      // 处理智能评分结果
+              // 处理智能评分结果
       if (dataObj.type === 'RETURN_WKPF_RES') {
         const wkpfAI = this.enabledAIs.find(ai => ai.name === '智能评分');
         if (wkpfAI) {
@@ -755,6 +774,7 @@ export default {
           this.results.unshift({
             aiName: '智能评分',
             content: dataObj.draftContent,
+            shareUrl: dataObj.shareUrl || '',
             timestamp: new Date()
           });
           this.activeResultTab = 'result-0';
@@ -769,18 +789,23 @@ export default {
       let targetAI = null;
       switch (dataObj.type) {
         case 'RETURN_YBT1_RES':
+          console.log('收到消息:', data);
           targetAI = this.enabledAIs.find(ai => ai.name === '腾讯元宝T1');
           break;
         case 'RETURN_YBDS_RES':
+          console.log('收到消息:', data);
           targetAI = this.enabledAIs.find(ai => ai.name === '腾讯元宝DS');
           break;
         case 'RETURN_DB_RES':
+          console.log('收到消息:', data);
           targetAI = this.enabledAIs.find(ai => ai.name === '豆包');
           break;
         case 'RETURN_TURBOS_RES':
+          console.log('收到消息:', data);
           targetAI = this.enabledAIs.find(ai => ai.name === 'TurboS@元器');
           break;
         case 'RETURN_TURBOS_LARGE_RES':
+          console.log('收到消息:', data);
           targetAI = this.enabledAIs.find(ai => ai.name === 'TurboS长文版@元器');
           break;
         // case 'RETURN_MINI_MAX_RES':
@@ -803,6 +828,7 @@ export default {
           this.results.unshift({
             aiName: targetAI.name,
             content: dataObj.draftContent,
+            shareUrl: dataObj.shareUrl || '',
             timestamp: new Date()
           });
           this.activeResultTab = 'result-0';
@@ -811,6 +837,7 @@ export default {
           this.results.unshift({
             aiName: targetAI.name,
             content: dataObj.draftContent,
+            shareUrl: dataObj.shareUrl || '',
             timestamp: new Date()
           });
           this.activeResultTab = 'result-0';
@@ -1566,6 +1593,26 @@ export default {
 
 .result-content {
   padding: 20px 30px;
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.result-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.share-link-btn {
+  border-radius: 16px;
+  padding: 6px 12px;
 }
 
 .markdown-content {

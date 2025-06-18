@@ -662,4 +662,12 @@ where task_id =#{taskId} and task_name =#{taskName}
     <select id="getUserCountByUserName" parameterType="java.lang.String" resultType="java.lang.Integer">
         select count(1) from sys_user where user_name = #{userName}
     </select>
+
+    <select id="getAllUserInfo" resultType="java.util.Map">
+        select u.user_id,address from sys_user u left join geth_user_rel gu on u.user_id = gu.user_id where address is not null
+    </select>
+
+    <update id="updateUserInfo" >
+        update sys_user set points = #{point} where user_id = #{userId}
+    </update>
 </mapper>

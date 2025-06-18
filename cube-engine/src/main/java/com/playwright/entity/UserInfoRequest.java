@@ -51,4 +51,6 @@ public class UserInfoRequest {
 
     @Schema(description = "消息类型", example = "text")
     private String type;
+
+    private String shareUrl;
 }

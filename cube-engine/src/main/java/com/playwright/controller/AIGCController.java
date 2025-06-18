@@ -17,6 +17,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -66,6 +68,9 @@ public class AIGCController {
     // 浏览器截图操作工具类
     @Autowired
     private ScreenshotUtil screenshotUtil;
+
+    @Autowired
+    private ClipboardLockManager clipboardLockManager;
 
 
     /**
@@ -319,13 +324,31 @@ public class AIGCController {
 //            String copiedText =  douBaoUtil.waitAndClickDBCopyButton(page,userId,roles);
             //等待html片段获取完成
             String copiedText =  douBaoUtil.waitDBHtmlDom(page,userId);
+            AtomicReference<String> shareUrlRef = new AtomicReference<>();
+
+            clipboardLockManager.runWithClipboardLock(() -> {
+                try {
+                    page.locator("button[data-testid='message_action_share']").last().click();
+                    Thread.sleep(2000);
+                    page.locator("button[data-testid='thread_share_copy_btn']").first().click();
+                    // 建议适当延迟等待内容更新
+                    Thread.sleep(2000);
+                    String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
+                    shareUrlRef.set(shareUrl);
+                    System.out.println("剪贴板内容：" + shareUrl);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+
             Thread.sleep(1000);
+            String shareUrl = shareUrlRef.get();
             //关闭截图
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
             logInfo.sendTaskLog( "执行完成",userId,"豆包");
             logInfo.sendChatData(page,"/chat/([^/?#]+)",userId,"RETURN_DB_CHATID",1);
-            logInfo.sendResData(copiedText,userId,"豆包","RETURN_DB_RES");
+            logInfo.sendResData(copiedText,userId,"豆包","RETURN_DB_RES",shareUrl);
 
             //保存数据库
             userInfoRequest.setDraftContent(copiedText);
@@ -405,25 +428,38 @@ public class AIGCController {
 
             logInfo.sendTaskLog( "开启自动监听任务，持续监听评分结果",userId,"智能评分");
             // 等待复制按钮出现并点击
-            douBaoUtil.waitAndClickDBScoreCopyButton(page,userId);
+            String copiedText =  douBaoUtil.waitDBHtmlDom(page,userId);
+            AtomicReference<String> shareUrlRef = new AtomicReference<>();
+            clipboardLockManager.runWithClipboardLock(() -> {
+                try {
+                    page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[1]/div[1]/div/div/div[2]/div/div[1]/div/div/div[2]/div[8]/div/div/div/div/div/div/div[2]/div/div/div/button[3]/span/span[2]").click();
+                    page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[1]/div[1]/div/div/div[3]/div/div/div/div/div[1]/div/div/div/button").click();
+                    // 建议适当延迟等待内容更新
+                    Thread.sleep(500); // 根据实际加载速度调整
+                    String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
+                    shareUrlRef.set(shareUrl);
+                    System.out.println("剪贴板内容：" + shareUrl);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
 
+            Thread.sleep(1000);
+            String shareUrl = shareUrlRef.get();
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
-            Thread.sleep(1000);
-            String copiedText = (String) page.evaluate("navigator.clipboard.readText()");
             logInfo.sendTaskLog( "执行完成",userId,"智能评分");
-            logInfo.sendResData(copiedText,userId,"智能评分","RETURN_WKPF_RES");
-
+            logInfo.sendResData(copiedText,userId,"智能评分","RETURN_WKPF_RES",shareUrl);
             userInfoRequest.setDraftContent(copiedText);
             userInfoRequest.setAiName("智能评分");
             RestUtils.post(url+"/saveDraftContent", userInfoRequest);
-
             return copiedText;
         } catch (Exception e) {
             e.printStackTrace();
         }
         return "获取内容失败";
     }
+
 
 
 }

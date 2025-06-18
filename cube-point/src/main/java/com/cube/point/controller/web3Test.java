@@ -45,29 +45,17 @@ public class web3Test {
 
 
 
-    public static void getAccount(String from,String to) {
+    public static void getAccount(String from) {
         //连接到私链
         Web3j web3 = Web3j.build(new HttpService("http://101.34.87.103:8545"));
         //获取一些区块链信息
         try {
-            //查看区块链中的区块数量
-            EthBlockNumber blockNumber = web3.ethBlockNumber().send();
-            //查看节点中的账户
-            EthAccounts accounts = web3.ethAccounts().send();
-            // 查看网络中的节点数目
-            NetPeerCount peerCount = web3.netPeerCount().send();
             //余额
-            EthGetBalance ethbalance = web3.ethGetBalance(to, DefaultBlockParameterName.LATEST).send();
             EthGetBalance ethbalanceT = web3.ethGetBalance(from, DefaultBlockParameterName.LATEST).send();
-            BigDecimal balanceInEther = Convert.fromWei(ethbalance.getBalance().toString(), Convert.Unit.ETHER);
             BigDecimal balanceInEtherT = Convert.fromWei(ethbalanceT.getBalance().toString(), Convert.Unit.ETHER);
 
             //打印信息
-            System.out.println("网络中的区块数量: " + blockNumber.getBlockNumber());
-            System.out.println("节点中的账户: " + accounts.getAccounts());
-            System.out.println("网络中的节点数目: " + peerCount.getQuantity());
-            System.out.println("账户的余额："+balanceInEther);
-            System.out.println("总账户的余额："+balanceInEtherT);
+            System.out.println("账户的余额："+balanceInEtherT);
 
         } catch (IOException ex) {
             throw new RuntimeException("Error whilst sending json-rpc requests", ex);
@@ -132,11 +120,8 @@ public class web3Test {
 
     public static void main(String[] args) throws Exception {
 //        sendtrans();
-//        ethTran("0x8376637313b37b0abc97a401aa214d022ef3ab94","0x8a23bde7103320b2f5d9eee6c90faa0e8e1ba925", BigInteger.valueOf(1982));
-//        ethTran( "0x2edc4228a84d672affe8a594033cb84a029bcafc","0x3f4413a0e863903147172b1e7672d7a23025e084",BigInteger.valueOf(10000000));
-        getAccount("0x3f4413a0e863903147172b1e7672d7a23025e084","0x8a23bde7103320b2f5d9eee6c90faa0e8e1ba925");
-//        getAccount("0x3f4413a0e863903147172b1e7672d7a23025e084","0x8a23bde7103320b2f5d9eee6c90faa0e8e1ba925");
-//        getAccount("0x83e09c4e95241575a1d508833c9ec23ebe7c7725","0x83e09c4e95241575a1d508833c9ec23ebe7c7725");
+        getAccount("0x3f4413a0e863903147172b1e7672d7a23025e084");
+//        getAccount("0x8a23bde7103320b2f5d9eee6c90faa0e8e1ba925");
 
     }
 
