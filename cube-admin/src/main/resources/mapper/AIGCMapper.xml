@@ -277,9 +277,9 @@ from wc_chrome_hotlink wck left join sys_user u on wck.user_name = u.user_name
     </update>
 
     <insert id="saveDraftContent" parameterType="java.util.Map">
-        insert into wc_playwright_draft (id,task_id,keyword,user_prompt,draft_content,is_push,ai_name,create_time,user_name,share_url)
+        insert into wc_playwright_draft (id,task_id,keyword,user_prompt,draft_content,is_push,ai_name,create_time,user_name,share_url,share_img_url)
         values
-        (uuid(),#{taskId},#{keyWord},#{userPrompt},#{draftContent},0,#{aiName},now(),#{userId},#{shareUrl})
+        (uuid(),#{taskId},#{keyWord},#{userPrompt},#{draftContent},0,#{aiName},now(),#{userId},#{shareUrl},#{shareImgUrl})
     </insert>
 
     <select id="getDraftContent" parameterType="java.lang.String" resultType="java.lang.String">

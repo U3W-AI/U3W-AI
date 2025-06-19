@@ -53,4 +53,6 @@ public class UserInfoRequest {
     private String type;
 
     private String shareUrl;
+
+    private String shareImgUrl;
 }

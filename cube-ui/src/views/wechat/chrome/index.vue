@@ -209,16 +209,43 @@
             <div class="result-content">
               <div class="result-header" v-if="result.shareUrl">
                 <div class="result-title">{{ result.aiName }}的执行结果</div>
-                <el-button 
-                  size="mini" 
-                  type="primary" 
-                  icon="el-icon-link" 
+                <el-button
+                  size="mini"
+                  type="primary"
+                  icon="el-icon-link"
                   @click="openShareUrl(result.shareUrl)"
                   class="share-link-btn">
                   查看原链接
                 </el-button>
               </div>
-              <div class="markdown-content" v-html="renderMarkdown(result.content)"></div>
+              <!-- 如果有shareImgUrl则渲染图片或PDF，否则渲染markdown -->
+              <div v-if="result.shareImgUrl" class="share-content">
+                <!-- 渲染图片 -->
+                <img
+                  v-if="isImageFile(result.shareImgUrl)"
+                  :src="result.shareImgUrl"
+                  alt="分享图片"
+                  class="share-image"
+                  :style="getImageStyle(result.aiName)"
+                >
+                <!-- 渲染PDF -->
+                <iframe
+                  v-else-if="isPdfFile(result.shareImgUrl)"
+                  :src="result.shareImgUrl"
+                  class="share-pdf"
+                  frameborder="0">
+                </iframe>
+                <!-- 其他文件类型显示链接 -->
+                <div v-else class="share-file">
+                  <el-button
+                    type="primary"
+                    icon="el-icon-document"
+                    @click="openShareUrl(result.shareImgUrl)">
+                    查看文件
+                  </el-button>
+                </div>
+              </div>
+              <div v-else class="markdown-content" v-html="renderMarkdown(result.content)"></div>
               <div class="action-buttons">
                 <el-button size="small" type="primary" @click="copyResult(result.content)">复制</el-button>
                 <el-button size="small" type="success" @click="exportResult(result)">导出</el-button>
@@ -241,7 +268,12 @@
       @close="closeLargeImage"
     >
       <div class="large-image-container">
-        <el-carousel :interval="3000" :autoplay="false" indicator-position="outside" height="80vh">
+        <!-- 如果是单张分享图片，直接显示 -->
+        <div v-if="currentLargeImage && !screenshots.includes(currentLargeImage)" class="single-image-container">
+          <img :src="currentLargeImage" alt="大图" class="large-image">
+        </div>
+        <!-- 如果是截图轮播 -->
+        <el-carousel v-else :interval="3000" :autoplay="false" indicator-position="outside" height="80vh">
           <el-carousel-item v-for="(screenshot, index) in screenshots" :key="index">
             <img :src="screenshot" alt="大图" class="large-image">
           </el-carousel-item>
@@ -728,7 +760,7 @@ export default {
     },
 
     handleWebSocketMessage(data) {
-      
+
       const datastr = data;
       const dataObj = JSON.parse(datastr);
 
@@ -775,6 +807,7 @@ export default {
             aiName: '智能评分',
             content: dataObj.draftContent,
             shareUrl: dataObj.shareUrl || '',
+            shareImgUrl: dataObj.shareImgUrl || '',
             timestamp: new Date()
           });
           this.activeResultTab = 'result-0';
@@ -829,6 +862,7 @@ export default {
             aiName: targetAI.name,
             content: dataObj.draftContent,
             shareUrl: dataObj.shareUrl || '',
+            shareImgUrl: dataObj.shareImgUrl || '',
             timestamp: new Date()
           });
           this.activeResultTab = 'result-0';
@@ -838,6 +872,7 @@ export default {
             aiName: targetAI.name,
             content: dataObj.draftContent,
             shareUrl: dataObj.shareUrl || '',
+            shareImgUrl: dataObj.shareImgUrl || '',
             timestamp: new Date()
           });
           this.activeResultTab = 'result-0';
@@ -1212,6 +1247,40 @@ export default {
         console.error('加载上次会话失败:', error);
       }
     },
+
+    // 判断是否为图片文件
+    isImageFile(url) {
+      if (!url) return false;
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+      const urlLower = url.toLowerCase();
+      return imageExtensions.some(ext => urlLower.includes(ext));
+    },
+
+    // 判断是否为PDF文件
+    isPdfFile(url) {
+      if (!url) return false;
+      return url.toLowerCase().includes('.pdf');
+    },
+
+    // 根据AI名称获取图片样式
+    getImageStyle(aiName) {
+      const widthMap = {
+        'TurboS@元器': '700px',
+        '腾讯元宝DS': '700px',
+        'TurboS长文版@元器': '700px',
+        '腾讯元宝T1': '700px',
+        '豆包': '560px'
+      };
+
+      const width = widthMap[aiName] || '560px'; // 默认宽度
+
+      return {
+        width: width,
+        height: 'auto'
+      };
+    },
+
+
   }
 };
 </script>
@@ -1889,5 +1958,55 @@ export default {
   background-color: #66b1ff;
   border-color: #66b1ff;
   color: #fff;
+}
+
+/* 分享内容样式 */
+.share-content {
+  margin-bottom: 20px;
+  padding: 15px 20px;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  background-color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 600px;
+  max-height: 800px;
+  overflow: auto;
+}
+
+.share-image {
+  object-fit: contain;
+  display: block;
+}
+
+.share-pdf {
+  width: 100%;
+  height: 600px;
+  border: none;
+  border-radius: 4px;
+}
+
+.share-file {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  flex-direction: column;
+  color: #909399;
+}
+
+.single-image-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 80vh;
+}
+
+.single-image-container .large-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 </style>

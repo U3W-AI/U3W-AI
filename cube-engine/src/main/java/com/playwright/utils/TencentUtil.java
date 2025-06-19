@@ -1,6 +1,7 @@
 package com.playwright.utils;
 
 import com.alibaba.fastjson.JSONObject;
+import com.microsoft.playwright.Download;
 import com.microsoft.playwright.ElementHandle;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
@@ -11,6 +12,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -41,6 +45,9 @@ public class TencentUtil {
 
     @Value("${cube.url}")
     private String url;
+
+    @Value("${cube.uploadurl}")
+    private String uploadUrl;
 
     @Autowired
     private ClipboardLockManager clipboardLockManager;
@@ -135,13 +142,22 @@ public class TencentUtil {
             });
             Thread.sleep(1000);
             String shareUrl = shareUrlRef.get();
+
+            page.locator("div.agent-chat__share-bar__item__logo").nth(1).click();
+
+            String sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
+                page.locator("div.hyc-photo-view__control__btn-download").click();
+            });
+
             // 日志记录与数据保存
             logInfo.sendTaskLog( "执行完成",userId,agentName);
-            logInfo.sendResData(copiedText,userId,agentName,resName,shareUrl);
+            logInfo.sendResData(copiedText,userId,agentName,resName,shareUrl,sharImgUrl);
 
             Thread.sleep(3000);
             userInfoRequest.setDraftContent(copiedText);
             userInfoRequest.setAiName("Agent-"+aiName);
+            userInfoRequest.setShareUrl(shareUrl);
+            userInfoRequest.setShareImgUrl(sharImgUrl);
             RestUtils.post(url+"/saveDraftContent", userInfoRequest);
             return copiedText;
         }catch (Exception e) {
@@ -308,10 +324,15 @@ public class TencentUtil {
                 agentName = "腾讯元宝DS";
                 logInfo.sendTaskLog( "开启自动监听任务，持续监听腾讯元宝DS回答中",userId,agentName);
             }
+
             //等待复制按钮出现并点击
 //            String copiedText = waitAndClickYBCopyButton(page,userId,aiName,initialCount,agentName);
             //等待html片段获取
             String copiedText = waitHtmlDom(page,agentName,userId);
+
+            //关闭截图
+            screenshotFuture.cancel(false);
+            screenshotExecutor.shutdown();
             AtomicReference<String> shareUrlRef = new AtomicReference<>();
 
             clipboardLockManager.runWithClipboardLock(() -> {
@@ -333,23 +354,26 @@ public class TencentUtil {
             Thread.sleep(1000);
             String shareUrl = shareUrlRef.get();
 
-            //关闭截图
-            screenshotFuture.cancel(false);
-            screenshotExecutor.shutdown();
+            page.locator("div.agent-chat__share-bar__item__logo").nth(1).click();
+
+            String  sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
+                page.locator("div.hyc-photo-view__control__btn-download").click();
+            });
 
             if (aiName.contains("hunyuan")) {
                 logInfo.sendTaskLog( "执行完成",userId,"腾讯元宝T1");
                 logInfo.sendChatData(page,"/chat/([^/]+)/([^/]+)",userId,"RETURN_YBT1_CHATID",2);
-                logInfo.sendResData(copiedText,userId,"腾讯元宝T1","RETURN_YBT1_RES",shareUrl);
+                logInfo.sendResData(copiedText,userId,"腾讯元宝T1","RETURN_YBT1_RES",shareUrl,sharImgUrl);
             } else if (aiName.contains("deepseek")) {
                 logInfo.sendTaskLog( "执行完成",userId,"腾讯元宝DS");
                 logInfo.sendChatData(page,"/chat/([^/]+)/([^/]+)",userId,"RETURN_YBDS_CHATID",2);
-                logInfo.sendResData(copiedText,userId,"腾讯元宝T1","RETURN_YBDS_RES",shareUrl);
+                logInfo.sendResData(copiedText,userId,"腾讯元宝T1","RETURN_YBDS_RES",shareUrl,sharImgUrl);
             }
 
             userInfoRequest.setDraftContent(copiedText);
             userInfoRequest.setAiName("腾讯元宝-" + aiName);
             userInfoRequest.setShareUrl(shareUrl);
+            userInfoRequest.setShareImgUrl(sharImgUrl);
             RestUtils.post(url + "/saveDraftContent", userInfoRequest);
             return copiedText;
         }catch (Exception e) {

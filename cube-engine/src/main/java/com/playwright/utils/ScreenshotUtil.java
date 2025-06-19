@@ -1,6 +1,7 @@
 package com.playwright.utils;
 
 import com.alibaba.fastjson.JSONObject;
+import com.microsoft.playwright.Download;
 import com.microsoft.playwright.Page;
 import okhttp3.*;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,9 +10,12 @@ import org.springframework.stereotype.Component;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.UUID;
 
 /**
  * @author 优立方
@@ -53,14 +57,28 @@ public class ScreenshotUtil {
     }
 
     public static String uploadFile(String serverUrl, String filePath) throws IOException {
+        System.out.println("原文件："+filePath);
         OkHttpClient client = new OkHttpClient();
         File file = new File(filePath);
+
+        // 根据文件扩展名自动判断 MIME 类型
+        String mimeType;
+        if (filePath.toLowerCase().endsWith(".png")) {
+            mimeType = "image/png";
+        } else if (filePath.toLowerCase().endsWith(".jpg") || filePath.toLowerCase().endsWith(".jpeg")) {
+            mimeType = "image/jpeg";
+        } else if (filePath.toLowerCase().endsWith(".pdf")) {
+            mimeType = "application/pdf";
+        } else {
+            // 默认二进制流
+            mimeType = "application/pdf";
+        }
 
         // 构建 Multipart 请求体
         RequestBody requestBody = new MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart("file", file.getName(),
-                        RequestBody.create(file, MediaType.parse("image/png")))
+                        RequestBody.create(file, MediaType.parse(mimeType)))
                 .build();
 
         // 构建 HTTP 请求
@@ -78,4 +96,30 @@ public class ScreenshotUtil {
         }
     }
 
+
+    public static String downloadAndUploadFile(Page page, String uploadUrl, Runnable downloadTrigger) throws IOException {
+        Download download = page.waitForDownload(downloadTrigger);
+
+        Path tmpPath = download.path();
+        if (tmpPath == null) {
+            throw new IOException("下载文件失败，路径为空");
+        }
+
+        String originalName = download.suggestedFilename();
+        String extension = "";
+        int dotIndex = originalName.lastIndexOf(".");
+        if (dotIndex != -1) {
+            extension = originalName.substring(dotIndex);
+        }
+
+        String uuidFileName = UUID.randomUUID().toString() + extension;
+        Path renamedFilePath = tmpPath.resolveSibling(uuidFileName);
+        Files.move(tmpPath, renamedFilePath, StandardCopyOption.REPLACE_EXISTING);
+
+        String result = uploadFile(uploadUrl, renamedFilePath.toString());
+        Files.deleteIfExists(renamedFilePath);
+
+        JSONObject jsonObject = JSONObject.parseObject(result);
+        return jsonObject.getString("url");
+    }
 }

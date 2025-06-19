@@ -74,11 +74,12 @@ public class LogMsgUtil {
      * @param aiName AI服务名称
      * @param type 消息类型标识
      */
-    public void sendResData(String copiedText,String userId,String aiName,String type,String shareUrl){
+    public void sendResData(String copiedText,String userId,String aiName,String type,String shareUrl,String shareImgUrl){
 
         JSONObject resData = new JSONObject();
         resData.put("draftContent",copiedText);
         resData.put("shareUrl",shareUrl);
+        resData.put("shareImgUrl",shareImgUrl);
         resData.put("aiName",aiName);
         resData.put("type", type);
         resData.put("userId",userId);
