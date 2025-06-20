@@ -2,7 +2,7 @@
 
 版本：2.05B
 
-发布日期：2025年6月1日
+文档更新日期：2025年6月20日
 
 作者：悟空共创（杭州）智能科技有限公司
 
@@ -176,7 +176,24 @@ Slogan：Unique³ Wisdom（独特智慧三次方）
 
 提供一个开箱即用、功能完备、稳定可靠的商业解决方案，帮助企业实现内容生产的团队化、智能化，显著提升运营效率和市场竞争力。
 
-## 4. 系统架构与技术实现
+## 4. 项目结构
+
+```
+U3W-AI/
+├── common_deployment_guide.md  [公共环境部署指南](common_deployment_guide.md)
+├── cube-admin/           # AI主机控制台后端
+│   └── deployment_guide.md  [部署指南](cube-admin/deployment_guide.md)
+├── cube-ui/              # AI主机控制台前端
+│   └── deployment_guide.md  [部署指南](cube-ui/deployment_guide.md)
+├── cube-engine/          # AI主机核心服务
+│   └── deployment_guide.md  [部署指南](cube-engine/deployment_guide.md)
+├── cube-common/          # 公共工具模块
+├── cube-framework/       # 框架核心模块
+├── sql/                  # 数据库脚本
+└── README.md             # 项目说明文档
+```
+
+## 5. 系统架构与技术实现
 
 优立方 AI 主机采用先进的模块化、分布式架构，确保高效率、高稳定性和易于扩展性。
 
