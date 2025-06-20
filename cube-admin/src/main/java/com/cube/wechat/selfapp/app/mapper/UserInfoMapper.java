@@ -4,9 +4,11 @@ package com.cube.wechat.selfapp.app.mapper;
 import com.cube.wechat.selfapp.app.domain.AINodeLog;
 import com.cube.wechat.selfapp.app.domain.AIParam;
 import com.cube.wechat.selfapp.app.domain.WcOfficeAccount;
+import io.github.novacrypto.bip44.M;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -179,5 +181,9 @@ public interface UserInfoMapper {
     int saveUserFlowId(Map map);
 
     Integer getUserCountByUserName(String userName);
+
+    List<Map> getAllUserInfo();
+
+    int updateUserInfo(@Param("userId") String userId,@Param("point") BigDecimal point);
 }
 

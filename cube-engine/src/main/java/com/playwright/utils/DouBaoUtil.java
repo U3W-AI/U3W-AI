@@ -3,6 +3,8 @@ package com.playwright.utils;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.WaitForSelectorState;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -89,6 +91,7 @@ public class DouBaoUtil {
             // 等待聊天框的内容稳定
             String currentContent = "";
             String lastContent = "";
+            boolean isRight =false;
             // 设置最大等待时间（单位：毫秒），比如 10 分钟
             long timeout = 600000; // 10 分钟
             long startTime = System.currentTimeMillis();  // 获取当前时间戳
@@ -104,8 +107,21 @@ public class DouBaoUtil {
                     break;
                 }
                 // 获取最新内容
-                Locator outputLocator = page.locator(".flow-markdown-body").last();
-                currentContent = outputLocator.innerHTML();
+
+
+                if(currentContent.contains("改用对话直接回答")){
+//                    page.getByText("改用对话直接回答").click();
+                    isRight = true;
+                }
+
+                if(isRight){
+                    Locator outputLocator = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[2]/div/aside[2]/div/div/div[1]/div/div[2]").last();
+                    currentContent = outputLocator.innerHTML();
+                }else{
+                    Locator outputLocator = page.locator(".flow-markdown-body").last();
+                    currentContent = outputLocator.innerHTML();
+                }
+
 
                 System.out.println(currentContent);
                 // 如果当前内容和上次内容相同，认为 AI 已经完成回答，退出循环
@@ -116,13 +132,16 @@ public class DouBaoUtil {
 
                 // 更新上次内容为当前内容
                 lastContent = currentContent;
-                page.waitForTimeout(20000);  // 等待10秒再次检查
+                page.waitForTimeout(10000);  // 等待10秒再次检查
             }
             logInfo.sendTaskLog( "豆包内容已自动提取完成",userId,"豆包");
 
             String regex = "<span>\\s*<span[^>]*?>\\d+</span>\\s*</span>";
 
             currentContent = currentContent.replaceAll(regex,"");
+            currentContent = currentContent.replaceAll("撰写任何内容...","");
+            Document doc = Jsoup.parse(currentContent);
+            currentContent = doc.text();  // 提取纯文本内容
             return currentContent;
 
         } catch (Exception e) {

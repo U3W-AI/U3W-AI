@@ -114,8 +114,8 @@ public class BrowserController {
     public String getAgentQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"agent")) {
             Page page = context.newPage();
-            page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa");
-            page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div[1]").click();
+            page.navigate("https://hunyuan.tencent.com/");
+            page.locator("//*[@id=\"app\"]/div/div[1]/div[2]/button").click();
             Thread.sleep(3000);
             String url = screenshotUtil.screenshotAndUpload(page,"checkAgentLogin.png");
 
@@ -124,8 +124,10 @@ public class BrowserController {
             jsonObject.put("userId",userId);
             jsonObject.put("type","RETURN_PC_AGENT_QRURL");
             webSocketClientService.sendMessage(jsonObject.toJSONString());
-            Locator locator = page.getByText("登录成功");
+            Locator locator = page.locator("//*[@id=\"app\"]/div/div[1]/div[2]/div");
             locator.waitFor(new Locator.WaitForOptions().setTimeout(60000));
+            Thread.sleep(2000);
+            page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa");
             Thread.sleep(2000);
             Locator phone = page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/div[2]/p");
             if(phone.count()>0){
@@ -154,8 +156,8 @@ public class BrowserController {
     public String getYBQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"yb")) {
             Page page = context.newPage();
-            page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa");
-            page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div[1]").click();
+            page.navigate("https://hunyuan.tencent.com/");
+            page.locator("//*[@id=\"app\"]/div/div[1]/div[2]/button").click();
             Thread.sleep(3000);
             String url = screenshotUtil.screenshotAndUpload(page,"checkYBLogin.png");
 
@@ -164,12 +166,15 @@ public class BrowserController {
             jsonObject.put("userId",userId);
             jsonObject.put("type","RETURN_PC_YB_QRURL");
             webSocketClientService.sendMessage(jsonObject.toJSONString());
-            Locator locator = page.getByText("登录成功");
+            Locator locator = page.locator("//*[@id=\"app\"]/div/div[1]/div[2]/div");
             locator.waitFor(new Locator.WaitForOptions().setTimeout(60000));
             Thread.sleep(3000);
-            page.click("span.icon-yb-setting");
+            page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa");
             Thread.sleep(2000);
-            Locator phone = page.locator("//*[@id=\"app\"]/div/div[2]/div/div[2]/div[1]/ul/li[1]/div/div[2]/h4");
+            Locator phone = page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/div[2]/p");
+//            page.click("span.icon-yb-setting");
+
+//            Locator phone = page.locator("//*[@id=\"app\"]/div/div[2]/div/div[2]/div[1]/ul/li[1]/div/div[2]/h4");
             if(phone.count()>0){
                 String phoneText = phone.textContent();
                 JSONObject jsonObjectTwo = new JSONObject();

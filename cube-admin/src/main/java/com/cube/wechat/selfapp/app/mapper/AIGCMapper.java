@@ -65,6 +65,6 @@ public interface AIGCMapper {
 
     int saveUserChatData(Map map);
 
-    List<Map> getChatHistory(String userId);
+    List<Map> getChatHistory(@Param("userId") String userId,@Param("isAll") int isAll);
 
 }

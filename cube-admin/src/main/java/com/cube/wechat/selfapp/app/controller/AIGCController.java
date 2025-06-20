@@ -250,8 +250,8 @@ public class AIGCController extends BaseController {
         return ResultBody.success("成功");
     }
     @GetMapping("/getChatHistory")
-    public ResultBody getChatHistory(String userId){
-        return ResultBody.success(aigcMapper.getChatHistory(userId));
+    public ResultBody getChatHistory(String userId,int isAll){
+        return ResultBody.success(aigcMapper.getChatHistory(userId,isAll));
     }
 
     @GetMapping("/getAIResult")
@@ -348,7 +348,6 @@ public class AIGCController extends BaseController {
             userInfoReq.setTaskId(uuid.toString());
             userInfoReq.setType("START_DOC");
 
-//            myWebSocketHandler.sendMsgToClient(userInfoReq.getUserId(),userInfoReq.getUserPrompt(),userInfoReq);
             long startTime = System.currentTimeMillis();
             long timeout = 600000;
             boolean isCompleted = false;

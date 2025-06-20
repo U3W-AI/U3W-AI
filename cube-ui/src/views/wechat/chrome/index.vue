@@ -207,7 +207,45 @@
             :label="result.aiName"
             :name="'result-' + index">
             <div class="result-content">
-              <div class="markdown-content" v-html="renderMarkdown(result.content)"></div>
+              <div class="result-header" v-if="result.shareUrl">
+                <div class="result-title">{{ result.aiName }}的执行结果</div>
+                <el-button
+                  size="mini"
+                  type="primary"
+                  icon="el-icon-link"
+                  @click="openShareUrl(result.shareUrl)"
+                  class="share-link-btn">
+                  查看原链接
+                </el-button>
+              </div>
+              <!-- 如果有shareImgUrl则渲染图片或PDF，否则渲染markdown -->
+              <div v-if="result.shareImgUrl" class="share-content">
+                <!-- 渲染图片 -->
+                <img
+                  v-if="isImageFile(result.shareImgUrl)"
+                  :src="result.shareImgUrl"
+                  alt="分享图片"
+                  class="share-image"
+                  :style="getImageStyle(result.aiName)"
+                >
+                <!-- 渲染PDF -->
+                <iframe
+                  v-else-if="isPdfFile(result.shareImgUrl)"
+                  :src="result.shareImgUrl"
+                  class="share-pdf"
+                  frameborder="0">
+                </iframe>
+                <!-- 其他文件类型显示链接 -->
+                <div v-else class="share-file">
+                  <el-button
+                    type="primary"
+                    icon="el-icon-document"
+                    @click="openShareUrl(result.shareImgUrl)">
+                    查看文件
+                  </el-button>
+                </div>
+              </div>
+              <div v-else class="markdown-content" v-html="renderMarkdown(result.content)"></div>
               <div class="action-buttons">
                 <el-button size="small" type="primary" @click="copyResult(result.content)">复制</el-button>
                 <el-button size="small" type="success" @click="exportResult(result)">导出</el-button>
@@ -230,7 +268,12 @@
       @close="closeLargeImage"
     >
       <div class="large-image-container">
-        <el-carousel :interval="3000" :autoplay="false" indicator-position="outside" height="80vh">
+        <!-- 如果是单张分享图片，直接显示 -->
+        <div v-if="currentLargeImage && !screenshots.includes(currentLargeImage)" class="single-image-container">
+          <img :src="currentLargeImage" alt="大图" class="large-image">
+        </div>
+        <!-- 如果是截图轮播 -->
+        <el-carousel v-else :interval="3000" :autoplay="false" indicator-position="outside" height="80vh">
           <el-carousel-item v-for="(screenshot, index) in screenshots" :key="index">
             <img :src="screenshot" alt="大图" class="large-image">
           </el-carousel-item>
@@ -341,16 +384,16 @@ export default {
           progressLogs: [],
           isExpanded: true
         },
-        {
-          name: 'MiniMax@元器',
-          avatar: require('../../../assets/ai/yuanbao.png'),
-          capabilities: [],
-          selectedCapabilities: [],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
+        // {
+        //   name: 'MiniMax@元器',
+        //   avatar: require('../../../assets/ai/yuanbao.png'),
+        //   capabilities: [],
+        //   selectedCapabilities: [],
+        //   enabled: true,
+        //   status: 'idle',
+        //   progressLogs: [],
+        //   isExpanded: true
+        // },
         // {
         //   name: '搜狗搜索@元器',
         //   avatar: require('../../../assets/ai/yuanbao.png'),
@@ -499,7 +542,7 @@ export default {
     console.log(this.userId);
     console.log(this.corpId);
     this.initWebSocket(this.userId);
-    this.loadChatHistory(); // 加载历史记录
+    this.loadChatHistory(0); // 加载历史记录
     this.loadLastChat(); // 加载上次会话
   },
   methods: {
@@ -665,6 +708,14 @@ export default {
       URL.revokeObjectURL(link.href);
       this.$message.success('已导出Markdown文件');
     },
+
+    openShareUrl(shareUrl) {
+      if (shareUrl) {
+        window.open(shareUrl, '_blank');
+      } else {
+        this.$message.warning('暂无原链接');
+      }
+    },
     showLargeImage(imageUrl) {
       this.currentLargeImage = imageUrl;
       this.showImageDialog = true;
@@ -709,7 +760,7 @@ export default {
     },
 
     handleWebSocketMessage(data) {
-      console.log('收到消息:', data);
+
       const datastr = data;
       const dataObj = JSON.parse(datastr);
 
@@ -730,7 +781,7 @@ export default {
           targetAI.progressLogs.unshift({
             content: dataObj.content,
             timestamp: new Date(),
-            isCompleted: false // 添加完成状态标记
+            isCompleted: false
           });
         }
         return;
@@ -743,7 +794,7 @@ export default {
         return;
       }
 
-      // 处理智能评分结果
+              // 处理智能评分结果
       if (dataObj.type === 'RETURN_WKPF_RES') {
         const wkpfAI = this.enabledAIs.find(ai => ai.name === '智能评分');
         if (wkpfAI) {
@@ -755,6 +806,8 @@ export default {
           this.results.unshift({
             aiName: '智能评分',
             content: dataObj.draftContent,
+            shareUrl: dataObj.shareUrl || '',
+            shareImgUrl: dataObj.shareImgUrl || '',
             timestamp: new Date()
           });
           this.activeResultTab = 'result-0';
@@ -769,23 +822,28 @@ export default {
       let targetAI = null;
       switch (dataObj.type) {
         case 'RETURN_YBT1_RES':
+          console.log('收到消息:', data);
           targetAI = this.enabledAIs.find(ai => ai.name === '腾讯元宝T1');
           break;
         case 'RETURN_YBDS_RES':
+          console.log('收到消息:', data);
           targetAI = this.enabledAIs.find(ai => ai.name === '腾讯元宝DS');
           break;
         case 'RETURN_DB_RES':
+          console.log('收到消息:', data);
           targetAI = this.enabledAIs.find(ai => ai.name === '豆包');
           break;
         case 'RETURN_TURBOS_RES':
+          console.log('收到消息:', data);
           targetAI = this.enabledAIs.find(ai => ai.name === 'TurboS@元器');
           break;
         case 'RETURN_TURBOS_LARGE_RES':
+          console.log('收到消息:', data);
           targetAI = this.enabledAIs.find(ai => ai.name === 'TurboS长文版@元器');
           break;
-        case 'RETURN_MINI_MAX_RES':
-          targetAI = this.enabledAIs.find(ai => ai.name === 'MiniMax@元器');
-          break;
+        // case 'RETURN_MINI_MAX_RES':
+        //   targetAI = this.enabledAIs.find(ai => ai.name === 'MiniMax@元器');
+        //   break;
       }
 
       if (targetAI) {
@@ -803,6 +861,8 @@ export default {
           this.results.unshift({
             aiName: targetAI.name,
             content: dataObj.draftContent,
+            shareUrl: dataObj.shareUrl || '',
+            shareImgUrl: dataObj.shareImgUrl || '',
             timestamp: new Date()
           });
           this.activeResultTab = 'result-0';
@@ -811,6 +871,8 @@ export default {
           this.results.unshift({
             aiName: targetAI.name,
             content: dataObj.draftContent,
+            shareUrl: dataObj.shareUrl || '',
+            shareImgUrl: dataObj.shareImgUrl || '',
             timestamp: new Date()
           });
           this.activeResultTab = 'result-0';
@@ -933,7 +995,7 @@ export default {
     // 显示历史记录抽屉
     showHistoryDrawer() {
       this.historyDrawerVisible = true;
-      this.loadChatHistory();
+      this.loadChatHistory(1);
     },
 
     // 关闭历史记录抽屉
@@ -942,9 +1004,9 @@ export default {
     },
 
     // 加载历史记录
-    async loadChatHistory() {
+    async loadChatHistory(isAll) {
       try {
-        const res = await getChatHistory(this.userId);
+        const res = await getChatHistory(this.userId, isAll);
         if (res.code === 200) {
           this.chatHistory = res.data || [];
         }
@@ -1107,16 +1169,16 @@ export default {
           progressLogs: [],
           isExpanded: true
         },
-        {
-          name: 'MiniMax@元器',
-          avatar: require('../../../assets/ai/yuanbao.png'),
-          capabilities: [],
-          selectedCapabilities: [],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
+        // {
+        //   name: 'MiniMax@元器',
+        //   avatar: require('../../../assets/ai/yuanbao.png'),
+        //   capabilities: [],
+        //   selectedCapabilities: [],
+        //   enabled: true,
+        //   status: 'idle',
+        //   progressLogs: [],
+        //   isExpanded: true
+        // },
         // {
         //   name: 'KIMI@元器',
         //   avatar: require('../../../assets/ai/yuanbao.png'),
@@ -1175,7 +1237,7 @@ export default {
     // 加载上次会话
     async loadLastChat() {
       try {
-        const res = await getChatHistory(this.userId);
+        const res = await getChatHistory(this.userId,0);
         if (res.code === 200 && res.data && res.data.length > 0) {
           // 获取最新的会话记录
           const lastChat = res.data[0];
@@ -1185,6 +1247,40 @@ export default {
         console.error('加载上次会话失败:', error);
       }
     },
+
+    // 判断是否为图片文件
+    isImageFile(url) {
+      if (!url) return false;
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+      const urlLower = url.toLowerCase();
+      return imageExtensions.some(ext => urlLower.includes(ext));
+    },
+
+    // 判断是否为PDF文件
+    isPdfFile(url) {
+      if (!url) return false;
+      return url.toLowerCase().includes('.pdf');
+    },
+
+    // 根据AI名称获取图片样式
+    getImageStyle(aiName) {
+      const widthMap = {
+        'TurboS@元器': '700px',
+        '腾讯元宝DS': '700px',
+        'TurboS长文版@元器': '700px',
+        '腾讯元宝T1': '700px',
+        '豆包': '560px'
+      };
+
+      const width = widthMap[aiName] || '560px'; // 默认宽度
+
+      return {
+        width: width,
+        height: 'auto'
+      };
+    },
+
+
   }
 };
 </script>
@@ -1568,6 +1664,26 @@ export default {
   padding: 20px 30px;
 }
 
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.result-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.share-link-btn {
+  border-radius: 16px;
+  padding: 6px 12px;
+}
+
 .markdown-content {
   margin-bottom: 20px;
   max-height: 400px;
@@ -1842,5 +1958,55 @@ export default {
   background-color: #66b1ff;
   border-color: #66b1ff;
   color: #fff;
+}
+
+/* 分享内容样式 */
+.share-content {
+  margin-bottom: 20px;
+  padding: 15px 20px;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  background-color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 600px;
+  max-height: 800px;
+  overflow: auto;
+}
+
+.share-image {
+  object-fit: contain;
+  display: block;
+}
+
+.share-pdf {
+  width: 100%;
+  height: 600px;
+  border: none;
+  border-radius: 4px;
+}
+
+.share-file {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  flex-direction: column;
+  color: #909399;
+}
+
+.single-image-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 80vh;
+}
+
+.single-image-container .large-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 </style>

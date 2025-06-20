@@ -277,9 +277,9 @@ from wc_chrome_hotlink wck left join sys_user u on wck.user_name = u.user_name
     </update>
 
     <insert id="saveDraftContent" parameterType="java.util.Map">
-        insert into wc_playwright_draft (id,task_id,keyword,user_prompt,draft_content,is_push,ai_name,create_time,user_name)
+        insert into wc_playwright_draft (id,task_id,keyword,user_prompt,draft_content,is_push,ai_name,create_time,user_name,share_url,share_img_url)
         values
-        (uuid(),#{taskId},#{keyWord},#{userPrompt},#{draftContent},0,#{aiName},now(),#{userId})
+        (uuid(),#{taskId},#{keyWord},#{userPrompt},#{draftContent},0,#{aiName},now(),#{userId},#{shareUrl},#{shareImgUrl})
     </insert>
 
     <select id="getDraftContent" parameterType="java.lang.String" resultType="java.lang.String">
@@ -322,6 +322,9 @@ from wc_chrome_hotlink wck left join sys_user u on wck.user_name = u.user_name
 
     <select id="getChatHistory" parameterType="java.lang.String" resultType="java.util.Map">
         select userPrompt,data,DATE_FORMAT(create_time, '%Y-%c-%d %H:%i:%s') createTime,chat_id chatId,tone_chat_id toneChatId,ybds_chat_id ybDsChatId,db_chat_id dbChatId
-   from wc_chat_history where user_id =#{userId} order by create_time desc limit 10
+   from wc_chat_history where user_id =#{userId} order by create_time desc
+        <if test="isAll == 0">
+            limit 1
+        </if>
     </select>
 </mapper>

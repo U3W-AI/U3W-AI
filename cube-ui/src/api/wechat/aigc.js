@@ -109,9 +109,9 @@ export function saveUserChatData(data) {
   })
 }
 
-export function getChatHistory(userId) {
+export function getChatHistory(userId,isAll) {
   return request({
-    url: '/aigc/getChatHistory?userId=' + userId,
+    url: '/aigc/getChatHistory?userId=' + userId + '&isAll=' + isAll,
     method: 'get'
   })
 }

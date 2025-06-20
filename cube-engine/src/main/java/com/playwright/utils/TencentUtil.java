@@ -1,20 +1,27 @@
 package com.playwright.utils;
 
 import com.alibaba.fastjson.JSONObject;
+import com.microsoft.playwright.Download;
 import com.microsoft.playwright.ElementHandle;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.playwright.entity.UserInfoRequest;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -38,6 +45,12 @@ public class TencentUtil {
 
     @Value("${cube.url}")
     private String url;
+
+    @Value("${cube.uploadurl}")
+    private String uploadUrl;
+
+    @Autowired
+    private ClipboardLockManager clipboardLockManager;
 
     /**
      * 处理智能体AI交互流程
@@ -110,13 +123,41 @@ public class TencentUtil {
 //            String copiedText = waitAndClickYBCopyButton(page,userId,aiName,initialCount,agentName);
             //等待html片段获取完成
             String copiedText = waitHtmlDom(page,agentName,userId);
+
+            AtomicReference<String> shareUrlRef = new AtomicReference<>();
+
+            clipboardLockManager.runWithClipboardLock(() -> {
+                try {
+                    page.locator("span.icon-yb-ic_share_2504").last().click();
+                    Thread.sleep(2000);
+                    page.locator("div.agent-chat__share-bar__item__logo").first().click();
+                    // 建议适当延迟等待内容更新
+                    Thread.sleep(2000);
+                    String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
+                    shareUrlRef.set(shareUrl);
+                    System.out.println("剪贴板内容：" + shareUrl);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+            Thread.sleep(1000);
+            String shareUrl = shareUrlRef.get();
+
+            page.locator("div.agent-chat__share-bar__item__logo").nth(1).click();
+
+            String sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
+                page.locator("div.hyc-photo-view__control__btn-download").click();
+            });
+
             // 日志记录与数据保存
             logInfo.sendTaskLog( "执行完成",userId,agentName);
-            logInfo.sendResData(copiedText,userId,agentName,resName);
+            logInfo.sendResData(copiedText,userId,agentName,resName,shareUrl,sharImgUrl);
 
             Thread.sleep(3000);
             userInfoRequest.setDraftContent(copiedText);
             userInfoRequest.setAiName("Agent-"+aiName);
+            userInfoRequest.setShareUrl(shareUrl);
+            userInfoRequest.setShareImgUrl(sharImgUrl);
             RestUtils.post(url+"/saveDraftContent", userInfoRequest);
             return copiedText;
         }catch (Exception e) {
@@ -146,8 +187,8 @@ public class TencentUtil {
         // 页面导航与元素定位
         page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa/"+chatId);
         String modelDom ="[dt-button-id=\"model_switch\"]";
-        String hunyuanDom = "text=全能处理，深度思考";
-        String deepseekDom = "text=适合深度思考";
+        String hunyuanDom = "//*[@id=\"hunyuan-bot\"]/div[7]/div/div/div/div[1]/li/span";
+        String deepseekDom = "//*[@id=\"hunyuan-bot\"]/div[7]/div/div/div/div[2]/li/span";
         Locator modelName = page.locator(modelDom);
 
         modelName.waitFor(new Locator.WaitForOptions().setTimeout(10000));
@@ -283,28 +324,56 @@ public class TencentUtil {
                 agentName = "腾讯元宝DS";
                 logInfo.sendTaskLog( "开启自动监听任务，持续监听腾讯元宝DS回答中",userId,agentName);
             }
+
             //等待复制按钮出现并点击
 //            String copiedText = waitAndClickYBCopyButton(page,userId,aiName,initialCount,agentName);
             //等待html片段获取
             String copiedText = waitHtmlDom(page,agentName,userId);
-            Thread.sleep(1000);
 
             //关闭截图
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
+            AtomicReference<String> shareUrlRef = new AtomicReference<>();
+
+            clipboardLockManager.runWithClipboardLock(() -> {
+                try {
+                    page.locator("span.icon-yb-ic_share_2504").last().click();
+                    Thread.sleep(2000);
+                    page.locator("div.agent-chat__share-bar__item__logo").first().click();
+
+                    // 建议适当延迟等待内容更新
+                    Thread.sleep(2000); // 根据实际加载速度调整
+                    String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
+                    shareUrlRef.set(shareUrl);
+                    System.out.println("剪贴板内容：" + shareUrl);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+
+            Thread.sleep(1000);
+            String shareUrl = shareUrlRef.get();
+
+            page.locator("div.agent-chat__share-bar__item__logo").nth(1).click();
+
+            String  sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
+                page.locator("div.hyc-photo-view__control__btn-download").click();
+            });
 
             if (aiName.contains("hunyuan")) {
                 logInfo.sendTaskLog( "执行完成",userId,"腾讯元宝T1");
                 logInfo.sendChatData(page,"/chat/([^/]+)/([^/]+)",userId,"RETURN_YBT1_CHATID",2);
-                logInfo.sendResData(copiedText,userId,"腾讯元宝T1","RETURN_YBT1_RES");
+                logInfo.sendResData(copiedText,userId,"腾讯元宝T1","RETURN_YBT1_RES",shareUrl,sharImgUrl);
             } else if (aiName.contains("deepseek")) {
                 logInfo.sendTaskLog( "执行完成",userId,"腾讯元宝DS");
                 logInfo.sendChatData(page,"/chat/([^/]+)/([^/]+)",userId,"RETURN_YBDS_CHATID",2);
-                logInfo.sendResData(copiedText,userId,"腾讯元宝T1","RETURN_YBDS_RES");
+                logInfo.sendResData(copiedText,userId,"腾讯元宝T1","RETURN_YBDS_RES",shareUrl,sharImgUrl);
             }
 
             userInfoRequest.setDraftContent(copiedText);
             userInfoRequest.setAiName("腾讯元宝-" + aiName);
+            userInfoRequest.setShareUrl(shareUrl);
+            userInfoRequest.setShareImgUrl(sharImgUrl);
             RestUtils.post(url + "/saveDraftContent", userInfoRequest);
             return copiedText;
         }catch (Exception e) {
@@ -444,6 +513,8 @@ public class TencentUtil {
                     "<div class=\"hyc-common-markdown__ref-list__trigger\"[^>]*>\\s*<div class=\"hyc-common-markdown__ref-list__item\"></div>\\s*</div>",
                     ""
             );
+            Document doc = Jsoup.parse(currentContent);
+            currentContent = doc.text();  // 提取纯文本内容
             logInfo.sendTaskLog( agentName+"内容已自动提取完成",userId,agentName);
             return currentContent;
 
