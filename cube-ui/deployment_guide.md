@@ -27,7 +27,7 @@
 
 4. **安装项目依赖**
    ```bash
-   npm install
+   npm install --legacy-peer-deps
    ```
 
 5. **启动开发服务器**
