@@ -19,4 +19,8 @@
    - 在命令提示符（CMD）中输入 `mvn -v` 检查安装是否成功。
 
 4. **克隆项目仓库**
-   - 在命令提示符（CMD）中输入 `git clone https://github.com/U3W-AI/U3W-AI.git` 拉取项目仓库。
+   - 在命令提示符（CMD）中输入：
+     ```bash
+     git clone https://github.com/U3W-AI/U3W-AI.git
+     ```
+     拉取项目仓库。

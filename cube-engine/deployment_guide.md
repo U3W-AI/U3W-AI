@@ -15,10 +15,19 @@
     - 修改`datadir`地址，此为数据目录，建议单独文件夹存放。例：`datadir: D:\AGI\user-data-dir`
 2. **打包项目**
     - 打包优立方主机端：
-    - 进入 cube-engine 目录：`cd cube-engine`
-    - 执行打包命令：`mvn clean package -DskipTests`
+    - 进入 cube-engine 目录：
+      ```bash
+      cd cube-engine
+      ```
+    - 执行打包命令：
+      ```bash
+      mvn clean package -DskipTests
+      ```
 3. **运行项目**
-    - 运行优立方主机端（cube-engine）：`java -jar target/cube-engine.jar`
+    - 运行优立方主机端（cube-engine）：
+      ```bash
+      java -jar target/cube-engine.jar
+      ```
 4. **接口文档**
     - 启动后访问：http://localhost:8083/swagger-ui/index.html
    

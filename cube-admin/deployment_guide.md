@@ -7,6 +7,15 @@
 - Windows 10系统及以上或Linux系统
 
 ### 部署步骤
-1. 进入cube-admin目录：`cd cube-admin`
-2. 执行打包命令：`mvn clean package -DskipTests`
-3. 运行项目：`java -jar target/cube-admin.jar`
+1. 进入cube-admin目录：
+   ```bash
+   cd cube-admin
+   ```
+2. 执行打包命令：
+   ```bash
+   mvn clean package -DskipTests
+   ```
+3. 运行项目：
+   ```bash
+   java -jar target/cube-admin.jar
+   ```
