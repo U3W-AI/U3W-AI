@@ -35,11 +35,19 @@
    npm run dev
    ```
 
-6. **访问后台**
+6. **登录后台**
    - 启动成功后，浏览器会自动打开后台页面
-
-7. **登录后台**
    - 若没有配置服务号appId和appSecret，进入后台时的二维码不会出现，此时则使用账密方式登录
    - 账密登录入口为loginpwd
    - 账号：admin
    - 密码：admin123
+
+7. **主机绑定**
+   - 登录后台后，点击右上角名称→个人中心
+   - 打开`<项目根目录>/cube-engine/src/main/resources/application.yaml`配置文件
+   - 找到`wssurl`配置项，格式通常为：`wssurl: ws://xxx?clientId=play-<主机ID>`
+   - 复制`clientId=play-<主机ID>`部分中的`<主机ID>`值（即`play-`前缀后的部分）
+   - 将提取的主机ID值填写到基本资料的主机ID输入框并保存
+   - *示例*: 如果配置为`clientId=play-aihost001`，则填写`aihost001`
+   - *注意*: 主机ID需保持唯一性，建议使用字母、数字的组合
+   - 保存完成后点击首页， 待`AI登录状态`初始化完毕后，点击登录，此时会返回二维码，扫码进行登录即可。
