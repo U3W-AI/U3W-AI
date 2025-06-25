@@ -176,6 +176,7 @@ public class WebSocketClientService {
                         }).start();
                     }
 
+
                     // 处理检查agent登录状态的消息
                     if (message.contains("CHECK_AGENT_LOGIN")) {
                         new Thread(() -> {
@@ -190,6 +191,31 @@ public class WebSocketClientService {
                         }).start();
                     }
 
+                    // 处理获取QW二维码的消息
+                    if(message.contains("PLAY_GET_QW_QRCODE")){
+                        new Thread(() -> {
+                            try {
+                                browserController.getQWQrCode(userInfoRequest.getUserId());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+
+
+                    // 处理检查agent登录状态的消息
+                    if (message.contains("CHECK_QW_LOGIN")) {
+                        new Thread(() -> {
+                            try {
+                                String checkLogin = browserController.checkQwenLogin(userInfoRequest.getUserId());
+                                userInfoRequest.setStatus(checkLogin);
+                                userInfoRequest.setType("RETURN_QW_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
                     // 处理获取yb二维码的消息
                     if(message.contains("PLAY_GET_YB_QRCODE")){
                         new Thread(() -> {

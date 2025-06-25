@@ -27,7 +27,7 @@ public class BrowserUtil {
      *
      * @return BrowserContext 持久化浏览器上下文
      */
-    public BrowserContext createPersistentBrowserContext(boolean isHead,String userId,String name) {
+    public BrowserContext createPersistentBrowserContext(boolean isHead, String userId, String name) {
         Playwright playwright = Playwright.create();
         BrowserType browserType = playwright.chromium();
 

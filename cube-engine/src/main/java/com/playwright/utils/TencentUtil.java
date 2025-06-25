@@ -193,6 +193,22 @@ public class TencentUtil {
 
         modelName.waitFor(new Locator.WaitForOptions().setTimeout(10000));
 
+        Locator locator = page.getByText("我知道了").first();
+        if (locator.count() > 0 && locator.isVisible()) {
+            page.getByText("我知道了").first().click();
+        }
+        Locator locatorTwo = page.getByText("我知道了").nth(1);
+        if (locatorTwo.count() > 0 && locatorTwo.isVisible()) {
+            page.getByText("我知道了").nth(1).click();
+        }
+        Locator locatorThree = page.getByText("我知道了").nth(2);
+        if (locatorThree.count() > 0 && locatorThree.isVisible()) {
+            page.getByText("我知道了").nth(2).click();
+        }
+
+
+
+
         // 功能开关定位
         String deepThingDom = "[dt-button-id=\"deep_think\"]";
         Locator deepThing = page.locator(deepThingDom);
@@ -202,6 +218,7 @@ public class TencentUtil {
 
         logInfo.sendImgData(page,userId+"打开页面",userId);
         logInfo.sendTaskLog( aiName+"页面打开完成",userId,aiName);
+
         // 根据角色配置不同模式
         int copyButtonCount = page.querySelectorAll("div.agent-chat__toolbar__item.agent-chat__toolbar__copy").size();
         if(role.contains("yb-hunyuan")){
@@ -387,9 +404,17 @@ public class TencentUtil {
         if(!modelName.getAttribute("dt-model-id").contains(aiName)){
 
             Thread.sleep(1000);
-            page.locator(modelDom).click();
-            Thread.sleep(1000);
-            page.locator(modeCheckDom).click();
+            if(page.locator(modeCheckDom).count()>0){
+                page.locator(modeCheckDom).click();
+            }else{
+                page.locator(modelDom).click();
+                Thread.sleep(1000);
+                page.locator(modeCheckDom).click();
+            }
+
+
+
+
         }
     }
 

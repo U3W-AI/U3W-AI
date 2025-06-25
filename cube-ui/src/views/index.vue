@@ -353,17 +353,20 @@ export default {
       aiLoginStatus: {
         yuanbao: false,
         doubao: false,
-        agent: false
+        agent: false,
+        // qw: false
       },
       accounts: {
         yuanbao: '',
         doubao: '',
-        agent: ''
+        agent: '',
+        // qw: ''
       },
       isClick: {
         yuanbao: false,
         doubao: false,
-        agent: false
+        agent: false,
+        // qw: false
       },
       aiLoginDialogVisible: false,
       currentAiType: '',
@@ -375,7 +378,8 @@ export default {
         yuanbao: true,
         doubao: true,
         wenxin: true,
-        agent: true
+        agent: true,
+        // qw: true
       },
     }
   },
@@ -402,7 +406,8 @@ export default {
       const titles = {
         yuanbao: '腾讯元宝登录',
         doubao: '豆包登录',
-        agent: '智能体登录'
+        agent: '智能体登录',
+        // qw: '通义千问登录'
       };
       return titles[this.currentAiType] || '登录';
     }
@@ -445,6 +450,12 @@ export default {
             userId: this.userId,
             corpId: this.corpId
           });
+          // 检查通义千问登录状态
+          // this.sendMessage({
+          //   type: 'PLAY_CHECK_QW_LOGIN',
+          //   userId: this.userId,
+          //   corpId: this.corpId
+          // });
         }, 1000);
       });
     },
@@ -607,6 +618,13 @@ export default {
           corpId: this.corpId
         });
       }
+      // if(type == 'qw'){
+      //   this.sendMessage({
+      //     type: 'PLAY_GET_QW_QRCODE',
+      //     userId: this.userId,
+      //     corpId: this.corpId
+      //   });
+      // }
       this.$message({
         message: '正在获取登录二维码...',
         type: 'info'
@@ -616,7 +634,8 @@ export default {
       const icons = {
         yuanbao: require('@/assets/logo/yuanbao.png'),
         doubao: require('@/assets/logo/doubao.png'),
-        agent: require('@/assets/logo/yuanbao.png')
+        agent: require('@/assets/logo/yuanbao.png'),
+        qw: require('@/assets/logo/qw.png')
       };
       return icons[type] || '';
     },
@@ -624,7 +643,8 @@ export default {
       const names = {
         yuanbao: '腾讯元宝',
         doubao: '豆包',
-        agent: '智能体'
+        agent: '智能体',
+        // qw: '通义千问'
       };
       return names[type] || '';
     },
@@ -678,7 +698,7 @@ export default {
           this.isClick.agent = true;
           this.isLoading.agent = false;
         }
-      } else if (datastr.includes("RETURN_PC_YB_QRURL") || datastr.includes("RETURN_PC_DB_QRURL") || datastr.includes("RETURN_PC_WX_QRURL") || datastr.includes("RETURN_PC_AGENT_QRURL")) {
+      } else if (datastr.includes("RETURN_PC_YB_QRURL") || datastr.includes("RETURN_PC_DB_QRURL") || datastr.includes("RETURN_PC_WX_QRURL") || datastr.includes("RETURN_PC_AGENT_QRURL") || datastr.includes("RETURN_PC_QW_QRURL")) {
         this.qrCodeUrl = dataObj.url;
       } else if (datastr.includes("RETURN_DB_STATUS") && dataObj.status != '') {
         if (!datastr.includes("false")) {
@@ -699,6 +719,16 @@ export default {
         } else {
           this.isClick.wenxin = true;
           this.isLoading.wenxin = false;
+        }
+      } else if (datastr.includes("RETURN_QW_STATUS") && dataObj.status != '') {
+        if (!datastr.includes("false")) {
+          this.aiLoginDialogVisible = false;
+          this.aiLoginStatus.qw = true;
+          this.accounts.qw = dataObj.status;
+          this.isLoading.qw = false;
+        } else {
+          this.isClick.qw = true;
+          this.isLoading.qw = false;
         }
       }
     },

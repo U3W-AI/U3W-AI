@@ -247,8 +247,8 @@
               </div>
               <div v-else class="markdown-content" v-html="renderMarkdown(result.content)"></div>
               <div class="action-buttons">
-                <el-button size="small" type="primary" @click="copyResult(result.content)">复制</el-button>
-                <el-button size="small" type="success" @click="exportResult(result)">导出</el-button>
+                <el-button size="small" type="primary" @click="copyResult(result.content)">复制（纯文本）</el-button>
+                <el-button size="small" type="success" @click="exportResult(result)">导出（MD文件）</el-button>
               </div>
             </div>
           </el-tab-pane>
@@ -470,7 +470,7 @@ export default {
       }),
       scoreDialogVisible: false,
       selectedResults: [],
-      scorePrompt: `请你深度阅读以上几篇公众号文章，从多个维度进行逐项打分，输出评分结果。并在以上各篇文章的基础上博采众长，综合整理一篇更全面的文章。`,
+      scorePrompt: `请你深度阅读以上几篇公众号章，从多个维度进行逐项打分，输出评分结果。并在以上各篇文章的基础上博采众长，综合整理一篇更全面的文章。`,
       historyDrawerVisible: false,
       chatHistory: [],
     };

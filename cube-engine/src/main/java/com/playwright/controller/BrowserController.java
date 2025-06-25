@@ -278,6 +278,82 @@ public class BrowserController {
         return "false";
     }
 
+    /**
+     * 检查豆包登录状态
+     * @param userId 用户唯一标识
+     * @return 登录状态："false"表示未登录，手机号表示已登录
+     */
+    @Operation(summary = "检查千问登录状态", description = "返回手机号表示已登录，false 表示未登录")
+    @GetMapping("/checkQwenLogin")
+    public String checkQwenLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"qwen")) {
+            Page page = context.newPage();
+            page.navigate("https://www.tongyi.com/");
+            Locator locator = page.getByText("登录领权益");
+            if (locator.count() > 0 && locator.isVisible()) {
+                return "false";
+            } else {
+                page.locator("//*[@id=\"new-nav-tab-wrapper\"]/div[2]/div").hover();
+                Thread.sleep(3000);
+                Locator phone = page.locator(".userName");
+                if(phone.count()>0){
+                    String phoneText = phone.textContent();
+                    return phoneText;
+                }else{
+                    return "false";
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "false";
+        }
+    }
+
+    /**
+     * 获取千问登录二维码
+     * @param userId 用户唯一标识
+     * @return 二维码图片URL 或 "false"表示失败
+     */
+    @Operation(summary = "获取豆包登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
+    @GetMapping("/getQWQrCode")
+    public String getQWQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"qwen")) {
+            Page page = context.newPage();
+            page.navigate("https://www.tongyi.com/");
+            Locator locator = page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[1]/div/div/div[3]/button");
+            Thread.sleep(2000);
+            if (locator.count() > 0 && locator.isVisible()) {
+                locator.click();
+
+                Thread.sleep(3000);
+                String url = screenshotUtil.screenshotAndUpload(page,"checkQWLogin.png");
+
+                JSONObject jsonObject = new JSONObject();
+                jsonObject.put("url",url);
+                jsonObject.put("userId",userId);
+                jsonObject.put("type","RETURN_PC_QW_QRURL");
+                webSocketClientService.sendMessage(jsonObject.toJSONString());
+                Locator login = page.getByText("管理对话记录");
+                login.waitFor(new Locator.WaitForOptions().setTimeout(60000));
+                page.locator("//*[@id=\"new-nav-tab-wrapper\"]/div[2]/div").hover();
+                Thread.sleep(3000);
+                Locator phone = page.locator(".userName");
+                if(phone.count()>0){
+                    String phoneText = phone.textContent();
+                    JSONObject jsonObjectTwo = new JSONObject();
+                    jsonObjectTwo.put("status",phoneText);
+                    jsonObjectTwo.put("userId",userId);
+                    jsonObjectTwo.put("type","RETURN_QW_STATUS");
+                    webSocketClientService.sendMessage(jsonObjectTwo.toJSONString());
+                    return phoneText;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "false";
+    }
+
 
     /**
      * 退出腾讯元宝
