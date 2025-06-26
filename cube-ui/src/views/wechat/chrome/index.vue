@@ -470,7 +470,7 @@ export default {
       }),
       scoreDialogVisible: false,
       selectedResults: [],
-      scorePrompt: `请你深度阅读以上几篇公众号章，从多个维度进行逐项打分，输出评分结果。并在以上各篇文章的基础上博采众长，综合整理一篇更全面的文章。`,
+      scorePrompt: `请你深度阅读以下几篇公众号章，从多个维度进行逐项打分，输出评分结果。并在以下各篇文章的基础上博采众长，综合整理一篇更全面的文章。`,
       historyDrawerVisible: false,
       chatHistory: [],
     };
@@ -920,7 +920,7 @@ export default {
         .join('\n');
 
       // 构建完整的评分提示内容
-      const fullPrompt = `${selectedContents}\n${this.scorePrompt}`;
+      const fullPrompt = `${this.scorePrompt}\n${selectedContents}`;
 
       // 构建评分请求
       const scoreRequest = {

@@ -109,8 +109,9 @@ public class DouBaoUtil {
                 // 获取最新内容
 
 
-                if(currentContent.contains("改用对话直接回答")){
+                if(currentContent.contains("改用对话直接回答") && !isRight){
 //                    page.getByText("改用对话直接回答").click();
+                    page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[1]/div[1]/div/div/div[2]/div/div[1]/div/div/div[2]/div[2]/div/div/div/div/div/div/div[1]/div/div/div[2]/div[1]/div/div").click();
                     isRight = true;
                 }
 

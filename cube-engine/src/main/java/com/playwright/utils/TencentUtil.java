@@ -189,6 +189,7 @@ public class TencentUtil {
         String modelDom ="[dt-button-id=\"model_switch\"]";
         String hunyuanDom = "//*[@id=\"hunyuan-bot\"]/div[7]/div/div/div/div[1]/li/span";
         String deepseekDom = "//*[@id=\"hunyuan-bot\"]/div[7]/div/div/div/div[2]/li/span";
+        Thread.sleep(3000);
         Locator modelName = page.locator(modelDom);
 
         modelName.waitFor(new Locator.WaitForOptions().setTimeout(10000));
