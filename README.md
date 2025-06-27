@@ -9,11 +9,12 @@
 ```
 U3W-AI/
 ├── common_deployment_guide.md  [公共环境部署指南](common_deployment_guide.md)
-├── cube-admin/           # AI主机控制台后端
+├── cube-mini/            # 优立方AI主机小程序控制端
+├── cube-admin/           # 优立方AI主机控制台后端
 │   └── deployment_guide.md  [部署指南](cube-admin/deployment_guide.md)
-├── cube-ui/              # AI主机控制台前端
+├── cube-ui/              # 优立方AI主机控制台前端
 │   └── deployment_guide.md  [部署指南](cube-ui/deployment_guide.md)
-├── cube-engine/          # AI主机核心服务
+├── cube-engine/          # 优立方AI主机核心服务
 │   └── deployment_guide.md  [部署指南](cube-engine/deployment_guide.md)
 ├── cube-common/          # 公共工具模块
 ├── cube-framework/       # 框架核心模块
@@ -75,7 +76,7 @@ Slogan：Unique³ Wisdom（独特智慧三次方）
 
 #### 4.1.3 核心功能
 
-![a002ef6dbff4e8f8baafda249936f2db](https://github.com/user-attachments/assets/125e539e-c2b9-4e0e-82ba-69265f76755b)
+![核心功能](docs-img/1.jpg)
 
 
 基于 Java 和 Playwright 的浏览器自动化控制核心，支持团队协作基础能力：
@@ -178,7 +179,7 @@ Slogan：Unique³ Wisdom（独特智慧三次方）
 
 支持复杂的商业场景（如公众号内容全流程创作、跨平台内容多语言优化与分发），满足团队在不同业务场景下的协作需求。
 
-![31564afb142e96101b647f6c8152785b](https://github.com/user-attachments/assets/19e50cf3-68b4-4504-888f-ad66b5d62a94)
+![深度应用场景](docs-img/2.png)
 
 
 ##### 4.2.3.7 商业授权
@@ -193,7 +194,7 @@ Slogan：Unique³ Wisdom（独特智慧三次方）
 
 优立方 AI 主机采用先进的模块化、分布式架构，确保高效率、高稳定性和易于扩展性。
 
-![企业微信截图_17485946247920](https://github.com/user-attachments/assets/df1d62b7-a8ab-465a-a8cb-ce02a42a878a)
+![系统架构与技术实现](docs-img/3.png)
 
 
 ### 5.1 整体架构概览
@@ -223,7 +224,7 @@ Slogan：Unique³ Wisdom（独特智慧三次方）
 
 ### 5.3 模块间协作与数据流
 
-![企业微信截图_17485946949455](https://github.com/user-attachments/assets/375cf963-08e3-480c-a07f-e71265e5198f)
+![模块间协作与数据流](docs-img/4.png)
 
 
 优立方 AI 主机各模块之间通过标准化的通信协议和接口紧密协作，形成高效的数据流闭环：
