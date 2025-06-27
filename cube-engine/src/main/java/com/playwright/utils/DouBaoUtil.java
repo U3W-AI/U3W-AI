@@ -141,8 +141,8 @@ public class DouBaoUtil {
 
             currentContent = currentContent.replaceAll(regex,"");
             currentContent = currentContent.replaceAll("撰写任何内容...","");
-            Document doc = Jsoup.parse(currentContent);
-            currentContent = doc.text();  // 提取纯文本内容
+//            Document doc = Jsoup.parse(currentContent);
+//            currentContent = doc.text();  // 提取纯文本内容
             return currentContent;
 
         } catch (Exception e) {

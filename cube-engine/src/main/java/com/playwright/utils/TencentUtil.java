@@ -362,7 +362,15 @@ public class TencentUtil {
                     // 建议适当延迟等待内容更新
                     Thread.sleep(2000); // 根据实际加载速度调整
                     String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
-                    shareUrlRef.set(shareUrl);
+
+                    Pattern pattern = Pattern.compile("https?://\\S+");
+                    Matcher matcher = pattern.matcher(shareUrl);
+
+                    String url = null;
+                    if (matcher.find()) {
+                        url = matcher.group();
+                    }
+                    shareUrlRef.set(url);
                     System.out.println("剪贴板内容：" + shareUrl);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -539,8 +547,8 @@ public class TencentUtil {
                     "<div class=\"hyc-common-markdown__ref-list__trigger\"[^>]*>\\s*<div class=\"hyc-common-markdown__ref-list__item\"></div>\\s*</div>",
                     ""
             );
-            Document doc = Jsoup.parse(currentContent);
-            currentContent = doc.text();  // 提取纯文本内容
+//            Document doc = Jsoup.parse(currentContent);
+//            currentContent = doc.text();  // 提取纯文本内容
             logInfo.sendTaskLog( agentName+"内容已自动提取完成",userId,agentName);
             return currentContent;
 

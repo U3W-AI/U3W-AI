@@ -20,11 +20,11 @@ public class DB {
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
         dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
         //地址:端口
-        dataSource.setUrl("jdbc:mysql://81.70.105.138:3306/wecom?useSSL=false&characterEncoding=utf-8&autoReconnect=true");
+        dataSource.setUrl("");
         //用户名
-        dataSource.setUsername("root");
+        dataSource.setUsername("");
         //密码
-        dataSource.setPassword("qwe#123");
+        dataSource.setPassword("");
         return dataSource;
     }
 

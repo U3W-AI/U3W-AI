@@ -27,6 +27,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -560,53 +561,41 @@ public class UserInfoServiceImpl implements UserInfoService {
         return ResultBody.success("上传成功！");
     }
     @Override
-    public ResultBody pushAutoOneOffice(String taskId, String userName){
-        userInfoMapper.updateTaskStatus(taskId,"内容生成","success");
-        userInfoMapper.updateTaskStatus(taskId,"发布预览","running");
+    public ResultBody pushAutoOneOffice(Map map){
+
+            WcOfficeAccount woa = userInfoMapper.getOfficeAccountByUserName(map.get("userId")+"");
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            String formattedDate = sdf.format(new Date()); // 格式化日期
+
+            String title =map.get("aiName")+"-"+map.get("userId")+"-"+formattedDate+"-"+map.get("num");
 
 
-        WcOfficeAccount woa = userInfoMapper.getOfficeAccountByUserName(userName);
-        List<Map> list = userInfoMapper.getPushAutoOfficeData(taskId,userName);
-        if(list.size()==0){
-            return ResultBody.error(300,"暂无素材可被收录");
-        }
-        LocalDate today = LocalDate.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        String formattedDate = today.format(formatter); // 格式化日期
-
-
-//        使用 Map 聚合数据
-
-        int i =1;
-        for (Map map : list) {
-
-            String oldtitle = map.get("title")+"";
-            String oldlinkUrl = map.get("answer")+"";
-            String oldkeyWord = map.get("prompt")+"";
-            String oldauthor = map.get("author")+"";
-            String oldsummary = map.get("summary").toString();
-
-            String title ="快讯："+oldtitle+"-草稿-"+formattedDate+"-"+i;
-
-            String liTitle = "<a href ='"+oldlinkUrl+"' style='color:#576b95' >"+oldauthor+"："+map.get("title")+"</a>";
-            oldsummary = "<p style='font-family: 'Arial''>"+oldsummary;
-            oldsummary = oldsummary+"</p>";
-            String oldcontent = liTitle+"<br><br>"+oldsummary+"<br><br>";
-            String res = "";
-                String keyWord = "<p style='font-weight: normal;color:red;'>"+oldkeyWord+"</p>";
-                String content = String.join("", oldcontent);
-                res =res + keyWord+"<br>"+content;
-
-            System.out.println(res);
             String assessToken = weChatApiUtils.getOfficeAccessToken(woa.getAppId(),woa.getAppSecret());
             String url = "https://api.weixin.qq.com/cgi-bin/draft/add?access_token="+assessToken;
 
-            List<JSONObject> paramlist = new ArrayList<>();
+            String contentText = map.get("contentText").toString()
+                .replaceAll("(?i)</div>", "") // 删除多余的 </div>
+                .replaceAll("(?i)<div.*?>", "") // 删除所有 <div> 标签
+                .replaceAll("(?i)<span.*?>", "") // 删除 span 等
+                .replaceAll("(?i)</span>", "")
+                .replaceAll("(?i)<hr\\s*/?>", "<br><br>") // 替换 <hr> 为 <br>
+                .replaceAll("[\\x{1F600}-\\x{1F64F}" +  // Emoticons
+                            "\\x{1F300}-\\x{1F5FF}" +  // Misc Symbols and Pictographs
+                            "\\x{1F680}-\\x{1F6FF}" +  // Transport and Map
+                            "\\x{2600}-\\x{26FF}"   +  // Misc symbols
+                            "\\x{2700}-\\x{27BF}"   +  // Dingbats
+                            "\\x{FE00}-\\x{FE0F}"   +  // Variation Selectors
+                            "]+", "")
+                .replaceAll("[\\p{So}\\p{Cn}&&[^\\u0000-\\uFFFF]]+", "");
+
+        String shareUrl = "原文链接："+map.get("shareUrl")+"<br><br>";
+        contentText = shareUrl + contentText;
+        System.out.println("草稿："+contentText);
+        List<JSONObject> paramlist = new ArrayList<>();
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("title",title);
             jsonObject.put("author",woa.getOfficeAccountName());
-            jsonObject.put("content",res);
-            //jsonObject.put("thumb_media_id","V4PNB2XjrprWdg1sJxs7jpoxWs9YhZy8zYH38cbZSl3JzYw_liIxBesx7PuQ7-jV");
+            jsonObject.put("content",contentText);
             jsonObject.put("thumb_media_id",woa.getMediaId());
             paramlist.add(jsonObject);
             JSONObject param = new JSONObject();
@@ -616,12 +605,7 @@ public class UserInfoServiceImpl implements UserInfoService {
             }catch (Exception e){
 
             }
-            i++;
-        }
 
-        // 输出结果
-        userInfoMapper.updateLinkStatus(list);
-        userInfoMapper.updateTaskStatus(taskId,"发布预览","success");
         return ResultBody.success("上传成功！");
     }
 

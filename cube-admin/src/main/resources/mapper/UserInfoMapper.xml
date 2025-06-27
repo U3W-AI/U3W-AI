@@ -518,7 +518,7 @@ order by wpr.create_time desc
     <select id="getOfficeAccountByUserName" resultType="com.cube.wechat.selfapp.app.domain.WcOfficeAccount">
         select app_id appId,app_secret appSecret,office_account_name officeAccountName,user_id userId,user_name userName,media_id mediaId,pic_url picUrl
         from wc_office_account
-        where user_name = #{userName}
+        where user_id = #{userName}
     </select>
 
     <insert id="saveChromeTaskData" parameterType="java.util.Map">

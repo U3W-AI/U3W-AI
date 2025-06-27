@@ -246,9 +246,9 @@ public class UserInfoController extends BaseController {
     }
 
 
-    @GetMapping("/pushAutoOffice")
-    public ResultBody pushAutoOffice(String taskId,String username){
-        return userInfoService.pushAutoOneOffice(taskId,username.trim());
+    @PostMapping("/pushAutoOffice")
+    public ResultBody pushAutoOffice(@RequestBody Map map){
+        return userInfoService.pushAutoOneOffice(map);
     }
     @GetMapping("/getViewAutoOffice")
     public ResultBody getViewAutoOffice(String taskId){

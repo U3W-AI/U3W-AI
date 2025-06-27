@@ -123,7 +123,7 @@ public interface UserInfoService {
 
     ResultBody pushAutoOffice(String taskId, String userName);
 
-    ResultBody pushAutoOneOffice(String taskId, String userName);
+    ResultBody pushAutoOneOffice(Map map);
 
     ResultBody pushViewAutoOffice(String taskId);
 

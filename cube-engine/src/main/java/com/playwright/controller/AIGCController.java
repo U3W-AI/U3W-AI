@@ -356,6 +356,7 @@ public class AIGCController {
                         page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[2]/div/aside[2]/div/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").click();
                         Thread.sleep(1000);
                         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("公开分享")).click();
+                        Thread.sleep(500);
                     }else{
                         page.locator("button[data-testid='message_action_share']").last().click();
                         Thread.sleep(2000);
@@ -389,7 +390,6 @@ public class AIGCController {
                     page.locator("button:has-text(\"下载图片\")").click();
                 });
             }
-
 
             logInfo.sendTaskLog( "执行完成",userId,"豆包");
             logInfo.sendChatData(page,"/chat/([^/?#]+)",userId,"RETURN_DB_CHATID",1);
