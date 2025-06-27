@@ -1,0 +1,91 @@
+@charset "UTF-8";
+/**
+ * uni-app内置的常用样式变量
+ */
+/* 行为相关颜色 */
+/* 文字基本颜色 */
+/* 背景颜色 */
+/* 边框颜色 */
+/* 尺寸变量 */
+/* 文字尺寸 */
+/* 图片尺寸 */
+/* Border Radius */
+/* 水平间距 */
+/* 垂直间距 */
+/* 透明度 */
+/* 文章场景相关 */
+.uni-badge--x {
+  display: inline-block;
+  position: relative;
+}
+.uni-badge--absolute {
+  position: absolute;
+}
+.uni-badge--small {
+  -webkit-transform: scale(0.8);
+          transform: scale(0.8);
+  -webkit-transform-origin: center center;
+          transform-origin: center center;
+}
+.uni-badge {
+  display: flex;
+  overflow: hidden;
+  box-sizing: border-box;
+  -webkit-font-feature-settings: "tnum";
+          font-feature-settings: "tnum";
+  min-width: 20px;
+  justify-content: center;
+  flex-direction: row;
+  height: 20px;
+  padding: 0 4px;
+  line-height: 18px;
+  color: #fff;
+  border-radius: 100px;
+  background-color: #909399;
+  background-color: transparent;
+  border: 1px solid #fff;
+  text-align: center;
+  font-family: 'Helvetica Neue', Helvetica, sans-serif;
+  font-size: 12px;
+}
+.uni-badge--info {
+  color: #fff;
+  background-color: #909399;
+}
+.uni-badge--primary {
+  background-color: #2979ff;
+}
+.uni-badge--success {
+  background-color: #4cd964;
+}
+.uni-badge--warning {
+  background-color: #f0ad4e;
+}
+.uni-badge--error {
+  background-color: #dd524d;
+}
+.uni-badge--inverted {
+  padding: 0 5px 0 0;
+  color: #909399;
+}
+.uni-badge--info-inverted {
+  color: #909399;
+  background-color: transparent;
+}
+.uni-badge--primary-inverted {
+  color: #2979ff;
+  background-color: transparent;
+}
+.uni-badge--success-inverted {
+  color: #4cd964;
+  background-color: transparent;
+}
+.uni-badge--warning-inverted {
+  color: #f0ad4e;
+  background-color: transparent;
+}
+.uni-badge--error-inverted {
+  color: #dd524d;
+  background-color: transparent;
+}
+

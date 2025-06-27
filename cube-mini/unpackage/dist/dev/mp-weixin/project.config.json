@@ -1,0 +1,54 @@
+{
+  "description": "项目配置文件。",
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "newFeature": true,
+    "bigPackageSizeSupport": true,
+    "ignoreDevUnusedFiles": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.8.9",
+  "appid": "wx7ab54a2f9a5bd7f3",
+  "projectname": "U3W-AI",
+  "condition": {
+    "search": {
+      "current": -1,
+      "list": []
+    },
+    "conversation": {
+      "current": -1,
+      "list": []
+    },
+    "game": {
+      "current": -1,
+      "list": []
+    },
+    "miniprogram": {
+      "current": 0,
+      "list": [
+        {
+          "name": "首页",
+          "query": "",
+          "id": 0,
+          "pathName": "pages/index"
+        }
+      ]
+    }
+  },
+  "editorSetting": {
+    "tabIndent": "insertSpaces",
+    "tabSize": 2
+  }
+}

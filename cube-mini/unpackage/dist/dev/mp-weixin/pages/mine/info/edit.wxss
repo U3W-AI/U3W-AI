@@ -1,0 +1,63 @@
+@charset "UTF-8";
+/**
+ * uni-app内置的常用样式变量
+ */
+/* 行为相关颜色 */
+/* 文字基本颜色 */
+/* 背景颜色 */
+/* 边框颜色 */
+/* 尺寸变量 */
+/* 文字尺寸 */
+/* 图片尺寸 */
+/* Border Radius */
+/* 水平间距 */
+/* 垂直间距 */
+/* 透明度 */
+/* 文章场景相关 */
+page {
+  background-color: #ffffff;
+}
+.cu-avatar .icon {
+  font-size: 40px;
+}
+.example {
+  padding: 15px;
+  background-color: #fff;
+}
+.segmented-control {
+  margin-bottom: 15px;
+}
+.button-group {
+  margin-top: 15px;
+  display: flex;
+  justify-content: space-around;
+}
+.form-item {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+.avatar-wrapper {
+  background-color: white;
+  margin-bottom: 50rpx;
+}
+.avatar-wrapper::after {
+  background-color: white;
+  border: 0;
+  display: block;
+  height: 200rpx;
+  margin-top: 150rpx;
+}
+.button {
+  display: flex;
+  align-items: center;
+  height: 35px;
+  line-height: 35px;
+  margin-left: 10px;
+}
+.login-btn {
+  margin-top: 80rpx;
+  height: 90rpx !important;
+  background-color: #1ec57c !important;
+}
+

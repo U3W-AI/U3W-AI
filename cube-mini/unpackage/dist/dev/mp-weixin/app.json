@@ -1,0 +1,45 @@
+{
+  "pages": [
+    "pages/index",
+    "pages/work/index",
+    "pages/mine/index",
+    "pages/mine/avatar/index",
+    "pages/mine/info/index",
+    "pages/mine/info/edit",
+    "pages/user/points/index",
+    "pages/login/index"
+  ],
+  "subPackages": [],
+  "window": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "",
+    "navigationBarBackgroundColor": "#FFFFFF"
+  },
+  "tabBar": {
+    "color": "#000000",
+    "selectedColor": "#000000",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/index",
+        "iconPath": "static/images/tabbar/home.png",
+        "selectedIconPath": "static/images/tabbar/home1_.png",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/work/index",
+        "iconPath": "static/images/tabbar/AIGCno.png",
+        "selectedIconPath": "static/images/tabbar/AIGC.png",
+        "text": "控制台"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "iconPath": "static/images/tabbar/my.png",
+        "selectedIconPath": "static/images/tabbar/my_.png",
+        "text": "我的"
+      }
+    ]
+  },
+  "usingComponents": {}
+}

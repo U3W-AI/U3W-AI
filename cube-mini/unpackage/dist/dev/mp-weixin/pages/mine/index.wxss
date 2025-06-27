@@ -1,0 +1,75 @@
+@charset "UTF-8";
+/**
+ * uni-app内置的常用样式变量
+ */
+/* 行为相关颜色 */
+/* 文字基本颜色 */
+/* 背景颜色 */
+/* 边框颜色 */
+/* 尺寸变量 */
+/* 文字尺寸 */
+/* 图片尺寸 */
+/* Border Radius */
+/* 水平间距 */
+/* 垂直间距 */
+/* 透明度 */
+/* 文章场景相关 */
+page {
+  background-color: #f5f6f7;
+}
+.login-btn {
+  margin-top: 40px;
+  height: 90rpx !important;
+  line-height: 90rpx;
+  margin-left: 5%;
+  width: 90%;
+}
+.mine-container {
+  width: 100%;
+  height: 100%;
+}
+.mine-container .header-section {
+  padding: 10rpx 20rpx 70rpx;
+  background-color: #1ec57c;
+  color: white;
+}
+.mine-container .header-section .login-tip {
+  font-size: 18px;
+  margin-left: 10px;
+}
+.mine-container .header-section .cu-avatar {
+  width: 120rpx;
+  height: 120rpx;
+}
+.mine-container .header-section .cu-avatar .icon {
+  font-size: 40px;
+}
+.mine-container .header-section .user-info {
+  margin-left: 15px;
+}
+.mine-container .header-section .user-info .u_title {
+  font-size: 38rpx;
+  margin-bottom: 6rpx;
+}
+.mine-container .header-section .user-info .u_title1 {
+  font-size: 24rpx;
+}
+.mine-container .content-section {
+  position: relative;
+  top: -50px;
+}
+.mine-container .content-section .mine-actions {
+  margin: 30rpx 30rpx;
+  padding: 40rpx 0 28rpx;
+  border-radius: 16rpx;
+  background-color: white;
+}
+.mine-container .content-section .mine-actions .action-item .icon {
+  font-size: 48rpx;
+}
+.mine-container .content-section .mine-actions .action-item .text {
+  display: block;
+  font-size: 26rpx;
+  margin: 16rpx 0;
+}
+

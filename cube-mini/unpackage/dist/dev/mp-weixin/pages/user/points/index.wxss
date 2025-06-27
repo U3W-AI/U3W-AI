@@ -1,0 +1,82 @@
+@charset "UTF-8";
+/**
+ * uni-app内置的常用样式变量
+ */
+/* 行为相关颜色 */
+/* 文字基本颜色 */
+/* 背景颜色 */
+/* 边框颜色 */
+/* 尺寸变量 */
+/* 文字尺寸 */
+/* 图片尺寸 */
+/* Border Radius */
+/* 水平间距 */
+/* 垂直间距 */
+/* 透明度 */
+/* 文章场景相关 */
+page {
+  background-color: #f8f8f8;
+}
+.end-text {
+  text-align: center;
+  padding: 20rpx;
+  color: #999;
+}
+.filter-box {
+  display: flex;
+  align-items: center;
+  padding: 10rpx;
+  background-color: white;
+}
+.picker {
+  padding: 10rpx;
+  background-color: white;
+  border-radius: 5rpx;
+}
+.tab-nav {
+  display: flex;
+  width: 100%;
+  justify-content: space-around;
+  padding: 10rpx 0;
+  background-color: white;
+  border-radius: 5rpx;
+}
+.tab-item {
+  padding: 10rpx;
+  position: relative;
+  color: #000;
+}
+.tab-item.active {
+  color: royalblue;
+}
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  -webkit-transform: translateX(-50%);
+          transform: translateX(-50%);
+  width: 50%;
+  height: 2rpx;
+  background-color: blue;
+}
+.list {
+  height: 87vh;
+  /* 根据实际情况调整高度 */
+  overflow-y: auto;
+  /* 确保内容超出时可以滚动 */
+  width: 99%;
+  padding: 10rpx;
+  border-radius: 5rpx;
+}
+.list-item {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20rpx;
+  background-color: white;
+  border-radius: 10rpx;
+}
+.point-text {
+  padding: 30rpx;
+}
+
