@@ -209,9 +209,9 @@ Slogan：Unique³ Wisdom（独特智慧三次方）
 
 PC控制端支持用户通过浏览器进行系统管理；小程序控制端适合用户在微信上进行常用AI操作。
 
-![ebb49011f3b022a85a689e476c5f0990](https://github.com/user-attachments/assets/5198088a-60f1-4a7a-854a-58107341b25b)
+![核心功能](docs-img/7.jpg)
 
-![2c957a61612e52241f674e3c8300b247](https://github.com/user-attachments/assets/3370ed8f-7e16-478e-b2f0-24a6cdf8d7fe)
+![核心功能](docs-img/8.jpg)
 
 
 
