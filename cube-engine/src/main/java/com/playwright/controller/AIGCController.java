@@ -66,6 +66,9 @@ public class AIGCController {
     @Autowired
     private DouBaoUtil douBaoUtil;
 
+    @Autowired
+    private QwenUtil qwenUtil;
+
     // 日志记录工具类
     @Autowired
     private LogMsgUtil logInfo;
@@ -352,7 +355,7 @@ public class AIGCController {
 
             clipboardLockManager.runWithClipboardLock(() -> {
                 try {
-                    if(isRight){
+                    if(isRight && page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[2]/div/aside[2]/div/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").count()>0){
                         page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[2]/div/aside[2]/div/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").click();
                         Thread.sleep(1000);
                         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("公开分享")).click();
@@ -376,7 +379,7 @@ public class AIGCController {
             Thread.sleep(1000);
             String shareUrl = shareUrlRef.get();
             String sharImgUrl = "";
-            if (isRight) {
+            if (isRight && page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[2]/div/aside[2]/div/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").count()>0) {
                 page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[2]/div/aside[2]/div/div/div[1]/div/div[1]/div[3]/div/div/div/div[3]").click();
                 sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
                     page.getByTestId("popover_select_option_item").nth(1).click();
@@ -539,6 +542,132 @@ public class AIGCController {
             userInfoRequest.setAiName("智能评分");
             userInfoRequest.setShareUrl(shareUrl);
             userInfoRequest.setShareImgUrl(sharImgUrl);
+            RestUtils.post(url+"/saveDraftContent", userInfoRequest);
+            return copiedText;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "获取内容失败";
+    }
+
+
+
+
+
+    /**
+     * 处理千问的常规请求
+     * @param userInfoRequest 包含会话ID和用户指令
+     * @return AI生成的文本内容
+     */
+    @Operation(summary = "启动千问AI生成", description = "调用千问AI平台生成内容并抓取结果")
+    @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
+    @PostMapping("/startQW")
+    public String startQW(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest){
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"qwen")) {
+
+            // 初始化变量
+            String userId = userInfoRequest.getUserId();
+            String qwchatId = userInfoRequest.getQwChatId();
+            logInfo.sendTaskLog( "通义千问准备就绪，正在打开页面",userId,"通义千问");
+            String roles = userInfoRequest.getRoles();
+            String userPrompt = userInfoRequest.getUserPrompt();
+
+            // 初始化页面并导航到指定会话
+            Page page = context.newPage();
+            if(qwchatId!=null){
+                page.navigate("https://www.tongyi.com/qianwen?sessionId="+qwchatId);
+            }else {
+                page.navigate("https://www.tongyi.com/qianwen");
+            }
+
+            page.waitForLoadState(LoadState.LOAD);
+            Thread.sleep(500);
+            logInfo.sendTaskLog( "通义千问页面打开完成",userId,"通义千问");
+            // 定位深度思考按钮
+
+            // 确保 isActive 不为 null
+//            if (roles.contains("qw-sdsk")) {
+//                page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[2]/div[1]/div[3]/div[1]/div[1]/div[2]").click();
+//                // 点击后等待一段时间，确保按钮状态更新
+//                Thread.sleep(1000);
+//
+//                logInfo.sendTaskLog( "已启动深度思考模式",userId,"通义千问");
+//                page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[2]/div[1]/div[3]/div/div[2]/div[2]/div/textarea").click();
+//                Thread.sleep(1000);
+//                page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[2]/div[1]/div[3]/div/div[2]/div[2]/div/textarea").fill(userPrompt);
+//                logInfo.sendTaskLog( "用户指令已自动输入完成",userId,"通义千问");
+//                Thread.sleep(1000);
+//                page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[2]/div[1]/div[3]/div/div[2]/div[2]/div/textarea").press("Enter");
+//                logInfo.sendTaskLog( "指令已自动发送成功",userId,"通义千问");
+//            }else{
+//                page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[2]/div[1]/div[3]/div[2]/div/div[2]/div/textarea").click();
+//                Thread.sleep(1000);
+//                page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[2]/div[1]/div[3]/div[2]/div/div[2]/div/textarea").fill(userPrompt);
+//                logInfo.sendTaskLog( "用户指令已自动输入完成",userId,"通义千问");
+//                Thread.sleep(1000);
+//                page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[2]/div[1]/div[3]/div[2]/div/div[2]/div/textarea").press("Enter");
+//                logInfo.sendTaskLog( "指令已自动发送成功",userId,"通义千问");
+//            }
+            Thread.sleep(1000);
+
+
+
+            // 创建定时截图线程
+            AtomicInteger i = new AtomicInteger(0);
+            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            // 启动定时任务，每5秒执行一次截图
+            ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+                try {
+                    int currentCount = i.getAndIncrement(); // 获取当前值并自增
+                    logInfo.sendImgData(page, userId + "通义千问执行过程截图"+currentCount, userId);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }, 0, 8, TimeUnit.SECONDS);
+
+            logInfo.sendTaskLog( "开启自动监听任务，持续监听通义千问回答中",userId,"通义千问");
+            // 等待复制按钮出现并点击
+//            String copiedText =  douBaoUtil.waitAndClickDBCopyButton(page,userId,roles);
+            //等待html片段获取完成
+            String copiedText =  qwenUtil.waitQWHtmlDom(page,userId);
+            //关闭截图
+            screenshotFuture.cancel(false);
+            screenshotExecutor.shutdown();
+
+
+            AtomicReference<String> shareUrlRef = new AtomicReference<>();
+
+            clipboardLockManager.runWithClipboardLock(() -> {
+                try {
+                    Locator allShareIcons = page.locator("use[xlink\\:href='#tongyi-share-line']");
+                    int count = allShareIcons.count();
+                    allShareIcons.nth(count - 1).locator("xpath=../../..").click();
+                    Thread.sleep(2000);
+                    page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[2]/div[1]/div[3]/button[2]").click();
+                    // 建议适当延迟等待内容更新
+                    Thread.sleep(2000);
+                    page.getByText("复制链接").last().click();
+                    String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
+                    shareUrlRef.set(shareUrl);
+                    System.out.println("剪贴板内容：" + shareUrl);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+
+            Thread.sleep(1000);
+            String shareUrl = shareUrlRef.get();
+
+            logInfo.sendTaskLog( "执行完成",userId,"通义千问");
+            logInfo.sendChatData(page,"/chat/([^/?#]+)",userId,"RETURN_DB_CHATID",1);
+            logInfo.sendResData(copiedText,userId,"通义千问","RETURN_DB_RES",shareUrl,null);
+
+            //保存数据库
+            userInfoRequest.setDraftContent(copiedText);
+            userInfoRequest.setAiName("通义千问");
+            userInfoRequest.setShareUrl(shareUrl);
+            userInfoRequest.setShareImgUrl(null);
             RestUtils.post(url+"/saveDraftContent", userInfoRequest);
             return copiedText;
         } catch (Exception e) {
