@@ -204,7 +204,7 @@ public class BrowserController {
             Page page = context.newPage();
             page.navigate("https://www.doubao.com/chat/");
             Thread.sleep(5000);
-            Locator locator = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[1]/div[1]/div/div/div[1]/div/div/div/div[2]/div/button");
+            Locator locator = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div/main/div/div/div[1]/div/div/div/div[2]/div/button");
             if (locator.count() > 0 && locator.isVisible()) {
                 return "false";
             } else {
@@ -241,7 +241,7 @@ public class BrowserController {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"db")) {
             Page page = context.newPage();
             page.navigate("https://www.doubao.com/chat/");
-            Locator locator = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[1]/div[1]/div/div/div[1]/div/div/div/div[2]/div/button");
+            Locator locator = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div/main/div/div/div[1]/div/div/div/div[2]/div/button");
             Thread.sleep(2000);
             if (locator.count() > 0 && locator.isVisible()) {
                 locator.click();
@@ -279,7 +279,7 @@ public class BrowserController {
     }
 
     /**
-     * 检查豆包登录状态
+     * 检查千问登录状态
      * @param userId 用户唯一标识
      * @return 登录状态："false"表示未登录，手机号表示已登录
      */
