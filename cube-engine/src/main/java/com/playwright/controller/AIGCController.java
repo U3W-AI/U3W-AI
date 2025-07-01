@@ -338,13 +338,14 @@ public class AIGCController {
             // 等待复制按钮出现并点击
 //            String copiedText =  douBaoUtil.waitAndClickDBCopyButton(page,userId,roles);
             //等待html片段获取完成
-            String copiedText =  douBaoUtil.waitDBHtmlDom(page,userId);
+            String copiedText =  douBaoUtil.waitDBHtmlDom(page,userId,"豆包");
             //关闭截图
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
 
             boolean isRight;
-            Locator chatHis = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[1]/div[1]/div/div/div[2]/div/div[1]/div/div/div[2]/div[2]/div/div/div/div/div/div/div[1]/div/div/div[2]/div[2]");
+
+            Locator chatHis = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div/main/div/div/div[2]/div/div[1]/div/div/div[2]/div[2]/div/div/div/div/div/div/div[1]/div/div/div[2]/div[1]/div/div");
             if(chatHis.count()>0){
                 isRight =true;
             } else {
@@ -355,8 +356,8 @@ public class AIGCController {
 
             clipboardLockManager.runWithClipboardLock(() -> {
                 try {
-                    if(isRight && page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[2]/div/aside[2]/div/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").count()>0){
-                        page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[2]/div/aside[2]/div/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").click();
+                    if(isRight && page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").count()>0){
+                        page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").click();
                         Thread.sleep(1000);
                         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("公开分享")).click();
                         Thread.sleep(500);
@@ -379,15 +380,15 @@ public class AIGCController {
             Thread.sleep(1000);
             String shareUrl = shareUrlRef.get();
             String sharImgUrl = "";
-            if (isRight && page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[2]/div/aside[2]/div/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").count()>0) {
-                page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[2]/div/aside[2]/div/div/div[1]/div/div[1]/div[3]/div/div/div/div[3]").click();
+            if (isRight && page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[3]").count()>0) {
+                page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[3]").click();
                 sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
                     page.getByTestId("popover_select_option_item").nth(1).click();
                 });
             } else {
                 page.locator("button[data-testid='message_action_share']").last().click();
                 Thread.sleep(2000);
-                page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[1]/div[1]/div/div/div[3]/div/div/div/div/div[1]/div/div/button").click();
+                page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div/main/div/div/div[3]/div/div/div/div/div[1]/div/div/button").click();
                 Thread.sleep(5000);
                 sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
                     page.locator("button:has-text(\"下载图片\")").click();
@@ -478,13 +479,13 @@ public class AIGCController {
 
             logInfo.sendTaskLog( "开启自动监听任务，持续监听评分结果",userId,"智能评分");
             // 等待复制按钮出现并点击
-            String copiedText =  douBaoUtil.waitDBHtmlDom(page,userId);
+            String copiedText =  douBaoUtil.waitDBHtmlDom(page,userId,"智能评分");
 
             //关闭截图
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
             boolean isRight;
-            Locator chatHis = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[1]/div[1]/div/div/div[2]/div/div[1]/div/div/div[2]/div[2]/div/div/div/div/div/div/div[1]/div/div/div[2]/div[2]");
+            Locator chatHis = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div/main/div/div/div[2]/div/div[1]/div/div/div[2]/div[2]/div/div/div/div/div/div/div[1]/div/div/div[2]/div[1]/div/div");
             if(chatHis.count()>0){
                 isRight =true;
             } else {
@@ -497,11 +498,11 @@ public class AIGCController {
             AtomicReference<String> shareUrlRef = new AtomicReference<>();
             clipboardLockManager.runWithClipboardLock(() -> {
                 try {
-                    if(isRight){
-                        page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[2]/div/aside[2]/div/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").click();
+                    if(isRight && page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").count()>0){
+                        page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").click();
                         Thread.sleep(1000);
                         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("公开分享")).click();
-
+                        Thread.sleep(500);
                     }else{
                         page.locator("button[data-testid='message_action_share']").last().click();
                         Thread.sleep(2000);
@@ -521,15 +522,15 @@ public class AIGCController {
             Thread.sleep(1000);
             String shareUrl = shareUrlRef.get();
             String sharImgUrl = "";
-            if (isRight) {
-                page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[2]/div/aside[2]/div/div/div[1]/div/div[1]/div[3]/div/div/div/div[3]").click();
+            if (isRight && page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[3]").count()>0) {
+                page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[3]").click();
                 sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
                     page.getByTestId("popover_select_option_item").nth(1).click();
                 });
             } else {
                 page.locator("button[data-testid='message_action_share']").last().click();
                 Thread.sleep(2000);
-                page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[1]/div[1]/div/div/div[3]/div/div/div/div/div[1]/div/div/button").click();
+                page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div/main/div/div/div[3]/div/div/div/div/div[1]/div/div/button").click();
                 Thread.sleep(5000);
                 sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
                     page.locator("button:has-text(\"下载图片\")").click();

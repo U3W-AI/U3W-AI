@@ -86,7 +86,7 @@ public class DouBaoUtil {
      * html片段获取（核心监控方法）
      * @param page Playwright页面实例
      */
-    public String waitDBHtmlDom(Page page,String userId)  {
+    public String waitDBHtmlDom(Page page,String userId,String aiName)  {
         try {
             // 等待聊天框的内容稳定
             String currentContent = "";
@@ -110,13 +110,12 @@ public class DouBaoUtil {
 
 
                 if(currentContent.contains("改用对话直接回答") && !isRight){
-//                    page.getByText("改用对话直接回答").click();
-                    page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[1]/div[1]/div/div/div[2]/div/div[1]/div/div/div[2]/div[2]/div/div/div/div/div/div/div[1]/div/div/div[2]/div[1]/div/div").click();
+                    page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div/main/div/div/div[2]/div/div[1]/div/div/div[2]/div[2]/div/div/div/div/div/div/div[1]/div/div/div[2]/div[1]/div/div").click();
                     isRight = true;
                 }
 
                 if(isRight){
-                    Locator outputLocator = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[2]/div/aside[2]/div/div/div[1]/div/div[2]").last();
+                    Locator outputLocator = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[2]/div/div/div/div/div/div/div/div/div/div/div/div[1]").last();
                     currentContent = outputLocator.innerHTML();
                 }else{
                     Locator outputLocator = page.locator(".flow-markdown-body").last();
@@ -127,7 +126,7 @@ public class DouBaoUtil {
                 System.out.println(currentContent);
                 // 如果当前内容和上次内容相同，认为 AI 已经完成回答，退出循环
                 if (currentContent.equals(lastContent)) {
-                    logInfo.sendTaskLog( "豆包回答完成，正在自动提取内容",userId,"豆包");
+                    logInfo.sendTaskLog( aiName+"回答完成，正在自动提取内容",userId,aiName);
                     break;
                 }
 
@@ -135,7 +134,7 @@ public class DouBaoUtil {
                 lastContent = currentContent;
                 page.waitForTimeout(10000);  // 等待10秒再次检查
             }
-            logInfo.sendTaskLog( "豆包内容已自动提取完成",userId,"豆包");
+            logInfo.sendTaskLog( aiName+"内容已自动提取完成",userId,aiName);
 
             String regex = "<span>\\s*<span[^>]*?>\\d+</span>\\s*</span>";
 
