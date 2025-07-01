@@ -9,7 +9,7 @@
 ```
 U3W-AI/
 ├── common_deployment_guide.md  [公共环境部署指南](common_deployment_guide.md)
-├── cube-mini/            # 优立方AI主机小程序控制端
+├── cube-mini/            # 优立方AI主机控制台小程序端
 │   └── deployment_guide.md  [部署指南](cube-mini/deployment_guide.md)
 ├── cube-admin/           # 优立方AI主机控制台后端
 │   └── deployment_guide.md  [部署指南](cube-admin/deployment_guide.md)
@@ -25,7 +25,7 @@ U3W-AI/
 ### 1.1 部署文档
 公共环境部署指南：[公共环境部署指南](common_deployment_guide.md)
 
-优立方AI主机小程序控制端：[部署指南](cube-mini/deployment_guide.md)
+优立方AI主机控制台小程序端：[部署指南](cube-mini/deployment_guide.md)
 
 优立方AI主机控制台后端：[部署指南](cube-admin/deployment_guide.md)
 
