@@ -22,6 +22,17 @@ U3W-AI/
 ├── sql/                  # 数据库脚本
 └── README.md             # 项目说明文档
 ```
+### 1.1 部署文档
+公共环境部署指南：[公共环境部署指南](common_deployment_guide.md)
+
+优立方AI主机小程序控制端：[部署指南](cube-mini/deployment_guide.md)
+
+优立方AI主机控制台后端：[部署指南](cube-admin/deployment_guide.md)
+
+优立方AI主机控制台前端：[部署指南](cube-ui/deployment_guide.md)
+
+优立方AI主机核心服务：[部署指南](cube-engine/deployment_guide.md)
+
 
 ## 2、概述
 
