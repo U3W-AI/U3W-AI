@@ -210,11 +210,11 @@ public class BrowserController {
             } else {
                 Thread.sleep(500);
 
-                page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[1]/div[1]/div/div/div[1]/div/div/div/div[2]/div/div/span").click();
+                page.locator("[data-testid=\"chat_header_avatar_button\"]").click();
                 Thread.sleep(500);
                 page.locator("[data-testid=\"chat_header_setting_button\"]").click();
                 Thread.sleep(500);
-                Locator phone = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[1]/div[1]/div/div[2]/div/div/div[1]/div/div[1]");
+                Locator phone = page.locator(".nickName-cIcGuG");
                 if(phone.count()>0){
                     String phoneText = phone.textContent();
                     return phoneText;
@@ -258,11 +258,11 @@ public class BrowserController {
                 Locator login = page.getByText("登录成功");
                 login.waitFor(new Locator.WaitForOptions().setTimeout(60000));
                 Thread.sleep(5000);
-                page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[1]/div[1]/div/div/div[1]/div/div/div/div[2]/div/div/span").click();
+                page.locator("[data-testid=\"chat_header_avatar_button\"]").click();
                 Thread.sleep(1000);
                 page.locator("[data-testid=\"chat_header_setting_button\"]").click();
                 Thread.sleep(1000);
-                Locator phone = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[1]/div[1]/div/div[2]/div/div/div[1]/div/div[1]");
+                Locator phone = page.locator(".nickName-cIcGuG");
                 if(phone.count()>0){
                     String phoneText = phone.textContent();
                     JSONObject jsonObjectTwo = new JSONObject();
@@ -314,7 +314,7 @@ public class BrowserController {
      * @param userId 用户唯一标识
      * @return 二维码图片URL 或 "false"表示失败
      */
-    @Operation(summary = "获取豆包登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
+    @Operation(summary = "获取千问登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     @GetMapping("/getQWQrCode")
     public String getQWQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"qwen")) {

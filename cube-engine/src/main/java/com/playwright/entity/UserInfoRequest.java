@@ -37,6 +37,9 @@ public class UserInfoRequest {
     @Schema(description = "数据库大模型（如 ZJ-DB）的聊天会话 ID", example = "db_chat_003")
     private String dbChatId;
 
+    @Schema(description = "数据库大模型（如 qwen）的聊天会话 ID", example = "qw_chat_003")
+    private String qwChatId;
+
     @Schema(description = "是否为新对话。true 表示清空上下文重新开始", example = "true")
     private String isNewChat;
 
