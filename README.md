@@ -24,21 +24,15 @@ U3W-AI/
 ```
 ### 1.1 部署文档
 公共环境部署指南：[公共环境部署指南](common_deployment_guide.md)
-
-优立方AI主机控制台小程序端：[部署指南](cube-mini/deployment_guide.md)
-
-优立方AI主机控制台后端：[部署指南](cube-admin/deployment_guide.md)
-
-优立方AI主机控制台前端：[部署指南](cube-ui/deployment_guide.md)
-
 优立方AI主机核心服务：[部署指南](cube-engine/deployment_guide.md)
+优立方AI主机控制台后端：[部署指南](cube-admin/deployment_guide.md)
+优立方AI主机控制台前端：[部署指南](cube-ui/deployment_guide.md)
+优立方AI主机控制台小程序端：[部署指南](cube-mini/deployment_guide.md)
 
 
 ## 2、概述
 
-本白皮书详细介绍优立方 AI 主机。
-
-秉承 “Unique³ Wisdom”（独特智慧三次方：团队智慧、AI 智慧、商业智慧）的品牌理念，优立方旨在通过融合前沿的 AI 技术与高效的团队协作能力，为企业提供高效、智能的内容资产创作与管理解决方案。
+秉承 Unique³ Wisdom的品牌理念，优立方旨在通过融合前沿的 AI 技术与高效的团队协作能力，为企业提供高效、智能的内容资产创作与管理解决方案。
 
 ## 3. 优立方：品牌理念与核心价值
 
