@@ -3,10 +3,10 @@ server:
 
 
 cube:
-  url: https://u3w.com/cubeServer/aigc
-  wssurl: ws://127.0.0.1:8081/websocket?clientId=play-ylf100002
+  url: https://127.0.0.1:8083/cubeServer/aigc
+  wssurl: wss://127.0.0.1:8083/cubeServer/websocket?clientId=play-你的主机ID  #主机ID建议使用字母+数字组合，例如play-user01
   datadir: C:\AGI\user-data-dir
-  uploadurl: https://u3w.com/cubeServer/common/upload
+  uploadurl: https://127.0.0.1:8083/cubeServer/common/upload
 
 
 
