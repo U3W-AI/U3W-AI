@@ -3,10 +3,10 @@ server:
 
 
 cube:
-  url: http://127.0.0.1:8083/aigc
-  wssurl: ws://127.0.0.1:8083/websocket?clientId=play-你的主机ID  #主机ID建议使用字母+数字组合，例如play-user01
+  url: http://127.0.0.1:8081/aigc
+  wssurl: ws://127.0.0.1:8081/websocket?clientId=play-你的主机ID  #主机ID建议使用字母+数字组合，例如play-user01
   datadir: C:\AGI\user-data-dir
-  uploadurl: http://127.0.0.1:8083/common/upload
+  uploadurl: http://127.0.0.1:8081/common/upload
 
 #如果配置url是加了https证书的域名，则需要改为wss://你的域名/cubeServer/websocket?clientId=play-你的主机ID
 #https域名示例：
