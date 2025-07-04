@@ -3,7 +3,7 @@ package com.cube.wechat.selfapp.app.service;
 import com.cube.wechat.selfapp.app.domain.AINodeLog;
 import com.cube.wechat.selfapp.app.domain.AIParam;
 import com.cube.wechat.selfapp.app.domain.WcOfficeAccount;
-import com.cube.wechat.selfapp.wecom.util.ResultBody;
+import com.cube.wechat.selfapp.corpchat.util.ResultBody;
 
 import java.util.List;
 import java.util.Map;
@@ -20,77 +20,6 @@ public interface UserInfoService {
      * */
     ResultBody getUserPointsRecord(Map map);
 
-    /**
-     * 获取用户收藏、下载、浏览研报列表
-     * */
-    ResultBody getUserReportList(Map map);
-
-    /**
-     * 获取首页研报列表
-     * */
-    ResultBody getReportList(Map map);
-
-    /**
-     * 获取猜你喜欢
-     * */
-    ResultBody getUserLike(String userId);
-
-    /**
-     * 获取研报详情
-     * */
-    ResultBody getReporttDeail(String id);
-
-    /**
-     * 收藏/取消收藏研报
-     * */
-    ResultBody changeResColStatus(Map map);
-
-    /**
-     * 保存用户浏览记录
-     * */
-    ResultBody saveUserBrowse(Map map);
-
-    /**
-     * 保存用户下载记录
-     * */
-    ResultBody saveUserDown(Map map);
-
-    /**
-     * 保存用户分享记录
-     * */
-    ResultBody saveUserShare(Map map);
-
-    /**
-     * 获取行业订阅列表
-     * */
-    ResultBody getSubscribe(String userId);
-
-    /**
-     * 保存用户订阅
-     * */
-    ResultBody saveSubscribe(Map map);
-
-    /**
-     * 获取用户评论
-     * */
-    ResultBody getResComment(String resId);
-
-    /**
-     * 评论点赞/取消点赞
-     * */
-    ResultBody changeCommentStatus(Map map);
-
-    /**
-     * 保存用户评论
-     * */
-    ResultBody saveUserComment(Map map);
-
-
-
-    /**
-     * 获取用户每日任务状态
-     * */
-    ResultBody getUserTask(String userId);
 
     ResultBody saveAIChatHistory(AIParam aiParam);
 
@@ -107,11 +36,7 @@ public interface UserInfoService {
 
     ResultBody saveChromeData(Map map);
 
-    ResultBody saveChromeKeyWord(Map map);
 
-    ResultBody saveChromeKeyWordLink(Map map);
-
-    ResultBody updateChromeKeyWordLink(Map map);
 
     ResultBody updateChatTitle(Map map);
 
@@ -121,7 +46,6 @@ public interface UserInfoService {
 
     ResultBody changePoint(String userId,String method);
 
-    ResultBody pushAutoOffice(String taskId, String userName);
 
     ResultBody pushAutoOneOffice(Map map);
 

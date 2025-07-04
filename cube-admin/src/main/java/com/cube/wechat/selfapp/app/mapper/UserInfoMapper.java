@@ -19,72 +19,10 @@ public interface UserInfoMapper {
 
     List<Map> getUserPointsRecord(Map map);
 
-    List<Map> getUserDownReportList(Map map);
-
-    List<Map> getUserBrowseReportList(Map map);
-
-    List<Map> getUserBrowseStraList(Map map);
-
-    List<Map> getUserCollectionReportList(Map map);
-
-    List<Map> getUserCollectionStraList(Map map);
-
-    List<Map> getReportList(Map map);
-
-    String getUserTag(String userId);
-
-    List<Map> getUserLike(String tag);
-
-    Map getReportDetail(String id);
 
 
-    int saveCollection(@Param("resId") String resId, @Param("userId") String userId);
 
-    Integer getBrowseCount(@Param("resId") String resId, @Param("userId") String userId);
 
-    Integer getDownCount(@Param("resId") String resId, @Param("userId") String userId);
-
-    Integer getShareCount(@Param("bizId") String bizId, @Param("userId") String userId);
-
-    int saveBrowseRecord(@Param("resId") String resId, @Param("userId") String userId);
-
-    int saveDownRecord(@Param("resId") String resId, @Param("userId") String userId);
-
-    int saveShareRecord(@Param("bizId") String bizId, @Param("userId") String userId,@Param("path") String path);
-
-    int delCollection(@Param("resId") String resId, @Param("userId") String userId);
-
-    int addResCollectionNum(String resId);
-
-    int delResCollectionNum(String resId);
-
-    int addResDownNum(String resId);
-
-    int delResDownNum(String resId);
-
-    int addResBrowseNum(String resId);
-
-    int addStraBrowseNum(String resId);
-
-    int delResBrowseNum(String resId);
-
-    List<String> getSubscribe(String userId);
-
-    int delSubscribe(String userId);
-
-    int saveSubscribe(@Param("userId") String userId,@Param("list")List<String> list);
-
-    List<Map> getResComment(String resId);
-
-    int saveUserLike(Map map);
-
-    int delUserLike(Map map);
-
-    int addCommentLike(String comId);
-
-    int delCommentLike(String comId);
-
-    int saveUserComment(Map map);
 
     int saveAIChatHistory(AIParam aiParam);
 
@@ -107,7 +45,6 @@ public interface UserInfoMapper {
 
     int saveChromeKeyWord(Map map);
 
-    int saveChromeKeyWordLink(@Param("list") List<Map> list);
 
 
     int updateHotWordStatus(String id);

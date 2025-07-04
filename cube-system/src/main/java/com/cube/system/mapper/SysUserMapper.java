@@ -136,6 +136,7 @@ public interface SysUserMapper
      * @return
      */
     public SysUser selectWxUserByOpenId(@Param("openId") String openId,@Param("unionId") String unionId);
+    public SysUser selectWxUserByUserId(@Param("userId") String userId);
 
     public SysUser selectWxUserByUnionId(@Param("unionId") String unionId);
 }

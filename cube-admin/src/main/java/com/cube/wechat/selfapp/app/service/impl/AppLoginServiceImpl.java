@@ -58,7 +58,7 @@ public class AppLoginServiceImpl implements AppLoginService {
             user.setUnionId(unionId);
             user.setCreateTime(DateUtils.getNowDate());
             user.setCreateBy("优立方小程序用户");
-            user.setPoints(0);
+            user.setPoints(200);
             //新增 用户
             userMapper.insertUser(user);
             SysUser newUser = userMapper.selectWxUserByOpenId(openId,unionId);
@@ -107,10 +107,10 @@ public class AppLoginServiceImpl implements AppLoginService {
             user.setOpenId(openId);
             user.setQwId(qwId);
             user.setUnionId(unionId);
-            user.setCorpId(corpId);
+//            user.setCorpId(corpId);
             user.setCreateTime(DateUtils.getNowDate());
             user.setCreateBy("企业微信小程序用户");
-            user.setPoints(0);
+            user.setPoints(200);
             //新增 用户
             userMapper.insertUser(user);
             SysUser newUser = userMapper.selectWxUserByOpenId(openId,unionId);
@@ -122,7 +122,7 @@ public class AppLoginServiceImpl implements AppLoginService {
             user = wxUser;
             user.setQwId(qwId);
             user.setUnionId(unionId);
-            user.setCorpId(corpId);
+//            user.setCorpId(corpId);
             user.setUpdateTime(DateUtils.getNowDate());
             pointsSystem.setUserPoint(String.valueOf(wxUser.getUserId()),"每日优立方登录",null,"0x3f4413a0e863903147172b1e7672d7a23025e084","824af41abf2ca18335f5547ae293a4e250ed7e80a78f985fd01d551e0a0d3552");
 
@@ -159,7 +159,7 @@ public class AppLoginServiceImpl implements AppLoginService {
             user.setUnionId(unionId);
             user.setCreateTime(DateUtils.getNowDate());
             user.setCreateBy("优立方用户");
-            user.setPoints(0);
+            user.setPoints(200);
             //新增 用户
             userMapper.insertUser(user);
             SysUser newUser = userMapper.selectWxUserByOpenId(openId,unionId);

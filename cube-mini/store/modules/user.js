@@ -118,7 +118,7 @@ const user = {
 		  const nickname = (user == null || user.nickName == "" || user.nickName == null) ? "" : user.nickName
 		  const userId = (user == null || user.userId == "" || user.userId == null) ? "" : user.userId
 		  const corpId = (user == null || user.corpId == "" || user.corpId == null) ? "" : user.corpId
-		  console.log("登录成功企业ID",corpId)
+		  console.log("登录成功企业ID",res.user)
           if (res.roles && res.roles.length > 0) {
             commit('SET_ROLES', res.roles)
             commit('SET_PERMISSIONS', res.permissions)

@@ -8,9 +8,7 @@ import com.cube.wechat.selfapp.app.domain.AINodeLog;
 import com.cube.wechat.selfapp.app.domain.AIParam;
 import com.cube.wechat.selfapp.app.domain.WcOfficeAccount;
 import com.cube.wechat.selfapp.app.service.UserInfoService;
-import com.cube.wechat.selfapp.app.util.CommonAssistantService;
-import com.cube.wechat.selfapp.app.util.StreamAssistantService;
-import com.cube.wechat.selfapp.wecom.util.ResultBody;
+import com.cube.wechat.selfapp.corpchat.util.ResultBody;
 import io.swagger.annotations.ApiParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -34,11 +32,6 @@ public class UserInfoController extends BaseController {
     @Autowired
     private UserInfoService userInfoService;
 
-    @Autowired
-    private StreamAssistantService streamAssistantService;
-
-    @Autowired
-    private CommonAssistantService commonAssistantService;
 
     @Autowired
     private MyWebSocketHandler myWebSocketHandler;
@@ -53,75 +46,6 @@ public class UserInfoController extends BaseController {
         return userInfoService.getUserPointsRecord(map);
     };
 
-    @PostMapping("/getUserReportList")
-    public ResultBody getUserReportList(@RequestBody Map map){
-        return userInfoService.getUserReportList(map);
-    };
-
-    @PostMapping("/getReportList")
-    public ResultBody getReportList(@RequestBody Map map){
-        return userInfoService.getReportList(map);
-    };
-    @GetMapping("/getUserLike")
-    public ResultBody getUserLike(String userId){
-        return userInfoService.getUserLike(userId);
-    };
-
-    @GetMapping("/getReporttDeail")
-    public ResultBody getReporttDeail(String id){
-        return userInfoService.getReporttDeail(id);
-    }
-
-    @PostMapping("/changeResColStatus")
-    public ResultBody changeResColStatus(@RequestBody Map map){
-       return userInfoService.changeResColStatus(map);
-    };
-
-    @PostMapping("/saveUserBrowse")
-    public ResultBody saveUserBrowse(@RequestBody Map map){
-       return userInfoService.saveUserBrowse(map);
-    };
-
-    @PostMapping("/saveUserDown")
-    public ResultBody saveUserDown(@RequestBody Map map){
-       return userInfoService.saveUserDown(map);
-    };
-    @PostMapping("/saveUserShare")
-    public ResultBody saveUserShare(@RequestBody Map map){
-       return userInfoService.saveUserShare(map);
-    };
-
-    @GetMapping("/getSubscribe")
-    public ResultBody getSubscribet(String userId){
-       return userInfoService.getSubscribe(userId);
-    };
-
-    @PostMapping("/saveSubscribe")
-    public ResultBody saveSubscribe(@RequestBody Map map){
-     return userInfoService.saveSubscribe(map);
-    };
-
-    @GetMapping("/getResComment")
-    public ResultBody getResComment(String resId){
-        return userInfoService.getResComment(resId);
-    };
-
-
-    @PostMapping("/changeCommentStatus")
-    public ResultBody changeCommentStatus(@RequestBody Map map){
-       return userInfoService.changeCommentStatus(map);
-    }
-
-    @PostMapping("/saveUserComment")
-    public ResultBody saveUserComment(@RequestBody Map map){
-       return userInfoService.saveUserComment(map);
-    }
-
-    @GetMapping("/getUserTask")
-    public ResultBody getUserTask(String userId){
-       return userInfoService.getUserTask(userId);
-    };
-
     @PostMapping("/saveAIChatHistory")
     public ResultBody saveAIChatHistory(@RequestBody AIParam aiParam){
         return userInfoService.saveAIChatHistory(aiParam);
@@ -133,27 +57,6 @@ public class UserInfoController extends BaseController {
     }
 
 
-
-
-    @GetMapping(value = "/chat/completions", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> chatCompletions(AIParam aiParam) {
-
-
-        if(StringUtils.isNotEmpty(aiParam.getConversationId())){
-            Flux<String> flux = streamAssistantService.fetchStreamData(aiParam);
-            return flux;
-        }
-        return null;
-    }
-
-    @GetMapping(value = "/chat/v2/completions")
-    public ResultBody completionsV2(AIParam aiParam) {
-        if(StringUtils.isNotEmpty(aiParam.getConversationId())){
-            String res = commonAssistantService.getCommonModelRes(aiParam);
-            return ResultBody.success(res);
-        }
-        return ResultBody.success("抱歉，我暂时无法回答这个问题");
-    }
 
     @GetMapping("/getUserChatHistory")
     public ResultBody getUserChatHistory(String userId,String title){
@@ -187,41 +90,6 @@ public class UserInfoController extends BaseController {
             userInfoService.saveChromeData(map);
         }
 
-        return ResultBody.success("");
-    }
-    @PostMapping("/saveChromeKeyWord")
-    public ResultBody saveChromeKeyWord(@RequestBody Map map){
-        if(map!=null){
-            map.put("promptNum",map.get("prompt").toString().length());
-            map.put("answerNum",map.get("answer").toString().length());
-            map.put("username",map.get("username").toString().trim());
-            return userInfoService.saveChromeKeyWord(map);
-        }
-
-        return ResultBody.success("成功");
-    }
-
-    @PostMapping("/updateChromeKeyWordLink")
-    public ResultBody updateChromeKeyWordLink(@RequestBody Map map){
-        if(map!=null){
-            map.put("username",map.get("username").toString().trim());
-            if(map.get("answer")!=null && !map.get("answer").equals("")){
-//                map.put("answer",map.get("answer").toString().replaceAll("<[^>]+>", "").trim());
-                String str = map.get("answer").toString().replaceAll("\n", "<br>").trim();
-                str =str.replace("<ol><br>","<ol>");
-                str =str.replace("<li><br>","<li>");
-                map.put("answer",str);
-            }
-           userInfoService.updateChromeKeyWordLink(map);
-        }
-        return ResultBody.success("");
-    }
-
-    @PostMapping("/saveChromeKeyWordLink")
-    public ResultBody saveChromeKeyWordLink(@RequestBody Map map){
-        if(map!=null){
-            userInfoService.saveChromeKeyWordLink(map);
-        }
         return ResultBody.success("");
     }
 
@@ -370,12 +238,5 @@ public class UserInfoController extends BaseController {
     };
 
 
-
-//    public static void main(String[] args) {
-//
-//        String content=".Render-markdown { white-space: normal; text-align: justify; } .Render-markdown > *:last-child { margin-bottom: 0!important; } .Render-markdown ol { list-style-type: decimal; } .Render-markdown ul { list-style-type: disc; } .Render-markdown ul ul { list-style-type: circle; } .Render-markdown li { list-style-type: inherit; } .Render-markdown li:not(.Render-markdown > ul > li:first-child, .Render-markdown > ol > li:first-child) { margin-top: 6px; } .Render-markdown li * { margin-bottom: 0!important; } .Render-markdown pre { white-space: pre-wrap; } 深圳游客的广州周末游记：探索羊城的古今交融 【第一天：抵达广州，古迹寻踪】 清晨，我从深圳北站搭乘高铁，仅一个多小时便踏入了广州这片热土。广州，这座历史悠久与现代繁华并存的城市，总是能以它独特的魅力吸引着我。如何根据java正则去除style标签和里面的内容";
-//        String result = content.replaceAll("", "").trim();
-//        System.out.println(result);
-//    }
 }
 
