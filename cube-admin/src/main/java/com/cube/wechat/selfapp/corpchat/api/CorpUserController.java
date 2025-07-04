@@ -7,6 +7,7 @@ import cn.felord.api.WorkWeChatApi;
 import cn.felord.domain.contactbook.department.DeptInfo;
 import cn.felord.domain.contactbook.user.SimpleUser;
 import cn.hutool.http.HttpRequest;
+import com.cube.common.constant.Constants;
 import cn.hutool.http.HttpUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
@@ -87,7 +88,7 @@ public class CorpUserController {
             AjaxResult ajax = AjaxResult.success();
             // 生成令牌
             String token = tokenService.createToken(loginUser);
-//            ajax.put(Constants.TOKEN, token);
+            ajax.put(Constants.TOKEN, token);
 
             return ajax;
         } catch (Exception e) {
