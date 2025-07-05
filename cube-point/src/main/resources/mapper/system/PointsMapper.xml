@@ -45,7 +45,7 @@
                 points+ #{changeAmount}
             </if>
             <if test="changeAmount ==null">
-                points+ (select dict_value from  sys_dict_data where dict_label = #{changeType})
+                points+ (select IFNULL(dict_value,0) from  sys_dict_data where dict_label = #{changeType})
             </if>
         where user_id = #{userId}
     </update>

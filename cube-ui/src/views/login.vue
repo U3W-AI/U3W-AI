@@ -15,6 +15,9 @@
       <a href="https://beian.miit.gov.cn/" target="_blank" style="text-decoration: none; color: #666;">
         浙ICP备2025176978号-1
       </a>
+      <br />
+      <img src="@/assets/logo/ba.png" alt="logo" style="height: 18px; vertical-align: middle; margin-right: 6px;" />
+      <a href=" " rel="noreferrer" target="_blank">浙公网安备33010802013946号</a>
     </div>
   </div>
 </template>

@@ -10,9 +10,9 @@ import com.cube.wechat.selfapp.app.domain.WcOfficeAccount;
 import com.cube.wechat.selfapp.app.mapper.UserInfoMapper;
 import com.cube.wechat.selfapp.app.service.UserInfoService;
 import com.cube.wechat.selfapp.app.util.RestUtils;
-import com.cube.wechat.selfapp.wecom.util.RedisUtil;
-import com.cube.wechat.selfapp.wecom.util.ResultBody;
-import com.cube.wechat.selfapp.wecom.util.WeChatApiUtils;
+import com.cube.wechat.selfapp.corpchat.util.RedisUtil;
+import com.cube.wechat.selfapp.corpchat.util.ResultBody;
+import com.cube.wechat.selfapp.corpchat.util.WeChatApiUtils;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -73,252 +73,15 @@ public class UserInfoServiceImpl implements UserInfoService {
         return ResultBody.success(pageInfo);
     }
 
-    /**
-     * 获取用户收藏、下载、浏览研报列表
-     * */
-    @Override
-    public ResultBody getUserReportList(Map map) {
-        PageHelper.startPage((int)map.get("pageIndex"),(int)map.get("pageSize"));
-        List<Map> list = new ArrayList<>();
-        if(map.get("type").equals(1) || map.get("type").equals("1")){
-            // 查询我的下载
-            list = userInfoMapper.getUserDownReportList(map);
-
-        }else if(map.get("type").equals(2) || map.get("type").equals("2")){
-            // 查询我的浏览
-            if(map.get("contentType").equals(1) || map.get("contentType").equals("1")){
-                list = userInfoMapper.getUserBrowseReportList(map);
-            }else if(map.get("contentType").equals(2) || map.get("contentType").equals("2")){
-                list = userInfoMapper.getUserBrowseStraList(map);
-            }
-
-        }else if(map.get("type").equals(3) || map.get("type").equals("3")){
-            //查询我的收藏
-            if(map.get("contentType").equals(1) || map.get("contentType").equals("1")){
-                list = userInfoMapper.getUserCollectionReportList(map);
-            }else if(map.get("contentType").equals(2) || map.get("contentType").equals("2")){
-                list = userInfoMapper.getUserCollectionStraList(map);
-            }
-
-        }
-        PageInfo pageInfo = new PageInfo(list);
-
-        return ResultBody.success(pageInfo);
-    }
-
-    /**
-     * 获取首页研报列表
-     * */
-    @Override
-    public ResultBody getReportList(Map map) {
-        PageHelper.startPage((int)map.get("pageIndex"),(int)map.get("pageSize"));
-        List<Map> list =  userInfoMapper.getReportList(map);
-        PageInfo pageInfo = new PageInfo(list);
-        Integer isFirst = pointsSystem.checkPointIsOk("每日首次登录",String.valueOf(map.get("userId")),1);
-        if(isFirst==0){
-            pointsSystem.setUserPoint(String.valueOf(map.get("userId")),"每日首次登录",null,"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
-        }
-        return ResultBody.success(pageInfo);
-    }
-
-    /**
-     * 获取猜你喜欢
-     * */
-    @Override
-    public ResultBody getUserLike(String userId) {
-        String tag = userInfoMapper.getUserTag(userId);
 
 
-        StringBuilder tagParamBuilder = new StringBuilder();
-        if (tag != null) {
-            String[] tagsArray = tag.split(",");
-            List<String> tagsList = Arrays.asList(tagsArray);
-            for (int i = 0; i < tagsList.size(); i++) {
-                String s = tagsList.get(i);
-                tagParamBuilder.append("tag like '%").append(s).append("%' or ");
-                tagParamBuilder.append("industry like '%").append(s).append("%' or ");
-                if (i == tagsList.size() - 1) {
-                    tagParamBuilder.delete(tagParamBuilder.length() - 4, tagParamBuilder.length());
-                }
-            }
-        } else {
-            tagParamBuilder.append("industry like '%科技传媒%' or industry like '%大消费%' ");
-        }
 
-        String tagParam = tagParamBuilder.toString();
 
-        List<Map> list =  userInfoMapper.getUserLike(tagParam);
-        return ResultBody.success(list);
-    }
 
-    /**
-     * 获取研报详情
-     * */
-    @Override
-    public ResultBody getReporttDeail(String id) {
-        return ResultBody.success(userInfoMapper.getReportDetail(id));
-    }
 
-    /**
-     * 收藏/取消收藏研报
-     * */
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public ResultBody changeResColStatus(Map map) {
-        if(map.get("userId")!=null){
-            if(map.get("isCol").equals("true") || map.get("isCol").equals(true) || map.get("isCol").equals(1) || map.get("isCol").equals("1") ){
-                userInfoMapper.saveCollection(map.get("id")+"",map.get("userId")+"");
-//                userInfoMapper.delResCollectionNum(map.get("id")+"");
-            }else if(map.get("isCol").equals("false") || map.get("isCol").equals(false) || map.get("isCol").equals(0) || map.get("isCol").equals("0") ){
-                userInfoMapper.delCollection(map.get("id")+"",map.get("userId")+"");
-//                userInfoMapper.addResCollectionNum(map.get("id")+"");
-            }
-            return ResultBody.success("收藏成功");
-        }else{
-            return ResultBody.error(401,"用户ID为空");
-        }
-    }
 
-    /**
-     * 保存用户浏览记录
-     * */
-    @Override
-    public ResultBody saveUserBrowse(Map map) {
-        if(map.get("userId")!=null){
-            Integer num = userInfoMapper.getBrowseCount(map.get("id")+"",map.get("userId")+"");
-            if( num == 0 ){
-                userInfoMapper.saveBrowseRecord(map.get("id")+"",map.get("userId")+"");
-            }
-            return ResultBody.success("浏览成功");
-        }else{
-            return ResultBody.error(401,"用户ID为空");
-        }
-    }
 
-    /**
-     * 保存用户下载记录
-     * */
-    @Override
-    public ResultBody saveUserDown(Map map) {
-        if(map.get("userId")!=null) {
-            Integer num = userInfoMapper.getDownCount(map.get("id") + "", map.get("userId") + "");
-            if (num == 0 && map.get("userId") != null) {
-                userInfoMapper.saveDownRecord(map.get("id") + "", map.get("userId") + "");
-                userInfoMapper.addResDownNum(map.get("id") + "");
-                pointsSystem.setUserPoint(String.valueOf(map.get("userId")), "下载干货", null,"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
-            }
-            return ResultBody.success("下载添加记录成功");
-        }else{
-            return ResultBody.error(401,"用户ID为空");
-        }
-    }
 
-    /**
-     * 保存用户分享记录
-     * */
-    @Override
-    public ResultBody saveUserShare(Map map) {
-        if(map.get("userId")!=null) {
-            Integer num = userInfoMapper.getShareCount(map.get("bizId") + "", map.get("userId") + "");
-            if (num == 0 && map.get("userId") != null) {
-                userInfoMapper.saveShareRecord(map.get("bizId") + "", map.get("userId") + "", map.get("path") + "");
-                Integer isFirst = pointsSystem.checkPointIsOk("每日首次分享", String.valueOf(map.get("userId")), 1);
-                if (isFirst == 0) {
-                    pointsSystem.setUserPoint(String.valueOf(map.get("userId")), "每日首次分享", null,"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
-                    return ResultBody.success("分享成功，今日积分已到账！");
-                }
-            }
-            return ResultBody.success("添加分享成功");
-        }else{
-            return ResultBody.error(401,"用户ID为空");
-        }
-    }
-
-    /**
-     * 获取行业订阅列表
-     * */
-    @Override
-    public ResultBody getSubscribe(String userId) {
-        Map map = new HashMap();
-        map.put("sub",userInfoMapper.getSubscribe(userId));
-        map.put("point", pointsSystem.getPointRule("行业订阅"));
-        return ResultBody.success(map);
-    }
-
-    /**
-     * 保存用户订阅
-     * */
-    @Override
-    public ResultBody saveSubscribe(Map map) {
-        if(map.get("userId")!=null){
-            List<String> list = (List<String>) map.get("selectedIndustries");
-            userInfoMapper.delSubscribe(map.get("userId")+"");
-            if(list.size()>0){
-                userInfoMapper.saveSubscribe(map.get("userId")+"", list);
-            }
-            pointsSystem.setUserPoint(map.get("userId")+"","行业订阅",Integer.parseInt(map.get("changeAmount")+""),"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
-            return ResultBody.success("订阅成功");
-        }else{
-            return ResultBody.error(401,"用户ID为空");
-        }
-    }
-
-    /**
-     * 获取用户评论
-     * */
-    @Override
-    public ResultBody getResComment(String resId) {
-        return ResultBody.success(userInfoMapper.getResComment(resId));
-    }
-
-    /**
-     * 评论点赞/取消点赞
-     * */
-    @Override
-    public ResultBody changeCommentStatus(Map map) {
-        if(map.get("creator") != null){
-            if(map.get("isLike").equals(1) || map.get("isLike").equals("1") ){
-                //取消点赞
-                userInfoMapper.addCommentLike(map.get("comId")+"");
-                userInfoMapper.saveUserLike(map);
-            }else{
-                userInfoMapper.delCommentLike(map.get("comId")+"");
-                userInfoMapper.delUserLike(map);
-            }
-            return ResultBody.success("点赞成功");
-        }else{
-            return ResultBody.error(401,"用户ID为空");
-        }
-    }
-
-    /**
-     * 保存用户评论
-     * */
-    @Override
-    public ResultBody saveUserComment(Map map) {
-        if(map.get("userId")!=null){
-            userInfoMapper.saveUserComment(map);
-            return ResultBody.success("评论成功");
-        }else{
-            return ResultBody.error(401,"用户ID为空");
-        }
-    }
-
-    /**
-     * 获取用户每日任务状态
-     * */
-    @Override
-    public ResultBody getUserTask(String userId) {
-        List<Map> taskList = pointsSystem.getPointTask();
-        List<String> finishedTask = userInfoMapper.getUserTask(userId);
-        taskList.forEach(task -> {
-            String taskName = (String) task.get("taskName");
-            String finshStatus = finishedTask.contains(taskName) ? "已完成" : "去完成";
-            task.put("finshStatus", finshStatus);
-        });
-
-        return ResultBody.success(taskList);
-    }
 
     @Override
     public ResultBody saveAIChatHistory(AIParam aiParam) {
@@ -355,54 +118,6 @@ public class UserInfoServiceImpl implements UserInfoService {
     @Override
     public ResultBody saveChromeData(Map map){
          userInfoMapper.saveChromeData(map);
-        return ResultBody.success("成功");
-    }
-    @Override
-    public ResultBody saveChromeKeyWord(Map map){
-//         userInfoMapper.saveChromeKeyWord(map);
-//         userInfoMapper.updateTaskStatus(map.get("id")+"","主题生成","success");
-//         userInfoMapper.updateTaskStatus(map.get("id")+"","素材搜集","running");
-//
-//
-//        Map promptTem = userInfoMapper.getUserPromptTem(map.get("username")+"",null);
-//
-//        if(map.get("id") != null){
-//            Map prompt = userInfoMapper.getUserHotWordByTaskId(map.get("id")+"");
-//            promptTem.put("theme",prompt.get("prompt"));
-//            promptTem.put("keyword",prompt.get("answer"));
-//        }
-
-        return ResultBody.success(null);
-    }
-
-    @Override
-    public ResultBody saveChromeKeyWordLink(Map map){
-        List<Map> list = new ArrayList<>();
-        List<Map> answerlist = (List<Map>) map.get("answer");
-        for (Map s : answerlist) {
-            Map resMap = new HashMap();
-            resMap.put("answer",s.get("url"));
-            resMap.put("author",s.get("name"));
-            resMap.put("title",s.get("title"));
-            resMap.put("answerNum",s.get("url").toString().length());
-            resMap.put("promptNum",map.get("prompt").toString().length());
-            resMap.put("username",map.get("username").toString().trim());
-            resMap.put("id",map.get("id"));
-            resMap.put("prompt",map.get("prompt"));
-            resMap.put("userPrompt",map.get("userPrompt"));
-            resMap.put("name",map.get("name"));
-            resMap.put("text",map.get("text"));
-            list.add(resMap);
-        }
-        if(!list.isEmpty()){
-            userInfoMapper.saveChromeKeyWordLink(list);
-            userInfoMapper.updateHotWordStatus(map.get("id")+"");
-        }
-        return ResultBody.success("成功");
-    }
-    @Override
-    public ResultBody updateChromeKeyWordLink(Map map){
-        userInfoMapper.updateChromeKeyWordLink(map);
         return ResultBody.success("成功");
     }
     @Override
@@ -497,68 +212,6 @@ public class UserInfoServiceImpl implements UserInfoService {
         }
         pointsSystem.setUserPoint(userId,method,null,"0x3f4413a0e863903147172b1e7672d7a23025e084","824af41abf2ca18335f5547ae293a4e250ed7e80a78f985fd01d551e0a0d3552");
         return ResultBody.success("执行成功！");
-    }
-    @Override
-    public ResultBody pushAutoOffice(String taskId, String userName){
-        userInfoMapper.updateTaskStatus(taskId,"内容生成","success");
-        userInfoMapper.updateTaskStatus(taskId,"发布预览","running");
-
-
-        WcOfficeAccount woa = userInfoMapper.getOfficeAccountByUserName(userName);
-        List<Map> list = userInfoMapper.getPushAutoOfficeData(taskId,userName);
-        if(list.size()==0){
-            return ResultBody.error(300,"暂无素材可被收录");
-        }
-        LocalDate today = LocalDate.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        String formattedDate = today.format(formatter); // 格式化日期
-
-        String title =woa.getOfficeAccountName()+"今日速递-"+formattedDate;
-//        使用 Map 聚合数据
-        Map<String, List<String>> groupedData = new LinkedHashMap<>();
-        for (Map map : list) {
-            String linkUrl = map.get("answer")+"";
-           String keyWord = map.get("prompt")+"";
-            String author = map.get("author")+"";
-            String summary = map.get("summary").toString();
-           String liTitle = "<a href ='"+linkUrl+"' style='color:#576b95' >"+author+"："+map.get("title")+"</a>";
-            summary = "<p style='font-family: 'Arial''>"+summary;
-            summary = summary+"</p>";
-           String content = liTitle+"<br><br>"+summary+"<br><br>";
-           groupedData.computeIfAbsent(keyWord, k -> new ArrayList<>()).add(content);
-        }
-
-        // 输出结果
-        String res = "";
-        for (Map.Entry<String, List<String>> entry : groupedData.entrySet()) {
-            String keyWord = "<p style='font-weight: normal;color:red;'>"+entry.getKey()+"</p>";
-            String content = String.join("", entry.getValue());
-            res =res + keyWord+"<br>"+content;
-        }
-
-        System.out.println(res);
-        String assessToken = weChatApiUtils.getOfficeAccessToken(woa.getAppId(),woa.getAppSecret());
-        String url = "https://api.weixin.qq.com/cgi-bin/draft/add?access_token="+assessToken;
-
-        List<JSONObject> paramlist = new ArrayList<>();
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("title",title);
-        jsonObject.put("author",woa.getOfficeAccountName());
-        jsonObject.put("content",res);
-        //jsonObject.put("thumb_media_id","V4PNB2XjrprWdg1sJxs7jpoxWs9YhZy8zYH38cbZSl3JzYw_liIxBesx7PuQ7-jV");
-        jsonObject.put("thumb_media_id",woa.getMediaId());
-        paramlist.add(jsonObject);
-        JSONObject param = new JSONObject();
-        param.put("articles",paramlist);
-        try {
-            RestUtils.post(url, param);
-        }catch (Exception e){
-
-        }
-        userInfoMapper.updateLinkStatus(list);
-
-        userInfoMapper.updateTaskStatus(taskId,"发布预览","success");
-        return ResultBody.success("上传成功！");
     }
     @Override
     public ResultBody pushAutoOneOffice(Map map){

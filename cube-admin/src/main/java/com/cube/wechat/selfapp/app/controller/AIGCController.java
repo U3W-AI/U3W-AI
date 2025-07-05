@@ -14,7 +14,7 @@ import com.cube.wechat.selfapp.app.service.AIGCService;
 import com.cube.wechat.selfapp.app.util.AESEncryptor;
 import com.cube.wechat.selfapp.app.util.HttpClientUtil;
 import com.cube.wechat.selfapp.app.util.RestUtils;
-import com.cube.wechat.selfapp.wecom.util.*;
+import com.cube.wechat.selfapp.corpchat.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
@@ -65,49 +65,6 @@ public class AIGCController extends BaseController {
     @Autowired
     private PointsSystem pointsSystem;
 
-    @GetMapping("/getChromeData")
-    @Log(title = "爆文素材-查询爆文")
-    public ResultBody getChromeData(WcChromeData wcChromeData){
-        wcChromeData.setUsername(getUsername());
-        return aigcService.getChromeDataList(wcChromeData);
-    }
-    @GetMapping("/getChromeKeyWord")
-    @Log(title = "文章链接-查询链接")
-    public ResultBody getChromeKeyWord(WcChromeData wcChromeData){
-        wcChromeData.setUsername(getUsername());
-        return aigcService.getChromeLinkList(wcChromeData);
-    }
-    @GetMapping("/getChromeLinkListFor")
-    public ResultBody getChromeLinkListFor(WcChromeData wcChromeData){
-        wcChromeData.setUsername(wcChromeData.getUsername().trim());
-        return aigcService.getChromeLinkListFor(wcChromeData);
-    }
-    @GetMapping("/getChromeKeyWordFor")
-    public ResultBody getChromeKeyWordFor(WcChromeData wcChromeData){
-        wcChromeData.setUsername(wcChromeData.getUsername().trim());
-        return aigcService.getChromeKeyWordFor(wcChromeData);
-    }
-    @GetMapping("/getChromeLinkListByTaskId")
-    public ResultBody getChromeLinkListByTaskId(String taskId,String username,String taskName){
-        return aigcService.getChromeLinkListByTaskId(taskId,username,taskName);
-    }
-
-    @GetMapping("/getChromeKeyWordByTaskId")
-    public ResultBody getChromeKeyWordByTaskId(String taskId){
-        return aigcService.getChromeKeyWordByTaskId(taskId);
-    }
-
-    @PostMapping("/delLink")
-    public ResultBody delLink(@RequestBody Map map){
-        return aigcService.delLink(map);
-    }
-
-    @GetMapping("/getHotKeyWordList")
-    public ResultBody getHotKeyWordList(WcChromeData wcChromeData){
-        wcChromeData.setUsername(getUsername());
-        return aigcService.getHotKeyWordList(wcChromeData);
-    }
-
     @GetMapping("/getPlayWrighDrafts")
     public ResultBody getPlayWrighDrafts(WcChromeData wcChromeData){
         wcChromeData.setUsername(getUsername());
@@ -121,39 +78,7 @@ public class AIGCController extends BaseController {
         return aigcService.getNodeLog(wcChromeData);
     }
 
-    @GetMapping("/getHotKeyWordById")
-    public ResultBody getHotKeyWordById(String id){
-        return aigcService.getHotKeyWordById(id);
-    }
 
-    @GetMapping("/getHotKeyWordLog")
-    public ResultBody getHotKeyWordLog(String id){
-        return aigcService.getHotKeyWordLog(id);
-    }
-
-    @PostMapping("/updateHotKeyWord")
-    public ResultBody updateHotKeyWord(@RequestBody Map map){
-        map.put("username",getUsername());
-        return aigcService.updateHotKeyWord(map);
-    }
-
-    @PostMapping("/saveHotKeyWord")
-    public ResultBody saveHotKeyWord(@RequestBody Map map){
-        map.put("username",getUsername());
-        return aigcService.saveHotKeyWord(map);
-    }
-
-    @PostMapping("/updateArticleLink")
-    public ResultBody updateArticleLink(@RequestBody Map map){
-
-        return aigcService.updateArticleLink(map);
-    }
-
-    @PostMapping("/delBatchLink")
-    public ResultBody delBatchLink(@RequestBody List<String> list){
-
-        return aigcService.delBatchLink(list);
-    }
 
     @PostMapping("/sendUserPrompt")
     public ResultBody sendUserPrompt(@RequestBody UserInfoReq userInfoReq) {

@@ -121,11 +121,11 @@ public class PointsSystem extends BaseController {
             if(StringUtils.isNotEmpty(userId)){
                 Thread.sleep( 1000);
                 //先修改用户积分余额
-                pointsMapper.setUserPoints(userId,changeType,changeAmount);
+//                pointsMapper.setUserPoints(userId,changeType,changeAmount);
                 //插入记录
-                pointsMapper.setUserPointRecord(userId,changeType,changeAmount);
+//                pointsMapper.setUserPointRecord(userId,changeType,changeAmount);
                 //调用以太坊产生交易，并通过poa机制一秒出一个块打包交易
-                ethTranApp(userId,changeType,changeAmount,mainAddress,mainPrivateKey);
+//                ethTranApp(userId,changeType,changeAmount,mainAddress,mainPrivateKey);
             }
         } catch (Exception e) {
             try {

@@ -20,38 +20,24 @@
     </div>
 
     <!-- 历史记录抽屉 -->
-    <el-drawer
-      title="历史会话记录"
-      :visible.sync="historyDrawerVisible"
-      direction="rtl"
-      size="30%"
-      :before-close="handleHistoryDrawerClose"
-    >
+    <el-drawer title="历史会话记录" :visible.sync="historyDrawerVisible" direction="rtl" size="30%"
+      :before-close="handleHistoryDrawerClose">
       <div class="history-content">
         <div v-for="(group, date) in groupedHistory" :key="date" class="history-group">
           <div class="history-date">{{ date }}</div>
           <div class="history-list">
-            <div
-              v-for="(item, index) in group"
-              :key="index"
-              class="history-item"
-            >
+            <div v-for="(item, index) in group" :key="index" class="history-item">
               <div class="history-parent" @click="loadHistoryItem(item)">
                 <div class="history-header">
                   <i :class="['el-icon-arrow-right', {'is-expanded': item.isExpanded}]"
-                     @click.stop="toggleHistoryExpansion(item)"></i>
+                    @click.stop="toggleHistoryExpansion(item)"></i>
                   <div class="history-prompt">{{ item.userPrompt }}</div>
                 </div>
                 <div class="history-time">{{ formatHistoryTime(item.createTime) }}</div>
               </div>
-              <div v-if="item.children && item.children.length > 0 && item.isExpanded"
-                   class="history-children">
-                <div
-                  v-for="(child, childIndex) in item.children"
-                  :key="childIndex"
-                  class="history-child-item"
-                  @click="loadHistoryItem(child)"
-                >
+              <div v-if="item.children && item.children.length > 0 && item.isExpanded" class="history-children">
+                <div v-for="(child, childIndex) in item.children" :key="childIndex" class="history-child-item"
+                  @click="loadHistoryItem(child)">
                   <div class="history-prompt">{{ child.userPrompt }}</div>
                   <div class="history-time">{{ formatHistoryTime(child.createTime) }}</div>
                 </div>
@@ -76,25 +62,16 @@
                     <div class="ai-name">{{ ai.name }}</div>
                   </div>
                   <div class="ai-status">
-                    <el-switch
-                      v-model="ai.enabled"
-                      active-color="#13ce66"
-                      inactive-color="#ff4949">
+                    <el-switch v-model="ai.enabled" active-color="#13ce66" inactive-color="#ff4949">
                     </el-switch>
                   </div>
                 </div>
                 <div class="ai-capabilities" v-if="ai.capabilities && ai.capabilities.length > 0">
                   <div class="button-capability-group">
-                    <el-button
-                      v-for="capability in ai.capabilities"
-                      :key="capability.value"
-                      size="mini"
+                    <el-button v-for="capability in ai.capabilities" :key="capability.value" size="mini"
                       :type="ai.selectedCapabilities.includes(capability.value) ? 'primary' : 'info'"
-                      :disabled="!ai.enabled"
-                      :plain="!ai.selectedCapabilities.includes(capability.value)"
-                      @click="toggleCapability(ai, capability.value)"
-                      class="capability-button"
-                    >
+                      :disabled="!ai.enabled" :plain="!ai.selectedCapabilities.includes(capability.value)"
+                      @click="toggleCapability(ai, capability.value)" class="capability-button">
                       {{ capability.label }}
                     </el-button>
                   </div>
@@ -107,12 +84,7 @@
         <!-- 提示词输入区 -->
         <el-collapse-item title="提示词输入" name="prompt-input">
           <div class="prompt-input-section">
-            <el-input
-              type="textarea"
-              :rows="5"
-              placeholder="请输入提示词，支持Markdown格式"
-              v-model="promptInput"
-              resize="none"
+            <el-input type="textarea" :rows="5" placeholder="请输入提示词，支持Markdown格式" v-model="promptInput" resize="none"
               class="prompt-input">
             </el-input>
             <div class="prompt-footer">
@@ -148,10 +120,7 @@
                   <!-- 添加进度轨迹 -->
                   <div class="progress-timeline" v-if="ai.progressLogs.length > 0 && ai.isExpanded">
                     <div class="timeline-scroll">
-                      <div v-for="(log, logIndex) in ai.progressLogs"
-                           :key="logIndex"
-                           class="progress-item"
-                           :class="{
+                      <div v-for="(log, logIndex) in ai.progressLogs" :key="logIndex" class="progress-item" :class="{
                              'completed': log.isCompleted || logIndex > 0,
                              'current': !log.isCompleted && logIndex === 0
                            }">
@@ -173,10 +142,7 @@
               <div slot="header" class="card-header">
                 <span>主机可视化</span>
                 <div class="controls">
-                  <el-switch
-                    v-model="autoPlay"
-                    active-text="自动轮播"
-                    inactive-text="手动切换">
+                  <el-switch v-model="autoPlay" active-text="自动轮播" inactive-text="手动切换">
                   </el-switch>
                 </div>
               </div>
@@ -201,46 +167,33 @@
           </el-button>
         </div>
         <el-tabs v-model="activeResultTab" type="card">
-          <el-tab-pane
-            v-for="(result, index) in results"
-            :key="index"
-            :label="result.aiName"
-            :name="'result-' + index">
+          <el-tab-pane v-for="(result, index) in results" :key="index" :label="result.aiName" :name="'result-' + index">
             <div class="result-content">
               <div class="result-header" v-if="result.shareUrl">
                 <div class="result-title">{{ result.aiName }}的执行结果</div>
-                <el-button
-                  size="mini"
-                  type="primary"
-                  icon="el-icon-link"
-                  @click="openShareUrl(result.shareUrl)"
-                  class="share-link-btn">
-                  查看原链接
-                </el-button>
+                <div class="result-buttons">
+                  <el-button size="mini" type="primary" icon="el-icon-link" @click="openShareUrl(result.shareUrl)"
+                    class="share-link-btn">
+                    查看原链接
+                  </el-button>
+                  <el-button size="mini" type="success" icon="el-icon-s-promotion" @click="handlePushToWechat(result)"
+                    class="push-wechat-btn" :loading="pushingToWechat" :disabled="pushingToWechat">
+                    投递到公众号
+                  </el-button>
+                </div>
               </div>
               <!-- 如果有shareImgUrl则渲染图片或PDF，否则渲染markdown -->
               <div v-if="result.shareImgUrl" class="share-content">
                 <!-- 渲染图片 -->
-                <img
-                  v-if="isImageFile(result.shareImgUrl)"
-                  :src="result.shareImgUrl"
-                  alt="分享图片"
-                  class="share-image"
-                  :style="getImageStyle(result.aiName)"
-                >
+                <img v-if="isImageFile(result.shareImgUrl)" :src="result.shareImgUrl" alt="分享图片" class="share-image"
+                  :style="getImageStyle(result.aiName)">
                 <!-- 渲染PDF -->
-                <iframe
-                  v-else-if="isPdfFile(result.shareImgUrl)"
-                  :src="result.shareImgUrl"
-                  class="share-pdf"
+                <iframe v-else-if="isPdfFile(result.shareImgUrl)" :src="result.shareImgUrl" class="share-pdf"
                   frameborder="0">
                 </iframe>
                 <!-- 其他文件类型显示链接 -->
                 <div v-else class="share-file">
-                  <el-button
-                    type="primary"
-                    icon="el-icon-document"
-                    @click="openShareUrl(result.shareImgUrl)">
+                  <el-button type="primary" icon="el-icon-document" @click="openShareUrl(result.shareImgUrl)">
                     查看文件
                   </el-button>
                 </div>
@@ -257,16 +210,8 @@
     </div>
 
     <!-- 大图查看对话框 -->
-    <el-dialog
-      :visible.sync="showImageDialog"
-      width="90%"
-      :show-close="true"
-      :modal="true"
-      center
-      class="image-dialog"
-      :append-to-body="true"
-      @close="closeLargeImage"
-    >
+    <el-dialog :visible.sync="showImageDialog" width="90%" :show-close="true" :modal="true" center class="image-dialog"
+      :append-to-body="true" @close="closeLargeImage">
       <div class="large-image-container">
         <!-- 如果是单张分享图片，直接显示 -->
         <div v-if="currentLargeImage && !screenshots.includes(currentLargeImage)" class="single-image-container">
@@ -282,41 +227,25 @@
     </el-dialog>
 
     <!-- 评分弹窗 -->
-    <el-dialog
-      title="智能评分"
-      :visible.sync="scoreDialogVisible"
-      width="60%"
-      height="95%"
-      :close-on-click-modal="false"
-      class="score-dialog"
-    >
+    <el-dialog title="智能评分" :visible.sync="scoreDialogVisible" width="60%" height="65%" :close-on-click-modal="false"
+      class="score-dialog">
       <div class="score-dialog-content">
+        <div class="score-prompt-section">
+          <h3>评分提示词：</h3>
+          <el-input type="textarea" :rows="10" placeholder="请输入评分提示词，例如：请从内容质量、逻辑性、创新性等方面进行评分" v-model="scorePrompt"
+            resize="none" class="score-prompt-input">
+          </el-input>
+        </div>
         <div class="selected-results">
           <h3>选择要评分的内容：</h3>
           <el-checkbox-group v-model="selectedResults">
-            <el-checkbox
-              v-for="(result, index) in results"
-              :key="index"
-              :label="result.aiName"
-              class="result-checkbox"
-            >
+            <el-checkbox v-for="(result, index) in results" :key="index" :label="result.aiName" class="result-checkbox">
               {{ result.aiName }}
             </el-checkbox>
           </el-checkbox-group>
         </div>
 
-        <div class="score-prompt-section">
-          <h3>评分提示词：</h3>
-          <el-input
-            type="textarea"
-            :rows="20"
-            placeholder="请输入评分提示词，例如：请从内容质量、逻辑性、创新性等方面进行评分"
-            v-model="scorePrompt"
-            resize="none"
-            class="score-prompt-input"
-          >
-          </el-input>
-        </div>
+
       </div>
       <span slot="footer" class="dialog-footer">
         <el-button @click="scoreDialogVisible = false">取 消</el-button>
@@ -330,7 +259,7 @@
 
 <script>
 import {marked} from 'marked';
-import {message, saveUserChatData, getChatHistory} from "@/api/wechat/aigc";
+import {message, saveUserChatData, getChatHistory, pushAutoOffice} from "@/api/wechat/aigc";
 import {
 		v4 as uuidv4
 	} from 'uuid';
@@ -473,6 +402,8 @@ export default {
       scorePrompt: `请你深度阅读以下几篇公众号章，从多个维度进行逐项打分，输出评分结果。并在以下各篇文章的基础上博采众长，综合整理一篇更全面的文章。`,
       historyDrawerVisible: false,
       chatHistory: [],
+      pushOfficeNum: 0, // 投递到公众号的递增编号
+      pushingToWechat: false, // 投递到公众号的loading状态
     };
   },
   computed: {
@@ -1264,6 +1195,35 @@ export default {
       };
     },
 
+    // 投递到公众号
+    handlePushToWechat(result) {
+      if (this.pushingToWechat) return; // 防止重复点击
+
+      this.pushingToWechat = true; // 开始loading
+      this.pushOfficeNum += 1; // 递增编号
+
+      const params = {
+        contentText: result.content,
+        shareUrl: result.shareUrl,
+        userId: this.userId,
+        num: this.pushOfficeNum,
+        aiName: result.aiName
+      };
+
+      pushAutoOffice(params).then(res => {
+        if (res.code === 200) {
+          this.$message.success('投递到公众号成功！');
+        } else {
+          this.$message.error(res.msg || '投递失败，请重试');
+        }
+      }).catch(error => {
+        console.error('投递到公众号失败:', error);
+        this.$message.error('投递失败，请重试');
+      }).finally(() => {
+        this.pushingToWechat = false; // 结束loading
+      });
+    },
+
 
   }
 };
@@ -1663,7 +1623,13 @@ export default {
   color: #303133;
 }
 
-.share-link-btn {
+.result-buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.share-link-btn, .push-wechat-btn {
   border-radius: 16px;
   padding: 6px 12px;
 }

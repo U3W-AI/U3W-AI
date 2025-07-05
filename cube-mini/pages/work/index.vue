@@ -182,7 +182,7 @@
 							<button class="action-btn-small" size="mini"
 								@tap="copyResult(currentResult.content)">复制(纯文本)</button>
 							<button class="collect-btn" size="mini"
-								@tap="collectToOffice(currentResult.content)">收录公众号</button>
+								@tap="collectToOffice(currentResult.content)">投递到公众号</button>
 						</view>
 
 						<!-- 分享图片或内容 -->
@@ -455,7 +455,16 @@
 
 		computed: {
 			canSend() {
-				return this.promptInput.trim().length > 0 && this.aiList.some(ai => ai.enabled);
+				// 检查是否有输入内容
+				const hasInput = this.promptInput.trim().length > 0;
+
+				// 检查是否有可用的AI（既启用又已登录）
+				const hasAvailableAI = this.aiList.some(ai => ai.enabled && this.isAiLoginEnabled(ai));
+
+				// 检查是否正在加载AI状态（如果正在加载，禁用发送按钮）
+				const isCheckingStatus = this.isLoading.yuanbao || this.isLoading.doubao || this.isLoading.agent;
+
+				return hasInput && hasAvailableAI && !isCheckingStatus;
 			},
 
 			canScore() {
@@ -513,6 +522,24 @@
 		},
 		onLoad() {
 			this.initUserInfo();
+
+			// 检查用户信息是否完整
+			if (!this.userId || !this.corpId) {
+				console.log('用户信息不完整，跳转到登录页面');
+				uni.showModal({
+					title: '提示',
+					content: '请先登录后再使用',
+					showCancel: false,
+					confirmText: '去登录',
+					success: () => {
+						uni.navigateTo({
+							url: '/pages/login/index'
+						});
+					}
+				});
+				return;
+			}
+
 			this.initWebSocket();
 			this.loadChatHistory(0); // 加载历史记录
 			this.loadLastChat(); // 加载上次会话
@@ -529,13 +556,13 @@
 				// 从store获取用户信息，兼容缓存方式
 			this.userId = storage.get(constant.userId);
 			this.corpId = storage.get(constant.corpId);
-			
+
 				this.chatId = this.generateUUID();
-				
+
 				// 初始化请求参数
 				this.userInfoReq.userId = this.userId;
 				this.userInfoReq.corpId = this.corpId;
-				
+
 				console.log('初始化用户信息:', {
 					userId: this.userId,
 					corpId: this.corpId
@@ -579,7 +606,7 @@
 					});
 					return;
 				}
-				
+
 				if (!ai.enabled) return;
 
 				const index = ai.selectedCapabilities.indexOf(capabilityValue);
@@ -673,15 +700,32 @@
 
 					// WebSocket相关方法
 		initWebSocket() {
+			// 检查用户信息是否完整
+			if (!this.userId || !this.corpId) {
+				console.log('用户信息不完整，跳转到登录页面');
+				uni.showModal({
+					title: '提示',
+					content: '请先登录后再使用',
+					showCancel: false,
+					confirmText: '去登录',
+					success: () => {
+						uni.navigateTo({
+							url: '/pages/login/index'
+						});
+					}
+				});
+				return;
+			}
+
 			if (this.isConnecting) {
 				console.log('WebSocket正在连接中，跳过重复连接');
 				return;
 			}
 
 			this.isConnecting = true;
-			
+
 			// 使用PC端的WebSocket连接方式
-			const wsUrl = `${process.env.VUE_APP_WS_API || 'ws://127.0.0.1:8081/websocket?clientId='}mypc-${this.userId}`;
+			const wsUrl = `${process.env.VUE_APP_WS_API || 'wss://u3w.com/cubeServer/websocket?clientId='}mypc-${this.userId}`;
 			console.log('WebSocket URL:', wsUrl);
 
 			this.socketTask = uni.connectSocket({
@@ -700,13 +744,13 @@
 				console.log('WebSocket连接已打开');
 				this.isConnecting = false;
 				this.reconnectCount = 0; // 重置重连次数
-				
+
 				uni.showToast({
 					title: '连接成功',
 					icon: 'success',
 					duration: 1000
 				});
-				
+
 				// 开始心跳检测
 				this.startHeartbeat();
 			});
@@ -729,12 +773,12 @@
 				console.log('WebSocket连接已关闭');
 				this.isConnecting = false;
 				this.stopHeartbeat(); // 停止心跳
-				
+
 				uni.showToast({
 					title: 'WebSocket连接已关闭',
 					icon: 'none'
 				});
-				
+
 				// 尝试重连
 				this.handleReconnect();
 			});
@@ -755,9 +799,9 @@
 
 			this.reconnectCount++;
 			const delay = Math.min(1000 * Math.pow(2, this.reconnectCount), 30000); // 指数退避，最大30秒
-			
+
 			console.log(`WebSocket将在${delay}ms后进行第${this.reconnectCount}次重连`);
-			
+
 			this.reconnectTimer = setTimeout(() => {
 				console.log(`开始第${this.reconnectCount}次重连`);
 				this.initWebSocket();
@@ -767,7 +811,7 @@
 		// 开始心跳检测
 		startHeartbeat() {
 			this.stopHeartbeat(); // 先停止之前的心跳
-			
+
 			this.heartbeatTimer = setInterval(() => {
 				if (this.socketTask) {
 					this.sendWebSocketMessage({
@@ -815,16 +859,16 @@
 				clearTimeout(this.reconnectTimer);
 				this.reconnectTimer = null;
 			}
-			
+
 			// 停止心跳检测
 			this.stopHeartbeat();
-			
+
 			// 关闭WebSocket连接
 			if (this.socketTask) {
 				this.socketTask.close();
 				this.socketTask = null;
 			}
-			
+
 			// 重置状态
 			this.isConnecting = false;
 			this.reconnectCount = 0;
@@ -923,6 +967,8 @@
 						// 禁用相关AI
 						this.disableAIsByLoginStatus('yuanbao');
 					}
+					// 更新AI启用状态
+					this.updateAiEnabledStatus();
 				}
 				// 处理豆包登录状态
 				else if (datastr.includes("RETURN_DB_STATUS") && dataObj.status != '') {
@@ -935,6 +981,8 @@
 						// 禁用相关AI
 						this.disableAIsByLoginStatus('doubao');
 					}
+					// 更新AI启用状态
+					this.updateAiEnabledStatus();
 				}
 				// 处理智能体登录状态
 				else if (datastr.includes("RETURN_AGENT_STATUS") && dataObj.status != '') {
@@ -947,6 +995,8 @@
 						// 禁用相关AI
 						this.disableAIsByLoginStatus('agent');
 					}
+					// 更新AI启用状态
+					this.updateAiEnabledStatus();
 				}
 			},
 
@@ -1128,7 +1178,7 @@
 					};
 
 					const res = await pushAutoOffice(params);
-					
+
 					uni.hideLoading();
 
 					if (res.code === 200) {
@@ -1215,7 +1265,7 @@
 				uni.showLoading({
 					title: '正在下载PDF...'
 				});
-				
+
 				// 尝试下载并打开文件
 				uni.downloadFile({
 					url: url,
@@ -1314,6 +1364,8 @@
 					this.userInfoReq.dbChatId = item.dbChatId || '';
 					this.userInfoReq.isNewChat = false;
 
+					// 不再根据AI登录状态更新AI启用状态，保持原有选择
+
 					// 展开相关区域
 					this.sectionExpanded.aiConfig = true;
 					this.sectionExpanded.promptInput = true;
@@ -1383,13 +1435,13 @@
 			getHistoryDate(timestamp) {
 				try {
 					console.log('getHistoryDate 输入:', timestamp, typeof timestamp);
-					
+
 					if (!timestamp) {
 						return '未知日期';
 					}
-					
+
 					let date;
-					
+
 					if (typeof timestamp === 'number') {
 						date = new Date(timestamp);
 					} else if (typeof timestamp === 'string') {
@@ -1398,18 +1450,18 @@
 						if (match) {
 							const [, year, month, day, hour, minute, second] = match;
 							date = new Date(
-								parseInt(year), 
-								parseInt(month) - 1, 
-								parseInt(day), 
-								parseInt(hour), 
-								parseInt(minute), 
+								parseInt(year),
+								parseInt(month) - 1,
+								parseInt(day),
+								parseInt(hour),
+								parseInt(minute),
 								parseInt(second)
 							);
 						} else {
 							// 如果正则不匹配，尝试其他方式
 							const fixedTimestamp = timestamp.replace(/\s/g, 'T');
 							date = new Date(fixedTimestamp);
-							
+
 							if (isNaN(date.getTime())) {
 								date = new Date(timestamp);
 							}
@@ -1417,13 +1469,13 @@
 					} else {
 						date = new Date(timestamp);
 					}
-					
+
 					console.log('getHistoryDate 解析结果:', date, date.getTime());
-					
+
 					if (isNaN(date.getTime())) {
 						return '未知日期';
 					}
-					
+
 					const today = new Date();
 					const yesterday = new Date(today);
 					yesterday.setDate(yesterday.getDate() - 1);
@@ -1445,13 +1497,13 @@
 			formatHistoryTime(timestamp) {
 				try {
 					console.log('formatHistoryTime 输入:', timestamp, typeof timestamp);
-					
+
 					let date;
-					
+
 					if (!timestamp) {
 						return '时间未知';
 					}
-					
+
 					// 如果是数字，直接创建Date对象
 					if (typeof timestamp === 'number') {
 						date = new Date(timestamp);
@@ -1467,18 +1519,18 @@
 								const [, year, month, day, hour, minute, second] = match;
 								// 注意：Date构造函数的month参数是0-11，所以要减1
 								date = new Date(
-									parseInt(year), 
-									parseInt(month) - 1, 
-									parseInt(day), 
-									parseInt(hour), 
-									parseInt(minute), 
+									parseInt(year),
+									parseInt(month) - 1,
+									parseInt(day),
+									parseInt(hour),
+									parseInt(minute),
 									parseInt(second)
 								);
 							} else {
 								// 如果正则不匹配，尝试其他方式
 								const fixedTimestamp = timestamp.replace(/\s/g, 'T');
 								date = new Date(fixedTimestamp);
-								
+
 								if (isNaN(date.getTime())) {
 									date = new Date(timestamp);
 								}
@@ -1489,22 +1541,22 @@
 					} else {
 						date = new Date(timestamp);
 					}
-					
+
 					console.log('formatHistoryTime 解析结果:', date, date.getTime());
-					
+
 					if (isNaN(date.getTime())) {
 						return '时间未知';
 					}
-					
+
 					// 使用更简洁的时间格式，避免显示时区信息
 					const hour = date.getHours().toString().padStart(2, '0');
 					const minute = date.getMinutes().toString().padStart(2, '0');
-					
+
 					const timeString = `${hour}:${minute}`;
-					
+
 					console.log('formatHistoryTime 输出:', timeString);
 					return timeString;
-					
+
 				} catch (error) {
 					console.error('格式化时间错误:', error, timestamp);
 					return '时间未知';
@@ -1700,6 +1752,8 @@
 						isExpanded: true
 					}
 				];
+				// 不再根据AI登录状态更新AI启用状态，保持原有选择
+
 				// 展开相关区域
 				this.sectionExpanded.aiConfig = true;
 				this.sectionExpanded.promptInput = true;
@@ -1716,6 +1770,7 @@
 				// 延迟检查，确保WebSocket连接已建立
 				setTimeout(() => {
 					this.sendAiStatusCheck();
+					// 不再更新AI启用状态，保持原有选择
 				}, 2000);
 			},
 
@@ -1836,26 +1891,29 @@
 				}
 			},
 
-			// 根据登录状态禁用相关AI
+			// 根据登录状态禁用相关AI（已废弃，不再修改enabled状态）
 			disableAIsByLoginStatus(loginType) {
-				this.aiList.forEach(ai => {
-					if (!this.isAiLoginEnabled(ai)) {
-						ai.enabled = false;
-					}
-				});
+				// 不再修改enabled状态，只通过UI控制操作权限
+				console.log(`AI ${loginType} 登录状态已更新，但保持原有选择`);
+			},
+
+			// 根据当前AI登录状态更新AI启用状态（已废弃，不再修改enabled状态）
+			updateAiEnabledStatus() {
+				// 不再修改enabled状态，只通过UI控制操作权限
+				console.log('AI登录状态已更新，但保持原有选择');
 			},
 
 			// 格式化时间
 			formatTime(timestamp) {
 				try {
 					console.log('formatTime 输入:', timestamp, typeof timestamp);
-					
+
 					if (!timestamp) {
 						return '时间未知';
 					}
-					
+
 					let date;
-					
+
 					if (typeof timestamp === 'number') {
 						date = new Date(timestamp);
 					} else if (typeof timestamp === 'string') {
@@ -1869,18 +1927,18 @@
 							if (match) {
 								const [, year, month, day, hour, minute, second] = match;
 								date = new Date(
-									parseInt(year), 
-									parseInt(month) - 1, 
-									parseInt(day), 
-									parseInt(hour), 
-									parseInt(minute), 
+									parseInt(year),
+									parseInt(month) - 1,
+									parseInt(day),
+									parseInt(hour),
+									parseInt(minute),
 									parseInt(second)
 								);
 							} else {
 								// 如果正则不匹配，尝试其他方式
 								const fixedTimestamp = timestamp.replace(/\s/g, 'T');
 								date = new Date(fixedTimestamp);
-								
+
 								if (isNaN(date.getTime())) {
 									date = new Date(timestamp);
 								}
@@ -1891,23 +1949,23 @@
 					} else {
 						date = new Date(timestamp);
 					}
-					
+
 					console.log('formatTime 解析结果:', date, date.getTime());
-					
+
 					if (isNaN(date.getTime())) {
 						return '时间未知';
 					}
-					
+
 					// 使用更简洁的时间格式，避免显示时区信息
 					const hour = date.getHours().toString().padStart(2, '0');
 					const minute = date.getMinutes().toString().padStart(2, '0');
 					const second = date.getSeconds().toString().padStart(2, '0');
-					
+
 					const timeString = `${hour}:${minute}:${second}`;
-					
+
 					console.log('formatTime 输出:', timeString);
 					return timeString;
-					
+
 				} catch (error) {
 					console.error('格式化时间错误:', error, timestamp);
 					return '时间未知';

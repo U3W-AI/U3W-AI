@@ -3,11 +3,8 @@ package com.cube.wechat.selfapp.officeaccount.controller;
 import com.alibaba.fastjson.JSONObject;
 import com.cube.wechat.selfapp.app.util.RestUtils;
 import com.cube.wechat.selfapp.app.util.XmlUtil;
-import com.cube.wechat.selfapp.wecom.util.RedisUtil;
-import com.cube.wechat.selfapp.wecom.util.WeChatApiUtils;
-import com.cube.wechat.thirdapp.controller.WeChatCallBackController;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.cube.wechat.selfapp.corpchat.util.RedisUtil;
+import com.cube.wechat.selfapp.corpchat.util.WeChatApiUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
@@ -32,7 +29,6 @@ public class OfficeAccountLogin {
     @Value("${office.appSecret}")
     private String appSecret;
 
-    Logger logger = LoggerFactory.getLogger(WeChatCallBackController.class);
 
     @Autowired
     private WeChatApiUtils weChatApiUtils;
@@ -76,19 +72,12 @@ public class OfficeAccountLogin {
             JSONObject fansInfoRes = RestUtils.get(fansInfoUrl);
             String event = (String) map.get("Event");
             if("subscribe".equals(event)){
-                logger.info("用户关注Openid:{}",userOpenId);
-                logger.info("用户关注Unionid:{}",fansInfoRes.get("unionid"));
-                logger.info("用户关注ticker:{}",map.get("Ticket"));
                 redisUtil.set(map.get("Ticket")+"_unionid",fansInfoRes.get("unionid"),300);
                 redisUtil.set(map.get("Ticket")+"_openid",userOpenId,300);
             }else if("SCAN".equals(event)){
-                logger.info("用户扫码Openid:{}",userOpenId);
-                logger.info("用户扫码Unionid:{}",fansInfoRes.get("unionid"));
-                logger.info("用户扫码ticker:{}",map.get("Ticket"));
                 redisUtil.set(map.get("Ticket")+"_unionid",fansInfoRes.get("unionid"),300);
                 redisUtil.set(map.get("Ticket")+"_openid",userOpenId,300);
             }
-            logger.info("接收参数:{}",map);
 
         } catch (IOException e) {
             e.printStackTrace();

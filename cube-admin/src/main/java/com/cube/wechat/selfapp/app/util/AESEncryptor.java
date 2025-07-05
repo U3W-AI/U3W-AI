@@ -5,7 +5,7 @@ package com.cube.wechat.selfapp.app.util;
  * @version JDK 1.8
  * @date 2025年01月23日 08:29
  */
-import com.cube.wechat.selfapp.wecom.util.KeyManager;
+import com.cube.wechat.selfapp.corpchat.util.KeyManager;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
