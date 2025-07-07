@@ -436,7 +436,7 @@ public class TencentUtil {
     }
 
     public void clickWebSearch(Page page,Locator webSearch,String webSearchDom,String isWebSearch) throws InterruptedException {
-        String searchText = page.locator("//*[@id=\"app\"]/div/div[2]/div/div/div[1]/div/div[3]/div/div[6]/div/div[2]/div[2]/div[3]/div[1]/div[2]/span/div/div/div/span[1]").textContent();
+        String searchText = page.locator("//*[@id=\"app\"]/div[1]/div[2]/div/div/div[1]/div/div[1]/div/div[3]/div/div[6]/div/div/div[2]/div[3]/div[1]/div[2]/span/div/div/div/span[1]").textContent();
         if(!searchText.equals("自动搜索")){
             webSearch.waitFor(new Locator.WaitForOptions().setTimeout(5000));
             if(!webSearch.getAttribute("dt-ext3").equals(isWebSearch)){
