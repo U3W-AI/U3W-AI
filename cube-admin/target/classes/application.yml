@@ -130,12 +130,12 @@ xss:
   urlPatterns: /system/*,/monitor/*,/tool/*
 
 
-# 此处替换为你自己的企业微信参数
+# 此处替换为你自己的小程序appId
 wechat:
-  corpId:   #企业微信企业ID，在我的企业查看
-  agentSecret:   #小程序应用秘钥，在应用中查看
+  corpId:
+  agentSecret:
   chatSecret:
-  pcAgentSecret:   #PC应用秘钥，在应用中查看
+  pcAgentSecret:
 
 # 此处替换为你自己的服务号秘钥
 office:
@@ -143,7 +143,8 @@ office:
   appSecret:
 upload:
 #上传文件路径，和上面的profile保持一致。例如：file:D:/AGI/chatfile/
-  url: file:D:/AGI/chatfile/
+  url: file:D:/AGI/chatfile/ 
+
 
 #数据智能专区SDK
 datazone:
@@ -155,6 +156,33 @@ geth:
   mainPrivateKey:
   httpUrl:
 
+serviceProviders:
+  CorpID:
+  ProviderSecret:
+  SuiteID:
+  loginSuiteId:
+  SuiteSecret:
+  loginSuiteSecret:
+  loginTOKEN:
+  loginEncodingAESKey:
+  TOKEN:
+  EncodingAESKey:
+  SuitTicket: test-external-suite-ticket
+  loginSuitTicket: test-external-login-suite-ticket
+  SuiteAccessToken: test-external-suite-access-token
+  loginSuiteAccessToken: test-external-login-suite-access-token
+  CorpAccessToken: test-external-corp-access-token
+  REDIRECT_URL:
+  THIRD_BUS_WECHAT_LOGIN:
+  THIRD_BUS_WECHAT_AUTHORIZE_URL:
+  WechatAdministrator:
+generalDevelopmentParameters:
+  Token:
+  EncodingAESKey:
+file:
+  url:
+static:
+  url:
 TencentDoc:
   url: https://docs.qq.com/oauth/v2/token
   clientId:
