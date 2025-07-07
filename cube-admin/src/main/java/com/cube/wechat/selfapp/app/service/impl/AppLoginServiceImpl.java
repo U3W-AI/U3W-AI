@@ -38,6 +38,9 @@ public class AppLoginServiceImpl implements AppLoginService {
         //        String unionid = jsonObject.getString("unionid");
         String openId = jsonObject.getString("openId");
         String unionId = jsonObject.getString("unionId");
+        if(unionId == null || unionId == ""){
+            unionId = openId;
+        }
         String nickName = wxLoginBody.getNickName();
         //获取nickName
          nickName =nickName + getStringRandom(6);// 生成16位随机昵称
@@ -68,6 +71,7 @@ public class AppLoginServiceImpl implements AppLoginService {
         }else {
             //更新
             user = wxUser;
+            user.setUserName(unionId);// 生成16位随机用户名
             user.setUpdateTime(DateUtils.getNowDate());
             pointsSystem.setUserPoint(String.valueOf(wxUser.getUserId()),"每日优立方登录",null,"0x3f4413a0e863903147172b1e7672d7a23025e084","824af41abf2ca18335f5547ae293a4e250ed7e80a78f985fd01d551e0a0d3552");
 
