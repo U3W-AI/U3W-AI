@@ -166,7 +166,7 @@ from wc_chrome_hotlink wck left join sys_user u on wck.user_name = u.user_name
     </select>
 
     <select id="getNodeLogList" resultType="java.util.Map">
-        select user_id,user_prompt question from wc_node_log group by user_prompt
+        select user_id,user_prompt question from wc_node_log group by user_prompt  order by create_time desc
     </select>
 
     <select id="getPlayWrightNodeList" parameterType="java.lang.String" resultType="java.util.Map">
