@@ -552,6 +552,90 @@ public class AIGCController {
     }
 
 
+    @Operation(summary = "投递公众号排版", description = "调用豆包平台对内容进行评分并返回评分结果")
+    @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
+    @PostMapping("/startDBOffice")
+    public String startDBOffice(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest){
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"db")) {
+            // 初始化变量
+            String userId = userInfoRequest.getUserId();
+            logInfo.sendTaskLog( "智能排版准备就绪，正在打开页面",userId,"智能排版");
+            String roles = userInfoRequest.getRoles();
+            String userPrompt = userInfoRequest.getUserPrompt();
+
+            // 初始化页面并导航到指定会话
+            Page page = context.newPage();
+            page.navigate("https://www.doubao.com/chat/");
+            page.waitForLoadState(LoadState.LOAD);
+            Thread.sleep(500);
+            logInfo.sendTaskLog( "智能排版页面打开完成",userId,"智能排版");
+            // 定位深度思考按钮
+            Locator deepThoughtButton = page.locator("button.semi-button:has-text('深度思考')");
+            // 检查按钮是否包含以 active- 开头的类名
+            Boolean isActive = (Boolean) deepThoughtButton.evaluate("element => {\n" +
+                    "    const classList = Array.from(element.classList);\n" +
+                    "    return classList.some(cls => cls.startsWith('active-'));\n" +
+                    "}");
+
+            // 确保 isActive 不为 null
+            if (isActive != null && !isActive && roles.contains("db-sdsk")) {
+                deepThoughtButton.click();
+                // 点击后等待一段时间，确保按钮状态更新
+                Thread.sleep(1000);
+
+                // 再次检查按钮状态
+                isActive = (Boolean) deepThoughtButton.evaluate("element => {\n" +
+                        "    const classList = Array.from(element.classList);\n" +
+                        "    return classList.some(cls => cls.startsWith('active-'));\n" +
+                        "}");
+                if (isActive != null && !isActive) {
+                    deepThoughtButton.click();
+                    Thread.sleep(1000);
+                }
+            }
+            Thread.sleep(500);
+            page.locator("[data-testid='chat_input_input']").click();
+            Thread.sleep(500);
+            page.locator("[data-testid='chat_input_input']").fill(userPrompt);
+            logInfo.sendTaskLog( "原数据已录入智能排版系统完成",userId,"智能排版");
+            Thread.sleep(500);
+            page.locator("[data-testid='chat_input_input']").press("Enter");
+
+            // 创建定时截图线程
+            AtomicInteger i = new AtomicInteger(0);
+            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            // 启动定时任务，每5秒执行一次截图
+            ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+                try {
+                    int currentCount = i.getAndIncrement(); // 获取当前值并自增
+                    logInfo.sendImgData(page, userId + "智能排版执行过程截图"+currentCount, userId);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }, 0, 9, TimeUnit.SECONDS);
+
+            logInfo.sendTaskLog( "开启自动监听任务，持续监听智能排版结果",userId,"智能排版");
+            // 等待复制按钮出现并点击
+            String copiedText =  douBaoUtil.waitPBCopy(page,userId,"智能排版");
+
+            //关闭截图
+            screenshotFuture.cancel(false);
+            screenshotExecutor.shutdown();
+
+            logInfo.sendTaskLog( "执行完成",userId,"智能排版");
+            logInfo.sendResData(copiedText,userId,"智能排版","RETURN_ZNPB_RES","","");
+            userInfoRequest.setDraftContent(copiedText);
+            userInfoRequest.setAiName("智能评分");
+            userInfoRequest.setShareUrl("");
+            userInfoRequest.setShareImgUrl("");
+            RestUtils.post(url+"/saveDraftContent", userInfoRequest);
+            return copiedText;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "获取内容失败";
+    }
 
 
 

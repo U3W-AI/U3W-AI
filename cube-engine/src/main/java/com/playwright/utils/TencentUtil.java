@@ -134,7 +134,13 @@ public class TencentUtil {
                     // 建议适当延迟等待内容更新
                     Thread.sleep(2000);
                     String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
-                    shareUrlRef.set(shareUrl);
+                    Pattern pattern = Pattern.compile("https?://\\S+");
+                    Matcher matcher = pattern.matcher(shareUrl);
+                    String url = null;
+                    if (matcher.find()) {
+                        url = matcher.group();
+                    }
+                    shareUrlRef.set(url);
                     System.out.println("剪贴板内容：" + shareUrl);
                 } catch (Exception e) {
                     e.printStackTrace();

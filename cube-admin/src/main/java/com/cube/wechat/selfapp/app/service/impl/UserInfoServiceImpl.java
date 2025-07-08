@@ -226,25 +226,14 @@ public class UserInfoServiceImpl implements UserInfoService {
             String assessToken = weChatApiUtils.getOfficeAccessToken(woa.getAppId(),woa.getAppSecret());
             String url = "https://api.weixin.qq.com/cgi-bin/draft/add?access_token="+assessToken;
 
-            String contentText = map.get("contentText").toString()
-                .replaceAll("(?i)</div>", "") // 删除多余的 </div>
-                .replaceAll("(?i)<div.*?>", "") // 删除所有 <div> 标签
-                .replaceAll("(?i)<span.*?>", "") // 删除 span 等
-                .replaceAll("(?i)</span>", "")
-                .replaceAll("(?i)<hr\\s*/?>", "<br><br>") // 替换 <hr> 为 <br>
-                .replaceAll("[\\x{1F600}-\\x{1F64F}" +  // Emoticons
-                            "\\x{1F300}-\\x{1F5FF}" +  // Misc Symbols and Pictographs
-                            "\\x{1F680}-\\x{1F6FF}" +  // Transport and Map
-                            "\\x{2600}-\\x{26FF}"   +  // Misc symbols
-                            "\\x{2700}-\\x{27BF}"   +  // Dingbats
-                            "\\x{FE00}-\\x{FE0F}"   +  // Variation Selectors
-                            "]+", "")
-                .replaceAll("[\\p{So}\\p{Cn}&&[^\\u0000-\\uFFFF]]+", "");
+            String contentText = map.get("contentText").toString();
 
-        String shareUrl = "原文链接："+map.get("shareUrl")+"<br><br>";
-        contentText = shareUrl + contentText;
-        System.out.println("草稿："+contentText);
-        List<JSONObject> paramlist = new ArrayList<>();
+            if(map.get("shareUrl")!=null && !map.get("shareUrl").equals("")){
+                String shareUrl = "原文链接："+map.get("shareUrl")+"<br><br>";
+                contentText = shareUrl + contentText;
+            }
+
+            List<JSONObject> paramlist = new ArrayList<>();
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("title",title);
             jsonObject.put("author",woa.getOfficeAccountName());

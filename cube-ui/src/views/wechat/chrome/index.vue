@@ -254,6 +254,25 @@
         </el-button>
       </span>
     </el-dialog>
+
+    <!-- 智能排版弹窗 -->
+    <el-dialog title="智能排版" :visible.sync="layoutDialogVisible" width="60%" height="65%" :close-on-click-modal="false"
+      class="layout-dialog">
+      <div class="layout-dialog-content">
+        <div class="layout-prompt-section">
+          <h3>排版提示词：</h3>
+          <el-input type="textarea" :rows="15" placeholder="请输入排版提示词" v-model="layoutPrompt"
+            resize="none" class="layout-prompt-input">
+          </el-input>
+        </div>
+      </div>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="layoutDialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="handleLayout" :disabled="!canLayout">
+          开始排版
+        </el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
@@ -400,6 +419,9 @@ export default {
       scoreDialogVisible: false,
       selectedResults: [],
       scorePrompt: `请你深度阅读以下几篇公众号章，从多个维度进行逐项打分，输出评分结果。并在以下各篇文章的基础上博采众长，综合整理一篇更全面的文章。`,
+      layoutDialogVisible: false,
+      layoutPrompt: '',
+      currentLayoutResult: null, // 当前要排版的结果
       historyDrawerVisible: false,
       chatHistory: [],
       pushOfficeNum: 0, // 投递到公众号的递增编号
@@ -412,6 +434,9 @@ export default {
     },
     canScore() {
       return this.selectedResults.length > 0 && this.scorePrompt.trim().length > 0;
+    },
+    canLayout() {
+      return this.layoutPrompt.trim().length > 0;
     },
     groupedHistory() {
       const groups = {};
@@ -728,6 +753,24 @@ export default {
           this.activeResultTab = 'result-0';
 
           // 智能评分完成时，再次保存历史记录
+          this.saveHistory();
+        }
+        return;
+      }
+
+      // 处理智能排版结果
+      if (dataObj.type === 'RETURN_ZNPB_RES') {
+        const znpbAI = this.enabledAIs.find(ai => ai.name === '智能排版');
+        if (znpbAI) {
+          this.$set(znpbAI, 'status', 'completed');
+          if (znpbAI.progressLogs.length > 0) {
+            this.$set(znpbAI.progressLogs[0], 'isCompleted', true);
+          }
+
+          // 直接调用投递到公众号的方法，不添加到结果展示
+          this.pushToWechatWithContent(dataObj.draftContent);
+
+          // 智能排版完成时，保存历史记录
           this.saveHistory();
         }
         return;
@@ -1197,17 +1240,94 @@ export default {
 
     // 投递到公众号
     handlePushToWechat(result) {
-      if (this.pushingToWechat) return; // 防止重复点击
+      this.showLayoutDialog(result);
+    },
 
-      this.pushingToWechat = true; // 开始loading
-      this.pushOfficeNum += 1; // 递增编号
+    // 显示智能排版对话框
+    showLayoutDialog(result) {
+      this.currentLayoutResult = result;
+      this.layoutPrompt = `请你对以下 HTML 内容进行排版优化，目标是用于微信公众号“草稿箱接口”的 content 字段，要求如下：
+
+1. 仅返回 <body> 内部可用的 HTML 内容片段（不要包含 <!DOCTYPE>、<html>、<head>、<meta>、<title> 等标签）。
+2. 所有样式必须以“内联 style”方式写入。
+3. 保持结构清晰、视觉友好，适配公众号图文排版。
+4. 请直接输出代码，不要添加任何注释或额外说明。
+5. 不得使用 emoji 表情符号或小图标字符。\n\n`+ result.content ;
+      this.layoutDialogVisible = true;
+    },
+
+    // 处理智能排版
+    handleLayout() {
+      if (!this.canLayout || !this.currentLayoutResult) return;
+
+      // 构建排版请求
+      const layoutRequest = {
+        jsonrpc: '2.0',
+        id: uuidv4(),
+        method: 'AI排版',
+        params: {
+          taskId: uuidv4(),
+          userId: this.userId,
+          corpId: this.corpId,
+          userPrompt: this.layoutPrompt,
+          roles: '' // 默认使用豆包进行排版
+        }
+      };
+
+      // 发送排版请求
+      console.log("排版参数", layoutRequest)
+      this.message(layoutRequest);
+      this.layoutDialogVisible = false;
+
+      // 创建智能排版AI节点
+      const znpbAI = {
+        name: '智能排版',
+        avatar: require('../../../assets/ai/yuanbao.png'),
+        capabilities: [],
+        selectedCapabilities: [],
+        enabled: true,
+        status: 'running',
+        progressLogs: [
+          {
+            content: '智能排版任务已提交，正在排版...',
+            timestamp: new Date(),
+            isCompleted: false,
+            type: '智能排版'
+          }
+        ],
+        isExpanded: true
+      };
+
+      // 检查是否已存在智能排版
+      const existIndex = this.enabledAIs.findIndex(ai => ai.name === '智能排版');
+      if (existIndex === -1) {
+        // 如果不存在，添加到数组开头
+        this.enabledAIs.unshift(znpbAI);
+      } else {
+        // 如果已存在，更新状态和日志
+        this.enabledAIs[existIndex] = znpbAI;
+        // 将智能排版移到数组开头
+        const znpb = this.enabledAIs.splice(existIndex, 1)[0];
+        this.enabledAIs.unshift(znpb);
+      }
+
+      this.$forceUpdate();
+      this.$message.success('排版请求已发送，请等待结果');
+    },
+
+    // 实际投递到公众号
+    pushToWechatWithContent(contentText) {
+      if (this.pushingToWechat) return;
+      this.$message.success('开始投递公众号！');
+      this.pushingToWechat = true;
+      this.pushOfficeNum += 1;
 
       const params = {
-        contentText: result.content,
-        shareUrl: result.shareUrl,
+        contentText: contentText,
+        shareUrl: this.currentLayoutResult.shareUrl,
         userId: this.userId,
         num: this.pushOfficeNum,
-        aiName: result.aiName
+        aiName: this.currentLayoutResult.aiName
       };
 
       pushAutoOffice(params).then(res => {
@@ -1220,7 +1340,7 @@ export default {
         console.error('投递到公众号失败:', error);
         this.$message.error('投递失败，请重试');
       }).finally(() => {
-        this.pushingToWechat = false; // 结束loading
+        this.pushingToWechat = false;
       });
     },
 
@@ -1764,6 +1884,33 @@ export default {
 }
 
 .score-dialog .el-dialog__body {
+  height: calc(95vh - 120px);
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.layout-dialog-content {
+  padding: 20px;
+}
+
+.layout-prompt-section {
+  margin-top: 20px;
+}
+
+.layout-prompt-input {
+  margin-top: 10px;
+}
+
+.layout-prompt-input .el-textarea__inner {
+  min-height: 500px !important;
+}
+
+.layout-dialog .el-dialog {
+  height: 95vh;
+  margin-top: 2.5vh !important;
+}
+
+.layout-dialog .el-dialog__body {
   height: calc(95vh - 120px);
   overflow-y: auto;
   padding: 20px;

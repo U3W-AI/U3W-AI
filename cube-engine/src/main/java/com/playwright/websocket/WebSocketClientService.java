@@ -163,6 +163,17 @@ public class WebSocketClientService {
                             }
                         }).start();
                     }
+                    // 处理包含"START_DBOffice"的消息
+                    if(message.contains("AI排版")){
+                        JSONObject jsonObject = JSONObject.parseObject(message);
+                        new Thread(() -> {
+                            try {
+                                aigcController.startDBOffice(userInfoRequest);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
 
 
                     // 处理获取agent二维码的消息
