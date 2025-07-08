@@ -1891,18 +1891,20 @@ COMMIT;
 -- ----------------------------
 DROP TABLE IF EXISTS `wc_playwright_draft`;
 CREATE TABLE `wc_playwright_draft` (
-  `id` varchar(36) NOT NULL COMMENT '草稿ID',
-  `task_id` varchar(255) DEFAULT NULL COMMENT '任务id',
-  `keyword` longtext COMMENT '主题词',
-  `user_prompt` longtext COMMENT '用户指令-封装版',
-  `draft_content` longtext COMMENT '草稿内容',
-  `is_push` int(4) DEFAULT NULL COMMENT '是否已经推送过公众号',
-  `ai_name` varchar(255) DEFAULT NULL COMMENT '来源',
-  `create_time` datetime DEFAULT NULL COMMENT '创建时间',
-  `user_name` bigint(4) DEFAULT '0' COMMENT '创建人',
-  PRIMARY KEY (`id`) USING BTREE,
-  KEY `user_name` (`user_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `id` varchar(36) NOT NULL COMMENT '草稿ID',
+    `task_id` varchar(255) DEFAULT NULL COMMENT '任务id',
+    `keyword` longtext COMMENT '主题词',
+    `user_prompt` longtext COMMENT '用户指令-封装版',
+    `draft_content` longtext COMMENT '草稿内容',
+    `is_push` int(4) DEFAULT NULL COMMENT '是否已经推送过公众号',
+    `ai_name` varchar(255) DEFAULT NULL COMMENT '来源',
+    `create_time` datetime DEFAULT NULL COMMENT '创建时间',
+    `user_name` bigint(4) DEFAULT '0' COMMENT '创建人',
+    `share_url` varchar(255) DEFAULT NULL COMMENT '分享链接',
+    `share_img_url` varchar(255) DEFAULT NULL COMMENT '分享图片链接',
+    PRIMARY KEY (`id`) USING BTREE,
+    KEY `user_name` (`user_name`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=DYNAMIC;
 
 -- ----------------------------
 -- Records of wc_playwright_draft
