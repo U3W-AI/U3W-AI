@@ -7,11 +7,20 @@
 - Windows 10系统及以上或Linux系统
 
 ### 部署步骤
-1. 进入cube-admin目录：
+1. 创建MySQL数据库：
+   ```bash
+   mysql -u root -p
+   CREATE DATABASE IF NOT EXISTS ucube DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   ```
+2. 导入SQL文件：
+   ```bash
+   mysql -u root -p ucube < ../../sql/ucube.sql
+   ```
+3. 进入cube-admin目录：
    ```bash
    cd cube-admin
    ```
-2. 修改主库数据源配置（application-druid.yml）：
+4. 修改主库数据源配置（application-druid.yml）：
    编辑 `src/main/resources/application-druid.yml` 文件，更新主库数据源URL、用户名和密码：
    ```yaml
    spring:
@@ -22,7 +31,7 @@
                    username: [数据库用户名]
                    password: [数据库密码]
    ```
-3. 修改Redis配置（application.yml）：
+5. 修改Redis配置（application.yml）：
    编辑 `src/main/resources/application.yml` 文件，更新Redis连接信息：
    ```yaml
    spring:
@@ -31,11 +40,28 @@
            port: [Redis端口]
            password: [Redis密码]
    ```
-4. 执行打包命令：
+6. 修改应用配置（application.yml）：
+   编辑 `src/main/resources/application.yml` 文件，更新文件上传配置：
+   ```yaml
+   profile: F:/AGI/chatfile #此处可以是电脑上的任意文件夹
+   upload:
+   #上传文件路径
+       url: http://localhost:8081/profile/
+   ```
+   > 注意：端口默认为8081，如已修改请使用实际端口
+7. 修改文件上传路径配置：
+   编辑 `../cube-common/src/main/java/com/cube/common/config/RuoYiConfig.java` 文件最底部，更新上传路径：
+   ```java
+    public static String getUploadPath()
+    {
+        return "F:/AGI/chatfile";
+    }
+   ```
+8. 执行打包命令：
    ```bash
    mvn clean package -DskipTests
    ```
-5. 运行项目：
+9. 运行项目：
    ```bash
    java -jar target/cube-admin.jar
    ```
