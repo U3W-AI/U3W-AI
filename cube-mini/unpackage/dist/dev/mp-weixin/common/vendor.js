@@ -11136,7 +11136,8 @@ exports.default = _default;
 // 应用全局配置
 module.exports = {
   //生产
-  baseUrl: 'https://u3w.com/cubeServer',
+  // baseUrl: 'https://u3w.com/cubeServer',
+  baseUrl: 'http://127.0.0.1:8081',
   // 应用信息
   appInfo: {
     // true: 流式接口    false: 非流式接口
@@ -12583,7 +12584,7 @@ var user = {
           var nickname = user == null || user.nickName == "" || user.nickName == null ? "" : user.nickName;
           var userId = user == null || user.userId == "" || user.userId == null ? "" : user.userId;
           var corpId = user == null || user.corpId == "" || user.corpId == null ? "" : user.corpId;
-          console.log("登录成功企业ID", corpId);
+          console.log("登录成功企业ID", res.user);
           if (res.roles && res.roles.length > 0) {
             commit('SET_ROLES', res.roles);
             commit('SET_PERMISSIONS', res.permissions);
