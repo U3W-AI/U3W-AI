@@ -99,7 +99,7 @@ Slogan：Unique³ Wisdom（独特智慧三次方）
 
 #### 4.1.3 核心功能
 
-![核心功能](docs-img/1.jpg)
+![核心功能](docs-img/1.png)
 
 
 基于 Java 和 Playwright 的浏览器自动化控制核心，支持团队协作基础能力：
