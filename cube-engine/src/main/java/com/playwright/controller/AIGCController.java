@@ -114,16 +114,16 @@ public class AIGCController {
 
               // 处理 智能体 代理
               if(roles.contains("cube-trubos-agent")){
-                  logInfo.sendTaskLog( "TurboS@元器准备就绪，正在打开页面",userId,"TurboS@元器");
+                  logInfo.sendTaskLog( "AI搜索@元器准备就绪，正在打开页面",userId,"AI搜索@元器");
                   pages[0] = context.newPage();
                   String agentUrl = "https://yuanbao.tencent.com/chat/58LgTturCBdj/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[0],userPrompt,agentUrl,"TurboS@元器",userId,isNewChat);
+                  wrightCopyCount = tencentUtil.handelAgentAI(pages[0],userPrompt,agentUrl,"AI搜索@元器",userId,isNewChat);
               }
               if(roles.contains("cube-turbos-large-agent")){
-                  logInfo.sendTaskLog( "TurboS长文版@元器准备就绪，正在打开页面",userId,"TurboS长文版@元器");
+                  logInfo.sendTaskLog( "数智化助手@元器准备就绪，正在打开页面",userId,"数智化助手@元器");
                   pages[1] = context.newPage();
                   String agentUrl = "https://yuanbao.tencent.com/chat/rgzZDhQdsMHZ/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[1],userPrompt,agentUrl,"TurboS长文版@元器",userId,isNewChat);
+                  wrightCopyCount = tencentUtil.handelAgentAI(pages[1],userPrompt,agentUrl,"数智化助手@元器",userId,isNewChat);
               }
               if(roles.contains("cube-mini-max-agent")){
                   logInfo.sendTaskLog( "MiniMax@元器准备就绪，正在打开页面",userId,"MiniMax@元器");
@@ -146,10 +146,10 @@ public class AIGCController {
 
              // 保存各代理生成的数据并拼接结果
               if(roles.contains("cube-trubos-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[0],userInfoRequest,"cube-trubos-agent",userId,wrightCopyCount,"TurboS@元器","RETURN_TURBOS_RES");
+                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[0],userInfoRequest,"cube-trubos-agent",userId,wrightCopyCount,"AI搜索@元器","RETURN_TURBOS_RES");
               }
               if(roles.contains("cube-turbos-large-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[1],userInfoRequest,"cube-turbos-large-agent",userId,wrightCopyCount,"TurboS长文版@元器","RETURN_TURBOS_LARGE_RES");
+                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[1],userInfoRequest,"cube-turbos-large-agent",userId,wrightCopyCount,"数智化助手@元器","RETURN_TURBOS_LARGE_RES");
               }
               if(roles.contains("cube-mini-max-agent")){
                   copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"cube-mini-max-agent",userId,wrightCopyCount,"MiniMax@元器","RETURN_MINI_MAX_RES");

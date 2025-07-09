@@ -234,17 +234,17 @@ var _default = {
         image: 'https://ai-public.mastergo.com/ai/img_res/ea68981430e1307646a14e900ce6d3e6.jpg'
       }],
       features: [{
-        name: 'TurboS@元器',
+        name: 'AI搜索@元器',
         avatar: 'https://u3w.com/chatfile/yuanbao.png',
         icon: '../static/images/icon/腾讯元宝.png',
-        title: 'TurboS@元器',
+        title: 'AI搜索@元器',
         description: '基于腾讯混元大模型，由优立方团队开发的工作流智能体',
         type: 'agent'
       }, {
-        name: 'TurboS长文版@元器',
+        name: '数智化助手@元器',
         avatar: 'https://u3w.com/chatfile/yuanbao.png',
         icon: '../static/images/icon/腾讯元宝.png',
-        title: 'TurboS长文版@元器',
+        title: '数智化助手@元器',
         description: '优立方团队开发的长文本处理智能体，适合复杂任务',
         type: 'agent'
       }, {

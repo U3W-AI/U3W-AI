@@ -313,7 +313,7 @@ export default {
       },
       aiList: [
         {
-          name: 'TurboS@元器',
+          name: 'AI搜索@元器',
           avatar: require('../../../assets/ai/yuanbao.png'),
           capabilities: [],
           selectedCapabilities: [],
@@ -323,7 +323,7 @@ export default {
           isExpanded: true
         },
         {
-          name: 'TurboS长文版@元器',
+          name: '数智化助手@元器',
           avatar: require('../../../assets/ai/yuanbao.png'),
           capabilities: [],
           selectedCapabilities: [],
@@ -531,10 +531,10 @@ export default {
             this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-lwss,';
           }
         }
-        if(ai.name === 'TurboS@元器'){
+        if(ai.name === 'AI搜索@元器'){
           this.userInfoReq.roles = this.userInfoReq.roles + 'cube-trubos-agent,';
         }
-        if(ai.name === 'TurboS长文版@元器'){
+        if(ai.name === '数智化助手@元器'){
           this.userInfoReq.roles = this.userInfoReq.roles + 'cube-turbos-large-agent,';
         }
         if(ai.name === 'MiniMax@元器'){
@@ -793,11 +793,11 @@ export default {
           break;
         case 'RETURN_TURBOS_RES':
           console.log('收到消息:', data);
-          targetAI = this.enabledAIs.find(ai => ai.name === 'TurboS@元器');
+          targetAI = this.enabledAIs.find(ai => ai.name === 'AI搜索@元器');
           break;
         case 'RETURN_TURBOS_LARGE_RES':
           console.log('收到消息:', data);
-          targetAI = this.enabledAIs.find(ai => ai.name === 'TurboS长文版@元器');
+          targetAI = this.enabledAIs.find(ai => ai.name === '数智化助手@元器');
           break;
         // case 'RETURN_MINI_MAX_RES':
         //   targetAI = this.enabledAIs.find(ai => ai.name === 'MiniMax@元器');
@@ -1108,7 +1108,7 @@ export default {
       // 重置AI列表为初始状态
       this.aiList = [
         {
-          name: 'TurboS@元器',
+          name: 'AI搜索@元器',
           avatar: require('../../../assets/ai/yuanbao.png'),
           capabilities: [],
           selectedCapabilities: [],
@@ -1118,7 +1118,7 @@ export default {
           isExpanded: true
         },
         {
-          name: 'TurboS长文版@元器',
+          name: '数智化助手@元器',
           avatar: require('../../../assets/ai/yuanbao.png'),
           capabilities: [],
           selectedCapabilities: [],
@@ -1223,9 +1223,9 @@ export default {
     // 根据AI名称获取图片样式
     getImageStyle(aiName) {
       const widthMap = {
-        'TurboS@元器': '700px',
+        'AI搜索@元器': '700px',
         '腾讯元宝DS': '700px',
-        'TurboS长文版@元器': '700px',
+        '数智化助手@元器': '700px',
         '腾讯元宝T1': '700px',
         '豆包': '560px'
       };

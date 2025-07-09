@@ -71,18 +71,18 @@
 					}
 				],
 				features: [{
-						name: 'TurboS@元器',
+						name: 'AI搜索@元器',
 						avatar: 'https://u3w.com/chatfile/yuanbao.png',
 						icon: '../static/images/icon/腾讯元宝.png',
-						title: 'TurboS@元器',
+						title: 'AI搜索@元器',
 						description: '基于腾讯混元大模型，由优立方团队开发的工作流智能体',
 						type: 'agent'
 					},
 					{
-						name: 'TurboS长文版@元器',
+						name: '数智化助手@元器',
 						avatar: 'https://u3w.com/chatfile/yuanbao.png',
 						icon: '../static/images/icon/腾讯元宝.png',
-						title: 'TurboS长文版@元器',
+						title: '数智化助手@元器',
 						description: '优立方团队开发的长文本处理智能体，适合复杂任务',
 						type: 'agent'
 					},
@@ -192,7 +192,7 @@
 		background: linear-gradient(135deg, #ffffff 0%, #fafbff 100%);
 		border-radius: 24rpx;
 		padding: 50rpx 40rpx;
-		box-shadow: 
+		box-shadow:
 			0 8rpx 32rpx rgba(0, 0, 0, 0.04),
 			0 2rpx 16rpx rgba(0, 0, 0, 0.02);
 		border: 1rpx solid rgba(255, 255, 255, 0.8);
@@ -256,7 +256,7 @@
 		align-items: center;
 		position: relative;
 		overflow: hidden;
-		box-shadow: 
+		box-shadow:
 			0 8rpx 24rpx rgba(0, 0, 0, 0.06),
 			0 2rpx 8rpx rgba(0, 0, 0, 0.04);
 		border: 1rpx solid rgba(255, 255, 255, 0.8);
@@ -288,7 +288,7 @@
 
 	.feature-card:hover {
 		transform: translateY(-8rpx) scale(1.01);
-		box-shadow: 
+		box-shadow:
 			0 16rpx 32rpx rgba(102, 126, 234, 0.12),
 			0 4rpx 16rpx rgba(0, 0, 0, 0.08);
 		border-color: rgba(102, 126, 234, 0.15);

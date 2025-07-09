@@ -11136,8 +11136,7 @@ exports.default = _default;
 // 应用全局配置
 module.exports = {
   //生产
-  // baseUrl: 'https://u3w.com/cubeServer',
-  baseUrl: 'http://127.0.0.1:8081',
+  baseUrl: 'https://u3w.com/cubeServer',
   // 应用信息
   appInfo: {
     // true: 流式接口    false: 非流式接口

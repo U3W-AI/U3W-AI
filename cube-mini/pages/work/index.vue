@@ -328,7 +328,7 @@
 
 				// AI配置（参考PC端完整配置）
 				aiList: [{
-						name: 'TurboS@元器',
+						name: 'AI搜索@元器',
 						avatar: 'https://u3w.com/chatfile/yuanbao.png',
 						capabilities: [],
 						selectedCapabilities: [],
@@ -338,7 +338,7 @@
 						isExpanded: true
 					},
 					{
-						name: 'TurboS长文版@元器',
+						name: '数智化助手@元器',
 						avatar: 'https://u3w.com/chatfile/yuanbao.png',
 						capabilities: [],
 						selectedCapabilities: [],
@@ -664,10 +664,10 @@
 							this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-lwss,';
 						}
 					}
-					if (ai.name === 'TurboS@元器') {
+					if (ai.name === 'AI搜索@元器') {
 						this.userInfoReq.roles = this.userInfoReq.roles + 'cube-trubos-agent,';
 					}
-					if (ai.name === 'TurboS长文版@元器') {
+					if (ai.name === '数智化助手@元器') {
 						this.userInfoReq.roles = this.userInfoReq.roles + 'cube-turbos-large-agent,';
 					}
 					if (ai.name === '豆包') {
@@ -1019,11 +1019,11 @@
 						break;
 					case 'RETURN_TURBOS_RES':
 						console.log('收到消息:', dataObj);
-						targetAI = this.enabledAIs.find(ai => ai.name === 'TurboS@元器');
+						targetAI = this.enabledAIs.find(ai => ai.name === 'AI搜索@元器');
 						break;
 					case 'RETURN_TURBOS_LARGE_RES':
 						console.log('收到消息:', dataObj);
-						targetAI = this.enabledAIs.find(ai => ai.name === 'TurboS长文版@元器');
+						targetAI = this.enabledAIs.find(ai => ai.name === '数智化助手@元器');
 						break;
 				}
 
@@ -1683,7 +1683,7 @@
 				};
 				// 重置AI列表为初始状态
 				this.aiList = [{
-						name: 'TurboS@元器',
+						name: 'AI搜索@元器',
 						avatar: 'https://u3w.com/chatfile/yuanbao.png',
 						capabilities: [],
 						selectedCapabilities: [],
@@ -1693,7 +1693,7 @@
 						isExpanded: true
 					},
 					{
-						name: 'TurboS长文版@元器',
+						name: '数智化助手@元器',
 						avatar: 'https://u3w.com/chatfile/yuanbao.png',
 						capabilities: [],
 						selectedCapabilities: [],
@@ -1862,8 +1862,8 @@
 			// 判断AI是否已登录可用
 			isAiLoginEnabled(ai) {
 				switch (ai.name) {
-					case 'TurboS@元器':
-					case 'TurboS长文版@元器':
+					case 'AI搜索@元器':
+					case '数智化助手@元器':
 						return this.aiLoginStatus.agent; // 智能体登录状态
 					case '腾讯元宝T1':
 					case '腾讯元宝DS':
@@ -1878,8 +1878,8 @@
 			// 判断AI是否在加载状态
 			isAiInLoading(ai) {
 				switch (ai.name) {
-					case 'TurboS@元器':
-					case 'TurboS长文版@元器':
+					case 'AI搜索@元器':
+					case '数智化助手@元器':
 						return this.isLoading.agent;
 					case '腾讯元宝T1':
 					case '腾讯元宝DS':
