@@ -57,11 +57,17 @@
         return "F:/AGI/chatfile";
     }
    ```
-8. 执行打包命令：
+8. 修改日志上传路径配置：
+   编辑 `src/main/resources/logback.xml` 文件最底部，更新上传路径：
+   ```xml
+    <!-- 日志存放路径 -->
+	<property name="log.path" value="/你的日志存放路径" />
+   ```
+9. 执行打包命令：
    ```bash
    mvn clean package -DskipTests
    ```
-9. 运行项目：
+10. 运行项目：
    ```bash
    java -jar target/cube-admin.jar
    ```
