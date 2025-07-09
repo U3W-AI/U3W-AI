@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="cube-admin" />
+        <module name="cube-common" />
+        <module name="cube-point" />
+        <module name="cube-quartz" />
+        <module name="cube-system" />
+        <module name="cube-generator" />
+        <module name="cube-framework" />
+      </profile>
+    </annotationProcessing>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="cube" options="--add-exports java.base/sun.security.util=ALL-UNNAMED" />
+      <module name="cube-admin" options="--add-exports java.base/sun.security.util=ALL-UNNAMED" />
+      <module name="cube-common" options="--add-exports java.base/sun.security.util=ALL-UNNAMED" />
+      <module name="cube-framework" options="--add-exports java.base/sun.security.util=ALL-UNNAMED" />
+      <module name="cube-generator" options="--add-exports java.base/sun.security.util=ALL-UNNAMED" />
+      <module name="cube-point" options="--add-exports java.base/sun.security.util=ALL-UNNAMED" />
+      <module name="cube-quartz" options="--add-exports java.base/sun.security.util=ALL-UNNAMED" />
+      <module name="cube-system" options="--add-exports java.base/sun.security.util=ALL-UNNAMED" />
+    </option>
+  </component>
+</project>
