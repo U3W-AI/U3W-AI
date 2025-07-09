@@ -31,15 +31,18 @@ U3W-AI/
 └── README.md             # 项目说明文档
 ```
 ### 1.1 部署文档
-公共环境部署指南：[公共环境部署指南](common_deployment_guide.md)
+公共环境部署指南：[点击前往](common_deployment_guide.md)
 
-优立方AI主机核心服务：[部署指南](cube-engine/deployment_guide.md)
+优立方AI主机核心服务：[点击前往](cube-engine/deployment_guide.md)
 
-优立方AI主机控制台后端：[部署指南](cube-admin/deployment_guide.md)
+优立方AI主机控制台后端：[点击前往](cube-admin/deployment_guide.md)
 
-优立方AI主机控制台前端：[部署指南](cube-ui/deployment_guide.md)
+优立方AI主机控制台前端：[点击前往](cube-ui/deployment_guide.md)
 
-优立方AI主机控制台小程序端：[部署指南](cube-mini/deployment_guide.md)
+优立方AI主机控制台小程序端：[点击前往](cube-mini/deployment_guide.md)
+
+### 1.2 接口文档
+优立方节点日志接口文档：[点击前往](优立方节点日志接口文档.md)
 
 <a href="#u3w-优立方-ai-主机人机协同数智驱动的团队未来">返回顶部 ↑</a>
 
