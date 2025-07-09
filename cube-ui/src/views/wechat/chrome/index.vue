@@ -418,7 +418,7 @@ export default {
       }),
       scoreDialogVisible: false,
       selectedResults: [],
-      scorePrompt: `请你深度阅读以下几篇公众号章，从多个维度进行逐项打分，输出评分结果。并在以下各篇文章的基础上博采众长，综合整理一篇更全面的文章。`,
+      scorePrompt: `请你深度阅读以下几篇内容，从多个维度进行逐项打分，输出评分结果。并在以下各篇文章的基础上博采众长，综合整理一篇更全面的文章。`,
       layoutDialogVisible: false,
       layoutPrompt: '',
       currentLayoutResult: null, // 当前要排版的结果
@@ -1252,7 +1252,7 @@ export default {
 2. 所有样式必须以“内联 style”方式写入。
 3. 保持结构清晰、视觉友好，适配公众号图文排版。
 4. 请直接输出代码，不要添加任何注释或额外说明。
-5. 不得使用 emoji 表情符号或小图标字符。\n\n`+ result.content ;
+5. 不得使用 emoji 表情符号或小图标字符。\n\n以下为需要进行排版优化的内容：\n`+ result.content ;
       this.layoutDialogVisible = true;
     },
 

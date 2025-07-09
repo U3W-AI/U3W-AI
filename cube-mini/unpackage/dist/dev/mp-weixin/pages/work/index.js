@@ -216,6 +216,7 @@ var render = function () {
         }
       })
     : null
+  var g6 = _vm.layoutModalVisible ? _vm.layoutPrompt.trim().length : null
   _vm.$mp.data = Object.assign(
     {},
     {
@@ -229,6 +230,7 @@ var render = function () {
         m14: m14,
         l5: l5,
         l6: l6,
+        g6: g6,
       },
     }
   )
@@ -395,6 +397,8 @@ var _default = {
       scorePrompt: '请你深度阅读以下几篇公众号文章，从多个维度进行逐项打分，输出评分结果。并在以下各篇文章的基础上博采众长，综合整理一篇更全面的文章。',
       // 收录计数器
       collectNum: 0,
+      // 智能排版
+      layoutPrompt: '',
       // WebSocket
       socketTask: null,
       reconnectTimer: null,
@@ -406,6 +410,10 @@ var _default = {
       // 弹窗状态
       historyDrawerVisible: false,
       scoreModalVisible: false,
+      layoutModalVisible: false,
+      currentLayoutResult: null,
+      // 当前要排版的结果
+
       // AI登录状态
       aiLoginStatus: {
         yuanbao: false,
@@ -681,6 +689,7 @@ var _default = {
 
       // 使用PC端的WebSocket连接方式
       var wsUrl = "".concat(Object({"NODE_ENV":"development","VUE_APP_DARK_MODE":"false","VUE_APP_NAME":"U3W-AI","VUE_APP_PLATFORM":"mp-weixin","BASE_URL":"/"}).VUE_APP_WS_API || 'wss://u3w.com/cubeServer/websocket?clientId=', "mypc-").concat(this.userId);
+      // const wsUrl = `${process.env.VUE_APP_WS_API || 'ws://127.0.0.1:8081/websocket?clientId='}mypc-${this.userId}`;
       console.log('WebSocket URL:', wsUrl);
       this.socketTask = uni.connectSocket({
         url: wsUrl,
@@ -886,6 +895,28 @@ var _default = {
             this.sectionExpanded.taskStatus = false;
 
             // 智能评分完成时，再次保存历史记录
+            this.saveHistory();
+          }
+          return;
+        }
+
+        // 处理智能排版结果
+        if (dataObj.type === 'RETURN_ZNPB_RES') {
+          console.log("收到智能排版结果", dataObj);
+          console.log("当前 currentLayoutResult:", this.currentLayoutResult);
+          var znpbAI = this.enabledAIs.find(function (ai) {
+            return ai.name === '智能排版';
+          });
+          if (znpbAI) {
+            znpbAI.status = 'completed';
+            if (znpbAI.progressLogs.length > 0) {
+              znpbAI.progressLogs[0].isCompleted = true;
+            }
+
+            // 不添加到结果展示，直接调用推送方法
+            this.handlePushToWechat(dataObj.draftContent);
+
+            // 智能排版完成时，保存历史记录
             this.saveHistory();
           }
           return;
@@ -1104,64 +1135,6 @@ var _default = {
         }
       });
     },
-    // 收录公众号
-    collectToOffice: function collectToOffice(content) {
-      var _this7 = this;
-      return (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee() {
-        var params, res;
-        return _regenerator.default.wrap(function _callee$(_context) {
-          while (1) {
-            switch (_context.prev = _context.next) {
-              case 0:
-                _context.prev = 0;
-                uni.showLoading({
-                  title: '正在收录...'
-                });
-
-                // 自增计数器
-                _this7.collectNum++;
-                params = {
-                  contentText: content,
-                  userId: _this7.userId,
-                  shareUrl: _this7.currentResult.shareUrl || '',
-                  aiName: _this7.currentResult.aiName || '',
-                  num: _this7.collectNum
-                };
-                _context.next = 6;
-                return (0, _aigc.pushAutoOffice)(params);
-              case 6:
-                res = _context.sent;
-                uni.hideLoading();
-                if (res.code === 200) {
-                  uni.showToast({
-                    title: "\u6536\u5F55\u6210\u529F(".concat(_this7.collectNum, ")"),
-                    icon: 'success'
-                  });
-                } else {
-                  uni.showToast({
-                    title: res.message || '收录失败',
-                    icon: 'none'
-                  });
-                }
-                _context.next = 16;
-                break;
-              case 11:
-                _context.prev = 11;
-                _context.t0 = _context["catch"](0);
-                uni.hideLoading();
-                console.error('收录公众号失败:', _context.t0);
-                uni.showToast({
-                  title: '收录失败',
-                  icon: 'none'
-                });
-              case 16:
-              case "end":
-                return _context.stop();
-            }
-          }
-        }, _callee, null, [[0, 11]]);
-      }))();
-    },
     // shareResult(result) {
     // 	uni.share({
     // 		provider: 'weixin',
@@ -1283,37 +1256,37 @@ var _default = {
       this.historyDrawerVisible = false;
     },
     loadChatHistory: function loadChatHistory(isAll) {
-      var _this8 = this;
-      return (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee2() {
+      var _this7 = this;
+      return (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee() {
         var res;
-        return _regenerator.default.wrap(function _callee2$(_context2) {
+        return _regenerator.default.wrap(function _callee$(_context) {
           while (1) {
-            switch (_context2.prev = _context2.next) {
+            switch (_context.prev = _context.next) {
               case 0:
-                _context2.prev = 0;
-                _context2.next = 3;
-                return (0, _aigc.getChatHistory)(_this8.userId, isAll);
+                _context.prev = 0;
+                _context.next = 3;
+                return (0, _aigc.getChatHistory)(_this7.userId, isAll);
               case 3:
-                res = _context2.sent;
+                res = _context.sent;
                 if (res.code === 200) {
-                  _this8.chatHistory = res.data || [];
+                  _this7.chatHistory = res.data || [];
                 }
-                _context2.next = 11;
+                _context.next = 11;
                 break;
               case 7:
-                _context2.prev = 7;
-                _context2.t0 = _context2["catch"](0);
-                console.error('加载历史记录失败:', _context2.t0);
+                _context.prev = 7;
+                _context.t0 = _context["catch"](0);
+                console.error('加载历史记录失败:', _context.t0);
                 uni.showToast({
                   title: '加载历史记录失败',
                   icon: 'none'
                 });
               case 11:
               case "end":
-                return _context2.stop();
+                return _context.stop();
             }
           }
-        }, _callee2, null, [[0, 7]]);
+        }, _callee, null, [[0, 7]]);
       }))();
     },
     loadHistoryItem: function loadHistoryItem(item) {
@@ -1358,84 +1331,84 @@ var _default = {
     },
     // 加载上次会话
     loadLastChat: function loadLastChat() {
+      var _this8 = this;
+      return (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee2() {
+        var res, lastChat;
+        return _regenerator.default.wrap(function _callee2$(_context2) {
+          while (1) {
+            switch (_context2.prev = _context2.next) {
+              case 0:
+                _context2.prev = 0;
+                _context2.next = 3;
+                return (0, _aigc.getChatHistory)(_this8.userId, 0);
+              case 3:
+                res = _context2.sent;
+                if (res.code === 200 && res.data && res.data.length > 0) {
+                  // 获取最新的会话记录
+                  lastChat = res.data[0];
+                  _this8.loadHistoryItem(lastChat);
+                }
+                _context2.next = 10;
+                break;
+              case 7:
+                _context2.prev = 7;
+                _context2.t0 = _context2["catch"](0);
+                console.error('加载上次会话失败:', _context2.t0);
+              case 10:
+              case "end":
+                return _context2.stop();
+            }
+          }
+        }, _callee2, null, [[0, 7]]);
+      }))();
+    },
+    saveHistory: function saveHistory() {
       var _this9 = this;
       return (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee3() {
-        var res, lastChat;
+        var historyData;
         return _regenerator.default.wrap(function _callee3$(_context3) {
           while (1) {
             switch (_context3.prev = _context3.next) {
               case 0:
-                _context3.prev = 0;
-                _context3.next = 3;
-                return (0, _aigc.getChatHistory)(_this9.userId, 0);
-              case 3:
-                res = _context3.sent;
-                if (res.code === 200 && res.data && res.data.length > 0) {
-                  // 获取最新的会话记录
-                  lastChat = res.data[0];
-                  _this9.loadHistoryItem(lastChat);
-                }
-                _context3.next = 10;
-                break;
-              case 7:
-                _context3.prev = 7;
-                _context3.t0 = _context3["catch"](0);
-                console.error('加载上次会话失败:', _context3.t0);
-              case 10:
-              case "end":
-                return _context3.stop();
-            }
-          }
-        }, _callee3, null, [[0, 7]]);
-      }))();
-    },
-    saveHistory: function saveHistory() {
-      var _this10 = this;
-      return (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee4() {
-        var historyData;
-        return _regenerator.default.wrap(function _callee4$(_context4) {
-          while (1) {
-            switch (_context4.prev = _context4.next) {
-              case 0:
                 historyData = {
-                  aiList: _this10.aiList,
-                  promptInput: _this10.promptInput,
-                  enabledAIs: _this10.enabledAIs,
-                  screenshots: _this10.screenshots,
-                  results: _this10.results,
-                  chatId: _this10.chatId,
-                  toneChatId: _this10.userInfoReq.toneChatId,
-                  ybDsChatId: _this10.userInfoReq.ybDsChatId,
-                  dbChatId: _this10.userInfoReq.dbChatId
+                  aiList: _this9.aiList,
+                  promptInput: _this9.promptInput,
+                  enabledAIs: _this9.enabledAIs,
+                  screenshots: _this9.screenshots,
+                  results: _this9.results,
+                  chatId: _this9.chatId,
+                  toneChatId: _this9.userInfoReq.toneChatId,
+                  ybDsChatId: _this9.userInfoReq.ybDsChatId,
+                  dbChatId: _this9.userInfoReq.dbChatId
                 };
-                _context4.prev = 1;
-                _context4.next = 4;
+                _context3.prev = 1;
+                _context3.next = 4;
                 return (0, _aigc.saveUserChatData)({
-                  userId: _this10.userId,
-                  userPrompt: _this10.promptInput,
+                  userId: _this9.userId,
+                  userPrompt: _this9.promptInput,
                   data: JSON.stringify(historyData),
-                  chatId: _this10.chatId,
-                  toneChatId: _this10.userInfoReq.toneChatId,
-                  ybDsChatId: _this10.userInfoReq.ybDsChatId,
-                  dbChatId: _this10.userInfoReq.dbChatId
+                  chatId: _this9.chatId,
+                  toneChatId: _this9.userInfoReq.toneChatId,
+                  ybDsChatId: _this9.userInfoReq.ybDsChatId,
+                  dbChatId: _this9.userInfoReq.dbChatId
                 });
               case 4:
-                _context4.next = 10;
+                _context3.next = 10;
                 break;
               case 6:
-                _context4.prev = 6;
-                _context4.t0 = _context4["catch"](1);
-                console.error('保存历史记录失败:', _context4.t0);
+                _context3.prev = 6;
+                _context3.t0 = _context3["catch"](1);
+                console.error('保存历史记录失败:', _context3.t0);
                 uni.showToast({
                   title: '保存历史记录失败',
                   icon: 'none'
                 });
               case 10:
               case "end":
-                return _context4.stop();
+                return _context3.stop();
             }
           }
-        }, _callee4, null, [[1, 6]]);
+        }, _callee3, null, [[1, 6]]);
       }))();
     },
     getHistoryDate: function getHistoryDate(timestamp) {
@@ -1561,6 +1534,162 @@ var _default = {
     },
     closeScoreModal: function closeScoreModal() {
       this.scoreModalVisible = false;
+    },
+    // 智能排版相关方法
+    showLayoutModal: function showLayoutModal() {
+      if (!this.currentResult) {
+        uni.showToast({
+          title: '没有可排版的内容',
+          icon: 'none'
+        });
+        return;
+      }
+      console.log("showLayoutModal", this.currentResult);
+      // 深度拷贝当前结果，避免引用被修改
+      this.currentLayoutResult = {
+        aiName: this.currentResult.aiName,
+        content: this.currentResult.content,
+        shareUrl: this.currentResult.shareUrl,
+        shareImgUrl: this.currentResult.shareImgUrl,
+        timestamp: this.currentResult.timestamp
+      };
+      console.log("showLayoutModal", this.currentLayoutResult);
+
+      // 设置默认提示词
+      this.layoutPrompt = "\u8BF7\u4F60\u5BF9\u4EE5\u4E0B HTML \u5185\u5BB9\u8FDB\u884C\u6392\u7248\u4F18\u5316\uFF0C\u76EE\u6807\u662F\u7528\u4E8E\u5FAE\u4FE1\u516C\u4F17\u53F7\u201C\u8349\u7A3F\u7BB1\u63A5\u53E3\u201D\u7684 content \u5B57\u6BB5\uFF0C\u8981\u6C42\u5982\u4E0B\uFF1A\n\n1. \u4EC5\u8FD4\u56DE <body> \u5185\u90E8\u53EF\u7528\u7684 HTML \u5185\u5BB9\u7247\u6BB5\uFF08\u4E0D\u8981\u5305\u542B <!DOCTYPE>\u3001<html>\u3001<head>\u3001<meta>\u3001<title> \u7B49\u6807\u7B7E\uFF09\u3002\n2. \u6240\u6709\u6837\u5F0F\u5FC5\u987B\u4EE5\u201C\u5185\u8054 style\u201D\u65B9\u5F0F\u5199\u5165\u3002\n3. \u4FDD\u6301\u7ED3\u6784\u6E05\u6670\u3001\u89C6\u89C9\u53CB\u597D\uFF0C\u9002\u914D\u516C\u4F17\u53F7\u56FE\u6587\u6392\u7248\u3002\n4. \u8BF7\u76F4\u63A5\u8F93\u51FA\u4EE3\u7801\uFF0C\u4E0D\u8981\u6DFB\u52A0\u4EFB\u4F55\u6CE8\u91CA\u6216\u989D\u5916\u8BF4\u660E\u3002\n5. \u4E0D\u5F97\u4F7F\u7528 emoji \u8868\u60C5\u7B26\u53F7\u6216\u5C0F\u56FE\u6807\u5B57\u7B26\u3002\n\n\u4EE5\u4E0B\u4E3A\u9700\u8981\u8FDB\u884C\u6392\u7248\u4F18\u5316\u7684\u5185\u5BB9\uFF1A\n" + this.currentResult.content;
+      this.layoutModalVisible = true;
+    },
+    closeLayoutModal: function closeLayoutModal() {
+      this.layoutModalVisible = false;
+    },
+    handleLayout: function handleLayout() {
+      if (this.layoutPrompt.trim().length === 0) return;
+
+      // 构建智能排版请求
+      var layoutRequest = {
+        jsonrpc: '2.0',
+        id: this.generateUUID(),
+        method: 'AI排版',
+        params: {
+          taskId: this.generateUUID(),
+          userId: this.userId,
+          corpId: this.corpId,
+          userPrompt: this.layoutPrompt,
+          roles: 'zj-db-sdsk' // 默认使用豆包进行排版
+        }
+      };
+
+      // 发送排版请求
+      console.log("智能排版参数", layoutRequest);
+      this.message(layoutRequest);
+      this.closeLayoutModal();
+
+      // 创建智能排版AI节点
+      var znpbAI = {
+        name: '智能排版',
+        avatar: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
+        capabilities: [],
+        selectedCapabilities: [],
+        enabled: true,
+        status: 'running',
+        progressLogs: [{
+          content: '智能排版任务已提交，正在排版...',
+          timestamp: new Date(),
+          isCompleted: false,
+          type: '智能排版'
+        }],
+        isExpanded: true
+      };
+
+      // 检查是否已存在智能排版
+      var existIndex = this.enabledAIs.findIndex(function (ai) {
+        return ai.name === '智能排版';
+      });
+      if (existIndex === -1) {
+        // 如果不存在，添加到数组开头
+        this.enabledAIs.unshift(znpbAI);
+      } else {
+        // 如果已存在，更新状态和日志
+        this.enabledAIs[existIndex] = znpbAI;
+        // 将智能排版移到数组开头
+        var znpb = this.enabledAIs.splice(existIndex, 1)[0];
+        this.enabledAIs.unshift(znpb);
+      }
+      uni.showToast({
+        title: '排版请求已发送，请等待结果',
+        icon: 'success'
+      });
+    },
+    // 推送到公众号
+    handlePushToWechat: function handlePushToWechat(contentText) {
+      var _this10 = this;
+      return (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee4() {
+        var params, res;
+        return _regenerator.default.wrap(function _callee4$(_context4) {
+          while (1) {
+            switch (_context4.prev = _context4.next) {
+              case 0:
+                _context4.prev = 0;
+                console.log("handlePushToWechat 开始执行", _this10.currentLayoutResult);
+                if (_this10.currentLayoutResult) {
+                  _context4.next = 6;
+                  break;
+                }
+                console.error("currentLayoutResult 为空，无法投递");
+                uni.showToast({
+                  title: '投递失败：缺少原始结果信息',
+                  icon: 'none'
+                });
+                return _context4.abrupt("return");
+              case 6:
+                uni.showLoading({
+                  title: '正在投递...'
+                });
+
+                // 自增计数器
+                _this10.collectNum++;
+                params = {
+                  contentText: contentText,
+                  userId: _this10.userId,
+                  shareUrl: _this10.currentLayoutResult.shareUrl || '',
+                  aiName: _this10.currentLayoutResult.aiName || '',
+                  num: _this10.collectNum
+                };
+                console.log("投递参数", params);
+                _context4.next = 12;
+                return (0, _aigc.pushAutoOffice)(params);
+              case 12:
+                res = _context4.sent;
+                uni.hideLoading();
+                if (res.code === 200) {
+                  uni.showToast({
+                    title: "\u6295\u9012\u6210\u529F(".concat(_this10.collectNum, ")"),
+                    icon: 'success'
+                  });
+                } else {
+                  uni.showToast({
+                    title: res.message || '投递失败',
+                    icon: 'none'
+                  });
+                }
+                _context4.next = 22;
+                break;
+              case 17:
+                _context4.prev = 17;
+                _context4.t0 = _context4["catch"](0);
+                uni.hideLoading();
+                console.error('投递到公众号失败:', _context4.t0);
+                uni.showToast({
+                  title: '投递失败',
+                  icon: 'none'
+                });
+              case 22:
+              case "end":
+                return _context4.stop();
+            }
+          }
+        }, _callee4, null, [[0, 17]]);
+      }))();
     },
     toggleResultSelection: function toggleResultSelection(event) {
       var values = event.detail.value;

@@ -182,7 +182,7 @@
 							<button class="action-btn-small" size="mini"
 								@tap="copyResult(currentResult.content)">复制(纯文本)</button>
 							<button class="collect-btn" size="mini"
-								@tap="collectToOffice(currentResult.content)">投递到公众号</button>
+								@tap="showLayoutModal">投递到公众号</button>
 						</view>
 
 						<!-- 分享图片或内容 -->
@@ -271,6 +271,27 @@
 
 					<button class="score-submit-btn" :disabled="!canScore" @tap="handleScore">
 						开始评分
+					</button>
+				</view>
+			</view>
+		</view>
+
+		<!-- 智能排版弹窗 -->
+		<view v-if="layoutModalVisible" class="popup-mask" @tap="closeLayoutModal">
+			<view class="score-modal" @tap.stop>
+				<view class="score-header">
+					<text class="score-title">智能排版</text>
+					<text class="close-icon" @tap="closeLayoutModal">✕</text>
+				</view>
+				<view class="score-content">
+					<view class="score-prompt-section">
+						<text class="score-subtitle">排版提示词：</text>
+						<textarea class="score-textarea" v-model="layoutPrompt"
+							placeholder="请输入排版要求" maxlength="100000"></textarea>
+					</view>
+
+					<button class="score-submit-btn" :disabled="layoutPrompt.trim().length === 0" @tap="handleLayout">
+						开始智能排版
 					</button>
 				</view>
 			</view>
@@ -421,6 +442,9 @@
 				// 收录计数器
 				collectNum: 0,
 
+				// 智能排版
+				layoutPrompt: '',
+
 				// WebSocket
 				socketTask: null,
 				reconnectTimer: null,
@@ -433,6 +457,8 @@
 				// 弹窗状态
 				historyDrawerVisible: false,
 				scoreModalVisible: false,
+				layoutModalVisible: false,
+				currentLayoutResult: null, // 当前要排版的结果
 
 				// AI登录状态
 				aiLoginStatus: {
@@ -726,6 +752,7 @@
 
 			// 使用PC端的WebSocket连接方式
 			const wsUrl = `${process.env.VUE_APP_WS_API || 'wss://u3w.com/cubeServer/websocket?clientId='}mypc-${this.userId}`;
+			// const wsUrl = `${process.env.VUE_APP_WS_API || 'ws://127.0.0.1:8081/websocket?clientId='}mypc-${this.userId}`;
 			console.log('WebSocket URL:', wsUrl);
 
 			this.socketTask = uni.connectSocket({
@@ -939,6 +966,27 @@
 							this.sectionExpanded.taskStatus = false;
 
 							// 智能评分完成时，再次保存历史记录
+							this.saveHistory();
+						}
+						return;
+					}
+
+					// 处理智能排版结果
+					if (dataObj.type === 'RETURN_ZNPB_RES') {
+						console.log("收到智能排版结果", dataObj);
+						console.log("当前 currentLayoutResult:", this.currentLayoutResult);
+						
+						const znpbAI = this.enabledAIs.find(ai => ai.name === '智能排版');
+						if (znpbAI) {
+							znpbAI.status = 'completed';
+							if (znpbAI.progressLogs.length > 0) {
+								znpbAI.progressLogs[0].isCompleted = true;
+							}
+
+							// 不添加到结果展示，直接调用推送方法
+							this.handlePushToWechat(dataObj.draftContent);
+
+							// 智能排版完成时，保存历史记录
 							this.saveHistory();
 						}
 						return;
@@ -1159,48 +1207,7 @@
 				});
 			},
 
-			// 收录公众号
-			async collectToOffice(content) {
-				try {
-					uni.showLoading({
-						title: '正在收录...'
-					});
 
-					// 自增计数器
-					this.collectNum++;
-
-					const params = {
-						contentText: content,
-						userId: this.userId,
-						shareUrl: this.currentResult.shareUrl || '',
-						aiName: this.currentResult.aiName || '',
-						num: this.collectNum
-					};
-
-					const res = await pushAutoOffice(params);
-
-					uni.hideLoading();
-
-					if (res.code === 200) {
-						uni.showToast({
-							title: `收录成功(${this.collectNum})`,
-							icon: 'success'
-						});
-					} else {
-						uni.showToast({
-							title: res.message || '收录失败',
-							icon: 'none'
-						});
-					}
-				} catch (error) {
-					uni.hideLoading();
-					console.error('收录公众号失败:', error);
-					uni.showToast({
-						title: '收录失败',
-						icon: 'none'
-					});
-				}
-			},
 
 			// shareResult(result) {
 			// 	uni.share({
@@ -1577,6 +1584,158 @@
 
 			closeScoreModal() {
 				this.scoreModalVisible = false;
+			},
+
+			// 智能排版相关方法
+			showLayoutModal() {
+				if (!this.currentResult) {
+					uni.showToast({
+						title: '没有可排版的内容',
+						icon: 'none'
+					});
+					return;
+				}
+				console.log("showLayoutModal", this.currentResult);
+				// 深度拷贝当前结果，避免引用被修改
+				this.currentLayoutResult = {
+					aiName: this.currentResult.aiName,
+					content: this.currentResult.content,
+					shareUrl: this.currentResult.shareUrl,
+					shareImgUrl: this.currentResult.shareImgUrl,
+					timestamp: this.currentResult.timestamp
+				};
+				console.log("showLayoutModal", this.currentLayoutResult);
+				
+				
+				// 设置默认提示词
+				this.layoutPrompt = `请你对以下 HTML 内容进行排版优化，目标是用于微信公众号“草稿箱接口”的 content 字段，要求如下：
+
+1. 仅返回 <body> 内部可用的 HTML 内容片段（不要包含 <!DOCTYPE>、<html>、<head>、<meta>、<title> 等标签）。
+2. 所有样式必须以“内联 style”方式写入。
+3. 保持结构清晰、视觉友好，适配公众号图文排版。
+4. 请直接输出代码，不要添加任何注释或额外说明。
+5. 不得使用 emoji 表情符号或小图标字符。\n\n以下为需要进行排版优化的内容：\n`+ this.currentResult.content ;
+				this.layoutModalVisible = true;
+			},
+
+			closeLayoutModal() {
+				this.layoutModalVisible = false;
+			},
+
+			handleLayout() {
+				if (this.layoutPrompt.trim().length === 0) return;
+
+				// 构建智能排版请求
+				const layoutRequest = {
+					jsonrpc: '2.0',
+					id: this.generateUUID(),
+					method: 'AI排版',
+					params: {
+						taskId: this.generateUUID(),
+						userId: this.userId,
+						corpId: this.corpId,
+						userPrompt: this.layoutPrompt,
+						roles: 'zj-db-sdsk' // 默认使用豆包进行排版
+					}
+				};
+
+				// 发送排版请求
+				console.log("智能排版参数", layoutRequest);
+				this.message(layoutRequest);
+				this.closeLayoutModal();
+
+				// 创建智能排版AI节点
+				const znpbAI = {
+					name: '智能排版',
+					avatar: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
+					capabilities: [],
+					selectedCapabilities: [],
+					enabled: true,
+					status: 'running',
+					progressLogs: [
+						{
+							content: '智能排版任务已提交，正在排版...',
+							timestamp: new Date(),
+							isCompleted: false,
+							type: '智能排版'
+						}
+					],
+					isExpanded: true
+				};
+
+				// 检查是否已存在智能排版
+				const existIndex = this.enabledAIs.findIndex(ai => ai.name === '智能排版');
+				if (existIndex === -1) {
+					// 如果不存在，添加到数组开头
+					this.enabledAIs.unshift(znpbAI);
+				} else {
+					// 如果已存在，更新状态和日志
+					this.enabledAIs[existIndex] = znpbAI;
+					// 将智能排版移到数组开头
+					const znpb = this.enabledAIs.splice(existIndex, 1)[0];
+					this.enabledAIs.unshift(znpb);
+				}
+
+				uni.showToast({
+					title: '排版请求已发送，请等待结果',
+					icon: 'success'
+				});
+			},
+
+			// 推送到公众号
+			async handlePushToWechat(contentText) {
+				try {
+					console.log("handlePushToWechat 开始执行", this.currentLayoutResult);
+					
+					if (!this.currentLayoutResult) {
+						console.error("currentLayoutResult 为空，无法投递");
+						uni.showToast({
+							title: '投递失败：缺少原始结果信息',
+							icon: 'none'
+						});
+						return;
+					}
+					
+					uni.showLoading({
+						title: '正在投递...'
+					});
+
+					// 自增计数器
+					this.collectNum++;
+
+					const params = {
+						contentText: contentText,
+						userId: this.userId,
+						shareUrl: this.currentLayoutResult.shareUrl || '',
+						aiName: this.currentLayoutResult.aiName || '',
+						num: this.collectNum
+					};
+					
+					console.log("投递参数", params);
+
+					const res = await pushAutoOffice(params);
+
+					uni.hideLoading();
+
+					if (res.code === 200) {
+						uni.showToast({
+							title: `投递成功(${this.collectNum})`,
+							icon: 'success'
+						});
+					} else {
+						uni.showToast({
+							title: res.message || '投递失败',
+							icon: 'none'
+						});
+					}
+				} catch (error) {
+					uni.hideLoading();
+					console.error('投递到公众号失败:', error);
+					uni.showToast({
+						title: '投递失败',
+						icon: 'none'
+					});
+				}
 			},
 
 			toggleResultSelection(event) {

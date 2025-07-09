@@ -546,7 +546,7 @@ public class TencentUtil {
                 lastContent = currentContent;
 
                 // 等待 2 秒后再次检查
-                page.waitForTimeout(15000);  // 等待2秒
+                page.waitForTimeout(20000);  // 等待2秒
             }
             currentContent = currentContent.replaceAll("<div class=\"hyc-common-markdown__ref-list\".*?</div>|<span>.*?</span>","");
             currentContent = currentContent.replaceAll(
