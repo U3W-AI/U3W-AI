@@ -57,12 +57,8 @@ public class BrowserController {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"yb")) {
             Page page = context.newPage();
             page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa");
-            Locator locator = page.locator("text=你好，我是腾讯元宝");
-            if (locator.count() > 0 && locator.isVisible()) {
-                return "false";
-            } else {
-                Thread.sleep(2000);
-                Locator phone = page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/div[2]/p");
+            Locator phone = page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/div[2]/p");
+            phone.waitFor(new Locator.WaitForOptions().setTimeout(60000));
                 if(phone.count()>0){
                     String phoneText = phone.textContent();
                     if(phoneText.equals("未登录")){
@@ -72,7 +68,6 @@ public class BrowserController {
                 }else{
                     return "false";
                 }
-            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -91,13 +86,9 @@ public class BrowserController {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"agent")) {
             Page page = context.newPage();
             page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa");
-            Locator locator = page.locator("text=你好，我是腾讯元宝");
-            if (locator.count() > 0 && locator.isVisible()) {
-                return "false";
-            } else {
-                Thread.sleep(2000);
-                Locator phone = page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/div[2]/p");
-                if(phone.count()>0){
+            Locator phone = page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/div[2]/p");
+            phone.waitFor(new Locator.WaitForOptions().setTimeout(60000));
+            if(phone.count()>0){
                     String phoneText = phone.textContent();
                     if(phoneText.equals("未登录")){
                         return "false";
@@ -106,7 +97,6 @@ public class BrowserController {
                 }else{
                     return "false";
                 }
-            }
         } catch (Exception e) {
             e.printStackTrace();
         }

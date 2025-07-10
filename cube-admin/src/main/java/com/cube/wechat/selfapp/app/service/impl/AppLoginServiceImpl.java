@@ -73,7 +73,10 @@ public class AppLoginServiceImpl implements AppLoginService {
             user = wxUser;
             user.setUserName(unionId);// 生成16位随机用户名
             user.setUpdateTime(DateUtils.getNowDate());
-            pointsSystem.setUserPoint(String.valueOf(wxUser.getUserId()),"每日优立方登录",null,"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
+            Integer isFirst = pointsSystem.checkPointIsOk("每日优立方登录",String.valueOf(wxUser.getUserId()),1);
+            if(isFirst==0){
+                pointsSystem.setUserPoint(String.valueOf(wxUser.getUserId()),"每日优立方登录",null,"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
+            }
 
             userMapper.updateUser(user);
         }
@@ -128,8 +131,10 @@ public class AppLoginServiceImpl implements AppLoginService {
             user.setUnionId(unionId);
 //            user.setCorpId(corpId);
             user.setUpdateTime(DateUtils.getNowDate());
-            pointsSystem.setUserPoint(String.valueOf(wxUser.getUserId()),"每日优立方登录",null,"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
-
+            Integer isFirst = pointsSystem.checkPointIsOk("每日优立方登录",String.valueOf(wxUser.getUserId()),1);
+            if(isFirst==0){
+                pointsSystem.setUserPoint(String.valueOf(wxUser.getUserId()),"每日优立方登录",null,"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
+            }
             userMapper.updateUser(user);
         }
 //
@@ -174,7 +179,10 @@ public class AppLoginServiceImpl implements AppLoginService {
             //更新
             user = wxUser;
             user.setUpdateTime(DateUtils.getNowDate());
-            pointsSystem.setUserPoint(String.valueOf(wxUser.getUserId()),"每日优立方登录",null,"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
+            Integer isFirst = pointsSystem.checkPointIsOk("每日优立方登录",String.valueOf(wxUser.getUserId()),1);
+            if(isFirst==0){
+                pointsSystem.setUserPoint(String.valueOf(wxUser.getUserId()),"每日优立方登录",null,"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
+            }
             userMapper.updateUser(user);
         }
         //组装token信息

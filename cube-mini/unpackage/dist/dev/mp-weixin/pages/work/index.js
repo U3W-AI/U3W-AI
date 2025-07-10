@@ -438,20 +438,20 @@ var _default = {
         yuanbao: false,
         doubao: false,
         agent: false,
-        deepseek: true // DeepSeek默认为已登录状态
+        deepseek: false // DeepSeek初始为未登录状态
       },
 
       accounts: {
         yuanbao: '',
         doubao: '',
         agent: '',
-        deepseek: 'DeepSeek'
+        deepseek: ''
       },
       isLoading: {
         yuanbao: true,
         doubao: true,
         agent: true,
-        deepseek: false // DeepSeek默认为非加载状态
+        deepseek: true // DeepSeek初始为加载状态
       }
     };
   },
@@ -468,7 +468,7 @@ var _default = {
       });
 
       // 检查是否正在加载AI状态（如果正在加载，禁用发送按钮）
-      var isCheckingStatus = this.isLoading.yuanbao || this.isLoading.doubao || this.isLoading.agent;
+      var isCheckingStatus = this.isLoading.yuanbao || this.isLoading.doubao || this.isLoading.agent || this.isLoading.deepseek;
       return hasInput && hasAvailableAI && !isCheckingStatus;
     },
     canScore: function canScore() {
@@ -994,16 +994,30 @@ var _default = {
         this.updateAiEnabledStatus();
       }
       // 处理DeepSeek登录状态
-      else if (datastr.includes("RETURN_DEEPSEEK_STATUS") && dataObj.status != '') {
+      else if (datastr.includes("RETURN_DEEPSEEK_STATUS")) {
+        console.log("收到DeepSeek登录状态消息:", dataObj);
         this.isLoading.deepseek = false;
-        if (!datastr.includes("false")) {
+        if (dataObj.status && dataObj.status !== 'false' && dataObj.status !== '') {
           this.aiLoginStatus.deepseek = true;
           this.accounts.deepseek = dataObj.status;
+          console.log("DeepSeek登录成功，账号:", dataObj.status);
+
+          // 查找DeepSeek AI实例
+          var deepseekAI = this.aiList.find(function (ai) {
+            return ai.name === 'DeepSeek';
+          });
         } else {
           this.aiLoginStatus.deepseek = false;
+          this.accounts.deepseek = '';
+          console.log("DeepSeek未登录");
+
+          // 如果未登录，确保DeepSeek被禁用
+          var _deepseekAI = this.aiList.find(function (ai) {
+            return ai.name === 'DeepSeek';
+          });
         }
-        // 更新AI启用状态
-        this.updateAiEnabledStatus();
+        // 强制更新UI
+        this.$forceUpdate();
       }
       // 处理智能体登录状态
       else if (datastr.includes("RETURN_AGENT_STATUS") && dataObj.status != '') {
@@ -2075,8 +2089,8 @@ var _default = {
           return this.aiLoginStatus.doubao;
         // 豆包登录状态
         case 'DeepSeek':
-          return true;
-        // DeepSeek 暂时默认为已登录状态
+          return this.aiLoginStatus.deepseek;
+        // 使用实际的DeepSeek登录状态
         default:
           return false;
       }
@@ -2093,8 +2107,8 @@ var _default = {
         case '豆包':
           return this.isLoading.doubao;
         case 'DeepSeek':
-          return false;
-        // DeepSeek 暂时默认为非加载状态
+          return this.isLoading.deepseek;
+        // 使用实际的DeepSeek加载状态
         default:
           return false;
       }
