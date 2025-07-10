@@ -28,13 +28,12 @@ export default {
     }
   },
   created() {
-    var redirect = process.env.VUE_APP_EQ_WECHAT_AUTH_URL
     var query = this.$route.query
     if (query.code) {
       this.loginForm.code= query.code;
      this.weLogin()
     }else{
-      window.location.href=redirect
+      window.location.href="https://open.weixin.qq.com/connect/oauth2/authorize?appid=企业ID&redirect_uri=自己的后台地址&response_type=code&scope=snsapi_base&agentid=自己的企业微信应用ID&state=10000001#wechat_redirect"
     }
 
   },
