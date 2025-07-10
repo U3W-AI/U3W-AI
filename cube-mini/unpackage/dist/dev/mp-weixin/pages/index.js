@@ -268,6 +268,13 @@ var _default = {
         title: '豆包',
         description: '字节跳动开发的AI助手，擅长深度思考和逻辑推理',
         type: 'doubao'
+      }, {
+        name: 'DeepSeek',
+        avatar: 'https://u3w.com/chatfile/Deepseek.png',
+        icon: 'https://u3w.com/chatfile/Deepseek.png',
+        title: 'DeepSeek',
+        description: 'DeepSeek原生AI助手，擅长深度思考和联网搜索',
+        type: 'doubao'
       }],
       advantages: [
         // {
