@@ -427,7 +427,6 @@ public class BrowserController {
             // 所有尝试都失败，返回未登录状态
             return "false";
         } catch (Exception e) {
-            System.out.println("DeepSeek登录检测出错: " + e.getMessage());
             e.printStackTrace();
         }
         return "false";
@@ -510,7 +509,6 @@ public class BrowserController {
                 return url;
             }
         } catch (Exception e) {
-            System.out.println(e.getMessage());
             logMsgUtil.sendTaskLog("获取DeepSeek登录二维码失败: " + e.getMessage(), userId, "DeepSeek");
         }
         return "false";

@@ -195,7 +195,7 @@ from wc_chrome_hotlink wck left join sys_user u on wck.user_name = u.user_name
                          when 'Agent-cube-lwss-agent' then 'KIMI@元器'
                          when '豆包' then '豆包'
                          when '智能评分' then '智能评分'
-                         else null end name,
+                         else ai_name end name,
             draft_content preview,
             draft_content content,
             DATE_FORMAT(create_time, '%Y-%c-%d %H:%i:%s')  responseTime

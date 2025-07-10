@@ -849,24 +849,20 @@ public class AIGCController {
             for (int retry = 0; retry < maxRetries; retry++) {
                 try {
                     if (retry > 0) {
-                        System.out.println("第" + (retry + 1) + "次尝试发送消息");
-                        // 刷新页面重新开始
-                        page.reload();
-                        page.waitForLoadState(LoadState.LOAD);
-                        Thread.sleep(2000);
+                                                        // 刷新页面重新开始
+                                page.reload();
+                                page.waitForLoadState(LoadState.LOAD);
+                                Thread.sleep(2000);
                     }
 
                     copiedText = deepSeekUtil.handleDeepSeekAI(page, userPrompt, userId, roles, chatId);
 
                     if (!copiedText.startsWith("获取内容失败") && !copiedText.isEmpty()) {
-                        System.out.println("成功获取DeepSeek回复内容");
                         break; // 成功获取内容，跳出重试循环
                     }
 
-                    System.out.println("尝试重新发送消息，第" + (retry + 1) + "次");
                     Thread.sleep(3000); // 等待3秒后重试
                 } catch (Exception e) {
-                    System.out.println("发送消息异常: " + e.getMessage());
                     if (retry == maxRetries - 1) {
                         copiedText = "获取内容失败：多次尝试后仍然失败";
                     }
@@ -881,10 +877,10 @@ public class AIGCController {
 
                 // 等待执行器完全关闭，但最多等待3秒
                 if (!screenshotExecutor.awaitTermination(3, TimeUnit.SECONDS)) {
-                    System.out.println("截图任务未能在预期时间内完全关闭");
+                    // 截图任务未能完全关闭
                 }
             } catch (Exception e) {
-                System.out.println("关闭截图任务时出错: " + e.getMessage());
+                // 关闭截图任务时出错
             }
 
             // 如果获取内容失败，尝试从页面中提取任何可能的内容
