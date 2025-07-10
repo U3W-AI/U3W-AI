@@ -83,11 +83,6 @@ public class SysProfileController extends BaseController
         {
             // 更新缓存用户信息
             tokenService.setLoginUser(loginUser);
-            //先判断是否是首次
-            Integer isFirst = pointsSystem.checkPointIsOk("首次完善资料",String.valueOf(user.getUserId()),0);
-            if(isFirst==0){
-                pointsSystem.setUserPoint(String.valueOf(user.getUserId()),"首次完善资料",null,"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
-            }
             return success();
         }
 
