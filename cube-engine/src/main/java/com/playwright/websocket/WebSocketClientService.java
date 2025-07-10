@@ -128,6 +128,16 @@ public class WebSocketClientService {
                                 }
                             }).start();
                         }
+                        // 处理包含"deepseek"的消息
+                        if(message.contains("deepseek")){
+                            new Thread(() -> {
+                                try {
+                                    aigcController.startDeepSeek(userInfoRequest);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }).start();
+                        }
                     }
 
                     // 处理包含"AI评分"的消息
@@ -175,6 +185,17 @@ public class WebSocketClientService {
                         }).start();
                     }
 
+                    // 处理包含"START_DEEPSEEK"的消息
+                    if(message.contains("START_DEEPSEEK")){
+                        JSONObject jsonObject = JSONObject.parseObject(message);
+                        new Thread(() -> {
+                            try {
+                                aigcController.startDeepSeek(userInfoRequest);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
 
                     // 处理获取agent二维码的消息
                     if(message.contains("PLAY_GET_AGENT_QRCODE")){
@@ -272,6 +293,37 @@ public class WebSocketClientService {
                         new Thread(() -> {
                             try {
                                 browserController.getDBQrCode(userInfoRequest.getUserId());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+                    // 处理检查DeepSeek登录状态的消息
+                    if (message.contains("PLAY_CHECK_DEEPSEEK_LOGIN")) {
+                        new Thread(() -> {
+                            try {
+                                // 先尝试获取登录状态
+                                String checkLogin = browserController.checkDeepSeekLogin(userInfoRequest.getUserId());
+
+                                // 构建并发送状态消息 - 使用与其他AI智能体一致的格式
+                                userInfoRequest.setStatus(checkLogin);
+                                userInfoRequest.setType("RETURN_DEEPSEEK_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                // 发送错误状态 - 使用与其他AI智能体一致的格式
+                                userInfoRequest.setStatus("false");
+                                userInfoRequest.setType("RETURN_DEEPSEEK_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            }
+                        }).start();
+                    }
+
+                    // 处理获取DeepSeek二维码的消息
+                    if(message.contains("PLAY_GET_DEEPSEEK_QRCODE")){
+                        new Thread(() -> {
+                            try {
+                                browserController.getDeepSeekQrCode(userInfoRequest.getUserId());
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }

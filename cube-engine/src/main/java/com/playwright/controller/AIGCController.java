@@ -54,6 +54,9 @@ public class AIGCController {
         this.webSocketClientService = webSocketClientService;
     }
 
+    @Autowired
+    private DeepSeekUtil deepSeekUtil;
+
     // 从配置文件中注入URL 调用远程API存储数据
     @Value("${cube.url}")
     private String url;
@@ -759,6 +762,236 @@ public class AIGCController {
             e.printStackTrace();
         }
         return "获取内容失败";
+    }
+
+
+    /**
+     * 处理DeepSeek的常规请求
+     * @param userInfoRequest 包含会话ID和用户指令
+     * @return AI生成的文本内容
+     */
+    @Operation(summary = "启动DeepSeek AI生成", description = "调用DeepSeek AI平台生成内容并抓取结果")
+    @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
+    @PostMapping("/startDeepSeek")
+    public String startDeepSeek(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) {
+        // 添加全局异常处理
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "deepseek")) {
+            // 设置全局超时时间，提高稳定性
+            context.setDefaultTimeout(60000); // 60秒
+            // 初始化变量
+            String userId = userInfoRequest.getUserId();
+            logInfo.sendTaskLog("DeepSeek准备就绪，正在打开页面", userId, "DeepSeek");
+            String roles = userInfoRequest.getRoles();
+            String userPrompt = userInfoRequest.getUserPrompt();
+            String chatId = userInfoRequest.getYbDsChatId(); // 获取会话ID
+            String isNewChat = userInfoRequest.getIsNewChat(); // 是否新会话
+
+            // 如果指定了新会话，则忽略已有的会话ID
+            if ("true".equalsIgnoreCase(isNewChat)) {
+                System.out.println("用户请求新会话，将忽略已有会话ID");
+                chatId = null;
+            } else if (chatId != null && !chatId.isEmpty()) {
+                logInfo.sendTaskLog("检测到会话ID: " + chatId + "，将继续使用此会话", userId, "DeepSeek");
+            } else {
+                System.out.println("未检测到会话ID，将创建新会话");
+            }
+
+            // 初始化页面并发送消息
+            Page page = context.newPage();
+
+            // 设置页面超时时间更长
+            page.setDefaultTimeout(60000); // 60秒
+
+            // 创建定时截图线程
+            AtomicInteger i = new AtomicInteger(0);
+            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+
+            // 启动定时任务，每6秒执行一次截图，添加错误处理和状态检查
+            ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+                try {
+                    // 检查页面是否已关闭，避免对已关闭页面进行操作
+                    if (page.isClosed()) {
+                        return;
+                    }
+
+                    // 检查页面是否正在加载中，如果是则跳过本次截图
+                    try {
+                        boolean isLoading = (boolean) page.evaluate("() => document.readyState !== 'complete'");
+                        if (isLoading) {
+                            System.out.println("页面加载中，跳过截图");
+                            return;
+                        }
+                    } catch (Exception e) {
+                        // 忽略评估错误
+                    }
+
+                    int currentCount = i.getAndIncrement();
+                    try {
+                        // 使用更安全的截图方式
+                        logInfo.sendImgData(page, userId + "DeepSeek执行过程截图" + currentCount, userId);
+                    } catch (Exception e) {
+                        System.out.println("截图失败: " + e.getMessage());
+                        // 不打印完整堆栈，避免日志过多
+                    }
+                } catch (Exception e) {
+                    System.out.println("截图任务异常: " + e.getMessage());
+                }
+            }, 2000, 6000, TimeUnit.MILLISECONDS); // 延迟2秒开始，每6秒执行一次
+
+            logInfo.sendTaskLog("开启自动监听任务，持续监听DeepSeek回答中", userId, "DeepSeek");
+
+            // 发送消息并获取回答
+            String copiedText = "";
+            int maxRetries = 3;
+
+            // 重试循环
+            for (int retry = 0; retry < maxRetries; retry++) {
+                try {
+                    if (retry > 0) {
+                        System.out.println("第" + (retry + 1) + "次尝试发送消息");
+                        // 刷新页面重新开始
+                        page.reload();
+                        page.waitForLoadState(LoadState.LOAD);
+                        Thread.sleep(2000);
+                    }
+
+                    copiedText = deepSeekUtil.handleDeepSeekAI(page, userPrompt, userId, roles, chatId);
+
+                    if (!copiedText.startsWith("获取内容失败") && !copiedText.isEmpty()) {
+                        System.out.println("成功获取DeepSeek回复内容");
+                        break; // 成功获取内容，跳出重试循环
+                    }
+
+                    System.out.println("尝试重新发送消息，第" + (retry + 1) + "次");
+                    Thread.sleep(3000); // 等待3秒后重试
+                } catch (Exception e) {
+                    System.out.println("发送消息异常: " + e.getMessage());
+                    if (retry == maxRetries - 1) {
+                        copiedText = "获取内容失败：多次尝试后仍然失败";
+                    }
+                    Thread.sleep(2000); // 出错后等待2秒
+                }
+            }
+
+            // 安全地关闭截图任务
+            try {
+                screenshotFuture.cancel(true); // 使用true尝试中断正在执行的任务
+                screenshotExecutor.shutdownNow(); // 立即关闭执行器
+
+                // 等待执行器完全关闭，但最多等待3秒
+                if (!screenshotExecutor.awaitTermination(3, TimeUnit.SECONDS)) {
+                    System.out.println("截图任务未能在预期时间内完全关闭");
+                }
+            } catch (Exception e) {
+                System.out.println("关闭截图任务时出错: " + e.getMessage());
+            }
+
+            // 如果获取内容失败，尝试从页面中提取任何可能的内容
+            if (copiedText.startsWith("获取内容失败") || copiedText.isEmpty()) {
+                try {
+                    System.out.println("尝试使用备用方法提取内容");
+
+                    // 使用JavaScript提取页面上的任何文本内容
+                    Object extractedContent = page.evaluate("""
+                        () => {
+                            // 尝试查找任何可能包含回复的元素
+                            const contentElements = document.querySelectorAll('.ds-markdown, .flow-markdown-body, .message-content, .ds-markdown-paragraph');
+                            if (contentElements.length > 0) {
+                                // 获取最后一个元素的文本
+                                const lastElement = contentElements[contentElements.length - 1];
+                                return lastElement.innerHTML || lastElement.innerText || '';
+                            }
+
+                            // 如果找不到特定元素，尝试获取页面上的任何文本
+                            const bodyText = document.body.innerText;
+                            if (bodyText && bodyText.length > 50) {
+                                return bodyText;
+                            }
+
+                            return '无法提取内容';
+                        }
+                    """);
+
+                    if (extractedContent != null && !extractedContent.toString().isEmpty() &&
+                            !extractedContent.toString().equals("无法提取内容")) {
+                        copiedText = extractedContent.toString();
+                        System.out.println("使用备用方法成功提取内容");
+                    }
+                } catch (Exception e) {
+                    System.out.println("备用提取方法失败: " + e.getMessage());
+                }
+            }
+
+            // 添加额外的HTML格式化处理
+            try {
+                // 检查是否需要额外的格式化
+                if (!copiedText.startsWith("获取内容失败") && !copiedText.isEmpty()) {
+                    // 使用JavaScript在浏览器中进行最终的格式化处理
+                    Object finalFormattedContent = page.evaluate("""
+                        (content) => {
+                            try {
+                                // 检查内容是否已经是HTML格式
+                                const isHtml = content.trim().startsWith('<') && content.includes('</');
+
+                                // 如果不是HTML格式，进行基本的HTML转换
+                                if (!isHtml) {
+                                    // 将换行符转换为<br>标签
+                                    content = content.replace(/\\n/g, '<br>');
+
+                                    // 检测并转换Markdown风格的链接 [text](url)
+                                    content = content.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '<a href="$2" target="_blank" style="color: #0066cc; text-decoration: none;">$1</a>');
+
+                                    // 检测并转换Markdown风格的加粗文本 **text**
+                                    content = content.replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>');
+
+                                    // 检测并转换Markdown风格的斜体文本 *text*
+                                    content = content.replace(/\\*([^*]+)\\*/g, '<em>$1</em>');
+
+                                    // 检测并转换Markdown风格的代码块 ```code```
+                                    content = content.replace(/```([\\s\\S]+?)```/g, '<pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; font-family: monospace; overflow-x: auto; display: block; margin: 10px 0;">$1</pre>');
+
+                                    // 检测并转换Markdown风格的行内代码 `code`
+                                    content = content.replace(/`([^`]+)`/g, '<code style="background-color: #f5f5f5; padding: 2px 4px; border-radius: 3px; font-family: monospace;">$1</code>');
+                                }
+
+                                // 创建一个包含样式的容器
+                                const styledContainer = document.createElement('div');
+                                styledContainer.className = 'deepseek-response';
+                                styledContainer.style.cssText = 'max-width: 800px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; color: #333;';
+
+                                // 添加内容
+                                styledContainer.innerHTML = content;
+
+                                // 返回完整的HTML
+                                return styledContainer.outerHTML;
+                            } catch (e) {
+                                console.error('最终格式化内容时出错:', e);
+                                return content; // 出错时返回原始内容
+                            }
+                        }
+                    """, copiedText);
+
+                    if (finalFormattedContent != null && !finalFormattedContent.toString().isEmpty()) {
+                        copiedText = finalFormattedContent.toString();
+                    }
+                }
+            } catch (Exception e) {
+                System.out.println("最终格式化处理失败: " + e.getMessage());
+            }
+
+            // 保存结果
+            try {
+                copiedText = deepSeekUtil.saveDeepSeekContent(page, userInfoRequest, roles, userId, copiedText);
+            } catch (Exception e) {
+                System.out.println("保存DeepSeek内容到稿库失败: " + e.getMessage());
+                e.printStackTrace();
+            }
+            return copiedText;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "获取内容失败: " + e.getMessage();
+        }
     }
 
 

@@ -354,18 +354,21 @@ export default {
         yuanbao: false,
         doubao: false,
         agent: false,
+        deepseek: false
         // qw: false
       },
       accounts: {
         yuanbao: '',
         doubao: '',
         agent: '',
+        deepseek: '',
         // qw: ''
       },
       isClick: {
         yuanbao: false,
         doubao: false,
         agent: false,
+        deepseek: false
         // qw: false
       },
       aiLoginDialogVisible: false,
@@ -379,6 +382,7 @@ export default {
         doubao: true,
         wenxin: true,
         agent: true,
+        deepseek: true
         // qw: true
       },
     }
@@ -407,6 +411,7 @@ export default {
         yuanbao: '腾讯元宝登录',
         doubao: '豆包登录',
         agent: '智能体登录',
+        deepseek: 'DeepSeek登录',
         // qw: '通义千问登录'
       };
       return titles[this.currentAiType] || '登录';
@@ -447,6 +452,12 @@ export default {
           });
           this.sendMessage({
             type: 'PLAY_CHECK_AGENT_LOGIN',
+            userId: this.userId,
+            corpId: this.corpId
+          });
+          // 检查DeepSeek登录状态
+          this.sendMessage({
+            type: 'PLAY_CHECK_DEEPSEEK_LOGIN',
             userId: this.userId,
             corpId: this.corpId
           });
@@ -611,6 +622,13 @@ export default {
           corpId: this.corpId
         });
       }
+      if(type == 'deepseek'){
+        this.sendMessage({
+          type: 'PLAY_GET_DEEPSEEK_QRCODE',
+          userId: this.userId,
+          corpId: this.corpId
+        });
+      }
       if(type == 'wenxin'){
         this.sendMessage({
           type: 'PLAY_GET_WX_QRCODE',
@@ -635,6 +653,7 @@ export default {
         yuanbao: require('@/assets/logo/yuanbao.png'),
         doubao: require('@/assets/logo/doubao.png'),
         agent: require('@/assets/logo/yuanbao.png'),
+        deepseek: require('@/assets/logo/Deepseek.png'),
         qw: require('@/assets/logo/qw.png')
       };
       return icons[type] || '';
@@ -644,6 +663,7 @@ export default {
         yuanbao: '腾讯元宝',
         doubao: '豆包',
         agent: '智能体',
+        deepseek: 'DeepSeek',
         // qw: '通义千问'
       };
       return names[type] || '';
@@ -698,7 +718,7 @@ export default {
           this.isClick.agent = true;
           this.isLoading.agent = false;
         }
-      } else if (datastr.includes("RETURN_PC_YB_QRURL") || datastr.includes("RETURN_PC_DB_QRURL") || datastr.includes("RETURN_PC_WX_QRURL") || datastr.includes("RETURN_PC_AGENT_QRURL") || datastr.includes("RETURN_PC_QW_QRURL")) {
+      } else if (datastr.includes("RETURN_PC_YB_QRURL") || datastr.includes("RETURN_PC_DB_QRURL") || datastr.includes("RETURN_PC_WX_QRURL") || datastr.includes("RETURN_PC_AGENT_QRURL") || datastr.includes("RETURN_PC_DEEPSEEK_QRURL")|| datastr.includes("RETURN_PC_QW_QRURL")) {
         this.qrCodeUrl = dataObj.url;
       } else if (datastr.includes("RETURN_DB_STATUS") && dataObj.status != '') {
         if (!datastr.includes("false")) {
@@ -719,6 +739,16 @@ export default {
         } else {
           this.isClick.wenxin = true;
           this.isLoading.wenxin = false;
+        }
+      } else if (datastr.includes("RETURN_DEEPSEEK_STATUS") && dataObj.status != '') {
+        if (!datastr.includes("false")) {
+          this.aiLoginDialogVisible = false;
+          this.aiLoginStatus.deepseek = true;
+          this.accounts.deepseek = dataObj.status;
+          this.isLoading.deepseek = false;
+        } else {
+          this.isClick.deepseek = true;
+          this.isLoading.deepseek = false;
         }
       } else if (datastr.includes("RETURN_QW_STATUS") && dataObj.status != '') {
         if (!datastr.includes("false")) {
