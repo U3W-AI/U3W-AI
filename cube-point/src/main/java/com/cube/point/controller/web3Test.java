@@ -121,7 +121,7 @@ public class web3Test {
     public static void main(String[] args) throws Exception {
 //        sendtrans();
 //        getAccount("0x2edc4228a84d672affe8a594033cb84a029bcafc");
-        getAccount("0x2edc4228a84d672affe8a594033cb84a029bcafc");
+        getAccount("0x3df0b308c4cfca377861732ba00c54ae3753ae05");
 
     }
 

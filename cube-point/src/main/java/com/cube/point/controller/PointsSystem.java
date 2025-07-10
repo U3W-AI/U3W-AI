@@ -191,7 +191,7 @@ public class PointsSystem extends BaseController {
         for (Map map : user) {
             Long userId = (Long) map.get("userId");
             Integer point = (Integer) map.get("points");
-//            registerAccount(userId);
+            registerAccount(userId);
             String tranId = null;
             Map gethMap = new HashMap();
             String address = (String) redisCli.get("geth.address."+userId);
