@@ -82,7 +82,7 @@ public class DeepSeekUtil {
                             String name = nameLabel.textContent();
                             if (name != null && !name.trim().isEmpty() && 
                                 !name.trim().equals("登录") && !name.trim().equals("Login")) {
-                                System.out.println("从pending选项找到用户昵称: " + name.trim());
+                                                                            // 找到用户昵称
                                 return name.trim();
                             }
                         }
@@ -96,7 +96,7 @@ public class DeepSeekUtil {
                             !labelText.trim().equals("登录") && !labelText.trim().equals("Login") &&
                             !labelText.trim().equals("系统设置") && !labelText.trim().equals("联系我们") && 
                             !labelText.trim().equals("退出登录")) {
-                            System.out.println("从所有标签中找到用户昵称: " + labelText.trim());
+                                                                        // 找到用户昵称
                             return labelText.trim();
                         }
                     }
@@ -154,7 +154,7 @@ public class DeepSeekUtil {
                     """);
                     
                     if (userName != null && !userName.toString().equals("null")) {
-                        System.out.println("通过JS找到用户昵称: " + userName.toString());
+                                                        // 找到用户昵称
                         return userName.toString();
                     }
                     
@@ -318,7 +318,7 @@ public class DeepSeekUtil {
                     int specificCount = ((Number) counts.getOrDefault("specificCount", 0)).intValue();
                     initialCopyButtonCount = regularCount + specificCount;
                     
-                    System.out.println("页面初始状态 - 复制按钮数量: " + initialCopyButtonCount);
+                    // 记录初始复制按钮数量
                     initialPageLoaded = true;
                 }
             } catch (Exception e) {
@@ -499,19 +499,19 @@ public class DeepSeekUtil {
                             if (isThinking || isSearching || hasStopButton) {
                                 isGenerating = true;
                                 if (isThinking) {
-                        System.out.println("检测到AI仍在思考中...");
+                                                        // AI仍在思考中
                                 }
                                 if (isSearching) {
-                        System.out.println("检测到AI正在进行联网搜索...");
+                                                        // AI正在进行联网搜索
                                 }
                                 if (hasStopButton) {
-                        System.out.println("检测到停止生成按钮，AI仍在生成回答...");
+                                                        // AI仍在生成回答
                                 }
                             } else {
                                 // 所有指示器都不存在，可能表示生成已完成
                                 long currentElapsedTime = System.currentTimeMillis() - startTime;
                                 if (currentElapsedTime > 20000) { // 确保至少20秒后再做此判断
-                        System.out.println("所有生成指示器均已消失，AI可能已完成回答");
+                                                        // AI可能已完成回答
                                     // 这里不立即结束，让下面的稳定性检查和复制按钮检查来确认
                                 }
                             }
@@ -794,10 +794,7 @@ public class DeepSeekUtil {
                                 int initialButtonCount = ((Number) details.getOrDefault("initialButtonCount", 0)).intValue();
                                 Map<String, Object> buttonInfo = (Map<String, Object>) details.getOrDefault("buttonInfo", null);
                                 
-                                // 删除冗余日志输出，保留关键信息
-                                if (found && isInLatestAnswer) {
-                                    System.out.println("检测到复制按钮，准备提取内容");
-                                }
+                                // 避免日志输出
                                 
                                 // 直接使用前面已经定义的buttonDetectionElapsedTime和tooEarlyForDetection变量
                                 
@@ -807,17 +804,9 @@ public class DeepSeekUtil {
                                 if (found && isInLatestAnswer) {
                                     if (tooEarlyForDetection && !hasNewButtons) {
                                         // 检测太早，可能是上次会话的按钮，继续等待
-                                        System.out.println("检测到复制按钮，但时间太短且无新增按钮，可能是上次会话的按钮，继续等待");
-                                        
-                                        // 获取消息发送时间戳信息，用于调试
+                                        // 获取消息发送时间戳信息，用于内部处理
                                         try {
-                                            Object timestampInfo = page.evaluate("() => { return { sentTime: window._deepseekMessageSentTime || 0, currentTime: Date.now(), diff: Date.now() - (window._deepseekMessageSentTime || 0) }; }");
-                                            if (timestampInfo instanceof Map) {
-                                                Map<String, Object> info = (Map<String, Object>) timestampInfo;
-                                                System.out.println("消息时间戳信息: 发送时间=" + info.get("sentTime") + 
-                                                                  ", 当前时间=" + info.get("currentTime") + 
-                                                                  ", 时间差=" + info.get("diff") + "ms");
-                                            }
+                                            page.evaluate("() => { return { sentTime: window._deepseekMessageSentTime || 0, currentTime: Date.now(), diff: Date.now() - (window._deepseekMessageSentTime || 0) }; }");
                                         } catch (Exception e) {
                                             // 忽略时间戳检查错误
                                         }
@@ -875,7 +864,6 @@ public class DeepSeekUtil {
                                                 
                                                 if (!renderingComplete) {
                                                     // 特殊内容仍在渲染中，继续等待
-                                                    System.out.println("检测到复制按钮，但特殊内容（图表/代码块）仍在渲染中，继续等待");
                                                     continue;
                                                 }
                                                 
@@ -892,7 +880,6 @@ public class DeepSeekUtil {
                                         if (currentWaitTime < 5000) {
                                             // 如果等待时间不足5秒，继续等待
                                             long remainingWaitTime = 5000 - currentWaitTime;
-                                            System.out.println("检测到回答可能已完成，但距离发送消息仅" + currentWaitTime + "ms，继续等待" + remainingWaitTime + "ms");
                                             Thread.sleep(remainingWaitTime);
                                         }
                                         
@@ -950,14 +937,13 @@ public class DeepSeekUtil {
                                     if (currentWaitTime < 5000) {
                                         // 如果等待时间不足5秒，继续等待
                                         long remainingWaitTime = 5000 - currentWaitTime;
-                                        System.out.println("检测到回答可能已完成，但距离发送消息仅" + currentWaitTime + "ms，继续等待" + remainingWaitTime + "ms");
                                         Thread.sleep(remainingWaitTime);
                                     }
                                     
-                                    System.out.println(aiName + "深度思考模式回答可能已完成，内容已稳定且符合完成条件");
+                                    // 深度思考模式回答已完成
                                     break;
                                 } else {
-                                    System.out.println("深度思考模式下内容已暂时稳定，但仍在等待更多确认信号");
+                                    // 等待更多确认信号
                                     // 重置稳定计数，给更多时间继续生成
                                     if (stableCount == 5) {
                                         stableCount = 3;
@@ -974,7 +960,7 @@ public class DeepSeekUtil {
                                     Thread.sleep(remainingWaitTime);
                                 }
                                 
-                                System.out.println(aiName + "回答可能已完成，内容已稳定");
+                                // 回答已完成
                                 break;
                             }
                         }
@@ -1041,7 +1027,6 @@ public class DeepSeekUtil {
                     
                     if (cleanedContent != null && !cleanedContent.toString().isEmpty()) {
                         currentContent = cleanedContent.toString();
-                        logInfo.sendTaskLog("已清理HTML内容中的交互元素，保留原始格式", userId, aiName);
                     }
                 } catch (Exception e) {
                     logInfo.sendTaskLog("清理HTML内容时出错: " + e.getMessage(), userId, aiName);
@@ -1236,8 +1221,7 @@ public class DeepSeekUtil {
             if (needDeepThink || needWebSearch) {
                 if (needDeepThink) {
                     toggleButtonIfNeeded(page, userId, "深度思考", true, logInfo);
-                    // 保留深度思考模式的日志，与豆包一致
-                    logInfo.sendTaskLog("已启动深度思考模式", userId, "DeepSeek");
+                    // 日志已在toggleButtonIfNeeded方法中发送
                 } else {
                     toggleButtonIfNeeded(page, userId, "深度思考", false, logInfo);
                 }
@@ -1453,24 +1437,17 @@ public class DeepSeekUtil {
     public String saveDeepSeekContent(Page page, UserInfoRequest userInfoRequest, String roleType, String userId, String content) {
         try {
             long startTime = System.currentTimeMillis(); // 记录开始时间
-            
             // 1. 从URL提取会话ID和分享链接
             String shareUrl = "";
             String chatId = "";
-            
-                        try {
-                            String currentUrl = page.url();
+            try {
+                String currentUrl = page.url();
                 java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("/chat/s/([^/]+)");
                 java.util.regex.Matcher matcher = pattern.matcher(currentUrl);
-                
                 if (matcher.find()) {
                     chatId = matcher.group(1);
                     shareUrl = "https://chat.deepseek.com/a/chat/s/" + chatId;
-                    
-                    // 将会话ID保存到请求对象中
                     userInfoRequest.setYbDsChatId(chatId);
-                    
-                    // 发送会话ID给前端
                     JSONObject chatData = new JSONObject();
                     chatData.put("type", "RETURN_YBDS_CHATID");
                     chatData.put("chatId", chatId);
@@ -1480,66 +1457,17 @@ public class DeepSeekUtil {
             } catch (Exception e) {
                 // 忽略错误
             }
-            
-            // 2. 处理内容，为后台显示创建对话形式，但稿库仍只存储AI回答
-            boolean isHtml = content != null && content.trim().startsWith("<") && content.contains("</");
-            
-            // 创建后台显示用的对话格式内容，但添加明显的标记，方便豆包处理
-            StringBuilder displayBuilder = new StringBuilder();
-            
-            // 添加用户问题部分（添加明显标记，方便豆包识别并删除）
-            displayBuilder.append("<!-- 用户提问开始 - 豆包处理时请删除此部分 -->\n");
-            displayBuilder.append("<div style=\"background-color: #f5f5f5; border-left: 4px solid rgb(0, 213, 255); margin: 0px auto; padding: 20px; color: #666; max-width: 800px; width: 100%;\">\n");
-            displayBuilder.append("<h3 style=\"color:rgb(0, 213, 255); margin-top: 0;\">用户提问：</h3>\n");
-            displayBuilder.append("<p>").append(userInfoRequest.getUserPrompt().replace("\n", "<br>")).append("</p>\n");
-            displayBuilder.append("</div>\n");
-            displayBuilder.append("<!-- 用户提问结束 - 豆包处理时请删除此部分 -->\n\n");
-            
-            // 添加AI回答部分（原始内容，但清理DeepSeek图标和其他不需要的元素）
-            displayBuilder.append("<!-- AI回答开始 - 保留此部分 -->\n");
-            try {
-                // 无论是否为HTML，都尝试清理内容
-                String processedContent = content;
-                
-                // 清理DeepSeek图标和其他不需要的元素
-                processedContent = cleanDeepSeekContent(processedContent, userId);
-                
-                // 如果不是HTML格式，处理换行符
-                if (!isHtml && processedContent != null) {
-                    processedContent = processedContent.replace("\n", "<br>");
-                }
-                
-                // 检查处理后的内容是否为空
-                if (processedContent == null || processedContent.trim().isEmpty()) {
-                    // 如果清理后内容为空，使用原始内容
-            if (isHtml) {
-                        displayBuilder.append(content);
-            } else {
-                        displayBuilder.append(content.replace("\n", "<br>"));
+            // 2. 只保留AI内容，不加对话包装
+            String cleanedContent = cleanDeepSeekContent(content, userId);
+            String displayContent = cleanedContent;
+            if (cleanedContent == null || cleanedContent.trim().isEmpty()) {
+                displayContent = content;
             }
-                } else {
-                    displayBuilder.append(processedContent);
-                }
-            } catch (Exception e) {
-                // 发生异常时使用原始内容
-                System.out.println("处理AI回答内容时出错: " + e.getMessage());
-                if (isHtml) {
-                    displayBuilder.append(content);
-                } else {
-                    displayBuilder.append(content.replace("\n", "<br>"));
-                }
-            }
-            displayBuilder.append("\n<!-- AI回答结束 -->\n");
-            
-            // 用于显示的内容
-            String displayContent = displayBuilder.toString();
-            
             // 3. 设置AI名称
             String aiName = "DeepSeek";
             if (roleType != null) {
                 boolean hasDeepThinking = roleType.contains("ds-sdsk");
                 boolean hasWebSearch = roleType.contains("ds-lwss");
-                
                 if (hasDeepThinking && hasWebSearch) {
                     aiName = "DeepSeek-思考联网";
                 } else if (hasDeepThinking) {
@@ -1548,39 +1476,19 @@ public class DeepSeekUtil {
                     aiName = "DeepSeek-联网搜索";
                 }
             }
-            
-            // 4. 发送内容到前端 - 使用对话形式的美化内容
+            // 4. 发送内容到前端
             logInfo.sendResData(displayContent, userId, "DeepSeek", "RETURN_DEEPSEEK_RES", shareUrl, null);
-            
-            // 5. 保存内容到稿库 - 保存清理后的AI回复
-            try {
-                // 清理DeepSeek图标和其他不需要的元素
-                String cleanedContent = cleanDeepSeekContent(content, userId);
-                
-                // 如果清理后内容为空，使用原始内容
-                if (cleanedContent == null || cleanedContent.trim().isEmpty()) {
-                    userInfoRequest.setDraftContent(content);
-                } else {
-                    userInfoRequest.setDraftContent(cleanedContent);
-                }
-            } catch (Exception e) {
-                // 发生异常时使用原始内容
-                System.out.println("处理稿库内容时出错: " + e.getMessage());
-                userInfoRequest.setDraftContent(content);
-            }
+            // 5. 保存内容到稿库
+            userInfoRequest.setDraftContent(displayContent);
             userInfoRequest.setAiName(aiName);
             userInfoRequest.setShareUrl(shareUrl);
             userInfoRequest.setShareImgUrl(null);
-            
-            // 6. 发送稿库存储请求
-                Object response = RestUtils.post(url + "/saveDraftContent", userInfoRequest);
-                
+            Object response = RestUtils.post(url + "/saveDraftContent", userInfoRequest);
             logInfo.sendTaskLog("执行完成", userId, "DeepSeek");
-            return displayContent; // 返回对话形式的美化内容用于显示
-            
+            return displayContent;
         } catch (Exception e) {
             logInfo.sendTaskLog("DeepSeek内容保存过程发生异常: " + e.getMessage(), userId, "DeepSeek");
-            return content; // 出错时返回原始内容
+            return content;
         }
     }
 
@@ -1600,9 +1508,6 @@ public class DeepSeekUtil {
             // 查找按钮
             Locator buttonLocator = page.locator("div[role=\"button\"] span:has-text(\"" + buttonText + "\")").first();
             if (buttonLocator.count() > 0 && buttonLocator.isVisible()) {
-                String buttonHtml = buttonLocator.evaluate("button => button.outerHTML").toString();
-                logInfo.sendTaskLog(buttonText + "按钮HTML: " + buttonHtml, userId, "DeepSeek");
-
                 // 检查按钮当前状态
                 Object buttonStateDetails = page.evaluate("""
                     (btnText) => {
@@ -1626,15 +1531,10 @@ public class DeepSeekUtil {
                             bgColor === 'rgb(219, 234, 254)';
                         return {
                             found: true,
-                            isActive: isActive,
-                            bgColor: bgColor,
-                            textColor: textColor,
-                            buttonStyle: buttonStyle,
-                            outerHTML: button.outerHTML
+                            isActive: isActive
                         };
                     }
                 """, buttonText);
-                logInfo.sendTaskLog(buttonText + "按钮状态: " + buttonStateDetails, userId, "DeepSeek");
                 boolean isActive = false;
                 if (buttonStateDetails instanceof Map) {
                     Map<String, Object> details = (Map<String, Object>) buttonStateDetails;
@@ -1647,40 +1547,31 @@ public class DeepSeekUtil {
                     try {
                         Locator buttonParent = page.locator("div[role=\"button\"]:has(span:has-text(\"" + buttonText + "\"))").first();
                         buttonParent.click();
-                        logInfo.sendTaskLog((shouldActive ? "已启动" : "已关闭") + buttonText + "模式(直接点击父元素)", userId, "DeepSeek");
-                        // 缩短截图等待，仅在切换后快速截图
-                        try {
-                            Thread.sleep(50); // 从100ms减少到50ms
-                            page.screenshot(new Page.ScreenshotOptions()
-                                .setPath(Paths.get(System.getProperty("java.io.tmpdir"), "deepseek_buttons_after_toggle_" + buttonText + "_" + System.currentTimeMillis() + ".png"))
-                                .setFullPage(false));
-                            logInfo.sendTaskLog("已保存点击" + buttonText + "后的按钮状态截图", userId, "DeepSeek");
-                        } catch (Exception e) {
-                            logInfo.sendTaskLog("保存点击后按钮状态截图失败: " + e.getMessage(), userId, "DeepSeek");
+                        if (buttonText.equals("深度思考")) {
+                            logInfo.sendTaskLog((shouldActive ? "已启动" : "已关闭") + "深度思考模式", userId, "DeepSeek");
                         }
+                        Thread.sleep(50);
                     } catch (Exception e) {
-                        logInfo.sendTaskLog("直接点击" + buttonText + "按钮失败，尝试JS点击: " + e.getMessage(), userId, "DeepSeek");
                         Object jsClickResult = page.evaluate("""
                             (btnText) => {
                                 const buttons = document.querySelectorAll('div[role="button"]');
                                 for (const btn of buttons) {
                                     if (btn.textContent.includes(btnText)) {
                                         btn.click();
-                                        return { success: true, message: '已点击' + btnText + '按钮' };
+                                        return { success: true };
                                     }
                                 }
-                                return { success: false, message: '未找到可点击的' + btnText + '按钮' };
+                                return { success: false };
                             }
                         """, buttonText);
-                        logInfo.sendTaskLog("JS点击" + buttonText + "按钮结果: " + jsClickResult, userId, "DeepSeek");
+                        if (buttonText.equals("深度思考")) {
+                            logInfo.sendTaskLog((shouldActive ? "已启动" : "已关闭") + "深度思考模式", userId, "DeepSeek");
+                        }
                     }
-                } else {
-                    logInfo.sendTaskLog(buttonText + "模式已处于" + (shouldActive ? "激活" : "关闭") + "状态，无需重复点击", userId, "DeepSeek");
                 }
             }
             
-            // 记录操作耗时
-            logInfo.sendTaskLog("切换" + buttonText + "按钮操作耗时: " + (System.currentTimeMillis() - startTime) + "ms", userId, "DeepSeek");
+            // 记录操作耗时不再需要
         } catch (Exception e) {
             logInfo.sendTaskLog("切换" + buttonText + "模式时出错: " + e.getMessage(), userId, "DeepSeek");
         }

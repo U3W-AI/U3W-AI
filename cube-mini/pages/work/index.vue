@@ -485,19 +485,19 @@
 					yuanbao: false,
 					doubao: false,
 					agent: false,
-          deepseek: true // DeepSeek默认为已登录状态
+          deepseek: false // DeepSeek初始为未登录状态
 				},
 				accounts: {
 					yuanbao: '',
 					doubao: '',
 					agent: '',
-          deepseek: 'DeepSeek'
+          deepseek: ''
 				},
 				isLoading: {
 					yuanbao: true,
 					doubao: true,
 					agent: true,
-          deepseek: false // DeepSeek默认为非加载状态
+          deepseek: true // DeepSeek初始为加载状态
 				}
 			};
 		},
@@ -511,7 +511,7 @@
 				const hasAvailableAI = this.aiList.some(ai => ai.enabled && this.isAiLoginEnabled(ai));
 
 				// 检查是否正在加载AI状态（如果正在加载，禁用发送按钮）
-				const isCheckingStatus = this.isLoading.yuanbao || this.isLoading.doubao || this.isLoading.agent;
+				const isCheckingStatus = this.isLoading.yuanbao || this.isLoading.doubao || this.isLoading.agent || this.isLoading.deepseek;
 
 				return hasInput && hasAvailableAI && !isCheckingStatus;
 			},
@@ -783,8 +783,8 @@
 			this.isConnecting = true;
 
 			// 使用PC端的WebSocket连接方式
-			const wsUrl = `${process.env.VUE_APP_WS_API || 'wss://u3w.com/cubeServer/websocket?clientId='}mypc-${this.userId}`;
-			// const wsUrl = `${process.env.VUE_APP_WS_API || 'ws://127.0.0.1:8081/websocket?clientId='}mypc-${this.userId}`;
+			//const wsUrl = `${process.env.VUE_APP_WS_API || 'wss://u3w.com/cubeServer/websocket?clientId='}mypc-${this.userId}`;
+			const wsUrl = `${process.env.VUE_APP_WS_API || 'ws://127.0.0.1:8081/websocket?clientId='}mypc-${this.userId}`;
 			console.log('WebSocket URL:', wsUrl);
 
 			this.socketTask = uni.connectSocket({
@@ -1065,16 +1065,28 @@
 					this.updateAiEnabledStatus();
 				}
         // 处理DeepSeek登录状态
-        else if (datastr.includes("RETURN_DEEPSEEK_STATUS") && dataObj.status != '') {
+        else if (datastr.includes("RETURN_DEEPSEEK_STATUS")) {
+          console.log("收到DeepSeek登录状态消息:", dataObj);
           this.isLoading.deepseek = false;
-          if (!datastr.includes("false")) {
+          if (dataObj.status && dataObj.status !== 'false' && dataObj.status !== '') {
             this.aiLoginStatus.deepseek = true;
             this.accounts.deepseek = dataObj.status;
+            console.log("DeepSeek登录成功，账号:", dataObj.status);
+            
+            // 查找DeepSeek AI实例
+            const deepseekAI = this.aiList.find(ai => ai.name === 'DeepSeek');
+
           } else {
             this.aiLoginStatus.deepseek = false;
+            this.accounts.deepseek = '';
+            console.log("DeepSeek未登录");
+            
+            // 如果未登录，确保DeepSeek被禁用
+            const deepseekAI = this.aiList.find(ai => ai.name === 'DeepSeek');
+  
           }
-          // 更新AI启用状态
-          this.updateAiEnabledStatus();
+          // 强制更新UI
+          this.$forceUpdate();
         }
 				// 处理智能体登录状态
 				else if (datastr.includes("RETURN_AGENT_STATUS") && dataObj.status != '') {
@@ -2142,7 +2154,7 @@
 					case '豆包':
 						return this.aiLoginStatus.doubao; // 豆包登录状态
           case 'DeepSeek':
-            return true; // DeepSeek 暂时默认为已登录状态
+            return this.aiLoginStatus.deepseek; // 使用实际的DeepSeek登录状态
 					default:
 						return false;
 				}
@@ -2160,7 +2172,7 @@
 					case '豆包':
 						return this.isLoading.doubao;
           case 'DeepSeek':
-            return false; // DeepSeek 暂时默认为非加载状态
+            return this.isLoading.deepseek; // 使用实际的DeepSeek加载状态
 					default:
 						return false;
 				}

@@ -1027,6 +1027,8 @@ export default {
       justify-content: space-between;
       padding: 12px 0;
       border-bottom: 1px solid #EBEEF5;
+      flex-wrap: nowrap; /* 防止项目换行 */
+      overflow: hidden; /* 防止内容溢出 */
 
       &:last-child {
         border-bottom: none;
@@ -1035,6 +1037,8 @@ export default {
       .ai-platform {
         display: flex;
         align-items: center;
+        flex: 1;
+        min-width: 0; /* 防止flex子元素溢出 */
 
         .platform-icon {
           width: 32px;
@@ -1046,6 +1050,7 @@ export default {
           justify-content: center;
           margin-right: 12px;
           overflow: hidden;
+          flex-shrink: 0; /* 防止图标被压缩 */
 
           img {
             width: 100%;
@@ -1060,6 +1065,10 @@ export default {
           font-weight: 500;
           display: flex;
           align-items: center;
+          flex-wrap: wrap; /* 允许内容换行 */
+          word-break: break-word; /* 允许在任意字符间断行 */
+          min-width: 0; /* 防止文本溢出 */
+          overflow: hidden; /* 防止文本溢出 */
 
           .loading-icon {
             margin-left: 8px;
@@ -1071,9 +1080,13 @@ export default {
       }
 
       .status-action {
+        flex-shrink: 0; /* 防止按钮被压缩 */
+        margin-left: 8px; /* 与平台名称保持距离 */
+        
         .status-tag {
           padding: 0px 12px;
           border-radius: 16px;
+          white-space: nowrap; /* 防止标签文本换行 */
 
           i {
             margin-right: 4px;
@@ -1083,6 +1096,7 @@ export default {
         .login-btn {
           padding: 6px 12px;
           border-radius: 16px;
+          white-space: nowrap; /* 防止按钮文本换行 */
 
           i {
             margin-right: 4px;
