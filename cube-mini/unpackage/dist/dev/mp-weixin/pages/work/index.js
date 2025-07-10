@@ -186,7 +186,11 @@ var render = function () {
         _vm.isPdfFile(_vm.currentResult.shareImgUrl)
       : null
   var m14 =
-    g4 > 0 && _vm.currentResult && !m12 && !m13
+    g4 > 0 &&
+    _vm.currentResult &&
+    !m12 &&
+    !m13 &&
+    !(_vm.currentResult.aiName === "DeepSeek")
       ? _vm.renderMarkdown(_vm.currentResult.content)
       : null
   var l5 = _vm.historyDrawerVisible
@@ -368,6 +372,21 @@ var _default = {
         progressLogs: [],
         isExpanded: true
       }, {
+        name: 'DeepSeek',
+        avatar: 'https://communication.cn-nb1.rains3.com/Deepseek.png',
+        capabilities: [{
+          label: '深度思考',
+          value: 'deep_thinking'
+        }, {
+          label: '联网搜索',
+          value: 'web_search'
+        }],
+        selectedCapabilities: ['deep_thinking', 'web_search'],
+        enabled: true,
+        status: 'idle',
+        progressLogs: [],
+        isExpanded: true
+      }, {
         name: '豆包',
         avatar: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
         capabilities: [{
@@ -418,20 +437,25 @@ var _default = {
       aiLoginStatus: {
         yuanbao: false,
         doubao: false,
-        agent: false
+        agent: false,
+        deepseek: false // DeepSeek初始为未登录状态
       },
+
       accounts: {
         yuanbao: '',
         doubao: '',
-        agent: ''
+        agent: '',
+        deepseek: ''
       },
       isLoading: {
         yuanbao: true,
         doubao: true,
-        agent: true
+        agent: true,
+        deepseek: true // DeepSeek初始为加载状态
       }
     };
   },
+
   computed: {
     canSend: function canSend() {
       var _this = this;
@@ -444,7 +468,7 @@ var _default = {
       });
 
       // 检查是否正在加载AI状态（如果正在加载，禁用发送按钮）
-      var isCheckingStatus = this.isLoading.yuanbao || this.isLoading.doubao || this.isLoading.agent;
+      var isCheckingStatus = this.isLoading.yuanbao || this.isLoading.doubao || this.isLoading.agent || this.isLoading.deepseek;
       return hasInput && hasAvailableAI && !isCheckingStatus;
     },
     canScore: function canScore() {
@@ -638,6 +662,15 @@ var _default = {
         }
         if (ai.name === '数智化助手@元器') {
           _this3.userInfoReq.roles = _this3.userInfoReq.roles + 'cube-turbos-large-agent,';
+        }
+        if (ai.name === 'DeepSeek') {
+          _this3.userInfoReq.roles = _this3.userInfoReq.roles + 'deepseek,';
+          if (ai.selectedCapabilities.includes("deep_thinking")) {
+            _this3.userInfoReq.roles = _this3.userInfoReq.roles + 'ds-sdsk,';
+          }
+          if (ai.selectedCapabilities.includes("web_search")) {
+            _this3.userInfoReq.roles = _this3.userInfoReq.roles + 'ds-lwss,';
+          }
         }
         if (ai.name === '豆包') {
           _this3.userInfoReq.roles = _this3.userInfoReq.roles + 'zj-db,';
@@ -960,6 +993,32 @@ var _default = {
         // 更新AI启用状态
         this.updateAiEnabledStatus();
       }
+      // 处理DeepSeek登录状态
+      else if (datastr.includes("RETURN_DEEPSEEK_STATUS")) {
+        console.log("收到DeepSeek登录状态消息:", dataObj);
+        this.isLoading.deepseek = false;
+        if (dataObj.status && dataObj.status !== 'false' && dataObj.status !== '') {
+          this.aiLoginStatus.deepseek = true;
+          this.accounts.deepseek = dataObj.status;
+          console.log("DeepSeek登录成功，账号:", dataObj.status);
+
+          // 查找DeepSeek AI实例
+          var deepseekAI = this.aiList.find(function (ai) {
+            return ai.name === 'DeepSeek';
+          });
+        } else {
+          this.aiLoginStatus.deepseek = false;
+          this.accounts.deepseek = '';
+          console.log("DeepSeek未登录");
+
+          // 如果未登录，确保DeepSeek被禁用
+          var _deepseekAI = this.aiList.find(function (ai) {
+            return ai.name === 'DeepSeek';
+          });
+        }
+        // 强制更新UI
+        this.$forceUpdate();
+      }
       // 处理智能体登录状态
       else if (datastr.includes("RETURN_AGENT_STATUS") && dataObj.status != '') {
         this.isLoading.agent = false;
@@ -1009,6 +1068,36 @@ var _default = {
           targetAI = this.enabledAIs.find(function (ai) {
             return ai.name === '数智化助手@元器';
           });
+          break;
+        case 'RETURN_DEEPSEEK_RES':
+          console.log('收到DeepSeek消息:', dataObj);
+          targetAI = this.enabledAIs.find(function (ai) {
+            return ai.name === 'DeepSeek';
+          });
+          // 如果找不到DeepSeek，可能是因为它不在enabledAIs中，尝试添加它
+          if (!targetAI) {
+            targetAI = {
+              name: 'DeepSeek',
+              avatar: 'https://communication.cn-nb1.rains3.com/Deepseek.png',
+              capabilities: [{
+                label: '深度思考',
+                value: 'deep_thinking'
+              }, {
+                label: '联网搜索',
+                value: 'web_search'
+              }],
+              selectedCapabilities: ['deep_thinking', 'web_search'],
+              enabled: true,
+              status: 'running',
+              progressLogs: [{
+                content: 'DeepSeek响应已接收',
+                timestamp: new Date(),
+                isCompleted: true
+              }],
+              isExpanded: true
+            };
+            this.enabledAIs.push(targetAI);
+          }
           break;
       }
       if (targetAI) {
@@ -1106,6 +1195,16 @@ var _default = {
     },
     renderMarkdown: function renderMarkdown(text) {
       try {
+        // 对于DeepSeek响应，添加特殊的CSS类
+        if (this.currentResult && this.currentResult.aiName === 'DeepSeek') {
+          // 检查是否已经包含了deepseek-response类
+          if (text && text.includes('class="deepseek-response"')) {
+            return text; // 已经包含了特殊类，直接返回
+          }
+
+          var renderedHtml = (0, _marked.marked)(text);
+          return "<div class=\"deepseek-response\">".concat(renderedHtml, "</div>");
+        }
         return (0, _marked.marked)(text);
       } catch (error) {
         return text;
@@ -1556,7 +1655,7 @@ var _default = {
       console.log("showLayoutModal", this.currentLayoutResult);
 
       // 设置默认提示词
-      this.layoutPrompt = "\u8BF7\u4F60\u5BF9\u4EE5\u4E0B HTML \u5185\u5BB9\u8FDB\u884C\u6392\u7248\u4F18\u5316\uFF0C\u76EE\u6807\u662F\u7528\u4E8E\u5FAE\u4FE1\u516C\u4F17\u53F7\u201C\u8349\u7A3F\u7BB1\u63A5\u53E3\u201D\u7684 content \u5B57\u6BB5\uFF0C\u8981\u6C42\u5982\u4E0B\uFF1A\n\n1. \u4EC5\u8FD4\u56DE <body> \u5185\u90E8\u53EF\u7528\u7684 HTML \u5185\u5BB9\u7247\u6BB5\uFF08\u4E0D\u8981\u5305\u542B <!DOCTYPE>\u3001<html>\u3001<head>\u3001<meta>\u3001<title> \u7B49\u6807\u7B7E\uFF09\u3002\n2. \u6240\u6709\u6837\u5F0F\u5FC5\u987B\u4EE5\u201C\u5185\u8054 style\u201D\u65B9\u5F0F\u5199\u5165\u3002\n3. \u4FDD\u6301\u7ED3\u6784\u6E05\u6670\u3001\u89C6\u89C9\u53CB\u597D\uFF0C\u9002\u914D\u516C\u4F17\u53F7\u56FE\u6587\u6392\u7248\u3002\n4. \u8BF7\u76F4\u63A5\u8F93\u51FA\u4EE3\u7801\uFF0C\u4E0D\u8981\u6DFB\u52A0\u4EFB\u4F55\u6CE8\u91CA\u6216\u989D\u5916\u8BF4\u660E\u3002\n5. \u4E0D\u5F97\u4F7F\u7528 emoji \u8868\u60C5\u7B26\u53F7\u6216\u5C0F\u56FE\u6807\u5B57\u7B26\u3002\n\n\u4EE5\u4E0B\u4E3A\u9700\u8981\u8FDB\u884C\u6392\u7248\u4F18\u5316\u7684\u5185\u5BB9\uFF1A\n" + this.currentResult.content;
+      this.layoutPrompt = "\u8BF7\u4F60\u5BF9\u4EE5\u4E0B HTML \u5185\u5BB9\u8FDB\u884C\u6392\u7248\u4F18\u5316\uFF0C\u76EE\u6807\u662F\u7528\u4E8E\u5FAE\u4FE1\u516C\u4F17\u53F7\u201C\u8349\u7A3F\u7BB1\u63A5\u53E3\u201D\u7684 content \u5B57\u6BB5\uFF0C\u8981\u6C42\u5982\u4E0B\uFF1A\n\n1. \u4EC5\u8FD4\u56DE <body> \u5185\u90E8\u53EF\u7528\u7684 HTML \u5185\u5BB9\u7247\u6BB5\uFF08\u4E0D\u8981\u5305\u542B <!DOCTYPE>\u3001<html>\u3001<head>\u3001<meta>\u3001<title> \u7B49\u6807\u7B7E\uFF09\u3002\n2. \u6240\u6709\u6837\u5F0F\u5FC5\u987B\u4EE5\u201C\u5185\u8054 style\u201D\u65B9\u5F0F\u5199\u5165\u3002\n3. \u4FDD\u6301\u7ED3\u6784\u6E05\u6670\u3001\u89C6\u89C9\u53CB\u597D\uFF0C\u9002\u914D\u516C\u4F17\u53F7\u56FE\u6587\u6392\u7248\u3002\n4. \u8BF7\u76F4\u63A5\u8F93\u51FA\u4EE3\u7801\uFF0C\u4E0D\u8981\u6DFB\u52A0\u4EFB\u4F55\u6CE8\u91CA\u6216\u989D\u5916\u8BF4\u660E\u3002\n5. \u4E0D\u5F97\u4F7F\u7528 emoji \u8868\u60C5\u7B26\u53F7\u6216\u5C0F\u56FE\u6807\u5B57\u7B26\u3002\n6. \u4E0D\u8981\u663E\u793A\u4E3A\u95EE\u7B54\u5F62\u5F0F\uFF0C\u4EE5\u4E00\u7BC7\u6587\u7AE0\u7684\u683C\u5F0F\u53BB\u8C03\u6574 \n\n\u4EE5\u4E0B\u4E3A\u9700\u8981\u8FDB\u884C\u6392\u7248\u4F18\u5316\u7684\u5185\u5BB9\uFF1A\n" + this.currentResult.content;
       this.layoutModalVisible = true;
     },
     closeLayoutModal: function closeLayoutModal() {
@@ -1840,6 +1939,21 @@ var _default = {
         progressLogs: [],
         isExpanded: true
       }, {
+        name: 'DeepSeek',
+        avatar: 'https://communication.cn-nb1.rains3.com/Deepseek.png',
+        capabilities: [{
+          label: '深度思考',
+          value: 'deep_thinking'
+        }, {
+          label: '联网搜索',
+          value: 'web_search'
+        }],
+        selectedCapabilities: ['deep_thinking', 'web_search'],
+        enabled: true,
+        status: 'idle',
+        progressLogs: [],
+        isExpanded: true
+      }, {
         name: '豆包',
         avatar: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
         capabilities: [{
@@ -1893,6 +2007,13 @@ var _default = {
         userId: this.userId,
         corpId: this.corpId
       });
+
+      // 检查DeepSeek登录状态
+      this.sendWebSocketMessage({
+        type: 'PLAY_CHECK_DEEPSEEK_LOGIN',
+        userId: this.userId,
+        corpId: this.corpId
+      });
     },
     getPlatformIcon: function getPlatformIcon(type) {
       var icons = {
@@ -1916,21 +2037,24 @@ var _default = {
       this.isLoading = {
         yuanbao: true,
         doubao: true,
-        agent: true
+        agent: true,
+        deepseek: true
       };
 
       // 重置登录状态
       this.aiLoginStatus = {
         yuanbao: false,
         doubao: false,
-        agent: false
+        agent: false,
+        deepseek: false
       };
 
       // 重置账户信息
       this.accounts = {
         yuanbao: '',
         doubao: '',
-        agent: ''
+        agent: '',
+        deepseek: ''
       };
 
       // 显示刷新提示
@@ -1964,6 +2088,9 @@ var _default = {
         case '豆包':
           return this.aiLoginStatus.doubao;
         // 豆包登录状态
+        case 'DeepSeek':
+          return this.aiLoginStatus.deepseek;
+        // 使用实际的DeepSeek登录状态
         default:
           return false;
       }
@@ -1979,6 +2106,9 @@ var _default = {
           return this.isLoading.yuanbao;
         case '豆包':
           return this.isLoading.doubao;
+        case 'DeepSeek':
+          return this.isLoading.deepseek;
+        // 使用实际的DeepSeek加载状态
         default:
           return false;
       }

@@ -45,7 +45,12 @@
                 points+ #{changeAmount}
             </if>
             <if test="changeAmount ==null">
-                points+ (select IFNULL(dict_value,0) from  sys_dict_data where dict_label = #{changeType})
+                points+ (SELECT
+                CASE
+                WHEN EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_label = #{changeType})
+                THEN (SELECT dict_value FROM sys_dict_data WHERE dict_label = #{changeType} LIMIT 1)
+                ELSE '0'
+                END AS dict_value)
             </if>
         where user_id = #{userId}
     </update>
