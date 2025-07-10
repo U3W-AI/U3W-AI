@@ -153,7 +153,7 @@ datazone:
 geth:
   mainAddress:
   mainPrivateKey:
-  httpUrl:
+  httpUrl: https://localhost:8081/mini/wxlogin  #https://您的服务器地址:端口/以太坊账户API路径
 
 TencentDoc:
   url: https://docs.qq.com/oauth/v2/token
