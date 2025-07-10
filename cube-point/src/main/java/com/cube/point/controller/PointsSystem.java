@@ -65,8 +65,8 @@ public class PointsSystem extends BaseController {
            points.setCreateName(getNickName());
            pointsMapper.updateUserPoints(points);
            pointsMapper.saveUserPointsRecord(points);
-           points.setMainAddress("0x3f4413a0e863903147172b1e7672d7a23025e084");
-           points.setMainPrivateKey("824af41abf2ca18335f5547ae293a4e250ed7e80a78f985fd01d551e0a0d3552");
+           points.setMainAddress("0x2edc4228a84d672affe8a594033cb84a029bcafc");
+           points.setMainPrivateKey("f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
            ethTranPC(points);
         return ResultBody.success("修改成功");
     }

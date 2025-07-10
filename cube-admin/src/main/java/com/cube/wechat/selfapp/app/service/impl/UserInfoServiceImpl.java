@@ -210,7 +210,7 @@ public class UserInfoServiceImpl implements UserInfoService {
         if(points < 1){
             return ResultBody.error(201,"积分余额不足，请明日再来或者联系客服充值");
         }
-        pointsSystem.setUserPoint(userId,method,null,"0x3f4413a0e863903147172b1e7672d7a23025e084","824af41abf2ca18335f5547ae293a4e250ed7e80a78f985fd01d551e0a0d3552");
+        pointsSystem.setUserPoint(userId,method,null,"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
         return ResultBody.success("执行成功！");
     }
     @Override
@@ -474,9 +474,9 @@ public class UserInfoServiceImpl implements UserInfoService {
         }
 
         if(map.get("agentId").equals("desc")){
-            pointsSystem.setUserPoint(map.get("userId")+"","记忆修改",null,"0x3f4413a0e863903147172b1e7672d7a23025e084","824af41abf2ca18335f5547ae293a4e250ed7e80a78f985fd01d551e0a0d3552");
+            pointsSystem.setUserPoint(map.get("userId")+"","记忆修改",null,"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
         }else{
-            pointsSystem.setUserPoint(map.get("userId")+"","模板配置",null,"0x3f4413a0e863903147172b1e7672d7a23025e084","824af41abf2ca18335f5547ae293a4e250ed7e80a78f985fd01d551e0a0d3552");
+            pointsSystem.setUserPoint(map.get("userId")+"","模板配置",null,"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
         }
 
         if(map.get("isAllSel").equals(true)){

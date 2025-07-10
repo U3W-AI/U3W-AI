@@ -120,8 +120,8 @@ public class web3Test {
 
     public static void main(String[] args) throws Exception {
 //        sendtrans();
+//        getAccount("0x2edc4228a84d672affe8a594033cb84a029bcafc");
         getAccount("0x2edc4228a84d672affe8a594033cb84a029bcafc");
-//        getAccount("0x8a23bde7103320b2f5d9eee6c90faa0e8e1ba925");
 
     }
 
