@@ -37,7 +37,7 @@
 3. **运行项目**
     - 运行优立方主机端（cube-engine）：
       ```bash
-      java -jar target/cube-engine.jar
+      java -jar target/U3W.jar
       ```
 4. **接口文档**
     - 启动后访问：http://localhost:8083/swagger-ui/index.html
