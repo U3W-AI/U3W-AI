@@ -48,7 +48,7 @@
                 <h3 class="model-name">{{ model.name }}</h3>
               </div>
               <!-- 预览内容 -->
-              <div class="preview-content markdown-body" v-html="renderMarkdown(model.preview)"></div>
+              <div class="preview-content">{{ extractPlainText(model.preview) }}</div>
               <!-- 时间 -->
               <div class="response-time">{{ model.responseTime }}</div>
             </div>
@@ -117,6 +117,18 @@ export default {
     // 修改 markdown 渲染方法
     renderMarkdown(content) {
       return marked(content);
+    },
+    // 提取纯文本内容，去除HTML标签
+    extractPlainText(content) {
+      if (!content) return '';
+      // 创建临时DOM元素来解析HTML
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = content;
+      // 获取纯文本内容
+      let plainText = tempDiv.textContent || tempDiv.innerText || '';
+      // 清理多余的空白字符
+      plainText = plainText.replace(/\s+/g, ' ').trim();
+      return plainText;
     },
     getList() {
       this.loading = true;
@@ -244,6 +256,15 @@ body {
   font-size: 1rem;
   color: #4b5563;
   margin-top: 0.25rem;
+  /* 限制问题文本显示行数 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* 限制显示2行 */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.5;
+  max-height: 3em; /* 2行的最大高度 */
+  word-break: break-word; /* 支持长单词换行 */
 }
 
 .question-time {
@@ -323,6 +344,8 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis; /* 超出显示省略号 */
+  word-break: break-word; /* 支持长单词换行 */
+  white-space: normal; /* 允许正常换行 */
 }
 
 .response-time {
