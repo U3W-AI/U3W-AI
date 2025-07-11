@@ -1936,6 +1936,23 @@ BEGIN;
 COMMIT;
 
 -- ----------------------------
+-- Table structure for sys_host_whitelist
+-- ----------------------------
+DROP TABLE IF EXISTS `sys_host_whitelist`;
+CREATE TABLE `sys_host_whitelist` (
+   id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键',
+   host_id VARCHAR(50) NOT NULL UNIQUE COMMENT '主机ID',
+   status TINYINT DEFAULT 1 COMMENT '是否启用：1启用，0禁用',
+   remark VARCHAR(100) COMMENT '备注',
+   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+   update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+-- ----------------------------
+-- Records of sys_host_whitelist
+-- ----------------------------
+BEGIN;
+COMMIT;
+-- ----------------------------
 -- Table structure for wc_points_record
 -- ----------------------------
 DROP TABLE IF EXISTS `wc_points_record`;
