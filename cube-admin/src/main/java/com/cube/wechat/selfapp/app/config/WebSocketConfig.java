@@ -12,10 +12,15 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 public class WebSocketConfig implements WebSocketConfigurer {
     @Autowired
     private UserInfoMapper userInfoMapper;
+
+    @Autowired
+    private HostIdInterceptor hostIdInterceptor;
+
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(new MyWebSocketHandler(userInfoMapper), "/websocket")
                 .addInterceptors(new MyHandshakeInterceptor()) // 添加自定义握手拦截器
+                .addInterceptors(hostIdInterceptor)
                 .setAllowedOrigins("*"); // 允许跨域
     }
 }

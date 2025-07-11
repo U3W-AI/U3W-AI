@@ -409,7 +409,7 @@ public class WebSocketClientService {
         // 启动新的重连任务
         reconnectTask = scheduler.scheduleWithFixedDelay(() -> {
             if (webSocketClient == null || !webSocketClient.isOpen()) {
-                System.out.println("尝试重新连接 WebSocket...");
+                System.out.println("连接失败，请检查主机ID是否已注册...");
                 connectToServer();
             } else {
                 System.out.println("WebSocket 已连接，不需要重连。");
