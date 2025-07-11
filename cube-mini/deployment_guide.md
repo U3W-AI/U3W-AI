@@ -61,7 +61,7 @@
 // 应用全局配置
 module.exports = {
 	//生产
-	baseUrl: '127.0.0.1:端口/cubeServer',
+	baseUrl: 'http://127.0.0.1:端口',
 ```
 
 #### 6.3 配置WebSocket地址
