@@ -1,3 +1,5 @@
+![Static Badge](https://img.shields.io/badge/MySQL-5.7-blue) ![Static Badge](https://img.shields.io/badge/JDK-17-blue) ![Static Badge](https://img.shields.io/badge/Spring%20Boot-3.2.5-blue) ![Static Badge](https://img.shields.io/badge/Redis-6.0%2B-blue) ![Static Badge](https://img.shields.io/badge/License-AGPL3.0-blue)
+
 # U3W 优立方 AI 主机：人机协同数智驱动的团队未来
 
 版本：2.55A
