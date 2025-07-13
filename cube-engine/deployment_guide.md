@@ -16,7 +16,7 @@
     - 修改`wssurl`行结尾的`clientId=play-<主机ID>`，其中`<主机ID>`需替换为您的唯一主机标识符（建议使用字母、数字和连字符，如`play-office01`），此ID用于区分不同主机实例，例：
       ```bash
       cube:
-      wssurl: ws://127.0.0.1:8083/websocket?clientId=play-office01
+      wssurl: ws://127.0.0.1:8081/websocket?clientId=play-office01
       ```
       #### 注意：clientId值中`play-`前缀固定，后续部分可自定义但需保证唯一性
       - 使用字母、数字，如`office01`
