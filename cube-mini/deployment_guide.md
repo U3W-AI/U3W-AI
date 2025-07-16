@@ -46,6 +46,7 @@
 
 #### 6.1 配置小程序AppID
 编辑 `<项目根目录>/cube-mini/pages/login/index.vue` 文件，设置小程序AppID：
+前往https://mp.weixin.qq.com/登录获取AppSecret并进行配置
 ```
 // 用户注册开关
 				register: false,
