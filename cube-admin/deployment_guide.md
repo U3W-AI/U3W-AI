@@ -21,11 +21,15 @@
    mysql -u root -p ucube
    INSERT INTO sys_host_whitelist (host_id) VALUES ('[cube-engine配置文件中的主机ID]');
    ```
-4. 进入cube-admin目录：
+4. 进入项目根目录安装完整依赖
+   ```bash
+   mvn clean install
+   ```
+5. 进入cube-admin目录：
    ```bash
    cd cube-admin
    ```
-5. 修改主库数据源配置（application-druid.yml）：
+6. 修改主库数据源配置（application-druid.yml）：
    编辑 `src/main/resources/application-druid.yml` 文件，更新主库数据源URL、用户名和密码：
    ```yaml
    spring:
@@ -36,7 +40,7 @@
                    username: [数据库用户名]
                    password: [数据库密码]
    ```
-6. 修改Redis配置（application.yml）：
+7. 修改Redis配置（application.yml）：
    编辑 `src/main/resources/application.yml` 文件，更新Redis连接信息：
    ```yaml
    spring:
@@ -45,7 +49,7 @@
            port: [Redis端口]
            password: [Redis密码]
    ```
-7. 修改应用配置（application.yml）：
+8. 修改应用配置（application.yml）：
    编辑 `src/main/resources/application.yml` 文件，更新文件上传配置：
    ```yaml
    profile: F:/AGI/chatfile #此处可以是电脑上的任意文件夹
@@ -54,7 +58,7 @@
        url: http://localhost:8081/profile/
    ```
    > 注意：端口默认为8081，如已修改请使用实际端口
-8. 修改文件上传路径配置：
+9. 修改文件上传路径配置：
    编辑 `../cube-common/src/main/java/com/cube/common/config/RuoYiConfig.java` 文件最底部，更新上传路径：
    ```java
     public static String getUploadPath()
@@ -62,17 +66,17 @@
         return "F:/AGI/chatfile";
     }
    ```
-9. 修改日志上传路径配置：
+10. 修改日志上传路径配置：
    编辑 `src/main/resources/logback.xml` 文件最底部，更新上传路径：
    ```xml
     <!-- 日志存放路径 -->
 	<property name="log.path" value="/你的日志存放路径" />
    ```
-10. 执行打包命令：
+11. 执行打包命令：
    ```bash
    mvn clean package -DskipTests
    ```
-11. 运行项目：
+12. 运行项目：
    ```bash
    java -jar target/cube-admin.jar
    ```
