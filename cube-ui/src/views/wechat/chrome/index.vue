@@ -313,82 +313,6 @@ export default {
       },
       aiList: [
         {
-          name: 'AI搜索@元器',
-          avatar: require('../../../assets/ai/yuanbao.png'),
-          capabilities: [],
-          selectedCapabilities: [],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
-        {
-          name: '数智化助手@元器',
-          avatar: require('../../../assets/ai/yuanbao.png'),
-          capabilities: [],
-          selectedCapabilities: [],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
-        // {
-        //   name: 'MiniMax@元器',
-        //   avatar: require('../../../assets/ai/yuanbao.png'),
-        //   capabilities: [],
-        //   selectedCapabilities: [],
-        //   enabled: true,
-        //   status: 'idle',
-        //   progressLogs: [],
-        //   isExpanded: true
-        // },
-        // {
-        //   name: '搜狗搜索@元器',
-        //   avatar: require('../../../assets/ai/yuanbao.png'),
-        //   capabilities: [],
-        //   selectedCapabilities: [],
-        //   enabled: true,
-        //   status: 'idle',
-        //   progressLogs: [],
-        //   isExpanded: true
-        // },
-        // {
-        //   name: 'KIMI@元器',
-        //   avatar: require('../../../assets/ai/yuanbao.png'),
-        //   capabilities: [],
-        //   selectedCapabilities: [],
-        //   enabled: true,
-        //   status: 'idle',
-        //   progressLogs: [],
-        //   isExpanded: true
-        // },
-        {
-          name: '腾讯元宝T1',
-          avatar: require('../../../assets/ai/yuanbao.png'),
-          capabilities: [
-            { label: '深度思考', value: 'deep_thinking' },
-            { label: '联网搜索', value: 'web_search' }
-          ],
-          selectedCapabilities: ['deep_thinking','web_search'],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
-        {
-          name: '腾讯元宝DS',
-          avatar: require('../../../assets/ai/yuanbao.png'),
-          capabilities: [
-            { label: '深度思考', value: 'deep_thinking' },
-            { label: '联网搜索', value: 'web_search' }
-          ],
-          selectedCapabilities: ['deep_thinking','web_search'],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
-        {
           name: 'DeepSeek',
           avatar: require('../../../assets/logo/Deepseek.png'),
           capabilities: [
@@ -526,45 +450,6 @@ export default {
       });
 
       this.enabledAIs.forEach(ai => {
-        if(ai.name === '腾讯元宝T1'){
-          this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-pt,';
-          if(ai.selectedCapabilities.includes("deep_thinking")){
-            this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-sdsk,';
-          }
-          if(ai.selectedCapabilities.includes("web_search")){
-            this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-lwss,';
-          }
-        }
-        if(ai.name === '腾讯元宝DS'){
-          this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-pt,';
-          if(ai.selectedCapabilities.includes("deep_thinking")){
-            this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-sdsk,';
-          }
-          if(ai.selectedCapabilities.includes("web_search")){
-            this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-lwss,';
-          }
-        }
-        if(ai.name === 'AI搜索@元器'){
-          this.userInfoReq.roles = this.userInfoReq.roles + 'cube-trubos-agent,';
-        }
-        if(ai.name === '数智化助手@元器'){
-          this.userInfoReq.roles = this.userInfoReq.roles + 'cube-turbos-large-agent,';
-        }
-        if(ai.name === 'MiniMax@元器'){
-          this.userInfoReq.roles = this.userInfoReq.roles + 'cube-mini-max-agent,';
-        }
-        // if(ai.name === '搜狗搜索@元器'){
-        //   this.userInfoReq.roles = this.userInfoReq.roles + 'cube-sogou-agent,';
-        // }
-        // if(ai.name === 'KIMI@元器'){
-        //   this.userInfoReq.roles = this.userInfoReq.roles + 'cube-lwss-agent,';
-        // }
-        if(ai.name === '豆包'){
-          this.userInfoReq.roles = this.userInfoReq.roles + 'zj-db,';
-          if (ai.selectedCapabilities.includes("deep_thinking")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + 'zj-db-sdsk,';
-          }
-        }
         if(ai.name === 'DeepSeek' && ai.enabled){
           this.userInfoReq.roles = this.userInfoReq.roles + 'deepseek,';
           if (ai.selectedCapabilities.includes("deep_thinking")) {
@@ -572,6 +457,12 @@ export default {
           }
           if (ai.selectedCapabilities.includes("web_search")) {
             this.userInfoReq.roles = this.userInfoReq.roles + 'ds-lwss,';
+          }
+        }
+        if(ai.name === '豆包'){
+          this.userInfoReq.roles = this.userInfoReq.roles + 'zj-db,';
+          if (ai.selectedCapabilities.includes("deep_thinking")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + 'zj-db-sdsk,';
           }
         }
       });
@@ -802,31 +693,16 @@ export default {
       let targetAI = null;
       switch (dataObj.type) {
         case 'RETURN_YBT1_RES':
-          console.log('收到消息:', data);
-          targetAI = this.enabledAIs.find(ai => ai.name === '腾讯元宝T1');
+        case 'RETURN_TURBOS_RES':
+        case 'RETURN_TURBOS_LARGE_RES':
+        case 'RETURN_DEEPSEEK_RES':
+          console.log('收到DeepSeek消息:', dataObj);
+          targetAI = this.enabledAIs.find(ai => ai.name === 'DeepSeek');
           break;
         case 'RETURN_YBDS_RES':
-          console.log('收到消息:', data);
-          targetAI = this.enabledAIs.find(ai => ai.name === '腾讯元宝DS');
-          break;
         case 'RETURN_DB_RES':
-          console.log('收到消息:', data);
+          console.log('收到豆包消息:', dataObj);
           targetAI = this.enabledAIs.find(ai => ai.name === '豆包');
-          break;
-        case 'RETURN_TURBOS_RES':
-          console.log('收到消息:', data);
-          targetAI = this.enabledAIs.find(ai => ai.name === 'AI搜索@元器');
-          break;
-        case 'RETURN_TURBOS_LARGE_RES':
-          console.log('收到消息:', data);
-          targetAI = this.enabledAIs.find(ai => ai.name === '数智化助手@元器');
-          break;
-        // case 'RETURN_MINI_MAX_RES':
-        //   targetAI = this.enabledAIs.find(ai => ai.name === 'MiniMax@元器');
-        //   break;
-        case 'RETURN_DEEPSEEK_RES':
-          console.log('收到消息:', data);
-          targetAI = this.enabledAIs.find(ai => ai.name === 'DeepSeek');
           break;
       }
 
@@ -1134,72 +1010,6 @@ export default {
       // 重置AI列表为初始状态
       this.aiList = [
         {
-          name: 'AI搜索@元器',
-          avatar: require('../../../assets/ai/yuanbao.png'),
-          capabilities: [],
-          selectedCapabilities: [],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
-        {
-          name: '数智化助手@元器',
-          avatar: require('../../../assets/ai/yuanbao.png'),
-          capabilities: [],
-          selectedCapabilities: [],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
-        // {
-        //   name: 'MiniMax@元器',
-        //   avatar: require('../../../assets/ai/yuanbao.png'),
-        //   capabilities: [],
-        //   selectedCapabilities: [],
-        //   enabled: true,
-        //   status: 'idle',
-        //   progressLogs: [],
-        //   isExpanded: true
-        // },
-        // {
-        //   name: 'KIMI@元器',
-        //   avatar: require('../../../assets/ai/yuanbao.png'),
-        //   capabilities: [],
-        //   selectedCapabilities: [],
-        //   enabled: true,
-        //   status: 'idle',
-        //   progressLogs: [],
-        //   isExpanded: true
-        // },
-        {
-          name: '腾讯元宝T1',
-          avatar: require('../../../assets/ai/yuanbao.png'),
-          capabilities: [
-            { label: '深度思考', value: 'deep_thinking' },
-            { label: '联网搜索', value: 'web_search' }
-          ],
-          selectedCapabilities: ['deep_thinking','web_search'],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
-        {
-          name: '腾讯元宝DS',
-          avatar: require('../../../assets/ai/yuanbao.png'),
-          capabilities: [
-            { label: '深度思考', value: 'deep_thinking' },
-            { label: '联网搜索', value: 'web_search' }
-          ],
-          selectedCapabilities: ['deep_thinking','web_search'],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
-        {
           name: 'DeepSeek',
           avatar: require('../../../assets/logo/Deepseek.png'),
           capabilities: [
@@ -1262,10 +1072,6 @@ export default {
     // 根据AI名称获取图片样式
     getImageStyle(aiName) {
       const widthMap = {
-        'AI搜索@元器': '700px',
-        '腾讯元宝DS': '700px',
-        '数智化助手@元器': '700px',
-        '腾讯元宝T1': '700px',
         'DeepSeek': '700px',
         '豆包': '560px'
       };
@@ -1286,10 +1092,10 @@ export default {
     // 显示智能排版对话框
     showLayoutDialog(result) {
       this.currentLayoutResult = result;
-      this.layoutPrompt = `请你对以下 HTML 内容进行排版优化，目标是用于微信公众号“草稿箱接口”的 content 字段，要求如下：
+      this.layoutPrompt = `请你对以下 HTML 内容进行排版优化，目标是用于微信公众号"草稿箱接口"的 content 字段，要求如下：
 
 1. 仅返回 <body> 内部可用的 HTML 内容片段（不要包含 <!DOCTYPE>、<html>、<head>、<meta>、<title> 等标签）。
-2. 所有样式必须以“内联 style”方式写入。
+2. 所有样式必须以"内联 style"方式写入。
 3. 保持结构清晰、视觉友好，适配公众号图文排版。
 4. 请直接输出代码，不要添加任何注释或额外说明。
 5. 不得使用 emoji 表情符号或小图标字符。

@@ -71,38 +71,6 @@
 					}
 				],
 				features: [{
-						name: 'AI搜索@元器',
-						avatar: 'https://u3w.com/chatfile/yuanbao.png',
-						icon: '../static/images/icon/腾讯元宝.png',
-						title: 'AI搜索@元器',
-						description: '基于腾讯混元大模型，由优立方团队开发的工作流智能体',
-						type: 'agent'
-					},
-					{
-						name: '数智化助手@元器',
-						avatar: 'https://u3w.com/chatfile/yuanbao.png',
-						icon: '../static/images/icon/腾讯元宝.png',
-						title: '数智化助手@元器',
-						description: '优立方团队开发的长文本处理智能体，适合复杂任务',
-						type: 'agent'
-					},
-					{
-						name: '腾讯元宝T1',
-						avatar: 'https://u3w.com/chatfile/yuanbao.png',
-						icon: '../static/images/icon/腾讯元宝.png',
-						title: '腾讯元宝T1',
-						description: '腾讯公司开发的混元大模型智能体，功能强大',
-						type: 'yuanbao'
-					},
-					{
-						name: '腾讯元宝DS',
-						avatar: 'https://u3w.com/chatfile/yuanbao.png',
-						icon: '../static/images/icon/腾讯元宝.png',
-						title: '腾讯元宝DS',
-						description: '基于DeepSeek模型的腾讯元宝版本，拥有强大推理能力',
-						type: 'yuanbao'
-					},
-					{
 						name: '豆包',
 						avatar: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
 						icon: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',

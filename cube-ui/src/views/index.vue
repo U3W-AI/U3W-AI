@@ -36,39 +36,10 @@
                 </li>
                 <li class="list-group-item">
                   <el-button type="primary" size="mini" @click="handleBindWechat">绑定公众号</el-button>
-                  <el-button type="primary" size="mini" @click="handleAgentBind">Agent API设置</el-button>
-                  <el-button type="primary" size="mini" @click="handleSpaceBind">元器空间绑定</el-button>
+                  <!-- 移除Agent API设置按钮 -->
+                  <!-- 移除元器空间绑定按钮 -->
 
-
-                  <el-dialog title="公众号智能体API配置" :visible.sync="dialogAgentFormVisible">
-                    <el-form :model="agentForm" :rules="agentrules" ref="agentForm" >
-                      <el-form-item label="智能体ID" :label-width="formLabelWidth" prop="agentId">
-                        <el-input v-model="agentForm.agentId" maxlength="32"  placeholder="请输入agentId" autocomplete="off"></el-input>
-                      </el-form-item>
-                      <el-form-item label="智能体Token" :label-width="formLabelWidth" prop="agentToken">
-                        <el-input v-model="agentForm.agentToken" maxlength="50"  placeholder="请输入agentToken" autocomplete="off"></el-input>
-                      </el-form-item>
-                    </el-form>
-                    <div slot="footer" class="dialog-footer">
-                      <el-button @click="dialogAgentFormVisible = false">取 消</el-button>
-                      <el-button type="primary" @click="confirmAgentBind">确 定</el-button>
-                    </div>
-                  </el-dialog>
-
-                  <el-dialog title="元器空间绑定" :visible.sync="dialogSpaceFormVisible">
-                    <el-form :model="spaceForm" :rules="spacerules" ref="spaceForm" >
-                      <el-form-item label="空间ID" :label-width="formLabelWidth" prop="spaceId">
-                        <el-input v-model="spaceForm.spaceId" maxlength="32"  placeholder="请输入空间ID" autocomplete="off"></el-input>
-                      </el-form-item>
-                      <el-form-item label="空间名称" :label-width="formLabelWidth" prop="spaceName">
-                        <el-input v-model="spaceForm.spaceName" maxlength="50"  placeholder="请输入空间名称" autocomplete="off"></el-input>
-                      </el-form-item>
-                    </el-form>
-                    <div slot="footer" class="dialog-footer">
-                      <el-button @click="dialogSpaceFormVisible = false">取 消</el-button>
-                      <el-button type="primary" @click="confirmSpaceBind">确 定</el-button>
-                    </div>
-                  </el-dialog>
+                  <!-- 删除Agent API和元器空间对话框组件 -->
 
                   <el-dialog title="绑定微信公众号" :visible.sync="dialogFormVisible">
                     <el-form :model="form" :rules="rules" ref="form" >
@@ -215,7 +186,7 @@ import BarChart from './dashboard/BarChart'
 import userAvatar from "@/views/system/user/profile/userAvatar";
 import userInfo from "@/views/system/user/profile/userInfo";
 import resetPwd from "@/views/system/user/profile/resetPwd";
-import {getUserProfile, bindWcOfficeAccount, getOfficeAccount, getAgentBind, saveAgentBind, saveSpaceBind, getSpaceInfoByUserId} from "@/api/system/user";
+import {getUserProfile, bindWcOfficeAccount, getOfficeAccount} from "@/api/system/user";
 import {getUserPointsRecord } from "@/api/wechat/company";
 import websocketClient from '@/utils/websocket';
 
@@ -264,14 +235,7 @@ export default {
         officeAccountName: '', // 公众号名称
         picUrl: '', // 公众号封面图
       },
-      agentForm: {
-        agentId: '', // 智能体ID
-        agentToken: '', // 智能体token
-      },
-      spaceForm: {
-        spaceId: '', // 空间ID
-        spaceName: '', // 空间名称
-      },
+      // 删除Agent和Space相关表单
       formLabelWidth: '120px', //输入框宽度
       // 绑定公众号表单验证规则
       rules: {
@@ -285,22 +249,7 @@ export default {
           { required: false, message: '请输入公众号名称', trigger: 'blur' }
         ]
       },
-      agentrules: {
-        agentId: [
-          { required: true, message: '请输入agentId', trigger: 'blur' }
-        ],
-        agentToken: [
-          { required: true, message: '请输入agentToken', trigger: 'blur' }
-        ]
-      },
-      spacerules: {
-        spaceId: [
-          { required: true, message: '请输入空间ID', trigger: 'blur' }
-        ],
-        spaceName: [
-          { required: true, message: '请输入空间名称', trigger: 'blur' }
-        ]
-      },
+      // 删除Agent和Space相关验证规则
 
       //------ 积分相关变量 ------//
       loading: true, // 遮罩层
@@ -351,25 +300,16 @@ export default {
         new Date(2024, 0, 5)
       ],
       aiLoginStatus: {
-        yuanbao: false,
         doubao: false,
-        agent: false,
         deepseek: false
-        // qw: false
       },
       accounts: {
-        yuanbao: '',
         doubao: '',
-        agent: '',
         deepseek: '',
-        // qw: ''
       },
       isClick: {
-        yuanbao: false,
         doubao: false,
-        agent: false,
         deepseek: false
-        // qw: false
       },
       aiLoginDialogVisible: false,
       currentAiType: '',
@@ -378,12 +318,8 @@ export default {
       messages: [],
       messageInput: '',
       isLoading: {
-        yuanbao: true,
         doubao: true,
-        wenxin: true,
-        agent: true,
         deepseek: true
-        // qw: true
       },
     }
   },
@@ -408,11 +344,8 @@ export default {
     },
     getAiLoginTitle() {
       const titles = {
-        yuanbao: '腾讯元宝登录',
         doubao: '豆包登录',
-        agent: '智能体登录',
         deepseek: 'DeepSeek登录',
-        // qw: '通义千问登录'
       };
       return titles[this.currentAiType] || '登录';
     }
@@ -437,36 +370,19 @@ export default {
         this.initWebSocket(this.userId); // 创建时建立连接
 
         setTimeout(() => {
-          // 检查元宝登录状态
-          this.sendMessage({
-            type: 'PLAY_CHECK_YB_LOGIN',
-            userId: this.userId,
-            corpId: this.corpId
-          });
-
           // 检查豆包登录状态
           this.sendMessage({
             type: 'PLAY_CHECK_DB_LOGIN',
             userId: this.userId,
             corpId: this.corpId
           });
-          this.sendMessage({
-            type: 'PLAY_CHECK_AGENT_LOGIN',
-            userId: this.userId,
-            corpId: this.corpId
-          });
+          
           // 检查DeepSeek登录状态
           this.sendMessage({
             type: 'PLAY_CHECK_DEEPSEEK_LOGIN',
             userId: this.userId,
             corpId: this.corpId
           });
-          // 检查通义千问登录状态
-          // this.sendMessage({
-          //   type: 'PLAY_CHECK_QW_LOGIN',
-          //   userId: this.userId,
-          //   corpId: this.corpId
-          // });
         }, 1000);
       });
     },
@@ -482,24 +398,6 @@ export default {
         this.dialogFormVisible = true;
       });
     },
-    handleAgentBind() {
-      getAgentBind().then(response => {
-        if (response.data != null) {
-          this.agentForm.agentId = response.data.agent_id;
-          this.agentForm.agentToken = response.data.agent_token;
-        }
-        this.dialogAgentFormVisible = true;
-      });
-    },
-    handleSpaceBind() {
-      getSpaceInfoByUserId().then(response => {
-        if (response.data != null) {
-          this.spaceForm.spaceId = response.data.spaceId;
-          this.spaceForm.spaceName = response.data.spaceName;
-        }
-        this.dialogSpaceFormVisible = true;
-      });
-    },
     // 绑定公众号
     confirmBind() {
       this.$refs.form.validate((valid) => {
@@ -508,35 +406,6 @@ export default {
           bindWcOfficeAccount(this.form).then(response => {
             this.$message.success(response.data);
             this.dialogFormVisible = false;
-          })
-        } else {
-          // 表单验证失败
-          return false;
-        }
-      });
-    },
-    // 绑定公众号
-    confirmAgentBind() {
-      this.$refs.agentForm.validate((valid) => {
-        if (valid) {
-          // 表单验证通过，继续提交
-          saveAgentBind(this.agentForm).then(response => {
-            this.$message.success(response.data);
-            this.dialogAgentFormVisible = false;
-          })
-        } else {
-          // 表单验证失败
-          return false;
-        }
-      });
-    },
-    confirmSpaceBind() {
-      this.$refs.spaceForm.validate((valid) => {
-        if (valid) {
-          // 表单验证通过，继续提交
-          saveSpaceBind(this.spaceForm).then(response => {
-            this.$message.success(response.data);
-            this.dialogSpaceFormVisible = false;
           })
         } else {
           // 表单验证失败
@@ -601,23 +470,9 @@ export default {
     },
     getQrCode(type) {
       this.qrCodeUrl = ''
-      if(type == 'yuanbao'){
-        this.sendMessage({
-          type: 'PLAY_GET_YB_QRCODE',
-          userId: this.userId,
-          corpId: this.corpId
-        });
-      }
       if(type == 'doubao'){
         this.sendMessage({
           type: 'PLAY_GET_DB_QRCODE',
-          userId: this.userId,
-          corpId: this.corpId
-        });
-      }
-      if(type == 'agent'){
-        this.sendMessage({
-          type: 'PLAY_GET_AGENT_QRCODE',
           userId: this.userId,
           corpId: this.corpId
         });
@@ -629,20 +484,6 @@ export default {
           corpId: this.corpId
         });
       }
-      if(type == 'wenxin'){
-        this.sendMessage({
-          type: 'PLAY_GET_WX_QRCODE',
-          userId: this.userId,
-          corpId: this.corpId
-        });
-      }
-      // if(type == 'qw'){
-      //   this.sendMessage({
-      //     type: 'PLAY_GET_QW_QRCODE',
-      //     userId: this.userId,
-      //     corpId: this.corpId
-      //   });
-      // }
       this.$message({
         message: '正在获取登录二维码...',
         type: 'info'
@@ -650,21 +491,15 @@ export default {
     },
     getPlatformIcon(type) {
       const icons = {
-        yuanbao: require('@/assets/logo/yuanbao.png'),
         doubao: require('@/assets/logo/doubao.png'),
-        agent: require('@/assets/logo/yuanbao.png'),
         deepseek: require('@/assets/logo/Deepseek.png'),
-        qw: require('@/assets/logo/qw.png')
       };
       return icons[type] || '';
     },
     getPlatformName(type) {
       const names = {
-        yuanbao: '腾讯元宝',
         doubao: '豆包',
-        agent: '智能体',
         deepseek: 'DeepSeek',
-        // qw: '通义千问'
       };
       return names[type] || '';
     },
@@ -698,27 +533,7 @@ export default {
       const datastr = data;
       const dataObj = JSON.parse(datastr);
 
-      if (datastr.includes("RETURN_YB_STATUS") && dataObj.status != '') {
-        if (!datastr.includes("false")) {
-          this.aiLoginDialogVisible = false;
-          this.aiLoginStatus.yuanbao = true;
-          this.accounts.yuanbao = dataObj.status;
-          this.isLoading.yuanbao = false;
-        } else {
-          this.isClick.yuanbao = true;
-          this.isLoading.yuanbao = false;
-        }
-      } else if (datastr.includes("RETURN_AGENT_STATUS") && dataObj.status != '') {
-        if (!datastr.includes("false")) {
-          this.aiLoginDialogVisible = false;
-          this.aiLoginStatus.agent = true;
-          this.accounts.agent = dataObj.status;
-          this.isLoading.agent = false;
-        } else {
-          this.isClick.agent = true;
-          this.isLoading.agent = false;
-        }
-      } else if (datastr.includes("RETURN_PC_YB_QRURL") || datastr.includes("RETURN_PC_DB_QRURL") || datastr.includes("RETURN_PC_WX_QRURL") || datastr.includes("RETURN_PC_AGENT_QRURL") || datastr.includes("RETURN_PC_DEEPSEEK_QRURL")|| datastr.includes("RETURN_PC_QW_QRURL")) {
+      if (datastr.includes("RETURN_PC_DB_QRURL") || datastr.includes("RETURN_PC_DEEPSEEK_QRURL")) {
         this.qrCodeUrl = dataObj.url;
       } else if (datastr.includes("RETURN_DB_STATUS") && dataObj.status != '') {
         if (!datastr.includes("false")) {
@@ -730,16 +545,6 @@ export default {
           this.isClick.doubao = true;
           this.isLoading.doubao = false;
         }
-      } else if (datastr.includes("RETURN_WX_STATUS") && dataObj.status != '') {
-        if (!datastr.includes("false")) {
-          this.aiLoginDialogVisible = false;
-          this.aiLoginStatus.wenxin = true;
-          this.accounts.wenxin = dataObj.status;
-          this.isLoading.wenxin = false;
-        } else {
-          this.isClick.wenxin = true;
-          this.isLoading.wenxin = false;
-        }
       } else if (datastr.includes("RETURN_DEEPSEEK_STATUS") && dataObj.status != '') {
         if (!datastr.includes("false")) {
           this.aiLoginDialogVisible = false;
@@ -749,16 +554,6 @@ export default {
         } else {
           this.isClick.deepseek = true;
           this.isLoading.deepseek = false;
-        }
-      } else if (datastr.includes("RETURN_QW_STATUS") && dataObj.status != '') {
-        if (!datastr.includes("false")) {
-          this.aiLoginDialogVisible = false;
-          this.aiLoginStatus.qw = true;
-          this.accounts.qw = dataObj.status;
-          this.isLoading.qw = false;
-        } else {
-          this.isClick.qw = true;
-          this.isLoading.qw = false;
         }
       }
     },
