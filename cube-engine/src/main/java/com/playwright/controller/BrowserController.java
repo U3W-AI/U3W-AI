@@ -5,6 +5,7 @@ import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
+import com.microsoft.playwright.options.WaitForSelectorState;
 import com.playwright.utils.BrowserUtil;
 import com.playwright.utils.DeepSeekUtil;
 import com.playwright.utils.LogMsgUtil;
@@ -45,6 +46,35 @@ public class BrowserController {
 
     @Autowired
     private BrowserUtil browserUtil;
+
+    /**
+     * 检查MiniMax主站登录状态
+     * @param userId 用户唯一标识
+     * @return 登录状态："false"表示未登录，手机号表示已登录
+     */
+    @Operation(summary = "检查MiniMax登录状态", description = "返回手机号表示已登录，false 表示未登录")
+    @GetMapping("/checkMaxLogin")
+    public String checkMaxLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"MiniMax Chat")) {
+            Page page = context.newPage();
+            page.navigate("https://chat.minimaxi.com/");
+            Thread.sleep(3000);
+            Locator loginButton = page.locator("div.text-col_text00.border-col_text00.hover\\:bg-col_text00.hover\\:text-col_text05.flex.h-\\[32px\\].cursor-pointer.items-center.justify-center.rounded-full.border.px-\\[16px\\].text-\\[13px\\].font-medium.leading-\\[17px\\].md\\:h-\\[36px\\]").last();
+            System.out.println("匹配登录成功============>"+loginButton.count());
+            if(loginButton.count() == 0){
+                // 不存在登录按钮，已登录
+                return "登录";
+            } else {
+                // 存在登录按钮，未登录
+                return "false";
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "";
+    }
+
 
     /**
      * 检查元宝主站登录状态
@@ -144,6 +174,50 @@ public class BrowserController {
         }
         return "false";
     }
+
+    /**
+     * 获取代理版MiniMax登录二维码
+     * @param userId 用户唯一标识
+     * @return 二维码图片URL 或 "false"表示失败
+     */
+    @GetMapping("/getMaxQrCode")
+    @Operation(summary = "获取代理版MiniMax登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
+    public String getMaxQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"MiniMax Chat")) {
+            Page page = context.newPage();
+            page.navigate("https://chat.minimaxi.com/");
+            page.locator("xpath=/html/body/section/div/div/section/header/div[2]/div[2]/div[2]/div").click();
+            Thread.sleep(3000);
+            String url = screenshotUtil.screenshotAndUpload(page,"checkMaxLogin.png");
+
+            JSONObject jsonObject = new JSONObject();
+            jsonObject.put("url",url);
+            jsonObject.put("userId",userId);
+            jsonObject.put("type","RETURN_PC_MAX_QRURL");
+            // 发送二维码URL
+            webSocketClientService.sendMessage(jsonObject.toJSONString());
+            // 查找登录后的元素是否存在，存在则发送登录成功的消息
+            Thread.sleep(3000);
+            page.locator("body").click();
+            // 一直等待登录成功的元素出现
+            Locator phone = page.locator(".h-7.w-7.rounded-full").nth(2);
+            phone.waitFor(new Locator.WaitForOptions().setTimeout(12000).setState(WaitForSelectorState.ATTACHED));
+
+            if(phone.count()>0){
+                JSONObject jsonObjectTwo = new JSONObject();
+                jsonObjectTwo.put("status","登录");
+                jsonObjectTwo.put("userId",userId);
+                jsonObjectTwo.put("type","RETURN_MAX_STATUS");
+                webSocketClientService.sendMessage(jsonObjectTwo.toJSONString());
+            }
+
+            return url;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "";
+    }
+
 
     /**
      * 获取代理版元宝登录二维码

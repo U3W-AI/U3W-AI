@@ -3,7 +3,7 @@
     <!-- 顶部导航区 -->
     <div class="top-nav">
       <div class="logo-area">
-        <img src="../../../assets/ai/logo.png" alt="Logo" class="logo">
+        <img src="../../../assets/ai/logo.png" alt="Logo" class="logo" />
         <h1 class="platform-title">主机</h1>
       </div>
       <div class="nav-buttons">
@@ -13,33 +13,68 @@
         </el-button>
         <div class="history-button">
           <el-button type="text" @click="showHistoryDrawer">
-            <img :src="require('../../../assets/ai/celan.png')" alt="历史记录" class="history-icon">
+            <img
+              :src="require('../../../assets/ai/celan.png')"
+              alt="历史记录"
+              class="history-icon"
+            />
           </el-button>
         </div>
       </div>
     </div>
 
     <!-- 历史记录抽屉 -->
-    <el-drawer title="历史会话记录" :visible.sync="historyDrawerVisible" direction="rtl" size="30%"
-      :before-close="handleHistoryDrawerClose">
+    <el-drawer
+      title="历史会话记录"
+      :visible.sync="historyDrawerVisible"
+      direction="rtl"
+      size="30%"
+      :before-close="handleHistoryDrawerClose"
+    >
       <div class="history-content">
-        <div v-for="(group, date) in groupedHistory" :key="date" class="history-group">
+        <div
+          v-for="(group, date) in groupedHistory"
+          :key="date"
+          class="history-group"
+        >
           <div class="history-date">{{ date }}</div>
           <div class="history-list">
-            <div v-for="(item, index) in group" :key="index" class="history-item">
+            <div
+              v-for="(item, index) in group"
+              :key="index"
+              class="history-item"
+            >
               <div class="history-parent" @click="loadHistoryItem(item)">
                 <div class="history-header">
-                  <i :class="['el-icon-arrow-right', {'is-expanded': item.isExpanded}]"
-                    @click.stop="toggleHistoryExpansion(item)"></i>
+                  <i
+                    :class="[
+                      'el-icon-arrow-right',
+                      { 'is-expanded': item.isExpanded },
+                    ]"
+                    @click.stop="toggleHistoryExpansion(item)"
+                  ></i>
                   <div class="history-prompt">{{ item.userPrompt }}</div>
                 </div>
-                <div class="history-time">{{ formatHistoryTime(item.createTime) }}</div>
+                <div class="history-time">
+                  {{ formatHistoryTime(item.createTime) }}
+                </div>
               </div>
-              <div v-if="item.children && item.children.length > 0 && item.isExpanded" class="history-children">
-                <div v-for="(child, childIndex) in item.children" :key="childIndex" class="history-child-item"
-                  @click="loadHistoryItem(child)">
+              <div
+                v-if="
+                  item.children && item.children.length > 0 && item.isExpanded
+                "
+                class="history-children"
+              >
+                <div
+                  v-for="(child, childIndex) in item.children"
+                  :key="childIndex"
+                  class="history-child-item"
+                  @click="loadHistoryItem(child)"
+                >
                   <div class="history-prompt">{{ child.userPrompt }}</div>
-                  <div class="history-time">{{ formatHistoryTime(child.createTime) }}</div>
+                  <div class="history-time">
+                    {{ formatHistoryTime(child.createTime) }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -53,25 +88,49 @@
         <el-collapse-item title="AI选择配置" name="ai-selection">
           <div class="ai-selection-section">
             <div class="ai-cards">
-              <el-card v-for="(ai, index) in aiList" :key="index" class="ai-card" shadow="hover">
+              <el-card
+                v-for="(ai, index) in aiList"
+                :key="index"
+                class="ai-card"
+                shadow="hover"
+              >
                 <div class="ai-card-header">
                   <div class="ai-left">
                     <div class="ai-avatar">
-                      <img :src="ai.avatar" alt="AI头像">
+                      <img :src="ai.avatar" alt="AI头像" />
                     </div>
                     <div class="ai-name">{{ ai.name }}</div>
                   </div>
                   <div class="ai-status">
-                    <el-switch v-model="ai.enabled" active-color="#13ce66" inactive-color="#ff4949">
+                    <el-switch
+                      v-model="ai.enabled"
+                      active-color="#13ce66"
+                      inactive-color="#ff4949"
+                    >
                     </el-switch>
                   </div>
                 </div>
-                <div class="ai-capabilities" v-if="ai.capabilities && ai.capabilities.length > 0">
+                <div
+                  class="ai-capabilities"
+                  v-if="ai.capabilities && ai.capabilities.length > 0"
+                >
                   <div class="button-capability-group">
-                    <el-button v-for="capability in ai.capabilities" :key="capability.value" size="mini"
-                      :type="ai.selectedCapabilities.includes(capability.value) ? 'primary' : 'info'"
-                      :disabled="!ai.enabled" :plain="!ai.selectedCapabilities.includes(capability.value)"
-                      @click="toggleCapability(ai, capability.value)" class="capability-button">
+                    <el-button
+                      v-for="capability in ai.capabilities"
+                      :key="capability.value"
+                      size="mini"
+                      :type="
+                        ai.selectedCapabilities.includes(capability.value)
+                          ? 'primary'
+                          : 'info'
+                      "
+                      :disabled="!ai.enabled"
+                      :plain="
+                        !ai.selectedCapabilities.includes(capability.value)
+                      "
+                      @click="toggleCapability(ai, capability.value)"
+                      class="capability-button"
+                    >
                       {{ capability.label }}
                     </el-button>
                   </div>
@@ -84,12 +143,23 @@
         <!-- 提示词输入区 -->
         <el-collapse-item title="提示词输入" name="prompt-input">
           <div class="prompt-input-section">
-            <el-input type="textarea" :rows="5" placeholder="请输入提示词，支持Markdown格式" v-model="promptInput" resize="none"
-              class="prompt-input">
+            <el-input
+              type="textarea"
+              :rows="5"
+              placeholder="请输入提示词，支持Markdown格式"
+              v-model="promptInput"
+              resize="none"
+              class="prompt-input"
+            >
             </el-input>
             <div class="prompt-footer">
               <div class="word-count">字数统计: {{ promptInput.length }}</div>
-              <el-button type="primary" @click="sendPrompt" :disabled="!canSend" class="send-button">
+              <el-button
+                type="primary"
+                @click="sendPrompt"
+                :disabled="!canSend"
+                class="send-button"
+              >
                 发送
               </el-button>
             </div>
@@ -106,28 +176,55 @@
                 <span>任务流程</span>
               </div>
               <div class="task-flow">
-                <div v-for="(ai, index) in enabledAIs" :key="index" class="task-item">
+                <div
+                  v-for="(ai, index) in enabledAIs"
+                  :key="index"
+                  class="task-item"
+                >
                   <div class="task-header" @click="toggleAIExpansion(ai)">
                     <div class="header-left">
-                      <i :class="['el-icon-arrow-right', {'is-expanded': ai.isExpanded}]"></i>
+                      <i
+                        :class="[
+                          'el-icon-arrow-right',
+                          { 'is-expanded': ai.isExpanded },
+                        ]"
+                      ></i>
                       <span class="ai-name">{{ ai.name }}</span>
                     </div>
                     <div class="header-right">
-                      <span class="status-text">{{ getStatusText(ai.status) }}</span>
-                      <i :class="getStatusIcon(ai.status)" class="status-icon"></i>
+                      <span class="status-text">{{
+                        getStatusText(ai.status)
+                      }}</span>
+                      <i
+                        :class="getStatusIcon(ai.status)"
+                        class="status-icon"
+                      ></i>
                     </div>
                   </div>
                   <!-- 添加进度轨迹 -->
-                  <div class="progress-timeline" v-if="ai.progressLogs.length > 0 && ai.isExpanded">
+                  <div
+                    class="progress-timeline"
+                    v-if="ai.progressLogs.length > 0 && ai.isExpanded"
+                  >
                     <div class="timeline-scroll">
-                      <div v-for="(log, logIndex) in ai.progressLogs" :key="logIndex" class="progress-item" :class="{
-                             'completed': log.isCompleted || logIndex > 0,
-                             'current': !log.isCompleted && logIndex === 0
-                           }">
+                      <div
+                        v-for="(log, logIndex) in ai.progressLogs"
+                        :key="logIndex"
+                        class="progress-item"
+                        :class="{
+                          completed: log.isCompleted || logIndex > 0,
+                          current: !log.isCompleted && logIndex === 0,
+                        }"
+                      >
                         <div class="progress-dot"></div>
-                        <div class="progress-line" v-if="logIndex < ai.progressLogs.length - 1"></div>
+                        <div
+                          class="progress-line"
+                          v-if="logIndex < ai.progressLogs.length - 1"
+                        ></div>
                         <div class="progress-content">
-                          <div class="progress-time">{{ formatTime(log.timestamp) }}</div>
+                          <div class="progress-time">
+                            {{ formatTime(log.timestamp) }}
+                          </div>
                           <div class="progress-text">{{ log.content }}</div>
                         </div>
                       </div>
@@ -142,14 +239,31 @@
               <div slot="header" class="card-header">
                 <span>主机可视化</span>
                 <div class="controls">
-                  <el-switch v-model="autoPlay" active-text="自动轮播" inactive-text="手动切换">
+                  <el-switch
+                    v-model="autoPlay"
+                    active-text="自动轮播"
+                    inactive-text="手动切换"
+                  >
                   </el-switch>
                 </div>
               </div>
               <div class="screenshots">
-                <el-carousel :interval="3000" :autoplay="false" indicator-position="outside" height="700px">
-                  <el-carousel-item v-for="(screenshot, index) in screenshots" :key="index">
-                    <img :src="screenshot" alt="执行截图" class="screenshot-image" @click="showLargeImage(screenshot)">
+                <el-carousel
+                  :interval="3000"
+                  :autoplay="false"
+                  indicator-position="outside"
+                  height="700px"
+                >
+                  <el-carousel-item
+                    v-for="(screenshot, index) in screenshots"
+                    :key="index"
+                  >
+                    <img
+                      :src="screenshot"
+                      alt="执行截图"
+                      class="screenshot-image"
+                      @click="showLargeImage(screenshot)"
+                    />
                   </el-carousel-item>
                 </el-carousel>
               </div>
@@ -167,17 +281,34 @@
           </el-button>
         </div>
         <el-tabs v-model="activeResultTab" type="card">
-          <el-tab-pane v-for="(result, index) in results" :key="index" :label="result.aiName" :name="'result-' + index">
+          <el-tab-pane
+            v-for="(result, index) in results"
+            :key="index"
+            :label="result.aiName"
+            :name="'result-' + index"
+          >
             <div class="result-content">
               <div class="result-header" v-if="result.shareUrl">
                 <div class="result-title">{{ result.aiName }}的执行结果</div>
                 <div class="result-buttons">
-                  <el-button size="mini" type="primary" icon="el-icon-link" @click="openShareUrl(result.shareUrl)"
-                    class="share-link-btn">
+                  <el-button
+                    size="mini"
+                    type="primary"
+                    icon="el-icon-link"
+                    @click="openShareUrl(result.shareUrl)"
+                    class="share-link-btn"
+                  >
                     查看原链接
                   </el-button>
-                  <el-button size="mini" type="success" icon="el-icon-s-promotion" @click="handlePushToWechat(result)"
-                    class="push-wechat-btn" :loading="pushingToWechat" :disabled="pushingToWechat">
+                  <el-button
+                    size="mini"
+                    type="success"
+                    icon="el-icon-s-promotion"
+                    @click="handlePushToWechat(result)"
+                    class="push-wechat-btn"
+                    :loading="pushingToWechat"
+                    :disabled="pushingToWechat"
+                  >
                     投递到公众号
                   </el-button>
                 </div>
@@ -185,23 +316,50 @@
               <!-- 如果有shareImgUrl则渲染图片或PDF，否则渲染markdown -->
               <div v-if="result.shareImgUrl" class="share-content">
                 <!-- 渲染图片 -->
-                <img v-if="isImageFile(result.shareImgUrl)" :src="result.shareImgUrl" alt="分享图片" class="share-image"
-                  :style="getImageStyle(result.aiName)">
+                <img
+                  v-if="isImageFile(result.shareImgUrl)"
+                  :src="result.shareImgUrl"
+                  alt="分享图片"
+                  class="share-image"
+                  :style="getImageStyle(result.aiName)"
+                />
                 <!-- 渲染PDF -->
-                <iframe v-else-if="isPdfFile(result.shareImgUrl)" :src="result.shareImgUrl" class="share-pdf"
-                  frameborder="0">
+                <iframe
+                  v-else-if="isPdfFile(result.shareImgUrl)"
+                  :src="result.shareImgUrl"
+                  class="share-pdf"
+                  frameborder="0"
+                >
                 </iframe>
                 <!-- 其他文件类型显示链接 -->
                 <div v-else class="share-file">
-                  <el-button type="primary" icon="el-icon-document" @click="openShareUrl(result.shareImgUrl)">
+                  <el-button
+                    type="primary"
+                    icon="el-icon-document"
+                    @click="openShareUrl(result.shareImgUrl)"
+                  >
                     查看文件
                   </el-button>
                 </div>
               </div>
-              <div v-else class="markdown-content" v-html="renderMarkdown(result.content)"></div>
+              <div
+                v-else
+                class="markdown-content"
+                v-html="renderMarkdown(result.content)"
+              ></div>
               <div class="action-buttons">
-                <el-button size="small" type="primary" @click="copyResult(result.content)">复制（纯文本）</el-button>
-                <el-button size="small" type="success" @click="exportResult(result)">导出（MD文件）</el-button>
+                <el-button
+                  size="small"
+                  type="primary"
+                  @click="copyResult(result.content)"
+                  >复制（纯文本）</el-button
+                >
+                <el-button
+                  size="small"
+                  type="success"
+                  @click="exportResult(result)"
+                  >导出（MD文件）</el-button
+                >
               </div>
             </div>
           </el-tab-pane>
@@ -210,42 +368,77 @@
     </div>
 
     <!-- 大图查看对话框 -->
-    <el-dialog :visible.sync="showImageDialog" width="90%" :show-close="true" :modal="true" center class="image-dialog"
-      :append-to-body="true" @close="closeLargeImage">
+    <el-dialog
+      :visible.sync="showImageDialog"
+      width="90%"
+      :show-close="true"
+      :modal="true"
+      center
+      class="image-dialog"
+      :append-to-body="true"
+      @close="closeLargeImage"
+    >
       <div class="large-image-container">
         <!-- 如果是单张分享图片，直接显示 -->
-        <div v-if="currentLargeImage && !screenshots.includes(currentLargeImage)" class="single-image-container">
-          <img :src="currentLargeImage" alt="大图" class="large-image">
+        <div
+          v-if="currentLargeImage && !screenshots.includes(currentLargeImage)"
+          class="single-image-container"
+        >
+          <img :src="currentLargeImage" alt="大图" class="large-image" />
         </div>
         <!-- 如果是截图轮播 -->
-        <el-carousel v-else :interval="3000" :autoplay="false" indicator-position="outside" height="80vh">
-          <el-carousel-item v-for="(screenshot, index) in screenshots" :key="index">
-            <img :src="screenshot" alt="大图" class="large-image">
+        <el-carousel
+          v-else
+          :interval="3000"
+          :autoplay="false"
+          indicator-position="outside"
+          height="80vh"
+        >
+          <el-carousel-item
+            v-for="(screenshot, index) in screenshots"
+            :key="index"
+          >
+            <img :src="screenshot" alt="大图" class="large-image" />
           </el-carousel-item>
         </el-carousel>
       </div>
     </el-dialog>
 
     <!-- 评分弹窗 -->
-    <el-dialog title="智能评分" :visible.sync="scoreDialogVisible" width="60%" height="65%" :close-on-click-modal="false"
-      class="score-dialog">
+    <el-dialog
+      title="智能评分"
+      :visible.sync="scoreDialogVisible"
+      width="60%"
+      height="65%"
+      :close-on-click-modal="false"
+      class="score-dialog"
+    >
       <div class="score-dialog-content">
         <div class="score-prompt-section">
           <h3>评分提示词：</h3>
-          <el-input type="textarea" :rows="10" placeholder="请输入评分提示词，例如：请从内容质量、逻辑性、创新性等方面进行评分" v-model="scorePrompt"
-            resize="none" class="score-prompt-input">
+          <el-input
+            type="textarea"
+            :rows="10"
+            placeholder="请输入评分提示词，例如：请从内容质量、逻辑性、创新性等方面进行评分"
+            v-model="scorePrompt"
+            resize="none"
+            class="score-prompt-input"
+          >
           </el-input>
         </div>
         <div class="selected-results">
           <h3>选择要评分的内容：</h3>
           <el-checkbox-group v-model="selectedResults">
-            <el-checkbox v-for="(result, index) in results" :key="index" :label="result.aiName" class="result-checkbox">
+            <el-checkbox
+              v-for="(result, index) in results"
+              :key="index"
+              :label="result.aiName"
+              class="result-checkbox"
+            >
               {{ result.aiName }}
             </el-checkbox>
           </el-checkbox-group>
         </div>
-
-
       </div>
       <span slot="footer" class="dialog-footer">
         <el-button @click="scoreDialogVisible = false">取 消</el-button>
@@ -256,13 +449,25 @@
     </el-dialog>
 
     <!-- 智能排版弹窗 -->
-    <el-dialog title="智能排版" :visible.sync="layoutDialogVisible" width="60%" height="65%" :close-on-click-modal="false"
-      class="layout-dialog">
+    <el-dialog
+      title="智能排版"
+      :visible.sync="layoutDialogVisible"
+      width="60%"
+      height="65%"
+      :close-on-click-modal="false"
+      class="layout-dialog"
+    >
       <div class="layout-dialog-content">
         <div class="layout-prompt-section">
           <h3>排版提示词：</h3>
-          <el-input type="textarea" :rows="15" placeholder="请输入排版提示词" v-model="layoutPrompt"
-            resize="none" class="layout-prompt-input">
+          <el-input
+            type="textarea"
+            :rows="15"
+            placeholder="请输入排版提示词"
+            v-model="layoutPrompt"
+            resize="none"
+            class="layout-prompt-input"
+          >
           </el-input>
         </div>
       </div>
@@ -277,17 +482,20 @@
 </template>
 
 <script>
-import {marked} from 'marked';
-import {message, saveUserChatData, getChatHistory, pushAutoOffice} from "@/api/wechat/aigc";
+import { marked } from "marked";
 import {
-		v4 as uuidv4
-	} from 'uuid';
-import websocketClient from '@/utils/websocket';
-import store from '@/store';
-import TurndownService from 'turndown';
+  message,
+  saveUserChatData,
+  getChatHistory,
+  pushAutoOffice,
+} from "@/api/wechat/aigc";
+import { v4 as uuidv4 } from "uuid";
+import websocketClient from "@/utils/websocket";
+import store from "@/store";
+import TurndownService from "turndown";
 
 export default {
-  name: 'AIManagementPlatform',
+  name: "AIManagementPlatform",
   data() {
     return {
       userId: store.state.user.id,
@@ -295,69 +503,80 @@ export default {
       chatId: uuidv4(),
       expandedHistoryItems: {},
       userInfoReq: {
-        userPrompt: '',
-        userId: '',
-        corpId: '',
-        taskId: '',
-        roles: '',
-        toneChatId: '',
-        ybDsChatId: '',
-        dbChatId: '',
-        isNewChat: true
+        userPrompt: "",
+        userId: "",
+        corpId: "",
+        taskId: "",
+        roles: "",
+        toneChatId: "",
+        ybDsChatId: "",
+        dbChatId: "",
+        isNewChat: true,
       },
       jsonRpcReqest: {
-        jsonrpc: '2.0',
+        jsonrpc: "2.0",
         id: uuidv4(),
-        method: '',
-        params: {}
+        method: "",
+        params: {},
       },
       aiList: [
         {
-          name: 'DeepSeek',
-          avatar: require('../../../assets/logo/Deepseek.png'),
+          name: "DeepSeek",
+          avatar: require("../../../assets/logo/Deepseek.png"),
           capabilities: [
-            { label: '深度思考', value: 'deep_thinking' },
-            { label: '联网搜索', value: 'web_search' }
+            { label: "深度思考", value: "deep_thinking" },
+            { label: "联网搜索", value: "web_search" },
           ],
-          selectedCapabilities: ['deep_thinking', 'web_search'],
+          selectedCapabilities: ["deep_thinking", "web_search"],
           enabled: true,
-          status: 'idle',
+          status: "idle",
           progressLogs: [],
-          isExpanded: true
+          isExpanded: true,
         },
         {
-          name: '豆包',
-          avatar: require('../../../assets/ai/豆包.png'),
-          capabilities: [
-            { label: '深度思考', value: 'deep_thinking' }
-          ],
-          selectedCapabilities: ['deep_thinking'],
+          name: "豆包",
+          avatar: require("../../../assets/ai/豆包.png"),
+          capabilities: [{ label: "深度思考", value: "deep_thinking" }],
+          selectedCapabilities: ["deep_thinking"],
           enabled: true,
-          status: 'idle',
+          status: "idle",
           progressLogs: [],
-          isExpanded: true
-        }
+          isExpanded: true,
+        },
+        {
+          name: "MiniMax Chat",
+          avatar: require("../../../assets/ai/MiniMax.png"),
+          capabilities: [
+            { label: "深度思考", value: "deep_thinking" },
+            { label: "联网搜索", value: "web_search" },
+          ],
+          selectedCapabilities: [],
+          enabled: true,
+          status: "idle",
+          progressLogs: [],
+          isExpanded: true,
+        },
       ],
-      promptInput: '',
+      promptInput: "",
       taskStarted: false,
       autoPlay: false,
       screenshots: [],
       results: [],
-      activeResultTab: 'result-0',
-      activeCollapses: ['ai-selection', 'prompt-input'], // 默认展开这两个区域
+      activeResultTab: "result-0",
+      activeCollapses: ["ai-selection", "prompt-input"], // 默认展开这两个区域
       showImageDialog: false,
-      currentLargeImage: '',
+      currentLargeImage: "",
       enabledAIs: [],
       turndownService: new TurndownService({
-        headingStyle: 'atx',
-        codeBlockStyle: 'fenced',
-        emDelimiter: '*'
+        headingStyle: "atx",
+        codeBlockStyle: "fenced",
+        emDelimiter: "*",
       }),
       scoreDialogVisible: false,
       selectedResults: [],
       scorePrompt: `请你深度阅读以下几篇内容，从多个维度进行逐项打分，输出评分结果。并在以下各篇文章的基础上博采众长，综合整理一篇更全面的文章。`,
       layoutDialogVisible: false,
-      layoutPrompt: '',
+      layoutPrompt: "",
       currentLayoutResult: null, // 当前要排版的结果
       historyDrawerVisible: false,
       chatHistory: [],
@@ -367,10 +586,15 @@ export default {
   },
   computed: {
     canSend() {
-      return this.promptInput.trim().length > 0 && this.aiList.some(ai => ai.enabled);
+      return (
+        this.promptInput.trim().length > 0 &&
+        this.aiList.some((ai) => ai.enabled)
+      );
     },
     canScore() {
-      return this.selectedResults.length > 0 && this.scorePrompt.trim().length > 0;
+      return (
+        this.selectedResults.length > 0 && this.scorePrompt.trim().length > 0
+      );
     },
     canLayout() {
       return this.layoutPrompt.trim().length > 0;
@@ -380,7 +604,7 @@ export default {
       const chatGroups = {};
 
       // 首先按chatId分组
-      this.chatHistory.forEach(item => {
+      this.chatHistory.forEach((item) => {
         if (!chatGroups[item.chatId]) {
           chatGroups[item.chatId] = [];
         }
@@ -388,9 +612,11 @@ export default {
       });
 
       // 然后按日期分组，并处理父子关系
-      Object.values(chatGroups).forEach(chatGroup => {
+      Object.values(chatGroups).forEach((chatGroup) => {
         // 按时间排序
-        chatGroup.sort((a, b) => new Date(a.createTime) - new Date(b.createTime));
+        chatGroup.sort(
+          (a, b) => new Date(a.createTime) - new Date(b.createTime)
+        );
 
         // 获取最早的记录作为父级
         const parentItem = chatGroup[0];
@@ -405,15 +631,15 @@ export default {
           ...parentItem,
           isParent: true,
           isExpanded: this.expandedHistoryItems[parentItem.chatId] || false,
-          children: chatGroup.slice(1).map(child => ({
+          children: chatGroup.slice(1).map((child) => ({
             ...child,
-            isParent: false
-          }))
+            isParent: false,
+          })),
         });
       });
 
       return groups;
-    }
+    },
   },
   created() {
     console.log(this.userId);
@@ -426,15 +652,14 @@ export default {
     sendPrompt() {
       if (!this.canSend) return;
 
-      this.screenshots =[];
+      this.screenshots = [];
       // 折叠所有区域
       this.activeCollapses = [];
 
       this.taskStarted = true;
       this.results = []; // 清空之前的结果
 
-      this.userInfoReq.roles = '';
-
+      this.userInfoReq.roles = "";
 
       this.userInfoReq.taskId = uuidv4();
       this.userInfoReq.userId = this.userId;
@@ -442,85 +667,107 @@ export default {
       this.userInfoReq.userPrompt = this.promptInput;
 
       // 获取启用的AI列表及其状态
-      this.enabledAIs = this.aiList.filter(ai => ai.enabled);
+      this.enabledAIs = this.aiList.filter((ai) => ai.enabled);
 
       // 将所有启用的AI状态设置为运行中
-      this.enabledAIs.forEach(ai => {
-        this.$set(ai, 'status', 'running');
+      this.enabledAIs.forEach((ai) => {
+        this.$set(ai, "status", "running");
       });
 
-      this.enabledAIs.forEach(ai => {
-        if(ai.name === 'DeepSeek' && ai.enabled){
-          this.userInfoReq.roles = this.userInfoReq.roles + 'deepseek,';
+      this.enabledAIs.forEach((ai) => {
+        if (ai.name === "DeepSeek" && ai.enabled) {
+          this.userInfoReq.roles = this.userInfoReq.roles + "deepseek,";
           if (ai.selectedCapabilities.includes("deep_thinking")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + 'ds-sdsk,';
+            this.userInfoReq.roles = this.userInfoReq.roles + "ds-sdsk,";
           }
           if (ai.selectedCapabilities.includes("web_search")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + 'ds-lwss,';
+            this.userInfoReq.roles = this.userInfoReq.roles + "ds-lwss,";
           }
         }
-        if(ai.name === '豆包'){
-          this.userInfoReq.roles = this.userInfoReq.roles + 'zj-db,';
+        if (ai.name === "豆包") {
+          this.userInfoReq.roles = this.userInfoReq.roles + "zj-db,";
           if (ai.selectedCapabilities.includes("deep_thinking")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + 'zj-db-sdsk,';
+            this.userInfoReq.roles = this.userInfoReq.roles + "zj-db-sdsk,";
+          }
+        }
+        if (ai.name === "MiniMax Chat") {
+          this.userInfoReq.roles = this.userInfoReq.roles + "mini-max-agent,";
+          if (ai.selectedCapabilities.includes("deep_thinking")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + "max-sdsk,";
+          }
+          if (ai.selectedCapabilities.includes("web_search")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + "max-lwss,";
           }
         }
       });
 
-      console.log("参数：", this.userInfoReq)
+      console.log("参数：", this.userInfoReq);
 
       //调用后端接口
-      this.jsonRpcReqest.method = "使用F8S"
-      this.jsonRpcReqest.params = this.userInfoReq
-      this.message(this.jsonRpcReqest)
+      this.jsonRpcReqest.method = "使用F8S";
+      this.jsonRpcReqest.params = this.userInfoReq;
+      this.message(this.jsonRpcReqest);
       this.userInfoReq.isNewChat = false;
     },
 
     message(data) {
-      message(data).then(res => {
+      message(data).then((res) => {
         if (res.code == 201) {
           uni.showToast({
             title: res.messages,
-            icon: 'none',
+            icon: "none",
             duration: 1500,
           });
         }
-      })
-
+      });
     },
     toggleCapability(ai, capabilityValue) {
       if (!ai.enabled) return;
 
       const index = ai.selectedCapabilities.indexOf(capabilityValue);
-      console.log('切换前:', ai.selectedCapabilities);
+      console.log("切换前:", ai.selectedCapabilities);
       if (index === -1) {
         // 如果不存在，则添加
-        this.$set(ai.selectedCapabilities, ai.selectedCapabilities.length, capabilityValue);
+        this.$set(
+          ai.selectedCapabilities,
+          ai.selectedCapabilities.length,
+          capabilityValue
+        );
       } else {
         // 如果已存在，则移除
         const newCapabilities = [...ai.selectedCapabilities];
         newCapabilities.splice(index, 1);
-        this.$set(ai, 'selectedCapabilities', newCapabilities);
+        this.$set(ai, "selectedCapabilities", newCapabilities);
       }
-      console.log('切换后:', ai.selectedCapabilities);
+      console.log("切换后:", ai.selectedCapabilities);
       this.$forceUpdate(); // 强制更新视图
     },
     getStatusText(status) {
       switch (status) {
-        case 'idle': return '等待中';
-        case 'running': return '正在执行';
-        case 'completed': return '已完成';
-        case 'failed': return '执行失败';
-        default: return '未知状态';
+        case "idle":
+          return "等待中";
+        case "running":
+          return "正在执行";
+        case "completed":
+          return "已完成";
+        case "failed":
+          return "执行失败";
+        default:
+          return "未知状态";
       }
     },
     getStatusIcon(status) {
       switch (status) {
-        case 'idle': return 'el-icon-time';
-        case 'running': return 'el-icon-loading';
-        case 'completed': return 'el-icon-check success-icon';
-        case 'failed': return 'el-icon-close error-icon';
-        default: return 'el-icon-question';
+        case "idle":
+          return "el-icon-time";
+        case "running":
+          return "el-icon-loading";
+        case "completed":
+          return "el-icon-check success-icon";
+        case "failed":
+          return "el-icon-close error-icon";
+        default:
+          return "el-icon-question";
       }
     },
     renderMarkdown(text) {
@@ -528,9 +775,9 @@ export default {
     },
     // HTML转纯文本
     htmlToText(html) {
-      const tempDiv = document.createElement('div');
+      const tempDiv = document.createElement("div");
       tempDiv.innerHTML = html;
-      return tempDiv.textContent || tempDiv.innerText || '';
+      return tempDiv.textContent || tempDiv.innerText || "";
     },
 
     // HTML转Markdown
@@ -541,32 +788,34 @@ export default {
     copyResult(content) {
       // 将HTML转换为纯文本
       const plainText = this.htmlToText(content);
-      const textarea = document.createElement('textarea');
+      const textarea = document.createElement("textarea");
       textarea.value = plainText;
       document.body.appendChild(textarea);
       textarea.select();
-      document.execCommand('copy');
+      document.execCommand("copy");
       document.body.removeChild(textarea);
-      this.$message.success('已复制纯文本到剪贴板');
+      this.$message.success("已复制纯文本到剪贴板");
     },
 
     exportResult(result) {
       // 将HTML转换为Markdown
       const markdown = result.content;
-      const blob = new Blob([markdown], { type: 'text/markdown' });
-      const link = document.createElement('a');
+      const blob = new Blob([markdown], { type: "text/markdown" });
+      const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `${result.aiName}_结果_${new Date().toISOString().slice(0, 10)}.md`;
+      link.download = `${result.aiName}_结果_${new Date()
+        .toISOString()
+        .slice(0, 10)}.md`;
       link.click();
       URL.revokeObjectURL(link.href);
-      this.$message.success('已导出Markdown文件');
+      this.$message.success("已导出Markdown文件");
     },
 
     openShareUrl(shareUrl) {
       if (shareUrl) {
-        window.open(shareUrl, '_blank');
+        window.open(shareUrl, "_blank");
       } else {
-        this.$message.warning('暂无原链接');
+        this.$message.warning("暂无原链接");
       }
     },
     showLargeImage(imageUrl) {
@@ -576,7 +825,7 @@ export default {
       const currentIndex = this.screenshots.indexOf(imageUrl);
       if (currentIndex !== -1) {
         this.$nextTick(() => {
-          const carousel = this.$el.querySelector('.image-dialog .el-carousel');
+          const carousel = this.$el.querySelector(".image-dialog .el-carousel");
           if (carousel && carousel.__vue__) {
             carousel.__vue__.setActiveItem(currentIndex);
           }
@@ -585,85 +834,88 @@ export default {
     },
     closeLargeImage() {
       this.showImageDialog = false;
-      this.currentLargeImage = '';
+      this.currentLargeImage = "";
     },
     // WebSocket 相关方法
     initWebSocket(id) {
       const wsUrl = process.env.VUE_APP_WS_API + `mypc-${id}`;
-      console.log('WebSocket URL:', process.env.VUE_APP_WS_API);
+      console.log("WebSocket URL:", process.env.VUE_APP_WS_API);
       websocketClient.connect(wsUrl, (event) => {
         switch (event.type) {
-          case 'open':
+          case "open":
             // this.$message.success('');
             break;
-          case 'message':
+          case "message":
             this.handleWebSocketMessage(event.data);
             break;
-          case 'close':
-            this.$message.warning('WebSocket连接已关闭');
+          case "close":
+            this.$message.warning("WebSocket连接已关闭");
             break;
-          case 'error':
-            this.$message.error('WebSocket连接错误');
+          case "error":
+            this.$message.error("WebSocket连接错误");
             break;
-          case 'reconnect_failed':
-            this.$message.error('WebSocket重连失败，请刷新页面重试');
+          case "reconnect_failed":
+            this.$message.error("WebSocket重连失败，请刷新页面重试");
             break;
         }
       });
     },
 
     handleWebSocketMessage(data) {
-
       const datastr = data;
       const dataObj = JSON.parse(datastr);
 
       // 处理chatId消息
-      if (dataObj.type === 'RETURN_YBT1_CHATID' && dataObj.chatId) {
+      if (dataObj.type === "RETURN_YBT1_CHATID" && dataObj.chatId) {
         this.userInfoReq.toneChatId = dataObj.chatId;
-      } else if (dataObj.type === 'RETURN_YBDS_CHATID' && dataObj.chatId) {
+      } else if (dataObj.type === "RETURN_YBDS_CHATID" && dataObj.chatId) {
         this.userInfoReq.ybDsChatId = dataObj.chatId;
-      } else if (dataObj.type === 'RETURN_DB_CHATID' && dataObj.chatId) {
+      } else if (dataObj.type === "RETURN_DB_CHATID" && dataObj.chatId) {
         this.userInfoReq.dbChatId = dataObj.chatId;
+      } else if (dataObj.type === "RETURN_MAX_CHATID" && dataObj.chatId) {
+        this.userInfoReq.maxChatId = dataObj.chatId;
       }
 
       // 处理进度日志消息
-      if (dataObj.type === 'RETURN_PC_TASK_LOG' && dataObj.aiName) {
-        const targetAI = this.enabledAIs.find(ai => ai.name === dataObj.aiName);
+      if (dataObj.type === "RETURN_PC_TASK_LOG" && dataObj.aiName) {
+        const targetAI = this.enabledAIs.find(
+          (ai) => ai.name === dataObj.aiName
+        );
         if (targetAI) {
           // 将新进度添加到数组开头
           targetAI.progressLogs.unshift({
             content: dataObj.content,
             timestamp: new Date(),
-            isCompleted: false
+            isCompleted: false,
           });
         }
         return;
       }
 
       // 处理截图消息
-      if (dataObj.type === 'RETURN_PC_TASK_IMG' && dataObj.url) {
+      if (dataObj.type === "RETURN_PC_TASK_IMG" && dataObj.url) {
         // 将新的截图添加到数组开头
         this.screenshots.unshift(dataObj.url);
         return;
       }
 
-              // 处理智能评分结果
-      if (dataObj.type === 'RETURN_WKPF_RES') {
-        const wkpfAI = this.enabledAIs.find(ai => ai.name === '智能评分');
+      // 处理智能评分结果
+      if (dataObj.type === "RETURN_WKPF_RES") {
+        const wkpfAI = this.enabledAIs.find((ai) => ai.name === "智能评分");
         if (wkpfAI) {
-          this.$set(wkpfAI, 'status', 'completed');
+          this.$set(wkpfAI, "status", "completed");
           if (wkpfAI.progressLogs.length > 0) {
-            this.$set(wkpfAI.progressLogs[0], 'isCompleted', true);
+            this.$set(wkpfAI.progressLogs[0], "isCompleted", true);
           }
           // 添加评分结果到results最前面
           this.results.unshift({
-            aiName: '智能评分',
+            aiName: "智能评分",
             content: dataObj.draftContent,
-            shareUrl: dataObj.shareUrl || '',
-            shareImgUrl: dataObj.shareImgUrl || '',
-            timestamp: new Date()
+            shareUrl: dataObj.shareUrl || "",
+            shareImgUrl: dataObj.shareImgUrl || "",
+            timestamp: new Date(),
           });
-          this.activeResultTab = 'result-0';
+          this.activeResultTab = "result-0";
 
           // 智能评分完成时，再次保存历史记录
           this.saveHistory();
@@ -672,12 +924,12 @@ export default {
       }
 
       // 处理智能排版结果
-      if (dataObj.type === 'RETURN_ZNPB_RES') {
-        const znpbAI = this.enabledAIs.find(ai => ai.name === '智能排版');
+      if (dataObj.type === "RETURN_ZNPB_RES") {
+        const znpbAI = this.enabledAIs.find((ai) => ai.name === "智能排版");
         if (znpbAI) {
-          this.$set(znpbAI, 'status', 'completed');
+          this.$set(znpbAI, "status", "completed");
           if (znpbAI.progressLogs.length > 0) {
-            this.$set(znpbAI.progressLogs[0], 'isCompleted', true);
+            this.$set(znpbAI.progressLogs[0], "isCompleted", true);
           }
 
           // 直接调用投递到公众号的方法，不添加到结果展示
@@ -692,50 +944,56 @@ export default {
       // 根据消息类型更新对应AI的状态和结果
       let targetAI = null;
       switch (dataObj.type) {
-        case 'RETURN_YBT1_RES':
-        case 'RETURN_TURBOS_RES':
-        case 'RETURN_TURBOS_LARGE_RES':
-        case 'RETURN_DEEPSEEK_RES':
-          console.log('收到DeepSeek消息:', dataObj);
-          targetAI = this.enabledAIs.find(ai => ai.name === 'DeepSeek');
+        case "RETURN_YBT1_RES":
+        case "RETURN_TURBOS_RES":
+        case "RETURN_TURBOS_LARGE_RES":
+        case "RETURN_DEEPSEEK_RES":
+          console.log("收到DeepSeek消息:", dataObj);
+          targetAI = this.enabledAIs.find((ai) => ai.name === "DeepSeek");
           break;
-        case 'RETURN_YBDS_RES':
-        case 'RETURN_DB_RES':
-          console.log('收到豆包消息:', dataObj);
-          targetAI = this.enabledAIs.find(ai => ai.name === '豆包');
+        case "RETURN_YBDS_RES":
+        case "RETURN_DB_RES":
+          console.log("收到豆包消息:", dataObj);
+          targetAI = this.enabledAIs.find((ai) => ai.name === "豆包");
+          break;
+        case "RETURN_MAX_RES":
+          console.log("收到MiniMax消息:", dataObj);
+          targetAI = this.enabledAIs.find((ai) => ai.name === "MiniMax Chat");
           break;
       }
 
       if (targetAI) {
         // 更新AI状态为已完成
-        this.$set(targetAI, 'status', 'completed');
+        this.$set(targetAI, "status", "completed");
 
         // 将最后一条进度消息标记为已完成
         if (targetAI.progressLogs.length > 0) {
-          this.$set(targetAI.progressLogs[0], 'isCompleted', true);
+          this.$set(targetAI.progressLogs[0], "isCompleted", true);
         }
 
         // 添加结果到数组开头
-        const resultIndex = this.results.findIndex(r => r.aiName === targetAI.name);
+        const resultIndex = this.results.findIndex(
+          (r) => r.aiName === targetAI.name
+        );
         if (resultIndex === -1) {
           this.results.unshift({
             aiName: targetAI.name,
             content: dataObj.draftContent,
-            shareUrl: dataObj.shareUrl || '',
-            shareImgUrl: dataObj.shareImgUrl || '',
-            timestamp: new Date()
+            shareUrl: dataObj.shareUrl || "",
+            shareImgUrl: dataObj.shareImgUrl || "",
+            timestamp: new Date(),
           });
-          this.activeResultTab = 'result-0';
+          this.activeResultTab = "result-0";
         } else {
           this.results.splice(resultIndex, 1);
           this.results.unshift({
             aiName: targetAI.name,
             content: dataObj.draftContent,
-            shareUrl: dataObj.shareUrl || '',
-            shareImgUrl: dataObj.shareImgUrl || '',
-            timestamp: new Date()
+            shareUrl: dataObj.shareUrl || "",
+            shareImgUrl: dataObj.shareImgUrl || "",
+            timestamp: new Date(),
           });
-          this.activeResultTab = 'result-0';
+          this.activeResultTab = "result-0";
         }
         this.saveHistory();
       }
@@ -761,20 +1019,20 @@ export default {
           this.scrollToBottom();
         });
       } else {
-        this.$message.error('WebSocket未连接');
+        this.$message.error("WebSocket未连接");
       }
     },
     toggleAIExpansion(ai) {
-      this.$set(ai, 'isExpanded', !ai.isExpanded);
+      this.$set(ai, "isExpanded", !ai.isExpanded);
     },
 
     formatTime(timestamp) {
       const date = new Date(timestamp);
-      return date.toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
+      return date.toLocaleTimeString("zh-CN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
       });
     },
     showScoreDialog() {
@@ -787,57 +1045,59 @@ export default {
 
       // 获取选中的结果内容并按照指定格式拼接
       const selectedContents = this.results
-        .filter(result => this.selectedResults.includes(result.aiName))
-        .map(result => {
+        .filter((result) => this.selectedResults.includes(result.aiName))
+        .map((result) => {
           // 将HTML内容转换为纯文本
           const plainContent = this.htmlToText(result.content);
           return `${result.aiName}初稿：\n${plainContent}\n`;
         })
-        .join('\n');
+        .join("\n");
 
       // 构建完整的评分提示内容
       const fullPrompt = `${this.scorePrompt}\n${selectedContents}`;
 
       // 构建评分请求
       const scoreRequest = {
-        jsonrpc: '2.0',
+        jsonrpc: "2.0",
         id: uuidv4(),
-        method: 'AI评分',
+        method: "AI评分",
         params: {
           taskId: uuidv4(),
           userId: this.userId,
           corpId: this.corpId,
           userPrompt: fullPrompt,
-          roles: 'zj-db-sdsk' // 默认使用豆包进行评分
-        }
+          roles: "zj-db-sdsk", // 默认使用豆包进行评分
+        },
       };
 
       // 发送评分请求
-      console.log("参数", scoreRequest)
+      console.log("参数", scoreRequest);
       this.message(scoreRequest);
       this.scoreDialogVisible = false;
 
       // 创建智能评分AI节点
       const wkpfAI = {
-        name: '智能评分',
-        avatar: require('../../../assets/ai/yuanbao.png'),
+        name: "智能评分",
+        avatar: require("../../../assets/ai/yuanbao.png"),
         capabilities: [],
         selectedCapabilities: [],
         enabled: true,
-        status: 'running',
+        status: "running",
         progressLogs: [
           {
-            content: '智能评分任务已提交，正在评分...',
+            content: "智能评分任务已提交，正在评分...",
             timestamp: new Date(),
             isCompleted: false,
-            type: '智能评分'
-          }
+            type: "智能评分",
+          },
         ],
-        isExpanded: true
+        isExpanded: true,
       };
 
       // 检查是否已存在智能评分
-      const existIndex = this.enabledAIs.findIndex(ai => ai.name === '智能评分');
+      const existIndex = this.enabledAIs.findIndex(
+        (ai) => ai.name === "智能评分"
+      );
       if (existIndex === -1) {
         // 如果不存在，添加到数组开头
         this.enabledAIs.unshift(wkpfAI);
@@ -850,7 +1110,7 @@ export default {
       }
 
       this.$forceUpdate();
-      this.$message.success('评分请求已发送，请等待结果');
+      this.$message.success("评分请求已发送，请等待结果");
     },
     // 显示历史记录抽屉
     showHistoryDrawer() {
@@ -871,18 +1131,18 @@ export default {
           this.chatHistory = res.data || [];
         }
       } catch (error) {
-        console.error('加载历史记录失败:', error);
-        this.$message.error('加载历史记录失败');
+        console.error("加载历史记录失败:", error);
+        this.$message.error("加载历史记录失败");
       }
     },
 
     // 格式化历史记录时间
     formatHistoryTime(timestamp) {
       const date = new Date(timestamp);
-      return date.toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
+      return date.toLocaleTimeString("zh-CN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
       });
     },
 
@@ -898,18 +1158,18 @@ export default {
       threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
 
       if (date.toDateString() === today.toDateString()) {
-        return '今天';
+        return "今天";
       } else if (date.toDateString() === yesterday.toDateString()) {
-        return '昨天';
+        return "昨天";
       } else if (date.toDateString() === twoDaysAgo.toDateString()) {
-        return '两天前';
+        return "两天前";
       } else if (date.toDateString() === threeDaysAgo.toDateString()) {
-        return '三天前';
+        return "三天前";
       } else {
-        return date.toLocaleDateString('zh-CN', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
+        return date.toLocaleDateString("zh-CN", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
         });
       }
     },
@@ -921,7 +1181,7 @@ export default {
         // 恢复AI选择配置
         this.aiList = historyData.aiList || this.aiList;
         // 恢复提示词输入
-        this.promptInput = historyData.promptInput || '';
+        this.promptInput = historyData.promptInput || "";
         // 恢复任务流程
         this.enabledAIs = historyData.enabledAIs || [];
         // 恢复主机可视化
@@ -930,20 +1190,21 @@ export default {
         this.results = historyData.results || [];
         // 恢复chatId
         this.chatId = item.chatId || this.chatId;
-        this.userInfoReq.toneChatId = item.toneChatId || '';
-        this.userInfoReq.ybDsChatId = item.ybDsChatId || '';
-        this.userInfoReq.dbChatId = item.dbChatId || '';
+        this.userInfoReq.toneChatId = item.toneChatId || "";
+        this.userInfoReq.ybDsChatId = item.ybDsChatId || "";
+        this.userInfoReq.dbChatId = item.dbChatId || "";
+        this.userInfoReq.maxChatId = item.maxChatId || "";
         this.userInfoReq.isNewChat = false;
 
         // 展开相关区域
-        this.activeCollapses = ['ai-selection', 'prompt-input'];
+        this.activeCollapses = ["ai-selection", "prompt-input"];
         this.taskStarted = true;
 
-        this.$message.success('历史记录加载成功');
+        this.$message.success("历史记录加载成功");
         this.historyDrawerVisible = false;
       } catch (error) {
-        console.error('加载历史记录失败:', error);
-        this.$message.error('加载历史记录失败');
+        console.error("加载历史记录失败:", error);
+        this.$message.error("加载历史记录失败");
       }
     },
 
@@ -962,7 +1223,8 @@ export default {
         chatId: this.chatId,
         toneChatId: this.userInfoReq.toneChatId,
         ybDsChatId: this.userInfoReq.ybDsChatId,
-        dbChatId: this.userInfoReq.dbChatId
+        dbChatId: this.userInfoReq.dbChatId,
+        maxChatId: this.userInfoReq.maxChatId,
       };
 
       try {
@@ -973,17 +1235,22 @@ export default {
           chatId: this.chatId,
           toneChatId: this.userInfoReq.toneChatId,
           ybDsChatId: this.userInfoReq.ybDsChatId,
-          dbChatId: this.userInfoReq.dbChatId
+          dbChatId: this.userInfoReq.dbChatId,
+          maxChatId: this.userInfoReq.maxChatId,
         });
       } catch (error) {
-        console.error('保存历史记录失败:', error);
-        this.$message.error('保存历史记录失败');
+        console.error("保存历史记录失败:", error);
+        this.$message.error("保存历史记录失败");
       }
     },
 
     // 修改折叠切换方法
     toggleHistoryExpansion(item) {
-      this.$set(this.expandedHistoryItems, item.chatId, !this.expandedHistoryItems[item.chatId]);
+      this.$set(
+        this.expandedHistoryItems,
+        item.chatId,
+        !this.expandedHistoryItems[item.chatId]
+      );
     },
 
     // 创建新对话
@@ -991,96 +1258,116 @@ export default {
       // 重置所有数据
       this.chatId = uuidv4();
       this.isNewChat = true;
-      this.promptInput = '';
+      this.promptInput = "";
       this.taskStarted = false;
       this.screenshots = [];
       this.results = [];
       this.enabledAIs = [];
       this.userInfoReq = {
-        userPrompt: '',
+        userPrompt: "",
         userId: this.userId,
         corpId: this.corpId,
-        taskId: '',
-        roles: '',
-        toneChatId: '',
-        ybDsChatId: '',
-        dbChatId: '',
-        isNewChat: true
+        taskId: "",
+        roles: "",
+        toneChatId: "",
+        ybDsChatId: "",
+        dbChatId: "",
+        maxChatId: "",
+        isNewChat: true,
       };
       // 重置AI列表为初始状态
       this.aiList = [
         {
-          name: 'DeepSeek',
-          avatar: require('../../../assets/logo/Deepseek.png'),
+          name: "DeepSeek",
+          avatar: require("../../../assets/logo/Deepseek.png"),
           capabilities: [
-            { label: '深度思考', value: 'deep_thinking' },
-            { label: '联网搜索', value: 'web_search' }
+            { label: "深度思考", value: "deep_thinking" },
+            { label: "联网搜索", value: "web_search" },
           ],
-          selectedCapabilities: ['deep_thinking', 'web_search'],
+          selectedCapabilities: ["deep_thinking", "web_search"],
           enabled: true,
-          status: 'idle',
+          status: "idle",
           progressLogs: [],
-          isExpanded: true
+          isExpanded: true,
         },
         {
-          name: '豆包',
-          avatar: require('../../../assets/ai/豆包.png'),
-          capabilities: [
-            { label: '深度思考', value: 'deep_thinking' }
-          ],
-          selectedCapabilities: ['deep_thinking'],
+          name: "豆包",
+          avatar: require("../../../assets/ai/豆包.png"),
+          capabilities: [{ label: "深度思考", value: "deep_thinking" }],
+          selectedCapabilities: ["deep_thinking"],
           enabled: true,
-          status: 'idle',
+          status: "idle",
           progressLogs: [],
-          isExpanded: true
-        }
+          isExpanded: true,
+        },
+        {
+          name: "MiniMax Chat",
+          avatar: require("../../../assets/ai/MiniMax.png"),
+          capabilities: [
+            { label: "深度思考", value: "deep_thinking" },
+            { label: "联网", value: "web_search" },
+          ],
+          selectedCapabilities: ["deep_thinking", "web_search"],
+          enabled: true,
+          status: "idle",
+          progressLogs: [],
+          isExpanded: true,
+        },
       ];
       // 展开相关区域
-      this.activeCollapses = ['ai-selection', 'prompt-input'];
+      this.activeCollapses = ["ai-selection", "prompt-input"];
 
-      this.$message.success('已创建新对话');
+      this.$message.success("已创建新对话");
     },
 
     // 加载上次会话
     async loadLastChat() {
       try {
-        const res = await getChatHistory(this.userId,0);
+        const res = await getChatHistory(this.userId, 0);
         if (res.code === 200 && res.data && res.data.length > 0) {
           // 获取最新的会话记录
           const lastChat = res.data[0];
           this.loadHistoryItem(lastChat);
         }
       } catch (error) {
-        console.error('加载上次会话失败:', error);
+        console.error("加载上次会话失败:", error);
       }
     },
 
     // 判断是否为图片文件
     isImageFile(url) {
       if (!url) return false;
-      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+      const imageExtensions = [
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".bmp",
+        ".webp",
+        ".svg",
+      ];
       const urlLower = url.toLowerCase();
-      return imageExtensions.some(ext => urlLower.includes(ext));
+      return imageExtensions.some((ext) => urlLower.includes(ext));
     },
 
     // 判断是否为PDF文件
     isPdfFile(url) {
       if (!url) return false;
-      return url.toLowerCase().includes('.pdf');
+      return url.toLowerCase().includes(".pdf");
     },
 
     // 根据AI名称获取图片样式
     getImageStyle(aiName) {
       const widthMap = {
-        'DeepSeek': '700px',
-        '豆包': '560px'
+        DeepSeek: "700px",
+        豆包: "560px",
       };
 
-      const width = widthMap[aiName] || '560px'; // 默认宽度
+      const width = widthMap[aiName] || "560px"; // 默认宽度
 
       return {
         width: width,
-        height: 'auto'
+        height: "auto",
       };
     },
 
@@ -1092,14 +1379,16 @@ export default {
     // 显示智能排版对话框
     showLayoutDialog(result) {
       this.currentLayoutResult = result;
-      this.layoutPrompt = `请你对以下 HTML 内容进行排版优化，目标是用于微信公众号"草稿箱接口"的 content 字段，要求如下：
+      this.layoutPrompt =
+        `请你对以下 HTML 内容进行排版优化，目标是用于微信公众号"草稿箱接口"的 content 字段，要求如下：
 
 1. 仅返回 <body> 内部可用的 HTML 内容片段（不要包含 <!DOCTYPE>、<html>、<head>、<meta>、<title> 等标签）。
 2. 所有样式必须以"内联 style"方式写入。
 3. 保持结构清晰、视觉友好，适配公众号图文排版。
 4. 请直接输出代码，不要添加任何注释或额外说明。
 5. 不得使用 emoji 表情符号或小图标字符。
-6. 不要显示为问答形式，以一篇文章的格式去调整 \n\n以下为需要进行排版优化的内容：\n`+ result.content ;
+6. 不要显示为问答形式，以一篇文章的格式去调整 \n\n以下为需要进行排版优化的内容：\n` +
+        result.content;
       this.layoutDialogVisible = true;
     },
 
@@ -1109,44 +1398,46 @@ export default {
 
       // 构建排版请求
       const layoutRequest = {
-        jsonrpc: '2.0',
+        jsonrpc: "2.0",
         id: uuidv4(),
-        method: 'AI排版',
+        method: "AI排版",
         params: {
           taskId: uuidv4(),
           userId: this.userId,
           corpId: this.corpId,
           userPrompt: this.layoutPrompt,
-          roles: '' // 默认使用豆包进行排版
-        }
+          roles: "", // 默认使用豆包进行排版
+        },
       };
 
       // 发送排版请求
-      console.log("排版参数", layoutRequest)
+      console.log("排版参数", layoutRequest);
       this.message(layoutRequest);
       this.layoutDialogVisible = false;
 
       // 创建智能排版AI节点
       const znpbAI = {
-        name: '智能排版',
-        avatar: require('../../../assets/ai/yuanbao.png'),
+        name: "智能排版",
+        avatar: require("../../../assets/ai/yuanbao.png"),
         capabilities: [],
         selectedCapabilities: [],
         enabled: true,
-        status: 'running',
+        status: "running",
         progressLogs: [
           {
-            content: '智能排版任务已提交，正在排版...',
+            content: "智能排版任务已提交，正在排版...",
             timestamp: new Date(),
             isCompleted: false,
-            type: '智能排版'
-          }
+            type: "智能排版",
+          },
         ],
-        isExpanded: true
+        isExpanded: true,
       };
 
       // 检查是否已存在智能排版
-      const existIndex = this.enabledAIs.findIndex(ai => ai.name === '智能排版');
+      const existIndex = this.enabledAIs.findIndex(
+        (ai) => ai.name === "智能排版"
+      );
       if (existIndex === -1) {
         // 如果不存在，添加到数组开头
         this.enabledAIs.unshift(znpbAI);
@@ -1159,13 +1450,13 @@ export default {
       }
 
       this.$forceUpdate();
-      this.$message.success('排版请求已发送，请等待结果');
+      this.$message.success("排版请求已发送，请等待结果");
     },
 
     // 实际投递到公众号
     pushToWechatWithContent(contentText) {
       if (this.pushingToWechat) return;
-      this.$message.success('开始投递公众号！');
+      this.$message.success("开始投递公众号！");
       this.pushingToWechat = true;
       this.pushOfficeNum += 1;
 
@@ -1174,25 +1465,26 @@ export default {
         shareUrl: this.currentLayoutResult.shareUrl,
         userId: this.userId,
         num: this.pushOfficeNum,
-        aiName: this.currentLayoutResult.aiName
+        aiName: this.currentLayoutResult.aiName,
       };
 
-      pushAutoOffice(params).then(res => {
-        if (res.code === 200) {
-          this.$message.success('投递到公众号成功！');
-        } else {
-          this.$message.error(res.msg || '投递失败，请重试');
-        }
-      }).catch(error => {
-        console.error('投递到公众号失败:', error);
-        this.$message.error('投递失败，请重试');
-      }).finally(() => {
-        this.pushingToWechat = false;
-      });
+      pushAutoOffice(params)
+        .then((res) => {
+          if (res.code === 200) {
+            this.$message.success("投递到公众号成功！");
+          } else {
+            this.$message.error(res.msg || "投递失败，请重试");
+          }
+        })
+        .catch((error) => {
+          console.error("投递到公众号失败:", error);
+          this.$message.error("投递失败，请重试");
+        })
+        .finally(() => {
+          this.pushingToWechat = false;
+        });
     },
-
-
-  }
+  },
 };
 </script>
 
@@ -1317,7 +1609,7 @@ export default {
 .button-capability-group .el-button.is-plain:focus {
   background: #ecf5ff;
   border-color: #b3d8ff;
-  color: #409EFF;
+  color: #409eff;
 }
 
 .prompt-input-section {
@@ -1349,10 +1641,11 @@ export default {
 
 .execution-status-section {
   margin-bottom: 30px;
-  padding:20px 0px 0px 0px;
+  padding: 20px 0px 0px 0px;
 }
 
-.task-flow-card, .screenshots-card {
+.task-flow-card,
+.screenshots-card {
   height: 800px;
 }
 
@@ -1596,7 +1889,8 @@ export default {
   align-items: center;
 }
 
-.share-link-btn, .push-wechat-btn {
+.share-link-btn,
+.push-wechat-btn {
   border-radius: 16px;
   padding: 6px 12px;
 }
@@ -1640,8 +1934,6 @@ export default {
   border-top: none;
   border-bottom: none;
 }
-
-
 
 .el-collapse-item__content {
   padding: 15px 0;
@@ -1881,8 +2173,8 @@ export default {
 }
 
 .capability-button.el-button--primary {
-  background-color: #409EFF;
-  border-color: #409EFF;
+  background-color: #409eff;
+  border-color: #409eff;
   color: #fff;
 }
 
@@ -1893,7 +2185,7 @@ export default {
 }
 
 .capability-button.el-button--info:hover {
-  color: #409EFF;
+  color: #409eff;
   border-color: #c6e2ff;
   background-color: #ecf5ff;
 }
@@ -1969,7 +2261,7 @@ export default {
   margin: 0 auto;
   background-color: #fff;
   border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   padding: 20px;
   font-family: Arial, sans-serif;
 }

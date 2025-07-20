@@ -34,6 +34,9 @@ public class UserInfoRequest {
     @Schema(description = "YB DeepSeek 智能体的聊天会话 ID", example = "ds_chat_002")
     private String ybDsChatId;
 
+    @Schema(description = "MiniMax的聊天会话 ID", example = "mini_chat_003")
+    private String maxChatId;
+
     @Schema(description = "数据库大模型（如 ZJ-DB）的聊天会话 ID", example = "db_chat_003")
     private String dbChatId;
 
