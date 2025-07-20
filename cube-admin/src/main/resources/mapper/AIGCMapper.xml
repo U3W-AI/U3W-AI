@@ -317,11 +317,11 @@ from wc_chrome_hotlink wck left join sys_user u on wck.user_name = u.user_name
 
     <insert id="saveUserChatData" parameterType="java.util.Map">
        delete from wc_chat_history where userPrompt = #{userPrompt};
-        insert into wc_chat_history values (uuid(),#{userId},#{userPrompt},#{data},now(),#{toneChatId},#{ybDsChatId},#{dbChatId},#{chatId});
+        insert into wc_chat_history values (uuid(),#{userId},#{userPrompt},#{data},now(),#{toneChatId},#{ybDsChatId},#{dbChatId},#{chatId},#{maxChatId});
     </insert>
 
     <select id="getChatHistory" parameterType="java.lang.String" resultType="java.util.Map">
-        select userPrompt,data,DATE_FORMAT(create_time, '%Y-%c-%d %H:%i:%s') createTime,chat_id chatId,tone_chat_id toneChatId,ybds_chat_id ybDsChatId,db_chat_id dbChatId
+        select userPrompt,data,DATE_FORMAT(create_time, '%Y-%c-%d %H:%i:%s') createTime,chat_id chatId,tone_chat_id toneChatId,ybds_chat_id ybDsChatId,db_chat_id dbChatId,max_chat_id maxChatId
    from wc_chat_history where user_id =#{userId} order by create_time desc
         <if test="isAll == 0">
             limit 1

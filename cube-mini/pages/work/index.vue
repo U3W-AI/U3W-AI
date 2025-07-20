@@ -709,7 +709,7 @@
 			this.isConnecting = true;
 
 			// 使用PC端的WebSocket连接方式
-			const wsUrl = `${process.env.VUE_APP_WS_API || 'wss://zpy.meooota.com/cubeServer/websocket?clientId='}mypc-${this.userId}`;
+			const wsUrl = `${process.env.VUE_APP_WS_API || 'wss://u3w.com/cubeServer/websocket?clientId='}mypc-${this.userId}`;
 			// const wsUrl = `${process.env.VUE_APP_WS_API || 'ws://127.0.0.1:8081/websocket?clientId='}mypc-${this.userId}`;
 			console.log('WebSocket URL:', wsUrl);
 

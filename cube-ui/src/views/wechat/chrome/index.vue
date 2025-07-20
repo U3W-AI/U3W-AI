@@ -545,7 +545,7 @@ export default {
         },
         {
           name: "MiniMax Chat",
-          avatar: require("../../../assets/ai/MiniMax .png"),
+          avatar: require("../../../assets/ai/MiniMax.png"),
           capabilities: [
             { label: "深度思考", value: "deep_thinking" },
             { label: "联网搜索", value: "web_search" },
@@ -1302,7 +1302,7 @@ export default {
         },
         {
           name: "MiniMax Chat",
-          avatar: require("../../../assets/ai/MiniMax .png"),
+          avatar: require("../../../assets/ai/MiniMax.png"),
           capabilities: [
             { label: "深度思考", value: "deep_thinking" },
             { label: "联网", value: "web_search" },

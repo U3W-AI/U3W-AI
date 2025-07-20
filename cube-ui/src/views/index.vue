@@ -654,7 +654,7 @@ export default {
       const icons = {
         doubao: require("@/assets/logo/doubao.png"),
         deepseek: require("@/assets/logo/Deepseek.png"),
-        minimax: require("@/assets/logo/MiniMax .png"),
+        minimax: require("@/assets/logo/MiniMax.png"),
       };
       return icons[type] || "";
     },
