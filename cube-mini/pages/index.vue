@@ -85,6 +85,14 @@
 						title: 'DeepSeek',
 						description: 'DeepSeek原生AI助手，擅长深度思考和联网搜索',
 						type: 'doubao'
+					},
+					{
+						name: 'MiniMax Chat',
+						avatar: 'https://yzg.meooota.com/profile/MiniMax%20Chat.png',
+						icon: 'https://yzg.meooota.com/profile/MiniMax%20Chat.png',
+						title: 'MiniMax Chat',
+						description: 'MiniMax ChatAI助手，提供专业、严谨的解答。',
+						type: 'mini'
 					}
 				],
 				advantages: [

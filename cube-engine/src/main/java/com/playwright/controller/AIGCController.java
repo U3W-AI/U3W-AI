@@ -69,6 +69,10 @@ public class AIGCController {
     @Autowired
     private DouBaoUtil douBaoUtil;
 
+    // MiniMax相关操作工具类
+    @Autowired
+    private MiniMaxUtil miniMaxUtil;
+
     @Autowired
     private QwenUtil qwenUtil;
 
@@ -134,6 +138,12 @@ public class AIGCController {
                   String agentUrl = "https://yuanbao.tencent.com/chat/7kNJBgAgQFet/";
                   wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"MiniMax@元器",userId,isNewChat);
               }
+              if(roles.contains("mini-max-agent")){
+                  logInfo.sendTaskLog( "MiniMax Chat准备就绪，正在打开页面",userId,"MiniMax Chat");
+                  pages[2] = context.newPage();
+                  String agentUrl = "https://chat.minimaxi.com/";
+                  wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"MiniMax Chat",userId,isNewChat);
+              }
               if(roles.contains("cube-sogou-agent")){
                   logInfo.sendTaskLog( "搜狗搜索@元器准备就绪，正在打开页面",userId,"搜狗搜索@元器");
                   pages[3] = context.newPage();
@@ -156,6 +166,9 @@ public class AIGCController {
               }
               if(roles.contains("cube-mini-max-agent")){
                   copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"cube-mini-max-agent",userId,wrightCopyCount,"MiniMax@元器","RETURN_MINI_MAX_RES");
+              }
+              if(roles.contains("mini-max-agent")){
+                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"mini-max-agent",userId,wrightCopyCount,"MiniMax Chat","RETURN_MINI_MAX_RES");
               }
               if(roles.contains("cube-sogou-agent")){
                   copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[3],userInfoRequest,"cube-sogou-agent",userId,wrightCopyCount,"搜狗搜索@元器","RETURN_SOGOU_RES");
@@ -259,6 +272,231 @@ public class AIGCController {
         return "获取内容失败";
     }
 
+    /**
+     * 处理MiniMax的常规请求
+     * @param userInfoRequest 包含会话ID和用户指令
+     * @return AI生成的文本内容
+     */
+    @Operation(summary = "启动MiniMaxAI生成", description = "调用MiniMax平台生成内容并抓取结果")
+    @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
+    @PostMapping("/startMiniMax")
+    public String startMiniMax(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest){
+        try (
+                BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"MiniMax Chat")) {
+
+            // 初始化变量
+            String userId = userInfoRequest.getUserId();
+            String maxChatId = userInfoRequest.getMaxChatId();
+            logInfo.sendTaskLog( "MiniMax准备就绪，正在打开页面",userId,"MiniMax Chat");
+            // 获取是否开启深度思考和联网搜索
+            String roles = userInfoRequest.getRoles();
+            String userPrompt = userInfoRequest.getUserPrompt();
+
+            // 初始化页面并导航到指定会话
+            Page page = context.newPage();
+            if(maxChatId != null && !maxChatId.isEmpty()){
+                page.navigate("https://chat.minimaxi.com/?type=chat&chatID="+maxChatId);
+            }else {
+                page.navigate("https://chat.minimaxi.com/");
+            }
+            page.waitForLoadState(LoadState.LOAD);
+            // 去除弹窗
+            Locator elements = page.locator(".md\\:hover\\:bg-col_text05.text-col_text02.md\\:text-col_text03.z-50.flex.h-\\[30px\\].w-\\[30px\\].cursor-pointer.items-center.justify-center.rounded");
+
+            if (elements.count() > 0) {
+                elements.first().click();
+            }
+
+
+            page.waitForTimeout(2000);
+            Locator aside = page.locator("aside.shadow-s1");
+            System.out.println("元素"+aside.evaluate("e => e.outerHTML"));
+            if (aside.count() > 0) {
+                aside.first().evaluate("el => el.remove()");
+            }
+
+
+            logInfo.sendTaskLog( "MiniMax页面打开完成",userId,"MiniMax Chat");
+            // 定位深度思考按钮
+            String deepThinkPath= maxChatId != null && !maxChatId.isEmpty()?
+                    "xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/div[3]/div[2]/div/div[2]/div[1]/div[2]":
+                    "xpath=/html/body/section/div/div/section/div/div[1]/div/div/div/div/div/div[3]/div[2]/div/div[2]/div[1]/div[2]";
+            Locator deepThoughtButton = page.locator(deepThinkPath);
+            // 判断深度思考按钮是否已点击（默认打开时，深度思考和联网都已经打开）
+            boolean isActiveForSK = (Boolean) deepThoughtButton.evaluate("element => {\n" +
+                    "    return element.classList.contains('bg-col_brand00/[0.06]') && \n" +
+                    "element.classList.contains('text-col_brand00') && "+
+                    "element.classList.contains('border-col_brand00/[0.16]');"+
+                    "}");
+
+            // 定位联网搜索按钮
+            String internetPath= maxChatId != null && !maxChatId.isEmpty()?
+                    "xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/div[3]/div[2]/div/div[2]/div[1]/div[1]":
+                    "xpath=/html/body/section/div/div/section/div/div[1]/div/div/div/div/div/div[3]/div[2]/div/div[2]/div[1]/div[1]";
+            Locator internetThoughtButton = page.locator(internetPath);
+            boolean isActiveForLW = (Boolean) internetThoughtButton.evaluate("element => {\n" +
+                    "    return element.classList.contains('bg-col_brand00/[0.06]') &&  \n" +
+                    "element.classList.contains('text-col_brand00') &&  "+
+                    "element.classList.contains('border-col_brand00/[0.16]');"+
+                    "}");
+            // 开启深度思考
+            if (isActiveForSK  && roles.contains("max-sdsk")) {
+                Thread.sleep(1000);
+                // 再次检查按钮状态
+                isActiveForSK = (Boolean) deepThoughtButton.evaluate("element => {\n" +
+                        "    return element.classList.contains('bg-col_brand00/[0.06]') && \n" +
+                        "element.classList.contains('text-col_brand00') && "+
+                        "element.classList.contains('border-col_brand00/[0.16]');"+
+                        "}");
+                // 如果未开启则点击
+                if (!isActiveForSK) {
+                    deepThoughtButton.click();
+                    Thread.sleep(1000);
+                }
+                logInfo.sendTaskLog( "已启动深度思考模式",userId,"MiniMax Chat");
+            }else{
+                // 未开启深度思考模式
+                // 未开启需要点击深度思考按钮来关闭深度思考
+                deepThoughtButton.click();
+            }
+            // 开启联网
+            if (isActiveForLW  && roles.contains("max-lwss")) {
+                Thread.sleep(1000);
+                // 再次检查按钮状态
+                isActiveForLW = (Boolean) internetThoughtButton.evaluate("element => {\n" +
+                        "    return element.classList.contains('bg-col_brand00/[0.06]') && \n" +
+                        "element.classList.contains('text-col_brand00') && "+
+                        "element.classList.contains('border-col_brand00/[0.16]');"+
+                        "}");
+                // 如果未开启则点击
+                if (!isActiveForLW) {
+                    internetThoughtButton.click();
+                    Thread.sleep(1000);
+                }
+                logInfo.sendTaskLog( "已启动联网模式",userId,"MiniMax Chat");
+            }else{
+                // 未开启联网搜索模式
+                // 未开启需要点击搜索按钮关闭搜索
+                internetThoughtButton.click();
+            }
+
+            Locator aside1 = page.locator("aside.shadow-s1");
+            if (aside1.count() > 0) {
+                aside1.first().evaluate("el => el.remove()");
+                System.out.println("已清除aside浮窗");
+            }
+
+
+            // 获取输入框并输入内容
+            Thread.sleep(1000);
+            page.locator("//*[@id=\"chat-input\"]").nth(1).click();
+            Thread.sleep(1000);
+            page.locator("//*[@id=\"chat-input\"]").nth(1).fill(userPrompt);
+            logInfo.sendTaskLog( "用户指令已自动输入完成",userId,"MiniMax Chat");
+            Thread.sleep(1000);
+            page.locator("//*[@id=\"chat-input\"]").nth(1).press("Enter");
+            logInfo.sendTaskLog("指令已自动发送成功", userId, "MiniMax Chat");
+
+
+            // 创建定时截图线程
+            AtomicInteger i = new AtomicInteger(0);
+            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            // 启动定时任务，每5秒执行一次截图
+            ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+                try {
+                    int currentCount = i.getAndIncrement(); // 获取当前值并自增
+                    logInfo.sendImgData(page, userId + "MiniMax执行过程截图"+currentCount, userId);
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }, 0, 8, TimeUnit.SECONDS);
+
+            logInfo.sendTaskLog( "开启自动监听任务，持续监听MiniMax回答中",userId,"MiniMax Chat");
+            //等待html片段获取完成
+            String copiedText =  miniMaxUtil.waitMiniMaxHtmlDom(page,userId,"MiniMax Chat");
+            //关闭截图
+            screenshotFuture.cancel(false);
+            screenshotExecutor.shutdown();
+
+
+            AtomicReference<String> shareUrlRef = new AtomicReference<>();
+
+            clipboardLockManager.runWithClipboardLock(() -> {
+                try {
+                    // 点击分享链接按钮
+                    page.locator(
+                            "(//div[contains(@class,'system-operation-box')])[last()]//div[" +
+                                    "contains(@class,'md:hover:bg-col_bg03') and " +
+                                    "contains(@class,'flex') and " +
+                                    "contains(@class,'h-7') and " +
+                                    "contains(@class,'w-7') and " +
+                                    "contains(@class,'cursor-pointer') and " +
+                                    "contains(@class,'items-center') and " +
+                                    "contains(@class,'justify-center') and " +
+                                    "contains(@class,'rounded-[8px]')" +
+                                    "][3]"
+                    ).click();
+                    // 等待加载
+                    Thread.sleep(1000);
+                    page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[1]/span[1]").click();
+                    // 点击复制链接
+                    page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[2]/div[2]").click();
+                    // 建议适当延迟等待内容更新
+                    Thread.sleep(1000);
+                    String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
+                    shareUrlRef.set(shareUrl);
+                    System.out.println("剪贴板内容：" + shareUrl);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+
+            Thread.sleep(1000);
+            String shareUrl = shareUrlRef.get();
+            String sharImgUrl = "";
+            // 点击分享按钮
+            page.locator(
+                    "(//div[contains(@class,'system-operation-box')])[last()]//div[" +
+                            "contains(@class,'md:hover:bg-col_bg03') and " +
+                            "contains(@class,'flex') and " +
+                            "contains(@class,'h-7') and " +
+                            "contains(@class,'w-7') and " +
+                            "contains(@class,'cursor-pointer') and " +
+                            "contains(@class,'items-center') and " +
+                            "contains(@class,'justify-center') and " +
+                            "contains(@class,'rounded-[8px]')" +
+                            "][3]"
+            ).click();
+            Thread.sleep(1000);
+            page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[1]/span[1]").click();
+
+            Thread.sleep(1000);
+            // 点击生成分享图
+            page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[2]/div[1]").click();
+            Thread.sleep(3000);
+            // 点击下载按钮
+            sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
+                page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/div[1]/div[2]/div/div[2]").click();
+            });
+
+            logInfo.sendTaskLog( "执行完成",userId,"MiniMax Chat");
+            logInfo.sendChatData(page,"chatID=([0-9]+)",userId,"RETURN_MAX_CHATID",1);
+            logInfo.sendResData(copiedText,userId,"MiniMax Chat","RETURN_MAX_RES",shareUrl,sharImgUrl);
+
+            //保存数据库
+            userInfoRequest.setDraftContent(copiedText);
+            userInfoRequest.setAiName("MiniMax Chat");
+            userInfoRequest.setShareUrl(shareUrl);
+            userInfoRequest.setShareImgUrl(sharImgUrl);
+            RestUtils.post(url+"/saveDraftContent", userInfoRequest);
+            return copiedText;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "获取内容失败";
+    }
 
     /**
      * 处理豆包的常规请求

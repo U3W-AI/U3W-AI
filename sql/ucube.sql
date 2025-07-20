@@ -1523,6 +1523,7 @@ CREATE TABLE `wc_chat_history` (
   `tone_chat_id` varchar(100) DEFAULT NULL COMMENT '元宝T1会话ID',
   `ybds_chat_id` varchar(100) DEFAULT NULL COMMENT '元宝DS会话ID',
   `db_chat_id` varchar(100) DEFAULT NULL COMMENT '豆包会话ID',
+  `max_chat_id` varchar(100) DEFAULT NULL COMMENT 'MiniMax会话ID',
   `chat_id` varchar(36) DEFAULT NULL COMMENT '内部chatID'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

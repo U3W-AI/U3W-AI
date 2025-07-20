@@ -427,15 +427,18 @@
 				// AI登录状态
 				aiLoginStatus: {
 					doubao: false,
-          deepseek: false // DeepSeek初始为未登录状态
+          deepseek: false, // DeepSeek初始为未登录状态
+		          mini: false,
 				},
 				accounts: {
 					doubao: '',
-          deepseek: ''
+          deepseek: '',
+		  mini: '',
 				},
 				isLoading: {
 					doubao: true,
-          deepseek: true // DeepSeek初始为加载状态
+          deepseek: true, // DeepSeek初始为加载状态
+		  mini: true
 				}
 			};
 		},
@@ -449,7 +452,7 @@
 				const hasAvailableAI = this.aiList.some(ai => ai.enabled && this.isAiLoginEnabled(ai));
 
 				// 检查是否正在加载AI状态（如果正在加载，禁用发送按钮）
-				const isCheckingStatus = this.isLoading.doubao || this.isLoading.deepseek;
+				const isCheckingStatus = this.isLoading.doubao || this.isLoading.deepseek || this.isLoading.mini;;
 
 				return hasInput && hasAvailableAI && !isCheckingStatus;
 			},
@@ -647,6 +650,15 @@
 						if (ai.selectedCapabilities.includes("deep_thinking")) {
 							this.userInfoReq.roles = this.userInfoReq.roles + 'zj-db-sdsk,';
 						}
+					}
+					if (ai.name === "MiniMax Chat") {
+					  this.userInfoReq.roles = this.userInfoReq.roles + "mini-max-agent,";
+					  if (ai.selectedCapabilities.includes("deep_thinking")) {
+					    this.userInfoReq.roles = this.userInfoReq.roles + "max-sdsk,";
+					  }
+					  if (ai.selectedCapabilities.includes("web_search")) {
+					    this.userInfoReq.roles = this.userInfoReq.roles + "max-lwss,";
+					  }
 					}
 				});
 
@@ -861,7 +873,9 @@
 					// 处理chatId消息
 					if (dataObj.type === 'RETURN_DB_CHATID' && dataObj.chatId) {
 						this.userInfoReq.dbChatId = dataObj.chatId;
-					}
+					}else if (dataObj.type === "RETURN_MAX_CHATID" && dataObj.chatId) {
+          this.userInfoReq.maxChatId = dataObj.chatId;
+        }
 
 					// 处理进度日志消息
 					if (dataObj.type === 'RETURN_PC_TASK_LOG' && dataObj.aiName) {
@@ -960,6 +974,20 @@
 					// 更新AI启用状态
 					this.updateAiEnabledStatus();
 				}
+				// 处理MiniMax Chat登录状态
+				else if (datastr.includes("RETURN_MAX_STATUS") && dataObj.status != "") {
+				  this.isLoading.mini = false;
+				  if (!datastr.includes("false")) {
+				    this.aiLoginStatus.mini = true;
+				    this.accounts.mini = dataObj.status;
+				  } else {
+				    this.aiLoginStatus.mini = false;
+				    // 禁用相关AI
+				    this.disableAIsByLoginStatus("mini");
+				  }
+				  // 更新AI启用状态
+				  this.updateAiEnabledStatus();
+				}
         // 处理DeepSeek登录状态
         else if (datastr.includes("RETURN_DEEPSEEK_STATUS")) {
           console.log("收到DeepSeek登录状态消息:", dataObj);
@@ -1024,6 +1052,10 @@
               this.enabledAIs.push(targetAI);
             }
             break;
+			case "RETURN_MAX_RES":
+			  console.log("收到消息:", dataObj);
+			  targetAI = this.enabledAIs.find((ai) => ai.name === "MiniMax Chat");
+			  break;
 				}
 
 				if (targetAI) {
@@ -1329,6 +1361,7 @@
 					this.userInfoReq.toneChatId = item.toneChatId || '';
 					this.userInfoReq.ybDsChatId = item.ybDsChatId || '';
 					this.userInfoReq.dbChatId = item.dbChatId || '';
+					this.userInfoReq.maxChatId = item.maxChatId || "";
 					this.userInfoReq.isNewChat = false;
 
 					// 不再根据AI登录状态更新AI启用状态，保持原有选择
@@ -1377,7 +1410,8 @@
 					chatId: this.chatId,
 					toneChatId: this.userInfoReq.toneChatId,
 					ybDsChatId: this.userInfoReq.ybDsChatId,
-					dbChatId: this.userInfoReq.dbChatId
+					dbChatId: this.userInfoReq.dbChatId,
+					maxChatId: this.userInfoReq.maxChatId,
 				};
 
 				try {
@@ -1388,7 +1422,8 @@
 						chatId: this.chatId,
 						toneChatId: this.userInfoReq.toneChatId,
 						ybDsChatId: this.userInfoReq.ybDsChatId,
-						dbChatId: this.userInfoReq.dbChatId
+						dbChatId: this.userInfoReq.dbChatId,
+						maxChatId: this.userInfoReq.maxChatId,
 					});
 				} catch (error) {
 					console.error('保存历史记录失败:', error);
@@ -1799,6 +1834,7 @@
 					toneChatId: '',
 					ybDsChatId: '',
 					dbChatId: '',
+					maxChatId: '',
 					isNewChat: true
 				};
 				// 重置AI列表为初始状态
@@ -1832,7 +1868,21 @@
 						status: 'idle',
 						progressLogs: [],
 						isExpanded: true
-					}
+					},
+					{
+					  name: "MiniMax Chat",
+					  avatar:
+					    "https://yzg.meooota.com/profile/MiniMax%20Chat.png",
+					  capabilities: [
+					    { label: "深度思考", value: "deep_thinking" },
+					    { label: "联网搜索", value: "web_search" },
+					  ],
+					  selectedCapabilities: ["deep_thinking", "web_search"],
+					  enabled: true,
+					  status: "idle",
+					  progressLogs: [],
+					  isExpanded: true,
+					},
 				];
 				// 不再根据AI登录状态更新AI启用状态，保持原有选择
 
@@ -1870,6 +1920,12 @@
           userId: this.userId,
           corpId: this.corpId
         });
+		// 检查MiniMax登录状态
+		this.sendWebSocketMessage({
+		  type: "PLAY_CHECK_MAX_LOGIN",
+		  userId: this.userId,
+		  corpId: this.corpId,
+		});
 			},
 
 			getPlatformIcon(type) {
@@ -1898,19 +1954,22 @@
 				// 重置所有AI状态为加载中
 				this.isLoading = {
 					doubao: true,
-          deepseek: true
+          deepseek: true,
+		  mini: true
 				};
 
 				// 重置登录状态
 				this.aiLoginStatus = {
 					doubao: false,
-          deepseek: false
+          deepseek: false,
+		  mini: false
 				};
 
 				// 重置账户信息
 				this.accounts = {
 					doubao: '',
-          deepseek: ''
+          deepseek: '',
+		  mini: ''
 				};
 
 				// 显示刷新提示
@@ -1938,6 +1997,8 @@
 						return this.aiLoginStatus.doubao; // 豆包登录状态
           case 'DeepSeek':
             return this.aiLoginStatus.deepseek; // 使用实际的DeepSeek登录状态
+			case "MiniMax Chat":
+			  return this.aiLoginStatus.mini; // MiniMax Chat登录状态
 					default:
 						return false;
 				}
@@ -1950,6 +2011,8 @@
 						return this.isLoading.doubao;
           case 'DeepSeek':
             return this.isLoading.deepseek; // 使用实际的DeepSeek加载状态
+			case "MiniMax Chat":
+			  return this.isLoading.mini;
 					default:
 						return false;
 				}

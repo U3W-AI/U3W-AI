@@ -108,6 +108,16 @@ public class WebSocketClientService {
                                 }
                             }).start();
                         }
+                        // 处理包含"mini-max"的消息
+                        if(message.contains("mini-max")){
+                            new Thread(() -> {
+                                try {
+                                    aigcController.startMiniMax(userInfoRequest);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }).start();
+                        }
                         // 处理包含"yb-hunyuan"或"yb-deepseek"的消息
                         if(message.contains("yb-hunyuan") || message.contains("yb-deepseek")){
                             new Thread(() -> {
@@ -281,6 +291,30 @@ public class WebSocketClientService {
                                 userInfoRequest.setStatus(checkLogin);
                                 userInfoRequest.setType("RETURN_DB_STATUS");
                                 sendMessage(JSON.toJSONString(userInfoRequest));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+
+                    // 处理检查MiniMax登录状态的信息
+                    if (message.contains("CHECK_MAX_LOGIN")) {
+                        new Thread(() -> {
+                            try {
+                                String checkLogin = browserController.checkMaxLogin(userInfoRequest.getUserId());
+                                userInfoRequest.setStatus(checkLogin);
+                                userInfoRequest.setType("RETURN_MAX_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+                    // 处理获取MiniMax二维码的消息
+                    if(message.contains("PLAY_GET_MAX_QRCODE")){
+                        new Thread(() -> {
+                            try {
+                                browserController.getMaxQrCode(userInfoRequest.getUserId());
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }
