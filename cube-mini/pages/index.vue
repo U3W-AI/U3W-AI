@@ -88,8 +88,8 @@
 					},
 					{
 						name: 'MiniMax Chat',
-						avatar: 'https://yzg.meooota.com/profile/MiniMax%20Chat.png',
-						icon: 'https://yzg.meooota.com/profile/MiniMax%20Chat.png',
+						avatar: 'https://u3w.com/chatfile/MiniMaxChat.png',
+						icon: 'https://u3w.com/chatfile/MiniMaxChat.png',
 						title: 'MiniMax Chat',
 						description: 'MiniMax ChatAI助手，提供专业、严谨的解答。',
 						type: 'mini'

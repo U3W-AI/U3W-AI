@@ -627,7 +627,7 @@
 				this.userInfoReq.userPrompt = this.promptInput;
 
 				// 获取启用的AI列表及其状态
-				this.enabledAIs = this.aiList.filter(ai => ai.enabled);
+				this.enabledAIs = this.aiList.filter(ai => ai.enabled  && this.isAiLoginEnabled(ai));
 
 				// 将所有启用的AI状态设置为运行中
 				this.enabledAIs.forEach(ai => {
@@ -652,13 +652,15 @@
 						}
 					}
 					if (ai.name === "MiniMax Chat") {
-					  this.userInfoReq.roles = this.userInfoReq.roles + "mini-max-agent,";
-					  if (ai.selectedCapabilities.includes("deep_thinking")) {
-					    this.userInfoReq.roles = this.userInfoReq.roles + "max-sdsk,";
-					  }
-					  if (ai.selectedCapabilities.includes("web_search")) {
-					    this.userInfoReq.roles = this.userInfoReq.roles + "max-lwss,";
-					  }
+						if(this.isAiLoginEnabled(ai)){
+						  this.userInfoReq.roles = this.userInfoReq.roles + "mini-max-agent,";
+						if (ai.selectedCapabilities.includes("deep_thinking")) {
+						  this.userInfoReq.roles = this.userInfoReq.roles + "max-sdsk,";
+						}
+						if (ai.selectedCapabilities.includes("web_search")) {
+						  this.userInfoReq.roles = this.userInfoReq.roles + "max-lwss,";
+						}	
+						}
 					}
 				});
 
@@ -1872,7 +1874,7 @@
 					{
 					  name: "MiniMax Chat",
 					  avatar:
-					    "https://yzg.meooota.com/profile/MiniMax%20Chat.png",
+					    "https://u3w.com/chatfile/MiniMaxChat.png",
 					  capabilities: [
 					    { label: "深度思考", value: "deep_thinking" },
 					    { label: "联网搜索", value: "web_search" },
