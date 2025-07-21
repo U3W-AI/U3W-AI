@@ -8,6 +8,7 @@ import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.LoadState;
 import com.microsoft.playwright.options.WaitForSelectorState;
+import com.microsoft.playwright.PlaywrightException;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.utils.*;
 import com.playwright.websocket.WebSocketClientService;
