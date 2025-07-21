@@ -1874,7 +1874,7 @@
 					{
 					  name: "MiniMax Chat",
 					  avatar:
-					    "https://yzg.meooota.com/profile/MiniMax%20Chat.png",
+					    "https://u3w.com/chatfile/MiniMaxChat.png",
 					  capabilities: [
 					    { label: "深度思考", value: "deep_thinking" },
 					    { label: "联网搜索", value: "web_search" },
