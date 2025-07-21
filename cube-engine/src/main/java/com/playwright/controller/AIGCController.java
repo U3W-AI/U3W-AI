@@ -470,8 +470,36 @@ public class AIGCController {
                             "][3]"
             ).click();
             Thread.sleep(1000);
-            page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[1]/span[1]").click();
+            String classSelector = ".bg-col_fill03.inline-flex.h-\\[38px\\].items-center.justify-center.gap-\\[5px\\].rounded-\\[12px\\].px-\\[10px\\].text-\\[14px\\]";
+            Locator thinkElements = page.locator(classSelector);
+            int count = thinkElements.count();
 
+            for (int j = 0; j < count; j++) {
+                Locator think = thinkElements.nth(j);
+                // 获取点击元素的父元素
+                Locator parent = think.locator("xpath=..");
+                // 获取父元素的兄弟元素
+                Locator sibling = parent.locator("xpath=following-sibling::*");
+                String siblingClass = sibling.getAttribute("class");
+                boolean isHidden = siblingClass != null && siblingClass.contains("hidden");
+                if (isHidden) {
+                    System.out.println("第 " + j + " 个已经隐藏，无需点击");
+                } else {
+                    try {
+                        think.click(new Locator.ClickOptions().setForce(true));
+                        System.out.println("点击第 " + j + " 个隐藏思考状态");
+                    } catch (PlaywrightException e) {
+                        System.out.println("点击第 " + j + " 个失败：" + e.getMessage());
+                    }
+                }
+            }
+
+            // 点击最近10条
+            page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[1]/span[1]").click();
+            Thread.sleep(200);
+            page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[1]/span[1]").click();
+            Thread.sleep(200);
+            page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[1]/span[1]").click();
             Thread.sleep(1000);
             // 点击生成分享图
             page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[2]/div[1]").click();
