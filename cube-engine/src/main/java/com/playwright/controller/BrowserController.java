@@ -201,7 +201,7 @@ public class BrowserController {
             page.locator("body").click();
             // 一直等待登录成功的元素出现
             Locator phone = page.locator(".h-7.w-7.rounded-full").nth(2);
-            phone.waitFor(new Locator.WaitForOptions().setTimeout(12000).setState(WaitForSelectorState.ATTACHED));
+            phone.waitFor(new Locator.WaitForOptions().setTimeout(60000).setState(WaitForSelectorState.ATTACHED));
 
             if(phone.count()>0){
                 JSONObject jsonObjectTwo = new JSONObject();
