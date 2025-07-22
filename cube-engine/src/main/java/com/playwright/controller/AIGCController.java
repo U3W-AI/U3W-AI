@@ -421,7 +421,7 @@ public class AIGCController {
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
 
-
+            if(!copiedText.contains("换个话题试试吧")){
             AtomicReference<String> shareUrlRef = new AtomicReference<>();
 
             clipboardLockManager.runWithClipboardLock(() -> {
@@ -520,7 +520,19 @@ public class AIGCController {
             userInfoRequest.setShareUrl(shareUrl);
             userInfoRequest.setShareImgUrl(sharImgUrl);
             RestUtils.post(url+"/saveDraftContent", userInfoRequest);
-            return copiedText;
+            }else{
+                logInfo.sendTaskLog( "执行完成,MiniMax 提示换个话题",userId,"MiniMax Chat");
+                logInfo.sendChatData(page,"chatID=([0-9]+)",userId,"RETURN_MAX_CHATID",1);
+                logInfo.sendResData(copiedText,userId,"MiniMax Chat","RETURN_MAX_RES","","");
+
+                //保存数据库
+                userInfoRequest.setDraftContent(copiedText);
+                userInfoRequest.setAiName("MiniMax Chat");
+                userInfoRequest.setShareUrl("");
+                userInfoRequest.setShareImgUrl("");
+                RestUtils.post(url+"/saveDraftContent", userInfoRequest);
+            }
+                return copiedText;
         } catch (Exception e) {
             e.printStackTrace();
         }

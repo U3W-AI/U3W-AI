@@ -57,7 +57,10 @@ public class MiniMaxUtil {
                 }
 
                 currentContent = sb.toString();
-
+                // 关键词拒答判断
+                if (currentContent.contains("换个话题试试吧")) {
+                    return "换个话题试试吧";
+                }
 
 
                 // 如果检测到“结束标志”且内容与上次一致，就退出循环
