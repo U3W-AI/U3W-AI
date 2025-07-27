@@ -47,86 +47,6 @@
                     ></i>
                   </el-tooltip>
                 </li>
-                <li class="list-group-item">
-                  <el-button
-                    type="primary"
-                    size="mini"
-                    @click="handleBindWechat"
-                    >绑定公众号</el-button
-                  >
-                  <!-- 移除Agent API设置按钮 -->
-                  <!-- 移除元器空间绑定按钮 -->
-
-                  <!-- 删除Agent API和元器空间对话框组件 -->
-
-                  <el-dialog
-                    title="绑定微信公众号"
-                    :visible.sync="dialogFormVisible"
-                  >
-                    <el-form :model="form" :rules="rules" ref="form">
-                      <el-form-item
-                        label="appId"
-                        :label-width="formLabelWidth"
-                        prop="appId"
-                      >
-                        <el-input
-                          v-model="form.appId"
-                          maxlength="32"
-                          placeholder="请输入appId"
-                          autocomplete="off"
-                        ></el-input>
-                      </el-form-item>
-                      <el-form-item
-                        label="appSecret"
-                        :label-width="formLabelWidth"
-                        prop="appSecret"
-                      >
-                        <el-input
-                          v-model="form.appSecret"
-                          maxlength="50"
-                          placeholder="请输入appSecret"
-                          autocomplete="off"
-                        ></el-input>
-                      </el-form-item>
-                      <el-form-item
-                        label="公众号名称"
-                        :label-width="formLabelWidth"
-                        prop="officeAccountName"
-                      >
-                        <el-input
-                          v-model="form.officeAccountName"
-                          maxlength="50"
-                          placeholder="请输入公众号名称"
-                          autocomplete="off"
-                        ></el-input>
-                      </el-form-item>
-                      <el-form-item
-                        label="素材封面图"
-                        :label-width="formLabelWidth"
-                        prop="picUrl"
-                      >
-                        <image-upload v-model="form.picUrl" />
-                      </el-form-item>
-                      <el-form-item
-                        label="规范说明"
-                        :label-width="formLabelWidth"
-                      >
-                        <div style="color: #f56c6c; font-size: 13px">
-                          请把IP: 175.178.154.216
-                          添加到公众号IP白名单。步骤：登录微信公众平台→点击设置与开发→安全中心→IP白名单。一般一小时后生效。
-                        </div>
-                      </el-form-item>
-                    </el-form>
-                    <div slot="footer" class="dialog-footer">
-                      <el-button @click="dialogFormVisible = false"
-                        >取 消</el-button
-                      >
-                      <el-button type="primary" @click="confirmBind"
-                        >确 定</el-button
-                      >
-                    </div>
-                  </el-dialog>
-                </li>
               </ul>
             </div>
           </el-card>
@@ -141,7 +61,7 @@
               <el-button
                 style="float: right; margin-top: -30px"
                 type="text"
-                @click="handleRefresh"
+                @click="handleRefreshAI"
               >
                 <i class="el-icon-refresh"></i> 刷新
               </el-button>
@@ -186,7 +106,7 @@
                     size="small"
                     :disabled="!isClick[type]"
                     @click="handleAiLogin(type)"
-                    class="login-btn"
+                    :class="'ai-login-btn'"
                   >
                     <i class="el-icon-connection"></i> 点击登录
                   </el-button>
@@ -205,7 +125,7 @@
               <el-button
                 style="float: right; margin-top: -30px"
                 type="text"
-                @click="handleRefresh"
+                @click="handleRefreshMedia"
               >
                 <i class="el-icon-refresh"></i> 刷新
               </el-button>
@@ -250,9 +170,31 @@
                     size="small"
                     :disabled="!mediaIsClick[type]"
                     @click="handleMediaLogin(type)"
-                    class="login-btn"
+                    :class="'media-login-btn'"
                   >
                     <i class="el-icon-connection"></i> 点击登录
+                  </el-button>
+                </div>
+              </div>
+              <!-- 新增微信公众号登录项 -->
+              <div class="ai-status-item">
+                <div class="ai-platform">
+                  <div class="platform-icon">
+                    <img
+                      src="@/assets/logo/wechat.png"
+                      alt="微信公众号"
+                    />
+                  </div>
+                  <div class="platform-name">微信公众号</div>
+                </div>
+                <div class="status-action">
+                  <el-button
+                    :type="form.appId ? 'warning' : 'primary'"
+                    size="small"
+                    class="login-btn"
+                    @click="handleBindWechat"
+                  >
+                    {{ form.appId ? '修改信息' : '绑定公众号' }}
                   </el-button>
                 </div>
               </div>
@@ -389,6 +331,37 @@
         :limit.sync="queryPointForm.limit"
         @pagination="getUserPointsRecord"
       />
+    </el-dialog>
+    <!-- 公众号配置弹窗 -->
+    <el-dialog
+      title="绑定微信公众号"
+      :visible.sync="dialogFormVisible"
+      width="500px"
+      append-to-body
+    >
+      <el-form :model="form" :rules="rules" ref="form">
+        <el-form-item label="appId" :label-width="formLabelWidth" prop="appId">
+          <el-input v-model="form.appId" maxlength="32" placeholder="请输入appId" autocomplete="off"></el-input>
+        </el-form-item>
+        <el-form-item label="appSecret" :label-width="formLabelWidth" prop="appSecret">
+          <el-input v-model="form.appSecret" maxlength="50" placeholder="请输入appSecret" autocomplete="off"></el-input>
+        </el-form-item>
+        <el-form-item label="公众号名称" :label-width="formLabelWidth" prop="officeAccountName">
+          <el-input v-model="form.officeAccountName" maxlength="50" placeholder="请输入公众号名称" autocomplete="off"></el-input>
+        </el-form-item>
+        <el-form-item label="素材封面图" :label-width="formLabelWidth" prop="picUrl">
+          <image-upload v-model="form.picUrl" />
+        </el-form-item>
+        <el-form-item label="规范说明" :label-width="formLabelWidth">
+          <div style="color: #f56c6c; font-size: 13px">
+            请把IP: 175.178.154.216 添加到公众号IP白名单。步骤：登录微信公众平台→点击设置与开发→安全中心→IP白名单。一般一小时后生效。
+          </div>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="dialogFormVisible = false">取 消</el-button>
+        <el-button type="primary" @click="confirmBind">确 定</el-button>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -618,6 +591,16 @@ export default {
         this.userId = response.data.userId;
         this.corpId = response.data.corpId;
 
+        // 初始检测时，AI和媒体按钮分开变灰
+        this.isClick.doubao = false;
+        this.isClick.deepseek = false;
+        this.isClick.minimax = false;
+        this.isLoading.doubao = true;
+        this.isLoading.deepseek = true;
+        this.isLoading.minimax = true;
+        this.mediaIsClick.zhihu = false;
+        this.mediaIsLoading.zhihu = true;
+
         this.initWebSocket(this.userId); // 创建时建立连接
 
         setTimeout(() => {
@@ -646,6 +629,21 @@ export default {
             corpId: this.corpId,
           });
         }, 1000);
+
+        // 页面加载时自动获取公众号信息，刷新按钮状态
+        getOfficeAccount().then((response) => {
+          if (response.data != null) {
+            this.form.appId = response.data.appId;
+            this.form.appSecret = response.data.appSecret;
+            this.form.officeAccountName = response.data.officeAccountName;
+            this.form.picUrl = response.data.picUrl;
+          } else {
+            this.form.appId = '';
+            this.form.appSecret = '';
+            this.form.officeAccountName = '';
+            this.form.picUrl = '';
+          }
+        });
       });
     },
     // 获取公众号信息
@@ -736,6 +734,7 @@ export default {
       this.currentAiType = type;
       this.aiLoginDialogVisible = true;
       this.isLoading[type] = true;
+      this.isClick[type] = false;
       this.getQrCode(type);
     },
     getQrCode(type) {
@@ -787,6 +786,7 @@ export default {
       this.currentMediaType = type;
       this.mediaLoginDialogVisible = true;
       this.mediaIsLoading[type] = true;
+      this.mediaIsClick[type] = false;
       this.getMediaQrCode(type);
     },
     getMediaQrCode(type) {
@@ -870,6 +870,7 @@ export default {
           this.aiLoginStatus.doubao = true;
           this.accounts.doubao = dataObj.status;
           this.isLoading.doubao = false;
+          this.isClick.doubao = true; // 检测成功后设为true
         } else {
           this.isClick.doubao = true;
           this.isLoading.doubao = false;
@@ -883,6 +884,7 @@ export default {
           this.aiLoginStatus.deepseek = true;
           this.accounts.deepseek = dataObj.status;
           this.isLoading.deepseek = false;
+          this.isClick.deepseek = true; // 检测成功后设为true
         } else {
           this.isClick.deepseek = true;
           this.isLoading.deepseek = false;
@@ -896,6 +898,7 @@ export default {
           this.aiLoginStatus.minimax = true;
           this.accounts.minimax = dataObj.status;
           this.isLoading.minimax = false;
+          this.isClick.minimax = true; // 检测成功后设为true
           console.log(this.isLoading.minimax);
         } else {
           this.isClick.minimax = true;
@@ -910,6 +913,7 @@ export default {
           this.mediaLoginStatus.zhihu = true;
           this.mediaAccounts.zhihu = dataObj.status;
           this.mediaIsLoading.zhihu = false;
+          this.mediaIsClick.zhihu = true; // 检测成功后设为true
           this.$message.success(`知乎登录成功：${dataObj.status}`);
         } else {
           this.mediaIsClick.zhihu = true;
@@ -953,8 +957,27 @@ export default {
         messageList.scrollTop = messageList.scrollHeight;
       }
     },
-    handleRefresh() {
-      window.location.reload();
+    handleRefreshAI() {
+      // 只刷新AI登录状态
+      if (!this.userId || !this.corpId) return;
+      this.isLoading.doubao = true;
+      this.isLoading.deepseek = true;
+      this.isLoading.minimax = true;
+      this.isClick.doubao = false;
+      this.isClick.deepseek = false;
+      this.isClick.minimax = false;
+      // 不再操作 mediaIsClick.zhihu/mediaIsLoading.zhihu
+      this.sendMessage({ type: "PLAY_CHECK_DB_LOGIN", userId: this.userId, corpId: this.corpId });
+      this.sendMessage({ type: "PLAY_CHECK_MAX_LOGIN", userId: this.userId, corpId: this.corpId });
+      this.sendMessage({ type: "PLAY_CHECK_DEEPSEEK_LOGIN", userId: this.userId, corpId: this.corpId });
+    },
+    handleRefreshMedia() {
+      // 只刷新媒体登录状态
+      if (!this.userId || !this.corpId) return;
+      this.mediaIsLoading.zhihu = true;
+      this.mediaIsClick.zhihu = false;
+      // 不再操作 isClick/isLoading
+      this.sendMessage({ type: "PLAY_CHECK_ZHIHU_LOGIN", userId: this.userId, corpId: this.corpId });
     },
   },
   beforeDestroy() {
@@ -966,13 +989,72 @@ export default {
 <style lang="scss" scoped>
 .dashboard-editor-container {
   padding: 32px;
-  background-color: rgb(240, 242, 245);
+  background: linear-gradient(135deg, #f0f4ff 0%, #f8fafc 100%);
   position: relative;
 
   .chart-wrapper {
     background: #fff;
     padding: 16px 16px 0;
     margin-bottom: 32px;
+  }
+
+  .box-card {
+    border-radius: 16px;
+    box-shadow: 0 4px 24px 0 rgba(0,0,0,0.08);
+    background: #fff;
+    .clearfix {
+      padding-bottom: 8px;
+      border-bottom: 1px solid #f0f0f0;
+      margin-bottom: 12px;
+    }
+    .text-center {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 18px;
+      img {
+        border-radius: 50%;
+        border: 4px solid #fff;
+        box-shadow: 0 2px 12px 0 rgba(64,158,255,0.12);
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+      }
+    }
+    .list-group {
+      padding: 0;
+      margin: 0;
+      list-style: none;
+      .list-group-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid #f5f5f5;
+        font-size: 16px;
+        color: #444;
+        transition: background 0.2s;
+        .svg-icon {
+          margin-right: 10px;
+          color: #67c23a;
+        }
+        .pull-right {
+          margin-left: auto;
+          font-weight: 500;
+          color: #222;
+        }
+        &:hover {
+          background: #f6faff;
+        }
+        &:last-child {
+          border-bottom: none;
+        }
+      }
+    }
+    #userName {
+      font-weight: bold;
+      color: #409eff;
+      font-size: 18px;
+    }
   }
 }
 
@@ -1390,6 +1472,30 @@ export default {
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+.ai-login-btn {
+  background-color: #409eff !important;
+  color: #fff !important;
+  border-radius: 16px;
+  border: none;
+  &:disabled {
+    background-color: #bcdcff !important;
+    color: #fff !important;
+    cursor: not-allowed;
+  }
+}
+
+.media-login-btn {
+  background-color: #67c23a !important;
+  color: #fff !important;
+  border-radius: 16px;
+  border: none;
+  &:disabled {
+    background-color: #c2e7b0 !important;
+    color: #fff !important;
+    cursor: not-allowed;
   }
 }
 </style>
