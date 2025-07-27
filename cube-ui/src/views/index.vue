@@ -195,6 +195,70 @@
             </div>
           </el-card>
         </el-col>
+        <el-col :span="6" :xs="30">
+          <el-card class="box-card ai-status-card">
+            <div slot="header" class="clearfix">
+              <span class="card-title">
+                <svg-icon icon-class="media" class="title-icon" />
+                媒体登录状态
+              </span>
+              <el-button
+                style="float: right; margin-top: -30px"
+                type="text"
+                @click="handleRefresh"
+              >
+                <i class="el-icon-refresh"></i> 刷新
+              </el-button>
+            </div>
+            <div class="ai-status-list">
+              <div
+                class="ai-status-item"
+                v-for="(status, type) in mediaLoginStatus"
+                :key="type"
+              >
+                <div class="ai-platform">
+                  <div class="platform-icon">
+                    <img
+                      :src="getMediaPlatformIcon(type)"
+                      :alt="getMediaPlatformName(type)"
+                    />
+                  </div>
+                  <div class="platform-name">
+                    {{ getMediaPlatformName(type) }}
+                    <el-tooltip
+                      v-if="mediaIsLoading[type]"
+                      content="正在登录中..."
+                      placement="top"
+                    >
+                      <i class="el-icon-loading loading-icon"></i>
+                    </el-tooltip>
+                  </div>
+                </div>
+                <div class="status-action">
+                  <el-tag
+                    v-if="status"
+                    type="success"
+                    effect="dark"
+                    class="status-tag"
+                  >
+                    <i class="el-icon-success"></i>
+                    <span>{{ mediaAccounts[type] }}</span>
+                  </el-tag>
+                  <el-button
+                    v-else
+                    type="primary"
+                    size="small"
+                    :disabled="!mediaIsClick[type]"
+                    @click="handleMediaLogin(type)"
+                    class="login-btn"
+                  >
+                    <i class="el-icon-connection"></i> 点击登录
+                  </el-button>
+                </div>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
       </el-row>
     </div>
 
@@ -219,6 +283,26 @@
       </div>
     </el-dialog>
 
+    <!-- 媒体登录二维码对话框 -->
+    <el-dialog
+      :title="getMediaLoginTitle"
+      :visible.sync="mediaLoginDialogVisible"
+      width="1200px"
+      height="800px"
+      center
+    >
+      <div class="qr-code-container" v-loading="!mediaQrCodeUrl">
+        <div v-if="mediaQrCodeUrl" class="qr-code">
+          <img
+            style="width: 100%; height: 100%"
+            :src="mediaQrCodeUrl"
+            alt="登录二维码"
+          />
+          <p class="qr-tip">请使用知乎APP扫码登录</p>
+        </div>
+        <div v-else class="loading-tip">正在获取登录二维码...</div>
+      </div>
+    </el-dialog>
     <el-dialog
       title="积分详细"
       :visible.sync="openPointsRecord"
@@ -462,8 +546,24 @@ export default {
         deepseek: true,
         minimax: true,
       },
-    };
+      resetStatusTimeout: null, // 状态检查超时定时器
+
+      //------ 媒体登录状态相关变量 ------//
+      mediaLoginStatus: {
+      },
+      mediaAccounts: {
+      },
+      mediaIsClick: {
+      },
+      mediaLoginDialogVisible: false,
+      currentMediaType: "",
+      mediaQrCodeUrl: "",
+      mediaIsLoading: {
+      },
+      resetMediaStatusTimeout: null, // 媒体状态检查超时定时器
+    }
   },
+
   // 计算当前月份的签到日期
   computed: {
     calendarDates() {
@@ -490,6 +590,11 @@ export default {
         minimax: "MiniMax登录",
       };
       return titles[this.currentAiType] || "登录";
+    },
+    getMediaLoginTitle() {
+      const titles = {
+      };
+      return titles[this.currentMediaType] || "媒体登录";
     },
   },
 
@@ -665,6 +770,42 @@ export default {
         minimax: "MiniMax",
       };
       return names[type] || "";
+    },
+    // 媒体登录相关方法
+    handleMediaLogin(type) {
+      this.currentMediaType = type;
+      this.mediaLoginDialogVisible = true;
+      this.mediaIsLoading[type] = true;
+      this.getMediaQrCode(type);
+    },
+    getMediaQrCode(type) {
+      this.mediaQrCodeUrl = "";
+
+      this.$message({
+        message: "正在获取登录二维码...",
+        type: "info",
+      });
+    },
+    getMediaPlatformIcon(type) {
+      const icons = {
+      };
+      return icons[type] || "";
+    },
+    getMediaPlatformName(type) {
+      const names = {
+      };
+      return names[type] || "";
+    },
+    // 重置媒体登录状态
+    resetMediaLoginStates() {
+      // 重置所有loading状态为false，允许用户点击登录
+      Object.keys(this.mediaIsLoading).forEach(key => {
+        this.mediaIsLoading[key] = false;
+      });
+      // 重置所有点击状态为true，启用登录按钮
+      Object.keys(this.mediaIsClick).forEach(key => {
+        this.mediaIsClick[key] = true;
+      });
     },
     // WebSocket 相关方法
     initWebSocket(id) {

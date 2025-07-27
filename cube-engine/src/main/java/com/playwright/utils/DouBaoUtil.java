@@ -27,6 +27,29 @@ public class DouBaoUtil {
 
     public void waitAndClickDBScoreCopyButton(Page page, String userId)  {
         try {
+            // 等待页面内容稳定
+            String currentContent = "";
+            String lastContent = "";
+            long timeout = 600000; // 10分钟超时
+            long startTime = System.currentTimeMillis();
+
+            while (true) {
+                long elapsedTime = System.currentTimeMillis() - startTime;
+                if (elapsedTime > timeout) {
+                    System.out.println("等待页面稳定超时！");
+                    break;
+                }
+
+                Locator outputLocator = page.locator(".flow-markdown-body").last();
+                currentContent = outputLocator.innerHTML();
+
+                if (!currentContent.isEmpty() && currentContent.equals(lastContent)) {
+                    break;
+                }
+
+                lastContent = currentContent;
+                page.waitForTimeout(5000); // 每5秒检查一次
+            }
             Locator locator = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[1]/div[1]/div/div/div[2]/div/div[2]/div/div/div");
             locator.waitFor(new Locator.WaitForOptions().setTimeout(20000));
             locator.click();
@@ -56,6 +79,29 @@ public class DouBaoUtil {
 
     public String waitAndClickDBCopyButton(Page page,String userId,String roles)  {
         try {
+            // 等待页面内容稳定
+            String currentContent = "";
+            String lastContent = "";
+            long timeout = 600000; // 10分钟超时
+            long startTime = System.currentTimeMillis();
+
+            while (true) {
+                long elapsedTime = System.currentTimeMillis() - startTime;
+                if (elapsedTime > timeout) {
+                    System.out.println("等待页面稳定超时！");
+                    break;
+                }
+
+                Locator outputLocator = page.locator(".flow-markdown-body").last();
+                currentContent = outputLocator.innerHTML();
+
+                if (!currentContent.isEmpty() && currentContent.equals(lastContent)) {
+                    break;
+                }
+
+                lastContent = currentContent;
+                page.waitForTimeout(5000); // 每5秒检查一次
+            }
             String copiedText = "";
             // 等待复制按钮出现
             Locator locator = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div[1]/div[1]/div/div/div[2]/div/div[2]/div/div/div");

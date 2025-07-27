@@ -257,6 +257,26 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
                     // 发送消息
                     session.sendMessage(new TextMessage(jsonObjectMsg.toJSONString()));
                 }
+            }else if(message.contains("MEDIA")){
+                String userId = jsonObjectMsg.get("userId")+"";
+                if(StringUtils.isNotEmpty(userId)){
+                    // 获取 WebSocketSession
+                    WebSocketSession session = sessions.get("mypc-"+userId);
+                    // 判断 session 是否存在且在线
+                    if (session == null || !session.isOpen()) {
+                        System.out.println( "mypc-"+userId + " 不在线或连接已关闭");
+                    }else
+                        // 发送消息
+                        session.sendMessage(new TextMessage(jsonObjectMsg.toJSONString()));
+                    // 获取 WebSocketSession
+                    WebSocketSession session1 = sessions.get("mini-"+userId);
+                    // 判断 session 是否存在且在线
+                    if (session1 == null || !session1.isOpen()) {
+                        System.out.println( "mini-"+userId + " 不在线或连接已关闭");
+                    }else
+                        // 发送消息
+                        session1.sendMessage(new TextMessage(jsonObjectMsg.toJSONString()));
+                }
             }else if(message.contains("HTTP")){
                 String requestId = jsonObjectMsg.get("requestId")+"";
                 CompletableFuture<String> future = FUTURE_MAP.remove(requestId);

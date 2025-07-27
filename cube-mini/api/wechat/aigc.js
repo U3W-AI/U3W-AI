@@ -123,3 +123,22 @@ export function pushAutoOffice(data) {
     data: data
   })
 }
+
+// 媒体相关API
+export function getMediaCallWord(platformId) {
+  return request({
+    url: `/media/getCallWord/${platformId}`,
+    method: 'get'
+  })
+}
+
+export function updateMediaCallWord(platformId, wordContent) {
+  return request({
+    url: `/media/updateCallWord/${platformId}`,
+    method: 'post',
+    data: wordContent,
+    headers: {
+      'Content-Type': 'text/plain'
+    }
+  })
+}
