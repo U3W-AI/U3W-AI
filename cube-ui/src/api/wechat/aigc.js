@@ -25,6 +25,25 @@ export function message(data) {
     data: data
   })
 }
+// 获取媒体平台提示词
+export function getMediaCallWord(platformId) {
+  return request({
+    url: `/media/getCallWord/${platformId}`,
+    method: 'get'
+  })
+}
+
+// 更新媒体平台提示词
+export function updateMediaCallWord(platformId, wordContent) {
+  return request({
+    url: `/media/updateCallWord/${platformId}`,
+    method: 'post',
+    data: wordContent,
+    headers: {
+      'Content-Type': 'text/plain'
+    }
+  })
+}
 
 export function saveUserChatData(data) {
   return request({

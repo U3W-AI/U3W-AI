@@ -304,12 +304,12 @@
                     size="mini"
                     type="success"
                     icon="el-icon-s-promotion"
-                    @click="handlePushToWechat(result)"
-                    class="push-wechat-btn"
-                    :loading="pushingToWechat"
-                    :disabled="pushingToWechat"
+                    @click="handlePushToMedia(result)"
+                    class="push-media-btn"
+                    :loading="pushingToMedia"
+                    :disabled="pushingToMedia"
                   >
-                    投递到公众号
+                    投递到媒体
                   </el-button>
                 </div>
               </div>
@@ -448,9 +448,9 @@
       </span>
     </el-dialog>
 
-    <!-- 智能排版弹窗 -->
+    <!-- 投递到媒体弹窗 -->
     <el-dialog
-      title="智能排版"
+      title="媒体投递设置"
       :visible.sync="layoutDialogVisible"
       width="60%"
       height="65%"
@@ -458,11 +458,35 @@
       class="layout-dialog"
     >
       <div class="layout-dialog-content">
+        <!-- 媒体选择区域 -->
+        <div class="media-selection-section">
+          <h3>选择投递媒体：</h3>
+          <el-radio-group v-model="selectedMedia" size="small" class="media-radio-group">
+            <el-radio-button label="wechat">
+              <i class="el-icon-chat-dot-square"></i>
+              公众号
+            </el-radio-button>
+            <el-radio-button label="zhihu">
+              <i class="el-icon-document"></i>
+              知乎
+            </el-radio-button>
+          </el-radio-group>
+          <div class="media-description">
+            <template v-if="selectedMedia === 'wechat'">
+              <small>📝 将内容排版为适合微信公众号的HTML格式，并自动投递到草稿箱</small>
+            </template>
+            <template v-else-if="selectedMedia === 'zhihu'">
+              <small>📖 将内容转换为知乎专业文章格式，直接投递到知乎草稿箱</small>
+            </template>
+          </div>
+        </div>
+
+
         <div class="layout-prompt-section">
           <h3>排版提示词：</h3>
           <el-input
             type="textarea"
-            :rows="15"
+            :rows="12"
             placeholder="请输入排版提示词"
             v-model="layoutPrompt"
             resize="none"
@@ -474,7 +498,7 @@
       <span slot="footer" class="dialog-footer">
         <el-button @click="layoutDialogVisible = false">取 消</el-button>
         <el-button type="primary" @click="handleLayout" :disabled="!canLayout">
-          开始排版
+          排版后智能投递
         </el-button>
       </span>
     </el-dialog>
@@ -488,6 +512,7 @@ import {
   saveUserChatData,
   getChatHistory,
   pushAutoOffice,
+  getMediaCallWord,
 } from "@/api/wechat/aigc";
 import { v4 as uuidv4 } from "uuid";
 import websocketClient from "@/utils/websocket";
@@ -582,6 +607,8 @@ export default {
       chatHistory: [],
       pushOfficeNum: 0, // 投递到公众号的递增编号
       pushingToWechat: false, // 投递到公众号的loading状态
+      selectedMedia: "wechat", // 默认选择公众号
+      pushingToMedia: false, // 投递到媒体的loading状态
     };
   },
   computed: {
@@ -647,6 +674,15 @@ export default {
     this.initWebSocket(this.userId);
     this.loadChatHistory(0); // 加载历史记录
     this.loadLastChat(); // 加载上次会话
+  },
+  watch: {
+    // 监听媒体选择变化，自动加载对应的提示词
+    selectedMedia: {
+      handler(newMedia) {
+        this.loadMediaPrompt(newMedia);
+      },
+      immediate: false
+    }
   },
   methods: {
     sendPrompt() {
@@ -882,16 +918,36 @@ export default {
           (ai) => ai.name === dataObj.aiName
         );
         if (targetAI) {
-          // 将新进度添加到数组开头
-          targetAI.progressLogs.unshift({
-            content: dataObj.content,
-            timestamp: new Date(),
-            isCompleted: false,
-          });
+          // 检查是否已存在相同内容的日志，避免重复添加
+          const existingLog = targetAI.progressLogs.find(log => log.content === dataObj.content);
+          if (!existingLog) {
+            // 将新进度添加到数组开头
+            targetAI.progressLogs.unshift({
+              content: dataObj.content,
+              timestamp: new Date(),
+              isCompleted: false,
+            });
+          }
         }
         return;
       }
-
+      // 处理知乎投递任务日志
+      if (dataObj.type === "RETURN_MEDIA_TASK_LOG" && dataObj.aiName === "投递到知乎") {
+        const zhihuAI = this.enabledAIs.find((ai) => ai.name === "投递到知乎");
+        if (zhihuAI) {
+          // 检查是否已存在相同内容的日志，避免重复添加
+          const existingLog = zhihuAI.progressLogs.find(log => log.content === dataObj.content);
+          if (!existingLog) {
+            // 将新进度添加到数组开头
+            zhihuAI.progressLogs.unshift({
+              content: dataObj.content,
+              timestamp: new Date(),
+              isCompleted: false,
+            });
+          }
+        }
+        return;
+      }
       // 处理截图消息
       if (dataObj.type === "RETURN_PC_TASK_IMG" && dataObj.url) {
         // 将新的截图添加到数组开头
@@ -937,6 +993,28 @@ export default {
 
           // 智能排版完成时，保存历史记录
           this.saveHistory();
+        }
+        return;
+      }
+      // 处理知乎投递结果（独立任务）
+      if (dataObj.type === "RETURN_ZHIHU_DELIVERY_RES") {
+        const zhihuAI = this.enabledAIs.find((ai) => ai.name === "投递到知乎");
+        if (zhihuAI) {
+          this.$set(zhihuAI, "status", "completed");
+          if (zhihuAI.progressLogs.length > 0) {
+            this.$set(zhihuAI.progressLogs[0], "isCompleted", true);
+          }
+
+          // 添加完成日志
+          zhihuAI.progressLogs.unshift({
+            content: "知乎投递完成！" + (dataObj.message || ""),
+            timestamp: new Date(),
+            isCompleted: true,
+          });
+
+          // 知乎投递完成时，保存历史记录
+          this.saveHistory();
+          this.$message.success("知乎投递任务完成！");
         }
         return;
       }
@@ -1371,53 +1449,88 @@ export default {
       };
     },
 
-    // 投递到公众号
-    handlePushToWechat(result) {
+    // 投递到媒体
+    handlePushToMedia(result) {
+      this.currentLayoutResult = result;
       this.showLayoutDialog(result);
     },
 
     // 显示智能排版对话框
     showLayoutDialog(result) {
       this.currentLayoutResult = result;
-      this.layoutPrompt =
-        `请你对以下 HTML 内容进行排版优化，目标是用于微信公众号"草稿箱接口"的 content 字段，要求如下：
+      this.layoutDialogVisible = true;
+      // 加载当前选择媒体的提示词
+      this.loadMediaPrompt(this.selectedMedia);
+    },
+
+    // 加载媒体提示词
+    async loadMediaPrompt(media) {
+      if (!media) return;
+
+      const platformId = media === 'wechat' ? 'wechat_layout' : 'zhihu_layout';
+
+      try {
+        const response = await getMediaCallWord(platformId);
+        if (response.code === 200) {
+          this.layoutPrompt = response.data + '\n\n' + (this.currentLayoutResult ? this.currentLayoutResult.content : '');
+        } else {
+          // 使用默认提示词
+          this.layoutPrompt = this.getDefaultPrompt(media) + '\n\n' + (this.currentLayoutResult ? this.currentLayoutResult.content : '');
+        }
+      } catch (error) {
+        console.error('加载提示词失败:', error);
+        // 使用默认提示词
+        this.layoutPrompt = this.getDefaultPrompt(media) + '\n\n' + (this.currentLayoutResult ? this.currentLayoutResult.content : '');
+      }
+    },
+
+    // 获取默认提示词(仅在后端访问失败时使用)
+    getDefaultPrompt(media) {
+      if (media === 'wechat') {
+        return `请你对以下 HTML 内容进行排版优化，目标是用于微信公众号"草稿箱接口"的 content 字段，要求如下：
 
 1. 仅返回 <body> 内部可用的 HTML 内容片段（不要包含 <!DOCTYPE>、<html>、<head>、<meta>、<title> 等标签）。
 2. 所有样式必须以"内联 style"方式写入。
 3. 保持结构清晰、视觉友好，适配公众号图文排版。
 4. 请直接输出代码，不要添加任何注释或额外说明。
 5. 不得使用 emoji 表情符号或小图标字符。
-6. 不要显示为问答形式，以一篇文章的格式去调整 \n\n以下为需要进行排版优化的内容：\n` +
-        result.content;
-      this.layoutDialogVisible = true;
+6. 不要显示为问答形式，以一篇文章的格式去调整
+
+以下为需要进行排版优化的内容：`;
+      } else if (media === 'zhihu') {
+        return `请将以下内容整理为适合知乎发布的Markdown格式文章。要求：
+1. 保持内容的专业性和可读性
+2. 使用合适的标题层级（## ### #### 等）
+3. 代码块使用\`\`\`标记，并指定语言类型
+4. 重要信息使用**加粗**标记
+5. 列表使用- 或1. 格式
+6. 删除不必要的格式标记
+7. 确保内容适合知乎的阅读习惯
+8. 文章结构清晰，逻辑连贯
+9. 目标是作为一篇专业文章投递到知乎草稿箱
+
+请对以下内容进行排版：`;
+      }
+      return '请对以下内容进行排版：';
     },
 
     // 处理智能排版
     handleLayout() {
       if (!this.canLayout || !this.currentLayoutResult) return;
-
-      // 构建排版请求
-      const layoutRequest = {
-        jsonrpc: "2.0",
-        id: uuidv4(),
-        method: "AI排版",
-        params: {
-          taskId: uuidv4(),
-          userId: this.userId,
-          corpId: this.corpId,
-          userPrompt: this.layoutPrompt,
-          roles: "", // 默认使用豆包进行排版
-        },
-      };
-
-      // 发送排版请求
-      console.log("排版参数", layoutRequest);
-      this.message(layoutRequest);
       this.layoutDialogVisible = false;
 
-      // 创建智能排版AI节点
-      const znpbAI = {
-        name: "智能排版",
+      if (this.selectedMedia === 'zhihu') {
+        // 知乎投递：直接创建投递任务
+        this.createZhihuDeliveryTask();
+      } else {
+        // 公众号投递：创建排版任务
+        this.createWechatLayoutTask();
+      }
+    },
+// 创建知乎投递任务（独立任务）
+    createZhihuDeliveryTask() {
+      const zhihuAI = {
+        name: "投递到知乎",
         avatar: require("../../../assets/ai/yuanbao.png"),
         capabilities: [],
         selectedCapabilities: [],
@@ -1425,33 +1538,102 @@ export default {
         status: "running",
         progressLogs: [
           {
-            content: "智能排版任务已提交，正在排版...",
+            content: "知乎投递任务已创建，正在准备内容排版...",
             timestamp: new Date(),
             isCompleted: false,
-            type: "智能排版",
+            type: "投递到知乎",
           },
         ],
         isExpanded: true,
       };
 
-      // 检查是否已存在智能排版
+      // 检查是否已存在知乎投递任务
       const existIndex = this.enabledAIs.findIndex(
-        (ai) => ai.name === "智能排版"
+        (ai) => ai.name === "投递到知乎"
       );
       if (existIndex === -1) {
-        // 如果不存在，添加到数组开头
-        this.enabledAIs.unshift(znpbAI);
+        this.enabledAIs.unshift(zhihuAI);
       } else {
-        // 如果已存在，更新状态和日志
-        this.enabledAIs[existIndex] = znpbAI;
-        // 将智能排版移到数组开头
-        const znpb = this.enabledAIs.splice(existIndex, 1)[0];
-        this.enabledAIs.unshift(znpb);
+        this.enabledAIs[existIndex] = zhihuAI;
+        const zhihu = this.enabledAIs.splice(existIndex, 1)[0];
+        this.enabledAIs.unshift(zhihu);
       }
 
+      // 发送知乎投递请求
+      const zhihuRequest = {
+        jsonrpc: "2.0",
+        id: uuidv4(),
+        method: "投递到知乎",
+        params: {
+          taskId: uuidv4(),
+          userId: this.userId,
+          corpId: this.corpId,
+          userPrompt: this.layoutPrompt,
+          roles: "",
+          selectedMedia: "zhihu",
+          contentText: this.currentLayoutResult.content,
+          shareUrl: this.currentLayoutResult.shareUrl,
+          aiName: this.currentLayoutResult.aiName,
+        },
+      };
+
+      console.log("知乎投递参数", zhihuRequest);
+      this.message(zhihuRequest);
       this.$forceUpdate();
-      this.$message.success("排版请求已发送，请等待结果");
+      this.$message.success("知乎投递任务已创建，正在处理...");
     },
+      // 创建公众号排版任务（保持原有逻辑）
+      createWechatLayoutTask() {
+        const layoutRequest = {
+          jsonrpc: "2.0",
+          id: uuidv4(),
+          method: "AI排版",
+          params: {
+            taskId: uuidv4(),
+            userId: this.userId,
+            corpId: this.corpId,
+            userPrompt: this.layoutPrompt,
+            roles: "",
+            selectedMedia: "wechat",
+          },
+        };
+
+        console.log("公众号排版参数", layoutRequest);
+        this.message(layoutRequest);
+
+        const znpbAI = {
+          name: "智能排版",
+          avatar: require("../../../assets/ai/yuanbao.png"),
+          capabilities: [],
+          selectedCapabilities: [],
+          enabled: true,
+          status: "running",
+          progressLogs: [
+            {
+              content: "智能排版任务已提交，正在排版...",
+              timestamp: new Date(),
+              isCompleted: false,
+              type: "智能排版",
+            },
+          ],
+          isExpanded: true,
+        };
+
+        // 检查是否已存在智能排版任务
+        const existIndex = this.enabledAIs.findIndex(
+          (ai) => ai.name === "智能排版"
+        );
+        if (existIndex === -1) {
+          this.enabledAIs.unshift(znpbAI);
+        } else {
+          this.enabledAIs[existIndex] = znpbAI;
+          const znpb = this.enabledAIs.splice(existIndex, 1)[0];
+          this.enabledAIs.unshift(znpb);
+        }
+
+        this.$forceUpdate();
+        this.$message.success("排版请求已发送，请等待结果");
+      },
 
     // 实际投递到公众号
     pushToWechatWithContent(contentText) {
@@ -1890,7 +2072,7 @@ export default {
 }
 
 .share-link-btn,
-.push-wechat-btn {
+.push-media-btn {
   border-radius: 16px;
   padding: 6px 12px;
 }
@@ -2329,5 +2511,60 @@ export default {
 ::v-deep .deepseek-response ol {
   padding-left: 20px;
   margin: 10px 0;
+}
+
+/* 媒体选择区域样式 */
+.media-selection-section {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.media-selection-section h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.media-radio-group {
+  display: flex;
+  gap: 8px;
+}
+
+.media-radio-group .el-radio-button__inner {
+  padding: 8px 16px;
+  font-size: 13px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.media-radio-group .el-radio-button__inner i {
+  font-size: 14px;
+}
+
+.media-description {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background-color: #f0f9ff;
+  border-radius: 4px;
+  border-left: 3px solid #409eff;
+}
+
+.media-description small {
+  color: #606266;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.layout-prompt-section h3 {
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
 }
 </style>
