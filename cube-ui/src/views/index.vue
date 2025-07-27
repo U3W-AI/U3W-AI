@@ -550,15 +550,19 @@ export default {
 
       //------ 媒体登录状态相关变量 ------//
       mediaLoginStatus: {
+        zhihu: false,
       },
       mediaAccounts: {
+        zhihu: "",
       },
       mediaIsClick: {
+        zhihu: true,
       },
       mediaLoginDialogVisible: false,
       currentMediaType: "",
       mediaQrCodeUrl: "",
       mediaIsLoading: {
+        zhihu: true,
       },
       resetMediaStatusTimeout: null, // 媒体状态检查超时定时器
     }
@@ -593,6 +597,7 @@ export default {
     },
     getMediaLoginTitle() {
       const titles = {
+        zhihu: "知乎登录",
       };
       return titles[this.currentMediaType] || "媒体登录";
     },
@@ -631,6 +636,12 @@ export default {
           // 检查DeepSeek登录状态
           this.sendMessage({
             type: "PLAY_CHECK_DEEPSEEK_LOGIN",
+            userId: this.userId,
+            corpId: this.corpId,
+          });
+          // 检查知乎登录状态
+          this.sendMessage({
+            type: "PLAY_CHECK_ZHIHU_LOGIN",
             userId: this.userId,
             corpId: this.corpId,
           });
@@ -780,19 +791,27 @@ export default {
     },
     getMediaQrCode(type) {
       this.mediaQrCodeUrl = "";
-
+      if (type == "zhihu") {
+        this.sendMessage({
+          type: "PLAY_GET_ZHIHU_QRCODE",
+          userId: this.userId,
+          corpId: this.corpId,
+        });
+      }
       this.$message({
-        message: "正在获取登录二维码...",
+        message: "正在获取知乎登录二维码...",
         type: "info",
       });
     },
     getMediaPlatformIcon(type) {
       const icons = {
+        zhihu: require("@/assets/logo/ZhiHu.png"),
       };
       return icons[type] || "";
     },
     getMediaPlatformName(type) {
       const names = {
+        zhihu: "知乎",
       };
       return names[type] || "";
     },
@@ -843,6 +862,8 @@ export default {
         datastr.includes("RETURN_PC_MAX_QRURL")
       ) {
         this.qrCodeUrl = dataObj.url;
+      } else if (datastr.includes("RETURN_PC_ZHIHU_QRURL")) {
+        this.mediaQrCodeUrl = dataObj.url;
       } else if (datastr.includes("RETURN_DB_STATUS") && dataObj.status != "") {
         if (!datastr.includes("false")) {
           this.aiLoginDialogVisible = false;
@@ -880,6 +901,26 @@ export default {
           this.isClick.minimax = true;
           this.isLoading.minimax = false;
         }
+      } else if (
+        datastr.includes("RETURN_ZHIHU_STATUS") &&
+        dataObj.status != ""
+      ) {
+        if (!datastr.includes("false")) {
+          this.mediaLoginDialogVisible = false;
+          this.mediaLoginStatus.zhihu = true;
+          this.mediaAccounts.zhihu = dataObj.status;
+          this.mediaIsLoading.zhihu = false;
+          this.$message.success(`知乎登录成功：${dataObj.status}`);
+        } else {
+          this.mediaIsClick.zhihu = true;
+          this.mediaIsLoading.zhihu = false;
+        }
+      } else if (datastr.includes("RETURN_ZHIHU_LOGIN_TIMEOUT")) {
+        // 处理知乎登录超时
+        this.mediaLoginDialogVisible = false;
+        this.mediaIsClick.zhihu = true;
+        this.mediaIsLoading.zhihu = false;
+        this.$message.warning('知乎登录超时，请重试');
       }
     },
 

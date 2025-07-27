@@ -280,13 +280,13 @@
 			</view>
 		</view>
 
-		<!-- 媒体投递弹窗 -->
-		<view v-if="layoutModalVisible" class="popup-mask" @tap="closeLayoutModal">
-			<view class="score-modal" @tap.stop>
-				<view class="score-header">
-					<text class="score-title">媒体投递设置</text>
-					<text class="close-icon" @tap="closeLayoutModal">✕</text>
-				</view>
+    <!-- 媒体投递弹窗 -->
+    <view v-if="layoutModalVisible" class="popup-mask" @tap="closeLayoutModal">
+      <view class="score-modal" @tap.stop>
+        <view class="score-header">
+          <text class="score-title">媒体投递设置</text>
+          <text class="close-icon" @tap="closeLayoutModal">✕</text>
+        </view>
         <view class="score-content">
           <!-- 媒体选择 -->
           <view class="media-selection-section">
@@ -298,10 +298,19 @@
                 <text class="media-icon">📱</text>
                 <text class="media-text">公众号</text>
               </view>
+              <view class="media-radio-item"
+                    :class="{'active': selectedMedia === 'zhihu'}"
+                    @tap="selectMedia('zhihu')">
+                <text class="media-icon">📖</text>
+                <text class="media-text">知乎</text>
+              </view>
             </view>
             <view class="media-description">
               <text v-if="selectedMedia === 'wechat'" class="description-text">
                 📝 将内容排版为适合微信公众号的HTML格式，并自动投递到草稿箱
+              </text>
+              <text v-else-if="selectedMedia === 'zhihu'" class="description-text">
+                📖 将内容转换为知乎专业文章格式，直接投递到知乎草稿箱
               </text>
             </view>
           </view>
@@ -987,6 +996,63 @@
 						}
 						return;
 					}
+        // 处理知乎投递任务日志
+        if (dataObj.type === 'RETURN_MEDIA_TASK_LOG') {
+          console.log("收到媒体任务日志", dataObj);
+          const zhihuAI = this.enabledAIs.find(ai => ai.name === dataObj.aiName);
+          if (zhihuAI) {
+            // 检查是否已存在相同内容的日志，避免重复添加
+            const existingLog = zhihuAI.progressLogs.find(log => log.content === dataObj.content);
+            if (!existingLog) {
+              // 添加进度日志
+              zhihuAI.progressLogs.push({
+                content: dataObj.content,
+                timestamp: new Date(),
+                isCompleted: false,
+                type: dataObj.aiName
+              });
+
+              // 强制更新UI
+              this.$forceUpdate();
+            }
+          }
+          return;
+        }
+
+        // 处理知乎投递完成结果
+        if (dataObj.type === 'RETURN_ZHIHU_DELIVERY_RES') {
+          console.log("收到知乎投递完成结果", dataObj);
+          const zhihuAI = this.enabledAIs.find(ai => ai.name === '投递到知乎');
+          if (zhihuAI) {
+            zhihuAI.status = dataObj.status === 'success' ? 'completed' : 'error';
+
+            // 更新最后一条日志状态
+            if (zhihuAI.progressLogs.length > 0) {
+              zhihuAI.progressLogs[zhihuAI.progressLogs.length - 1].isCompleted = true;
+            }
+
+            // 添加完成日志
+            zhihuAI.progressLogs.push({
+              content: dataObj.message || '知乎投递任务完成',
+              timestamp: new Date(),
+              isCompleted: true,
+              type: '投递到知乎'
+            });
+
+            // 强制更新UI
+            this.$forceUpdate();
+
+            // 显示完成提示
+            uni.showToast({
+              title: dataObj.status === 'success' ? '知乎投递成功' : '知乎投递失败',
+              icon: dataObj.status === 'success' ? 'success' : 'failed'
+            });
+
+            // 保存历史记录
+            this.saveHistory();
+          }
+          return;
+        }
 
 					// 处理AI登录状态消息
 					this.handleAiStatusMessage(datastr, dataObj);
@@ -1700,13 +1766,69 @@
 				this.layoutModalVisible = false;
 			},
 
-			handleLayout() {
+      handleLayout() {
         if (this.layoutPrompt.trim().length === 0) return;
 
-        this.createWechatLayoutTask();
+        this.closeLayoutModal();
+
+        if (this.selectedMedia === 'zhihu') {
+          this.createZhihuDeliveryTask();
+        } else {
+          this.createWechatLayoutTask();
+        }
       },
 
-        // 创建公众号排版任务
+      // 创建知乎投递任务
+      createZhihuDeliveryTask() {
+        // 组合完整的提示词：数据库提示词 + 原文内容
+        const fullPrompt = this.layoutPrompt + '\n\n' + this.currentLayoutResult.content;
+
+        // 构建知乎投递请求
+        const zhihuRequest = {
+          jsonrpc: '2.0',
+          id: this.generateUUID(),
+          method: '投递到知乎',
+          params: {
+            taskId: this.generateUUID(),
+            userId: this.userId,
+            corpId: this.corpId,
+            userPrompt: fullPrompt,
+            aiName: this.currentLayoutResult.aiName,
+            content: this.currentLayoutResult.content
+          }
+        };
+
+        console.log("知乎投递参数", zhihuRequest);
+        this.message(zhihuRequest);
+
+        // 创建投递到知乎任务节点
+        const zhihuAI = {
+          name: '投递到知乎',
+          avatar: 'https://pic1.zhimg.com/80/v2-a47051e92cf74930bedd7469978e6c08_720w.png',
+          capabilities: [],
+          selectedCapabilities: [],
+          enabled: true,
+          status: 'running',
+          progressLogs: [
+            {
+              content: '投递到知乎任务已提交，正在处理...',
+              timestamp: new Date(),
+              isCompleted: false,
+              type: '投递到知乎'
+            }
+          ],
+          isExpanded: true
+        };
+
+        this.addOrUpdateTaskAI(zhihuAI, '投递到知乎');
+
+        uni.showToast({
+          title: '知乎投递任务已提交',
+          icon: 'success'
+        });
+      },
+
+      // 创建公众号排版任务
         createWechatLayoutTask() {
           // 组合完整的提示词：数据库提示词 + 原文内容
           const fullPrompt = this.layoutPrompt + '\n\n' + this.currentLayoutResult.content;

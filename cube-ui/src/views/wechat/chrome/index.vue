@@ -466,13 +466,21 @@
               <i class="el-icon-chat-dot-square"></i>
               公众号
             </el-radio-button>
+            <el-radio-button label="zhihu">
+              <i class="el-icon-document"></i>
+              知乎
+            </el-radio-button>
           </el-radio-group>
           <div class="media-description">
             <template v-if="selectedMedia === 'wechat'">
               <small>📝 将内容排版为适合微信公众号的HTML格式，并自动投递到草稿箱</small>
             </template>
+            <template v-else-if="selectedMedia === 'zhihu'">
+              <small>📖 将内容转换为知乎专业文章格式，直接投递到知乎草稿箱</small>
+            </template>
           </div>
         </div>
+
 
         <div class="layout-prompt-section">
           <h3>排版提示词：</h3>
@@ -923,7 +931,23 @@ export default {
         }
         return;
       }
-
+      // 处理知乎投递任务日志
+      if (dataObj.type === "RETURN_MEDIA_TASK_LOG" && dataObj.aiName === "投递到知乎") {
+        const zhihuAI = this.enabledAIs.find((ai) => ai.name === "投递到知乎");
+        if (zhihuAI) {
+          // 检查是否已存在相同内容的日志，避免重复添加
+          const existingLog = zhihuAI.progressLogs.find(log => log.content === dataObj.content);
+          if (!existingLog) {
+            // 将新进度添加到数组开头
+            zhihuAI.progressLogs.unshift({
+              content: dataObj.content,
+              timestamp: new Date(),
+              isCompleted: false,
+            });
+          }
+        }
+        return;
+      }
       // 处理截图消息
       if (dataObj.type === "RETURN_PC_TASK_IMG" && dataObj.url) {
         // 将新的截图添加到数组开头
@@ -969,6 +993,28 @@ export default {
 
           // 智能排版完成时，保存历史记录
           this.saveHistory();
+        }
+        return;
+      }
+      // 处理知乎投递结果（独立任务）
+      if (dataObj.type === "RETURN_ZHIHU_DELIVERY_RES") {
+        const zhihuAI = this.enabledAIs.find((ai) => ai.name === "投递到知乎");
+        if (zhihuAI) {
+          this.$set(zhihuAI, "status", "completed");
+          if (zhihuAI.progressLogs.length > 0) {
+            this.$set(zhihuAI.progressLogs[0], "isCompleted", true);
+          }
+
+          // 添加完成日志
+          zhihuAI.progressLogs.unshift({
+            content: "知乎投递完成！" + (dataObj.message || ""),
+            timestamp: new Date(),
+            isCompleted: true,
+          });
+
+          // 知乎投递完成时，保存历史记录
+          this.saveHistory();
+          this.$message.success("知乎投递任务完成！");
         }
         return;
       }
@@ -1451,6 +1497,19 @@ export default {
 6. 不要显示为问答形式，以一篇文章的格式去调整
 
 以下为需要进行排版优化的内容：`;
+      } else if (media === 'zhihu') {
+        return `请将以下内容整理为适合知乎发布的Markdown格式文章。要求：
+1. 保持内容的专业性和可读性
+2. 使用合适的标题层级（## ### #### 等）
+3. 代码块使用\`\`\`标记，并指定语言类型
+4. 重要信息使用**加粗**标记
+5. 列表使用- 或1. 格式
+6. 删除不必要的格式标记
+7. 确保内容适合知乎的阅读习惯
+8. 文章结构清晰，逻辑连贯
+9. 目标是作为一篇专业文章投递到知乎草稿箱
+
+请对以下内容进行排版：`;
       }
       return '请对以下内容进行排版：';
     },
@@ -1458,12 +1517,71 @@ export default {
     // 处理智能排版
     handleLayout() {
       if (!this.canLayout || !this.currentLayoutResult) return;
-
       this.layoutDialogVisible = false;
-      this.createWechatLayoutTask();
+
+      if (this.selectedMedia === 'zhihu') {
+        // 知乎投递：直接创建投递任务
+        this.createZhihuDeliveryTask();
+      } else {
+        // 公众号投递：创建排版任务
+        this.createWechatLayoutTask();
+      }
     },
+// 创建知乎投递任务（独立任务）
+    createZhihuDeliveryTask() {
+      const zhihuAI = {
+        name: "投递到知乎",
+        avatar: require("../../../assets/ai/yuanbao.png"),
+        capabilities: [],
+        selectedCapabilities: [],
+        enabled: true,
+        status: "running",
+        progressLogs: [
+          {
+            content: "知乎投递任务已创建，正在准备内容排版...",
+            timestamp: new Date(),
+            isCompleted: false,
+            type: "投递到知乎",
+          },
+        ],
+        isExpanded: true,
+      };
 
+      // 检查是否已存在知乎投递任务
+      const existIndex = this.enabledAIs.findIndex(
+        (ai) => ai.name === "投递到知乎"
+      );
+      if (existIndex === -1) {
+        this.enabledAIs.unshift(zhihuAI);
+      } else {
+        this.enabledAIs[existIndex] = zhihuAI;
+        const zhihu = this.enabledAIs.splice(existIndex, 1)[0];
+        this.enabledAIs.unshift(zhihu);
+      }
 
+      // 发送知乎投递请求
+      const zhihuRequest = {
+        jsonrpc: "2.0",
+        id: uuidv4(),
+        method: "投递到知乎",
+        params: {
+          taskId: uuidv4(),
+          userId: this.userId,
+          corpId: this.corpId,
+          userPrompt: this.layoutPrompt,
+          roles: "",
+          selectedMedia: "zhihu",
+          contentText: this.currentLayoutResult.content,
+          shareUrl: this.currentLayoutResult.shareUrl,
+          aiName: this.currentLayoutResult.aiName,
+        },
+      };
+
+      console.log("知乎投递参数", zhihuRequest);
+      this.message(zhihuRequest);
+      this.$forceUpdate();
+      this.$message.success("知乎投递任务已创建，正在处理...");
+    },
       // 创建公众号排版任务（保持原有逻辑）
       createWechatLayoutTask() {
         const layoutRequest = {
