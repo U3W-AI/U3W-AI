@@ -1269,6 +1269,73 @@ public class AIGCController {
         }
     }
 
+    /**
+     * 内部调用的豆包排版方法（用于媒体投递）
+     * 该方法不发送WebSocket消息，适合被其他控制器内部调用
+     * @param userInfoRequest 用户信息请求体
+     * @return 排版后的内容
+     */
+    public String startDBInternal(UserInfoRequest userInfoRequest) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "db")) {
+
+            // 初始化变量
+            String userId = userInfoRequest.getUserId();
+            String dbchatId = userInfoRequest.getDbChatId();
+            String roles = userInfoRequest.getRoles();
+            String userPrompt = userInfoRequest.getUserPrompt();
+
+            // 初始化页面并导航到指定会话
+            Page page = context.newPage();
+            if(dbchatId!=null){
+                page.navigate("https://www.doubao.com/chat/"+dbchatId);
+            }else {
+                page.navigate("https://www.doubao.com/chat/");
+            }
+
+            page.waitForLoadState(LoadState.LOAD);
+            Thread.sleep(500);
+
+            // 定位深度思考按钮
+            Locator deepThoughtButton = page.locator("button.semi-button:has-text('深度思考')");
+            // 检查按钮是否包含以 active- 开头的类名
+            Boolean isActive = (Boolean) deepThoughtButton.evaluate("element => {\n" +
+                    "    const classList = Array.from(element.classList);\n" +
+                    "    return classList.some(cls => cls.startsWith('active-'));\n" +
+                    "}");
+
+            // 确保 isActive 不为 null
+            if (isActive != null && !isActive && roles.contains("db-sdsk")) {
+                deepThoughtButton.click();
+                // 点击后等待一段时间，确保按钮状态更新
+                Thread.sleep(1000);
+
+                // 再次检查按钮状态
+                isActive = (Boolean) deepThoughtButton.evaluate("element => {\n" +
+                        "    const classList = Array.from(element.classList);\n" +
+                        "    return classList.some(cls => cls.startsWith('active-'));\n" +
+                        "}");
+                if (isActive != null && !isActive) {
+                    deepThoughtButton.click();
+                    Thread.sleep(1000);
+                }
+            }
+
+            Thread.sleep(1000);
+            page.locator("[data-testid='chat_input_input']").click();
+            Thread.sleep(1000);
+            page.locator("[data-testid='chat_input_input']").fill(userPrompt);
+            Thread.sleep(1000);
+            page.locator("[data-testid='chat_input_input']").press("Enter");
+
+            // 等待文本获取完成（不使用截图和日志发送）
+            String copiedText = douBaoUtil.waitAndClickDBCopyButton(page, userId, "豆包");
+
+            return copiedText;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "获取内容失败: " + e.getMessage();
+        }
+    }
 
 
 }

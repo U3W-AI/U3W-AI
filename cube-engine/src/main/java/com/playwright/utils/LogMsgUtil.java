@@ -108,4 +108,34 @@ public class LogMsgUtil {
             webSocketClientService.sendMessage(chatData.toJSONString());
         }
     }
+    /**
+     * 发送投递到媒体任务日志消息
+     * @param taskNode 任务节点描述信息
+     * @param userId 用户ID
+     * @param mediaName 媒体名称
+     */
+    public void sendMediaTaskLog(String taskNode,String userId,String mediaName){
+
+        JSONObject logData = new JSONObject();
+        logData.put("content",taskNode);
+        logData.put("userId",userId);
+        logData.put("type","RETURN_MEDIA_TASK_LOG");
+        logData.put("aiName",mediaName);
+        webSocketClientService.sendMessage(logData.toJSONString());
+    }
+    /**
+     * 媒体任务投递结果
+     * @param isSuccess 是否成功
+     * @param userId 用户ID
+     * @param mediaName 媒体名称
+     */
+    public void sendMediaTaskRes(boolean isSuccess,String userId,String mediaName){
+
+        JSONObject logData = new JSONObject();
+        logData.put("isSuccess",isSuccess);
+        logData.put("userId",userId);
+        logData.put("type","RETURN_MEDIA_TASK_RES");
+        logData.put("aiName",mediaName);
+        webSocketClientService.sendMessage(logData.toJSONString());
+    }
 }

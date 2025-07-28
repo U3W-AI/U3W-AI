@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.selfapp.app.mapper.CallWordMapper">
+
+    <resultMap type="com.cube.wechat.selfapp.app.domain.CallWord" id="CallWordResult">
+        <result property="platformId" column="platform_id"/>
+        <result property="wordContent" column="word_content"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectCallWordVo">
+        select platform_id, word_content, update_time from wc_call_word
+    </sql>
+
+    <select id="getCallWordById" parameterType="String" resultMap="CallWordResult">
+        <include refid="selectCallWordVo"/>
+        where platform_id = #{platformId}
+    </select>
+
+    <insert id="insertCallWord" parameterType="com.cube.wechat.selfapp.app.domain.CallWord">
+        insert into wc_call_word
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="platformId != null and platformId != ''">platform_id,</if>
+            <if test="wordContent != null and wordContent != ''">word_content,</if>
+            update_time,
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="platformId != null and platformId != ''">#{platformId},</if>
+            <if test="wordContent != null and wordContent != ''">#{wordContent},</if>
+            NOW(),
+        </trim>
+    </insert>
+
+    <update id="updateCallWord" parameterType="com.cube.wechat.selfapp.app.domain.CallWord">
+        update wc_call_word
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="wordContent != null and wordContent != ''">word_content = #{wordContent},</if>
+            update_time = NOW(),
+        </trim>
+        where platform_id = #{platformId}
+    </update>
+
+    <update id="updateDraftZhihuStatus">
+        update wc_playwright_draft
+        set is_push_zh = #{isPushed}
+        where id = #{draftId}
+    </update>
+
+</mapper>

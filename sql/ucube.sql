@@ -2252,6 +2252,22 @@ CREATE TABLE `wechat_office_account` (
 -- ----------------------------
 -- Records of wechat_office_account
 -- ----------------------------
+
+DROP TABLE IF EXISTS `wc_call_word`;
+CREATE TABLE `wc_call_word`  (
+                                 `platform_id` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '平台标识 wechat_layout-公众号排版 zhihu_layout-知乎排版',
+                                 `word_content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '提示词内容',
+                                 `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                 PRIMARY KEY (`platform_id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '平台提示词配置表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of wc_call_word
+-- ----------------------------
+INSERT INTO `wc_call_word` VALUES ('wechat_layout', '请将以下内容整理为适合微信公众号发布的HTML格式文章。要求：\r\n1. 使用适当的HTML标签进行格式化\r\n2. 重要信息使用<strong>加粗</strong>标记\r\n3. 代码块使用<pre><code>标记\r\n4. 列表使用<ul><li>或<ol><li>格式\r\n5. 段落使用<p>标记，确保良好的可读性\r\n6. 目标是用于微信公众号\"草稿箱接口\"的 content 字段\r\n7. 删除不必要的格式标记，保持内容简洁\r\n\r\n请对以下内容进行排版：', '2025-07-22 21:24:31');
+INSERT INTO `wc_call_word` VALUES ('zhihu_layout', '请将以下内容整理为适合知乎发布的Markdown格式文章。要求：\r\n**强调：只使用最基本的Markdowny语法，不允许出现HTML样式**\r\n1. 保持内容的专业性和可读性\r\n2. 使用合适的标题层级（## ### #### 等）\r\n3. 重要信息使用**加粗**标记\r\n4. 列表只允许使用一层无序列表`-`,不允许使用嵌套列表\r\n5. **不允许**出现代码框（例如Markdown语法中的```）、数学公式、表格。\r\n6. 删除不必要的格式标记\r\n7. 目标是作为一篇专业文章投递到知乎草稿箱\r\n8. 直接以文章标题开始，以文章末尾结束，不允许添加其他对话\r\n\r\n请对以下内容进行排版：', '2025-07-24 18:46:57');
+
+
 BEGIN;
 COMMIT;
 
