@@ -69,11 +69,11 @@ spring:
   redis:
     # 地址
     host: 127.0.0.1
-    port: 26379
+    port: 6379
     # 数据库索引
-    database: 0
+    database: 2
     # 密码
-    password: <你的数据库密码>
+    password:
     # 连接超时时间
     timeout: 10s
     lettuce:
@@ -141,6 +141,7 @@ wechat:
 office:
   appId:
   appSecret:
+profile: E:/IntelliJ IDEA 2024.2/data/U3W-AI #此处可以是电脑上的任意文件夹
 upload:
 # 上传文件路径
   url: http://localhost:8081/profile/
