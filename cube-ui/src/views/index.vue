@@ -958,27 +958,25 @@ export default {
       }
     },
     handleRefreshAI() {
-      this.refreshAllLoginStatus();
-    },
-    handleRefreshMedia() {
-      this.refreshAllLoginStatus();
-    },
-    // 全局刷新所有AI和媒体登录状态
-    refreshAllLoginStatus() {
       if (!this.userId || !this.corpId) return;
-      // 重置所有AI和媒体的按钮和loading状态
+      // 只重置AI相关状态
       this.isLoading.doubao = true;
       this.isLoading.deepseek = true;
       this.isLoading.minimax = true;
       this.isClick.doubao = false;
       this.isClick.deepseek = false;
       this.isClick.minimax = false;
-      this.mediaIsLoading.zhihu = true;
-      this.mediaIsClick.zhihu = false;
-      // 依次检测所有AI和媒体登录状态
+      // 只检测AI相关
       this.sendMessage({ type: "PLAY_CHECK_DB_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_MAX_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_DEEPSEEK_LOGIN", userId: this.userId, corpId: this.corpId });
+    },
+    handleRefreshMedia() {
+      if (!this.userId || !this.corpId) return;
+      // 只重置媒体相关状态
+      this.mediaIsLoading.zhihu = true;
+      this.mediaIsClick.zhihu = false;
+      // 只检测媒体相关
       this.sendMessage({ type: "PLAY_CHECK_ZHIHU_LOGIN", userId: this.userId, corpId: this.corpId });
     },
   },
