@@ -46,45 +46,55 @@ public class TTHController {
     private ScreenshotUtil screenshotUtil;
 
     @PostMapping("/pushToTTH")
-    public String pushToTTH(@RequestBody Map map) throws InterruptedException {
+    public String pushToTTH(@RequestBody Map map) {
         Integer i = (Integer) map.get("userId");
         String userId = i.toString();
         String title = (String) map.get("title");
         String content = (String) map.get("content");
         content = content.replaceAll("(\\r\\n)+", "\n");
         BrowserContext tth = browserUtil.createPersistentBrowserContext(false, userId, "tth");
-        Page page = tth.newPage();
-        String res = tthUtil.checkLoginStatus(page, true);
-        if ("false".equals(res)) {
-            logInfo.sendTTHFlow("未登录头条号，请先登录！", userId);
-            tth.close();
-            return "false";
-        }
-        logInfo.sendTTHFlow("开始发布文章", userId);
-        Locator locator = page.locator("a[href='/profile_v4/weitoutiao/publish']");
-        locator.waitFor();
-        locator.click();
-        logInfo.sendTTHFlow("进入发布页面", userId);
+        try {
+            Page page = tth.newPage();
+            String res = tthUtil.checkLoginStatus(page, true);
+            if ("false".equals(res)) {
+                logInfo.sendTTHFlow("未登录头条号，请先登录！", userId);
+                tth.close();
+                return "false";
+            }
+            logInfo.sendTTHFlow("开始发布文章", userId);
+            boolean visible = page.locator("//*[name()='path' and contains(@d,'M15 2v1.5H')]").isVisible();
+            if(visible) {
+                page.locator("//*[name()='path' and contains(@d,'M15 2v1.5H')]").click();
+            }
+            Locator locator = page.locator("a[href='/profile_v4/weitoutiao/publish']");
+            locator.waitFor();
+            locator.click();
+            logInfo.sendTTHFlow("进入发布页面", userId);
 
-        logInfo.sendTTHFlow("正在填写内容", userId);
-        page.locator("//div[@class='ProseMirror']").fill(" ");
-        page.keyboard().type(title + content, new Keyboard.TypeOptions().setDelay(0));
-        logInfo.sendTTHFlow("已填写内容", userId);
-        logInfo.sendTTHFlow("正在保存草稿", userId);
-        page.locator("//span[@class='icon-wrap']//*[name()='svg']").click();
-        Thread.sleep(1000);
-        page.locator("//span[contains(text(),'存草稿')]").click();
-        Thread.sleep(3000);
-        logInfo.sendTTHFlow("已保存草稿", userId);
+            logInfo.sendTTHFlow("正在填写内容", userId);
+            page.locator("//div[@class='ProseMirror']").fill(" ");
+            page.keyboard().type(title + content, new Keyboard.TypeOptions().setDelay(0));
+            logInfo.sendTTHFlow("已填写内容", userId);
+            logInfo.sendTTHFlow("正在保存草稿", userId);
+            page.locator("//span[@class='icon-wrap']//*[name()='svg']").click();
+            Thread.sleep(1000);
+            page.locator("//span[contains(text(),'存草稿')]").click();
+            Thread.sleep(3000);
+            logInfo.sendTTHFlow("已保存草稿", userId);
 //                截屏
-        String url = screenshotUtil.screenshotAndUpload(page, "tthArticle.png");
-        JSONObject tthObject = new JSONObject();
-        tthObject.put("url", url);
-        tthObject.put("userId", userId);
-        tthObject.put("type", "RETURN_PC_TTH_IMG");
-        webSocketClientService.sendMessage(tthObject.toJSONString());
-        tth.close();
-        return "success";
+            String url = screenshotUtil.screenshotAndUpload(page, "tthArticle.png");
+            JSONObject tthObject = new JSONObject();
+            tthObject.put("url", url);
+            tthObject.put("userId", userId);
+            tthObject.put("type", "RETURN_PC_TTH_IMG");
+            webSocketClientService.sendMessage(tthObject.toJSONString());
+            tth.close();
+            return "success";
+        } catch (InterruptedException e) {
+            logInfo.sendTTHFlow("发布文章失败: " + e.getMessage(), userId);
+            tth.close();
+        }
+        return "false";
     }
 
 }

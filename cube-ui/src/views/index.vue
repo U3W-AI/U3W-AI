@@ -1022,10 +1022,12 @@ export default {
       if (!this.userId || !this.corpId) return;
       // 只重置媒体相关状态
       this.mediaIsLoading.zhihu = true;
+      this.mediaIsLoading.toutiao = true;
       this.mediaIsClick.zhihu = false;
-      this.
-      // 只检测媒体相关
+      this.mediaIsClick.toutiao = false;
+      // 只检测媒体相关登录状态
       this.sendMessage({ type: "PLAY_CHECK_ZHIHU_LOGIN", userId: this.userId, corpId: this.corpId });
+      this.sendMessage({ type: "PLAY_CHECK_TTH_LOGIN", userId: this.userId, corpId: this.corpId });
     },
   },
   beforeDestroy() {
