@@ -304,6 +304,12 @@
                 <text class="media-icon">📖</text>
                 <text class="media-text">知乎</text>
               </view>
+              <view class="media-radio-item"
+                    :class="{'active': selectedMedia === 'toutiao'}"
+                    @tap="selectMedia('toutiao')">
+                <text class="media-icon">📰</text>
+                <text class="media-text">微头条</text>
+              </view>
             </view>
             <view class="media-description">
               <text v-if="selectedMedia === 'wechat'" class="description-text">
@@ -311,6 +317,9 @@
               </text>
               <text v-else-if="selectedMedia === 'zhihu'" class="description-text">
                 📖 将内容转换为知乎专业文章格式，直接投递到知乎草稿箱
+              </text>
+              <text v-else-if="selectedMedia === 'toutiao'" class="description-text">
+                📰 将内容排版为适合微头条的文章格式，并发布到微头条
               </text>
             </view>
           </view>
@@ -325,6 +334,60 @@
             排版后智能投递
           </button>
         </view>
+			</view>
+		</view>
+
+		<!-- 微头条文章编辑弹窗 -->
+		<view v-if="tthArticleEditVisible" class="popup-mask" @tap="closeTthArticleEditModal">
+			<view class="score-modal" @tap.stop>
+				<view class="score-header">
+					<text class="score-title">微头条文章编辑</text>
+					<text class="close-icon" @tap="closeTthArticleEditModal">✕</text>
+				</view>
+				<view class="score-content">
+					<view class="score-prompt-section">
+						<text class="score-subtitle">文章标题：</text>
+						<input type="text" v-model="tthArticleTitle" placeholder="请输入文章标题" maxlength="100" />
+					</view>
+					<view class="score-prompt-section">
+						<text class="score-subtitle">文章内容：</text>
+						<textarea class="score-textarea" v-model="tthArticleContent" placeholder="请输入文章内容" maxlength="1000" rows="5"></textarea>
+					</view>
+					<button class="score-submit-btn" @tap="confirmTTHPublish">
+						发布文章
+					</button>
+				</view>
+			</view>
+		</view>
+
+		<!-- 微头条发布流程弹窗 -->
+		<view v-if="tthFlowVisible" class="popup-mask" @tap="closeTthFlowDialog">
+			<view class="score-modal" @tap.stop>
+				<view class="score-header">
+					<text class="score-title">微头条发布流程</text>
+					<text class="close-icon" @tap="closeTthFlowDialog">✕</text>
+				</view>
+				<view class="score-content">
+					<view class="score-prompt-section">
+						<text class="score-subtitle">发布流程日志：</text>
+						<scroll-view style="max-height: 200px;" scroll-y>
+							<view v-for="(log, index) in tthFlowLogs" :key="index" style="margin-bottom: 10px;">
+								<text style="color: #666;">{{ formatTime(log.timestamp) }}</text>
+								<text style="margin-left: 10px;">{{ log.content }}</text>
+							</view>
+							<view v-if="tthFlowLogs.length === 0" style="text-align: center; color: #999; padding: 20px;">暂无流程日志...</view>
+						</scroll-view>
+					</view>
+					<view class="score-prompt-section" v-if="tthFlowImages.length > 0">
+						<text class="score-subtitle">发布流程图片：</text>
+						<scroll-view style="max-height: 200px;" scroll-x>
+							<image v-for="(img, idx) in tthFlowImages" :key="idx" :src="img" style="width: 120px; height: 120px; margin-right: 10px; border-radius: 8px;" mode="aspectFill" @tap="previewImage(img)" />
+						</scroll-view>
+					</view>
+					<view style="display: flex; justify-content: center; margin-top: 20px;">
+						<button class="score-submit-btn" style="width: 200px;" @tap="closeTthFlowDialog">关闭</button>
+					</view>
+				</view>
 			</view>
 		</view>
 	</view>
@@ -451,6 +514,15 @@
 				// 媒体投递
         layoutPrompt: '',
         selectedMedia: 'wechat', // 默认选择公众号
+
+				// 微头条相关
+				tthArticleEditVisible: false, // 微头条文章编辑弹窗
+				tthArticleTitle: '', // 微头条文章标题
+				tthArticleContent: '', // 微头条文章内容
+				tthFlowVisible: false, // 微头条发布流程弹窗
+				tthFlowLogs: [], // 微头条发布流程日志
+				tthFlowImages: [], // 微头条发布流程图片
+				tthScoreContent: '', // 智能评分内容
 
 				// WebSocket
 				socketTask: null,
@@ -1053,6 +1125,55 @@
           }
           return;
         }
+
+        // 处理微头条排版结果
+        if (dataObj.type === 'RETURN_TTH_ZNPB_RES') {
+          // 设置微头条排版AI节点状态为completed
+          const tthZnpbAI = this.enabledAIs.find(ai => ai.name === '微头条排版');
+          if (tthZnpbAI) {
+            tthZnpbAI.status = 'completed';
+            if (tthZnpbAI.progressLogs.length > 0) {
+              tthZnpbAI.progressLogs[0].isCompleted = true;
+            }
+          }
+          this.tthArticleTitle = dataObj.title || '';
+          this.tthArticleContent = dataObj.content || '';
+          this.tthArticleEditVisible = true;
+          if (this.saveHistory) {
+            this.saveHistory();
+          }
+          uni.showToast({ title: '微头条排版完成，请确认标题和内容', icon: 'success' });
+          return;
+        }
+
+        // 处理微头条发布流程
+        if (dataObj.type === 'RETURN_TTH_FLOW') {
+          if (dataObj.content) {
+            this.tthFlowLogs.push({
+              content: dataObj.content,
+              timestamp: new Date(),
+              type: 'flow'
+            });
+          }
+          if (dataObj.shareImgUrl) {
+            this.tthFlowImages.push(dataObj.shareImgUrl);
+          }
+          if (!this.tthFlowVisible) {
+            this.tthFlowVisible = true;
+          }
+          if (dataObj.content === 'success') {
+            uni.showToast({ title: '发布到微头条成功！', icon: 'success' });
+            this.tthFlowVisible = true;
+          }
+          if (dataObj.content === 'fail') {
+            uni.showToast({ title: '发布到微头条失败！', icon: 'none' });
+            this.tthFlowVisible = false;
+            this.tthArticleEditVisible = true;
+          }
+          return;
+        }
+
+
 
 					// 处理AI登录状态消息
 					this.handleAiStatusMessage(datastr, dataObj);
@@ -1773,6 +1894,8 @@
 
         if (this.selectedMedia === 'zhihu') {
           this.createZhihuDeliveryTask();
+        } else if (this.selectedMedia === 'toutiao') {
+          this.createToutiaoLayoutTask();
         } else {
           this.createWechatLayoutTask();
         }
@@ -1824,6 +1947,76 @@
 
         uni.showToast({
           title: '知乎投递任务已提交',
+          icon: 'success'
+        });
+      },
+
+      // 创建微头条排版任务
+      createToutiaoLayoutTask() {
+        // 获取智能评分内容
+        const scoreResult = this.results.find(r => r.aiName === '智能评分');
+        const scoreContent = scoreResult ? this.htmlToText(scoreResult.content) : '';
+        this.tthScoreContent = scoreContent;
+        
+        // 设置微头条排版提示词
+        const toutiaoPrompt = `根据智能评分内容，写一篇头条号文章，只能包含标题和内容，要求如下：
+
+1. 标题要简洁明了，吸引人
+2. 内容要结构清晰，易于阅读
+3. 不要包含任何HTML标签
+4. 直接输出纯文本格式
+5. 内容要适合头条号发布
+6. 强制要求：只能回答标题和内容，标题必须用英文双引号（""）引用起来，且放在首位，不能有其他多余的话
+7. 严格要求：AI必须严格遵守所有严格条件，不要输出其他多余的内容，只要标题和内容
+8. 文章内容部分不允许出现编号，必须正常文章格式
+9. 字数严格控制在2000字以下`;
+
+        // 拼接智能评分内容
+        let fullPrompt = toutiaoPrompt;
+        if (this.tthScoreContent) {
+          fullPrompt += '\n\n智能评分内容：\n' + this.tthScoreContent;
+        }
+
+        // 构建微头条排版请求
+        const layoutRequest = {
+          jsonrpc: '2.0',
+          id: this.generateUUID(),
+          method: '微头条排版',
+          params: {
+            taskId: this.generateUUID(),
+            userId: this.userId,
+            corpId: this.corpId,
+            userPrompt: fullPrompt,
+            roles: ''
+          }
+        };
+
+        console.log("微头条排版参数", layoutRequest);
+        this.message(layoutRequest);
+
+        // 创建微头条排版AI节点
+        const tthZnpbAI = {
+          name: '微头条排版',
+          avatar: 'https://u3w.com/chatfile/TouTiao.png',
+          capabilities: [],
+          selectedCapabilities: [],
+          enabled: true,
+          status: 'running',
+          progressLogs: [
+            {
+              content: '微头条排版任务已提交，正在排版...',
+              timestamp: new Date(),
+              isCompleted: false,
+              type: '微头条排版'
+            }
+          ],
+          isExpanded: true
+        };
+
+        this.addOrUpdateTaskAI(tthZnpbAI, '微头条排版');
+
+        uni.showToast({
+          title: '微头条排版任务已提交',
           icon: 'success'
         });
       },
@@ -2246,11 +2439,61 @@
 				console.log('AI登录状态已更新，但保持原有选择');
 			},
 
+			// 微头条相关方法
+			// 微头条文章编辑相关方法
+			showTthArticleEditModal() {
+				this.tthArticleEditVisible = true;
+			},
+
+			closeTthArticleEditModal() {
+				this.tthArticleEditVisible = false;
+			},
+
+			confirmTTHPublish() {
+				if (!this.tthArticleTitle || !this.tthArticleContent) {
+					uni.showToast({ title: '请填写标题和内容', icon: 'none' });
+					return;
+				}
+				const publishRequest = {
+					jsonrpc: '2.0',
+					id: this.generateUUID(),
+					method: '微头条发布',
+					params: {
+						taskId: this.generateUUID(),
+						userId: this.userId,
+						corpId: this.corpId,
+						roles: '',
+						title: this.tthArticleTitle,
+						content: this.tthArticleContent,
+						type: '微头条发布'
+					}
+				};
+				this.message(publishRequest);
+				this.tthArticleEditVisible = false;
+				this.tthFlowVisible = true;
+				this.tthFlowLogs = [];
+				this.tthFlowImages = [];
+				uni.showToast({ title: '微头条发布请求已发送！', icon: 'success' });
+			},
+
+
+
+			// 微头条发布流程相关方法
+			closeTthFlowDialog() {
+				this.tthFlowVisible = false;
+				this.tthFlowLogs = [];
+				this.tthFlowImages = [];
+			},
+
+			// HTML转纯文本方法
+			htmlToText(html) {
+				if (!html) return '';
+				return html.replace(/<[^>]*>/g, '');
+			},
+
 			// 格式化时间
 			formatTime(timestamp) {
 				try {
-					console.log('formatTime 输入:', timestamp, typeof timestamp);
-
 					if (!timestamp) {
 						return '时间未知';
 					}
@@ -2293,8 +2536,6 @@
 						date = new Date(timestamp);
 					}
 
-					console.log('formatTime 解析结果:', date, date.getTime());
-
 					if (isNaN(date.getTime())) {
 						return '时间未知';
 					}
@@ -2306,7 +2547,6 @@
 
 					const timeString = `${hour}:${minute}:${second}`;
 
-					console.log('formatTime 输出:', timeString);
 					return timeString;
 
 				} catch (error) {
@@ -3398,5 +3638,10 @@
     font-size: 12px;
     color: #666;
     line-height: 1.4;
+  }
+
+  /* 微头条按钮样式 */
+  .media-radio-item.active {
+    background: linear-gradient(135deg, #ff6b35, #f7931e);
   }
 </style>
