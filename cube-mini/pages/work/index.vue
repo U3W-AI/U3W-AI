@@ -1997,7 +1997,7 @@
         // 创建微头条排版AI节点
         const tthZnpbAI = {
           name: '微头条排版',
-          avatar: '/static/images/icon/toutiao.png',
+          avatar: 'https://u3w.com/chatfile/TouTiao.png',
           capabilities: [],
           selectedCapabilities: [],
           enabled: true,
