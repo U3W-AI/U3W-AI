@@ -1,4 +1,5 @@
 <template>
+
   <div class="ai-management-platform">
     <!-- 顶部导航区 -->
     <div class="top-nav">
@@ -557,7 +558,7 @@
         </div>
         <div class="article-content-section">
           <h3>文章内容：</h3>
-          <el-input type="textarea" v-model="tthArticleContent" :rows="20" placeholder="请输入文章内容" 
+          <el-input type="textarea" v-model="tthArticleContent" :rows="20" placeholder="请输入文章内容"
             resize="none" class="article-content-input"></el-input>
         </div>
       </div>
@@ -1780,7 +1781,7 @@ export default {
       // 获取智能评分内容
       const scoreResult = this.results.find(r => r.aiName === '智能评分');
       const scoreContent = scoreResult ? scoreResult.content : '';
-      
+
       const layoutRequest = {
         jsonrpc: "2.0",
         id: uuidv4(),

@@ -1,4 +1,5 @@
 <template>
+
   <div class="dashboard-editor-container">
     <!--    <panel-group @handleSetLineChartData="handleSetLineChartData" />-->
     <div class="app-container">
