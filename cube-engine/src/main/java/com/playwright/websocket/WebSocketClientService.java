@@ -8,10 +8,7 @@ package com.playwright.websocket;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.playwright.controller.AIGCController;
-import com.playwright.controller.BrowserController;
-import com.playwright.controller.MediaController;
-import com.playwright.controller.ZhihuDeliveryController;
+import com.playwright.controller.*;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.utils.SpringContextUtils;
 import org.java_websocket.client.WebSocketClient;
@@ -21,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -95,7 +93,7 @@ public class WebSocketClientService {
                     BrowserController browserController = SpringContextUtils.getBean(BrowserController.class);
                     AIGCController aigcController = SpringContextUtils.getBean(AIGCController.class);;
                     UserInfoRequest userInfoRequest = JSONObject.parseObject(message, UserInfoRequest.class);
-
+                    TTHController tthController = SpringContextUtils.getBean(TTHController.class);
                     System.out.println("Received message: " + message);
 
                     // 处理包含"使用F8S"的消息
@@ -412,6 +410,52 @@ public class WebSocketClientService {
                                 userInfoRequest.setStatus("error");
                                 userInfoRequest.setDraftContent("投递到知乎失败：" + e.getMessage());
                                 sendMessage(JSON.toJSONString(userInfoRequest));
+                            }
+                        }).start();
+                    }
+                    // 处理获取TT二维码的消息
+                    if(message.contains("PLAY_GET_TTH_QRCODE")){
+                        new Thread(() -> {
+                            try {
+                                browserController.getTTHQrCode(userInfoRequest.getUserId());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+                    // 处理获取TT登录状态的消息
+                    if (message.contains("PLAY_CHECK_TTH_LOGIN")) {
+                        new Thread(() -> {
+                            try {
+                                String checkLogin = browserController.checkTTHLogin(userInfoRequest.getUserId());
+                                userInfoRequest.setStatus(checkLogin);
+                                userInfoRequest.setType("RETURN_TOUTIAO_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+                    // 处理包含"头条号排版"的消息
+                    if(message.contains("微头条排版")){
+                        JSONObject jsonObject = JSONObject.parseObject(message);
+                        new Thread(() -> {
+                            try {
+                                aigcController.sendToTTHByDB(userInfoRequest);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+
+                    Map map = JSONObject.parseObject(message);
+                    // 处理包含"头条号发布"的消息
+                    if("微头条发布".equals(map.get("type"))){
+                        new Thread(() -> {
+                            try {
+                                tthController.pushToTTH(map);
+                            } catch (Exception e) {
+                                e.printStackTrace();
                             }
                         }).start();
                     }
