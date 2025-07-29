@@ -138,4 +138,31 @@ public class LogMsgUtil {
         logData.put("aiName",mediaName);
         webSocketClientService.sendMessage(logData.toJSONString());
     }
+
+    /**
+     * 发送 投递到头条号的流程
+     */
+    public void sendTTHFlow(String taskNode, String userId){
+        JSONObject flowData = new JSONObject();
+        flowData.put("content", taskNode);
+        flowData.put("type", "RETURN_TTH_FLOW");
+        flowData.put("userId", userId);
+        webSocketClientService.sendMessage(flowData.toJSONString());
+    }
+
+    /**
+     * 发送内容标题消息
+     * @param content
+     * @param title
+     * @param userId
+     * @param type
+     */
+    public void sendContentAndTitle(String content, String title, String userId, String type){
+        JSONObject resData = new JSONObject();
+        resData.put("content",content);
+        resData.put("title",title);
+        resData.put("type", type);
+        resData.put("userId",userId);
+        webSocketClientService.sendMessage(resData.toJSONString());
+    }
 }
