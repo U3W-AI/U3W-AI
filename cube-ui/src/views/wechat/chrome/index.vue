@@ -1,5 +1,4 @@
 <template>
-
   <div class="ai-management-platform">
     <!-- 顶部导航区 -->
     <div class="top-nav">
@@ -111,24 +110,30 @@
                     </el-switch>
                   </div>
                 </div>
-                <div
-                  class="ai-capabilities"
-                  v-if="ai.capabilities && ai.capabilities.length > 0"
-                >
-                  <div class="button-capability-group">
+                <div class="ai-capabilities" v-if="ai.capabilities && ai.capabilities.length > 0">
+                  <!-- 通义只支持单选-->
+                  <div v-if="ai.name === '通义千问'" class="button-capability-group">
+                    <el-button
+                      v-for="capability in ai.capabilities"
+                      :key="capability.value" size="mini"
+                      :type="ai.selectedCapability === capability.value ? 'primary' : 'info'"
+                      :disabled="!ai.enabled"
+                      :plain="ai.selectedCapability !== capability.value"
+                      @click="selectSingleCapability(ai, capability.value)"
+                      class="capability-button"
+                    >
+                      {{ capability.label }}
+                    </el-button>
+                  </div>
+                  <!-- 其他AI -->
+                  <div v-else class="button-capability-group">
                     <el-button
                       v-for="capability in ai.capabilities"
                       :key="capability.value"
                       size="mini"
-                      :type="
-                        ai.selectedCapabilities.includes(capability.value)
-                          ? 'primary'
-                          : 'info'
-                      "
+                      :type="ai.selectedCapabilities.includes(capability.value) ? 'primary' : 'info'"
                       :disabled="!ai.enabled"
-                      :plain="
-                        !ai.selectedCapabilities.includes(capability.value)
-                      "
+                      :plain="!ai.selectedCapabilities.includes(capability.value)"
                       @click="toggleCapability(ai, capability.value)"
                       class="capability-button"
                     >
@@ -603,6 +608,7 @@ export default {
         toneChatId: "",
         ybDsChatId: "",
         dbChatId: "",
+        tyChatId: "",
         isNewChat: true,
       },
       jsonRpcReqest: {
@@ -648,6 +654,19 @@ export default {
           progressLogs: [],
           isExpanded: true,
         },
+        {
+          name: '通义千问',
+          avatar: require('../../../assets/ai/qw.png'),
+          capabilities: [
+            { label: '深度思考', value: 'deep_thinking' },
+            { label: '联网搜索', value: 'web_search' }
+          ],
+          selectedCapability: '',
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true
+        }
       ],
       promptInput: "",
       taskStarted: false,
@@ -809,6 +828,14 @@ export default {
             this.userInfoReq.roles = this.userInfoReq.roles + "max-lwss,";
           }
         }
+        if(ai.name === '通义千问' && ai.enabled){
+          this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw,';
+          if (ai.selectedCapability.includes("deep_thinking")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-sdsk,'
+          } else if (ai.selectedCapability.includes("web_search")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-lwss,';
+          }
+        }
       });
 
       console.log("参数：", this.userInfoReq);
@@ -826,6 +853,17 @@ export default {
           this.$message.error(res.messages || '操作失败');
         }
       });
+    },
+    // 处理通义单选逻辑
+    selectSingleCapability(ai, capabilityValue) {
+      if (!ai.enabled) return;
+
+      if (ai.selectedCapability === capabilityValue) {
+        this.$set(ai, 'selectedCapability', '');
+      } else {
+        this.$set(ai, 'selectedCapability', capabilityValue);
+      }
+      this.$forceUpdate();
     },
     toggleCapability(ai, capabilityValue) {
       if (!ai.enabled) return;
@@ -978,6 +1016,8 @@ export default {
         this.userInfoReq.ybDsChatId = dataObj.chatId;
       } else if (dataObj.type === "RETURN_DB_CHATID" && dataObj.chatId) {
         this.userInfoReq.dbChatId = dataObj.chatId;
+      } else if (dataObj.type === 'RETURN_TY_CHATID' && dataObj.chatId) {
+        this.userInfoReq.tyChatId = dataObj.chatId;
       } else if (dataObj.type === "RETURN_MAX_CHATID" && dataObj.chatId) {
         this.userInfoReq.maxChatId = dataObj.chatId;
       }
@@ -1163,6 +1203,10 @@ export default {
         case "RETURN_MAX_RES":
           console.log("收到MiniMax消息:", dataObj);
           targetAI = this.enabledAIs.find((ai) => ai.name === "MiniMax Chat");
+          break;
+        case 'RETURN_TY_RES':
+          console.log('收到通义千问消息:', data);
+          targetAI = this.enabledAIs.find(ai => ai.name === '通义千问');
           break;
       }
 
@@ -1391,6 +1435,7 @@ export default {
         this.userInfoReq.ybDsChatId = item.ybDsChatId || "";
         this.userInfoReq.dbChatId = item.dbChatId || "";
         this.userInfoReq.maxChatId = item.maxChatId || "";
+        this.userInfoReq.maxChatId = item.tyChatId || "";
         this.userInfoReq.isNewChat = false;
 
         // 展开相关区域
@@ -1421,6 +1466,7 @@ export default {
         toneChatId: this.userInfoReq.toneChatId,
         ybDsChatId: this.userInfoReq.ybDsChatId,
         dbChatId: this.userInfoReq.dbChatId,
+        tyChatId: this.userInfoReq.tyChatId,
         maxChatId: this.userInfoReq.maxChatId,
       };
 
@@ -1433,6 +1479,7 @@ export default {
           toneChatId: this.userInfoReq.toneChatId,
           ybDsChatId: this.userInfoReq.ybDsChatId,
           dbChatId: this.userInfoReq.dbChatId,
+          tyChatId: this.userInfoReq.tyChatId,
           maxChatId: this.userInfoReq.maxChatId,
         });
       } catch (error) {
@@ -1469,6 +1516,7 @@ export default {
         toneChatId: "",
         ybDsChatId: "",
         dbChatId: "",
+        tyChatId: "",
         maxChatId: "",
         isNewChat: true,
       };
@@ -1509,6 +1557,19 @@ export default {
           status: "idle",
           progressLogs: [],
           isExpanded: true,
+        },
+        {
+          name: '通义千问',
+          avatar: require('../../../assets/ai/qw.png'),
+          capabilities: [
+            { label: '深度思考', value: 'deep_thinking' },
+            { label: '联网搜索', value: 'web_search' }
+          ],
+          selectedCapability: '',
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true
         },
       ];
       // 展开相关区域
@@ -1558,6 +1619,7 @@ export default {
       const widthMap = {
         DeepSeek: "700px",
         豆包: "560px",
+        通义千问: "700px",
       };
 
       const width = widthMap[aiName] || "560px"; // 默认宽度

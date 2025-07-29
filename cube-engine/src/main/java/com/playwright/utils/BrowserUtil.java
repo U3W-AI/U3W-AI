@@ -34,7 +34,7 @@ public class BrowserUtil {
         // 配置启动选项
         BrowserType.LaunchPersistentContextOptions options = new BrowserType.LaunchPersistentContextOptions()
                 .setHeadless(isHead)
-                .setViewportSize(null);
+                .setViewportSize(1280, 760);
         // 启动持久化上下文
         BrowserContext context = browserType.launchPersistentContext(Paths.get(userDataDir + "/" + name + "/" + userId), options);
         // 授予剪贴板读写权限

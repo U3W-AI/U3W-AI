@@ -52,7 +52,6 @@
 			// 用户登录
 			async wxhandleLogin() {
 
-
 				this.$modal.loading("登录中，请耐心等待...")
 				wx.getSystemInfo({
 					success: (res) => {
@@ -81,8 +80,6 @@
 
 								}
 							});
-
-
 
 						} else {
 							uni.getUserProfile({
@@ -197,8 +194,6 @@
 				let site = this.globalConfig.appInfo.agreements[1]
 				this.$tab.navigateTo(`/pages/common/webview/index?title=${site.title}&url=${site.url}`)
 			},
-
-
 
 		}
 	}
