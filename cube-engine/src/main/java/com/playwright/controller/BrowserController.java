@@ -1,11 +1,14 @@
 package com.playwright.controller;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.WaitForSelectorState;
 import com.playwright.utils.*;
+import com.playwright.entity.UserInfoRequest;
 import com.playwright.websocket.WebSocketClientService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
 @RestController
 @RequestMapping("/api/browser")
@@ -299,8 +303,6 @@ public class BrowserController {
         return "false";
     }
 
-
-
     /**
      * 获取豆包登录二维码
      * @param userId 用户唯一标识
@@ -350,83 +352,6 @@ public class BrowserController {
     }
 
     /**
-     * 检查千问登录状态
-     * @param userId 用户唯一标识
-     * @return 登录状态："false"表示未登录，手机号表示已登录
-     */
-    @Operation(summary = "检查千问登录状态", description = "返回手机号表示已登录，false 表示未登录")
-    @GetMapping("/checkQwenLogin")
-    public String checkQwenLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"qwen")) {
-            Page page = context.newPage();
-            page.navigate("https://www.tongyi.com/");
-            Locator locator = page.getByText("登录领权益");
-            if (locator.count() > 0 && locator.isVisible()) {
-                return "false";
-            } else {
-                page.locator("//*[@id=\"new-nav-tab-wrapper\"]/div[2]/div").hover();
-                Thread.sleep(3000);
-                Locator phone = page.locator(".userName");
-                if(phone.count()>0){
-                    String phoneText = phone.textContent();
-                    return phoneText;
-                }else{
-                    return "false";
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return "false";
-        }
-    }
-
-    /**
-     * 获取千问登录二维码
-     * @param userId 用户唯一标识
-     * @return 二维码图片URL 或 "false"表示失败
-     */
-    @Operation(summary = "获取千问登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
-    @GetMapping("/getQWQrCode")
-    public String getQWQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"qwen")) {
-            Page page = context.newPage();
-            page.navigate("https://www.tongyi.com/");
-            Locator locator = page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[1]/div/div/div[3]/button");
-            Thread.sleep(2000);
-            if (locator.count() > 0 && locator.isVisible()) {
-                locator.click();
-
-                Thread.sleep(3000);
-                String url = screenshotUtil.screenshotAndUpload(page,"checkQWLogin.png");
-
-                JSONObject jsonObject = new JSONObject();
-                jsonObject.put("url",url);
-                jsonObject.put("userId",userId);
-                jsonObject.put("type","RETURN_PC_QW_QRURL");
-                webSocketClientService.sendMessage(jsonObject.toJSONString());
-                Locator login = page.getByText("管理对话记录");
-                login.waitFor(new Locator.WaitForOptions().setTimeout(60000));
-                page.locator("//*[@id=\"new-nav-tab-wrapper\"]/div[2]/div").hover();
-                Thread.sleep(3000);
-                Locator phone = page.locator(".userName");
-                if(phone.count()>0){
-                    String phoneText = phone.textContent();
-                    JSONObject jsonObjectTwo = new JSONObject();
-                    jsonObjectTwo.put("status",phoneText);
-                    jsonObjectTwo.put("userId",userId);
-                    jsonObjectTwo.put("type","RETURN_QW_STATUS");
-                    webSocketClientService.sendMessage(jsonObjectTwo.toJSONString());
-                    return phoneText;
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return "false";
-    }
-
-
-    /**
      * 退出腾讯元宝
      */
     @Operation(summary = "退出腾讯元宝登录状态", description = "执行退出操作，返回true表示成功")
@@ -445,8 +370,6 @@ public class BrowserController {
             return false;
         }
     }
-
-
 
     /**
      * 检查DeepSeek登录状态
@@ -575,6 +498,7 @@ public class BrowserController {
         }
         return "false";
     }
+
     @Operation(summary = "获取头条号登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     @GetMapping("/getTTHQrCode")
     public String getTTHQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
@@ -688,11 +612,94 @@ public class BrowserController {
         return "false";
     }
 
+    /**
+     * 检查通义AI登录状态
+     * @param userId 用户唯一标识
+     * @return 登录状态："false"表示未登录，加密的用户名/手机号表示已登录
+     */
+    @Operation(summary = "检查通义AI登录状态", description = "返回用户名/手机号表示已登录，false 表示未登录")
+    @GetMapping("/checkTongYiLogin")
+    public String checkTongYiLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "ty")) {
+            Page page = context.newPage();
+            page.navigate("https://www.tongyi.com/");
+            page.waitForTimeout(5000);
 
+            Locator loginButton = page.locator("//*[@id=\"new-nav-tab-wrapper\"]/div[2]/li");
 
+            if (loginButton.count() > 0 && loginButton.isVisible()) {
+                // 如果找到“登录”按钮，说明未登录
+                return "false";
+            } else {
+                Locator userAvatarArea = page.locator(".popupUser");
+                if (userAvatarArea.count() > 0) {
+                    userAvatarArea.hover();
+                    page.waitForTimeout(1000);
 
+                    Locator userNameElement = page.locator(".userName");
+                    if (userNameElement.count() > 0 && userNameElement.isVisible()) {
+                        // 返回获取到的用户名
+                        return userNameElement.textContent();
+                    }
+                }
+                return "false";
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "false";
+        }
+    }
 
+    /**
+     * 获取通义千问登录二维码
+     * @param userId 用户唯一标识
+     * @return 二维码图片URL 或 "false"表示失败
+     */
+    @Operation(summary = "获取通义千问登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
+    @GetMapping("/getTongYiQrCode")
+    public String getTongYiQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "ty")) {
+            Page page = context.newPage();
+            page.navigate("https://www.tongyi.com/");
+            page.waitForTimeout(3000);
+            Locator loginButton = page.locator("//*[@id=\"new-nav-tab-wrapper\"]/div[2]/li");
+            if (loginButton.count() > 0 && loginButton.isVisible()) {
+                loginButton.click();
+                page.waitForTimeout(2000);
+
+                page.locator("div[class*='qrcodeWrapper']").last().waitFor(new Locator.WaitForOptions().setTimeout(10000));
+
+                String url = screenshotUtil.screenshotAndUpload(page, "checkTongYiLogin.png");
+
+                JSONObject jsonObject = new JSONObject();
+                jsonObject.put("url", url);
+                jsonObject.put("userId", userId);
+                jsonObject.put("type", "RETURN_PC_QW_QRURL");
+                webSocketClientService.sendMessage(jsonObject.toJSONString());
+
+                Locator userAvatarArea = page.locator(".popupUser");
+                userAvatarArea.waitFor(new Locator.WaitForOptions().setTimeout(60000));
+
+                page.waitForTimeout(3000);
+
+                if (userAvatarArea.count() > 0) {
+                    userAvatarArea.hover();
+                    page.waitForTimeout(1000);
+
+                    Locator userNameElement = page.locator(".userName");
+                    if (userNameElement.count() > 0 && userNameElement.isVisible()) {
+                        JSONObject jsonObjectTwo = new JSONObject();
+                        jsonObjectTwo.put("status", userNameElement.textContent());
+                        jsonObjectTwo.put("userId", userId);
+                        jsonObjectTwo.put("type", "RETURN_TY_STATUS");
+                        webSocketClientService.sendMessage(jsonObjectTwo.toJSONString());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "false";
+    }
 
 }
-
-

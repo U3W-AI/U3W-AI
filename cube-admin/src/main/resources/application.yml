@@ -7,7 +7,7 @@ ruoyi:
   # 版权年份
   copyrightYear: 2024
   # 文件路径 示例（ Windows配置D:/ruoyi/uploadPath，Linux配置 /home/ruoyi/uploadPath）
-  profile: F:/AGI/chatfile/
+  profile: E:/IntelliJ IDEA 2024.2/data/U3W-AI
   # 获取ip地址开关
   addressEnabled: false
   # 验证码类型 math 数字计算 char 字符验证
@@ -141,7 +141,6 @@ wechat:
 office:
   appId:
   appSecret:
-profile: E:/IntelliJ IDEA 2024.2/data/U3W-AI #此处可以是电脑上的任意文件夹
 upload:
 # 上传文件路径
   url: http://localhost:8081/profile/
