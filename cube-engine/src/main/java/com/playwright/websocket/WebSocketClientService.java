@@ -259,7 +259,7 @@ public class WebSocketClientService {
                             try {
                                 String checkLogin = browserController.checkTongYiLogin(userInfoRequest.getUserId());
                                 userInfoRequest.setStatus(checkLogin);
-                                userInfoRequest.setType("RETURN_QW_STATUS");
+                                userInfoRequest.setType("RETURN_TY_STATUS");
                                 sendMessage(JSON.toJSONString(userInfoRequest));
                             } catch (Exception e) {
                                 e.printStackTrace();

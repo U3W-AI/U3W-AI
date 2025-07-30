@@ -96,8 +96,8 @@
 					},
           {
             name: '通义千问',
-            avatar: 'https://u3w.com/chatfile/qw.png',
-            icon: 'https://u3w.com/chatfile/qw.png',
+            avatar: 'https://u3w.com/chatfile/TongYi.png',
+            icon: 'https://u3w.com/chatfile/TongYi.png',
             title: '通义千问',
             description: '通情、达义，你的全能AI助手。超级助手，答你所问。生活办公，效率翻倍。个性智能体，丰富角色趣味互动。',
             type: 'tongyi'

@@ -691,7 +691,7 @@ public class BrowserController {
                         JSONObject jsonObjectTwo = new JSONObject();
                         jsonObjectTwo.put("status", userNameElement.textContent());
                         jsonObjectTwo.put("userId", userId);
-                        jsonObjectTwo.put("type", "RETURN_QW_STATUS");
+                        jsonObjectTwo.put("type", "RETURN_TY_STATUS");
                         webSocketClientService.sendMessage(jsonObjectTwo.toJSONString());
                     }
                 }

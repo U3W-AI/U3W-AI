@@ -947,7 +947,7 @@ export default {
           this.isLoading.deepseek = false;
         }
       } else if (
-        datastr.includes("RETURN_QW_STATUS") &&
+        datastr.includes("RETURN_TY_STATUS") &&
         dataObj.status != ''
       ) {
         if (!datastr.includes("false")) {

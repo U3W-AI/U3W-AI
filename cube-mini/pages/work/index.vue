@@ -493,7 +493,7 @@
 					},
           {
             name: '通义千问',
-            avatar: 'https://u3w.com/chatfile/qw.png',
+            avatar: 'https://u3w.com/chatfile/TongYi.png',
             capabilities: [
               {
                 label: '深度思考',
@@ -2359,7 +2359,7 @@
 					},
           {
             name: '通义千问',
-            avatar: 'https://u3w.com/chatfile/qw.png',
+            avatar: 'https://u3w.com/chatfile/TongYi.png',
             capabilities: [
               { label: '深度思考', value: 'deep_thinking' },
               { label: '联网搜索', value: 'web_search' }
@@ -2441,7 +2441,8 @@
 				const icons = {
 					yuanbao: 'https://u3w.com/chatfile/yuanbao.png',
 					doubao: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
-					agent: 'https://u3w.com/chatfile/yuanbao.png'
+					agent: 'https://u3w.com/chatfile/yuanbao.png',
+          tongyi: 'https://u3w.com/chatfile/TongYi.png',
 				};
 				return icons[type] || '';
 			},
