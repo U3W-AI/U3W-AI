@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -74,6 +75,10 @@ public class AIGCController {
     @Autowired
     private MiniMaxUtil miniMaxUtil;
 
+    // 通义AI相关操作工具类
+    @Autowired
+    private TongYiUtil tongYiUtil;
+
     @Autowired
     private QwenUtil qwenUtil;
 
@@ -97,8 +102,6 @@ public class AIGCController {
 
     @Value("${cube.uploadurl}")
     private String uploadUrl;
-
-
 
 
     /**
@@ -924,131 +927,6 @@ public class AIGCController {
         return "获取内容失败";
     }
 
-
-
-    /**
-     * 处理千问的常规请求
-     * @param userInfoRequest 包含会话ID和用户指令
-     * @return AI生成的文本内容
-     */
-    @Operation(summary = "启动千问AI生成", description = "调用千问AI平台生成内容并抓取结果")
-    @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
-    @PostMapping("/startQW")
-    public String startQW(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest){
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"qwen")) {
-
-            // 初始化变量
-            String userId = userInfoRequest.getUserId();
-            String qwchatId = userInfoRequest.getQwChatId();
-            logInfo.sendTaskLog( "通义千问准备就绪，正在打开页面",userId,"通义千问");
-            String roles = userInfoRequest.getRoles();
-            String userPrompt = userInfoRequest.getUserPrompt();
-
-            // 初始化页面并导航到指定会话
-            Page page = context.newPage();
-            if(qwchatId!=null){
-                page.navigate("https://www.tongyi.com/qianwen?sessionId="+qwchatId);
-            }else {
-                page.navigate("https://www.tongyi.com/qianwen");
-            }
-
-            page.waitForLoadState(LoadState.LOAD);
-            Thread.sleep(500);
-            logInfo.sendTaskLog( "通义千问页面打开完成",userId,"通义千问");
-            // 定位深度思考按钮
-
-            // 确保 isActive 不为 null
-//            if (roles.contains("qw-sdsk")) {
-//                page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[2]/div[1]/div[3]/div[1]/div[1]/div[2]").click();
-//                // 点击后等待一段时间，确保按钮状态更新
-//                Thread.sleep(1000);
-//
-//                logInfo.sendTaskLog( "已启动深度思考模式",userId,"通义千问");
-//                page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[2]/div[1]/div[3]/div/div[2]/div[2]/div/textarea").click();
-//                Thread.sleep(1000);
-//                page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[2]/div[1]/div[3]/div/div[2]/div[2]/div/textarea").fill(userPrompt);
-//                logInfo.sendTaskLog( "用户指令已自动输入完成",userId,"通义千问");
-//                Thread.sleep(1000);
-//                page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[2]/div[1]/div[3]/div/div[2]/div[2]/div/textarea").press("Enter");
-//                logInfo.sendTaskLog( "指令已自动发送成功",userId,"通义千问");
-//            }else{
-//                page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[2]/div[1]/div[3]/div[2]/div/div[2]/div/textarea").click();
-//                Thread.sleep(1000);
-//                page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[2]/div[1]/div[3]/div[2]/div/div[2]/div/textarea").fill(userPrompt);
-//                logInfo.sendTaskLog( "用户指令已自动输入完成",userId,"通义千问");
-//                Thread.sleep(1000);
-//                page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[2]/div[1]/div[3]/div[2]/div/div[2]/div/textarea").press("Enter");
-//                logInfo.sendTaskLog( "指令已自动发送成功",userId,"通义千问");
-//            }
-            Thread.sleep(1000);
-
-
-
-            // 创建定时截图线程
-            AtomicInteger i = new AtomicInteger(0);
-            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
-            // 启动定时任务，每5秒执行一次截图
-            ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
-                try {
-                    int currentCount = i.getAndIncrement(); // 获取当前值并自增
-                    logInfo.sendImgData(page, userId + "通义千问执行过程截图"+currentCount, userId);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }, 0, 8, TimeUnit.SECONDS);
-
-            logInfo.sendTaskLog( "开启自动监听任务，持续监听通义千问回答中",userId,"通义千问");
-            // 等待复制按钮出现并点击
-//            String copiedText =  douBaoUtil.waitAndClickDBCopyButton(page,userId,roles);
-            //等待html片段获取完成
-            String copiedText =  qwenUtil.waitQWHtmlDom(page,userId);
-            //关闭截图
-            screenshotFuture.cancel(false);
-            screenshotExecutor.shutdown();
-
-
-            AtomicReference<String> shareUrlRef = new AtomicReference<>();
-
-            clipboardLockManager.runWithClipboardLock(() -> {
-                try {
-                    Locator allShareIcons = page.locator("use[xlink\\:href='#tongyi-share-line']");
-                    int count = allShareIcons.count();
-                    allShareIcons.nth(count - 1).locator("xpath=../../..").click();
-                    Thread.sleep(2000);
-                    page.locator("//*[@id=\"ice-container\"]/div/div/div[2]/div/div[2]/div[1]/div[3]/button[2]").click();
-                    // 建议适当延迟等待内容更新
-                    Thread.sleep(2000);
-                    page.getByText("复制链接").last().click();
-                    String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
-                    shareUrlRef.set(shareUrl);
-                    System.out.println("剪贴板内容：" + shareUrl);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
-
-            Thread.sleep(1000);
-            String shareUrl = shareUrlRef.get();
-
-            logInfo.sendTaskLog( "执行完成",userId,"通义千问");
-            logInfo.sendChatData(page,"/chat/([^/?#]+)",userId,"RETURN_DB_CHATID",1);
-            logInfo.sendResData(copiedText,userId,"通义千问","RETURN_DB_RES",shareUrl,null);
-
-            //保存数据库
-            userInfoRequest.setDraftContent(copiedText);
-            userInfoRequest.setAiName("通义千问");
-            userInfoRequest.setShareUrl(shareUrl);
-            userInfoRequest.setShareImgUrl(null);
-            RestUtils.post(url+"/saveDraftContent", userInfoRequest);
-            return copiedText;
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return "获取内容失败";
-    }
-
-
     /**
      * 处理DeepSeek的常规请求
      * @param userInfoRequest 包含会话ID和用户指令
@@ -1272,6 +1150,136 @@ public class AIGCController {
             e.printStackTrace();
             return "获取内容失败: " + e.getMessage();
         }
+    }
+
+    /**
+     * 处理通义千问的常规请求
+     * @param userInfoRequest 包含会话ID和用户指令
+     * @return 格式化后的AI生成的文本内容
+     */
+    @Operation(summary = "启动通义千问生成", description = "调用通义千问平台生成内容并抓取结果，最后进行统一格式化")
+    @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
+    @PostMapping("/startTYQianwen")
+    public String startTYQianwen(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "ty")) {
+
+            String userId = userInfoRequest.getUserId();
+            String sessionId = userInfoRequest.getTyChatId();
+            String isNewChat = userInfoRequest.getIsNewChat();
+            String aiName = "通义千问";
+
+            logInfo.sendTaskLog(aiName + "准备就绪，正在打开页面", userId, aiName);
+
+            Page page = context.newPage();
+
+            if ("true".equalsIgnoreCase(isNewChat) || sessionId == null || sessionId.isEmpty()) {
+                logInfo.sendTaskLog("用户请求新会话", userId, aiName);
+                page.navigate("https://www.tongyi.com/qianwen");
+            } else {
+                logInfo.sendTaskLog("检测到会话ID: " + sessionId + "，将继续使用此会话", userId, aiName);
+                page.navigate("https://www.tongyi.com/qianwen?sessionId=" + sessionId);
+            }
+
+            page.waitForLoadState(LoadState.LOAD);
+            logInfo.sendTaskLog(aiName + "页面打开完成", userId, aiName);
+
+            // 创建定时截图线程
+            AtomicInteger i = new AtomicInteger(0);
+            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+                try {
+                    int currentCount = i.getAndIncrement();
+                    logInfo.sendImgData(page, userId + aiName + "执行过程截图" + currentCount, userId);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }, 0, 8, TimeUnit.SECONDS);
+
+            Map<String, String> qianwenResult = tongYiUtil.processQianwenRequest(page, userInfoRequest);
+            String rawHtmlContent = qianwenResult.get("rawHtmlContent");
+            String capturedSessionId = qianwenResult.get("sessionId");
+
+            // 关闭截图线程
+            screenshotFuture.cancel(false);
+            screenshotExecutor.shutdown();
+
+            // 对结果进行HTML格式化封装
+            String formattedContent = rawHtmlContent;
+            try {
+                if (!rawHtmlContent.startsWith("获取内容失败") && !rawHtmlContent.isEmpty()) {
+                    Object finalFormattedContent = page.evaluate("""
+                    (content) => {
+                        try {
+                            const styledContainer = document.createElement('div');
+                            styledContainer.className = 'tongyi-response'; // 使用新的class名
+                            styledContainer.style.cssText = 'max-width: 800px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; color: #333;';
+                            styledContainer.innerHTML = content;
+                            return styledContainer.outerHTML;
+                        } catch (e) {
+                            console.error('格式化通义千问内容时出错:', e);
+                            return content;
+                        }
+                    }
+                """, rawHtmlContent);
+
+                    if (finalFormattedContent != null && !finalFormattedContent.toString().isEmpty()) {
+                        formattedContent = finalFormattedContent.toString();
+                        logInfo.sendTaskLog("已将回答内容封装为统一的HTML展示样式", userId, aiName);
+                    }
+                }
+            } catch (Exception e) {
+                logInfo.sendTaskLog("内容格式化处理失败: " + e.getMessage(), userId, aiName);
+                System.out.println("最终格式化处理失败: " + e.getMessage());
+            }
+            // 获取分享链接
+            AtomicReference<String> shareUrlRef = new AtomicReference<>();
+            clipboardLockManager.runWithClipboardLock(() -> {
+                try {
+                    logInfo.sendTaskLog("正在获取分享链接...", userId, aiName);
+
+                    page.locator("div[class*='btn--YtZqkWMA']:not([class*='reloadBtn--'])").last().click();
+                    page.waitForTimeout(1000);
+
+                    page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("分享")).click();
+                    page.waitForTimeout(1000);
+
+                    page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("复制链接")).click();
+                    page.waitForTimeout(500);
+
+                    String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
+                    shareUrlRef.set(shareUrl);
+                    logInfo.sendTaskLog("成功获取分享链接: " + shareUrl, userId, aiName);
+                } catch (Exception e) {
+                    logInfo.sendTaskLog("获取分享链接失败: " + e.getMessage(), userId, aiName);
+                    e.printStackTrace();
+                }
+            });
+
+            String shareUrl = shareUrlRef.get();
+            String sharImgUrl = "";
+
+            logInfo.sendTaskLog("执行完成", userId, aiName);
+
+            // 回传数据
+            logInfo.sendChatData(page, "sessionId=([^&?#]+)", userId, "RETURN_TY_CHATID", 1);
+            logInfo.sendResData(formattedContent, userId, aiName, "RETURN_TY_RES", shareUrl, sharImgUrl);
+
+            // 保存数据库
+            userInfoRequest.setTyChatId(capturedSessionId);
+            userInfoRequest.setDraftContent(formattedContent);
+            userInfoRequest.setAiName(aiName);
+            userInfoRequest.setShareUrl(shareUrl);
+            userInfoRequest.setShareImgUrl(sharImgUrl);
+            RestUtils.post(url + "/saveDraftContent", userInfoRequest);
+
+            return formattedContent;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            logInfo.sendTaskLog("执行通义千问任务时发生严重错误: " + e.getMessage(), userInfoRequest.getUserId(), "通义千问");
+        }
+        return "获取内容失败";
     }
 
     /**

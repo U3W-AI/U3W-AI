@@ -1,5 +1,4 @@
 <template>
-
   <div class="dashboard-editor-container">
     <!--    <panel-group @handleSetLineChartData="handleSetLineChartData" />-->
     <div class="app-container">
@@ -500,16 +499,19 @@ export default {
       aiLoginStatus: {
         doubao: false,
         deepseek: false,
+        qw: false,
         minimax: false,
       },
       accounts: {
         doubao: "",
         deepseek: "",
         minimax: "",
+        qw: "",
       },
       isClick: {
         doubao: false,
         deepseek: false,
+        qw: false,
         minimax: false,
       },
       aiLoginDialogVisible: false,
@@ -521,6 +523,7 @@ export default {
       isLoading: {
         doubao: true,
         deepseek: true,
+        qw: true,
         minimax: true,
       },
       resetStatusTimeout: null, // 状态检查超时定时器
@@ -573,6 +576,7 @@ export default {
         doubao: "豆包登录",
         deepseek: "DeepSeek登录",
         minimax: "MiniMax登录",
+        qw: "通义千问登录",
       };
       return titles[this.currentAiType] || "登录";
     },
@@ -611,9 +615,11 @@ export default {
         this.isClick.doubao = false;
         this.isClick.deepseek = false;
         this.isClick.minimax = false;
+        this.isClick.qw = false;
         this.isLoading.doubao = true;
         this.isLoading.deepseek = true;
         this.isLoading.minimax = true;
+        this.isLoading.qw = true;
         this.mediaIsClick.zhihu = false;
         this.mediaIsLoading.zhihu = true;
         this.mediaIsClick.toutiao = false;
@@ -639,6 +645,12 @@ export default {
             type: "PLAY_CHECK_DEEPSEEK_LOGIN",
             userId: this.userId,
             corpId: this.corpId,
+          });
+          // 检查通义千问登录状态
+          this.sendMessage({
+            type: 'PLAY_CHECK_QW_LOGIN',
+            userId: this.userId,
+            corpId: this.corpId
           });
           // 检查知乎登录状态
           this.sendMessage({
@@ -784,6 +796,13 @@ export default {
           corpId: this.corpId,
         });
       }
+      if(type == 'qw'){
+        this.sendMessage({
+          type: 'PLAY_GET_QW_QRCODE',
+          userId: this.userId,
+          corpId: this.corpId
+        });
+      }
       this.$message({
         message: "正在获取登录二维码...",
         type: "info",
@@ -794,6 +813,7 @@ export default {
         doubao: require("@/assets/logo/doubao.png"),
         deepseek: require("@/assets/logo/Deepseek.png"),
         minimax: require("@/assets/logo/MiniMax.png"),
+        qw: require('@/assets/logo/qw.png'),
       };
       return icons[type] || "";
     },
@@ -802,6 +822,7 @@ export default {
         doubao: "豆包",
         deepseek: "DeepSeek",
         minimax: "MiniMax",
+        qw: "通义千问",
       };
       return names[type] || "";
     },
@@ -892,7 +913,8 @@ export default {
       if (
         datastr.includes("RETURN_PC_DB_QRURL") ||
         datastr.includes("RETURN_PC_DEEPSEEK_QRURL") ||
-        datastr.includes("RETURN_PC_MAX_QRURL")
+        datastr.includes("RETURN_PC_MAX_QRURL") ||
+        datastr.includes("RETURN_PC_QW_QRURL")
       ) {
         this.qrCodeUrl = dataObj.url;
       } else if (datastr.includes("RETURN_PC_ZHIHU_QRURL")) {
@@ -923,6 +945,20 @@ export default {
         } else {
           this.isClick.deepseek = true;
           this.isLoading.deepseek = false;
+        }
+      } else if (
+        datastr.includes("RETURN_TY_STATUS") &&
+        dataObj.status != ''
+      ) {
+        if (!datastr.includes("false")) {
+          this.aiLoginDialogVisible = false;
+          this.aiLoginStatus.qw = true;
+          this.accounts.qw = dataObj.status;
+          this.isLoading.qw = false;
+          this.isClick.qw = true;
+        } else {
+          this.isClick.qw = true;
+          this.isLoading.qw = false;
         }
       } else if (
         datastr.includes("RETURN_MAX_STATUS") &&
@@ -1010,13 +1046,16 @@ export default {
       this.isLoading.doubao = true;
       this.isLoading.deepseek = true;
       this.isLoading.minimax = true;
+      this.isLoading.qw = true;
       this.isClick.doubao = false;
       this.isClick.deepseek = false;
       this.isClick.minimax = false;
+      this.isClick.qw = false;
       // 只检测AI登录状态
       this.sendMessage({ type: "PLAY_CHECK_DB_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_MAX_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_DEEPSEEK_LOGIN", userId: this.userId, corpId: this.corpId });
+      this.sendMessage({ type: "PLAY_CHECK_QW_LOGIN", userId: this.userId, corpId: this.corpId });
     },
      handleRefreshMedia() {
       if (!this.userId || !this.corpId) return;

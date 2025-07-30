@@ -1,6 +1,5 @@
 package com.playwright.websocket;
 
-
 /**
  * @author 优立方
  * @version JDK 17
@@ -149,6 +148,16 @@ public class WebSocketClientService {
                                 }
                             }).start();
                         }
+                        // 处理包含"ty-qw"的信息
+                        if (message.contains("ty-qw")){
+                            new Thread(() -> {
+                                try {
+                                    aigcController.startTYQianwen(userInfoRequest);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }).start();
+                        }
                     }
 
                     // 处理包含"AI评分"的消息
@@ -219,7 +228,6 @@ public class WebSocketClientService {
                         }).start();
                     }
 
-
                     // 处理检查agent登录状态的消息
                     if (message.contains("CHECK_AGENT_LOGIN")) {
                         new Thread(() -> {
@@ -234,25 +242,24 @@ public class WebSocketClientService {
                         }).start();
                     }
 
-                    // 处理获取QW二维码的消息
+                    // 处理获取通义千问二维码的消息
                     if(message.contains("PLAY_GET_QW_QRCODE")){
                         new Thread(() -> {
                             try {
-                                browserController.getQWQrCode(userInfoRequest.getUserId());
+                                browserController.getTongYiQrCode(userInfoRequest.getUserId());
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }
                         }).start();
                     }
 
-
-                    // 处理检查agent登录状态的消息
+                    // 处理检查通义千问登录状态的消息
                     if (message.contains("CHECK_QW_LOGIN")) {
                         new Thread(() -> {
                             try {
-                                String checkLogin = browserController.checkQwenLogin(userInfoRequest.getUserId());
+                                String checkLogin = browserController.checkTongYiLogin(userInfoRequest.getUserId());
                                 userInfoRequest.setStatus(checkLogin);
-                                userInfoRequest.setType("RETURN_QW_STATUS");
+                                userInfoRequest.setType("RETURN_TY_STATUS");
                                 sendMessage(JSON.toJSONString(userInfoRequest));
                             } catch (Exception e) {
                                 e.printStackTrace();

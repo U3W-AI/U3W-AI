@@ -47,9 +47,12 @@
 									<view class="ai-name-container">
 										<text class="ai-name" :class="[!isAiLoginEnabled(ai) ? 'name-disabled' : '']">{{
 											ai.name }}</text>
-										<text
-											v-if="!isAiLoginEnabled(ai) && !isLoading.yuanbao && !isLoading.doubao && !isLoading.agent"
-											class="login-required">需登录</text>
+                    <text
+                        v-if="!isAiLoginEnabled(ai) && !isAiInLoading(ai)"
+                          class="login-required"
+                    >
+                      需登录
+                    </text>
 										<text v-if="isAiInLoading(ai)" class="loading-text">检查中...</text>
 									</view>
 									<switch :checked="ai.enabled && isAiLoginEnabled(ai)"
@@ -57,14 +60,28 @@
 										@change="toggleAI(ai, $event)" color="#409EFF" style="transform: scale(0.8);" />
 								</view>
 							</view>
-							<view class="ai-capabilities" v-if="ai.capabilities.length > 0">
-								<view v-for="capability in ai.capabilities" :key="capability.value"
-									class="capability-tag"
-									:class="[ai.selectedCapabilities.includes(capability.value) ? 'capability-active' : '', (!ai.enabled || !isAiLoginEnabled(ai)) ? 'capability-disabled' : '']"
-									@tap="toggleCapability(ai, capability.value)">
-									<text class="capability-text">{{ capability.label }}</text>
-								</view>
-							</view>
+              <view class="ai-capabilities" v-if="ai.capabilities.length > 0">
+                <!-- 通义千问使用单选按钮逻辑 -->
+                <view v-if="ai.name === '通义千问'" class="capability-tags-container">
+                  <view v-for="(capability, capIndex) in ai.capabilities"
+                        :key="capIndex"
+                        class="capability-tag"
+                        :class="[ai.selectedCapability === capability.value ? 'capability-active' : '', (!ai.enabled || !isAiLoginEnabled(ai)) ? 'capability-disabled' : '']"
+                        @tap="selectSingleCapability(ai, capability.value)">
+                    <text class="capability-text">{{ capability.label }}</text>
+                  </view>
+                </view>
+                <!-- 其他ai使用原有逻辑 -->
+                <view v-else class="capability-tags-container">
+                  <view v-for="(capability, capIndex) in ai.capabilities"
+                        :key="capIndex"
+                        class="capability-tag"
+                        :class="[ai.selectedCapabilities.includes(capability.value) ? 'capability-active' : '', (!ai.enabled || !isAiLoginEnabled(ai)) ? 'capability-disabled' : '']"
+                        @tap="toggleCapability(ai, capability.value)">
+                    <text class="capability-text">{{ capability.label }}</text>
+                  </view>
+                </view>
+              </view>
 						</view>
 					</view>
 				</view>
@@ -405,7 +422,7 @@
 	} from 'uuid';
 	import storage from '@/utils/storage'
 	import constant from '@/utils/constant'
-
+  import { getToken } from '@/utils/auth';
 
 	export default {
 		name: 'MiniConsole',
@@ -425,6 +442,7 @@
 					toneChatId: '',
 					ybDsChatId: '',
 					dbChatId: '',
+          tyChatId: '',
 					isNewChat: true
 				},
 				jsonRpcReqest: {
@@ -473,6 +491,25 @@
 						progressLogs: [],
 						isExpanded: true
 					},
+          {
+            name: '通义千问',
+            avatar: 'https://u3w.com/chatfile/TongYi.png',
+            capabilities: [
+              {
+                label: '深度思考',
+                value: 'deep_thinking'
+              },
+              {
+                label: '联网搜索',
+                value: 'web_search'
+              }
+            ],
+            selectedCapability: '',
+            enabled: true,
+            status: 'idle',
+            progressLogs: [],
+            isExpanded: true
+          },
           {
             name: "MiniMax Chat",
             avatar: 'https://u3w.com/chatfile/MiniMax.png',
@@ -542,18 +579,21 @@
 				// AI登录状态
 				aiLoginStatus: {
 					doubao: false,
-          deepseek: false, // DeepSeek初始为未登录状态
-		          mini: false,
+          deepseek: false,
+          tongyi: false,
+          mini: false,
 				},
 				accounts: {
 					doubao: '',
           deepseek: '',
-		  mini: '',
+          tongyi: '',
+          mini: '',
 				},
 				isLoading: {
 					doubao: true,
-          deepseek: true, // DeepSeek初始为加载状态
-		  mini: true
+          deepseek: true,
+          tongyi: true,
+		      mini: true,
 				}
 			};
 		},
@@ -567,7 +607,7 @@
 				const hasAvailableAI = this.aiList.some(ai => ai.enabled && this.isAiLoginEnabled(ai));
 
 				// 检查是否正在加载AI状态（如果正在加载，禁用发送按钮）
-				const isCheckingStatus = this.isLoading.doubao || this.isLoading.deepseek || this.isLoading.mini;;
+				const isCheckingStatus = this.isLoading.doubao || this.isLoading.deepseek || this.isLoading.tongyi || this.isLoading.mini;
 
 				return hasInput && hasAvailableAI && !isCheckingStatus;
 			},
@@ -721,6 +761,16 @@
 					ai.selectedCapabilities.splice(index, 1);
 				}
 			},
+      // 通义千问切换能力
+      selectSingleCapability(ai, capabilityValue) {
+        if (!ai.enabled || !this.isAiLoginEnabled(ai)) return;
+
+        if (ai.selectedCapability === capabilityValue) {
+          ai.selectedCapability = '';
+        } else {
+          ai.selectedCapability = capabilityValue;
+        }
+      },
 
 			// 发送提示词
 			sendPrompt() {
@@ -777,6 +827,14 @@
 						}	
 						}
 					}
+          if(ai.name === '通义千问' && ai.enabled){
+            this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw,';
+            if (ai.selectedCapability.includes("deep_thinking")) {
+              this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-sdsk,'
+            } else if (ai.selectedCapability.includes("web_search")) {
+              this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-lwss,';
+            }
+          }
 				});
 
 				console.log("参数：", this.userInfoReq);
@@ -796,8 +854,6 @@
 					icon: 'success'
 				});
 			},
-
-
 
 					// WebSocket相关方法
 		initWebSocket() {
@@ -994,8 +1050,10 @@
           this.userInfoReq.ybDsChatId = dataObj.chatId;
         } else if (dataObj.type === 'RETURN_DB_CHATID' && dataObj.chatId) {
 						this.userInfoReq.dbChatId = dataObj.chatId;
-					}else if (dataObj.type === "RETURN_MAX_CHATID" && dataObj.chatId) {
+        } else if (dataObj.type === "RETURN_MAX_CHATID" && dataObj.chatId) {
           this.userInfoReq.maxChatId = dataObj.chatId;
+        } else if (dataObj.type === 'RETURN_TY_CHATID' && dataObj.chatId) {
+          this.userInfoReq.tyChatId = dataObj.chatId;
         }
 
 					// 处理进度日志消息
@@ -1239,6 +1297,19 @@
           // 强制更新UI
           this.$forceUpdate();
         }
+        else if (datastr.includes("RETURN_TY_STATUS") && dataObj.status != "") {
+          this.isLoading.tongyi = false;
+          if (!datastr.includes("false")) {
+            this.aiLoginStatus.tongyi = true;
+            this.accounts.tongyi = dataObj.status;
+          } else {
+            this.aiLoginStatus.tongyi = false;
+            // 禁用相关AI
+            this.disableAIsByLoginStatus("tongyi");
+          }
+          // 更新AI启用状态
+          this.updateAiEnabledStatus();
+        }
 			},
 
 			handleAIResult(dataObj) {
@@ -1278,6 +1349,10 @@
               };
               this.enabledAIs.push(targetAI);
             }
+            break;
+          case 'RETURN_TY_RES':
+            console.log('收到消息：',dataObj);
+            targetAI = this.enabledAIs.find(ai => ai.name === '通义千问');
             break;
 			case "RETURN_MAX_RES":
 			  console.log("收到消息:", dataObj);
@@ -1588,8 +1663,9 @@
 					this.userInfoReq.toneChatId = item.toneChatId || '';
 					this.userInfoReq.ybDsChatId = item.ybDsChatId || '';
 					this.userInfoReq.dbChatId = item.dbChatId || '';
+          this.userInfoReq.tyChatId = item.tyChatId || '';
 					this.userInfoReq.maxChatId = item.maxChatId || "";
-					this.userInfoReq.isNewChat = false;
+          this.userInfoReq.isNewChat = false;
 
 					// 不再根据AI登录状态更新AI启用状态，保持原有选择
 
@@ -1638,6 +1714,7 @@
 					toneChatId: this.userInfoReq.toneChatId,
 					ybDsChatId: this.userInfoReq.ybDsChatId,
 					dbChatId: this.userInfoReq.dbChatId,
+          tyChatId: this.userInfoReq.tyChatId,
 					maxChatId: this.userInfoReq.maxChatId,
 				};
 
@@ -1650,6 +1727,7 @@
 						toneChatId: this.userInfoReq.toneChatId,
 						ybDsChatId: this.userInfoReq.ybDsChatId,
 						dbChatId: this.userInfoReq.dbChatId,
+            tyChatId: this.userInfoReq.tyChatId,
 						maxChatId: this.userInfoReq.maxChatId,
 					});
 				} catch (error) {
@@ -2243,6 +2321,7 @@
 					toneChatId: '',
 					ybDsChatId: '',
 					dbChatId: '',
+          tyChatId: '',
 					maxChatId: '',
 					isNewChat: true
 				};
@@ -2278,6 +2357,19 @@
 						progressLogs: [],
 						isExpanded: true
 					},
+          {
+            name: '通义千问',
+            avatar: 'https://u3w.com/chatfile/TongYi.png',
+            capabilities: [
+              { label: '深度思考', value: 'deep_thinking' },
+              { label: '联网搜索', value: 'web_search' }
+            ],
+            selectedCapability: '',
+            enabled: true,
+            status: 'idle',
+            progressLogs: [],
+            isExpanded: true
+          },
 					{
 					  name: "MiniMax Chat",
 					  avatar:
@@ -2329,19 +2421,28 @@
           userId: this.userId,
           corpId: this.corpId
         });
-		// 检查MiniMax登录状态
-		this.sendWebSocketMessage({
-		  type: "PLAY_CHECK_MAX_LOGIN",
-		  userId: this.userId,
-		  corpId: this.corpId,
-		});
+
+        // 检查通义千问登录状态
+        this.sendWebSocketMessage({
+          type: 'PLAY_CHECK_QW_LOGIN',
+          userId: this.userId,
+          corpId: this.corpId
+        })
+
+        // 检查MiniMax登录状态
+        this.sendWebSocketMessage({
+          type: "PLAY_CHECK_MAX_LOGIN",
+          userId: this.userId,
+          corpId: this.corpId,
+        });
 			},
 
 			getPlatformIcon(type) {
 				const icons = {
 					yuanbao: 'https://u3w.com/chatfile/yuanbao.png',
 					doubao: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
-					agent: 'https://u3w.com/chatfile/yuanbao.png'
+					agent: 'https://u3w.com/chatfile/yuanbao.png',
+          tongyi: 'https://u3w.com/chatfile/TongYi.png',
 				};
 				return icons[type] || '';
 			},
@@ -2350,7 +2451,8 @@
 				const names = {
 					yuanbao: '腾讯元宝',
 					doubao: '豆包',
-					agent: '智能体'
+					agent: '智能体',
+          tongyi: '通义千问',
 				};
 				return names[type] || '';
 			},
@@ -2364,21 +2466,24 @@
 				this.isLoading = {
 					doubao: true,
           deepseek: true,
-		  mini: true
+          tongyi: true,
+		      mini: true,
 				};
 
 				// 重置登录状态
 				this.aiLoginStatus = {
 					doubao: false,
           deepseek: false,
-		  mini: false
+		      mini: false,
+          tongyi: false,
 				};
 
 				// 重置账户信息
 				this.accounts = {
 					doubao: '',
           deepseek: '',
-		  mini: ''
+          tongyi: '',
+		      mini: '',
 				};
 
 				// 显示刷新提示
@@ -2406,9 +2511,11 @@
 						return this.aiLoginStatus.doubao; // 豆包登录状态
           case 'DeepSeek':
             return this.aiLoginStatus.deepseek; // 使用实际的DeepSeek登录状态
-			case "MiniMax Chat":
-			  return this.aiLoginStatus.mini; // MiniMax Chat登录状态
-					default:
+          case '通义千问':
+            return this.aiLoginStatus.tongyi;   // 通义登录状态
+          case "MiniMax Chat":
+            return this.aiLoginStatus.mini; // MiniMax Chat登录状态
+          default:
 						return false;
 				}
 			},
@@ -2420,9 +2527,11 @@
 						return this.isLoading.doubao;
           case 'DeepSeek':
             return this.isLoading.deepseek; // 使用实际的DeepSeek加载状态
-			case "MiniMax Chat":
-			  return this.isLoading.mini;
-					default:
+          case '通义千问':
+            return this.isLoading.tongyi;
+          case "MiniMax Chat":
+            return this.isLoading.mini;
+          default:
 						return false;
 				}
 			},
