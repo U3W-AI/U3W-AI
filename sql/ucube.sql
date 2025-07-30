@@ -12,6 +12,7 @@ CREATE TABLE `sys_role_menu` (
   PRIMARY KEY (`role_id`,`menu_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色和菜单关联表';
 
+
 -- ----------------------------
 -- Records of sys_role_menu
 -- ----------------------------

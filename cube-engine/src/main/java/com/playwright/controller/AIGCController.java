@@ -43,6 +43,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
  * @version JDK 17
  * @date 2025年01月21日 08:53
  */
+
 @RestController
 @RequestMapping("/api/browser")
 @Tag(name = "AI生成内容控制器", description = "处理与各大AI平台（腾讯元宝、豆包等）的交互操作")

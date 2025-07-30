@@ -12,6 +12,7 @@
               <div class="text-center">
                 <userAvatar />
               </div>
+
               <ul class="list-group list-group-striped">
                 <li class="list-group-item">
                   <svg-icon icon-class="user" />用户名称

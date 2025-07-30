@@ -8,6 +8,7 @@
 					<view class="action-btn refresh-btn" @tap="refreshAiStatus">
 						<image class="action-icon-img" src="https://u3w.com/chatfile/shuaxin.png" mode="aspectFit">
 						</image>
+
             <!-- 连接状态指示器 -->
             <view class="connection-indicator" :class="[socketTask ? 'connected' : 'disconnected']"></view>
 					</view>

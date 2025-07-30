@@ -8,6 +8,7 @@
     </delete>
 
 
+
     <select id="getChromeDataList" parameterType="com.cube.wechat.selfapp.app.domain.WcChromeData" resultType="java.util.Map">
         SELECT
         wd.id,
