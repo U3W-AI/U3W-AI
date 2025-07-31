@@ -101,6 +101,10 @@ public class AIGCController {
     @Autowired
     private TTHUtil tthUtil;
 
+    // 百度AI相关操作工具类
+    @Autowired
+    private BaiduUtil baiduUtil;
+
     @Value("${cube.uploadurl}")
     private String uploadUrl;
 
@@ -1436,6 +1440,306 @@ public class AIGCController {
         } catch (Exception e) {
         }
         return "获取内容失败";
+    }
+
+    /**
+     * 处理百度AI的常规请求
+     * @param userInfoRequest 包含会话ID和用户指令
+     * @return AI生成的文本内容
+     */
+    @Operation(summary = "启动百度AI生成", description = "调用百度AI平台生成内容并抓取结果")
+    @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
+    @PostMapping("/startBaidu")
+    public String startBaidu(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, 
+                userInfoRequest.getUserId(), "baidu")) {
+
+            // 初始化变量
+            String userId = userInfoRequest.getUserId();
+            String roles = userInfoRequest.getRoles();
+            String userPrompt = userInfoRequest.getUserPrompt();
+            String chatId = userInfoRequest.getBaiduChatId();
+            String isNewChat = userInfoRequest.getIsNewChat();
+
+            logInfo.sendTaskLog("百度AI准备就绪，正在打开页面", userId, "百度AI");
+
+            // 如果指定了新会话，则忽略已有的会话ID
+            if ("true".equalsIgnoreCase(isNewChat)) {
+                logInfo.sendTaskLog("用户请求新会话，将忽略已有会话ID", userId, "百度AI");
+                chatId = null;
+            } else if (chatId != null && !chatId.isEmpty()) {
+                logInfo.sendTaskLog("检测到会话ID: " + chatId + "，将继续使用此会话", userId, "百度AI");
+            } else {
+                logInfo.sendTaskLog("未检测到会话ID，将创建新会话", userId, "百度AI");
+            }
+
+            // 创建页面
+            Page page = context.newPage();
+            page.setDefaultTimeout(60000); // 60秒超时
+
+            // 创建定时截图线程
+            AtomicInteger i = new AtomicInteger(0);
+            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+                try {
+                    if (page.isClosed()) {
+                        return;
+                    }
+                    int currentCount = i.getAndIncrement();
+                    logInfo.sendImgData(page, userId + "百度AI执行过程截图" + currentCount, userId);
+                } catch (Exception e) {
+                    System.out.println("截图失败: " + e.getMessage());
+                }
+            }, 2000, 8000, TimeUnit.MILLISECONDS); // 延迟2秒开始，每8秒执行一次
+
+            logInfo.sendTaskLog("开启自动监听任务，持续监听百度AI回答中", userId, "百度AI");
+
+            // 处理百度AI交互
+            String copiedText = "";
+            int maxRetries = 3;
+
+            // 重试循环
+            for (int retry = 0; retry < maxRetries; retry++) {
+                try {
+                    if (retry > 0) {
+                        logInfo.sendTaskLog("第" + (retry + 1) + "次尝试", userId, "百度AI");
+                        Thread.sleep(3000);
+                    }
+
+                    copiedText = baiduUtil.handleBaiduAI(page, userPrompt, userId, roles, chatId);
+
+                    if (!copiedText.startsWith("获取内容失败") && !copiedText.isEmpty()) {
+                        break; // 成功获取内容，跳出重试循环
+                    }
+
+                    Thread.sleep(3000); // 等待3秒后重试
+                } catch (Exception e) {
+                    if (retry == maxRetries - 1) {
+                        copiedText = "获取内容失败：多次尝试后仍然失败";
+                        logInfo.sendTaskLog("百度AI处理失败: " + e.getMessage(), userId, "百度AI");
+                    }
+                    Thread.sleep(2000);
+                }
+            }
+
+            // 安全地关闭截图任务
+            try {
+                screenshotFuture.cancel(true);
+                screenshotExecutor.shutdownNow();
+                if (!screenshotExecutor.awaitTermination(3, TimeUnit.SECONDS)) {
+                    logInfo.sendTaskLog("截图任务关闭超时", userId, "百度AI");
+                }
+            } catch (Exception e) {
+                logInfo.sendTaskLog("关闭截图任务异常: " + e.getMessage(), userId, "百度AI");
+            }
+
+            // 如果获取内容失败，尝试备用方法
+            if (copiedText.startsWith("获取内容失败") || copiedText.isEmpty()) {
+                try {
+                    logInfo.sendTaskLog("尝试使用备用方法提取内容", userId, "百度AI");
+                    
+                    Object extractedContent = page.evaluate("""
+                        () => {
+                            const contentElements = document.querySelectorAll('div, p, span');
+                            let longestText = '';
+                            
+                            for (let element of contentElements) {
+                                const text = element.innerHTML;
+                                if (text && text.length > longestText.length && text.length > 100) {
+                                    longestText = text;
+                                }
+                            }
+                            
+                            return longestText || '无法提取内容';
+                        }
+                    """);
+
+                    if (extractedContent != null && !extractedContent.toString().isEmpty() &&
+                            !extractedContent.toString().equals("无法提取内容")) {
+                        copiedText = extractedContent.toString();
+                        logInfo.sendTaskLog("使用备用方法成功提取内容", userId, "百度AI");
+                    }
+                } catch (Exception e) {
+                    logInfo.sendTaskLog("备用提取方法失败: " + e.getMessage(), userId, "百度AI");
+                }
+            }
+
+            // 保存结果
+            try {
+                copiedText = baiduUtil.saveBaiduContent(page, userInfoRequest, roles, userId, copiedText);
+                logInfo.sendTaskLog("执行完成", userId, "百度AI");
+            } catch (Exception e) {
+                logInfo.sendTaskLog("保存百度AI内容到稿库失败: " + e.getMessage(), userId, "百度AI");
+                e.printStackTrace();
+            }
+
+            return copiedText;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            logInfo.sendTaskLog("百度AI执行异常: " + e.getMessage(), userInfoRequest.getUserId(), "百度AI");
+            return "获取内容失败: " + e.getMessage();
+        }
+    }
+
+    /**
+     * 百度AI智能评分功能
+     * @param userInfoRequest 包含用户信息和会话参数
+     * @return 评分结果
+     */
+    @Operation(summary = "百度AI智能评分", description = "调用百度AI平台对内容进行评分并返回评分结果")
+    @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
+    @PostMapping("/startBaiduScore")
+    public String startBaiduScore(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, 
+                userInfoRequest.getUserId(), "baidu")) {
+
+            String userId = userInfoRequest.getUserId();
+            logInfo.sendTaskLog("百度AI评分准备就绪，正在打开页面", userId, "百度AI评分");
+
+            // 构建评分提示词
+            String scorePrompt = "请对以下内容进行专业评分，从以下维度给出具体分数(1-10分)和详细分析：\n" +
+                               "1. 内容质量：信息准确性、完整性\n" +
+                               "2. 逻辑结构：条理清晰度、层次分明\n" +
+                               "3. 语言表达：流畅度、专业性\n" +
+                               "4. 创新性：观点新颖、见解独到\n" +
+                               "5. 实用性：对读者的实际价值\n\n" +
+                               "内容：\n" + userInfoRequest.getUserPrompt();
+
+            Page page = context.newPage();
+            
+            // 创建定时截图线程
+            AtomicInteger i = new AtomicInteger(0);
+            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+                try {
+                    int currentCount = i.getAndIncrement();
+                    logInfo.sendImgData(page, userId + "百度AI评分执行过程截图" + currentCount, userId);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }, 0, 9, TimeUnit.SECONDS);
+
+            logInfo.sendTaskLog("开启自动监听任务，持续监听评分结果", userId, "百度AI评分");
+
+            // 执行评分
+            String scoreResult = baiduUtil.handleBaiduAI(page, scorePrompt, userId, 
+                                                        userInfoRequest.getRoles(), null);
+
+            // 关闭截图
+            screenshotFuture.cancel(false);
+            screenshotExecutor.shutdown();
+
+            // 保存评分结果
+            userInfoRequest.setDraftContent(scoreResult);
+            userInfoRequest.setAiName("百度AI评分");
+            userInfoRequest.setShareUrl("");
+            userInfoRequest.setShareImgUrl("");
+            RestUtils.post(url + "/saveDraftContent", userInfoRequest);
+
+            logInfo.sendTaskLog("评分完成", userId, "百度AI评分");
+            logInfo.sendResData(scoreResult, userId, "百度AI评分", "RETURN_BAIDU_SCORE_RES", "", "");
+
+            return scoreResult;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            logInfo.sendTaskLog("百度AI评分异常: " + e.getMessage(), userInfoRequest.getUserId(), "百度AI评分");
+            return "评分失败: " + e.getMessage();
+        }
+    }
+
+    /**
+     * 百度AI智能排版功能（用于媒体投递）
+     * @param userInfoRequest 用户信息请求体
+     * @return 排版后的内容
+     */
+    @Operation(summary = "百度AI智能排版", description = "调用百度AI平台对内容进行排版优化")
+    @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
+    @PostMapping("/startBaiduOffice")
+    public String startBaiduOffice(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, 
+                userInfoRequest.getUserId(), "baidu")) {
+
+            String userId = userInfoRequest.getUserId();
+            logInfo.sendTaskLog("百度AI智能排版准备就绪，正在打开页面", userId, "百度AI排版");
+
+            // 构建排版提示词
+            String formatPrompt = "请对以下内容进行智能排版，优化段落结构、添加适当的标题层级、改善可读性，" +
+                                "确保内容适合在公众号、知乎等媒体平台发布：\n\n" + 
+                                userInfoRequest.getUserPrompt();
+
+            Page page = context.newPage();
+            
+            // 创建定时截图线程
+            AtomicInteger i = new AtomicInteger(0);
+            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+                try {
+                    int currentCount = i.getAndIncrement();
+                    logInfo.sendImgData(page, userId + "百度AI排版执行过程截图" + currentCount, userId);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }, 0, 9, TimeUnit.SECONDS);
+
+            logInfo.sendTaskLog("开启自动监听任务，持续监听智能排版结果", userId, "百度AI排版");
+
+            // 执行排版
+            String formattedContent = baiduUtil.handleBaiduAI(page, formatPrompt, userId, 
+                                                             userInfoRequest.getRoles(), null);
+
+            // 关闭截图
+            screenshotFuture.cancel(false);
+            screenshotExecutor.shutdown();
+
+            // 保存排版结果
+            userInfoRequest.setDraftContent(formattedContent);
+            userInfoRequest.setAiName("百度AI排版");
+            userInfoRequest.setShareUrl("");
+            userInfoRequest.setShareImgUrl("");
+            RestUtils.post(url + "/saveDraftContent", userInfoRequest);
+
+            logInfo.sendTaskLog("智能排版完成", userId, "百度AI排版");
+            logInfo.sendResData(formattedContent, userId, "百度AI排版", "RETURN_BAIDU_FORMAT_RES", "", "");
+
+            return formattedContent;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            logInfo.sendTaskLog("百度AI排版异常: " + e.getMessage(), userInfoRequest.getUserId(), "百度AI排版");
+            return "排版失败: " + e.getMessage();
+        }
+    }
+
+    /**
+     * 内部调用的百度AI排版方法（用于媒体投递）
+     * 该方法不发送WebSocket消息，适合被其他控制器内部调用
+     * @param userInfoRequest 用户信息请求体
+     * @return 排版后的内容
+     */
+    public String startBaiduInternal(UserInfoRequest userInfoRequest) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, 
+                userInfoRequest.getUserId(), "baidu")) {
+
+            String userId = userInfoRequest.getUserId();
+            String userPrompt = userInfoRequest.getUserPrompt();
+
+            Page page = context.newPage();
+
+            // 执行百度AI交互（不使用截图和日志发送）
+            String copiedText = baiduUtil.handleBaiduAI(page, userPrompt, userId, 
+                                                       userInfoRequest.getRoles(), null);
+
+            return copiedText;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "获取内容失败: " + e.getMessage();
+        }
     }
 
 }

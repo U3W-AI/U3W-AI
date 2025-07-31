@@ -666,6 +666,19 @@ export default {
           status: 'idle',
           progressLogs: [],
           isExpanded: true
+        },
+        {
+          name: '百度AI',
+          avatar: require('../../../assets/ai/logo.png'), // 需要添加baidu.png头像文件
+          capabilities: [
+            { label: '深度思考', value: 'deep_thinking' },
+            { label: '联网搜索', value: 'web_search' }
+          ],
+          selectedCapabilities: [],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true
         }
       ],
       promptInput: "",
@@ -834,6 +847,14 @@ export default {
             this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-sdsk,'
           } else if (ai.selectedCapability.includes("web_search")) {
             this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-lwss,';
+          }
+        }
+        if (ai.name === '百度AI' && ai.enabled) {
+          if (ai.selectedCapabilities.includes("deep_thinking")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + "baidu-sdsk,";
+          }
+          if (ai.selectedCapabilities.includes("web_search")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + "baidu-lwss,";
           }
         }
       });
@@ -1208,6 +1229,10 @@ export default {
           console.log('收到通义千问消息:', data);
           targetAI = this.enabledAIs.find(ai => ai.name === '通义千问');
           break;
+        case 'RETURN_BAIDU_RES':
+          console.log('收到百度AI消息:', data);
+          targetAI = this.enabledAIs.find(ai => ai.name === '百度AI');
+          break;
       }
 
       if (targetAI) {
@@ -1571,6 +1596,19 @@ export default {
           progressLogs: [],
           isExpanded: true
         },
+        {
+          name: '百度AI',
+          avatar: require('../../../assets/ai/logo.png'), // 需要添加baidu.png头像文件
+          capabilities: [
+            { label: '深度思考', value: 'deep_thinking' },
+            { label: '联网搜索', value: 'web_search' }
+          ],
+          selectedCapabilities: [],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true
+        },
       ];
       // 展开相关区域
       this.activeCollapses = ["ai-selection", "prompt-input"];
@@ -1620,6 +1658,7 @@ export default {
         DeepSeek: "700px",
         豆包: "560px",
         通义千问: "700px",
+        百度AI: "700px",
       };
 
       const width = widthMap[aiName] || "560px"; // 默认宽度

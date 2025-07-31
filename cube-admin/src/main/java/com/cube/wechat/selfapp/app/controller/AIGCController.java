@@ -257,6 +257,21 @@ public class AIGCController extends BaseController {
 //            return ResultBody.success(null);
 //        }
     }
+    
+    @GetMapping("/getBaiduDraft")
+    public ResultBody getBaiduDraft(String taskId){
+        try {
+            List<Map> list = aigcService.getDraftContentList(taskId, "百度AI");
+            if(list.size() > 0) {
+                return ResultBody.success(list);
+            } else {
+                return ResultBody.success(null);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResultBody.success("获取百度AI稿库失败");
+        }
+    }
 
 
     @PostMapping("/sendDOCPrompt")
@@ -378,6 +393,39 @@ public class AIGCController extends BaseController {
             e.printStackTrace();
         }
         // 将关键词发送给 WebSocket 服务
+        return ResultBody.success("网络出现异常，请重新尝试一次");
+    }
+
+    @PostMapping("/sendBaiduPrompt")
+    public ResultBody sendBaiduPrompt(@RequestBody Map<String, String> map) throws InterruptedException {
+        try {
+            Thread.sleep(500);
+            UserInfoReq userInfoReq = new UserInfoReq();
+            userInfoReq.setUserId(map.get("userId"));
+            userInfoReq.setCorpId(map.get("corpId"));
+            userInfoReq.setKeyword(map.get("userPrompt"));
+            userInfoReq.setUserPrompt(map.get("userPrompt"));
+            userInfoReq.setTaskId(map.get("taskId"));
+            userInfoReq.setRoles(map.get("roles"));
+            userInfoReq.setType("START_BAIDU");
+            long startTime = System.currentTimeMillis();
+            long timeout = 600000;
+            boolean isCompleted = false;
+            String str = null;
+            while (!isCompleted && (System.currentTimeMillis() - startTime) < timeout) {
+                str = aigcService.getDraftContent(map.get("taskId"), "百度AI");
+                if(str != null) {
+                    isCompleted = true;
+                } else {
+                    Thread.sleep(2000);
+                }
+            }
+
+            return ResultBody.success(str);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return ResultBody.success("网络出现异常，请重新尝试一次");
     }
 

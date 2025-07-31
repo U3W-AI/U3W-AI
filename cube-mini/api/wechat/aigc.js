@@ -142,3 +142,38 @@ export function updateMediaCallWord(platformId, wordContent) {
     }
   })
 }
+
+// 百度AI相关API
+export function sendBaiduPrompt(data) {
+  return request({
+    url: '/aigc/message',
+    method: 'post',
+    data: {
+      method: 'START_BAIDU',
+      params: data
+    }
+  })
+}
+
+export function getBaiduDraft(taskId) {
+  return request({
+    url: '/aigc/getBaiduDraft?taskId=' + taskId,
+    method: 'get'
+  })
+}
+
+export function startBaiduScore(data) {
+  return request({
+    url: '/aigc/startBaiduScore',
+    method: 'post',
+    data: data
+  })
+}
+
+export function startBaiduOffice(data) {
+  return request({
+    url: '/aigc/startBaiduOffice',
+    method: 'post',
+    data: data
+  })
+}

@@ -8,6 +8,21 @@ cube:
   datadir: E:\IntelliJ IDEA 2024.2\data\U3W-AI
   uploadurl: http://127.0.0.1:8081/common/upload
 
+# 百度AI配置
+baidu:
+  ai:
+    enabled: true                    # 是否启用百度AI功能
+    base-url: https://yiyan.baidu.com # 百度AI基础URL
+    timeout: 120000                   # 请求超时时间(毫秒)
+    retry-count: 3                    # 失败重试次数
+    features:                         # 功能开关
+      deep-thinking: true             # 深度思考模式（默认开启）
+      internet-search: true           # 联网搜索模式（默认开启）
+      scoring: true                   # 智能评分功能
+      formatting: true                # 智能排版功能
+      sharing: true                   # 分享功能
+      memory: true                    # 记忆功能
+
 #如果配置url是加了https证书的域名，则需要改为wss://你的域名/cubeServer/websocket?clientId=play-你的主机ID
 #https域名示例：
 #cube:
