@@ -1210,23 +1210,44 @@ public class AIGCController {
             try {
                 if (!rawHtmlContent.startsWith("获取内容失败") && !rawHtmlContent.isEmpty()) {
                     Object finalFormattedContent = page.evaluate("""
-                    (content) => {
-                        try {
-                            const styledContainer = document.createElement('div');
-                            styledContainer.className = 'tongyi-response'; // 使用新的class名
-                            styledContainer.style.cssText = 'max-width: 800px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; color: #333;';
-                            styledContainer.innerHTML = content;
-                            return styledContainer.outerHTML;
-                        } catch (e) {
-                            console.error('格式化通义千问内容时出错:', e);
-                            return content;
+                        (content) => {
+                            try {
+                                // 1. 创建最外层的样式容器
+                                const styledContainer = document.createElement('div');
+                                styledContainer.className = 'tongyi-response';
+                                styledContainer.style.cssText = 'max-width: 800px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; color: #333;';
+                
+                                // 2. 创建一个 style 标签，用于重置(中和)列表的默认样式
+                                const styleReset = document.createElement('style');
+                                // 这段 CSS 会确保容器内的任何有序(ol)或无序(ul)列表都不会显示数字或圆点
+                                styleReset.textContent = `
+                                    .tongyi-response ol, .tongyi-response ul {
+                                        list-style: none !important;
+                                        padding-left: 0 !important;
+                                        margin-left: 0 !important;
+                                    }
+                                `;
+                
+                                // 3. 创建一个 div 用于安全地容纳原始的 HTML 内容
+                                const contentWrapper = document.createElement('div');
+                                contentWrapper.innerHTML = content;
+                
+                                // 4. 将样式重置和内容包装器依次添加到主容器中
+                                styledContainer.appendChild(styleReset);
+                                styledContainer.appendChild(contentWrapper);
+                
+                                // 5. 返回整个容器的 HTML
+                                return styledContainer.outerHTML;
+                            } catch (e) {
+                                console.error('格式化通义千问内容时出错:', e);
+                                return content; // 出错时返回原始 content
+                            }
                         }
-                    }
-                """, rawHtmlContent);
+                    """, rawHtmlContent);
 
                     if (finalFormattedContent != null && !finalFormattedContent.toString().isEmpty()) {
                         formattedContent = finalFormattedContent.toString();
-                        logInfo.sendTaskLog("已将回答内容封装为统一的HTML展示样式", userId, aiName);
+                        logInfo.sendTaskLog("已将回答内容封装为统一的HTML展示样式 (已重置列表样式)", userId, aiName);
                     }
                 }
             } catch (Exception e) {
