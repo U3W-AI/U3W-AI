@@ -480,6 +480,10 @@
               <i class="el-icon-edit-outline"></i>
               微头条
             </el-radio-button>
+            <el-radio-button label="baijiahao">
+              <i class="el-icon-edit-outline"></i>
+              百家号
+            </el-radio-button>
           </el-radio-group>
           <div class="media-description">
             <template v-if="selectedMedia === 'wechat'">
@@ -490,6 +494,9 @@
             </template>
             <template v-else-if="selectedMedia === 'toutiao'">
               <small>📰 将内容转换为微头条文章格式，支持文章编辑和发布</small>
+            </template>
+            <template v-else-if="selectedMedia === 'toutiao'">
+              <small>🔈 将内容转换为百家号帖子格式，直接投递到百家号草稿箱</small>
             </template>
           </div>
         </div>
@@ -1058,6 +1065,23 @@ export default {
         }
         return;
       }
+      // 处理百家号投递任务日志
+      if (dataObj.type === "RETURN_MEDIA_TASK_LOG" && dataObj.aiName === "投递到百家号") {
+        const baijiahaoAI = this.enabledAIs.find((ai) => ai.name === "投递到百家号");
+        if (baijiahaoAI) {
+          // 检查是否已存在相同内容的日志，避免重复添加
+          const existingLog = baijiahaoAI.progressLogs.find(log => log.content === dataObj.content);
+          if (!existingLog) {
+            // 将新进度添加到数组开头
+            baijiahaoAI.progressLogs.unshift({
+              content: dataObj.content,
+              timestamp: new Date(),
+              isCompleted: false,
+            });
+          }
+        }
+        return;
+      }
       // 处理截图消息
       if (dataObj.type === "RETURN_PC_TASK_IMG" && dataObj.url) {
         // 将新的截图添加到数组开头
@@ -1125,6 +1149,28 @@ export default {
           // 知乎投递完成时，保存历史记录
           this.saveHistory();
           this.$message.success("知乎投递任务完成！");
+        }
+        return;
+      }
+      // 处理百家号投递结果（独立任务）
+      if (dataObj.type === "RETURN_BAIJIAHAO_DELIVERY_RES") {
+        const baijiahaoAI = this.enabledAIs.find((ai) => ai.name === "投递到百家号");
+        if (baijiahaoAI) {
+          this.$set(baijiahaoAI, "status", "completed");
+          if (baijiahaoAI.progressLogs.length > 0) {
+            this.$set(baijiahaoAI.progressLogs[0], "isCompleted", true);
+          }
+
+          // 添加完成日志
+          baijiahaoAI.progressLogs.unshift({
+            content: "百家号投递完成！" + (dataObj.message || ""),
+            timestamp: new Date(),
+            isCompleted: true,
+          });
+
+          // 百家号投递完成时，保存历史记录
+          this.saveHistory();
+          this.$message.success("百家号投递任务完成！");
         }
         return;
       }
@@ -1666,7 +1712,14 @@ export default {
         return;
       }
 
-      const platformId = media === 'wechat' ? 'wechat_layout' : 'zhihu_layout';
+      let platformId;
+      if(media === 'wechat'){
+        platformId = 'wechat_layout';
+      }else if(media === 'zhihu'){
+        platformId = 'zhihu_layout';
+      }else if(media === 'baijiahao'){
+        platformId = 'baijiahao_layout';
+      }
 
       try {
         const response = await getMediaCallWord(platformId);
@@ -1710,6 +1763,17 @@ export default {
 
 请对以下内容进行排版：`;
 
+      }else if (media === 'baijiahao') {
+        return `请将以下内容整理为适合百家号发布的纯文本格式文章。
+要求：
+1.（不要使用Markdown或HTML语法，仅使用普通文本和简单换行保持内容的专业性和可读性使用自然段落分隔，）
+2.不允许使用有序列表，包括“一、”，“1.”等的序列号。
+3.给文章取一个吸引人的标题，放在正文的第一段
+4.不允许出现代码框、数学公式、表格或其他复杂格式删除所有Markdown和HTML标签，
+5.只保留纯文本内容
+6.目标是作为一篇专业文章投递到百家号草稿箱
+7.直接以文章标题开始，以文章末尾结束，不允许添加其他对话`;
+
       }
       return '请对以下内容进行排版：';
     },
@@ -1725,7 +1789,10 @@ export default {
       } else if (this.selectedMedia === 'toutiao') {
         // 微头条投递：创建微头条排版任务
         this.createToutiaoLayoutTask();
-      } else {
+      } else if (this.selectedMedia === 'baijiahao') {
+        // 百家号投递：创建百家号排版任务
+        this.createBaijiahaoLayoutTask();
+      }else {
         // 公众号投递：创建排版任务
         this.createWechatLayoutTask();
       }
@@ -1784,6 +1851,61 @@ export default {
       this.message(zhihuRequest);
       this.$forceUpdate();
       this.$message.success("知乎投递任务已创建，正在处理...");
+    },
+    // 创建百家号投递任务（独立任务）
+    createBaijiahaoLayoutTask() {
+      const baijiahaoAI = {
+        name: "投递到百家号",
+        avatar: require("../../../assets/ai/yuanbao.png"),
+        capabilities: [],
+        selectedCapabilities: [],
+        enabled: true,
+        status: "running",
+        progressLogs: [
+          {
+            content: "百家号投递任务已创建，正在准备内容排版...",
+            timestamp: new Date(),
+            isCompleted: false,
+            type: "投递到百家号",
+          },
+        ],
+        isExpanded: true,
+      };
+
+      // 检查是否已存在百家号投递任务
+      const existIndex = this.enabledAIs.findIndex(
+        (ai) => ai.name === "投递到百家号"
+      );
+      if (existIndex === -1) {
+        this.enabledAIs.unshift(baijiahaoAI);
+      } else {
+        this.enabledAIs[existIndex] = baijiahaoAI;
+        const baijiahao = this.enabledAIs.splice(existIndex, 1)[0];
+        this.enabledAIs.unshift(baijiahaoAI);
+      }
+
+      // 发送百家号投递请求
+      const baijiahaoRequest = {
+        jsonrpc: "2.0",
+        id: uuidv4(),
+        method: "投递到百家号",
+        params: {
+          taskId: uuidv4(),
+          userId: this.userId,
+          corpId: this.corpId,
+          userPrompt: this.layoutPrompt,
+          roles: "",
+          selectedMedia: "baijiahao",
+          contentText: this.currentLayoutResult.content,
+          shareUrl: this.currentLayoutResult.shareUrl,
+          aiName: this.currentLayoutResult.aiName,
+        },
+      };
+
+      console.log("百家号投递参数", baijiahaoRequest);
+      this.message(baijiahaoRequest);
+      this.$forceUpdate();
+      this.$message.success("百家号投递任务已创建，正在处理...");
     },
       // 创建公众号排版任务（保持原有逻辑）
       createWechatLayoutTask() {

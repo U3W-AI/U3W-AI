@@ -533,14 +533,17 @@ export default {
       mediaLoginStatus: {
         zhihu: false,
         toutiao: false,
+        baijiahao: false,
       },
       mediaAccounts: {
         zhihu: "",
         toutiao: "",
+        baijiahao: "",
       },
       mediaIsClick: {
         zhihu: true,
         toutiao: true,
+        baijiahao: true,
       },
       mediaLoginDialogVisible: false,
       currentMediaType: "",
@@ -548,6 +551,7 @@ export default {
       mediaIsLoading: {
         zhihu: true,
         toutiao: true,
+        baijiahao: true,
       },
       resetMediaStatusTimeout: null, // 媒体状态检查超时定时器
     }
@@ -585,6 +589,7 @@ export default {
       const titles = {
         zhihu: "知乎登录",
         toutiao: "头条号登录",
+        baijiahao: "百家号登录",
       };
       return titles[this.currentMediaType] || "媒体登录";
     },
@@ -592,6 +597,7 @@ export default {
       const tips = {
         zhihu: "请使用知乎APP扫码登录",
         toutiao: "请使用头条号APP扫码登录",
+        baijiahao: "请使用百家号APP扫码登录",
       };
       return tips[this.currentMediaType] || "请使用对应APP扫码登录";
     },
@@ -623,6 +629,8 @@ export default {
         this.isLoading.qw = true;
         this.mediaIsClick.zhihu = false;
         this.mediaIsLoading.zhihu = true;
+        this.mediaIsClick.baijiahao = false;
+        this.mediaIsLoading.baijiahao = true;
         this.mediaIsClick.toutiao = false;
         this.mediaIsLoading.toutiao = true;
 
@@ -662,6 +670,12 @@ export default {
           // 检查头条号登录状态
           this.sendMessage({
             type: "PLAY_CHECK_TTH_LOGIN",
+            userId: this.userId,
+            corpId: this.corpId,
+          });
+          // 检查百家号登录状态
+          this.sendMessage({
+            type: "PLAY_CHECK_BAIJIAHAO_LOGIN",
             userId: this.userId,
             corpId: this.corpId,
           });
@@ -851,6 +865,13 @@ export default {
           corpId: this.corpId,
         });
       }
+      if (type == "baijiahao") {
+        this.sendMessage({
+          type: "PLAY_GET_BAIJIAHAO_QRCODE",
+          userId: this.userId,
+          corpId: this.corpId,
+        });
+      }
       this.$message({
         message: "正在获取登录二维码...",
         type: "info",
@@ -860,6 +881,7 @@ export default {
       const icons = {
         zhihu: require("@/assets/logo/ZhiHu.png"),
         toutiao: require("@/assets/logo/toutiao.png"),
+        baijiahao: require("@/assets/logo/baijiahao.png"),
       };
       return icons[type] || "";
     },
@@ -867,6 +889,7 @@ export default {
       const names = {
         zhihu: "知乎",
         toutiao: "头条号",
+        baijiahao: "百家号",
       };
       return names[type] || "";
     },
@@ -921,6 +944,8 @@ export default {
       } else if (datastr.includes("RETURN_PC_ZHIHU_QRURL")) {
         this.mediaQrCodeUrl = dataObj.url;
       } else if (datastr.includes("RETURN_PC_TTH_QRURL")) {
+        this.mediaQrCodeUrl = dataObj.url;
+      } else if (datastr.includes("RETURN_PC_BAIJIAHAO_QRURL")) {
         this.mediaQrCodeUrl = dataObj.url;
       } else if (datastr.includes("RETURN_DB_STATUS") && dataObj.status != "") {
         if (!datastr.includes("false")) {
@@ -1000,7 +1025,7 @@ export default {
           this.mediaIsClick.zhihu = true; // 检测成功后设为true
           this.$message.success(`知乎登录成功：${dataObj.status}`);
           // 检查是否所有媒体都已恢复，全部恢复则清除超时定时器
-          if (!this.mediaIsLoading.zhihu && !this.mediaIsLoading.toutiao) {
+          if (!this.mediaIsLoading.baijiahao && !this.mediaIsLoading.toutiao && !this.mediaIsLoading.zhihu) {
             if (this.resetMediaStatusTimeout) clearTimeout(this.resetMediaStatusTimeout);
           }
         } else {
@@ -1013,6 +1038,31 @@ export default {
         this.mediaIsClick.zhihu = true;
         this.mediaIsLoading.zhihu = false;
         this.$message.warning('知乎登录超时，请重试');
+      } else if (
+        datastr.includes("RETURN_BAIJIAHAO_STATUS") &&
+        dataObj.status != ""
+      ) {
+        if (!datastr.includes("false")) {
+          this.mediaLoginDialogVisible = false;
+          this.mediaLoginStatus.baijiahao = true;
+          this.mediaAccounts.baijiahao = dataObj.status;
+          this.mediaIsLoading.baijiahao = false;
+          this.mediaIsClick.baijiahao = true; // 检测成功后设为true
+          this.$message.success(`百家号登录成功：${dataObj.status}`);
+          // 检查是否所有媒体都已恢复，全部恢复则清除超时定时器
+          if (!this.mediaIsLoading.baijiahao && !this.mediaIsLoading.toutiao && !this.mediaIsLoading.zhihu) {
+            if (this.resetMediaStatusTimeout) clearTimeout(this.resetMediaStatusTimeout);
+          }
+        } else {
+          this.mediaIsClick.baijiahao = true;
+          this.mediaIsLoading.baijiahao = false;
+        }
+      } else if (datastr.includes("RETURN_BAIJIAHAO_LOGIN_TIMEOUT")) {
+        // 处理百家号登录超时
+        this.mediaLoginDialogVisible = false;
+        this.mediaIsClick.baijiahao = true;
+        this.mediaIsLoading.baijiahao = false;
+        this.$message.warning('百家号登录超时，请重试');
       } else if (datastr.includes("RETURN_TOUTIAO_STATUS") && dataObj.status != "") {
         if (!datastr.includes("false")) {
           this.mediaLoginDialogVisible = false;
@@ -1021,7 +1071,7 @@ export default {
           this.mediaIsLoading.toutiao = false;
           this.mediaIsClick.toutiao = true;
           this.$message.success(`头条号登录成功：${dataObj.status}`);
-          if (!this.mediaIsLoading.zhihu && !this.mediaIsLoading.toutiao) {
+          if (!this.mediaIsLoading.baijiahao && !this.mediaIsLoading.toutiao && !this.mediaIsLoading.zhihu) {
             if (this.resetMediaStatusTimeout) clearTimeout(this.resetMediaStatusTimeout);
           }
         } else {
@@ -1098,6 +1148,8 @@ export default {
       this.mediaIsLoading.toutiao = true;
       this.mediaIsClick.zhihu = false;
       this.mediaIsClick.toutiao = false;
+      this.mediaIsLoading.baijiahao = true;
+      this.mediaIsClick.baijiahao = false;
       // 清除上一次的超时定时器
       if (this.resetMediaStatusTimeout) clearTimeout(this.resetMediaStatusTimeout);
       // 超时自动恢复（20秒）
@@ -1106,11 +1158,14 @@ export default {
         this.mediaIsLoading.toutiao = false;
         this.mediaIsClick.zhihu = true;
         this.mediaIsClick.toutiao = true;
+        this.mediaIsLoading.baijiahao = false;
+        this.mediaIsClick.baijiahao = true;
         this.$message.warning('媒体登录状态刷新超时，请检查网络或稍后重试');
       }, 20000);
       // 只检测媒体相关登录状态
       this.sendMessage({ type: "PLAY_CHECK_ZHIHU_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_TTH_LOGIN", userId: this.userId, corpId: this.corpId });
+      this.sendMessage({ type: "PLAY_CHECK_BAIJIAHAO_LOGIN", userId: this.userId, corpId: this.corpId });
     },
   },
   beforeDestroy() {
