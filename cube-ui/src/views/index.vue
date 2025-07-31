@@ -929,6 +929,10 @@ export default {
           this.accounts.doubao = dataObj.status;
           this.isLoading.doubao = false;
           this.isClick.doubao = true; // 检测成功后设为true
+          // 检查是否所有AI都已恢复，全部恢复则清除超时定时器
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw) {
+            if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
+          }
         } else {
           this.isClick.doubao = true;
           this.isLoading.doubao = false;
@@ -943,6 +947,9 @@ export default {
           this.accounts.deepseek = dataObj.status;
           this.isLoading.deepseek = false;
           this.isClick.deepseek = true; // 检测成功后设为true
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw) {
+            if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
+          }
         } else {
           this.isClick.deepseek = true;
           this.isLoading.deepseek = false;
@@ -957,6 +964,9 @@ export default {
           this.accounts.qw = dataObj.status;
           this.isLoading.qw = false;
           this.isClick.qw = true;
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw) {
+            if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
+          }
         } else {
           this.isClick.qw = true;
           this.isLoading.qw = false;
@@ -971,7 +981,9 @@ export default {
           this.accounts.minimax = dataObj.status;
           this.isLoading.minimax = false;
           this.isClick.minimax = true; // 检测成功后设为true
-          console.log(this.isLoading.minimax);
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw) {
+            if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
+          }
         } else {
           this.isClick.minimax = true;
           this.isLoading.minimax = false;
@@ -987,6 +999,10 @@ export default {
           this.mediaIsLoading.zhihu = false;
           this.mediaIsClick.zhihu = true; // 检测成功后设为true
           this.$message.success(`知乎登录成功：${dataObj.status}`);
+          // 检查是否所有媒体都已恢复，全部恢复则清除超时定时器
+          if (!this.mediaIsLoading.zhihu && !this.mediaIsLoading.toutiao) {
+            if (this.resetMediaStatusTimeout) clearTimeout(this.resetMediaStatusTimeout);
+          }
         } else {
           this.mediaIsClick.zhihu = true;
           this.mediaIsLoading.zhihu = false;
@@ -1005,6 +1021,9 @@ export default {
           this.mediaIsLoading.toutiao = false;
           this.mediaIsClick.toutiao = true;
           this.$message.success(`头条号登录成功：${dataObj.status}`);
+          if (!this.mediaIsLoading.zhihu && !this.mediaIsLoading.toutiao) {
+            if (this.resetMediaStatusTimeout) clearTimeout(this.resetMediaStatusTimeout);
+          }
         } else {
           this.mediaIsClick.toutiao = true;
           this.mediaIsLoading.toutiao = false;
@@ -1052,6 +1071,20 @@ export default {
       this.isClick.deepseek = false;
       this.isClick.minimax = false;
       this.isClick.qw = false;
+      // 清除上一次的超时定时器
+      if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
+      // 超时自动恢复（20秒）
+      this.resetStatusTimeout = setTimeout(() => {
+        this.isLoading.doubao = false;
+        this.isLoading.deepseek = false;
+        this.isLoading.minimax = false;
+        this.isLoading.qw = false;
+        this.isClick.doubao = true;
+        this.isClick.deepseek = true;
+        this.isClick.minimax = true;
+        this.isClick.qw = true;
+        this.$message.warning('AI登录状态刷新超时，请检查网络或稍后重试');
+      }, 20000);
       // 只检测AI登录状态
       this.sendMessage({ type: "PLAY_CHECK_DB_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_MAX_LOGIN", userId: this.userId, corpId: this.corpId });
@@ -1065,6 +1098,16 @@ export default {
       this.mediaIsLoading.toutiao = true;
       this.mediaIsClick.zhihu = false;
       this.mediaIsClick.toutiao = false;
+      // 清除上一次的超时定时器
+      if (this.resetMediaStatusTimeout) clearTimeout(this.resetMediaStatusTimeout);
+      // 超时自动恢复（20秒）
+      this.resetMediaStatusTimeout = setTimeout(() => {
+        this.mediaIsLoading.zhihu = false;
+        this.mediaIsLoading.toutiao = false;
+        this.mediaIsClick.zhihu = true;
+        this.mediaIsClick.toutiao = true;
+        this.$message.warning('媒体登录状态刷新超时，请检查网络或稍后重试');
+      }, 20000);
       // 只检测媒体相关登录状态
       this.sendMessage({ type: "PLAY_CHECK_ZHIHU_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_TTH_LOGIN", userId: this.userId, corpId: this.corpId });
