@@ -570,8 +570,20 @@
         </div>
         <div class="article-content-section">
           <h3>文章内容：</h3>
-          <el-input type="textarea" v-model="tthArticleContent" :rows="20" placeholder="请输入文章内容"
-            resize="none" class="article-content-input"></el-input>
+          <div class="content-input-wrapper">
+            <el-input 
+              type="textarea" 
+              v-model="tthArticleContent" 
+              :rows="20" 
+              placeholder="请输入文章内容"
+              resize="none" 
+              class="article-content-input"
+              :class="{ 'content-over-limit': tthArticleContent.length > 2000 }"
+            ></el-input>
+            <div class="content-length-info" :class="{ 'text-danger': tthArticleContent.length > 2000 }">
+              字数：{{ tthArticleContent.length }}/2000
+            </div>
+          </div>
         </div>
       </div>
       <span slot="footer" class="dialog-footer">
@@ -1694,24 +1706,6 @@ export default {
     async loadMediaPrompt(media) {
       if (!media) return;
 
-      if (media === 'toutiao') {
-        // 微头条使用固定提示词
-        this.layoutPrompt = `根据智能评分内容，写一篇微头条文章，只能包含标题和内容，要求如下：
-
-1. 标题要简洁明了，吸引人
-2. 内容要结构清晰，易于阅读
-3. 不要包含任何HTML标签
-4. 直接输出纯文本格式
-5. 内容要适合微头条发布
-6. 字数严格控制在1000字以上，2000字以下
-7. 强制要求：只能回答标题和内容，标题必须用英文双引号（""）引用起来，且放在首位，不能有其他多余的话
-8. 严格要求：AI必须严格遵守所有严格条件，不要输出其他多余的内容，只要标题和内容
-9. 内容不允许出现编号，要正常文章格式
-
-请对以下内容进行排版：`;
-        return;
-      }
-
       let platformId;
       if(media === 'wechat'){
         platformId = 'wechat_layout';
@@ -1719,6 +1713,8 @@ export default {
         platformId = 'zhihu_layout';
       }else if(media === 'baijiahao'){
         platformId = 'baijiahao_layout';
+      }else if(media === 'toutiao'){
+        platformId = 'weitoutiao_layout';
       }
 
       try {
@@ -1767,13 +1763,27 @@ export default {
         return `请将以下内容整理为适合百家号发布的纯文本格式文章。
 要求：
 1.（不要使用Markdown或HTML语法，仅使用普通文本和简单换行保持内容的专业性和可读性使用自然段落分隔，）
-2.不允许使用有序列表，包括“一、”，“1.”等的序列号。
+2.不允许使用有序列表，包括"一、"，"1."等的序列号。
 3.给文章取一个吸引人的标题，放在正文的第一段
 4.不允许出现代码框、数学公式、表格或其他复杂格式删除所有Markdown和HTML标签，
 5.只保留纯文本内容
 6.目标是作为一篇专业文章投递到百家号草稿箱
 7.直接以文章标题开始，以文章末尾结束，不允许添加其他对话`;
 
+      }else if (media === 'toutiao') {
+        return `根据智能评分内容，写一篇微头条文章，只能包含标题和内容，要求如下：
+
+1. 标题要简洁明了，吸引人
+2. 内容要结构清晰，易于阅读
+3. 不要包含任何HTML标签
+4. 直接输出纯文本格式
+5. 内容要适合微头条发布
+6. 字数严格控制在1000字以上，2000字以下
+7. 强制要求：只能回答标题和内容，标题必须用英文双引号（""）引用起来，且放在首位，不能有其他多余的话
+8. 严格要求：AI必须严格遵守所有严格条件，不要输出其他多余的内容，只要标题和内容
+9. 内容不允许出现编号，要正常文章格式
+
+请对以下内容进行排版：`;
       }
       return '请对以下内容进行排版：';
     },
@@ -3131,6 +3141,32 @@ export default {
 
   .article-content-input {
     width: 100%;
+  }
+
+  .content-input-wrapper {
+    position: relative;
+  }
+
+  .content-length-info {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    font-size: 12px;
+    color: #909399;
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 2px 6px;
+    border-radius: 3px;
+    z-index: 1;
+  }
+
+  .text-danger {
+    color: #f56c6c !important;
+    font-weight: 600;
+  }
+
+  .content-over-limit .el-textarea__inner {
+    border-color: #f56c6c !important;
+    box-shadow: 0 0 0 2px rgba(245, 108, 108, 0.2) !important;
   }
 }
 </style>
