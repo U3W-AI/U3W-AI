@@ -378,7 +378,22 @@
 					</view>
 					<view class="score-prompt-section">
 						<text class="score-subtitle">文章内容：</text>
-						<textarea class="score-textarea" v-model="tthArticleContent" placeholder="请输入文章内容" maxlength="1000" rows="5"></textarea>
+						<textarea 
+							class="score-textarea" 
+							:class="{ 'content-exceeded': isTthArticleContentExceeded }"
+							v-model="tthArticleContent" 
+							placeholder="请输入文章内容" 
+							:maxlength="-1"
+							:auto-height="true"
+							:show-confirm-bar="false"
+							:hold-keyboard="true"
+							:adjust-position="false"
+							@focus="handleTextareaFocus"
+							rows="5">
+						</textarea>
+						<view class="char-count" :class="{ 'char-count-exceeded': isTthArticleContentExceeded }">
+							{{ tthArticleContentLength }}/2000
+						</view>
 					</view>
 					<button class="score-submit-btn" @tap="confirmTTHPublish">
 						发布文章
@@ -673,6 +688,31 @@
 				});
 
 				return groups;
+			},
+
+			// 微头条文章内容字符数
+			tthArticleContentLength() {
+				return this.tthArticleContent ? this.tthArticleContent.length : 0;
+			},
+
+			// 检查微头条文章内容是否超过2000字
+			isTthArticleContentExceeded() {
+				return this.tthArticleContentLength > 2000;
+			}
+		},
+		watch: {
+			// 监听微头条文章内容变化，确保textarea正确显示
+			tthArticleContent: {
+				handler(newVal, oldVal) {
+					// 当内容变化时，确保textarea正确显示
+					this.$nextTick(() => {
+						const textarea = this.$el.querySelector('.score-textarea');
+						if (textarea && textarea.value !== newVal) {
+							textarea.value = newVal;
+						}
+					});
+				},
+				immediate: false
 			}
 		},
 		onLoad() {
@@ -706,6 +746,19 @@
 		},
 
 		methods: {
+			// 处理textarea获得焦点事件
+			handleTextareaFocus() {
+				// 确保textarea内容正确显示
+				this.$nextTick(() => {
+					const textarea = this.$el.querySelector('.score-textarea');
+					if (textarea && textarea.value !== this.tthArticleContent) {
+						textarea.value = this.tthArticleContent;
+						// 触发input事件确保v-model同步
+						textarea.dispatchEvent(new Event('input', { bubbles: true }));
+					}
+				});
+			},
+			
 			// 初始化用户信息
 			initUserInfo() {
 				// 从store获取用户信息，兼容缓存方式
@@ -892,8 +945,8 @@
 			this.isConnecting = true;
 
 			// 使用PC端的WebSocket连接方式
+		    // const wsUrl = `${process.env.VUE_APP_WS_API || 'wss://u3w.com/cubeServer/websocket?clientId='}mypc-${this.userId}`;
 			const wsUrl = `${process.env.VUE_APP_WS_API || 'ws://127.0.0.1:8081/websocket?clientId='}mypc-${this.userId}`;
-			// const wsUrl = `${process.env.VUE_APP_WS_API || 'ws://127.0.0.1:8081/websocket?clientId='}mypc-${this.userId}`;
 			console.log('WebSocket URL:', wsUrl);
 
 			this.socketTask = uni.connectSocket({
@@ -1265,6 +1318,18 @@
           this.tthArticleTitle = dataObj.title || '';
           this.tthArticleContent = dataObj.content || '';
           this.tthArticleEditVisible = true;
+          
+          // 确保textarea正确显示内容
+          this.$nextTick(() => {
+            // 强制更新textarea内容
+            const textarea = this.$el.querySelector('.score-textarea');
+            if (textarea) {
+              textarea.value = this.tthArticleContent;
+              // 触发input事件确保v-model同步
+              textarea.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+          });
+          
           if (this.saveHistory) {
             this.saveHistory();
           }
@@ -1995,8 +2060,8 @@
 			  platformId = 'zhihu_layout'
 		  }else if(media === 'baijiahao'){
 			  platformId = 'baijiahao_layout'
-		  }else if(meida === 'toutiao'){
-			  platformId = 'toutiao_layout'
+		  }else if(media === 'toutiao'){
+			  platformId = 'weitoutiao_layout'
 		  }
           const res = await getMediaCallWord(platformId);
           if (res.code === 200) {
@@ -2036,19 +2101,18 @@
 以下为需要转换的内容：
 `;
         }else if (media === 'toutiao'){
-		          return `根据智能评分内容，写一篇微头条文章，只能包含标题和内容，要求如下：
+		          return `请将以下内容转换为适合微头条平台的文章格式，要求：
 
 1. 标题要简洁明了，吸引人
 2. 内容要结构清晰，易于阅读
 3. 不要包含任何HTML标签
 4. 直接输出纯文本格式
 5. 内容要适合微头条发布
-6. 字数严格控制在1000字以上，2000字以下
-7. 强制要求：只能回答标题和内容，标题必须用英文双引号（""）引用起来，且放在首位，不能有其他多余的话
-8. 严格要求：AI必须严格遵守所有严格条件，不要输出其他多余的内容，只要标题和内容
-9. 内容不允许出现编号，要正常文章格式
+6. 字数控制在1000-2000字之间
+7. 保持内容的专业性和可读性
+8. 直接输出转换后的内容，无需额外说明
 
-请对以下内容进行排版：
+以下为需要转换的内容：
 		`;
 		        }else if (media === 'baijiahao'){
 		          return `请将以下内容整理为适合百家号发布的纯文本格式文章。
@@ -2187,29 +2251,8 @@
 
       // 创建微头条排版任务
       createToutiaoLayoutTask() {
-        // 获取智能评分内容
-        const scoreResult = this.results.find(r => r.aiName === '智能评分');
-        const scoreContent = scoreResult ? this.htmlToText(scoreResult.content) : '';
-        this.tthScoreContent = scoreContent;
-        
-        // 设置微头条排版提示词
-        const toutiaoPrompt = `根据智能评分内容，写一篇头条号文章，只能包含标题和内容，要求如下：
-
-1. 标题要简洁明了，吸引人
-2. 内容要结构清晰，易于阅读
-3. 不要包含任何HTML标签
-4. 直接输出纯文本格式
-5. 内容要适合头条号发布
-6. 强制要求：只能回答标题和内容，标题必须用英文双引号（""）引用起来，且放在首位，不能有其他多余的话
-7. 严格要求：AI必须严格遵守所有严格条件，不要输出其他多余的内容，只要标题和内容
-8. 文章内容部分不允许出现编号，必须正常文章格式
-9. 字数严格控制在2000字以下`;
-
-        // 拼接智能评分内容
-        let fullPrompt = toutiaoPrompt;
-        if (this.tthScoreContent) {
-          fullPrompt += '\n\n智能评分内容：\n' + this.tthScoreContent;
-        }
+        // 组合完整的提示词：数据库提示词 + 原文内容
+        const fullPrompt = this.layoutPrompt + '\n\n' + this.currentLayoutResult.content;
 
         // 构建微头条排版请求
         const layoutRequest = {
@@ -3712,14 +3755,37 @@
 
 	.score-textarea {
 		width: 100%;
-		height: 120px;
+		min-height: 120px;
+		max-height: 300px;
 		padding: 10px;
 		border: 1px solid #dcdfe6;
 		border-radius: 8px;
 		font-size: 14px;
-		resize: none;
+		resize: vertical;
 		box-sizing: border-box;
 		margin-top: 10px;
+		word-wrap: break-word;
+		overflow-y: auto;
+	}
+
+	/* 微头条文章内容超过2000字时的样式 */
+	.score-textarea.content-exceeded {
+		border-color: #f56c6c;
+		background-color: #fef0f0;
+	}
+
+	/* 字符计数样式 */
+	.char-count {
+		text-align: right;
+		font-size: 12px;
+		color: #909399;
+		margin-top: 5px;
+	}
+
+	/* 字符计数超过限制时的样式 */
+	.char-count-exceeded {
+		color: #f56c6c;
+		font-weight: bold;
 	}
 
 	.score-submit-btn {

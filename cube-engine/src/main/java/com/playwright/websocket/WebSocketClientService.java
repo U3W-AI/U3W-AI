@@ -94,6 +94,7 @@ public class WebSocketClientService {
                     AIGCController aigcController = SpringContextUtils.getBean(AIGCController.class);;
                     UserInfoRequest userInfoRequest = JSONObject.parseObject(message, UserInfoRequest.class);
                     TTHController tthController = SpringContextUtils.getBean(TTHController.class);
+                    MediaController mediaController = SpringContextUtils.getBean(MediaController.class);
                     System.out.println("Received message: " + message);
 
                     // 处理包含"使用F8S"的消息
@@ -374,7 +375,6 @@ public class WebSocketClientService {
 
                     // 处理检查知乎登录状态的消息
                     if (message.contains("PLAY_CHECK_ZHIHU_LOGIN")) {
-                        MediaController mediaController = SpringContextUtils.getBean(MediaController.class);
                         new Thread(() -> {
                             try {
                                 String checkLogin = mediaController.checkZhihuLogin(userInfoRequest.getUserId());
@@ -392,7 +392,6 @@ public class WebSocketClientService {
                     }
                     // 处理检查百家号登录状态的消息
                     if (message.contains("PLAY_CHECK_BAIJIAHAO_LOGIN")) {
-                        MediaController mediaController = SpringContextUtils.getBean(MediaController.class);
                         new Thread(() -> {
                             try {
                                 String checkLogin = mediaController.checkBaijiahaoLogin(userInfoRequest.getUserId());
@@ -411,7 +410,6 @@ public class WebSocketClientService {
 
                     // 处理获取知乎二维码的消息
                     if(message.contains("PLAY_GET_ZHIHU_QRCODE")){
-                        MediaController mediaController = SpringContextUtils.getBean(MediaController.class);
                         new Thread(() -> {
                             try {
                                 mediaController.getZhihuQrCode(userInfoRequest.getUserId());
@@ -423,7 +421,6 @@ public class WebSocketClientService {
 
                     // 处理获取百家号二维码的消息
                     if(message.contains("PLAY_GET_BAIJIAHAO_QRCODE")){
-                        MediaController mediaController = SpringContextUtils.getBean(MediaController.class);
                         new Thread(() -> {
                             try {
                                 mediaController.getBaijiahaoQrCode(userInfoRequest.getUserId());
@@ -475,7 +472,7 @@ public class WebSocketClientService {
                     if(message.contains("PLAY_GET_TTH_QRCODE")){
                         new Thread(() -> {
                             try {
-                                browserController.getTTHQrCode(userInfoRequest.getUserId());
+                                mediaController.getTTHQrCode(userInfoRequest.getUserId());
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }
@@ -485,7 +482,7 @@ public class WebSocketClientService {
                     if (message.contains("PLAY_CHECK_TTH_LOGIN")) {
                         new Thread(() -> {
                             try {
-                                String checkLogin = browserController.checkTTHLogin(userInfoRequest.getUserId());
+                                String checkLogin = mediaController.checkTTHLogin(userInfoRequest.getUserId());
                                 userInfoRequest.setStatus(checkLogin);
                                 userInfoRequest.setType("RETURN_TOUTIAO_STATUS");
                                 sendMessage(JSON.toJSONString(userInfoRequest));
@@ -494,7 +491,7 @@ public class WebSocketClientService {
                             }
                         }).start();
                     }
-                    // 处理包含"头条号排版"的消息
+                    // 处理包含"微头条排版"的消息
                     if(message.contains("微头条排版")){
                         JSONObject jsonObject = JSONObject.parseObject(message);
                         new Thread(() -> {
@@ -507,7 +504,7 @@ public class WebSocketClientService {
                     }
 
                     Map map = JSONObject.parseObject(message);
-                    // 处理包含"头条号发布"的消息
+                    // 处理包含"微头条发布"的消息
                     if("微头条发布".equals(map.get("type"))){
                         new Thread(() -> {
                             try {

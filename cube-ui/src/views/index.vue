@@ -588,7 +588,7 @@ export default {
     getMediaLoginTitle() {
       const titles = {
         zhihu: "知乎登录",
-        toutiao: "头条号登录",
+        toutiao: "微头条登录",
         baijiahao: "百家号登录",
       };
       return titles[this.currentMediaType] || "媒体登录";
@@ -596,7 +596,7 @@ export default {
     getQrTipText() {
       const tips = {
         zhihu: "请使用知乎APP扫码登录",
-        toutiao: "请使用头条号APP扫码登录",
+        toutiao: "请使用微头条APP扫码登录",
         baijiahao: "请使用百家号APP扫码登录",
       };
       return tips[this.currentMediaType] || "请使用对应APP扫码登录";
@@ -667,7 +667,7 @@ export default {
             userId: this.userId,
             corpId: this.corpId,
           });
-          // 检查头条号登录状态
+          // 检查微头条登录状态
           this.sendMessage({
             type: "PLAY_CHECK_TTH_LOGIN",
             userId: this.userId,
@@ -888,7 +888,7 @@ export default {
     getMediaPlatformName(type) {
       const names = {
         zhihu: "知乎",
-        toutiao: "头条号",
+        toutiao: "微头条",
         baijiahao: "百家号",
       };
       return names[type] || "";
@@ -1070,7 +1070,7 @@ export default {
           this.mediaAccounts.toutiao = dataObj.status;
           this.mediaIsLoading.toutiao = false;
           this.mediaIsClick.toutiao = true;
-          this.$message.success(`头条号登录成功：${dataObj.status}`);
+          this.$message.success(`微头条登录成功：${dataObj.status}`);
           if (!this.mediaIsLoading.baijiahao && !this.mediaIsLoading.toutiao && !this.mediaIsLoading.zhihu) {
             if (this.resetMediaStatusTimeout) clearTimeout(this.resetMediaStatusTimeout);
           }

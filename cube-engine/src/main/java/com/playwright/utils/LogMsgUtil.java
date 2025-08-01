@@ -140,7 +140,7 @@ public class LogMsgUtil {
     }
 
     /**
-     * 发送 投递到头条号的流程
+     * 发送 投递到微头条的流程
      */
     public void sendTTHFlow(String taskNode, String userId){
         JSONObject flowData = new JSONObject();

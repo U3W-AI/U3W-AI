@@ -10,6 +10,8 @@ import com.playwright.utils.LogMsgUtil;
 import com.playwright.utils.ScreenshotUtil;
 import com.playwright.utils.TTHUtil;
 import com.playwright.websocket.WebSocketClientService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,6 +28,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/toutiao")
+@Tag(name = "微头条投递控制器", description = "统一处理微头条内容的排版和投递功能")
 public class TTHController {
     private final WebSocketClientService webSocketClientService;
 
@@ -46,6 +49,7 @@ public class TTHController {
     private ScreenshotUtil screenshotUtil;
 
     @PostMapping("/pushToTTH")
+    @Operation(summary = "投递内容到微头条", description = "投递内容到微头条")
     public String pushToTTH(@RequestBody Map map) {
         Integer i = (Integer) map.get("userId");
         String userId = i.toString();
