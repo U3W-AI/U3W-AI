@@ -9,8 +9,10 @@ import com.microsoft.playwright.FrameLocator;
 import com.playwright.utils.*;
 import com.playwright.websocket.WebSocketClientService;
 import io.swagger.v3.oas.annotations.Operation;
+
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +43,8 @@ public class MediaController {
     // 从配置文件中注入URL 调用远程API存储数据
     @Value("${cube.url}")
     private String url;
+    @Autowired
+    private TTHUtil tthUtil;
     @Autowired
     private BrowserUtil browserUtil;
     @Autowired
@@ -645,6 +649,106 @@ public class MediaController {
             return "投递失败: " + e.getMessage();
         }
         return "true";
+    }
+
+    @Operation(summary = "获取微头条登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
+    @GetMapping("/getTTHQrCode")
+    public String getTTHQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "tth")) {
+            Page page = context.newPage();
+            // 首先检查当前登录状态
+            String currentStatus = tthUtil.checkLoginStatus(page, true);
+            if (!"false".equals(currentStatus)) {
+                // 已经登录，直接返回状态
+                JSONObject statusObject = new JSONObject();
+                statusObject.put("status", currentStatus);
+                statusObject.put("userId", userId);
+                statusObject.put("type", "RETURN_TOUTIAO_STATUS");
+                webSocketClientService.sendMessage(statusObject.toJSONString());
+                logMsgUtil.sendTTHFlow("微头条已登录", userId);
+                // 截图返回当前页面
+                return screenshotUtil.screenshotAndUpload(page, "pphLoggedIn.png");
+            }
+
+            // 未登录，获取二维码截图URL
+            String url = tthUtil.waitAndGetQRCode(page, userId, screenshotUtil);
+
+            if (!"false".equals(url)) {
+                // 发送二维码URL到WebSocket
+                JSONObject jsonObject = new JSONObject();
+                jsonObject.put("url", url);
+                jsonObject.put("userId", userId);
+                jsonObject.put("type", "RETURN_PC_TTH_QRURL");
+                webSocketClientService.sendMessage(jsonObject.toJSONString());
+
+                // 实时监测登录状态 - 最多等待60秒
+                int maxAttempts = 30; // 30次尝试
+                for (int i = 0; i < maxAttempts; i++) {
+                    // 每2秒检查一次登录状态（不刷新页面）
+                    Thread.sleep(2000);
+
+                    // 检查当前页面登录状态
+                    String loginStatus = tthUtil.checkLoginStatus(page, false);
+
+                    if (!"false".equals(loginStatus)) {
+                        // 登录成功，发送状态到WebSocket
+                        JSONObject jsonObjectTwo = new JSONObject();
+                        jsonObjectTwo.put("status", loginStatus);
+                        jsonObjectTwo.put("userId", userId);
+                        jsonObjectTwo.put("type", "RETURN_TOUTIAO_STATUS");
+                        webSocketClientService.sendMessage(jsonObjectTwo.toJSONString());
+
+                        // 登录成功，跳出循环
+                        logMsgUtil.sendTTHFlow("微头条登录成功: " + loginStatus, userId);
+                        break;
+                    }
+                    // 每5次尝试重新截图一次，可能二维码已更新
+                    if (i % 5 == 4) {
+                        try {
+                            url = screenshotUtil.screenshotAndUpload(page, "tthLogin.png");
+                            JSONObject qrUpdateObject = new JSONObject();
+                            qrUpdateObject.put("url", url);
+                            qrUpdateObject.put("userId", userId);
+                            qrUpdateObject.put("type", "RETURN_PC_TTH_QRURL");
+                            webSocketClientService.sendMessage(qrUpdateObject.toJSONString());
+                        } catch (Exception e) {
+                            // 忽略截图错误
+                        }
+                    }
+                }
+                return url;
+            }
+        } catch (Exception e) {
+            logMsgUtil.sendTaskLog("获取微头条登录二维码失败", userId, "tth");
+        }
+        return "false";
+    }
+
+    @Operation(summary = "检查微头条登录状态", description = "返回手机号表示已登录，false 表示未登录")
+    @GetMapping("/checkTTHLogin")
+    public String checkTTHLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "tth")) {
+            Page page = context.newPage();
+
+            // 导航到DeepSeek页面并确保完全加载
+            page.navigate("https://mp.toutiao.com/");
+            page.waitForLoadState();
+            page.waitForTimeout(1500); // 额外等待1.5秒确保页面完全渲染
+
+            // 先使用工具类方法检测
+            String loginStatus = tthUtil.checkLoginStatus(page, false);
+
+            // 如果检测到已登录，直接返回
+            if (!"false".equals(loginStatus)) {
+                logMsgUtil.sendTTHFlow("微头条已登录，用户: " + loginStatus, userId);
+                return loginStatus;
+            }
+            // 所有尝试都失败，返回未登录状态
+            return "false";
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "false";
     }
 
 }
