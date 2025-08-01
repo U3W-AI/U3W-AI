@@ -254,7 +254,7 @@ public class WebSocketClientService {
                     }
 
                     // 处理检查通义千问登录状态的消息
-                    if (message.contains("CHECK_QW_LOGIN")) {
+                    if (message.contains("PLAY_CHECK_QW_LOGIN")) {
                         new Thread(() -> {
                             try {
                                 String checkLogin = browserController.checkTongYiLogin(userInfoRequest.getUserId());
@@ -390,6 +390,24 @@ public class WebSocketClientService {
                             }
                         }).start();
                     }
+                    // 处理检查百家号登录状态的消息
+                    if (message.contains("PLAY_CHECK_BAIJIAHAO_LOGIN")) {
+                        MediaController mediaController = SpringContextUtils.getBean(MediaController.class);
+                        new Thread(() -> {
+                            try {
+                                String checkLogin = mediaController.checkBaijiahaoLogin(userInfoRequest.getUserId());
+                                userInfoRequest.setStatus(checkLogin);
+                                userInfoRequest.setType("RETURN_BAIJIAHAO_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                // 发送错误状态
+                                userInfoRequest.setStatus("false");
+                                userInfoRequest.setType("RETURN_BAIJIAHAO_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            }
+                        }).start();
+                    }
 
                     // 处理获取知乎二维码的消息
                     if(message.contains("PLAY_GET_ZHIHU_QRCODE")){
@@ -397,6 +415,18 @@ public class WebSocketClientService {
                         new Thread(() -> {
                             try {
                                 mediaController.getZhihuQrCode(userInfoRequest.getUserId());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+
+                    // 处理获取百家号二维码的消息
+                    if(message.contains("PLAY_GET_BAIJIAHAO_QRCODE")){
+                        MediaController mediaController = SpringContextUtils.getBean(MediaController.class);
+                        new Thread(() -> {
+                            try {
+                                mediaController.getBaijiahaoQrCode(userInfoRequest.getUserId());
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }
@@ -421,6 +451,26 @@ public class WebSocketClientService {
                             }
                         }).start();
                     }
+
+                    // 处理百家号投递的消息
+                    if(message.contains("投递到百家号")){
+                        JSONObject jsonObject = JSONObject.parseObject(message);
+                        new Thread(() -> {
+                            try {
+                                // 获取BaijiahaoDeliveryController的实例并调用投递方法
+                                BaijiahaoDeliveryController baijiahaoDeliveryController = SpringContextUtils.getBean(BaijiahaoDeliveryController.class);
+                                baijiahaoDeliveryController.deliverToBaijiahao(userInfoRequest);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                // 发送错误消息
+                                userInfoRequest.setType("RETURN_BAIJIAHAO_DELIVERY_RES");
+                                userInfoRequest.setStatus("error");
+                                userInfoRequest.setDraftContent("投递到百家号失败：" + e.getMessage());
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            }
+                        }).start();
+                    }
+
                     // 处理获取TT二维码的消息
                     if(message.contains("PLAY_GET_TTH_QRCODE")){
                         new Thread(() -> {
