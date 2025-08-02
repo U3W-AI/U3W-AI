@@ -502,18 +502,21 @@ export default {
         deepseek: false,
         qw: false,
         minimax: false,
+        metaso: false,
       },
       accounts: {
         doubao: "",
         deepseek: "",
         minimax: "",
         qw: "",
+        metaso: "",
       },
       isClick: {
         doubao: false,
         deepseek: false,
         qw: false,
         minimax: false,
+        metaso: false,
       },
       aiLoginDialogVisible: false,
       currentAiType: "",
@@ -526,6 +529,7 @@ export default {
         deepseek: true,
         qw: true,
         minimax: true,
+        metaso: true,
       },
       resetStatusTimeout: null, // 状态检查超时定时器
 
@@ -582,6 +586,7 @@ export default {
         deepseek: "DeepSeek登录",
         minimax: "MiniMax登录",
         qw: "通义千问登录",
+        metaso: "秘塔登录",
       };
       return titles[this.currentAiType] || "登录";
     },
@@ -622,10 +627,12 @@ export default {
         this.isClick.doubao = false;
         this.isClick.deepseek = false;
         this.isClick.minimax = false;
+        this.isClick.metaso = false;
         this.isClick.qw = false;
         this.isLoading.doubao = true;
         this.isLoading.deepseek = true;
         this.isLoading.minimax = true;
+        this.isLoading.metaso = true;
         this.isLoading.qw = true;
         this.mediaIsClick.zhihu = false;
         this.mediaIsLoading.zhihu = true;
@@ -646,6 +653,12 @@ export default {
           // 检查MiniMax登录状态
           this.sendMessage({
             type: "PLAY_CHECK_MAX_LOGIN",
+            userId: this.userId,
+            corpId: this.corpId,
+          });
+          // 检查秘塔登录状态
+          this.sendMessage({
+            type: "PLAY_CHECK_METASO_LOGIN",
             userId: this.userId,
             corpId: this.corpId,
           });
@@ -811,6 +824,13 @@ export default {
           corpId: this.corpId,
         });
       }
+      if (type == "metaso") {
+        this.sendMessage({
+          type: "PLAY_GET_METASO_QRCODE",
+          userId: this.userId,
+          corpId: this.corpId,
+        });
+      }
       if(type == 'qw'){
         this.sendMessage({
           type: 'PLAY_GET_QW_QRCODE',
@@ -829,6 +849,7 @@ export default {
         deepseek: require("@/assets/logo/Deepseek.png"),
         minimax: require("@/assets/logo/MiniMax.png"),
         qw: require('@/assets/logo/qw.png'),
+        metaso: require("@/assets/logo/Metaso.png"),
       };
       return icons[type] || "";
     },
@@ -838,6 +859,7 @@ export default {
         deepseek: "DeepSeek",
         minimax: "MiniMax",
         qw: "通义千问",
+        metaso: "秘塔",
       };
       return names[type] || "";
     },
@@ -938,6 +960,7 @@ export default {
         datastr.includes("RETURN_PC_DB_QRURL") ||
         datastr.includes("RETURN_PC_DEEPSEEK_QRURL") ||
         datastr.includes("RETURN_PC_MAX_QRURL") ||
+        datastr.includes("RETURN_PC_METASO_QRURL") ||
         datastr.includes("RETURN_PC_QW_QRURL")
       ) {
         this.qrCodeUrl = dataObj.url;
@@ -955,7 +978,7 @@ export default {
           this.isLoading.doubao = false;
           this.isClick.doubao = true; // 检测成功后设为true
           // 检查是否所有AI都已恢复，全部恢复则清除超时定时器
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -972,7 +995,7 @@ export default {
           this.accounts.deepseek = dataObj.status;
           this.isLoading.deepseek = false;
           this.isClick.deepseek = true; // 检测成功后设为true
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -989,7 +1012,7 @@ export default {
           this.accounts.qw = dataObj.status;
           this.isLoading.qw = false;
           this.isClick.qw = true;
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1006,12 +1029,29 @@ export default {
           this.accounts.minimax = dataObj.status;
           this.isLoading.minimax = false;
           this.isClick.minimax = true; // 检测成功后设为true
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
           this.isClick.minimax = true;
           this.isLoading.minimax = false;
+        }
+      } else if (
+        datastr.includes("RETURN_METASO_STATUS") &&
+        dataObj.status != ""
+      ) {
+        if (!datastr.includes("false")) {
+          this.aiLoginDialogVisible = false;
+          this.aiLoginStatus.metaso = true;
+          this.accounts.metaso = dataObj.status;
+          this.isLoading.metaso = false;
+          this.isClick.metaso = true; // 检测成功后设为true
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso) {
+            if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
+          }
+        } else {
+          this.isClick.metaso = true;
+          this.isLoading.metaso = false;
         }
       } else if (
         datastr.includes("RETURN_ZHIHU_STATUS") &&
@@ -1116,10 +1156,12 @@ export default {
       this.isLoading.doubao = true;
       this.isLoading.deepseek = true;
       this.isLoading.minimax = true;
+      this.isLoading.metaso = true;
       this.isLoading.qw = true;
       this.isClick.doubao = false;
       this.isClick.deepseek = false;
       this.isClick.minimax = false;
+      this.isClick.metaso = false;
       this.isClick.qw = false;
       // 清除上一次的超时定时器
       if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
@@ -1133,12 +1175,14 @@ export default {
         this.isClick.deepseek = true;
         this.isClick.minimax = true;
         this.isClick.qw = true;
+        this.isClick.metaso = true;
         this.$message.warning('AI登录状态刷新超时，请检查网络或稍后重试');
       }, 20000);
       // 只检测AI登录状态
       this.sendMessage({ type: "PLAY_CHECK_DB_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_MAX_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_DEEPSEEK_LOGIN", userId: this.userId, corpId: this.corpId });
+      this.sendMessage({ type: "PLAY_CHECK_METASO_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_QW_LOGIN", userId: this.userId, corpId: this.corpId });
     },
      handleRefreshMedia() {

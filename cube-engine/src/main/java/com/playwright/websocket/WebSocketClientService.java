@@ -119,6 +119,16 @@ public class WebSocketClientService {
                                 }
                             }).start();
                         }
+                        // 处理包含"metaso"的消息
+                        if(message.contains("mita")){
+                            new Thread(() -> {
+                                try {
+                                    aigcController.startMetaso(userInfoRequest);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }).start();
+                        }
                         // 处理包含"yb-hunyuan"或"yb-deepseek"的消息
                         if(message.contains("yb-hunyuan") || message.contains("yb-deepseek")){
                             new Thread(() -> {
@@ -341,6 +351,31 @@ public class WebSocketClientService {
                             }
                         }).start();
                     }
+
+                    //  处理检查秘塔登录状态的信息
+                    if (message.contains("CHECK_METASO_LOGIN")) {
+                        new Thread(() -> {
+                            try {
+                                String checkLogin = browserController.checkMetasoLogin(userInfoRequest.getUserId());
+                                userInfoRequest.setStatus(checkLogin);
+                                userInfoRequest.setType("RETURN_METASO_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+                    // 处理获取秘塔二维码的消息
+                    if(message.contains("PLAY_GET_METASO_QRCODE")){
+                        new Thread(() -> {
+                            try {
+                                browserController.getMetasoQrCode(userInfoRequest.getUserId());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+
                     // 处理检查DeepSeek登录状态的消息
                     if (message.contains("PLAY_CHECK_DEEPSEEK_LOGIN")) {
                         new Thread(() -> {

@@ -95,6 +95,14 @@
 						type: 'mini'
 					},
           {
+            name: '秘塔',
+            avatar: 'https://www.aitool6.com/wp-content/uploads/2023/06/9557d1-2.jpg',
+            icon: 'https://www.aitool6.com/wp-content/uploads/2023/06/9557d1-2.jpg',
+            title: '秘塔',
+            description: '没有广告，直达结果',
+            type: 'metaso'
+          },
+          {
             name: '通义千问',
             avatar: 'https://u3w.com/chatfile/TongYi.png',
             icon: 'https://u3w.com/chatfile/TongYi.png',
