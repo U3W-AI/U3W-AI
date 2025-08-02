@@ -77,7 +77,12 @@
                   <view v-for="(capability, capIndex) in ai.capabilities"
                         :key="capIndex"
                         class="capability-tag"
-                        :class="[ai.selectedCapabilities.includes(capability.value) ? 'capability-active' : '', (!ai.enabled || !isAiLoginEnabled(ai)) ? 'capability-disabled' : '']"
+                        :class="[
+                          ai.isSingleSelect
+                            ? (ai.selectedCapabilities === capability.value ? 'capability-active' : '')
+                            : (ai.selectedCapabilities.includes(capability.value) ? 'capability-active' : ''),
+                          (!ai.enabled || !isAiLoginEnabled(ai)) ? 'capability-disabled' : ''
+                        ]"
                         @tap="toggleCapability(ai, capability.value)">
                     <text class="capability-text">{{ capability.label }}</text>
                   </view>
@@ -501,7 +506,8 @@
             enabled: true,
             status: 'idle',
             progressLogs: [],
-            isExpanded: true
+            isExpanded: true,
+            isSingleSelect: false,  // 添加单选标记
           },
 					{
 						name: '豆包',
@@ -514,7 +520,8 @@
 						enabled: true,
 						status: 'idle',
 						progressLogs: [],
-						isExpanded: true
+						isExpanded: true,
+            isSingleSelect: false,  // 添加单选标记
 					},
           {
             name: '通义千问',
@@ -547,6 +554,22 @@
             status: "idle",
             progressLogs: [],
             isExpanded: true,
+            isSingleSelect: false,  // 添加单选标记
+          },
+          {
+            name: "秘塔",
+            avatar: 'https://www.aitool6.com/wp-content/uploads/2023/06/9557d1-2.jpg',
+            capabilities: [
+              { label: "极速", value: "fast" },
+              { label: "极速思考", value: "fast_thinking" },
+              { label: "长思考", value: "long_thinking" },
+            ],
+            selectedCapabilities:"fast",
+            enabled: true,
+            status: "idle",
+            progressLogs: [],
+            isExpanded: true,
+            isSingleSelect: true  // 添加单选标记
           },
 				],
 
@@ -607,18 +630,21 @@
           deepseek: false,
           tongyi: false,
           mini: false,
+          metaso: false,
 				},
 				accounts: {
 					doubao: '',
           deepseek: '',
           tongyi: '',
           mini: '',
+          metaso: '',
 				},
 				isLoading: {
 					doubao: true,
           deepseek: true,
           tongyi: true,
 		      mini: true,
+		      metaso: true,
 				}
 			};
 		},
@@ -817,12 +843,20 @@
 
 				if (!ai.enabled) return;
 
-				const index = ai.selectedCapabilities.indexOf(capabilityValue);
-				if (index === -1) {
-					ai.selectedCapabilities.push(capabilityValue);
-				} else {
-					ai.selectedCapabilities.splice(index, 1);
-				}
+        // 单选逻辑（针对秘塔AI）
+        if (ai.isSingleSelect) {
+          // 直接设置为当前选中值，实现单选效果
+          ai.selectedCapabilities = capabilityValue;
+        }
+        // 其他AI保持多选逻辑
+        else {
+          const index = ai.selectedCapabilities.indexOf(capabilityValue);
+          if (index === -1) {
+            ai.selectedCapabilities.push(capabilityValue);
+          } else {
+            ai.selectedCapabilities.splice(index, 1);
+          }
+        }
 			},
       // 通义千问切换能力
       selectSingleCapability(ai, capabilityValue) {
@@ -879,6 +913,18 @@
 							this.userInfoReq.roles = this.userInfoReq.roles + 'zj-db-sdsk,';
 						}
 					}
+          if (ai.name === '秘塔') {
+            this.userInfoReq.roles = this.userInfoReq.roles + 'mita,';
+            if (ai.selectedCapabilities.includes("fast")) {
+              this.userInfoReq.roles = this.userInfoReq.roles + 'metaso-jisu,';
+            }
+            if (ai.selectedCapabilities.includes("fast_thinking")) {
+              this.userInfoReq.roles = this.userInfoReq.roles + 'metaso-jssk,';
+            }
+            if (ai.selectedCapabilities.includes("long_thinking")) {
+              this.userInfoReq.roles = this.userInfoReq.roles + 'metaso-csk,';
+            }
+          }
 					if (ai.name === "MiniMax Chat") {
 						if(this.isAiLoginEnabled(ai)){
 						  this.userInfoReq.roles = this.userInfoReq.roles + "mini-max-agent,";
@@ -1117,6 +1163,8 @@
           this.userInfoReq.maxChatId = dataObj.chatId;
         } else if (dataObj.type === 'RETURN_TY_CHATID' && dataObj.chatId) {
           this.userInfoReq.tyChatId = dataObj.chatId;
+        } else if (dataObj.type === "RETURN_METASO_CHATID" && dataObj.chatId) {
+          this.userInfoReq.metasoChatId = dataObj.chatId;
         }
 
 					// 处理进度日志消息
@@ -1406,6 +1454,20 @@
 				  // 更新AI启用状态
 				  this.updateAiEnabledStatus();
 				}
+        // 处理秘塔登录状态
+        else if (datastr.includes("RETURN_METASO_STATUS") && dataObj.status != "") {
+          this.isLoading.metaso = false;
+          if (!datastr.includes("false")) {
+            this.aiLoginStatus.metaso = true;
+            this.accounts.metaso = dataObj.status;
+          } else {
+            this.aiLoginStatus.metaso = false;
+            // 禁用相关AI
+            this.disableAIsByLoginStatus("metaso");
+          }
+          // 更新AI启用状态
+          this.updateAiEnabledStatus();
+        }
         // 处理DeepSeek登录状态
         else if (datastr.includes("RETURN_DEEPSEEK_STATUS")) {
           console.log("收到DeepSeek登录状态消息:", dataObj);
@@ -1491,6 +1553,10 @@
 			  console.log("收到消息:", dataObj);
 			  targetAI = this.enabledAIs.find((ai) => ai.name === "MiniMax Chat");
 			  break;
+          case "RETURN_METASO_RES":
+            console.log("收到消息:", dataObj);
+            targetAI = this.enabledAIs.find((ai) => ai.name === "秘塔");
+            break;
 				}
 
 				if (targetAI) {
@@ -1798,6 +1864,7 @@
 					this.userInfoReq.dbChatId = item.dbChatId || '';
           this.userInfoReq.tyChatId = item.tyChatId || '';
 					this.userInfoReq.maxChatId = item.maxChatId || "";
+          this.userInfoReq.metasoChatId = item.metasoChatId || "";
           this.userInfoReq.isNewChat = false;
 
 					// 不再根据AI登录状态更新AI启用状态，保持原有选择
@@ -1849,6 +1916,7 @@
 					dbChatId: this.userInfoReq.dbChatId,
           tyChatId: this.userInfoReq.tyChatId,
 					maxChatId: this.userInfoReq.maxChatId,
+          metasoChatId: this.userInfoReq.metasoChatId,
 				};
 
 				try {
@@ -1862,6 +1930,7 @@
 						dbChatId: this.userInfoReq.dbChatId,
             tyChatId: this.userInfoReq.tyChatId,
 						maxChatId: this.userInfoReq.maxChatId,
+            metasoChatId: this.userInfoReq.metasoChatId,
 					});
 				} catch (error) {
 					console.error('保存历史记录失败:', error);
@@ -2522,6 +2591,7 @@
 					dbChatId: '',
           tyChatId: '',
 					maxChatId: '',
+          metasoChatId: '',
 					isNewChat: true
 				};
 				// 重置AI列表为初始状态
@@ -2541,7 +2611,8 @@
             enabled: true,
             status: 'idle',
             progressLogs: [],
-            isExpanded: true
+            isExpanded: true,
+          isSingleSelect: false,  // 添加单选标记
           },
 					{
 						name: '豆包',
@@ -2554,7 +2625,8 @@
 						enabled: true,
 						status: 'idle',
 						progressLogs: [],
-						isExpanded: true
+						isExpanded: true,
+            isSingleSelect: false,  // 添加单选标记
 					},
           {
             name: '通义千问',
@@ -2582,7 +2654,23 @@
 					  status: "idle",
 					  progressLogs: [],
 					  isExpanded: true,
+            isSingleSelect: false,  // 添加单选标记
 					},
+          {
+            name: '秘塔',
+            avatar: 'https://www.aitool6.com/wp-content/uploads/2023/06/9557d1-2.jpg',
+            capabilities: [
+              {label: '极速', value: 'fast'},
+              {label: '极速思考', value: 'fast_thinking'},
+              {label: '长思考', value: 'long_thinking'},
+            ],
+            selectedCapabilities: "fast",
+            enabled: true,
+            status: 'idle',
+            progressLogs: [],
+            isExpanded: true,
+            isSingleSelect: true,  // 添加单选标记
+          },
 				];
 				// 不再根据AI登录状态更新AI启用状态，保持原有选择
 
@@ -2634,6 +2722,12 @@
           userId: this.userId,
           corpId: this.corpId,
         });
+        // 检查秘塔登录状态
+        this.sendWebSocketMessage({
+          type: "PLAY_CHECK_METASO_LOGIN",
+          userId: this.userId,
+          corpId: this.corpId,
+        });
 			},
 
 			getPlatformIcon(type) {
@@ -2667,6 +2761,7 @@
           deepseek: true,
           tongyi: true,
 		      mini: true,
+          metaso: true
 				};
 
 				// 重置登录状态
@@ -2675,6 +2770,7 @@
           deepseek: false,
 		      mini: false,
           tongyi: false,
+          metaso: false,
 				};
 
 				// 重置账户信息
@@ -2683,6 +2779,7 @@
           deepseek: '',
           tongyi: '',
 		      mini: '',
+		      metaso: '',
 				};
 
 				// 显示刷新提示
@@ -2714,6 +2811,8 @@
             return this.aiLoginStatus.tongyi;   // 通义登录状态
           case "MiniMax Chat":
             return this.aiLoginStatus.mini; // MiniMax Chat登录状态
+          case "秘塔":
+            return this.aiLoginStatus.metaso; // 秘塔登录状态
           default:
 						return false;
 				}
@@ -2730,6 +2829,8 @@
             return this.isLoading.tongyi;
           case "MiniMax Chat":
             return this.isLoading.mini;
+          case "秘塔":
+            return this.isLoading.metaso;
           default:
 						return false;
 				}
