@@ -40,6 +40,9 @@ public class UserInfoRequest {
     @Schema(description = "MiniMax的聊天会话 ID", example = "mini_chat_003")
     private String maxChatId;
 
+    @Schema(description = "秘塔的聊天会话 ID", example = "metaso_chat_002")
+    private String metasoChatId;
+
     @Schema(description = "数据库大模型（如 ZJ-DB）的聊天会话 ID", example = "db_chat_003")
     private String dbChatId;
 
