@@ -275,7 +275,7 @@ public class BrowserController {
             if(userLoginLocator.isVisible()){
                 userLoginLocator.click();
             }
-            Thread.sleep(3000);
+            Thread.sleep(2000);
             String url = screenshotUtil.screenshotAndUpload(page,"checkKiMiLogin.png");
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("url",url);
@@ -283,7 +283,30 @@ public class BrowserController {
             jsonObject.put("type","RETURN_PC_KiMi_QRURL");
             // 发送二维码URL
             webSocketClientService.sendMessage(jsonObject.toJSONString());
+
+            //最多等待30秒
+            for (int i = 0; i < 30; i++) {
+                if (!page.locator("div.login-modal-mask").isVisible()) {
+                    page.locator("div.user-info").click();
+
+                    Locator locator= page.locator("span:has-text('设置')");
+                    if (locator.count()>0) {
+                        locator.click();
+                        Locator nameLocator=page.locator("div.name");
+                        String nameText = nameLocator.textContent();
+                        JSONObject jsonObjectTwo = new JSONObject();
+                        jsonObjectTwo.put("status", nameText);
+                        jsonObjectTwo.put("userId", userId);
+                        jsonObjectTwo.put("type", "RETURN_KIMI_STATUS");
+                        webSocketClientService.sendMessage(jsonObjectTwo.toJSONString());
+                        break;
+                    }
+                }
+                Thread.sleep(1000);
+            }
+
             return url;
+
         } catch (Exception e) {
             e.printStackTrace();
         }

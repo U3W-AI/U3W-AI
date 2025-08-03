@@ -366,10 +366,10 @@ public class WebSocketClientService {
                         }).start();
                     }
                     // 处理获取KiMi二维码的消息
-                    if(message.contains("PLAY_GET_KiMi_QRCODE")){
+                    if(message.contains("PLAY_GET_KIMI_QRCODE")){
                         new Thread(() -> {
                             try {
-                                browserController.getMaxQrCode(userInfoRequest.getUserId());
+                                browserController.getKiMiQrCode(userInfoRequest.getUserId());
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }
