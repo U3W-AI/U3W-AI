@@ -199,8 +199,8 @@
                     </div>
                     <div class="header-right">
                       <span class="status-text">{{
-                        getStatusText(ai.status)
-                      }}</span>
+                          getStatusText(ai.status)
+                        }}</span>
                       <i
                         :class="getStatusIcon(ai.status)"
                         class="status-icon"
@@ -358,13 +358,13 @@
                   size="small"
                   type="primary"
                   @click="copyResult(result.content)"
-                  >复制（纯文本）</el-button
+                >复制（纯文本）</el-button
                 >
                 <el-button
                   size="small"
                   type="success"
                   @click="exportResult(result)"
-                  >导出（MD文件）</el-button
+                >导出（MD文件）</el-button
                 >
               </div>
             </div>
@@ -525,7 +525,7 @@
 
     <!-- 微头条发布流程弹窗 -->
     <el-dialog title="微头条发布流程" :visible.sync="tthFlowVisible" width="60%" height="60%" :close-on-click-modal="false"
-      class="tth-flow-dialog">
+               class="tth-flow-dialog">
       <div class="tth-flow-content">
         <div class="flow-logs-section">
           <h3>发布流程日志：</h3>
@@ -562,7 +562,7 @@
 
     <!-- 微头条文章编辑弹窗 -->
     <el-dialog title="微头条文章编辑" :visible.sync="tthArticleEditVisible" width="70%" height="80%" :close-on-click-modal="false"
-      class="tth-article-edit-dialog">
+               class="tth-article-edit-dialog">
       <div class="tth-article-edit-content">
         <div class="article-title-section">
           <h3>文章标题：</h3>
@@ -628,6 +628,7 @@ export default {
         ybDsChatId: "",
         dbChatId: "",
         tyChatId: "",
+        kimiChatId: "",
         isNewChat: true,
       },
       jsonRpcReqest: {
@@ -690,6 +691,18 @@ export default {
           progressLogs: [],
           isExpanded: true,
           isSingleSelect: true,  // 添加单选标记,用于capabilities中状态只能多选一的时候改成true,然后把selectedCapabilities赋值为字符串，不要是数组
+        },
+        {
+          name: "KiMi",
+          avatar: require("../../../assets/ai/Kimi.png"),
+          capabilities: [
+            { label: "联网搜索", value: "web_search" },
+          ],
+          selectedCapabilities: [],
+          enabled: true,
+          status: "idle",
+          progressLogs: [],
+          isExpanded: true,
         },
         {
           name: '通义千问',
@@ -875,6 +888,12 @@ export default {
           }
           if (ai.selectedCapabilities.includes("web_search")) {
             this.userInfoReq.roles = this.userInfoReq.roles + "max-lwss,";
+          }
+        }
+        if (ai.name === "Kimi") {
+          this.userInfoReq.roles = this.userInfoReq.roles + "kimi,";
+          if (ai.selectedCapabilities.includes("web_search")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + "kimi-lwss,";
           }
         }
         if(ai.name === '通义千问' && ai.enabled){
@@ -1104,6 +1123,8 @@ export default {
         this.userInfoReq.maxChatId = dataObj.chatId;
       } else if (dataObj.type === "RETURN_METASO_CHATID" && dataObj.chatId) {
         this.userInfoReq.metasoChatId = dataObj.chatId;
+      } else if (dataObj.type === "RETURN_KIMI_CHATID" && dataObj.chatId) {
+        this.userInfoReq.kimiChatId = dataObj.chatId;
       }
 
       // 处理进度日志消息
@@ -1335,6 +1356,10 @@ export default {
           console.log("收到秘塔消息:", dataObj);
           targetAI = this.enabledAIs.find((ai) => ai.name === "秘塔");
           break;
+        case "RETURN_KIMI_RES":
+          console.log("收到kimi消息:", dataObj);
+          targetAI = this.enabledAIs.find((ai) => ai.name === "Kimi");
+          break;
       }
 
       if (targetAI) {
@@ -1562,6 +1587,7 @@ export default {
         this.userInfoReq.ybDsChatId = item.ybDsChatId || "";
         this.userInfoReq.dbChatId = item.dbChatId || "";
         this.userInfoReq.maxChatId = item.maxChatId || "";
+        this.userInfoReq.kimiChatId = item.kimiChatId || "";
         this.userInfoReq.tyChatId = item.tyChatId || "";
         this.userInfoReq.metasoChatId = item.metasoChatId || "";
         this.userInfoReq.isNewChat = false;
@@ -1596,6 +1622,7 @@ export default {
         dbChatId: this.userInfoReq.dbChatId,
         tyChatId: this.userInfoReq.tyChatId,
         maxChatId: this.userInfoReq.maxChatId,
+        kimiChatId: this.userInfoReq.kimiChatId,
         metasoChatId: this.userInfoReq.metasoChatId,
       };
 
@@ -1610,6 +1637,7 @@ export default {
           dbChatId: this.userInfoReq.dbChatId,
           tyChatId: this.userInfoReq.tyChatId,
           maxChatId: this.userInfoReq.maxChatId,
+          kimiChatId: this.userInfoReq.kimiChatId,
           metasoChatId: this.userInfoReq.metasoChatId,
         });
       } catch (error) {
@@ -1648,6 +1676,7 @@ export default {
         dbChatId: "",
         tyChatId: "",
         maxChatId: "",
+        kimiChatId: "",
         metasoChatId: "",
         isNewChat: true,
       };
@@ -1691,6 +1720,18 @@ export default {
           progressLogs: [],
           isExpanded: true,
           isSingleSelect: false,  // 添加单选标记
+        },
+        {
+          name: "Kimi",
+          avatar: require("../../../assets/ai/Kimi.png"),
+          capabilities: [
+            { label: "联网模式", value: "web_search" },
+          ],
+          selectedCapabilities: ["web_search"],
+          enabled: true,
+          status: "idle",
+          progressLogs: [],
+          isExpanded: true,
         },
         {
           name: "秘塔",
@@ -2008,58 +2049,58 @@ export default {
       this.$forceUpdate();
       this.$message.success("百家号投递任务已创建，正在处理...");
     },
-      // 创建公众号排版任务（保持原有逻辑）
-      createWechatLayoutTask() {
-        const layoutRequest = {
-          jsonrpc: "2.0",
-          id: uuidv4(),
-          method: "AI排版",
-          params: {
-            taskId: uuidv4(),
-            userId: this.userId,
-            corpId: this.corpId,
-            userPrompt: this.layoutPrompt,
-            roles: "",
-            selectedMedia: "wechat",
+    // 创建公众号排版任务（保持原有逻辑）
+    createWechatLayoutTask() {
+      const layoutRequest = {
+        jsonrpc: "2.0",
+        id: uuidv4(),
+        method: "AI排版",
+        params: {
+          taskId: uuidv4(),
+          userId: this.userId,
+          corpId: this.corpId,
+          userPrompt: this.layoutPrompt,
+          roles: "",
+          selectedMedia: "wechat",
+        },
+      };
+
+      console.log("公众号排版参数", layoutRequest);
+      this.message(layoutRequest);
+
+      const znpbAI = {
+        name: "智能排版",
+        avatar: require("../../../assets/ai/yuanbao.png"),
+        capabilities: [],
+        selectedCapabilities: [],
+        enabled: true,
+        status: "running",
+        progressLogs: [
+          {
+            content: "智能排版任务已提交，正在排版...",
+            timestamp: new Date(),
+            isCompleted: false,
+            type: "智能排版",
           },
-        };
+        ],
+        isExpanded: true,
+      };
 
-        console.log("公众号排版参数", layoutRequest);
-        this.message(layoutRequest);
+      // 检查是否已存在智能排版任务
+      const existIndex = this.enabledAIs.findIndex(
+        (ai) => ai.name === "智能排版"
+      );
+      if (existIndex === -1) {
+        this.enabledAIs.unshift(znpbAI);
+      } else {
+        this.enabledAIs[existIndex] = znpbAI;
+        const znpb = this.enabledAIs.splice(existIndex, 1)[0];
+        this.enabledAIs.unshift(znpb);
+      }
 
-        const znpbAI = {
-          name: "智能排版",
-          avatar: require("../../../assets/ai/yuanbao.png"),
-          capabilities: [],
-          selectedCapabilities: [],
-          enabled: true,
-          status: "running",
-          progressLogs: [
-            {
-              content: "智能排版任务已提交，正在排版...",
-              timestamp: new Date(),
-              isCompleted: false,
-              type: "智能排版",
-            },
-          ],
-          isExpanded: true,
-        };
-
-        // 检查是否已存在智能排版任务
-        const existIndex = this.enabledAIs.findIndex(
-          (ai) => ai.name === "智能排版"
-        );
-        if (existIndex === -1) {
-          this.enabledAIs.unshift(znpbAI);
-        } else {
-          this.enabledAIs[existIndex] = znpbAI;
-          const znpb = this.enabledAIs.splice(existIndex, 1)[0];
-          this.enabledAIs.unshift(znpb);
-        }
-
-        this.$forceUpdate();
-        this.$message.success("排版请求已发送，请等待结果");
-      },
+      this.$forceUpdate();
+      this.$message.success("排版请求已发送，请等待结果");
+    },
 
     // 创建微头条排版任务
     createToutiaoLayoutTask() {
@@ -2115,7 +2156,7 @@ export default {
 
       this.$forceUpdate();
       this.$message.success("微头条排版请求已发送，请等待结果");
-      },
+    },
 
     // 实际投递到公众号
     pushToWechatWithContent(contentText) {
@@ -2161,7 +2202,7 @@ export default {
       const publishRequest = {
         jsonrpc: '2.0',
         id: uuidv4(),
-                  method: '微头条发布',
+        method: '微头条发布',
         params: {
           taskId: uuidv4(),
           userId: this.userId,

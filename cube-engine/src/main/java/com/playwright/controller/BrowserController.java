@@ -77,6 +77,43 @@ public class BrowserController {
         return "";
     }
 
+    /**
+     * 检查Kimi登录状态
+     * @param userId 用户唯一标识
+     * @return 登录状态："false"表示未登录，用户昵称表示已登录
+     */
+    @Operation(summary = "检查Kimi登录状态", description = "返回用户昵称表示已登录，false 表示未登录")
+    @GetMapping("/checkKimiLogin")
+    public String checkKimiLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"kimi")) {
+            Page page = context.newPage();
+            page.navigate("https://www.kimi.com/");
+            Thread.sleep(5000);
+            Locator loginLocator = page.locator("span.user-name:has-text('登录')");
+            if (loginLocator.count() > 0 && loginLocator.isVisible()) {
+                return "false";
+            } else {
+                Thread.sleep(500);
+
+                page.locator("div.user-info").click();
+                Thread.sleep(500);
+                page.locator("span:has-text('设置')").click();
+                Thread.sleep(500);
+                Locator nameLocator = page.locator("div.name");
+                if(nameLocator.count()>0){
+                    String nameText = nameLocator.textContent();
+                    return nameText;
+                }else{
+                    return "false";
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "false";
+    }
+
+
 
     /**
      * 检查元宝主站登录状态
@@ -91,15 +128,15 @@ public class BrowserController {
             page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa");
             Locator phone = page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/div[2]/p");
             phone.waitFor(new Locator.WaitForOptions().setTimeout(60000));
-                if(phone.count()>0){
-                    String phoneText = phone.textContent();
-                    if(phoneText.equals("未登录")){
-                        return "false";
-                    }
-                    return phoneText;
-                }else{
+            if(phone.count()>0){
+                String phoneText = phone.textContent();
+                if(phoneText.equals("未登录")){
                     return "false";
                 }
+                return phoneText;
+            }else{
+                return "false";
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -121,14 +158,14 @@ public class BrowserController {
             Locator phone = page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/div[2]/p");
             phone.waitFor(new Locator.WaitForOptions().setTimeout(60000));
             if(phone.count()>0){
-                    String phoneText = phone.textContent();
-                    if(phoneText.equals("未登录")){
-                        return "false";
-                    }
-                    return phoneText;
-                }else{
+                String phoneText = phone.textContent();
+                if(phoneText.equals("未登录")){
                     return "false";
                 }
+                return phoneText;
+            }else{
+                return "false";
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -219,6 +256,40 @@ public class BrowserController {
         }
         return "";
     }
+
+
+    /**
+     * 获取KiMi登录二维码
+     * @param userId 用户唯一标识
+     * @return 二维码图片URL 或 "false"表示失败
+     */
+    @GetMapping("/getKiMiQrCode")
+    @Operation(summary = "获取代理版KiMi登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
+    public String getKiMiQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"KiMi")) {
+
+            Page page = context.newPage();
+            page.navigate("https://www.kimi.com/");
+            //判断是否登录
+            Locator userLoginLocator = page.locator("div.user-info");
+            if(userLoginLocator.isVisible()){
+                userLoginLocator.click();
+            }
+            Thread.sleep(3000);
+            String url = screenshotUtil.screenshotAndUpload(page,"checkKiMiLogin.png");
+            JSONObject jsonObject = new JSONObject();
+            jsonObject.put("url",url);
+            jsonObject.put("userId",userId);
+            jsonObject.put("type","RETURN_PC_KiMi_QRURL");
+            // 发送二维码URL
+            webSocketClientService.sendMessage(jsonObject.toJSONString());
+            return url;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "false";
+    }
+
 
 
     /**
