@@ -77,7 +77,12 @@
                   <view v-for="(capability, capIndex) in ai.capabilities"
                         :key="capIndex"
                         class="capability-tag"
-                        :class="[ai.selectedCapabilities.includes(capability.value) ? 'capability-active' : '', (!ai.enabled || !isAiLoginEnabled(ai)) ? 'capability-disabled' : '']"
+                        :class="[
+                          ai.isSingleSelect
+                            ? (ai.selectedCapabilities === capability.value ? 'capability-active' : '')
+                            : (ai.selectedCapabilities.includes(capability.value) ? 'capability-active' : ''),
+                          (!ai.enabled || !isAiLoginEnabled(ai)) ? 'capability-disabled' : ''
+                        ]"
                         @tap="toggleCapability(ai, capability.value)">
                     <text class="capability-text">{{ capability.label }}</text>
                   </view>
