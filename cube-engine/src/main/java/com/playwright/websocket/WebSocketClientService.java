@@ -94,6 +94,7 @@ public class WebSocketClientService {
                     AIGCController aigcController = SpringContextUtils.getBean(AIGCController.class);;
                     UserInfoRequest userInfoRequest = JSONObject.parseObject(message, UserInfoRequest.class);
                     TTHController tthController = SpringContextUtils.getBean(TTHController.class);
+                    MediaController mediaController = SpringContextUtils.getBean(MediaController.class);
                     System.out.println("Received message: " + message);
 
                     // 处理包含"使用F8S"的消息
@@ -113,6 +114,16 @@ public class WebSocketClientService {
                             new Thread(() -> {
                                 try {
                                     aigcController.startMiniMax(userInfoRequest);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }).start();
+                        }
+                        // 处理包含"metaso"的消息
+                        if(message.contains("mita")){
+                            new Thread(() -> {
+                                try {
+                                    aigcController.startMetaso(userInfoRequest);
                                 } catch (Exception e) {
                                     e.printStackTrace();
                                 }
@@ -254,7 +265,7 @@ public class WebSocketClientService {
                     }
 
                     // 处理检查通义千问登录状态的消息
-                    if (message.contains("CHECK_QW_LOGIN")) {
+                    if (message.contains("PLAY_CHECK_QW_LOGIN")) {
                         new Thread(() -> {
                             try {
                                 String checkLogin = browserController.checkTongYiLogin(userInfoRequest.getUserId());
@@ -340,6 +351,31 @@ public class WebSocketClientService {
                             }
                         }).start();
                     }
+
+                    //  处理检查秘塔登录状态的信息
+                    if (message.contains("CHECK_METASO_LOGIN")) {
+                        new Thread(() -> {
+                            try {
+                                String checkLogin = browserController.checkMetasoLogin(userInfoRequest.getUserId());
+                                userInfoRequest.setStatus(checkLogin);
+                                userInfoRequest.setType("RETURN_METASO_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+                    // 处理获取秘塔二维码的消息
+                    if(message.contains("PLAY_GET_METASO_QRCODE")){
+                        new Thread(() -> {
+                            try {
+                                browserController.getMetasoQrCode(userInfoRequest.getUserId());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+
                     // 处理检查DeepSeek登录状态的消息
                     if (message.contains("PLAY_CHECK_DEEPSEEK_LOGIN")) {
                         new Thread(() -> {
@@ -374,7 +410,6 @@ public class WebSocketClientService {
 
                     // 处理检查知乎登录状态的消息
                     if (message.contains("PLAY_CHECK_ZHIHU_LOGIN")) {
-                        MediaController mediaController = SpringContextUtils.getBean(MediaController.class);
                         new Thread(() -> {
                             try {
                                 String checkLogin = mediaController.checkZhihuLogin(userInfoRequest.getUserId());
@@ -390,13 +425,40 @@ public class WebSocketClientService {
                             }
                         }).start();
                     }
+                    // 处理检查百家号登录状态的消息
+                    if (message.contains("PLAY_CHECK_BAIJIAHAO_LOGIN")) {
+                        new Thread(() -> {
+                            try {
+                                String checkLogin = mediaController.checkBaijiahaoLogin(userInfoRequest.getUserId());
+                                userInfoRequest.setStatus(checkLogin);
+                                userInfoRequest.setType("RETURN_BAIJIAHAO_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                // 发送错误状态
+                                userInfoRequest.setStatus("false");
+                                userInfoRequest.setType("RETURN_BAIJIAHAO_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            }
+                        }).start();
+                    }
 
                     // 处理获取知乎二维码的消息
                     if(message.contains("PLAY_GET_ZHIHU_QRCODE")){
-                        MediaController mediaController = SpringContextUtils.getBean(MediaController.class);
                         new Thread(() -> {
                             try {
                                 mediaController.getZhihuQrCode(userInfoRequest.getUserId());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+
+                    // 处理获取百家号二维码的消息
+                    if(message.contains("PLAY_GET_BAIJIAHAO_QRCODE")){
+                        new Thread(() -> {
+                            try {
+                                mediaController.getBaijiahaoQrCode(userInfoRequest.getUserId());
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }
@@ -421,11 +483,31 @@ public class WebSocketClientService {
                             }
                         }).start();
                     }
+
+                    // 处理百家号投递的消息
+                    if(message.contains("投递到百家号")){
+                        JSONObject jsonObject = JSONObject.parseObject(message);
+                        new Thread(() -> {
+                            try {
+                                // 获取BaijiahaoDeliveryController的实例并调用投递方法
+                                BaijiahaoDeliveryController baijiahaoDeliveryController = SpringContextUtils.getBean(BaijiahaoDeliveryController.class);
+                                baijiahaoDeliveryController.deliverToBaijiahao(userInfoRequest);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                // 发送错误消息
+                                userInfoRequest.setType("RETURN_BAIJIAHAO_DELIVERY_RES");
+                                userInfoRequest.setStatus("error");
+                                userInfoRequest.setDraftContent("投递到百家号失败：" + e.getMessage());
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            }
+                        }).start();
+                    }
+
                     // 处理获取TT二维码的消息
                     if(message.contains("PLAY_GET_TTH_QRCODE")){
                         new Thread(() -> {
                             try {
-                                browserController.getTTHQrCode(userInfoRequest.getUserId());
+                                mediaController.getTTHQrCode(userInfoRequest.getUserId());
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }
@@ -435,7 +517,7 @@ public class WebSocketClientService {
                     if (message.contains("PLAY_CHECK_TTH_LOGIN")) {
                         new Thread(() -> {
                             try {
-                                String checkLogin = browserController.checkTTHLogin(userInfoRequest.getUserId());
+                                String checkLogin = mediaController.checkTTHLogin(userInfoRequest.getUserId());
                                 userInfoRequest.setStatus(checkLogin);
                                 userInfoRequest.setType("RETURN_TOUTIAO_STATUS");
                                 sendMessage(JSON.toJSONString(userInfoRequest));
@@ -444,7 +526,7 @@ public class WebSocketClientService {
                             }
                         }).start();
                     }
-                    // 处理包含"头条号排版"的消息
+                    // 处理包含"微头条排版"的消息
                     if(message.contains("微头条排版")){
                         JSONObject jsonObject = JSONObject.parseObject(message);
                         new Thread(() -> {
@@ -457,7 +539,7 @@ public class WebSocketClientService {
                     }
 
                     Map map = JSONObject.parseObject(message);
-                    // 处理包含"头条号发布"的消息
+                    // 处理包含"微头条发布"的消息
                     if("微头条发布".equals(map.get("type"))){
                         new Thread(() -> {
                             try {

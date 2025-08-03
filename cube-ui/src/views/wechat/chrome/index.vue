@@ -131,9 +131,9 @@
                       v-for="capability in ai.capabilities"
                       :key="capability.value"
                       size="mini"
-                      :type="ai.selectedCapabilities.includes(capability.value) ? 'primary' : 'info'"
+                      :type="getCapabilityType(ai, capability.value)"
                       :disabled="!ai.enabled"
-                      :plain="!ai.selectedCapabilities.includes(capability.value)"
+                      :plain="getCapabilityPlain(ai, capability.value)"
                       @click="toggleCapability(ai, capability.value)"
                       class="capability-button"
                     >
@@ -199,8 +199,8 @@
                     </div>
                     <div class="header-right">
                       <span class="status-text">{{
-                        getStatusText(ai.status)
-                      }}</span>
+                          getStatusText(ai.status)
+                        }}</span>
                       <i
                         :class="getStatusIcon(ai.status)"
                         class="status-icon"
@@ -358,13 +358,13 @@
                   size="small"
                   type="primary"
                   @click="copyResult(result.content)"
-                  >复制（纯文本）</el-button
+                >复制（纯文本）</el-button
                 >
                 <el-button
                   size="small"
                   type="success"
                   @click="exportResult(result)"
-                  >导出（MD文件）</el-button
+                >导出（MD文件）</el-button
                 >
               </div>
             </div>
@@ -480,6 +480,10 @@
               <i class="el-icon-edit-outline"></i>
               微头条
             </el-radio-button>
+            <el-radio-button label="baijiahao">
+              <i class="el-icon-edit-outline"></i>
+              百家号
+            </el-radio-button>
           </el-radio-group>
           <div class="media-description">
             <template v-if="selectedMedia === 'wechat'">
@@ -490,6 +494,9 @@
             </template>
             <template v-else-if="selectedMedia === 'toutiao'">
               <small>📰 将内容转换为微头条文章格式，支持文章编辑和发布</small>
+            </template>
+            <template v-else-if="selectedMedia === 'toutiao'">
+              <small>🔈 将内容转换为百家号帖子格式，直接投递到百家号草稿箱</small>
             </template>
           </div>
         </div>
@@ -518,7 +525,7 @@
 
     <!-- 微头条发布流程弹窗 -->
     <el-dialog title="微头条发布流程" :visible.sync="tthFlowVisible" width="60%" height="60%" :close-on-click-modal="false"
-      class="tth-flow-dialog">
+               class="tth-flow-dialog">
       <div class="tth-flow-content">
         <div class="flow-logs-section">
           <h3>发布流程日志：</h3>
@@ -555,7 +562,7 @@
 
     <!-- 微头条文章编辑弹窗 -->
     <el-dialog title="微头条文章编辑" :visible.sync="tthArticleEditVisible" width="70%" height="80%" :close-on-click-modal="false"
-      class="tth-article-edit-dialog">
+               class="tth-article-edit-dialog">
       <div class="tth-article-edit-content">
         <div class="article-title-section">
           <h3>文章标题：</h3>
@@ -563,8 +570,20 @@
         </div>
         <div class="article-content-section">
           <h3>文章内容：</h3>
-          <el-input type="textarea" v-model="tthArticleContent" :rows="20" placeholder="请输入文章内容"
-            resize="none" class="article-content-input"></el-input>
+          <div class="content-input-wrapper">
+            <el-input
+              type="textarea"
+              v-model="tthArticleContent"
+              :rows="20"
+              placeholder="请输入文章内容"
+              resize="none"
+              class="article-content-input"
+              :class="{ 'content-over-limit': tthArticleContent.length > 2000 }"
+            ></el-input>
+            <div class="content-length-info" :class="{ 'text-danger': tthArticleContent.length > 2000 }">
+              字数：{{ tthArticleContent.length }}/2000
+            </div>
+          </div>
         </div>
       </div>
       <span slot="footer" class="dialog-footer">
@@ -630,6 +649,7 @@ export default {
           status: "idle",
           progressLogs: [],
           isExpanded: true,
+          isSingleSelect: false,  // 添加单选标记
         },
         {
           name: "豆包",
@@ -640,6 +660,7 @@ export default {
           status: "idle",
           progressLogs: [],
           isExpanded: true,
+          isSingleSelect: false,  // 添加单选标记
         },
         {
           name: "MiniMax Chat",
@@ -653,6 +674,22 @@ export default {
           status: "idle",
           progressLogs: [],
           isExpanded: true,
+          isSingleSelect: false,  // 添加单选标记
+        },
+        {
+          name: "秘塔",
+          avatar: require("../../../assets/ai/Metaso.png"),
+          capabilities: [
+            { label: "极速", value: "fast" },
+            { label: "极速思考", value: "fast_thinking" },
+            { label: "长思考", value: "long_thinking" },
+          ],
+          selectedCapabilities: "fast",// 单选使用字符串
+          enabled: true,
+          status: "idle",
+          progressLogs: [],
+          isExpanded: true,
+          isSingleSelect: true,  // 添加单选标记,用于capabilities中状态只能多选一的时候改成true,然后把selectedCapabilities赋值为字符串，不要是数组
         },
         {
           name: '通义千问',
@@ -662,19 +699,6 @@ export default {
             { label: '联网搜索', value: 'web_search' }
           ],
           selectedCapability: '',
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
-        {
-          name: '百度AI',
-          avatar: require('../../../assets/ai/logo.png'), // 需要添加baidu.png头像文件
-          capabilities: [
-            { label: '深度思考', value: 'deep_thinking' },
-            { label: '联网搜索', value: 'web_search' }
-          ],
-          selectedCapabilities: [],
           enabled: true,
           status: 'idle',
           progressLogs: [],
@@ -832,6 +856,18 @@ export default {
             this.userInfoReq.roles = this.userInfoReq.roles + "zj-db-sdsk,";
           }
         }
+        if (ai.name === "秘塔") {
+          this.userInfoReq.roles = this.userInfoReq.roles + "mita,";
+          if (ai.selectedCapabilities.includes("fast")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + "metaso-jisu,";
+          }
+          if (ai.selectedCapabilities.includes("fast_thinking")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + "metaso-jssk,";
+          }
+          if (ai.selectedCapabilities.includes("long_thinking")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + "metaso-csk,";
+          }
+        }
         if (ai.name === "MiniMax Chat") {
           this.userInfoReq.roles = this.userInfoReq.roles + "mini-max-agent,";
           if (ai.selectedCapabilities.includes("deep_thinking")) {
@@ -847,14 +883,6 @@ export default {
             this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-sdsk,'
           } else if (ai.selectedCapability.includes("web_search")) {
             this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-lwss,';
-          }
-        }
-        if (ai.name === '百度AI' && ai.enabled) {
-          if (ai.selectedCapabilities.includes("deep_thinking")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + "baidu-sdsk,";
-          }
-          if (ai.selectedCapabilities.includes("web_search")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + "baidu-lwss,";
           }
         }
       });
@@ -875,6 +903,24 @@ export default {
         }
       });
     },
+    // 辅助方法：判断按钮类型
+    getCapabilityType(ai, value) {
+      // 确保单选时使用字符串比较，多选时使用数组包含
+      if (ai.isSingleSelect) {
+        return ai.selectedCapabilities === value ? 'primary' : 'info';
+      } else {
+        return ai.selectedCapabilities && ai.selectedCapabilities.includes(value) ? 'primary' : 'info';
+      }
+    },
+
+    // 辅助方法：判断按钮是否为朴素样式
+    getCapabilityPlain(ai, value) {
+      if (ai.isSingleSelect) {
+        return ai.selectedCapabilities !== value;
+      } else {
+        return !(ai.selectedCapabilities && ai.selectedCapabilities.includes(value));
+      }
+    },
     // 处理通义单选逻辑
     selectSingleCapability(ai, capabilityValue) {
       if (!ai.enabled) return;
@@ -889,22 +935,37 @@ export default {
     toggleCapability(ai, capabilityValue) {
       if (!ai.enabled) return;
 
-      const index = ai.selectedCapabilities.indexOf(capabilityValue);
-      console.log("切换前:", ai.selectedCapabilities);
-      if (index === -1) {
-        // 如果不存在，则添加
-        this.$set(
-          ai.selectedCapabilities,
-          ai.selectedCapabilities.length,
-          capabilityValue
-        );
-      } else {
-        // 如果已存在，则移除
-        const newCapabilities = [...ai.selectedCapabilities];
-        newCapabilities.splice(index, 1);
-        this.$set(ai, "selectedCapabilities", newCapabilities);
+      console.log("切换前:", ai.selectedCapabilities, "类型:", typeof ai.selectedCapabilities);
+
+      // 单选逻辑
+      if (ai.isSingleSelect) {
+        // 强制使用字符串类型赋值
+        this.$set(ai, "selectedCapabilities", String(capabilityValue));
       }
-      console.log("切换后:", ai.selectedCapabilities);
+      // 多选逻辑
+      else {
+        // 确保selectedCapabilities是数组
+        if (!Array.isArray(ai.selectedCapabilities)) {
+          this.$set(ai, "selectedCapabilities", []);
+        }
+
+        const index = ai.selectedCapabilities.indexOf(capabilityValue);
+        if (index === -1) {
+          // 添加选中项
+          this.$set(
+            ai.selectedCapabilities,
+            ai.selectedCapabilities.length,
+            capabilityValue
+          );
+        } else {
+          // 移除选中项
+          const newCapabilities = [...ai.selectedCapabilities];
+          newCapabilities.splice(index, 1);
+          this.$set(ai, "selectedCapabilities", newCapabilities);
+        }
+      }
+
+      console.log("切换后:", ai.selectedCapabilities, "类型:", typeof ai.selectedCapabilities);
       this.$forceUpdate(); // 强制更新视图
     },
     getStatusText(status) {
@@ -1041,6 +1102,8 @@ export default {
         this.userInfoReq.tyChatId = dataObj.chatId;
       } else if (dataObj.type === "RETURN_MAX_CHATID" && dataObj.chatId) {
         this.userInfoReq.maxChatId = dataObj.chatId;
+      } else if (dataObj.type === "RETURN_METASO_CHATID" && dataObj.chatId) {
+        this.userInfoReq.metasoChatId = dataObj.chatId;
       }
 
       // 处理进度日志消息
@@ -1071,6 +1134,23 @@ export default {
           if (!existingLog) {
             // 将新进度添加到数组开头
             zhihuAI.progressLogs.unshift({
+              content: dataObj.content,
+              timestamp: new Date(),
+              isCompleted: false,
+            });
+          }
+        }
+        return;
+      }
+      // 处理百家号投递任务日志
+      if (dataObj.type === "RETURN_MEDIA_TASK_LOG" && dataObj.aiName === "投递到百家号") {
+        const baijiahaoAI = this.enabledAIs.find((ai) => ai.name === "投递到百家号");
+        if (baijiahaoAI) {
+          // 检查是否已存在相同内容的日志，避免重复添加
+          const existingLog = baijiahaoAI.progressLogs.find(log => log.content === dataObj.content);
+          if (!existingLog) {
+            // 将新进度添加到数组开头
+            baijiahaoAI.progressLogs.unshift({
               content: dataObj.content,
               timestamp: new Date(),
               isCompleted: false,
@@ -1146,6 +1226,28 @@ export default {
           // 知乎投递完成时，保存历史记录
           this.saveHistory();
           this.$message.success("知乎投递任务完成！");
+        }
+        return;
+      }
+      // 处理百家号投递结果（独立任务）
+      if (dataObj.type === "RETURN_BAIJIAHAO_DELIVERY_RES") {
+        const baijiahaoAI = this.enabledAIs.find((ai) => ai.name === "投递到百家号");
+        if (baijiahaoAI) {
+          this.$set(baijiahaoAI, "status", "completed");
+          if (baijiahaoAI.progressLogs.length > 0) {
+            this.$set(baijiahaoAI.progressLogs[0], "isCompleted", true);
+          }
+
+          // 添加完成日志
+          baijiahaoAI.progressLogs.unshift({
+            content: "百家号投递完成！" + (dataObj.message || ""),
+            timestamp: new Date(),
+            isCompleted: true,
+          });
+
+          // 百家号投递完成时，保存历史记录
+          this.saveHistory();
+          this.$message.success("百家号投递任务完成！");
         }
         return;
       }
@@ -1229,10 +1331,15 @@ export default {
           console.log('收到通义千问消息:', data);
           targetAI = this.enabledAIs.find(ai => ai.name === '通义千问');
           break;
+        case "RETURN_METASO_RES":
+          console.log("收到秘塔消息:", dataObj);
+          targetAI = this.enabledAIs.find((ai) => ai.name === "秘塔");
+          break;
         case 'RETURN_BAIDU_RES':
           console.log('收到百度AI消息:', data);
           targetAI = this.enabledAIs.find(ai => ai.name === '百度AI');
           break;
+
       }
 
       if (targetAI) {
@@ -1460,7 +1567,8 @@ export default {
         this.userInfoReq.ybDsChatId = item.ybDsChatId || "";
         this.userInfoReq.dbChatId = item.dbChatId || "";
         this.userInfoReq.maxChatId = item.maxChatId || "";
-        this.userInfoReq.maxChatId = item.tyChatId || "";
+        this.userInfoReq.tyChatId = item.tyChatId || "";
+        this.userInfoReq.metasoChatId = item.metasoChatId || "";
         this.userInfoReq.isNewChat = false;
 
         // 展开相关区域
@@ -1493,6 +1601,7 @@ export default {
         dbChatId: this.userInfoReq.dbChatId,
         tyChatId: this.userInfoReq.tyChatId,
         maxChatId: this.userInfoReq.maxChatId,
+        metasoChatId: this.userInfoReq.metasoChatId,
       };
 
       try {
@@ -1506,6 +1615,7 @@ export default {
           dbChatId: this.userInfoReq.dbChatId,
           tyChatId: this.userInfoReq.tyChatId,
           maxChatId: this.userInfoReq.maxChatId,
+          metasoChatId: this.userInfoReq.metasoChatId,
         });
       } catch (error) {
         console.error("保存历史记录失败:", error);
@@ -1543,6 +1653,7 @@ export default {
         dbChatId: "",
         tyChatId: "",
         maxChatId: "",
+        metasoChatId: "",
         isNewChat: true,
       };
       // 重置AI列表为初始状态
@@ -1559,6 +1670,7 @@ export default {
           status: "idle",
           progressLogs: [],
           isExpanded: true,
+          isSingleSelect: false,  // 添加单选标记
         },
         {
           name: "豆包",
@@ -1569,6 +1681,7 @@ export default {
           status: "idle",
           progressLogs: [],
           isExpanded: true,
+          isSingleSelect: false,  // 添加单选标记
         },
         {
           name: "MiniMax Chat",
@@ -1582,6 +1695,22 @@ export default {
           status: "idle",
           progressLogs: [],
           isExpanded: true,
+          isSingleSelect: false,  // 添加单选标记
+        },
+        {
+          name: "秘塔",
+          avatar: require("../../../assets/ai/Metaso.png"),
+          capabilities: [
+            { label: "极速", value: "fast" },
+            { label: "极速思考", value: "fast_thinking" },
+            { label: "长思考", value: "long_thinking" },
+          ],
+          selectedCapabilities: "fast",// 单选使用字符串
+          enabled: true,
+          status: "idle",
+          progressLogs: [],
+          isExpanded: true,
+          isSingleSelect: true,  // 添加单选标记,用于capabilities中状态只能多选一的时候改成true,然后把selectedCapabilities赋值为字符串，不要是数组
         },
         {
           name: '通义千问',
@@ -1591,19 +1720,6 @@ export default {
             { label: '联网搜索', value: 'web_search' }
           ],
           selectedCapability: '',
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
-        {
-          name: '百度AI',
-          avatar: require('../../../assets/ai/logo.png'), // 需要添加baidu.png头像文件
-          capabilities: [
-            { label: '深度思考', value: 'deep_thinking' },
-            { label: '联网搜索', value: 'web_search' }
-          ],
-          selectedCapabilities: [],
           enabled: true,
           status: 'idle',
           progressLogs: [],
@@ -1658,7 +1774,6 @@ export default {
         DeepSeek: "700px",
         豆包: "560px",
         通义千问: "700px",
-        百度AI: "700px",
       };
 
       const width = widthMap[aiName] || "560px"; // 默认宽度
@@ -1687,25 +1802,16 @@ export default {
     async loadMediaPrompt(media) {
       if (!media) return;
 
-      if (media === 'toutiao') {
-        // 微头条使用固定提示词
-        this.layoutPrompt = `根据智能评分内容，写一篇微头条文章，只能包含标题和内容，要求如下：
-
-1. 标题要简洁明了，吸引人
-2. 内容要结构清晰，易于阅读
-3. 不要包含任何HTML标签
-4. 直接输出纯文本格式
-5. 内容要适合微头条发布
-6. 字数严格控制在1000字以上，2000字以下
-7. 强制要求：只能回答标题和内容，标题必须用英文双引号（""）引用起来，且放在首位，不能有其他多余的话
-8. 严格要求：AI必须严格遵守所有严格条件，不要输出其他多余的内容，只要标题和内容
-9. 内容不允许出现编号，要正常文章格式
-
-请对以下内容进行排版：`;
-        return;
+      let platformId;
+      if(media === 'wechat'){
+        platformId = 'wechat_layout';
+      }else if(media === 'zhihu'){
+        platformId = 'zhihu_layout';
+      }else if(media === 'baijiahao'){
+        platformId = 'baijiahao_layout';
+      }else if(media === 'toutiao'){
+        platformId = 'weitoutiao_layout';
       }
-
-      const platformId = media === 'wechat' ? 'wechat_layout' : 'zhihu_layout';
 
       try {
         const response = await getMediaCallWord(platformId);
@@ -1749,6 +1855,31 @@ export default {
 
 请对以下内容进行排版：`;
 
+      }else if (media === 'baijiahao') {
+        return `请将以下内容整理为适合百家号发布的纯文本格式文章。
+要求：
+1.（不要使用Markdown或HTML语法，仅使用普通文本和简单换行保持内容的专业性和可读性使用自然段落分隔，）
+2.不允许使用有序列表，包括"一、"，"1."等的序列号。
+3.给文章取一个吸引人的标题，放在正文的第一段
+4.不允许出现代码框、数学公式、表格或其他复杂格式删除所有Markdown和HTML标签，
+5.只保留纯文本内容
+6.目标是作为一篇专业文章投递到百家号草稿箱
+7.直接以文章标题开始，以文章末尾结束，不允许添加其他对话`;
+
+      }else if (media === 'toutiao') {
+        return `根据智能评分内容，写一篇微头条文章，只能包含标题和内容，要求如下：
+
+1. 标题要简洁明了，吸引人
+2. 内容要结构清晰，易于阅读
+3. 不要包含任何HTML标签
+4. 直接输出纯文本格式
+5. 内容要适合微头条发布
+6. 字数严格控制在1000字以上，2000字以下
+7. 强制要求：只能回答标题和内容，标题必须用英文双引号（""）引用起来，且放在首位，不能有其他多余的话
+8. 严格要求：AI必须严格遵守所有严格条件，不要输出其他多余的内容，只要标题和内容
+9. 内容不允许出现编号，要正常文章格式
+
+请对以下内容进行排版：`;
       }
       return '请对以下内容进行排版：';
     },
@@ -1764,7 +1895,10 @@ export default {
       } else if (this.selectedMedia === 'toutiao') {
         // 微头条投递：创建微头条排版任务
         this.createToutiaoLayoutTask();
-      } else {
+      } else if (this.selectedMedia === 'baijiahao') {
+        // 百家号投递：创建百家号排版任务
+        this.createBaijiahaoLayoutTask();
+      }else {
         // 公众号投递：创建排版任务
         this.createWechatLayoutTask();
       }
@@ -1824,58 +1958,113 @@ export default {
       this.$forceUpdate();
       this.$message.success("知乎投递任务已创建，正在处理...");
     },
-      // 创建公众号排版任务（保持原有逻辑）
-      createWechatLayoutTask() {
-        const layoutRequest = {
-          jsonrpc: "2.0",
-          id: uuidv4(),
-          method: "AI排版",
-          params: {
-            taskId: uuidv4(),
-            userId: this.userId,
-            corpId: this.corpId,
-            userPrompt: this.layoutPrompt,
-            roles: "",
-            selectedMedia: "wechat",
+    // 创建百家号投递任务（独立任务）
+    createBaijiahaoLayoutTask() {
+      const baijiahaoAI = {
+        name: "投递到百家号",
+        avatar: require("../../../assets/ai/yuanbao.png"),
+        capabilities: [],
+        selectedCapabilities: [],
+        enabled: true,
+        status: "running",
+        progressLogs: [
+          {
+            content: "百家号投递任务已创建，正在准备内容排版...",
+            timestamp: new Date(),
+            isCompleted: false,
+            type: "投递到百家号",
           },
-        };
+        ],
+        isExpanded: true,
+      };
 
-        console.log("公众号排版参数", layoutRequest);
-        this.message(layoutRequest);
+      // 检查是否已存在百家号投递任务
+      const existIndex = this.enabledAIs.findIndex(
+        (ai) => ai.name === "投递到百家号"
+      );
+      if (existIndex === -1) {
+        this.enabledAIs.unshift(baijiahaoAI);
+      } else {
+        this.enabledAIs[existIndex] = baijiahaoAI;
+        const baijiahao = this.enabledAIs.splice(existIndex, 1)[0];
+        this.enabledAIs.unshift(baijiahaoAI);
+      }
 
-        const znpbAI = {
-          name: "智能排版",
-          avatar: require("../../../assets/ai/yuanbao.png"),
-          capabilities: [],
-          selectedCapabilities: [],
-          enabled: true,
-          status: "running",
-          progressLogs: [
-            {
-              content: "智能排版任务已提交，正在排版...",
-              timestamp: new Date(),
-              isCompleted: false,
-              type: "智能排版",
-            },
-          ],
-          isExpanded: true,
-        };
+      // 发送百家号投递请求
+      const baijiahaoRequest = {
+        jsonrpc: "2.0",
+        id: uuidv4(),
+        method: "投递到百家号",
+        params: {
+          taskId: uuidv4(),
+          userId: this.userId,
+          corpId: this.corpId,
+          userPrompt: this.layoutPrompt,
+          roles: "",
+          selectedMedia: "baijiahao",
+          contentText: this.currentLayoutResult.content,
+          shareUrl: this.currentLayoutResult.shareUrl,
+          aiName: this.currentLayoutResult.aiName,
+        },
+      };
 
-        // 检查是否已存在智能排版任务
-        const existIndex = this.enabledAIs.findIndex(
-          (ai) => ai.name === "智能排版"
-        );
-        if (existIndex === -1) {
-          this.enabledAIs.unshift(znpbAI);
-        } else {
-          this.enabledAIs[existIndex] = znpbAI;
-          const znpb = this.enabledAIs.splice(existIndex, 1)[0];
-          this.enabledAIs.unshift(znpb);
-        }
+      console.log("百家号投递参数", baijiahaoRequest);
+      this.message(baijiahaoRequest);
+      this.$forceUpdate();
+      this.$message.success("百家号投递任务已创建，正在处理...");
+    },
+    // 创建公众号排版任务（保持原有逻辑）
+    createWechatLayoutTask() {
+      const layoutRequest = {
+        jsonrpc: "2.0",
+        id: uuidv4(),
+        method: "AI排版",
+        params: {
+          taskId: uuidv4(),
+          userId: this.userId,
+          corpId: this.corpId,
+          userPrompt: this.layoutPrompt,
+          roles: "",
+          selectedMedia: "wechat",
+        },
+      };
 
-        this.$forceUpdate();
-        this.$message.success("排版请求已发送，请等待结果");
-      },
+      console.log("公众号排版参数", layoutRequest);
+      this.message(layoutRequest);
+
+      const znpbAI = {
+        name: "智能排版",
+        avatar: require("../../../assets/ai/yuanbao.png"),
+        capabilities: [],
+        selectedCapabilities: [],
+        enabled: true,
+        status: "running",
+        progressLogs: [
+          {
+            content: "智能排版任务已提交，正在排版...",
+            timestamp: new Date(),
+            isCompleted: false,
+            type: "智能排版",
+          },
+        ],
+        isExpanded: true,
+      };
+
+      // 检查是否已存在智能排版任务
+      const existIndex = this.enabledAIs.findIndex(
+        (ai) => ai.name === "智能排版"
+      );
+      if (existIndex === -1) {
+        this.enabledAIs.unshift(znpbAI);
+      } else {
+        this.enabledAIs[existIndex] = znpbAI;
+        const znpb = this.enabledAIs.splice(existIndex, 1)[0];
+        this.enabledAIs.unshift(znpb);
+      }
+
+      this.$forceUpdate();
+      this.$message.success("排版请求已发送，请等待结果");
+    },
 
     // 创建微头条排版任务
     createToutiaoLayoutTask() {
@@ -1931,7 +2120,7 @@ export default {
 
       this.$forceUpdate();
       this.$message.success("微头条排版请求已发送，请等待结果");
-      },
+    },
 
     // 实际投递到公众号
     pushToWechatWithContent(contentText) {
@@ -1977,7 +2166,7 @@ export default {
       const publishRequest = {
         jsonrpc: '2.0',
         id: uuidv4(),
-                  method: '微头条发布',
+        method: '微头条发布',
         params: {
           taskId: uuidv4(),
           userId: this.userId,
@@ -3048,6 +3237,32 @@ export default {
 
   .article-content-input {
     width: 100%;
+  }
+
+  .content-input-wrapper {
+    position: relative;
+  }
+
+  .content-length-info {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    font-size: 12px;
+    color: #909399;
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 2px 6px;
+    border-radius: 3px;
+    z-index: 1;
+  }
+
+  .text-danger {
+    color: #f56c6c !important;
+    font-weight: 600;
+  }
+
+  .content-over-limit .el-textarea__inner {
+    border-color: #f56c6c !important;
+    box-shadow: 0 0 0 2px rgba(245, 108, 108, 0.2) !important;
   }
 }
 </style>

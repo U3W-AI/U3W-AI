@@ -55,7 +55,7 @@ public class TTHUtil {
 
     public String waitAndGetQRCode(Page page, String userId, ScreenshotUtil screenshotUtil) {
         try {
-            logInfo.sendTTHFlow("正在获取头条号登录二维码", userId);
+            logInfo.sendTTHFlow("正在获取微头条登录二维码", userId);
 
             page.navigate("https://mp.toutiao.com/");
             page.waitForLoadState();
