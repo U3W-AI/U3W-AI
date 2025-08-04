@@ -98,7 +98,6 @@ public class BrowserController {
             }
 
             // 3. 已登录情况处理
-            Thread.sleep(500);
             page.locator("div.user-info").click(); // 点击用户信息
             Thread.sleep(500);
             page.locator("span:has-text('设置')").click(); // 点击设置
@@ -107,7 +106,16 @@ public class BrowserController {
             // 4. 检查用户名元素
             Locator nameLocator = page.locator("div.name");
             if (nameLocator.count() > 0) {
-                return "登录"; // 已登录
+                Thread.sleep(300);
+                String nameText = nameLocator.textContent();
+
+                // 双重检查：如果为空再等一次
+                if (nameText.isEmpty()) {
+                    Thread.sleep(2000);
+                    nameText = nameLocator.textContent();
+                }
+
+                return nameText.isEmpty() ? "登录" : nameText; // 确保不返回空字符串
             }
 
             return "false"; // 未找到用户名元素
@@ -271,41 +279,56 @@ public class BrowserController {
     @GetMapping("/getKiMiQrCode")
     @Operation(summary = "获取代理版KiMi登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     public String getKiMiQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"KiMi")) {
-
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "KiMi")) {
             Page page = context.newPage();
+
+            // 1. 访问Kimi官网
             page.navigate("https://www.kimi.com/");
 
+            // 2. 点击用户信息区域
             Locator userLoginLocator = page.locator("div.user-info");
             userLoginLocator.click();
+            Thread.sleep(2000); // 等待弹窗出现
 
-            Thread.sleep(2000);
-            String url = screenshotUtil.screenshotAndUpload(page,"checkKiMiLogin.png");
+            // 3. 截图并发送二维码
+            String url = screenshotUtil.screenshotAndUpload(page, "checkKiMiLogin_" + System.currentTimeMillis() + ".png");
             JSONObject jsonObject = new JSONObject();
-            jsonObject.put("url",url);
-            jsonObject.put("userId",userId);
-            jsonObject.put("type","RETURN_PC_KIMI_QRURL");
-            // 发送二维码URL
+            jsonObject.put("url", url);
+            jsonObject.put("userId", userId);
+            jsonObject.put("type", "RETURN_PC_KIMI_QRURL");
             webSocketClientService.sendMessage(jsonObject.toJSONString());
 
-            //最多等待30秒
+            // 4. 等待登录完成（最长30秒）
             for (int i = 0; i < 30; i++) {
                 if (!page.locator("div.login-modal-mask").isVisible()) {
-                    page.locator("div.user-info").click();
+                    // 登录成功检查
+                    userLoginLocator.click();
+                    Thread.sleep(1000);
 
-                    Locator locator= page.locator("span:has-text('设置')");
-                    if (locator.count()>0) {
-                        locator.click();
-                        Locator nameLocator=page.locator("div.name");
+                    Locator settingsLocator = page.locator("span:has-text('设置')");
+                    if (settingsLocator.count() > 0) {
+                        settingsLocator.click();
+                        Thread.sleep(1000);
+
+                        Locator nameLocator = page.locator("div.name");
                         String nameText = nameLocator.textContent();
-                        JSONObject jsonObjectTwo = new JSONObject();
-                        jsonObjectTwo.put("status", nameText);
-                        jsonObjectTwo.put("userId", userId);
-                        jsonObjectTwo.put("type", "RETURN_KIMI_STATUS");
-                        webSocketClientService.sendMessage(jsonObjectTwo.toJSONString());
+
+                        // 双重检查用户名
+                        if (nameText.isEmpty()) {
+                            Thread.sleep(2000);
+                            nameText = nameLocator.textContent();
+                        }
+
+                        // 发送登录状态
+                        JSONObject statusObj = new JSONObject();
+                        statusObj.put("status", nameText.isEmpty() ? "已登录" : nameText);
+                        statusObj.put("userId", userId);
+                        statusObj.put("type", "RETURN_KIMI_STATUS");
+                        webSocketClientService.sendMessage(statusObj.toJSONString());
                         break;
                     }
                 }
+                // 每次循环间隔
                 Thread.sleep(1000);
             }
 
@@ -313,8 +336,8 @@ public class BrowserController {
 
         } catch (Exception e) {
             e.printStackTrace();
+            return "false";
         }
-        return "false";
     }
 
 
