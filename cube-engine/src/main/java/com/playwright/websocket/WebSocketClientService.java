@@ -159,11 +159,23 @@ public class WebSocketClientService {
                                 }
                             }).start();
                         }
+
                         // 处理包含"ty-qw"的信息
                         if (message.contains("ty-qw")){
                             new Thread(() -> {
                                 try {
                                     aigcController.startTYQianwen(userInfoRequest);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }).start();
+                        }
+
+                        // 处理包含"kimi"的消息
+                        if(message.contains("kimi")){
+                            new Thread(() -> {
+                                try {
+                                    aigcController.startKimi(userInfoRequest);
                                 } catch (Exception e) {
                                     e.printStackTrace();
                                 }
@@ -334,6 +346,30 @@ public class WebSocketClientService {
                         new Thread(() -> {
                             try {
                                 browserController.getMaxQrCode(userInfoRequest.getUserId());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+
+                    // 处理检查Kimi登录状态的信息
+                    if (message.contains("CHECK_KIMI_LOGIN")) {
+                        new Thread(() -> {
+                            try {
+                                String checkLogin = browserController.checkKimiLogin(userInfoRequest.getUserId());
+                                userInfoRequest.setStatus(checkLogin);
+                                userInfoRequest.setType("RETURN_KIMI_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+                    // 处理获取KiMi二维码的消息
+                    if(message.contains("PLAY_GET_KIMI_QRCODE")){
+                        new Thread(() -> {
+                            try {
+                                browserController.getKiMiQrCode(userInfoRequest.getUserId());
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }

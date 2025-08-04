@@ -1,4 +1,5 @@
 
+
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
@@ -1527,6 +1528,7 @@ CREATE TABLE `wc_chat_history` (
   `ty_chat_id`   varchar(100) null comment '通义会话ID',
   `max_chat_id` varchar(100) DEFAULT NULL COMMENT 'MiniMax会话ID',
   `metaso_chat_id` varchar(100) DEFAULT NULL COMMENT '秘塔会话ID',
+  `kimi_chat_id` varchar(100) DEFAULT NULL COMMENT 'KiMi会话ID',
   `chat_id` varchar(36) DEFAULT NULL COMMENT '内部chatID'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

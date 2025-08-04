@@ -110,6 +110,14 @@
             description: '通情、达义，你的全能AI助手。超级助手，答你所问。生活办公，效率翻倍。个性智能体，丰富角色趣味互动。',
             type: 'tongyi'
           },
+          {
+            name: 'KiMi',
+            avatar: 'https://u3w.com/chatfile/KIMI.png',
+            icon: '	https://u3w.com/chatfile/KIMI.png',
+            title: 'Kimi',
+            description: 'KiMi有着更大的内存，可以处理更长的文本',
+            type: 'kimi'
+          },
 				],
 				advantages: [
 					// {

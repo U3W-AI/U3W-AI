@@ -80,6 +80,10 @@ public class AIGCController {
     @Autowired
     private MetasoUtil metasoUtil;
 
+    // KiMi相关操作工具类
+    @Autowired
+    private KimiUtil kimiUtil;
+
     // 通义AI相关操作工具类
     @Autowired
     private TongYiUtil tongYiUtil;
@@ -121,85 +125,85 @@ public class AIGCController {
             content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"agent")) {
 
-              // 初始化变量
-              String userId = userInfoRequest.getUserId();
-              String roles = userInfoRequest.getRoles();
-              String userPrompt = userInfoRequest.getUserPrompt();
-              String isNewChat = userInfoRequest.getIsNewChat();
-              String copiedText = "";
-              int wrightCopyCount = 0;
+            // 初始化变量
+            String userId = userInfoRequest.getUserId();
+            String roles = userInfoRequest.getRoles();
+            String userPrompt = userInfoRequest.getUserPrompt();
+            String isNewChat = userInfoRequest.getIsNewChat();
+            String copiedText = "";
+            int wrightCopyCount = 0;
 
 
-              // 根据不同的AI角色创建对应的页面实例
-              Page[] pages = new Page[5];
+            // 根据不同的AI角色创建对应的页面实例
+            Page[] pages = new Page[5];
 
-              // 处理 智能体 代理
-              if(roles.contains("cube-trubos-agent")){
-                  logInfo.sendTaskLog( "AI搜索@元器准备就绪，正在打开页面",userId,"AI搜索@元器");
-                  pages[0] = context.newPage();
-                  String agentUrl = "https://yuanbao.tencent.com/chat/58LgTturCBdj/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[0],userPrompt,agentUrl,"AI搜索@元器",userId,isNewChat);
-              }
-              if(roles.contains("cube-turbos-large-agent")){
-                  logInfo.sendTaskLog( "数智化助手@元器准备就绪，正在打开页面",userId,"数智化助手@元器");
-                  pages[1] = context.newPage();
-                  String agentUrl = "https://yuanbao.tencent.com/chat/rgzZDhQdsMHZ/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[1],userPrompt,agentUrl,"数智化助手@元器",userId,isNewChat);
-              }
-              if(roles.contains("cube-mini-max-agent")){
-                  logInfo.sendTaskLog( "MiniMax@元器准备就绪，正在打开页面",userId,"MiniMax@元器");
-                  pages[2] = context.newPage();
-                  String agentUrl = "https://yuanbao.tencent.com/chat/7kNJBgAgQFet/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"MiniMax@元器",userId,isNewChat);
-              }
-              if(roles.contains("mini-max-agent")){
-                  logInfo.sendTaskLog( "MiniMax Chat准备就绪，正在打开页面",userId,"MiniMax Chat");
-                  pages[2] = context.newPage();
-                  String agentUrl = "https://chat.minimaxi.com/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"MiniMax Chat",userId,isNewChat);
-              }
-              if(roles.contains("metaso-agent")){
-                  logInfo.sendTaskLog( "秘塔准备就绪，正在打开页面",userId,"秘塔");
-                  pages[3] = context.newPage();
-                  String agentUrl = "https://metaso.cn/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"秘塔",userId,isNewChat);
-              }
-              if(roles.contains("cube-sogou-agent")){
-                  logInfo.sendTaskLog( "搜狗搜索@元器准备就绪，正在打开页面",userId,"搜狗搜索@元器");
-                  pages[3] = context.newPage();
-                  String agentUrl = "https://yuanbao.tencent.com/chat/u1VeB6jKt0lE/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[3],userPrompt,agentUrl,"搜狗搜索@元器",userId,isNewChat);
-              }
-              if(roles.contains("cube-lwss-agent")){
-                  logInfo.sendTaskLog( "KIMI@元器准备就绪，正在打开页面",userId,"KIMI@元器");
-                  pages[4] = context.newPage();
-                  String agentUrl = "https://yuanbao.tencent.com/chat/oq4esMyN9VS2/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[4],userPrompt,agentUrl,"KIMI@元器",userId,isNewChat);
-              }
+            // 处理 智能体 代理
+            if(roles.contains("cube-trubos-agent")){
+                logInfo.sendTaskLog( "AI搜索@元器准备就绪，正在打开页面",userId,"AI搜索@元器");
+                pages[0] = context.newPage();
+                String agentUrl = "https://yuanbao.tencent.com/chat/58LgTturCBdj/";
+                wrightCopyCount = tencentUtil.handelAgentAI(pages[0],userPrompt,agentUrl,"AI搜索@元器",userId,isNewChat);
+            }
+            if(roles.contains("cube-turbos-large-agent")){
+                logInfo.sendTaskLog( "数智化助手@元器准备就绪，正在打开页面",userId,"数智化助手@元器");
+                pages[1] = context.newPage();
+                String agentUrl = "https://yuanbao.tencent.com/chat/rgzZDhQdsMHZ/";
+                wrightCopyCount = tencentUtil.handelAgentAI(pages[1],userPrompt,agentUrl,"数智化助手@元器",userId,isNewChat);
+            }
+            if(roles.contains("cube-mini-max-agent")){
+                logInfo.sendTaskLog( "MiniMax@元器准备就绪，正在打开页面",userId,"MiniMax@元器");
+                pages[2] = context.newPage();
+                String agentUrl = "https://yuanbao.tencent.com/chat/7kNJBgAgQFet/";
+                wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"MiniMax@元器",userId,isNewChat);
+            }
+            if(roles.contains("mini-max-agent")){
+                logInfo.sendTaskLog( "MiniMax Chat准备就绪，正在打开页面",userId,"MiniMax Chat");
+                pages[2] = context.newPage();
+                String agentUrl = "https://chat.minimaxi.com/";
+                wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"MiniMax Chat",userId,isNewChat);
+            }
+            if(roles.contains("metaso-agent")){
+                logInfo.sendTaskLog( "秘塔准备就绪，正在打开页面",userId,"秘塔");
+                pages[3] = context.newPage();
+                String agentUrl = "https://metaso.cn/";
+                wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"秘塔",userId,isNewChat);
+            }
+            if(roles.contains("cube-sogou-agent")){
+                logInfo.sendTaskLog( "搜狗搜索@元器准备就绪，正在打开页面",userId,"搜狗搜索@元器");
+                pages[3] = context.newPage();
+                String agentUrl = "https://yuanbao.tencent.com/chat/u1VeB6jKt0lE/";
+                wrightCopyCount = tencentUtil.handelAgentAI(pages[3],userPrompt,agentUrl,"搜狗搜索@元器",userId,isNewChat);
+            }
+            if(roles.contains("cube-lwss-agent")){
+                logInfo.sendTaskLog( "KIMI@元器准备就绪，正在打开页面",userId,"KIMI@元器");
+                pages[4] = context.newPage();
+                String agentUrl = "https://yuanbao.tencent.com/chat/oq4esMyN9VS2/";
+                wrightCopyCount = tencentUtil.handelAgentAI(pages[4],userPrompt,agentUrl,"KIMI@元器",userId,isNewChat);
+            }
 
-             // 保存各代理生成的数据并拼接结果
-              if(roles.contains("cube-trubos-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[0],userInfoRequest,"cube-trubos-agent",userId,wrightCopyCount,"AI搜索@元器","RETURN_TURBOS_RES");
-              }
-              if(roles.contains("cube-turbos-large-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[1],userInfoRequest,"cube-turbos-large-agent",userId,wrightCopyCount,"数智化助手@元器","RETURN_TURBOS_LARGE_RES");
-              }
-              if(roles.contains("cube-mini-max-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"cube-mini-max-agent",userId,wrightCopyCount,"MiniMax@元器","RETURN_MINI_MAX_RES");
-              }
-              if(roles.contains("mini-max-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"mini-max-agent",userId,wrightCopyCount,"MiniMax Chat","RETURN_MINI_MAX_RES");
-              }
-              if(roles.contains("metaso-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"metaso-agent",userId,wrightCopyCount,"秘塔","RETURN_METASO_RES");
-              }
-              if(roles.contains("cube-sogou-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[3],userInfoRequest,"cube-sogou-agent",userId,wrightCopyCount,"搜狗搜索@元器","RETURN_SOGOU_RES");
-              }
-              if(roles.contains("cube-lwss-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[4],userInfoRequest,"cube-lwss-agent",userId,wrightCopyCount,"KIMI@元器","RETURN_LWSS_RES");
-              }
-               return copiedText;
+            // 保存各代理生成的数据并拼接结果
+            if(roles.contains("cube-trubos-agent")){
+                copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[0],userInfoRequest,"cube-trubos-agent",userId,wrightCopyCount,"AI搜索@元器","RETURN_TURBOS_RES");
+            }
+            if(roles.contains("cube-turbos-large-agent")){
+                copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[1],userInfoRequest,"cube-turbos-large-agent",userId,wrightCopyCount,"数智化助手@元器","RETURN_TURBOS_LARGE_RES");
+            }
+            if(roles.contains("cube-mini-max-agent")){
+                copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"cube-mini-max-agent",userId,wrightCopyCount,"MiniMax@元器","RETURN_MINI_MAX_RES");
+            }
+            if(roles.contains("mini-max-agent")){
+                copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"mini-max-agent",userId,wrightCopyCount,"MiniMax Chat","RETURN_MINI_MAX_RES");
+            }
+            if(roles.contains("metaso-agent")){
+                copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"metaso-agent",userId,wrightCopyCount,"秘塔","RETURN_METASO_RES");
+            }
+            if(roles.contains("cube-sogou-agent")){
+                copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[3],userInfoRequest,"cube-sogou-agent",userId,wrightCopyCount,"搜狗搜索@元器","RETURN_SOGOU_RES");
+            }
+            if(roles.contains("cube-lwss-agent")){
+                copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[4],userInfoRequest,"cube-lwss-agent",userId,wrightCopyCount,"KIMI@元器","RETURN_LWSS_RES");
+            }
+            return copiedText;
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -218,76 +222,76 @@ public class AIGCController {
             content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"yb")) {
 
-               String userId =userInfoRequest.getUserId();
-               String currentContent = "";
-               String roles = userInfoRequest.getRoles();
-               String userPrompt = userInfoRequest.getUserPrompt();
-               String t1ChatId = userInfoRequest.getToneChatId();
-               String dschatId = userInfoRequest.getYbDsChatId();
+            String userId =userInfoRequest.getUserId();
+            String currentContent = "";
+            String roles = userInfoRequest.getRoles();
+            String userPrompt = userInfoRequest.getUserPrompt();
+            String t1ChatId = userInfoRequest.getToneChatId();
+            String dschatId = userInfoRequest.getYbDsChatId();
 
-               Page[] pages = new Page[2];
-               int t1CopyCount = 0;
-               int dsCopyCount = 0;
+            Page[] pages = new Page[2];
+            int t1CopyCount = 0;
+            int dsCopyCount = 0;
 
-               //腾讯元宝T1  根据角色组合处理不同模式（普通/深度思考/联网）
-               logInfo.sendTaskLog( "腾讯元宝准备就绪，正在打开页面",userId,"腾讯元宝T1");
-               if(roles.contains("yb-hunyuan-pt")&& !roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")){
-                   pages[0] = context.newPage();
-                   t1CopyCount =  tencentUtil.handleYBAI(pages[0], userPrompt, "yb-hunyuan-pt",userId,"腾讯元宝T1",t1ChatId);
-               }else if(roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")){
-                   //深度思考
-                   pages[0] = context.newPage();
-                   t1CopyCount = tencentUtil.handleYBAI( pages[0], userPrompt, "yb-hunyuan-sdsk",userId,"腾讯元宝T1",t1ChatId);
-               }else if(roles.contains("yb-hunyuan-lwss") && !roles.contains("yb-hunyuan-sdsk")){
-                   //深度思考 + 联网
-                   pages[0] = context.newPage();
-                   t1CopyCount = tencentUtil.handleYBAI( pages[0], userPrompt, "yb-hunyuan-lwss-1",userId,"腾讯元宝T1",t1ChatId);
-               }else if(roles.contains("yb-hunyuan-lwss") && roles.contains("yb-hunyuan-sdsk")){
-                   //深度思考 + 联网
-                   pages[0] = context.newPage();
-                   t1CopyCount = tencentUtil.handleYBAI( pages[0], userPrompt, "yb-hunyuan-lwss-2",userId,"腾讯元宝T1",t1ChatId);
-               }
+            //腾讯元宝T1  根据角色组合处理不同模式（普通/深度思考/联网）
+            logInfo.sendTaskLog( "腾讯元宝准备就绪，正在打开页面",userId,"腾讯元宝T1");
+            if(roles.contains("yb-hunyuan-pt")&& !roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")){
+                pages[0] = context.newPage();
+                t1CopyCount =  tencentUtil.handleYBAI(pages[0], userPrompt, "yb-hunyuan-pt",userId,"腾讯元宝T1",t1ChatId);
+            }else if(roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")){
+                //深度思考
+                pages[0] = context.newPage();
+                t1CopyCount = tencentUtil.handleYBAI( pages[0], userPrompt, "yb-hunyuan-sdsk",userId,"腾讯元宝T1",t1ChatId);
+            }else if(roles.contains("yb-hunyuan-lwss") && !roles.contains("yb-hunyuan-sdsk")){
+                //深度思考 + 联网
+                pages[0] = context.newPage();
+                t1CopyCount = tencentUtil.handleYBAI( pages[0], userPrompt, "yb-hunyuan-lwss-1",userId,"腾讯元宝T1",t1ChatId);
+            }else if(roles.contains("yb-hunyuan-lwss") && roles.contains("yb-hunyuan-sdsk")){
+                //深度思考 + 联网
+                pages[0] = context.newPage();
+                t1CopyCount = tencentUtil.handleYBAI( pages[0], userPrompt, "yb-hunyuan-lwss-2",userId,"腾讯元宝T1",t1ChatId);
+            }
 
             //腾讯元宝DS  根据角色组合处理不同模式（普通/深度思考/联网）
-               if(roles.contains("yb-deepseek-pt") && !roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")){
-                   pages[1] = context.newPage();
-                   dsCopyCount = tencentUtil.handleYBAI(pages[1],userPrompt,"yb-deepseek-pt",userId,"腾讯元宝DS",dschatId);
-               }else  if(roles.contains("yb-deepseek-sdsk")  && !roles.contains("yb-deepseek-lwss")){
-                   //深度思考
-                   pages[1] = context.newPage();
-                   dsCopyCount = tencentUtil.handleYBAI(pages[1],userPrompt,"yb-deepseek-sdsk",userId,"腾讯元宝DS",dschatId);
-               }else if(roles.contains("yb-deepseek-lwss") && !roles.contains("yb-deepseek-sdsk") ){
-                   //深度思考 + 联网
-                   pages[1] = context.newPage();
-                   dsCopyCount = tencentUtil.handleYBAI(pages[1],userPrompt,"yb-deepseek-lwss-1",userId,"腾讯元宝DS",dschatId);
-               }else if(roles.contains("yb-deepseek-lwss") && roles.contains("yb-deepseek-sdsk") ){
-                   //深度思考 + 联网
-                   pages[1] = context.newPage();
-                   dsCopyCount = tencentUtil.handleYBAI(pages[1],userPrompt,"yb-deepseek-lwss-2",userId,"腾讯元宝DS",dschatId);
-               }
+            if(roles.contains("yb-deepseek-pt") && !roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")){
+                pages[1] = context.newPage();
+                dsCopyCount = tencentUtil.handleYBAI(pages[1],userPrompt,"yb-deepseek-pt",userId,"腾讯元宝DS",dschatId);
+            }else  if(roles.contains("yb-deepseek-sdsk")  && !roles.contains("yb-deepseek-lwss")){
+                //深度思考
+                pages[1] = context.newPage();
+                dsCopyCount = tencentUtil.handleYBAI(pages[1],userPrompt,"yb-deepseek-sdsk",userId,"腾讯元宝DS",dschatId);
+            }else if(roles.contains("yb-deepseek-lwss") && !roles.contains("yb-deepseek-sdsk") ){
+                //深度思考 + 联网
+                pages[1] = context.newPage();
+                dsCopyCount = tencentUtil.handleYBAI(pages[1],userPrompt,"yb-deepseek-lwss-1",userId,"腾讯元宝DS",dschatId);
+            }else if(roles.contains("yb-deepseek-lwss") && roles.contains("yb-deepseek-sdsk") ){
+                //深度思考 + 联网
+                pages[1] = context.newPage();
+                dsCopyCount = tencentUtil.handleYBAI(pages[1],userPrompt,"yb-deepseek-lwss-2",userId,"腾讯元宝DS",dschatId);
+            }
 
 
-               //保存入库 腾讯元宝T1
-               if(roles.contains("yb-hunyuan-pt")&& !roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")){
-                   currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[0],userInfoRequest,"yb-hunyuan-pt",userId,t1CopyCount);
-               }else if(roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")){
-                   //深度思考
-                   currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[0],userInfoRequest,"yb-hunyuan-sdsk",userId,t1CopyCount);
-               }else if(roles.contains("yb-hunyuan-lwss")){
-                   //深度思考 + 联网
-                   currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[0],userInfoRequest,"yb-hunyuan-lwss",userId,t1CopyCount);
-               }
+            //保存入库 腾讯元宝T1
+            if(roles.contains("yb-hunyuan-pt")&& !roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")){
+                currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[0],userInfoRequest,"yb-hunyuan-pt",userId,t1CopyCount);
+            }else if(roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")){
+                //深度思考
+                currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[0],userInfoRequest,"yb-hunyuan-sdsk",userId,t1CopyCount);
+            }else if(roles.contains("yb-hunyuan-lwss")){
+                //深度思考 + 联网
+                currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[0],userInfoRequest,"yb-hunyuan-lwss",userId,t1CopyCount);
+            }
 
-                //保存入库 腾讯元宝DS
-               if(roles.contains("yb-deepseek-pt") && !roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")){
-                   currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[1],userInfoRequest,"yb-deepseek-pt",userId,dsCopyCount);
-               }else  if(roles.contains("yb-deepseek-sdsk")  && !roles.contains("yb-deepseek-lwss")){
-                   currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[1],userInfoRequest,"yb-deepseek-sdsk",userId,dsCopyCount);
-               }else if(roles.contains("yb-deepseek-lwss")){
-                   //深度思考 + 联网
-                   currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[1],userInfoRequest,"yb-deepseek-lwss",userId,dsCopyCount);
-               }
-               return currentContent;
+            //保存入库 腾讯元宝DS
+            if(roles.contains("yb-deepseek-pt") && !roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")){
+                currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[1],userInfoRequest,"yb-deepseek-pt",userId,dsCopyCount);
+            }else  if(roles.contains("yb-deepseek-sdsk")  && !roles.contains("yb-deepseek-lwss")){
+                currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[1],userInfoRequest,"yb-deepseek-sdsk",userId,dsCopyCount);
+            }else if(roles.contains("yb-deepseek-lwss")){
+                //深度思考 + 联网
+                currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[1],userInfoRequest,"yb-deepseek-lwss",userId,dsCopyCount);
+            }
+            return currentContent;
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -444,104 +448,104 @@ public class AIGCController {
             screenshotExecutor.shutdown();
 
             if(!copiedText.contains("换个话题试试吧")){
-            AtomicReference<String> shareUrlRef = new AtomicReference<>();
+                AtomicReference<String> shareUrlRef = new AtomicReference<>();
 
-            clipboardLockManager.runWithClipboardLock(() -> {
-                try {
-                    // 点击分享链接按钮
-                    page.locator(
-                            "(//div[contains(@class,'system-operation-box')])[last()]//div[" +
-                                    "contains(@class,'md:hover:bg-col_bg03') and " +
-                                    "contains(@class,'flex') and " +
-                                    "contains(@class,'h-7') and " +
-                                    "contains(@class,'w-7') and " +
-                                    "contains(@class,'cursor-pointer') and " +
-                                    "contains(@class,'items-center') and " +
-                                    "contains(@class,'justify-center') and " +
-                                    "contains(@class,'rounded-[8px]')" +
-                                    "][3]"
-                    ).click();
-                    // 等待加载
-                    Thread.sleep(1000);
-                    page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[1]/span[1]").click();
-                    // 点击复制链接
-                    page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[2]/div[2]").click();
-                    // 建议适当延迟等待内容更新
-                    Thread.sleep(1000);
-                    String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
-                    shareUrlRef.set(shareUrl);
-                    System.out.println("剪贴板内容：" + shareUrl);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
-
-            Thread.sleep(1000);
-            String shareUrl = shareUrlRef.get();
-            String sharImgUrl = "";
-            // 点击分享按钮
-            page.locator(
-                    "(//div[contains(@class,'system-operation-box')])[last()]//div[" +
-                            "contains(@class,'md:hover:bg-col_bg03') and " +
-                            "contains(@class,'flex') and " +
-                            "contains(@class,'h-7') and " +
-                            "contains(@class,'w-7') and " +
-                            "contains(@class,'cursor-pointer') and " +
-                            "contains(@class,'items-center') and " +
-                            "contains(@class,'justify-center') and " +
-                            "contains(@class,'rounded-[8px]')" +
-                            "][3]"
-            ).click();
-            Thread.sleep(1000);
-            String classSelector = ".bg-col_fill03.inline-flex.h-\\[38px\\].items-center.justify-center.gap-\\[5px\\].rounded-\\[12px\\].px-\\[10px\\].text-\\[14px\\]";
-            Locator thinkElements = page.locator(classSelector);
-            int count = thinkElements.count();
-
-            for (int j = 0; j < count; j++) {
-                Locator think = thinkElements.nth(j);
-                // 获取点击元素的父元素
-                Locator parent = think.locator("xpath=..");
-                // 获取父元素的兄弟元素
-                Locator sibling = parent.locator("xpath=following-sibling::*");
-                String siblingClass = sibling.getAttribute("class");
-                boolean isHidden = siblingClass != null && siblingClass.contains("hidden");
-                if (isHidden) {
-                    System.out.println("第 " + j + " 个已经隐藏，无需点击");
-                } else {
+                clipboardLockManager.runWithClipboardLock(() -> {
                     try {
-                        think.click(new Locator.ClickOptions().setForce(true));
-                        System.out.println("点击第 " + j + " 个隐藏思考状态");
-                    } catch (PlaywrightException e) {
-                        System.out.println("点击第 " + j + " 个失败：" + e.getMessage());
+                        // 点击分享链接按钮
+                        page.locator(
+                                "(//div[contains(@class,'system-operation-box')])[last()]//div[" +
+                                        "contains(@class,'md:hover:bg-col_bg03') and " +
+                                        "contains(@class,'flex') and " +
+                                        "contains(@class,'h-7') and " +
+                                        "contains(@class,'w-7') and " +
+                                        "contains(@class,'cursor-pointer') and " +
+                                        "contains(@class,'items-center') and " +
+                                        "contains(@class,'justify-center') and " +
+                                        "contains(@class,'rounded-[8px]')" +
+                                        "][3]"
+                        ).click();
+                        // 等待加载
+                        Thread.sleep(1000);
+                        page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[1]/span[1]").click();
+                        // 点击复制链接
+                        page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[2]/div[2]").click();
+                        // 建议适当延迟等待内容更新
+                        Thread.sleep(1000);
+                        String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
+                        shareUrlRef.set(shareUrl);
+                        System.out.println("剪贴板内容：" + shareUrl);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
+
+                Thread.sleep(1000);
+                String shareUrl = shareUrlRef.get();
+                String sharImgUrl = "";
+                // 点击分享按钮
+                page.locator(
+                        "(//div[contains(@class,'system-operation-box')])[last()]//div[" +
+                                "contains(@class,'md:hover:bg-col_bg03') and " +
+                                "contains(@class,'flex') and " +
+                                "contains(@class,'h-7') and " +
+                                "contains(@class,'w-7') and " +
+                                "contains(@class,'cursor-pointer') and " +
+                                "contains(@class,'items-center') and " +
+                                "contains(@class,'justify-center') and " +
+                                "contains(@class,'rounded-[8px]')" +
+                                "][3]"
+                ).click();
+                Thread.sleep(1000);
+                String classSelector = ".bg-col_fill03.inline-flex.h-\\[38px\\].items-center.justify-center.gap-\\[5px\\].rounded-\\[12px\\].px-\\[10px\\].text-\\[14px\\]";
+                Locator thinkElements = page.locator(classSelector);
+                int count = thinkElements.count();
+
+                for (int j = 0; j < count; j++) {
+                    Locator think = thinkElements.nth(j);
+                    // 获取点击元素的父元素
+                    Locator parent = think.locator("xpath=..");
+                    // 获取父元素的兄弟元素
+                    Locator sibling = parent.locator("xpath=following-sibling::*");
+                    String siblingClass = sibling.getAttribute("class");
+                    boolean isHidden = siblingClass != null && siblingClass.contains("hidden");
+                    if (isHidden) {
+                        System.out.println("第 " + j + " 个已经隐藏，无需点击");
+                    } else {
+                        try {
+                            think.click(new Locator.ClickOptions().setForce(true));
+                            System.out.println("点击第 " + j + " 个隐藏思考状态");
+                        } catch (PlaywrightException e) {
+                            System.out.println("点击第 " + j + " 个失败：" + e.getMessage());
+                        }
                     }
                 }
-            }
 
-            // 点击最近10条
-            page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[1]/span[1]").click();
-            Thread.sleep(200);
-            page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[1]/span[1]").click();
-            Thread.sleep(200);
-            page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[1]/span[1]").click();
-            Thread.sleep(1000);
-            // 点击生成分享图
-            page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[2]/div[1]").click();
-            Thread.sleep(3000);
-            // 点击下载按钮
-            sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
-                page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/div[1]/div[2]/div/div[2]").click();
-            });
+                // 点击最近10条
+                page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[1]/span[1]").click();
+                Thread.sleep(200);
+                page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[1]/span[1]").click();
+                Thread.sleep(200);
+                page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[1]/span[1]").click();
+                Thread.sleep(1000);
+                // 点击生成分享图
+                page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/section/div[2]/div[2]/div[1]").click();
+                Thread.sleep(3000);
+                // 点击下载按钮
+                sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
+                    page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/div[1]/div[2]/div/div[2]").click();
+                });
 
-            logInfo.sendTaskLog( "执行完成",userId,"MiniMax Chat");
-            logInfo.sendChatData(page,"chatID=([0-9]+)",userId,"RETURN_MAX_CHATID",1);
-            logInfo.sendResData(copiedText,userId,"MiniMax Chat","RETURN_MAX_RES",shareUrl,sharImgUrl);
+                logInfo.sendTaskLog( "执行完成",userId,"MiniMax Chat");
+                logInfo.sendChatData(page,"chatID=([0-9]+)",userId,"RETURN_MAX_CHATID",1);
+                logInfo.sendResData(copiedText,userId,"MiniMax Chat","RETURN_MAX_RES",shareUrl,sharImgUrl);
 
-            //保存数据库
-            userInfoRequest.setDraftContent(copiedText);
-            userInfoRequest.setAiName("MiniMax Chat");
-            userInfoRequest.setShareUrl(shareUrl);
-            userInfoRequest.setShareImgUrl(sharImgUrl);
-            RestUtils.post(url+"/saveDraftContent", userInfoRequest);
+                //保存数据库
+                userInfoRequest.setDraftContent(copiedText);
+                userInfoRequest.setAiName("MiniMax Chat");
+                userInfoRequest.setShareUrl(shareUrl);
+                userInfoRequest.setShareImgUrl(sharImgUrl);
+                RestUtils.post(url+"/saveDraftContent", userInfoRequest);
             }else{
                 logInfo.sendTaskLog( "执行完成,MiniMax 提示换个话题",userId,"MiniMax Chat");
                 logInfo.sendChatData(page,"chatID=([0-9]+)",userId,"RETURN_MAX_CHATID",1);
@@ -554,7 +558,7 @@ public class AIGCController {
                 userInfoRequest.setShareImgUrl("");
                 RestUtils.post(url+"/saveDraftContent", userInfoRequest);
             }
-                return copiedText;
+            return copiedText;
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -882,6 +886,104 @@ public class AIGCController {
     }
 
 
+    /**
+     * 处理Kimi的常规请求
+     * @param userInfoRequest 包含会话ID和用户指令
+     * @return AI生成的文本内容
+     */
+    @Operation(summary = "启动KimiAI生成", description = "调用Kimi平台生成内容并抓取结果")
+    @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
+    @PostMapping("/startKimi")
+    public String startKimi(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest){
+
+        try (
+                BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "Kimi");
+                Page page = context.newPage()) {
+            // 初始化变量
+            String userId = userInfoRequest.getUserId();
+            String kimiChatId = userInfoRequest.getKimiChatId();
+            logInfo.sendTaskLog("kimi准备就绪，正在打开页面", userId, "Kimi");
+            String roles = userInfoRequest.getRoles();
+            String userPrompt = userInfoRequest.getUserPrompt();
+
+            if (kimiChatId != null && !kimiChatId.isEmpty()) {
+                page.navigate("https://www.kimi.com/chat/" + kimiChatId);
+            } else page.navigate("https://www.kimi.com/");
+            Thread.sleep(1000);
+            page.locator("div.icon-button.toolkit-trigger-btn").click();
+
+            // 是否打开联网模式
+            if (roles.contains("lwss")) {
+                // 如果当前是关闭状态,则点击打开
+                if (!page.locator("input.switch-hidden").first().isChecked()) {
+                    page.locator("div.switch-icon").first().click();
+                    logInfo.sendTaskLog("已开启联网模式", userId, "Kimi");
+                }
+                // 如果已经是打开状态,无需操作
+            } else {
+                // 不打开联网模式
+                if (page.locator("input.switch-hidden").first().isChecked()) {
+                    page.locator("div.switch-icon").first().click();
+                    logInfo.sendTaskLog("已关闭联网模式", userId, "Kimi");
+                }
+            }
+
+            // 创建定时截图线程
+            AtomicInteger i = new AtomicInteger(0);
+            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            // 启动定时任务，每5秒执行一次截图
+            ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+                try {
+                    int currentCount = i.getAndIncrement(); // 获取当前值并自增
+                    logInfo.sendImgData(page, userId + "kimi执行过程截图"+currentCount, userId);
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }, 0, 8, TimeUnit.SECONDS);
+            //存储回答内容文本
+            String resText="";
+            resText = kimiUtil.waitKimiResponse(page, userId, userPrompt ,kimiChatId);
+            //关闭截图
+            screenshotFuture.cancel(false);
+            screenshotExecutor.shutdown();
+            Thread.sleep(500);
+            //获取对话链接网址
+            page.locator("span:has-text('复制链接')").click();
+            Thread.sleep(1000);
+            String shareUrl=(String) page.evaluate("async () => { return await navigator.clipboard.readText(); }");
+            //截取网址部分
+            if (shareUrl != null && shareUrl.contains("https://")) {
+                shareUrl = shareUrl.substring(shareUrl.indexOf("https://"));
+            }
+            // 获取图片
+            String sharImgUrl="";
+            sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
+                page.locator("span:has-text('生成图片')").click();
+                page.locator("button.kimi-button.info.button").nth(1).click();
+            });
+
+            logInfo.sendTaskLog( "执行完成",userId,"Kimi");
+            logInfo.sendChatData(page,"/chat/([^/?#]+)",userId,"RETURN_KIMI_CHATID",1);
+            logInfo.sendResData(resText,userId,"kimi","RETURN_KIMI_RES",shareUrl,sharImgUrl);
+            //保存数据库
+            userInfoRequest.setDraftContent(resText);
+            userInfoRequest.setAiName("Kimi");
+            userInfoRequest.setShareUrl(shareUrl);
+            userInfoRequest.setShareImgUrl(sharImgUrl);
+            RestUtils.post(url+"/saveDraftContent", userInfoRequest);
+
+            return resText;
+
+
+        } catch (InterruptedException | IOException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
+
     @Operation(summary = "豆包智能评分", description = "调用豆包平台对内容进行评分并返回评分结果")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startDBScore")
@@ -1190,10 +1292,10 @@ public class AIGCController {
             for (int retry = 0; retry < maxRetries; retry++) {
                 try {
                     if (retry > 0) {
-                                                        // 刷新页面重新开始
-                                page.reload();
-                                page.waitForLoadState(LoadState.LOAD);
-                                Thread.sleep(2000);
+                        // 刷新页面重新开始
+                        page.reload();
+                        page.waitForLoadState(LoadState.LOAD);
+                        Thread.sleep(2000);
                     }
 
                     copiedText = deepSeekUtil.handleDeepSeekAI(page, userPrompt, userId, roles, chatId);

@@ -383,11 +383,11 @@
 					</view>
 					<view class="score-prompt-section">
 						<text class="score-subtitle">文章内容：</text>
-						<textarea 
-							class="score-textarea" 
+						<textarea
+							class="score-textarea"
 							:class="{ 'content-exceeded': isTthArticleContentExceeded }"
-							v-model="tthArticleContent" 
-							placeholder="请输入文章内容" 
+							v-model="tthArticleContent"
+							placeholder="请输入文章内容"
 							:maxlength="-1"
 							:auto-height="true"
 							:show-confirm-bar="false"
@@ -473,6 +473,7 @@
 					ybDsChatId: '',
 					dbChatId: '',
           tyChatId: '',
+          kimiChatId: '',
 					isNewChat: true
 				},
 				jsonRpcReqest: {
@@ -571,6 +572,18 @@
             isExpanded: true,
             isSingleSelect: true  // 添加单选标记
           },
+          {
+            name: "Kimi",
+            avatar: 'https://u3w.com/chatfile/KIMI.png',
+            capabilities: [
+              { label: "联网搜索", value: "web_search" },
+            ],
+            selectedCapabilities: [],
+            enabled: true,
+            status: "idle",
+            progressLogs: [],
+            isExpanded: true,
+          },
 				],
 
 				// 输入和任务状态
@@ -631,6 +644,7 @@
           tongyi: false,
           mini: false,
           metaso: false,
+          kimi: false,
 				},
 				accounts: {
 					doubao: '',
@@ -638,6 +652,7 @@
           tongyi: '',
           mini: '',
           metaso: '',
+          kimi: '',
 				},
 				isLoading: {
 					doubao: true,
@@ -645,6 +660,7 @@
           tongyi: true,
 		      mini: true,
 		      metaso: true,
+          kimi: true,
 				}
 			};
 		},
@@ -784,7 +800,7 @@
 					}
 				});
 			},
-			
+
 			// 初始化用户信息
 			initUserInfo() {
 				// 从store获取用户信息，兼容缓存方式
@@ -933,7 +949,7 @@
 						}
 						if (ai.selectedCapabilities.includes("web_search")) {
 						  this.userInfoReq.roles = this.userInfoReq.roles + "max-lwss,";
-						}	
+						}
 						}
 					}
           if(ai.name === '通义千问' && ai.enabled){
@@ -942,6 +958,14 @@
               this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-sdsk,'
             } else if (ai.selectedCapability.includes("web_search")) {
               this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-lwss,';
+            }
+          }
+          if (ai.name === "Kimi") {
+            if(this.isAiLoginEnabled(ai)){
+              this.userInfoReq.roles = this.userInfoReq.roles + "kimi";
+              if (ai.selectedCapabilities.includes("web_search")) {
+                this.userInfoReq.roles = this.userInfoReq.roles + "kimi-lwss,";
+              }
             }
           }
 				});
@@ -1165,6 +1189,8 @@
           this.userInfoReq.tyChatId = dataObj.chatId;
         } else if (dataObj.type === "RETURN_METASO_CHATID" && dataObj.chatId) {
           this.userInfoReq.metasoChatId = dataObj.chatId;
+        } else if (dataObj.type === "RETURN_KIMI_CHATID" && dataObj.chatId){
+          this.userInfoReq.kimiChatId = dataObj.chatId;
         }
 
 					// 处理进度日志消息
@@ -1294,7 +1320,7 @@
           }
           return;
         }
-		
+
 		// 处理百家号投递任务日志
 		if (dataObj.type === 'RETURN_MEDIA_TASK_LOG') {
 		  console.log("收到媒体任务日志", dataObj);
@@ -1310,26 +1336,26 @@
 		        isCompleted: false,
 		        type: dataObj.aiName
 		      });
-		
+
 		      // 强制更新UI
 		      this.$forceUpdate();
 		    }
 		  }
 		  return;
 		}
-		
+
 		// 处理百家号投递完成结果
 		if (dataObj.type === 'RETURN_BAIJIAHAO_DELIVERY_RES') {
 		  console.log("收到百家号投递完成结果", dataObj);
 		  const baijiahaoAI = this.enabledAIs.find(ai => ai.name === '投递到百家号');
 		  if (baijiahaoAI) {
 		    baijiahaoAI.status = dataObj.status === 'success' ? 'completed' : 'error';
-		
+
 		    // 更新最后一条日志状态
 		    if (baijiahaoAI.progressLogs.length > 0) {
 		      baijiahaoAI.progressLogs[baijiahaoAI.progressLogs.length - 1].isCompleted = true;
 		    }
-		
+
 		    // 添加完成日志
 		    baijiahaoAI.progressLogs.push({
 		      content: dataObj.message || '百家号投递任务完成',
@@ -1337,16 +1363,16 @@
 		      isCompleted: true,
 		      type: '投递到百家号'
 		    });
-		
+
 		    // 强制更新UI
 		    this.$forceUpdate();
-		
+
 		    // 显示完成提示
 		    uni.showToast({
 		      title: dataObj.status === 'success' ? '百家号投递成功' : '百家号投递失败',
 		      icon: dataObj.status === 'success' ? 'success' : 'failed'
 		    });
-		
+
 		    // 保存历史记录
 		    this.saveHistory();
 		  }
@@ -1366,7 +1392,7 @@
           this.tthArticleTitle = dataObj.title || '';
           this.tthArticleContent = dataObj.content || '';
           this.tthArticleEditVisible = true;
-          
+
           // 确保textarea正确显示内容
           this.$nextTick(() => {
             // 强制更新textarea内容
@@ -1377,7 +1403,7 @@
               textarea.dispatchEvent(new Event('input', { bubbles: true }));
             }
           });
-          
+
           if (this.saveHistory) {
             this.saveHistory();
           }
@@ -1454,6 +1480,20 @@
 				  // 更新AI启用状态
 				  this.updateAiEnabledStatus();
 				}
+        // 处理KiMi 登录状态
+        else if (datastr.includes("RETURN_KIMI_STATUS") && dataObj.status != "") {
+          this.isLoading.kimi = false;
+          if (!datastr.includes("false")) {
+            this.aiLoginStatus.kimi = true;
+            this.accounts.kimi = dataObj.status;
+          } else {
+            this.aiLoginStatus.kimi = false;
+            // 禁用相关AI
+            this.disableAIsByLoginStatus("Kimi");
+          }
+          // 更新AI启用状态
+          this.updateAiEnabledStatus();
+        }
         // 处理秘塔登录状态
         else if (datastr.includes("RETURN_METASO_STATUS") && dataObj.status != "") {
           this.isLoading.metaso = false;
@@ -1476,7 +1516,7 @@
             this.aiLoginStatus.deepseek = true;
             this.accounts.deepseek = dataObj.status;
             console.log("DeepSeek登录成功，账号:", dataObj.status);
-            
+
             // 查找DeepSeek AI实例
             const deepseekAI = this.aiList.find(ai => ai.name === 'DeepSeek');
 
@@ -1484,10 +1524,10 @@
             this.aiLoginStatus.deepseek = false;
             this.accounts.deepseek = '';
             console.log("DeepSeek未登录");
-            
+
             // 如果未登录，确保DeepSeek被禁用
             const deepseekAI = this.aiList.find(ai => ai.name === 'DeepSeek');
-  
+
           }
           // 强制更新UI
           this.$forceUpdate();
@@ -1556,6 +1596,10 @@
           case "RETURN_METASO_RES":
             console.log("收到消息:", dataObj);
             targetAI = this.enabledAIs.find((ai) => ai.name === "秘塔");
+            break;
+          case "RETURN_KIMI_RES":
+            console.log("收到消息:", dataObj);
+            targetAI = this.enabledAIs.find((ai) => ai.name === "Kimi");
             break;
 				}
 
@@ -1865,6 +1909,7 @@
           this.userInfoReq.tyChatId = item.tyChatId || '';
 					this.userInfoReq.maxChatId = item.maxChatId || "";
           this.userInfoReq.metasoChatId = item.metasoChatId || "";
+          this.userInfoReq.kimiChatId = item.kimiChatId || "";
           this.userInfoReq.isNewChat = false;
 
 					// 不再根据AI登录状态更新AI启用状态，保持原有选择
@@ -1917,6 +1962,7 @@
           tyChatId: this.userInfoReq.tyChatId,
 					maxChatId: this.userInfoReq.maxChatId,
           metasoChatId: this.userInfoReq.metasoChatId,
+          kimiChatId: this.userInfoReq.kimiChatId,
 				};
 
 				try {
@@ -1931,6 +1977,7 @@
             tyChatId: this.userInfoReq.tyChatId,
 						maxChatId: this.userInfoReq.maxChatId,
             metasoChatId: this.userInfoReq.metasoChatId,
+            kimiChatId: this.userInfoReq.kimiChatId,
 					});
 				} catch (error) {
 					console.error('保存历史记录失败:', error);
@@ -2266,12 +2313,12 @@
           icon: 'success'
         });
       },
-	  
+
 	  // 创建百家号投递任务
 	  createBaijiahaoDeliveryTask() {
 	    // 组合完整的提示词：数据库提示词 + 原文内容
 	    const fullPrompt = this.layoutPrompt + '\n\n' + this.currentLayoutResult.content;
-	  
+
 	    // 构建百家号投递请求
 	    const baijiahaoRequest = {
 	      jsonrpc: '2.0',
@@ -2286,10 +2333,10 @@
 	        content: this.currentLayoutResult.content
 	      }
 	    };
-	  
+
 	    console.log("百家号投递参数", baijiahaoRequest);
 	    this.message(baijiahaoRequest);
-	  
+
 	    // 创建投递到百家号任务节点
 	    const baijiahaoAI = {
 	      name: '投递到百家号',
@@ -2308,15 +2355,15 @@
 	      ],
 	      isExpanded: true
 	    };
-	  
+
 	    this.addOrUpdateTaskAI(baijiahaoAI, '投递到百家号');
-	  
+
 	    uni.showToast({
 	      title: '百家号投递任务已提交',
 	      icon: 'success'
 	    });
 	  },
-	  
+
 
       // 创建微头条排版任务
       createToutiaoLayoutTask() {
@@ -2461,7 +2508,7 @@
 						aiName: this.currentLayoutResult.aiName || '',
 						num: this.collectNum
 					};
-					
+
 					console.log("投递参数", params);
 
 					const res = await pushAutoOffice(params);
@@ -2592,6 +2639,7 @@
           tyChatId: '',
 					maxChatId: '',
           metasoChatId: '',
+          kimiChatId: '',
 					isNewChat: true
 				};
 				// 重置AI列表为初始状态
@@ -2671,6 +2719,19 @@
             isExpanded: true,
             isSingleSelect: true,  // 添加单选标记
           },
+          {
+            name: "Kimi",
+            avatar:
+                "https://u3w.com/chatfile/KIMI.png",
+            capabilities: [
+              { label: "联网搜索", value: "web_search" },
+            ],
+            selectedCapabilities: ["web_search"],
+            enabled: true,
+            status: "idle",
+            progressLogs: [],
+            isExpanded: true,
+          },
 				];
 				// 不再根据AI登录状态更新AI启用状态，保持原有选择
 
@@ -2728,6 +2789,12 @@
           userId: this.userId,
           corpId: this.corpId,
         });
+        // 检查KiMi登录状态
+        this.sendWebSocketMessage({
+          type: "PLAY_CHECK_KIMI_LOGIN",
+          userId: this.userId,
+          corpId: this.corpId,
+        });
 			},
 
 			getPlatformIcon(type) {
@@ -2761,7 +2828,8 @@
           deepseek: true,
           tongyi: true,
 		      mini: true,
-          metaso: true
+          metaso: true,
+          kimi: true,
 				};
 
 				// 重置登录状态
@@ -2771,6 +2839,7 @@
 		      mini: false,
           tongyi: false,
           metaso: false,
+          kimi: false,
 				};
 
 				// 重置账户信息
@@ -2780,6 +2849,7 @@
           tongyi: '',
 		      mini: '',
 		      metaso: '',
+          kimi: '',
 				};
 
 				// 显示刷新提示
@@ -2813,6 +2883,8 @@
             return this.aiLoginStatus.mini; // MiniMax Chat登录状态
           case "秘塔":
             return this.aiLoginStatus.metaso; // 秘塔登录状态
+          case "Kimi":
+            return this.aiLoginStatus.kimi; // KiMi登录状态
           default:
 						return false;
 				}
@@ -2831,6 +2903,8 @@
             return this.isLoading.mini;
           case "秘塔":
             return this.isLoading.metaso;
+          case "Kimi":
+            return this.isLoading.kimi;
           default:
 						return false;
 				}
