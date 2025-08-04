@@ -29,8 +29,8 @@
 				register: false,
 				globalConfig: getApp().globalData.config,
 				wxLoginForm: {
-					appId: "wxef8c6bc4b9764770",
-					appSecret: "41c56628fe8955e1a433636d8b9e0d28",
+					appId: "",//微信appid
+					appSecret: "",//微信app密钥
 					code: "",
 					encryptedIv: "",
 					encryptedData: "",
