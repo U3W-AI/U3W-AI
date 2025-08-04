@@ -574,7 +574,7 @@
           },
           {
             name: "Kimi",
-            avatar: 'https://statics.moonshot.cn/kimi-web-seo/assets/kimi-logo-CegIMkbU.png',
+            avatar: 'https://u3w.com/chatfile/KIMI.png',
             capabilities: [
               { label: "联网搜索", value: "web_search" },
             ],
@@ -2722,7 +2722,7 @@
           {
             name: "Kimi",
             avatar:
-                "https://statics.moonshot.cn/kimi-web-seo/assets/kimi-logo-CegIMkbU.png",
+                "https://u3w.com/chatfile/KIMI.png",
             capabilities: [
               { label: "联网搜索", value: "web_search" },
             ],

@@ -112,8 +112,8 @@
           },
           {
             name: 'KiMi',
-            avatar: 'https://statics.moonshot.cn/kimi-web-seo/assets/kimi-logo-CegIMkbU.png',
-            icon: '	https://statics.moonshot.cn/kimi-web-seo/assets/kimi-logo-CegIMkbU.png',
+            avatar: 'https://u3w.com/chatfile/KIMI.png',
+            icon: '	https://u3w.com/chatfile/KIMI.png',
             title: 'Kimi',
             description: 'KiMi有着更大的内存，可以处理更长的文本',
             type: 'kimi'
