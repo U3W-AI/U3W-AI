@@ -628,6 +628,8 @@ export default {
         ybDsChatId: "",
         dbChatId: "",
         tyChatId: "",
+        kimiChatId: "",
+        baiduChatId: "",
         isNewChat: true,
       },
       jsonRpcReqest: {
@@ -690,6 +692,18 @@ export default {
           progressLogs: [],
           isExpanded: true,
           isSingleSelect: true,  // 添加单选标记,用于capabilities中状态只能多选一的时候改成true,然后把selectedCapabilities赋值为字符串，不要是数组
+        },
+        {
+          name: "KiMi",
+          avatar: require("../../../assets/ai/Kimi.png"),
+          capabilities: [
+            { label: "联网搜索", value: "web_search" },
+          ],
+          selectedCapabilities: [],
+          enabled: true,
+          status: "idle",
+          progressLogs: [],
+          isExpanded: true,
         },
         {
           name: '通义千问',
@@ -887,6 +901,12 @@ export default {
           }
           if (ai.selectedCapabilities.includes("web_search")) {
             this.userInfoReq.roles = this.userInfoReq.roles + "max-lwss,";
+          }
+        }
+        if (ai.name === "Kimi") {
+          this.userInfoReq.roles = this.userInfoReq.roles + "kimi,";
+          if (ai.selectedCapabilities.includes("web_search")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + "kimi-lwss,";
           }
         }
         if(ai.name === '通义千问' && ai.enabled){
@@ -1122,6 +1142,10 @@ export default {
         this.userInfoReq.maxChatId = dataObj.chatId;
       } else if (dataObj.type === "RETURN_METASO_CHATID" && dataObj.chatId) {
         this.userInfoReq.metasoChatId = dataObj.chatId;
+      } else if (dataObj.type === "RETURN_KIMI_CHATID" && dataObj.chatId) {
+        this.userInfoReq.kimiChatId = dataObj.chatId;
+      } else if (dataObj.type === "RETURN_BAIDU_CHATID" && dataObj.chatId) {
+        this.userInfoReq.baiduChatId = dataObj.chatId;
       }
 
       // 处理进度日志消息
@@ -1352,6 +1376,10 @@ export default {
         case "RETURN_METASO_RES":
           console.log("收到秘塔消息:", dataObj);
           targetAI = this.enabledAIs.find((ai) => ai.name === "秘塔");
+          break;
+        case "RETURN_KIMI_RES":
+          console.log("收到kimi消息:", dataObj);
+          targetAI = this.enabledAIs.find((ai) => ai.name === "Kimi");
           break;
         case 'RETURN_BAIDU_RES':
           console.log('收到百度AI消息:', data);
@@ -1585,6 +1613,8 @@ export default {
         this.userInfoReq.ybDsChatId = item.ybDsChatId || "";
         this.userInfoReq.dbChatId = item.dbChatId || "";
         this.userInfoReq.maxChatId = item.maxChatId || "";
+        this.userInfoReq.kimiChatId = item.kimiChatId || "";
+        this.userInfoReq.baiduChatId= item.baiduChatId || "";
         this.userInfoReq.tyChatId = item.tyChatId || "";
         this.userInfoReq.metasoChatId = item.metasoChatId || "";
         this.userInfoReq.isNewChat = false;
@@ -1619,6 +1649,8 @@ export default {
         dbChatId: this.userInfoReq.dbChatId,
         tyChatId: this.userInfoReq.tyChatId,
         maxChatId: this.userInfoReq.maxChatId,
+        kimiChatId: this.userInfoReq.kimiChatId,
+        baiduChatId: this.userInfoReq.baiduChatId,
         metasoChatId: this.userInfoReq.metasoChatId,
       };
 
@@ -1633,6 +1665,8 @@ export default {
           dbChatId: this.userInfoReq.dbChatId,
           tyChatId: this.userInfoReq.tyChatId,
           maxChatId: this.userInfoReq.maxChatId,
+          kimiChatId: this.userInfoReq.kimiChatId,
+          baiduChatId: this.userInfoReq.baiduChatId,
           metasoChatId: this.userInfoReq.metasoChatId,
         });
       } catch (error) {
@@ -1671,6 +1705,8 @@ export default {
         dbChatId: "",
         tyChatId: "",
         maxChatId: "",
+        kimiChatId: "",
+        baiduChatId: "",
         metasoChatId: "",
         isNewChat: true,
       };
@@ -1714,6 +1750,18 @@ export default {
           progressLogs: [],
           isExpanded: true,
           isSingleSelect: false,  // 添加单选标记
+        },
+        {
+          name: "Kimi",
+          avatar: require("../../../assets/ai/Kimi.png"),
+          capabilities: [
+            { label: "联网模式", value: "web_search" },
+          ],
+          selectedCapabilities: ["web_search"],
+          enabled: true,
+          status: "idle",
+          progressLogs: [],
+          isExpanded: true,
         },
         {
           name: "秘塔",

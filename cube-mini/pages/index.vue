@@ -111,6 +111,14 @@
             type: 'tongyi'
           },
           {
+            name: 'KiMi',
+            avatar: 'https://u3w.com/chatfile/KIMI.png',
+            icon: '	https://u3w.com/chatfile/KIMI.png',
+            title: 'Kimi',
+            description: 'KiMi有着更大的内存，可以处理更长的文本',
+            type: 'kimi'
+          },
+          {
             name: '百度AI',
             avatar: 'https://gips0.baidu.com/it/u=1125504705,2263448440&fm=3028&app=3028&f=PNG&fmt=auto&q=75&size=f72_72',
             icon: 'https://gips0.baidu.com/it/u=1125504705,2263448440&fm=3028&app=3028&f=PNG&fmt=auto&q=75&size=f72_72',

@@ -508,6 +508,7 @@ export default {
         qw: false,
         minimax: false,
         metaso: false,
+        kimi: false,
         baidu: false,
       },
       accounts: {
@@ -516,6 +517,7 @@ export default {
         minimax: "",
         qw: "",
         metaso: "",
+        kimi: "",
         baidu: "",
       },
       isClick: {
@@ -524,6 +526,7 @@ export default {
         qw: false,
         minimax: false,
         metaso: false,
+        kimi: false
         baidu: false,
       },
       aiLoginDialogVisible: false,
@@ -539,6 +542,7 @@ export default {
         qw: true,
         minimax: true,
         metaso: true,
+        kimi: true,
         baidu: true,
       },
       resetStatusTimeout: null, // 状态检查超时定时器
@@ -597,6 +601,7 @@ export default {
         minimax: "MiniMax登录",
         qw: "通义千问登录",
         metaso: "秘塔登录",
+        kimi: "KiMi登录"
         baidu: "百度AI登录",
       };
       return titles[this.currentAiType] || "登录";
@@ -640,12 +645,14 @@ export default {
         this.isClick.minimax = false;
         this.isClick.metaso = false;
         this.isClick.qw = false;
+        this.isClick.kimi = false;
         this.isClick.baidu = false;
         this.isLoading.doubao = true;
         this.isLoading.deepseek = true;
         this.isLoading.minimax = true;
         this.isLoading.metaso = true;
         this.isLoading.qw = true;
+        this.isLoading.kimi = true;
         this.isLoading.baidu = true;
         this.mediaIsClick.zhihu = false;
         this.mediaIsLoading.zhihu = true;
@@ -655,6 +662,7 @@ export default {
         this.mediaIsLoading.toutiao = true;
 
         this.initWebSocket(this.userId); // 创建时建立连接
+
         setTimeout(() => {
           // 检查豆包登录状态
           this.sendMessage({
@@ -683,6 +691,12 @@ export default {
           // 检查通义千问登录状态
           this.sendMessage({
             type: 'PLAY_CHECK_QW_LOGIN',
+            userId: this.userId,
+            corpId: this.corpId
+          });
+          // 检查KiMi登录状态
+          this.sendMessage({
+            type: 'PLAY_CHECK_KIMI_LOGIN',
             userId: this.userId,
             corpId: this.corpId
           });
@@ -866,6 +880,13 @@ export default {
           corpId: this.corpId
         });
       }
+      if(type == 'kimi'){
+        this.sendMessage({
+          type: 'PLAY_GET_KIMI_QRCODE',
+          userId: this.userId,
+          corpId: this.corpId
+        });
+      }
       this.$message({
         message: "正在获取登录二维码...",
         type: "info",
@@ -878,6 +899,7 @@ export default {
         minimax: require("@/assets/logo/MiniMax.png"),
         qw: require('@/assets/logo/qw.png'),
         metaso: require("@/assets/logo/Metaso.png"),
+        kimi: require("@/assets/logo/Kimi.png"),
         baidu: require("@/assets/logo/Baidu.png"),
       };
       return icons[type] || "";
@@ -889,6 +911,7 @@ export default {
         minimax: "MiniMax",
         qw: "通义千问",
         metaso: "秘塔",
+        kimi: "KiMi",
         baidu: "百度AI",
       };
       return names[type] || "";
@@ -992,6 +1015,7 @@ export default {
         datastr.includes("RETURN_PC_MAX_QRURL") ||
         datastr.includes("RETURN_PC_METASO_QRURL") ||
         datastr.includes("RETURN_PC_QW_QRURL") ||
+        datastr.includes("RETURN_PC_KIMI_QRURL") ||
         datastr.includes("RETURN_PC_BAIDU_QRURL")
       ) {
         if (dataObj.url && dataObj.url.trim() !== "") {
@@ -1018,7 +1042,7 @@ export default {
           this.isLoading.doubao = false;
           this.isClick.doubao = true; // 检测成功后设为true
           // 检查是否所有AI都已恢复，全部恢复则清除超时定时器
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.baidu) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.baidu) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1035,7 +1059,7 @@ export default {
           this.accounts.deepseek = dataObj.status;
           this.isLoading.deepseek = false;
           this.isClick.deepseek = true; // 检测成功后设为true
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.baidu) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.baidu) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1052,7 +1076,7 @@ export default {
           this.accounts.qw = dataObj.status;
           this.isLoading.qw = false;
           this.isClick.qw = true;
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.baidu) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.baidu) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1069,7 +1093,7 @@ export default {
           this.accounts.minimax = dataObj.status;
           this.isLoading.minimax = false;
           this.isClick.minimax = true; // 检测成功后设为true
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.baidu) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.baidu) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1077,6 +1101,24 @@ export default {
           this.isLoading.minimax = false;
         }
       } else if (
+        datastr.includes("RETURN_KIMI_STATUS") &&
+        dataObj.status != ""
+      ) {
+        if (!datastr.includes("false")) {
+          this.aiLoginDialogVisible = false;
+          this.aiLoginStatus.kimi = true;
+          this.accounts.kimi = dataObj.status;
+          this.isLoading.kimi = false;
+          this.isClick.kimi = true; // 检测成功后设为true
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
+            if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
+          }
+        } else {
+          this.isClick.kimi = true;
+          this.isLoading.kimi = false;
+        }
+      }
+      else if (
         datastr.includes("RETURN_METASO_STATUS") &&
         dataObj.status != ""
       ) {
@@ -1086,7 +1128,7 @@ export default {
           this.accounts.metaso = dataObj.status;
           this.isLoading.metaso = false;
           this.isClick.metaso = true; // 检测成功后设为true
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.baidu) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw  && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.baidu) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1192,6 +1234,7 @@ export default {
         this.$message.error("WebSocket未连接");
       }
     },
+
     // 格式化时间
     formatTime(date) {
       const hours = String(date.getHours()).padStart(2, "0");
@@ -1214,6 +1257,7 @@ export default {
       this.isLoading.deepseek = true;
       this.isLoading.minimax = true;
       this.isLoading.metaso = true;
+      this.isLoading.kimi = true;
       this.isLoading.qw = true;
       this.isLoading.baidu = true;
       this.isClick.doubao = false;
@@ -1221,6 +1265,7 @@ export default {
       this.isClick.minimax = false;
       this.isClick.metaso = false;
       this.isClick.qw = false;
+      this.isClick.kimi = false;
       this.isClick.baidu = false;
       // 清除上一次的超时定时器
       if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
@@ -1231,13 +1276,15 @@ export default {
         this.isLoading.minimax = false;
         this.isLoading.metaso = false;
         this.isLoading.qw = false;
+        this.isLoading.kimi = false;
         this.isLoading.baidu = false;
         this.isClick.doubao = true;
         this.isClick.deepseek = true;
         this.isClick.minimax = true;
-        this.isClick.metaso = true;
         this.isClick.qw = true;
+        this.isClick.metaso = true;
         this.isClick.baidu = true;
+        this.isClick.kimi = true;
         this.$message.warning('AI登录状态刷新超时，请检查网络或稍后重试');
       }, 20000);
       // 只检测AI登录状态
@@ -1247,8 +1294,9 @@ export default {
       this.sendMessage({ type: "PLAY_CHECK_METASO_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_QW_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_BAIDU_LOGIN", userId: this.userId, corpId: this.corpId });
+      this.sendMessage({ type: "PLAY_CHECK_KIMI_LOGIN", userId: this.userId, corpId: this.corpId });
     },
-     handleRefreshMedia() {
+    handleRefreshMedia() {
       if (!this.userId || !this.corpId) return;
       // 只重置媒体相关状态
       this.mediaIsLoading.zhihu = true;
@@ -1540,18 +1588,18 @@ export default {
   color: #f56c6c;
   font-size: 14px;
   text-align: center;
-  
+
   i {
     font-size: 48px;
     margin-bottom: 12px;
     display: block;
   }
-  
+
   p {
     margin: 12px 0;
     font-size: 16px;
   }
-  
+
   .el-button {
     margin-top: 12px;
   }
