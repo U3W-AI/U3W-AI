@@ -85,32 +85,37 @@ public class BrowserController {
     @Operation(summary = "检查Kimi登录状态", description = "返回用户昵称表示已登录，false 表示未登录")
     @GetMapping("/checkKimiLogin")
     public String checkKimiLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"kimi")) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "kimi")) {
+            // 1. 打开新页面并访问Kimi网站
             Page page = context.newPage();
             page.navigate("https://www.kimi.com/");
-            Thread.sleep(5000);
+            Thread.sleep(5000); // 等待页面加载
+
+            // 2. 检查登录按钮是否存在
             Locator loginLocator = page.locator("span.user-name:has-text('登录')");
             if (loginLocator.count() > 0 && loginLocator.isVisible()) {
-                return "false";
-            } else {
-                Thread.sleep(500);
-
-                page.locator("div.user-info").click();
-                Thread.sleep(500);
-                page.locator("span:has-text('设置')").click();
-                Thread.sleep(500);
-                Locator nameLocator = page.locator("div.name");
-                if(nameLocator.count()>0){
-                    String nameText = nameLocator.textContent();
-                    return nameText;
-                }else{
-                    return "false";
-                }
+                return "false"; // 未登录
             }
+
+            // 3. 已登录情况处理
+            Thread.sleep(500);
+            page.locator("div.user-info").click(); // 点击用户信息
+            Thread.sleep(500);
+            page.locator("span:has-text('设置')").click(); // 点击设置
+            Thread.sleep(500);
+
+            // 4. 检查用户名元素
+            Locator nameLocator = page.locator("div.name");
+            if (nameLocator.count() > 0) {
+                return "登录"; // 已登录
+            }
+
+            return "false"; // 未找到用户名元素
+
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return "false";
+        return ""; // 异常情况返回空字符串
     }
 
 
