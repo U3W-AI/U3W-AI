@@ -640,7 +640,7 @@ export default {
         this.isLoading.minimax = true;
         this.isLoading.metaso = true;
         this.isLoading.qw = true;
-        this.isClick.kimi = true;
+        this.isLoading.kimi = true;
         this.mediaIsClick.zhihu = false;
         this.mediaIsLoading.zhihu = true;
         this.mediaIsClick.baijiahao = false;
@@ -1001,7 +1001,7 @@ export default {
           this.isLoading.doubao = false;
           this.isClick.doubao = true; // 检测成功后设为true
           // 检查是否所有AI都已恢复，全部恢复则清除超时定时器
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.metaso) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1018,7 +1018,7 @@ export default {
           this.accounts.deepseek = dataObj.status;
           this.isLoading.deepseek = false;
           this.isClick.deepseek = true; // 检测成功后设为true
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.metaso) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1035,7 +1035,7 @@ export default {
           this.accounts.qw = dataObj.status;
           this.isLoading.qw = false;
           this.isClick.qw = true;
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.metaso) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1052,7 +1052,7 @@ export default {
           this.accounts.minimax = dataObj.status;
           this.isLoading.minimax = false;
           this.isClick.minimax = true; // 检测成功后设为true
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.metaso) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1087,7 +1087,7 @@ export default {
           this.accounts.metaso = dataObj.status;
           this.isLoading.metaso = false;
           this.isClick.metaso = true; // 检测成功后设为true
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.kimi && !this.isLoading.metaso) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw  && !this.isLoading.metaso && !this.isLoading.kimi) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1205,7 +1205,7 @@ export default {
       this.isClick.minimax = false;
       this.isClick.metaso = false;
       this.isClick.qw = false;
-      this.isLoading.kimi = false;
+      this.isClick.kimi = false;
       // 清除上一次的超时定时器
       if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
       // 超时自动恢复（20秒）
@@ -1220,7 +1220,7 @@ export default {
         this.isClick.minimax = true;
         this.isClick.qw = true;
         this.isClick.metaso = true;
-        this.isLoading.kimi = true;
+        this.isClick.kimi = true;
         this.$message.warning('AI登录状态刷新超时，请检查网络或稍后重试');
       }, 20000);
       // 只检测AI登录状态

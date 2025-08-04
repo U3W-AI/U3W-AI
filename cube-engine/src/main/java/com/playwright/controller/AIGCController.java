@@ -948,9 +948,10 @@ public class AIGCController {
             //关闭截图
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
+            Thread.sleep(500);
             //获取对话链接网址
             page.locator("span:has-text('复制链接')").click();
-            Thread.sleep(500);
+            Thread.sleep(1000);
             String shareUrl=(String) page.evaluate("async () => { return await navigator.clipboard.readText(); }");
             //截取网址部分
             if (shareUrl != null && shareUrl.contains("https://")) {
@@ -963,7 +964,7 @@ public class AIGCController {
                 page.locator("button.kimi-button.info.button").nth(1).click();
             });
 
-            logInfo.sendTaskLog( "执行完成",userId,"kimi");
+            logInfo.sendTaskLog( "执行完成",userId,"Kimi");
             logInfo.sendChatData(page,"/chat/([^/?#]+)",userId,"RETURN_KIMI_CHATID",1);
             logInfo.sendResData(resText,userId,"kimi","RETURN_KIMI_RES",shareUrl,sharImgUrl);
             //保存数据库
