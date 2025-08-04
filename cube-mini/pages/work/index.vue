@@ -529,6 +529,18 @@
             progressLogs: [],
             isExpanded: true,
           },
+          {
+            name: "百度AI",
+            avatar: 'https://gips0.baidu.com/it/u=1125504705,2263448440&fm=3028&app=3028&f=PNG&fmt=auto&q=75&size=f72_72',
+            capabilities: [
+              { label: "联网搜索", value: "web_search" }
+            ],
+            selectedCapabilities: [],
+            enabled: true,
+            status: "idle",
+            progressLogs: [],
+            isExpanded: true,
+          },
 				],
 
 				// 输入和任务状态
@@ -588,18 +600,21 @@
           deepseek: false,
           tongyi: false,
           mini: false,
+          baidu: false,
 				},
 				accounts: {
 					doubao: '',
           deepseek: '',
           tongyi: '',
           mini: '',
+          baidu: '',
 				},
 				isLoading: {
 					doubao: true,
           deepseek: true,
           tongyi: true,
 		      mini: true,
+          baidu: true,
 				}
 			};
 		},
@@ -613,7 +628,7 @@
 				const hasAvailableAI = this.aiList.some(ai => ai.enabled && this.isAiLoginEnabled(ai));
 
 				// 检查是否正在加载AI状态（如果正在加载，禁用发送按钮）
-				const isCheckingStatus = this.isLoading.doubao || this.isLoading.deepseek || this.isLoading.tongyi || this.isLoading.mini;
+				const isCheckingStatus = this.isLoading.doubao || this.isLoading.deepseek || this.isLoading.tongyi || this.isLoading.mini || this.isLoading.baidu;
 
 				return hasInput && hasAvailableAI && !isCheckingStatus;
 			},
@@ -839,6 +854,14 @@
               this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-sdsk,'
             } else if (ai.selectedCapability.includes("web_search")) {
               this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-lwss,';
+            }
+          }
+          if(ai.name === '百度AI' && ai.enabled){
+            if(this.isAiLoginEnabled(ai)){
+              this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-ai,';
+              if (ai.selectedCapabilities.includes("web_search")) {
+                this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-lwss,';
+              }
             }
           }
 				});
@@ -1316,6 +1339,20 @@
           // 更新AI启用状态
           this.updateAiEnabledStatus();
         }
+        // 处理百度AI登录状态
+        else if (datastr.includes("RETURN_BAIDU_STATUS") && dataObj.status != "") {
+          this.isLoading.baidu = false;
+          if (!datastr.includes("false")) {
+            this.aiLoginStatus.baidu = true;
+            this.accounts.baidu = dataObj.status;
+          } else {
+            this.aiLoginStatus.baidu = false;
+            // 禁用相关AI
+            this.disableAIsByLoginStatus("baidu");
+          }
+          // 更新AI启用状态
+          this.updateAiEnabledStatus();
+        }
 			},
 
 			handleAIResult(dataObj) {
@@ -1363,6 +1400,10 @@
 			case "RETURN_MAX_RES":
 			  console.log("收到消息:", dataObj);
 			  targetAI = this.enabledAIs.find((ai) => ai.name === "MiniMax Chat");
+			  break;
+			case "RETURN_BAIDU_RES":
+			  console.log("收到百度AI消息:", dataObj);
+			  targetAI = this.enabledAIs.find((ai) => ai.name === "百度AI");
 			  break;
 				}
 
@@ -2390,6 +2431,18 @@
 					  progressLogs: [],
 					  isExpanded: true,
 					},
+					{
+					  name: "百度AI",
+					  avatar: 'https://u3w.com/chatfile/Baidu.png',
+					  capabilities: [
+					    { label: "联网搜索", value: "web_search" }
+					  ],
+					  selectedCapabilities: [],
+					  enabled: true,
+					  status: "idle",
+					  progressLogs: [],
+					  isExpanded: true,
+					},
 				];
 				// 不再根据AI登录状态更新AI启用状态，保持原有选择
 
@@ -2441,6 +2494,13 @@
           userId: this.userId,
           corpId: this.corpId,
         });
+
+        // 检查百度AI登录状态
+        this.sendWebSocketMessage({
+          type: "PLAY_CHECK_BAIDU_LOGIN",
+          userId: this.userId,
+          corpId: this.corpId,
+        });
 			},
 
 			getPlatformIcon(type) {
@@ -2474,6 +2534,7 @@
           deepseek: true,
           tongyi: true,
 		      mini: true,
+          baidu: true,
 				};
 
 				// 重置登录状态
@@ -2482,6 +2543,7 @@
           deepseek: false,
 		      mini: false,
           tongyi: false,
+          baidu: false,
 				};
 
 				// 重置账户信息
@@ -2490,6 +2552,7 @@
           deepseek: '',
           tongyi: '',
 		      mini: '',
+          baidu: '',
 				};
 
 				// 显示刷新提示
@@ -2521,6 +2584,8 @@
             return this.aiLoginStatus.tongyi;   // 通义登录状态
           case "MiniMax Chat":
             return this.aiLoginStatus.mini; // MiniMax Chat登录状态
+          case "百度AI":
+            return this.aiLoginStatus.baidu; // 百度AI登录状态
           default:
 						return false;
 				}
@@ -2537,6 +2602,8 @@
             return this.isLoading.tongyi;
           case "MiniMax Chat":
             return this.isLoading.mini;
+          case "百度AI":
+            return this.isLoading.baidu;
           default:
 						return false;
 				}

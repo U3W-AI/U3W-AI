@@ -703,6 +703,18 @@ export default {
           status: 'idle',
           progressLogs: [],
           isExpanded: true
+        },
+        {
+          name: '百度AI',
+          avatar: require('../../../assets/ai/Baidu.png'),
+          capabilities: [
+            { label: '联网搜索', value: 'web_search' }
+          ],
+          selectedCapabilities: [],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true,
         }
       ],
       promptInput: "",
@@ -883,6 +895,12 @@ export default {
             this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-sdsk,'
           } else if (ai.selectedCapability.includes("web_search")) {
             this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-lwss,';
+          }
+        }
+        if (ai.name === '百度AI' && ai.enabled) {
+          this.userInfoReq.roles = this.userInfoReq.roles + 'baidu,';
+          if (ai.selectedCapabilities.includes("web_search")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-lwss,';
           }
         }
       });
@@ -1725,6 +1743,20 @@ export default {
           progressLogs: [],
           isExpanded: true
         },
+        {
+          name: '百度AI',
+          avatar: require('../../../assets/ai/Baidu.png'),
+          capabilities: [
+            { label: '联网搜索', value: 'web_search' }
+          ],
+          selectedCapabilities: [],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true,
+          isSingleSelect: false,
+          version: '2.0'
+        }
       ];
       // 展开相关区域
       this.activeCollapses = ["ai-selection", "prompt-input"];

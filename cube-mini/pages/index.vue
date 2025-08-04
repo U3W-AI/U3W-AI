@@ -110,6 +110,14 @@
             description: '通情、达义，你的全能AI助手。超级助手，答你所问。生活办公，效率翻倍。个性智能体，丰富角色趣味互动。',
             type: 'tongyi'
           },
+          {
+            name: '百度AI',
+            avatar: 'https://gips0.baidu.com/it/u=1125504705,2263448440&fm=3028&app=3028&f=PNG&fmt=auto&q=75&size=f72_72',
+            icon: 'https://gips0.baidu.com/it/u=1125504705,2263448440&fm=3028&app=3028&f=PNG&fmt=auto&q=75&size=f72_72',
+            title: '百度AI',
+            description: '百度智能搜索AI助手，支持联网搜索，为您提供准确、实时的信息查询服务。',
+            type: 'baidu'
+          },
 				],
 				advantages: [
 					// {
