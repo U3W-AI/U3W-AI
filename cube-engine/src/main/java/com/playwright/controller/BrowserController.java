@@ -270,17 +270,16 @@ public class BrowserController {
 
             Page page = context.newPage();
             page.navigate("https://www.kimi.com/");
-            //判断是否登录
+
             Locator userLoginLocator = page.locator("div.user-info");
-            if(userLoginLocator.isVisible()){
-                userLoginLocator.click();
-            }
+            userLoginLocator.click();
+
             Thread.sleep(2000);
             String url = screenshotUtil.screenshotAndUpload(page,"checkKiMiLogin.png");
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("url",url);
             jsonObject.put("userId",userId);
-            jsonObject.put("type","RETURN_PC_KiMi_QRURL");
+            jsonObject.put("type","RETURN_PC_KIMI_QRURL");
             // 发送二维码URL
             webSocketClientService.sendMessage(jsonObject.toJSONString());
 
