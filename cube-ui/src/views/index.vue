@@ -1176,6 +1176,7 @@ export default {
         this.$message.error("WebSocket未连接");
       }
     },
+
     // 格式化时间
     formatTime(date) {
       const hours = String(date.getHours()).padStart(2, "0");
