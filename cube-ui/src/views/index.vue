@@ -526,7 +526,7 @@ export default {
         qw: false,
         minimax: false,
         metaso: false,
-        kimi: false
+        kimi: false,
         baidu: false,
       },
       aiLoginDialogVisible: false,
@@ -601,7 +601,7 @@ export default {
         minimax: "MiniMax登录",
         qw: "通义千问登录",
         metaso: "秘塔登录",
-        kimi: "KiMi登录"
+        kimi: "KiMi登录",
         baidu: "百度AI登录",
       };
       return titles[this.currentAiType] || "登录";
