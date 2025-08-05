@@ -120,8 +120,8 @@
           },
           {
             name: '百度AI',
-            avatar: 'https://gips0.baidu.com/it/u=1125504705,2263448440&fm=3028&app=3028&f=PNG&fmt=auto&q=75&size=f72_72',
-            icon: 'https://gips0.baidu.com/it/u=1125504705,2263448440&fm=3028&app=3028&f=PNG&fmt=auto&q=75&size=f72_72',
+            avatar: '/static/images/icon/Baidu.png',
+            icon: '/static/images/icon/Baidu.png',
             title: '百度AI',
             description: '百度智能搜索AI助手，支持深度搜索，为您提供准确、实时的信息查询服务。',
             type: 'baidu'
