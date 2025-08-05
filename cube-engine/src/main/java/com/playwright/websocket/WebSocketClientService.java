@@ -172,7 +172,7 @@ public class WebSocketClientService {
                         }
 
                         // 处理包含"kimi"的消息
-                        if(message.contains("kimi")){
+                        if(message.contains("kimi-talk")){
                             new Thread(() -> {
                                 try {
                                     aigcController.startKimi(userInfoRequest);
