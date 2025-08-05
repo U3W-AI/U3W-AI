@@ -629,6 +629,7 @@ export default {
         dbChatId: "",
         tyChatId: "",
         kimiChatId: "",
+        baiduChatId: "",
         isNewChat: true,
       },
       jsonRpcReqest: {
@@ -709,13 +710,25 @@ export default {
           avatar: require('../../../assets/ai/qw.png'),
           capabilities: [
             { label: '深度思考', value: 'deep_thinking' },
-            { label: '联网搜索', value: 'web_search' }
+            { label: '深度搜索', value: 'web_search' }
           ],
           selectedCapability: '',
           enabled: true,
           status: 'idle',
           progressLogs: [],
           isExpanded: true
+        },
+        {
+          name: '百度AI',
+          avatar: require('../../../assets/ai/Baidu.png'),
+          capabilities: [
+            { label: '深度搜索', value: 'web_search' }
+          ],
+          selectedCapabilities: [],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true,
         }
       ],
       promptInput: "",
@@ -902,6 +915,12 @@ export default {
             this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-sdsk,'
           } else if (ai.selectedCapability.includes("web_search")) {
             this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-lwss,';
+          }
+        }
+        if (ai.name === '百度AI' && ai.enabled) {
+          this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-agent,';
+          if (ai.selectedCapabilities.includes("web_search")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-sdss,';
           }
         }
       });
@@ -1125,6 +1144,8 @@ export default {
         this.userInfoReq.metasoChatId = dataObj.chatId;
       } else if (dataObj.type === "RETURN_KIMI_CHATID" && dataObj.chatId) {
         this.userInfoReq.kimiChatId = dataObj.chatId;
+      } else if (dataObj.type === "RETURN_BAIDU_CHATID" && dataObj.chatId) {
+        this.userInfoReq.baiduChatId = dataObj.chatId;
       }
 
       // 处理进度日志消息
@@ -1360,6 +1381,11 @@ export default {
           console.log("收到kimi消息:", dataObj);
           targetAI = this.enabledAIs.find((ai) => ai.name === "Kimi");
           break;
+        case 'RETURN_BAIDU_RES':
+          console.log('收到百度AI消息:', data);
+          targetAI = this.enabledAIs.find(ai => ai.name === '百度AI');
+          break;
+
       }
 
       if (targetAI) {
@@ -1588,6 +1614,7 @@ export default {
         this.userInfoReq.dbChatId = item.dbChatId || "";
         this.userInfoReq.maxChatId = item.maxChatId || "";
         this.userInfoReq.kimiChatId = item.kimiChatId || "";
+        this.userInfoReq.baiduChatId= item.baiduChatId || "";
         this.userInfoReq.tyChatId = item.tyChatId || "";
         this.userInfoReq.metasoChatId = item.metasoChatId || "";
         this.userInfoReq.isNewChat = false;
@@ -1623,6 +1650,7 @@ export default {
         tyChatId: this.userInfoReq.tyChatId,
         maxChatId: this.userInfoReq.maxChatId,
         kimiChatId: this.userInfoReq.kimiChatId,
+        baiduChatId: this.userInfoReq.baiduChatId,
         metasoChatId: this.userInfoReq.metasoChatId,
       };
 
@@ -1638,6 +1666,7 @@ export default {
           tyChatId: this.userInfoReq.tyChatId,
           maxChatId: this.userInfoReq.maxChatId,
           kimiChatId: this.userInfoReq.kimiChatId,
+          baiduChatId: this.userInfoReq.baiduChatId,
           metasoChatId: this.userInfoReq.metasoChatId,
         });
       } catch (error) {
@@ -1677,6 +1706,7 @@ export default {
         tyChatId: "",
         maxChatId: "",
         kimiChatId: "",
+        baiduChatId: "",
         metasoChatId: "",
         isNewChat: true,
       };
@@ -1753,7 +1783,7 @@ export default {
           avatar: require('../../../assets/ai/qw.png'),
           capabilities: [
             { label: '深度思考', value: 'deep_thinking' },
-            { label: '联网搜索', value: 'web_search' }
+            { label: '深度搜索', value: 'web_search' }
           ],
           selectedCapability: '',
           enabled: true,
@@ -1761,6 +1791,20 @@ export default {
           progressLogs: [],
           isExpanded: true
         },
+        {
+          name: '百度AI',
+          avatar: require('../../../assets/ai/Baidu.png'),
+          capabilities: [
+            { label: '深度搜索', value: 'web_search' }
+          ],
+          selectedCapabilities: [],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true,
+          isSingleSelect: false,
+          version: '2.0'
+        }
       ];
       // 展开相关区域
       this.activeCollapses = ["ai-selection", "prompt-input"];

@@ -6,6 +6,7 @@ import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
+import com.microsoft.playwright.options.LoadState;
 import com.microsoft.playwright.options.WaitForSelectorState;
 import com.playwright.utils.*;
 import com.playwright.entity.UserInfoRequest;
@@ -48,6 +49,9 @@ public class BrowserController {
 
     @Autowired
     private BrowserUtil browserUtil;
+    
+    @Autowired
+    private BaiduUtil baiduUtil;
 
     /**
      * 检查MiniMax主站登录状态
@@ -787,6 +791,127 @@ public class BrowserController {
             e.printStackTrace();
         }
         return "false";
+    }
+
+    @GetMapping("/checkBaiduLogin")
+    public String checkBaiduLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "baidu")) {
+            Page page = context.newPage();
+            
+            // 使用BaiduUtil检查登录状态
+            String loginStatus = baiduUtil.checkBaiduLogin(page, true);
+            
+            if (!"false".equals(loginStatus)) {
+                return loginStatus; // 返回用户名或登录状态
+            } else {
+                return "false"; // 未登录
+            }
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "false";
+        }
+    }
+
+    /**
+     * 获取百度登录二维码
+     * @param userId
+     */
+    @GetMapping("/getBaiduQrCode")
+    public String getBaiduQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "baidu")) {
+            Page page = context.newPage();
+            // 首先检查当前登录状态
+            String currentStatus = baiduUtil.checkBaiduLogin(page, true);
+            if (!"false".equals(currentStatus)) {
+                // 已经登录，直接返回状态
+                JSONObject statusObject = new JSONObject();
+                statusObject.put("status", currentStatus);
+                statusObject.put("userId", userId);
+                statusObject.put("type", "RETURN_BAIDU_STATUS");
+                webSocketClientService.sendMessage(statusObject.toJSONString());
+                logMsgUtil.sendTaskLog("百度AI已登录，用户: " + currentStatus, userId, "百度AI");
+
+                // 截图返回当前页面
+                String url = screenshotUtil.screenshotAndUpload(page, "getBaiduLoggedIn.png");
+                JSONObject qrUpdateObject = new JSONObject();
+                qrUpdateObject.put("url", url);
+                qrUpdateObject.put("userId", userId);
+                qrUpdateObject.put("type", "RETURN_PC_BAIDU_QRURL");
+                webSocketClientService.sendMessage(qrUpdateObject.toJSONString());
+                return url;
+            }
+
+            // 未登录，使用BaiduUtil获取二维码
+            String url = baiduUtil.waitAndGetQRCode(page, userId);
+            
+            if (url != null && !url.trim().isEmpty()) {
+                // 发送二维码截图
+                JSONObject qrUpdateObject = new JSONObject();
+                qrUpdateObject.put("url", url);
+                qrUpdateObject.put("userId", userId);
+                qrUpdateObject.put("type", "RETURN_PC_BAIDU_QRURL");
+                webSocketClientService.sendMessage(qrUpdateObject.toJSONString());
+
+                // 实时监测登录状态 - 最多等待60秒
+                int maxAttempts = 30; // 30次尝试，每次2秒
+                for (int i = 0; i < maxAttempts; i++) {
+                    Thread.sleep(2000);
+
+                    // 检查当前页面登录状态
+                    String loginStatus = baiduUtil.checkBaiduLogin(page, false);
+
+                    if (!"false".equals(loginStatus)) {
+                        // 登录成功，发送状态到WebSocket
+                        JSONObject statusSuccessObject = new JSONObject();
+                        statusSuccessObject.put("status", loginStatus);
+                        statusSuccessObject.put("userId", userId);
+                        statusSuccessObject.put("type", "RETURN_BAIDU_STATUS");
+                        webSocketClientService.sendMessage(statusSuccessObject.toJSONString());
+
+                        logMsgUtil.sendTaskLog("百度AI登录成功: " + loginStatus, userId, "百度AI");
+                        break;
+                    }
+
+                    // 每5次尝试重新截图一次，可能二维码已更新
+                    if (i % 5 == 4) {
+                        try {
+                            String newUrl = screenshotUtil.screenshotAndUpload(page, "getBaiduQrCode_refresh.png");
+                            JSONObject qrRefreshObject = new JSONObject();
+                            qrRefreshObject.put("url", newUrl);
+                            qrRefreshObject.put("userId", userId);
+                            qrRefreshObject.put("type", "RETURN_PC_BAIDU_QRURL");
+                            webSocketClientService.sendMessage(qrRefreshObject.toJSONString());
+                        } catch (Exception e) {
+                            // 忽略截图错误
+                        }
+                    }
+                }
+                return url;
+            } else {
+                logMsgUtil.sendTaskLog("获取百度AI二维码失败", userId, "百度AI");
+                // 发送失败消息到前端
+                JSONObject errorObject = new JSONObject();
+                errorObject.put("url", "");
+                errorObject.put("userId", userId);
+                errorObject.put("type", "RETURN_PC_BAIDU_QRURL");
+                errorObject.put("error", "获取二维码失败");
+                webSocketClientService.sendMessage(errorObject.toJSONString());
+                return "false";
+            }
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            logMsgUtil.sendTaskLog("获取百度AI二维码失败: " + e.getMessage(), userId, "百度AI");
+            // 发送异常消息到前端
+            JSONObject errorObject = new JSONObject();
+            errorObject.put("url", "");
+            errorObject.put("userId", userId);
+            errorObject.put("type", "RETURN_PC_BAIDU_QRURL");
+            errorObject.put("error", "获取二维码异常: " + e.getMessage());
+            webSocketClientService.sendMessage(errorObject.toJSONString());
+            return "false";
+        }
     }
 
 }

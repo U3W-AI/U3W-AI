@@ -48,6 +48,24 @@
 		        transform: scale(0.92);
 		opacity: 0.7;
 }
+.connection-indicator.data-v-51b5538d {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1px solid #fff;
+    z-index: 1;
+}
+.connection-indicator.connected.data-v-51b5538d {
+    background-color: #52c41a;
+    box-shadow: 0 0 4px rgba(82, 196, 26, 0.6);
+}
+.connection-indicator.disconnected.data-v-51b5538d {
+    background-color: #ff4d4f;
+    box-shadow: 0 0 4px rgba(255, 77, 79, 0.6);
+}
 .action-icon.data-v-51b5538d {
 		font-size: 18px;
 		color: #ffffff;
@@ -897,5 +915,56 @@ to {
   .result-text .deepseek-response ._ol.data-v-51b5538d {
     padding-left: 20px;
     margin: 10px 0;
+}
+
+	/* 媒体选择样式 */
+.media-selection-section.data-v-51b5538d {
+    margin-bottom: 20px;
+}
+.media-radio-group.data-v-51b5538d {
+    display: flex;
+    gap: 10px;
+    margin: 10px 0;
+}
+.media-radio-item.data-v-51b5538d {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+    transition: all 0.3s ease;
+}
+.media-radio-item.active.data-v-51b5538d {
+    border-color: #409eff;
+    background-color: #ecf5ff;
+}
+.media-icon.data-v-51b5538d {
+    font-size: 24px;
+    margin-bottom: 5px;
+}
+.media-text.data-v-51b5538d {
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+}
+.media-description.data-v-51b5538d {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background-color: #f0f9ff;
+    border-radius: 4px;
+    border-left: 3px solid #409eff;
+}
+.description-text.data-v-51b5538d {
+    font-size: 12px;
+    color: #666;
+    line-height: 1.4;
+}
+
+	/* 微头条按钮样式 */
+.media-radio-item.active.data-v-51b5538d {
+    background: linear-gradient(135deg, #ff6b35, #f7931e);
 }
 

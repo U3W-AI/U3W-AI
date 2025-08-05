@@ -215,7 +215,7 @@
       height="800px"
       center
     >
-      <div class="qr-code-container" v-loading="!qrCodeUrl">
+      <div class="qr-code-container" v-loading="!qrCodeUrl && !qrCodeError">
         <div v-if="qrCodeUrl" class="qr-code">
           <img
             style="width: 100%; height: 100%"
@@ -223,6 +223,11 @@
             alt="登录二维码"
           />
           <p class="qr-tip">请使用对应AI平台APP扫码登录</p>
+        </div>
+        <div v-else-if="qrCodeError" class="error-tip">
+          <i class="el-icon-warning"></i>
+          <p>{{qrCodeError}}</p>
+          <el-button size="small" @click="retryGetQrCode">重试</el-button>
         </div>
         <div v-else class="loading-tip">正在获取登录二维码...</div>
       </div>
@@ -504,6 +509,7 @@ export default {
         minimax: false,
         metaso: false,
         kimi: false,
+        baidu: false,
       },
       accounts: {
         doubao: "",
@@ -512,6 +518,7 @@ export default {
         qw: "",
         metaso: "",
         kimi: "",
+        baidu: "",
       },
       isClick: {
         doubao: false,
@@ -519,11 +526,13 @@ export default {
         qw: false,
         minimax: false,
         metaso: false,
-        kimi: false
+        kimi: false,
+        baidu: false,
       },
       aiLoginDialogVisible: false,
       currentAiType: "",
       qrCodeUrl: "",
+      qrCodeError: "", // QR码获取错误信息
       // 消息相关变量
       messages: [],
       messageInput: "",
@@ -533,7 +542,8 @@ export default {
         qw: true,
         minimax: true,
         metaso: true,
-        kimi: true
+        kimi: true,
+        baidu: true,
       },
       resetStatusTimeout: null, // 状态检查超时定时器
 
@@ -591,7 +601,8 @@ export default {
         minimax: "MiniMax登录",
         qw: "通义千问登录",
         metaso: "秘塔登录",
-        kimi: "KiMi登录"
+        kimi: "KiMi登录",
+        baidu: "百度AI登录",
       };
       return titles[this.currentAiType] || "登录";
     },
@@ -635,12 +646,14 @@ export default {
         this.isClick.metaso = false;
         this.isClick.qw = false;
         this.isClick.kimi = false;
+        this.isClick.baidu = false;
         this.isLoading.doubao = true;
         this.isLoading.deepseek = true;
         this.isLoading.minimax = true;
         this.isLoading.metaso = true;
         this.isLoading.qw = true;
         this.isLoading.kimi = true;
+        this.isLoading.baidu = true;
         this.mediaIsClick.zhihu = false;
         this.mediaIsLoading.zhihu = true;
         this.mediaIsClick.baijiahao = false;
@@ -684,6 +697,12 @@ export default {
           // 检查KiMi登录状态
           this.sendMessage({
             type: 'PLAY_CHECK_KIMI_LOGIN',
+            userId: this.userId,
+            corpId: this.corpId
+          });
+          // 检查百度AI登录状态
+          this.sendMessage({
+            type: 'PLAY_CHECK_BAIDU_LOGIN',
             userId: this.userId,
             corpId: this.corpId
           });
@@ -812,6 +831,9 @@ export default {
       this.aiLoginDialogVisible = true;
       this.isLoading[type] = true;
       this.isClick[type] = false;
+      // 重置二维码状态
+      this.qrCodeUrl = "";
+      this.qrCodeError = "";
       this.getQrCode(type);
     },
     getQrCode(type) {
@@ -851,6 +873,13 @@ export default {
           corpId: this.corpId
         });
       }
+      if(type == 'baidu'){
+        this.sendMessage({
+          type: 'PLAY_GET_BAIDU_QRCODE',
+          userId: this.userId,
+          corpId: this.corpId
+        });
+      }
       if(type == 'kimi'){
         this.sendMessage({
           type: 'PLAY_GET_KIMI_QRCODE',
@@ -871,6 +900,7 @@ export default {
         qw: require('@/assets/logo/qw.png'),
         metaso: require("@/assets/logo/Metaso.png"),
         kimi: require("@/assets/logo/Kimi.png"),
+        baidu: require("@/assets/logo/Baidu.png"),
       };
       return icons[type] || "";
     },
@@ -882,6 +912,7 @@ export default {
         qw: "通义千问",
         metaso: "秘塔",
         kimi: "KiMi",
+        baidu: "百度AI",
       };
       return names[type] || "";
     },
@@ -984,9 +1015,19 @@ export default {
         datastr.includes("RETURN_PC_MAX_QRURL") ||
         datastr.includes("RETURN_PC_METASO_QRURL") ||
         datastr.includes("RETURN_PC_QW_QRURL") ||
-        datastr.includes("RETURN_PC_KIMI_QRURL")
+        datastr.includes("RETURN_PC_KIMI_QRURL") ||
+        datastr.includes("RETURN_PC_BAIDU_QRURL")
       ) {
-        this.qrCodeUrl = dataObj.url;
+        if (dataObj.url && dataObj.url.trim() !== "") {
+          this.qrCodeUrl = dataObj.url;
+          this.qrCodeError = ""; // 清除错误信息
+        } else if (dataObj.error) {
+          this.qrCodeError = dataObj.error;
+          this.qrCodeUrl = ""; // 清除二维码URL
+        } else {
+          this.qrCodeError = "获取二维码失败，请重试";
+          this.qrCodeUrl = "";
+        }
       } else if (datastr.includes("RETURN_PC_ZHIHU_QRURL")) {
         this.mediaQrCodeUrl = dataObj.url;
       } else if (datastr.includes("RETURN_PC_TTH_QRURL")) {
@@ -1001,7 +1042,7 @@ export default {
           this.isLoading.doubao = false;
           this.isClick.doubao = true; // 检测成功后设为true
           // 检查是否所有AI都已恢复，全部恢复则清除超时定时器
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.baidu) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1018,7 +1059,7 @@ export default {
           this.accounts.deepseek = dataObj.status;
           this.isLoading.deepseek = false;
           this.isClick.deepseek = true; // 检测成功后设为true
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.baidu) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1035,7 +1076,7 @@ export default {
           this.accounts.qw = dataObj.status;
           this.isLoading.qw = false;
           this.isClick.qw = true;
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.baidu) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1052,7 +1093,7 @@ export default {
           this.accounts.minimax = dataObj.status;
           this.isLoading.minimax = false;
           this.isClick.minimax = true; // 检测成功后设为true
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.baidu) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1087,12 +1128,29 @@ export default {
           this.accounts.metaso = dataObj.status;
           this.isLoading.metaso = false;
           this.isClick.metaso = true; // 检测成功后设为true
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw  && !this.isLoading.metaso && !this.isLoading.kimi) {
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw  && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.baidu) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
           this.isClick.metaso = true;
           this.isLoading.metaso = false;
+        }
+      } else if (
+        datastr.includes("RETURN_BAIDU_STATUS") &&
+        dataObj.status != ""
+      ) {
+        if (!datastr.includes("false")) {
+          this.aiLoginDialogVisible = false;
+          this.aiLoginStatus.baidu = true;
+          this.accounts.baidu = dataObj.status;
+          this.isLoading.baidu = false;
+          this.isClick.baidu = true;
+          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.baidu) {
+            if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
+          }
+        } else {
+          this.isClick.baidu = true;
+          this.isLoading.baidu = false;
         }
       } else if (
         datastr.includes("RETURN_ZHIHU_STATUS") &&
@@ -1201,12 +1259,14 @@ export default {
       this.isLoading.metaso = true;
       this.isLoading.kimi = true;
       this.isLoading.qw = true;
+      this.isLoading.baidu = true;
       this.isClick.doubao = false;
       this.isClick.deepseek = false;
       this.isClick.minimax = false;
       this.isClick.metaso = false;
       this.isClick.qw = false;
       this.isClick.kimi = false;
+      this.isClick.baidu = false;
       // 清除上一次的超时定时器
       if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
       // 超时自动恢复（20秒）
@@ -1214,13 +1274,16 @@ export default {
         this.isLoading.doubao = false;
         this.isLoading.deepseek = false;
         this.isLoading.minimax = false;
+        this.isLoading.metaso = false;
         this.isLoading.qw = false;
         this.isLoading.kimi = false;
+        this.isLoading.baidu = false;
         this.isClick.doubao = true;
         this.isClick.deepseek = true;
         this.isClick.minimax = true;
         this.isClick.qw = true;
         this.isClick.metaso = true;
+        this.isClick.baidu = true;
         this.isClick.kimi = true;
         this.$message.warning('AI登录状态刷新超时，请检查网络或稍后重试');
       }, 20000);
@@ -1230,6 +1293,7 @@ export default {
       this.sendMessage({ type: "PLAY_CHECK_DEEPSEEK_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_METASO_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_QW_LOGIN", userId: this.userId, corpId: this.corpId });
+      this.sendMessage({ type: "PLAY_CHECK_BAIDU_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_KIMI_LOGIN", userId: this.userId, corpId: this.corpId });
     },
     handleRefreshMedia() {
@@ -1257,6 +1321,12 @@ export default {
       this.sendMessage({ type: "PLAY_CHECK_ZHIHU_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_TTH_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_BAIJIAHAO_LOGIN", userId: this.userId, corpId: this.corpId });
+    },
+    // 重试获取二维码
+    retryGetQrCode() {
+      this.qrCodeError = "";
+      this.qrCodeUrl = "";
+      this.getQrCode(this.currentAiType);
     },
   },
   beforeDestroy() {
@@ -1512,6 +1582,27 @@ export default {
 .loading-tip {
   color: #909399;
   font-size: 14px;
+}
+
+.error-tip {
+  color: #f56c6c;
+  font-size: 14px;
+  text-align: center;
+
+  i {
+    font-size: 48px;
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  p {
+    margin: 12px 0;
+    font-size: 16px;
+  }
+
+  .el-button {
+    margin-top: 12px;
+  }
 }
 
 .ai-status-card {

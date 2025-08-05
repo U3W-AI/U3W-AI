@@ -333,12 +333,6 @@
                 <text class="media-icon">📰</text>
                 <text class="media-text">微头条</text>
               </view>
-			  <view class="media-radio-item"
-			        :class="{'active': selectedMedia === 'baijiahao'}"
-			        @tap="selectMedia('baijiahao')">
-			    <text class="media-icon">🔈</text>
-			    <text class="media-text">百家号</text>
-			  </view>
             </view>
             <view class="media-description">
               <text v-if="selectedMedia === 'wechat'" class="description-text">
@@ -350,9 +344,6 @@
               <text v-else-if="selectedMedia === 'toutiao'" class="description-text">
                 📰 将内容排版为适合微头条的文章格式，并发布到微头条
               </text>
-			  <text v-else-if="selectedMedia === 'baijiahao'" class="description-text">
-			    🔈 将内容排版为适合百家号的帖子格式，并发布到百家号草稿箱
-			  </text>
             </view>
           </view>
 
@@ -474,6 +465,7 @@
 					dbChatId: '',
           tyChatId: '',
           kimiChatId: '',
+           baiduChatId: '',
 					isNewChat: true
 				},
 				jsonRpcReqest: {
@@ -573,6 +565,18 @@
             isSingleSelect: true  // 添加单选标记
           },
           {
+            name: "百度AI",
+            avatar: '/static/images/icon/Baidu.png',
+            capabilities: [
+              { label: "深度搜索", value: "web_search" }
+            ],
+            selectedCapabilities: [],
+            enabled: true,
+            status: "idle",
+            progressLogs: [],
+            isExpanded: true,
+          },
+          {
             name: "Kimi",
             avatar: 'https://u3w.com/chatfile/KIMI.png',
             capabilities: [
@@ -645,6 +649,7 @@
           mini: false,
           metaso: false,
           kimi: false,
+          baidu: false,
 				},
 				accounts: {
 					doubao: '',
@@ -653,6 +658,7 @@
           mini: '',
           metaso: '',
           kimi: '',
+          baidu: '',
 				},
 				isLoading: {
 					doubao: true,
@@ -661,6 +667,7 @@
 		      mini: true,
 		      metaso: true,
           kimi: true,
+          baidu: true,
 				}
 			};
 		},
@@ -674,7 +681,7 @@
 				const hasAvailableAI = this.aiList.some(ai => ai.enabled && this.isAiLoginEnabled(ai));
 
 				// 检查是否正在加载AI状态（如果正在加载，禁用发送按钮）
-				const isCheckingStatus = this.isLoading.doubao || this.isLoading.deepseek || this.isLoading.tongyi || this.isLoading.mini;
+				const isCheckingStatus = this.isLoading.doubao || this.isLoading.deepseek || this.isLoading.tongyi || this.isLoading.mini || this.isLoading.baidu;
 
 				return hasInput && hasAvailableAI && !isCheckingStatus;
 			},
@@ -968,6 +975,14 @@
               }
             }
           }
+          if(ai.name === '百度AI' && ai.enabled){
+            if(this.isAiLoginEnabled(ai)){
+              this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-agent,';
+              if (ai.selectedCapabilities.includes("web_search")) {
+                this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-sdss,';
+              }
+            }
+          }
 				});
 
 				console.log("参数：", this.userInfoReq);
@@ -1191,6 +1206,8 @@
           this.userInfoReq.metasoChatId = dataObj.chatId;
         } else if (dataObj.type === "RETURN_KIMI_CHATID" && dataObj.chatId){
           this.userInfoReq.kimiChatId = dataObj.chatId;
+        }else if (dataObj.type === "RETURN_BAIDU_CHATID" && dataObj.chatId){
+          this.userInfoReq.baiduChatId = dataObj.chatId;
         }
 
 					// 处理进度日志消息
@@ -1545,6 +1562,20 @@
           // 更新AI启用状态
           this.updateAiEnabledStatus();
         }
+        // 处理百度AI登录状态
+        else if (datastr.includes("RETURN_BAIDU_STATUS") && dataObj.status != "") {
+          this.isLoading.baidu = false;
+          if (!datastr.includes("false")) {
+            this.aiLoginStatus.baidu = true;
+            this.accounts.baidu = dataObj.status;
+          } else {
+            this.aiLoginStatus.baidu = false;
+            // 禁用相关AI
+            this.disableAIsByLoginStatus("baidu");
+          }
+          // 更新AI启用状态
+          this.updateAiEnabledStatus();
+        }
 			},
 
 			handleAIResult(dataObj) {
@@ -1589,10 +1620,10 @@
             console.log('收到消息：',dataObj);
             targetAI = this.enabledAIs.find(ai => ai.name === '通义千问');
             break;
-			case "RETURN_MAX_RES":
-			  console.log("收到消息:", dataObj);
-			  targetAI = this.enabledAIs.find((ai) => ai.name === "MiniMax Chat");
-			  break;
+          case "RETURN_MAX_RES":
+			    console.log("收到消息:", dataObj);
+			    targetAI = this.enabledAIs.find((ai) => ai.name === "MiniMax Chat");
+			      break;
           case "RETURN_METASO_RES":
             console.log("收到消息:", dataObj);
             targetAI = this.enabledAIs.find((ai) => ai.name === "秘塔");
@@ -1601,6 +1632,10 @@
             console.log("收到消息:", dataObj);
             targetAI = this.enabledAIs.find((ai) => ai.name === "Kimi");
             break;
+			    case "RETURN_BAIDU_RES":
+			      console.log("收到百度AI消息:", dataObj);
+			      targetAI = this.enabledAIs.find((ai) => ai.name === "百度AI");
+			      break;
 				}
 
 				if (targetAI) {
@@ -1910,6 +1945,7 @@
 					this.userInfoReq.maxChatId = item.maxChatId || "";
           this.userInfoReq.metasoChatId = item.metasoChatId || "";
           this.userInfoReq.kimiChatId = item.kimiChatId || "";
+          this.userInfoReq.baiduChatId = item.baiduChatId || "";
           this.userInfoReq.isNewChat = false;
 
 					// 不再根据AI登录状态更新AI启用状态，保持原有选择
@@ -1963,6 +1999,7 @@
 					maxChatId: this.userInfoReq.maxChatId,
           metasoChatId: this.userInfoReq.metasoChatId,
           kimiChatId: this.userInfoReq.kimiChatId,
+baiduChatId:this.userInfoReq.baiduChatId
 				};
 
 				try {
@@ -1978,6 +2015,7 @@
 						maxChatId: this.userInfoReq.maxChatId,
             metasoChatId: this.userInfoReq.metasoChatId,
             kimiChatId: this.userInfoReq.kimiChatId,
+            baiduChatId:this.userInfoReq.baiduChatId
 					});
 				} catch (error) {
 					console.error('保存历史记录失败:', error);
@@ -2640,6 +2678,7 @@
 					maxChatId: '',
           metasoChatId: '',
           kimiChatId: '',
+baiduChatId:'',
 					isNewChat: true
 				};
 				// 重置AI列表为初始状态
@@ -2732,6 +2771,18 @@
             progressLogs: [],
             isExpanded: true,
           },
+					{
+					  name: "百度AI",
+					  avatar: '/static/images/icon/Baidu.png',
+					  capabilities: [
+					    { label: "深度搜索", value: "web_search" }
+					  ],
+					  selectedCapabilities: [],
+					  enabled: true,
+					  status: "idle",
+					  progressLogs: [],
+					  isExpanded: true,
+					},
 				];
 				// 不再根据AI登录状态更新AI启用状态，保持原有选择
 
@@ -2795,6 +2846,12 @@
           userId: this.userId,
           corpId: this.corpId,
         });
+        // 检查百度AI登录状态
+        this.sendWebSocketMessage({
+          type: "PLAY_CHECK_BAIDU_LOGIN",
+          userId: this.userId,
+          corpId: this.corpId,
+        });
 			},
 
 			getPlatformIcon(type) {
@@ -2803,6 +2860,7 @@
 					doubao: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
 					agent: 'https://u3w.com/chatfile/yuanbao.png',
           tongyi: 'https://u3w.com/chatfile/TongYi.png',
+		  baidu: '/static/images/icon/Baidu.png'
 				};
 				return icons[type] || '';
 			},
@@ -2830,6 +2888,7 @@
 		      mini: true,
           metaso: true,
           kimi: true,
+          baidu: true,
 				};
 
 				// 重置登录状态
@@ -2840,6 +2899,7 @@
           tongyi: false,
           metaso: false,
           kimi: false,
+          baidu: false,
 				};
 
 				// 重置账户信息
@@ -2850,6 +2910,7 @@
 		      mini: '',
 		      metaso: '',
           kimi: '',
+          baidu: '',
 				};
 
 				// 显示刷新提示
@@ -2885,6 +2946,8 @@
             return this.aiLoginStatus.metaso; // 秘塔登录状态
           case "Kimi":
             return this.aiLoginStatus.kimi; // KiMi登录状态
+          case "百度AI":
+            return this.aiLoginStatus.baidu; // 百度AI登录状态
           default:
 						return false;
 				}
@@ -2905,6 +2968,8 @@
             return this.isLoading.metaso;
           case "Kimi":
             return this.isLoading.kimi;
+          case "百度AI":
+            return this.isLoading.baidu;
           default:
 						return false;
 				}

@@ -109,6 +109,10 @@ public class AIGCController {
     @Autowired
     private TTHUtil tthUtil;
 
+    // 百度AI相关操作工具类
+    @Autowired
+    private BaiduUtil baiduUtil;
+
     @Value("${cube.uploadurl}")
     private String uploadUrl;
 
@@ -134,76 +138,95 @@ public class AIGCController {
             int wrightCopyCount = 0;
 
 
-            // 根据不同的AI角色创建对应的页面实例
-            Page[] pages = new Page[5];
+              // 根据不同的AI角色创建对应的页面实例
+              Page[] pages = new Page[6];
 
-            // 处理 智能体 代理
-            if(roles.contains("cube-trubos-agent")){
-                logInfo.sendTaskLog( "AI搜索@元器准备就绪，正在打开页面",userId,"AI搜索@元器");
-                pages[0] = context.newPage();
-                String agentUrl = "https://yuanbao.tencent.com/chat/58LgTturCBdj/";
-                wrightCopyCount = tencentUtil.handelAgentAI(pages[0],userPrompt,agentUrl,"AI搜索@元器",userId,isNewChat);
-            }
-            if(roles.contains("cube-turbos-large-agent")){
-                logInfo.sendTaskLog( "数智化助手@元器准备就绪，正在打开页面",userId,"数智化助手@元器");
-                pages[1] = context.newPage();
-                String agentUrl = "https://yuanbao.tencent.com/chat/rgzZDhQdsMHZ/";
-                wrightCopyCount = tencentUtil.handelAgentAI(pages[1],userPrompt,agentUrl,"数智化助手@元器",userId,isNewChat);
-            }
-            if(roles.contains("cube-mini-max-agent")){
-                logInfo.sendTaskLog( "MiniMax@元器准备就绪，正在打开页面",userId,"MiniMax@元器");
-                pages[2] = context.newPage();
-                String agentUrl = "https://yuanbao.tencent.com/chat/7kNJBgAgQFet/";
-                wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"MiniMax@元器",userId,isNewChat);
-            }
-            if(roles.contains("mini-max-agent")){
-                logInfo.sendTaskLog( "MiniMax Chat准备就绪，正在打开页面",userId,"MiniMax Chat");
-                pages[2] = context.newPage();
-                String agentUrl = "https://chat.minimaxi.com/";
-                wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"MiniMax Chat",userId,isNewChat);
-            }
-            if(roles.contains("metaso-agent")){
-                logInfo.sendTaskLog( "秘塔准备就绪，正在打开页面",userId,"秘塔");
-                pages[3] = context.newPage();
-                String agentUrl = "https://metaso.cn/";
-                wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"秘塔",userId,isNewChat);
-            }
-            if(roles.contains("cube-sogou-agent")){
-                logInfo.sendTaskLog( "搜狗搜索@元器准备就绪，正在打开页面",userId,"搜狗搜索@元器");
-                pages[3] = context.newPage();
-                String agentUrl = "https://yuanbao.tencent.com/chat/u1VeB6jKt0lE/";
-                wrightCopyCount = tencentUtil.handelAgentAI(pages[3],userPrompt,agentUrl,"搜狗搜索@元器",userId,isNewChat);
-            }
+              // 处理 智能体 代理
+              if(roles.contains("cube-trubos-agent")){
+                  logInfo.sendTaskLog( "AI搜索@元器准备就绪，正在打开页面",userId,"AI搜索@元器");
+                  pages[0] = context.newPage();
+                  String agentUrl = "https://yuanbao.tencent.com/chat/58LgTturCBdj/";
+                  wrightCopyCount = tencentUtil.handelAgentAI(pages[0],userPrompt,agentUrl,"AI搜索@元器",userId,isNewChat);
+              }
+              if(roles.contains("cube-turbos-large-agent")){
+                  logInfo.sendTaskLog( "数智化助手@元器准备就绪，正在打开页面",userId,"数智化助手@元器");
+                  pages[1] = context.newPage();
+                  String agentUrl = "https://yuanbao.tencent.com/chat/rgzZDhQdsMHZ/";
+                  wrightCopyCount = tencentUtil.handelAgentAI(pages[1],userPrompt,agentUrl,"数智化助手@元器",userId,isNewChat);
+              }
+              if(roles.contains("cube-mini-max-agent")){
+                  logInfo.sendTaskLog( "MiniMax@元器准备就绪，正在打开页面",userId,"MiniMax@元器");
+                  pages[2] = context.newPage();
+                  String agentUrl = "https://yuanbao.tencent.com/chat/7kNJBgAgQFet/";
+                  wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"MiniMax@元器",userId,isNewChat);
+              }
+              if(roles.contains("mini-max-agent")){
+                  logInfo.sendTaskLog( "MiniMax Chat准备就绪，正在打开页面",userId,"MiniMax Chat");
+                  pages[2] = context.newPage();
+                  String agentUrl = "https://chat.minimaxi.com/";
+                  wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"MiniMax Chat",userId,isNewChat);
+              }
+              if(roles.contains("metaso-agent")){
+                  logInfo.sendTaskLog( "秘塔准备就绪，正在打开页面",userId,"秘塔");
+                  pages[3] = context.newPage();
+                  String agentUrl = "https://metaso.cn/";
+                  wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"秘塔",userId,isNewChat);
+              }
+              if(roles.contains("cube-sogou-agent")){
+                  logInfo.sendTaskLog( "搜狗搜索@元器准备就绪，正在打开页面",userId,"搜狗搜索@元器");
+                  pages[3] = context.newPage();
+                  String agentUrl = "https://yuanbao.tencent.com/chat/u1VeB6jKt0lE/";
+                  wrightCopyCount = tencentUtil.handelAgentAI(pages[3],userPrompt,agentUrl,"搜狗搜索@元器",userId,isNewChat);
+              }
+              if(roles.contains("cube-lwss-agent")){
+                  logInfo.sendTaskLog( "KIMI@元器准备就绪，正在打开页面",userId,"KIMI@元器");
+                  pages[4] = context.newPage();
+                  String agentUrl = "https://yuanbao.tencent.com/chat/oq4esMyN9VS2/";
+                  wrightCopyCount = tencentUtil.handelAgentAI(pages[4],userPrompt,agentUrl,"KIMI@元器",userId,isNewChat);
+              }
             if(roles.contains("cube-lwss-agent")){
                 logInfo.sendTaskLog( "KIMI@元器准备就绪，正在打开页面",userId,"KIMI@元器");
                 pages[4] = context.newPage();
                 String agentUrl = "https://yuanbao.tencent.com/chat/oq4esMyN9VS2/";
                 wrightCopyCount = tencentUtil.handelAgentAI(pages[4],userPrompt,agentUrl,"KIMI@元器",userId,isNewChat);
             }
+            if(roles.contains("baidu-agent")){
+                logInfo.sendTaskLog( "百度AI准备就绪，正在打开页面",userId,"百度AI");
+                pages[5] = context.newPage();
+                String agentUrl = "https://chat.baidu.com/";
+                // 直接使用handleBaiduAI方法处理，返回内容而不是计数
+                String baiduContent = baiduUtil.handleBaiduAI(pages[5],userPrompt,userId,roles,null);
+                wrightCopyCount = baiduContent.length() > 0 ? 1 : 0; // 简单的成功标识
+            }
 
-            // 保存各代理生成的数据并拼接结果
-            if(roles.contains("cube-trubos-agent")){
-                copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[0],userInfoRequest,"cube-trubos-agent",userId,wrightCopyCount,"AI搜索@元器","RETURN_TURBOS_RES");
+             // 保存各代理生成的数据并拼接结果
+              if(roles.contains("cube-trubos-agent")){
+                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[0],userInfoRequest,"cube-trubos-agent",userId,wrightCopyCount,"AI搜索@元器","RETURN_TURBOS_RES");
+              }
+              if(roles.contains("cube-turbos-large-agent")){
+                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[1],userInfoRequest,"cube-turbos-large-agent",userId,wrightCopyCount,"数智化助手@元器","RETURN_TURBOS_LARGE_RES");
+              }
+              if(roles.contains("cube-mini-max-agent")){
+                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"cube-mini-max-agent",userId,wrightCopyCount,"MiniMax@元器","RETURN_MINI_MAX_RES");
+              }
+              if(roles.contains("mini-max-agent")){
+                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"mini-max-agent",userId,wrightCopyCount,"MiniMax Chat","RETURN_MINI_MAX_RES");
+              }
+              if(roles.contains("metaso-agent")){
+                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"metaso-agent",userId,wrightCopyCount,"秘塔","RETURN_METASO_RES");
+              }
+              if(roles.contains("cube-sogou-agent")){
+                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[3],userInfoRequest,"cube-sogou-agent",userId,wrightCopyCount,"搜狗搜索@元器","RETURN_SOGOU_RES");
+              }
+              if(roles.contains("cube-lwss-agent")){
+                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[4],userInfoRequest,"cube-lwss-agent",userId,wrightCopyCount,"KIMI@元器","RETURN_LWSS_RES");
+              }
+            if(roles.contains("baidu-agent")){
+                // 获取百度AI生成的内容
+                String baiduContent = baiduUtil.waitBaiduHtmlDom(pages[5],userId,"百度AI");
+                copiedText = copiedText +"\n\n"+ baiduUtil.saveBaiduContent(pages[5],userInfoRequest,roles,userId,baiduContent);
             }
-            if(roles.contains("cube-turbos-large-agent")){
-                copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[1],userInfoRequest,"cube-turbos-large-agent",userId,wrightCopyCount,"数智化助手@元器","RETURN_TURBOS_LARGE_RES");
-            }
-            if(roles.contains("cube-mini-max-agent")){
-                copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"cube-mini-max-agent",userId,wrightCopyCount,"MiniMax@元器","RETURN_MINI_MAX_RES");
-            }
-            if(roles.contains("mini-max-agent")){
-                copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"mini-max-agent",userId,wrightCopyCount,"MiniMax Chat","RETURN_MINI_MAX_RES");
-            }
-            if(roles.contains("metaso-agent")){
-                copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"metaso-agent",userId,wrightCopyCount,"秘塔","RETURN_METASO_RES");
-            }
-            if(roles.contains("cube-sogou-agent")){
-                copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[3],userInfoRequest,"cube-sogou-agent",userId,wrightCopyCount,"搜狗搜索@元器","RETURN_SOGOU_RES");
-            }
-            if(roles.contains("cube-lwss-agent")){
-                copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[4],userInfoRequest,"cube-lwss-agent",userId,wrightCopyCount,"KIMI@元器","RETURN_LWSS_RES");
-            }
-            return copiedText;
+               return copiedText;
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -1737,4 +1760,148 @@ public class AIGCController {
         return "获取内容失败";
     }
 
+    /**
+     * 处理百度AI的常规请求
+     * @param userInfoRequest 包含会话ID和用户指令
+     * @return AI生成的文本内容
+     */
+    @Operation(summary = "启动百度AI生成", description = "调用百度AI平台生成内容并抓取结果")
+    @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
+    @PostMapping("/startBaidu")
+    public String startBaidu(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,
+                userInfoRequest.getUserId(), "baidu")) {
+
+            // 初始化变量
+            String userId = userInfoRequest.getUserId();
+            String roles = userInfoRequest.getRoles();  
+            String userPrompt = userInfoRequest.getUserPrompt();
+            String chatId = userInfoRequest.getBaiduChatId();
+            String isNewChat = userInfoRequest.getIsNewChat();
+
+            logInfo.sendTaskLog("百度AI准备就绪，正在打开页面", userId, "百度AI");
+            System.out.println("DEBUG: 接收到的百度AI参数 - userId: " + userId + ", roles: " + roles + ", chatId: " + chatId + ", isNewChat: " + isNewChat);
+
+            // 如果指定了新会话，则忽略已有的会话ID
+            if ("true".equalsIgnoreCase(isNewChat)) {
+                logInfo.sendTaskLog("用户请求新会话，将忽略已有会话ID", userId, "百度AI");
+                System.out.println("DEBUG: 用户请求新会话，chatId设置为null");
+                chatId = null;
+            } else if (chatId != null && !chatId.isEmpty()) {
+                logInfo.sendTaskLog("检测到会话ID: " + chatId + "，将继续使用此会话", userId, "百度AI");
+                System.out.println("DEBUG: 将使用现有会话ID: " + chatId);
+            } else {
+                logInfo.sendTaskLog("未检测到会话ID，将创建新会话", userId, "百度AI");
+                System.out.println("DEBUG: 未检测到会话ID，将创建新会话");
+            }
+
+            // 创建页面
+            Page page = context.newPage();
+            page.setDefaultTimeout(60000); // 60秒超时
+
+            // 创建定时截图线程
+            AtomicInteger i = new AtomicInteger(0);
+            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+                try {
+                    if (page.isClosed()) {
+                        return;
+                    }
+                    int currentCount = i.getAndIncrement();
+                    logInfo.sendImgData(page, userId + "百度AI执行过程截图" + currentCount, userId);
+                } catch (Exception e) {
+                    System.out.println("截图失败: " + e.getMessage());
+                }
+            }, 2000, 8000, TimeUnit.MILLISECONDS); // 延迟2秒开始，每8秒执行一次
+
+            logInfo.sendTaskLog("开启自动监听任务，持续监听百度AI回答中", userId, "百度AI");
+
+            // 处理百度AI交互
+            String copiedText = "";
+            int maxRetries = 3;
+
+            // 重试循环
+            for (int retry = 0; retry < maxRetries; retry++) {
+                try {
+                    if (retry > 0) {
+                        logInfo.sendTaskLog("第" + (retry + 1) + "次尝试", userId, "百度AI");
+                        Thread.sleep(3000);
+                    }
+
+                    copiedText = baiduUtil.handleBaiduAI(page, userPrompt, userId, roles, chatId);
+
+                    if (!copiedText.startsWith("获取内容失败") && !copiedText.isEmpty()) {
+                        break; // 成功获取内容，跳出重试循环
+                    }
+
+                    Thread.sleep(3000); // 等待3秒后重试
+                } catch (Exception e) {
+                    if (retry == maxRetries - 1) {
+                        copiedText = "获取内容失败：多次尝试后仍然失败";
+                        logInfo.sendTaskLog("百度AI处理失败: " + e.getMessage(), userId, "百度AI");
+                    }
+                    Thread.sleep(2000);
+                }
+            }
+
+            // 安全地关闭截图任务
+            try {
+                screenshotFuture.cancel(true);
+                screenshotExecutor.shutdownNow();
+                if (!screenshotExecutor.awaitTermination(3, TimeUnit.SECONDS)) {
+                    logInfo.sendTaskLog("截图任务关闭超时", userId, "百度AI");
+                }
+            } catch (Exception e) {
+                logInfo.sendTaskLog("关闭截图任务异常: " + e.getMessage(), userId, "百度AI");
+            }
+
+            // 如果获取内容失败，尝试备用方法
+            if (copiedText.startsWith("获取内容失败") || copiedText.isEmpty()) {
+                try {
+                    logInfo.sendTaskLog("尝试使用备用方法提取内容", userId, "百度AI");
+
+                    Object extractedContent = page.evaluate("""
+                        () => {
+                            const contentElements = document.querySelectorAll('div, p, span');
+                            let longestText = '';
+                            
+                            for (let element of contentElements) {
+                                const text = element.innerHTML;
+                                if (text && text.length > longestText.length && text.length > 100) {
+                                    longestText = text;
+                                }
+                            }
+                            
+                            return longestText || '无法提取内容';
+                        }
+                    """);
+
+                    if (extractedContent != null && !extractedContent.toString().isEmpty() &&
+                            !extractedContent.toString().equals("无法提取内容")) {
+                        copiedText = extractedContent.toString();
+                        logInfo.sendTaskLog("使用备用方法成功提取内容", userId, "百度AI");
+                    }
+                } catch (Exception e) {
+                    logInfo.sendTaskLog("备用提取方法失败: " + e.getMessage(), userId, "百度AI");
+                }
+            }
+
+            // 保存结果
+            try {
+                copiedText = baiduUtil.saveBaiduContent(page, userInfoRequest, roles, userId, copiedText);
+                logInfo.sendTaskLog("执行完成", userId, "百度AI");
+            } catch (Exception e) {
+                logInfo.sendTaskLog("保存百度AI内容到稿库失败: " + e.getMessage(), userId, "百度AI");
+                e.printStackTrace();
+            }
+
+            return copiedText;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            logInfo.sendTaskLog("百度AI执行异常: " + e.getMessage(), userInfoRequest.getUserId(), "百度AI");
+            return "获取内容失败: " + e.getMessage();
+        }
+    }
 }

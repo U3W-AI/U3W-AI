@@ -118,6 +118,14 @@
             description: 'KiMi有着更大的内存，可以处理更长的文本',
             type: 'kimi'
           },
+          {
+            name: '百度AI',
+            avatar: '/static/images/icon/Baidu.png',
+            icon: '/static/images/icon/Baidu.png',
+            title: '百度AI',
+            description: '百度智能搜索AI助手，支持深度搜索，为您提供准确、实时的信息查询服务。',
+            type: 'baidu'
+          },
 				],
 				advantages: [
 					// {

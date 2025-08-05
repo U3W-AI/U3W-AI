@@ -27,7 +27,8 @@ public class UserInfoRequest {
             "      yb-deepseek-sdsk: 腾讯元宝DS深度思考能力\n"+
             "      ty-qw：通义千问基础版\n"+
             "      ty-qw-sdsk：通义千问深度思考能力\n"+
-            "      ty-qw-lwss：通义千问联网搜索能力\n",
+            "      ty-qw-lwss：通义千问联网搜索能力\n"+
+            "      baidu-sdss：百度AI深度搜索模式\n",
             example = "yb-hunyuan-pt,yb-hunyuan-sdsk")
     private String roles;
 
@@ -54,6 +55,9 @@ public class UserInfoRequest {
 
     @Schema(description = "通义大模型的聊天会话 sessionID")
     private String tyChatId;
+
+    @Schema(description = "百度AI的聊天会话 ID", example = "baidu_chat_004")
+    private String baiduChatId;
 
     @Schema(description = "是否为新对话。true 表示清空上下文重新开始", example = "true")
     private String isNewChat;

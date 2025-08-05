@@ -181,6 +181,16 @@ public class WebSocketClientService {
                                 }
                             }).start();
                         }
+                        // 处理包含"baidu-agent"的消息
+                        if(userInfoRequest.getRoles() != null && userInfoRequest.getRoles().contains("baidu-agent")){
+                            new Thread(() -> {
+                                try {
+                                    aigcController.startBaidu(userInfoRequest);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }).start();
+                        }
                     }
 
                     // 处理包含"AI评分"的消息
@@ -284,6 +294,35 @@ public class WebSocketClientService {
                                 userInfoRequest.setStatus(checkLogin);
                                 userInfoRequest.setType("RETURN_TY_STATUS");
                                 sendMessage(JSON.toJSONString(userInfoRequest));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+
+                    // 处理检查百度AI登录状态的消息
+                    if (message.contains("PLAY_CHECK_BAIDU_LOGIN")) {
+                        new Thread(() -> {
+                            try {
+                                String checkLogin = browserController.checkBaiduLogin(userInfoRequest.getUserId());
+                                userInfoRequest.setStatus(checkLogin);
+                                userInfoRequest.setType("RETURN_BAIDU_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                // 发送错误状态
+                                userInfoRequest.setStatus("false");
+                                userInfoRequest.setType("RETURN_BAIDU_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            }
+                        }).start();
+                    }
+
+                    // 处理获取百度AI二维码的消息
+                    if(message.contains("PLAY_GET_BAIDU_QRCODE")){
+                        new Thread(() -> {
+                            try {
+                                browserController.getBaiduQrCode(userInfoRequest.getUserId());
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }
