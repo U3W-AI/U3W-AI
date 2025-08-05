@@ -937,7 +937,7 @@ public class AIGCController {
             page.locator("div.icon-button.toolkit-trigger-btn").click();
 
             // 是否打开联网模式
-            if (roles.contains("lwss")) {
+            if (roles.contains("kimi-lwss")) {
                 // 如果当前是关闭状态,则点击打开
                 if (!page.locator("input.switch-hidden").first().isChecked()) {
                     page.locator("div.switch-icon").first().click();

@@ -49,7 +49,7 @@ public class BrowserController {
 
     @Autowired
     private BrowserUtil browserUtil;
-    
+
     @Autowired
     private BaiduUtil baiduUtil;
 
@@ -69,7 +69,7 @@ public class BrowserController {
             System.out.println("匹配登录成功============>"+loginButton.count());
             if(loginButton.count() == 0){
                 // 不存在登录按钮，已登录
-                return "登录";
+                return "已登录";
             } else {
                 // 存在登录按钮，未登录
                 return "false";
@@ -281,62 +281,76 @@ public class BrowserController {
      * @return 二维码图片URL 或 "false"表示失败
      */
     @GetMapping("/getKiMiQrCode")
-    @Operation(summary = "获取代理版KiMi登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
+    @Operation(summary = "获取代理版KiMi登录二维码", description = "返回二维码截图 URL 或 false 表示失败，如果已登录则返回用户信息")
     public String getKiMiQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "KiMi")) {
             Page page = context.newPage();
 
             // 1. 访问Kimi官网
             page.navigate("https://www.kimi.com/");
+            Thread.sleep(2000); // 等待页面加载完成
 
             // 2. 点击用户信息区域
             Locator userLoginLocator = page.locator("div.user-info");
             userLoginLocator.click();
-            Thread.sleep(2000); // 等待弹窗出现
+            Thread.sleep(500);
 
-            // 3. 截图并发送二维码
-            String url = screenshotUtil.screenshotAndUpload(page, "checkKiMiLogin_" + System.currentTimeMillis() + ".png");
-            JSONObject jsonObject = new JSONObject();
-            jsonObject.put("url", url);
-            jsonObject.put("userId", userId);
-            jsonObject.put("type", "RETURN_PC_KIMI_QRURL");
-            webSocketClientService.sendMessage(jsonObject.toJSONString());
+            // 3. 已登录则返回登陆成功的消息
+            if (page.locator("span:has-text('设置')").isVisible()){
+                page.locator("span:has-text('设置')").click();
+                Thread.sleep(500);
+                Locator nameLocator = page.locator("div.name");
+                String nameText = nameLocator.textContent();
+                // 发送登录状态
+                JSONObject statusObj = new JSONObject();
+                statusObj.put("status", nameText.isEmpty() ? "已登录" : nameText);
+                statusObj.put("userId", userId);
+                statusObj.put("type", "RETURN_KIMI_STATUS");
+                webSocketClientService.sendMessage(statusObj.toJSONString());
+                System.out.println("走一的逻辑");
+                return nameText.isEmpty() ? "已登录" : nameText;
+            } else {
+                System.out.println("走二的逻辑");
+                // 4. 截图并发送二维码
+                String url = screenshotUtil.screenshotAndUpload(page, "checkKiMiLogin_" + System.currentTimeMillis() + ".png");
+                JSONObject jsonObject = new JSONObject();
+                jsonObject.put("url", url);
+                jsonObject.put("userId", userId);
+                jsonObject.put("type", "RETURN_PC_KIMI_QRURL");
+                webSocketClientService.sendMessage(jsonObject.toJSONString());
 
-            // 4. 等待登录完成（最长30秒）
-            for (int i = 0; i < 30; i++) {
-                if (!page.locator("div.login-modal-mask").isVisible()) {
-                    // 登录成功检查
-                    userLoginLocator.click();
-                    Thread.sleep(1000);
-
-                    Locator settingsLocator = page.locator("span:has-text('设置')");
-                    if (settingsLocator.count() > 0) {
-                        settingsLocator.click();
+                // 5. 等待登录完成（最长30秒）
+                for (int i = 0; i < 30; i++) {
+                    if (!page.locator("div.login-modal-mask").isVisible()) {
+                        // 登录成功检查
+                        userLoginLocator.click();
                         Thread.sleep(1000);
 
-                        Locator nameLocator = page.locator("div.name");
-                        String nameText = nameLocator.textContent();
-
-                        // 双重检查用户名
-                        if (nameText.isEmpty()) {
-                            Thread.sleep(2000);
-                            nameText = nameLocator.textContent();
+                        Locator settingsLocator = page.locator("span:has-text('设置')");
+                        if (settingsLocator.count() > 0) {
+                            settingsLocator.click();
+                            Thread.sleep(1000);
+                            Locator nameLocator = page.locator("div.name");
+                            String nameText = nameLocator.textContent();
+                            // 双重检查用户名
+                            if (nameText.isEmpty()) {
+                                nameText = nameLocator.textContent();
+                                Thread.sleep(2000);
+                            }
+                            // 发送登录状态
+                            JSONObject statusObj = new JSONObject();
+                            statusObj.put("status", nameText.isEmpty() ? "已登录" : nameText);
+                            statusObj.put("userId", userId);
+                            statusObj.put("type", "RETURN_KIMI_STATUS");
+                            webSocketClientService.sendMessage(statusObj.toJSONString());
+                            break;
                         }
-
-                        // 发送登录状态
-                        JSONObject statusObj = new JSONObject();
-                        statusObj.put("status", nameText.isEmpty() ? "已登录" : nameText);
-                        statusObj.put("userId", userId);
-                        statusObj.put("type", "RETURN_KIMI_STATUS");
-                        webSocketClientService.sendMessage(statusObj.toJSONString());
-                        break;
                     }
+                    // 每次循环间隔
+                    Thread.sleep(1000);
                 }
-                // 每次循环间隔
-                Thread.sleep(1000);
+                return url;
             }
-
-            return url;
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -797,16 +811,16 @@ public class BrowserController {
     public String checkBaiduLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "baidu")) {
             Page page = context.newPage();
-            
+
             // 使用BaiduUtil检查登录状态
             String loginStatus = baiduUtil.checkBaiduLogin(page, true);
-            
+
             if (!"false".equals(loginStatus)) {
                 return loginStatus; // 返回用户名或登录状态
             } else {
                 return "false"; // 未登录
             }
-            
+
         } catch (Exception e) {
             e.printStackTrace();
             return "false";
@@ -844,7 +858,7 @@ public class BrowserController {
 
             // 未登录，使用BaiduUtil获取二维码
             String url = baiduUtil.waitAndGetQRCode(page, userId);
-            
+
             if (url != null && !url.trim().isEmpty()) {
                 // 发送二维码截图
                 JSONObject qrUpdateObject = new JSONObject();
@@ -899,7 +913,7 @@ public class BrowserController {
                 webSocketClientService.sendMessage(errorObject.toJSONString());
                 return "false";
             }
-            
+
         } catch (Exception e) {
             e.printStackTrace();
             logMsgUtil.sendTaskLog("获取百度AI二维码失败: " + e.getMessage(), userId, "百度AI");

@@ -969,7 +969,7 @@
           }
           if (ai.name === "Kimi") {
             if(this.isAiLoginEnabled(ai)){
-              this.userInfoReq.roles = this.userInfoReq.roles + "kimi";
+              this.userInfoReq.roles = this.userInfoReq.roles + "kimi-talk,";
               if (ai.selectedCapabilities.includes("web_search")) {
                 this.userInfoReq.roles = this.userInfoReq.roles + "kimi-lwss,";
               }
