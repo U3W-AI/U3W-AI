@@ -126,6 +126,14 @@
             description: '百度智能搜索AI助手，支持深度搜索，为您提供准确、实时的信息查询服务。',
             type: 'baidu'
           },
+          {
+            name: '知乎直答',
+            avatar: 'https://u3w.com/chatfile/ZHZD.png',
+            icon: 'https://u3w.com/chatfile/ZHZD.png',
+            title: '知乎直答',
+            description: '有疑问，来知乎直答',
+            type: 'zhzd'
+          },
 				],
 				advantages: [
 					// {
