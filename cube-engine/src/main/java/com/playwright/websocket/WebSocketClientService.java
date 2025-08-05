@@ -181,8 +181,8 @@ public class WebSocketClientService {
                                 }
                             }).start();
                         }
-                        // 处理包含"baidu"的消息
-                        if(message.contains("baidu")){
+                        // 处理包含"baidu-agent"的消息
+                        if(userInfoRequest.getRoles() != null && userInfoRequest.getRoles().contains("baidu-agent")){
                             new Thread(() -> {
                                 try {
                                     aigcController.startBaidu(userInfoRequest);

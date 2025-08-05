@@ -235,7 +235,7 @@ public class BaiduUtil {
      * @param page Playwright页面对象
      * @param userPrompt 用户提示词
      * @param userId 用户ID
-     * @param roles 角色配置 (支持: baidu-lwss联网搜索)
+     * @param roles 角色配置 (支持: baidu-sdss深度搜索)
      * @param chatId 会话ID
      * @return AI生成内容
      */
@@ -243,8 +243,17 @@ public class BaiduUtil {
         try {
             // 导航到百度对话AI页面
             if (chatId != null && !chatId.isEmpty()) {
-                page.navigate("https://chat.baidu.com/chat/" + chatId);
-                logInfo.sendTaskLog("使用会话ID: " + chatId, userId, "百度AI");
+                // 检查chatId是否是ori_lid格式（数字ID）
+                if (chatId.matches("\\d+")) {
+                    // 是ori_lid，构造原链接URL继续会话
+                    String continueUrl = "https://chat.baidu.com/search?isShowHello=1&extParams=%7B%22ori_lid%22%3A%22" + chatId + "%22%2C%22subEnterType%22%3A%22his_middle%22%2C%22enter_type%22%3A%22chat_url%22%7D";
+                    page.navigate(continueUrl);
+                    logInfo.sendTaskLog("使用ori_lid继续会话: " + chatId, userId, "百度AI");
+                } else {
+                    // 传统的会话ID
+                    page.navigate("https://chat.baidu.com/chat/" + chatId);
+                    logInfo.sendTaskLog("使用会话ID: " + chatId, userId, "百度AI");
+                }
             } else {
                 page.navigate("https://chat.baidu.com/");
                 logInfo.sendTaskLog("创建新会话", userId, "百度AI");
@@ -303,15 +312,15 @@ public class BaiduUtil {
      */
     private void configureBaiduModes(Page page, String roles, String userId) {
         try {
-            // 解析角色配置，只支持联网搜索
-            boolean enableInternet = roles != null && (roles.contains("baidu-lwss") || roles.contains("lwss"));
+            // 解析角色配置，只支持深度搜索
+            boolean enableInternet = roles != null && (roles.contains("baidu-sdss") || roles.contains("sdss"));
 
-            logInfo.sendTaskLog("配置百度对话AI模式 - 联网搜索: " + enableInternet, userId, "百度AI");
+            logInfo.sendTaskLog("配置百度对话AI模式 - 深度搜索: " + enableInternet, userId, "百度AI");
 
             // 先切换到智能模式
             switchToSmartMode(page, userId);
 
-            // 设置联网搜索模式状态
+            // 设置深度搜索模式状态
             toggleInternetSearchMode(page, enableInternet, userId);
 
             // 等待配置生效
@@ -712,6 +721,225 @@ public class BaiduUtil {
     }
 
     /**
+     * 获取百度AI原链接（从历史记录中提取ori_lid）
+     * @param page Playwright页面对象
+     * @param userId 用户ID
+     * @return 百度AI原链接
+     */
+    public String getBaiduOriginalUrl(Page page, String userId) {
+        try {
+            logInfo.sendTaskLog("正在获取百度AI原链接...", userId, "百度AI");
+            System.out.println("DEBUG: 当前页面URL: " + page.url());
+            
+            // 历史记录列表的选择器
+            String historyListSelector = "//*[@id=\"app\"]/div/div[2]/div[1]/div/div/div[2]/div/div[2]/div[2]/div/div[1]/div";
+            
+            System.out.println("DEBUG: 尝试定位历史记录列表，选择器: " + historyListSelector);
+            
+            // 等待历史记录列表加载
+            Locator historyList = page.locator("xpath=" + historyListSelector);
+            int listCount = historyList.count();
+            System.out.println("DEBUG: 历史记录列表元素数量: " + listCount);
+            
+            if (listCount == 0) {
+                // 尝试其他可能的选择器
+                String[] alternativeSelectors = {
+                    "//*[@id=\"app\"]//div[contains(@class, 'history')]",
+                    "//*[@id=\"app\"]//div[contains(@class, 'sidebar')]",
+                    "//*[@id=\"app\"]/div/div[2]/div[1]//div"
+                };
+                
+                for (String altSelector : alternativeSelectors) {
+                    Locator altList = page.locator("xpath=" + altSelector);
+                    int altCount = altList.count();
+                    System.out.println("DEBUG: 备用选择器 " + altSelector + " 元素数量: " + altCount);
+                }
+                
+                logInfo.sendTaskLog("未找到历史记录列表", userId, "百度AI");
+                return "";
+            }
+            
+            // 遍历历史记录项
+            Locator historyItems = historyList.locator("xpath=./div"); // 直接子div
+            int itemCount = historyItems.count();
+            
+            System.out.println("DEBUG: 找到 " + itemCount + " 个历史记录项");
+            
+            // 如果没有直接子div，尝试其他方式
+            if (itemCount == 0) {
+                historyItems = historyList.locator("div");
+                itemCount = historyItems.count();
+                System.out.println("DEBUG: 尝试所有子div，找到 " + itemCount + " 个项目");
+            }
+            
+            for (int i = 0; i < itemCount && i < 10; i++) { // 限制最多检查10个项目
+                try {
+                    Locator item = historyItems.nth(i);
+                    System.out.println("DEBUG: 检查第 " + (i + 1) + " 个历史记录项");
+                    
+                    // 获取项目的HTML结构用于调试
+                    String itemHtml = item.innerHTML();
+                    System.out.println("DEBUG: 项目 " + (i + 1) + " HTML长度: " + itemHtml.length());
+                    
+                    // 查找包含history-item-content类的元素
+                    Locator contentElement = item.locator("xpath=.//*[contains(@class, 'history-item-content')]");
+                    int contentCount = contentElement.count();
+                    System.out.println("DEBUG: 项目 " + (i + 1) + " 中找到 " + contentCount + " 个 history-item-content 元素");
+                    
+                    if (contentCount == 0) {
+                        // 尝试查找其他可能的类名
+                        String[] possibleClasses = {"history", "item", "content", "chat", "conversation"};
+                        for (String className : possibleClasses) {
+                            Locator altElement = item.locator("xpath=.//*[contains(@class, '" + className + "')]");
+                            int altCount = altElement.count();
+                            if (altCount > 0) {
+                                System.out.println("DEBUG: 项目 " + (i + 1) + " 中找到 " + altCount + " 个包含 '" + className + "' 类的元素");
+                            }
+                        }
+                        continue;
+                    }
+                    
+                    // 检查每个content元素
+                    for (int j = 0; j < contentCount; j++) {
+                        Locator singleContent = contentElement.nth(j);
+                        
+                        // 获取所有属性
+                        String attributes = (String) singleContent.evaluate("element => {" +
+                            "const attrs = {};" +
+                            "for (let attr of element.attributes) {" +
+                                "attrs[attr.name] = attr.value;" +
+                            "}" +
+                            "return JSON.stringify(attrs);" +
+                        "}");
+                        
+                        System.out.println("DEBUG: 项目 " + (i + 1) + " content " + (j + 1) + " 属性: " + attributes);
+                        
+                        // 获取data-show-ext属性
+                        String dataShowExt = singleContent.getAttribute("data-show-ext");
+                        
+                        if (dataShowExt != null && !dataShowExt.isEmpty()) {
+                            System.out.println("DEBUG: 找到 data-show-ext: " + dataShowExt);
+                            
+                            // 从data-show-ext中提取ori_lid
+                            String oriLid = extractOriLidFromDataShowExt(dataShowExt);
+                            
+                            if (oriLid != null && !oriLid.isEmpty()) {
+                                // 构造原链接
+                                String originalUrl = "https://chat.baidu.com/search?isShowHello=1&extParams=%7B%22ori_lid%22%3A%22" + oriLid + "%22%2C%22subEnterType%22%3A%22his_middle%22%2C%22enter_type%22%3A%22chat_url%22%7D";
+                                
+                                logInfo.sendTaskLog("成功获取百度AI原链接，ori_lid: " + oriLid, userId, "百度AI");
+                                System.out.println("DEBUG: 构造的原链接: " + originalUrl);
+                                return originalUrl;
+                            } else {
+                                System.out.println("DEBUG: 无法从 data-show-ext 中提取 ori_lid");
+                            }
+                        } else {
+                            System.out.println("DEBUG: 项目 " + (i + 1) + " content " + (j + 1) + " 没有 data-show-ext 属性");
+                        }
+                    }
+                } catch (Exception e) {
+                    System.out.println("DEBUG: 处理第 " + (i + 1) + " 个项目时出错: " + e.getMessage());
+                    continue;
+                }
+            }
+            
+            logInfo.sendTaskLog("未能从历史记录中提取到ori_lid", userId, "百度AI");
+            return "";
+            
+        } catch (Exception e) {
+            logInfo.sendTaskLog("获取百度AI原链接失败: " + e.getMessage(), userId, "百度AI");
+            System.out.println("DEBUG: 获取百度AI原链接失败: " + e.getMessage());
+            e.printStackTrace();
+            return "";
+        }
+    }
+    
+    /**
+     * 从data-show-ext属性中提取ori_lid
+     * @param dataShowExt data-show-ext属性值
+     * @return ori_lid值
+     */
+    private String extractOriLidFromDataShowExt(String dataShowExt) {
+        try {
+            System.out.println("DEBUG: 尝试提取ori_lid，data-show-ext内容: " + dataShowExt);
+            
+            // data-show-ext可能是JSON格式，尝试解析
+            if (dataShowExt.contains("ori_lid")) {
+                System.out.println("DEBUG: data-show-ext包含ori_lid字段");
+                
+                // 使用正则表达式提取ori_lid的值
+                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"ori_lid\"\\s*:\\s*\"([^\"]+)\"");
+                java.util.regex.Matcher matcher = pattern.matcher(dataShowExt);
+                
+                if (matcher.find()) {
+                    String oriLid = matcher.group(1);
+                    System.out.println("DEBUG: 成功提取ori_lid: " + oriLid);
+                    return oriLid;
+                } else {
+                    System.out.println("DEBUG: 正则表达式未匹配到ori_lid");
+                    
+                    // 尝试其他可能的格式
+                    String[] patterns = {
+                        "ori_lid[\"']?\\s*[:=]\\s*[\"']([^\"']+)[\"']",
+                        "ori_lid[\"']?\\s*[:=]\\s*([0-9]+)",
+                        "\"ori_lid\"\\s*:\\s*([0-9]+)"
+                    };
+                    
+                    for (String patternStr : patterns) {
+                        pattern = java.util.regex.Pattern.compile(patternStr);
+                        matcher = pattern.matcher(dataShowExt);
+                        if (matcher.find()) {
+                            String oriLid = matcher.group(1);
+                            System.out.println("DEBUG: 备用正则表达式成功提取ori_lid: " + oriLid);
+                            return oriLid;
+                        }
+                    }
+                }
+            } else {
+                System.out.println("DEBUG: data-show-ext不包含ori_lid字段");
+            }
+            return null;
+        } catch (Exception e) {
+            System.out.println("DEBUG: 提取ori_lid时出错: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
+    /**
+     * 从百度AI原链接URL中提取ori_lid
+     * @param originalUrl 原链接URL
+     * @return ori_lid值
+     */
+    private String extractOriLidFromUrl(String originalUrl) {
+        try {
+            if (originalUrl == null || originalUrl.trim().isEmpty()) {
+                System.out.println("DEBUG: 原链接为空，无法提取ori_lid");
+                return null;
+            }
+            
+            System.out.println("DEBUG: 尝试从URL提取ori_lid: " + originalUrl);
+            
+            // 从URL中提取ori_lid，格式：%22ori_lid%22%3A%22...%22
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("%22ori_lid%22%3A%22([^%\"]+)%22");
+            java.util.regex.Matcher matcher = pattern.matcher(originalUrl);
+            
+            if (matcher.find()) {
+                String oriLid = matcher.group(1);
+                System.out.println("DEBUG: 从URL成功提取ori_lid: " + oriLid);
+                return oriLid;
+            } else {
+                System.out.println("DEBUG: URL中未找到ori_lid");
+                return null;
+            }
+        } catch (Exception e) {
+            System.out.println("DEBUG: 从URL提取ori_lid时出错: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
      * 获取百度对话AI分享链接
      * @param page Playwright页面对象
      * @param userId 用户ID
@@ -897,9 +1125,9 @@ public class BaiduUtil {
 
         StringBuilder result = new StringBuilder("百度对话AI");
         
-        // 附加功能：只支持联网搜索
-        if (roles.contains("baidu-lwss") || roles.contains("lwss")) {
-            result.append("+联网搜索");
+        // 附加功能：只支持深度搜索
+        if (roles.contains("baidu-sdss") || roles.contains("sdss")) {
+            result.append("+深度搜索");
         }
 
         return result.toString();
@@ -909,7 +1137,7 @@ public class BaiduUtil {
      * 保存百度对话AI内容到稿库
      * @param page Playwright页面对象
      * @param userInfoRequest 用户请求信息
-     * @param roles 角色配置 (支持: baidu-lwss联网搜索)
+     * @param roles 角色配置 (支持: baidu-sdss深度搜索模式)
      * @param userId 用户ID
      * @param content 内容
      * @return 格式化后的内容
@@ -923,6 +1151,10 @@ public class BaiduUtil {
             // 获取分享链接
             String shareUrl = getBaiduShareUrl(page, userId);
             
+            // 获取原链接并提取ori_lid
+            String originalUrl = getBaiduOriginalUrl(page, userId);
+            String oriLid = extractOriLidFromUrl(originalUrl);
+            
             // 如果无法获取分享链接，使用当前页面URL作为默认值
             if (shareUrl == null || shareUrl.trim().isEmpty()) {
                 shareUrl = page.url();
@@ -930,8 +1162,9 @@ public class BaiduUtil {
                 logInfo.sendTaskLog("已获取页面链接", userId, "百度AI");
             }
 
-            // 设置请求参数
-            userInfoRequest.setBaiduChatId(sessionId);
+            // 设置请求参数 - 将ori_lid保存到baiduChatId字段用于会话连续性
+            String chatIdToSave = (oriLid != null && !oriLid.trim().isEmpty()) ? oriLid : sessionId;
+            userInfoRequest.setBaiduChatId(chatIdToSave);
             userInfoRequest.setDraftContent(content);
             userInfoRequest.setAiName(parseBaiduRoles(roles));
             userInfoRequest.setShareUrl(shareUrl != null ? shareUrl : "");
@@ -940,14 +1173,25 @@ public class BaiduUtil {
             // 保存到数据库
             RestUtils.post(url + "/saveDraftContent", userInfoRequest);
 
-            // 发送结果数据，使用正确的格式化方法  
-            // 百度AI的URL格式与其他AI不同，需要使用不同的正则表达式
-            logInfo.sendChatData(page, "/chat/([^/?#]+)", userId, "RETURN_BAIDU_CHATID", 1);
+            // 发送ori_lid到前端更新baiduChatId，使用直接发送方法
+            if (oriLid != null && !oriLid.trim().isEmpty()) {
+                logInfo.sendChatDataDirect(oriLid, userId, "RETURN_BAIDU_CHATID");
+                logInfo.sendTaskLog("百度AI会话ID已发送到前端: " + oriLid, userId, "百度AI");
+            } else {
+                // 如果没有ori_lid，发送传统的sessionId
+                logInfo.sendChatData(page, "/chat/([^/?#]+)", userId, "RETURN_BAIDU_CHATID", 1);
+            }
             
             // 发送结果数据，投递到媒体功能由前端处理
             String formattedContent = formatBaiduContent(content);
-            logInfo.sendResData(formattedContent, userId, "百度AI", "RETURN_BAIDU_RES", shareUrl, "");
+            
+            // 使用原链接作为分享链接，如果获取不到原链接则使用传统分享链接
+            String finalShareUrl = (originalUrl != null && !originalUrl.trim().isEmpty()) ? originalUrl : shareUrl;
+            logInfo.sendResData(formattedContent, userId, "百度AI", "RETURN_BAIDU_RES", finalShareUrl, "");
 
+            if (oriLid != null && !oriLid.trim().isEmpty()) {
+                logInfo.sendTaskLog("百度AI会话ID已保存: " + oriLid, userId, "百度AI");
+            }
             logInfo.sendTaskLog("百度对话AI内容已保存到稿库", userId, "百度AI");
 
             return content;

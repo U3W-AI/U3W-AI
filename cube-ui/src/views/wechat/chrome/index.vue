@@ -710,7 +710,7 @@ export default {
           avatar: require('../../../assets/ai/qw.png'),
           capabilities: [
             { label: '深度思考', value: 'deep_thinking' },
-            { label: '联网搜索', value: 'web_search' }
+            { label: '深度搜索', value: 'web_search' }
           ],
           selectedCapability: '',
           enabled: true,
@@ -722,7 +722,7 @@ export default {
           name: '百度AI',
           avatar: require('../../../assets/ai/Baidu.png'),
           capabilities: [
-            { label: '联网搜索', value: 'web_search' }
+            { label: '深度搜索', value: 'web_search' }
           ],
           selectedCapabilities: [],
           enabled: true,
@@ -918,9 +918,9 @@ export default {
           }
         }
         if (ai.name === '百度AI' && ai.enabled) {
-          this.userInfoReq.roles = this.userInfoReq.roles + 'baidu,';
+          this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-agent,';
           if (ai.selectedCapabilities.includes("web_search")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-lwss,';
+            this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-sdss,';
           }
         }
       });
@@ -1783,7 +1783,7 @@ export default {
           avatar: require('../../../assets/ai/qw.png'),
           capabilities: [
             { label: '深度思考', value: 'deep_thinking' },
-            { label: '联网搜索', value: 'web_search' }
+            { label: '深度搜索', value: 'web_search' }
           ],
           selectedCapability: '',
           enabled: true,
@@ -1795,7 +1795,7 @@ export default {
           name: '百度AI',
           avatar: require('../../../assets/ai/Baidu.png'),
           capabilities: [
-            { label: '联网搜索', value: 'web_search' }
+            { label: '深度搜索', value: 'web_search' }
           ],
           selectedCapabilities: [],
           enabled: true,

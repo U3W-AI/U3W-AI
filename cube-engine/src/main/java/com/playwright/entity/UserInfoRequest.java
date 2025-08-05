@@ -28,8 +28,7 @@ public class UserInfoRequest {
             "      ty-qw：通义千问基础版\n"+
             "      ty-qw-sdsk：通义千问深度思考能力\n"+
             "      ty-qw-lwss：通义千问联网搜索能力\n"+
-            "      baidu-sdsk：百度AI深度思考模式\n"+
-            "      baidu-lwss：百度AI联网搜索模式\n",
+            "      baidu-sdss：百度AI深度搜索模式\n",
             example = "yb-hunyuan-pt,yb-hunyuan-sdsk")
     private String roles;
 

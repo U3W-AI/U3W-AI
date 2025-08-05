@@ -568,7 +568,7 @@
             name: "百度AI",
             avatar: 'https://gips0.baidu.com/it/u=1125504705,2263448440&fm=3028&app=3028&f=PNG&fmt=auto&q=75&size=f72_72',
             capabilities: [
-              { label: "联网搜索", value: "web_search" }
+              { label: "深度搜索", value: "web_search" }
             ],
             selectedCapabilities: [],
             enabled: true,
@@ -977,9 +977,9 @@
           }
           if(ai.name === '百度AI' && ai.enabled){
             if(this.isAiLoginEnabled(ai)){
-              this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-ai,';
+              this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-agent,';
               if (ai.selectedCapabilities.includes("web_search")) {
-                this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-lwss,';
+                this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-sdss,';
               }
             }
           }
@@ -2775,7 +2775,7 @@ baiduChatId:'',
 					  name: "百度AI",
 					  avatar: 'https://u3w.com/chatfile/Baidu.png',
 					  capabilities: [
-					    { label: "联网搜索", value: "web_search" }
+					    { label: "深度搜索", value: "web_search" }
 					  ],
 					  selectedCapabilities: [],
 					  enabled: true,
