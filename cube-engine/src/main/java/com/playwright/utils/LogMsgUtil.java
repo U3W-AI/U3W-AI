@@ -108,6 +108,22 @@ public class LogMsgUtil {
             webSocketClientService.sendMessage(chatData.toJSONString());
         }
     }
+    
+    /**
+     * 直接发送聊天ID数据到WebSocket
+     * @param chatId 聊天会话ID
+     * @param userId 用户ID
+     * @param type 消息类型标识  
+     */
+    public void sendChatDataDirect(String chatId, String userId, String type) {
+        if (chatId != null && !chatId.trim().isEmpty()) {
+            JSONObject chatData = new JSONObject();
+            chatData.put("type", type);
+            chatData.put("chatId", chatId);
+            chatData.put("userId", userId);
+            webSocketClientService.sendMessage(chatData.toJSONString());
+        }
+    }
     /**
      * 发送投递到媒体任务日志消息
      * @param taskNode 任务节点描述信息

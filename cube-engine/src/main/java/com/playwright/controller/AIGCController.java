@@ -1775,21 +1775,25 @@ public class AIGCController {
 
             // 初始化变量
             String userId = userInfoRequest.getUserId();
-            String roles = userInfoRequest.getRoles();
+            String roles = userInfoRequest.getRoles();  
             String userPrompt = userInfoRequest.getUserPrompt();
             String chatId = userInfoRequest.getBaiduChatId();
             String isNewChat = userInfoRequest.getIsNewChat();
 
             logInfo.sendTaskLog("百度AI准备就绪，正在打开页面", userId, "百度AI");
+            System.out.println("DEBUG: 接收到的百度AI参数 - userId: " + userId + ", roles: " + roles + ", chatId: " + chatId + ", isNewChat: " + isNewChat);
 
             // 如果指定了新会话，则忽略已有的会话ID
             if ("true".equalsIgnoreCase(isNewChat)) {
                 logInfo.sendTaskLog("用户请求新会话，将忽略已有会话ID", userId, "百度AI");
+                System.out.println("DEBUG: 用户请求新会话，chatId设置为null");
                 chatId = null;
             } else if (chatId != null && !chatId.isEmpty()) {
                 logInfo.sendTaskLog("检测到会话ID: " + chatId + "，将继续使用此会话", userId, "百度AI");
+                System.out.println("DEBUG: 将使用现有会话ID: " + chatId);
             } else {
                 logInfo.sendTaskLog("未检测到会话ID，将创建新会话", userId, "百度AI");
+                System.out.println("DEBUG: 未检测到会话ID，将创建新会话");
             }
 
             // 创建页面
