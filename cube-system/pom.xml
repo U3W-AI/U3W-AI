@@ -14,7 +14,7 @@
     <description>
         system系统模块
     </description>
-
+    <!--依赖管理-->
     <dependencies>
 
         <!-- 通用工具-->
