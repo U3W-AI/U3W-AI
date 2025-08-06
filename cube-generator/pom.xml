@@ -14,7 +14,7 @@
     <description>
         generator代码生成
     </description>
-
+<!--依赖管理-->
     <dependencies>
 
         <!-- velocity代码生成使用模板 -->
