@@ -14,7 +14,7 @@
     <description>
         point
     </description>
-
+    <!--依赖管理-->
     <dependencies>
 
         <!-- 通用工具-->

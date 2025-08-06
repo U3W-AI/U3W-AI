@@ -193,8 +193,8 @@ public class TencentUtil {
         // 页面导航与元素定位
         page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa/"+chatId);
         String modelDom ="[dt-button-id=\"model_switch\"]";
-        String hunyuanDom = "//*[@id=\"hunyuan-bot\"]/div[7]/div/div/div/div[1]/li/span";
-        String deepseekDom = "//*[@id=\"hunyuan-bot\"]/div[7]/div/div/div/div[2]/li/span";
+        String hunyuanDom = "//div[normalize-space()='Hunyuan']";
+        String deepseekDom = "//div[normalize-space()='DeepSeek']";
         Thread.sleep(3000);
         Locator modelName = page.locator(modelDom);
 
@@ -364,11 +364,10 @@ public class TencentUtil {
                     page.locator("span.icon-yb-ic_share_2504").last().click();
                     Thread.sleep(2000);
                     page.locator("div.agent-chat__share-bar__item__logo").first().click();
-
                     // 建议适当延迟等待内容更新
                     Thread.sleep(2000); // 根据实际加载速度调整
+                    //这里会出现弹窗
                     String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
-
                     Pattern pattern = Pattern.compile("https?://\\S+");
                     Matcher matcher = pattern.matcher(shareUrl);
 
@@ -442,11 +441,14 @@ public class TencentUtil {
     }
 
     public void clickWebSearch(Page page,Locator webSearch,String webSearchDom,String isWebSearch) throws InterruptedException {
-        String searchText = page.locator("//*[@id=\"app\"]/div[1]/div[2]/div/div/div[1]/div/div[1]/div/div[3]/div/div[6]/div/div/div[2]/div[3]/div[1]/div[2]/span/div/div/div/span[1]").textContent();
+        String searchText = "自动搜索";
+        boolean visible = page.locator("//div[@class='yb-switch-internet-search-btn__left']").isVisible();
+        if(visible) {
+            searchText = page.locator("//div[@class='yb-switch-internet-search-btn__left']").textContent();
+        }
         if(!searchText.equals("自动搜索")){
             webSearch.waitFor(new Locator.WaitForOptions().setTimeout(5000));
             if(!webSearch.getAttribute("dt-ext3").equals(isWebSearch)){
-                System.out.println("");
                 Thread.sleep(500);
                 page.locator(webSearchDom).click();
             }

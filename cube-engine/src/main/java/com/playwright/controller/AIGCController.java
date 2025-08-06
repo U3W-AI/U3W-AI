@@ -9,6 +9,7 @@ import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.LoadState;
 import com.microsoft.playwright.options.WaitForSelectorState;
 import com.microsoft.playwright.PlaywrightException;
+import com.playwright.entity.UnPersisBrowserContextInfo;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.utils.*;
 import com.playwright.websocket.WebSocketClientService;
@@ -21,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -248,76 +250,71 @@ public class AIGCController {
     @PostMapping("/startYB")
     public String startYB(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
             content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"yb")) {
-
-            String userId =userInfoRequest.getUserId();
-            String currentContent = "";
-            String roles = userInfoRequest.getRoles();
-            String userPrompt = userInfoRequest.getUserPrompt();
-            String t1ChatId = userInfoRequest.getToneChatId();
-            String dschatId = userInfoRequest.getYbDsChatId();
-
-            Page[] pages = new Page[2];
+        String userId =userInfoRequest.getUserId();
+        String currentContent = "";
+        String roles = userInfoRequest.getRoles();
+        String userPrompt = userInfoRequest.getUserPrompt();
+        String t1ChatId = userInfoRequest.getToneChatId();
+        String dschatId = userInfoRequest.getYbDsChatId();
+//yb-hunyuan-pt,yb-hunyuan-sdsk,yb-hunyuan-lwss,yb-deepseek-pt,yb-deepseek-sdsk,yb-deepseek-lwss
+        try {
+            UnPersisBrowserContextInfo browserContextInfo = BrowserContextFactory.getBrowserContext(userId, 2);
+            BrowserContext context = browserContextInfo.getBrowserContext();
+            List<Page> pages = context.pages();
+            Page page1 = pages.get(0);
+            Page page2 = pages.get(1);
             int t1CopyCount = 0;
             int dsCopyCount = 0;
 
             //腾讯元宝T1  根据角色组合处理不同模式（普通/深度思考/联网）
-            logInfo.sendTaskLog( "腾讯元宝准备就绪，正在打开页面",userId,"腾讯元宝T1");
-            if(roles.contains("yb-hunyuan-pt")&& !roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")){
-                pages[0] = context.newPage();
-                t1CopyCount =  tencentUtil.handleYBAI(pages[0], userPrompt, "yb-hunyuan-pt",userId,"腾讯元宝T1",t1ChatId);
-            }else if(roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")){
+            logInfo.sendTaskLog("腾讯元宝准备就绪，正在打开页面", userId, "腾讯元宝T1");
+            if (roles.contains("yb-hunyuan-pt") && !roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
+                t1CopyCount = tencentUtil.handleYBAI(page1, userPrompt, "yb-hunyuan-pt", userId, "腾讯元宝T1", t1ChatId);
+            } else if (roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
                 //深度思考
-                pages[0] = context.newPage();
-                t1CopyCount = tencentUtil.handleYBAI( pages[0], userPrompt, "yb-hunyuan-sdsk",userId,"腾讯元宝T1",t1ChatId);
-            }else if(roles.contains("yb-hunyuan-lwss") && !roles.contains("yb-hunyuan-sdsk")){
+                t1CopyCount = tencentUtil.handleYBAI(page1, userPrompt, "yb-hunyuan-sdsk", userId, "腾讯元宝T1", t1ChatId);
+            } else if (roles.contains("yb-hunyuan-lwss") && !roles.contains("yb-hunyuan-sdsk")) {
+                //联网
+                t1CopyCount = tencentUtil.handleYBAI(page1, userPrompt, "yb-hunyuan-lwss-1", userId, "腾讯元宝T1", t1ChatId);
+            } else if (roles.contains("yb-hunyuan-lwss") && roles.contains("yb-hunyuan-sdsk")) {
                 //深度思考 + 联网
-                pages[0] = context.newPage();
-                t1CopyCount = tencentUtil.handleYBAI( pages[0], userPrompt, "yb-hunyuan-lwss-1",userId,"腾讯元宝T1",t1ChatId);
-            }else if(roles.contains("yb-hunyuan-lwss") && roles.contains("yb-hunyuan-sdsk")){
-                //深度思考 + 联网
-                pages[0] = context.newPage();
-                t1CopyCount = tencentUtil.handleYBAI( pages[0], userPrompt, "yb-hunyuan-lwss-2",userId,"腾讯元宝T1",t1ChatId);
+                t1CopyCount = tencentUtil.handleYBAI(page1, userPrompt, "yb-hunyuan-lwss-2", userId, "腾讯元宝T1", t1ChatId);
             }
 
             //腾讯元宝DS  根据角色组合处理不同模式（普通/深度思考/联网）
-            if(roles.contains("yb-deepseek-pt") && !roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")){
-                pages[1] = context.newPage();
-                dsCopyCount = tencentUtil.handleYBAI(pages[1],userPrompt,"yb-deepseek-pt",userId,"腾讯元宝DS",dschatId);
-            }else  if(roles.contains("yb-deepseek-sdsk")  && !roles.contains("yb-deepseek-lwss")){
+            if (roles.contains("yb-deepseek-pt") && !roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
+                dsCopyCount = tencentUtil.handleYBAI(page2, userPrompt, "yb-deepseek-pt", userId, "腾讯元宝DS", dschatId);
+            } else if (roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
                 //深度思考
-                pages[1] = context.newPage();
-                dsCopyCount = tencentUtil.handleYBAI(pages[1],userPrompt,"yb-deepseek-sdsk",userId,"腾讯元宝DS",dschatId);
-            }else if(roles.contains("yb-deepseek-lwss") && !roles.contains("yb-deepseek-sdsk") ){
+                dsCopyCount = tencentUtil.handleYBAI(page2, userPrompt, "yb-deepseek-sdsk", userId, "腾讯元宝DS", dschatId);
+            } else if (roles.contains("yb-deepseek-lwss") && !roles.contains("yb-deepseek-sdsk")) {
                 //深度思考 + 联网
-                pages[1] = context.newPage();
-                dsCopyCount = tencentUtil.handleYBAI(pages[1],userPrompt,"yb-deepseek-lwss-1",userId,"腾讯元宝DS",dschatId);
-            }else if(roles.contains("yb-deepseek-lwss") && roles.contains("yb-deepseek-sdsk") ){
+                dsCopyCount = tencentUtil.handleYBAI(page2, userPrompt, "yb-deepseek-lwss-1", userId, "腾讯元宝DS", dschatId);
+            } else if (roles.contains("yb-deepseek-lwss") && roles.contains("yb-deepseek-sdsk")) {
                 //深度思考 + 联网
-                pages[1] = context.newPage();
-                dsCopyCount = tencentUtil.handleYBAI(pages[1],userPrompt,"yb-deepseek-lwss-2",userId,"腾讯元宝DS",dschatId);
+                dsCopyCount = tencentUtil.handleYBAI(page2, userPrompt, "yb-deepseek-lwss-2", userId, "腾讯元宝DS", dschatId);
             }
 
 
             //保存入库 腾讯元宝T1
-            if(roles.contains("yb-hunyuan-pt")&& !roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")){
-                currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[0],userInfoRequest,"yb-hunyuan-pt",userId,t1CopyCount);
-            }else if(roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")){
+            if (roles.contains("yb-hunyuan-pt") && !roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
+                currentContent = currentContent + "\n\n" + tencentUtil.saveDraftData(page1, userInfoRequest, "yb-hunyuan-pt", userId, t1CopyCount);
+            } else if (roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
                 //深度思考
-                currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[0],userInfoRequest,"yb-hunyuan-sdsk",userId,t1CopyCount);
-            }else if(roles.contains("yb-hunyuan-lwss")){
+                currentContent = currentContent + "\n\n" + tencentUtil.saveDraftData(page1, userInfoRequest, "yb-hunyuan-sdsk", userId, t1CopyCount);
+            } else if (roles.contains("yb-hunyuan-lwss")) {
                 //深度思考 + 联网
-                currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[0],userInfoRequest,"yb-hunyuan-lwss",userId,t1CopyCount);
+                currentContent = currentContent + "\n\n" + tencentUtil.saveDraftData(page1, userInfoRequest, "yb-hunyuan-lwss", userId, t1CopyCount);
             }
 
             //保存入库 腾讯元宝DS
-            if(roles.contains("yb-deepseek-pt") && !roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")){
-                currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[1],userInfoRequest,"yb-deepseek-pt",userId,dsCopyCount);
-            }else  if(roles.contains("yb-deepseek-sdsk")  && !roles.contains("yb-deepseek-lwss")){
-                currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[1],userInfoRequest,"yb-deepseek-sdsk",userId,dsCopyCount);
-            }else if(roles.contains("yb-deepseek-lwss")){
+            if (roles.contains("yb-deepseek-pt") && !roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
+                currentContent = currentContent + "\n\n" + tencentUtil.saveDraftData(page2, userInfoRequest, "yb-deepseek-pt", userId, dsCopyCount);
+            } else if (roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
+                currentContent = currentContent + "\n\n" + tencentUtil.saveDraftData(page2, userInfoRequest, "yb-deepseek-sdsk", userId, dsCopyCount);
+            } else if (roles.contains("yb-deepseek-lwss")) {
                 //深度思考 + 联网
-                currentContent = currentContent +"\n\n"+ tencentUtil.saveDraftData(pages[1],userInfoRequest,"yb-deepseek-lwss",userId,dsCopyCount);
+                currentContent = currentContent + "\n\n" + tencentUtil.saveDraftData(page2, userInfoRequest, "yb-deepseek-lwss", userId, dsCopyCount);
             }
             return currentContent;
 

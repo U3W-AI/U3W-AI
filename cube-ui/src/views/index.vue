@@ -503,6 +503,7 @@ export default {
         new Date(2024, 0, 5),
       ],
       aiLoginStatus: {
+        yuanbao: false,
         doubao: false,
         deepseek: false,
         qw: false,
@@ -513,6 +514,7 @@ export default {
         baidu: false,
       },
       accounts: {
+        yuanbao: "",
         doubao: "",
         deepseek: "",
         minimax: "",
@@ -523,6 +525,7 @@ export default {
         baidu: "",
       },
       isClick: {
+        yuanbao: false,
         doubao: false,
         deepseek: false,
         qw: false,
@@ -540,6 +543,7 @@ export default {
       messages: [],
       messageInput: "",
       isLoading: {
+        yuanbao: true,
         doubao: true,
         deepseek: true,
         qw: true,
@@ -600,6 +604,7 @@ export default {
     },
     getAiLoginTitle() {
       const titles = {
+        yuanbao: "腾讯元宝登录",
         doubao: "豆包登录",
         deepseek: "DeepSeek登录",
         minimax: "MiniMax登录",
@@ -645,6 +650,7 @@ export default {
         this.corpId = response.data.corpId;
 
         // 初始检测时，AI和媒体按钮分开变灰
+        this.isClick.yuanbao = false;
         this.isClick.doubao = false;
         this.isClick.deepseek = false;
         this.isClick.minimax = false;
@@ -653,6 +659,7 @@ export default {
         this.isClick.kimi = false;
         this.isClick.zhzd = false;
         this.isClick.baidu = false;
+        this.isLoading.yuanbao = true;
         this.isLoading.doubao = true;
         this.isLoading.deepseek = true;
         this.isLoading.minimax = true;
@@ -671,6 +678,12 @@ export default {
         this.initWebSocket(this.userId); // 创建时建立连接
 
         setTimeout(() => {
+          // 检查腾讯元宝登录状态
+          this.sendMessage({
+            type: "PLAY_CHECK_YB_LOGIN",
+            userId: this.userId,
+            corpId: this.corpId,
+          });
           // 检查豆包登录状态
           this.sendMessage({
             type: "PLAY_CHECK_DB_LOGIN",
@@ -845,6 +858,13 @@ export default {
     },
     getQrCode(type) {
       this.qrCodeUrl = "";
+      if (type == "yuanbao") {
+        this.sendMessage({
+          type: "PLAY_GET_YB_QRCODE",
+          userId: this.userId,
+          corpId: this.corpId,
+        });
+      }
       if (type == "doubao") {
         this.sendMessage({
           type: "PLAY_GET_DB_QRCODE",
@@ -908,6 +928,7 @@ export default {
     },
     getPlatformIcon(type) {
       const icons = {
+        yuanbao: require("@/assets/logo/yuanbao.png"),
         doubao: require("@/assets/logo/doubao.png"),
         deepseek: require("@/assets/logo/Deepseek.png"),
         minimax: require("@/assets/logo/MiniMax.png"),
@@ -921,6 +942,7 @@ export default {
     },
     getPlatformName(type) {
       const names = {
+        yuanbao: "腾讯元宝",
         doubao: "豆包",
         deepseek: "DeepSeek",
         minimax: "MiniMax",
@@ -1026,6 +1048,7 @@ export default {
       const dataObj = JSON.parse(datastr);
 
       if (
+        datastr.includes("RETURN_PC_YB_QRURL") ||
         datastr.includes("RETURN_PC_DB_QRURL") ||
         datastr.includes("RETURN_PC_DEEPSEEK_QRURL") ||
         datastr.includes("RETURN_PC_MAX_QRURL") ||
@@ -1051,6 +1074,21 @@ export default {
         this.mediaQrCodeUrl = dataObj.url;
       } else if (datastr.includes("RETURN_PC_BAIJIAHAO_QRURL")) {
         this.mediaQrCodeUrl = dataObj.url;
+      } else if (datastr.includes("RETURN_YB_STATUS") && dataObj.status != "") {
+        if (!datastr.includes("false")) {
+          this.aiLoginDialogVisible = false;
+          this.aiLoginStatus.yuanbao = true;
+          this.accounts.yuanbao = dataObj.status;
+          this.isLoading.yuanbao = false;
+          this.isClick.yuanbao = true; // 检测成功后设为true
+          // 检查是否所有AI都已恢复，全部恢复则清除超时定时器
+          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.zhzd && !this.isLoading.baidu) {
+            if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
+          }
+        } else {
+          this.isClick.yuanbao = true;
+          this.isLoading.yuanbao = false;
+        }
       } else if (datastr.includes("RETURN_DB_STATUS") && dataObj.status != "") {
         if (!datastr.includes("false")) {
           this.aiLoginDialogVisible = false;
@@ -1059,7 +1097,7 @@ export default {
           this.isLoading.doubao = false;
           this.isClick.doubao = true; // 检测成功后设为true
           // 检查是否所有AI都已恢复，全部恢复则清除超时定时器
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.zhzd && !this.isLoading.baidu) {
+          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.zhzd && !this.isLoading.baidu) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1076,7 +1114,7 @@ export default {
           this.accounts.deepseek = dataObj.status;
           this.isLoading.deepseek = false;
           this.isClick.deepseek = true; // 检测成功后设为true
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.zhzd && !this.isLoading.baidu) {
+          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.zhzd && !this.isLoading.baidu) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1093,7 +1131,7 @@ export default {
           this.accounts.qw = dataObj.status;
           this.isLoading.qw = false;
           this.isClick.qw = true;
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.zhzd && !this.isLoading.baidu) {
+          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.zhzd && !this.isLoading.baidu) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1110,7 +1148,7 @@ export default {
           this.accounts.minimax = dataObj.status;
           this.isLoading.minimax = false;
           this.isClick.minimax = true; // 检测成功后设为true
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.zhzd && !this.isLoading.baidu) {
+          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.zhzd && !this.isLoading.baidu) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1127,7 +1165,7 @@ export default {
           this.accounts.kimi = dataObj.status;
           this.isLoading.kimi = false;
           this.isClick.kimi = true; // 检测成功后设为true
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.zhzd && !this.isLoading.baidu) {
+          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.zhzd && !this.isLoading.baidu) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1145,7 +1183,7 @@ export default {
           this.accounts.metaso = dataObj.status;
           this.isLoading.metaso = false;
           this.isClick.metaso = true; // 检测成功后设为true
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw  && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.zhzd && !this.isLoading.baidu) {
+          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw  && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.zhzd && !this.isLoading.baidu) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1162,7 +1200,7 @@ export default {
           this.accounts.baidu = dataObj.status;
           this.isLoading.baidu = false;
           this.isClick.baidu = true;
-          if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.baidu && !this.isLoading.zhzd) {
+          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.baidu && !this.isLoading.zhzd) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1193,7 +1231,7 @@ export default {
             this.accounts.zhzd = dataObj.status;
             this.isLoading.zhzd = false;
             this.isClick.zhzd = true; // 检测成功后设为true
-            if (!this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.zhzd) {
+            if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi && !this.isLoading.zhzd) {
               if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
             }
           } else {
@@ -1293,6 +1331,7 @@ export default {
     handleRefreshAI() {
       if (!this.userId || !this.corpId) return;
       // 只重置AI相关状态
+      this.isLoading.yuanbao = true;
       this.isLoading.doubao = true;
       this.isLoading.deepseek = true;
       this.isLoading.minimax = true;
@@ -1301,6 +1340,7 @@ export default {
       this.isLoading.qw = true;
       this.isLoading.zhzd = true;
       this.isLoading.baidu = true;
+      this.isClick.yuanbao = false;
       this.isClick.doubao = false;
       this.isClick.deepseek = false;
       this.isClick.minimax = false;
@@ -1316,6 +1356,7 @@ export default {
       if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
       // 超时自动恢复（20秒）
       this.resetStatusTimeout = setTimeout(() => {
+        this.isLoading.yuanbao = false;
         this.isLoading.doubao = false;
         this.isLoading.deepseek = false;
         this.isLoading.minimax = false;
@@ -1324,6 +1365,7 @@ export default {
         this.isLoading.kimi = false;
         this.isLoading.baidu = false;
         this.isLoading.zhzd = false;
+        this.isClick.yuanbao = true;
         this.isClick.doubao = true;
         this.isClick.deepseek = true;
         this.isClick.minimax = true;
@@ -1338,6 +1380,7 @@ export default {
         this.$message.warning('AI登录状态刷新超时，请检查网络或稍后重试');
       }, 20000);
       // 只检测AI登录状态
+      this.sendMessage({ type: "PLAY_CHECK_YB_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_DB_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_MAX_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_DEEPSEEK_LOGIN", userId: this.userId, corpId: this.corpId });

@@ -732,6 +732,32 @@ export default {
           isExpanded: true,
         },
         {
+          name: '腾讯元宝T1',
+          avatar: require('../../../assets/ai/yuanbao.png'),
+          capabilities: [
+            { label: '深度思考', value: 'deep_thinking' },
+            { label: '联网搜索', value: 'web_search' }
+          ],
+          selectedCapabilities: ['deep_thinking','web_search'],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true
+        },
+        {
+          name: '腾讯元宝DS',
+          avatar: require('../../../assets/ai/yuanbao.png'),
+          capabilities: [
+            { label: '深度思考', value: 'deep_thinking' },
+            { label: '联网搜索', value: 'web_search' }
+          ],
+          selectedCapabilities: ['deep_thinking','web_search'],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true
+        },
+        {
           name: "知乎直答",
           avatar: require("../../../assets/ai/ZHZD.png"),
           capabilities: [
@@ -939,6 +965,24 @@ export default {
           this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-agent,';
           if (ai.selectedCapabilities.includes("web_search")) {
             this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-sdss,';
+          }
+        }
+        if(ai.name === '腾讯元宝T1'){
+          this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-pt,';
+          if (ai.selectedCapabilities.includes("deep_thinking")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-sdsk,';
+          }
+          if (ai.selectedCapabilities.includes("web_search")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-lwss,';
+          }
+        }
+        if(ai.name === '腾讯元宝DS'){
+          this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-pt,';
+          if (ai.selectedCapabilities.includes("deep_thinking")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-sdsk,';
+          }
+          if (ai.selectedCapabilities.includes("web_search")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-lwss,';
           }
         }
         if (ai.name === "知乎直答") {
@@ -1392,13 +1436,19 @@ export default {
       let targetAI = null;
       switch (dataObj.type) {
         case "RETURN_YBT1_RES":
+          console.log("收到腾讯元宝T1消息:", dataObj);
+          targetAI = this.enabledAIs.find((ai) => ai.name === "腾讯元宝T1");
+          break;
+        case "RETURN_YBDS_RES":
+          console.log("收到腾讯元宝DS消息:", dataObj);
+          targetAI = this.enabledAIs.find((ai) => ai.name === "腾讯元宝DS");
+          break;
         case "RETURN_TURBOS_RES":
         case "RETURN_TURBOS_LARGE_RES":
         case "RETURN_DEEPSEEK_RES":
           console.log("收到DeepSeek消息:", dataObj);
           targetAI = this.enabledAIs.find((ai) => ai.name === "DeepSeek");
           break;
-        case "RETURN_YBDS_RES":
         case "RETURN_DB_RES":
           console.log("收到豆包消息:", dataObj);
           targetAI = this.enabledAIs.find((ai) => ai.name === "豆包");
@@ -1639,12 +1689,45 @@ export default {
     loadHistoryItem(item) {
       try {
         const historyData = JSON.parse(item.data);
-        // 恢复AI选择配置
-        this.aiList = historyData.aiList || this.aiList;
+        // 恢复AI选择配置 - 确保包含新添加的AI
+        if (historyData.aiList) {
+          // 合并历史记录中的aiList和当前默认的aiList
+          const historicalAiList = historyData.aiList;
+          const currentAiList = this.aiList;
+          
+          // 创建合并后的aiList，保留历史记录中的状态，同时包含当前默认的AI
+          this.aiList = [...historicalAiList];
+          
+          // 添加当前默认的但不在历史记录中的AI
+          currentAiList.forEach(currentAI => {
+            const exists = this.aiList.find(historicalAI => historicalAI.name === currentAI.name);
+            if (!exists) {
+              this.aiList.push(currentAI);
+            }
+          });
+        }
         // 恢复提示词输入
         this.promptInput = historyData.promptInput || "";
-        // 恢复任务流程
-        this.enabledAIs = historyData.enabledAIs || [];
+        // 恢复任务流程 - 确保包含所有启用的AI
+        if (historyData.enabledAIs && historyData.enabledAIs.length > 0) {
+          // 合并历史记录中的enabledAIs和当前aiList中启用的AI
+          const historicalEnabledAIs = historyData.enabledAIs;
+          const currentEnabledAIs = this.aiList.filter((ai) => ai.enabled);
+          
+          // 创建合并后的enabledAIs，保留历史记录中的状态，同时包含当前启用的AI
+          this.enabledAIs = [...historicalEnabledAIs];
+          
+          // 添加当前启用的但不在历史记录中的AI
+          currentEnabledAIs.forEach(currentAI => {
+            const exists = this.enabledAIs.find(historicalAI => historicalAI.name === currentAI.name);
+            if (!exists) {
+              this.enabledAIs.push(currentAI);
+            }
+          });
+        } else {
+          // 如果没有历史记录，使用当前启用的AI
+          this.enabledAIs = this.aiList.filter((ai) => ai.enabled);
+        }
         // 恢复主机可视化
         this.screenshots = historyData.screenshots || [];
         // 恢复执行结果
@@ -1852,6 +1935,32 @@ export default {
           version: '2.0'
         },
         {
+          name: '腾讯元宝T1',
+          avatar: require('../../../assets/ai/yuanbao.png'),
+          capabilities: [
+            { label: '深度思考', value: 'deep_thinking' },
+            { label: '联网搜索', value: 'web_search' }
+          ],
+          selectedCapabilities: ['deep_thinking','web_search'],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true
+        },
+        {
+          name: '腾讯元宝DS',
+          avatar: require('../../../assets/ai/yuanbao.png'),
+          capabilities: [
+            { label: '深度思考', value: 'deep_thinking' },
+            { label: '联网搜索', value: 'web_search' }
+          ],
+          selectedCapabilities: ['deep_thinking','web_search'],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true
+        },
+        {
           name: "知乎直答",
           avatar: require("../../../assets/ai/ZHZD.png"),
           capabilities: [
@@ -1917,6 +2026,8 @@ export default {
         DeepSeek: "700px",
         豆包: "560px",
         通义千问: "700px",
+        "腾讯元宝T1": "700px",
+        "腾讯元宝DS": "700px",
       };
 
       const width = widthMap[aiName] || "560px"; // 默认宽度

@@ -685,6 +685,7 @@
 
 				// AI登录状态
 				aiLoginStatus: {
+					yuanbao: false,
 					doubao: false,
           deepseek: false,
           tongyi: false,
@@ -695,6 +696,7 @@
           zhzd: false,
 				},
 				accounts: {
+					yuanbao: '',
 					doubao: '',
           deepseek: '',
           tongyi: '',
@@ -705,6 +707,7 @@
           zhzd: '',
 				},
 				isLoading: {
+					yuanbao: true,
 					doubao: true,
           deepseek: true,
           tongyi: true,
@@ -726,7 +729,7 @@
 				const hasAvailableAI = this.aiList.some(ai => ai.enabled && this.isAiLoginEnabled(ai));
 
 				// 检查是否正在加载AI状态（如果正在加载，禁用发送按钮）
-				const isCheckingStatus = this.isLoading.doubao || this.isLoading.deepseek || this.isLoading.tongyi || this.isLoading.mini || this.isLoading.baidu;
+				const isCheckingStatus = this.isLoading.yuanbao || this.isLoading.doubao || this.isLoading.deepseek || this.isLoading.tongyi || this.isLoading.mini || this.isLoading.baidu;
 
 				return hasInput && hasAvailableAI && !isCheckingStatus;
 			},
@@ -966,6 +969,24 @@
 
 				// 构建角色参数
 				this.enabledAIs.forEach(ai => {
+					if (ai.name === '腾讯元宝T1') {
+						this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-pt,';
+						if (ai.selectedCapabilities.includes("deep_thinking")) {
+							this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-sdsk,';
+						}
+						if (ai.selectedCapabilities.includes("web_search")) {
+							this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-lwss,';
+						}
+					}
+					if (ai.name === '腾讯元宝DS') {
+						this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-pt,';
+						if (ai.selectedCapabilities.includes("deep_thinking")) {
+							this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-sdsk,';
+						}
+						if (ai.selectedCapabilities.includes("web_search")) {
+							this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-lwss,';
+						}
+					}
           if (ai.name === 'DeepSeek') {
             this.userInfoReq.roles = this.userInfoReq.roles + 'deepseek,';
             if (ai.selectedCapabilities.includes("deep_thinking")) {
@@ -1095,8 +1116,8 @@
 			this.isConnecting = true;
 
 			// 使用PC端的WebSocket连接方式
-		    // const wsUrl = `${process.env.VUE_APP_WS_API || 'wss://u3w.com/cubeServer/websocket?clientId='}mypc-${this.userId}`;
-			const wsUrl = `${process.env.VUE_APP_WS_API || 'ws://127.0.0.1:8081/websocket?clientId='}mypc-${this.userId}`;
+		    const wsUrl = `${process.env.VUE_APP_WS_API || 'wss://u3w.com/cubeServer/websocket?clientId='}mypc-${this.userId}`;
+			// const wsUrl = `${process.env.VUE_APP_WS_API || 'ws://127.0.0.1:8081/websocket?clientId='}mypc-${this.userId}`;
 			console.log('WebSocket URL:', wsUrl);
 
 			this.socketTask = uni.connectSocket({
@@ -1536,6 +1557,20 @@
 			},
 
 			handleAiStatusMessage(datastr, dataObj) {
+				// 处理腾讯元宝登录状态
+				if (datastr.includes("RETURN_YB_STATUS") && dataObj.status != '') {
+					this.isLoading.yuanbao = false;
+					if (!datastr.includes("false")) {
+						this.aiLoginStatus.yuanbao = true;
+						this.accounts.yuanbao = dataObj.status;
+					} else {
+						this.aiLoginStatus.yuanbao = false;
+						// 禁用相关AI
+						this.disableAIsByLoginStatus('yuanbao');
+					}
+					// 更新AI启用状态
+					this.updateAiEnabledStatus();
+				}
 				// 处理豆包登录状态
 				if (datastr.includes("RETURN_DB_STATUS") && dataObj.status != '') {
 					this.isLoading.doubao = false;
@@ -1663,6 +1698,14 @@
 
 				// 根据消息类型匹配AI
 				switch (dataObj.type) {
+					case 'RETURN_YBT1_RES':
+						console.log('收到腾讯元宝T1消息:', dataObj);
+						targetAI = this.enabledAIs.find(ai => ai.name === '腾讯元宝T1');
+						break;
+					case 'RETURN_YBDS_RES':
+						console.log('收到腾讯元宝DS消息:', dataObj);
+						targetAI = this.enabledAIs.find(ai => ai.name === '腾讯元宝DS');
+						break;
 					case 'RETURN_DB_RES':
 						console.log('收到消息:', dataObj);
 						targetAI = this.enabledAIs.find(ai => ai.name === '豆包');
@@ -2860,6 +2903,42 @@
             isExpanded: true,
           },
 					{
+						name: '腾讯元宝T1',
+						avatar: 'https://u3w.com/chatfile/yuanbao.png',
+						capabilities: [{
+								label: '深度思考',
+								value: 'deep_thinking'
+							},
+							{
+								label: '联网搜索',
+								value: 'web_search'
+							}
+						],
+						selectedCapabilities: ['deep_thinking', 'web_search'],
+						enabled: true,
+						status: 'idle',
+						progressLogs: [],
+						isExpanded: true
+					},
+					{
+						name: '腾讯元宝DS',
+						avatar: 'https://u3w.com/chatfile/yuanbao.png',
+						capabilities: [{
+								label: '深度思考',
+								value: 'deep_thinking'
+							},
+							{
+								label: '联网搜索',
+								value: 'web_search'
+							}
+						],
+						selectedCapabilities: ['deep_thinking', 'web_search'],
+						enabled: true,
+						status: 'idle',
+						progressLogs: [],
+						isExpanded: true
+					},
+					{
 					  name: "百度AI",
 					  avatar: '/static/images/icon/Baidu.png',
 					  capabilities: [
@@ -2928,6 +3007,13 @@
 			},
 
 			sendAiStatusCheck() {
+				// 检查腾讯元宝登录状态
+				this.sendWebSocketMessage({
+					type: 'PLAY_CHECK_YB_LOGIN',
+					userId: this.userId,
+					corpId: this.corpId
+				});
+
 				// 检查豆包登录状态
 				this.sendWebSocketMessage({
 					type: 'PLAY_CHECK_DB_LOGIN',
@@ -3009,6 +3095,7 @@
 			refreshAiStatus() {
 				// 重置所有AI状态为加载中
 				this.isLoading = {
+					yuanbao: true,
 					doubao: true,
           deepseek: true,
           tongyi: true,
@@ -3021,6 +3108,7 @@
 
 				// 重置登录状态
 				this.aiLoginStatus = {
+					yuanbao: false,
 					doubao: false,
           deepseek: false,
 		      mini: false,
@@ -3033,6 +3121,7 @@
 
 				// 重置账户信息
 				this.accounts = {
+					yuanbao: '',
 					doubao: '',
           deepseek: '',
           tongyi: '',
@@ -3064,6 +3153,9 @@
 			// 判断AI是否已登录可用
 			isAiLoginEnabled(ai) {
 				switch (ai.name) {
+					case '腾讯元宝T1':
+					case '腾讯元宝DS':
+						return this.aiLoginStatus.yuanbao; // 腾讯元宝登录状态
 					case '豆包':
 						return this.aiLoginStatus.doubao; // 豆包登录状态
           case 'DeepSeek':
@@ -3088,6 +3180,9 @@
 			// 判断AI是否在加载状态
 			isAiInLoading(ai) {
 				switch (ai.name) {
+					case '腾讯元宝T1':
+					case '腾讯元宝DS':
+						return this.isLoading.yuanbao;
 					case '豆包':
 						return this.isLoading.doubao;
           case 'DeepSeek':
