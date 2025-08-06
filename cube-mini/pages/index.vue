@@ -71,6 +71,22 @@
 					}
 				],
 				features: [{
+						name: '腾讯元宝T1',
+						avatar: 'https://u3w.com/chatfile/yuanbao.png',
+						icon: '../static/images/icon/腾讯元宝.png',
+						title: '腾讯元宝T1',
+						description: '腾讯公司开发的混元大模型智能体，功能强大',
+						type: 'yuanbao'
+					},
+					{
+						name: '腾讯元宝DS',
+						avatar: 'https://u3w.com/chatfile/yuanbao.png',
+						icon: '../static/images/icon/腾讯元宝.png',
+						title: '腾讯元宝DS',
+						description: '基于DeepSeek模型的腾讯元宝版本，拥有强大推理能力',
+						type: 'yuanbao'
+					},
+					{
 						name: '豆包',
 						avatar: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
 						icon: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',

@@ -130,7 +130,7 @@ public class WebSocketClientService {
                             }).start();
                         }
                         // 处理包含"yb-hunyuan"或"yb-deepseek"的消息
-                        if(message.contains("yb-hunyuan") || message.contains("yb-deepseek")){
+                        if(message.contains("yb-hunyuan-pt") || message.contains("yb-deepseek-pt")){
                             new Thread(() -> {
                                 try {
                                     aigcController.startYB(userInfoRequest);
@@ -150,7 +150,7 @@ public class WebSocketClientService {
                             }).start();
                         }
                         // 处理包含"deepseek"的消息
-                        if(message.contains("deepseek")){
+                        if(message.contains("deepseek,")){
                             new Thread(() -> {
                                 try {
                                     aigcController.startDeepSeek(userInfoRequest);
@@ -254,31 +254,6 @@ public class WebSocketClientService {
                         new Thread(() -> {
                             try {
                                 aigcController.startDeepSeek(userInfoRequest);
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                        }).start();
-                    }
-
-                    // 处理获取agent二维码的消息
-                    if(message.contains("PLAY_GET_AGENT_QRCODE")){
-                        new Thread(() -> {
-                            try {
-                                browserController.getAgentQrCode(userInfoRequest.getUserId());
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                        }).start();
-                    }
-
-                    // 处理检查agent登录状态的消息
-                    if (message.contains("CHECK_AGENT_LOGIN")) {
-                        new Thread(() -> {
-                            try {
-                                String checkLogin = browserController.checkAgentLogin(userInfoRequest.getUserId());
-                                userInfoRequest.setStatus(checkLogin);
-                                userInfoRequest.setType("RETURN_AGENT_STATUS");
-                                sendMessage(JSON.toJSONString(userInfoRequest));
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }
