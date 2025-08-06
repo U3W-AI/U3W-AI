@@ -11,7 +11,7 @@
     <packaging>jar</packaging>
     <artifactId>cube-admin</artifactId>
 
-    <description>
+    <description> 
         web服务入口
     </description>
 
