@@ -191,6 +191,16 @@ public class WebSocketClientService {
                                 }
                             }).start();
                         }
+
+                        if (message.contains("zhzd-chat")) {
+                            new Thread(() -> {
+                                try {
+                                    aigcController.startZHZD(userInfoRequest);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }).start();
+                        }
                     }
 
                     // 处理包含"AI评分"的消息

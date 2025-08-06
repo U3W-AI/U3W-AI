@@ -36,6 +36,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+
 /**
  * AI生成内容控制器
  * 处理与各大AI平台（腾讯元宝、豆包等）的交互操作
@@ -87,6 +88,10 @@ public class AIGCController {
     // 通义AI相关操作工具类
     @Autowired
     private TongYiUtil tongYiUtil;
+
+    // 知乎直答相关操作工具类
+    @Autowired
+    private ZHZDUtil zhzdUtil;
 
     @Autowired
     private QwenUtil qwenUtil;
@@ -1603,6 +1608,221 @@ public class AIGCController {
             logInfo.sendTaskLog("执行通义千问任务时发生严重错误: " + e.getMessage(), userInfoRequest.getUserId(), "通义千问");
         }
         return "获取内容失败";
+    }
+
+    /**
+     * 启动知乎直答常规请求
+     *
+     * @param userInfoRequest 包含会话ID和用户指令
+     * @return 格式化后的AI生成的文本内容
+     */
+    @Operation(summary = "启动知乎直答生成", description = "调用知乎直答平台生成内容并抓取结果，最后进行统一格式化")
+    @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
+    @PostMapping("/startZHZD")
+    public String startZHZD(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "Zhihu")) {
+            String userId = userInfoRequest.getUserId();
+            String sessionId = userInfoRequest.getZhzdChatId();
+            String isNewChat = userInfoRequest.getIsNewChat();
+            String aiName = "知乎直答";
+
+            if (userId == null || userId.isEmpty() || userInfoRequest.getUserPrompt() == null || userInfoRequest.getUserPrompt().isEmpty()) {
+                logInfo.sendTaskLog("用户信息缺失，请检查用户ID和用户指令", userId, aiName);
+                return "用户信息缺失，请检查用户ID和用户指令";
+            }
+
+            logInfo.sendTaskLog(aiName + "准备就绪，正在打开页面", userId, aiName);
+
+            Page page = context.newPage();
+
+            if ("true".equalsIgnoreCase(isNewChat) || sessionId == null || sessionId.isEmpty()) {
+                logInfo.sendTaskLog("用户请求新会话", userId, aiName);
+                page.navigate("https://zhida.zhihu.com");
+            } else {
+                logInfo.sendTaskLog("检测到会话ID: " + sessionId + "，将继续使用此会话", userId, aiName);
+                page.navigate("https://zhida.zhihu.com/search/" + sessionId);
+            }
+
+            // 这里等待级别为NETWORKIDLE是因为得等待接口GET /ai_ingress/session/{sessionId}请求完毕, 才能得知该会话ID是否有效
+            page.waitForLoadState(LoadState.NETWORKIDLE);
+
+            // 检测该会话是否合法
+            if (zhzdUtil.sessionNotFound(page)) {
+                page.navigate("https://zhida.zhihu.com");
+                page.waitForLoadState(LoadState.LOAD);
+                logInfo.sendTaskLog("会话ID无效，已跳转到知乎直答首页", userId, aiName);
+            }
+            logInfo.sendTaskLog(aiName + "页面打开完成", userId, aiName);
+
+            // 创建定时截图线程
+            AtomicInteger i = new AtomicInteger(0);
+            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+                try {
+                    int currentCount = i.getAndIncrement();
+                    logInfo.sendImgData(page, userId + aiName + "执行过程截图" + currentCount, userId);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }, 0, 8, TimeUnit.SECONDS);
+
+            String rawHtmlContent = zhzdUtil.processZHZDRequest(page, userInfoRequest);
+
+            // 获取sessionId
+            String currentUrl = page.url();
+            String[] currentUrlSplit = currentUrl.split("/");
+            sessionId = currentUrlSplit[currentUrlSplit.length - 1];
+
+            // 关闭截图线程
+            screenshotFuture.cancel(false);
+            screenshotExecutor.shutdown();
+
+            String formattedContent = rawHtmlContent;
+            try {
+                if (rawHtmlContent != null && !rawHtmlContent.isEmpty()) {
+                    Object finalFormattedContent = page.evaluate("""
+                            (content) => {
+                                try {
+                                    // 创建一个包装容器来处理原始HTML
+                                    const tempDiv = document.createElement('div');
+                                    tempDiv.innerHTML = content;
+                            
+                                    // 移除所有内联样式和不必要的div/span嵌套
+                                    const cleanUpElements = (element) => {
+                                        // 移除空的div和span标签
+                                        element.querySelectorAll('div, span').forEach(el => {
+                                            if (el.children.length === 0 && el.textContent.trim() === '') {
+                                                el.remove();
+                                            }
+                                        });
+                            
+                                        // 移除所有元素的内联样式
+                                        element.querySelectorAll('*').forEach(el => {
+                                            el.removeAttribute('style');
+                                            el.removeAttribute('class');
+                                        });
+                            
+                                        // 处理表格元素，添加基本样式
+                                        element.querySelectorAll('table').forEach(table => {
+                                            table.style.borderCollapse = 'collapse';
+                                            table.style.width = '100%';
+                                        });
+                            
+                                        element.querySelectorAll('th, td').forEach(cell => {
+                                            cell.style.border = '1px solid #ebebec';
+                                            cell.style.padding = '8px';
+                                            cell.style.textAlign = 'left';
+                                        });
+                            
+                                        element.querySelectorAll('th').forEach(th => {
+                                            th.style.backgroundColor = '#f8f8fa';
+                                            th.style.fontWeight = 'bold';
+                                        });
+                                    };
+                            
+                                    cleanUpElements(tempDiv);
+                            
+                                    // 创建最终容器
+                                    const styledContainer = document.createElement('div');
+                                    styledContainer.className = 'zhzd-response';
+                                    styledContainer.style.cssText = 'max-width: 800px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; color: #333;';
+                            
+                                    // 将清理后的内容移入容器
+                                    styledContainer.innerHTML = tempDiv.innerHTML;
+                            
+                                    // 处理所有直接子元素，确保它们是带有正确样式的p标签
+                                    const processChildElements = (container) => {
+                                        container.childNodes.forEach(node => {
+                                            if (node.nodeType === Node.ELEMENT_NODE) {
+                                                // 为所有直接子元素添加统一的段落样式
+                                                if (!['STYLE', 'SCRIPT'].includes(node.tagName)) {
+                                                    if (node.tagName === 'P') {
+                                                        node.style.margin = '0px 0px 16px';
+                                                        node.style.padding = '0px';
+                                                    } else if (node.tagName === 'H3') {
+                                                        node.style.margin = '0px 0px 16px';
+                                                        node.style.fontSize = '16px';
+                                                        node.style.fontWeight = '500';
+                                                        node.style.lineHeight = '27px';
+                                                    } else if (node.tagName === 'OL' || node.tagName === 'UL') {
+                                                        node.style.margin = '0px 0px 16px 25px';
+                                                        node.style.padding = '0px';
+                                                    } else if (node.tagName === 'LI') {
+                                                        node.style.whiteSpace = 'normal';
+                                                        node.style.margin = '0px 0px 16px';
+                                                    } else {
+                                                        // 将其他元素包装在p标签中
+                                                        const p = document.createElement('p');
+                                                        p.style.margin = '0px 0px 16px';
+                                                        p.style.padding = '0px';
+                                                        p.innerHTML = node.outerHTML;
+                                                        node.parentNode.replaceChild(p, node);
+                                                    }
+                                                }
+                                            }
+                                        });
+                                    };
+                            
+                                    processChildElements(styledContainer);
+                            
+                                    return styledContainer.outerHTML;
+                                } catch (e) {
+                                    console.error('格式化知乎直答内容时出错:', e);
+                                    return content;
+                                }
+                            }
+                            """, rawHtmlContent);
+
+                    if (finalFormattedContent != null && !finalFormattedContent.toString().isEmpty()) {
+                        formattedContent = finalFormattedContent.toString();
+                        logInfo.sendTaskLog("已将回答内容封装为统一的HTML展示样式", userId, aiName);
+                    }
+                }
+            } catch (Exception e) {
+                logInfo.sendTaskLog("内容格式化处理失败: " + e.getMessage(), userId, aiName);
+            }
+
+            String shareUrl = null;
+            String shareImgUrl = null;
+
+            try {
+                page.getByTestId("Button:Share:zhida_message_share_btn").last().click();
+
+                // 获取分享链接
+                page.locator("div:has-text('复制链接')").last().click();
+                page.waitForTimeout(500);
+                shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
+
+                page.locator("div:has-text('保存图片')").last().click();
+                page.waitForTimeout(1000);
+
+                shareImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
+                    page.locator("div:has-text('下载图片')").last().click();
+                });
+            } catch (Exception e) {
+                logInfo.sendTaskLog("获取分享链接处理失败: " + e.getMessage(), userId, aiName);
+            }
+
+            // 回传数据
+            logInfo.sendTaskLog("执行完成", userId, aiName);
+            logInfo.sendChatData(page, "/search/([^/?#]+)", userId, "RETURN_ZHZD_CHATID", 1);
+            logInfo.sendResData(formattedContent, userId, aiName, "RETURN_ZHZD_RES", shareUrl, shareImgUrl);
+
+            // 保存数据库
+            userInfoRequest.setZhzdChatId(sessionId);
+            userInfoRequest.setDraftContent(formattedContent);
+            userInfoRequest.setAiName(aiName);
+            userInfoRequest.setShareUrl(shareUrl);
+            userInfoRequest.setShareImgUrl(shareImgUrl);
+            RestUtils.post(url + "/saveDraftContent", userInfoRequest);
+
+            return formattedContent;
+        } catch (Exception e) {
+            e.printStackTrace();
+            logInfo.sendTaskLog("执行知乎直答任务时发生严重错误: " + e.getMessage(), userInfoRequest.getUserId(), "知乎直答");
+            return "获取内容失败";
+        }
     }
 
     /**

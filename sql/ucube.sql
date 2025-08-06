@@ -1530,6 +1530,7 @@ CREATE TABLE `wc_chat_history` (
   `metaso_chat_id` varchar(100) DEFAULT NULL COMMENT '秘塔会话ID',
   `kimi_chat_id` varchar(100) DEFAULT NULL COMMENT 'KiMi会话ID',
   `baidu_chat_id` varchar(100) DEFAULT NULL COMMENT '百度会话ID',
+  `zhzd_chat_id` varchar(100) DEFAULT NULL COMMENT '知乎直答会话ID',
   `chat_id` varchar(36) DEFAULT NULL COMMENT '内部chatID'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

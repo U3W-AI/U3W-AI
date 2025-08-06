@@ -28,7 +28,12 @@ public class UserInfoRequest {
             "      ty-qw：通义千问基础版\n"+
             "      ty-qw-sdsk：通义千问深度思考能力\n"+
             "      ty-qw-lwss：通义千问联网搜索能力\n"+
-            "      baidu-sdss：百度AI深度搜索模式\n",
+            "      baidu-sdss：百度AI深度搜索模式\n" +
+            "      zhzd-sdsk: 知乎直答深度思考能力\n" +
+            "      zhzd-qw: 知乎直答全网搜索能力\n" +
+            "      zhzd-zh: 知乎直答知乎搜索能力\n" +
+            "      zhzd-xs: 知乎直答学术搜索能力\n" +
+            "      zhzd-wdzsk: 知乎直答我的知识库搜索能力\n",
             example = "yb-hunyuan-pt,yb-hunyuan-sdsk")
     private String roles;
 
@@ -58,6 +63,9 @@ public class UserInfoRequest {
 
     @Schema(description = "百度AI的聊天会话 ID", example = "baidu_chat_004")
     private String baiduChatId;
+
+    @Schema(description = "知乎直答的聊天会话 ID")
+    private String zhzdChatId;
 
     @Schema(description = "是否为新对话。true 表示清空上下文重新开始", example = "true")
     private String isNewChat;
