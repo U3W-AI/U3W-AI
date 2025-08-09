@@ -445,6 +445,10 @@ public class AIGCController extends BaseController {
 
         return aigcService.saveDraftContent(map);
     }
+    @PostMapping("/saveLogInfo")
+    public ResultBody saveLogInfo(@RequestBody Map map){
+        return aigcService.saveLogInfo(map);
+    }
 
 
     /**

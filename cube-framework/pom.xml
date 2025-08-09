@@ -9,7 +9,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>cube-framework</artifactId>
+    <artifactId>cube-framework</artifactId>  
 
     <description>
         framework框架核心
