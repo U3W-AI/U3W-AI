@@ -34,4 +34,6 @@ public interface AIGCMapper {
 
     List<Map> getChatHistory(@Param("userId") String userId,@Param("isAll") int isAll);
 
+    int saveLogInfo(Map map);
+
 }

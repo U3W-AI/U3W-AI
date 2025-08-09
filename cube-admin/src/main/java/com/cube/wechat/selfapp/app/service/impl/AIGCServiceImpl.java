@@ -64,6 +64,13 @@ public class AIGCServiceImpl implements AIGCService {
         aigcMapper.saveDraftContent(map);
         return ResultBody.success("保存成功");
     }
+
+    @Override
+    public ResultBody saveLogInfo(Map map) {
+        aigcMapper.saveLogInfo(map);
+        return ResultBody.success("保存成功");
+    }
+
     @Override
     public String getDraftContent(String taskId,String aiName) {
         return aigcMapper.getDraftContent(taskId,aiName);
