@@ -63,7 +63,7 @@ public class MediaController {
      */
     @Operation(summary = "检查知乎登录状态", description = "返回用户名表示已登录，false 表示未登录")
     @GetMapping("/checkZhihuLogin")
-    public String checkZhihuLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) {
+    public String checkZhihuLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"Zhihu")) {
             Page page = context.newPage();
 
@@ -82,7 +82,7 @@ public class MediaController {
             // 检测登录状态
             String userName = zhiHuUtil.checkLoginStatus(page);
 
-            if (!"false".equals(userName)) {
+            if (!"false".equals(userName) && !"未登录".equals(userName)) {
                 System.out.println("知乎登录检测成功，用户: " + userName);
                 return userName;
             }
@@ -90,8 +90,7 @@ public class MediaController {
             return "false";
 
         } catch (Exception e) {
-            e.printStackTrace();
-            return "false";
+            throw e;
         }
     }
     /**
@@ -101,7 +100,7 @@ public class MediaController {
      */
     @Operation(summary = "检查百家号登录状态", description = "返回用户名表示已登录，false 表示未登录")
     @GetMapping("/checkBaijiahaoLogin")
-    public String checkBaijiahaoLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) {
+    public String checkBaijiahaoLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"Baijiahao")) {
             Page page = context.newPage();
 
@@ -128,8 +127,7 @@ public class MediaController {
             return "false";
 
         } catch (Exception e) {
-            e.printStackTrace();
-            return "false";
+            throw e;
         }
     }
 
@@ -172,7 +170,8 @@ public class MediaController {
                     System.out.println("切换到扫码登录标签页");
                 }
             } catch (Exception e) {
-                System.out.println("切换扫码标签页失败，可能默认就是扫码登录: " + e.getMessage());
+                System.out.println("切换扫码标签页失败，可能默认就是扫码登录");
+                UserLogUtil.sendExceptionLog(userId, "知乎切换扫码标签页", "getZhihuQrCode", e, url + "/saveLogInfo");
             }
 
             // 等待二维码加载
@@ -187,7 +186,9 @@ public class MediaController {
                     System.out.println("未找到二维码区域，继续截图");
                 }
             } catch (Exception e) {
-                System.out.println("等待二维码加载失败: " + e.getMessage());
+                System.out.println("等待二维码加载失败");
+                UserLogUtil.sendExceptionLog(userId, "知乎等待二维码加载", "getZhihuQrCode", e, url + "/saveLogInfo");
+
             }
 
             // 截图并上传二维码
@@ -241,7 +242,8 @@ public class MediaController {
                         }
                     }
                 } catch (Exception e) {
-                    System.out.println("登录状态检查异常: " + e.getMessage());
+                    UserLogUtil.sendExceptionLog(userId, "知乎登录状态检查", "getZhihuQrCode", e, url + "/saveLogInfo");
+                    System.out.println("登录状态检查异常");
                 }
             }
 
@@ -268,8 +270,8 @@ public class MediaController {
             return qrCodeUrl;
 
         } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("获取知乎二维码失败: " + e.getMessage());
+            UserLogUtil.sendExceptionLog(userId, "获取知乎二维码", "getZhihuQrCode", e, url + "/saveLogInfo");
+            System.out.println("获取知乎二维码失败");
         }
         return "false";
     }
@@ -316,11 +318,13 @@ public class MediaController {
                 Locator qrCodeArea = page.locator(".tang-pass-qrcode-img").first();
                 System.out.println("二维码区域已加载");
             } catch (Exception e) {
-                System.out.println("等待二维码加载失败或未找到二维码区域: " + e.getMessage());
+                System.out.println("等待二维码加载失败或未找到二维码区域");
+                UserLogUtil.sendExceptionLog(userId, "百家号登录状态检查", "getBaijiahaoQrCode", e, url + "/saveLogInfo");
             }
 
 
             // 截图并上传二维码
+            Thread.sleep(2000);
             String qrCodeUrl = screenshotUtil.screenshotAndUpload(page, "baijiahaoQrCode_" + userId + ".png");
 
             // 发送二维码URL到前端
@@ -369,7 +373,8 @@ public class MediaController {
                         }
                     }
                 } catch (Exception e) {
-                    System.out.println("登录状态检查异常: " + e.getMessage());
+                    System.out.println("登录状态检查异常");
+                    UserLogUtil.sendExceptionLog(userId, "百家号登录状态检查", "getBaijiahaoQrCode", e, url + "/saveLogInfo");
                 }
             }
 
@@ -396,8 +401,8 @@ public class MediaController {
             return qrCodeUrl;
 
         } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("获取百家号二维码失败: " + e.getMessage());
+            System.out.println("获取百家号二维码失败");
+            UserLogUtil.sendExceptionLog(userId, "获取百家号二维码", "getBaijiahaoQrCode", e, url + "/saveLogInfo");
         }
         return "false";
     }
@@ -517,8 +522,8 @@ public class MediaController {
                 waited++;
             }
         } catch (Exception e) {
-            e.printStackTrace();
-            return "投递失败: " + e.getMessage();
+            UserLogUtil.sendExceptionLog(userId, "知乎投递异常", "sendToZhihu", e, url);
+            return "投递失败";
         }
         return "true";
     }
@@ -645,8 +650,8 @@ public class MediaController {
             System.out.println("草稿保存成功");
 
         } catch (Exception e) {
-            e.printStackTrace();
-            return "投递失败: " + e.getMessage();
+            UserLogUtil.sendExceptionLog(userId, "投递到百家号", "sendToBaijiahao", e, url + "/saveLogInfo");
+            return "投递失败";
         }
         return "true";
     }
@@ -720,6 +725,8 @@ public class MediaController {
             }
         } catch (Exception e) {
             logMsgUtil.sendTaskLog("获取微头条登录二维码失败", userId, "tth");
+            UserLogUtil.sendExceptionLog(userId, "获取微头条登录二维码", "getTTHQrCode", e, url + "/saveLogInfo");
+            return "false";
         }
         return "false";
     }
@@ -746,7 +753,7 @@ public class MediaController {
             // 所有尝试都失败，返回未登录状态
             return "false";
         } catch (Exception e) {
-            e.printStackTrace();
+            UserLogUtil.sendExceptionLog(userId, "检查微头条登录状态", "checkTTHLogin", e, url + "/saveLogInfo");
         }
         return "false";
     }
