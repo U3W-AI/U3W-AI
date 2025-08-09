@@ -1,43 +1,36 @@
 package com.playwright.controller;
 
-import com.alibaba.fastjson.JSONObject;
 import com.microsoft.playwright.BrowserContext;
-import com.microsoft.playwright.Download;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.PlaywrightException;
 import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.LoadState;
-import com.microsoft.playwright.options.WaitForSelectorState;
-import com.microsoft.playwright.PlaywrightException;
 import com.playwright.entity.UnPersisBrowserContextInfo;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.utils.*;
 import com.playwright.websocket.WebSocketClientService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 
 /**
  * AI生成内容控制器
@@ -87,6 +80,10 @@ public class AIGCController {
     @Autowired
     private KimiUtil kimiUtil;
 
+    // 元素选择器工具类
+    @Autowired
+    private ElementSelectorUtil elementSelectorUtil;
+
     // 通义AI相关操作工具类
     @Autowired
     private TongYiUtil tongYiUtil;
@@ -133,7 +130,7 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startAgent")
     public String startAgent(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) {
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws Exception {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"agent")) {
 
             // 初始化变量
@@ -235,9 +232,8 @@ public class AIGCController {
             }
                return copiedText;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
     /**
@@ -249,7 +245,7 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startYB")
     public String startYB(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) {
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws Exception {
         String userId =userInfoRequest.getUserId();
         String currentContent = "";
         String roles = userInfoRequest.getRoles();
@@ -319,9 +315,8 @@ public class AIGCController {
             return currentContent;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
     /**
@@ -333,7 +328,7 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startMiniMax")
     public String startMiniMax(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest){
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
         try (
                 BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"MiniMax Chat")) {
 
@@ -353,92 +348,114 @@ public class AIGCController {
                 page.navigate("https://chat.minimaxi.com/");
             }
             page.waitForLoadState(LoadState.LOAD);
+            page.waitForTimeout(3000); // 等待页面完全加载
+            
             // 去除弹窗
-            Locator elements = page.locator(".md\\:hover\\:bg-col_text05.text-col_text02.md\\:text-col_text03.z-50.flex.h-\\[30px\\].w-\\[30px\\].cursor-pointer.items-center.justify-center.rounded");
-
-            if (elements.count() > 0) {
-                elements.first().click();
+            try {
+                Locator closeBtn = page.locator(".md\\:hover\\:bg-col_text05.text-col_text02.md\\:text-col_text03.z-50.flex.h-\\[30px\\].w-\\[30px\\].cursor-pointer.items-center.justify-center.rounded");
+                if (closeBtn.count() > 0) {
+                    closeBtn.first().click();
+                    page.waitForTimeout(1000);
+                }
+            } catch (Exception e) {
+                System.out.println("关闭弹窗失败，继续执行: ");
+                throw e;
             }
 
-
-            page.waitForTimeout(2000);
-            Locator aside = page.locator("aside.shadow-s1");
-            System.out.println("元素"+aside.evaluate("e => e.outerHTML"));
-            if (aside.count() > 0) {
-                aside.first().evaluate("el => el.remove()");
+            // 移除侧边栏
+            try {
+                Locator aside = page.locator("aside.shadow-s1");
+                if (aside.count() > 0) {
+                    aside.first().evaluate("el => el.remove()");
+                }
+            } catch (Exception e) {
+                System.out.println("移除侧边栏失败，继续执行: ");
+                throw e;
             }
-
 
             logInfo.sendTaskLog( "MiniMax页面打开完成",userId,"MiniMax Chat");
-            // 定位深度思考按钮
-            String deepThinkPath= maxChatId != null && !maxChatId.isEmpty()?
-                    "xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/div[3]/div[2]/div/div[2]/div[1]/div[2]":
-                    "xpath=/html/body/section/div/div/section/div/div[1]/div/div/div/div/div/div[3]/div[2]/div/div[2]/div[1]/div[2]";
-            Locator deepThoughtButton = page.locator(deepThinkPath);
-            // 判断深度思考按钮是否已点击（默认打开时，深度思考和联网都已经打开）
-            boolean isActiveForSK = (Boolean) deepThoughtButton.evaluate("element => {\n" +
-                    "    return element.classList.contains('bg-col_brand00/[0.06]') && \n" +
-                    "element.classList.contains('text-col_brand00') && "+
-                    "element.classList.contains('border-col_brand00/[0.16]');"+
-                    "}");
-
-            // 定位联网搜索按钮
-            String internetPath= maxChatId != null && !maxChatId.isEmpty()?
-                    "xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/div[3]/div[2]/div/div[2]/div[1]/div[1]":
-                    "xpath=/html/body/section/div/div/section/div/div[1]/div/div/div/div/div/div[3]/div[2]/div/div[2]/div[1]/div[1]";
-            Locator internetThoughtButton = page.locator(internetPath);
-            boolean isActiveForLW = (Boolean) internetThoughtButton.evaluate("element => {\n" +
-                    "    return element.classList.contains('bg-col_brand00/[0.06]') &&  \n" +
-                    "element.classList.contains('text-col_brand00') &&  "+
-                    "element.classList.contains('border-col_brand00/[0.16]');"+
-                    "}");
-            // 开启深度思考
-            if (isActiveForSK  && roles.contains("max-sdsk")) {
-                Thread.sleep(1000);
-                // 再次检查按钮状态
-                isActiveForSK = (Boolean) deepThoughtButton.evaluate("element => {\n" +
-                        "    return element.classList.contains('bg-col_brand00/[0.06]') && \n" +
-                        "element.classList.contains('text-col_brand00') && "+
-                        "element.classList.contains('border-col_brand00/[0.16]');"+
-                        "}");
-                // 如果未开启则点击
-                if (!isActiveForSK) {
-                    deepThoughtButton.click();
-                    Thread.sleep(1000);
+            
+            // 使用工具类定位深度思考按钮
+            try {
+                Locator deepThoughtButton = elementSelectorUtil.findElementWithMultipleSelectors(
+                    page, elementSelectorUtil.getDeepThinkSelectors(), 5000);
+                
+                if (deepThoughtButton == null) {
+                    logInfo.sendTaskLog("未找到深度思考按钮，跳过此步骤", userId, "MiniMax Chat");
+                } else {
+                    // 检查按钮激活状态
+                    boolean isActiveForSK = elementSelectorUtil.isElementActive(
+                        deepThoughtButton, elementSelectorUtil.getActiveClasses());
+                    
+                    // 处理深度思考模式
+                    if (roles.contains("max-sdsk")) {
+                        if (!isActiveForSK) {
+                            if (elementSelectorUtil.safeClick(deepThoughtButton, "启动深度思考模式")) {
+                                page.waitForTimeout(1000);
+                                logInfo.sendTaskLog("已启动深度思考模式", userId, "MiniMax Chat");
+                            } else {
+                                logInfo.sendTaskLog("启动深度思考模式失败", userId, "MiniMax Chat");
+                            }
+                        } else {
+                            logInfo.sendTaskLog("深度思考模式已启用", userId, "MiniMax Chat");
+                        }
+                    } else {
+                        // 关闭深度思考模式
+                        if (isActiveForSK) {
+                            if (elementSelectorUtil.safeClick(deepThoughtButton, "关闭深度思考模式")) {
+                                page.waitForTimeout(1000);
+                                logInfo.sendTaskLog("已关闭深度思考模式", userId, "MiniMax Chat");
+                            } else {
+                                logInfo.sendTaskLog("关闭深度思考模式失败", userId, "MiniMax Chat");
+                            }
+                        }
+                    }
                 }
-                logInfo.sendTaskLog( "已启动深度思考模式",userId,"MiniMax Chat");
-            }else{
-                // 未开启深度思考模式
-                // 未开启需要点击深度思考按钮来关闭深度思考
-                deepThoughtButton.click();
+            } catch (Exception e) {
+                logInfo.sendTaskLog("处理深度思考按钮时出错", userId, "MiniMax Chat");
+                throw e;
             }
-            // 开启联网
-            if (isActiveForLW  && roles.contains("max-lwss")) {
-                Thread.sleep(1000);
-                // 再次检查按钮状态
-                isActiveForLW = (Boolean) internetThoughtButton.evaluate("element => {\n" +
-                        "    return element.classList.contains('bg-col_brand00/[0.06]') && \n" +
-                        "element.classList.contains('text-col_brand00') && "+
-                        "element.classList.contains('border-col_brand00/[0.16]');"+
-                        "}");
-                // 如果未开启则点击
-                if (!isActiveForLW) {
-                    internetThoughtButton.click();
-                    Thread.sleep(1000);
+
+            // 使用工具类定位联网搜索按钮
+            try {
+                Locator internetThoughtButton = elementSelectorUtil.findElementWithMultipleSelectors(
+                    page, elementSelectorUtil.getInternetSelectors(), 5000);
+                
+                if (internetThoughtButton == null) {
+                    logInfo.sendTaskLog("未找到联网按钮，跳过此步骤", userId, "MiniMax Chat");
+                } else {
+                    // 检查按钮激活状态
+                    boolean isActiveForLW = elementSelectorUtil.isElementActive(
+                        internetThoughtButton, elementSelectorUtil.getActiveClasses());
+                    
+                    // 处理联网搜索模式
+                    if (roles.contains("max-lwss")) {
+                        if (!isActiveForLW) {
+                            if (elementSelectorUtil.safeClick(internetThoughtButton, "启动联网搜索模式")) {
+                                page.waitForTimeout(1000);
+                                logInfo.sendTaskLog("已启动联网搜索模式", userId, "MiniMax Chat");
+                            } else {
+                                logInfo.sendTaskLog("启动联网搜索模式失败", userId, "MiniMax Chat");
+                            }
+                        } else {
+                            logInfo.sendTaskLog("联网搜索模式已启用", userId, "MiniMax Chat");
+                        }
+                    } else {
+                        // 关闭联网模式
+                        if (isActiveForLW) {
+                            if (elementSelectorUtil.safeClick(internetThoughtButton, "关闭联网搜索模式")) {
+                                page.waitForTimeout(1000);
+                                logInfo.sendTaskLog("已关闭联网搜索模式", userId, "MiniMax Chat");
+                            } else {
+                                logInfo.sendTaskLog("关闭联网搜索模式失败", userId, "MiniMax Chat");
+                            }
+                        }
+                    }
                 }
-                logInfo.sendTaskLog( "已启动联网模式",userId,"MiniMax Chat");
-            }else{
-                // 未开启联网搜索模式
-                // 未开启需要点击搜索按钮关闭搜索
-                internetThoughtButton.click();
+            } catch (Exception e) {
+                logInfo.sendTaskLog("处理联网按钮时出错", userId, "MiniMax Chat");
+                throw e;
             }
-
-            Locator aside1 = page.locator("aside.shadow-s1");
-            if (aside1.count() > 0) {
-                aside1.first().evaluate("el => el.remove()");
-                System.out.println("已清除aside浮窗");
-            }
-
 
             // 获取输入框并输入内容
             Thread.sleep(1000);
@@ -461,7 +478,7 @@ public class AIGCController {
                     logInfo.sendImgData(page, userId + "MiniMax执行过程截图"+currentCount, userId);
 
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    UserLogUtil.sendExceptionLog(userId,"MinMax截图", "startMiniMax", e, url + "/saveLogInfo");
                 }
             }, 0, 8, TimeUnit.SECONDS);
 
@@ -501,7 +518,7 @@ public class AIGCController {
                         shareUrlRef.set(shareUrl);
                         System.out.println("剪贴板内容：" + shareUrl);
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        UserLogUtil.sendExceptionLog(userId,"MiniMax复制链接", "startMiniMax", e, url + "/saveLogInfo");
                     }
                 });
 
@@ -585,9 +602,8 @@ public class AIGCController {
             }
             return copiedText;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
     /**
@@ -599,7 +615,7 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startMetaso")
     public String startMetaso(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest){
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"metaso")) {
 
             // 初始化变量
@@ -695,7 +711,7 @@ public class AIGCController {
                     int currentCount = i.getAndIncrement(); // 获取当前值并自增
                     logInfo.sendImgData(page, userId + "秘塔执行过程截图"+currentCount, userId);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    UserLogUtil.sendExceptionLog(userId, "秘塔截图异常", "startMetaso", e, url + "/saveLogInfo");
                 }
             }, 0, 8, TimeUnit.SECONDS);
 
@@ -723,7 +739,7 @@ public class AIGCController {
                     shareUrlRef.set(shareUrl);
                     System.out.println("剪贴板内容：" + shareUrl);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    UserLogUtil.sendExceptionLog(userId, "秘塔复制链接异常", "startMetaso", e, url + "/saveLogInfo");
                 }
             });
 
@@ -750,9 +766,8 @@ public class AIGCController {
             RestUtils.post(url+"/saveDraftContent", userInfoRequest);
             return copiedText;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
     /**
@@ -764,7 +779,7 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startDB")
     public String startDB(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest){
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"db")) {
 
             // 初始化变量
@@ -828,7 +843,7 @@ public class AIGCController {
                     int currentCount = i.getAndIncrement(); // 获取当前值并自增
                     logInfo.sendImgData(page, userId + "豆包执行过程截图"+currentCount, userId);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    UserLogUtil.sendExceptionLog(userId, "豆包截图", "startDB", e, url + "/saveLogInfo");
                 }
             }, 0, 8, TimeUnit.SECONDS);
 
@@ -871,7 +886,7 @@ public class AIGCController {
                     shareUrlRef.set(shareUrl);
                     System.out.println("剪贴板内容：" + shareUrl);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    UserLogUtil.sendExceptionLog(userId, "豆包复制", "startDB", e, url + "/saveLogInfo");
                 }
             });
 
@@ -905,9 +920,8 @@ public class AIGCController {
             RestUtils.post(url+"/saveDraftContent", userInfoRequest);
             return copiedText;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
 
@@ -920,7 +934,7 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startKimi")
     public String startKimi(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest){
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
 
         try (
                 BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "Kimi");
@@ -964,7 +978,7 @@ public class AIGCController {
                     logInfo.sendImgData(page, userId + "kimi执行过程截图"+currentCount, userId);
 
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    UserLogUtil.sendExceptionLog(userId, "Kimi截图", "startKimi", e, url + "/saveLogInfo");
                 }
             }, 0, 8, TimeUnit.SECONDS);
             //存储回答内容文本
@@ -1003,9 +1017,8 @@ public class AIGCController {
 
 
         } catch (InterruptedException | IOException e) {
-            throw new RuntimeException(e);
+            throw e;
         }
-
     }
 
 
@@ -1013,7 +1026,7 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startDBScore")
     public String startDBScore(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest){
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"db")) {
 
             // 初始化变量
@@ -1069,7 +1082,7 @@ public class AIGCController {
                     int currentCount = i.getAndIncrement(); // 获取当前值并自增
                     logInfo.sendImgData(page, userId + "评分执行过程截图"+currentCount, userId);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    UserLogUtil.sendExceptionLog(userId, "豆包评分截图", "startDBScore", e, url + "/saveLogInfo");
                 }
             }, 0, 9, TimeUnit.SECONDS);
 
@@ -1111,7 +1124,7 @@ public class AIGCController {
                     shareUrlRef.set(shareUrl);
                     System.out.println("剪贴板内容：" + shareUrl);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    UserLogUtil.sendExceptionLog(userId, "豆包评分内容复制", "startDBScore", e, url + "/saveLogInfo");
                 }
             });
 
@@ -1142,9 +1155,8 @@ public class AIGCController {
             RestUtils.post(url+"/saveDraftContent", userInfoRequest);
             return copiedText;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
 
@@ -1152,7 +1164,7 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startDBOffice")
     public String startDBOffice(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest){
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"db")) {
             // 初始化变量
             String userId = userInfoRequest.getUserId();
@@ -1207,7 +1219,7 @@ public class AIGCController {
                     int currentCount = i.getAndIncrement(); // 获取当前值并自增
                     logInfo.sendImgData(page, userId + "智能排版执行过程截图"+currentCount, userId);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    UserLogUtil.sendExceptionLog(userId, "智能排版执行过程截图", "startDBOffice", e, url + "/saveLogInfo");
                 }
             }, 0, 9, TimeUnit.SECONDS);
 
@@ -1228,9 +1240,8 @@ public class AIGCController {
             RestUtils.post(url+"/saveDraftContent", userInfoRequest);
             return copiedText;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
     /**
@@ -1242,7 +1253,7 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startDeepSeek")
     public String startDeepSeek(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) {
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
         // 添加全局异常处理
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "deepseek")) {
             // 设置全局超时时间，提高稳定性
@@ -1291,7 +1302,7 @@ public class AIGCController {
                             return;
                         }
                     } catch (Exception e) {
-                        // 忽略评估错误
+                        UserLogUtil.sendExceptionLog(userId, "startDeepSeek截图", "startDeepSeek", e, url + "/saveLogInfo");
                     }
 
                     int currentCount = i.getAndIncrement();
@@ -1300,10 +1311,11 @@ public class AIGCController {
                         logInfo.sendImgData(page, userId + "DeepSeek执行过程截图" + currentCount, userId);
                     } catch (Exception e) {
                         System.out.println("截图失败: " + e.getMessage());
-                        // 不打印完整堆栈，避免日志过多
+                        UserLogUtil.sendExceptionLog(userId, "startDeepSeek截图", "startDeepSeek", e, url + "/saveLogInfo");
                     }
                 } catch (Exception e) {
                     System.out.println("截图任务异常: " + e.getMessage());
+                    UserLogUtil.sendExceptionLog(userId, "startDeepSeek截图", "startDeepSeek", e, url + "/saveLogInfo");
                 }
             }, 2000, 6000, TimeUnit.MILLISECONDS); // 延迟2秒开始，每6秒执行一次
 
@@ -1333,6 +1345,7 @@ public class AIGCController {
                 } catch (Exception e) {
                     if (retry == maxRetries - 1) {
                         copiedText = "获取内容失败：多次尝试后仍然失败";
+                        UserLogUtil.sendExceptionLog(userId, "startDeepSeek获取内容", "startDeepSeek", e, url + "/saveLogInfo");
                     }
                     Thread.sleep(2000); // 出错后等待2秒
                 }
@@ -1349,6 +1362,7 @@ public class AIGCController {
                 }
             } catch (Exception e) {
                 // 关闭截图任务时出错
+                UserLogUtil.sendExceptionLog(userId, "startDeepSeek关闭截图", "startDeepSeek", e, url + "/saveLogInfo");
             }
 
             // 如果获取内容失败，尝试从页面中提取任何可能的内容
@@ -1383,7 +1397,8 @@ public class AIGCController {
                         System.out.println("使用备用方法成功提取内容");
                     }
                 } catch (Exception e) {
-                    System.out.println("备用提取方法失败: " + e.getMessage());
+                    System.out.println("备用提取方法失败");
+                    UserLogUtil.sendExceptionLog(userId, "startDeepSeek备用提取", "startDeepSeek", e, url + "/saveLogInfo");
                 }
             }
 
@@ -1441,7 +1456,8 @@ public class AIGCController {
                     }
                 }
             } catch (Exception e) {
-                System.out.println("最终格式化处理失败: " + e.getMessage());
+                System.out.println("最终格式化处理失败");
+                UserLogUtil.sendExceptionLog(userId, "startDeepSeek格式化", "startDeepSeek", e, url + "/saveLogInfo");
             }
 
             // 保存结果
@@ -1449,12 +1465,11 @@ public class AIGCController {
                 copiedText = deepSeekUtil.saveDeepSeekContent(page, userInfoRequest, roles, userId, copiedText);
             } catch (Exception e) {
                 System.out.println("保存DeepSeek内容到稿库失败: " + e.getMessage());
-                e.printStackTrace();
+                UserLogUtil.sendExceptionLog(userId, "startDeepSeek存稿", "startDeepSeek", e, url + "/saveLogInfo");
             }
             return copiedText;
         } catch (Exception e) {
-            e.printStackTrace();
-            return "获取内容失败: " + e.getMessage();
+            throw e;
         }
     }
 
@@ -1467,7 +1482,7 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startTYQianwen")
     public String startTYQianwen(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) {
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws Exception{
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "ty")) {
 
             String userId = userInfoRequest.getUserId();
@@ -1498,7 +1513,7 @@ public class AIGCController {
                     int currentCount = i.getAndIncrement();
                     logInfo.sendImgData(page, userId + aiName + "执行过程截图" + currentCount, userId);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    UserLogUtil.sendExceptionLog(userId, "通义千问截图", "startTYQianwen", e, url + "/saveLogInfo");
                 }
             }, 0, 8, TimeUnit.SECONDS);
 
@@ -1561,7 +1576,8 @@ public class AIGCController {
                 }
             } catch (Exception e) {
                 logInfo.sendTaskLog("内容格式化处理失败: " + e.getMessage(), userId, aiName);
-                System.out.println("最终格式化处理失败: " + e.getMessage());
+                System.out.println("最终格式化处理失败");
+                UserLogUtil.sendExceptionLog(userId, "通义千问内容格式化", "startTYQianwen", e, url + "/saveLogInfo");
             }
 
             // 获取分享链接
@@ -1577,7 +1593,7 @@ public class AIGCController {
                     logInfo.sendTaskLog("成功获取分享链接: " + shareUrl, userId, aiName);
                 } catch (Exception e) {
                     logInfo.sendTaskLog("获取分享链接失败: " + e.getMessage(), userId, aiName);
-                    e.printStackTrace();
+                    UserLogUtil.sendExceptionLog(userId, "通义千问获取分型链接", "startTYQianwen", e, url + "/saveLogInfo");
                 }
             });
 
@@ -1601,10 +1617,9 @@ public class AIGCController {
             return formattedContent;
 
         } catch (Exception e) {
-            e.printStackTrace();
-            logInfo.sendTaskLog("执行通义千问任务时发生严重错误: " + e.getMessage(), userInfoRequest.getUserId(), "通义千问");
+            logInfo.sendTaskLog("执行通义千问任务时发生严重错误", userInfoRequest.getUserId(), "通义千问");
+            throw e;
         }
-        return "获取内容失败";
     }
 
     /**
@@ -1617,7 +1632,7 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startZHZD")
     public String startZHZD(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) {
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws Exception{
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "Zhihu")) {
             String userId = userInfoRequest.getUserId();
             String sessionId = userInfoRequest.getZhzdChatId();
@@ -1660,7 +1675,7 @@ public class AIGCController {
                     int currentCount = i.getAndIncrement();
                     logInfo.sendImgData(page, userId + aiName + "执行过程截图" + currentCount, userId);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    UserLogUtil.sendExceptionLog(userId, "知乎截图", "startZHZD", e, url + "/saveLogInfo");
                 }
             }, 0, 8, TimeUnit.SECONDS);
 
@@ -1777,7 +1792,8 @@ public class AIGCController {
                     }
                 }
             } catch (Exception e) {
-                logInfo.sendTaskLog("内容格式化处理失败: " + e.getMessage(), userId, aiName);
+                logInfo.sendTaskLog("内容格式化处理失败", userId, aiName);
+                UserLogUtil.sendExceptionLog(userId, "知乎内容格式化", "startZHZD", e, url + "/saveLogInfo");
             }
 
             String shareUrl = null;
@@ -1798,7 +1814,8 @@ public class AIGCController {
                     page.locator("div:has-text('下载图片')").last().click();
                 });
             } catch (Exception e) {
-                logInfo.sendTaskLog("获取分享链接处理失败: " + e.getMessage(), userId, aiName);
+                logInfo.sendTaskLog("获取分享链接处理失败" , userId, aiName);
+                UserLogUtil.sendExceptionLog(userId, "知乎链接分享", "startZHZD", e, url + "/saveLogInfo");
             }
 
             // 回传数据
@@ -1816,9 +1833,8 @@ public class AIGCController {
 
             return formattedContent;
         } catch (Exception e) {
-            e.printStackTrace();
-            logInfo.sendTaskLog("执行知乎直答任务时发生严重错误: " + e.getMessage(), userInfoRequest.getUserId(), "知乎直答");
-            return "获取内容失败";
+            logInfo.sendTaskLog("执行知乎直答任务时发生严重错误", userInfoRequest.getUserId(), "知乎直答");
+            throw e;
         }
     }
 
@@ -1828,7 +1844,7 @@ public class AIGCController {
      * @param userInfoRequest 用户信息请求体
      * @return 排版后的内容
      */
-    public String startDBInternal(UserInfoRequest userInfoRequest) {
+    public String startDBInternal(UserInfoRequest userInfoRequest) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "db")) {
 
             // 初始化变量
@@ -1885,8 +1901,7 @@ public class AIGCController {
 
             return copiedText;
         } catch (Exception e) {
-            e.printStackTrace();
-            return "获取内容失败: " + e.getMessage();
+            throw e;
         }
     }
 
@@ -1894,7 +1909,7 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/sendToTTHByDB")
     public String sendToTTHByDB(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest){
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"db")) {
             // 初始化变量
             String userId = userInfoRequest.getUserId();
@@ -1949,7 +1964,7 @@ public class AIGCController {
                     int currentCount = i.getAndIncrement(); // 获取当前值并自增
                     logInfo.sendImgData(page, userId + "微头条排版执行过程截图"+currentCount, userId);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    UserLogUtil.sendExceptionLog(userId, "微头条排版", "sendToTTHByDB", e, url + "/saveLogInfo");
                 }
             }, 0, 9, TimeUnit.SECONDS);
 
@@ -1973,8 +1988,8 @@ public class AIGCController {
             RestUtils.post(url+"/saveDraftContent", userInfoRequest);
             return copiedText;
         } catch (Exception e) {
+            throw e;
         }
-        return "获取内容失败";
     }
 
     /**
@@ -1986,7 +2001,7 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startBaidu")
     public String startBaidu(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) {
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,
                 userInfoRequest.getUserId(), "baidu")) {
 
@@ -2028,7 +2043,7 @@ public class AIGCController {
                     int currentCount = i.getAndIncrement();
                     logInfo.sendImgData(page, userId + "百度AI执行过程截图" + currentCount, userId);
                 } catch (Exception e) {
-                    System.out.println("截图失败: " + e.getMessage());
+                    UserLogUtil.sendExceptionLog(userId, "百度AI截图", "startBaidu", e, url + "/saveLogInfo");
                 }
             }, 2000, 8000, TimeUnit.MILLISECONDS); // 延迟2秒开始，每8秒执行一次
 
@@ -2056,7 +2071,9 @@ public class AIGCController {
                 } catch (Exception e) {
                     if (retry == maxRetries - 1) {
                         copiedText = "获取内容失败：多次尝试后仍然失败";
-                        logInfo.sendTaskLog("百度AI处理失败: " + e.getMessage(), userId, "百度AI");
+                        logInfo.sendTaskLog("百度AI处理失败", userId, "百度AI");
+                        UserLogUtil.sendExceptionLog(userId, "百度AI处理", "startBaidu", e, url + "/saveLogInfo");
+
                     }
                     Thread.sleep(2000);
                 }
@@ -2070,7 +2087,8 @@ public class AIGCController {
                     logInfo.sendTaskLog("截图任务关闭超时", userId, "百度AI");
                 }
             } catch (Exception e) {
-                logInfo.sendTaskLog("关闭截图任务异常: " + e.getMessage(), userId, "百度AI");
+                logInfo.sendTaskLog("关闭截图任务异常", userId, "百度AI");
+                UserLogUtil.sendExceptionLog(userId, "百度AI截图关闭", "startBaidu", e, url + "/saveLogInfo");
             }
 
             // 如果获取内容失败，尝试备用方法
@@ -2100,7 +2118,8 @@ public class AIGCController {
                         logInfo.sendTaskLog("使用备用方法成功提取内容", userId, "百度AI");
                     }
                 } catch (Exception e) {
-                    logInfo.sendTaskLog("备用提取方法失败: " + e.getMessage(), userId, "百度AI");
+                    logInfo.sendTaskLog("备用提取方法失败", userId, "百度AI");
+                    UserLogUtil.sendExceptionLog(userId, "百度AI备用提取", "startBaidu", e, url + "/saveLogInfo");
                 }
             }
 
@@ -2110,15 +2129,15 @@ public class AIGCController {
                 logInfo.sendTaskLog("执行完成", userId, "百度AI");
             } catch (Exception e) {
                 logInfo.sendTaskLog("保存百度AI内容到稿库失败: " + e.getMessage(), userId, "百度AI");
-                e.printStackTrace();
+                UserLogUtil.sendExceptionLog(userId, "保存百度AI内容到稿库", "startBaidu", e, url + "/saveLogInfo");
+
             }
 
             return copiedText;
 
         } catch (Exception e) {
-            e.printStackTrace();
-            logInfo.sendTaskLog("百度AI执行异常: " + e.getMessage(), userInfoRequest.getUserId(), "百度AI");
-            return "获取内容失败: " + e.getMessage();
+            logInfo.sendTaskLog("百度AI执行异常", userInfoRequest.getUserId(), "百度AI");
+            throw e;
         }
     }
 }

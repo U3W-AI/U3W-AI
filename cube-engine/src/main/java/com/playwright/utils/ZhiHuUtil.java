@@ -25,32 +25,67 @@ public class ZhiHuUtil {
             // 检查用户头像和用户名（最常见的方式）
             // 知乎登录后，右上角通常有用户头像
             Thread.sleep(1000);
-            Locator avatarArea = page.locator(".Avatar.AppHeader-profileAvatar.css-15snhfr");
-            if (avatarArea.count() > 0) {
-//                System.out.println("发现用户头像区域");
-                // 点击用户头像，然后点击用户主页按钮
-//                avatarArea.first().click();
-                Thread.sleep(1000);
-                String avatarAlt = page.locator(".Avatar.AppHeader-profileAvatar.css-15snhfr").first().getAttribute("alt");
-                String userName = avatarAlt;
-                if (userName != null) {
-                    if (userName.startsWith("点击打开")) {
-                        userName = userName.substring("点击打开".length());
-                    }
-                    if (userName.endsWith("的主页")) {
-                        userName = userName.substring(0, userName.length() - "的主页".length());
+            
+            // 尝试多种头像选择器
+            String[] avatarSelectors = {
+                ".Avatar.AppHeader-profileAvatar.css-15snhfr",
+                ".Avatar.AppHeader-profileAvatar",
+                "[class*='Avatar'][class*='AppHeader-profileAvatar']",
+                "[data-testid='avatar']",
+                ".AppHeader .Avatar"
+            };
+            
+            for (String selector : avatarSelectors) {
+                Locator avatarArea = page.locator(selector);
+                if (avatarArea.count() > 0) {
+                    try {
+                        String avatarAlt = avatarArea.first().getAttribute("alt");
+                        String userName = avatarAlt;
+                        if (userName != null && !userName.trim().isEmpty()) {
+                            // 清理用户名格式
+                            if (userName.startsWith("点击打开")) {
+                                userName = userName.substring("点击打开".length());
+                            }
+                            if (userName.endsWith("的主页")) {
+                                userName = userName.substring(0, userName.length() - "的主页".length());
+                            }
+                            System.out.println("知乎登录检测成功，用户: " + userName);
+                            return userName.trim();
+                        }
+                    } catch (Exception e) {
+                        System.out.println("尝试选择器 " + selector + " 失败: " + e.getMessage());
+                        continue;
                     }
                 }
-                return userName;
             }
 
             // 检查是否存在登录按钮
-            Locator loginButtons = page.locator("button:has-text('登录'), a:has-text('登录'), .signin-btn, .login-btn");
-            if (loginButtons.count() > 0) {
-                System.out.println("发现登录按钮，用户未登录");
+            String[] loginSelectors = {
+                "button:has-text('登录')",
+                "a:has-text('登录')", 
+                ".signin-btn", 
+                ".login-btn",
+                "[data-testid='login-button']",
+                ".AppHeader button:has-text('登录')"
+            };
+            
+            for (String selector : loginSelectors) {
+                Locator loginButtons = page.locator(selector);
+                if (loginButtons.count() > 0) {
+                    System.out.println("发现登录按钮，用户未登录");
+                    return "false";
+                }
+            }
+
+            // 检查URL是否重定向到登录页面
+            String currentUrl = page.url();
+            if (currentUrl.contains("signin") || currentUrl.contains("login")) {
+                System.out.println("页面重定向到登录页面，用户未登录");
                 return "false";
             }
 
+            // 如果没有找到明确的登录状态标识，返回false
+            System.out.println("无法确定登录状态，默认返回未登录");
             return "false";
 
         } catch (Exception e) {

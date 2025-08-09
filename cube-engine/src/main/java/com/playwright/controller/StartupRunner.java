@@ -16,9 +16,9 @@ public class StartupRunner {
     @Autowired
     private BrowserController browserController;
 
-    @EventListener(ApplicationReadyEvent.class)
-    public void runAfterStartup() {
-        System.out.println("Spring Boot 启动完成，调用 Controller 方法...");
-        browserController.checkLogin("22");
-    }
+//    @EventListener(ApplicationReadyEvent.class)
+//    public void runAfterStartup() {
+//        System.out.println("Spring Boot 启动完成，调用 Controller 方法...");
+//        browserController.checkLogin("22");
+//    }
 }

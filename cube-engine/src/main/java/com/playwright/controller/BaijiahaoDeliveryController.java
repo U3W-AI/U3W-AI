@@ -3,8 +3,10 @@ package com.playwright.controller;
 import com.alibaba.fastjson.JSONObject;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.utils.LogMsgUtil;
+import com.playwright.utils.UserLogUtil;
 import com.playwright.websocket.WebSocketClientService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,7 +27,8 @@ public class BaijiahaoDeliveryController {
 
     // 依赖注入
     private final WebSocketClientService webSocketClientService;
-
+    @Value("${cube.url}")
+    private String url;
     @Autowired
     private AIGCController aigcController;
     @Autowired
@@ -87,6 +90,7 @@ public class BaijiahaoDeliveryController {
             String errorMsg = "投递失败：" + e.getMessage();
             logInfo.sendMediaTaskLog(errorMsg, userId, "投递到百家号");
             sendDeliveryResult("投递到百家号", "error", errorMsg, userId);
+            UserLogUtil.sendExceptionLog(userId, "百家号投递", "deliverToBaijiahao", e, url + "/saveLogInfo");
             return "error";
         }
     }
@@ -106,7 +110,8 @@ public class BaijiahaoDeliveryController {
 
             return layoutResult;
         } catch (Exception e) {
-            logInfo.sendTaskLog("智能排版调用失败：" + e.getMessage(), userInfoRequest.getUserId(), "投递到百家号");
+            logInfo.sendTaskLog("智能排版调用失败", userInfoRequest.getUserId(), "投递到百家号");
+            UserLogUtil.sendExceptionLog(userInfoRequest.getUserId(), "百家号智能排版", "callInternalLayout", e, url + "/saveLogInfo");
             return null;
         }
     }
@@ -125,6 +130,7 @@ public class BaijiahaoDeliveryController {
 
             return aiName + "-" + userId + "-" + formattedDate;
         } catch (Exception e) {
+            UserLogUtil.sendExceptionLog(userId, "百家号投递", "buildBaijiahaoTitle", e, url + "/saveLogInfo");
             // 如果标题构建失败，使用默认标题
             return "百家号文章-" + userId + "-" + System.currentTimeMillis();
         }
@@ -147,7 +153,8 @@ public class BaijiahaoDeliveryController {
 
             webSocketClientService.sendMessage(message.toJSONString());
         } catch (Exception e) {
-            System.err.println("发送任务日志失败: " + e.getMessage());
+            System.err.println("发送任务日志失败");
+            UserLogUtil.sendExceptionLog(userId, "百家号投递", "sendTaskLog", e, url + "/saveLogInfo");
         }
     }
 
@@ -170,7 +177,8 @@ public class BaijiahaoDeliveryController {
 
             webSocketClientService.sendMessage(resultMessage.toJSONString());
         } catch (Exception e) {
-            System.err.println("发送投递结果失败: " + e.getMessage());
+            System.err.println("发送投递结果失败");
+            UserLogUtil.sendExceptionLog(userId, "百家号投递", "sendDeliveryResult", e, url + "/saveLogInfo");
         }
     }
 }

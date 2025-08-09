@@ -5,14 +5,12 @@ import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Keyboard;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
-import com.playwright.utils.BrowserUtil;
-import com.playwright.utils.LogMsgUtil;
-import com.playwright.utils.ScreenshotUtil;
-import com.playwright.utils.TTHUtil;
+import com.playwright.utils.*;
 import com.playwright.websocket.WebSocketClientService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,6 +34,8 @@ public class TTHController {
         this.webSocketClientService = webSocketClientService;
     }
 
+    @Value("${cube.url}")
+    private String url;
     // 日志记录工具类
     @Autowired
     private LogMsgUtil logInfo;
@@ -50,7 +50,7 @@ public class TTHController {
 
     @PostMapping("/pushToTTH")
     @Operation(summary = "投递内容到微头条", description = "投递内容到微头条")
-    public String pushToTTH(@RequestBody Map map) {
+    public String pushToTTH(@RequestBody Map map) throws InterruptedException {
         Integer i = (Integer) map.get("userId");
         String userId = i.toString();
         String title = (String) map.get("title");
@@ -97,6 +97,7 @@ public class TTHController {
         } catch (InterruptedException e) {
             logInfo.sendTTHFlow("发布文章失败: " + e.getMessage(), userId);
             tth.close();
+            UserLogUtil.sendExceptionLog(userId, "微头条发布文章", "pushToTTH", e, url + "/saveLogInfo");
         }
         return "false";
     }

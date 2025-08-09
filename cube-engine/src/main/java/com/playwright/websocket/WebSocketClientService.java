@@ -160,7 +160,91 @@ public class WebSocketClientService {
                             }).start();
                         }
 
+                        // 处理包含"yb-hunyuan"或"yb-deepseek"的消息
+                        if(message.contains("yb-hunyuan-pt") || message.contains("yb-deepseek-pt")){
+                            new Thread(() -> {
+                                try {
+                                    aigcController.startYB(userInfoRequest);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }).start();
+                        }
+                        // 处理包含"zj-db"的消息
+                        if(message.contains("zj-db")){
+                            new Thread(() -> {
+                                try {
+                                    aigcController.startDB(userInfoRequest);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }).start();
+                        }
+                        // 处理包含"deepseek"的消息
+                        if(message.contains("deepseek,")){
+                            new Thread(() -> {
+                                try {
+                                    aigcController.startDeepSeek(userInfoRequest);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }).start();
+                        }
+
                         // 处理包含"ty-qw"的信息
+                        if (message.contains("ty-qw")){
+                            new Thread(() -> {
+                                try {
+                                    aigcController.startTYQianwen(userInfoRequest);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }).start();
+                        }
+
+                        // 处理Kimi相关的消息 - 扩展检测逻辑
+                        String roles = userInfoRequest.getRoles();
+                        if(message.contains("kimi-talk") || 
+                           (roles != null && (roles.contains("kimi") || 
+                                            roles.contains("KIMI") || 
+                                            roles.contains("kimi-lwss") ||
+                                            roles.contains("kimi-agent")))){
+                            new Thread(() -> {
+                                try {
+                                    System.out.println("启动Kimi服务，检测到标识: " + (message.contains("kimi-talk") ? "kimi-talk" : roles));
+                                    aigcController.startKimi(userInfoRequest);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }).start();
+                        }
+                        
+                        // 新增：通用角色检测，支持更多AI服务的自动识别
+                        if (roles != null && !roles.isEmpty()) {
+                            // 检查是否包含其他AI服务标识但没有被上面的条件捕获
+                            String[] roleArray = roles.split(",");
+                            for (String role : roleArray) {
+                                role = role.trim().toLowerCase();
+                                
+                                // ChatGPT相关
+                                if (role.contains("gpt") || role.contains("openai")) {
+                                    // 如果有ChatGPT相关的实现，可以在这里添加
+                                    System.out.println("检测到ChatGPT相关角色: " + role);
+                                }
+                                
+                                // Claude相关
+                                if (role.contains("claude") || role.contains("anthropic")) {
+                                    // 如果有Claude相关的实现，可以在这里添加
+                                    System.out.println("检测到Claude相关角色: " + role);
+                                }
+                                
+                                // Gemini相关
+                                if (role.contains("gemini") || role.contains("bard")) {
+                                    // 如果有Gemini相关的实现，可以在这里添加
+                                    System.out.println("检测到Gemini相关角色: " + role);
+                                }
+                            }
+                        }
                         if (message.contains("ty-qw")){
                             new Thread(() -> {
                                 try {

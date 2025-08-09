@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -34,6 +35,8 @@ public class BrowserController {
 
     private final WebSocketClientService webSocketClientService;
 
+    @Value("${cube.url}")
+    private String logUrl;
 
     @Autowired
     private TTHUtil tthUtil;
@@ -61,7 +64,7 @@ public class BrowserController {
      */
     @Operation(summary = "检查MiniMax登录状态", description = "返回手机号表示已登录，false 表示未登录")
     @GetMapping("/checkMaxLogin")
-    public String checkMaxLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) {
+    public String checkMaxLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"MiniMax Chat")) {
             Page page = context.newPage();
             page.navigate("https://chat.minimaxi.com/");
@@ -77,9 +80,8 @@ public class BrowserController {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "";
     }
 
     /**
@@ -89,7 +91,7 @@ public class BrowserController {
      */
     @Operation(summary = "检查Kimi登录状态", description = "返回用户昵称表示已登录，false 表示未登录")
     @GetMapping("/checkKimiLogin")
-    public String checkKimiLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String checkKimiLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "kimi")) {
             // 1. 打开新页面并访问Kimi网站
             Page page = context.newPage();
@@ -126,9 +128,8 @@ public class BrowserController {
             return "false"; // 未找到用户名元素
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return ""; // 异常情况返回空字符串
     }
 
 
@@ -140,7 +141,7 @@ public class BrowserController {
      */
     @Operation(summary = "检查元宝登录状态", description = "返回手机号表示已登录，false 表示未登录")
     @GetMapping("/checkLogin")
-    public String checkLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) {
+    public String checkLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) throws InterruptedException {
         try {
             UnPersisBrowserContextInfo browserContextInfo = BrowserContextFactory.getBrowserContext(userId, 2);
             BrowserContext browserContext = browserContextInfo.getBrowserContext();
@@ -159,9 +160,8 @@ public class BrowserController {
                 return "false";
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "";
     }
 
 
@@ -174,7 +174,7 @@ public class BrowserController {
      */
     @GetMapping("/getMaxQrCode")
     @Operation(summary = "获取代理版MiniMax登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
-    public String getMaxQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String getMaxQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"MiniMax Chat")) {
             Page page = context.newPage();
             page.navigate("https://chat.minimaxi.com/");
@@ -205,9 +205,8 @@ public class BrowserController {
 
             return url;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "";
     }
 
 
@@ -218,7 +217,7 @@ public class BrowserController {
      */
     @GetMapping("/getKiMiQrCode")
     @Operation(summary = "获取代理版KiMi登录二维码", description = "返回二维码截图 URL 或 false 表示失败，如果已登录则返回用户信息")
-    public String getKiMiQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String getKiMiQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "KiMi")) {
             Page page = context.newPage();
 
@@ -289,8 +288,7 @@ public class BrowserController {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
-            return "false";
+            throw e;
         }
     }
 
@@ -303,7 +301,7 @@ public class BrowserController {
      */
     @GetMapping("/getYBQrCode")
     @Operation(summary = "获取代理版元宝登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
-    public String getYBQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String getYBQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try {
             UnPersisBrowserContextInfo browserContextInfo = BrowserContextFactory.getBrowserContext(userId, 2);
             BrowserContext context = browserContextInfo.getBrowserContext();
@@ -338,9 +336,8 @@ public class BrowserController {
 
             return url;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "";
     }
 
 
@@ -351,7 +348,7 @@ public class BrowserController {
      */
     @Operation(summary = "检查秘塔登录状态", description = "返回登录表示已登录，false 表示未登录")
     @GetMapping("/checkMetasoLogin")
-    public String checkMetasoLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String checkMetasoLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"metaso")) {
             Page page = context.newPage();
             page.navigate("https://metaso.cn/");
@@ -373,9 +370,8 @@ public class BrowserController {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "false";
     }
 
     /**
@@ -385,7 +381,7 @@ public class BrowserController {
      */
     @Operation(summary = "获取秘塔登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     @GetMapping("/getMetasoQrCode")
-    public String getMetasoQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String getMetasoQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"metaso")) {
             Page page = context.newPage();
             page.navigate("https://metaso.cn/");
@@ -416,9 +412,8 @@ public class BrowserController {
             return url;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "false";
     }
 
 
@@ -429,7 +424,7 @@ public class BrowserController {
      */
     @Operation(summary = "检查豆包登录状态", description = "返回手机号表示已登录，false 表示未登录")
     @GetMapping("/checkDBLogin")
-    public String checkDBLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String checkDBLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"db")) {
             Page page = context.newPage();
             page.navigate("https://www.doubao.com/chat/");
@@ -453,9 +448,8 @@ public class BrowserController {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "false";
     }
 
     /**
@@ -465,7 +459,7 @@ public class BrowserController {
      */
     @Operation(summary = "获取豆包登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     @GetMapping("/getDBQrCode")
-    public String getDBQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String getDBQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"db")) {
             Page page = context.newPage();
             page.navigate("https://www.doubao.com/chat/");
@@ -501,7 +495,7 @@ public class BrowserController {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
         return "false";
     }
@@ -511,7 +505,7 @@ public class BrowserController {
      */
     @Operation(summary = "退出腾讯元宝登录状态", description = "执行退出操作，返回true表示成功")
     @GetMapping("/loginOut")
-    public boolean loginOut(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public boolean loginOut(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"yb")) {
             Page page = context.newPage();
             page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa");
@@ -521,8 +515,7 @@ public class BrowserController {
             Thread.sleep(3000);
             return true;
         } catch (Exception e) {
-            e.printStackTrace();
-            return false;
+            throw e;
         }
     }
 
@@ -567,9 +560,8 @@ public class BrowserController {
             // 所有尝试都失败，返回未登录状态
             return "false";
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "false";
     }
 
     /**
@@ -579,7 +571,7 @@ public class BrowserController {
      */
     @Operation(summary = "获取DeepSeek登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     @GetMapping("/getDeepSeekQrCode")
-    public String getDeepSeekQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String getDeepSeekQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "deepseek")) {
             Page page = context.newPage();
 
@@ -641,7 +633,7 @@ public class BrowserController {
                             qrUpdateObject.put("type", "RETURN_PC_DEEPSEEK_QRURL");
                             webSocketClientService.sendMessage(qrUpdateObject.toJSONString());
                         } catch (Exception e) {
-                            // 忽略截图错误
+                            UserLogUtil.sendExceptionLog(userId, "deepSeek获取二维码截图失败", "checkDeepSeekLogin", e, logUrl + "/saveLogInfo");
                         }
                     }
                 }
@@ -650,6 +642,7 @@ public class BrowserController {
             }
         } catch (Exception e) {
             logMsgUtil.sendTaskLog("获取DeepSeek登录二维码失败: " + e.getMessage(), userId, "DeepSeek");
+            throw e;
         }
         return "false";
     }
@@ -688,8 +681,7 @@ public class BrowserController {
                 return "false";
             }
         } catch (Exception e) {
-            e.printStackTrace();
-            return "false";
+            throw e;
         }
     }
 
@@ -740,11 +732,12 @@ public class BrowserController {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
         return "false";
     }
 
+    @Operation(summary = "检查百度AI登录状态", description = "返回用户名/手机号表示已登录，false 表示未登录")
     @GetMapping("/checkBaiduLogin")
     public String checkBaiduLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "baidu")) {
@@ -760,8 +753,7 @@ public class BrowserController {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
-            return "false";
+            throw e;
         }
     }
 
@@ -769,6 +761,7 @@ public class BrowserController {
      * 获取百度登录二维码
      * @param userId
      */
+    @Operation(summary = "获取百度登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     @GetMapping("/getBaiduQrCode")
     public String getBaiduQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "baidu")) {
@@ -835,7 +828,7 @@ public class BrowserController {
                             qrRefreshObject.put("type", "RETURN_PC_BAIDU_QRURL");
                             webSocketClientService.sendMessage(qrRefreshObject.toJSONString());
                         } catch (Exception e) {
-                            // 忽略截图错误
+                            UserLogUtil.sendExceptionLog(userId, "获取百度AI二维码", "getBaiduQrCode", e, logUrl + "/saveLogInfo");
                         }
                     }
                 }
@@ -853,7 +846,6 @@ public class BrowserController {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
             logMsgUtil.sendTaskLog("获取百度AI二维码失败: " + e.getMessage(), userId, "百度AI");
             // 发送异常消息到前端
             JSONObject errorObject = new JSONObject();
@@ -862,6 +854,7 @@ public class BrowserController {
             errorObject.put("type", "RETURN_PC_BAIDU_QRURL");
             errorObject.put("error", "获取二维码异常: " + e.getMessage());
             webSocketClientService.sendMessage(errorObject.toJSONString());
+            UserLogUtil.sendExceptionLog(userId, "获取百度AI二维码", "getBaiduQrCode", e, logUrl + "/saveLogInfo");
             return "false";
         }
     }
