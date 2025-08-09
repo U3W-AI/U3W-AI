@@ -38,7 +38,6 @@ public class SysUserLogController extends BaseController
     /**
      * 查询日志信息（记录方法执行日志）列表
      */
-    @PreAuthorize("@ss.hasPermi('monitor:userLog:list')")
     @GetMapping("/list")
     public TableDataInfo list(LogInfo logInfo)
     {
@@ -50,7 +49,6 @@ public class SysUserLogController extends BaseController
     /**
      * 导出日志信息（记录方法执行日志）列表
      */
-    @PreAuthorize("@ss.hasPermi('monitor:userLog:export')")
     @Log(title = "日志信息（记录方法执行日志）", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     public void export(HttpServletResponse response, LogInfo logInfo)
@@ -63,7 +61,6 @@ public class SysUserLogController extends BaseController
     /**
      * 获取日志信息（记录方法执行日志）详细信息
      */
-    @PreAuthorize("@ss.hasPermi('monitor:userLog:query')")
     @GetMapping(value = "/{id}")
     public AjaxResult getInfo(@PathVariable("id") Long id)
     {
@@ -73,7 +70,6 @@ public class SysUserLogController extends BaseController
     /**
      * 新增日志信息（记录方法执行日志）
      */
-    @PreAuthorize("@ss.hasPermi('monitor:userLog:add')")
     @Log(title = "日志信息（记录方法执行日志）", businessType = BusinessType.INSERT)
     @PostMapping
     public AjaxResult add(@RequestBody LogInfo logInfo)
@@ -84,7 +80,6 @@ public class SysUserLogController extends BaseController
     /**
      * 修改日志信息（记录方法执行日志）
      */
-    @PreAuthorize("@ss.hasPermi('monitor:userLog:edit')")
     @Log(title = "日志信息（记录方法执行日志）", businessType = BusinessType.UPDATE)
     @PutMapping
     public AjaxResult edit(@RequestBody LogInfo logInfo)
@@ -95,7 +90,6 @@ public class SysUserLogController extends BaseController
     /**
      * 删除日志信息（记录方法执行日志）
      */
-    @PreAuthorize("@ss.hasPermi('monitor:userLog:remove')")
     @Log(title = "日志信息（记录方法执行日志）", businessType = BusinessType.DELETE)
 	@DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids)
