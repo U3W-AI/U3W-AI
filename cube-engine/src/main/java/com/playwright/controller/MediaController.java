@@ -1078,7 +1078,7 @@ public class MediaController {
             saveDraftBtn.click();
 
             // 如果页面调回则保存成功
-            Locator successToast = page.locator("div.creator-tab.active:has(span.title:text('上传图文'))");
+            Locator successToast = page.locator("#web > div > div > div > div.header");
             successToast.waitFor(new Locator.WaitForOptions()
                     .setState(WaitForSelectorState.VISIBLE)
                     .setTimeout(10000)); // 最多等10秒
@@ -1091,16 +1091,4 @@ public class MediaController {
         }
         return "true";
     }
-
-    /**
-     * 图文生成
-     * @param request 图文生成所需数据
-     * @return 返回生成后的图片URL
-     */
-    @PostMapping("/addTextToImage")
-    @Operation(summary = "将文本写入图片中", description = "将文字按照一定的格式，排版后写入图片")
-    public List<String> putTextToImage(@Parameter(description = "图文生成所需数据") @RequestBody ImageTextRequest request){
-        return xhsUtil.addMultilineTextToImage(request);
-    }
-
 }

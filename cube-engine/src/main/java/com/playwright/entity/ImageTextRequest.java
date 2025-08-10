@@ -19,32 +19,32 @@ public class ImageTextRequest {
     private String fontName = "SimSun";
 
     @Schema(description = "字体大小，默认20", example = "30")
-    private int fontSize = 20;
+    private Integer fontSize = 20;
 
     @Schema(description = "字体样式，默认PLAIN", example = "PLAIN BOLD ITALIC")
     private String fontStyle = "PLAIN";
 
     @Schema(description = "输入图片路径", example = "10")
-    private int x1 = 10;
+    private Integer x1 = 10;
 
     @Schema(description = "文本区域左上角y坐标", example = "50")
-    private int y1 = 50;
+    private Integer y1 = 50;
 
     @Schema(description = "文本区域右下角x坐标（0表示图片宽度）", example = "0")
-    private int x2 = 0;
+    private Integer x2 = 0;
 
     @Schema(description = "文本区域右下角y坐标（0表示图片高度）", example = "0")
-    private int y2 = 0;
+    private Integer y2 = 0;
 
     @Schema(description = "对齐方式，默认LEFT", example = "LEFT左对齐 CENTER居中 REIGHT右对齐")
     private String alignment = "LEFT";
 
-    @Schema(description = "分割标记，默认\\r", example = "#split#")
-    private String splitMarker = "\r";
+    @Schema(description = "分割标记，默认#split#", example = "#split#")
+    private String splitMarker = "#split#";
 
     @Schema(description = "字符间距（像素）", example = "0.0")
-    private float charSpacing = 1.0f;
+    private Float charSpacing = 1.0f;
 
     @Schema(description = "行距倍数（1.0=正常，1.5=1.5倍）", example = "1.0")
-    private float lineSpacing = 1.0f;
+    private Float lineSpacing = 1.0f;
 }
