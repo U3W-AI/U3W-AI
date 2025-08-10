@@ -99,7 +99,7 @@
 						avatar: 'https://u3w.com/chatfile/Deepseek.png',
 						icon: 'https://u3w.com/chatfile/Deepseek.png',
 						title: 'DeepSeek',
-						description: 'DeepSeek原生AI助手，擅长深度思考和联网搜索',
+						description: '探索未至之境',
 						type: 'doubao'
 					},
 					{
@@ -107,7 +107,7 @@
 						avatar: 'https://u3w.com/chatfile/MiniMaxChat.png',
 						icon: 'https://u3w.com/chatfile/MiniMaxChat.png',
 						title: 'MiniMax Chat',
-						description: 'MiniMax ChatAI助手，提供专业、严谨的解答。',
+						description: '与用户共创智能',
 						type: 'mini'
 					},
           {
@@ -123,7 +123,7 @@
             avatar: 'https://u3w.com/chatfile/TongYi.png',
             icon: 'https://u3w.com/chatfile/TongYi.png',
             title: '通义千问',
-            description: '通情、达义，你的全能AI助手。超级助手，答你所问。生活办公，效率翻倍。个性智能体，丰富角色趣味互动。',
+            description: '通情、达义，你的全能AI助手',
             type: 'tongyi'
           },
           {
@@ -131,7 +131,7 @@
             avatar: 'https://u3w.com/chatfile/KIMI.png',
             icon: '	https://u3w.com/chatfile/KIMI.png',
             title: 'Kimi',
-            description: 'KiMi有着更大的内存，可以处理更长的文本',
+            description: '会推理解析 能深度思考的AI助手',
             type: 'kimi'
           },
           {
@@ -139,7 +139,7 @@
             avatar: '/static/images/icon/Baidu.png',
             icon: '/static/images/icon/Baidu.png',
             title: '百度AI',
-            description: '百度智能搜索AI助手，支持深度搜索，为您提供准确、实时的信息查询服务。',
+            description: '让你的生活和工作变得更加轻松高效',
             type: 'baidu'
           },
           {
@@ -147,7 +147,7 @@
             avatar: 'https://u3w.com/chatfile/ZHZD.png',
             icon: 'https://u3w.com/chatfile/ZHZD.png',
             title: '知乎直答',
-            description: '有疑问，来知乎直答',
+            description: '用提问发现世界',
             type: 'zhzd'
           },
 				],
