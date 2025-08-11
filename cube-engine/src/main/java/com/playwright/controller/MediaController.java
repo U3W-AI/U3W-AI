@@ -8,6 +8,9 @@ import com.playwright.utils.*;
 import com.playwright.websocket.WebSocketClientService;
 import io.swagger.v3.oas.annotations.Operation;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.*;
@@ -955,7 +958,7 @@ public class MediaController {
                             @Parameter(description = "文章标题") @RequestParam("title") String title,
                             @Parameter(description = "文章内容") @RequestParam("content") String content,
                             @Parameter(description = "图片链接") @RequestParam(value = "imgsURL") List<String> imgsURL
-    ){
+    ) throws IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"XHS")) {
 
             //处理文章 拆成正文和标题
@@ -1000,6 +1003,8 @@ public class MediaController {
             Locator fileInput = page.locator("#web > div > div > div > div.upload-content > div.upload-wrapper > div > input");
             // 上传封面图片
             fileInput.setInputFiles(Paths.get(imgsURL.get(0)));
+         //   Files.delete(Path.of(imgsURL.get(0)));
+            System.out.println("已上传封面: " + imgsURL.get(0));
 
             //一个笔记最多上传18张
             for(int i = 1;i < Math.min(imgsURL.size(),17);i++){
@@ -1009,6 +1014,7 @@ public class MediaController {
                 });
                 fileChooser.setFiles(Paths.get(imgsURL.get(i)));
                 System.out.println("已上传图片 " + i + "/" + imgsURL.size());
+              //  Files.delete(Path.of(imgsURL.get(i)));
 
                 //缓冲
                 Thread.sleep(2000);
@@ -1087,6 +1093,9 @@ public class MediaController {
 
         } catch (Exception e) {
             e.printStackTrace();
+//            for(String imgurl : imgsURL){
+//                Files.delete(Path.of(imgurl));
+//            }
             return "投递失败: " + e.getMessage();
         }
         return "true";
