@@ -378,7 +378,6 @@ public class XHSDeliveryController {
                 File outputFile = File.createTempFile(outputFileName,".jpg");
                 ImageIO.write(image, "jpg", outputFile);
                 outputPaths.add(outputFile.getAbsolutePath());
-                //outputFile.deleteOnExit();
                 System.out.println("已生成图片：" + outputFile.getAbsolutePath());
                 g2d.dispose();
                 segmentIndex++;
