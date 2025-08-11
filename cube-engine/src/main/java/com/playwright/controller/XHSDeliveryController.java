@@ -293,7 +293,7 @@ public class XHSDeliveryController {
                 g2d.setColor(Color.BLACK);
 
                 // 按换行符分割当前段并处理自动换行
-                List<String> lines = new ArrayList<>(Arrays.asList(textSegments.get(segmentIndex).split("[\\r\\n]")));
+                List<String> lines = new ArrayList<>(Arrays.asList(textSegments.get(segmentIndex).split("[\\r\\n]+")));
 
                 List<String> currentLines = new ArrayList<>();
                 List<String> wrappedLines = new ArrayList<>();
