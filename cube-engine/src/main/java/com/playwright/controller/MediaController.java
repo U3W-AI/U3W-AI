@@ -776,7 +776,7 @@ public class MediaController {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"XHS")) {
             Page page = context.newPage();
 
-            // 先导航到知乎首页而不是登录页面，这样能更好地检测登录状态
+            // 先导航到小红书创作中心而不是登录页面，这样能更好地检测登录状态
             page.navigate("https://creator.xiaohongshu.com/new/home?source=official");
             page.waitForLoadState();
             Thread.sleep(3000);

@@ -1384,6 +1384,7 @@ export default {
       }
 
       //处理小红书投递任务日志
+      //bug驱散符，见者好运~
       if (dataObj.type === "RETURN_MEDIA_TASK_LOG" && dataObj.aiName === "投递到小红书") {
         const xiaohongshuAI = this.enabledAIs.find((ai) => ai.name === "投递到小红书");
         if (xiaohongshuAI) {
@@ -1742,10 +1743,10 @@ export default {
           // 合并历史记录中的aiList和当前默认的aiList
           const historicalAiList = historyData.aiList;
           const currentAiList = this.aiList;
-          
+
           // 创建合并后的aiList，保留历史记录中的状态，同时包含当前默认的AI
           this.aiList = [...historicalAiList];
-          
+
           // 添加当前默认的但不在历史记录中的AI
           currentAiList.forEach(currentAI => {
             const exists = this.aiList.find(historicalAI => historicalAI.name === currentAI.name);
@@ -1761,10 +1762,10 @@ export default {
           // 合并历史记录中的enabledAIs和当前aiList中启用的AI
           const historicalEnabledAIs = historyData.enabledAIs;
           const currentEnabledAIs = this.aiList.filter((ai) => ai.enabled);
-          
+
           // 创建合并后的enabledAIs，保留历史记录中的状态，同时包含当前启用的AI
           this.enabledAIs = [...historicalEnabledAIs];
-          
+
           // 添加当前启用的但不在历史记录中的AI
           currentEnabledAIs.forEach(currentAI => {
             const exists = this.enabledAIs.find(historicalAI => historicalAI.name === currentAI.name);
@@ -2386,7 +2387,7 @@ export default {
       this.message(xiaohongshuRequest);
       this.$forceUpdate();
       this.$message.success("小红书投递任务已创建，正在处理...");
-    },    
+    },
     // 创建公众号排版任务（保持原有逻辑）
     createWechatLayoutTask() {
       const layoutRequest = {

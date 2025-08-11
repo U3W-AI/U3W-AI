@@ -694,8 +694,7 @@ public class WebSocketClientService {
                         }).start();
                     }
 
-                    //------- 小红书相关消息处理 -------//
-
+                    //-------- 小红书相关消息处理 --------//
                     // 处理检查小红书登录状态的消息
                     if (message.contains("PLAY_CHECK_XHS_LOGIN")) {
                         new Thread(() -> {
