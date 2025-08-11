@@ -1125,8 +1125,8 @@
 			this.isConnecting = true;
 
 			// 使用PC端的WebSocket连接方式
-		    const wsUrl = `${process.env.VUE_APP_WS_API || 'wss://u3w.com/cubeServer/websocket?clientId='}mypc-${this.userId}`;
-			// const wsUrl = `${process.env.VUE_APP_WS_API || 'ws://127.0.0.1:8081/websocket?clientId='}mypc-${this.userId}`;
+		    //const wsUrl = `${process.env.VUE_APP_WS_API || 'wss://u3w.com/cubeServer/websocket?clientId='}mypc-${this.userId}`;
+			 const wsUrl = `${process.env.VUE_APP_WS_API || 'ws://127.0.0.1:8081/websocket?clientId='}mypc-${this.userId}`;
 			console.log('WebSocket URL:', wsUrl);
 
 			this.socketTask = uni.connectSocket({
@@ -1519,7 +1519,7 @@
 		// 处理小红书投递完成结果
 		if (dataObj.type === 'RETURN_XHS_DELIVERY_RES') {
 		  console.log("收到小红书投递完成结果", dataObj);
-		  constxiaohongshuoAI = this.enabledAIs.find(ai => ai.name === '投递到小红书');
+		  const xiaohongshuAI = this.enabledAIs.find(ai => ai.name === '投递到小红书');
 		  if (xiaohongshuAI) {
 		    xiaohongshuAI.status = dataObj.status === 'success' ? 'completed' : 'error';
 		

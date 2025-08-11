@@ -58,6 +58,9 @@ public class XHSDeliveryController {
     @Value("${cube.imgfile}")
     private String uploadurl;
 
+    @Value("${cube.inputimg}")
+    private String inputimg;
+
 
     // 构造器注入WebSocket服务
     public XHSDeliveryController(WebSocketClientService webSocketClientService) {
@@ -102,10 +105,7 @@ public class XHSDeliveryController {
             ImageTextRequest imageTextRequest = new ImageTextRequest();
 
 
-            imageTextRequest.setImagePath(getClass().getClassLoader().getResource("file/xiaohongshu_text_bg.jpg").getPath());
-            System.out.println(getClass().getClassLoader()
-                    .getResource("file/xiaohongshu_text_bg.jpg")
-                    .getPath());
+            imageTextRequest.setImagePath(inputimg + "/xiaohongshu_text_bg.jpg");
             imageTextRequest.setOutputPath(uploadurl + "/xhs_img/" + (int)(Math.random() * 1000000)+ ".jpg");
             //上传路径如果不存在则创建
             if(!Files.isDirectory(Paths.get(uploadurl + "/xhs_img/"))){
