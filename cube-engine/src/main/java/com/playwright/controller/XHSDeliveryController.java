@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.playwright.entity.ImageTextRequest;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.utils.LogMsgUtil;
+import com.playwright.utils.ScreenshotUtil;
 import com.playwright.websocket.WebSocketClientService;
 import okio.Path;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,11 +57,11 @@ public class XHSDeliveryController {
     @Value("${cube.url}")
     private String url;
 
-    @Value("${cube.imgfile}")
-    private String uploadurl;
-
     @Value("${cube.inputimg}")
     private String inputimg;
+
+    @Value("${cube.uploadurl}")
+    private String uploadurlp;
 
 
     // 构造器注入WebSocket服务
@@ -107,11 +108,7 @@ public class XHSDeliveryController {
 
 
             imageTextRequest.setImagePath(inputimg + "/xiaohongshu_text_bg.jpg");
-            imageTextRequest.setOutputPath(uploadurl + "/xhs_img/" + (int)(Math.random() * 1000000)+ ".jpg");
-            //上传路径如果不存在则创建
-            if(!Files.isDirectory(Paths.get(uploadurl + "/xhs_img/"))){
-                Files.createDirectories(Paths.get(uploadurl + "/xhs_img/"));
-            }
+            imageTextRequest.setOutputPath("xhs_img_" + (int)(Math.random() * 1000000)+ ".jpg");
             imageTextRequest.setText(layoutResult);
             imageTextRequest.setFontSize(25);
             imageTextRequest.setFontStyle("BOLD");
@@ -376,10 +373,17 @@ public class XHSDeliveryController {
                 }
 
                 // 保存图片
-                String outputFilePath = generateOutputPath(request.getOutputPath(), segmentIndex + 1);
-                File outputFile = new File(outputFilePath);
-                ImageIO.write(image, getFileExtension(request.getImagePath()), outputFile);
-                outputPaths.add(outputFilePath);
+                String outputFileName = generateOutputPath(request.getOutputPath(), segmentIndex + 1);
+
+                File outputFile = File.createTempFile(outputFileName,".jpg");
+                ImageIO.write(image, "jpg", outputFile);
+//                String response = ScreenshotUtil.uploadFile(uploadurlp,outputFileName);
+//                JSONObject jsonObject = JSONObject.parseObject(response);
+//                String outputFilePath = jsonObject.getString("url");
+//                System.out.println(outputFilePath);
+
+                outputPaths.add(outputFile.getAbsolutePath());
+                //outputFile.deleteOnExit();
                 System.out.println("已生成图片：" + outputFile.getAbsolutePath());
                 g2d.dispose();
                 segmentIndex++;
@@ -387,6 +391,7 @@ public class XHSDeliveryController {
             //返回结果
             return outputPaths;
         } catch (IOException e) {
+
             System.out.println( "写入图片失败：" + e.getMessage());
             return null;
         }
@@ -452,7 +457,7 @@ public class XHSDeliveryController {
     private String generateOutputPath(String basePath, int index) {
         String extension = getFileExtension(basePath);
         String baseName = basePath.substring(0, basePath.lastIndexOf("."));
-        return baseName + "_" + index + "." + extension;
+        return baseName + "_" + index; //+ "." + extension;
     }
 
     /**
