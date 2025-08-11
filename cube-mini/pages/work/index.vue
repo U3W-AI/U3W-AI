@@ -358,9 +358,9 @@
               <text v-else-if="selectedMedia === 'baijiahao'" class="description-text">
                 🔈 将内容排版为适合百家号的帖子格式，并发布到百家号草稿箱
               </text>
-			  <text v-else-if="selectedMedia === 'xiaohongshu'" class="description-text">
-			  		🌈 将内容排版为适合小红书的图文帖子格式，并投递到小红书私密笔记
-				</text>
+			          <text v-else-if="selectedMedia === 'xiaohongshu'" class="description-text">
+			  		      🌈 将内容排版为适合小红书的图文帖子格式，并投递到小红书私密笔记
+				        </text>
             </view>
           </view>
 
@@ -1494,6 +1494,7 @@
 		}
 		
 		// 处理小红书投递任务日志
+        //bug驱散，见者好运~
 		if (dataObj.type === 'RETURN_MEDIA_TASK_LOG') {
 		  console.log("收到媒体任务日志", dataObj);
 		  const xiaohongshuAI = this.enabledAIs.find(ai => ai.name === dataObj.aiName);
