@@ -17,8 +17,11 @@ import java.util.Arrays;
 import java.util.List;
 
 
-//
-
+/**
+ * @Author Moyesan
+ * @Description
+ * @Date 2025/08/09
+ */
 @Component
 public class XHSUtil {
     /**

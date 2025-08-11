@@ -3,6 +3,11 @@ package com.playwright.entity;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+/**
+ * @author Moyesan
+ * Create on 2025/8/9
+ */
+
 @Data
 @Schema(name = "ImageTextRequest", description = "用于小红书图文生成")
 public class ImageTextRequest {

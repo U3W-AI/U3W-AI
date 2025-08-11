@@ -560,7 +560,7 @@ export default {
         zhihu: false,
         toutiao: false,
         baijiahao: false,
-        xiaohongshu: false, 
+        xiaohongshu: false,
       },
       mediaAccounts: {
         zhihu: "",
@@ -1321,6 +1321,7 @@ export default {
       }
 
       //小红书相关消息处理
+      //bug驱散符，见者好运~
       else if (datastr.includes("RETURN_PC_XHS_QRURL")) {
 	      this.mediaQrCodeUrl = dataObj.url;
 	      this.qrCodeUrl = dataObj.url;
@@ -1331,7 +1332,7 @@ export default {
         this.mediaIsClick.xiaohongshu = true;
         this.mediaIsLoading.xiaohongshu = false;
         this.$message.warning('小红书登录超时，请重试');
-      } 
+      }
       else if (datastr.includes("RETURN_XHS_STATUS") && dataObj.status != "") {
         if (!datastr.includes("false")) {
           this.mediaLoginDialogVisible = false;
@@ -1343,7 +1344,7 @@ export default {
           if (!this.mediaIsLoading.xiaohongshu && !this.mediaIsLoading.baijiahao && !this.mediaIsLoading.toutiao && !this.mediaIsLoading.zhihu) {
             if (this.resetMediaStatusTimeout) clearTimeout(this.resetMediaStatusTimeout);
           }
-        } 
+        }
         else {
           this.mediaIsClick.xiaohongshu = true;
           this.mediaIsLoading.xiaohongshu = false;
