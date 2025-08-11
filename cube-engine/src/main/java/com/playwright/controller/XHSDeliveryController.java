@@ -377,11 +377,6 @@ public class XHSDeliveryController {
 
                 File outputFile = File.createTempFile(outputFileName,".jpg");
                 ImageIO.write(image, "jpg", outputFile);
-//                String response = ScreenshotUtil.uploadFile(uploadurlp,outputFileName);
-//                JSONObject jsonObject = JSONObject.parseObject(response);
-//                String outputFilePath = jsonObject.getString("url");
-//                System.out.println(outputFilePath);
-
                 outputPaths.add(outputFile.getAbsolutePath());
                 //outputFile.deleteOnExit();
                 System.out.println("已生成图片：" + outputFile.getAbsolutePath());
