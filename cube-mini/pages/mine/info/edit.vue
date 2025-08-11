@@ -11,11 +11,6 @@
         <uni-forms-item label="用户昵称" name="nickName">
           <uni-easyinput  type='nickname' v-model="user.nickName" placeholder="请输入昵称" />
         </uni-forms-item>
-
-        <uni-forms-item label="主机ID" name="corpId">
-          <uni-easyinput v-model="user.corpId" placeholder="请输入主机ID" maxlength="50" />
-        </uni-forms-item>
-
         <!-- <uni-forms-item label="手机号码" name="phonenumber">
 					<uni-easyinput v-model="user.phonenumber" placeholder="请输入手机号码" />
 				</uni-forms-item>
@@ -50,8 +45,7 @@
           phonenumber: "",
           email: "",
           sex: "",
-          avatar: "",
-          corpId: ""
+          avatar: ""
         },
         sexs: [{
           text: '男',
