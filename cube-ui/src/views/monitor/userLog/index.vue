@@ -57,27 +57,6 @@
     <el-row :gutter="10" class="mb8">
       <el-col :span="1.5">
         <el-button
-          type="primary"
-          plain
-          icon="el-icon-plus"
-          size="mini"
-          @click="handleAdd"
-          v-hasPermi="['monitor:userLog:add']"
-        >新增</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
-          type="success"
-          plain
-          icon="el-icon-edit"
-          size="mini"
-          :disabled="single"
-          @click="handleUpdate"
-          v-hasPermi="['monitor:userLog:edit']"
-        >修改</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
           type="danger"
           plain
           icon="el-icon-delete"
@@ -86,6 +65,16 @@
           @click="handleDelete"
           v-hasPermi="['monitor:userLog:remove']"
         >删除</el-button>
+      </el-col>
+      <el-col :span="1.5">
+        <el-button
+          type="danger"
+          plain
+          icon="el-icon-delete"
+          size="mini"
+          @click="handleClean"
+          v-hasPermi="['monitor:userLog:remove']"
+        >清空</el-button>
       </el-col>
       <el-col :span="1.5">
         <el-button
@@ -108,11 +97,11 @@
       <el-table-column label="描述" align="center" prop="description" />
       <el-table-column label="方法参数" align="center" width="200">
         <template slot-scope="scope">
-          <div class="copy-cell" @click="copyToClipboard(scope.row.methodParams, '方法参数')">
+          <div class="copy-cell" @click="showContentDialog(scope.row.methodParams, '方法参数')">
             <div class="text-content" :title="scope.row.methodParams">
               {{ scope.row.methodParams && scope.row.methodParams.length > 30 ? scope.row.methodParams.substring(0, 30) + '...' : scope.row.methodParams }}
             </div>
-            <i class="el-icon-document-copy copy-icon"></i>
+            <i class="el-icon-view copy-icon"></i>
           </div>
         </template>
       </el-table-column>
@@ -123,11 +112,11 @@
       </el-table-column>
       <el-table-column label="执行结果" align="center" width="200">
         <template slot-scope="scope">
-          <div class="copy-cell" @click="copyToClipboard(scope.row.executionResult, '执行结果')">
+          <div class="copy-cell" @click="showContentDialog(scope.row.executionResult, '执行结果')">
             <div class="text-content" :title="scope.row.executionResult">
               {{ scope.row.executionResult && scope.row.executionResult.length > 30 ? scope.row.executionResult.substring(0, 30) + '...' : scope.row.executionResult }}
             </div>
-            <i class="el-icon-document-copy copy-icon"></i>
+            <i class="el-icon-view copy-icon"></i>
           </div>
         </template>
       </el-table-column>
@@ -135,13 +124,7 @@
       <el-table-column label="是否成功" align="center" prop="isSuccess" />
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
         <template slot-scope="scope">
-          <el-button
-            size="mini"
-            type="text"
-            icon="el-icon-edit"
-            @click="handleUpdate(scope.row)"
-            v-hasPermi="['monitor:userLog:edit']"
-          >修改</el-button>
+
           <el-button
             size="mini"
             type="text"
@@ -161,52 +144,21 @@
       @pagination="getList"
     />
 
-    <!-- 添加或修改日志信息（记录方法执行日志）对话框 -->
-    <el-dialog :title="title" :visible.sync="open" width="500px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="80px">
-        <el-form-item label="用户 ID" prop="userId">
-          <el-input v-model="form.userId" placeholder="请输入用户 ID" />
-        </el-form-item>
-        <el-form-item label="方法名称" prop="methodName">
-          <el-input v-model="form.methodName" placeholder="请输入方法名称" />
-        </el-form-item>
-        <el-form-item label="描述" prop="description">
-          <el-input v-model="form.description" type="textarea" placeholder="请输入内容" />
-        </el-form-item>
-        <el-form-item label="方法参数" prop="methodParams">
-          <el-input v-model="form.methodParams" type="textarea" placeholder="请输入内容" />
-        </el-form-item>
-        <el-form-item label="执行时间" prop="executionTime">
-          <el-date-picker clearable
-            v-model="form.executionTime"
-            type="datetime"
-            value-format="yyyy-MM-dd HH:mm:ss"
-            placeholder="请选择执行时间">
-          </el-date-picker>
-        </el-form-item>
-        <el-form-item label="执行结果" prop="executionResult">
-          <el-input v-model="form.executionResult" type="textarea" placeholder="请输入内容" />
-        </el-form-item>
-        <el-form-item label="执行时长" prop="executionTimeMillis">
-          <el-input v-model="form.executionTimeMillis" placeholder="请输入执行时长" />
-        </el-form-item>
-        <el-form-item label="是否成功" prop="isSuccess">
-          <el-select v-model="form.isSuccess" placeholder="请选择是否成功">
-            <el-option label="成功" value="1" />
-            <el-option label="失败" value="0" />
-          </el-select>
-        </el-form-item>
-      </el-form>
+
+
+    <!-- 内容展示弹窗 -->
+    <el-dialog :title="dialogTitle" :visible.sync="contentDialogVisible" width="60%" append-to-body>
+      <pre class="content-display">{{ dialogContent }}</pre>
       <div slot="footer" class="dialog-footer">
-        <el-button type="primary" @click="submitForm">确 定</el-button>
-        <el-button @click="cancel">取 消</el-button>
+        <el-button type="primary" @click="copyDialogContent">复制内容</el-button>
+        <el-button @click="contentDialogVisible = false">关闭</el-button>
       </div>
     </el-dialog>
   </div>
 </template>
 
 <script>
-import { listUserLog, getUserLog, delUserLog, addUserLog, updateUserLog } from "@/api/monitor/userLog";
+import { listUserLog, delUserLog, cleanUserLog } from "@/api/monitor/userLog";
 
 export default {
   name: "UserLog",
@@ -226,10 +178,13 @@ export default {
       total: 0,
       // 日志信息（记录方法执行日志）表格数据
       userLogList: [],
-      // 弹出层标题
-      title: "",
-      // 是否显示弹出层
-      open: false,
+
+      // 内容展示弹窗可见性
+      contentDialogVisible: false,
+      // 内容展示弹窗标题
+      dialogTitle: "",
+      // 内容展示弹窗内容
+      dialogContent: "",
       // 查询参数
       queryParams: {
         pageNum: 1,
@@ -263,26 +218,7 @@ export default {
         this.loading = false;
       });
     },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 表单重置
-    reset() {
-      this.form = {
-        id: null,
-        userId: null,
-        methodName: null,
-        description: null,
-        methodParams: null,
-        executionTime: null,
-        executionResult: null,
-        executionTimeMillis: null,
-        isSuccess: null
-      };
-      this.resetForm("form");
-    },
+
     /** 搜索按钮操作 */
     handleQuery() {
       this.queryParams.pageNum = 1;
@@ -301,42 +237,7 @@ export default {
       this.single = selection.length!==1
       this.multiple = !selection.length
     },
-    /** 新增按钮操作 */
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "添加日志信息（记录方法执行日志）";
-    },
-    /** 修改按钮操作 */
-    handleUpdate(row) {
-      this.reset();
-      const id = row.id || this.ids
-      getUserLog(id).then(response => {
-        this.form = response.data;
-        this.open = true;
-        this.title = "修改日志信息（记录方法执行日志）";
-      });
-    },
-    /** 提交按钮 */
-    submitForm() {
-      this.$refs["form"].validate(valid => {
-        if (valid) {
-          if (this.form.id != null) {
-            updateUserLog(this.form).then(response => {
-              this.$modal.msgSuccess("修改成功");
-              this.open = false;
-              this.getList();
-            });
-          } else {
-            addUserLog(this.form).then(response => {
-              this.$modal.msgSuccess("新增成功");
-              this.open = false;
-              this.getList();
-            });
-          }
-        }
-      });
-    },
+
     /** 删除按钮操作 */
     handleDelete(row) {
       const ids = row.id || this.ids;
@@ -352,6 +253,37 @@ export default {
       this.download('monitor/userLog/export', {
         ...this.queryParams
       }, `userLog_${new Date().getTime()}.xlsx`)
+    },
+    /** 清空按钮操作 */
+    handleClean() {
+      this.$modal.confirm('是否确认清空所有用户日志数据项？').then(function() {
+        // 使用专门的清空API，而不是批量删除
+        return cleanUserLog();
+      }).then(() => {
+        this.getList();
+        this.$modal.msgSuccess("清空成功");
+      }).catch(() => {});
+    },
+    
+    /** 显示内容弹窗 */
+    showContentDialog(content, title) {
+      if (!content || content.trim() === '') {
+        this.$message({
+          message: `${title}内容为空，无法显示`,
+          type: 'warning',
+          duration: 2000
+        });
+        return;
+      }
+      
+      this.dialogTitle = title;
+      this.dialogContent = content;
+      this.contentDialogVisible = true;
+    },
+    
+    /** 复制弹窗内容 */
+    copyDialogContent() {
+      this.copyToClipboard(this.dialogContent, this.dialogTitle);
     },
     
     /** 复制到剪贴板 - 重新设计版本 */
@@ -485,6 +417,22 @@ export default {
   background-color: #e6f7ff;
 }
 
+/* 内容展示弹窗样式 */
+.content-display {
+  background-color: #f8f8f8;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 15px;
+  max-height: 400px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: Consolas, Monaco, 'Andale Mono', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .copy-cell {
@@ -497,6 +445,12 @@ export default {
   
   .copy-icon {
     font-size: 12px;
+  }
+  
+  .content-display {
+    font-size: 12px;
+    padding: 10px;
+    max-height: 300px;
   }
 }
 </style>

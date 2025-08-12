@@ -1,26 +1,18 @@
 package com.cube.web.controller.monitor;
 
-import java.util.List;
-import javax.servlet.http.HttpServletResponse;
-
-import com.cube.common.utils.poi.ExcelUtil;
-import com.cube.system.domain.LogInfo;
-import com.cube.system.service.ILogInfoService;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 import com.cube.common.annotation.Log;
 import com.cube.common.core.controller.BaseController;
 import com.cube.common.core.domain.AjaxResult;
-import com.cube.common.enums.BusinessType;
 import com.cube.common.core.page.TableDataInfo;
+import com.cube.common.enums.BusinessType;
+import com.cube.common.utils.poi.ExcelUtil;
+import com.cube.system.domain.LogInfo;
+import com.cube.system.service.ILogInfoService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import javax.servlet.http.HttpServletResponse;
+import java.util.List;
 
 /**
  * 日志信息（记录方法执行日志）Controller
@@ -95,5 +87,11 @@ public class SysUserLogController extends BaseController
     public AjaxResult remove(@PathVariable Long[] ids)
     {
         return toAjax(logInfoService.deleteLogInfoByIds(ids));
+    }
+
+    @Log(title = "日志信息（记录方法执行日志）", businessType = BusinessType.CLEAN)
+    @DeleteMapping("/clean")
+    public AjaxResult clean() {
+        return toAjax(logInfoService.cleanLogInfo());
     }
 }

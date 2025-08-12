@@ -950,7 +950,7 @@ export default {
         metaso: require("@/assets/logo/Metaso.png"),
         kimi: require("@/assets/logo/Kimi.png"),
         zhzd: require("@/assets/logo/ZHZD.png"),
-        baidu: require("@/assets/logo/Baidu.png"),
+        baidu: "https://u3w.com/chatfile/baiduAI.png",
       };
       return icons[type] || "";
     },

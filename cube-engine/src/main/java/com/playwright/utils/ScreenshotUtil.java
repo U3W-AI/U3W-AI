@@ -28,7 +28,7 @@ public class ScreenshotUtil {
     @Value("${cube.uploadurl}")
     private String uploadUrl;
 
-    public String screenshotAndUpload(Page page, String imageName){
+    public String screenshotAndUpload(Page page, String imageName) throws IOException {
 
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
@@ -49,11 +49,8 @@ public class ScreenshotUtil {
             Files.delete(Paths.get(imageName));
             return url;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-
-        return "";
-
     }
 
     public static String uploadFile(String serverUrl, String filePath) throws IOException {

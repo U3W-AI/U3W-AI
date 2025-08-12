@@ -22,5 +22,6 @@ public class UserLogUtil {
         logInfo.setMethodParams("无");
         logInfo.setIsSuccess(0);
         RestUtils.post(url, logInfo);
+        System.out.println(methodName + "方法出现异常,详情:" + description + "用户id" + userId);
     }
 }

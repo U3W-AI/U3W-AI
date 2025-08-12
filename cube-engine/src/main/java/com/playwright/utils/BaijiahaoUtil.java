@@ -20,7 +20,7 @@ public class BaijiahaoUtil {
      * @param page Playwright页面实例
      * @return 用户名或"false"
      */
-    public String checkLoginStatus(Page page) {
+    public String checkLoginStatus(Page page) throws InterruptedException {
         try {
             // 等待页面加载
             Thread.sleep(1000);
@@ -86,8 +86,8 @@ public class BaijiahaoUtil {
             return "false";
 
         } catch (Exception e) {
-            System.out.println("百家号登录状态检测异常: " + e.getMessage());
-            return "false";
+            System.out.println("百家号登录状态检测异常");
+            throw e;
         }
     }
 }

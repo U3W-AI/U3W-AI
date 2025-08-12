@@ -2,8 +2,6 @@ package com.playwright.utils;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
-import com.microsoft.playwright.options.AriaRole;
-import com.microsoft.playwright.options.WaitForSelectorState;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -27,7 +25,7 @@ public class QwenUtil {
      * html片段获取（核心监控方法）
      * @param page Playwright页面实例
      */
-    public String waitQWHtmlDom(Page page,String userId)  {
+    public String waitQWHtmlDom(Page page,String userId) throws Exception{
         try {
             // 等待聊天框的内容稳定
             String currentContent = "";
@@ -87,9 +85,8 @@ public class QwenUtil {
             return currentContent;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
 

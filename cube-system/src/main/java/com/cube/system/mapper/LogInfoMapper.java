@@ -1,7 +1,8 @@
 package com.cube.system.mapper;
 
-import java.util.List;
 import com.cube.system.domain.LogInfo;
+
+import java.util.List;
 
 /**
  * 日志信息（记录方法执行日志）Mapper接口
@@ -58,4 +59,7 @@ public interface LogInfoMapper
      * @return 结果
      */
     public int deleteLogInfoByIds(Long[] ids);
+
+    public int cleanLogInfo();
+
 }

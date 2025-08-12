@@ -1,20 +1,15 @@
 package com.playwright.utils;
 
-import com.alibaba.fastjson.JSONObject;
-import com.microsoft.playwright.Download;
 import com.microsoft.playwright.ElementHandle;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.options.LoadState;
 import com.playwright.entity.UserInfoRequest;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -62,7 +57,7 @@ public class TencentUtil {
      * @param isNewChat 是否新会话
      * @return 复制按钮数量（用于后续监控）
      */
-    public int handelAgentAI(Page page, String userPrompt, String agentUrl, String aiName, String userId, String isNewChat) throws InterruptedException {
+    public int handelAgentAI(Page page, String userPrompt, String agentUrl, String aiName, String userId, String isNewChat) throws InterruptedException, IOException {
         page.navigate(agentUrl);
         logInfo.sendImgData(page,userId+"打开智能体页面",userId);
         logInfo.sendTaskLog( aiName+"页面打开完成",userId,aiName);
@@ -176,7 +171,25 @@ public class TencentUtil {
         return "未获取到内容";
     }
 
-
+    public String checkYBLogin(Page page) throws InterruptedException {
+        try {
+            page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa/");
+            page.waitForLoadState(LoadState.LOAD);
+            Thread.sleep(3000);
+            Locator phone = page.locator("//p[@class='nick-info-name']");
+            if(phone.count()>0){
+                String phoneText = phone.textContent();
+                if(phoneText.equals("未登录")){
+                    return "false";
+                }
+                return phoneText;
+            }else{
+                return "false";
+            }
+        } catch (Exception e) {
+            throw e;
+        }
+    }
 
     /**
      * 处理元宝AI交互流程
@@ -188,8 +201,13 @@ public class TencentUtil {
      * @param chatId 会话ID
      * @return 初始复制按钮数量
      */
-    public int handleYBAI(Page page,String userPrompt,String role,String userId,String aiName,String chatId) throws InterruptedException {
+    public int handleYBAI(Page page,String userPrompt,String role,String userId,String aiName,String chatId) throws Exception {
 
+        String isLogin = checkYBLogin(page);
+        if("false".equals(isLogin) || "未登录".equals(isLogin)) {
+            logInfo.sendTaskLog( "元宝登录检测失败，请检查登录状态", userId, aiName);
+            throw new RuntimeException("元宝登录检测失败，请检查登录状态");
+        }
         // 页面导航与元素定位
         page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa/"+chatId);
         String modelDom ="[dt-button-id=\"model_switch\"]";

@@ -11,12 +11,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.nio.file.Paths;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * DeepSeek AI平台工具类
@@ -162,7 +159,7 @@ public class DeepSeekUtil {
                     return "已登录用户";
                 }
             } catch (Exception e) {
-                System.out.println("检测用户昵称失败: " + e.getMessage());
+                System.out.println("检测用户昵称失败");
             }
             
             // 最后尝试使用通用方法检测登录状态
@@ -185,8 +182,8 @@ public class DeepSeekUtil {
             // 默认返回未登录状态
             return "false";
         } catch (Exception e) {
-            System.out.println("检查DeepSeek登录状态出错: " + e.getMessage());
-            return "false";
+            System.out.println("检查DeepSeek登录状态出错");
+            throw e;
         }
     }
 
@@ -197,7 +194,7 @@ public class DeepSeekUtil {
      * @param screenshotUtil 截图工具
      * @return 二维码截图URL
      */
-    public String waitAndGetQRCode(Page page, String userId, ScreenshotUtil screenshotUtil) {
+    public String waitAndGetQRCode(Page page, String userId, ScreenshotUtil screenshotUtil) throws IOException {
         try {
             logInfo.sendTaskLog("正在获取DeepSeek登录二维码", userId, "DeepSeek");
             
@@ -258,8 +255,7 @@ public class DeepSeekUtil {
             logInfo.sendTaskLog("DeepSeek二维码获取成功", userId, "DeepSeek");
             return url;
         } catch (Exception e) {
-            System.out.println(e.getMessage());
-            return "false";
+            throw e;
         }
     }
 
@@ -271,7 +267,7 @@ public class DeepSeekUtil {
      * @param roles 角色信息，用于判断是否为深度思考模式
      * @return 获取的回答内容
      */
-    public String waitDeepSeekResponse(Page page, String userId, String aiName, String roles) {
+    public String waitDeepSeekResponse(Page page, String userId, String aiName, String roles) throws InterruptedException {
         try {
             // 等待页面内容稳定
             String currentContent = "";
@@ -322,7 +318,7 @@ public class DeepSeekUtil {
                     initialPageLoaded = true;
                 }
             } catch (Exception e) {
-                System.out.println("获取初始页面状态时出错: " + e.getMessage());
+                System.out.println("DeepSeek获取初始页面状态时出错");
             }
             
             // 进入循环，直到内容不再变化或者超时
@@ -1029,7 +1025,7 @@ public class DeepSeekUtil {
                         currentContent = cleanedContent.toString();
                     }
                 } catch (Exception e) {
-                    logInfo.sendTaskLog("清理HTML内容时出错: " + e.getMessage(), userId, aiName);
+                    logInfo.sendTaskLog("清理HTML内容时出错", userId, aiName);
                 }
                 
                 // 如果内容很短或看起来不完整，尝试精确定位最新回答的纯文本
@@ -1063,9 +1059,8 @@ public class DeepSeekUtil {
             return currentContent;
             
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
     /**
@@ -1077,7 +1072,7 @@ public class DeepSeekUtil {
      * @param chatId 会话ID，如果不为空则使用此会话继续对话
      * @return 处理完成后的结果
      */
-    public String handleDeepSeekAI(Page page, String userPrompt, String userId, String roles, String chatId) {
+    public String handleDeepSeekAI(Page page, String userPrompt, String userId, String roles, String chatId) throws InterruptedException {
         try {
             long startProcessTime = System.currentTimeMillis(); // 记录开始处理时间
             
@@ -1419,8 +1414,7 @@ public class DeepSeekUtil {
             return content;
             
         } catch (Exception e) {
-            e.printStackTrace();
-            return "获取内容失败：" + e.getMessage();
+            throw e;
         }
     }
 
@@ -1434,7 +1428,7 @@ public class DeepSeekUtil {
      * @param content 已获取的内容
      * @return 处理后的内容
      */
-    public String saveDeepSeekContent(Page page, UserInfoRequest userInfoRequest, String roleType, String userId, String content) {
+    public String saveDeepSeekContent(Page page, UserInfoRequest userInfoRequest, String roleType, String userId, String content) throws Exception{
         try {
             long startTime = System.currentTimeMillis(); // 记录开始时间
             // 1. 从URL提取会话ID和分享链接
@@ -1487,8 +1481,8 @@ public class DeepSeekUtil {
             logInfo.sendTaskLog("执行完成", userId, "DeepSeek");
             return displayContent;
         } catch (Exception e) {
-            logInfo.sendTaskLog("DeepSeek内容保存过程发生异常: " + e.getMessage(), userId, "DeepSeek");
-            return content;
+            logInfo.sendTaskLog("DeepSeek内容保存过程发生异常", userId, "DeepSeek");
+            throw e;
         }
     }
 
@@ -1573,7 +1567,7 @@ public class DeepSeekUtil {
             
             // 记录操作耗时不再需要
         } catch (Exception e) {
-            logInfo.sendTaskLog("切换" + buttonText + "模式时出错: " + e.getMessage(), userId, "DeepSeek");
+            logInfo.sendTaskLog("切换" + buttonText + "模式时出错", userId, "DeepSeek");
         }
     }
 

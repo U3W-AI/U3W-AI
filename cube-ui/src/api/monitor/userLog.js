@@ -42,3 +42,11 @@ export function delUserLog(id) {
     method: 'delete'
   })
 }
+
+// 清空日志信息（记录方法执行日志）
+export function cleanUserLog() {
+  return request({
+    url: '/monitor/userLog/clean',
+    method: 'delete'
+  })
+}

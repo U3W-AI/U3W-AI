@@ -6,6 +6,7 @@ import com.playwright.websocket.WebSocketClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -39,7 +40,7 @@ public class LogMsgUtil {
      * @param imageName 图片名称（自动添加.png后缀）
      * @param userId 用户ID
      */
-    public void sendImgData(Page page, String imageName, String userId){
+    public void sendImgData(Page page, String imageName, String userId) throws IOException {
         // 截图并上传到指定存储服务
         String url = screenshotUtil.screenshotAndUpload(page,imageName+".png");
 

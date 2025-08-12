@@ -1,6 +1,5 @@
 package com.playwright.controller;
 
-import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Locator;
@@ -10,7 +9,6 @@ import com.microsoft.playwright.options.LoadState;
 import com.microsoft.playwright.options.WaitForSelectorState;
 import com.playwright.entity.UnPersisBrowserContextInfo;
 import com.playwright.utils.*;
-import com.playwright.entity.UserInfoRequest;
 import com.playwright.websocket.WebSocketClientService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -22,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/browser")
@@ -174,7 +172,7 @@ public class BrowserController {
      */
     @GetMapping("/getMaxQrCode")
     @Operation(summary = "获取代理版MiniMax登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
-    public String getMaxQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
+    public String getMaxQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"MiniMax Chat")) {
             Page page = context.newPage();
             page.navigate("https://chat.minimaxi.com/");
@@ -217,7 +215,7 @@ public class BrowserController {
      */
     @GetMapping("/getKiMiQrCode")
     @Operation(summary = "获取代理版KiMi登录二维码", description = "返回二维码截图 URL 或 false 表示失败，如果已登录则返回用户信息")
-    public String getKiMiQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
+    public String getKiMiQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "KiMi")) {
             Page page = context.newPage();
 
@@ -301,7 +299,7 @@ public class BrowserController {
      */
     @GetMapping("/getYBQrCode")
     @Operation(summary = "获取代理版元宝登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
-    public String getYBQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
+    public String getYBQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
         try {
             UnPersisBrowserContextInfo browserContextInfo = BrowserContextFactory.getBrowserContext(userId, 2);
             BrowserContext context = browserContextInfo.getBrowserContext();
@@ -381,7 +379,7 @@ public class BrowserController {
      */
     @Operation(summary = "获取秘塔登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     @GetMapping("/getMetasoQrCode")
-    public String getMetasoQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
+    public String getMetasoQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"metaso")) {
             Page page = context.newPage();
             page.navigate("https://metaso.cn/");
@@ -459,7 +457,7 @@ public class BrowserController {
      */
     @Operation(summary = "获取豆包登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     @GetMapping("/getDBQrCode")
-    public String getDBQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
+    public String getDBQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"db")) {
             Page page = context.newPage();
             page.navigate("https://www.doubao.com/chat/");
@@ -571,7 +569,7 @@ public class BrowserController {
      */
     @Operation(summary = "获取DeepSeek登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     @GetMapping("/getDeepSeekQrCode")
-    public String getDeepSeekQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
+    public String getDeepSeekQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "deepseek")) {
             Page page = context.newPage();
 
@@ -692,7 +690,7 @@ public class BrowserController {
      */
     @Operation(summary = "获取通义千问登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     @GetMapping("/getTongYiQrCode")
-    public String getTongYiQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String getTongYiQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "ty")) {
             Page page = context.newPage();
             page.navigate("https://www.tongyi.com/");
@@ -739,7 +737,7 @@ public class BrowserController {
 
     @Operation(summary = "检查百度AI登录状态", description = "返回用户名/手机号表示已登录，false 表示未登录")
     @GetMapping("/checkBaiduLogin")
-    public String checkBaiduLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String checkBaiduLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws Exception {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "baidu")) {
             Page page = context.newPage();
 
@@ -846,13 +844,13 @@ public class BrowserController {
             }
 
         } catch (Exception e) {
-            logMsgUtil.sendTaskLog("获取百度AI二维码失败: " + e.getMessage(), userId, "百度AI");
+            logMsgUtil.sendTaskLog("获取百度AI二维码失败", userId, "百度AI");
             // 发送异常消息到前端
             JSONObject errorObject = new JSONObject();
             errorObject.put("url", "");
             errorObject.put("userId", userId);
             errorObject.put("type", "RETURN_PC_BAIDU_QRURL");
-            errorObject.put("error", "获取二维码异常: " + e.getMessage());
+            errorObject.put("error", "获取二维码异常");
             webSocketClientService.sendMessage(errorObject.toJSONString());
             UserLogUtil.sendExceptionLog(userId, "获取百度AI二维码", "getBaiduQrCode", e, logUrl + "/saveLogInfo");
             return "false";

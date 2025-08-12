@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.List;
 
 @Component
 public class BrowserUtil {
@@ -34,7 +35,8 @@ public class BrowserUtil {
         // 配置启动选项
         BrowserType.LaunchPersistentContextOptions options = new BrowserType.LaunchPersistentContextOptions()
                 .setHeadless(isHead)
-                .setViewportSize(1280, 760);
+                .setViewportSize(1280, 760)
+                .setArgs(List.of("--disable-gpu"));
         // 启动持久化上下文
         BrowserContext context = browserType.launchPersistentContext(Paths.get(userDataDir + "/" + name + "/" + userId), options);
         // 授予剪贴板读写权限

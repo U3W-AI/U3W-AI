@@ -3,24 +3,18 @@ package com.playwright.controller;
 import com.alibaba.fastjson.JSONObject;
 import com.microsoft.playwright.*;
 import com.microsoft.playwright.options.WaitForSelectorState;
-import com.playwright.entity.ImageTextRequest;
 import com.playwright.utils.*;
 import com.playwright.websocket.WebSocketClientService;
 import io.swagger.v3.oas.annotations.Operation;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
+import java.nio.file.Paths;
+import java.util.List;
 
 /**
  * ClassName: MediaController
@@ -57,9 +51,9 @@ public class MediaController {
     @Autowired
     private BaijiahaoUtil baijiahaoUtil;
     @Autowired
-    private XHSUtil xhsUtil;
-    @Autowired
     private LogMsgUtil logMsgUtil;
+    @Autowired
+    private XHSUtil xhsUtil;
 
     /**
      * 检查知乎登录状态
@@ -812,7 +806,7 @@ public class MediaController {
      */
     @GetMapping("/getQrCode")
     @Operation(summary = "获取小红书登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
-    public String getXHSQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String getXHSQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws IOException, InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"XHS")) {
             Page page = context.newPage();
             page.navigate("https://creator.xiaohongshu.com/login");
@@ -842,7 +836,7 @@ public class MediaController {
                     System.out.println("切换到扫码登录标签页");
                 }
             } catch (Exception e) {
-                System.out.println("切换扫码标签页失败，可能默认就是扫码登录: " + e.getMessage());
+                System.out.println("切换扫码标签页失败，可能默认就是扫码登录");
             }
 
             // 等待二维码加载
@@ -857,7 +851,8 @@ public class MediaController {
                     System.out.println("未找到二维码区域，继续截图");
                 }
             } catch (Exception e) {
-                System.out.println("等待二维码加载失败: " + e.getMessage());
+                System.out.println("等待二维码加载失败");
+                throw e;
             }
 
             // 截图并上传二维码
@@ -911,7 +906,8 @@ public class MediaController {
                         }
                     }
                 } catch (Exception e) {
-                    System.out.println("登录状态检查异常: " + e.getMessage());
+                    System.out.println("登录状态检查异常");
+                    throw e;
                 }
             }
 
@@ -938,10 +934,9 @@ public class MediaController {
             return qrCodeUrl;
 
         } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("获取小红书二维码失败: " + e.getMessage());
+            System.out.println("获取小红书二维码失败");
+            throw e;
         }
-        return "false";
     }
 
 
@@ -958,7 +953,7 @@ public class MediaController {
                             @Parameter(description = "文章标题") @RequestParam("title") String title,
                             @Parameter(description = "文章内容") @RequestParam("content") String content,
                             @Parameter(description = "图片链接") @RequestParam(value = "imgsURL") List<String> imgsURL
-    ) throws IOException {
+    ) throws IOException, InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"XHS")) {
 
             //处理文章 拆成正文和标题
@@ -1003,7 +998,7 @@ public class MediaController {
             Locator fileInput = page.locator("#web > div > div > div > div.upload-content > div.upload-wrapper > div > input");
             // 上传封面图片
             fileInput.setInputFiles(Paths.get(imgsURL.get(0)));
-         //   Files.delete(Path.of(imgsURL.get(0)));
+            //   Files.delete(Path.of(imgsURL.get(0)));
             System.out.println("已上传封面: " + imgsURL.get(0));
 
             //一个笔记最多上传18张
@@ -1014,7 +1009,7 @@ public class MediaController {
                 });
                 fileChooser.setFiles(Paths.get(imgsURL.get(i)));
                 System.out.println("已上传图片 " + i + "/" + imgsURL.size());
-              //  Files.delete(Path.of(imgsURL.get(i)));
+                //  Files.delete(Path.of(imgsURL.get(i)));
 
                 //缓冲
                 Thread.sleep(2000);
@@ -1092,10 +1087,9 @@ public class MediaController {
             System.out.println("草稿保存成功");
 
         } catch (Exception e) {
-            e.printStackTrace();
-
-            return "投递失败: " + e.getMessage();
+            throw e;
         }
         return "true";
     }
+
 }

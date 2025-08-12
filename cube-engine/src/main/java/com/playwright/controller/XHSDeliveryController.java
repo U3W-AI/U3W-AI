@@ -5,6 +5,7 @@ import com.playwright.entity.ImageTextRequest;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.utils.LogMsgUtil;
 import com.playwright.utils.ScreenshotUtil;
+import com.playwright.utils.UserLogUtil;
 import com.playwright.websocket.WebSocketClientService;
 import okio.Path;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,7 +79,7 @@ public class XHSDeliveryController {
      */
     @PostMapping("/deliverToXHS")
     @Operation(summary = "投递内容到小红书", description = "处理小红书内容的排版和投递")
-    public String deliverToXHS(@RequestBody UserInfoRequest userInfoRequest) {
+    public String deliverToXHS(@RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
         String userId = userInfoRequest.getUserId();
         String aiName = userInfoRequest.getAiName();
 
@@ -156,13 +157,13 @@ public class XHSDeliveryController {
             String errorMsg = "投递失败";
             logInfo.sendMediaTaskLog(errorMsg, userId, "投递到小红书");
             sendDeliveryResult("投递到小红书", "error", errorMsg, userId);
-            return "error";
+            throw e;
         }
     }
 
 
     //感谢 Forever 大佬友情赞助的方法
-    private static InputStream getImageStreamByHttpClient(String imageUrl) {
+    public static InputStream getImageStreamByHttpClient(String imageUrl) throws IOException, InterruptedException {
         HttpClient client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
@@ -183,7 +184,7 @@ public class XHSDeliveryController {
                 return response.body();
             }
         } catch (IOException | InterruptedException e) {
-            return null;
+            throw e;
         }
         return null;
     }
@@ -193,7 +194,7 @@ public class XHSDeliveryController {
      * @param userInfoRequest 用户请求信息
      * @return 排版后的内容
      */
-    private String callInternalLayout(UserInfoRequest userInfoRequest) {
+    private String callInternalLayout(UserInfoRequest userInfoRequest) throws InterruptedException {
         try {
             // 设置角色为豆包排版
             userInfoRequest.setRoles("db");
@@ -204,7 +205,7 @@ public class XHSDeliveryController {
             return layoutResult;
         } catch (Exception e) {
             logInfo.sendTaskLog("智能排版调用失败", userInfoRequest.getUserId(), "投递到小红书");
-            return null;
+            throw e;
         }
     }
 
@@ -246,7 +247,7 @@ public class XHSDeliveryController {
 
             webSocketClientService.sendMessage(message.toJSONString());
         } catch (Exception e) {
-            System.err.println("发送任务日志失败");
+            System.out.println("发送任务日志失败");
         }
     }
 
@@ -270,6 +271,7 @@ public class XHSDeliveryController {
             webSocketClientService.sendMessage(resultMessage.toJSONString());
         } catch (Exception e) {
             System.err.println("发送投递结果失败");
+            UserLogUtil.sendExceptionLog(userId, "发送小红书投递结果", "sendDeliveryResult", e, url + "/saveLogInfo");
         }
     }
 
@@ -278,7 +280,7 @@ public class XHSDeliveryController {
      * @param request 文本内容，排本需求，图片输入输出位置
      * @return 处理后图片的URL
      */
-    public List<String> addMultilineTextToImage(ImageTextRequest request) {
+    public List<String> addMultilineTextToImage(ImageTextRequest request) throws IOException {
         try {
             // 读取原始图片
             File inputFile = new File(request.getImagePath());
@@ -430,9 +432,8 @@ public class XHSDeliveryController {
             //返回结果
             return outputPaths;
         } catch (IOException e) {
-
             System.out.println( "写入图片失败");
-            return null;
+            throw e;
         }
     }
 

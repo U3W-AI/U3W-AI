@@ -29,8 +29,7 @@ public class XHSUtil {
      * @param page Playwright页面实例
      * @return 用户名或"false"
      */
-    public String checkLoginStatus(Page page)
-    {
+    public String checkLoginStatus(Page page) throws InterruptedException {
         try {
             // 检查用户头像和用户名（最常见的方式）
             // 知乎登录后，右上角通常有用户头像
@@ -53,7 +52,7 @@ public class XHSUtil {
 
         } catch (Exception e) {
             System.out.println("登录状态检测异常: " + e.getMessage());
-            return "false";
+            throw e;
         }
     }
 
