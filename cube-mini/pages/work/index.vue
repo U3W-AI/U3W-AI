@@ -338,6 +338,12 @@
                 <text class="media-icon">🔈</text>
                 <text class="media-text">百家号</text>
               </view>
+			  <view class="media-radio-item" :class="{'active': selectedMedia === 'xiaohongshu'}"
+					@tap="selectMedia('xiaohongshu')">
+					<text class="media-icon">🌈</text>
+				    <text class="media-text">小红书</text>
+				</view>
+			  
             </view>
             <view class="media-description">
               <text v-if="selectedMedia === 'wechat'" class="description-text">
@@ -352,6 +358,9 @@
               <text v-else-if="selectedMedia === 'baijiahao'" class="description-text">
                 🔈 将内容排版为适合百家号的帖子格式，并发布到百家号草稿箱
               </text>
+			  <text v-else-if="selectedMedia === 'xiaohongshu'" class="description-text">
+			  		🌈 将内容排版为适合小红书的图文帖子格式，并投递到小红书私密笔记
+				</text>
             </view>
           </view>
 
@@ -1116,8 +1125,8 @@
 			this.isConnecting = true;
 
 			// 使用PC端的WebSocket连接方式
-		    const wsUrl = `${process.env.VUE_APP_WS_API || 'wss://u3w.com/cubeServer/websocket?clientId='}mypc-${this.userId}`;
-			// const wsUrl = `${process.env.VUE_APP_WS_API || 'ws://127.0.0.1:8081/websocket?clientId='}mypc-${this.userId}`;
+		    //const wsUrl = `${process.env.VUE_APP_WS_API || 'wss://u3w.com/cubeServer/websocket?clientId='}mypc-${this.userId}`;
+			 const wsUrl = `${process.env.VUE_APP_WS_API || 'ws://127.0.0.1:8081/websocket?clientId='}mypc-${this.userId}`;
 			console.log('WebSocket URL:', wsUrl);
 
 			this.socketTask = uni.connectSocket({
@@ -1478,6 +1487,65 @@
 		      icon: dataObj.status === 'success' ? 'success' : 'failed'
 		    });
 
+		    // 保存历史记录
+		    this.saveHistory();
+		  }
+		  return;
+		}
+		
+		// 处理小红书投递任务日志
+        //bug驱散，见着好运
+		if (dataObj.type === 'RETURN_MEDIA_TASK_LOG') {
+		  console.log("收到媒体任务日志", dataObj);
+		  const xiaohongshuAI = this.enabledAIs.find(ai => ai.name === dataObj.aiName);
+		  if (xiaohongshuAI) {
+		    // 检查是否已存在相同内容的日志，避免重复添加
+		    const existingLog = xiaohongshuAI.progressLogs.find(log => log.content === dataObj.content);
+		    if (!existingLog) {
+		      // 添加进度日志
+		      xiaohongshuAI.progressLogs.push({
+		        content: dataObj.content,
+		        timestamp: new Date(),
+		        isCompleted: false,
+		        type: dataObj.aiName
+		      });
+		
+		      // 强制更新UI
+		      this.$forceUpdate();
+		    }
+		  }
+		  return;
+		}
+		
+		// 处理小红书投递完成结果
+		if (dataObj.type === 'RETURN_XHS_DELIVERY_RES') {
+		  console.log("收到小红书投递完成结果", dataObj);
+		  const xiaohongshuAI = this.enabledAIs.find(ai => ai.name === '投递到小红书');
+		  if (xiaohongshuAI) {
+		    xiaohongshuAI.status = dataObj.status === 'success' ? 'completed' : 'error';
+		
+		    // 更新最后一条日志状态
+		    if (xiaohongshuAI.progressLogs.length > 0) {
+		      xiaohongshuAI.progressLogs[xiaohongshuAI.progressLogs.length - 1].isCompleted = true;
+		    }
+		
+		    // 添加完成日志
+		    xiaohongshuAI.progressLogs.push({
+		      content: dataObj.message || '小红书投递任务完成',
+		      timestamp: new Date(),
+		      isCompleted: true,
+		      type: '投递到小红书'
+		    });
+		
+		    // 强制更新UI
+		    this.$forceUpdate();
+		
+		    // 显示完成提示
+		    uni.showToast({
+		      title: dataObj.status === 'success' ? '小红书投递成功' : '小红书投递失败',
+		      icon: dataObj.status === 'success' ? 'success' : 'failed'
+		    });
+		
 		    // 保存历史记录
 		    this.saveHistory();
 		  }
@@ -2347,6 +2415,9 @@
 		  }else if(media === 'toutiao'){
 			  platformId = 'weitoutiao_layout'
 		  }
+		  else if(media === 'xiaohongshu'){
+		  		platformId = 'xiaohongshu_layout'
+		  }
           const res = await getMediaCallWord(platformId);
           if (res.code === 200) {
             this.layoutPrompt = res.data;
@@ -2410,6 +2481,16 @@
 7.直接以文章标题开始，以文章末尾结束，不允许添加其他对话
 		`;
 		        }
+				else if(media === 'xiaohongshu'){
+				        return `请将以下内容整理为适合小红书发布的纯文本格式文章。
+				要求：
+				1.标题简介明了，能让人想点进来看看。(20字以内)
+				2.直接输出纯文本内容。
+				4.内容适合小红书以图文方式呈现，每一段作为一张图片的内容。
+				5.不要使用markdown或html语法。
+				6.不要标序号
+				7.字数不用太多，但要确保文章内容不丢失，不偏题。`;
+				      }
 			},
 
 			closeLayoutModal() {
@@ -2427,7 +2508,10 @@
           this.createToutiaoLayoutTask();
         } else if (this.selectedMedia === 'baijiahao') {
           this.createBaijiahaoDeliveryTask();
-        } else {
+        } 
+		else if (this.selectedMedia === 'xiaohongshu') {
+		  this.createXiaohongshuDeliveryTask();
+		}else {
           this.createWechatLayoutTask();
         }
       },
@@ -2531,6 +2615,58 @@
 	      icon: 'success'
 	    });
 	  },
+	  
+	  // 创建小红书投递任务
+	  createXiaohongshuDeliveryTask() {
+	    // 组合完整的提示词：数据库提示词 + 原文内容
+	    const fullPrompt = this.layoutPrompt + '\n\n' + this.currentLayoutResult.content;
+	  
+	    // 构建小红书投递请求
+	    const xiaohongshuRequest = {
+	      jsonrpc: '2.0',
+	      id: this.generateUUID(),
+	      method: '投递到小红书',
+	      params: {
+	        taskId: this.generateUUID(),
+	        userId: this.userId,
+	        corpId: this.corpId,
+	        userPrompt: fullPrompt,
+	        aiName: this.currentLayoutResult.aiName,
+	        content: this.currentLayoutResult.content
+	      }
+	    };
+	  
+	    console.log("小红书投递参数", xiaohongshuRequest);
+	    this.message(xiaohongshuRequest);
+	  
+	    // 创建投递到小红书任务节点
+	    const xiaohongshuAI = {
+	      name: '投递到小红书',
+	      avatar: 'https://u3w.com/chatfile/xiaohongshulogo.png',
+	      capabilities: [],
+	      selectedCapabilities: [],
+	      enabled: true,
+	      status: 'running',
+	      progressLogs: [
+	        {
+	          content: '投递到小红书任务已提交，正在处理...',
+	          timestamp: new Date(),
+	          isCompleted: false,
+	          type: '投递到小红书'
+	        }
+	      ],
+	      isExpanded: true
+	    };
+	  
+	    this.addOrUpdateTaskAI(xiaohongshuAI, '投递到小红书');
+	  
+	    uni.showToast({
+	      title: '小红书投递任务已提交',
+	      icon: 'success'
+	    });
+	  },
+	  
+	  
 
 
       // 创建微头条排版任务

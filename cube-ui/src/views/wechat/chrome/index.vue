@@ -484,6 +484,10 @@
               <i class="el-icon-edit-outline"></i>
               百家号
             </el-radio-button>
+             <el-radio-button label="xiaohongshu">
+              <i class="el-icon-edit-outline"></i>
+              小红书
+            </el-radio-button>
           </el-radio-group>
           <div class="media-description">
             <template v-if="selectedMedia === 'wechat'">
@@ -497,6 +501,9 @@
             </template>
             <template v-else-if="selectedMedia === 'toutiao'">
               <small>🔈 将内容转换为百家号帖子格式，直接投递到百家号草稿箱</small>
+            </template>
+             <template v-else-if="selectedMedia === 'xiaohongshu'">
+              <small>🌈 将内容转换为小红书帖子格式，直接投递到小红书草稿箱</small>
             </template>
           </div>
         </div>
@@ -1376,6 +1383,48 @@ export default {
         return;
       }
 
+      //处理小红书投递任务日志
+      //bug驱散符，见者好运~
+      if (dataObj.type === "RETURN_MEDIA_TASK_LOG" && dataObj.aiName === "投递到小红书") {
+        const xiaohongshuAI = this.enabledAIs.find((ai) => ai.name === "投递到小红书");
+        if (xiaohongshuAI) {
+          // 检查是否已存在相同内容的日志，避免重复添加
+          const existingLog = xiaohongshuAI.progressLogs.find(log => log.content === dataObj.content);
+          if (!existingLog) {
+            // 将新进度添加到数组开头
+            xiaohongshuAI.progressLogs.unshift({
+              content: dataObj.content,
+              timestamp: new Date(),
+              isCompleted: false,
+            });
+          }
+        }
+        return;
+      }
+      //处理小红书投递节结果（独立任务）
+      if (dataObj.type === "RETURN_XHS_DELIVERY_RES") {
+        const xiaohongshuAI = this.enabledAIs.find((ai) => ai.name === "投递到小红书");
+        if (xiaohongshuAI) {
+          this.$set(xiaohongshuAI, "status", "completed");
+          if (xiaohongshuAI.progressLogs.length > 0) {
+            this.$set(xiaohongshuAI.progressLogs[0], "isCompleted", true);
+          }
+
+          // 添加完成日志
+          xiaohongshuAI.progressLogs.unshift({
+            content: "小红书投递完成！" + (dataObj.message || ""),
+            timestamp: new Date(),
+            isCompleted: true,
+          });
+
+          // 小红书投递完成时，保存历史记录
+          this.saveHistory();
+          this.$message.success("小红书投递任务完成！");
+        }
+        return;
+      }
+
+
       // 处理微头条排版结果
       if (dataObj.type === 'RETURN_TTH_ZNPB_RES') {
         // 微头条排版AI节点状态设为已完成
@@ -1694,10 +1743,10 @@ export default {
           // 合并历史记录中的aiList和当前默认的aiList
           const historicalAiList = historyData.aiList;
           const currentAiList = this.aiList;
-          
+
           // 创建合并后的aiList，保留历史记录中的状态，同时包含当前默认的AI
           this.aiList = [...historicalAiList];
-          
+
           // 添加当前默认的但不在历史记录中的AI
           currentAiList.forEach(currentAI => {
             const exists = this.aiList.find(historicalAI => historicalAI.name === currentAI.name);
@@ -1713,10 +1762,10 @@ export default {
           // 合并历史记录中的enabledAIs和当前aiList中启用的AI
           const historicalEnabledAIs = historyData.enabledAIs;
           const currentEnabledAIs = this.aiList.filter((ai) => ai.enabled);
-          
+
           // 创建合并后的enabledAIs，保留历史记录中的状态，同时包含当前启用的AI
           this.enabledAIs = [...historicalEnabledAIs];
-          
+
           // 添加当前启用的但不在历史记录中的AI
           currentEnabledAIs.forEach(currentAI => {
             const exists = this.enabledAIs.find(historicalAI => historicalAI.name === currentAI.name);
@@ -2065,6 +2114,8 @@ export default {
         platformId = 'baijiahao_layout';
       }else if(media === 'toutiao'){
         platformId = 'weitoutiao_layout';
+      }else if(media === 'xiaohongshu'){
+        platformId = 'xiaohongshu_layout';
       }
 
       try {
@@ -2135,6 +2186,16 @@ export default {
 
 请对以下内容进行排版：`;
       }
+      else if(media === 'xiaohongshu'){
+        return `请将以下内容整理为适合小红书发布的纯文本格式文章。
+要求：
+1.标题简介明了，能让人想点进来看看。(20字以内)
+2.直接输出纯文本内容。
+4.内容适合小红书以图文方式呈现，每一段作为一张图片的内容。
+5.不要使用markdown或html语法。
+6.不要标序号
+7.字数不用太多，但要确保文章内容不丢失，不偏题。`;
+      }
       return '请对以下内容进行排版：';
     },
 
@@ -2152,7 +2213,11 @@ export default {
       } else if (this.selectedMedia === 'baijiahao') {
         // 百家号投递：创建百家号排版任务
         this.createBaijiahaoLayoutTask();
-      }else {
+      } else if(this.selectedMedia === 'xiaohongshu'){
+        // 小红书投递：创建小红书投递任务
+        this.createXiaohongshuDeliveryTask();
+      }
+      else {
         // 公众号投递：创建排版任务
         this.createWechatLayoutTask();
       }
@@ -2266,6 +2331,62 @@ export default {
       this.message(baijiahaoRequest);
       this.$forceUpdate();
       this.$message.success("百家号投递任务已创建，正在处理...");
+    },
+
+    //创建小红书排版任务
+    createXiaohongshuDeliveryTask() {
+      const xiaohongshuAI = {
+        name: "投递到小红书",
+        avatar: require("../../../assets/ai/yuanbao.png"),
+        capabilities: [],
+        selectedCapabilities: [],
+        enabled: true,
+        status: "running",
+        progressLogs: [
+          {
+            content: "小红书投递任务已创建，正在准备内容排版...",
+            timestamp: new Date(),
+            isCompleted: false,
+            type: "投递到小红书",
+          },
+        ],
+        isExpanded: true,
+      };
+
+      // 检查是否已存在小红书投递任务
+      const existIndex = this.enabledAIs.findIndex(
+        (ai) => ai.name === "投递到小红书"
+      );
+      if (existIndex === -1) {
+        this.enabledAIs.unshift(xiaohongshuAI);
+      } else {
+        this.enabledAIs[existIndex] = xiaohongshuAI;
+        const xiaohongshu = this.enabledAIs.splice(existIndex, 1)[0];
+        this.enabledAIs.unshift(xiaohongshu);
+      }
+
+      // 发送小红书投递请求
+      const xiaohongshuRequest = {
+        jsonrpc: "2.0",
+        id: uuidv4(),
+        method: "投递到小红书",
+        params: {
+          taskId: uuidv4(),
+          userId: this.userId,
+          corpId: this.corpId,
+          userPrompt: this.layoutPrompt,
+          roles: "",
+          selectedMedia: "xiaohongshu",
+          contentText: this.currentLayoutResult.content,
+          shareUrl: this.currentLayoutResult.shareUrl,
+          aiName: this.currentLayoutResult.aiName,
+        },
+      };
+
+      console.log("小红书投递参数", xiaohongshuRequest);
+      this.message(xiaohongshuRequest);
+      this.$forceUpdate();
+      this.$message.success("小红书投递任务已创建，正在处理...");
     },
     // 创建公众号排版任务（保持原有逻辑）
     createWechatLayoutTask() {

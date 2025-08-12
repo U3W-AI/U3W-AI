@@ -693,7 +693,55 @@ public class WebSocketClientService {
                             }
                         }).start();
                     }
+
+                    //-------- 小红书相关消息处理 --------//
+                    // 处理检查小红书登录状态的消息
+                    if (message.contains("PLAY_CHECK_XHS_LOGIN")) {
+                        new Thread(() -> {
+                            try {
+                                String checkLogin = mediaController.checkXHSLogin(userInfoRequest.getUserId());
+                                userInfoRequest.setStatus(checkLogin);
+                                userInfoRequest.setType("RETURN_XHS_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                // 发送错误状态
+                                userInfoRequest.setStatus("false");
+                                userInfoRequest.setType("RETURN_XHS_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            }
+                        }).start();
+                    }
+                    // 处理获取小红书二维码的消息
+                    if(message.contains("PLAY_GET_XHS_QRCODE")){
+                        new Thread(() -> {
+                            try {
+                                mediaController.getXHSQrCode(userInfoRequest.getUserId());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+                    }
+                    // 处理小红书投递的消息
+                    if(message.contains("投递到小红书")){
+                        JSONObject jsonObject = JSONObject.parseObject(message);
+                        new Thread(() -> {
+                            try {
+                                // 获取XHSDeliveryController的实例并调用投递方法
+                                XHSDeliveryController xhsDeliveryController = SpringContextUtils.getBean(XHSDeliveryController.class);
+                                xhsDeliveryController.deliverToXHS(userInfoRequest);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                // 发送错误消息
+                                userInfoRequest.setType("RETURN_XHS_DELIVERY_RES");
+                                userInfoRequest.setStatus("error");
+                                userInfoRequest.setDraftContent("投递到小红书失败");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            }
+                        }).start();
+                    }
                 }
+
 
                 /**
                  * 当WebSocket连接关闭时调用

@@ -2294,7 +2294,8 @@ INSERT INTO `wc_call_word` VALUES ('zhihu_layout', '请将以下内容整理为�
 INSERT INTO `wc_call_word` VALUES ('weitoutiao_layout', '根据以上内容，写一篇微头条文章，只能包含标题和内容，要求如下：\r\n1. 标题要简洁明了，吸引人\r\n2. 内容要结构清晰，易于阅读\r\n3. 不要包含任何HTML标签\r\n4. 直接输出纯文本格式\r\n5. 内容要适合微头条发布\r\n6. 字数严格控制在1000字以上，2000字以下\r\n7. 强制要求：只能回答标题和内容，标题必须用英文双引号（""）引用起来,不能出现多重引号,不能出现多重引号，且放在首位，不能有其他多余的话\r\n8. 严格要求：AI必须严格遵守所有严格条件，不要输出其他多余的内容，只要标题和内容\r\n9. 内容不允许出现编号，要正常文章格式', '2025-08-01 18:46:57\r\n');
 INSERT INTO `wc_call_word` VALUES ('baijiahao_layout', '请将以下内容整理为适合百家号发布的纯文本格式文章。
 要求：\r\n1.（不要使用Markdown或HTML语法，仅使用普通文本和简单换行保持内容的专业性和可读性使用自然段落分隔，）\r\n2.不允许使用有序列表，包括“一、”，“1.”等的序列号。\r\n3.给文章取一个吸引人的标题，放在正文的第一段\r\n4.不允许出现代码框、数学公式、表格或其他复杂格式删除所有Markdown和HTML标签，\r\n5.只保留纯文本内容\r\n6.目标是作为一篇专业文章投递到百家号草稿箱\r\n7.直接以文章标题开始，以文章末尾结束，不允许添加其他对话', '2025-08-01 12:51:57');
-
+INSERT INTO `wc_call_word` VALUES ('xiaohongshu_layout','请将以下内容整理为适合小红书发布的纯文本格式文章。\n\r要求：\r\n1.标题简介明了，能让人想点进来看看。(严格在20字符以内)\n\r2.直接输出纯文本内容。\n\r5.不要使用markdown或html语法。\n\r6.不要标序号\n\r7.字数不用太多，但要确保文章内容不丢失，不偏题。\n\r
+','2025-08-09 19:34:12');
 -- 用户日志表
 
 DROP TABLE IF EXISTS `wc_log_info`;
@@ -2313,7 +2314,7 @@ CREATE TABLE `wc_log_info` (
                                KEY `idx_user_id` (`user_id`),
                                KEY `idx_execution_time` (`execution_time`),
                                KEY `idx_method_name` (`method_name`)
-) ENGINE=InnoDB AUTO_INCREMENT=263 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='日志信息表（记录方法执行日志）'
+) ENGINE=InnoDB AUTO_INCREMENT=263 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='日志信息表（记录方法执行日志）';
 
 BEGIN;
 COMMIT;
