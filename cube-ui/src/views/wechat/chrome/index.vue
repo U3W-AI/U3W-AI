@@ -1388,7 +1388,7 @@ export default {
       if (dataObj.type === "RETURN_MEDIA_TASK_LOG" && dataObj.aiName === "投递到小红书") {
         const xiaohongshuAI = this.enabledAIs.find((ai) => ai.name === "投递到小红书");
         if (xiaohongshuAI) {
-          // 检查是否已存在相同内容的日志，避免重复添加。
+          // 检查是否已存在相同内容的日志，避免重复添加
           const existingLog = xiaohongshuAI.progressLogs.find(log => log.content === dataObj.content);
           if (!existingLog) {
             // 将新进度添加到数组开头

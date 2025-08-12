@@ -1320,7 +1320,7 @@ export default {
         }
       }
 
-      //小红书相关消息处理.
+      //小红书相关消息处理
       //bug驱散符，见者好运~
       else if (datastr.includes("RETURN_PC_XHS_QRURL")) {
 	      this.mediaQrCodeUrl = dataObj.url;
