@@ -735,7 +735,7 @@ public class WebSocketClientService {
                                 // 发送错误消息
                                 userInfoRequest.setType("RETURN_XHS_DELIVERY_RES");
                                 userInfoRequest.setStatus("error");
-                                userInfoRequest.setDraftContent("投递到小红书失败：" + e.getMessage());
+                                userInfoRequest.setDraftContent("投递到小红书失败");
                                 sendMessage(JSON.toJSONString(userInfoRequest));
                             }
                         }).start();

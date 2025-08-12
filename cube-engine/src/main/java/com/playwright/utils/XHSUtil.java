@@ -37,9 +37,6 @@ public class XHSUtil {
             Thread.sleep(1000);
             Locator avatarArea = page.locator(".name-box");
             if (avatarArea.count() > 0) {
-//                System.out.println("发现用户头像区域");
-                // 点击用户头像，然后点击用户主页按钮
-//                avatarArea.first().click();
                 Thread.sleep(1000);
                 String userName = page.locator(".name-box").textContent();
 
@@ -52,8 +49,6 @@ public class XHSUtil {
                 System.out.println("页面跳转到登录页面，用户未登录");
                 return "false";
             }
-
-
             return "false";
 
         } catch (Exception e) {

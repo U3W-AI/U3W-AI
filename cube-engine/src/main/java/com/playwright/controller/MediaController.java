@@ -1093,9 +1093,7 @@ public class MediaController {
 
         } catch (Exception e) {
             e.printStackTrace();
-//            for(String imgurl : imgsURL){
-//                Files.delete(Path.of(imgurl));
-//            }
+
             return "投递失败: " + e.getMessage();
         }
         return "true";

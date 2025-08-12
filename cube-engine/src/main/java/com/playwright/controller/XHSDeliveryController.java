@@ -18,12 +18,16 @@ import io.swagger.v3.oas.annotations.Parameter;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -57,11 +61,8 @@ public class XHSDeliveryController {
     @Value("${cube.url}")
     private String url;
 
-    @Value("${cube.inputimg}")
+    @Value("${cube.datadir}")
     private String inputimg;
-
-    @Value("${cube.uploadurl}")
-    private String uploadurlp;
 
 
     // 构造器注入WebSocket服务
@@ -107,7 +108,22 @@ public class XHSDeliveryController {
             ImageTextRequest imageTextRequest = new ImageTextRequest();
 
 
-            imageTextRequest.setImagePath(inputimg + "/xiaohongshu_text_bg.jpg");
+            //imageTextRequest.setImagePath(inputimg + "/xiaohongshu_text_bg.jpg");
+            String imageUrl = "https://u3w.com/chatfile/xiaohongshu.png";
+            InputStream byteArrayInputStream = getImageStreamByHttpClient(imageUrl);
+
+            if(!Files.exists(Paths.get(inputimg + "/xhs_img/"))){
+                Files.createDirectories(Paths.get(inputimg + "/xhs_img/"));
+            }
+            File file = new File(inputimg + "/xhs_img/" + "xiaohongshu.jpg");
+            OutputStream outputStream = new FileOutputStream(file);
+            int len = 0;
+            byte[] buf = new byte[1024];
+            while ((len = byteArrayInputStream.read(buf)) != -1) {
+                outputStream.write(buf, 0, len);
+            }
+
+
             imageTextRequest.setOutputPath("xhs_img_" + (int)(Math.random() * 1000000)+ ".jpg");
             imageTextRequest.setText(layoutResult);
             imageTextRequest.setFontSize(25);
@@ -136,11 +152,39 @@ public class XHSDeliveryController {
 
             return deliveryResult;
         } catch (Exception e) {
-            String errorMsg = "投递失败：" + e.getMessage();
+            String errorMsg = "投递失败";
             logInfo.sendMediaTaskLog(errorMsg, userId, "投递到小红书");
             sendDeliveryResult("投递到小红书", "error", errorMsg, userId);
             return "error";
         }
+    }
+
+
+    //感谢 Forever 大佬友情赞助的方法
+    private static InputStream getImageStreamByHttpClient(String imageUrl) {
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(imageUrl))
+                .timeout(Duration.ofSeconds(10))
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<InputStream> response = client.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofInputStream()
+            );
+
+            if (response.statusCode() == 200) {
+                return response.body();
+            }
+        } catch (IOException | InterruptedException e) {
+            return null;
+        }
+        return null;
     }
 
     /**
@@ -158,7 +202,7 @@ public class XHSDeliveryController {
 
             return layoutResult;
         } catch (Exception e) {
-            logInfo.sendTaskLog("智能排版调用失败：" + e.getMessage(), userInfoRequest.getUserId(), "投递到小红书");
+            logInfo.sendTaskLog("智能排版调用失败", userInfoRequest.getUserId(), "投递到小红书");
             return null;
         }
     }
@@ -201,7 +245,7 @@ public class XHSDeliveryController {
 
             webSocketClientService.sendMessage(message.toJSONString());
         } catch (Exception e) {
-            System.err.println("发送任务日志失败: " + e.getMessage());
+            System.err.println("发送任务日志失败");
         }
     }
 
@@ -224,7 +268,7 @@ public class XHSDeliveryController {
 
             webSocketClientService.sendMessage(resultMessage.toJSONString());
         } catch (Exception e) {
-            System.err.println("发送投递结果失败: " + e.getMessage());
+            System.err.println("发送投递结果失败");
         }
     }
 
@@ -386,7 +430,7 @@ public class XHSDeliveryController {
             return outputPaths;
         } catch (IOException e) {
 
-            System.out.println( "写入图片失败：" + e.getMessage());
+            System.out.println( "写入图片失败");
             return null;
         }
     }
