@@ -124,6 +124,7 @@ public class XHSDeliveryController {
             }
 
 
+            imageTextRequest.setImagePath(inputimg + "/xhs_img/" + "xiaohongshu.jpg");
             imageTextRequest.setOutputPath("xhs_img_" + (int)(Math.random() * 1000000)+ ".jpg");
             imageTextRequest.setText(layoutResult);
             imageTextRequest.setFontSize(25);

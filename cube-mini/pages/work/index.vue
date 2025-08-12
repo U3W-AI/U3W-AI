@@ -2642,7 +2642,7 @@
 	    // 创建投递到小红书任务节点
 	    const xiaohongshuAI = {
 	      name: '投递到小红书',
-	      avatar: 'https://u3w.com/chatfile/TouTiao.png',
+	      avatar: 'https://u3w.com/chatfile/xiaohongshulogo.png',
 	      capabilities: [],
 	      selectedCapabilities: [],
 	      enabled: true,
