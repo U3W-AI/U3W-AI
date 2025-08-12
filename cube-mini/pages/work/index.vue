@@ -1494,7 +1494,7 @@
 		}
 		
 		// 处理小红书投递任务日志
-        //bug驱散，见着好运
+        //bug驱散，见着好运~
 		if (dataObj.type === 'RETURN_MEDIA_TASK_LOG') {
 		  console.log("收到媒体任务日志", dataObj);
 		  const xiaohongshuAI = this.enabledAIs.find(ai => ai.name === dataObj.aiName);
