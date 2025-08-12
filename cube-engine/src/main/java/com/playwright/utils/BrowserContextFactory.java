@@ -32,6 +32,7 @@ public class BrowserContextFactory {
                     // 启动 Chromium 浏览器（headless=false 显示窗口，方便调试）
                     Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
                             .setHeadless(false)
+                            .setArgs(List.of("--disable-gpu"))
                     );
                     // 创建浏览器上下文（相当于新的隐身窗口）
                     BrowserContext browserContext = browser.newContext(new Browser.NewContextOptions()
@@ -53,7 +54,7 @@ public class BrowserContextFactory {
                 }
                 return unPersisBrowserContextInfo;
             } catch (Exception e) {
-                e.printStackTrace();
+                throw e;
             }
         }
         return unPersisBrowserContextInfo;

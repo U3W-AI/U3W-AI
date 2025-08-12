@@ -49,7 +49,7 @@ public class TTHUtil {
             }
         }
         catch (Exception e) {
-            return "false";
+            throw e;
         }
     }
 

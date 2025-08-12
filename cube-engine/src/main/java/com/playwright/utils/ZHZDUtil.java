@@ -6,8 +6,6 @@ import com.playwright.entity.UserInfoRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
-
 /**
  * @Author Ran Lewis
  * @Description
@@ -72,6 +70,7 @@ public class ZHZDUtil {
             }
         } catch (Exception e) {
             logInfo.sendTaskLog("无法处理深度思考状态", userId, aiName);
+            throw e;
         }
     }
 
@@ -122,7 +121,7 @@ public class ZHZDUtil {
             }
         } catch (Exception e) {
             logInfo.sendTaskLog("处理知识来源选项时出错", userId, aiName);
-            e.printStackTrace();
+            throw e;
         }
     }
 
@@ -183,6 +182,7 @@ public class ZHZDUtil {
             handleKnowledgeSourceOption(page, "我的知识库", roles.contains("zhzd-wdzsk"), userId, aiName);
         } catch (Exception e) {
             logInfo.sendTaskLog("无法处理知乎直答知识来源", userId, aiName);
+            throw e;
         }
     }
 
@@ -200,6 +200,7 @@ public class ZHZDUtil {
             switchKnowledgeSource(page, roles, userId, aiName);
         } catch (Exception e) {
             logInfo.sendTaskLog("无法处理知乎直答特殊模式", userId, aiName);
+            throw e;
         }
     }
 
@@ -210,7 +211,7 @@ public class ZHZDUtil {
      * @param userInfoRequest 包含所有请求信息的对象
      * @return 包含处理结果的Map
      */
-    public String processZHZDRequest(Page page, UserInfoRequest userInfoRequest) {
+    public String processZHZDRequest(Page page, UserInfoRequest userInfoRequest) throws Exception {
         String userId = userInfoRequest.getUserId();
         String aiName = "知乎直答";
 
@@ -235,8 +236,8 @@ public class ZHZDUtil {
             // 获取原始回答HTML
             return waitZHZDHtmlDom(page, userId, aiName, copyButtonCount);
         } catch (Exception e) {
-            logInfo.sendTaskLog("处理通义千问请求时发生错误: " + e.getMessage(), userId, aiName);
-            return "获取内容失败";
+            logInfo.sendTaskLog("处理通义千问请求时发生错误", userId, aiName);
+            throw e;
         }
     }
 
@@ -268,8 +269,8 @@ public class ZHZDUtil {
             String htmlContent = contentLocator.first().innerHTML();
             return cleanHtml(htmlContent);
         } catch (Exception e) {
-            logInfo.sendTaskLog("等待知乎直答HTML DOM时出错: " + e.getMessage(), userId, aiName);
-            return "获取内容失败";
+            logInfo.sendTaskLog("等待知乎直答HTML DOM时出错", userId, aiName);
+            throw e;
         }
     }
 

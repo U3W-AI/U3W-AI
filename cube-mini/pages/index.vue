@@ -136,8 +136,8 @@
           },
           {
             name: '百度AI',
-            avatar: '/static/images/icon/Baidu.png',
-            icon: '/static/images/icon/Baidu.png',
+            avatar: 'https://u3w.com/chatfile/baiduAI.png',
+            icon: 'https://u3w.com/chatfile/baiduAI.png',
             title: '百度AI',
             description: '让你的生活和工作变得更加轻松高效',
             type: 'baidu'

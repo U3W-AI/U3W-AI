@@ -1,11 +1,12 @@
 package com.cube.system.service.impl;
 
-import java.util.List;
+import com.cube.system.domain.LogInfo;
+import com.cube.system.mapper.LogInfoMapper;
+import com.cube.system.service.ILogInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import com.cube.system.mapper.LogInfoMapper;
-import com.cube.system.domain.LogInfo;
-import com.cube.system.service.ILogInfoService;
+
+import java.util.List;
 
 /**
  * 日志信息（记录方法执行日志）Service业务层处理
@@ -89,5 +90,10 @@ public class LogInfoServiceImpl implements ILogInfoService
     public int deleteLogInfoById(Long id)
     {
         return logInfoMapper.deleteLogInfoById(id);
+    }
+
+    @Override
+    public int cleanLogInfo() {
+        return logInfoMapper.cleanLogInfo();
     }
 }

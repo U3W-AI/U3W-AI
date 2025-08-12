@@ -584,7 +584,7 @@
           },
           {
             name: "百度AI",
-            avatar: '/static/images/icon/Baidu.png',
+            avatar: 'https://u3w.com/chatfile/baiduAI.png',
             capabilities: [
               { label: "深度搜索", value: "web_search" }
             ],
@@ -3076,7 +3076,7 @@
 					},
 					{
 					  name: "百度AI",
-					  avatar: '/static/images/icon/Baidu.png',
+					  avatar: 'https://u3w.com/chatfile/baiduAI.png',
 					  capabilities: [
 					    { label: "深度搜索", value: "web_search" }
 					  ],
@@ -3209,7 +3209,7 @@
 					doubao: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
 					agent: 'https://u3w.com/chatfile/yuanbao.png',
           tongyi: 'https://u3w.com/chatfile/TongYi.png',
-		  baidu: '/static/images/icon/Baidu.png'
+		  baidu: 'https://u3w.com/chatfile/baiduAI.png'
 				};
 				return icons[type] || '';
 			},

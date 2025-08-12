@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.util.Map;
 
 
@@ -50,7 +51,7 @@ public class TTHController {
 
     @PostMapping("/pushToTTH")
     @Operation(summary = "投递内容到微头条", description = "投递内容到微头条")
-    public String pushToTTH(@RequestBody Map map) throws InterruptedException {
+    public String pushToTTH(@RequestBody Map map) throws IOException {
         Integer i = (Integer) map.get("userId");
         String userId = i.toString();
         String title = (String) map.get("title");
@@ -67,7 +68,7 @@ public class TTHController {
             }
             logInfo.sendTTHFlow("开始发布文章", userId);
             boolean visible = page.locator("//*[name()='path' and contains(@d,'M15 2v1.5H')]").isVisible();
-            if(visible) {
+            if (visible) {
                 page.locator("//*[name()='path' and contains(@d,'M15 2v1.5H')]").click();
             }
             Locator locator = page.locator("a[href='/profile_v4/weitoutiao/publish']");
@@ -94,7 +95,7 @@ public class TTHController {
             webSocketClientService.sendMessage(tthObject.toJSONString());
             tth.close();
             return "success";
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
             logInfo.sendTTHFlow("发布文章失败: " + e.getMessage(), userId);
             tth.close();
             UserLogUtil.sendExceptionLog(userId, "微头条发布文章", "pushToTTH", e, url + "/saveLogInfo");

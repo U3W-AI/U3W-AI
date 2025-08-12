@@ -3,10 +3,7 @@ package com.playwright.utils;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.WaitForSelectorState;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.atomic.AtomicReference;
@@ -25,7 +22,7 @@ public class DouBaoUtil {
     @Autowired
     private ClipboardLockManager clipboardLockManager;
 
-    public void waitAndClickDBScoreCopyButton(Page page, String userId)  {
+    public void waitAndClickDBScoreCopyButton(Page page, String userId) throws InterruptedException {
         try {
             // 等待页面内容稳定
             String currentContent = "";
@@ -72,12 +69,11 @@ public class DouBaoUtil {
             Thread.sleep(1000);
 
         } catch (Exception e) {
-
-            e.printStackTrace();
+            throw e;
         }
     }
 
-    public String waitAndClickDBCopyButton(Page page,String userId,String roles)  {
+    public String waitAndClickDBCopyButton(Page page,String userId,String roles) throws InterruptedException {
         try {
             // 等待页面内容稳定
             String currentContent = "";
@@ -128,9 +124,8 @@ public class DouBaoUtil {
             logInfo.sendTaskLog( "豆包内容已自动提取完成",userId,"豆包");
             return copiedText;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
     /**
@@ -196,9 +191,8 @@ public class DouBaoUtil {
             return currentContent;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
 
@@ -266,9 +260,8 @@ public class DouBaoUtil {
             return currentContent;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
 

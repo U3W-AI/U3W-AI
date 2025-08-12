@@ -328,7 +328,7 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startMiniMax")
     public String startMiniMax(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
+            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws Exception {
         try (
                 BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"MiniMax Chat")) {
 
@@ -359,7 +359,6 @@ public class AIGCController {
                 }
             } catch (Exception e) {
                 System.out.println("关闭弹窗失败，继续执行: ");
-                throw e;
             }
 
             // 移除侧边栏
@@ -370,7 +369,6 @@ public class AIGCController {
                 }
             } catch (Exception e) {
                 System.out.println("移除侧边栏失败，继续执行: ");
-                throw e;
             }
 
             logInfo.sendTaskLog( "MiniMax页面打开完成",userId,"MiniMax Chat");
@@ -413,7 +411,6 @@ public class AIGCController {
                 }
             } catch (Exception e) {
                 logInfo.sendTaskLog("处理深度思考按钮时出错", userId, "MiniMax Chat");
-                throw e;
             }
 
             // 使用工具类定位联网搜索按钮
@@ -454,7 +451,6 @@ public class AIGCController {
                 }
             } catch (Exception e) {
                 logInfo.sendTaskLog("处理联网按钮时出错", userId, "MiniMax Chat");
-                throw e;
             }
 
             // 获取输入框并输入内容
@@ -558,7 +554,7 @@ public class AIGCController {
                             think.click(new Locator.ClickOptions().setForce(true));
                             System.out.println("点击第 " + j + " 个隐藏思考状态");
                         } catch (PlaywrightException e) {
-                            System.out.println("点击第 " + j + " 个失败：" + e.getMessage());
+                            System.out.println("点击第 " + j + " 个失败");
                         }
                     }
                 }
@@ -1310,11 +1306,11 @@ public class AIGCController {
                         // 使用更安全的截图方式
                         logInfo.sendImgData(page, userId + "DeepSeek执行过程截图" + currentCount, userId);
                     } catch (Exception e) {
-                        System.out.println("截图失败: " + e.getMessage());
+                        System.out.println("截图失败");
                         UserLogUtil.sendExceptionLog(userId, "startDeepSeek截图", "startDeepSeek", e, url + "/saveLogInfo");
                     }
                 } catch (Exception e) {
-                    System.out.println("截图任务异常: " + e.getMessage());
+                    System.out.println("截图任务异常");
                     UserLogUtil.sendExceptionLog(userId, "startDeepSeek截图", "startDeepSeek", e, url + "/saveLogInfo");
                 }
             }, 2000, 6000, TimeUnit.MILLISECONDS); // 延迟2秒开始，每6秒执行一次
@@ -1464,7 +1460,7 @@ public class AIGCController {
             try {
                 copiedText = deepSeekUtil.saveDeepSeekContent(page, userInfoRequest, roles, userId, copiedText);
             } catch (Exception e) {
-                System.out.println("保存DeepSeek内容到稿库失败: " + e.getMessage());
+                System.out.println("保存DeepSeek内容到稿库失败");
                 UserLogUtil.sendExceptionLog(userId, "startDeepSeek存稿", "startDeepSeek", e, url + "/saveLogInfo");
             }
             return copiedText;
@@ -1575,7 +1571,7 @@ public class AIGCController {
                     }
                 }
             } catch (Exception e) {
-                logInfo.sendTaskLog("内容格式化处理失败: " + e.getMessage(), userId, aiName);
+                logInfo.sendTaskLog("内容格式化处理失败", userId, aiName);
                 System.out.println("最终格式化处理失败");
                 UserLogUtil.sendExceptionLog(userId, "通义千问内容格式化", "startTYQianwen", e, url + "/saveLogInfo");
             }
@@ -1592,7 +1588,7 @@ public class AIGCController {
                     shareUrlRef.set(shareUrl);
                     logInfo.sendTaskLog("成功获取分享链接: " + shareUrl, userId, aiName);
                 } catch (Exception e) {
-                    logInfo.sendTaskLog("获取分享链接失败: " + e.getMessage(), userId, aiName);
+                    logInfo.sendTaskLog("获取分享链接失败", userId, aiName);
                     UserLogUtil.sendExceptionLog(userId, "通义千问获取分型链接", "startTYQianwen", e, url + "/saveLogInfo");
                 }
             });
@@ -1910,10 +1906,12 @@ public class AIGCController {
     @PostMapping("/sendToTTHByDB")
     public String sendToTTHByDB(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
             content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"db")) {
+        ScheduledFuture<?> screenshotFuture = null;
+        ScheduledExecutorService screenshotExecutor = null;
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "db")) {
             // 初始化变量
             String userId = userInfoRequest.getUserId();
-            logInfo.sendTaskLog( "微头条排版准备就绪，正在打开页面",userId,"微头条排版");
+            logInfo.sendTaskLog("微头条排版准备就绪，正在打开页面", userId, "微头条排版");
             String roles = userInfoRequest.getRoles();
             String userPrompt = userInfoRequest.getUserPrompt();
 
@@ -1922,7 +1920,7 @@ public class AIGCController {
             page.navigate("https://www.doubao.com/chat/");
             page.waitForLoadState(LoadState.LOAD);
             Thread.sleep(500);
-            logInfo.sendTaskLog( "微头条排版页面打开完成",userId,"微头条排版");
+            logInfo.sendTaskLog("微头条排版页面打开完成", userId, "微头条排版");
             // 定位深度思考按钮
             Locator deepThoughtButton = page.locator("button.semi-button:has-text('深度思考')");
             // 检查按钮是否包含以 active- 开头的类名
@@ -1951,26 +1949,26 @@ public class AIGCController {
             page.locator("[data-testid='chat_input_input']").click();
             Thread.sleep(500);
             page.locator("[data-testid='chat_input_input']").fill(userPrompt);
-            logInfo.sendTaskLog( "原数据已录入微头条排版系统完成",userId,"微头条排版");
+            logInfo.sendTaskLog("原数据已录入微头条排版系统完成", userId, "微头条排版");
             Thread.sleep(500);
             page.locator("[data-testid='chat_input_input']").press("Enter");
 
             // 创建定时截图线程
             AtomicInteger i = new AtomicInteger(0);
-            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
             // 启动定时任务，每5秒执行一次截图
-            ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+            screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
                 try {
                     int currentCount = i.getAndIncrement(); // 获取当前值并自增
-                    logInfo.sendImgData(page, userId + "微头条排版执行过程截图"+currentCount, userId);
+                    logInfo.sendImgData(page, userId + "微头条排版执行过程截图" + currentCount, userId);
                 } catch (Exception e) {
                     UserLogUtil.sendExceptionLog(userId, "微头条排版", "sendToTTHByDB", e, url + "/saveLogInfo");
                 }
             }, 0, 9, TimeUnit.SECONDS);
 
-            logInfo.sendTaskLog( "开启自动监听任务，持续监听微头条排版结果",userId,"微头条排版");
+            logInfo.sendTaskLog("开启自动监听任务，持续监听微头条排版结果", userId, "微头条排版");
             // 等待复制按钮出现并点击
-            String copiedText =  douBaoUtil.waitPBCopy(page,userId,"微头条排版");
+            String copiedText = douBaoUtil.waitPBCopy(page, userId, "微头条排版");
             int first = copiedText.indexOf('"') + 1;
             int second = copiedText.indexOf('"', first);
             String title = copiedText.substring(first, second);
@@ -1979,15 +1977,21 @@ public class AIGCController {
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
 
-            logInfo.sendTaskLog( "执行完成",userId,"微头条排版");
-            logInfo.sendContentAndTitle(content,title,userId,"RETURN_TTH_ZNPB_RES");
+            logInfo.sendTaskLog("执行完成", userId, "微头条排版");
+            logInfo.sendContentAndTitle(content, title, userId, "RETURN_TTH_ZNPB_RES");
             userInfoRequest.setDraftContent(copiedText);
             userInfoRequest.setAiName("智能评分");
             userInfoRequest.setShareUrl("");
             userInfoRequest.setShareImgUrl("");
-            RestUtils.post(url+"/saveDraftContent", userInfoRequest);
+            RestUtils.post(url + "/saveDraftContent", userInfoRequest);
             return copiedText;
         } catch (Exception e) {
+            if (screenshotFuture != null) {
+                screenshotFuture.cancel(false);
+            }
+            if (screenshotExecutor != null) {
+                screenshotExecutor.shutdown();
+            }
             throw e;
         }
     }
@@ -2128,7 +2132,7 @@ public class AIGCController {
                 copiedText = baiduUtil.saveBaiduContent(page, userInfoRequest, roles, userId, copiedText);
                 logInfo.sendTaskLog("执行完成", userId, "百度AI");
             } catch (Exception e) {
-                logInfo.sendTaskLog("保存百度AI内容到稿库失败: " + e.getMessage(), userId, "百度AI");
+                logInfo.sendTaskLog("保存百度AI内容到稿库失败", userId, "百度AI");
                 UserLogUtil.sendExceptionLog(userId, "保存百度AI内容到稿库", "startBaidu", e, url + "/saveLogInfo");
 
             }

@@ -1,7 +1,8 @@
 package com.cube.system.service;
 
-import java.util.List;
 import com.cube.system.domain.LogInfo;
+
+import java.util.List;
 
 /**
  * 日志信息（记录方法执行日志）Service接口
@@ -58,4 +59,6 @@ public interface ILogInfoService
      * @return 结果
      */
     public int deleteLogInfoById(Long id);
+
+    public int cleanLogInfo();
 }

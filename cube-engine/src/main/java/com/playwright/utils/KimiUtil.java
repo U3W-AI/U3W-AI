@@ -9,7 +9,7 @@ public class KimiUtil {
     @Autowired
     private LogMsgUtil logInfo;
 
-    public String waitKimiResponse(Page page, String userId, String userPrompt ,String kimiChatId) {
+    public String waitKimiResponse(Page page, String userId, String userPrompt ,String kimiChatId) throws InterruptedException {
         try {
             // 获取输入框并输入内容
             Thread.sleep(1000);
@@ -51,8 +51,8 @@ public class KimiUtil {
             String resText = (String) page.evaluate("async () => { return await navigator.clipboard.readText(); }");
             Thread.sleep(1500);
             return resText;
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            throw e;
         }
     }
 

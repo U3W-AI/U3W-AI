@@ -2,15 +2,8 @@ package com.playwright.utils;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
-import com.microsoft.playwright.options.AriaRole;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.util.concurrent.TimeoutException;
 
 @Component
 public class MetasoUtil {
@@ -68,8 +61,7 @@ public class MetasoUtil {
             logInfo.sendTaskLog(aiName + "内容已提取完成", userId, aiName);
             return currentContent;
         } catch (Exception e) {
-            e.printStackTrace();
-            return "获取内容失败";
+            throw e;
         }
     }
 }
