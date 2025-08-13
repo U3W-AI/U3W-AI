@@ -6,7 +6,9 @@ import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
+import com.microsoft.playwright.options.LoadState;
 import com.microsoft.playwright.options.WaitForSelectorState;
+import com.playwright.entity.UnPersisBrowserContextInfo;
 import com.playwright.utils.*;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.websocket.WebSocketClientService;
@@ -14,10 +16,13 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.io.IOException;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
@@ -32,6 +37,8 @@ public class BrowserController {
 
     private final WebSocketClientService webSocketClientService;
 
+    @Value("${cube.url}")
+    private String logUrl;
 
     @Autowired
     private TTHUtil tthUtil;
@@ -49,6 +56,9 @@ public class BrowserController {
     @Autowired
     private BrowserUtil browserUtil;
 
+    @Autowired
+    private BaiduUtil baiduUtil;
+
     /**
      * 检查MiniMax主站登录状态
      * @param userId 用户唯一标识
@@ -56,26 +66,73 @@ public class BrowserController {
      */
     @Operation(summary = "检查MiniMax登录状态", description = "返回手机号表示已登录，false 表示未登录")
     @GetMapping("/checkMaxLogin")
-    public String checkMaxLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) {
+    public String checkMaxLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"MiniMax Chat")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://chat.minimaxi.com/");
             Thread.sleep(3000);
             Locator loginButton = page.locator("div.text-col_text00.border-col_text00.hover\\:bg-col_text00.hover\\:text-col_text05.flex.h-\\[32px\\].cursor-pointer.items-center.justify-center.rounded-full.border.px-\\[16px\\].text-\\[13px\\].font-medium.leading-\\[17px\\].md\\:h-\\[36px\\]").last();
-            System.out.println("匹配登录成功============>"+loginButton.count());
             if(loginButton.count() == 0){
                 // 不存在登录按钮，已登录
-                return "登录";
+                return "已登录";
             } else {
                 // 存在登录按钮，未登录
                 return "false";
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "";
     }
+
+    /**
+     * 检查Kimi登录状态
+     * @param userId 用户唯一标识
+     * @return 登录状态："false"表示未登录，用户昵称表示已登录
+     */
+    @Operation(summary = "检查Kimi登录状态", description = "返回用户昵称表示已登录，false 表示未登录")
+    @GetMapping("/checkKimiLogin")
+    public String checkKimiLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "kimi")) {
+            // 1. 打开新页面并访问Kimi网站
+            Page page = browserUtil.getOrCreatePage(context);
+            page.navigate("https://www.kimi.com/");
+            Thread.sleep(5000); // 等待页面加载
+
+            // 2. 检查登录按钮是否存在
+            Locator loginLocator = page.locator("span.user-name:has-text('登录')");
+            if (loginLocator.count() > 0 && loginLocator.isVisible()) {
+                return "false"; // 未登录
+            }
+
+            // 3. 已登录情况处理
+            page.locator("div.user-info").click(); // 点击用户信息
+            Thread.sleep(500);
+            page.locator("span:has-text('设置')").click(); // 点击设置
+            Thread.sleep(500);
+
+            // 4. 检查用户名元素
+            Locator nameLocator = page.locator("div.name");
+            if (nameLocator.count() > 0) {
+                Thread.sleep(300);
+                String nameText = nameLocator.textContent();
+
+                // 双重检查：如果为空再等一次
+                if (nameText.isEmpty()) {
+                    Thread.sleep(2000);
+                    nameText = nameLocator.textContent();
+                }
+
+                return nameText.isEmpty() ? "登录" : nameText; // 确保不返回空字符串
+            }
+
+            return "false"; // 未找到用户名元素
+
+        } catch (Exception e) {
+            throw e;
+        }
+    }
+
 
 
     /**
@@ -85,97 +142,31 @@ public class BrowserController {
      */
     @Operation(summary = "检查元宝登录状态", description = "返回手机号表示已登录，false 表示未登录")
     @GetMapping("/checkLogin")
-    public String checkLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"yb")) {
-            Page page = context.newPage();
-            page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa");
-            Locator phone = page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/div[2]/p");
-            phone.waitFor(new Locator.WaitForOptions().setTimeout(60000));
-                if(phone.count()>0){
-                    String phoneText = phone.textContent();
-                    if(phoneText.equals("未登录")){
-                        return "false";
-                    }
-                    return phoneText;
-                }else{
-                    return "false";
-                }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return "";
-    }
-
-
-    /**
-     * 检查元器主站登录状态
-     * @param userId 用户唯一标识
-     * @return 登录状态："false"表示未登录，手机号表示已登录
-     */
-    @Operation(summary = "检查元器登录状态", description = "返回手机号表示已登录，false 表示未登录")
-    @GetMapping("/checkAgentLogin")
-    public String checkAgentLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"agent")) {
-            Page page = context.newPage();
-            page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa");
-            Locator phone = page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/div[2]/p");
-            phone.waitFor(new Locator.WaitForOptions().setTimeout(60000));
-            if(phone.count()>0){
-                    String phoneText = phone.textContent();
-                    if(phoneText.equals("未登录")){
-                        return "false";
-                    }
-                    return phoneText;
-                }else{
-                    return "false";
-                }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return "false";
-    }
-
-    /**
-     * 获取代理版元器登录二维码
-     * @param userId 用户唯一标识
-     * @return 二维码图片URL 或 "false"表示失败
-     */
-    @Operation(summary = "获取代理版元器登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
-    @GetMapping("/getAgentQrCode")
-    public String getAgentQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"agent")) {
-            Page page = context.newPage();
-            page.navigate("https://hunyuan.tencent.com/");
-            page.locator("//*[@id=\"app\"]/div/div[1]/div[2]/button").click();
+    public String checkLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) throws InterruptedException {
+        try {
+            UnPersisBrowserContextInfo browserContextInfo = BrowserContextFactory.getBrowserContext(userId, 2);
+            BrowserContext browserContext = browserContextInfo.getBrowserContext();
+            Page page = browserContext.pages().get(0);
+            page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa/");
+            page.waitForLoadState(LoadState.LOAD);
             Thread.sleep(3000);
-            String url = screenshotUtil.screenshotAndUpload(page,"checkAgentLogin.png");
-
-            JSONObject jsonObject = new JSONObject();
-            jsonObject.put("url",url);
-            jsonObject.put("userId",userId);
-            jsonObject.put("type","RETURN_PC_AGENT_QRURL");
-            webSocketClientService.sendMessage(jsonObject.toJSONString());
-            Locator locator = page.locator("//*[@id=\"app\"]/div/div[1]/div[2]/div");
-            locator.waitFor(new Locator.WaitForOptions().setTimeout(60000));
-            Thread.sleep(2000);
-            page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa");
-            Thread.sleep(2000);
-            Locator phone = page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/div[2]/p");
+            Locator phone = page.locator("//p[@class='nick-info-name']");
             if(phone.count()>0){
                 String phoneText = phone.textContent();
-                JSONObject jsonObjectTwo = new JSONObject();
-                jsonObjectTwo.put("status",phoneText);
-                jsonObjectTwo.put("userId",userId);
-                jsonObjectTwo.put("type","RETURN_AGENT_STATUS");
-                webSocketClientService.sendMessage(jsonObjectTwo.toJSONString());
+                if(phoneText.equals("未登录")){
+                    return "false";
+                }
+                return phoneText;
+            }else{
+                return "false";
             }
-
-            return url;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "false";
     }
+
+
+
 
     /**
      * 获取代理版MiniMax登录二维码
@@ -184,9 +175,9 @@ public class BrowserController {
      */
     @GetMapping("/getMaxQrCode")
     @Operation(summary = "获取代理版MiniMax登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
-    public String getMaxQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String getMaxQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"MiniMax Chat")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://chat.minimaxi.com/");
             page.locator("xpath=/html/body/section/div/div/section/header/div[2]/div[2]/div[2]/div").click();
             Thread.sleep(3000);
@@ -215,10 +206,91 @@ public class BrowserController {
 
             return url;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "";
     }
+
+
+    /**
+     * 获取KiMi登录二维码
+     * @param userId 用户唯一标识
+     * @return 二维码图片URL 或 "false"表示失败
+     */
+    @GetMapping("/getKiMiQrCode")
+    @Operation(summary = "获取代理版KiMi登录二维码", description = "返回二维码截图 URL 或 false 表示失败，如果已登录则返回用户信息")
+    public String getKiMiQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "KiMi")) {
+            Page page = browserUtil.getOrCreatePage(context);
+
+            // 1. 访问Kimi官网
+            page.navigate("https://www.kimi.com/");
+            Thread.sleep(2000); // 等待页面加载完成
+
+            // 2. 点击用户信息区域
+            Locator userLoginLocator = page.locator("div.user-info");
+            userLoginLocator.click();
+            Thread.sleep(500);
+
+            // 3. 已登录则返回登陆成功的消息
+            if (page.locator("span:has-text('设置')").isVisible()){
+                page.locator("span:has-text('设置')").click();
+                Thread.sleep(500);
+                Locator nameLocator = page.locator("div.name");
+                String nameText = nameLocator.textContent();
+                // 发送登录状态
+                JSONObject statusObj = new JSONObject();
+                statusObj.put("status", nameText.isEmpty() ? "已登录" : nameText);
+                statusObj.put("userId", userId);
+                statusObj.put("type", "RETURN_KIMI_STATUS");
+                webSocketClientService.sendMessage(statusObj.toJSONString());
+                return nameText.isEmpty() ? "已登录" : nameText;
+            } else {
+                // 4. 截图并发送二维码
+                String url = screenshotUtil.screenshotAndUpload(page, "checkKiMiLogin_" + System.currentTimeMillis() + ".png");
+                JSONObject jsonObject = new JSONObject();
+                jsonObject.put("url", url);
+                jsonObject.put("userId", userId);
+                jsonObject.put("type", "RETURN_PC_KIMI_QRURL");
+                webSocketClientService.sendMessage(jsonObject.toJSONString());
+
+                // 5. 等待登录完成（最长30秒）
+                for (int i = 0; i < 30; i++) {
+                    if (!page.locator("div.login-modal-mask").isVisible()) {
+                        // 登录成功检查
+                        userLoginLocator.click();
+                        Thread.sleep(1000);
+
+                        Locator settingsLocator = page.locator("span:has-text('设置')");
+                        if (settingsLocator.count() > 0) {
+                            settingsLocator.click();
+                            Thread.sleep(1000);
+                            Locator nameLocator = page.locator("div.name");
+                            String nameText = nameLocator.textContent();
+                            // 双重检查用户名
+                            if (nameText.isEmpty()) {
+                                nameText = nameLocator.textContent();
+                                Thread.sleep(2000);
+                            }
+                            // 发送登录状态
+                            JSONObject statusObj = new JSONObject();
+                            statusObj.put("status", nameText.isEmpty() ? "已登录" : nameText);
+                            statusObj.put("userId", userId);
+                            statusObj.put("type", "RETURN_KIMI_STATUS");
+                            webSocketClientService.sendMessage(statusObj.toJSONString());
+                            break;
+                        }
+                    }
+                    // 每次循环间隔
+                    Thread.sleep(1000);
+                }
+                return url;
+            }
+
+        } catch (Exception e) {
+            throw e;
+        }
+    }
+
 
 
     /**
@@ -228,11 +300,13 @@ public class BrowserController {
      */
     @GetMapping("/getYBQrCode")
     @Operation(summary = "获取代理版元宝登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
-    public String getYBQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"yb")) {
-            Page page = context.newPage();
-            page.navigate("https://hunyuan.tencent.com/");
-            page.locator("//*[@id=\"app\"]/div/div[1]/div[2]/button").click();
+    public String getYBQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
+        try {
+            UnPersisBrowserContextInfo browserContextInfo = BrowserContextFactory.getBrowserContext(userId, 2);
+            BrowserContext context = browserContextInfo.getBrowserContext();
+            Page page = context.pages().get(0);
+            page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa");
+            page.locator("//span[contains(text(),'登录')]").click();
             Thread.sleep(3000);
             String url = screenshotUtil.screenshotAndUpload(page,"checkYBLogin.png");
 
@@ -241,17 +315,17 @@ public class BrowserController {
             jsonObject.put("userId",userId);
             jsonObject.put("type","RETURN_PC_YB_QRURL");
             webSocketClientService.sendMessage(jsonObject.toJSONString());
-            Locator locator = page.locator("//*[@id=\"app\"]/div/div[1]/div[2]/div");
-            locator.waitFor(new Locator.WaitForOptions().setTimeout(60000));
-            Thread.sleep(3000);
-            page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa");
-            Thread.sleep(2000);
-            Locator phone = page.locator("//*[@id=\"hunyuan-bot\"]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/div[2]/p");
-//            page.click("span.icon-yb-setting");
-
-//            Locator phone = page.locator("//*[@id=\"app\"]/div/div[2]/div/div[2]/div[1]/ul/li[1]/div/div[2]/h4");
+            Locator phone = page.locator("//p[@class='nick-info-name']");
+            String phoneText = phone.textContent();
+            for(int i = 0; i < 6; i++) {
+                if(phoneText.contains("未登录")) {
+                    Thread.sleep(5000);
+                } else {
+                    break;
+                }
+                phoneText = phone.textContent();
+            }
             if(phone.count()>0){
-                String phoneText = phone.textContent();
                 JSONObject jsonObjectTwo = new JSONObject();
                 jsonObjectTwo.put("status",phoneText);
                 jsonObjectTwo.put("userId",userId);
@@ -261,9 +335,8 @@ public class BrowserController {
 
             return url;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "";
     }
 
 
@@ -274,9 +347,9 @@ public class BrowserController {
      */
     @Operation(summary = "检查秘塔登录状态", description = "返回登录表示已登录，false 表示未登录")
     @GetMapping("/checkMetasoLogin")
-    public String checkMetasoLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String checkMetasoLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"metaso")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://metaso.cn/");
             Thread.sleep(5000);
             Locator loginButton = page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("登录/注册"));
@@ -296,9 +369,8 @@ public class BrowserController {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "false";
     }
 
     /**
@@ -308,9 +380,9 @@ public class BrowserController {
      */
     @Operation(summary = "获取秘塔登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     @GetMapping("/getMetasoQrCode")
-    public String getMetasoQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String getMetasoQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"metaso")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://metaso.cn/");
             page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("登录/注册")).click();
             Thread.sleep(3000);
@@ -339,9 +411,8 @@ public class BrowserController {
             return url;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "false";
     }
 
 
@@ -352,9 +423,9 @@ public class BrowserController {
      */
     @Operation(summary = "检查豆包登录状态", description = "返回手机号表示已登录，false 表示未登录")
     @GetMapping("/checkDBLogin")
-    public String checkDBLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String checkDBLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"db")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.doubao.com/chat/");
             Thread.sleep(5000);
             Locator locator = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div/main/div/div/div[1]/div/div/div/div[2]/div/button");
@@ -376,9 +447,8 @@ public class BrowserController {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "false";
     }
 
     /**
@@ -388,9 +458,9 @@ public class BrowserController {
      */
     @Operation(summary = "获取豆包登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     @GetMapping("/getDBQrCode")
-    public String getDBQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String getDBQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"db")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.doubao.com/chat/");
             Locator locator = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div/main/div/div/div[1]/div/div/div/div[2]/div/button");
             Thread.sleep(2000);
@@ -424,7 +494,7 @@ public class BrowserController {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
         return "false";
     }
@@ -434,9 +504,9 @@ public class BrowserController {
      */
     @Operation(summary = "退出腾讯元宝登录状态", description = "执行退出操作，返回true表示成功")
     @GetMapping("/loginOut")
-    public boolean loginOut(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public boolean loginOut(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"yb")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa");
             page.click("span.icon-yb-setting");
             page.click("text=退出登录");
@@ -444,8 +514,7 @@ public class BrowserController {
             Thread.sleep(3000);
             return true;
         } catch (Exception e) {
-            e.printStackTrace();
-            return false;
+            throw e;
         }
     }
 
@@ -458,7 +527,7 @@ public class BrowserController {
     @GetMapping("/checkDeepSeekLogin")
     public String checkDeepSeekLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "deepseek")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
 
             // 导航到DeepSeek页面并确保完全加载
             page.navigate("https://chat.deepseek.com/");
@@ -478,7 +547,6 @@ public class BrowserController {
 
                 // 如果当前尝试失败，但还有更多尝试，等待后重试
                 if (attempt < 2) {
-                    System.out.println("DeepSeek登录检测尝试 " + (attempt + 1) + " 失败，等待后重试...");
                     page.waitForTimeout(1000);
                     // 刷新页面重试
                     page.reload();
@@ -490,9 +558,8 @@ public class BrowserController {
             // 所有尝试都失败，返回未登录状态
             return "false";
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "false";
     }
 
     /**
@@ -502,9 +569,9 @@ public class BrowserController {
      */
     @Operation(summary = "获取DeepSeek登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     @GetMapping("/getDeepSeekQrCode")
-    public String getDeepSeekQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String getDeepSeekQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "deepseek")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
 
             // 首先检查当前登录状态
             String currentStatus = deepSeekUtil.checkLoginStatus(page, true);
@@ -564,7 +631,7 @@ public class BrowserController {
                             qrUpdateObject.put("type", "RETURN_PC_DEEPSEEK_QRURL");
                             webSocketClientService.sendMessage(qrUpdateObject.toJSONString());
                         } catch (Exception e) {
-                            // 忽略截图错误
+                            UserLogUtil.sendExceptionLog(userId, "deepSeek获取二维码截图失败", "checkDeepSeekLogin", e, logUrl + "/saveLogInfo");
                         }
                     }
                 }
@@ -573,6 +640,7 @@ public class BrowserController {
             }
         } catch (Exception e) {
             logMsgUtil.sendTaskLog("获取DeepSeek登录二维码失败: " + e.getMessage(), userId, "DeepSeek");
+            throw e;
         }
         return "false";
     }
@@ -587,7 +655,7 @@ public class BrowserController {
     @GetMapping("/checkTongYiLogin")
     public String checkTongYiLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "ty")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.tongyi.com/");
             page.waitForTimeout(5000);
 
@@ -611,8 +679,7 @@ public class BrowserController {
                 return "false";
             }
         } catch (Exception e) {
-            e.printStackTrace();
-            return "false";
+            throw e;
         }
     }
 
@@ -623,9 +690,9 @@ public class BrowserController {
      */
     @Operation(summary = "获取通义千问登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     @GetMapping("/getTongYiQrCode")
-    public String getTongYiQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+    public String getTongYiQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "ty")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.tongyi.com/");
             page.waitForTimeout(3000);
             Locator loginButton = page.locator("//*[@id=\"new-nav-tab-wrapper\"]/div[2]/li");
@@ -663,9 +730,131 @@ public class BrowserController {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
         return "false";
+    }
+
+    @Operation(summary = "检查百度AI登录状态", description = "返回用户名/手机号表示已登录，false 表示未登录")
+    @GetMapping("/checkBaiduLogin")
+    public String checkBaiduLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws Exception {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "baidu")) {
+            Page page = browserUtil.getOrCreatePage(context);
+
+            // 使用BaiduUtil检查登录状态
+            String loginStatus = baiduUtil.checkBaiduLogin(page, true);
+
+            if (!"false".equals(loginStatus)) {
+                return loginStatus; // 返回用户名或登录状态
+            } else {
+                return "false"; // 未登录
+            }
+
+        } catch (Exception e) {
+            throw e;
+        }
+    }
+
+    /**
+     * 获取百度登录二维码
+     * @param userId
+     */
+    @Operation(summary = "获取百度登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
+    @GetMapping("/getBaiduQrCode")
+    public String getBaiduQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "baidu")) {
+            Page page = browserUtil.getOrCreatePage(context);
+            // 首先检查当前登录状态
+            String currentStatus = baiduUtil.checkBaiduLogin(page, true);
+            if (!"false".equals(currentStatus)) {
+                // 已经登录，直接返回状态
+                JSONObject statusObject = new JSONObject();
+                statusObject.put("status", currentStatus);
+                statusObject.put("userId", userId);
+                statusObject.put("type", "RETURN_BAIDU_STATUS");
+                webSocketClientService.sendMessage(statusObject.toJSONString());
+                logMsgUtil.sendTaskLog("百度AI已登录，用户: " + currentStatus, userId, "百度AI");
+
+                // 截图返回当前页面
+                String url = screenshotUtil.screenshotAndUpload(page, "getBaiduLoggedIn.png");
+                JSONObject qrUpdateObject = new JSONObject();
+                qrUpdateObject.put("url", url);
+                qrUpdateObject.put("userId", userId);
+                qrUpdateObject.put("type", "RETURN_PC_BAIDU_QRURL");
+                webSocketClientService.sendMessage(qrUpdateObject.toJSONString());
+                return url;
+            }
+
+            // 未登录，使用BaiduUtil获取二维码
+            String url = baiduUtil.waitAndGetQRCode(page, userId);
+
+            if (url != null && !url.trim().isEmpty()) {
+                // 发送二维码截图
+                JSONObject qrUpdateObject = new JSONObject();
+                qrUpdateObject.put("url", url);
+                qrUpdateObject.put("userId", userId);
+                qrUpdateObject.put("type", "RETURN_PC_BAIDU_QRURL");
+                webSocketClientService.sendMessage(qrUpdateObject.toJSONString());
+
+                // 实时监测登录状态 - 最多等待60秒
+                int maxAttempts = 30; // 30次尝试，每次2秒
+                for (int i = 0; i < maxAttempts; i++) {
+                    Thread.sleep(2000);
+
+                    // 检查当前页面登录状态
+                    String loginStatus = baiduUtil.checkBaiduLogin(page, false);
+
+                    if (!"false".equals(loginStatus)) {
+                        // 登录成功，发送状态到WebSocket
+                        JSONObject statusSuccessObject = new JSONObject();
+                        statusSuccessObject.put("status", loginStatus);
+                        statusSuccessObject.put("userId", userId);
+                        statusSuccessObject.put("type", "RETURN_BAIDU_STATUS");
+                        webSocketClientService.sendMessage(statusSuccessObject.toJSONString());
+
+                        logMsgUtil.sendTaskLog("百度AI登录成功: " + loginStatus, userId, "百度AI");
+                        break;
+                    }
+
+                    // 每5次尝试重新截图一次，可能二维码已更新
+                    if (i % 5 == 4) {
+                        try {
+                            String newUrl = screenshotUtil.screenshotAndUpload(page, "getBaiduQrCode_refresh.png");
+                            JSONObject qrRefreshObject = new JSONObject();
+                            qrRefreshObject.put("url", newUrl);
+                            qrRefreshObject.put("userId", userId);
+                            qrRefreshObject.put("type", "RETURN_PC_BAIDU_QRURL");
+                            webSocketClientService.sendMessage(qrRefreshObject.toJSONString());
+                        } catch (Exception e) {
+                            UserLogUtil.sendExceptionLog(userId, "获取百度AI二维码", "getBaiduQrCode", e, logUrl + "/saveLogInfo");
+                        }
+                    }
+                }
+                return url;
+            } else {
+                logMsgUtil.sendTaskLog("获取百度AI二维码失败", userId, "百度AI");
+                // 发送失败消息到前端
+                JSONObject errorObject = new JSONObject();
+                errorObject.put("url", "");
+                errorObject.put("userId", userId);
+                errorObject.put("type", "RETURN_PC_BAIDU_QRURL");
+                errorObject.put("error", "获取二维码失败");
+                webSocketClientService.sendMessage(errorObject.toJSONString());
+                return "false";
+            }
+
+        } catch (Exception e) {
+            logMsgUtil.sendTaskLog("获取百度AI二维码失败", userId, "百度AI");
+            // 发送异常消息到前端
+            JSONObject errorObject = new JSONObject();
+            errorObject.put("url", "");
+            errorObject.put("userId", userId);
+            errorObject.put("type", "RETURN_PC_BAIDU_QRURL");
+            errorObject.put("error", "获取二维码异常");
+            webSocketClientService.sendMessage(errorObject.toJSONString());
+            UserLogUtil.sendExceptionLog(userId, "获取百度AI二维码", "getBaiduQrCode", e, logUrl + "/saveLogInfo");
+            return "false";
+        }
     }
 
 }

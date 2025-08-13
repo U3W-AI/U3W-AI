@@ -11,12 +11,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.nio.file.Paths;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * DeepSeek AI平台工具类
@@ -162,7 +159,6 @@ public class DeepSeekUtil {
                     return "已登录用户";
                 }
             } catch (Exception e) {
-                System.out.println("检测用户昵称失败: " + e.getMessage());
             }
             
             // 最后尝试使用通用方法检测登录状态
@@ -185,8 +181,7 @@ public class DeepSeekUtil {
             // 默认返回未登录状态
             return "false";
         } catch (Exception e) {
-            System.out.println("检查DeepSeek登录状态出错: " + e.getMessage());
-            return "false";
+            throw e;
         }
     }
 
@@ -197,7 +192,7 @@ public class DeepSeekUtil {
      * @param screenshotUtil 截图工具
      * @return 二维码截图URL
      */
-    public String waitAndGetQRCode(Page page, String userId, ScreenshotUtil screenshotUtil) {
+    public String waitAndGetQRCode(Page page, String userId, ScreenshotUtil screenshotUtil) throws IOException {
         try {
             logInfo.sendTaskLog("正在获取DeepSeek登录二维码", userId, "DeepSeek");
             
@@ -258,8 +253,7 @@ public class DeepSeekUtil {
             logInfo.sendTaskLog("DeepSeek二维码获取成功", userId, "DeepSeek");
             return url;
         } catch (Exception e) {
-            System.out.println(e.getMessage());
-            return "false";
+            throw e;
         }
     }
 
@@ -271,7 +265,7 @@ public class DeepSeekUtil {
      * @param roles 角色信息，用于判断是否为深度思考模式
      * @return 获取的回答内容
      */
-    public String waitDeepSeekResponse(Page page, String userId, String aiName, String roles) {
+    public String waitDeepSeekResponse(Page page, String userId, String aiName, String roles) throws InterruptedException {
         try {
             // 等待页面内容稳定
             String currentContent = "";
@@ -322,7 +316,6 @@ public class DeepSeekUtil {
                     initialPageLoaded = true;
                 }
             } catch (Exception e) {
-                System.out.println("获取初始页面状态时出错: " + e.getMessage());
             }
             
             // 进入循环，直到内容不再变化或者超时
@@ -342,7 +335,7 @@ public class DeepSeekUtil {
                 
                 // 尝试获取最新内容 - 优化DOM处理逻辑
                 try {
-                    // 使用JavaScript精确定位最新回答内容，避免获取历史回复
+                    // 使用JavaScript精确定位最新回答内容，避免获取历史回复和头像图标
                     Object jsContent = page.evaluate("""
                         () => {
                             try {
@@ -356,8 +349,23 @@ public class DeepSeekUtil {
                                     // 找到最新AI消息中的Markdown内容容器
                                     const markdownContent = latestAiMessage.querySelector('.ds-markdown, .flow-markdown-body, .ds-markdown--block');
                                     if (markdownContent) {
+                                        // 克隆内容以避免修改原DOM
+                                        const contentClone = markdownContent.cloneNode(true);
+                                        
+                                        // 移除头像图标和其他无关元素
+                                        const iconsToRemove = contentClone.querySelectorAll(
+                                            '._7eb2358, ._58dfa60, .ds-icon, svg, ' +
+                                            '.avatar, .user-avatar, .ai-avatar, ' +
+                                            '.ds-button, button, [role="button"]'
+                                        );
+                                        iconsToRemove.forEach(icon => icon.remove());
+                                        
+                                        // 移除空的div容器
+                                        const emptyDivs = contentClone.querySelectorAll('div:empty');
+                                        emptyDivs.forEach(div => div.remove());
+                                        
                                         return {
-                                            content: markdownContent.innerHTML,
+                                            content: contentClone.innerHTML,
                                             source: 'latest-ai-message',
                                             timestamp: Date.now()
                                         };
@@ -372,8 +380,23 @@ public class DeepSeekUtil {
                                     const contentElement = lastContainer.querySelector('.ds-markdown, .flow-markdown-body, .message-content');
                                     
                                     if (contentElement) {
+                                        // 克隆内容以避免修改原DOM
+                                        const contentClone = contentElement.cloneNode(true);
+                                        
+                                        // 移除头像图标和其他无关元素
+                                        const iconsToRemove = contentClone.querySelectorAll(
+                                            '._7eb2358, ._58dfa60, .ds-icon, svg, ' +
+                                            '.avatar, .user-avatar, .ai-avatar, ' +
+                                            '.ds-button, button, [role="button"]'
+                                        );
+                                        iconsToRemove.forEach(icon => icon.remove());
+                                        
+                                        // 移除空的div容器
+                                        const emptyDivs = contentClone.querySelectorAll('div:empty');
+                                        emptyDivs.forEach(div => div.remove());
+                                        
                                         return {
-                                            content: contentElement.innerHTML,
+                                            content: contentClone.innerHTML,
                                             source: 'last-container',
                                             timestamp: Date.now()
                                         };
@@ -392,8 +415,23 @@ public class DeepSeekUtil {
                                         lastElement.getBoundingClientRect().bottom < inputArea.getBoundingClientRect().top;
                                     
                                     if (isAboveInput) {
+                                        // 克隆内容以避免修改原DOM
+                                        const contentClone = lastElement.cloneNode(true);
+                                        
+                                        // 移除头像图标和其他无关元素
+                                        const iconsToRemove = contentClone.querySelectorAll(
+                                            '._7eb2358, ._58dfa60, .ds-icon, svg, ' +
+                                            '.avatar, .user-avatar, .ai-avatar, ' +
+                                            '.ds-button, button, [role="button"]'
+                                        );
+                                        iconsToRemove.forEach(icon => icon.remove());
+                                        
+                                        // 移除空的div容器
+                                        const emptyDivs = contentClone.querySelectorAll('div:empty');
+                                        emptyDivs.forEach(div => div.remove());
+                                        
                                         return {
-                                            content: lastElement.innerHTML,
+                                            content: contentClone.innerHTML,
                                             source: 'content-element',
                                             timestamp: Date.now()
                                         };
@@ -404,8 +442,24 @@ public class DeepSeekUtil {
                                 const specificClassMessages = document.querySelectorAll('div._4f9bf79, div.d7dc56a8, div._43c05b5');
                                 if (specificClassMessages.length > 0) {
                                     const lastSpecificMessage = specificClassMessages[specificClassMessages.length - 1];
+                                    
+                                    // 克隆内容以避免修改原DOM
+                                    const contentClone = lastSpecificMessage.cloneNode(true);
+                                    
+                                    // 移除头像图标和其他无关元素
+                                    const iconsToRemove = contentClone.querySelectorAll(
+                                        '._7eb2358, ._58dfa60, .ds-icon, svg, ' +
+                                        '.avatar, .user-avatar, .ai-avatar, ' +
+                                        '.ds-button, button, [role="button"]'
+                                    );
+                                    iconsToRemove.forEach(icon => icon.remove());
+                                    
+                                    // 移除空的div容器
+                                    const emptyDivs = contentClone.querySelectorAll('div:empty');
+                                    emptyDivs.forEach(div => div.remove());
+                                    
                                     return {
-                                        content: lastSpecificMessage.innerHTML,
+                                        content: contentClone.innerHTML,
                                         source: 'specific-class',
                                         timestamp: Date.now()
                                     };
@@ -439,7 +493,6 @@ public class DeepSeekUtil {
                     }
                 } catch (Exception e) {
                     // 忽略内容提取错误
-                    System.out.println("提取内容时出错: " + e.getMessage());
                 }
                 
                 // 检查是否仍在生成内容
@@ -560,7 +613,6 @@ public class DeepSeekUtil {
                         if (stopButtonExists instanceof Boolean) {
                             stopGenerationButtonExists = (Boolean) stopButtonExists;
                             if (stopGenerationButtonExists) {
-                                    System.out.println("检测到停止生成按钮，AI仍在生成回答中...");
                                 isGenerating = true; // 强制认为仍在生成
                                 stableCount = 0; // 重置稳定计数
                             }
@@ -891,7 +943,6 @@ public class DeepSeekUtil {
                             }
                         } catch (Exception e) {
                             // 忽略按钮检测错误
-                            System.out.println("检测复制按钮时出错: " + e.getMessage());
                         }
                         
                                                     // 如果没有明确的完成指标，但内容已经稳定一段时间，也认为完成
@@ -956,7 +1007,6 @@ public class DeepSeekUtil {
                                 if (currentWaitTime < 5000) {
                                     // 如果等待时间不足5秒，继续等待
                                     long remainingWaitTime = 5000 - currentWaitTime;
-                                    System.out.println("检测到回答可能已完成，但距离发送消息仅" + currentWaitTime + "ms，继续等待" + remainingWaitTime + "ms");
                                     Thread.sleep(remainingWaitTime);
                                 }
                                 
@@ -1029,7 +1079,7 @@ public class DeepSeekUtil {
                         currentContent = cleanedContent.toString();
                     }
                 } catch (Exception e) {
-                    logInfo.sendTaskLog("清理HTML内容时出错: " + e.getMessage(), userId, aiName);
+                    logInfo.sendTaskLog("清理HTML内容时出错", userId, aiName);
                 }
                 
                 // 如果内容很短或看起来不完整，尝试精确定位最新回答的纯文本
@@ -1063,9 +1113,8 @@ public class DeepSeekUtil {
             return currentContent;
             
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
     /**
@@ -1077,18 +1126,16 @@ public class DeepSeekUtil {
      * @param chatId 会话ID，如果不为空则使用此会话继续对话
      * @return 处理完成后的结果
      */
-    public String handleDeepSeekAI(Page page, String userPrompt, String userId, String roles, String chatId) {
+    public String handleDeepSeekAI(Page page, String userPrompt, String userId, String roles, String chatId) throws InterruptedException {
         try {
             long startProcessTime = System.currentTimeMillis(); // 记录开始处理时间
             
             // 设置页面错误处理
             page.onPageError(error -> {
-                System.out.println("页面错误: " + error);
             });
             
             // 监听请求失败
             page.onRequestFailed(request -> {
-                System.out.println("请求失败: " + request.url());
             });
             
             boolean navigationSucceeded = false;
@@ -1138,21 +1185,17 @@ public class DeepSeekUtil {
                             }
                         } catch (Exception e) {
                             // 忽略等待错误，继续执行
-                            System.out.println("等待页面稳定时出错，将继续执行: " + e.getMessage());
                         }
                         
                         navigationSucceeded = true;
                     } catch (Exception e) {
                         retries++;
-                        System.out.println("导航到已有会话时出错(尝试 " + retries + "/" + MAX_RETRIES + "): " + e.getMessage());
             
                         if (retries >= MAX_RETRIES) {
-                            System.out.println("多次尝试后仍无法导航到已有会话，将尝试打开主页");
                             try {
                                 page.navigate("https://chat.deepseek.com/");
                                 Thread.sleep(1000); // 给页面充足的加载时间
                             } catch (Exception ex) {
-                                System.out.println("导航到主页也失败: " + ex.getMessage());
                             }
                         }
                         
@@ -1198,10 +1241,8 @@ public class DeepSeekUtil {
                         }
                     } catch (Exception e) {
                         // 忽略等待错误，继续执行
-                        System.out.println("等待页面稳定时出错，将继续执行: " + e.getMessage());
                     }
                 } catch (Exception e) {
-                    System.out.println("导航到主页时出错: " + e.getMessage());
                 }
             }
             
@@ -1211,7 +1252,6 @@ public class DeepSeekUtil {
                 Thread.sleep(1000); // 给页面充足的渲染时间
                 logInfo.sendTaskLog("DeepSeek页面打开完成", userId, "DeepSeek");
             } catch (Exception e) {
-                System.out.println("等待页面加载时出错: " + e.getMessage() + "，将继续执行");
             }
             
             // 先处理深度思考和联网搜索按钮的状态
@@ -1276,10 +1316,8 @@ public class DeepSeekUtil {
                                 clicked = true;
                                 logInfo.sendTaskLog("指令已自动发送成功", userId, "DeepSeek");
                             } catch (Exception e) {
-                                System.out.println("点击特定按钮失败，尝试备用方法: " + e.getMessage());
                             }
                         } else {
-                            System.out.println("未找到特定发送按钮，尝试备用方法");
                         }
                         
                         // 如果特定按钮点击失败，尝试其他选择器
@@ -1308,13 +1346,11 @@ public class DeepSeekUtil {
                                     }
                                 }
                             } catch (Exception e) {
-                                System.out.println("备用选择器点击失败: " + e.getMessage());
                             }
                         }
                         
                         // 如果所有按钮选择器都失败，尝试使用JavaScript点击
                         if (!clicked) {
-                            System.out.println("尝试使用JavaScript方法点击发送按钮");
                             try {
                                 Object result = page.evaluate("""
                                     () => {
@@ -1379,7 +1415,6 @@ public class DeepSeekUtil {
                                         }
                                     }
                                 """);
-                                System.out.println("JavaScript点击结果: " + result);
                                 
                                 // 最后一招：尝试按下Enter键
                                 try {
@@ -1389,25 +1424,20 @@ public class DeepSeekUtil {
                                     inputBox.press("Enter");
                                     logInfo.sendTaskLog("指令已自动发送成功", userId, "DeepSeek");
                                 } catch (Exception e) {
-                                    System.out.println("按下Enter键失败: " + e.getMessage());
                                 }
                             } catch (Exception e) {
-                                System.out.println("JavaScript点击失败: " + e.getMessage());
                             }
                         }
 
                         // 等待一段时间，确保消息已发送
                         Thread.sleep(1000); // 给予充足的时间确保消息发送
                     } catch (Exception e) {
-                        System.out.println("发送消息失败: " + e.getMessage());
                         return "获取内容失败：发送消息出错";
                     }
                 } else {
-                    System.out.println("未找到输入框");
                     return "获取内容失败：未找到输入框";
                 }
             } catch (Exception e) {
-                System.out.println("发送消息失败: " + e.getMessage());
                 return "获取内容失败：发送消息出错";
             }
             
@@ -1419,8 +1449,7 @@ public class DeepSeekUtil {
             return content;
             
         } catch (Exception e) {
-            e.printStackTrace();
-            return "获取内容失败：" + e.getMessage();
+            throw e;
         }
     }
 
@@ -1434,7 +1463,7 @@ public class DeepSeekUtil {
      * @param content 已获取的内容
      * @return 处理后的内容
      */
-    public String saveDeepSeekContent(Page page, UserInfoRequest userInfoRequest, String roleType, String userId, String content) {
+    public String saveDeepSeekContent(Page page, UserInfoRequest userInfoRequest, String roleType, String userId, String content) throws Exception{
         try {
             long startTime = System.currentTimeMillis(); // 记录开始时间
             // 1. 从URL提取会话ID和分享链接
@@ -1487,8 +1516,8 @@ public class DeepSeekUtil {
             logInfo.sendTaskLog("执行完成", userId, "DeepSeek");
             return displayContent;
         } catch (Exception e) {
-            logInfo.sendTaskLog("DeepSeek内容保存过程发生异常: " + e.getMessage(), userId, "DeepSeek");
-            return content;
+            logInfo.sendTaskLog("DeepSeek内容保存过程发生异常", userId, "DeepSeek");
+            throw e;
         }
     }
 
@@ -1573,7 +1602,7 @@ public class DeepSeekUtil {
             
             // 记录操作耗时不再需要
         } catch (Exception e) {
-            logInfo.sendTaskLog("切换" + buttonText + "模式时出错: " + e.getMessage(), userId, "DeepSeek");
+            logInfo.sendTaskLog("切换" + buttonText + "模式时出错", userId, "DeepSeek");
         }
     }
 
@@ -1589,25 +1618,37 @@ public class DeepSeekUtil {
         }
         
         try {
-            // 只清理DeepSeek图标，保留其他内容
-            
-            // 1. 移除SVG图标及其容器 - 使用更通用的模式
+            // 清理DeepSeek头像图标和其他不需要的元素
             String cleaned = content;
             
-            // 清理特定的DeepSeek图标容器
-            cleaned = cleaned.replaceAll("<div class=\"[^\"]*_7eb2358[^\"]*\">.*?</svg></div>", "");
-            cleaned = cleaned.replaceAll("<div class=\"[^\"]*_58dfa60[^\"]*\">.*?</svg></div>", "");
+            // 1. 清理DeepSeek头像图标容器（多种模式匹配）
+            cleaned = cleaned.replaceAll("<div class=\"[^\"]*_7eb2358[^\"]*\"[^>]*>.*?</div>", "");
+            cleaned = cleaned.replaceAll("<div class=\"[^\"]*_58dfa60[^\"]*\"[^>]*>.*?</div>", "");
             
-            // 如果内容被完全清空，返回原始内容
-            if (cleaned.trim().isEmpty() || !cleaned.contains("<")) {
+            // 2. 清理SVG图标及其容器
+            cleaned = cleaned.replaceAll("<div[^>]*>\\s*<svg[^>]*>.*?</svg>\\s*</div>", "");
+            cleaned = cleaned.replaceAll("<svg[^>]*>.*?</svg>", "");
+            
+            // 3. 清理其他可能的头像或图标容器
+            cleaned = cleaned.replaceAll("<div class=\"[^\"]*avatar[^\"]*\"[^>]*>.*?</div>", "");
+            cleaned = cleaned.replaceAll("<div class=\"[^\"]*icon[^\"]*\"[^>]*>.*?</div>", "");
+            
+            // 4. 清理空的div标签
+            cleaned = cleaned.replaceAll("<div[^>]*>\\s*</div>", "");
+            
+            // 5. 清理连续的空白字符
+            cleaned = cleaned.replaceAll("\\s{2,}", " ");
+            
+            // 如果内容被完全清空或只剩下少量HTML标签，返回原始内容
+            String textOnly = cleaned.replaceAll("<[^>]+>", "").trim();
+            if (textOnly.isEmpty() || textOnly.length() < 10) {
                 return content;
             }
             
-            logInfo.sendTaskLog("已清理HTML内容中的交互元素，保留原始格式", userId, "DeepSeek");
+            logInfo.sendTaskLog("已清理HTML内容中的头像图标和交互元素，保留原始格式", userId, "DeepSeek");
             return cleaned;
         } catch (Exception e) {
             // 出现异常时记录日志并返回原始内容
-            System.out.println("清理DeepSeek内容时出错: " + e.getMessage());
             return content;
         }
     }

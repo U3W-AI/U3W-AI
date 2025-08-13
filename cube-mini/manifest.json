@@ -1,6 +1,6 @@
 {
     "name" : "U3W-AI",
-    "appid" : "__UNI__FD6EE0B",
+    "appid" : "__UNI__F7AADF2",
     "description" : "",
     "versionName" : "1.0",
     "versionCode" : 1,
@@ -51,7 +51,7 @@
     },
     "quickapp" : {},
     "mp-weixin" : {
-        "appid" : "wx7ab54a2f9a5bd7f3",
+        "appid" : "wxef8c6bc4b9764770",
         "setting" : {
             "urlCheck" : false,
             "es6" : true,

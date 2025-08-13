@@ -62,7 +62,7 @@ public class TencentUtil {
      * @param isNewChat 是否新会话
      * @return 复制按钮数量（用于后续监控）
      */
-    public int handelAgentAI(Page page, String userPrompt, String agentUrl, String aiName, String userId, String isNewChat) throws InterruptedException {
+    public int handelAgentAI(Page page, String userPrompt, String agentUrl, String aiName, String userId, String isNewChat) throws InterruptedException, IOException {
         page.navigate(agentUrl);
         logInfo.sendImgData(page,userId+"打开智能体页面",userId);
         logInfo.sendTaskLog( aiName+"页面打开完成",userId,aiName);
@@ -141,7 +141,6 @@ public class TencentUtil {
                         url = matcher.group();
                     }
                     shareUrlRef.set(url);
-                    System.out.println("剪贴板内容：" + shareUrl);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -188,13 +187,13 @@ public class TencentUtil {
      * @param chatId 会话ID
      * @return 初始复制按钮数量
      */
-    public int handleYBAI(Page page,String userPrompt,String role,String userId,String aiName,String chatId) throws InterruptedException {
+    public int handleYBAI(Page page,String userPrompt,String role,String userId,String aiName,String chatId) throws Exception {
 
         // 页面导航与元素定位
         page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa/"+chatId);
         String modelDom ="[dt-button-id=\"model_switch\"]";
-        String hunyuanDom = "//*[@id=\"hunyuan-bot\"]/div[7]/div/div/div/div[1]/li/span";
-        String deepseekDom = "//*[@id=\"hunyuan-bot\"]/div[7]/div/div/div/div[2]/li/span";
+        String hunyuanDom = "//div[normalize-space()='Hunyuan']";
+        String deepseekDom = "//div[normalize-space()='DeepSeek']";
         Thread.sleep(3000);
         Locator modelName = page.locator(modelDom);
 
@@ -330,7 +329,6 @@ public class TencentUtil {
         ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
             try {
                 if (Thread.currentThread().isInterrupted()) {
-                    System.out.println("任务已结束，跳过截图");
                     return;
                 }
                 int currentCount = i.getAndIncrement(); // 获取当前值并自增
@@ -364,11 +362,10 @@ public class TencentUtil {
                     page.locator("span.icon-yb-ic_share_2504").last().click();
                     Thread.sleep(2000);
                     page.locator("div.agent-chat__share-bar__item__logo").first().click();
-
                     // 建议适当延迟等待内容更新
                     Thread.sleep(2000); // 根据实际加载速度调整
+                    //这里会出现弹窗
                     String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
-
                     Pattern pattern = Pattern.compile("https?://\\S+");
                     Matcher matcher = pattern.matcher(shareUrl);
 
@@ -377,7 +374,6 @@ public class TencentUtil {
                         url = matcher.group();
                     }
                     shareUrlRef.set(url);
-                    System.out.println("剪贴板内容：" + shareUrl);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -442,11 +438,14 @@ public class TencentUtil {
     }
 
     public void clickWebSearch(Page page,Locator webSearch,String webSearchDom,String isWebSearch) throws InterruptedException {
-        String searchText = page.locator("//*[@id=\"app\"]/div[1]/div[2]/div/div/div[1]/div/div[1]/div/div[3]/div/div[6]/div/div/div[2]/div[3]/div[1]/div[2]/span/div/div/div/span[1]").textContent();
+        String searchText = "自动搜索";
+        boolean visible = page.locator("//div[@class='yb-switch-internet-search-btn__left']").isVisible();
+        if(visible) {
+            searchText = page.locator("//div[@class='yb-switch-internet-search-btn__left']").textContent();
+        }
         if(!searchText.equals("自动搜索")){
             webSearch.waitFor(new Locator.WaitForOptions().setTimeout(5000));
             if(!webSearch.getAttribute("dt-ext3").equals(isWebSearch)){
-                System.out.println("");
                 Thread.sleep(500);
                 page.locator(webSearchDom).click();
             }
@@ -529,7 +528,6 @@ public class TencentUtil {
 
                 // 如果超时，退出循环
                 if (elapsedTime > timeout) {
-                    System.out.println("超时，AI未完成回答！");
                     break;
                 }
                 // 获取最新内容

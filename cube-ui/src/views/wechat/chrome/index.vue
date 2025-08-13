@@ -199,8 +199,8 @@
                     </div>
                     <div class="header-right">
                       <span class="status-text">{{
-                        getStatusText(ai.status)
-                      }}</span>
+                          getStatusText(ai.status)
+                        }}</span>
                       <i
                         :class="getStatusIcon(ai.status)"
                         class="status-icon"
@@ -358,13 +358,13 @@
                   size="small"
                   type="primary"
                   @click="copyResult(result.content)"
-                  >复制（纯文本）</el-button
+                >复制（纯文本）</el-button
                 >
                 <el-button
                   size="small"
                   type="success"
                   @click="exportResult(result)"
-                  >导出（MD文件）</el-button
+                >导出（MD文件）</el-button
                 >
               </div>
             </div>
@@ -484,6 +484,7 @@
               <i class="el-icon-edit-outline"></i>
               百家号
             </el-radio-button>
+
           </el-radio-group>
           <div class="media-description">
             <template v-if="selectedMedia === 'wechat'">
@@ -498,6 +499,7 @@
             <template v-else-if="selectedMedia === 'toutiao'">
               <small>🔈 将内容转换为百家号帖子格式，直接投递到百家号草稿箱</small>
             </template>
+
           </div>
         </div>
 
@@ -525,7 +527,7 @@
 
     <!-- 微头条发布流程弹窗 -->
     <el-dialog title="微头条发布流程" :visible.sync="tthFlowVisible" width="60%" height="60%" :close-on-click-modal="false"
-      class="tth-flow-dialog">
+               class="tth-flow-dialog">
       <div class="tth-flow-content">
         <div class="flow-logs-section">
           <h3>发布流程日志：</h3>
@@ -562,7 +564,7 @@
 
     <!-- 微头条文章编辑弹窗 -->
     <el-dialog title="微头条文章编辑" :visible.sync="tthArticleEditVisible" width="70%" height="80%" :close-on-click-modal="false"
-      class="tth-article-edit-dialog">
+               class="tth-article-edit-dialog">
       <div class="tth-article-edit-content">
         <div class="article-title-section">
           <h3>文章标题：</h3>
@@ -628,6 +630,9 @@ export default {
         ybDsChatId: "",
         dbChatId: "",
         tyChatId: "",
+        kimiChatId: "",
+        zhzdChatId: "",
+        baiduChatId: "",
         isNewChat: true,
       },
       jsonRpcReqest: {
@@ -692,18 +697,86 @@ export default {
           isSingleSelect: true,  // 添加单选标记,用于capabilities中状态只能多选一的时候改成true,然后把selectedCapabilities赋值为字符串，不要是数组
         },
         {
+          name: "Kimi",
+          avatar: require("../../../assets/ai/Kimi.png"),
+          capabilities: [
+            { label: "联网搜索", value: "web_search" },
+          ],
+          selectedCapabilities: [],
+          enabled: true,
+          status: "idle",
+          progressLogs: [],
+          isExpanded: true,
+          isSingleSelect: false,  // 添加单选标记
+        },
+        {
           name: '通义千问',
           avatar: require('../../../assets/ai/qw.png'),
           capabilities: [
             { label: '深度思考', value: 'deep_thinking' },
-            { label: '联网搜索', value: 'web_search' }
+            { label: '深度搜索', value: 'web_search' }
           ],
           selectedCapability: '',
           enabled: true,
           status: 'idle',
           progressLogs: [],
           isExpanded: true
-        }
+        },
+        {
+          name: '百度AI',
+          avatar: require('../../../assets/ai/Baidu.png'),
+          capabilities: [
+            { label: '深度搜索', value: 'web_search' }
+          ],
+          selectedCapabilities: [],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true,
+        },
+        {
+          name: '腾讯元宝T1',
+          avatar: require('../../../assets/ai/yuanbao.png'),
+          capabilities: [
+            { label: '深度思考', value: 'deep_thinking' },
+            { label: '联网搜索', value: 'web_search' }
+          ],
+          selectedCapabilities: ['deep_thinking','web_search'],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true
+        },
+        {
+          name: '腾讯元宝DS',
+          avatar: require('../../../assets/ai/yuanbao.png'),
+          capabilities: [
+            { label: '深度思考', value: 'deep_thinking' },
+            { label: '联网搜索', value: 'web_search' }
+          ],
+          selectedCapabilities: ['deep_thinking','web_search'],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true
+        },
+        {
+          name: "知乎直答",
+          avatar: require("../../../assets/ai/ZHZD.png"),
+          capabilities: [
+            { label: "深度思考", value: "deep_thinking" },
+            { label: "全网搜索", value: "all_web_search" },
+            { label: "知乎搜索", value: "zhihu_search" },
+            { label: "学术搜索", value: "academic_search" },
+            { label: "我的知识库", value: "personal_knowledge" },
+          ],
+          selectedCapabilities: ['deep_thinking', 'all_web_search', 'zhihu_search', 'academic_search', 'personal_knowledge'],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true,
+          isSingleSelect: false,
+        },
       ],
       promptInput: "",
       taskStarted: false,
@@ -877,12 +950,60 @@ export default {
             this.userInfoReq.roles = this.userInfoReq.roles + "max-lwss,";
           }
         }
+        if (ai.name === "Kimi") {
+          this.userInfoReq.roles = this.userInfoReq.roles + "kimi-talk,";
+          if (ai.selectedCapabilities.includes("web_search")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + "kimi-lwss,";
+          }
+        }
         if(ai.name === '通义千问' && ai.enabled){
           this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw,';
           if (ai.selectedCapability.includes("deep_thinking")) {
             this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-sdsk,'
           } else if (ai.selectedCapability.includes("web_search")) {
             this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-lwss,';
+          }
+        }
+        if (ai.name === '百度AI' && ai.enabled) {
+          this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-agent,';
+          if (ai.selectedCapabilities.includes("web_search")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-sdss,';
+          }
+        }
+        if(ai.name === '腾讯元宝T1'){
+          this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-pt,';
+          if (ai.selectedCapabilities.includes("deep_thinking")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-sdsk,';
+          }
+          if (ai.selectedCapabilities.includes("web_search")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-lwss,';
+          }
+        }
+        if(ai.name === '腾讯元宝DS'){
+          this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-pt,';
+          if (ai.selectedCapabilities.includes("deep_thinking")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-sdsk,';
+          }
+          if (ai.selectedCapabilities.includes("web_search")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-lwss,';
+          }
+        }
+        if (ai.name === "知乎直答") {
+          this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-chat,";
+          if (ai.selectedCapabilities.includes("deep_thinking")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-sdsk,";
+          }
+          if (ai.selectedCapabilities.includes("all_web_search")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-qw,";
+          }
+          if (ai.selectedCapabilities.includes("zhihu_search")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-zh,";
+          }
+          if (ai.selectedCapabilities.includes("academic_search")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-xs,";
+          }
+          if (ai.selectedCapabilities.includes("personal_knowledge")) {
+            this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-wdzsk,";
           }
         }
       });
@@ -1104,6 +1225,12 @@ export default {
         this.userInfoReq.maxChatId = dataObj.chatId;
       } else if (dataObj.type === "RETURN_METASO_CHATID" && dataObj.chatId) {
         this.userInfoReq.metasoChatId = dataObj.chatId;
+      } else if (dataObj.type === "RETURN_KIMI_CHATID" && dataObj.chatId) {
+        this.userInfoReq.kimiChatId = dataObj.chatId;
+      } else if (dataObj.type === "RETURN_ZHZD_CHATID" && dataObj.chatId) {
+        this.userInfoReq.zhzdChatId = dataObj.chatId;
+      } else if (dataObj.type === "RETURN_BAIDU_CHATID" && dataObj.chatId) {
+        this.userInfoReq.baiduChatId = dataObj.chatId;
       }
 
       // 处理进度日志消息
@@ -1252,6 +1379,9 @@ export default {
         return;
       }
 
+
+
+
       // 处理微头条排版结果
       if (dataObj.type === 'RETURN_TTH_ZNPB_RES') {
         // 微头条排版AI节点状态设为已完成
@@ -1312,13 +1442,19 @@ export default {
       let targetAI = null;
       switch (dataObj.type) {
         case "RETURN_YBT1_RES":
+          console.log("收到腾讯元宝T1消息:", dataObj);
+          targetAI = this.enabledAIs.find((ai) => ai.name === "腾讯元宝T1");
+          break;
+        case "RETURN_YBDS_RES":
+          console.log("收到腾讯元宝DS消息:", dataObj);
+          targetAI = this.enabledAIs.find((ai) => ai.name === "腾讯元宝DS");
+          break;
         case "RETURN_TURBOS_RES":
         case "RETURN_TURBOS_LARGE_RES":
         case "RETURN_DEEPSEEK_RES":
           console.log("收到DeepSeek消息:", dataObj);
           targetAI = this.enabledAIs.find((ai) => ai.name === "DeepSeek");
           break;
-        case "RETURN_YBDS_RES":
         case "RETURN_DB_RES":
           console.log("收到豆包消息:", dataObj);
           targetAI = this.enabledAIs.find((ai) => ai.name === "豆包");
@@ -1335,6 +1471,19 @@ export default {
           console.log("收到秘塔消息:", dataObj);
           targetAI = this.enabledAIs.find((ai) => ai.name === "秘塔");
           break;
+        case "RETURN_KIMI_RES":
+          console.log("收到kimi消息:", dataObj);
+          targetAI = this.enabledAIs.find((ai) => ai.name === "Kimi");
+          break;
+        case "RETURN_ZHZD_RES":
+          console.log("收到知乎直答消息:", dataObj);
+          targetAI = this.enabledAIs.find((ai) => ai.name === "知乎直答");
+          break;
+        case 'RETURN_BAIDU_RES':
+          console.log('收到百度AI消息:', data);
+          targetAI = this.enabledAIs.find(ai => ai.name === '百度AI');
+          break;
+
       }
 
       if (targetAI) {
@@ -1546,12 +1695,45 @@ export default {
     loadHistoryItem(item) {
       try {
         const historyData = JSON.parse(item.data);
-        // 恢复AI选择配置
-        this.aiList = historyData.aiList || this.aiList;
+        // 恢复AI选择配置 - 确保包含新添加的AI
+        if (historyData.aiList) {
+          // 合并历史记录中的aiList和当前默认的aiList
+          const historicalAiList = historyData.aiList;
+          const currentAiList = this.aiList;
+
+          // 创建合并后的aiList，保留历史记录中的状态，同时包含当前默认的AI
+          this.aiList = [...historicalAiList];
+
+          // 添加当前默认的但不在历史记录中的AI
+          currentAiList.forEach(currentAI => {
+            const exists = this.aiList.find(historicalAI => historicalAI.name === currentAI.name);
+            if (!exists) {
+              this.aiList.push(currentAI);
+            }
+          });
+        }
         // 恢复提示词输入
         this.promptInput = historyData.promptInput || "";
-        // 恢复任务流程
-        this.enabledAIs = historyData.enabledAIs || [];
+        // 恢复任务流程 - 确保包含所有启用的AI
+        if (historyData.enabledAIs && historyData.enabledAIs.length > 0) {
+          // 合并历史记录中的enabledAIs和当前aiList中启用的AI
+          const historicalEnabledAIs = historyData.enabledAIs;
+          const currentEnabledAIs = this.aiList.filter((ai) => ai.enabled);
+
+          // 创建合并后的enabledAIs，保留历史记录中的状态，同时包含当前启用的AI
+          this.enabledAIs = [...historicalEnabledAIs];
+
+          // 添加当前启用的但不在历史记录中的AI
+          currentEnabledAIs.forEach(currentAI => {
+            const exists = this.enabledAIs.find(historicalAI => historicalAI.name === currentAI.name);
+            if (!exists) {
+              this.enabledAIs.push(currentAI);
+            }
+          });
+        } else {
+          // 如果没有历史记录，使用当前启用的AI
+          this.enabledAIs = this.aiList.filter((ai) => ai.enabled);
+        }
         // 恢复主机可视化
         this.screenshots = historyData.screenshots || [];
         // 恢复执行结果
@@ -1562,8 +1744,11 @@ export default {
         this.userInfoReq.ybDsChatId = item.ybDsChatId || "";
         this.userInfoReq.dbChatId = item.dbChatId || "";
         this.userInfoReq.maxChatId = item.maxChatId || "";
+        this.userInfoReq.kimiChatId = item.kimiChatId || "";
+        this.userInfoReq.baiduChatId= item.baiduChatId || "";
         this.userInfoReq.tyChatId = item.tyChatId || "";
         this.userInfoReq.metasoChatId = item.metasoChatId || "";
+        this.userInfoReq.zhzdChatId = item.zhzdChatId || "";
         this.userInfoReq.isNewChat = false;
 
         // 展开相关区域
@@ -1596,7 +1781,10 @@ export default {
         dbChatId: this.userInfoReq.dbChatId,
         tyChatId: this.userInfoReq.tyChatId,
         maxChatId: this.userInfoReq.maxChatId,
+        kimiChatId: this.userInfoReq.kimiChatId,
+        baiduChatId: this.userInfoReq.baiduChatId,
         metasoChatId: this.userInfoReq.metasoChatId,
+        zhzdChatId: this.userInfoReq.zhzdChatId,
       };
 
       try {
@@ -1610,7 +1798,10 @@ export default {
           dbChatId: this.userInfoReq.dbChatId,
           tyChatId: this.userInfoReq.tyChatId,
           maxChatId: this.userInfoReq.maxChatId,
+          kimiChatId: this.userInfoReq.kimiChatId,
+          baiduChatId: this.userInfoReq.baiduChatId,
           metasoChatId: this.userInfoReq.metasoChatId,
+          zhzdChatId: this.userInfoReq.zhzdChatId,
         });
       } catch (error) {
         console.error("保存历史记录失败:", error);
@@ -1648,7 +1839,10 @@ export default {
         dbChatId: "",
         tyChatId: "",
         maxChatId: "",
+        kimiChatId: "",
+        baiduChatId: "",
         metasoChatId: "",
+        zhzdChatId: "",
         isNewChat: true,
       };
       // 重置AI列表为初始状态
@@ -1693,6 +1887,19 @@ export default {
           isSingleSelect: false,  // 添加单选标记
         },
         {
+          name: "Kimi",
+          avatar: require("../../../assets/ai/Kimi.png"),
+          capabilities: [
+            { label: "联网模式", value: "web_search" },
+          ],
+          selectedCapabilities: ["web_search"],
+          enabled: true,
+          status: "idle",
+          progressLogs: [],
+          isExpanded: true,
+          isSingleSelect: false,  // 添加单选标记
+        },
+        {
           name: "秘塔",
           avatar: require("../../../assets/ai/Metaso.png"),
           capabilities: [
@@ -1712,13 +1919,70 @@ export default {
           avatar: require('../../../assets/ai/qw.png'),
           capabilities: [
             { label: '深度思考', value: 'deep_thinking' },
-            { label: '联网搜索', value: 'web_search' }
+            { label: '深度搜索', value: 'web_search' }
           ],
           selectedCapability: '',
           enabled: true,
           status: 'idle',
           progressLogs: [],
           isExpanded: true
+        },
+        {
+          name: '百度AI',
+          avatar: require('../../../assets/ai/Baidu.png'),
+          capabilities: [
+            { label: '深度搜索', value: 'web_search' }
+          ],
+          selectedCapabilities: [],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true,
+          isSingleSelect: false,
+          version: '2.0'
+        },
+        {
+          name: '腾讯元宝T1',
+          avatar: require('../../../assets/ai/yuanbao.png'),
+          capabilities: [
+            { label: '深度思考', value: 'deep_thinking' },
+            { label: '联网搜索', value: 'web_search' }
+          ],
+          selectedCapabilities: ['deep_thinking','web_search'],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true
+        },
+        {
+          name: '腾讯元宝DS',
+          avatar: require('../../../assets/ai/yuanbao.png'),
+          capabilities: [
+            { label: '深度思考', value: 'deep_thinking' },
+            { label: '联网搜索', value: 'web_search' }
+          ],
+          selectedCapabilities: ['deep_thinking','web_search'],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true
+        },
+        {
+          name: "知乎直答",
+          avatar: require("../../../assets/ai/ZHZD.png"),
+          capabilities: [
+            { label: "深度思考", value: "deep_thinking" },
+            { label: "全网搜索", value: "all_web_search" },
+            { label: "知乎搜索", value: "zhihu_search" },
+            { label: "学术搜索", value: "academic_search" },
+            { label: "我的知识库", value: "personal_knowledge" },
+          ],
+          selectedCapabilities: ['deep_thinking', 'all_web_search', 'zhihu_search', 'academic_search', 'personal_knowledge'],
+          enabled: true,
+          status: 'idle',
+          progressLogs: [],
+          isExpanded: true,
+          isSingleSelect: false,
         },
       ];
       // 展开相关区域
@@ -1769,6 +2033,8 @@ export default {
         DeepSeek: "700px",
         豆包: "560px",
         通义千问: "700px",
+        "腾讯元宝T1": "700px",
+        "腾讯元宝DS": "700px",
       };
 
       const width = widthMap[aiName] || "560px"; // 默认宽度
@@ -1806,6 +2072,7 @@ export default {
         platformId = 'baijiahao_layout';
       }else if(media === 'toutiao'){
         platformId = 'weitoutiao_layout';
+
       }
 
       try {
@@ -1893,7 +2160,9 @@ export default {
       } else if (this.selectedMedia === 'baijiahao') {
         // 百家号投递：创建百家号排版任务
         this.createBaijiahaoLayoutTask();
-      }else {
+
+      }
+      else {
         // 公众号投递：创建排版任务
         this.createWechatLayoutTask();
       }
@@ -2008,58 +2277,60 @@ export default {
       this.$forceUpdate();
       this.$message.success("百家号投递任务已创建，正在处理...");
     },
-      // 创建公众号排版任务（保持原有逻辑）
-      createWechatLayoutTask() {
-        const layoutRequest = {
-          jsonrpc: "2.0",
-          id: uuidv4(),
-          method: "AI排版",
-          params: {
-            taskId: uuidv4(),
-            userId: this.userId,
-            corpId: this.corpId,
-            userPrompt: this.layoutPrompt,
-            roles: "",
-            selectedMedia: "wechat",
+
+
+    // 创建公众号排版任务（保持原有逻辑）
+    createWechatLayoutTask() {
+      const layoutRequest = {
+        jsonrpc: "2.0",
+        id: uuidv4(),
+        method: "AI排版",
+        params: {
+          taskId: uuidv4(),
+          userId: this.userId,
+          corpId: this.corpId,
+          userPrompt: this.layoutPrompt,
+          roles: "",
+          selectedMedia: "wechat",
+        },
+      };
+
+      console.log("公众号排版参数", layoutRequest);
+      this.message(layoutRequest);
+
+      const znpbAI = {
+        name: "智能排版",
+        avatar: require("../../../assets/ai/yuanbao.png"),
+        capabilities: [],
+        selectedCapabilities: [],
+        enabled: true,
+        status: "running",
+        progressLogs: [
+          {
+            content: "智能排版任务已提交，正在排版...",
+            timestamp: new Date(),
+            isCompleted: false,
+            type: "智能排版",
           },
-        };
+        ],
+        isExpanded: true,
+      };
 
-        console.log("公众号排版参数", layoutRequest);
-        this.message(layoutRequest);
+      // 检查是否已存在智能排版任务
+      const existIndex = this.enabledAIs.findIndex(
+        (ai) => ai.name === "智能排版"
+      );
+      if (existIndex === -1) {
+        this.enabledAIs.unshift(znpbAI);
+      } else {
+        this.enabledAIs[existIndex] = znpbAI;
+        const znpb = this.enabledAIs.splice(existIndex, 1)[0];
+        this.enabledAIs.unshift(znpb);
+      }
 
-        const znpbAI = {
-          name: "智能排版",
-          avatar: require("../../../assets/ai/yuanbao.png"),
-          capabilities: [],
-          selectedCapabilities: [],
-          enabled: true,
-          status: "running",
-          progressLogs: [
-            {
-              content: "智能排版任务已提交，正在排版...",
-              timestamp: new Date(),
-              isCompleted: false,
-              type: "智能排版",
-            },
-          ],
-          isExpanded: true,
-        };
-
-        // 检查是否已存在智能排版任务
-        const existIndex = this.enabledAIs.findIndex(
-          (ai) => ai.name === "智能排版"
-        );
-        if (existIndex === -1) {
-          this.enabledAIs.unshift(znpbAI);
-        } else {
-          this.enabledAIs[existIndex] = znpbAI;
-          const znpb = this.enabledAIs.splice(existIndex, 1)[0];
-          this.enabledAIs.unshift(znpb);
-        }
-
-        this.$forceUpdate();
-        this.$message.success("排版请求已发送，请等待结果");
-      },
+      this.$forceUpdate();
+      this.$message.success("排版请求已发送，请等待结果");
+    },
 
     // 创建微头条排版任务
     createToutiaoLayoutTask() {
@@ -2115,7 +2386,7 @@ export default {
 
       this.$forceUpdate();
       this.$message.success("微头条排版请求已发送，请等待结果");
-      },
+    },
 
     // 实际投递到公众号
     pushToWechatWithContent(contentText) {
@@ -2161,7 +2432,7 @@ export default {
       const publishRequest = {
         jsonrpc: '2.0',
         id: uuidv4(),
-                  method: '微头条发布',
+        method: '微头条发布',
         params: {
           taskId: uuidv4(),
           userId: this.userId,

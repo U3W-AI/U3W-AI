@@ -2,8 +2,6 @@ package com.playwright.utils;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
-import com.microsoft.playwright.options.AriaRole;
-import com.microsoft.playwright.options.WaitForSelectorState;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -27,7 +25,7 @@ public class QwenUtil {
      * html片段获取（核心监控方法）
      * @param page Playwright页面实例
      */
-    public String waitQWHtmlDom(Page page,String userId)  {
+    public String waitQWHtmlDom(Page page,String userId) throws Exception{
         try {
             // 等待聊天框的内容稳定
             String currentContent = "";
@@ -45,7 +43,6 @@ public class QwenUtil {
 
                 // 如果超时，退出循环
                 if (elapsedTime > timeout) {
-                    System.out.println("超时，AI未完成回答！");
                     break;
                 }
                 // 获取最新内容
@@ -53,7 +50,6 @@ public class QwenUtil {
                 currentContent = outputLocator.innerHTML();
 
 
-                System.out.println(currentContent);
 
                 // 如果当前内容和上次内容相同，认为 AI 已经完成回答，退出循环
                 if (currentContent.equals(lastContent)) {
@@ -69,7 +65,6 @@ public class QwenUtil {
 
                             String text = (String) page.evaluate("navigator.clipboard.readText()");
                             textRef.set(text);
-                            System.out.println("剪贴板内容：" + text);
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
@@ -87,9 +82,8 @@ public class QwenUtil {
             return currentContent;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
 

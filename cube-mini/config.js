@@ -1,7 +1,7 @@
 // 应用全局配置
 module.exports = {
 	//生产
-	baseUrl: 'https://u3w.com/cubeServer',
+	baseUrl: 'http://localhost:8081',
 	
 
 

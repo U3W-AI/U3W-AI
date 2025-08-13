@@ -2,6 +2,7 @@ package com.playwright.controller;
 
 import com.alibaba.fastjson.JSONObject;
 import com.microsoft.playwright.BrowserContext;
+import com.microsoft.playwright.FileChooser;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.WaitForSelectorState;
@@ -10,6 +11,9 @@ import com.playwright.utils.*;
 import com.playwright.websocket.WebSocketClientService;
 import io.swagger.v3.oas.annotations.Operation;
 
+import java.io.IOException;
+import java.nio.file.Paths;
+import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -63,9 +67,9 @@ public class MediaController {
      */
     @Operation(summary = "检查知乎登录状态", description = "返回用户名表示已登录，false 表示未登录")
     @GetMapping("/checkZhihuLogin")
-    public String checkZhihuLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) {
+    public String checkZhihuLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"Zhihu")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
 
             // 先导航到知乎首页而不是登录页面，这样能更好地检测登录状态
             page.navigate("https://www.zhihu.com/");
@@ -75,25 +79,23 @@ public class MediaController {
             // 检查当前URL是否跳转到登录页面
             String currentUrl = page.url();
             if (currentUrl.contains("signin") || currentUrl.contains("login")) {
-                System.out.println("页面跳转到登录页面，用户未登录");
                 return "false";
             }
 
             // 检测登录状态
             String userName = zhiHuUtil.checkLoginStatus(page);
 
-            if (!"false".equals(userName)) {
-                System.out.println("知乎登录检测成功，用户: " + userName);
+            if (!"false".equals(userName) && !"未登录".equals(userName)) {
                 return userName;
             }
 
             return "false";
 
         } catch (Exception e) {
-            e.printStackTrace();
-            return "false";
+            throw e;
         }
     }
+    
     /**
      * 检查百家号登录状态
      * @param userId 用户唯一标识
@@ -101,9 +103,9 @@ public class MediaController {
      */
     @Operation(summary = "检查百家号登录状态", description = "返回用户名表示已登录，false 表示未登录")
     @GetMapping("/checkBaijiahaoLogin")
-    public String checkBaijiahaoLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) {
+    public String checkBaijiahaoLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"Baijiahao")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
 
             // 先导航到百家号首页而不是登录页面，这样能更好地检测登录状态
             page.navigate("https://baijiahao.baidu.com/");
@@ -113,7 +115,6 @@ public class MediaController {
             // 检查当前URL是否跳转到登录页面
             String currentUrl = page.url();
             if (currentUrl.contains("login") || currentUrl.contains("signin")) {
-                System.out.println("页面跳转到登录页面，用户未登录");
                 return "false";
             }
 
@@ -121,19 +122,15 @@ public class MediaController {
             String userName = baijiahaoUtil.checkLoginStatus(page);
 
             if (!"false".equals(userName)) {
-                System.out.println("百家号登录检测成功，用户: " + userName);
                 return userName;
             }
 
             return "false";
 
         } catch (Exception e) {
-            e.printStackTrace();
-            return "false";
+            throw e;
         }
     }
-
-
 
     /**
      * 获取知乎登录二维码
@@ -144,7 +141,7 @@ public class MediaController {
     @Operation(summary = "获取知乎登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     public String getZhihuQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"Zhihu")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.zhihu.com/signin");
             page.setDefaultTimeout(120000);
             page.waitForLoadState();
@@ -169,10 +166,9 @@ public class MediaController {
                 if (qrCodeTab.count() > 0) {
                     qrCodeTab.first().click();
                     Thread.sleep(1000);
-                    System.out.println("切换到扫码登录标签页");
                 }
             } catch (Exception e) {
-                System.out.println("切换扫码标签页失败，可能默认就是扫码登录: " + e.getMessage());
+                UserLogUtil.sendExceptionLog(userId, "知乎切换扫码标签页", "getZhihuQrCode", e, url + "/saveLogInfo");
             }
 
             // 等待二维码加载
@@ -182,12 +178,11 @@ public class MediaController {
                     qrCodeArea.first().waitFor(new Locator.WaitForOptions()
                             .setState(WaitForSelectorState.VISIBLE)
                             .setTimeout(10000));
-                    System.out.println("二维码区域已加载");
                 } else {
-                    System.out.println("未找到二维码区域，继续截图");
                 }
             } catch (Exception e) {
-                System.out.println("等待二维码加载失败: " + e.getMessage());
+                UserLogUtil.sendExceptionLog(userId, "知乎等待二维码加载", "getZhihuQrCode", e, url + "/saveLogInfo");
+
             }
 
             // 截图并上传二维码
@@ -200,7 +195,6 @@ public class MediaController {
             qrCodeObject.put("type", "RETURN_PC_ZHIHU_QRURL");
             webSocketClientService.sendMessage(qrCodeObject.toJSONString());
 
-            System.out.println("知乎二维码已发送，开始监听登录状态");
 
             // 监听登录状态变化 - 最多等待60秒
             int maxAttempts = 30; // 30次尝试，每次2秒
@@ -214,20 +208,16 @@ public class MediaController {
                     Thread.sleep(2000);
                     // 检查当前页面URL是否已经跳转（登录成功）
                     String nowUrl = page.url();
-                    System.out.println("当前URL: " + nowUrl);
 
                     if (!nowUrl.contains("signin") && !nowUrl.contains("login")) {
-                        System.out.println("检测到页面跳转，验证登录状态");
 
                         // 验证登录状态并获取用户名
                         String userName = zhiHuUtil.checkLoginStatus(page);
                         if (!"false".equals(userName)) {
                             finalUserName = userName;
                             loginSuccess = true;
-                            System.out.println("URL跳转检测：知乎登录成功，用户名: " + userName);
                             break;
                         } else {
-                            System.out.println("URL跳转了但登录状态检测失败，继续监听");
                         }
                         break;
                     }
@@ -237,11 +227,10 @@ public class MediaController {
                     if (errorMsg.count() > 0) {
                         String errorText = errorMsg.first().textContent();
                         if (errorText != null && !errorText.trim().isEmpty()) {
-                            System.out.println("检测到错误信息: " + errorText);
                         }
                     }
                 } catch (Exception e) {
-                    System.out.println("登录状态检查异常: " + e.getMessage());
+                    UserLogUtil.sendExceptionLog(userId, "知乎登录状态检查", "getZhihuQrCode", e, url + "/saveLogInfo");
                 }
             }
 
@@ -253,7 +242,6 @@ public class MediaController {
                 loginSuccessObject.put("type", "RETURN_ZHIHU_STATUS");
                 webSocketClientService.sendMessage(loginSuccessObject.toJSONString());
 
-                System.out.println("知乎登录成功消息已发送: " + finalUserName);
             } else {
                 // 超时未登录，发送超时提示
                 JSONObject timeoutObject = new JSONObject();
@@ -262,14 +250,12 @@ public class MediaController {
                 timeoutObject.put("type", "RETURN_ZHIHU_LOGIN_TIMEOUT");
                 webSocketClientService.sendMessage(timeoutObject.toJSONString());
 
-                System.out.println("知乎登录超时，已发送超时通知");
             }
 
             return qrCodeUrl;
 
         } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("获取知乎二维码失败: " + e.getMessage());
+            UserLogUtil.sendExceptionLog(userId, "获取知乎二维码", "getZhihuQrCode", e, url + "/saveLogInfo");
         }
         return "false";
     }
@@ -283,7 +269,7 @@ public class MediaController {
     @Operation(summary = "获取百家号登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     public String getBaijiahaoQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"Baijiahao")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://baijiahao.baidu.com/builder/theme/bjh/login");
             page.setDefaultTimeout(120000);
             page.waitForLoadState();
@@ -305,22 +291,20 @@ public class MediaController {
                 page.waitForSelector("div.btnlogin--bI826", new Page.WaitForSelectorOptions().setTimeout(5000));
                 Locator qrCodeTab = page.locator("div.btnlogin--bI826").first();
                 qrCodeTab.click();
-                System.out.println("切换到扫码登录标签页");
             } catch (Exception e) {
-                System.out.println("扫码登录标签未找到，可能默认就是扫码登录: " + e.getMessage());
             }
 
 // 等待二维码加载
             try {
                 page.waitForSelector(".tang-pass-qrcode-img", new Page.WaitForSelectorOptions().setTimeout(10000));
                 Locator qrCodeArea = page.locator(".tang-pass-qrcode-img").first();
-                System.out.println("二维码区域已加载");
             } catch (Exception e) {
-                System.out.println("等待二维码加载失败或未找到二维码区域: " + e.getMessage());
+                UserLogUtil.sendExceptionLog(userId, "百家号登录状态检查", "getBaijiahaoQrCode", e, url + "/saveLogInfo");
             }
 
 
             // 截图并上传二维码
+            Thread.sleep(2000);
             String qrCodeUrl = screenshotUtil.screenshotAndUpload(page, "baijiahaoQrCode_" + userId + ".png");
 
             // 发送二维码URL到前端
@@ -330,7 +314,6 @@ public class MediaController {
             qrCodeObject.put("type", "RETURN_PC_BAIJIAHAO_QRURL");
             webSocketClientService.sendMessage(qrCodeObject.toJSONString());
 
-            System.out.println("百家号二维码已发送，开始监听登录状态");
 
             // 监听登录状态变化 - 最多等待60秒
             int maxAttempts = 30; // 30次尝试，每次2秒
@@ -342,20 +325,16 @@ public class MediaController {
                     Thread.sleep(2000);
                     // 检查当前页面URL是否已经跳转（登录成功）
                     String nowUrl = page.url();
-                    System.out.println("当前URL: " + nowUrl);
 
                     if (!nowUrl.contains("login") && !nowUrl.contains("register")) {
-                        System.out.println("检测到页面跳转，验证登录状态");
 
                         // 验证登录状态并获取用户名
                         String userName = baijiahaoUtil.checkLoginStatus(page);
                         if (!"false".equals(userName)) {
                             finalUserName = userName;
                             loginSuccess = true;
-                            System.out.println("URL跳转检测：百家号登录成功，用户名: " + userName);
                             break;
                         } else {
-                            System.out.println("URL跳转了但登录状态检测失败，继续监听");
                         }
                         break;
                     }
@@ -365,11 +344,10 @@ public class MediaController {
                     if (errorMsg.count() > 0) {
                         String errorText = errorMsg.first().textContent();
                         if (errorText != null && !errorText.trim().isEmpty()) {
-                            System.out.println("检测到错误信息: " + errorText);
                         }
                     }
                 } catch (Exception e) {
-                    System.out.println("登录状态检查异常: " + e.getMessage());
+                    UserLogUtil.sendExceptionLog(userId, "百家号登录状态检查", "getBaijiahaoQrCode", e, url + "/saveLogInfo");
                 }
             }
 
@@ -381,7 +359,6 @@ public class MediaController {
                 loginSuccessObject.put("type", "RETURN_BAIJIAHAO_STATUS");
                 webSocketClientService.sendMessage(loginSuccessObject.toJSONString());
 
-                System.out.println("百家号登录成功消息已发送: " + finalUserName);
             } else {
                 // 超时未登录，发送超时提示
                 JSONObject timeoutObject = new JSONObject();
@@ -390,14 +367,12 @@ public class MediaController {
                 timeoutObject.put("type", "RETURN_BAIJIAHAO_LOGIN_TIMEOUT");
                 webSocketClientService.sendMessage(timeoutObject.toJSONString());
 
-                System.out.println("百家号登录超时，已发送超时通知");
             }
 
             return qrCodeUrl;
 
         } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("获取百家号二维码失败: " + e.getMessage());
+            UserLogUtil.sendExceptionLog(userId, "获取百家号二维码", "getBaijiahaoQrCode", e, url + "/saveLogInfo");
         }
         return "false";
     }
@@ -417,14 +392,33 @@ public class MediaController {
                               @Parameter(description = "文章内容") @RequestParam("content") String content){
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"Zhihu")) {
 
-            // 初始化页面和变量package com.playwright.controller;
-            Page page = context.newPage();
+            // 初始化页面和变量
+            Page page = browserUtil.getOrCreatePage(context);
 
             // 进入到知乎的文章发布页，并设置最大超时时间为5分钟
             page.navigate("https://zhuanlan.zhihu.com/write", new Page.NavigateOptions()
                     .setTimeout(300000)); // 5分钟超时
             // 等待页面加载完成，最大等待时间与导航超时一致
             page.waitForLoadState();
+
+            // 创建定时截图线程
+            AtomicInteger screenshotCount = new AtomicInteger(0);
+            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            ScheduledFuture<?> screenshotFuture = null;
+
+            try {
+                // 启动定时截图任务，每8秒执行一次
+                screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+                    try {
+                        // 检查页面是否已关闭
+                        if (page.isClosed()) {
+                            return;
+                        }
+                        int currentCount = screenshotCount.getAndIncrement();
+                        logMsgUtil.sendImgData(page, userId + "知乎投递过程截图" + currentCount, userId);
+                    } catch (Exception e) {
+                    }
+                }, 2000, 8000, TimeUnit.MILLISECONDS); // 延迟2秒开始，每8秒执行一次
 
             logMsgUtil.sendImgData(page, "知乎编辑页面", userId);
 
@@ -516,9 +510,23 @@ public class MediaController {
                 Thread.sleep(1000);
                 waited++;
             }
+            } finally {
+                // 安全地关闭截图线程
+                try {
+                    if (screenshotFuture != null) {
+                        screenshotFuture.cancel(true);
+                    }
+                    if (screenshotExecutor != null) {
+                        screenshotExecutor.shutdownNow();
+                        if (!screenshotExecutor.awaitTermination(3, TimeUnit.SECONDS)) {
+                        }
+                    }
+                } catch (Exception e) {
+                }
+            }
         } catch (Exception e) {
-            e.printStackTrace();
-            return "投递失败: " + e.getMessage();
+            UserLogUtil.sendExceptionLog(userId, "知乎投递异常", "sendToZhihu", e, url);
+            return "投递失败";
         }
         return "true";
     }
@@ -550,10 +558,7 @@ public class MediaController {
             String contentBody = contentBodyBuilder.toString();
 
             // 初始化页面和变量
-            Page page = context.newPage();
-            System.out.println("userId："+ userId);
-            System.out.println("title："+ title);
-            System.out.println("content："+ content);
+            Page page = browserUtil.getOrCreatePage(context);
             // 进入到百家号的首页
             page.navigate("https://baijiahao.baidu.com/builder/rc/home", new Page.NavigateOptions()
                     .setTimeout(60000)); // 1分钟超时
@@ -567,9 +572,28 @@ public class MediaController {
                 return "false";
             }
             //进入草稿箱页面，并设置最大超时时间为5分钟
-            //进入草稿箱页面，并设置最大超时时间为5分钟
             page.navigate("https://baijiahao.baidu.com/builder/rc/edit?type=news&is_from_cms=1", new Page.NavigateOptions()
                     .setTimeout(300000)); // 5分钟超时
+
+            // 创建定时截图线程
+            AtomicInteger screenshotCount = new AtomicInteger(0);
+            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            ScheduledFuture<?> screenshotFuture = null;
+
+            try {
+                // 启动定时截图任务，每8秒执行一次
+                screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+                    try {
+                        // 检查页面是否已关闭
+                        if (page.isClosed()) {
+                            return;
+                        }
+                        int currentCount = screenshotCount.getAndIncrement();
+                        logMsgUtil.sendImgData(page, userId + "百家号投递过程截图" + currentCount, userId);
+                    } catch (Exception e) {
+                    }
+                }, 2000, 8000, TimeUnit.MILLISECONDS); // 延迟2秒开始，每8秒执行一次
+
             logMsgUtil.sendImgData(page, "百家号编辑页面", userId);
 
             // 定位标题输入框
@@ -642,11 +666,24 @@ public class MediaController {
                     .setState(WaitForSelectorState.VISIBLE)
                     .setTimeout(10000)); // 最多等10秒
 
-            System.out.println("草稿保存成功");
 
+            } finally {
+                // 安全地关闭截图线程
+                try {
+                    if (screenshotFuture != null) {
+                        screenshotFuture.cancel(true);
+                    }
+                    if (screenshotExecutor != null) {
+                        screenshotExecutor.shutdownNow();
+                        if (!screenshotExecutor.awaitTermination(3, TimeUnit.SECONDS)) {
+                        }
+                    }
+                } catch (Exception e) {
+                }
+            }
         } catch (Exception e) {
-            e.printStackTrace();
-            return "投递失败: " + e.getMessage();
+            UserLogUtil.sendExceptionLog(userId, "投递到百家号", "sendToBaijiahao", e, url + "/saveLogInfo");
+            return "投递失败";
         }
         return "true";
     }
@@ -655,7 +692,7 @@ public class MediaController {
     @GetMapping("/getTTHQrCode")
     public String getTTHQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "tth")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             // 首先检查当前登录状态
             String currentStatus = tthUtil.checkLoginStatus(page, true);
             if (!"false".equals(currentStatus)) {
@@ -720,6 +757,8 @@ public class MediaController {
             }
         } catch (Exception e) {
             logMsgUtil.sendTaskLog("获取微头条登录二维码失败", userId, "tth");
+            UserLogUtil.sendExceptionLog(userId, "获取微头条登录二维码", "getTTHQrCode", e, url + "/saveLogInfo");
+            return "false";
         }
         return "false";
     }
@@ -728,7 +767,7 @@ public class MediaController {
     @GetMapping("/checkTTHLogin")
     public String checkTTHLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "tth")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
 
             // 导航到DeepSeek页面并确保完全加载
             page.navigate("https://mp.toutiao.com/");
@@ -746,7 +785,7 @@ public class MediaController {
             // 所有尝试都失败，返回未登录状态
             return "false";
         } catch (Exception e) {
-            e.printStackTrace();
+            UserLogUtil.sendExceptionLog(userId, "检查微头条登录状态", "checkTTHLogin", e, url + "/saveLogInfo");
         }
         return "false";
     }

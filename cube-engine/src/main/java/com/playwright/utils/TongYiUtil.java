@@ -57,8 +57,8 @@ public class TongYiUtil {
                 page.waitForTimeout(1500);
             }
         } catch (Exception e) {
-            logInfo.sendTaskLog("切换特殊模式时发生严重错误: " + e.getMessage(), userId, aiName);
-            e.printStackTrace();
+            logInfo.sendTaskLog("切换特殊模式时发生严重错误", userId, aiName);
+            throw e;
         }
     }
 
@@ -105,10 +105,9 @@ public class TongYiUtil {
             return resultMap;
 
         } catch (Exception e) {
-            e.printStackTrace();
-            logInfo.sendTaskLog("处理通义千问请求时发生错误: " + e.getMessage(), userId, aiName);
+            logInfo.sendTaskLog("处理通义千问请求时发生错误", userId, aiName);
             resultMap.put("rawHtmlContent", "获取内容失败");
-            return resultMap;
+            throw e;
         }
     }
 
@@ -130,7 +129,6 @@ public class TongYiUtil {
                 long elapsedTime = System.currentTimeMillis() - startTime;
 
                 if (elapsedTime > timeout) {
-                    System.out.println("超时，AI未完成回答！");
                     logInfo.sendTaskLog("AI回答超时，任务中断", userId, aiName);
                     break;
                 }
@@ -144,7 +142,6 @@ public class TongYiUtil {
 
                 currentContent = outputLocator.innerHTML();
 
-                System.out.println(currentContent);
                 if (!currentContent.isEmpty() && currentContent.equals(lastContent)) {
                     logInfo.sendTaskLog(aiName + "回答完成，正在自动提取内容", userId, aiName);
                     break;
@@ -158,8 +155,7 @@ public class TongYiUtil {
             return currentContent;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 }

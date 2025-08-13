@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.system.mapper.LogInfoMapper">
+    
+    <resultMap type="LogInfo" id="LogInfoResult">
+        <result property="id"    column="id"    />
+        <result property="userId"    column="user_id"    />
+        <result property="methodName"    column="method_name"    />
+        <result property="description"    column="description"    />
+        <result property="methodParams"    column="method_params"    />
+        <result property="executionTime"    column="execution_time"    />
+        <result property="executionResult"    column="execution_result"    />
+        <result property="executionTimeMillis"    column="execution_time_millis"    />
+        <result property="isSuccess"    column="is_success"    />
+    </resultMap>
+
+    <sql id="selectLogInfoVo">
+        select id, user_id, method_name, description, method_params, execution_time, execution_result, execution_time_millis, is_success from wc_log_info
+    </sql>
+
+    <select id="selectLogInfoList" parameterType="LogInfo" resultMap="LogInfoResult">
+        <include refid="selectLogInfoVo"/>
+        <where>  
+            <if test="userId != null  and userId != ''"> and user_id = #{userId}</if>
+            <if test="methodName != null  and methodName != ''"> and method_name like concat('%', #{methodName}, '%')</if>
+            <if test="params.beginExecutionTime != null and params.beginExecutionTime != '' and params.endExecutionTime != null and params.endExecutionTime != ''"> and execution_time between #{params.beginExecutionTime} and #{params.endExecutionTime}</if>
+            <if test="params.beginExecutionTimeMillis != null and params.beginExecutionTimeMillis != '' and params.endExecutionTimeMillis != null and params.endExecutionTimeMillis != ''"> and execution_time_millis between #{params.beginExecutionTimeMillis} and #{params.endExecutionTimeMillis}</if>
+            <if test="isSuccess != null "> and is_success = #{isSuccess}</if>
+        </where>
+        order by execution_time desc
+    </select>
+    
+    <select id="selectLogInfoById" parameterType="Long" resultMap="LogInfoResult">
+        <include refid="selectLogInfoVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertLogInfo" parameterType="LogInfo" useGeneratedKeys="true" keyProperty="id">
+        insert into wc_log_info
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="methodName != null">method_name,</if>
+            <if test="description != null">description,</if>
+            <if test="methodParams != null">method_params,</if>
+            <if test="executionTime != null">execution_time,</if>
+            <if test="executionResult != null">execution_result,</if>
+            <if test="executionTimeMillis != null">execution_time_millis,</if>
+            <if test="isSuccess != null">is_success,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="methodName != null">#{methodName},</if>
+            <if test="description != null">#{description},</if>
+            <if test="methodParams != null">#{methodParams},</if>
+            <if test="executionTime != null">#{executionTime},</if>
+            <if test="executionResult != null">#{executionResult},</if>
+            <if test="executionTimeMillis != null">#{executionTimeMillis},</if>
+            <if test="isSuccess != null">#{isSuccess},</if>
+         </trim>
+    </insert>
+
+    <update id="updateLogInfo" parameterType="LogInfo">
+        update wc_log_info
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="methodName != null">method_name = #{methodName},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="methodParams != null">method_params = #{methodParams},</if>
+            <if test="executionTime != null">execution_time = #{executionTime},</if>
+            <if test="executionResult != null">execution_result = #{executionResult},</if>
+            <if test="executionTimeMillis != null">execution_time_millis = #{executionTimeMillis},</if>
+            <if test="isSuccess != null">is_success = #{isSuccess},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteLogInfoById" parameterType="Long">
+        delete from wc_log_info where id = #{id}
+    </delete>
+
+    <delete id="deleteLogInfoByIds" parameterType="String">
+        delete from wc_log_info where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    <delete id="cleanLogInfo">
+        delete from wc_log_info
+    </delete>
+</mapper>

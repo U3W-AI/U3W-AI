@@ -95,7 +95,6 @@ public class RestUtils {
 
         ResponseEntity<byte[]> rsp = restTemplate.exchange(url, HttpMethod.GET, httpEntity, byte[].class);
         if(rsp.getStatusCode() != HttpStatus.OK){
-            System.out.println("文件下载请求结果状态码：" + rsp.getStatusCode());
         }
         // 将下载下来的文件内容保存到本地
         Files.write(Paths.get(targetPath), Objects.requireNonNull(rsp.getBody()));
@@ -106,7 +105,6 @@ public class RestUtils {
 
         ResponseEntity<byte[]> rsp = restTemplate.getForEntity(url, byte[].class);
         if(rsp.getStatusCode() != HttpStatus.OK){
-            System.out.println("文件下载请求结果状态码：" + rsp.getStatusCode());
         }
         // 将下载下来的文件内容保存到本地
         Files.write(Paths.get(targetPath), Objects.requireNonNull(rsp.getBody()));
@@ -121,9 +119,7 @@ public class RestUtils {
 
     private static void serverIsRight(ResponseEntity responseEntity){
         if(responseEntity.getStatusCodeValue()==200){
-//            System.out.println("服务器请求成功：{}"+responseEntity.getStatusCodeValue());
         }else {
-            System.out.println("服务器请求异常：{}"+responseEntity.getStatusCodeValue());
         }
     }
 

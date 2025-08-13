@@ -15,7 +15,7 @@ public class MiniMaxUtil {
     @Autowired
     private LogMsgUtil logInfo;
 
-    public String waitMiniMaxHtmlDom(Page page, String userId, String aiName) {
+    public String waitMiniMaxHtmlDom(Page page, String userId, String aiName) throws Exception{
         try {
             // 用于记录本轮和上一轮的回答 HTML
             String currentContent = "";
@@ -28,7 +28,6 @@ public class MiniMaxUtil {
             while (true) {
                 // 如果超过超时，跳出
                 if (System.currentTimeMillis() - startTime > timeout) {
-                    System.out.println("超时，" + aiName + " 未完成回答！");
                     break;
                 }
 
@@ -83,8 +82,7 @@ public class MiniMaxUtil {
             return currentContent;
 
         } catch (Exception e) {
-            e.printStackTrace();
-            return "获取内容失败";
+            throw e;
         }
     }
     public static String filterSpans(String html) {

@@ -71,6 +71,22 @@
 					}
 				],
 				features: [{
+						name: '腾讯元宝T1',
+						avatar: 'https://u3w.com/chatfile/yuanbao.png',
+						icon: '../static/images/icon/腾讯元宝.png',
+						title: '腾讯元宝T1',
+						description: '腾讯公司开发的混元大模型智能体，功能强大',
+						type: 'yuanbao'
+					},
+					{
+						name: '腾讯元宝DS',
+						avatar: 'https://u3w.com/chatfile/yuanbao.png',
+						icon: '../static/images/icon/腾讯元宝.png',
+						title: '腾讯元宝DS',
+						description: '基于DeepSeek模型的腾讯元宝版本，拥有强大推理能力',
+						type: 'yuanbao'
+					},
+					{
 						name: '豆包',
 						avatar: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
 						icon: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
@@ -83,7 +99,7 @@
 						avatar: 'https://u3w.com/chatfile/Deepseek.png',
 						icon: 'https://u3w.com/chatfile/Deepseek.png',
 						title: 'DeepSeek',
-						description: 'DeepSeek原生AI助手，擅长深度思考和联网搜索',
+						description: '探索未至之境',
 						type: 'doubao'
 					},
 					{
@@ -91,7 +107,7 @@
 						avatar: 'https://u3w.com/chatfile/MiniMaxChat.png',
 						icon: 'https://u3w.com/chatfile/MiniMaxChat.png',
 						title: 'MiniMax Chat',
-						description: 'MiniMax ChatAI助手，提供专业、严谨的解答。',
+						description: '与用户共创智能',
 						type: 'mini'
 					},
           {
@@ -107,8 +123,32 @@
             avatar: 'https://u3w.com/chatfile/TongYi.png',
             icon: 'https://u3w.com/chatfile/TongYi.png',
             title: '通义千问',
-            description: '通情、达义，你的全能AI助手。超级助手，答你所问。生活办公，效率翻倍。个性智能体，丰富角色趣味互动。',
+            description: '通情、达义，你的全能AI助手',
             type: 'tongyi'
+          },
+          {
+            name: 'KiMi',
+            avatar: 'https://u3w.com/chatfile/KIMI.png',
+            icon: '	https://u3w.com/chatfile/KIMI.png',
+            title: 'Kimi',
+            description: '会推理解析 能深度思考的AI助手',
+            type: 'kimi'
+          },
+          {
+            name: '百度AI',
+            avatar: 'https://u3w.com/chatfile/baiduAI.png',
+            icon: 'https://u3w.com/chatfile/baiduAI.png',
+            title: '百度AI',
+            description: '让你的生活和工作变得更加轻松高效',
+            type: 'baidu'
+          },
+          {
+            name: '知乎直答',
+            avatar: 'https://u3w.com/chatfile/ZHZD.png',
+            icon: 'https://u3w.com/chatfile/ZHZD.png',
+            title: '知乎直答',
+            description: '用提问发现世界',
+            type: 'zhzd'
           },
 				],
 				advantages: [

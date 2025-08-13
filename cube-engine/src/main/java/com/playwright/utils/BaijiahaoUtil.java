@@ -20,7 +20,7 @@ public class BaijiahaoUtil {
      * @param page Playwright页面实例
      * @return 用户名或"false"
      */
-    public String checkLoginStatus(Page page) {
+    public String checkLoginStatus(Page page) throws InterruptedException {
         try {
             // 等待页面加载
             Thread.sleep(1000);
@@ -33,7 +33,6 @@ public class BaijiahaoUtil {
             Locator userNameElement = page.locator("a.user-name").first();
             // 如果同时找到头像和用户名元素，则认为已登录
             if (userAvatar.count() > 0 && userNameElement.count() > 0) {
-                System.out.println("已捕获用户头像和用户名，正在处理...");
                 String userName = userNameElement.first().textContent();
                 if (userName != null) {
                     userName = userName.trim();
@@ -46,7 +45,6 @@ public class BaijiahaoUtil {
             }
 
             // 尝试通过其他方式获取用户名
-            System.out.println("未找到用户头像和用户名，正在尝试通过其他方式获取用户名...");
             Locator userInfoArea = userNameElement;
             if (userInfoArea.count() > 0) {
                 String userInfoText = userInfoArea.first().textContent();
@@ -54,19 +52,16 @@ public class BaijiahaoUtil {
                     // 简单处理，通常用户名在前面部分
                     String[] parts = userInfoText.split("\\s+");
                     if (parts.length > 0) {
-                        System.out.println("已捕获用户名："+parts[0].trim());
                         return parts[0].trim();
                     }
                 }
             }
 
-            System.out.println("未通过其他方式获取用户名,正在检查是否登录...");
             // 检查是否存在登录按钮或登录链接
             Locator loginButtons = page.locator(
                     "div.btnlogin--bI826"
             );
             if (loginButtons.count() > 0) {
-                System.out.println("发现登录按钮，用户未登录");
                 return "false";
             }
 
@@ -78,16 +73,13 @@ public class BaijiahaoUtil {
                             "form:has(input[type='text']):has(input[type='password'])"
             );
             if (loginPageIndicators.count() > 0) {
-                System.out.println("检测到登录页面元素，用户未登录");
                 return "false";
             }
 
-            System.out.println("代码有误，未查到登录状态！");
             return "false";
 
         } catch (Exception e) {
-            System.out.println("百家号登录状态检测异常: " + e.getMessage());
-            return "false";
+            throw e;
         }
     }
 }

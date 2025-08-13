@@ -3,10 +3,7 @@ package com.playwright.utils;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.WaitForSelectorState;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.atomic.AtomicReference;
@@ -25,7 +22,7 @@ public class DouBaoUtil {
     @Autowired
     private ClipboardLockManager clipboardLockManager;
 
-    public void waitAndClickDBScoreCopyButton(Page page, String userId)  {
+    public void waitAndClickDBScoreCopyButton(Page page, String userId) throws InterruptedException {
         try {
             // 等待页面内容稳定
             String currentContent = "";
@@ -36,7 +33,6 @@ public class DouBaoUtil {
             while (true) {
                 long elapsedTime = System.currentTimeMillis() - startTime;
                 if (elapsedTime > timeout) {
-                    System.out.println("等待页面稳定超时！");
                     break;
                 }
 
@@ -66,18 +62,16 @@ public class DouBaoUtil {
                     .last()  // 获取最后一个复制按钮
                     .click();
             logInfo.sendTaskLog( "评分结果已自动提取完成",userId,"豆包");
-            System.out.println("复制成功");
 
             // 确保点击操作完成
             Thread.sleep(1000);
 
         } catch (Exception e) {
-
-            e.printStackTrace();
+            throw e;
         }
     }
 
-    public String waitAndClickDBCopyButton(Page page,String userId,String roles)  {
+    public String waitAndClickDBCopyButton(Page page,String userId,String roles) throws InterruptedException {
         try {
             // 等待页面内容稳定
             String currentContent = "";
@@ -88,7 +82,6 @@ public class DouBaoUtil {
             while (true) {
                 long elapsedTime = System.currentTimeMillis() - startTime;
                 if (elapsedTime > timeout) {
-                    System.out.println("等待页面稳定超时！");
                     break;
                 }
 
@@ -108,9 +101,7 @@ public class DouBaoUtil {
 
             if (locator.count() > 0 && locator.isVisible()) {
                 locator.click(new Locator.ClickOptions().setForce(true));
-                System.out.println("元素已点击");
             } else {
-                System.out.println("元素未出现，跳过点击");
             }
 
 
@@ -128,9 +119,8 @@ public class DouBaoUtil {
             logInfo.sendTaskLog( "豆包内容已自动提取完成",userId,"豆包");
             return copiedText;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
     /**
@@ -154,7 +144,6 @@ public class DouBaoUtil {
 
                 // 如果超时，退出循环
                 if (elapsedTime > timeout) {
-                    System.out.println("超时，AI未完成回答！");
                     break;
                 }
                 // 获取最新内容
@@ -174,7 +163,6 @@ public class DouBaoUtil {
                 }
 
 
-                System.out.println(currentContent);
                 // 如果当前内容和上次内容相同，认为 AI 已经完成回答，退出循环
                 if (currentContent.equals(lastContent)) {
                     logInfo.sendTaskLog( aiName+"回答完成，正在自动提取内容",userId,aiName);
@@ -196,9 +184,8 @@ public class DouBaoUtil {
             return currentContent;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
 
@@ -224,7 +211,6 @@ public class DouBaoUtil {
 
                 // 如果超时，退出循环
                 if (elapsedTime > timeout) {
-                    System.out.println("超时，AI未完成回答！");
                     break;
                 }
 
@@ -249,7 +235,6 @@ public class DouBaoUtil {
 
                             String text = (String) page.evaluate("navigator.clipboard.readText()");
                             textRef.set(text);
-                            System.out.println("剪贴板内容：" + text);
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
@@ -266,9 +251,8 @@ public class DouBaoUtil {
             return currentContent;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         }
-        return "获取内容失败";
     }
 
 

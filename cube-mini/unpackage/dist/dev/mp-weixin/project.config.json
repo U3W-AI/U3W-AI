@@ -1,8 +1,7 @@
 {
   "description": "项目配置文件。",
   "packOptions": {
-    "ignore": [],
-    "include": []
+    "ignore": []
   },
   "setting": {
     "urlCheck": false,
@@ -11,16 +10,11 @@
     "minified": true,
     "newFeature": true,
     "bigPackageSizeSupport": true,
-    "ignoreDevUnusedFiles": false,
-    "babelSetting": {
-      "ignore": [],
-      "disablePlugins": [],
-      "outputPath": ""
-    }
+    "ignoreDevUnusedFiles": false
   },
   "compileType": "miniprogram",
-  "libVersion": "3.8.9",
-  "appid": "wx7ab54a2f9a5bd7f3",
+  "libVersion": "",
+  "appid": "wxef8c6bc4b9764770",
   "projectname": "U3W-AI",
   "condition": {
     "search": {
@@ -46,9 +40,5 @@
         }
       ]
     }
-  },
-  "editorSetting": {
-    "tabIndent": "insertSpaces",
-    "tabSize": 2
   }
 }

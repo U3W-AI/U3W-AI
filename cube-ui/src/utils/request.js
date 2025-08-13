@@ -67,8 +67,8 @@ service.interceptors.request.use(config => {
   }
   return config
 }, error => {
-    console.log(error)
-    Promise.reject(error)
+  console.log(error)
+  Promise.reject(error)
 })
 
 // 响应拦截器
@@ -89,10 +89,10 @@ service.interceptors.response.use(res => {
           store.dispatch('LogOut').then(() => {
             location.href = '/index';
           })
-      }).catch(() => {
-        isRelogin.show = false;
-      });
-    }
+        }).catch(() => {
+          isRelogin.show = false;
+        });
+      }
       return Promise.reject('无效的会话，或者会话已过期，请重新登录。')
     }else if (code === 218) {
       return Promise.reject(new Error(msg))
@@ -102,6 +102,9 @@ service.interceptors.response.use(res => {
     } else if (code === 601) {
       Message({ message: msg, type: 'warning' })
       return Promise.reject('error')
+    } else if (code === 1001) {
+      // 企业微信登录需要显示客服二维码的特殊错误，不显示消息，直接传递到前端处理
+      return Promise.reject({ response: { data: res.data } })
     } else if (code !== 200) {
       Notification.error({ title: msg })
       return Promise.reject('error')

@@ -22,6 +22,7 @@ public class CubeApplication
     {
         // System.setProperty("spring.devtools.restart.enabled", "false");
 //        Start.run();
+
         SpringApplication.run(CubeApplication.class, args);
         System.out.println(">>>>优立方平台启动成功<<<<<");
     }

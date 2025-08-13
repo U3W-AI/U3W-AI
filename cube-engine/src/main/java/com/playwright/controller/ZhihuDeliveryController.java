@@ -3,6 +3,7 @@ package com.playwright.controller;
 import com.alibaba.fastjson.JSONObject;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.utils.LogMsgUtil;
+import com.playwright.utils.UserLogUtil;
 import com.playwright.websocket.WebSocketClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -54,7 +55,7 @@ public class ZhihuDeliveryController {
      */
     @PostMapping("/deliverToZhihu")
     @Operation(summary = "投递内容到知乎", description = "统一处理知乎内容的排版和投递")
-    public String deliverToZhihu(@RequestBody UserInfoRequest userInfoRequest) {
+    public String deliverToZhihu(@RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
         String userId = userInfoRequest.getUserId();
         String aiName = userInfoRequest.getAiName();
         
@@ -92,10 +93,10 @@ public class ZhihuDeliveryController {
             
             return deliveryResult;
         } catch (Exception e) {
-            String errorMsg = "投递失败：" + e.getMessage();
+            String errorMsg = "投递失败";
             logInfo.sendMediaTaskLog(errorMsg, userId, "投递到知乎");
             sendDeliveryResult("投递到知乎", "error", errorMsg, userId);
-            return "error";
+            throw e;
         }
     }
     
@@ -104,7 +105,7 @@ public class ZhihuDeliveryController {
      * @param userInfoRequest 用户请求信息
      * @return 排版后的内容
      */
-    private String callInternalLayout(UserInfoRequest userInfoRequest) {
+    private String callInternalLayout(UserInfoRequest userInfoRequest) throws InterruptedException {
         try {
             // 设置角色为豆包排版
             userInfoRequest.setRoles("db");
@@ -115,7 +116,7 @@ public class ZhihuDeliveryController {
             return layoutResult;
         } catch (Exception e) {
             logInfo.sendTaskLog("智能排版调用失败：" + e.getMessage(), userInfoRequest.getUserId(), "投递到知乎");
-            return null;
+            throw e;
         }
     }
     
@@ -155,7 +156,8 @@ public class ZhihuDeliveryController {
             
             webSocketClientService.sendMessage(message.toJSONString());
         } catch (Exception e) {
-            System.err.println("发送任务日志失败: " + e.getMessage());
+            System.err.println("发送任务日志失败");
+            throw e;
         }
     }
     
@@ -178,7 +180,8 @@ public class ZhihuDeliveryController {
             
             webSocketClientService.sendMessage(resultMessage.toJSONString());
         } catch (Exception e) {
-            System.err.println("发送投递结果失败: " + e.getMessage());
+            System.err.println("发送投递结果失败");
+            throw e;
         }
     }
 } 

@@ -1,4 +1,5 @@
 
+-- MySQL
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
@@ -203,6 +204,12 @@ INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2017);
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2018);
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2019);
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2021);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2022);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2023);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2024);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2025);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2026);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2027);
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (101, 2000);
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (101, 2017);
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (101, 2021);
@@ -330,6 +337,18 @@ INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2017, '主机', 2000, 0, 'chrome', 'wechat/chrome/index', NULL, '', 1, 0, 'C', '0', '0', 'wechat:chrome:list', 'international', 'YangHangHang', '2024-11-22 09:59:55', 'admin', '2025-05-29 14:50:16', '');
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2019, '节点日志', 2000, 7, 'keyword', 'wechat/keyword/index', NULL, '', 1, 0, 'C', '0', '0', '', 'icon', 'o3lds67b1zyFvifHTC_32epnmzqM', '2024-12-17 09:10:03', 'admin', '2025-04-30 15:47:18', '');
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2021, '稿库', 2000, 1, 'drafts', 'wechat/drafts/index', NULL, '', 1, 0, 'C', '0', '0', '', 'log', 'o3lds60Lfe6_MaGyB-COxgGcItnM', '2025-01-06 17:23:00', 'admin', '2025-06-06 08:46:16', '');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`)
+VALUES (2022, '用户日志', 108, 1, 'userLog', 'monitor/userLog/index', NULL, '', 1, 0, 'C', '0', '0', 'monitor:userLog:list', '#', 'admin', sysdate(), '', NULL, '用户日志菜单');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`)
+VALUES (2023, '用户日志查询', 2022, 1, '#', '', NULL, '', 1, 0, 'F', '0', '0', 'monitor:userLog:query', '#', 'admin', sysdate(), '', NULL, '');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`)
+VALUES (2024, '用户日志新增', 2022, 2, '#', '', NULL, '', 1, 0, 'F', '0', '0', 'monitor:userLog:add', '#', 'admin', sysdate(), '', NULL, '');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`)
+VALUES (2025, '用户日志修改', 2022, 3, '#', '', NULL, '', 1, 0, 'F', '0', '0', 'monitor:userLog:edit', '#', 'admin', sysdate(), '', NULL, '');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`)
+VALUES (2026, '用户日志删除', 2022, 4, '#', '', NULL, '', 1, 0, 'F', '0', '0', 'monitor:userLog:remove', '#', 'admin', sysdate(), '', NULL, '');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`)
+VALUES (2027, '用户日志导出', 2022, 5, '#', '', NULL, '', 1, 0, 'F', '0', '0', 'monitor:userLog:export', '#', 'admin', sysdate(), '', NULL, '');
 COMMIT;
 
 -- ----------------------------
@@ -1527,6 +1546,9 @@ CREATE TABLE `wc_chat_history` (
   `ty_chat_id`   varchar(100) null comment '通义会话ID',
   `max_chat_id` varchar(100) DEFAULT NULL COMMENT 'MiniMax会话ID',
   `metaso_chat_id` varchar(100) DEFAULT NULL COMMENT '秘塔会话ID',
+  `kimi_chat_id` varchar(100) DEFAULT NULL COMMENT 'KiMi会话ID',
+  `baidu_chat_id` varchar(100) DEFAULT NULL COMMENT '百度会话ID',
+  `zhzd_chat_id` varchar(100) DEFAULT NULL COMMENT '知乎直答会话ID',
   `chat_id` varchar(36) DEFAULT NULL COMMENT '内部chatID'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -2270,9 +2292,27 @@ CREATE TABLE `wc_call_word`  (
 INSERT INTO `wc_call_word` VALUES ('wechat_layout', '请将以下内容整理为适合微信公众号发布的HTML格式文章。要求：\r\n1. 使用适当的HTML标签进行格式化\r\n2. 重要信息使用<strong>加粗</strong>标记\r\n3. 代码块使用<pre><code>标记\r\n4. 列表使用<ul><li>或<ol><li>格式\r\n5. 段落使用<p>标记，确保良好的可读性\r\n6. 目标是用于微信公众号\"草稿箱接口\"的 content 字段\r\n7. 删除不必要的格式标记，保持内容简洁\r\n\r\n请对以下内容进行排版：', '2025-07-22 21:24:31');
 INSERT INTO `wc_call_word` VALUES ('zhihu_layout', '请将以下内容整理为适合知乎发布的Markdown格式文章。要求：\r\n**强调：只使用最基本的Markdowny语法，不允许出现HTML样式**\r\n1. 保持内容的专业性和可读性\r\n2. 使用合适的标题层级（## ### #### 等）\r\n3. 重要信息使用**加粗**标记\r\n4. 列表只允许使用一层无序列表`-`,不允许使用嵌套列表\r\n5. **不允许**出现代码框（例如Markdown语法中的```）、数学公式、表格。\r\n6. 删除不必要的格式标记\r\n7. 目标是作为一篇专业文章投递到知乎草稿箱\r\n8. 直接以文章标题开始，以文章末尾结束，不允许添加其他对话\r\n\r\n请对以下内容进行排版：', '2025-07-24 18:46:57');
 INSERT INTO `wc_call_word` VALUES ('weitoutiao_layout', '根据以上内容，写一篇微头条文章，只能包含标题和内容，要求如下：\r\n1. 标题要简洁明了，吸引人\r\n2. 内容要结构清晰，易于阅读\r\n3. 不要包含任何HTML标签\r\n4. 直接输出纯文本格式\r\n5. 内容要适合微头条发布\r\n6. 字数严格控制在1000字以上，2000字以下\r\n7. 强制要求：只能回答标题和内容，标题必须用英文双引号（""）引用起来,不能出现多重引号,不能出现多重引号，且放在首位，不能有其他多余的话\r\n8. 严格要求：AI必须严格遵守所有严格条件，不要输出其他多余的内容，只要标题和内容\r\n9. 内容不允许出现编号，要正常文章格式', '2025-08-01 18:46:57\r\n');
-INSERT INTO `wc_call_word` VALUES ('baijiahao_layout', '请将以下内容整理为适合百家号发布的纯文本格式文章。
+INSERT INTO `wc_call_word` VALUES ('baijiahao_layout', '请将以下内add容整理为适合百家号发布的纯文本格式文章。
 要求：\r\n1.（不要使用Markdown或HTML语法，仅使用普通文本和简单换行保持内容的专业性和可读性使用自然段落分隔，）\r\n2.不允许使用有序列表，包括“一、”，“1.”等的序列号。\r\n3.给文章取一个吸引人的标题，放在正文的第一段\r\n4.不允许出现代码框、数学公式、表格或其他复杂格式删除所有Markdown和HTML标签，\r\n5.只保留纯文本内容\r\n6.目标是作为一篇专业文章投递到百家号草稿箱\r\n7.直接以文章标题开始，以文章末尾结束，不允许添加其他对话', '2025-08-01 12:51:57');
+-- 用户日志表
 
+DROP TABLE IF EXISTS `wc_log_info`;
+
+CREATE TABLE `wc_log_info` (
+                               `id` bigint NOT NULL AUTO_INCREMENT COMMENT '日志ID（自增）',
+                               `user_id` varchar(64) DEFAULT NULL COMMENT '用户 ID',
+                               `method_name` varchar(255) DEFAULT NULL COMMENT '方法名称',
+                               `description` varchar(512) DEFAULT NULL COMMENT '描述（对应接口注解的summary等信息）',
+                               `method_params` text COMMENT '方法参数（存储JSON格式或字符串化参数）',
+                               `execution_time` datetime DEFAULT NULL COMMENT '执行时间',
+                               `execution_result` text COMMENT '执行结果',
+                               `execution_time_millis` bigint DEFAULT NULL COMMENT '执行时间（毫秒）',
+                               `is_success` int DEFAULT NULL COMMENT '是否成功(1:成功，0:失败)',
+                               PRIMARY KEY (`id`),
+                               KEY `idx_user_id` (`user_id`),
+                               KEY `idx_execution_time` (`execution_time`),
+                               KEY `idx_method_name` (`method_name`)
+) ENGINE=InnoDB AUTO_INCREMENT=263 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='日志信息表（记录方法执行日志）';
 
 BEGIN;
 COMMIT;

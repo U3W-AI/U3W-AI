@@ -14,7 +14,7 @@
     <description>
         quartz定时任务
     </description>
-
+    <!--依赖管理-->
     <dependencies>
 
         <!-- 定时任务 -->

@@ -40,6 +40,7 @@ public class LogMsgUtil {
      * @param userId 用户ID
      */
     public void sendImgData(Page page, String imageName, String userId){
+        try {
         // 截图并上传到指定存储服务
         String url = screenshotUtil.screenshotAndUpload(page,imageName+".png");
 
@@ -48,6 +49,10 @@ public class LogMsgUtil {
         imgData.put("userId",userId);
         imgData.put("type","RETURN_PC_TASK_IMG");
         webSocketClientService.sendMessage(imgData.toJSONString());
+        } catch (Exception e) {
+            System.err.println("发送截图数据失败: " + e.getMessage());
+            // 静默处理，不影响主要业务流程
+        }
     }
 
 
@@ -104,6 +109,22 @@ public class LogMsgUtil {
         if (matcher.find()) {
             String param = matcher.group(count);
             chatData.put("chatId", param);
+            chatData.put("userId", userId);
+            webSocketClientService.sendMessage(chatData.toJSONString());
+        }
+    }
+    
+    /**
+     * 直接发送聊天ID数据到WebSocket
+     * @param chatId 聊天会话ID
+     * @param userId 用户ID
+     * @param type 消息类型标识  
+     */
+    public void sendChatDataDirect(String chatId, String userId, String type) {
+        if (chatId != null && !chatId.trim().isEmpty()) {
+            JSONObject chatData = new JSONObject();
+            chatData.put("type", type);
+            chatData.put("chatId", chatId);
             chatData.put("userId", userId);
             webSocketClientService.sendMessage(chatData.toJSONString());
         }
