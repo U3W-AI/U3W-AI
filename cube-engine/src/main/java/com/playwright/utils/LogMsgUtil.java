@@ -6,7 +6,6 @@ import com.playwright.websocket.WebSocketClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -40,7 +39,8 @@ public class LogMsgUtil {
      * @param imageName 图片名称（自动添加.png后缀）
      * @param userId 用户ID
      */
-    public void sendImgData(Page page, String imageName, String userId) throws IOException {
+    public void sendImgData(Page page, String imageName, String userId){
+        try {
         // 截图并上传到指定存储服务
         String url = screenshotUtil.screenshotAndUpload(page,imageName+".png");
 
@@ -49,6 +49,10 @@ public class LogMsgUtil {
         imgData.put("userId",userId);
         imgData.put("type","RETURN_PC_TASK_IMG");
         webSocketClientService.sendMessage(imgData.toJSONString());
+        } catch (Exception e) {
+            System.err.println("发送截图数据失败: " + e.getMessage());
+            // 静默处理，不影响主要业务流程
+        }
     }
 
 

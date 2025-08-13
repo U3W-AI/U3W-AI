@@ -1,5 +1,6 @@
 package com.playwright.controller;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Locator;
@@ -9,6 +10,7 @@ import com.microsoft.playwright.options.LoadState;
 import com.microsoft.playwright.options.WaitForSelectorState;
 import com.playwright.entity.UnPersisBrowserContextInfo;
 import com.playwright.utils.*;
+import com.playwright.entity.UserInfoRequest;
 import com.playwright.websocket.WebSocketClientService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -21,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
+
+import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
 @RestController
 @RequestMapping("/api/browser")
@@ -64,11 +68,10 @@ public class BrowserController {
     @GetMapping("/checkMaxLogin")
     public String checkMaxLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"MiniMax Chat")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://chat.minimaxi.com/");
             Thread.sleep(3000);
             Locator loginButton = page.locator("div.text-col_text00.border-col_text00.hover\\:bg-col_text00.hover\\:text-col_text05.flex.h-\\[32px\\].cursor-pointer.items-center.justify-center.rounded-full.border.px-\\[16px\\].text-\\[13px\\].font-medium.leading-\\[17px\\].md\\:h-\\[36px\\]").last();
-            System.out.println("匹配登录成功============>"+loginButton.count());
             if(loginButton.count() == 0){
                 // 不存在登录按钮，已登录
                 return "已登录";
@@ -92,7 +95,7 @@ public class BrowserController {
     public String checkKimiLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "kimi")) {
             // 1. 打开新页面并访问Kimi网站
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.kimi.com/");
             Thread.sleep(5000); // 等待页面加载
 
@@ -174,7 +177,7 @@ public class BrowserController {
     @Operation(summary = "获取代理版MiniMax登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     public String getMaxQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"MiniMax Chat")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://chat.minimaxi.com/");
             page.locator("xpath=/html/body/section/div/div/section/header/div[2]/div[2]/div[2]/div").click();
             Thread.sleep(3000);
@@ -217,7 +220,7 @@ public class BrowserController {
     @Operation(summary = "获取代理版KiMi登录二维码", description = "返回二维码截图 URL 或 false 表示失败，如果已登录则返回用户信息")
     public String getKiMiQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "KiMi")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
 
             // 1. 访问Kimi官网
             page.navigate("https://www.kimi.com/");
@@ -240,10 +243,8 @@ public class BrowserController {
                 statusObj.put("userId", userId);
                 statusObj.put("type", "RETURN_KIMI_STATUS");
                 webSocketClientService.sendMessage(statusObj.toJSONString());
-                System.out.println("走一的逻辑");
                 return nameText.isEmpty() ? "已登录" : nameText;
             } else {
-                System.out.println("走二的逻辑");
                 // 4. 截图并发送二维码
                 String url = screenshotUtil.screenshotAndUpload(page, "checkKiMiLogin_" + System.currentTimeMillis() + ".png");
                 JSONObject jsonObject = new JSONObject();
@@ -317,7 +318,7 @@ public class BrowserController {
             Locator phone = page.locator("//p[@class='nick-info-name']");
             String phoneText = phone.textContent();
             for(int i = 0; i < 6; i++) {
-                if("未登录".equals(phoneText)) {
+                if(phoneText.contains("未登录")) {
                     Thread.sleep(5000);
                 } else {
                     break;
@@ -348,7 +349,7 @@ public class BrowserController {
     @GetMapping("/checkMetasoLogin")
     public String checkMetasoLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"metaso")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://metaso.cn/");
             Thread.sleep(5000);
             Locator loginButton = page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("登录/注册"));
@@ -381,7 +382,7 @@ public class BrowserController {
     @GetMapping("/getMetasoQrCode")
     public String getMetasoQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"metaso")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://metaso.cn/");
             page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("登录/注册")).click();
             Thread.sleep(3000);
@@ -424,7 +425,7 @@ public class BrowserController {
     @GetMapping("/checkDBLogin")
     public String checkDBLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"db")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.doubao.com/chat/");
             Thread.sleep(5000);
             Locator locator = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div/main/div/div/div[1]/div/div/div/div[2]/div/button");
@@ -459,7 +460,7 @@ public class BrowserController {
     @GetMapping("/getDBQrCode")
     public String getDBQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"db")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.doubao.com/chat/");
             Locator locator = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div/main/div/div/div[1]/div/div/div/div[2]/div/button");
             Thread.sleep(2000);
@@ -505,7 +506,7 @@ public class BrowserController {
     @GetMapping("/loginOut")
     public boolean loginOut(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"yb")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa");
             page.click("span.icon-yb-setting");
             page.click("text=退出登录");
@@ -526,7 +527,7 @@ public class BrowserController {
     @GetMapping("/checkDeepSeekLogin")
     public String checkDeepSeekLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "deepseek")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
 
             // 导航到DeepSeek页面并确保完全加载
             page.navigate("https://chat.deepseek.com/");
@@ -546,7 +547,6 @@ public class BrowserController {
 
                 // 如果当前尝试失败，但还有更多尝试，等待后重试
                 if (attempt < 2) {
-                    System.out.println("DeepSeek登录检测尝试 " + (attempt + 1) + " 失败，等待后重试...");
                     page.waitForTimeout(1000);
                     // 刷新页面重试
                     page.reload();
@@ -571,7 +571,7 @@ public class BrowserController {
     @GetMapping("/getDeepSeekQrCode")
     public String getDeepSeekQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "deepseek")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
 
             // 首先检查当前登录状态
             String currentStatus = deepSeekUtil.checkLoginStatus(page, true);
@@ -655,7 +655,7 @@ public class BrowserController {
     @GetMapping("/checkTongYiLogin")
     public String checkTongYiLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "ty")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.tongyi.com/");
             page.waitForTimeout(5000);
 
@@ -692,7 +692,7 @@ public class BrowserController {
     @GetMapping("/getTongYiQrCode")
     public String getTongYiQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws IOException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "ty")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.tongyi.com/");
             page.waitForTimeout(3000);
             Locator loginButton = page.locator("//*[@id=\"new-nav-tab-wrapper\"]/div[2]/li");
@@ -739,7 +739,7 @@ public class BrowserController {
     @GetMapping("/checkBaiduLogin")
     public String checkBaiduLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws Exception {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "baidu")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
 
             // 使用BaiduUtil检查登录状态
             String loginStatus = baiduUtil.checkBaiduLogin(page, true);
@@ -763,7 +763,7 @@ public class BrowserController {
     @GetMapping("/getBaiduQrCode")
     public String getBaiduQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "baidu")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             // 首先检查当前登录状态
             String currentStatus = baiduUtil.checkBaiduLogin(page, true);
             if (!"false".equals(currentStatus)) {

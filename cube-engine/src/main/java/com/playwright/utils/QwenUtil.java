@@ -43,7 +43,6 @@ public class QwenUtil {
 
                 // 如果超时，退出循环
                 if (elapsedTime > timeout) {
-                    System.out.println("超时，AI未完成回答！");
                     break;
                 }
                 // 获取最新内容
@@ -51,7 +50,6 @@ public class QwenUtil {
                 currentContent = outputLocator.innerHTML();
 
 
-                System.out.println(currentContent);
 
                 // 如果当前内容和上次内容相同，认为 AI 已经完成回答，退出循环
                 if (currentContent.equals(lastContent)) {
@@ -67,7 +65,6 @@ public class QwenUtil {
 
                             String text = (String) page.evaluate("navigator.clipboard.readText()");
                             textRef.set(text);
-                            System.out.println("剪贴板内容：" + text);
                         } catch (Exception e) {
                             e.printStackTrace();
                         }

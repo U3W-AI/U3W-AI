@@ -59,7 +59,7 @@ public class TTHController {
         content = content.replaceAll("(\\r\\n)+", "\n");
         BrowserContext tth = browserUtil.createPersistentBrowserContext(false, userId, "tth");
         try {
-            Page page = tth.newPage();
+            Page page = browserUtil.getOrCreatePage(tth);
             String res = tthUtil.checkLoginStatus(page, true);
             if ("false".equals(res)) {
                 logInfo.sendTTHFlow("未登录头条号，请先登录！", userId);

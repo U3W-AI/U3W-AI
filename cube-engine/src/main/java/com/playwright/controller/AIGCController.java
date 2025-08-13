@@ -23,12 +23,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -129,8 +132,7 @@ public class AIGCController {
     @Operation(summary = "处理多AI代理请求", description = "根据用户输入启动多个AI平台代理任务")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startAgent")
-    public String startAgent(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws Exception {
+    public String startAgent(@RequestBody UserInfoRequest userInfoRequest) throws Exception {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"agent")) {
 
             // 初始化变量
@@ -145,58 +147,52 @@ public class AIGCController {
               // 根据不同的AI角色创建对应的页面实例
               Page[] pages = new Page[6];
 
-              // 处理 智能体 代理
+              // 处理 智能体 代理 - 为每个智能体分配独立的页面
               if(roles.contains("cube-trubos-agent")){
                   logInfo.sendTaskLog( "AI搜索@元器准备就绪，正在打开页面",userId,"AI搜索@元器");
-                  pages[0] = context.newPage();
+                  pages[0] = (pages[0] == null) ? browserUtil.getOrCreatePage(context) : pages[0];
                   String agentUrl = "https://yuanbao.tencent.com/chat/58LgTturCBdj/";
                   wrightCopyCount = tencentUtil.handelAgentAI(pages[0],userPrompt,agentUrl,"AI搜索@元器",userId,isNewChat);
               }
               if(roles.contains("cube-turbos-large-agent")){
                   logInfo.sendTaskLog( "数智化助手@元器准备就绪，正在打开页面",userId,"数智化助手@元器");
-                  pages[1] = context.newPage();
+                  pages[1] = (pages[1] == null) ? context.newPage() : pages[1];
                   String agentUrl = "https://yuanbao.tencent.com/chat/rgzZDhQdsMHZ/";
                   wrightCopyCount = tencentUtil.handelAgentAI(pages[1],userPrompt,agentUrl,"数智化助手@元器",userId,isNewChat);
               }
               if(roles.contains("cube-mini-max-agent")){
                   logInfo.sendTaskLog( "MiniMax@元器准备就绪，正在打开页面",userId,"MiniMax@元器");
-                  pages[2] = context.newPage();
+                  pages[2] = (pages[2] == null) ? context.newPage() : pages[2];
                   String agentUrl = "https://yuanbao.tencent.com/chat/7kNJBgAgQFet/";
                   wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"MiniMax@元器",userId,isNewChat);
               }
               if(roles.contains("mini-max-agent")){
                   logInfo.sendTaskLog( "MiniMax Chat准备就绪，正在打开页面",userId,"MiniMax Chat");
-                  pages[2] = context.newPage();
+                  pages[2] = (pages[2] == null) ? context.newPage() : pages[2];
                   String agentUrl = "https://chat.minimaxi.com/";
                   wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"MiniMax Chat",userId,isNewChat);
               }
               if(roles.contains("metaso-agent")){
                   logInfo.sendTaskLog( "秘塔准备就绪，正在打开页面",userId,"秘塔");
-                  pages[3] = context.newPage();
+                  pages[3] = (pages[3] == null) ? context.newPage() : pages[3];
                   String agentUrl = "https://metaso.cn/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"秘塔",userId,isNewChat);
+                  wrightCopyCount = tencentUtil.handelAgentAI(pages[3],userPrompt,agentUrl,"秘塔",userId,isNewChat);
               }
               if(roles.contains("cube-sogou-agent")){
                   logInfo.sendTaskLog( "搜狗搜索@元器准备就绪，正在打开页面",userId,"搜狗搜索@元器");
-                  pages[3] = context.newPage();
+                  pages[3] = (pages[3] == null) ? context.newPage() : pages[3];
                   String agentUrl = "https://yuanbao.tencent.com/chat/u1VeB6jKt0lE/";
                   wrightCopyCount = tencentUtil.handelAgentAI(pages[3],userPrompt,agentUrl,"搜狗搜索@元器",userId,isNewChat);
               }
               if(roles.contains("cube-lwss-agent")){
                   logInfo.sendTaskLog( "KIMI@元器准备就绪，正在打开页面",userId,"KIMI@元器");
-                  pages[4] = context.newPage();
-                  String agentUrl = "https://yuanbao.tencent.com/chat/oq4esMyN9VS2/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[4],userPrompt,agentUrl,"KIMI@元器",userId,isNewChat);
-              }
-            if(roles.contains("cube-lwss-agent")){
-                logInfo.sendTaskLog( "KIMI@元器准备就绪，正在打开页面",userId,"KIMI@元器");
-                pages[4] = context.newPage();
+                  pages[4] = (pages[4] == null) ? context.newPage() : pages[4];
                 String agentUrl = "https://yuanbao.tencent.com/chat/oq4esMyN9VS2/";
                 wrightCopyCount = tencentUtil.handelAgentAI(pages[4],userPrompt,agentUrl,"KIMI@元器",userId,isNewChat);
             }
             if(roles.contains("baidu-agent")){
                 logInfo.sendTaskLog( "百度AI准备就绪，正在打开页面",userId,"百度AI");
-                pages[5] = context.newPage();
+                pages[5] = (pages[5] == null) ? context.newPage() : pages[5];
                 String agentUrl = "https://chat.baidu.com/";
                 // 直接使用handleBaiduAI方法处理，返回内容而不是计数
                 String baiduContent = baiduUtil.handleBaiduAI(pages[5],userPrompt,userId,roles,null);
@@ -244,19 +240,76 @@ public class AIGCController {
     @Operation(summary = "启动腾讯元宝内容生成", description = "根据角色执行不同类型的腾讯元宝任务（T1和DS）")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startYB")
-    public String startYB(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws Exception {
+    public String startYB(@RequestBody UserInfoRequest userInfoRequest) throws Exception {
         String userId =userInfoRequest.getUserId();
         String currentContent = "";
         String roles = userInfoRequest.getRoles();
         String userPrompt = userInfoRequest.getUserPrompt();
         String t1ChatId = userInfoRequest.getToneChatId();
         String dschatId = userInfoRequest.getYbDsChatId();
+        
+        // 验证必要参数
+        if (roles == null || roles.trim().isEmpty()) {
+            String errorMsg = "错误：roles参数为空，无法执行元宝智能体任务";
+            logInfo.sendTaskLog(errorMsg, userId, "元包智能体");
+            
+            // 发送错误响应
+            try {
+                logInfo.sendResData(errorMsg, userId, "元包智能体", "RETURN_YB_RES", "", "");
+            } catch (Exception e) {
+                // 静默处理
+            }
+            return errorMsg;
+        }
+        
+        if (userPrompt == null || userPrompt.trim().isEmpty()) {
+            String errorMsg = "错误：userPrompt参数为空，无法执行元宝智能体任务";
+            logInfo.sendTaskLog(errorMsg, userId, "元包智能体");
+            
+            // 发送错误响应
+            try {
+                logInfo.sendResData(errorMsg, userId, "元包智能体", "RETURN_YB_RES", "", "");
+            } catch (Exception e) {
+                // 静默处理
+            }
+            return errorMsg;
+        }
+        
+        logInfo.sendTaskLog("元宝智能体任务开始，角色配置: " + roles, userId, "元包智能体");
+
 //yb-hunyuan-pt,yb-hunyuan-sdsk,yb-hunyuan-lwss,yb-deepseek-pt,yb-deepseek-sdsk,yb-deepseek-lwss
         try {
             UnPersisBrowserContextInfo browserContextInfo = BrowserContextFactory.getBrowserContext(userId, 2);
+            
+            // 检查浏览器上下文是否创建成功
+            if (browserContextInfo == null || browserContextInfo.getBrowserContext() == null) {
+                String errorMsg = "浏览器上下文创建失败，无法执行元宝智能体任务";
+                logInfo.sendTaskLog(errorMsg, userId, "元包智能体");
+                
+                // 发送错误响应
+                try {
+                    logInfo.sendResData(errorMsg, userId, "元包智能体", "RETURN_YB_RES", "", "");
+                } catch (Exception e) {
+                }
+                return errorMsg;
+            }
+            
             BrowserContext context = browserContextInfo.getBrowserContext();
             List<Page> pages = context.pages();
+            
+            // 检查页面是否可用
+            if (pages == null || pages.size() < 2) {
+                String errorMsg = "浏览器页面不足，需要至少2个页面，当前页面数: " + (pages != null ? pages.size() : 0);
+                logInfo.sendTaskLog(errorMsg, userId, "元包智能体");
+                
+                // 发送错误响应
+                try {
+                    logInfo.sendResData(errorMsg, userId, "元包智能体", "RETURN_YB_RES", "", "");
+                } catch (Exception e) {
+                }
+                return errorMsg;
+            }
+            
             Page page1 = pages.get(0);
             Page page2 = pages.get(1);
             int t1CopyCount = 0;
@@ -275,6 +328,7 @@ public class AIGCController {
             } else if (roles.contains("yb-hunyuan-lwss") && roles.contains("yb-hunyuan-sdsk")) {
                 //深度思考 + 联网
                 t1CopyCount = tencentUtil.handleYBAI(page1, userPrompt, "yb-hunyuan-lwss-2", userId, "腾讯元宝T1", t1ChatId);
+            } else {
             }
 
             //腾讯元宝DS  根据角色组合处理不同模式（普通/深度思考/联网）
@@ -289,29 +343,58 @@ public class AIGCController {
             } else if (roles.contains("yb-deepseek-lwss") && roles.contains("yb-deepseek-sdsk")) {
                 //深度思考 + 联网
                 dsCopyCount = tencentUtil.handleYBAI(page2, userPrompt, "yb-deepseek-lwss-2", userId, "腾讯元宝DS", dschatId);
+            } else {
             }
 
 
-            //保存入库 腾讯元宝T1
+            // 标记T1和DS是否有内容生成
+            boolean hasT1Content = false;
+            boolean hasDSContent = false;
+            String t1Content = "";
+            String dsContent = "";
+
+            //保存入库 腾讯元宝T1 - T1和DS独立处理，各自发送响应
             if (roles.contains("yb-hunyuan-pt") && !roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
-                currentContent = currentContent + "\n\n" + tencentUtil.saveDraftData(page1, userInfoRequest, "yb-hunyuan-pt", userId, t1CopyCount);
+                t1Content = tencentUtil.saveDraftData(page1, userInfoRequest, "yb-hunyuan-pt", userId, t1CopyCount);
+                hasT1Content = t1Content != null && !t1Content.trim().isEmpty();
             } else if (roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
                 //深度思考
-                currentContent = currentContent + "\n\n" + tencentUtil.saveDraftData(page1, userInfoRequest, "yb-hunyuan-sdsk", userId, t1CopyCount);
+                t1Content = tencentUtil.saveDraftData(page1, userInfoRequest, "yb-hunyuan-sdsk", userId, t1CopyCount);
+                hasT1Content = t1Content != null && !t1Content.trim().isEmpty();
             } else if (roles.contains("yb-hunyuan-lwss")) {
                 //深度思考 + 联网
-                currentContent = currentContent + "\n\n" + tencentUtil.saveDraftData(page1, userInfoRequest, "yb-hunyuan-lwss", userId, t1CopyCount);
+                t1Content = tencentUtil.saveDraftData(page1, userInfoRequest, "yb-hunyuan-lwss", userId, t1CopyCount);
+                hasT1Content = t1Content != null && !t1Content.trim().isEmpty();
             }
 
-            //保存入库 腾讯元宝DS
+            //保存入库 腾讯元宝DS - DS独立处理，发送自己的响应
             if (roles.contains("yb-deepseek-pt") && !roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
-                currentContent = currentContent + "\n\n" + tencentUtil.saveDraftData(page2, userInfoRequest, "yb-deepseek-pt", userId, dsCopyCount);
+                dsContent = tencentUtil.saveDraftData(page2, userInfoRequest, "yb-deepseek-pt", userId, dsCopyCount);
+                hasDSContent = dsContent != null && !dsContent.trim().isEmpty();
             } else if (roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
-                currentContent = currentContent + "\n\n" + tencentUtil.saveDraftData(page2, userInfoRequest, "yb-deepseek-sdsk", userId, dsCopyCount);
+                dsContent = tencentUtil.saveDraftData(page2, userInfoRequest, "yb-deepseek-sdsk", userId, dsCopyCount);
+                hasDSContent = dsContent != null && !dsContent.trim().isEmpty();
             } else if (roles.contains("yb-deepseek-lwss")) {
                 //深度思考 + 联网
-                currentContent = currentContent + "\n\n" + tencentUtil.saveDraftData(page2, userInfoRequest, "yb-deepseek-lwss", userId, dsCopyCount);
+                dsContent = tencentUtil.saveDraftData(page2, userInfoRequest, "yb-deepseek-lwss", userId, dsCopyCount);
+                hasDSContent = dsContent != null && !dsContent.trim().isEmpty();
             }
+            
+            // 合并内容用于返回值（但不影响独立响应）
+            if (hasT1Content) {
+                currentContent = currentContent + "\n\n" + t1Content;
+            }
+            if (hasDSContent) {
+                currentContent = currentContent + "\n\n" + dsContent;
+            }
+            
+            // 发送任务完成日志（不发送统一的RETURN_YB_RES，因为T1和DS已经各自发送了）
+            try {
+                logInfo.sendTaskLog("元宝智能体任务执行完成", userId, "元包智能体");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            
             return currentContent;
 
         } catch (Exception e) {
@@ -327,8 +410,7 @@ public class AIGCController {
     @Operation(summary = "启动MiniMaxAI生成", description = "调用MiniMax平台生成内容并抓取结果")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startMiniMax")
-    public String startMiniMax(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws Exception {
+    public String startMiniMax(@RequestBody UserInfoRequest userInfoRequest) throws Exception {
         try (
                 BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"MiniMax Chat")) {
 
@@ -341,7 +423,7 @@ public class AIGCController {
             String userPrompt = userInfoRequest.getUserPrompt();
 
             // 初始化页面并导航到指定会话
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             if(maxChatId != null && !maxChatId.isEmpty()){
                 page.navigate("https://chat.minimaxi.com/?type=chat&chatID="+maxChatId);
             }else {
@@ -358,7 +440,6 @@ public class AIGCController {
                     page.waitForTimeout(1000);
                 }
             } catch (Exception e) {
-                System.out.println("关闭弹窗失败，继续执行: ");
             }
 
             // 移除侧边栏
@@ -368,7 +449,6 @@ public class AIGCController {
                     aside.first().evaluate("el => el.remove()");
                 }
             } catch (Exception e) {
-                System.out.println("移除侧边栏失败，继续执行: ");
             }
 
             logInfo.sendTaskLog( "MiniMax页面打开完成",userId,"MiniMax Chat");
@@ -512,7 +592,6 @@ public class AIGCController {
                         Thread.sleep(1000);
                         String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
                         shareUrlRef.set(shareUrl);
-                        System.out.println("剪贴板内容：" + shareUrl);
                     } catch (Exception e) {
                         UserLogUtil.sendExceptionLog(userId,"MiniMax复制链接", "startMiniMax", e, url + "/saveLogInfo");
                     }
@@ -548,13 +627,10 @@ public class AIGCController {
                     String siblingClass = sibling.getAttribute("class");
                     boolean isHidden = siblingClass != null && siblingClass.contains("hidden");
                     if (isHidden) {
-                        System.out.println("第 " + j + " 个已经隐藏，无需点击");
                     } else {
                         try {
                             think.click(new Locator.ClickOptions().setForce(true));
-                            System.out.println("点击第 " + j + " 个隐藏思考状态");
                         } catch (PlaywrightException e) {
-                            System.out.println("点击第 " + j + " 个失败");
                         }
                     }
                 }
@@ -610,8 +686,7 @@ public class AIGCController {
     @Operation(summary = "启动秘塔AI生成", description = "调用秘塔AI平台生成内容并抓取结果")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startMetaso")
-    public String startMetaso(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
+    public String startMetaso(@RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"metaso")) {
 
             // 初始化变量
@@ -622,7 +697,7 @@ public class AIGCController {
             String userPrompt = userInfoRequest.getUserPrompt();
 
             // 初始化页面并导航到指定会话测试用
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             if(metasoChatId!=null && !metasoChatId.isEmpty()){
                 page.navigate("https://metaso.cn/search/"+metasoChatId);
             }else {
@@ -733,7 +808,6 @@ public class AIGCController {
 
                     String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
                     shareUrlRef.set(shareUrl);
-                    System.out.println("剪贴板内容：" + shareUrl);
                 } catch (Exception e) {
                     UserLogUtil.sendExceptionLog(userId, "秘塔复制链接异常", "startMetaso", e, url + "/saveLogInfo");
                 }
@@ -774,8 +848,7 @@ public class AIGCController {
     @Operation(summary = "启动豆包AI生成", description = "调用豆包AI平台生成内容并抓取结果")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startDB")
-    public String startDB(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
+    public String startDB(@RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"db")) {
 
             // 初始化变量
@@ -786,7 +859,7 @@ public class AIGCController {
             String userPrompt = userInfoRequest.getUserPrompt();
 
             // 初始化页面并导航到指定会话
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             if(dbchatId!=null){
                 page.navigate("https://www.doubao.com/chat/"+dbchatId);
             }else {
@@ -833,15 +906,25 @@ public class AIGCController {
             // 创建定时截图线程
             AtomicInteger i = new AtomicInteger(0);
             ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
-            // 启动定时任务，每5秒执行一次截图
+            // 🔥 优化：启动定时任务，增加页面状态检查和错误处理
             ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
                 try {
-                    int currentCount = i.getAndIncrement(); // 获取当前值并自增
+                    // 检查页面是否已关闭
+                    if (page.isClosed()) {
+                        return;
+                    }
+                    
+                    int currentCount = i.getAndIncrement();
                     logInfo.sendImgData(page, userId + "豆包执行过程截图"+currentCount, userId);
+                } catch (com.microsoft.playwright.impl.TargetClosedError e) {
+                } catch (com.microsoft.playwright.PlaywrightException e) {
                 } catch (Exception e) {
+                    // 只记录严重错误到日志系统
+                    if (e.getMessage() != null && !e.getMessage().toLowerCase().contains("timeout")) {
                     UserLogUtil.sendExceptionLog(userId, "豆包截图", "startDB", e, url + "/saveLogInfo");
                 }
-            }, 0, 8, TimeUnit.SECONDS);
+                }
+            }, 1000, 6000, TimeUnit.MILLISECONDS); // 🔥 优化：延迟1秒开始，每6秒执行一次
 
             logInfo.sendTaskLog( "开启自动监听任务，持续监听豆包回答中",userId,"豆包");
             // 等待复制按钮出现并点击
@@ -880,7 +963,6 @@ public class AIGCController {
                     Thread.sleep(2000);
                     String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
                     shareUrlRef.set(shareUrl);
-                    System.out.println("剪贴板内容：" + shareUrl);
                 } catch (Exception e) {
                     UserLogUtil.sendExceptionLog(userId, "豆包复制", "startDB", e, url + "/saveLogInfo");
                 }
@@ -929,14 +1011,21 @@ public class AIGCController {
     @Operation(summary = "启动KimiAI生成", description = "调用Kimi平台生成内容并抓取结果")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startKimi")
-    public String startKimi(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
+    public String startKimi(@RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
+
+        String userId = userInfoRequest.getUserId();
+        String resText = "";
+        String shareUrl = "";
+        String sharImgUrl = "";
+        ScheduledExecutorService screenshotExecutor = null;
+        ScheduledFuture<?> screenshotFuture = null;
 
         try (
-                BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "Kimi");
-                Page page = context.newPage()) {
+                BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "Kimi");
+                Page page = browserUtil.getOrCreatePage(context)) {
+            
+            
             // 初始化变量
-            String userId = userInfoRequest.getUserId();
             String kimiChatId = userInfoRequest.getKimiChatId();
             logInfo.sendTaskLog("kimi准备就绪，正在打开页面", userId, "Kimi");
             String roles = userInfoRequest.getRoles();
@@ -966,42 +1055,88 @@ public class AIGCController {
 
             // 创建定时截图线程
             AtomicInteger i = new AtomicInteger(0);
-            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
-            // 启动定时任务，每5秒执行一次截图
-            ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+            screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            // 启动定时任务，每8秒执行一次截图（优化超时检测）
+            screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
                 try {
+                    // 检查页面是否已关闭
+                    if (page.isClosed()) {
+                        return;
+                    }
                     int currentCount = i.getAndIncrement(); // 获取当前值并自增
                     logInfo.sendImgData(page, userId + "kimi执行过程截图"+currentCount, userId);
 
+                } catch (com.microsoft.playwright.impl.TargetClosedError e) {
+                    // 不发送技术错误到前端
                 } catch (Exception e) {
-                    UserLogUtil.sendExceptionLog(userId, "Kimi截图", "startKimi", e, url + "/saveLogInfo");
+                    // 不发送技术错误到前端
                 }
             }, 0, 8, TimeUnit.SECONDS);
+            
+            // 🔥 优化：增强超时检测和处理
+            try {
+                // 设置更长的超时时间用于等待响应
+                page.setDefaultTimeout(120000); // 2分钟超时
+                
             //存储回答内容文本
-            String resText="";
             resText = kimiUtil.waitKimiResponse(page, userId, userPrompt ,kimiChatId);
+                
+            } catch (Exception e) {
+                // 检查是否是超时异常
+                if (e.getMessage() != null && e.getMessage().toLowerCase().contains("timeout")) {
+                    resText = "Kimi响应超时，请稍后重试";
+                    logInfo.sendTaskLog("Kimi响应超时，正在终止任务", userId, "Kimi");
+                } else {
+                    resText = "Kimi处理出现问题，请稍后重试";
+                    logInfo.sendTaskLog("Kimi处理出现异常，正在终止任务", userId, "Kimi");
+                }
+            }
+            
             //关闭截图
-            screenshotFuture.cancel(false);
-            screenshotExecutor.shutdown();
+            if (screenshotFuture != null) {
+                screenshotFuture.cancel(true); // 使用true强制中断
+            }
+            if (screenshotExecutor != null) {
+                screenshotExecutor.shutdownNow(); // 立即关闭
+                try {
+                    // 等待执行器完全关闭，最多等待2秒
+                    if (!screenshotExecutor.awaitTermination(2, TimeUnit.SECONDS)) {
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
             Thread.sleep(500);
             //获取对话链接网址
+            try {
             page.locator("span:has-text('复制链接')").click();
             Thread.sleep(1000);
-            String shareUrl=(String) page.evaluate("async () => { return await navigator.clipboard.readText(); }");
+                shareUrl=(String) page.evaluate("async () => { return await navigator.clipboard.readText(); }");
             //截取网址部分
             if (shareUrl != null && shareUrl.contains("https://")) {
                 shareUrl = shareUrl.substring(shareUrl.indexOf("https://"));
             }
+            } catch (Exception e) {
+                shareUrl = "";
+                // 不发送技术错误到前端
+            }
+            
             // 获取图片
-            String sharImgUrl="";
+            try {
             sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
                 page.locator("span:has-text('生成图片')").click();
                 page.locator("button.kimi-button.info.button").nth(1).click();
             });
+            } catch (Exception e) {
+                sharImgUrl = "";
+                // 不发送技术错误到前端
+            }
 
             logInfo.sendTaskLog( "执行完成",userId,"Kimi");
             logInfo.sendChatData(page,"/chat/([^/?#]+)",userId,"RETURN_KIMI_CHATID",1);
+            
             logInfo.sendResData(resText,userId,"kimi","RETURN_KIMI_RES",shareUrl,sharImgUrl);
+            
             //保存数据库
             userInfoRequest.setDraftContent(resText);
             userInfoRequest.setAiName("Kimi");
@@ -1012,8 +1147,19 @@ public class AIGCController {
             return resText;
 
 
-        } catch (InterruptedException | IOException e) {
+        } catch (InterruptedException e) {
             throw e;
+        } finally {
+            // 确保资源清理
+            try {
+                if (screenshotFuture != null) {
+                    screenshotFuture.cancel(true);
+                }
+                if (screenshotExecutor != null) {
+                    screenshotExecutor.shutdownNow();
+                }
+            } catch (Exception e) {
+            }
         }
     }
 
@@ -1021,8 +1167,7 @@ public class AIGCController {
     @Operation(summary = "豆包智能评分", description = "调用豆包平台对内容进行评分并返回评分结果")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startDBScore")
-    public String startDBScore(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
+    public String startDBScore(@RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"db")) {
 
             // 初始化变量
@@ -1032,7 +1177,7 @@ public class AIGCController {
             String userPrompt = userInfoRequest.getUserPrompt();
 
             // 初始化页面并导航到指定会话
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.doubao.com/chat/");
             page.waitForLoadState(LoadState.LOAD);
             Thread.sleep(500);
@@ -1118,7 +1263,6 @@ public class AIGCController {
                     Thread.sleep(2000);
                     String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
                     shareUrlRef.set(shareUrl);
-                    System.out.println("剪贴板内容：" + shareUrl);
                 } catch (Exception e) {
                     UserLogUtil.sendExceptionLog(userId, "豆包评分内容复制", "startDBScore", e, url + "/saveLogInfo");
                 }
@@ -1159,8 +1303,7 @@ public class AIGCController {
     @Operation(summary = "投递公众号排版", description = "调用豆包平台对内容进行评分并返回评分结果")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startDBOffice")
-    public String startDBOffice(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
+    public String startDBOffice(@RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"db")) {
             // 初始化变量
             String userId = userInfoRequest.getUserId();
@@ -1169,7 +1312,7 @@ public class AIGCController {
             String userPrompt = userInfoRequest.getUserPrompt();
 
             // 初始化页面并导航到指定会话
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.doubao.com/chat/");
             page.waitForLoadState(LoadState.LOAD);
             Thread.sleep(500);
@@ -1248,35 +1391,29 @@ public class AIGCController {
     @Operation(summary = "启动DeepSeek AI生成", description = "调用DeepSeek AI平台生成内容并抓取结果")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startDeepSeek")
-    public String startDeepSeek(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
-        // 添加全局异常处理
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "deepseek")) {
-            // 设置全局超时时间，提高稳定性
-            context.setDefaultTimeout(60000); // 60秒
-            // 初始化变量
-            String userId = userInfoRequest.getUserId();
-            logInfo.sendTaskLog("DeepSeek准备就绪，正在打开页面", userId, "DeepSeek");
-            String roles = userInfoRequest.getRoles();
-            String userPrompt = userInfoRequest.getUserPrompt();
-            String chatId = userInfoRequest.getYbDsChatId(); // 获取会话ID
-            String isNewChat = userInfoRequest.getIsNewChat(); // 是否新会话
+    public String startDeepSeek(@RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
 
-            // 如果指定了新会话，则忽略已有的会话ID
+
+            String userId = userInfoRequest.getUserId();
+        String chatId = userInfoRequest.getDbChatId();
+            String userPrompt = userInfoRequest.getUserPrompt();
+        String isNewChat = userInfoRequest.getIsNewChat();
+        String roles = userInfoRequest.getRoles();
+        
+
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "deepseek")) {
             if ("true".equalsIgnoreCase(isNewChat)) {
-                System.out.println("用户请求新会话，将忽略已有会话ID");
                 chatId = null;
             } else if (chatId != null && !chatId.isEmpty()) {
                 logInfo.sendTaskLog("检测到会话ID: " + chatId + "，将继续使用此会话", userId, "DeepSeek");
             } else {
-                System.out.println("未检测到会话ID，将创建新会话");
             }
 
             // 初始化页面并发送消息
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
 
-            // 设置页面超时时间更长
-            page.setDefaultTimeout(60000); // 60秒
+            // 🔥 优化：设置更合理的超时时间，提高响应速度
+            page.setDefaultTimeout(90000); // 90秒（增加到90秒以减少超时错误）
 
             // 创建定时截图线程
             AtomicInteger i = new AtomicInteger(0);
@@ -1290,30 +1427,18 @@ public class AIGCController {
                         return;
                     }
 
-                    // 检查页面是否正在加载中，如果是则跳过本次截图
-                    try {
-                        boolean isLoading = (boolean) page.evaluate("() => document.readyState !== 'complete'");
-                        if (isLoading) {
-                            System.out.println("页面加载中，跳过截图");
-                            return;
-                        }
-                    } catch (Exception e) {
-                        UserLogUtil.sendExceptionLog(userId, "startDeepSeek截图", "startDeepSeek", e, url + "/saveLogInfo");
-                    }
-
+                    // 🔥 优化：移除页面加载检查，减少不必要的延迟
                     int currentCount = i.getAndIncrement();
                     try {
                         // 使用更安全的截图方式
                         logInfo.sendImgData(page, userId + "DeepSeek执行过程截图" + currentCount, userId);
                     } catch (Exception e) {
-                        System.out.println("截图失败");
-                        UserLogUtil.sendExceptionLog(userId, "startDeepSeek截图", "startDeepSeek", e, url + "/saveLogInfo");
+                        // 不发送技术错误到前端
                     }
                 } catch (Exception e) {
-                    System.out.println("截图任务异常");
-                    UserLogUtil.sendExceptionLog(userId, "startDeepSeek截图", "startDeepSeek", e, url + "/saveLogInfo");
+                    // 不发送技术错误到前端
                 }
-            }, 2000, 6000, TimeUnit.MILLISECONDS); // 延迟2秒开始，每6秒执行一次
+            }, 1000, 4000, TimeUnit.MILLISECONDS); // 🔥 优化：延迟1秒开始，每4秒执行一次（提高截图频率）
 
             logInfo.sendTaskLog("开启自动监听任务，持续监听DeepSeek回答中", userId, "DeepSeek");
 
@@ -1331,6 +1456,72 @@ public class AIGCController {
                         Thread.sleep(2000);
                     }
 
+                    // 🔥 新增：检测DeepSeek服务器不可用弹窗
+                    try {
+                        // 检查是否有服务器不可用的弹窗或错误信息
+                        String serverUnavailableCheck = (String) page.evaluate("""
+                            () => {
+                                // 检查常见的服务器不可用提示
+                                const errorMessages = [
+                                    '服务器暂时不可用',
+                                    '服务暂时不可用', 
+                                    'Service temporarily unavailable',
+                                    'Server temporarily unavailable',
+                                    '系统繁忙',
+                                    '服务异常',
+                                    '网络异常'
+                                ];
+                                
+                                // 检查页面中是否包含这些错误信息
+                                const bodyText = document.body.innerText || document.body.textContent || '';
+                                for (const message of errorMessages) {
+                                    if (bodyText.includes(message)) {
+                                        return message;
+                                    }
+                                }
+                                
+                                // 检查弹窗或模态框
+                                const modals = document.querySelectorAll('.modal, .dialog, .popup, .alert, [role="dialog"], [role="alert"]');
+                                for (const modal of modals) {
+                                    const modalText = modal.innerText || modal.textContent || '';
+                                    for (const message of errorMessages) {
+                                        if (modalText.includes(message)) {
+                                            return message;
+                                        }
+                                    }
+                                }
+                                
+                                return null;
+                            }
+                        """);
+
+                        if (serverUnavailableCheck != null && !serverUnavailableCheck.equals("null")) {
+                            
+                            // 安全地关闭截图任务
+                            try {
+                                screenshotFuture.cancel(true);
+                                screenshotExecutor.shutdownNow();
+                            } catch (Exception e) {
+                            }
+                            
+                            // 直接返回错误信息给前端
+                            String errorMessage = "DeepSeek服务器暂时不可用，请稍后再试";
+                            logInfo.sendTaskLog(errorMessage, userId, "DeepSeek");
+                            logInfo.sendResData(errorMessage, userId, "DeepSeek", "RETURN_DEEPSEEK_RES", "", "");
+                            
+                            // 保存错误信息到数据库
+                            userInfoRequest.setDraftContent(errorMessage);
+                            userInfoRequest.setAiName("DeepSeek");
+                            userInfoRequest.setShareUrl("");
+                            userInfoRequest.setShareImgUrl("");
+                            RestUtils.post(url + "/saveDraftContent", userInfoRequest);
+                            
+                            return errorMessage;
+                        }
+                    } catch (Exception e) {
+                        // 继续执行正常流程
+                    }
+
                     copiedText = deepSeekUtil.handleDeepSeekAI(page, userPrompt, userId, roles, chatId);
 
                     if (!copiedText.startsWith("获取内容失败") && !copiedText.isEmpty()) {
@@ -1341,7 +1532,7 @@ public class AIGCController {
                 } catch (Exception e) {
                     if (retry == maxRetries - 1) {
                         copiedText = "获取内容失败：多次尝试后仍然失败";
-                        UserLogUtil.sendExceptionLog(userId, "startDeepSeek获取内容", "startDeepSeek", e, url + "/saveLogInfo");
+                        // 不发送技术错误到前端，只记录日志
                     }
                     Thread.sleep(2000); // 出错后等待2秒
                 }
@@ -1357,14 +1548,12 @@ public class AIGCController {
                     // 截图任务未能完全关闭
                 }
             } catch (Exception e) {
-                // 关闭截图任务时出错
-                UserLogUtil.sendExceptionLog(userId, "startDeepSeek关闭截图", "startDeepSeek", e, url + "/saveLogInfo");
+                // 关闭截图任务时出错，不发送到前端
             }
 
             // 如果获取内容失败，尝试从页面中提取任何可能的内容
             if (copiedText.startsWith("获取内容失败") || copiedText.isEmpty()) {
                 try {
-                    System.out.println("尝试使用备用方法提取内容");
 
                     // 使用JavaScript提取页面上的任何文本内容
                     Object extractedContent = page.evaluate("""
@@ -1390,82 +1579,58 @@ public class AIGCController {
                     if (extractedContent != null && !extractedContent.toString().isEmpty() &&
                             !extractedContent.toString().equals("无法提取内容")) {
                         copiedText = extractedContent.toString();
-                        System.out.println("使用备用方法成功提取内容");
                     }
                 } catch (Exception e) {
-                    System.out.println("备用提取方法失败");
-                    UserLogUtil.sendExceptionLog(userId, "startDeepSeek备用提取", "startDeepSeek", e, url + "/saveLogInfo");
+                    // 不发送技术错误到前端
                 }
             }
 
-            // 添加额外的HTML格式化处理
+            // 🔥 优化：获取分享链接，增加超时保护
+            String shareUrl = "";
             try {
-                // 检查是否需要额外的格式化
-                if (!copiedText.startsWith("获取内容失败") && !copiedText.isEmpty()) {
-                    // 使用JavaScript在浏览器中进行最终的格式化处理
-                    Object finalFormattedContent = page.evaluate("""
-                        (content) => {
-                            try {
-                                // 检查内容是否已经是HTML格式
-                                const isHtml = content.trim().startsWith('<') && content.includes('</');
-
-                                // 如果不是HTML格式，进行基本的HTML转换
-                                if (!isHtml) {
-                                    // 将换行符转换为<br>标签
-                                    content = content.replace(/\\n/g, '<br>');
-
-                                    // 检测并转换Markdown风格的链接 [text](url)
-                                    content = content.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '<a href="$2" target="_blank" style="color: #0066cc; text-decoration: none;">$1</a>');
-
-                                    // 检测并转换Markdown风格的加粗文本 **text**
-                                    content = content.replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>');
-
-                                    // 检测并转换Markdown风格的斜体文本 *text*
-                                    content = content.replace(/\\*([^*]+)\\*/g, '<em>$1</em>');
-
-                                    // 检测并转换Markdown风格的代码块 ```code```
-                                    content = content.replace(/```([\\s\\S]+?)```/g, '<pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; font-family: monospace; overflow-x: auto; display: block; margin: 10px 0;">$1</pre>');
-
-                                    // 检测并转换Markdown风格的行内代码 `code`
-                                    content = content.replace(/`([^`]+)`/g, '<code style="background-color: #f5f5f5; padding: 2px 4px; border-radius: 3px; font-family: monospace;">$1</code>');
-                                }
-
-                                // 创建一个包含样式的容器
-                                const styledContainer = document.createElement('div');
-                                styledContainer.className = 'deepseek-response';
-                                styledContainer.style.cssText = 'max-width: 800px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; color: #333;';
-
-                                // 添加内容
-                                styledContainer.innerHTML = content;
-
-                                // 返回完整的HTML
-                                return styledContainer.outerHTML;
-                            } catch (e) {
-                                console.error('最终格式化内容时出错:', e);
-                                return content; // 出错时返回原始内容
-                            }
-                        }
-                    """, copiedText);
-
-                    if (finalFormattedContent != null && !finalFormattedContent.toString().isEmpty()) {
-                        copiedText = finalFormattedContent.toString();
-                    }
+                // 设置较短的超时时间用于分享操作
+                page.locator("button:has-text('分享')").click(new Locator.ClickOptions().setTimeout(30000));
+                Thread.sleep(1500); // 稍微增加等待时间
+                shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
+                if (shareUrl != null && !shareUrl.trim().isEmpty()) {
+                } else {
+                    shareUrl = page.url();
                 }
             } catch (Exception e) {
-                System.out.println("最终格式化处理失败");
-                UserLogUtil.sendExceptionLog(userId, "startDeepSeek格式化", "startDeepSeek", e, url + "/saveLogInfo");
+                // 使用当前页面URL作为备选
+                try {
+                    shareUrl = page.url();
+                } catch (Exception ex) {
+                    shareUrl = "";
+                }
             }
 
-            // 保存结果
-            try {
-                copiedText = deepSeekUtil.saveDeepSeekContent(page, userInfoRequest, roles, userId, copiedText);
-            } catch (Exception e) {
-                System.out.println("保存DeepSeek内容到稿库失败");
-                UserLogUtil.sendExceptionLog(userId, "startDeepSeek存稿", "startDeepSeek", e, url + "/saveLogInfo");
-            }
+            // DeepSeek不支持图片生成功能，跳过图片处理
+            String shareImgUrl = "";
+
+            logInfo.sendTaskLog("执行完成", userId, "DeepSeek");
+            logInfo.sendChatData(page, "/chat/([^/?#]+)", userId, "RETURN_DEEPSEEK_CHATID", 1);
+            
+            logInfo.sendResData(copiedText, userId, "DeepSeek", "RETURN_DEEPSEEK_RES", shareUrl, shareImgUrl);
+
+            // 保存数据库
+            userInfoRequest.setDraftContent(copiedText);
+            userInfoRequest.setAiName("DeepSeek");
+            userInfoRequest.setShareUrl(shareUrl);
+            userInfoRequest.setShareImgUrl(shareImgUrl);
+            RestUtils.post(url + "/saveDraftContent", userInfoRequest);
+
             return copiedText;
+
         } catch (Exception e) {
-            throw e;
+            e.printStackTrace();
+            
+            // 发送用户友好的错误信息，不暴露技术细节
+            String userFriendlyError = "DeepSeek处理出现问题，请稍后重试";
+            logInfo.sendTaskLog(userFriendlyError, userId, "DeepSeek");
+            logInfo.sendResData(userFriendlyError, userId, "DeepSeek", "RETURN_DEEPSEEK_RES", "", "");
+            
+            return userFriendlyError;
         }
     }
 
@@ -1477,8 +1642,7 @@ public class AIGCController {
     @Operation(summary = "启动通义千问生成", description = "调用通义千问平台生成内容并抓取结果，最后进行统一格式化")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startTYQianwen")
-    public String startTYQianwen(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws Exception{
+    public String startTYQianwen(@RequestBody UserInfoRequest userInfoRequest) throws Exception {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "ty")) {
 
             String userId = userInfoRequest.getUserId();
@@ -1488,7 +1652,7 @@ public class AIGCController {
 
             logInfo.sendTaskLog(aiName + "准备就绪，正在打开页面", userId, aiName);
 
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
 
             if ("true".equalsIgnoreCase(isNewChat) || sessionId == null || sessionId.isEmpty()) {
                 logInfo.sendTaskLog("用户请求新会话", userId, aiName);
@@ -1571,8 +1735,7 @@ public class AIGCController {
                     }
                 }
             } catch (Exception e) {
-                logInfo.sendTaskLog("内容格式化处理失败", userId, aiName);
-                System.out.println("最终格式化处理失败");
+                logInfo.sendTaskLog("内容格式化处理失败: " + e.getMessage(), userId, aiName);
                 UserLogUtil.sendExceptionLog(userId, "通义千问内容格式化", "startTYQianwen", e, url + "/saveLogInfo");
             }
 
@@ -1627,23 +1790,22 @@ public class AIGCController {
     @Operation(summary = "启动知乎直答生成", description = "调用知乎直答平台生成内容并抓取结果，最后进行统一格式化")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startZHZD")
-    public String startZHZD(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws Exception{
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "Zhihu")) {
+    public String startZHZD(@RequestBody UserInfoRequest userInfoRequest) throws Exception {
+
             String userId = userInfoRequest.getUserId();
             String sessionId = userInfoRequest.getZhzdChatId();
+        String userPrompt = userInfoRequest.getUserPrompt();
             String isNewChat = userInfoRequest.getIsNewChat();
             String aiName = "知乎直答";
 
-            if (userId == null || userId.isEmpty() || userInfoRequest.getUserPrompt() == null || userInfoRequest.getUserPrompt().isEmpty()) {
-                logInfo.sendTaskLog("用户信息缺失，请检查用户ID和用户指令", userId, aiName);
-                return "用户信息缺失，请检查用户ID和用户指令";
-            }
 
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "Zhihu")) {
             logInfo.sendTaskLog(aiName + "准备就绪，正在打开页面", userId, aiName);
 
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
 
+            // 🔥 新增：检测知乎访问限制
+            try {
             if ("true".equalsIgnoreCase(isNewChat) || sessionId == null || sessionId.isEmpty()) {
                 logInfo.sendTaskLog("用户请求新会话", userId, aiName);
                 page.navigate("https://zhida.zhihu.com");
@@ -1652,14 +1814,60 @@ public class AIGCController {
                 page.navigate("https://zhida.zhihu.com/search/" + sessionId);
             }
 
-            // 这里等待级别为NETWORKIDLE是因为得等待接口GET /ai_ingress/session/{sessionId}请求完毕, 才能得知该会话ID是否有效
-            page.waitForLoadState(LoadState.NETWORKIDLE);
-
-            // 检测该会话是否合法
-            if (zhzdUtil.sessionNotFound(page)) {
-                page.navigate("https://zhida.zhihu.com");
                 page.waitForLoadState(LoadState.LOAD);
-                logInfo.sendTaskLog("会话ID无效，已跳转到知乎直答首页", userId, aiName);
+                Thread.sleep(2000);
+                
+                // 检测知乎访问限制
+                String accessCheckResult = (String) page.evaluate("""
+                    () => {
+                        const bodyText = document.body.innerText || document.body.textContent || '';
+                        const pageTitle = document.title || '';
+                        
+                        // 检查常见的访问限制提示
+                        const restrictionMessages = [
+                            '您当前请求存在异常，暂时限制本次访问',
+                            '暂时限制本次访问',
+                            '请求存在异常',
+                            '访问受限',
+                            '您的访问出现了异常',
+                            'b87ce5c3c1b4773c6a37cf0ae84ccfb1'
+                        ];
+                        
+                        for (const message of restrictionMessages) {
+                            if (bodyText.includes(message) || pageTitle.includes(message)) {
+                                return message;
+                            }
+                        }
+                        
+                        // 检查是否有错误码
+                        if (bodyText.includes('40362') || bodyText.includes('error')) {
+                            return 'access_restricted';
+                        }
+                        
+                        return null;
+                    }
+                """);
+
+                if (accessCheckResult != null && !accessCheckResult.equals("null")) {
+                    
+                    // 直接返回错误信息给前端
+                    String errorMessage = "知乎访问受限，请稍后再试或通过手机摇一摇联系知乎小管家";
+                    logInfo.sendTaskLog(errorMessage, userId, aiName);
+                    logInfo.sendResData(errorMessage, userId, aiName, "RETURN_ZHZD_RES", "", "");
+                    
+                    // 保存错误信息到数据库
+                    userInfoRequest.setZhzdChatId(sessionId);
+                    userInfoRequest.setDraftContent(errorMessage);
+                    userInfoRequest.setAiName(aiName);
+                    userInfoRequest.setShareUrl("");
+                    userInfoRequest.setShareImgUrl("");
+                    RestUtils.post(url + "/saveDraftContent", userInfoRequest);
+                    
+                    return errorMessage;
+                }
+                
+            } catch (Exception e) {
+                // 继续执行正常流程
             }
             logInfo.sendTaskLog(aiName + "页面打开完成", userId, aiName);
 
@@ -1668,10 +1876,14 @@ public class AIGCController {
             ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
             ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
                 try {
+                    // 检查页面是否已关闭
+                    if (page.isClosed()) {
+                        return;
+                    }
                     int currentCount = i.getAndIncrement();
                     logInfo.sendImgData(page, userId + aiName + "执行过程截图" + currentCount, userId);
                 } catch (Exception e) {
-                    UserLogUtil.sendExceptionLog(userId, "知乎截图", "startZHZD", e, url + "/saveLogInfo");
+                    // 不发送技术错误到前端
                 }
             }, 0, 8, TimeUnit.SECONDS);
 
@@ -1687,8 +1899,12 @@ public class AIGCController {
             screenshotExecutor.shutdown();
 
             String formattedContent = rawHtmlContent;
+            String shareUrl = "";
+            String shareImgUrl = "";
+
+            // 格式化内容
             try {
-                if (rawHtmlContent != null && !rawHtmlContent.isEmpty()) {
+                if (!rawHtmlContent.startsWith("获取内容失败") && !rawHtmlContent.isEmpty()) {
                     Object finalFormattedContent = page.evaluate("""
                             (content) => {
                                 try {
@@ -1789,34 +2005,44 @@ public class AIGCController {
                 }
             } catch (Exception e) {
                 logInfo.sendTaskLog("内容格式化处理失败", userId, aiName);
-                UserLogUtil.sendExceptionLog(userId, "知乎内容格式化", "startZHZD", e, url + "/saveLogInfo");
+                // 不发送技术错误到前端
             }
 
-            String shareUrl = null;
-            String shareImgUrl = null;
-
+            // 🔥 优化：Zhihu分享操作，增加超时保护
             try {
-                page.getByTestId("Button:Share:zhida_message_share_btn").last().click();
-
-                // 获取分享链接
-                page.locator("div:has-text('复制链接')").last().click();
-                page.waitForTimeout(500);
+                page.locator("div:has-text('分享回答')").last().click(new Locator.ClickOptions().setTimeout(30000));
+                page.waitForTimeout(1000); // 增加等待时间
                 shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
 
-                page.locator("div:has-text('保存图片')").last().click();
-                page.waitForTimeout(1000);
+                if (shareUrl != null && !shareUrl.trim().isEmpty()) {
+                } else {
+                    shareUrl = page.url();
+                }
 
+                // 获取分享图片，增加超时保护
+                page.locator("div:has-text('保存图片')").last().click(new Locator.ClickOptions().setTimeout(30000));
                 shareImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
-                    page.locator("div:has-text('下载图片')").last().click();
+                    page.locator("div:has-text('下载图片')").last().click(new Locator.ClickOptions().setTimeout(30000));
                 });
+                
+                if (shareImgUrl != null && !shareImgUrl.trim().isEmpty()) {
+                } else {
+                }
             } catch (Exception e) {
                 logInfo.sendTaskLog("获取分享链接处理失败" , userId, aiName);
-                UserLogUtil.sendExceptionLog(userId, "知乎链接分享", "startZHZD", e, url + "/saveLogInfo");
+                // 不发送技术错误到前端
+                // 尝试备用方法获取分享链接
+                try {
+                    shareUrl = page.url(); // 使用当前页面URL作为分享链接
+                } catch (Exception backupE) {
+                    shareUrl = ""; // 确保shareUrl不为null
+                }
             }
 
             // 回传数据
             logInfo.sendTaskLog("执行完成", userId, aiName);
             logInfo.sendChatData(page, "/search/([^/?#]+)", userId, "RETURN_ZHZD_CHATID", 1);
+            
             logInfo.sendResData(formattedContent, userId, aiName, "RETURN_ZHZD_RES", shareUrl, shareImgUrl);
 
             // 保存数据库
@@ -1850,7 +2076,7 @@ public class AIGCController {
             String userPrompt = userInfoRequest.getUserPrompt();
 
             // 初始化页面并导航到指定会话
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             if(dbchatId!=null){
                 page.navigate("https://www.doubao.com/chat/"+dbchatId);
             }else {
@@ -1904,23 +2130,20 @@ public class AIGCController {
     @Operation(summary = "微头条排版", description = "调用豆包平台对内容排版")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/sendToTTHByDB")
-    public String sendToTTHByDB(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
-        ScheduledFuture<?> screenshotFuture = null;
-        ScheduledExecutorService screenshotExecutor = null;
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "db")) {
+    public String sendToTTHByDB(@RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"db")) {
             // 初始化变量
             String userId = userInfoRequest.getUserId();
-            logInfo.sendTaskLog("微头条排版准备就绪，正在打开页面", userId, "微头条排版");
+            logInfo.sendTaskLog( "微头条排版准备就绪，正在打开页面",userId,"微头条排版");
             String roles = userInfoRequest.getRoles();
             String userPrompt = userInfoRequest.getUserPrompt();
 
             // 初始化页面并导航到指定会话
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.doubao.com/chat/");
             page.waitForLoadState(LoadState.LOAD);
             Thread.sleep(500);
-            logInfo.sendTaskLog("微头条排版页面打开完成", userId, "微头条排版");
+            logInfo.sendTaskLog( "微头条排版页面打开完成",userId,"微头条排版");
             // 定位深度思考按钮
             Locator deepThoughtButton = page.locator("button.semi-button:has-text('深度思考')");
             // 检查按钮是否包含以 active- 开头的类名
@@ -1949,26 +2172,26 @@ public class AIGCController {
             page.locator("[data-testid='chat_input_input']").click();
             Thread.sleep(500);
             page.locator("[data-testid='chat_input_input']").fill(userPrompt);
-            logInfo.sendTaskLog("原数据已录入微头条排版系统完成", userId, "微头条排版");
+            logInfo.sendTaskLog( "原数据已录入微头条排版系统完成",userId,"微头条排版");
             Thread.sleep(500);
             page.locator("[data-testid='chat_input_input']").press("Enter");
 
             // 创建定时截图线程
             AtomicInteger i = new AtomicInteger(0);
-            screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
             // 启动定时任务，每5秒执行一次截图
-            screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+            ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
                 try {
                     int currentCount = i.getAndIncrement(); // 获取当前值并自增
-                    logInfo.sendImgData(page, userId + "微头条排版执行过程截图" + currentCount, userId);
+                    logInfo.sendImgData(page, userId + "微头条排版执行过程截图"+currentCount, userId);
                 } catch (Exception e) {
                     UserLogUtil.sendExceptionLog(userId, "微头条排版", "sendToTTHByDB", e, url + "/saveLogInfo");
                 }
             }, 0, 9, TimeUnit.SECONDS);
 
-            logInfo.sendTaskLog("开启自动监听任务，持续监听微头条排版结果", userId, "微头条排版");
+            logInfo.sendTaskLog( "开启自动监听任务，持续监听微头条排版结果",userId,"微头条排版");
             // 等待复制按钮出现并点击
-            String copiedText = douBaoUtil.waitPBCopy(page, userId, "微头条排版");
+            String copiedText =  douBaoUtil.waitPBCopy(page,userId,"微头条排版");
             int first = copiedText.indexOf('"') + 1;
             int second = copiedText.indexOf('"', first);
             String title = copiedText.substring(first, second);
@@ -1977,21 +2200,15 @@ public class AIGCController {
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
 
-            logInfo.sendTaskLog("执行完成", userId, "微头条排版");
-            logInfo.sendContentAndTitle(content, title, userId, "RETURN_TTH_ZNPB_RES");
+            logInfo.sendTaskLog( "执行完成",userId,"微头条排版");
+            logInfo.sendContentAndTitle(content,title,userId,"RETURN_TTH_ZNPB_RES");
             userInfoRequest.setDraftContent(copiedText);
             userInfoRequest.setAiName("智能评分");
             userInfoRequest.setShareUrl("");
             userInfoRequest.setShareImgUrl("");
-            RestUtils.post(url + "/saveDraftContent", userInfoRequest);
+            RestUtils.post(url+"/saveDraftContent", userInfoRequest);
             return copiedText;
         } catch (Exception e) {
-            if (screenshotFuture != null) {
-                screenshotFuture.cancel(false);
-            }
-            if (screenshotExecutor != null) {
-                screenshotExecutor.shutdown();
-            }
             throw e;
         }
     }
@@ -2004,8 +2221,7 @@ public class AIGCController {
     @Operation(summary = "启动百度AI生成", description = "调用百度AI平台生成内容并抓取结果")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startBaidu")
-    public String startBaidu(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "用户信息请求体", required = true,
-            content = @Content(schema = @Schema(implementation = UserInfoRequest.class))) @RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
+    public String startBaidu(@RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,
                 userInfoRequest.getUserId(), "baidu")) {
 
@@ -2017,23 +2233,19 @@ public class AIGCController {
             String isNewChat = userInfoRequest.getIsNewChat();
 
             logInfo.sendTaskLog("百度AI准备就绪，正在打开页面", userId, "百度AI");
-            System.out.println("DEBUG: 接收到的百度AI参数 - userId: " + userId + ", roles: " + roles + ", chatId: " + chatId + ", isNewChat: " + isNewChat);
 
             // 如果指定了新会话，则忽略已有的会话ID
             if ("true".equalsIgnoreCase(isNewChat)) {
                 logInfo.sendTaskLog("用户请求新会话，将忽略已有会话ID", userId, "百度AI");
-                System.out.println("DEBUG: 用户请求新会话，chatId设置为null");
                 chatId = null;
             } else if (chatId != null && !chatId.isEmpty()) {
                 logInfo.sendTaskLog("检测到会话ID: " + chatId + "，将继续使用此会话", userId, "百度AI");
-                System.out.println("DEBUG: 将使用现有会话ID: " + chatId);
             } else {
                 logInfo.sendTaskLog("未检测到会话ID，将创建新会话", userId, "百度AI");
-                System.out.println("DEBUG: 未检测到会话ID，将创建新会话");
             }
 
             // 创建页面
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.setDefaultTimeout(60000); // 60秒超时
 
             // 创建定时截图线程
@@ -2132,9 +2344,16 @@ public class AIGCController {
                 copiedText = baiduUtil.saveBaiduContent(page, userInfoRequest, roles, userId, copiedText);
                 logInfo.sendTaskLog("执行完成", userId, "百度AI");
             } catch (Exception e) {
-                logInfo.sendTaskLog("保存百度AI内容到稿库失败", userId, "百度AI");
+                e.printStackTrace();
+                logInfo.sendTaskLog("保存百度AI内容到稿库失败: " + e.getMessage(), userId, "百度AI");
                 UserLogUtil.sendExceptionLog(userId, "保存百度AI内容到稿库", "startBaidu", e, url + "/saveLogInfo");
 
+                // 即使保存失败，也要发送结果数据
+                try {
+                    String errorContent = copiedText != null && !copiedText.isEmpty() ? copiedText : "获取内容失败：" + e.getMessage();
+                    logInfo.sendResData(errorContent, userId, "百度AI", "RETURN_BAIDU_RES", "", "");
+                } catch (Exception sendError) {
+                }
             }
 
             return copiedText;

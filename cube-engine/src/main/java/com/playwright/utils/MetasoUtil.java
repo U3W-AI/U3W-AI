@@ -31,7 +31,6 @@ public class MetasoUtil {
             while (true) {
                 // 检查超时
                 if (System.currentTimeMillis() - startTime > timeout) {
-                    System.out.println("超时，" + aiName + "未完成回答！");
                     break;
                 }
 

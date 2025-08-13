@@ -49,11 +49,9 @@ public class ZhiHuUtil {
                             if (userName.endsWith("的主页")) {
                                 userName = userName.substring(0, userName.length() - "的主页".length());
                             }
-                            System.out.println("知乎登录检测成功，用户: " + userName);
                             return userName.trim();
                         }
                     } catch (Exception e) {
-                        System.out.println("尝试选择器 " + selector + " 失败: " + e.getMessage());
                         continue;
                     }
                 }
@@ -72,7 +70,6 @@ public class ZhiHuUtil {
             for (String selector : loginSelectors) {
                 Locator loginButtons = page.locator(selector);
                 if (loginButtons.count() > 0) {
-                    System.out.println("发现登录按钮，用户未登录");
                     return "false";
                 }
             }
@@ -80,16 +77,13 @@ public class ZhiHuUtil {
             // 检查URL是否重定向到登录页面
             String currentUrl = page.url();
             if (currentUrl.contains("signin") || currentUrl.contains("login")) {
-                System.out.println("页面重定向到登录页面，用户未登录");
                 return "false";
             }
 
             // 如果没有找到明确的登录状态标识，返回false
-            System.out.println("无法确定登录状态，默认返回未登录");
             return "false";
 
         } catch (Exception e) {
-            System.out.println("登录状态检测异常: " + e.getMessage());
             throw e;
         }
     }

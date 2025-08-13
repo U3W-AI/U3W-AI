@@ -33,7 +33,6 @@ public class DouBaoUtil {
             while (true) {
                 long elapsedTime = System.currentTimeMillis() - startTime;
                 if (elapsedTime > timeout) {
-                    System.out.println("等待页面稳定超时！");
                     break;
                 }
 
@@ -63,7 +62,6 @@ public class DouBaoUtil {
                     .last()  // 获取最后一个复制按钮
                     .click();
             logInfo.sendTaskLog( "评分结果已自动提取完成",userId,"豆包");
-            System.out.println("复制成功");
 
             // 确保点击操作完成
             Thread.sleep(1000);
@@ -84,7 +82,6 @@ public class DouBaoUtil {
             while (true) {
                 long elapsedTime = System.currentTimeMillis() - startTime;
                 if (elapsedTime > timeout) {
-                    System.out.println("等待页面稳定超时！");
                     break;
                 }
 
@@ -104,9 +101,7 @@ public class DouBaoUtil {
 
             if (locator.count() > 0 && locator.isVisible()) {
                 locator.click(new Locator.ClickOptions().setForce(true));
-                System.out.println("元素已点击");
             } else {
-                System.out.println("元素未出现，跳过点击");
             }
 
 
@@ -149,7 +144,6 @@ public class DouBaoUtil {
 
                 // 如果超时，退出循环
                 if (elapsedTime > timeout) {
-                    System.out.println("超时，AI未完成回答！");
                     break;
                 }
                 // 获取最新内容
@@ -169,7 +163,6 @@ public class DouBaoUtil {
                 }
 
 
-                System.out.println(currentContent);
                 // 如果当前内容和上次内容相同，认为 AI 已经完成回答，退出循环
                 if (currentContent.equals(lastContent)) {
                     logInfo.sendTaskLog( aiName+"回答完成，正在自动提取内容",userId,aiName);
@@ -218,7 +211,6 @@ public class DouBaoUtil {
 
                 // 如果超时，退出循环
                 if (elapsedTime > timeout) {
-                    System.out.println("超时，AI未完成回答！");
                     break;
                 }
 
@@ -243,7 +235,6 @@ public class DouBaoUtil {
 
                             String text = (String) page.evaluate("navigator.clipboard.readText()");
                             textRef.set(text);
-                            System.out.println("剪贴板内容：" + text);
                         } catch (Exception e) {
                             e.printStackTrace();
                         }

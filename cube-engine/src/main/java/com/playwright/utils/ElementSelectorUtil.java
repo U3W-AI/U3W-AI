@@ -29,7 +29,6 @@ public class ElementSelectorUtil {
                 try {
                     locator.waitFor(new Locator.WaitForOptions().setTimeout(timeout));
                     if (locator.count() > 0) {
-                        System.out.println("成功找到元素，使用选择器: " + selector);
                         // 如果找到多个元素，返回第一个以避免严格模式违反
                         return locator.count() > 1 ? locator.first() : locator;
                     }
@@ -38,24 +37,20 @@ public class ElementSelectorUtil {
                     continue;
                 }
             } catch (Exception e) {
-                System.out.println("选择器失败: " + selector + ", 错误: " + e.getMessage());
                 // 如果是严格模式违反错误，尝试使用.first()
                 if (e.getMessage().contains("strict mode violation")) {
                     try {
                         Locator locator = page.locator(selector).first();
                         locator.waitFor(new Locator.WaitForOptions().setTimeout(timeout));
                         if (locator.count() > 0) {
-                            System.out.println("严格模式修复成功，使用选择器: " + selector + ".first()");
                             return locator;
                         }
                     } catch (Exception ex) {
-                        System.out.println("严格模式修复失败: " + selector + ", 错误: " + ex.getMessage());
                     }
                 }
                 continue;
             }
         }
-        System.out.println("所有选择器都失败了: " + Arrays.toString(selectors));
         return null;
     }
 
@@ -79,7 +74,6 @@ public class ElementSelectorUtil {
             
             return (Boolean) locator.evaluate(checkScript.toString());
         } catch (Exception e) {
-            System.out.println("检查元素激活状态失败: " + e.getMessage());
             return false;
         }
     }
@@ -94,14 +88,11 @@ public class ElementSelectorUtil {
         try {
             if (locator != null && locator.count() > 0) {
                 locator.click();
-                System.out.println(actionName + " 成功");
                 return true;
             } else {
-                System.out.println(actionName + " 失败：元素不存在");
                 return false;
             }
         } catch (Exception e) {
-            System.out.println(actionName + " 失败: " + e.getMessage());
             return false;
         }
     }

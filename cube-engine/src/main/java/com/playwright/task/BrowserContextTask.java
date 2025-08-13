@@ -21,7 +21,6 @@ public class BrowserContextTask {
         Map<String, UnPersisBrowserContextInfo> map = BrowserContextFactory.map;
         Set<String> set = map.keySet();
         for (String key : set) {
-            System.out.println("检查浏览器上下文" + key);
             BrowserContextFactory.closeExpireData(key);
         }
     }

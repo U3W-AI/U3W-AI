@@ -129,7 +129,6 @@ public class TongYiUtil {
                 long elapsedTime = System.currentTimeMillis() - startTime;
 
                 if (elapsedTime > timeout) {
-                    System.out.println("超时，AI未完成回答！");
                     logInfo.sendTaskLog("AI回答超时，任务中断", userId, aiName);
                     break;
                 }
@@ -143,7 +142,6 @@ public class TongYiUtil {
 
                 currentContent = outputLocator.innerHTML();
 
-                System.out.println(currentContent);
                 if (!currentContent.isEmpty() && currentContent.equals(lastContent)) {
                     logInfo.sendTaskLog(aiName + "回答完成，正在自动提取内容", userId, aiName);
                     break;

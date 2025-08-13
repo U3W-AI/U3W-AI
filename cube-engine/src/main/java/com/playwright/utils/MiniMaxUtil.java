@@ -28,7 +28,6 @@ public class MiniMaxUtil {
             while (true) {
                 // 如果超过超时，跳出
                 if (System.currentTimeMillis() - startTime > timeout) {
-                    System.out.println("超时，" + aiName + " 未完成回答！");
                     break;
                 }
 

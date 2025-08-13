@@ -65,10 +65,8 @@ public class TTHUtil {
                 agreementCheckbox.waitFor(new Locator.WaitForOptions().setTimeout(5000));
                 if (!agreementCheckbox.isChecked()) {
                     agreementCheckbox.click();
-                    System.out.println("已勾选协议");
                 }
             } catch (TimeoutError e) {
-                System.out.println("未找到协议勾选框，可能页面结构变化");
             }
 
             // 2. 点击抖音登录按钮
@@ -80,7 +78,6 @@ public class TTHUtil {
 //             直接截图当前页面（包含登录按钮）
             return screenshotUtil.screenshotAndUpload(page, "tthLogin.png");
         } catch (Exception e) {
-            System.out.println(e.getMessage());
             return "false";
         }
     }

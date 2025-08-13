@@ -1,20 +1,27 @@
 package com.playwright.controller;
 
 import com.alibaba.fastjson.JSONObject;
-import com.microsoft.playwright.*;
+import com.microsoft.playwright.BrowserContext;
+import com.microsoft.playwright.FileChooser;
+import com.microsoft.playwright.Locator;
+import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.WaitForSelectorState;
+import com.microsoft.playwright.FrameLocator;
 import com.playwright.utils.*;
 import com.playwright.websocket.WebSocketClientService;
 import io.swagger.v3.oas.annotations.Operation;
+
+import java.io.IOException;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
-
-import java.io.IOException;
-import java.nio.file.Paths;
-import java.util.List;
 
 /**
  * ClassName: MediaController
@@ -52,8 +59,6 @@ public class MediaController {
     private BaijiahaoUtil baijiahaoUtil;
     @Autowired
     private LogMsgUtil logMsgUtil;
-    @Autowired
-    private XHSUtil xhsUtil;
 
     /**
      * 检查知乎登录状态
@@ -64,7 +69,7 @@ public class MediaController {
     @GetMapping("/checkZhihuLogin")
     public String checkZhihuLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"Zhihu")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
 
             // 先导航到知乎首页而不是登录页面，这样能更好地检测登录状态
             page.navigate("https://www.zhihu.com/");
@@ -74,7 +79,6 @@ public class MediaController {
             // 检查当前URL是否跳转到登录页面
             String currentUrl = page.url();
             if (currentUrl.contains("signin") || currentUrl.contains("login")) {
-                System.out.println("页面跳转到登录页面，用户未登录");
                 return "false";
             }
 
@@ -82,7 +86,6 @@ public class MediaController {
             String userName = zhiHuUtil.checkLoginStatus(page);
 
             if (!"false".equals(userName) && !"未登录".equals(userName)) {
-                System.out.println("知乎登录检测成功，用户: " + userName);
                 return userName;
             }
 
@@ -92,6 +95,7 @@ public class MediaController {
             throw e;
         }
     }
+    
     /**
      * 检查百家号登录状态
      * @param userId 用户唯一标识
@@ -101,7 +105,7 @@ public class MediaController {
     @GetMapping("/checkBaijiahaoLogin")
     public String checkBaijiahaoLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) throws InterruptedException {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"Baijiahao")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
 
             // 先导航到百家号首页而不是登录页面，这样能更好地检测登录状态
             page.navigate("https://baijiahao.baidu.com/");
@@ -111,7 +115,6 @@ public class MediaController {
             // 检查当前URL是否跳转到登录页面
             String currentUrl = page.url();
             if (currentUrl.contains("login") || currentUrl.contains("signin")) {
-                System.out.println("页面跳转到登录页面，用户未登录");
                 return "false";
             }
 
@@ -119,7 +122,6 @@ public class MediaController {
             String userName = baijiahaoUtil.checkLoginStatus(page);
 
             if (!"false".equals(userName)) {
-                System.out.println("百家号登录检测成功，用户: " + userName);
                 return userName;
             }
 
@@ -129,8 +131,6 @@ public class MediaController {
             throw e;
         }
     }
-
-
 
     /**
      * 获取知乎登录二维码
@@ -141,7 +141,7 @@ public class MediaController {
     @Operation(summary = "获取知乎登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     public String getZhihuQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"Zhihu")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.zhihu.com/signin");
             page.setDefaultTimeout(120000);
             page.waitForLoadState();
@@ -166,10 +166,8 @@ public class MediaController {
                 if (qrCodeTab.count() > 0) {
                     qrCodeTab.first().click();
                     Thread.sleep(1000);
-                    System.out.println("切换到扫码登录标签页");
                 }
             } catch (Exception e) {
-                System.out.println("切换扫码标签页失败，可能默认就是扫码登录");
                 UserLogUtil.sendExceptionLog(userId, "知乎切换扫码标签页", "getZhihuQrCode", e, url + "/saveLogInfo");
             }
 
@@ -180,12 +178,9 @@ public class MediaController {
                     qrCodeArea.first().waitFor(new Locator.WaitForOptions()
                             .setState(WaitForSelectorState.VISIBLE)
                             .setTimeout(10000));
-                    System.out.println("二维码区域已加载");
                 } else {
-                    System.out.println("未找到二维码区域，继续截图");
                 }
             } catch (Exception e) {
-                System.out.println("等待二维码加载失败");
                 UserLogUtil.sendExceptionLog(userId, "知乎等待二维码加载", "getZhihuQrCode", e, url + "/saveLogInfo");
 
             }
@@ -200,7 +195,6 @@ public class MediaController {
             qrCodeObject.put("type", "RETURN_PC_ZHIHU_QRURL");
             webSocketClientService.sendMessage(qrCodeObject.toJSONString());
 
-            System.out.println("知乎二维码已发送，开始监听登录状态");
 
             // 监听登录状态变化 - 最多等待60秒
             int maxAttempts = 30; // 30次尝试，每次2秒
@@ -214,20 +208,16 @@ public class MediaController {
                     Thread.sleep(2000);
                     // 检查当前页面URL是否已经跳转（登录成功）
                     String nowUrl = page.url();
-                    System.out.println("当前URL: " + nowUrl);
 
                     if (!nowUrl.contains("signin") && !nowUrl.contains("login")) {
-                        System.out.println("检测到页面跳转，验证登录状态");
 
                         // 验证登录状态并获取用户名
                         String userName = zhiHuUtil.checkLoginStatus(page);
                         if (!"false".equals(userName)) {
                             finalUserName = userName;
                             loginSuccess = true;
-                            System.out.println("URL跳转检测：知乎登录成功，用户名: " + userName);
                             break;
                         } else {
-                            System.out.println("URL跳转了但登录状态检测失败，继续监听");
                         }
                         break;
                     }
@@ -237,12 +227,10 @@ public class MediaController {
                     if (errorMsg.count() > 0) {
                         String errorText = errorMsg.first().textContent();
                         if (errorText != null && !errorText.trim().isEmpty()) {
-                            System.out.println("检测到错误信息: " + errorText);
                         }
                     }
                 } catch (Exception e) {
                     UserLogUtil.sendExceptionLog(userId, "知乎登录状态检查", "getZhihuQrCode", e, url + "/saveLogInfo");
-                    System.out.println("登录状态检查异常");
                 }
             }
 
@@ -254,7 +242,6 @@ public class MediaController {
                 loginSuccessObject.put("type", "RETURN_ZHIHU_STATUS");
                 webSocketClientService.sendMessage(loginSuccessObject.toJSONString());
 
-                System.out.println("知乎登录成功消息已发送: " + finalUserName);
             } else {
                 // 超时未登录，发送超时提示
                 JSONObject timeoutObject = new JSONObject();
@@ -263,14 +250,12 @@ public class MediaController {
                 timeoutObject.put("type", "RETURN_ZHIHU_LOGIN_TIMEOUT");
                 webSocketClientService.sendMessage(timeoutObject.toJSONString());
 
-                System.out.println("知乎登录超时，已发送超时通知");
             }
 
             return qrCodeUrl;
 
         } catch (Exception e) {
             UserLogUtil.sendExceptionLog(userId, "获取知乎二维码", "getZhihuQrCode", e, url + "/saveLogInfo");
-            System.out.println("获取知乎二维码失败");
         }
         return "false";
     }
@@ -284,7 +269,7 @@ public class MediaController {
     @Operation(summary = "获取百家号登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     public String getBaijiahaoQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"Baijiahao")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://baijiahao.baidu.com/builder/theme/bjh/login");
             page.setDefaultTimeout(120000);
             page.waitForLoadState();
@@ -306,18 +291,14 @@ public class MediaController {
                 page.waitForSelector("div.btnlogin--bI826", new Page.WaitForSelectorOptions().setTimeout(5000));
                 Locator qrCodeTab = page.locator("div.btnlogin--bI826").first();
                 qrCodeTab.click();
-                System.out.println("切换到扫码登录标签页");
             } catch (Exception e) {
-                System.out.println("扫码登录标签未找到，可能默认就是扫码登录: " + e.getMessage());
             }
 
 // 等待二维码加载
             try {
                 page.waitForSelector(".tang-pass-qrcode-img", new Page.WaitForSelectorOptions().setTimeout(10000));
                 Locator qrCodeArea = page.locator(".tang-pass-qrcode-img").first();
-                System.out.println("二维码区域已加载");
             } catch (Exception e) {
-                System.out.println("等待二维码加载失败或未找到二维码区域");
                 UserLogUtil.sendExceptionLog(userId, "百家号登录状态检查", "getBaijiahaoQrCode", e, url + "/saveLogInfo");
             }
 
@@ -333,7 +314,6 @@ public class MediaController {
             qrCodeObject.put("type", "RETURN_PC_BAIJIAHAO_QRURL");
             webSocketClientService.sendMessage(qrCodeObject.toJSONString());
 
-            System.out.println("百家号二维码已发送，开始监听登录状态");
 
             // 监听登录状态变化 - 最多等待60秒
             int maxAttempts = 30; // 30次尝试，每次2秒
@@ -345,20 +325,16 @@ public class MediaController {
                     Thread.sleep(2000);
                     // 检查当前页面URL是否已经跳转（登录成功）
                     String nowUrl = page.url();
-                    System.out.println("当前URL: " + nowUrl);
 
                     if (!nowUrl.contains("login") && !nowUrl.contains("register")) {
-                        System.out.println("检测到页面跳转，验证登录状态");
 
                         // 验证登录状态并获取用户名
                         String userName = baijiahaoUtil.checkLoginStatus(page);
                         if (!"false".equals(userName)) {
                             finalUserName = userName;
                             loginSuccess = true;
-                            System.out.println("URL跳转检测：百家号登录成功，用户名: " + userName);
                             break;
                         } else {
-                            System.out.println("URL跳转了但登录状态检测失败，继续监听");
                         }
                         break;
                     }
@@ -368,11 +344,9 @@ public class MediaController {
                     if (errorMsg.count() > 0) {
                         String errorText = errorMsg.first().textContent();
                         if (errorText != null && !errorText.trim().isEmpty()) {
-                            System.out.println("检测到错误信息: " + errorText);
                         }
                     }
                 } catch (Exception e) {
-                    System.out.println("登录状态检查异常");
                     UserLogUtil.sendExceptionLog(userId, "百家号登录状态检查", "getBaijiahaoQrCode", e, url + "/saveLogInfo");
                 }
             }
@@ -385,7 +359,6 @@ public class MediaController {
                 loginSuccessObject.put("type", "RETURN_BAIJIAHAO_STATUS");
                 webSocketClientService.sendMessage(loginSuccessObject.toJSONString());
 
-                System.out.println("百家号登录成功消息已发送: " + finalUserName);
             } else {
                 // 超时未登录，发送超时提示
                 JSONObject timeoutObject = new JSONObject();
@@ -394,13 +367,11 @@ public class MediaController {
                 timeoutObject.put("type", "RETURN_BAIJIAHAO_LOGIN_TIMEOUT");
                 webSocketClientService.sendMessage(timeoutObject.toJSONString());
 
-                System.out.println("百家号登录超时，已发送超时通知");
             }
 
             return qrCodeUrl;
 
         } catch (Exception e) {
-            System.out.println("获取百家号二维码失败");
             UserLogUtil.sendExceptionLog(userId, "获取百家号二维码", "getBaijiahaoQrCode", e, url + "/saveLogInfo");
         }
         return "false";
@@ -421,14 +392,33 @@ public class MediaController {
                               @Parameter(description = "文章内容") @RequestParam("content") String content){
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"Zhihu")) {
 
-            // 初始化页面和变量package com.playwright.controller;
-            Page page = context.newPage();
+            // 初始化页面和变量
+            Page page = browserUtil.getOrCreatePage(context);
 
             // 进入到知乎的文章发布页，并设置最大超时时间为5分钟
             page.navigate("https://zhuanlan.zhihu.com/write", new Page.NavigateOptions()
                     .setTimeout(300000)); // 5分钟超时
             // 等待页面加载完成，最大等待时间与导航超时一致
             page.waitForLoadState();
+
+            // 创建定时截图线程
+            AtomicInteger screenshotCount = new AtomicInteger(0);
+            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            ScheduledFuture<?> screenshotFuture = null;
+
+            try {
+                // 启动定时截图任务，每8秒执行一次
+                screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+                    try {
+                        // 检查页面是否已关闭
+                        if (page.isClosed()) {
+                            return;
+                        }
+                        int currentCount = screenshotCount.getAndIncrement();
+                        logMsgUtil.sendImgData(page, userId + "知乎投递过程截图" + currentCount, userId);
+                    } catch (Exception e) {
+                    }
+                }, 2000, 8000, TimeUnit.MILLISECONDS); // 延迟2秒开始，每8秒执行一次
 
             logMsgUtil.sendImgData(page, "知乎编辑页面", userId);
 
@@ -520,6 +510,20 @@ public class MediaController {
                 Thread.sleep(1000);
                 waited++;
             }
+            } finally {
+                // 安全地关闭截图线程
+                try {
+                    if (screenshotFuture != null) {
+                        screenshotFuture.cancel(true);
+                    }
+                    if (screenshotExecutor != null) {
+                        screenshotExecutor.shutdownNow();
+                        if (!screenshotExecutor.awaitTermination(3, TimeUnit.SECONDS)) {
+                        }
+                    }
+                } catch (Exception e) {
+                }
+            }
         } catch (Exception e) {
             UserLogUtil.sendExceptionLog(userId, "知乎投递异常", "sendToZhihu", e, url);
             return "投递失败";
@@ -554,10 +558,7 @@ public class MediaController {
             String contentBody = contentBodyBuilder.toString();
 
             // 初始化页面和变量
-            Page page = context.newPage();
-            System.out.println("userId："+ userId);
-            System.out.println("title："+ title);
-            System.out.println("content："+ content);
+            Page page = browserUtil.getOrCreatePage(context);
             // 进入到百家号的首页
             page.navigate("https://baijiahao.baidu.com/builder/rc/home", new Page.NavigateOptions()
                     .setTimeout(60000)); // 1分钟超时
@@ -571,9 +572,28 @@ public class MediaController {
                 return "false";
             }
             //进入草稿箱页面，并设置最大超时时间为5分钟
-            //进入草稿箱页面，并设置最大超时时间为5分钟
             page.navigate("https://baijiahao.baidu.com/builder/rc/edit?type=news&is_from_cms=1", new Page.NavigateOptions()
                     .setTimeout(300000)); // 5分钟超时
+
+            // 创建定时截图线程
+            AtomicInteger screenshotCount = new AtomicInteger(0);
+            ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
+            ScheduledFuture<?> screenshotFuture = null;
+
+            try {
+                // 启动定时截图任务，每8秒执行一次
+                screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+                    try {
+                        // 检查页面是否已关闭
+                        if (page.isClosed()) {
+                            return;
+                        }
+                        int currentCount = screenshotCount.getAndIncrement();
+                        logMsgUtil.sendImgData(page, userId + "百家号投递过程截图" + currentCount, userId);
+                    } catch (Exception e) {
+                    }
+                }, 2000, 8000, TimeUnit.MILLISECONDS); // 延迟2秒开始，每8秒执行一次
+
             logMsgUtil.sendImgData(page, "百家号编辑页面", userId);
 
             // 定位标题输入框
@@ -646,8 +666,21 @@ public class MediaController {
                     .setState(WaitForSelectorState.VISIBLE)
                     .setTimeout(10000)); // 最多等10秒
 
-            System.out.println("草稿保存成功");
 
+            } finally {
+                // 安全地关闭截图线程
+                try {
+                    if (screenshotFuture != null) {
+                        screenshotFuture.cancel(true);
+                    }
+                    if (screenshotExecutor != null) {
+                        screenshotExecutor.shutdownNow();
+                        if (!screenshotExecutor.awaitTermination(3, TimeUnit.SECONDS)) {
+                        }
+                    }
+                } catch (Exception e) {
+                }
+            }
         } catch (Exception e) {
             UserLogUtil.sendExceptionLog(userId, "投递到百家号", "sendToBaijiahao", e, url + "/saveLogInfo");
             return "投递失败";
@@ -659,7 +692,7 @@ public class MediaController {
     @GetMapping("/getTTHQrCode")
     public String getTTHQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "tth")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
             // 首先检查当前登录状态
             String currentStatus = tthUtil.checkLoginStatus(page, true);
             if (!"false".equals(currentStatus)) {
@@ -734,7 +767,7 @@ public class MediaController {
     @GetMapping("/checkTTHLogin")
     public String checkTTHLogin(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "tth")) {
-            Page page = context.newPage();
+            Page page = browserUtil.getOrCreatePage(context);
 
             // 导航到DeepSeek页面并确保完全加载
             page.navigate("https://mp.toutiao.com/");
@@ -755,341 +788,6 @@ public class MediaController {
             UserLogUtil.sendExceptionLog(userId, "检查微头条登录状态", "checkTTHLogin", e, url + "/saveLogInfo");
         }
         return "false";
-    }
-
-    //---------------    小红书相关方法    ---------------//
-
-    /**
-     * 检查小红书登录状态
-     * @param userId 用户唯一标识
-     * @return 登录状态："false"表示未登录，用户名表示已登录
-     */
-    @Operation(summary = "检查小红书登录状态", description = "返回用户名表示已登录，false 表示未登录")
-    @GetMapping("/checkXHSLogin")
-    public String checkXHSLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"XHS")) {
-            Page page = context.newPage();
-
-            // 先导航到小红书创作中心而不是登录页面，这样能更好地检测登录状态
-            page.navigate("https://creator.xiaohongshu.com/new/home?source=official");
-            page.waitForLoadState();
-            Thread.sleep(3000);
-
-            // 检查当前URL是否跳转到登录页面
-            String currentUrl = page.url();
-            if (currentUrl.contains("signin") || currentUrl.contains("login")) {
-                System.out.println("页面跳转到登录页面，用户未登录");
-                return "false";
-            }
-
-            // 检测登录状态
-            String userName = xhsUtil.checkLoginStatus(page);
-
-            if (!"false".equals(userName)) {
-                System.out.println("小红书登录检测成功，用户: " + userName);
-                return userName;
-            }
-
-            return "false";
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return "false";
-        }
-    }
-
-
-    /**
-     * 获取小红书登录二维码
-     * @param userId 用户唯一标识
-     * @return 二维码图片URL 或 "false"表示失败
-     */
-    @GetMapping("/getQrCode")
-    @Operation(summary = "获取小红书登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
-    public String getXHSQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws IOException, InterruptedException {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"XHS")) {
-            Page page = context.newPage();
-            page.navigate("https://creator.xiaohongshu.com/login");
-            page.setDefaultTimeout(120000);
-            page.waitForLoadState();
-            Thread.sleep(3000);
-
-            // 首先检查是否已经登录
-            String currentUrl = page.url();
-            if (!currentUrl.contains("login")) {
-                // 已经登录，直接返回登录状态
-                JSONObject loginStatusObject = new JSONObject();
-                loginStatusObject.put("status", "已登录");
-                loginStatusObject.put("userId", userId);
-                loginStatusObject.put("type", "RETURN_XHS_STATUS");
-                webSocketClientService.sendMessage(loginStatusObject.toJSONString());
-
-                return screenshotUtil.screenshotAndUpload(page, "xhsAlreadyLogin.png");
-            }
-
-            // 查找并点击扫码登录选项卡（如果存在）
-            try {
-                Locator qrCodeTab = page.locator(".css-wemwzq");
-                if (qrCodeTab.count() > 0) {
-                    qrCodeTab.first().click();
-                    Thread.sleep(1000);
-                    System.out.println("切换到扫码登录标签页");
-                }
-            } catch (Exception e) {
-                System.out.println("切换扫码标签页失败，可能默认就是扫码登录");
-            }
-
-            // 等待二维码加载
-            try {
-                Locator qrCodeArea = page.locator(".css-a7k849 .css-1lmg90");
-                if (qrCodeArea.count() > 0) {
-                    qrCodeArea.first().waitFor(new Locator.WaitForOptions()
-                            .setState(WaitForSelectorState.VISIBLE)
-                            .setTimeout(10000));
-                    System.out.println("二维码区域已加载");
-                } else {
-                    System.out.println("未找到二维码区域，继续截图");
-                }
-            } catch (Exception e) {
-                System.out.println("等待二维码加载失败");
-                throw e;
-            }
-
-            // 截图并上传二维码
-            String qrCodeUrl = screenshotUtil.screenshotAndUpload(page, "XHSQrCode_" + userId + ".png");
-
-            // 发送二维码URL到前端
-            JSONObject qrCodeObject = new JSONObject();
-            qrCodeObject.put("url", qrCodeUrl);
-            qrCodeObject.put("userId", userId);
-            qrCodeObject.put("type", "RETURN_PC_XHS_QRURL");
-            webSocketClientService.sendMessage(qrCodeObject.toJSONString());
-
-            System.out.println("小红书二维码已发送，开始监听登录状态");
-
-            // 监听登录状态变化 - 最多等待60秒
-            int maxAttempts = 30; // 30次尝试，每次2秒
-            boolean loginSuccess = false;
-            String finalUserName = "false";
-
-            for (int i = 0; i < maxAttempts; i++) {
-
-
-                try {
-                    Thread.sleep(2000);
-                    // 检查当前页面URL是否已经跳转（登录成功）
-                    String nowUrl = page.url();
-                    System.out.println("当前URL: " + nowUrl);
-
-                    if (!nowUrl.contains("signin") && !nowUrl.contains("login")) {
-                        System.out.println("检测到页面跳转，验证登录状态");
-
-                        // 验证登录状态并获取用户名
-                        String userName = xhsUtil.checkLoginStatus(page);
-                        if (!"false".equals(userName)) {
-                            finalUserName = userName;
-                            loginSuccess = true;
-                            System.out.println("URL跳转检测：小红书登录成功，昵称: " + userName);
-                            break;
-                        } else {
-                            System.out.println("URL跳转了但登录状态检测失败，继续监听");
-                        }
-                        break;
-                    }
-
-                    // 检查登录页面是否有错误提示或状态变化
-                    Locator errorMsg = page.locator(".Error, .error, .ErrorMessage, [class*='error']");
-                    if (errorMsg.count() > 0) {
-                        String errorText = errorMsg.first().textContent();
-                        if (errorText != null && !errorText.trim().isEmpty()) {
-                            System.out.println("检测到错误信息: " + errorText);
-                        }
-                    }
-                } catch (Exception e) {
-                    System.out.println("登录状态检查异常");
-                    throw e;
-                }
-            }
-
-            // 发送最终的登录状态
-            if (loginSuccess) {
-                JSONObject loginSuccessObject = new JSONObject();
-                loginSuccessObject.put("status", finalUserName);
-                loginSuccessObject.put("userId", userId);
-                loginSuccessObject.put("type", "RETURN_XHS_STATUS");
-                webSocketClientService.sendMessage(loginSuccessObject.toJSONString());
-
-                System.out.println("小红书登录成功消息已发送: " + finalUserName);
-            } else {
-                // 超时未登录，发送超时提示
-                JSONObject timeoutObject = new JSONObject();
-                timeoutObject.put("status", "timeout");
-                timeoutObject.put("userId", userId);
-                timeoutObject.put("type", "RETURN_XHS_LOGIN_TIMEOUT");
-                webSocketClientService.sendMessage(timeoutObject.toJSONString());
-
-                System.out.println("小红书登录超时，已发送超时通知");
-            }
-
-            return qrCodeUrl;
-
-        } catch (Exception e) {
-            System.out.println("获取小红书二维码失败");
-            throw e;
-        }
-    }
-
-
-    /**
-     * 将内容投递到小红书
-     * @param userId 用户唯一标识
-     * @param title 文章标题
-     * @param content 文章内容
-     * @return
-     */
-    @PostMapping("/sendToXHS")
-    @Operation(summary = "投递内容到小红书", description = "将处理后的内容自动投递到小红书草稿箱")
-    public String sendToXHS(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId,
-                            @Parameter(description = "文章标题") @RequestParam("title") String title,
-                            @Parameter(description = "文章内容") @RequestParam("content") String content,
-                            @Parameter(description = "图片链接") @RequestParam(value = "imgsURL") List<String> imgsURL
-    ) throws IOException, InterruptedException {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"XHS")) {
-
-            //处理文章 拆成正文和标题
-            String[] paragraphs = content.split("\\r?\\n");
-            String contentTitle = paragraphs.length > 0 ? paragraphs[0] : "";
-            StringBuilder contentBodyBuilder = new StringBuilder();
-            for (int i = 1; i < paragraphs.length; i++) {
-                contentBodyBuilder.append(paragraphs[i]);
-                if (i != paragraphs.length - 1) {
-                    contentBodyBuilder.append("\n");
-                }
-            }
-            String contentBody = contentBodyBuilder.toString();
-
-            // 初始化页面和变量
-            Page page = context.newPage();
-            System.out.println("userId："+ userId);
-            System.out.println("title："+ title);
-            System.out.println("content："+ content);
-
-            // 进入到小红书的创作者中心
-            page.navigate("https://creator.xiaohongshu.com/publish/publish?from=menu&target=video", new Page.NavigateOptions()
-                    .setTimeout(60000)); // 1分钟超时
-            // 等待页面加载完成，最大等待时间与导航超时一致
-            page.waitForLoadState();
-
-            // 检查登录状态
-            String loginStatus = xhsUtil.checkLoginStatus(page);
-            if(loginStatus.equals("false")){
-                logMsgUtil.sendMediaTaskLog("检测到小红书未登录，请先登录", userId, "投递到小红书");
-                return "false";
-            }
-            logMsgUtil.sendImgData(page, "小红书编辑页面", userId);
-
-            //点击上传图文
-            page.locator("#web > div > div > div > div.header > div:nth-child(3)").waitFor();
-            page.locator("#web > div > div > div > div.header > div:nth-child(3)").click();
-
-            // 等待文件输入框可见
-            page.locator("#web > div > div > div > div.upload-content > div.upload-wrapper > div > input").waitFor();
-            // 定位文件输入元素
-            Locator fileInput = page.locator("#web > div > div > div > div.upload-content > div.upload-wrapper > div > input");
-            // 上传封面图片
-            fileInput.setInputFiles(Paths.get(imgsURL.get(0)));
-            //   Files.delete(Path.of(imgsURL.get(0)));
-            System.out.println("已上传封面: " + imgsURL.get(0));
-
-            //一个笔记最多上传18张
-            for(int i = 1;i < Math.min(imgsURL.size(),17);i++){
-                page.locator("div.entry:has-text('添加')").waitFor();
-                FileChooser fileChooser = page.waitForFileChooser(() -> {
-                    page.locator("div.entry:has-text('添加')").click();
-                });
-                fileChooser.setFiles(Paths.get(imgsURL.get(i)));
-                System.out.println("已上传图片 " + i + "/" + imgsURL.size());
-                //  Files.delete(Path.of(imgsURL.get(i)));
-
-                //缓冲
-                Thread.sleep(2000);
-            }
-
-            // 定位标题输入框
-            Locator titleInput = page.locator("#web > div > div > div > div > div.body > div.content > div.plugin.title-container > div > div > div > div.d-input-wrapper.d-inline-block.c-input_inner > div > input");
-            // 检查元素是否可见，等待元素加载
-            titleInput.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
-            // 输入标题
-            titleInput.fill(contentTitle);
-            logMsgUtil.sendImgData(page,  "小红书标题输入过程截图", userId);
-
-            //正文输入
-            Locator contentInput = page.locator("#quillEditor > div");
-
-            // 点击输入框激活
-            contentInput.click();
-            Thread.sleep(2000);
-
-            int charCount = 0;
-            boolean isLineBreak = false;
-
-            for (int i = 0; i < Math.min(contentBody.length(),1000); i++) {
-                char c = contentBody.charAt(i);
-                int delay = 10 + (int) (Math.random() * 21); // 每个字符输入延时 10~30ms
-
-                if (c == '\r' || c == '\n') {
-                    if (!isLineBreak) {
-                        contentInput.type("\n", new Locator.TypeOptions().setDelay(delay));
-                        isLineBreak = true;
-                    }
-                } else {
-                    contentInput.type(String.valueOf(c), new Locator.TypeOptions().setDelay(delay));
-                    isLineBreak = false;
-                }
-
-                charCount++;
-
-                if (charCount % 500 == 0) {
-                    Thread.sleep(1000);
-                    //logMsgUtil.sendImgData(page, "小红书正文输入进度截图（已输入" + charCount + "字）", userId);
-                }
-            }
-
-//            // 输入结束后，若最后一次未满500字但有内容，也补发一次截图
-//            if (charCount % 500 != 0) {
-//                logMsgUtil.sendImgData(page, "小红书正文输入进度截图（已输入" + charCount + "字，输入结束）", userId);
-//            }
-
-            //文章设为私密
-            Locator secretList = page.locator("#web > div > div > div > div > div.body > div.content > div.media-settings > div > div:nth-child(2) > div.wrapper > div > div");
-            secretList.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
-            secretList.click();
-
-            Thread.sleep(2000);
-
-            Locator secretBtn = page.locator("body > div:nth-child(13) > div > div > div > div > div:nth-child(2)");
-            secretBtn.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
-            secretBtn.click();
-
-
-            Thread.sleep(3000);
-            //点击存暂存离开按钮
-            Locator saveDraftBtn = page.locator("#web > div > div > div > div > div.submit > div > button.d-button.d-button-large.--size-icon-large.--size-text-h6.d-button-with-content.--color-static.bold.--color-bg-fill.--color-text-paragraph.custom-button.red.publishBtn");
-            // 点击“暂存草稿”按钮
-            saveDraftBtn.click();
-
-            // 如果页面调回则保存成功
-            Locator successToast = page.locator("#web > div > div > div > div.header");
-            successToast.waitFor(new Locator.WaitForOptions()
-                    .setState(WaitForSelectorState.VISIBLE)
-                    .setTimeout(10000)); // 最多等10秒
-
-            System.out.println("草稿保存成功");
-
-        } catch (Exception e) {
-            throw e;
-        }
-        return "true";
     }
 
 }

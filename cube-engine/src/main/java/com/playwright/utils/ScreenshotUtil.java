@@ -33,13 +33,18 @@ public class ScreenshotUtil {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
         try {
-            // 截取全屏截图
+            // 检查页面是否已关闭
+            if (page.isClosed()) {
+                return "";
+            }
+
+            // 🔥 优化：截取全屏截图，增加超时设置
             page.screenshot(new Page.ScreenshotOptions()
                     .setPath(Paths.get(imageName))
                     .setFullPage(true)
+                    .setTimeout(45000) // 45秒超时，防止长时间等待
             );
 
-            System.out.println("当前时间：" + simpleDateFormat.format(new Date()));
 
             // 上传截图
             String response = uploadFile(uploadUrl, imageName);
@@ -48,13 +53,17 @@ public class ScreenshotUtil {
             String url = jsonObject.get("url")+"";
             Files.delete(Paths.get(imageName));
             return url;
+        } catch (com.microsoft.playwright.impl.TargetClosedError e) {
+            return "";
+        } catch (com.microsoft.playwright.PlaywrightException e) {
+            return "";
         } catch (Exception e) {
             throw e;
         }
+
     }
 
     public static String uploadFile(String serverUrl, String filePath) throws IOException {
-        System.out.println("原文件："+filePath);
         OkHttpClient client = new OkHttpClient();
         File file = new File(filePath);
 
@@ -84,17 +93,30 @@ public class ScreenshotUtil {
                 .post(requestBody)
                 .build();
 
-        // 发送请求
+        // 发送请求并处理中断异常
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 throw new IOException("Unexpected code " + response);
             }
             return response.body().string();
+        } catch (java.io.InterruptedIOException e) {
+            // 返回一个默认的JSON响应，避免解析失败
+            return "{\"url\":\"\",\"status\":\"interrupted\",\"message\":\"文件上传被中断\"}";
+        } catch (Exception e) {
+            e.printStackTrace();
+            // 返回一个默认的JSON响应
+            return "{\"url\":\"\",\"status\":\"error\",\"message\":\"文件上传失败: " + e.getMessage() + "\"}";
         }
     }
 
 
     public static String downloadAndUploadFile(Page page, String uploadUrl, Runnable downloadTrigger) throws IOException {
+        try {
+            // 检查页面是否已关闭
+            if (page.isClosed()) {
+                return "";
+            }
+
         Download download = page.waitForDownload(downloadTrigger);
 
         Path tmpPath = download.path();
@@ -118,5 +140,13 @@ public class ScreenshotUtil {
 
         JSONObject jsonObject = JSONObject.parseObject(result);
         return jsonObject.getString("url");
+        } catch (com.microsoft.playwright.impl.TargetClosedError e) {
+            return "";
+        } catch (com.microsoft.playwright.PlaywrightException e) {
+            return "";
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "";
+        }
     }
 }
