@@ -1705,26 +1705,58 @@ public class AIGCController {
                     Object finalFormattedContent = page.evaluate("""
                         (content) => {
                             try {
+                                const ALLOWED_TAGS = new Set([
+                                    'p', 'br', 'strong', 'em', 'b', 'i', 'ul', 'ol', 'li', 'h3', 'hr',
+                                    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+                                    'pre', 'code'
+                                ]);
                                 const tempDiv = document.createElement('div');
                                 tempDiv.innerHTML = content;
-                        
-                                const plainText = tempDiv.innerText || "";
-                        
-                                const lines = plainText.split('\\n').filter(line => line.trim() !== '');
-                        
-                                const sanitizedHtml = lines.map(line => `<p>${line}</p>`).join('');
-                        
+                                tempDiv.querySelectorAll('.tongyi-design-highlighter').forEach(highlighter => {
+                                    const codeElement = highlighter.querySelector('code');
+                                    if (!codeElement) return;
+                                    const clonedCode = codeElement.cloneNode(true);
+                                    clonedCode.querySelectorAll('.react-syntax-highlighter-line-number').forEach(el => el.remove());
+                                    const cleanText = clonedCode.innerText;
+                                    const newPreElement = document.createElement('pre');
+                                    const newCodeElement = document.createElement('code');
+                                    newCodeElement.textContent = cleanText;
+                                    newPreElement.appendChild(newCodeElement);
+                                    highlighter.parentNode.replaceChild(newPreElement, highlighter);
+                                });
+                                const allElements = tempDiv.querySelectorAll('*');
+                                for (let i = allElements.length - 1; i >= 0; i--) {
+                                    const el = allElements[i];
+                                    if (!ALLOWED_TAGS.has(el.tagName.toLowerCase())) {
+                                        el.replaceWith(...el.childNodes);
+                                    } else {
+                                        while (el.attributes.length > 0) {
+                                            el.removeAttribute(el.attributes[0].name);
+                                        }
+                                    }
+                                }
+                                const sanitizedHtml = tempDiv.innerHTML;
                                 const styledContainer = document.createElement('div');
                                 styledContainer.className = 'tongyi-response';
                                 styledContainer.style.cssText = 'max-width: 800px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; color: #333;';
-                        
-                                styledContainer.innerHTML = sanitizedHtml;
-                        
+                                const customStyles = document.createElement('style');
+                                customStyles.textContent = `
+                                    .tongyi-response table { border-collapse: collapse; width: 100%; margin: 1em 0; border: 1px solid #ddd; }
+                                    .tongyi-response th, .tongyi-response td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                                    .tongyi-response th { background-color: #f2f2f2; }
+                                    .tongyi-response pre { background-color: #f5f5f5; padding: 10px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; font-size: 14px;}
+                                    .tongyi-response code { font-family: 'Courier New', Courier, monospace; }
+                                    .tongyi-response h3 { margin-top: 1.5em; margin-bottom: 0.5em; }
+                                    .tongyi-response hr { border: 0; border-top: 1px solid #eee; margin: 1.5em 0; }
+                                `;
+                                styledContainer.appendChild(customStyles);
+                                const contentWrapper = document.createElement('div');
+                                contentWrapper.innerHTML = sanitizedHtml;
+                                styledContainer.appendChild(contentWrapper);
                                 return styledContainer.outerHTML;
-                        
                             } catch (e) {
-                                console.error('将HTML转换为纯文本段落时出错:', e);
-                                return content;
+                                console.error('HTML净化和格式化过程中出错:', e);
+                                return `<div>格式化失败: ${e.message}</div>`;
                             }
                         }
                         """, rawHtmlContent);
