@@ -303,13 +303,16 @@ public class BrowserController {
     public String getYBQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) throws InterruptedException, IOException {
         try {
             UnPersisBrowserContextInfo browserContextInfo = BrowserContextFactory.getBrowserContext(userId, 2);
-            BrowserContext context = browserContextInfo.getBrowserContext();
+            BrowserContext context = null;
+            if (browserContextInfo != null) {
+                context = browserContextInfo.getBrowserContext();
+            }
             Page page = context.pages().get(0);
             page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa");
             page.locator("//span[contains(text(),'登录')]").click();
-            Thread.sleep(3000);
+            Thread.sleep(4000);
+            boolean isLogin = false;
             String url = screenshotUtil.screenshotAndUpload(page,"checkYBLogin.png");
-
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("url",url);
             jsonObject.put("userId",userId);
@@ -318,8 +321,12 @@ public class BrowserController {
             Locator phone = page.locator("//p[@class='nick-info-name']");
             String phoneText = phone.textContent();
             for(int i = 0; i < 6; i++) {
+//                每十秒刷新一次
                 if(phoneText.contains("未登录")) {
-                    Thread.sleep(5000);
+                    Thread.sleep(10000);
+                    url = screenshotUtil.screenshotAndUpload(page,"checkYBLogin.png");
+                    jsonObject.put("url",url);
+                    webSocketClientService.sendMessage(jsonObject.toJSONString());
                 } else {
                     break;
                 }
@@ -327,13 +334,17 @@ public class BrowserController {
             }
             if(phone.count()>0){
                 JSONObject jsonObjectTwo = new JSONObject();
-                jsonObjectTwo.put("status",phoneText);
+                if(phoneText.contains("未登录")) {
+                    jsonObjectTwo.put("status","false");
+                } else {
+                    isLogin = true;
+                    jsonObjectTwo.put("status",phoneText);
+                }
                 jsonObjectTwo.put("userId",userId);
                 jsonObjectTwo.put("type","RETURN_YB_STATUS");
                 webSocketClientService.sendMessage(jsonObjectTwo.toJSONString());
             }
-
-            return url;
+            return isLogin ? phoneText : "false";
         } catch (Exception e) {
             throw e;
         }

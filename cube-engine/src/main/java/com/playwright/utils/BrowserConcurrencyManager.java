@@ -3,7 +3,6 @@ package com.playwright.utils;
 import org.springframework.stereotype.Component;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.Comparator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Set;
 
@@ -19,7 +18,7 @@ public class BrowserConcurrencyManager {
     
     // CPU核心数
     private final int CPU_CORES = Runtime.getRuntime().availableProcessors();
-    
+
     // 并发限制：CPU核心数 + 2 (优化性能和资源平衡)
     private final int MAX_CONCURRENT_BROWSERS;
     

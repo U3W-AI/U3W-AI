@@ -1,10 +1,10 @@
 package com.playwright.utils;
 
-import com.alibaba.fastjson.JSONObject;
-import com.microsoft.playwright.Download;
+import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.ElementHandle;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.playwright.entity.UnPersisBrowserContextInfo;
 import com.playwright.entity.UserInfoRequest;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -13,8 +13,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -52,20 +50,61 @@ public class TencentUtil {
     @Autowired
     private ClipboardLockManager clipboardLockManager;
 
+    public Page getPage(String type, String userId) {
+        UnPersisBrowserContextInfo browserContextInfo = BrowserContextFactory.getBrowserContext(userId, 2);
+
+        // 检查浏览器上下文是否创建成功
+        if (browserContextInfo == null || browserContextInfo.getBrowserContext() == null) {
+            String errorMsg = "浏览器上下文创建失败，无法执行元宝智能体任务";
+            logInfo.sendTaskLog(errorMsg, userId, "元包智能体");
+
+            // 发送错误响应
+            try {
+                logInfo.sendResData(errorMsg, userId, "元包智能体", "RETURN_YB_RES", "", "");
+            } catch (Exception e) {
+            }
+        }
+
+        BrowserContext context = null;
+        if (browserContextInfo != null) {
+            context = browserContextInfo.getBrowserContext();
+        }
+        List<Page> pages = context.pages();
+
+        // 检查页面是否可用
+        if (pages == null || pages.size() < 2) {
+            String errorMsg = "浏览器页面不足，需要至少2个页面，当前页面数: " + (pages != null ? pages.size() : 0);
+            logInfo.sendTaskLog(errorMsg, userId, "元包智能体");
+
+            // 发送错误响应
+            try {
+                logInfo.sendResData(errorMsg, userId, "元包智能体", "RETURN_YB_RES", "", "");
+            } catch (Exception e) {
+            }
+        }
+        if (type.equals("T1")) {
+            return pages.get(0);
+        } else if (type.equals("DS")) {
+            return pages.get(1);
+        }
+        return null;
+    }
+
     /**
      * 处理智能体AI交互流程
-     * @param page Playwright页面实例
+     *
+     * @param page       Playwright页面实例
      * @param userPrompt 用户输入的指令
-     * @param agentUrl 智能体URL
-     * @param aiName AI名称
-     * @param userId 用户ID
-     * @param isNewChat 是否新会话
+     * @param agentUrl   智能体URL
+     * @param aiName     AI名称
+     * @param userId     用户ID
+     * @param isNewChat  是否新会话
      * @return 复制按钮数量（用于后续监控）
      */
     public int handelAgentAI(Page page, String userPrompt, String agentUrl, String aiName, String userId, String isNewChat) throws InterruptedException, IOException {
         page.navigate(agentUrl);
-        logInfo.sendImgData(page,userId+"打开智能体页面",userId);
-        logInfo.sendTaskLog( aiName+"页面打开完成",userId,aiName);
+        logInfo.sendImgData(page, userId + "打开智能体页面", userId);
+        logInfo.sendTaskLog(aiName + "页面打开完成", userId, aiName);
 
         String currentUrl = page.url();
         Pattern pattern = Pattern.compile("/chat/([^/]+)/([^/]+)");
@@ -83,10 +122,10 @@ public class TencentUtil {
         page.locator(".ql-editor > p").click();
         Thread.sleep(500);
         page.locator(".ql-editor").fill(userPrompt);
-        logInfo.sendTaskLog( "用户指令已自动输入完成",userId,aiName);
+        logInfo.sendTaskLog("用户指令已自动输入完成", userId, aiName);
         Thread.sleep(500);
         page.locator(".ql-editor").press("Enter");
-        logInfo.sendTaskLog( "指令已自动发送成功",userId,aiName);
+        logInfo.sendTaskLog("指令已自动发送成功", userId, aiName);
         // 获取当前复制按钮数量（用于监控回答状态）
         int copyButtonCount = page.querySelectorAll("div.agent-chat__toolbar__item.agent-chat__toolbar__copy").size();
         Thread.sleep(2000);
@@ -96,33 +135,34 @@ public class TencentUtil {
 
     /**
      * 保存智能体草稿数据（带执行过程监控）
-     * @param page Playwright页面实例
+     *
+     * @param page            Playwright页面实例
      * @param userInfoRequest 用户信息请求对象
-     * @param aiName AI名称
-     * @param userId 用户ID
-     * @param initialCount 初始复制按钮数量
-     * @param agentName 智能体名称
-     * @param resName 结果名称
+     * @param aiName          AI名称
+     * @param userId          用户ID
+     * @param initialCount    初始复制按钮数量
+     * @param agentName       智能体名称
+     * @param resName         结果名称
      * @return 抓取到的文本内容
      */
-    public String saveAgentDraftData(Page page, UserInfoRequest userInfoRequest, String aiName, String userId, int initialCount, String agentName, String resName){
+    public String saveAgentDraftData(Page page, UserInfoRequest userInfoRequest, String aiName, String userId, int initialCount, String agentName, String resName) {
         // 定时截图监控配置（每10秒截图一次）
         AtomicInteger i = new AtomicInteger(0);
         ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
         ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
             try {
                 int currentCount = i.getAndIncrement(); // 获取当前值并自增
-                logInfo.sendImgData(page, userId +agentName+ "工作流执行过程截图"+currentCount, userId);
+                logInfo.sendImgData(page, userId + agentName + "工作流执行过程截图" + currentCount, userId);
             } catch (Exception e) {
-                e.printStackTrace();
+                UserLogUtil.sendExceptionLog(userId, agentName + "截图异常", "saveAgentDraftData", e, url + "/saveLogInfo");
             }
         }, 0, 10, TimeUnit.SECONDS);
         try {
-            logInfo.sendTaskLog( "开启自动监听任务，持续监听"+agentName+"回答中",userId,agentName);
+            logInfo.sendTaskLog("开启自动监听任务，持续监听" + agentName + "回答中", userId, agentName);
             //等待复制按钮出现并点击
 //            String copiedText = waitAndClickYBCopyButton(page,userId,aiName,initialCount,agentName);
             //等待html片段获取完成
-            String copiedText = waitHtmlDom(page,agentName,userId);
+            String copiedText = waitHtmlDom(page, agentName, userId);
 
             AtomicReference<String> shareUrlRef = new AtomicReference<>();
 
@@ -142,7 +182,7 @@ public class TencentUtil {
                     }
                     shareUrlRef.set(url);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    UserLogUtil.sendExceptionLog(userId, agentName + "复制异常", "saveAgentDraftData", e, url + "/saveLogInfo");
                 }
             });
             Thread.sleep(1000);
@@ -155,19 +195,19 @@ public class TencentUtil {
             });
 
             // 日志记录与数据保存
-            logInfo.sendTaskLog( "执行完成",userId,agentName);
-            logInfo.sendResData(copiedText,userId,agentName,resName,shareUrl,sharImgUrl);
+            logInfo.sendTaskLog("执行完成", userId, agentName);
+            logInfo.sendResData(copiedText, userId, agentName, resName, shareUrl, sharImgUrl);
 
             Thread.sleep(3000);
             userInfoRequest.setDraftContent(copiedText);
-            userInfoRequest.setAiName("Agent-"+aiName);
+            userInfoRequest.setAiName("Agent-" + aiName);
             userInfoRequest.setShareUrl(shareUrl);
             userInfoRequest.setShareImgUrl(sharImgUrl);
-            RestUtils.post(url+"/saveDraftContent", userInfoRequest);
+            RestUtils.post(url + "/saveDraftContent", userInfoRequest);
             return copiedText;
-        }catch (Exception e) {
-            e.printStackTrace();
-        }finally {
+        } catch (Exception e) {
+            UserLogUtil.sendExceptionLog(userId, agentName + "执行异常", "saveAgentDraftData", e, url + "/saveLogInfo");
+        } finally {
             // 无论成功还是异常，都取消定时截图任务
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
@@ -176,22 +216,22 @@ public class TencentUtil {
     }
 
 
-
     /**
      * 处理元宝AI交互流程
-     * @param page Playwright页面实例
+     *
+     * @param page       Playwright页面实例
      * @param userPrompt 用户指令
-     * @param role 角色/模式标识
-     * @param userId 用户ID
-     * @param aiName AI名称
-     * @param chatId 会话ID
+     * @param role       角色/模式标识
+     * @param userId     用户ID
+     * @param aiName     AI名称
+     * @param chatId     会话ID
      * @return 初始复制按钮数量
      */
-    public int handleYBAI(Page page,String userPrompt,String role,String userId,String aiName,String chatId) throws Exception {
+    public synchronized int handleYBAI(Page page, String userPrompt, String role, String userId, String aiName, String chatId) throws Exception {
 
         // 页面导航与元素定位
-        page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa/"+chatId);
-        String modelDom ="[dt-button-id=\"model_switch\"]";
+        page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa/" + chatId);
+        String modelDom = "[dt-button-id=\"model_switch\"]";
         String hunyuanDom = "//div[normalize-space()='Hunyuan']";
         String deepseekDom = "//div[normalize-space()='DeepSeek']";
         Thread.sleep(3000);
@@ -213,8 +253,6 @@ public class TencentUtil {
         }
 
 
-
-
         // 功能开关定位
         String deepThingDom = "[dt-button-id=\"deep_think\"]";
         Locator deepThing = page.locator(deepThingDom);
@@ -222,89 +260,89 @@ public class TencentUtil {
         String webSearchDom = "[dt-button-id=\"online_search\"]";
         Locator webSearch = page.locator(webSearchDom);
 
-        logInfo.sendImgData(page,userId+"打开页面",userId);
-        logInfo.sendTaskLog( aiName+"页面打开完成",userId,aiName);
+        logInfo.sendImgData(page, userId + "打开页面", userId);
+        logInfo.sendTaskLog(aiName + "页面打开完成", userId, aiName);
 
         // 根据角色配置不同模式
         int copyButtonCount = page.querySelectorAll("div.agent-chat__toolbar__item.agent-chat__toolbar__copy").size();
-        if(role.contains("yb-hunyuan")){
+        if (role.contains("yb-hunyuan")) {
             //切换模型
-            clickModelChange(page,modelName,modelDom,hunyuanDom,"hunyuan");
-            logInfo.sendImgData(page,userId+"切换混元模型",userId);
-            logInfo.sendTaskLog( "自动切换混元模型完成",userId,aiName);
+            clickModelChange(page, modelName, modelDom, hunyuanDom, "hunyuan");
+            logInfo.sendImgData(page, userId + "切换混元模型", userId);
+            logInfo.sendTaskLog("自动切换混元模型完成", userId, aiName);
         }
-        if(role.contains("yb-deepseek")){
+        if (role.contains("yb-deepseek")) {
             //切换模型
-            clickModelChange(page,modelName,modelDom,deepseekDom,"deep_seek");
-            logInfo.sendImgData(page,userId+"切换DS模型",userId);
-            logInfo.sendTaskLog( "自动切换DS模型完成",userId,aiName);
+            clickModelChange(page, modelName, modelDom, deepseekDom, "deep_seek");
+            logInfo.sendImgData(page, userId + "切换DS模型", userId);
+            logInfo.sendTaskLog("自动切换DS模型完成", userId, aiName);
         }
 
-        if(role.equals("yb-hunyuan-pt")){
+        if (role.equals("yb-hunyuan-pt")) {
             //是否深度思考
-            clickDeepThing(page,deepThing,deepThingDom,"hunyuan_gpt_175B_0404");
+            clickDeepThing(page, deepThing, deepThingDom, "hunyuan_gpt_175B_0404");
             //是否联网搜索  1是 2否
-            clickWebSearch(page,webSearch,webSearchDom,"2");
-            logInfo.sendImgData(page,userId+"混元普通选择",userId);
+            clickWebSearch(page, webSearch, webSearchDom, "2");
+            logInfo.sendImgData(page, userId + "混元普通选择", userId);
         }
 
-        if(role.equals("yb-hunyuan-sdsk")){
+        if (role.equals("yb-hunyuan-sdsk")) {
             //是否深度思考
-            clickDeepThing(page,deepThing,deepThingDom,"hunyuan_t1");
+            clickDeepThing(page, deepThing, deepThingDom, "hunyuan_t1");
             //是否联网搜索  1是 2否
-            clickWebSearch(page,webSearch,webSearchDom,"2");
-            logInfo.sendImgData(page,userId+"混元深思选择",userId);
-            logInfo.sendTaskLog( "已启动深度思考模式",userId,aiName);
+            clickWebSearch(page, webSearch, webSearchDom, "2");
+            logInfo.sendImgData(page, userId + "混元深思选择", userId);
+            logInfo.sendTaskLog("已启动深度思考模式", userId, aiName);
         }
 
-        if(role.equals("yb-hunyuan-lwss-1")){
+        if (role.equals("yb-hunyuan-lwss-1")) {
             //是否深度思考
-            clickDeepThing(page,deepThing,deepThingDom,"hunyuan_gpt_175B_0404");
+            clickDeepThing(page, deepThing, deepThingDom, "hunyuan_gpt_175B_0404");
 
             //是否联网搜索 1是 2否
-            clickWebSearch(page,webSearch,webSearchDom,"1");
-            logInfo.sendImgData(page,userId+"混元联网选择",userId);
-            logInfo.sendTaskLog( "已启动联网搜索模式",userId,aiName);
+            clickWebSearch(page, webSearch, webSearchDom, "1");
+            logInfo.sendImgData(page, userId + "混元联网选择", userId);
+            logInfo.sendTaskLog("已启动联网搜索模式", userId, aiName);
         }
-        if(role.equals("yb-hunyuan-lwss-2")){
+        if (role.equals("yb-hunyuan-lwss-2")) {
             //是否深度思考
-            clickDeepThing(page,deepThing,deepThingDom,"hunyuan_t1");
+            clickDeepThing(page, deepThing, deepThingDom, "hunyuan_t1");
             //是否联网搜索 1是 2否
-            clickWebSearch(page,webSearch,webSearchDom,"1");
-            logInfo.sendImgData(page,userId+"混元深思联网选择",userId);
-            logInfo.sendTaskLog( "已启动深度思考+联网搜索模式",userId,aiName);
+            clickWebSearch(page, webSearch, webSearchDom, "1");
+            logInfo.sendImgData(page, userId + "混元深思联网选择", userId);
+            logInfo.sendTaskLog("已启动深度思考+联网搜索模式", userId, aiName);
         }
 
-        if(role.equals("yb-deepseek-pt")){
+        if (role.equals("yb-deepseek-pt")) {
             //是否深度思考
-            clickDeepThing(page,deepThing,deepThingDom,"deep_seek_v3");
+            clickDeepThing(page, deepThing, deepThingDom, "deep_seek_v3");
             //是否联网搜索  1是 2否
-            clickWebSearch(page,webSearch,webSearchDom,"2");
-            logInfo.sendImgData(page,userId+"元宝DS普通选择",userId);
+            clickWebSearch(page, webSearch, webSearchDom, "2");
+            logInfo.sendImgData(page, userId + "元宝DS普通选择", userId);
         }
-        if(role.equals("yb-deepseek-sdsk")){
+        if (role.equals("yb-deepseek-sdsk")) {
             //是否深度思考
-            clickDeepThing(page,deepThing,deepThingDom,"deep_seek");
+            clickDeepThing(page, deepThing, deepThingDom, "deep_seek");
             //是否联网搜索  1是 2否
-            clickWebSearch(page,webSearch,webSearchDom,"2");
-            logInfo.sendImgData(page,userId+"元宝DS深思选择",userId);
-            logInfo.sendTaskLog( "已启动深度思考模式",userId,aiName);
+            clickWebSearch(page, webSearch, webSearchDom, "2");
+            logInfo.sendImgData(page, userId + "元宝DS深思选择", userId);
+            logInfo.sendTaskLog("已启动深度思考模式", userId, aiName);
         }
-        if(role.equals("yb-deepseek-lwss-1")){
+        if (role.equals("yb-deepseek-lwss-1")) {
             //是否深度思考
-            clickDeepThing(page,deepThing,deepThingDom,"deep_seek_v3");
+            clickDeepThing(page, deepThing, deepThingDom, "deep_seek_v3");
             //是否联网搜索 1是 2否
-            clickWebSearch(page,webSearch,webSearchDom,"1");
-            logInfo.sendImgData(page,userId+"元宝DS联网选择",userId);
-            logInfo.sendTaskLog( "已启动联网搜索模式",userId,aiName);
+            clickWebSearch(page, webSearch, webSearchDom, "1");
+            logInfo.sendImgData(page, userId + "元宝DS联网选择", userId);
+            logInfo.sendTaskLog("已启动联网搜索模式", userId, aiName);
         }
-        if(role.equals("yb-deepseek-lwss-2")){
+        if (role.equals("yb-deepseek-lwss-2")) {
             //是否深度思考
-            clickDeepThing(page,deepThing,deepThingDom,"deep_seek");
+            clickDeepThing(page, deepThing, deepThingDom, "deep_seek");
             //是否联网搜索 1是 2否
-            clickWebSearch(page,webSearch,webSearchDom,"1");
-            logInfo.sendImgData(page,userId+"元宝DS深思联网选择",userId);
-            logInfo.sendTaskLog( "已启动深度思考+联网搜索模式",userId,aiName);
+            clickWebSearch(page, webSearch, webSearchDom, "1");
+            logInfo.sendImgData(page, userId + "元宝DS深思联网选择", userId);
+            logInfo.sendTaskLog("已启动深度思考+联网搜索模式", userId, aiName);
         }
 
 
@@ -312,15 +350,15 @@ public class TencentUtil {
         page.locator(".ql-editor > p").click();
         Thread.sleep(500);
         page.locator(".ql-editor").fill(userPrompt);
-        logInfo.sendTaskLog( "用户指令已自动输入完成",userId,aiName);
+        logInfo.sendTaskLog("用户指令已自动输入完成", userId, aiName);
         Thread.sleep(500);
         page.locator(".ql-editor").press("Enter");
-        logInfo.sendTaskLog( "指令已自动发送成功",userId,aiName);
+        logInfo.sendTaskLog("指令已自动发送成功", userId, aiName);
         Thread.sleep(1000);
         return copyButtonCount;
     }
 
-    public String saveDraftData(Page page,UserInfoRequest userInfoRequest,String aiName,String userId,int initialCount) throws InterruptedException {
+    public synchronized String saveDraftData(Page page, UserInfoRequest userInfoRequest, String aiName, String userId) throws InterruptedException, IOException {
 
         // 创建定时截图线程
         AtomicInteger i = new AtomicInteger(0);
@@ -332,25 +370,25 @@ public class TencentUtil {
                     return;
                 }
                 int currentCount = i.getAndIncrement(); // 获取当前值并自增
-                logInfo.sendImgData(page, userId + "元宝执行过程截图"+currentCount, userId);
+                logInfo.sendImgData(page, userId + "元宝执行过程截图" + currentCount, userId);
             } catch (Exception e) {
-                e.printStackTrace();
+                UserLogUtil.sendExceptionLog(userId, "元宝截图", "saveDraftData", e, url + "/saveLogInfo");
             }
         }, 0, 7, TimeUnit.SECONDS);
         try {
             String agentName = "";
             if (aiName.contains("hunyuan")) {
                 agentName = "腾讯元宝T1";
-                logInfo.sendTaskLog( "开启自动监听任务，持续监听腾讯元宝T1回答中",userId,agentName);
+                logInfo.sendTaskLog("开启自动监听任务，持续监听腾讯元宝T1回答中", userId, agentName);
             } else if (aiName.contains("deepseek")) {
                 agentName = "腾讯元宝DS";
-                logInfo.sendTaskLog( "开启自动监听任务，持续监听腾讯元宝DS回答中",userId,agentName);
+                logInfo.sendTaskLog("开启自动监听任务，持续监听腾讯元宝DS回答中", userId, agentName);
             }
 
             //等待复制按钮出现并点击
 //            String copiedText = waitAndClickYBCopyButton(page,userId,aiName,initialCount,agentName);
             //等待html片段获取
-            String copiedText = waitHtmlDom(page,agentName,userId);
+            String copiedText = waitHtmlDom(page, agentName, userId);
 
             //关闭截图
             screenshotFuture.cancel(false);
@@ -364,7 +402,6 @@ public class TencentUtil {
                     page.locator("div.agent-chat__share-bar__item__logo").first().click();
                     // 建议适当延迟等待内容更新
                     Thread.sleep(2000); // 根据实际加载速度调整
-                    //这里会出现弹窗
                     String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
                     Pattern pattern = Pattern.compile("https?://\\S+");
                     Matcher matcher = pattern.matcher(shareUrl);
@@ -375,7 +412,7 @@ public class TencentUtil {
                     }
                     shareUrlRef.set(url);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    UserLogUtil.sendExceptionLog(userId, aiName + "任务执行异常", "saveDraftData", e, url + "/saveLogInfo");
                 }
             });
 
@@ -384,18 +421,36 @@ public class TencentUtil {
 
             page.locator("div.agent-chat__share-bar__item__logo").nth(1).click();
 
-            String  sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
-                page.locator("div.hyc-photo-view__control__btn-download").click();
+            String sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
+                try {
+                    page.locator("div.hyc-photo-view__control__btn-download").click();
+                    Thread.sleep(3000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             });
 
-            if (aiName.contains("hunyuan")) {
-                logInfo.sendTaskLog( "执行完成",userId,"腾讯元宝T1");
-                logInfo.sendChatData(page,"/chat/([^/]+)/([^/]+)",userId,"RETURN_YBT1_CHATID",2);
-                logInfo.sendResData(copiedText,userId,"腾讯元宝T1","RETURN_YBT1_RES",shareUrl,sharImgUrl);
-            } else if (aiName.contains("deepseek")) {
-                logInfo.sendTaskLog( "执行完成",userId,"腾讯元宝DS");
-                logInfo.sendChatData(page,"/chat/([^/]+)/([^/]+)",userId,"RETURN_YBDS_CHATID",2);
-                logInfo.sendResData(copiedText,userId,"腾讯元宝T1","RETURN_YBDS_RES",shareUrl,sharImgUrl);
+            try {
+                Thread.sleep(3000);
+                if (aiName.contains("hunyuan")) {
+                    logInfo.sendTaskLog("执行完成", userId, "腾讯元宝T1");
+                    logInfo.sendChatData(page, "/chat/([^/]+)/([^/]+)", userId, "RETURN_YBT1_CHATID", 2);
+                    logInfo.sendResData(copiedText, userId, "腾讯元宝T1", "RETURN_YBT1_RES", shareUrl, sharImgUrl);
+                } else if (aiName.contains("deepseek")) {
+                    logInfo.sendTaskLog("执行完成", userId, "腾讯元宝DS");
+                    logInfo.sendChatData(page, "/chat/([^/]+)/([^/]+)", userId, "RETURN_YBDS_CHATID", 2);
+                    logInfo.sendResData(copiedText, userId, "腾讯元宝T1", "RETURN_YBDS_RES", shareUrl, sharImgUrl);
+                }
+            } catch (InterruptedException e) {
+                if (aiName.contains("hunyuan")) {
+                    logInfo.sendTaskLog("执行完成", userId, "腾讯元宝T1");
+                    logInfo.sendChatData(page, "/chat/([^/]+)/([^/]+)", userId, "RETURN_YBT1_CHATID", 2);
+                    logInfo.sendResData(copiedText, userId, "腾讯元宝T1", "RETURN_YBT1_RES", shareUrl, sharImgUrl);
+                } else if (aiName.contains("deepseek")) {
+                    logInfo.sendTaskLog("执行完成", userId, "腾讯元宝DS");
+                    logInfo.sendChatData(page, "/chat/([^/]+)/([^/]+)", userId, "RETURN_YBDS_CHATID", 2);
+                    logInfo.sendResData(copiedText, userId, "腾讯元宝T1", "RETURN_YBDS_RES", shareUrl, sharImgUrl);
+                }
             }
 
             userInfoRequest.setDraftContent(copiedText);
@@ -404,71 +459,72 @@ public class TencentUtil {
             userInfoRequest.setShareImgUrl(sharImgUrl);
             RestUtils.post(url + "/saveDraftContent", userInfoRequest);
             return copiedText;
-        }catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            UserLogUtil.sendExceptionLog(userId, aiName + "任务执行异常", "saveDraftData", e, url + "/saveLogInfo");
         }
         return "未获取到内容";
     }
 
 
-    public void clickModelChange(Page page,Locator modelName,String modelDom,String modeCheckDom,String aiName) throws InterruptedException {
-        if(!modelName.getAttribute("dt-model-id").contains(aiName)){
+    public void clickModelChange(Page page, Locator modelName, String modelDom, String modeCheckDom, String aiName) throws
+            InterruptedException {
+        if (!modelName.getAttribute("dt-model-id").contains(aiName)) {
 
             Thread.sleep(1000);
-            if(page.locator(modeCheckDom).count()>0){
+            if (page.locator(modeCheckDom).count() > 0) {
                 page.locator(modeCheckDom).click();
-            }else{
+            } else {
                 page.locator(modelDom).click();
                 Thread.sleep(1000);
                 page.locator(modeCheckDom).click();
             }
-
-
-
-
         }
     }
 
-    public void clickDeepThing(Page page,Locator deepThing,String deepThingDom,String aiName) throws InterruptedException {
+    public void clickDeepThing(Page page, Locator deepThing, String deepThingDom, String aiName) throws
+            InterruptedException {
         deepThing.waitFor(new Locator.WaitForOptions().setTimeout(5000));
-        if(!deepThing.getAttribute("dt-model-id").equals(aiName)){
-            Thread.sleep(500);
+        if (!deepThing.getAttribute("dt-model-id").equals(aiName)) {
+            Thread.sleep(1000);
             page.locator(deepThingDom).click();
         }
     }
 
-    public void clickWebSearch(Page page,Locator webSearch,String webSearchDom,String isWebSearch) throws InterruptedException {
+    public void clickWebSearch(Page page, Locator webSearch, String webSearchDom, String isWebSearch) throws
+            InterruptedException {
         String searchText = "自动搜索";
         boolean visible = page.locator("//div[@class='yb-switch-internet-search-btn__left']").isVisible();
-        if(visible) {
+        if (visible) {
             searchText = page.locator("//div[@class='yb-switch-internet-search-btn__left']").textContent();
         }
-        if(!searchText.equals("自动搜索")){
+        if (!searchText.equals("自动搜索")) {
             webSearch.waitFor(new Locator.WaitForOptions().setTimeout(5000));
-            if(!webSearch.getAttribute("dt-ext3").equals(isWebSearch)){
-                Thread.sleep(500);
+            if (!webSearch.getAttribute("dt-ext3").equals(isWebSearch)) {
+                Thread.sleep(1000);
                 page.locator(webSearchDom).click();
             }
         }
-        if(searchText.equals("自动搜索")&& isWebSearch.equals("2")){
+        if (searchText.equals("自动搜索") && isWebSearch.equals("2")) {
 
             page.locator(webSearchDom).click();
-            Thread.sleep(500);
+            Thread.sleep(1000);
             page.locator("text=手动控制联网状态").click();
-            Thread.sleep(500);
+            Thread.sleep(1000);
 
         }
     }
 
     /**
      * 等待并点击复制按钮（核心监控方法）
-     * @param page Playwright页面实例
-     * @param userId 用户ID
-     * @param aiName AI名称
+     *
+     * @param page         Playwright页面实例
+     * @param userId       用户ID
+     * @param aiName       AI名称
      * @param initialCount 初始按钮数量
-     * @param agentName 智能体名称
+     * @param agentName    智能体名称
      */
-    private String waitAndClickYBCopyButton(Page page,String userId,String aiName,int initialCount,String agentName)  {
+    private String waitAndClickYBCopyButton(Page page, String userId, String aiName, int initialCount, String
+            agentName) {
         try {
             String copiedText = "";
             int timeoutMillis = 600_000;
@@ -493,13 +549,13 @@ public class TencentUtil {
                 }
             }
 
-            logInfo.sendTaskLog( agentName+"回答完成，正在自动提取内容",userId,agentName);
+            logInfo.sendTaskLog(agentName + "回答完成，正在自动提取内容", userId, agentName);
             List<ElementHandle> copyButtons = page.querySelectorAll("div.agent-chat__toolbar__item.agent-chat__toolbar__copy");
             Thread.sleep(2000);  // 额外等待确保按钮可点击
             copyButtons.get(copyButtons.size() - 1).click();
             Thread.sleep(3000);
             copiedText = (String) page.evaluate("navigator.clipboard.readText()");
-            logInfo.sendTaskLog( agentName+"内容已自动提取完成",userId,agentName);
+            logInfo.sendTaskLog(agentName + "内容已自动提取完成", userId, agentName);
             return copiedText;
 
         } catch (Exception e) {
@@ -510,9 +566,10 @@ public class TencentUtil {
 
     /**
      * html片段获取（核心监控方法）
+     *
      * @param page Playwright页面实例
      */
-    private String waitHtmlDom(Page page,String agentName,String userId)  {
+    private String waitHtmlDom(Page page, String agentName, String userId) {
         try {
             // 等待聊天框的内容稳定
             String currentContent = "";
@@ -536,7 +593,7 @@ public class TencentUtil {
 
                 // 如果当前内容和上次内容相同，认为 AI 已经完成回答，退出循环
                 if (currentContent.equals(lastContent)) {
-                    logInfo.sendTaskLog( agentName+"回答完成，正在自动提取内容",userId,agentName);
+                    logInfo.sendTaskLog(agentName + "回答完成，正在自动提取内容", userId, agentName);
                     break;
                 }
 
@@ -544,24 +601,23 @@ public class TencentUtil {
                 lastContent = currentContent;
 
                 // 等待 2 秒后再次检查
-                page.waitForTimeout(20000);  // 等待2秒
+                page.waitForTimeout(2000);  // 等待2秒
             }
-            currentContent = currentContent.replaceAll("<div class=\"hyc-common-markdown__ref-list\".*?</div>|<span>.*?</span>","");
+            currentContent = currentContent.replaceAll("<div class=\"hyc-common-markdown__ref-list\".*?</div>|<span>.*?</span>", "");
             currentContent = currentContent.replaceAll(
                     "<div class=\"hyc-common-markdown__ref-list__trigger\"[^>]*>\\s*<div class=\"hyc-common-markdown__ref-list__item\"></div>\\s*</div>",
                     ""
             );
 //            Document doc = Jsoup.parse(currentContent);
 //            currentContent = doc.text();  // 提取纯文本内容
-            logInfo.sendTaskLog( agentName+"内容已自动提取完成",userId,agentName);
+            logInfo.sendTaskLog(agentName + "内容已自动提取完成", userId, agentName);
             return currentContent;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            UserLogUtil.sendExceptionLog(userId, agentName + "获取内容失败", "waitHtmlDom", e, url + "/saveLogInfo");
         }
         return "获取内容失败";
     }
-
 
 
 }
