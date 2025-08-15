@@ -67,6 +67,7 @@ public class TTHUtil {
                     agreementCheckbox.click();
                 }
             } catch (TimeoutError e) {
+                throw e;
             }
 
             // 2. 点击抖音登录按钮

@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 百度对话AI工具类
+ *
  * @author 优立方
  * @version JDK 17
  * @date 2025年07月31日 10:00
@@ -40,7 +41,8 @@ public class BaiduUtil {
 
     /**
      * 检查百度对话AI登录状态
-     * @param page Playwright页面对象
+     *
+     * @param page     Playwright页面对象
      * @param navigate 是否需要先导航到百度对话AI页面
      * @return 登录状态，如果已登录则返回用户名，否则返回"false"
      */
@@ -209,7 +211,7 @@ public class BaiduUtil {
         } catch (com.microsoft.playwright.impl.TargetClosedError e) {
             return "false";
         } catch (com.microsoft.playwright.TimeoutError e) {
-                return "false";
+            return "false";
         } catch (Exception e) {
             // 如果是页面导航导致的异常，可能是登录成功了
             if (e.getMessage() != null && e.getMessage().contains("navigation")) {
@@ -235,11 +237,12 @@ public class BaiduUtil {
 
     /**
      * 处理百度对话AI页面交互
-     * @param page Playwright页面对象
+     *
+     * @param page       Playwright页面对象
      * @param userPrompt 用户提示词
-     * @param userId 用户ID
-     * @param roles 角色配置 (支持: baidu-sdss深度搜索)
-     * @param chatId 会话ID
+     * @param userId     用户ID
+     * @param roles      角色配置 (支持: baidu-sdss深度搜索)
+     * @param chatId     会话ID
      * @return AI生成内容
      */
     public String handleBaiduAI(Page page, String userPrompt, String userId, String roles, String chatId) throws Exception {
@@ -308,8 +311,9 @@ public class BaiduUtil {
 
     /**
      * 配置百度对话AI功能模式
-     * @param page Playwright页面对象
-     * @param roles 角色配置字符串
+     *
+     * @param page   Playwright页面对象
+     * @param roles  角色配置字符串
      * @param userId 用户ID
      */
     private void configureBaiduModes(Page page, String roles, String userId) throws InterruptedException {
@@ -329,14 +333,15 @@ public class BaiduUtil {
             Thread.sleep(1000);
 
         } catch (Exception e) {
-            logInfo.sendTaskLog("配置百度对话AI模式失败" , userId, "百度AI");
+            logInfo.sendTaskLog("配置百度对话AI模式失败", userId, "百度AI");
             throw e;
         }
     }
 
     /**
      * 切换到智能模式
-     * @param page Playwright页面对象
+     *
+     * @param page   Playwright页面对象
      * @param userId 用户ID
      */
     private void switchToSmartMode(Page page, String userId) throws InterruptedException {
@@ -374,7 +379,8 @@ public class BaiduUtil {
 
     /**
      * 切换联网搜索模式（深度搜索）
-     * @param page Playwright页面对象
+     *
+     * @param page   Playwright页面对象
      * @param enable 是否启用
      * @param userId 用户ID
      */
@@ -474,9 +480,10 @@ public class BaiduUtil {
 
     /**
      * 发送提示词到百度对话AI
-     * @param page Playwright页面对象
+     *
+     * @param page       Playwright页面对象
      * @param userPrompt 用户提示词
-     * @param userId 用户ID
+     * @param userId     用户ID
      */
     private void sendPromptToBaidu(Page page, String userPrompt, String userId) throws InterruptedException {
         try {
@@ -525,7 +532,8 @@ public class BaiduUtil {
 
     /**
      * 提取百度对话AI回复内容
-     * @param page Playwright页面对象
+     *
+     * @param page   Playwright页面对象
      * @param userId 用户ID
      * @return 提取的内容
      */
@@ -593,57 +601,24 @@ public class BaiduUtil {
                 // 等待内容完全生成 - 监听暂停按钮消失
                 logInfo.sendTaskLog("等待百度对话AI生成完成...", userId, "百度AI");
 
-                // 监听暂停按钮，当它消失时表示生成完成 - 使用新的XPath
-                String pauseButtonSelector = "//*[@id=\"cs-bottom\"]/div/div/div[3]/div/div[2]/div[2]/i";
-
                 try {
-                    // 先等待暂停按钮出现（表示开始生成）
-                    Locator pauseButton = page.locator(pauseButtonSelector);
 
-                    // 等待暂停按钮出现或发送按钮变为暂停状态
-                    boolean foundPauseButton = false;
                     for (int i = 0; i < 10; i++) {
                         try {
-                            String buttonClass = pauseButton.getAttribute("class");
-                            if (buttonClass != null && buttonClass.contains("cos-icon-pause-dqa pause-icon")) {
-                                foundPauseButton = true;
-                                logInfo.sendTaskLog("检测到暂停按钮，百度对话AI开始生成内容", userId, "百度AI");
+                            Thread.sleep(10000);
+                            boolean visible = page.locator("//img[@class='pause-icon']").isVisible();
+                            if (!visible) {
+                                logInfo.sendTaskLog("百度对话AI生成完成", userId, "百度AI");
                                 break;
                             }
-                            Thread.sleep(1000);
                         } catch (Exception e) {
-                            Thread.sleep(1000);
+                            // 按钮可能已经消失或变化，生成可能完成
+                            logInfo.sendTaskLog("按钮状态变化，百度对话AI生成完成", userId, "百度AI");
+                            break;
                         }
-                    }
-
-                    if (foundPauseButton) {
-                        // 然后等待暂停按钮变回发送按钮（表示生成完成）
-                        int maxWaitTime = 300; // 最多等待5分钟
-                        int checkInterval = 2; // 每2秒检查一次
-
-                        for (int i = 0; i < maxWaitTime; i += checkInterval) {
-                            Thread.sleep(checkInterval * 1000);
-
-                            try {
-                                String buttonClass = pauseButton.getAttribute("class");
-                                if (buttonClass != null && buttonClass.contains("cos-icon-arrow-up-circle-fill send-icon")) {
-                                    logInfo.sendTaskLog("发送按钮恢复，百度对话AI生成完成", userId, "百度AI");
-                                    break;
-                                }
-                            } catch (Exception e) {
-                                // 按钮可能已经消失或变化，生成可能完成
-                                logInfo.sendTaskLog("按钮状态变化，百度对话AI生成完成", userId, "百度AI");
-                                break;
-                            }
-
-                            // 每30秒输出一次进度日志
-                            if (i % 30 == 0 && i > 0) {
-                                logInfo.sendTaskLog("百度对话AI仍在生成中，已等待" + i + "秒...", userId, "百度AI");
-                            }
+                        if(i % 2 == 0) {
+                            logInfo.sendTaskLog("百度对话AI生成中...", userId, "百度AI");
                         }
-                    } else {
-                        logInfo.sendTaskLog("未检测到暂停按钮，可能生成很快完成", userId, "百度AI");
-                        Thread.sleep(3000); // 等待3秒确保内容生成
                     }
 
                 } catch (Exception e) {
@@ -703,21 +678,21 @@ public class BaiduUtil {
             // 如果还是没有内容，尝试通用提取
             if (content == null || content.trim().isEmpty()) {
                 content = (String) page.evaluate("""
-                    () => {
-                        // 尝试查找包含AI回复的元素
-                        const possibleElements = document.querySelectorAll('div, p, span');
-                        let longestText = '';
-                        
-                        for (let element of possibleElements) {
-                            const text = element.innerHTML;
-                            if (text && text.length > longestText.length && text.length > 100) {
-                                longestText = text;
+                            () => {
+                                // 尝试查找包含AI回复的元素
+                                const possibleElements = document.querySelectorAll('div, p, span');
+                                let longestText = '';
+                                
+                                for (let element of possibleElements) {
+                                    const text = element.innerHTML;
+                                    if (text && text.length > longestText.length && text.length > 100) {
+                                        longestText = text;
+                                    }
+                                }
+                                
+                                return longestText || '未能提取到内容';
                             }
-                        }
-                        
-                        return longestText || '未能提取到内容';
-                    }
-                """);
+                        """);
             }
 
             logInfo.sendTaskLog("内容提取完成", userId, "百度AI");
@@ -731,11 +706,12 @@ public class BaiduUtil {
 
     /**
      * 获取百度AI原链接（从历史记录中提取ori_lid）
-     * @param page Playwright页面对象
+     *
+     * @param page   Playwright页面对象
      * @param userId 用户ID
      * @return 百度AI原链接
      */
-    public String getBaiduOriginalUrl(Page page, String userId) throws Exception{
+    public String getBaiduOriginalUrl(Page page, String userId) throws Exception {
         try {
             logInfo.sendTaskLog("正在获取百度AI原链接...", userId, "百度AI");
 
@@ -847,10 +823,11 @@ public class BaiduUtil {
 
     /**
      * 从data-show-ext属性中提取ori_lid
+     *
      * @param dataShowExt data-show-ext属性值
      * @return ori_lid值
      */
-    private String extractOriLidFromDataShowExt(String dataShowExt) throws Exception{
+    private String extractOriLidFromDataShowExt(String dataShowExt) throws Exception {
         try {
 
             // data-show-ext可能是JSON格式，尝试解析
@@ -891,10 +868,11 @@ public class BaiduUtil {
 
     /**
      * 从百度AI原链接URL中提取ori_lid
+     *
      * @param originalUrl 原链接URL
      * @return ori_lid值
      */
-    private String extractOriLidFromUrl(String originalUrl) throws Exception{
+    private String extractOriLidFromUrl(String originalUrl) throws Exception {
         try {
             if (originalUrl == null || originalUrl.trim().isEmpty()) {
                 return null;
@@ -918,11 +896,12 @@ public class BaiduUtil {
 
     /**
      * 获取百度对话AI分享链接
-     * @param page Playwright页面对象
+     *
+     * @param page   Playwright页面对象
      * @param userId 用户ID
      * @return 分享链接
      */
-    public String getBaiduShareUrl(Page page, String userId) throws Exception{
+    public String getBaiduShareUrl(Page page, String userId) throws Exception {
         AtomicReference<String> shareUrlRef = new AtomicReference<>();
 
         clipboardLockManager.runWithClipboardLock(() -> {
@@ -1009,6 +988,7 @@ public class BaiduUtil {
 
     /**
      * 格式化百度对话AI内容
+     *
      * @param content 原始内容
      * @return 格式化后的HTML内容
      */
@@ -1023,10 +1003,10 @@ public class BaiduUtil {
     }
 
 
-
     /**
      * 等待并获取百度AI登录二维码
-     * @param page Playwright页面对象
+     *
+     * @param page   Playwright页面对象
      * @param userId 用户ID
      * @return 二维码截图URL，失败返回null
      */
@@ -1091,10 +1071,11 @@ public class BaiduUtil {
 
     /**
      * 解析百度对话AI角色配置
+     *
      * @param roles 角色配置字符串
      * @return 解析结果描述
      */
-    public String parseBaiduRoles(String roles) throws Exception{
+    public String parseBaiduRoles(String roles) throws Exception {
         if (roles == null || roles.isEmpty()) {
             return "百度对话AI";
         }
@@ -1111,11 +1092,12 @@ public class BaiduUtil {
 
     /**
      * 保存百度对话AI内容到稿库
-     * @param page Playwright页面对象
+     *
+     * @param page            Playwright页面对象
      * @param userInfoRequest 用户请求信息
-     * @param roles 角色配置 (支持: baidu-sdss深度搜索模式)
-     * @param userId 用户ID
-     * @param content 内容
+     * @param roles           角色配置 (支持: baidu-sdss深度搜索模式)
+     * @param userId          用户ID
+     * @param content         内容
      * @return 格式化后的内容
      */
     public String saveBaiduContent(Page page, UserInfoRequest userInfoRequest, String roles,
@@ -1180,10 +1162,11 @@ public class BaiduUtil {
 
     /**
      * 从页面URL提取会话ID
+     *
      * @param page Playwright页面对象
      * @return 会话ID
      */
-    private String extractSessionId(Page page) throws Exception{
+    private String extractSessionId(Page page) throws Exception {
         try {
             String url = page.url();
 
@@ -1233,7 +1216,8 @@ public class BaiduUtil {
 
     /**
      * 等待百度对话AI HTML DOM内容完成
-     * @param page Playwright页面对象
+     *
+     * @param page   Playwright页面对象
      * @param userId 用户ID
      * @param aiName AI名称
      * @return 提取的HTML内容

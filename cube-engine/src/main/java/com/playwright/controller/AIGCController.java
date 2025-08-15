@@ -1,9 +1,6 @@
 package com.playwright.controller;
 
-import com.microsoft.playwright.BrowserContext;
-import com.microsoft.playwright.Locator;
-import com.microsoft.playwright.Page;
-import com.microsoft.playwright.PlaywrightException;
+import com.microsoft.playwright.*;
 import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.LoadState;
 import com.playwright.entity.UnPersisBrowserContextInfo;
@@ -12,7 +9,6 @@ import com.playwright.utils.*;
 import com.playwright.websocket.WebSocketClientService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,23 +17,20 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.w3c.dom.Node;
 
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.Set;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * AI生成内容控制器
  * 处理与各大AI平台（腾讯元宝、豆包等）的交互操作
+ *
  * @author 优立方
  * @version JDK 17
  * @date 2025年01月21日 08:53
@@ -123,9 +116,13 @@ public class AIGCController {
     @Value("${cube.uploadurl}")
     private String uploadUrl;
 
+    @Autowired
+    private BrowserConcurrencyManager browserConcurrencyManager;
+
 
     /**
      * 处理多AI代理的请求
+     *
      * @param userInfoRequest 包含用户ID、角色、提示信息等
      * @return 拼接的生成内容
      */
@@ -133,7 +130,7 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startAgent")
     public String startAgent(@RequestBody UserInfoRequest userInfoRequest) throws Exception {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"agent")) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "agent")) {
 
             // 初始化变量
             String userId = userInfoRequest.getUserId();
@@ -144,89 +141,89 @@ public class AIGCController {
             int wrightCopyCount = 0;
 
 
-              // 根据不同的AI角色创建对应的页面实例
-              Page[] pages = new Page[6];
+            // 根据不同的AI角色创建对应的页面实例
+            Page[] pages = new Page[6];
 
-              // 处理 智能体 代理 - 为每个智能体分配独立的页面
-              if(roles.contains("cube-trubos-agent")){
-                  logInfo.sendTaskLog( "AI搜索@元器准备就绪，正在打开页面",userId,"AI搜索@元器");
-                  pages[0] = (pages[0] == null) ? browserUtil.getOrCreatePage(context) : pages[0];
-                  String agentUrl = "https://yuanbao.tencent.com/chat/58LgTturCBdj/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[0],userPrompt,agentUrl,"AI搜索@元器",userId,isNewChat);
-              }
-              if(roles.contains("cube-turbos-large-agent")){
-                  logInfo.sendTaskLog( "数智化助手@元器准备就绪，正在打开页面",userId,"数智化助手@元器");
-                  pages[1] = (pages[1] == null) ? context.newPage() : pages[1];
-                  String agentUrl = "https://yuanbao.tencent.com/chat/rgzZDhQdsMHZ/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[1],userPrompt,agentUrl,"数智化助手@元器",userId,isNewChat);
-              }
-              if(roles.contains("cube-mini-max-agent")){
-                  logInfo.sendTaskLog( "MiniMax@元器准备就绪，正在打开页面",userId,"MiniMax@元器");
-                  pages[2] = (pages[2] == null) ? context.newPage() : pages[2];
-                  String agentUrl = "https://yuanbao.tencent.com/chat/7kNJBgAgQFet/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"MiniMax@元器",userId,isNewChat);
-              }
-              if(roles.contains("mini-max-agent")){
-                  logInfo.sendTaskLog( "MiniMax Chat准备就绪，正在打开页面",userId,"MiniMax Chat");
-                  pages[2] = (pages[2] == null) ? context.newPage() : pages[2];
-                  String agentUrl = "https://chat.minimaxi.com/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[2],userPrompt,agentUrl,"MiniMax Chat",userId,isNewChat);
-              }
-              if(roles.contains("metaso-agent")){
-                  logInfo.sendTaskLog( "秘塔准备就绪，正在打开页面",userId,"秘塔");
-                  pages[3] = (pages[3] == null) ? context.newPage() : pages[3];
-                  String agentUrl = "https://metaso.cn/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[3],userPrompt,agentUrl,"秘塔",userId,isNewChat);
-              }
-              if(roles.contains("cube-sogou-agent")){
-                  logInfo.sendTaskLog( "搜狗搜索@元器准备就绪，正在打开页面",userId,"搜狗搜索@元器");
-                  pages[3] = (pages[3] == null) ? context.newPage() : pages[3];
-                  String agentUrl = "https://yuanbao.tencent.com/chat/u1VeB6jKt0lE/";
-                  wrightCopyCount = tencentUtil.handelAgentAI(pages[3],userPrompt,agentUrl,"搜狗搜索@元器",userId,isNewChat);
-              }
-              if(roles.contains("cube-lwss-agent")){
-                  logInfo.sendTaskLog( "KIMI@元器准备就绪，正在打开页面",userId,"KIMI@元器");
-                  pages[4] = (pages[4] == null) ? context.newPage() : pages[4];
-                String agentUrl = "https://yuanbao.tencent.com/chat/oq4esMyN9VS2/";
-                wrightCopyCount = tencentUtil.handelAgentAI(pages[4],userPrompt,agentUrl,"KIMI@元器",userId,isNewChat);
+            // 处理 智能体 代理 - 为每个智能体分配独立的页面
+            if (roles.contains("cube-trubos-agent")) {
+                logInfo.sendTaskLog("AI搜索@元器准备就绪，正在打开页面", userId, "AI搜索@元器");
+                pages[0] = (pages[0] == null) ? browserUtil.getOrCreatePage(context) : pages[0];
+                String agentUrl = "https://yuanbao.tencent.com/chat/58LgTturCBdj/";
+                wrightCopyCount = tencentUtil.handelAgentAI(pages[0], userPrompt, agentUrl, "AI搜索@元器", userId, isNewChat);
             }
-            if(roles.contains("baidu-agent")){
-                logInfo.sendTaskLog( "百度AI准备就绪，正在打开页面",userId,"百度AI");
+            if (roles.contains("cube-turbos-large-agent")) {
+                logInfo.sendTaskLog("数智化助手@元器准备就绪，正在打开页面", userId, "数智化助手@元器");
+                pages[1] = (pages[1] == null) ? context.newPage() : pages[1];
+                String agentUrl = "https://yuanbao.tencent.com/chat/rgzZDhQdsMHZ/";
+                wrightCopyCount = tencentUtil.handelAgentAI(pages[1], userPrompt, agentUrl, "数智化助手@元器", userId, isNewChat);
+            }
+            if (roles.contains("cube-mini-max-agent")) {
+                logInfo.sendTaskLog("MiniMax@元器准备就绪，正在打开页面", userId, "MiniMax@元器");
+                pages[2] = (pages[2] == null) ? context.newPage() : pages[2];
+                String agentUrl = "https://yuanbao.tencent.com/chat/7kNJBgAgQFet/";
+                wrightCopyCount = tencentUtil.handelAgentAI(pages[2], userPrompt, agentUrl, "MiniMax@元器", userId, isNewChat);
+            }
+            if (roles.contains("mini-max-agent")) {
+                logInfo.sendTaskLog("MiniMax Chat准备就绪，正在打开页面", userId, "MiniMax Chat");
+                pages[2] = (pages[2] == null) ? context.newPage() : pages[2];
+                String agentUrl = "https://chat.minimaxi.com/";
+                wrightCopyCount = tencentUtil.handelAgentAI(pages[2], userPrompt, agentUrl, "MiniMax Chat", userId, isNewChat);
+            }
+            if (roles.contains("metaso-agent")) {
+                logInfo.sendTaskLog("秘塔准备就绪，正在打开页面", userId, "秘塔");
+                pages[3] = (pages[3] == null) ? context.newPage() : pages[3];
+                String agentUrl = "https://metaso.cn/";
+                wrightCopyCount = tencentUtil.handelAgentAI(pages[3], userPrompt, agentUrl, "秘塔", userId, isNewChat);
+            }
+            if (roles.contains("cube-sogou-agent")) {
+                logInfo.sendTaskLog("搜狗搜索@元器准备就绪，正在打开页面", userId, "搜狗搜索@元器");
+                pages[3] = (pages[3] == null) ? context.newPage() : pages[3];
+                String agentUrl = "https://yuanbao.tencent.com/chat/u1VeB6jKt0lE/";
+                wrightCopyCount = tencentUtil.handelAgentAI(pages[3], userPrompt, agentUrl, "搜狗搜索@元器", userId, isNewChat);
+            }
+            if (roles.contains("cube-lwss-agent")) {
+                logInfo.sendTaskLog("KIMI@元器准备就绪，正在打开页面", userId, "KIMI@元器");
+                pages[4] = (pages[4] == null) ? context.newPage() : pages[4];
+                String agentUrl = "https://yuanbao.tencent.com/chat/oq4esMyN9VS2/";
+                wrightCopyCount = tencentUtil.handelAgentAI(pages[4], userPrompt, agentUrl, "KIMI@元器", userId, isNewChat);
+            }
+            if (roles.contains("baidu-agent")) {
+                logInfo.sendTaskLog("百度AI准备就绪，正在打开页面", userId, "百度AI");
                 pages[5] = (pages[5] == null) ? context.newPage() : pages[5];
                 String agentUrl = "https://chat.baidu.com/";
                 // 直接使用handleBaiduAI方法处理，返回内容而不是计数
-                String baiduContent = baiduUtil.handleBaiduAI(pages[5],userPrompt,userId,roles,null);
+                String baiduContent = baiduUtil.handleBaiduAI(pages[5], userPrompt, userId, roles, null);
                 wrightCopyCount = baiduContent.length() > 0 ? 1 : 0; // 简单的成功标识
             }
 
-             // 保存各代理生成的数据并拼接结果
-              if(roles.contains("cube-trubos-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[0],userInfoRequest,"cube-trubos-agent",userId,wrightCopyCount,"AI搜索@元器","RETURN_TURBOS_RES");
-              }
-              if(roles.contains("cube-turbos-large-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[1],userInfoRequest,"cube-turbos-large-agent",userId,wrightCopyCount,"数智化助手@元器","RETURN_TURBOS_LARGE_RES");
-              }
-              if(roles.contains("cube-mini-max-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"cube-mini-max-agent",userId,wrightCopyCount,"MiniMax@元器","RETURN_MINI_MAX_RES");
-              }
-              if(roles.contains("mini-max-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"mini-max-agent",userId,wrightCopyCount,"MiniMax Chat","RETURN_MINI_MAX_RES");
-              }
-              if(roles.contains("metaso-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[2],userInfoRequest,"metaso-agent",userId,wrightCopyCount,"秘塔","RETURN_METASO_RES");
-              }
-              if(roles.contains("cube-sogou-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[3],userInfoRequest,"cube-sogou-agent",userId,wrightCopyCount,"搜狗搜索@元器","RETURN_SOGOU_RES");
-              }
-              if(roles.contains("cube-lwss-agent")){
-                  copiedText = copiedText +"\n\n"+ tencentUtil.saveAgentDraftData(pages[4],userInfoRequest,"cube-lwss-agent",userId,wrightCopyCount,"KIMI@元器","RETURN_LWSS_RES");
-              }
-            if(roles.contains("baidu-agent")){
-                // 获取百度AI生成的内容
-                String baiduContent = baiduUtil.waitBaiduHtmlDom(pages[5],userId,"百度AI");
-                copiedText = copiedText +"\n\n"+ baiduUtil.saveBaiduContent(pages[5],userInfoRequest,roles,userId,baiduContent);
+            // 保存各代理生成的数据并拼接结果
+            if (roles.contains("cube-trubos-agent")) {
+                copiedText = copiedText + "\n\n" + tencentUtil.saveAgentDraftData(pages[0], userInfoRequest, "cube-trubos-agent", userId, wrightCopyCount, "AI搜索@元器", "RETURN_TURBOS_RES");
             }
-               return copiedText;
+            if (roles.contains("cube-turbos-large-agent")) {
+                copiedText = copiedText + "\n\n" + tencentUtil.saveAgentDraftData(pages[1], userInfoRequest, "cube-turbos-large-agent", userId, wrightCopyCount, "数智化助手@元器", "RETURN_TURBOS_LARGE_RES");
+            }
+            if (roles.contains("cube-mini-max-agent")) {
+                copiedText = copiedText + "\n\n" + tencentUtil.saveAgentDraftData(pages[2], userInfoRequest, "cube-mini-max-agent", userId, wrightCopyCount, "MiniMax@元器", "RETURN_MINI_MAX_RES");
+            }
+            if (roles.contains("mini-max-agent")) {
+                copiedText = copiedText + "\n\n" + tencentUtil.saveAgentDraftData(pages[2], userInfoRequest, "mini-max-agent", userId, wrightCopyCount, "MiniMax Chat", "RETURN_MINI_MAX_RES");
+            }
+            if (roles.contains("metaso-agent")) {
+                copiedText = copiedText + "\n\n" + tencentUtil.saveAgentDraftData(pages[2], userInfoRequest, "metaso-agent", userId, wrightCopyCount, "秘塔", "RETURN_METASO_RES");
+            }
+            if (roles.contains("cube-sogou-agent")) {
+                copiedText = copiedText + "\n\n" + tencentUtil.saveAgentDraftData(pages[3], userInfoRequest, "cube-sogou-agent", userId, wrightCopyCount, "搜狗搜索@元器", "RETURN_SOGOU_RES");
+            }
+            if (roles.contains("cube-lwss-agent")) {
+                copiedText = copiedText + "\n\n" + tencentUtil.saveAgentDraftData(pages[4], userInfoRequest, "cube-lwss-agent", userId, wrightCopyCount, "KIMI@元器", "RETURN_LWSS_RES");
+            }
+            if (roles.contains("baidu-agent")) {
+                // 获取百度AI生成的内容
+                String baiduContent = baiduUtil.waitBaiduHtmlDom(pages[5], userId, "百度AI");
+                copiedText = copiedText + "\n\n" + baiduUtil.saveBaiduContent(pages[5], userInfoRequest, roles, userId, baiduContent);
+            }
+            return copiedText;
         } catch (Exception e) {
             throw e;
         }
@@ -234,6 +231,7 @@ public class AIGCController {
 
     /**
      * 处理腾讯元宝平台的请求
+     *
      * @param userInfoRequest 包含用户信息和会话参数
      * @return 生成的内容（当前版本暂未实现内容返回）
      */
@@ -241,18 +239,17 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startYB")
     public String startYB(@RequestBody UserInfoRequest userInfoRequest) throws Exception {
-        String userId =userInfoRequest.getUserId();
+        String userId = userInfoRequest.getUserId();
         String currentContent = "";
         String roles = userInfoRequest.getRoles();
         String userPrompt = userInfoRequest.getUserPrompt();
         String t1ChatId = userInfoRequest.getToneChatId();
         String dschatId = userInfoRequest.getYbDsChatId();
-        
         // 验证必要参数
         if (roles == null || roles.trim().isEmpty()) {
             String errorMsg = "错误：roles参数为空，无法执行元宝智能体任务";
             logInfo.sendTaskLog(errorMsg, userId, "元包智能体");
-            
+
             // 发送错误响应
             try {
                 logInfo.sendResData(errorMsg, userId, "元包智能体", "RETURN_YB_RES", "", "");
@@ -261,11 +258,11 @@ public class AIGCController {
             }
             return errorMsg;
         }
-        
+
         if (userPrompt == null || userPrompt.trim().isEmpty()) {
             String errorMsg = "错误：userPrompt参数为空，无法执行元宝智能体任务";
             logInfo.sendTaskLog(errorMsg, userId, "元包智能体");
-            
+
             // 发送错误响应
             try {
                 logInfo.sendResData(errorMsg, userId, "元包智能体", "RETURN_YB_RES", "", "");
@@ -274,129 +271,91 @@ public class AIGCController {
             }
             return errorMsg;
         }
-        
         logInfo.sendTaskLog("元宝智能体任务开始，角色配置: " + roles, userId, "元包智能体");
-
-//yb-hunyuan-pt,yb-hunyuan-sdsk,yb-hunyuan-lwss,yb-deepseek-pt,yb-deepseek-sdsk,yb-deepseek-lwss
         try {
-            UnPersisBrowserContextInfo browserContextInfo = BrowserContextFactory.getBrowserContext(userId, 2);
-            
-            // 检查浏览器上下文是否创建成功
-            if (browserContextInfo == null || browserContextInfo.getBrowserContext() == null) {
-                String errorMsg = "浏览器上下文创建失败，无法执行元宝智能体任务";
-                logInfo.sendTaskLog(errorMsg, userId, "元包智能体");
-                
-                // 发送错误响应
+            CountDownLatch countDownLatch = new CountDownLatch(2);
+            //======================腾讯元宝T1=======================//
+            new Thread(() -> {
                 try {
-                    logInfo.sendResData(errorMsg, userId, "元包智能体", "RETURN_YB_RES", "", "");
+                    Page hyPage = tencentUtil.getPage("T1", userId);
+                    long start = System.currentTimeMillis();
+                    //腾讯元宝T1  根据角色组合处理不同模式（普通/深度思考/联网）
+                    logInfo.sendTaskLog("腾讯元宝T1准备就绪，正在打开页面", userId, "腾讯元宝T1");
+                    if (roles.contains("yb-hunyuan-pt") && !roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
+                        tencentUtil.handleYBAI(hyPage, userPrompt, "yb-hunyuan-pt", userId, "腾讯元宝T1", t1ChatId);
+                    } else if (roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
+                        //深度思考
+                        tencentUtil.handleYBAI(hyPage, userPrompt, "yb-hunyuan-sdsk", userId, "腾讯元宝T1", t1ChatId);
+                    } else if (roles.contains("yb-hunyuan-lwss") && !roles.contains("yb-hunyuan-sdsk")) {
+                        //联网
+                        tencentUtil.handleYBAI(hyPage, userPrompt, "yb-hunyuan-lwss-1", userId, "腾讯元宝T1", t1ChatId);
+                    } else if (roles.contains("yb-hunyuan-lwss") && roles.contains("yb-hunyuan-sdsk")) {
+                        //深度思考 + 联网
+                        tencentUtil.handleYBAI(hyPage, userPrompt, "yb-hunyuan-lwss-2", userId, "腾讯元宝T1", t1ChatId);
+                    }
+                    countDownLatch.countDown();
+                    countDownLatch.await();
+                    hyPage = tencentUtil.getPage("T1", userId);
+                    String resultT1 = "";
+                    hyPage = tencentUtil.getPage("T1", userId);
+                    //保存入库 腾讯元宝T1 - T1和DS独立处理，各自发送响应
+                    if (roles.contains("yb-hunyuan-pt") && !roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
+                        resultT1 = tencentUtil.saveDraftData(hyPage, userInfoRequest, "yb-hunyuan-pt", userId);
+                    } else if (roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
+                        //深度思考
+                        resultT1 = tencentUtil.saveDraftData(hyPage, userInfoRequest, "yb-hunyuan-sdsk", userId);
+                    } else if (roles.contains("yb-hunyuan-lwss")) {
+                        //深度思考 + 联网
+                        resultT1 = tencentUtil.saveDraftData(hyPage, userInfoRequest, "yb-hunyuan-lwss", userId);
+                    }
+                    UserLogUtil.sendNormalLog(userId, "启动腾讯元宝T1生成", "startYB", start, resultT1, url + "/saveLogInfo");
                 } catch (Exception e) {
+                    logInfo.sendTaskLog("腾讯元宝T1执行异常", userId, "腾讯元宝T1");
+                    UserLogUtil.sendExceptionLog(userId, "腾讯元宝T1执行异常", "startYB", e, url + "/saveLogInfo");
                 }
-                return errorMsg;
-            }
-            
-            BrowserContext context = browserContextInfo.getBrowserContext();
-            List<Page> pages = context.pages();
-            
-            // 检查页面是否可用
-            if (pages == null || pages.size() < 2) {
-                String errorMsg = "浏览器页面不足，需要至少2个页面，当前页面数: " + (pages != null ? pages.size() : 0);
-                logInfo.sendTaskLog(errorMsg, userId, "元包智能体");
-                
-                // 发送错误响应
-                try {
-                    logInfo.sendResData(errorMsg, userId, "元包智能体", "RETURN_YB_RES", "", "");
-                } catch (Exception e) {
-                }
-                return errorMsg;
-            }
-            
-            Page page1 = pages.get(0);
-            Page page2 = pages.get(1);
-            int t1CopyCount = 0;
-            int dsCopyCount = 0;
+            }).start();
 
-            //腾讯元宝T1  根据角色组合处理不同模式（普通/深度思考/联网）
-            logInfo.sendTaskLog("腾讯元宝准备就绪，正在打开页面", userId, "腾讯元宝T1");
-            if (roles.contains("yb-hunyuan-pt") && !roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
-                t1CopyCount = tencentUtil.handleYBAI(page1, userPrompt, "yb-hunyuan-pt", userId, "腾讯元宝T1", t1ChatId);
-            } else if (roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
-                //深度思考
-                t1CopyCount = tencentUtil.handleYBAI(page1, userPrompt, "yb-hunyuan-sdsk", userId, "腾讯元宝T1", t1ChatId);
-            } else if (roles.contains("yb-hunyuan-lwss") && !roles.contains("yb-hunyuan-sdsk")) {
-                //联网
-                t1CopyCount = tencentUtil.handleYBAI(page1, userPrompt, "yb-hunyuan-lwss-1", userId, "腾讯元宝T1", t1ChatId);
-            } else if (roles.contains("yb-hunyuan-lwss") && roles.contains("yb-hunyuan-sdsk")) {
-                //深度思考 + 联网
-                t1CopyCount = tencentUtil.handleYBAI(page1, userPrompt, "yb-hunyuan-lwss-2", userId, "腾讯元宝T1", t1ChatId);
-            } else {
-            }
+            //======================腾讯元宝DS=======================//
 
-            //腾讯元宝DS  根据角色组合处理不同模式（普通/深度思考/联网）
-            if (roles.contains("yb-deepseek-pt") && !roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
-                dsCopyCount = tencentUtil.handleYBAI(page2, userPrompt, "yb-deepseek-pt", userId, "腾讯元宝DS", dschatId);
-            } else if (roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
-                //深度思考
-                dsCopyCount = tencentUtil.handleYBAI(page2, userPrompt, "yb-deepseek-sdsk", userId, "腾讯元宝DS", dschatId);
-            } else if (roles.contains("yb-deepseek-lwss") && !roles.contains("yb-deepseek-sdsk")) {
-                //深度思考 + 联网
-                dsCopyCount = tencentUtil.handleYBAI(page2, userPrompt, "yb-deepseek-lwss-1", userId, "腾讯元宝DS", dschatId);
-            } else if (roles.contains("yb-deepseek-lwss") && roles.contains("yb-deepseek-sdsk")) {
-                //深度思考 + 联网
-                dsCopyCount = tencentUtil.handleYBAI(page2, userPrompt, "yb-deepseek-lwss-2", userId, "腾讯元宝DS", dschatId);
-            } else {
-            }
-
-
-            // 标记T1和DS是否有内容生成
-            boolean hasT1Content = false;
-            boolean hasDSContent = false;
-            String t1Content = "";
-            String dsContent = "";
-
-            //保存入库 腾讯元宝T1 - T1和DS独立处理，各自发送响应
-            if (roles.contains("yb-hunyuan-pt") && !roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
-                t1Content = tencentUtil.saveDraftData(page1, userInfoRequest, "yb-hunyuan-pt", userId, t1CopyCount);
-                hasT1Content = t1Content != null && !t1Content.trim().isEmpty();
-            } else if (roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
-                //深度思考
-                t1Content = tencentUtil.saveDraftData(page1, userInfoRequest, "yb-hunyuan-sdsk", userId, t1CopyCount);
-                hasT1Content = t1Content != null && !t1Content.trim().isEmpty();
-            } else if (roles.contains("yb-hunyuan-lwss")) {
-                //深度思考 + 联网
-                t1Content = tencentUtil.saveDraftData(page1, userInfoRequest, "yb-hunyuan-lwss", userId, t1CopyCount);
-                hasT1Content = t1Content != null && !t1Content.trim().isEmpty();
-            }
-
-            //保存入库 腾讯元宝DS - DS独立处理，发送自己的响应
-            if (roles.contains("yb-deepseek-pt") && !roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
-                dsContent = tencentUtil.saveDraftData(page2, userInfoRequest, "yb-deepseek-pt", userId, dsCopyCount);
-                hasDSContent = dsContent != null && !dsContent.trim().isEmpty();
-            } else if (roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
-                dsContent = tencentUtil.saveDraftData(page2, userInfoRequest, "yb-deepseek-sdsk", userId, dsCopyCount);
-                hasDSContent = dsContent != null && !dsContent.trim().isEmpty();
-            } else if (roles.contains("yb-deepseek-lwss")) {
-                //深度思考 + 联网
-                dsContent = tencentUtil.saveDraftData(page2, userInfoRequest, "yb-deepseek-lwss", userId, dsCopyCount);
-                hasDSContent = dsContent != null && !dsContent.trim().isEmpty();
-            }
-            
-            // 合并内容用于返回值（但不影响独立响应）
-            if (hasT1Content) {
-                currentContent = currentContent + "\n\n" + t1Content;
-            }
-            if (hasDSContent) {
-                currentContent = currentContent + "\n\n" + dsContent;
-            }
-            
-            // 发送任务完成日志（不发送统一的RETURN_YB_RES，因为T1和DS已经各自发送了）
             try {
-                logInfo.sendTaskLog("元宝智能体任务执行完成", userId, "元包智能体");
+                Page dsPage = tencentUtil.getPage("DS", userId);
+                Long start = System.currentTimeMillis();
+                logInfo.sendTaskLog("腾讯元宝DS准备就绪，正在打开页面", userId, "腾讯元宝DS");
+                Thread.sleep(3000);
+                //腾讯元宝DS  根据角色组合处理不同模式（普通/深度思考/联网）
+                if (roles.contains("yb-deepseek-pt") && !roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
+                    tencentUtil.handleYBAI(dsPage, userPrompt, "yb-deepseek-pt", userId, "腾讯元宝DS", dschatId);
+                } else if (roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
+                    //深度思考
+                    tencentUtil.handleYBAI(dsPage, userPrompt, "yb-deepseek-sdsk", userId, "腾讯元宝DS", dschatId);
+                } else if (roles.contains("yb-deepseek-lwss") && !roles.contains("yb-deepseek-sdsk")) {
+                    //深度思考 + 联网
+                    tencentUtil.handleYBAI(dsPage, userPrompt, "yb-deepseek-lwss-1", userId, "腾讯元宝DS", dschatId);
+                } else if (roles.contains("yb-deepseek-lwss") && roles.contains("yb-deepseek-sdsk")) {
+                    //深度思考 + 联网
+                    tencentUtil.handleYBAI(dsPage, userPrompt, "yb-deepseek-lwss-2", userId, "腾讯元宝DS", dschatId);
+                }
+                countDownLatch.countDown();
+                countDownLatch.await();
+                dsPage = tencentUtil.getPage("DS", userId);
+                String resultDS = "";
+                //保存入库 腾讯元宝DS - DS独立处理，发送自己的响应
+                if (roles.contains("yb-deepseek-pt") && !roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
+                    resultDS = tencentUtil.saveDraftData(dsPage, userInfoRequest, "yb-deepseek-pt", userId);
+                } else if (roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
+                    resultDS = tencentUtil.saveDraftData(dsPage, userInfoRequest, "yb-deepseek-sdsk", userId);
+                } else if (roles.contains("yb-deepseek-lwss")) {
+                    //深度思考 + 联网
+                    resultDS = tencentUtil.saveDraftData(dsPage, userInfoRequest, "yb-deepseek-lwss", userId);
+                }
+                UserLogUtil.sendNormalLog(userId, "启动腾讯元宝DS生成", "startYB", start, resultDS, url + "/saveLogInfo");
             } catch (Exception e) {
-                e.printStackTrace();
+                logInfo.sendTaskLog("腾讯元宝DS执行异常", userId, "腾讯元宝DS");
+                UserLogUtil.sendExceptionLog(userId, "腾讯元宝DS执行异常", "startYB", e, url + "/saveLogInfo");
             }
-            
-            return currentContent;
-
+            // 等待所有线程执行完毕
+            System.out.println("DS跟T1执行完成");
+            return "执行完成";
         } catch (Exception e) {
             throw e;
         }
@@ -404,6 +363,7 @@ public class AIGCController {
 
     /**
      * 处理MiniMax的常规请求
+     *
      * @param userInfoRequest 包含会话ID和用户指令
      * @return AI生成的文本内容
      */
@@ -412,26 +372,26 @@ public class AIGCController {
     @PostMapping("/startMiniMax")
     public String startMiniMax(@RequestBody UserInfoRequest userInfoRequest) throws Exception {
         try (
-                BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"MiniMax Chat")) {
+                BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "MiniMax Chat")) {
 
             // 初始化变量
             String userId = userInfoRequest.getUserId();
             String maxChatId = userInfoRequest.getMaxChatId();
-            logInfo.sendTaskLog( "MiniMax准备就绪，正在打开页面",userId,"MiniMax Chat");
+            logInfo.sendTaskLog("MiniMax准备就绪，正在打开页面", userId, "MiniMax Chat");
             // 获取是否开启深度思考和联网搜索
             String roles = userInfoRequest.getRoles();
             String userPrompt = userInfoRequest.getUserPrompt();
 
             // 初始化页面并导航到指定会话
             Page page = browserUtil.getOrCreatePage(context);
-            if(maxChatId != null && !maxChatId.isEmpty()){
-                page.navigate("https://chat.minimaxi.com/?type=chat&chatID="+maxChatId);
-            }else {
+            if (maxChatId != null && !maxChatId.isEmpty()) {
+                page.navigate("https://chat.minimaxi.com/?type=chat&chatID=" + maxChatId);
+            } else {
                 page.navigate("https://chat.minimaxi.com/");
             }
             page.waitForLoadState(LoadState.LOAD);
             page.waitForTimeout(3000); // 等待页面完全加载
-            
+
             // 去除弹窗
             try {
                 Locator closeBtn = page.locator(".md\\:hover\\:bg-col_text05.text-col_text02.md\\:text-col_text03.z-50.flex.h-\\[30px\\].w-\\[30px\\].cursor-pointer.items-center.justify-center.rounded");
@@ -451,20 +411,20 @@ public class AIGCController {
             } catch (Exception e) {
             }
 
-            logInfo.sendTaskLog( "MiniMax页面打开完成",userId,"MiniMax Chat");
-            
+            logInfo.sendTaskLog("MiniMax页面打开完成", userId, "MiniMax Chat");
+
             // 使用工具类定位深度思考按钮
             try {
                 Locator deepThoughtButton = elementSelectorUtil.findElementWithMultipleSelectors(
-                    page, elementSelectorUtil.getDeepThinkSelectors(), 5000);
-                
+                        page, elementSelectorUtil.getDeepThinkSelectors(), 5000);
+
                 if (deepThoughtButton == null) {
                     logInfo.sendTaskLog("未找到深度思考按钮，跳过此步骤", userId, "MiniMax Chat");
                 } else {
                     // 检查按钮激活状态
                     boolean isActiveForSK = elementSelectorUtil.isElementActive(
-                        deepThoughtButton, elementSelectorUtil.getActiveClasses());
-                    
+                            deepThoughtButton, elementSelectorUtil.getActiveClasses());
+
                     // 处理深度思考模式
                     if (roles.contains("max-sdsk")) {
                         if (!isActiveForSK) {
@@ -496,15 +456,15 @@ public class AIGCController {
             // 使用工具类定位联网搜索按钮
             try {
                 Locator internetThoughtButton = elementSelectorUtil.findElementWithMultipleSelectors(
-                    page, elementSelectorUtil.getInternetSelectors(), 5000);
-                
+                        page, elementSelectorUtil.getInternetSelectors(), 5000);
+
                 if (internetThoughtButton == null) {
                     logInfo.sendTaskLog("未找到联网按钮，跳过此步骤", userId, "MiniMax Chat");
                 } else {
                     // 检查按钮激活状态
                     boolean isActiveForLW = elementSelectorUtil.isElementActive(
-                        internetThoughtButton, elementSelectorUtil.getActiveClasses());
-                    
+                            internetThoughtButton, elementSelectorUtil.getActiveClasses());
+
                     // 处理联网搜索模式
                     if (roles.contains("max-lwss")) {
                         if (!isActiveForLW) {
@@ -538,7 +498,7 @@ public class AIGCController {
             page.locator("//*[@id=\"chat-input\"]").nth(1).click();
             Thread.sleep(1000);
             page.locator("//*[@id=\"chat-input\"]").nth(1).fill(userPrompt);
-            logInfo.sendTaskLog( "用户指令已自动输入完成",userId,"MiniMax Chat");
+            logInfo.sendTaskLog("用户指令已自动输入完成", userId, "MiniMax Chat");
             Thread.sleep(1000);
             page.locator("//*[@id=\"chat-input\"]").nth(1).press("Enter");
             logInfo.sendTaskLog("指令已自动发送成功", userId, "MiniMax Chat");
@@ -551,21 +511,21 @@ public class AIGCController {
             ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
                 try {
                     int currentCount = i.getAndIncrement(); // 获取当前值并自增
-                    logInfo.sendImgData(page, userId + "MiniMax执行过程截图"+currentCount, userId);
+                    logInfo.sendImgData(page, userId + "MiniMax执行过程截图" + currentCount, userId);
 
                 } catch (Exception e) {
-                    UserLogUtil.sendExceptionLog(userId,"MinMax截图", "startMiniMax", e, url + "/saveLogInfo");
+                    UserLogUtil.sendExceptionLog(userId, "MinMax截图", "startMiniMax", e, url + "/saveLogInfo");
                 }
             }, 0, 8, TimeUnit.SECONDS);
 
-            logInfo.sendTaskLog( "开启自动监听任务，持续监听MiniMax回答中",userId,"MiniMax Chat");
+            logInfo.sendTaskLog("开启自动监听任务，持续监听MiniMax回答中", userId, "MiniMax Chat");
             //等待html片段获取完成
-            String copiedText =  miniMaxUtil.waitMiniMaxHtmlDom(page,userId,"MiniMax Chat");
+            String copiedText = miniMaxUtil.waitMiniMaxHtmlDom(page, userId, "MiniMax Chat");
             //关闭截图
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
 
-            if(!copiedText.contains("换个话题试试吧")){
+            if (!copiedText.contains("换个话题试试吧")) {
                 AtomicReference<String> shareUrlRef = new AtomicReference<>();
 
                 clipboardLockManager.runWithClipboardLock(() -> {
@@ -593,7 +553,7 @@ public class AIGCController {
                         String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
                         shareUrlRef.set(shareUrl);
                     } catch (Exception e) {
-                        UserLogUtil.sendExceptionLog(userId,"MiniMax复制链接", "startMiniMax", e, url + "/saveLogInfo");
+                        UserLogUtil.sendExceptionLog(userId, "MiniMax复制链接", "startMiniMax", e, url + "/saveLogInfo");
                     }
                 });
 
@@ -650,27 +610,27 @@ public class AIGCController {
                     page.locator("xpath=/html/body/section/div/div/section/div/div[1]/div/div/main/div[1]/div[2]/div/div[2]").click();
                 });
 
-                logInfo.sendTaskLog( "执行完成",userId,"MiniMax Chat");
-                logInfo.sendChatData(page,"chatID=([0-9]+)",userId,"RETURN_MAX_CHATID",1);
-                logInfo.sendResData(copiedText,userId,"MiniMax Chat","RETURN_MAX_RES",shareUrl,sharImgUrl);
+                logInfo.sendTaskLog("执行完成", userId, "MiniMax Chat");
+                logInfo.sendChatData(page, "chatID=([0-9]+)", userId, "RETURN_MAX_CHATID", 1);
+                logInfo.sendResData(copiedText, userId, "MiniMax Chat", "RETURN_MAX_RES", shareUrl, sharImgUrl);
 
                 //保存数据库
                 userInfoRequest.setDraftContent(copiedText);
                 userInfoRequest.setAiName("MiniMax Chat");
                 userInfoRequest.setShareUrl(shareUrl);
                 userInfoRequest.setShareImgUrl(sharImgUrl);
-                RestUtils.post(url+"/saveDraftContent", userInfoRequest);
-            }else{
-                logInfo.sendTaskLog( "执行完成,MiniMax 提示换个话题",userId,"MiniMax Chat");
-                logInfo.sendChatData(page,"chatID=([0-9]+)",userId,"RETURN_MAX_CHATID",1);
-                logInfo.sendResData(copiedText,userId,"MiniMax Chat","RETURN_MAX_RES","","");
+                RestUtils.post(url + "/saveDraftContent", userInfoRequest);
+            } else {
+                logInfo.sendTaskLog("执行完成,MiniMax 提示换个话题", userId, "MiniMax Chat");
+                logInfo.sendChatData(page, "chatID=([0-9]+)", userId, "RETURN_MAX_CHATID", 1);
+                logInfo.sendResData(copiedText, userId, "MiniMax Chat", "RETURN_MAX_RES", "", "");
 
                 //保存数据库
                 userInfoRequest.setDraftContent(copiedText);
                 userInfoRequest.setAiName("MiniMax Chat");
                 userInfoRequest.setShareUrl("");
                 userInfoRequest.setShareImgUrl("");
-                RestUtils.post(url+"/saveDraftContent", userInfoRequest);
+                RestUtils.post(url + "/saveDraftContent", userInfoRequest);
             }
             return copiedText;
         } catch (Exception e) {
@@ -680,6 +640,7 @@ public class AIGCController {
 
     /**
      * 处理秘塔的常规请求
+     *
      * @param userInfoRequest 包含会话ID和用户指令
      * @return AI生成的文本内容
      */
@@ -687,28 +648,28 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startMetaso")
     public String startMetaso(@RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"metaso")) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "metaso")) {
 
             // 初始化变量
             String userId = userInfoRequest.getUserId();
             String metasoChatId = userInfoRequest.getMetasoChatId();
-            logInfo.sendTaskLog( "秘塔准备就绪，正在打开页面",userId,"秘塔");
+            logInfo.sendTaskLog("秘塔准备就绪，正在打开页面", userId, "秘塔");
             String roles = userInfoRequest.getRoles();
             String userPrompt = userInfoRequest.getUserPrompt();
 
             // 初始化页面并导航到指定会话测试用
             Page page = browserUtil.getOrCreatePage(context);
-            if(metasoChatId!=null && !metasoChatId.isEmpty()){
-                page.navigate("https://metaso.cn/search/"+metasoChatId);
-            }else {
+            if (metasoChatId != null && !metasoChatId.isEmpty()) {
+                page.navigate("https://metaso.cn/search/" + metasoChatId);
+            } else {
                 page.navigate("https://metaso.cn/");
             }
             page.waitForLoadState(LoadState.LOAD);
             Thread.sleep(1000);
-            logInfo.sendTaskLog( "秘塔页面打开完成",userId,"秘塔");
+            logInfo.sendTaskLog("秘塔页面打开完成", userId, "秘塔");
 
 
-            if(metasoChatId!=null && !metasoChatId.isEmpty()) {
+            if (metasoChatId != null && !metasoChatId.isEmpty()) {
                 Thread.sleep(1000);
                 page.getByRole(AriaRole.TEXTBOX, new Page.GetByRoleOptions().setName("继续追问")).click();
                 Thread.sleep(1000);
@@ -780,15 +741,15 @@ public class AIGCController {
             ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
                 try {
                     int currentCount = i.getAndIncrement(); // 获取当前值并自增
-                    logInfo.sendImgData(page, userId + "秘塔执行过程截图"+currentCount, userId);
+                    logInfo.sendImgData(page, userId + "秘塔执行过程截图" + currentCount, userId);
                 } catch (Exception e) {
                     UserLogUtil.sendExceptionLog(userId, "秘塔截图异常", "startMetaso", e, url + "/saveLogInfo");
                 }
             }, 0, 8, TimeUnit.SECONDS);
 
-            logInfo.sendTaskLog( "开启自动监听任务，持续监听秘塔回答中",userId,"秘塔");
+            logInfo.sendTaskLog("开启自动监听任务，持续监听秘塔回答中", userId, "秘塔");
             //等待html片段获取完成
-            String copiedText =  metasoUtil.waitMetasoHtmlDom(page,userId,"秘塔");
+            String copiedText = metasoUtil.waitMetasoHtmlDom(page, userId, "秘塔");
             //关闭截图
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
@@ -824,16 +785,16 @@ public class AIGCController {
                 page.getByRole(AriaRole.MENUITEM, new Page.GetByRoleOptions().setName("生成图片")).click();
             });
 
-            logInfo.sendTaskLog( "执行完成",userId,"秘塔");
-            logInfo.sendChatData(page,"/search/([^/?#]+)",userId,"RETURN_METASO_CHATID",1);
-            logInfo.sendResData(copiedText,userId,"秘塔","RETURN_METASO_RES",shareUrl,sharImgUrl);
+            logInfo.sendTaskLog("执行完成", userId, "秘塔");
+            logInfo.sendChatData(page, "/search/([^/?#]+)", userId, "RETURN_METASO_CHATID", 1);
+            logInfo.sendResData(copiedText, userId, "秘塔", "RETURN_METASO_RES", shareUrl, sharImgUrl);
 
             //保存数据库
             userInfoRequest.setDraftContent(copiedText);
             userInfoRequest.setAiName("秘塔");
             userInfoRequest.setShareUrl(shareUrl);
             userInfoRequest.setShareImgUrl(sharImgUrl);
-            RestUtils.post(url+"/saveDraftContent", userInfoRequest);
+            RestUtils.post(url + "/saveDraftContent", userInfoRequest);
             return copiedText;
         } catch (Exception e) {
             throw e;
@@ -842,6 +803,7 @@ public class AIGCController {
 
     /**
      * 处理豆包的常规请求
+     *
      * @param userInfoRequest 包含会话ID和用户指令
      * @return AI生成的文本内容
      */
@@ -849,26 +811,26 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startDB")
     public String startDB(@RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"db")) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "db")) {
 
             // 初始化变量
             String userId = userInfoRequest.getUserId();
             String dbchatId = userInfoRequest.getDbChatId();
-            logInfo.sendTaskLog( "豆包准备就绪，正在打开页面",userId,"豆包");
+            logInfo.sendTaskLog("豆包准备就绪，正在打开页面", userId, "豆包");
             String roles = userInfoRequest.getRoles();
             String userPrompt = userInfoRequest.getUserPrompt();
 
             // 初始化页面并导航到指定会话
             Page page = browserUtil.getOrCreatePage(context);
-            if(dbchatId!=null){
-                page.navigate("https://www.doubao.com/chat/"+dbchatId);
-            }else {
+            if (dbchatId != null) {
+                page.navigate("https://www.doubao.com/chat/" + dbchatId);
+            } else {
                 page.navigate("https://www.doubao.com/chat/");
             }
 
             page.waitForLoadState(LoadState.LOAD);
             Thread.sleep(500);
-            logInfo.sendTaskLog( "豆包页面打开完成",userId,"豆包");
+            logInfo.sendTaskLog("豆包页面打开完成", userId, "豆包");
             // 定位深度思考按钮
             Locator deepThoughtButton = page.locator("button.semi-button:has-text('深度思考')");
             // 检查按钮是否包含以 active- 开头的类名
@@ -892,16 +854,16 @@ public class AIGCController {
                     deepThoughtButton.click();
                     Thread.sleep(1000);
                 }
-                logInfo.sendTaskLog( "已启动深度思考模式",userId,"豆包");
+                logInfo.sendTaskLog("已启动深度思考模式", userId, "豆包");
             }
             Thread.sleep(1000);
             page.locator("[data-testid='chat_input_input']").click();
             Thread.sleep(1000);
             page.locator("[data-testid='chat_input_input']").fill(userPrompt);
-            logInfo.sendTaskLog( "用户指令已自动输入完成",userId,"豆包");
+            logInfo.sendTaskLog("用户指令已自动输入完成", userId, "豆包");
             Thread.sleep(1000);
             page.locator("[data-testid='chat_input_input']").press("Enter");
-            logInfo.sendTaskLog( "指令已自动发送成功",userId,"豆包");
+            logInfo.sendTaskLog("指令已自动发送成功", userId, "豆包");
 
             // 创建定时截图线程
             AtomicInteger i = new AtomicInteger(0);
@@ -913,24 +875,24 @@ public class AIGCController {
                     if (page.isClosed()) {
                         return;
                     }
-                    
+
                     int currentCount = i.getAndIncrement();
-                    logInfo.sendImgData(page, userId + "豆包执行过程截图"+currentCount, userId);
+                    logInfo.sendImgData(page, userId + "豆包执行过程截图" + currentCount, userId);
                 } catch (com.microsoft.playwright.impl.TargetClosedError e) {
                 } catch (com.microsoft.playwright.PlaywrightException e) {
                 } catch (Exception e) {
                     // 只记录严重错误到日志系统
                     if (e.getMessage() != null && !e.getMessage().toLowerCase().contains("timeout")) {
-                    UserLogUtil.sendExceptionLog(userId, "豆包截图", "startDB", e, url + "/saveLogInfo");
-                }
+                        UserLogUtil.sendExceptionLog(userId, "豆包截图", "startDB", e, url + "/saveLogInfo");
+                    }
                 }
             }, 1000, 6000, TimeUnit.MILLISECONDS); // 🔥 优化：延迟1秒开始，每6秒执行一次
 
-            logInfo.sendTaskLog( "开启自动监听任务，持续监听豆包回答中",userId,"豆包");
+            logInfo.sendTaskLog("开启自动监听任务，持续监听豆包回答中", userId, "豆包");
             // 等待复制按钮出现并点击
 //            String copiedText =  douBaoUtil.waitAndClickDBCopyButton(page,userId,roles);
             //等待html片段获取完成
-            String copiedText =  douBaoUtil.waitDBHtmlDom(page,userId,"豆包");
+            String copiedText = douBaoUtil.waitDBHtmlDom(page, userId, "豆包");
             //关闭截图
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
@@ -938,8 +900,8 @@ public class AIGCController {
             boolean isRight;
 
             Locator chatHis = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div/main/div/div/div[2]/div/div[1]/div/div/div[2]/div[2]/div/div/div/div/div/div/div[1]/div/div/div[2]/div[1]/div/div");
-            if(chatHis.count()>0){
-                isRight =true;
+            if (chatHis.count() > 0) {
+                isRight = true;
             } else {
                 isRight = false;
             }
@@ -948,12 +910,12 @@ public class AIGCController {
 
             clipboardLockManager.runWithClipboardLock(() -> {
                 try {
-                    if(isRight && page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").count()>0){
+                    if (isRight && page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").count() > 0) {
                         page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").click();
                         Thread.sleep(1000);
                         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("公开分享")).click();
                         Thread.sleep(500);
-                    }else{
+                    } else {
                         page.locator("button[data-testid='message_action_share']").last().click();
                         Thread.sleep(2000);
                         page.locator("button[data-testid='thread_share_copy_btn']").first().click();
@@ -971,7 +933,7 @@ public class AIGCController {
             Thread.sleep(1000);
             String shareUrl = shareUrlRef.get();
             String sharImgUrl = "";
-            if (isRight && page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[3]").count()>0) {
+            if (isRight && page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[3]").count() > 0) {
                 page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[3]").click();
                 sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
                     page.getByTestId("popover_select_option_item").nth(1).click();
@@ -986,16 +948,16 @@ public class AIGCController {
                 });
             }
 
-            logInfo.sendTaskLog( "执行完成",userId,"豆包");
-            logInfo.sendChatData(page,"/chat/([^/?#]+)",userId,"RETURN_DB_CHATID",1);
-            logInfo.sendResData(copiedText,userId,"豆包","RETURN_DB_RES",shareUrl,sharImgUrl);
+            logInfo.sendTaskLog("执行完成", userId, "豆包");
+            logInfo.sendChatData(page, "/chat/([^/?#]+)", userId, "RETURN_DB_CHATID", 1);
+            logInfo.sendResData(copiedText, userId, "豆包", "RETURN_DB_RES", shareUrl, sharImgUrl);
 
             //保存数据库
             userInfoRequest.setDraftContent(copiedText);
             userInfoRequest.setAiName("豆包");
             userInfoRequest.setShareUrl(shareUrl);
             userInfoRequest.setShareImgUrl(sharImgUrl);
-            RestUtils.post(url+"/saveDraftContent", userInfoRequest);
+            RestUtils.post(url + "/saveDraftContent", userInfoRequest);
             return copiedText;
         } catch (Exception e) {
             throw e;
@@ -1005,13 +967,14 @@ public class AIGCController {
 
     /**
      * 处理Kimi的常规请求
+     *
      * @param userInfoRequest 包含会话ID和用户指令
      * @return AI生成的文本内容
      */
     @Operation(summary = "启动KimiAI生成", description = "调用Kimi平台生成内容并抓取结果")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startKimi")
-    public String startKimi(@RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
+    public String startKimi(@RequestBody UserInfoRequest userInfoRequest) throws Exception {
 
         String userId = userInfoRequest.getUserId();
         String resText = "";
@@ -1023,8 +986,8 @@ public class AIGCController {
         try (
                 BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "Kimi");
                 Page page = browserUtil.getOrCreatePage(context)) {
-            
-            
+
+
             // 初始化变量
             String kimiChatId = userInfoRequest.getKimiChatId();
             logInfo.sendTaskLog("kimi准备就绪，正在打开页面", userId, "Kimi");
@@ -1064,23 +1027,20 @@ public class AIGCController {
                         return;
                     }
                     int currentCount = i.getAndIncrement(); // 获取当前值并自增
-                    logInfo.sendImgData(page, userId + "kimi执行过程截图"+currentCount, userId);
-
-                } catch (com.microsoft.playwright.impl.TargetClosedError e) {
-                    // 不发送技术错误到前端
+                    logInfo.sendImgData(page, userId + "kimi执行过程截图" + currentCount, userId);
                 } catch (Exception e) {
-                    // 不发送技术错误到前端
+                    UserLogUtil.sendExceptionLog(userId, "kimi截图", "startKimi", e, url + "/saveLogInfo");
                 }
             }, 0, 8, TimeUnit.SECONDS);
-            
+
             // 🔥 优化：增强超时检测和处理
             try {
                 // 设置更长的超时时间用于等待响应
                 page.setDefaultTimeout(120000); // 2分钟超时
-                
-            //存储回答内容文本
-            resText = kimiUtil.waitKimiResponse(page, userId, userPrompt ,kimiChatId);
-                
+
+                //存储回答内容文本
+                resText = kimiUtil.waitKimiResponse(page, userId, userPrompt, kimiChatId);
+
             } catch (Exception e) {
                 // 检查是否是超时异常
                 if (e.getMessage() != null && e.getMessage().toLowerCase().contains("timeout")) {
@@ -1090,63 +1050,81 @@ public class AIGCController {
                     resText = "Kimi处理出现问题，请稍后重试";
                     logInfo.sendTaskLog("Kimi处理出现异常，正在终止任务", userId, "Kimi");
                 }
+                throw e;
             }
-            
+
             //关闭截图
-            if (screenshotFuture != null) {
-                screenshotFuture.cancel(true); // 使用true强制中断
-            }
-            if (screenshotExecutor != null) {
-                screenshotExecutor.shutdownNow(); // 立即关闭
-                try {
-                    // 等待执行器完全关闭，最多等待2秒
-                    if (!screenshotExecutor.awaitTermination(2, TimeUnit.SECONDS)) {
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+            screenshotFuture.cancel(true); // 使用true强制中断
+            screenshotExecutor.shutdownNow(); // 立即关闭
+            try {
+                // 等待执行器完全关闭，最多等待2秒
+                if (!screenshotExecutor.awaitTermination(2, TimeUnit.SECONDS)) {
                 }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
             Thread.sleep(500);
             //获取对话链接网址
             try {
-            page.locator("span:has-text('复制链接')").click();
-            Thread.sleep(1000);
-                shareUrl=(String) page.evaluate("async () => { return await navigator.clipboard.readText(); }");
-            //截取网址部分
-            if (shareUrl != null && shareUrl.contains("https://")) {
-                shareUrl = shareUrl.substring(shareUrl.indexOf("https://"));
-            }
+                page.locator("span:has-text('复制链接')").click();
+                Thread.sleep(1000);
+                shareUrl = (String) page.evaluate("async () => { return await navigator.clipboard.readText(); }");
+                //截取网址部分
+                if (shareUrl != null && shareUrl.contains("https://")) {
+                    shareUrl = shareUrl.substring(shareUrl.indexOf("https://"));
+                }
             } catch (Exception e) {
                 shareUrl = "";
                 // 不发送技术错误到前端
             }
-            
+
             // 获取图片
             try {
-            sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
-                page.locator("span:has-text('生成图片')").click();
-                page.locator("button.kimi-button.info.button").nth(1).click();
-            });
+                sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
+//                    下载图片，尝试五次
+                    boolean isDownloadSuccess = false;
+                    for (int j = 0; j < 5; j++) {
+                        try {
+                            page.locator("span:has-text('生成图片')").click();
+                            page.locator("button.kimi-button.info.button").nth(1).click();
+//                    等待10秒，检查是否下载成功
+                            page.waitForSelector("text=下载图片成功",
+                                    new Page.WaitForSelectorOptions().setTimeout(13000)
+                            );
+                            isDownloadSuccess = true;
+                            logInfo.sendTaskLog("下载图片成功", userId, "Kimi");
+                            break;
+                        } catch (Exception e) {
+                            try {
+                                logInfo.sendTaskLog("下载图片失败,第" + (j + 1) + "次尝试下载", userId, "Kimi");
+                                Thread.sleep(2000);
+                                page.locator("//header[contains(text(),'分享图片预览')]//*[name()='svg']").click();
+                            } catch (Exception ignored) {
+                                System.out.println("窗口关闭失败");
+                            }
+                        }
+                    }
+                    if (!isDownloadSuccess) {
+                        logInfo.sendTaskLog("下载图片失败", userId, "Kimi");
+                    }
+                });
             } catch (Exception e) {
                 sharImgUrl = "";
                 // 不发送技术错误到前端
             }
 
-            logInfo.sendTaskLog( "执行完成",userId,"Kimi");
-            logInfo.sendChatData(page,"/chat/([^/?#]+)",userId,"RETURN_KIMI_CHATID",1);
-            
-            logInfo.sendResData(resText,userId,"kimi","RETURN_KIMI_RES",shareUrl,sharImgUrl);
-            
+            logInfo.sendTaskLog("执行完成", userId, "Kimi");
+            logInfo.sendChatData(page, "/chat/([^/?#]+)", userId, "RETURN_KIMI_CHATID", 1);
+
+            logInfo.sendResData(resText, userId, "kimi", "RETURN_KIMI_RES", shareUrl, sharImgUrl);
+
             //保存数据库
             userInfoRequest.setDraftContent(resText);
             userInfoRequest.setAiName("Kimi");
             userInfoRequest.setShareUrl(shareUrl);
             userInfoRequest.setShareImgUrl(sharImgUrl);
-            RestUtils.post(url+"/saveDraftContent", userInfoRequest);
-
+            RestUtils.post(url + "/saveDraftContent", userInfoRequest);
             return resText;
-
-
         } catch (InterruptedException e) {
             throw e;
         } finally {
@@ -1159,6 +1137,7 @@ public class AIGCController {
                     screenshotExecutor.shutdownNow();
                 }
             } catch (Exception e) {
+                UserLogUtil.sendExceptionLog(userId, "Kimi截图", "startKimi", e, url + "/saveLogInfo");
             }
         }
     }
@@ -1168,11 +1147,11 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startDBScore")
     public String startDBScore(@RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"db")) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "db")) {
 
             // 初始化变量
             String userId = userInfoRequest.getUserId();
-            logInfo.sendTaskLog( "评分准备就绪，正在打开页面",userId,"智能评分");
+            logInfo.sendTaskLog("评分准备就绪，正在打开页面", userId, "智能评分");
             String roles = userInfoRequest.getRoles();
             String userPrompt = userInfoRequest.getUserPrompt();
 
@@ -1181,7 +1160,7 @@ public class AIGCController {
             page.navigate("https://www.doubao.com/chat/");
             page.waitForLoadState(LoadState.LOAD);
             Thread.sleep(500);
-            logInfo.sendTaskLog( "智能评分页面打开完成",userId,"智能评分");
+            logInfo.sendTaskLog("智能评分页面打开完成", userId, "智能评分");
             // 定位深度思考按钮
             Locator deepThoughtButton = page.locator("button.semi-button:has-text('深度思考')");
             // 检查按钮是否包含以 active- 开头的类名
@@ -1210,7 +1189,7 @@ public class AIGCController {
             page.locator("[data-testid='chat_input_input']").click();
             Thread.sleep(500);
             page.locator("[data-testid='chat_input_input']").fill(userPrompt);
-            logInfo.sendTaskLog( "初稿已录入评分系统完成",userId,"智能评分");
+            logInfo.sendTaskLog("初稿已录入评分系统完成", userId, "智能评分");
             Thread.sleep(500);
             page.locator("[data-testid='chat_input_input']").press("Enter");
 
@@ -1221,23 +1200,23 @@ public class AIGCController {
             ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
                 try {
                     int currentCount = i.getAndIncrement(); // 获取当前值并自增
-                    logInfo.sendImgData(page, userId + "评分执行过程截图"+currentCount, userId);
+                    logInfo.sendImgData(page, userId + "评分执行过程截图" + currentCount, userId);
                 } catch (Exception e) {
                     UserLogUtil.sendExceptionLog(userId, "豆包评分截图", "startDBScore", e, url + "/saveLogInfo");
                 }
             }, 0, 9, TimeUnit.SECONDS);
 
-            logInfo.sendTaskLog( "开启自动监听任务，持续监听评分结果",userId,"智能评分");
+            logInfo.sendTaskLog("开启自动监听任务，持续监听评分结果", userId, "智能评分");
             // 等待复制按钮出现并点击
-            String copiedText =  douBaoUtil.waitDBHtmlDom(page,userId,"智能评分");
+            String copiedText = douBaoUtil.waitDBHtmlDom(page, userId, "智能评分");
 
             //关闭截图
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
             boolean isRight;
             Locator chatHis = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div/main/div/div/div[2]/div/div[1]/div/div/div[2]/div[2]/div/div/div/div/div/div/div[1]/div/div/div[2]/div[1]/div/div");
-            if(chatHis.count()>0){
-                isRight =true;
+            if (chatHis.count() > 0) {
+                isRight = true;
             } else {
                 isRight = false;
             }
@@ -1248,12 +1227,12 @@ public class AIGCController {
             AtomicReference<String> shareUrlRef = new AtomicReference<>();
             clipboardLockManager.runWithClipboardLock(() -> {
                 try {
-                    if(isRight && page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").count()>0){
+                    if (isRight && page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").count() > 0) {
                         page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[4]").click();
                         Thread.sleep(1000);
                         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("公开分享")).click();
                         Thread.sleep(500);
-                    }else{
+                    } else {
                         page.locator("button[data-testid='message_action_share']").last().click();
                         Thread.sleep(2000);
                         page.locator("button[data-testid='thread_share_copy_btn']").first().click();
@@ -1271,7 +1250,7 @@ public class AIGCController {
             Thread.sleep(1000);
             String shareUrl = shareUrlRef.get();
             String sharImgUrl = "";
-            if (isRight && page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[3]").count()>0) {
+            if (isRight && page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[3]").count() > 0) {
                 page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/aside/div[2]/div/div[1]/div/div[1]/div[3]/div/div/div/div[3]").click();
                 sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
                     page.getByTestId("popover_select_option_item").nth(1).click();
@@ -1286,13 +1265,13 @@ public class AIGCController {
                 });
             }
 
-            logInfo.sendTaskLog( "执行完成",userId,"智能评分");
-            logInfo.sendResData(copiedText,userId,"智能评分","RETURN_WKPF_RES",shareUrl,sharImgUrl);
+            logInfo.sendTaskLog("执行完成", userId, "智能评分");
+            logInfo.sendResData(copiedText, userId, "智能评分", "RETURN_WKPF_RES", shareUrl, sharImgUrl);
             userInfoRequest.setDraftContent(copiedText);
             userInfoRequest.setAiName("智能评分");
             userInfoRequest.setShareUrl(shareUrl);
             userInfoRequest.setShareImgUrl(sharImgUrl);
-            RestUtils.post(url+"/saveDraftContent", userInfoRequest);
+            RestUtils.post(url + "/saveDraftContent", userInfoRequest);
             return copiedText;
         } catch (Exception e) {
             throw e;
@@ -1304,10 +1283,10 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startDBOffice")
     public String startDBOffice(@RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"db")) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "db")) {
             // 初始化变量
             String userId = userInfoRequest.getUserId();
-            logInfo.sendTaskLog( "智能排版准备就绪，正在打开页面",userId,"智能排版");
+            logInfo.sendTaskLog("智能排版准备就绪，正在打开页面", userId, "智能排版");
             String roles = userInfoRequest.getRoles();
             String userPrompt = userInfoRequest.getUserPrompt();
 
@@ -1316,7 +1295,7 @@ public class AIGCController {
             page.navigate("https://www.doubao.com/chat/");
             page.waitForLoadState(LoadState.LOAD);
             Thread.sleep(500);
-            logInfo.sendTaskLog( "智能排版页面打开完成",userId,"智能排版");
+            logInfo.sendTaskLog("智能排版页面打开完成", userId, "智能排版");
             // 定位深度思考按钮
             Locator deepThoughtButton = page.locator("button.semi-button:has-text('深度思考')");
             // 检查按钮是否包含以 active- 开头的类名
@@ -1345,7 +1324,7 @@ public class AIGCController {
             page.locator("[data-testid='chat_input_input']").click();
             Thread.sleep(500);
             page.locator("[data-testid='chat_input_input']").fill(userPrompt);
-            logInfo.sendTaskLog( "原数据已录入智能排版系统完成",userId,"智能排版");
+            logInfo.sendTaskLog("原数据已录入智能排版系统完成", userId, "智能排版");
             Thread.sleep(500);
             page.locator("[data-testid='chat_input_input']").press("Enter");
 
@@ -1356,27 +1335,27 @@ public class AIGCController {
             ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
                 try {
                     int currentCount = i.getAndIncrement(); // 获取当前值并自增
-                    logInfo.sendImgData(page, userId + "智能排版执行过程截图"+currentCount, userId);
+                    logInfo.sendImgData(page, userId + "智能排版执行过程截图" + currentCount, userId);
                 } catch (Exception e) {
                     UserLogUtil.sendExceptionLog(userId, "智能排版执行过程截图", "startDBOffice", e, url + "/saveLogInfo");
                 }
             }, 0, 9, TimeUnit.SECONDS);
 
-            logInfo.sendTaskLog( "开启自动监听任务，持续监听智能排版结果",userId,"智能排版");
+            logInfo.sendTaskLog("开启自动监听任务，持续监听智能排版结果", userId, "智能排版");
             // 等待复制按钮出现并点击
-            String copiedText =  douBaoUtil.waitPBCopy(page,userId,"智能排版");
+            String copiedText = douBaoUtil.waitPBCopy(page, userId, "智能排版");
 
             //关闭截图
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
 
-            logInfo.sendTaskLog( "执行完成",userId,"智能排版");
-            logInfo.sendResData(copiedText,userId,"智能排版","RETURN_ZNPB_RES","","");
+            logInfo.sendTaskLog("执行完成", userId, "智能排版");
+            logInfo.sendResData(copiedText, userId, "智能排版", "RETURN_ZNPB_RES", "", "");
             userInfoRequest.setDraftContent(copiedText);
             userInfoRequest.setAiName("智能评分");
             userInfoRequest.setShareUrl("");
             userInfoRequest.setShareImgUrl("");
-            RestUtils.post(url+"/saveDraftContent", userInfoRequest);
+            RestUtils.post(url + "/saveDraftContent", userInfoRequest);
             return copiedText;
         } catch (Exception e) {
             throw e;
@@ -1385,6 +1364,7 @@ public class AIGCController {
 
     /**
      * 处理DeepSeek的常规请求
+     *
      * @param userInfoRequest 包含会话ID和用户指令
      * @return AI生成的文本内容
      */
@@ -1393,20 +1373,18 @@ public class AIGCController {
     @PostMapping("/startDeepSeek")
     public String startDeepSeek(@RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
 
-
-            String userId = userInfoRequest.getUserId();
+        String userId = userInfoRequest.getUserId();
         String chatId = userInfoRequest.getDbChatId();
-            String userPrompt = userInfoRequest.getUserPrompt();
+        String userPrompt = userInfoRequest.getUserPrompt();
         String isNewChat = userInfoRequest.getIsNewChat();
         String roles = userInfoRequest.getRoles();
-        
+
 
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "deepseek")) {
             if ("true".equalsIgnoreCase(isNewChat)) {
                 chatId = null;
             } else if (chatId != null && !chatId.isEmpty()) {
                 logInfo.sendTaskLog("检测到会话ID: " + chatId + "，将继续使用此会话", userId, "DeepSeek");
-            } else {
             }
 
             // 初始化页面并发送消息
@@ -1433,10 +1411,10 @@ public class AIGCController {
                         // 使用更安全的截图方式
                         logInfo.sendImgData(page, userId + "DeepSeek执行过程截图" + currentCount, userId);
                     } catch (Exception e) {
-                        // 不发送技术错误到前端
+                        UserLogUtil.sendExceptionLog(userId, "DeepSeek执行过程截图", "startDeepSeek", e, url + "/saveLogInfo");
                     }
                 } catch (Exception e) {
-                    // 不发送技术错误到前端
+                    UserLogUtil.sendExceptionLog(userId, "DeepSeek执行过程截图", "startDeepSeek", e, url + "/saveLogInfo");
                 }
             }, 1000, 4000, TimeUnit.MILLISECONDS); // 🔥 优化：延迟1秒开始，每4秒执行一次（提高截图频率）
 
@@ -1460,62 +1438,62 @@ public class AIGCController {
                     try {
                         // 检查是否有服务器不可用的弹窗或错误信息
                         String serverUnavailableCheck = (String) page.evaluate("""
-                            () => {
-                                // 检查常见的服务器不可用提示
-                                const errorMessages = [
-                                    '服务器暂时不可用',
-                                    '服务暂时不可用', 
-                                    'Service temporarily unavailable',
-                                    'Server temporarily unavailable',
-                                    '系统繁忙',
-                                    '服务异常',
-                                    '网络异常'
-                                ];
-                                
-                                // 检查页面中是否包含这些错误信息
-                                const bodyText = document.body.innerText || document.body.textContent || '';
-                                for (const message of errorMessages) {
-                                    if (bodyText.includes(message)) {
-                                        return message;
-                                    }
-                                }
-                                
-                                // 检查弹窗或模态框
-                                const modals = document.querySelectorAll('.modal, .dialog, .popup, .alert, [role="dialog"], [role="alert"]');
-                                for (const modal of modals) {
-                                    const modalText = modal.innerText || modal.textContent || '';
-                                    for (const message of errorMessages) {
-                                        if (modalText.includes(message)) {
-                                            return message;
+                                    () => {
+                                        // 检查常见的服务器不可用提示
+                                        const errorMessages = [
+                                            '服务器暂时不可用',
+                                            '服务暂时不可用', 
+                                            'Service temporarily unavailable',
+                                            'Server temporarily unavailable',
+                                            '系统繁忙',
+                                            '服务异常',
+                                            '网络异常'
+                                        ];
+                                        
+                                        // 检查页面中是否包含这些错误信息
+                                        const bodyText = document.body.innerText || document.body.textContent || '';
+                                        for (const message of errorMessages) {
+                                            if (bodyText.includes(message)) {
+                                                return message;
+                                            }
                                         }
+                                        
+                                        // 检查弹窗或模态框
+                                        const modals = document.querySelectorAll('.modal, .dialog, .popup, .alert, [role="dialog"], [role="alert"]');
+                                        for (const modal of modals) {
+                                            const modalText = modal.innerText || modal.textContent || '';
+                                            for (const message of errorMessages) {
+                                                if (modalText.includes(message)) {
+                                                    return message;
+                                                }
+                                            }
+                                        }
+                                        
+                                        return null;
                                     }
-                                }
-                                
-                                return null;
-                            }
-                        """);
+                                """);
 
                         if (serverUnavailableCheck != null && !serverUnavailableCheck.equals("null")) {
-                            
+
                             // 安全地关闭截图任务
                             try {
                                 screenshotFuture.cancel(true);
                                 screenshotExecutor.shutdownNow();
                             } catch (Exception e) {
                             }
-                            
+
                             // 直接返回错误信息给前端
                             String errorMessage = "DeepSeek服务器暂时不可用，请稍后再试";
                             logInfo.sendTaskLog(errorMessage, userId, "DeepSeek");
                             logInfo.sendResData(errorMessage, userId, "DeepSeek", "RETURN_DEEPSEEK_RES", "", "");
-                            
+
                             // 保存错误信息到数据库
                             userInfoRequest.setDraftContent(errorMessage);
                             userInfoRequest.setAiName("DeepSeek");
                             userInfoRequest.setShareUrl("");
                             userInfoRequest.setShareImgUrl("");
                             RestUtils.post(url + "/saveDraftContent", userInfoRequest);
-                            
+
                             return errorMessage;
                         }
                     } catch (Exception e) {
@@ -1557,24 +1535,24 @@ public class AIGCController {
 
                     // 使用JavaScript提取页面上的任何文本内容
                     Object extractedContent = page.evaluate("""
-                        () => {
-                            // 尝试查找任何可能包含回复的元素
-                            const contentElements = document.querySelectorAll('.ds-markdown, .flow-markdown-body, .message-content, .ds-markdown-paragraph');
-                            if (contentElements.length > 0) {
-                                // 获取最后一个元素的文本
-                                const lastElement = contentElements[contentElements.length - 1];
-                                return lastElement.innerHTML || lastElement.innerText || '';
-                            }
+                                () => {
+                                    // 尝试查找任何可能包含回复的元素
+                                    const contentElements = document.querySelectorAll('.ds-markdown, .flow-markdown-body, .message-content, .ds-markdown-paragraph');
+                                    if (contentElements.length > 0) {
+                                        // 获取最后一个元素的文本
+                                        const lastElement = contentElements[contentElements.length - 1];
+                                        return lastElement.innerHTML || lastElement.innerText || '';
+                                    }
 
-                            // 如果找不到特定元素，尝试获取页面上的任何文本
-                            const bodyText = document.body.innerText;
-                            if (bodyText && bodyText.length > 50) {
-                                return bodyText;
-                            }
+                                    // 如果找不到特定元素，尝试获取页面上的任何文本
+                                    const bodyText = document.body.innerText;
+                                    if (bodyText && bodyText.length > 50) {
+                                        return bodyText;
+                                    }
 
-                            return '无法提取内容';
-                        }
-                    """);
+                                    return '无法提取内容';
+                                }
+                            """);
 
                     if (extractedContent != null && !extractedContent.toString().isEmpty() &&
                             !extractedContent.toString().equals("无法提取内容")) {
@@ -1610,7 +1588,7 @@ public class AIGCController {
 
             logInfo.sendTaskLog("执行完成", userId, "DeepSeek");
             logInfo.sendChatData(page, "/chat/([^/?#]+)", userId, "RETURN_DEEPSEEK_CHATID", 1);
-            
+
             logInfo.sendResData(copiedText, userId, "DeepSeek", "RETURN_DEEPSEEK_RES", shareUrl, shareImgUrl);
 
             // 保存数据库
@@ -1623,19 +1601,19 @@ public class AIGCController {
             return copiedText;
 
         } catch (Exception e) {
-            e.printStackTrace();
-            
+
             // 发送用户友好的错误信息，不暴露技术细节
             String userFriendlyError = "DeepSeek处理出现问题，请稍后重试";
             logInfo.sendTaskLog(userFriendlyError, userId, "DeepSeek");
             logInfo.sendResData(userFriendlyError, userId, "DeepSeek", "RETURN_DEEPSEEK_RES", "", "");
-            
+
             return userFriendlyError;
         }
     }
 
     /**
      * 处理通义千问的常规请求
+     *
      * @param userInfoRequest 包含会话ID和用户指令
      * @return 格式化后的AI生成的文本内容
      */
@@ -1703,63 +1681,63 @@ public class AIGCController {
             try {
                 if (!rawHtmlContent.startsWith("获取内容失败") && !rawHtmlContent.isEmpty()) {
                     Object finalFormattedContent = page.evaluate("""
-                        (content) => {
-                            try {
-                                const ALLOWED_TAGS = new Set([
-                                    'p', 'br', 'strong', 'em', 'b', 'i', 'ul', 'ol', 'li', 'h3', 'hr',
-                                    'table', 'thead', 'tbody', 'tr', 'th', 'td',
-                                    'pre', 'code'
-                                ]);
-                                const tempDiv = document.createElement('div');
-                                tempDiv.innerHTML = content;
-                                tempDiv.querySelectorAll('.tongyi-design-highlighter').forEach(highlighter => {
-                                    const codeElement = highlighter.querySelector('code');
-                                    if (!codeElement) return;
-                                    const clonedCode = codeElement.cloneNode(true);
-                                    clonedCode.querySelectorAll('.react-syntax-highlighter-line-number').forEach(el => el.remove());
-                                    const cleanText = clonedCode.innerText;
-                                    const newPreElement = document.createElement('pre');
-                                    const newCodeElement = document.createElement('code');
-                                    newCodeElement.textContent = cleanText;
-                                    newPreElement.appendChild(newCodeElement);
-                                    highlighter.parentNode.replaceChild(newPreElement, highlighter);
-                                });
-                                const allElements = tempDiv.querySelectorAll('*');
-                                for (let i = allElements.length - 1; i >= 0; i--) {
-                                    const el = allElements[i];
-                                    if (!ALLOWED_TAGS.has(el.tagName.toLowerCase())) {
-                                        el.replaceWith(...el.childNodes);
-                                    } else {
-                                        while (el.attributes.length > 0) {
-                                            el.removeAttribute(el.attributes[0].name);
+                            (content) => {
+                                try {
+                                    const ALLOWED_TAGS = new Set([
+                                        'p', 'br', 'strong', 'em', 'b', 'i', 'ul', 'ol', 'li', 'h3', 'hr',
+                                        'table', 'thead', 'tbody', 'tr', 'th', 'td',
+                                        'pre', 'code'
+                                    ]);
+                                    const tempDiv = document.createElement('div');
+                                    tempDiv.innerHTML = content;
+                                    tempDiv.querySelectorAll('.tongyi-design-highlighter').forEach(highlighter => {
+                                        const codeElement = highlighter.querySelector('code');
+                                        if (!codeElement) return;
+                                        const clonedCode = codeElement.cloneNode(true);
+                                        clonedCode.querySelectorAll('.react-syntax-highlighter-line-number').forEach(el => el.remove());
+                                        const cleanText = clonedCode.innerText;
+                                        const newPreElement = document.createElement('pre');
+                                        const newCodeElement = document.createElement('code');
+                                        newCodeElement.textContent = cleanText;
+                                        newPreElement.appendChild(newCodeElement);
+                                        highlighter.parentNode.replaceChild(newPreElement, highlighter);
+                                    });
+                                    const allElements = tempDiv.querySelectorAll('*');
+                                    for (let i = allElements.length - 1; i >= 0; i--) {
+                                        const el = allElements[i];
+                                        if (!ALLOWED_TAGS.has(el.tagName.toLowerCase())) {
+                                            el.replaceWith(...el.childNodes);
+                                        } else {
+                                            while (el.attributes.length > 0) {
+                                                el.removeAttribute(el.attributes[0].name);
+                                            }
                                         }
                                     }
+                                    const sanitizedHtml = tempDiv.innerHTML;
+                                    const styledContainer = document.createElement('div');
+                                    styledContainer.className = 'tongyi-response';
+                                    styledContainer.style.cssText = 'max-width: 800px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; color: #333;';
+                                    const customStyles = document.createElement('style');
+                                    customStyles.textContent = `
+                                        .tongyi-response table { border-collapse: collapse; width: 100%; margin: 1em 0; border: 1px solid #ddd; }
+                                        .tongyi-response th, .tongyi-response td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                                        .tongyi-response th { background-color: #f2f2f2; }
+                                        .tongyi-response pre { background-color: #f5f5f5; padding: 10px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; font-size: 14px;}
+                                        .tongyi-response code { font-family: 'Courier New', Courier, monospace; }
+                                        .tongyi-response h3 { margin-top: 1.5em; margin-bottom: 0.5em; }
+                                        .tongyi-response hr { border: 0; border-top: 1px solid #eee; margin: 1.5em 0; }
+                                    `;
+                                    styledContainer.appendChild(customStyles);
+                                    const contentWrapper = document.createElement('div');
+                                    contentWrapper.innerHTML = sanitizedHtml;
+                                    styledContainer.appendChild(contentWrapper);
+                                    return styledContainer.outerHTML;
+                                } catch (e) {
+                                    console.error('HTML净化和格式化过程中出错:', e);
+                                    return `<div>格式化失败: ${e.message}</div>`;
                                 }
-                                const sanitizedHtml = tempDiv.innerHTML;
-                                const styledContainer = document.createElement('div');
-                                styledContainer.className = 'tongyi-response';
-                                styledContainer.style.cssText = 'max-width: 800px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; color: #333;';
-                                const customStyles = document.createElement('style');
-                                customStyles.textContent = `
-                                    .tongyi-response table { border-collapse: collapse; width: 100%; margin: 1em 0; border: 1px solid #ddd; }
-                                    .tongyi-response th, .tongyi-response td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                                    .tongyi-response th { background-color: #f2f2f2; }
-                                    .tongyi-response pre { background-color: #f5f5f5; padding: 10px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; font-size: 14px;}
-                                    .tongyi-response code { font-family: 'Courier New', Courier, monospace; }
-                                    .tongyi-response h3 { margin-top: 1.5em; margin-bottom: 0.5em; }
-                                    .tongyi-response hr { border: 0; border-top: 1px solid #eee; margin: 1.5em 0; }
-                                `;
-                                styledContainer.appendChild(customStyles);
-                                const contentWrapper = document.createElement('div');
-                                contentWrapper.innerHTML = sanitizedHtml;
-                                styledContainer.appendChild(contentWrapper);
-                                return styledContainer.outerHTML;
-                            } catch (e) {
-                                console.error('HTML净化和格式化过程中出错:', e);
-                                return `<div>格式化失败: ${e.message}</div>`;
                             }
-                        }
-                        """, rawHtmlContent);
+                            """, rawHtmlContent);
 
                     if (finalFormattedContent != null && !finalFormattedContent.toString().isEmpty()) {
                         formattedContent = finalFormattedContent.toString();
@@ -1824,11 +1802,11 @@ public class AIGCController {
     @PostMapping("/startZHZD")
     public String startZHZD(@RequestBody UserInfoRequest userInfoRequest) throws Exception {
 
-            String userId = userInfoRequest.getUserId();
-            String sessionId = userInfoRequest.getZhzdChatId();
+        String userId = userInfoRequest.getUserId();
+        String sessionId = userInfoRequest.getZhzdChatId();
         String userPrompt = userInfoRequest.getUserPrompt();
-            String isNewChat = userInfoRequest.getIsNewChat();
-            String aiName = "知乎直答";
+        String isNewChat = userInfoRequest.getIsNewChat();
+        String aiName = "知乎直答";
 
 
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "Zhihu")) {
@@ -1838,55 +1816,55 @@ public class AIGCController {
 
             // 🔥 新增：检测知乎访问限制
             try {
-            if ("true".equalsIgnoreCase(isNewChat) || sessionId == null || sessionId.isEmpty()) {
-                logInfo.sendTaskLog("用户请求新会话", userId, aiName);
-                page.navigate("https://zhida.zhihu.com");
-            } else {
-                logInfo.sendTaskLog("检测到会话ID: " + sessionId + "，将继续使用此会话", userId, aiName);
-                page.navigate("https://zhida.zhihu.com/search/" + sessionId);
-            }
+                if ("true".equalsIgnoreCase(isNewChat) || sessionId == null || sessionId.isEmpty()) {
+                    logInfo.sendTaskLog("用户请求新会话", userId, aiName);
+                    page.navigate("https://zhida.zhihu.com");
+                } else {
+                    logInfo.sendTaskLog("检测到会话ID: " + sessionId + "，将继续使用此会话", userId, aiName);
+                    page.navigate("https://zhida.zhihu.com/search/" + sessionId);
+                }
 
                 page.waitForLoadState(LoadState.LOAD);
                 Thread.sleep(2000);
-                
+
                 // 检测知乎访问限制
                 String accessCheckResult = (String) page.evaluate("""
-                    () => {
-                        const bodyText = document.body.innerText || document.body.textContent || '';
-                        const pageTitle = document.title || '';
-                        
-                        // 检查常见的访问限制提示
-                        const restrictionMessages = [
-                            '您当前请求存在异常，暂时限制本次访问',
-                            '暂时限制本次访问',
-                            '请求存在异常',
-                            '访问受限',
-                            '您的访问出现了异常',
-                            'b87ce5c3c1b4773c6a37cf0ae84ccfb1'
-                        ];
-                        
-                        for (const message of restrictionMessages) {
-                            if (bodyText.includes(message) || pageTitle.includes(message)) {
-                                return message;
+                            () => {
+                                const bodyText = document.body.innerText || document.body.textContent || '';
+                                const pageTitle = document.title || '';
+                                
+                                // 检查常见的访问限制提示
+                                const restrictionMessages = [
+                                    '您当前请求存在异常，暂时限制本次访问',
+                                    '暂时限制本次访问',
+                                    '请求存在异常',
+                                    '访问受限',
+                                    '您的访问出现了异常',
+                                    'b87ce5c3c1b4773c6a37cf0ae84ccfb1'
+                                ];
+                                
+                                for (const message of restrictionMessages) {
+                                    if (bodyText.includes(message) || pageTitle.includes(message)) {
+                                        return message;
+                                    }
+                                }
+                                
+                                // 检查是否有错误码
+                                if (bodyText.includes('40362') || bodyText.includes('error')) {
+                                    return 'access_restricted';
+                                }
+                                
+                                return null;
                             }
-                        }
-                        
-                        // 检查是否有错误码
-                        if (bodyText.includes('40362') || bodyText.includes('error')) {
-                            return 'access_restricted';
-                        }
-                        
-                        return null;
-                    }
-                """);
+                        """);
 
                 if (accessCheckResult != null && !accessCheckResult.equals("null")) {
-                    
+
                     // 直接返回错误信息给前端
                     String errorMessage = "知乎访问受限，请稍后再试或通过手机摇一摇联系知乎小管家";
                     logInfo.sendTaskLog(errorMessage, userId, aiName);
                     logInfo.sendResData(errorMessage, userId, aiName, "RETURN_ZHZD_RES", "", "");
-                    
+
                     // 保存错误信息到数据库
                     userInfoRequest.setZhzdChatId(sessionId);
                     userInfoRequest.setDraftContent(errorMessage);
@@ -1894,10 +1872,10 @@ public class AIGCController {
                     userInfoRequest.setShareUrl("");
                     userInfoRequest.setShareImgUrl("");
                     RestUtils.post(url + "/saveDraftContent", userInfoRequest);
-                    
+
                     return errorMessage;
                 }
-                
+
             } catch (Exception e) {
                 // 继续执行正常流程
             }
@@ -1943,7 +1921,7 @@ public class AIGCController {
                                     // 创建一个包装容器来处理原始HTML
                                     const tempDiv = document.createElement('div');
                                     tempDiv.innerHTML = content;
-                            
+                                                        
                                     // 移除所有内联样式和不必要的div/span嵌套
                                     const cleanUpElements = (element) => {
                                         // 移除空的div和span标签
@@ -1952,41 +1930,41 @@ public class AIGCController {
                                                 el.remove();
                                             }
                                         });
-                            
+                                                        
                                         // 移除所有元素的内联样式
                                         element.querySelectorAll('*').forEach(el => {
                                             el.removeAttribute('style');
                                             el.removeAttribute('class');
                                         });
-                            
+                                                        
                                         // 处理表格元素，添加基本样式
                                         element.querySelectorAll('table').forEach(table => {
                                             table.style.borderCollapse = 'collapse';
                                             table.style.width = '100%';
                                         });
-                            
+                                                        
                                         element.querySelectorAll('th, td').forEach(cell => {
                                             cell.style.border = '1px solid #ebebec';
                                             cell.style.padding = '8px';
                                             cell.style.textAlign = 'left';
                                         });
-                            
+                                                        
                                         element.querySelectorAll('th').forEach(th => {
                                             th.style.backgroundColor = '#f8f8fa';
                                             th.style.fontWeight = 'bold';
                                         });
                                     };
-                            
+                                                        
                                     cleanUpElements(tempDiv);
-                            
+                                                        
                                     // 创建最终容器
                                     const styledContainer = document.createElement('div');
                                     styledContainer.className = 'zhzd-response';
                                     styledContainer.style.cssText = 'max-width: 800px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; color: #333;';
-                            
+                                                        
                                     // 将清理后的内容移入容器
                                     styledContainer.innerHTML = tempDiv.innerHTML;
-                            
+                                                        
                                     // 处理所有直接子元素，确保它们是带有正确样式的p标签
                                     const processChildElements = (container) => {
                                         container.childNodes.forEach(node => {
@@ -2019,9 +1997,9 @@ public class AIGCController {
                                             }
                                         });
                                     };
-                            
+                                                        
                                     processChildElements(styledContainer);
-                            
+                                                        
                                     return styledContainer.outerHTML;
                                 } catch (e) {
                                     console.error('格式化知乎直答内容时出错:', e);
@@ -2056,12 +2034,12 @@ public class AIGCController {
                 shareImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
                     page.locator("div:has-text('下载图片')").last().click(new Locator.ClickOptions().setTimeout(30000));
                 });
-                
+
                 if (shareImgUrl != null && !shareImgUrl.trim().isEmpty()) {
                 } else {
                 }
             } catch (Exception e) {
-                logInfo.sendTaskLog("获取分享链接处理失败" , userId, aiName);
+                logInfo.sendTaskLog("获取分享链接处理失败", userId, aiName);
                 // 不发送技术错误到前端
                 // 尝试备用方法获取分享链接
                 try {
@@ -2071,19 +2049,25 @@ public class AIGCController {
                 }
             }
 
-            // 回传数据
-            logInfo.sendTaskLog("执行完成", userId, aiName);
-            logInfo.sendChatData(page, "/search/([^/?#]+)", userId, "RETURN_ZHZD_CHATID", 1);
-            
-            logInfo.sendResData(formattedContent, userId, aiName, "RETURN_ZHZD_RES", shareUrl, shareImgUrl);
+            try {
+                // 回传数据
+                logInfo.sendTaskLog("执行完成", userId, aiName);
+                logInfo.sendChatData(page, "/search/([^/?#]+)", userId, "RETURN_ZHZD_CHATID", 1);
 
-            // 保存数据库
-            userInfoRequest.setZhzdChatId(sessionId);
-            userInfoRequest.setDraftContent(formattedContent);
-            userInfoRequest.setAiName(aiName);
-            userInfoRequest.setShareUrl(shareUrl);
-            userInfoRequest.setShareImgUrl(shareImgUrl);
-            RestUtils.post(url + "/saveDraftContent", userInfoRequest);
+                logInfo.sendResData(formattedContent, userId, aiName, "RETURN_ZHZD_RES", shareUrl, shareImgUrl);
+
+                // 保存数据库
+                userInfoRequest.setZhzdChatId(sessionId);
+                userInfoRequest.setDraftContent(formattedContent);
+                userInfoRequest.setAiName(aiName);
+                userInfoRequest.setShareUrl(shareUrl);
+                userInfoRequest.setShareImgUrl(shareImgUrl);
+                RestUtils.post(url + "/saveDraftContent", userInfoRequest);
+            } catch (Exception e) {
+                logInfo.sendTaskLog("执行完成", userId, aiName);
+                logInfo.sendChatData(page, "/search/([^/?#]+)", userId, "RETURN_ZHZD_CHATID", 1);
+                logInfo.sendResData(formattedContent, userId, aiName, "RETURN_ZHZD_RES", shareUrl, shareImgUrl);
+            }
 
             return formattedContent;
         } catch (Exception e) {
@@ -2095,6 +2079,7 @@ public class AIGCController {
     /**
      * 内部调用的豆包排版方法（用于媒体投递）
      * 该方法不发送WebSocket消息，适合被其他控制器内部调用
+     *
      * @param userInfoRequest 用户信息请求体
      * @return 排版后的内容
      */
@@ -2109,9 +2094,9 @@ public class AIGCController {
 
             // 初始化页面并导航到指定会话
             Page page = browserUtil.getOrCreatePage(context);
-            if(dbchatId!=null){
-                page.navigate("https://www.doubao.com/chat/"+dbchatId);
-            }else {
+            if (dbchatId != null) {
+                page.navigate("https://www.doubao.com/chat/" + dbchatId);
+            } else {
                 page.navigate("https://www.doubao.com/chat/");
             }
 
@@ -2163,10 +2148,10 @@ public class AIGCController {
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/sendToTTHByDB")
     public String sendToTTHByDB(@RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userInfoRequest.getUserId(),"db")) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "db")) {
             // 初始化变量
             String userId = userInfoRequest.getUserId();
-            logInfo.sendTaskLog( "微头条排版准备就绪，正在打开页面",userId,"微头条排版");
+            logInfo.sendTaskLog("微头条排版准备就绪，正在打开页面", userId, "微头条排版");
             String roles = userInfoRequest.getRoles();
             String userPrompt = userInfoRequest.getUserPrompt();
 
@@ -2175,7 +2160,7 @@ public class AIGCController {
             page.navigate("https://www.doubao.com/chat/");
             page.waitForLoadState(LoadState.LOAD);
             Thread.sleep(500);
-            logInfo.sendTaskLog( "微头条排版页面打开完成",userId,"微头条排版");
+            logInfo.sendTaskLog("微头条排版页面打开完成", userId, "微头条排版");
             // 定位深度思考按钮
             Locator deepThoughtButton = page.locator("button.semi-button:has-text('深度思考')");
             // 检查按钮是否包含以 active- 开头的类名
@@ -2204,7 +2189,7 @@ public class AIGCController {
             page.locator("[data-testid='chat_input_input']").click();
             Thread.sleep(500);
             page.locator("[data-testid='chat_input_input']").fill(userPrompt);
-            logInfo.sendTaskLog( "原数据已录入微头条排版系统完成",userId,"微头条排版");
+            logInfo.sendTaskLog("原数据已录入微头条排版系统完成", userId, "微头条排版");
             Thread.sleep(500);
             page.locator("[data-testid='chat_input_input']").press("Enter");
 
@@ -2215,15 +2200,15 @@ public class AIGCController {
             ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
                 try {
                     int currentCount = i.getAndIncrement(); // 获取当前值并自增
-                    logInfo.sendImgData(page, userId + "微头条排版执行过程截图"+currentCount, userId);
+                    logInfo.sendImgData(page, userId + "微头条排版执行过程截图" + currentCount, userId);
                 } catch (Exception e) {
                     UserLogUtil.sendExceptionLog(userId, "微头条排版", "sendToTTHByDB", e, url + "/saveLogInfo");
                 }
             }, 0, 9, TimeUnit.SECONDS);
 
-            logInfo.sendTaskLog( "开启自动监听任务，持续监听微头条排版结果",userId,"微头条排版");
+            logInfo.sendTaskLog("开启自动监听任务，持续监听微头条排版结果", userId, "微头条排版");
             // 等待复制按钮出现并点击
-            String copiedText =  douBaoUtil.waitPBCopy(page,userId,"微头条排版");
+            String copiedText = douBaoUtil.waitPBCopy(page, userId, "微头条排版");
             int first = copiedText.indexOf('"') + 1;
             int second = copiedText.indexOf('"', first);
             String title = copiedText.substring(first, second);
@@ -2232,13 +2217,13 @@ public class AIGCController {
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
 
-            logInfo.sendTaskLog( "执行完成",userId,"微头条排版");
-            logInfo.sendContentAndTitle(content,title,userId,"RETURN_TTH_ZNPB_RES");
+            logInfo.sendTaskLog("执行完成", userId, "微头条排版");
+            logInfo.sendContentAndTitle(content, title, userId, "RETURN_TTH_ZNPB_RES");
             userInfoRequest.setDraftContent(copiedText);
             userInfoRequest.setAiName("智能评分");
             userInfoRequest.setShareUrl("");
             userInfoRequest.setShareImgUrl("");
-            RestUtils.post(url+"/saveDraftContent", userInfoRequest);
+            RestUtils.post(url + "/saveDraftContent", userInfoRequest);
             return copiedText;
         } catch (Exception e) {
             throw e;
@@ -2247,6 +2232,7 @@ public class AIGCController {
 
     /**
      * 处理百度AI的常规请求
+     *
      * @param userInfoRequest 包含会话ID和用户指令
      * @return AI生成的文本内容
      */
@@ -2259,7 +2245,7 @@ public class AIGCController {
 
             // 初始化变量
             String userId = userInfoRequest.getUserId();
-            String roles = userInfoRequest.getRoles();  
+            String roles = userInfoRequest.getRoles();
             String userPrompt = userInfoRequest.getUserPrompt();
             String chatId = userInfoRequest.getBaiduChatId();
             String isNewChat = userInfoRequest.getIsNewChat();
@@ -2345,20 +2331,20 @@ public class AIGCController {
                     logInfo.sendTaskLog("尝试使用备用方法提取内容", userId, "百度AI");
 
                     Object extractedContent = page.evaluate("""
-                        () => {
-                            const contentElements = document.querySelectorAll('div, p, span');
-                            let longestText = '';
-                            
-                            for (let element of contentElements) {
-                                const text = element.innerHTML;
-                                if (text && text.length > longestText.length && text.length > 100) {
-                                    longestText = text;
+                                () => {
+                                    const contentElements = document.querySelectorAll('div, p, span');
+                                    let longestText = '';
+                                    
+                                    for (let element of contentElements) {
+                                        const text = element.innerHTML;
+                                        if (text && text.length > longestText.length && text.length > 100) {
+                                            longestText = text;
+                                        }
+                                    }
+                                    
+                                    return longestText || '无法提取内容';
                                 }
-                            }
-                            
-                            return longestText || '无法提取内容';
-                        }
-                    """);
+                            """);
 
                     if (extractedContent != null && !extractedContent.toString().isEmpty() &&
                             !extractedContent.toString().equals("无法提取内容")) {
@@ -2377,7 +2363,7 @@ public class AIGCController {
                 logInfo.sendTaskLog("执行完成", userId, "百度AI");
             } catch (Exception e) {
                 e.printStackTrace();
-                logInfo.sendTaskLog("保存百度AI内容到稿库失败: " + e.getMessage(), userId, "百度AI");
+                logInfo.sendTaskLog("保存百度AI内容到稿库失败", userId, "百度AI");
                 UserLogUtil.sendExceptionLog(userId, "保存百度AI内容到稿库", "startBaidu", e, url + "/saveLogInfo");
 
                 // 即使保存失败，也要发送结果数据
