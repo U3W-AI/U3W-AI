@@ -670,7 +670,7 @@ public class BrowserController {
             page.navigate("https://www.tongyi.com/");
             page.waitForTimeout(5000);
 
-            Locator loginButton = page.locator("//*[@id=\"new-nav-tab-wrapper\"]/div[2]/li");
+            Locator loginButton = page.locator("//*[@id=\"new-nav-tab-wrapper\"]/div[2]/div");
 
             if (loginButton.count() > 0 && loginButton.isVisible()) {
                 // 如果找到“登录”按钮，说明未登录
@@ -706,7 +706,7 @@ public class BrowserController {
             Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.tongyi.com/");
             page.waitForTimeout(3000);
-            Locator loginButton = page.locator("//*[@id=\"new-nav-tab-wrapper\"]/div[2]/li");
+            Locator loginButton = page.locator("//*[@id=\"new-nav-tab-wrapper\"]/div[2]/div");
             if (loginButton.count() > 0 && loginButton.isVisible()) {
                 loginButton.click();
                 page.waitForTimeout(2000);
