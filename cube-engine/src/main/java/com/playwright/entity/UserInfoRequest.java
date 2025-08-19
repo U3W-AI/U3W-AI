@@ -70,6 +70,9 @@ public class UserInfoRequest {
     @Schema(description = "是否为新对话。true 表示清空上下文重新开始", example = "true")
     private String isNewChat;
 
+    @Schema(description = "返回的消息 标题", example = "今日说法")
+    private String draftTitle;
+
     @Schema(description = "返回的消息内容", example = "欢迎来到我们的年会盛典！")
     private String draftContent;
 

@@ -47,6 +47,8 @@ public class BrowserController {
 
     @Autowired
     private LogMsgUtil logMsgUtil;
+    @Autowired
+    private TencentUtil tencentUtil;
 
     public BrowserController(WebSocketClientService webSocketClientService, DeepSeekUtil deepSeekUtil) {
         this.webSocketClientService = webSocketClientService;
@@ -151,13 +153,13 @@ public class BrowserController {
             page.waitForLoadState(LoadState.LOAD);
             Thread.sleep(3000);
             Locator phone = page.locator("//p[@class='nick-info-name']");
-            if(phone.count()>0){
+            if (phone.count() > 0) {
                 String phoneText = phone.textContent();
-                if(phoneText.equals("未登录")){
+                if (phoneText.equals("未登录")) {
                     return "false";
                 }
                 return phoneText;
-            }else{
+            } else {
                 return "false";
             }
         } catch (Exception e) {
@@ -670,7 +672,7 @@ public class BrowserController {
             page.navigate("https://www.tongyi.com/");
             page.waitForTimeout(5000);
 
-            Locator loginButton = page.locator("//*[@id=\"new-nav-tab-wrapper\"]/div[2]/div");
+            Locator loginButton = page.locator("//*[@id=\"new-nav-tab-wrapper\"]/div[2]/li");
 
             if (loginButton.count() > 0 && loginButton.isVisible()) {
                 // 如果找到“登录”按钮，说明未登录
@@ -706,7 +708,7 @@ public class BrowserController {
             Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.tongyi.com/");
             page.waitForTimeout(3000);
-            Locator loginButton = page.locator("//*[@id=\"new-nav-tab-wrapper\"]/div[2]/div");
+            Locator loginButton = page.locator("(//button[contains(text(),'立即登录')])[1]");
             if (loginButton.count() > 0 && loginButton.isVisible()) {
                 loginButton.click();
                 page.waitForTimeout(2000);
