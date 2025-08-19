@@ -4,13 +4,16 @@ import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.ElementHandle;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.options.LoadState;
 import com.playwright.entity.UnPersisBrowserContextInfo;
 import com.playwright.entity.UserInfoRequest;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.io.IOException;
 import java.util.List;
@@ -49,6 +52,36 @@ public class TencentUtil {
 
     @Autowired
     private ClipboardLockManager clipboardLockManager;
+
+    /**
+     *
+     * 检查元宝登录状态
+     * @param userId
+     * @return
+     * @throws InterruptedException
+     */
+    public String checkLogin(String userId) throws InterruptedException {
+        try {
+            UnPersisBrowserContextInfo browserContextInfo = BrowserContextFactory.getBrowserContext(userId, 2);
+            BrowserContext browserContext = browserContextInfo.getBrowserContext();
+            Page page = browserContext.pages().get(0);
+            page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa/");
+            page.waitForLoadState(LoadState.LOAD);
+            Thread.sleep(3000);
+            Locator phone = page.locator("//p[@class='nick-info-name']");
+            if (phone.count() > 0) {
+                String phoneText = phone.textContent();
+                if (phoneText.equals("未登录")) {
+                    return "false";
+                }
+                return phoneText;
+            } else {
+                return "false";
+            }
+        } catch (Exception e) {
+            throw e;
+        }
+    }
 
     public Page getPage(String type, String userId) {
         UnPersisBrowserContextInfo browserContextInfo = BrowserContextFactory.getBrowserContext(userId, 2);
@@ -364,20 +397,26 @@ public class TencentUtil {
         AtomicInteger i = new AtomicInteger(0);
         ScheduledExecutorService screenshotExecutor = Executors.newSingleThreadScheduledExecutor();
         // 启动定时任务，每5秒执行一次截图
-        ScheduledFuture<?> screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
-            try {
-                if (Thread.currentThread().isInterrupted()) {
-                    return;
+        ScheduledFuture<?> screenshotFuture = null;
+        if (!aiName.contains("znpb")) {
+            screenshotFuture = screenshotExecutor.scheduleAtFixedRate(() -> {
+                try {
+                    if (Thread.currentThread().isInterrupted()) {
+                        return;
+                    }
+                    int currentCount = i.getAndIncrement(); // 获取当前值并自增
+                    logInfo.sendImgData(page, userId + "元宝执行过程截图" + currentCount, userId);
+                } catch (Exception e) {
+                    UserLogUtil.sendExceptionLog(userId, "元宝截图", "saveDraftData", e, url + "/saveLogInfo");
                 }
-                int currentCount = i.getAndIncrement(); // 获取当前值并自增
-                logInfo.sendImgData(page, userId + "元宝执行过程截图" + currentCount, userId);
-            } catch (Exception e) {
-                UserLogUtil.sendExceptionLog(userId, "元宝截图", "saveDraftData", e, url + "/saveLogInfo");
-            }
-        }, 0, 7, TimeUnit.SECONDS);
+            }, 0, 7, TimeUnit.SECONDS);
+        }
         try {
             String agentName = "";
-            if (aiName.contains("hunyuan")) {
+            if (aiName.contains("znpb")) {
+                agentName = "智能排版";
+                logInfo.sendTaskLog("开启自动监听任务，持续监听智能排版中", userId, agentName);
+            } else if (aiName.contains("hunyuan")) {
                 agentName = "腾讯元宝T1";
                 logInfo.sendTaskLog("开启自动监听任务，持续监听腾讯元宝T1回答中", userId, agentName);
             } else if (aiName.contains("deepseek")) {
@@ -391,8 +430,10 @@ public class TencentUtil {
             String copiedText = waitHtmlDom(page, agentName, userId);
 
             //关闭截图
-            screenshotFuture.cancel(false);
-            screenshotExecutor.shutdown();
+            if (screenshotFuture != null) {
+                screenshotFuture.cancel(false);
+                screenshotExecutor.shutdown();
+            }
             AtomicReference<String> shareUrlRef = new AtomicReference<>();
 
             clipboardLockManager.runWithClipboardLock(() -> {
@@ -418,21 +459,36 @@ public class TencentUtil {
 
             Thread.sleep(1000);
             String shareUrl = shareUrlRef.get();
-
-            page.locator("div.agent-chat__share-bar__item__logo").nth(1).click();
-
-            String sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
-                try {
-                    page.locator("div.hyc-photo-view__control__btn-download").click();
-                    Thread.sleep(3000);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            });
+            String sharImgUrl = "";
+            if (agentName.contains("腾讯元宝")) {
+                page.locator("div.agent-chat__share-bar__item__logo").nth(1).click();
+                sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
+                    try {
+                        page.locator("div.hyc-photo-view__control__btn-download").click();
+                        Thread.sleep(3000);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+            }
 
             try {
                 Thread.sleep(3000);
-                if (aiName.contains("hunyuan")) {
+                if (aiName.contains("znpb")) {
+                    try {
+                        logInfo.sendTaskLog("执行完成", userId, "智能排版");
+                        logInfo.sendResData(copiedText, userId, "智能排版", "RETURN_ZNPB_RES", "", "");
+                        // 等待所有线程执行完毕
+                        userInfoRequest.setDraftContent(copiedText);
+                        userInfoRequest.setAiName("智能排版");
+                        userInfoRequest.setShareUrl(shareUrl);
+                        userInfoRequest.setShareImgUrl(sharImgUrl);
+                        RestUtils.post(url + "/saveDraftContent", userInfoRequest);
+                        return copiedText;
+                    } catch (Exception e) {
+                        return copiedText;
+                    }
+                } else if (aiName.contains("hunyuan")) {
                     logInfo.sendTaskLog("执行完成", userId, "腾讯元宝T1");
                     logInfo.sendChatData(page, "/chat/([^/]+)/([^/]+)", userId, "RETURN_YBT1_CHATID", 2);
                     logInfo.sendResData(copiedText, userId, "腾讯元宝T1", "RETURN_YBT1_RES", shareUrl, sharImgUrl);
@@ -442,15 +498,7 @@ public class TencentUtil {
                     logInfo.sendResData(copiedText, userId, "腾讯元宝T1", "RETURN_YBDS_RES", shareUrl, sharImgUrl);
                 }
             } catch (InterruptedException e) {
-                if (aiName.contains("hunyuan")) {
-                    logInfo.sendTaskLog("执行完成", userId, "腾讯元宝T1");
-                    logInfo.sendChatData(page, "/chat/([^/]+)/([^/]+)", userId, "RETURN_YBT1_CHATID", 2);
-                    logInfo.sendResData(copiedText, userId, "腾讯元宝T1", "RETURN_YBT1_RES", shareUrl, sharImgUrl);
-                } else if (aiName.contains("deepseek")) {
-                    logInfo.sendTaskLog("执行完成", userId, "腾讯元宝DS");
-                    logInfo.sendChatData(page, "/chat/([^/]+)/([^/]+)", userId, "RETURN_YBDS_CHATID", 2);
-                    logInfo.sendResData(copiedText, userId, "腾讯元宝T1", "RETURN_YBDS_RES", shareUrl, sharImgUrl);
-                }
+//                忽略
             }
 
             userInfoRequest.setDraftContent(copiedText);
@@ -578,6 +626,46 @@ public class TencentUtil {
             long timeout = 600000; // 10 分钟
             long startTime = System.currentTimeMillis();  // 获取当前时间戳
 
+            if (agentName.contains("智能排版")) {
+//                进入智能排版的等待策略
+                try {
+                    while (true) {
+                        Thread.sleep(2000);
+                        boolean visible = page.locator("(//span[@class='yb-icon iconfont-yb icon-yb-ic_refresh_2504 undefined'])[1]").isVisible();
+                        if (visible) {
+                            break;
+                        }
+                    }
+                    Locator copyKey = page.locator("(//span[contains(text(),'复制')])[1]");
+                    if(copyKey.isVisible()) {
+                        copyKey.click();
+                    } else {
+                        Locator copyLocator = page.locator("(//span[@class='yb-icon iconfont-yb icon-yb-ic_arrow_down_16 agent-chat__toolbar__copy__arrow'])[1]");
+                        if (copyLocator.isVisible()) {
+                            copyLocator.click();
+                            Locator locator = page.locator("(//span[@class='t-dropdown__item-text'][contains(text(),'复制')])[1]");
+                            if (locator.isVisible()) {
+                                locator.click();
+                            } else {
+                                Locator copy = page.locator("(//span[@class='yb-icon iconfont-yb icon-yb-ic_copy_2504 undefined'])[2]");
+                                if (copy.isVisible()) {
+                                    copy.click();
+                                } else {
+                                    Locator contentLocator = page.locator("(//div[@class='hyc-common-markdown hyc-common-markdown-style'])[2]");
+                                    currentContent = contentLocator.textContent();
+                                    return currentContent;
+                                }
+                            }
+                        }
+                    }
+//                    获取剪切板内容
+                    Thread.sleep(2000);
+                    currentContent = (String) page.evaluate("navigator.clipboard.readText()");
+                    return currentContent;
+                } catch (Exception e) {
+                    return "获取内容失败";
+                }
+            }
             // 进入循环，直到内容不再变化或者超时
             while (true) {
                 // 获取当前时间戳

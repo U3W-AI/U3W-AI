@@ -86,65 +86,58 @@ public class LogAspect {
             UserLogUtil.sendExceptionLog("无", "aop异常", "logAround", e, url + "/saveLogInfo");
         }
         Object result = null;
-        try {
-            result = joinPoint.proceed();
+        for(int i = 0; i < 2; i++) {
+            try {
+                result = joinPoint.proceed();
 //            执行成功
-            logInfo.setExecutionResult(result.toString());
-            logInfo.setIsSuccess(1);
-            logInfo.setExecutionTimeMillis(System.currentTimeMillis() - start);
-            RestUtils.post(url + "/saveLogInfo", logInfo);
-        } catch (Throwable e) {
+                if(result == null) {
+                    return null;
+                }
+                String resultStr = result.toString();
+                if(resultStr.contains("false") || resultStr.contains("失败")) {
+                    if(i < 2) {
+                        log.info(logInfo.getMethodName() + "执行错误，尝试重试");
+                        sendTaskLog(description, logInfo.getUserId(), ",尝试重试");
+                        continue;
+                    }
+                }
+                logInfo.setExecutionResult(resultStr);
+                logInfo.setIsSuccess(1);
+                logInfo.setExecutionTimeMillis(System.currentTimeMillis() - start);
+                RestUtils.post(url + "/saveLogInfo", logInfo);
+                break;
+            } catch (Throwable e) {
+                if(i < 2) {
+                    log.info(logInfo.getMethodName() + "执行错误，尝试重试");
+                    sendTaskLog(description, logInfo.getUserId(), ",尝试重试");
+                    continue;
+                }
 //            执行失败
-            logInfo.setExecutionResult(e.getMessage());
-            logInfo.setIsSuccess(0);
-            logInfo.setExecutionTimeMillis(System.currentTimeMillis() - start);
-            log.info(logInfo.getMethodName()  + "方法出现错误，详情:" + logInfo.getDescription() + ",用户id" + logInfo.getUserId());
-            RestUtils.post(url + "/saveLogInfo", logInfo);
+                logInfo.setExecutionResult(e.getMessage());
+                logInfo.setIsSuccess(0);
+                logInfo.setExecutionTimeMillis(System.currentTimeMillis() - start);
+                log.info(logInfo.getMethodName() + "方法出现错误，详情:" + logInfo.getDescription() + ",用户id" + logInfo.getUserId());
+                RestUtils.post(url + "/saveLogInfo", logInfo);
 //            执行失败
-            logInfo.setExecutionResult(e.getMessage());
-            logInfo.setIsSuccess(0);
-            logInfo.setExecutionTimeMillis(System.currentTimeMillis() - start);
-            RestUtils.post(url + "/saveLogInfo", logInfo);
-            //             传递不同ai的错误信息
-            if(description.contains("DeepSeek")) {
-                logMsgUtil.sendTaskLog(description + "执行失败", logInfo.getUserId(), "DeepSeek");
-            }
-            if(description.contains("豆包")) {
-                logMsgUtil.sendTaskLog(description + "执行失败", logInfo.getUserId(), "豆包");
-            }
-            if(description.contains("MiniMax")) {
-                logMsgUtil.sendTaskLog(description + "执行失败", logInfo.getUserId(), "MiniMax");
-            }
-            if(description.contains("秘塔")) {
-                logMsgUtil.sendTaskLog(description + "执行失败", logInfo.getUserId(), "秘塔");
-            }
-            if(description.contains("KiMi")) {
-                logMsgUtil.sendTaskLog(description + "执行失败", logInfo.getUserId(), "KiMi");
-            }
-            if(description.contains("通义千问")) {
-                logMsgUtil.sendTaskLog(description + "执行失败", logInfo.getUserId(), "通义千问");
-            }
-            if(description.contains("百度AI")) {
-                logMsgUtil.sendTaskLog(description + "执行失败", logInfo.getUserId(), "百度AI");
-            }
-            if(description.contains("腾讯元宝T1")) {
-                logMsgUtil.sendTaskLog(description + "执行失败", logInfo.getUserId(), "腾讯元宝T1");
-            }
-            if (description.contains("腾讯元宝DS")) {
-                logMsgUtil.sendTaskLog(description + "执行失败", logInfo.getUserId(), "腾讯元宝DS");
-            }
-            if (description.contains("知乎直答")) {
-                logMsgUtil.sendTaskLog(description + "执行失败", logInfo.getUserId(), "知乎直答");
-            }
-            if (description.contains("检查")) {
-                return "false";
-            } else if(description.contains("投递")) {
-                return "投递失败";
-            } else {
-                return "内容获取失败";
+                logInfo.setExecutionResult(e.getMessage());
+                logInfo.setIsSuccess(0);
+                logInfo.setExecutionTimeMillis(System.currentTimeMillis() - start);
+                RestUtils.post(url + "/saveLogInfo", logInfo);
+                //             传递不同ai的错误信息
+                sendTaskLog(description, logInfo.getUserId(), "");
+                if (description.contains("检查")) {
+                    return "false";
+                } else if (description.contains("投递")) {
+                    return "投递失败";
+                } else {
+                    return "内容获取失败";
+                }
             }
         }
         // 简化AI回复日志输出，避免终端被大量文本刷屏
+        if(result == null) {
+            return null;
+        }
         String resultStr = result.toString();
         if (resultStr.length() > 200) {
             // 如果内容过长，只显示前100字符和后100字符
@@ -155,6 +148,40 @@ public class LogAspect {
             log.info("返回结果：{}", result);
         }
         return result;
+    }
+
+    private void sendTaskLog(String description, String userId, String isTryAgain) {
+        //             传递不同ai的错误信息
+        if (description.contains("DeepSeek")) {
+            logMsgUtil.sendTaskLog(description + "执行失败" + isTryAgain, userId, "DeepSeek");
+        }
+        if (description.contains("豆包")) {
+            logMsgUtil.sendTaskLog(description + "执行失败" + isTryAgain, userId, "豆包");
+        }
+        if (description.contains("MiniMax")) {
+            logMsgUtil.sendTaskLog(description + "执行失败" + isTryAgain, userId, "MiniMax");
+        }
+        if (description.contains("秘塔")) {
+            logMsgUtil.sendTaskLog(description + "执行失败" + isTryAgain, userId, "秘塔");
+        }
+        if (description.contains("KiMi")) {
+            logMsgUtil.sendTaskLog(description + "执行失败" + isTryAgain, userId, "KiMi");
+        }
+        if (description.contains("通义千问")) {
+            logMsgUtil.sendTaskLog(description + "执行失败" + isTryAgain, userId, "通义千问");
+        }
+        if (description.contains("百度AI")) {
+            logMsgUtil.sendTaskLog(description + "执行失败" + isTryAgain, userId, "百度AI");
+        }
+        if (description.contains("腾讯元宝T1")) {
+            logMsgUtil.sendTaskLog(description + "执行失败" + isTryAgain, userId, "腾讯元宝T1");
+        }
+        if (description.contains("腾讯元宝DS")) {
+            logMsgUtil.sendTaskLog(description + "执行失败" + isTryAgain, userId, "腾讯元宝DS");
+        }
+        if (description.contains("知乎直答")) {
+            logMsgUtil.sendTaskLog(description + "执行失败" + isTryAgain, userId, "知乎直答");
+        }
     }
 
 }

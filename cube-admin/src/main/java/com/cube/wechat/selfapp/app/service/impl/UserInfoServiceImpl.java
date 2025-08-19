@@ -56,7 +56,7 @@ public class UserInfoServiceImpl implements UserInfoService {
 
     /**
      * 查询个人中心统计数据
-     * */
+     */
     @Override
     public ResultBody getUserCount(String userId) {
         return ResultBody.success(userInfoMapper.getUserCount(userId));
@@ -64,23 +64,14 @@ public class UserInfoServiceImpl implements UserInfoService {
 
     /**
      * 获取积分明细
-     * */
+     */
     @Override
     public ResultBody getUserPointsRecord(Map map) {
-        PageHelper.startPage((int)map.get("pageIndex"),(int)map.get("pageSize"));
+        PageHelper.startPage((int) map.get("pageIndex"), (int) map.get("pageSize"));
         List<Map> list = userInfoMapper.getUserPointsRecord(map);
         PageInfo pageInfo = new PageInfo(list);
         return ResultBody.success(pageInfo);
     }
-
-
-
-
-
-
-
-
-
 
 
     @Override
@@ -88,6 +79,7 @@ public class UserInfoServiceImpl implements UserInfoService {
         userInfoMapper.saveAIChatHistory(aiParam);
         return ResultBody.success("保存成功");
     }
+
     @Override
     public ResultBody saveAINodeLog(AINodeLog aiNodeLog) {
         userInfoMapper.saveAINodeLog(aiNodeLog);
@@ -96,9 +88,10 @@ public class UserInfoServiceImpl implements UserInfoService {
 
 
     @Override
-    public ResultBody getUserChatHistoryList(String userId,String title) {
-        return ResultBody.success(userInfoMapper.getUserChatHistoryList(userId,title));
+    public ResultBody getUserChatHistoryList(String userId, String title) {
+        return ResultBody.success(userInfoMapper.getUserChatHistoryList(userId, title));
     }
+
     @Override
     public ResultBody getChatHistoryDetail(String conversationId) {
         String chatHisroty = userInfoMapper.getChatHistoryDetail(conversationId);
@@ -107,185 +100,191 @@ public class UserInfoServiceImpl implements UserInfoService {
     }
 
     @Override
-    public ResultBody deleteUserChatHistory(List<String> list){
+    public ResultBody deleteUserChatHistory(List<String> list) {
         for (String s : list) {
-            redisUtil.delete("dudu."+s);
+            redisUtil.delete("dudu." + s);
             userInfoMapper.deleteUserChatHistory(s);
         }
         return ResultBody.success("删除成功");
     }
 
     @Override
-    public ResultBody saveChromeData(Map map){
-         userInfoMapper.saveChromeData(map);
-        return ResultBody.success("成功");
-    }
-    @Override
-    public ResultBody updateChatTitle(Map map){
-         userInfoMapper.updateChatTitle(map);
+    public ResultBody saveChromeData(Map map) {
+        userInfoMapper.saveChromeData(map);
         return ResultBody.success("成功");
     }
 
     @Override
-    public ResultBody pushOffice(List<String> ids, String userName){
+    public ResultBody updateChatTitle(Map map) {
+        userInfoMapper.updateChatTitle(map);
+        return ResultBody.success("成功");
+    }
+
+    @Override
+    public ResultBody pushOffice(List<String> ids, String userName) {
         WcOfficeAccount woa = userInfoMapper.getOfficeAccountByUserName(userName);
-        List<Map> list = userInfoMapper.getPushOfficeData(ids,userName);
-        if(list.isEmpty()){
-            return ResultBody.error(300,"暂无素材可被收录");
+        List<Map> list = userInfoMapper.getPushOfficeData(ids, userName);
+        if (list.isEmpty()) {
+            return ResultBody.error(300, "暂无素材可被收录");
         }
         LocalDate today = LocalDate.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         String formattedDate = today.format(formatter); // 格式化日期
 
-        String title =woa.getOfficeAccountName()+"今日速递-"+formattedDate;
+        String title = woa.getOfficeAccountName() + "今日速递-" + formattedDate;
 //        使用 Map 聚合数据
         Map<String, List<String>> groupedData = new LinkedHashMap<>();
         for (Map map : list) {
-            String linkUrl = map.get("answer")+"";
-           String keyWord = map.get("prompt")+"";
-            String author = map.get("author")+"";
-           String liTitle = "<a href ='"+linkUrl+"' style='color:#576b95' >"+author+"："+map.get("title")+"</a>";
-           String str = map.get("summary").toString().replace("；;","；");
-            str = str.replace(";","；");
-           String[] summarys = str.split("；");
-           String summary = "<p style='font-family: 'Arial''>";
-           int i = 1;
+            String linkUrl = map.get("answer") + "";
+            String keyWord = map.get("prompt") + "";
+            String author = map.get("author") + "";
+            String liTitle = "<a href ='" + linkUrl + "' style='color:#576b95' >" + author + "：" + map.get("title") + "</a>";
+            String str = map.get("summary").toString().replace("；;", "；");
+            str = str.replace(";", "；");
+            String[] summarys = str.split("；");
+            String summary = "<p style='font-family: 'Arial''>";
+            int i = 1;
             for (String s : summarys) {
 
-                if(i==1){
-                    summary = summary+i+". "+s+"。<br><br>";
-                }else if(i==2){
-                    summary = summary+i+"."+s+"。<br><br>";
-                }else{
-                    summary = summary+i+"."+s+"<br><br>";
+                if (i == 1) {
+                    summary = summary + i + ". " + s + "。<br><br>";
+                } else if (i == 2) {
+                    summary = summary + i + "." + s + "。<br><br>";
+                } else {
+                    summary = summary + i + "." + s + "<br><br>";
                 }
                 i++;
             }
-            summary = summary+"</p>";
-           String content = liTitle+"<br><br>"+summary+"<br><br>";
-           groupedData.computeIfAbsent(keyWord, k -> new ArrayList<>()).add(content);
+            summary = summary + "</p>";
+            String content = liTitle + "<br><br>" + summary + "<br><br>";
+            groupedData.computeIfAbsent(keyWord, k -> new ArrayList<>()).add(content);
         }
 
         // 输出结果
         String res = "";
         for (Map.Entry<String, List<String>> entry : groupedData.entrySet()) {
-            String keyWord = "<p style='font-weight: normal;color:red;'>"+entry.getKey()+"</p>";
+            String keyWord = "<p style='font-weight: normal;color:red;'>" + entry.getKey() + "</p>";
             String content = String.join("", entry.getValue());
-            res =res + keyWord+"<br>"+content;
+            res = res + keyWord + "<br>" + content;
         }
 //        V4PNB2XjrprWdg1sJxs7jpoxWs9YhZy8zYH38cbZSl3JzYw_liIxBesx7PuQ7-jV
 
         System.out.println(res);
         //String assessToken = weChatApiUtils.getOfficeAccessToken("wx4461361a058d608b","8e97c88d040ac7248f5f6240e578a1f3");
-        String assessToken = weChatApiUtils.getOfficeAccessToken(woa.getAppId(),woa.getAppSecret());
-        String url = "https://api.weixin.qq.com/cgi-bin/draft/add?access_token="+assessToken;
+        String assessToken = weChatApiUtils.getOfficeAccessToken(woa.getAppId(), woa.getAppSecret());
+        String url = "https://api.weixin.qq.com/cgi-bin/draft/add?access_token=" + assessToken;
 
         List<JSONObject> paramlist = new ArrayList<>();
         JSONObject jsonObject = new JSONObject();
-        jsonObject.put("title",title);
-        jsonObject.put("author",woa.getOfficeAccountName());
-        jsonObject.put("content",res);
+        jsonObject.put("title", title);
+        jsonObject.put("author", woa.getOfficeAccountName());
+        jsonObject.put("content", res);
         //jsonObject.put("thumb_media_id","V4PNB2XjrprWdg1sJxs7jpoxWs9YhZy8zYH38cbZSl3JzYw_liIxBesx7PuQ7-jV");
-        jsonObject.put("thumb_media_id",woa.getMediaId());
+        jsonObject.put("thumb_media_id", woa.getMediaId());
         paramlist.add(jsonObject);
         JSONObject param = new JSONObject();
-        param.put("articles",paramlist);
+        param.put("articles", paramlist);
         try {
             RestUtils.post(url, param);
-        }catch (Exception e){
+        } catch (Exception e) {
 
         }
         userInfoMapper.updateLinkStatus(list);
         return ResultBody.success("上传成功！");
     }
-    public ResultBody authChecker(String userName){
-       Integer num = userInfoMapper.getUserCountByUserName(userName);
-       if(num > 0) {
-           return ResultBody.success("上传成功！");
-       }
-        return ResultBody.error(404,"用户不存在");
-    }
-    public ResultBody changePoint(String userId,String method){
-        Integer points = pointsSystem.getUserPoints(userId);
-        if(points < 1){
-            return ResultBody.error(201,"积分余额不足，请明日再来或者联系客服充值");
+
+    public ResultBody authChecker(String userName) {
+        Integer num = userInfoMapper.getUserCountByUserName(userName);
+        if (num > 0) {
+            return ResultBody.success("上传成功！");
         }
-        pointsSystem.setUserPoint(userId,method,null,"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
+        return ResultBody.error(404, "用户不存在");
+    }
+
+    public ResultBody changePoint(String userId, String method) {
+        Integer points = pointsSystem.getUserPoints(userId);
+        if (points < 1) {
+            return ResultBody.error(201, "积分余额不足，请明日再来或者联系客服充值");
+        }
+        pointsSystem.setUserPoint(userId, method, null, "0x2edc4228a84d672affe8a594033cb84a029bcafc", "f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
         return ResultBody.success("执行成功！");
     }
+
     @Override
-    public ResultBody pushAutoOneOffice(Map map){
+    public ResultBody pushAutoOneOffice(Map map) {
 
-            WcOfficeAccount woa = userInfoMapper.getOfficeAccountByUserName(map.get("userId")+"");
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            String formattedDate = sdf.format(new Date()); // 格式化日期
+        WcOfficeAccount woa = userInfoMapper.getOfficeAccountByUserName(map.get("userId") + "");
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String formattedDate = sdf.format(new Date()); // 格式化日期
 
-            String title =map.get("aiName")+"-"+map.get("userId")+"-"+formattedDate+"-"+map.get("num");
+        String assessToken = weChatApiUtils.getOfficeAccessToken(woa.getAppId(), woa.getAppSecret());
+        String url = "https://api.weixin.qq.com/cgi-bin/draft/add?access_token=" + assessToken;
 
+        String contentText = map.get("contentText").toString();
 
-            String assessToken = weChatApiUtils.getOfficeAccessToken(woa.getAppId(),woa.getAppSecret());
-            String url = "https://api.weixin.qq.com/cgi-bin/draft/add?access_token="+assessToken;
+        int first = contentText.indexOf("《");
+        int second = contentText.indexOf("》", first + 1);
+        String title = contentText.substring(first + 1, second);
+//            contentText = contentText.substring(second + 6);
+        contentText = contentText.substring(0, first) + contentText.substring(second + 1);
+        contentText = contentText.replaceAll("\r\n\r\n", "");
+        if (map.get("shareUrl") != null && !map.get("shareUrl").equals("")) {
+            String shareUrl = "原文链接：" + map.get("shareUrl") + "<br><br>";
+            contentText = shareUrl + contentText;
+        }
+        List<JSONObject> paramlist = new ArrayList<>();
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("title", title);
 
-            String contentText = map.get("contentText").toString();
-
-            if(map.get("shareUrl")!=null && !map.get("shareUrl").equals("")){
-                String shareUrl = "原文链接："+map.get("shareUrl")+"<br><br>";
-                contentText = shareUrl + contentText;
-            }
-
-            List<JSONObject> paramlist = new ArrayList<>();
-            JSONObject jsonObject = new JSONObject();
-            jsonObject.put("title",title);
-            jsonObject.put("author",woa.getOfficeAccountName());
-            jsonObject.put("content",contentText);
-            jsonObject.put("thumb_media_id",woa.getMediaId());
-            paramlist.add(jsonObject);
-            JSONObject param = new JSONObject();
-            param.put("articles",paramlist);
-            try {
-                RestUtils.post(url, param);
-            }catch (Exception e){
-
-            }
+        jsonObject.put("author", woa.getOfficeAccountName());
+        jsonObject.put("content", contentText);
+        jsonObject.put("thumb_media_id", woa.getMediaId());
+        paramlist.add(jsonObject);
+        JSONObject param = new JSONObject();
+        param.put("articles", paramlist);
+        try {
+            RestUtils.post(url, param);
+        } catch (Exception e) {
+        }
 
         return ResultBody.success("上传成功！");
     }
 
     @Override
-    public ResultBody pushViewAutoOffice(String taskId){
+    public ResultBody pushViewAutoOffice(String taskId) {
 
 
         List<Map> list = userInfoMapper.getPushViewOfficeData(taskId);
-        if(list.size()==0){
-            return ResultBody.error(300,"暂无素材可被收录");
+        if (list.size() == 0) {
+            return ResultBody.error(300, "暂无素材可被收录");
         }
 
 //        使用 Map 聚合数据
         Map<String, List<String>> groupedData = new LinkedHashMap<>();
         for (Map map : list) {
-            String linkUrl = map.get("answer")+"";
-           String keyWord = map.get("prompt")+"";
-            String author = map.get("author")+"";
+            String linkUrl = map.get("answer") + "";
+            String keyWord = map.get("prompt") + "";
+            String author = map.get("author") + "";
             String summary = map.get("summary").toString();
-           String liTitle = "<a href ='"+linkUrl+"' style='color:#576b95' >"+author+"："+map.get("title")+"</a>";
-            summary = "<p style='font-family: 'Arial''>"+summary;
-            summary = summary+"</p>";
-           String content = liTitle+"<br><br>"+summary+"<br><br>";
-           groupedData.computeIfAbsent(keyWord, k -> new ArrayList<>()).add(content);
+            String liTitle = "<a href ='" + linkUrl + "' style='color:#576b95' >" + author + "：" + map.get("title") + "</a>";
+            summary = "<p style='font-family: 'Arial''>" + summary;
+            summary = summary + "</p>";
+            String content = liTitle + "<br><br>" + summary + "<br><br>";
+            groupedData.computeIfAbsent(keyWord, k -> new ArrayList<>()).add(content);
         }
         // 输出结果
         String res = "";
         for (Map.Entry<String, List<String>> entry : groupedData.entrySet()) {
-            String keyWord = "<p style='font-weight: normal;color:red;'>"+entry.getKey()+"</p>";
+            String keyWord = "<p style='font-weight: normal;color:red;'>" + entry.getKey() + "</p>";
             String content = String.join("", entry.getValue());
-            res =res + keyWord+"<br>"+content;
+            res = res + keyWord + "<br>" + content;
         }
         System.out.println(res);
         return ResultBody.success(res);
     }
 
     private void downloadFile(String fileUrl, Path targetPath) throws IOException {
-//        fileUrl = "https://u3w.com/chatfile/logo.jpg";
+        fileUrl = "https://u3w.com/chatfile/logo.jpg";
         URL url = new URL(fileUrl);
         try (InputStream in = url.openStream()) {
             Files.copy(in, targetPath, StandardCopyOption.REPLACE_EXISTING);
@@ -317,6 +316,7 @@ public class UserInfoServiceImpl implements UserInfoService {
             throw new IOException("上传失败: " + response.toString());
         }
     }
+
     @Override
     public ResultBody saveOfficeAccount(WcOfficeAccount wcOfficeAccount) {
         // 验证输入字段的长度和格式
@@ -324,7 +324,7 @@ public class UserInfoServiceImpl implements UserInfoService {
             return ResultBody.error(201, "绑定失败：参数不能为空");
         }
         try {
-            if (wcOfficeAccount.getPicUrl() != null){
+            if (wcOfficeAccount.getPicUrl() != null) {
                 // 1. 下载图片到本地临时文件
                 Path tempFile = Files.createTempFile("temp", ".jpg");
                 downloadFile(wcOfficeAccount.getPicUrl(), tempFile);
@@ -369,14 +369,16 @@ public class UserInfoServiceImpl implements UserInfoService {
         WcOfficeAccount woc = userInfoMapper.getOfficeAccountByUserId(userId);
         return ResultBody.success(woc);
     }
+
     @Override
     public ResultBody getAgentBind(Long userId) {
-        Map woc = userInfoMapper.getAgentTokenByUserId(userId+"");
+        Map woc = userInfoMapper.getAgentTokenByUserId(userId + "");
         return ResultBody.success(woc);
     }
+
     @Override
     public ResultBody getSpaceInfoByUserId(Long userId) {
-        Map woc = userInfoMapper.getSpaceInfoByUserId(userId+"");
+        Map woc = userInfoMapper.getSpaceInfoByUserId(userId + "");
         return ResultBody.success(woc);
     }
 
@@ -385,59 +387,63 @@ public class UserInfoServiceImpl implements UserInfoService {
         Map woc = userInfoMapper.getJsPromptByName(templateName);
         return ResultBody.success(woc);
     }
+
     @Override
     public ResultBody saveAgentBind(Map map) {
         userInfoMapper.saveAgentBind(map);
         return ResultBody.success("成功");
     }
+
     @Override
     public ResultBody saveUserFlowId(Map map) {
         userInfoMapper.saveUserFlowId(map);
         return ResultBody.success("成功");
     }
+
     @Override
     public ResultBody saveSpaceBind(Map map) {
         userInfoMapper.saveSpaceBind(map);
         return ResultBody.success("成功");
     }
+
     @Override
-    public ResultBody saveChromeTaskData(String taskId,String userid,String corpId) {
-        List<Map> list =new ArrayList<>();
+    public ResultBody saveChromeTaskData(String taskId, String userid, String corpId) {
+        List<Map> list = new ArrayList<>();
 
         Map oneMap = new HashMap();
-        oneMap.put("taskId",taskId);
-        oneMap.put("taskName","主题生成");
-        oneMap.put("status","running");
-        oneMap.put("planTime","40秒");
-        oneMap.put("userid",userid);
-        oneMap.put("corpId",corpId);
+        oneMap.put("taskId", taskId);
+        oneMap.put("taskName", "主题生成");
+        oneMap.put("status", "running");
+        oneMap.put("planTime", "40秒");
+        oneMap.put("userid", userid);
+        oneMap.put("corpId", corpId);
         list.add(oneMap);
 
         Map twoMap = new HashMap();
-        twoMap.put("taskId",taskId);
-        twoMap.put("taskName","素材搜集");
-        twoMap.put("status","waiting");
-        twoMap.put("planTime","3分钟");
-        twoMap.put("userid",userid);
-        twoMap.put("corpId",corpId);
+        twoMap.put("taskId", taskId);
+        twoMap.put("taskName", "素材搜集");
+        twoMap.put("status", "waiting");
+        twoMap.put("planTime", "3分钟");
+        twoMap.put("userid", userid);
+        twoMap.put("corpId", corpId);
         list.add(twoMap);
 
         Map threeMap = new HashMap();
-        threeMap.put("taskId",taskId);
-        threeMap.put("taskName","内容生成");
-        threeMap.put("status","waiting");
-        threeMap.put("planTime","5分钟");
-        threeMap.put("userid",userid);
-        threeMap.put("corpId",corpId);
+        threeMap.put("taskId", taskId);
+        threeMap.put("taskName", "内容生成");
+        threeMap.put("status", "waiting");
+        threeMap.put("planTime", "5分钟");
+        threeMap.put("userid", userid);
+        threeMap.put("corpId", corpId);
         list.add(threeMap);
 
         Map fourMap = new HashMap();
-        fourMap.put("taskId",taskId);
-        fourMap.put("taskName","发布预览");
-        fourMap.put("status","waiting");
-        fourMap.put("planTime","1分钟");
-        fourMap.put("userid",userid);
-        fourMap.put("corpId",corpId);
+        fourMap.put("taskId", taskId);
+        fourMap.put("taskName", "发布预览");
+        fourMap.put("status", "waiting");
+        fourMap.put("planTime", "1分钟");
+        fourMap.put("userid", userid);
+        fourMap.put("corpId", corpId);
         list.add(fourMap);
 
 
@@ -446,58 +452,61 @@ public class UserInfoServiceImpl implements UserInfoService {
     }
 
     @Override
-    public ResultBody getTaskStatus(String taskId){
-      List<Map> list = userInfoMapper.getTaskStatus(taskId);
+    public ResultBody getTaskStatus(String taskId) {
+        List<Map> list = userInfoMapper.getTaskStatus(taskId);
         return ResultBody.success(list);
     }
+
     @Override
-    public ResultBody getUserPromptTem(String userId,String agentId){
-      String promptTem = userInfoMapper.getUserPromptTem(userId,agentId);
+    public ResultBody getUserPromptTem(String userId, String agentId) {
+        String promptTem = userInfoMapper.getUserPromptTem(userId, agentId);
         return ResultBody.success(promptTem);
     }
+
     @Override
-    public ResultBody getPromptTem(Integer type,String userId){
-        if(type == 1){
+    public ResultBody getPromptTem(Integer type, String userId) {
+        if (type == 1) {
             List<Map> list = userInfoMapper.getPromptTem();
             return ResultBody.success(list);
-        }else{
-            String prompt = userInfoMapper.getTaskPromptById("desc",userId);
+        } else {
+            String prompt = userInfoMapper.getTaskPromptById("desc", userId);
             return ResultBody.success(prompt);
         }
     }
+
     @Override
-    public ResultBody updateUserPromptTem(Map map){
+    public ResultBody updateUserPromptTem(Map map) {
 
-        Integer points = pointsSystem.getUserPoints(map.get("userId")+"");
-        if(points < 1){
-            return ResultBody.error(201,"积分余额不足，请明日再来或者联系客服充值");
+        Integer points = pointsSystem.getUserPoints(map.get("userId") + "");
+        if (points < 1) {
+            return ResultBody.error(201, "积分余额不足，请明日再来或者联系客服充值");
         }
 
-        if(map.get("agentId").equals("desc")){
-            pointsSystem.setUserPoint(map.get("userId")+"","记忆修改",null,"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
-        }else{
-            pointsSystem.setUserPoint(map.get("userId")+"","模板配置",null,"0x2edc4228a84d672affe8a594033cb84a029bcafc","f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
+        if (map.get("agentId").equals("desc")) {
+            pointsSystem.setUserPoint(map.get("userId") + "", "记忆修改", null, "0x2edc4228a84d672affe8a594033cb84a029bcafc", "f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
+        } else {
+            pointsSystem.setUserPoint(map.get("userId") + "", "模板配置", null, "0x2edc4228a84d672affe8a594033cb84a029bcafc", "f34f737203aa370f53ef0e041c1bff36bf59db8eb662cdb447f01d9634374dd");
         }
 
-        if(map.get("isAllSel").equals(true)){
-                //全选状态，直接全删全增
-                userInfoMapper.delTaskPromptByUserId(map.get("userId")+"");
-                userInfoMapper.saveAllTaskPromptByUserId(map.get("promptTemplate")+"",map.get("userId")+"");
-            }else{
-                String prompt = userInfoMapper.getTaskPromptById(map.get("agentId")+"",map.get("userId")+"");
-                if(prompt != null){
-                    userInfoMapper.updateTaskPromptByUserId(map.get("agentId")+"",map.get("promptTemplate")+"",map.get("userId")+"");
-                }else{
-                    userInfoMapper.saveTaskPromptByUserId(map.get("agentId")+"",map.get("promptTemplate")+"",map.get("userId")+"");
-                }
+        if (map.get("isAllSel").equals(true)) {
+            //全选状态，直接全删全增
+            userInfoMapper.delTaskPromptByUserId(map.get("userId") + "");
+            userInfoMapper.saveAllTaskPromptByUserId(map.get("promptTemplate") + "", map.get("userId") + "");
+        } else {
+            String prompt = userInfoMapper.getTaskPromptById(map.get("agentId") + "", map.get("userId") + "");
+            if (prompt != null) {
+                userInfoMapper.updateTaskPromptByUserId(map.get("agentId") + "", map.get("promptTemplate") + "", map.get("userId") + "");
+            } else {
+                userInfoMapper.saveTaskPromptByUserId(map.get("agentId") + "", map.get("promptTemplate") + "", map.get("userId") + "");
             }
+        }
 
 
         return ResultBody.success("更新成功");
     }
 
     @Override
-    public ResultBody getIsChangeByCorpId(String corpId){
+    public ResultBody getIsChangeByCorpId(String corpId) {
 // 获取当前时间
         LocalDateTime now = LocalDateTime.now();
 
@@ -511,7 +520,7 @@ public class UserInfoServiceImpl implements UserInfoService {
         String currentTime = now.format(formatter);
         String timeTenMinutesBefore = tenMinutesBefore.format(formatter);
 
-        int num = userInfoMapper.getIsChangeByCorpId(corpId,currentTime,timeTenMinutesBefore);
+        int num = userInfoMapper.getIsChangeByCorpId(corpId, currentTime, timeTenMinutesBefore);
 
         return ResultBody.success(num);
     }
