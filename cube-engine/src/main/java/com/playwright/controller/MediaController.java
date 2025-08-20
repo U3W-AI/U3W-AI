@@ -288,20 +288,11 @@ public class MediaController {
 
 // 点击扫码登录选项卡（如果存在）
             try {
-                page.waitForSelector("div.btnlogin--bI826", new Page.WaitForSelectorOptions().setTimeout(5000));
-                Locator qrCodeTab = page.locator("div.btnlogin--bI826").first();
+                page.waitForSelector("(//button[@class='loginBtn--tEo3S'])[1]", new Page.WaitForSelectorOptions().setTimeout(5000));
+                Locator qrCodeTab = page.locator("(//button[@class='loginBtn--tEo3S'])[1]").first();
                 qrCodeTab.click();
             } catch (Exception e) {
             }
-
-// 等待二维码加载
-            try {
-                page.waitForSelector(".tang-pass-qrcode-img", new Page.WaitForSelectorOptions().setTimeout(10000));
-                Locator qrCodeArea = page.locator(".tang-pass-qrcode-img").first();
-            } catch (Exception e) {
-                UserLogUtil.sendExceptionLog(userId, "百家号登录状态检查", "getBaijiahaoQrCode", e, url + "/saveLogInfo");
-            }
-
 
             // 截图并上传二维码
             Thread.sleep(2000);
