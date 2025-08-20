@@ -709,19 +709,19 @@ export default {
           isExpanded: true,
           isSingleSelect: false,  // 添加单选标记
         },
-        {
-          name: '通义千问',
-          avatar: require('../../../assets/ai/qw.png'),
-          capabilities: [
-            { label: '深度思考', value: 'deep_thinking' },
-            { label: '深度搜索', value: 'web_search' }
-          ],
-          selectedCapability: '',
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
+        // {
+        //   name: '通义千问',
+        //   avatar: require('../../../assets/ai/qw.png'),
+        //   capabilities: [
+        //     { label: '深度思考', value: 'deep_thinking' },
+        //     { label: '深度搜索', value: 'web_search' }
+        //   ],
+        //   selectedCapability: '',
+        //   enabled: true,
+        //   status: 'idle',
+        //   progressLogs: [],
+        //   isExpanded: true
+        // },
         {
           name: '百度AI',
           avatar: require('../../../assets/ai/Baidu.png'),
@@ -956,14 +956,14 @@ export default {
             this.userInfoReq.roles = this.userInfoReq.roles + "kimi-lwss,";
           }
         }
-        if(ai.name === '通义千问' && ai.enabled){
-          this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw,';
-          if (ai.selectedCapability.includes("deep_thinking")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-sdsk,'
-          } else if (ai.selectedCapability.includes("web_search")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-lwss,';
-          }
-        }
+        // if(ai.name === '通义千问' && ai.enabled){
+        //   this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw,';
+        //   if (ai.selectedCapability.includes("deep_thinking")) {
+        //     this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-sdsk,'
+        //   } else if (ai.selectedCapability.includes("web_search")) {
+        //     this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-lwss,';
+        //   }
+        // }
         if (ai.name === '百度AI' && ai.enabled) {
           this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-agent,';
           if (ai.selectedCapabilities.includes("web_search")) {
@@ -1219,9 +1219,11 @@ export default {
         this.userInfoReq.ybDsChatId = dataObj.chatId;
       } else if (dataObj.type === "RETURN_DB_CHATID" && dataObj.chatId) {
         this.userInfoReq.dbChatId = dataObj.chatId;
-      } else if (dataObj.type === 'RETURN_TY_CHATID' && dataObj.chatId) {
-        this.userInfoReq.tyChatId = dataObj.chatId;
-      } else if (dataObj.type === "RETURN_MAX_CHATID" && dataObj.chatId) {
+      }
+        // else if (dataObj.type === 'RETURN_TY_CHATID' && dataObj.chatId) {
+        //   this.userInfoReq.tyChatId = dataObj.chatId;
+      // }
+      else if (dataObj.type === "RETURN_MAX_CHATID" && dataObj.chatId) {
         this.userInfoReq.maxChatId = dataObj.chatId;
       } else if (dataObj.type === "RETURN_METASO_CHATID" && dataObj.chatId) {
         this.userInfoReq.metasoChatId = dataObj.chatId;
@@ -1463,10 +1465,10 @@ export default {
           console.log("收到MiniMax消息:", dataObj);
           targetAI = this.enabledAIs.find((ai) => ai.name === "MiniMax Chat");
           break;
-        case 'RETURN_TY_RES':
-          console.log('收到通义千问消息:', data);
-          targetAI = this.enabledAIs.find(ai => ai.name === '通义千问');
-          break;
+        // case 'RETURN_TY_RES':
+        //   console.log('收到通义千问消息:', data);
+        //   targetAI = this.enabledAIs.find(ai => ai.name === '通义千问');
+        //   break;
         case "RETURN_METASO_RES":
           console.log("收到秘塔消息:", dataObj);
           targetAI = this.enabledAIs.find((ai) => ai.name === "秘塔");
@@ -1746,7 +1748,7 @@ export default {
         this.userInfoReq.maxChatId = item.maxChatId || "";
         this.userInfoReq.kimiChatId = item.kimiChatId || "";
         this.userInfoReq.baiduChatId= item.baiduChatId || "";
-        this.userInfoReq.tyChatId = item.tyChatId || "";
+        // this.userInfoReq.tyChatId = item.tyChatId || "";
         this.userInfoReq.metasoChatId = item.metasoChatId || "";
         this.userInfoReq.zhzdChatId = item.zhzdChatId || "";
         this.userInfoReq.isNewChat = false;
@@ -1779,7 +1781,7 @@ export default {
         toneChatId: this.userInfoReq.toneChatId,
         ybDsChatId: this.userInfoReq.ybDsChatId,
         dbChatId: this.userInfoReq.dbChatId,
-        tyChatId: this.userInfoReq.tyChatId,
+        // tyChatId: this.userInfoReq.tyChatId,
         maxChatId: this.userInfoReq.maxChatId,
         kimiChatId: this.userInfoReq.kimiChatId,
         baiduChatId: this.userInfoReq.baiduChatId,
@@ -1796,7 +1798,7 @@ export default {
           toneChatId: this.userInfoReq.toneChatId,
           ybDsChatId: this.userInfoReq.ybDsChatId,
           dbChatId: this.userInfoReq.dbChatId,
-          tyChatId: this.userInfoReq.tyChatId,
+          // tyChatId: this.userInfoReq.tyChatId,
           maxChatId: this.userInfoReq.maxChatId,
           kimiChatId: this.userInfoReq.kimiChatId,
           baiduChatId: this.userInfoReq.baiduChatId,
@@ -1837,7 +1839,7 @@ export default {
         toneChatId: "",
         ybDsChatId: "",
         dbChatId: "",
-        tyChatId: "",
+        // tyChatId: "",
         maxChatId: "",
         kimiChatId: "",
         baiduChatId: "",
@@ -1914,19 +1916,19 @@ export default {
           isExpanded: true,
           isSingleSelect: true,  // 添加单选标记,用于capabilities中状态只能多选一的时候改成true,然后把selectedCapabilities赋值为字符串，不要是数组
         },
-        {
-          name: '通义千问',
-          avatar: require('../../../assets/ai/qw.png'),
-          capabilities: [
-            { label: '深度思考', value: 'deep_thinking' },
-            { label: '深度搜索', value: 'web_search' }
-          ],
-          selectedCapability: '',
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true
-        },
+        // {
+        //   name: '通义千问',
+        //   avatar: require('../../../assets/ai/qw.png'),
+        //   capabilities: [
+        //     { label: '深度思考', value: 'deep_thinking' },
+        //     { label: '深度搜索', value: 'web_search' }
+        //   ],
+        //   selectedCapability: '',
+        //   enabled: true,
+        //   status: 'idle',
+        //   progressLogs: [],
+        //   isExpanded: true
+        // },
         {
           name: '百度AI',
           avatar: require('../../../assets/ai/Baidu.png'),

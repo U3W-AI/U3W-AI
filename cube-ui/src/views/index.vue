@@ -506,7 +506,7 @@ export default {
         yuanbao: false,
         doubao: false,
         deepseek: false,
-        qw: false,
+        // qw: false,
         minimax: false,
         metaso: false,
         kimi: false,
@@ -518,7 +518,7 @@ export default {
         doubao: "",
         deepseek: "",
         minimax: "",
-        qw: "",
+        // qw: "",
         metaso: "",
         kimi: "",
         zhzd: "",
@@ -528,7 +528,7 @@ export default {
         yuanbao: false,
         doubao: false,
         deepseek: false,
-        qw: false,
+        // qw: false,
         minimax: false,
         metaso: false,
         kimi: false,
@@ -546,7 +546,7 @@ export default {
         yuanbao: true,
         doubao: true,
         deepseek: true,
-        qw: true,
+        // qw: true,
         minimax: true,
         metaso: true,
         kimi: true,
@@ -608,7 +608,7 @@ export default {
         doubao: "豆包登录",
         deepseek: "DeepSeek登录",
         minimax: "MiniMax登录",
-        qw: "通义千问登录",
+        // qw: "通义千问登录",
         metaso: "秘塔登录",
         kimi: "KiMi登录",
         zhzd: "知乎直答登录",
@@ -655,7 +655,7 @@ export default {
         this.isClick.deepseek = false;
         this.isClick.minimax = false;
         this.isClick.metaso = false;
-        this.isClick.qw = false;
+        // this.isClick.qw = false;
         this.isClick.kimi = false;
         this.isClick.zhzd = false;
         this.isClick.baidu = false;
@@ -664,7 +664,7 @@ export default {
         this.isLoading.deepseek = true;
         this.isLoading.minimax = true;
         this.isLoading.metaso = true;
-        this.isLoading.qw = true;
+        // this.isLoading.qw = true;
         this.isLoading.kimi = true;
         this.isLoading.zhzd = true;
         this.isLoading.baidu = true;
@@ -709,11 +709,11 @@ export default {
             corpId: this.corpId,
           });
           // 检查通义千问登录状态
-          this.sendMessage({
-            type: 'PLAY_CHECK_QW_LOGIN',
-            userId: this.userId,
-            corpId: this.corpId
-          });
+          // this.sendMessage({
+          //   type: 'PLAY_CHECK_QW_LOGIN',
+          //   userId: this.userId,
+          //   corpId: this.corpId
+          // });
           // 检查KiMi登录状态
           this.sendMessage({
             type: 'PLAY_CHECK_KIMI_LOGIN',
@@ -893,13 +893,13 @@ export default {
           corpId: this.corpId,
         });
       }
-      if(type == 'qw'){
-        this.sendMessage({
-          type: 'PLAY_GET_QW_QRCODE',
-          userId: this.userId,
-          corpId: this.corpId
-        });
-      }
+      // if(type == 'qw'){
+      //   this.sendMessage({
+      //     type: 'PLAY_GET_QW_QRCODE',
+      //     userId: this.userId,
+      //     corpId: this.corpId
+      //   });
+      // }
       if(type == 'baidu'){
         this.sendMessage({
           type: 'PLAY_GET_BAIDU_QRCODE',
@@ -946,7 +946,7 @@ export default {
         doubao: "豆包",
         deepseek: "DeepSeek",
         minimax: "MiniMax",
-        qw: "通义千问",
+        // qw: "通义千问",
         metaso: "秘塔",
         kimi: "KiMi",
         zhzd: '知乎直答',
@@ -1053,7 +1053,7 @@ export default {
         datastr.includes("RETURN_PC_DEEPSEEK_QRURL") ||
         datastr.includes("RETURN_PC_MAX_QRURL") ||
         datastr.includes("RETURN_PC_METASO_QRURL") ||
-        datastr.includes("RETURN_PC_QW_QRURL") ||
+        // datastr.includes("RETURN_PC_QW_QRURL") ||
         datastr.includes("RETURN_PC_KIMI_QRURL") ||
         datastr.includes("RETURN_PC_BAIDU_QRURL")
       ) {
@@ -1337,7 +1337,7 @@ export default {
       this.isLoading.minimax = true;
       this.isLoading.metaso = true;
       this.isLoading.kimi = true;
-      this.isLoading.qw = true;
+      // this.isLoading.qw = true;
       this.isLoading.zhzd = true;
       this.isLoading.baidu = true;
       this.isClick.yuanbao = false;
@@ -1345,7 +1345,7 @@ export default {
       this.isClick.deepseek = false;
       this.isClick.minimax = false;
       this.isClick.metaso = false;
-      this.isClick.qw = false;
+      // this.isClick.qw = false;
       this.isClick.kimi = false;
       this.isClick.baidu = false;
       this.isClick.zhzd = false;
@@ -1358,7 +1358,7 @@ export default {
         this.isLoading.deepseek = false;
         this.isLoading.minimax = false;
         this.isLoading.metaso = false;
-        this.isLoading.qw = false;
+        // this.isLoading.qw = false;
         this.isLoading.kimi = false;
         this.isLoading.baidu = false;
         this.isLoading.zhzd = false;
@@ -1366,7 +1366,7 @@ export default {
         this.isClick.doubao = true;
         this.isClick.deepseek = true;
         this.isClick.minimax = true;
-        this.isClick.qw = true;
+        // this.isClick.qw = true;
         this.isClick.metaso = true;
         this.isClick.baidu = true;
         this.isClick.kimi = true;
@@ -1379,7 +1379,7 @@ export default {
       this.sendMessage({ type: "PLAY_CHECK_MAX_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_DEEPSEEK_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_METASO_LOGIN", userId: this.userId, corpId: this.corpId });
-      this.sendMessage({ type: "PLAY_CHECK_QW_LOGIN", userId: this.userId, corpId: this.corpId });
+      // this.sendMessage({ type: "PLAY_CHECK_QW_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_BAIDU_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_KIMI_LOGIN", userId: this.userId, corpId: this.corpId });
       // 检测知乎直答状态（AI功能）
