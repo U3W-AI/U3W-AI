@@ -3199,7 +3199,7 @@ else {
           case 'DeepSeek':
             return this.isLoading.deepseek; // 使用实际的DeepSeek加载状态
           // case '通义千问':
-          //   return this.isLoading.tongyi;
+          //  return this.isLoading.tongyi;
           case "MiniMax Chat":
             return this.isLoading.mini;
           case "秘塔":
