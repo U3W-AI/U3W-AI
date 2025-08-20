@@ -95,6 +95,12 @@ public class LogAspect {
                 }
                 String resultStr = result.toString();
                 if(resultStr.contains("false") || resultStr.contains("失败")) {
+//            如果是登录方法，跳过检测
+                    if (logInfo.getMethodName().contains("check")) {
+                        log.info(logInfo.getMethodName() + "为登陆方法,不再检测");
+                        break;
+                    }
+
                     if(i < 2) {
                         log.info(logInfo.getMethodName() + "执行错误，尝试重试");
                         sendTaskLog(description, logInfo.getUserId(), ",尝试重试");
@@ -108,6 +114,11 @@ public class LogAspect {
                 break;
             } catch (Throwable e) {
                 if(i < 2) {
+//              如果是登录方法，跳过检测
+                    if (logInfo.getMethodName().contains("check")) {
+                        log.info(logInfo.getMethodName() + "为登陆方法,不再检测");
+                        break;
+                    }
                     log.info(logInfo.getMethodName() + "执行错误，尝试重试");
                     sendTaskLog(description, logInfo.getUserId(), ",尝试重试");
                     continue;
