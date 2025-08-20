@@ -118,14 +118,14 @@
             description: '没有广告，直达结果',
             type: 'metaso'
           },
-          {
-            name: '通义千问',
-            avatar: 'https://u3w.com/chatfile/TongYi.png',
-            icon: 'https://u3w.com/chatfile/TongYi.png',
-            title: '通义千问',
-            description: '通情、达义，你的全能AI助手',
-            type: 'tongyi'
-          },
+          // {
+          //   name: '通义千问',
+          //   avatar: 'https://u3w.com/chatfile/TongYi.png',
+          //   icon: 'https://u3w.com/chatfile/TongYi.png',
+          //   title: '通义千问',
+          //   description: '通情、达义，你的全能AI助手',
+          //   type: 'tongyi'
+          // },
           {
             name: 'KiMi',
             avatar: 'https://u3w.com/chatfile/KIMI.png',
