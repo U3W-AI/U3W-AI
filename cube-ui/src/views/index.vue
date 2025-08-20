@@ -608,6 +608,7 @@ export default {
         doubao: "豆包登录",
         deepseek: "DeepSeek登录",
         minimax: "MiniMax登录",
+
         // qw: "通义千问登录",
         metaso: "秘塔登录",
         kimi: "KiMi登录",
