@@ -117,7 +117,7 @@ public class LogAspect {
 //              如果是登录方法，跳过检测
                     if (logInfo.getMethodName().contains("check")) {
                         log.info(logInfo.getMethodName() + "为登陆方法,不再检测");
-                        break;
+                        return "false";
                     }
                     log.info(logInfo.getMethodName() + "执行错误，尝试重试");
                     sendTaskLog(description, logInfo.getUserId(), ",尝试重试");
