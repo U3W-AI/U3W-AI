@@ -97,7 +97,7 @@ public class LogAspect {
                 if(resultStr.contains("false") || resultStr.contains("失败")) {
 //            如果是登录方法，跳过检测
                     if (logInfo.getMethodName().contains("check")) {
-                        log.info(logInfo.getMethodName() + "为登陆方法,不再检测");
+                        log.info(logInfo.getMethodName() + "为登录方法,不再检测");
                         break;
                     }
 
@@ -116,7 +116,7 @@ public class LogAspect {
                 if(i < 2) {
 //              如果是登录方法，跳过检测
                     if (logInfo.getMethodName().contains("check")) {
-                        log.info(logInfo.getMethodName() + "为登陆方法,不再检测");
+                        log.info(logInfo.getMethodName() + "为登录方法,不再检测");
                         return "false";
                     }
                     log.info(logInfo.getMethodName() + "执行错误，尝试重试");
