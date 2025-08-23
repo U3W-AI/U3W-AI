@@ -575,18 +575,7 @@
             isExpanded: true,
             isSingleSelect: true  // 添加单选标记
           },
-          {
-            name: "百度AI",
-            avatar: 'https://u3w.com/chatfile/baiduAI.png',
-            capabilities: [
-              { label: "深度搜索", value: "web_search" }
-            ],
-            selectedCapabilities: [],
-            enabled: true,
-            status: "idle",
-            progressLogs: [],
-            isExpanded: true,
-          },
+
           {
             name: "Kimi",
             avatar: 'https://u3w.com/chatfile/KIMI.png',
@@ -599,39 +588,7 @@
             progressLogs: [],
             isExpanded: true,
           },
-          {
-            name: "知乎直答",
-            avatar: 'https://u3w.com/chatfile/ZHZD.png',
-            capabilities: [{
-              label: "深度思考",
-              value: "deep_thinking"
-            },
-              {
-                label: "全网搜索",
-                value: "all_web_search"
-              },
-              {
-                label: "知乎搜索",
-                value: "zhihu_search"
-              },
-              {
-                label: "学术搜索",
-                value: "academic_search"
-              },
-              {
-                label: "我的知识库",
-                value: "personal_knowledge"
-              },
-            ],
-            selectedCapabilities: ['deep_thinking', 'all_web_search', 'zhihu_search', 'academic_search',
-              'personal_knowledge'
-            ],
-            enabled: true,
-            status: 'idle',
-            progressLogs: [],
-            isExpanded: true,
-            isSingleSelect: false,
-          },
+
 				],
 
 				// 输入和任务状态
@@ -694,8 +651,7 @@
           mini: false,
           metaso: false,
           kimi: false,
-          baidu: false,
-          zhzd: false,
+
 				},
 				accounts: {
 					yuanbao: '',
@@ -705,8 +661,7 @@
           mini: '',
           metaso: '',
           kimi: '',
-          baidu: '',
-          zhzd: '',
+
 				},
 				isLoading: {
 					yuanbao: true,
@@ -716,8 +671,7 @@
 		      mini: true,
 		      metaso: true,
           kimi: true,
-          baidu: true,
-          zhzd: true,
+
 				}
 			};
 		},
@@ -1043,34 +997,7 @@
               }
             }
           }
-          if(ai.name === '百度AI' && ai.enabled){
-            if(this.isAiLoginEnabled(ai)){
-              this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-agent,';
-              if (ai.selectedCapabilities.includes("web_search")) {
-                this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-sdss,';
-              }
-            }
-          }
-          if (ai.name === "知乎直答") {
-            if (this.isAiLoginEnabled(ai)) {
-              this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-chat,";
-              if (ai.selectedCapabilities.includes("deep_thinking")) {
-                this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-sdsk,";
-              }
-              if (ai.selectedCapabilities.includes("all_web_search")) {
-                this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-qw,";
-              }
-              if (ai.selectedCapabilities.includes("zhihu_search")) {
-                this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-zh,";
-              }
-              if (ai.selectedCapabilities.includes("academic_search")) {
-                this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-xs,";
-              }
-              if (ai.selectedCapabilities.includes("personal_knowledge")) {
-                this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-wdzsk,";
-              }
-            }
-          }
+
 				});
 
 				console.log("参数：", this.userInfoReq);
@@ -1296,10 +1223,6 @@
           this.userInfoReq.metasoChatId = dataObj.chatId;
         } else if (dataObj.type === "RETURN_KIMI_CHATID" && dataObj.chatId){
           this.userInfoReq.kimiChatId = dataObj.chatId;
-        }else if (dataObj.type === "RETURN_BAIDU_CHATID" && dataObj.chatId){
-          this.userInfoReq.baiduChatId = dataObj.chatId;
-        } else if (dataObj.type === "RETURN_ZHZD_CHATID" && dataObj.chatId) {
-          this.userInfoReq.zhzdChatId = dataObj.chatId;
         }
 
 					// 处理进度日志消息
@@ -1619,19 +1542,7 @@
           // 更新AI启用状态
           this.updateAiEnabledStatus();
         }
-        // 处理知乎直答, 登录状态
-        else if (datastr.includes("RETURN_ZHIHU_STATUS") && dataObj.status != "") {
-          this.isLoading.zhzd = false;
-          if (!datastr.includes("false")) {
-            this.aiLoginStatus.zhzd = true;
-            this.accounts.zhzd = dataObj.status;
-          } else {
-            this.aiLoginStatus.zhzd = false;
-            // 禁用相关AI
-            this.disableAIsByLoginStatus("zhzd");
-          }
-          this.updateAiEnabledStatus();
-        }
+
         // 处理秘塔登录状态
         else if (datastr.includes("RETURN_METASO_STATUS") && dataObj.status != "") {
           this.isLoading.metaso = false;
@@ -1683,20 +1594,7 @@
           // 更新AI启用状态
           this.updateAiEnabledStatus();
         }
-        // 处理百度AI登录状态
-        else if (datastr.includes("RETURN_BAIDU_STATUS") && dataObj.status != "") {
-          this.isLoading.baidu = false;
-          if (!datastr.includes("false")) {
-            this.aiLoginStatus.baidu = true;
-            this.accounts.baidu = dataObj.status;
-          } else {
-            this.aiLoginStatus.baidu = false;
-            // 禁用相关AI
-            this.disableAIsByLoginStatus("baidu");
-          }
-          // 更新AI启用状态
-          this.updateAiEnabledStatus();
-        }
+
 			},
 
 			handleAIResult(dataObj) {
@@ -1761,14 +1659,7 @@
             console.log("收到消息:", dataObj);
             targetAI = this.enabledAIs.find((ai) => ai.name === "Kimi");
             break;
-			    case "RETURN_BAIDU_RES":
-			      console.log("收到百度AI消息:", dataObj);
-			      targetAI = this.enabledAIs.find((ai) => ai.name === "百度AI");
-			      break;
-          case "RETURN_ZHZD_RES":
-            console.log("收到知乎直答消息:", dataObj);
-            targetAI = this.enabledAIs.find((ai) => ai.name === "知乎直答");
-            break;
+
 				}
 
 				if (targetAI) {
@@ -2078,8 +1969,7 @@
 					this.userInfoReq.maxChatId = item.maxChatId || "";
           this.userInfoReq.metasoChatId = item.metasoChatId || "";
           this.userInfoReq.kimiChatId = item.kimiChatId || "";
-          this.userInfoReq.baiduChatId = item.baiduChatId || "";
-					this.userInfoReq.zhzdChatId = item.zhzdChatId || "";
+
           this.userInfoReq.isNewChat = false;
 
 					// 不再根据AI登录状态更新AI启用状态，保持原有选择
@@ -2949,51 +2839,7 @@ else {
 						progressLogs: [],
 						isExpanded: true
 					},
-					{
-					  name: "百度AI",
-					  avatar: 'https://u3w.com/chatfile/baiduAI.png',
-					  capabilities: [
-					    { label: "深度搜索", value: "web_search" }
-					  ],
-					  selectedCapabilities: [],
-					  enabled: true,
-					  status: "idle",
-					  progressLogs: [],
-					  isExpanded: true,
-					},
-          {
-            name: "知乎直答",
-            avatar: 'https://u3w.com/chatfile/ZHZD.png',
-            capabilities: [{
-              label: "深度思考",
-              value: "deep_thinking"
-            },
-              {
-                label: "全网搜索",
-                value: "all_web_search"
-              },
-              {
-                label: "知乎搜索",
-                value: "zhihu_search"
-              },
-              {
-                label: "学术搜索",
-                value: "academic_search"
-              },
-              {
-                label: "我的知识库",
-                value: "personal_knowledge"
-              },
-            ],
-            selectedCapabilities: ['deep_thinking', 'all_web_search', 'zhihu_search', 'academic_search',
-              'personal_knowledge'
-            ],
-            enabled: true,
-            status: 'idle',
-            progressLogs: [],
-            isExpanded: true,
-            isSingleSelect: false,
-          },
+
 				];
 				// 不再根据AI登录状态更新AI启用状态，保持原有选择
 
@@ -3064,18 +2910,7 @@ else {
           userId: this.userId,
           corpId: this.corpId,
         });
-        // 检查百度AI登录状态
-        this.sendWebSocketMessage({
-          type: "PLAY_CHECK_BAIDU_LOGIN",
-          userId: this.userId,
-          corpId: this.corpId,
-        });
-        // 检查知乎直答登录状态, 与检测知乎登录状态共用接口
-        this.sendWebSocketMessage({
-          type: "PLAY_CHECK_ZHIHU_LOGIN",
-          userId: this.userId,
-          corpId: this.corpId,
-        });
+
 			},
 
 			getPlatformIcon(type) {
@@ -3083,8 +2918,7 @@ else {
 					yuanbao: 'https://u3w.com/chatfile/yuanbao.png',
 					doubao: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
 					agent: 'https://u3w.com/chatfile/yuanbao.png',
-          tongyi: 'https://u3w.com/chatfile/TongYi.png',
-		  baidu: 'https://u3w.com/chatfile/baiduAI.png'
+          tongyi: 'https://u3w.com/chatfile/TongYi.png'
 				};
 				return icons[type] || '';
 			},
@@ -3179,10 +3013,7 @@ else {
             return this.aiLoginStatus.metaso; // 秘塔登录状态
           case "Kimi":
             return this.aiLoginStatus.kimi; // KiMi登录状态
-          case "百度AI":
-            return this.aiLoginStatus.baidu; // 百度AI登录状态
-          case "知乎直答":
-            return this.aiLoginStatus.zhzd; // 知乎直答登录状态
+
           default:
 						return false;
 				}
@@ -3206,10 +3037,7 @@ else {
             return this.isLoading.metaso;
           case "Kimi":
             return this.isLoading.kimi;
-          case "百度AI":
-            return this.isLoading.baidu;
-          case "知乎直答":
-            return this.isLoading.zhzd;
+
           default:
 						return false;
 				}
