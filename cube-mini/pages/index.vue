@@ -134,22 +134,7 @@
             description: '会推理解析 能深度思考的AI助手',
             type: 'kimi'
           },
-          {
-            name: '百度AI',
-            avatar: 'https://u3w.com/chatfile/baiduAI.png',
-            icon: 'https://u3w.com/chatfile/baiduAI.png',
-            title: '百度AI',
-            description: '让你的生活和工作变得更加轻松高效',
-            type: 'baidu'
-          },
-          {
-            name: '知乎直答',
-            avatar: 'https://u3w.com/chatfile/ZHZD.png',
-            icon: 'https://u3w.com/chatfile/ZHZD.png',
-            title: '知乎直答',
-            description: '用提问发现世界',
-            type: 'zhzd'
-          },
+
 				],
 				advantages: [
 					// {

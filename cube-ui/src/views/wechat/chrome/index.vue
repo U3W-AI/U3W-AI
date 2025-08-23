@@ -631,8 +631,7 @@ export default {
         dbChatId: "",
         tyChatId: "",
         kimiChatId: "",
-        zhzdChatId: "",
-        baiduChatId: "",
+
         isNewChat: true,
       },
       jsonRpcReqest: {
@@ -760,23 +759,7 @@ export default {
           progressLogs: [],
           isExpanded: true
         },
-        {
-          name: "知乎直答",
-          avatar: require("../../../assets/ai/ZHZD.png"),
-          capabilities: [
-            { label: "深度思考", value: "deep_thinking" },
-            { label: "全网搜索", value: "all_web_search" },
-            { label: "知乎搜索", value: "zhihu_search" },
-            { label: "学术搜索", value: "academic_search" },
-            { label: "我的知识库", value: "personal_knowledge" },
-          ],
-          selectedCapabilities: ['deep_thinking', 'all_web_search', 'zhihu_search', 'academic_search', 'personal_knowledge'],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true,
-          isSingleSelect: false,
-        },
+
       ],
       promptInput: "",
       taskStarted: false,
@@ -964,12 +947,7 @@ export default {
         //     this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-lwss,';
         //   }
         // }
-        if (ai.name === '百度AI' && ai.enabled) {
-          this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-agent,';
-          if (ai.selectedCapabilities.includes("web_search")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + 'baidu-sdss,';
-          }
-        }
+
         if(ai.name === '腾讯元宝T1'){
           this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-pt,';
           if (ai.selectedCapabilities.includes("deep_thinking")) {
@@ -988,24 +966,7 @@ export default {
             this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-lwss,';
           }
         }
-        if (ai.name === "知乎直答") {
-          this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-chat,";
-          if (ai.selectedCapabilities.includes("deep_thinking")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-sdsk,";
-          }
-          if (ai.selectedCapabilities.includes("all_web_search")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-qw,";
-          }
-          if (ai.selectedCapabilities.includes("zhihu_search")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-zh,";
-          }
-          if (ai.selectedCapabilities.includes("academic_search")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-xs,";
-          }
-          if (ai.selectedCapabilities.includes("personal_knowledge")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-wdzsk,";
-          }
-        }
+
       });
 
       console.log("参数：", this.userInfoReq);
@@ -1229,10 +1190,7 @@ export default {
         this.userInfoReq.metasoChatId = dataObj.chatId;
       } else if (dataObj.type === "RETURN_KIMI_CHATID" && dataObj.chatId) {
         this.userInfoReq.kimiChatId = dataObj.chatId;
-      } else if (dataObj.type === "RETURN_ZHZD_CHATID" && dataObj.chatId) {
-        this.userInfoReq.zhzdChatId = dataObj.chatId;
-      } else if (dataObj.type === "RETURN_BAIDU_CHATID" && dataObj.chatId) {
-        this.userInfoReq.baiduChatId = dataObj.chatId;
+
       }
 
       // 处理进度日志消息
@@ -1477,14 +1435,7 @@ export default {
           console.log("收到kimi消息:", dataObj);
           targetAI = this.enabledAIs.find((ai) => ai.name === "Kimi");
           break;
-        case "RETURN_ZHZD_RES":
-          console.log("收到知乎直答消息:", dataObj);
-          targetAI = this.enabledAIs.find((ai) => ai.name === "知乎直答");
-          break;
-        case 'RETURN_BAIDU_RES':
-          console.log('收到百度AI消息:', data);
-          targetAI = this.enabledAIs.find(ai => ai.name === '百度AI');
-          break;
+
 
       }
 
@@ -1747,10 +1698,8 @@ export default {
         this.userInfoReq.dbChatId = item.dbChatId || "";
         this.userInfoReq.maxChatId = item.maxChatId || "";
         this.userInfoReq.kimiChatId = item.kimiChatId || "";
-        this.userInfoReq.baiduChatId= item.baiduChatId || "";
         // this.userInfoReq.tyChatId = item.tyChatId || "";
         this.userInfoReq.metasoChatId = item.metasoChatId || "";
-        this.userInfoReq.zhzdChatId = item.zhzdChatId || "";
         this.userInfoReq.isNewChat = false;
 
         // 展开相关区域
@@ -1784,9 +1733,7 @@ export default {
         // tyChatId: this.userInfoReq.tyChatId,
         maxChatId: this.userInfoReq.maxChatId,
         kimiChatId: this.userInfoReq.kimiChatId,
-        baiduChatId: this.userInfoReq.baiduChatId,
         metasoChatId: this.userInfoReq.metasoChatId,
-        zhzdChatId: this.userInfoReq.zhzdChatId,
       };
 
       try {
@@ -1801,9 +1748,7 @@ export default {
           // tyChatId: this.userInfoReq.tyChatId,
           maxChatId: this.userInfoReq.maxChatId,
           kimiChatId: this.userInfoReq.kimiChatId,
-          baiduChatId: this.userInfoReq.baiduChatId,
           metasoChatId: this.userInfoReq.metasoChatId,
-          zhzdChatId: this.userInfoReq.zhzdChatId,
         });
       } catch (error) {
         console.error("保存历史记录失败:", error);
@@ -1842,9 +1787,7 @@ export default {
         // tyChatId: "",
         maxChatId: "",
         kimiChatId: "",
-        baiduChatId: "",
         metasoChatId: "",
-        zhzdChatId: "",
         isNewChat: true,
       };
       // 重置AI列表为初始状态
@@ -1929,20 +1872,7 @@ export default {
         //   progressLogs: [],
         //   isExpanded: true
         // },
-        {
-          name: '百度AI',
-          avatar: require('../../../assets/ai/Baidu.png'),
-          capabilities: [
-            { label: '深度搜索', value: 'web_search' }
-          ],
-          selectedCapabilities: [],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true,
-          isSingleSelect: false,
-          version: '2.0'
-        },
+
         {
           name: '腾讯元宝T1',
           avatar: require('../../../assets/ai/yuanbao.png'),
@@ -1969,23 +1899,7 @@ export default {
           progressLogs: [],
           isExpanded: true
         },
-        {
-          name: "知乎直答",
-          avatar: require("../../../assets/ai/ZHZD.png"),
-          capabilities: [
-            { label: "深度思考", value: "deep_thinking" },
-            { label: "全网搜索", value: "all_web_search" },
-            { label: "知乎搜索", value: "zhihu_search" },
-            { label: "学术搜索", value: "academic_search" },
-            { label: "我的知识库", value: "personal_knowledge" },
-          ],
-          selectedCapabilities: ['deep_thinking', 'all_web_search', 'zhihu_search', 'academic_search', 'personal_knowledge'],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true,
-          isSingleSelect: false,
-        },
+
       ];
       // 展开相关区域
       this.activeCollapses = ["ai-selection", "prompt-input"];
