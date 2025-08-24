@@ -539,7 +539,6 @@ export default {
         deepseek: true,
         // qw: true,
         metaso: true,
-
       },
       resetStatusTimeout: null, // 状态检查超时定时器
 
@@ -647,10 +646,8 @@ export default {
         this.isLoading.yuanbao = true;
         this.isLoading.doubao = true;
         this.isLoading.deepseek = true;
-        this.isLoading.minimax = true;
         this.isLoading.metaso = true;
         // this.isLoading.qw = true;
-        this.isLoading.kimi = true;
         this.mediaIsClick.zhihu = false;
         this.mediaIsLoading.zhihu = true;
         this.mediaIsClick.baijiahao = false;
@@ -673,12 +670,7 @@ export default {
             userId: this.userId,
             corpId: this.corpId,
           });
-          // 检查MiniMax登录状态
-          this.sendMessage({
-            type: "PLAY_CHECK_MAX_LOGIN",
-            userId: this.userId,
-            corpId: this.corpId,
-          });
+          // 已移除MiniMax登录状态检查
           // 检查秘塔登录状态
           this.sendMessage({
             type: "PLAY_CHECK_METASO_LOGIN",
@@ -697,12 +689,7 @@ export default {
           //   userId: this.userId,
           //   corpId: this.corpId
           // });
-          // 检查KiMi登录状态
-          this.sendMessage({
-            type: 'PLAY_CHECK_KIMI_LOGIN',
-            userId: this.userId,
-            corpId: this.corpId
-          });
+          // 已移除Kimi登录状态检查
           // 检查知乎登录状态
           this.sendMessage({
             type: "PLAY_CHECK_ZHIHU_LOGIN",
@@ -1051,7 +1038,7 @@ export default {
           this.isLoading.doubao = false;
           this.isClick.doubao = true; // 检测成功后设为true
           // 检查是否所有AI都已恢复，全部恢复则清除超时定时器
-          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
+          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.qw && !this.isLoading.metaso) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1068,7 +1055,7 @@ export default {
           this.accounts.deepseek = dataObj.status;
           this.isLoading.deepseek = false;
           this.isClick.deepseek = true; // 检测成功后设为true
-          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
+          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.qw && !this.isLoading.metaso) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1092,14 +1079,7 @@ export default {
           this.isClick.qw = true;
           this.isLoading.qw = false;
         }
-      } else if (
-        datastr.includes("RETURN_MAX_STATUS") &&
-        dataObj.status != ""
-      ) {
-        // 已移除MiniMax相关代码
-          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
-            if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
-          }
+      // 已移除MiniMax相关代码
 
       } else if (
         datastr.includes("RETURN_METASO_STATUS") &&
@@ -1111,7 +1091,7 @@ export default {
           this.accounts.metaso = dataObj.status;
           this.isLoading.metaso = false;
           this.isClick.metaso = true; // 检测成功后设为true
-          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw  && !this.isLoading.metaso && !this.isLoading.kimi) {
+          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.qw  && !this.isLoading.metaso) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1238,7 +1218,7 @@ export default {
       this.isClick.minimax = false;
       this.isClick.metaso = false;
       // this.isClick.qw = false;
-      this.isClick.kimi = false;
+      // 已移除Kimi相关代码
       this.isClick.baidu = false;
       this.isClick.zhzd = false;
       // 清除上一次的超时定时器
