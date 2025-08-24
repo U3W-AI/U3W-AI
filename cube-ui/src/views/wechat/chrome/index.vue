@@ -695,18 +695,19 @@ export default {
         //   progressLogs: [],
         //   isExpanded: true
         // },
-        {
-          name: '百度AI',
-          avatar: require('../../../assets/ai/Baidu.png'),
-          capabilities: [
-            { label: '深度搜索', value: 'web_search' }
-          ],
-          selectedCapabilities: [],
-          enabled: true,
-          status: 'idle',
-          progressLogs: [],
-          isExpanded: true,
-        },
+        // 移除百度AI相关代码
+        // {
+        //   name: '百度AI',
+        //   avatar: require('../../../assets/ai/Baidu.png'),
+        //   capabilities: [
+        //     { label: '深度搜索', value: 'web_search' }
+        //   ],
+        //   selectedCapabilities: [],
+        //   enabled: true,
+        //   status: 'idle',
+        //   progressLogs: [],
+        //   isExpanded: true,
+        // },
         {
           name: '腾讯元宝T1',
           avatar: require('../../../assets/ai/yuanbao.png'),

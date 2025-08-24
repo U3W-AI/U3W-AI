@@ -595,7 +595,7 @@ export default {
         yuanbao: "腾讯元宝登录",
         doubao: "豆包登录",
         deepseek: "DeepSeek登录",
-        minimax: "MiniMax登录",
+        // minimax: "MiniMax登录", // 已移除MiniMax登录状态检测
 
         // qw: "通义千问登录",
         metaso: "秘塔登录",
@@ -640,14 +640,14 @@ export default {
         this.isClick.yuanbao = false;
         this.isClick.doubao = false;
         this.isClick.deepseek = false;
-        this.isClick.minimax = false;
+        // this.isClick.minimax = false; // 已移除MiniMax登录状态检测
         this.isClick.metaso = false;
         // this.isClick.qw = false;
 
         this.isLoading.yuanbao = true;
         this.isLoading.doubao = true;
         this.isLoading.deepseek = true;
-        this.isLoading.minimax = true;
+        // this.isLoading.minimax = true; // 已移除MiniMax登录状态检测
         this.isLoading.metaso = true;
         // this.isLoading.qw = true;
         this.isLoading.kimi = true;
@@ -673,12 +673,12 @@ export default {
             userId: this.userId,
             corpId: this.corpId,
           });
-          // 检查MiniMax登录状态
-          this.sendMessage({
-            type: "PLAY_CHECK_MAX_LOGIN",
-            userId: this.userId,
-            corpId: this.corpId,
-          });
+          // 检查MiniMax登录状态 - 已移除
+          // this.sendMessage({
+          //   type: "PLAY_CHECK_MAX_LOGIN",
+          //   userId: this.userId,
+          //   corpId: this.corpId,
+          // });
           // 检查秘塔登录状态
           this.sendMessage({
             type: "PLAY_CHECK_METASO_LOGIN",
@@ -697,12 +697,12 @@ export default {
           //   userId: this.userId,
           //   corpId: this.corpId
           // });
-          // 检查KiMi登录状态
-          this.sendMessage({
-            type: 'PLAY_CHECK_KIMI_LOGIN',
-            userId: this.userId,
-            corpId: this.corpId
-          });
+          // 移除Kimi登录状态检测
+          // this.sendMessage({
+          //   type: 'PLAY_CHECK_KIMI_LOGIN',
+          //   userId: this.userId,
+          //   corpId: this.corpId
+          // });
           // 检查知乎登录状态
           this.sendMessage({
             type: "PLAY_CHECK_ZHIHU_LOGIN",
@@ -904,7 +904,7 @@ export default {
         deepseek: "DeepSeek",
         // qw: "通义千问",
         metaso: "秘塔",
-        kimi: "KiMi",
+        // kimi: "KiMi", // 移除Kimi登录状态检测
       };
       return names[type] || "";
     },
@@ -1006,10 +1006,10 @@ export default {
         datastr.includes("RETURN_PC_DB_QRURL") ||
         datastr.includes("RETURN_PC_DEEPSEEK_QRURL") ||
         datastr.includes("RETURN_PC_MAX_QRURL") ||
-        datastr.includes("RETURN_PC_METASO_QRURL") ||
+        datastr.includes("RETURN_PC_METASO_QRURL")
         // datastr.includes("RETURN_PC_QW_QRURL") ||
-
-        datastr.includes("RETURN_PC_BAIDU_QRURL")
+        // 移除百度AI相关代码
+        // datastr.includes("RETURN_PC_BAIDU_QRURL")
       ) {
         if (dataObj.url && dataObj.url.trim() !== "") {
           this.qrCodeUrl = dataObj.url;
@@ -1036,7 +1036,7 @@ export default {
           this.isLoading.yuanbao = false;
           this.isClick.yuanbao = true; // 检测成功后设为true
           // 检查是否所有AI都已恢复，全部恢复则清除超时定时器
-          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso) {
+          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && /* !this.isLoading.minimax && */ !this.isLoading.qw && !this.isLoading.metaso) {
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1051,7 +1051,7 @@ export default {
           this.isLoading.doubao = false;
           this.isClick.doubao = true; // 检测成功后设为true
           // 检查是否所有AI都已恢复，全部恢复则清除超时定时器
-          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
+          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && /* !this.isLoading.minimax && */ !this.isLoading.qw && !this.isLoading.metaso /* && !this.isLoading.kimi */) { // 移除Kimi登录状态检测
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1068,7 +1068,7 @@ export default {
           this.accounts.deepseek = dataObj.status;
           this.isLoading.deepseek = false;
           this.isClick.deepseek = true; // 检测成功后设为true
-          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
+          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && /* !this.isLoading.minimax && */ !this.isLoading.qw && !this.isLoading.metaso /* && !this.isLoading.kimi */) { // 移除Kimi登录状态检测
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1085,7 +1085,7 @@ export default {
           this.accounts.qw = dataObj.status;
           this.isLoading.qw = false;
           this.isClick.qw = true;
-          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
+          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && /* !this.isLoading.minimax && */ !this.isLoading.qw && !this.isLoading.metaso /* && !this.isLoading.kimi */) { // 移除Kimi登录状态检测
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1097,9 +1097,10 @@ export default {
         dataObj.status != ""
       ) {
         // 已移除MiniMax相关代码
-          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
-            if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
-          }
+        // if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.kimi) {
+        //   if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
+        // }
+        // 不做任何处理，MiniMax登录状态检测已移除
 
       } else if (
         datastr.includes("RETURN_METASO_STATUS") &&
@@ -1111,7 +1112,7 @@ export default {
           this.accounts.metaso = dataObj.status;
           this.isLoading.metaso = false;
           this.isClick.metaso = true; // 检测成功后设为true
-          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && !this.isLoading.minimax && !this.isLoading.qw  && !this.isLoading.metaso && !this.isLoading.kimi) {
+          if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && /* !this.isLoading.minimax && */ !this.isLoading.qw  && !this.isLoading.metaso /* && !this.isLoading.kimi */) { // 移除Kimi登录状态检测
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
@@ -1226,20 +1227,20 @@ export default {
       this.isLoading.yuanbao = true;
       this.isLoading.doubao = true;
       this.isLoading.deepseek = true;
-      this.isLoading.minimax = true;
+      // this.isLoading.minimax = true; // 已移除MiniMax登录状态检测
       this.isLoading.metaso = true;
-      this.isLoading.kimi = true;
+      // this.isLoading.kimi = true; // 移除Kimi登录状态检测
       // this.isLoading.qw = true;
       this.isLoading.zhzd = true;
-      this.isLoading.baidu = true;
+      // this.isLoading.baidu = true; // 移除百度AI相关代码
       this.isClick.yuanbao = false;
       this.isClick.doubao = false;
       this.isClick.deepseek = false;
-      this.isClick.minimax = false;
+      // this.isClick.minimax = false; // 已移除MiniMax登录状态检测
       this.isClick.metaso = false;
       // this.isClick.qw = false;
-      this.isClick.kimi = false;
-      this.isClick.baidu = false;
+      // this.isClick.kimi = false; // 移除Kimi登录状态检测
+      // this.isClick.baidu = false; // 移除百度AI相关代码
       this.isClick.zhzd = false;
       // 清除上一次的超时定时器
       if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
@@ -1251,7 +1252,7 @@ export default {
         this.isLoading.metaso = false;
         // this.isLoading.qw = false;
 
-        this.isLoading.baidu = false;
+        // this.isLoading.baidu = false; // 移除百度AI相关代码
         this.isLoading.zhzd = false;
         this.isClick.yuanbao = true;
         this.isClick.doubao = true;
