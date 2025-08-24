@@ -576,18 +576,7 @@
             isSingleSelect: true  // 添加单选标记
           },
 
-          {
-            name: "Kimi",
-            avatar: 'https://u3w.com/chatfile/KIMI.png',
-            capabilities: [
-              { label: "联网搜索", value: "web_search" },
-            ],
-            selectedCapabilities: [],
-            enabled: true,
-            status: "idle",
-            progressLogs: [],
-            isExpanded: true,
-          },
+
 
 				],
 
@@ -650,7 +639,7 @@
           // tongyi: false,
           mini: false,
           metaso: false,
-          kimi: false,
+
 
 				},
 				accounts: {
@@ -660,7 +649,7 @@
           // tongyi: '',
           mini: '',
           metaso: '',
-          kimi: '',
+
 
 				},
 				isLoading: {
@@ -668,9 +657,9 @@
 					doubao: true,
           deepseek: true,
           // tongyi: true,
-		      mini: true,
+
 		      metaso: true,
-          kimi: true,
+
 
 				}
 			};
@@ -989,14 +978,7 @@
           //     this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-lwss,';
           //   }
           // }
-          if (ai.name === "Kimi") {
-            if(this.isAiLoginEnabled(ai)){
-              this.userInfoReq.roles = this.userInfoReq.roles + "kimi-talk,";
-              if (ai.selectedCapabilities.includes("web_search")) {
-                this.userInfoReq.roles = this.userInfoReq.roles + "kimi-lwss,";
-              }
-            }
-          }
+
 
 				});
 
@@ -1514,34 +1496,8 @@
 					// 更新AI启用状态
 					this.updateAiEnabledStatus();
 				}
-				// 处理MiniMax Chat登录状态
-				else if (datastr.includes("RETURN_MAX_STATUS") && dataObj.status != "") {
-				  this.isLoading.mini = false;
-				  if (!datastr.includes("false")) {
-				    this.aiLoginStatus.mini = true;
-				    this.accounts.mini = dataObj.status;
-				  } else {
-				    this.aiLoginStatus.mini = false;
-				    // 禁用相关AI
-				    this.disableAIsByLoginStatus("mini");
-				  }
-				  // 更新AI启用状态
-				  this.updateAiEnabledStatus();
-				}
-        // 处理KiMi 登录状态
-        else if (datastr.includes("RETURN_KIMI_STATUS") && dataObj.status != "") {
-          this.isLoading.kimi = false;
-          if (!datastr.includes("false")) {
-            this.aiLoginStatus.kimi = true;
-            this.accounts.kimi = dataObj.status;
-          } else {
-            this.aiLoginStatus.kimi = false;
-            // 禁用相关AI
-            this.disableAIsByLoginStatus("Kimi");
-          }
-          // 更新AI启用状态
-          this.updateAiEnabledStatus();
-        }
+
+
 
         // 处理秘塔登录状态
         else if (datastr.includes("RETURN_METASO_STATUS") && dataObj.status != "") {
@@ -1647,18 +1603,12 @@
           //   console.log('收到消息：',dataObj);
           //   targetAI = this.enabledAIs.find(ai => ai.name === '通义千问');
           //   break;
-          case "RETURN_MAX_RES":
-			    console.log("收到消息:", dataObj);
-			    targetAI = this.enabledAIs.find((ai) => ai.name === "MiniMax Chat");
-			      break;
+
           case "RETURN_METASO_RES":
             console.log("收到消息:", dataObj);
             targetAI = this.enabledAIs.find((ai) => ai.name === "秘塔");
             break;
-          case "RETURN_KIMI_RES":
-            console.log("收到消息:", dataObj);
-            targetAI = this.enabledAIs.find((ai) => ai.name === "Kimi");
-            break;
+
 
 				}
 
@@ -1966,9 +1916,9 @@
 					this.userInfoReq.ybDsChatId = item.ybDsChatId || '';
 					this.userInfoReq.dbChatId = item.dbChatId || '';
           // this.userInfoReq.tyChatId = item.tyChatId || '';
-					this.userInfoReq.maxChatId = item.maxChatId || "";
+
           this.userInfoReq.metasoChatId = item.metasoChatId || "";
-          this.userInfoReq.kimiChatId = item.kimiChatId || "";
+
 
           this.userInfoReq.isNewChat = false;
 
@@ -2020,7 +1970,7 @@
 					ybDsChatId: this.userInfoReq.ybDsChatId,
 					dbChatId: this.userInfoReq.dbChatId,
           // tyChatId: this.userInfoReq.tyChatId,
-					maxChatId: this.userInfoReq.maxChatId,
+
           metasoChatId: this.userInfoReq.metasoChatId,
           kimiChatId: this.userInfoReq.kimiChatId,
           baiduChatId:this.userInfoReq.baiduChatId,
@@ -2037,7 +1987,7 @@
 						ybDsChatId: this.userInfoReq.ybDsChatId,
 						dbChatId: this.userInfoReq.dbChatId,
             // tyChatId: this.userInfoReq.tyChatId,
-						maxChatId: this.userInfoReq.maxChatId,
+
             metasoChatId: this.userInfoReq.metasoChatId,
             kimiChatId: this.userInfoReq.kimiChatId,
             baiduChatId:this.userInfoReq.baiduChatId,
@@ -2706,7 +2656,7 @@ else {
 					ybDsChatId: '',
 					dbChatId: '',
           tyChatId: '',
-					maxChatId: '',
+
           metasoChatId: '',
           kimiChatId: '',
           baiduChatId:'',
@@ -2760,21 +2710,7 @@ else {
           //   progressLogs: [],
           //   isExpanded: true
           // },
-					{
-					  name: "MiniMax Chat",
-					  avatar:
-					    "https://u3w.com/chatfile/MiniMaxChat.png",
-					  capabilities: [
-					    { label: "深度思考", value: "deep_thinking" },
-					    { label: "联网搜索", value: "web_search" },
-					  ],
-					  selectedCapabilities: ["deep_thinking", "web_search"],
-					  enabled: true,
-					  status: "idle",
-					  progressLogs: [],
-					  isExpanded: true,
-            isSingleSelect: false,  // 添加单选标记
-					},
+
           {
             name: '秘塔',
             avatar: 'https://www.aitool6.com/wp-content/uploads/2023/06/9557d1-2.jpg',
@@ -2790,19 +2726,7 @@ else {
             isExpanded: true,
             isSingleSelect: true,  // 添加单选标记
           },
-          {
-            name: "Kimi",
-            avatar:
-                "https://u3w.com/chatfile/KIMI.png",
-            capabilities: [
-              { label: "联网搜索", value: "web_search" },
-            ],
-            selectedCapabilities: ["web_search"],
-            enabled: true,
-            status: "idle",
-            progressLogs: [],
-            isExpanded: true,
-          },
+
 					{
 						name: '腾讯元宝T1',
 						avatar: 'https://u3w.com/chatfile/yuanbao.png',
@@ -2892,21 +2816,10 @@ else {
         //   corpId: this.corpId
         // })
 
-        // 检查MiniMax登录状态
-        this.sendWebSocketMessage({
-          type: "PLAY_CHECK_MAX_LOGIN",
-          userId: this.userId,
-          corpId: this.corpId,
-        });
+
         // 检查秘塔登录状态
         this.sendWebSocketMessage({
           type: "PLAY_CHECK_METASO_LOGIN",
-          userId: this.userId,
-          corpId: this.corpId,
-        });
-        // 检查KiMi登录状态
-        this.sendWebSocketMessage({
-          type: "PLAY_CHECK_KIMI_LOGIN",
           userId: this.userId,
           corpId: this.corpId,
         });
@@ -2956,10 +2869,10 @@ else {
 					yuanbao: false,
 					doubao: false,
           deepseek: false,
-		      mini: false,
+
           // tongyi: false,
           metaso: false,
-          kimi: false,
+
           baidu: false,
           zhzd: false,
 				};
@@ -2970,9 +2883,9 @@ else {
 					doubao: '',
           deepseek: '',
           // tongyi: '',
-		      mini: '',
+
 		      metaso: '',
-          kimi: '',
+
           baidu: '',
           zhzd: '',
 				};

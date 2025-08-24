@@ -630,7 +630,7 @@ export default {
         ybDsChatId: "",
         dbChatId: "",
         tyChatId: "",
-        kimiChatId: "",
+
 
         isNewChat: true,
       },
@@ -664,21 +664,7 @@ export default {
           status: "idle",
           progressLogs: [],
           isExpanded: true,
-          isSingleSelect: false,  // 添加单选标记
-        },
-        {
-          name: "MiniMax Chat",
-          avatar: require("../../../assets/ai/MiniMax.png"),
-          capabilities: [
-            { label: "深度思考", value: "deep_thinking" },
-            { label: "联网搜索", value: "web_search" },
-          ],
-          selectedCapabilities: [],
-          enabled: true,
-          status: "idle",
-          progressLogs: [],
-          isExpanded: true,
-          isSingleSelect: false,  // 添加单选标记
+          isSingleSelect: false  // 添加单选标记
         },
         {
           name: "秘塔",
@@ -695,19 +681,7 @@ export default {
           isExpanded: true,
           isSingleSelect: true,  // 添加单选标记,用于capabilities中状态只能多选一的时候改成true,然后把selectedCapabilities赋值为字符串，不要是数组
         },
-        {
-          name: "Kimi",
-          avatar: require("../../../assets/ai/Kimi.png"),
-          capabilities: [
-            { label: "联网搜索", value: "web_search" },
-          ],
-          selectedCapabilities: [],
-          enabled: true,
-          status: "idle",
-          progressLogs: [],
-          isExpanded: true,
-          isSingleSelect: false,  // 添加单选标记
-        },
+
         // {
         //   name: '通义千问',
         //   avatar: require('../../../assets/ai/qw.png'),
@@ -924,21 +898,8 @@ export default {
             this.userInfoReq.roles = this.userInfoReq.roles + "metaso-csk,";
           }
         }
-        if (ai.name === "MiniMax Chat") {
-          this.userInfoReq.roles = this.userInfoReq.roles + "mini-max-agent,";
-          if (ai.selectedCapabilities.includes("deep_thinking")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + "max-sdsk,";
-          }
-          if (ai.selectedCapabilities.includes("web_search")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + "max-lwss,";
-          }
-        }
-        if (ai.name === "Kimi") {
-          this.userInfoReq.roles = this.userInfoReq.roles + "kimi-talk,";
-          if (ai.selectedCapabilities.includes("web_search")) {
-            this.userInfoReq.roles = this.userInfoReq.roles + "kimi-lwss,";
-          }
-        }
+
+
         // if(ai.name === '通义千问' && ai.enabled){
         //   this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw,';
         //   if (ai.selectedCapability.includes("deep_thinking")) {
@@ -1188,9 +1149,6 @@ export default {
         this.userInfoReq.maxChatId = dataObj.chatId;
       } else if (dataObj.type === "RETURN_METASO_CHATID" && dataObj.chatId) {
         this.userInfoReq.metasoChatId = dataObj.chatId;
-      } else if (dataObj.type === "RETURN_KIMI_CHATID" && dataObj.chatId) {
-        this.userInfoReq.kimiChatId = dataObj.chatId;
-
       }
 
       // 处理进度日志消息
@@ -1419,10 +1377,7 @@ export default {
           console.log("收到豆包消息:", dataObj);
           targetAI = this.enabledAIs.find((ai) => ai.name === "豆包");
           break;
-        case "RETURN_MAX_RES":
-          console.log("收到MiniMax消息:", dataObj);
-          targetAI = this.enabledAIs.find((ai) => ai.name === "MiniMax Chat");
-          break;
+
         // case 'RETURN_TY_RES':
         //   console.log('收到通义千问消息:', data);
         //   targetAI = this.enabledAIs.find(ai => ai.name === '通义千问');
@@ -1431,10 +1386,7 @@ export default {
           console.log("收到秘塔消息:", dataObj);
           targetAI = this.enabledAIs.find((ai) => ai.name === "秘塔");
           break;
-        case "RETURN_KIMI_RES":
-          console.log("收到kimi消息:", dataObj);
-          targetAI = this.enabledAIs.find((ai) => ai.name === "Kimi");
-          break;
+
 
 
       }
@@ -1697,7 +1649,7 @@ export default {
         this.userInfoReq.ybDsChatId = item.ybDsChatId || "";
         this.userInfoReq.dbChatId = item.dbChatId || "";
         this.userInfoReq.maxChatId = item.maxChatId || "";
-        this.userInfoReq.kimiChatId = item.kimiChatId || "";
+
         // this.userInfoReq.tyChatId = item.tyChatId || "";
         this.userInfoReq.metasoChatId = item.metasoChatId || "";
         this.userInfoReq.isNewChat = false;
@@ -1732,7 +1684,7 @@ export default {
         dbChatId: this.userInfoReq.dbChatId,
         // tyChatId: this.userInfoReq.tyChatId,
         maxChatId: this.userInfoReq.maxChatId,
-        kimiChatId: this.userInfoReq.kimiChatId,
+
         metasoChatId: this.userInfoReq.metasoChatId,
       };
 
@@ -1747,7 +1699,7 @@ export default {
           dbChatId: this.userInfoReq.dbChatId,
           // tyChatId: this.userInfoReq.tyChatId,
           maxChatId: this.userInfoReq.maxChatId,
-          kimiChatId: this.userInfoReq.kimiChatId,
+
           metasoChatId: this.userInfoReq.metasoChatId,
         });
       } catch (error) {
@@ -1786,7 +1738,7 @@ export default {
         dbChatId: "",
         // tyChatId: "",
         maxChatId: "",
-        kimiChatId: "",
+
         metasoChatId: "",
         isNewChat: true,
       };
@@ -1817,33 +1769,8 @@ export default {
           isExpanded: true,
           isSingleSelect: false,  // 添加单选标记
         },
-        {
-          name: "MiniMax Chat",
-          avatar: require("../../../assets/ai/MiniMax.png"),
-          capabilities: [
-            { label: "深度思考", value: "deep_thinking" },
-            { label: "联网", value: "web_search" },
-          ],
-          selectedCapabilities: ["deep_thinking", "web_search"],
-          enabled: true,
-          status: "idle",
-          progressLogs: [],
-          isExpanded: true,
-          isSingleSelect: false,  // 添加单选标记
-        },
-        {
-          name: "Kimi",
-          avatar: require("../../../assets/ai/Kimi.png"),
-          capabilities: [
-            { label: "联网模式", value: "web_search" },
-          ],
-          selectedCapabilities: ["web_search"],
-          enabled: true,
-          status: "idle",
-          progressLogs: [],
-          isExpanded: true,
-          isSingleSelect: false,  // 添加单选标记
-        },
+
+
         {
           name: "秘塔",
           avatar: require("../../../assets/ai/Metaso.png"),
