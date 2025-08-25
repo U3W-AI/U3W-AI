@@ -37,7 +37,6 @@ public class AIGCController extends BaseController {
 
     @Autowired
     private RedisUtil redisUtil;
-
     @Autowired
     private MyWebSocketHandler myWebSocketHandler;
 
@@ -442,7 +441,6 @@ public class AIGCController extends BaseController {
 //        }else if(map.get("aiName").equals("福帮手智能体")){
 //            redisUtil.set(map.get("taskId")+"_AGENT",map.get("draftContent")+"",10);
 //        }
-
         return aigcService.saveDraftContent(map);
     }
     @PostMapping("/saveLogInfo")
@@ -530,6 +528,11 @@ public class AIGCController extends BaseController {
 
 
         return ResultBody.success(docData);
+    }
+
+    @GetMapping("/getUserId")
+    public String getUserIdByUnionId(String unionId) {
+        return aigcService.getUserIdByUnionId(unionId);
     }
 
 

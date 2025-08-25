@@ -31,6 +31,11 @@ public class AIGCServiceImpl implements AIGCService {
 
 
     @Override
+    public String getUserIdByUnionId(String unionId) {
+        return userInfoMapper.getUserIdByUnionId(unionId);
+    }
+
+    @Override
     public ResultBody getPlayWrighDrafts(WcChromeData wcChromeData) {
         PageHelper.startPage(wcChromeData.getPage(),wcChromeData.getLimit());
         List<Map> list = aigcMapper.getPlayWrightDraftList(wcChromeData.getUserId(),wcChromeData.getKeyWord());
