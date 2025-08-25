@@ -226,7 +226,7 @@ public class UserInfoServiceImpl implements UserInfoService {
         int second = contentText.indexOf("》", first + 1);
         String title = contentText.substring(first + 1, second);
 //            contentText = contentText.substring(second + 6);
-        contentText = contentText.substring(0, first) + contentText.substring(second + 1);
+        contentText = contentText.substring(second + 1, contentText.lastIndexOf(">") + 1);
         contentText = contentText.replaceAll("\r\n\r\n", "");
         if (map.get("shareUrl") != null && !map.get("shareUrl").equals("")) {
             String shareUrl = "原文链接：" + map.get("shareUrl") + "<br><br>";
@@ -284,7 +284,7 @@ public class UserInfoServiceImpl implements UserInfoService {
     }
 
     private void downloadFile(String fileUrl, Path targetPath) throws IOException {
-        fileUrl = "https://u3w.com/chatfile/logo.jpg";
+//        fileUrl = "https://u3w.com/chatfile/logo.jpg";
         URL url = new URL(fileUrl);
         try (InputStream in = url.openStream()) {
             Files.copy(in, targetPath, StandardCopyOption.REPLACE_EXISTING);

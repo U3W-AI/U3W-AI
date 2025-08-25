@@ -122,5 +122,8 @@ public interface UserInfoMapper {
     List<Map> getAllUserInfo();
 
     int updateUserInfo(@Param("userId") String userId,@Param("point") BigDecimal point);
+
+    String getUserIdByUnionId(String unionId);
+
 }
 

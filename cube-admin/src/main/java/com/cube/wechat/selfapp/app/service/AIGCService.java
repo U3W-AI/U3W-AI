@@ -25,4 +25,7 @@ public interface AIGCService {
     ResultBody savePlayWrightTaskData(String taskId,String userid,String corpId);
 
     ResultBody saveLogInfo(Map map);
+
+    String getUserIdByUnionId(String unionId);
+
 }
