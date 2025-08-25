@@ -622,50 +622,10 @@ public class TencentUtil {
             // 等待聊天框的内容稳定
             String currentContent = "";
             String lastContent = "";
+            String znpbContent = "";
             // 设置最大等待时间（单位：毫秒），比如 10 分钟
             long timeout = 600000; // 10 分钟
             long startTime = System.currentTimeMillis();  // 获取当前时间戳
-
-            if (agentName.contains("智能排版")) {
-//                进入智能排版的等待策略
-                try {
-                    while (true) {
-                        Thread.sleep(2000);
-                        boolean visible = page.locator("(//span[@class='yb-icon iconfont-yb icon-yb-ic_refresh_2504 undefined'])[1]").isVisible();
-                        if (visible) {
-                            break;
-                        }
-                    }
-                    Locator copyKey = page.locator("(//span[contains(text(),'复制')])[1]");
-                    if(copyKey.isVisible()) {
-                        copyKey.click();
-                    } else {
-                        Locator copyLocator = page.locator("(//span[@class='yb-icon iconfont-yb icon-yb-ic_arrow_down_16 agent-chat__toolbar__copy__arrow'])[1]");
-                        if (copyLocator.isVisible()) {
-                            copyLocator.click();
-                            Locator locator = page.locator("(//span[@class='t-dropdown__item-text'][contains(text(),'复制')])[1]");
-                            if (locator.isVisible()) {
-                                locator.click();
-                            } else {
-                                Locator copy = page.locator("(//span[@class='yb-icon iconfont-yb icon-yb-ic_copy_2504 undefined'])[2]");
-                                if (copy.isVisible()) {
-                                    copy.click();
-                                } else {
-                                    Locator contentLocator = page.locator("(//div[@class='hyc-common-markdown hyc-common-markdown-style'])[2]");
-                                    currentContent = contentLocator.textContent();
-                                    return currentContent;
-                                }
-                            }
-                        }
-                    }
-//                    获取剪切板内容
-                    Thread.sleep(2000);
-                    currentContent = (String) page.evaluate("navigator.clipboard.readText()");
-                    return currentContent;
-                } catch (Exception e) {
-                    return "获取内容失败";
-                }
-            }
             // 进入循环，直到内容不再变化或者超时
             while (true) {
                 // 获取当前时间戳
@@ -677,6 +637,7 @@ public class TencentUtil {
                 }
                 // 获取最新内容
                 Locator outputLocator = page.locator(".hyc-common-markdown").last();
+                znpbContent  = outputLocator.textContent();
                 currentContent = outputLocator.innerHTML();
 
                 // 如果当前内容和上次内容相同，认为 AI 已经完成回答，退出循环
@@ -699,6 +660,9 @@ public class TencentUtil {
 //            Document doc = Jsoup.parse(currentContent);
 //            currentContent = doc.text();  // 提取纯文本内容
             logInfo.sendTaskLog(agentName + "内容已自动提取完成", userId, agentName);
+            if(agentName.contains("智能排版")) {
+                return znpbContent;
+            }
             return currentContent;
 
         } catch (Exception e) {
