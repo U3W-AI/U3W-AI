@@ -212,14 +212,13 @@ public class UserInfoServiceImpl implements UserInfoService {
 
     @Override
     public ResultBody pushAutoOneOffice(Map map) {
-
         WcOfficeAccount woa = userInfoMapper.getOfficeAccountByUserName(map.get("userId") + "");
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         String formattedDate = sdf.format(new Date()); // 格式化日期
 
         String assessToken = weChatApiUtils.getOfficeAccessToken(woa.getAppId(), woa.getAppSecret());
         String url = "https://api.weixin.qq.com/cgi-bin/draft/add?access_token=" + assessToken;
-
+        String detailUrl = "https://api.weixin.qq.com/cgi-bin/draft/get?access_token=" + assessToken;
         String contentText = map.get("contentText").toString();
 
         int first = contentText.indexOf("《");
@@ -243,11 +242,24 @@ public class UserInfoServiceImpl implements UserInfoService {
         JSONObject param = new JSONObject();
         param.put("articles", paramlist);
         try {
-            RestUtils.post(url, param);
+            JSONObject result = RestUtils.post(url, param);
+            String mediaId = result.get("media_id").toString();
+            JSONObject postJson = new JSONObject();
+            postJson.put("media_id", mediaId);
+            JSONObject detail = RestUtils.post(detailUrl, postJson);
+            Object o = detail.get("news_item");
+            List<Map<String, Object>> newsItemArray = (List<Map<String, Object>>) o;
+            if (newsItemArray == null || newsItemArray.isEmpty()) {
+                throw new RuntimeException("news_item 数组为空");
+            }
+            Map<String, Object> newsItem = newsItemArray.get(0);
+            String tempUrl = (String) newsItem.get("url");
+            System.out.println(tempUrl);
+            return ResultBody.success(tempUrl);
         } catch (Exception e) {
+            e.printStackTrace();
         }
-
-        return ResultBody.success("上传成功！");
+        return ResultBody.error(300, "推送失败");
     }
 
     @Override
