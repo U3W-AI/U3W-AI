@@ -22,7 +22,7 @@ public class WeChatApiUtils {
     private RedisService redisService;
 
     @Autowired
-    private  RedisUtil redisUtil;
+    private RedisUtil redisUtil;
 
     @Value("${wechat.corpId}")
     private String corpId;
@@ -49,43 +49,44 @@ public class WeChatApiUtils {
 
     @Value("${TencentDoc.redirectUri}")
     private String redirectUri;
+
     /**
      * 获取 企微自建应用accessToken
      *
      * @return accessToken
      */
-    public  String getAccessToken() {
-       if(redisUtil ==null){
-          redisUtil = new RedisUtil();
-       }
+    public String getAccessToken() {
+        if (redisUtil == null) {
+            redisUtil = new RedisUtil();
+        }
         Object access_token = redisUtil.get("access_token");
-        if(access_token!=null){
-            return access_token+"";
-        }else{
-            String accessTokenUrl ="https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid="+corpId+"&corpsecret="+agentSecret;
+        if (access_token != null) {
+            return access_token + "";
+        } else {
+            String accessTokenUrl = "https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=" + corpId + "&corpsecret=" + agentSecret;
             JSONObject jsonObject = RestUtils.get(accessTokenUrl);
             int errCode = jsonObject.getIntValue("errcode");
             if (errCode == 0) {
-                redisUtil.set("access_token",jsonObject.getString("access_token"),7000);
+                redisUtil.set("access_token", jsonObject.getString("access_token"), 7000);
                 return jsonObject.getString("access_token");
             }
         }
         return null;
     }
 
-    public  String getChatAccessToken() {
-       if(redisUtil ==null){
-          redisUtil = new RedisUtil();
-       }
+    public String getChatAccessToken() {
+        if (redisUtil == null) {
+            redisUtil = new RedisUtil();
+        }
         Object access_token = redisUtil.get("chat_access_token");
-        if(access_token!=null){
-            return access_token+"";
-        }else{
-            String accessTokenUrl ="https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid="+corpId+"&corpsecret="+chatSecret;
+        if (access_token != null) {
+            return access_token + "";
+        } else {
+            String accessTokenUrl = "https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=" + corpId + "&corpsecret=" + chatSecret;
             JSONObject jsonObject = RestUtils.get(accessTokenUrl);
             int errCode = jsonObject.getIntValue("errcode");
             if (errCode == 0) {
-                redisUtil.set("chat_access_token",jsonObject.getString("access_token"),7000);
+                redisUtil.set("chat_access_token", jsonObject.getString("access_token"), 7000);
                 return jsonObject.getString("access_token");
             }
         }
@@ -93,16 +94,16 @@ public class WeChatApiUtils {
     }
 
 
-    public  String getPcAccessToken() {
-       if(redisUtil ==null){
-          redisUtil = new RedisUtil();
-       }
+    public String getPcAccessToken() {
+        if (redisUtil == null) {
+            redisUtil = new RedisUtil();
+        }
         Object access_token = redisUtil.get("pc_access_token");
 
-        if(access_token!=null){
-            return access_token+"";
-        }else{
-            String accessTokenUrl ="https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid="+corpId+"&corpsecret="+pcAgentSecret;
+        if (access_token != null) {
+            return access_token + "";
+        } else {
+            String accessTokenUrl = "https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=" + corpId + "&corpsecret=" + pcAgentSecret;
             JSONObject jsonObject = RestUtils.get(accessTokenUrl);
 
             int errCode = jsonObject.getIntValue("errcode");
@@ -117,34 +118,35 @@ public class WeChatApiUtils {
 
         return null;
     }
-    public  String getSelAccessToken() {
-        if(redisUtil ==null){
+
+    public String getSelAccessToken() {
+        if (redisUtil == null) {
             redisUtil = new RedisUtil();
         }
         Object access_token = redisUtil.get("sel_access_token");
-        if(access_token!=null){
-            return access_token+"";
-        }else{
+        if (access_token != null) {
+            return access_token + "";
+        } else {
             String suiteAccessTokenUrl = "https://qyapi.weixin.qq.com/cgi-bin/service/get_suite_token";
             JSONObject ticJson = new JSONObject();
-            ticJson.put("suite_id","wwc7714d9508debd8c");
-            ticJson.put("suite_secret","xLFPtRLAx0ic9cl-mPn31l4NlCKh2YYYM6KmjPmLpvQ");
-            ticJson.put("suite_ticket",redisService.getCacheObject("test-external-suite-ticket"));
-            JSONObject jsonObject = RestUtils.post(suiteAccessTokenUrl,ticJson);
+            ticJson.put("suite_id", "wwc7714d9508debd8c");
+            ticJson.put("suite_secret", "xLFPtRLAx0ic9cl-mPn31l4NlCKh2YYYM6KmjPmLpvQ");
+            ticJson.put("suite_ticket", redisService.getCacheObject("test-external-suite-ticket"));
+            JSONObject jsonObject = RestUtils.post(suiteAccessTokenUrl, ticJson);
 
             String suiteAccessToken = jsonObject.getString("suite_access_token");
 
-            String accessTokenUrl ="https://qyapi.weixin.qq.com/cgi-bin/service/get_corp_token?suite_access_token="+suiteAccessToken;
+            String accessTokenUrl = "https://qyapi.weixin.qq.com/cgi-bin/service/get_corp_token?suite_access_token=" + suiteAccessToken;
             JSONObject perJson = new JSONObject();
 //            授权企业ID
-            perJson.put("auth_corpid","ww722362817b3c466a");
+            perJson.put("auth_corpid", "ww722362817b3c466a");
 //            永久授权码
-            perJson.put("permanent_code","iout261WhUIaKE1y0fIzNgAWpYao_2tJXdTncAeyU2U");
+            perJson.put("permanent_code", "iout261WhUIaKE1y0fIzNgAWpYao_2tJXdTncAeyU2U");
 
-            JSONObject jsonObjectTwo = RestUtils.post(accessTokenUrl,perJson);
+            JSONObject jsonObjectTwo = RestUtils.post(accessTokenUrl, perJson);
             int errCode = jsonObject.getIntValue("errcode");
             if (errCode == 0) {
-                redisUtil.set("sel_access_token",jsonObjectTwo.getString("access_token"),7000);
+                redisUtil.set("sel_access_token", jsonObjectTwo.getString("access_token"), 7000);
                 return jsonObjectTwo.getString("access_token");
             }
         }
@@ -157,22 +159,22 @@ public class WeChatApiUtils {
      *
      * @return accessToken
      */
-    public  String getOfficeAccessToken(String appId,String secret) {
+    public String getOfficeAccessToken(String appId, String secret) {
 
 
-        Object office_access_token = redisUtil.get(appId+"_office_access_token");
-        if(office_access_token!=null){
-            return office_access_token+"";
-        }else{
+//        Object office_access_token = redisUtil.get(appId + "_office_access_token");
+//        if(office_access_token!=null){
+//            return office_access_token+"";
+//        }else{
 
-            String accessTokenUrl ="https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid="+appId+"&secret="+secret;
-            JSONObject jsonObject = RestUtils.get(accessTokenUrl);
-            int errCode = jsonObject.getIntValue("errcode");
-            if (errCode == 0) {
-                redisUtil.set(appId+"_office_access_token",jsonObject.getString("access_token"),7000);
-                return jsonObject.getString("access_token");
-            }
+        String accessTokenUrl = "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=" + appId + "&secret=" + secret;
+        JSONObject jsonObject = RestUtils.get(accessTokenUrl);
+        int errCode = jsonObject.getIntValue("errcode");
+        if (errCode == 0) {
+            redisUtil.set(appId + "_office_access_token", jsonObject.getString("access_token"), 7000);
+            return jsonObject.getString("access_token");
         }
+//        }
 
         return null;
     }
@@ -182,40 +184,41 @@ public class WeChatApiUtils {
      *
      * @return accessToken
      */
-    public  String getOrderAccessToken() {
+    public String getOrderAccessToken() {
         Object order_access_token = redisUtil.get("order_access_token");
-        if(order_access_token!=null){
-            return order_access_token+"";
-        }else{
-            String accessTokenUrl ="https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=&secret=";
+        if (order_access_token != null) {
+            return order_access_token + "";
+        } else {
+            String accessTokenUrl = "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=&secret=";
             JSONObject jsonObject = RestUtils.get(accessTokenUrl);
             int errCode = jsonObject.getIntValue("errcode");
             if (errCode == 0) {
-                redisUtil.set("order_access_token",jsonObject.getString("access_token"),7000);
+                redisUtil.set("order_access_token", jsonObject.getString("access_token"), 7000);
                 return jsonObject.getString("access_token");
             }
         }
 
         return null;
     }
+
     /**
-    * 获取腾讯文档token
-    * */
-    public String getDocAccessToken(String userId){
-        Object access_token = redisUtil.get("doc_access_token_"+userId);
-        if(access_token!=null){
-            return access_token+"";
-        }else{
-            Object refresh_token = redisUtil.get("doc_refresh_token_"+userId);
+     * 获取腾讯文档token
+     */
+    public String getDocAccessToken(String userId) {
+        Object access_token = redisUtil.get("doc_access_token_" + userId);
+        if (access_token != null) {
+            return access_token + "";
+        } else {
+            Object refresh_token = redisUtil.get("doc_refresh_token_" + userId);
             String url = String.format("%s?client_id=%s&client_secret=%s&grant_type=refresh_token&refresh_token%s",
                     docUrl,
                     clientId,
                     clientSecret,
                     refresh_token);
             JSONObject jsonObject = RestUtils.get(url);
-            if(jsonObject !=null){
-                String accessToken = jsonObject.get("access_token")+"";
-                redisUtil.set("doc_access_token_"+userId,accessToken,259200);
+            if (jsonObject != null) {
+                String accessToken = jsonObject.get("access_token") + "";
+                redisUtil.set("doc_access_token_" + userId, accessToken, 259200);
                 return accessToken;
             }
         }
