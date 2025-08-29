@@ -136,9 +136,14 @@ public class DouBaoUtil {
             // 设置最大等待时间（单位：毫秒），比如 10 分钟
             long timeout = 600000; // 10 分钟
             long startTime = System.currentTimeMillis();  // 获取当前时间戳
-
+            boolean isChange = false;
             // 进入循环，直到内容不再变化或者超时
             while (true) {
+                Locator changeTypeLocator = page.locator("text=改用对话直接回答");
+                if(!isChange && changeTypeLocator.isVisible()) {
+                    changeTypeLocator.click();
+                    isChange = true;
+                }
                 // 获取当前时间戳
                 long elapsedTime = System.currentTimeMillis() - startTime;
 
@@ -171,7 +176,7 @@ public class DouBaoUtil {
 
                 // 更新上次内容为当前内容
                 lastContent = currentContent;
-                page.waitForTimeout(10000);  // 等待10秒再次检查
+                page.waitForTimeout(3000);  // 等待10秒再次检查
             }
             logInfo.sendTaskLog( aiName+"内容已自动提取完成",userId,aiName);
 

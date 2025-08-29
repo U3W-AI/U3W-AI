@@ -94,7 +94,7 @@ public class LogAspect {
                     return null;
                 }
                 String resultStr = result.toString();
-                if(resultStr.contains("false") || resultStr.contains("失败")) {
+                if(resultStr.contains("false") || resultStr.contains("获取内容失败")) {
 //            如果是登录方法，跳过检测
                     if (logInfo.getMethodName().contains("check")) {
                         log.info(logInfo.getMethodName() + "为登录方法,不再检测");
