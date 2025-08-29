@@ -939,6 +939,7 @@ public class AIGCController {
                     page.getByTestId("popover_select_option_item").nth(1).click();
                 });
             } else {
+
                 page.locator("button[data-testid='message_action_share']").last().click();
                 Thread.sleep(2000);
                 Locator shareLocator = page.locator("(//span[contains(@class,'semi-button-content')][contains(text(),'分享图片')])[1]");
