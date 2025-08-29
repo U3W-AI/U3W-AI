@@ -939,9 +939,11 @@ public class AIGCController {
                     page.getByTestId("popover_select_option_item").nth(1).click();
                 });
             } else {
+
                 page.locator("button[data-testid='message_action_share']").last().click();
                 Thread.sleep(2000);
-                page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div/main/div/div/div[3]/div/div/div/div/div[1]/div/div/button").click();
+                Locator shareLocator = page.locator("(//span[contains(@class,'semi-button-content')][contains(text(),'分享图片')])[1]");
+                shareLocator.click();
                 Thread.sleep(5000);
                 sharImgUrl = ScreenshotUtil.downloadAndUploadFile(page, uploadUrl, () -> {
                     page.locator("button:has-text(\"下载图片\")").click();
@@ -1284,7 +1286,7 @@ public class AIGCController {
     @PostMapping("/startDBOffice")
     public String startDBOffice(@RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
         try {
-        // 初始化变量
+            // 初始化变量
             String userId = userInfoRequest.getUserId();
             logInfo.sendTaskLog("智能排版准备就绪，正在打开页面", userId, "智能排版");
             String roles = userInfoRequest.getRoles();
