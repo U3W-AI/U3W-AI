@@ -4,14 +4,20 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ----------------------------
--- Table structure for sys_role_menu
+-- 创建数据库（如果不存在）
 -- ----------------------------
+CREATE DATABASE IF NOT EXISTS `ucube` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `ucube`;
+
+-- ----------------------------
+-- Table structure for sys_role_menu
+-- ---------------------------- 
 DROP TABLE IF EXISTS `sys_role_menu`;
 CREATE TABLE `sys_role_menu` (
   `role_id` bigint(20) NOT NULL COMMENT '角色ID',
   `menu_id` bigint(20) NOT NULL COMMENT '菜单ID',
   PRIMARY KEY (`role_id`,`menu_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色和菜单关联表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色和菜单关联表';
 
 
 -- ----------------------------
@@ -241,7 +247,7 @@ CREATE TABLE `sys_menu` (
   `update_time` datetime DEFAULT NULL COMMENT '更新时间',
   `remark` varchar(500) DEFAULT '' COMMENT '备注',
   PRIMARY KEY (`menu_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2022 DEFAULT CHARSET=utf8mb4 COMMENT='菜单权限表';
+) ENGINE=InnoDB AUTO_INCREMENT=2022 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='菜单权限表';
 
 -- ----------------------------
 -- Records of sys_menu
@@ -371,7 +377,7 @@ CREATE TABLE `sys_dict_data` (
   `update_time` datetime DEFAULT NULL COMMENT '更新时间',
   `remark` varchar(500) DEFAULT NULL COMMENT '备注',
   PRIMARY KEY (`dict_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=145 DEFAULT CHARSET=utf8mb4 COMMENT='字典数据表';
+) ENGINE=InnoDB AUTO_INCREMENT=145 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='字典数据表';
 
 -- ----------------------------
 -- Records of sys_dict_data
@@ -481,7 +487,7 @@ CREATE TABLE `gen_table_column` (
   `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
   `update_time` datetime DEFAULT NULL COMMENT '更新时间',
   PRIMARY KEY (`column_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=64 DEFAULT CHARSET=utf8mb4 COMMENT='代码生成业务表字段';
+) ENGINE=InnoDB AUTO_INCREMENT=64 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='代码生成业务表字段';
 
 -- ----------------------------
 -- Records of gen_table_column
@@ -1550,7 +1556,7 @@ CREATE TABLE `wc_chat_history` (
   `baidu_chat_id` varchar(100) DEFAULT NULL COMMENT '百度会话ID',
   `zhzd_chat_id` varchar(100) DEFAULT NULL COMMENT '知乎直答会话ID',
   `chat_id` varchar(36) DEFAULT NULL COMMENT '内部chatID'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_chat_history
@@ -1571,7 +1577,7 @@ CREATE TABLE `wc_chrome_data` (
   `aiName` varchar(255) DEFAULT NULL COMMENT 'ai名称',
   `create_time` datetime DEFAULT NULL COMMENT '创建时间',
   `user_name` varchar(255) DEFAULT NULL COMMENT '创建人'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_chrome_data
@@ -1594,7 +1600,7 @@ CREATE TABLE `wc_chrome_drafts` (
   `create_time` datetime DEFAULT NULL COMMENT '创建时间',
   `is_push` int(4) DEFAULT NULL COMMENT '是否已经推送过公众号',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_chrome_drafts
@@ -1624,7 +1630,7 @@ CREATE TABLE `wc_chrome_hotlink` (
   `user_name` varchar(255) DEFAULT '0' COMMENT '创建人',
   `text` longtext COMMENT '正文',
   PRIMARY KEY (`link_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_chrome_hotlink
@@ -1648,7 +1654,7 @@ CREATE TABLE `wc_chrome_hotword` (
   `create_time` datetime DEFAULT NULL COMMENT '创建时间',
   `user_name` varchar(255) DEFAULT NULL COMMENT '创建人',
   `update_time` datetime DEFAULT NULL COMMENT '修改时间'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_chrome_hotword
@@ -1669,7 +1675,7 @@ CREATE TABLE `wc_chrome_hotword_log` (
   `answer` varchar(255) DEFAULT NULL COMMENT '修改后热词',
   `user_name` varchar(255) DEFAULT NULL COMMENT '修改人',
   `create_time` datetime DEFAULT NULL COMMENT '创建时间'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_chrome_hotword_log
@@ -1697,7 +1703,7 @@ CREATE TABLE `wc_chrome_keyword` (
   `create_time` datetime DEFAULT NULL COMMENT '创建时间',
   `user_name` varchar(255) DEFAULT '0' COMMENT '创建人',
   PRIMARY KEY (`link_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_chrome_keyword
@@ -1720,7 +1726,7 @@ CREATE TABLE `wc_chrome_task` (
   `plan_time` varchar(255) DEFAULT NULL COMMENT '预计执行时间',
   `user_id` varchar(255) DEFAULT NULL COMMENT '用户id',
   `corp_id` varchar(255) DEFAULT NULL COMMENT '企业ID'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_chrome_task
@@ -1738,7 +1744,7 @@ CREATE TABLE `wc_chrome_task_prompt` (
   `task_prompt` varchar(255) DEFAULT NULL COMMENT '指令模板',
   `user_id` int(11) DEFAULT NULL COMMENT '用户ID',
   `user_name` varchar(255) DEFAULT NULL COMMENT '用户unionid'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_chrome_task_prompt
@@ -1759,7 +1765,7 @@ CREATE TABLE `wc_chrome_template` (
   `user_name` varchar(255) DEFAULT NULL COMMENT '上传人unionid',
   `flow_status` int(4) DEFAULT NULL COMMENT '审核状态',
   `create_time` datetime DEFAULT NULL COMMENT '上传时间'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_chrome_template
@@ -1836,7 +1842,7 @@ CREATE TABLE `wc_js_template` (
   `emp_name` varchar(255) DEFAULT NULL COMMENT '创建人姓名',
   `update_time` datetime DEFAULT NULL COMMENT '更新时间',
   `updator` varchar(36) DEFAULT NULL COMMENT '更新人'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_js_template
@@ -1857,7 +1863,7 @@ CREATE TABLE `wc_node_log` (
   `res` longtext COMMENT '返回结果',
   `create_time` datetime DEFAULT NULL COMMENT '创建时间',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_node_log
@@ -1879,7 +1885,7 @@ CREATE TABLE `wc_office_account` (
   `media_id` varchar(100) DEFAULT NULL COMMENT '素材id',
   `pic_url` varchar(255) DEFAULT NULL COMMENT '图片连接',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_office_account
@@ -1903,7 +1909,7 @@ CREATE TABLE `wc_order_detail` (
   `create_time` varchar(10) DEFAULT NULL COMMENT '下单时间',
   `update_time` varchar(10) DEFAULT NULL COMMENT '更新时间',
   `url_link` varchar(255) DEFAULT NULL COMMENT '专属链接'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_order_detail
@@ -1953,7 +1959,7 @@ CREATE TABLE `wc_playwright_task` (
   `plan_time` varchar(255) DEFAULT NULL COMMENT '预计执行时间',
   `user_id` varchar(255) DEFAULT NULL COMMENT '用户id',
   `corp_id` varchar(255) DEFAULT NULL COMMENT '企业ID'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_playwright_task
@@ -2014,7 +2020,7 @@ CREATE TABLE `wc_prompt_template` (
   `type` int(3) DEFAULT NULL COMMENT '模板类型 1 附加提示词 2.用户偏好',
   `user_id` varchar(255) DEFAULT NULL COMMENT '用户ID',
   `isdel` int(3) DEFAULT NULL COMMENT '是否删除 1是0否'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_prompt_template
@@ -2075,7 +2081,7 @@ CREATE TABLE `wc_strategy` (
   `collection_num` int(11) DEFAULT '0' COMMENT '总收藏',
   `like_num` int(11) DEFAULT '0' COMMENT '总点赞',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_strategy
@@ -2126,7 +2132,7 @@ CREATE TABLE `wc_user_chat` (
   `chat_history` longtext COMMENT '对话内容',
   `conversation_id` varchar(36) DEFAULT NULL COMMENT '唯一会话ID',
   `create_time` datetime DEFAULT NULL COMMENT '上次对话时间'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_user_chat
@@ -2143,7 +2149,7 @@ CREATE TABLE `wc_user_flow` (
   `flow_id` varchar(36) DEFAULT NULL COMMENT '工作流ID',
   `flow_name` varchar(36) DEFAULT NULL COMMENT '工作流名称',
   `create_time` datetime DEFAULT NULL COMMENT '创建时间'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_user_flow
@@ -2212,7 +2218,7 @@ CREATE TABLE `wc_user_yq` (
   `yq_id` varchar(100) DEFAULT NULL COMMENT '智能体ID',
   `type` varchar(255) DEFAULT NULL COMMENT '智能体名称',
   `corp_id` varchar(255) DEFAULT NULL COMMENT '企业ID'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_user_yq
@@ -2280,11 +2286,11 @@ CREATE TABLE `wechat_office_account` (
 
 DROP TABLE IF EXISTS `wc_call_word`;
 CREATE TABLE `wc_call_word`  (
-                                 `platform_id` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '平台标识 wechat_layout-公众号排版 zhihu_layout-知乎排版',
-                                 `word_content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '提示词内容',
+                                 `platform_id` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '平台标识 wechat_layout-公众号排版 zhihu_layout-知乎排版',
+                                 `word_content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '提示词内容',
                                  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                  PRIMARY KEY (`platform_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '平台提示词配置表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '平台提示词配置表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of wc_call_word
@@ -2312,7 +2318,7 @@ CREATE TABLE `wc_log_info` (
                                KEY `idx_user_id` (`user_id`),
                                KEY `idx_execution_time` (`execution_time`),
                                KEY `idx_method_name` (`method_name`)
-) ENGINE=InnoDB AUTO_INCREMENT=263 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='日志信息表（记录方法执行日志）';
+) ENGINE=InnoDB AUTO_INCREMENT=263 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='日志信息表（记录方法执行日志）';
 
 BEGIN;
 COMMIT;
