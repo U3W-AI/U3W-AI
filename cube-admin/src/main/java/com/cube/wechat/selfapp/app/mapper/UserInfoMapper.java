@@ -63,7 +63,6 @@ public interface UserInfoMapper {
 
     WcOfficeAccount getOfficeAccountByUserId(Long user_id);
 
-
     void saveOfficeAccount(WcOfficeAccount wcOfficeAccount);
 
     void updateOfficeAccount(WcOfficeAccount wcOfficeAccount);

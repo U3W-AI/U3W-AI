@@ -77,51 +77,54 @@ public class WeChatMessageService {
      */
     public ApiResponse getUserByMessage(String timestamp, String content) {
         try {
-            System.out.println("\n" + "-".repeat(80));
-            System.out.printf("🔍 工作流查询 | %s | %s%n", timestamp, content);
-            System.out.println("-".repeat(80));
+            // 简化的单行日志
+            logger.info("🔍 查询消息 | {} | {}", timestamp, content);
             
             // 参数验证
-            if (!StringUtils.hasText(timestamp)) {
-                logger.warn("❌ 参数验证失败: timestamp为空");
-                return ApiResponse.error();
-            }
-            if (!StringUtils.hasText(content)) {
-                logger.warn("❌ 参数验证失败: content为空");
-                return ApiResponse.error();
+            if (!StringUtils.hasText(timestamp) || !StringUtils.hasText(content)) {
+                String defaultUnionId = "ovZrQ673x1GGaP6cX5XUnfzu7TmE";
+                logger.info("📤 返回结果 | 错误码: 10020 | union_id: {}", defaultUnionId);
+                return ApiResponse.success(defaultUnionId);
             }
             
             // 解析时间戳
             Long targetTime = parseTimestamp(timestamp);
             if (targetTime == null) {
-                logger.warn("❌ 时间戳解析失败: {}", timestamp);
-                return ApiResponse.error();
+                String defaultUnionId = "ovZrQ673x1GGaP6cX5XUnfzu7TmE";
+                logger.info("📤 返回结果 | 错误码: 10020 | union_id: {}", defaultUnionId);
+                return ApiResponse.success(defaultUnionId);
             }
             
             // 在4秒时间范围内查找匹配的消息
             List<WeChatMessage> matchedMessages = findMatchedMessages(targetTime, content);
             
             if (matchedMessages.isEmpty()) {
-                logger.warn("❌ 未找到匹配消息 (缓存中有{}条消息)", messageCache.size());
-                return ApiResponse.notFound();
+                String defaultUnionId = "ovZrQ673x1GGaP6cX5XUnfzu7TmE";
+                logger.info("📤 返回结果 | 错误码: 10010 | union_id: {}", defaultUnionId);
+                return ApiResponse.success(defaultUnionId);
             }
             
             if (matchedMessages.size() > 1) {
-                logger.warn("❌ 发现重复消息: {}条", matchedMessages.size());
-                return ApiResponse.busy();
+                String defaultUnionId = "ovZrQ673x1GGaP6cX5XUnfzu7TmE";
+                logger.info("📤 返回结果 | 错误码: 10100 | union_id: {}", defaultUnionId);
+                return ApiResponse.success(defaultUnionId);
             }
             
             WeChatMessage message = matchedMessages.get(0);
-            logger.info("✅ 查询成功: UnionID={}", message.getUnionId());
             
             // 使用后删除缓存
             removeMessageFromCache(message);
-            
-            return ApiResponse.success(message.getUnionId());
+            String unionId = message.getUnionId();
+            if(unionId == null) {
+                unionId = "ovZrQ673x1GGaP6cX5XUnfzu7TmE"; // 默认值
+            }
+            logger.info("📤 返回结果 | 错误码: 200 | union_id: {}", unionId);
+            return ApiResponse.success(unionId);
             
         } catch (Exception e) {
-            logger.error("❌ 查询用户消息失败", e);
-            return ApiResponse.error();
+            String defaultUnionId = "ovZrQ673x1GGaP6cX5XUnfzu7TmE";
+            logger.info("📤 返回结果 | 错误码: 10020 | union_id: {}", defaultUnionId);
+            return ApiResponse.success(defaultUnionId);
         }
     }
     
@@ -137,10 +140,9 @@ public class WeChatMessageService {
                 if (String.valueOf(ts).length() == 10) {
                     ts *= 1000;
                 }
-                logger.info("✅ 时间解析成功: {} -> {}", timestamp, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(ts)));
                 return ts;
             } catch (NumberFormatException e) {
-                logger.warn("❌ 数字时间戳解析失败: {}", timestamp);
+                // 静默处理
             }
         }
         
@@ -165,18 +167,12 @@ public class WeChatMessageService {
                     parsedTime = cal.getTimeInMillis();
                 }
                 
-                logger.info("✅ 时间解析成功: {} -> {}", timestamp, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(parsedTime)));
                 return parsedTime;
             } catch (ParseException e) {
                 // 静默处理格式不匹配
             }
         }
         
-        logger.warn("❌ 时间解析失败: {}", timestamp);
-        logger.warn("📋 支持的时间格式:");
-        for (int i = 0; i < TIME_FORMATS.size(); i++) {
-            logger.warn("   [{}] {}", i, TIME_FORMATS.get(i).toPattern());
-        }
         return null;
     }
     
@@ -185,50 +181,23 @@ public class WeChatMessageService {
      */
     private List<WeChatMessage> findMatchedMessages(Long targetTime, String content) {
         List<WeChatMessage> matchedMessages = new ArrayList<>();
-        long currentTime = System.currentTimeMillis();
         
         // 查找时间范围：目标时间前4秒
         long startTime = targetTime - 4000;
         long endTime = targetTime;
         
-        logger.info("🔍 查找匹配消息");
-        logger.info("📅 时间范围: {} ~ {}", new Date(startTime), new Date(endTime));
-        logger.info("📝 匹配内容: '{}'", content);
-        logger.info("📊 当前内存缓存: {}条消息", messageCache.size());
-        
         // 从内存缓存中查找
-        int checkedCount = 0;
         for (WeChatMessage message : messageCache.values()) {
-            checkedCount++;
-            logger.info("🔎 检查消息[{}]: 时间={}, 内容='{}', UnionID={}", 
-                checkedCount, new Date(message.getCreateTime()), message.getContent(), message.getUnionId());
-            
             if (message.getCreateTime() != null && 
                 message.getCreateTime() >= startTime && 
                 message.getCreateTime() <= endTime &&
                 content.equals(message.getContent())) {
-                logger.info("✅ 找到匹配消息: 时间={}, 内容='{}', UnionID={}", 
-                    new Date(message.getCreateTime()), message.getContent(), message.getUnionId());
                 matchedMessages.add(message);
-            } else {
-                // 详细说明为什么不匹配
-                if (message.getCreateTime() == null) {
-                    logger.info("❌ 时间为空");
-                } else if (message.getCreateTime() < startTime) {
-                    logger.info("❌ 时间太早: {} < {}", new Date(message.getCreateTime()), new Date(startTime));
-                } else if (message.getCreateTime() > endTime) {
-                    logger.info("❌ 时间太晚: {} > {}", new Date(message.getCreateTime()), new Date(endTime));
-                } else if (!content.equals(message.getContent())) {
-                    logger.info("❌ 内容不匹配: '{}' != '{}'", content, message.getContent());
-                }
             }
         }
         
-        logger.info("🔍 内存缓存查找结果: 检查了{}条消息，找到{}条匹配", checkedCount, matchedMessages.size());
-        
         // 如果内存缓存中没有找到，尝试从Redis中查找
         if (matchedMessages.isEmpty()) {
-            logger.info("🔄 内存缓存未找到，尝试Redis查找...");
             matchedMessages = findFromRedis(startTime, endTime, content);
         }
         
@@ -244,9 +213,8 @@ public class WeChatMessageService {
         try {
             // 由于RedisUtil没有keys方法，我们使用内存缓存进行查找
             // 在实际生产环境中，建议使用Redis的scan命令来避免keys的性能问题
-            logger.info("从Redis查找消息，时间范围: {} - {}, 内容: {}", startTime, endTime, content);
         } catch (Exception e) {
-            logger.error("从Redis查找消息失败", e);
+            // 静默处理异常
         }
         
         return matchedMessages;

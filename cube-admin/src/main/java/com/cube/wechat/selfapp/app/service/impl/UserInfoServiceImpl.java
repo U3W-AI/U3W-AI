@@ -211,6 +211,15 @@ public class UserInfoServiceImpl implements UserInfoService {
     }
 
     @Override
+    public ResultBody getOfficeAccountByUserId(String userId) {
+        WcOfficeAccount woa = userInfoMapper.getOfficeAccountByUserName(userId);
+        if(woa != null) {
+            return ResultBody.success(woa);
+        }
+        return ResultBody.FAIL;
+    }
+
+    @Override
     public ResultBody pushAutoOneOffice(Map map) {
         WcOfficeAccount woa = userInfoMapper.getOfficeAccountByUserName(map.get("userId") + "");
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -238,6 +247,7 @@ public class UserInfoServiceImpl implements UserInfoService {
         jsonObject.put("author", woa.getOfficeAccountName());
         jsonObject.put("content", contentText);
         jsonObject.put("thumb_media_id", woa.getMediaId());
+        jsonObject.put("content_source_url", map.get("shareUrl"));
         paramlist.add(jsonObject);
         JSONObject param = new JSONObject();
         param.put("articles", paramlist);
@@ -376,11 +386,6 @@ public class UserInfoServiceImpl implements UserInfoService {
         return true;
     }
 
-    @Override
-    public ResultBody getOfficeAccount(Long userId) {
-        WcOfficeAccount woc = userInfoMapper.getOfficeAccountByUserId(userId);
-        return ResultBody.success(woc);
-    }
 
     @Override
     public ResultBody getAgentBind(Long userId) {

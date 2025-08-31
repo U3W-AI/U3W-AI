@@ -35,6 +35,10 @@ public class UserInfoController extends BaseController {
 
     @Autowired
     private MyWebSocketHandler myWebSocketHandler;
+    @GetMapping("/getOfficeAccount")
+    public ResultBody getOfficeAccount(String userId){
+        return userInfoService.getOfficeAccountByUserId(userId);
+    }
 
     @GetMapping("/getUserCount")
     public ResultBody getUserCount(@ApiParam("用户ID") String userId){
@@ -123,10 +127,6 @@ public class UserInfoController extends BaseController {
         return userInfoService.pushViewAutoOffice(taskId);
     }
 
-    @GetMapping("/getOfficeAccount")
-    public ResultBody getOfficeAccount(){
-        return userInfoService.getOfficeAccount(getUserId());
-    }
     @GetMapping("/getAgentBind")
     public ResultBody getAgentBind(){
         return userInfoService.getAgentBind(getUserId());
