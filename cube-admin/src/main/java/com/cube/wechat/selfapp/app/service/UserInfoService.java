@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 public interface UserInfoService {
+    ResultBody getOfficeAccountByUserId(String userId);
 
     /**
      * 查询个人中心统计数据
@@ -54,7 +55,6 @@ public interface UserInfoService {
     ResultBody saveOfficeAccount(WcOfficeAccount wcOfficeAccount);
 
 
-    ResultBody getOfficeAccount(Long userId);
     ResultBody getAgentBind(Long userId);
     ResultBody getSpaceInfoByUserId(Long userId);
 
