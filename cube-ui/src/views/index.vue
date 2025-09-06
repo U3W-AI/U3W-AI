@@ -362,7 +362,7 @@
         </el-form-item>
         <el-form-item label="规范说明" :label-width="formLabelWidth">
           <div style="color: #f56c6c; font-size: 13px">
-            请把IP: 175.178.154.216 添加到公众号IP白名单。步骤：登录微信公众平台→点击设置与开发→安全中心→IP白名单。一般一小时后生效。
+            请把当前后台IP添加到公众号IP白名单。步骤：登录微信公众平台→点击设置与开发→安全中心→IP白名单。一般一小时后生效。
           </div>
         </el-form-item>
       </el-form>
