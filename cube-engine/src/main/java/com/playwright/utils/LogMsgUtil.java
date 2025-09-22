@@ -1,5 +1,6 @@
 package com.playwright.utils;
 
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.microsoft.playwright.Page;
 import com.playwright.websocket.WebSocketClientService;
@@ -88,6 +89,19 @@ public class LogMsgUtil {
         resData.put("aiName",aiName);
         resData.put("type", type);
         resData.put("userId",userId);
+        
+        // 🔥 修复前端错误：添加 aiResponses 字段以兼容前端期望的数据格式
+        JSONObject aiResponse = new JSONObject();
+        aiResponse.put("content", copiedText);
+        aiResponse.put("shareUrl", shareUrl);
+        aiResponse.put("shareImgUrl", shareImgUrl);
+        aiResponse.put("aiName", aiName);
+        
+        JSONArray aiResponses = new JSONArray();
+        aiResponses.add(aiResponse);
+        resData.put("aiResponses", aiResponses);
+        
+        System.out.println("🔥 发送WebSocket消息到前端: " + type + " - " + aiName + " - 用户ID: " + userId);
         webSocketClientService.sendMessage(resData.toJSONString());
     }
 
@@ -129,61 +143,5 @@ public class LogMsgUtil {
             webSocketClientService.sendMessage(chatData.toJSONString());
         }
     }
-    /**
-     * 发送投递到媒体任务日志消息
-     * @param taskNode 任务节点描述信息
-     * @param userId 用户ID
-     * @param mediaName 媒体名称
-     */
-    public void sendMediaTaskLog(String taskNode,String userId,String mediaName){
 
-        JSONObject logData = new JSONObject();
-        logData.put("content",taskNode);
-        logData.put("userId",userId);
-        logData.put("type","RETURN_MEDIA_TASK_LOG");
-        logData.put("aiName",mediaName);
-        webSocketClientService.sendMessage(logData.toJSONString());
-    }
-    /**
-     * 媒体任务投递结果
-     * @param isSuccess 是否成功
-     * @param userId 用户ID
-     * @param mediaName 媒体名称
-     */
-    public void sendMediaTaskRes(boolean isSuccess,String userId,String mediaName){
-
-        JSONObject logData = new JSONObject();
-        logData.put("isSuccess",isSuccess);
-        logData.put("userId",userId);
-        logData.put("type","RETURN_MEDIA_TASK_RES");
-        logData.put("aiName",mediaName);
-        webSocketClientService.sendMessage(logData.toJSONString());
-    }
-
-    /**
-     * 发送 投递到微头条的流程
-     */
-    public void sendTTHFlow(String taskNode, String userId){
-        JSONObject flowData = new JSONObject();
-        flowData.put("content", taskNode);
-        flowData.put("type", "RETURN_TTH_FLOW");
-        flowData.put("userId", userId);
-        webSocketClientService.sendMessage(flowData.toJSONString());
-    }
-
-    /**
-     * 发送内容标题消息
-     * @param content
-     * @param title
-     * @param userId
-     * @param type
-     */
-    public void sendContentAndTitle(String content, String title, String userId, String type){
-        JSONObject resData = new JSONObject();
-        resData.put("content",content);
-        resData.put("title",title);
-        resData.put("type", type);
-        resData.put("userId",userId);
-        webSocketClientService.sendMessage(resData.toJSONString());
-    }
 }

@@ -91,5 +91,5 @@ mvn -v
 在命令提示符（CMD）中输入以下命令拉取项目仓库：
 
 ```bash
-git clone https://github.com/U3W-AI/U3W-AI.git
+git clone https://gitee.com/U3W-AI/U3W-AI.git
 ```

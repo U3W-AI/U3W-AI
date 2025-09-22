@@ -1,8 +1,10 @@
 package com.playwright.utils;
 
 import com.alibaba.fastjson.JSONObject;
+import com.microsoft.playwright.ElementHandle;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.TimeoutError;
 import com.microsoft.playwright.options.LoadState;
 import com.microsoft.playwright.options.WaitUntilState;
 import com.playwright.entity.UserInfoRequest;
@@ -11,9 +13,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeoutException;
+
+import static com.playwright.utils.ScreenshotUtil.uploadFile;
 
 /**
  * DeepSeek AI平台工具类
@@ -50,19 +60,36 @@ public class DeepSeekUtil {
             if (navigate) {
                 page.navigate("https://chat.deepseek.com/");
                 page.waitForLoadState();
-                page.waitForTimeout(2000); // 增加等待时间确保页面完全加载
+                page.waitForTimeout(1500); // 增加等待时间确保页面完全加载
             }
-            
+
             // 检查是否有登录按钮，如果有则表示未登录
             try {
                 Locator loginBtn = page.locator("button:has-text('登录'), button:has-text('Login')").first();
                 if (loginBtn.count() > 0 && loginBtn.isVisible()) {
                     return "false";
                 }
-            } catch (Exception e) {
+            } catch (Exception e) { //todo
                 // 忽略检查错误
             }
-            
+
+            // 首先尝试关闭侧边栏
+            try {
+                // 等待侧边栏关闭按钮出现并点击
+                ElementHandle closeButton = page.waitForSelector(
+                        "div[class*='_4f3769f']",
+                        new Page.WaitForSelectorOptions().setTimeout(2000));
+
+                if (closeButton != null) {
+                    closeButton.click(new ElementHandle.ClickOptions().setTimeout(30000));
+
+                    // 等待一下确保侧边栏关闭动画完成
+                    page.waitForTimeout(800);
+                }
+            } catch (Exception e) {
+//                logInfo.sendTaskLog("关闭侧边栏失败或按钮不存在: " + e.getMessage(), userId, "DeepSeek");
+            }
+
             // 特别针对用户昵称"Obvious"的检测
             try {
                 // 点击头像显示下拉菜单
@@ -70,97 +97,25 @@ public class DeepSeekUtil {
                 if (avatarLocator.count() > 0 && avatarLocator.isVisible()) {
                     avatarLocator.click();
                     page.waitForTimeout(1500); // 增加等待时间确保下拉菜单显示
-                    
-                    // 优先检查pending选项，这通常包含用户昵称
-                    Locator pendingOption = page.locator(".ds-dropdown-menu-option--pending").first();
-                    if (pendingOption.count() > 0 && pendingOption.isVisible()) {
-                        Locator nameLabel = pendingOption.locator(".ds-dropdown-menu-option__label").first();
-                        if (nameLabel.count() > 0) {
-                            String name = nameLabel.textContent();
-                            if (name != null && !name.trim().isEmpty() && 
+
+
+                    // new 直接定位到包含用户名的元素
+                    Locator userNameElement = page.locator("div._9d8da05").first();
+
+                    if (userNameElement.count() > 0 && userNameElement.isVisible()) {
+                        String name = userNameElement.textContent();
+                        if (name != null && !name.trim().isEmpty() &&
                                 !name.trim().equals("登录") && !name.trim().equals("Login")) {
-                                                                            // 找到用户昵称
-                                return name.trim();
-                            }
+                            // 找到用户昵称
+                            return name.trim();
                         }
                     }
-                    
-                    // 检查所有可能的标签，找出用户昵称
-                    Locator allLabels = page.locator(".ds-dropdown-menu-option__label");
-                    for (int i = 0; i < allLabels.count(); i++) {
-                        String labelText = allLabels.nth(i).textContent();
-                        if (labelText != null && !labelText.trim().isEmpty() && 
-                            !labelText.trim().equals("登录") && !labelText.trim().equals("Login") &&
-                            !labelText.trim().equals("系统设置") && !labelText.trim().equals("联系我们") && 
-                            !labelText.trim().equals("退出登录")) {
-                                                                        // 找到用户昵称
-                            return labelText.trim();
-                        }
-                    }
-                    
-                    // 使用JavaScript进行更深入的检测
-                    Object userName = page.evaluate("""
-                        () => {
-                            try {
-                                // 特别针对"Obvious"用户名的检测
-                                const allElements = document.querySelectorAll('*');
-                                for (const el of allElements) {
-                                    if (el.textContent && el.textContent.trim() === 'Obvious') {
-                                        return 'Obvious';
-                                    }
-                                }
-                                
-                                // 检查pending选项
-                                const pendingOption = document.querySelector('.ds-dropdown-menu-option--pending');
-                                if (pendingOption) {
-                                    const nameLabel = pendingOption.querySelector('.ds-dropdown-menu-option__label');
-                                    if (nameLabel && nameLabel.textContent) {
-                                        return nameLabel.textContent.trim();
-                                    }
-                                }
-                                
-                                // 检查所有可能的标签
-                                const allLabels = document.querySelectorAll('.ds-dropdown-menu-option__label');
-                                for (const label of allLabels) {
-                                    if (label && label.textContent && 
-                                        label.textContent.trim() !== '登录' && 
-                                        label.textContent.trim() !== 'Login' &&
-                                        label.textContent.trim() !== '系统设置' &&
-                                        label.textContent.trim() !== '联系我们' &&
-                                        label.textContent.trim() !== '退出登录') {
-                                        return label.textContent.trim();
-                                    }
-                                }
-                                
-                                // 检查是否有退出登录选项，如果有则表示已登录
-                                const logoutOption = Array.from(allLabels).find(label => 
-                                    label.textContent && 
-                                    (label.textContent.trim() === '退出登录' || 
-                                     label.textContent.trim() === 'Logout'));
-                                     
-                                if (logoutOption) {
-                                    return '已登录用户';
-                                }
-                                
-                                return null;
-                            } catch (e) {
-                                console.error('JS检测用户名出错:', e);
-                                return null;
-                            }
-                        }
-                    """);
-                    
-                    if (userName != null && !userName.toString().equals("null")) {
-                                                        // 找到用户昵称
-                        return userName.toString();
-                    }
-                    
                     // 即使未找到昵称，也已确认已登录
                     return "已登录用户";
                 }
             } catch (Exception e) {
             }
-            
+
             // 最后尝试使用通用方法检测登录状态
             try {
                 // 检查是否有新建聊天按钮或其他已登录状态的标志
@@ -168,7 +123,7 @@ public class DeepSeekUtil {
                 if (newChatBtn.count() > 0 && newChatBtn.isVisible()) {
                     return "已登录用户";
                 }
-                
+
                 // 检查是否有聊天历史记录
                 Locator chatHistory = page.locator(".conversation-list, .chat-history").first();
                 if (chatHistory.count() > 0 && chatHistory.isVisible()) {
@@ -177,7 +132,7 @@ public class DeepSeekUtil {
             } catch (Exception e) {
                 // 忽略检查错误
             }
-            
+
             // 默认返回未登录状态
             return "false";
         } catch (Exception e) {
@@ -192,64 +147,17 @@ public class DeepSeekUtil {
      * @param screenshotUtil 截图工具
      * @return 二维码截图URL
      */
-    public String waitAndGetQRCode(Page page, String userId, ScreenshotUtil screenshotUtil) throws IOException {
+    public String waitAndGetQRCode(Page page, String userId, ScreenshotUtil screenshotUtil) throws Exception {
         try {
             logInfo.sendTaskLog("正在获取DeepSeek登录二维码", userId, "DeepSeek");
-            
-            // 导航到DeepSeek登录页面
+
+            // 导航到DeepSeek登录页面，启用等待直到网络空闲
             page.navigate("https://chat.deepseek.com/");
             page.waitForLoadState();
-            
+
             // 直接截图当前页面（包含登录按钮）
             String url = screenshotUtil.screenshotAndUpload(page, "checkDeepSeekLogin.png");
-            
-            // 尝试点击登录按钮
-            try {
-                // 简单的选择器，尝试点击登录按钮
-                String[] loginSelectors = {
-                    "button:has-text('登录')",
-                    "button:has-text('Login')",
-                    "a:has-text('登录')",
-                    "a:has-text('Login')"
-                };
-                
-                boolean clicked = false;
-                for (String selector : loginSelectors) {
-                    try {
-                        Locator loginBtn = page.locator(selector).first();
-                        if (loginBtn.count() > 0 && loginBtn.isVisible()) {
-                            loginBtn.click();
-                            clicked = true;
-                            Thread.sleep(500); // 从1000ms减少到500ms
-                            break;
-                        }
-                    } catch (Exception e) {
-                        // 忽略点击错误
-                    }
-                }
-                
-                // 如果没有找到登录按钮，尝试使用JavaScript点击
-                if (!clicked) {
-                    page.evaluate("""
-                            () => {\s
-                              const buttons = document.querySelectorAll('button, a');
-                              for (const btn of buttons) {
-                                if (btn.innerText && (btn.innerText.includes('登录') || btn.innerText.includes('Login'))) {
-                                  btn.click();
-                                  return true;
-                                }
-                              }
-                              return false;
-                            }""");
-                    Thread.sleep(500); // 从1000ms减少到500ms
-                }
-                
-                // 再次截图（可能已经显示二维码）
-                url = screenshotUtil.screenshotAndUpload(page, "checkDeepSeekLogin.png");
-            } catch (Exception e) {
-                // 出错也返回第一次的截图
-            }
-            
+
             logInfo.sendTaskLog("DeepSeek二维码获取成功", userId, "DeepSeek");
             return url;
         } catch (Exception e) {
@@ -265,857 +173,508 @@ public class DeepSeekUtil {
      * @param roles 角色信息，用于判断是否为深度思考模式
      * @return 获取的回答内容
      */
-    public String waitDeepSeekResponse(Page page, String userId, String aiName, String roles) throws InterruptedException {
+    public String waitDeepSeekResponse(Page page, String userId, String aiName, String roles) {
         try {
             // 等待页面内容稳定
             String currentContent = "";
             String lastContent = "";
-            boolean isContentStable = false;
             int stableCount = 0;
-            
-            // 设置最大等待时间（单位：毫秒），比如 10 分钟
-            long timeout = 600000; // 10 分钟
+            int emptyCount = 0;
+            int noChangeCount = 0;
+            int contentLengthHistory[] = new int[3]; // 记录最近三次内容长度
+            boolean hasCompletionMarkers = false; // 是否检测到完成标记
+  
             long startTime = System.currentTimeMillis();
-            long lastScreenshotTime = 0; // 记录上次截图时间
-            int screenshotCount = 0; // 截图计数
+
+            // 添加初始延迟，确保页面完全加载
+            page.waitForTimeout(500);
             
-            // 添加初始延迟，确保页面完全加载，避免检测到上次会话的复制按钮
-            // 设置初始等待时间为2000ms，确保页面基本加载
-            page.waitForTimeout(2000);  // 初始等待2秒，确保页面基本加载
+            // 判断是否为深度思考或联网模式
+            boolean isDeepThinkingMode = roles != null && roles.contains("ds-sdsk");
+            boolean isWebSearchMode = roles != null && roles.contains("ds-lwss");
             
-            // 重置消息发送时间戳，避免历史值干扰
-            page.evaluate("() => { window._deepseekMessageSentTime = Date.now(); console.log('设置消息发送时间戳: ' + window._deepseekMessageSentTime); }");
+            // 根据不同模式设置不同的超时和稳定参数
+            long maxTimeout = 300000; // 默认5分钟
+            int requiredStableCount = 1; // 默认稳定次数
+            int checkInterval = 200; // 默认检查间隔
             
-            // 记录开始时间，用于强制等待最小时间
-            long messageStartTime = System.currentTimeMillis();
-            
-            // 记录初始状态，用于后续比较
-            boolean initialPageLoaded = false;
-            int initialCopyButtonCount = 0;
-            
-            try {
-                // 记录初始复制按钮数量
-                Object initialCounts = page.evaluate("""
-                    () => {
-                        const regularButtons = document.querySelectorAll('.ds-icon-button, [data-testid="copy-button"], .copy-button');
-                        const specificButtons = document.querySelectorAll('div.ds-flex .ds-icon-button');
-                        return {
-                            regularCount: regularButtons.length,
-                            specificCount: specificButtons.length
-                        };
-                    }
-                """);
-                
-                if (initialCounts instanceof Map) {
-                    Map<String, Object> counts = (Map<String, Object>) initialCounts;
-                    int regularCount = ((Number) counts.getOrDefault("regularCount", 0)).intValue();
-                    int specificCount = ((Number) counts.getOrDefault("specificCount", 0)).intValue();
-                    initialCopyButtonCount = regularCount + specificCount;
-                    
-                    // 记录初始复制按钮数量
-                    initialPageLoaded = true;
-                }
-            } catch (Exception e) {
+            if (isDeepThinkingMode && isWebSearchMode) {
+                maxTimeout = 1200000; // 深度思考+联网模式20分钟
+                requiredStableCount = 2; // 需要更多的稳定确认
+                checkInterval = 300; // 增加检查间隔
+                logInfo.sendTaskLog("启用深度思考+联网模式监听，等待时间可能较长", userId, aiName);
+            } else if (isDeepThinkingMode) {
+                maxTimeout = 900000; // 深度思考模式15分钟
+                requiredStableCount = 2; // 需要更多的稳定确认
+                checkInterval = 250; // 增加检查间隔
+                logInfo.sendTaskLog("启用深度思考模式监听，等待时间可能较长", userId, aiName);
+            } else if (isWebSearchMode) {
+                maxTimeout = 600000; // 联网模式10分钟
+                requiredStableCount = 2; // 需要更多的稳定确认
+                checkInterval = 250; // 增加检查间隔
+                logInfo.sendTaskLog("启用联网搜索模式监听", userId, aiName);
             }
-            
+
+            // 等待消息发出后4秒开始检测
+            page.waitForTimeout(4000);
+            logInfo.sendTaskLog("开始检测DeepSeek回复完成状态", userId, aiName);
+
+            // 添加定期截图变量
+            long lastScreenshotTime = System.currentTimeMillis();
+            int screenshotInterval = 6000; // 6秒截图一次
+            boolean hasEverHadContent = false; // 记录是否曾经有过内容
+
             // 进入循环，直到内容不再变化或者超时
             while (true) {
-                // 获取当前时间戳
+                // 检查是否超时
                 long elapsedTime = System.currentTimeMillis() - startTime;
-                
-                // 如果超时，退出循环
-                // 深度思考模式下延长超时时间
-                boolean isDeepThinkingMode = roles != null && roles.contains("ds-sdsk");
-                long maxTimeout = isDeepThinkingMode ? 1200000 : 600000; // 深度思考模式20分钟，普通模式10分钟
-                
                 if (elapsedTime > maxTimeout) {
-                    logInfo.sendTaskLog("超时，AI未完成回答！", userId, aiName);
+                    logInfo.sendTaskLog("超时，AI未完成回答或回答时间过长！", userId, aiName);
                     break;
                 }
-                
-                // 尝试获取最新内容 - 优化DOM处理逻辑
-                try {
-                    // 使用JavaScript精确定位最新回答内容，避免获取历史回复和头像图标
-                    Object jsContent = page.evaluate("""
-                        () => {
-                            try {
-                                // 1. 首先尝试找到当前会话的最后一个AI回复消息容器
-                                const allMessages = document.querySelectorAll('.ds-chat-message-group');
-                                const latestAiMessage = Array.from(allMessages)
-                                    .filter(msg => msg.classList.contains('ds-chat-message-group--ai'))
-                                    .pop();
-                                
-                                if (latestAiMessage) {
-                                    // 找到最新AI消息中的Markdown内容容器
-                                    const markdownContent = latestAiMessage.querySelector('.ds-markdown, .flow-markdown-body, .ds-markdown--block');
-                                    if (markdownContent) {
-                                        // 克隆内容以避免修改原DOM
-                                        const contentClone = markdownContent.cloneNode(true);
-                                        
-                                        // 移除头像图标和其他无关元素
-                                        const iconsToRemove = contentClone.querySelectorAll(
-                                            '._7eb2358, ._58dfa60, .ds-icon, svg, ' +
-                                            '.avatar, .user-avatar, .ai-avatar, ' +
-                                            '.ds-button, button, [role="button"]'
-                                        );
-                                        iconsToRemove.forEach(icon => icon.remove());
-                                        
-                                        // 移除空的div容器
-                                        const emptyDivs = contentClone.querySelectorAll('div:empty');
-                                        emptyDivs.forEach(div => div.remove());
-                                        
-                                        return {
-                                            content: contentClone.innerHTML,
-                                            source: 'latest-ai-message',
-                                            timestamp: Date.now()
-                                        };
-                        }
-                    }
-                    
-                                // 2. 尝试通过时间戳或位置找到最新回复
-                                const messageContainers = document.querySelectorAll('.ds-chat-message-group--ai, .ai-message-container');
-                                if (messageContainers.length > 0) {
-                                    // 获取最后一个AI消息
-                                    const lastContainer = messageContainers[messageContainers.length - 1];
-                                    const contentElement = lastContainer.querySelector('.ds-markdown, .flow-markdown-body, .message-content');
-                                    
-                                    if (contentElement) {
-                                        // 克隆内容以避免修改原DOM
-                                        const contentClone = contentElement.cloneNode(true);
-                                        
-                                        // 移除头像图标和其他无关元素
-                                        const iconsToRemove = contentClone.querySelectorAll(
-                                            '._7eb2358, ._58dfa60, .ds-icon, svg, ' +
-                                            '.avatar, .user-avatar, .ai-avatar, ' +
-                                            '.ds-button, button, [role="button"]'
-                                        );
-                                        iconsToRemove.forEach(icon => icon.remove());
-                                        
-                                        // 移除空的div容器
-                                        const emptyDivs = contentClone.querySelectorAll('div:empty');
-                                        emptyDivs.forEach(div => div.remove());
-                                        
-                                        return {
-                                            content: contentClone.innerHTML,
-                                            source: 'last-container',
-                                            timestamp: Date.now()
-                                        };
-                                    }
-                                }
-                                
-                                // 3. 回退方案：查找所有可能的内容元素，并尝试确定哪个是最新的
-                                const allContentElements = document.querySelectorAll('.ds-markdown, .flow-markdown-body, .ds-markdown--block, .message-content, .ai-message-content');
-                                if (allContentElements.length > 0) {
-                                    // 获取最后一个内容元素
-                                    const lastElement = allContentElements[allContentElements.length - 1];
-                                    
-                                    // 检查是否在用户输入区域上方（即在聊天流中）
-                                    const inputArea = document.querySelector('#chat-input, .chat-input-container');
-                                    const isAboveInput = inputArea && 
-                                        lastElement.getBoundingClientRect().bottom < inputArea.getBoundingClientRect().top;
-                                    
-                                    if (isAboveInput) {
-                                        // 克隆内容以避免修改原DOM
-                                        const contentClone = lastElement.cloneNode(true);
-                                        
-                                        // 移除头像图标和其他无关元素
-                                        const iconsToRemove = contentClone.querySelectorAll(
-                                            '._7eb2358, ._58dfa60, .ds-icon, svg, ' +
-                                            '.avatar, .user-avatar, .ai-avatar, ' +
-                                            '.ds-button, button, [role="button"]'
-                                        );
-                                        iconsToRemove.forEach(icon => icon.remove());
-                                        
-                                        // 移除空的div容器
-                                        const emptyDivs = contentClone.querySelectorAll('div:empty');
-                                        emptyDivs.forEach(div => div.remove());
-                                        
-                                        return {
-                                            content: contentClone.innerHTML,
-                                            source: 'content-element',
-                                            timestamp: Date.now()
-                                        };
-                                    }
-                                }
-                                
-                                // 4. 最后尝试：查找具有特定类的最新消息
-                                const specificClassMessages = document.querySelectorAll('div._4f9bf79, div.d7dc56a8, div._43c05b5');
-                                if (specificClassMessages.length > 0) {
-                                    const lastSpecificMessage = specificClassMessages[specificClassMessages.length - 1];
-                                    
-                                    // 克隆内容以避免修改原DOM
-                                    const contentClone = lastSpecificMessage.cloneNode(true);
-                                    
-                                    // 移除头像图标和其他无关元素
-                                    const iconsToRemove = contentClone.querySelectorAll(
-                                        '._7eb2358, ._58dfa60, .ds-icon, svg, ' +
-                                        '.avatar, .user-avatar, .ai-avatar, ' +
-                                        '.ds-button, button, [role="button"]'
-                                    );
-                                    iconsToRemove.forEach(icon => icon.remove());
-                                    
-                                    // 移除空的div容器
-                                    const emptyDivs = contentClone.querySelectorAll('div:empty');
-                                    emptyDivs.forEach(div => div.remove());
-                                    
-                                    return {
-                                        content: contentClone.innerHTML,
-                                        source: 'specific-class',
-                                        timestamp: Date.now()
-                                    };
-                                }
-                                
-                                return {
-                                    content: '',
-                                    source: 'not-found',
-                                    timestamp: Date.now()
-                                };
-                            } catch (e) {
-                                return {
-                                    content: '',
-                                    source: 'error',
-                                    error: e.toString(),
-                                    timestamp: Date.now()
-                                };
-                            }
-                            }
-                        """);
-                        
-                    if (jsContent instanceof Map) {
-                        Map<String, Object> contentData = (Map<String, Object>) jsContent;
-                        String content = (String) contentData.getOrDefault("content", "");
-                        String source = (String) contentData.getOrDefault("source", "unknown");
-                        
-                        if (content != null && !content.isEmpty()) {
-                            currentContent = content;
-                            // 移除监听中的日志输出
-                        }
-                    }
-                } catch (Exception e) {
-                    // 忽略内容提取错误
-                }
-                
-                // 检查是否仍在生成内容
-                boolean isGenerating = false;
-                try {
-                    Locator generatingIndicator = page.locator(".generating-indicator, .loading-indicator, .thinking-indicator").first();
-                    isGenerating = generatingIndicator.count() > 0 && generatingIndicator.isVisible();
-                    
-                    // 深度思考模式下的特殊检测
-                    if (!isGenerating) {
-                        // 检查是否有"思考中"或"正在搜索"等指示器
-                        Object thinkingStatus = page.evaluate("""
-                            () => {
-                                // 检查思考中指示器
-                                const thinkingIndicators = document.querySelectorAll('.ds-typing-container, .ds-loading-dots, .loading-container');
-                                let isThinking = false;
-                                
-                                for (const indicator of thinkingIndicators) {
-                                    if (indicator && window.getComputedStyle(indicator).display !== 'none') {
-                                        isThinking = true;
-                                        break;
-                                    }
-                                }
-                                
-                                // 检查网络搜索指示器
-                                const searchingIndicators = document.querySelectorAll('.search-status, .network-loading');
-                                let isSearching = false;
-                                
-                                for (const indicator of searchingIndicators) {
-                                    if (indicator && window.getComputedStyle(indicator).display !== 'none') {
-                                        isSearching = true;
-                                        break;
-                                    }
-                                }
-                                
-                                // 检查停止生成按钮
-                                const stopButtons = document.querySelectorAll('button:contains("停止生成"), [title="停止生成"], .stop-generating-button');
-                                let hasStopButton = false;
-                                
-                                for (const btn of stopButtons) {
-                                    if (btn && window.getComputedStyle(btn).display !== 'none' && window.getComputedStyle(btn).visibility !== 'hidden') {
-                                        hasStopButton = true;
-                                        break;
-                                    }
-                                }
-                                
-                                return { isThinking, isSearching, hasStopButton };
-                            }
-                        """);
-                        
-                        if (thinkingStatus instanceof Map) {
-                            Map<String, Object> status = (Map<String, Object>) thinkingStatus;
-                            boolean isThinking = (boolean) status.getOrDefault("isThinking", false);
-                            boolean isSearching = (boolean) status.getOrDefault("isSearching", false);
-                            boolean hasStopButton = (boolean) status.getOrDefault("hasStopButton", false);
-                            
-                            if (isThinking || isSearching || hasStopButton) {
-                                isGenerating = true;
-                                if (isThinking) {
-                                                        // AI仍在思考中
-                                }
-                                if (isSearching) {
-                                                        // AI正在进行联网搜索
-                                }
-                                if (hasStopButton) {
-                                                        // AI仍在生成回答
-                                }
-                            } else {
-                                // 所有指示器都不存在，可能表示生成已完成
-                                long currentElapsedTime = System.currentTimeMillis() - startTime;
-                                if (currentElapsedTime > 20000) { // 确保至少20秒后再做此判断
-                                                        // AI可能已完成回答
-                                    // 这里不立即结束，让下面的稳定性检查和复制按钮检查来确认
-                                }
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    // 忽略指示器检查错误
-                }
-                
-                // 如果当前内容和上次内容相同，并且不为空，可能表示AI已经完成回答
-                if (currentContent.equals(lastContent) && !currentContent.isEmpty()) {
-                    stableCount++;
-                    
-                    // 计算从开始检测到现在的时间（毫秒）
-                    long buttonDetectionElapsedTime = System.currentTimeMillis() - startTime;
-                    
-                    // 如果内容连续3次保持稳定，或者明确检测到生成已完成
-                    // 增强深度思考模式的支持，提高稳定计数要求
-                    int requiredStableCount = isDeepThinkingMode ? 7 : 3; // 深度思考模式需要更长的稳定时间
-                    long requiredMinTime = isDeepThinkingMode ? 30000 : 15000; // 深度思考模式至少等待30秒，普通模式至少等待15秒
-                    
-                    // 内容长度检查，对于深度思考模式，要求内容更丰富才认为可能完成
-                    int minContentLength = isDeepThinkingMode ? 1000 : 200;
-                    boolean hasRichContent = currentContent.length() >= minContentLength;
-                    
-                    // 如果深度思考模式下内容不够丰富，增加等待时间
-                    if (isDeepThinkingMode && !hasRichContent && buttonDetectionElapsedTime < 60000) {
-                            // 删除冗余日志输出
-                        stableCount = Math.min(stableCount, 3); // 限制稳定计数增长
-                    }
-                    
-                    // 检查是否有"停止生成"按钮存在，如果存在则表示仍在生成中
-                    boolean stopGenerationButtonExists = false;
+
+                // 定期截图（每6秒一次）- 无论什么状态都截图
+                if (System.currentTimeMillis() - lastScreenshotTime >= screenshotInterval) {
                     try {
-                        Object stopButtonExists = page.evaluate("""
-                            () => {
-                                // 查找停止生成按钮
-                                const stopButtons = document.querySelectorAll('[title="停止生成"], button:contains("停止生成"), .stop-generating-button');
-                                return stopButtons.length > 0 && Array.from(stopButtons).some(btn => 
-                                    window.getComputedStyle(btn).display !== 'none' && 
-                                    window.getComputedStyle(btn).visibility !== 'hidden'
-                                );
-                            }
-                        """);
-                        
-                        if (stopButtonExists instanceof Boolean) {
-                            stopGenerationButtonExists = (Boolean) stopButtonExists;
-                            if (stopGenerationButtonExists) {
-                                isGenerating = true; // 强制认为仍在生成
-                                stableCount = 0; // 重置稳定计数
-                            }
-                        }
+                        screenshotUtil.screenshotAndUpload(page, userId + aiName + "执行过程截图" + ((int)(elapsedTime/1000/6) + 1) + ".png");
+                        lastScreenshotTime = System.currentTimeMillis();
+                        // 移除定期截图日志，减少噪音
                     } catch (Exception e) {
-                        // 忽略检测停止按钮时的错误
+                        // 截图失败不影响主流程
+                        logInfo.sendTaskLog("定期截图失败: " + e.getMessage(), userId, aiName);
                     }
+                }
+
+                // 获取最新AI回答内容 - 使用新的检测逻辑
+                Map<String, Object> responseData = getLatestDeepSeekResponseWithCompletion(page);
+                currentContent = (String) responseData.getOrDefault("content", "");
+                String textContent = (String) responseData.getOrDefault("textContent", "");
+                boolean hasActionButtons = (Boolean) responseData.getOrDefault("hasActionButtons", false);
+                int contentLength = 0;
+                if (responseData.containsKey("length")) {
+                    contentLength = ((Number) responseData.get("length")).intValue();
+                }
+
+                // 如果成功获取到内容
+                if (currentContent != null && !currentContent.trim().isEmpty()) {
+                    // 标记曾经有过内容
+                    hasEverHadContent = true;
+                    // 重置空内容计数
+                    emptyCount = 0;
                     
-                    // 只有当达到所需稳定计数、经过最小时间，且没有检测到"停止生成"按钮时，才继续检查复制按钮
-                    if ((stableCount >= requiredStableCount && buttonDetectionElapsedTime > requiredMinTime && !stopGenerationButtonExists) || !isGenerating) {
-                        // 检查是否出现了复制按钮或其他表示完成的指标
-                        try {
-                            // 使用JavaScript检测复制按钮，包括特定CSS类的检测和区分历史回答与当前回答
-                            Object copyButtonDetails = page.evaluate("""
-                                (initialButtonCount) => {
-                                    // 检查常规复制按钮
-                                    const regularCopyButtons = document.querySelectorAll('.ds-icon-button, [data-testid="copy-button"], .copy-button');
-                                    
-                                    // 检查特定CSS类的复制按钮和回答区域
-                                    const specificClassButtons = document.querySelectorAll('div.ds-flex .ds-icon-button');
-                                    const specificClassAreas = document.querySelectorAll('div._4f9bf79.d7dc56a8._43c05b5');
-                                    
-                                    // 找出最后一个回答区域
-                                    let lastAnswer = null;
-                                    if (specificClassAreas.length > 0) {
-                                        lastAnswer = specificClassAreas[specificClassAreas.length - 1];
-                                    } else {
-                                        // 尝试其他可能的回答区域选择器
-                                        const otherAnswerSelectors = [
-                                            'div._4f9bf79', 
-                                            'div.d7dc56a8', 
-                                            'div._43c05b5',
-                                            '.ds-markdown--block',
-                                            '.message-content',
-                                            '.ai-message-content'
-                                        ];
-                                        
-                                        for (const selector of otherAnswerSelectors) {
-                                            const elements = document.querySelectorAll(selector);
-                                            if (elements.length > 0) {
-                                                lastAnswer = elements[elements.length - 1];
-                                break;
-                                            }
-                                        }
-                                    }
-                                    
-                                    // 检查当前按钮总数是否大于初始按钮数
-                                    const currentButtonCount = regularCopyButtons.length + specificClassButtons.length;
-                                    const hasNewButtons = currentButtonCount > initialButtonCount;
-                                    
-                                    // 检查该区域是否包含复制按钮
-                                    let foundCopyButton = false;
-                                    let isInLatestAnswer = false;
-                                    let buttonInfo = { type: 'none', position: null };
-                                    
-                                    // 检查是否有复制按钮在最后一个回答区域内
-                                    if (lastAnswer) {
-                                        // 检查是否为当前对话的最新回答，避免获取历史回答
-                                        const isLatestAnswer = Array.from(document.querySelectorAll('div._4f9bf79, div.d7dc56a8, div._43c05b5'))
-                                            .indexOf(lastAnswer) === document.querySelectorAll('div._4f9bf79, div.d7dc56a8, div._43c05b5').length - 1;
-                                        
-                                        // 获取消息发送时间戳，用于判断是否为新回答
-                                        const messageTimestamp = window._deepseekMessageSentTime || 0;
-                                        const currentTime = Date.now();
-                                        const timeSinceMessage = currentTime - messageTimestamp;
-                                        
-                                        console.log('消息时间戳信息: 发送时间=' + messageTimestamp + ', 当前时间=' + currentTime + ', 时间差=' + timeSinceMessage + 'ms');
-                                        
-                                        // 如果不是最新回答或者消息发送后时间太短（小于15秒），可能是历史回答
-                                        const isTooEarly = messageTimestamp > 0 && timeSinceMessage < 15000;
-                                        
-                                        // 如果时间太短且按钮数量没有增加，不认为找到了有效的复制按钮
-                                        if (isTooEarly && !hasNewButtons) {
-                                            console.log('检测到复制按钮，但时间太短且无新增按钮，可能是上次会话的按钮，继续等待');
-                                            foundCopyButton = false;
-                                            return { 
-                                                found: false, 
-                                                isInLatestAnswer: false,
-                                                timeSinceMessage: timeSinceMessage,
-                                                isTooEarly: true
-                                            };
-                                        }
-                                        
-                                        // 获取最后回答区域创建时间（如果有）
-                                        let answerCreationTime = null;
-                                        try {
-                                            if (lastAnswer.dataset && lastAnswer.dataset.timestamp) {
-                                                answerCreationTime = parseInt(lastAnswer.dataset.timestamp);
-                                            }
-                                        } catch (e) {}
-                                        
-                                        // 辅助函数：检查按钮是否在代码块或Mermaid图表内
-                                        function isInCodeOrDiagram(button) {
-                                            // 检查祖先元素是否包含代码块或Mermaid相关类名
-                                            let parent = button;
-                                            while (parent && parent !== document.body) {
-                                                const classNames = parent.className || '';
-                                                if (typeof classNames === 'string') {
-                                                    if (classNames.includes('code-block') || 
-                                                        classNames.includes('mermaid') || 
-                                                        classNames.includes('md-code-block') || 
-                                                        classNames.includes('flowchart') || 
-                                                        classNames.includes('kvfysmfp') ||
-                                                        classNames.includes('ds-code')) {
-                                                        return true;
-                                                    }
-                                                }
-                                                parent = parent.parentElement;
-                                            }
-                                            return false;
-                                        }
-                                        
-                                        // 首先检查特定类的复制按钮
-                                        for (let i = specificClassButtons.length - 1; i >= 0; i--) {
-                                            const button = specificClassButtons[i];
-                                            // 排除代码块或图表中的复制按钮
-                                            if ((lastAnswer.contains(button) || isNearElement(button, lastAnswer)) && !isInCodeOrDiagram(button)) {
-                                                foundCopyButton = true;
-                                                isInLatestAnswer = true;
-                                                buttonInfo = { 
-                                                    type: 'specific', 
-                                                    position: button.getBoundingClientRect(),
-                                                    answerPosition: lastAnswer.getBoundingClientRect()
-                                                };
-                                                break;
-                                            }
-                                        }
-                                        
-                                        // 如果没找到，检查常规复制按钮
-                                        if (!foundCopyButton) {
-                                            for (let i = regularCopyButtons.length - 1; i >= 0; i--) {
-                                                const button = regularCopyButtons[i];
-                                                // 排除代码块或图表中的复制按钮
-                                                if ((lastAnswer.contains(button) || isNearElement(button, lastAnswer)) && !isInCodeOrDiagram(button)) {
-                                                    foundCopyButton = true;
-                                                    isInLatestAnswer = true;
-                                                    buttonInfo = { 
-                                                        type: 'regular', 
-                                                        position: button.getBoundingClientRect(),
-                                                        answerPosition: lastAnswer.getBoundingClientRect()
-                                                    };
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-                                    
-                                    // 如果在最后一个回答区域内没找到，检查是否有任何复制按钮
-                                    if (!foundCopyButton) {
-                                            // 获取消息发送时间戳，用于判断是否为新回答
-                                            const messageTimestamp = window._deepseekMessageSentTime || 0;
-                                            const currentTime = Date.now();
-                                            const timeSinceMessage = currentTime - messageTimestamp;
-                                            
-                                            // 如果消息发送后时间太短（小于10秒），可能是历史按钮
-                                            const isTooEarly = messageTimestamp > 0 && timeSinceMessage < 10000;
-                                            
-                                            // 如果时间太短，不认为找到了有效的复制按钮
-                                            if (isTooEarly) {
-                                                console.log('发送消息后时间太短，跳过按钮检测。时间差: ' + timeSinceMessage + 'ms');
-                                                foundCopyButton = false;
-                                                return { 
-                                                    found: false, 
-                                                    isInLatestAnswer: false,
-                                                    timeSinceMessage: timeSinceMessage,
-                                                    isTooEarly: true
-                                                };
-                                            }
-                                            
-                                        if (specificClassButtons.length > 0) {
-                                            foundCopyButton = true;
-                                            buttonInfo = { 
-                                                type: 'specific-outside', 
-                                                    position: specificClassButtons[specificClassButtons.length - 1].getBoundingClientRect(),
-                                                    timeSinceMessage: timeSinceMessage,
-                                                    isTooEarly: false
-                                            };
-                                        } else if (regularCopyButtons.length > 0) {
-                                            foundCopyButton = true;
-                                            buttonInfo = { 
-                                                type: 'regular-outside', 
-                                                    position: regularCopyButtons[regularCopyButtons.length - 1].getBoundingClientRect(),
-                                                    timeSinceMessage: timeSinceMessage,
-                                                    isTooEarly: false
-                                            };
-                                        }
-                                    }
-                                    
-                                    // 判断元素是否在另一个元素附近的辅助函数
-                                    function isNearElement(element1, element2) {
-                                        const rect1 = element1.getBoundingClientRect();
-                                        const rect2 = element2.getBoundingClientRect();
-                                        
-                                        // 检查两个元素是否在垂直方向上接近
-                                        const verticalOverlap = (rect1.bottom >= rect2.top && rect1.top <= rect2.bottom);
-                                        
-                                        // 检查两个元素是否在水平方向上接近
-                                        const horizontalOverlap = (rect1.right >= rect2.left && rect1.left <= rect2.right);
-                                        
-                                        // 如果两个元素在垂直和水平方向上都接近，或者一个元素在另一个元素的下方不远处
-                                        return (verticalOverlap && horizontalOverlap) || 
-                                               (Math.abs(rect1.bottom - rect2.bottom) < 100 && horizontalOverlap) ||
-                                               (Math.abs(rect1.top - rect2.bottom) < 50 && horizontalOverlap);
-                                    }
-                                    
-                                    return {
-                                        found: foundCopyButton,
-                                        isInLatestAnswer: isInLatestAnswer,
-                                        regularButtonsCount: regularCopyButtons.length,
-                                        specificButtonsCount: specificClassButtons.length,
-                                        answersCount: specificClassAreas.length,
-                                        buttonInfo: buttonInfo,
-                                        hasLastAnswer: lastAnswer !== null,
-                                        hasNewButtons: hasNewButtons,
-                                        currentButtonCount: currentButtonCount,
-                                        initialButtonCount: initialButtonCount
-                                    };
-                                }
-                            """, initialCopyButtonCount);
-                            
-                            if (copyButtonDetails instanceof Map) {
-                                Map<String, Object> details = (Map<String, Object>) copyButtonDetails;
-                                boolean found = (boolean) details.getOrDefault("found", false);
-                                boolean isInLatestAnswer = (boolean) details.getOrDefault("isInLatestAnswer", false);
-                                int regularButtonsCount = ((Number) details.getOrDefault("regularButtonsCount", 0)).intValue();
-                                int specificButtonsCount = ((Number) details.getOrDefault("specificButtonsCount", 0)).intValue();
-                                int answersCount = ((Number) details.getOrDefault("answersCount", 0)).intValue();
-                                boolean hasLastAnswer = (boolean) details.getOrDefault("hasLastAnswer", false);
-                                boolean hasNewButtons = (boolean) details.getOrDefault("hasNewButtons", false);
-                                int currentButtonCount = ((Number) details.getOrDefault("currentButtonCount", 0)).intValue();
-                                int initialButtonCount = ((Number) details.getOrDefault("initialButtonCount", 0)).intValue();
-                                Map<String, Object> buttonInfo = (Map<String, Object>) details.getOrDefault("buttonInfo", null);
-                                
-                                // 避免日志输出
-                                
-                                // 直接使用前面已经定义的buttonDetectionElapsedTime和tooEarlyForDetection变量
-                                
-                                // 如果时间太短（小于8秒）且没有新增按钮，可能是检测到了上次会话的按钮
-                                boolean tooEarlyForDetection = buttonDetectionElapsedTime < 8000;
-                                
-                                if (found && isInLatestAnswer) {
-                                    if (tooEarlyForDetection && !hasNewButtons) {
-                                        // 检测太早，可能是上次会话的按钮，继续等待
-                                        // 获取消息发送时间戳信息，用于内部处理
-                                        try {
-                                            page.evaluate("() => { return { sentTime: window._deepseekMessageSentTime || 0, currentTime: Date.now(), diff: Date.now() - (window._deepseekMessageSentTime || 0) }; }");
-                                        } catch (Exception e) {
-                                            // 忽略时间戳检查错误
-                                        }
-                                    } else {
-                                        // 添加额外检查，确认特殊内容已渲染完成
-                                        try {
-                                            Object specialContentStatus = page.evaluate("""
-                                                () => {
-                                                    // 检查页面上的特殊内容是否已渲染完成
-                                                    const mermaidDiagrams = document.querySelectorAll('.mermaid, .flowchart, .kvfysmfp');
-                                                    const codeBlocks = document.querySelectorAll('.md-code-block, .ds-code');
-                                                    const tables = document.querySelectorAll('.markdown-table-wrapper');
-                                                    
-                                                    // 检查特殊元素数量
-                                                    const specialElements = {
-                                                        mermaidCount: mermaidDiagrams.length,
-                                                        codeBlockCount: codeBlocks.length,
-                                                        tableCount: tables.length
-                                                    };
-                                                    
-                                                    // 检查是否还有加载中的元素
-                                                    const loadingElements = document.querySelectorAll('.loading, .generating, .thinking');
-                                                    const hasLoadingElements = loadingElements.length > 0;
-                                                    
-                                                    // 检查最近5秒内是否有DOM变化
-                                                    const hasRecentChanges = window._lastDomChange && 
-                                                                            (Date.now() - window._lastDomChange < 5000);
-                                                    
-                                                    // 设置DOM变化监听器（如果尚未设置）
-                                                    if (!window._domChangeListenerSet) {
-                                                        window._lastDomChange = Date.now();
-                                                        const observer = new MutationObserver(() => {
-                                                            window._lastDomChange = Date.now();
-                                                        });
-                                                        observer.observe(document.body, { 
-                                                            childList: true, 
-                                                            subtree: true, 
-                                                            attributes: true 
-                                                        });
-                                                        window._domChangeListenerSet = true;
-                                                    }
-                                                    
-                                                    return {
-                                                        specialElements,
-                                                        hasLoadingElements,
-                                                        hasRecentChanges,
-                                                        renderingComplete: !hasLoadingElements && !hasRecentChanges
-                                                    };
-                                                }
-                                            """);
-                                            
-                                            if (specialContentStatus instanceof Map) {
-                                                Map<String, Object> status = (Map<String, Object>) specialContentStatus;
-                                                boolean renderingComplete = (boolean) status.getOrDefault("renderingComplete", true);
-                                                
-                                                if (!renderingComplete) {
-                                                    // 特殊内容仍在渲染中，继续等待
-                                                    continue;
-                                                }
-                                                
-                                                // 记录特殊内容信息
-                                                Map<String, Object> elements = (Map<String, Object>) status.getOrDefault("specialElements", new HashMap<>());
-                                                // 删除冗余日志输出
-                                            }
-                                        } catch (Exception e) {
-                                            // 忽略特殊内容检查错误
-                                        }
-                                        
-                                        // 检查是否满足最小等待时间要求（至少5秒）
-                                        long currentWaitTime = System.currentTimeMillis() - messageStartTime;
-                                        if (currentWaitTime < 5000) {
-                                            // 如果等待时间不足5秒，继续等待
-                                            long remainingWaitTime = 5000 - currentWaitTime;
-                                            Thread.sleep(remainingWaitTime);
-                                        }
-                                        
-                                        // 条件满足，确认完成
-                                        logInfo.sendTaskLog("DeepSeek回答完成，正在自动提取内容", userId, aiName);
-                                        break;
-                                    }
-                                }
+                    // 更新内容长度历史
+                    for (int i = contentLengthHistory.length - 1; i > 0; i--) {
+                        contentLengthHistory[i] = contentLengthHistory[i-1];
+                    }
+                    contentLengthHistory[0] = contentLength;
+                    
+                    // 检查内容是否稳定
+                    if (currentContent.equals(lastContent)) {
+                        stableCount++;
+                        
+                        // 检查是否有"正在思考"或类似的提示
+                        boolean isThinking = checkIfGenerating(page);
+                        
+                        // 智能判断完成条件
+                        boolean isComplete = false;
+                        
+                        // 条件1: 如果检测到完成按钮组（最重要的判断条件）
+                        if (hasActionButtons) {
+                            logInfo.sendTaskLog("检测到完成按钮组，回复已完成", userId, aiName);
+                            isComplete = true;
+                        }
+                        // 条件2: 内容稳定且不再生成
+                        else if (stableCount >= requiredStableCount && !isThinking) {
+                            // 检查内容长度，如果内容较长，可以更快结束等待
+                            if (contentLength > 1000) {
+                                // 对于很长的内容，只要稳定就可以提前结束
+                                logInfo.sendTaskLog("长内容已稳定，准备提取", userId, aiName);
+                                isComplete = true;
                             }
-                        } catch (Exception e) {
-                            // 忽略按钮检测错误
+                            else if (contentLength > 500) {
+                                noChangeCount++;
+                                // 如果长内容连续多次没有变化，可以提前结束
+                                if (noChangeCount >= 2) {
+                                    logInfo.sendTaskLog("内容稳定，准备提取", userId, aiName);
+                                    isComplete = true;
+                                }
+                            } 
+                            // 检查内容增长是否已经停止
+                            else if (isContentGrowthStopped(contentLengthHistory) && stableCount >= requiredStableCount) {
+                                logInfo.sendTaskLog("内容增长已停止，准备提取", userId, aiName);
+                                isComplete = true;
+                            }
+                            // 对于短内容，需要更多的稳定确认
+                            else if (stableCount >= requiredStableCount + 1) {
+                                logInfo.sendTaskLog("短内容已稳定，准备提取", userId, aiName);
+                                isComplete = true;
+                            }
                         }
                         
-                                                    // 如果没有明确的完成指标，但内容已经稳定一段时间，也认为完成
-                        if (stableCount >= 5) {
-                            // 深度思考模式下，需要更严格的稳定性要求
-                            // 使用前面已经定义的isDeepThinkingMode变量
-                            if (isDeepThinkingMode) {
-                                // 深度思考模式下，如果内容已经稳定超过5次检查，进一步确认
-                                boolean isReallyComplete = false;
-                                
-                                // 1. 检查是否已经过了合理的思考时间
-                                long currentElapsedTime = System.currentTimeMillis() - startTime;
-                                boolean hasEnoughTime = currentElapsedTime > 40000; // 至少40秒
-                                
-                                // 2. 检查内容是否足够丰富（长度判断）
-                                boolean hasEnoughContent = currentContent.length() > 500;
-                                
-                                // 3. 检查停止按钮是否已消失
-                                boolean stopButtonGone = false;
-                                try {
-                                    Object checkStopButton = page.evaluate("""
-                                        () => {
-                                            const stopButtons = document.querySelectorAll('button:contains("停止生成"), [title="停止生成"], .stop-generating-button');
-                                            return stopButtons.length === 0 || Array.from(stopButtons).every(btn => 
-                                                window.getComputedStyle(btn).display === 'none' || 
-                                                window.getComputedStyle(btn).visibility === 'hidden'
-                                            );
-                                        }
-                                    """);
-                                    
-                                    if (checkStopButton instanceof Boolean) {
-                                        stopButtonGone = (Boolean) checkStopButton;
-                                    }
-                                } catch (Exception e) {
-                                    // 忽略检测错误
-                                }
-                                
-                                isReallyComplete = hasEnoughTime && hasEnoughContent && stopButtonGone;
-                                
-                                if (isReallyComplete) {
-                                    // 检查是否满足最小等待时间要求（至少5秒）
-                                    long currentWaitTime = System.currentTimeMillis() - messageStartTime;
-                                    if (currentWaitTime < 5000) {
-                                        // 如果等待时间不足5秒，继续等待
-                                        long remainingWaitTime = 5000 - currentWaitTime;
-                                        Thread.sleep(remainingWaitTime);
-                                    }
-                                    
-                                    // 深度思考模式回答已完成
-                                    break;
-                                } else {
-                                    // 等待更多确认信号
-                                    // 重置稳定计数，给更多时间继续生成
-                                    if (stableCount == 5) {
-                                        stableCount = 3;
-                                    }
-                                }
-                            } else {
-                                // 非深度思考模式，使用原有的判断逻辑
-                                // 检查是否满足最小等待时间要求（至少5秒）
-                                long currentWaitTime = System.currentTimeMillis() - messageStartTime;
-                                if (currentWaitTime < 5000) {
-                                    // 如果等待时间不足5秒，继续等待
-                                    long remainingWaitTime = 5000 - currentWaitTime;
-                                    Thread.sleep(remainingWaitTime);
-                                }
-                                
-                                // 回答已完成
-                                break;
-                            }
+                        if (isComplete) {
+                            logInfo.sendTaskLog("DeepSeek回答完成，正在自动提取内容", userId, aiName);
+                            break;
                         }
+                    } else {
+                        // 内容发生变化，重置稳定计数和无变化计数
+                        stableCount = 0;
+                        noChangeCount = 0;
+                        lastContent = currentContent;
                     }
                 } else {
-                    // 内容发生变化，重置稳定计数
-                    stableCount = 0;
+                    // 内容为空，增加空内容计数
+                    emptyCount++;
+                    
+                    // 如果连续多次获取到空内容，检查是否有错误
+                    if (emptyCount > 8) {
+                        // 检查页面是否有错误提示
+                        try {
+                            Object errorResult = page.evaluate("""
+                                () => {
+                                    const errorElements = document.querySelectorAll('.error-message, .ds-error, [class*="error"]');
+                                    for (const el of errorElements) {
+                                        if (el.innerText && el.innerText.trim() && 
+                                            window.getComputedStyle(el).display !== 'none') {
+                                            return el.innerText.trim();
+                                        }
+                                    }
+                                    return null;
+                                }
+                            """);
+                            
+                            if (errorResult instanceof String && !((String)errorResult).isEmpty()) {
+                                logInfo.sendTaskLog("DeepSeek返回错误: " + errorResult, userId, aiName);
+                                return "DeepSeek错误: " + errorResult;
+                            }
+                        } catch (Exception e) {
+                            // 记录页面评估异常
+                            UserLogUtil.sendAIBusinessLog(userId, aiName, "页面错误检测", "评估页面错误时发生异常：" + e.getMessage(), System.currentTimeMillis(), "http://localhost:8080" + "/saveLogInfo");
+                        }
+                        
+                        // 只有在从未有过内容且等待很长时间的情况下才报错
+                        if (!hasEverHadContent && emptyCount > 100) { // 约60秒才输出一次
+                            logInfo.sendTaskLog("长时间未检测到回复，但继续等待...", userId, aiName);
+                            // 不要返回错误，继续等待
+                        }
+                        
+                        // 减少"内容暂时为空"的日志输出频率
+                        if (hasEverHadContent && emptyCount == 10) { // 只在刚开始为空时输出一次
+                            logInfo.sendTaskLog("内容暂时为空，继续等待...", userId, aiName);
+                        }
+                    }
                 }
+
+                // 根据不同模式使用不同的检查间隔
+                page.waitForTimeout(checkInterval);
                 
-                // 更新上次内容为当前内容
-                lastContent = currentContent;
-                
-                // 不输出定期的监控日志，与豆包保持一致
-                
-                // 等待一段时间再次检查
-                page.waitForTimeout(1000); // 从3000ms减少到1000ms，更快地检测变化
+                // 动态调整检查间隔，随着等待时间增加而增加，避免频繁检查
+                if (elapsedTime > 30000) { // 30秒后
+                    checkInterval = Math.min(800, checkInterval + 50); // 逐渐增加到最多800ms
+                }
+            }
+
+            // 最终获取完整的最后一组对话内容
+            String finalContent = getLastConversationContent(page, userId);
+            
+            // 如果最终仍然没有内容，但页面正常，可能是网络问题或正在处理中
+            if ((finalContent == null || finalContent.trim().isEmpty()) && !hasEverHadContent) {
+                logInfo.sendTaskLog("超时未获取到回复内容，可能是网络问题或账号限制", userId, aiName);
+                return "DeepSeek超时未返回内容，请检查网络或账号状态";
             }
             
             logInfo.sendTaskLog("DeepSeek内容已自动提取完成", userId, aiName);
-            
-            // 清理HTML内容，去除不必要的标记，保持原始格式
-            if (currentContent != null && !currentContent.isEmpty()) {
-                // 简单清理：移除行号和不必要的标签
-                currentContent = currentContent.replaceAll("<span>\\s*<span[^>]*?>\\d+</span>\\s*</span>", "");
-                
-                // 使用JavaScript清理交互元素，但保留原始格式和结构
-                try {
-                    Object cleanedContent = page.evaluate("""
-                        (content) => {
-                            try {
-                                // 创建临时DOM元素来处理HTML
-                                const tempDiv = document.createElement('div');
-                                tempDiv.innerHTML = content;
-                                    
-                                // 移除所有交互元素和控制元素
-                                const elementsToRemove = tempDiv.querySelectorAll(
-                                    'button, .ds-button, [role="button"], .md-code-block-banner, ' +
-                                    '.md-code-block-banner-wrap, .ds-icon, .code-info-button-text, ' +
-                                    '.copy-button, .code-block-header, .code-block-header-container'
-                                );
-                                
-                                    elementsToRemove.forEach(el => {
-                                    if (el && el.parentNode) {
-                                        el.parentNode.removeChild(el);
-                                    }
-                                    });
-                                    
-                                // 移除空的控制容器
-                                const emptyContainers = tempDiv.querySelectorAll('.efa13877, .d2a24f03, ._121d384');
-                                emptyContainers.forEach(container => {
-                                    if (container && container.children.length === 0) {
-                                        container.parentNode?.removeChild(container);
-                                    }
-                                    });
-                                    
-                                // 保留所有原始格式，只返回清理后的HTML
-                                return tempDiv.innerHTML;
-                            } catch (e) {
-                                console.error('清理内容时出错:', e);
-                                return content; // 出错时返回原始内容
-                            }
-                        }
-                    """, currentContent);
-                    
-                    if (cleanedContent != null && !cleanedContent.toString().isEmpty()) {
-                        currentContent = cleanedContent.toString();
-                    }
-                } catch (Exception e) {
-                    logInfo.sendTaskLog("清理HTML内容时出错", userId, aiName);
-                }
-                
-                // 如果内容很短或看起来不完整，尝试精确定位最新回答的纯文本
-                if (currentContent.length() < 50) {
-                    try {
-                        Object latestContent = page.evaluate("""
-                            () => {
-                                // 精确定位最新的AI回答
-                                const aiMessages = document.querySelectorAll('.ds-chat-message-group--ai');
-                                if (aiMessages.length > 0) {
-                                    const latestMessage = aiMessages[aiMessages.length - 1];
-                                    const contentElement = latestMessage.querySelector('.ds-markdown, .flow-markdown-body');
-                                    if (contentElement) {
-                                        return contentElement.innerText || contentElement.textContent;
-                                    }
-                                }
-                                return '';
-                            }
-                        """);
-                        
-                        if (latestContent != null && !latestContent.toString().isEmpty()) {
-                            currentContent = latestContent.toString();
-                            logInfo.sendTaskLog("使用纯文本提取方式获取内容", userId, aiName);
-                        }
-                    } catch (Exception e) {
-                        // 忽略JavaScript提取错误
-                    }
-                }
-            }
-            
-            return currentContent;
-            
+            return finalContent;
+
         } catch (Exception e) {
+            logInfo.sendTaskLog("等待AI回答时出错: " + e.getMessage(), userId, aiName);
             throw e;
         }
     }
+
+    /**
+     * 检查是否仍在生成内容
+     */
+    private boolean checkIfGenerating(Page page) {
+        try {
+            // 使用更可靠的方法检查生成状态
+            Object generatingStatus = page.evaluate("""
+            () => {
+                try {
+                    // 检查停止指示器
+                    const thinkingIndicators = document.querySelectorAll(
+                        '.generating-indicator, .loading-indicator, .thinking-indicator, ' +
+                        '.ds-typing-container, .ds-loading-dots, .loading-container, ' +
+                        '[class*="loading"], [class*="typing"], [class*="generating"]'
+                    );
+                    
+                    for (const indicator of thinkingIndicators) {
+                        if (indicator && 
+                            window.getComputedStyle(indicator).display !== 'none' && 
+                            window.getComputedStyle(indicator).visibility !== 'hidden') {
+                            return true;
+                        }
+                    }
+                    
+                    // 检查停止生成按钮
+                    const stopButtons = document.querySelectorAll(
+                        'button:contains("停止生成"), button:contains("Stop"), ' +
+                        '[title="停止生成"], [title="Stop generating"], ' +
+                        '.stop-generating-button, [class*="stop"]'
+                    );
+                    
+                    for (const btn of stopButtons) {
+                        if (btn && 
+                            window.getComputedStyle(btn).display !== 'none' && 
+                            window.getComputedStyle(btn).visibility !== 'hidden') {
+                            return true;
+                        }
+                    }
+                    
+                    // 检查光标闪烁
+                    const blinkingElements = document.querySelectorAll(
+                        '[class*="cursor"], [class*="blink"]'
+                    );
+                    
+                    for (const el of blinkingElements) {
+                        if (el && 
+                            window.getComputedStyle(el).display !== 'none' && 
+                            window.getComputedStyle(el).visibility !== 'hidden') {
+                            // 检查是否在最后一个回复中
+                            const responses = document.querySelectorAll('.ds-markdown');
+                            if (responses.length > 0) {
+                                const lastResponse = responses[responses.length - 1];
+                                if (lastResponse.contains(el)) {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                    
+                    return false;
+                } catch (e) {
+                    console.error('检查生成状态时出错:', e);
+                    return false;
+                }
+            }
+            """);
+
+            return generatingStatus instanceof Boolean ? (Boolean) generatingStatus : false;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * 检查内容增长是否已经停止
+     * @param contentLengthHistory 内容长度历史记录
+     * @return 如果内容增长已停止返回true
+     */
+    private boolean isContentGrowthStopped(int[] contentLengthHistory) {
+        // 检查最近三次内容长度是否相同或几乎相同
+        if (contentLengthHistory[0] > 0 && 
+            Math.abs(contentLengthHistory[0] - contentLengthHistory[1]) <= 5 && 
+            Math.abs(contentLengthHistory[1] - contentLengthHistory[2]) <= 5) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 检查页面是否有完成标记
+     * @param page Playwright页面对象
+     * @return 如果检测到完成标记返回true
+     */
+    private boolean checkForCompletionMarkers(Page page) {
+        try {
+            Object result = page.evaluate("""
+                () => {
+                    try {
+                        // 检查是否有完成标记
+                        const lastMessage = document.querySelector('.ds-markdown:last-child');
+                        if (!lastMessage) return false;
+                        
+                        // 检查是否有代码块闭合
+                        const codeBlocks = lastMessage.querySelectorAll('pre, code');
+                        if (codeBlocks.length > 0) {
+                            // 检查代码块是否都已闭合
+                            const openCodeTags = lastMessage.textContent.match(/```[^`]*/g) || [];
+                            // 如果开标签数量为奇数，说明有未闭合的代码块
+                            if (openCodeTags.length % 2 !== 0) return false;
+                        }
+                        
+                        // 检查是否有未闭合的括号或引号
+                        const text = lastMessage.textContent;
+                        const brackets = { '(': ')', '[': ']', '{': '}' };
+                        const stack = [];
+                        
+                        for (let i = 0; i < text.length; i++) {
+                            const char = text[i];
+                            if (char === '(' || char === '[' || char === '{') {
+                                stack.push(char);
+                            } else if (char === ')' || char === ']' || char === '}') {
+                                const lastOpen = stack.pop();
+                                if (brackets[lastOpen] !== char) {
+                                    // 括号不匹配，可能是文本中的括号，忽略
+                                }
+                            }
+                        }
+                        
+                        // 如果栈不为空，说明有未闭合的括号
+                        if (stack.length > 0) return false;
+                        
+                        // 检查是否有常见的结束标记
+                        const commonEndMarkers = [
+                            /希望这对你有所帮助/,
+                            /如果你有任何其他问题/,
+                            /如有任何疑问/,
+                            /祝你好运/,
+                            /希望能够解决你的问题/,
+                            /希望对你有帮助/,
+                            /Have a great day/,
+                            /Hope this helps/,
+                            /Let me know if/,
+                            /感谢使用/,
+                            /Thank you for using/
+                        ];
+                        
+                        for (const marker of commonEndMarkers) {
+                            if (marker.test(text)) {
+                                return true;
+                            }
+                        }
+                        
+                        // 检查是否有完整的句子结束（以句号、问号或感叹号结束）
+                        const lastChar = text.trim().slice(-1);
+                        if (['.', '。', '!', '！', '?', '？'].includes(lastChar)) {
+                            // 检查最近500ms是否有新内容
+                            const timestamp = lastMessage.getAttribute('data-timestamp');
+                            if (timestamp && (Date.now() - parseInt(timestamp)) > 500) {
+                                return true;
+                            }
+                        }
+                        
+                        return false;
+                    } catch (e) {
+                        console.error('检查完成标记时出错:', e);
+                        return false;
+                    }
+                }
+            """);
+            
+            return result instanceof Boolean ? (Boolean) result : false;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * 获取AI最新的回答内容，并返回详细信息
+     * @param page Playwright页面对象
+     * @return 包含内容和元数据的Map
+     */
+    private Map<String, Object> getLatestAiResponseWithDetails(Page page) {
+        try {
+            Object jsResult = page.evaluate("""
+            () => {
+                try {
+                    // 获取所有包含AI回答的消息
+                    const markdownElements = document.querySelectorAll('.ds-markdown');
+                    if (markdownElements.length === 0) {
+                        // 尝试其他可能的选择器
+                        const alternativeElements = document.querySelectorAll(
+                            '.markdown-body, .ai-response, .message-content, [class*="markdown"]'
+                        );
+                        
+                        if (alternativeElements.length > 0) {
+                            const latestAlt = alternativeElements[alternativeElements.length - 1];
+                            const textContent = latestAlt.textContent || '';
+                            return {
+                                content: latestAlt.innerHTML,
+                                textContent: textContent,
+                                length: textContent.trim().length,
+                                source: 'alternative-selector',
+                                timestamp: Date.now()
+                            };
+                        }
+                        
+                        return {
+                            content: '',
+                            textContent: '',
+                            length: 0,
+                            source: 'no-markdown-elements',
+                            timestamp: Date.now()
+                        };
+                    }
+                    
+                    // 获取最新的Markdown内容
+                    const latestMarkdown = markdownElements[markdownElements.length - 1];
+                    
+                    // 为元素添加时间戳以便后续检查
+                    if (!latestMarkdown.hasAttribute('data-timestamp')) {
+                        latestMarkdown.setAttribute('data-timestamp', Date.now().toString());
+                    }
+                    
+                    // 克隆内容以避免修改原DOM
+                    const contentClone = latestMarkdown.cloneNode(true);
+                    
+                    // 移除头像图标和其他无关元素
+                    const iconsToRemove = contentClone.querySelectorAll(
+                        '._7eb2358, ._58dfa60, .ds-icon, svg, ' +
+                        '.avatar, .user-avatar, .ai-avatar, ' +
+                        '.ds-button, button, [role="button"], ' +
+                        '[class*="loading"], [class*="typing"], [class*="cursor"]'
+                    );
+                    iconsToRemove.forEach(icon => icon.remove());
+                    
+                    // 移除空的div容器
+                    const emptyDivs = contentClone.querySelectorAll('div:empty');
+                    emptyDivs.forEach(div => div.remove());
+                    
+                    // 检查内容长度
+                    const textContent = contentClone.textContent || '';
+                    const contentLength = textContent.trim().length;
+                    
+                    return {
+                        content: contentClone.innerHTML,
+                        textContent: textContent,
+                        length: contentLength,
+                        hasCodeBlocks: contentClone.querySelectorAll('pre, code').length > 0,
+                        source: 'latest-markdown',
+                        timestamp: Date.now()
+                    };
+                } catch (e) {
+                    return {
+                        content: '',
+                        textContent: '',
+                        length: 0,
+                        source: 'error',
+                        error: e.toString(),
+                        timestamp: Date.now()
+                    };
+                }
+            }
+            """);
+
+            if (jsResult instanceof Map) {
+                return (Map<String, Object>) jsResult;
+            }
+        } catch (Exception e) {
+            System.err.println("获取AI回答时出错: " + e.getMessage());
+        }
+
+        return new HashMap<>();
+    }
+
+    /**
+     * 获取AI最新的回答内容
+     * @param page Playwright页面对象
+     * @return 最新的AI回答内容
+     */
+    private String getLatestAiResponse(Page page) {
+        Map<String, Object> responseData = getLatestAiResponseWithDetails(page);
+        return (String) responseData.getOrDefault("content", "");
+    }
+
 
     /**
      * 发送消息到DeepSeek并等待回复
@@ -1276,169 +835,104 @@ public class DeepSeekUtil {
                 toggleButtonIfNeeded(page, userId, "联网搜索", false, logInfo);
             }
             
-            // 定位并填充输入框
+            // 定位并填充输入框 - 使用新的定位方式
             try {
-                Locator inputBox = page.locator("#chat-input");
-                // 优化等待逻辑：循环检测输入框可用，最多等3秒
-                int inputWait = 0;
-                while ((inputBox.count() == 0 || !inputBox.isVisible()) && inputWait < 30) {
-                    Thread.sleep(100);
-                    inputBox = page.locator("#chat-input");
-                    inputWait++;
-                }
-                if (inputBox.count() > 0 && inputBox.isVisible()) {
-                    inputBox.click();
-                    // 等待输入框获得焦点（最多500ms）
-                    int focusWait = 0;
-                    while (!inputBox.evaluate("el => document.activeElement === el").equals(Boolean.TRUE) && focusWait < 5) {
-                        Thread.sleep(100);
-                        focusWait++;
+                Locator inputBox = null;
+                boolean inputFound = false;
+                
+                // 尝试多种输入框定位方式
+                String[] inputSelectors = {
+                    "textarea[placeholder*='给 DeepSeek 发送消息']",
+                    "textarea[placeholder*='Send a message']", 
+                    "textarea.ds-scroll-area",
+                    "textarea._27c9245",
+                    "#chat-input",
+                    ".chat-input",
+                    "textarea[rows='2']"
+                };
+                
+                // 循环尝试不同的选择器
+                for (String selector : inputSelectors) {
+                    try {
+                        inputBox = page.locator(selector).first();
+                        if (inputBox.count() > 0 && inputBox.isVisible()) {
+                            inputFound = true;
+                            logInfo.sendTaskLog("使用选择器找到输入框: " + selector, userId, "DeepSeek");
+                            break;
+                        }
+                    } catch (Exception e) {
+                        // 继续尝试下一个选择器
                     }
+                }
+                
+                // 如果还是找不到，使用JavaScript查找
+                if (!inputFound) {
+                    try {
+                        Object jsResult = page.evaluate("""
+                            () => {
+                                const textareas = document.querySelectorAll('textarea');
+                                for (const textarea of textareas) {
+                                    if (textarea.placeholder && 
+                                        (textarea.placeholder.includes('DeepSeek') || 
+                                         textarea.placeholder.includes('发送消息') ||
+                                         textarea.placeholder.includes('Send a message'))) {
+                                        textarea.setAttribute('data-ai-input', 'true');
+                                        return true;
+                                    }
+                                }
+                                return false;
+                            }
+                        """);
+                        
+                        if (Boolean.TRUE.equals(jsResult)) {
+                            inputBox = page.locator("textarea[data-ai-input='true']").first();
+                            if (inputBox.count() > 0 && inputBox.isVisible()) {
+                                inputFound = true;
+                                logInfo.sendTaskLog("通过JavaScript找到输入框", userId, "DeepSeek");
+                            }
+                        }
+                    } catch (Exception e) {
+                        // JavaScript方法也失败了
+                    }
+                }
+                
+                if (inputFound && inputBox != null) {
+                    // 点击输入框获得焦点
+                    inputBox.click();
+                    Thread.sleep(500); // 等待焦点切换
+                    
+                    // 清空输入框
+                    inputBox.fill("");
+                    Thread.sleep(200);
+                    
+                    // 使用模拟人工输入方式
+//                    simulateHumanTyping(page, inputBox, userPrompt, userId);
                     inputBox.fill(userPrompt);
                     logInfo.sendTaskLog("用户指令已自动输入完成", userId, "DeepSeek");
-                    // 立即尝试点击发送按钮，无需多余等待
-                    try {
-                        // 使用用户提供的特定选择器
-                        String sendButtonSelector = "._7436101";
-                        boolean clicked = false;
-                        Locator sendButton = page.locator(sendButtonSelector);
-                        // 循环检测发送按钮可用，最多等2秒
-                        int sendWait = 0;
-                        while ((sendButton.count() == 0 || !sendButton.isVisible()) && sendWait < 20) {
-                            Thread.sleep(100);
-                            sendButton = page.locator(sendButtonSelector);
-                            sendWait++;
+                    
+                    // 等待发送按钮可用并点击
+//                    boolean sendSuccess = clickSendButton(page, userId);
+                    int times = 3;
+                    String inputText = inputBox.textContent();
+                    while (inputText != null && !inputText.isEmpty()) {
+                        inputBox.press("Enter");
+                        inputText = inputBox.textContent();
+                        Thread.sleep(1000);
+                        if(times-- < 0) {
+                            throw new RuntimeException("指令输入失败");
                         }
-                        if (sendButton.count() > 0 && sendButton.isVisible()) {
-                            try {
-                                sendButton.scrollIntoViewIfNeeded();
-                                sendButton.click(new Locator.ClickOptions().setForce(true).setTimeout(5000));
-                                clicked = true;
-                                logInfo.sendTaskLog("指令已自动发送成功", userId, "DeepSeek");
-                            } catch (Exception e) {
-                            }
-                        } else {
-                        }
-                        
-                        // 如果特定按钮点击失败，尝试其他选择器
-                        if (!clicked) {
-                            try {
-                                // 尝试常见的发送按钮选择器
-                                String[] alternativeSelectors = {
-                                    "button.send-button", 
-                                    "button[aria-label='发送']",
-                                    "button[aria-label='Send']",
-                                    "button.ds-button--primary",
-                                    ".send-message-button"
-                                };
-                                
-                                for (String selector : alternativeSelectors) {
-                                    try {
-                                        Locator altButton = page.locator(selector).first();
-                                        if (altButton.count() > 0 && altButton.isVisible()) {
-                                            altButton.click(new Locator.ClickOptions().setForce(true).setTimeout(3000));
-                                            clicked = true;
-                                            logInfo.sendTaskLog("指令已自动发送成功", userId, "DeepSeek");
-                                            break;
-                                        }
-                                    } catch (Exception e) {
-                                        // 继续尝试下一个选择器
-                                    }
-                                }
-                            } catch (Exception e) {
-                            }
-                        }
-                        
-                        // 如果所有按钮选择器都失败，尝试使用JavaScript点击
-                        if (!clicked) {
-                            try {
-                                Object result = page.evaluate("""
-                                    () => {
-                                        try {
-                                            // 记录消息发送时间戳，用于后续判断回答是否为当前会话的新回答
-                                            window._deepseekMessageSentTime = Date.now();
-                                            console.log('设置消息发送时间戳:', window._deepseekMessageSentTime);
-                                            
-                                            // 尝试多种可能的按钮
-                                            const selectors = [
-                                                '._7436101', 
-                                                'button.send-button', 
-                                                'button[aria-label="发送"]',
-                                                'button[aria-label="Send"]',
-                                                'button.ds-button--primary',
-                                                '.send-message-button'
-                                            ];
-                                            
-                                            // 遍历所有选择器
-                                            for (const selector of selectors) {
-                                                const button = document.querySelector(selector);
-                                                if (button && button.offsetParent !== null) {
-                                                    button.click();
-                                                    return { method: selector, success: true };
-                                                }
-                                            }
-                                            
-                                            // 尝试找到任何看起来像发送按钮的元素
-                                            const allButtons = document.querySelectorAll('button');
-                                            for (const btn of allButtons) {
-                                                if (btn.innerText && (btn.innerText.includes('发送') || btn.innerText.includes('Send'))) {
-                                                    btn.click();
-                                                    return { method: '文本匹配', success: true };
-                                                }
-                                                
-                                                // 检查按钮样式是否暗示它是发送按钮
-                                                const style = window.getComputedStyle(btn);
-                                                if (style.backgroundColor && 
-                                                    (style.backgroundColor.includes('rgb(77, 107, 254)') || 
-                                                     style.backgroundColor.includes('#4D6BFE'))) {
-                                                    btn.click();
-                                                    return { method: '样式匹配', success: true };
-                                                }
-                                            }
-                                            
-                                            // 如果仍然找不到，尝试按回车键
-                                            const inputElement = document.querySelector('#chat-input');
-                                            if (inputElement) {
-                                                const event = new KeyboardEvent('keydown', {
-                                                    key: 'Enter',
-                                                    code: 'Enter',
-                                                    keyCode: 13,
-                                                    bubbles: true
-                                                });
-                                                inputElement.dispatchEvent(event);
-                                                return { method: 'Enter键', success: true };
-                                            }
-                                            
-                                            return { method: '所有方法', success: false };
-                                        } catch (e) {
-                                            return { method: '出错', success: false, error: e.toString() };
-                                        }
-                                    }
-                                """);
-                                
-                                // 最后一招：尝试按下Enter键
-                                try {
-                                    // 设置消息发送时间戳
-                                    page.evaluate("() => { window._deepseekMessageSentTime = Date.now(); console.log('设置消息发送时间戳(Enter):', window._deepseekMessageSentTime); }");
-                                    
-                                    inputBox.press("Enter");
-                                    logInfo.sendTaskLog("指令已自动发送成功", userId, "DeepSeek");
-                                } catch (Exception e) {
-                                }
-                            } catch (Exception e) {
-                            }
-                        }
-
-                        // 等待一段时间，确保消息已发送
-                        Thread.sleep(1000); // 给予充足的时间确保消息发送
-                    } catch (Exception e) {
-                        return "获取内容失败：发送消息出错";
                     }
                 } else {
                     return "获取内容失败：未找到输入框";
                 }
+            } catch (TimeoutError e) {
+                // 记录超时异常
+                UserLogUtil.sendAITimeoutLog(userId, "DeepSeek", "发送消息", e, "输入框填写或发送按钮点击", url + "/saveLogInfo");
+                return "获取内容失败：发送消息超时 - " + e.getMessage();
             } catch (Exception e) {
-                return "获取内容失败：发送消息出错";
+                // 记录发送消息异常
+                UserLogUtil.sendAIBusinessLog(userId, "DeepSeek", "发送消息", "发送消息出错：" + e.getMessage(), System.currentTimeMillis(), url + "/saveLogInfo");
+                return "获取内容失败：发送消息出错 - " + e.getMessage();
             }
             
             // 等待回答完成并获取内容
@@ -1448,8 +942,260 @@ public class DeepSeekUtil {
             // 返回内容
             return content;
             
-        } catch (Exception e) {
+        } catch (TimeoutError e) {
+            // 记录DeepSeek整体操作超时
+            UserLogUtil.sendAITimeoutLog(userId, "DeepSeek", "AI对话处理", e, "整个对话流程", url + "/saveLogInfo");
             throw e;
+        } catch (Exception e) {
+            // 记录DeepSeek处理异常
+            UserLogUtil.sendAIExceptionLog(userId, "DeepSeek", "handleDeepSeekAI", e, System.currentTimeMillis(), "AI对话处理失败", url + "/saveLogInfo");
+            throw e;
+        }
+    }
+
+    /**
+     * 模拟人工输入文本
+     * @param page Playwright页面
+     * @param inputBox 输入框元素
+     * @param text 要输入的文本
+     * @param userId 用户ID
+     */
+    private void simulateHumanTyping(Page page, Locator inputBox, String text, String userId) throws InterruptedException {
+        try {
+            // 先尝试逐字符输入
+            for (int i = 0; i < text.length(); i++) {
+                String currentChar = String.valueOf(text.charAt(i));
+                inputBox.type(currentChar, new Locator.TypeOptions().setDelay(50 + (int)(Math.random() * 100))); // 50-150ms延迟
+                
+                // 每输入几个字符检查一下是否成功
+                if (i % 10 == 0) {
+                    Thread.sleep(100);
+                    String currentValue = (String) inputBox.evaluate("el => el.value");
+                    if (currentValue == null || !currentValue.contains(text.substring(0, Math.min(i + 1, text.length())))) {
+                        // 如果检测到输入有问题，重新设置焦点并继续
+                        inputBox.click();
+                        Thread.sleep(200);
+                    }
+                }
+            }
+            
+            // 验证输入是否完成
+            String finalValue = (String) inputBox.evaluate("el => el.value");
+            if (finalValue == null || !finalValue.contains(text.substring(0, Math.min(50, text.length())))) {
+                // 如果模拟输入失败，尝试直接填充
+                logInfo.sendTaskLog("模拟输入失败，尝试直接填充", userId, "DeepSeek");
+                inputBox.fill(text);
+            } else {
+                logInfo.sendTaskLog("模拟人工输入成功", userId, "DeepSeek");
+            }
+            
+        } catch (Exception e) {
+            // 如果模拟输入出错，回退到直接填充
+            logInfo.sendTaskLog("模拟输入出错，使用直接填充: " + e.getMessage(), userId, "DeepSeek");
+            inputBox.fill(text);
+        }
+    }
+
+    /**
+     * 点击发送按钮
+     * @param page Playwright页面
+     * @param userId 用户ID
+     * @return 是否发送成功
+     */
+    private boolean clickSendButton(Page page, String userId) throws InterruptedException {
+        try {
+            // 等待发送按钮可用
+            boolean buttonReady = false;
+            int waitCount = 0;
+            final int MAX_WAIT = 50; // 最多等待5秒
+            
+            while (!buttonReady && waitCount < MAX_WAIT) {
+                try {
+                    // 检查发送按钮是否可用
+                    Object buttonStatus = page.evaluate("""
+                        () => {
+                            // 查找发送按钮
+                            const selectors = [
+                                '._7436101',
+                                'button[aria-disabled="false"]',
+                                '.send-button:not([disabled])',
+                                'button:not([aria-disabled="true"]):not([disabled])'
+                            ];
+                            
+                            for (const selector of selectors) {
+                                const button = document.querySelector(selector);
+                                if (button && 
+                                    button.getAttribute('aria-disabled') !== 'true' &&
+                                    !button.disabled &&
+                                    window.getComputedStyle(button).display !== 'none') {
+                                    return { found: true, selector: selector };
+                                }
+                            }
+                            
+                            return { found: false };
+                        }
+                    """);
+                    
+                    if (buttonStatus instanceof Map) {
+                        Map<String, Object> status = (Map<String, Object>) buttonStatus;
+                        if (Boolean.TRUE.equals(status.get("found"))) {
+                            buttonReady = true;
+                            break;
+                        }
+                    }
+                } catch (Exception e) {
+                    // 继续等待
+                }
+                
+                Thread.sleep(100);
+                waitCount++;
+            }
+            
+            if (!buttonReady) {
+                logInfo.sendTaskLog("发送按钮等待超时，尝试强制发送", userId, "DeepSeek");
+            }
+            
+            // 尝试点击发送按钮
+            boolean clicked = false;
+            
+            // 方法1: 使用特定选择器
+            try {
+                Locator sendButton = page.locator("._7436101").first();
+                if (sendButton.count() > 0) {
+                    // 等待按钮变为可用状态
+                    for (int i = 0; i < 10 && !clicked; i++) {
+                        try {
+                            String ariaDisabled = sendButton.getAttribute("aria-disabled");
+                            if (!"true".equals(ariaDisabled)) {
+                                sendButton.click(new Locator.ClickOptions().setForce(true).setTimeout(3000));
+                                clicked = true;
+                                logInfo.sendTaskLog("指令已自动发送成功", userId, "DeepSeek");
+                                break;
+                            }
+                        } catch (Exception e) {
+                            // 继续尝试
+                        }
+                        Thread.sleep(500);
+                    }
+                }
+            } catch (Exception e) {
+                // 方法1失败，尝试其他方法
+            }
+            
+            // 方法2: 尝试其他发送按钮选择器
+            if (!clicked) {
+                String[] sendButtonSelectors = {
+                    "button[aria-disabled='false']",
+                    "button:not([aria-disabled='true']):not([disabled])",
+                    ".send-button:not([disabled])",
+                    "button.ds-button--primary:not([disabled])",
+                    "[role='button']:not([aria-disabled='true'])"
+                };
+                
+                for (String selector : sendButtonSelectors) {
+                    try {
+                        Locator button = page.locator(selector).first();
+                        if (button.count() > 0 && button.isVisible()) {
+                            button.click(new Locator.ClickOptions().setForce(true).setTimeout(3000));
+                            clicked = true;
+                            logInfo.sendTaskLog("使用备用选择器发送成功: " + selector, userId, "DeepSeek");
+                            break;
+                        }
+                    } catch (Exception e) {
+                        // 继续尝试下一个选择器
+                    }
+                }
+            }
+            
+            // 方法3: 使用JavaScript强制点击
+            if (!clicked) {
+                try {
+                    Object result = page.evaluate("""
+                        () => {
+                            // 设置消息发送时间戳
+                            window._deepseekMessageSentTime = Date.now();
+                            
+                            // 尝试多种发送方式
+                            const selectors = [
+                                '._7436101',
+                                'button[aria-disabled="false"]',
+                                '.send-button:not([disabled])',
+                                'button:not([aria-disabled="true"]):not([disabled])'
+                            ];
+                            
+                            for (const selector of selectors) {
+                                const button = document.querySelector(selector);
+                                if (button && window.getComputedStyle(button).display !== 'none') {
+                                    try {
+                                        button.click();
+                                        return { method: selector, success: true };
+                                    } catch (e) {
+                                        continue;
+                                    }
+                                }
+                            }
+                            
+                            // 尝试按Enter键
+                            const textareas = document.querySelectorAll('textarea');
+                            for (const textarea of textareas) {
+                                if (textarea.value && textarea.value.trim()) {
+                                    const event = new KeyboardEvent('keydown', {
+                                        key: 'Enter',
+                                        code: 'Enter',
+                                        keyCode: 13,
+                                        bubbles: true
+                                    });
+                                    textarea.dispatchEvent(event);
+                                    return { method: 'Enter键', success: true };
+                                }
+                            }
+                            
+                            return { method: '所有方法', success: false };
+                        }
+                    """);
+                    
+                    if (result instanceof Map) {
+                        Map<String, Object> jsResult = (Map<String, Object>) result;
+                        if (Boolean.TRUE.equals(jsResult.get("success"))) {
+                            clicked = true;
+                            logInfo.sendTaskLog("JavaScript发送成功: " + jsResult.get("method"), userId, "DeepSeek");
+                        }
+                    }
+                } catch (Exception e) {
+                    // JavaScript方法也失败了
+                }
+            }
+            
+            // 方法4: 最后尝试按Enter键
+            if (!clicked) {
+                try {
+                    page.keyboard().press("Enter");
+                    clicked = true;
+                    logInfo.sendTaskLog("使用Enter键发送", userId, "DeepSeek");
+                } catch (Exception e) {
+                    // 最后的方法也失败了
+                }
+            }
+            
+            if (clicked) {
+                // 设置发送时间戳
+                try {
+                    page.evaluate("() => { window._deepseekMessageSentTime = Date.now(); }");
+                } catch (Exception e) {
+                    // 忽略错误
+                }
+                
+                // 等待确保消息已发送
+                Thread.sleep(1000);
+                return true;
+            } else {
+                logInfo.sendTaskLog("所有发送方法都失败了", userId, "DeepSeek");
+                return false;
+            }
+            
+        } catch (Exception e) {
+            logInfo.sendTaskLog("发送按钮点击出错: " + e.getMessage(), userId, "DeepSeek");
+            return false;
         }
     }
 
@@ -1466,6 +1212,7 @@ public class DeepSeekUtil {
     public String saveDeepSeekContent(Page page, UserInfoRequest userInfoRequest, String roleType, String userId, String content) throws Exception{
         try {
             long startTime = System.currentTimeMillis(); // 记录开始时间
+            
             // 1. 从URL提取会话ID和分享链接
             String shareUrl = "";
             String chatId = "";
@@ -1476,23 +1223,35 @@ public class DeepSeekUtil {
                 if (matcher.find()) {
                     chatId = matcher.group(1);
                     shareUrl = "https://chat.deepseek.com/a/chat/s/" + chatId;
-                    userInfoRequest.setYbDsChatId(chatId);
+                    userInfoRequest.setDeepseekChatId(chatId);
                     JSONObject chatData = new JSONObject();
-                    chatData.put("type", "RETURN_YBDS_CHATID");
+                    chatData.put("type", "RETURN_DEEPSEEK_CHATID");
                     chatData.put("chatId", chatId);
                     chatData.put("userId", userId);
                     webSocketClientService.sendMessage(chatData.toJSONString());
                 }
             } catch (Exception e) {
-                // 忽略错误
+                // 记录URL提取异常
+                UserLogUtil.sendAIBusinessLog(userId, "DeepSeek", "URL提取", "提取分享链接失败：" + e.getMessage(), System.currentTimeMillis(), url + "/saveLogInfo");
             }
-            // 2. 只保留AI内容，不加对话包装
+            
+            // 2. 生成最后一组对话的长截图（参考百度的处理方案）
+            String shareImgUrl = null;
+            try {
+                shareImgUrl = captureLastConversationScreenshot(page, userId);
+                logInfo.sendTaskLog("成功生成对话截图", userId, "DeepSeek");
+            } catch (Exception e) {
+                logInfo.sendTaskLog("生成截图失败: " + e.getMessage(), userId, "DeepSeek");
+            }
+            
+            // 3. 只保留AI内容，不加对话包装
             String cleanedContent = cleanDeepSeekContent(content, userId);
             String displayContent = cleanedContent;
             if (cleanedContent == null || cleanedContent.trim().isEmpty()) {
                 displayContent = content;
             }
-            // 3. 设置AI名称
+            
+            // 4. 设置AI名称
             String aiName = "DeepSeek";
             if (roleType != null) {
                 boolean hasDeepThinking = roleType.contains("ds-sdsk");
@@ -1505,13 +1264,15 @@ public class DeepSeekUtil {
                     aiName = "DeepSeek-联网搜索";
                 }
             }
-            // 4. 发送内容到前端
-            logInfo.sendResData(displayContent, userId, "DeepSeek", "RETURN_DEEPSEEK_RES", shareUrl, null);
-            // 5. 保存内容到稿库
+            
+            // 5. 发送内容到前端
+            logInfo.sendResData(displayContent, userId, "DeepSeek", "RETURN_DEEPSEEK_RES", shareUrl, shareImgUrl);
+            
+            // 6. 保存内容到稿库
             userInfoRequest.setDraftContent(displayContent);
             userInfoRequest.setAiName(aiName);
             userInfoRequest.setShareUrl(shareUrl);
-            userInfoRequest.setShareImgUrl(null);
+            userInfoRequest.setShareImgUrl(shareImgUrl);
             Object response = RestUtils.post(url + "/saveDraftContent", userInfoRequest);
             logInfo.sendTaskLog("执行完成", userId, "DeepSeek");
             return displayContent;
@@ -1521,6 +1282,7 @@ public class DeepSeekUtil {
         }
     }
 
+
     /**
      * 通用方法：根据目标激活状态切换按钮（深度思考/联网搜索）
      * @param page Playwright页面
@@ -1528,83 +1290,59 @@ public class DeepSeekUtil {
      * @param buttonText 按钮文本（如"深度思考"、"联网搜索"）
      * @param shouldActive 期望激活(true)还是关闭(false)
      * @param logInfo 日志工具
-     * @throws InterruptedException
      */
-    private void toggleButtonIfNeeded(Page page, String userId, String buttonText, boolean shouldActive, LogMsgUtil logInfo) throws InterruptedException {
+    private void toggleButtonIfNeeded(Page page, String userId, String buttonText, boolean shouldActive, LogMsgUtil logInfo) {
         try {
-            long startTime = System.currentTimeMillis(); // 记录开始时间
-            
-            // 查找按钮
-            Locator buttonLocator = page.locator("div[role=\"button\"] span:has-text(\"" + buttonText + "\")").first();
-            if (buttonLocator.count() > 0 && buttonLocator.isVisible()) {
-                // 检查按钮当前状态
-                Object buttonStateDetails = page.evaluate("""
-                    (btnText) => {
-                        const buttons = document.querySelectorAll('div[role="button"]');
-                        let button = null;
-                        for (const btn of buttons) {
-                            if (btn.textContent.includes(btnText)) {
-                                button = btn;
-                                break;
-                            }
-                        }
-                        if (!button) return { found: false, message: '未找到' + btnText + '按钮' };
-                        const style = window.getComputedStyle(button);
-                        const bgColor = style.backgroundColor;
-                        const textColor = style.color;
-                        const buttonStyle = button.getAttribute('style') || '';
-                        const isActive = 
-                            buttonStyle.includes('#DBEAFE') || 
-                            buttonStyle.includes('#4D6BFE') ||
-                            textColor === 'rgb(77, 107, 254)' || 
-                            bgColor === 'rgb(219, 234, 254)';
-                        return {
-                            found: true,
-                            isActive: isActive
-                        };
-                    }
-                """, buttonText);
-                boolean isActive = false;
-                if (buttonStateDetails instanceof Map) {
-                    Map<String, Object> details = (Map<String, Object>) buttonStateDetails;
-                    if (details.containsKey("found") && (boolean) details.get("found")) {
-                        isActive = details.containsKey("isActive") ? (boolean) details.get("isActive") : false;
-                    }
-                }
-                // 只在状态不符时点击
-                if (isActive != shouldActive) {
-                    try {
-                        Locator buttonParent = page.locator("div[role=\"button\"]:has(span:has-text(\"" + buttonText + "\"))").first();
-                        buttonParent.click();
-                        if (buttonText.equals("深度思考")) {
-                            logInfo.sendTaskLog((shouldActive ? "已启动" : "已关闭") + "深度思考模式", userId, "DeepSeek");
-                        }
-                        Thread.sleep(50);
-                    } catch (Exception e) {
-                        Object jsClickResult = page.evaluate("""
-                            (btnText) => {
-                                const buttons = document.querySelectorAll('div[role="button"]');
-                                for (const btn of buttons) {
-                                    if (btn.textContent.includes(btnText)) {
-                                        btn.click();
-                                        return { success: true };
-                                    }
-                                }
-                                return { success: false };
-                            }
-                        """, buttonText);
-                        if (buttonText.equals("深度思考")) {
-                            logInfo.sendTaskLog((shouldActive ? "已启动" : "已关闭") + "深度思考模式", userId, "DeepSeek");
-                        }
-                    }
-                }
+            // 使用更简单的选择器
+            String buttonSelector = String.format("button:has-text('%s'), div[role='button']:has-text('%s')", buttonText, buttonText);
+
+            // 增加超时时间并等待按钮可交互
+            Locator button = page.locator(buttonSelector).first();
+            button.waitFor(new Locator.WaitForOptions().setTimeout(10000)); // 增加到10秒
+
+            if (!button.isVisible()) {
+                logInfo.sendTaskLog(buttonText + "按钮不可见", userId, "DeepSeek");
+                return;
             }
-            
-            // 记录操作耗时不再需要
+
+            // 获取按钮的完整类名
+            String currentClasses = (String) button.evaluate("el => el.className");
+
+            // 检查当前状态：是否包含 _76f196b 类
+            boolean isCurrentlyActive = currentClasses.contains("_76f196b");
+
+            // 只在状态不符时点击
+            if (isCurrentlyActive != shouldActive) {
+                // 使用Playwright的自动等待机制点击:cite[4]
+                button.click(new Locator.ClickOptions().setTimeout(5000));
+
+                // 等待状态变化
+                boolean stateChanged = false;
+                for (int i = 0; i < 15; i++) { // 增加重试次数和超时
+                    page.waitForTimeout(200);
+
+                    String newClasses = (String) button.evaluate("el => el.className");
+                    boolean isNowActive = newClasses.contains("_76f196b");
+
+                    if (isNowActive == shouldActive) {
+                        stateChanged = true;
+                        break;
+                    }
+                }
+
+                if (stateChanged) {
+                    logInfo.sendTaskLog((shouldActive ? "已启动" : "已关闭") + buttonText + "模式", userId, "DeepSeek");
+                } else {
+                    logInfo.sendTaskLog(buttonText + "模式切换失败", userId, "DeepSeek");
+                }
+            } else {
+                logInfo.sendTaskLog(buttonText + "模式已经是" + (shouldActive ? "开启" : "关闭") + "状态", userId, "DeepSeek");
+            }
         } catch (Exception e) {
-            logInfo.sendTaskLog("切换" + buttonText + "模式时出错", userId, "DeepSeek");
+            logInfo.sendTaskLog("切换" + buttonText + "模式时出错: " + e.getMessage(), userId, "DeepSeek");
         }
     }
+
 
     /**
      * 清理DeepSeek内容中的图标和其他不需要的元素
@@ -1650,6 +1388,258 @@ public class DeepSeekUtil {
         } catch (Exception e) {
             // 出现异常时记录日志并返回原始内容
             return content;
+        }
+    }
+
+    /**
+     * 获取最新的DeepSeek回答内容，并检查是否包含完成按钮组
+     * @param page Playwright页面对象
+     * @return 包含内容和完成状态的Map
+     */
+    private Map<String, Object> getLatestDeepSeekResponseWithCompletion(Page page) {
+        try {
+            Object jsResult = page.evaluate("""
+            () => {
+                try {
+                    // 查找包含特定class的最新回复区域
+                    const responseContainers = document.querySelectorAll('div._4f9bf79.d7dc56a8._43c05b5');
+                    if (responseContainers.length === 0) {
+                        return {
+                            content: '',
+                            textContent: '',
+                            length: 0,
+                            hasActionButtons: false,
+                            source: 'no-response-containers',
+                            timestamp: Date.now()
+                        };
+                    }
+                    
+                    // 获取最后一个回复容器（最新的回复）
+                    const latestContainer = responseContainers[responseContainers.length - 1];
+                    
+                    // 检查是否包含操作按钮组
+                    const actionButtonsSelector = 'div.ds-flex._0a3d93b[style*="align-items: center; gap: 10px"] div.ds-flex._965abe9._54866f7';
+                    const hasActionButtons = latestContainer.querySelector(actionButtonsSelector) !== null;
+                    
+                    // 获取markdown内容
+                    const markdownElement = latestContainer.querySelector('.ds-markdown');
+                    if (!markdownElement) {
+                        return {
+                            content: '',
+                            textContent: '',
+                            length: 0,
+                            hasActionButtons: hasActionButtons,
+                            source: 'no-markdown-in-container',
+                            timestamp: Date.now()
+                        };
+                    }
+                    
+                    // 克隆内容以避免修改原DOM
+                    const contentClone = markdownElement.cloneNode(true);
+                    
+                    // 移除不需要的元素
+                    const elementsToRemove = contentClone.querySelectorAll(
+                        'svg, .ds-icon, button, [role="button"], ' +
+                        '[class*="loading"], [class*="typing"], [class*="cursor"], ' +
+                        '.md-code-block-banner, .code-info-button-text'
+                    );
+                    elementsToRemove.forEach(el => el.remove());
+                    
+                    // 获取文本内容
+                    const textContent = contentClone.textContent || '';
+                    const contentLength = textContent.trim().length;
+                    
+                    return {
+                        content: contentClone.innerHTML,
+                        textContent: textContent,
+                        length: contentLength,
+                        hasActionButtons: hasActionButtons,
+                        source: 'latest-container-with-buttons',
+                        timestamp: Date.now()
+                    };
+                } catch (e) {
+                    return {
+                        content: '',
+                        textContent: '',
+                        length: 0,
+                        hasActionButtons: false,
+                        source: 'error',
+                        error: e.toString(),
+                        timestamp: Date.now()
+                    };
+                }
+            }
+            """);
+
+            if (jsResult instanceof Map) {
+                return (Map<String, Object>) jsResult;
+            }
+        } catch (Exception e) {
+            System.err.println("获取DeepSeek回答时出错: " + e.getMessage());
+        }
+
+        return new HashMap<>();
+    }
+
+    /**
+     * 获取最后一组对话内容（参考百度的处理方案）
+     * @param page Playwright页面对象
+     * @param userId 用户ID
+     * @return 最后一组对话的完整内容
+     */
+    private String getLastConversationContent(Page page, String userId) {
+        try {
+            logInfo.sendTaskLog("开始获取最后一组对话内容", userId, "DeepSeek");
+            
+            Object jsResult = page.evaluate("""
+            () => {
+                try {
+                    // 查找所有回复容器
+                    const responseContainers = document.querySelectorAll('div._4f9bf79.d7dc56a8._43c05b5');
+                    if (responseContainers.length === 0) {
+                        return { content: '', source: 'no-containers' };
+                    }
+                    
+                    // 获取最后一个回复容器（最新的回复）
+                    const latestContainer = responseContainers[responseContainers.length - 1];
+                    
+                    // 克隆容器以避免修改原DOM
+                    const containerClone = latestContainer.cloneNode(true);
+                    
+                    // 移除不需要的交互元素，但保留结构
+                    const elementsToRemove = containerClone.querySelectorAll(
+                        'button, [role="button"], ' +
+                        '[class*="loading"], [class*="typing"], [class*="cursor"], ' +
+                        '.code-info-button-text, ._17e543b'
+                    );
+                    elementsToRemove.forEach(el => el.remove());
+                    
+                    // 清理空的div容器
+                    const emptyDivs = containerClone.querySelectorAll('div:empty');
+                    emptyDivs.forEach(div => div.remove());
+                    
+                    // 获取清理后的HTML内容
+                    const cleanedContent = containerClone.innerHTML;
+                    
+                    return {
+                        content: cleanedContent,
+                        source: 'last-conversation-cleaned',
+                        timestamp: Date.now()
+                    };
+                } catch (e) {
+                    return {
+                        content: '',
+                        source: 'error',
+                        error: e.toString()
+                    };
+                }
+            }
+            """);
+
+            if (jsResult instanceof Map) {
+                Map<String, Object> result = (Map<String, Object>) jsResult;
+                String content = (String) result.getOrDefault("content", "");
+                if (!content.trim().isEmpty()) {
+                    logInfo.sendTaskLog("成功获取最后一组对话内容", userId, "DeepSeek");
+                    return content;
+                }
+            }
+            
+            // 如果上述方法失败，回退到原有方法
+            logInfo.sendTaskLog("回退到原有内容获取方法", userId, "DeepSeek");
+            return getLatestAiResponse(page);
+            
+        } catch (Exception e) {
+            logInfo.sendTaskLog("获取最后一组对话内容时出错: " + e.getMessage(), userId, "DeepSeek");
+            return getLatestAiResponse(page);
+        }
+    }
+
+    /**
+     * 截取最后一组对话的长截图（参考百度的处理方案）
+     * @param page Playwright页面对象
+     * @param userId 用户ID
+     * @return 截图URL
+     */
+    private String captureLastConversationScreenshot(Page page, String userId) throws Exception {
+        try {
+            logInfo.sendTaskLog("开始截取最后一组对话截图", userId, "DeepSeek");
+            
+            // 等待页面稳定
+            page.waitForTimeout(1000);
+            
+            // 使用JavaScript定位最后一组对话区域并截图
+            Object screenshotResult = page.evaluate("""
+                () => {
+                    try {
+                        // 查找所有回复容器
+                        const responseContainers = document.querySelectorAll('div._4f9bf79.d7dc56a8._43c05b5');
+                        if (responseContainers.length === 0) {
+                            return { success: false, message: 'no-containers' };
+                        }
+                        
+                        // 获取最后一个回复容器（最新的回复）
+                        const latestContainer = responseContainers[responseContainers.length - 1];
+                        
+                        // 滚动到该容器顶部
+                        latestContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        
+                        // 获取容器的边界信息
+                        const rect = latestContainer.getBoundingClientRect();
+                        
+                        return {
+                            success: true,
+                            x: Math.max(0, rect.left),
+                            y: Math.max(0, rect.top),
+                            width: Math.min(rect.width, window.innerWidth),
+                            height: Math.min(rect.height, window.innerHeight)
+                        };
+                    } catch (e) {
+                        return { success: false, message: e.toString() };
+                    }
+                }
+            """);
+            
+            if (screenshotResult instanceof Map) {
+                Map<String, Object> result = (Map<String, Object>) screenshotResult;
+                if (Boolean.TRUE.equals(result.get("success"))) {
+                    // 等待滚动完成
+                    page.waitForTimeout(1500);
+                    
+                    // 进行完整页面截图（因为对话区域可能很长）
+                    String screenshotPath = "deepseek_conversation_" + System.currentTimeMillis() + ".png";
+                    
+                    // 使用全页面截图，确保捕获完整内容
+                    page.screenshot(new Page.ScreenshotOptions()
+                        .setPath(Paths.get(screenshotPath))
+                        .setFullPage(true)
+                        .setType(com.microsoft.playwright.options.ScreenshotType.PNG)
+                    );
+                    
+                                         // 上传截图并返回URL
+                     String uploadedUrl = uploadFile(screenshotUtil.uploadUrl, screenshotPath);
+                     logInfo.sendTaskLog("对话截图已生成并上传", userId, "DeepSeek");
+                     
+                     return uploadedUrl;
+                } else {
+                    logInfo.sendTaskLog("定位对话区域失败: " + result.get("message"), userId, "DeepSeek");
+                }
+            }
+            
+            // 如果上述方法失败，使用简单的全页面截图
+            logInfo.sendTaskLog("使用备用截图方案", userId, "DeepSeek");
+            String fallbackPath = "deepseek_fallback_" + System.currentTimeMillis() + ".png";
+            page.screenshot(new Page.ScreenshotOptions()
+                .setPath(Paths.get(fallbackPath))
+                .setFullPage(true)
+                .setType(com.microsoft.playwright.options.ScreenshotType.PNG)
+            );
+            
+                         return uploadFile(screenshotUtil.uploadUrl, fallbackPath);
+            
+        } catch (Exception e) {
+            logInfo.sendTaskLog("截图过程发生错误: " + e.getMessage(), userId, "DeepSeek");
+            throw e;
         }
     }
 } 

@@ -2,14 +2,13 @@ package com.playwright.aop;
 
 import com.playwright.entity.LogInfo;
 import com.playwright.entity.UserInfoRequest;
+import com.playwright.entity.mcp.McpResult;
 import com.playwright.utils.LogMsgUtil;
 import com.playwright.utils.RestUtils;
 import com.playwright.utils.UserLogUtil;
 import io.swagger.v3.oas.annotations.Operation;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.Signature;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
@@ -17,19 +16,12 @@ import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.request.RequestAttributes;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.lang.reflect.Method;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Map;
 
 /**
- * @author 孔德权
- * description:  TODO
  * dateStart 2024/8/4 9:34
  * dateNow   2025/8/8 10:11
  */
@@ -49,7 +41,7 @@ public class LogAspect {
     @Around("logPointCut()")
     public Object logAround(ProceedingJoinPoint joinPoint) throws Throwable {
         long start = 0;
-        LogInfo logInfo = logInfo = new LogInfo();
+        LogInfo logInfo = new LogInfo();
         logInfo.setUserId("");
         String description = "无";
         try {
@@ -93,8 +85,14 @@ public class LogAspect {
                 if(result == null) {
                     return null;
                 }
-                String resultStr = result.toString();
-                if(resultStr.contains("false") || resultStr.contains("获取内容失败")) {
+                McpResult mcpResult = null;
+                String resultStr = "";
+                if(result instanceof McpResult) {
+                    mcpResult = (McpResult) result;
+                } else {
+                    resultStr = result.toString();
+                }
+                if(resultStr.contains("false") || mcpResult != null && mcpResult.getCode() == 204) {
 //            如果是登录方法，跳过检测
                     if (logInfo.getMethodName().contains("check")) {
                         log.info(logInfo.getMethodName() + "为登录方法,不再检测");
@@ -107,7 +105,11 @@ public class LogAspect {
                         continue;
                     }
                 }
-                logInfo.setExecutionResult(resultStr);
+                if(mcpResult != null) {
+                    logInfo.setExecutionResult(mcpResult.getResult());
+                } else {
+                    logInfo.setExecutionResult(resultStr);
+                }
                 logInfo.setIsSuccess(1);
                 logInfo.setExecutionTimeMillis(System.currentTimeMillis() - start);
                 RestUtils.post(url + "/saveLogInfo", logInfo);
@@ -137,11 +139,11 @@ public class LogAspect {
                 //             传递不同ai的错误信息
                 sendTaskLog(description, logInfo.getUserId(), "");
                 if (description.contains("检查")) {
-                    return "false";
+                    return McpResult.fail("用户id:" + logInfo.getUserId()  + description + "未登录", "");
                 } else if (description.contains("投递")) {
-                    return "投递失败";
+                    return McpResult.fail("用户id:" + logInfo.getUserId() + description + "失败", "");
                 } else {
-                    return "内容获取失败";
+                    return McpResult.fail("用户id:" + logInfo.getUserId() + description + "失败", "");
                 }
             }
         }

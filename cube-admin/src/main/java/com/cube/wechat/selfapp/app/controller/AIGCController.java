@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.cube.common.annotation.Log;
 import com.cube.common.core.controller.BaseController;
+import com.cube.common.entity.UserLogInfo;
 import com.cube.point.controller.PointsSystem;
 import com.cube.wechat.selfapp.app.config.MyWebSocketHandler;
 import com.cube.wechat.selfapp.app.domain.JsonRpcRequest;
@@ -444,8 +445,8 @@ public class AIGCController extends BaseController {
         return aigcService.saveDraftContent(map);
     }
     @PostMapping("/saveLogInfo")
-    public ResultBody saveLogInfo(@RequestBody Map map){
-        return aigcService.saveLogInfo(map);
+    public ResultBody saveLogInfo(@RequestBody UserLogInfo userLogInfo){
+        return aigcService.saveLogInfo(userLogInfo);
     }
 
 
@@ -535,5 +536,9 @@ public class AIGCController extends BaseController {
         return aigcService.getUserIdByUnionId(unionId);
     }
 
+    @GetMapping("getUnionId")
+    public String getUnionIdByUserId(String userId)  {
+        return aigcService.getUnionIdByUserId(userId);
+    }
 
 }

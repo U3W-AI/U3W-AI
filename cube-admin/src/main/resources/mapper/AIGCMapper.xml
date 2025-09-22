@@ -323,7 +323,7 @@ from wc_chrome_hotlink wck left join sys_user u on wck.user_name = u.user_name
 
     <insert id="saveUserChatData" parameterType="java.util.Map">
         delete from wc_chat_history where userPrompt = #{userPrompt};
-        insert into wc_chat_history values (uuid(),#{userId},#{userPrompt},#{data},now(),#{toneChatId},#{ybDsChatId},#{dbChatId},#{tyChatId},#{maxChatId},#{metasoChatId},#{zhzdChatId},#{kimiChatId},#{baiduChatId},#{chatId});
+        insert into wc_chat_history values (uuid(),#{userId},#{userPrompt},#{data},now(),#{toneChatId},#{ybDsChatId},#{dbChatId},#{tyChatId},#{maxChatId},#{metasoChatId},#{zhzdChatId},#{kimiChatId},#{baiduChatId},#{chatId},#{deepseekChatId});
     </insert>
     <insert id="saveLogInfo" parameterType="java.util.Map">
         INSERT INTO wc_log_info (
@@ -348,7 +348,7 @@ from wc_chrome_hotlink wck left join sys_user u on wck.user_name = u.user_name
     </insert>
 
     <select id="getChatHistory" parameterType="java.lang.String" resultType="java.util.Map">
-        select userPrompt,data,DATE_FORMAT(create_time, '%Y-%c-%d %H:%i:%s') createTime,chat_id chatId,tone_chat_id toneChatId,ybds_chat_id ybDsChatId,db_chat_id dbChatId,ty_chat_id tyChatId,max_chat_id maxChatId,metaso_chat_id metasoChatId,zhzd_chat_id zhzdChatId,kimi_chat_id kimiChatId,baidu_chat_id baiduChatId
+        select userPrompt,data,DATE_FORMAT(create_time, '%Y-%c-%d %H:%i:%s') createTime,chat_id chatId,tone_chat_id toneChatId,ybds_chat_id ybDsChatId,db_chat_id dbChatId,ty_chat_id tyChatId,max_chat_id maxChatId,metaso_chat_id metasoChatId,zhzd_chat_id zhzdChatId,kimi_chat_id kimiChatId,baidu_chat_id baiduChatId,deepseek_chat_id deepseekChatId
         from wc_chat_history where user_id =#{userId} order by create_time desc
         <if test="isAll == 0">
             limit 1

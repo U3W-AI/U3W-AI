@@ -3,6 +3,7 @@ package com.cube.framework.web.exception;
 import javax.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -19,6 +20,9 @@ import com.cube.common.exception.ServiceException;
 import com.cube.common.utils.StringUtils;
 import com.cube.common.utils.html.EscapeUtil;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * 全局异常处理器
  *
@@ -28,6 +32,21 @@ import com.cube.common.utils.html.EscapeUtil;
 public class GlobalExceptionHandler
 {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    /**
+     * openAI相关的错误处理
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException e) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("message", e.getMessage());
+        error.put("type", "invalid_request_error");
+        error.put("param", "model");
+        error.put("code", "model_not_found");
+        Map<String, Object> response = new HashMap<>();
+        response.put("error", error);
+        return new ResponseEntity<>(response, org.springframework.http.HttpStatus.BAD_REQUEST);
+    }
 
     /**
      * 权限校验异常

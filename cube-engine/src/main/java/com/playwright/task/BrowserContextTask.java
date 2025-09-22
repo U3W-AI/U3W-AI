@@ -21,7 +21,7 @@ public class BrowserContextTask {
         Map<String, UnPersisBrowserContextInfo> map = BrowserContextFactory.map;
         Set<String> set = map.keySet();
         for (String key : set) {
-            BrowserContextFactory.closeExpireData(key);
+            BrowserContextFactory.closeExpireData(key + "-yb");
         }
     }
 }

@@ -342,4 +342,7 @@ where task_id =#{taskId} and task_name =#{taskName}
     <select id="getUserIdByUnionId" resultType="java.lang.String" parameterType="java.lang.String">
         select user_id from sys_user where union_id = #{unionId}
     </select>
+    <select id="getUnionIdByUserId" resultType="java.lang.String">
+        select union_id from sys_user where user_id = #{userId}
+    </select>
 </mapper>
