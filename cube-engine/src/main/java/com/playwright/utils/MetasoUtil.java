@@ -2,6 +2,9 @@ package com.playwright.utils;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.playwright.entity.UserInfoRequest;
+import com.playwright.entity.mcp.McpResult;
+import com.playwright.websocket.WebSocketClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +17,9 @@ public class MetasoUtil {
     @Autowired
     private ClipboardLockManager clipboardLockManager;
 
+    @Autowired
+    private WebSocketClientService webSocketClientService;
+
     /**
      * 监控Metaso回答并提取HTML内容
      * @param page Playwright页面实例
@@ -21,11 +27,12 @@ public class MetasoUtil {
      * @param aiName AI名称
      * @return 提取的HTML内容
      */
-    public String waitMetasoHtmlDom(Page page, String userId, String aiName) {
+    public String waitMetasoHtmlDom(Page page, String userId, String aiName, UserInfoRequest userInfoRequest) {
         try {
             String currentContent = "";
             String lastContent = "";
-            long timeout = 1200000; //  20分钟超时设置
+            String textContent = "";
+            long timeout = 60000 * 3; //  20分钟超时设置
             long startTime = System.currentTimeMillis();
 
             while (true) {
@@ -39,25 +46,28 @@ public class MetasoUtil {
                     return "今日搜索额度已用尽";
                 }
 
-                // 检测 flex-container 是否出现（出现即表示 AI 说完了）
-                boolean isDone = page.locator("[id^='search-content-container-'] > .flex-container").count() > 0;
-
                 // 获取最新回答内容
                 Locator contentLocator = page.locator("div.MuiBox-root .markdown-body").last();
                 // 设置 10 分钟超时时间获取 innerHTML
                 currentContent = contentLocator.innerHTML(new Locator.InnerHTMLOptions()
                         .setTimeout(1200000) // 20分钟 = 1200000毫秒
                 );
-
+                textContent = contentLocator.textContent();
                 // 内容稳定且已完成回答时退出循环
-                if (isDone && currentContent.equals(lastContent)) {
+                if(userInfoRequest.getAiName() != null && userInfoRequest.getAiName().contains("stream")) {
+                    webSocketClientService.sendMessage(userInfoRequest, McpResult.success(textContent, ""), userInfoRequest.getAiName());
+                }
+                if(!currentContent.isEmpty() && currentContent.equals(lastContent)) {
                     logInfo.sendTaskLog(aiName + "回答完成，正在提取内容", userId, aiName);
                     break;
                 }
                 lastContent = currentContent;
-                page.waitForTimeout(5000); // 5秒检查一次
+                page.waitForTimeout(2000); // 5秒检查一次
             }
             logInfo.sendTaskLog(aiName + "内容已提取完成", userId, aiName);
+            if(userInfoRequest.getAiName() != null && userInfoRequest.getAiName().contains("stream")) {
+                webSocketClientService.sendMessage(userInfoRequest, McpResult.success("END", ""), userInfoRequest.getAiName());
+            }
             return currentContent;
         } catch (Exception e) {
             throw e;

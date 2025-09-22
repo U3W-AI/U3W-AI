@@ -1550,6 +1550,7 @@ CREATE TABLE `wc_chat_history` (
   `ybds_chat_id` varchar(100) DEFAULT NULL COMMENT '元宝DS会话ID',
   `db_chat_id` varchar(100) DEFAULT NULL COMMENT '豆包会话ID',
   `ty_chat_id`   varchar(100) null comment '通义会话ID',
+  `deepseek_chat_id`  varchar(100) null comment 'DeepSeek会话ID',
   `max_chat_id` varchar(100) DEFAULT NULL COMMENT 'MiniMax会话ID',
   `metaso_chat_id` varchar(100) DEFAULT NULL COMMENT '秘塔会话ID',
   `kimi_chat_id` varchar(100) DEFAULT NULL COMMENT 'KiMi会话ID',

@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -220,56 +222,69 @@ public class UserInfoServiceImpl implements UserInfoService {
     }
 
     @Override
+    public ResultBody getOfficeAccount(Long userId) {
+        WcOfficeAccount woa = userInfoMapper.getOfficeAccountByUserId(userId);
+        if(woa != null) {
+            return ResultBody.success(woa);
+        }
+        return ResultBody.FAIL;
+    }
+
+    @Override
     public ResultBody pushAutoOneOffice(Map map) {
         WcOfficeAccount woa = userInfoMapper.getOfficeAccountByUserName(map.get("userId") + "");
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         String formattedDate = sdf.format(new Date()); // 格式化日期
 
         String assessToken = weChatApiUtils.getOfficeAccessToken(woa.getAppId(), woa.getAppSecret());
-        String url = "https://api.weixin.qq.com/cgi-bin/draft/add?access_token=" + assessToken;
-        String detailUrl = "https://api.weixin.qq.com/cgi-bin/draft/get?access_token=" + assessToken;
-        String contentText = map.get("contentText").toString();
-
-        int first = contentText.indexOf("《");
-        int second = contentText.indexOf("》", first + 1);
-        String title = contentText.substring(first + 1, second);
-//            contentText = contentText.substring(second + 6);
-        contentText = contentText.substring(second + 1, contentText.lastIndexOf(">") + 1);
-        contentText = contentText.replaceAll("\r\n\r\n", "");
-        if (map.get("shareUrl") != null && !map.get("shareUrl").equals("")) {
-            String shareUrl = "原文链接：" + map.get("shareUrl") + "<br><br>";
-            contentText = shareUrl + contentText;
+        if(assessToken == null) {
+            return ResultBody.FAIL;
         }
-        List<JSONObject> paramlist = new ArrayList<>();
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("title", title);
-
-        jsonObject.put("author", woa.getOfficeAccountName());
-        jsonObject.put("content", contentText);
-        jsonObject.put("thumb_media_id", woa.getMediaId());
-        jsonObject.put("content_source_url", map.get("shareUrl"));
-        paramlist.add(jsonObject);
-        JSONObject param = new JSONObject();
-        param.put("articles", paramlist);
-        try {
-            JSONObject result = RestUtils.post(url, param);
-            String mediaId = result.get("media_id").toString();
-            JSONObject postJson = new JSONObject();
-            postJson.put("media_id", mediaId);
-            JSONObject detail = RestUtils.post(detailUrl, postJson);
-            Object o = detail.get("news_item");
-            List<Map<String, Object>> newsItemArray = (List<Map<String, Object>>) o;
-            if (newsItemArray == null || newsItemArray.isEmpty()) {
-                throw new RuntimeException("news_item 数组为空");
-            }
-            Map<String, Object> newsItem = newsItemArray.get(0);
-            String tempUrl = (String) newsItem.get("url");
-            System.out.println(tempUrl);
-            return ResultBody.success(tempUrl);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return ResultBody.error(300, "推送失败");
+        return ResultBody.success("上传成功");
+//        String url = "https://api.weixin.qq.com/cgi-bin/draft/add?access_token=" + assessToken;
+//        String detailUrl = "https://api.weixin.qq.com/cgi-bin/draft/get?access_token=" + assessToken;
+//        String contentText = map.get("contentText").toString();
+//
+//        int first = contentText.indexOf("《");
+//        int second = contentText.indexOf("》", first + 1);
+//        String title = contentText.substring(first + 1, second);
+////            contentText = contentText.substring(second + 6);
+//        contentText = contentText.substring(second + 1, contentText.lastIndexOf(">") + 1);
+//        contentText = contentText.replaceAll("\r\n\r\n", "");
+//        if (map.get("shareUrl") != null && !map.get("shareUrl").equals("")) {
+//            String shareUrl = "原文链接：" + map.get("shareUrl") + "<br><br>";
+//            contentText = shareUrl + contentText;
+//        }
+//        List<JSONObject> paramlist = new ArrayList<>();
+//        JSONObject jsonObject = new JSONObject();
+//        jsonObject.put("title", title);
+//
+//        jsonObject.put("author", woa.getOfficeAccountName());
+//        jsonObject.put("content", contentText);
+//        jsonObject.put("thumb_media_id", woa.getMediaId());
+//        jsonObject.put("content_source_url", map.get("shareUrl"));
+//        paramlist.add(jsonObject);
+//        JSONObject param = new JSONObject();
+//        param.put("articles", paramlist);
+//        try {
+//            JSONObject result = RestUtils.post(url, param);
+//            String mediaId = result.get("media_id").toString();
+//            JSONObject postJson = new JSONObject();
+//            postJson.put("media_id", mediaId);
+//            JSONObject detail = RestUtils.post(detailUrl, postJson);
+//            Object o = detail.get("news_item");
+//            List<Map<String, Object>> newsItemArray = (List<Map<String, Object>>) o;
+//            if (newsItemArray == null || newsItemArray.isEmpty()) {
+//                throw new RuntimeException("news_item 数组为空");
+//            }
+//            Map<String, Object> newsItem = newsItemArray.get(0);
+//            String tempUrl = (String) newsItem.get("url");
+//            System.out.println(tempUrl);
+//            return ResultBody.success(tempUrl);
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//        return ResultBody.error(300, "推送失败");
     }
 
     @Override
@@ -307,7 +322,10 @@ public class UserInfoServiceImpl implements UserInfoService {
 
     private void downloadFile(String fileUrl, Path targetPath) throws IOException {
 //        fileUrl = "https://u3w.com/chatfile/logo.jpg";
-        URL url = new URL(fileUrl);
+        String fileName = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+        String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8);
+        String encodedUrl = fileUrl.substring(0, fileUrl.lastIndexOf("/") + 1) + encodedFileName;
+        URL url = new URL(encodedUrl);
         try (InputStream in = url.openStream()) {
             Files.copy(in, targetPath, StandardCopyOption.REPLACE_EXISTING);
         }
@@ -349,7 +367,11 @@ public class UserInfoServiceImpl implements UserInfoService {
             if (wcOfficeAccount.getPicUrl() != null) {
                 // 1. 下载图片到本地临时文件
                 Path tempFile = Files.createTempFile("temp", ".jpg");
-                downloadFile(wcOfficeAccount.getPicUrl(), tempFile);
+                String picUrl = wcOfficeAccount.getPicUrl();
+                if(picUrl == null) {
+                    throw new RuntimeException("请先上传图片");
+                }
+                downloadFile(picUrl, tempFile);
 
                 // 2. 上传图片到微信服务器
                 String mediaId = uploadImageToWeChat(tempFile, wcOfficeAccount);
@@ -358,7 +380,7 @@ public class UserInfoServiceImpl implements UserInfoService {
                 Files.deleteIfExists(tempFile);
             }
         } catch (Exception e) {
-            return ResultBody.error(500, "accessToken过期或无效，请检查appId和appSecret");
+            return ResultBody.error(500, e.getMessage());
         }
 
         try {
@@ -542,6 +564,7 @@ public class UserInfoServiceImpl implements UserInfoService {
         return ResultBody.success(num);
     }
 
-    public static void main(String[] args) {
-    }
+
+
+
 }

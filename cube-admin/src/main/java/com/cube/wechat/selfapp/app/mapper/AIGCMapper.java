@@ -1,5 +1,6 @@
 package com.cube.wechat.selfapp.app.mapper;
 
+import com.cube.common.entity.UserLogInfo;
 import com.cube.wechat.selfapp.app.domain.WcChromeData;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -34,6 +35,7 @@ public interface AIGCMapper {
 
     List<Map> getChatHistory(@Param("userId") String userId,@Param("isAll") int isAll);
 
-    int saveLogInfo(Map map);
+    int saveLogInfo(UserLogInfo userLogInfo);
+
 
 }

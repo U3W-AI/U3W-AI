@@ -6,7 +6,9 @@
     <artifactId>U3W</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>U3W</name>
+
     <description>U3W</description>
+
     <properties>
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -14,7 +16,32 @@
         <spring-boot.version>3.2.5</spring-boot.version>
     </properties>
     <dependencies>
+        <dependency> 
+            <groupId>com.github.binarywang</groupId>
+            <artifactId>weixin-java-mp</artifactId>
+            <version>4.7.0</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
+            <version>5.8.25</version> <!-- 最新稳定版 -->
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>1.2.83</version>
+        </dependency>
 
+        <dependency>
+            <groupId>com.opencsv</groupId>
+            <artifactId>opencsv</artifactId>
+            <version>5.6</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-mcp-server-webmvc</artifactId>
+            <version>1.0.1</version>
+        </dependency>
           <!--aop-->
         <dependency>
             <groupId>org.springframework.boot</groupId>

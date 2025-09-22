@@ -17,12 +17,10 @@ public class StartupRunner {
     private BrowserController browserController;
 
     @EventListener(ApplicationReadyEvent.class)
-    public void runAfterStartup() {
+    public void runAfterStartup() throws InterruptedException {
         // 输出系统基本信息
         printSystemInfo();
-        
-        // 原有的登录检查（已注释）
-        // browserController.checkLogin("22");
+//         原有的登录检查（已注释）
     }
     
     private void printSystemInfo() {

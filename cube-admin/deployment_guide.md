@@ -19,7 +19,7 @@
 3. 添加主机ID到白名单表：
    ```bash
    mysql -u root -p ucube
-   INSERT INTO sys_host_whitelist (host_id) VALUES ('[cube-engine配置文件中的主机ID]');
+   INSERT INTO sys_host_whitelist (host_id) VALUES ('office01');
    ```
 4. 进入项目根目录安装完整依赖
    ```bash
@@ -67,7 +67,7 @@
     }
    ```
 10. 修改日志上传路径配置：
-   编辑 `src/main/resources/logback.xml` 文件最底部，更新上传路径：
+      编辑 `src/main/resources/logback.xml` 文件最底部，更新上传路径：
    ```xml
     <!-- 日志存放路径 -->
 	<property name="log.path" value="/你的日志存放路径" />

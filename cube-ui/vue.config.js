@@ -5,6 +5,7 @@ function resolve(dir) {
   return path.join(__dirname, dir)
 }
 
+
 const CompressionPlugin = require('compression-webpack-plugin')
 
 const name = process.env.VUE_APP_TITLE || '若依管理系统' // 网页标题

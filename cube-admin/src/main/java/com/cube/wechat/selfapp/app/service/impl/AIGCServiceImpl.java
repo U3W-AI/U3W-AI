@@ -1,5 +1,6 @@
 package com.cube.wechat.selfapp.app.service.impl;
 
+import com.cube.common.entity.UserLogInfo;
 import com.cube.wechat.selfapp.app.domain.WcChromeData;
 import com.cube.wechat.selfapp.app.mapper.AIGCMapper;
 import com.cube.wechat.selfapp.app.mapper.UserInfoMapper;
@@ -71,8 +72,8 @@ public class AIGCServiceImpl implements AIGCService {
     }
 
     @Override
-    public ResultBody saveLogInfo(Map map) {
-        aigcMapper.saveLogInfo(map);
+    public ResultBody saveLogInfo(UserLogInfo userLogInfo) {
+        aigcMapper.saveLogInfo(userLogInfo);
         return ResultBody.success("保存成功");
     }
 
@@ -120,5 +121,10 @@ public class AIGCServiceImpl implements AIGCService {
 
         aigcMapper.savePlayWrightTaskData(list);
         return ResultBody.success("成功");
+    }
+
+    @Override
+    public String getUnionIdByUserId(String userId) {
+        return userInfoMapper.getUnionIdByUserId(userId);
     }
 }

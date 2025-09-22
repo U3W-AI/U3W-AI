@@ -1,234 +1,181 @@
-<p align="center"><img alt="Static Badge" src="https://img.shields.io/badge/MySQL-5.7-blue"> <img alt="Static Badge" src="https://img.shields.io/badge/JDK-17-blue"> <img alt="Static Badge" src="https://img.shields.io/badge/Spring%20Boot-3.2.5-blue"> <img alt="Static Badge" src="https://img.shields.io/badge/Redis-6.0%2B-blue"> <img alt="Static Badge" src="https://img.shields.io/badge/License-AGPL3.0-blue"></p>
+<p align="center"><img alt="Static Badge" src="https://img.shields.io/badge/MySQL-5.7-blue"> <img alt="Static Badge" src="https://img.shields.io/badge/JDK-17-blue"> <img alt="Static Badge" src="https://img.shields.io/badge/Spring%20Boot-2.5.15-blue"> <img alt="Static Badge" src="https://img.shields.io/badge/Redis-6.0%2B-blue"> <img alt="Static Badge" src="https://img.shields.io/badge/License-AGPL3.0-blue"></p>
 
 # U3W 优立方 AI 主机：人机协同数智驱动的团队未来
+版本：V2.5
 
-版本：2.1B4
+文档更新日期：2025年9月22日
 
-文档更新日期：2025年8月24日
+## 近期重要更新
+2025年9月22日：增强部分智能体的稳定性
 
-## 目录
+2025年9月16日：秘塔及知乎直答 MCP 服务上架，目前支持元宝、豆包、百度 AI、DeepSeek、通义、秘塔和知乎直答的MCP服务，并提供通过公众号智能体调用以上MCP服务进行对话的实例。
 
-- [1. 部署文档](#1-项目结构)
-- [2. 概述](#2-概述)
-- [3. 优立方：品牌理念与核心价值](#3-优立方品牌理念与核心价值)
-- [4. 产品与市场定位](#4-产品家族与市场定位)
-- [5. 系统架构与技术实现](#5-系统架构与技术实现)
-- [6. 常见问题](#6-常见问题)
+2025年9月15日：通义 MCP 服务上架。
 
-## 1. 项目结构
+2025年9月13日：AI主机底座上线OpenAI API兼容接口，供第三方调用主机能力。
+
+
+2025年9月1日：升级公众号MCP服务，新增图片生成等能力。
+
+## 项目结构
 
 ```
 U3W-AI/
 ├── common_deployment_guide.md  [公共环境部署指南](common_deployment_guide.md)
 ├── cube-mini/            # 优立方AI主机控制台小程序端
-│   └── deployment_guide.md  [部署指南](cube-mini/deployment_guide.md)
 ├── cube-admin/           # 优立方AI主机控制台后端
-│   └── deployment_guide.md  [部署指南](cube-admin/deployment_guide.md)
 ├── cube-ui/              # 优立方AI主机控制台前端
-│   └── deployment_guide.md  [部署指南](cube-ui/deployment_guide.md)
 ├── cube-engine/          # 优立方AI主机核心服务
-│   └── deployment_guide.md  [部署指南](cube-engine/deployment_guide.md)
 ├── cube-common/          # 公共工具模块
 ├── cube-framework/       # 框架核心模块
 ├── sql/                  # 数据库脚本
 └── README.md             # 项目说明文档
 ```
-### 1.1 部署文档
-公共环境部署指南：[点击前往](common_deployment_guide.md)
-
-优立方AI主机核心服务：[点击前往](cube-engine/deployment_guide.md)
-
-优立方AI主机控制台后端：[点击前往](cube-admin/deployment_guide.md)
-
-优立方AI主机控制台前端：[点击前往](cube-ui/deployment_guide.md)
-
-优立方AI主机控制台小程序端：[点击前往](cube-mini/deployment_guide.md)
-
-
-<a href="#u3w-优立方-ai-主机人机协同数智驱动的团队未来">返回顶部 ↑</a>
-
-## 2、概述
-
-U3W优立方 AI 主机是由悟空共创（杭州）智能科技有限公司推出的开源项目。
-
-它采用了积木式的系统结构，以 “模块化、分布式、高协同” 为核心，通过分层设计实现 “业务逻辑 - 任务执行 - 用户交互” 的解耦，同时依托 Java、Vue.js、Playwright 等技术栈确保高性能与稳定性。这种结构既满足团队协作的数字化需求，又通过多 AI 集成与自动化执行支撑智能内容创作，最终实现 “团队智慧 + AI 智慧 + 商业智慧” 的三重价值融合。
-
-优立方具有丰富的应用场景，当前典型应用场景是作为AI 驱动的智能内容创作与团队管理一体化平台，实现多主机接入、多AI上架、多账号共享、多环节创意和多渠道发布。
-
-用户可以依托优立方丰富而富有创意的技术继承能力，自行组合更多的使用方法和数智资产挖掘方式。
-
-<a href="#u3w-优立方-ai-主机人机协同数智驱动的团队未来">返回顶部 ↑</a>
-
-## 3. 优立方：品牌理念与核心价值
-
-品牌名称：U3W 优立方
-
-Slogan：Unique³ Wisdom（独特智慧三次方）
-
-### 3.1 品牌理念：Unique³ Wisdom
-
-“Unique³ Wisdom” 代表了优立方平台的三重智慧融合：
-
-#### 3.1.1 团队智慧 (Team Wisdom)
-
-平台构建的协作化工作流引擎，支持多成员协同创作，实现团队能力的数字化聚合。通过稿库管理、历史会话共享、多版本对比等功能，将分散的个体能力转化为结构化的团队资产，显著提升组织协同效率。
-
-#### 3.1.2 AI 智慧 (AI Wisdom)
-
-平台深度集成并不断扩展 AI 能力（如深度思考、联网搜索），赋予机器智能决策和内容生成的能力。通过多源 AI 账号聚合，实现 “提示词→智能生成→内容优化+评分整合+分享复用” 的闭环，让 AI 成为团队创意的智能引擎。
-
-#### 3.1.3 商业智慧 (Business Wisdom)
-
-平台通过将 AI 能力与团队协作模式深度应用于实际商业场景（如内容营销、数据洞察、知识服务、创意策划、市场调研等），帮助企业提升效率、降低成本、优化决策，最终实现商业价值的增长。依托自动化内容分发、多平台适配等功能，将团队创作成果高效转化为商业产出。
-
-### 3.2 核心价值主张
-
-* **极致效率**：通过团队协作流程数字化，减少重复沟通成本，加速内容生产和业务流程。
-* **智能赋能**：融合前沿 AI 技术，为团队提供智能内容创作、分析和优化能力，提升创意产出质量。
-* **灵活定制**：模块化架构支持按需部署与深度集成，满足企业个性化团队协作需求。
-* **可见可控**：实时可视化监控任务执行与协作进度，确保团队流程透明可控。
-* **数据资产化**：系统化管理团队生成内容与协作数据，形成可复用的企业知识资产。
-
-<a href="#u3w-优立方-ai-主机人机协同数智驱动的团队未来">返回顶部 ↑</a>
-
-## 4. 典型应用与功能
-
-
-#### 4.1 典型应用场景
-
-U3W优立方 AI 主机有丰富的应用场景。当前典型应用场景是，AI 驱动的智能内容创作与团队管理一体化平台。特点是，以一个开源项目平台，实现多主机接入、多AI上架、多账号共享、多环节创意和多渠道发布。
-
-#### 4.2 开源项目目标市场
-
-个人开发者、开源贡献者、技术爱好者、非商业项目、高校科研机构。
-
-#### 4.3 核心功能
-
-基于 Java 和 Playwright 的浏览器自动化控制核心，支持团队协作基础能力：
-
-##### 4.3.1 一问多答功能
-
-支持用户扫码授权后，将原生AI 等各类账号的使用权配置给主机使用。当用户配置完成后，主机代理用户访问这些 AI 账号，用户只需输入一次提示词，主机即分别向 AI 转发这些提问，并获取 AI 的回答，供团队成员共享使用。
-
-![一问多答功能](docs-img/10.png)
-
-![一问多答功能](docs-img/11.png)
-
-##### 4.3.2 多 AI 账号扩展
-
-后续将陆续支持集成更多的 AI 账号，为团队提供多元化智能能力支持。
-
-![多 AI 账号扩展](docs-img/9.jpg)
-
-##### 4.3.3 标准化接口
-
-提供标准化的 REST API 接口，用于驱动浏览器执行任务并返回结构化数据，方便团队进行二次开发与系统集成。
-
-##### 4.3.4 多样化的使用场景
-
-支持从浏览器端、小程序端、企业微信工作台使用核心功能，支持微信及企业微信登录。
-
-##### 4.3.5 执行过程可视化
-
-支持执行过程截图的本地化存储，便于团队成员追溯任务执行细节。
-
-##### 4.3.6 结果结构化输出
-
-返回最终任务结果（当前支持 Markdown，部分AI支持 HTML 片段），满足团队内容创作的标准化需求。支持结果以文本、MD、图片等多种形式展示、输出。支持将结果直接投递到公众号、知乎、微头条等媒体，支持在投递到媒体前以AI提示词对内容进行智能排版。
-
-##### 4.3.7 单台主机可同时运行多个优立方账号
-
-每个优立方账号均可以绑定它自己的多组AI账号，同时，每台主机都支持多个优立方账号同时运行。每个优立方后台管理系统均支持多台AI主机同时接入。
-
-##### 4.3.8 支持区块链积分系统，便于数据资产治理及运营
-
-基于区块链生成系统积分，支持通过管理员后台基于积分规则进行积分运营，为内容资产上链和社区贡献记账、数据追溯等建立治理基础。
-
-#### 4.4 授权模式
-
-实行双许可证模式：
-
-##### 4.4.1 开源许可证
-
-面向个人开发者和非商业用途，允许自由使用、修改和分发核心代码，不收取任何费用。
-
-##### 4.4.2 商业许可证
-
-当企业需要将其集成到商业产品或服务中时，需通过购买优立方 AI 主机企业版获得商业授权。商业许可证的主要目标群体是各行各业需要提升内容生产效率、实现团队协作自动化的企业、机构及商业用户。
-
-
-<a href="#u3w-优立方-ai-主机人机协同数智驱动的团队未来">返回顶部 ↑</a>
-
-## 5. 系统架构与技术实现
-
-优立方 AI 主机采用先进的模块化、分布式架构，确保高效率、高稳定性和易于扩展性。
-
-![系统架构与技术实现](docs-img/3.png)
-
-
-### 5.1 整体架构概览
-
-优立方 AI 主机主要由以下三大核心组件构成，它们分别部署在不同的环境中，实现功能解耦和高性能协作：
-
-#### 5.1.1 后台管理平台及数据库服务器
-
-系统的 “大脑”，负责业务逻辑、数据处理和用户交互，支持团队协作流程的数字化管理。
-
-#### 5.1.2 小程序控制端及PC控制端
-
-PC控制端支持用户通过浏览器进行系统管理；小程序控制端适合用户在微信和企业微信上进行常用AI操作。
-
-
-
-#### 5.1.3 优立方 AI 主机
-
-系统的 “执行者”，负责核心的 AI 驱动浏览器自动化任务，支持团队任务的自动化执行与结果回传。
-
-### 5.2 核心组件技术栈与部署
-
-| 模块                               | 技术栈                                  | 主要职责                                                      |
-| -------------------------------- | ------------------------------------ | --------------------------------------------------------- |
-| **cube-admin**                   | Java 17 + SpringBoot + RuoYi 框架      | 后台管理平台，实现用户权限、AI 任务调度及 WebSocket 通信（用户界面与 AI 主机的信息交互）     |
-| **cube-ui**                      | Vue.js + Element UI                  | PC 控制平台前端，实现提示词输入、会话管理、稿库管理、媒体投递等功能                       |
-| **cube-mini**                    | 微信/企业微信小程序                           | 面向移动端的简化接口，用于发起 prompt 和查看任务执行状态                          |
-| **cube-engine**                  | Java 17 + Playwright + WebSocket 客户端 | AI 主机服务，接收后台指令后驱动浏览会话、注入提示词、截屏、抓取生成文本并回填 WebSocket 或 REST |
-| **cube-common / cube‑framework** | Java 工具包、内部注解、日志、结果结构体、Session 管理    | 支持共享工具和接口约定                                               |
-| **cube-generator**               | 脚手架和 CLI 生成代码、扩展模块插件                 | 可用于生成自定义 AI 账号集成、controller/service/vo 等结构                |
-| **cube-point**                   | Java + 区块链积分微模块                      | 提供内容资产上链、积分管理、贡献记账等运营逻辑                                   |
-| **cube-quartz**                  | 定时任务调度                               | 支持定时发布内容、自动清理、日志归档等任务逻辑                                   |
-| **sql/**                         | DDL + 初始化种子脚本                        | 创建表结构、索引、启动 seed 数据，如 AI 账号、媒体投递配置等                       |
-
-### 5.3 模块间协作与数据流
-
-![模块间协作与数据流](docs-img/4.png)
-
-
-优立方 AI 主机各模块之间通过标准化的通信协议和接口紧密协作，形成高效的数据流闭环：
-
-#### 5.3.1 用户指令发起
-
-用户通过后台管理平台的用户界面或小程序控制端，输入指令或配置 AI 任务（如提示词、AI 模型选择），支持团队成员协同输入与任务规划。
-
-#### 5.3.2 指令下发
-
-后台管理平台将指令通过 WebSocket 推送至优立方 AI 主机，支持团队任务的批量分发与进度跟踪。
-
-#### 5.3.3 智能任务执行
-
-优立方 AI 主机接收指令并驱动浏览器执行自动化任务。在此过程中，调用集成的各种 AI 服务进行深度思考、联网搜索或内容生成，满足团队智能化协作需求。
-
-#### 5.3.4 实时反馈与结果回传
-
-任务执行过程中的实时日志和浏览器截图通过 WebSocket 持续回传至后台管理平台，供团队成员实时监控。最终任务执行结果（如 Markdown 格式的内容、HTML 片段、结构化数据）也通过 WebSocket 或 REST API 回传，实现团队信息同步。
-
-#### 5.3.5 数据存储与管理
-
-后台管理平台接收到的任务结果、执行日志、历史会话以及用户相关数据等，均存储至 MySQL 数据库。Redis 则用于高效管理实时会话状态和提供数据缓存，支持团队数据资产的系统化管理。
-
-#### 5.3.6 结果展示与内容管理
-
-后台管理平台将存储的数据进行可视化展示（如 Markdown 渲染），并提供稿库管理、历史会话查询、智能评分等功能，形成完整的团队交互和内容资产管理闭环。支持用户将结果直接投递到绑定的媒体上。
-
-## 6. 常见问题
-- [微信小程序登录相关问题](常见问题文档/微信小程序登录相关问题.md)
-- [稿库报错相关问题](常见问题文档/稿库报错相关问题.md)
+### 部署文档
+
+**推荐使用：** [🚀 优立方完整部署说明](complete_deployment_guide.md) - **全流程一站式部署指南**
+
+
+## 快速开始
+
+以下是快速部署和运行优立方的步骤。如需详细了解各模块的部署过程，请参考各模块的部署指南。
+
+### 前置要求
+- JDK 17
+- Maven cube-admin:2.5.15, cube-engine:3.2.5
+- Node.js 16.x/18.x 和 npm 8.x+
+- MySQL 5.7+ 和 Redis 6.0+
+- Windows 10系统及以上（建议内存16GB）
+
+### 环境准备
+1. 安装 JDK 17、Maven、Node.js、MySQL 和 Redis
+2. 克隆项目仓库到本地
+
+## 配置
+
+### 数据库配置
+1. 创建MySQL数据库：
+   ```bash
+   mysql -u root -p
+   CREATE DATABASE IF NOT EXISTS ucube DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   ```
+
+2. 导入SQL文件：
+   ```bash
+   mysql -u root -p ucube < sql/ucube.sql
+   ```
+
+3. 添加主机ID到白名单表：
+   ```bash
+   mysql -u root -p ucube
+   INSERT INTO sys_host_whitelist (host_id) VALUES ('你的主机ID');  #主机ID建议使用字母+数字组合，例如user01
+   ```
+
+### 后端配置
+1. 修改 cube-admin 模块的数据库配置（application-druid.yml）：
+   ```yaml
+   spring:
+       datasource:
+           druid:
+               master:
+                   url: jdbc:mysql://[数据库IP]:[端口]/ucube?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8&allowMultiQueries=true
+                   username: [数据库用户名]
+                   password: [数据库密码]
+   ```
+
+2. 修改 cube-admin 模块的Redis配置（application.yml）：
+   ```yaml
+   spring:
+       redis:
+           host: [Redis IP]
+           port: [Redis端口]
+           password: [Redis密码]
+   ```
+
+3. 修改应用配置（application.yml）：
+   编辑 `src/main/resources/application.yml` 文件，更新文件上传配置：
+   ```yaml
+   profile: F:/AGI/chatfile #此处可以是电脑上的任意文件夹
+   upload:
+   #上传文件路径
+       url: http://localhost:8081/profile/
+   ```
+   > 注意：端口默认为8081，如已修改请使用实际端口
+
+4. 修改文件上传路径配置：
+   编辑 `../cube-common/src/main/java/com/cube/common/config/RuoYiConfig.java` 文件最底部，更新上传路径：
+   ```java
+    public static String getUploadPath()
+    {
+        return "F:/AGI/chatfile";
+    }
+   ```
+5. 修改日志上传路径配置：
+   编辑 `src/main/resources/logback.xml` 文件最底部，更新上传路径：
+   ```xml
+    <!-- 日志存放路径 -->
+	<property name="log.path" value="/你的日志存放路径" />
+
+6. 配置 cube-engine 模块的主机ID和数据目录`../cube-engine/src/main/resources/application.yaml`文件 **（MCP相关配置见[部署文档](cube-engine/deployment_guide.md)）**：
+   ```yaml
+   cube:
+     url: http://127.0.0.1:8081/aigc
+     wssurl: ws://127.0.0.1:8081/websocket?clientId=play-您的主机ID  #主机ID建议使用字母+数字组合，例如user01，并在数据库sys_host_whitelist中配置主机id
+     datadir: F:\AGI\user-data-dir  # 数据目录，建议单独文件夹存放
+     uploadurl: http://127.0.0.1:8081/common/upload
+   ```
+
+## 运行
+
+### 启动后端服务
+1. 在项目根目录安装所有依赖：
+   ```bash
+   mvn clean install
+   ```
+
+2. 打包启动 cube-admin 服务：
+   ```bash
+   cd cube-admin
+   mvn clean package -DskipTests
+   java -jar target/cube-admin.jar
+   ```
+
+3. 打包启动 cube-engine 服务：
+   ```bash
+   cd ../cube-engine
+   mvn clean package -DskipTests
+   java -jar target/U3W.jar
+   ```
+
+### 启动前端服务
+1. 进入 cube-ui 目录：
+   ```bash
+   cd ../cube-ui
+   ```
+
+2. 安装前端依赖：
+   ```bash
+   npm install --legacy-peer-deps
+   ```
+
+3. 启动前端开发服务器：
+   ```bash
+   npm run dev
+   ```
+
+### 首次登录
+- 启动成功后，浏览器会自动打开后台页面
+- 账密登录入口为loginpwd
+- 账号：admin
+- 密码：admin123
+
+### 主机绑定
+- 登录后台后，点击右上角名称→个人中心
+- 在基本资料的主机ID输入框中填写 `wssurl` 配置项的 `<主机ID>` 部分
+
+### 验证运行
+- 登录后台后，点击登录各个AI，成功返回二维码截图并进行登录。
+- 登录完成后，点击左侧内容管理→主机，发送提示词，后台成功返回运行截图、结果后，为cube-ui、cube-admin、cube-engine部分部署完成。
+- 参考[部署文档](cube-engine/deployment_guide.md)完成元器工作流相关配置后，发布对话智能体并咨询相关问题，发送以"1"开头的问题（确保意图准确识别）来测试整个系统是否正常工作，如果正常，系统将返回相应的回复链接，以确认部署正常完成。
+
+The end

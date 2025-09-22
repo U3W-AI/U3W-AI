@@ -1,12 +1,26 @@
 server:
   port: 8083
 
-
 cube:
   url: http://127.0.0.1:8081/aigc
-  wssurl: ws://127.0.0.1:8081/websocket?clientId=play-//主机ID  #主机ID建议使用字母+数字组合，例如play-user01
+  wssurl: ws://127.0.0.1:8081/websocket?clientId=play-office01 #主机ID建议使用字母+数字组合，例如play-user01
   datadir: //文件夹路径
   uploadurl: http://127.0.0.1:8081/common/upload
+
+spring:
+  main:
+    allow-circular-references: true
+  ai:
+    mcp:
+      server:
+        enabled: true
+        name: cube-engine-mcp
+        version: 1.0.0
+        sse-endpoint: /cubeServer/sse
+        sse-message-endpoint: /cubeServer/mcp
+        capabilities:
+          tool: true
+
 
 #如果配置url是加了https证书的域名，则需要改为wss://你的域名/cubeServer/websocket?clientId=play-你的主机ID
 #https域名示例：

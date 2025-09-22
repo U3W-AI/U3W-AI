@@ -124,5 +124,6 @@ public interface UserInfoMapper {
 
     String getUserIdByUnionId(String unionId);
 
+    String getUnionIdByUserId(String userId);
 }
 

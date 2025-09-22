@@ -142,7 +142,7 @@ office:
   appId:
   appSecret:
 upload:
-# 上传文件路径
+  # 上传文件路径
   url: http://localhost:8081/profile/
 
 #数据智能专区SDK

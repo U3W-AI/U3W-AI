@@ -216,20 +216,29 @@ public class ZHZDUtil {
         String aiName = "知乎直答";
 
         try {
-            // 切换模式, 深度思考, 全网, 知乎, 学术, 我的知识库
-            handleCapabilityTurnOn(page, userInfoRequest.getRoles(), userId, aiName);
-
-            // 提问
             Locator inputBox = page.locator(".Dropzone.Editable-content.RichText.RichText--editable.RichText--clearBoth.ztext");
             if (inputBox == null || inputBox.count() <= 0) {
                 throw new RuntimeException("未找到输入框");
             }
+            // 切换模式, 深度思考, 全网, 知乎, 学术, 我的知识库
+            handleCapabilityTurnOn(page, userInfoRequest.getRoles(), userId, aiName);
+
+            // 提问
 
             int copyButtonCount = getCopyButtonCount(page);
 
             inputBox.click();
             inputBox.type(userInfoRequest.getUserPrompt());
-            inputBox.press("Enter");
+            int times = 3;
+            String inputText = inputBox.textContent();
+            while (!inputText.contains("输入你的问题")) {
+                inputBox.press("Enter");
+                Thread.sleep(1000);
+                inputText = inputBox.textContent();
+                if(times-- < 0) {
+                    throw new RuntimeException("指令输入失败");
+                }
+            }
             logInfo.sendTaskLog("指令已自动发送成功", userId, aiName);
             logInfo.sendTaskLog("开启自动监听任务，持续监听" + aiName + "回答中", userId, aiName);
 

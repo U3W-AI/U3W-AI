@@ -1,6 +1,7 @@
 package com.playwright.utils;
 
 import com.microsoft.playwright.*;
+import com.playwright.controller.BrowserController;
 import com.playwright.entity.UnPersisBrowserContextInfo;
 
 import java.util.*;
@@ -179,11 +180,13 @@ public class BrowserContextFactory {
             BrowserContext browserContext = unPersisBrowserContextInfo.getBrowserContext();
             if (browserContext == null) {
                 map.remove(key);
+                BrowserController.loginMap.remove(key);
                 return;
             }
 //            处理过期上下文
             if (System.currentTimeMillis() > unPersisBrowserContextInfo.getExpireTime()) {
                 browserContext.close();
+                BrowserController.loginMap.remove(key);
                 map.remove(key);
             }
         }

@@ -81,5 +81,6 @@ public interface UserInfoService {
     ResultBody getIsChangeByCorpId(String corpId);
 
 
+    ResultBody getOfficeAccount(Long userId);
 
 }
