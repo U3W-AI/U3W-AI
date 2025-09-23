@@ -35,6 +35,9 @@ public class TongYiUtil {
     @Autowired
     private WebSocketClientService webSocketClientService;
     
+    @Autowired
+    private ElementSelectorUtil elementSelectorUtil;
+    
     @Value("${cube.url}")
     private String url;
 
@@ -70,33 +73,46 @@ public class TongYiUtil {
                 desiredMode = "联网搜索";
             }*/
 
-            // 检查当前是否已有激活的模式
+            // 🔥 优化：检查当前是否已有激活的模式，增加超时控制
+            try {
             Locator closeButton = page.locator("span[class*='closeIcon--']");
+                closeButton.waitFor(new Locator.WaitForOptions().setTimeout(10000));
+                
             if (closeButton.isVisible()) {
-
                 // 获取当前激活模式的文本，以判断是否需要切换
                 Locator activeModeTag = page.locator("span[class*='tipBtn--']");
                 String activeModeText = activeModeTag.textContent().trim();
 
                 // 如果模式不同则先关闭当前模式
                 if (!activeModeText.contains(desiredMode)) {
-                    closeButton.click();
-                    page.waitForTimeout(1500);
+                        closeButton.click(new Locator.ClickOptions().setTimeout(15000));
+                        page.waitForTimeout(2000); // 增加等待时间
                 } else {
                     // 记录模式已正确
                     UserLogUtil.sendAISuccessLog(userId, aiName, "模式切换", "模式已正确设置为：" + desiredMode, startTime, url + "/saveLogInfo");
                     return;
                 }
+                }
+            } catch (TimeoutError e) {
+                // 如果没有找到关闭按钮，说明没有激活模式，继续处理
             }
 
-            // 开启目标模式
+            // 🔥 优化：开启目标模式，增加超时控制和重试机制
             if (!desiredMode.isEmpty()) {
+                try {
                 Locator buttonContainer = page.locator(".operateLine--gpbLU2Fi");
-                buttonContainer.getByText(desiredMode).click();
-                page.waitForTimeout(1500);
+                    buttonContainer.waitFor(new Locator.WaitForOptions().setTimeout(20000));
+                    
+                    Locator modeButton = buttonContainer.getByText(desiredMode);
+                    modeButton.click(new Locator.ClickOptions().setTimeout(15000));
+                    page.waitForTimeout(2000); // 增加等待时间
                 
                 // 记录模式切换成功
                 UserLogUtil.sendAISuccessLog(userId, aiName, "模式切换", "成功切换到：" + desiredMode, startTime, url + "/saveLogInfo");
+                } catch (TimeoutError e) {
+                    // 如果找不到模式按钮，记录警告但不抛出异常
+                    UserLogUtil.sendAIBusinessLog(userId, aiName, "模式切换", "未找到模式按钮：" + desiredMode + "，继续处理", startTime, url + "/saveLogInfo");
+                }
             }
         } catch (TimeoutError e) {
             // 记录模式切换超时
@@ -117,7 +133,7 @@ public class TongYiUtil {
      * @param userInfoRequest 包含所有请求信息的对象
      * @return 包含处理结果的Map
      */
-    public Map<String, String> processQianwenRequest(Page page, UserInfoRequest userInfoRequest) throws InterruptedException {
+    public Map<String, String> processQianwenRequest(Page page, UserInfoRequest userInfoRequest) throws InterruptedException, TimeoutException {
         String userId = userInfoRequest.getUserId();
         String aiName = "通义千问";
         Map<String, String> resultMap = new HashMap<>();
@@ -140,10 +156,23 @@ public class TongYiUtil {
             page.waitForTimeout(500);
 //            模拟键盘输入
             page.keyboard().type(userInfoRequest.getUserPrompt(), new Keyboard.TypeOptions()
-                    .setDelay(100)); // 每个字符之间延迟100ms，更接近真人输入            logInfo.sendTaskLog("用户指令已自动输入完成", userId, aiName);
+                    .setDelay(100)); // 每个字符之间延迟100ms，更接近真人输入
+            logInfo.sendTaskLog("用户指令已自动输入完成", userId, aiName);
             page.waitForTimeout(500);
-            page.locator("//div[@class='operateBtn--qMhYIdIu']//span[@role='img']//*[name()='svg']").click();
-            logInfo.sendTaskLog("指令已自动发送成功", userId, aiName);
+            
+            // 🔥 优化：使用增强的安全点击方法，带有重试机制和多选择器策略
+            boolean sendSuccess = elementSelectorUtil.safeClickTongYiSendButton(page, "发送按钮点击", 3);
+            if (!sendSuccess) {
+                throw new TimeoutException("发送按钮点击失败，尝试了多种选择器和重试策略仍无法成功");
+            }
+            
+            // 🔥 增强：验证发送是否成功，等待停止按钮出现
+            boolean messageSent = elementSelectorUtil.waitForTongYiStopButton(page, 15000);
+            if (messageSent) {
+                logInfo.sendTaskLog("指令已自动发送成功，已开始生成回答", userId, aiName);
+            } else {
+                logInfo.sendTaskLog("指令可能发送成功，但未检测到停止按钮，继续处理", userId, aiName);
+            }
             logInfo.sendTaskLog("开启自动监听任务，持续监听" + aiName + "回答中", userId, aiName);
 
             // 获取原始回答HTML

@@ -16,8 +16,8 @@ public class BrowserOptimizer {
      */
     public static void optimizePage(Page page) {
         try {
-            // 设置较短的超时时间，避免长时间等待
-            page.setDefaultTimeout(40000); // 30秒超时
+            // 🔥 优化：增加默认超时时间，减少频繁超时
+            page.setDefaultTimeout(60000); // 增加到60秒超时，给AI响应更多时间
             
             // 阻止不必要的资源加载以减少网络和内存消耗
             page.route("**/*.{png,jpg,jpeg,gif,svg,ico,webp}", route -> route.abort());

@@ -3,6 +3,7 @@ package com.playwright.utils;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.TimeoutError;
+import com.microsoft.playwright.options.WaitForSelectorState;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
@@ -178,5 +179,117 @@ public class ElementSelectorUtil {
             "xpath=//button[contains(@class,'send')]",
             "xpath=//div[@id='input-send-icon']"
         };
+    }
+
+    /**
+     * 获取通义千问发送按钮的选择器（多重策略）
+     * @return 选择器数组
+     */
+    public String[] getTongYiSendButtonSelectors() {
+        return new String[]{
+            // 原始选择器（最精确但最脆弱）
+            "//div[@class='operateBtn--qMhYIdIu']//span[@role='img']//*[name()='svg']",
+            // 更宽泛的备用选择器
+            "//div[contains(@class,'operateBtn')]//span[@role='img']//*[name()='svg']",
+            "//div[contains(@class,'operateBtn')]//span[@role='img']",
+            "//div[contains(@class,'operate')]//svg",
+            "//span[@role='img']//*[name()='svg'][contains(@class,'send') or contains(@class,'submit')]",
+            // 基于功能的选择器
+            "//button[contains(@title,'发送') or contains(@aria-label,'发送')]",
+            "//div[@role='button'][contains(@class,'send') or contains(@class,'submit')]",
+            "[data-testid*='send']",
+            "[data-action*='send']",
+            // 最后的备用选择器
+            "//div[contains(@class,'btn') and contains(@class,'send')]//svg",
+            "xpath=(//svg[contains(@class,'icon')])[last()]"
+        };
+    }
+
+    /**
+     * 安全点击通义千问发送按钮，具有重试机制
+     * @param page 页面对象
+     * @param actionName 操作名称（用于日志）
+     * @param maxRetries 最大重试次数
+     * @return 是否点击成功
+     */
+    public boolean safeClickTongYiSendButton(com.microsoft.playwright.Page page, String actionName, int maxRetries) {
+        String[] selectors = getTongYiSendButtonSelectors();
+        int baseTimeout = 45000; // 基础超时45秒
+        
+        for (int retry = 0; retry < maxRetries; retry++) {
+            try {
+                // 每次重试增加超时时间
+                int currentTimeout = baseTimeout + (retry * 15000); // 每次重试增加15秒
+                
+                com.microsoft.playwright.Locator buttonLocator = findElementWithMultipleSelectors(page, selectors, currentTimeout);
+                if (buttonLocator != null) {
+                    // 确保元素可见和可点击
+                    try {
+                        buttonLocator.waitFor(new com.microsoft.playwright.Locator.WaitForOptions()
+                            .setTimeout(currentTimeout)
+                            .setState(WaitForSelectorState.VISIBLE));
+                        
+                        // 滚动到元素位置确保可见
+                        buttonLocator.scrollIntoViewIfNeeded();
+                        page.waitForTimeout(1000);
+                        
+                        // 点击操作
+                        buttonLocator.click(new com.microsoft.playwright.Locator.ClickOptions().setTimeout(currentTimeout));
+                        
+                        return true;
+                    } catch (Exception clickError) {
+                        // 如果点击失败，尝试JavaScript点击
+                        try {
+                            buttonLocator.evaluate("element => element.click()");
+                            return true;
+                        } catch (Exception jsError) {
+                            if (retry == maxRetries - 1) {
+                                throw jsError;
+                            }
+                        }
+                    }
+                }
+                
+                // 重试前等待
+                if (retry < maxRetries - 1) {
+                    page.waitForTimeout(3000 + (retry * 2000)); // 渐进式等待
+                }
+                
+            } catch (Exception e) {
+                if (retry == maxRetries - 1) {
+                    return false;
+                }
+                
+                try {
+                    page.waitForTimeout(2000); // 错误后等待2秒再重试
+                } catch (Exception ignored) {}
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * 等待通义千问停止按钮出现，用于判断消息发送成功
+     * @param page 页面对象
+     * @param timeout 超时时间
+     * @return 是否检测到停止按钮
+     */
+    public boolean waitForTongYiStopButton(com.microsoft.playwright.Page page, int timeout) {
+        try {
+            // 检测停止按钮的出现，说明消息已发送成功
+            String[] stopButtonSelectors = {
+                "//div[@class='operateBtn--qMhYIdIu stop--P_jcrPFo']",
+                "//div[contains(@class,'operateBtn') and contains(@class,'stop')]",
+                "//div[contains(@class,'stop')]//svg",
+                "//button[contains(@class,'stop') or contains(@title,'停止')]"
+            };
+            
+            com.microsoft.playwright.Locator stopButton = findElementWithMultipleSelectors(page, stopButtonSelectors, timeout);
+            return stopButton != null && stopButton.count() > 0;
+            
+        } catch (Exception e) {
+            return false;
+        }
     }
 } 

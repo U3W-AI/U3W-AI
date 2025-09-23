@@ -1000,7 +1000,7 @@ public class AIGCController {
             logInfo.sendResData(copiedText, userId, "DeepSeek", "RETURN_DEEPSEEK_RES", shareUrl, shareImgUrl);
 
             // 保存数据库
-            userInfoRequest.setDraftContent(shareImgUrl);
+            userInfoRequest.setDraftContent(copiedText);
             userInfoRequest.setAiName("DeepSeek");
             userInfoRequest.setShareUrl(shareUrl);
             userInfoRequest.setShareImgUrl(shareImgUrl);

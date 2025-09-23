@@ -373,8 +373,14 @@ public class DeepSeekUtil {
                 }
             }
 
-            // 最终获取完整的最后一组对话内容
-            String finalContent = getLastConversationContent(page, userId);
+            // 尝试通过复制按钮获取纯回答内容（过滤思考过程）
+            String finalContent = clickCopyButtonAndGetAnswer(page, userId);
+            
+            // 如果复制按钮方法失败，回退到原来的方法
+            if (finalContent == null || finalContent.trim().isEmpty()) {
+                logInfo.sendTaskLog("复制按钮方法失败，回退到DOM提取方法", userId, aiName);
+                finalContent = getLastConversationContent(page, userId);
+            }
             
             // 如果最终仍然没有内容，但页面正常，可能是网络问题或正在处理中
             if ((finalContent == null || finalContent.trim().isEmpty()) && !hasEverHadContent) {
@@ -1640,6 +1646,207 @@ public class DeepSeekUtil {
         } catch (Exception e) {
             logInfo.sendTaskLog("截图过程发生错误: " + e.getMessage(), userId, "DeepSeek");
             throw e;
+        }
+    }
+
+    /**
+     * 点击复制按钮并获取纯回答内容（过滤思考过程）
+     * @param page Playwright页面对象
+     * @param userId 用户ID
+     * @return 过滤后的回答内容
+     */
+    private String clickCopyButtonAndGetAnswer(Page page, String userId) {
+        try {
+            logInfo.sendTaskLog("正在点击复制按钮获取回答内容", userId, "DeepSeek");
+            
+            // 等待并点击复制按钮
+            Object result = page.evaluate("""
+                () => {
+                    try {
+                        // 查找最新的回复容器
+                        const responseContainers = document.querySelectorAll('div._4f9bf79.d7dc56a8._43c05b5');
+                        if (responseContainers.length === 0) {
+                            return { success: false, error: 'no-response-containers' };
+                        }
+                        
+                        // 获取最后一个回复容器（最新的回复）
+                        const latestContainer = responseContainers[responseContainers.length - 1];
+                        
+                        // 查找复制按钮组 - 使用你提供的DOM结构
+                        const actionButtonsContainer = latestContainer.querySelector('div.ds-flex._965abe9._54866f7[style*="align-items: center; gap: 10px"]');
+                        if (!actionButtonsContainer) {
+                            return { success: false, error: 'no-action-buttons' };
+                        }
+                        
+                        // 查找复制按钮 - 第一个按钮就是复制按钮
+                        const copyButton = actionButtonsContainer.querySelector('div._17e543b.db183363[role="button"]');
+                        if (!copyButton) {
+                            return { success: false, error: 'no-copy-button' };
+                        }
+                        
+                        // 检查是否有复制图标（SVG path中包含复制相关的路径）
+                        const copyIcon = copyButton.querySelector('svg path[d*="M6.14926 4.02039"]');
+                        if (!copyIcon) {
+                            return { success: false, error: 'not-copy-button' };
+                        }
+                        
+                        // 点击复制按钮
+                        copyButton.click();
+                        
+                        return { success: true, message: 'copy-button-clicked' };
+                    } catch (e) {
+                        return { success: false, error: e.toString() };
+                    }
+                }
+                """);
+            
+            if (result instanceof Map) {
+                Map<String, Object> resultMap = (Map<String, Object>) result;
+                Boolean success = (Boolean) resultMap.get("success");
+                
+                if (success != null && success) {
+                    // 等待剪贴板更新
+                    Thread.sleep(2000);
+                    
+                    // 获取剪贴板内容
+                    String clipboardContent = (String) page.evaluate("navigator.clipboard.readText()");
+                    
+                    if (clipboardContent != null && !clipboardContent.trim().isEmpty()) {
+                        // 过滤思考内容，只保留回答部分
+                        String filteredContent = filterThinkingContent(clipboardContent, userId);
+                        logInfo.sendTaskLog("成功获取并过滤回答内容", userId, "DeepSeek");
+                        return filteredContent;
+                    } else {
+                        logInfo.sendTaskLog("剪贴板内容为空", userId, "DeepSeek");
+                        return "";
+                    }
+                } else {
+                    String error = (String) resultMap.get("error");
+                    logInfo.sendTaskLog("复制按钮点击失败: " + error, userId, "DeepSeek");
+                    return "";
+                }
+            }
+            
+            return "";
+        } catch (Exception e) {
+            logInfo.sendTaskLog("点击复制按钮时发生错误: " + e.getMessage(), userId, "DeepSeek");
+            return "";
+        }
+    }
+    
+    /**
+     * 过滤思考内容，只保留回答部分
+     * @param content 原始复制的内容
+     * @param userId 用户ID
+     * @return 过滤后的内容
+     */
+    private String filterThinkingContent(String content, String userId) {
+        if (content == null || content.trim().isEmpty()) {
+            return content;
+        }
+        
+        try {
+            // 移除思考标记开始到结束的内容
+            // DeepSeek的思考内容通常包含在特定的标记中
+            String filtered = content;
+            
+            // 1. 移除思考过程标记块（常见的思考标记）
+            filtered = filtered.replaceAll("(?s)<thinking>.*?</thinking>", "");
+            filtered = filtered.replaceAll("(?s)```thinking.*?```", "");
+            filtered = filtered.replaceAll("(?s)\\*\\*思考过程：\\*\\*.*?\\*\\*回答：\\*\\*", "**回答：**");
+            filtered = filtered.replaceAll("(?s)思考过程：.*?回答：", "");
+            filtered = filtered.replaceAll("(?s)【思考】.*?【回答】", "");
+            
+            // 2. 移除常见的思考提示词
+            String[] thinkingPatterns = {
+                "让我想想...",
+                "让我思考一下...",
+                "我需要仔细考虑...",
+                "让我分析一下...",
+                "首先，我需要理解...",
+                "思考过程：",
+                "分析过程：",
+                "推理步骤：",
+                "解题思路：",
+                "我的思考：",
+                "分析如下：",
+                "让我逐步分析：",
+                "步骤分析："
+            };
+            
+            // 移除这些思考提示及其后的内容直到第一个实质性回答
+            for (String pattern : thinkingPatterns) {
+                // 如果内容以思考提示开始，尝试找到实际回答的开始
+                if (filtered.toLowerCase().startsWith(pattern.toLowerCase())) {
+                    // 查找可能的回答开始标记
+                    String[] answerMarkers = {
+                        "回答：", "答案：", "结论：", "总结：", "因此，", "所以，", 
+                        "综上，", "最终答案：", "我的回答是：", "答："
+                    };
+                    
+                    int bestIndex = -1;
+                    for (String marker : answerMarkers) {
+                        int index = filtered.indexOf(marker);
+                        if (index > 0 && (bestIndex == -1 || index < bestIndex)) {
+                            bestIndex = index;
+                        }
+                    }
+                    
+                    if (bestIndex > 0) {
+                        filtered = filtered.substring(bestIndex);
+                        break;
+                    }
+                }
+            }
+            
+            // 3. 移除段落开头的思考性语句
+            String[] lines = filtered.split("\n");
+            StringBuilder result = new StringBuilder();
+            boolean foundMainContent = false;
+            
+            for (String line : lines) {
+                String trimmedLine = line.trim();
+                
+                // 跳过空行
+                if (trimmedLine.isEmpty()) {
+                    result.append(line).append("\n");
+                    continue;
+                }
+                
+                // 检查是否是思考性语句
+                boolean isThinkingLine = false;
+                for (String pattern : thinkingPatterns) {
+                    if (trimmedLine.toLowerCase().startsWith(pattern.toLowerCase())) {
+                        isThinkingLine = true;
+                        break;
+                    }
+                }
+                
+                // 如果不是思考性语句，或者已经找到了主要内容，则保留
+                if (!isThinkingLine || foundMainContent) {
+                    result.append(line).append("\n");
+                    if (!isThinkingLine) {
+                        foundMainContent = true;
+                    }
+                }
+            }
+            
+            // 4. 清理多余的空行和空白字符
+            String finalResult = result.toString().trim();
+            finalResult = finalResult.replaceAll("\n{3,}", "\n\n"); // 最多保留两个连续换行
+            
+            // 如果过滤后内容为空或过短，返回原内容
+            if (finalResult.isEmpty() || finalResult.length() < 10) {
+                logInfo.sendTaskLog("过滤后内容过短，返回原内容", userId, "DeepSeek");
+                return content;
+            }
+            
+            logInfo.sendTaskLog("成功过滤思考内容，保留回答部分", userId, "DeepSeek");
+            return finalResult;
+            
+        } catch (Exception e) {
+            logInfo.sendTaskLog("过滤思考内容时发生错误: " + e.getMessage(), userId, "DeepSeek");
+            return content; // 出错时返回原内容
         }
     }
 } 

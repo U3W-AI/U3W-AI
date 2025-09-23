@@ -1518,11 +1518,10 @@ public class BaiduUtil {
             // 设置请求参数 - 将ori_lid保存到baiduChatId字段用于会话连续性
             String chatIdToSave = (oriLid != null && !oriLid.trim().isEmpty()) ? oriLid : sessionId;
             userInfoRequest.setBaiduChatId(chatIdToSave);
-//            userInfoRequest.setDraftContent(content);
-            userInfoRequest.setDraftContent(shareImgUrl);
+            userInfoRequest.setDraftContent(content);
             userInfoRequest.setAiName(parseBaiduRoles(roles));
             userInfoRequest.setShareUrl(shareUrl != null ? shareUrl : "");
-            userInfoRequest.setShareImgUrl(shareImgUrl); // 百度对话AI暂不支持分享图片
+            userInfoRequest.setShareImgUrl(shareImgUrl);
             // 保存到数据库
             RestUtils.post(url + "/saveDraftContent", userInfoRequest);
 
