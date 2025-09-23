@@ -598,7 +598,6 @@ public class AIGCController {
                         UserLogUtil.sendExceptionLog(userId, "智能排版执行异常", "startYBOffice", e, url + "/saveLogInfo");
                     }
                 } else {
-
                     //======================腾讯元宝DS=======================//
                     try {
                         Page dsPage = tencentUtil.getPage("DS", userId);
