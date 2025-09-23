@@ -44,10 +44,7 @@
                 <h3 class="model-name">{{ model.name }}</h3>
               </div>
               <!-- 预览内容 -->
-              <div class="preview-content" v-if="model.name == '百度对话AI'">
-                <img :src="model.content" class="ai-image"/>
-              </div>
-              <div class="preview-content" v-else>
+              <div class="preview-content">
                 <template v-if="extractPlainText(model.preview).isImage">
                   <img :src="extractPlainText(model.preview).url" class="ai-image" :alt="`图片预览`" />
                 </template>
@@ -79,14 +76,12 @@
           </button>
         </div>
         <div class="modal-content">
-          <div class="preview-content" v-if="selectedModel.name.includes('百度对话AI')">
-            <img :src="selectedModel.content" style="max-width: 100%; height: auto;" />
-          </div>
-          <div class="preview-content" v-else-if="selectedModel.name == 'DeepSeek'">
-            <img :src="selectedModel.content" style="max-width: 100%; height: auto;" />
-          </div>
-          <div class="prose markdown-body" v-html="renderMarkdown(selectedModel.content)" v-else></div>
-          <!-- <div class="preview-content" v-else>{{ extractPlainText(selectedModel.preview) }}</div> -->
+          <template v-if="extractPlainText(selectedModel.content).isImage">
+            <img :src="extractPlainText(selectedModel.content).url" style="max-width: 100%; height: auto;" />
+          </template>
+          <template v-else>
+            <div class="prose markdown-body" v-html="renderMarkdown(selectedModel.content)"></div>
+          </template>
         </div>
         <div class="modal-footer">
           <div class="response-time-footer">{{ selectedModel.responseTime }}</div>
@@ -129,12 +124,6 @@
     },
     created() {
       this.getList();
-      (this.item.aiResponses || []).forEach(model => {
-        if(model.name === '百度对话AI') {
-          model.imageLoading = true;
-          model.imageError = false;
-        }
-      });
     },
     methods: {
       // 修改 markdown 渲染方法
@@ -156,13 +145,16 @@
 
       // 提取内容，如果是图片链接则返回图片信息，否则返回纯文本
       extractPlainText(content) {
-        if(!content) return '';
+        if(!content) return { isImage: false, text: '' };
 
-        // 检查内容是否是图片链接
-        const imageRegex = /\.(jpg|jpeg|png|gif|bmp|webp)$/i;
         const trimmedContent = content.trim();
-
-        if(imageRegex.test(trimmedContent)) {
+        
+        // 检查内容是否是图片链接 - 支持带参数的URL和各种图片格式
+        const imageRegex = /\.(jpg|jpeg|png|gif|bmp|webp)(\?.*)?$/i;
+        // 检查是否是以http开头且包含图片扩展名的URL
+        const urlImageRegex = /^https?:\/\/.*\.(jpg|jpeg|png|gif|bmp|webp)(\?.*)?$/i;
+        
+        if(imageRegex.test(trimmedContent) || urlImageRegex.test(trimmedContent)) {
           // 返回图片标记对象
           return {
             isImage: true,
