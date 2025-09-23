@@ -202,8 +202,8 @@ from wc_chrome_hotlink wck left join sys_user u on wck.user_name = u.user_name
                          when '知乎直答' then '知乎直答'
                          when '智能评分' then '智能排版'
                          else ai_name end name,
-            draft_content preview,
-            draft_content content,
+            COALESCE(NULLIF(share_img_url, ''), draft_content) preview,
+            COALESCE(NULLIF(share_img_url, ''), draft_content) content,
             DATE_FORMAT(create_time, '%Y-%c-%d %H:%i:%s')  responseTime
         FROM
             wc_playwright_draft
@@ -289,11 +289,11 @@ from wc_chrome_hotlink wck left join sys_user u on wck.user_name = u.user_name
     </insert>
 
     <select id="getDraftContent" parameterType="java.lang.String" resultType="java.lang.String">
-        select draft_content from wc_playwright_draft where task_id =#{taskId} and ai_name =#{aiName} limit 1
+        select COALESCE(NULLIF(share_img_url, ''), draft_content) as draft_content from wc_playwright_draft where task_id =#{taskId} and ai_name =#{aiName} limit 1
     </select>
 
     <select id="getDraftContentList" parameterType="java.lang.String" resultType="java.util.Map">
-        select draft_content,ai_name from wc_playwright_draft where task_id =#{taskId} and ai_name like '%${aiName}%'
+        select COALESCE(NULLIF(share_img_url, ''), draft_content) as draft_content,ai_name from wc_playwright_draft where task_id =#{taskId} and ai_name like '%${aiName}%'
     </select>
 
     <delete id="delBatchLink">
