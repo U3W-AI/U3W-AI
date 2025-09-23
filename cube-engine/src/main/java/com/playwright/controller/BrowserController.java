@@ -31,6 +31,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class BrowserController {
 
+    @Autowired
+    private MetasoUtil metasoUtil;
     // 浏览器操作工具类
     @Autowired
     private ScreenshotUtil screenshotUtil;
@@ -86,7 +88,7 @@ public class BrowserController {
             Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://metaso.cn/");
             Thread.sleep(2000);
-            String s = tongYiUtil.checkLogin(page, userId);
+            String s = metasoUtil.checkLogin(page, userId);
 //            未登录
             if (s == null) {
 //                每20秒刷新一次二维码
@@ -104,7 +106,7 @@ public class BrowserController {
                     for (int i = 0; i < 10; i++) {
 //                每两秒检擦一次登陆状态
                         Thread.sleep(2000);
-                        String userName = tongYiUtil.checkLogin(page, userId);
+                        String userName = metasoUtil.checkLogin(page, userId);
                         if (userName != null) {
                             loginMap.put(key, s);
                             return userName;
@@ -137,7 +139,7 @@ public class BrowserController {
             Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://metaso.cn/");
             Thread.sleep(5000);
-            String s = tongYiUtil.checkLogin(page, userId);
+            String s = metasoUtil.checkLogin(page, userId);
             if (s == null) {
                 return "false";
             }

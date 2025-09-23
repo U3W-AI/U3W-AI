@@ -1,5 +1,6 @@
 package com.playwright.utils;
 
+import com.alibaba.fastjson.JSONObject;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.playwright.entity.UserInfoRequest;
@@ -20,6 +21,20 @@ public class MetasoUtil {
     @Autowired
     private WebSocketClientService webSocketClientService;
 
+    //    检查登录
+    public String  checkLogin(Page page, String userId) {
+        Locator loginLocator = page.locator("//button[contains(text(),'登录/注册')]");
+        if(!loginLocator.isVisible()) {
+            String userName = page.locator("(//span[@class='MuiTypography-root MuiTypography-body1 css-1tyjpe7'])[1]").textContent();
+            JSONObject jsonObjectTwo = new JSONObject();
+            jsonObjectTwo.put("status",userName);
+            jsonObjectTwo.put("userId",userId);
+            jsonObjectTwo.put("type","RETURN_METASO_STATUS");
+            webSocketClientService.sendMessage(jsonObjectTwo.toJSONString());
+            return userName;
+        }
+        return null;
+    }
     /**
      * 监控Metaso回答并提取HTML内容
      * @param page Playwright页面实例
