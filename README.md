@@ -1,12 +1,13 @@
 <p align="center"><img alt="Static Badge" src="https://img.shields.io/badge/MySQL-5.7-blue"> <img alt="Static Badge" src="https://img.shields.io/badge/JDK-17-blue"> <img alt="Static Badge" src="https://img.shields.io/badge/Spring%20Boot-2.5.15-blue"> <img alt="Static Badge" src="https://img.shields.io/badge/Redis-6.0%2B-blue"> <img alt="Static Badge" src="https://img.shields.io/badge/License-AGPL3.0-blue"></p>
 
 # U3W 优立方 AI 主机：人机协同数智驱动的团队未来
-版本：V2.5
+版本：V2.51
 
-文档更新日期：2025年9月22日
+文档更新日期：2025年9月23日
 
 ## 近期重要更新
-2025年9月22日：增强部分智能体的稳定性
+
+2025年9月23日：增强部分智能体能力，更新小程序控制侧。
 
 2025年9月16日：秘塔及知乎直答 MCP 服务上架，目前支持元宝、豆包、百度 AI、DeepSeek、通义、秘塔和知乎直答的MCP服务，并提供通过公众号智能体调用以上MCP服务进行对话的实例。
 
