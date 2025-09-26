@@ -2,6 +2,7 @@ package com.cube.wechat.selfapp.app.service.impl;
 
 import com.cube.common.core.domain.AjaxResult;
 import com.cube.wechat.selfapp.app.domain.CallWord;
+import com.cube.wechat.selfapp.app.domain.query.CallWordQuery;
 import com.cube.wechat.selfapp.app.mapper.CallWordMapper;
 import com.cube.wechat.selfapp.app.service.CallWordService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 /**
  * 提示词服务实现类
@@ -24,23 +26,30 @@ public class CallWordServiceImpl implements CallWordService {
     private CallWordMapper callWordMapper;
 
     @Override
-    public String getCallWord(String platformId) {
+    public CallWord getCallWord(String platformId) {
         try {
             CallWord callWord = callWordMapper.getCallWordById(platformId);
-            return callWord != null ? callWord.getWordContent() : getBackupPrompt(platformId);
+            if (callWord == null) {
+                callWord = new CallWord();
+                callWord.setPlatformId(platformId);
+                callWord.setWordContent(getBackupPrompt(platformId));
+                callWord.setUpdateTime(LocalDateTime.now());
+            }
+            return callWord;
         } catch (Exception e) {
-            return getBackupPrompt(platformId);
+            CallWord callWord = new CallWord();
+            callWord.setPlatformId(platformId);
+            callWord.setWordContent(getBackupPrompt(platformId));
+            callWord.setUpdateTime(LocalDateTime.now());
+            return callWord;
         }
     }
 
     @Override
-    public AjaxResult saveOrUpdateCallWord(String platformId, String wordContent) {
+    public AjaxResult saveOrUpdateCallWord(CallWord callWord) {
         try {
-            CallWord callWord = new CallWord();
-            callWord.setPlatformId(platformId);
-            callWord.setWordContent(wordContent);
-            
-            CallWord existing = callWordMapper.getCallWordById(platformId);
+
+            CallWord existing = callWordMapper.getCallWordById(callWord.getPlatformId());
             if (existing != null) {
                 callWordMapper.updateCallWord(callWord);
             } else {
@@ -66,7 +75,7 @@ public class CallWordServiceImpl implements CallWordService {
     @Override
     public String generateZhihuTitle(String aiName, String userId, int num) {
         try {
-            String template = getCallWord("zhihu_title");
+            String template = getCallWord("zhihu_title").getWordContent();
             if (template == null || template.trim().isEmpty()) {
                 template = "{aiName}创作-{date}-{num}";
             }
@@ -80,6 +89,22 @@ public class CallWordServiceImpl implements CallWordService {
             String date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
             return String.format("%s创作-%s-%03d", aiName, date, num);
         }
+    }
+
+    @Override
+    public AjaxResult deleteCallWord(String[] platformIds) {
+        try {
+            int count = callWordMapper.deleteCallWordByPlatformIds(platformIds);
+
+            return count > 0 ? AjaxResult.success("删除成功") : AjaxResult.success("删除内容不存在");
+        } catch (Exception e) {
+            return AjaxResult.error("删除失败：" + e.getMessage());
+        }
+    }
+
+    @Override
+    public List<CallWord> getCallWordList(CallWordQuery callWordQuery) {
+        return callWordMapper.getCallWordList(callWordQuery);
     }
 
     /**

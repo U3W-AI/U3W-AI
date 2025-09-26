@@ -13,10 +13,23 @@
     <sql id="selectCallWordVo">
         select platform_id, word_content, update_time from wc_call_word
     </sql>
+    <delete id="deleteCallWordByPlatformIds" parameterType="String">
+        delete from wc_call_word where platform_id in
+        <foreach item="platformId" collection="array" open="(" separator="," close=")">
+            #{platformId}
+        </foreach>
+    </delete>
 
     <select id="getCallWordById" parameterType="String" resultMap="CallWordResult">
         <include refid="selectCallWordVo"/>
         where platform_id = #{platformId}
+    </select>
+
+    <select id="getCallWordList" parameterType="com.cube.wechat.selfapp.app.domain.query.CallWordQuery" resultMap="CallWordResult">
+        <include refid="selectCallWordVo"/>
+        <where>
+            <if test="wordContent != null  and wordContent != ''"> and word_content like concat('%', #{wordContent}, '%')</if>
+        </where>
     </select>
 
     <insert id="insertCallWord" parameterType="com.cube.wechat.selfapp.app.domain.CallWord">

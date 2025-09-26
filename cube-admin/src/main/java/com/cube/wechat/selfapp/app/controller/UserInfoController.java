@@ -2,18 +2,19 @@ package com.cube.wechat.selfapp.app.controller;
 
 import com.cube.common.annotation.RateLimiter;
 import com.cube.common.core.controller.BaseController;
+import com.cube.common.core.page.TableDataInfo;
 import com.cube.common.utils.StringUtils;
 import com.cube.wechat.selfapp.app.config.MyWebSocketHandler;
 import com.cube.wechat.selfapp.app.domain.AINodeLog;
 import com.cube.wechat.selfapp.app.domain.AIParam;
+import com.cube.wechat.selfapp.app.domain.PromptTemplate;
 import com.cube.wechat.selfapp.app.domain.WcOfficeAccount;
+import com.cube.wechat.selfapp.app.domain.query.ScorePromptQuery;
 import com.cube.wechat.selfapp.app.service.UserInfoService;
 import com.cube.wechat.selfapp.corpchat.util.ResultBody;
 import io.swagger.annotations.ApiParam;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
-import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.Map;
@@ -228,8 +229,6 @@ public class UserInfoController extends BaseController {
 
 
 
-
-
     @GetMapping("/getTaskStatus")
     public ResultBody getTaskStatus(String taskId){
         return userInfoService.getTaskStatus(taskId);
@@ -239,6 +238,37 @@ public class UserInfoController extends BaseController {
     public ResultBody getIsChangeByCorpId(String corpId){ return userInfoService.getIsChangeByCorpId(corpId);
     };
 
+    @GetMapping("/getScorePrompt/{id}")
+    public ResultBody getScorePrompt(@PathVariable Long id){
+        return userInfoService.getScorePrompt(id);
+    }
 
+    @GetMapping("/getScorePromptList")
+    public TableDataInfo getScorePromptList(ScorePromptQuery scorePromptQuery){
+        startPage();
+        List<PromptTemplate> list = userInfoService.getScorePromptList(scorePromptQuery);
+        return getDataTable(list);
+    }
+
+    //获取当前用户的所有评分提示词
+    @GetMapping("/getAllScorePrompt")
+    public ResultBody getAllScorePrompt(){
+        return userInfoService.getAllScorePrompt();
+    }
+
+    @PostMapping("/saveScorePrompt")
+    public ResultBody saveScorePrompt(@RequestBody PromptTemplate promptTemplate){
+        return userInfoService.saveScorePrompt(promptTemplate);
+    }
+
+    @PutMapping("/updateScorePrompt")
+    public ResultBody updateScorePrompt(@RequestBody PromptTemplate promptTemplate){
+        return userInfoService.updateScorePrompt(promptTemplate);
+    }
+
+    @DeleteMapping("/deleteScorePrompt")
+    public ResultBody deleteScorePrompt(@RequestBody Long[] ids){
+        return userInfoService.deleteScorePrompt(ids);
+    }
 }
 

@@ -2,11 +2,15 @@ package com.cube.wechat.selfapp.app.service.impl;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.cube.common.utils.SecurityUtils;
 import com.cube.common.utils.StringUtils;
 import com.cube.point.controller.PointsSystem;
 import com.cube.wechat.selfapp.app.domain.AINodeLog;
 import com.cube.wechat.selfapp.app.domain.AIParam;
+import com.cube.wechat.selfapp.app.domain.PromptTemplate;
 import com.cube.wechat.selfapp.app.domain.WcOfficeAccount;
+import com.cube.wechat.selfapp.app.domain.query.ScorePromptQuery;
+import com.cube.wechat.selfapp.app.mapper.PromptTemplateMapper;
 import com.cube.wechat.selfapp.app.mapper.UserInfoMapper;
 import com.cube.wechat.selfapp.app.service.UserInfoService;
 import com.cube.wechat.selfapp.app.util.RestUtils;
@@ -17,7 +21,6 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -45,6 +48,9 @@ public class UserInfoServiceImpl implements UserInfoService {
 
     @Autowired
     private UserInfoMapper userInfoMapper;
+
+    @Autowired
+    private PromptTemplateMapper promptTemplateMapper;
 
     @Autowired
     private PointsSystem pointsSystem;
@@ -215,7 +221,7 @@ public class UserInfoServiceImpl implements UserInfoService {
     @Override
     public ResultBody getOfficeAccountByUserId(String userId) {
         WcOfficeAccount woa = userInfoMapper.getOfficeAccountByUserName(userId);
-        if(woa != null) {
+        if (woa != null) {
             return ResultBody.success(woa);
         }
         return ResultBody.FAIL;
@@ -224,8 +230,64 @@ public class UserInfoServiceImpl implements UserInfoService {
     @Override
     public ResultBody getOfficeAccount(Long userId) {
         WcOfficeAccount woa = userInfoMapper.getOfficeAccountByUserId(userId);
-        if(woa != null) {
+        if (woa != null) {
             return ResultBody.success(woa);
+        }
+        return ResultBody.FAIL;
+    }
+
+    @Override
+    public List<PromptTemplate> getScorePromptList(ScorePromptQuery scorePromptQuery) {
+        Long userId = SecurityUtils.getUserId();
+        return promptTemplateMapper.getScorePromptList(scorePromptQuery, userId);
+    }
+
+    @Override
+    public ResultBody getScorePrompt(Long id) {
+        PromptTemplate promptTemplate = promptTemplateMapper.getScorePromptById(id);
+        if (promptTemplate != null) {
+            return ResultBody.success(promptTemplate);
+        }
+        return ResultBody.FAIL;
+    }
+
+    @Override
+    public ResultBody saveScorePrompt(PromptTemplate promptTemplate) {
+        promptTemplate.setType(3L);
+        promptTemplate.setUserId(SecurityUtils.getUserId());
+        int count = promptTemplateMapper.savePromptTemplate(promptTemplate);
+        if (count > 0) {
+            return ResultBody.success("添加成功");
+        }
+        return ResultBody.FAIL;
+    }
+
+    @Override
+    public ResultBody updateScorePrompt(PromptTemplate promptTemplate) {
+        promptTemplate.setType(3L);
+        promptTemplate.setUserId(SecurityUtils.getUserId());
+        int count = promptTemplateMapper.updatePromptTemplate(promptTemplate);
+        if (count > 0) {
+            return ResultBody.success("修改成功");
+        }
+        return ResultBody.FAIL;
+    }
+
+    @Override
+    public ResultBody deleteScorePrompt(Long[] ids) {
+        int count = promptTemplateMapper.deletePromptTemplateByIds(ids);
+        if (count > 0) {
+            return ResultBody.success("删除成功");
+        }
+        return ResultBody.FAIL;
+    }
+
+    @Override
+    public ResultBody getAllScorePrompt() {
+        Long userId = SecurityUtils.getUserId();
+        List<PromptTemplate> list = promptTemplateMapper.getAllScorePrompt(userId);
+        if (list != null) {
+            return ResultBody.success(list);
         }
         return ResultBody.FAIL;
     }
@@ -237,54 +299,56 @@ public class UserInfoServiceImpl implements UserInfoService {
         String formattedDate = sdf.format(new Date()); // 格式化日期
 
         String assessToken = weChatApiUtils.getOfficeAccessToken(woa.getAppId(), woa.getAppSecret());
-        if(assessToken == null) {
+        if (assessToken == null) {
             return ResultBody.FAIL;
         }
-        return ResultBody.success("上传成功");
-//        String url = "https://api.weixin.qq.com/cgi-bin/draft/add?access_token=" + assessToken;
-//        String detailUrl = "https://api.weixin.qq.com/cgi-bin/draft/get?access_token=" + assessToken;
-//        String contentText = map.get("contentText").toString();
-//
+//        return ResultBody.success("上传成功");
+        String url = "https://api.weixin.qq.com/cgi-bin/draft/add?access_token=" + assessToken;
+        String detailUrl = "https://api.weixin.qq.com/cgi-bin/draft/get?access_token=" + assessToken;
+        String contentText = map.get("contentText").toString();
+
 //        int first = contentText.indexOf("《");
 //        int second = contentText.indexOf("》", first + 1);
 //        String title = contentText.substring(first + 1, second);
-////            contentText = contentText.substring(second + 6);
+        String title = "标题待定";
+//            contentText = contentText.substring(second + 6);
 //        contentText = contentText.substring(second + 1, contentText.lastIndexOf(">") + 1);
-//        contentText = contentText.replaceAll("\r\n\r\n", "");
-//        if (map.get("shareUrl") != null && !map.get("shareUrl").equals("")) {
-//            String shareUrl = "原文链接：" + map.get("shareUrl") + "<br><br>";
-//            contentText = shareUrl + contentText;
-//        }
-//        List<JSONObject> paramlist = new ArrayList<>();
-//        JSONObject jsonObject = new JSONObject();
-//        jsonObject.put("title", title);
-//
-//        jsonObject.put("author", woa.getOfficeAccountName());
-//        jsonObject.put("content", contentText);
-//        jsonObject.put("thumb_media_id", woa.getMediaId());
-//        jsonObject.put("content_source_url", map.get("shareUrl"));
-//        paramlist.add(jsonObject);
-//        JSONObject param = new JSONObject();
-//        param.put("articles", paramlist);
-//        try {
-//            JSONObject result = RestUtils.post(url, param);
-//            String mediaId = result.get("media_id").toString();
-//            JSONObject postJson = new JSONObject();
-//            postJson.put("media_id", mediaId);
-//            JSONObject detail = RestUtils.post(detailUrl, postJson);
-//            Object o = detail.get("news_item");
-//            List<Map<String, Object>> newsItemArray = (List<Map<String, Object>>) o;
-//            if (newsItemArray == null || newsItemArray.isEmpty()) {
-//                throw new RuntimeException("news_item 数组为空");
-//            }
-//            Map<String, Object> newsItem = newsItemArray.get(0);
-//            String tempUrl = (String) newsItem.get("url");
-//            System.out.println(tempUrl);
-//            return ResultBody.success(tempUrl);
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//        return ResultBody.error(300, "推送失败");
+        contentText = contentText.substring(0, contentText.lastIndexOf(">") + 1);
+        contentText = contentText.replaceAll("\r\n\r\n", "");
+        if (map.get("shareUrl") != null && !map.get("shareUrl").equals("")) {
+            String shareUrl = "原文链接：" + map.get("shareUrl") + "<br><br>";
+            contentText = shareUrl + contentText;
+        }
+        List<JSONObject> paramlist = new ArrayList<>();
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("title", title);
+
+        jsonObject.put("author", woa.getOfficeAccountName());
+        jsonObject.put("content", contentText);
+        jsonObject.put("thumb_media_id", woa.getMediaId());
+        jsonObject.put("content_source_url", map.get("shareUrl"));
+        paramlist.add(jsonObject);
+        JSONObject param = new JSONObject();
+        param.put("articles", paramlist);
+        try {
+            JSONObject result = RestUtils.post(url, param);
+            String mediaId = result.get("media_id").toString();
+            JSONObject postJson = new JSONObject();
+            postJson.put("media_id", mediaId);
+            JSONObject detail = RestUtils.post(detailUrl, postJson);
+            Object o = detail.get("news_item");
+            List<Map<String, Object>> newsItemArray = (List<Map<String, Object>>) o;
+            if (newsItemArray == null || newsItemArray.isEmpty()) {
+                throw new RuntimeException("news_item 数组为空");
+            }
+            Map<String, Object> newsItem = newsItemArray.get(0);
+            String tempUrl = (String) newsItem.get("url");
+            System.out.println(tempUrl);
+            return ResultBody.success(tempUrl);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return ResultBody.error(300, "推送失败");
     }
 
     @Override
@@ -368,7 +432,7 @@ public class UserInfoServiceImpl implements UserInfoService {
                 // 1. 下载图片到本地临时文件
                 Path tempFile = Files.createTempFile("temp", ".jpg");
                 String picUrl = wcOfficeAccount.getPicUrl();
-                if(picUrl == null) {
+                if (picUrl == null) {
                     throw new RuntimeException("请先上传图片");
                 }
                 downloadFile(picUrl, tempFile);
@@ -563,8 +627,6 @@ public class UserInfoServiceImpl implements UserInfoService {
 
         return ResultBody.success(num);
     }
-
-
 
 
 }

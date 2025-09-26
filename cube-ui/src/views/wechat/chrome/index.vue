@@ -294,8 +294,20 @@
     <el-dialog title="智能评分" :visible.sync="scoreDialogVisible" width="60%" height="65%" :close-on-click-modal="false"
       class="score-dialog">
       <div class="score-dialog-content">
+        <h3>选择评分AI：</h3>
+        <el-select v-model="scoreAI" placeholder="请选择评分AI">
+          <!-- <el-option v-for="(ai, index) in aiList" :key="index" :label="ai.name" :value="ai.name">
+            {{ ai.name }}
+          </el-option> -->
+          <el-option label="豆包" value="豆包"></el-option>
+          <el-option label="DeepSeek" value="DeepSeek"></el-option>
+        </el-select>
         <div class="score-prompt-section">
           <h3>评分提示词：</h3>
+          <el-select v-model="selectedScorePrompt" @change="loadScorePrompt">
+            <el-option v-for="(prompt, index) in scorePromptList" :key="index" :label="prompt.name"
+              :value="prompt.name"></el-option>
+          </el-select>
           <el-input type="textarea" :rows="10" placeholder="请输入评分提示词，例如：请从内容质量、逻辑性、创新性等方面进行评分" v-model="scorePrompt"
             resize="none" class="score-prompt-input">
           </el-input>
@@ -323,6 +335,14 @@
       <div class="layout-dialog-content">
         <!-- 媒体选择区域 -->
         <div class="media-selection-section">
+          <h3>选择排版AI：</h3>
+          <el-select v-model="layoutAI" placeholder="请选择排版AI">
+          <!-- <el-option v-for="(ai, index) in aiList" :key="index" :label="ai.name" :value="ai.name">
+            {{ ai.name }}
+          </el-option> -->
+          <el-option label="豆包" value="豆包"></el-option>
+          <el-option label="DeepSeek" value="DeepSeek"></el-option>
+          </el-select>
           <h3>选择投递媒体：</h3>
           <el-radio-group v-model="selectedMedia" size="small" class="media-radio-group">
             <el-radio-button label="wechat">
@@ -367,6 +387,8 @@
     getChatHistory,
     pushAutoOffice,
     getMediaCallWord,
+    getAllScorePrompt,
+    getScoreWord,
   } from "@/api/wechat/aigc";
   import { v4 as uuidv4 } from "uuid";
   import websocketClient from "@/utils/websocket";
@@ -538,9 +560,13 @@
         }),
         scoreDialogVisible: false,
         selectedResults: [],
+        selectedScorePrompt: "",
+        scorePromptList: [],
         scorePrompt: `请你深度阅读以下几篇内容，从多个维度进行逐项打分，输出评分结果。并在以下各篇文章的基础上博采众长，综合整理一篇更全面的文章。`,
+        scoreAI: "豆包", // 默认选择豆包进行评分
         layoutDialogVisible: false,
         layoutPrompt: "",
+        layoutAI: "豆包", // 当前选择的排版AI
         currentLayoutResult: null, // 当前要排版的结果
         historyDrawerVisible: false,
         chatHistory: [],
@@ -620,7 +646,7 @@
     },
     async created() {
       console.log(this.userId);
-      
+
       // 使用企业ID工具确保获取最新的企业ID
       try {
         this.corpId = await getCorpId();
@@ -629,7 +655,7 @@
         console.warn('获取企业ID失败，使用store中的值:', error);
       console.log(this.corpId);
       }
-      
+
       this.initWebSocket(this.userId);
       this.loadChatHistory(0); // 加载历史记录
       this.loadLastChat(); // 加载上次会话
@@ -1268,10 +1294,15 @@
       showScoreDialog() {
         this.scoreDialogVisible = true;
         this.selectedResults = [];
+        getAllScorePrompt().then(response => {
+          this.scorePromptList = response.data || [];
+        });
       },
 
-      handleScore() {
+      async handleScore() {
         if(!this.canScore) return;
+
+        const response = await getScoreWord();
 
         // 获取选中的结果内容并按照指定格式拼接
         const selectedContents = this.results
@@ -1279,7 +1310,7 @@
           .map((result) => {
             // 将HTML内容转换为纯文本
             const plainContent = this.htmlToText(result.content);
-            return `${result.aiName}初稿：\n${plainContent}\n`;
+            return `${result.aiName}${response.data}${plainContent}\n`;
           })
           .join("\n");
 
@@ -1296,9 +1327,110 @@
             userId: this.userId,
             corpId: this.corpId,
             userPrompt: fullPrompt,
-            roles: "zj-db-sdsk", // 默认使用豆包进行评分
+            // roles: "zj-db-sdsk", // 默认使用豆包进行评分
+            roles: "",
           },
         };
+        //TODO: 修改roles参数，适配后端
+        let ai = this.aiList.filter(ai => ai.name === this.scoreAI)[0];
+
+        {
+          if(ai.name === "豆包") {
+            scoreRequest.params.roles = scoreRequest.params.roles + "zj-db,";
+            if(ai.selectedCapabilities.includes("deep_thinking")) {
+              scoreRequest.params.roles = scoreRequest.params.roles + "zj-db-sdsk,";
+            }
+          }
+
+
+          if(ai.name === '通义千问') {
+            scoreRequest.params.roles = scoreRequest.params.roles + 'ty-qw,';
+            if(ai.selectedCapability.includes("deep_thinking")) {
+              scoreRequest.params.roles = scoreRequest.params.roles + 'ty-qw-sdsk,'
+            }
+          }
+
+          if(ai.name === '腾讯元宝T1') {
+            scoreRequest.params.roles = scoreRequest.params.roles + 'yb-hunyuan-pt,';
+            if(ai.selectedCapabilities.includes("deep_thinking")) {
+              scoreRequest.params.roles = scoreRequest.params.roles + 'yb-hunyuan-sdsk,';
+            }
+            if(ai.selectedCapabilities.includes("web_search")) {
+              scoreRequest.params.roles = scoreRequest.params.roles + 'yb-hunyuan-lwss,';
+            }
+          }
+
+          if(ai.name === '腾讯元宝DS') {
+            scoreRequest.params.roles = scoreRequest.params.roles + 'yb-deepseek-pt,';
+            if(ai.selectedCapabilities.includes("deep_thinking")) {
+              scoreRequest.params.roles = scoreRequest.params.roles + 'yb-deepseek-sdsk,';
+            }
+            if(ai.selectedCapabilities.includes("web_search")) {
+              scoreRequest.params.roles = scoreRequest.params.roles + 'yb-deepseek-lwss,';
+            }
+          }
+          if(ai.name === '百度AI') {
+            scoreRequest.params.roles = scoreRequest.params.roles + 'baidu-agent,';
+            if(ai.selectedCapabilities.includes("deep_search")) {
+              scoreRequest.params.roles = scoreRequest.params.roles + 'baidu-sdss,';
+            } else if(ai.isModel) {
+              if(ai.isWeb) {
+                scoreRequest.params.roles = scoreRequest.params.roles + 'baidu-web,';
+              }
+
+              if(ai.selectedModel.includes("dsr1")) {
+                scoreRequest.params.roles = scoreRequest.params.roles + 'baidu-dsr1,';
+              } else if(ai.selectedModel.includes("dsv3")) {
+                scoreRequest.params.roles = scoreRequest.params.roles + 'baidu-dsv3,';
+              } else if(ai.selectedModel.includes("wenxin")) {
+                scoreRequest.params.roles = scoreRequest.params.roles + 'baidu-wenxin,';
+              }
+            }
+
+          }
+
+          if(ai.name === "DeepSeek") {
+            scoreRequest.params.roles = scoreRequest.params.roles + "deepseek,";
+            if(ai.selectedCapabilities.includes("deep_thinking")) {
+              scoreRequest.params.roles = scoreRequest.params.roles + "ds-sdsk,";
+            }
+            if(ai.selectedCapabilities.includes("web_search")) {
+              scoreRequest.params.roles = scoreRequest.params.roles + "ds-lwss,";
+            }
+          }
+
+          if(ai.name === "秘塔") {
+            scoreRequest.params.roles = scoreRequest.params.roles + "mita,";
+            if(ai.selectedCapabilities === "fast") {
+              scoreRequest.params.roles = scoreRequest.params.roles + "metaso-jisu,";
+            }
+            if(ai.selectedCapabilities === "fast_thinking") {
+              scoreRequest.params.roles = scoreRequest.params.roles + "metaso-jssk,";
+            }
+            if(ai.selectedCapabilities === "long_thinking") {
+              scoreRequest.params.roles = scoreRequest.params.roles + "metaso-csk,";
+            }
+          }
+
+          if(ai.name === "知乎直答") {
+            scoreRequest.params.roles = scoreRequest.params.roles + "zhzd-chat,";
+            if(ai.selectedCapabilities.includes("deep_thinking")) {
+              scoreRequest.params.roles = scoreRequest.params.roles + "zhzd-sdsk,";
+            }
+            if(ai.selectedCapabilities.includes("all_web_search")) {
+              scoreRequest.params.roles = scoreRequest.params.roles + "zhzd-qw,";
+            }
+            if(ai.selectedCapabilities.includes("zhihu_search")) {
+              scoreRequest.params.roles = scoreRequest.params.roles + "zhzd-zh,";
+            }
+            if(ai.selectedCapabilities.includes("academic_search")) {
+              scoreRequest.params.roles = scoreRequest.params.roles + "zhzd-xs,";
+            }
+            if(ai.selectedCapabilities.includes("personal_knowledge")) {
+              scoreRequest.params.roles = scoreRequest.params.roles + "zhzd-wdzsk,";
+            }
+          }
+        }
 
         // 发送评分请求
         console.log("参数", scoreRequest);
@@ -1776,6 +1908,9 @@
         this.loadMediaPrompt(this.selectedMedia);
       },
 
+      loadScorePrompt() {
+        this.scorePrompt = this.scorePromptList.filter(prompt => prompt.name === this.selectedScorePrompt)[0].prompt;
+      },
       // 加载媒体提示词
       async loadMediaPrompt(media) {
         if(!media) return;
@@ -1788,7 +1923,7 @@
         try {
           const response = await getMediaCallWord(platformId);
           if(response.code === 200) {
-            this.layoutPrompt = response.data + '\n\n' + (this.currentLayoutResult ? this.currentLayoutResult.content : '');
+            this.layoutPrompt = response.data.wordContent + '\n\n' + (this.currentLayoutResult ? this.currentLayoutResult.content : '');
           } else {
             // 使用默认提示词
             this.layoutPrompt = this.getDefaultPrompt(media) + '\n\n' + (this.currentLayoutResult ? this.currentLayoutResult.content : '');
@@ -1843,10 +1978,113 @@
             userId: this.userId,
             corpId: this.corpId,
             userPrompt: this.layoutPrompt,
-            roles: "znpb-ds,yb-deepseek-pt,yb-deepseek-sdsk,yb-deepseek-lwss,",
+            // roles: "znpb-ds,yb-deepseek-pt,yb-deepseek-sdsk,yb-deepseek-lwss,",
+            roles: "",
             selectedMedia: "wechat",
           },
         };
+
+        //TODO: 修改roles参数，适配后端
+        let ai = this.aiList.filter(ai => ai.name === this.layoutAI)[0];
+
+        {
+          if(ai.name === "豆包") {
+            layoutRequest.params.roles = layoutRequest.params.roles + "zj-db,";
+            if(ai.selectedCapabilities.includes("deep_thinking")) {
+              layoutRequest.params.roles = layoutRequest.params.roles + "zj-db-sdsk,";
+            }
+          }
+
+
+          if(ai.name === '通义千问') {
+            layoutRequest.params.roles = layoutRequest.params.roles + 'ty-qw,';
+            if(ai.selectedCapability.includes("deep_thinking")) {
+              layoutRequest.params.roles = layoutRequest.params.roles + 'ty-qw-sdsk,'
+            }
+          }
+
+          if(ai.name === '腾讯元宝T1') {
+            layoutRequest.params.roles = layoutRequest.params.roles + 'yb-hunyuan-pt,';
+            if(ai.selectedCapabilities.includes("deep_thinking")) {
+              layoutRequest.params.roles = layoutRequest.params.roles + 'yb-hunyuan-sdsk,';
+            }
+            if(ai.selectedCapabilities.includes("web_search")) {
+              layoutRequest.params.roles = layoutRequest.params.roles + 'yb-hunyuan-lwss,';
+            }
+          }
+
+          if(ai.name === '腾讯元宝DS') {
+            layoutRequest.params.roles = layoutRequest.params.roles + 'yb-deepseek-pt,';
+            if(ai.selectedCapabilities.includes("deep_thinking")) {
+              layoutRequest.params.roles = layoutRequest.params.roles + 'yb-deepseek-sdsk,';
+            }
+            if(ai.selectedCapabilities.includes("web_search")) {
+              layoutRequest.params.roles = layoutRequest.params.roles + 'yb-deepseek-lwss,';
+            }
+          }
+          if(ai.name === '百度AI') {
+            layoutRequest.params.roles = layoutRequest.params.roles + 'baidu-agent,';
+            if(ai.selectedCapabilities.includes("deep_search")) {
+              layoutRequest.params.roles = layoutRequest.params.roles + 'baidu-sdss,';
+            } else if(ai.isModel) {
+              if(ai.isWeb) {
+                layoutRequest.params.roles = layoutRequest.params.roles + 'baidu-web,';
+              }
+
+              if(ai.selectedModel.includes("dsr1")) {
+                layoutRequest.params.roles = layoutRequest.params.roles + 'baidu-dsr1,';
+              } else if(ai.selectedModel.includes("dsv3")) {
+                layoutRequest.params.roles = layoutRequest.params.roles + 'baidu-dsv3,';
+              } else if(ai.selectedModel.includes("wenxin")) {
+                layoutRequest.params.roles = layoutRequest.params.roles + 'baidu-wenxin,';
+              }
+            }
+
+          }
+
+          if(ai.name === "DeepSeek") {
+            layoutRequest.params.roles = layoutRequest.params.roles + "deepseek,";
+            if(ai.selectedCapabilities.includes("deep_thinking")) {
+              layoutRequest.params.roles = layoutRequest.params.roles + "ds-sdsk,";
+            }
+            if(ai.selectedCapabilities.includes("web_search")) {
+              layoutRequest.params.roles = layoutRequest.params.roles + "ds-lwss,";
+            }
+          }
+
+          if(ai.name === "秘塔") {
+            layoutRequest.params.roles = layoutRequest.params.roles + "mita,";
+            if(ai.selectedCapabilities === "fast") {
+              layoutRequest.params.roles = layoutRequest.params.roles + "metaso-jisu,";
+            }
+            if(ai.selectedCapabilities === "fast_thinking") {
+              layoutRequest.params.roles = layoutRequest.params.roles + "metaso-jssk,";
+            }
+            if(ai.selectedCapabilities === "long_thinking") {
+              layoutRequest.params.roles = layoutRequest.params.roles + "metaso-csk,";
+            }
+          }
+
+          if(ai.name === "知乎直答") {
+            layoutRequest.params.roles = layoutRequest.params.roles + "zhzd-chat,";
+            if(ai.selectedCapabilities.includes("deep_thinking")) {
+              layoutRequest.params.roles = layoutRequest.params.roles + "zhzd-sdsk,";
+            }
+            if(ai.selectedCapabilities.includes("all_web_search")) {
+              layoutRequest.params.roles = layoutRequest.params.roles + "zhzd-qw,";
+            }
+            if(ai.selectedCapabilities.includes("zhihu_search")) {
+              layoutRequest.params.roles = layoutRequest.params.roles + "zhzd-zh,";
+            }
+            if(ai.selectedCapabilities.includes("academic_search")) {
+              layoutRequest.params.roles = layoutRequest.params.roles + "zhzd-xs,";
+            }
+            if(ai.selectedCapabilities.includes("personal_knowledge")) {
+              layoutRequest.params.roles = layoutRequest.params.roles + "zhzd-wdzsk,";
+            }
+          }
+
+        }
 
         console.log("公众号排版参数", layoutRequest);
         this.message(layoutRequest);

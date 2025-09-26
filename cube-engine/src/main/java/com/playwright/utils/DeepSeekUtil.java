@@ -13,15 +13,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeoutException;
 
 import static com.playwright.utils.ScreenshotUtil.uploadFile;
 
@@ -691,7 +685,7 @@ public class DeepSeekUtil {
      * @param chatId 会话ID，如果不为空则使用此会话继续对话
      * @return 处理完成后的结果
      */
-    public String handleDeepSeekAI(Page page, String userPrompt, String userId, String roles, String chatId) throws InterruptedException {
+    public String handleDeepSeekAI(Page page, String userPrompt, String userId, String roles, String chatId, String aiName) throws InterruptedException {
         try {
             long startProcessTime = System.currentTimeMillis(); // 记录开始处理时间
             
@@ -815,7 +809,7 @@ public class DeepSeekUtil {
             try {
                 // 使用更可靠的等待方式，但缩短超时时间
                 Thread.sleep(1000); // 给页面充足的渲染时间
-                logInfo.sendTaskLog("DeepSeek页面打开完成", userId, "DeepSeek");
+                logInfo.sendTaskLog("DeepSeek页面打开完成", userId, aiName);
             } catch (Exception e) {
             }
             
@@ -825,20 +819,20 @@ public class DeepSeekUtil {
             // 只要有一个没选中就点亮，否则如果都没选则全部关闭
             if (needDeepThink || needWebSearch) {
                 if (needDeepThink) {
-                    toggleButtonIfNeeded(page, userId, "深度思考", true, logInfo);
+                    toggleButtonIfNeeded(page, userId, "深度思考", true, logInfo, aiName);
                     // 日志已在toggleButtonIfNeeded方法中发送
                 } else {
-                    toggleButtonIfNeeded(page, userId, "深度思考", false, logInfo);
+                    toggleButtonIfNeeded(page, userId, "深度思考", false, logInfo, aiName);
                 }
                 if (needWebSearch) {
-                    toggleButtonIfNeeded(page, userId, "联网搜索", true, logInfo);
+                    toggleButtonIfNeeded(page, userId, "联网搜索", true, logInfo,aiName);
                 } else {
-                    toggleButtonIfNeeded(page, userId, "联网搜索", false, logInfo);
+                    toggleButtonIfNeeded(page, userId, "联网搜索", false, logInfo,aiName);
                 }
             } else {
                 // 如果都不需要，全部关闭
-                toggleButtonIfNeeded(page, userId, "深度思考", false, logInfo);
-                toggleButtonIfNeeded(page, userId, "联网搜索", false, logInfo);
+                toggleButtonIfNeeded(page, userId, "深度思考", false, logInfo,aiName);
+                toggleButtonIfNeeded(page, userId, "联网搜索", false, logInfo,aiName);
             }
             
             // 定位并填充输入框 - 使用新的定位方式
@@ -863,7 +857,7 @@ public class DeepSeekUtil {
                         inputBox = page.locator(selector).first();
                         if (inputBox.count() > 0 && inputBox.isVisible()) {
                             inputFound = true;
-                            logInfo.sendTaskLog("使用选择器找到输入框: " + selector, userId, "DeepSeek");
+                            logInfo.sendTaskLog("使用选择器找到输入框: " + selector, userId, aiName);
                             break;
                         }
                     } catch (Exception e) {
@@ -894,7 +888,7 @@ public class DeepSeekUtil {
                             inputBox = page.locator("textarea[data-ai-input='true']").first();
                             if (inputBox.count() > 0 && inputBox.isVisible()) {
                                 inputFound = true;
-                                logInfo.sendTaskLog("通过JavaScript找到输入框", userId, "DeepSeek");
+                                logInfo.sendTaskLog("通过JavaScript找到输入框", userId, aiName);
                             }
                         }
                     } catch (Exception e) {
@@ -914,7 +908,7 @@ public class DeepSeekUtil {
                     // 使用模拟人工输入方式
 //                    simulateHumanTyping(page, inputBox, userPrompt, userId);
                     inputBox.fill(userPrompt);
-                    logInfo.sendTaskLog("用户指令已自动输入完成", userId, "DeepSeek");
+                    logInfo.sendTaskLog("用户指令已自动输入完成", userId, aiName);
                     
                     // 等待发送按钮可用并点击
 //                    boolean sendSuccess = clickSendButton(page, userId);
@@ -942,8 +936,8 @@ public class DeepSeekUtil {
             }
             
             // 等待回答完成并获取内容
-            logInfo.sendTaskLog("开启自动监听任务，持续监听DeepSeek回答中", userId, "DeepSeek");
-            String content = waitDeepSeekResponse(page, userId, "DeepSeek", roles);
+            logInfo.sendTaskLog("开启自动监听任务，持续监听DeepSeek回答中", userId, aiName);
+            String content = waitDeepSeekResponse(page, userId, aiName, roles);
             
             // 返回内容
             return content;
@@ -1297,7 +1291,7 @@ public class DeepSeekUtil {
      * @param shouldActive 期望激活(true)还是关闭(false)
      * @param logInfo 日志工具
      */
-    private void toggleButtonIfNeeded(Page page, String userId, String buttonText, boolean shouldActive, LogMsgUtil logInfo) {
+    private void toggleButtonIfNeeded(Page page, String userId, String buttonText, boolean shouldActive, LogMsgUtil logInfo,String aiName) {
         try {
             // 使用更简单的选择器
             String buttonSelector = String.format("button:has-text('%s'), div[role='button']:has-text('%s')", buttonText, buttonText);
@@ -1307,7 +1301,7 @@ public class DeepSeekUtil {
             button.waitFor(new Locator.WaitForOptions().setTimeout(10000)); // 增加到10秒
 
             if (!button.isVisible()) {
-                logInfo.sendTaskLog(buttonText + "按钮不可见", userId, "DeepSeek");
+                logInfo.sendTaskLog(buttonText + "按钮不可见", userId, aiName);
                 return;
             }
 
@@ -1337,15 +1331,15 @@ public class DeepSeekUtil {
                 }
 
                 if (stateChanged) {
-                    logInfo.sendTaskLog((shouldActive ? "已启动" : "已关闭") + buttonText + "模式", userId, "DeepSeek");
+                    logInfo.sendTaskLog((shouldActive ? "已启动" : "已关闭") + buttonText + "模式", userId, aiName);
                 } else {
-                    logInfo.sendTaskLog(buttonText + "模式切换失败", userId, "DeepSeek");
+                    logInfo.sendTaskLog(buttonText + "模式切换失败", userId, aiName);
                 }
             } else {
-                logInfo.sendTaskLog(buttonText + "模式已经是" + (shouldActive ? "开启" : "关闭") + "状态", userId, "DeepSeek");
+                logInfo.sendTaskLog(buttonText + "模式已经是" + (shouldActive ? "开启" : "关闭") + "状态", userId, aiName);
             }
         } catch (Exception e) {
-            logInfo.sendTaskLog("切换" + buttonText + "模式时出错: " + e.getMessage(), userId, "DeepSeek");
+            logInfo.sendTaskLog("切换" + buttonText + "模式时出错: " + e.getMessage(), userId, aiName);
         }
     }
 
