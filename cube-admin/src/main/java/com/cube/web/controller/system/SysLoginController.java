@@ -9,6 +9,7 @@ import com.cube.common.utils.SecurityUtils;
 import com.cube.framework.web.service.SysLoginService;
 import com.cube.framework.web.service.SysPermissionService;
 import com.cube.system.service.ISysMenuService;
+import com.cube.system.service.ISysUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,6 +35,9 @@ public class SysLoginController
 
     @Autowired
     private SysPermissionService permissionService;
+
+    @Autowired
+    private ISysUserService userService;
 
     /**
      * 登录方法
@@ -85,5 +89,34 @@ public class SysLoginController
         Long userId = SecurityUtils.getUserId();
         List<SysMenu> menus = menuService.selectMenuTreeByUserId(userId);
         return AjaxResult.success(menuService.buildMenus(menus));
+    }
+
+    /**
+     * 刷新企业ID
+     *
+     * @return 刷新后的用户信息
+     */
+    @PostMapping("/refreshCorpId")
+    public AjaxResult refreshCorpId()
+    {
+        SysUser currentUser = SecurityUtils.getLoginUser().getUser();
+        // 重新查询用户信息以获取最新的企业ID
+        SysUser refreshedUser = userService.selectUserById(currentUser.getUserId());
+        
+        if (refreshedUser != null) {
+            // 更新当前登录用户的企业ID信息
+            currentUser.setCorpId(refreshedUser.getCorpId());
+            // 更新其他可能需要刷新的字段
+            currentUser.setNickName(refreshedUser.getNickName());
+            currentUser.setAvatar(refreshedUser.getAvatar());
+            currentUser.setPoints(refreshedUser.getPoints());
+            
+            AjaxResult ajax = AjaxResult.success();
+            ajax.put("corpId", refreshedUser.getCorpId());
+            ajax.put("user", refreshedUser);
+            return ajax;
+        } else {
+            return AjaxResult.error("用户信息不存在");
+        }
     }
 }

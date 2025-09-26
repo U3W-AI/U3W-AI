@@ -114,7 +114,7 @@ public class AppLoginServiceImpl implements AppLoginService {
             user.setOpenId(openId);
             user.setQwId(qwId);
             user.setUnionId(unionId);
-//            user.setCorpId(corpId);
+            user.setCorpId(corpId);
             user.setCreateTime(DateUtils.getNowDate());
             user.setCreateBy("企业微信小程序用户");
             user.setPoints(200);
@@ -129,7 +129,7 @@ public class AppLoginServiceImpl implements AppLoginService {
             user = wxUser;
             user.setQwId(qwId);
             user.setUnionId(unionId);
-//            user.setCorpId(corpId);
+            user.setCorpId(corpId);
             user.setUpdateTime(DateUtils.getNowDate());
             Integer isFirst = pointsSystem.checkPointIsOk("每日优立方登录",String.valueOf(wxUser.getUserId()),1);
             if(isFirst==0){
