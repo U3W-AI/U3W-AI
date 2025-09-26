@@ -497,7 +497,7 @@
 				// AI配置（参考PC端完整配置）
 				aiList: [{
             name: 'DeepSeek',
-            avatar: 'https://communication.cn-nb1.rains3.com/Deepseek.png',
+            avatar: 'https://u3w.com/chatfile/Deepseek.png',
             capabilities: [{
               label: '深度思考',
               value: 'deep_thinking'
@@ -1707,7 +1707,7 @@
             if (!targetAI) {
               targetAI = {
                 name: 'DeepSeek',
-                avatar: 'https://communication.cn-nb1.rains3.com/Deepseek.png',
+                avatar: 'https://u3w.com/chatfile/Deepseek.png',
                 capabilities: [{
                   label: '深度思考',
                   value: 'deep_thinking'
@@ -2805,7 +2805,7 @@ else {
 				// 重置AI列表为初始状态
 				this.aiList = [{
             name: 'DeepSeek',
-            avatar: 'https://communication.cn-nb1.rains3.com/Deepseek.png',
+            avatar: 'https://u3w.com/chatfile/Deepseek.png',
             capabilities: [{
               label: '深度思考',
               value: 'deep_thinking'
