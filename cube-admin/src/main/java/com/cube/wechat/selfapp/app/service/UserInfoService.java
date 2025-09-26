@@ -2,7 +2,9 @@ package com.cube.wechat.selfapp.app.service;
 
 import com.cube.wechat.selfapp.app.domain.AINodeLog;
 import com.cube.wechat.selfapp.app.domain.AIParam;
+import com.cube.wechat.selfapp.app.domain.PromptTemplate;
 import com.cube.wechat.selfapp.app.domain.WcOfficeAccount;
+import com.cube.wechat.selfapp.app.domain.query.ScorePromptQuery;
 import com.cube.wechat.selfapp.corpchat.util.ResultBody;
 
 import java.util.List;
@@ -83,4 +85,15 @@ public interface UserInfoService {
 
     ResultBody getOfficeAccount(Long userId);
 
+    List<PromptTemplate> getScorePromptList(ScorePromptQuery scorePromptQuery);
+
+    ResultBody getScorePrompt(Long id);
+
+    ResultBody saveScorePrompt(PromptTemplate promptTemplate);
+
+    ResultBody updateScorePrompt(PromptTemplate promptTemplate);
+
+    ResultBody deleteScorePrompt(Long[] ids);
+
+    ResultBody getAllScorePrompt();
 }

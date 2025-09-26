@@ -103,7 +103,7 @@ public class WebSocketClientService {
                     taskWrapper.printStatus();
                     String aiName = userInfoRequest.getAiName();
                     // 处理包含"使用F8S"的消息
-                    if(message.contains("使用F8S")){
+                    if(message.contains("使用F8S") || message.contains("AI评分") || message.contains("AI排版")){
                         //豆包生成图片
                         if(message.contains("db-img")) {
                             concurrencyManager.submitBrowserTaskWithDeduplication(() -> {
@@ -257,18 +257,18 @@ public class WebSocketClientService {
                             }
                         }, "启动元包", userInfoRequest.getUserId());
                     }
-                    
-                    // 处理包含"AI排版"的消息
-                    if(message.contains("AI排版")){
-                        concurrencyManager.submitBrowserTask(() -> {
-                            try {
-//                                aigcController.startYBOffice(userInfoRequest);
-                                cubeMcp.publishToOffice(userInfoRequest);
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                        }, "AI排版", userInfoRequest.getUserId());
-                    }
+
+//                    // 处理包含"AI排版"的消息
+//                    if(message.contains("AI排版")){
+//                        concurrencyManager.submitBrowserTask(() -> {
+//                            try {
+////                                aigcController.startYBOffice(userInfoRequest);
+//                                cubeMcp.publishToOffice(userInfoRequest);
+//                            } catch (Exception e) {
+//                                e.printStackTrace();
+//                            }
+//                        }, "AI排版", userInfoRequest.getUserId());
+//                    }
 
                     // 处理检查百度AI登录状态的消息
                     if (message.contains("PLAY_CHECK_BAIDU_LOGIN")) {
@@ -324,7 +324,7 @@ public class WebSocketClientService {
                             }
                         }, "获取通义千问二维码", userInfoRequest.getUserId());
                     }
-                    
+
                     // 处理获取yb二维码的消息
                     if(message.contains("PLAY_GET_YB_QRCODE")){
                         concurrencyManager.submitBrowserTask(() -> {
@@ -336,15 +336,15 @@ public class WebSocketClientService {
                         }, "获取元宝二维码", userInfoRequest.getUserId());
                     }
 
-                    if(message.contains("AI评分")){
-                        new Thread(() -> {
-                            try {
-                                aigcController.startDBScore(userInfoRequest);
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                        }).start();
-                    }
+//                    if(message.contains("AI评分")){
+//                        new Thread(() -> {
+//                            try {
+//                                aigcController.startDBScore(userInfoRequest);
+//                            } catch (Exception e) {
+//                                e.printStackTrace();
+//                            }
+//                        }).start();
+//                    }
                     // 处理检查yb登录状态的消息
                     if (message.contains("CHECK_YB_LOGIN")) {
                         concurrencyManager.submitBrowserTask(() -> {

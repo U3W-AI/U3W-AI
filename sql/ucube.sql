@@ -108,6 +108,17 @@ INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (1, 1057);
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (1, 1058);
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (1, 1059);
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (1, 1060);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (101, 2028);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (101, 2029);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (101, 2030);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (101, 2031);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (101, 2032);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2033);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2034);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2035);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2036);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2037);
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2038);
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 1);
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 2);
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) VALUES (2, 3);
@@ -355,6 +366,18 @@ INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`
 VALUES (2026, '用户日志删除', 2022, 4, '#', '', NULL, '', 1, 0, 'F', '0', '0', 'monitor:userLog:remove', '#', 'admin', sysdate(), '', NULL, '');
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`)
 VALUES (2027, '用户日志导出', 2022, 5, '#', '', NULL, '', 1, 0, 'F', '0', '0', 'monitor:userLog:export', '#', 'admin', sysdate(), '', NULL, '');
+
+INSERT INTO `sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2028, '平台提示词配置', 2000, 1, 'callWord', 'wechat/callWord/index', NULL, '', 1, 0, 'C', '0', '0', 'wechat:callWord:list', '#', 'admin', sysdate(), '', NULL, '平台提示词配置菜单');
+INSERT INTO `sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2029, '平台提示词配置新增', 2028, 2, '#', '', NULL, '', 1, 0, 'F', '0', '0', 'wechat:callWord:add', '#', 'admin', sysdate(), '', NULL, '');
+INSERT INTO `sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2030, '平台提示词配置修改', 2028, 3, '#', '', NULL, '', 1, 0, 'F', '0', '0', 'wechat:callWord:edit', '#', 'admin', sysdate(), '', NULL, '');
+INSERT INTO `sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2031, '平台提示词配置删除', 2028, 4, '#', '', NULL, '', 1, 0, 'F', '0', '0', 'wechat:callWord:remove', '#', 'admin', sysdate(), '', NULL, '');
+INSERT INTO `sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2032, '平台提示词配置导出', 2028, 5, '#', '', NULL, '', 1, 0, 'F', '0', '0', 'wechat:callWord:export', '#', 'admin', sysdate(), '', NULL, '');
+INSERT INTO `sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2033, '评分模板配置', 2000, 1, 'prompt', 'wechat/prompt/index', NULL, '', 1, 0, 'C', '0', '0', 'wechat:prompt:list', '#', 'admin', sysdate(), '', NULL, '评分模板配置菜单');
+INSERT INTO `sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2034, '评分模板配置查询', 2033, 1, '#', '', NULL, '', 1, 0, 'F', '0', '0', 'wechat:prompt:query', '#', 'admin', sysdate(), '', NULL, '');
+INSERT INTO `sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2035, '评分模板配置新增', 2033, 2, '#', '', NULL, '', 1, 0, 'F', '0', '0', 'wechat:prompt:add', '#', 'admin', sysdate(), '', NULL, '');
+INSERT INTO `sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2036, '评分模板配置修改', 2033, 3, '#', '', NULL, '', 1, 0, 'F', '0', '0', 'wechat:prompt:edit', '#', 'admin', sysdate(), '', NULL, '');
+INSERT INTO `sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2037, '评分模板配置删除', 2033, 4, '#', '', NULL, '', 1, 0, 'F', '0', '0', 'wechat:prompt:remove', '#', 'admin', sysdate(), '', NULL, '');
+INSERT INTO `sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `route_name`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2038, '评分模板配置导出', 2033, 5, '#', '', NULL, '', 1, 0, 'F', '0', '0', 'wechat:prompt:export', '#', 'admin', sysdate(), '', NULL, '');
 COMMIT;
 
 -- ----------------------------
@@ -2015,18 +2038,22 @@ COMMIT;
 -- ----------------------------
 DROP TABLE IF EXISTS `wc_prompt_template`;
 CREATE TABLE `wc_prompt_template` (
-  `id` varchar(36) DEFAULT NULL COMMENT '主建ID',
+  `id` bigint AUTO_INCREMENT PRIMARY KEY COMMENT '主建ID',
   `prompt` longtext COMMENT '模板',
   `name` varchar(255) DEFAULT NULL COMMENT '模板名称',
   `type` int(3) DEFAULT NULL COMMENT '模板类型 1 附加提示词 2.用户偏好',
-  `user_id` varchar(255) DEFAULT NULL COMMENT '用户ID',
-  `isdel` int(3) DEFAULT NULL COMMENT '是否删除 1是0否'
+  `user_id` BIGINT DEFAULT NULL COMMENT '用户ID',
+  `isdel` int(3) DEFAULT 0 COMMENT '是否删除 1是0否'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------
 -- Records of wc_prompt_template
 -- ----------------------------
 BEGIN;
+INSERT INTO `wc_prompt_template`(`id`, `prompt`, `name`, `type`, `user_id`, `isdel`) VALUES (1, '请你深度阅读以下几篇内容，从多个维度进行逐项打分，输出评分结果。并在以下各篇文章的基础上博采众长，综合整理一篇更全面的文章。', '评分模板1', 3, 22, 0);
+INSERT INTO `wc_prompt_template`(`id`, `prompt`, `name`, `type`, `user_id`, `isdel`) VALUES (2, '请你深度阅读以下算法代码，从时间复杂度和空间复杂度进行评估，结合计算复杂性理论，并提出建议。', '评分模板2', 3, 22, 0);
+INSERT INTO `wc_prompt_template`(`id`, `prompt`, `name`, `type`, `user_id`, `isdel`) VALUES (3, '请你赏析如下文章，写一份评论。', '评分模板3', 3, 22, 0);
+
 COMMIT;
 
 -- ----------------------------

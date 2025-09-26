@@ -397,9 +397,12 @@ public class AIGCController {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "db")) {
 
             // 初始化变量
+            String dynamicAiName = logInfo.checkDynamicAiName(userInfoRequest.getType(),"豆包");
+            String dynamicAiType = logInfo.checkDynamicType(userInfoRequest.getType(), "RETURN_DB_RES");
+
             String userId = userInfoRequest.getUserId();
             String dbchatId = userInfoRequest.getDbChatId();
-            logInfo.sendTaskLog("豆包准备就绪，正在打开页面", userId, "豆包");
+            logInfo.sendTaskLog("豆包准备就绪，正在打开页面", userId, dynamicAiName);
             String roles = userInfoRequest.getRoles();
             String userPrompt = userInfoRequest.getUserPrompt();
 
@@ -413,7 +416,7 @@ public class AIGCController {
 
             page.waitForLoadState(LoadState.LOAD);
             Thread.sleep(500);
-            logInfo.sendTaskLog("豆包页面打开完成", userId, "豆包");
+            logInfo.sendTaskLog("豆包页面打开完成", userId, dynamicAiName);
             // 定位深度思考按钮
             Locator deepThoughtButton = page.locator("button.semi-button:has-text('深度思考')");
             // 检查按钮是否包含以 active- 开头的类名
@@ -437,7 +440,7 @@ public class AIGCController {
                     deepThoughtButton.click();
                     Thread.sleep(1000);
                 }
-                logInfo.sendTaskLog("已启动深度思考模式", userId, "豆包");
+                logInfo.sendTaskLog("已启动深度思考模式", userId, dynamicAiName);
             } else {
                 deepThoughtButton.click();
             }
@@ -445,10 +448,10 @@ public class AIGCController {
             page.locator("[data-testid='chat_input_input']").click();
             Thread.sleep(1000);
             page.locator("[data-testid='chat_input_input']").fill(userPrompt);
-            logInfo.sendTaskLog("用户指令已自动输入完成", userId, "豆包");
+            logInfo.sendTaskLog("用户指令已自动输入完成", userId, dynamicAiName);
             Thread.sleep(1000);
             page.locator("[data-testid='chat_input_input']").press("Enter");
-            logInfo.sendTaskLog("指令已自动发送成功", userId, "豆包");
+            logInfo.sendTaskLog("指令已自动发送成功", userId, dynamicAiName);
 
             // 创建定时截图线程
             AtomicInteger i = new AtomicInteger(0);
@@ -473,11 +476,11 @@ public class AIGCController {
                 }
             }, 1000, 6000, TimeUnit.MILLISECONDS); // 🔥 优化：延迟1秒开始，每6秒执行一次
 
-            logInfo.sendTaskLog("开启自动监听任务，持续监听豆包回答中", userId, "豆包");
+            logInfo.sendTaskLog("开启自动监听任务，持续监听豆包回答中", userId, dynamicAiName);
             // 等待复制按钮出现并点击
 //            String copiedText =  douBaoUtil.waitAndClickDBCopyButton(page,userId,roles);
             //等待html片段获取完成
-            String copiedText = douBaoUtil.waitDBHtmlDom(page, userId, "豆包", userInfoRequest);
+            String copiedText = douBaoUtil.waitDBHtmlDom(page, userId, dynamicAiName, userInfoRequest);
             //关闭截图
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
@@ -533,13 +536,13 @@ public class AIGCController {
                 });
             }
 
-            logInfo.sendTaskLog("执行完成", userId, "豆包");
+            logInfo.sendTaskLog("执行完成", userId, dynamicAiName);
             logInfo.sendChatData(page, "/chat/([^/?#]+)", userId, "RETURN_DB_CHATID", 1);
-            logInfo.sendResData(copiedText, userId, "豆包", "RETURN_DB_RES", shareUrl, sharImgUrl);
+            logInfo.sendResData(copiedText, userId, "豆包", dynamicAiType, shareUrl, sharImgUrl);
 
             //保存数据库
             userInfoRequest.setDraftContent(copiedText);
-            userInfoRequest.setAiName("豆包");
+            userInfoRequest.setAiName(dynamicAiName);
             userInfoRequest.setShareUrl(shareUrl);
             userInfoRequest.setShareImgUrl(sharImgUrl);
             RestUtils.post(url + "/saveDraftContent", userInfoRequest);
@@ -772,6 +775,9 @@ public class AIGCController {
     @PostMapping("/startDS")
     public McpResult startDS(@RequestBody UserInfoRequest userInfoRequest) throws InterruptedException, IOException {
 
+        String dynamicAiName = logInfo.checkDynamicAiName(userInfoRequest.getType(),"DeepSeek");
+        String dynamicAiType = logInfo.checkDynamicType(userInfoRequest.getType(),"RETURN_DEEPSEEK_RES");
+
         String userId = userInfoRequest.getUserId();
         String chatId = userInfoRequest.getDeepseekChatId();
         String userPrompt = userInfoRequest.getUserPrompt();
@@ -783,7 +789,7 @@ public class AIGCController {
             if ("true".equalsIgnoreCase(isNewChat)) {
                 chatId = null;
             } else if (chatId != null && !chatId.isEmpty()) {
-                logInfo.sendTaskLog("检测到会话ID: " + chatId + "，将继续使用此会话", userId, "DeepSeek");
+                logInfo.sendTaskLog("检测到会话ID: " + chatId + "，将继续使用此会话", userId, dynamicAiName);
             }
 
             // 初始化页面并发送消息
@@ -817,7 +823,7 @@ public class AIGCController {
                 }
             }, 1000, 4000, TimeUnit.MILLISECONDS); // 🔥 优化：延迟1秒开始，每4秒执行一次（提高截图频率）
 
-            logInfo.sendTaskLog("开启自动监听任务，持续监听DeepSeek回答中", userId, "DeepSeek");
+            logInfo.sendTaskLog("开启自动监听任务，持续监听DeepSeek回答中", userId, dynamicAiName);
 
             // 发送消息并获取回答
             String copiedText = "";
@@ -883,8 +889,8 @@ public class AIGCController {
 
                             // 直接返回错误信息给前端
                             String errorMessage = "DeepSeek服务器暂时不可用，请稍后再试";
-                            logInfo.sendTaskLog(errorMessage, userId, "DeepSeek");
-                            logInfo.sendResData(errorMessage, userId, "DeepSeek", "RETURN_DEEPSEEK_RES", "", "");
+                            logInfo.sendTaskLog(errorMessage, userId, dynamicAiName);
+                            logInfo.sendResData(errorMessage, userId, "DeepSeek", dynamicAiType, "", "");
 
                             // 保存错误信息到数据库
                             userInfoRequest.setDraftContent(errorMessage);
@@ -899,7 +905,7 @@ public class AIGCController {
                         return McpResult.fail("无法访问DeepSeek服务器", "");
                     }
 
-                    copiedText = deepSeekUtil.handleDeepSeekAI(page, userPrompt, userId, roles, chatId);
+                    copiedText = deepSeekUtil.handleDeepSeekAI(page, userPrompt, userId, roles, chatId,dynamicAiName);
 
                     if (!copiedText.startsWith("获取内容失败") && !copiedText.isEmpty()) {
                         break; // 成功获取内容，跳出重试循环
@@ -988,15 +994,15 @@ public class AIGCController {
                 MessageScreenshot screenshotter = new MessageScreenshot();
                 shareImgUrl = screenshotter.captureMessagesAsLongScreenshot(page, uploadUrl, userId);
             } catch (Exception e) {
-                logInfo.sendTaskLog("DeepSeek导出图片失败: " + e.getMessage(), userId, "DeepSeek");
+                logInfo.sendTaskLog("DeepSeek导出图片失败: " + e.getMessage(), userId, dynamicAiName);
                 shareImgUrl = "";
             }
 
 
-            logInfo.sendTaskLog("执行完成", userId, "DeepSeek");
+            logInfo.sendTaskLog("执行完成", userId, dynamicAiName);
             logInfo.sendChatData(page, "/chat/s/([^/?#]+)", userId, "RETURN_DEEPSEEK_CHATID", 1);
 
-            logInfo.sendResData(copiedText, userId, "DeepSeek", "RETURN_DEEPSEEK_RES", shareUrl, shareImgUrl);
+            logInfo.sendResData(copiedText, userId, "DeepSeek", dynamicAiType, shareUrl, shareImgUrl);
 
             // 保存数据库
             userInfoRequest.setDraftContent(copiedText);
@@ -1012,8 +1018,8 @@ public class AIGCController {
 
             // 发送用户友好的错误信息，不暴露技术细节
             String userFriendlyError = "DeepSeek处理出现问题，请稍后重试";
-            logInfo.sendTaskLog(userFriendlyError, userId, "DeepSeek");
-            logInfo.sendResData(userFriendlyError, userId, "DeepSeek", "RETURN_DEEPSEEK_RES", "", "");
+            logInfo.sendTaskLog(userFriendlyError, userId, dynamicAiName);
+            logInfo.sendResData(userFriendlyError, userId, "DeepSeek", dynamicAiType, "", "");
 
             return McpResult.fail(userFriendlyError, "");
         }

@@ -143,5 +143,35 @@ public class LogMsgUtil {
             webSocketClientService.sendMessage(chatData.toJSONString());
         }
     }
+    /**
+     * 检查是否需要变换AI任务名称，处理评分和排版
+     *
+     * @param type UserInfoReq中的类型
+     * @param defaultValue 没有特殊检查时获得的默认值
+     */
+    public String checkDynamicAiName(String type, String defaultValue){
+        if(type.contains("AI排版")){
+            return "智能排版";
+        }
+        if(type.contains("AI评分")){
+            return "智能评分";
+        }
+        return defaultValue;
+    }
 
+    /**
+     * 检查是否需要变换AI结果类型，处理评分和排版
+     *
+     * @param type UserInfoReq中的类型
+     * @param defaultValue 没有特殊检查时获得的默认值
+     */
+    public String checkDynamicType(String type,String defaultValue){
+        if(type.contains("AI排版")){
+            return "RETURN_ZNPB_RES";
+        }
+        if(type.contains("AI评分")){
+            return "RETURN_WKPF_RES";
+        }
+        return defaultValue;
+    }
 }

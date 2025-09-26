@@ -1,8 +1,11 @@
 package com.cube.wechat.selfapp.app.mapper;
 
 import com.cube.wechat.selfapp.app.domain.CallWord;
+import com.cube.wechat.selfapp.app.domain.query.CallWordQuery;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * 提示词配置Mapper接口
@@ -46,4 +49,8 @@ public interface CallWordMapper {
      * @return 影响行数
      */
     int updateDraftZhihuStatus(@Param("draftId") Long draftId, @Param("isPushed") Integer isPushed);
+
+    int deleteCallWordByPlatformIds(String[] platformIds);
+
+    List<CallWord> getCallWordList(CallWordQuery callWordQuery);
 } 
