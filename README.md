@@ -1,11 +1,14 @@
 <p align="center"><img alt="Static Badge" src="https://img.shields.io/badge/MySQL-5.7-blue"> <img alt="Static Badge" src="https://img.shields.io/badge/JDK-17-blue"> <img alt="Static Badge" src="https://img.shields.io/badge/Spring%20Boot-2.5.15-blue"> <img alt="Static Badge" src="https://img.shields.io/badge/Redis-6.0%2B-blue"> <img alt="Static Badge" src="https://img.shields.io/badge/License-AGPL3.0-blue"></p>
 
 # U3W 优立方 AI 主机：人机协同数智驱动的团队未来
-版本：V2.51
 
-文档更新日期：2025年9月23日
+版本：V2.52
+
+文档更新日期：2025年9月26日
 
 ## 近期重要更新
+
+2025年9月26日：智能评分及智能排版能力支持多AI选项，目前可选AI包括豆包、DeepSeek等。
 
 2025年9月23日：增强部分智能体能力，更新小程序控制侧。
 
