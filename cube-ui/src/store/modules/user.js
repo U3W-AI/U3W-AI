@@ -1,4 +1,4 @@
-import {login, logout, getInfo, weChatlogin,officeLogin} from '@/api/login'
+import {login, logout, getInfo, weChatlogin,officeLogin, refreshCorpId} from '@/api/login'
 import { getToken, setToken, removeToken } from '@/utils/auth'
 
 const user = {
@@ -130,6 +130,27 @@ const user = {
         commit('SET_TOKEN', '')
         removeToken()
         resolve()
+      })
+    },
+
+    // 刷新企业ID
+    RefreshCorpId({ commit, state }) {
+      return new Promise((resolve, reject) => {
+        refreshCorpId().then(res => {
+          const user = res.user
+          const avatar = (user.avatar == "" || user.avatar == null) ? require("@/assets/images/profile.jpg") :  user.avatar;
+          
+          // 更新用户信息
+          commit('SET_ID', user.userId)
+          commit('SET_CORP_ID', user.corpId)
+          commit('SET_NAME', user.userName)
+          commit('SET_NICKNAME', user.nickName)
+          commit('SET_AVATAR', avatar)
+          
+          resolve(res)
+        }).catch(error => {
+          reject(error)
+        })
       })
     }
   }

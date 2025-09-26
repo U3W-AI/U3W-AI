@@ -72,6 +72,14 @@ export function getInfo() {
   })
 }
 
+// 刷新企业ID
+export function refreshCorpId() {
+  return request({
+    'url': '/refreshCorpId',
+    'method': 'post'
+  })
+}
+
 // 退出方法
 export function logout() {
   return request({

@@ -41,6 +41,7 @@
   import storage from '@/utils/storage'
   import constant from '@/utils/constant'
   import config from '@/config'
+  import { ensureLatestCorpId, setCorpId } from '@/utils/corpId'
 
   export default {
     data() {
@@ -70,8 +71,27 @@
         }
       }
     },
-    onLoad() {
-      this.getUser()
+    async onLoad() {
+      // 确保主机ID是最新的，然后获取用户信息
+      try {
+        const result = await ensureLatestCorpId();
+        console.log('完善资料页面进入时主机ID已更新:', result.corpId);
+        // 如果有最新的企业ID，先更新用户信息中的主机ID
+        if (result.corpId && this.user) {
+          this.user.corpId = result.corpId;
+          console.log('完善资料页面主机ID已预设:', result.corpId);
+        }
+      } catch (error) {
+        console.warn('刷新主机ID失败，继续加载用户信息:', error);
+      }
+      this.getUser();
+      
+      // 监听企业ID自动更新事件
+      uni.$on('corpIdUpdated', this.handleCorpIdUpdated);
+    },
+    onUnload() {
+      // 移除事件监听
+      uni.$off('corpIdUpdated', this.handleCorpIdUpdated);
     },
     onReady() {
       this.$refs.form.setRules(this.rules)
@@ -100,23 +120,55 @@
         })
 
       },
-      getUser() {
-        getUserProfile().then(response => {
-          this.user = response.data
-        })
+      async getUser() {
+        try {
+          const response = await getUserProfile();
+          this.user = response.data;
+          
+          // 获取用户信息后，确保主机ID字段显示最新值
+          const currentCorpId = storage.get(constant.corpId);
+          if (currentCorpId && this.user.corpId !== currentCorpId) {
+            console.log('用户信息获取完成，同步最新主机ID:', currentCorpId);
+            this.user.corpId = currentCorpId;
+            this.$forceUpdate(); // 强制更新视图
+          }
+        } catch (error) {
+          console.error('获取用户信息失败:', error);
+        }
       },
       submit(ref) {
         console.log(this.user.nickName, "this.user.nickName");
         this.$refs.form.validate().then(res => {
+          // 保存修改前的主机ID用于比较
+          const oldCorpId = storage.get(constant.corpId);
+          
           updateUserProfile(this.user).then(response => {
             storage.set(constant.name, this.user.nickName)
             storage.set(constant.avatar, this.user.avatar)
+            
+            // 如果主机ID发生变化，使用setCorpId函数更新
+            if (this.user.corpId && this.user.corpId !== oldCorpId) {
+              console.log('用户手动更新主机ID:', this.user.corpId);
+              setCorpId(this.user.corpId);
+            }
+            
             console.log("修改后" + storage.get(constant.name))
             console.log("修改后" + storage.get(constant.avatar))
             this.$modal.msgSuccess("修改成功")
             this.$tab.reLaunch('/pages/mine/index')
           })
         })
+      },
+      handleCorpIdUpdated(data) {
+        console.log('完善资料页面：检测到主机ID更新', data.corpId);
+        this.$modal.msgSuccess('主机ID已自动更新');
+        // 直接更新本地用户数据中的主机ID
+        if (this.user && data.corpId) {
+          this.user.corpId = data.corpId;
+          this.$forceUpdate(); // 强制更新视图
+        }
+        // 重新获取用户信息，确保显示最新的主机ID
+        this.getUser();
       }
     }
   }

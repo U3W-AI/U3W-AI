@@ -372,6 +372,7 @@
   import websocketClient from "@/utils/websocket";
   import store from "@/store";
   import TurndownService from "turndown";
+  import { getCorpId, ensureLatestCorpId } from "@/utils/corpId";
 
   export default {
     name: "AIManagementPlatform",
@@ -617,12 +618,29 @@
         return groups;
       },
     },
-    created() {
+    async created() {
       console.log(this.userId);
+      
+      // 使用企业ID工具确保获取最新的企业ID
+      try {
+        this.corpId = await getCorpId();
+        console.log('获取最新企业ID:', this.corpId);
+      } catch (error) {
+        console.warn('获取企业ID失败，使用store中的值:', error);
       console.log(this.corpId);
+      }
+      
       this.initWebSocket(this.userId);
       this.loadChatHistory(0); // 加载历史记录
       this.loadLastChat(); // 加载上次会话
+    },
+    mounted() {
+      // 监听企业ID更新事件
+      window.addEventListener('corpIdUpdated', this.handleCorpIdUpdated);
+    },
+    beforeDestroy() {
+      // 移除事件监听
+      window.removeEventListener('corpIdUpdated', this.handleCorpIdUpdated);
     },
     watch: {
       // 监听媒体选择变化，自动加载对应的提示词
@@ -647,8 +665,34 @@
       }
     },
     methods: {
-      sendPrompt() {
+      // 处理企业ID更新事件
+      handleCorpIdUpdated(event) {
+        const newCorpId = event.detail.corpId;
+        if (newCorpId && newCorpId !== this.corpId) {
+          console.log('Chrome页面接收到企业ID更新事件，更新本地corpId:', newCorpId);
+          this.corpId = newCorpId;
+          this.$message.success(`主机ID已自动更新: ${newCorpId}`);
+        }
+      },
+
+      // 确保企业ID最新
+      async ensureLatestCorpId() {
+        try {
+          const result = await ensureLatestCorpId();
+          if (result.corpId !== this.corpId) {
+            this.corpId = result.corpId;
+            console.log('企业ID已自动更新:', result.corpId);
+          }
+        } catch (error) {
+          console.error('确保企业ID最新失败:', error);
+        }
+      },
+
+      async sendPrompt() {
         if(!this.canSend) return;
+
+        // 确保使用最新的企业ID
+        await this.ensureLatestCorpId();
 
         this.screenshots = [];
         // 折叠所有区域

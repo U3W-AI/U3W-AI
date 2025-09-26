@@ -1,7 +1,7 @@
 import config from '@/config'
 import storage from '@/utils/storage'
 import constant from '@/utils/constant'
-import { login, logout, getInfo,wxLogin,qywxLogin } from '@/api/login'
+import { login, logout, getInfo,wxLogin,qywxLogin, refreshCorpId } from '@/api/login'
 import { getToken, setToken, removeToken } from '@/utils/auth'
 
 const baseUrl = config.baseUrl
@@ -150,6 +150,33 @@ const user = {
           removeToken()
           storage.clean()
           resolve()
+        }).catch(error => {
+          reject(error)
+        })
+      })
+    },
+
+    // 刷新企业ID
+    RefreshCorpId({ commit, state }) {
+      return new Promise((resolve, reject) => {
+        refreshCorpId().then(res => {
+          const user = res.user
+          const avatar = (user == null || user.avatar == "" || user.avatar == null) ? require("@/static/images/profile.jpg") : user.avatar
+          const username = (user == null || user.userName == "" || user.userName == null) ? "" : user.userName
+          const nickname = (user == null || user.nickName == "" || user.nickName == null) ? "" : user.nickName
+          const userId = (user == null || user.userId == "" || user.userId == null) ? "" : user.userId
+          const corpId = (user == null || user.corpId == "" || user.corpId == null) ? "" : user.corpId
+          
+          console.log('企业ID已刷新:', corpId)
+          
+          // 更新用户信息
+          commit('SET_NAME', nickname)
+          commit('SET_ID', username)
+          commit('SET_CORPID', corpId)
+          commit('SET_USERID', userId)
+          commit('SET_AVATAR', avatar)
+          
+          resolve(res)
         }).catch(error => {
           reject(error)
         })

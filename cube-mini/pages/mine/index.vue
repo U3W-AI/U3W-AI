@@ -57,6 +57,7 @@
     getUserCount
   } from '@/api/report'
   import constant from '@/utils/constant'
+  import { ensureLatestCorpId } from '@/utils/corpId'
 
   export default {
     data() {
@@ -81,7 +82,16 @@
         version: getApp().globalData.config.appInfo.version
       }
     },
-	onLoad(options){
+	async onLoad(options){
+	  // 确保主机ID是最新的
+	  try {
+	    await ensureLatestCorpId();
+	  } catch (error) {
+	    console.warn('刷新主机ID失败:', error);
+	  }
+	  
+	  // 监听企业ID自动更新事件
+	  uni.$on('corpIdUpdated', this.handleCorpIdUpdated);
 	//   if (options) {
 	//     let orderId = decodeURIComponent(options.orderId)
 	// 	if(orderId){
@@ -102,6 +112,10 @@
 	
 	//   }
 	},
+	onUnload() {
+	  // 移除事件监听
+	  uni.$off('corpIdUpdated', this.handleCorpIdUpdated);
+	},
     computed: {
       avatar() {
         return storage.get(constant.avatar)
@@ -115,6 +129,11 @@
       if (this.userid) {
         this.getUserCount(this.userid)
       }
+      
+      // 每次显示页面时也刷新一下主机ID
+      ensureLatestCorpId().catch(error => {
+        console.warn('页面显示时刷新主机ID失败:', error);
+      });
     },
     created() {
 
@@ -162,6 +181,10 @@
       },
       myPoints() {
         this.$tab.navigateTo('/pages/user/points/index')
+      },
+      handleCorpIdUpdated(data) {
+        console.log('我的页面：检测到主机ID更新', data.corpId);
+        this.$modal.msgSuccess('主机ID已自动更新');
       }
     
     }

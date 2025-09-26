@@ -63,6 +63,7 @@ import userAvatar from "./userAvatar";
 import userInfo from "./userInfo";
 import resetPwd from "./resetPwd";
 import { getUserProfile } from "@/api/system/user";
+import { ensureLatestCorpId } from "@/utils/corpId";
 
 export default {
   name: "Profile",
@@ -75,16 +76,53 @@ export default {
       activeTab: "userinfo"
     };
   },
-  created() {
+  async created() {
+    // 确保主机ID是最新的，然后获取用户信息
+    try {
+      const result = await ensureLatestCorpId();
+      console.log('个人中心父页面进入时主机ID已更新:', result.corpId);
+    } catch (error) {
+      console.warn('刷新主机ID失败，继续加载用户信息:', error);
+    }
     this.getUser();
   },
+  mounted() {
+    // 监听企业ID自动更新事件
+    window.addEventListener('corpIdUpdated', this.handleCorpIdUpdated);
+  },
+  beforeDestroy() {
+    // 移除事件监听
+    window.removeEventListener('corpIdUpdated', this.handleCorpIdUpdated);
+  },
   methods: {
-    getUser() {
-      getUserProfile().then(response => {
+    async getUser() {
+      try {
+        const response = await getUserProfile();
         this.user = response.data;
         this.roleGroup = response.roleGroup;
         this.postGroup = response.postGroup;
-      });
+        
+        // 获取用户信息后，确保主机ID字段显示最新值
+        const currentCorpId = localStorage.getItem('corp_id');
+        if (currentCorpId) {
+          if (this.user.corpId !== currentCorpId) {
+            console.log('个人中心用户信息获取完成，同步最新主机ID:', currentCorpId);
+            this.user.corpId = currentCorpId;
+          } else {
+            console.log('个人中心用户信息主机ID已是最新:', currentCorpId);
+          }
+          // 强制更新以确保子组件能收到最新数据
+          this.$forceUpdate();
+        }
+      } catch (error) {
+        console.error('获取用户信息失败:', error);
+      }
+    },
+    handleCorpIdUpdated(event) {
+      console.log('个人中心页面：检测到主机ID更新', event.detail.corpId);
+      this.$message.success('主机ID已自动更新');
+      // 重新获取用户信息，确保显示最新的主机ID
+      this.getUser();
     }
   }
 };

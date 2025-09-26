@@ -454,6 +454,7 @@
 	import storage from '@/utils/storage'
 	import constant from '@/utils/constant'
   import { getToken } from '@/utils/auth';
+  import { getCorpId, ensureCorpIdOnShow, ensureLatestCorpId } from '@/utils/corpId'
 
 	export default {
 		name: 'MiniConsole',
@@ -788,8 +789,11 @@
 				immediate: false
 			}
 		},
-		onLoad() {
-			this.initUserInfo();
+		async onLoad() {
+			await this.initUserInfo();
+
+			// 监听企业ID更新事件
+			uni.$on('corpIdUpdated', this.handleCorpIdUpdated);
 
 			// 检查用户信息是否完整
 			if (!this.userId || !this.corpId) {
@@ -815,7 +819,14 @@
 			this.checkAiLoginStatus(); // 检查AI登录状态
 		},
 
+		onShow() {
+			// 页面显示时确保企业ID最新
+			this.ensureLatestCorpId();
+		},
+
 		onUnload() {
+			// 移除事件监听
+			uni.$off('corpIdUpdated', this.handleCorpIdUpdated);
 			this.closeWebSocket();
 		},
 
@@ -834,10 +845,16 @@
 			},
 
 			// 初始化用户信息
-			initUserInfo() {
+			async initUserInfo() {
 				// 从store获取用户信息，兼容缓存方式
-			this.userId = storage.get(constant.userId);
-			this.corpId = storage.get(constant.corpId);
+				this.userId = storage.get(constant.userId);
+				// 使用企业ID工具获取最新企业ID
+				try {
+					this.corpId = await getCorpId();
+				} catch (error) {
+					console.warn('获取企业ID失败，使用缓存值:', error);
+					this.corpId = storage.get(constant.corpId);
+				}
 
 				this.chatId = this.generateUUID();
 
@@ -856,6 +873,34 @@
 				// 初始化时显示所有AI，不过滤登录状态
 				this.enabledAIs = this.aiList.filter(ai => ai.enabled);
 				console.log('初始化AI列表:', this.enabledAIs.map(ai => ai.name));
+			},
+
+			// 确保企业ID最新
+			async ensureLatestCorpId() {
+				try {
+					const result = await ensureCorpIdOnShow();
+					if (result.corpId !== this.corpId) {
+						console.log('企业ID已更新:', result.corpId);
+						this.corpId = result.corpId;
+						this.userInfoReq.corpId = this.corpId;
+					}
+				} catch (error) {
+					console.error('确保企业ID最新失败:', error);
+				}
+			},
+
+			// 处理企业ID更新事件
+			handleCorpIdUpdated(data) {
+				const newCorpId = data.corpId;
+				if (newCorpId && newCorpId !== this.corpId) {
+					console.log('小程序接收到企业ID更新事件，更新本地corpId:', newCorpId);
+					this.corpId = newCorpId;
+					this.userInfoReq.corpId = newCorpId;
+					uni.showToast({
+						title: `主机ID已自动更新: ${newCorpId}`,
+						icon: 'success'
+					});
+				}
 			},
 
 			// 生成UUID
@@ -2343,7 +2388,7 @@
 		          return `请将以下内容整理为适合百家号发布的纯文本格式文章。
 要求：
 1.（不要使用Markdown或HTML语法，仅使用普通文本和简单换行保持内容的专业性和可读性使用自然段落分隔，）
-2.不允许使用有序列表，包括“一、”，“1.”等的序列号。
+2.不允许使用有序列表，包括"一、"，"1."等的序列号。
 3.给文章取一个吸引人的标题，放在正文的第一段
 4.不允许出现代码框、数学公式、表格或其他复杂格式删除所有Markdown和HTML标签，
 5.只保留纯文本内容
@@ -3018,7 +3063,25 @@ else {
 
 
 
-			refreshAiStatus() {
+			async refreshAiStatus() {
+				// 首先确保企业ID最新
+				try {
+					const result = await ensureLatestCorpId();
+					console.log('刷新按钮：主机ID已更新为最新值:', result.corpId);
+					if (result.corpId !== this.corpId) {
+						console.log('检测到主机ID变更，从', this.corpId, '更新为', result.corpId);
+						this.corpId = result.corpId;
+						this.userInfoReq.corpId = result.corpId;
+						// 更新本地存储，确保一致性
+						storage.set(constant.corpId, result.corpId);
+						console.log('本地主机ID存储已同步:', result.corpId);
+					} else {
+						console.log('主机ID无变化，当前值:', this.corpId);
+					}
+				} catch (error) {
+					console.error('确保企业ID最新失败:', error);
+				}
+
 				// 重置所有AI状态为加载中
 				this.isLoading = {
 					yuanbao: true,
@@ -3060,12 +3123,15 @@ else {
 					duration: 1500
 				});
 
-				// 重新建立WebSocket连接
+				// 重新建立WebSocket连接，使用最新的主机ID
+				console.log('准备重新建立WebSocket连接，使用主机ID:', this.corpId);
 				this.closeWebSocket();
 				setTimeout(() => {
+					console.log('开始初始化WebSocket，主机ID:', this.corpId);
 					this.initWebSocket();
 					// 延迟检查AI状态，确保WebSocket重新连接
 					setTimeout(() => {
+						console.log('发送AI状态检查，主机ID:', this.corpId);
 						this.sendAiStatusCheck();
 					}, 2000);
 				}, 500);

@@ -318,6 +318,7 @@ import {
 import { getUserPointsRecord } from "@/api/wechat/company";
 import websocketClient from "@/utils/websocket";
 import { message } from "@/api/wechat/aigc";
+import { getCorpId, ensureLatestCorpId } from "@/utils/corpId";
 
 const lineChartData = {
   newVisitis: {
@@ -520,25 +521,44 @@ export default {
     },
   },
 
-  created() {
+  async created() {
+    // 确保主机ID是最新的
+    try {
+      await ensureLatestCorpId();
+    } catch (error) {
+      console.warn('刷新主机ID失败:', error);
+    }
+    
     this.getUser();
+  },
+  mounted() {
+    // 监听企业ID自动更新事件
+    window.addEventListener('corpIdUpdated', this.handleCorpIdUpdated);
   },
   methods: {
     handleSetLineChartData(type) {
       this.lineChartData = lineChartData[type];
     },
-    getUser() {
-      getUserProfile().then((response) => {
+    async getUser() {
+      try {
+        const response = await getUserProfile();
         this.user = response.data;
         this.roleGroup = response.roleGroup;
         this.postGroup = response.postGroup;
         this.userId = response.data.userId;
+        
+        // 使用企业ID工具确保获取最新的企业ID
+        try {
+          this.corpId = await getCorpId();
+        } catch (error) {
+          console.warn('获取最新企业ID失败，使用接口返回值:', error);
         this.corpId = response.data.corpId;
+        }
 
         // 初始检测时，AI和媒体按钮分开变灰
         this.isClick.yuanbao = false;
         this.isClick.doubao = false;
-        this.isClick.baidu = false,
+        this.isClick.baidu = false;
         this.isClick.deepseek = false;
         this.isClick.qw = false;
         // this.isClick.metaso = false;
@@ -623,7 +643,9 @@ export default {
             this.form.picUrl = '';
           }
         });
-      });
+      } catch (error) {
+        console.error('获取用户信息失败:', error);
+      }
     },
     // 获取公众号信息
     handleBindWechat() {
@@ -985,7 +1007,18 @@ export default {
         messageList.scrollTop = messageList.scrollHeight;
       }
     },
-    handleRefreshAI() {
+    async handleRefreshAI() {
+      // 首先确保企业ID最新
+      try {
+        const result = await ensureLatestCorpId();
+        if (result.corpId !== this.corpId) {
+          console.log('刷新AI状态时企业ID已更新:', result.corpId);
+          this.corpId = result.corpId;
+        }
+      } catch (error) {
+        console.error('确保企业ID最新失败:', error);
+      }
+      
       if (!this.userId || !this.corpId) return;
       // 只重置AI相关状态
       this.isLoading.yuanbao = true;
@@ -1038,7 +1071,18 @@ export default {
       this.sendMessage({ type: "PLAY_CHECK_ZHIHU_LOGIN", userId: this.userId, corpId: this.corpId });
 
     },
-    handleRefreshMedia() {
+    async handleRefreshMedia() {
+      // 首先确保企业ID最新
+      try {
+        const result = await ensureLatestCorpId();
+        if (result.corpId !== this.corpId) {
+          console.log('刷新媒体状态时企业ID已更新:', result.corpId);
+          this.corpId = result.corpId;
+        }
+      } catch (error) {
+        console.error('确保企业ID最新失败:', error);
+      }
+      
       if (!this.userId || !this.corpId) return;
       // 只重置媒体相关状态
       this.mediaIsLoading.zhihu = true;
@@ -1071,8 +1115,19 @@ export default {
       this.qrCodeUrl = "";
       this.getQrCode(this.currentAiType);
     },
+    // 处理企业ID更新事件
+    handleCorpIdUpdated(event) {
+      const newCorpId = event.detail.corpId;
+      if (newCorpId && newCorpId !== this.corpId) {
+        console.log('页面接收到企业ID更新事件，更新本地corpId:', newCorpId);
+        this.corpId = newCorpId;
+        this.$message.success(`主机ID已自动更新: ${newCorpId}`);
+      }
+    },
   },
   beforeDestroy() {
+    // 移除事件监听
+    window.removeEventListener('corpIdUpdated', this.handleCorpIdUpdated);
     this.closeWebSocket(); // 销毁时关闭连接
   },
 };
