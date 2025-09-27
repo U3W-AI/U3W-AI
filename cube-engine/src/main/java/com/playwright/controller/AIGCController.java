@@ -109,7 +109,7 @@ public class AIGCController {
      * @param userInfoRequest 包含用户信息和会话参数
      * @return 生成的内容（当前版本暂未实现内容返回）
      */
-    @Operation(summary = "启动腾讯元宝内容生成", description = "根据角色执行不同类型的腾讯元宝任务（T1和DS）")
+    @Operation(summary = "启动腾讯元宝内容生成", description = "统一的腾讯元宝任务处理（支持混元和DeepSeek模型）")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startYB")
     public McpResult startYB(@RequestBody UserInfoRequest userInfoRequest) throws Exception {
@@ -118,112 +118,46 @@ public class AIGCController {
         String userPrompt = userInfoRequest.getUserPrompt();
         String t1ChatId = userInfoRequest.getToneChatId();
         String dschatId = userInfoRequest.getYbDsChatId();
-        AtomicReference<McpResult> mcpResult = new AtomicReference<>(new McpResult());
-        logInfo.sendTaskLog("元宝智能体任务开始，角色配置: " + roles, userId, "元宝智能体");
+        
+        long startTime = System.currentTimeMillis();
+        logInfo.sendTaskLog("腾讯元宝任务开始，角色配置: " + roles, userId, "腾讯元宝");
+        
         try {
-            CountDownLatch configCountDownLatch = new CountDownLatch(2);
-            CountDownLatch mainCountDownLatch = new CountDownLatch(2);
-            if (roles.contains("yb-hunyuan-pt")) {
-                new Thread(() -> {
-                    //======================腾讯元宝T1=======================//
-                    try {
-                        Page hyPage = tencentUtil.getPage("T1", userId);
-                        long start = System.currentTimeMillis();
-                        //腾讯元宝T1  根据角色组合处理不同模式（普通/深度思考/联网）
-                        logInfo.sendTaskLog("腾讯元宝T1准备就绪，正在打开页面", userId, "腾讯元宝T1");
-                        if (roles.contains("yb-hunyuan-pt") && !roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
-                            tencentUtil.handleYBAI(hyPage, userPrompt, "yb-hunyuan-pt", userId, "腾讯元宝T1", t1ChatId);
-                        } else if (roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
-                            //深度思考
-                            tencentUtil.handleYBAI(hyPage, userPrompt, "yb-hunyuan-sdsk", userId, "腾讯元宝T1", t1ChatId);
-                        } else if (roles.contains("yb-hunyuan-lwss") && !roles.contains("yb-hunyuan-sdsk")) {
-                            //联网
-                            tencentUtil.handleYBAI(hyPage, userPrompt, "yb-hunyuan-lwss-1", userId, "腾讯元宝T1", t1ChatId);
-                        } else if (roles.contains("yb-hunyuan-lwss") && roles.contains("yb-hunyuan-sdsk")) {
-                            //深度思考 + 联网
-                            tencentUtil.handleYBAI(hyPage, userPrompt, "yb-hunyuan-lwss-2", userId, "腾讯元宝T1", t1ChatId);
-                        }
-                        //保存入库 腾讯元宝T1 - T1和DS独立处理，各自发送响应
-                        configCountDownLatch.countDown();
-                        configCountDownLatch.await();
-                        hyPage = tencentUtil.getPage("T1", userId);
-                        if (roles.contains("yb-hunyuan-pt") && !roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
-                            mcpResult.set(tencentUtil.saveDraftData(hyPage, userInfoRequest, "yb-hunyuan-pt", userId));
-                        } else if (roles.contains("yb-hunyuan-sdsk") && !roles.contains("yb-hunyuan-lwss")) {
-                            //深度思考
-                            mcpResult.set(tencentUtil.saveDraftData(hyPage, userInfoRequest, "yb-hunyuan-sdsk", userId));
-                        } else if (roles.contains("yb-hunyuan-lwss")) {
-                            //深度思考 + 联网
-                            mcpResult.set(tencentUtil.saveDraftData(hyPage, userInfoRequest, "yb-hunyuan-lwss", userId));
-                        }
-                        UserLogUtil.sendNormalLog(userId, "启动腾讯元宝T1生成", "startYB", start, mcpResult.get().getResult(), url + "/saveLogInfo");
-                    } catch (Exception e) {
-                        logInfo.sendTaskLog("腾讯元宝T1执行异常", userId, "腾讯元宝T1");
-                        UserLogUtil.sendExceptionLog(userId, "腾讯元宝T1执行异常", "startYB", e, url + "/saveLogInfo");
-                    } finally {
-                        if (configCountDownLatch.getCount() == 2) {
-                            configCountDownLatch.countDown();
-                        }
-                        mainCountDownLatch.countDown();
-                    }
-                }).start();
-            } else {
-                configCountDownLatch.countDown();
-                mainCountDownLatch.countDown();
+            // 获取统一的页面实例
+            Page page = tencentUtil.getPage(userId);
+            if (page == null) {
+                return McpResult.fail("无法获取浏览器页面", null);
             }
-
-            //======================腾讯元宝DS=======================//
-            if (roles.contains("yb-deepseek-pt")) {
-                try {
-                    Page dsPage = tencentUtil.getPage("DS", userId);
-                    Long start = System.currentTimeMillis();
-                    logInfo.sendTaskLog("腾讯元宝DS准备就绪，正在打开页面", userId, "腾讯元宝DS");
-                    Thread.sleep(3000);
-                    //腾讯元宝DS  根据角色组合处理不同模式（普通/深度思考/联网）
-                    if (roles.contains("yb-deepseek-pt") && !roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
-                        tencentUtil.handleYBAI(dsPage, userPrompt, "yb-deepseek-pt", userId, "腾讯元宝DS", dschatId);
-                    } else if (roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
-                        //深度思考
-                        tencentUtil.handleYBAI(dsPage, userPrompt, "yb-deepseek-sdsk", userId, "腾讯元宝DS", dschatId);
-                    } else if (roles.contains("yb-deepseek-lwss") && !roles.contains("yb-deepseek-sdsk")) {
-                        //深度思考 + 联网
-                        tencentUtil.handleYBAI(dsPage, userPrompt, "yb-deepseek-lwss-1", userId, "腾讯元宝DS", dschatId);
-                    } else if (roles.contains("yb-deepseek-lwss") && roles.contains("yb-deepseek-sdsk")) {
-                        //深度思考 + 联网
-                        tencentUtil.handleYBAI(dsPage, userPrompt, "yb-deepseek-lwss-2", userId, "腾讯元宝DS", dschatId);
-                    }
-                    //保存入库 腾讯元宝DS - DS独立处理，发送自己的响应
-                    configCountDownLatch.countDown();
-                    configCountDownLatch.await();
-                    dsPage = tencentUtil.getPage("DS", userId);
-                    if (roles.contains("yb-deepseek-pt") && !roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
-                        mcpResult.set(tencentUtil.saveDraftData(dsPage, userInfoRequest, "yb-deepseek-pt", userId));
-                    } else if (roles.contains("yb-deepseek-sdsk") && !roles.contains("yb-deepseek-lwss")) {
-                        mcpResult.set(tencentUtil.saveDraftData(dsPage, userInfoRequest, "yb-deepseek-sdsk", userId));
-                    } else if (roles.contains("yb-deepseek-lwss")) {
-                        //深度思考 + 联网
-                        mcpResult.set(tencentUtil.saveDraftData(dsPage, userInfoRequest, "yb-deepseek-lwss", userId));
-                    }
-                    UserLogUtil.sendNormalLog(userId, "启动腾讯元宝DS生成", "startYB", start, mcpResult.get().getResult(), url + "/saveLogInfo");
-                } catch (Exception e) {
-                    logInfo.sendTaskLog("腾讯元宝DS执行异常", userId, "腾讯元宝DS");
-                    UserLogUtil.sendExceptionLog(userId, "腾讯元宝DS执行异常", "startYB", e, url + "/saveLogInfo");
-                } finally {
-                    if (configCountDownLatch.getCount() == 2) {
-                        configCountDownLatch.countDown();
-                    }
-                    mainCountDownLatch.countDown();
-                }
+            
+            // 统一会话管理：优先使用已存在的会话ID，实现上下文共享
+            String chatId = "";
+            if (t1ChatId != null && !t1ChatId.trim().isEmpty()) {
+                chatId = t1ChatId;
+                logInfo.sendTaskLog("腾讯元宝准备就绪，继续使用现有会话", userId, "腾讯元宝");
+            } else if (dschatId != null && !dschatId.trim().isEmpty()) {
+                chatId = dschatId;
+                logInfo.sendTaskLog("腾讯元宝准备就绪，继续使用现有会话", userId, "腾讯元宝");
             } else {
-                configCountDownLatch.countDown();
-                mainCountDownLatch.countDown();
+                chatId = ""; // 创建新会话
+                logInfo.sendTaskLog("腾讯元宝准备就绪，将创建新会话", userId, "腾讯元宝");
             }
-            mainCountDownLatch.await();
-            // 等待所有线程执行完毕
-            System.out.println("DS跟T1执行完成");
-            return mcpResult.get();
+            
+            // 使用统一的处理方法
+            int copyButtonCount = tencentUtil.handleYBAI(page, userPrompt, roles, userId, "腾讯元宝", chatId);
+            
+            // 保存数据并获取结果
+            page = tencentUtil.getPage(userId); // 重新获取页面确保状态正确
+            McpResult result = tencentUtil.saveDraftData(page, userInfoRequest, roles, userId);
+            
+            // 记录成功日志
+            UserLogUtil.sendNormalLog(userId, "启动腾讯元宝生成", "startYB", startTime, result.getResult(), url + "/saveLogInfo");
+            
+            return result;
+            
         } catch (Exception e) {
-            throw e;
+            logInfo.sendTaskLog("腾讯元宝执行异常: " + e.getMessage(), userId, "腾讯元宝");
+            UserLogUtil.sendExceptionLog(userId, "腾讯元宝执行异常", "startYB", e, url + "/saveLogInfo");
+            return McpResult.fail("腾讯元宝执行异常: " + e.getMessage(), null);
         }
     }
 
@@ -539,7 +473,7 @@ public class AIGCController {
 
             logInfo.sendTaskLog("执行完成", userId, dynamicAiName);
             logInfo.sendChatData(page, "/chat/([^/?#]+)", userId, "RETURN_DB_CHATID", 1);
-            if(userInfoRequest.getSelectedMedia().contains("wechat")) {
+            if(userInfoRequest.getSelectedMedia() != null && userInfoRequest.getSelectedMedia().contains("wechat")) {
                 logInfo.sendResData(aiResult.getTextContent(), userId, "豆包", dynamicAiType, shareUrl, sharImgUrl);
             } else {
                 logInfo.sendResData(aiResult.getHtmlContent(), userId, "豆包", dynamicAiType, shareUrl, sharImgUrl);
@@ -574,7 +508,7 @@ public class AIGCController {
                 if (roles.contains("znpb-t1")) {
                     //======================腾讯元宝T1=======================//
                     try {
-                        Page hyPage = tencentUtil.getPage("T1", userId);
+                        Page hyPage = tencentUtil.getPage(userId);
                         long start = System.currentTimeMillis();
                         //腾讯元宝T1  根据角色组合处理不同模式（普通/深度思考/联网）
                         logInfo.sendTaskLog("智能排版准备就绪，正在打开页面", userId, "智能排版");
@@ -608,7 +542,7 @@ public class AIGCController {
                 } else {
                     //======================腾讯元宝DS=======================//
                     try {
-                        Page dsPage = tencentUtil.getPage("DS", userId);
+                        Page dsPage = tencentUtil.getPage(userId);
                         Long start = System.currentTimeMillis();
                         logInfo.sendTaskLog("智能排版准备就绪，正在打开页面", userId, "智能排版");
                         Thread.sleep(3000);

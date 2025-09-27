@@ -101,14 +101,14 @@ public class TencentUtil {
         }
     }
 
-    public Page getPage(String type, String userId) {
+    public Page getPage(String userId) {
         long startTime = System.currentTimeMillis();
         try {
-            UnPersisBrowserContextInfo browserContextInfo = BrowserContextFactory.getBrowserContext(userId, 2);
+            UnPersisBrowserContextInfo browserContextInfo = BrowserContextFactory.getBrowserContext(userId, 1);
 
             // 检查浏览器上下文是否创建成功
             if (browserContextInfo == null || browserContextInfo.getBrowserContext() == null) {
-                String errorMsg = "浏览器上下文创建失败，无法执行元宝智能体任务";
+                String errorMsg = "浏览器上下文创建失败，无法执行腾讯元宝任务";
                 logInfo.sendTaskLog(errorMsg, userId, "腾讯元宝");
 
                 // 使用增强日志记录
@@ -126,9 +126,9 @@ public class TencentUtil {
             BrowserContext context = browserContextInfo.getBrowserContext();
             List<Page> pages = context.pages();
 
-            // 检查页面是否可用
-            if (pages == null || pages.size() < 2) {
-                String errorMsg = "浏览器页面不足，需要至少2个页面，当前页面数: " + (pages != null ? pages.size() : 0);
+            // 检查页面是否可用，只需要一个页面即可
+            if (pages == null || pages.isEmpty()) {
+                String errorMsg = "浏览器页面不可用，当前页面数: " + (pages != null ? pages.size() : 0);
                 logInfo.sendTaskLog(errorMsg, userId, "腾讯元宝");
 
                 // 使用增强日志记录
@@ -143,22 +143,18 @@ public class TencentUtil {
                 return null;
             }
 
-            Page targetPage = null;
-            if (type.equals("T1")) {
-                targetPage = pages.get(0);
-            } else if (type.equals("DS")) {
-                targetPage = pages.get(1);
-            }
+            // 使用第一个页面，统一处理混元和DeepSeek
+            Page targetPage = pages.get(0);
 
             if (targetPage != null) {
                 // 记录页面获取成功
-                UserLogUtil.sendAISuccessLog(userId, "腾讯元宝", "页面获取", "成功获取" + type + "页面", startTime, url + "/saveLogInfo");
+                UserLogUtil.sendAISuccessLog(userId, "腾讯元宝", "页面获取", "成功获取腾讯元宝页面", startTime, url + "/saveLogInfo");
             }
 
             return targetPage;
 
         } catch (Exception e) {
-            UserLogUtil.sendAIExceptionLog(userId, "腾讯元宝", "getPage", e, startTime, "获取页面失败，类型：" + type, url + "/saveLogInfo");
+            UserLogUtil.sendAIExceptionLog(userId, "腾讯元宝", "getPage", e, startTime, "获取页面失败", url + "/saveLogInfo");
             return null;
         }
     }
@@ -357,71 +353,58 @@ public class TencentUtil {
             logInfo.sendTaskLog("自动切换DS模型完成", userId, aiName);
         }
 
-        if (role.equals("yb-hunyuan-pt")) {
-            //是否深度思考
-            clickDeepThing(page, deepThing, deepThingDom, "hunyuan_gpt_175B_0404");
-            //是否联网搜索  1是 2否
-            clickWebSearch(page, webSearch, webSearchDom, "2");
-            logInfo.sendImgData(page, userId + "混元普通选择", userId);
-        }
-
-        if (role.equals("yb-hunyuan-sdsk")) {
-            //是否深度思考
-            clickDeepThing(page, deepThing, deepThingDom, "hunyuan_t1");
-            //是否联网搜索  1是 2否
-            clickWebSearch(page, webSearch, webSearchDom, "2");
-            logInfo.sendImgData(page, userId + "混元深思选择", userId);
-            logInfo.sendTaskLog("已启动深度思考模式", userId, aiName);
-        }
-
-        if (role.equals("yb-hunyuan-lwss-1")) {
-            //是否深度思考
-            clickDeepThing(page, deepThing, deepThingDom, "hunyuan_gpt_175B_0404");
-
-            //是否联网搜索 1是 2否
-            clickWebSearch(page, webSearch, webSearchDom, "1");
-            logInfo.sendImgData(page, userId + "混元联网选择", userId);
-            logInfo.sendTaskLog("已启动联网搜索模式", userId, aiName);
-        }
+        // 混元模型各种配置 - 使用else if避免重复匹配
         if (role.equals("yb-hunyuan-lwss-2")) {
-            //是否深度思考
-            clickDeepThing(page, deepThing, deepThingDom, "hunyuan_t1");
-            //是否联网搜索 1是 2否
-            clickWebSearch(page, webSearch, webSearchDom, "1");
+            // 最具体的条件放在最前面：混元深度思考+联网搜索
+            clickDeepThinkSmart(page, deepThing, deepThingDom, "hunyuan_t1", userId);
+            clickWebSearchSmart(page, webSearch, webSearchDom, "1", userId);
             logInfo.sendImgData(page, userId + "混元深思联网选择", userId);
-            logInfo.sendTaskLog("已启动深度思考+联网搜索模式", userId, aiName);
+            logInfo.sendTaskLog("混元深度思考+联网搜索模式已启动", userId, aiName);
+        } else if (role.equals("yb-hunyuan-lwss") || role.equals("yb-hunyuan-lwss-1")) {
+            // 混元联网搜索（普通）
+            clickDeepThinkSmart(page, deepThing, deepThingDom, "hunyuan_gpt_175B_0404", userId);
+            clickWebSearchSmart(page, webSearch, webSearchDom, "1", userId);
+            logInfo.sendImgData(page, userId + "混元联网选择", userId);
+            logInfo.sendTaskLog("混元联网搜索模式已启动", userId, aiName);
+        } else if (role.equals("yb-hunyuan-sdsk") || role.contains("yb-hunyuan-sdsk")) {
+            // 混元深度思考
+            clickDeepThinkSmart(page, deepThing, deepThingDom, "hunyuan_t1", userId);
+            clickWebSearchSmart(page, webSearch, webSearchDom, "2", userId);
+            logInfo.sendImgData(page, userId + "混元深思选择", userId);
+            logInfo.sendTaskLog("混元深度思考模式已启动", userId, aiName);
+        } else if (role.equals("yb-hunyuan-pt") || role.contains("yb-hunyuan-pt")) {
+            // 混元普通模式
+            clickDeepThinkSmart(page, deepThing, deepThingDom, "hunyuan_gpt_175B_0404", userId);
+            clickWebSearchSmart(page, webSearch, webSearchDom, "2", userId);
+            logInfo.sendImgData(page, userId + "混元普通选择", userId);
+            logInfo.sendTaskLog("混元普通模式", userId, aiName);
         }
 
-        if (role.equals("yb-deepseek-pt")) {
-            //是否深度思考
-            clickDeepThing(page, deepThing, deepThingDom, "deep_seek_v3");
-            //是否联网搜索  1是 2否
-            clickWebSearch(page, webSearch, webSearchDom, "2");
-            logInfo.sendImgData(page, userId + "元宝DS普通选择", userId);
-        }
-        if (role.equals("yb-deepseek-sdsk")) {
-            //是否深度思考
-            clickDeepThing(page, deepThing, deepThingDom, "deep_seek");
-            //是否联网搜索  1是 2否
-            clickWebSearch(page, webSearch, webSearchDom, "2");
-            logInfo.sendImgData(page, userId + "元宝DS深思选择", userId);
-            logInfo.sendTaskLog("已启动深度思考模式", userId, aiName);
-        }
-        if (role.equals("yb-deepseek-lwss-1")) {
-            //是否深度思考
-            clickDeepThing(page, deepThing, deepThingDom, "deep_seek_v3");
-            //是否联网搜索 1是 2否
-            clickWebSearch(page, webSearch, webSearchDom, "1");
-            logInfo.sendImgData(page, userId + "元宝DS联网选择", userId);
-            logInfo.sendTaskLog("已启动联网搜索模式", userId, aiName);
-        }
+        // DeepSeek模型各种配置 - 使用else if避免重复匹配
         if (role.equals("yb-deepseek-lwss-2")) {
-            //是否深度思考
-            clickDeepThing(page, deepThing, deepThingDom, "deep_seek");
-            //是否联网搜索 1是 2否
-            clickWebSearch(page, webSearch, webSearchDom, "1");
+            // 最具体的条件放在最前面：DeepSeek深度思考+联网搜索
+            clickDeepThinkSmart(page, deepThing, deepThingDom, "deep_seek", userId);
+            clickWebSearchSmart(page, webSearch, webSearchDom, "1", userId);
             logInfo.sendImgData(page, userId + "元宝DS深思联网选择", userId);
-            logInfo.sendTaskLog("已启动深度思考+联网搜索模式", userId, aiName);
+            logInfo.sendTaskLog("DeepSeek深度思考+联网搜索模式已启动", userId, aiName);
+        } else if (role.equals("yb-deepseek-lwss") || role.equals("yb-deepseek-lwss-1")) {
+            // DeepSeek联网搜索（普通）
+            clickDeepThinkSmart(page, deepThing, deepThingDom, "deep_seek_v3", userId);
+            clickWebSearchSmart(page, webSearch, webSearchDom, "1", userId);
+            logInfo.sendImgData(page, userId + "元宝DS联网选择", userId);
+            logInfo.sendTaskLog("DeepSeek联网搜索模式已启动", userId, aiName);
+        } else if (role.equals("yb-deepseek-sdsk") || role.contains("yb-deepseek-sdsk")) {
+            // DeepSeek深度思考
+            clickDeepThinkSmart(page, deepThing, deepThingDom, "deep_seek", userId);
+            clickWebSearchSmart(page, webSearch, webSearchDom, "2", userId);
+            logInfo.sendImgData(page, userId + "元宝DS深思选择", userId);
+            logInfo.sendTaskLog("DeepSeek深度思考模式已启动", userId, aiName);
+        } else if (role.equals("yb-deepseek-pt") || role.contains("yb-deepseek-pt")) {
+            // DeepSeek普通模式
+            clickDeepThinkSmart(page, deepThing, deepThingDom, "deep_seek_v3", userId);
+            clickWebSearchSmart(page, webSearch, webSearchDom, "2", userId);
+            logInfo.sendImgData(page, userId + "元宝DS普通选择", userId);
+            logInfo.sendTaskLog("DeepSeek普通模式", userId, aiName);
         }
 
 
@@ -662,6 +645,56 @@ public class TencentUtil {
         }
     }
 
+    /**
+     * 智能深度思考点击 - 根据目标模型精确控制深度思考状态
+     * 支持检测 checked checked_ds 状态
+     */
+    public void clickDeepThinkSmart(Page page, Locator deepThing, String deepThingDom, String targetModelId, String userId) throws
+            InterruptedException {
+        long startTime = System.currentTimeMillis();
+        try {
+            deepThing.waitFor(new Locator.WaitForOptions().setTimeout(5000));
+            
+            // 获取当前状态
+            String currentClass = deepThing.getAttribute("class");
+            String currentModelId = deepThing.getAttribute("dt-model-id");
+            
+            boolean isCurrentlyChecked = currentClass != null && currentClass.contains("checked");
+            
+            // 核心逻辑：判断是否需要切换
+            boolean shouldClick = false;
+            
+            // 情况1：当前没有开启深度思考，目标模型需要深度思考
+            if (!isCurrentlyChecked && (targetModelId.equals("deep_seek") || targetModelId.equals("hunyuan_t1"))) {
+                shouldClick = true;
+            }
+            // 情况2：当前已开启深度思考，但模型ID不匹配，需要切换到目标模型
+            else if (isCurrentlyChecked && currentModelId != null && !currentModelId.equals(targetModelId)) {
+                shouldClick = true;
+            }
+            // 情况3：当前已开启深度思考，目标是非深度思考模型，需要切换
+            else if (isCurrentlyChecked && !targetModelId.equals("deep_seek") && !targetModelId.equals("hunyuan_t1") && !targetModelId.equals(currentModelId)) {
+                shouldClick = true;
+            }
+            
+            if (shouldClick) {
+                Thread.sleep(1000);
+                page.locator(deepThingDom).click();
+                Thread.sleep(1000);
+                
+                // 记录成功操作
+                UserLogUtil.sendAISuccessLog(userId, "腾讯元宝", "深度思考配置", 
+                    "成功切换深度思考模型到: " + targetModelId, startTime, url + "/saveLogInfo");
+            }
+        } catch (Exception e) {
+            // 记录深度思考配置异常
+            UserLogUtil.sendAIBusinessLog(userId, "腾讯元宝", "深度思考配置", 
+                "深度思考配置失败: " + e.getMessage(), startTime, url + "/saveLogInfo");
+            // 兜底使用原方法
+            clickDeepThing(page, deepThing, deepThingDom, targetModelId);
+        }
+    }
+
     public void clickWebSearch(Page page, Locator webSearch, String webSearchDom, String isWebSearch) throws
             InterruptedException {
         String searchText = "自动搜索";
@@ -687,6 +720,59 @@ public class TencentUtil {
     }
 
     /**
+     * 智能联网搜索点击 - 根据目标状态精确控制联网搜索
+     * 优化版：仅使用class和ext3属性进行可靠检测
+     */
+    public void clickWebSearchSmart(Page page, Locator webSearch, String webSearchDom, String isWebSearch, String userId) throws
+            InterruptedException {
+        long startTime = System.currentTimeMillis();
+        try {
+            // 等待元素可见
+            webSearch.waitFor(new Locator.WaitForOptions().setTimeout(5000));
+            
+            // 获取当前状态 - 仅使用可靠检测方式
+            String currentClass = webSearch.getAttribute("class");
+            String currentExt3 = webSearch.getAttribute("dt-ext3");
+            
+            // 主要检测：通过class检测（最可靠）
+            boolean isCurrentlyEnabled = currentClass != null && currentClass.contains("checked");
+            
+            // 备用检测：通过ext3属性检测
+            if (!isCurrentlyEnabled) {
+                isCurrentlyEnabled = "1".equals(currentExt3);
+            }
+            
+            boolean needWebSearch = "1".equals(isWebSearch);
+            
+            // 核心逻辑：仅在状态不一致时点击
+            boolean shouldClick = (needWebSearch != isCurrentlyEnabled) || 
+                                  (isWebSearch.equals("2") && !"1".equals(currentExt3));
+            
+            if (shouldClick) {
+                Thread.sleep(1000);
+                page.locator(webSearchDom).click();
+                Thread.sleep(1000);
+                
+                // 如果出现手动控制选项，点击它
+                if (page.locator("text=手动控制联网状态").count() > 0) {
+                    page.locator("text=手动控制联网状态").click();
+                    Thread.sleep(1000);
+                }
+                
+                // 记录成功操作
+                UserLogUtil.sendAISuccessLog(userId, "腾讯元宝", "联网搜索配置", 
+                    "成功" + (needWebSearch ? "开启" : "关闭") + "联网搜索", startTime, url + "/saveLogInfo");
+            }
+        } catch (Exception e) {
+            // 记录联网搜索配置异常
+            UserLogUtil.sendAIBusinessLog(userId, "腾讯元宝", "联网搜索配置", 
+                "联网搜索配置失败: " + e.getMessage(), startTime, url + "/saveLogInfo");
+            // 兜底使用原方法
+            clickWebSearch(page, webSearch, webSearchDom, isWebSearch);
+        }
+    }
+
+    /**
      * html片段获取（核心监控方法）
      *
      * @param page Playwright页面实例
@@ -700,6 +786,15 @@ public class TencentUtil {
             // 设置最大等待时间（单位：毫秒），比如 10 分钟
             long timeout = 600000; // 10 分钟
             long startTime = System.currentTimeMillis();  // 获取当前时间戳
+            
+            // 先等待5秒，确保AI开始响应
+            logInfo.sendTaskLog(agentName + "等待AI开始响应...", userId, agentName);
+            Thread.sleep(5000);
+            
+            // 获取最新会话的data-conv-idx
+            int latestConvIdx = getLatestConversationIndex(page);
+            logInfo.sendTaskLog(agentName + "检测到最新会话索引: " + latestConvIdx, userId, agentName);
+            
             // 进入循环，直到内容不再变化或者超时
             while (true) {
                 // 获取当前时间戳
@@ -707,17 +802,63 @@ public class TencentUtil {
 
                 // 如果超时，退出循环
                 if (elapsedTime > timeout) {
+                    logInfo.sendTaskLog(agentName + "等待超时，停止监听", userId, agentName);
                     break;
                 }
-                // 获取最新内容
-                Locator outputLocator = page.locator(".hyc-common-markdown").last();
+                
+                // 优先检查是否有分享按钮（最准确的完成标志）
+                if (hasShareButtonInLatestConversation(page, latestConvIdx)) {
+                    logInfo.sendTaskLog(agentName + "检测到分享按钮，正在获取最终内容...", userId, agentName);
+                    
+                    // 重新获取最终完整内容
+                    Locator finalOutputLocator = getLatestConversationContent(page, latestConvIdx);
+                    if (finalOutputLocator != null) {
+                        textContent = finalOutputLocator.textContent();
+                        currentContent = finalOutputLocator.innerHTML();
+                        logInfo.sendTaskLog(agentName + "最终内容获取完成，内容长度: " + (currentContent != null ? currentContent.length() : 0), userId, agentName);
+                    }
+                    
+                    logInfo.sendTaskLog(agentName + "内容生成完成", userId, agentName);
+                    break;
+                }
+                
+                // 检查最新会话是否还在进行中
+                if (isConversationInProgress(page, latestConvIdx)) {
+                    logInfo.sendTaskLog(agentName + "会话仍在进行中，继续等待...", userId, agentName);
+                    Thread.sleep(3000);
+                    continue;
+                }
+                
+                // 获取最新会话的内容
+                Locator outputLocator = getLatestConversationContent(page, latestConvIdx);
+                if (outputLocator == null) {
+                    // 调试信息：打印会话区域的HTML结构
+                    try {
+                        Locator conversation = page.locator(".agent-chat__list__item--ai[data-conv-idx='" + latestConvIdx + "']");
+                        if (conversation.count() > 0) {
+                            String conversationHtml = conversation.first().innerHTML();
+                            logInfo.sendTaskLog(agentName + "会话区域HTML: " + conversationHtml.substring(0, Math.min(500, conversationHtml.length())), userId, agentName);
+                        }
+                    } catch (Exception e) {
+                        // 忽略调试信息异常
+                    }
+                    
+                    logInfo.sendTaskLog(agentName + "未找到最新会话内容，继续等待...", userId, agentName);
+                    Thread.sleep(2000);
+                    continue;
+                }
+                
                 textContent = outputLocator.textContent();
                 currentContent = outputLocator.innerHTML();
+                
+                // 调试信息
+                logInfo.sendTaskLog(agentName + "当前内容长度: " + (currentContent != null ? currentContent.length() : 0), userId, agentName);
 
-                // 如果当前内容和上次内容相同，认为 AI 已经完成回答，退出循环
-                if (currentContent.equals(lastContent)) {
-                    logInfo.sendTaskLog(agentName + "回答完成，正在自动提取内容", userId, agentName);
-                    break;
+                // 如果当前内容和上次内容相同，但没有分享按钮，继续等待
+                if (currentContent.equals(lastContent) && !currentContent.isEmpty()) {
+                    logInfo.sendTaskLog(agentName + "内容稳定但未发现分享按钮，继续等待分享按钮出现...", userId, agentName);
+                    Thread.sleep(2000);
+                    continue;
                 }
 
                 if (userInfoRequest.getAiName() != null && userInfoRequest.getAiName().contains("stream")) {
@@ -727,21 +868,31 @@ public class TencentUtil {
                 lastContent = currentContent;
 
                 // 等待 2 秒后再次检查
-                page.waitForTimeout(2000);  // 等待2秒
+                Thread.sleep(2000);
             }
+            
             if (userInfoRequest.getAiName() != null && userInfoRequest.getAiName().contains("stream")) {
                 //延迟3秒结束，确保剩余内容全部输出
                 Thread.sleep(3000);
                 webSocketClientService.sendMessage(userInfoRequest, McpResult.success("END", ""), userInfoRequest.getAiName());
             }
+            
+            // 清理引用标签
             currentContent = currentContent.replaceAll("<div class=\"hyc-common-markdown__ref-list\".*?</div>|<span>.*?</span>", "");
             currentContent = currentContent.replaceAll(
                     "<div class=\"hyc-common-markdown__ref-list__trigger\"[^>]*>\\s*<div class=\"hyc-common-markdown__ref-list__item\"></div>\\s*</div>",
                     ""
             );
-//            Document doc = Jsoup.parse(currentContent);
-//            currentContent = doc.text();  // 提取纯文本内容
+            
             logInfo.sendTaskLog(agentName + "内容已自动提取完成", userId, agentName);
+            
+            // 添加调试信息
+            if (currentContent == null || currentContent.trim().isEmpty()) {
+                logInfo.sendTaskLog(agentName + "警告：提取的内容为空！", userId, agentName);
+            } else {
+                logInfo.sendTaskLog(agentName + "内容提取成功，长度: " + currentContent.length(), userId, agentName);
+            }
+            
             if (agentName.contains("智能排版")) {
                 return textContent;
             }
@@ -751,6 +902,131 @@ public class TencentUtil {
             UserLogUtil.sendExceptionLog(userId, agentName + "获取内容失败", "waitHtmlDom", e, url + "/saveLogInfo");
         }
         return "获取内容失败";
+    }
+    
+    /**
+     * 获取最新会话的data-conv-idx索引
+     * 会话索引按2,4,6,8...递增
+     */
+    private int getLatestConversationIndex(Page page) {
+        try {
+            // 查找所有AI回复的会话项
+            Locator aiConversations = page.locator(".agent-chat__list__item--ai[data-conv-idx]");
+            int maxIndex = 0;
+            
+            for (int i = 0; i < aiConversations.count(); i++) {
+                String convIdx = aiConversations.nth(i).getAttribute("data-conv-idx");
+                if (convIdx != null) {
+                    int index = Integer.parseInt(convIdx);
+                    maxIndex = Math.max(maxIndex, index);
+                }
+            }
+            
+            return maxIndex;
+        } catch (Exception e) {
+            logInfo.sendTaskLog("获取会话索引失败，使用默认值", "", "");
+            return 2; // 默认返回2
+        }
+    }
+    
+    /**
+     * 检查指定会话是否还在进行中
+     * 通过检查是否有"--last"类名来判断
+     */
+    private boolean isConversationInProgress(Page page, int convIdx) {
+        try {
+            Locator conversation = page.locator(".agent-chat__list__item--ai[data-conv-idx='" + convIdx + "']");
+            if (conversation.count() == 0) {
+                return true; // 如果找不到会话，认为还在进行中
+            }
+            
+            // 检查是否有"--last"类名，如果有说明是最新的且可能还在进行
+            String className = conversation.first().getAttribute("class");
+            boolean hasLastClass = className != null && className.contains("--last");
+            
+            // 如果有--last类名，进一步检查内容是否在变化
+            if (hasLastClass) {
+                // 检查是否有加载动画或进度指示器
+                Locator loadingIndicator = conversation.locator(".hyc-card-box-process-list");
+                if (loadingIndicator.count() > 0) {
+                    String style = loadingIndicator.first().getAttribute("style");
+                    // 如果动画正在运行或不是隐藏状态，说明还在加载
+                    return style == null || !style.contains("--hidden");
+                }
+            }
+            
+            return false;
+        } catch (Exception e) {
+            return true; // 出错时保守地认为还在进行中
+        }
+    }
+    
+    /**
+     * 获取指定会话的内容定位器
+     */
+    private Locator getLatestConversationContent(Page page, int convIdx) {
+        try {
+            Locator conversation = page.locator(".agent-chat__list__item--ai[data-conv-idx='" + convIdx + "']");
+            if (conversation.count() == 0) {
+                return null;
+            }
+            
+            // 尝试多种选择器获取内容
+            String[] contentSelectors = {
+                ".hyc-common-markdown",
+                ".markdown-content", 
+                ".ai-content",
+                ".response-content",
+                ".chat-content",
+                ".agent-response",
+                "[data-testid='markdown-content']",
+                ".message-content"
+            };
+            
+            for (String selector : contentSelectors) {
+                Locator contentLocator = conversation.locator(selector).first();
+                if (contentLocator.count() > 0) {
+                    return contentLocator;
+                }
+            }
+            
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    /**
+     * 检查最新会话区域是否出现分享按钮
+     * 分享按钮的出现表示AI已完全生成完毕
+     */
+    private boolean hasShareButtonInLatestConversation(Page page, int convIdx) {
+        try {
+            // 定位到指定的会话项
+            Locator conversation = page.locator(".agent-chat__list__item--ai[data-conv-idx='" + convIdx + "']");
+            if (conversation.count() == 0) {
+                return false;
+            }
+            
+            // 在该会话区域内查找分享按钮
+            Locator shareButton = conversation.locator("span.icon-yb-ic_share_2504");
+            boolean hasButton = shareButton.count() > 0;
+            
+            if (hasButton) {
+                // 进一步检查按钮是否可见和可点击
+                try {
+                    return shareButton.first().isVisible();
+                } catch (Exception e) {
+                    // 如果检查可见性失败，认为按钮存在但可能还未完全加载
+                    return true;
+                }
+            }
+            
+            return false;
+        } catch (Exception e) {
+            // 出错时返回false，继续等待
+            return false;
+        }
     }
 
 
