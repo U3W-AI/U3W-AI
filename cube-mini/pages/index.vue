@@ -70,20 +70,12 @@ export default {
 				image: 'https://ai-public.mastergo.com/ai/img_res/ea68981430e1307646a14e900ce6d3e6.jpg'
 			}
 			],
-			features: [{
-				name: '腾讯元宝T1',
+			features: [			{
+				name: '腾讯元宝',
 				avatar: 'https://u3w.com/chatfile/yuanbao.png',
 				icon: '../static/images/icon/腾讯元宝.png',
-				title: '腾讯元宝T1',
-				description: '腾讯公司开发的混元大模型智能体，功能强大',
-				type: 'yuanbao'
-			},
-			{
-				name: '腾讯元宝DS',
-				avatar: 'https://u3w.com/chatfile/yuanbao.png',
-				icon: '../static/images/icon/腾讯元宝.png',
-				title: '腾讯元宝DS',
-				description: '基于DeepSeek模型的腾讯元宝版本，拥有强大推理能力',
+				title: '腾讯元宝',
+				description: '腾讯公司开发的智能体，支持混元和DeepSeek模型',
 				type: 'yuanbao'
 			},
 			{
