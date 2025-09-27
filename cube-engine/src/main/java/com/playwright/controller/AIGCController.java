@@ -4,6 +4,7 @@ import cn.hutool.core.thread.ThreadException;
 import com.microsoft.playwright.*;
 import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.LoadState;
+import com.playwright.entity.AiResult;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.entity.mcp.McpResult;
 import com.playwright.mcp.CubeMcp;
@@ -312,7 +313,7 @@ public class AIGCController {
             // 等待复制按钮出现并点击
 //            String copiedText =  douBaoUtil.waitAndClickDBCopyButton(page,userId,roles);
             //等待html片段获取完成
-            String copiedText = douBaoUtil.waitDBHtmlDom(page, userId, "智能评分", userInfoRequest);
+            String copiedText = douBaoUtil.waitDBHtmlDom(page, userId, "智能评分", userInfoRequest).getHtmlContent();
             //关闭截图
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
@@ -480,7 +481,7 @@ public class AIGCController {
             // 等待复制按钮出现并点击
 //            String copiedText =  douBaoUtil.waitAndClickDBCopyButton(page,userId,roles);
             //等待html片段获取完成
-            String copiedText = douBaoUtil.waitDBHtmlDom(page, userId, dynamicAiName, userInfoRequest);
+            AiResult aiResult = douBaoUtil.waitDBHtmlDom(page, userId, dynamicAiName, userInfoRequest);
             //关闭截图
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
@@ -538,15 +539,19 @@ public class AIGCController {
 
             logInfo.sendTaskLog("执行完成", userId, dynamicAiName);
             logInfo.sendChatData(page, "/chat/([^/?#]+)", userId, "RETURN_DB_CHATID", 1);
-            logInfo.sendResData(copiedText, userId, "豆包", dynamicAiType, shareUrl, sharImgUrl);
+            if(userInfoRequest.getSelectedMedia().contains("wechat")) {
+                logInfo.sendResData(aiResult.getTextContent(), userId, "豆包", dynamicAiType, shareUrl, sharImgUrl);
+            } else {
+                logInfo.sendResData(aiResult.getHtmlContent(), userId, "豆包", dynamicAiType, shareUrl, sharImgUrl);
+            }
 
             //保存数据库
-            userInfoRequest.setDraftContent(copiedText);
+            userInfoRequest.setDraftContent(aiResult.getHtmlContent());
             userInfoRequest.setAiName(dynamicAiName);
             userInfoRequest.setShareUrl(shareUrl);
             userInfoRequest.setShareImgUrl(sharImgUrl);
             RestUtils.post(url + "/saveDraftContent", userInfoRequest);
-            return McpResult.success(copiedText, shareUrl);
+            return McpResult.success(aiResult.getHtmlContent(), shareUrl);
         } catch (Exception e) {
             throw e;
         }

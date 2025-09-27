@@ -240,9 +240,14 @@
                     class="share-link-btn">
                     查看原链接
                   </el-button>
-                  <el-button size="mini" type="success" icon="el-icon-s-promotion" @click="handlePushToMedia(result)"
+                  <el-button v-if="!result.aiName.includes('智能排版')" size="mini" type="success" icon="el-icon-s-promotion" @click="handlePushToMedia(result)"
                     class="push-media-btn" :loading="pushingToMedia" :disabled="pushingToMedia">
-                    投递到媒体
+                    智能排版
+                  </el-button>
+                  <el-button v-else size="mini" type="success" icon="el-icon-s-promotion" @click="pushToWechatWithContent(result)"
+                    class="push-media-btn" :loading="pushingToMedia" :disabled="pushingToMedia">
+                    <!-- 投递到{{ result.aiName.substring(4)}} -->
+                     投递到公众号
                   </el-button>
                 </div>
               </div>
@@ -337,40 +342,41 @@
         <div class="media-selection-section">
           <h3>选择排版AI：</h3>
           <el-select v-model="layoutAI" placeholder="请选择排版AI">
-          <!-- <el-option v-for="(ai, index) in aiList" :key="index" :label="ai.name" :value="ai.name">
+            <!-- <el-option v-for="(ai, index) in aiList" :key="index" :label="ai.name" :value="ai.name">
             {{ ai.name }}
           </el-option> -->
-          <el-option label="豆包" value="豆包"></el-option>
-          <el-option label="DeepSeek" value="DeepSeek"></el-option>
+            <el-option label="豆包" value="豆包"></el-option>
+            <el-option label="DeepSeek" value="DeepSeek"></el-option>
           </el-select>
           <h3>选择投递媒体：</h3>
           <el-radio-group v-model="selectedMedia" size="small" class="media-radio-group">
-            <el-radio-button label="wechat">
+            <el-radio-button label="wechat_layout" value="wechat_layout">
               <i class="el-icon-chat-dot-square"></i>
               公众号
             </el-radio-button>
 
           </el-radio-group>
           <div class="media-description">
-            <template v-if="selectedMedia === 'wechat'">
+            <template v-if="selectedMedia === 'wechat_layout'">
               <small>📝 将内容排版为适合微信公众号的HTML格式，并自动投递到草稿箱</small>
             </template>
 
           </div>
         </div>
 
-
-        <div class="layout-prompt-section">
+        <!-- <div class="layout-prompt-section">
           <h3>排版提示词：</h3>
           <el-input type="textarea" :rows="12" placeholder="请输入排版提示词" v-model="layoutPrompt" resize="none"
             class="layout-prompt-input">
           </el-input>
-        </div>
+        </div> -->
+
+
       </div>
       <span slot="footer" class="dialog-footer">
         <el-button @click="layoutDialogVisible = false">取 消</el-button>
         <el-button type="primary" @click="handleLayout" :disabled="!canLayout">
-          排版后智能投递
+          开始排版
         </el-button>
       </span>
     </el-dialog>
@@ -572,7 +578,7 @@
         chatHistory: [],
         pushOfficeNum: 0, // 投递到公众号的递增编号
         pushingToWechat: false, // 投递到公众号的loading状态
-        selectedMedia: "wechat", // 默认选择公众号
+        selectedMedia: "wechat_layout", // 默认选择公众号
         pushingToMedia: false // 投递到媒体的loading状态
       };
     },
@@ -589,7 +595,7 @@
         );
       },
       canLayout() {
-        return this.layoutPrompt.trim().length > 0;
+        return this.currentLayoutResult !== null;
       },
       // 检查所有任务是否完成
       allTasksCompleted() {
@@ -651,9 +657,9 @@
       try {
         this.corpId = await getCorpId();
         console.log('获取最新企业ID:', this.corpId);
-      } catch (error) {
+      } catch(error) {
         console.warn('获取企业ID失败，使用store中的值:', error);
-      console.log(this.corpId);
+        console.log(this.corpId);
       }
 
       this.initWebSocket(this.userId);
@@ -694,7 +700,7 @@
       // 处理企业ID更新事件
       handleCorpIdUpdated(event) {
         const newCorpId = event.detail.corpId;
-        if (newCorpId && newCorpId !== this.corpId) {
+        if(newCorpId && newCorpId !== this.corpId) {
           console.log('Chrome页面接收到企业ID更新事件，更新本地corpId:', newCorpId);
           this.corpId = newCorpId;
           this.$message.success(`主机ID已自动更新: ${newCorpId}`);
@@ -705,11 +711,11 @@
       async ensureLatestCorpId() {
         try {
           const result = await ensureLatestCorpId();
-          if (result.corpId !== this.corpId) {
+          if(result.corpId !== this.corpId) {
             this.corpId = result.corpId;
             console.log('企业ID已自动更新:', result.corpId);
           }
-        } catch (error) {
+        } catch(error) {
           console.error('确保企业ID最新失败:', error);
         }
       },
@@ -827,21 +833,21 @@
             }
           }
 
-          if (ai.name === "知乎直答") {
+          if(ai.name === "知乎直答") {
             this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-chat,";
-            if (ai.selectedCapabilities.includes("deep_thinking")) {
+            if(ai.selectedCapabilities.includes("deep_thinking")) {
               this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-sdsk,";
             }
-            if (ai.selectedCapabilities.includes("all_web_search")) {
+            if(ai.selectedCapabilities.includes("all_web_search")) {
               this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-qw,";
             }
-            if (ai.selectedCapabilities.includes("zhihu_search")) {
+            if(ai.selectedCapabilities.includes("zhihu_search")) {
               this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-zh,";
             }
-            if (ai.selectedCapabilities.includes("academic_search")) {
+            if(ai.selectedCapabilities.includes("academic_search")) {
               this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-xs,";
             }
-            if (ai.selectedCapabilities.includes("personal_knowledge")) {
+            if(ai.selectedCapabilities.includes("personal_knowledge")) {
               this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-wdzsk,";
             }
           }
@@ -1160,11 +1166,22 @@
               this.$set(znpbAI.progressLogs[0], "isCompleted", true);
             }
 
-            // 直接调用投递到公众号的方法，不添加到结果展示
-            this.pushToWechatWithContent(dataObj.draftContent);
 
+            // 添加排版结果到results最前面
+            this.results.unshift({
+              aiName: "智能排版",
+              content: dataObj.draftContent,
+              shareUrl: dataObj.shareUrl || "",
+              shareImgUrl: dataObj.shareImgUrl || "",
+              timestamp: new Date(),
+            });
+            this.activeResultTab = "result-0";
             // 智能排版完成时，保存历史记录
             this.saveHistory();
+
+
+            //TODO:扩展媒体投递
+            // this.pushToWechatWithContent(dataObj.draftContent);
           }
           return;
         }
@@ -1331,7 +1348,6 @@
             roles: "",
           },
         };
-        //TODO: 修改roles参数，适配后端
         let ai = this.aiList.filter(ai => ai.name === this.scoreAI)[0];
 
         {
@@ -1919,25 +1935,26 @@
         if(media === 'wechat') {
           platformId = 'wechat_layout';
         }
-
-        try {
-          const response = await getMediaCallWord(platformId);
-          if(response.code === 200) {
-            this.layoutPrompt = response.data.wordContent + '\n\n' + (this.currentLayoutResult ? this.currentLayoutResult.content : '');
-          } else {
-            // 使用默认提示词
-            this.layoutPrompt = this.getDefaultPrompt(media) + '\n\n' + (this.currentLayoutResult ? this.currentLayoutResult.content : '');
-          }
-        } catch(error) {
-          console.error('加载提示词失败:', error);
-          // 使用默认提示词
-          this.layoutPrompt = this.getDefaultPrompt(media) + '\n\n' + (this.currentLayoutResult ? this.currentLayoutResult.content : '');
-        }
+        this.layoutPrompt = (this.currentLayoutResult ? this.currentLayoutResult.content : '');
+        // try {
+        //   const response = await getMediaCallWord(platformId);
+        //   if(response.code === 200) {
+        //     this.layoutPrompt = response.data.wordContent + '\n\n' + (this.currentLayoutResult ? this.currentLayoutResult.content : '');
+        //     this.layoutPrompt = (this.currentLayoutResult ? this.currentLayoutResult.content : '');
+        //   } else {
+        //     // 使用默认提示词
+        //     this.layoutPrompt = this.getDefaultPrompt(media) + '\n\n' + (this.currentLayoutResult ? this.currentLayoutResult.content : '');
+        //   }
+        // } catch(error) {
+        //   console.error('加载提示词失败:', error);
+        //   // 使用默认提示词
+        //   this.layoutPrompt = this.getDefaultPrompt(media) + '\n\n' + (this.currentLayoutResult ? this.currentLayoutResult.content : '');
+        // }
       },
 
       // 获取默认提示词(仅在后端访问失败时使用)
       getDefaultPrompt(media) {
-        if(media === 'wechat') {
+        if(media === 'wechat_layout') {
           return `请你对以下 HTML 内容进行排版优化，目标是用于微信公众号"草稿箱接口"的 content 字段，要求如下：
 
 1. 仅返回 <body> 内部可用的 HTML 内容片段（不要包含 <!DOCTYPE>、<html>、<head>、<meta>、<title> 等标签）。
@@ -1980,11 +1997,10 @@
             userPrompt: this.layoutPrompt,
             // roles: "znpb-ds,yb-deepseek-pt,yb-deepseek-sdsk,yb-deepseek-lwss,",
             roles: "",
-            selectedMedia: "wechat",
+            selectedMedia: "wechat_layout",
           },
         };
 
-        //TODO: 修改roles参数，适配后端
         let ai = this.aiList.filter(ai => ai.name === this.layoutAI)[0];
 
         {
@@ -2126,18 +2142,18 @@
 
 
       // 实际投递到公众号
-      pushToWechatWithContent(contentText) {
+      pushToWechatWithContent(result) {
         if(this.pushingToWechat) return;
         this.$message.success("开始投递公众号！");
         this.pushingToWechat = true;
         this.pushOfficeNum += 1;
 
         const params = {
-          contentText: contentText,
-          shareUrl: this.currentLayoutResult.shareUrl,
+          contentText: result.content,
+          shareUrl: result.shareUrl,
           userId: this.userId,
           num: this.pushOfficeNum,
-          aiName: this.currentLayoutResult.aiName,
+          aiName: result.aiName,
         };
 
         pushAutoOffice(params)

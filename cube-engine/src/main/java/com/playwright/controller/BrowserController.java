@@ -274,7 +274,7 @@ public class BrowserController {
             String loginStatus = deepSeekUtil.checkLoginStatus(page, false);
 
             // 如果检测到已登录，直接返回
-            if (!"false".equals(loginStatus) || !"未登录".equals(loginStatus)) {
+            if (!"false".equals(loginStatus) && !"未登录".equals(loginStatus)) {
                 logMsgUtil.sendTaskLog("DeepSeek已登录，用户: " + loginStatus, userId, "DeepSeek");
                 loginMap.put(key, loginStatus);
                 return loginStatus;
