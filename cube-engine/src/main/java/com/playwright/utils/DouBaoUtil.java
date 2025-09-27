@@ -4,6 +4,7 @@ import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.TimeoutError;
 import com.microsoft.playwright.options.WaitForSelectorState;
+import com.playwright.entity.AiResult;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.entity.mcp.McpResult;
 import com.playwright.websocket.WebSocketClientService;
@@ -157,7 +158,7 @@ public class DouBaoUtil {
      *
      * @param page Playwright页面实例
      */
-    public String waitDBHtmlDom(Page page, String userId, String aiName, UserInfoRequest userInfoRequest) throws InterruptedException {
+    public AiResult waitDBHtmlDom(Page page, String userId, String aiName, UserInfoRequest userInfoRequest) throws InterruptedException {
         try {
             // 等待聊天框的内容稳定
             String currentContent = "";
@@ -245,7 +246,7 @@ public class DouBaoUtil {
 
             // 记录成功日志
             UserLogUtil.sendAISuccessLog(userId, aiName, "HTML内容提取", "成功提取并处理HTML内容", System.currentTimeMillis(), url + "/saveLogInfo");
-            return currentContent;
+            return AiResult.success(currentContent, textContent);
 
         } catch (TimeoutError e) {
             // 记录超时异常

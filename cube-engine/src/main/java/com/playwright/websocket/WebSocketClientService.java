@@ -6,25 +6,26 @@ package com.playwright.websocket;
  * @date 2025年01月16日 17:14
  */
 
+import cn.hutool.json.JSONUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.playwright.controller.*;
 import com.playwright.entity.UserInfoRequest;
+import com.playwright.entity.mcp.ImgInfo;
+import com.playwright.entity.mcp.Item;
 import com.playwright.entity.mcp.McpResult;
 import com.playwright.mcp.CubeMcp;
-import com.playwright.utils.BrowserConcurrencyManager;
-import com.playwright.utils.BrowserTaskWrapper;
-import com.playwright.utils.SpringContextUtils;
-import lombok.RequiredArgsConstructor;
+import com.playwright.utils.*;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -33,7 +34,6 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class WebSocketClientService {
-
     // WebSocket服务器地址
     private final String serverUri;
 
@@ -102,10 +102,14 @@ public class WebSocketClientService {
                     // 打印当前并发状态
                     taskWrapper.printStatus();
                     String aiName = userInfoRequest.getAiName();
+                    if (message.contains("AI排版")) {
+                        aiLayoutPrompt(userInfoRequest);
+                    }
+
                     // 处理包含"使用F8S"的消息
-                    if(message.contains("使用F8S") || message.contains("AI评分") || message.contains("AI排版")){
+                    if (message.contains("使用F8S") || message.contains("AI评分") || message.contains("AI排版")) {
                         //豆包生成图片
-                        if(message.contains("db-img")) {
+                        if (message.contains("db-img")) {
                             concurrencyManager.submitBrowserTaskWithDeduplication(() -> {
                                 startAI(userInfoRequest, aiName, "图片生成", browserController, aigcController);
                             }, "豆包智能体", userInfoRequest.getUserId(), 5, userInfoRequest.getUserPrompt());
@@ -123,45 +127,45 @@ public class WebSocketClientService {
                             }, "智谱AI", userInfoRequest.getUserId(), 5, userInfoRequest.getUserPrompt());
                         }
                         // 处理包含"metaso"的消息
-                        if(message.contains("mita")){
+                        if (message.contains("mita")) {
                             concurrencyManager.submitBrowserTask(() -> {
                                 startAI(userInfoRequest, aiName, "秘塔", browserController, aigcController);
                             }, "Metaso智能体", userInfoRequest.getUserId());
                         }
                         // 处理包含"yb-hunyuan"息,yb-deepseek"的消息
-                        if(message.contains("yb-hunyuan-pt") || message.contains("yb-deepseek-pt")){
+                        if (message.contains("yb-hunyuan-pt") || message.contains("yb-deepseek-pt")) {
                             concurrencyManager.submitBrowserTask(() -> {
                                 startAI(userInfoRequest, aiName, "元宝", browserController, aigcController);
                             }, "元宝智能体", userInfoRequest.getUserId());
                         }
                         // 处理包含"zj-db"的消息
-                        if(message.contains("zj-db")){
+                        if (message.contains("zj-db")) {
                             concurrencyManager.submitBrowserTaskWithDeduplication(() -> {
                                 startAI(userInfoRequest, aiName, "豆包", browserController, aigcController);
                             }, "豆包智能体", userInfoRequest.getUserId(), 5, userInfoRequest.getUserPrompt());
                         }
 
                         // 处理包含"baidu-agent"的消息
-                        if(userInfoRequest.getRoles() != null && userInfoRequest.getRoles().contains("baidu-agent")){
+                        if (userInfoRequest.getRoles() != null && userInfoRequest.getRoles().contains("baidu-agent")) {
                             concurrencyManager.submitBrowserTask(() -> {
                                 startAI(userInfoRequest, aiName, "百度", browserController, aigcController);
                             }, "百度AI", userInfoRequest.getUserId());
                         }
                         // 处理包含"deepseek"的消息
-                        if(message.contains("deepseek,")){
+                        if (message.contains("deepseek,")) {
                             concurrencyManager.submitBrowserTaskWithDeduplication(() -> {
                                 startAI(userInfoRequest, aiName, "DeepSeek", browserController, aigcController);
                             }, "DeepSeek智能体", userInfoRequest.getUserId(), 5, userInfoRequest.getUserPrompt());
                         }
                         // 处理包含"ty-qw"的信息
-                        if (message.contains("ty-qw")){
+                        if (message.contains("ty-qw")) {
                             concurrencyManager.submitBrowserTaskWithDeduplication(() -> {
                                 startAI(userInfoRequest, aiName, "通义千问", browserController, aigcController);
                             }, "通义千问", userInfoRequest.getUserId(), 5, userInfoRequest.getUserPrompt());
                         }
                     }
                     // 处理获取知乎二维码的消息
-                    if(message.contains("PLAY_GET_ZHIHU_QRCODE")){
+                    if (message.contains("PLAY_GET_ZHIHU_QRCODE")) {
                         concurrencyManager.submitBrowserTask(() -> {
                             try {
                                 browserController.getZhihuQrCode(userInfoRequest.getUserId());
@@ -205,7 +209,7 @@ public class WebSocketClientService {
                     }
 
                     // 处理获取秘塔二维码的消息
-                    if(message.contains("PLAY_GET_METASO_QRCODE")){
+                    if (message.contains("PLAY_GET_METASO_QRCODE")) {
                         concurrencyManager.submitBrowserTask(() -> {
                             try {
                                 browserController.getMetasoQrCode(userInfoRequest.getUserId());
@@ -237,7 +241,7 @@ public class WebSocketClientService {
                     }
 
                     // 处理获取DeepSeek二维码的消息
-                    if(message.contains("PLAY_GET_DEEPSEEK_QRCODE")){
+                    if (message.contains("PLAY_GET_DEEPSEEK_QRCODE")) {
                         concurrencyManager.submitBrowserTask(() -> {
                             try {
                                 browserController.getDSQrCode(userInfoRequest.getUserId());
@@ -248,7 +252,7 @@ public class WebSocketClientService {
                     }
 
                     // 处理包含"START_YB"的消息
-                    if(message.contains("START_YB")){
+                    if (message.contains("START_YB")) {
                         concurrencyManager.submitBrowserTask(() -> {
                             try {
                                 aigcController.startYB(userInfoRequest);
@@ -304,7 +308,7 @@ public class WebSocketClientService {
 
 
                     // 处理获取百度AI二维码的消息
-                    if(message.contains("PLAY_GET_BAIDU_QRCODE")){
+                    if (message.contains("PLAY_GET_BAIDU_QRCODE")) {
                         concurrencyManager.submitBrowserTask(() -> {
                             try {
                                 browserController.getBaiduQrCode(userInfoRequest.getUserId());
@@ -315,7 +319,7 @@ public class WebSocketClientService {
                     }
 
                     // 处理获取通义千问二维码的消息
-                    if(message.contains("PLAY_GET_QW_QRCODE")){
+                    if (message.contains("PLAY_GET_QW_QRCODE")) {
                         concurrencyManager.submitBrowserTask(() -> {
                             try {
                                 browserController.getTongYiQrCode(userInfoRequest.getUserId());
@@ -326,7 +330,7 @@ public class WebSocketClientService {
                     }
 
                     // 处理获取yb二维码的消息
-                    if(message.contains("PLAY_GET_YB_QRCODE")){
+                    if (message.contains("PLAY_GET_YB_QRCODE")) {
                         concurrencyManager.submitBrowserTask(() -> {
                             try {
                                 browserController.getYBQrCode(userInfoRequest.getUserId());
@@ -375,7 +379,7 @@ public class WebSocketClientService {
 
 
                     // 处理获取数据库二维码的消息
-                    if(message.contains("PLAY_GET_DB_QRCODE")){
+                    if (message.contains("PLAY_GET_DB_QRCODE")) {
                         concurrencyManager.submitBrowserTask(() -> {
                             try {
                                 browserController.getDBQrCode(userInfoRequest.getUserId());
@@ -491,19 +495,19 @@ public class WebSocketClientService {
      */
     public void sendMessage(UserInfoRequest userInfoRequest, McpResult mcpResult, String aiName) {
         Map<String, String> content = new HashMap<>();
-        content.put("type",  userInfoRequest.getType());
+        content.put("type", userInfoRequest.getType());
         content.put("userId", userInfoRequest.getUserId());
         content.put("aiName", aiName);
         content.put("taskId", userInfoRequest.getTaskId());
-        if("openAI".equals(userInfoRequest.getType()))  {
+        if ("openAI".equals(userInfoRequest.getType())) {
             String result = "";
-            if(mcpResult == null || mcpResult.getResult() == null || mcpResult.getResult().isEmpty()) {
+            if (mcpResult == null || mcpResult.getResult() == null || mcpResult.getResult().isEmpty()) {
                 result = aiName + "执行错误,请稍后重试";
             } else {
                 result = mcpResult.getResult();
             }
             content.put("message", result);
-        } else{
+        } else {
 //            TODO 其他情况
         }
         if (webSocketClient != null && webSocketClient.isOpen()) {
@@ -569,7 +573,7 @@ public class WebSocketClientService {
                 case "通义千问" -> {
                     mcpResult = aigcController.startTYQianwen(userInfoRequest);
                 }
-                case "排版" ->  {
+                case "排版" -> {
                     mcpResult = aigcController.startYBOffice(userInfoRequest);
                 }
                 case "图片生成" -> {
@@ -584,7 +588,52 @@ public class WebSocketClientService {
             }
             sendMessage(userInfoRequest, mcpResult, aiName);
         } catch (Exception e) {
-            sendMessage(userInfoRequest,McpResult.fail("生成失败,请稍后再试",null), aiName);
+            sendMessage(userInfoRequest, McpResult.fail("生成失败,请稍后再试", null), aiName);
+        }
+    }
+
+    public void aiLayoutPrompt(UserInfoRequest userInfoRequest) {
+        try {
+            LayoutPromptUtil layoutPromptUtil = SpringContextUtils.getBean(LayoutPromptUtil.class);
+            UserInfoUtil userInfoUtil = SpringContextUtils.getBean(UserInfoUtil.class);
+            CubeMcp cubeMcp = SpringContextUtils.getBean(CubeMcp.class);
+            String selectedMedia = userInfoRequest.getSelectedMedia();
+//            获取排版提示词
+            String znpbPrompt = layoutPromptUtil.getLayoutPrompt(selectedMedia);
+            String content = userInfoRequest.getUserPrompt();
+            String unionId = userInfoUtil.getUnionIdByUserId(userInfoRequest.getUserId());
+            userInfoRequest.setUnionId(unionId);
+            if (selectedMedia.contains("wechat")) {
+                // 获取图片信息
+                McpResult mcp = cubeMcp.getMaterial(userInfoRequest);
+                String listJson = mcp.getResult();
+                String thumbMediaId = null;
+                List<Item> images = JSONUtil.toList(listJson, Item.class);
+                List<ImgInfo> imgInfoList = new ArrayList<>();
+
+                for (Item image : images) {
+                    String name = image.getName();
+                    if (name.contains(unionId)) {
+                        if (thumbMediaId == null && name.contains("封面")) {
+                            thumbMediaId = image.getMedia_id();
+                            continue;
+                        }
+                        ImgInfo imgInfo = new ImgInfo();
+                        imgInfo.setImgDescription(name.substring(name.indexOf("-")));
+                        imgInfo.setImgUrl(image.getUrl());
+                        imgInfoList.add(imgInfo);
+                    }
+                }
+                if (imgInfoList.isEmpty()) {
+                    userInfoRequest.setUserPrompt("文本内容: `" + content + "`" + ", " + znpbPrompt);
+                } else {
+                    userInfoRequest.setUserPrompt("文本内容: `" + content + "`" + ", 图片信息: {" + imgInfoList.toString() + "} " + znpbPrompt);
+                }
+            }
+            //TODO 添加其他媒体排版
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 }
