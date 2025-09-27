@@ -58,7 +58,17 @@
 
     <div class="main-content">
       <el-collapse v-model="activeCollapses">
-        <el-collapse-item title="AI选择配置" name="ai-selection">
+        <el-collapse-item name="ai-selection">
+          <template slot="title">
+            <div class="ai-config-header">
+              <span>AI选择配置</span>
+              <div class="global-controls">
+                <el-button size="mini" type="primary" @click.stop="toggleAllAIs" class="global-control-btn">
+                  {{ allAIsEnabled ? '全部关闭' : '全部启动' }}
+                </el-button>
+              </div>
+            </div>
+          </template>
           <div class="ai-selection-section">
             <div class="ai-cards">
               <el-card v-for="(ai, index) in aiList" :key="index" class="ai-card" shadow="hover">
@@ -122,6 +132,25 @@
                         </el-dropdown-menu>
                       </template>
                     </el-dropdown>
+                  </div>
+                  <!-- 腾讯元宝 -->
+                  <div v-else-if="ai.name === '腾讯元宝'" class="button-capability-group">
+                    <!-- 模型选择 -->
+                    <div class="model-selection">
+                      <span class="selection-label">模型:</span>
+                      <el-select v-model="ai.selectedModel" placeholder="选择模型" size="mini" :disabled="!ai.enabled">
+                        <el-option v-for="model in ai.models" :key="model.value" 
+                                   :label="model.label" :value="model.value">
+                        </el-option>
+                      </el-select>
+                    </div>
+                    <!-- 功能选择 -->
+                    <el-button v-for="capability in ai.capabilities" :key="capability.value" size="mini"
+                      :type="getCapabilityType(ai, capability.value)" :disabled="!ai.enabled"
+                      :plain="getCapabilityPlain(ai, capability.value)" @click="toggleCapability(ai, capability.value)"
+                      class="capability-button">
+                      {{ capability.label }}
+                    </el-button>
                   </div>
                   <!-- 其他AI -->
                   <div v-else class="button-capability-group">
@@ -462,27 +491,18 @@
             isExpanded: true,
           },
           {
-            name: '腾讯元宝T1',
+            name: '腾讯元宝',
             avatar: require('../../../assets/ai/yuanbao.png'),
             capabilities: [
               { label: '深度思考', value: 'deep_thinking' },
               { label: '联网搜索', value: 'web_search' }
             ],
             selectedCapabilities: ['deep_thinking', 'web_search'],
-            enabled: true,
-            status: 'idle',
-            progressLogs: [],
-            isExpanded: true,
-            isSingleSelect: false
-          },
-          {
-            name: '腾讯元宝DS',
-            avatar: require('../../../assets/ai/yuanbao.png'),
-            capabilities: [
-              { label: '深度思考', value: 'deep_thinking' },
-              { label: '联网搜索', value: 'web_search' }
+            selectedModel: 'hunyuan', // 默认选择混元
+            models: [
+              { label: '混元', value: 'hunyuan' },
+              { label: 'DeepSeek', value: 'deepseek' }
             ],
-            selectedCapabilities: ['deep_thinking', 'web_search'],
             enabled: true,
             status: 'idle',
             progressLogs: [],
@@ -649,6 +669,10 @@
 
         return groups;
       },
+      // 检查是否所有AI都已启用
+      allAIsEnabled() {
+        return this.aiList.every(ai => ai.enabled);
+      },
     },
     async created() {
       console.log(this.userId);
@@ -697,6 +721,20 @@
       }
     },
     methods: {
+      // 全局AI控制方法
+      toggleAllAIs() {
+        const newState = !this.allAIsEnabled;
+        this.aiList.forEach(ai => {
+          ai.enabled = newState;
+        });
+        
+        // 显示操作反馈
+        if (newState) {
+          this.$message.success('已启动全部AI智能体');
+        } else {
+          this.$message.success('已关闭全部AI智能体');
+        }
+      },
       // 处理企业ID更新事件
       handleCorpIdUpdated(event) {
         const newCorpId = event.detail.corpId;
@@ -727,8 +765,8 @@
         await this.ensureLatestCorpId();
 
         this.screenshots = [];
-        // 折叠所有区域
-        this.activeCollapses = [];
+        // 只折叠提示词输入区域，保持AI选择配置区域展开
+        this.activeCollapses = ["ai-selection"];
 
         this.taskStarted = true;
         this.results = []; // 清空之前的结果
@@ -771,23 +809,24 @@
             }
           }
 
-          if(ai.name === '腾讯元宝T1') {
-            this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-pt,';
-            if(ai.selectedCapabilities.includes("deep_thinking")) {
-              this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-sdsk,';
-            }
-            if(ai.selectedCapabilities.includes("web_search")) {
-              this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-lwss,';
-            }
-          }
-
-          if(ai.name === '腾讯元宝DS') {
-            this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-pt,';
-            if(ai.selectedCapabilities.includes("deep_thinking")) {
-              this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-sdsk,';
-            }
-            if(ai.selectedCapabilities.includes("web_search")) {
-              this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-lwss,';
+          if(ai.name === '腾讯元宝') {
+            // 根据选择的模型设置角色
+            if(ai.selectedModel === 'hunyuan') {
+              this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-pt,';
+              if(ai.selectedCapabilities.includes("deep_thinking")) {
+                this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-sdsk,';
+              }
+              if(ai.selectedCapabilities.includes("web_search")) {
+                this.userInfoReq.roles = this.userInfoReq.roles + 'yb-hunyuan-lwss,';
+              }
+            } else if(ai.selectedModel === 'deepseek') {
+              this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-pt,';
+              if(ai.selectedCapabilities.includes("deep_thinking")) {
+                this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-sdsk,';
+              }
+              if(ai.selectedCapabilities.includes("web_search")) {
+                this.userInfoReq.roles = this.userInfoReq.roles + 'yb-deepseek-lwss,';
+              }
             }
           }
           if(ai.name === '百度AI') {
@@ -1195,13 +1234,11 @@
         // 根据消息类型更新对应AI的状态和结果
         let targetAI = null;
         switch(dataObj.type) {
+          case "RETURN_YB_RES":
           case "RETURN_YBT1_RES":
-            console.log("收到腾讯元宝T1消息:", dataObj);
-            targetAI = this.enabledAIs.find((ai) => ai.name === "腾讯元宝T1");
-            break;
           case "RETURN_YBDS_RES":
-            console.log("收到腾讯元宝DS消息:", dataObj);
-            targetAI = this.enabledAIs.find((ai) => ai.name === "腾讯元宝DS");
+            console.log("收到腾讯元宝消息:", dataObj);
+            targetAI = this.enabledAIs.find((ai) => ai.name === "腾讯元宝");
             break;
           case "RETURN_DB_RES":
             console.log("收到豆包消息:", dataObj);
@@ -1366,23 +1403,24 @@
             }
           }
 
-          if(ai.name === '腾讯元宝T1') {
-            scoreRequest.params.roles = scoreRequest.params.roles + 'yb-hunyuan-pt,';
-            if(ai.selectedCapabilities.includes("deep_thinking")) {
-              scoreRequest.params.roles = scoreRequest.params.roles + 'yb-hunyuan-sdsk,';
-            }
-            if(ai.selectedCapabilities.includes("web_search")) {
-              scoreRequest.params.roles = scoreRequest.params.roles + 'yb-hunyuan-lwss,';
-            }
-          }
-
-          if(ai.name === '腾讯元宝DS') {
-            scoreRequest.params.roles = scoreRequest.params.roles + 'yb-deepseek-pt,';
-            if(ai.selectedCapabilities.includes("deep_thinking")) {
-              scoreRequest.params.roles = scoreRequest.params.roles + 'yb-deepseek-sdsk,';
-            }
-            if(ai.selectedCapabilities.includes("web_search")) {
-              scoreRequest.params.roles = scoreRequest.params.roles + 'yb-deepseek-lwss,';
+          if(ai.name === '腾讯元宝') {
+            // 根据选择的模型设置角色
+            if(ai.selectedModel === 'hunyuan') {
+              scoreRequest.params.roles = scoreRequest.params.roles + 'yb-hunyuan-pt,';
+              if(ai.selectedCapabilities.includes("deep_thinking")) {
+                scoreRequest.params.roles = scoreRequest.params.roles + 'yb-hunyuan-sdsk,';
+              }
+              if(ai.selectedCapabilities.includes("web_search")) {
+                scoreRequest.params.roles = scoreRequest.params.roles + 'yb-hunyuan-lwss,';
+              }
+            } else if(ai.selectedModel === 'deepseek') {
+              scoreRequest.params.roles = scoreRequest.params.roles + 'yb-deepseek-pt,';
+              if(ai.selectedCapabilities.includes("deep_thinking")) {
+                scoreRequest.params.roles = scoreRequest.params.roles + 'yb-deepseek-sdsk,';
+              }
+              if(ai.selectedCapabilities.includes("web_search")) {
+                scoreRequest.params.roles = scoreRequest.params.roles + 'yb-deepseek-lwss,';
+              }
             }
           }
           if(ai.name === '百度AI') {
@@ -1745,18 +1783,23 @@
 
           // 元宝AI配置
           {
-            name: '腾讯元宝T1',
+            name: '腾讯元宝',
             avatar: require('../../../assets/ai/yuanbao.png'),
             capabilities: [
               { label: '深度思考', value: 'deep_thinking' },
-              { label: '联网搜索', value: 'web_search' },
+              { label: '联网搜索', value: 'web_search' }
             ],
             selectedCapabilities: ['deep_thinking', 'web_search'],
+            selectedModel: 'hunyuan', // 默认选择混元
+            models: [
+              { label: '混元', value: 'hunyuan' },
+              { label: 'DeepSeek', value: 'deepseek' }
+            ],
             enabled: true,
             status: "idle",
             progressLogs: [],
             isExpanded: true,
-            isSingleSelect: false  // 多选模式
+            isSingleSelect: false
           },
           {
             name: '百度AI',
@@ -1815,20 +1858,7 @@
             isSingleSelect: true,  // 添加单选标记,用于capabilities中状态只能多选一的时候改成true,然后把selectedCapabilities赋值为字符串，不要是数组
           },
 
-          {
-            name: '腾讯元宝DS',
-            avatar: require('../../../assets/ai/yuanbao.png'),
-            capabilities: [
-              { label: '深度思考', value: 'deep_thinking' },
-              { label: '联网搜索', value: 'web_search' }
-            ],
-            selectedCapabilities: ['deep_thinking', 'web_search'],
-            enabled: true,
-            status: 'idle',
-            progressLogs: [],
-            isExpanded: true,
-            isSingleSelect: false
-          },
+
           {
             name: "知乎直答",
             avatar: require("../../../assets/ai/ZHZD.png"),
@@ -2019,23 +2049,24 @@
             }
           }
 
-          if(ai.name === '腾讯元宝T1') {
-            layoutRequest.params.roles = layoutRequest.params.roles + 'yb-hunyuan-pt,';
-            if(ai.selectedCapabilities.includes("deep_thinking")) {
-              layoutRequest.params.roles = layoutRequest.params.roles + 'yb-hunyuan-sdsk,';
-            }
-            if(ai.selectedCapabilities.includes("web_search")) {
-              layoutRequest.params.roles = layoutRequest.params.roles + 'yb-hunyuan-lwss,';
-            }
-          }
-
-          if(ai.name === '腾讯元宝DS') {
-            layoutRequest.params.roles = layoutRequest.params.roles + 'yb-deepseek-pt,';
-            if(ai.selectedCapabilities.includes("deep_thinking")) {
-              layoutRequest.params.roles = layoutRequest.params.roles + 'yb-deepseek-sdsk,';
-            }
-            if(ai.selectedCapabilities.includes("web_search")) {
-              layoutRequest.params.roles = layoutRequest.params.roles + 'yb-deepseek-lwss,';
+          if(ai.name === '腾讯元宝') {
+            // 根据选择的模型设置角色
+            if(ai.selectedModel === 'hunyuan') {
+              layoutRequest.params.roles = layoutRequest.params.roles + 'yb-hunyuan-pt,';
+              if(ai.selectedCapabilities.includes("deep_thinking")) {
+                layoutRequest.params.roles = layoutRequest.params.roles + 'yb-hunyuan-sdsk,';
+              }
+              if(ai.selectedCapabilities.includes("web_search")) {
+                layoutRequest.params.roles = layoutRequest.params.roles + 'yb-hunyuan-lwss,';
+              }
+            } else if(ai.selectedModel === 'deepseek') {
+              layoutRequest.params.roles = layoutRequest.params.roles + 'yb-deepseek-pt,';
+              if(ai.selectedCapabilities.includes("deep_thinking")) {
+                layoutRequest.params.roles = layoutRequest.params.roles + 'yb-deepseek-sdsk,';
+              }
+              if(ai.selectedCapabilities.includes("web_search")) {
+                layoutRequest.params.roles = layoutRequest.params.roles + 'yb-deepseek-lwss,';
+              }
             }
           }
           if(ai.name === '百度AI') {
@@ -2229,6 +2260,37 @@
     font-size: 18px;
     color: #606266;
     margin-bottom: 15px;
+  }
+
+  .ai-config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .global-controls {
+    margin-right: 20px;
+  }
+
+  .global-control-btn {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 3px;
+  }
+
+  /* 腾讯元宝模型选择样式 */
+  .model-selection {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 8px;
+  }
+
+  .selection-label {
+    font-size: 12px;
+    color: #606266;
+    font-weight: 500;
   }
 
   .ai-cards {
