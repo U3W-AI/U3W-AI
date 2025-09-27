@@ -17,6 +17,8 @@ public class UserInfoRequest {
 
     @ToolParam(description = "用户唯一标识unionId")
     private String unionId;
+    @ToolParam(description = "媒体类型")
+    private String selectedMedia;
 
     @ToolParam(description = "任务 ID，用于标识此次任务或请求的唯一编号", required = false)
     private String taskId;

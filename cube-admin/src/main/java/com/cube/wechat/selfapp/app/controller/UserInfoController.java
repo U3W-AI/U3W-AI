@@ -1,21 +1,29 @@
 package com.cube.wechat.selfapp.app.controller;
 
+import cn.hutool.json.JSONUtil;
+import com.alibaba.fastjson.JSONObject;
 import com.cube.common.annotation.RateLimiter;
 import com.cube.common.core.controller.BaseController;
 import com.cube.common.core.page.TableDataInfo;
 import com.cube.common.utils.StringUtils;
+import com.cube.mcp.entities.ImgInfo;
+import com.cube.mcp.entities.Item;
 import com.cube.wechat.selfapp.app.config.MyWebSocketHandler;
 import com.cube.wechat.selfapp.app.domain.AINodeLog;
 import com.cube.wechat.selfapp.app.domain.AIParam;
 import com.cube.wechat.selfapp.app.domain.PromptTemplate;
 import com.cube.wechat.selfapp.app.domain.WcOfficeAccount;
 import com.cube.wechat.selfapp.app.domain.query.ScorePromptQuery;
+import com.cube.wechat.selfapp.app.service.AIGCService;
 import com.cube.wechat.selfapp.app.service.UserInfoService;
+import com.cube.wechat.selfapp.app.service.WechatMpService;
 import com.cube.wechat.selfapp.corpchat.util.ResultBody;
 import io.swagger.annotations.ApiParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -36,6 +44,10 @@ public class UserInfoController extends BaseController {
 
     @Autowired
     private MyWebSocketHandler myWebSocketHandler;
+    @Autowired
+    private WechatMpService wechatMpService;
+    @Autowired
+    private AIGCService aigcService;
 
     @GetMapping("/getOfficeAccount")
     public ResultBody getOfficeAccount(){
@@ -122,7 +134,27 @@ public class UserInfoController extends BaseController {
 
     @PostMapping("/pushAutoOffice")
     public ResultBody pushAutoOffice(@RequestBody Map map){
-        return userInfoService.pushAutoOneOffice(map);
+//        return userInfoService.pushAutoOneOffice(map);
+        try {
+            String userId = map.get("userId") + "";
+            String contentText = map.get("contentText") + "";
+            String unionId = aigcService.getUnionIdByUserId(userId);
+            WcOfficeAccount woa = (WcOfficeAccount) userInfoService.getOfficeAccountByUserId(userId).getData();
+//            获取素材信息
+            int first = contentText.indexOf("《");
+            int second = contentText.indexOf("》", first + 1);
+            String title = contentText.substring(first + 1, second);
+            contentText = contentText.substring(second + 1, contentText.lastIndexOf(">") + 1);
+            contentText = contentText.replaceAll("\r\n\r\n", "");
+            map.put("userId",userId);
+            map.put("title",title);
+            map.put("contentText", contentText);
+            map.put("unionId", unionId);
+            map.put("thumbMediaId", woa.getMediaId());
+            return wechatMpService.publishToOffice(map);
+        } catch (Exception e) {
+            throw new RuntimeException("内容解析失败");
+        }
     }
 
     @GetMapping("/getViewAutoOffice")
