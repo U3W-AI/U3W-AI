@@ -22,6 +22,7 @@ public class BaijiahaoUtil {
      */
     public String checkLoginStatus(Page page) throws InterruptedException {
         try {
+            closeNewWindows(page);
             // 等待页面加载
             Thread.sleep(1000);
             // 检查百家号用户头像和用户名区域
@@ -84,7 +85,7 @@ public class BaijiahaoUtil {
 
     public void closeNewWindows(Page page) {
         try {
-            Thread.sleep(1500);
+            Thread.sleep(2000);
             Locator locator = page.locator("//div[@class='H7UjFl3ggoAjO5vDX6VK']//img");
             if(locator.isVisible()) {
                 locator.click();

@@ -261,6 +261,17 @@ public class WebSocketClientService {
                         }, "知乎登录检查", userInfoRequest.getUserId());
                     }
 
+                    // 处理获取知乎二维码的消息
+                    if(message.contains("PLAY_GET_ZHIHU_QRCODE")){
+                        concurrencyManager.submitBrowserTask(() -> {
+                            try {
+                                mediaController.getZhihuQrCode(userInfoRequest.getUserId());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }, "获取知乎二维码", userInfoRequest.getUserId());
+                    }
+
                     // 处理检查百家号登录状态的消息
                     if (message.contains("PLAY_CHECK_BAIJIAHAO_LOGIN")) {
                         // 🚀 百家号状态检测使用高优先级，优先处理
@@ -278,17 +289,6 @@ public class WebSocketClientService {
                                 sendMessage(JSON.toJSONString(userInfoRequest));
                             }
                         }, "百家号登录检查", userInfoRequest.getUserId());
-                    }
-
-                    // 处理获取知乎二维码的消息
-                    if(message.contains("PLAY_GET_ZHIHU_QRCODE")){
-                        concurrencyManager.submitBrowserTask(() -> {
-                            try {
-                                mediaController.getZhihuQrCode(userInfoRequest.getUserId());
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                        }, "获取知乎二维码", userInfoRequest.getUserId());
                     }
 
                     // 处理获取百家号二维码的消息
