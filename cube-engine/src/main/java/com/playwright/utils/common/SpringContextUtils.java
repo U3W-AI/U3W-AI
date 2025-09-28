@@ -1,4 +1,4 @@
-package com.playwright.utils;
+package com.playwright.utils.common;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;

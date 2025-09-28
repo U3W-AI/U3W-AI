@@ -1,8 +1,9 @@
-package com.playwright.utils;
+package com.playwright.utils.ai;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.playwright.entity.UserInfoRequest;
+import com.playwright.utils.common.LogMsgUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 

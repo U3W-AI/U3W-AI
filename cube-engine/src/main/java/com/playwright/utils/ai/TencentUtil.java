@@ -1,7 +1,6 @@
-package com.playwright.utils;
+package com.playwright.utils.ai;
 
 import com.microsoft.playwright.BrowserContext;
-import com.microsoft.playwright.ElementHandle;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.TimeoutError;
@@ -9,14 +8,11 @@ import com.microsoft.playwright.options.LoadState;
 import com.playwright.entity.UnPersisBrowserContextInfo;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.entity.mcp.McpResult;
+import com.playwright.utils.common.*;
 import com.playwright.websocket.WebSocketClientService;
-import io.swagger.v3.oas.annotations.Parameter;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.RequestParam;
 
 import java.io.IOException;
 import java.util.List;

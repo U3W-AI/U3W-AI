@@ -1,4 +1,4 @@
-package com.playwright.utils;
+package com.playwright.utils.ai;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;

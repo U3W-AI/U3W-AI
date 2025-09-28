@@ -1,4 +1,4 @@
-package com.playwright.utils;
+package com.playwright.utils.common;
 
 /**
  * @author 优立方

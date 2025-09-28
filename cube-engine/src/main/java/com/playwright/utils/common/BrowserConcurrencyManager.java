@@ -1,4 +1,4 @@
-package com.playwright.utils;
+package com.playwright.utils.common;
 
 import org.springframework.stereotype.Component;
 import java.util.concurrent.*;

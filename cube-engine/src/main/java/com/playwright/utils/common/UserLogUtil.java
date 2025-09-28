@@ -1,4 +1,4 @@
-package com.playwright.utils;
+package com.playwright.utils.common;
 
 import com.playwright.entity.LogInfo;
 import org.springframework.util.StringUtils;

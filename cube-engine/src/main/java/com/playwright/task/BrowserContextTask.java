@@ -1,7 +1,7 @@
 package com.playwright.task;
 
 import com.playwright.entity.UnPersisBrowserContextInfo;
-import com.playwright.utils.BrowserContextFactory;
+import com.playwright.utils.common.BrowserContextFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 

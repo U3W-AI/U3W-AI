@@ -1,4 +1,4 @@
-package com.playwright.utils;
+package com.playwright.utils.ai;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
@@ -7,6 +7,9 @@ import com.microsoft.playwright.options.WaitForSelectorState;
 import com.playwright.entity.AiResult;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.entity.mcp.McpResult;
+import com.playwright.utils.common.ClipboardLockManager;
+import com.playwright.utils.common.LogMsgUtil;
+import com.playwright.utils.common.UserLogUtil;
 import com.playwright.websocket.WebSocketClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;

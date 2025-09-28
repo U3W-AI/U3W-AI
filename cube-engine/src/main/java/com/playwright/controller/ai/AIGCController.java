@@ -1,6 +1,5 @@
-package com.playwright.controller;
+package com.playwright.controller.ai;
 
-import cn.hutool.core.thread.ThreadException;
 import com.microsoft.playwright.*;
 import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.LoadState;
@@ -8,9 +7,9 @@ import com.playwright.entity.AiResult;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.entity.mcp.McpResult;
 import com.playwright.mcp.CubeMcp;
-import com.playwright.utils.*;
+import com.playwright.utils.ai.*;
+import com.playwright.utils.common.*;
 import com.playwright.websocket.WebSocketClientService;
-import com.vladsch.flexmark.util.sequence.builder.tree.SegmentTree;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
