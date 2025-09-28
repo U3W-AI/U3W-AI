@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 /**
  * 用户日志工具类，提供详细的日志记录功能
- * @author 孔德权
+ * @author muyou
  * description: 增强版日志记录工具，支持智能体错误信息记录
  * dateStart 2024/8/4 9:34
  * dateNow   2025/8/9 11:12

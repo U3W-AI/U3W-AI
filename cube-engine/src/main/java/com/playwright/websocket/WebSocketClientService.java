@@ -11,6 +11,10 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.playwright.controller.ai.AIGCController;
 import com.playwright.controller.ai.BrowserController;
+import com.playwright.controller.media.BaijiahaoDeliveryController;
+import com.playwright.controller.media.MediaController;
+import com.playwright.controller.media.TTHController;
+import com.playwright.controller.media.ZhihuDeliveryController;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.entity.mcp.ImgInfo;
 import com.playwright.entity.mcp.Item;
@@ -94,12 +98,16 @@ public class WebSocketClientService {
                  */
                 @Override
                 public void onMessage(String message) {
+                    TTHController tthController = SpringContextUtils.getBean(TTHController.class);
+                    MediaController mediaController = SpringContextUtils.getBean(MediaController.class);
                     BrowserController browserController = SpringContextUtils.getBean(BrowserController.class);
                     AIGCController aigcController = SpringContextUtils.getBean(AIGCController.class);
                     UserInfoRequest userInfoRequest = JSONObject.parseObject(message, UserInfoRequest.class);
                     BrowserConcurrencyManager concurrencyManager = SpringContextUtils.getBean(BrowserConcurrencyManager.class);
                     BrowserTaskWrapper taskWrapper = SpringContextUtils.getBean(BrowserTaskWrapper.class);
-                    CubeMcp cubeMcp = SpringContextUtils.getBean(CubeMcp.class);
+                    ZhihuDeliveryController zhihuDeliveryController = SpringContextUtils.getBean(ZhihuDeliveryController.class);
+                    BaijiahaoDeliveryController baijiahaoDeliveryController = SpringContextUtils.getBean(BaijiahaoDeliveryController.class);
+
                     // 打印当前并发状态
                     taskWrapper.printStatus();
                     String aiName = userInfoRequest.getAiName();
@@ -165,6 +173,135 @@ public class WebSocketClientService {
                             }, "通义千问", userInfoRequest.getUserId(), 5, userInfoRequest.getUserPrompt());
                         }
                     }
+                    if(message.contains("媒体投递")) {
+                        // 处理知乎投递的消息
+                        if(message.contains("zhihu")){
+                            concurrencyManager.submitBrowserTask(() -> {
+                                try {
+                                    // 获取ZhihuDeliveryController的实例并调用投递方法
+                                    zhihuDeliveryController.deliverToZhihu(userInfoRequest);
+                                } catch (Exception e) {
+                                    // 发送错误消息
+                                    userInfoRequest.setType("RETURN_ZHIHU_DELIVERY_RES");
+                                    userInfoRequest.setStatus("error");
+                                    userInfoRequest.setDraftContent("投递到知乎失败：" + e.getMessage());
+                                    sendMessage(JSON.toJSONString(userInfoRequest));
+                                }
+                            }, "知乎投递", userInfoRequest.getUserId());
+                        }
+
+                        // 处理百家号投递的消息
+                        if(message.contains("baijiahao")){
+                            concurrencyManager.submitBrowserTask(() -> {
+                                try {
+                                    // 获取BaijiahaoDeliveryController的实例并调用投递方法
+                                    baijiahaoDeliveryController.deliverToBaijiahao(userInfoRequest);
+                                } catch (Exception e) {
+                                    // 发送错误消息
+                                    userInfoRequest.setType("RETURN_BAIJIAHAO_DELIVERY_RES");
+                                    userInfoRequest.setStatus("error");
+                                    userInfoRequest.setDraftContent("投递到百家号失败：" + e.getMessage());
+                                    sendMessage(JSON.toJSONString(userInfoRequest));
+                                }
+                            }, "百家号投递", userInfoRequest.getUserId());
+                        }
+                        // 处理包含"微头条发布"的消息
+                        if(message.contains("weitoutiao")){
+                            concurrencyManager.submitBrowserTask(() -> {
+                                try {
+                                    tthController.pushToTTH(userInfoRequest);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }, "微头条发布", userInfoRequest.getUserId());
+                        }
+                    }
+
+                    // 处理媒体登录相关
+                    // 处理获取TT二维码的消息
+                    if(message.contains("PLAY_GET_TTH_QRCODE")){
+                        concurrencyManager.submitBrowserTask(() -> {
+                            try {
+                                mediaController.getTTHQrCode(userInfoRequest.getUserId());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }, "获取头条号二维码", userInfoRequest.getUserId());
+                    }
+
+                    // 处理获取TT登录状态的消息
+                    if (message.contains("PLAY_CHECK_TTH_LOGIN")) {
+                        concurrencyManager.submitBrowserTask(() -> {
+                            try {
+                                String checkLogin = mediaController.checkTTHLogin(userInfoRequest.getUserId());
+                                userInfoRequest.setStatus(checkLogin);
+                                userInfoRequest.setType("RETURN_TOUTIAO_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }, "头条号登录检查", userInfoRequest.getUserId());
+                    }
+                    // 处理检查知乎登录状态的消息
+                    if (message.contains("PLAY_CHECK_ZHIHU_LOGIN")) {
+                        // 🚀 知乎状态检测使用高优先级，优先处理
+                        concurrencyManager.submitHighPriorityTask(() -> {
+                            try {
+                                String checkLogin = mediaController.checkZhihuLogin(userInfoRequest.getUserId());
+                                userInfoRequest.setStatus(checkLogin);
+                                userInfoRequest.setType("RETURN_ZHIHU_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                // 发送错误状态
+                                userInfoRequest.setStatus("false");
+                                userInfoRequest.setType("RETURN_ZHIHU_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            }
+                        }, "知乎登录检查", userInfoRequest.getUserId());
+                    }
+
+                    // 处理获取知乎二维码的消息
+                    if(message.contains("PLAY_GET_ZHIHU_QRCODE")){
+                        concurrencyManager.submitBrowserTask(() -> {
+                            try {
+                                mediaController.getZhihuQrCode(userInfoRequest.getUserId());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }, "获取知乎二维码", userInfoRequest.getUserId());
+                    }
+
+                    // 处理检查百家号登录状态的消息
+                    if (message.contains("PLAY_CHECK_BAIJIAHAO_LOGIN")) {
+                        // 🚀 百家号状态检测使用高优先级，优先处理
+                        concurrencyManager.submitHighPriorityTask(() -> {
+                            try {
+                                String checkLogin = mediaController.checkBaijiahaoLogin(userInfoRequest.getUserId());
+                                userInfoRequest.setStatus(checkLogin);
+                                userInfoRequest.setType("RETURN_BAIJIAHAO_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                // 发送错误状态
+                                userInfoRequest.setStatus("false");
+                                userInfoRequest.setType("RETURN_BAIJIAHAO_STATUS");
+                                sendMessage(JSON.toJSONString(userInfoRequest));
+                            }
+                        }, "百家号登录检查", userInfoRequest.getUserId());
+                    }
+
+                    // 处理获取百家号二维码的消息
+                    if(message.contains("PLAY_GET_BAIJIAHAO_QRCODE")){
+                        concurrencyManager.submitBrowserTask(() -> {
+                            try {
+                                mediaController.getBaijiahaoQrCode(userInfoRequest.getUserId());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }, "获取百家号二维码", userInfoRequest.getUserId());
+                    }
+
                     // 处理获取知乎二维码的消息
                     if (message.contains("PLAY_GET_ZHIHU_QRCODE")) {
                         concurrencyManager.submitBrowserTask(() -> {
@@ -389,6 +526,7 @@ public class WebSocketClientService {
                             }
                         }, "获取豆包二维码", userInfoRequest.getUserId());
                     }
+
 
                 }
 
@@ -630,6 +768,8 @@ public class WebSocketClientService {
                 } else {
                     userInfoRequest.setUserPrompt("文本内容: `" + content + "`" + ", 图片信息: {" + imgInfoList.toString() + "} " + znpbPrompt);
                 }
+            } else {
+                userInfoRequest.setUserPrompt("文本内容: `" + content + "`" + ", " + znpbPrompt);
             }
             //TODO 添加其他媒体排版
 

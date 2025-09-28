@@ -119,7 +119,7 @@ public class AIGCController {
         String dschatId = userInfoRequest.getYbDsChatId();
         
         long startTime = System.currentTimeMillis();
-        logInfo.sendTaskLog("腾讯元宝任务开始，角色配置: " + roles, userId, "腾讯元宝");
+        logInfo.sendTaskLog("腾讯元宝任务开始", userId, "腾讯元宝");
         
         try {
             // 获取统一的页面实例
