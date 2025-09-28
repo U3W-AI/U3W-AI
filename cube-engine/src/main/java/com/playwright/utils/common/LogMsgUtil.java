@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
  * @date 2025年05月27日 10:21
  */
 @Component
-public class LogMsgUtil {
+public class  LogMsgUtil {
 
     @Autowired
     private ScreenshotUtil screenshotUtil;
@@ -174,4 +174,31 @@ public class LogMsgUtil {
         }
         return defaultValue;
     }
+    /**
+     * 发送投递到媒体任务日志消息
+     * @param taskNode 任务节点描述信息
+     * @param userId 用户ID
+     * @param mediaName 媒体名称
+     */
+    public void sendMediaTaskLog(String taskNode,String userId,String mediaName){
+
+        JSONObject logData = new JSONObject();
+        logData.put("content",taskNode);
+        logData.put("userId",userId);
+        logData.put("type","RETURN_MEDIA_TASK_LOG");
+        logData.put("aiName",mediaName);
+        webSocketClientService.sendMessage(logData.toJSONString());
+    }
+
+    /**
+     * 发送 投递到微头条的流程
+     */
+    public void sendTTHFlow(String taskNode, String userId){
+        JSONObject flowData = new JSONObject();
+        flowData.put("content", taskNode);
+        flowData.put("type", "RETURN_TTH_FLOW");
+        flowData.put("userId", userId);
+        webSocketClientService.sendMessage(flowData.toJSONString());
+    }
+
 }

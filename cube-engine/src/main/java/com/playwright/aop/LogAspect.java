@@ -34,7 +34,7 @@ public class LogAspect {
     @Autowired
     private LogMsgUtil logMsgUtil;
 
-    @Pointcut("execution(* com.playwright.controller.*.*(..))")
+    @Pointcut("execution(* com.playwright.controller..*(..))")
     public void logPointCut() {
     }
 
