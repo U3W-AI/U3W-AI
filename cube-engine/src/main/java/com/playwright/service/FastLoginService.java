@@ -1,8 +1,8 @@
 package com.playwright.service;
 
 import com.microsoft.playwright.*;
-import com.playwright.utils.FastLoginChecker;
-import com.playwright.utils.LogMsgUtil;
+import com.playwright.utils.common.FastLoginChecker;
+import com.playwright.utils.common.LogMsgUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

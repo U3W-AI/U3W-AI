@@ -1,4 +1,4 @@
-package com.playwright.utils;
+package com.playwright.utils.common;
 
 import com.playwright.constants.WxExceptionConstants;
 import org.apache.hc.client5.http.classic.methods.HttpGet;

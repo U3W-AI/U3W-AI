@@ -1,4 +1,4 @@
-package com.playwright.utils;
+package com.playwright.utils.common;
 
 import com.microsoft.playwright.Page;
 import org.springframework.stereotype.Component;

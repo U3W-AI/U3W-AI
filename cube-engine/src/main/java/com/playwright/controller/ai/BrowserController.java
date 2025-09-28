@@ -1,14 +1,14 @@
-package com.playwright.controller;
+package com.playwright.controller.ai;
 
 import com.alibaba.fastjson.JSONObject;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
-import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.LoadState;
 import com.microsoft.playwright.options.WaitForSelectorState;
 import com.playwright.entity.UnPersisBrowserContextInfo;
-import com.playwright.utils.*;
+import com.playwright.utils.ai.*;
+import com.playwright.utils.common.*;
 import com.playwright.websocket.WebSocketClientService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

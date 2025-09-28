@@ -1,18 +1,19 @@
-package com.playwright.utils;
+package com.playwright.utils.ai;
 
-import com.alibaba.fastjson.JSONObject;
 import com.microsoft.playwright.Keyboard;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.TimeoutError;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.entity.mcp.McpResult;
+import com.playwright.utils.common.ElementSelectorUtil;
+import com.playwright.utils.common.LogMsgUtil;
+import com.playwright.utils.common.UserLogUtil;
 import com.playwright.websocket.WebSocketClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;

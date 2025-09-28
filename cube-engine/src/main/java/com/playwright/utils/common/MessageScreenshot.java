@@ -1,4 +1,4 @@
-package com.playwright.utils;
+package com.playwright.utils.common;
 
 import com.alibaba.fastjson.JSONObject;
 import com.microsoft.playwright.*;
@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static com.playwright.utils.ScreenshotUtil.uploadFile;
+import static com.playwright.utils.common.ScreenshotUtil.uploadFile;
 
 public class MessageScreenshot {
 

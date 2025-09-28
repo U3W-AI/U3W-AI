@@ -1,7 +1,7 @@
-package com.playwright.utils;
+package com.playwright.utils.common;
 
 import com.microsoft.playwright.*;
-import com.playwright.controller.BrowserController;
+import com.playwright.controller.ai.BrowserController;
 import com.playwright.entity.UnPersisBrowserContextInfo;
 
 import java.util.*;

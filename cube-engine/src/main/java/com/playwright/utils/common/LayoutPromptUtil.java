@@ -1,4 +1,4 @@
-package com.playwright.utils;
+package com.playwright.utils.common;
 
 import com.alibaba.fastjson.JSONObject;
 import com.playwright.entity.CallWord;

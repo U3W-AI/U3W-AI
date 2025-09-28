@@ -1,4 +1,4 @@
-package com.playwright.utils;
+package com.playwright.utils.ai;
 
 import com.alibaba.fastjson.JSONObject;
 import com.microsoft.playwright.ElementHandle;
@@ -8,6 +8,7 @@ import com.microsoft.playwright.TimeoutError;
 import com.microsoft.playwright.options.LoadState;
 import com.microsoft.playwright.options.WaitUntilState;
 import com.playwright.entity.UserInfoRequest;
+import com.playwright.utils.common.*;
 import com.playwright.websocket.WebSocketClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,7 +18,7 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.playwright.utils.ScreenshotUtil.uploadFile;
+import static com.playwright.utils.common.ScreenshotUtil.uploadFile;
 
 /**
  * DeepSeek AI平台工具类
