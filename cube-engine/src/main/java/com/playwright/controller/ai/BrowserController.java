@@ -742,7 +742,7 @@ public class BrowserController {
     @GetMapping("/getZhihuQrCode")
     @Operation(summary = "获取知乎登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     public String getZhihuQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "Zhihu")) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "zhzd")) {
             Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.zhihu.com/signin");
             page.setDefaultTimeout(120000);
@@ -756,7 +756,7 @@ public class BrowserController {
                 JSONObject loginStatusObject = new JSONObject();
                 loginStatusObject.put("status", "已登录");
                 loginStatusObject.put("userId", userId);
-                loginStatusObject.put("type", "RETURN_ZHIHU_STATUS");
+                loginStatusObject.put("type", "RETURN_ZHZD_STATUS");
                 webSocketClientService.sendMessage(loginStatusObject.toJSONString());
 
                 return screenshotUtil.screenshotAndUpload(page, "zhihuAlreadyLogin.png");
@@ -794,7 +794,7 @@ public class BrowserController {
             JSONObject qrCodeObject = new JSONObject();
             qrCodeObject.put("url", qrCodeUrl);
             qrCodeObject.put("userId", userId);
-            qrCodeObject.put("type", "RETURN_PC_ZHIHU_QRURL");
+            qrCodeObject.put("type", "RETURN_PC_ZHZD_QRURL");
             webSocketClientService.sendMessage(qrCodeObject.toJSONString());
 
 
@@ -841,7 +841,7 @@ public class BrowserController {
                 JSONObject loginSuccessObject = new JSONObject();
                 loginSuccessObject.put("status", finalUserName);
                 loginSuccessObject.put("userId", userId);
-                loginSuccessObject.put("type", "RETURN_ZHIHU_STATUS");
+                loginSuccessObject.put("type", "RETURN_ZHZD_STATUS");
                 webSocketClientService.sendMessage(loginSuccessObject.toJSONString());
 
             } else {
@@ -849,7 +849,7 @@ public class BrowserController {
                 JSONObject timeoutObject = new JSONObject();
                 timeoutObject.put("status", "timeout");
                 timeoutObject.put("userId", userId);
-                timeoutObject.put("type", "RETURN_ZHIHU_LOGIN_TIMEOUT");
+                timeoutObject.put("type", "RETURN_ZHZD_LOGIN_TIMEOUT");
                 webSocketClientService.sendMessage(timeoutObject.toJSONString());
 
             }
@@ -877,7 +877,7 @@ public class BrowserController {
             // 如果当前用户正在处理，则返回"处理中"
             return loginMap.get(key);
         }
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "Zhihu")) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "zhzd")) {
             Page page = browserUtil.getOrCreatePage(context);
 
             // 先导航到知乎首页而不是登录页面，这样能更好地检测登录状态
