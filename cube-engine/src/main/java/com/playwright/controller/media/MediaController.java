@@ -102,22 +102,24 @@ public class MediaController {
             throw e;
         }
     }
-    
+
 
     /**
      * 获取知乎登录二维码
+     *
      * @param userId 用户唯一标识
      * @return 二维码图片URL 或 "false"表示失败
      */
     @GetMapping("/getZhihuQrCode")
     @Operation(summary = "获取知乎登录二维码", description = "返回二维码截图 URL 或 false 表示失败")
     public String getZhihuQrCode(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId) {
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"Zhihu")) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "Zhihu")) {
             Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.zhihu.com/signin");
             page.setDefaultTimeout(120000);
             page.waitForLoadState();
             Thread.sleep(3000);
+
             // 首先检查是否已经登录
             String currentUrl = page.url();
             if (!currentUrl.contains("signin")) {
@@ -125,7 +127,7 @@ public class MediaController {
                 JSONObject loginStatusObject = new JSONObject();
                 loginStatusObject.put("status", "已登录");
                 loginStatusObject.put("userId", userId);
-                loginStatusObject.put("type", "RETURN_ZHIHU_STATUS");
+                loginStatusObject.put("type", "RETURN_ZHIHU_MEDIA_STATUS");
                 webSocketClientService.sendMessage(loginStatusObject.toJSONString());
 
                 return screenshotUtil.screenshotAndUpload(page, "zhihuAlreadyLogin.png");
@@ -163,7 +165,7 @@ public class MediaController {
             JSONObject qrCodeObject = new JSONObject();
             qrCodeObject.put("url", qrCodeUrl);
             qrCodeObject.put("userId", userId);
-            qrCodeObject.put("type", "RETURN_PC_ZHIHU_QRURL");
+            qrCodeObject.put("type", "RETURN_PC_ZHIHU_MEDIA_QRURL");
             webSocketClientService.sendMessage(qrCodeObject.toJSONString());
 
 
@@ -174,6 +176,16 @@ public class MediaController {
 
             for (int i = 0; i < maxAttempts; i++) {
 
+                if(i % 10 == 0) {
+                    qrCodeUrl = screenshotUtil.screenshotAndUpload(page, "zhihuQrCode_" + userId + ".png");
+
+                    // 发送二维码URL到前端
+                    JSONObject newQrCodeObject = new JSONObject();
+                    newQrCodeObject.put("url", qrCodeUrl);
+                    newQrCodeObject.put("userId", userId);
+                    newQrCodeObject.put("type", "RETURN_PC_ZHIHU_MEDIA_QRURL");
+                    webSocketClientService.sendMessage(newQrCodeObject.toJSONString());
+                }
 
                 try {
                     Thread.sleep(2000);
@@ -210,7 +222,7 @@ public class MediaController {
                 JSONObject loginSuccessObject = new JSONObject();
                 loginSuccessObject.put("status", finalUserName);
                 loginSuccessObject.put("userId", userId);
-                loginSuccessObject.put("type", "RETURN_ZHIHU_STATUS");
+                loginSuccessObject.put("type", "RETURN_ZHIHU_MEDIA_STATUS");
                 webSocketClientService.sendMessage(loginSuccessObject.toJSONString());
 
             } else {
@@ -324,8 +336,19 @@ public class MediaController {
             String finalUserName = "false";
 
             for (int i = 0; i < maxAttempts; i++) {
+//                每十秒刷新一次二维码
+                if(i % 10 == 0) {
+                    qrCodeUrl = screenshotUtil.screenshotAndUpload(page, "baijiahaoQrCode_" + userId + ".png");
+
+                    // 发送二维码URL到前端
+                    JSONObject newQrCodeObject = new JSONObject();
+                    newQrCodeObject.put("url", qrCodeUrl);
+                    newQrCodeObject.put("userId", userId);
+                    newQrCodeObject.put("type", "RETURN_PC_BAIJIAHAO_QRURL");
+                    webSocketClientService.sendMessage(newQrCodeObject.toJSONString());
+                }
                 try {
-                    Thread.sleep(2000);
+                    Thread.sleep(4000);
                     // 检查当前页面URL是否已经跳转（登录成功）
                     String nowUrl = page.url();
 

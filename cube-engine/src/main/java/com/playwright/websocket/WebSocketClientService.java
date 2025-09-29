@@ -243,26 +243,26 @@ public class WebSocketClientService {
                         }, "头条号登录检查", userInfoRequest.getUserId());
                     }
                     // 处理检查知乎登录状态的消息
-                    if (message.contains("PLAY_CHECK_ZHIHU_LOGIN")) {
+                    if (message.contains("PLAY_CHECK_ZHIHU_MEDIA_LOGIN")) {
                         // 🚀 知乎状态检测使用高优先级，优先处理
                         concurrencyManager.submitHighPriorityTask(() -> {
                             try {
                                 String checkLogin = mediaController.checkZhihuLogin(userInfoRequest.getUserId());
                                 userInfoRequest.setStatus(checkLogin);
-                                userInfoRequest.setType("RETURN_ZHIHU_STATUS");
+                                userInfoRequest.setType("RETURN_ZHIHU_MEDIA_STATUS");
                                 sendMessage(JSON.toJSONString(userInfoRequest));
                             } catch (Exception e) {
                                 e.printStackTrace();
                                 // 发送错误状态
                                 userInfoRequest.setStatus("false");
-                                userInfoRequest.setType("RETURN_ZHIHU_STATUS");
+                                userInfoRequest.setType("RETURN_ZHIHU_MEDIA_STATUS");
                                 sendMessage(JSON.toJSONString(userInfoRequest));
                             }
                         }, "知乎登录检查", userInfoRequest.getUserId());
                     }
 
                     // 处理获取知乎二维码的消息
-                    if(message.contains("PLAY_GET_ZHIHU_QRCODE")){
+                    if(message.contains("PLAY_GET_ZHIHU_MEDIA_QRCODE")){
                         concurrencyManager.submitBrowserTask(() -> {
                             try {
                                 mediaController.getZhihuQrCode(userInfoRequest.getUserId());
@@ -303,7 +303,7 @@ public class WebSocketClientService {
                     }
 
                     // 处理获取知乎二维码的消息
-                    if (message.contains("PLAY_GET_ZHIHU_QRCODE")) {
+                    if (message.contains("PLAY_GET_ZHZD_QRCODE")) {
                         concurrencyManager.submitBrowserTask(() -> {
                             try {
                                 browserController.getZhihuQrCode(userInfoRequest.getUserId());
@@ -314,19 +314,19 @@ public class WebSocketClientService {
                     }
 
                     // 处理检查知乎登录状态的消息
-                    if (message.contains("PLAY_CHECK_ZHIHU_LOGIN")) {
+                    if (message.contains("PLAY_CHECK_ZHZD_LOGIN")) {
                         // 🚀 知乎状态检测使用高优先级，优先处理
                         concurrencyManager.submitHighPriorityTask(() -> {
                             try {
                                 String checkLogin = browserController.checkZhihuLogin(userInfoRequest.getUserId());
                                 userInfoRequest.setStatus(checkLogin);
-                                userInfoRequest.setType("RETURN_ZHIHU_STATUS");
+                                userInfoRequest.setType("RETURN_ZHZD_STATUS");
                                 sendMessage(JSON.toJSONString(userInfoRequest));
                             } catch (Exception e) {
                                 e.printStackTrace();
                                 // 发送错误状态
                                 userInfoRequest.setStatus("false");
-                                userInfoRequest.setType("RETURN_ZHIHU_STATUS");
+                                userInfoRequest.setType("RETURN_ZHZD_STATUS");
                                 sendMessage(JSON.toJSONString(userInfoRequest));
                             }
                         }, "知乎登录检查", userInfoRequest.getUserId());

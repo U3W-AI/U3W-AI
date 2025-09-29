@@ -121,11 +121,65 @@
             <div slot="header" class="clearfix">
               <span class="card-title">
                 <svg-icon icon-class="media" class="title-icon" />
-                公众号状态
+                媒体登录状态
               </span>
+              <el-button
+                style="float: right; margin-top: -30px"
+                type="text"
+                @click="handleRefreshMedia"
+              >
+                <i class="el-icon-refresh"></i> 刷新
+              </el-button>
             </div>
             <div class="ai-status-list">
-              <!-- 微信公众号登录项 -->
+              <div
+                class="ai-status-item"
+                v-for="(status, type) in mediaLoginStatus"
+                :key="type"
+              >
+                <div class="ai-platform">
+                  <div class="platform-icon">
+                    <img
+                      :src="getMediaPlatformIcon(type)"
+                      :alt="getMediaPlatformName(type)"
+                    />
+                  </div>
+                  <div class="platform-name">
+                    <span>
+                      {{ getMediaPlatformName(type) }}
+                    </span>
+                    <el-tooltip
+                      v-if="mediaIsLoading[type]"
+                      content="正在登录中..."
+                      placement="top"
+                    >
+                      <i class="el-icon-loading loading-icon"></i>
+                    </el-tooltip>
+                  </div>
+                </div>
+                <div class="status-action">
+                  <el-tag
+                    v-if="status"
+                    type="success"
+                    effect="dark"
+                    class="status-tag"
+                  >
+                    <i class="el-icon-success"></i>
+                    <span>{{ mediaAccounts[type] }}</span>
+                  </el-tag>
+                  <el-button
+                    v-else
+                    type="primary"
+                    size="small"
+                    :disabled="!mediaIsClick[type]"
+                    @click="handleMediaLogin(type)"
+                    :class="'media-login-btn'"
+                  >
+                    <i class="el-icon-connection"></i> 点击登录
+                  </el-button>
+                </div>
+              </div>
+              <!-- 新增微信公众号登录项 -->
               <div class="ai-status-item">
                 <div class="ai-platform">
                   <div class="platform-icon">
@@ -179,6 +233,26 @@
       </div>
     </el-dialog>
 
+    <!-- 媒体登录二维码对话框 -->
+    <el-dialog
+      :title="getMediaLoginTitle"
+      :visible.sync="mediaLoginDialogVisible"
+      width="1200px"
+      height="800px"
+      center
+    >
+      <div class="qr-code-container" v-loading="!mediaQrCodeUrl">
+        <div v-if="mediaQrCodeUrl" class="qr-code">
+          <img
+            style="width: 100%; height: 100%"
+            :src="mediaQrCodeUrl"
+            alt="登录二维码"
+          />
+          <p class="qr-tip">{{ getQrTipText }}</p>
+        </div>
+        <div v-else class="loading-tip">正在获取登录二维码...</div>
+      </div>
+    </el-dialog>
 
     <el-dialog
       title="积分详细"
@@ -476,6 +550,26 @@ export default {
       resetStatusTimeout: null, // 状态检查超时定时器
 
       //------ 媒体登录状态相关变量 ------//
+      mediaLoginStatus: {
+        zhihu: false,
+        baijiahao: false,
+        toutiao: false,
+      },
+      mediaAccounts: {
+        zhihu: "",
+        baijiahao: "",
+        toutiao: "",
+      },
+      mediaIsClick: {
+        zhihu: false,
+        baijiahao: false,
+        toutiao: false,
+      },
+      mediaIsLoading: {
+        zhihu: true,
+        baijiahao: true,
+        toutiao: true,
+      },
       mediaLoginDialogVisible: false,
       currentMediaType: "",
       mediaQrCodeUrl: "",
@@ -514,7 +608,12 @@ export default {
       return titles[this.currentAiType] || "登录";
     },
     getMediaLoginTitle() {
-      return "媒体登录";
+      const titles = {
+        zhihu: "知乎登录",
+        baijiahao: "百家号登录",
+        toutiao: "微头条登录",
+      };
+      return titles[this.currentMediaType] || "媒体登录";
     },
     getQrTipText() {
       return "请使用对应APP扫码登录";
@@ -561,6 +660,7 @@ export default {
         this.isClick.baidu = false;
         this.isClick.deepseek = false;
         this.isClick.qw = false;
+        this.isClick.zhzd = false;
         // this.isClick.metaso = false;
 
         this.isLoading.yuanbao = true;
@@ -568,7 +668,17 @@ export default {
         this.isLoading.baidu = true;
         this.isLoading.deepseek = true;
         this.isLoading.qw = true;
+        this.isLoading.zhzd = true;
         // this.isLoading.metaso = true;
+
+        // 初始化媒体登录状态
+        this.mediaIsClick.zhihu = false;
+        this.mediaIsClick.baijiahao = false;
+        this.mediaIsClick.toutiao = false;
+
+        this.mediaIsLoading.zhihu = true;
+        this.mediaIsLoading.baijiahao = true;
+        this.mediaIsLoading.toutiao = true;
 
         this.initWebSocket(this.userId); // 创建时建立连接
 
@@ -585,9 +695,9 @@ export default {
             userId: this.userId,
             corpId: this.corpId,
           });
-          // 检查知乎登录状态
+          // 检查知乎媒体登录状态
           this.sendMessage({
-            type: "PLAY_CHECK_ZHIHU_LOGIN",
+            type: "PLAY_CHECK_ZHIHU_MEDIA_LOGIN",
             userId: this.userId,
             corpId: this.corpId,
           });
@@ -624,6 +734,12 @@ export default {
           // 检查秘塔登录状态
           this.sendMessage({
             type: "PLAY_CHECK_METASO_LOGIN",
+            userId: this.userId,
+            corpId: this.corpId,
+          });
+          // 检查知乎直答登录状态
+          this.sendMessage({
+            type: "PLAY_CHECK_ZHZD_LOGIN",
             userId: this.userId,
             corpId: this.corpId,
           });
@@ -787,7 +903,7 @@ export default {
       }
       if (type == "zhzd") {
         this.sendMessage({
-          type: "PLAY_GET_ZHIHU_QRCODE",
+          type: "PLAY_GET_ZHZD_QRCODE",
           userId: this.userId,
           corpId: this.corpId,
         });
@@ -820,6 +936,100 @@ export default {
         zhzd: "知乎直答",
       };
       return names[type] || "";
+    },
+
+    // 媒体登录相关方法
+    handleRefreshMedia() {
+      // 重置媒体登录状态
+      this.mediaIsClick.zhihu = false;
+      this.mediaIsClick.baijiahao = false;
+      this.mediaIsClick.toutiao = false;
+      this.mediaIsLoading.zhihu = true;
+      this.mediaIsLoading.baijiahao = true;
+      this.mediaIsLoading.toutiao = true;
+
+      // 检查知乎媒体登录状态
+      this.sendMessage({
+        type: "PLAY_CHECK_ZHIHU_MEDIA_LOGIN",
+        userId: this.userId,
+        corpId: this.corpId,
+      });
+      // 检查微头条登录状态
+      this.sendMessage({
+        type: "PLAY_CHECK_TTH_LOGIN",
+        userId: this.userId,
+        corpId: this.corpId,
+      });
+      // 检查百家号登录状态
+      this.sendMessage({
+        type: "PLAY_CHECK_BAIJIAHAO_LOGIN",
+        userId: this.userId,
+        corpId: this.corpId,
+      });
+    },
+
+    handleMediaLogin(type) {
+      this.currentMediaType = type;
+      this.mediaLoginDialogVisible = true;
+      this.mediaIsLoading[type] = true;
+      this.mediaIsClick[type] = false;
+      // 重置二维码状态
+      this.mediaQrCodeUrl = "";
+      this.getMediaQrCode(type);
+    },
+
+    getMediaQrCode(type) {
+      this.mediaQrCodeUrl = "";
+      if (type === "zhihu") {
+        this.sendMessage({
+          type: "PLAY_GET_ZHIHU_MEDIA_QRCODE",
+          userId: this.userId,
+          corpId: this.corpId,
+        });
+      } else if (type === "toutiao") {
+        this.sendMessage({
+          type: "PLAY_GET_TTH_QRCODE",
+          userId: this.userId,
+          corpId: this.corpId,
+        });
+      } else if (type === "baijiahao") {
+        this.sendMessage({
+          type: "PLAY_GET_BAIJIAHAO_QRCODE",
+          userId: this.userId,
+          corpId: this.corpId,
+        });
+      }
+      this.$message({
+        message: "正在获取登录二维码...",
+        type: "info",
+      });
+    },
+
+    getMediaPlatformIcon(type) {
+      const icons = {
+        zhihu: require("@/assets/logo/ZhiHu.png"),
+        baijiahao: require("@/assets/logo/baijiahao.png"),
+        toutiao: require("@/assets/logo/toutiao.png"),
+      };
+      return icons[type] || "";
+    },
+
+    getMediaPlatformName(type) {
+      const names = {
+        zhihu: "知乎",
+        baijiahao: "百家号",
+        toutiao: "微头条",
+      };
+      return names[type] || "";
+    },
+
+    resetMediaLoginStates() {
+      this.mediaIsClick.zhihu = false;
+      this.mediaIsClick.baijiahao = false;
+      this.mediaIsClick.toutiao = false;
+      this.mediaIsLoading.zhihu = true;
+      this.mediaIsLoading.baijiahao = true;
+      this.mediaIsLoading.toutiao = true;
     },
 
     // WebSocket 相关方法
@@ -859,7 +1069,7 @@ export default {
         datastr.includes("RETURN_PC_DEEPSEEK_QRURL") ||
         datastr.includes("RETURN_PC_QW_QRURL") ||
         datastr.includes("RETURN_PC_METASO_QRURL") ||
-        datastr.includes("RETURN_PC_ZHIHU_QRURL")
+        datastr.includes("RETURN_PC_ZHZD_QRURL")
       ) {
         if (dataObj.url && dataObj.url.trim() !== "") {
           this.qrCodeUrl = dataObj.url;
@@ -870,6 +1080,22 @@ export default {
         } else {
           this.qrCodeError = "获取二维码失败，请重试";
           this.qrCodeUrl = "";
+        }
+      }
+      // 媒体登录二维码处理
+      else if (
+        datastr.includes("RETURN_PC_ZHIHU_MEDIA_QRURL") ||
+        datastr.includes("RETURN_PC_TTH_QRURL") ||
+        datastr.includes("RETURN_PC_BAIJIAHAO_QRURL")
+      ) {
+        if (dataObj.url && dataObj.url.trim() !== "") {
+          this.mediaQrCodeUrl = dataObj.url;
+        } else if (dataObj.error) {
+          this.$message.error(dataObj.error);
+          this.mediaQrCodeUrl = "";
+        } else {
+          this.$message.error("获取媒体登录二维码失败，请重试");
+          this.mediaQrCodeUrl = "";
         }
       }
       else if (datastr.includes("RETURN_YB_STATUS") && dataObj.status != "") {
@@ -960,19 +1186,84 @@ export default {
           this.isClick.metaso = true;
           this.isLoading.metaso = false;
         }
-      }else if(datastr.includes("RETURN_ZHIHU_STATUS") && dataObj.status != ""){
+      }else if(datastr.includes("RETURN_ZHZD_STATUS") && dataObj.status != ""){
         if (!datastr.includes("false")) {
           this.aiLoginDialogVisible = false;
+          // AI登录状态（知乎直答）
           this.aiLoginStatus.zhzd = true;
           this.accounts.zhzd = dataObj.status;
           this.isLoading.zhzd = false;
-          this.isClick.zhzd = true; // 检测成功后设为true
+          this.isClick.zhzd = true;
+          // 检查AI状态恢复
           if (!this.isLoading.yuanbao && !this.isLoading.doubao && !this.isLoading.deepseek && /* !this.isLoading.minimax && */ !this.isLoading.qw && !this.isLoading.metaso && !this.isLoading.zhzd /* && !this.isLoading.kimi */) { // 移除Kimi登录状态检测
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           }
         } else {
           this.isClick.zhzd = true;
           this.isLoading.zhzd = false;
+        }
+      }else if(datastr.includes("RETURN_TOUTIAO_STATUS") && dataObj.status != ""){
+        if (!datastr.includes("false")) {
+          this.mediaLoginDialogVisible = false;
+          // 媒体登录状态（头条号只是媒体平台）
+          this.mediaLoginStatus.toutiao = true;
+          this.mediaAccounts.toutiao = dataObj.status;
+          this.mediaIsLoading.toutiao = false;
+          this.mediaIsClick.toutiao = true;
+          // 检查媒体状态恢复
+          if (!this.mediaIsLoading.zhihu && !this.mediaIsLoading.baijiahao && !this.mediaIsLoading.toutiao) {
+            if (this.resetMediaStatusTimeout) clearTimeout(this.resetMediaStatusTimeout);
+          }
+        } else {
+          this.mediaIsClick.toutiao = true;
+          this.mediaIsLoading.toutiao = false;
+        }
+      }
+      // 媒体登录状态处理
+      else if (datastr.includes("RETURN_ZHIHU_MEDIA_STATUS") && dataObj.status != "") {
+        if (!datastr.includes("false")) {
+          this.mediaLoginDialogVisible = false;
+          this.mediaLoginStatus.zhihu = true;
+          this.mediaAccounts.zhihu = dataObj.status;
+          this.mediaIsLoading.zhihu = false;
+          this.mediaIsClick.zhihu = true;
+          // 检查是否所有媒体都已恢复
+          if (!this.mediaIsLoading.zhihu && !this.mediaIsLoading.baijiahao && !this.mediaIsLoading.toutiao) {
+            if (this.resetMediaStatusTimeout) clearTimeout(this.resetMediaStatusTimeout);
+          }
+        } else {
+          this.mediaIsClick.zhihu = true;
+          this.mediaIsLoading.zhihu = false;
+        }
+      } else if (datastr.includes("RETURN_TTH_STATUS") && dataObj.status != "") {
+        if (!datastr.includes("false")) {
+          this.mediaLoginDialogVisible = false;
+          this.mediaLoginStatus.toutiao = true;
+          this.mediaAccounts.toutiao = dataObj.status;
+          this.mediaIsLoading.toutiao = false;
+          this.mediaIsClick.toutiao = true;
+          // 检查是否所有媒体都已恢复
+          if (!this.mediaIsLoading.zhihu && !this.mediaIsLoading.baijiahao && !this.mediaIsLoading.toutiao) {
+            if (this.resetMediaStatusTimeout) clearTimeout(this.resetMediaStatusTimeout);
+          }
+        } else {
+          this.mediaIsClick.toutiao = true;
+          this.mediaIsLoading.toutiao = false;
+        }
+      } else if (datastr.includes("RETURN_BAIJIAHAO_STATUS") && dataObj.status != "") {
+        if (!datastr.includes("false")) {
+          this.mediaLoginDialogVisible = false;
+          this.mediaLoginStatus.baijiahao = true;
+          this.mediaAccounts.baijiahao = dataObj.status;
+          this.mediaIsLoading.baijiahao = false;
+          this.mediaIsClick.baijiahao = true;
+          // 检查是否所有媒体都已恢复
+          if (!this.mediaIsLoading.zhihu && !this.mediaIsLoading.baijiahao && !this.mediaIsLoading.toutiao) {
+            if (this.resetMediaStatusTimeout) clearTimeout(this.resetMediaStatusTimeout);
+          }
+        } else {
+          this.mediaIsClick.baijiahao = true;
+          this.mediaIsLoading.baijiahao = false;
         }
       }
     },
@@ -1068,7 +1359,7 @@ export default {
       this.sendMessage({ type: "PLAY_CHECK_METASO_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_QW_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_BAIDU_LOGIN", userId: this.userId, corpId: this.corpId });
-      this.sendMessage({ type: "PLAY_CHECK_ZHIHU_LOGIN", userId: this.userId, corpId: this.corpId });
+      this.sendMessage({ type: "PLAY_CHECK_ZHZD_LOGIN", userId: this.userId, corpId: this.corpId });
 
     },
     async handleRefreshMedia() {
@@ -1104,8 +1395,8 @@ export default {
         this.$message.warning('媒体登录状态刷新超时，请检查网络或稍后重试');
       }, 120000);
       // 只检测媒体相关登录状态
-      // 检测知乎状态（媒体功能）
-      this.sendMessage({ type: "PLAY_CHECK_ZHIHU_LOGIN", userId: this.userId, corpId: this.corpId });
+      // 检测知乎媒体状态
+      this.sendMessage({ type: "PLAY_CHECK_ZHIHU_MEDIA_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_TTH_LOGIN", userId: this.userId, corpId: this.corpId });
       this.sendMessage({ type: "PLAY_CHECK_BAIJIAHAO_LOGIN", userId: this.userId, corpId: this.corpId });
     },
@@ -1631,6 +1922,64 @@ export default {
 
   .message-input {
     margin-top: 10px;
+  }
+}
+
+// 二维码相关样式
+.qr-code-container {
+  padding: 20px;
+  text-align: center;
+  min-height: 550px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+
+.qr-code {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+
+  img {
+    width: 1000px;
+    height: 550px;
+    margin-bottom: 15px;
+  }
+}
+
+.qr-tip {
+  color: #606266;
+  font-size: 14px;
+  margin-top: 10px;
+  font-weight: 500;
+}
+
+.loading-tip {
+  color: #909399;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &::before {
+    content: "";
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    border: 2px solid #dcdfe6;
+    border-top-color: #409eff;
+    border-radius: 50%;
+    animation: loading 1s linear infinite;
+  }
+}
+
+@keyframes loading {
+  to {
+    transform: rotate(360deg);
   }
 }
 

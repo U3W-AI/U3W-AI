@@ -298,7 +298,8 @@ public class TencentUtil {
      * @param chatId     会话ID
      * @return 初始复制按钮数量
      */
-    public synchronized int handleYBAI(Page page, String userPrompt, String role, String userId, String aiName, String chatId) throws Exception {
+    public synchronized int
+    handleYBAI(Page page, String userPrompt, String role, String userId, String aiName, String chatId) throws Exception {
 
         // 页面导航与元素定位
         page.navigate("https://yuanbao.tencent.com/chat/naQivTmsDa/" + chatId);
