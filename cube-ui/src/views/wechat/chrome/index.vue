@@ -152,6 +152,15 @@
                       {{ capability.label }}
                     </el-button>
                   </div>
+                  <!-- 知乎直答单选思考模式 -->
+                  <div v-else-if="ai.name === '知乎直答'" class="button-capability-group">
+                    <el-button v-for="capability in ai.capabilities" :key="capability.value" size="mini"
+                      :type="ai.selectedCapability === capability.value ? 'primary' : 'info'" :disabled="!ai.enabled"
+                      :plain="ai.selectedCapability !== capability.value"
+                      @click="selectSingleCapability(ai, capability.value)" class="capability-button">
+                      {{ capability.label }}
+                    </el-button>
+                  </div>
                   <!-- 其他AI -->
                   <div v-else class="button-capability-group">
                     <el-button v-for="capability in ai.capabilities" :key="capability.value" size="mini"
@@ -554,18 +563,16 @@
             name: "知乎直答",
             avatar: require("../../../assets/ai/ZHZD.png"),
             capabilities: [
+              { label: "智能思考", value: "smart_thinking" },
               { label: "深度思考", value: "deep_thinking" },
-              { label: "全网搜索", value: "all_web_search" },
-              { label: "知乎搜索", value: "zhihu_search" },
-              { label: "学术搜索", value: "academic_search" },
-              { label: "我的知识库", value: "personal_knowledge" },
+              { label: "快速回答", value: "fast_answer" },
             ],
-            selectedCapabilities: ['deep_thinking', 'all_web_search', 'zhihu_search', 'academic_search', 'personal_knowledge'],
+            selectedCapability: "smart_thinking", // 改为单选，默认智能思考
             enabled: true,
             status: 'idle',
             progressLogs: [],
             isExpanded: true,
-            isSingleSelect: false,
+            isSingleSelect: true, // 设为单选模式
           },
 
         ],
@@ -874,20 +881,16 @@
 
           if(ai.name === "知乎直答") {
             this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-chat,";
-            if(ai.selectedCapabilities.includes("deep_thinking")) {
+            // 使用单选思考模式
+            if(ai.selectedCapability === "deep_thinking") {
               this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-sdsk,";
-            }
-            if(ai.selectedCapabilities.includes("all_web_search")) {
-              this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-qw,";
-            }
-            if(ai.selectedCapabilities.includes("zhihu_search")) {
-              this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-zh,";
-            }
-            if(ai.selectedCapabilities.includes("academic_search")) {
-              this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-xs,";
-            }
-            if(ai.selectedCapabilities.includes("personal_knowledge")) {
-              this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-wdzsk,";
+            } else if(ai.selectedCapability === "fast_answer") {
+              this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-ks,";
+            } else if(ai.selectedCapability === "smart_thinking") {
+              this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-zn,";
+            } else {
+              // 默认智能思考
+              this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-zn,";
             }
           }
 
@@ -913,7 +916,12 @@
       getCapabilityType(ai, value) {
         // 确保单选时使用字符串比较，多选时使用数组包含
         if(ai.isSingleSelect) {
-          return ai.selectedCapabilities === value ? 'primary' : 'info';
+          // 知乎直答使用selectedCapability，通义使用selectedCapability
+          if(ai.name === '知乎直答') {
+            return ai.selectedCapability === value ? 'primary' : 'info';
+          } else {
+            return ai.selectedCapabilities === value ? 'primary' : 'info';
+          }
         } else {
           return ai.selectedCapabilities && ai.selectedCapabilities.includes(value) ? 'primary' : 'info';
         }
@@ -922,19 +930,30 @@
       // 辅助方法：判断按钮是否为朴素样式
       getCapabilityPlain(ai, value) {
         if(ai.isSingleSelect) {
-          return ai.selectedCapabilities !== value;
+          // 知乎直答使用selectedCapability，通义使用selectedCapability
+          if(ai.name === '知乎直答') {
+            return ai.selectedCapability !== value;
+          } else {
+            return ai.selectedCapabilities !== value;
+          }
         } else {
           return !(ai.selectedCapabilities && ai.selectedCapabilities.includes(value));
         }
       },
-      // 处理通义单选逻辑
+      // 处理单选逻辑（通义千问、知乎直答）
       selectSingleCapability(ai, capabilityValue) {
         if(!ai.enabled) return;
 
-        if(ai.selectedCapability === capabilityValue) {
-          this.$set(ai, 'selectedCapability', '');
-        } else {
+        // 知乎直答不允许取消选择，至少保持一个选项
+        if(ai.name === '知乎直答') {
           this.$set(ai, 'selectedCapability', capabilityValue);
+        } else {
+          // 通义千问允许取消选择
+          if(ai.selectedCapability === capabilityValue) {
+            this.$set(ai, 'selectedCapability', '');
+          } else {
+            this.$set(ai, 'selectedCapability', capabilityValue);
+          }
         }
         this.$forceUpdate();
       },
@@ -1468,20 +1487,16 @@
 
           if(ai.name === "知乎直答") {
             scoreRequest.params.roles = scoreRequest.params.roles + "zhzd-chat,";
-            if(ai.selectedCapabilities.includes("deep_thinking")) {
+            // 使用单选思考模式
+            if(ai.selectedCapability === "deep_thinking") {
               scoreRequest.params.roles = scoreRequest.params.roles + "zhzd-sdsk,";
-            }
-            if(ai.selectedCapabilities.includes("all_web_search")) {
-              scoreRequest.params.roles = scoreRequest.params.roles + "zhzd-qw,";
-            }
-            if(ai.selectedCapabilities.includes("zhihu_search")) {
-              scoreRequest.params.roles = scoreRequest.params.roles + "zhzd-zh,";
-            }
-            if(ai.selectedCapabilities.includes("academic_search")) {
-              scoreRequest.params.roles = scoreRequest.params.roles + "zhzd-xs,";
-            }
-            if(ai.selectedCapabilities.includes("personal_knowledge")) {
-              scoreRequest.params.roles = scoreRequest.params.roles + "zhzd-wdzsk,";
+            } else if(ai.selectedCapability === "fast_answer") {
+              scoreRequest.params.roles = scoreRequest.params.roles + "zhzd-ks,";
+            } else if(ai.selectedCapability === "smart_thinking") {
+              scoreRequest.params.roles = scoreRequest.params.roles + "zhzd-zn,";
+            } else {
+              // 默认智能思考
+              scoreRequest.params.roles = scoreRequest.params.roles + "zhzd-zn,";
             }
           }
         }
@@ -1863,18 +1878,16 @@
             name: "知乎直答",
             avatar: require("../../../assets/ai/ZHZD.png"),
             capabilities: [
+              { label: "智能思考", value: "smart_thinking" },
               { label: "深度思考", value: "deep_thinking" },
-              { label: "全网搜索", value: "all_web_search" },
-              { label: "知乎搜索", value: "zhihu_search" },
-              { label: "学术搜索", value: "academic_search" },
-              { label: "我的知识库", value: "personal_knowledge" },
+              { label: "快速回答", value: "fast_answer" },
             ],
-            selectedCapabilities: ['deep_thinking', 'all_web_search', 'zhihu_search', 'academic_search', 'personal_knowledge'],
+            selectedCapability: "smart_thinking", // 改为单选，默认智能思考
             enabled: true,
             status: 'idle',
             progressLogs: [],
             isExpanded: true,
-            isSingleSelect: false,
+            isSingleSelect: true, // 设为单选模式
           },
 
         ];
