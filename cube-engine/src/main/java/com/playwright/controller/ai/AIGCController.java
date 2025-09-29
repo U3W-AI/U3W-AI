@@ -3,6 +3,7 @@ package com.playwright.controller.ai;
 import com.microsoft.playwright.*;
 import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.LoadState;
+import com.microsoft.playwright.options.WaitForSelectorState;
 import com.playwright.entity.AiResult;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.entity.mcp.McpResult;
@@ -435,17 +436,45 @@ public class AIGCController {
 
             clipboardLockManager.runWithClipboardLock(() -> {
                 try {
+                    // 🔥 优化分享按钮点击逻辑
+                    Locator shareButton = page.locator("button[data-testid='message_action_share']").last();
+                    
+                    // 等待分享按钮可见并可交互，减少超时时间
+                    shareButton.waitFor(new Locator.WaitForOptions()
+                        .setState(WaitForSelectorState.VISIBLE)
+                        .setTimeout(20000)); // 从30秒减少到20秒
+                    
+                    shareButton.click();
+                    
                     if (isRight) {
-                        page.locator("button[data-testid='message_action_share']").last().click();
                         Thread.sleep(1000);
-                        page.locator("//*[name()='path' and contains(@d,'M4.5005 4.')]").click();
+                        
+                        // 优化路径选择器，添加备用选择器
+                        try {
+                            page.locator("//*[name()='path' and contains(@d,'M4.5005 4.')]").click();
+                        } catch (Exception e) {
+                            // 备用选择器：通过文本或其他属性查找
+                            page.locator("button:has-text('分享到')").first().click();
+                        }
+                        
                         Thread.sleep(1000);
-                        page.locator("button[data-testid='thread_share_copy_btn']").first().click();
+                        
+                        // 等待复制按钮可见
+                        Locator copyButton = page.locator("button[data-testid='thread_share_copy_btn']").first();
+                        copyButton.waitFor(new Locator.WaitForOptions()
+                            .setState(WaitForSelectorState.VISIBLE)
+                            .setTimeout(10000));
+                        copyButton.click();
 
                     } else {
-                        page.locator("button[data-testid='message_action_share']").last().click();
                         Thread.sleep(1000);
-                        page.locator("button[data-testid='thread_share_copy_btn']").first().click();
+                        
+                        // 等待复制按钮可见
+                        Locator copyButton = page.locator("button[data-testid='thread_share_copy_btn']").first();
+                        copyButton.waitFor(new Locator.WaitForOptions()
+                            .setState(WaitForSelectorState.VISIBLE)
+                            .setTimeout(10000));
+                        copyButton.click();
                     }
                     Thread.sleep(2000);
                     String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
@@ -1239,7 +1268,7 @@ public class AIGCController {
     @Operation(summary = "启动秘塔AI生成", description = "调用秘塔AI平台生成内容并抓取结果")
     @ApiResponse(responseCode = "200", description = "处理成功", content = @Content(mediaType = "application/json"))
     @PostMapping("/startMetaso")
-    public McpResult startMetaso(@RequestBody UserInfoRequest userInfoRequest) throws IOException, InterruptedException {
+    public McpResult startMetaso(@RequestBody UserInfoRequest userInfoRequest) throws Exception {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userInfoRequest.getUserId(), "metaso")) {
 
             // 初始化变量
@@ -1355,27 +1384,33 @@ public class AIGCController {
             screenshotFuture.cancel(false);
             screenshotExecutor.shutdown();
 
+            // 🔥 使用增强的安全链接获取方法
             AtomicReference<String> shareUrlRef = new AtomicReference<>();
 
             clipboardLockManager.runWithClipboardLock(() -> {
                 try {
-                    boolean visible = page.locator("(//*[name()='svg'])[26]").isVisible();
-                    if(visible) {
-                        page.locator("(//*[name()='svg'])[26]").click();
-                    } else {
-                        page.locator("(//button[@type='button'])[24]").click();
-                    }
-                    // 建议适当延迟等待内容更新
-                    Thread.sleep(1000);
-
-                    String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
+                    String shareUrl = metasoUtil.getMetasoShareUrlSafely(page, userId, "秘塔");
                     shareUrlRef.set(shareUrl);
+                    
+                    if (shareUrl != null && shareUrl.contains("http")) {
+                        logInfo.sendTaskLog("秘塔分享链接获取成功: " + shareUrl, userId, "秘塔");
+                    } else {
+                        logInfo.sendTaskLog("秘塔分享链接获取失败，将使用当前页面URL", userId, "秘塔");
+                        shareUrl = page.url();
+                        shareUrlRef.set(shareUrl);
+                    }
                 } catch (Exception e) {
-                    UserLogUtil.sendExceptionLog(userId, "秘塔复制链接异常", "startMetaso", e, url + "/saveLogInfo");
+                    logInfo.sendTaskLog("秘塔分享链接获取异常，使用备用方案: " + e.getMessage(), userId, "秘塔");
+                    try {
+                        String backupUrl = page.url();
+                        shareUrlRef.set(backupUrl);
+                    } catch (Exception urlEx) {
+                        UserLogUtil.sendExceptionLog(userId, "秘塔复制链接异常", "startMetaso", e, url + "/saveLogInfo");
+                    }
                 }
             });
 
-            Thread.sleep(4000);
+            Thread.sleep(2000); // 减少等待时间，因为新方法更高效
             String shareUrl = shareUrlRef.get();
             String bodyPath = "(//div[@class='flex flex-col min-h-[calc(100vh-192px)]'])[1]";
             // 点击分享按钮
@@ -1419,24 +1454,31 @@ public class AIGCController {
 
             Page page = browserUtil.getOrCreatePage(context);
 
-            // 🔥 新增：检测知乎访问限制
+            // 🔥 直接拼接URL，简化会话处理
             try {
                 if ("true".equalsIgnoreCase(isNewChat) || sessionId == null || sessionId.isEmpty()) {
-                    logInfo.sendTaskLog("用户请求新会话", userId, aiName);
+                    logInfo.sendTaskLog("用户请求新会话，打开知乎直答首页", userId, aiName);
                     page.navigate("https://zhida.zhihu.com");
                 } else {
-                    logInfo.sendTaskLog("检测到会话ID: " + sessionId + "，将继续使用此会话", userId, aiName);
+                    logInfo.sendTaskLog("检测到会话ID: " + sessionId + "，直接访问会话页面", userId, aiName);
                     page.navigate("https://zhida.zhihu.com/search/" + sessionId);
-                }
-
-                Locator inputBox = page.locator(".Dropzone.Editable-content.RichText.RichText--editable.RichText--clearBoth.ztext");
-                if (inputBox == null || inputBox.count() <= 0) {
-                    logInfo.sendTaskLog("会话已关闭,现创建新对话", userId, aiName);
-                    page.navigate("https://zhida.zhihu.com");
                 }
 
                 page.waitForLoadState(LoadState.LOAD);
                 Thread.sleep(2000);
+                
+                // 检查是否出现服务异常提示，如果有则自动重新打开新会话
+                try {
+                    Locator errorDiv = page.locator("div:has-text('很抱歉，服务异常，请稍后重试。')");
+                    if (errorDiv.count() > 0) {
+                        logInfo.sendTaskLog("检测到会话异常，自动重新创建新会话", userId, aiName);
+                        page.navigate("https://zhida.zhihu.com");
+                        page.waitForLoadState(LoadState.LOAD);
+                        Thread.sleep(2000);
+                    }
+                } catch (Exception e) {
+                    // 忽略检测错误，继续执行
+                }
 
                 // 检测知乎访问限制
                 String accessCheckResult = (String) page.evaluate("""

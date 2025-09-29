@@ -6,6 +6,7 @@ import com.playwright.entity.UnPersisBrowserContextInfo;
 
 import java.util.*;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * dateStart 2024/8/4 9:34
@@ -14,12 +15,19 @@ import java.util.concurrent.Semaphore;
 public class BrowserContextFactory {
     public static final Map<String, UnPersisBrowserContextInfo> map = new HashMap<>();
     private static final Playwright playwright = Playwright.create();
+    
+    // 🔥 优化：动态调整上下文数量限制，基于CPU核心数
+    private static final int CPU_CORES = Runtime.getRuntime().availableProcessors();
     private static Integer CONTEXT_COUNT = 0;
-    private static final Integer MAX_CONTEXT_COUNT = 20;
+    private static final Integer MAX_CONTEXT_COUNT = Math.max(20, CPU_CORES * 3); // 至少20个或3倍CPU核心数
 
-    // 并发控制：限制同时创建浏览器上下文的数量
-    private static final Semaphore CREATION_SEMAPHORE = new Semaphore(2); // 最多允许2个同时创建
+    // 🔥 优化：并发控制基于CPU核心数，提高并发创建能力
+    private static final Semaphore CREATION_SEMAPHORE = new Semaphore(Math.max(4, CPU_CORES / 2)); // 至少4个或CPU核心数一半
     private static final Object CREATION_LOCK = new Object();
+    
+    // 🔥 新增：任务运行状态追踪，用于动态延长浏览器实例时间
+    private static final Map<String, Long> TASK_START_TIME = new ConcurrentHashMap<>();
+    private static final Map<String, Boolean> TASK_RUNNING_STATUS = new ConcurrentHashMap<>();
 
     /**
      * @param key   userId
@@ -119,9 +127,16 @@ public class BrowserContextFactory {
                     unPersisBrowserContextInfo = new UnPersisBrowserContextInfo();
                     unPersisBrowserContextInfo.setUserId(key);
                     unPersisBrowserContextInfo.setBrowserContext(browserContext);
-                    unPersisBrowserContextInfo.setExpireTime(System.currentTimeMillis() + UnPersisBrowserContextInfo.ExpireTime.DAY_EXPIRE_TIME);
+                    
+                    // 🔥 核心优化：动态设置过期时间，考虑任务运行状态
+                    long expireTime = calculateDynamicExpireTime(key);
+                    unPersisBrowserContextInfo.setExpireTime(expireTime);
+                    
                     map.put(key, unPersisBrowserContextInfo);
                     CONTEXT_COUNT++;
+                    
+                    // 🔥 新增：标记任务开始时间
+                    markTaskStart(key);
                 }
                 return unPersisBrowserContextInfo;
             } catch (InterruptedException e) {
@@ -173,7 +188,86 @@ public class BrowserContextFactory {
         return unPersisBrowserContextInfo;
     }
 
-    // 检查过期时间
+    // 🔥 新增：标记任务开始
+    public static void markTaskStart(String userId) {
+        TASK_START_TIME.put(userId, System.currentTimeMillis());
+        TASK_RUNNING_STATUS.put(userId, true);
+    }
+    
+    // 🔥 新增：标记任务完成
+    public static void markTaskComplete(String userId) {
+        TASK_RUNNING_STATUS.put(userId, false);
+    }
+    
+    // 🔥 新增：检查任务是否正在运行
+    public static boolean isTaskRunning(String userId) {
+        return TASK_RUNNING_STATUS.getOrDefault(userId, false);
+    }
+    
+    // 🔥 新增：延长浏览器实例运行时间（当任务还在运行时）
+    public static void extendContextIfTaskRunning(String key) {
+        UnPersisBrowserContextInfo contextInfo = map.get(key);
+        if (contextInfo != null && isTaskRunning(key)) {
+            long newExpireTime = calculateDynamicExpireTime(key);
+            contextInfo.setExpireTime(newExpireTime);
+        }
+    }
+    
+    // 🔥 新增：检查是否为腾讯元宝用户（最小改动）
+    private static boolean isTencentUser(String userId) {
+        UnPersisBrowserContextInfo contextInfo = map.get(userId);
+        if (contextInfo != null && contextInfo.getBrowserContext() != null) {
+            try {
+                // 检查是否有腾讯元宝的页面
+                return contextInfo.getBrowserContext().pages().stream()
+                    .anyMatch(page -> {
+                        try {
+                            String url = page.url();
+                            return url != null && url.contains("yuanbao.tencent.com");
+                        } catch (Exception e) {
+                            return false;
+                        }
+                    });
+            } catch (Exception e) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    // 🔥 新增：动态计算过期时间
+    private static long calculateDynamicExpireTime(String userId) {
+        long currentTime = System.currentTimeMillis();
+        
+        // 🔥 关键：腾讯元宝用户永不过期（最小改动）
+        if (isTencentUser(userId)) {
+            return Long.MAX_VALUE; // 永不过期
+        }
+        
+        // 基础过期时间：2小时
+        long baseExpireTime = currentTime + (2 * 60 * 60 * 1000);
+        
+        // 如果任务正在运行，延长到4小时
+        if (isTaskRunning(userId)) {
+            Long taskStartTime = TASK_START_TIME.get(userId);
+            if (taskStartTime != null) {
+                long taskRunningTime = currentTime - taskStartTime;
+                
+                // 任务已运行超过1小时，再给4小时
+                if (taskRunningTime > (60 * 60 * 1000)) {
+                    return currentTime + (4 * 60 * 60 * 1000);
+                }
+                // 任务运行不到1小时，给3小时
+                else {
+                    return currentTime + (3 * 60 * 60 * 1000);
+                }
+            }
+        }
+        
+        return baseExpireTime;
+    }
+
+    // 🔥 优化：检查过期时间时考虑任务运行状态
     public static void closeExpireData(String key) {
         UnPersisBrowserContextInfo unPersisBrowserContextInfo = map.get(key);
         if (unPersisBrowserContextInfo != null) {
@@ -181,15 +275,36 @@ public class BrowserContextFactory {
             if (browserContext == null) {
                 map.remove(key);
                 BrowserController.loginMap.remove(key);
+                // 🔥 新增：清理任务状态
+                cleanupTaskStatus(key);
                 return;
             }
-//            处理过期上下文
+            
+            // 🔥 优化：在关闭前检查任务是否还在运行，如果在运行则延长时间
             if (System.currentTimeMillis() > unPersisBrowserContextInfo.getExpireTime()) {
+                // 🔥 关键：腾讯元宝用户永不关闭（最小改动）
+                if (isTencentUser(key)) {
+                    return; // 腾讯元宝用户不关闭
+                }
+                
+                if (isTaskRunning(key)) {
+                    // 任务还在运行，延长过期时间
+                    extendContextIfTaskRunning(key);
+                } else {
+                    // 任务已完成，可以关闭
                 browserContext.close();
                 BrowserController.loginMap.remove(key);
                 map.remove(key);
+                    cleanupTaskStatus(key);
+                }
             }
         }
+    }
+    
+    // 🔥 新增：清理任务状态
+    private static void cleanupTaskStatus(String userId) {
+        TASK_START_TIME.remove(userId);
+        TASK_RUNNING_STATUS.remove(userId);
     }
 
     // 关闭存活最久的上下文
@@ -200,6 +315,16 @@ public class BrowserContextFactory {
         for (String key : set) {
             UnPersisBrowserContextInfo unPersisBrowserContextInfo = map.get(key);
             if (unPersisBrowserContextInfo != null) {
+                // 🔥 关键：腾讯元宝用户不参与最久关闭逻辑（最小改动）
+                if (isTencentUser(key)) {
+                    continue;
+                }
+                
+                // 🔥 优化：如果任务还在运行，跳过该上下文
+                if (isTaskRunning(key)) {
+                    continue;
+                }
+                
                 Long expireTime = unPersisBrowserContextInfo.getExpireTime() - System.currentTimeMillis();
                 if (expireTime < suvMinTime) {
                     suvMinTime = expireTime;
@@ -214,6 +339,7 @@ public class BrowserContextFactory {
                 browserContext.close();
             }
             map.remove(suvMinKey);
+            cleanupTaskStatus(suvMinKey);
         }
     }
 }

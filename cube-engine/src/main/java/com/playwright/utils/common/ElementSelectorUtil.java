@@ -187,6 +187,11 @@ public class ElementSelectorUtil {
      */
     public String[] getTongYiSendButtonSelectors() {
         return new String[]{
+            // 新版UI选择器（基于2025年9月DOM结构）
+            "//div[contains(@class,'operateBtn--qMhYIdIu') and not(contains(@class,'disabled'))]",
+            "//div[contains(@class,'operateBtn') and not(contains(@class,'disabled'))]//svg",
+            "//div[@class='right--i7X8ORMk']//div[contains(@class,'operateBtn') and not(contains(@class,'disabled'))]",
+            
             // 原始选择器（最精确但最脆弱）
             "//div[@class='operateBtn--qMhYIdIu']//span[@role='img']//*[name()='svg']",
             // 更宽泛的备用选择器
@@ -194,11 +199,18 @@ public class ElementSelectorUtil {
             "//div[contains(@class,'operateBtn')]//span[@role='img']",
             "//div[contains(@class,'operate')]//svg",
             "//span[@role='img']//*[name()='svg'][contains(@class,'send') or contains(@class,'submit')]",
+            
+            // 基于SVG图标选择器（根据实际DOM结构）
+            "//div[@class='right--i7X8ORMk']//div[last()]//svg[contains(@xlink:href,'fasong') or contains(@class,'send')]",
+            "//svg[contains(@xlink:href,'icon-fasong')]",
+            "//use[@xlink:href='#icon-fasong_default']/parent::svg/parent::span/parent::div",
+            
             // 基于功能的选择器
             "//button[contains(@title,'发送') or contains(@aria-label,'发送')]",
             "//div[@role='button'][contains(@class,'send') or contains(@class,'submit')]",
             "[data-testid*='send']",
             "[data-action*='send']",
+            
             // 最后的备用选择器
             "//div[contains(@class,'btn') and contains(@class,'send')]//svg",
             "xpath=(//svg[contains(@class,'icon')])[last()]"
@@ -214,27 +226,40 @@ public class ElementSelectorUtil {
      */
     public boolean safeClickTongYiSendButton(com.microsoft.playwright.Page page, String actionName, int maxRetries) {
         String[] selectors = getTongYiSendButtonSelectors();
-        int baseTimeout = 45000; // 基础超时45秒
+        int baseTimeout = 20000; // 基础超时20秒，避免过长等待
         
         for (int retry = 0; retry < maxRetries; retry++) {
             try {
-                // 每次重试增加超时时间
-                int currentTimeout = baseTimeout + (retry * 15000); // 每次重试增加15秒
+                // 检查页面状态
+                if (page.isClosed()) {
+                    return false;
+                }
+                
+                // 每次重试适度增加超时时间
+                int currentTimeout = baseTimeout + (retry * 10000); // 每次重试增加10秒
                 
                 com.microsoft.playwright.Locator buttonLocator = findElementWithMultipleSelectors(page, selectors, currentTimeout);
                 if (buttonLocator != null) {
                     // 确保元素可见和可点击
                     try {
+                        // 等待元素可见
                         buttonLocator.waitFor(new com.microsoft.playwright.Locator.WaitForOptions()
                             .setTimeout(currentTimeout)
                             .setState(WaitForSelectorState.VISIBLE));
                         
+                        // 检查元素是否被禁用
+                        String elementClass = buttonLocator.getAttribute("class");
+                        if (elementClass != null && elementClass.contains("disabled")) {
+                            page.waitForTimeout(2000); // 等待按钮变为可用状态
+                            continue; // 重试
+                        }
+                        
                         // 滚动到元素位置确保可见
                         buttonLocator.scrollIntoViewIfNeeded();
-                        page.waitForTimeout(1000);
+                        page.waitForTimeout(500);
                         
                         // 点击操作
-                        buttonLocator.click(new com.microsoft.playwright.Locator.ClickOptions().setTimeout(currentTimeout));
+                        buttonLocator.click(new com.microsoft.playwright.Locator.ClickOptions().setTimeout(10000));
                         
                         return true;
                     } catch (Exception clickError) {
@@ -244,7 +269,7 @@ public class ElementSelectorUtil {
                             return true;
                         } catch (Exception jsError) {
                             if (retry == maxRetries - 1) {
-                                throw jsError;
+                                System.err.println("最后一次重试也失败了: " + jsError.getMessage());
                             }
                         }
                     }
@@ -252,16 +277,17 @@ public class ElementSelectorUtil {
                 
                 // 重试前等待
                 if (retry < maxRetries - 1) {
-                    page.waitForTimeout(3000 + (retry * 2000)); // 渐进式等待
+                    page.waitForTimeout(2000 + (retry * 1000)); // 渐进式等待
                 }
                 
             } catch (Exception e) {
                 if (retry == maxRetries - 1) {
+                    System.err.println("发送按钮点击最终失败: " + e.getMessage());
                     return false;
                 }
                 
                 try {
-                    page.waitForTimeout(2000); // 错误后等待2秒再重试
+                    page.waitForTimeout(1500); // 错误后等待1.5秒再重试
                 } catch (Exception ignored) {}
             }
         }

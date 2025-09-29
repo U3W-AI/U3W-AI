@@ -129,14 +129,34 @@ public class TongYiUtil {
             // 切换特殊模式
             handleCapabilitySwitch(page, userInfoRequest.getRoles(), userId, aiName);
 
-            //点击后placeholder变化，不可使用
-//            Locator inputBox = page.locator("textarea[placeholder='遇事不决问通义']");
-            Locator inputBox = page.locator("//textarea[@placeholder='遇事不决问通义']");
-            if (!inputBox.isVisible()) {
-                inputBox = page.locator("//textarea[@placeholder='Enter 发送，Ctrl+Enter 换行，点击放大按钮可全屏输入']");
+            // 🔥 智能输入框定位策略 - 支持多种placeholder文本
+            Locator inputBox = null;
+            String[] inputSelectors = {
+                "//textarea[@placeholder='遇事不决问通义']",
+                "//textarea[@placeholder='Enter 发送，Ctrl+Enter 换行，点击放大按钮可全屏输入']", 
+                "//textarea[@placeholder='基于Qwen3推理模型，支持自动联网搜索']",
+                "//textarea[contains(@class,'textarea--FEdqShqI')]",
+                "//textarea[contains(@class,'ant-input')]",
+                "//div[@class='chatTextarea--RVTXJYOh']//textarea",
+                "//div[@class='inputContainer--HIOhfxuo']//textarea"
+            };
+            
+            // 尝试找到可见的输入框
+            for (String selector : inputSelectors) {
+                try {
+                    Locator tempBox = page.locator(selector);
+                    if (tempBox.count() > 0 && tempBox.isVisible()) {
+                        inputBox = tempBox;
+                        logInfo.sendTaskLog("找到输入框，使用选择器: " + selector, userId, aiName);
+                        break;
+                    }
+                } catch (Exception e) {
+                    // 继续尝试下一个选择器
+                }
             }
-            if(userInfoRequest.getRoles().contains("ty-qw-sdsk")) {
-                inputBox = page.locator("//textarea[@placeholder='基于Qwen3推理模型，支持自动联网搜索']");
+            
+            if (inputBox == null) {
+                throw new RuntimeException("未找到可用的输入框");
             }
             inputBox.click();
             page.waitForTimeout(500);

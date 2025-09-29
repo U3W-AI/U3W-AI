@@ -2,6 +2,7 @@ package com.playwright.utils.ai;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.TimeoutError;
 import org.springframework.stereotype.Component;
 
 /**
@@ -20,7 +21,12 @@ public class ZhiHuUtil {
      * @param page Playwright页面实例
      * @return 用户名或"false"
      */
-    public String checkLoginStatus(Page page) throws InterruptedException {
+    public String checkLoginStatus(Page page) throws Exception {
+        // 检查页面是否已关闭
+        if (page.isClosed()) {
+            throw new RuntimeException("页面已关闭，无法检查知乎登录状态");
+        }
+
         try {
             // 检查用户头像和用户名（最常见的方式）
             // 知乎登录后，右上角通常有用户头像
@@ -36,6 +42,11 @@ public class ZhiHuUtil {
             };
             
             for (String selector : avatarSelectors) {
+                // 检查页面状态
+                if (page.isClosed()) {
+                    throw new RuntimeException("页面在查找用户头像时已关闭");
+                }
+                
                 Locator avatarArea = page.locator(selector);
                 if (avatarArea.count() > 0) {
                     try {
@@ -68,6 +79,11 @@ public class ZhiHuUtil {
             };
             
             for (String selector : loginSelectors) {
+                // 检查页面状态
+                if (page.isClosed()) {
+                    throw new RuntimeException("页面在查找登录按钮时已关闭");
+                }
+                
                 Locator loginButtons = page.locator(selector);
                 if (loginButtons.count() > 0) {
                     return "false";
@@ -83,6 +99,10 @@ public class ZhiHuUtil {
             // 如果没有找到明确的登录状态标识，返回false
             return "false";
 
+        } catch (com.microsoft.playwright.impl.TargetClosedError e) {
+            throw new RuntimeException("页面目标在检查知乎登录状态时已关闭", e);
+        } catch (TimeoutError e) {
+            throw new RuntimeException("检查知乎登录状态超时", e);
         } catch (Exception e) {
             throw e;
         }

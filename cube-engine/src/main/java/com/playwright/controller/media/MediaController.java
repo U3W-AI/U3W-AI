@@ -69,7 +69,7 @@ public class MediaController {
      */
     @Operation(summary = "检查知乎登录状态", description = "返回用户名表示已登录，false 表示未登录")
     @GetMapping("/checkZhihuLogin")
-    public String checkZhihuLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) throws InterruptedException {
+    public String checkZhihuLogin(@Parameter(description = "用户唯一标识")  @RequestParam("userId") String userId) throws Exception {
         String key = userId + "zhihu";
         if(loginMap.containsKey(key)) {
             return loginMap.get(key);

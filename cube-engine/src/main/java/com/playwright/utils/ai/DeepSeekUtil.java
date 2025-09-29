@@ -240,6 +240,14 @@ public class DeepSeekUtil {
                     }
                 }
 
+                // 🔥 新增：检测和处理刷新按钮
+                try {
+                    checkAndClickRefreshButton(page, userId, aiName);
+                } catch (Exception e) {
+                    // 刷新按钮检测失败不影响主流程
+                    logInfo.sendTaskLog("刷新按钮检测异常: " + e.getMessage(), userId, aiName);
+                }
+
                 // 获取最新AI回答内容 - 使用新的检测逻辑
                 Map<String, Object> responseData = getLatestDeepSeekResponseWithCompletion(page);
                 currentContent = (String) responseData.getOrDefault("content", "");
@@ -1842,6 +1850,55 @@ public class DeepSeekUtil {
         } catch (Exception e) {
             logInfo.sendTaskLog("过滤思考内容时发生错误: " + e.getMessage(), userId, "DeepSeek");
             return content; // 出错时返回原内容
+        }
+    }
+
+    /**
+     * 检测并点击DeepSeek的刷新按钮
+     * 刷新按钮通常出现在用户消息的左侧，class为"_001e3bb"
+     * @param page Playwright页面对象
+     * @param userId 用户ID
+     * @param aiName AI名称
+     */
+    private void checkAndClickRefreshButton(Page page, String userId, String aiName) {
+        try {
+            // 检测刷新按钮：class="_001e3bb"的div元素
+            Locator refreshButtons = page.locator("div._001e3bb");
+            
+            if (refreshButtons.count() > 0) {
+                // 检查是否有可见的刷新按钮
+                for (int i = 0; i < refreshButtons.count(); i++) {
+                    Locator button = refreshButtons.nth(i);
+                    if (button.isVisible()) {
+                        // 找到关联的用户消息，确认这是用户消息旁的刷新按钮
+                        try {
+                            // 查找附近的用户消息div (class="fbb737a4")
+                            Locator nearbyUserMessage = page.locator("div.fbb737a4").first();
+                            if (nearbyUserMessage.isVisible()) {
+                                // 确认这是需要刷新的场景
+                                String userMessageText = nearbyUserMessage.textContent();
+                                if (userMessageText != null && !userMessageText.trim().isEmpty()) {
+                                    logInfo.sendTaskLog("检测到刷新按钮，用户消息: " + userMessageText.substring(0, Math.min(50, userMessageText.length())), userId, aiName);
+                                    
+                                    // 点击刷新按钮
+                                    button.click();
+                                    logInfo.sendTaskLog("已点击刷新按钮，重新生成回答", userId, aiName);
+                                    
+                                    // 等待一下让页面响应
+                                    page.waitForTimeout(1000);
+                                    return; // 只点击一次即可
+                                }
+                            }
+                        } catch (Exception e) {
+                            // 忽略单个按钮的检测错误，继续检查下一个
+                            continue;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // 刷新按钮检测失败，记录但不抛出异常
+            logInfo.sendTaskLog("刷新按钮检测失败: " + e.getMessage(), userId, aiName);
         }
     }
 } 

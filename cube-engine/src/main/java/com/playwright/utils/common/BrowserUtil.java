@@ -24,32 +24,37 @@ public class BrowserUtil {
     private String userDataDir;
 
     // 🔥 优化：增强的资源管理和重试策略
-    private static final int MAX_RETRIES = 12; // 增加重试次数到12次，给更多机会
-    private static final long BASE_WAIT_TIME = 3000; // 基础等待时间增加到3秒
-    private static final long MAX_WAIT_TIME = 30000; // 最大等待时间增加到30秒
-    private static final int CONTEXT_TIMEOUT = 90000; // 🔥 关键：上下文创建超时增加到90秒
+    private static final int MAX_RETRIES = 15; // 🔥 优化：增加重试次数到15次，给AI长任务更多机会
+    private static final long BASE_WAIT_TIME = 2000; // 基础等待时间保持2秒，避免用户长时间等待
+    private static final long MAX_WAIT_TIME = 30000; // 最大等待时间保持30秒，避免用户长时间等待
+    private static final int CONTEXT_TIMEOUT = 90000; // 上下文创建超时保持90秒
     
-    // 🔥 新增：并发控制计数器，防止过多同时创建上下文
+    // 🔥 优化：并发控制基于CPU核心数，提高并发处理能力
+    private static final int CPU_CORES = Runtime.getRuntime().availableProcessors();
     private static final AtomicInteger CONCURRENT_CONTEXT_COUNT = new AtomicInteger(0);
-    private static final int MAX_CONCURRENT_CONTEXTS = 3; // 最多同时创建3个上下文
+    private static final int MAX_CONCURRENT_CONTEXTS = Math.max(6, CPU_CORES); // 至少6个或等于CPU核心数
 
 
 
     /**
      * 启动持久化浏览器上下文
-     * 🔥 优化：增强的重试机制、资源管理和并发控制
+     * 🔥 优化：增强的重试机制、资源管理和并发控制，集成任务状态管理
      *
      * @return BrowserContext 持久化浏览器上下文
      */
     public BrowserContext createPersistentBrowserContext(boolean isHead, String userId, String name) {
         Exception lastException = null;
         
-        // 🔥 并发控制：如果当前创建的上下文过多，等待
+        // 🔥 新增：标记任务开始（集成到工厂类的任务状态管理）
+        BrowserContextFactory.markTaskStart(userId);
+        
+        // 🔥 优化：并发控制等待时间，避免用户长时间等待
         while (CONCURRENT_CONTEXT_COUNT.get() >= MAX_CONCURRENT_CONTEXTS) {
             try {
-                Thread.sleep(2000);
+                Thread.sleep(2000); // 保持2秒等待时间
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                BrowserContextFactory.markTaskComplete(userId);
                 throw new RuntimeException("等待并发控制时被中断", e);
             }
         }
@@ -62,16 +67,16 @@ public class BrowserUtil {
                 Playwright playwright = null;
                 try {
                     
-                    // 🔥 优化：更保守的退避策略，线性增长而非指数增长
+                    // 🔥 优化：保守的退避策略，避免用户长时间等待
                     if (attempt > 1) {
-                        long waitTime = Math.min(BASE_WAIT_TIME + (attempt - 1) * 2000, MAX_WAIT_TIME);
+                        long waitTime = Math.min(BASE_WAIT_TIME + (attempt - 1) * 2000, MAX_WAIT_TIME); // 保持2秒步长
                         Thread.sleep(waitTime);
                         
-                        // 🔥 增强：强制垃圾回收和更长的资源释放时间
+                        // 🔥 增强：强制垃圾回收和资源释放时间
                         System.gc();
-                        Thread.sleep(1500); // 增加到1.5秒给系统更多时间清理
+                        Thread.sleep(1500); // 保持1.5秒给系统清理时间
                         
-                        // 🔥 新增：特殊情况处理，第3次重试后使用更保守的配置
+                        // 🔥 优化：特殊情况处理，第3次重试后使用更保守的配置
                         if (attempt >= 3) {
                             Thread.sleep(3000); // 额外等待3秒
                         }
@@ -103,6 +108,9 @@ public class BrowserUtil {
                     } catch (Exception permissionError) {
                     }
                     
+                    // 🔥 新增：创建成功后延长浏览器实例时间
+                    BrowserContextFactory.extendContextIfTaskRunning(userId);
+                    
                     return context;
                     
                 } catch (com.microsoft.playwright.impl.TargetClosedError e) {
@@ -113,12 +121,13 @@ public class BrowserUtil {
                     
                     if (attempt < MAX_RETRIES) {
                         
-                        // 🔥 新增：TargetClosedError 特殊处理，额外等待时间
+                        // 🔥 优化：TargetClosedError 特殊处理，额外等待时间
                         if (attempt >= 2) {
                             try {
-                                Thread.sleep(5000); // 额外等待5秒
+                                Thread.sleep(5000); // 保持5秒等待时间
                             } catch (InterruptedException ie) {
                                 Thread.currentThread().interrupt();
+                                BrowserContextFactory.markTaskComplete(userId);
                                 throw new RuntimeException("线程在TargetClosedError恢复等待时被中断", ie);
                             }
                         }
@@ -132,13 +141,14 @@ public class BrowserUtil {
                     
                     if (attempt < MAX_RETRIES) {
                         
-                        // 🔥 新增：TimeoutError 特殊处理，更长的等待时间
+                        // 🔥 优化：TimeoutError 特殊处理，更长的等待时间
                         if (attempt >= 3) {
                             try {
-                                Thread.sleep(8000); // 额外等待8秒
+                                Thread.sleep(8000); // 保持8秒等待时间
                             } catch (InterruptedException ie) {
                                 Thread.currentThread().interrupt();
-                                throw new RuntimeException("线程在TimeoutError恢复等待时被中断", ie);
+                                BrowserContextFactory.markTaskComplete(userId);
+                                throw new RuntimeException("线程在TimeoutError恢复等待时间被中断", ie);
                             }
                         }
                     } else {
@@ -146,6 +156,7 @@ public class BrowserUtil {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     cleanupPlaywrightResources(playwright);
+                    BrowserContextFactory.markTaskComplete(userId);
                     throw new RuntimeException("浏览器上下文创建被中断", e);
                 } catch (Exception e) {
                     lastException = e;
@@ -153,6 +164,7 @@ public class BrowserUtil {
                     // 对于某些特定错误，不需要重试
                     if (isNonRetryableError(e)) {
                         cleanupPlaywrightResources(playwright);
+                        BrowserContextFactory.markTaskComplete(userId);
                         throw new RuntimeException("浏览器上下文创建失败（不可重试错误）", e);
                     }
                     
@@ -164,11 +176,12 @@ public class BrowserUtil {
                 }
             }
             
+            BrowserContextFactory.markTaskComplete(userId);
             String errorMessage = lastException != null ? lastException.getMessage() : "未知错误";
             throw new RuntimeException("创建持久化浏览器上下文失败，经过 " + MAX_RETRIES + " 次重试。最后错误: " + errorMessage, lastException);
             
         } finally {
-            // 🔥 新增：确保释放并发计数
+            // 🔥 优化：确保释放并发计数
             CONCURRENT_CONTEXT_COUNT.decrementAndGet();
         }
     }

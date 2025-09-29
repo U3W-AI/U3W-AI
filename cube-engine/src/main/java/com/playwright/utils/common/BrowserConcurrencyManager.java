@@ -19,7 +19,7 @@ public class BrowserConcurrencyManager {
     // CPU核心数
     private final int CPU_CORES = Runtime.getRuntime().availableProcessors();
 
-    // 并发限制：CPU核心数 + 2 (优化性能和资源平衡)
+    // 🔥 优化：并发限制调整为两倍CPU核心数，提高并发处理能力
     private final int MAX_CONCURRENT_BROWSERS;
     
     // 线程池执行器
@@ -28,8 +28,8 @@ public class BrowserConcurrencyManager {
     // 当前运行的任务数量
     private final AtomicInteger runningTasks = new AtomicInteger(0);
     
-    // 任务队列大小 - 增大队列以处理更多并发请求
-    private final int QUEUE_SIZE = 100;
+    // 🔥 优化：增大队列大小，提高队列稳定性和并发处理能力
+    private final int QUEUE_SIZE = Math.max(200, CPU_CORES * 10); // 队列大小至少200或CPU核心数*10
     
     // 任务执行状态跟踪 - 防止重复执行
     private final Set<String> executingTasks = ConcurrentHashMap.newKeySet();
@@ -80,16 +80,16 @@ public class BrowserConcurrencyManager {
     }
     
     public BrowserConcurrencyManager() {
-        // 计算最大并发数：CPU核心数 + 2，提升并发处理能力
-        this.MAX_CONCURRENT_BROWSERS = CPU_CORES ;
+        // 🔥 核心优化：计算最大并发数为两倍CPU核心数，大幅提升并发处理能力
+        this.MAX_CONCURRENT_BROWSERS = CPU_CORES * 2;
         
-        // 创建线程池：使用优先级队列支持任务优先级排序
+        // 🔥 优化：创建线程池，增强并发能力和稳定性
         this.executor = new ThreadPoolExecutor(
-            MAX_CONCURRENT_BROWSERS,           // 核心线程数
-            MAX_CONCURRENT_BROWSERS +1,       // 最大线程数，允许临时超出处理突发请求
-            120L,                              // 增加线程空闲存活时间
+            MAX_CONCURRENT_BROWSERS,           // 核心线程数：两倍CPU核心数
+            MAX_CONCURRENT_BROWSERS + Math.max(2, CPU_CORES / 2), // 最大线程数：核心线程数 + 额外缓冲
+            300L,                              // 🔥 优化：增加线程空闲存活时间到300秒，减少线程频繁创建销毁
             TimeUnit.SECONDS,                  // 时间单位
-            new PriorityBlockingQueue<>(QUEUE_SIZE), // 使用优先级队列
+            new PriorityBlockingQueue<>(QUEUE_SIZE), // 使用优先级队列，容量大幅提升
             new ThreadFactory() {              // 线程工厂
                 private final AtomicInteger threadNumber = new AtomicInteger(1);
                 @Override
@@ -101,7 +101,7 @@ public class BrowserConcurrencyManager {
                     return thread;
                 }
             },
-            new ThreadPoolExecutor.CallerRunsPolicy() // 拒绝策略：调用者运行
+            new ThreadPoolExecutor.CallerRunsPolicy() // 拒绝策略：调用者运行，确保任务不丢失
         );
         
         // 预启动核心线程，减少首次任务执行延迟
