@@ -73,8 +73,8 @@
 								</picker>
 							</view>
               <view class="ai-capabilities" v-if="ai.capabilities.length > 0">
-                <!-- 通义千问使用单选按钮逻辑 -->
-                <view v-if="ai.name === '通义千问'" class="capability-tags-container">
+                <!-- 通义千问和知乎直答使用单选按钮逻辑 -->
+                <view v-if="ai.name === '通义千问' || ai.name === '知乎直答'" class="capability-tags-container">
                   <view v-for="(capability, capIndex) in ai.capabilities"
                         :key="capIndex"
                         class="capability-tag"
@@ -603,35 +603,26 @@
           {
             name: "知乎直答",
             avatar: 'https://u3w.com/chatfile/ZHZD.png',
-            capabilities: [{
-              label: "深度思考",
-              value: "deep_thinking"
-            },
+            capabilities: [
               {
-                label: "全网搜索",
-                value: "all_web_search"
+                label: "智能思考",
+                value: "smart_thinking"
               },
               {
-                label: "知乎搜索",
-                value: "zhihu_search"
+                label: "深度思考",
+                value: "deep_thinking"
               },
               {
-                label: "学术搜索",
-                value: "academic_search"
-              },
-              {
-                label: "我的知识库",
-                value: "personal_knowledge"
+                label: "快速回答",
+                value: "fast_answer"
               },
             ],
-            selectedCapabilities: ['deep_thinking', 'all_web_search', 'zhihu_search', 'academic_search',
-              'personal_knowledge'
-            ],
+            selectedCapability: "smart_thinking", // 改为单选，默认智能思考
             enabled: true,
             status: 'idle',
             progressLogs: [],
             isExpanded: true,
-            isSingleSelect: false,
+            isSingleSelect: true, // 设为单选模式
           },
           {
             name: "百度AI",
@@ -1109,9 +1100,9 @@
 
           if(ai.name === '通义千问' && ai.enabled){
             this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw,';
-            if (ai.selectedCapability.includes("deep_thinking")) {
+            if (ai.selectedCapability === "deep_thinking") {
               this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-sdsk,'
-            } else if (ai.selectedCapability.includes("web_search")) {
+            } else if (ai.selectedCapability === "web_search") {
               this.userInfoReq.roles = this.userInfoReq.roles + 'ty-qw-lwss,';
             }
           }
@@ -1126,20 +1117,16 @@
           if (ai.name === "知乎直答") {
             if (this.isAiLoginEnabled(ai)) {
               this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-chat,";
-              if (ai.selectedCapabilities.includes("deep_thinking")) {
+              // 使用单选思考模式
+              if (ai.selectedCapability === "deep_thinking") {
                 this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-sdsk,";
-              }
-              if (ai.selectedCapabilities.includes("all_web_search")) {
-                this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-qw,";
-              }
-              if (ai.selectedCapabilities.includes("zhihu_search")) {
-                this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-zh,";
-              }
-              if (ai.selectedCapabilities.includes("academic_search")) {
-                this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-xs,";
-              }
-              if (ai.selectedCapabilities.includes("personal_knowledge")) {
-                this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-wdzsk,";
+              } else if (ai.selectedCapability === "fast_answer") {
+                this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-ks,";
+              } else if (ai.selectedCapability === "smart_thinking") {
+                this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-zn,";
+              } else {
+                // 默认智能思考
+                this.userInfoReq.roles = this.userInfoReq.roles + "zhzd-zn,";
               }
             }
           }
@@ -1192,8 +1179,8 @@
 			this.isConnecting = true;
 
 			// 使用PC端的WebSocket连接方式
-		    // const wsUrl = `${process.env.VUE_APP_WS_API || 'wss://u3w.com/cubeServer/websocket?clientId='}mypc-${this.userId}`;
-			 const wsUrl = `${process.env.VUE_APP_WS_API || 'ws://127.0.0.1:8081/websocket?clientId='}mypc-${this.userId}`;
+		    const wsUrl = `${process.env.VUE_APP_WS_API || 'wss://u3w.com/cubeServer/websocket?clientId='}mypc-${this.userId}`;
+			// const wsUrl = `${process.env.VUE_APP_WS_API || 'ws://127.0.0.1:8081/websocket?clientId='}mypc-${this.userId}`;
 			console.log('WebSocket URL:', wsUrl);
 
 			this.socketTask = uni.connectSocket({
@@ -2171,11 +2158,11 @@
 					toneChatId: this.userInfoReq.toneChatId,
 					ybDsChatId: this.userInfoReq.ybDsChatId,
 					dbChatId: this.userInfoReq.dbChatId,
-          // tyChatId: this.userInfoReq.tyChatId,
+            // tyChatId: this.userInfoReq.tyChatId,
 
-          metasoChatId: this.userInfoReq.metasoChatId,
+            metasoChatId: this.userInfoReq.metasoChatId,
 
-          baiduChatId:this.userInfoReq.baiduChatId,
+            baiduChatId:this.userInfoReq.baiduChatId,
 					zhzdChatId: this.userInfoReq.zhzdChatId,
 				};
 
@@ -2938,35 +2925,26 @@ else {
           {
             name: "知乎直答",
             avatar: 'https://u3w.com/chatfile/ZHZD.png',
-            capabilities: [{
-              label: "深度思考",
-              value: "deep_thinking"
-            },
+            capabilities: [
               {
-                label: "全网搜索",
-                value: "all_web_search"
+                label: "智能思考",
+                value: "smart_thinking"
               },
               {
-                label: "知乎搜索",
-                value: "zhihu_search"
+                label: "深度思考",
+                value: "deep_thinking"
               },
               {
-                label: "学术搜索",
-                value: "academic_search"
-              },
-              {
-                label: "我的知识库",
-                value: "personal_knowledge"
+                label: "快速回答",
+                value: "fast_answer"
               },
             ],
-            selectedCapabilities: ['deep_thinking', 'all_web_search', 'zhihu_search', 'academic_search',
-              'personal_knowledge'
-            ],
+            selectedCapability: "smart_thinking", // 改为单选，默认智能思考
             enabled: true,
             status: 'idle',
             progressLogs: [],
             isExpanded: true,
-            isSingleSelect: false,
+            isSingleSelect: true, // 设为单选模式
           },
           {
             name: "百度AI",
