@@ -51,88 +51,74 @@ public class DeepSeekUtil {
      * @return 登录状态，如果已登录则返回用户名，否则返回"false"
      */
     public String checkLoginStatus(Page page, boolean navigate) {
-        try {
-            if (navigate) {
-                page.navigate("https://chat.deepseek.com/");
-                page.waitForLoadState();
-                page.waitForTimeout(1500); // 增加等待时间确保页面完全加载
-            }
-
-            // 检查是否有登录按钮，如果有则表示未登录
-            try {
-                Locator loginBtn = page.locator("button:has-text('登录'), button:has-text('Login')").first();
-                if (loginBtn.count() > 0 && loginBtn.isVisible()) {
-                    return "false";
-                }
-            } catch (Exception e) { //todo
-                // 忽略检查错误
-            }
-
-            // 首先尝试关闭侧边栏
-            try {
-                // 等待侧边栏关闭按钮出现并点击
-                ElementHandle closeButton = page.waitForSelector(
-                        "div[class*='_4f3769f']",
-                        new Page.WaitForSelectorOptions().setTimeout(2000));
-
-                if (closeButton != null) {
-                    closeButton.click(new ElementHandle.ClickOptions().setTimeout(30000));
-
-                    // 等待一下确保侧边栏关闭动画完成
-                    page.waitForTimeout(800);
-                }
-            } catch (Exception e) {
-//                logInfo.sendTaskLog("关闭侧边栏失败或按钮不存在: " + e.getMessage(), userId, "DeepSeek");
-            }
-
-            // 特别针对用户昵称"Obvious"的检测
-            try {
-                // 点击头像显示下拉菜单
-                Locator avatarLocator = page.locator("img.fdf01f38").first();
-                if (avatarLocator.count() > 0 && avatarLocator.isVisible()) {
-                    avatarLocator.click();
-                    page.waitForTimeout(1500); // 增加等待时间确保下拉菜单显示
-
-
-                    // new 直接定位到包含用户名的元素
-                    Locator userNameElement = page.locator("div._9d8da05").first();
-
-                    if (userNameElement.count() > 0 && userNameElement.isVisible()) {
-                        String name = userNameElement.textContent();
-                        if (name != null && !name.trim().isEmpty() &&
-                                !name.trim().equals("登录") && !name.trim().equals("Login")) {
-                            // 找到用户昵称
-                            return name.trim();
-                        }
-                    }
-                    // 即使未找到昵称，也已确认已登录
-                    return "已登录用户";
-                }
-            } catch (Exception e) {
-            }
-
-            // 最后尝试使用通用方法检测登录状态
-            try {
-                // 检查是否有新建聊天按钮或其他已登录状态的标志
-                Locator newChatBtn = page.locator("button:has-text('新建聊天'), button:has-text('New Chat')").first();
-                if (newChatBtn.count() > 0 && newChatBtn.isVisible()) {
-                    return "已登录用户";
-                }
-
-                // 检查是否有聊天历史记录
-                Locator chatHistory = page.locator(".conversation-list, .chat-history").first();
-                if (chatHistory.count() > 0 && chatHistory.isVisible()) {
-                    return "已登录用户";
-                }
-            } catch (Exception e) {
-                // 忽略检查错误
-            }
-
-            // 默认返回未登录状态
-            return "false";
-        } catch (Exception e) {
-            throw e;
+        if (navigate) {
+            page.navigate("https://chat.deepseek.com/");
+            page.waitForLoadState();
+            page.waitForTimeout(1500);
         }
+
+        // 检查是否有登录按钮，如果有则表示未登录
+        try {
+            Locator loginBtn = page.locator("button:has-text('登录'), button:has-text('Login')").first();
+            if (loginBtn.count() > 0 && loginBtn.isVisible()) {
+                return "false";
+            }
+        } catch (Exception e) {
+            // 检查失败，继续其他检测
+        }
+
+        // 首先尝试关闭侧边栏（使用更精确的选择器，避免误点击）
+        try {
+            ElementHandle closeButton = page.waitForSelector(
+                    "div._17e543b._4f3769f[role='button']",
+                    new Page.WaitForSelectorOptions().setTimeout(2000));
+
+            if (closeButton != null) {
+                closeButton.click(new ElementHandle.ClickOptions().setTimeout(30000).setForce(true));
+                page.waitForTimeout(800);
+            }
+        } catch (Exception e) {
+            // 侧边栏可能已经关闭或不存在
+        }
+
+        // 特别针对用户昵称"Obvious"的检测
+        try {
+            Locator avatarLocator = page.locator("img.fdf01f38").first();
+            if (avatarLocator.count() > 0 && avatarLocator.isVisible()) {
+                avatarLocator.click();
+                page.waitForTimeout(1500);
+
+                Locator userNameElement = page.locator("div._9d8da05").first();
+
+                if (userNameElement.count() > 0 && userNameElement.isVisible()) {
+                    String name = userNameElement.textContent();
+                    if (name != null && !name.trim().isEmpty() &&
+                            !name.trim().equals("登录") && !name.trim().equals("Login")) {
+                        return name.trim();
+                    }
+                }
+                return "已登录用户";
+            }
+        } catch (Exception e) {
+            // 头像检测失败，继续其他方法
+        }
+
+        // 最后尝试使用通用方法检测登录状态
+        try {
+            Locator newChatBtn = page.locator("button:has-text('新建聊天'), button:has-text('New Chat')").first();
+            if (newChatBtn.count() > 0 && newChatBtn.isVisible()) {
+                return "已登录用户";
+            }
+
+            Locator chatHistory = page.locator(".conversation-list, .chat-history").first();
+            if (chatHistory.count() > 0 && chatHistory.isVisible()) {
+                return "已登录用户";
+            }
+        } catch (Exception e) {
+            // 通用检测失败
+        }
+
+        return "false";
     }
 
     /**
@@ -143,21 +129,17 @@ public class DeepSeekUtil {
      * @return 二维码截图URL
      */
     public String waitAndGetQRCode(Page page, String userId, ScreenshotUtil screenshotUtil) throws Exception {
-        try {
-            logInfo.sendTaskLog("正在获取DeepSeek登录二维码", userId, "DeepSeek");
+        logInfo.sendTaskLog("正在获取DeepSeek登录二维码", userId, "DeepSeek");
 
-            // 导航到DeepSeek登录页面，启用等待直到网络空闲
-            page.navigate("https://chat.deepseek.com/");
-            page.waitForLoadState();
+        // 导航到DeepSeek登录页面，启用等待直到网络空闲
+        page.navigate("https://chat.deepseek.com/");
+        page.waitForLoadState();
 
-            // 直接截图当前页面（包含登录按钮）
-            String url = screenshotUtil.screenshotAndUpload(page, "checkDeepSeekLogin.png");
+        // 直接截图当前页面（包含登录按钮）
+        String url = screenshotUtil.screenshotAndUpload(page, "checkDeepSeekLogin.png");
 
-            logInfo.sendTaskLog("DeepSeek二维码获取成功", userId, "DeepSeek");
-            return url;
-        } catch (Exception e) {
-            throw e;
-        }
+        logInfo.sendTaskLog("DeepSeek二维码获取成功", userId, "DeepSeek");
+        return url;
     }
 
     /**
@@ -233,19 +215,16 @@ public class DeepSeekUtil {
                     try {
                         screenshotUtil.screenshotAndUpload(page, userId + aiName + "执行过程截图" + ((int)(elapsedTime/1000/6) + 1) + ".png");
                         lastScreenshotTime = System.currentTimeMillis();
-                        // 移除定期截图日志，减少噪音
                     } catch (Exception e) {
-                        // 截图失败不影响主流程
-                        logInfo.sendTaskLog("定期截图失败: " + e.getMessage(), userId, aiName);
+                        // 截图失败不影响主流程，静默处理
                     }
                 }
 
-                // 🔥 新增：检测和处理刷新按钮
+                // 检测和处理刷新按钮
                 try {
                     checkAndClickRefreshButton(page, userId, aiName);
                 } catch (Exception e) {
-                    // 刷新按钮检测失败不影响主流程
-                    logInfo.sendTaskLog("刷新按钮检测异常: " + e.getMessage(), userId, aiName);
+                    // 刷新按钮检测失败不影响主流程，静默处理
                 }
 
                 // 获取最新AI回答内容 - 使用新的检测逻辑
@@ -350,8 +329,7 @@ public class DeepSeekUtil {
                                 return "DeepSeek错误: " + errorResult;
                             }
                         } catch (Exception e) {
-                            // 记录页面评估异常
-                            UserLogUtil.sendAIBusinessLog(userId, aiName, "页面错误检测", "评估页面错误时发生异常：" + e.getMessage(), System.currentTimeMillis(), "http://localhost:8080" + "/saveLogInfo");
+                            // 页面错误检测失败，静默处理
                         }
                         
                         // 只有在从未有过内容且等待很长时间的情况下才报错
@@ -395,7 +373,7 @@ public class DeepSeekUtil {
             return finalContent;
 
         } catch (Exception e) {
-            logInfo.sendTaskLog("等待AI回答时出错: " + e.getMessage(), userId, aiName);
+            // 异常向上抛出，由AOP统一处理
             throw e;
         }
     }
@@ -698,6 +676,9 @@ public class DeepSeekUtil {
         try {
             long startProcessTime = System.currentTimeMillis(); // 记录开始处理时间
             
+            // 重置刷新按钮点击标志（每次新对话都重新检测）
+            hasClickedRefreshButton = false;
+            
             // 设置页面错误处理
             page.onPageError(error -> {
             });
@@ -934,14 +915,9 @@ public class DeepSeekUtil {
                 } else {
                     return "获取内容失败：未找到输入框";
                 }
-            } catch (TimeoutError e) {
-                // 记录超时异常
-                UserLogUtil.sendAITimeoutLog(userId, "DeepSeek", "发送消息", e, "输入框填写或发送按钮点击", url + "/saveLogInfo");
-                return "获取内容失败：发送消息超时 - " + e.getMessage();
             } catch (Exception e) {
-                // 记录发送消息异常
-                UserLogUtil.sendAIBusinessLog(userId, "DeepSeek", "发送消息", "发送消息出错：" + e.getMessage(), System.currentTimeMillis(), url + "/saveLogInfo");
-                return "获取内容失败：发送消息出错 - " + e.getMessage();
+                // 发送消息失败，抛出异常由AOP处理
+                throw new RuntimeException("发送消息失败: " + e.getMessage(), e);
             }
             
             // 等待回答完成并获取内容
@@ -951,13 +927,8 @@ public class DeepSeekUtil {
             // 返回内容
             return content;
             
-        } catch (TimeoutError e) {
-            // 记录DeepSeek整体操作超时
-            UserLogUtil.sendAITimeoutLog(userId, "DeepSeek", "AI对话处理", e, "整个对话流程", url + "/saveLogInfo");
-            throw e;
         } catch (Exception e) {
-            // 记录DeepSeek处理异常
-            UserLogUtil.sendAIExceptionLog(userId, "DeepSeek", "handleDeepSeekAI", e, System.currentTimeMillis(), "AI对话处理失败", url + "/saveLogInfo");
+            // 异常向上抛出，由AOP统一处理
             throw e;
         }
     }
@@ -991,16 +962,14 @@ public class DeepSeekUtil {
             // 验证输入是否完成
             String finalValue = (String) inputBox.evaluate("el => el.value");
             if (finalValue == null || !finalValue.contains(text.substring(0, Math.min(50, text.length())))) {
-                // 如果模拟输入失败，尝试直接填充
-                logInfo.sendTaskLog("模拟输入失败，尝试直接填充", userId, "DeepSeek");
+                // 模拟输入失败，直接填充
                 inputBox.fill(text);
             } else {
                 logInfo.sendTaskLog("模拟人工输入成功", userId, "DeepSeek");
             }
             
         } catch (Exception e) {
-            // 如果模拟输入出错，回退到直接填充
-            logInfo.sendTaskLog("模拟输入出错，使用直接填充: " + e.getMessage(), userId, "DeepSeek");
+            // 模拟输入出错，回退到直接填充
             inputBox.fill(text);
         }
     }
@@ -1198,12 +1167,12 @@ public class DeepSeekUtil {
                 Thread.sleep(1000);
                 return true;
             } else {
-                logInfo.sendTaskLog("所有发送方法都失败了", userId, "DeepSeek");
+                // 所有发送方法都失败
                 return false;
             }
             
         } catch (Exception e) {
-            logInfo.sendTaskLog("发送按钮点击出错: " + e.getMessage(), userId, "DeepSeek");
+            // 发送按钮点击失败，静默处理
             return false;
         }
     }
@@ -1233,6 +1202,8 @@ public class DeepSeekUtil {
                     chatId = matcher.group(1);
                     shareUrl = "https://chat.deepseek.com/a/chat/s/" + chatId;
                     userInfoRequest.setDeepseekChatId(chatId);
+                    // 🔥 通知用户会话ID已保存
+                    logInfo.sendTaskLog("已获取DeepSeek会话ID: " + chatId + "，下次可继续使用此会话", userId, "DeepSeek");
                     JSONObject chatData = new JSONObject();
                     chatData.put("type", "RETURN_DEEPSEEK_CHATID");
                     chatData.put("chatId", chatId);
@@ -1240,8 +1211,7 @@ public class DeepSeekUtil {
                     webSocketClientService.sendMessage(chatData.toJSONString());
                 }
             } catch (Exception e) {
-                // 记录URL提取异常
-                UserLogUtil.sendAIBusinessLog(userId, "DeepSeek", "URL提取", "提取分享链接失败：" + e.getMessage(), System.currentTimeMillis(), url + "/saveLogInfo");
+                // URL提取失败，静默处理
             }
             
             // 2. 生成最后一组对话的长截图（参考百度的处理方案）
@@ -1250,7 +1220,7 @@ public class DeepSeekUtil {
                 shareImgUrl = captureLastConversationScreenshot(page, userId);
                 logInfo.sendTaskLog("成功生成对话截图", userId, "DeepSeek");
             } catch (Exception e) {
-                logInfo.sendTaskLog("生成截图失败: " + e.getMessage(), userId, "DeepSeek");
+                // 截图失败，静默处理
             }
             
             // 3. 只保留AI内容，不加对话包装
@@ -1286,7 +1256,7 @@ public class DeepSeekUtil {
             logInfo.sendTaskLog("执行完成", userId, "DeepSeek");
             return displayContent;
         } catch (Exception e) {
-            logInfo.sendTaskLog("DeepSeek内容保存过程发生异常", userId, "DeepSeek");
+            // 异常向上抛出，由AOP统一处理
             throw e;
         }
     }
@@ -1322,8 +1292,8 @@ public class DeepSeekUtil {
 
             // 只在状态不符时点击
             if (isCurrentlyActive != shouldActive) {
-                // 使用Playwright的自动等待机制点击:cite[4]
-                button.click(new Locator.ClickOptions().setTimeout(5000));
+                // 使用强制点击避免被其他元素遮挡
+                button.click(new Locator.ClickOptions().setTimeout(5000).setForce(true));
 
                 // 等待状态变化
                 boolean stateChanged = false;
@@ -1341,14 +1311,12 @@ public class DeepSeekUtil {
 
                 if (stateChanged) {
                     logInfo.sendTaskLog((shouldActive ? "已启动" : "已关闭") + buttonText + "模式", userId, aiName);
-                } else {
-                    logInfo.sendTaskLog(buttonText + "模式切换失败", userId, aiName);
                 }
             } else {
                 logInfo.sendTaskLog(buttonText + "模式已经是" + (shouldActive ? "开启" : "关闭") + "状态", userId, aiName);
             }
         } catch (Exception e) {
-            logInfo.sendTaskLog("切换" + buttonText + "模式时出错: " + e.getMessage(), userId, aiName);
+            // 模式切换失败，静默处理
         }
     }
 
@@ -1559,7 +1527,7 @@ public class DeepSeekUtil {
             return getLatestAiResponse(page);
             
         } catch (Exception e) {
-            logInfo.sendTaskLog("获取最后一组对话内容时出错: " + e.getMessage(), userId, "DeepSeek");
+            // 获取失败，回退到原方法，静默处理
             return getLatestAiResponse(page);
         }
     }
@@ -1630,8 +1598,6 @@ public class DeepSeekUtil {
                      logInfo.sendTaskLog("对话截图已生成并上传", userId, "DeepSeek");
                      
                      return uploadedUrl;
-                } else {
-                    logInfo.sendTaskLog("定位对话区域失败: " + result.get("message"), userId, "DeepSeek");
                 }
             }
             
@@ -1647,7 +1613,7 @@ public class DeepSeekUtil {
                          return uploadFile(screenshotUtil.uploadUrl, fallbackPath);
             
         } catch (Exception e) {
-            logInfo.sendTaskLog("截图过程发生错误: " + e.getMessage(), userId, "DeepSeek");
+            // 异常向上抛出，由AOP统一处理
             throw e;
         }
     }
@@ -1724,15 +1690,14 @@ public class DeepSeekUtil {
                         return "";
                     }
                 } else {
-                    String error = (String) resultMap.get("error");
-                    logInfo.sendTaskLog("复制按钮点击失败: " + error, userId, "DeepSeek");
+                    // 复制按钮点击失败，返回空字符串
                     return "";
                 }
             }
             
             return "";
         } catch (Exception e) {
-            logInfo.sendTaskLog("点击复制按钮时发生错误: " + e.getMessage(), userId, "DeepSeek");
+            // 点击复制按钮失败，静默处理
             return "";
         }
     }
@@ -1848,57 +1813,96 @@ public class DeepSeekUtil {
             return finalResult;
             
         } catch (Exception e) {
-            logInfo.sendTaskLog("过滤思考内容时发生错误: " + e.getMessage(), userId, "DeepSeek");
-            return content; // 出错时返回原内容
+            // 过滤失败，返回原内容，静默处理
+            return content;
         }
     }
 
+    // 用于记录是否已点击过刷新按钮，避免重复点击
+    private boolean hasClickedRefreshButton = false;
+    
     /**
      * 检测并点击DeepSeek的刷新按钮
      * 刷新按钮通常出现在用户消息的左侧，class为"_001e3bb"
+     * 注意：需要排除侧边栏开关按钮（父元素包含_4f3769f）
      * @param page Playwright页面对象
      * @param userId 用户ID
      * @param aiName AI名称
      */
     private void checkAndClickRefreshButton(Page page, String userId, String aiName) {
         try {
-            // 检测刷新按钮：class="_001e3bb"的div元素
-            Locator refreshButtons = page.locator("div._001e3bb");
+            // 如果已经点击过刷新按钮，不再重复点击
+            if (hasClickedRefreshButton) {
+                return;
+            }
             
-            if (refreshButtons.count() > 0) {
-                // 检查是否有可见的刷新按钮
-                for (int i = 0; i < refreshButtons.count(); i++) {
-                    Locator button = refreshButtons.nth(i);
-                    if (button.isVisible()) {
-                        // 找到关联的用户消息，确认这是用户消息旁的刷新按钮
-                        try {
-                            // 查找附近的用户消息div (class="fbb737a4")
-                            Locator nearbyUserMessage = page.locator("div.fbb737a4").first();
-                            if (nearbyUserMessage.isVisible()) {
-                                // 确认这是需要刷新的场景
-                                String userMessageText = nearbyUserMessage.textContent();
-                                if (userMessageText != null && !userMessageText.trim().isEmpty()) {
-                                    logInfo.sendTaskLog("检测到刷新按钮，用户消息: " + userMessageText.substring(0, Math.min(50, userMessageText.length())), userId, aiName);
-                                    
-                                    // 点击刷新按钮
-                                    button.click();
-                                    logInfo.sendTaskLog("已点击刷新按钮，重新生成回答", userId, aiName);
-                                    
-                                    // 等待一下让页面响应
-                                    page.waitForTimeout(1000);
-                                    return; // 只点击一次即可
-                                }
+            // 使用JavaScript进行更精确的检测，排除侧边栏按钮
+            Object result = page.evaluate("""
+                () => {
+                    try {
+                        // 查找所有包含 _001e3bb 的div
+                        const potentialButtons = document.querySelectorAll('div._001e3bb');
+                        
+                        for (const innerDiv of potentialButtons) {
+                            const parentButton = innerDiv.parentElement;
+                            
+                            // 检查父元素是否是按钮
+                            if (!parentButton || parentButton.getAttribute('role') !== 'button') {
+                                continue;
                             }
-                        } catch (Exception e) {
-                            // 忽略单个按钮的检测错误，继续检查下一个
-                            continue;
+                            
+                            // 排除侧边栏按钮（包含_4f3769f class）
+                            if (parentButton.className.includes('_4f3769f')) {
+                                continue; // 这是侧边栏按钮，跳过
+                            }
+                            
+                            // 检查按钮是否可见
+                            const styles = window.getComputedStyle(parentButton);
+                            if (styles.display === 'none' || styles.visibility === 'hidden') {
+                                continue;
+                            }
+                            
+                            // 检查附近是否有用户消息（真正的刷新按钮应该在用户消息附近）
+                            const userMessages = document.querySelectorAll('div.fbb737a4');
+                            if (userMessages.length > 0) {
+                                // 找到真正的刷新按钮，标记位置以便后续点击
+                                parentButton.setAttribute('data-refresh-button', 'true');
+                                return { found: true, message: '找到刷新按钮' };
+                            }
+                        }
+                        
+                        return { found: false, message: '未找到刷新按钮' };
+                    } catch (e) {
+                        return { found: false, message: e.toString() };
+                    }
+                }
+            """);
+            
+            if (result instanceof Map) {
+                Map<String, Object> resultMap = (Map<String, Object>) result;
+                Boolean found = (Boolean) resultMap.get("found");
+                
+                if (found != null && found) {
+                    // 找到刷新按钮，先滚动到可见区域再点击
+                    Locator refreshButton = page.locator("[data-refresh-button='true']").first();
+                    if (refreshButton.count() > 0) {
+                        try {
+                            logInfo.sendTaskLog("检测到刷新按钮，准备点击", userId, aiName);
+                            refreshButton.scrollIntoViewIfNeeded();
+                            page.waitForTimeout(500);
+                            refreshButton.click(new Locator.ClickOptions().setForce(true).setTimeout(3000));
+                            hasClickedRefreshButton = true;
+                            logInfo.sendTaskLog("已点击刷新按钮，重新生成回答", userId, aiName);
+                            page.waitForTimeout(1000);
+                        } catch (Exception clickEx) {
+                            // 点击失败，标记已尝试避免重复，静默处理
+                            hasClickedRefreshButton = true;
                         }
                     }
                 }
             }
         } catch (Exception e) {
-            // 刷新按钮检测失败，记录但不抛出异常
-            logInfo.sendTaskLog("刷新按钮检测失败: " + e.getMessage(), userId, aiName);
+            // 刷新按钮检测失败，静默处理不抛出异常
         }
     }
 } 

@@ -250,8 +250,8 @@ public class MetasoUtil {
                 }
             }
 
-            // 🔥 新增：清理URL，只保留数字ID部分
-            if (shareUrl != null && shareUrl.contains("metaso.cn/search/")) {
+            // 🔥 新增：清理URL，只保留数字ID部分（支持 /search/ 和 /search-v2/）
+            if (shareUrl != null && (shareUrl.contains("metaso.cn/search/") || shareUrl.contains("metaso.cn/search-v2/"))) {
                 shareUrl = cleanMetasoUrl(shareUrl);
                 logInfo.sendTaskLog("已清理秘塔URL，保留数字ID: " + shareUrl, userId, aiName);
             }
@@ -263,7 +263,7 @@ public class MetasoUtil {
             // 返回当前页面URL作为备用
             try {
                 String backupUrl = page.url();
-                if (backupUrl != null && backupUrl.contains("metaso.cn/search/")) {
+                if (backupUrl != null && (backupUrl.contains("metaso.cn/search/") || backupUrl.contains("metaso.cn/search-v2/"))) {
                     backupUrl = cleanMetasoUrl(backupUrl);
                 }
                 return backupUrl;
@@ -275,27 +275,34 @@ public class MetasoUtil {
 
     /**
      * 清理秘塔URL，只保留数字ID部分
-     * 例如：https://metaso.cn/search/8646763915575853056?q=xxx -> https://metaso.cn/search/8646763915575853056
+     * 例如：https://metaso.cn/search-v2/8646763915575853056?q=xxx -> https://metaso.cn/search-v2/8646763915575853056
      * @param url 原始URL
      * @return 清理后的URL
      */
     private String cleanMetasoUrl(String url) {
-        if (url == null || !url.contains("metaso.cn/search/")) {
+        if (url == null || (!url.contains("metaso.cn/search/") && !url.contains("metaso.cn/search-v2/"))) {
             return url;
         }
         
         try {
-            // 查找数字ID的位置
-            int searchIndex = url.indexOf("metaso.cn/search/");
+            // 查找数字ID的位置（支持 /search/ 和 /search-v2/）
+            int searchIndex = url.indexOf("metaso.cn/search-v2/");
+            String searchPath = "metaso.cn/search-v2/";
+            
+            if (searchIndex == -1) {
+                searchIndex = url.indexOf("metaso.cn/search/");
+                searchPath = "metaso.cn/search/";
+            }
+            
             if (searchIndex == -1) {
                 return url;
             }
             
             // 提取基础路径
-            String basePath = url.substring(0, searchIndex + "metaso.cn/search/".length());
+            String basePath = url.substring(0, searchIndex + searchPath.length());
             
             // 提取数字ID部分
-            String remaining = url.substring(searchIndex + "metaso.cn/search/".length());
+            String remaining = url.substring(searchIndex + searchPath.length());
             
             // 查找第一个非数字字符的位置（通常是?或#）
             int endIndex = 0;

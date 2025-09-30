@@ -70,8 +70,8 @@ public class ZHZDUtil {
                     
                     if (isVisible) {
                         logInfo.sendTaskLog("找到思考模式下拉按钮，准备点击展开选项", userId, aiName);
-                        // 点击思考模式按钮展开选项
-                        thinkStyleButton.click();
+                        // 点击思考模式按钮展开选项（使用force选项避免被其他元素拦截）
+                        thinkStyleButton.click(new Locator.ClickOptions().setForce(true));
                         Thread.sleep(500); // 等待下拉菜单展开
                         logInfo.sendTaskLog("已点击思考模式下拉按钮，下拉菜单应已展开", userId, aiName);
                         
@@ -107,7 +107,7 @@ public class ZHZDUtil {
                                 try {
                                     Locator option = thinkOption1.nth(i);
                                     if (option.isVisible()) {
-                                        option.click();
+                                        option.click(new Locator.ClickOptions().setForce(true));
                                         Thread.sleep(300);
                                         logInfo.sendTaskLog("已通过可点击div选择器切换到: " + targetText, userId, aiName);
                                         foundAndClicked = true;
@@ -127,7 +127,7 @@ public class ZHZDUtil {
                                     try {
                                         Locator option = thinkOption2.nth(i);
                                         if (option.isVisible()) {
-                                            option.click();
+                                            option.click(new Locator.ClickOptions().setForce(true));
                                             Thread.sleep(300);
                                             logInfo.sendTaskLog("已通过文本选择器切换到: " + targetText, userId, aiName);
                                             foundAndClicked = true;
@@ -148,7 +148,7 @@ public class ZHZDUtil {
         try {
                                         Locator container = thinkContainer.nth(i);
                                         if (container.isVisible()) {
-                                            container.click();
+                                            container.click(new Locator.ClickOptions().setForce(true));
                                             Thread.sleep(300);
                                             logInfo.sendTaskLog("已通过容器选择器切换到: " + targetText, userId, aiName);
                                             foundAndClicked = true;
@@ -187,7 +187,7 @@ public class ZHZDUtil {
             if ("deep".equals(thinkingMode)) {
                 Locator deepThoughtButton = page.locator("[data-testid='Button:deep_thinking_button']");
                 if (deepThoughtButton.count() > 0 && deepThoughtButton.isVisible()) {
-                    deepThoughtButton.click();
+                    deepThoughtButton.click(new Locator.ClickOptions().setForce(true));
                     Thread.sleep(300);
                     logInfo.sendTaskLog("已通过旧版UI开启深度思考", userId, aiName);
                 }

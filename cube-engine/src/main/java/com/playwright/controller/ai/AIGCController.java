@@ -499,6 +499,20 @@ public class AIGCController {
                 });
             }
 
+            // 🔥 提取豆包会话ID并保存
+            String capturedDbChatId = "";
+            try {
+                String currentUrl = page.url();
+                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("/chat/([^/?#]+)");
+                java.util.regex.Matcher matcher = pattern.matcher(currentUrl);
+                if (matcher.find()) {
+                    capturedDbChatId = matcher.group(1);
+                    logInfo.sendTaskLog("已获取豆包会话ID: " + capturedDbChatId + "，下次可继续使用此会话", userId, dynamicAiName);
+                }
+            } catch (Exception e) {
+                logInfo.sendTaskLog("提取豆包会话ID失败，但不影响正常使用", userId, dynamicAiName);
+            }
+            
             logInfo.sendTaskLog("执行完成", userId, dynamicAiName);
             logInfo.sendChatData(page, "/chat/([^/?#]+)", userId, "RETURN_DB_CHATID", 1);
             if(userInfoRequest.getSelectedMedia() != null && userInfoRequest.getSelectedMedia().contains("wechat")) {
@@ -508,6 +522,7 @@ public class AIGCController {
             }
 
             //保存数据库
+            userInfoRequest.setDbChatId(capturedDbChatId); // 保存会话ID到数据库
             userInfoRequest.setDraftContent(aiResult.getHtmlContent());
             userInfoRequest.setAiName(dynamicAiName);
             userInfoRequest.setShareUrl(shareUrl);
@@ -1153,6 +1168,11 @@ public class AIGCController {
             String shareUrl = shareUrlRef.get();
             String sharImgUrl = "";
 
+            // 🔥 通知用户会话ID已保存
+            if (capturedSessionId != null && !capturedSessionId.isEmpty()) {
+                logInfo.sendTaskLog("已获取通义会话ID: " + capturedSessionId + "，下次可继续使用此会话", userId, aiName);
+            }
+            
             logInfo.sendTaskLog("执行完成", userId, aiName);
 
             // 回传数据
@@ -1281,7 +1301,9 @@ public class AIGCController {
             // 初始化页面并导航到指定会话测试用
             Page page = browserUtil.getOrCreatePage(context);
             if (metasoChatId != null && !metasoChatId.isEmpty()) {
-                page.navigate("https://metaso.cn/search/" + metasoChatId);
+                // 支持新版URL格式: search-v2/
+                page.navigate("https://metaso.cn/search-v2/" + metasoChatId);
+                logInfo.sendTaskLog("使用会话ID继续对话: " + metasoChatId, userId, "秘塔");
             } else {
                 page.navigate("https://metaso.cn/");
             }
@@ -1292,12 +1314,14 @@ public class AIGCController {
 
             if (metasoChatId != null && !metasoChatId.isEmpty()) {
                 Thread.sleep(1000);
-                page.getByRole(AriaRole.TEXTBOX, new Page.GetByRoleOptions().setName("继续追问")).click();
+                // 使用placeholder定位文本框（兼容继续对话页面）
+                Locator textbox = page.getByPlaceholder("请输入您的问题");
+                textbox.click();
                 Thread.sleep(1000);
-                page.getByRole(AriaRole.TEXTBOX, new Page.GetByRoleOptions().setName("继续追问")).fill(userPrompt);
+                textbox.fill(userPrompt);
                 logInfo.sendTaskLog("用户指令已自动输入完成", userId, "秘塔");
                 Thread.sleep(1000);
-                page.getByRole(AriaRole.TEXTBOX, new Page.GetByRoleOptions().setName("继续追问")).press("Enter");
+                textbox.press("Enter");
                 logInfo.sendTaskLog("指令已自动发送成功", userId, "秘塔");
             } else {
                 if (roles.contains("metaso-jssk")) {
@@ -1415,11 +1439,29 @@ public class AIGCController {
             String bodyPath = "(//div[@class='flex flex-col min-h-[calc(100vh-192px)]'])[1]";
             // 点击分享按钮
             String sharImgUrl = screenshotUtil.screenShootAllDivAndUpload(page, UUID.randomUUID().toString() + ".png", bodyPath);
+            
+            // 🔥 提取会话ID并保存（支持 /search/ 和 /search-v2/ 两种格式）
+            String capturedMetasoChatId = "";
+            try {
+                String currentUrl = page.url();
+                // 优先匹配 search-v2，兼容旧的 search 格式
+                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("/search(?:-v2)?/([^/?#]+)");
+                java.util.regex.Matcher matcher = pattern.matcher(currentUrl);
+                if (matcher.find()) {
+                    capturedMetasoChatId = matcher.group(1);
+                    logInfo.sendTaskLog("已获取秘塔会话ID: " + capturedMetasoChatId + "，下次可继续使用此会话", userId, "秘塔");
+                }
+            } catch (Exception e) {
+                logInfo.sendTaskLog("提取秘塔会话ID失败，但不影响正常使用", userId, "秘塔");
+            }
+            
             logInfo.sendTaskLog("执行完成", userId, "秘塔");
-            logInfo.sendChatData(page, "/search/([^/?#]+)", userId, "RETURN_METASO_CHATID", 1);
+            // 更新WebSocket发送的正则，兼容两种格式
+            logInfo.sendChatData(page, "/search(?:-v2)?/([^/?#]+)", userId, "RETURN_METASO_CHATID", 1);
             logInfo.sendResData(copiedText, userId, "秘塔", "RETURN_METASO_RES", shareUrl, sharImgUrl);
 
             //保存数据库
+            userInfoRequest.setMetasoChatId(capturedMetasoChatId); // 保存会话ID到数据库
             userInfoRequest.setDraftContent(copiedText);
             userInfoRequest.setAiName("秘塔");
             userInfoRequest.setShareUrl(shareUrl);
@@ -1556,6 +1598,11 @@ public class AIGCController {
             String currentUrl = page.url();
             String[] currentUrlSplit = currentUrl.split("/");
             sessionId = currentUrlSplit[currentUrlSplit.length - 1];
+            
+            // 🔥 通知用户会话ID已保存
+            if (sessionId != null && !sessionId.isEmpty()) {
+                logInfo.sendTaskLog("已获取知乎直答会话ID: " + sessionId + "，下次可继续使用此会话", userId, aiName);
+            }
 
             // 关闭截图线程
             screenshotFuture.cancel(false);
