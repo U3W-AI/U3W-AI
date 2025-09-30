@@ -2,7 +2,7 @@
 	<view class="console-container">
 		<!-- 顶部固定区域 -->
 		<view class="header-fixed">
-			<view class="header-content">
+			<view class="header-content" :style="{ paddingTop: statusBarHeight + 'px' }">
 				<text class="header-title">AI控制台</text>
 				<view class="header-actions">
 					<view class="action-btn refresh-btn" @tap="refreshAiStatus">
@@ -28,7 +28,8 @@
 
 		<!-- 主体滚动区域 -->
 		<scroll-view class="main-scroll" scroll-y :scroll-into-view="scrollIntoView" :enhanced="true" :bounces="true"
-			:show-scrollbar="false" :fast-deceleration="false">
+			:show-scrollbar="false" :fast-deceleration="false"
+			:style="{ height: 'calc(100vh - ' + (statusBarHeight + 100) + 'px)', paddingTop: (statusBarHeight + 60) + 'px' }">
 
 			<!-- AI配置区块 -->
 			<view class="section-block" id="ai-config">
@@ -217,8 +218,10 @@
 							</button>
 							<button class="action-btn-small" size="mini"
 								@tap="copyResult(currentResult.content)">复制(纯文本)</button>
-							<button class="collect-btn" size="mini"
-								@tap="showLayoutModal">投递到媒体</button>
+							<button v-if="!currentResult.aiName.includes('智能排版')" class="collect-btn" size="mini"
+								@tap="showLayoutModal">智能排版</button>
+							<button v-else class="collect-btn" size="mini"
+								@tap="handleDirectPushToWechat(currentResult)">投递到公众号</button>
 						</view>
 
 						<!-- 分享图片或内容 -->
@@ -318,64 +321,49 @@
     <view v-if="layoutModalVisible" class="popup-mask" @tap="closeLayoutModal">
       <view class="score-modal" @tap.stop>
         <view class="score-header">
-          <text class="score-title">媒体投递设置</text>
+          <text class="score-title">智能排版设置</text>
           <text class="close-icon" @tap="closeLayoutModal">✕</text>
         </view>
         <view class="score-content">
+          <!-- AI选择 -->
+          <view class="ai-selection-section">
+            <text class="score-subtitle">选择排版AI：</text>
+            <view class="ai-radio-group">
+              <view class="ai-radio-item"
+                    :class="{'active': layoutAI === '豆包'}"
+                    @tap="selectLayoutAI('豆包')">
+                <text class="ai-icon">🤖</text>
+                <text class="ai-text">豆包</text>
+              </view>
+              <view class="ai-radio-item"
+                    :class="{'active': layoutAI === 'DeepSeek'}"
+                    @tap="selectLayoutAI('DeepSeek')">
+                <text class="ai-icon">🧠</text>
+                <text class="ai-text">DeepSeek</text>
+              </view>
+            </view>
+          </view>
+
           <!-- 媒体选择 -->
           <view class="media-selection-section">
             <text class="score-subtitle">选择投递媒体：</text>
             <view class="media-radio-group">
               <view class="media-radio-item"
-                    :class="{'active': selectedMedia === 'wechat'}"
-                    @tap="selectMedia('wechat')">
+                    :class="{'active': selectedMedia === 'wechat_layout'}"
+                    @tap="selectMedia('wechat_layout')">
                 <text class="media-icon">📱</text>
                 <text class="media-text">公众号</text>
               </view>
-              <view class="media-radio-item"
-                    :class="{'active': selectedMedia === 'zhihu'}"
-                    @tap="selectMedia('zhihu')">
-                <text class="media-icon">📖</text>
-                <text class="media-text">知乎</text>
-              </view>
-              <view class="media-radio-item"
-                    :class="{'active': selectedMedia === 'toutiao'}"
-                    @tap="selectMedia('toutiao')">
-                <text class="media-icon">📰</text>
-                <text class="media-text">微头条</text>
-              </view>
-              <view class="media-radio-item" :class="{'active': selectedMedia === 'baijiahao'}"
-                    @tap="selectMedia('baijiahao')">
-                <text class="media-icon">🔈</text>
-                <text class="media-text">百家号</text>
-              </view>
-
             </view>
             <view class="media-description">
-              <text v-if="selectedMedia === 'wechat'" class="description-text">
-                📝 将内容排版为适合微信公众号的HTML格式，并自动投递到草稿箱
+              <text v-if="selectedMedia === 'wechat_layout'" class="description-text">
+                📝 将内容排版为适合微信公众号的HTML格式，完成后可手动投递到草稿箱
               </text>
-              <text v-else-if="selectedMedia === 'zhihu'" class="description-text">
-                📖 将内容转换为知乎专业文章格式，直接投递到知乎草稿箱
-              </text>
-              <text v-else-if="selectedMedia === 'toutiao'" class="description-text">
-                📰 将内容排版为适合微头条的文章格式，并发布到微头条
-              </text>
-              <text v-else-if="selectedMedia === 'baijiahao'" class="description-text">
-                🔈 将内容排版为适合百家号的帖子格式，并发布到百家号草稿箱
-              </text>
-
             </view>
           </view>
 
-          <view class="score-prompt-section">
-            <text class="score-subtitle">排版提示词：</text>
-            <textarea class="score-textarea" v-model="layoutPrompt"
-                      placeholder="请输入排版要求" maxlength="100000" :rows="10"></textarea>
-          </view>
-
-          <button class="score-submit-btn" :disabled="layoutPrompt.trim().length === 0" @tap="handleLayout">
-            排版后智能投递
+          <button class="score-submit-btn" :disabled="!currentLayoutResult" @tap="handleLayout">
+            开始排版
           </button>
         </view>
 			</view>
@@ -471,6 +459,9 @@
 		name: 'MiniConsole',
 		data() {
 			return {
+				// 系统信息
+				statusBarHeight: 0,
+				
 				// 用户信息
 				userId: '',
 				corpId: '',
@@ -666,7 +657,8 @@
 
 				// 媒体投递
         layoutPrompt: '',
-        selectedMedia: 'wechat', // 默认选择公众号
+        layoutAI: '豆包', // 默认选择豆包作为排版AI
+        selectedMedia: 'wechat_layout', // 默认选择公众号
 
 				// 微头条相关
 				tthArticleEditVisible: false, // 微头条文章编辑弹窗
@@ -684,6 +676,7 @@
 				reconnectCount: 0,
 				maxReconnectCount: 5,
 				isConnecting: false,
+				isRefreshing: false, // 防重复刷新标志
 				scrollIntoView: '',
 
 				// 弹窗状态
@@ -816,6 +809,17 @@
 			}
 		},
 		async onLoad() {
+			// 获取状态栏高度（小程序环境）
+			// #ifdef MP-WEIXIN
+			const windowInfo = wx.getWindowInfo();
+			this.statusBarHeight = windowInfo.statusBarHeight || 0;
+			// #endif
+			
+			// #ifdef H5
+			const systemInfo = uni.getSystemInfoSync();
+			this.statusBarHeight = systemInfo.statusBarHeight || 0;
+			// #endif
+			
 			await this.initUserInfo();
 
 			// 监听企业ID更新事件
@@ -1171,11 +1175,14 @@
 				return;
 			}
 
-			if (this.isConnecting) {
-				console.log('WebSocket正在连接中，跳过重复连接');
+			if (this.isConnecting || this.socketTask) {
+				console.log('WebSocket正在连接中或已存在连接，跳过重复连接');
 				return;
 			}
 
+			// 先清理可能存在的旧连接和定时器
+			this.closeWebSocket();
+			
 			this.isConnecting = true;
 
 			// 使用PC端的WebSocket连接方式
@@ -1252,8 +1259,14 @@
 				return;
 			}
 
+			// 如果已经在连接中，不要重复重连
+			if (this.isConnecting) {
+				console.log('WebSocket正在连接中，跳过重连');
+				return;
+			}
+
 			this.reconnectCount++;
-			const delay = Math.min(1000 * Math.pow(2, this.reconnectCount), 30000); // 指数退避，最大30秒
+			const delay = Math.min(2000 * Math.pow(2, this.reconnectCount), 30000); // 增加基础延迟到2秒
 
 			console.log(`WebSocket将在${delay}ms后进行第${this.reconnectCount}次重连`);
 
@@ -1321,13 +1334,21 @@
 
 			// 关闭WebSocket连接
 			if (this.socketTask) {
-				this.socketTask.close();
+				try {
+					this.socketTask.close({
+						code: 1000,
+						reason: '手动关闭连接'
+					});
+				} catch (e) {
+					console.log('关闭WebSocket连接时出错:', e);
+				}
 				this.socketTask = null;
 			}
 
 			// 重置状态
 			this.isConnecting = false;
 			this.reconnectCount = 0;
+			this.isRefreshing = false; // 重置刷新标志
 		},
 
 					// 处理WebSocket消息
@@ -1418,11 +1439,23 @@
 								znpbAI.progressLogs[0].isCompleted = true;
 							}
 
-							// 不添加到结果展示，直接调用推送方法
-							this.handlePushToWechat(dataObj.draftContent);
+							// 添加排版结果到结果展示，用户可以手动选择投递
+							this.results.unshift({
+								aiName: '智能排版',
+								content: dataObj.draftContent,
+								shareUrl: dataObj.shareUrl || '',
+								shareImgUrl: dataObj.shareImgUrl || '',
+								timestamp: new Date()
+							});
+							this.activeResultIndex = 0;
 
 							// 智能排版完成时，保存历史记录
 							this.saveHistory();
+							
+							uni.showToast({
+								title: '排版完成，可手动投递',
+								icon: 'success'
+							});
 						}
 						return;
 					}
@@ -1702,7 +1735,7 @@
 
 
         // 处理知乎直答登录状态
-        else if (datastr.includes("RETURN_ZHIHU_STATUS") && dataObj.status != "") {
+        else if (datastr.includes("RETURN_ZHZD_STATUS") && dataObj.status != "") {
           console.log('收到知乎直答登录状态响应:', datastr, dataObj);
           this.isLoading.zhzd = false;
           if (!datastr.includes("false")) {
@@ -2363,6 +2396,12 @@
         this.loadMediaPrompt(this.selectedMedia);
         this.layoutModalVisible = true;
       },
+      // 选择排版AI
+      selectLayoutAI(ai) {
+        this.layoutAI = ai;
+        console.log('选择排版AI:', ai);
+      },
+      
       // 选择媒体
       selectMedia(media) {
         this.selectedMedia = media;
@@ -2454,20 +2493,12 @@
 			},
 
       handleLayout() {
-        if (this.layoutPrompt.trim().length === 0) return;
+        if (!this.currentLayoutResult) return;
 
         this.closeLayoutModal();
 
-        if (this.selectedMedia === 'zhihu') {
-          this.createZhihuDeliveryTask();
-        } else if (this.selectedMedia === 'toutiao') {
-          this.createToutiaoLayoutTask();
-        } else if (this.selectedMedia === 'baijiahao') {
-          this.createBaijiahaoDeliveryTask();
-        } 
-else {
-          this.createWechatLayoutTask();
-        }
+        // 公众号排版：创建排版任务
+        this.createWechatLayoutTask();
       },
 
       // 创建知乎投递任务
@@ -2622,11 +2653,8 @@ else {
         });
       },
 
-      // 创建公众号排版任务
+      // 创建公众号排版任务（参考web端实现）
         createWechatLayoutTask() {
-          // 组合完整的提示词：数据库提示词 + 原文内容
-          const fullPrompt = this.layoutPrompt + '\n\n' + this.currentLayoutResult.content;
-
           // 构建智能排版请求
 				const layoutRequest = {
 					jsonrpc: '2.0',
@@ -2636,20 +2664,39 @@ else {
 						taskId: this.generateUUID(),
 						userId: this.userId,
 						corpId: this.corpId,
-						userPrompt: fullPrompt,
-						roles: 'zj-db-sdsk' // 默认使用豆包进行排版
+						userPrompt: this.currentLayoutResult.content,
+						roles: '',
+						selectedMedia: 'wechat_layout'
 					}
 				};
+
+        // 根据选择的AI设置roles（参考web端逻辑）
+        const selectedAI = this.aiList.find(ai => ai.name === this.layoutAI);
+        if (selectedAI) {
+          if (selectedAI.name === '豆包') {
+            layoutRequest.params.roles = 'zj-db,';
+            if (selectedAI.selectedCapabilities.includes('deep_thinking')) {
+              layoutRequest.params.roles += 'zj-db-sdsk,';
+            }
+          } else if (selectedAI.name === 'DeepSeek') {
+            layoutRequest.params.roles = 'deepseek,';
+            if (selectedAI.selectedCapabilities.includes('deep_thinking')) {
+              layoutRequest.params.roles += 'ds-sdsk,';
+            }
+            if (selectedAI.selectedCapabilities.includes('web_search')) {
+              layoutRequest.params.roles += 'ds-lwss,';
+            }
+          }
+        }
 
 				// 发送排版请求
 				console.log("智能排版参数", layoutRequest);
 				this.message(layoutRequest);
-				// this.closeLayoutModal();
 
 				// 创建智能排版AI节点
 				const znpbAI = {
 					name: '智能排版',
-					avatar: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
+					avatar: selectedAI ? selectedAI.avatar : 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
 					capabilities: [],
 					selectedCapabilities: [],
 					enabled: true,
@@ -2688,8 +2735,55 @@ else {
         },
 
 
-			// 推送到公众号
-			async handlePushToWechat(contentText) {
+			// 直接投递已排版的内容到公众号
+			async handleDirectPushToWechat(result) {
+				try {
+					console.log("handleDirectPushToWechat 开始执行", result);
+
+					uni.showLoading({
+						title: '正在投递...'
+					});
+
+					// 自增计数器
+					this.collectNum++;
+
+					const params = {
+						contentText: result.content,
+						userId: this.userId,
+						shareUrl: result.shareUrl || '',
+						aiName: result.aiName || '',
+						num: this.collectNum
+					};
+
+									console.log("投递参数", params);
+
+				const res = await pushAutoOffice(params);
+
+				uni.hideLoading();
+
+				if (res.code === 200) {
+					uni.showToast({
+						title: '投递成功',
+						icon: 'success'
+					});
+				} else {
+					uni.showToast({
+						title: res.message || '投递失败',
+						icon: 'none'
+					});
+				}
+			} catch (error) {
+				uni.hideLoading();
+				console.error('投递到公众号失败:', error);
+				uni.showToast({
+					title: '投递失败',
+					icon: 'none'
+				});
+			}
+		},
+
+		// 推送到公众号
+		async handlePushToWechat(contentText) {
 				try {
 					console.log("handlePushToWechat 开始执行", this.currentLayoutResult);
 
@@ -2717,28 +2811,28 @@ else {
 						num: this.collectNum
 					};
 
-					console.log("投递参数", params);
+								console.log("投递参数", params);
 
-					const res = await pushAutoOffice(params);
+			const res = await pushAutoOffice(params);
 
-					uni.hideLoading();
+			uni.hideLoading();
 
-					if (res.code === 200) {
-						uni.showToast({
-							title: `投递成功(${this.collectNum})`,
-							icon: 'success'
-						});
-					} else {
-						uni.showToast({
-							title: res.message || '投递失败',
-							icon: 'none'
-						});
-					}
-				} catch (error) {
-					uni.hideLoading();
-					console.error('投递到公众号失败:', error);
-					uni.showToast({
-						title: '投递失败',
+			if (res.code === 200) {
+				uni.showToast({
+					title: '投递成功',
+					icon: 'success'
+				});
+			} else {
+				uni.showToast({
+					title: res.message || '投递失败',
+					icon: 'none'
+				});
+			}
+		} catch (error) {
+			uni.hideLoading();
+			console.error('投递到公众号失败:', error);
+			uni.showToast({
+				title: '投递失败',
 						icon: 'none'
 					});
 				}
@@ -3056,12 +3150,12 @@ else {
 
         // 检查知乎直答登录状态
         console.log('发送知乎直答登录检验请求:', {
-          type: 'PLAY_CHECK_ZHIHU_LOGIN',
+          type: 'PLAY_CHECK_ZHZD_LOGIN',
           userId: this.userId,
           corpId: this.corpId
         });
         this.sendWebSocketMessage({
-          type: 'PLAY_CHECK_ZHIHU_LOGIN',
+          type: 'PLAY_CHECK_ZHZD_LOGIN',
           userId: this.userId,
           corpId: this.corpId
         });
@@ -3093,23 +3187,32 @@ else {
 
 
 			async refreshAiStatus() {
-				// 首先确保企业ID最新
-				try {
-					const result = await ensureLatestCorpId();
-					console.log('刷新按钮：主机ID已更新为最新值:', result.corpId);
-					if (result.corpId !== this.corpId) {
-						console.log('检测到主机ID变更，从', this.corpId, '更新为', result.corpId);
-						this.corpId = result.corpId;
-						this.userInfoReq.corpId = result.corpId;
-						// 更新本地存储，确保一致性
-						storage.set(constant.corpId, result.corpId);
-						console.log('本地主机ID存储已同步:', result.corpId);
-					} else {
-						console.log('主机ID无变化，当前值:', this.corpId);
-					}
-				} catch (error) {
-					console.error('确保企业ID最新失败:', error);
+				// 防止重复刷新
+				if (this.isRefreshing) {
+					console.log('正在刷新中，跳过重复操作');
+					return;
 				}
+				
+				this.isRefreshing = true;
+				
+				try {
+					// 首先确保企业ID最新
+					try {
+						const result = await ensureLatestCorpId();
+						console.log('刷新按钮：主机ID已更新为最新值:', result.corpId);
+						if (result.corpId !== this.corpId) {
+							console.log('检测到主机ID变更，从', this.corpId, '更新为', result.corpId);
+							this.corpId = result.corpId;
+							this.userInfoReq.corpId = result.corpId;
+							// 更新本地存储，确保一致性
+							storage.set(constant.corpId, result.corpId);
+							console.log('本地主机ID存储已同步:', result.corpId);
+						} else {
+							console.log('主机ID无变化，当前值:', this.corpId);
+						}
+					} catch (error) {
+						console.error('确保企业ID最新失败:', error);
+					}
 
 				// 重置所有AI状态为加载中
 				this.isLoading = {
@@ -3162,8 +3265,18 @@ else {
 					setTimeout(() => {
 						console.log('发送AI状态检查，主机ID:', this.corpId);
 						this.sendAiStatusCheck();
+						// 重置刷新标志
+						this.isRefreshing = false;
 					}, 2000);
 				}, 500);
+				} catch (error) {
+					console.error('刷新AI状态时发生错误:', error);
+					this.isRefreshing = false;
+					uni.showToast({
+						title: '刷新失败，请重试',
+						icon: 'none'
+					});
+				}
 			},
 
 			// 判断AI是否已登录可用
@@ -3367,7 +3480,7 @@ else {
 		justify-content: space-between;
 		align-items: center;
 		padding: 10px 15px;
-		padding-top: calc(10px + var(--status-bar-height));
+		/* padding-top 通过内联样式动态设置 */
 	}
 
 	.header-title {
@@ -3456,8 +3569,7 @@ else {
 	/* 主体滚动区域 */
 	.main-scroll {
 		flex: 1;
-		height: calc(100vh - 52px - var(--status-bar-height));
-		padding-top: calc(52px + var(--status-bar-height));
+		/* height 和 padding-top 通过内联样式动态设置 */
 		padding-bottom: 20px;
 		box-sizing: border-box;
 	}
@@ -4396,6 +4508,45 @@ else {
   }
 
   /* 媒体选择样式 */
+  /* AI选择样式 */
+  .ai-selection-section {
+    margin-bottom: 20px;
+  }
+
+  .ai-radio-group {
+    display: flex;
+    gap: 10px;
+    margin: 10px 0;
+  }
+
+  .ai-radio-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+    transition: all 0.3s ease;
+  }
+
+  .ai-radio-item.active {
+    border-color: #409eff;
+    background-color: #ecf5ff;
+  }
+
+  .ai-icon {
+    font-size: 24px;
+    margin-bottom: 5px;
+  }
+
+  .ai-text {
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+  }
+
   .media-selection-section {
     margin-bottom: 20px;
   }
@@ -4503,3 +4654,4 @@ else {
     color: #ccc;
   }
 </style>
+
