@@ -1,4 +1,4 @@
-# 优立方U3W 完整部署说明
+优立方U3W 完整部署说明
 
 2025年9月22日 更新
 
@@ -222,7 +222,8 @@ java -jar target/U3W.jar
    - 使用微信扫描返回的二维码
    - 确认登录成功
 
-![AI登录示例](docs-img/ai_login_example.png)
+![AI登录示例](docs-img/%E7%8E%B0%E5%9C%BA.png)
+
 
 ## 第七阶段：小程序部署
 [点击查看小程序部署详细步骤](cube-mini/deployment_guide.md)
