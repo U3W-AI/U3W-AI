@@ -78,9 +78,9 @@ public class BrowserController {
         String key = userId + "-mt";
         if (loginMap.containsKey(key)) {
             JSONObject jsonObjectTwo = new JSONObject();
-            jsonObjectTwo.put("status",loginMap.get(key));
-            jsonObjectTwo.put("userId",userId);
-            jsonObjectTwo.put("type","RETURN_METASO_STATUS");
+            jsonObjectTwo.put("status", loginMap.get(key));
+            jsonObjectTwo.put("userId", userId);
+            jsonObjectTwo.put("type", "RETURN_METASO_STATUS");
             webSocketClientService.sendMessage(jsonObjectTwo.toJSONString());
             return loginMap.get(key);
         }
