@@ -1300,7 +1300,7 @@ public class AIGCController {
 
             // 初始化页面并导航到指定会话测试用
             Page page = browserUtil.getOrCreatePage(context);
-            if (metasoChatId != null && !metasoChatId.isEmpty()) {
+            if (!"true".equalsIgnoreCase(userInfoRequest.getIsNewChat()) && metasoChatId != null && !metasoChatId.isEmpty()) {
                 // 支持新版URL格式: search-v2/
                 page.navigate("https://metaso.cn/search-v2/" + metasoChatId);
                 logInfo.sendTaskLog("使用会话ID继续对话: " + metasoChatId, userId, "秘塔");
@@ -1312,7 +1312,7 @@ public class AIGCController {
             logInfo.sendTaskLog("秘塔页面打开完成", userId, "秘塔");
 
 
-            if (metasoChatId != null && !metasoChatId.isEmpty()) {
+            if (!"true".equalsIgnoreCase(userInfoRequest.getIsNewChat()) && metasoChatId != null && !metasoChatId.isEmpty()) {
                 Thread.sleep(1000);
                 // 使用placeholder定位文本框（兼容继续对话页面）
                 Locator textbox = page.getByPlaceholder("请输入您的问题");
@@ -1491,7 +1491,7 @@ public class AIGCController {
         String aiName = "知乎直答";
 
 
-        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "Zhihu")) {
+        try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "zhzd")) {
             logInfo.sendTaskLog(aiName + "准备就绪，正在打开页面", userId, aiName);
 
             Page page = browserUtil.getOrCreatePage(context);
