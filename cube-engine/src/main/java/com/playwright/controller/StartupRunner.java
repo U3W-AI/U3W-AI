@@ -5,6 +5,7 @@ package com.playwright.controller;
  * @version JDK 17
  * @date 2025年02月06日 14:52
  */
+import com.playwright.controller.ai.BrowserController;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;

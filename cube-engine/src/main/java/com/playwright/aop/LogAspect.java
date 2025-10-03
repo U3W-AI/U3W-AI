@@ -3,9 +3,9 @@ package com.playwright.aop;
 import com.playwright.entity.LogInfo;
 import com.playwright.entity.UserInfoRequest;
 import com.playwright.entity.mcp.McpResult;
-import com.playwright.utils.LogMsgUtil;
-import com.playwright.utils.RestUtils;
-import com.playwright.utils.UserLogUtil;
+import com.playwright.utils.common.LogMsgUtil;
+import com.playwright.utils.common.RestUtils;
+import com.playwright.utils.common.UserLogUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -34,7 +34,7 @@ public class LogAspect {
     @Autowired
     private LogMsgUtil logMsgUtil;
 
-    @Pointcut("execution(* com.playwright.controller.*.*(..))")
+    @Pointcut("execution(* com.playwright.controller..*(..))")
     public void logPointCut() {
     }
 
