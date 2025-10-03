@@ -322,8 +322,15 @@ from wc_chrome_hotlink wck left join sys_user u on wck.user_name = u.user_name
     </select>
 
     <insert id="saveUserChatData" parameterType="java.util.Map">
-        delete from wc_chat_history where userPrompt = #{userPrompt};
-        insert into wc_chat_history values (uuid(),#{userId},#{userPrompt},#{data},now(),#{toneChatId},#{ybDsChatId},#{dbChatId},#{tyChatId},#{maxChatId},#{metasoChatId},#{zhzdChatId},#{kimiChatId},#{baiduChatId},#{chatId},#{deepseekChatId});
+        delete
+        from wc_chat_history
+        where userPrompt = #{userPrompt};
+        insert into wc_chat_history(id, user_id, userPrompt, data, create_time, tone_chat_id, ybds_chat_id, db_chat_id,
+                                    ty_chat_id, deepseek_chat_id, max_chat_id, metaso_chat_id, kimi_chat_id,
+                                    baidu_chat_id, zhzd_chat_id, chat_id)
+        values (uuid(), #{userId}, #{userPrompt}, #{data}, now(), #{toneChatId}, #{ybDsChatId}, #{dbChatId},
+                #{tyChatId}, #{deepseekChatId}, #{maxChatId}, #{metasoChatId}, #{kimiChatId}, #{baiduChatId},
+                #{zhzdChatId}, #{chatId});
     </insert>
     <insert id="saveLogInfo" parameterType="java.util.Map">
         INSERT INTO wc_log_info (
