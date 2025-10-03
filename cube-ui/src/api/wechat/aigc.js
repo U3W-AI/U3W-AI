@@ -141,7 +141,7 @@ export function getChatHistory(userId,isAll) {
 }
 export function pushAutoOffice(data) {
   return request({
-    url: '/mini/pushAutoOffice',
+    url: '/wx/publishToOffice',
     method: 'post',
     data: data
   })
