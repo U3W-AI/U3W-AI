@@ -139,8 +139,8 @@
                     <div class="model-selection">
                       <span class="selection-label">模型:</span>
                       <el-select v-model="ai.selectedModel" placeholder="选择模型" size="mini" :disabled="!ai.enabled">
-                        <el-option v-for="model in ai.models" :key="model.value" 
-                                   :label="model.label" :value="model.value">
+                        <el-option v-for="model in ai.models" :key="model.value" :label="model.label"
+                          :value="model.value">
                         </el-option>
                       </el-select>
                     </div>
@@ -278,14 +278,16 @@
                     class="share-link-btn">
                     查看原链接
                   </el-button>
-                  <el-button v-if="!result.aiName.includes('智能排版')" size="mini" type="success" icon="el-icon-s-promotion" @click="handlePushToMedia(result)"
-                    class="push-media-btn" :loading="pushingToMedia" :disabled="pushingToMedia">
+                  <el-button v-if="!result.aiName.includes('智能排版')" size="mini" type="success"
+                    icon="el-icon-s-promotion" @click="handlePushToMedia(result)" class="push-media-btn"
+                    :loading="pushingToMedia" :disabled="pushingToMedia">
                     智能排版
                   </el-button>
-                  <el-button v-else size="mini" type="success" icon="el-icon-s-promotion" @click="pushToWechatWithContent(result)"
-                    class="push-media-btn" :loading="pushingToMedia" :disabled="pushingToMedia">
+                  <el-button v-else size="mini" type="success" icon="el-icon-s-promotion"
+                    @click="pushToMediaWithContent(result)" class="push-media-btn" :loading="pushingToMedia && false"
+                    :disabled="pushingToMedia && false">
                     <!-- 投递到{{ result.aiName.substring(4)}} -->
-                     投递到公众号
+                    投递到公众号/媒体
                   </el-button>
                 </div>
               </div>
@@ -392,11 +394,18 @@
               <i class="el-icon-chat-dot-square"></i>
               公众号
             </el-radio-button>
+            <el-radio-button label="zhihu_layout" value="zhihu_layout">
+              <i class="el-icon-chat-dot-square"></i>
+              知乎
+            </el-radio-button>
 
           </el-radio-group>
           <div class="media-description">
             <template v-if="selectedMedia === 'wechat_layout'">
               <small>📝 将内容排版为适合微信公众号的HTML格式，并自动投递到草稿箱</small>
+            </template>
+            <template v-elif="selectedMedia === 'zhihu_layout'">
+              <small>📝 将内容排版为适合知乎的文本格式，并自动投递到草稿箱</small>
             </template>
 
           </div>
@@ -576,6 +585,24 @@
           },
 
         ],
+        mediaList: [
+          {
+            name: "wechat_layout",
+            label: "公众号",
+          },
+          {
+            name: "zhihu_layout",
+            label: "知乎",
+          },
+          {
+            name: "weitoutiao_layout",
+            label: "微头条",
+          },
+          {
+            name: "baijiahao_layout",
+            label: "百家号",
+          }
+        ],
         promptInput: "",
         taskStarted: false,
         autoPlay: false,
@@ -734,9 +761,9 @@
         this.aiList.forEach(ai => {
           ai.enabled = newState;
         });
-        
+
         // 显示操作反馈
-        if (newState) {
+        if(newState) {
           this.$message.success('已启动全部AI智能体');
         } else {
           this.$message.success('已关闭全部AI智能体');
@@ -1179,6 +1206,32 @@
           return;
         }
 
+        // 处理媒体日志消息
+        if(dataObj.type === "RETURN_MEDIA_TASK_LOG") {
+          // 只处理当前任务的日志消息
+          // if(dataObj.taskId && dataObj.taskId !== this.userInfoReq.taskId) {
+          //   return; // 忽略其他任务的消息
+          // }
+
+          const targetAI = this.enabledAIs.find(
+            (ai) => ai.name === '媒体投递'
+          );
+          if(targetAI && targetAI.status === "running") { // 只在运行状态时添加日志
+            // 检查是否已存在相同内容的日志，避免重复添加
+            const existingLog = targetAI.progressLogs.find(log => log.content === dataObj.content);
+            if(!existingLog) {
+              // 将新进度添加到数组开头
+              targetAI.progressLogs.unshift({
+                content: dataObj.content,
+                timestamp: new Date(),
+                isCompleted: false,
+                taskId: this.userInfoReq.taskId // 记录任务ID
+              });
+            }
+          }
+          return;
+        }
+
         // 处理截图消息
         if(dataObj.type === "RETURN_PC_TASK_IMG" && dataObj.url) {
           // 只处理当前任务的截图
@@ -1227,7 +1280,7 @@
 
             // 添加排版结果到results最前面
             this.results.unshift({
-              aiName: "智能排版",
+              aiName: "智能排版" + this.mediaList.filter(media => media.name === this.selectedMedia)[0].label,
               content: dataObj.draftContent,
               shareUrl: dataObj.shareUrl || "",
               shareImgUrl: dataObj.shareImgUrl || "",
@@ -1244,6 +1297,19 @@
           return;
         }
 
+
+        // 处理媒体投递结果
+        if(dataObj.type.includes('DELIVERY_RES')) {
+          const mediaAI = this.enabledAIs.find((ai) => ai.name === "媒体投递");
+          if(mediaAI) {
+            this.$set(mediaAI, "status", "completed");
+            if(mediaAI.progressLogs.length > 0) {
+              this.$set(mediaAI.progressLogs[0], "isCompleted", true);
+            }
+          }
+          this.$message(dataObj.message);
+          return;
+        }
 
 
 
@@ -2040,7 +2106,7 @@
             userPrompt: this.layoutPrompt,
             // roles: "znpb-ds,yb-deepseek-pt,yb-deepseek-sdsk,yb-deepseek-lwss,",
             roles: "",
-            selectedMedia: "wechat_layout",
+            selectedMedia: this.selectedMedia,
           },
         };
 
@@ -2171,13 +2237,15 @@
         const existIndex = this.enabledAIs.findIndex(
           (ai) => ai.name === "智能排版"
         );
-        if(existIndex === -1) {
-          this.enabledAIs.unshift(znpbAI);
-        } else {
-          this.enabledAIs[existIndex] = znpbAI;
-          const znpb = this.enabledAIs.splice(existIndex, 1)[0];
-          this.enabledAIs.unshift(znpb);
-        }
+        // if(existIndex === -1) {
+        //   this.enabledAIs.unshift(znpbAI);
+        // } else {
+        //   this.enabledAIs[existIndex] = znpbAI;
+        //   const znpb = this.enabledAIs.splice(existIndex, 1)[0];
+        //   this.enabledAIs.unshift(znpb);
+        // }
+        this.enabledAIs.unshift(znpbAI);
+
 
         this.$forceUpdate();
         this.$message.success("排版请求已发送，请等待结果");
@@ -2186,7 +2254,7 @@
 
 
       // 实际投递到公众号
-      pushToWechatWithContent(result) {
+      pushToMediaWithContent(result) {
         if(this.pushingToWechat) return;
         this.$message.success("开始投递公众号！");
         this.pushingToWechat = true;
@@ -2199,26 +2267,41 @@
           num: this.pushOfficeNum,
           aiName: result.aiName,
         };
-
-        pushAutoOffice(params)
-          .then((res) => {
-            if(res.code === 200) {
-              this.$message.success("投递到公众号成功！");
-            } else {
-              this.$message.error(res.msg || "投递失败，请重试");
-            }
-          })
-          .catch((error) => {
-            console.error("投递到公众号失败:", error);
-            this.$message.error("投递失败，请重试");
-          })
-          .finally(() => {
-            this.pushingToWechat = false;
-          });
+        let mediaLabel = result.aiName.substring(4);
+        let mediaName = this.mediaList.filter(media => media.label === mediaLabel)[0].name;
+        if(mediaName.includes('wechat')) {
+          pushAutoOffice(params)
+            .then((res) => {
+              if(res.code === 200) {
+                this.$message.success("投递到公众号成功！");
+              } else {
+                this.$message.error(res.msg || "投递失败，请重试");
+              }
+            })
+            .catch((error) => {
+              console.error("投递到公众号失败:", error);
+              this.$message.error("投递失败，请重试");
+            })
+            .finally(() => {
+              this.pushingToWechat = false;
+            });
+        } else if(mediaName.includes('zhihu')) {
+          // 构建评分请求
+          const mediaRequest = {
+            jsonrpc: "2.0",
+            id: uuidv4(),
+            method: "媒体投递",
+            params: {
+              taskId: uuidv4(),
+              userId: this.userId,
+              corpId: this.corpId,
+              aiName: this.layoutAI, //TODO:动态调整
+              selectedMedia: "zhihu_layout",
+            },
+          };
+          this.message(mediaRequest);
+        }
       },
-
-
-
 
     },
   };
