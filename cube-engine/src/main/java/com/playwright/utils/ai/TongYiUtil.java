@@ -158,7 +158,7 @@ public class TongYiUtil {
             if (inputBox == null) {
                 throw new RuntimeException("未找到可用的输入框");
             }
-            inputBox.click();
+//            inputBox.click();
             page.waitForTimeout(500);
 ////            模拟键盘输入
 //            page.keyboard().type(userInfoRequest.getUserPrompt(), new Keyboard.TypeOptions()
