@@ -1052,7 +1052,7 @@ public class AIGCController {
             }, 0, 8, TimeUnit.SECONDS);
 
             Map<String, String> qianwenResult = tongYiUtil.processQianwenRequest(page, userInfoRequest);
-            String rawHtmlContent = qianwenResult.get("rawHtmlContent");
+            String textContent = qianwenResult.get("rawHtmlContent");
             String capturedSessionId = qianwenResult.get("sessionId");
 
             // 关闭截图线程
@@ -1060,7 +1060,7 @@ public class AIGCController {
             screenshotExecutor.shutdown();
 
             AtomicReference<String> shareUrlRef = new AtomicReference<>();
-            String formattedContent = rawHtmlContent;
+            String formattedContent = textContent;
 
             Locator container = page.locator(".containerWrap--r2_gRwLP").last();
 //            page.locator("div[class*='btn--YtZqkWMA']:not([class*='reloadBtn--PQnoOpqJ'])").last().click();
@@ -1070,12 +1070,13 @@ public class AIGCController {
 
             page.locator("//button[@class='ant-btn css-12jjqpr ant-btn-primary ant-btn-color-primary ant-btn-variant-solid ty-button shareButNew--hk8DBL2T']").click();
             page.waitForTimeout(1000);
-
-            Locator outputLocator = page.locator(".tongyi-markdown").last();
-            String lastContent = outputLocator.innerHTML();
-            qianwenResult.put("rawHtmlContent", lastContent);
-            rawHtmlContent = lastContent;
-
+            String rawHtmlContent = "";
+            Locator outputLocator = container.locator(".tongyi-markdown");
+            if(outputLocator.count()>0) {
+                rawHtmlContent = outputLocator.last().innerHTML();
+            }else{
+                throw new RuntimeException("未检测到回复");
+            }
             // 获取干净回答并封装
             try {
                 if (!rawHtmlContent.startsWith("获取内容失败") && !rawHtmlContent.isEmpty()) {
@@ -1190,7 +1191,7 @@ public class AIGCController {
             return McpResult.success(formattedContent,shareUrl);
 
         } catch (Exception e) {
-            logInfo.sendTaskLog("执行通义千问任务时发生严重错误", userInfoRequest.getUserId(), "通义千问");
+            logInfo.sendTaskLog("执行通义千问任务时发生严重错误：" + e.getMessage(), userInfoRequest.getUserId(), "通义千问");
             throw e;
         }
     }

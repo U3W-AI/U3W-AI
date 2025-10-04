@@ -160,9 +160,10 @@ public class TongYiUtil {
             }
             inputBox.click();
             page.waitForTimeout(500);
-//            模拟键盘输入
-            page.keyboard().type(userInfoRequest.getUserPrompt(), new Keyboard.TypeOptions()
-                    .setDelay(100)); // 每个字符之间延迟100ms，更接近真人输入
+////            模拟键盘输入
+//            page.keyboard().type(userInfoRequest.getUserPrompt(), new Keyboard.TypeOptions()
+//                    .setDelay(100)); // 每个字符之间延迟100ms，更接近真人输入
+            inputBox.fill(userInfoRequest.getUserPrompt());
             logInfo.sendTaskLog("用户指令已自动输入完成", userId, aiName);
             page.waitForTimeout(500);
             
@@ -174,6 +175,7 @@ public class TongYiUtil {
             
             // 🔥 增强：验证发送是否成功，等待停止按钮出现
             boolean messageSent = elementSelectorUtil.waitForTongYiStopButton(page, 15000);
+
             if (messageSent) {
                 logInfo.sendTaskLog("指令已自动发送成功，已开始生成回答", userId, aiName);
             } else {
@@ -234,29 +236,33 @@ public class TongYiUtil {
 
             Thread.sleep(3000);
             boolean isEnd = false;
+            int emptyTests=0;
             while (true) {
                 long elapsedTime = System.currentTimeMillis() - operationStartTime;
 
-                if (elapsedTime > timeout) {
+                if (elapsedTime > timeout || emptyTests > 5) {
                     // 记录等待超时
                     UserLogUtil.sendAITimeoutLog(userId, aiName, "内容等待", new TimeoutException("通义千问超时"), "等待AI回答完成", url + "/saveLogInfo");
                     logInfo.sendTaskLog("AI回答超时，任务中断", userId, aiName);
-                    break;
+                    page.close(); //遇到问题直接关闭页面
+                    throw new TimeoutError("未检测到回答");
                 }
 
-                Locator outputLocator = page.locator(".tongyi-markdown").last();
+                Locator container = page.locator(".containerWrap--r2_gRwLP").last();
+                Locator outputLocator = container.locator(".tongyi-markdown");
 
                 if (!page.locator("//div[@class='operateBtn--qMhYIdIu stop--P_jcrPFo']").isVisible()) {
                     isEnd = true;
                 }
                 if (outputLocator.count() == 0) {
+                    ++emptyTests;
                     page.waitForTimeout(2000);
                     continue;
                 }
 
 //                currentContent = outputLocator.innerHTML();
                 currentContent = outputLocator.innerText();
-                textContent = outputLocator.textContent();
+                textContent = outputLocator.innerText();
                 if(userInfoRequest.getAiName() != null && userInfoRequest.getAiName().contains("stream")) {
                     webSocketClientService.sendMessage(userInfoRequest, McpResult.success(textContent, ""), userInfoRequest.getAiName());
                 }
@@ -266,6 +272,9 @@ public class TongYiUtil {
                 }
 
                 lastContent = currentContent;
+                if(currentContent.isEmpty()){
+                    ++emptyTests;
+                }
                 page.waitForTimeout(2000);
             }
             logInfo.sendTaskLog(aiName + "内容已自动提取完成", userId, aiName);

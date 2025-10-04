@@ -338,22 +338,22 @@ public class BaiduUtil {
             logInfo.sendImgData(page, userId + "百度对话AI页面打开", userId);
 
             // 检查登录状态
-            String loginStatus = checkBaiduLogin(page, false);
-            if ("false".equals(loginStatus)) {
-                logInfo.sendTaskLog("检测到需要登录，请扫码登录", userId, "百度AI");
-                logInfo.sendImgData(page, userId + "百度对话AI需要登录", userId);
-                
-                // 检查页面状态
-                if (page.isClosed()) {
-                    throw new RuntimeException("页面在等待登录时已关闭");
-                }
-                
-                // 等待用户登录
-                page.waitForSelector(".chat-input, textarea[placeholder*='请输入']",
-                        new Page.WaitForSelectorOptions().setTimeout(120000)); // 增加等待登录超时到120秒
-                logInfo.sendTaskLog("登录成功，继续执行", userId, "百度AI");
-                logInfo.sendImgData(page, userId + "百度对话AI登录成功", userId);
-            }
+//            String loginStatus = checkBaiduLogin(page, false);
+//            if ("false".equals(loginStatus)) {
+//                logInfo.sendTaskLog("检测到需要登录，请扫码登录", userId, "百度AI");
+//                logInfo.sendImgData(page, userId + "百度对话AI需要登录", userId);
+//
+//                // 检查页面状态
+//                if (page.isClosed()) {
+//                    throw new RuntimeException("页面在等待登录时已关闭");
+//                }
+//
+//                // 等待用户登录
+//                page.waitForSelector(".chat-input, textarea[placeholder*='请输入']",
+//                        new Page.WaitForSelectorOptions().setTimeout(120000)); // 增加等待登录超时到120秒
+//                logInfo.sendTaskLog("登录成功，继续执行", userId, "百度AI");
+//                logInfo.sendImgData(page, userId + "百度对话AI登录成功", userId);
+//            }
 
             // 检查页面状态
             if (page.isClosed()) {
