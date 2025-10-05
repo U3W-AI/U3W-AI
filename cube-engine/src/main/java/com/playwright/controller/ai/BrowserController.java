@@ -513,7 +513,7 @@ public class BrowserController {
             Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.doubao.com/chat/");
             Thread.sleep(5000);
-            Locator locator = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div/main/div/div/div[1]/div/div/div/div[2]/div/button");
+            Locator locator = page.locator("[data-testid='to_login_button']");
             if (locator.count() > 0 && locator.isVisible()) {
                 return "false";
             } else {
@@ -549,7 +549,7 @@ public class BrowserController {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false, userId, "db")) {
             Page page = browserUtil.getOrCreatePage(context);
             page.navigate("https://www.doubao.com/chat/");
-            Locator locator = page.locator("//*[@id=\"root\"]/div[1]/div/div[3]/div/main/div/div/div[1]/div/div/div/div[2]/div/button");
+            Locator locator = page.locator("[data-testid='to_login_button']");
             Thread.sleep(2000);
             if (locator.count() > 0 && locator.isVisible()) {
                 locator.click();
@@ -579,6 +579,8 @@ public class BrowserController {
                     jsonObjectTwo.put("type", "RETURN_DB_STATUS");
                     webSocketClientService.sendMessage(jsonObjectTwo.toJSONString());
                 }
+            }else{
+                UserLogUtil.sendExceptionLog(userId,"豆包登录按钮未找到","getDBQrCode",new RuntimeException("豆包登录按钮未找到"),url+"/saveLogInfo");
             }
         } catch (Exception e) {
             throw e;
