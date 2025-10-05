@@ -343,7 +343,7 @@ public class AIGCController {
 
             // 初始化页面并导航到指定会话
             Page page = browserUtil.getOrCreatePage(context);
-            if (dbchatId != null) {
+            if (!"true".equalsIgnoreCase(userInfoRequest.getIsNewChat()) && dbchatId != null) {
                 page.navigate("https://www.doubao.com/chat/" + dbchatId);
             } else {
                 page.navigate("https://www.doubao.com/chat/");
@@ -376,7 +376,7 @@ public class AIGCController {
                     Thread.sleep(1000);
                 }
                 logInfo.sendTaskLog("已启动深度思考模式", userId, dynamicAiName);
-            } else {
+            } else if(isActive != null && isActive && !roles.contains("db-sdsk")){
                 deepThoughtButton.click();
             }
             Thread.sleep(1000);
@@ -440,11 +440,15 @@ public class AIGCController {
                     Locator shareButton = page.locator("button[data-testid='message_action_share']").last();
                     
                     // 等待分享按钮可见并可交互，减少超时时间
-                    shareButton.waitFor(new Locator.WaitForOptions()
-                        .setState(WaitForSelectorState.VISIBLE)
-                        .setTimeout(20000)); // 从30秒减少到20秒
-                    
-                    shareButton.click();
+//                    shareButton.waitFor(new Locator.WaitForOptions()
+//                        .setState(WaitForSelectorState.VISIBLE)
+//                        .setTimeout(20000)); // 从30秒减少到20秒
+
+                    if(shareButton.count()>0){
+                        shareButton.click();
+                    }else{
+                        return;
+                    }
                     
                     if (isRight) {
                         Thread.sleep(1000);
@@ -1721,9 +1725,13 @@ public class AIGCController {
 
             // 🔥 优化：Zhihu分享操作，增加超时保护
             try {
-                page.locator("div:has-text('分享回答')").last().click(new Locator.ClickOptions().setTimeout(30000));
-                page.waitForTimeout(1000); // 增加等待时间
-                shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
+                AtomicReference<String> shareUrlRef = new AtomicReference<>();
+                clipboardLockManager.runWithClipboardLock(()->{
+                    page.locator("div:has-text('分享回答')").last().click(new Locator.ClickOptions().setTimeout(30000));
+                    page.waitForTimeout(1000); // 增加等待时间
+                    shareUrlRef.set((String) page.evaluate("navigator.clipboard.readText()"));
+                });
+                shareUrl = shareUrlRef.get();
 
                 if (shareUrl != null && !shareUrl.trim().isEmpty()) {
                 } else {
