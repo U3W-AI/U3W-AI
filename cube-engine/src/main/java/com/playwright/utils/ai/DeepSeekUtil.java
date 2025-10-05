@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.playwright.utils.common.ScreenshotUtil.uploadFile;
 
@@ -355,8 +356,12 @@ public class DeepSeekUtil {
             }
 
             // 尝试通过复制按钮获取纯回答内容（过滤思考过程）
-            String finalContent = clickCopyButtonAndGetAnswer(page, userId);
-            
+            AtomicReference<String> finalContentRef = new AtomicReference<>();
+            clipboardLockManager.runWithClipboardLock(()->{
+                String finalContent = clickCopyButtonAndGetAnswer(page, userId);
+                finalContentRef.set(finalContent);
+            });
+            String finalContent=finalContentRef.get();
             // 如果复制按钮方法失败，回退到原来的方法
             if (finalContent == null || finalContent.trim().isEmpty()) {
                 logInfo.sendTaskLog("复制按钮方法失败，回退到DOM提取方法", userId, aiName);

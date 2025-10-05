@@ -79,13 +79,13 @@ public class BaiduUtil {
             try {
                 // 新的登录按钮选择器，支持多种可能的结构
                 String[] loginButtonSelectors = {
-                    ".login-btn", // 新的登录按钮类名
-                    ".login-btn div", // 登录按钮内部div
-                    "div[data-click-log*='login_button']", // 通过data-click-log属性定位
-                    "div[data-show-ext*='login_button']", // 通过data-show-ext属性定位
-                    "//*[@id=\"app\"]/div/div[1]/div[2]/div/div", // 旧的选择器作为备用
-                    "button:has-text('登录')", // 通用登录按钮
-                    "div:has-text('登录')" // 通用登录div
+                        ".login-btn", // 新的登录按钮类名
+                        ".login-btn div", // 登录按钮内部div
+                        "div[data-click-log*='login_button']", // 通过data-click-log属性定位
+                        "div[data-show-ext*='login_button']", // 通过data-show-ext属性定位
+                        "//*[@id=\"app\"]/div/div[1]/div[2]/div/div", // 旧的选择器作为备用
+                        "button:has-text('登录')", // 通用登录按钮
+                        "div:has-text('登录')" // 通用登录div
                 };
 
                 for (String selector : loginButtonSelectors) {
@@ -94,13 +94,13 @@ public class BaiduUtil {
                         if (page.isClosed()) {
                             throw new RuntimeException("页面在检查登录按钮时已关闭");
                         }
-                        
+
                         Locator loginButtonElement = page.locator(selector);
                         if (loginButtonElement.count() > 0 && loginButtonElement.isVisible()) {
                             String buttonText = loginButtonElement.textContent();
-                                                         if (buttonText != null && (buttonText.contains("登录") || buttonText.contains("登陆"))) {
-                                 return "false"; // 存在登录按钮，说明未登录
-                             }
+                            if (buttonText != null && (buttonText.contains("登录") || buttonText.contains("登陆"))) {
+                                return "false"; // 存在登录按钮，说明未登录
+                            }
                         }
                     } catch (Exception selectorException) {
                         // 继续尝试下一个选择器
@@ -117,7 +117,7 @@ public class BaiduUtil {
                 if (page.isClosed()) {
                     throw new RuntimeException("页面在检查用户信息时已关闭");
                 }
-                
+
                 String userIdSelector = "//*[@id=\"app\"]/div/div[1]/div[2]/div/div[1]/span";
                 Locator userIdElement = page.locator(userIdSelector);
 
@@ -136,7 +136,7 @@ public class BaiduUtil {
                         for (String selector : friendlyNameSelectors) {
                             try {
                                 if (page.isClosed()) break;
-                                
+
                                 Locator nameElement = page.locator(selector);
                                 if (nameElement.count() > 0 && nameElement.isVisible()) {
                                     String userName = nameElement.textContent();
@@ -165,9 +165,9 @@ public class BaiduUtil {
             // 检查是否存在登录按钮（使用安全的检查方式）
             try {
                 if (!page.isClosed()) {
-                Locator loginButton = page.locator("button:has-text('登录')");
-                if (loginButton.count() > 0 && loginButton.isVisible()) {
-                    return "false";
+                    Locator loginButton = page.locator("button:has-text('登录')");
+                    if (loginButton.count() > 0 && loginButton.isVisible()) {
+                        return "false";
                     }
                 }
             } catch (Exception e) {
@@ -186,7 +186,7 @@ public class BaiduUtil {
             for (String selector : inputSelectors) {
                 try {
                     if (page.isClosed()) break;
-                    
+
                     Locator inputElement = page.locator(selector);
                     if (inputElement.count() > 0 && inputElement.isVisible()) {
                         return "已登录";
@@ -200,10 +200,10 @@ public class BaiduUtil {
             // 检查页面URL是否包含用户相关路径
             try {
                 if (!page.isClosed()) {
-                String currentUrl = page.url();
-                if (currentUrl.contains("/profile") || currentUrl.contains("/user") ||
-                        currentUrl.contains("/dashboard") || currentUrl.contains("/chat/")) {
-                    return "已登录";
+                    String currentUrl = page.url();
+                    if (currentUrl.contains("/profile") || currentUrl.contains("/user") ||
+                            currentUrl.contains("/dashboard") || currentUrl.contains("/chat/")) {
+                        return "已登录";
                     }
                 }
             } catch (Exception e) {
@@ -225,7 +225,7 @@ public class BaiduUtil {
             for (String selector : userSelectors) {
                 try {
                     if (page.isClosed()) break;
-                    
+
                     Locator userElement = page.locator(selector);
                     if (userElement.count() > 0 && userElement.isVisible()) {
                         // 尝试获取用户名
@@ -240,7 +240,7 @@ public class BaiduUtil {
                         for (String usernameSelector : usernameSelectors) {
                             try {
                                 if (page.isClosed()) break;
-                                
+
                                 Locator usernameElement = page.locator(usernameSelector);
                                 if (usernameElement.count() > 0 && usernameElement.isVisible()) {
                                     String username = usernameElement.first().textContent();
@@ -272,15 +272,15 @@ public class BaiduUtil {
             if (e.getMessage() != null && e.getMessage().contains("navigation")) {
                 try {
                     if (!page.isClosed()) {
-                    // 等待页面稳定后再次检查
-                    Thread.sleep(2000);
-                    page.waitForLoadState(LoadState.NETWORKIDLE, new Page.WaitForLoadStateOptions().setTimeout(30000));
+                        // 等待页面稳定后再次检查
+                        Thread.sleep(2000);
+                        page.waitForLoadState(LoadState.NETWORKIDLE, new Page.WaitForLoadStateOptions().setTimeout(30000));
 
-                    // 简单检查URL是否变化（登录成功通常会跳转）
-                    String currentUrl = page.url();
-                    if (!currentUrl.equals("https://chat.baidu.com/") &&
-                            !currentUrl.contains("login")) {
-                        return "已登录";
+                        // 简单检查URL是否变化（登录成功通常会跳转）
+                        String currentUrl = page.url();
+                        if (!currentUrl.equals("https://chat.baidu.com/") &&
+                                !currentUrl.contains("login")) {
+                            return "已登录";
                         }
                     }
                 } catch (Exception retryException) {
@@ -424,35 +424,35 @@ public class BaiduUtil {
                 if (page.isClosed()) {
                     throw new RuntimeException("页面在配置深度搜索时已关闭");
                 }
-                
+
                 Locator deepSearchIcon = page.locator(".deep-search-icon");
                 if (deepSearchIcon.count() > 0 && deepSearchIcon.isVisible()) {
                     deepSearchIcon.click();
-                Thread.sleep(500);
+                    Thread.sleep(500);
+                }
             }
-            }
-            
+
             // 模型选择配置
             if (roles != null && (roles.contains("dsr1") || roles.contains("dsv3") || roles.contains("wenxin") || roles.contains("web"))) {
                 // 检查页面状态
                 if (page.isClosed()) {
                     throw new RuntimeException("页面在配置模型时已关闭");
                 }
-                
+
                 Locator modelSelectToggle = page.locator(".model-select-toggle");
                 if (modelSelectToggle.count() > 0 && modelSelectToggle.isVisible()) {
                     modelSelectToggle.click();
-                Thread.sleep(500);
-                    
+                    Thread.sleep(500);
+
                     // Web搜索开关
                     if (roles.contains("web")) {
                         Locator webSwitcher = page.locator(".cos-switcher.cos-sm");
                         if (webSwitcher.count() > 0 && webSwitcher.isVisible()) {
                             webSwitcher.click();
-                    Thread.sleep(500);
-                }
+                            Thread.sleep(500);
+                        }
                     }
-                    
+
                     // 模型选择
                     if (roles.contains("dsr1")) {
                         Locator dsr1Option = page.locator(".input-capsules-model-list-item:has-text('DeepSeek-R1')");
@@ -468,18 +468,18 @@ public class BaiduUtil {
                         Locator wenxinOption = page.locator(".input-capsules-model-list-item:has-text('文心')");
                         if (wenxinOption.count() > 0 && wenxinOption.isVisible()) {
                             wenxinOption.click();
-                }
+                        }
                     }
-                    
-                Thread.sleep(500);
-                    
+
+                    Thread.sleep(500);
+
                     // 关闭模型选择面板
                     if (!page.isClosed() && modelSelectToggle.count() > 0) {
                         modelSelectToggle.click();
-            }
+                    }
                 }
             }
-            
+
             // 等待配置生效
             Thread.sleep(1000);
 
@@ -722,7 +722,7 @@ public class BaiduUtil {
             String[] replySelectors = {
                     "div.data-show-ext"
             };
-            
+
             try {
                 // 等待回复出现
                 boolean replyFound = false;
@@ -734,7 +734,7 @@ public class BaiduUtil {
                         if (page.isClosed()) {
                             throw new RuntimeException("页面在查找回复元素时已关闭");
                         }
-                        
+
                         replyElement = container.locator(selector).last();
                         replyFound = true;
                         break;
@@ -788,7 +788,7 @@ public class BaiduUtil {
                         if (page.isClosed()) {
                             throw new RuntimeException("页面在内容稳定性检测时已关闭");
                         }
-                        
+
                         Thread.sleep(1000);
 
                         try {
@@ -817,15 +817,15 @@ public class BaiduUtil {
 
             // 优化的内容提取逻辑
             String content = "本次回复无文本内容";
-            
+
             // 检查页面状态
             if (page.isClosed()) {
                 throw new RuntimeException("页面在提取最终内容时已关闭");
             }
-            
+
             Locator editor = page.locator("div#editor-container");
             Locator comate = page.locator("div#comate-chat-workspace");
-            
+
             if (editor.count() > 0) {
                 Locator copyButton = page.locator("i.cos-icon.cos-icon-copy.button_AxaRd");
                 if (copyButton.count() > 0 && copyButton.isVisible()) {
@@ -846,11 +846,11 @@ public class BaiduUtil {
                 Locator copyButton = element.locator("i.cos-icon.cos-icon-copy.icon_1nicr_12").last();
                 // 百度AI无法分享的组件也有分享按钮只是不可见，不可用
                 if (copyButton.count() > 0 && copyButton.isVisible()) {
-                        copyButton.click();
-                        Thread.sleep(1000);
-                        content = (String) page.evaluate("navigator.clipboard.readText()");
-                    }
+                    copyButton.click();
+                    Thread.sleep(1000);
+                    content = (String) page.evaluate("navigator.clipboard.readText()");
                 }
+            }
 
             return content;
 
@@ -1077,7 +1077,7 @@ public class BaiduUtil {
 
                 Locator editor = page.locator("div#editor-container");
                 Locator comate = page.locator("div#comate-chat-workspace");
-                
+
                 //检测是否打开了右侧文本编辑框
                 if (editor.count() > 0) {
                     String[] shareSelectors = {
@@ -1095,30 +1095,30 @@ public class BaiduUtil {
 
                     if (shareButton != null) {
                         shareButton.click();
-                    Thread.sleep(2000);
-                        
+                        Thread.sleep(2000);
+
                         // 检查页面状态
                         if (page.isClosed()) {
                             throw new RuntimeException("页面在点击分享按钮后已关闭");
                         }
-                        
-                    String[] copySelectors = {
-                            "button:has-text('复制链接')",
-                    };
-                    Locator copyButton = null;
-                    for (String selector : copySelectors) {
-                        Locator temp = page.locator(selector);
-                            if (temp.count() > 0 && temp.isVisible()) {
-                            copyButton = temp.first();
-                            break;
-                        }
-                    }
-                    if (copyButton != null) {
-                        copyButton.click();
-                        Thread.sleep(2000);
 
-                        // 读取剪贴板内容
-                        shareUrlRef.set((String) page.evaluate("navigator.clipboard.readText()"));
+                        String[] copySelectors = {
+                                "button:has-text('复制链接')",
+                        };
+                        Locator copyButton = null;
+                        for (String selector : copySelectors) {
+                            Locator temp = page.locator(selector);
+                            if (temp.count() > 0 && temp.isVisible()) {
+                                copyButton = temp.first();
+                                break;
+                            }
+                        }
+                        if (copyButton != null) {
+                            copyButton.click();
+                            Thread.sleep(2000);
+
+                            // 读取剪贴板内容
+                            shareUrlRef.set((String) page.evaluate("navigator.clipboard.readText()"));
                         }
                     }
                     Thread.sleep(2000);
@@ -1146,44 +1146,44 @@ public class BaiduUtil {
 
                 Locator container = page.locator("div.chat-qa-container").last();
                 Locator directShareButton = container.locator("//i[contains(@class, 'cos-icon') and contains(@class, 'cos-icon-share1')]");
-                
+
                 if (directShareButton.count() > 0 && directShareButton.isVisible()) {
                     directShareButton.last().click();
-                Thread.sleep(500);
-                    
+                    Thread.sleep(500);
+
                     // 检查页面状态
                     if (page.isClosed()) {
                         throw new RuntimeException("页面在点击直接分享按钮后已关闭");
                     }
-                    
-                String[] copySelectors = {
-                        "button:has-text('复制链接')",
-                        ".copy-link",
-                        "[data-testid='copy-link']"
-                };
 
-                Locator copyButton = null;
-                for (String selector : copySelectors) {
-                    Locator temp = page.locator(selector);
+                    String[] copySelectors = {
+                            "button:has-text('复制链接')",
+                            ".copy-link",
+                            "[data-testid='copy-link']"
+                    };
+
+                    Locator copyButton = null;
+                    for (String selector : copySelectors) {
+                        Locator temp = page.locator(selector);
                         if (temp.count() > 0 && temp.isVisible()) {
-                        copyButton = temp.first();
-                        break;
-                    }
-                }
-
-                if (copyButton != null) {
-                    copyButton.click();
-                    Thread.sleep(1000);
-
-                    // 读取剪贴板内容
-                    String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
-                        if (shareUrl != null && shareUrl.contains("h")) {
-                    shareUrl = shareUrl.substring(shareUrl.indexOf('h'));
-                    shareUrlRef.set(shareUrl);
-                    logInfo.sendTaskLog("分享链接获取成功", userId, "百度AI");
+                            copyButton = temp.first();
+                            break;
                         }
-                    return;
-                }
+                    }
+
+                    if (copyButton != null) {
+                        copyButton.click();
+                        Thread.sleep(1000);
+
+                        // 读取剪贴板内容
+                        String shareUrl = (String) page.evaluate("navigator.clipboard.readText()");
+                        if (shareUrl != null && shareUrl.contains("h")) {
+                            shareUrl = shareUrl.substring(shareUrl.indexOf('h'));
+                            shareUrlRef.set(shareUrl);
+                            logInfo.sendTaskLog("分享链接获取成功", userId, "百度AI");
+                        }
+                        return;
+                    }
                 }
 
             } catch (com.microsoft.playwright.impl.TargetClosedError e) {
@@ -1250,18 +1250,18 @@ public class BaiduUtil {
 
             // 查找并点击登录按钮 - 支持多种登录按钮结构
             String[] loginButtonSelectors = {
-                ".login-btn", // 新的登录按钮类名
-                ".login-btn div", // 登录按钮内部div
-                "div[data-click-log*='login_button']", // 通过data-click-log属性定位
-                "div[data-show-ext*='login_button']", // 通过data-show-ext属性定位
-                "//*[@id=\"app\"]/div/div[1]/div[2]/div/div", // 旧的选择器作为备用
-                "button:has-text('登录')", // 通用登录按钮
-                "div:has-text('登录')" // 通用登录div
+                    ".login-btn", // 新的登录按钮类名
+                    ".login-btn div", // 登录按钮内部div
+                    "div[data-click-log*='login_button']", // 通过data-click-log属性定位
+                    "div[data-show-ext*='login_button']", // 通过data-show-ext属性定位
+                    "//*[@id=\"app\"]/div/div[1]/div[2]/div/div", // 旧的选择器作为备用
+                    "button:has-text('登录')", // 通用登录按钮
+                    "div:has-text('登录')" // 通用登录div
             };
 
             Locator loginButton = null;
             String usedSelector = "";
-            
+
             // 尝试多个选择器找到登录按钮
             for (String selector : loginButtonSelectors) {
                 try {
@@ -1269,7 +1269,7 @@ public class BaiduUtil {
                     if (page.isClosed()) {
                         throw new RuntimeException("页面在查找登录按钮时已关闭");
                     }
-                    
+
                     Locator tempButton = page.locator(selector);
                     if (tempButton.count() > 0 && tempButton.isVisible()) {
                         String buttonText = tempButton.textContent();
@@ -1292,7 +1292,7 @@ public class BaiduUtil {
                     if (page.isClosed()) {
                         throw new RuntimeException("页面在点击登录按钮前已关闭");
                     }
-                    
+
                     // 点击登录按钮
                     loginButton.click();
                     logInfo.sendTaskLog("已点击登录按钮，等待登录页面加载", userId, "百度AI");
@@ -1309,18 +1309,18 @@ public class BaiduUtil {
 
                     // 截图并返回二维码
                     logInfo.sendTaskLog("准备截图二维码", userId, "百度AI");
-                    
+
                     // 尝试多个二维码选择器
                     String[] qrCodeSelectors = {
-                        "#TANGRAM__PSP_11__qrcodeContent", // 原始选择器
-                        ".qr-code", // 通用二维码选择器
-                        ".login-qr", // 登录二维码选择器
-                        "[class*='qr']", // 包含qr的类名
-                        "[id*='qr']", // 包含qr的id
-                        ".passport-login-qrcode", // 百度登录二维码
-                        "#qrcode" // 简单的二维码id
+                            "#TANGRAM__PSP_11__qrcodeContent", // 原始选择器
+                            ".qr-code", // 通用二维码选择器
+                            ".login-qr", // 登录二维码选择器
+                            "[class*='qr']", // 包含qr的类名
+                            "[id*='qr']", // 包含qr的id
+                            ".passport-login-qrcode", // 百度登录二维码
+                            "#qrcode" // 简单的二维码id
                     };
-                    
+
                     Locator qrCodeArea = null;
                     for (String qrSelector : qrCodeSelectors) {
                         try {
@@ -1328,7 +1328,7 @@ public class BaiduUtil {
                             if (page.isClosed()) {
                                 throw new RuntimeException("页面在查找二维码时已关闭");
                             }
-                            
+
                             Locator tempQr = page.locator(qrSelector);
                             if (tempQr.count() > 0 && tempQr.isVisible()) {
                                 qrCodeArea = tempQr;
@@ -1339,13 +1339,13 @@ public class BaiduUtil {
                             continue;
                         }
                     }
-                    
+
                     if (qrCodeArea != null) {
                         // 检查页面状态
                         if (page.isClosed()) {
                             throw new RuntimeException("页面在截图二维码前已关闭");
                         }
-                        
+
                         byte[] qrCodeBytes = qrCodeArea.screenshot(new Locator.ScreenshotOptions().setTimeout(60000));
 
                         BufferedImage inputImage = ImageIO.read(new ByteArrayInputStream(qrCodeBytes));
@@ -1393,12 +1393,12 @@ public class BaiduUtil {
             try {
                 // 出现异常时也返回当前页面截图
                 if (!page.isClosed()) {
-                return screenshotUtil.screenshotAndUpload(page, "getBaiduLoginError.png");
+                    return screenshotUtil.screenshotAndUpload(page, "getBaiduLoginError.png");
                 }
             } catch (Exception screenshotException) {
                 // 截图也失败，抛出原异常
             }
-                throw e;
+            throw e;
         }
     }
 
@@ -1495,14 +1495,14 @@ public class BaiduUtil {
                         break;
                     }
                 }
-                if(copyButton != null){
+                if (copyButton != null) {
                     final Locator temp = copyButton;
                     shareImgUrl = ScreenshotUtil.downloadAndUploadFile(page, screenshotUtil.uploadUrl, () -> {
                         temp.click();
                     });
-                }else{  // 取消分享界面，回退到默认界面样式，以便后续截图
+                } else {  // 取消分享界面，回退到默认界面样式，以便后续截图
                     Locator exit = page.locator("i.cos-icon.cos-icon-close.close-btn_1iln9_41");
-                    if(exit.count()>0){
+                    if (exit.count() > 0) {
                         exit.click();
                     }
                 }
@@ -1564,7 +1564,7 @@ public class BaiduUtil {
                 scrollTop = ((Number) page.evaluate("(ele) => ele.scrollTop", element.elementHandle())).doubleValue();
                 while (scrollTop - lastScrollTop > 200) {
                     images.add(element.screenshot(new Locator.ScreenshotOptions()));
-                    lastHeight=(int)scrollTop - (int)lastScrollTop;
+                    lastHeight = (int) scrollTop - (int) lastScrollTop;
                     Thread.sleep(500);
                     lastScrollTop = scrollTop;
                     page.mouse().wheel(0, clientHeight);
@@ -1572,9 +1572,9 @@ public class BaiduUtil {
                     scrollTop = ((Number) page.evaluate("(ele) => ele.scrollTop", element.elementHandle())).doubleValue();
                 }
                 byte[] concatenatedImageBytes = null;
-                if(images.size() == 1){
+                if (images.size() == 1) {
                     concatenatedImageBytes = images.get(0);
-                }else {
+                } else {
                     // 拼接多张截图
                     BufferedImage firstImage = ImageIO.read(new ByteArrayInputStream(images.get(0)));
                     int width = firstImage.getWidth();
@@ -1598,10 +1598,10 @@ public class BaiduUtil {
                         currentHeight += img.getHeight();
                     }
                     // 最后一张图特殊处理，需要裁剪
-                        BufferedImage img = ImageIO.read(new ByteArrayInputStream(images.get(images.size() - 1)));
-                        img = img.getSubimage(0, (int)Math.max(0,clientHeight-lastHeight), img.getWidth(), (int)Math.min(lastHeight,img.getHeight()));
-                        result.getGraphics().drawImage(img, 0, currentHeight, null);
-                        currentHeight += img.getHeight();
+                    BufferedImage img = ImageIO.read(new ByteArrayInputStream(images.get(images.size() - 1)));
+                    img = img.getSubimage(0, (int) Math.max(0, clientHeight - lastHeight), img.getWidth(), (int) Math.min(lastHeight, img.getHeight()));
+                    result.getGraphics().drawImage(img, 0, currentHeight, null);
+                    currentHeight += img.getHeight();
                     // 将结果图片转换为 byte[] 数组
                     ByteArrayOutputStream baos = new ByteArrayOutputStream();
                     ImageIO.write(result, "png", baos);
@@ -1666,7 +1666,7 @@ public class BaiduUtil {
 
             return McpResult.success(formattedContent, finalShareUrl);
 
-                } catch (com.microsoft.playwright.impl.TargetClosedError e) {
+        } catch (com.microsoft.playwright.impl.TargetClosedError e) {
             throw new RuntimeException("页面目标在保存内容时已关闭", e);
         } catch (TimeoutError e) {
             throw new RuntimeException("保存内容超时", e);
