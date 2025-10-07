@@ -415,9 +415,8 @@ public class MediaController {
     @Operation(summary = "投递内容到知乎", description = "将处理后的内容自动投递到知乎草稿箱")
     public String sendToZhihu(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId,
                               @Parameter(description = "文章标题") @RequestParam("title") String title,
-                              @Parameter(description = "文章内容") @RequestParam("content") String content){
+                              @Parameter(description = "文章内容") @RequestParam("content") String content) throws Exception {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"Zhihu")) {
-
             // 初始化页面和变量
             Page page = browserUtil.getOrCreatePage(context);
 
@@ -524,7 +523,7 @@ public class MediaController {
                 logMsgUtil.sendImgData(page, "知乎正文输入进度截图（已输入" + charCount + "字，输入结束）", userId);
             }
 
-            // 识别草稿保存状态，轮询div中的文字，直到不包含“草稿保存中”为止
+            // 识别草稿保存状态，轮询div中的文字，直到不包含"草稿保存中"为止
             Locator draftStatusDiv = page.locator("#root > div > main > div > div.WriteIndexLayout-main.WriteIndex.css-1losy9j > div.WriteIndexMain.WriteIndexMain-aiAssistantOpen > div > div.PostEditor-wrapper > div.css-13mrzb0 > div.css-1ppjin3 > div > div.css-1ozfthc > div");
             int maxWait = 30; // 最多等待30秒
             int waited = 0;
@@ -550,11 +549,10 @@ public class MediaController {
                 } catch (Exception e) {
                 }
             }
-        } catch (Exception e) {
-            UserLogUtil.sendExceptionLog(userId, "知乎投递异常", "sendToZhihu", e, url);
-            return "投递失败";
+            return "true";
+        } finally {
+            // 无论成功失败，都会通过AOP记录日志
         }
-        return "true";
     }
 
     /**
@@ -568,7 +566,7 @@ public class MediaController {
     @Operation(summary = "投递内容到百家号", description = "将处理后的内容自动投递到百家号草稿箱")
     public String sendToBaijiahao(@Parameter(description = "用户唯一标识") @RequestParam("userId") String userId,
                                   @Parameter(description = "文章标题") @RequestParam("title") String title,
-                                  @Parameter(description = "文章内容") @RequestParam("content") String content){
+                                  @Parameter(description = "文章内容") @RequestParam("content") String content) throws Exception {
         try (BrowserContext context = browserUtil.createPersistentBrowserContext(false,userId,"Baijiahao")) {
 
             //处理文章 拆成正文和标题
@@ -707,11 +705,10 @@ public class MediaController {
                 } catch (Exception e) {
                 }
             }
-        } catch (Exception e) {
-            UserLogUtil.sendExceptionLog(userId, "投递到百家号", "sendToBaijiahao", e, url + "/saveLogInfo");
-            return "投递失败";
+            return "true";
+        } finally {
+            // 无论成功失败，都会通过AOP记录日志
         }
-        return "true";
     }
 
     @Operation(summary = "获取微头条登录二维码", description = "返回二维码截图 URL 或 false 表示失败")

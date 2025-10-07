@@ -57,34 +57,29 @@ public class ZhihuDeliveryController {
      */
     @PostMapping("/deliverToZhihu")
     @Operation(summary = "投递内容到知乎", description = "统一处理知乎内容的排版和投递")
-    public String deliverToZhihu(@RequestBody UserInfoRequest userInfoRequest) throws InterruptedException {
+    public String deliverToZhihu(@RequestBody UserInfoRequest userInfoRequest) throws Exception {
         String userId = userInfoRequest.getUserId();
         String aiName = userInfoRequest.getAiName();
         
-        try {
-            // 3. 构建知乎文章标题
-            String title = buildZhihuTitle(aiName, userId);
-            logInfo.sendMediaTaskLog("标题构建完成：" + title, userId, "投递到知乎");
-            
-            // 4. 内部调用知乎投递
-            logInfo.sendMediaTaskLog("正在投递内容到知乎平台...", userId, "投递到知乎");
-            String deliveryResult = mediaController.sendToZhihu(userId, title, userInfoRequest.getUserPrompt());
-            
-            if ("true".equals(deliveryResult)) {
-                logInfo.sendMediaTaskLog("知乎投递完成！", userId, "投递到知乎");
-                sendDeliveryResult("投递到知乎", "success", "知乎投递任务完成", userId);
-            } else {
-                logInfo.sendMediaTaskLog("知乎投递失败", userId, "投递到知乎");
-                sendDeliveryResult("投递到知乎", "error", "知乎投递失败", userId);
-            }
-            
-            return deliveryResult;
-        } catch (Exception e) {
-            String errorMsg = "投递失败";
-            logInfo.sendMediaTaskLog(errorMsg, userId, "投递到知乎");
-            sendDeliveryResult("投递到知乎", "error", errorMsg, userId);
-            throw e;
+        // 构建知乎文章标题
+        String title = buildZhihuTitle(aiName, userId);
+        logInfo.sendMediaTaskLog("标题构建完成：" + title, userId, "投递到知乎");
+        
+        // 内部调用知乎投递
+        logInfo.sendMediaTaskLog("正在投递内容到知乎平台...", userId, "投递到知乎");
+        String deliveryResult = mediaController.sendToZhihu(userId, title, userInfoRequest.getUserPrompt());
+        
+        if ("true".equals(deliveryResult)) {
+            logInfo.sendMediaTaskLog("知乎投递完成！", userId, "投递到知乎");
+            sendDeliveryResult("投递到知乎", "success", "知乎投递任务完成", userId);
+        } else {
+            // 提取详细错误信息
+            String errorDetail = deliveryResult.startsWith("投递失败") ? deliveryResult : "知乎投递失败: " + deliveryResult;
+            logInfo.sendMediaTaskLog(errorDetail, userId, "投递到知乎");
+            sendDeliveryResult("投递到知乎", "error", errorDetail, userId);
         }
+        
+        return deliveryResult;
     }
     
     /**

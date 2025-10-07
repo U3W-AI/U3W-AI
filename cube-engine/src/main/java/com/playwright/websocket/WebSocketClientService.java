@@ -742,39 +742,76 @@ public class WebSocketClientService {
             String content = userInfoRequest.getUserPrompt();
             String unionId = userInfoUtil.getUnionIdByUserId(userInfoRequest.getUserId());
             userInfoRequest.setUnionId(unionId);
+            
             if (selectedMedia.contains("wechat")) {
                 // 获取图片信息
                 McpResult mcp = cubeMcp.getMaterial(userInfoRequest);
-                String listJson = mcp.getResult();
-                String thumbMediaId = null;
-                List<Item> images = JSONUtil.toList(listJson, Item.class);
-                List<ImgInfo> imgInfoList = new ArrayList<>();
-
-                for (Item image : images) {
-                    String name = image.getName();
-                    if (name.contains(unionId)) {
-                        if (thumbMediaId == null && name.contains("封面")) {
-                            thumbMediaId = image.getMedia_id();
-                            continue;
+                
+                // 检查获取素材是否成功
+                if (mcp == null || mcp.getCode() != 200 || mcp.getResult() == null || mcp.getResult().isEmpty()) {
+                    // 素材获取失败，记录日志并继续排版（不包含图片信息）
+                    System.out.println("获取公众号素材失败，原因：" + (mcp != null ? mcp.getResult() : "未知错误") + "，将继续执行排版但不包含图片信息");
+                    
+                    // 发送友好提示给用户
+                    try {
+                        JSONObject tipMsg = new JSONObject();
+                        tipMsg.put("type", "RETURN_MEDIA_TASK_LOG");
+                        tipMsg.put("content", "⚠️ 未检测到公众号绑定或图片素材，将仅排版文字内容");
+                        tipMsg.put("taskId", userInfoRequest.getTaskId());
+                        if (webSocketClient != null && webSocketClient.isOpen()) {
+                            webSocketClient.send(tipMsg.toJSONString());
                         }
-                        ImgInfo imgInfo = new ImgInfo();
-                        imgInfo.setImgDescription(name.substring(name.indexOf("-")));
-                        imgInfo.setImgUrl(image.getUrl());
-                        imgInfoList.add(imgInfo);
+                    } catch (Exception ex) {
+                        System.err.println("发送提示消息失败：" + ex.getMessage());
                     }
-                }
-                if (imgInfoList.isEmpty()) {
+                    
+                    // 仅包含文本内容的排版
                     userInfoRequest.setUserPrompt("文本内容: `" + content + "`" + ", " + znpbPrompt);
                 } else {
-                    userInfoRequest.setUserPrompt("文本内容: `" + content + "`" + ", 图片信息: {" + imgInfoList.toString() + "} " + znpbPrompt);
+                    // 成功获取素材，解析并处理
+                    String listJson = mcp.getResult();
+                    String thumbMediaId = null;
+                    List<Item> images = new ArrayList<>();
+                    
+                    try {
+                        images = JSONUtil.toList(listJson, Item.class);
+                    } catch (Exception e) {
+                        System.out.println("解析素材列表失败，将继续执行排版但不包含图片信息");
+                        e.printStackTrace();
+                    }
+                    
+                    List<ImgInfo> imgInfoList = new ArrayList<>();
+
+                    for (Item image : images) {
+                        String name = image.getName();
+                        if (name.contains(unionId)) {
+                            if (thumbMediaId == null && name.contains("封面")) {
+                                thumbMediaId = image.getMedia_id();
+                                continue;
+                            }
+                            ImgInfo imgInfo = new ImgInfo();
+                            imgInfo.setImgDescription(name.substring(name.indexOf("-")));
+                            imgInfo.setImgUrl(image.getUrl());
+                            imgInfoList.add(imgInfo);
+                        }
+                    }
+                    
+                    if (imgInfoList.isEmpty()) {
+                        userInfoRequest.setUserPrompt("文本内容: `" + content + "`" + ", " + znpbPrompt);
+                    } else {
+                        userInfoRequest.setUserPrompt("文本内容: `" + content + "`" + ", 图片信息: {" + imgInfoList.toString() + "} " + znpbPrompt);
+                    }
                 }
             } else {
+                // 其他媒体平台（知乎等）
                 userInfoRequest.setUserPrompt("文本内容: `" + content + "`" + ", " + znpbPrompt);
             }
             //TODO 添加其他媒体排版
 
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            System.err.println("AI排版提示词处理失败：" + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("AI排版提示词处理失败：" + e.getMessage());
         }
     }
 }
