@@ -2256,6 +2256,13 @@
       // 实际投递到公众号
       pushToMediaWithContent(result) {
         if(this.pushingToWechat) return;
+        
+        // 验证内容是否为空
+        if(!result.content || result.content.trim() === '') {
+          this.$message.error("投递内容为空，请先进行AI排版生成内容");
+          return;
+        }
+        
         this.$message.success("开始投递公众号！");
         this.pushingToWechat = true;
         this.pushOfficeNum += 1;
@@ -2280,13 +2287,30 @@
             })
             .catch((error) => {
               console.error("投递到公众号失败:", error);
-              this.$message.error("投递失败，请重试");
+              // 提取错误消息
+              let errorMsg = "投递失败，请重试";
+              if(error.response && error.response.data && error.response.data.msg) {
+                errorMsg = error.response.data.msg;
+              } else if(error.message) {
+                errorMsg = error.message;
+              }
+              
+              // 针对常见错误给出友好提示
+              if(errorMsg.includes("未绑定公众号")) {
+                this.$message.error("⚠️ 未绑定公众号，请先在系统中绑定公众号后再进行投递");
+              } else if(errorMsg.includes("内容格式错误")) {
+                this.$message.error("⚠️ 内容格式错误，请检查AI排版结果是否包含《标题》格式");
+              } else if(errorMsg.includes("内容解析失败") || errorMsg.includes("投递内容为空")) {
+                this.$message.error("⚠️ 内容解析失败，请先完成AI排版后再投递");
+              } else {
+                this.$message.error(errorMsg);
+              }
             })
             .finally(() => {
               this.pushingToWechat = false;
             });
         } else if(mediaName.includes('zhihu')) {
-          // 构建评分请求
+          // 构建知乎投递请求
           const mediaRequest = {
             jsonrpc: "2.0",
             id: uuidv4(),
@@ -2295,11 +2319,45 @@
               taskId: uuidv4(),
               userId: this.userId,
               corpId: this.corpId,
-              aiName: this.layoutAI, //TODO:动态调整
+              aiName: result.aiName,
+              userPrompt: result.content, // 传递排版后的内容
               selectedMedia: "zhihu_layout",
             },
           };
           this.message(mediaRequest);
+          
+          // 创建媒体投递任务节点（类似智能排版）
+          const mediaDeliveryAI = {
+            name: "媒体投递",
+            avatar: require("../../../assets/ai/yuanbao.png"),
+            capabilities: [],
+            selectedCapabilities: [],
+            enabled: true,
+            status: "running",
+            progressLogs: [
+              {
+                content: "知乎投递任务已提交，正在投递...",
+                timestamp: new Date(),
+                isCompleted: false,
+                type: "媒体投递",
+              },
+            ],
+            isExpanded: true,
+          };
+          
+          // 将媒体投递任务添加到任务列表
+          const existIndex = this.enabledAIs.findIndex(ai => ai.name === "媒体投递");
+          if(existIndex === -1) {
+            this.enabledAIs.unshift(mediaDeliveryAI);
+          } else {
+            this.enabledAIs[existIndex] = mediaDeliveryAI;
+            const media = this.enabledAIs.splice(existIndex, 1)[0];
+            this.enabledAIs.unshift(media);
+          }
+          
+          this.$forceUpdate();
+          this.$message.success("知乎投递请求已发送，请等待结果");
+          this.pushingToWechat = false;
         }
       },
 
