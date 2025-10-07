@@ -1,13 +1,9 @@
 package com.cube.wechat.selfapp.app.controller;
 
-import cn.hutool.json.JSONUtil;
-import com.alibaba.fastjson.JSONObject;
 import com.cube.common.annotation.RateLimiter;
 import com.cube.common.core.controller.BaseController;
 import com.cube.common.core.page.TableDataInfo;
 import com.cube.common.utils.StringUtils;
-import com.cube.mcp.entities.ImgInfo;
-import com.cube.mcp.entities.Item;
 import com.cube.wechat.selfapp.app.config.MyWebSocketHandler;
 import com.cube.wechat.selfapp.app.domain.AINodeLog;
 import com.cube.wechat.selfapp.app.domain.AIParam;
@@ -22,8 +18,6 @@ import io.swagger.annotations.ApiParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -138,13 +132,41 @@ public class UserInfoController extends BaseController {
         try {
             String userId = map.get("userId") + "";
             String contentText = map.get("contentText") + "";
+            
+            // 验证内容不为空
+            if (contentText == null || contentText.trim().isEmpty() || contentText.equals("null")) {
+                throw new RuntimeException("投递内容为空，请先进行AI排版生成内容");
+            }
+            
             String unionId = aigcService.getUnionIdByUserId(userId);
-            WcOfficeAccount woa = (WcOfficeAccount) userInfoService.getOfficeAccountByUserId(userId).getData();
+            
+            // 检查用户是否绑定公众号
+            ResultBody officeAccountResult = userInfoService.getOfficeAccountByUserId(userId);
+            if (officeAccountResult.getCode() != 200 || officeAccountResult.getData() == null) {
+                throw new RuntimeException("未绑定公众号，请先在系统中绑定公众号后再进行投递");
+            }
+            
+            WcOfficeAccount woa = (WcOfficeAccount) officeAccountResult.getData();
+            
 //            获取素材信息
             int first = contentText.indexOf("《");
             int second = contentText.indexOf("》", first + 1);
+            
+            if (first == -1 || second == -1 || first >= second) {
+                throw new RuntimeException("内容格式错误，标题格式应为《标题》，请检查AI排版结果");
+            }
+            
             String title = contentText.substring(first + 1, second);
-            contentText = contentText.substring(second + 1, contentText.lastIndexOf(">") + 1);
+            
+            // 安全地提取内容部分
+            int lastGtIndex = contentText.lastIndexOf(">");
+            if (lastGtIndex != -1 && lastGtIndex > second) {
+                contentText = contentText.substring(second + 1, lastGtIndex + 1);
+            } else {
+                // 如果没有找到合适的结束位置，就取标题之后的所有内容
+                contentText = contentText.substring(second + 1);
+            }
+            
             contentText = contentText.replaceAll("\r\n\r\n", "");
             map.put("userId",userId);
             map.put("title",title);
@@ -152,8 +174,13 @@ public class UserInfoController extends BaseController {
             map.put("unionId", unionId);
             map.put("thumbMediaId", woa.getMediaId());
             return wechatMpService.publishToOffice(map);
+        } catch (RuntimeException e) {
+            // 保持原有的业务异常消息
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("内容解析失败");
+            System.err.println("投递到公众号失败：" + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("投递失败：" + e.getMessage());
         }
     }
 

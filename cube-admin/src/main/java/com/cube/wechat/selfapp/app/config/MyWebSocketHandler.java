@@ -153,10 +153,15 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
             //小程序发给playwright
             String corpId = userInfoMapper.getCorpIdByUserId(clientId.substring(5));
             // 获取 WebSocketSession
-            WebSocketSession session = sessions.get("play-"+corpId);
+            String sessionKey = "play-"+corpId;
+            WebSocketSession session = sessions.get(sessionKey);
+            
+            // 添加调试信息
+            System.out.println("查找连接: " + sessionKey + ", 当前所有连接: " + sessions.keySet());
+            
             // 判断 session 是否存在且在线
             if (session == null || !session.isOpen()) {
-                System.out.println("playWright-" + corpId + " 不在线或连接已关闭");
+                System.out.println("play-" + corpId + " 不在线或连接已关闭 (session=" + (session != null ? "存在但已关闭" : "不存在") + ")");
                 res.put("message","offline");
                 return res.toJSONString();
             }
@@ -269,10 +274,15 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
             //web发给playwright
             JSONObject jsonObjectMsg = JSONObject.parseObject(message);
             // 获取 WebSocketSession
-            WebSocketSession session = sessions.get("play-"+jsonObjectMsg.get("corpId"));
+            String sessionKey = "play-"+jsonObjectMsg.get("corpId");
+            WebSocketSession session = sessions.get(sessionKey);
+            
+            // 添加调试信息
+            System.out.println("查找连接: " + sessionKey + ", 当前所有连接: " + sessions.keySet());
+            
             // 判断 session 是否存在且在线
             if (session == null || !session.isOpen()) {
-                System.out.println("playWright-" + jsonObjectMsg.get("corpId") + " 不在线或连接已关闭");
+                System.out.println("play-" + jsonObjectMsg.get("corpId") + " 不在线或连接已关闭 (session=" + (session != null ? "存在但已关闭" : "不存在") + ")");
                 res.put("message","offline");
                 return res.toJSONString();
             }
