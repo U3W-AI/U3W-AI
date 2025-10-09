@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.selfapp.corpchat.mapper.CorpUserMapper">
+
+    <delete id="deleteDept">
+        TRUNCATE TABLE sys_dept;
+    </delete>
+    <delete id="deleteUser">
+        TRUNCATE TABLE sys_user;
+    </delete>
+    <delete id="deleteUserRole">
+        TRUNCATE TABLE sys_user_role;
+    </delete>
+    <delete id="deleteUserPost">
+        TRUNCATE TABLE sys_user_post;
+    </delete>
+
+    <insert id="saveDept" parameterType="cn.felord.domain.contactbook.department.DeptInfo">
+        insert into sys_dept(dept_id,dept_name,parent_id,order_num,status,del_flag,create_by,create_time)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+              #{item.id},
+              #{item.name},
+              #{item.parentid},
+              1,
+            0,0,'企微同步',now()
+            )
+        </foreach>
+    </insert>
+
+    <insert id="saveUser" parameterType="cn.felord.domain.contactbook.user.SimpleUser">
+        insert into sys_user (dept_id,user_name,nick_name,user_type,password,status,del_flag,create_by,create_time)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.department},
+            #{item.userid},
+            #{item.name},
+            '00',
+            '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2',
+            0,0,'企微同步',now()
+            )
+        </foreach>
+    </insert>
+
+    <insert id="initRole">
+        insert into sys_user_role
+        select user_id,1 from sys_user where create_by ='企微同步';
+    </insert>
+    <insert id="initPost">
+        insert into sys_user_post
+        select user_id,1 from sys_user where create_by ='企微同步';
+    </insert>
+</mapper>

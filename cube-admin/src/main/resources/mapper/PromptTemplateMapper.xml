@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.wechat.selfapp.app.mapper.PromptTemplateMapper">
+
+    <resultMap type="PromptTemplate" id="PromptTemplateResult">
+        <result property="id"    column="id"    />
+        <result property="name"    column="name"    />
+        <result property="prompt"    column="prompt"    />
+        <result property="type"    column="type"    />
+        <result property="userId"    column="user_id"    />
+        <result property="isdel"    column="isdel"    />
+    </resultMap>
+
+    <sql id="selectPromptTemplateVo">
+        select id, name, prompt, type, user_id, isdel from wc_prompt_template
+    </sql>
+
+    <select id="getPromptTemplateList" parameterType="com.cube.wechat.selfapp.app.domain.query.ScorePromptQuery" resultMap="PromptTemplateResult">
+        <include refid="selectPromptTemplateVo"/>
+        <where>
+            <if test="name != null  and name != ''"> and name like concat('%', #{name}, '%')</if>
+            <if test="prompt != null  and prompt != ''"> and prompt like concat('%', #{prompt}, '%')</if>
+             and isdel = 0
+        </where>
+    </select>
+
+    <select id="getScorePromptList" resultMap="PromptTemplateResult">
+        <include refid="selectPromptTemplateVo"/>
+        <where>
+            and type = 3
+            <if test="scorePromptQuery.name != null and scorePromptQuery.name != ''"> and name like concat('%', #{scorePromptQuery.name}, '%')</if>
+            <if test="scorePromptQuery.prompt != null  and scorePromptQuery.prompt != ''"> and prompt like concat('%', #{scorePromptQuery.prompt}, '%')</if>
+             and user_id = #{userId}
+             and isdel = 0
+        </where>
+    </select>
+
+    <select id="getAllScorePrompt" resultMap="PromptTemplateResult">
+        <include refid="selectPromptTemplateVo"/>
+        <where>
+            and type = 3
+            and user_id = #{userId}
+            and isdel = 0
+        </where>
+    </select>
+
+    <select id="getPromptTemplateById" parameterType="Long" resultMap="PromptTemplateResult">
+        <include refid="selectPromptTemplateVo"/>
+        where id = #{id} and isdel = 0
+    </select>
+
+    <select id="getScorePromptById" parameterType="Long" resultMap="PromptTemplateResult">
+        <include refid="selectPromptTemplateVo"/>
+        where id = #{id} and type = 3 and isdel = 0
+    </select>
+    <select id="getScoreWord" resultType="com.cube.wechat.selfapp.app.domain.PromptTemplate">
+        <include refid="selectPromptTemplateVo"/>
+        where type = 4 and isdel = 0
+    </select>
+
+
+    <insert id="savePromptTemplate" parameterType="com.cube.wechat.selfapp.app.domain.PromptTemplate" useGeneratedKeys="true" keyProperty="id">
+        insert into wc_prompt_template
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="name != null and name != ''">name,</if>
+            <if test="prompt != null and prompt != ''">prompt,</if>
+            <if test="type != null">type,</if>
+            <if test="userId != null">user_id,</if>
+            <if test="isdel != null">isdel,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="name != null and name != ''">#{name},</if>
+            <if test="prompt != null and prompt != ''">#{prompt},</if>
+            <if test="type != null">#{type},</if>
+            <if test="userId != null">#{userId},</if>
+            <if test="isdel != null">#{isdel},</if>
+        </trim>
+    </insert>
+
+    <update id="updatePromptTemplate" parameterType="PromptTemplate">
+        update wc_prompt_template
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="prompt != null and prompt != ''">prompt = #{prompt},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="isdel != null">isdel = #{isdel},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <update id="deletePromptTemplateById" parameterType="Long">
+        update wc_prompt_template set isdel=1 where id = #{id}
+    </update>
+
+    <update id="deletePromptTemplateByIds" parameterType="String">
+        update wc_prompt_template set isdel=1 where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+</mapper>

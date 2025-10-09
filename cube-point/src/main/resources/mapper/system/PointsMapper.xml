@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cube.point.mapper.PointsMapper">
+
+    <update id="updateUserPoints" parameterType="com.cube.point.domain.Points">
+       update sys_user set points = #{balanceAfter} where user_id = #{userId}
+    </update>
+
+    <insert id="saveUserPointsRecord" parameterType="com.cube.point.domain.Points">
+        insert into wc_points_record(id,user_id,change_amount,nick_name,balance_after,change_type,create_id,create_name,remark,create_time) values(uuid(),#{userId},#{changeAmount},#{nickName},#{balanceAfter},1,#{createId},#{createName},#{remark},now())
+    </insert>
+
+    <select id="getUserPoints" parameterType="java.lang.String" resultType="java.lang.Integer">
+        select IFNULL(points,0) points from sys_user where user_id = #{userId}
+    </select>
+
+    <select id="getUserPointsRecord" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+        u.nick_name,
+        wpr.change_amount,
+        wpr.balance_after,
+        wpr.change_type,
+            DATE_FORMAT( wpr.create_time, '%Y-%c-%d %H:%i:%s') create_time,
+        wpr.remark,IFNULL(wpr.create_name,u.nick_name) create_name
+        FROM
+            wc_points_record wpr
+        left join sys_user u on u.user_id = wpr.user_id
+        where wpr.user_id = #{userId}
+        <if test="type == '1'">
+            and wpr.change_type =1
+        </if>
+        <if test="type == '2'">
+            and wpr.change_type = 4
+        </if>
+        order by wpr.create_time desc
+    </select>
+
+    <select id="getPointRuleVal" parameterType="java.lang.String" resultType="java.lang.Integer">
+        select dict_value pointVal from  sys_dict_data where dict_label = #{changeType}
+    </select>
+
+    <update id="setUserPoints" parameterType="java.lang.String">
+        update sys_user set points =
+            <if test="changeAmount !=null">
+                points+ #{changeAmount}
+            </if>
+            <if test="changeAmount ==null">
+                points+ (SELECT
+                CASE
+                WHEN EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_label = #{changeType})
+                THEN (SELECT dict_value FROM sys_dict_data WHERE dict_label = #{changeType} LIMIT 1)
+                ELSE '0'
+                END AS dict_value)
+            </if>
+        where user_id = #{userId}
+    </update>
+
+    <insert id="setUserPointRecord" parameterType="java.lang.String">
+        insert into wc_points_record(id,user_id,change_amount,balance_after,change_type,create_id,create_name,remark,create_time)
+        values(uuid(),#{userId},
+        <if test="changeAmount !=null">
+            #{changeAmount},
+        </if>
+        <if test="changeAmount ==null">
+            (select dict_value from  sys_dict_data where dict_label = #{changeType}),
+        </if>
+            (select points from sys_user where user_id =#{userId}),#{changeType},#{userId},(select nick_name from sys_user where user_id =#{userId}),null,now())
+    </insert>
+
+    <select id="getPointRule" parameterType="java.lang.String" resultType="java.lang.Integer">
+        select dict_value from  sys_dict_data where dict_label = #{changeType}
+    </select>
+
+    <select id="checkPointIsOk" parameterType="java.lang.String" resultType="java.lang.Integer">
+       select count(1) from wc_points_record where change_type =#{changeType} and user_id =#{userId}
+        <if test="isToday == 1">
+            AND DATE(create_time) = CURDATE()
+        </if>
+    </select>
+
+    <select id="getPointTask" parameterType="java.lang.String" resultType="java.util.Map">
+        select dict_label taskName,dict_value taskPoint from sys_dict_data where dict_type = 'sys_point_rule' and status = 0 and dict_value > 0
+    </select>
+
+    <insert id="saveUserGethAccount" parameterType="java.util.Map">
+        INSERT INTO geth_user_rel (user_id, privateKey, publicKey, address) VALUES (#{userId}, #{privateKey}, #{publicKey}, #{address});
+    </insert>
+
+    <insert id="saveUserGethRecord" parameterType="java.util.Map">
+        INSERT INTO geth_tran_record (`tran_id`, `from`, `to`, `ether`, `chage_type`, `create_time`) VALUES (#{tranId}, #{from}, #{to}, #{ether}, #{changeType}, now());
+    </insert>
+
+    <select id="getNoGethUserId" resultType="java.util.Map">
+        select user_id userId,points from sys_user where open_id is not null and points>0
+    </select>
+
+
+
+</mapper>

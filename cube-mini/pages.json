@@ -1,0 +1,90 @@
+{
+	"pages": [{
+			"path": "pages/index",
+			"style": {
+				"navigationBarTitleText": "首页",
+				"enablePullDownRefresh": true
+			}
+		},  {
+			"path": "pages/work/index",
+			"style": {
+				"navigationBarTitleText": "工作台"
+			}
+		}, {
+			"path": "pages/mine/index",
+			"style": {
+				"navigationBarTextStyle": "white",
+				"navigationBarBackgroundColor": "#1ec57c"
+			}
+		}, {
+			"path": "pages/mine/avatar/index",
+			"style": {
+				"navigationBarTitleText": "修改头像"
+			}
+		}, {
+			"path": "pages/mine/info/index",
+			"style": {
+				"navigationBarTitleText": "个人信息"
+			}
+		}, {
+			"path": "pages/mine/info/edit",
+			"style": {
+				"navigationBarTitleText": "完善资料"
+			}
+		},
+		 {
+			"path": "pages/user/points/index",
+			"style": {
+				"navigationBarTitleText": "积分详情",
+				"enablePullDownRefresh": true
+			}
+		},
+		{
+			"path": "pages/login/index",
+			"style": {
+				"navigationBarTitleText": "",
+				"enablePullDownRefresh": false
+			}
+		}
+
+	],
+	"tabBar": {
+		"color": "#000000",
+		"selectedColor": "#000000",
+		"borderStyle": "black",
+		"backgroundColor": "#ffffff",
+		"list": [{
+				"pagePath": "pages/index",
+				"iconPath": "static/images/tabbar/home.png",
+				"selectedIconPath": "static/images/tabbar/home1_.png",
+				"text": "首页"
+			},
+			
+			{
+					"pagePath": "pages/work/index",
+					"iconPath": "static/images/tabbar/AIGCno.png",
+					"selectedIconPath": "static/images/tabbar/AIGC.png",
+					"text": "控制台"
+			},
+			{
+				"pagePath": "pages/mine/index",
+				"iconPath": "static/images/tabbar/my.png",
+				"selectedIconPath": "static/images/tabbar/my_.png",
+				"text": "我的"
+			}
+		]
+	},
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "",
+		"navigationBarBackgroundColor": "#FFFFFF"},
+
+	"condition": { //模式配置，仅开发期间生效
+		"current": 0, //当前激活的模式(list 的索引项)
+		"list": [{
+			"name": "首页", //模式名称
+			"path": "pages/index", //启动页面，必选
+			"query": "" //启动参数，在页面的onLoad函数里面得到
+		}]
+	}
+}

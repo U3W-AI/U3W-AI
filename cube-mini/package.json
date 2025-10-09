@@ -1,0 +1,22 @@
+{
+    "id": "ua2-markdown",
+    "name": "uniapp markdown语法渲染及代码高亮(vue2版)",
+    "displayName": "uniapp markdown语法渲染及代码高亮(vue2版)",
+    "version": "1.2.0",
+    "description": "基于uniapp+vue2自定义渲染markdown语法/高亮，适用于h5+小程序+App端。",
+    "keywords": [
+        "uni-markdown",
+        "markdown"
+    ],
+    "dcloudext": {
+        "category": [
+            "前端组件",
+            "通用组件"
+        ]
+    },
+    "dependencies": {
+        "@dcloudio/uni-ui": "^1.5.7",
+        "@vue/composition-api": "^1.7.2",
+        "marked": "^15.0.12"
+    }
+}

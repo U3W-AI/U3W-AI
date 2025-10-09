@@ -1,0 +1,246 @@
+@use './variables.scss' as variables;
+
+#app {
+  .main-container {
+    height: 100%;
+    transition: margin-left .28s;
+    margin-left: variables.$base-sidebar-width;
+    position: relative;
+  }
+
+  .sidebarHide {
+    margin-left: 0 !important;
+  }
+
+  .sidebar-container {
+    transition: width 0.28s;
+    width: variables.$base-sidebar-width !important;
+    background-color: variables.$base-menu-background !important; // 强制背景色
+    height: 100%;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1001;
+    overflow: hidden;
+    box-shadow: 2px 0 6px rgba(0, 21, 41, .35);
+
+    // 修复 Element Plus 滚动条样式
+    .el-scrollbar__bar.is-vertical {
+      right: 0;
+    }
+
+    .el-scrollbar {
+      height: 100%;
+    }
+
+    &.has-logo {
+      .el-scrollbar {
+        height: calc(100% - 50px);
+      }
+    }
+
+    .is-horizontal {
+      display: none;
+    }
+
+    a {
+      display: inline-block;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .svg-icon {
+      margin-right: 16px;
+    }
+
+    .el-menu {
+      border: none;
+      height: 100%;
+      width: 100% !important;
+    }
+
+    // 修复 Element Plus 菜单项样式
+    :deep(.el-menu-item),
+    :deep(.el-sub-menu__title) {
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      white-space: nowrap !important;
+      color: variables.$base-menu-color !important; // 强制文字颜色
+      &:hover {
+        color: variables.$base-menu-color-active !important; // 悬停颜色
+      }
+    }
+
+    // menu hover - 修复 Element Plus 选择器
+    :deep(.submenu-title-noDropdown),
+    :deep(.el-sub-menu__title) {
+      &:hover {
+        background-color: rgba(255, 6, 6, 0.06) !important;
+      }
+    }
+
+    // 修复黑暗主题激活状态
+    :deep(.theme-dark) {
+      .is-active {
+        > .el-sub-menu__title {
+          color: variables.$base-menu-color-active !important;
+        }
+      }
+    }
+
+    // 修复嵌套菜单样式
+    :deep(.nest-menu) {
+      .el-sub-menu {
+        > .el-sub-menu__title,
+        .el-menu-item {
+          min-width: variables.$base-sidebar-width !important;
+          background-color: variables.$base-sub-menu-background !important; // 强制子菜单背景色
+          &:hover {
+            background-color: variables.$base-sub-menu-hover !important;
+          }
+        }
+      }
+    }
+
+    // 修复黑暗主题嵌套菜单
+    :deep(.theme-dark) {
+      .nest-menu .el-sub-menu > .el-sub-menu__title,
+      .el-sub-menu .el-menu-item {
+        background-color: variables.$base-sub-menu-background !important;
+
+        &:hover {
+          background-color: variables.$base-sub-menu-hover !important;
+        }
+      }
+    }
+  }
+
+  .hideSidebar {
+    .sidebar-container {
+      width: 64px !important; // Element Plus 默认折叠宽度
+    }
+
+    .main-container {
+      margin-left: 64px; // 与侧边栏折叠宽度一致
+    }
+
+    // 修复折叠状态下的样式
+    :deep(.submenu-title-noDropdown) {
+      padding: 0 !important;
+      position: relative;
+
+      .el-tooltip {
+        padding: 0 !important;
+
+        .svg-icon {
+          margin-left: 20px;
+        }
+      }
+    }
+
+    :deep(.el-sub-menu) {
+      overflow: hidden;
+
+      > .el-sub-menu__title {
+        padding: 0 !important;
+
+        .svg-icon {
+          margin-left: 20px;
+        }
+      }
+    }
+
+    // 修复 Element Plus 折叠菜单文字隐藏
+    :deep(.el-menu--collapse) {
+      .el-sub-menu {
+        > .el-sub-menu__title {
+          > span {
+            height: 0;
+            width: 0;
+            overflow: hidden;
+            visibility: hidden;
+            display: inline-block;
+          }
+
+          // 修复 Element Plus 图标位置
+          .el-sub-menu__icon-arrow {
+            display: none;
+          }
+        }
+      }
+    }
+  }
+
+  // 修复折叠菜单最小宽度
+  :deep(.el-menu--collapse) {
+    .el-menu .el-sub-menu {
+      min-width: variables.$base-sidebar-width !important;
+    }
+  }
+
+  // mobile responsive
+  .mobile {
+    .main-container {
+      margin-left: 0;
+    }
+
+    .sidebar-container {
+      transition: transform .28s;
+      width: variables.$base-sidebar-width !important;
+    }
+
+    &.hideSidebar {
+      .sidebar-container {
+        pointer-events: none;
+        transition-duration: 0.3s;
+        transform: translate3d(calc(-1 * #{variables.$base-sidebar-width}), 0, 0);
+      }
+    }
+  }
+
+  .withoutAnimation {
+    .main-container,
+    .sidebar-container {
+      transition: none;
+    }
+  }
+}
+
+// when menu collapsed - 修复垂直菜单样式
+.el-menu--vertical {
+  :deep(.el-menu) {
+    .svg-icon {
+      margin-right: 16px;
+    }
+  }
+
+  // 修复嵌套菜单hover
+  :deep(.nest-menu) {
+    .el-sub-menu > .el-sub-menu__title,
+    .el-menu-item {
+      &:hover {
+        background-color: rgba(236, 13, 13, 0.06) !important;
+      }
+    }
+  }
+
+  // 修复弹出菜单滚动条
+  :deep(.el-menu--popup) {
+    max-height: 100vh;
+    overflow-y: auto;
+
+    &::-webkit-scrollbar-track-piece {
+      background: #0571ec;
+    }
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #0460e0;
+      border-radius: 20px;
+    }
+  }
+}
