@@ -142,3 +142,19 @@ export function updateMediaCallWord(platformId, wordContent) {
     }
   })
 }
+
+// 获取评分拼接提示词
+export function getScoreWord() {
+  return request({
+    url: `/media/getScoreWord`,
+    method: 'get'
+  })
+}
+
+// 获取所有评分提示词模板
+export function getAllScorePrompt() {
+  return request({
+    url: `/mini/getAllScorePrompt`,
+    method: 'get'
+  })
+}

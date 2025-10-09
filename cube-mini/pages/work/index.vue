@@ -221,7 +221,7 @@
 							<button v-if="!currentResult.aiName.includes('智能排版')" class="collect-btn" size="mini"
 								@tap="showLayoutModal">智能排版</button>
 							<button v-else class="collect-btn" size="mini"
-								@tap="handleDirectPushToWechat(currentResult)">投递到公众号</button>
+								@tap="handleDirectPushToWechat(currentResult)">投递到{{ getMediaLabelFromResult(currentResult) }}</button>
 						</view>
 
 						<!-- 分享图片或内容 -->
@@ -292,8 +292,36 @@
 					<text class="close-icon" @tap="closeScoreModal">✕</text>
 				</view>
 				<view class="score-content">
+					<!-- AI选择 -->
+					<view class="ai-selection-section">
+						<text class="score-subtitle">选择评分AI：</text>
+						<view class="ai-radio-group">
+							<view class="ai-radio-item"
+								:class="{'active': scoreAI === '豆包'}"
+								@tap="selectScoreAI('豆包')">
+								<text class="ai-icon">🤖</text>
+								<text class="ai-text">豆包</text>
+							</view>
+							<view class="ai-radio-item"
+								:class="{'active': scoreAI === 'DeepSeek'}"
+								@tap="selectScoreAI('DeepSeek')">
+								<text class="ai-icon">🧠</text>
+								<text class="ai-text">DeepSeek</text>
+							</view>
+						</view>
+					</view>
 					<view class="score-prompt-section">
 						<text class="score-subtitle">评分提示词：</text>
+					<!-- 评分模板选择器 -->
+					<view class="template-selector" v-if="scorePromptList.length > 0">
+						<picker mode="selector" :range="scorePromptList" range-key="name" :value="getScorePromptIndex()" 
+							@change="onScorePromptChange">
+							<view class="picker-display">
+								<text class="picker-text">{{ selectedScorePrompt || '选择评分模板（可选）' }}</text>
+								<text class="picker-arrow">▼</text>
+							</view>
+						</picker>
+					</view>
 						<textarea class="score-textarea" v-model="scorePrompt"
 							placeholder="请输入评分提示词，例如：请从内容质量、逻辑性、创新性等方面进行评分" maxlength="1000"></textarea>
 					</view>
@@ -354,10 +382,19 @@
                 <text class="media-icon">📱</text>
                 <text class="media-text">公众号</text>
               </view>
+              <view class="media-radio-item"
+                    :class="{'active': selectedMedia === 'zhihu_layout'}"
+                    @tap="selectMedia('zhihu_layout')">
+                <text class="media-icon">📝</text>
+                <text class="media-text">知乎</text>
+              </view>
             </view>
             <view class="media-description">
               <text v-if="selectedMedia === 'wechat_layout'" class="description-text">
                 📝 将内容排版为适合微信公众号的HTML格式，完成后可手动投递到草稿箱
+              </text>
+              <text v-else-if="selectedMedia === 'zhihu_layout'" class="description-text">
+                📝 将内容排版为适合知乎的文本格式，完成后可手动投递到草稿箱
               </text>
             </view>
           </view>
@@ -445,7 +482,7 @@
 		marked
 	} from 'marked';
 	import {
-		message, saveUserChatData, getChatHistory,pushAutoOffice, getMediaCallWord, updateMediaCallWord
+		message, saveUserChatData, getChatHistory, pushAutoOffice, getMediaCallWord, updateMediaCallWord, getScoreWord
   } from "@/api/wechat/aigc";
 	import {
 		v4 as uuidv4
@@ -651,6 +688,9 @@
 				// 评分
 				selectedResults: [],
 				scorePrompt: '请你深度阅读以下几篇公众号文章，从多个维度进行逐项打分，输出评分结果。并在以下各篇文章的基础上博采众长，综合整理一篇更全面的文章。',
+			scoreAI: '豆包', // 默认选择豆包作为评分AI
+			scorePromptList: [], // 评分提示词模板列表
+			selectedScorePrompt: '', // 选中的评分提示词模板名称
 
 				// 收录计数器
 				collectNum: 0,
@@ -668,6 +708,26 @@
 				tthFlowLogs: [], // 微头条发布流程日志
 				tthFlowImages: [], // 微头条发布流程图片
 				tthScoreContent: '', // 智能评分内容
+
+			// 媒体列表配置
+			mediaList: [
+				{
+					name: "wechat_layout",
+					label: "公众号",
+				},
+				{
+					name: "zhihu_layout",
+					label: "知乎",
+				},
+				{
+					name: "weitoutiao_layout",
+					label: "微头条",
+				},
+				{
+					name: "baijiahao_layout",
+					label: "百家号",
+				}
+			],
 
 				// WebSocket
 				socketTask: null,
@@ -861,6 +921,14 @@
 		},
 
 		methods: {
+			// 从result的aiName中提取媒体标签
+			getMediaLabelFromResult(result) {
+				if (!result || !result.aiName) return '公众号';
+				// 从 "智能排版公众号" 或 "智能排版知乎" 中提取媒体名称
+				const mediaLabel = result.aiName.substring(4); // 去掉"智能排版"
+				return mediaLabel || '公众号';
+			},
+			
 			// 处理textarea获得焦点事件
 			handleTextareaFocus() {
 				// 确保textarea内容正确显示
@@ -1026,7 +1094,17 @@
 
 			// 发送提示词
 			sendPrompt() {
-				if (!this.canSend) return;
+			console.log('🚀 [sendPrompt] ========== 开始发送任务 ==========');
+			console.log('🚀 [sendPrompt] canSend状态:', this.canSend);
+			
+			if (!this.canSend) {
+				console.warn('⚠️ [sendPrompt] canSend为false，停止发送');
+				return;
+			}
+
+			console.log('📝 [sendPrompt] 用户输入提示词:', this.promptInput);
+			console.log('👤 [sendPrompt] 用户ID:', this.userId);
+			console.log('🏢 [sendPrompt] 企业ID:', this.corpId);
 
 				this.screenshots = [];
 				// 折叠所有区域
@@ -1036,19 +1114,24 @@
 
 				this.taskStarted = true;
 				this.results = []; // 清空之前的结果
+			console.log('🗑️ [sendPrompt] 清空之前的结果和截图');
 
 				this.userInfoReq.roles = '';
 				this.userInfoReq.taskId = this.generateUUID();
 				this.userInfoReq.userId = this.userId;
 				this.userInfoReq.corpId = this.corpId;
 				this.userInfoReq.userPrompt = this.promptInput;
+			console.log('🎫 [sendPrompt] 生成任务ID:', this.userInfoReq.taskId);
 
 				// 获取启用的AI列表及其状态
 				this.enabledAIs = this.aiList.filter(ai => ai.enabled  && this.isAiLoginEnabled(ai));
+			console.log('🤖 [sendPrompt] 筛选启用的AI数量:', this.enabledAIs.length);
+			console.log('🤖 [sendPrompt] 启用的AI列表:', this.enabledAIs.map(ai => ai.name).join(', '));
 
 				// 将所有启用的AI状态设置为运行中
 				this.enabledAIs.forEach(ai => {
 					ai.status = 'running';
+				console.log(`▶️ [sendPrompt] 设置${ai.name}状态为: running`);
 				});
 
 				// 构建角色参数
@@ -1138,7 +1221,8 @@
 
 				});
 
-				console.log("参数：", this.userInfoReq);
+			console.log('🎯 [sendPrompt] 最终角色参数roles:', this.userInfoReq.roles);
+			console.log('📦 [sendPrompt] 完整请求参数:', JSON.stringify(this.userInfoReq));
 
 				// 滚动到任务状态区域
 				this.scrollIntoView = 'task-status';
@@ -1147,8 +1231,15 @@
 				this.jsonRpcReqest.id = this.generateUUID();
 				this.jsonRpcReqest.method = "使用F8S";
 				this.jsonRpcReqest.params = this.userInfoReq;
+			
+			console.log('📡 [sendPrompt] 准备发送JSON-RPC请求');
+			console.log('📡 [sendPrompt] JSON-RPC请求:', JSON.stringify(this.jsonRpcReqest));
+			
 				this.message(this.jsonRpcReqest);
 				this.userInfoReq.isNewChat = false;
+
+			console.log('✅ [sendPrompt] 任务已提交到后端');
+			console.log('🚀 [sendPrompt] ========== 任务发送完成 ==========');
 
 				uni.showToast({
 					title: '任务已提交',
@@ -1311,14 +1402,25 @@
 
 			// 调用后端message接口
 			message(data) {
+			console.log('📞 [message] 调用后端API, 方法:', data.method);
+			console.log('📞 [message] 请求数据:', JSON.stringify(data));
+			
 				message(data).then(res => {
+				console.log('📞 [message] 收到后端响应, code:', res.code);
+				console.log('📞 [message] 响应数据:', JSON.stringify(res));
+				
 					if (res.code == 201) {
+					console.warn('⚠️ [message] 后端返回错误, messages:', res.messages);
 						uni.showToast({
 							title: res.messages,
 							icon: 'none',
 							duration: 1500,
 						});
+				} else if (res.code == 200) {
+					console.log('✅ [message] 后端处理成功');
 					}
+			}).catch(error => {
+				console.error('❌ [message] 调用后端API失败:', error);
 				});
 			},
 
@@ -1355,7 +1457,13 @@
 		handleWebSocketMessage(data) {
 			try {
 				const datastr = data;
+				console.log('📨 [WebSocket] 收到原始消息, 长度:', datastr.length, '字符');
+				console.log('📨 [WebSocket] 消息前200字符:', datastr.substring(0, 200));
+				
 				const dataObj = JSON.parse(datastr);
+
+				console.log('📨 [WebSocket] 收到消息, 类型:', dataObj.type);
+				console.log('📨 [WebSocket] aiName:', dataObj.aiName);
 
 				// 忽略心跳响应
 				if (dataObj.type === 'HEARTBEAT_RESPONSE' || dataObj.type === 'HEARTBEAT') {
@@ -1377,160 +1485,148 @@
           this.userInfoReq.metasoChatId = dataObj.chatId;
         }
 
-					// 处理进度日志消息
-					if (dataObj.type === 'RETURN_PC_TASK_LOG' && dataObj.aiName) {
-						const targetAI = this.enabledAIs.find(ai => ai.name === dataObj.aiName);
-						if (targetAI) {
+				// 处理进度日志消息
+				if (dataObj.type === 'RETURN_PC_TASK_LOG' && dataObj.aiName) {
+				console.log(`📋 [进度日志] AI: ${dataObj.aiName}, 内容: ${dataObj.content}`);
+					
+					// 只处理当前任务的日志消息
+					if (dataObj.taskId && dataObj.taskId !== this.userInfoReq.taskId) {
+						console.log(`⚠️ [进度日志] 忽略其他任务的日志`);
+						return;
+					}
+					
+					const targetAI = this.enabledAIs.find(ai => ai.name === dataObj.aiName);
+					if (targetAI && targetAI.status === 'running') {
+					console.log(`✅ [进度日志] 找到目标AI: ${targetAI.name}, 添加进度日志`);
+						// 检查是否已存在相同内容的日志，避免重复添加
+						const existingLog = targetAI.progressLogs.find(log => log.content === dataObj.content);
+						if (!existingLog) {
 							// 将新进度添加到数组开头
 							targetAI.progressLogs.unshift({
 								content: dataObj.content,
 								timestamp: new Date(),
-								isCompleted: false
+								isCompleted: false,
+								taskId: this.userInfoReq.taskId
 							});
+						console.log(`📊 [进度日志] ${targetAI.name}当前进度日志数量: ${targetAI.progressLogs.length}`);
 						}
+				} else {
+					console.warn(`⚠️ [进度日志] 未找到AI或AI未在运行: ${dataObj.aiName}`);
+					}
+					return;
+				}
+
+				// 处理截图消息
+				if (dataObj.type === 'RETURN_PC_TASK_IMG' && dataObj.url) {
+					// 只处理当前任务的截图
+					if (dataObj.taskId && dataObj.taskId !== this.userInfoReq.taskId) {
 						return;
 					}
+					// 将新的截图添加到数组开头
+					this.screenshots.unshift(dataObj.url);
+					return;
+				}
 
-					// 处理截图消息
-					if (dataObj.type === 'RETURN_PC_TASK_IMG' && dataObj.url) {
-						// 将新的截图添加到数组开头
-						this.screenshots.unshift(dataObj.url);
-						return;
-					}
-
-					// 处理智能评分结果
-					if (dataObj.type === 'RETURN_WKPF_RES') {
-						const wkpfAI = this.enabledAIs.find(ai => ai.name === '智能评分');
-						if (wkpfAI) {
-							wkpfAI.status = 'completed';
-							if (wkpfAI.progressLogs.length > 0) {
-								wkpfAI.progressLogs[0].isCompleted = true;
-							}
-							// 添加评分结果到results最前面
-							this.results.unshift({
-								aiName: '智能评分',
-								content: dataObj.draftContent,
-								shareUrl: dataObj.shareUrl || '',
-								shareImgUrl: dataObj.shareImgUrl || '',
-								timestamp: new Date()
-							});
-							this.activeResultIndex = 0;
-
-							// 折叠所有区域当智能评分完成时
-							this.sectionExpanded.aiConfig = false;
-							this.sectionExpanded.promptInput = false;
-							this.sectionExpanded.taskStatus = false;
-
-							// 智能评分完成时，再次保存历史记录
-							this.saveHistory();
+				// 处理智能评分结果
+				if (dataObj.type === 'RETURN_WKPF_RES') {
+					console.log("✅ 收到智能评分结果", dataObj);
+					
+					const wkpfAI = this.enabledAIs.find(ai => ai.name === '智能评分');
+					if (wkpfAI) {
+						wkpfAI.status = 'completed';
+						if (wkpfAI.progressLogs.length > 0) {
+							wkpfAI.progressLogs[0].isCompleted = true;
 						}
-						return;
+						
+						// 添加评分结果到results最前面
+						this.results.unshift({
+							aiName: '智能评分',
+							content: dataObj.draftContent,
+							shareUrl: dataObj.shareUrl || '',
+							shareImgUrl: dataObj.shareImgUrl || '',
+							timestamp: new Date()
+						});
+						this.activeResultIndex = 0;
+						
+						// 折叠所有区域
+						this.sectionExpanded.aiConfig = false;
+						this.sectionExpanded.promptInput = false;
+						this.sectionExpanded.taskStatus = false;
+						
+						// 滚动到结果区域
+						this.scrollIntoView = 'results';
+						
+						// 智能评分完成时，保存历史记录
+						this.saveHistory();
+						
+						uni.showToast({
+							title: '智能评分完成',
+							icon: 'success',
+							duration: 2000
+						});
+						console.log('✅ 智能评分结果处理完成');
 					}
+					return;
+				}
 
-					// 处理智能排版结果
-					if (dataObj.type === 'RETURN_ZNPB_RES') {
-						console.log("收到智能排版结果", dataObj);
-						console.log("当前 currentLayoutResult:", this.currentLayoutResult);
+				// 处理智能排版结果
+				if (dataObj.type === 'RETURN_ZNPB_RES') {
+					console.log("收到智能排版结果", dataObj);
+					console.log("当前 selectedMedia:", this.selectedMedia);
 
-						const znpbAI = this.enabledAIs.find(ai => ai.name === '智能排版');
-						if (znpbAI) {
-							znpbAI.status = 'completed';
-							if (znpbAI.progressLogs.length > 0) {
-								znpbAI.progressLogs[0].isCompleted = true;
-							}
-
-							// 添加排版结果到结果展示，用户可以手动选择投递
-							this.results.unshift({
-								aiName: '智能排版',
-								content: dataObj.draftContent,
-								shareUrl: dataObj.shareUrl || '',
-								shareImgUrl: dataObj.shareImgUrl || '',
-								timestamp: new Date()
-							});
-							this.activeResultIndex = 0;
-
-							// 智能排版完成时，保存历史记录
-							this.saveHistory();
-							
-							uni.showToast({
-								title: '排版完成，可手动投递',
-								icon: 'success'
-							});
+					const znpbAI = this.enabledAIs.find(ai => ai.name === '智能排版');
+					if (znpbAI) {
+						znpbAI.status = 'completed';
+						if (znpbAI.progressLogs.length > 0) {
+							znpbAI.progressLogs[0].isCompleted = true;
 						}
-						return;
+
+						// 根据selectedMedia获取媒体名称标签
+						const mediaItem = this.mediaList.find(media => media.name === this.selectedMedia);
+						const mediaLabel = mediaItem ? mediaItem.label : '';
+
+						// 添加排版结果到结果展示，aiName包含媒体类型
+						this.results.unshift({
+							aiName: '智能排版' + mediaLabel,
+							content: dataObj.draftContent,
+							shareUrl: dataObj.shareUrl || '',
+							shareImgUrl: dataObj.shareImgUrl || '',
+							timestamp: new Date()
+						});
+						this.activeResultIndex = 0;
+
+						// 折叠所有区域
+						this.sectionExpanded.aiConfig = false;
+						this.sectionExpanded.promptInput = false;
+						this.sectionExpanded.taskStatus = false;
+						
+						// 滚动到结果区域
+						this.scrollIntoView = 'results';
+
+						// 智能排版完成时，保存历史记录
+						this.saveHistory();
+						
+						uni.showToast({
+							title: `${mediaLabel}排版完成，可手动投递`,
+							icon: 'success'
+						});
 					}
-        // 处理知乎投递任务日志
-        if (dataObj.type === 'RETURN_MEDIA_TASK_LOG') {
-          console.log("收到媒体任务日志", dataObj);
-          const zhihuAI = this.enabledAIs.find(ai => ai.name === dataObj.aiName);
-          if (zhihuAI) {
-            // 检查是否已存在相同内容的日志，避免重复添加
-            const existingLog = zhihuAI.progressLogs.find(log => log.content === dataObj.content);
-            if (!existingLog) {
-              // 添加进度日志
-              zhihuAI.progressLogs.push({
-                content: dataObj.content,
-                timestamp: new Date(),
-                isCompleted: false,
-                type: dataObj.aiName
-              });
-
-              // 强制更新UI
-              this.$forceUpdate();
-            }
-          }
-          return;
-        }
-
-        // 处理知乎投递完成结果
-        if (dataObj.type === 'RETURN_ZHIHU_DELIVERY_RES') {
-          console.log("收到知乎投递完成结果", dataObj);
-          const zhihuAI = this.enabledAIs.find(ai => ai.name === '投递到知乎');
-          if (zhihuAI) {
-            zhihuAI.status = dataObj.status === 'success' ? 'completed' : 'error';
-
-            // 更新最后一条日志状态
-            if (zhihuAI.progressLogs.length > 0) {
-              zhihuAI.progressLogs[zhihuAI.progressLogs.length - 1].isCompleted = true;
-            }
-
-            // 添加完成日志
-            zhihuAI.progressLogs.push({
-              content: dataObj.message || '知乎投递任务完成',
-              timestamp: new Date(),
-              isCompleted: true,
-              type: '投递到知乎'
-            });
-
-            // 强制更新UI
-            this.$forceUpdate();
-
-            // 显示完成提示
-            uni.showToast({
-              title: dataObj.status === 'success' ? '知乎投递成功' : '知乎投递失败',
-              icon: dataObj.status === 'success' ? 'success' : 'failed'
-            });
-
-            // 保存历史记录
-            this.saveHistory();
-          }
-          return;
-        }
-
-		// 处理百家号投递任务日志
+					return;
+				}
+        // 处理媒体投递任务日志
 		if (dataObj.type === 'RETURN_MEDIA_TASK_LOG') {
 		  console.log("收到媒体任务日志", dataObj);
-		  const baijiahaoAI = this.enabledAIs.find(ai => ai.name === dataObj.aiName);
-		  if (baijiahaoAI) {
+          const mediaAI = this.enabledAIs.find(ai => ai.name === '媒体投递');
+          if (mediaAI && mediaAI.status === 'running') { // 只在运行状态时添加日志
 		    // 检查是否已存在相同内容的日志，避免重复添加
-		    const existingLog = baijiahaoAI.progressLogs.find(log => log.content === dataObj.content);
+            const existingLog = mediaAI.progressLogs.find(log => log.content === dataObj.content);
 		    if (!existingLog) {
-		      // 添加进度日志
-		      baijiahaoAI.progressLogs.push({
+              // 将新进度添加到数组开头
+              mediaAI.progressLogs.unshift({
 		        content: dataObj.content,
 		        timestamp: new Date(),
 		        isCompleted: false,
-		        type: dataObj.aiName
+                type: '媒体投递'
 		      });
 
 		      // 强制更新UI
@@ -1540,41 +1636,22 @@
 		  return;
 		}
 
-		// 处理百家号投递完成结果
-		if (dataObj.type === 'RETURN_BAIJIAHAO_DELIVERY_RES') {
-		  console.log("收到百家号投递完成结果", dataObj);
-		  const baijiahaoAI = this.enabledAIs.find(ai => ai.name === '投递到百家号');
-		  if (baijiahaoAI) {
-		    baijiahaoAI.status = dataObj.status === 'success' ? 'completed' : 'error';
-
-		    // 更新最后一条日志状态
-		    if (baijiahaoAI.progressLogs.length > 0) {
-		      baijiahaoAI.progressLogs[baijiahaoAI.progressLogs.length - 1].isCompleted = true;
-		    }
-
-		    // 添加完成日志
-		    baijiahaoAI.progressLogs.push({
-		      content: dataObj.message || '百家号投递任务完成',
-		      timestamp: new Date(),
-		      isCompleted: true,
-		      type: '投递到百家号'
-		    });
-
-		    // 强制更新UI
-		    this.$forceUpdate();
-
-		    // 显示完成提示
-		    uni.showToast({
-		      title: dataObj.status === 'success' ? '百家号投递成功' : '百家号投递失败',
-		      icon: dataObj.status === 'success' ? 'success' : 'failed'
-		    });
-
-		    // 保存历史记录
-		    this.saveHistory();
-		  }
-		  return;
-		}
-		
+       // 处理媒体投递结果（包括知乎、百家号等）
+       if (dataObj.type.includes('DELIVERY_RES')) {
+         console.log("收到媒体投递完成结果", dataObj);
+         const mediaAI = this.enabledAIs.find(ai => ai.name === '媒体投递');
+         if (mediaAI) {
+           mediaAI.status = 'completed';
+           if (mediaAI.progressLogs.length > 0) {
+             mediaAI.progressLogs[0].isCompleted = true;
+           }
+         }
+         uni.showToast({
+           title: dataObj.message || '媒体投递完成',
+           icon: 'success'
+         });
+         return;
+       }
 		
 
         // 处理微头条排版结果
@@ -1639,13 +1716,24 @@
 
 
 					// 处理AI登录状态消息
+				console.log('🔐 [状态检查] 检查AI登录状态消息');
 					this.handleAiStatusMessage(datastr, dataObj);
 
 					// 处理AI结果
+				console.log('🎯 [结果处理] 调用handleAIResult处理AI结果');
 					this.handleAIResult(dataObj);
 
 				} catch (error) {
-					console.error('WebSocket消息处理错误', error);
+					console.error('❌ WebSocket消息处理错误:', error);
+					console.error('❌ 错误堆栈:', error.stack);
+					console.error('❌ 消息长度:', data ? data.length : 0);
+					
+					// 尝试显示错误提示
+					uni.showToast({
+						title: '消息处理失败:' + error.message,
+						icon: 'none',
+						duration: 3000
+					});
 				}
 			},
 
@@ -1767,35 +1855,40 @@
 			},
 
 			handleAIResult(dataObj) {
+			console.log('🔍 [handleAIResult] 开始处理AI结果, 消息类型:', dataObj.type);
+			console.log('🔍 [handleAIResult] 完整数据对象:', JSON.stringify(dataObj));
+			console.log('🔍 [handleAIResult] 当前enabledAIs数量:', this.enabledAIs.length);
+			console.log('🔍 [handleAIResult] enabledAIs列表:', this.enabledAIs.map(ai => `${ai.name}(${ai.status})`).join(', '));
+			
 				let targetAI = null;
 
 				// 根据消息类型匹配AI
 				switch (dataObj.type) {
 					case 'RETURN_YBT1_RES':
-						console.log('收到腾讯元宝混元消息:', dataObj);
+					console.log('✅ 匹配到腾讯元宝混元消息');
 						targetAI = this.enabledAIs.find(ai => ai.name === '腾讯元宝');
 						break;
 					case 'RETURN_YBDS_RES':
-						console.log('收到腾讯元宝DeepSeek消息:', dataObj);
+					console.log('✅ 匹配到腾讯元宝DeepSeek消息');
 						targetAI = this.enabledAIs.find(ai => ai.name === '腾讯元宝');
 						break;
 					case 'RETURN_DB_RES':
-						console.log('收到消息:', dataObj);
+					console.log('✅ 匹配到豆包消息');
 						targetAI = this.enabledAIs.find(ai => ai.name === '豆包');
 						break;
           case 'RETURN_DEEPSEEK_RES':
-            console.log('收到DeepSeek消息:', dataObj);
+					console.log('✅ 匹配到DeepSeek消息');
             targetAI = this.enabledAIs.find(ai => ai.name === 'DeepSeek');
-            // 如果找不到DeepSeek，可能是因为它不在enabledAIs中，尝试添加它
+					// 如果找不到DeepSeek，可能是因为它不在enabledAIs中（兼容处理）
             if (!targetAI) {
+						console.warn('⚠️ DeepSeek不在enabledAIs中，动态添加');
               targetAI = {
                 name: 'DeepSeek',
                 avatar: 'https://u3w.com/chatfile/Deepseek.png',
                 capabilities: [{
                   label: '深度思考',
                   value: 'deep_thinking'
-                },
-                  {
+							}, {
                     label: '联网搜索',
                     value: 'web_search'
                   }],
@@ -1805,79 +1898,134 @@
                 progressLogs: [{
                   content: 'DeepSeek响应已接收',
                   timestamp: new Date(),
-                  isCompleted: true
+								isCompleted: false
                 }],
                 isExpanded: true
               };
-              this.enabledAIs.push(targetAI);
+						this.enabledAIs.unshift(targetAI);
+            }
+            break;
+					case 'RETURN_ZNPB_RES':
+						console.log('✅ 匹配到智能排版结果消息');
+						// 智能排版结果，找到"智能排版"AI
+						targetAI = this.enabledAIs.find(ai => ai.name === '智能排版');
+						if (!targetAI) {
+							console.warn('⚠️ 智能排版AI不在enabledAIs中，动态添加');
+							targetAI = {
+								name: '智能排版',
+								avatar: 'https://u3w.com/chatfile/Deepseek.png',
+								capabilities: [],
+								selectedCapabilities: [],
+								enabled: true,
+								status: 'running',
+								progressLogs: [{
+									content: '智能排版响应已接收',
+									timestamp: new Date(),
+									isCompleted: false
+								}],
+								isExpanded: true
+							};
+							this.enabledAIs.unshift(targetAI);
             }
             break;
           case 'RETURN_TY_RES':
-            console.log('收到通义千问消息：',dataObj);
+					console.log('✅ 匹配到通义千问消息');
             targetAI = this.enabledAIs.find(ai => ai.name === '通义千问');
             break;
-
-          case "RETURN_METASO_RES":
-            console.log("收到秘塔消息:", dataObj);
+				case 'RETURN_METASO_RES':
+					console.log('✅ 匹配到秘塔消息');
             targetAI = this.enabledAIs.find((ai) => ai.name === "秘塔");
             break;
-
           case 'RETURN_ZHZD_RES':
-            console.log('收到知乎直答消息：',dataObj);
+					console.log('✅ 匹配到知乎直答消息');
             targetAI = this.enabledAIs.find(ai => ai.name === '知乎直答');
             break;
           case 'RETURN_BAIDU_RES':
-            console.log('收到百度AI消息：',dataObj);
+					console.log('✅ 匹配到百度AI消息');
             targetAI = this.enabledAIs.find(ai => ai.name === '百度AI');
             break;
-
-
+				default:
+					console.log('⚠️ 未匹配到任何AI类型, 消息类型:', dataObj.type);
+					return;
 				}
 
-				if (targetAI) {
-					// 更新AI状态为已完成
-					targetAI.status = 'completed';
-
-					// 将最后一条进度消息标记为已完成
-					if (targetAI.progressLogs.length > 0) {
-						targetAI.progressLogs[0].isCompleted = true;
-					}
-
-					// 添加结果到数组开头
-					const resultIndex = this.results.findIndex(r => r.aiName === targetAI.name);
-					if (resultIndex === -1) {
-						this.results.unshift({
-							aiName: targetAI.name,
-							content: dataObj.draftContent,
-							shareUrl: dataObj.shareUrl || '',
-							shareImgUrl: dataObj.shareImgUrl || '',
-							timestamp: new Date()
-						});
-						this.activeResultIndex = 0;
-					} else {
-						this.results.splice(resultIndex, 1);
-						this.results.unshift({
-							aiName: targetAI.name,
-							content: dataObj.draftContent,
-							shareUrl: dataObj.shareUrl || '',
-							shareImgUrl: dataObj.shareImgUrl || '',
-							timestamp: new Date()
-						});
-						this.activeResultIndex = 0;
-					}
-
-					// 折叠所有区域当有结果返回时
-					this.sectionExpanded.aiConfig = false;
-					this.sectionExpanded.promptInput = false;
-					this.sectionExpanded.taskStatus = false;
-
-					// 滚动到结果区域
-					this.scrollIntoView = 'results';
-
-					// 保存历史记录
-					this.saveHistory();
+			if (targetAI) {
+			console.log(`✅ 找到目标AI: ${targetAI.name}, 当前状态: ${targetAI.status}`);
+			
+				// 只处理当前任务的结果
+				if (dataObj.taskId && dataObj.taskId !== this.userInfoReq.taskId) {
+					console.log(`⚠️ 忽略其他任务的消息, 当前taskId: ${this.userInfoReq.taskId}, 消息taskId: ${dataObj.taskId}`);
+					return;
 				}
-			},
+				
+				// 检查AI是否还在运行状态，避免重复处理
+				if (targetAI.status !== 'running') {
+					console.log(`⚠️ AI状态不是running，跳过处理, 当前状态: ${targetAI.status}`);
+					return;
+				}
+			
+				// 更新AI状态为已完成
+				targetAI.status = 'completed';
+			console.log(`🔄 更新${targetAI.name}状态为: completed`);
+
+				// 将最后一条进度消息标记为已完成
+				if (targetAI.progressLogs.length > 0) {
+					targetAI.progressLogs[0].isCompleted = true;
+				console.log(`📝 标记${targetAI.name}最后一条进度日志为已完成`);
+				}
+
+				// 添加结果到数组开头
+				const resultIndex = this.results.findIndex(r => r.aiName === targetAI.name && r.taskId === this.userInfoReq.taskId);
+			console.log(`🔍 检查results中是否已存在${targetAI.name}的结果, 索引: ${resultIndex}`);
+			
+				if (resultIndex === -1) {
+				console.log(`➕ 添加${targetAI.name}的新结果到results`);
+					this.results.unshift({
+						aiName: targetAI.name,
+						content: dataObj.draftContent,
+						shareUrl: dataObj.shareUrl || '',
+						shareImgUrl: dataObj.shareImgUrl || '',
+						timestamp: new Date(),
+						taskId: this.userInfoReq.taskId
+					});
+					this.activeResultIndex = 0;
+				} else {
+				console.log(`🔄 替换${targetAI.name}的现有结果`);
+					this.results.splice(resultIndex, 1);
+					this.results.unshift({
+						aiName: targetAI.name,
+						content: dataObj.draftContent,
+						shareUrl: dataObj.shareUrl || '',
+						shareImgUrl: dataObj.shareImgUrl || '',
+						timestamp: new Date(),
+						taskId: this.userInfoReq.taskId
+					});
+					this.activeResultIndex = 0;
+				}
+
+			console.log(`📊 当前results数量: ${this.results.length}`);
+			console.log(`📊 results列表:`, this.results.map(r => r.aiName).join(', '));
+
+				// 折叠所有区域当有结果返回时
+				this.sectionExpanded.aiConfig = false;
+				this.sectionExpanded.promptInput = false;
+				this.sectionExpanded.taskStatus = false;
+			console.log('📐 折叠所有配置区域');
+
+				// 滚动到结果区域
+				this.scrollIntoView = 'results';
+			console.log('📜 设置滚动到结果区域');
+
+				// 保存历史记录
+				this.saveHistory();
+			console.log('💾 保存历史记录');
+			
+			console.log(`✅ ${targetAI.name}结果处理完成`);
+		} else {
+			console.error(`❌ 未找到对应的AI, 消息类型: ${dataObj.type}`);
+			console.error('❌ 可能的原因: 1) AI未启用 2) AI名称不匹配 3) enabledAIs为空');
+			}
+		},
 
 			// 状态相关方法
 			getStatusText(status) {
@@ -2362,13 +2510,41 @@
 			},
 
 			// 智能评分相关方法
-			showScoreModal() {
+		async showScoreModal() {
 				this.selectedResults = [];
 				this.scoreModalVisible = true;
+			
+			// 加载评分提示词模板列表
+			try {
+				const { getAllScorePrompt } = require('@/api/wechat/aigc.js');
+				const response = await getAllScorePrompt();
+				if (response.code === 200) {
+					this.scorePromptList = response.data || [];
+				}
+			} catch (error) {
+				console.error('加载评分提示词模板失败:', error);
+				// 失败也不影响使用，用户可以手动输入
+			}
 			},
 
 			closeScoreModal() {
 				this.scoreModalVisible = false;
+			},
+		
+		// 获取当前选中的评分模板索引
+		getScorePromptIndex() {
+			if (!this.selectedScorePrompt) return 0;
+			const index = this.scorePromptList.findIndex(prompt => prompt.name === this.selectedScorePrompt);
+			return index === -1 ? 0 : index;
+		},
+		
+		// 评分模板选择变化
+		onScorePromptChange(event) {
+			const index = event.detail.value;
+			if (this.scorePromptList[index]) {
+				this.selectedScorePrompt = this.scorePromptList[index].name;
+				this.scorePrompt = this.scorePromptList[index].prompt;
+			}
 			},
 
 			// 媒体投递相关方法
@@ -2391,9 +2567,9 @@
 				};
 
         // 默认选择公众号
-        this.selectedMedia = 'wechat';
-        // 加载对应媒体的提示词
-        this.loadMediaPrompt(this.selectedMedia);
+        this.selectedMedia = 'wechat_layout';
+        // 设置layoutPrompt为当前结果内容（参考网页端逻辑）
+        this.layoutPrompt = this.currentLayoutResult.content;
         this.layoutModalVisible = true;
       },
       // 选择排版AI
@@ -2405,87 +2581,7 @@
       // 选择媒体
       selectMedia(media) {
         this.selectedMedia = media;
-        this.loadMediaPrompt(media);
-      },
-
-// 加载媒体提示词
-      async loadMediaPrompt(media) {
-        try {
-          let platformId;
-		  if(media === 'wechat'){
-			  platformId = 'wechat_layout'
-		  }else if(media === 'zhihu'){
-			  platformId = 'zhihu_layout'
-		  }else if(media === 'baijiahao'){
-			  platformId = 'baijiahao_layout'
-		  }else if(media === 'toutiao'){
-			  platformId = 'weitoutiao_layout'
-		  }
-
-          const res = await getMediaCallWord(platformId);
-          if (res.code === 200) {
-            this.layoutPrompt = res.data;
-          } else {
-            this.layoutPrompt = this.getDefaultPrompt(media);
-          }
-        } catch (error) {
-          console.error('加载提示词失败:', error);
-          this.layoutPrompt = this.getDefaultPrompt(media);
-        }
-      },
-
-      // 获取默认提示词（仅在后端获取失败时作为备选）
-      getDefaultPrompt(media) {
-        if (media === 'wechat') {
-          return `请你对以下 HTML 内容进行排版优化，目标是用于微信公众号"草稿箱接口"的 content 字段，要求如下：
-
-1. 仅返回 <body> 内部可用的 HTML 内容片段（不要包含 <!DOCTYPE>、<html>、<head>、<meta>、<title> 等标签）。
-2. 所有样式必须以"内联 style"方式写入。
-3. 保持结构清晰、视觉友好，适配公众号图文排版。
-4. 请直接输出代码，不要添加任何注释或额外说明。
-5. 不得使用 emoji 表情符号或小图标字符。
-6. 不要显示为问答形式，以一篇文章的格式去调整
-
-以下为需要进行排版优化的内容：
-`;
-        } else if (media === 'zhihu'){
-          return `请将以下内容转换为适合知乎平台的专业文章格式，要求：
-
-1. 保持内容的逻辑性和可读性
-2. 适当使用Markdown格式（标题、列表、代码块等）
-3. 确保在知乎平台上显示效果良好
-4. 保持专业性和吸引力
-5. 直接输出转换后的内容，无需额外说明
-
-以下为需要转换的内容：
-`;
-        }else if (media === 'toutiao'){
-		          return `请将以下内容转换为适合微头条平台的文章格式，要求：
-
-1. 标题要简洁明了，吸引人
-2. 内容要结构清晰，易于阅读
-3. 不要包含任何HTML标签
-4. 直接输出纯文本格式
-5. 内容要适合微头条发布
-6. 字数控制在1000-2000字之间
-7. 保持内容的专业性和可读性
-8. 直接输出转换后的内容，无需额外说明
-
-以下为需要转换的内容：
-		`;
-		        }else if (media === 'baijiahao'){
-		          return `请将以下内容整理为适合百家号发布的纯文本格式文章。
-要求：
-1.（不要使用Markdown或HTML语法，仅使用普通文本和简单换行保持内容的专业性和可读性使用自然段落分隔，）
-2.不允许使用有序列表，包括"一、"，"1."等的序列号。
-3.给文章取一个吸引人的标题，放在正文的第一段
-4.不允许出现代码框、数学公式、表格或其他复杂格式删除所有Markdown和HTML标签，
-5.只保留纯文本内容
-6.目标是作为一篇专业文章投递到百家号草稿箱
-7.直接以文章标题开始，以文章末尾结束，不允许添加其他对话
-		`;
-		        }
-
+        console.log('选择媒体:', media);
 			},
 
 			closeLayoutModal() {
@@ -2497,56 +2593,77 @@
 
         this.closeLayoutModal();
 
-        // 公众号排版：创建排版任务
+        // 根据选择的媒体创建排版任务
+        if (this.selectedMedia === 'wechat_layout') {
         this.createWechatLayoutTask();
+        } else if (this.selectedMedia === 'zhihu_layout') {
+          this.createZhihuLayoutTask();
+        }
       },
 
-      // 创建知乎投递任务
-      createZhihuDeliveryTask() {
-        // 组合完整的提示词：数据库提示词 + 原文内容
-        const fullPrompt = this.layoutPrompt + '\n\n' + this.currentLayoutResult.content;
-
-        // 构建知乎投递请求
-        const zhihuRequest = {
+      // 创建知乎排版任务
+      createZhihuLayoutTask() {
+        // 构建知乎排版请求
+        const layoutRequest = {
           jsonrpc: '2.0',
           id: this.generateUUID(),
-          method: '投递到知乎',
+          method: 'AI排版',
           params: {
             taskId: this.generateUUID(),
             userId: this.userId,
             corpId: this.corpId,
-            userPrompt: fullPrompt,
-            aiName: this.currentLayoutResult.aiName,
-            content: this.currentLayoutResult.content
+            userPrompt: this.currentLayoutResult.content,
+            roles: '',
+            selectedMedia: 'zhihu_layout'
           }
         };
 
-        console.log("知乎投递参数", zhihuRequest);
-        this.message(zhihuRequest);
+        // 根据选择的AI设置roles参数
+        const selectedAI = this.aiList.find(ai => ai.name === this.layoutAI);
+        if (selectedAI) {
+          if (selectedAI.name === '豆包') {
+            layoutRequest.params.roles = 'zj-db,';
+            if (selectedAI.selectedCapabilities.includes('deep_thinking')) {
+              layoutRequest.params.roles += 'zj-db-sdsk,';
+            }
+          } else if (selectedAI.name === 'DeepSeek') {
+            layoutRequest.params.roles = 'deepseek,';
+            if (selectedAI.selectedCapabilities.includes('deep_thinking')) {
+              layoutRequest.params.roles += 'ds-sdsk,';
+            }
+            if (selectedAI.selectedCapabilities.includes('web_search')) {
+              layoutRequest.params.roles += 'ds-lwss,';
+            }
+          }
+        }
 
-        // 创建投递到知乎任务节点
-        const zhihuAI = {
-          name: '投递到知乎',
-          avatar: 'https://pic1.zhimg.com/80/v2-a47051e92cf74930bedd7469978e6c08_720w.png',
+        // 发送排版请求
+        console.log("知乎排版参数", layoutRequest);
+        this.message(layoutRequest);
+
+        // 创建智能排版AI节点
+        const znpbAI = {
+          name: '智能排版',
+          avatar: selectedAI ? selectedAI.avatar : 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
           capabilities: [],
           selectedCapabilities: [],
           enabled: true,
           status: 'running',
           progressLogs: [
             {
-              content: '投递到知乎任务已提交，正在处理...',
+              content: '知乎排版任务已提交，正在排版...',
               timestamp: new Date(),
               isCompleted: false,
-              type: '投递到知乎'
+              type: '智能排版'
             }
           ],
           isExpanded: true
         };
 
-        this.addOrUpdateTaskAI(zhihuAI, '投递到知乎');
+        this.addOrUpdateTaskAI(znpbAI, '智能排版');
 
         uni.showToast({
-          title: '知乎投递任务已提交',
+          title: '知乎排版任务已提交',
           icon: 'success'
         });
       },
@@ -2690,7 +2807,7 @@
         }
 
 				// 发送排版请求
-				console.log("智能排版参数", layoutRequest);
+				console.log("公众号排版参数", layoutRequest);
 				this.message(layoutRequest);
 
 				// 创建智能排版AI节点
@@ -2703,7 +2820,7 @@
 					status: 'running',
 					progressLogs: [
 						{
-							content: '智能排版任务已提交，正在排版...',
+							content: '公众号排版任务已提交，正在排版...',
 							timestamp: new Date(),
 							isCompleted: false,
 							type: '智能排版'
@@ -2714,7 +2831,7 @@
           this.addOrUpdateTaskAI(znpbAI, '智能排版');
 
           uni.showToast({
-            title: '排版请求已发送，请等待结果',
+            title: '公众号排版请求已发送，请等待结果',
             icon: 'success'
           });
         },
@@ -2726,12 +2843,11 @@
             // 如果不存在，添加到数组开头
             this.enabledAIs.unshift(aiNode);
           } else {
-            // 如果已存在，更新状态和日志
-            this.enabledAIs[existIndex] = aiNode;
-            // 将任务移到数组开头
-            const task = this.enabledAIs.splice(existIndex, 1)[0];
-            this.enabledAIs.unshift(task);
+            // 如果已存在，先移除旧的，再将新的添加到开头
+            this.enabledAIs.splice(existIndex, 1);
+            this.enabledAIs.unshift(aiNode);
           }
+          this.$forceUpdate();
         },
 
 
@@ -2740,11 +2856,29 @@
 				try {
 					console.log("handleDirectPushToWechat 开始执行", result);
 
+					// 验证内容是否为空
+					if (!result.content || result.content.trim() === '') {
+						uni.showToast({
+							title: '投递内容为空，请先进行AI排版生成内容',
+							icon: 'none'
+						});
+						return;
+					}
+
+					// 提取媒体类型：从 aiName 中去掉 "智能排版" 四个字
+					const mediaLabel = result.aiName.substring(4); // 去掉"智能排版"
+					const mediaItem = this.mediaList.find(media => media.label === mediaLabel);
+					const mediaName = mediaItem ? mediaItem.name : '';
+
+					console.log("提取的媒体类型:", mediaLabel, mediaName);
+
+					// 根据媒体类型进行不同的处理
+					if (mediaName.includes('wechat')) {
+						// 公众号投递：直接调用API
 					uni.showLoading({
-						title: '正在投递...'
+							title: '正在投递到公众号...'
 					});
 
-					// 自增计数器
 					this.collectNum++;
 
 					const params = {
@@ -2755,7 +2889,7 @@
 						num: this.collectNum
 					};
 
-									console.log("投递参数", params);
+						console.log("公众号投递参数", params);
 
 				const res = await pushAutoOffice(params);
 
@@ -2763,18 +2897,74 @@
 
 				if (res.code === 200) {
 					uni.showToast({
-						title: '投递成功',
+								title: '投递到公众号成功',
 						icon: 'success'
 					});
 				} else {
 					uni.showToast({
 						title: res.message || '投递失败',
+								icon: 'none'
+							});
+						}
+					} else if (mediaName.includes('zhihu')) {
+						// 知乎投递：通过WebSocket发送投递请求
+						uni.showLoading({
+							title: '正在投递到知乎...'
+						});
+
+						const mediaRequest = {
+							jsonrpc: "2.0",
+							id: this.generateUUID(),
+							method: "媒体投递",
+							params: {
+								taskId: this.generateUUID(),
+								userId: this.userId,
+								corpId: this.corpId,
+								aiName: result.aiName,
+								userPrompt: result.content,
+								selectedMedia: "zhihu_layout"
+							}
+						};
+
+						console.log("知乎投递参数", mediaRequest);
+
+						this.message(mediaRequest);
+
+						// 创建媒体投递任务节点
+						const mediaDeliveryAI = {
+							name: '媒体投递',
+							avatar: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
+							capabilities: [],
+							selectedCapabilities: [],
+							enabled: true,
+							status: 'running',
+							progressLogs: [{
+								content: '知乎投递任务已提交，正在投递...',
+								timestamp: new Date(),
+								isCompleted: false,
+								type: '媒体投递'
+							}],
+							isExpanded: true
+						};
+
+					// 添加或更新媒体投递任务
+					this.addOrUpdateTaskAI(mediaDeliveryAI, '媒体投递');
+
+					uni.hideLoading();
+
+					uni.showToast({
+						title: '媒体投递请求已发送，请等待结果',
+						icon: 'success'
+					});
+					} else {
+						uni.showToast({
+							title: '不支持的媒体类型',
 						icon: 'none'
 					});
 				}
 			} catch (error) {
 				uni.hideLoading();
-				console.error('投递到公众号失败:', error);
+					console.error('投递失败:', error);
 				uni.showToast({
 					title: '投递失败',
 					icon: 'none'
@@ -2847,8 +3037,14 @@
 				console.log('toggleResultSelection - canScore状态:', this.canScore);
 			},
 
-			handleScore() {
+		async handleScore() {
 				if (!this.canScore) return;
+
+			try {
+				// 调用getScoreWord API获取评分后缀
+				const { getScoreWord } = require('@/api/wechat/aigc.js');
+				const response = await getScoreWord();
+				const scoreSuffix = response.code === 200 ? response.data : '初稿：';
 
 				// 获取选中的结果内容并按照指定格式拼接
 				const selectedContents = this.results
@@ -2856,7 +3052,7 @@
 					.map(result => {
 						// 将HTML内容转换为纯文本（小程序版本简化处理）
 						const plainContent = result.content.replace(/<[^>]*>/g, '');
-						return `${result.aiName}初稿：\n${plainContent}\n`;
+							return `${result.aiName}${scoreSuffix}${plainContent}\n`;
 					})
 					.join('\n');
 
@@ -2873,19 +3069,38 @@
 						userId: this.userId,
 						corpId: this.corpId,
 						userPrompt: fullPrompt,
-						roles: 'zj-db-sdsk' // 默认使用豆包进行评分
+							roles: ''
+						}
+					};
+
+					// 根据选择的AI设置roles参数
+					const selectedAI = this.aiList.find(ai => ai.name === this.scoreAI);
+					if (selectedAI) {
+						if (selectedAI.name === '豆包') {
+							scoreRequest.params.roles = 'zj-db,';
+							if (selectedAI.selectedCapabilities.includes('deep_thinking')) {
+								scoreRequest.params.roles += 'zj-db-sdsk,';
+							}
+						} else if (selectedAI.name === 'DeepSeek') {
+							scoreRequest.params.roles = 'deepseek,';
+							if (selectedAI.selectedCapabilities.includes('deep_thinking')) {
+								scoreRequest.params.roles += 'ds-sdsk,';
+							}
+							if (selectedAI.selectedCapabilities.includes('web_search')) {
+								scoreRequest.params.roles += 'ds-lwss,';
+							}
+						}
 					}
-				};
 
 				// 发送评分请求
-				console.log("参数", scoreRequest);
+					console.log("评分参数", scoreRequest);
 				this.message(scoreRequest);
 				this.closeScoreModal();
 
 				// 创建智能评分AI节点
 				const wkpfAI = {
 					name: '智能评分',
-					avatar: 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
+						avatar: selectedAI ? selectedAI.avatar : 'https://u3w.com/chatfile/%E8%B1%86%E5%8C%85.png',
 					capabilities: [],
 					selectedCapabilities: [],
 					enabled: true,
@@ -2901,23 +3116,26 @@
 					isExpanded: true
 				};
 
-				// 检查是否已存在智能评分
-				const existIndex = this.enabledAIs.findIndex(ai => ai.name === '智能评分');
-				if (existIndex === -1) {
-					// 如果不存在，添加到数组开头
-					this.enabledAIs.unshift(wkpfAI);
-				} else {
-					// 如果已存在，更新状态和日志
-					this.enabledAIs[existIndex] = wkpfAI;
-					// 将智能评分移到数组开头
-					const wkpf = this.enabledAIs.splice(existIndex, 1)[0];
-					this.enabledAIs.unshift(wkpf);
-				}
+				// 添加或更新智能评分任务
+				this.addOrUpdateTaskAI(wkpfAI, '智能评分');
 
 				uni.showToast({
 					title: '评分请求已发送，请等待结果',
 					icon: 'success'
 				});
+				} catch (error) {
+					console.error('智能评分失败:', error);
+					uni.showToast({
+						title: '评分请求失败',
+						icon: 'none'
+					});
+				}
+			},
+			
+			// 选择评分AI
+			selectScoreAI(ai) {
+				this.scoreAI = ai;
+				console.log('选择评分AI:', ai);
 			},
 
 			// 创建新对话
@@ -4340,6 +4558,33 @@
 
 	.score-prompt-section {
 		margin-bottom: 20px;
+	}
+
+	/* 模板选择器样式 */
+	.template-selector {
+		margin: 10px 0;
+	}
+
+	.picker-display {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 10px 12px;
+		background-color: #f5f7fa;
+		border: 1px solid #dcdfe6;
+		border-radius: 8px;
+		font-size: 14px;
+	}
+
+	.picker-text {
+		color: #606266;
+		flex: 1;
+	}
+
+	.picker-arrow {
+		color: #909399;
+		font-size: 12px;
+		margin-left: 8px;
 	}
 
 	.score-textarea {
