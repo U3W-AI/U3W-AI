@@ -82,6 +82,39 @@ public class DeepSeekUtil {
             // 侧边栏可能已经关闭或不存在
         }
 
+        // 执行第一次登录检测
+        String loginStatus = performLoginCheck(page);
+        if (!loginStatus.equals("false")) {
+            return loginStatus;
+        }
+
+        // 如果第一次检测失败，尝试点击侧边栏按钮后再次检测
+        try {
+            // 点击侧边栏按钮（可能是隐藏的用户信息面板）
+            Locator sidebarButton = page.locator("div.ds-icon-button._4f3769f[role='button']").first();
+            if (sidebarButton.count() > 0) {
+                sidebarButton.click(new Locator.ClickOptions().setTimeout(3000).setForce(true));
+                page.waitForTimeout(1000);
+                
+                // 再次执行登录检测
+                loginStatus = performLoginCheck(page);
+                if (!loginStatus.equals("false")) {
+                    return loginStatus;
+                }
+            }
+        } catch (Exception e) {
+            // 侧边栏按钮点击失败，继续
+        }
+
+        return "false";
+    }
+
+    /**
+     * 执行登录检测的核心逻辑
+     * @param page Playwright页面对象
+     * @return 登录状态，如果已登录则返回用户名，否则返回"false"
+     */
+    private String performLoginCheck(Page page) {
         // 特别针对用户昵称"Obvious"的检测
         try {
             Locator avatarLocator = page.locator("img.fdf01f38").first();
@@ -104,7 +137,7 @@ public class DeepSeekUtil {
             // 头像检测失败，继续其他方法
         }
 
-        // 最后尝试使用通用方法检测登录状态
+        // 尝试使用通用方法检测登录状态
         try {
             Locator newChatBtn = page.locator("button:has-text('新建聊天'), button:has-text('New Chat')").first();
             if (newChatBtn.count() > 0 && newChatBtn.isVisible()) {
@@ -117,6 +150,21 @@ public class DeepSeekUtil {
             }
         } catch (Exception e) {
             // 通用检测失败
+        }
+
+        // 尝试检测侧边栏中的用户信息
+        try {
+            // 检查是否有用户设置或个人信息相关的元素
+            Locator userInfoElements = page.locator("div._9d8da05, div[class*='user'], div[class*='profile']").first();
+            if (userInfoElements.count() > 0 && userInfoElements.isVisible()) {
+                String text = userInfoElements.textContent();
+                if (text != null && !text.trim().isEmpty() && 
+                    !text.trim().equals("登录") && !text.trim().equals("Login")) {
+                    return text.trim().isEmpty() ? "已登录用户" : text.trim();
+                }
+            }
+        } catch (Exception e) {
+            // 用户信息检测失败
         }
 
         return "false";
