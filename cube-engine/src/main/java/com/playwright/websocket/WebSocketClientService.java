@@ -737,6 +737,13 @@ public class WebSocketClientService {
             UserInfoUtil userInfoUtil = SpringContextUtils.getBean(UserInfoUtil.class);
             CubeMcp cubeMcp = SpringContextUtils.getBean(CubeMcp.class);
             String selectedMedia = userInfoRequest.getSelectedMedia();
+            
+            // 空值检查：如果selectedMedia为空，直接返回，不进行排版处理
+            if (selectedMedia == null || selectedMedia.trim().isEmpty()) {
+                System.out.println("selectedMedia为空，跳过AI排版提示词处理");
+                return;
+            }
+            
 //            获取排版提示词
             String znpbPrompt = layoutPromptUtil.getLayoutPrompt(selectedMedia);
             String content = userInfoRequest.getUserPrompt();
