@@ -49,41 +49,67 @@ public class RestUtils {
         return post(urlToUri(url,urlParams),json);
     }
 
-    public static JSONObject post(String url,JSONObject json){
+    public static JSONObject post(String url, JSONObject json){
+        System.out.println("POST请求URL: " + url);
+        System.out.println("POST请求参数: " + json.toJSONString());
         //组装urL
-        return post(URI.create(url),json);
+        return post(URI.create(url), json);
     }
-    public static JSONObject aiPost(String url,JSONObject json,String bearerToken){
+    public static JSONObject aiPost(String url, JSONObject json, String bearerToken){
+        System.out.println("AI POST请求URL: " + url);
+        System.out.println("AI POST请求参数: " + json.toJSONString());
+        System.out.println("AI POST Bearer Token: " + bearerToken);
         //组装urL
-        return aiPost(URI.create(url),json,bearerToken);
+        return aiPost(URI.create(url), json, bearerToken);
     }
 
-    private static JSONObject aiPost(URI uri,JSONObject json,String bearerToken){
+    private static JSONObject aiPost(URI uri, JSONObject json, String bearerToken){
+        System.out.println("执行AI POST请求，URI: " + uri.toString());
         //组装url
         //设置提交json格式数据
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(bearerToken); // 添加Bearer Token
+        System.out.println("AI POST请求头: " + headers.toString());
         HttpEntity<JSONObject> request = new HttpEntity(json, headers);
-        ResponseEntity<JSONObject> responseEntity = restTemplate.postForEntity(uri,request,JSONObject.class);
+        System.out.println("AI POST请求体: " + request.toString());
+
+        ResponseEntity<JSONObject> responseEntity = restTemplate.postForEntity(uri, request, JSONObject.class);
+        System.out.println("AI POST响应状态码: " + responseEntity.getStatusCodeValue());
+        System.out.println("AI POST响应体: " + responseEntity.getBody());
         serverIsRight(responseEntity);  //判断服务器返回状态码
         return responseEntity.getBody();
     }
+
     private static JSONObject post(URI uri, JSONObject json) {
-        // 设置提交json格式数据，并明确UTF-8编码
+        System.out.println("执行普通POST请求，URI: " + uri.toString());
+
+        // 使用标准的 MediaType.APPLICATION_JSON
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(new MediaType("application", "json", StandardCharsets.UTF_8));
-        HttpEntity<JSONObject> request = new HttpEntity<>(json, headers);
+        headers.setContentType(MediaType.APPLICATION_JSON);
 
-        // 配置RestTemplate支持text/plain类型响应解析为JSON
-        RestTemplate genericRestTemplate = getGenericRestTemplate();
+        // 确保请求体不为空
+        if (json == null) {
+            throw new IllegalArgumentException("JSON参数不能为空");
+        }
 
-        // 先以String形式接收响应，再手动转换为JSONObject
-        ResponseEntity<JSONObject> stringResponse = genericRestTemplate.postForEntity(uri, request, JSONObject.class);
-        // 将String响应转换为JSONObject
-        return stringResponse.getBody();
-//        return JSONObject.parseObject(stringResponse.getBody());
+        // 将JSONObject转换为字符串
+        String jsonString = json.toJSONString();
+        System.out.println("POST请求体（字符串）: " + jsonString);
+
+        // 创建HttpEntity，使用String类型
+        HttpEntity<String> request = new HttpEntity<>(jsonString, headers);
+
+        // 使用默认的 restTemplate
+        ResponseEntity<JSONObject> responseEntity = restTemplate.postForEntity(uri, request, JSONObject.class);
+
+        System.out.println("POST响应状态码: " + responseEntity.getStatusCode().value());
+        System.out.println("POST响应体: " + responseEntity.getBody());
+
+        serverIsRight(responseEntity);
+        return responseEntity.getBody();
     }
+
     private static RestTemplate getGenericRestTemplate() {
         RestTemplate restTemplate = new RestTemplate();
 
