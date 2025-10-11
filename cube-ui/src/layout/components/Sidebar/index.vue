@@ -47,7 +47,15 @@ export default {
             return this.$store.state.settings.sidebarLogo;
         },
         variables() {
-            return variables;
+            // 添加默认值防止variables为undefined
+            return variables || {
+                menuBackground: '#f2f7fe',
+                menuLightBackground: '#ffffff',
+                menuColor: '#022348',
+                menuLightColor: 'rgba(219, 30, 30, 0.7)',
+                logoTitleColor: '#e31717',
+                logoLightTitleColor: '#001529'
+            };
         },
         isCollapse() {
             return !this.sidebar.opened;
