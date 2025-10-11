@@ -82,7 +82,9 @@ export default {
       // 复制链接相关
       showCopyMessage: false,
       copyMessage: '',
-      profileLink: 'https://u3w.com/#/user/profile'
+      profileLink: 'https://u3w.com/#/user/profile',
+      // 登录跳转标志位，防止重复跳转
+      isRedirecting: false
     };
   },
   watch: {
@@ -154,15 +156,27 @@ export default {
     startCheckLogin(ticket) {
       this.loginForm.ticket = ticket;
       this.task = setInterval(async () => {
+        // 如果已经在跳转中，不再执行
+        if (this.isRedirecting) {
+          return;
+        }
+        
         try {
-
           this.$store.dispatch("OfficeLogin", this.loginForm).then((res)  => {
-            if(getToken()){
-              this.beforeUnmount()
+            // 登录成功，设置跳转标志位
+            if (!this.isRedirecting) {
+              this.isRedirecting = true;
+              // 立即停止定时器
+              this.stopCheckLogin();
+              console.log('登录成功，准备跳转到主页');
+              // 跳转到主页
+              this.$router.push({ path: this.redirect || "/" }).catch((err)=>{
+                console.error('路由跳转失败:', err);
+                this.isRedirecting = false;
+              });
             }
-            this.$router.push({ path: this.redirect || "/" }).catch(()=>{});
-
           }).catch(() => {
+            // 登录失败（比如二维码未扫描），继续轮询
             this.loading = false;
           });
         } catch (error) {
@@ -181,9 +195,24 @@ export default {
       // 在组件销毁时清理定时器，避免内存泄漏
       this.stopCheckLogin();
     },
+    beforeUnmount() {
+      // Vue 3兼容：在组件卸载前清理定时器
+      this.stopCheckLogin();
+    },
     weLogin() {
+      if (this.isRedirecting) {
+        return;
+      }
+      
       this.$store.dispatch("WeChatLogin", this.loginForm).then(() => {
-        this.$router.push({ path: this.redirect || "/" }).catch(()=>{});
+        if (!this.isRedirecting) {
+          this.isRedirecting = true;
+          console.log('企业微信登录成功，准备跳转到主页');
+          this.$router.push({ path: this.redirect || "/" }).catch((err)=>{
+            console.error('路由跳转失败:', err);
+            this.isRedirecting = false;
+          });
+        }
       }).catch((error) => {
         this.loading = false;
         console.log('企业微信登录错误:', error);
@@ -223,7 +252,14 @@ export default {
             Cookies.remove('rememberMe');
           }
           this.$store.dispatch("Login", this.loginForm).then(() => {
-            this.$router.push({ path: this.redirect || "/" }).catch(()=>{});
+            if (!this.isRedirecting) {
+              this.isRedirecting = true;
+              console.log('账号密码登录成功，准备跳转到主页');
+              this.$router.push({ path: this.redirect || "/" }).catch((err)=>{
+                console.error('路由跳转失败:', err);
+                this.isRedirecting = false;
+              });
+            }
           }).catch(() => {
             this.loading = false;
             if (this.captchaEnabled) {
