@@ -140,7 +140,17 @@ public class LogAspect {
 //              如果是登录方法，跳过检测
                     if (logInfo.getMethodName().contains("check")) {
                         log.info(logInfo.getMethodName() + "为登录方法,不再检测");
-                        return "false";
+                        // 根据方法返回类型返回相应的结果
+                        MethodSignature signature = (MethodSignature) joinPoint.getSignature();
+                        Class<?> returnType = signature.getReturnType();
+                        
+                        if (returnType == String.class) {
+                            return "false";
+                        } else if (McpResult.class.isAssignableFrom(returnType)) {
+                            return McpResult.fail("用户id:" + logInfo.getUserId() + description + "未登录", "");
+                        } else {
+                            return null;
+                        }
                     }
                     
                     // 记录详细的异常信息
@@ -187,12 +197,30 @@ public class LogAspect {
                 
                 //             传递不同ai的错误信息
                 sendTaskLog(description, logInfo.getUserId(), "");
-                if (description.contains("检查")) {
-                    return McpResult.fail("用户id:" + logInfo.getUserId()  + description + "未登录", "");
-                } else if (description.contains("投递")) {
-                    return McpResult.fail("用户id:" + logInfo.getUserId() + description + "失败", "");
+                
+                // 根据方法返回类型返回相应的结果
+                MethodSignature signature = (MethodSignature) joinPoint.getSignature();
+                Class<?> returnType = signature.getReturnType();
+                log.info("最终失败处理：方法名={}，返回类型={}", logInfo.getMethodName(), returnType.getName());
+                
+                if (returnType == String.class) {
+                    // 如果方法返回String类型，返回"false"
+                    log.info("方法返回String类型，返回false");
+                    return "false"; 
+                } else if (McpResult.class.isAssignableFrom(returnType)) {
+                    // 如果方法返回McpResult类型，返回McpResult.fail()
+                    log.info("方法返回McpResult类型，返回McpResult.fail()");
+                    if (description.contains("检查")) {
+                        return McpResult.fail("用户id:" + logInfo.getUserId()  + description + "未登录", "");
+                    } else if (description.contains("投递")) {
+                        return McpResult.fail("用户id:" + logInfo.getUserId() + description + "失败", "");
+                    } else {
+                        return McpResult.fail("用户id:" + logInfo.getUserId() + description + "失败", "");
+                    } 
                 } else {
-                    return McpResult.fail("用户id:" + logInfo.getUserId() + description + "失败", "");
+                    // 对于其他返回类型，返回null
+                    log.info("方法返回其他类型，返回null");
+                    return null;
                 }
             }
         }
@@ -209,7 +237,31 @@ public class LogAspect {
         } else {
             log.info("返回结果：{}", result);
         }
-        return result;
+        
+        // 确保返回结果与方法返回类型一致
+        MethodSignature signature = (MethodSignature) joinPoint.getSignature();
+        Class<?> returnType = signature.getReturnType();
+        
+        if (returnType == String.class) {
+            if (result instanceof McpResult) {
+                McpResult mcpResult = (McpResult) result;
+                return mcpResult.getResult() != null ? mcpResult.getResult() : "false";
+            } else if (result != null) {
+                return result.toString();
+            } else {
+                return "false";
+            }
+        } else if (McpResult.class.isAssignableFrom(returnType)) {
+            if (result instanceof String) {
+                return McpResult.fail(result, "");
+            } else if (result != null) {
+                return result;
+            } else {
+                return McpResult.fail("执行失败", "");
+            }
+        } else {
+            return result;
+        }
     }
 
     private void sendTaskLog(String description, String userId, String isTryAgain) {
