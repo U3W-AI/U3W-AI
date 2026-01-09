@@ -1,15 +1,17 @@
 package com.wx.fbsir.business.websocket.server;
 
 import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONObject;
 import com.wx.fbsir.business.websocket.message.EngineMessage;
 import com.wx.fbsir.business.websocket.message.MessageType;
+import com.wx.fbsir.business.aigc.service.IAigcService;
+import com.wx.fbsir.business.aigc.manager.AiSessionStateManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -33,11 +35,17 @@ public class EngineMessageRouter {
     private final Map<MessageType, MessageHandler> handlers = new ConcurrentHashMap<>();
     private final ClientMessageRouter clientMessageRouter;
     private final com.wx.fbsir.business.websocket.controller.EngineRequestController engineRequestController;
+    private final IAigcService aigcService;
+    private final AiSessionStateManager sessionStateManager;
 
     public EngineMessageRouter(ClientMessageRouter clientMessageRouter,
-                                com.wx.fbsir.business.websocket.controller.EngineRequestController engineRequestController) {
+                                com.wx.fbsir.business.websocket.controller.EngineRequestController engineRequestController,
+                                IAigcService aigcService,
+                                AiSessionStateManager sessionStateManager) {
         this.clientMessageRouter = clientMessageRouter;
         this.engineRequestController = engineRequestController;
+        this.aigcService = aigcService;
+        this.sessionStateManager = sessionStateManager;
     }
 
     @PostConstruct
@@ -82,6 +90,9 @@ public class EngineMessageRouter {
         
         log.debug("[Router] 收到Engine响应: {} - 类型: {}, 用户: {}, 请求ID: {}", 
             session.getEngineId(), type, userId, requestId);
+        
+        // 🔥 实时存储：收到Engine消息时立即保存到数据库
+        processRealtimeStorage(message, session);
         
         // 检查是否是单次返回结果（_RESULT后缀）
         boolean isResultMessage = type != null && type.endsWith("_RESULT");
@@ -157,6 +168,422 @@ public class EngineMessageRouter {
     public void forwardToClient(String userId, String rawMessage) {
         if (userId != null && !userId.isEmpty()) {
             clientMessageRouter.routeToClient(userId, rawMessage);
+        }
+    }
+
+    /**
+     * 🔥 实时存储处理
+     * 处理AI咨询业务的所有消息（TASK_LOG、TASK_SCREENSHOT、TASK_RESULT）
+     * 收到Engine消息时立即保存到数据库，避免数据丢失
+     */
+    private void processRealtimeStorage(EngineMessage message, EngineSession session) {
+        try {
+            String type = message.getType();
+            
+            // 🎯 跳过登录类消息（不含AI_前缀）
+            if (type != null && (type.contains("LOGIN") || type.contains("CHECK"))) {
+                log.debug("[实时存储] 跳过登录类消息 - 类型: {}", type);
+                return;
+            }
+            
+            // 🎯 只处理通用任务消息（TASK_LOG、TASK_SCREENSHOT、TASK_RESULT）
+            if (type == null || (!type.equals("TASK_LOG") && !type.equals("TASK_SCREENSHOT") && !type.equals("TASK_RESULT"))) {
+                return; // 非任务消息，跳过存储
+            }
+            
+            String userId = message.getUserId();
+            if (userId == null || userId.isEmpty()) {
+                log.warn("[实时存储] AI消息缺少用户ID - 类型: {}", type);
+                return;
+            }
+            
+            Map<String, Object> payload = message.getPayload();
+            if (payload == null) {
+                log.warn("[实时存储] AI消息缺少payload - 类型: {}", type);
+                return;
+            }
+            
+            // 提取关键信息
+            String sessionId = message.getPayloadValue("sessionId");
+            String aiType = message.getPayloadValue("aiType");
+            String userPrompt = message.getPayloadValue("userPrompt");
+            // 🔥 优先从顶层获取chatId，如果为空则从payload获取，最后从缓存获取
+            String chatId = message.getChatId();
+            if (chatId == null || chatId.isEmpty()) {
+                chatId = message.getPayloadValue("chatId");
+            }
+            // 🔥 如果仍然为空，尝试从缓存中获取（Engine返回的消息不带chatId）
+            if ((chatId == null || chatId.isEmpty()) && sessionId != null) {
+                chatId = ClientMessageRouter.getCachedChatId(sessionId);
+                if (chatId != null) {
+                    log.info("[实时存储] 🔄 从缓存获取chatId: {} -> {}", sessionId, chatId);
+                }
+            }
+            
+            if (sessionId == null || sessionId.isEmpty()) {
+                sessionId = message.getPayloadValue("requestId"); // 兼容旧版本
+            }
+            
+            if (sessionId == null || sessionId.isEmpty()) {
+                log.warn("[实时存储] AI消息缺少sessionId - 类型: {}", type);
+                return;
+            }
+            
+            log.info("[实时存储] 🔥 提取参数 - sessionId: {}, chatId: {}, aiType: {}, userPrompt: {}", 
+                sessionId, chatId, aiType, userPrompt);
+            
+            // 根据消息类型处理存储
+            if ("TASK_LOG".equals(type)) {
+                // 进度日志消息 - 追加到数据库
+                appendProgressLog(userId, sessionId, chatId, aiType, payload);
+                log.debug("[实时存储] 进度日志已追加 - 会话: {}, AI: {}", sessionId, aiType);
+                
+            } else if ("TASK_SCREENSHOT".equals(type)) {
+                // 截图消息 - 追加到数据库
+                appendScreenshot(userId, sessionId, chatId, aiType, payload);
+                log.debug("[实时存储] 截图已追加 - 会话: {}, AI: {}", sessionId, aiType);
+                
+            } else if ("TASK_RESULT".equals(type)) {
+                // 最终结果 - 保存完整结果到聊天历史
+                saveAiResult(userId, sessionId, chatId, aiType, userPrompt, payload, type);
+                log.info("[实时存储] ✅ AI结果已保存 - 会话: {}, chatId: {}, AI: {}", sessionId, chatId, aiType);
+            }
+            
+        } catch (Exception e) {
+            log.error("[实时存储] 处理失败 - Engine: {}, 消息类型: {}, 错误: {}", 
+                session.getEngineId(), message.getType(), e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 🔥 更新AI最终结果到聊天历史（先存后发架构：预保存已创建记录，此处更新）
+     * 每个AI的结果都独立保存，互不影响
+     */
+    private void saveAiResult(String userId, String sessionId, String chatId, String aiType, 
+                             String userPrompt, Map<String, Object> payload, String messageType) {
+        try {
+            log.info("[AI存储] 开始更新 - 用户: {}, 会话: {}, AI类型: {}", userId, sessionId, aiType);
+            log.debug("[AI存储] 原始payload: {}", JSON.toJSONString(payload));
+            
+            // 🔥 从payload.data中提取嵌套数据（Engine返回的结构是 payload.data.xxx）
+            @SuppressWarnings("unchecked")
+            Map<String, Object> dataMap = (Map<String, Object>) payload.get("data");
+            
+            // 🔥 从dataMap中提取用户指令和DeepSeek的chatId
+            String actualUserPrompt = userPrompt;
+            String deepseekChatId = null;
+            
+            if (dataMap != null) {
+                // 优先从dataMap中获取query作为userPrompt
+                String queryFromData = getStringValue(dataMap, "query");
+                if (queryFromData != null && !queryFromData.isEmpty()) {
+                    actualUserPrompt = queryFromData;
+                    log.debug("[AI存储] 从payload.data.query获取userPrompt: {}", actualUserPrompt);
+                }
+                
+                // 从dataMap中获取DeepSeek返回的chatId（用于下次请求）
+                deepseekChatId = getStringValue(dataMap, "chatId");
+                log.debug("[AI存储] 从payload.data.chatId获取DeepSeek会话ID: {}", deepseekChatId);
+            }
+            
+            // 🔥 使用前端传递的chatId作为会话分组ID（从缓存获取）
+            String actualChatId = chatId;
+            if (actualChatId == null || actualChatId.isEmpty()) {
+                actualChatId = ClientMessageRouter.getCachedChatId(sessionId);
+            }
+            if (actualChatId == null || actualChatId.isEmpty()) {
+                actualChatId = sessionId; // 最后兜底
+                log.warn("[AI存储] 前端未传递chatId，使用sessionId: {}", actualChatId);
+            }
+            
+            log.info("[AI存储] 提取结果 - userPrompt: {}, chatId: {}", actualUserPrompt, actualChatId);
+            
+            // 🔥 读取现有聊天记录，合并progressLogs和screenshots（避免覆盖）
+            Map<String, Object> existingChat = aigcService.getChatBySessionId(sessionId);
+            Map<String, Object> mergedData = new HashMap<>();
+            
+            if (existingChat != null) {
+                // 解析现有data，保留progressLogs和screenshots
+                String existingDataStr = (String) existingChat.get("data");
+                if (existingDataStr != null && !existingDataStr.isEmpty()) {
+                    Map<String, Object> existingDataMap = JSON.parseObject(existingDataStr);
+                    if (existingDataMap.get("progressLogs") != null) {
+                        mergedData.put("progressLogs", existingDataMap.get("progressLogs"));
+                    }
+                    if (existingDataMap.get("screenshots") != null) {
+                        mergedData.put("screenshots", existingDataMap.get("screenshots"));
+                    }
+                }
+            }
+            
+            // 合并payload到mergedData（payload中的字段优先级更高）
+            mergedData.putAll(payload);
+            
+            Map<String, Object> chatData = new HashMap<>();
+            chatData.put("id", sessionId);
+            chatData.put("userId", userId);
+            chatData.put("userPrompt", actualUserPrompt);
+            
+            // 存储合并后的完整数据（包含progressLogs + payload结果）
+            chatData.put("data", JSON.toJSONString(mergedData));
+            
+            // 设置内部chatId（用于会话分组）
+            chatData.put("chatId", actualChatId);
+            
+            // 🔥 根据AI类型设置对应的AI会话ID字段（用于上下文复用）
+            setAiChatIdField(chatData, aiType, deepseekChatId);
+            
+            // 🔥🔥🔥 改为更新记录（因为预保存已创建，避免主键冲突）
+            // existingChat已在上面获取，直接使用
+            if (existingChat != null) {
+                aigcService.updateChatData(chatData);
+                log.info("[AI存储] ✅ {}结果已更新到历史表 - 会话: {}, chatId: {}, userPrompt: {}", aiType, sessionId, actualChatId, actualUserPrompt);
+            } else {
+                aigcService.saveChatData(chatData);
+                log.info("[AI存储] ✅ {}结果已新增到历史表 - 会话: {}, chatId: {}, userPrompt: {}", aiType, sessionId, actualChatId, actualUserPrompt);
+            }
+            
+            // 🔥 同步保存到AI记录扩展表（存储分享链接和截图）
+            saveToExtensionTable(userId, sessionId, actualUserPrompt, aiType, dataMap);
+            
+            // 🎯 标记AI任务完成，检查整轮对话是否结束
+            boolean allCompleted = sessionStateManager.markAiCompleted(sessionId, aiType);
+            if (allCompleted) {
+                log.info("[AI业务] 🎉 整轮对话完成 - 会话: {}, 所有AI任务已完成", sessionId);
+            }
+            
+        } catch (Exception e) {
+            log.error("[AI存储] 保存{}结果失败 - 会话: {}, 错误: {}", aiType, sessionId, e.getMessage());
+            // 即使保存失败也标记为完成，避免阻塞其他任务
+            sessionStateManager.markAiFailed(sessionId, aiType, "数据库保存失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 🔥 追加进度日志到数据库
+     * 实时记录AI处理进度，用户查看历史时可以看到完整执行过程
+     */
+    private void appendProgressLog(String userId, String sessionId, String chatId, String aiType, Map<String, Object> payload) {
+        try {
+            String logMessage = getStringValue(payload, "message");
+            if (logMessage == null || logMessage.isEmpty()) {
+                return;
+            }
+            
+            // 获取现有聊天记录
+            Map<String, Object> existingChat = aigcService.getChatBySessionId(sessionId);
+            
+            // 构建日志对象
+            Map<String, Object> logEntry = new HashMap<>();
+            logEntry.put("content", logMessage);
+            logEntry.put("timestamp", payload.get("timestamp"));
+            logEntry.put("aiType", aiType);
+            
+            if (existingChat != null) {
+                // 追加到现有记录
+                String dataStr = (String) existingChat.get("data");
+                Map<String, Object> dataMap = dataStr != null ? JSON.parseObject(dataStr) : new HashMap<>();
+                
+                @SuppressWarnings("unchecked")
+                java.util.List<Map<String, Object>> logs = (java.util.List<Map<String, Object>>) dataMap.get("progressLogs");
+                if (logs == null) {
+                    logs = new java.util.ArrayList<>();
+                    dataMap.put("progressLogs", logs);
+                }
+                logs.add(logEntry);
+                
+                // 更新数据库
+                existingChat.put("data", JSON.toJSONString(dataMap));
+                aigcService.updateChatData(existingChat);
+            } else {
+                // 创建新记录
+                Map<String, Object> chatData = new HashMap<>();
+                chatData.put("id", sessionId);
+                chatData.put("userId", userId);
+                
+                Map<String, Object> dataMap = new HashMap<>();
+                java.util.List<Map<String, Object>> logs = new java.util.ArrayList<>();
+                logs.add(logEntry);
+                dataMap.put("progressLogs", logs);
+                
+                chatData.put("data", JSON.toJSONString(dataMap));
+                aigcService.saveChatData(chatData);
+            }
+            
+            log.debug("[进度日志] 已追加 - 会话: {}, AI: {}, 消息: {}", sessionId, aiType, logMessage);
+            
+        } catch (Exception e) {
+            log.error("[进度日志] 追加失败 - 会话: {}, 错误: {}", sessionId, e.getMessage());
+        }
+    }
+    
+    /**
+     * 🔥 追加截图到数据库
+     * 实时记录AI执行截图，用户查看历史时可以看到完整执行过程
+     */
+    private void appendScreenshot(String userId, String sessionId, String chatId, String aiType, Map<String, Object> payload) {
+        try {
+            String screenshotUrl = getStringValue(payload, "screenshotUrl");
+            if (screenshotUrl == null || screenshotUrl.isEmpty()) {
+                return;
+            }
+            
+            // 获取现有聊天记录
+            Map<String, Object> existingChat = aigcService.getChatBySessionId(sessionId);
+            
+            if (existingChat != null) {
+                // 追加到现有记录
+                String dataStr = (String) existingChat.get("data");
+                Map<String, Object> dataMap = dataStr != null ? JSON.parseObject(dataStr) : new HashMap<>();
+                
+                @SuppressWarnings("unchecked")
+                java.util.List<String> screenshots = (java.util.List<String>) dataMap.get("screenshots");
+                if (screenshots == null) {
+                    screenshots = new java.util.ArrayList<>();
+                    dataMap.put("screenshots", screenshots);
+                }
+                screenshots.add(screenshotUrl);
+                
+                // 更新数据库
+                existingChat.put("data", JSON.toJSONString(dataMap));
+                aigcService.updateChatData(existingChat);
+            } else {
+                // 创建新记录
+                Map<String, Object> chatData = new HashMap<>();
+                chatData.put("id", sessionId);
+                chatData.put("userId", userId);
+                
+                Map<String, Object> dataMap = new HashMap<>();
+                java.util.List<String> screenshots = new java.util.ArrayList<>();
+                screenshots.add(screenshotUrl);
+                dataMap.put("screenshots", screenshots);
+                
+                chatData.put("data", JSON.toJSONString(dataMap));
+                aigcService.saveChatData(chatData);
+            }
+            
+            log.debug("[截图] 已追加 - 会话: {}, AI: {}, URL: {}", sessionId, aiType, screenshotUrl);
+            
+        } catch (Exception e) {
+            log.error("[截图] 追加失败 - 会话: {}, 错误: {}", sessionId, e.getMessage());
+        }
+    }
+    
+    /**
+     * 安全获取字符串值
+     */
+    private String getStringValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        return value != null ? value.toString() : null;
+    }
+
+    /**
+     * 🔥 保存到AI记录扩展表（原草稿表）
+     * 存储AI生成的分享链接和截图等扩展信息
+     */
+    private void saveToExtensionTable(String userId, String sessionId, String userPrompt, 
+                                     String aiType, Map<String, Object> dataMap) {
+        try {
+            if (dataMap == null) {
+                return;
+            }
+            
+            // 提取分享链接和截图
+            String shareUrl = getStringValue(dataMap, "shareUrl");
+            String shareImgUrl = getStringValue(dataMap, "conversationScreenshot");
+            String answer = getStringValue(dataMap, "answer");
+            
+            // 只有当有分享链接或截图时才保存到扩展表
+            if ((shareUrl != null && !shareUrl.isEmpty()) || 
+                (shareImgUrl != null && !shareImgUrl.isEmpty())) {
+                
+                Map<String, Object> extensionData = new HashMap<>();
+                extensionData.put("id", generateUUID());
+                extensionData.put("taskId", sessionId); // 关联聊天历史记录ID
+                extensionData.put("userPrompt", userPrompt);
+                extensionData.put("draftContent", answer); // AI生成的内容
+                extensionData.put("aiName", aiType);
+                extensionData.put("userName", userId);
+                extensionData.put("shareUrl", shareUrl);
+                extensionData.put("shareImgUrl", shareImgUrl);
+                
+                aigcService.saveExtensionData(extensionData);
+                log.info("[AI扩展表] ✅ 已保存 - 会话: {}, AI: {}, 分享链接: {}", 
+                    sessionId, aiType, shareUrl != null ? "有" : "无");
+            }
+            
+        } catch (Exception e) {
+            log.error("[AI扩展表] 保存失败 - 会话: {}, 错误: {}", sessionId, e.getMessage());
+        }
+    }
+    
+    /**
+     * 生成UUID
+     */
+    private String generateUUID() {
+        return java.util.UUID.randomUUID().toString();
+    }
+    
+    /**
+     * 🔥 根据AI类型设置对应的会话ID字段（完全参考旧项目cube-admin）
+     * 支持所有AI类型的会话ID保存，用于上下文复用
+     */
+    private void setAiChatIdField(Map<String, Object> chatData, String aiType, String aiChatId) {
+        if (aiChatId == null || aiChatId.isEmpty()) {
+            return;
+        }
+        
+        String aiTypeLower = aiType != null ? aiType.toLowerCase() : "";
+        
+        switch (aiTypeLower) {
+            case "deepseek":
+                chatData.put("deepseekChatId", aiChatId);
+                break;
+            case "yuanbao":
+            case "元宝":
+            case "腾讯元宝":
+            case "yb":
+                chatData.put("ybChatId", aiChatId);
+                break;
+            case "doubao":
+            case "豆包":
+            case "db":
+                chatData.put("dbChatId", aiChatId);
+                break;
+            case "tongyi":
+            case "通义":
+            case "通义千问":
+            case "tone":
+                chatData.put("toneChatId", aiChatId);
+                break;
+            case "ty":
+                chatData.put("tyChatId", aiChatId);
+                break;
+            case "kimi":
+                chatData.put("kimiChatId", aiChatId);
+                break;
+            case "baidu":
+            case "百度":
+            case "百度ai":
+                chatData.put("baiduChatId", aiChatId);
+                break;
+            case "metaso":
+            case "秘塔":
+            case "秘塔ai":
+                chatData.put("metasoChatId", aiChatId);
+                break;
+            case "minimax":
+            case "max":
+                chatData.put("maxChatId", aiChatId);
+                break;
+            case "zhzd":
+            case "知乎":
+            case "知乎直答":
+                chatData.put("zhzdChatId", aiChatId);
+                break;
+            default:
+                log.debug("[AI存储] 未知AI类型: {}, 会话ID: {}", aiType, aiChatId);
+                break;
         }
     }
 

@@ -78,6 +78,9 @@ public class SysUser extends BaseEntity
     /** 用户积分 */
     private Integer points;
 
+    /** 主机ID */
+    private String hostId;
+
     /** 部门对象 */
     @Excels({
         @Excel(name = "部门名称", targetAttr = "deptName", type = Type.EXPORT),
@@ -274,6 +277,16 @@ public class SysUser extends BaseEntity
     public void setPoints(Integer points)
     {
         this.points = points;
+    }
+
+    public String getHostId()
+    {
+        return hostId;
+    }
+
+    public void setHostId(String hostId)
+    {
+        this.hostId = hostId;
     }
 
     public SysDept getDept()

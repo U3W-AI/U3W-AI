@@ -34,6 +34,13 @@
                         <div class="pull-right">{{ state.roleGroup }}</div>
                      </li>
                      <li class="list-group-item">
+                        <svg-icon icon-class="server" />主机ID
+                        <div class="pull-right">
+                          <span v-if="state.user.hostId">{{ state.user.hostId }}</span>
+                          <el-tag v-else type="warning" size="small">未配置</el-tag>
+                        </div>
+                     </li>
+                     <li class="list-group-item">
                         <svg-icon icon-class="date" />创建日期
                         <div class="pull-right">{{ state.user.createTime }}</div>
                      </li>

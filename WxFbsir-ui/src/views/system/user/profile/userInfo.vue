@@ -15,6 +15,17 @@
             <el-radio value="1">女</el-radio>
          </el-radio-group>
       </el-form-item>
+      <el-form-item label="主机ID" prop="hostId" required>
+         <el-input 
+           v-model="form.hostId" 
+           placeholder="请输入您的Engine主机ID（如：engine-001）"
+           maxlength="100"
+         />
+         <div style="font-size: 12px; color: #909399; margin-top: 4px;">
+           <el-icon style="color: #f56c6c;"><WarningFilled /></el-icon>
+           主机ID用于连接您的AI助手服务，必须填写且确保ID正确
+         </div>
+      </el-form-item>
       <el-form-item>
       <el-button type="primary" @click="submit">保存</el-button>
       <el-button type="danger" @click="close">关闭</el-button>
@@ -38,16 +49,25 @@ const rules = ref({
   nickName: [{ required: true, message: "用户昵称不能为空", trigger: "blur" }],
   email: [{ required: true, message: "邮箱地址不能为空", trigger: "blur" }, { type: "email", message: "请输入正确的邮箱地址", trigger: ["blur", "change"] }],
   phonenumber: [{ required: true, message: "手机号码不能为空", trigger: "blur" }, { pattern: /^1[3|4|5|6|7|8|9][0-9]\d{8}$/, message: "请输入正确的手机号码", trigger: "blur" }],
+  hostId: [
+    { required: true, message: "主机ID不能为空", trigger: "blur" },
+    { min: 3, max: 100, message: "主机ID长度应在3-100个字符之间", trigger: "blur" }
+  ]
 })
 
 /** 提交按钮 */
 function submit() {
   proxy.$refs.userRef.validate(valid => {
     if (valid) {
+      console.log('🔥 [个人中心] 提交用户信息更新:', form.value)
       updateUserProfile(form.value).then(response => {
         proxy.$modal.msgSuccess("修改成功")
         props.user.phonenumber = form.value.phonenumber
         props.user.email = form.value.email
+        props.user.hostId = form.value.hostId
+        console.log('✅ [个人中心] 用户信息更新成功，hostId:', form.value.hostId)
+      }).catch(error => {
+        console.error('❌ [个人中心] 用户信息更新失败:', error)
       })
     }
   })
@@ -61,7 +81,13 @@ function close() {
 // 回显当前登录用户信息
 watch(() => props.user, user => {
   if (user) {
-    form.value = { nickName: user.nickName, phonenumber: user.phonenumber, email: user.email, sex: user.sex }
+    form.value = { 
+      nickName: user.nickName, 
+      phonenumber: user.phonenumber, 
+      email: user.email, 
+      sex: user.sex,
+      hostId: user.hostId || ''
+    }
   }
 },{ immediate: true })
 </script>

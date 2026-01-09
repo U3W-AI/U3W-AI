@@ -3,9 +3,13 @@ package com.wx.fbsir.business.websocket.server;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONException;
 import com.alibaba.fastjson2.JSONObject;
+import com.wx.fbsir.business.aigc.domain.AiRequest;
+import com.wx.fbsir.business.aigc.service.IAigcService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Client 消息路由器
@@ -23,14 +27,46 @@ import org.springframework.stereotype.Component;
 public class ClientMessageRouter {
 
     private static final Logger log = LoggerFactory.getLogger(ClientMessageRouter.class);
+    
+    // 🔥 sessionId → chatId 缓存（供 EngineMessageRouter 使用）
+    private static final ConcurrentHashMap<String, String> SESSION_CHAT_ID_CACHE = new ConcurrentHashMap<>();
 
     private final ClientSessionManager clientSessionManager;
     private final EngineSessionManager engineSessionManager;
+    private final IAigcService aigcService;
+    
+    /**
+     * 缓存 sessionId → chatId 映射
+     */
+    public static void cacheChatId(String sessionId, String chatId) {
+        if (sessionId != null && chatId != null && !chatId.isEmpty()) {
+            SESSION_CHAT_ID_CACHE.put(sessionId, chatId);
+            log.debug("[ChatId缓存] 已缓存: {} -> {}", sessionId, chatId);
+        }
+    }
+    
+    /**
+     * 获取缓存的 chatId
+     */
+    public static String getCachedChatId(String sessionId) {
+        return sessionId != null ? SESSION_CHAT_ID_CACHE.get(sessionId) : null;
+    }
+    
+    /**
+     * 清除缓存（可选，防止内存泄漏）
+     */
+    public static void removeCachedChatId(String sessionId) {
+        if (sessionId != null) {
+            SESSION_CHAT_ID_CACHE.remove(sessionId);
+        }
+    }
 
     public ClientMessageRouter(ClientSessionManager clientSessionManager,
-                                EngineSessionManager engineSessionManager) {
+                                EngineSessionManager engineSessionManager,
+                                IAigcService aigcService) {
         this.clientSessionManager = clientSessionManager;
         this.engineSessionManager = engineSessionManager;
+        this.aigcService = aigcService;
     }
 
     /**
@@ -86,6 +122,59 @@ public class ClientMessageRouter {
             json.put("userId", userId);
             json.put("sourceClientId", clientId);
             json.put("sourceType", "WEBSOCKET");
+            
+            // 🔥 缓存 sessionId → chatId 映射（用于 Engine 返回时查找）
+            JSONObject payload = json.getJSONObject("payload");
+            String sessionId = null;
+            String chatId = null;
+            String userPrompt = null;
+            
+            if (payload != null) {
+                sessionId = payload.getString("sessionId");
+                userPrompt = payload.getString("userPrompt");
+                chatId = json.getString("chatId");  // 顶层chatId
+                if (chatId == null || chatId.isEmpty()) {
+                    chatId = payload.getString("chatId");  // payload中的chatId
+                }
+                if (sessionId != null && chatId != null && !chatId.isEmpty()) {
+                    cacheChatId(sessionId, chatId);
+                    log.info("[Router] 🔥 缓存chatId: sessionId={} -> chatId={}", sessionId, chatId);
+                }
+            }
+            
+            // 🔥🔥🔥 先存后发：预保存请求记录到数据库（核心改进）
+            if (sessionId != null && type != null && type.startsWith("AI_")) {
+                try {
+                    AiRequest aiRequest = new AiRequest();
+                    aiRequest.setSessionId(sessionId);
+                    aiRequest.setChatId(chatId);
+                    aiRequest.setUserId(userId);
+                    aiRequest.setUserPrompt(userPrompt);
+                    aiRequest.setType(type);
+                    
+                    // 🔥 保存任务流程和进度日志到extraParams
+                    java.util.Map<String, Object> extraParams = new java.util.HashMap<>();
+                    if (payload != null) {
+                        Object enabledAIs = payload.get("enabledAIs");
+                        Object progressLogs = payload.get("progressLogs");
+                        if (enabledAIs != null) {
+                            extraParams.put("enabledAIs", enabledAIs);
+                        }
+                        if (progressLogs != null) {
+                            extraParams.put("progressLogs", progressLogs);
+                        }
+                    }
+                    if (!extraParams.isEmpty()) {
+                        aiRequest.setExtraParams(extraParams);
+                    }
+                    
+                    aigcService.saveInitialRequest(aiRequest);
+                    log.info("[Router] 🔥 预保存请求记录 - sessionId={}, chatId={}, userPrompt={}, 扩展字段数={}", 
+                        sessionId, chatId, userPrompt, extraParams.size());
+                } catch (Exception e) {
+                    log.warn("[Router] 预保存请求失败，继续转发: {}", e.getMessage());
+                }
+            }
             
             // 直接发送修改后的JSON字符串给Engine
             String messageToSend = json.toJSONString();
