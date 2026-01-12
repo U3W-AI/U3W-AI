@@ -194,6 +194,7 @@ insert into sys_menu values('8', 'gitee管理', '0', '8', 'gitee', null, '', '',
 -- 内容管理子菜单（parent_id=1，业务功能从118开始）
 insert into sys_menu values('118',  '日更助手', '1',   '1', 'daily-assistant', 'business/content/dailyassistant/index', '', '', 1, 0, 'C', '0', '0', 'business:daily:view',     'edit',          'admin', sysdate(), '', null, '日更助手菜单');
 insert into sys_menu values('119',  '发布记录', '1',   '2', 'publish-record',  'business/content/publishrecord/index',  '', '', 1, 0, 'C', '0', '0', 'business:publish:list',   'documentation', 'admin', sysdate(), '', null, '公众号发布记录菜单');
+insert into sys_menu values('130',  '文档解析助手', '1',   '3', 'document-parse', 'business/content/documentparse/index', '', '', 1, 0, 'C', '0', '0', 'business:document:view',   'document',      'admin', sysdate(), '', null, '文档解析助手菜单');
 -- 系统管理子菜单（parent_id=2）
 insert into sys_menu values('100',  '用户管理', '2',   '1', 'user',       'system/user/index',        '', '', 1, 0, 'C', '0', '0', 'system:user:list',        'user',          'admin', sysdate(), '', null, '用户管理菜单');
 insert into sys_menu values('101',  '角色管理', '2',   '2', 'role',       'system/role/index',        '', '', 1, 0, 'C', '0', '0', 'system:role:list',        'peoples',       'admin', sysdate(), '', null, '角色管理菜单');
@@ -315,6 +316,10 @@ insert into sys_menu values('1066', '发布公众号', '118', '6', '#', '', '', 
 -- 发布记录管理按钮（parent_id=119）
 insert into sys_menu values('1067', '记录查询', '119', '1', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:publish:list',      '#', 'admin', sysdate(), '', null, '查询发布记录列表');
 insert into sys_menu values('1068', '记录详情', '119', '2', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:publish:query',     '#', 'admin', sysdate(), '', null, '查看发布记录详情');
+-- 文档解析助手按钮（parent_id=130）
+insert into sys_menu values('1097', '解析查询', '130', '1', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:document:query',    '#', 'admin', sysdate(), '', null, '');
+insert into sys_menu values('1098', '解析新增', '130', '2', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:document:add',       '#', 'admin', sysdate(), '', null, '');
+insert into sys_menu values('1099', '解析删除', '130', '3', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:document:remove',     '#', 'admin', sysdate(), '', null, '');
 insert into sys_menu values('1069', '记录删除', '119', '3', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:publish:remove',    '#', 'admin', sysdate(), '', null, '删除发布记录');
 -- 积分总览按钮(parent_id=120)
 insert into sys_menu values('1070', '积分查询', '120', '1', '', '', '', '', 1, 0, 'F', '0', '0', 'business:points:query', '#', 'admin', sysdate(), '', null, '');
@@ -397,6 +402,7 @@ insert into sys_role_menu values ('2', '7');    -- 主机管理
 -- 二级菜单-内容管理
 insert into sys_role_menu values ('2', '118');  -- 日更助手
 insert into sys_role_menu values ('2', '119');  -- 发布记录
+insert into sys_role_menu values ('2', '130');  -- 文档解析助手
 -- 二级菜单-系统管理
 insert into sys_role_menu values ('2', '100');  -- 用户管理
 insert into sys_role_menu values ('2', '101');  -- 角色管理
@@ -558,6 +564,7 @@ insert into sys_role_menu values ('3', '6');    -- 积分管理
 -- 二级菜单-内容管理
 insert into sys_role_menu values ('3', '118');  -- 日更助手
 insert into sys_role_menu values ('3', '119');  -- 发布记录
+insert into sys_role_menu values ('3', '130');  -- 文档解析助手
 -- 二级菜单-系统管理
 insert into sys_role_menu values ('3', '100');  -- 用户管理
 insert into sys_role_menu values ('3', '101');  -- 角色管理
@@ -633,6 +640,7 @@ insert into sys_role_menu values ('3', '1078');  -- 查看明细
 insert into sys_role_menu values ('10', '1');    -- 内容管理目录
 insert into sys_role_menu values ('10', '118');   -- 日更助手菜单
 insert into sys_role_menu values ('10', '119');   -- 发布记录菜单
+insert into sys_role_menu values ('10', '130');   -- 文档解析助手菜单
 insert into sys_role_menu values ('10', '1061'); -- 日更助手-文章查询
 insert into sys_role_menu values ('10', '1062'); -- 日更助手-文章新增
 insert into sys_role_menu values ('10', '1063'); -- 日更助手-文章删除
@@ -641,6 +649,9 @@ insert into sys_role_menu values ('10', '1065'); -- 日更助手-智能排版
 insert into sys_role_menu values ('10', '1066'); -- 日更助手-发布公众号
 insert into sys_role_menu values ('10', '1067'); -- 发布记录-记录查询
 insert into sys_role_menu values ('10', '1068'); -- 发布记录-记录详情
+insert into sys_role_menu values ('10', '1097'); -- 文档解析助手-解析查询
+insert into sys_role_menu values ('10', '1098'); -- 文档解析助手-解析新增
+insert into sys_role_menu values ('10', '1099'); -- 文档解析助手-解析删除
 insert into sys_role_menu values ('10', '1069'); -- 发布记录-记录删除
 insert into sys_role_menu values ('10', '6');    -- 积分管理
 insert into sys_role_menu values ('10', '120');  -- 积分总览
@@ -1017,7 +1028,35 @@ CREATE TABLE `daily_article` (
 
 
 -- ----------------------------
--- 21、腾讯元器智能体配置表
+-- 21、文档解析表
+-- ----------------------------
+DROP TABLE IF EXISTS `document_parse`;
+CREATE TABLE `document_parse` (
+  `id`  bigint(20) NOT NULL AUTO_INCREMENT COMMENT '文档解析ID',
+  `user_id`  bigint(20) NOT NULL COMMENT '用户ID',
+  `document_id`  varchar(200) NOT NULL COMMENT '文档ID（自动生成）',
+  `document_name`  varchar(500) DEFAULT NULL COMMENT '文档名称',
+  `prompt`  text COMMENT '提示词',
+  `parsed_content`  longtext COMMENT '解析后的内容（来自腾讯元器智能体）',
+  `agent_task_id`  varchar(200) DEFAULT NULL COMMENT '腾讯元器智能体任务ID',
+  `process_status`  tinyint(1) NOT NULL DEFAULT 0 COMMENT '处理状态：0-处理中，1-已完成，2-失败',
+  `error_message`  varchar(1000) DEFAULT NULL COMMENT '错误信息',
+  `create_by`  varchar(64) DEFAULT NULL COMMENT '创建者',
+  `create_time`  datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`  varchar(64) DEFAULT NULL COMMENT '更新者',
+  `update_time`  datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `remark`  varchar(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (`id`) USING BTREE,
+  KEY `idx_user_id` (`user_id`) USING BTREE COMMENT '用户ID索引',
+  KEY `idx_document_id` (`document_id`) USING BTREE COMMENT '文档ID索引',
+  KEY `idx_create_time` (`create_time`) USING BTREE COMMENT '创建时间索引',
+  KEY `idx_process_status` (`process_status`) USING BTREE COMMENT '处理状态索引',
+  KEY `idx_agent_task_id` (`agent_task_id`) USING BTREE COMMENT '智能体任务ID索引'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文档解析表';
+
+
+-- ----------------------------
+-- 22、腾讯元器智能体配置表
 -- ----------------------------
 DROP TABLE IF EXISTS `yuanqi_agent_config`;
 CREATE TABLE `yuanqi_agent_config` (
@@ -1399,3 +1438,4 @@ WHERE w.del_flag = 0
 GROUP BY w.team_name, w.is_team;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
