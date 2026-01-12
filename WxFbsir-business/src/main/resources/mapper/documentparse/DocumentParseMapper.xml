@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.documentparse.mapper.DocumentParseMapper">
+
+    <resultMap type="com.wx.fbsir.business.documentparse.domain.DocumentParse" id="DocumentParseResult">
+        <result property="id"                 column="id"                  />
+        <result property="userId"             column="user_id"             />
+        <result property="documentId"         column="document_id"          />
+        <result property="documentName"       column="document_name"       />
+        <result property="prompt"             column="prompt"               />
+        <result property="parsedContent"      column="parsed_content"      />
+        <result property="agentTaskId"       column="agent_task_id"       />
+        <result property="processStatus"      column="process_status"      />
+        <result property="errorMessage"       column="error_message"       />
+        <result property="createBy"           column="create_by"           />
+        <result property="createTime"         column="create_time"         />
+        <result property="updateBy"           column="update_by"           />
+        <result property="updateTime"         column="update_time"         />
+        <result property="remark"             column="remark"              />
+    </resultMap>
+
+    <sql id="selectDocumentParseVo">
+        select id, user_id, document_id, document_name, prompt,
+               cast(parsed_content as char) as parsed_content,
+               agent_task_id, process_status, error_message,
+               create_by, create_time, update_by, update_time, remark
+        from document_parse
+    </sql>
+
+    <select id="selectDocumentParseById" parameterType="Long" resultMap="DocumentParseResult">
+        <include refid="selectDocumentParseVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectDocumentParseByDocumentId" parameterType="String" resultMap="DocumentParseResult">
+        <include refid="selectDocumentParseVo"/>
+        where document_id = #{documentId}
+    </select>
+
+    <select id="selectDocumentParseList" parameterType="com.wx.fbsir.business.documentparse.domain.DocumentParse" resultMap="DocumentParseResult">
+        <include refid="selectDocumentParseVo"/>
+        <where>
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+            <if test="documentId != null and documentId != ''">
+                AND document_id = #{documentId}
+            </if>
+            <if test="documentName != null and documentName != ''">
+                AND document_name like concat('%', #{documentName}, '%')
+            </if>
+            <if test="processStatus != null">
+                AND process_status = #{processStatus}
+            </if>
+            <if test="agentTaskId != null and agentTaskId != ''">
+                AND agent_task_id = #{agentTaskId}
+            </if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectDocumentParseListByUserId" parameterType="Long" resultMap="DocumentParseResult">
+        <include refid="selectDocumentParseVo"/>
+        where user_id = #{userId}
+          and process_status in (0, 1, 2)
+        order by create_time desc
+    </select>
+
+    <insert id="insertDocumentParse" parameterType="com.wx.fbsir.business.documentparse.domain.DocumentParse" useGeneratedKeys="true" keyProperty="id">
+        insert into document_parse (
+            <if test="userId != null">user_id, </if>
+            <if test="documentId != null and documentId != ''">document_id, </if>
+            <if test="documentName != null and documentName != ''">document_name, </if>
+            <if test="prompt != null">prompt, </if>
+            <if test="parsedContent != null">parsed_content, </if>
+            <if test="agentTaskId != null and agentTaskId != ''">agent_task_id, </if>
+            <if test="processStatus != null">process_status, </if>
+            <if test="errorMessage != null and errorMessage != ''">error_message, </if>
+            <if test="remark != null and remark != ''">remark, </if>
+            <if test="createBy != null and createBy != ''">create_by, </if>
+            create_time
+        ) values (
+            <if test="userId != null">#{userId}, </if>
+            <if test="documentId != null and documentId != ''">#{documentId}, </if>
+            <if test="documentName != null and documentName != ''">#{documentName}, </if>
+            <if test="prompt != null">#{prompt}, </if>
+            <if test="parsedContent != null">#{parsedContent}, </if>
+            <if test="agentTaskId != null and agentTaskId != ''">#{agentTaskId}, </if>
+            <if test="processStatus != null">#{processStatus}, </if>
+            <if test="errorMessage != null and errorMessage != ''">#{errorMessage}, </if>
+            <if test="remark != null and remark != ''">#{remark}, </if>
+            <if test="createBy != null and createBy != ''">#{createBy}, </if>
+            sysdate()
+        )
+    </insert>
+
+    <update id="updateDocumentParse" parameterType="com.wx.fbsir.business.documentparse.domain.DocumentParse">
+        update document_parse
+        <set>
+            <if test="documentId != null and documentId != ''">document_id = #{documentId}, </if>
+            <if test="documentName != null and documentName != ''">document_name = #{documentName}, </if>
+            <if test="prompt != null">prompt = #{prompt}, </if>
+            <if test="parsedContent != null">parsed_content = #{parsedContent}, </if>
+            <if test="agentTaskId != null and agentTaskId != ''">agent_task_id = #{agentTaskId}, </if>
+            <if test="processStatus != null">process_status = #{processStatus}, </if>
+            <if test="errorMessage != null">error_message = #{errorMessage}, </if>
+            <if test="remark != null and remark != ''">remark = #{remark}, </if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy}, </if>
+            update_time = sysdate()
+        </set>
+        where id = #{id}
+    </update>
+
+    <update id="updateProcessStatus">
+        update document_parse
+        set process_status = #{processStatus},
+            update_time = sysdate()
+        where id = #{id}
+    </update>
+
+    <update id="updateParsedContent">
+        update document_parse
+        set parsed_content = #{parsedContent},
+            process_status = 1,
+            update_time = sysdate()
+        where id = #{id}
+    </update>
+
+    <delete id="deleteDocumentParseById" parameterType="Long">
+        delete from document_parse where id = #{id}
+    </delete>
+
+    <delete id="deleteDocumentParseByIds" parameterType="Long">
+        delete from document_parse where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+
+</mapper>

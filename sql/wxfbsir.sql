@@ -394,10 +394,10 @@ insert into sys_role_menu values ('2', '3');    -- 系统监控
 insert into sys_role_menu values ('2', '4');    -- 系统工具
 insert into sys_role_menu values ('2', '6');    -- 积分管理
 insert into sys_role_menu values ('2', '7');    -- 主机管理
--- 二级菜单-内容管理
+--- 二级菜单-内容管理
 insert into sys_role_menu values ('2', '118');  -- 日更助手
 insert into sys_role_menu values ('2', '119');  -- 发布记录
--- 二级菜单-系统管理
+--- 二级菜单-系统管理
 insert into sys_role_menu values ('2', '100');  -- 用户管理
 insert into sys_role_menu values ('2', '101');  -- 角色管理
 insert into sys_role_menu values ('2', '102');  -- 菜单管理
@@ -555,10 +555,10 @@ insert into sys_role_menu values ('3', '2');    -- 系统管理
 insert into sys_role_menu values ('3', '3');    -- 系统监控
 insert into sys_role_menu values ('3', '4');    -- 系统工具
 insert into sys_role_menu values ('3', '6');    -- 积分管理
--- 二级菜单-内容管理
+--- 二级菜单-内容管理
 insert into sys_role_menu values ('3', '118');  -- 日更助手
 insert into sys_role_menu values ('3', '119');  -- 发布记录
--- 二级菜单-系统管理
+--- 二级菜单-系统管理
 insert into sys_role_menu values ('3', '100');  -- 用户管理
 insert into sys_role_menu values ('3', '101');  -- 角色管理
 insert into sys_role_menu values ('3', '102');  -- 菜单管理
@@ -1017,7 +1017,7 @@ CREATE TABLE `daily_article` (
 
 
 -- ----------------------------
--- 21、腾讯元器智能体配置表
+-- 22、腾讯元器智能体配置表
 -- ----------------------------
 DROP TABLE IF EXISTS `yuanqi_agent_config`;
 CREATE TABLE `yuanqi_agent_config` (
@@ -1399,3 +1399,4 @@ WHERE w.del_flag = 0
 GROUP BY w.team_name, w.is_team;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
