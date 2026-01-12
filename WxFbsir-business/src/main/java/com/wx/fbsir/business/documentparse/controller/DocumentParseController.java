@@ -14,15 +14,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
+import com.wx.fbsir.common.config.WxFbsirConfig;
+import com.wx.fbsir.common.utils.file.FileUploadUtils;
+import com.wx.fbsir.common.utils.file.MimeTypeUtils;
 
 import java.util.HashMap;
 import java.util.List;
@@ -44,8 +42,6 @@ public class DocumentParseController extends BaseController
     @Autowired
     private IDocumentParseService documentParseService;
 
-    @Value("${wxfbsir.tunnel-domain}")
-    private String tunnelDomain;
 
     /**
      * 查询文档解析列表
@@ -181,45 +177,12 @@ public class DocumentParseController extends BaseController
                 }
             }
 
-            // 4. 调用内部 /upload 接口上传文件
-            RestTemplate restTemplate = new RestTemplate();
-            String uploadUrl = "http://localhost:8080/common/upload";
+            // 4. 直接调用文件上传工具类上传文件
+            String filePath = WxFbsirConfig.getUploadPath();
+            String url = FileUploadUtils.uploadAndGetFullUrl(filePath, file, MimeTypeUtils.DEFAULT_ALLOWED_EXTENSION);
+            String originalFilename = file.getOriginalFilename();
             
-            HttpHeaders uploadHeaders = new HttpHeaders();
-            uploadHeaders.setContentType(MediaType.MULTIPART_FORM_DATA);
-            
-            // 获取当前请求的 Authorization 头并传递给内部调用
-            String authorizationHeader = request.getHeader("Authorization");
-            if (authorizationHeader != null && !authorizationHeader.isEmpty()) {
-                uploadHeaders.set("Authorization", authorizationHeader);
-            }
-            
-            org.springframework.util.LinkedMultiValueMap<String, Object> uploadBody = new org.springframework.util.LinkedMultiValueMap<>();
-            uploadBody.add("file", file.getResource());
-            
-            HttpEntity<org.springframework.util.LinkedMultiValueMap<String, Object>> uploadRequest = new HttpEntity<>(uploadBody, uploadHeaders);
-            
-            @SuppressWarnings("unchecked")
-            Map<String, Object> uploadResponse = restTemplate.postForObject(uploadUrl, uploadRequest, Map.class);
-            
-            if (uploadResponse == null || 
-                uploadResponse.get("code") == null || 
-                !uploadResponse.get("code").equals(200)) {
-                return error("文件上传失败");
-            }
-            
-            // 5. 从上传响应中提取 url 和 originalFilename
-            String url = (String) uploadResponse.get("url");
-            String originalFilename = (String) uploadResponse.get("originalFilename");
-            
-            if (url == null || url.isEmpty()) {
-                return error("上传响应中缺少 url 字段");
-            }
-            
-            // 5. 对 url 进行域名替换：localhost:8080 → 内网穿透域名
-            String replacedUrl = url.replace("http://localhost:8080", tunnelDomain);
-            
-            log.info("文件上传成功 - 原始URL: {}, 替换后URL: {}, 原始文件名: {}", url, replacedUrl, originalFilename);
+            log.info("文件上传成功 - URL: {}, 原始文件名: {}", url, originalFilename);
 
             // 6. 获取用户ID
             Long userId = getUserId();
@@ -231,7 +194,7 @@ public class DocumentParseController extends BaseController
             // 8. 触发异步解析任务（从Controller调用确保@Async生效）
             // 传递新参数：documentId, prompt, url, originalFilename
             documentParseService.triggerDocumentParse(
-                    documentParse.getId(), userId, documentId, prompt, replacedUrl, originalFilename);
+                    documentParse.getId(), userId, documentId, prompt, url, originalFilename);
 
             // 9. 立即返回（不等待AI解析结果）
             Map<String, Object> result = new HashMap<>();
