@@ -9,7 +9,7 @@ spring:
             master:
                 url: ${WXFBSIR_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/wxfbsir?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8}
                 username: ${WXFBSIR_MYSQL_USERNAME:root}
-                password: ${WXFBSIR_MYSQL_PASSWORD:520707}
+                password: ${WXFBSIR_MYSQL_PASSWORD:root}
             # 从库数据源
             slave:
                 # 从数据源开关/默认关闭

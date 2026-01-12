@@ -213,7 +213,7 @@ public class DocumentParseController extends BaseController
             }
             
             // 5. 对 url 进行域名替换：localhost:8080 → 内网穿透域名
-            String replacedUrl = url.replace("http://localhost:8080", "http://wxfbdemo.free.idcfengye.com");
+            String replacedUrl = url.replace("http://localhost:8080", "http://内网穿透域名");
             
             log.info("文件上传成功 - 原始URL: {}, 替换后URL: {}, 原始文件名: {}", url, replacedUrl, originalFilename);
 
