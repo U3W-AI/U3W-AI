@@ -194,7 +194,7 @@ insert into sys_menu values('8', 'gitee管理', '0', '8', 'gitee', null, '', '',
 -- 内容管理子菜单（parent_id=1，业务功能从118开始）
 insert into sys_menu values('118',  '日更助手', '1',   '1', 'daily-assistant', 'business/content/dailyassistant/index', '', '', 1, 0, 'C', '0', '0', 'business:daily:view',     'edit',          'admin', sysdate(), '', null, '日更助手菜单');
 insert into sys_menu values('119',  '发布记录', '1',   '2', 'publish-record',  'business/content/publishrecord/index',  '', '', 1, 0, 'C', '0', '0', 'business:publish:list',   'documentation', 'admin', sysdate(), '', null, '公众号发布记录菜单');
-insert into sys_menu values('130',  '文档解析助手', '1',   '3', 'document-parse', 'business/content/documentparse/index', '', '', 1, 0, 'C', '0', '0', 'business:document:view',   'document',      'admin', sysdate(), '', null, '文档解析助手菜单');
+insert into sys_menu values('130',  '文档解析助手', '1',   '3', 'document-parse', 'business/content/documentparse/index', '', '', 1, 0, 'C', '0', '0', 'business:document:view',   'documentation',      'admin', sysdate(), '', null, '文档解析助手菜单');
 -- 系统管理子菜单（parent_id=2）
 insert into sys_menu values('100',  '用户管理', '2',   '1', 'user',       'system/user/index',        '', '', 1, 0, 'C', '0', '0', 'system:user:list',        'user',          'admin', sysdate(), '', null, '用户管理菜单');
 insert into sys_menu values('101',  '角色管理', '2',   '2', 'role',       'system/role/index',        '', '', 1, 0, 'C', '0', '0', 'system:role:list',        'peoples',       'admin', sysdate(), '', null, '角色管理菜单');

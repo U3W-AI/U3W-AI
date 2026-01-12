@@ -16,6 +16,9 @@ wxfbsir:
   # 开发环境示例：http://localhost:8080
   # 生产环境建议使用环境变量：WXFBSIR_DOMAIN
   domain: ${WXFBSIR_DOMAIN:http://localhost:8080}
+  # 内网穿透域名配置（用于外部访问）
+  # 生产环境建议使用环境变量：WXFBSIR_TUNNEL_DOMAIN
+  tunnel-domain: ${WXFBSIR_TUNNEL_DOMAIN:http://wxfbdemo.free.idcfengye.com}
   websocket: # 是否启用 WebSocket 服务
       enabled: true
       # WebSocket 端点路径

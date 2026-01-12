@@ -14,6 +14,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -42,6 +43,9 @@ public class DocumentParseController extends BaseController
 
     @Autowired
     private IDocumentParseService documentParseService;
+
+    @Value("${wxfbsir.tunnel-domain}")
+    private String tunnelDomain;
 
     /**
      * 查询文档解析列表
@@ -213,7 +217,7 @@ public class DocumentParseController extends BaseController
             }
             
             // 5. 对 url 进行域名替换：localhost:8080 → 内网穿透域名
-            String replacedUrl = url.replace("http://localhost:8080", "http://内网穿透域名");
+            String replacedUrl = url.replace("http://localhost:8080", tunnelDomain);
             
             log.info("文件上传成功 - 原始URL: {}, 替换后URL: {}, 原始文件名: {}", url, replacedUrl, originalFilename);
 
