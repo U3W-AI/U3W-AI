@@ -132,7 +132,7 @@ public class KnowledgeBaseController extends BaseController
      * @return 被删除的知识库ID数组
      */
     @Log(title = "知识库", businessType = BusinessType.DELETE)
-    @DeleteMapping("/base/{kbIds}")
+    @DeleteMapping("/base/{kbId}")
     public AjaxResult remove(@PathVariable Long kbId)
     {
         int result = knowledgeBaseService.deleteKnowledgeBaseByKbIds(kbId);

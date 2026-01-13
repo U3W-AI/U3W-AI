@@ -73,7 +73,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         delete from kb_base where kb_id = #{kbId}
     </delete>
 
-    <delete id="deleteKnowledgeBaseByKbIds" parameterType="string">
+    <delete id="deleteKnowledgeBaseByKbIds" parameterType="long">
         delete from kb_base where kb_id = #{kbId}
 
     </delete>
