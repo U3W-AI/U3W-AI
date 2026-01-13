@@ -5,7 +5,7 @@
 -- 添加扩展的用户字段
 ALTER TABLE `sys_user`
     ADD COLUMN `kb_space_quota` BIGINT DEFAULT 0 COMMENT '知识库空间额度（按字符长度计算，1024MB为默认额度）' AFTER `points`,
-    ADD COLUMN `kb_likes_ids` VARCHAR(2000) DEFAULT '' COMMENT '空间内包含的知识库ID，多个用逗号分隔（如1,2,3）' AFTER `kb_space_quota`,
+    ADD COLUMN `kb_likes_ids` VARCHAR(2000) DEFAULT '' COMMENT '收藏的知识库ID，多个用逗号分隔（如1,2,3）' AFTER `kb_space_quota`,
     ADD COLUMN `kb_space_include_kb_ids` VARCHAR(2000) DEFAULT '' COMMENT '空间内包含的知识库ID，多个用逗号分隔（如1,2,3）' AFTER `kb_likes_ids`,
     ADD COLUMN `has_knowledge_base` VARCHAR(2000) DEFAULT '' COMMENT '用户自己创建的知识库id' AFTER `kb_space_include_kb_ids`,
     ADD COLUMN `is_super` TINYINT(1) DEFAULT 0 COMMENT '是否为超级账户：0-普通账户，1-超级账户' AFTER `has_knowledge_base`,
