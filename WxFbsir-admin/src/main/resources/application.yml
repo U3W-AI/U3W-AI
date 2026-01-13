@@ -13,8 +13,9 @@ wxfbsir:
   # 验证码类型 math 数字计算 char 字符验证
   captchaType: math
   # 域名配置（用于拼接完整URL）
-  # 开发环境示例：http://localhost:8080
-  # 生产环境建议使用环境变量：WXFBSIR_DOMAIN
+  # 开发环境：http://localhost:8080
+  # 生产环境/内网穿透：使用实际访问域名（如 http://your-domain.com）
+  # 建议使用环境变量：WXFBSIR_DOMAIN
   domain: ${WXFBSIR_DOMAIN:http://localhost:8080}
   websocket: # 是否启用 WebSocket 服务
       enabled: true

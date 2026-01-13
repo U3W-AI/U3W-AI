@@ -1,5 +1,5 @@
 <h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">福帮手</h1>
-<h4 align="center">助力中小团队深耕AI机遇</h4>
+<h4 align="center">幸福有AI，幸运有你</h4>
 <p align="center">
 	<a href="https://gitee.com/U3W-AI/RuoYi-Vue"><img src="https://img.shields.io/badge/WxFbsir-v1.1.9-brightgreen.svg"></a>
 	<a href="https://www.fbsir.com"><img src="https://img.shields.io/badge/website-www.fbsir.com-blue.svg"></a>
@@ -10,12 +10,12 @@
 ## 项目简介
 
 
-项目定位：以AI赋能团队建设，推动智能原生企业更快涌现。福帮手FBSir，福润百业，智生万象。
+项目定位：以AI工具链赋能团队建设，推动智能原生企业更快涌现，助力智能社会高质量发展。福帮手FBSir，幸福有AI，幸运有你。Fbsir, AI 4 Happiness, U 4 Fortune。
 
 ## 系统特色
 
 
-**完善的运营支撑体系**
+🏗️ **完善的运营支撑体系**
 
 内置积分系统：支持积分规则配置、积分实现和积分管理
 
@@ -47,6 +47,11 @@ Playwright应用及Websocket集成框架，将RPA与AI一炉同炼，为人机�
 ### ✨ **特色功能之腾讯元器自动化工具链**
 
 福帮手主机引擎支持Playwright能力管理，并提供Playwright实现示例，如登录状态检查、工作流导航等元器控制器。
+
+
+### ✨ **特色功能之文档分析MCP服务**
+
+文档分析MCP及可用于验证的元器智能体工作流上线，支付丰富格式和快速接入。
 
 
 ## 快速开始
@@ -155,4 +160,4 @@ npm run dev
 本项目后台管理系统基于 **若依(RuoYi)** 框架进行二次开发，感谢若依团队提供的优秀开源框架。
 
 
-文档更新日期：2026年1月7日 18：00  文档版本：1.1.9D
+文档更新日期：2026年1月13日 14：20  文档版本：1.1.9G
