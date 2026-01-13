@@ -548,18 +548,23 @@ const loadKnowledgeStats = async () => {
     // 获取空间额度
     kbStats.value.quota = userInfo.kbSpaceQuota || 1024
     
-    // 计算已使用空间和已创建知识库数量
+    // 计算已使用空间和已创建知识库数量（只计算自己创建的非公共模板）
     const hasKbIds = userInfo.hasKnowledgeBase || ''
     if (hasKbIds) {
       const kbIds = hasKbIds.split(',').filter(id => id.trim()).map(id => parseInt(id.trim()))
-      kbStats.value.count = kbIds.length
       
       if (kbIds.length > 0) {
         // 加载知识库详情以计算已使用空间
         const kbRes = await getKnowledgeBasesByIds(kbIds)
         const kbList = kbRes.data || []
+        
+        // 过滤出非公共模板的知识库（只计算自己创建的非公共模板）
+        const nonPublicKbList = kbList.filter(kb => kb && kb.isPublicTemplate !== 1)
+        kbStats.value.count = nonPublicKbList.length
+        
+        // 只计算非公共模板的已使用空间
         let usedSizeMB = 0
-        kbList.forEach(kb => {
+        nonPublicKbList.forEach(kb => {
           if (kb && kb.kbContent) {
             const bytes = new TextEncoder().encode(kb.kbContent).length
             usedSizeMB += Math.ceil(bytes / (1024.0 * 1024.0))
@@ -567,6 +572,7 @@ const loadKnowledgeStats = async () => {
         })
         kbStats.value.used = usedSizeMB
       } else {
+        kbStats.value.count = 0
         kbStats.value.used = 0
       }
     } else {

@@ -283,9 +283,8 @@ public class YuanQiLoginUtil {
                 }
 
                 // 检查登录状态（检查是否还在登录页面）
-                Locator closeButton = page.locator("button:has(.v-button-inner-icon) svg.v-icon.v-icon--fill.v-button-inner-icon");
                 page.waitForTimeout(1000);
-                task.sendLog(String.valueOf(closeButton.count()));
+                Locator closeButton = page.locator("button:has(.v-button-inner-icon) svg.v-icon.v-icon--fill.v-button-inner-icon");
                 if (closeButton.count() == 6) {
                     task.sendLog("登录成功！");
                     closeButton.nth(5).click();
