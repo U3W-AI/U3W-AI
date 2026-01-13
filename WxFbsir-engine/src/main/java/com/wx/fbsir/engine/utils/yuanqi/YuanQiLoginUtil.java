@@ -2,8 +2,15 @@ package com.wx.fbsir.engine.utils.yuanqi;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.wx.fbsir.engine.capability.base.StreamTaskHelper;
+import com.wx.fbsir.engine.controller.yuanqi.YuanQiLoginController;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 元器（YuanQi）登录工具类
@@ -20,7 +27,8 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class YuanQiLoginUtil {
-
+    @Autowired
+    private YuanQiLoginController yuanQiLoginController;
     private static final String YUANQI_HOME_URL = "https://yuanqi.tencent.com/";
     
     /**
@@ -47,10 +55,10 @@ public class YuanQiLoginUtil {
             
             // 检查左侧菜单是否存在"登录"按钮
             // 根据用户提供的DOM结构：<button data-v-0fb5f024="" type="button">登录</button>
-            Locator loginButton = page.locator("aside.yuanqi-sidebar button:has-text('登录')");
+            Locator loginButton = page.getByText("知识库", new Page.GetByTextOptions().setExact(true)).first();
             
-            if (loginButton.count() > 0 && loginButton.isVisible()) {
-                log.info("[元器登录检测] 未登录（检测到登录按钮）");
+            if (loginButton.count() <= 0 ) {
+                log.info("[元器登录检测] 未登录（未检测知识库按钮）");
                 return "false";
             }
             
@@ -103,13 +111,13 @@ public class YuanQiLoginUtil {
     public boolean triggerScanLogin(Page page) {
         try {
             // 查找左侧菜单的"登录"按钮
-            Locator loginButton = page.locator("aside.yuanqi-sidebar button:has-text('登录')");
+            Locator checkButton = page.getByText("知识库", new Page.GetByTextOptions().setExact(true)).first();
             
-            if (loginButton.count() == 0) {
-                log.warn("[元器扫码登录] 未找到登录按钮，可能已登录");
+            if (checkButton.count() > 0) {
+                log.warn("[元器扫码登录] 找到知识库按钮，可能已登录");
                 return false;
             }
-            
+            Locator loginButton = page.locator("button:has-text('新建智能体')").first();
             log.debug("[元器扫码登录] 点击登录按钮");
             loginButton.first().click();
             
@@ -148,13 +156,13 @@ public class YuanQiLoginUtil {
      */
     public boolean isStillOnLoginPage(Page page) {
         try {
-            // 检查是否还存在登录弹窗或登录按钮
+            // 检查是否还存在登录弹窗或知识库按钮
             Locator loginDialog = page.locator(".hyc-login__content");
-            Locator loginButton = page.locator("aside.yuanqi-sidebar button:has-text('登录')");
+            Locator loginButton =  page.getByText("知识库", new Page.GetByTextOptions().setExact(true)).first();
             
-            // 如果登录弹窗存在或登录按钮存在，说明还在登录页面
+            // 如果登录弹窗存在或知识库按钮不存在，说明还在登录页面
             boolean hasLoginDialog = loginDialog.count() > 0 && loginDialog.isVisible();
-            boolean hasLoginButton = loginButton.count() > 0 && loginButton.isVisible();
+            boolean hasLoginButton = loginButton.count() <= 0;
             
             return hasLoginDialog || hasLoginButton;
             
@@ -192,4 +200,108 @@ public class YuanQiLoginUtil {
             return null;
         }
     }
+    /**
+     * 腾讯元器扫码登录
+     *
+     * @param page Playwright页面对象
+     * @param log  日志对象
+     * @param task 流式返回
+     * @param requestId 请求id
+     * @param userId 用户id
+     *
+     * @return page Playwright页面对象
+     */
+    public Page scanLogin(Page page, StreamTaskHelper.StreamTask task, Logger log, String userId, String requestId) {
+        // 检查是否已登录
+        String loginStatus = checkLoginStatus(page, false);
+        if ("false".equals(loginStatus)) {
+            // 触发扫码登录
+            task.sendLog("正在触发扫码登录...");
+            boolean triggerSuccess = triggerScanLogin(page);
+            if (!triggerSuccess) {
+                task.sendError("无法触发登录流程，请检查页面状态");
+                return null;
+            }
+            // 等待二维码加载完成
+            page.waitForTimeout(2000);
+
+            // 立即截图二维码并返回
+            String qrCodeUrl = yuanQiLoginController.captureAndUpload(page, userId, "yuanqi_qrcode_initial");
+            if (qrCodeUrl != null) {
+                Map<String, Object> qrData = new HashMap<>();
+                qrData.put("qrCodeUrl", qrCodeUrl);
+                qrData.put("status", "waiting");
+                task.sendLog("请使用微信扫码登录");
+                task.sendScreenshot(qrCodeUrl);
+                log.info("[元器扫码登录] 二维码已生成 - 用户: {}, URL: {}", userId, qrCodeUrl);
+            }
+
+            long startTime = System.currentTimeMillis();
+            long maxWaitTime = 300000; // 5分钟超时
+            long lastScreenshotTime = System.currentTimeMillis();
+            int screenshotCount = 1;
+            String lastQrCodeUrl = qrCodeUrl;
+
+            // 每2秒检测一次登录状态
+            while (true) {
+                long elapsedTime = System.currentTimeMillis() - startTime;
+
+                // 检查超时
+                if (elapsedTime > maxWaitTime) {
+                    Map<String, Object> timeoutData = new HashMap<>();
+                    timeoutData.put("success", false);
+                    timeoutData.put("timeout", true);
+                    timeoutData.put("qrCodeUrl", lastQrCodeUrl);
+                    task.sendSuccess("扫码登录超时", timeoutData);
+                    log.warn("[元器扫码登录] 超时 - 用户: {}, 请求: {}", userId, requestId);
+                    return null;
+                }
+
+                // 每30秒更新一次二维码截图（防止过期）
+                if (System.currentTimeMillis() - lastScreenshotTime >= 30000) {
+                    try {
+                        screenshotCount++;
+                        String newQrCodeUrl = yuanQiLoginController.captureAndUpload(page, userId,
+                                "yuanqi_qrcode_" + screenshotCount);
+
+                        if (newQrCodeUrl != null) {
+                            lastQrCodeUrl = newQrCodeUrl;
+
+                            Map<String, Object> progressData = new HashMap<>();
+                            progressData.put("qrCodeUrl", lastQrCodeUrl);
+                            progressData.put("status", "waiting");
+                            progressData.put("elapsedSeconds", elapsedTime / 1000);
+
+                            task.sendLog("二维码已更新，请继续扫码（已等待" + (elapsedTime / 1000) + "秒）");
+                            task.sendScreenshot(newQrCodeUrl);
+                        }
+
+                        lastScreenshotTime = System.currentTimeMillis();
+                    } catch (Exception screenshotEx) {
+                        log.warn("[元器扫码登录] 截图更新失败 - 用户: {}", userId, screenshotEx);
+                    }
+                }
+
+                // 检查登录状态（检查是否还在登录页面）
+                Locator closeButton = page.locator("button:has(.v-button-inner-icon) svg.v-icon.v-icon--fill.v-button-inner-icon");
+                page.waitForTimeout(1000);
+                task.sendLog(String.valueOf(closeButton.count()));
+                if (closeButton.count() == 6) {
+                    task.sendLog("登录成功！");
+                    closeButton.nth(5).click();
+                    break;
+                }
+
+                // 等待2秒后再次检测
+                page.waitForTimeout(2000);
+
+
+            }
+
+        }
+        return page;
+    }
+
+
+
 }

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.knowledgebase.mapper.SysUserExtendMapper">
+
+    <resultMap type="com.wx.fbsir.business.knowledgebase.domain.SysUserExtend" id="SysUserExtendResult">
+        <id     property="userId"              column="user_id"                />
+        <result property="userName"            column="user_name"              />
+        <result property="nickName"            column="nick_name"              />
+        <result property="kbSpaceQuota"        column="kb_space_quota"         />
+        <result property="kbSpaceIncludeKbIds" column="kb_space_include_kb_ids" />
+        <result property="hasKnowledgeBase"    column="has_knowledge_base"     />
+        <result property="kbLikesIds"          column="kb_likes_ids"           />
+        <result property="isSuper"             column="is_super"              />
+        <result property="isOpenAccountPerm"   column="is_open_account_perm"   />
+        <result property="isOpenModulePerm"    column="is_open_module_perm"    />
+    </resultMap>
+
+    <sql id="selectSysUserExtendVo">
+        select user_id, user_name, nick_name,  kb_space_quota, kb_space_include_kb_ids, 
+               has_knowledge_base, kb_likes_ids, is_super, is_open_account_perm, is_open_module_perm
+        from sys_user
+    </sql>
+
+    <select id="selectUserExtendByUserId" parameterType="Long" resultMap="SysUserExtendResult">
+        <include refid="selectSysUserExtendVo"/>
+        where user_id = #{userId}
+    </select>
+
+
+    <update id="updateKbSpaceQuota">
+        update sys_user
+        set kb_space_quota = #{kbSpaceQuota}
+        where user_id = #{userId}
+    </update>
+
+    <update id="updateKbSpaceIncludeKbIds">
+        update sys_user
+        set kb_space_include_kb_ids = #{kbSpaceIncludeKbIds}
+        where user_id = #{userId}
+    </update>
+
+    <update id="updateHasKnowledgeBase">
+        update sys_user
+        set has_knowledge_base = #{hasKnowledgeBase}
+        where user_id = #{userId}
+    </update>
+
+    <update id="updateKbLikesIds">
+        update sys_user
+        set kb_likes_ids = #{kbLikesIds}
+        where user_id = #{userId}
+    </update>
+
+    <update id="updateUserPermissions">
+        update sys_user
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="isSuper != null">is_super = #{isSuper},</if>
+            <if test="isOpenAccountPerm != null">is_open_account_perm = #{isOpenAccountPerm},</if>
+            <if test="isOpenModulePerm != null">is_open_module_perm = #{isOpenModulePerm},</if>
+        </trim>
+        where user_id = #{userId}
+    </update>
+
+    <update id="updateUserExtend" parameterType="com.wx.fbsir.business.knowledgebase.domain.SysUserExtend">
+        update sys_user
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="kbSpaceQuota != null">kb_space_quota = #{kbSpaceQuota},</if>
+            <if test="kbSpaceIncludeKbIds != null">kb_space_include_kb_ids = #{kbSpaceIncludeKbIds},</if>
+            <if test="isSuper != null">is_super = #{isSuper},</if>
+            <if test="isOpenAccountPerm != null">is_open_account_perm = #{isOpenAccountPerm},</if>
+            <if test="isOpenModulePerm != null">is_open_module_perm = #{isOpenModulePerm},</if>
+        </trim>
+        where user_id = #{userId}
+    </update>
+
+    <select id="selectAllUserPermissions" resultMap="SysUserExtendResult">
+        <include refid="selectSysUserExtendVo"/>
+        where del_flag = '0'
+        order by user_id
+    </select>
+
+</mapper>
