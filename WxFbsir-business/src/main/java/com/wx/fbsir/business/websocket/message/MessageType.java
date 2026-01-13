@@ -22,30 +22,40 @@ public enum MessageType {
     /** 简单健康检查演示 | Controller: SimpleHealthCheckDemoController | once() | 单次输出完整示例 | 请求: {"type":"SIMPLE_HEALTH_CHECK_DEMO","engineId":"engine-001","payload":{"includeDetails":true}} */
     SIMPLE_HEALTH_CHECK_DEMO("SIMPLE_HEALTH_CHECK_DEMO", "简单健康检查演示"),
     
-    // ---------- AI能力（AI Capabilities） ----------
+    // ==========================================================================
+    // 🤖 AIGC专属消息（AI-Generated Content Messages）
+    // 说明：所有AI相关的消息类型，与通用消息完全隔离
+    // 前缀规则：AI_ 开头的消息由AIGC模块独立处理
+    // ==========================================================================
     
-//    /** DeepSeek登录检测 | Controller: DeepSeekController | once() | 请求: {"type":"DEEPSEEK_CHECK_LOGIN","engineId":"engine-001"} */
-//    DEEPSEEK_CHECK_LOGIN("DEEPSEEK_CHECK_LOGIN", "DeepSeek登录检测"),
-//
-//    /** DeepSeek扫码登录 | Controller: DeepSeekController | stream() | 请求: {"type":"DEEPSEEK_SCAN_LOGIN","engineId":"engine-001"} */
-//    DEEPSEEK_SCAN_LOGIN("DEEPSEEK_SCAN_LOGIN", "DeepSeek扫码登录"),
-//
-//    /** DeepSeek AI咨询 | Controller: DeepSeekController | stream() | 请求: {"type":"DEEPSEEK_QUERY","engineId":"engine-001","payload":{"query":"你好"}} */
-//    DEEPSEEK_AI_CONSULT("DEEPSEEK_AI_CONSULT", "DeepSeek AI咨询"),
-//
-    // ---------- 通用响应消息 ----------
+    /** 🤖 AI任务日志 | Engine→Admin | 执行状态文本 | 前端显示在任务流程区 */
+    AI_TASK_LOG("AI_TASK_LOG", "AI任务日志"),
     
-    /** 任务日志 | Engine主动发送 | 执行状态文本消息 | 前端显示在 progressLogs 中 */
+    /** 🤖 AI任务截图 | Engine→Admin | 截图URL | 前端显示在可视化区 */
+    AI_TASK_SCREENSHOT("AI_TASK_SCREENSHOT", "AI任务截图"),
+    
+    /** 🤖 AI任务结果 | Engine→Admin | 最终结果 | 包含answer、shareUrl等 */
+    AI_TASK_RESULT("AI_TASK_RESULT", "AI任务结果"),
+    
+    /** 🤖 AI任务错误 | Engine→Admin | 错误信息 */
+    AI_TASK_ERROR("AI_TASK_ERROR", "AI任务错误"),
+    
+    // ==========================================================================
+    // 通用响应消息（Generic Response Messages）
+    // 说明：非AI业务的通用任务响应
+    // ==========================================================================
+    
+    /** 任务日志 | Engine主动发送 | 执行状态文本消息 | 非AI业务使用 */
     TASK_LOG("TASK_LOG", "任务日志"),
     
-    /** 任务截图 | Engine主动发送 | 截图URL消息 | 前端显示在 screenshots 轮播区 */
+    /** 任务截图 | Engine主动发送 | 截图URL消息 | 非AI业务使用 */
     TASK_SCREENSHOT("TASK_SCREENSHOT", "任务截图"),
     
-    /** 任务进度通知 | Engine主动发送 | 流式输出中间进度 | 已废弃，请使用 TASK_LOG */
+    /** 任务进度通知 | Engine主动发送 | 已废弃，请使用 TASK_LOG 或 AI_TASK_LOG */
     @Deprecated
     TASK_PROGRESS("TASK_PROGRESS", "任务进度"),
     
-    /** 任务结果 | Engine主动发送 | 流式输出最终结果 */
+    /** 任务结果 | Engine主动发送 | 非AI业务使用 */
     TASK_RESULT("TASK_RESULT", "任务结果"),
     
     // ==========================================================================
@@ -125,5 +135,45 @@ public enum MessageType {
             }
         }
         return UNKNOWN;
+    }
+    
+    // ==========================================================================
+    // 🤖 AIGC辅助方法（用于消息类型判断和路由）
+    // ==========================================================================
+    
+    /**
+     * 判断是否为AIGC相关消息类型
+     * 
+     * @param code 消息类型代码
+     * @return true=AI消息，需要由AIGC模块处理
+     */
+    public static boolean isAiMessage(String code) {
+        return code != null && code.startsWith("AI_");
+    }
+    
+    /**
+     * 判断当前枚举是否为AI消息类型
+     */
+    public boolean isAiMessage() {
+        return this.code.startsWith("AI_");
+    }
+    
+    /**
+     * 判断是否为AI任务响应消息（LOG/SCREENSHOT/RESULT/ERROR）
+     */
+    public static boolean isAiTaskResponse(String code) {
+        return code != null && (
+            code.equals("AI_TASK_LOG") || 
+            code.equals("AI_TASK_SCREENSHOT") || 
+            code.equals("AI_TASK_RESULT") ||
+            code.equals("AI_TASK_ERROR")
+        );
+    }
+    
+    /**
+     * 判断是否为AI最终结果消息
+     */
+    public static boolean isAiResultMessage(String code) {
+        return "AI_TASK_RESULT".equals(code) || "AI_TASK_ERROR".equals(code);
     }
 }

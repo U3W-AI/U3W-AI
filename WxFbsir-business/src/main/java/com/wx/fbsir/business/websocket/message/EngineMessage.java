@@ -61,6 +61,11 @@ public class EngineMessage implements Serializable {
     private Map<String, Object> payload;
 
     /**
+     * 会话ID（多轮对话共享）
+     */
+    private String chatId;
+
+    /**
      * 元数据
      */
     private Map<String, String> metadata;
@@ -207,6 +212,14 @@ public class EngineMessage implements Serializable {
 
     public void setMetadata(Map<String, String> metadata) {
         this.metadata = metadata;
+    }
+
+    public String getChatId() {
+        return chatId;
+    }
+
+    public void setChatId(String chatId) {
+        this.chatId = chatId;
     }
 
     @Override

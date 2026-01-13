@@ -3,9 +3,13 @@ package com.wx.fbsir.business.websocket.server;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONException;
 import com.alibaba.fastjson2.JSONObject;
+import com.wx.fbsir.business.aigc.domain.AiRequest;
+import com.wx.fbsir.business.aigc.service.IAigcService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Client 消息路由器
@@ -15,6 +19,11 @@ import org.springframework.stereotype.Component;
  * 消息流向：
  *   前端 → Admin → Engine（请求）
  *   Engine → Admin → 前端（响应，可能多次）
+ * 
+ * 🤖 AIGC消息说明：
+ *   - AI_前缀的消息类型由AIGC模块独立处理
+ *   - Admin对payload完全透传，不做解析和验证
+ *   - Engine端负责解析AI平台特定参数
  *
  * @author wxfbsir
  * @date 2025-12-18
@@ -23,14 +32,46 @@ import org.springframework.stereotype.Component;
 public class ClientMessageRouter {
 
     private static final Logger log = LoggerFactory.getLogger(ClientMessageRouter.class);
+    
+    // 🔥 sessionId → chatId 缓存（供 EngineMessageRouter 使用）
+    private static final ConcurrentHashMap<String, String> SESSION_CHAT_ID_CACHE = new ConcurrentHashMap<>();
 
     private final ClientSessionManager clientSessionManager;
     private final EngineSessionManager engineSessionManager;
+    private final IAigcService aigcService;
+    
+    /**
+     * 缓存 sessionId → chatId 映射
+     */
+    public static void cacheChatId(String sessionId, String chatId) {
+        if (sessionId != null && chatId != null && !chatId.isEmpty()) {
+            SESSION_CHAT_ID_CACHE.put(sessionId, chatId);
+            log.debug("[ChatId缓存] 已缓存: {} -> {}", sessionId, chatId);
+        }
+    }
+    
+    /**
+     * 获取缓存的 chatId
+     */
+    public static String getCachedChatId(String sessionId) {
+        return sessionId != null ? SESSION_CHAT_ID_CACHE.get(sessionId) : null;
+    }
+    
+    /**
+     * 清除缓存（可选，防止内存泄漏）
+     */
+    public static void removeCachedChatId(String sessionId) {
+        if (sessionId != null) {
+            SESSION_CHAT_ID_CACHE.remove(sessionId);
+        }
+    }
 
     public ClientMessageRouter(ClientSessionManager clientSessionManager,
-                                EngineSessionManager engineSessionManager) {
+                                EngineSessionManager engineSessionManager,
+                                IAigcService aigcService) {
         this.clientSessionManager = clientSessionManager;
         this.engineSessionManager = engineSessionManager;
+        this.aigcService = aigcService;
     }
 
     /**
@@ -61,19 +102,30 @@ public class ClientMessageRouter {
                 return;
             }
             
-            // 检查 Engine 是否在线
+            // 🔥 检查 Engine 是否在线（AI请求必须先验证）
             if (!engineSessionManager.isEngineOnline(engineId)) {
-                sendError(clientId, type, "ENGINE_OFFLINE", "指定的 Engine [" + engineId + "] 不在线");
-                log.warn("[Router] Engine 不在线: {} - 用户: {}, 类型: {}", engineId, userId, type);
+                // 发送友好的AI任务错误消息
+                sendAiTaskError(clientId, userId, type, engineId, 
+                    "主机不在线", 
+                    "您配置的AI主机 [" + engineId + "] 当前不在线，请检查：\n" +
+                    "1. 确认主机ID是否正确\n" +
+                    "2. 确认Engine服务是否已启动\n" +
+                    "3. 确认网络连接是否正常\n\n" +
+                    "如需帮助，请联系管理员");
+                log.warn("[Router] ❌ Engine 不在线: {} - 用户: {}, 类型: {}", engineId, userId, type);
                 return;
             }
             
-            // 检查 Engine 是否具有请求的能力
+            // 🔥 检查 Engine 是否具有请求的能力
             EngineSession engineSession = engineSessionManager.getSessionByEngineId(engineId);
             if (engineSession != null && !engineSession.hasCapability(type)) {
-                sendError(clientId, type, "CAPABILITY_NOT_FOUND", 
-                    "Engine [" + engineId + "] 没有 [" + type + "] 能力，请确认后再次尝试");
-                log.warn("[Router] Engine 无此能力: {} - Engine: {}, 用户: {}", type, engineId, userId);
+                sendAiTaskError(clientId, userId, type, engineId,
+                    "主机不支持此功能",
+                    "Engine [" + engineId + "] 不支持 [" + type + "] 功能\n\n" +
+                    "请确认：\n" +
+                    "1. Engine版本是否支持此功能\n" +
+                    "2. 是否需要更新Engine服务");
+                log.warn("[Router] ❌ Engine 无此能力: {} - Engine: {}, 用户: {}", type, engineId, userId);
                 return;
             }
             
@@ -86,6 +138,76 @@ public class ClientMessageRouter {
             json.put("userId", userId);
             json.put("sourceClientId", clientId);
             json.put("sourceType", "WEBSOCKET");
+            
+            // 🔥 缓存 sessionId → chatId 映射（用于 Engine 返回时查找）
+            JSONObject payload = json.getJSONObject("payload");
+            String sessionId = null;
+            String chatId = null;
+            String userPrompt = null;
+            
+            if (payload != null) {
+                sessionId = payload.getString("sessionId");
+                userPrompt = payload.getString("userPrompt");
+                chatId = json.getString("chatId");  // 顶层chatId
+                if (chatId == null || chatId.isEmpty()) {
+                    chatId = payload.getString("chatId");  // payload中的chatId
+                }
+                if (sessionId != null && chatId != null && !chatId.isEmpty()) {
+                    cacheChatId(sessionId, chatId);
+                    log.info("[Router] 🔥 缓存chatId: sessionId={} -> chatId={}", sessionId, chatId);
+                }
+            }
+            
+            // ==========================================================================
+            // 🤖 AIGC请求预处理（先存后发架构）
+            // 说明：AI_前缀的消息需要预保存到数据库，payload完全透传给Engine
+            // ==========================================================================
+            if (sessionId != null && type != null && type.startsWith("AI_")) {
+                try {
+                    AiRequest aiRequest = new AiRequest();
+                    aiRequest.setSessionId(sessionId);
+                    aiRequest.setChatId(chatId);
+                    aiRequest.setUserId(userId);
+                    aiRequest.setUserPrompt(userPrompt);
+                    aiRequest.setType(type);
+                    
+                    // 🤖 提取aiType用于数据库存储区分
+                    String aiType = payload != null ? (String) payload.get("aiType") : null;
+                    aiRequest.setAiType(aiType);
+                    
+                    // 🤖 保存完整payload（Admin透传，Engine解析）
+                    if (payload != null) {
+                        java.util.Map<String, Object> payloadMap = new java.util.HashMap<>();
+                        payload.forEach((k, v) -> payloadMap.put(k, v));
+                        aiRequest.setPayload(payloadMap);
+                    }
+                    
+                    // 🤖 保存任务流程元数据到extraParams（用于Admin端业务逻辑）
+                    java.util.Map<String, Object> extraParams = new java.util.HashMap<>();
+                    if (payload != null) {
+                        Object enabledAIs = payload.get("enabledAIs");
+                        Object progressLogs = payload.get("progressLogs");
+                        if (enabledAIs != null) {
+                            extraParams.put("enabledAIs", enabledAIs);
+                        }
+                        if (progressLogs != null) {
+                            extraParams.put("progressLogs", progressLogs);
+                        }
+                    }
+                    if (!extraParams.isEmpty()) {
+                        aiRequest.setExtraParams(extraParams);
+                    }
+                    
+                    aigcService.saveInitialRequest(aiRequest);
+                    log.info("[AIGC路由] 🔥 预保存请求 - sessionId={}, aiType={}, userPrompt={}", 
+                        sessionId, aiType, userPrompt);
+                } catch (Exception e) {
+                    log.warn("[AIGC路由] 预保存失败，继续透传: {}", e.getMessage());
+                }
+            }
+            // ==========================================================================
+            // 🤖 AIGC请求预处理结束
+            // ==========================================================================
             
             // 直接发送修改后的JSON字符串给Engine
             String messageToSend = json.toJSONString();
@@ -172,6 +294,36 @@ public class ClientMessageRouter {
         error.put("errorMessage", errorMessage);
         error.put("timestamp", System.currentTimeMillis());
         clientSessionManager.sendToClient(clientId, error.toJSONString());
+    }
+
+    /**
+     * 发送AI任务错误消息给客户端（友好提示）
+     * 使用AI_TASK_ERROR格式，前端可以在AI任务流程中展示
+     */
+    private void sendAiTaskError(String clientId, String userId, String originalType, String engineId, 
+                                  String errorTitle, String errorMessage) {
+        JSONObject error = new JSONObject();
+        error.put("type", "AI_TASK_ERROR");
+        error.put("success", false);
+        
+        // payload中包含详细错误信息
+        JSONObject payload = new JSONObject();
+        payload.put("errorCode", "ENGINE_OFFLINE");
+        payload.put("errorTitle", errorTitle);
+        payload.put("errorMessage", errorMessage);
+        payload.put("engineId", engineId);
+        payload.put("originalType", originalType);
+        payload.put("timestamp", System.currentTimeMillis());
+        
+        error.put("payload", payload);
+        
+        // 发送给客户端
+        clientSessionManager.sendToClient(clientId, error.toJSONString());
+        
+        // 同时发送给用户的所有端（如果有多个设备登录）
+        clientSessionManager.sendToUser(userId, error.toJSONString());
+        
+        log.info("[Router] 已发送AI任务错误提示: {} - 用户: {}, Engine: {}", errorTitle, userId, engineId);
     }
 
     /**
