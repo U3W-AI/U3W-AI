@@ -64,6 +64,7 @@ create table sys_user (
   update_time       datetime                                   comment '更新时间',
   remark            varchar(500)    default null               comment '备注',
   points            int(10)         default 0                  comment '积分',
+  host_id           varchar(100)    default null               comment '用户绑定的主机ID（用于AIGC功能）',
   primary key (user_id)
 ) engine=innodb auto_increment=100 comment = '用户信息表';
 
@@ -194,6 +195,10 @@ insert into sys_menu values('8', 'gitee管理', '0', '8', 'gitee', null, '', '',
 -- 内容管理子菜单（parent_id=1，业务功能从118开始）
 insert into sys_menu values('118',  '日更助手', '1',   '1', 'daily-assistant', 'business/content/dailyassistant/index', '', '', 1, 0, 'C', '0', '0', 'business:daily:view',     'edit',          'admin', sysdate(), '', null, '日更助手菜单');
 insert into sys_menu values('119',  '发布记录', '1',   '2', 'publish-record',  'business/content/publishrecord/index',  '', '', 1, 0, 'C', '0', '0', 'business:publish:list',   'documentation', 'admin', sysdate(), '', null, '公众号发布记录菜单');
+insert into sys_menu values('129',  'AI助手', '1',     '3', 'aigc',            'business/content/aigc/index',           '', '', 1, 0, 'C', '0', '0', 'aigc:assistant:list',     'system',        'admin', sysdate(), '', null, 'AI助手菜单');
+insert into sys_menu values('130',  '草稿库', '1',     '4', 'drafts',          'business/content/drafts/index',         '', '', 1, 0, 'C', '0', '0', 'aigc:drafts:list',        'documentation', 'admin', sysdate(), '', null, '草稿库菜单');
+insert into sys_menu values('131',  '登录管理器', '1',  '5', 'login-manager',   'business/content/loginManager/index',   '', '', 1, 0, 'C', '0', '0', 'engine:login:manager',    'logininfor',    'admin', sysdate(), '', null, 'Engine登录管理器菜单');
+insert into sys_menu values('132',  '文档解析助手', '1', '6', 'document-parse',  'business/content/documentparse/index',  '', '', 1, 0, 'C', '0', '0', 'business:document:view',  'documentation', 'admin', sysdate(), '', null, '文档解析助手菜单');
 -- 系统管理子菜单（parent_id=2）
 insert into sys_menu values('100',  '用户管理', '2',   '1', 'user',       'system/user/index',        '', '', 1, 0, 'C', '0', '0', 'system:user:list',        'user',          'admin', sysdate(), '', null, '用户管理菜单');
 insert into sys_menu values('101',  '角色管理', '2',   '2', 'role',       'system/role/index',        '', '', 1, 0, 'C', '0', '0', 'system:role:list',        'peoples',       'admin', sysdate(), '', null, '角色管理菜单');
@@ -350,6 +355,16 @@ insert into sys_menu values('1093', '调试工具查看', '126', '1', '#', '', '
 insert into sys_menu values('1094', '发送消息', '126', '2', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:debug:send', '#', 'admin', sysdate(), '', null, '');
 insert into sys_menu values('1095', '清空消息', '126', '3', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:debug:clear', '#', 'admin', sysdate(), '', null, '');
 insert into sys_menu values('1096', '导出日志', '126', '4', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:debug:export', '#', 'admin', sysdate(), '', null, '');
+-- AI助手按钮权限（parent_id=129）
+insert into sys_menu values('1097', 'AI咨询', '129', '1', '', '', '', '', 1, 0, 'F', '0', '0', 'aigc:assistant:query', '#', 'admin', sysdate(), '', null, '');
+insert into sys_menu values('1098', '历史查询', '129', '2', '', '', '', '', 1, 0, 'F', '0', '0', 'aigc:assistant:history', '#', 'admin', sysdate(), '', null, '');
+-- 草稿库按钮权限（parent_id=130）
+insert into sys_menu values('1099', '草稿查询', '130', '1', '', '', '', '', 1, 0, 'F', '0', '0', 'aigc:drafts:list', '#', 'admin', sysdate(), '', null, '');
+insert into sys_menu values('1100', '草稿保存', '130', '2', '', '', '', '', 1, 0, 'F', '0', '0', 'aigc:drafts:save', '#', 'admin', sysdate(), '', null, '');
+-- 文档解析助手按钮权限（parent_id=132）
+insert into sys_menu values('1101', '解析查询', '132', '1', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:document:query', '#', 'admin', sysdate(), '', null, '');
+insert into sys_menu values('1102', '解析新增', '132', '2', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:document:add', '#', 'admin', sysdate(), '', null, '');
+insert into sys_menu values('1103', '解析删除', '132', '3', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:document:remove', '#', 'admin', sysdate(), '', null, '');
 
 
 -- ----------------------------
@@ -397,6 +412,10 @@ insert into sys_role_menu values ('2', '7');    -- 主机管理
 --- 二级菜单-内容管理
 insert into sys_role_menu values ('2', '118');  -- 日更助手
 insert into sys_role_menu values ('2', '119');  -- 发布记录
+insert into sys_role_menu values ('2', '129');  -- AI助手
+insert into sys_role_menu values ('2', '130');  -- 草稿库
+insert into sys_role_menu values ('2', '131');  -- 登录管理器
+insert into sys_role_menu values ('2', '132');  -- 文档解析助手
 --- 二级菜单-系统管理
 insert into sys_role_menu values ('2', '100');  -- 用户管理
 insert into sys_role_menu values ('2', '101');  -- 角色管理
@@ -548,6 +567,16 @@ insert into sys_role_menu values ('2', '1093'); -- 调试工具查看
 insert into sys_role_menu values ('2', '1094'); -- 发送消息
 insert into sys_role_menu values ('2', '1095'); -- 清空消息
 insert into sys_role_menu values ('2', '1096'); -- 导出日志
+-- 按钮权限-AI助手
+insert into sys_role_menu values ('2', '1097'); -- AI咨询
+insert into sys_role_menu values ('2', '1098'); -- 历史查询
+-- 按钮权限-草稿库
+insert into sys_role_menu values ('2', '1099'); -- 草稿查询
+insert into sys_role_menu values ('2', '1100'); -- 草稿保存
+-- 按钮权限-文档解析助手
+insert into sys_role_menu values ('2', '1101'); -- 解析查询
+insert into sys_role_menu values ('2', '1102'); -- 解析新增
+insert into sys_role_menu values ('2', '1103'); -- 解析删除
 -- 只读权限角色（ID=3）拥有内容管理的全部权限，系统管理等模块只有查询权限
 -- 一级菜单
 insert into sys_role_menu values ('3', '1');    -- 内容管理
@@ -558,6 +587,9 @@ insert into sys_role_menu values ('3', '6');    -- 积分管理
 --- 二级菜单-内容管理
 insert into sys_role_menu values ('3', '118');  -- 日更助手
 insert into sys_role_menu values ('3', '119');  -- 发布记录
+insert into sys_role_menu values ('3', '129');  -- AI助手
+insert into sys_role_menu values ('3', '130');  -- 草稿库
+insert into sys_role_menu values ('3', '132');  -- 文档解析助手
 --- 二级菜单-系统管理
 insert into sys_role_menu values ('3', '100');  -- 用户管理
 insert into sys_role_menu values ('3', '101');  -- 角色管理
@@ -622,6 +654,16 @@ insert into sys_role_menu values ('3', '1066'); -- 发布公众号
 insert into sys_role_menu values ('3', '1067'); -- 记录查询
 insert into sys_role_menu values ('3', '1068'); -- 记录详情
 insert into sys_role_menu values ('3', '1069'); -- 记录删除
+-- 按钮权限-AI助手（全部权限）
+insert into sys_role_menu values ('3', '1097'); -- AI咨询
+insert into sys_role_menu values ('3', '1098'); -- 历史查询
+-- 按钮权限-草稿库（全部权限）
+insert into sys_role_menu values ('3', '1099'); -- 草稿查询
+insert into sys_role_menu values ('3', '1100'); -- 草稿保存
+-- 按钮权限-文档解析助手（全部权限）
+insert into sys_role_menu values ('3', '1101'); -- 解析查询
+insert into sys_role_menu values ('3', '1102'); -- 解析新增
+insert into sys_role_menu values ('3', '1103'); -- 解析删除
 -- 按钮权限-积分管理(只读)
 insert into sys_role_menu values ('3', '1070');  -- 积分查询
 insert into sys_role_menu values ('3', '1071');  -- 明细查询
@@ -633,6 +675,9 @@ insert into sys_role_menu values ('3', '1078');  -- 查看明细
 insert into sys_role_menu values ('10', '1');    -- 内容管理目录
 insert into sys_role_menu values ('10', '118');   -- 日更助手菜单
 insert into sys_role_menu values ('10', '119');   -- 发布记录菜单
+insert into sys_role_menu values ('10', '129');   -- AI助手菜单
+insert into sys_role_menu values ('10', '130');   -- 草稿库菜单
+insert into sys_role_menu values ('10', '132');   -- 文档解析助手菜单
 insert into sys_role_menu values ('10', '1061'); -- 日更助手-文章查询
 insert into sys_role_menu values ('10', '1062'); -- 日更助手-文章新增
 insert into sys_role_menu values ('10', '1063'); -- 日更助手-文章删除
@@ -642,6 +687,13 @@ insert into sys_role_menu values ('10', '1066'); -- 日更助手-发布公众号
 insert into sys_role_menu values ('10', '1067'); -- 发布记录-记录查询
 insert into sys_role_menu values ('10', '1068'); -- 发布记录-记录详情
 insert into sys_role_menu values ('10', '1069'); -- 发布记录-记录删除
+insert into sys_role_menu values ('10', '1097'); -- AI助手-AI咨询
+insert into sys_role_menu values ('10', '1098'); -- AI助手-历史查询
+insert into sys_role_menu values ('10', '1099'); -- 草稿库-草稿查询
+insert into sys_role_menu values ('10', '1100'); -- 草稿库-草稿保存
+insert into sys_role_menu values ('10', '1101'); -- 文档解析助手-解析查询
+insert into sys_role_menu values ('10', '1102'); -- 文档解析助手-解析新增
+insert into sys_role_menu values ('10', '1103'); -- 文档解析助手-解析删除
 insert into sys_role_menu values ('10', '6');    -- 积分管理
 insert into sys_role_menu values ('10', '120');  -- 积分总览
 insert into sys_role_menu values ('10', '1070');  -- 积分查询
@@ -1090,7 +1142,85 @@ CREATE TABLE `wc_office_publish_record` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='公众号文章发布记录表';
 
 -- ----------------------------
--- 24、积分规则配置表
+-- 24、聊天历史记录表（AIGC模块 - 支持多AI上下文对话）
+-- ----------------------------
+DROP TABLE IF EXISTS `wc_chat_history`;
+CREATE TABLE `wc_chat_history`  (
+  `id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '主键ID（sessionId，每轮对话唯一）',
+  `user_id` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '用户ID',
+  `userPrompt` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '用户指令',
+  `data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '全部数据（JSON格式，含progressLogs、screenshots等）',
+  `create_time` datetime(0) NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `chat_id` varchar(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '会话ID（多轮对话共享，用于上下文关联）',
+  -- AI会话ID字段（支持上下文复用）
+  `tone_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '通义千问会话ID',
+  `yb_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '元宝会话ID',
+  `db_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '豆包会话ID',
+  `ty_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '通义会话ID',
+  `deepseek_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT 'DeepSeek会话ID',
+  `max_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT 'MiniMax会话ID',
+  `metaso_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '秘塔AI会话ID',
+  `kimi_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT 'Kimi会话ID',
+  `baidu_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '百度AI会话ID',
+  `zhzd_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '知乎直答会话ID',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_user_chat`(`user_id`, `chat_id`) USING BTREE,
+  INDEX `idx_chat_create`(`chat_id`, `create_time` DESC) USING BTREE,
+  INDEX `idx_user_create_time`(`user_id`, `create_time`) USING BTREE,
+  INDEX `idx_deepseek`(`deepseek_chat_id`) USING BTREE,
+  INDEX `idx_yuanbao`(`yb_chat_id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '聊天历史记录表（支持多AI上下文对话）' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- 25、AI记录扩展表（AIGC模块 - 原草稿表）
+-- ----------------------------
+DROP TABLE IF EXISTS `wc_playwright_draft`;
+CREATE TABLE `wc_playwright_draft`  (
+  `id` varchar(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '扩展记录ID（自动生成UUID）',
+  `task_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '关联的聊天历史记录ID（wc_chat_history.id）',
+  `keyword` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '主题词（保留字段，暂未使用）',
+  `user_prompt` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '用户指令',
+  `draft_content` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT 'AI生成的内容（文本/图片URL/视频URL等）',
+  `is_push` int(4) NULL DEFAULT NULL COMMENT '是否已推送（预留字段）',
+  `ai_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT 'AI来源（deepseek/yuanbao等）',
+  `create_time` datetime(0) NULL DEFAULT NULL COMMENT '创建时间',
+  `user_name` bigint(4) NULL DEFAULT 0 COMMENT '创建人用户ID',
+  `share_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT 'AI分享链接',
+  `share_img_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT 'AI对话截图URL',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `user_name`(`user_name`) USING BTREE,
+  INDEX `idx_task_id`(`task_id`) USING BTREE COMMENT '关联聊天历史记录索引'
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'AI记录扩展表（存储AI生成的多类型内容：文本/图片/视频等）' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- 26、文档解析表
+-- ----------------------------
+DROP TABLE IF EXISTS `document_parse`;
+CREATE TABLE `document_parse` (
+  `id`  bigint(20) NOT NULL AUTO_INCREMENT COMMENT '文档解析ID',
+  `user_id`  bigint(20) NOT NULL COMMENT '用户ID',
+  `document_id`  varchar(200) NOT NULL COMMENT '文档ID（自动生成）',
+  `document_name`  varchar(500) DEFAULT NULL COMMENT '文档名称',
+  `prompt`  text COMMENT '提示词',
+  `parsed_content`  longtext COMMENT '解析后的内容（来自腾讯元器智能体）',
+  `agent_task_id`  varchar(200) DEFAULT NULL COMMENT '腾讯元器智能体任务ID',
+  `process_status`  tinyint(1) NOT NULL DEFAULT 0 COMMENT '处理状态：0-处理中，1-已完成，2-失败',
+  `error_message`  varchar(1000) DEFAULT NULL COMMENT '错误信息',
+  `create_by`  varchar(64) DEFAULT NULL COMMENT '创建者',
+  `create_time`  datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`  varchar(64) DEFAULT NULL COMMENT '更新者',
+  `update_time`  datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `remark`  varchar(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (`id`) USING BTREE,
+  KEY `idx_user_id` (`user_id`) USING BTREE COMMENT '用户ID索引',
+  KEY `idx_document_id` (`document_id`) USING BTREE COMMENT '文档ID索引',
+  KEY `idx_create_time` (`create_time`) USING BTREE COMMENT '创建时间索引',
+  KEY `idx_process_status` (`process_status`) USING BTREE COMMENT '处理状态索引',
+  KEY `idx_agent_task_id` (`agent_task_id`) USING BTREE COMMENT '智能体任务ID索引'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文档解析表';
+
+-- ----------------------------
+-- 27、积分规则配置表
 -- ----------------------------
 DROP TABLE IF EXISTS `wx_points_rule`;
 CREATE TABLE `wx_points_rule` (
@@ -1114,7 +1244,7 @@ CREATE TABLE `wx_points_rule` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分规则配置表';
 
 -- ----------------------------
--- 25、积分明细记录表
+-- 28、积分明细记录表
 -- ----------------------------
 DROP TABLE IF EXISTS `wx_points_record`;
 CREATE TABLE `wx_points_record` (
@@ -1138,7 +1268,7 @@ CREATE TABLE `wx_points_record` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分明细记录表';
 
 -- ----------------------------
--- 26、积分统计表
+-- 29、积分统计表
 -- ----------------------------
 DROP TABLE IF EXISTS `wx_points_statistics`;
 CREATE TABLE `wx_points_statistics` (
@@ -1172,7 +1302,7 @@ INSERT INTO `wx_points_rule` (`rule_code`, `rule_name`, `points_value`, `limit_t
 -- =============================================
 
 -- ----------------------------
--- 27、Gitee绑定表
+-- 30、Gitee绑定表
 -- ----------------------------
 drop table if exists gitee_bind;
 create table gitee_bind (
@@ -1194,7 +1324,7 @@ create table gitee_bind (
 -- 在 Java 代码中删除用户时，同时执行：DELETE FROM gitee_bind WHERE user_id = ?
 
 -- ----------------------------
--- 28、Gitee评测报告表
+-- 31、Gitee评测报告表
 -- ----------------------------
 drop table if exists gitee_analysis_report;
 create table gitee_analysis_report (
@@ -1215,7 +1345,7 @@ create table gitee_analysis_report (
 ) engine=innodb comment = 'Gitee评测报告表';
 
 -- ----------------------------
--- 29、Gitee模块使用统计报表
+-- 32、Gitee模块使用统计报表
 -- ----------------------------
 drop table if exists gitee_usage_report;
 create table gitee_usage_report (
@@ -1242,7 +1372,7 @@ create table gitee_usage_report (
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ----------------------------
--- 30、主机白名单表
+-- 33、主机白名单表
 -- ----------------------------
 DROP TABLE IF EXISTS `ws_host_whitelist`;
 CREATE TABLE `ws_host_whitelist` (
@@ -1276,7 +1406,7 @@ INSERT INTO `ws_host_whitelist` (`host_id`, `host_name`, `owner_name`, `is_team`
 ('engine-prod-001', '生产节点-运维组', '运维组', 1, '运维团队', 1, '生产环境主节点');
 
 -- ----------------------------
--- 31、IP黑名单表
+-- 34、IP黑名单表
 -- ----------------------------
 DROP TABLE IF EXISTS `ws_ip_blacklist`;
 CREATE TABLE `ws_ip_blacklist` (
@@ -1302,7 +1432,7 @@ CREATE TABLE `ws_ip_blacklist` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='WebSocket IP黑名单表';
 
 -- ----------------------------
--- 32、WebSocket连接记录表
+-- 35、WebSocket连接记录表
 -- ----------------------------
 DROP TABLE IF EXISTS `ws_connection_log`;
 CREATE TABLE `ws_connection_log` (
@@ -1348,7 +1478,7 @@ CREATE TABLE `ws_connection_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='WebSocket连接记录表';
 
 -- ----------------------------
--- 33、连接统计视图
+-- 36、连接统计视图
 -- ----------------------------
 DROP VIEW IF EXISTS `v_ws_connection_stats`;
 CREATE VIEW `v_ws_connection_stats` AS
@@ -1367,7 +1497,7 @@ WHERE del_flag = 0
 GROUP BY DATE(connect_time);
 
 -- ----------------------------
--- 34、可疑连接视图
+-- 37、可疑连接视图
 -- ----------------------------
 DROP VIEW IF EXISTS `v_ws_suspicious_connections`;
 CREATE VIEW `v_ws_suspicious_connections` AS
@@ -1384,7 +1514,7 @@ GROUP BY device_id
 HAVING COUNT(DISTINCT host_id) > 1;
 
 -- ----------------------------
--- 35、团队主机统计视图
+-- 38、团队主机统计视图
 -- ----------------------------
 DROP VIEW IF EXISTS `v_ws_team_stats`;
 CREATE VIEW `v_ws_team_stats` AS

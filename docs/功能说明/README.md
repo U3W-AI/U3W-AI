@@ -71,4 +71,25 @@ Admin 与 Engine 的 WebSocket 通信协议与实现说明。
 
 ---
 
-**最后更新：** 2026-01-07
+### [AIGC框架完整功能说明](./AIGC框架完整功能说明.md)
+多AI模型集成框架，支持 DeepSeek、通义千问、元宝、豆包等多个 AI 模型的并行调用与上下文管理。
+
+**代码位置：**
+- Engine：`WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/ai/`
+- 业务层：`WxFbsir-business/src/main/java/com/wx/fbsir/business/aigc/`
+- 前端：`WxFbsir-ui/src/views/business/content/aigc/`
+- 数据表：`wc_chat_history`、`wc_playwright_draft`
+
+---
+
+### [文档解析助手功能说明](./文档解析助手功能说明.md)
+基于腾讯元器智能体的文档智能解析系统，支持多格式文档上传、智能提取与内容生成。
+
+**代码位置：**
+- 后端：`WxFbsir-business/src/main/java/com/wx/fbsir/business/documentparse/`
+- 前端：`WxFbsir-ui/src/views/business/content/documentparse/`
+- 数据表：`document_parse`
+
+---
+
+**最后更新：** 2026-01-13
