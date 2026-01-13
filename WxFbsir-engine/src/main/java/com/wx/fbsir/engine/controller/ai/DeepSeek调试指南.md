@@ -1,10 +1,10 @@
 # DeepSeek AI 调试指南
 
-> **重要更新 (2026-01-08)**
-> - 所有消息类型已添加 `AI_` 前缀，例如 `DEEPSEEK_QUERY` → `AI_DEEPSEEK_QUERY`
-> - 前端生成 `sessionId` 用于业务会话追踪（与Admin的requestId区分）
-> - 所有消息携带 `sessionId` 和 `aiType` 字段，用于数据库存储
-> - Engine返回消息类型为 `TASK_LOG`、`TASK_SCREENSHOT`、`TASK_PROGRESS`、`TASK_RESULT`
+> **重要更新 (2026-01-13)**
+> - ✅ **消息类型隔离**：AI业务使用 `AI_TASK_*`，非AI业务使用 `TASK_*`
+> - ✅ **登录检测**：`DEEPSEEK_CHECK_LOGIN` → 返回 `TASK_RESULT`（非AI业务）
+> - ✅ **扫码登录**：`DEEPSEEK_SCAN_LOGIN` → 返回 `TASK_LOG`、`TASK_SCREENSHOT`、`TASK_RESULT`
+> - ✅ **AI对话**：`AI_DEEPSEEK_QUERY` → 返回 `AI_TASK_LOG`、`AI_TASK_SCREENSHOT`、`AI_TASK_RESULT`
 
 ## 快速开始
 

@@ -51,3 +51,15 @@ export function delDraft(draftId) {
     method: 'delete'
   })
 }
+
+// 🔥 获取草稿文本内容（用于复制功能）
+export function getDraftContent(taskId, aiName) {
+  return request({
+    url: '/aigc/getDraftContent',
+    method: 'get',
+    params: {
+      taskId,
+      aiName
+    }
+  })
+}

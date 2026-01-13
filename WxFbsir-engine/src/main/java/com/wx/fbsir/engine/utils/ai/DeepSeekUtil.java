@@ -156,7 +156,7 @@ public class DeepSeekUtil {
         }
 
         // 默认返回未登录
-        log.info("[DeepSeek] 所有检测完成 - 判定为未登录");
+        log.debug("[DeepSeek] 所有检测完成 - 判定为未登录");
         return "false";
     }
 
@@ -170,40 +170,32 @@ public class DeepSeekUtil {
         try {
             log.info("[DeepSeek] 开始导航到登录页面");
             page.navigate(DEEPSEEK_LOGIN_URL, new Page.NavigateOptions()
-                .setWaitUntil(WaitUntilState.NETWORKIDLE)
-                .setTimeout(30000));
+                .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
+                .setTimeout(15000));
             
-            page.waitForLoadState(LoadState.DOMCONTENTLOADED);
             log.debug("[DeepSeek] 页面基本加载完成，等待二维码加载");
             
-            boolean qrCodeLoaded = false;
-            for (int i = 0; i < 10; i++) {
+            // 🔥 优化：使用waitForSelector直接等待二维码元素，最多等待5秒
+            try {
+                page.locator(".ds-sign-in-with-wechat-block").first().waitFor(new Locator.WaitForOptions()
+                    .setTimeout(5000));
+                log.info("[DeepSeek] 检测到微信登录区域");
                 page.waitForTimeout(1000);
-                
-                Locator wechatLoginBlock = page.locator(".ds-sign-in-with-wechat-block");
-                if (wechatLoginBlock.count() > 0) {
-                    log.info("[DeepSeek] 检测到微信登录区域");
-                    qrCodeLoaded = true;
-                    break;
-                }
-                
-                Locator qrIframe = page.locator("iframe[src*='open.weixin.qq.com']");
-                if (qrIframe.count() > 0) {
-                    log.info("[DeepSeek] 检测到微信二维码iframe");
-                    qrCodeLoaded = true;
-                    break;
-                }
-                
-                log.debug("[DeepSeek] 第{}次检测二维码，继续等待...", i + 1);
-            }
-            
-            if (!qrCodeLoaded) {
-                log.warn("[DeepSeek] 二维码加载超时，尝试备用方案");
-                return tryFallbackNavigation(page);
-            } else {
-                page.waitForTimeout(2000);
                 log.info("[DeepSeek] 二维码加载完成，准备截图");
                 return true;
+            } catch (Exception e) {
+                log.debug("[DeepSeek] 微信登录区域未找到，尝试检测iframe");
+                try {
+                    page.locator("iframe[src*='open.weixin.qq.com']").first().waitFor(new Locator.WaitForOptions()
+                        .setTimeout(3000));
+                    log.info("[DeepSeek] 检测到微信二维码iframe");
+                    page.waitForTimeout(1000);
+                    log.info("[DeepSeek] 二维码加载完成，准备截图");
+                    return true;
+                } catch (Exception ex) {
+                    log.warn("[DeepSeek] 二维码加载超时，尝试备用方案");
+                    return tryFallbackNavigation(page);
+                }
             }
             
         } catch (Exception e) {
@@ -571,18 +563,19 @@ public class DeepSeekUtil {
                 }
             }
 
+            // 🔥 优化：检测到回复完成后，直接点击复制按钮获取文本
             String finalContent = clickCopyButtonAndGetAnswer(page);
+            
             if (finalContent == null || finalContent.trim().isEmpty()) {
-                log.warn("[DeepSeek] 复制按钮方法失败，回退到DOM提取方法");
-                finalContent = getLastConversationContent(page);
+                log.error("[DeepSeek] 点击复制按钮获取内容失败");
+                if (!hasEverHadContent) {
+                    return "DeepSeek超时未返回内容，请检查网络或账号状态";
+                }
+                // 如果曾经有内容但复制失败，返回错误提示
+                return "DeepSeek回复完成，但获取内容失败，请手动查看";
             }
             
-            if ((finalContent == null || finalContent.trim().isEmpty()) && !hasEverHadContent) {
-                log.error("[DeepSeek] 超时未获取到回复内容");
-                return "DeepSeek超时未返回内容，请检查网络或账号状态";
-            }
-            
-            log.info("[DeepSeek] 内容已自动提取完成");
+            log.info("[DeepSeek] 内容已通过复制按钮提取完成");
             return finalContent;
 
         } catch (Exception e) {
@@ -906,33 +899,51 @@ public class DeepSeekUtil {
             Object result = page.evaluate("""
                 () => {
                     try {
+                        // 🔥 方法1：通过最新回复容器查找（优先）
                         const responseContainers = document.querySelectorAll('div._4f9bf79.d7dc56a8._43c05b5');
-                        if (responseContainers.length === 0) {
-                            return { success: false, error: 'no-response-containers' };
-                        }
-                        
-                        const latestContainer = responseContainers[responseContainers.length - 1];
-                        
-                        const actionButtonsContainer = latestContainer.querySelector('div.ds-flex._965abe9._54866f7[style*="align-items: center; gap: 10px"]');
-                        
-                        if (actionButtonsContainer) {
-                            const buttons = actionButtonsContainer.querySelectorAll('div.ds-icon-button.db183363[role="button"]');
+                        if (responseContainers.length > 0) {
+                            const latestContainer = responseContainers[responseContainers.length - 1];
                             
-                            for (let button of buttons) {
-                                const copyIcon = button.querySelector('svg path[d*="M6.14926 4.02039"]');
-                                if (copyIcon) {
-                                    button.click();
-                                    return { success: true, message: 'copy-button-clicked-by-icon' };
+                            // 查找外层按钮组容器（新DOM结构）
+                            const outerContainer = latestContainer.querySelector('div.ds-flex._0a3d93b[style*="align-items: center"]');
+                            if (outerContainer) {
+                                // 在外层容器内查找所有按钮
+                                const buttons = outerContainer.querySelectorAll('div.ds-icon-button[role="button"]');
+                                for (let button of buttons) {
+                                    // 检查是否是复制按钮（通过SVG路径识别）
+                                    const copyIcon = button.querySelector('svg path[d*="M6.14"]');
+                                    if (copyIcon) {
+                                        button.click();
+                                        return { success: true, message: 'copy-button-clicked-new-structure' };
+                                    }
+                                }
+                            }
+                            
+                            // 旧DOM结构兼容
+                            const actionButtonsContainer = latestContainer.querySelector('div.ds-flex._965abe9._54866f7[style*="align-items: center"]');
+                            if (actionButtonsContainer) {
+                                const buttons = actionButtonsContainer.querySelectorAll('div.ds-icon-button[role="button"]');
+                                for (let button of buttons) {
+                                    const copyIcon = button.querySelector('svg path[d*="M6.14"]');
+                                    if (copyIcon) {
+                                        button.click();
+                                        return { success: true, message: 'copy-button-clicked-old-structure' };
+                                    }
                                 }
                             }
                         }
                         
-                        const allCopyButtons = latestContainer.querySelectorAll('div.ds-icon-button[role="button"]');
-                        for (let button of allCopyButtons) {
-                            const copyIcon = button.querySelector('svg path[d*="M6.14926 4.02039"]');
-                            if (copyIcon) {
-                                button.click();
-                                return { success: true, message: 'copy-button-clicked-fallback' };
+                        // 🔥 方法2：全局查找最后一个复制按钮（回退方案）
+                        const allContainers = document.querySelectorAll('div.ds-flex[style*="align-items: center"]');
+                        for (let i = allContainers.length - 1; i >= 0; i--) {
+                            const container = allContainers[i];
+                            const copyButtons = container.querySelectorAll('div.ds-icon-button[role="button"]');
+                            for (let button of copyButtons) {
+                                const copyIcon = button.querySelector('svg path[d*="M6.14"]');
+                                if (copyIcon) {
+                                    button.click();
+                                    return { success: true, message: 'copy-button-clicked-global-search' };
+                                }
                             }
                         }
                         

@@ -114,4 +114,16 @@ public interface AigcMapper {
      * @return AI响应列表
      */
     List<Map<String, Object>> getPlayWrightDraftAiList(String taskId);
+    
+    /**
+     * 🔥 获取草稿文本内容（用于复制功能）
+     * 
+     * @param userId 用户ID
+     * @param taskId 任务ID
+     * @param aiName AI名称
+     * @return 草稿文本内容
+     */
+    String getDraftContent(@org.apache.ibatis.annotations.Param("userId") Long userId,
+                          @org.apache.ibatis.annotations.Param("taskId") String taskId,
+                          @org.apache.ibatis.annotations.Param("aiName") String aiName);
 }

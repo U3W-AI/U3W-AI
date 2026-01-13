@@ -269,4 +269,25 @@ public class AigcController extends BaseController {
         List<Map<String, Object>> list = aigcService.getPlayWrightDrafts(userId, keyWord);
         return getDataTable(list);
     }
+    
+    /**
+     * 🔥 获取草稿文本内容（用于复制功能）
+     * 根据taskId和aiName获取数据库中存储的draft_content文本内容
+     * 
+     * @param taskId 任务ID
+     * @param aiName AI名称
+     * @return 文本内容
+     */
+    @GetMapping("/getDraftContent")
+    public AjaxResult getDraftContent(@RequestParam String taskId, @RequestParam String aiName) {
+        Long userId = getUserId();
+        String content = aigcService.getDraftContent(userId, taskId, aiName);
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("content", content);
+        result.put("taskId", taskId);
+        result.put("aiName", aiName);
+        
+        return AjaxResult.success(result);
+    }
 }

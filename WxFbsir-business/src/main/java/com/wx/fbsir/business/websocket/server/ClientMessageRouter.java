@@ -19,6 +19,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * 消息流向：
  *   前端 → Admin → Engine（请求）
  *   Engine → Admin → 前端（响应，可能多次）
+ * 
+ * 🤖 AIGC消息说明：
+ *   - AI_前缀的消息类型由AIGC模块独立处理
+ *   - Admin对payload完全透传，不做解析和验证
+ *   - Engine端负责解析AI平台特定参数
  *
  * @author wxfbsir
  * @date 2025-12-18
@@ -97,19 +102,30 @@ public class ClientMessageRouter {
                 return;
             }
             
-            // 检查 Engine 是否在线
+            // 🔥 检查 Engine 是否在线（AI请求必须先验证）
             if (!engineSessionManager.isEngineOnline(engineId)) {
-                sendError(clientId, type, "ENGINE_OFFLINE", "指定的 Engine [" + engineId + "] 不在线");
-                log.warn("[Router] Engine 不在线: {} - 用户: {}, 类型: {}", engineId, userId, type);
+                // 发送友好的AI任务错误消息
+                sendAiTaskError(clientId, userId, type, engineId, 
+                    "主机不在线", 
+                    "您配置的AI主机 [" + engineId + "] 当前不在线，请检查：\n" +
+                    "1. 确认主机ID是否正确\n" +
+                    "2. 确认Engine服务是否已启动\n" +
+                    "3. 确认网络连接是否正常\n\n" +
+                    "如需帮助，请联系管理员");
+                log.warn("[Router] ❌ Engine 不在线: {} - 用户: {}, 类型: {}", engineId, userId, type);
                 return;
             }
             
-            // 检查 Engine 是否具有请求的能力
+            // 🔥 检查 Engine 是否具有请求的能力
             EngineSession engineSession = engineSessionManager.getSessionByEngineId(engineId);
             if (engineSession != null && !engineSession.hasCapability(type)) {
-                sendError(clientId, type, "CAPABILITY_NOT_FOUND", 
-                    "Engine [" + engineId + "] 没有 [" + type + "] 能力，请确认后再次尝试");
-                log.warn("[Router] Engine 无此能力: {} - Engine: {}, 用户: {}", type, engineId, userId);
+                sendAiTaskError(clientId, userId, type, engineId,
+                    "主机不支持此功能",
+                    "Engine [" + engineId + "] 不支持 [" + type + "] 功能\n\n" +
+                    "请确认：\n" +
+                    "1. Engine版本是否支持此功能\n" +
+                    "2. 是否需要更新Engine服务");
+                log.warn("[Router] ❌ Engine 无此能力: {} - Engine: {}, 用户: {}", type, engineId, userId);
                 return;
             }
             
@@ -142,7 +158,10 @@ public class ClientMessageRouter {
                 }
             }
             
-            // 🔥🔥🔥 先存后发：预保存请求记录到数据库（核心改进）
+            // ==========================================================================
+            // 🤖 AIGC请求预处理（先存后发架构）
+            // 说明：AI_前缀的消息需要预保存到数据库，payload完全透传给Engine
+            // ==========================================================================
             if (sessionId != null && type != null && type.startsWith("AI_")) {
                 try {
                     AiRequest aiRequest = new AiRequest();
@@ -152,7 +171,18 @@ public class ClientMessageRouter {
                     aiRequest.setUserPrompt(userPrompt);
                     aiRequest.setType(type);
                     
-                    // 🔥 保存任务流程和进度日志到extraParams
+                    // 🤖 提取aiType用于数据库存储区分
+                    String aiType = payload != null ? (String) payload.get("aiType") : null;
+                    aiRequest.setAiType(aiType);
+                    
+                    // 🤖 保存完整payload（Admin透传，Engine解析）
+                    if (payload != null) {
+                        java.util.Map<String, Object> payloadMap = new java.util.HashMap<>();
+                        payload.forEach((k, v) -> payloadMap.put(k, v));
+                        aiRequest.setPayload(payloadMap);
+                    }
+                    
+                    // 🤖 保存任务流程元数据到extraParams（用于Admin端业务逻辑）
                     java.util.Map<String, Object> extraParams = new java.util.HashMap<>();
                     if (payload != null) {
                         Object enabledAIs = payload.get("enabledAIs");
@@ -169,12 +199,15 @@ public class ClientMessageRouter {
                     }
                     
                     aigcService.saveInitialRequest(aiRequest);
-                    log.info("[Router] 🔥 预保存请求记录 - sessionId={}, chatId={}, userPrompt={}, 扩展字段数={}", 
-                        sessionId, chatId, userPrompt, extraParams.size());
+                    log.info("[AIGC路由] 🔥 预保存请求 - sessionId={}, aiType={}, userPrompt={}", 
+                        sessionId, aiType, userPrompt);
                 } catch (Exception e) {
-                    log.warn("[Router] 预保存请求失败，继续转发: {}", e.getMessage());
+                    log.warn("[AIGC路由] 预保存失败，继续透传: {}", e.getMessage());
                 }
             }
+            // ==========================================================================
+            // 🤖 AIGC请求预处理结束
+            // ==========================================================================
             
             // 直接发送修改后的JSON字符串给Engine
             String messageToSend = json.toJSONString();
@@ -261,6 +294,36 @@ public class ClientMessageRouter {
         error.put("errorMessage", errorMessage);
         error.put("timestamp", System.currentTimeMillis());
         clientSessionManager.sendToClient(clientId, error.toJSONString());
+    }
+
+    /**
+     * 发送AI任务错误消息给客户端（友好提示）
+     * 使用AI_TASK_ERROR格式，前端可以在AI任务流程中展示
+     */
+    private void sendAiTaskError(String clientId, String userId, String originalType, String engineId, 
+                                  String errorTitle, String errorMessage) {
+        JSONObject error = new JSONObject();
+        error.put("type", "AI_TASK_ERROR");
+        error.put("success", false);
+        
+        // payload中包含详细错误信息
+        JSONObject payload = new JSONObject();
+        payload.put("errorCode", "ENGINE_OFFLINE");
+        payload.put("errorTitle", errorTitle);
+        payload.put("errorMessage", errorMessage);
+        payload.put("engineId", engineId);
+        payload.put("originalType", originalType);
+        payload.put("timestamp", System.currentTimeMillis());
+        
+        error.put("payload", payload);
+        
+        // 发送给客户端
+        clientSessionManager.sendToClient(clientId, error.toJSONString());
+        
+        // 同时发送给用户的所有端（如果有多个设备登录）
+        clientSessionManager.sendToUser(userId, error.toJSONString());
+        
+        log.info("[Router] 已发送AI任务错误提示: {} - 用户: {}, Engine: {}", errorTitle, userId, engineId);
     }
 
     /**

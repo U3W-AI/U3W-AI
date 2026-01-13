@@ -99,15 +99,19 @@ CREATE TABLE `wc_playwright_draft`  (
 -- 字段顺序：menu_id, menu_name, parent_id, order_num, path, component, query, route_name, is_frame, is_cache, menu_type, visible, status, perms, icon, create_by, create_time, update_by, update_time, remark
 
 -- 插入AI助手菜单（二级菜单，ID=129）
-INSERT IGNORE INTO sys_menu VALUES ('129', 'AI助手', '1', '3', 'aigc', 'aigc/index', NULL, '', 1, 0, 'C', '0', '0', 'aigc:assistant:list', 'system', 'admin', sysdate(), '', null, 'AI助手菜单');
+INSERT IGNORE INTO sys_menu VALUES ('129', 'AI助手', '1', '3', 'aigc', 'business/content/aigc/index', NULL, '', 1, 0, 'C', '0', '0', 'aigc:assistant:list', 'system', 'admin', sysdate(), '', null, 'AI助手菜单');
 
 -- 插入草稿库菜单（二级菜单，ID=130）
-INSERT IGNORE INTO sys_menu VALUES ('130', '草稿库', '1', '4', 'drafts', 'aigc/drafts', NULL, '', 1, 0, 'C', '0', '0', 'aigc:drafts:list', 'documentation', 'admin', sysdate(), '', null, '草稿库菜单');
+INSERT IGNORE INTO sys_menu VALUES ('130', '草稿库', '1', '4', 'drafts', 'business/content/drafts/index', NULL, '', 1, 0, 'C', '0', '0', 'aigc:drafts:list', 'documentation', 'admin', sysdate(), '', null, '草稿库菜单');
+
+-- 插入登录管理器菜单（二级菜单，ID=131）
+INSERT IGNORE INTO sys_menu VALUES ('131', '登录管理器', '1', '5', 'login-manager', 'business/content/loginManager/index', NULL, '', 1, 0, 'C', '0', '0', 'engine:login:manager', 'connection', 'admin', sysdate(), '', null, 'Engine登录管理器菜单');
 
 -- 5. 给管理员角色分配AIGC菜单权限
 -- 管理员角色ID=2（来自wxfbsir.sql中的sys_role表）
 INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES (2, 129);
 INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES (2, 130);
+INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES (2, 131);
 
 -- 6. 添加AIGC相关按钮权限（按钮权限ID从1081起，已用到1080）
 -- AI助手按钮权限（parent_id=129）

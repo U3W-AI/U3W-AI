@@ -19,10 +19,24 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * DeepSeek AI WebSocket 控制器
+ * 🤖 DeepSeek AI WebSocket 控制器（新手指南）
  * 
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- * 📌 功能概述
+ * 📚 基础概念说明
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 
+ * 【核心概念】
+ * 1. sessionId - 前端生成的业务会话ID，用于全链路追踪和数据库存储
+ * 2. aiType - AI类型标识（如"deepseek"），用于区分不同AI的消息和数据
+ * 3. payload - 请求载荷，Admin透传不解析，Engine端自行解析AI平台特定参数
+ * 4. chatId - DeepSeek平台的会话ID，用于AI上下文复用（连续对话）
+ * 
+ * 【消息流向】
+ * 前端 → Admin(透传payload) → Engine(本Controller解析) → DeepSeek平台
+ * DeepSeek平台 → Engine(发送AI_TASK_*消息) → Admin(存储) → 前端(显示)
+ * 
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 📌 功能清单
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  * 
  * 1. 登录状态检测 - 检查用户是否已登录DeepSeek
@@ -31,15 +45,54 @@ import java.util.Map;
  * 4. 会话管理 - 支持会话ID传递，实现上下文连续对话
  * 
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- * 📌 消息类型
+ * 🎯 AIGC消息格式规范（AI_TASK_*）
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  * 
- * - DEEPSEEK_CHECK_LOGIN: 检查登录状态（非AI业务）
- * - DEEPSEEK_SCAN_LOGIN: 扫码登录（非AI业务）
- * - AI_DEEPSEEK_QUERY: AI咨询（支持深度思考和联网搜索）
+ * 【发送消息】使用 StreamTask 辅助类
+ * - task.sendLog("进度文本") → 发送 AI_TASK_LOG 消息
+ * - task.sendScreenshot("截图URL") → 发送 AI_TASK_SCREENSHOT 消息
+ * - task.sendSuccess("成功提示", resultData) → 发送 AI_TASK_RESULT 消息
+ * - task.sendError("错误信息") → 发送 AI_TASK_ERROR 消息
+ * 
+ * 【Admin自动处理】
+ * - AI_TASK_LOG → 追加到 wc_chat_history.data.progressLogs
+ * - AI_TASK_SCREENSHOT → 追加到 wc_chat_history.data.screenshots
+ * - AI_TASK_RESULT → 合并保存到 wc_chat_history.data（保留progressLogs）
+ * - AI_TASK_ERROR → 记录错误信息
+ * 
+ * 【前端自动显示】
+ * - progressLogs → 任务流程区域
+ * - screenshots → 可视化轮播区
+ * - answer/shareUrl → AI响应结果区
+ * 
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 💡 新手示例
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 
+ * // 1. 从请求中提取参数（payload由Admin透传）
+ * String sessionId = extractSessionId(message);  // 前端生成的会话ID
+ * String aiType = extractAiType(message);        // 固定为"deepseek"
+ * String query = message.getPayloadValue("query"); // 用户问题
+ * Boolean enableDeepThinking = message.getPayloadValue("enableDeepThinking");
+ * 
+ * // 2. 启动AI流式任务（自动发送AI_TASK_*格式消息）
+ * StreamTask task = startAiStreamTask(userId, sessionId, aiType, 6000);
+ * 
+ * // 3. 发送进度日志（自动附带sessionId和aiType）
+ * task.sendLog("正在连接DeepSeek...");  // → AI_TASK_LOG
+ * 
+ * // 4. 发送截图（自动附带sessionId和aiType）
+ * task.sendScreenshot(screenshotUrl);   // → AI_TASK_SCREENSHOT
+ * 
+ * // 5. 发送最终结果（自动附带sessionId和aiType）
+ * Map<String, Object> result = new HashMap<>();
+ * result.put("answer", aiResponse);
+ * result.put("chatId", deepseekChatId);
+ * task.sendSuccess("DeepSeek回复完成", result); // → AI_TASK_RESULT
  * 
  * @author wxfbsir
  * @date 2025-12-25
+ * @version 2.0 (AIGC消息格式规范)
  */
 @Controller
 public class DeepSeekController extends StreamTaskHelper {
@@ -117,8 +170,20 @@ public class DeepSeekController extends StreamTaskHelper {
         }
     }
     
+    // ==========================================================================
+    // 🔧 参数提取辅助方法（从payload中提取，Admin透传不解析）
+    // ==========================================================================
+    
     /**
-     * 提取sessionId（会话ID，与系统的requestId区分）
+     * 提取sessionId（前端生成的业务会话ID）
+     * 
+     * 【说明】
+     * - sessionId 由前端生成，用于全链路追踪
+     * - 与系统的 requestId 不同（requestId由Admin生成）
+     * - 用于数据库存储和消息关联
+     * 
+     * @param message Engine消息对象
+     * @return sessionId 或 "unknown"（兜底值）
      */
     private String extractSessionId(EngineMessage message) {
         Object sessionId = message.getPayloadValue("sessionId");
@@ -126,22 +191,44 @@ public class DeepSeekController extends StreamTaskHelper {
     }
     
     /**
-     * 提取aiType
+     * 提取aiType（AI类型标识）
+     * 
+     * 【说明】
+     * - aiType 用于区分不同AI的消息和数据
+     * - DeepSeek固定为"deepseek"
+     * - 用于数据库存储和前端显示区分
+     * 
+     * @param message Engine消息对象
+     * @return aiType 或 "deepseek"（默认值）
      */
     private String extractAiType(EngineMessage message) {
         Object aiType = message.getPayloadValue("aiType");
         return aiType != null ? aiType.toString() : "deepseek";
     }
     
+    // ==========================================================================
+    // 📤 消息发送方法（非AI业务使用，AI业务请使用StreamTask）
+    // ==========================================================================
+    
     /**
-     * 发送成功结果（携带sessionId和aiType）
+     * ⚠️ 发送成功结果（仅登录检测等非AI业务使用）
+     * 
+     * 【注意】
+     * - AI咨询业务请使用 task.sendSuccess() 自动发送 AI_TASK_RESULT
+     * - 本方法仅用于登录检测等非AI业务场景
+     * - 自动附带 sessionId 和 aiType 供Admin存储
+     * 
+     * @param userId 用户ID
+     * @param sessionId 会话ID（前端生成）
+     * @param aiType AI类型（如"deepseek"）
+     * @param data 返回数据
      */
     private void sendResult(String userId, String sessionId, String aiType, Map<String, Object> data) {
         EngineMessage result = EngineMessage.builder()
-            .type(MessageType.TASK_RESULT.getCode())
+            .type(MessageType.TASK_RESULT.getCode())  // ⚠️ 非AI业务使用TASK_RESULT
             .userId(userId)
-            .payload("sessionId", sessionId)    // 会话ID
-            .payload("aiType", aiType)          // AI类型
+            .payload("sessionId", sessionId)    // 会话ID（前端生成）
+            .payload("aiType", aiType)          // AI类型标识
             .payload("success", true)
             .payload("data", data)
             .payload("timestamp", System.currentTimeMillis())
@@ -152,14 +239,23 @@ public class DeepSeekController extends StreamTaskHelper {
     }
     
     /**
-     * 发送错误结果（携带sessionId和aiType）
+     * ⚠️ 发送错误结果（仅登录检测等非AI业务使用）
+     * 
+     * 【注意】
+     * - AI咨询业务请使用 task.sendError() 自动发送 AI_TASK_ERROR
+     * - 本方法仅用于登录检测等非AI业务场景
+     * 
+     * @param userId 用户ID
+     * @param sessionId 会话ID（前端生成）
+     * @param aiType AI类型（如"deepseek"）
+     * @param errorMessage 错误信息
      */
     private void sendErrorResult(String userId, String sessionId, String aiType, String errorMessage) {
         EngineMessage result = EngineMessage.builder()
-            .type(MessageType.TASK_RESULT.getCode())
+            .type(MessageType.AI_TASK_ERROR.getCode())  // 🤖 使用AI_TASK_ERROR
             .userId(userId)
-            .payload("sessionId", sessionId)    // 会话ID
-            .payload("aiType", aiType)          // AI类型
+            .payload("sessionId", sessionId)    // 会话ID（前端生成）
+            .payload("aiType", aiType)          // AI类型标识
             .payload("success", false)
             .payload("errorCode", "TASK_ERROR")
             .payload("errorMessage", errorMessage)
@@ -205,7 +301,8 @@ public class DeepSeekController extends StreamTaskHelper {
         
         log.info("[DeepSeek扫码登录] 开始 - 用户: {}, 会话: {}, AI: {}", userId, sessionId, aiType);
         
-        StreamTask task = startStreamTask(userId, sessionId, aiType, 2000);
+        // 🔧 登录业务使用通用流式任务（发送 TASK_* 消息）
+        StreamTask task = startStreamTask(userId, sessionId, 2000);
         BrowserSession session = null;
         
         try {
@@ -230,11 +327,11 @@ public class DeepSeekController extends StreamTaskHelper {
                     qrData.put("status", "waiting");
                     task.sendLog("请使用微信扫码登录");
                     task.sendScreenshot(qrCodeUrl);
-                    log.info("[DeepSeek扫码登录] 二维码已生成 - 用户: {}, URL: {}", userId, qrCodeUrl);
+                    log.debug("[DeepSeek扫码登录] 二维码已生成 - 用户: {}, URL: {}", userId, qrCodeUrl);
                 }
                 
                 long startTime = System.currentTimeMillis();
-                long maxWaitTime = 300000; // 5分钟超时
+                long maxWaitTime = 60000; // 1分钟超时
                 long lastScreenshotTime = System.currentTimeMillis();
                 int screenshotCount = 1;
                 String lastQrCodeUrl = qrCodeUrl;
@@ -410,7 +507,8 @@ public class DeepSeekController extends StreamTaskHelper {
         log.info("[DeepSeek咨询] 开始 - 用户: {}, sessionId: {}, 模式: {}, 前端chatId: {}, deepseekChatId: {}", 
             userId, sessionId, mode, chatId, deepseekChatId != null ? deepseekChatId : "新会话");
         
-        StreamTask task = startStreamTask(userId, sessionId, aiType, 6000);
+        // 🤖 AI咨询业务使用AI流式任务（发送 AI_TASK_* 消息）
+        StreamTask task = startAiStreamTask(userId, sessionId, aiType, 6000);
         BrowserSession session = null;
         
         try {
@@ -484,29 +582,45 @@ public class DeepSeekController extends StreamTaskHelper {
                 String answer = deepSeekUtil.sendMessageAndWaitResponse(page, query, 
                     enableDeepThinking, enableWebSearch);
                 
-                task.sendLog("正在提取会话信息和截图...");
+                task.sendLog("AI回复完成，等待页面渲染...");
+                
+                // 🔥 关键：AI回复完成后等待页面完全渲染
+                page.waitForTimeout(2000);
+                
+                task.sendLog("正在提取会话信息...");
                 
                 // 提取会话ID
                 String newChatId = deepSeekUtil.extractChatId(page);
                 String shareUrl = newChatId != null ? 
                     "https://chat.deepseek.com/a/chat/s/" + newChatId : null;
                 
-                // 截取最终对话截图
-                String conversationScreenshotUrl = captureAndUpload(page, userId, 
-                    "deepseek_conversation_" + newChatId);
-                log.debug("[DeepSeek咨询] 对话截图已上传 - URL: {}", conversationScreenshotUrl);
+                // 🔥 临时禁用截图功能（后续完善长截图逻辑）
+                String conversationScreenshotUrl = null;
+                log.info("[DeepSeek] 截图功能已临时禁用，只传输文本内容");
                 
                 java.util.Map<String, Object> resultData = new java.util.HashMap<>();
                 resultData.put("query", query);
-                resultData.put("answer", answer);
                 resultData.put("chatId", newChatId);
                 resultData.put("shareUrl", shareUrl);
                 resultData.put("mode", mode);
                 resultData.put("elapsedTime", (int) (System.currentTimeMillis() - startTime) / 1000);
                 
+                // 🔥 数据存储策略（优化版）：
+                // - data.textContent字段：始终存储真实的AI文本内容（用于draft_content）
+                // - data.answer字段：优先存储截图URL，无截图时存储文本内容（用于前端显示）
+                // - data.conversationScreenshot字段：存储截图URL（供draft表使用）
+                resultData.put("textContent", answer != null ? answer : "");  // 🔥 始终存储真实文本
+                
                 if (conversationScreenshotUrl != null) {
+                    resultData.put("answer", conversationScreenshotUrl);  // 🔥 优先存储截图URL
                     resultData.put("conversationScreenshot", conversationScreenshotUrl);
-                    log.info("[DeepSeek咨询] ✅ 对话截图URL: {}", conversationScreenshotUrl);
+                    resultData.put("hasScreenshot", true);
+                    log.info("[DeepSeek咨询] ✅ answer存储截图URL，textContent存储文本（{}字符）", 
+                        answer != null ? answer.length() : 0);
+                } else {
+                    resultData.put("answer", answer != null ? answer : "DeepSeek回复完成，但获取内容失败");
+                    resultData.put("hasScreenshot", false);
+                    log.warn("[DeepSeek咨询] ⚠️ 截图失败，answer存储文本内容");
                 }
                 
                 task.sendSuccess("DeepSeek回复完成", resultData);
@@ -550,7 +664,7 @@ public class DeepSeekController extends StreamTaskHelper {
             
             if (result.isSuccess()) {
                 String uploadedUrl = result.getUrl();
-                log.info("[DeepSeek截图] 上传成功 - URL: {}", uploadedUrl);
+                log.debug("[DeepSeek截图] 上传成功 - URL: {}", uploadedUrl);
                 return uploadedUrl;
             } else {
                 log.error("[DeepSeek截图] 上传失败 - 错误: {}", result.getErrorMessage());
@@ -558,6 +672,98 @@ public class DeepSeekController extends StreamTaskHelper {
             }
         } catch (Exception e) {
             log.error("[DeepSeek截图] 截图失败 - 错误: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+    
+    /**
+     * 截取AI回复区域的完整内容并上传（根据指定class区域截图）
+     * 
+     * 【截图策略】
+     * 1. 定位AI回复容器区域：class="_4f9bf79 d7dc56a8 _43c05b5"
+     * 2. 滚动到容器顶部
+     * 3. 截取该容器的完整内容（可能需要滚动截图）
+     * 
+     * @param page Playwright 页面对象
+     * @param userId 用户ID
+     * @param fileName 文件名（不含扩展名）
+     * @return 上传成功返回 URL，失败返回 null
+     */
+    private String captureFullPageAndUpload(Page page, String userId, String fileName) {
+        try {
+            // 🔥 定位AI回复的容器区域（兼容新旧DOM结构）
+            // 新DOM: class="_4f9bf79 d7dc56a8 _43c05b5"
+            // 旧DOM: class="_4f9bf79 _43c05b5"
+            String[] possibleSelectors = {
+                "div._4f9bf79.d7dc56a8._43c05b5",  // 新DOM（带d7dc56a8）
+                "div._4f9bf79._43c05b5"            // 旧DOM（不带d7dc56a8）
+            };
+            
+            String containerSelector = null;
+            for (String selector : possibleSelectors) {
+                if (page.locator(selector).count() > 0) {
+                    containerSelector = selector;
+                    log.debug("[DeepSeek截图] 找到AI回复容器: {}", selector);
+                    break;
+                }
+            }
+            
+            // 检查容器是否存在
+            if (containerSelector == null) {
+                log.warn("[DeepSeek截图] 未找到AI回复容器，使用全页截图");
+                // 回退方案：全页截图
+                page.evaluate("window.scrollTo(0, 0)");
+                page.waitForTimeout(500);
+                
+                Page.ScreenshotOptions options = new Page.ScreenshotOptions().setFullPage(true);
+                byte[] screenshotBytes = page.screenshot(options);
+                
+                com.wx.fbsir.engine.playwright.util.ScreenshotUploadClient.UploadResult result = 
+                    uploadClient.uploadScreenshot(userId, fileName, screenshotBytes);
+                return result.isSuccess() ? result.getUrl() : null;
+            }
+            
+            // 🔥 滚动到容器顶部并确保内容完全渲染（参考老项目cube-engine）
+            page.evaluate("(selector) => { " +
+                "const containers = document.querySelectorAll(selector); " +
+                "if (containers.length > 0) { " +
+                "  const latestContainer = containers[containers.length - 1]; " +
+                "  latestContainer.scrollIntoView({ behavior: 'smooth', block: 'start' }); " +
+                "  window.scrollBy(0, -50); " + // 稍微往上偏移
+                "} " +
+            "}", containerSelector);
+            page.waitForTimeout(1500); // 🔥 等待滚动和内容渲染完成
+            
+            // 🔥 截取最后一个容器（最新的AI回复）
+            com.microsoft.playwright.Locator containerLocator = page.locator(containerSelector).last();
+            
+            // 🔥 使用CSS给容器添加10px padding再截图
+            page.evaluate("(selector) => { " +
+                "const element = document.querySelector(selector); " +
+                "if (element) { " +
+                "  element.style.padding = '10px'; " +
+                "} " +
+            "}", containerSelector);
+            page.waitForTimeout(100); // 等待样式生效
+            
+            byte[] screenshotBytes = containerLocator.screenshot(
+                new com.microsoft.playwright.Locator.ScreenshotOptions()
+            );
+            
+            // 上传到 Admin 服务器
+            com.wx.fbsir.engine.playwright.util.ScreenshotUploadClient.UploadResult result = 
+                uploadClient.uploadScreenshot(userId, fileName, screenshotBytes);
+            
+            if (result.isSuccess()) {
+                String uploadedUrl = result.getUrl();
+                log.info("[DeepSeek区域截图] 上传成功 - 容器: {}, URL: {}", containerSelector, uploadedUrl);
+                return uploadedUrl;
+            } else {
+                log.error("[DeepSeek区域截图] 上传失败 - 错误: {}", result.getErrorMessage());
+                return null;
+            }
+        } catch (Exception e) {
+            log.error("[DeepSeek区域截图] 截图失败 - 错误: {}", e.getMessage(), e);
             return null;
         }
     }

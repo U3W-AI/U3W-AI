@@ -312,8 +312,8 @@
                 WHEN 'kimi' THEN 'Kimi'
                 ELSE ai_name 
             END name,
-            COALESCE(NULLIF(share_img_url, ''), draft_content) preview,
-            COALESCE(NULLIF(share_img_url, ''), draft_content) content,
+            draft_content content,
+            share_img_url shareImgUrl,
             DATE_FORMAT(create_time, '%Y-%c-%d %H:%i:%s') responseTime,
             share_url shareUrl
         FROM
@@ -321,6 +321,17 @@
         WHERE
             task_id = #{taskId}
         ORDER BY create_time DESC
+    </select>
+
+    <!-- 🔥 获取草稿文本内容（用于复制功能） -->
+    <select id="getDraftContent" resultType="java.lang.String">
+        SELECT draft_content
+        FROM wc_playwright_draft
+        WHERE user_name = #{userId}
+          AND task_id = #{taskId}
+          AND (ai_name = #{aiName} OR ai_name = LOWER(#{aiName}))
+        ORDER BY create_time DESC
+        LIMIT 1
     </select>
 
 </mapper>

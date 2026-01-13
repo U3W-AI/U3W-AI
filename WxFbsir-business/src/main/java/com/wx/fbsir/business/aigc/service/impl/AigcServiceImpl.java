@@ -163,6 +163,11 @@ public class AigcServiceImpl implements IAigcService {
         
         return list;
     }
+    
+    @Override
+    public String getDraftContent(Long userId, String taskId, String aiName) {
+        return aigcMapper.getDraftContent(userId, taskId, aiName);
+    }
 
     /**
      * 将对象转换为JSON字符串

@@ -20,33 +20,41 @@ import java.util.concurrent.atomic.AtomicInteger;
  * 流式任务辅助工具类
  * <p>
  * 为流式任务提供进度推送、日志发送、截图发送等功能
- * <p>
- * 使用方式：
- * <pre>
- * &#064;Controller
- * public class MyController extends StreamTaskHelper {
- *     
- *     public void handleMyTask(EngineMessage message) {
- *         String userId = message.getUserId();
- *         String requestId = message.getPayloadValue("requestId");
- *         
- *         StreamTask task = startStreamTask(userId, requestId);
- *         
- *         try {
- *             task.sendProgress("步骤1完成", 1, 3);
- *             // 业务逻辑...
- *             task.sendSuccess("任务完成", resultData);
- *         } catch (Exception e) {
- *             task.sendError("任务失败: " + e.getMessage());
- *         } finally {
- *             task.stop();
- *         }
- *     }
- * }
- * </pre>
+ * 支持两种消息格式：AI_TASK_* (AI业务) 和 TASK_* (通用业务)
+ * 
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 📌 使用场景
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 
+ * 【AI业务】使用 startAiStreamTask() - 发送 AI_TASK_* 消息
+ * - AI咨询（DeepSeek、通义千问等）
+ * - Admin会自动存储到 wc_chat_history.data 字段
+ * - 前端自动显示在任务流程区、截图轮播区
+ * 
+ * 【通用业务】使用 startStreamTask() - 发送 TASK_* 消息
+ * - 登录检测、扫码登录
+ * - 元器等非AI工具
+ * - 其他流式任务
+ * 
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 💡 使用示例
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 
+ * // AI业务示例
+ * StreamTask task = startAiStreamTask(userId, sessionId, "deepseek", 6000);
+ * task.sendLog("正在连接DeepSeek...");     // → AI_TASK_LOG
+ * task.sendScreenshot(screenshotUrl);       // → AI_TASK_SCREENSHOT
+ * task.sendSuccess("完成", resultData);     // → AI_TASK_RESULT
+ * 
+ * // 通用业务示例
+ * StreamTask task = startStreamTask(userId, sessionId, 5000);
+ * task.sendLog("页面加载中...");           // → TASK_LOG
+ * task.sendScreenshot(screenshotUrl);       // → TASK_SCREENSHOT
+ * task.sendSuccess("完成", resultData);     // → TASK_RESULT
  *
  * @author wxfbsir
- * &#064;date  2025-12-23
+ * @date 2025-12-23
+ * @version 2.0 (支持AI_TASK_*和TASK_*双格式)
  */
 public abstract class StreamTaskHelper {
 
@@ -60,19 +68,29 @@ public abstract class StreamTaskHelper {
     protected WebSocketClientManager webSocketClientManager;
 
 
+    // ==========================================================================
+    // 🔧 通用业务流式任务（发送 TASK_* 消息）
+    // ==========================================================================
+    
     /**
-     * 开始流式任务（使用默认间隔5秒）
+     * 开始通用流式任务（使用默认间隔5秒）
+     * 
+     * 【使用场景】登录检测、扫码登录、元器等非AI业务
+     * 【发送消息】TASK_LOG、TASK_SCREENSHOT、TASK_RESULT
      * 
      * @param userId 用户ID
      * @param sessionId 会话ID（与系统的requestId区分）
      * @return 流式任务对象
      */
     protected StreamTask startStreamTask(String userId, String sessionId) {
-        return startStreamTask(userId, sessionId, "unknown", 5000);
+        return new StreamTask(userId, sessionId, "unknown", 5000, false);
     }
 
     /**
-     * 开始流式任务（自定义推送间隔）
+     * 开始通用流式任务（自定义推送间隔）
+     * 
+     * 【使用场景】登录检测、扫码登录、元器等非AI业务
+     * 【发送消息】TASK_LOG、TASK_SCREENSHOT、TASK_RESULT
      * 
      * @param userId 用户ID
      * @param sessionId 会话ID（与系统的requestId区分）
@@ -80,20 +98,29 @@ public abstract class StreamTaskHelper {
      * @return 流式任务对象
      */
     protected StreamTask startStreamTask(String userId, String sessionId, long intervalMillis) {
-        return new StreamTask(userId, sessionId, "unknown", intervalMillis);
+        return new StreamTask(userId, sessionId, "unknown", intervalMillis, false);
     }
     
+    // ==========================================================================
+    // 🤖 AI业务流式任务（发送 AI_TASK_* 消息）
+    // ==========================================================================
+    
     /**
-     * 开始流式任务（携带AI类型）
+     * 开始AI流式任务（自动发送 AI_TASK_* 格式消息）
+     * 
+     * 【使用场景】AI咨询业务（DeepSeek、通义千问等）
+     * 【发送消息】AI_TASK_LOG、AI_TASK_SCREENSHOT、AI_TASK_RESULT、AI_TASK_ERROR
+     * 【Admin处理】自动存储到 wc_chat_history.data.progressLogs、screenshots
+     * 【前端显示】任务流程区、截图轮播区、AI响应结果区
      * 
      * @param userId 用户ID
-     * @param sessionId 会话ID（与系统的requestId区分）
-     * @param aiType AI类型（如deepseek）
+     * @param sessionId 会话ID（前端生成，全链路追踪）
+     * @param aiType AI类型（如"deepseek"、"tongyi"等）
      * @param intervalMillis 进度推送间隔（毫秒）
-     * @return 流式任务对象
+     * @return AI流式任务对象
      */
-    protected StreamTask startStreamTask(String userId, String sessionId, String aiType, long intervalMillis) {
-        return new StreamTask(userId, sessionId, aiType, intervalMillis);
+    protected StreamTask startAiStreamTask(String userId, String sessionId, String aiType, long intervalMillis) {
+        return new StreamTask(userId, sessionId, aiType, intervalMillis, true);
     }
 
     /**
@@ -193,6 +220,7 @@ public abstract class StreamTaskHelper {
      * 流式任务包装类
      * <p>
      * 提供自动化的进度推送和消息发送功能
+     * 根据 isAiTask 标识自动选择发送 AI_TASK_* 或 TASK_* 消息
      */
     public class StreamTask {
         /**
@@ -213,6 +241,12 @@ public abstract class StreamTaskHelper {
          */
         @Getter
         private final String aiType;     // AI类型
+        /**
+         * -- GETTER --
+         *  是否为AI任务
+         */
+        @Getter
+        private final boolean isAiTask;  // 是否为AI任务（true=AI_TASK_*, false=TASK_*）
         private final long intervalMillis;
         private final AtomicInteger progressCount = new AtomicInteger(0);
         private final AtomicBoolean stopped = new AtomicBoolean(false);
@@ -224,14 +258,16 @@ public abstract class StreamTaskHelper {
          * 
          * @param userId 用户ID
          * @param sessionId 会话ID（全链路唯一标识）
-         * @param aiType AI类型
+         * @param aiType AI类型（AI任务必填，通用任务可为"unknown"）
          * @param intervalMillis 进度推送间隔（毫秒）
+         * @param isAiTask 是否为AI任务（true=发送AI_TASK_*，false=发送TASK_*）
          */
-        public StreamTask(String userId, String sessionId, String aiType, long intervalMillis) {
+        public StreamTask(String userId, String sessionId, String aiType, long intervalMillis, boolean isAiTask) {
             this.userId = userId;
             this.sessionId = sessionId;
             this.aiType = aiType;
             this.intervalMillis = intervalMillis;
+            this.isAiTask = isAiTask;
         }
 
         /**
@@ -293,10 +329,10 @@ public abstract class StreamTaskHelper {
         }
 
         /**
-         * 发送文本日志消息（参考老项目 logInfo.sendTaskLog）
+         * 发送文本日志消息
          * <p>
-         * 用于显示执行进度文本，如"页面加载完成"、"二维码加载中"等
-         * 前端会将这些日志添加到 progressLogs 数组中显示
+         * 【AI任务】发送 AI_TASK_LOG → Admin存储到progressLogs → 前端任务流程区
+         * 【通用任务】发送 TASK_LOG → 前端直接显示
          * 
          * @param message 日志消息内容
          */
@@ -305,8 +341,11 @@ public abstract class StreamTaskHelper {
                 return;
             }
 
+            // 根据任务类型选择消息格式
+            String messageType = isAiTask ? MessageType.AI_TASK_LOG.getCode() : MessageType.TASK_LOG.getCode();
+            
             EngineMessage.Builder builder = EngineMessage.builder()
-                .type(MessageType.TASK_LOG.getCode())
+                .type(messageType)
                 .userId(userId)
                 .payload("sessionId", sessionId)   // 会话ID
                 .payload("aiType", aiType)         // AI类型
@@ -314,13 +353,14 @@ public abstract class StreamTaskHelper {
                 .payload("timestamp", System.currentTimeMillis());
 
             StreamTaskHelper.this.webSocketClientManager.sendMessage(builder.build());
-            log.debug("[StreamTask] 发送日志 - 用户: {}, 会话: {}, 消息: {}", userId, sessionId, message);
+            log.debug("[StreamTask] 发送日志[{}] - 用户: {}, 会话: {}, 消息: {}", messageType, userId, sessionId, message);
         }
 
         /**
          * 发送截图消息
          * <p>
-         * 用于发送截图URL，前端会将截图添加到 screenshots 数组中轮播显示
+         * 【AI任务】发送 AI_TASK_SCREENSHOT → Admin存储到screenshots → 前端轮播区
+         * 【通用任务】发送 TASK_SCREENSHOT → 前端直接显示
          * 
          * @param screenshotUrl 截图URL
          */
@@ -329,8 +369,11 @@ public abstract class StreamTaskHelper {
                 return;
             }
 
+            // 根据任务类型选择消息格式
+            String messageType = isAiTask ? MessageType.AI_TASK_SCREENSHOT.getCode() : MessageType.TASK_SCREENSHOT.getCode();
+            
             EngineMessage.Builder builder = EngineMessage.builder()
-                .type(MessageType.TASK_SCREENSHOT.getCode())
+                .type(messageType)
                 .userId(userId)
                 .payload("sessionId", sessionId)   // 会话ID
                 .payload("aiType", aiType)         // AI类型
@@ -338,7 +381,7 @@ public abstract class StreamTaskHelper {
                 .payload("timestamp", System.currentTimeMillis());
 
             StreamTaskHelper.this.webSocketClientManager.sendMessage(builder.build());
-            log.debug("[StreamTask] 发送截图 - 用户: {}, 会话: {}, URL: {}", userId, sessionId, screenshotUrl);
+            log.debug("[StreamTask] 发送截图[{}] - 用户: {}, 会话: {}, URL: {}", messageType, userId, sessionId, screenshotUrl);
         }
 
         /**
@@ -352,8 +395,11 @@ public abstract class StreamTaskHelper {
                 return;
             }
 
+            // 根据任务类型选择消息格式
+            String messageType = isAiTask ? MessageType.AI_TASK_LOG.getCode() : MessageType.TASK_LOG.getCode();
+            
             EngineMessage.Builder builder = EngineMessage.builder()
-                .type(MessageType.TASK_LOG.getCode())
+                .type(messageType)
                 .userId(userId)
                 .payload("sessionId", sessionId)   // 会话ID
                 .payload("aiType", aiType)         // AI类型
@@ -369,23 +415,71 @@ public abstract class StreamTaskHelper {
 
         /**
          * 发送成功结果
+         * <p>
+         * 【AI任务】发送 AI_TASK_RESULT → Admin合并存储到data → 前端结果区
+         * 【通用任务】发送 TASK_RESULT → 前端直接显示
          * 
          * @param message 结果消息
          * @param data 结果数据
          */
         public void sendSuccess(String message, Object data) {
             stop(); // 自动停止定时任务
-            StreamTaskHelper.this.sendSuccess(userId, sessionId, aiType, message, data);
+            
+            if (!isConnected()) {
+                return;
+            }
+
+            // 根据任务类型选择消息格式
+            String messageType = isAiTask ? MessageType.AI_TASK_RESULT.getCode() : MessageType.TASK_RESULT.getCode();
+            
+            EngineMessage.Builder builder = EngineMessage.builder()
+                .type(messageType)
+                .userId(userId)
+                .payload("sessionId", sessionId)
+                .payload("aiType", aiType)
+                .payload("success", true)
+                .payload("message", message)
+                .payload("timestamp", System.currentTimeMillis());
+
+            if (data != null) {
+                builder.payload("data", data);
+            }
+
+            StreamTaskHelper.this.webSocketClientManager.sendMessage(builder.build());
+            log.debug("[StreamTask] 发送成功[{}] - 用户: {}, 会话: {}", messageType, userId, sessionId);
         }
 
         /**
          * 发送错误结果
+         * <p>
+         * 【AI任务】发送 AI_TASK_ERROR → Admin记录错误 → 前端显示错误
+         * 【通用任务】发送 TASK_RESULT(success=false) → 前端显示错误
          * 
          * @param errorMessage 错误消息
          */
         public void sendError(String errorMessage) {
             stop(); // 自动停止定时任务
-            StreamTaskHelper.this.sendError(userId, sessionId, aiType, errorMessage);
+            
+            if (!isConnected()) {
+                return;
+            }
+
+            // 根据任务类型选择消息格式
+            String messageType = isAiTask ? MessageType.AI_TASK_ERROR.getCode() : MessageType.TASK_RESULT.getCode();
+            
+            EngineMessage errorMsg = EngineMessage.builder()
+                .type(messageType)
+                .userId(userId)
+                .payload("sessionId", sessionId)
+                .payload("aiType", aiType)
+                .payload("success", false)
+                .payload("errorCode", "TASK_ERROR")
+                .payload("errorMessage", errorMessage)
+                .payload("timestamp", System.currentTimeMillis())
+                .build();
+
+            StreamTaskHelper.this.webSocketClientManager.sendMessage(errorMsg);
+            log.error("[StreamTask] 发送错误[{}] - 用户: {}, 会话: {}, 错误: {}", messageType, userId, sessionId, errorMessage);
         }
 
         /**

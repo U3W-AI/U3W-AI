@@ -2,17 +2,17 @@
   <div class="ai-management-platform">
     <!-- 顶部导航区 -->
     <div class="top-nav">
-      <div class="logo-area">
-        <el-icon class="logo-icon" :size="32"><ChatDotRound /></el-icon>
-        <h1 class="platform-title">AI助手</h1>
-      </div>
-      <div class="nav-buttons">
-        <el-button type="primary" size="small" @click="createNewChat">
-          <el-icon><Plus /></el-icon>
-          创建新对话
-        </el-button>
-        <div class="history-button">
-          <el-button type="text" @click="showHistoryDrawer">
+      <div class="nav-container">
+        <div class="logo-area">
+          <el-icon class="logo-icon" :size="28"><ChatDotRound /></el-icon>
+          <h1 class="platform-title">AI助手</h1>
+        </div>
+        <div class="nav-buttons">
+          <el-button type="primary" @click="createNewChat">
+            <el-icon><Plus /></el-icon>
+            创建新对话
+          </el-button>
+          <el-button @click="showHistoryDrawer">
             <el-icon><Clock /></el-icon>
             历史记录
           </el-button>
@@ -91,47 +91,85 @@
     </el-drawer>
 
     <div class="main-content">
-      <el-collapse v-model="activeCollapses">
+      <div class="content-container">
+        <el-collapse v-model="activeCollapses" class="custom-collapse">
         <!-- AI选择配置 -->
         <el-collapse-item name="ai-selection">
           <template #title>
             <div class="ai-config-header">
+              <el-icon :size="18" style="margin-right: 8px;"><ChatDotRound /></el-icon>
               <span>AI选择配置</span>
             </div>
           </template>
           <div class="ai-selection-section">
             <div class="ai-cards">
-              <!-- DeepSeek卡片 - 硬编码 -->
-              <el-card class="ai-card" :class="{ 'ai-card-not-logged': !deepseekLoggedIn }" shadow="hover">
-                <div v-if="!deepseekLoggedIn" class="card-login-overlay">
+              <!-- 动态渲染AI卡片 -->
+              <el-card 
+                v-for="ai in aiServices" 
+                :key="ai.id"
+                class="ai-card modern-card" 
+                :class="{ 
+                  'ai-card-not-logged': !ai.loggedIn, 
+                  'ai-card-enabled': aiStates[ai.id]?.enabled 
+                }" 
+                shadow="hover"
+              >
+                <!-- 未登录遮罩 -->
+                <div v-if="!ai.loggedIn" class="card-login-overlay">
                   <div class="card-login-message">
-                    <el-icon><Warning /></el-icon>
+                    <el-icon :size="24"><Warning /></el-icon>
                     <span>未登录</span>
-                    <el-button size="small" type="primary" @click="handleDeepSeekLogin">扫码登录</el-button>
+                    <el-button size="small" type="primary" @click="handleServiceLogin(ai.id)">
+                      <el-icon><Link /></el-icon>
+                      前往登录
+                    </el-button>
                   </div>
                 </div>
+                
+                <!-- 卡片头部 -->
                 <div class="ai-card-header">
                   <div class="ai-left">
-                    <div class="ai-avatar">
-                      <el-icon :size="32"><ChatDotRound /></el-icon>
+                    <!-- 图标显示 -->
+                    <div class="ai-avatar" :class="`${ai.id}-avatar`">
+                      <img v-if="ai.icon.type === 'url'" :src="ai.icon.value" class="ai-avatar-img" />
+                      <el-icon v-else-if="ai.icon.type === 'element'" :size="20">{{ ai.icon.value }}</el-icon>
+                      <el-icon v-else :size="20"><ChatDotRound /></el-icon>
                     </div>
-                    <div class="ai-name">DeepSeek</div>
+                    <div class="ai-info">
+                      <div class="ai-name">{{ ai.displayName }}</div>
+                      <div class="ai-description">{{ ai.description }}</div>
+                    </div>
                   </div>
                   <div class="ai-status">
-                    <el-switch v-model="deepseekEnabled" active-color="#13ce66" inactive-color="#ff4949" :disabled="!deepseekLoggedIn" />
+                    <el-switch 
+                      v-if="aiStates[ai.id]"
+                      v-model="aiStates[ai.id].enabled" 
+                      active-color="#409eff" 
+                      inactive-color="#dcdfe6" 
+                      :disabled="!ai.loggedIn" 
+                    />
                   </div>
                 </div>
-                <!-- DeepSeek选项 -->
-                <div class="ai-options">
-                  <div class="button-options-group">
-                    <div class="ai-capabilities">
-                      <el-button :type="enableDeepThinking ? 'primary' : 'default'" size="small" :disabled="!deepseekEnabled || !deepseekLoggedIn" @click="enableDeepThinking = !enableDeepThinking">
-                        深度思考
-                      </el-button>
-                      <el-button :type="enableWebSearch ? 'primary' : 'default'" size="small" :disabled="!deepseekEnabled || !deepseekLoggedIn" @click="enableWebSearch = !enableWebSearch">
-                        联网搜索
-                      </el-button>
-                    </div>
+                
+                <!-- AI选项 -->
+                <div class="ai-options" v-if="aiStates[ai.id]?.enabled && ai.options && ai.options.length > 0">
+                  <div class="options-divider"></div>
+                  <div class="ai-capabilities">
+                    <el-tag 
+                      v-for="option in ai.options" 
+                      :key="option.id"
+                      :type="aiStates[ai.id].options[option.id] ? 'primary' : 'info'" 
+                      :effect="aiStates[ai.id].options[option.id] ? 'dark' : 'plain'" 
+                      class="capability-tag" 
+                      @click="toggleAiOption(ai.id, option.id)"
+                      :class="{ 
+                        'tag-disabled': !aiStates[ai.id].enabled || !ai.loggedIn || option.disabled, 
+                        'tag-clickable': aiStates[ai.id].enabled && ai.loggedIn && !option.disabled 
+                      }"
+                    >
+                      <el-icon><Setting /></el-icon>
+                      {{ option.label }}
+                    </el-tag>
                   </div>
                 </div>
               </el-card>
@@ -140,18 +178,51 @@
         </el-collapse-item>
 
         <!-- 提示词输入区 -->
-        <el-collapse-item title="提示词输入" name="prompt-input">
-          <div class="prompt-input-section">
-            <el-input type="textarea" :rows="5" placeholder="请输入提示词，支持Markdown格式" v-model="promptInput" resize="none" class="prompt-input" />
+        <el-collapse-item name="prompt-input">
+          <template #title>
+            <div class="ai-config-header">
+              <el-icon :size="18" style="margin-right: 8px;"><Document /></el-icon>
+              <span>提示词输入</span>
+            </div>
+          </template>
+          <div class="prompt-input-section modern-input">
+            <div class="input-wrapper">
+              <el-input 
+                type="textarea" 
+                placeholder="请输入您的问题或需求，支持Markdown格式..." 
+                v-model="promptInput" 
+                resize="none" 
+                class="prompt-input dynamic-textarea"
+                :autosize="{ minRows: 1, maxRows: 3 }"
+              />
+            </div>
             <div class="prompt-footer">
-              <div class="word-count">字数统计: {{ promptInput.length }}</div>
-              <el-button type="primary" @click="sendPrompt" :disabled="!canSend" :loading="isSending" class="send-button">
-                发送
+              <div class="footer-left">
+                <el-button size="small" class="upload-button" @click="handleFileUpload">
+                  <el-icon><Picture /></el-icon>
+                  上传文件
+                </el-button>
+                <span class="word-count">
+                  <el-icon><Document /></el-icon>
+                  {{ promptInput.length }} 字
+                </span>
+              </div>
+              <el-button 
+                type="primary" 
+                @click="sendPrompt" 
+                :disabled="!canSend" 
+                :loading="isSending" 
+                class="send-button"
+                size="large"
+              >
+                <el-icon v-if="!isSending"><ChatDotRound /></el-icon>
+                {{ isSending ? '发送中...' : '发送' }}
               </el-button>
             </div>
           </div>
         </el-collapse-item>
-      </el-collapse>
+        </el-collapse>
+      </div>
 
       <!-- 🔥 执行状态展示区（支持多AI区分显示，参考旧项目） -->
       <div class="execution-status-section" v-if="taskStarted">
@@ -207,7 +278,7 @@
                 </div>
               </template>
               <div class="screenshots">
-                <el-carousel v-if="screenshots.length > 0" :interval="3000" :autoplay="false" indicator-position="outside" height="700px">
+                <el-carousel ref="screenshotCarousel" v-if="screenshots.length > 0" :interval="3000" :autoplay="false" indicator-position="outside" height="700px">
                   <el-carousel-item v-for="(screenshot, index) in screenshots" :key="index">
                     <img :src="screenshot" alt="执行截图" class="screenshot-image" @click="showLargeImage(screenshot)" />
                   </el-carousel-item>
@@ -226,21 +297,37 @@
       <div class="results-section" v-if="results.length > 0">
         <div class="section-header">
           <h2 class="section-title">执行结果</h2>
-          <el-button type="success" size="small" @click="saveToDraft">
-            <el-icon><Document /></el-icon>
-            保存到草稿
-          </el-button>
         </div>
         <el-card>
           <div v-for="(result, index) in results" :key="index" class="result-content">
-            <div class="result-header" v-if="result.shareUrl">
+            <div class="result-header">
               <div class="result-title">{{ result.aiName }}的执行结果</div>
-              <el-button size="small" type="primary" @click="openShareUrl(result.shareUrl)">
-                <el-icon><Link /></el-icon>
-                查看原链接
-              </el-button>
+              <div class="result-actions">
+                <el-button v-if="result.shareUrl" size="small" type="primary" @click="openShareUrl(result.shareUrl)">
+                  <el-icon><Link /></el-icon>
+                  查看原链接
+                </el-button>
+                <el-button v-if="result.content" size="small" @click="copyToClipboard(result)">
+                  <el-icon><Document /></el-icon>
+                  复制文本
+                </el-button>
+              </div>
             </div>
-            <div class="markdown-content" v-html="renderMarkdown(result.content)"></div>
+            
+            <!-- 🔥 优先显示截图 -->
+            <div v-if="result.hasScreenshot && result.screenshotUrl" class="result-screenshot">
+              <img :src="result.screenshotUrl" alt="AI回复截图" class="result-screenshot-image" @click="showLargeImage(result.screenshotUrl)" />
+              <div class="screenshot-tip">点击图片查看大图</div>
+            </div>
+            
+            <!-- 🔥 如果没有截图，显示文本内容 -->
+            <div v-else-if="result.content" class="markdown-content" v-html="renderMarkdown(result.content)"></div>
+            
+            <!-- 🔥 既没有截图也没有文本 -->
+            <div v-else class="no-result">
+              <el-icon :size="48"><Warning /></el-icon>
+              <p>暂无结果内容</p>
+            </div>
           </div>
         </el-card>
       </div>
@@ -251,16 +338,40 @@
       <img :src="currentLargeImage" alt="大图" class="large-image" />
     </el-dialog>
 
-    <!-- DeepSeek登录对话框 -->
-    <el-dialog v-model="loginDialogVisible" title="DeepSeek扫码登录" width="500px" center>
+    <!-- 主机ID验证对话框 -->
+    <el-dialog 
+      v-model="hostIdDialogVisible" 
+      title="需要配置主机ID" 
+      width="500px" 
+      center
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :show-close="false"
+    >
+      <div class="host-id-dialog-content">
+        <el-icon :size="64" color="#e6a23c" style="margin-bottom: 16px;"><Warning /></el-icon>
+        <p style="font-size: 16px; margin-bottom: 24px; color: #606266;">
+          您还未配置Engine主机ID，无法使用AI助手功能。
+        </p>
+        <p style="font-size: 14px; color: #909399; margin-bottom: 24px;">
+          请前往个人中心填写主机ID后再使用本功能。
+        </p>
+      </div>
+      <template #footer>
+        <el-button type="primary" @click="goToProfile">前往个人中心</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 服务登录对话框 -->
+    <el-dialog v-model="loginDialogVisible" :title="`${currentLoginServiceName}扫码登录`" width="600px" center :close-on-click-modal="false">
       <div class="login-dialog-content">
         <div v-if="loginLoading" class="login-loading">
           <el-icon class="is-loading" :size="32"><Loading /></el-icon>
           <p>{{ loginStatusText }}</p>
         </div>
         <div v-if="qrCodeUrl" class="qrcode-container">
-          <img :src="qrCodeUrl" alt="登录二维码" class="qrcode-image" />
-          <p>请使用微信扫码登录DeepSeek</p>
+          <img :src="qrCodeUrl" alt="登录二维码" class="qrcode-image" style="width: 400px; height: 400px; display: block; margin: 0 auto;" />
+          <p style="text-align: center; margin-top: 20px; color: #666;">请使用微信扫码登录{{ currentLoginServiceName }}</p>
         </div>
       </div>
     </el-dialog>
@@ -270,19 +381,38 @@
 <script>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Clock, Loading, Document, Warning, CircleCheck, CircleClose, Link, Picture, ChatDotRound, ArrowRight } from '@element-plus/icons-vue'
+import { Plus, Clock, Loading, Document, Warning, CircleCheck, CircleClose, Link, Picture, ChatDotRound, ArrowRight, Setting } from '@element-plus/icons-vue'
 import { marked } from 'marked'
+import { restoreLoginStatusFromStorage } from '@/config/engineConfig'
 import { getToken } from '@/utils/auth'
-import { addDraft } from '@/api/aigc/drafts'
-import { saveChatData, getChatHistory } from '@/api/aigc/assistant'
+import { addDraft, getDraftContent } from '@/api/aigc/drafts'
+import { sendAiRequest, getChatHistory } from '@/api/aigc/assistant'
 import { buildWebSocketUrl } from '@/utils/websocket'
+import useUserStore from '@/store/modules/user'
+import { 
+  ENGINE_CONFIGS, 
+  DEFAULT_CONFIG, 
+  getEngineConfig, 
+  getAiServices,
+  getAiQueryMessageType, 
+  getServiceScanLoginMessageType,
+  initServiceOptionsState,
+  handleExclusiveOptionToggle,
+  updateServiceLoginStatus
+} from '@/config/engineConfig'
 
 export default {
   name: 'AiAssistant',
   components: {
-    Plus, Clock, Loading, Document, Warning, CircleCheck, CircleClose, Link, Picture, ChatDotRound, ArrowRight
+    Plus, Clock, Loading, Document, Warning, CircleCheck, CircleClose, Link, Picture, ChatDotRound, ArrowRight, Setting
   },
   setup() {
+    // 获取用户store（用于获取hostId/engineId）
+    const userStore = useUserStore()
+    
+    // 主机ID验证对话框
+    const hostIdDialogVisible = ref(false)
+    
     // 响应式数据
     const activeCollapses = ref(['ai-selection', 'prompt-input'])
     const historyDrawerVisible = ref(false)
@@ -290,11 +420,44 @@ export default {
     const chatHistory = ref([])
     const expandedHistoryItems = ref({})  // 🔥 历史记录展开状态
     
-    // DeepSeek硬编码配置 - 测试阶段默认已登录
-    const deepseekEnabled = ref(true)
-    const deepseekLoggedIn = ref(true)  // 测试阶段默认已登录
-    const enableDeepThinking = ref(false)
-    const enableWebSearch = ref(false)
+    // 🔥 获取所有AI服务
+    const aiServices = computed(() => getAiServices())
+    
+    // 🔥 动态AI状态管理
+    const aiStates = ref({})
+    
+    // 🔥 初始化AI状态
+    const initAiStates = () => {
+      ENGINE_CONFIGS.forEach(service => {
+        if (service.type === 'ai') {
+          aiStates.value[service.id] = {
+            enabled: service.enabled,
+            options: initServiceOptionsState(service.id)
+          }
+        }
+      })
+    }
+    
+    // 🔥 切换AI选项
+    const toggleAiOption = (aiId, optionId) => {
+      const currentState = aiStates.value[aiId].options
+      const newValue = !currentState[optionId]
+      aiStates.value[aiId].options = handleExclusiveOptionToggle(aiId, optionId, newValue, currentState)
+    }
+    
+    // 🔥 处理服务登录
+    const handleServiceLogin = (serviceId) => {
+      const config = getEngineConfig(serviceId)
+      if (!config) return
+      
+      // 🔥 提示用户前往登录管理器登录
+      ElMessage.info({
+        message: `请前往"登录管理器"页面登录 ${config.displayName}`,
+        duration: 3000
+      })
+      
+      console.log('📝 [AI助手] 用户需要前往登录管理器登录:', config.displayName)
+    }
     
     // 输入和发送状态
     const promptInput = ref('')
@@ -306,7 +469,11 @@ export default {
     const results = ref([])
     const currentChatId = ref(null)
     const enabledAIs = ref([])  // 🔥 启用的AI列表（支持多AI）
+    const screenshotCarousel = ref(null)  // 🔥 幻灯片组件引用
     const isNewChat = ref(true)  // 🔥 是否是新会话
+    
+    // 当前登录的服务ID
+    const currentLoginService = ref('')
     
     // 🔥 AI会话ID管理（完全参考旧项目cube-admin）
     const userInfoReq = ref({
@@ -336,11 +503,35 @@ export default {
     let websocket = null
     let sessionId = null  // 会话ID，用于全链路追踪（与系统的requestId区分）
     
+    // 🔥 当前登录服务名称
+    const currentLoginServiceName = computed(() => {
+      if (!currentLoginService.value) return ''
+      const config = getEngineConfig(currentLoginService.value)
+      return config ? config.displayName : ''
+    })
+    
     // 计算属性
     const canSend = computed(() => {
-      // 测试阶段：只要有输入内容且未在发送中即可发送
-      return promptInput.value.trim().length > 0 && deepseekEnabled.value && !isSending.value
+      // 检查是否有已启用的AI
+      const hasEnabledAi = Object.values(aiStates.value).some(state => state.enabled)
+      return promptInput.value.trim().length > 0 && hasEnabledAi && !isSending.value
     })
+    
+    // 🔥 验证主机ID
+    const checkHostId = () => {
+      const hostId = userStore.hostId
+      if (!hostId || hostId.trim() === '') {
+        hostIdDialogVisible.value = true
+        return false
+      }
+      return true
+    }
+    
+    // 🔥 前往个人中心
+    const goToProfile = () => {
+      hostIdDialogVisible.value = false
+      window.location.href = '/#/user/profile'
+    }
     
     // 🔥 检查是否所有任务完成
     const allTasksCompleted = computed(() => {
@@ -549,13 +740,20 @@ export default {
           screenshots.value.push(nestedData.conversationScreenshot)
         }
         
-        // 恢复执行结果
+        // 恢复执行结果（🔥 添加截图相关字段）
         if (nestedData.answer) {
+          // 🔥 判断answer是否为截图URL
+          const answerIsUrl = nestedData.answer && 
+            (nestedData.answer.startsWith('http://') || nestedData.answer.startsWith('https://'))
+          
           results.value = [{
             aiName: 'DeepSeek',
-            content: nestedData.answer,
+            content: nestedData.answer,  // 可能是截图URL或文本
+            screenshotUrl: nestedData.conversationScreenshot || (answerIsUrl ? nestedData.answer : null),
+            hasScreenshot: nestedData.hasScreenshot !== false && (nestedData.conversationScreenshot || answerIsUrl),
             shareUrl: nestedData.shareUrl,
             chatId: nestedData.chatId,
+            sessionId: historyData.sessionId,  // 🔥 保存sessionId用于复制功能
             query: nestedData.query,
             mode: nestedData.mode
           }]
@@ -655,12 +853,21 @@ export default {
       loginLoading.value = true
       loginStatusText.value = '正在获取登录二维码...'
       
-      // 发送登录检查请求
-      sendWebSocketMessage('AI_DEEPSEEK_SCAN_LOGIN', {})
+      // 从配置获取扫码登录消息类型
+      const scanLoginType = getAiScanLoginMessageType('deepseek')
+      sendWebSocketMessage(scanLoginType, {})
     }
     
     const sendPrompt = () => {
       if (!canSend.value) return
+      
+      // 🔥 检查是否已登录（必须登录才能使用）
+      const deepseekConfig = getEngineConfig('deepseek')
+      if (deepseekConfig && deepseekConfig.requireLogin && !deepseekConfig.loggedIn) {
+        ElMessage.error('请先在"登录管理器"中登录DeepSeek')
+        console.warn('❌ [AI助手] 未登录，禁止发送请求')
+        return
+      }
       
       isSending.value = true
       taskStarted.value = true
@@ -695,19 +902,22 @@ export default {
         console.log('📝 [首次使用] 生成新的chatId:', currentChatId.value)
       }
       
-      // 🔥 发送DeepSeek查询请求（传递AI会话ID支持上下文复用）
-      sendWebSocketMessage('AI_DEEPSEEK_QUERY', {
+      // 从配置获取AI查询消息类型
+      const queryType = getAiQueryMessageType('deepseek')
+      
+      // 🔥 从aiStates中获取DeepSeek的选项状态
+      const deepseekOptions = aiStates.value['deepseek']?.options || {}
+      
+      sendWebSocketMessage(queryType, {
         query: promptInput.value,
-        enableDeepThinking: enableDeepThinking.value,
-        enableWebSearch: enableWebSearch.value,
+        enableDeepThinking: deepseekOptions.enableDeepThinking || false,
+        enableWebSearch: deepseekOptions.enableWebSearch || false,
         chatId: currentChatId.value,
-        // 🔥 传递已有的DeepSeek会话ID（关键：上下文复用）
         deepseekChatId: userInfoReq.value.deepseekChatId,
         sessionId: sessionId,
         aiType: 'deepseek',
         isNewChat: isNewChat.value,
         userPrompt: promptInput.value,
-        // 🔥 传递任务流程和进度日志，便于保存到数据库
         enabledAIs: enabledAIs.value,
         progressLogs: progressLogs.value
       })
@@ -738,18 +948,21 @@ export default {
       
       const finalChatId = payload.chatId || currentChatId.value
       
+      // 从用户配置获取engineId，未配置则使用默认值
+      const engineId = userStore.hostId || DEFAULT_CONFIG.defaultEngineId
+      
       const message = {
         type: type,
-        engineId: 'engine-001',
-        chatId: finalChatId,  // 🔥 顶层chatId
+        engineId: engineId,
+        chatId: finalChatId,
         payload: {
           ...payload,
           sessionId: sessionId,
-          chatId: finalChatId,  // 🔥 payload中也保留chatId作为备用
+          chatId: finalChatId,
           aiType: payload.aiType || 'deepseek'
         }
       }
-      console.log('🔥 [WebSocket] 发送消息 - chatId:', finalChatId, 'sessionId:', sessionId)
+      console.log('🔥 [WebSocket] 发送消息 - engineId:', engineId, 'chatId:', finalChatId, 'sessionId:', sessionId)
       websocket.send(JSON.stringify(message))
     }
     
@@ -801,8 +1014,18 @@ export default {
         const messageType = message.messageType || message.type
         const payload = message.payload || {}
         
-        // 处理TASK_LOG - 日志消息
-        if (messageType === 'TASK_LOG') {
+        // ==========================================================================
+        // 🤖 AIGC消息处理（仅支持AI_TASK_*格式）
+        // ==========================================================================
+        // ⚠️ 重要：本模块只处理 AI_TASK_* 系列消息，不处理 TASK_* 系列消息
+        // - AI_TASK_LOG：AI对话进度日志
+        // - AI_TASK_SCREENSHOT：AI对话进度截图
+        // - AI_TASK_RESULT：AI对话最终结果
+        // - AI_TASK_ERROR：AI对话错误信息
+        // ==========================================================================
+        
+        // 处理AI任务日志（AI_TASK_LOG）
+        if (messageType === 'AI_TASK_LOG') {
           const logMessage = payload.message
           const aiType = payload.aiType || 'deepseek'
           if (logMessage) {
@@ -810,36 +1033,47 @@ export default {
           }
         }
         
-        // 处理TASK_SCREENSHOT - 截图消息
-        if (messageType === 'TASK_SCREENSHOT') {
+        // 🔥 处理AI任务截图消息（AI_TASK_SCREENSHOT）
+        if (messageType === 'AI_TASK_SCREENSHOT') {
           const screenshotUrl = payload.screenshotUrl
+          console.log('📸 [AI截图消息] URL:', screenshotUrl)
           if (screenshotUrl) {
             screenshots.value.push(screenshotUrl)
-            console.log('📸 [截图] 收到新截图:', screenshotUrl)
+            console.log('📸 [AIGC截图] 收到新截图:', screenshotUrl, '总数:', screenshots.value.length)
+            
+            // 🔥 自动跳转到最后一张幻灯片
+            setTimeout(() => {
+              if (screenshotCarousel.value) {
+                const lastIndex = screenshots.value.length - 1
+                screenshotCarousel.value.setActiveItem(lastIndex)
+                console.log('📸 [幻灯片] 已跳转到最后一张 (索引:', lastIndex, ')')
+              }
+            }, 100)
           }
         }
         
-        // 处理TASK_PROGRESS - 进度消息
-        if (messageType === 'TASK_PROGRESS') {
-          const progressMessage = payload.message
-          const aiType = payload.aiType || 'deepseek'
-          if (progressMessage) {
-            addProgressLog(progressMessage, aiType)
-          }
-        }
-        
-        // 处理TASK_RESULT - 最终结果
-        if (messageType === 'TASK_RESULT') {
+        // 处理结果消息（AI_TASK_RESULT）
+        if (messageType === 'AI_TASK_RESULT') {
           const resultData = payload.data || payload
           const success = payload.success
+          const aiType = payload.aiType || 'deepseek'
+          const messageSessionId = payload.sessionId || data.sessionId  // 🔥 从payload或data中获取sessionId
+          
+          console.log('🔥 [AIGC] AI_TASK_RESULT - aiType:', aiType, 'success:', success, 'sessionId:', messageSessionId, 'resultData:', resultData)
           
           if (success) {
-            // 检查是否是登录检查结果
-            if (resultData.isLoggedIn !== undefined) {
-              deepseekLoggedIn.value = resultData.isLoggedIn === true
+            // 🔥 检查是否是登录检查结果（兼容多种格式）
+            if (resultData.isLoggedIn !== undefined || (resultData.data && resultData.data.isLoggedIn !== undefined)) {
+              const isLoggedIn = resultData.isLoggedIn !== undefined ? resultData.isLoggedIn : resultData.data?.isLoggedIn
+              const userName = resultData.userName || resultData.data?.userName || ''
+              
+              deepseekLoggedIn.value = isLoggedIn === true
               if (deepseekLoggedIn.value) {
-                ElMessage.success('DeepSeek已登录: ' + (resultData.userName || ''))
+                ElMessage.success('DeepSeek已登录: ' + userName)
+              } else {
+                ElMessage.info('DeepSeek未登录')
               }
+              console.log('✅ [AIGC] 登录检测完成 - 已登录:', deepseekLoggedIn.value)
               return
             }
             
@@ -865,11 +1099,15 @@ export default {
                 targetAi.status = 'completed'
               }
               
+              // 🔥 优先使用截图，文本作为备用
               const resultItem = {
                 aiName: 'DeepSeek',
-                content: resultData.answer,
+                content: resultData.answer,  // 文本内容（用于复制）
+                screenshotUrl: resultData.conversationScreenshot,  // 截图URL
+                hasScreenshot: resultData.hasScreenshot !== false && resultData.conversationScreenshot,  // 是否有截图
                 shareUrl: resultData.shareUrl,
                 chatId: resultData.chatId,
+                sessionId: messageSessionId,  // 🔥 保存sessionId用于复制功能
                 query: resultData.query,
                 mode: resultData.mode
               }
@@ -883,7 +1121,7 @@ export default {
                 console.log('📝 [保存AI会话ID] deepseekChatId:', resultData.chatId, '(前端chatId保持不变:', currentChatId.value, ')')
               }
               
-              // 添加对话截图
+              // 添加对话截图到幻灯片（如果有）
               if (resultData.conversationScreenshot) {
                 screenshots.value.push(resultData.conversationScreenshot)
               }
@@ -903,6 +1141,48 @@ export default {
             ElMessage.error(errorMsg)
           }
         }
+        
+        // 处理错误消息（AI_TASK_ERROR）
+        if (messageType === 'AI_TASK_ERROR') {
+          taskStatus.value = 'failed'
+          isSending.value = false
+          const aiType = payload.aiType || 'deepseek'
+          const errorTitle = payload.errorTitle || '任务失败'
+          const errorMessage = payload.errorMessage || payload.message || 'AI任务执行失败'
+          const engineId = payload.engineId || '未知'
+          
+          // 添加错误日志到进度日志
+          addProgressLog(`❌ ${errorTitle}`, aiType)
+          addProgressLog(errorMessage, aiType)
+          
+          // 显示友好的错误提示
+          ElMessage({
+            message: `${errorTitle}: ${errorMessage}`,
+            type: 'error',
+            duration: 8000,  // 显示8秒，让用户有足够时间阅读
+            showClose: true
+          })
+          
+          // 更新对应AI的状态
+          const targetAi = enabledAIs.value.find(ai => 
+            ai.name.toLowerCase().includes(aiType.toLowerCase())
+          )
+          if (targetAi) {
+            targetAi.status = 'error'
+          }
+          
+          console.error('🚨 [AI任务错误]', {
+            errorTitle,
+            errorMessage,
+            engineId,
+            aiType,
+            errorCode: payload.errorCode
+          })
+        }
+        
+        // ==========================================================================
+        // 🤖 AIGC消息处理结束
+        // ==========================================================================
         
         // 处理CONNECTED消息
         if (messageType === 'CONNECTED') {
@@ -974,6 +1254,41 @@ export default {
       window.open(url, '_blank')
     }
     
+    // 🔥 复制内容（从数据库获取，不使用DOM）
+    const copyToClipboard = async (result) => {
+      if (!result) {
+        ElMessage.warning('无法获取复制内容')
+        return
+      }
+      
+      try {
+        // 🔥 从数据库获取真实的draft_content文本
+        // taskId应该是sessionId，而不是chatId
+        const taskId = result.sessionId || currentChatId.value
+        const aiName = result.aiName || 'deepseek'
+        
+        console.log('🔥 [复制] taskId:', taskId, 'aiName:', aiName)
+        const response = await getDraftContent(taskId, aiName)
+        
+        if (response && response.data && response.data.content) {
+          await navigator.clipboard.writeText(response.data.content)
+          ElMessage.success('已复制到剪贴板')
+        } else {
+          ElMessage.warning('没有可复制的文本内容')
+        }
+      } catch (error) {
+        console.error('复制失败:', error)
+        ElMessage.error('复制失败，请重试')
+      }
+    }
+    
+    const handleFileUpload = () => {
+      ElMessage.info({
+        message: '文件上传功能正在开发中，敬请期待！',
+        duration: 3000
+      })
+    }
+    
     const saveToDraft = async () => {
       if (results.value.length === 0) {
         ElMessage.warning('没有可保存的内容')
@@ -982,6 +1297,9 @@ export default {
       
       try {
         const result = results.value[0]
+        // 🔥 后端已自动保存，前端只需要提示用户
+        // 保存逻辑在后端EngineMessageRouter.saveToExtensionTable中自动完成
+        // 优先保存截图URL，同时保存文本内容和hasScreenshot标记
         await addDraft({
           aiName: result.aiName,
           content: result.content,
@@ -1038,6 +1356,17 @@ export default {
     
     // 生命周期
     onMounted(() => {
+      // 🔥 页面加载时恢复登录状态
+      restoreLoginStatusFromStorage()
+      
+      // 🔥 初始化AI状态
+      initAiStates()
+      
+      // 🔥 验证主机ID
+      if (!checkHostId()) {
+        return  // 如果没有主机ID，不继续初始化
+      }
+      
       connectWebSocket(() => {
         // WebSocket连接成功后，加载最后一次会话
         loadLastChat()
@@ -1056,10 +1385,7 @@ export default {
       historyDrawerVisible,
       historyLoading,
       chatHistory,
-      deepseekEnabled,
-      deepseekLoggedIn,
-      enableDeepThinking,
-      enableWebSearch,
+      hostIdDialogVisible,
       promptInput,
       isSending,
       taskStarted,
@@ -1074,6 +1400,11 @@ export default {
       loginStatusText,
       qrCodeUrl,
       canSend,
+      screenshotCarousel,
+      // 🔥 动态AI配置
+      aiServices,
+      aiStates,
+      currentLoginServiceName,
       // 🔥 新增：上下文复用相关
       enabledAIs,
       groupedHistory,
@@ -1083,6 +1414,9 @@ export default {
       createNewChat,
       showHistoryDrawer,
       loadHistoryItem,
+      toggleAiOption,
+      handleServiceLogin,
+      goToProfile,
       handleDeepSeekLogin,
       sendPrompt,
       formatTime,
@@ -1090,6 +1424,8 @@ export default {
       renderMarkdown,
       showLargeImage,
       openShareUrl,
+      copyToClipboard,
+      handleFileUpload,
       saveToDraft,
       // 🔥 新增：历史记录和AI管理方法
       toggleHistoryExpansion,
@@ -1103,20 +1439,27 @@ export default {
 
 <style lang="scss" scoped>
 .ai-management-platform {
-  padding: 20px;
-  background-color: #f5f7fa;
-  min-height: calc(100vh - 84px);
+  background-color: #f0f2f5;
+  min-height: 100vh;
+  padding: 0;
 }
 
 .top-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 20px;
-  background: #fff;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  border-bottom: 1px solid #e4e7ed;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  
+  .nav-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 16px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
 
   .logo-area {
     display: flex;
@@ -1138,55 +1481,132 @@ export default {
   .nav-buttons {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 12px;
   }
 }
 
 .main-content {
-  .el-collapse {
-    border: none;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px 32px;
+  
+  .content-container {
     background: transparent;
   }
-
-  .el-collapse-item {
-    margin-bottom: 15px;
-    background: #fff;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  
+  .custom-collapse {
+    border: none;
+    background: transparent;
+    
+    :deep(.el-collapse-item) {
+      margin-bottom: 20px;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      border: 1px solid #e4e7ed;
+      transition: all 0.3s;
+      
+      &:hover {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+      }
+    }
+    
+    :deep(.el-collapse-item__header) {
+      height: 56px;
+      line-height: 56px;
+      padding: 0 24px;
+      background: #fafbfc;
+      border-bottom: 1px solid #e4e7ed;
+      font-size: 15px;
+      font-weight: 500;
+      color: #303133;
+      
+      &:hover {
+        background: #f5f7fa;
+      }
+    }
+    
+    :deep(.el-collapse-item__wrap) {
+      border: none;
+    }
+    
+    :deep(.el-collapse-item__content) {
+      padding: 0;
+    }
   }
 }
 
 .ai-config-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   width: 100%;
-  padding-right: 20px;
+  font-weight: 500;
+  color: #303133;
 }
 
 .ai-selection-section {
-  padding: 15px;
+  padding: 20px;
+  background: #ffffff;
 }
 
 .ai-cards {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  
+  @media (min-width: 1400px) {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  
+  @media (min-width: 1600px) {
+    grid-template-columns: repeat(5, 1fr);
+  }
 }
 
 .ai-card {
-  width: 280px;
   position: relative;
-  border-radius: 12px;
+  border-radius: 16px;
   transition: all 0.3s;
+  border: 2px solid #e4e7ed;
+  overflow: hidden;
+
+  &.modern-card {
+    background: #ffffff;
+  }
+
+  &.ai-card-enabled {
+    border-color: #409eff;
+    box-shadow: 0 4px 20px rgba(64, 158, 255, 0.15);
+    
+    :deep(.el-card__body) {
+      background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+    }
+  }
 
   &:hover {
-    transform: translateY(-5px);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
   }
 
   &.ai-card-not-logged {
-    opacity: 0.7;
+    opacity: 0.75;
+    filter: grayscale(0.3);
+  }
+  
+  :deep(.el-card__body) {
+    padding: 16px;
   }
 
   .card-login-overlay {
@@ -1195,26 +1615,27 @@ export default {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.95);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 10;
-    border-radius: 12px;
+    border-radius: 16px;
 
     .card-login-message {
       text-align: center;
       
       .el-icon {
-        font-size: 32px;
+        font-size: 28px;
         color: #e6a23c;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
       }
       
       span {
         display: block;
         color: #909399;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
+        font-size: 13px;
       }
     }
   }
@@ -1223,47 +1644,173 @@ export default {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
 
     .ai-left {
       display: flex;
       align-items: center;
       gap: 10px;
+      flex: 1;
+      min-width: 0;
 
       .ai-avatar {
         width: 40px;
         height: 40px;
-        border-radius: 50%;
+        border-radius: 10px;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         display: flex;
         align-items: center;
         justify-content: center;
         color: #fff;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        flex-shrink: 0;
+        overflow: hidden;
+        
+        .ai-avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        
+        .el-icon {
+          font-size: 20px;
+        }
+        
+        &.deepseek-avatar {
+          background: linear-gradient(135deg, #409eff 0%, #3a8ee6 100%);
+        }
       }
 
-      .ai-name {
-        font-weight: 600;
-        font-size: 16px;
+      .ai-info {
+        flex: 1;
+        min-width: 0;
+        
+        .ai-name {
+          font-weight: 600;
+          font-size: 14px;
+          color: #303133;
+          margin-bottom: 2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        
+        .ai-description {
+          font-size: 11px;
+          color: #909399;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
       }
+    }
+    
+    .ai-status {
+      flex-shrink: 0;
+      margin-left: 8px;
     }
   }
 
   .ai-options {
-    .button-options-group {
-      .ai-capabilities {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
+    margin-top: 12px;
+    
+    .options-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, #e4e7ed 50%, transparent 100%);
+      margin-bottom: 10px;
+    }
+    
+    .ai-capabilities {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      
+      .capability-tag {
+        cursor: pointer;
+        transition: all 0.3s;
+        padding: 6px 12px;
+        font-size: 12px;
+        border-radius: 6px;
+        
+        &.tag-clickable:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        &.tag-disabled {
+          cursor: not-allowed;
+          opacity: 0.5;
+        }
+        
+        .el-icon {
+          margin-right: 3px;
+          font-size: 12px;
+        }
       }
     }
   }
 }
 
 .prompt-input-section {
-  padding: 15px;
+  padding: 28px;
+  background: #ffffff;
 
-  .prompt-input {
-    margin-bottom: 15px;
+  &.modern-input {
+    background: #ffffff;
+  }
+
+  .input-wrapper {
+    margin-bottom: 20px;
+    
+    .prompt-input {
+      &.dynamic-textarea {
+        :deep(.el-textarea__inner) {
+          border-radius: 12px;
+          border: 2px solid #dcdfe6;
+          transition: all 0.3s;
+          font-size: 15px;
+          line-height: 1.6;
+          padding: 12px 16px;
+          background: #fafbfc;
+          max-height: calc(1.6em * 3 + 24px); // 3行高度 + padding
+          overflow-y: auto;
+          resize: none;
+          
+          &:hover {
+            border-color: #c0c4cc;
+            background: #ffffff;
+          }
+          
+          &:focus {
+            border-color: #409eff;
+            background: #ffffff;
+            box-shadow: 0 0 0 4px rgba(64, 158, 255, 0.08);
+          }
+          
+          &::placeholder {
+            color: #a8abb2;
+          }
+          
+          // 自定义滚动条
+          &::-webkit-scrollbar {
+            width: 6px;
+          }
+          
+          &::-webkit-scrollbar-thumb {
+            background-color: #dcdfe6;
+            border-radius: 3px;
+            
+            &:hover {
+              background-color: #c0c4cc;
+            }
+          }
+          
+          &::-webkit-scrollbar-track {
+            background-color: transparent;
+          }
+        }
+      }
+    }
   }
 
   .prompt-footer {
@@ -1271,19 +1818,77 @@ export default {
     justify-content: space-between;
     align-items: center;
 
-    .word-count {
-      color: #909399;
-      font-size: 14px;
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      
+      .upload-button {
+        border-radius: 6px;
+        
+        .el-icon {
+          margin-right: 4px;
+        }
+      }
+      
+      .word-count {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: #909399;
+        font-size: 13px;
+        
+        .el-icon {
+          font-size: 14px;
+        }
+      }
+    }
+    
+    .send-button {
+      border-radius: 10px;
+      padding: 13px 36px;
+      font-weight: 500;
+      font-size: 15px;
+      box-shadow: 0 4px 12px rgba(64, 158, 255, 0.25);
+      transition: all 0.3s;
+      
+      &:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(64, 158, 255, 0.35);
+      }
+      
+      &:active:not(:disabled) {
+        transform: translateY(0);
+      }
+      
+      .el-icon {
+        margin-right: 6px;
+      }
     }
   }
 }
 
 .execution-status-section {
-  margin-top: 20px;
+  max-width: 1400px;
+  margin: 24px auto 0;
+  padding: 0 32px;
 
   .task-flow-card,
   .screenshots-card {
     height: 800px;
+    border-radius: 12px;
+    border: 1px solid #e4e7ed;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    
+    :deep(.el-card__header) {
+      background: #fafbfc;
+      border-bottom: 1px solid #e4e7ed;
+      padding: 16px 20px;
+    }
+    
+    :deep(.el-card__body) {
+      padding: 20px;
+    }
   }
 
   .card-header {
@@ -1447,33 +2052,144 @@ export default {
 }
 
 .results-section {
-  margin-top: 20px;
+  max-width: 1400px;
+  margin: 24px auto 0;
+  padding: 0 32px;
 
   .section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
 
     .section-title {
-      font-size: 18px;
+      font-size: 20px;
       font-weight: 600;
       margin: 0;
+      color: #303133;
+    }
+  }
+  
+  > .el-card {
+    border-radius: 12px;
+    border: 1px solid #e4e7ed;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    
+    :deep(.el-card__body) {
+      padding: 28px;
     }
   }
 
   .result-content {
+    & + .result-content {
+      margin-top: 32px;
+      padding-top: 32px;
+      border-top: 1px solid #e4e7ed;
+    }
+    
     .result-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 15px;
-      padding-bottom: 15px;
-      border-bottom: 1px solid #ebeef5;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #f0f2f5;
 
       .result-title {
         font-weight: 600;
-        font-size: 16px;
+        font-size: 18px;
+        color: #303133;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        
+        &::before {
+          content: '';
+          display: inline-block;
+          width: 4px;
+          height: 20px;
+          background: linear-gradient(135deg, #409eff 0%, #3a8ee6 100%);
+          border-radius: 2px;
+        }
+      }
+      
+      .result-actions {
+        display: flex;
+        gap: 12px;
+      }
+    }
+    
+    .result-screenshot {
+      text-align: center;
+      background: #fafbfc;
+      padding: 24px;
+      border-radius: 12px;
+      max-height: 600px;
+      overflow-y: auto;
+      padding-right: 10px;
+      
+      /* 自定义滚动条样式 */
+      &::-webkit-scrollbar {
+        width: 8px;
+      }
+      
+      &::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+      }
+      
+      &::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+        
+        &:hover {
+          background: #a1a1a1;
+        }
+      }
+      
+      .result-screenshot-image {
+        max-width: 100%;
+        height: auto;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+        transition: all 0.3s;
+        border: 1px solid #e4e7ed;
+        
+        &:hover {
+          transform: scale(1.01);
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        }
+      }
+      
+      .screenshot-tip {
+        margin-top: 16px;
+        color: #909399;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        
+        &::before {
+          content: "💡";
+        }
+      }
+    }
+    
+    .no-result {
+      text-align: center;
+      padding: 60px 20px;
+      color: #909399;
+      
+      .el-icon {
+        margin-bottom: 16px;
+        color: #dcdfe6;
+      }
+      
+      p {
+        font-size: 14px;
+        margin: 0;
       }
     }
 

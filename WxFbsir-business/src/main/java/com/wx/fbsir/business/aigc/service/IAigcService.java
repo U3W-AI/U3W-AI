@@ -126,4 +126,15 @@ public interface IAigcService {
      * @return 分组后的草稿列表（含AI响应）
      */
     List<Map<String, Object>> getPlayWrightDrafts(Long userId, String keyWord);
+    
+    /**
+     * 🔥 获取草稿文本内容（用于复制功能）
+     * 根据taskId和aiName从数据库获取draft_content
+     * 
+     * @param userId 用户ID
+     * @param taskId 任务ID
+     * @param aiName AI名称
+     * @return 草稿文本内容
+     */
+    String getDraftContent(Long userId, String taskId, String aiName);
 }

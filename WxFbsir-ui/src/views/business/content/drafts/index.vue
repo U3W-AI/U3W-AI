@@ -42,10 +42,10 @@
               <el-icon class="model-icon"><ChatDotRound /></el-icon>
               <span class="model-name">{{ model.name }}</span>
             </div>
-            <!-- 预览内容 -->
+            <!-- 预览内容：优先显示截图，无截图时显示文本 -->
             <div class="preview-content">
-              <template v-if="isImageUrl(model.preview)">
-                <img :src="model.preview" class="ai-image" alt="AI响应图片" />
+              <template v-if="model.shareImgUrl">
+                <img :src="model.shareImgUrl" class="ai-image" alt="AI响应截图" />
               </template>
               <template v-else>
                 <div class="text-preview" v-html="renderMarkdown(model.content)"></div>
@@ -72,9 +72,23 @@
     <!-- 详情模态框 -->
     <el-dialog v-model="showModal" :title="selectedModel?.name || 'AI响应'" width="70%" destroy-on-close>
       <div class="modal-content" v-if="selectedModel">
-        <template v-if="isImageUrl(selectedModel.content)">
-          <img :src="selectedModel.content" style="max-width: 100%; height: auto;" />
+        <!-- 🔥 查看模式切换（仅在同时有截图和文本时显示） -->
+        <div v-if="selectedModel.shareImgUrl && selectedModel.content && selectedModel.content.trim()" class="view-mode-switch" style="margin-bottom: 16px;">
+          <el-radio-group v-model="viewMode" size="small">
+            <el-radio-button label="screenshot">截图查看</el-radio-button>
+            <el-radio-button label="text">文本查看</el-radio-button>
+          </el-radio-group>
+        </div>
+        
+        <!-- 🔥 优先显示截图（如果有shareImgUrl） -->
+        <template v-if="viewMode === 'screenshot' && selectedModel.shareImgUrl">
+          <div class="screenshot-view">
+            <img :src="selectedModel.shareImgUrl" style="max-width: 100%; height: auto; border-radius: 8px;" alt="对话截图" />
+            <p style="text-align: center; color: #999; margin-top: 8px; font-size: 12px;">对话完整截图</p>
+          </div>
         </template>
+        
+        <!-- 🔥 文本查看模式：直接显示draft_content字段（Markdown渲染） -->
         <template v-else>
           <div class="prose markdown-body" v-html="renderMarkdown(selectedModel.content)"></div>
         </template>
@@ -100,7 +114,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh, User, ChatDotRound } from '@element-plus/icons-vue'
 import { marked } from 'marked'
-import { getPlayWrighDrafts } from "@/api/aigc/drafts"
+import { getPlayWrighDrafts, getDraftContent } from "@/api/aigc/drafts"
 
 // 配置 marked
 marked.setOptions({
@@ -118,6 +132,7 @@ const showModal = ref(false)
 const selectedModel = ref(null)
 const scrollContainer = ref(null)
 const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
+const viewMode = ref('screenshot') // 🔥 查看模式：screenshot=截图查看，text=文本查看
 
 const queryParams = reactive({
   pageNum: 1,
@@ -173,8 +188,30 @@ const handleScroll = (event) => {
 
 // 显示AI响应详情
 const showModelResponse = (model) => {
+  // 🔥 数据库字段说明：
+  // - content (即draft_content): 文本内容（Markdown格式）
+  // - shareImgUrl: 对话截图URL
+  // - shareUrl: 分享链接
+  
   selectedModel.value = model
+  
+  // 🔥 默认查看模式：有截图则默认显示截图，否则显示文本
+  viewMode.value = model.shareImgUrl ? 'screenshot' : 'text'
   showModal.value = true
+}
+
+// 🔥 获取当前对话的taskId（从dialogList中查找）
+const getCurrentTaskId = () => {
+  // selectedModel中没有taskId，需要从dialogList中找到对应的taskId
+  for (const dialog of dialogList.value) {
+    if (dialog.aiResponses) {
+      const found = dialog.aiResponses.find(ai => ai === selectedModel.value)
+      if (found) {
+        return dialog.taskId
+      }
+    }
+  }
+  return null
 }
 
 // 判断是否为图片URL
@@ -194,11 +231,33 @@ const renderMarkdown = (content) => {
   return marked(content)
 }
 
-// 复制内容
-const copyContent = (content) => {
-  if (content) {
-    navigator.clipboard.writeText(content)
-    ElMessage.success('已复制到剪贴板')
+// 🔥 复制内容（从数据库获取，不使用DOM）
+const copyContent = async () => {
+  if (!selectedModel.value) {
+    ElMessage.warning('没有选中的AI响应')
+    return
+  }
+  
+  try {
+    const taskId = getCurrentTaskId()
+    if (!taskId) {
+      ElMessage.error('无法获取任务ID')
+      return
+    }
+    
+    // 🔥 从数据库获取真实的draft_content文本
+    const aiName = selectedModel.value.name || 'deepseek'
+    const response = await getDraftContent(taskId, aiName)
+    
+    if (response && response.data && response.data.content) {
+      await navigator.clipboard.writeText(response.data.content)
+      ElMessage.success('已复制到剪贴板')
+    } else {
+      ElMessage.warning('没有可复制的文本内容')
+    }
+  } catch (error) {
+    console.error('复制失败:', error)
+    ElMessage.error('复制失败，请重试')
   }
 }
 
@@ -386,6 +445,27 @@ onMounted(() => {
   max-height: 60vh;
   overflow-y: auto;
   padding: 10px;
+}
+
+/* 🔥 查看模式切换 */
+.view-mode-switch {
+  margin-bottom: 16px;
+  text-align: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+/* 🔥 截图查看容器 */
+.screenshot-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  
+  img {
+    max-width: 100%;
+    height: auto;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  }
 }
 
 .markdown-body {
