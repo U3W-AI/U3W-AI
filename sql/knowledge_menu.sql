@@ -25,30 +25,31 @@ UPDATE sys_user SET is_super = 1 WHERE user_name = 'admin';
 -- 菜单ID: 129（根据注释，120-199为内容管理预留）
 -- 路径: business/content/knowledge/knowledge
 -- 权限标识: business:knowledge:view
-INSERT INTO sys_menu VALUES('129', '知识库', '1', '3', 'knowledge', 'business/content/knowledge/knowledge', '', '', 1, 0, 'C', '0', '0', 'business:knowledge:view', 'guide', 'admin', sysdate(), '', null, '知识库管理菜单');
 
--- 2. 添加知识库按钮权限（parent_id=127）
+INSERT INTO sys_menu VALUES('133', '知识库', '1', '3', 'knowledge', 'business/content/knowledge/knowledge', '', '', 1, 0, 'C', '0', '0', 'business:knowledge:view', 'guide', 'admin', sysdate(), '', null, '知识库管理菜单');
+
+-- 2. 添加知识库按钮权限（parent_id=133）
 -- 按钮权限ID: 1101+（根据注释，1101+为预留）
-INSERT INTO sys_menu VALUES('1101', '知识库查询', '129', '1', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:query', '#', 'admin', sysdate(), '', null, '查询知识库列表');
-INSERT INTO sys_menu VALUES('1102', '知识库新增', '129', '2', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:add', '#', 'admin', sysdate(), '', null, '新增知识库');
-INSERT INTO sys_menu VALUES('1103', '知识库修改', '129', '3', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:edit', '#', 'admin', sysdate(), '', null, '修改知识库');
-INSERT INTO sys_menu VALUES('1104', '知识库删除', '129', '4', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:remove', '#', 'admin', sysdate(), '', null, '删除知识库');
-INSERT INTO sys_menu VALUES('1105', '知识库上传', '129', '5', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:upload', '#', 'admin', sysdate(), '', null, '上传知识库到元器/企微机器人');
-INSERT INTO sys_menu VALUES('1106', '空间管理', '129', '6', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:space', '#', 'admin', sysdate(), '', null, '知识库空间管理');
+INSERT INTO sys_menu VALUES('1104', '知识库查询', '133', '1', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:query', '#', 'admin', sysdate(), '', null, '查询知识库列表');
+INSERT INTO sys_menu VALUES('1105', '知识库新增', '133', '2', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:add', '#', 'admin', sysdate(), '', null, '新增知识库');
+INSERT INTO sys_menu VALUES('1106', '知识库修改', '133', '3', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:edit', '#', 'admin', sysdate(), '', null, '修改知识库');
+INSERT INTO sys_menu VALUES('1107', '知识库删除', '133', '4', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:remove', '#', 'admin', sysdate(), '', null, '删除知识库');
+INSERT INTO sys_menu VALUES('1108', '知识库上传', '133', '5', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:upload', '#', 'admin', sysdate(), '', null, '上传知识库到元器/企微机器人');
+INSERT INTO sys_menu VALUES('1109', '空间管理', '133', '6', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:space', '#', 'admin', sysdate(), '', null, '知识库空间管理');
 
 -- 3. 为管理员角色（role_id=2）分配知识库菜单权限
-INSERT INTO sys_role_menu VALUES ('2', '129');  -- 知识库菜单
-INSERT INTO sys_role_menu VALUES ('2', '1101'); -- 知识库查询
-INSERT INTO sys_role_menu VALUES ('2', '1102'); -- 知识库新增
-INSERT INTO sys_role_menu VALUES ('2', '1103'); -- 知识库修改
-INSERT INTO sys_role_menu VALUES ('2', '1104'); -- 知识库删除
-INSERT INTO sys_role_menu VALUES ('2', '1105'); -- 知识库上传
-INSERT INTO sys_role_menu VALUES ('2', '1106'); -- 空间管理
+INSERT INTO sys_role_menu VALUES ('2', '133');  -- 知识库菜单
+INSERT INTO sys_role_menu VALUES ('2', '1104'); -- 知识库查询
+INSERT INTO sys_role_menu VALUES ('2', '1105'); -- 知识库新增
+INSERT INTO sys_role_menu VALUES ('2', '1106'); -- 知识库修改
+INSERT INTO sys_role_menu VALUES ('2', '1107'); -- 知识库删除
+INSERT INTO sys_role_menu VALUES ('2', '1108'); -- 知识库上传
+INSERT INTO sys_role_menu VALUES ('2', '1109'); -- 空间管理
 
 -- 4. 为普通角色（role_id=10）分配知识库查看权限（可根据实际需求调整）
-INSERT INTO sys_role_menu VALUES ('10', '129');  -- 知识库菜单
-INSERT INTO sys_role_menu VALUES ('10', '1101'); -- 知识库查询
-INSERT INTO sys_role_menu VALUES ('10', '1102'); -- 知识库新增（允许普通用户创建自己的知识库）
+INSERT INTO sys_role_menu VALUES ('10', '133');  -- 知识库菜单
+INSERT INTO sys_role_menu VALUES ('10', '1104'); -- 知识库查询
+INSERT INTO sys_role_menu VALUES ('10', '1105'); -- 知识库新增（允许普通用户创建自己的知识库）
 
 
 
