@@ -409,14 +409,14 @@ insert into sys_role_menu values ('2', '3');    -- 系统监控
 insert into sys_role_menu values ('2', '4');    -- 系统工具
 insert into sys_role_menu values ('2', '6');    -- 积分管理
 insert into sys_role_menu values ('2', '7');    -- 主机管理
---- 二级菜单-内容管理
+-- 二级菜单-内容管理
 insert into sys_role_menu values ('2', '118');  -- 日更助手
 insert into sys_role_menu values ('2', '119');  -- 发布记录
 insert into sys_role_menu values ('2', '129');  -- AI助手
 insert into sys_role_menu values ('2', '130');  -- 草稿库
 insert into sys_role_menu values ('2', '131');  -- 登录管理器
 insert into sys_role_menu values ('2', '132');  -- 文档解析助手
---- 二级菜单-系统管理
+-- 二级菜单-系统管理
 insert into sys_role_menu values ('2', '100');  -- 用户管理
 insert into sys_role_menu values ('2', '101');  -- 角色管理
 insert into sys_role_menu values ('2', '102');  -- 菜单管理
@@ -584,13 +584,13 @@ insert into sys_role_menu values ('3', '2');    -- 系统管理
 insert into sys_role_menu values ('3', '3');    -- 系统监控
 insert into sys_role_menu values ('3', '4');    -- 系统工具
 insert into sys_role_menu values ('3', '6');    -- 积分管理
---- 二级菜单-内容管理
+-- 二级菜单-内容管理
 insert into sys_role_menu values ('3', '118');  -- 日更助手
 insert into sys_role_menu values ('3', '119');  -- 发布记录
 insert into sys_role_menu values ('3', '129');  -- AI助手
 insert into sys_role_menu values ('3', '130');  -- 草稿库
 insert into sys_role_menu values ('3', '132');  -- 文档解析助手
---- 二级菜单-系统管理
+-- 二级菜单-系统管理
 insert into sys_role_menu values ('3', '100');  -- 用户管理
 insert into sys_role_menu values ('3', '101');  -- 角色管理
 insert into sys_role_menu values ('3', '102');  -- 菜单管理
