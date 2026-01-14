@@ -56,8 +56,6 @@ public class YuanQiKnowledgeController extends StreamTaskHelper {
     private BrowserPoolManager browserPoolManager;
     @Autowired
     private YuanQiLoginUtil loginUtil;
-    @Autowired
-    private com.wx.fbsir.engine.playwright.util.ScreenshotUploadClient uploadClient;
     /**
      * 元器知识库配置（流式返回）
      * 
@@ -364,6 +362,8 @@ public class YuanQiKnowledgeController extends StreamTaskHelper {
                         .setState(WaitForSelectorState.VISIBLE) // 等待按钮可见
                         .setTimeout(300000)); // 自定义超时时间：300s
 
+                page.waitForTimeout(5000);
+                task.sendLog("输入知识库名称");
                 inputBox.fill(knowledgeBaseName);
                 page.waitForTimeout(5000);
 
@@ -379,7 +379,13 @@ public class YuanQiKnowledgeController extends StreamTaskHelper {
                 task.sendLog("开始关联智能体: " + agentName);
                 // 跳转到智能体界面
                 task.sendLog("正在跳转到智能体界面...");
-                Locator YuanQiButton = page.getByText("我的智能体", new Page.GetByTextOptions().setExact(true)).first();
+                Locator YuanQiButton;
+                if (teamName.equals("个人空间")){
+                    YuanQiButton = page.getByText("我的智能体", new Page.GetByTextOptions().setExact(true)).first();
+                }else{
+                    YuanQiButton = page.getByText("团队智能体", new Page.GetByTextOptions().setExact(true)).first();
+
+                }
                 YuanQiButton.click();
                 // 等待2秒，确保页面跳转/渲染完成
                 page.waitForTimeout(2000);
