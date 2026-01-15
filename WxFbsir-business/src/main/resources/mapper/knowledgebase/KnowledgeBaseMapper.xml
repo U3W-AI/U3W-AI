@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.knowledgebase.mapper.KnowledgeBaseMapper">
+    
+    <resultMap type="com.wx.fbsir.business.knowledgebase.domain.KnowledgeBaseInfo" id="KnowledgeBaseResult">
+        <id     property="kbId"            column="kb_id"            />
+        <result property="kbName"           column="kb_name"         />
+        <result property="kbContent"        column="kb_content"      />
+        <result property="isPublicTemplate" column="is_public_template" />
+    </resultMap>
+
+    <sql id="selectKnowledgeBaseVo">
+        select kb_id, kb_name, kb_content, is_public_template
+        from kb_base
+    </sql>
+
+    <select id="selectKnowledgeBaseList" parameterType="com.wx.fbsir.business.knowledgebase.domain.KnowledgeBaseInfo" resultMap="KnowledgeBaseResult">
+        <include refid="selectKnowledgeBaseVo"/>
+        <where>  
+            <if test="kbName != null and kbName != ''"> and kb_name like concat('%', #{kbName}, '%')</if>
+            <if test="isPublicTemplate != null"> and is_public_template = #{isPublicTemplate}</if>
+        </where>
+        order by kb_id desc
+    </select>
+    
+    <select id="selectKnowledgeBaseByKbId" parameterType="long" resultMap="KnowledgeBaseResult">
+        <include refid="selectKnowledgeBaseVo"/>
+        where kb_id = #{kbId}
+    </select>
+
+    <select id="selectPublicTemplateList" resultMap="KnowledgeBaseResult">
+        <include refid="selectKnowledgeBaseVo"/>
+        where is_public_template = 1
+        order by kb_id desc
+    </select>
+
+    <select id="selectKnowledgeBaseByIds" resultMap="KnowledgeBaseResult">
+        <include refid="selectKnowledgeBaseVo"/>
+        where kb_id in
+        <foreach item="kbId" collection="kbIds" open="(" separator="," close=")">
+            #{kbId}
+        </foreach>
+        order by kb_id desc
+    </select>
+        
+    <insert id="insertKnowledgeBase" parameterType="com.wx.fbsir.business.knowledgebase.domain.KnowledgeBaseInfo" useGeneratedKeys="true" keyProperty="kbId">
+        insert into kb_base
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="kbName != null and kbName != ''">kb_name,</if>
+            <if test="kbContent != null">kb_content,</if>
+            <if test="isPublicTemplate != null">is_public_template,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="kbName != null and kbName != ''">#{kbName},</if>
+            <if test="kbContent != null">#{kbContent},</if>
+            <if test="isPublicTemplate != null">#{isPublicTemplate},</if>
+         </trim>
+    </insert>
+
+    <update id="updateKnowledgeBase" parameterType="com.wx.fbsir.business.knowledgebase.domain.KnowledgeBaseInfo">
+        update kb_base
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="kbName != null and kbName != ''">kb_name = #{kbName},</if>
+            <if test="kbContent != null">kb_content = #{kbContent},</if>
+            <if test="isPublicTemplate != null">is_public_template = #{isPublicTemplate},</if>
+        </trim>
+        where kb_id = #{kbId}
+    </update>
+
+    <delete id="deleteKnowledgeBaseByKbId" parameterType="long">
+        delete from kb_base where kb_id = #{kbId}
+    </delete>
+
+    <delete id="deleteKnowledgeBaseByKbIds" parameterType="long">
+        delete from kb_base where kb_id = #{kbId}
+
+    </delete>
+</mapper>

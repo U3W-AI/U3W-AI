@@ -269,7 +269,7 @@ public class YuanQiLoginController extends StreamTaskHelper {
                 // 等待2秒后再次检测
                 page.waitForTimeout(2000);
             }
-            
+
         } catch (Exception e) {
             log.error("[元器扫码登录] 失败 - 用户: {}, 请求: {}", userId, requestId, e);
             task.sendError("扫码登录失败: " + e.getMessage());
@@ -409,7 +409,7 @@ public class YuanQiLoginController extends StreamTaskHelper {
     /**
      * 截图并上传到 Admin 服务器
      */
-    private String captureAndUpload(Page page, String userId, String fileName) {
+    public String captureAndUpload(Page page, String userId, String fileName) {
         try {
             // 截图获取字节数组
             byte[] screenshotBytes = page.screenshot();
@@ -420,14 +420,14 @@ public class YuanQiLoginController extends StreamTaskHelper {
             
             if (result.isSuccess()) {
                 String uploadedUrl = result.getUrl();
-                log.info("[元器截图] 上传成功 - URL: {}", uploadedUrl);
+                log.info("[截图] 上传成功 - URL: {}", uploadedUrl);
                 return uploadedUrl;
             } else {
-                log.error("[元器截图] 上传失败 - 错误: {}", result.getErrorMessage());
+                log.error("[截图] 上传失败 - 错误: {}", result.getErrorMessage());
                 return null;
             }
         } catch (Exception e) {
-            log.error("[元器截图] 截图失败 - 错误: {}", e.getMessage(), e);
+            log.error("[截图] 截图失败 - 错误: {}", e.getMessage(), e);
             return null;
         }
     }
