@@ -205,6 +205,14 @@ data/
 .env.test.local
 .env.production.local
 
+# Runtime configuration files (auto-generated, environment-specific)
+**/engine-runtime.properties
+**/application-runtime.properties
+
+# Frontend environment files (contains sensitive configuration)
+WxFbsir-ui/.env.development
+WxFbsir-ui/.env.production
+
 # Sensitive config files (uncomment if needed)
 # application-prod.yml
 # application-dev.yml

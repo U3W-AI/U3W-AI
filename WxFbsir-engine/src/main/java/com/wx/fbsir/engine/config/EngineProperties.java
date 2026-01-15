@@ -22,21 +22,22 @@ import jakarta.validation.constraints.NotBlank;
 public class EngineProperties {
 
     /**
+     * 主节点 WebSocket 连接地址
+     * 如果未配置，启动时会提示在终端输入
+     */
+    private String wsUrl;
+
+    /**
      * 主机ID（必须向管理员申请）
      * 这是连接白名单验证的唯一凭证
+     * 如果未配置，启动时会提示在终端输入
      */
-    @NotBlank(message = "host-id 不能为空，请向管理员申请主机ID")
     private String hostId;
 
     /**
      * 节点版本
      */
     private String version = "1.0.0";
-
-    /**
-     * 主节点配置
-     */
-    private AdminConfig admin = new AdminConfig();
 
     /**
      * 连接配置
@@ -49,6 +50,14 @@ public class EngineProperties {
     private ReconnectConfig reconnect = new ReconnectConfig();
     
     // ========== Getters and Setters ==========
+    
+    public String getWsUrl() {
+        return wsUrl;
+    }
+    
+    public void setWsUrl(String wsUrl) {
+        this.wsUrl = wsUrl;
+    }
     
     public String getHostId() {
         return hostId;
@@ -66,14 +75,6 @@ public class EngineProperties {
         this.version = version;
     }
     
-    public AdminConfig getAdmin() {
-        return admin;
-    }
-    
-    public void setAdmin(AdminConfig admin) {
-        this.admin = admin;
-    }
-    
     public ConnectionConfig getConnection() {
         return connection;
     }
@@ -88,26 +89,6 @@ public class EngineProperties {
     
     public void setReconnect(ReconnectConfig reconnect) {
         this.reconnect = reconnect;
-    }
-
-    /**
-     * 主节点配置
-     */
-    public static class AdminConfig {
-        
-        /**
-         * 主节点 WebSocket 地址
-         */
-        @NotBlank(message = "主节点 WebSocket 地址不能为空")
-        private String wsUrl = "ws://localhost:8080/ws/engine";
-        
-        public String getWsUrl() {
-            return wsUrl;
-        }
-        
-        public void setWsUrl(String wsUrl) {
-            this.wsUrl = wsUrl;
-        }
     }
 
     /**

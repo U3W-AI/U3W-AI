@@ -23,25 +23,33 @@ spring:
 wxfbsir:
   engine:
     # ========================================
+    # 【重要】主节点连接配置
+    # ========================================
+    # 主节点 WebSocket 连接地址
+    # 格式：ws://域名:端口/ws/engine 或 wss://域名:端口/ws/engine
+    # 示例：
+    #   开发环境：ws://localhost:8080/ws/engine
+    # ⚠️ 注意：/ws/engine 路径不可随意更改，会影响HTTP请求转换
+    # 如果未填写，启动时会提示在终端输入
+    ws-url: ws://localhost:8080/ws/engine
+    
+    # ========================================
     # 【重要】主机ID配置 - 必须向管理员申请获取
     # ========================================
     # 主机ID是连接主节点的唯一凭证，需要：
     # 1. 联系管理员申请主机ID
     # 2. 管理员在主节点数据库白名单表中添加此ID
     # 3. 将申请到的主机ID填写到此处
-    # 注意：一个主机ID只允许一个Engine连接，请勿共享
-    # 使用数据库中存在的白名单ID：engine-dev-001（开发测试）或 engine-prod-001（生产环境）
+    # ⚠️ 注意：
+    #   - 一个主机ID同时只能被一个Engine实例使用
+    #   - 请勿与他人共享主机ID
+    #   - 如果未填写，启动时会提示在终端输入
     host-id: engine-001
     
     # 节点版本（用于版本追踪和兼容性检查）
     # 版本号从 pom.xml 的 engine.version 属性自动注入
     version: @engine.version@
     
-    # 主节点 WebSocket 连接配置
-    admin:
-      # 主节点 WebSocket 地址
-      ws-url: ws://localhost:8080/ws/engine
-      
     # 连接配置
     connection:
       # 连接超时时间（毫秒）
