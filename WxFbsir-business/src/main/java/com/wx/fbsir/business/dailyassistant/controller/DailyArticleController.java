@@ -363,21 +363,23 @@ public class DailyArticleController extends BaseController
 
     /**
      * 投递文章到微信公众号草稿箱
-     * TODO: 需要集成微信公众号服务后才能使用此功能
+     * 
+     * 注意：此接口已废弃，请使用新的公众号投递接口：
+     * POST /officialaccount/publish/{articleId}/{contentType}
      * 
      * @param params 请求参数（articleId, contentType, layoutedContent）
      * @return 投递结果
+     * @deprecated 请使用 WcOfficeAccountController.publishToWechat 接口
      */
+    @Deprecated
     @PreAuthorize("@ss.hasPermi('business:daily:publish')")
     @Log(title = "日更助手-投递公众号", businessType = BusinessType.OTHER)
     @PostMapping("/publishToWechat")
     public AjaxResult publishToWechat(@RequestBody Map<String, Object> params)
     {
-        // TODO: 此功能需要集成微信公众号服务
-        // 暂时返回提示信息
-        return error("微信公众号投递功能暂未集成，请在业务模块中添加微信服务依赖后使用");
+        return error("此接口已废弃，请使用新的公众号投递接口：POST /officialaccount/publish/{articleId}/{contentType}");
         
-        /* 原实现代码（需要WechatMpService和UserInfoMapper）：
+        /* 旧实现代码（已废弃）：
         try {
             Long articleId = Long.parseLong(params.get("articleId").toString());
             String contentType = params.get("contentType").toString();

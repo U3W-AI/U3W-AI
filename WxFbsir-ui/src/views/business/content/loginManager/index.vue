@@ -80,7 +80,8 @@
     <el-dialog 
       v-model="loginDialogVisible" 
       :title="`${currentServiceName}扫码登录`" 
-      width="700px" 
+      width="80%" 
+      :max-width="1000"
       center
       :close-on-click-modal="false"
     >
@@ -90,7 +91,7 @@
           <p style="margin-top: 20px; font-size: 16px; color: #666;">{{ loginStatusText }}</p>
         </div>
         <div v-if="qrCodeUrl" class="qrcode-container" style="text-align: center;">
-          <img :src="qrCodeUrl" alt="登录二维码" class="qrcode-image" style="width: 450px; height: 450px; display: block; margin: 0 auto; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.1);" />
+          <img :src="qrCodeUrl" alt="登录二维码" class="qrcode-image" style="width: 100%; max-width: 600px; height: auto; aspect-ratio: 1; display: block; margin: 0 auto; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.1);" />
           <p style="text-align: center; margin-top: 30px; font-size: 16px; color: #666;">请使用微信扫码登录{{ currentServiceName }}</p>
         </div>
       </div>
@@ -463,8 +464,6 @@ onUnmounted(() => {
 <style lang="scss" scoped>
 .login-manager {
   padding: 20px;
-  background: #f0f2f5;
-  min-height: 100vh;
 
   .header-card {
     margin-bottom: 20px;
@@ -633,8 +632,10 @@ onUnmounted(() => {
 
     .qrcode-container {
       .qrcode-image {
-        width: 240px;
-        height: 240px;
+        width: 100%;
+        max-width: 600px;
+        height: auto;
+        aspect-ratio: 1;
         margin: 0 auto 16px;
         display: block;
         border: 1px solid #e4e7ed;

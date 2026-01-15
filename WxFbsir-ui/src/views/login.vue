@@ -1,6 +1,9 @@
 <template>
   <div class="login">
     <el-form ref="loginRef" :model="loginForm" :rules="loginRules" class="login-form">
+      <div class="login-logo">
+        <img src="@/assets/logo/logo.png" alt="福帮手AI主机" class="logo-img" />
+      </div>
       <h3 class="title">{{ title }}</h3>
       <div class="field-block">
         <label class="field-label">账号</label>
@@ -445,13 +448,41 @@ lastUsedProvider.value = localStorage.getItem("lastLoginProvider") || ""
   align-items: center;
   height: 100%;
   background-color: #f2f4f8;
-  background-image: radial-gradient(circle at 20% 20%, #ffffff 0%, #f2f4f8 45%, #e9edf5 100%);
+  background-image: url('@/assets/images/login-background.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  position: relative;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.3);
+    z-index: 0;
+  }
 }
+.login-logo {
+  text-align: center;
+  margin-bottom: 20px;
+  z-index: 1;
+  position: relative;
+  .logo-img {
+    width: 120px;
+    height: auto;
+  }
+}
+
 .title {
   margin: 0px auto 16px auto;
   text-align: center;
   color: #2b2b2b;
   font-weight: 600;
+  z-index: 1;
+  position: relative;
 }
 
 .login-form {
@@ -460,6 +491,7 @@ lastUsedProvider.value = localStorage.getItem("lastLoginProvider") || ""
   width: 360px;
   padding: 22px 22px 16px 22px;
   z-index: 1;
+  position: relative;
   border: 1px solid #e7e9ef;
   box-shadow: 0 18px 50px rgba(18, 28, 45, 0.12);
   .el-input {
@@ -613,6 +645,7 @@ lastUsedProvider.value = localStorage.getItem("lastLoginProvider") || ""
   font-family: Arial;
   font-size: 12px;
   letter-spacing: 1px;
+  z-index: 1;
 }
 .login-code-img {
   height: 40px;

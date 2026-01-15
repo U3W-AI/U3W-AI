@@ -71,8 +71,7 @@ create table sys_user (
 -- ----------------------------
 -- 初始化-用户信息表数据
 -- ----------------------------
-insert into sys_user values(1,  103, 'admin', '管理员', '00', '', '', '0', '', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '0', '0', '127.0.0.1', sysdate(), sysdate(), 'admin', sysdate(), '', null, '超级管理员',0);
-
+insert into sys_user values(1,  103, 'admin', '管理员', '00', '', '', '0', '', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '0', '0', '127.0.0.1', sysdate(), sysdate(), 'admin', sysdate(), '', null, '超级管理员', 0, null);
 
 -- ----------------------------
 -- 3、岗位信息表
@@ -589,6 +588,7 @@ insert into sys_role_menu values ('3', '118');  -- 日更助手
 insert into sys_role_menu values ('3', '119');  -- 发布记录
 insert into sys_role_menu values ('3', '129');  -- AI助手
 insert into sys_role_menu values ('3', '130');  -- 草稿库
+insert into sys_role_menu values ('3', '131');  -- 登录管理器
 insert into sys_role_menu values ('3', '132');  -- 文档解析助手
 -- 二级菜单-系统管理
 insert into sys_role_menu values ('3', '100');  -- 用户管理
@@ -677,6 +677,7 @@ insert into sys_role_menu values ('10', '118');   -- 日更助手菜单
 insert into sys_role_menu values ('10', '119');   -- 发布记录菜单
 insert into sys_role_menu values ('10', '129');   -- AI助手菜单
 insert into sys_role_menu values ('10', '130');   -- 草稿库菜单
+insert into sys_role_menu values ('10', '131');   -- 登录管理器菜单
 insert into sys_role_menu values ('10', '132');   -- 文档解析助手菜单
 insert into sys_role_menu values ('10', '1061'); -- 日更助手-文章查询
 insert into sys_role_menu values ('10', '1062'); -- 日更助手-文章新增

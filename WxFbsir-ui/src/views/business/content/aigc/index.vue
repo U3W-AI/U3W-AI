@@ -1439,8 +1439,6 @@ export default {
 
 <style lang="scss" scoped>
 .ai-management-platform {
-  background-color: #f0f2f5;
-  min-height: 100vh;
   padding: 0;
 }
 
