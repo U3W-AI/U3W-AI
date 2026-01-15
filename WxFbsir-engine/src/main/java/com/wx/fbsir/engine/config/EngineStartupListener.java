@@ -50,7 +50,7 @@ public class EngineStartupListener implements ApplicationListener<ApplicationSta
         log.info("│  版本: {}", padRight(engineProperties.getVersion(), 35) + "│");
         log.info("│  能力数: {}", padRight(String.valueOf(capCount), 33) + "│");
         log.info("│  浏览器: Chromium {}", padRight(browserVersion, 22) + "│");
-        log.info("│  主节点: {}", padRight(truncate(engineProperties.getAdmin().getWsUrl(), 32), 33) + "│");
+        log.info("│  主节点: {}", padRight(truncate(engineProperties.getWsUrl(), 32), 33) + "│");
         log.info("└─────────────────────────────────────────────┘");
     }
 

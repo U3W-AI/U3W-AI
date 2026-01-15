@@ -268,7 +268,7 @@ public class EngineWebSocketClient extends WebSocketClient {
                 "主节点连接数已达上限，无法接受新连接\n" +
                 "1. 请稍后再试\n" +
                 "2. 如果持续出现，请联系管理员扩容\n" +
-                "3. 主节点地址: " + properties.getAdmin().getWsUrl());
+                "3. 主节点地址: " + properties.getWsUrl());
             return;
         }
         
@@ -279,7 +279,7 @@ public class EngineWebSocketClient extends WebSocketClient {
                 "您的IP地址已被加入黑名单，无法连接主节点\n" +
                 "1. 请联系管理员解除黑名单\n" +
                 "2. 您的IP: " + getLocalIpForLog() + "\n" +
-                "3. 主节点地址: " + properties.getAdmin().getWsUrl());
+                "3. 主节点地址: " + properties.getWsUrl());
             return;
         }
         
@@ -302,7 +302,7 @@ public class EngineWebSocketClient extends WebSocketClient {
                 "1. HTTP状态码: " + httpStatusCode + "\n" +
                 "2. 请检查主机ID是否正确配置\n" +
                 "3. 请联系管理员检查您的IP: " + getLocalIpForLog() + "\n" +
-                "4. 主节点地址: " + properties.getAdmin().getWsUrl());
+                "4. 主节点地址: " + properties.getWsUrl());
             return;
         }
         
@@ -325,7 +325,7 @@ public class EngineWebSocketClient extends WebSocketClient {
                     "已尝试重连5分钟，仍无法连接主节点\n" +
                     "1. 检查主节点是否已启动\n" +
                     "2. 检查网络连接是否正常\n" +
-                    "3. 检查主节点地址配置: " + properties.getAdmin().getWsUrl());
+                    "3. 检查主节点地址配置: " + properties.getWsUrl());
                 return;
             }
             
@@ -351,7 +351,7 @@ public class EngineWebSocketClient extends WebSocketClient {
                     "尝试连接5分钟，仍无法连接主节点\n" +
                     "1. 检查主节点是否已启动\n" +
                     "2. 检查网络连接是否正常\n" +
-                    "3. 检查主节点地址配置: " + properties.getAdmin().getWsUrl() + "\n" +
+                    "3. 检查主节点地址配置: " + properties.getWsUrl() + "\n" +
                     "4. 状态码: " + code + (httpStatusCode > 0 ? ", HTTP: " + httpStatusCode : ""));
                 return;
             }

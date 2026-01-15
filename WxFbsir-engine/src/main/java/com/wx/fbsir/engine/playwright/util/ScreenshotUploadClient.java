@@ -46,9 +46,8 @@ public class ScreenshotUploadClient {
     @PostConstruct
     public void init() {
         // 从WebSocket URL推导HTTP URL，保留路径前缀
-        String wsUrl = properties.getAdmin().getWsUrl();
-        // ws://localhost:8080/ws/engine -> http://localhost:8080
-        // wss://wx.fbsir.com/fbsir/ws/engine -> https://wx.fbsir.com/fbsir
+        String wsUrl = properties.getWsUrl();
+
         
         String protocol;
         String urlWithoutProtocol;

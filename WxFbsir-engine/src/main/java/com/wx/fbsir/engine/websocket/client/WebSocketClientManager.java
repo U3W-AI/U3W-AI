@@ -98,7 +98,7 @@ public class WebSocketClientManager {
             return;
         }
 
-        String wsUrl = properties.getAdmin().getWsUrl();
+        String wsUrl = properties.getWsUrl();
         log.info("[ClientManager] 开始连接主节点 - 地址: {}", wsUrl);
 
         try {
