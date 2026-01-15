@@ -122,6 +122,8 @@ mini.project.json
 .temp/
 .rn_temp/
 dist/
+wxfbsir/
+
 
 # React Native
 .expo/

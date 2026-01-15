@@ -277,8 +277,6 @@ onMounted(() => {
 <style lang="scss" scoped>
 .drafts-container {
   padding: 20px;
-  background-color: #f5f7fa;
-  min-height: calc(100vh - 84px);
 }
 
 .dialog-list {

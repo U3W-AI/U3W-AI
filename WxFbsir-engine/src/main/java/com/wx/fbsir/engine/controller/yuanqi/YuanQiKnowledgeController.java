@@ -208,16 +208,17 @@ public class YuanQiKnowledgeController extends StreamTaskHelper {
                 return;
             }
 
-            //扫码登陆
-            Page page_login = loginUtil.scanLogin(page,task,log,userId,requestId);
-            if (page_login == null) {
-                task.sendError("扫码登陆失败");
-                return;
-            }else{
-                page = page_login;
-            }
+            // TODO: 扫码登录功能已移除，需要重新实现或使用其他登录方式
+            // //扫码登陆
+            // Page page_login = loginUtil.scanLogin(page,task,log,userId,requestId);
+            // if (page_login == null) {
+            //     task.sendError("扫码登陆失败");
+            //     return;
+            // }else{
+            //     page = page_login;
+            // }
 
-            task.sendLog("登录完成，开始配置知识库...");
+            task.sendLog("跳过登录检查，开始配置知识库...");
             
             // 步骤3: 进入知识库页面
             try {

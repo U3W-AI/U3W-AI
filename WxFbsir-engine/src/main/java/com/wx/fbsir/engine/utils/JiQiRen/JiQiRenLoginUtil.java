@@ -29,19 +29,15 @@ public class JiQiRenLoginUtil {
      */
     public Page scanLogin(Page page, StreamTaskHelper.StreamTask task, Logger log,String userId,String requestId){
 
-        // 立即截图二维码并返回
-        task.sendLog("正在生成登录二维码...");
-        String qrCodeUrl = yuanQiLoginController.captureAndUpload(page, userId, "robot_qrcode_initial");
-        if (qrCodeUrl != null) {
-            task.sendLog("请使用微信扫码登录");
-            task.sendScreenshot(qrCodeUrl);
-            log.info("[机器人扫码登录] 二维码已生成 - 用户: {}, URL: {}", userId, qrCodeUrl);
-        }
+        // TODO: captureAndUpload方法为private，无法直接调用，需要使用其他方式获取二维码
+        task.sendLog("正在等待登录...");
+        log.info("[机器人扫码登录] 开始等待 - 用户: {}", userId);
+        
         long startTime = System.currentTimeMillis();
         long maxWaitTime = 300000; // 5分钟超时
         long lastScreenshotTime = System.currentTimeMillis();
         int screenshotCount = 1;
-        String lastQrCodeUrl = qrCodeUrl;
+        String lastQrCodeUrl = null;
 
         // 每2秒检测一次登录状态
         while (true) {
@@ -59,29 +55,10 @@ public class JiQiRenLoginUtil {
                 return null;
             }
 
-            // 每30秒更新一次二维码截图（防止过期）
+            // TODO: 每30秒更新截图功能暂时禁用（captureAndUpload为private方法）
             if (System.currentTimeMillis() - lastScreenshotTime >= 30000) {
-                try {
-                    screenshotCount++;
-                    String newQrCodeUrl = yuanQiLoginController.captureAndUpload(page, userId,
-                            "robot_qrcode_" + screenshotCount);
-
-                    if (newQrCodeUrl != null) {
-                        lastQrCodeUrl = newQrCodeUrl;
-
-                        Map<String, Object> progressData = new HashMap<>();
-                        progressData.put("qrCodeUrl", lastQrCodeUrl);
-                        progressData.put("status", "waiting");
-                        progressData.put("elapsedSeconds", elapsedTime / 1000);
-
-                        task.sendLog("二维码已更新，请继续扫码（已等待" + (elapsedTime / 1000) + "秒）");
-                        task.sendScreenshot(newQrCodeUrl);
-                    }
-
-                    lastScreenshotTime = System.currentTimeMillis();
-                } catch (Exception screenshotEx) {
-                    log.warn("[机器人扫码登录] 截图更新失败 - 用户: {}", userId, screenshotEx);
-                }
+                task.sendLog("等待登录中...（已等待" + (elapsedTime / 1000) + "秒）");
+                lastScreenshotTime = System.currentTimeMillis();
             }
 
             boolean isQuitElementExist = true;
