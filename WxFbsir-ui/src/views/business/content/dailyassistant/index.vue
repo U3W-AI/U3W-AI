@@ -1055,7 +1055,7 @@ const handlePublishToWechat = async (contentType) => {
 // 加载配置状态
 const loadMyConfig = async () => {
   try {
-    const response = await getMyConfig()
+    const response = await getMyConfig('daily_assistant')
     if (response.code === 200 && response.data) {
       // 检查是否已配置
       agentConfigured.value = !!(response.data.agentId && response.data.apiKey)
@@ -1071,7 +1071,7 @@ const loadMyConfig = async () => {
 // 显示配置对话框
 const showConfigDialog = async () => {
   try {
-    const response = await getMyConfig()
+    const response = await getMyConfig('daily_assistant')
     if (response.code === 200 && response.data) {
       const config = { ...response.data }
       
@@ -1114,7 +1114,8 @@ const handleSaveConfig = async () => {
     
     // 准备保存的数据
     const configData = {
-      ...configForm.value
+      ...configForm.value,
+      businessType: 'daily_assistant'  // 指定业务类型为日更助手
     }
     
     // 如果用户没有修改加密字段（输入框为空且原来已加密），传递加密标记
@@ -1360,7 +1361,7 @@ onMounted(async () => {
   
   // 检查是否有配置（非阻塞，失败不影响功能使用）
   try {
-    const response = await getMyConfig()
+    const response = await getMyConfig('daily_assistant')
     if (!response.data) {
       // 如果没有配置，显示提示
       setTimeout(() => {

@@ -41,12 +41,14 @@ public class YuanqiAgentConfigController extends BaseController
 
     /**
      * 获取当前用户的启用配置
+     * 
+     * @param businessType 业务类型（可选，默认为daily_assistant）
      */
     @GetMapping("/myConfig")
-    public AjaxResult myConfig()
+    public AjaxResult myConfig(@RequestParam(value = "businessType", defaultValue = "daily_assistant") String businessType)
     {
         Long userId = getUserId();
-        YuanqiAgentConfig config = yuanqiAgentConfigService.selectActiveConfigByUserId(userId);
+        YuanqiAgentConfig config = yuanqiAgentConfigService.selectActiveConfigByUserId(userId, businessType);
         return success(config);
     }
 

@@ -30,12 +30,14 @@ public interface YuanqiAgentConfigMapper
     public List<YuanqiAgentConfig> selectYuanqiAgentConfigList(YuanqiAgentConfig yuanqiAgentConfig);
 
     /**
-     * 根据用户ID查询启用的配置
+     * 根据用户ID和业务类型查询启用的配置
      *
      * @param userId 用户ID
+     * @param businessType 业务类型
      * @return 腾讯元器智能体配置
      */
-    public YuanqiAgentConfig selectActiveConfigByUserId(Long userId);
+    public YuanqiAgentConfig selectActiveConfigByUserId(@org.apache.ibatis.annotations.Param("userId") Long userId, 
+                                                         @org.apache.ibatis.annotations.Param("businessType") String businessType);
 
     /**
      * 新增腾讯元器智能体配置

@@ -168,7 +168,7 @@ public class DailyArticleServiceImpl implements IDailyArticleService
         
         try {
             // 获取用户的腾讯元器智能体配置（解密后的真实配置）
-            YuanqiAgentConfig config = yuanqiAgentConfigService.selectActiveConfigByUserIdDecrypted(userId);
+            YuanqiAgentConfig config = yuanqiAgentConfigService.selectActiveConfigByUserIdDecrypted(userId, "daily_assistant");
             
             if (config == null) {
                 log.error("[异步任务] 未找到智能体配置 - 文章ID: {}", articleId);
@@ -339,7 +339,7 @@ public class DailyArticleServiceImpl implements IDailyArticleService
     public String layoutArticleSync(Long userId, String content)
     {
         // 1. 获取用户的腾讯元器配置（解密后的真实配置）
-        YuanqiAgentConfig config = yuanqiAgentConfigService.selectActiveConfigByUserIdDecrypted(userId);
+        YuanqiAgentConfig config = yuanqiAgentConfigService.selectActiveConfigByUserIdDecrypted(userId, "daily_assistant");
         
         if (config == null) {
             log.error("未找到启用的腾讯元器智能体配置 - userId: {}", userId);
