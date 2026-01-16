@@ -90,6 +90,39 @@ export const ENGINE_CONFIGS = reactive([
 
     // 排序权重（数字越小越靠前）
     order: 1
+  },
+
+  // =========================================================================
+  // 元器配置（其他服务）
+  // =========================================================================
+  {
+    id: 'yuanqi',
+    displayName: '元器',
+    description: '腾讯元器平台，支持工作流编辑、调试和发布',
+    type: SERVICE_TYPE.OTHER,      // 服务类型
+
+    // 图标配置（使用Element Plus图标）
+    icon: {
+      type: 'element',              // 'element' | 'url' | 'local'
+      value: 'Connection',          // Element Plus图标名称
+    },
+
+    // 消息类型配置
+    messageTypes: {
+      checkLogin: 'YUANQI_CHECK_LOGIN',     // 登录状态检测
+      scanLogin: 'YUANQI_SCAN_LOGIN',       // 扫码登录
+    },
+
+    // 默认状态
+    enabled: true,              // 是否默认启用
+    loggedIn: false,            // 是否已登录（动态更新）
+    requireLogin: true,         // 是否需要登录才能使用
+
+    // 选项配置（无额外选项）
+    options: [],
+
+    // 排序权重（数字越小越靠前）
+    order: 2
   }
 
   // =========================================================================
