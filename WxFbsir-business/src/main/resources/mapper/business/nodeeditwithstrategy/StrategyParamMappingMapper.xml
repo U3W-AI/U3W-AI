@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.nodeeditwithstrategy.mapper.StrategyParamMappingMapper">
+
+    <resultMap id="StrategyParamMappingResult" type="com.wx.fbsir.business.nodeeditwithstrategy.domain.StrategyParamMapping">
+        <id    property="id"            column="id"/>
+        <result property="strategyName" column="strategy_name"/>
+        <result property="modelName"    column="model_name"/>
+        <result property="temperature"  column="temperature"/>
+        <result property="topP"         column="top_p"/>
+        <result property="maxTokens"    column="max_tokens"/>
+        <result property="prompt"       column="prompt"/>
+        <result property="createTime"   column="created_at"/>
+        <result property="updateTime"   column="updated_at"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, strategy_name, model_name, temperature, top_p, max_tokens, prompt, created_at, updated_at
+    </sql>
+
+    <select id="selectById" resultMap="StrategyParamMappingResult">
+        SELECT <include refid="Base_Column_List"/> FROM strategy_param_mapping WHERE id = #{id}
+    </select>
+
+    <select id="selectByStrategyName" resultMap="StrategyParamMappingResult">
+        SELECT <include refid="Base_Column_List"/> FROM strategy_param_mapping WHERE strategy_name = #{strategyName}
+    </select>
+
+    <select id="selectList" resultMap="StrategyParamMappingResult">
+        SELECT <include refid="Base_Column_List"/> FROM strategy_param_mapping
+        <where>
+            <if test="strategyName != null and strategyName != ''">
+                AND strategy_name LIKE concat('%', #{strategyName}, '%')
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <insert id="insert" parameterType="com.wx.fbsir.business.nodeeditwithstrategy.domain.StrategyParamMapping" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO strategy_param_mapping (strategy_name, model_name, temperature, top_p, max_tokens, prompt, created_at, updated_at)
+        VALUES (#{strategyName}, #{modelName}, #{temperature}, #{topP}, #{maxTokens}, #{prompt}, now(), now())
+    </insert>
+
+    <update id="update" parameterType="com.wx.fbsir.business.nodeeditwithstrategy.domain.StrategyParamMapping">
+        UPDATE strategy_param_mapping
+        <set>
+            <if test="strategyName != null">strategy_name = #{strategyName},</if>
+            <if test="modelName != null">model_name = #{modelName},</if>
+            <if test="temperature != null">temperature = #{temperature},</if>
+            <if test="topP != null">top_p = #{topP},</if>
+            <if test="maxTokens != null">max_tokens = #{maxTokens},</if>
+            <if test="prompt != null">prompt = #{prompt},</if>
+            updated_at = now()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteByIds">
+        DELETE FROM strategy_param_mapping WHERE id IN
+        <foreach collection="array" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>
+
