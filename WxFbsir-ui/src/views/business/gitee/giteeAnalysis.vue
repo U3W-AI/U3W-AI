@@ -614,7 +614,7 @@ async function handleAiEvaluate() {
 
 const loadMyConfig = async () => {
   try {
-    const response = await getMyConfig()
+    const response = await getMyConfig('gitee_analysis')
     if (response.code === 200 && response.data) {
       agentConfigured.value = !!(response.data.agentId && response.data.apiKey)
     } else {
@@ -627,7 +627,7 @@ const loadMyConfig = async () => {
 
 const showConfigDialog = async () => {
   try {
-    const response = await getMyConfig()
+    const response = await getMyConfig('gitee_analysis')
     if (response.code === 200 && response.data) {
       const config = { ...response.data }
       if (!config.apiEndpoint) {
@@ -657,7 +657,10 @@ const handleSaveConfig = async () => {
   try {
     await configFormRef.value.validate()
     ElMessage.info('正在保存配置，请稍候...')
-    const configData = { ...configForm.value }
+    const configData = {
+      ...configForm.value,
+      businessType: 'gitee_analysis'  // 指定业务类型为Gitee分析
+    }
     if (!configData.agentId && isAgentIdEncrypted.value) {
       configData.agentId = MASKED_VALUE
     }

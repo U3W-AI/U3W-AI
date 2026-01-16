@@ -80,7 +80,7 @@ public class GiteeAnalysisService {
         JsonNode notifications = fetchNotifications(token);
 
         Map<String, Object> summary = buildSummary(profile, repos, issues, notifications);
-        YuanqiAgentConfig config = yuanqiAgentConfigService.selectActiveConfigByUserIdDecrypted(userId);
+        YuanqiAgentConfig config = yuanqiAgentConfigService.selectActiveConfigByUserIdDecrypted(userId, "gitee_analysis");
         if (config == null) {
             throw new RuntimeException("未找到启用的腾讯元器智能体配置，请先配置智能体");
         }

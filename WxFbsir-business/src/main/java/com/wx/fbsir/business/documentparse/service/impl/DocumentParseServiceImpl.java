@@ -173,7 +173,7 @@ public class DocumentParseServiceImpl implements IDocumentParseService
         
         try {
             // 获取用户的腾讯元器智能体配置（解密后的真实配置）
-            YuanqiAgentConfig config = yuanqiAgentConfigService.selectActiveConfigByUserIdDecrypted(userId);
+            YuanqiAgentConfig config = yuanqiAgentConfigService.selectActiveConfigByUserIdDecrypted(userId, "document_parse");
             
             if (config == null) {
                 log.error("[异步任务] 未找到智能体配置 - 记录ID: {}", documentParseId);

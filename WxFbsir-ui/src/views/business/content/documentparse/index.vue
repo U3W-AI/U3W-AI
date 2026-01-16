@@ -695,7 +695,7 @@ const copyContent = (content) => {
 // 加载配置状态
 const loadMyConfig = async () => {
   try {
-    const response = await getMyConfig()
+    const response = await getMyConfig('document_parse')
     if (response.code === 200 && response.data) {
       agentConfigured.value = !!(response.data.agentId && response.data.apiKey)
     } else {
@@ -710,7 +710,7 @@ const loadMyConfig = async () => {
 // 显示配置对话框
 const showConfigDialog = async () => {
   try {
-    const response = await getMyConfig()
+    const response = await getMyConfig('document_parse')
     if (response.code === 200 && response.data) {
       const config = { ...response.data }
 
@@ -748,7 +748,8 @@ const handleSaveConfig = async () => {
     ElMessage.info('正在保存配置，请稍候...')
 
     const configData = {
-      ...configForm.value
+      ...configForm.value,
+      businessType: 'document_parse'  // 指定业务类型为文档解析
     }
 
     if (!configData.agentId && isAgentIdEncrypted.value) {
@@ -839,7 +840,7 @@ onMounted(async () => {
 
   // 检查是否有配置
   try {
-    const response = await getMyConfig()
+    const response = await getMyConfig('document_parse')
     if (!response.data) {
       setTimeout(() => {
         ElMessageBox.confirm(

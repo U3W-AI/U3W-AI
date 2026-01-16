@@ -24,6 +24,12 @@ public class YuanqiAgentConfig extends BaseEntity
     @Excel(name = "用户ID")
     private Long userId;
 
+    /** 业务类型：daily_assistant-日更助手, document_parse-文档解析 */
+    @Excel(name = "业务类型")
+    @NotBlank(message = "业务类型不能为空")
+    @Size(min = 0, max = 50, message = "业务类型长度不能超过50个字符")
+    private String businessType;
+
     /** 腾讯元器智能体ID（appid，从智能体配置-应用发布-体验链接中获取） */
     @Excel(name = "智能体ID")
     @NotBlank(message = "智能体ID不能为空")
@@ -70,6 +76,16 @@ public class YuanqiAgentConfig extends BaseEntity
     public Long getUserId()
     {
         return userId;
+    }
+
+    public void setBusinessType(String businessType)
+    {
+        this.businessType = businessType;
+    }
+
+    public String getBusinessType()
+    {
+        return businessType;
     }
 
     public void setAgentId(String agentId)
@@ -137,6 +153,7 @@ public class YuanqiAgentConfig extends BaseEntity
         return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
             .append("id", getId())
             .append("userId", getUserId())
+            .append("businessType", getBusinessType())
             .append("agentId", getAgentId())
             .append("agentName", getAgentName())
             .append("apiKey", getApiKey())

@@ -1,7 +1,9 @@
 -- ----------------------------
--- 节点编辑管理和策略管理菜单初始化
+-- 节点编辑管理和策略管理菜单初始化    
 -- 用于在主机管理目录下添加"工作流节点编辑"和"策略管理"菜单
 -- 同时创建策略参数映射表并初始化数据
+-- 
+-- ⚠️ 功能状态：内测功能（暂不可用，不考虑执行）
 -- 
 -- 执行说明：
 -- 1. 在数据库中执行此SQL脚本
@@ -33,15 +35,15 @@ CREATE TABLE IF NOT EXISTS strategy_param_mapping (
 
 -- 1. 添加工作流节点编辑菜单（parent_id=7 表示属于主机管理目录）
 INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query, route_name, is_frame, is_cache, menu_type, visible, status, perms, icon, create_by, create_time, update_by, update_time, remark)
-VALUES (133, '工作流节点编辑', 7, 5, 'apps', 'business/host/apps/index', '', '', 1, 0, 'C', '0', '0', 'business:host:apps:view', 'component', 'admin', NOW(), '', NULL, '工作流节点编辑工具，支持编辑和发布元器工作流节点')
+VALUES (133, '工作流节点编辑', 7, 5, 'apps', 'business/content/NodeEditWithStrategy/index', '', '', 1, 0, 'C', '0', '0', 'business:host:apps:view', 'component', 'admin', NOW(), '', NULL, '工作流节点编辑工具，支持编辑和发布元器工作流节点（内测功能）')
 ON DUPLICATE KEY UPDATE 
   menu_name = '工作流节点编辑',
   parent_id = 7,
   order_num = 5,
   path = 'apps',
-  component = 'business/host/apps/index',
+  component = 'business/content/NodeEditWithStrategy/index',
   icon = 'component',
-  remark = '工作流节点编辑工具，支持编辑和发布元器工作流节点';
+  remark = '工作流节点编辑工具，支持编辑和发布元器工作流节点（内测功能）';
 
 -- 为工作流节点编辑菜单添加图标（如果还没有图标）
 UPDATE sys_menu SET icon = 'component' WHERE menu_id = 133 AND (icon IS NULL OR icon = '' OR icon = '#');
@@ -53,15 +55,15 @@ ON DUPLICATE KEY UPDATE menu_name = '工作流节点编辑查看';
 
 -- 3. 添加策略管理菜单（parent_id=7 表示属于主机管理目录）
 INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query, route_name, is_frame, is_cache, menu_type, visible, status, perms, icon, create_by, create_time, update_by, update_time, remark)
-VALUES (134, '策略管理', 7, 6, 'strategy', 'business/host/apps/strategy', '', '', 1, 0, 'C', '0', '0', 'system:strategy:view', 'build', 'admin', NOW(), '', NULL, '策略参数映射管理，支持成本优先、质量优先、最大回复Token等策略配置')
+VALUES (134, '策略管理', 7, 6, 'strategy', 'business/content/NodeEditWithStrategy/strategy', '', '', 1, 0, 'C', '0', '0', 'system:strategy:view', 'build', 'admin', NOW(), '', NULL, '策略参数映射管理，支持成本优先、质量优先、最大回复Token等策略配置（内测功能）')
 ON DUPLICATE KEY UPDATE 
   menu_name = '策略管理',
   parent_id = 7,
   order_num = 6,
   path = 'strategy',
-  component = 'business/host/apps/strategy',
+  component = 'business/content/NodeEditWithStrategy/strategy',
   icon = 'build',
-  remark = '策略参数映射管理，支持成本优先、质量优先、最大回复Token等策略配置';
+  remark = '策略参数映射管理，支持成本优先、质量优先、最大回复Token等策略配置（内测功能）';
 
 -- 4. 添加策略管理按钮权限
 -- 查看

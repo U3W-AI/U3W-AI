@@ -10,10 +10,11 @@ export function listYuanqiConfig(query) {
 }
 
 // 获取当前用户的启用配置
-export function getMyConfig() {
+export function getMyConfig(businessType = 'daily_assistant') {
   return request({
     url: '/system/yuanqi-config/myConfig',
-    method: 'get'
+    method: 'get',
+    params: { businessType }
   })
 }
 

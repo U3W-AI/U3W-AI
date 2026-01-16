@@ -78,15 +78,16 @@ public class YuanqiAgentConfigServiceImpl implements IYuanqiAgentConfigService
     }
 
     /**
-     * 根据用户ID查询启用的配置（返回脱敏数据）
+     * 根据用户ID和业务类型查询启用的配置（返回脱敏数据）
      *
      * @param userId 用户ID
+     * @param businessType 业务类型
      * @return 腾讯元器智能体配置（敏感字段已脱敏）
      */
     @Override
-    public YuanqiAgentConfig selectActiveConfigByUserId(Long userId)
+    public YuanqiAgentConfig selectActiveConfigByUserId(Long userId, String businessType)
     {
-        YuanqiAgentConfig config = yuanqiAgentConfigMapper.selectActiveConfigByUserId(userId);
+        YuanqiAgentConfig config = yuanqiAgentConfigMapper.selectActiveConfigByUserId(userId, businessType);
         if (config != null) {
             // 脱敏处理：不返回真实的agentId和apiKey
             if (StringUtils.hasText(config.getAgentId())) {
@@ -100,16 +101,17 @@ public class YuanqiAgentConfigServiceImpl implements IYuanqiAgentConfigService
     }
 
     /**
-     * 根据用户ID查询启用的配置（返回解密数据，仅供内部业务逻辑使用）
+     * 根据用户ID和业务类型查询启用的配置（返回解密数据，仅供内部业务逻辑使用）
      * 注意：此方法返回真实的敏感信息，不应暴露给前端
      *
      * @param userId 用户ID
+     * @param businessType 业务类型
      * @return 腾讯元器智能体配置（敏感字段已解密）
      */
     @Override
-    public YuanqiAgentConfig selectActiveConfigByUserIdDecrypted(Long userId)
+    public YuanqiAgentConfig selectActiveConfigByUserIdDecrypted(Long userId, String businessType)
     {
-        YuanqiAgentConfig config = yuanqiAgentConfigMapper.selectActiveConfigByUserId(userId);
+        YuanqiAgentConfig config = yuanqiAgentConfigMapper.selectActiveConfigByUserId(userId, businessType);
         if (config != null) {
             // 解密敏感字段
             return decryptSensitiveFields(config);

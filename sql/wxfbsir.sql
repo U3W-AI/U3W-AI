@@ -1076,6 +1076,7 @@ DROP TABLE IF EXISTS `yuanqi_agent_config`;
 CREATE TABLE `yuanqi_agent_config` (
   `id`  bigint(20) NOT NULL AUTO_INCREMENT COMMENT '配置ID',
   `user_id`  bigint(20) NOT NULL COMMENT '用户ID',
+  `business_type`  varchar(50) NOT NULL DEFAULT 'daily_assistant' COMMENT '业务类型：daily_assistant-日更助手, document_parse-文档解析, gitee_analysis-Gitee分析',
   `agent_id`  varchar(200) NOT NULL COMMENT '腾讯元器智能体ID',
   `agent_name`  varchar(100) DEFAULT NULL COMMENT '智能体名称',
   `api_key`  varchar(500) DEFAULT NULL COMMENT 'API密钥（加密存储）',
@@ -1088,7 +1089,7 @@ CREATE TABLE `yuanqi_agent_config` (
   `update_time`  datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `remark`  varchar(500) DEFAULT NULL COMMENT '备注',
   PRIMARY KEY (`id`) USING BTREE,
-  KEY `idx_user_id` (`user_id`) USING BTREE COMMENT '用户ID索引',
+  KEY `idx_user_business` (`user_id`, `business_type`) USING BTREE COMMENT '用户业务类型索引',
   KEY `idx_agent_id` (`agent_id`) USING BTREE COMMENT '智能体ID索引'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='腾讯元器智能体配置表';
 
