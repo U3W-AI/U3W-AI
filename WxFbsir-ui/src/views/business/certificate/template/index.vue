@@ -3,10 +3,10 @@
     <el-form :model="queryParams" ref="queryForm" size="small" :inline="true" v-show="showSearch" label-width="68px">
       <el-form-item label="证书名称" prop="templateName">
         <el-input
-          v-model="queryParams.templateName"
-          placeholder="请输入证书名称"
-          clearable
-          @keyup.enter="handleQuery"
+            v-model="queryParams.templateName"
+            placeholder="请输入证书名称"
+            clearable
+            @keyup.enter="handleQuery"
         />
       </el-form-item>
       <el-form-item>
@@ -18,20 +18,20 @@
     <el-row :gutter="10" class="mb8">
       <el-col :span="1.5">
         <el-button
-          type="primary"
-          plain
-          icon="Plus"
-          @click="handleAdd"
-          v-hasPermi="['business:certificate:template:add']"
+            type="primary"
+            plain
+            icon="Plus"
+            @click="handleAdd"
+            v-hasPermi="['business:certificate:template:add']"
         >新增</el-button>
       </el-col>
       <!-- 添加一个刷新权限的按钮 -->
       <el-col :span="1.5">
         <el-button
-          type="info"
-          plain
-          icon="Refresh"
-          @click="refreshPermissions"
+            type="info"
+            plain
+            icon="Refresh"
+            @click="refreshPermissions"
         >刷新权限</el-button>
       </el-col>
     </el-row>
@@ -42,56 +42,56 @@
       <el-table-column label="证书类型" align="center" prop="certificateType" />
       <el-table-column label="上架状态" align="center" prop="status">
         <template #default="scope">
-          <el-tag 
-            v-if="scope.row.status === '0'" 
-            type="success"
+          <el-tag
+              v-if="scope.row.status === '0'"
+              type="success"
           >已上架</el-tag>
-          <el-tag 
-            v-else 
-            type="info"
+          <el-tag
+              v-else
+              type="info"
           >未上架</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button
-            size="small"
-            type="text"
-            icon="Edit"
-            @click="handleUpdate(scope.row)"
-            v-hasPermi="['business:certificate:template:edit']"
+              size="small"
+              type="text"
+              icon="Edit"
+              @click="handleUpdate(scope.row)"
+              v-hasPermi="['business:certificate:template:edit']"
           >修改</el-button>
           <el-button
-            size="small"
-            type="text"
-            icon="Delete"
-            @click="handleDelete(scope.row)"
-            v-hasPermi="['business:certificate:template:remove']"
+              size="small"
+              type="text"
+              icon="Delete"
+              @click="handleDelete(scope.row)"
+              v-hasPermi="['business:certificate:template:remove']"
           >删除</el-button>
           <el-button
-            size="small"
-            type="text"
-            @click="toggleShelf(scope.row)"
-            v-if="scope.row.status === '0'"
-            v-hasPermi="['business:certificate:template:edit']"
+              size="small"
+              type="text"
+              @click="toggleShelf(scope.row)"
+              v-if="scope.row.status === '0'"
+              v-hasPermi="['business:certificate:template:edit']"
           >下架</el-button>
           <el-button
-            size="small"
-            type="text"
-            @click="toggleShelf(scope.row)"
-            v-else
-            v-hasPermi="['business:certificate:template:edit']"
+              size="small"
+              type="text"
+              @click="toggleShelf(scope.row)"
+              v-else
+              v-hasPermi="['business:certificate:template:edit']"
           >上架</el-button>
         </template>
       </el-table-column>
     </el-table>
 
     <pagination
-      v-show="total>0"
-      :total="total"
-      v-model:page="queryParams.pageNum"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
+        v-show="total>0"
+        :total="total"
+        v-model:page="queryParams.pageNum"
+        v-model:limit="queryParams.pageSize"
+        @pagination="getList"
     />
 
     <!-- 添加或修改证书模板对话框 -->
@@ -123,19 +123,19 @@
               <el-input v-model="form.remark" type="textarea" placeholder="选填，简要说明证书用途，≤200字" maxlength="200" :rows="4" />
             </el-form-item>
           </el-tab-pane>
-          
+
           <el-tab-pane label="证书底版" name="background">
             <el-upload
-              class="certificate-bg-uploader"
-              :action="uploadUrl"
-              :headers="uploadHeaders"
-              :on-success="handleBgUploadSuccess"
-              :on-error="handleBgUploadError"
-              :before-upload="beforeBgUpload"
-              :file-list="bgFileList"
-              :limit="1"
-              accept="image/*"
-              list-type="picture-card"
+                class="certificate-bg-uploader"
+                :action="uploadUrl"
+                :headers="uploadHeaders"
+                :on-success="handleBgUploadSuccess"
+                :on-error="handleBgUploadError"
+                :before-upload="beforeBgUpload"
+                :file-list="bgFileList"
+                :limit="1"
+                accept="image/*"
+                list-type="picture-card"
             >
               <el-icon><Plus /></el-icon>
               <template #tip>
@@ -149,11 +149,11 @@
               <img :src="form.certificateBgImage" alt="证书底版" class="bg-preview-image" />
             </div>
           </el-tab-pane>
-          
+
           <el-tab-pane label="所需材料配置" name="materials">
             <el-button type="primary" @click="addMaterialRow" size="small" style="margin-bottom: 10px;">添加材料行</el-button>
             <el-button @click="removeMaterialRows" size="small" style="margin-bottom: 10px; margin-left: 10px;">批量删除</el-button>
-            
+
             <el-table :data="form.materials" style="width: 100%">
               <el-table-column prop="index" label="序号" width="60">
                 <template #default="scope">{{ scope.$index + 1 }}</template>
@@ -175,11 +175,11 @@
               </el-table-column>
             </el-table>
           </el-tab-pane>
-          
+
           <el-tab-pane label="表单字段配置" name="fields">
             <el-button type="primary" @click="addFieldRow" size="small" style="margin-bottom: 10px;">添加字段行</el-button>
             <el-button @click="removeFieldRows" size="small" style="margin-bottom: 10px; margin-left: 10px;">批量删除</el-button>
-            
+
             <el-table :data="form.fields" style="width: 100%">
               <el-table-column prop="index" label="序号" width="60">
                 <template #default="scope">{{ scope.$index + 1 }}</template>
@@ -223,25 +223,25 @@
         </div>
       </template>
     </el-dialog>
-    
+
     <!-- 可视化字段位置编辑器 -->
     <el-dialog title="可视化字段位置编辑器" v-model="fieldEditorVisible" width="90%" top="5vh" fullscreen>
       <certificate-field-editor
-        :certificateBgImage="form.certificateBgImage"
-        :templateFields="form.fields"
-        :initialFieldPositions="currentFieldPositions"
-        @save="onSaveFieldPositions"
-        @cancel="fieldEditorVisible = false"
+          :certificateBgImage="form.certificateBgImage"
+          :templateFields="form.fields"
+          :initialFieldPositions="currentFieldPositions"
+          @save="onSaveFieldPositions"
+          @cancel="fieldEditorVisible = false"
       />
     </el-dialog>
-    
+
     <!-- 预览证书对话框 -->
     <el-dialog title="预览证书" v-model="previewVisible" width="80%" top="5vh" fullscreen>
       <certificate-preview
-        :certificateBgImage="form.certificateBgImage"
-        :fieldPositions="parsedFieldPositions"
-        :previewWidth="800"
-        :previewHeight="600"
+          :certificateBgImage="form.certificateBgImage"
+          :fieldPositions="parsedFieldPositions"
+          :previewWidth="800"
+          :previewHeight="600"
       />
       <template #footer>
         <div class="dialog-footer">
@@ -249,15 +249,15 @@
         </div>
       </template>
     </el-dialog>
-    
+
     <!-- 积分获取弹窗 -->
     <PointsGetDialog
-      v-model:visible="showPointsGetDialog"
-      :required-points="shelfTemplatePoints"
-      :operation-type="operationType"
-      :application-id="currentApplicationId"
-      @close="closePointsGetDialog"
-      @points-changed="handlePointsChanged" />
+        v-model:visible="showPointsGetDialog"
+        :required-points="shelfTemplatePoints"
+        :operation-type="operationType"
+        :application-id="currentApplicationId"
+        @close="closePointsGetDialog"
+        @points-changed="handlePointsChanged" />
   </div>
 </template>
 
@@ -358,36 +358,36 @@ export default {
     // 检查是否从积分获取页面返回
     this.checkReturnFromPointsPage();
   },
-  
+
   watch: {
     // 监听用户积分变化
     userPoints: {
       handler(newVal) {
         // 如果是从积分获取页面返回且积分已增加，询问是否继续操作
-        if ((this.$route.query.from === 'addTemplate' || 
-             this.$route.query.from === 'shelfTemplate') && 
+        if ((this.$route.query.from === 'addTemplate' ||
+                this.$route.query.from === 'shelfTemplate') &&
             newVal >= this.shelfTemplatePoints) {
           this.continueOperation();
         }
       }
     }
   },
-  
+
   computed: {
     canPreview() {
       // 检查必填字段是否已填写，并且有证书底版和字段位置配置
-      if (!this.form.templateName || 
-          !this.form.certificateType || 
+      if (!this.form.templateName ||
+          !this.form.certificateType ||
           !this.form.certificateBgImage) {
         return false;
       }
-      
+
       // 解析字段位置配置
       try {
-        const positions = typeof this.form.fieldPositions === 'string' 
-          ? JSON.parse(this.form.fieldPositions)
-          : this.form.fieldPositions;
-        
+        const positions = typeof this.form.fieldPositions === 'string'
+            ? JSON.parse(this.form.fieldPositions)
+            : this.form.fieldPositions;
+
         return Array.isArray(positions) && positions.length > 0;
       } catch (e) {
         return false;
@@ -396,10 +396,10 @@ export default {
     parsedFieldPositions() {
       // 解析字段位置配置
       try {
-        const positions = typeof this.form.fieldPositions === 'string' 
-          ? JSON.parse(this.form.fieldPositions)
-          : this.form.fieldPositions;
-        
+        const positions = typeof this.form.fieldPositions === 'string'
+            ? JSON.parse(this.form.fieldPositions)
+            : this.form.fieldPositions;
+
         if (Array.isArray(positions)) {
           return positions;
         }
@@ -410,7 +410,7 @@ export default {
       }
     }
   },
-  
+
   methods: {
     /** 查询证书模板列表 */
     getList() {
@@ -430,7 +430,7 @@ export default {
         this.$modal.msgError("权限刷新失败: " + error.message);
       });
     },
-    
+
     /** 加载用户积分 */
     loadUserPoints() {
       getUserPoints().then(response => {
@@ -441,7 +441,7 @@ export default {
         this.userPoints = 0;
       });
     },
-    
+
     /** 加载上架证书模板所需积分 */
     loadShelfTemplatePoints() {
       // 获取SHELF_CERTIFICATE_TEMPLATE规则的积分值
@@ -457,7 +457,7 @@ export default {
         this.shelfTemplatePoints = 50; // 默认值
       });
     },
-    
+
     // 取消按钮
     cancel() {
       this.open = false;
@@ -467,7 +467,7 @@ export default {
     reset() {
       // 保存当前证书类型，以便在重置后检查是否需要添加固定字段
       const currentCertificateType = this.form.certificateType;
-      
+
       this.form = {
         templateId: null,
         templateName: null,
@@ -483,7 +483,7 @@ export default {
       this.bgFileList = []; // 清空底版文件列表
       this.activeTab = 'basic';
       this.resetForm("form");
-      
+
       // 如果之前的证书类型已选择（非空），则添加对应固定字段
       if (currentCertificateType) {
         this.$nextTick(() => {
@@ -505,24 +505,24 @@ export default {
     /** 检查是否从积分获取页面返回 */
     checkReturnFromPointsPage() {
       // 如果是从积分获取页面返回，检查积分是否足够
-      if (this.$route.query.from && 
+      if (this.$route.query.from &&
           (this.$route.query.from === 'addTemplate' || this.$route.query.from === 'shelfTemplate')) {
         // 清除路由参数，避免重复提示
         const newQuery = { ...this.$route.query };
         delete newQuery.from;
         delete newQuery.templateId;
-        
+
         if (JSON.stringify(newQuery) !== JSON.stringify({})) {
           this.$router.replace({ query: newQuery });
         }
-        
+
         // 检查积分是否已足够执行操作
         if (this.userPoints >= this.shelfTemplatePoints) {
           this.continueOperation();
         }
       }
     },
-    
+
     /** 继续执行原操作 */
     continueOperation() {
       // 询问用户是否继续执行原操作
@@ -544,7 +544,7 @@ export default {
         console.log('用户取消继续操作');
       });
     },
-    
+
     /** 上传底版前的检查 */
     beforeBgUpload(file) {
       const isImage = file.type.startsWith('image/');
@@ -560,7 +560,7 @@ export default {
       }
       return true;
     },
-    
+
     /** 底版上传成功回调 */
     handleBgUploadSuccess(response, file, fileList) {
       if (response.code === 200) {
@@ -570,43 +570,43 @@ export default {
         this.$message.error(response.msg || '底版上传失败!');
       }
     },
-    
+
     /** 底版上传失败回调 */
     handleBgUploadError(err) {
       this.$message.error('底版上传失败!');
       console.error('上传错误:', err);
     },
-    
 
-    
+
+
     /** 打开可视化字段编辑器 */
     openFieldEditor() {
       // 将现有的字段位置配置转换为可视化编辑器需要的格式
       this.currentFieldPositions = [];
-      
+
       // 如果已有字段位置配置，加载它们
       try {
         if (this.form.fieldPositions) {
-          const parsedPositions = typeof this.form.fieldPositions === 'string' 
-            ? JSON.parse(this.form.fieldPositions) 
-            : this.form.fieldPositions;
+          const parsedPositions = typeof this.form.fieldPositions === 'string'
+              ? JSON.parse(this.form.fieldPositions)
+              : this.form.fieldPositions;
           this.currentFieldPositions = Array.isArray(parsedPositions) ? parsedPositions : [];
         }
       } catch (e) {
         console.error('解析字段位置配置失败:', e);
         this.currentFieldPositions = [];
       }
-      
+
       this.fieldEditorVisible = true;
     },
-    
+
     /** 保存字段位置配置 */
     onSaveFieldPositions(positions) {
       this.form.fieldPositions = JSON.stringify(positions);
       this.fieldEditorVisible = false;
       this.$message.success('字段位置保存成功');
     },
-    
+
     /** 预览证书 */
     previewCertificate() {
       // 验证是否可以预览
@@ -614,11 +614,11 @@ export default {
         this.$message.warning('请先填写必填字段、上传证书底版并编辑字段位置');
         return;
       }
-      
+
       // 打开预览对话框
       this.previewVisible = true;
     },
-    
+
     /** 执行上架模板操作 */
     async performShelfTemplate(templateId) {
       try {
@@ -643,7 +643,7 @@ export default {
         this.$modal.msgError("上架模板失败: " + error.message);
       }
     },
-    
+
     /** 搜索按钮操作 */
     handleQuery() {
       this.queryParams.pageNum = 1;
@@ -691,8 +691,8 @@ export default {
           fieldPositionsParsed = [];
         }
         // 确保fieldPositions始终是字符串格式用于表单提交
-        this.form.fieldPositions = Array.isArray(fieldPositionsParsed) ? 
-          JSON.stringify(fieldPositionsParsed) : this.form.fieldPositions;
+        this.form.fieldPositions = Array.isArray(fieldPositionsParsed) ?
+            JSON.stringify(fieldPositionsParsed) : this.form.fieldPositions;
         // 根据证书类型添加对应的固定字段
         if (this.form.certificateType === '学历类') {
           this.addAcademicFixedFields();
@@ -728,7 +728,7 @@ export default {
           if (typeof this.form.fieldPositions !== 'string') {
             this.form.fieldPositions = JSON.stringify(this.form.fieldPositions);
           }
-          
+
           if (this.form.templateId != null) {
             updateCertificateTemplate(this.form).then(response => {
               this.$modal.msgSuccess("修改成功");
@@ -742,7 +742,7 @@ export default {
         }
       });
     },
-    
+
     /** 检查积分并提交新增 */
     checkPointsAndSubmit() {
       // 检查用户积分
@@ -753,7 +753,7 @@ export default {
         this.showPointsGetDialog = true;
         return;
       }
-      
+
       // 积分充足，显示确认对话框
       this.$confirm(`此操作需要消耗 ${this.shelfTemplatePoints} 积分，您的当前积分为 ${this.userPoints} 分，确认继续吗？`, "提示", {
         confirmButtonText: "确定",
@@ -772,18 +772,18 @@ export default {
         // 用户取消操作
       });
     },
-    
+
     /** 关闭获取积分弹窗 */
     closePointsGetDialog() {
       this.showPointsGetDialog = false;
       this.operationType = '';
       this.currentApplicationId = null;
     },
-    
+
     /** 积分发生变化时的回调 */
     handlePointsChanged(newPoints) {
       this.userPoints = newPoints;
-      
+
       // 如果积分已足够，询问是否继续执行原操作
       if (newPoints >= this.shelfTemplatePoints) {
         this.$confirm(`您已获取积分，当前积分为 ${newPoints} 分，是否继续执行原操作？`, "提示", {
@@ -817,21 +817,21 @@ export default {
     handleDelete(row) {
       const templateIds = row.templateId || this.ids;
       this.$confirm('是否确认删除证书模板编号为"' + templateIds + '"的数据项?', "警告", {
-          confirmButtonText: "确定",
-          cancelButtonText: "取消",
-          type: "warning"
-        }).then(function() {
-          return delCertificateTemplate(templateIds);
-        }).then(() => {
-          this.getList();
-          this.$modal.msgSuccess("删除成功");
-        }).catch(() => {});
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning"
+      }).then(function() {
+        return delCertificateTemplate(templateIds);
+      }).then(() => {
+        this.getList();
+        this.$modal.msgSuccess("删除成功");
+      }).catch(() => {});
     },
     /** 切换上下架状态 */
     toggleShelf(row) {
       const status = row.status === '0' ? '1' : '0';
       const statusText = row.status === '0' ? '下架' : '上架';
-      
+
       // 检查是否为上架操作，如果是，检查积分
       if(status === '0') { // 即将上架
         if (this.userPoints < this.shelfTemplatePoints) {
@@ -841,7 +841,7 @@ export default {
           this.showPointsGetDialog = true;
           return;
         }
-        
+
         // 积分充足，显示确认对话框
         this.$confirm(`确认要将"${row.templateName}"上架吗？此操作需要消耗 ${this.shelfTemplatePoints} 积分，您的当前积分为 ${this.userPoints} 分。`, "提示", {
           confirmButtonText: "确定",
@@ -923,7 +923,7 @@ export default {
       this.removeEnterpriseFixedFields();
       this.removeProfessionalFixedFields();  // 新增：移除职业类固定字段
       this.removeCommonFixedFields();  // 移除通用固定字段
-      
+
       // 根据选择的类型添加对应的固定字段
       if (value === '学历类') {
         this.addAcademicFixedFields();
@@ -943,7 +943,7 @@ export default {
       // 检查是否已存在这些固定字段
       const nameFieldExists = this.form.fields.some(field => field.fieldName === '姓名');
       const schoolFieldExists = this.form.fields.some(field => field.fieldName === '院校');
-      
+
       // 如果不存在，则添加固定字段
       if (!nameFieldExists) {
         this.form.fields.unshift({
@@ -953,7 +953,7 @@ export default {
           fixed: false
         });
       }
-      
+
       if (!schoolFieldExists) {
         this.form.fields.unshift({
           fieldName: '院校',
@@ -973,7 +973,7 @@ export default {
       // 检查是否已存在这些固定字段
       const nameFieldExists = this.form.fields.some(field => field.fieldName === '姓名');
       const enterpriseFieldExists = this.form.fields.some(field => field.fieldName === '企业');
-      
+
       // 如果不存在，则添加固定字段
       if (!nameFieldExists) {
         this.form.fields.unshift({
@@ -983,7 +983,7 @@ export default {
           fixed: false
         });
       }
-      
+
       if (!enterpriseFieldExists) {
         this.form.fields.unshift({
           fieldName: '企业',
@@ -998,12 +998,12 @@ export default {
       // 过滤掉固定字段（姓名和企业）
       this.form.fields = this.form.fields.filter(field => field.fieldName !== '姓名' && field.fieldName !== '企业');
     },
-    
+
     /** 为职业类证书添加固定字段 */
     addProfessionalFixedFields() {
       // 检查是否已存在姓名固定字段
       const nameFieldExists = this.form.fields.some(field => field.fieldName === '姓名');
-      
+
       // 如果不存在，则添加姓名固定字段
       if (!nameFieldExists) {
         this.form.fields.unshift({
@@ -1014,18 +1014,18 @@ export default {
         });
       }
     },
-    
+
     /** 移除职业类证书的固定字段 */
     removeProfessionalFixedFields() {
       // 过滤掉固定字段（姓名）
       this.form.fields = this.form.fields.filter(field => field.fieldName !== '姓名');
     },
-    
+
     /** 添加通用固定字段（有效期） */
     addCommonFixedFields() {
       // 检查是否已存在有效期固定字段
       const expiryDateFieldExists = this.form.fields.some(field => field.fieldName === '有效期');
-      
+
       // 如果不存在，则添加固定字段
       if (!expiryDateFieldExists) {
         this.form.fields.push({
@@ -1079,7 +1079,7 @@ export default {
       height: 200px;
     }
   }
-  
+
   :deep(.el-upload-list__item) {
     width: 200px;
     height: 200px;
@@ -1089,11 +1089,11 @@ export default {
 
 .bg-preview-container {
   margin-top: 20px;
-  
+
   h4 {
     margin-bottom: 10px;
   }
-  
+
   .bg-preview-image {
     max-width: 100%;
     max-height: 300px;
