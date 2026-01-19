@@ -8,21 +8,21 @@ USE `wxfbsir`;
 -- ----------------------------
 drop table if exists sys_dept;
 create table sys_dept (
-  dept_id           bigint(20)      not null auto_increment    comment '部门id',
-  parent_id         bigint(20)      default 0                  comment '父部门id',
-  ancestors         varchar(50)     default ''                 comment '祖级列表',
-  dept_name         varchar(30)     default ''                 comment '部门名称',
-  order_num         int(4)          default 0                  comment '显示顺序',
-  leader            varchar(20)     default null               comment '负责人',
-  phone             varchar(11)     default null               comment '联系电话',
-  email             varchar(50)     default null               comment '邮箱',
-  status            char(1)         default '0'                comment '部门状态（0正常 1停用）',
-  del_flag          char(1)         default '0'                comment '删除标志（0代表存在 2代表删除）',
-  create_by         varchar(64)     default ''                 comment '创建者',
-  create_time 	    datetime                                   comment '创建时间',
-  update_by         varchar(64)     default ''                 comment '更新者',
-  update_time       datetime                                   comment '更新时间',
-  primary key (dept_id)
+                          dept_id           bigint(20)      not null auto_increment    comment '部门id',
+                          parent_id         bigint(20)      default 0                  comment '父部门id',
+                          ancestors         varchar(50)     default ''                 comment '祖级列表',
+                          dept_name         varchar(30)     default ''                 comment '部门名称',
+                          order_num         int(4)          default 0                  comment '显示顺序',
+                          leader            varchar(20)     default null               comment '负责人',
+                          phone             varchar(11)     default null               comment '联系电话',
+                          email             varchar(50)     default null               comment '邮箱',
+                          status            char(1)         default '0'                comment '部门状态（0正常 1停用）',
+                          del_flag          char(1)         default '0'                comment '删除标志（0代表存在 2代表删除）',
+                          create_by         varchar(64)     default ''                 comment '创建者',
+                          create_time 	    datetime                                   comment '创建时间',
+                          update_by         varchar(64)     default ''                 comment '更新者',
+                          update_time       datetime                                   comment '更新时间',
+                          primary key (dept_id)
 ) engine=innodb auto_increment=200 comment = '部门表';
 
 -- ----------------------------
@@ -43,29 +43,29 @@ insert into sys_dept values(107,  102, '0,100,102',  '财务部门',   2, '', ''
 -- ----------------------------
 drop table if exists sys_user;
 create table sys_user (
-  user_id           bigint(20)      not null auto_increment    comment '用户ID',
-  dept_id           bigint(20)      default null               comment '部门ID',
-  user_name         varchar(30)     not null                   comment '用户账号',
-  nick_name         varchar(30)     not null                   comment '用户昵称',
-  user_type         varchar(2)      default '00'               comment '用户类型（00系统用户）',
-  email             varchar(50)     default ''                 comment '用户邮箱',
-  phonenumber       varchar(11)     default ''                 comment '手机号码',
-  sex               char(1)         default '0'                comment '用户性别（0男 1女 2未知）',
-  avatar            varchar(100)    default ''                 comment '头像地址',
-  password          varchar(100)    default ''                 comment '密码',
-  status            char(1)         default '0'                comment '账号状态（0正常 1停用）',
-  del_flag          char(1)         default '0'                comment '删除标志（0代表存在 2代表删除）',
-  login_ip          varchar(128)    default ''                 comment '最后登录IP',
-  login_date        datetime                                   comment '最后登录时间',
-  pwd_update_date   datetime                                   comment '密码最后更新时间',
-  create_by         varchar(64)     default ''                 comment '创建者',
-  create_time       datetime                                   comment '创建时间',
-  update_by         varchar(64)     default ''                 comment '更新者',
-  update_time       datetime                                   comment '更新时间',
-  remark            varchar(500)    default null               comment '备注',
-  points            int(10)         default 0                  comment '积分',
-  host_id           varchar(100)    default null               comment '用户绑定的主机ID（用于AIGC功能）',
-  primary key (user_id)
+                          user_id           bigint(20)      not null auto_increment    comment '用户ID',
+                          dept_id           bigint(20)      default null               comment '部门ID',
+                          user_name         varchar(30)     not null                   comment '用户账号',
+                          nick_name         varchar(30)     not null                   comment '用户昵称',
+                          user_type         varchar(2)      default '00'               comment '用户类型（00系统用户）',
+                          email             varchar(50)     default ''                 comment '用户邮箱',
+                          phonenumber       varchar(11)     default ''                 comment '手机号码',
+                          sex               char(1)         default '0'                comment '用户性别（0男 1女 2未知）',
+                          avatar            varchar(100)    default ''                 comment '头像地址',
+                          password          varchar(100)    default ''                 comment '密码',
+                          status            char(1)         default '0'                comment '账号状态（0正常 1停用）',
+                          del_flag          char(1)         default '0'                comment '删除标志（0代表存在 2代表删除）',
+                          login_ip          varchar(128)    default ''                 comment '最后登录IP',
+                          login_date        datetime                                   comment '最后登录时间',
+                          pwd_update_date   datetime                                   comment '密码最后更新时间',
+                          create_by         varchar(64)     default ''                 comment '创建者',
+                          create_time       datetime                                   comment '创建时间',
+                          update_by         varchar(64)     default ''                 comment '更新者',
+                          update_time       datetime                                   comment '更新时间',
+                          remark            varchar(500)    default null               comment '备注',
+                          points            int(10)         default 0                  comment '积分',
+                          host_id           varchar(100)    default null               comment '用户绑定的主机ID（用于AIGC功能）',
+                          primary key (user_id)
 ) engine=innodb auto_increment=100 comment = '用户信息表';
 
 -- ----------------------------
@@ -79,17 +79,17 @@ insert into sys_user values(1,  103, 'admin', '管理员', '00', '', '', '0', ''
 drop table if exists sys_post;
 create table sys_post
 (
-  post_id       bigint(20)      not null auto_increment    comment '岗位ID',
-  post_code     varchar(64)     not null                   comment '岗位编码',
-  post_name     varchar(50)     not null                   comment '岗位名称',
-  post_sort     int(4)          not null                   comment '显示顺序',
-  status        char(1)         not null                   comment '状态（0正常 1停用）',
-  create_by     varchar(64)     default ''                 comment '创建者',
-  create_time   datetime                                   comment '创建时间',
-  update_by     varchar(64)     default ''			       comment '更新者',
-  update_time   datetime                                   comment '更新时间',
-  remark        varchar(500)    default null               comment '备注',
-  primary key (post_id)
+    post_id       bigint(20)      not null auto_increment    comment '岗位ID',
+    post_code     varchar(64)     not null                   comment '岗位编码',
+    post_name     varchar(50)     not null                   comment '岗位名称',
+    post_sort     int(4)          not null                   comment '显示顺序',
+    status        char(1)         not null                   comment '状态（0正常 1停用）',
+    create_by     varchar(64)     default ''                 comment '创建者',
+    create_time   datetime                                   comment '创建时间',
+    update_by     varchar(64)     default ''			       comment '更新者',
+    update_time   datetime                                   comment '更新时间',
+    remark        varchar(500)    default null               comment '备注',
+    primary key (post_id)
 ) engine=innodb comment = '岗位信息表';
 
 -- ----------------------------
@@ -108,21 +108,21 @@ insert into sys_post values(6, 'user', '普通员工',  6, '0', 'admin', sysdate
 -- ----------------------------
 drop table if exists sys_role;
 create table sys_role (
-  role_id              bigint(20)      not null auto_increment    comment '角色ID',
-  role_name            varchar(30)     not null                   comment '角色名称',
-  role_key             varchar(100)    not null                   comment '角色权限字符串',
-  role_sort            int(4)          not null                   comment '显示顺序',
-  data_scope           char(1)         default '1'                comment '数据范围（1：全部数据权限 2：自定数据权限 3：本部门数据权限 4：本部门及以下数据权限）',
-  menu_check_strictly  tinyint(1)      default 1                  comment '菜单树选择项是否关联显示',
-  dept_check_strictly  tinyint(1)      default 1                  comment '部门树选择项是否关联显示',
-  status               char(1)         not null                   comment '角色状态（0正常 1停用）',
-  del_flag             char(1)         default '0'                comment '删除标志（0代表存在 2代表删除）',
-  create_by            varchar(64)     default ''                 comment '创建者',
-  create_time          datetime                                   comment '创建时间',
-  update_by            varchar(64)     default ''                 comment '更新者',
-  update_time          datetime                                   comment '更新时间',
-  remark               varchar(500)    default null               comment '备注',
-  primary key (role_id)
+                          role_id              bigint(20)      not null auto_increment    comment '角色ID',
+                          role_name            varchar(30)     not null                   comment '角色名称',
+                          role_key             varchar(100)    not null                   comment '角色权限字符串',
+                          role_sort            int(4)          not null                   comment '显示顺序',
+                          data_scope           char(1)         default '1'                comment '数据范围（1：全部数据权限 2：自定数据权限 3：本部门数据权限 4：本部门及以下数据权限）',
+                          menu_check_strictly  tinyint(1)      default 1                  comment '菜单树选择项是否关联显示',
+                          dept_check_strictly  tinyint(1)      default 1                  comment '部门树选择项是否关联显示',
+                          status               char(1)         not null                   comment '角色状态（0正常 1停用）',
+                          del_flag             char(1)         default '0'                comment '删除标志（0代表存在 2代表删除）',
+                          create_by            varchar(64)     default ''                 comment '创建者',
+                          create_time          datetime                                   comment '创建时间',
+                          update_by            varchar(64)     default ''                 comment '更新者',
+                          update_time          datetime                                   comment '更新时间',
+                          remark               varchar(500)    default null               comment '备注',
+                          primary key (role_id)
 ) engine=innodb auto_increment=100 comment = '角色信息表';
 
 -- ----------------------------
@@ -138,27 +138,27 @@ insert into sys_role values('10', '普通用户',   'user',     4, 2, 1, 1, '0',
 -- ----------------------------
 drop table if exists sys_menu;
 create table sys_menu (
-  menu_id           bigint(20)      not null auto_increment    comment '菜单ID',
-  menu_name         varchar(50)     not null                   comment '菜单名称',
-  parent_id         bigint(20)      default 0                  comment '父菜单ID',
-  order_num         int(4)          default 0                  comment '显示顺序',
-  path              varchar(200)    default ''                 comment '路由地址',
-  component         varchar(255)    default null               comment '组件路径',
-  query             varchar(255)    default null               comment '路由参数',
-  route_name        varchar(50)     default ''                 comment '路由名称',
-  is_frame          int(1)          default 1                  comment '是否为外链（0是 1否）',
-  is_cache          int(1)          default 0                  comment '是否缓存（0缓存 1不缓存）',
-  menu_type         char(1)         default ''                 comment '菜单类型（M目录 C菜单 F按钮）',
-  visible           char(1)         default 0                  comment '菜单状态（0显示 1隐藏）',
-  status            char(1)         default 0                  comment '菜单状态（0正常 1停用）',
-  perms             varchar(100)    default null               comment '权限标识',
-  icon              varchar(100)    default '#'                comment '菜单图标',
-  create_by         varchar(64)     default ''                 comment '创建者',
-  create_time       datetime                                   comment '创建时间',
-  update_by         varchar(64)     default ''                 comment '更新者',
-  update_time       datetime                                   comment '更新时间',
-  remark            varchar(500)    default ''                 comment '备注',
-  primary key (menu_id)
+                          menu_id           bigint(20)      not null auto_increment    comment '菜单ID',
+                          menu_name         varchar(50)     not null                   comment '菜单名称',
+                          parent_id         bigint(20)      default 0                  comment '父菜单ID',
+                          order_num         int(4)          default 0                  comment '显示顺序',
+                          path              varchar(200)    default ''                 comment '路由地址',
+                          component         varchar(255)    default null               comment '组件路径',
+                          query             varchar(255)    default null               comment '路由参数',
+                          route_name        varchar(50)     default ''                 comment '路由名称',
+                          is_frame          int(1)          default 1                  comment '是否为外链（0是 1否）',
+                          is_cache          int(1)          default 0                  comment '是否缓存（0缓存 1不缓存）',
+                          menu_type         char(1)         default ''                 comment '菜单类型（M目录 C菜单 F按钮）',
+                          visible           char(1)         default 0                  comment '菜单状态（0显示 1隐藏）',
+                          status            char(1)         default 0                  comment '菜单状态（0正常 1停用）',
+                          perms             varchar(100)    default null               comment '权限标识',
+                          icon              varchar(100)    default '#'                comment '菜单图标',
+                          create_by         varchar(64)     default ''                 comment '创建者',
+                          create_time       datetime                                   comment '创建时间',
+                          update_by         varchar(64)     default ''                 comment '更新者',
+                          update_time       datetime                                   comment '更新时间',
+                          remark            varchar(500)    default ''                 comment '备注',
+                          primary key (menu_id)
 ) engine=innodb auto_increment=2000 comment = '菜单权限表';
 
 -- ----------------------------
@@ -190,7 +190,6 @@ insert into sys_menu values('4', '系统工具', '0', '4', 'tool',             n
 insert into sys_menu values('6', '积分管理', '0', '6', 'points', null, '', '', 1, 0, 'M', '0', '0', '', 'money', 'admin', sysdate(), '', null, '积分管理目录');
 insert into sys_menu values('7', '主机管理', '0', '7', 'host', null, '', '', 1, 0, 'M', '0', '0', '', 'server', 'admin', sysdate(), '', null, '主机管理目录');
 insert into sys_menu values('8', 'gitee管理', '0', '8', 'gitee', null, '', '', 1, 0, 'M', '0', '0', '', 'gitee', 'admin', sysdate(), '', null, 'gitee管理目录');
-insert into sys_menu values('9', '认证申请', '0', '9', 'certificate', NULL, '', '', 1, 0, 'M', '0', '0', '', 'clipboard', 'admin', sysdate(), '', null, '认证申请目录');
 -- 二级菜单（ID范围：100-499）
 -- 内容管理子菜单（parent_id=1，业务功能从118开始）
 insert into sys_menu values('118',  '日更助手', '1',   '1', 'daily-assistant', 'business/content/dailyassistant/index', '', '', 1, 0, 'C', '0', '0', 'business:daily:view',     'edit',          'admin', sysdate(), '', null, '日更助手菜单');
@@ -232,13 +231,6 @@ insert into sys_menu values('126', 'WebSocket调试', '7', '4', 'debug', 'busine
 -- gitee管理子菜单（parent_id=8）
 insert into sys_menu values('127',  '使用统计', '8',   '1', 'usage-report', 'business/gitee/giteeUsageReport', '', '', 1, 0, 'C', '0', '0', 'business:gitee:usage:list', 'chart', 'admin', sysdate(), '', null, 'Gitee模块使用统计菜单');
 insert into sys_menu values('128',  'gitee分析', '8',  '2', 'gitee-analysis', 'business/gitee/giteeAnalysis', '', '', 1, 0, 'C', '0', '0', 'business:gitee:analysis:view', 'chart', 'admin', sysdate(), '', null, 'Gitee分析菜单');
--- 认证申请管理子菜单（parent_id=9）
-insert into sys_menu values ('133', '证书模板', '9', '1', 'template', 'business/certificate/template/index', '', '', 1, 0, 'C', '0', '0', 'business:certificate:template:list', 'form', 'admin', sysdate(), '', null, '证书模板菜单');
-insert into sys_menu values ('134', '认证申请', '9', '2', 'application', 'business/certificate/application/index', '', '', 1, 0, 'C', '0', '0', 'business:certificate:application:list', 'edit', 'admin', sysdate(), '', null, '证书申请菜单');
-insert into sys_menu values ('135', '证书管理', '9', '3', 'issuance', 'business/certificate/certificateManagement/index', '', '', 1, 0, 'C', '0', '0', 'business:certificate:issuance:list', 'excel', 'admin', sysdate(), '', null, '证书管理菜单');
-insert into sys_menu values ('136', '申请审核', '9', '4', 'application-review', 'business/certificate/applicationReview/index', '', '', 1, 0, 'C', '0', '0', 'business:certificate:review:list', 'guide', 'admin', sysdate(), '', null, '证书申请审核菜单”');
-insert into sys_menu values ('137', '我的申请', '9', '5', 'my-applications', 'business/certificate/myApplications/index', '', '', 1, 0, 'C', '0', '0', 'business:certificate:my:application:list', 'user', 'admin', sysdate(), '', null, '我的证书菜单');
-
 -- 三级菜单（ID范围：500-999）
 insert into sys_menu values('500',  '操作日志', '108', '1', 'operlog',    'monitor/operlog/index',    '', '', 1, 0, 'C', '0', '0', 'monitor:operlog:list',    'form',          'admin', sysdate(), '', null, '操作日志菜单');
 insert into sys_menu values('501',  '登录日志', '108', '2', 'logininfor', 'monitor/logininfor/index', '', '', 1, 0, 'C', '0', '0', 'monitor:logininfor:list', 'logininfor',    'admin', sysdate(), '', null, '登录日志菜单');
@@ -372,39 +364,6 @@ insert into sys_menu values('1100', '草稿保存', '130', '2', '', '', '', '', 
 insert into sys_menu values('1101', '解析查询', '132', '1', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:document:query', '#', 'admin', sysdate(), '', null, '');
 insert into sys_menu values('1102', '解析新增', '132', '2', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:document:add', '#', 'admin', sysdate(), '', null, '');
 insert into sys_menu values('1103', '解析删除', '132', '3', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:document:remove', '#', 'admin', sysdate(), '', null, '');
--- 证书模板按钮权限（parent_id=133）
-insert into sys_menu values ('1104', '模板查询', '133', '1', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:template:query', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1105', '模板新增', '133', '2', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:template:add', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1106', '模板修改', '133', '3', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:template:edit', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1107', '模板删除', '133', '4', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:template:remove', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1108', '模板上下架','133', '5', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:template:export', '#', 'admin', sysdate(), '', NULL, '');
--- 申请认证按钮权限（parent_id=134）
-insert into sys_menu values ('1109', '申请查询', '134', '1', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:application:query', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1110', '申请新增', '134', '2', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:application:add', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1111', '申请修改', '134', '3', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:application:edit', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1112', '申请删除', '134', '4', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:application:remove', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1113', '申请提交', '134', '5', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:application:submit', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1114', '申请撤回', '134', '6', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:application:withdraw', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1115', '申请审核', '134', '7', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:application:review', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1116', '申请导出', '134', '8', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:application:export', '#', 'admin', sysdate(), '', NULL, '');
--- 证书管理按钮权限（parent_id=135）
-insert into sys_menu values ('1117', '证书查询', '135', '1', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:issuance:query', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1118', '证书新增', '135', '2', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:issuance:add', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1119', '证书修改', '135', '3', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:issuance:edit', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1120', '证书删除', '135', '4', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:issuance:remove', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1121', '证书导出', '135', '5', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:issuance:export', '#', 'admin', sysdate(), '', NULL, '');
--- 申请审核按钮权限（parent_id=136）
-insert into sys_menu values ('1122', '申请审核查询', '136', '1', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:review:query', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1123', '申请审核新增', '136', '2', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:review:add', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1124', '申请审核修改', '136', '3', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:review:edit', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1125', '申请审核删除', '136', '4', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:review:remove', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1126', '申请审核导出', '136', '5', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:review:export', '#', 'admin', sysdate(), '', NULL, '');
--- 我的申请按钮权限（parent_id=137）
-insert into sys_menu values ('1127', '我的申请记录查询', '137', '1', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:my:application:query', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1128', '我的申请记录新增', '137', '2', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:my:application:add', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1129', '我的申请记录修改', '137', '3', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:my:application:edit', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1130', '我的申请记录删除', '137', '4', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:my:application:remove', '#', 'admin', sysdate(), '', NULL, '');
-insert into sys_menu values ('1131', '我的申请记录撤回', '137', '5', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:my:application:withdraw', '#', 'admin', sysdate(), '', NULL, '');
 
 
 -- ----------------------------
@@ -412,9 +371,9 @@ insert into sys_menu values ('1131', '我的申请记录撤回', '137', '5', '',
 -- ----------------------------
 drop table if exists sys_user_role;
 create table sys_user_role (
-  user_id   bigint(20) not null comment '用户ID',
-  role_id   bigint(20) not null comment '角色ID',
-  primary key(user_id, role_id)
+                               user_id   bigint(20) not null comment '用户ID',
+                               role_id   bigint(20) not null comment '角色ID',
+                               primary key(user_id, role_id)
 ) engine=innodb comment = '用户和角色关联表';
 
 -- ----------------------------
@@ -433,9 +392,9 @@ insert into sys_user_role values ('1', '1');
 -- ----------------------------
 drop table if exists sys_role_menu;
 create table sys_role_menu (
-  role_id   bigint(20) not null comment '角色ID',
-  menu_id   bigint(20) not null comment '菜单ID',
-  primary key(role_id, menu_id)
+                               role_id   bigint(20) not null comment '角色ID',
+                               menu_id   bigint(20) not null comment '菜单ID',
+                               primary key(role_id, menu_id)
 ) engine=innodb comment = '角色和菜单关联表';
 
 -- ----------------------------
@@ -449,7 +408,6 @@ insert into sys_role_menu values ('2', '3');    -- 系统监控
 insert into sys_role_menu values ('2', '4');    -- 系统工具
 insert into sys_role_menu values ('2', '6');    -- 积分管理
 insert into sys_role_menu values ('2', '7');    -- 主机管理
-insert into sys_role_menu values ('2', '9');    -- 申请认证管理
 -- 二级菜单-内容管理
 insert into sys_role_menu values ('2', '118');  -- 日更助手
 insert into sys_role_menu values ('2', '119');  -- 发布记录
@@ -485,12 +443,6 @@ insert into sys_role_menu values ('2', '121');  -- 积分规则配置
 insert into sys_role_menu values ('2', '123');  -- 主机ID白名单
 insert into sys_role_menu values ('2', '124');  -- IP黑名单
 insert into sys_role_menu values ('2', '125');  -- 连接记录与在线
--- 二级菜单-申请认证管理
-insert into sys_role_menu values ('2', '133');  -- 证书模板
-insert into sys_role_menu values ('2', '134');  -- 认证申请
-insert into sys_role_menu values ('2', '135');  -- 证书管理
-insert into sys_role_menu values ('2', '136');  -- 申请审核
-insert into sys_role_menu values ('2', '137');  -- 我的申请
 -- 三级菜单-日志管理
 insert into sys_role_menu values ('2', '500');  -- 操作日志
 insert into sys_role_menu values ('2', '501');  -- 登录日志
@@ -624,39 +576,6 @@ insert into sys_role_menu values ('2', '1100'); -- 草稿保存
 insert into sys_role_menu values ('2', '1101'); -- 解析查询
 insert into sys_role_menu values ('2', '1102'); -- 解析新增
 insert into sys_role_menu values ('2', '1103'); -- 解析删除
--- 按钮权限-证书模板
-insert into sys_role_menu values ('2', '1104'); -- 模板查询
-insert into sys_role_menu values ('2', '1105'); -- 模板新增
-insert into sys_role_menu values ('2', '1106'); -- 模板修改
-insert into sys_role_menu values ('2', '1107'); -- 模板删除
-insert into sys_role_menu values ('2', '1108'); -- 模板导出
--- 按钮权限-认证申请
-insert into sys_role_menu values ('2', '1109'); -- 申请查询
-insert into sys_role_menu values ('2', '1110'); -- 申请新增
-insert into sys_role_menu values ('2', '1111'); -- 申请修改
-insert into sys_role_menu values ('2', '1112'); -- 申请删除
-insert into sys_role_menu values ('2', '1113'); -- 申请提交
-insert into sys_role_menu values ('2', '1114'); -- 申请撤回
-insert into sys_role_menu values ('2', '1115'); -- 申请审核
-insert into sys_role_menu values ('2', '1116'); -- 申请导出
--- 按钮权限-证书管理
-insert into sys_role_menu values ('2', '1117'); -- 证书查询
-insert into sys_role_menu values ('2', '1118'); -- 证书新增
-insert into sys_role_menu values ('2', '1119'); -- 证书修改
-insert into sys_role_menu values ('2', '1120'); -- 证书删除
-insert into sys_role_menu values ('2', '1121'); -- 证书导出
--- 按钮权限-申请审核
-insert into sys_role_menu values ('2', '1122'); -- 申请审核查询
-insert into sys_role_menu values ('2', '1123'); -- 申请审核新增
-insert into sys_role_menu values ('2', '1124'); -- 申请审核修改
-insert into sys_role_menu values ('2', '1125'); -- 申请审核删除
-insert into sys_role_menu values ('2', '1126'); -- 申请审核导出
--- 按钮权限-我的申请
-insert into sys_role_menu values ('2', '1127'); -- 我的申请记录查询
-insert into sys_role_menu values ('2', '1128'); -- 我的申请记录新增
-insert into sys_role_menu values ('2', '1129'); -- 我的申请记录修改
-insert into sys_role_menu values ('2', '1130'); -- 我的申请记录删除
-insert into sys_role_menu values ('2', '1131'); -- 我的申请记录撤回
 -- 只读权限角色（ID=3）拥有内容管理的全部权限，系统管理等模块只有查询权限
 -- 一级菜单
 insert into sys_role_menu values ('3', '1');    -- 内容管理
@@ -664,7 +583,6 @@ insert into sys_role_menu values ('3', '2');    -- 系统管理
 insert into sys_role_menu values ('3', '3');    -- 系统监控
 insert into sys_role_menu values ('3', '4');    -- 系统工具
 insert into sys_role_menu values ('3', '6');    -- 积分管理
-INSERT INTO `sys_role_menu` VALUES (3, 9);      -- 申请认证管理
 -- 二级菜单-内容管理
 insert into sys_role_menu values ('3', '118');  -- 日更助手
 insert into sys_role_menu values ('3', '119');  -- 发布记录
@@ -696,13 +614,6 @@ insert into sys_role_menu values ('3', '117');  -- 系统接口
 -- 二级菜单-积分管理
 insert into sys_role_menu values ('3', '120');  -- 积分总览
 insert into sys_role_menu values ('3', '121');  -- 积分规则配置
--- 二级菜单-申请认证
-insert into sys_role_menu values ('3', '133');  -- 证书模板
-insert into sys_role_menu values ('3', '134');  -- 认证申请
-insert into sys_role_menu values ('3', '135');  -- 证书管理
-insert into sys_role_menu values ('3', '136');  -- 申请审核
-insert into sys_role_menu values ('3', '137');  -- 我的申请
-
 -- 三级菜单-日志管理
 insert into sys_role_menu values ('3', '500');  -- 操作日志
 insert into sys_role_menu values ('3', '501');  -- 登录日志
@@ -760,22 +671,14 @@ insert into sys_role_menu values ('3', '1072');  -- 规则查询
 insert into sys_role_menu values ('3', '122');   -- 粉丝管理
 insert into sys_role_menu values ('3', '1076');  -- 粉丝列表
 insert into sys_role_menu values ('3', '1078');  -- 查看明细
--- 按钮权限-申请认证（只读）
-insert into sys_role_menu values ('3', '1104');  -- 模板查询
-insert into sys_role_menu values ('3', '1112');  -- 申请删除
-insert into sys_role_menu values ('3', '1120');  -- 证书删除
-
 -- 普通用户角色（ID=10）只有内容管理和积分浏览权限
 insert into sys_role_menu values ('10', '1');    -- 内容管理目录
-insert into sys_role_menu values ('10', '9');    -- 认证申请目录
 insert into sys_role_menu values ('10', '118');   -- 日更助手菜单
 insert into sys_role_menu values ('10', '119');   -- 发布记录菜单
 insert into sys_role_menu values ('10', '129');   -- AI助手菜单
 insert into sys_role_menu values ('10', '130');   -- 草稿库菜单
 insert into sys_role_menu values ('10', '131');   -- 登录管理器菜单
 insert into sys_role_menu values ('10', '132');   -- 文档解析助手菜单
-insert into sys_role_menu values ('10', '134');   -- 申请认证菜单
-insert into sys_role_menu values ('10', '137');   -- 我的申请菜单
 insert into sys_role_menu values ('10', '1061'); -- 日更助手-文章查询
 insert into sys_role_menu values ('10', '1062'); -- 日更助手-文章新增
 insert into sys_role_menu values ('10', '1063'); -- 日更助手-文章删除
@@ -799,29 +702,15 @@ insert into sys_role_menu values ('10', '1071');  -- 明细查询
 insert into sys_role_menu values ('10', '1072');  -- 规则查询
 insert into sys_role_menu values ('10', '8');    -- gitee管理
 insert into sys_role_menu values ('10', '128');  -- gitee分析
-insert into sys_role_menu values ('10', '1109'); -- 申请查询
-insert into sys_role_menu values ('10', '1110'); -- 申请新增
-insert into sys_role_menu values ('10', '1111'); -- 申请修改
-insert into sys_role_menu values ('10', '1112'); -- 申请删除
-insert into sys_role_menu values ('10', '1113'); -- 申请提交
-insert into sys_role_menu values ('10', '1114'); -- 申请撤回
-insert into sys_role_menu values ('10', '1115'); -- 申请审核
-insert into sys_role_menu values ('10', '1116'); -- 申请导出
-insert into sys_role_menu values ('10', '1127'); -- 我的申请记录查询
-insert into sys_role_menu values ('10', '1128'); -- 我的申请记录新增
-insert into sys_role_menu values ('10', '1129'); -- 我的申请记录修改
-insert into sys_role_menu values ('10', '1130'); -- 我的申请记录删除
-insert into sys_role_menu values ('10', '1131'); -- 我的申请记录撤回
-
 
 -- ----------------------------
 -- 8、角色和部门关联表  角色1-N部门
 -- ----------------------------
 drop table if exists sys_role_dept;
 create table sys_role_dept (
-  role_id   bigint(20) not null comment '角色ID',
-  dept_id   bigint(20) not null comment '部门ID',
-  primary key(role_id, dept_id)
+                               role_id   bigint(20) not null comment '角色ID',
+                               dept_id   bigint(20) not null comment '部门ID',
+                               primary key(role_id, dept_id)
 ) engine=innodb comment = '角色和部门关联表';
 
 -- ----------------------------
@@ -841,9 +730,9 @@ insert into sys_role_dept values ('2', '107');
 drop table if exists sys_user_post;
 create table sys_user_post
 (
-  user_id   bigint(20) not null comment '用户ID',
-  post_id   bigint(20) not null comment '岗位ID',
-  primary key (user_id, post_id)
+    user_id   bigint(20) not null comment '用户ID',
+    post_id   bigint(20) not null comment '岗位ID',
+    primary key (user_id, post_id)
 ) engine=innodb comment = '用户与岗位关联表';
 
 -- ----------------------------
@@ -857,27 +746,27 @@ insert into sys_user_post values ('1', '1');
 -- ----------------------------
 drop table if exists sys_oper_log;
 create table sys_oper_log (
-  oper_id           bigint(20)      not null auto_increment    comment '日志主键',
-  title             varchar(50)     default ''                 comment '模块标题',
-  business_type     int(2)          default 0                  comment '业务类型（0其它 1新增 2修改 3删除）',
-  method            varchar(200)    default ''                 comment '方法名称',
-  request_method    varchar(10)     default ''                 comment '请求方式',
-  operator_type     int(1)          default 0                  comment '操作类别（0其它 1后台用户 2手机端用户）',
-  oper_name         varchar(50)     default ''                 comment '操作人员',
-  dept_name         varchar(50)     default ''                 comment '部门名称',
-  oper_url          varchar(255)    default ''                 comment '请求URL',
-  oper_ip           varchar(128)    default ''                 comment '主机地址',
-  oper_location     varchar(255)    default ''                 comment '操作地点',
-  oper_param        varchar(2000)   default ''                 comment '请求参数',
-  json_result       varchar(2000)   default ''                 comment '返回参数',
-  status            int(1)          default 0                  comment '操作状态（0正常 1异常）',
-  error_msg         varchar(2000)   default ''                 comment '错误消息',
-  oper_time         datetime                                   comment '操作时间',
-  cost_time         bigint(20)      default 0                  comment '消耗时间',
-  primary key (oper_id),
-  key idx_sys_oper_log_bt (business_type),
-  key idx_sys_oper_log_s  (status),
-  key idx_sys_oper_log_ot (oper_time)
+                              oper_id           bigint(20)      not null auto_increment    comment '日志主键',
+                              title             varchar(50)     default ''                 comment '模块标题',
+                              business_type     int(2)          default 0                  comment '业务类型（0其它 1新增 2修改 3删除）',
+                              method            varchar(200)    default ''                 comment '方法名称',
+                              request_method    varchar(10)     default ''                 comment '请求方式',
+                              operator_type     int(1)          default 0                  comment '操作类别（0其它 1后台用户 2手机端用户）',
+                              oper_name         varchar(50)     default ''                 comment '操作人员',
+                              dept_name         varchar(50)     default ''                 comment '部门名称',
+                              oper_url          varchar(255)    default ''                 comment '请求URL',
+                              oper_ip           varchar(128)    default ''                 comment '主机地址',
+                              oper_location     varchar(255)    default ''                 comment '操作地点',
+                              oper_param        varchar(2000)   default ''                 comment '请求参数',
+                              json_result       varchar(2000)   default ''                 comment '返回参数',
+                              status            int(1)          default 0                  comment '操作状态（0正常 1异常）',
+                              error_msg         varchar(2000)   default ''                 comment '错误消息',
+                              oper_time         datetime                                   comment '操作时间',
+                              cost_time         bigint(20)      default 0                  comment '消耗时间',
+                              primary key (oper_id),
+                              key idx_sys_oper_log_bt (business_type),
+                              key idx_sys_oper_log_s  (status),
+                              key idx_sys_oper_log_ot (oper_time)
 ) engine=innodb auto_increment=100 comment = '操作日志记录';
 
 
@@ -887,17 +776,17 @@ create table sys_oper_log (
 drop table if exists sys_dict_type;
 create table sys_dict_type
 (
-  dict_id          bigint(20)      not null auto_increment    comment '字典主键',
-  dict_name        varchar(100)    default ''                 comment '字典名称',
-  dict_type        varchar(100)    default ''                 comment '字典类型',
-  status           char(1)         default '0'                comment '状态（0正常 1停用）',
-  create_by        varchar(64)     default ''                 comment '创建者',
-  create_time      datetime                                   comment '创建时间',
-  update_by        varchar(64)     default ''                 comment '更新者',
-  update_time      datetime                                   comment '更新时间',
-  remark           varchar(500)    default null               comment '备注',
-  primary key (dict_id),
-  unique (dict_type)
+    dict_id          bigint(20)      not null auto_increment    comment '字典主键',
+    dict_name        varchar(100)    default ''                 comment '字典名称',
+    dict_type        varchar(100)    default ''                 comment '字典类型',
+    status           char(1)         default '0'                comment '状态（0正常 1停用）',
+    create_by        varchar(64)     default ''                 comment '创建者',
+    create_time      datetime                                   comment '创建时间',
+    update_by        varchar(64)     default ''                 comment '更新者',
+    update_time      datetime                                   comment '更新时间',
+    remark           varchar(500)    default null               comment '备注',
+    primary key (dict_id),
+    unique (dict_type)
 ) engine=innodb auto_increment=100 comment = '字典类型表';
 
 insert into sys_dict_type values(1,  '用户性别', 'sys_user_sex',        '0', 'admin', sysdate(), '', null, '用户性别列表');
@@ -918,21 +807,21 @@ insert into sys_dict_type values(10, '系统状态', 'sys_common_status',   '0',
 drop table if exists sys_dict_data;
 create table sys_dict_data
 (
-  dict_code        bigint(20)      not null auto_increment    comment '字典编码',
-  dict_sort        int(4)          default 0                  comment '字典排序',
-  dict_label       varchar(100)    default ''                 comment '字典标签',
-  dict_value       varchar(100)    default ''                 comment '字典键值',
-  dict_type        varchar(100)    default ''                 comment '字典类型',
-  css_class        varchar(100)    default null               comment '样式属性（其他样式扩展）',
-  list_class       varchar(100)    default null               comment '表格回显样式',
-  is_default       char(1)         default 'N'                comment '是否默认（Y是 N否）',
-  status           char(1)         default '0'                comment '状态（0正常 1停用）',
-  create_by        varchar(64)     default ''                 comment '创建者',
-  create_time      datetime                                   comment '创建时间',
-  update_by        varchar(64)     default ''                 comment '更新者',
-  update_time      datetime                                   comment '更新时间',
-  remark           varchar(500)    default null               comment '备注',
-  primary key (dict_code)
+    dict_code        bigint(20)      not null auto_increment    comment '字典编码',
+    dict_sort        int(4)          default 0                  comment '字典排序',
+    dict_label       varchar(100)    default ''                 comment '字典标签',
+    dict_value       varchar(100)    default ''                 comment '字典键值',
+    dict_type        varchar(100)    default ''                 comment '字典类型',
+    css_class        varchar(100)    default null               comment '样式属性（其他样式扩展）',
+    list_class       varchar(100)    default null               comment '表格回显样式',
+    is_default       char(1)         default 'N'                comment '是否默认（Y是 N否）',
+    status           char(1)         default '0'                comment '状态（0正常 1停用）',
+    create_by        varchar(64)     default ''                 comment '创建者',
+    create_time      datetime                                   comment '创建时间',
+    update_by        varchar(64)     default ''                 comment '更新者',
+    update_time      datetime                                   comment '更新时间',
+    remark           varchar(500)    default null               comment '备注',
+    primary key (dict_code)
 ) engine=innodb auto_increment=100 comment = '字典数据表';
 
 insert into sys_dict_data values(1,  1,  '男',       '0',       'sys_user_sex',        '',   '',        'Y', '0', 'admin', sysdate(), '', null, '性别男');
@@ -971,17 +860,17 @@ insert into sys_dict_data values(29, 2,  '失败',     '1',       'sys_common_st
 -- ----------------------------
 drop table if exists sys_config;
 create table sys_config (
-  config_id         int(5)          not null auto_increment    comment '参数主键',
-  config_name       varchar(100)    default ''                 comment '参数名称',
-  config_key        varchar(100)    default ''                 comment '参数键名',
-  config_value      varchar(500)    default ''                 comment '参数键值',
-  config_type       char(1)         default 'N'                comment '系统内置（Y是 N否）',
-  create_by         varchar(64)     default ''                 comment '创建者',
-  create_time       datetime                                   comment '创建时间',
-  update_by         varchar(64)     default ''                 comment '更新者',
-  update_time       datetime                                   comment '更新时间',
-  remark            varchar(500)    default null               comment '备注',
-  primary key (config_id)
+                            config_id         int(5)          not null auto_increment    comment '参数主键',
+                            config_name       varchar(100)    default ''                 comment '参数名称',
+                            config_key        varchar(100)    default ''                 comment '参数键名',
+                            config_value      varchar(500)    default ''                 comment '参数键值',
+                            config_type       char(1)         default 'N'                comment '系统内置（Y是 N否）',
+                            create_by         varchar(64)     default ''                 comment '创建者',
+                            create_time       datetime                                   comment '创建时间',
+                            update_by         varchar(64)     default ''                 comment '更新者',
+                            update_time       datetime                                   comment '更新时间',
+                            remark            varchar(500)    default null               comment '备注',
+                            primary key (config_id)
 ) engine=innodb auto_increment=100 comment = '参数配置表';
 
 insert into sys_config values(1, '主框架页-默认皮肤样式名称',     'sys.index.skinName',               'skin-blue',     'Y', 'admin', sysdate(), '', null, '蓝色 skin-blue、绿色 skin-green、紫色 skin-purple、红色 skin-red、黄色 skin-yellow' );
@@ -999,18 +888,18 @@ insert into sys_config values(8, '用户管理-账号密码更新周期',     's
 -- ----------------------------
 drop table if exists sys_logininfor;
 create table sys_logininfor (
-  info_id        bigint(20)     not null auto_increment   comment '访问ID',
-  user_name      varchar(50)    default ''                comment '用户账号',
-  ipaddr         varchar(128)   default ''                comment '登录IP地址',
-  login_location varchar(255)   default ''                comment '登录地点',
-  browser        varchar(50)    default ''                comment '浏览器类型',
-  os             varchar(50)    default ''                comment '操作系统',
-  status         char(1)        default '0'               comment '登录状态（0成功 1失败）',
-  msg            varchar(255)   default ''                comment '提示消息',
-  login_time     datetime                                 comment '访问时间',
-  primary key (info_id),
-  key idx_sys_logininfor_s  (status),
-  key idx_sys_logininfor_lt (login_time)
+                                info_id        bigint(20)     not null auto_increment   comment '访问ID',
+                                user_name      varchar(50)    default ''                comment '用户账号',
+                                ipaddr         varchar(128)   default ''                comment '登录IP地址',
+                                login_location varchar(255)   default ''                comment '登录地点',
+                                browser        varchar(50)    default ''                comment '浏览器类型',
+                                os             varchar(50)    default ''                comment '操作系统',
+                                status         char(1)        default '0'               comment '登录状态（0成功 1失败）',
+                                msg            varchar(255)   default ''                comment '提示消息',
+                                login_time     datetime                                 comment '访问时间',
+                                primary key (info_id),
+                                key idx_sys_logininfor_s  (status),
+                                key idx_sys_logininfor_lt (login_time)
 ) engine=innodb auto_increment=100 comment = '系统访问记录';
 
 
@@ -1019,20 +908,20 @@ create table sys_logininfor (
 -- ----------------------------
 drop table if exists sys_job;
 create table sys_job (
-  job_id              bigint(20)    not null auto_increment    comment '任务ID',
-  job_name            varchar(64)   default ''                 comment '任务名称',
-  job_group           varchar(64)   default 'DEFAULT'          comment '任务组名',
-  invoke_target       varchar(500)  not null                   comment '调用目标字符串',
-  cron_expression     varchar(255)  default ''                 comment 'cron执行表达式',
-  misfire_policy      varchar(20)   default '3'                comment '计划执行错误策略（1立即执行 2执行一次 3放弃执行）',
-  concurrent          char(1)       default '1'                comment '是否并发执行（0允许 1禁止）',
-  status              char(1)       default '0'                comment '状态（0正常 1暂停）',
-  create_by           varchar(64)   default ''                 comment '创建者',
-  create_time         datetime                                 comment '创建时间',
-  update_by           varchar(64)   default ''                 comment '更新者',
-  update_time         datetime                                 comment '更新时间',
-  remark              varchar(500)  default ''                 comment '备注信息',
-  primary key (job_id, job_name, job_group)
+                         job_id              bigint(20)    not null auto_increment    comment '任务ID',
+                         job_name            varchar(64)   default ''                 comment '任务名称',
+                         job_group           varchar(64)   default 'DEFAULT'          comment '任务组名',
+                         invoke_target       varchar(500)  not null                   comment '调用目标字符串',
+                         cron_expression     varchar(255)  default ''                 comment 'cron执行表达式',
+                         misfire_policy      varchar(20)   default '3'                comment '计划执行错误策略（1立即执行 2执行一次 3放弃执行）',
+                         concurrent          char(1)       default '1'                comment '是否并发执行（0允许 1禁止）',
+                         status              char(1)       default '0'                comment '状态（0正常 1暂停）',
+                         create_by           varchar(64)   default ''                 comment '创建者',
+                         create_time         datetime                                 comment '创建时间',
+                         update_by           varchar(64)   default ''                 comment '更新者',
+                         update_time         datetime                                 comment '更新时间',
+                         remark              varchar(500)  default ''                 comment '备注信息',
+                         primary key (job_id, job_name, job_group)
 ) engine=innodb auto_increment=100 comment = '定时任务调度表';
 
 insert into sys_job values(1, '系统默认（无参）', 'DEFAULT', 'WxFbsirTask.WxFbsirNoParams',        '0/10 * * * * ?', '3', '1', '1', 'admin', sysdate(), '', null, '');
@@ -1045,15 +934,15 @@ insert into sys_job values(3, '系统默认（多参）', 'DEFAULT', 'WxFbsirTas
 -- ----------------------------
 drop table if exists sys_job_log;
 create table sys_job_log (
-  job_log_id          bigint(20)     not null auto_increment    comment '任务日志ID',
-  job_name            varchar(64)    not null                   comment '任务名称',
-  job_group           varchar(64)    not null                   comment '任务组名',
-  invoke_target       varchar(500)   not null                   comment '调用目标字符串',
-  job_message         varchar(500)                              comment '日志信息',
-  status              char(1)        default '0'                comment '执行状态（0正常 1失败）',
-  exception_info      varchar(2000)  default ''                 comment '异常信息',
-  create_time         datetime                                  comment '创建时间',
-  primary key (job_log_id)
+                             job_log_id          bigint(20)     not null auto_increment    comment '任务日志ID',
+                             job_name            varchar(64)    not null                   comment '任务名称',
+                             job_group           varchar(64)    not null                   comment '任务组名',
+                             invoke_target       varchar(500)   not null                   comment '调用目标字符串',
+                             job_message         varchar(500)                              comment '日志信息',
+                             status              char(1)        default '0'                comment '执行状态（0正常 1失败）',
+                             exception_info      varchar(2000)  default ''                 comment '异常信息',
+                             create_time         datetime                                  comment '创建时间',
+                             primary key (job_log_id)
 ) engine=innodb comment = '定时任务调度日志表';
 
 
@@ -1062,17 +951,17 @@ create table sys_job_log (
 -- ----------------------------
 drop table if exists sys_notice;
 create table sys_notice (
-  notice_id         int(4)          not null auto_increment    comment '公告ID',
-  notice_title      varchar(50)     not null                   comment '公告标题',
-  notice_type       char(1)         not null                   comment '公告类型（1通知 2公告）',
-  notice_content    longblob        default null               comment '公告内容',
-  status            char(1)         default '0'                comment '公告状态（0正常 1关闭）',
-  create_by         varchar(64)     default ''                 comment '创建者',
-  create_time       datetime                                   comment '创建时间',
-  update_by         varchar(64)     default ''                 comment '更新者',
-  update_time       datetime                                   comment '更新时间',
-  remark            varchar(255)    default null               comment '备注',
-  primary key (notice_id)
+                            notice_id         int(4)          not null auto_increment    comment '公告ID',
+                            notice_title      varchar(50)     not null                   comment '公告标题',
+                            notice_type       char(1)         not null                   comment '公告类型（1通知 2公告）',
+                            notice_content    longblob        default null               comment '公告内容',
+                            status            char(1)         default '0'                comment '公告状态（0正常 1关闭）',
+                            create_by         varchar(64)     default ''                 comment '创建者',
+                            create_time       datetime                                   comment '创建时间',
+                            update_by         varchar(64)     default ''                 comment '更新者',
+                            update_time       datetime                                   comment '更新时间',
+                            remark            varchar(255)    default null               comment '备注',
+                            primary key (notice_id)
 ) engine=innodb auto_increment=10 comment = '通知公告表';
 
 -- ----------------------------
@@ -1087,28 +976,28 @@ insert into sys_notice values('2', '维护通知：系统定期维护通知', '1
 -- ----------------------------
 drop table if exists gen_table;
 create table gen_table (
-  table_id          bigint(20)      not null auto_increment    comment '编号',
-  table_name        varchar(200)    default ''                 comment '表名称',
-  table_comment     varchar(500)    default ''                 comment '表描述',
-  sub_table_name    varchar(64)     default null               comment '关联子表的表名',
-  sub_table_fk_name varchar(64)     default null               comment '子表关联的外键名',
-  class_name        varchar(100)    default ''                 comment '实体类名称',
-  tpl_category      varchar(200)    default 'crud'             comment '使用的模板（crud单表操作 tree树表操作）',
-  tpl_web_type      varchar(30)     default ''                 comment '前端模板类型（element-ui模版 element-plus模版）',
-  package_name      varchar(100)                               comment '生成包路径',
-  module_name       varchar(30)                                comment '生成模块名',
-  business_name     varchar(30)                                comment '生成业务名',
-  function_name     varchar(50)                                comment '生成功能名',
-  function_author   varchar(50)                                comment '生成功能作者',
-  gen_type          char(1)         default '0'                comment '生成代码方式（0zip压缩包 1自定义路径）',
-  gen_path          varchar(200)    default '/'                comment '生成路径（不填默认项目路径）',
-  options           varchar(1000)                              comment '其它生成选项',
-  create_by         varchar(64)     default ''                 comment '创建者',
-  create_time 	    datetime                                   comment '创建时间',
-  update_by         varchar(64)     default ''                 comment '更新者',
-  update_time       datetime                                   comment '更新时间',
-  remark            varchar(500)    default null               comment '备注',
-  primary key (table_id)
+                           table_id          bigint(20)      not null auto_increment    comment '编号',
+                           table_name        varchar(200)    default ''                 comment '表名称',
+                           table_comment     varchar(500)    default ''                 comment '表描述',
+                           sub_table_name    varchar(64)     default null               comment '关联子表的表名',
+                           sub_table_fk_name varchar(64)     default null               comment '子表关联的外键名',
+                           class_name        varchar(100)    default ''                 comment '实体类名称',
+                           tpl_category      varchar(200)    default 'crud'             comment '使用的模板（crud单表操作 tree树表操作）',
+                           tpl_web_type      varchar(30)     default ''                 comment '前端模板类型（element-ui模版 element-plus模版）',
+                           package_name      varchar(100)                               comment '生成包路径',
+                           module_name       varchar(30)                                comment '生成模块名',
+                           business_name     varchar(30)                                comment '生成业务名',
+                           function_name     varchar(50)                                comment '生成功能名',
+                           function_author   varchar(50)                                comment '生成功能作者',
+                           gen_type          char(1)         default '0'                comment '生成代码方式（0zip压缩包 1自定义路径）',
+                           gen_path          varchar(200)    default '/'                comment '生成路径（不填默认项目路径）',
+                           options           varchar(1000)                              comment '其它生成选项',
+                           create_by         varchar(64)     default ''                 comment '创建者',
+                           create_time 	    datetime                                   comment '创建时间',
+                           update_by         varchar(64)     default ''                 comment '更新者',
+                           update_time       datetime                                   comment '更新时间',
+                           remark            varchar(500)    default null               comment '备注',
+                           primary key (table_id)
 ) engine=innodb auto_increment=1 comment = '代码生成业务表';
 
 
@@ -1117,29 +1006,29 @@ create table gen_table (
 -- ----------------------------
 drop table if exists gen_table_column;
 create table gen_table_column (
-  column_id         bigint(20)      not null auto_increment    comment '编号',
-  table_id          bigint(20)                                 comment '归属表编号',
-  column_name       varchar(200)                               comment '列名称',
-  column_comment    varchar(500)                               comment '列描述',
-  column_type       varchar(100)                               comment '列类型',
-  java_type         varchar(500)                               comment 'JAVA类型',
-  java_field        varchar(200)                               comment 'JAVA字段名',
-  is_pk             char(1)                                    comment '是否主键（1是）',
-  is_increment      char(1)                                    comment '是否自增（1是）',
-  is_required       char(1)                                    comment '是否必填（1是）',
-  is_insert         char(1)                                    comment '是否为插入字段（1是）',
-  is_edit           char(1)                                    comment '是否编辑字段（1是）',
-  is_list           char(1)                                    comment '是否列表字段（1是）',
-  is_query          char(1)                                    comment '是否查询字段（1是）',
-  query_type        varchar(200)    default 'EQ'               comment '查询方式（等于、不等于、大于、小于、范围）',
-  html_type         varchar(200)                               comment '显示类型（文本框、文本域、下拉框、复选框、单选框、日期控件）',
-  dict_type         varchar(200)    default ''                 comment '字典类型',
-  sort              int                                        comment '排序',
-  create_by         varchar(64)     default ''                 comment '创建者',
-  create_time 	    datetime                                   comment '创建时间',
-  update_by         varchar(64)     default ''                 comment '更新者',
-  update_time       datetime                                   comment '更新时间',
-  primary key (column_id)
+                                  column_id         bigint(20)      not null auto_increment    comment '编号',
+                                  table_id          bigint(20)                                 comment '归属表编号',
+                                  column_name       varchar(200)                               comment '列名称',
+                                  column_comment    varchar(500)                               comment '列描述',
+                                  column_type       varchar(100)                               comment '列类型',
+                                  java_type         varchar(500)                               comment 'JAVA类型',
+                                  java_field        varchar(200)                               comment 'JAVA字段名',
+                                  is_pk             char(1)                                    comment '是否主键（1是）',
+                                  is_increment      char(1)                                    comment '是否自增（1是）',
+                                  is_required       char(1)                                    comment '是否必填（1是）',
+                                  is_insert         char(1)                                    comment '是否为插入字段（1是）',
+                                  is_edit           char(1)                                    comment '是否编辑字段（1是）',
+                                  is_list           char(1)                                    comment '是否列表字段（1是）',
+                                  is_query          char(1)                                    comment '是否查询字段（1是）',
+                                  query_type        varchar(200)    default 'EQ'               comment '查询方式（等于、不等于、大于、小于、范围）',
+                                  html_type         varchar(200)                               comment '显示类型（文本框、文本域、下拉框、复选框、单选框、日期控件）',
+                                  dict_type         varchar(200)    default ''                 comment '字典类型',
+                                  sort              int                                        comment '排序',
+                                  create_by         varchar(64)     default ''                 comment '创建者',
+                                  create_time 	    datetime                                   comment '创建时间',
+                                  update_by         varchar(64)     default ''                 comment '更新者',
+                                  update_time       datetime                                   comment '更新时间',
+                                  primary key (column_id)
 ) engine=innodb auto_increment=1 comment = '代码生成业务表字段';
 
 
@@ -1152,31 +1041,31 @@ create table gen_table_column (
 -- ----------------------------
 DROP TABLE IF EXISTS `daily_article`;
 CREATE TABLE `daily_article` (
-  `id`  bigint(20) NOT NULL AUTO_INCREMENT COMMENT '文章ID',
-  `user_id`  bigint(20) NOT NULL COMMENT '用户ID',
-  `article_title`  varchar(500) NOT NULL COMMENT '原始文章标题',
-  `optimized_content`  longtext COMMENT '优化后的文章内容（来自腾讯元器智能体）',
-  `model1_content`  longtext COMMENT '大模型1未优化的文章内容',
-  `model2_content`  longtext COMMENT '大模型2未优化的文章内容',
-  `model3_content`  longtext COMMENT '大模型3未优化的文章内容',
-  `model1_name`  varchar(100) DEFAULT NULL COMMENT '大模型1名称',
-  `model2_name`  varchar(100) DEFAULT NULL COMMENT '大模型2名称',
-  `model3_name`  varchar(100) DEFAULT NULL COMMENT '大模型3名称',
-  `agent_task_id`  varchar(200) DEFAULT NULL COMMENT '腾讯元器智能体任务ID',
-  `process_status`  tinyint(1) NOT NULL DEFAULT 0 COMMENT '处理状态：0-处理中，1-已完成，2-失败',
-  `error_message`  varchar(1000) DEFAULT NULL COMMENT '错误信息',
-  `selected_models`  varchar(50) DEFAULT '1,2,3' COMMENT '已选择的模型，格式如"1,2,3"',
-  `publish_count`  int(11) DEFAULT 0 COMMENT '发布次数',
-  `create_by`  varchar(64) DEFAULT NULL COMMENT '创建者',
-  `create_time`  datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_by`  varchar(64) DEFAULT NULL COMMENT '更新者',
-  `update_time`  datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `remark`  varchar(500) DEFAULT NULL COMMENT '备注',
-  PRIMARY KEY (`id`) USING BTREE,
-  KEY `idx_user_id` (`user_id`) USING BTREE COMMENT '用户ID索引',
-  KEY `idx_create_time` (`create_time`) USING BTREE COMMENT '创建时间索引',
-  KEY `idx_process_status` (`process_status`) USING BTREE COMMENT '处理状态索引',
-  KEY `idx_agent_task_id` (`agent_task_id`) USING BTREE COMMENT '智能体任务ID索引'
+                                 `id`  bigint(20) NOT NULL AUTO_INCREMENT COMMENT '文章ID',
+                                 `user_id`  bigint(20) NOT NULL COMMENT '用户ID',
+                                 `article_title`  varchar(500) NOT NULL COMMENT '原始文章标题',
+                                 `optimized_content`  longtext COMMENT '优化后的文章内容（来自腾讯元器智能体）',
+                                 `model1_content`  longtext COMMENT '大模型1未优化的文章内容',
+                                 `model2_content`  longtext COMMENT '大模型2未优化的文章内容',
+                                 `model3_content`  longtext COMMENT '大模型3未优化的文章内容',
+                                 `model1_name`  varchar(100) DEFAULT NULL COMMENT '大模型1名称',
+                                 `model2_name`  varchar(100) DEFAULT NULL COMMENT '大模型2名称',
+                                 `model3_name`  varchar(100) DEFAULT NULL COMMENT '大模型3名称',
+                                 `agent_task_id`  varchar(200) DEFAULT NULL COMMENT '腾讯元器智能体任务ID',
+                                 `process_status`  tinyint(1) NOT NULL DEFAULT 0 COMMENT '处理状态：0-处理中，1-已完成，2-失败',
+                                 `error_message`  varchar(1000) DEFAULT NULL COMMENT '错误信息',
+                                 `selected_models`  varchar(50) DEFAULT '1,2,3' COMMENT '已选择的模型，格式如"1,2,3"',
+                                 `publish_count`  int(11) DEFAULT 0 COMMENT '发布次数',
+                                 `create_by`  varchar(64) DEFAULT NULL COMMENT '创建者',
+                                 `create_time`  datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                 `update_by`  varchar(64) DEFAULT NULL COMMENT '更新者',
+                                 `update_time`  datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                 `remark`  varchar(500) DEFAULT NULL COMMENT '备注',
+                                 PRIMARY KEY (`id`) USING BTREE,
+                                 KEY `idx_user_id` (`user_id`) USING BTREE COMMENT '用户ID索引',
+                                 KEY `idx_create_time` (`create_time`) USING BTREE COMMENT '创建时间索引',
+                                 KEY `idx_process_status` (`process_status`) USING BTREE COMMENT '处理状态索引',
+                                 KEY `idx_agent_task_id` (`agent_task_id`) USING BTREE COMMENT '智能体任务ID索引'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='日更助手文章表';
 
 
@@ -1185,23 +1074,23 @@ CREATE TABLE `daily_article` (
 -- ----------------------------
 DROP TABLE IF EXISTS `yuanqi_agent_config`;
 CREATE TABLE `yuanqi_agent_config` (
-  `id`  bigint(20) NOT NULL AUTO_INCREMENT COMMENT '配置ID',
-  `user_id`  bigint(20) NOT NULL COMMENT '用户ID',
-  `business_type`  varchar(50) NOT NULL DEFAULT 'daily_assistant' COMMENT '业务类型：daily_assistant-日更助手, document_parse-文档解析, gitee_analysis-Gitee分析',
-  `agent_id`  varchar(200) NOT NULL COMMENT '腾讯元器智能体ID',
-  `agent_name`  varchar(100) DEFAULT NULL COMMENT '智能体名称',
-  `api_key`  varchar(500) DEFAULT NULL COMMENT 'API密钥（加密存储）',
-  `api_endpoint`  varchar(500) DEFAULT NULL COMMENT 'API端点URL',
-  `is_active`  tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用：0-禁用，1-启用',
-  `config_json`  json DEFAULT NULL COMMENT '其他配置（JSON格式）',
-  `create_by`  varchar(64) DEFAULT NULL COMMENT '创建者',
-  `create_time`  datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_by`  varchar(64) DEFAULT NULL COMMENT '更新者',
-  `update_time`  datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `remark`  varchar(500) DEFAULT NULL COMMENT '备注',
-  PRIMARY KEY (`id`) USING BTREE,
-  KEY `idx_user_business` (`user_id`, `business_type`) USING BTREE COMMENT '用户业务类型索引',
-  KEY `idx_agent_id` (`agent_id`) USING BTREE COMMENT '智能体ID索引'
+                                       `id`  bigint(20) NOT NULL AUTO_INCREMENT COMMENT '配置ID',
+                                       `user_id`  bigint(20) NOT NULL COMMENT '用户ID',
+                                       `business_type`  varchar(50) NOT NULL DEFAULT 'daily_assistant' COMMENT '业务类型：daily_assistant-日更助手, document_parse-文档解析, gitee_analysis-Gitee分析',
+                                       `agent_id`  varchar(200) NOT NULL COMMENT '腾讯元器智能体ID',
+                                       `agent_name`  varchar(100) DEFAULT NULL COMMENT '智能体名称',
+                                       `api_key`  varchar(500) DEFAULT NULL COMMENT 'API密钥（加密存储）',
+                                       `api_endpoint`  varchar(500) DEFAULT NULL COMMENT 'API端点URL',
+                                       `is_active`  tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用：0-禁用，1-启用',
+                                       `config_json`  json DEFAULT NULL COMMENT '其他配置（JSON格式）',
+                                       `create_by`  varchar(64) DEFAULT NULL COMMENT '创建者',
+                                       `create_time`  datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                       `update_by`  varchar(64) DEFAULT NULL COMMENT '更新者',
+                                       `update_time`  datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                       `remark`  varchar(500) DEFAULT NULL COMMENT '备注',
+                                       PRIMARY KEY (`id`) USING BTREE,
+                                       KEY `idx_user_business` (`user_id`, `business_type`) USING BTREE COMMENT '用户业务类型索引',
+                                       KEY `idx_agent_id` (`agent_id`) USING BTREE COMMENT '智能体ID索引'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='腾讯元器智能体配置表';
 
 -- ----------------------------
@@ -1259,29 +1148,29 @@ CREATE TABLE `wc_office_publish_record` (
 -- ----------------------------
 DROP TABLE IF EXISTS `wc_chat_history`;
 CREATE TABLE `wc_chat_history`  (
-  `id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '主键ID（sessionId，每轮对话唯一）',
-  `user_id` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '用户ID',
-  `userPrompt` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '用户指令',
-  `data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '全部数据（JSON格式，含progressLogs、screenshots等）',
-  `create_time` datetime(0) NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `chat_id` varchar(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '会话ID（多轮对话共享，用于上下文关联）',
-  -- AI会话ID字段（支持上下文复用）
-  `tone_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '通义千问会话ID',
-  `yb_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '元宝会话ID',
-  `db_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '豆包会话ID',
-  `ty_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '通义会话ID',
-  `deepseek_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT 'DeepSeek会话ID',
-  `max_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT 'MiniMax会话ID',
-  `metaso_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '秘塔AI会话ID',
-  `kimi_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT 'Kimi会话ID',
-  `baidu_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '百度AI会话ID',
-  `zhzd_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '知乎直答会话ID',
-  PRIMARY KEY (`id`) USING BTREE,
-  INDEX `idx_user_chat`(`user_id`, `chat_id`) USING BTREE,
-  INDEX `idx_chat_create`(`chat_id`, `create_time` DESC) USING BTREE,
-  INDEX `idx_user_create_time`(`user_id`, `create_time`) USING BTREE,
-  INDEX `idx_deepseek`(`deepseek_chat_id`) USING BTREE,
-  INDEX `idx_yuanbao`(`yb_chat_id`) USING BTREE
+                                    `id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '主键ID（sessionId，每轮对话唯一）',
+                                    `user_id` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '用户ID',
+                                    `userPrompt` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '用户指令',
+                                    `data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '全部数据（JSON格式，含progressLogs、screenshots等）',
+                                    `create_time` datetime(0) NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                    `chat_id` varchar(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '会话ID（多轮对话共享，用于上下文关联）',
+    -- AI会话ID字段（支持上下文复用）
+                                    `tone_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '通义千问会话ID',
+                                    `yb_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '元宝会话ID',
+                                    `db_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '豆包会话ID',
+                                    `ty_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '通义会话ID',
+                                    `deepseek_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT 'DeepSeek会话ID',
+                                    `max_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT 'MiniMax会话ID',
+                                    `metaso_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '秘塔AI会话ID',
+                                    `kimi_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT 'Kimi会话ID',
+                                    `baidu_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '百度AI会话ID',
+                                    `zhzd_chat_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '知乎直答会话ID',
+                                    PRIMARY KEY (`id`) USING BTREE,
+                                    INDEX `idx_user_chat`(`user_id`, `chat_id`) USING BTREE,
+                                    INDEX `idx_chat_create`(`chat_id`, `create_time` DESC) USING BTREE,
+                                    INDEX `idx_user_create_time`(`user_id`, `create_time`) USING BTREE,
+                                    INDEX `idx_deepseek`(`deepseek_chat_id`) USING BTREE,
+                                    INDEX `idx_yuanbao`(`yb_chat_id`) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '聊天历史记录表（支持多AI上下文对话）' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -1289,20 +1178,20 @@ CREATE TABLE `wc_chat_history`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `wc_playwright_draft`;
 CREATE TABLE `wc_playwright_draft`  (
-  `id` varchar(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '扩展记录ID（自动生成UUID）',
-  `task_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '关联的聊天历史记录ID（wc_chat_history.id）',
-  `keyword` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '主题词（保留字段，暂未使用）',
-  `user_prompt` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '用户指令',
-  `draft_content` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT 'AI生成的内容（文本/图片URL/视频URL等）',
-  `is_push` int(4) NULL DEFAULT NULL COMMENT '是否已推送（预留字段）',
-  `ai_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT 'AI来源（deepseek/yuanbao等）',
-  `create_time` datetime(0) NULL DEFAULT NULL COMMENT '创建时间',
-  `user_name` bigint(4) NULL DEFAULT 0 COMMENT '创建人用户ID',
-  `share_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT 'AI分享链接',
-  `share_img_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT 'AI对话截图URL',
-  PRIMARY KEY (`id`) USING BTREE,
-  INDEX `user_name`(`user_name`) USING BTREE,
-  INDEX `idx_task_id`(`task_id`) USING BTREE COMMENT '关联聊天历史记录索引'
+                                        `id` varchar(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '扩展记录ID（自动生成UUID）',
+                                        `task_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '关联的聊天历史记录ID（wc_chat_history.id）',
+                                        `keyword` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '主题词（保留字段，暂未使用）',
+                                        `user_prompt` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '用户指令',
+                                        `draft_content` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT 'AI生成的内容（文本/图片URL/视频URL等）',
+                                        `is_push` int(4) NULL DEFAULT NULL COMMENT '是否已推送（预留字段）',
+                                        `ai_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT 'AI来源（deepseek/yuanbao等）',
+                                        `create_time` datetime(0) NULL DEFAULT NULL COMMENT '创建时间',
+                                        `user_name` bigint(4) NULL DEFAULT 0 COMMENT '创建人用户ID',
+                                        `share_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT 'AI分享链接',
+                                        `share_img_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT 'AI对话截图URL',
+                                        PRIMARY KEY (`id`) USING BTREE,
+                                        INDEX `user_name`(`user_name`) USING BTREE,
+                                        INDEX `idx_task_id`(`task_id`) USING BTREE COMMENT '关联聊天历史记录索引'
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'AI记录扩展表（存储AI生成的多类型内容：文本/图片/视频等）' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -1310,26 +1199,26 @@ CREATE TABLE `wc_playwright_draft`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `document_parse`;
 CREATE TABLE `document_parse` (
-  `id`  bigint(20) NOT NULL AUTO_INCREMENT COMMENT '文档解析ID',
-  `user_id`  bigint(20) NOT NULL COMMENT '用户ID',
-  `document_id`  varchar(200) NOT NULL COMMENT '文档ID（自动生成）',
-  `document_name`  varchar(500) DEFAULT NULL COMMENT '文档名称',
-  `prompt`  text COMMENT '提示词',
-  `parsed_content`  longtext COMMENT '解析后的内容（来自腾讯元器智能体）',
-  `agent_task_id`  varchar(200) DEFAULT NULL COMMENT '腾讯元器智能体任务ID',
-  `process_status`  tinyint(1) NOT NULL DEFAULT 0 COMMENT '处理状态：0-处理中，1-已完成，2-失败',
-  `error_message`  varchar(1000) DEFAULT NULL COMMENT '错误信息',
-  `create_by`  varchar(64) DEFAULT NULL COMMENT '创建者',
-  `create_time`  datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_by`  varchar(64) DEFAULT NULL COMMENT '更新者',
-  `update_time`  datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `remark`  varchar(500) DEFAULT NULL COMMENT '备注',
-  PRIMARY KEY (`id`) USING BTREE,
-  KEY `idx_user_id` (`user_id`) USING BTREE COMMENT '用户ID索引',
-  KEY `idx_document_id` (`document_id`) USING BTREE COMMENT '文档ID索引',
-  KEY `idx_create_time` (`create_time`) USING BTREE COMMENT '创建时间索引',
-  KEY `idx_process_status` (`process_status`) USING BTREE COMMENT '处理状态索引',
-  KEY `idx_agent_task_id` (`agent_task_id`) USING BTREE COMMENT '智能体任务ID索引'
+                                  `id`  bigint(20) NOT NULL AUTO_INCREMENT COMMENT '文档解析ID',
+                                  `user_id`  bigint(20) NOT NULL COMMENT '用户ID',
+                                  `document_id`  varchar(200) NOT NULL COMMENT '文档ID（自动生成）',
+                                  `document_name`  varchar(500) DEFAULT NULL COMMENT '文档名称',
+                                  `prompt`  text COMMENT '提示词',
+                                  `parsed_content`  longtext COMMENT '解析后的内容（来自腾讯元器智能体）',
+                                  `agent_task_id`  varchar(200) DEFAULT NULL COMMENT '腾讯元器智能体任务ID',
+                                  `process_status`  tinyint(1) NOT NULL DEFAULT 0 COMMENT '处理状态：0-处理中，1-已完成，2-失败',
+                                  `error_message`  varchar(1000) DEFAULT NULL COMMENT '错误信息',
+                                  `create_by`  varchar(64) DEFAULT NULL COMMENT '创建者',
+                                  `create_time`  datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                  `update_by`  varchar(64) DEFAULT NULL COMMENT '更新者',
+                                  `update_time`  datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                  `remark`  varchar(500) DEFAULT NULL COMMENT '备注',
+                                  PRIMARY KEY (`id`) USING BTREE,
+                                  KEY `idx_user_id` (`user_id`) USING BTREE COMMENT '用户ID索引',
+                                  KEY `idx_document_id` (`document_id`) USING BTREE COMMENT '文档ID索引',
+                                  KEY `idx_create_time` (`create_time`) USING BTREE COMMENT '创建时间索引',
+                                  KEY `idx_process_status` (`process_status`) USING BTREE COMMENT '处理状态索引',
+                                  KEY `idx_agent_task_id` (`agent_task_id`) USING BTREE COMMENT '智能体任务ID索引'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文档解析表';
 
 -- ----------------------------
@@ -1337,23 +1226,23 @@ CREATE TABLE `document_parse` (
 -- ----------------------------
 DROP TABLE IF EXISTS `wx_points_rule`;
 CREATE TABLE `wx_points_rule` (
-                                            `rule_id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '规则ID',
-                                            `rule_code` VARCHAR(50) NOT NULL COMMENT '规则编码（唯一标识，用于业务索引）',
-                                            `rule_name` VARCHAR(100) NOT NULL COMMENT '规则名称（用于显示，可修改）',
-                                            `points_value` INT(11) NOT NULL COMMENT '积分值（正数为奖励，负数为扣减）',
-                                            `limit_type` VARCHAR(20) DEFAULT NULL COMMENT '限频类型：DAILY/WEEKLY/MONTHLY/TOTAL',
-                                            `limit_value` INT(11) DEFAULT NULL COMMENT '限频次数',
-                                            `max_amount` INT(11) DEFAULT NULL COMMENT '累计上限',
-                                            `status` CHAR(1) DEFAULT '0' COMMENT '状态（0正常 1停用）',
-                                            `sort_order` INT(11) DEFAULT 0 COMMENT '排序',
-                                            `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
-                                            `create_by` VARCHAR(64) DEFAULT '' COMMENT '创建者',
-                                            `create_time` DATETIME NOT NULL COMMENT '创建时间',
-                                            `update_by` VARCHAR(64) DEFAULT '' COMMENT '更新者',
-                                            `update_time` DATETIME DEFAULT NULL COMMENT '更新时间',
-                                            PRIMARY KEY (`rule_id`),
-                                            UNIQUE KEY `uk_rule_code` (`rule_code`),
-                                            KEY `idx_status` (`status`)
+                                  `rule_id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '规则ID',
+                                  `rule_code` VARCHAR(50) NOT NULL COMMENT '规则编码（唯一标识，用于业务索引）',
+                                  `rule_name` VARCHAR(100) NOT NULL COMMENT '规则名称（用于显示，可修改）',
+                                  `points_value` INT(11) NOT NULL COMMENT '积分值（正数为奖励，负数为扣减）',
+                                  `limit_type` VARCHAR(20) DEFAULT NULL COMMENT '限频类型：DAILY/WEEKLY/MONTHLY/TOTAL',
+                                  `limit_value` INT(11) DEFAULT NULL COMMENT '限频次数',
+                                  `max_amount` INT(11) DEFAULT NULL COMMENT '累计上限',
+                                  `status` CHAR(1) DEFAULT '0' COMMENT '状态（0正常 1停用）',
+                                  `sort_order` INT(11) DEFAULT 0 COMMENT '排序',
+                                  `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
+                                  `create_by` VARCHAR(64) DEFAULT '' COMMENT '创建者',
+                                  `create_time` DATETIME NOT NULL COMMENT '创建时间',
+                                  `update_by` VARCHAR(64) DEFAULT '' COMMENT '更新者',
+                                  `update_time` DATETIME DEFAULT NULL COMMENT '更新时间',
+                                  PRIMARY KEY (`rule_id`),
+                                  UNIQUE KEY `uk_rule_code` (`rule_code`),
+                                  KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分规则配置表';
 
 -- ----------------------------
@@ -1361,23 +1250,23 @@ CREATE TABLE `wx_points_rule` (
 -- ----------------------------
 DROP TABLE IF EXISTS `wx_points_record`;
 CREATE TABLE `wx_points_record` (
-  `record_id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '记录ID',
-  `user_id` BIGINT(20) NOT NULL COMMENT '用户ID',
-  `rule_code` VARCHAR(50) NOT NULL COMMENT '规则编码（关联wx_points_rule.rule_code）',
-  `change_amount` INT(11) NOT NULL COMMENT '变动金额（正数为增加，负数为扣减）',
-  `balance_before` INT(11) NOT NULL COMMENT '变动前余额',
-  `balance_after` INT(11) NOT NULL COMMENT '变动后余额',
-  `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注说明',
-  `create_by` VARCHAR(64) DEFAULT '' COMMENT '创建者',
-  `create_time` DATETIME NOT NULL COMMENT '创建时间',
-  `update_by` VARCHAR(64) DEFAULT '' COMMENT '更新者',
-  `update_time` DATETIME DEFAULT NULL COMMENT '更新时间',
-  PRIMARY KEY (`record_id`),
-  KEY `idx_user_id` (`user_id`),
-  KEY `idx_rule_code` (`rule_code`),
-  KEY `idx_create_time` (`create_time`),
-  KEY `idx_user_time` (`user_id`, `create_time`),
-  CONSTRAINT `fk_points_record_rule` FOREIGN KEY (`rule_code`) REFERENCES `wx_points_rule` (`rule_code`)
+                                    `record_id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+                                    `user_id` BIGINT(20) NOT NULL COMMENT '用户ID',
+                                    `rule_code` VARCHAR(50) NOT NULL COMMENT '规则编码（关联wx_points_rule.rule_code）',
+                                    `change_amount` INT(11) NOT NULL COMMENT '变动金额（正数为增加，负数为扣减）',
+                                    `balance_before` INT(11) NOT NULL COMMENT '变动前余额',
+                                    `balance_after` INT(11) NOT NULL COMMENT '变动后余额',
+                                    `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注说明',
+                                    `create_by` VARCHAR(64) DEFAULT '' COMMENT '创建者',
+                                    `create_time` DATETIME NOT NULL COMMENT '创建时间',
+                                    `update_by` VARCHAR(64) DEFAULT '' COMMENT '更新者',
+                                    `update_time` DATETIME DEFAULT NULL COMMENT '更新时间',
+                                    PRIMARY KEY (`record_id`),
+                                    KEY `idx_user_id` (`user_id`),
+                                    KEY `idx_rule_code` (`rule_code`),
+                                    KEY `idx_create_time` (`create_time`),
+                                    KEY `idx_user_time` (`user_id`, `create_time`),
+                                    CONSTRAINT `fk_points_record_rule` FOREIGN KEY (`rule_code`) REFERENCES `wx_points_rule` (`rule_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分明细记录表';
 
 -- ----------------------------
@@ -1385,35 +1274,30 @@ CREATE TABLE `wx_points_record` (
 -- ----------------------------
 DROP TABLE IF EXISTS `wx_points_statistics`;
 CREATE TABLE `wx_points_statistics` (
-  `stat_id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '统计ID',
-  `user_id` BIGINT(20) NOT NULL COMMENT '用户ID',
-  `stat_date` DATE NOT NULL COMMENT '统计日期',
-  `points_gain` INT(11) DEFAULT 0 COMMENT '当日获得积分',
-  `points_used` INT(11) DEFAULT 0 COMMENT '当日使用积分',
-  `create_time` DATETIME NOT NULL COMMENT '创建时间',
-  PRIMARY KEY (`stat_id`),
-  UNIQUE KEY `uk_user_date` (`user_id`, `stat_date`),
-  KEY `idx_stat_date` (`stat_date`)
+                                        `stat_id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '统计ID',
+                                        `user_id` BIGINT(20) NOT NULL COMMENT '用户ID',
+                                        `stat_date` DATE NOT NULL COMMENT '统计日期',
+                                        `points_gain` INT(11) DEFAULT 0 COMMENT '当日获得积分',
+                                        `points_used` INT(11) DEFAULT 0 COMMENT '当日使用积分',
+                                        `create_time` DATETIME NOT NULL COMMENT '创建时间',
+                                        PRIMARY KEY (`stat_id`),
+                                        UNIQUE KEY `uk_user_date` (`user_id`, `stat_date`),
+                                        KEY `idx_stat_date` (`stat_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分统计表';
 
 -- ----------------------------
 -- 初始化积分规则数据
 -- ----------------------------
 INSERT INTO `wx_points_rule` (`rule_code`, `rule_name`, `points_value`, `limit_type`, `limit_value`, `max_amount`, `status`, `sort_order`, `remark`, `create_by`, `create_time`) VALUES
-('FIRST_LOGIN_BONUS', '首次登录奖励', 5000, NULL, NULL, NULL, '0', 2, '用户首次登录奖励', 'admin', NOW()),
-('DAILY_LOGIN', '每日登录', 10, 'DAILY', 1, NULL, '0', 1, '用户每日首次登录奖励', 'admin', NOW()),
-('USE_DAILY_ASSISTANT', '使用日更助手', -1, NULL, NULL, NULL, '0', 2, '使用日更助手生成文章时扣减', 'admin', NOW()),
-('ARTICLE_LAYOUT', '智能排版', -1, NULL, NULL, NULL, '0', 3, '使用智能排版功能时扣减', 'admin', NOW()),
-('TEMPLATE_PUBLISH', '模板上架', 50, NULL, NULL, NULL, '0', 4, '用户上架模板到市场奖励', 'admin', NOW()),
-('TEMPLATE_BUY', '模板购买', 0, NULL, NULL, NULL, '0', 5, '购买模板时扣减', 'admin', NOW()),
-('TEMPLATE_REWARD', '模板分成', 0, NULL, NULL, NULL, '0', 6, '模板被购买时的作者分成', 'admin', NOW()),
-('ADMIN_GRANT', '管理员发放', 0, NULL, NULL, NULL, '0', 7, '管理员给用户发放积分', 'admin', NOW()),
-('GITEE_ANALYSIS', 'gitee分析', -1, '2', NULL, NULL, '0', 2, 'gitee分析', 'admin', NOW()),
-('SHELF_CERTIFICATE_TEMPLATE', '新增证书模板', -1, NULL, NULL, NULL, '0', 8, '新增证书扣减', 'admin', NOW()),
-('ISSUE_CERTIFICATES', '审核通过发放证书', -1, NULL, NULL, NULL, '0', 9, '审核通过发放证书扣减积分', 'admin', NOW()),
-('RECEIVE_CERTIFICATE', '领取证书', -1, NULL, NULL, NULL, '0', 10, '领取证书扣减积分', 'admin', NOW()),
-('APPLY_CERTIFICATE', '申请证书', -1, NULL, NULL, NULL, '0', 11, '申请证书扣减积分','admin', NOW());
-
+                                                                                                                                                                                     ('FIRST_LOGIN_BONUS', '首次登录奖励', 5000, NULL, NULL, NULL, '0', 2, '用户首次登录奖励', 'admin', NOW()),
+                                                                                                                                                                                     ('DAILY_LOGIN', '每日登录', 10, 'DAILY', 1, NULL, '0', 1, '用户每日首次登录奖励', 'admin', NOW()),
+                                                                                                                                                                                     ('USE_DAILY_ASSISTANT', '使用日更助手', -1, NULL, NULL, NULL, '0', 2, '使用日更助手生成文章时扣减', 'admin', NOW()),
+                                                                                                                                                                                     ('ARTICLE_LAYOUT', '智能排版', -1, NULL, NULL, NULL, '0', 3, '使用智能排版功能时扣减', 'admin', NOW()),
+                                                                                                                                                                                     ('TEMPLATE_PUBLISH', '模板上架', 50, NULL, NULL, NULL, '0', 4, '用户上架模板到市场奖励', 'admin', NOW()),
+                                                                                                                                                                                     ('TEMPLATE_BUY', '模板购买', 0, NULL, NULL, NULL, '0', 5, '购买模板时扣减', 'admin', NOW()),
+                                                                                                                                                                                     ('TEMPLATE_REWARD', '模板分成', 0, NULL, NULL, NULL, '0', 6, '模板被购买时的作者分成', 'admin', NOW()),
+                                                                                                                                                                                     ('ADMIN_GRANT', '管理员发放', 0, NULL, NULL, NULL, '0', 7, '管理员给用户发放积分', 'admin', NOW()),
+                                                                                                                                                                                     ('GITEE_ANALYSIS', 'gitee分析', -1, '2', NULL, NULL, '0', 2, 'gitee分析', 'admin', NOW());
 
 -- =============================================
 -- 业务模块：Gitee管理
@@ -1424,17 +1308,17 @@ INSERT INTO `wx_points_rule` (`rule_code`, `rule_name`, `points_value`, `limit_t
 -- ----------------------------
 drop table if exists gitee_bind;
 create table gitee_bind (
-  bind_id           bigint(20)      not null auto_increment    comment '绑定ID',
-  user_id           bigint(20)      not null                   comment '用户ID',
-  gitee_user_id     varchar(64)     not null                   comment 'Gitee用户ID',
-  gitee_username    varchar(100)    not null                   comment 'Gitee用户名',
-  gitee_avatar      varchar(255)    default ''                 comment 'Gitee头像',
-  bind_time         datetime                                   comment '绑定时间',
-  primary key (bind_id),
-  unique key uk_gitee_bind_user (user_id),
-  unique key uk_gitee_bind_gitee (gitee_user_id),
-  key idx_gitee_bind_user (user_id),
-  constraint fk_gitee_bind_user foreign key (user_id) references sys_user (user_id) on delete cascade
+                            bind_id           bigint(20)      not null auto_increment    comment '绑定ID',
+                            user_id           bigint(20)      not null                   comment '用户ID',
+                            gitee_user_id     varchar(64)     not null                   comment 'Gitee用户ID',
+                            gitee_username    varchar(100)    not null                   comment 'Gitee用户名',
+                            gitee_avatar      varchar(255)    default ''                 comment 'Gitee头像',
+                            bind_time         datetime                                   comment '绑定时间',
+                            primary key (bind_id),
+                            unique key uk_gitee_bind_user (user_id),
+                            unique key uk_gitee_bind_gitee (gitee_user_id),
+                            key idx_gitee_bind_user (user_id),
+                            constraint fk_gitee_bind_user foreign key (user_id) references sys_user (user_id) on delete cascade
 ) engine=innodb comment = 'Gitee绑定表';
 
 -- 删除用户时同步清理Gitee绑定（软删场景）
@@ -1446,20 +1330,20 @@ create table gitee_bind (
 -- ----------------------------
 drop table if exists gitee_analysis_report;
 create table gitee_analysis_report (
-  report_id         bigint(20)      not null auto_increment    comment '报告ID',
-  user_id           bigint(20)      not null                   comment '用户ID',
-  profile_score     int(10)         default null               comment '形象评分',
-  profile_level     varchar(10)     default ''                 comment '形象等级',
-  community_score   int(10)         default null               comment '社区评分',
-  community_level   varchar(10)     default ''                 comment '社区等级',
-  tech_score        int(10)         default null               comment '技术评分',
-  tech_level        varchar(10)     default ''                 comment '技术等级',
-  total_score       int(10)         default null               comment '综合评分',
-  total_level       varchar(10)     default ''                 comment '综合等级',
-  report_time       datetime                                   comment '评测时间',
-  primary key (report_id),
-  key idx_gitee_report_user (user_id),
-  constraint fk_gitee_report_user foreign key (user_id) references sys_user (user_id)
+                                       report_id         bigint(20)      not null auto_increment    comment '报告ID',
+                                       user_id           bigint(20)      not null                   comment '用户ID',
+                                       profile_score     int(10)         default null               comment '形象评分',
+                                       profile_level     varchar(10)     default ''                 comment '形象等级',
+                                       community_score   int(10)         default null               comment '社区评分',
+                                       community_level   varchar(10)     default ''                 comment '社区等级',
+                                       tech_score        int(10)         default null               comment '技术评分',
+                                       tech_level        varchar(10)     default ''                 comment '技术等级',
+                                       total_score       int(10)         default null               comment '综合评分',
+                                       total_level       varchar(10)     default ''                 comment '综合等级',
+                                       report_time       datetime                                   comment '评测时间',
+                                       primary key (report_id),
+                                       key idx_gitee_report_user (user_id),
+                                       constraint fk_gitee_report_user foreign key (user_id) references sys_user (user_id)
 ) engine=innodb comment = 'Gitee评测报告表';
 
 -- ----------------------------
@@ -1467,18 +1351,18 @@ create table gitee_analysis_report (
 -- ----------------------------
 drop table if exists gitee_usage_report;
 create table gitee_usage_report (
-  report_id               bigint(20)      not null auto_increment    comment '报表ID',
-  report_date             date            not null                   comment '统计日期',
-  new_bind_count          int(10)         default 0                  comment '当日新增绑定用户数',
-  daily_evaluation_count  int(10)         default 0                  comment '当日评测总次数',
-  daily_active_user_count int(10)         default 0                  comment '当日活跃评测用户数',
-  total_bind_count        int(10)         default 0                  comment '累计绑定用户数',
-  score_distribution      text                                      comment '评分区间分布(JSON)',
-  create_time             datetime                                  comment '创建时间',
-  update_time             datetime                                  comment '更新时间',
-  primary key (report_id),
-  unique key uk_gitee_usage_date (report_date),
-  key idx_gitee_usage_date (report_date)
+                                    report_id               bigint(20)      not null auto_increment    comment '报表ID',
+                                    report_date             date            not null                   comment '统计日期',
+                                    new_bind_count          int(10)         default 0                  comment '当日新增绑定用户数',
+                                    daily_evaluation_count  int(10)         default 0                  comment '当日评测总次数',
+                                    daily_active_user_count int(10)         default 0                  comment '当日活跃评测用户数',
+                                    total_bind_count        int(10)         default 0                  comment '累计绑定用户数',
+                                    score_distribution      text                                      comment '评分区间分布(JSON)',
+                                    create_time             datetime                                  comment '创建时间',
+                                    update_time             datetime                                  comment '更新时间',
+                                    primary key (report_id),
+                                    unique key uk_gitee_usage_date (report_date),
+                                    key idx_gitee_usage_date (report_date)
 ) engine=innodb comment = 'Gitee模块使用统计报表';
 
 -- ========================================
@@ -1494,59 +1378,59 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- ----------------------------
 DROP TABLE IF EXISTS `ws_host_whitelist`;
 CREATE TABLE `ws_host_whitelist` (
-    `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `host_id` varchar(50) NOT NULL COMMENT '主机ID（用户申请后由管理员分配）',
-    `host_name` varchar(100) DEFAULT NULL COMMENT '主机名称/描述',
-    `owner_name` varchar(50) DEFAULT NULL COMMENT '负责人姓名',
-    `owner_contact` varchar(100) DEFAULT NULL COMMENT '负责人联系方式',
-    `is_team` tinyint(4) NOT NULL DEFAULT 0 COMMENT '是否团队主机：0-个人，1-团队（仅用于统计分类）',
-    `team_name` varchar(100) DEFAULT NULL COMMENT '团队名称（is_team=1时填写）',
-    `allowed_ips` varchar(500) DEFAULT NULL COMMENT '允许的IP地址列表（逗号分隔，为空表示不限制）',
-    `status` tinyint(4) NOT NULL DEFAULT 1 COMMENT '状态：1-启用，0-禁用',
-    `expire_time` datetime DEFAULT NULL COMMENT '过期时间（为空表示永不过期）',
-    `remark` varchar(255) DEFAULT NULL COMMENT '备注',
-    `del_flag` tinyint(4) NOT NULL DEFAULT 0 COMMENT '删除标志：0-正常，1-已删除',
-    `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
-    `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
-    `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    PRIMARY KEY (`id`),
-    UNIQUE INDEX `uk_host_id` (`host_id`),
-    INDEX `idx_is_team` (`is_team`),
-    INDEX `idx_status` (`status`),
-    INDEX `idx_del_flag` (`del_flag`)
+                                     `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键',
+                                     `host_id` varchar(50) NOT NULL COMMENT '主机ID（用户申请后由管理员分配）',
+                                     `host_name` varchar(100) DEFAULT NULL COMMENT '主机名称/描述',
+                                     `owner_name` varchar(50) DEFAULT NULL COMMENT '负责人姓名',
+                                     `owner_contact` varchar(100) DEFAULT NULL COMMENT '负责人联系方式',
+                                     `is_team` tinyint(4) NOT NULL DEFAULT 0 COMMENT '是否团队主机：0-个人，1-团队（仅用于统计分类）',
+                                     `team_name` varchar(100) DEFAULT NULL COMMENT '团队名称（is_team=1时填写）',
+                                     `allowed_ips` varchar(500) DEFAULT NULL COMMENT '允许的IP地址列表（逗号分隔，为空表示不限制）',
+                                     `status` tinyint(4) NOT NULL DEFAULT 1 COMMENT '状态：1-启用，0-禁用',
+                                     `expire_time` datetime DEFAULT NULL COMMENT '过期时间（为空表示永不过期）',
+                                     `remark` varchar(255) DEFAULT NULL COMMENT '备注',
+                                     `del_flag` tinyint(4) NOT NULL DEFAULT 0 COMMENT '删除标志：0-正常，1-已删除',
+                                     `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
+                                     `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                     `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
+                                     `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                     PRIMARY KEY (`id`),
+                                     UNIQUE INDEX `uk_host_id` (`host_id`),
+                                     INDEX `idx_is_team` (`is_team`),
+                                     INDEX `idx_status` (`status`),
+                                     INDEX `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='WebSocket主机白名单表';
 
 -- 插入示例数据
 INSERT INTO `ws_host_whitelist` (`host_id`, `host_name`, `owner_name`, `is_team`, `team_name`, `status`, `remark`) VALUES
-('engine-001', '默认Engine节点', '管理员', 0, NULL, 1, '默认配置的Engine节点，对应application.yml中的host-id'),
-('engine-dev-001', '开发测试节点1', '张三', 0, NULL, 1, '开发环境测试用'),
-('engine-prod-001', '生产节点-运维组', '运维组', 1, '运维团队', 1, '生产环境主节点');
+                                                                                                                       ('engine-001', '默认Engine节点', '管理员', 0, NULL, 1, '默认配置的Engine节点，对应application.yml中的host-id'),
+                                                                                                                       ('engine-dev-001', '开发测试节点1', '张三', 0, NULL, 1, '开发环境测试用'),
+                                                                                                                       ('engine-prod-001', '生产节点-运维组', '运维组', 1, '运维团队', 1, '生产环境主节点');
 
 -- ----------------------------
 -- 34、IP黑名单表
 -- ----------------------------
 DROP TABLE IF EXISTS `ws_ip_blacklist`;
 CREATE TABLE `ws_ip_blacklist` (
-    `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `ip_address` varchar(50) NOT NULL COMMENT 'IP地址',
-    `block_reason` varchar(255) DEFAULT NULL COMMENT '封禁原因',
-    `block_type` tinyint DEFAULT 1 COMMENT '封禁类型：1-临时封禁（有过期时间），2-永久封禁',
-    `expire_time` datetime DEFAULT NULL COMMENT '解封时间（block_type=1时有效，为空表示永久封禁）',
-    `hit_count` int DEFAULT 0 COMMENT '命中次数（该IP尝试连接被拒绝的次数）',
-    `last_hit_time` datetime DEFAULT NULL COMMENT '最后命中时间',
-    `status` tinyint(4) NOT NULL DEFAULT 1 COMMENT '状态：1-生效，0-已解除',
-    `remark` varchar(255) DEFAULT NULL COMMENT '备注',
-    `del_flag` tinyint(4) NOT NULL DEFAULT 0 COMMENT '删除标志：0-正常，1-已删除',
-    `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
-    `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
-    `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    PRIMARY KEY (`id`),
-    INDEX `idx_ip_address` (`ip_address`),
-    INDEX `idx_status` (`status`),
-    INDEX `idx_expire_time` (`expire_time`),
-    INDEX `idx_del_flag` (`del_flag`)
+                                   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键',
+                                   `ip_address` varchar(50) NOT NULL COMMENT 'IP地址',
+                                   `block_reason` varchar(255) DEFAULT NULL COMMENT '封禁原因',
+                                   `block_type` tinyint DEFAULT 1 COMMENT '封禁类型：1-临时封禁（有过期时间），2-永久封禁',
+                                   `expire_time` datetime DEFAULT NULL COMMENT '解封时间（block_type=1时有效，为空表示永久封禁）',
+                                   `hit_count` int DEFAULT 0 COMMENT '命中次数（该IP尝试连接被拒绝的次数）',
+                                   `last_hit_time` datetime DEFAULT NULL COMMENT '最后命中时间',
+                                   `status` tinyint(4) NOT NULL DEFAULT 1 COMMENT '状态：1-生效，0-已解除',
+                                   `remark` varchar(255) DEFAULT NULL COMMENT '备注',
+                                   `del_flag` tinyint(4) NOT NULL DEFAULT 0 COMMENT '删除标志：0-正常，1-已删除',
+                                   `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
+                                   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                   `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
+                                   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                   PRIMARY KEY (`id`),
+                                   INDEX `idx_ip_address` (`ip_address`),
+                                   INDEX `idx_status` (`status`),
+                                   INDEX `idx_expire_time` (`expire_time`),
+                                   INDEX `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='WebSocket IP黑名单表';
 
 -- ----------------------------
@@ -1554,45 +1438,45 @@ CREATE TABLE `ws_ip_blacklist` (
 -- ----------------------------
 DROP TABLE IF EXISTS `ws_connection_log`;
 CREATE TABLE `ws_connection_log` (
-    `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `session_id` varchar(64) NOT NULL COMMENT 'WebSocket会话ID',
-    `host_id` varchar(50) DEFAULT NULL COMMENT '主机ID（客户端声称的，注册前可能为空）',
-    `device_id` varchar(128) DEFAULT NULL COMMENT '设备指纹ID（基于硬件信息生成，注册时上报）',
-    `engine_version` varchar(20) DEFAULT NULL COMMENT 'Engine版本号（注册时上报）',
-    `remote_ip` varchar(50) NOT NULL COMMENT '客户端IP地址',
-    `remote_port` int DEFAULT NULL COMMENT '客户端端口',
-    `request_uri` varchar(255) DEFAULT NULL COMMENT '请求URI路径',
-    `os_name` varchar(50) DEFAULT NULL COMMENT '操作系统名称（注册时上报）',
-    `os_version` varchar(50) DEFAULT NULL COMMENT '操作系统版本（注册时上报）',
-    `java_version` varchar(30) DEFAULT NULL COMMENT 'Java版本（注册时上报）',
-    `hostname` varchar(100) DEFAULT NULL COMMENT '客户端主机名（注册时上报）',
-    `mac_address` varchar(50) DEFAULT NULL COMMENT 'MAC地址（注册时上报）',
-    `connect_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '连接时间（TCP握手成功时间）',
-    `register_time` datetime DEFAULT NULL COMMENT '注册成功时间（验证通过时间）',
-    `disconnect_time` datetime DEFAULT NULL COMMENT '断开时间',
-    `duration_seconds` bigint DEFAULT NULL COMMENT '连接持续时间（秒，断开时计算）',
-    `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态：0-连接中，1-已注册，2-正常断开，3-异常断开，4-被拒绝（白名单），5-被拒绝（黑名单），6-被拒绝（重复连接），7-被管理员断开，8-主节点重启导致断开',
-    `reject_reason` varchar(255) DEFAULT NULL COMMENT '拒绝/断开原因',
-    `error_code` varchar(10) DEFAULT NULL COMMENT '错误码（E1001-E9999：E1xxx认证错误，E2xxx授权错误，E3xxx连接错误，E4xxx系统错误）',
-    `close_code` int DEFAULT NULL COMMENT 'WebSocket关闭状态码',
-    `close_reason` varchar(255) DEFAULT NULL COMMENT '关闭原因',
-    `message_sent` bigint DEFAULT 0 COMMENT '发送消息数（断开时统计）',
-    `message_received` bigint DEFAULT 0 COMMENT '接收消息数（断开时统计）',
-    `heartbeat_count` int DEFAULT 0 COMMENT '心跳次数（断开时统计）',
-    `error_count` int DEFAULT 0 COMMENT '错误次数（断开时统计）',
-    `last_error` varchar(500) DEFAULT NULL COMMENT '最后一次错误信息',
-    `del_flag` tinyint(4) NOT NULL DEFAULT 0 COMMENT '删除标志：0-正常，1-已删除',
-    `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    PRIMARY KEY (`id`),
-    INDEX `idx_session_id` (`session_id`),
-    INDEX `idx_host_id` (`host_id`),
-    INDEX `idx_device_id` (`device_id`),
-    INDEX `idx_remote_ip` (`remote_ip`),
-    INDEX `idx_connect_time` (`connect_time`),
-    INDEX `idx_status` (`status`),
-    INDEX `idx_error_code` (`error_code`),
-    INDEX `idx_del_flag` (`del_flag`)
+                                     `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键',
+                                     `session_id` varchar(64) NOT NULL COMMENT 'WebSocket会话ID',
+                                     `host_id` varchar(50) DEFAULT NULL COMMENT '主机ID（客户端声称的，注册前可能为空）',
+                                     `device_id` varchar(128) DEFAULT NULL COMMENT '设备指纹ID（基于硬件信息生成，注册时上报）',
+                                     `engine_version` varchar(20) DEFAULT NULL COMMENT 'Engine版本号（注册时上报）',
+                                     `remote_ip` varchar(50) NOT NULL COMMENT '客户端IP地址',
+                                     `remote_port` int DEFAULT NULL COMMENT '客户端端口',
+                                     `request_uri` varchar(255) DEFAULT NULL COMMENT '请求URI路径',
+                                     `os_name` varchar(50) DEFAULT NULL COMMENT '操作系统名称（注册时上报）',
+                                     `os_version` varchar(50) DEFAULT NULL COMMENT '操作系统版本（注册时上报）',
+                                     `java_version` varchar(30) DEFAULT NULL COMMENT 'Java版本（注册时上报）',
+                                     `hostname` varchar(100) DEFAULT NULL COMMENT '客户端主机名（注册时上报）',
+                                     `mac_address` varchar(50) DEFAULT NULL COMMENT 'MAC地址（注册时上报）',
+                                     `connect_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '连接时间（TCP握手成功时间）',
+                                     `register_time` datetime DEFAULT NULL COMMENT '注册成功时间（验证通过时间）',
+                                     `disconnect_time` datetime DEFAULT NULL COMMENT '断开时间',
+                                     `duration_seconds` bigint DEFAULT NULL COMMENT '连接持续时间（秒，断开时计算）',
+                                     `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态：0-连接中，1-已注册，2-正常断开，3-异常断开，4-被拒绝（白名单），5-被拒绝（黑名单），6-被拒绝（重复连接），7-被管理员断开，8-主节点重启导致断开',
+                                     `reject_reason` varchar(255) DEFAULT NULL COMMENT '拒绝/断开原因',
+                                     `error_code` varchar(10) DEFAULT NULL COMMENT '错误码（E1001-E9999：E1xxx认证错误，E2xxx授权错误，E3xxx连接错误，E4xxx系统错误）',
+                                     `close_code` int DEFAULT NULL COMMENT 'WebSocket关闭状态码',
+                                     `close_reason` varchar(255) DEFAULT NULL COMMENT '关闭原因',
+                                     `message_sent` bigint DEFAULT 0 COMMENT '发送消息数（断开时统计）',
+                                     `message_received` bigint DEFAULT 0 COMMENT '接收消息数（断开时统计）',
+                                     `heartbeat_count` int DEFAULT 0 COMMENT '心跳次数（断开时统计）',
+                                     `error_count` int DEFAULT 0 COMMENT '错误次数（断开时统计）',
+                                     `last_error` varchar(500) DEFAULT NULL COMMENT '最后一次错误信息',
+                                     `del_flag` tinyint(4) NOT NULL DEFAULT 0 COMMENT '删除标志：0-正常，1-已删除',
+                                     `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                     `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                     PRIMARY KEY (`id`),
+                                     INDEX `idx_session_id` (`session_id`),
+                                     INDEX `idx_host_id` (`host_id`),
+                                     INDEX `idx_device_id` (`device_id`),
+                                     INDEX `idx_remote_ip` (`remote_ip`),
+                                     INDEX `idx_connect_time` (`connect_time`),
+                                     INDEX `idx_status` (`status`),
+                                     INDEX `idx_error_code` (`error_code`),
+                                     INDEX `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='WebSocket连接记录表';
 
 -- ----------------------------
@@ -1600,26 +1484,26 @@ CREATE TABLE `ws_connection_log` (
 -- ----------------------------
 DROP VIEW IF EXISTS `v_ws_connection_stats`;
 CREATE VIEW `v_ws_connection_stats` AS
-SELECT 
-    DATE(connect_time) AS stat_date,
-    COUNT(*) AS total_connections,
-    SUM(CASE WHEN status IN (1, 2) THEN 1 ELSE 0 END) AS success_connections,
-    SUM(CASE WHEN status IN (4, 5, 6) THEN 1 ELSE 0 END) AS rejected_connections,
-    SUM(CASE WHEN status = 3 THEN 1 ELSE 0 END) AS abnormal_disconnections,
-    SUM(CASE WHEN status = 7 THEN 1 ELSE 0 END) AS admin_disconnections,
-    COUNT(DISTINCT remote_ip) AS unique_ips,
-    COUNT(DISTINCT host_id) AS unique_hosts,
-    COUNT(DISTINCT device_id) AS unique_devices
-FROM `ws_connection_log`
-WHERE del_flag = 0
-GROUP BY DATE(connect_time);
+SELECT
+        DATE(connect_time) AS stat_date,
+        COUNT(*) AS total_connections,
+        SUM(CASE WHEN status IN (1, 2) THEN 1 ELSE 0 END) AS success_connections,
+        SUM(CASE WHEN status IN (4, 5, 6) THEN 1 ELSE 0 END) AS rejected_connections,
+        SUM(CASE WHEN status = 3 THEN 1 ELSE 0 END) AS abnormal_disconnections,
+        SUM(CASE WHEN status = 7 THEN 1 ELSE 0 END) AS admin_disconnections,
+        COUNT(DISTINCT remote_ip) AS unique_ips,
+        COUNT(DISTINCT host_id) AS unique_hosts,
+        COUNT(DISTINCT device_id) AS unique_devices
+        FROM `ws_connection_log`
+        WHERE del_flag = 0
+        GROUP BY DATE(connect_time);
 
 -- ----------------------------
 -- 37、可疑连接视图
 -- ----------------------------
 DROP VIEW IF EXISTS `v_ws_suspicious_connections`;
 CREATE VIEW `v_ws_suspicious_connections` AS
-SELECT 
+SELECT
     device_id,
     GROUP_CONCAT(DISTINCT host_id) AS used_host_ids,
     COUNT(DISTINCT host_id) AS host_id_count,
@@ -1636,7 +1520,7 @@ HAVING COUNT(DISTINCT host_id) > 1;
 -- ----------------------------
 DROP VIEW IF EXISTS `v_ws_team_stats`;
 CREATE VIEW `v_ws_team_stats` AS
-SELECT 
+SELECT
     COALESCE(w.team_name, '个人') AS team_name,
     w.is_team,
     COUNT(DISTINCT w.host_id) AS host_count,
@@ -1648,81 +1532,3 @@ GROUP BY w.team_name, w.is_team;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
-
--- ----------------------------
--- 39、 证书模板表
--- ----------------------------
-DROP TABLE IF EXISTS `certificate_template`;
-CREATE TABLE `certificate_template`  (
-                                         `template_id` bigint NOT NULL AUTO_INCREMENT COMMENT '模板ID',
-                                         `template_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模板名称',
-                                         `certificate_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '证书类型',
-                                         `template_content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '模板内容',
-                                         `apply_required_fields` json NULL COMMENT '申请必填字段',
-                                         `template_fields` json NULL COMMENT '模板字段配置',
-                                         `review_process_config_id` bigint NULL DEFAULT NULL COMMENT '审核流程配置ID',
-                                         `status` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '0' COMMENT '状态（0正常 1停用）',
-                                         `create_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
-                                         `create_time` datetime NULL DEFAULT NULL COMMENT '创建时间',
-                                         `update_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
-                                         `update_time` datetime NULL DEFAULT NULL COMMENT '更新时间',
-                                         `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '备注',
-                                         `certificate_bg_image` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '证书底版图片路径',
-                                         `field_positions` json NULL COMMENT '字段位置配置',
-                                         PRIMARY KEY (`template_id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 30 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '证书模板表' ROW_FORMAT = DYNAMIC;
-
-
--- ----------------------------
--- 40、 申请记录表
--- ----------------------------
-DROP TABLE IF EXISTS `certificate_application`;
-CREATE TABLE `certificate_application`  (
-                                            `application_id` bigint NOT NULL AUTO_INCREMENT COMMENT '申请ID',
-                                            `user_id` bigint NOT NULL COMMENT '申请人ID',
-                                            `template_id` bigint NOT NULL COMMENT '模板ID',
-                                            `certificate_id` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '证书ID',
-                                            `application_status` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '0' COMMENT '申请状态（0待审核 1审核通过 2审核拒绝）',
-                                            `application_content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '申请内容',
-                                            `reviewer_id` bigint NULL DEFAULT NULL COMMENT '审核人ID',
-                                            `review_time` datetime NULL DEFAULT NULL COMMENT '审核时间',
-                                            `review_remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '审核备注',
-                                            `create_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
-                                            `create_time` datetime NULL DEFAULT NULL COMMENT '创建时间',
-                                            `update_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
-                                            `update_time` datetime NULL DEFAULT NULL COMMENT '更新时间',
-                                            `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '备注',
-                                            `points_deducted` int NULL DEFAULT 0 COMMENT '申请提交时扣除的积分',
-                                            `application_data` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '申请数据（JSON格式）',
-                                            `application_number` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '申请编号',
-                                            `approve_time` datetime NULL DEFAULT NULL COMMENT '审批通过时间',
-                                            `receive_status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT 'not_received' COMMENT '领取状态（not_received-未领取，received-已领取）',
-                                            PRIMARY KEY (`application_id`) USING BTREE,
-                                            INDEX `idx_user_id`(`user_id` ASC) USING BTREE COMMENT '申请人ID索引',
-                                            INDEX `idx_template_id`(`template_id` ASC) USING BTREE COMMENT '模板ID索引',
-                                            INDEX `idx_application_status`(`application_status` ASC) USING BTREE COMMENT '申请状态索引'
-) ENGINE = InnoDB AUTO_INCREMENT = 98 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '证书申请表' ROW_FORMAT = DYNAMIC;
-
-    -- ----------------------------
--- 41、申请信息记录表
--- ----------------------------
-DROP TABLE IF EXISTS `application_review`;
-CREATE TABLE `application_review`  (
-                                       `review_id` bigint NOT NULL AUTO_INCREMENT COMMENT '审核ID',
-                                       `application_id` bigint NOT NULL COMMENT '申请ID',
-                                       `reviewer_id` bigint NULL DEFAULT NULL COMMENT '审核人ID',
-                                       `review_opinion` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '审核意见',
-                                       `review_result` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '审核结果',
-                                       `review_time` datetime NULL DEFAULT NULL COMMENT '审核时间',
-                                       `node_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '审核节点ID',
-                                       `node_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '审核节点名称',
-                                       `create_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
-                                       `create_time` datetime NULL DEFAULT NULL COMMENT '创建时间',
-                                       `update_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
-                                       `update_time` datetime NULL DEFAULT NULL COMMENT '更新时间',
-                                       `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '备注',
-                                       PRIMARY KEY (`review_id`) USING BTREE,
-                                       INDEX `idx_application_id`(`application_id` ASC) USING BTREE COMMENT '申请ID索引',
-                                       INDEX `idx_reviewer_id`(`reviewer_id` ASC) USING BTREE COMMENT '审核人ID索引',
-                                       INDEX `idx_review_time`(`review_time` ASC) USING BTREE COMMENT '审核时间索引'
-) ENGINE = InnoDB AUTO_INCREMENT = 64 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '申请审核记录表' ROW_FORMAT = DYNAMIC;
