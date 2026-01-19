@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.certificate.mapper.CertPointsRuleMapper">
+
+    <resultMap type="com.wx.fbsir.business.certificate.domain.CertPointsRule" id="CertPointsRuleResult">
+        <result property="ruleId" column="rule_id"/>
+        <result property="ruleCode" column="rule_code"/>
+        <result property="ruleName" column="rule_name"/>
+        <result property="pointsValue" column="points_value"/>
+        <result property="limitType" column="limit_type"/>
+        <result property="limitValue" column="limit_value"/>
+        <result property="maxAmount" column="max_amount"/>
+        <result property="status" column="status"/>
+        <result property="sortOrder" column="sort_order"/>
+        <!-- 添加业务类型映射，兼容性处理 -->
+        <result property="businessType" column="rule_code"/>
+    </resultMap>
+
+    <select id="selectCertPointsRuleList" parameterType="com.wx.fbsir.business.certificate.domain.CertPointsRule" resultMap="CertPointsRuleResult">
+        select rule_id, rule_code, rule_name, points_value, limit_type, limit_value, max_amount, status, sort_order
+        from wx_points_rule
+        <where>
+            <if test="certPointsRule.ruleCode != null and certPointsRule.ruleCode != ''">
+                and rule_code = #{certPointsRule.ruleCode}
+            </if>
+            <if test="certPointsRule.status != null and certPointsRule.status != ''">
+                and status = #{certPointsRule.status}
+            </if>
+            <if test="certPointsRule.ruleName != null and certPointsRule.ruleName != ''">
+                and rule_name like concat('%', #{certPointsRule.ruleName}, '%')
+            </if>
+        </where>
+    </select>
+
+    <select id="selectCertPointsRuleByRuleCode" parameterType="java.lang.String" resultMap="CertPointsRuleResult">
+        select rule_id, rule_code, rule_name, points_value, limit_type, limit_value, max_amount, status, sort_order
+        from wx_points_rule
+        where rule_code = #{ruleCode}
+    </select>
+
+</mapper>

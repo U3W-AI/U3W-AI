@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.certificate.mapper.CertificateTemplateMapper">
+
+    <resultMap type="com.wx.fbsir.business.certificate.domain.CertificateTemplate" id="CertificateTemplateResult">
+        <result property="templateId"         column="template_id"         />
+        <result property="templateName"       column="template_name"       />
+        <result property="certificateType"    column="certificate_type"    />
+        <result property="templateContent"    column="template_content"    />
+        <result property="applyRequiredFields" column="apply_required_fields" />
+        <result property="templateFields"     column="template_fields"     />
+        <result property="certificateBgImage" column="certificate_bg_image" />
+        <result property="fieldPositions"     column="field_positions"     />
+        <result property="reviewProcessConfigId" column="review_process_config_id" />
+        <result property="status"             column="status"              />
+        <result property="remark"             column="remark"              />
+        <result property="createBy"           column="create_by"           />
+        <result property="createTime"         column="create_time"         />
+        <result property="updateBy"           column="update_by"           />
+        <result property="updateTime"         column="update_time"         />
+    </resultMap>
+
+    <sql id="selectCertificateTemplateVo">
+        select template_id, template_name, certificate_type, template_content, apply_required_fields, template_fields, certificate_bg_image, field_positions, review_process_config_id, status, remark, create_by, create_time, update_by, update_time
+        from certificate_template
+    </sql>
+
+    <select id="selectCertificateTemplateList" parameterType="com.wx.fbsir.business.certificate.domain.CertificateTemplate" resultMap="CertificateTemplateResult">
+        <include refid="selectCertificateTemplateVo"/>
+        <where>
+            <if test="templateId != null and templateId != ''">
+                AND template_id = #{templateId}
+            </if>
+            <if test="templateName != null and templateName != ''">
+                AND template_name like concat('%', #{templateName}, '%')
+            </if>
+            <if test="certificateType != null and certificateType != ''">
+                AND certificate_type = #{certificateType}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="createBy != null and createBy != ''">
+                AND create_by = #{createBy}
+            </if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectCertificateTemplateById" parameterType="Long" resultMap="CertificateTemplateResult">
+        <include refid="selectCertificateTemplateVo"/>
+        where template_id = #{templateId}
+    </select>
+
+    <insert id="insertCertificateTemplate" parameterType="com.wx.fbsir.business.certificate.domain.CertificateTemplate" useGeneratedKeys="true" keyProperty="templateId">
+        insert into certificate_template
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="templateName != null">
+                template_name,
+            </if>
+            <if test="certificateType != null">
+                certificate_type,
+            </if>
+            <if test="templateContent != null">
+                template_content,
+            </if>
+            <if test="applyRequiredFields != null">
+                apply_required_fields,
+            </if>
+            <if test="templateFields != null">
+                template_fields,
+            </if>
+            <if test="certificateBgImage != null">
+                certificate_bg_image,
+            </if>
+            <if test="fieldPositions != null">
+                field_positions,
+            </if>
+            <if test="reviewProcessConfigId != null">
+                review_process_config_id,
+            </if>
+            <if test="status != null">
+                status,
+            </if>
+            <if test="remark != null">
+                remark,
+            </if>
+            <if test="createBy != null">
+                create_by,
+            </if>
+            <if test="createTime != null">
+                create_time,
+            </if>
+            <if test="updateBy != null">
+                update_by,
+            </if>
+            <if test="updateTime != null">
+                update_time,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="templateName != null">
+                #{templateName},
+            </if>
+            <if test="certificateType != null">
+                #{certificateType},
+            </if>
+            <if test="templateContent != null">
+                #{templateContent},
+            </if>
+            <if test="applyRequiredFields != null">
+                #{applyRequiredFields},
+            </if>
+            <if test="templateFields != null">
+                #{templateFields},
+            </if>
+            <if test="certificateBgImage != null">
+                #{certificateBgImage},
+            </if>
+            <if test="fieldPositions != null">
+                #{fieldPositions},
+            </if>
+            <if test="reviewProcessConfigId != null">
+                #{reviewProcessConfigId},
+            </if>
+            <if test="status != null">
+                #{status},
+            </if>
+            <if test="remark != null">
+                #{remark},
+            </if>
+            <if test="createBy != null">
+                #{createBy},
+            </if>
+            <if test="createTime != null">
+                #{createTime},
+            </if>
+            <if test="updateBy != null">
+                #{updateBy},
+            </if>
+            <if test="updateTime != null">
+                #{updateTime},
+            </if>
+        </trim>
+    </insert>
+
+    <update id="updateCertificateTemplate" parameterType="com.wx.fbsir.business.certificate.domain.CertificateTemplate">
+        update certificate_template
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="templateName != null">
+                template_name = #{templateName},
+            </if>
+            <if test="certificateType != null">
+                certificate_type = #{certificateType},
+            </if>
+            <if test="templateContent != null">
+                template_content = #{templateContent},
+            </if>
+            <if test="applyRequiredFields != null">
+                apply_required_fields = #{applyRequiredFields},
+            </if>
+            <if test="templateFields != null">
+                template_fields = #{templateFields},
+            </if>
+            <if test="certificateBgImage != null">
+                certificate_bg_image = #{certificateBgImage},
+            </if>
+            <if test="fieldPositions != null">
+                field_positions = #{fieldPositions},
+            </if>
+            <if test="reviewProcessConfigId != null">
+                review_process_config_id = #{reviewProcessConfigId},
+            </if>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            <if test="remark != null">
+                remark = #{remark},
+            </if>
+            <if test="createBy != null">
+                create_by = #{createBy},
+            </if>
+            <if test="createTime != null">
+                create_time = #{createTime},
+            </if>
+            <if test="updateBy != null">
+                update_by = #{updateBy},
+            </if>
+            <if test="updateTime != null">
+                update_time = #{updateTime},
+            </if>
+        </trim>
+        where template_id = #{templateId}
+    </update>
+
+    <delete id="deleteCertificateTemplateById" parameterType="Long">
+        delete from certificate_template where template_id = #{templateId}
+    </delete>
+
+    <delete id="deleteCertificateTemplateByIds" parameterType="String">
+        delete from certificate_template where template_id in
+        <foreach item="templateId" collection="array" open="(" separator="," close=")">
+            #{templateId}
+        </foreach>
+    </delete>
+</mapper>

@@ -17,6 +17,14 @@ export function getPointsRule(ruleId) {
   })
 }
 
+// 根据规则编码查询积分规则
+export function getPointsRuleByCode(ruleCode) {
+  return request({
+    url: '/points/rule/code/' + ruleCode,
+    method: 'get'
+  })
+}
+
 // 新增积分规则
 export function addPointsRule(data) {
   return request({

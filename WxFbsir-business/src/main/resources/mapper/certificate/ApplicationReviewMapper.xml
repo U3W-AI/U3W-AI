@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.certificate.mapper.ApplicationReviewMapper">
+
+    <resultMap type="com.wx.fbsir.business.certificate.domain.ApplicationReview" id="ApplicationReviewResult">
+        <result property="reviewId"         column="review_id"         />
+        <result property="applicationId"    column="application_id"    />
+        <result property="reviewerId"       column="reviewer_id"       />
+        <result property="reviewOpinion"    column="review_opinion"    />
+        <result property="reviewResult"     column="review_result"     />
+        <result property="reviewTime"       column="review_time"       />
+        <result property="nodeId"           column="node_id"           />
+        <result property="nodeName"         column="node_name"         />
+        <result property="createBy"         column="create_by"         />
+        <result property="createTime"       column="create_time"       />
+        <result property="updateBy"         column="update_by"         />
+        <result property="updateTime"       column="update_time"       />
+        <result property="remark"           column="remark"            />
+    </resultMap>
+
+    <resultMap type="com.wx.fbsir.business.certificate.domain.vo.ApplicationReviewVo" id="ApplicationReviewVoResult">
+        <result property="reviewId"           column="review_id"           />
+        <result property="applicationId"      column="application_id"      />
+        <result property="reviewerId"         column="reviewer_id"         />
+        <result property="reviewOpinion"    column="review_opinion"      />
+        <result property="reviewResult"       column="review_result"       />
+        <result property="reviewTime"         column="review_time"         />
+        <result property="nodeId"             column="node_id"             />
+        <result property="nodeName"           column="node_name"           />
+        <result property="applicationNumber"  column="application_number"  />
+        <result property="applicationStatus"  column="application_status"  />
+        <result property="applicationData"    column="application_data"    />
+        <result property="pointsDeducted"     column="points_deducted"     />
+        <result property="createTime"         column="ca_create_time"      />
+        <result property="updateTime"         column="ca_update_time"      />
+        <result property="remark"             column="ca_remark"           />
+        <result property="templateName"       column="template_name"       />
+        <result property="certificateType"    column="certificate_type"    />
+        <result property="applicantName"      column="user_name"           />
+        <result property="phone"              column="phone"               />
+        <result property="company"            column="company"             />
+        <result property="templateId"           column="template_id"           />
+        <result property="applicationContent"     column="application_content"     />
+        <result property="applicationMaterials"   column="application_materials"   />
+        <result property="reviewRemark"           column="ca_review_remark"           />
+    </resultMap>
+
+    <sql id="selectApplicationReviewVo">
+        select review_id, application_id, reviewer_id, review_opinion, review_result, review_time, node_id, node_name, create_by, create_time, update_by, update_time, remark
+        from application_review
+    </sql>
+
+    <select id="selectApplicationReviewList" parameterType="com.wx.fbsir.business.certificate.domain.ApplicationReview" resultMap="ApplicationReviewResult">
+        <include refid="selectApplicationReviewVo"/>
+        <where>
+            <if test="reviewId != null and reviewId != ''">
+                AND review_id = #{reviewId}
+            </if>
+            <if test="applicationId != null and applicationId != ''">
+                AND application_id = #{applicationId}
+            </if>
+            <if test="reviewerId != null and reviewerId != ''">
+                AND reviewer_id = #{reviewerId}
+            </if>
+            <if test="reviewResult != null and reviewResult != ''">
+                AND review_result = #{reviewResult}
+            </if>
+            <if test="createBy != null and createBy != ''">
+                AND create_by = #{createBy}
+            </if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectApplicationReviewListWithDetails" parameterType="com.wx.fbsir.business.certificate.domain.ApplicationReview" resultMap="ApplicationReviewVoResult">
+        select 
+            ar.review_id,
+            coalesce(ar.application_id, ca.application_id) as application_id,
+            ar.reviewer_id,
+            ar.review_opinion,
+            ar.review_result,
+            ar.review_time,
+            ar.node_id,
+            ar.node_name,
+            ca.application_number,
+            case ca.application_status
+                when '0' then 'DRAFT'
+                when '1' then 'SUBMITTED'
+                when '2' then 'APPROVED'
+                when '3' then 'REJECTED'
+                when '4' then 'ISSUED'
+                else ca.application_status
+            end as application_status,
+            ca.application_data,
+            ca.application_content,
+            ca.points_deducted,
+            ca.create_time as ca_create_time,
+            ca.update_time as ca_update_time,
+            ca.remark as ca_remark,
+            ct.template_name,
+            ct.certificate_type,
+            su.user_name as user_name,
+            su.phonenumber as phone,
+            su.dept_id as company,
+            ca.application_content as application_materials,
+            ca.review_remark as ca_review_remark
+        from certificate_application ca
+        left join application_review ar on ca.application_id = ar.application_id
+        left join certificate_template ct on ca.template_id = ct.template_id
+        left join sys_user su on ca.user_id = su.user_id
+        <where>
+            <if test="reviewId != null and reviewId != ''">
+                AND ar.review_id = #{reviewId}
+            </if>
+            <if test="applicationId != null and applicationId != ''">
+                AND ca.application_id = #{applicationId}
+            </if>
+            <if test="reviewerId != null and reviewerId != ''">
+                AND ar.reviewer_id = #{reviewerId}
+            </if>
+            <if test="reviewResult != null and reviewResult != ''">
+                AND ar.review_result = #{reviewResult}
+            </if>
+            <if test="applicationStatus != null and applicationStatus != ''">
+                AND ca.application_status = #{applicationStatus}
+            </if>
+            <if test="templateName != null and templateName != ''">
+                AND ct.template_name like concat('%', #{templateName}, '%')
+            </if>
+            <if test="applicantName != null and applicantName != ''">
+                AND su.user_name like concat('%', #{applicantName}, '%')
+            </if>
+        </where>
+        order by ca.create_time desc
+    </select>
+
+    <select id="selectApplicationReviewById" parameterType="Long" resultMap="ApplicationReviewResult">
+        <include refid="selectApplicationReviewVo"/>
+        where review_id = #{reviewId}
+    </select>
+
+    <insert id="insertApplicationReview" parameterType="com.wx.fbsir.business.certificate.domain.ApplicationReview" useGeneratedKeys="true" keyProperty="reviewId">
+        insert into application_review
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="applicationId != null">
+                application_id,
+            </if>
+            <if test="reviewerId != null">
+                reviewer_id,
+            </if>
+            <if test="reviewOpinion != null">
+                review_opinion,
+            </if>
+            <if test="reviewResult != null">
+                review_result,
+            </if>
+            <if test="reviewTime != null">
+                review_time,
+            </if>
+            <if test="nodeId != null">
+                node_id,
+            </if>
+            <if test="nodeName != null">
+                node_name,
+            </if>
+            <if test="createBy != null">
+                create_by,
+            </if>
+            <if test="createTime != null">
+                create_time,
+            </if>
+            <if test="updateBy != null">
+                update_by,
+            </if>
+            <if test="updateTime != null">
+                update_time,
+            </if>
+            <if test="remark != null">
+                remark,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="applicationId != null">
+                #{applicationId},
+            </if>
+            <if test="reviewerId != null">
+                #{reviewerId},
+            </if>
+            <if test="reviewOpinion != null">
+                #{reviewOpinion},
+            </if>
+            <if test="reviewResult != null">
+                #{reviewResult},
+            </if>
+            <if test="reviewTime != null">
+                #{reviewTime},
+            </if>
+            <if test="nodeId != null">
+                #{nodeId},
+            </if>
+            <if test="nodeName != null">
+                #{nodeName},
+            </if>
+            <if test="createBy != null">
+                #{createBy},
+            </if>
+            <if test="createTime != null">
+                #{createTime},
+            </if>
+            <if test="updateBy != null">
+                #{updateBy},
+            </if>
+            <if test="updateTime != null">
+                #{updateTime},
+            </if>
+            <if test="remark != null">
+                #{remark},
+            </if>
+        </trim>
+    </insert>
+
+    <update id="updateApplicationReview" parameterType="com.wx.fbsir.business.certificate.domain.ApplicationReview">
+        update application_review
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="applicationId != null">
+                application_id = #{applicationId},
+            </if>
+            <if test="reviewerId != null">
+                reviewer_id = #{reviewerId},
+            </if>
+            <if test="reviewOpinion != null">
+                review_opinion = #{reviewOpinion},
+            </if>
+            <if test="reviewResult != null">
+                review_result = #{reviewResult},
+            </if>
+            <if test="reviewTime != null">
+                review_time = #{reviewTime},
+            </if>
+            <if test="nodeId != null">
+                node_id = #{nodeId},
+            </if>
+            <if test="nodeName != null">
+                node_name = #{nodeName},
+            </if>
+            <if test="createBy != null">
+                create_by = #{createBy},
+            </if>
+            <if test="createTime != null">
+                create_time = #{createTime},
+            </if>
+            <if test="updateBy != null">
+                update_by = #{updateBy},
+            </if>
+            <if test="updateTime != null">
+                update_time = #{updateTime},
+            </if>
+            <if test="remark != null">
+                remark = #{remark},
+            </if>
+        </trim>
+        where review_id = #{reviewId}
+    </update>
+
+    <delete id="deleteApplicationReviewById" parameterType="Long">
+        delete from application_review where review_id = #{reviewId}
+    </delete>
+
+    <delete id="deleteApplicationReviewByIds" parameterType="String">
+        delete from application_review where review_id in
+        <foreach item="reviewId" collection="array" open="(" separator="," close=")">
+            #{reviewId}
+        </foreach>
+    </delete>
+</mapper>
