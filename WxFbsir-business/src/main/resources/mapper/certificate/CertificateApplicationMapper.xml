@@ -1,0 +1,386 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.certificate.mapper.CertificateApplicationMapper">
+
+    <resultMap type="com.wx.fbsir.business.certificate.domain.CertificateApplication" id="CertificateApplicationResult">
+        <result property="applicationId"    column="application_id"    />
+        <result property="templateId"       column="template_id"       />
+        <result property="userId"           column="user_id"           />
+        <result property="applicationStatus" column="application_status" />
+        <result property="applicationData"  column="application_data"  />
+        <result property="applicationContent"  column="application_content"  />
+        <result property="applicationNumber"  column="application_number"  />
+        <result property="pointsDeducted"   column="points_deducted"   />
+        <result property="approveTime"      column="approve_time"      />
+        <result property="receiveStatus"    column="receive_status"    />
+        <result property="reviewRemark"     column="review_remark"     />
+        <result property="certificateId"    column="certificate_id"    />
+        <result property="createBy"         column="create_by"         />
+        <result property="createTime"       column="create_time"       />
+        <result property="updateBy"         column="update_by"         />
+        <result property="updateTime"       column="update_time"       />
+        <result property="remark"           column="remark"            />
+        <!-- 关联字段 -->
+        <result property="applicationCode"  column="application_number"  />
+        <result property="templateName"     column="template_name"     />
+        <result property="certificateType"  column="certificate_type"  />
+    </resultMap>
+
+    <sql id="selectCertificateApplicationVo">
+        select ca.application_id, ca.template_id, ca.user_id, ca.application_status, ca.application_data, ca.application_content, ca.application_number, ca.points_deducted, ca.approve_time, ca.receive_status, ca.review_remark, ca.certificate_id, ca.create_by, ca.create_time, ca.update_by, ca.update_time, ca.remark,
+               ct.template_name, ct.certificate_type
+        from certificate_application ca
+        left join certificate_template ct on ca.template_id = ct.template_id
+    </sql>
+
+    <select id="selectCertificateApplicationList" parameterType="com.wx.fbsir.business.certificate.domain.CertificateApplication" resultMap="CertificateApplicationResult">
+        <include refid="selectCertificateApplicationVo"/>
+        <where>
+            <if test="applicationId != null and applicationId != ''">
+                AND application_id = #{applicationId}
+            </if>
+            <if test="templateId != null and templateId != ''">
+                AND template_id = #{templateId}
+            </if>
+            <if test="userId != null and userId != ''">
+                AND user_id = #{userId}
+            </if>
+            <if test="applicationStatus != null and applicationStatus != ''">
+                AND application_status = #{applicationStatus}
+            </if>
+            <if test="createBy != null and createBy != ''">
+                AND create_by = #{createBy}
+            </if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectCertificateApplicationById" parameterType="Long" resultMap="CertificateApplicationResult">
+        <include refid="selectCertificateApplicationVo"/>
+        where application_id = #{applicationId}
+    </select>
+
+    <insert id="insertCertificateApplication" parameterType="com.wx.fbsir.business.certificate.domain.CertificateApplication" useGeneratedKeys="true" keyProperty="applicationId">
+        insert into certificate_application
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="templateId != null">
+                template_id,
+            </if>
+            <if test="userId != null">
+                user_id,
+            </if>
+            <if test="applicationStatus != null">
+                application_status,
+            </if>
+            <if test="applicationData != null">
+                application_data,
+            </if>
+            <if test="applicationContent != null">
+                application_content,
+            </if>
+            <if test="applicationNumber != null">
+                application_number,
+            </if>
+            <if test="certificateId != null">
+                certificate_id,
+            </if>
+            <if test="pointsDeducted != null">
+                points_deducted,
+            </if>
+            <if test="createBy != null">
+                create_by,
+            </if>
+            <if test="createTime != null">
+                create_time,
+            </if>
+            <if test="updateBy != null">
+                update_by,
+            </if>
+            <if test="updateTime != null">
+                update_time,
+            </if>
+            <if test="remark != null">
+                remark,
+            </if>
+            <if test="approveTime != null">
+                approve_time,
+            </if>
+            <if test="receiveStatus != null">
+                receive_status,
+            </if>
+            <if test="reviewRemark != null">
+                review_remark,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="templateId != null">
+                #{templateId},
+            </if>
+            <if test="userId != null">
+                #{userId},
+            </if>
+            <if test="applicationStatus != null">
+                #{applicationStatus},
+            </if>
+            <if test="applicationData != null">
+                #{applicationData},
+            </if>
+            <if test="applicationContent != null">
+                #{applicationContent},
+            </if>
+            <if test="applicationNumber != null">
+                #{applicationNumber},
+            </if>
+            <if test="certificateId != null">
+                #{certificateId},
+            </if>
+            <if test="pointsDeducted != null">
+                #{pointsDeducted},
+            </if>
+            <if test="createBy != null">
+                #{createBy},
+            </if>
+            <if test="createTime != null">
+                #{createTime},
+            </if>
+            <if test="updateBy != null">
+                #{updateBy},
+            </if>
+            <if test="updateTime != null">
+                #{updateTime},
+            </if>
+            <if test="remark != null">
+                #{remark},
+            </if>
+            <if test="approveTime != null">
+                #{approveTime},
+            </if>
+            <if test="receiveStatus != null">
+                #{receiveStatus},
+            </if>
+            <if test="reviewRemark != null">
+                #{reviewRemark},
+            </if>
+        </trim>
+    </insert>
+
+    <update id="updateCertificateApplication" parameterType="com.wx.fbsir.business.certificate.domain.CertificateApplication">
+        update certificate_application
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="templateId != null">
+                template_id = #{templateId},
+            </if>
+            <if test="userId != null">
+                user_id = #{userId},
+            </if>
+            <if test="applicationStatus != null">
+                application_status = #{applicationStatus},
+            </if>
+            <if test="applicationData != null">
+                application_data = #{applicationData},
+            </if>
+            <if test="applicationContent != null">
+                application_content = #{applicationContent},
+            </if>
+            <if test="applicationNumber != null">
+                application_number = #{applicationNumber},
+            </if>
+            <if test="certificateId != null">
+                certificate_id = #{certificateId},
+            </if>
+            <if test="pointsDeducted != null">
+                points_deducted = #{pointsDeducted},
+            </if>
+            <if test="createBy != null">
+                create_by = #{createBy},
+            </if>
+            <if test="createTime != null">
+                create_time = #{createTime},
+            </if>
+            <if test="updateBy != null">
+                update_by = #{updateBy},
+            </if>
+            <if test="updateTime != null">
+                update_time = #{updateTime},
+            </if>
+            <if test="remark != null">
+                remark = #{remark},
+            </if>
+            <if test="approveTime != null">
+                approve_time = #{approveTime},
+            </if>
+            <if test="receiveStatus != null">
+                receive_status = #{receiveStatus},
+            </if>
+            review_remark = #{reviewRemark},
+        </trim>
+        where application_id = #{applicationId}
+    </update>
+
+    <delete id="deleteCertificateApplicationById" parameterType="Long">
+        delete from certificate_application where application_id = #{applicationId}
+    </delete>
+
+    <delete id="deleteCertificateApplicationByIds" parameterType="String">
+        delete from certificate_application where application_id in
+        <foreach item="applicationId" collection="array" open="(" separator="," close=")">
+            #{applicationId}
+        </foreach>
+    </delete>
+
+    <select id="selectCertificateApplicationByUserId" parameterType="Long" resultMap="CertificateApplicationResult">
+        <include refid="selectCertificateApplicationVo"/>
+        where user_id = #{userId}
+        order by create_time desc
+    </select>
+    
+    <select id="selectMaxSequenceForDate" resultType="long">
+        SELECT COALESCE(MAX(CAST(RIGHT(application_number, 6) AS UNSIGNED)), 0) 
+        FROM certificate_application 
+        WHERE application_number LIKE CONCAT(#{prefix}, #{dateStr}, '%')
+    </select>
+
+    <select id="selectMaxCertificateSequenceForDate" resultType="long">
+        SELECT COALESCE(MAX(CAST(RIGHT(certificate_id, 6) AS UNSIGNED)), 0) 
+        FROM certificate_application 
+        WHERE certificate_id LIKE CONCAT(#{prefix}, #{dateStr}, '%')
+    </select>
+    
+    <!-- 用于证书发放查询的结果映射 -->
+    <resultMap type="com.wx.fbsir.business.certificate.domain.CertificateApplicationManagementVO" id="CertificateApplicationManagementVOResult">
+        <result property="issuanceId"        column="application_id"        />
+        <result property="applicationId"      column="application_id"      />
+        <result property="certificateId"  column="certificate_number"  />
+        <result property="certificateContent" column="certificate_content" />
+        <result property="certificatePdf"     column="certificate_pdf"     />
+        <result property="issuanceTime"       column="issuance_time"       />
+        <result property="expiryDate"         column="expiry_date"         />
+        <result property="createBy"           column="create_by"           />
+        <result property="createTime"         column="create_time"         />
+        <result property="updateBy"           column="update_by"           />
+        <result property="updateTime"         column="update_time"         />
+        <result property="remark"             column="remark"              />
+        <!-- 关联字段 -->
+        <result property="templateName"       column="template_name"       />
+        <result property="certificateType"    column="certificate_type"    />
+        <result property="applicantName"      column="applicant_name"      />
+        <result property="company"            column="company"             />
+        <result property="applicationStatus"  column="application_status"  />
+        <result property="validFrom"          column="valid_from"          />
+        <result property="validTo"            column="valid_to"            />
+        <result property="receiveStatus"      column="receive_status"      />
+        <result property="applicationData"    column="applicationData"     />
+    </resultMap>
+    
+    <select id="selectCertificateIssuanceList" parameterType="com.wx.fbsir.business.certificate.domain.CertificateApplication" resultMap="CertificateApplicationManagementVOResult">
+        select 
+            ca.application_id,
+            ca.application_id as issuance_id,
+            COALESCE(ca.certificate_id, CONCAT('CERT_', ca.application_id)) as certificate_number,  -- 使用申请表的certificate_id
+            ca.application_content as certificate_content,
+            COALESCE(ca.approve_time, ca.create_time) as issuance_time,
+            NULL as expiry_date,
+            ca.create_by,
+            ca.create_time,
+            ca.update_by,
+            ca.update_time,
+            ca.remark,
+            ct.template_name,
+            ct.certificate_type,
+            CASE 
+                WHEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."院校"')) IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."院校"')) != '' 
+                THEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."院校"'))
+                WHEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."企业"')) IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."企业"')) != '' 
+                THEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."企业"'))
+                ELSE '无'
+            END as company,
+            ca.application_data as applicationData,
+            CASE 
+                WHEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有\u0004效\u0004期\u0004"')) IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有\u0004效\u0004期\u0004"')) != '' 
+                THEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有\u0004效\u0004期\u0004"'))
+                WHEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有效期"')) IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有效期"')) != '' 
+                THEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有效期"'))
+                ELSE COALESCE(ca.approve_time, ca.create_time)
+            END as valid_from,
+            CASE 
+                WHEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有\u0004效\u0004期\u0004"')) IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有\u0004效\u0004期\u0004"')) != '' 
+                THEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有\u0004效\u0004期\u0004"'))
+                WHEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有效期"')) IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有效期"')) != '' 
+                THEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有效期"'))
+                ELSE NULL
+            END as valid_to,
+            COALESCE(ca.receive_status, 'not_received') as receive_status,
+            ca.application_status,
+            su.user_name as applicant_name
+        from certificate_application ca
+        left join certificate_template ct on ca.template_id = ct.template_id
+        left join sys_user su on ca.user_id = su.user_id
+        <where>
+            <if test="applicationStatus != null and applicationStatus != ''">
+                AND ca.application_status = #{applicationStatus}
+            </if>
+            <if test="templateId != null and templateId != ''">
+                AND ca.template_id = #{templateId}
+            </if>
+            <if test="userId != null and userId != ''">
+                AND ca.user_id = #{userId}
+            </if>
+            <if test="certificateType != null and certificateType != ''">
+                AND ct.certificate_type = #{certificateType}
+            </if>
+            <if test="createBy != null and createBy != ''">
+                AND ca.create_by = #{createBy}
+            </if>
+            AND ca.application_status >= '2'  -- 只查询已批准及以上的申请（状态2及以上）
+        </where>
+        order by ca.create_time desc
+    </select>
+    
+    <select id="selectCertificateIssuanceById" parameterType="Long" resultMap="CertificateApplicationManagementVOResult">
+        select 
+            ca.application_id,
+            ca.application_id as issuance_id,
+            COALESCE(ca.certificate_id, CONCAT('CERT_', ca.application_id)) as certificate_number,  -- 使用申请表的certificate_id
+            ca.application_content as certificate_content,
+            COALESCE(ca.approve_time, ca.create_time) as issuance_time,
+            NULL as expiry_date,
+            ca.create_by,
+            ca.create_time,
+            ca.update_by,
+            ca.update_time,
+            ca.remark,
+            ct.template_name,
+            ct.certificate_type,
+            CASE 
+                WHEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."院校"')) IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."院校"')) != '' 
+                THEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."院校"'))
+                WHEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."企业"')) IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."企业"')) != '' 
+                THEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."企业"'))
+                ELSE '无'
+            END as company,
+            ca.application_data as applicationData,
+            CASE 
+                WHEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有\u0004效\u0004期\u0004"')) IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有\u0004效\u0004期\u0004"')) != '' 
+                THEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有\u0004效\u0004期\u0004"'))
+                WHEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有效期"')) IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有效期"')) != '' 
+                THEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有效期"'))
+                ELSE COALESCE(ca.approve_time, ca.create_time)
+            END as valid_from,
+            CASE 
+                WHEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有\u0004效\u0004期\u0004"')) IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有\u0004效\u0004期\u0004"')) != '' 
+                THEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有\u0004效\u0004期\u0004"'))
+                WHEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有效期"')) IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有效期"')) != '' 
+                THEN JSON_UNQUOTE(JSON_EXTRACT(ca.application_data, '$."有效期"'))
+                ELSE NULL
+            END as valid_to,
+            COALESCE(ca.receive_status, 'not_received') as receive_status,
+            ca.application_status,
+            su.user_name as applicant_name
+        from certificate_application ca
+        left join certificate_template ct on ca.template_id = ct.template_id
+        left join sys_user su on ca.user_id = su.user_id
+        where ca.application_id = #{applicationId}
+    </select>
+</mapper>

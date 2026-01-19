@@ -190,6 +190,7 @@ insert into sys_menu values('4', '系统工具', '0', '4', 'tool',             n
 insert into sys_menu values('6', '积分管理', '0', '6', 'points', null, '', '', 1, 0, 'M', '0', '0', '', 'money', 'admin', sysdate(), '', null, '积分管理目录');
 insert into sys_menu values('7', '主机管理', '0', '7', 'host', null, '', '', 1, 0, 'M', '0', '0', '', 'server', 'admin', sysdate(), '', null, '主机管理目录');
 insert into sys_menu values('8', 'gitee管理', '0', '8', 'gitee', null, '', '', 1, 0, 'M', '0', '0', '', 'gitee', 'admin', sysdate(), '', null, 'gitee管理目录');
+insert into sys_menu values('9', '认证申请', '0', '9', 'certificate', NULL, '', '', 1, 0, 'M', '0', '0', '', 'clipboard', 'admin', sysdate(), '', null, '认证申请目录');
 -- 二级菜单（ID范围：100-499）
 -- 内容管理子菜单（parent_id=1，业务功能从118开始）
 insert into sys_menu values('118',  '日更助手', '1',   '1', 'daily-assistant', 'business/content/dailyassistant/index', '', '', 1, 0, 'C', '0', '0', 'business:daily:view',     'edit',          'admin', sysdate(), '', null, '日更助手菜单');
@@ -231,6 +232,13 @@ insert into sys_menu values('126', 'WebSocket调试', '7', '4', 'debug', 'busine
 -- gitee管理子菜单（parent_id=8）
 insert into sys_menu values('127',  '使用统计', '8',   '1', 'usage-report', 'business/gitee/giteeUsageReport', '', '', 1, 0, 'C', '0', '0', 'business:gitee:usage:list', 'chart', 'admin', sysdate(), '', null, 'Gitee模块使用统计菜单');
 insert into sys_menu values('128',  'gitee分析', '8',  '2', 'gitee-analysis', 'business/gitee/giteeAnalysis', '', '', 1, 0, 'C', '0', '0', 'business:gitee:analysis:view', 'chart', 'admin', sysdate(), '', null, 'Gitee分析菜单');
+-- 认证申请管理子菜单（parent_id=9）
+insert into sys_menu values ('133', '证书模板', '9', '1', 'template', 'business/certificate/template/index', '', '', 1, 0, 'C', '0', '0', 'business:certificate:template:list', 'form', 'admin', sysdate(), '', null, '证书模板菜单');
+insert into sys_menu values ('134', '认证申请', '9', '2', 'application', 'business/certificate/application/index', '', '', 1, 0, 'C', '0', '0', 'business:certificate:application:list', 'edit', 'admin', sysdate(), '', null, '证书申请菜单');
+insert into sys_menu values ('135', '证书管理', '9', '3', 'issuance', 'business/certificate/certificateManagement/index', '', '', 1, 0, 'C', '0', '0', 'business:certificate:issuance:list', 'excel', 'admin', sysdate(), '', null, '证书管理菜单');
+insert into sys_menu values ('136', '申请审核', '9', '4', 'application-review', 'business/certificate/applicationReview/index', '', '', 1, 0, 'C', '0', '0', 'business:certificate:review:list', 'guide', 'admin', sysdate(), '', null, '证书申请审核菜单”');
+insert into sys_menu values ('137', '我的申请', '9', '5', 'my-applications', 'business/certificate/myApplications/index', '', '', 1, 0, 'C', '0', '0', 'business:certificate:my:application:list', 'user', 'admin', sysdate(), '', null, '我的证书菜单');
+
 -- 三级菜单（ID范围：500-999）
 insert into sys_menu values('500',  '操作日志', '108', '1', 'operlog',    'monitor/operlog/index',    '', '', 1, 0, 'C', '0', '0', 'monitor:operlog:list',    'form',          'admin', sysdate(), '', null, '操作日志菜单');
 insert into sys_menu values('501',  '登录日志', '108', '2', 'logininfor', 'monitor/logininfor/index', '', '', 1, 0, 'C', '0', '0', 'monitor:logininfor:list', 'logininfor',    'admin', sysdate(), '', null, '登录日志菜单');
@@ -364,6 +372,39 @@ insert into sys_menu values('1100', '草稿保存', '130', '2', '', '', '', '', 
 insert into sys_menu values('1101', '解析查询', '132', '1', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:document:query', '#', 'admin', sysdate(), '', null, '');
 insert into sys_menu values('1102', '解析新增', '132', '2', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:document:add', '#', 'admin', sysdate(), '', null, '');
 insert into sys_menu values('1103', '解析删除', '132', '3', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:document:remove', '#', 'admin', sysdate(), '', null, '');
+-- 证书模板按钮权限（parent_id=133）
+insert into sys_menu values ('1104', '模板查询', '133', '1', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:template:query', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1105', '模板新增', '133', '2', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:template:add', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1106', '模板修改', '133', '3', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:template:edit', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1107', '模板删除', '133', '4', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:template:remove', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1108', '模板上下架','133', '5', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:template:export', '#', 'admin', sysdate(), '', NULL, '');
+-- 申请认证按钮权限（parent_id=134）
+insert into sys_menu values ('1109', '申请查询', '134', '1', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:application:query', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1110', '申请新增', '134', '2', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:application:add', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1111', '申请修改', '134', '3', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:application:edit', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1112', '申请删除', '134', '4', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:application:remove', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1113', '申请提交', '134', '5', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:application:submit', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1114', '申请撤回', '134', '6', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:application:withdraw', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1115', '申请审核', '134', '7', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:application:review', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1116', '申请导出', '134', '8', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:application:export', '#', 'admin', sysdate(), '', NULL, '');
+-- 证书管理按钮权限（parent_id=135）
+insert into sys_menu values ('1117', '证书查询', '135', '1', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:issuance:query', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1118', '证书新增', '135', '2', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:issuance:add', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1119', '证书修改', '135', '3', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:issuance:edit', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1120', '证书删除', '135', '4', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:issuance:remove', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1121', '证书导出', '135', '5', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:issuance:export', '#', 'admin', sysdate(), '', NULL, '');
+-- 申请审核按钮权限（parent_id=136）
+insert into sys_menu values ('1122', '申请审核查询', '136', '1', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:review:query', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1123', '申请审核新增', '136', '2', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:review:add', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1124', '申请审核修改', '136', '3', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:review:edit', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1125', '申请审核删除', '136', '4', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:review:remove', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1126', '申请审核导出', '136', '5', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:review:export', '#', 'admin', sysdate(), '', NULL, '');
+-- 我的申请按钮权限（parent_id=137）
+insert into sys_menu values ('1127', '我的申请记录查询', '137', '1', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:my:application:query', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1128', '我的申请记录新增', '137', '2', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:my:application:add', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1129', '我的申请记录修改', '137', '3', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:my:application:edit', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1130', '我的申请记录删除', '137', '4', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:my:application:remove', '#', 'admin', sysdate(), '', NULL, '');
+insert into sys_menu values ('1131', '我的申请记录撤回', '137', '5', '', '', '', '', 1, 0, 'F', '0', '0', 'business:certificate:my:application:withdraw', '#', 'admin', sysdate(), '', NULL, '');
 
 
 -- ----------------------------
@@ -408,6 +449,7 @@ insert into sys_role_menu values ('2', '3');    -- 系统监控
 insert into sys_role_menu values ('2', '4');    -- 系统工具
 insert into sys_role_menu values ('2', '6');    -- 积分管理
 insert into sys_role_menu values ('2', '7');    -- 主机管理
+insert into sys_role_menu values ('2', '9');    -- 申请认证管理
 -- 二级菜单-内容管理
 insert into sys_role_menu values ('2', '118');  -- 日更助手
 insert into sys_role_menu values ('2', '119');  -- 发布记录
@@ -443,6 +485,12 @@ insert into sys_role_menu values ('2', '121');  -- 积分规则配置
 insert into sys_role_menu values ('2', '123');  -- 主机ID白名单
 insert into sys_role_menu values ('2', '124');  -- IP黑名单
 insert into sys_role_menu values ('2', '125');  -- 连接记录与在线
+-- 二级菜单-申请认证管理
+insert into sys_role_menu values ('2', '133');  -- 证书模板
+insert into sys_role_menu values ('2', '134');  -- 认证申请
+insert into sys_role_menu values ('2', '135');  -- 证书管理
+insert into sys_role_menu values ('2', '136');  -- 申请审核
+insert into sys_role_menu values ('2', '137');  -- 我的申请
 -- 三级菜单-日志管理
 insert into sys_role_menu values ('2', '500');  -- 操作日志
 insert into sys_role_menu values ('2', '501');  -- 登录日志
@@ -576,6 +624,39 @@ insert into sys_role_menu values ('2', '1100'); -- 草稿保存
 insert into sys_role_menu values ('2', '1101'); -- 解析查询
 insert into sys_role_menu values ('2', '1102'); -- 解析新增
 insert into sys_role_menu values ('2', '1103'); -- 解析删除
+-- 按钮权限-证书模板
+insert into sys_role_menu values ('2', '1104'); -- 模板查询
+insert into sys_role_menu values ('2', '1105'); -- 模板新增
+insert into sys_role_menu values ('2', '1106'); -- 模板修改
+insert into sys_role_menu values ('2', '1107'); -- 模板删除
+insert into sys_role_menu values ('2', '1108'); -- 模板导出
+-- 按钮权限-认证申请
+insert into sys_role_menu values ('2', '1109'); -- 申请查询
+insert into sys_role_menu values ('2', '1110'); -- 申请新增
+insert into sys_role_menu values ('2', '1111'); -- 申请修改
+insert into sys_role_menu values ('2', '1112'); -- 申请删除
+insert into sys_role_menu values ('2', '1113'); -- 申请提交
+insert into sys_role_menu values ('2', '1114'); -- 申请撤回
+insert into sys_role_menu values ('2', '1115'); -- 申请审核
+insert into sys_role_menu values ('2', '1116'); -- 申请导出
+-- 按钮权限-证书管理
+insert into sys_role_menu values ('2', '1117'); -- 证书查询
+insert into sys_role_menu values ('2', '1118'); -- 证书新增
+insert into sys_role_menu values ('2', '1119'); -- 证书修改
+insert into sys_role_menu values ('2', '1120'); -- 证书删除
+insert into sys_role_menu values ('2', '1121'); -- 证书导出
+-- 按钮权限-申请审核
+insert into sys_role_menu values ('2', '1122'); -- 申请审核查询
+insert into sys_role_menu values ('2', '1123'); -- 申请审核新增
+insert into sys_role_menu values ('2', '1124'); -- 申请审核修改
+insert into sys_role_menu values ('2', '1125'); -- 申请审核删除
+insert into sys_role_menu values ('2', '1126'); -- 申请审核导出
+-- 按钮权限-我的申请
+insert into sys_role_menu values ('2', '1127'); -- 我的申请记录查询
+insert into sys_role_menu values ('2', '1128'); -- 我的申请记录新增
+insert into sys_role_menu values ('2', '1129'); -- 我的申请记录修改
+insert into sys_role_menu values ('2', '1130'); -- 我的申请记录删除
+insert into sys_role_menu values ('2', '1131'); -- 我的申请记录撤回
 -- 只读权限角色（ID=3）拥有内容管理的全部权限，系统管理等模块只有查询权限
 -- 一级菜单
 insert into sys_role_menu values ('3', '1');    -- 内容管理
@@ -583,6 +664,7 @@ insert into sys_role_menu values ('3', '2');    -- 系统管理
 insert into sys_role_menu values ('3', '3');    -- 系统监控
 insert into sys_role_menu values ('3', '4');    -- 系统工具
 insert into sys_role_menu values ('3', '6');    -- 积分管理
+INSERT INTO `sys_role_menu` VALUES (3, 9);      -- 申请认证管理
 -- 二级菜单-内容管理
 insert into sys_role_menu values ('3', '118');  -- 日更助手
 insert into sys_role_menu values ('3', '119');  -- 发布记录
@@ -614,6 +696,13 @@ insert into sys_role_menu values ('3', '117');  -- 系统接口
 -- 二级菜单-积分管理
 insert into sys_role_menu values ('3', '120');  -- 积分总览
 insert into sys_role_menu values ('3', '121');  -- 积分规则配置
+-- 二级菜单-申请认证
+insert into sys_role_menu values ('3', '133');  -- 证书模板
+insert into sys_role_menu values ('3', '134');  -- 认证申请
+insert into sys_role_menu values ('3', '135');  -- 证书管理
+insert into sys_role_menu values ('3', '136');  -- 申请审核
+insert into sys_role_menu values ('3', '137');  -- 我的申请
+
 -- 三级菜单-日志管理
 insert into sys_role_menu values ('3', '500');  -- 操作日志
 insert into sys_role_menu values ('3', '501');  -- 登录日志
@@ -671,14 +760,22 @@ insert into sys_role_menu values ('3', '1072');  -- 规则查询
 insert into sys_role_menu values ('3', '122');   -- 粉丝管理
 insert into sys_role_menu values ('3', '1076');  -- 粉丝列表
 insert into sys_role_menu values ('3', '1078');  -- 查看明细
+-- 按钮权限-申请认证（只读）
+insert into sys_role_menu values ('3', '1104');  -- 模板查询
+insert into sys_role_menu values ('3', '1112');  -- 申请删除
+insert into sys_role_menu values ('3', '1120');  -- 证书删除
+
 -- 普通用户角色（ID=10）只有内容管理和积分浏览权限
 insert into sys_role_menu values ('10', '1');    -- 内容管理目录
+insert into sys_role_menu values ('10', '9');    -- 认证申请目录
 insert into sys_role_menu values ('10', '118');   -- 日更助手菜单
 insert into sys_role_menu values ('10', '119');   -- 发布记录菜单
 insert into sys_role_menu values ('10', '129');   -- AI助手菜单
 insert into sys_role_menu values ('10', '130');   -- 草稿库菜单
 insert into sys_role_menu values ('10', '131');   -- 登录管理器菜单
 insert into sys_role_menu values ('10', '132');   -- 文档解析助手菜单
+insert into sys_role_menu values ('10', '134');   -- 申请认证菜单
+insert into sys_role_menu values ('10', '137');   -- 我的申请菜单
 insert into sys_role_menu values ('10', '1061'); -- 日更助手-文章查询
 insert into sys_role_menu values ('10', '1062'); -- 日更助手-文章新增
 insert into sys_role_menu values ('10', '1063'); -- 日更助手-文章删除
@@ -702,6 +799,20 @@ insert into sys_role_menu values ('10', '1071');  -- 明细查询
 insert into sys_role_menu values ('10', '1072');  -- 规则查询
 insert into sys_role_menu values ('10', '8');    -- gitee管理
 insert into sys_role_menu values ('10', '128');  -- gitee分析
+insert into sys_role_menu values ('10', '1109'); -- 申请查询
+insert into sys_role_menu values ('10', '1110'); -- 申请新增
+insert into sys_role_menu values ('10', '1111'); -- 申请修改
+insert into sys_role_menu values ('10', '1112'); -- 申请删除
+insert into sys_role_menu values ('10', '1113'); -- 申请提交
+insert into sys_role_menu values ('10', '1114'); -- 申请撤回
+insert into sys_role_menu values ('10', '1115'); -- 申请审核
+insert into sys_role_menu values ('10', '1116'); -- 申请导出
+insert into sys_role_menu values ('10', '1127'); -- 我的申请记录查询
+insert into sys_role_menu values ('10', '1128'); -- 我的申请记录新增
+insert into sys_role_menu values ('10', '1129'); -- 我的申请记录修改
+insert into sys_role_menu values ('10', '1130'); -- 我的申请记录删除
+insert into sys_role_menu values ('10', '1131'); -- 我的申请记录撤回
+
 
 -- ----------------------------
 -- 8、角色和部门关联表  角色1-N部门
@@ -1297,7 +1408,12 @@ INSERT INTO `wx_points_rule` (`rule_code`, `rule_name`, `points_value`, `limit_t
 ('TEMPLATE_BUY', '模板购买', 0, NULL, NULL, NULL, '0', 5, '购买模板时扣减', 'admin', NOW()),
 ('TEMPLATE_REWARD', '模板分成', 0, NULL, NULL, NULL, '0', 6, '模板被购买时的作者分成', 'admin', NOW()),
 ('ADMIN_GRANT', '管理员发放', 0, NULL, NULL, NULL, '0', 7, '管理员给用户发放积分', 'admin', NOW()),
-('GITEE_ANALYSIS', 'gitee分析', -1, '2', NULL, NULL, '0', 2, 'gitee分析', 'admin', NOW());
+('GITEE_ANALYSIS', 'gitee分析', -1, '2', NULL, NULL, '0', 2, 'gitee分析', 'admin', NOW()),
+('SHELF_CERTIFICATE_TEMPLATE', '新增证书模板', -1, NULL, NULL, NULL, '0', 8, '新增证书扣减', 'admin', NOW()),
+('ISSUE_CERTIFICATES', '审核通过发放证书', -1, NULL, NULL, NULL, '0', 9, '审核通过发放证书扣减积分', 'admin', NOW()),
+('RECEIVE_CERTIFICATE', '领取证书', -1, NULL, NULL, NULL, '0', 10, '领取证书扣减积分', 'admin', NOW()),
+('APPLY_CERTIFICATE', '申请证书', -1, NULL, NULL, NULL, '0', 11, '申请证书扣减积分','admin', NOW());
+
 
 -- =============================================
 -- 业务模块：Gitee管理
@@ -1532,3 +1648,81 @@ GROUP BY w.team_name, w.is_team;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
+
+-- ----------------------------
+-- 39、 证书模板表
+-- ----------------------------
+DROP TABLE IF EXISTS `certificate_template`;
+CREATE TABLE `certificate_template`  (
+                                         `template_id` bigint NOT NULL AUTO_INCREMENT COMMENT '模板ID',
+                                         `template_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模板名称',
+                                         `certificate_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '证书类型',
+                                         `template_content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '模板内容',
+                                         `apply_required_fields` json NULL COMMENT '申请必填字段',
+                                         `template_fields` json NULL COMMENT '模板字段配置',
+                                         `review_process_config_id` bigint NULL DEFAULT NULL COMMENT '审核流程配置ID',
+                                         `status` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '0' COMMENT '状态（0正常 1停用）',
+                                         `create_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
+                                         `create_time` datetime NULL DEFAULT NULL COMMENT '创建时间',
+                                         `update_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
+                                         `update_time` datetime NULL DEFAULT NULL COMMENT '更新时间',
+                                         `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '备注',
+                                         `certificate_bg_image` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '证书底版图片路径',
+                                         `field_positions` json NULL COMMENT '字段位置配置',
+                                         PRIMARY KEY (`template_id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 30 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '证书模板表' ROW_FORMAT = DYNAMIC;
+
+
+-- ----------------------------
+-- 40、 申请记录表
+-- ----------------------------
+DROP TABLE IF EXISTS `certificate_application`;
+CREATE TABLE `certificate_application`  (
+                                            `application_id` bigint NOT NULL AUTO_INCREMENT COMMENT '申请ID',
+                                            `user_id` bigint NOT NULL COMMENT '申请人ID',
+                                            `template_id` bigint NOT NULL COMMENT '模板ID',
+                                            `certificate_id` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '证书ID',
+                                            `application_status` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '0' COMMENT '申请状态（0待审核 1审核通过 2审核拒绝）',
+                                            `application_content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '申请内容',
+                                            `reviewer_id` bigint NULL DEFAULT NULL COMMENT '审核人ID',
+                                            `review_time` datetime NULL DEFAULT NULL COMMENT '审核时间',
+                                            `review_remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '审核备注',
+                                            `create_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
+                                            `create_time` datetime NULL DEFAULT NULL COMMENT '创建时间',
+                                            `update_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
+                                            `update_time` datetime NULL DEFAULT NULL COMMENT '更新时间',
+                                            `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '备注',
+                                            `points_deducted` int NULL DEFAULT 0 COMMENT '申请提交时扣除的积分',
+                                            `application_data` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '申请数据（JSON格式）',
+                                            `application_number` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '申请编号',
+                                            `approve_time` datetime NULL DEFAULT NULL COMMENT '审批通过时间',
+                                            `receive_status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT 'not_received' COMMENT '领取状态（not_received-未领取，received-已领取）',
+                                            PRIMARY KEY (`application_id`) USING BTREE,
+                                            INDEX `idx_user_id`(`user_id` ASC) USING BTREE COMMENT '申请人ID索引',
+                                            INDEX `idx_template_id`(`template_id` ASC) USING BTREE COMMENT '模板ID索引',
+                                            INDEX `idx_application_status`(`application_status` ASC) USING BTREE COMMENT '申请状态索引'
+) ENGINE = InnoDB AUTO_INCREMENT = 98 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '证书申请表' ROW_FORMAT = DYNAMIC;
+
+    -- ----------------------------
+-- 41、申请信息记录表
+-- ----------------------------
+DROP TABLE IF EXISTS `application_review`;
+CREATE TABLE `application_review`  (
+                                       `review_id` bigint NOT NULL AUTO_INCREMENT COMMENT '审核ID',
+                                       `application_id` bigint NOT NULL COMMENT '申请ID',
+                                       `reviewer_id` bigint NULL DEFAULT NULL COMMENT '审核人ID',
+                                       `review_opinion` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '审核意见',
+                                       `review_result` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '审核结果',
+                                       `review_time` datetime NULL DEFAULT NULL COMMENT '审核时间',
+                                       `node_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '审核节点ID',
+                                       `node_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '审核节点名称',
+                                       `create_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
+                                       `create_time` datetime NULL DEFAULT NULL COMMENT '创建时间',
+                                       `update_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
+                                       `update_time` datetime NULL DEFAULT NULL COMMENT '更新时间',
+                                       `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '备注',
+                                       PRIMARY KEY (`review_id`) USING BTREE,
+                                       INDEX `idx_application_id`(`application_id` ASC) USING BTREE COMMENT '申请ID索引',
+                                       INDEX `idx_reviewer_id`(`reviewer_id` ASC) USING BTREE COMMENT '审核人ID索引',
+                                       INDEX `idx_review_time`(`review_time` ASC) USING BTREE COMMENT '审核时间索引'
+) ENGINE = InnoDB AUTO_INCREMENT = 64 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '申请审核记录表' ROW_FORMAT = DYNAMIC;

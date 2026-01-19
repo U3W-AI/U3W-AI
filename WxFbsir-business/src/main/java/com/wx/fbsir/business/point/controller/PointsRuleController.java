@@ -53,6 +53,14 @@ public class PointsRuleController extends BaseController {
     }
 
     /**
+     * 根据规则编码获取积分规则信息
+     */
+    @PreAuthorize("@ss.hasPermi('points:rule:query')")
+    @GetMapping(value = "/code/{ruleCode}")
+    public AjaxResult getByCode(@PathVariable("ruleCode") String ruleCode) {
+        return success(pointsRuleService.getRuleByCode(ruleCode));
+    }
+    /**
      * 新增积分规则
      */
     @PreAuthorize("@ss.hasPermi('points:rule:add')")
