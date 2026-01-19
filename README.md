@@ -1,7 +1,7 @@
 <h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">福帮手</h1>
 <h4 align="center">幸福有AI，幸运有你</h4>
 <p align="center">
-	<a href="https://gitee.com/U3W-AI/RuoYi-Vue"><img src="https://img.shields.io/badge/WxFbsir-v1.2.1A-brightgreen.svg"></a>
+	<a href="https://gitee.com/U3W-AI/RuoYi-Vue"><img src="https://img.shields.io/badge/WxFbsir-v1.2.2-brightgreen.svg"></a>
 	<a href="https://www.fbsir.com"><img src="https://img.shields.io/badge/website-www.fbsir.com-blue.svg"></a>
 </p>
 
@@ -15,7 +15,11 @@
 ## 系统特色
 
 
-🏗️ **完善的运营支撑体系**
+项目采用异步处理架构，实现后台异步调用AI生成，前端轮询获取状态，确保用户体验的流畅性。
+
+
+Playwright应用及Websocket集成框架，将RPA与AI一炉同炼，为人机协同和智能资产的挖掘提供更多创意空间。
+
 
 内置积分系统：支持积分规则配置、积分实现和积分管理
 
@@ -23,14 +27,6 @@
 
 强大的后台管理系统和微信生态能力资源衔接机制。
 
-
-🏗️ **技术架构特点**
-
-项目采用异步处理架构，实现后台异步调用AI生成，前端轮询获取状态，确保用户体验的流畅性。
-
-同时集成Swagger API文档自动生成，提升开发效率。
-
-Playwright应用及Websocket集成框架，将RPA与AI一炉同炼，为人机协同和智能资产的挖掘提供更多创意空间。
 
 
 ### ✨ **特色模块之日更助手**
@@ -52,6 +48,16 @@ Playwright应用及Websocket集成框架，将RPA与AI一炉同炼，为人机�
 ### ✨ **特色功能之文档分析MCP服务**
 
 文档分析MCP及可用于验证的元器智能体工作流上线，支付丰富格式和快速接入。
+
+
+### ✨ **特色模块之认证易**
+
+完整流程、全功能覆盖证书申请和审核系统，覆盖用户侧和管理员不同角色。集成认证申请、证书模板管理、审核工作流标准化、积分系统适配等模块。
+
+
+### ✨ **AI应用场景内测功能上线，可自行部署测试**
+
+基于福帮手独特的engine-admin框架，有两个测试模块进库：1、知识库管理及同步机器人（目前支持企业微信、元器智能体知识库同步）2、元器智能体自动调参工具。
 
 
 ## 快速开始
@@ -160,4 +166,4 @@ npm run dev
 本项目后台管理系统基于 **若依(RuoYi)** 框架进行二次开发，感谢若依团队提供的优秀开源框架。
 
 
-文档更新日期：2026年1月16日 18：20  文档版本：1.2.1
+文档更新日期：2026年1月19日 17：58  文档版本：1.2.2
