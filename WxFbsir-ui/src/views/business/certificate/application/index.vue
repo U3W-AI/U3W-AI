@@ -5,7 +5,7 @@
       <el-form-item label="证书模板">
         <el-select v-model="selectForm.templateId" placeholder="请选择证书模板" @change="onTemplateSelect" style="width: 300px;">
           <el-option
-            v-for="item in templateList"
+            v-for="item in templateList.filter(t => t.status === '0')"
             :key="item.templateId"
             :label="`${item.templateName} (申请需${applyCertificatePoints}分)`"
             :value="item.templateId"
@@ -18,12 +18,12 @@
     </el-form>
 
     <!-- 证书列表 -->
-    <el-table v-loading="templateLoading" :data="filteredTemplates" style="width: 100%; margin-top: 20px;">
+    <el-table v-loading="templateLoading" :data="filteredTemplates.filter(t => t.status === '0')" style="width: 100%; margin-top: 20px;">  // 只显示已上架的证书模板
       <el-table-column prop="templateName" label="证书名称" align="center" />
       <el-table-column prop="certificateType" label="证书类型" align="center" />
       <el-table-column label="操作" width="150" align="center">
         <template #default="scope">
-          <el-button size="small" @click="selectTemplate(scope.row)" type="primary">申请</el-button>
+          <el-button size="small" @click="selectTemplate(scope.row)" type="primary" :disabled="scope.row.status !== '0'">申请</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -38,7 +38,7 @@
         :layout="'total, sizes, prev, pager, next, jumper'"
         :page-sizes="[10, 20, 30, 50]"
         :pager-count="7"
-        :total="pagination.total"
+        :total="filteredTemplates.filter(t => t.status === '0').length"
         @size-change="handleSizeChange"
         @current-change="handleCurrentChange"
       />
@@ -46,7 +46,7 @@
     
     <!-- 调试信息 -->
     <div v-if="templateLoading" style="margin-top: 10px; color: #999;">正在加载数据...</div>
-    <div v-else-if="!templateList.length && pagination.total === 0" style="margin-top: 10px; color: #999;">暂无数据</div>
+    <div v-else-if="!templateList.filter(t => t.status === '0').length && pagination.total === 0" style="margin-top: 10px; color: #999;">暂无已上架的证书模板</div>
     
     <!-- 第三步：申请信息填写 -->
     <el-dialog 
@@ -295,7 +295,7 @@ const showPointsGetDialog = ref(false);
 
 // 模板选择相关
 const templateList = ref([]);
-const filteredTemplates = ref([]);
+const filteredTemplates = computed(() => templateList.value.filter(t => t.status === '0'));  // 计算属性：只显示已上架的证书模板
 const templateLoading = ref(false);
 const selectForm = ref({
   templateId: '',
@@ -467,7 +467,6 @@ function loadTemplateList() {
   };
   listCertificateTemplate(query).then(response => {
     templateList.value = response.rows;
-    filteredTemplates.value = response.rows;
     pagination.total = response.total;
     templateLoading.value = false;
   }).catch(error => {
@@ -478,7 +477,7 @@ function loadTemplateList() {
 
 /** 模板选择改变事件 */
 function onTemplateSelect(templateId) {
-  const template = templateList.value.find(t => t.templateId === templateId);
+  const template = templateList.value.find(t => t.templateId === templateId && t.status === '0');  // 只允许选择已上架的模板
   if (template) {
     selectForm.value.templateName = template.templateName;
     selectForm.value.certificateType = template.certificateType;
@@ -492,9 +491,21 @@ function startApplication() {
     return;
   }
   
-  // 获取选中的模板详情
+  // 获取选中的模板详情，确保是已上架的模板
+  const selected = templateList.value.find(t => t.templateId === selectForm.value.templateId && t.status === '0');
+  if (!selected) {
+    ElMessage.warning('所选证书模板不存在或未上架');
+    return;
+  }
+  
   getCertificateTemplate(selectForm.value.templateId).then(response => {
     selectedTemplate.value = response.data;
+    
+    // 确保选中的模板是已上架状态
+    if (selectedTemplate.value.status !== '0') {
+      ElMessage.warning('所选证书模板已下架，无法申请');
+      return;
+    }
     
     // 解析模板中的必需材料
     try {
@@ -671,6 +682,11 @@ function startApplication() {
 
 /** 选择模板 */
 function selectTemplate(template) {
+  // 确保只有已上架的模板可以被选择
+  if (template.status !== '0') {
+    ElMessage.warning('该证书模板未上架，无法申请');
+    return;
+  }
   selectForm.value.templateId = template.templateId;
   selectForm.value.templateName = template.templateName;
   selectForm.value.certificateType = template.certificateType;
@@ -829,6 +845,13 @@ function submitApplicationForm() {
   // 检查用户积分
   if (userPoints.value < applyCertificatePoints.value) {
     ElMessage.warning(`提交申请需要消耗 ${applyCertificatePoints.value} 积分，您的当前积分为 ${userPoints.value} 分，积分不足！`);
+    return;
+  }
+  
+  // 检查所选模板是否仍然上架
+  const selected = templateList.value.find(t => t.templateId === selectedTemplate.value.templateId && t.status === '0');
+  if (!selected) {
+    ElMessage.warning('所选证书模板已下架，无法提交申请');
     return;
   }
   
