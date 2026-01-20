@@ -26,10 +26,10 @@ public class YuanQiLoginUtil {
     /**
      * 检查元器登录状态
      * 
-     * 检测逻辑：
-     * - 检查左侧菜单是否存在"登录"按钮
-     * - 如果存在登录按钮，返回 "false"（未登录）
-     * - 如果不存在登录按钮，则已登录，尝试提取用户信息
+     * 检测逻辑（2026-01-20更新）：
+     * - 检查左侧菜单是否存在"新建智能体"按钮
+     * - 如果存在该按钮，说明未登录（点击会弹出登录页面）
+     * - 如果不存在该按钮，说明已登录
      * 
      * @param page Playwright页面对象
      * @param shouldNavigate 是否先导航到首页（true=导航，false=直接检测当前页面）
@@ -45,20 +45,82 @@ public class YuanQiLoginUtil {
                 page.waitForTimeout(3000); // 等待页面完全加载
             }
             
-            // 检查左侧菜单是否存在"登录"按钮
-            // 根据用户提供的DOM结构：<button data-v-0fb5f024="" type="button">登录</button>
-            Locator loginButton = page.locator("aside.yuanqi-sidebar button:has-text('登录')");
-            
-            if (loginButton.count() > 0 && loginButton.isVisible()) {
-                log.info("[元器登录检测] 未登录（检测到登录按钮）");
-                return "false";
+            // ✅ 优先级1: 检查"新建智能体"弹窗（扫码登录成功后的明确标志）
+            // DOM: <div class="v-modalDialog__content"><div class="v-page-header__heading__left__title">新建智能体</div>
+            Locator createAgentDialog = page.locator(".v-modalDialog__content .v-page-header__heading__left__title:has-text('新建智能体')");
+            if (createAgentDialog.count() > 0) {
+                try {
+                    if (createAgentDialog.first().isVisible()) {
+                        log.info("[元器登录检测] 已登录（检测到新建智能体弹窗）");
+                        String userName = extractUserName(page);
+                        return userName != null ? userName : "已登录";
+                    }
+                } catch (Exception e) {
+                    log.debug("[元器登录检测] 弹窗可见性检查失败，继续其他检测");
+                }
             }
             
-            // 如果没有登录按钮，说明已登录
-            // 尝试获取用户信息（可能在用户头像、菜单等位置）
-            log.info("[元器登录检测] 已登录");
+            // ✅ 优先级2: 检查 .spaceBtn 区域（不管里面文字是什么，有下拉箭头就说明登录了）
+            // DOM: <div class="spaceBtn"><span>个人空间</span><svg class="collapse-icon">...
+            Locator spaceBtn = page.locator(".spaceBtn");
+            if (spaceBtn.count() > 0) {
+                try {
+                    if (spaceBtn.first().isVisible()) {
+                        log.info("[元器登录检测] 已登录（检测到个人空间下拉区域）");
+                        String userName = extractUserName(page);
+                        return userName != null ? userName : "已登录";
+                    }
+                } catch (Exception e) {
+                    log.debug("[元器登录检测] .spaceBtn 可见性检查失败，继续其他检测");
+                }
+            }
             
-            // 尝试从用户菜单获取用户名
+            // ✅ 优先级3: 检查侧边栏是否有"知识库"选项（已登录才有）
+            // DOM: <div class="v-collapse-item"><span class="menu-name">知识库</span>
+            Locator knowledgeBase = page.locator(".v-collapse-item .menu-name:has-text('知识库')");
+            if (knowledgeBase.count() > 0) {
+                try {
+                    if (knowledgeBase.first().isVisible()) {
+                        log.info("[元器登录检测] 已登录（检测到知识库选项）");
+                        String userName = extractUserName(page);
+                        return userName != null ? userName : "已登录";
+                    }
+                } catch (Exception e) {
+                    log.debug("[元器登录检测] 知识库选项可见性检查失败，继续其他检测");
+                }
+            }
+            
+            // ✅ 优先级4: 检查侧边栏是否有"我的智能体"选项（已登录才有）
+            // DOM: <div class="v-collapse-item"><span class="menu-name">我的智能体</span>
+            Locator myAgents = page.locator(".v-collapse-item .menu-name:has-text('我的智能体')");
+            if (myAgents.count() > 0) {
+                try {
+                    if (myAgents.first().isVisible()) {
+                        log.info("[元器登录检测] 已登录（检测到我的智能体选项）");
+                        String userName = extractUserName(page);
+                        return userName != null ? userName : "已登录";
+                    }
+                } catch (Exception e) {
+                    log.debug("[元器登录检测] 我的智能体选项可见性检查失败，继续其他检测");
+                }
+            }
+            
+            // ❌ 最后: 检查是否有且仅有"新建智能体"按钮（无其他登录标志 = 未登录）
+            // DOM: <button class="create-agent-button">新建智能体</button>
+            Locator createAgentButton = page.locator("button.create-agent-button");
+            if (createAgentButton.count() > 0) {
+                try {
+                    if (createAgentButton.first().isVisible()) {
+                        log.info("[元器登录检测] 未登录（仅有新建智能体按钮，无其他登录标志）");
+                        return "false";
+                    }
+                } catch (Exception e) {
+                    log.debug("[元器登录检测] 新建智能体按钮检查失败");
+                }
+            }
+            
+            // 都不满足，保守判定为已登录
+            log.info("[元器登录检测] 已登录（未检测到未登录标志）");
             String userName = extractUserName(page);
             return userName != null ? userName : "已登录";
             
@@ -90,45 +152,40 @@ public class YuanQiLoginUtil {
     }
     
     /**
-     * 触发扫码登录流程
+     * 触发扫码登录流程（2026-01-20更新）
      * 
      * 步骤：
-     * 1. 查找并点击"登录"按钮
-     * 2. 等待登录弹窗/页面出现
-     * 3. 确保微信扫码选项已选中
+     * 1. 查找并点击"新建智能体"按钮
+     * 2. 等待登录弹窗出现（包含iframe）
+     * 3. 等待二维码加载
      * 
      * @param page Playwright页面对象
      * @return 是否成功触发登录流程
      */
     public boolean triggerScanLogin(Page page) {
         try {
-            // 查找左侧菜单的"登录"按钮
-            Locator loginButton = page.locator("aside.yuanqi-sidebar button:has-text('登录')");
+            // 查找"新建智能体"按钮
+            Locator createAgentButton = page.locator("button.create-agent-button:has-text('新建智能体')");
             
-            if (loginButton.count() == 0) {
-                log.warn("[元器扫码登录] 未找到登录按钮，可能已登录");
+            if (createAgentButton.count() == 0) {
+                log.warn("[元器扫码登录] 未找到新建智能体按钮，可能已登录");
                 return false;
             }
             
-            log.debug("[元器扫码登录] 点击登录按钮");
-            loginButton.first().click();
+            log.debug("[元器扫码登录] 点击新建智能体按钮");
+            createAgentButton.first().click();
             
             // 等待登录弹窗出现
             page.waitForTimeout(2000);
             
-            // 确保选中微信登录选项
-            // 根据用户提供的DOM：<label class="t-radio-button t-is-checked">微信</label>
-            Locator wechatOption = page.locator("label.t-radio-button:has-text('微信')");
-            if (wechatOption.count() > 0 && wechatOption.first().locator("input[checked]").count() > 0) {
-                log.debug("[元器扫码登录] 微信登录已选中");
-            } else if (wechatOption.count() > 0) {
-                log.debug("[元器扫码登录] 切换到微信登录");
-                wechatOption.first().click();
-                page.waitForTimeout(1000);
+            // 检查登录iframe是否出现
+            // DOM: <iframe src="https://yuanqi.tencent.com/login?..." class="login-iframe-container">
+            Locator loginIframe = page.locator("iframe.login-iframe-container");
+            if (loginIframe.count() > 0) {
+                log.debug("[元器扫码登录] 登录iframe已加载");
             }
             
-            // 等待二维码iframe加载
-            // 根据DOM：<iframe src="https://open.weixin.qq.com/connect/qrconnect?...
+            // 等待二维码完全加载
             page.waitForTimeout(2000);
             
             log.info("[元器扫码登录] 登录界面已准备就绪");
@@ -141,25 +198,102 @@ public class YuanQiLoginUtil {
     }
     
     /**
-     * 检查是否仍在登录页面（用于轮询检测登录状态）
+     * 检查是否仍在登录页面（用于轮询检测登录状态）（2026-01-20更新）
+     * 
+     * 检测逻辑（优先级从高到低）：
+     * 1. ✅ 检查登录成功标志：
+     *    - 新建智能体弹窗
+     *    - 个人空间菜单
+     *    - 我的智能体/知识库
+     * 2. ❌ 仍在登录中：
+     *    - 登录iframe仍然可见
      * 
      * @param page Playwright页面对象
      * @return true=仍在登录页面，false=已登录成功
      */
     public boolean isStillOnLoginPage(Page page) {
         try {
-            // 检查是否还存在登录弹窗或登录按钮
-            Locator loginDialog = page.locator(".hyc-login__content");
-            Locator loginButton = page.locator("aside.yuanqi-sidebar button:has-text('登录')");
+            // ✅ 优先级1: 检查是否出现新建智能体弹窗（扫码成功的标志）
+            // DOM: <div class="v-modalDialog__content"><div class="v-page-header__heading__left__title">新建智能体</div>
+            Locator createAgentDialog = page.locator(".v-modalDialog__content .v-page-header__heading__left__title:has-text('新建智能体')");
+            if (createAgentDialog.count() > 0) {
+                try {
+                    if (createAgentDialog.first().isVisible()) {
+                        log.info("[元器登录状态] 检测到新建智能体弹窗，登录成功");
+                        
+                        // 自动关闭弹窗
+                        try {
+                            Locator closeButton = page.locator(".v-modalDialog__content button.is-icon svg use[xlink\\:href='#v-basic_close_line']").locator("..");
+                            if (closeButton.count() > 0) {
+                                log.debug("[元器登录状态] 关闭新建智能体弹窗");
+                                closeButton.first().click();
+                                page.waitForTimeout(1000);
+                            }
+                        } catch (Exception e) {
+                            log.debug("[元器登录状态] 关闭弹窗失败（不影响登录结果）", e);
+                        }
+                        
+                        return false; // 登录成功，不再等待
+                    }
+                } catch (Exception e) {
+                    log.debug("[元器登录状态] 弹窗检测失败，继续其他检测");
+                }
+            }
             
-            // 如果登录弹窗存在或登录按钮存在，说明还在登录页面
-            boolean hasLoginDialog = loginDialog.count() > 0 && loginDialog.isVisible();
-            boolean hasLoginButton = loginButton.count() > 0 && loginButton.isVisible();
+            // ✅ 优先级2: 检查 .spaceBtn 区域（不管里面文字是什么，有就说明登录了）
+            Locator spaceBtn = page.locator(".spaceBtn");
+            if (spaceBtn.count() > 0) {
+                try {
+                    if (spaceBtn.first().isVisible()) {
+                        log.info("[元器登录状态] 检测到个人空间下拉区域，登录成功");
+                        return false;
+                    }
+                } catch (Exception e) {
+                    log.debug("[元器登录状态] .spaceBtn 检测失败，继续其他检测");
+                }
+            }
             
-            return hasLoginDialog || hasLoginButton;
+            // ✅ 优先级3: 检查侧边栏是否有"知识库"选项（已登录才有）
+            Locator knowledgeBase = page.locator(".v-collapse-item .menu-name:has-text('知识库')");
+            if (knowledgeBase.count() > 0) {
+                try {
+                    if (knowledgeBase.first().isVisible()) {
+                        log.info("[元器登录状态] 检测到知识库选项，登录成功");
+                        return false;
+                    }
+                } catch (Exception e) {
+                    log.debug("[元器登录状态] 知识库检测失败，继续其他检测");
+                }
+            }
+            
+            // ✅ 优先级4: 检查侧边栏是否有"我的智能体"选项（已登录才有）
+            Locator myAgents = page.locator(".v-collapse-item .menu-name:has-text('我的智能体')");
+            if (myAgents.count() > 0) {
+                try {
+                    if (myAgents.first().isVisible()) {
+                        log.info("[元器登录状态] 检测到我的智能体选项，登录成功");
+                        return false;
+                    }
+                } catch (Exception e) {
+                    log.debug("[元器登录状态] 我的智能体检测失败，继续其他检测");
+                }
+            }
+            
+            // ❌ 检查是否仍在登录iframe页面
+            Locator loginIframe = page.locator("iframe.login-iframe-container");
+            boolean hasLoginIframe = loginIframe.count() > 0 && loginIframe.isVisible();
+            
+            if (hasLoginIframe) {
+                log.debug("[元器登录状态] 仍在登录页面，等待扫码");
+                return true;
+            }
+            
+            // 都不满足，保守判定为已登录（避免死循环）
+            log.info("[元器登录状态] 登录完成（未检测到登录iframe）");
+            return false;
             
         } catch (Exception e) {
-            log.debug("[元器登录状态] 检测登录页面失败，可能已登录", e);
+            log.debug("[元器登录状态] 检测登录页面失败，认为已登录", e);
             return false;
         }
     }

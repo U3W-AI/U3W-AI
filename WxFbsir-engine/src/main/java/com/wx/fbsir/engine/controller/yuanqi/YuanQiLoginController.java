@@ -103,7 +103,7 @@ public class YuanQiLoginController extends StreamTaskHelper {
         } finally {
             if (session != null) {
                 try {
-                    session.destroy();
+                    browserPool.destroy(session);
                     log.debug("[元器登录检测] 已销毁会话释放资源 - 用户: {}", userId);
                 } catch (Exception e) {
                     log.warn("[元器登录检测] 销毁会话失败 - 用户: {}, 错误: {}", userId, e.getMessage());

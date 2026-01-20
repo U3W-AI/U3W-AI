@@ -69,6 +69,11 @@ public class PlaywrightProperties {
     private boolean headless = false;
 
     /**
+     * Playwright 实例池配置
+     */
+    private InstancePoolConfig instancePool = new InstancePoolConfig();
+    
+    /**
      * 浏览器池配置
      */
     private PoolConfig pool = new PoolConfig();
@@ -107,6 +112,14 @@ public class PlaywrightProperties {
 
     public void setHeadless(boolean headless) {
         this.headless = headless;
+    }
+
+    public InstancePoolConfig getInstancePool() {
+        return instancePool;
+    }
+
+    public void setInstancePool(InstancePoolConfig instancePool) {
+        this.instancePool = instancePool;
     }
 
     public PoolConfig getPool() {
@@ -187,6 +200,32 @@ public class PlaywrightProperties {
     }
 
     // ==================== 内部配置类 ====================
+
+    /**
+     * Playwright 实例池配置
+     */
+    public static class InstancePoolConfig {
+        /**
+         * 实例池大小（Playwright 实例数量）
+         * 每个实例独立加锁，支持真正的并发
+         * 设置为 0 时根据 CPU 核心数自动计算：
+         *   - 8核及以下：核心数
+         *   - 8核以上：核心数 * 0.75
+         * 建议值：
+         *   - 单用户多AI：5-10个
+         *   - 多用户场景：并发用户数 * 2
+         *   - 最大值：32（避免资源浪费）
+         */
+        private int size = 0; // 0 表示使用动态计算
+        
+        public int getSize() {
+            return size;
+        }
+        
+        public void setSize(int size) {
+            this.size = size;
+        }
+    }
 
     /**
      * 浏览器池配置
