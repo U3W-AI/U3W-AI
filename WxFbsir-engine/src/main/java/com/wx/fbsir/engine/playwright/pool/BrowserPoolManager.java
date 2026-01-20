@@ -6,9 +6,11 @@ import com.microsoft.playwright.BrowserType;
 import com.microsoft.playwright.Playwright;
 import com.wx.fbsir.engine.playwright.config.PlaywrightProperties;
 import com.wx.fbsir.engine.playwright.core.PlaywrightManager;
+import com.wx.fbsir.engine.playwright.core.PlaywrightInstancePool;
 import com.wx.fbsir.engine.playwright.session.BrowserSession;
 import com.wx.fbsir.engine.playwright.util.ClipboardManager;
 import com.wx.fbsir.engine.playwright.util.ScreenshotUtil;
+import com.wx.fbsir.engine.util.BrowserSessionLockUtil;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -81,6 +83,7 @@ public class BrowserPoolManager {
     private static final Logger log = LoggerFactory.getLogger(BrowserPoolManager.class);
 
     private final PlaywrightManager playwrightManager;
+    private final PlaywrightInstancePool playwrightInstancePool;  // ✅ 新增：实例池
     private final PlaywrightProperties properties;
     private final ClipboardManager clipboardManager;
     private final ScreenshotUtil screenshotUtil;
@@ -141,10 +144,14 @@ public class BrowserPoolManager {
      */
     private volatile boolean shutdown = false;
 
-    public BrowserPoolManager(PlaywrightManager playwrightManager, PlaywrightProperties properties,
-                               ClipboardManager clipboardManager, ScreenshotUtil screenshotUtil,
+    public BrowserPoolManager(PlaywrightManager playwrightManager, 
+                               PlaywrightInstancePool playwrightInstancePool,
+                               PlaywrightProperties properties,
+                               ClipboardManager clipboardManager, 
+                               ScreenshotUtil screenshotUtil,
                                GlobalBrowserPool globalBrowserPool) {
         this.playwrightManager = playwrightManager;
+        this.playwrightInstancePool = playwrightInstancePool;
         this.properties = properties;
         this.clipboardManager = clipboardManager;
         this.screenshotUtil = screenshotUtil;
@@ -386,8 +393,43 @@ public class BrowserPoolManager {
             destroySessionQuietly(session);
             activeCount.decrementAndGet();
             semaphore.release();
+            log.debug("[浏览器池] 释放临时会话 - 会话: {}, 活跃: {}", session.getSessionId(), activeCount.get());
         }
-        // 持久化会话：保留在池中
+        // 持久化会话：保留在池中，但不释放 Semaphore（会话仍然占用资源）
+    }
+    
+    /**
+     * 销毁会话（完全释放资源）
+     * 
+     * 🔥 关键区别：
+     * - release(): 归还到池，持久化会话可重用（不释放 Semaphore）
+     * - destroy(): 完全销毁，释放所有资源包括 Semaphore
+     * 
+     * 使用场景：
+     * - 登录检测完成后：调用 destroy() 释放资源
+     * - AI会话中：调用 release() 保留会话
+     */
+    public void destroy(BrowserSession session) {
+        if (session == null) return;
+        
+        String key = buildKey(session.getUserId(), session.getName());
+        
+        // 从池中移除
+        if (session.isPersistent()) {
+            persistentSessions.remove(key);
+        } else {
+            temporarySessions.remove(session.getSessionId());
+        }
+        
+        // 销毁会话
+        destroySessionQuietly(session);
+        
+        // 🔥 关键：释放 Semaphore（无论持久化还是临时）
+        int active = activeCount.decrementAndGet();
+        semaphore.release();
+        
+        log.debug("[浏览器池] 销毁会话 - 用户: {}, 名称: {}, 持久化: {}, 活跃: {}/{}", 
+            session.getUserId(), session.getName(), session.isPersistent(), active, semaphore.availablePermits());
     }
 
     /**
@@ -397,9 +439,7 @@ public class BrowserPoolManager {
         String key = buildKey(userId, name);
         BrowserSession session = persistentSessions.remove(key);
         if (session != null) {
-            destroySessionQuietly(session);
-            activeCount.decrementAndGet();
-            semaphore.release();
+            destroy(session);
             log.info("[浏览器池] 关闭会话: {}", key);
         }
     }
@@ -419,6 +459,26 @@ public class BrowserPoolManager {
      * @return BrowserSession
      */
     private BrowserSession createSession(String userId, String name, String instanceId, boolean persistent, boolean headless) {
+        // 🔐 使用会话级锁（userId:name），防止同一会话的重复并发创建
+        // ✅ 允许：1:deepseek 和 1:yuanqi 并发创建（不同会话）
+        // ✅ 阻止：两个 1:deepseek 并发创建（相同会话，避免重复）
+        String sessionKey = BrowserSessionLockUtil.buildSessionKey(userId, name);
+        java.util.concurrent.locks.Lock sessionLock = BrowserSessionLockUtil.getSessionLock(sessionKey);
+        
+        sessionLock.lock();
+        try {
+            log.debug("[浏览器池] 获取会话锁 - 会话: {}", sessionKey);
+            return doCreateSessionWithRetry(userId, name, instanceId, persistent, headless);
+        } finally {
+            sessionLock.unlock();
+            log.debug("[浏览器池] 释放会话锁 - 会话: {}", sessionKey);
+        }
+    }
+    
+    /**
+     * 实际执行会话创建并重试
+     */
+    private BrowserSession doCreateSessionWithRetry(String userId, String name, String instanceId, boolean persistent, boolean headless) {
         PlaywrightProperties.BrowserConfig browserConfig = properties.getBrowser();
         int maxRetries = browserConfig.getMaxRetries();
         long retryInterval = browserConfig.getRetryInterval();
@@ -517,13 +577,14 @@ public class BrowserPoolManager {
      */
     private BrowserContextResult doCreateBrowserContext(String userId, String name, String instanceId, 
                                                          boolean persistent, boolean headless) {
-        Playwright playwright = playwrightManager.getPlaywright();
-        BrowserType browserType = playwright.chromium();
-        
         PlaywrightProperties.BrowserConfig browserConfig = properties.getBrowser();
         List<String> args = buildBrowserArgs(headless);
         
         if (persistent) {
+            // 🎯 从实例池获取 Playwright 实例（Round-Robin 分配）
+            Playwright playwright = playwrightInstancePool.acquirePlaywright();
+            BrowserType browserType = playwright.chromium();
+            
             // 持久化上下文：支持实例ID隔离
             Path userDataPath;
             if (instanceId != null) {
@@ -543,20 +604,32 @@ public class BrowserPoolManager {
                 log.warn("[浏览器池] 创建用户数据目录失败 - 路径: {}, 错误: {}", userDataPath, e.getMessage());
             }
             
-            // 🟠 P1修复：设置超时，防止页面加载卡死
-            BrowserContext context = browserType.launchPersistentContext(userDataPath, 
-                new BrowserType.LaunchPersistentContextOptions()
-                    .setHeadless(headless)
-                    .setTimeout(browserConfig.getLaunchTimeout())
-                    .setViewportSize(browserConfig.getViewportWidth(), browserConfig.getViewportHeight()));
-            
-            // 设置默认超时：30秒
-            context.setDefaultTimeout(30000);
-            // 设置导航超时：60秒
-            context.setDefaultNavigationTimeout(60000);
-            
-            // 持久化上下文不返回 Browser（由 Playwright 内部管理）
-            return new BrowserContextResult(null, context);
+            // 🔒 实例级锁：每个 Playwright 实例独立加锁
+            // 优势：不同实例可以并发创建，只有同一实例的调用才串行
+            java.util.concurrent.locks.ReentrantLock instanceLock = playwrightInstancePool.getLockForInstance(playwright);
+            instanceLock.lock();
+            try {
+                log.debug("[浏览器池] 获取 Playwright 实例锁 - 用户: {}, 会话: {}", userId, name);
+                
+                // 🟠 P1修复：设置超时，防止页面加载卡死
+                BrowserContext context = browserType.launchPersistentContext(userDataPath, 
+                    new BrowserType.LaunchPersistentContextOptions()
+                        .setHeadless(headless)
+                        .setTimeout(browserConfig.getLaunchTimeout())
+                        .setViewportSize(browserConfig.getViewportWidth(), browserConfig.getViewportHeight()));
+                
+                log.debug("[浏览器池] 释放 Playwright 实例锁 - 用户: {}, 会话: {}", userId, name);
+                
+                // 设置默认超时：30秒
+                context.setDefaultTimeout(30000);
+                // 设置导航超时：60秒
+                context.setDefaultNavigationTimeout(60000);
+                
+                // 持久化上下文不返回 Browser（由 Playwright 内部管理）
+                return new BrowserContextResult(null, context);
+            } finally {
+                instanceLock.unlock();
+            }
         } else {
             // 临时上下文：从全局Browser池获取Browser（性能优化）
             Browser browser = globalBrowserPool.acquireBrowser();
@@ -605,7 +678,7 @@ public class BrowserPoolManager {
     }
     
     /**
-     * 清理浏览器锁文件
+     * 清理浏览器锁文件（增强版）
      * 当浏览器异常退出时，可能留下锁文件导致无法重新启动
      */
     private void cleanupBrowserLockFiles(String userId, String name) {
@@ -615,25 +688,45 @@ public class BrowserPoolManager {
                 return;
             }
             
-            // 清理 SingletonLock 文件
+            // 等待一小段时间，确保进程完全退出
+            Thread.sleep(500);
+            
+            // 清理 SingletonLock 文件（最常见的锁文件）
             Path singletonLock = userDataPath.resolve("SingletonLock");
             if (Files.exists(singletonLock)) {
-                Files.delete(singletonLock);
-                log.info("[浏览器池] 清理锁文件: {}", singletonLock);
+                boolean deleted = false;
+                // 尝试3次删除（有时文件被占用）
+                for (int i = 0; i < 3; i++) {
+                    try {
+                        Files.delete(singletonLock);
+                        log.info("[浏览器池] 清理锁文件成功: SingletonLock");
+                        deleted = true;
+                        break;
+                    } catch (Exception e) {
+                        if (i < 2) {
+                            Thread.sleep(200);
+                        } else {
+                            log.warn("[浏览器池] 清理锁文件失败: SingletonLock - {}", e.getMessage());
+                        }
+                    }
+                }
             }
             
-            // 清理其他锁文件
+            // 清理其他锁文件（包括 .lock 后缀）
             try (var stream = Files.list(userDataPath)) {
-                stream.filter(p -> p.getFileName().toString().contains("Lock") || 
-                                   p.getFileName().toString().endsWith(".lock"))
-                      .forEach(lockFile -> {
-                          try {
-                              Files.delete(lockFile);
-                              log.debug("[浏览器池] 清理锁文件: {}", lockFile.getFileName());
-                          } catch (Exception e) {
-                              log.debug("[浏览器池] 清理锁文件失败: {}", e.getMessage());
-                          }
-                      });
+                stream.filter(p -> {
+                    String fileName = p.getFileName().toString();
+                    return fileName.contains("Lock") || 
+                           fileName.contains("lock") ||
+                           fileName.endsWith(".lock");
+                }).forEach(lockFile -> {
+                    try {
+                        Files.delete(lockFile);
+                        log.debug("[浏览器池] 清理锁文件: {}", lockFile.getFileName());
+                    } catch (Exception e) {
+                        log.debug("[浏览器池] 清理锁文件失败: {} - {}", lockFile.getFileName(), e.getMessage());
+                    }
+                });
             }
         } catch (Exception e) {
             log.debug("[浏览器池] 清理锁文件异常: {}", e.getMessage());
@@ -786,6 +879,7 @@ public class BrowserPoolManager {
         }
         try {
             session.destroy();
+            totalDestroyedCount.incrementAndGet();
         } catch (Exception e) {
             log.warn("[浏览器池] 销毁Session异常: {}", e.getMessage());
         }

@@ -1832,7 +1832,177 @@ String message = result.getMessage();   // 错误信息（失败时）
 
 ---
 
-**维护者**: WxFbsir Team
+---
+
+## 附录C：企业级并发架构设计
+
+### C.1 并发模型概述
+
+**核心原则**：有N个Playwright实例，就支持N个任务并发
+
+```
+8个Playwright实例 = 最多8个任务同时执行
+不区分能力类型，只要有空闲实例就执行
+资源利用率最大化
+```
+
+### C.2 三级控制机制
+
+#### 层级1：全局并发限制（实例级）
+
+```java
+// 基于Playwright实例池大小
+全局最大并发 = 8个实例（自动检测CPU核心数）
+超过限制 → 返回 GLOBAL_LIMIT_EXCEEDED
+```
+
+**配置位置**：
+```yaml
+# application.yml
+engine:
+  playwright:
+    instance-pool:
+      size: 0  # 0=自动检测，手动设置如 size: 16
+```
+
+#### 层级2：防重复提交
+
+```java
+// 同一用户+能力组合只能有1个任务
+key = userId:capabilityType
+重复提交 → 返回 DUPLICATE_REQUEST
+```
+
+**场景示例**：
+```
+用户A点击"登录检测" → 任务1开始执行
+用户A再次点击"登录检测" → 被拒绝（重复提交）❌
+用户A点击"节点编辑" → 正常执行（不同能力）✅
+```
+
+### C.3 架构组件
+
+```
+EngineCapabilityManager（能力管理器）
+         ↓
+TaskExecutionTracker（任务追踪器）
+    • 全局并发信号量（8个permit）
+    • 防重复映射（userId:type → taskId）
+    • 任务详情（taskId → TaskInfo）
+    • 自动超时清理（5分钟）
+         ↓
+PlaywrightInstancePool（实例池）
+    • 8个Playwright实例（可配置）
+    • 轮询分配策略
+    • 实例隔离
+         ↓
+BrowserPoolManager（会话池）
+    • 持久化会话（登录状态保存）
+    • 临时会话（无痕模式）
+    • 会话复用
+```
+
+### C.4 任务执行流程
+
+```
+1. 消息到达 → EngineCapabilityManager.handleMessage()
+2. 检查重复 → duplicateCheck.containsKey()
+3. 获取信号量 → globalSemaphore.tryAcquire()
+4. 执行任务 → ThreadPoolTaskExecutor.execute()
+5. 分配实例 → PlaywrightInstancePool.acquire()
+6. 创建会话 → BrowserPoolManager.acquire()
+7. 业务逻辑 → Controller.handleXXX()
+8. 任务完成 → globalSemaphore.release()
+```
+
+### C.5 拒绝策略
+
+| 场景 | 错误码 | 说明 |
+|------|--------|------|
+| 重复提交 | `DUPLICATE_REQUEST` | 任务正在执行中 |
+| 全局并发已满 | `GLOBAL_LIMIT_EXCEEDED` | 系统并发已满，当前执行N个任务 |
+| 线程池繁忙 | `SYSTEM_BUSY` | 系统繁忙，1-2分钟后重试 |
+
+### C.6 监控接口
+
+#### 健康检查
+
+```bash
+GET /api/monitor/health
+
+Response:
+{
+  "status": "UP",
+  "taskStatus": {
+    "executing": 5,
+    "capacity": 8,
+    "utilizationRate": "62.5%",
+    "stats": "全局并发: 5/8, 总任务: 120, 完成: 115, 拒绝: 5, 成功率: 95.83%"
+  },
+  "browserStatus": {
+    "activeSessions": 5
+  }
+}
+```
+
+#### 任务统计
+
+```bash
+GET /api/monitor/tasks
+
+Response:
+{
+  "executing": 5,
+  "capacity": 8,
+  "summary": "全局并发: 5/8, 总任务: 120, 完成: 115"
+}
+```
+
+### C.7 性能指标
+
+| 指标 | 目标值 | 说明 |
+|------|--------|------|
+| **并发能力** | 8个任务同时执行 | 基于CPU核心数 |
+| **资源利用率** | > 80% | 实例使用效率 |
+| **任务成功率** | > 95% | 完成/总任务 |
+| **平均响应时间** | < 10秒 | 单任务耗时 |
+
+### C.8 最佳实践
+
+#### 合理设置实例数
+
+```yaml
+# 推荐：CPU核心数（自动检测）
+engine.playwright.instance-pool.size: 0
+
+# 手动设置
+engine.playwright.instance-pool.size: 16  # 16核CPU
+```
+
+#### 监控实例利用率
+
+```bash
+# 定期检查
+curl http://localhost:8080/api/monitor/health
+
+# 利用率 > 80% → 性能良好
+# 利用率 < 50% → 资源浪费，可降低实例数
+# 利用率 = 100% → 考虑增加实例数
+```
+
+#### 关键日志分析
+
+```bash
+[任务追踪] 任务已开始 - 全局并发: 5/8
+[任务追踪] 任务已完成 - 耗时: 6500ms, 全局并发: 4/8
+[任务追踪] 拒绝执行，全局并发已满 - 当前执行: 8/8
+[任务追踪] 清理超时任务 - 超时: 300000ms
+```
+
+---
+
+**维护者**: WxFbsir Team  
+**最后更新**: 2026-01-20
 
 ## 📚 相关文档
 
