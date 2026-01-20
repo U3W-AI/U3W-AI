@@ -37,13 +37,16 @@ public class EngineCapabilityManager {
 
     private final CapabilityRegistry registry;
     private final ThreadPoolTaskExecutor taskExecutor;
+    private final TaskExecutionTracker taskTracker;
 
     private WebSocketClientManager webSocketClientManager;
 
     public EngineCapabilityManager(CapabilityRegistry registry,
-                                    @Qualifier("messageExecutor") ThreadPoolTaskExecutor taskExecutor) {
+                                    @Qualifier("messageExecutor") ThreadPoolTaskExecutor taskExecutor,
+                                    TaskExecutionTracker taskTracker) {
         this.registry = registry;
         this.taskExecutor = taskExecutor;
+        this.taskTracker = taskTracker;
         log.info("[消息管理] EngineCapabilityManager 初始化完成");
     }
 
@@ -62,6 +65,7 @@ public class EngineCapabilityManager {
      */
     public void handleMessage(EngineMessage message) {
         String type = message.getType();
+        String userId = message.getUserId();
         
         // 只支持精准匹配，避免 yb_deepseek 误匹配 deepseek 等问题
         CapabilityRegistry.MessageHandler handler = registry.getHandler(type);
@@ -72,11 +76,20 @@ public class EngineCapabilityManager {
             return;
         }
 
+        // 🔥 检查是否可以执行（全局并发、用户并发、重复提交）
+        TaskExecutionTracker.TaskStartResult startResult = taskTracker.tryStart(userId, type);
+        if (!startResult.success) {
+            log.warn("[{}] 拒绝执行 - 用户: {}, 原因: {}", type, userId, startResult.errorCode);
+            sendTaskRejectedError(message, type, startResult.errorCode, startResult.errorMessage);
+            return;
+        }
+
         // 异步执行（捕获拒绝异常）
         try {
             taskExecutor.execute(() -> executeHandler(handler, message));
         } catch (RejectedExecutionException e) {
-            // 线程池繁忙，友好提示用户稍后重试
+            // 线程池繁忙，释放任务追踪
+            taskTracker.finish(userId, type);
             log.warn("[{}] 任务被拒绝 - 系统繁忙，请稍后重试", type);
             sendBusyError(message, type);
         }
@@ -85,6 +98,7 @@ public class EngineCapabilityManager {
     private void executeHandler(CapabilityRegistry.MessageHandler handler, EngineMessage message) {
         long startTime = System.currentTimeMillis();
         String type = handler.type();
+        String userId = message.getUserId();
 
         try {
             handler.handle(message);
@@ -94,6 +108,9 @@ public class EngineCapabilityManager {
         } catch (Exception e) {
             log.error("[{}] 异常: {}", type, e.getMessage(), e);
             sendErrorResult(message, type, e.getMessage());
+        } finally {
+            // 🔥 无论成功或失败，都释放任务追踪
+            taskTracker.finish(userId, type);
         }
     }
 
@@ -143,6 +160,23 @@ public class EngineCapabilityManager {
             .payload("success", false)
             .payload("errorCode", "SYSTEM_BUSY")
             .payload("errorMessage", "系统繁忙，请稍后再试。当前任务队列已满，建议等待1-2分钟后重新尝试。")
+            .build();
+
+        webSocketClientManager.sendMessage(response);
+    }
+
+    private void sendTaskRejectedError(EngineMessage message, String type, String errorCode, String errorMessage) {
+        if (webSocketClientManager == null || !webSocketClientManager.isConnected()) {
+            return;
+        }
+
+        EngineMessage response = EngineMessage.builder()
+            .type(MessageType.TASK_RESULT.getCode())
+            .userId(message.getUserId())
+            .payload("requestId", message.getPayloadValue("requestId"))
+            .payload("success", false)
+            .payload("errorCode", errorCode)
+            .payload("errorMessage", errorMessage)
             .build();
 
         webSocketClientManager.sendMessage(response);
