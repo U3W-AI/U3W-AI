@@ -292,15 +292,11 @@ public class EngineWebSocketHandler extends TextWebSocketHandler {
             }
         }
         
-        // 8. 注册 Engine
-        boolean success = sessionManager.registerEngine(sessionId, hostId, version, capabilities);
+        // 8. 注册 Engine（传入设备指纹用于同设备重连检测）
+        boolean success = sessionManager.registerEngine(sessionId, hostId, deviceId, version, capabilities);
         
         if (success) {
-            // 获取会话并设置deviceId
-            EngineSession engineSession = sessionManager.getSession(sessionId);
-            if (engineSession != null) {
-                engineSession.setDeviceId(deviceId);
-            }
+            // 注册成功后，deviceId已在registerEngine中设置，无需重复设置
             
             // 更新设备信息到会话
             sessionManager.updateDeviceInfo(sessionId, deviceInfo);
@@ -483,6 +479,10 @@ public class EngineWebSocketHandler extends TextWebSocketHandler {
             int dbStatus;
             String closeReason = getFriendlyCloseReason(status, engineSession.getLastError());
             
+            // 计算连接持续时间
+            long connectionDuration = (System.currentTimeMillis() - engineSession.getRegisteredTime()) / 1000;
+            long lastHeartbeatAgo = (System.currentTimeMillis() - engineSession.getLastHeartbeatTime()) / 1000;
+            
             if (status.getCode() == 4007) {
                 dbStatus = ConnectionLogService.STATUS_ADMIN_DISCONNECT;
             } else if (engineSession.isNormalClose()) {
@@ -501,7 +501,11 @@ public class EngineWebSocketHandler extends TextWebSocketHandler {
                     engineSession.getLastError()
                 );
                 
-                log.info("[Engine] 主机 {} 已断开 - {}", engineId, closeReason);
+                // 🔍 增强日志：记录断开详情
+                log.info("[Engine] 主机 {} 已断开 - {} | 状态码:{} | 持续:{}秒 | 心跳:{}次 | 上次心跳:{}秒前 | 消息:发送{}收到{}", 
+                    engineId, closeReason, status.getCode(), connectionDuration, 
+                    engineSession.getHeartbeatCount(), lastHeartbeatAgo,
+                    engineSession.getMessageSent(), engineSession.getMessageReceived());
             } catch (Exception e) {
                 log.error("[Engine] 更新连接记录失败 - SessionID: {}, 错误: {}", sessionId, e.getMessage());
             }
