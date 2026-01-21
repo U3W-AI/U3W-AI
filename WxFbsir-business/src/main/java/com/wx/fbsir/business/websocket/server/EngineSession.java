@@ -321,6 +321,20 @@ public class EngineSession {
     public Instant getLastHeartbeatAt() {
         return lastHeartbeatAt;
     }
+    
+    /**
+     * 获取最后心跳时间戳（毫秒）
+     */
+    public long getLastHeartbeatTime() {
+        return lastHeartbeatAt != null ? lastHeartbeatAt.toEpochMilli() : connectedAt.toEpochMilli();
+    }
+    
+    /**
+     * 获取注册时间戳（毫秒）
+     */
+    public long getRegisteredTime() {
+        return connectedAt.toEpochMilli();
+    }
 
     public SessionStatus getStatus() {
         return status;
