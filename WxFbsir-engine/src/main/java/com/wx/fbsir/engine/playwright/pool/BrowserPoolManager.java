@@ -483,6 +483,15 @@ public class BrowserPoolManager {
         int maxRetries = browserConfig.getMaxRetries();
         long retryInterval = browserConfig.getRetryInterval();
         
+        // 🔧 在创建前主动清理锁文件（预防性清理）
+        if (persistent) {
+            try {
+                cleanupBrowserLockFiles(userId, name);
+            } catch (Exception e) {
+                log.debug("[浏览器池] 预清理锁文件异常: {}", e.getMessage());
+            }
+        }
+        
         Exception lastException = null;
         
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
@@ -678,7 +687,7 @@ public class BrowserPoolManager {
     }
     
     /**
-     * 清理浏览器锁文件（增强版）
+     * 清理浏览器锁文件（增强版：支持NFS等远程文件系统）
      * 当浏览器异常退出时，可能留下锁文件导致无法重新启动
      */
     private void cleanupBrowserLockFiles(String userId, String name) {
@@ -689,27 +698,12 @@ public class BrowserPoolManager {
             }
             
             // 等待一小段时间，确保进程完全退出
-            Thread.sleep(500);
+            Thread.sleep(800);
             
             // 清理 SingletonLock 文件（最常见的锁文件）
             Path singletonLock = userDataPath.resolve("SingletonLock");
             if (Files.exists(singletonLock)) {
-                boolean deleted = false;
-                // 尝试3次删除（有时文件被占用）
-                for (int i = 0; i < 3; i++) {
-                    try {
-                        Files.delete(singletonLock);
-                        log.info("[浏览器池] 清理锁文件成功: SingletonLock");
-                        deleted = true;
-                        break;
-                    } catch (Exception e) {
-                        if (i < 2) {
-                            Thread.sleep(200);
-                        } else {
-                            log.warn("[浏览器池] 清理锁文件失败: SingletonLock - {}", e.getMessage());
-                        }
-                    }
-                }
+                forceDeleteLockFile(singletonLock, "SingletonLock");
             }
             
             // 清理其他锁文件（包括 .lock 后缀）
@@ -720,16 +714,95 @@ public class BrowserPoolManager {
                            fileName.contains("lock") ||
                            fileName.endsWith(".lock");
                 }).forEach(lockFile -> {
-                    try {
-                        Files.delete(lockFile);
-                        log.debug("[浏览器池] 清理锁文件: {}", lockFile.getFileName());
-                    } catch (Exception e) {
-                        log.debug("[浏览器池] 清理锁文件失败: {} - {}", lockFile.getFileName(), e.getMessage());
-                    }
+                    forceDeleteLockFile(lockFile, lockFile.getFileName().toString());
                 });
             }
         } catch (Exception e) {
             log.debug("[浏览器池] 清理锁文件异常: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * 强制删除锁文件（支持NFS等远程文件系统）
+     * 
+     * @param lockFile 锁文件路径
+     * @param fileName 文件名（用于日志）
+     */
+    private void forceDeleteLockFile(Path lockFile, String fileName) {
+        boolean deleted = false;
+        
+        // 策略1：常规删除（5次重试）
+        for (int i = 0; i < 5; i++) {
+            try {
+                Files.deleteIfExists(lockFile);
+                if (!Files.exists(lockFile)) {
+                    log.info("[浏览器池] 清理锁文件成功: {} (常规删除, 尝试{}次)", fileName, i + 1);
+                    deleted = true;
+                    break;
+                }
+            } catch (Exception e) {
+                if (i < 4) {
+                    try {
+                        Thread.sleep(300 * (i + 1)); // 递增等待：300ms, 600ms, 900ms...
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                } else {
+                    log.debug("[浏览器池] 常规删除失败: {} - {}", fileName, e.getMessage());
+                }
+            }
+        }
+        
+        // 策略2：如果常规删除失败，尝试强制清空文件内容后删除（解决NFS锁问题）
+        if (!deleted && Files.exists(lockFile)) {
+            try {
+                // 步骤1：清空文件内容（解除文件锁）
+                java.nio.file.StandardOpenOption[] options = {
+                    java.nio.file.StandardOpenOption.WRITE,
+                    java.nio.file.StandardOpenOption.TRUNCATE_EXISTING
+                };
+                Files.write(lockFile, new byte[0], options);
+                
+                Thread.sleep(200);
+                
+                // 步骤2：尝试删除
+                Files.deleteIfExists(lockFile);
+                
+                if (!Files.exists(lockFile)) {
+                    log.info("[浏览器池] 清理锁文件成功: {} (强制清空后删除)", fileName);
+                    deleted = true;
+                }
+            } catch (Exception e) {
+                log.debug("[浏览器池] 强制清空失败: {} - {}", fileName, e.getMessage());
+            }
+        }
+        
+        // 策略3：如果仍然失败，尝试重命名为临时文件（避免阻塞后续启动）
+        if (!deleted && Files.exists(lockFile)) {
+            try {
+                Path tempFile = lockFile.getParent().resolve(fileName + ".tmp." + System.currentTimeMillis());
+                Files.move(lockFile, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                
+                // 异步删除临时文件
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        Thread.sleep(5000);
+                        Files.deleteIfExists(tempFile);
+                    } catch (Exception e) {
+                        // 忽略
+                    }
+                });
+                
+                log.info("[浏览器池] 清理锁文件成功: {} (重命名为临时文件)", fileName);
+                deleted = true;
+            } catch (Exception e) {
+                log.debug("[浏览器池] 重命名失败: {} - {}", fileName, e.getMessage());
+            }
+        }
+        
+        // 最终失败警告
+        if (!deleted && Files.exists(lockFile)) {
+            log.warn("[浏览器池] 无法清理锁文件: {}，可能需要手动删除或重启服务", fileName);
         }
     }
 
