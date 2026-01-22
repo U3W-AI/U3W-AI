@@ -17,6 +17,9 @@ public class SysUserExtend extends SysUser
     /** 知识库空间额度（按MB计算，1024为默认额度） */
     private Long kbSpaceQuota;
 
+    /** 已使用空间（MB） */
+    private Long kbSpaceUsed;
+
     /** 空间内包含的知识库ID，多个用逗号分隔（如1,2,3） */
     private String kbSpaceIncludeKbIds;
 
@@ -49,6 +52,16 @@ public class SysUserExtend extends SysUser
     public void setKbSpaceQuota(Long kbSpaceQuota)
     {
         this.kbSpaceQuota = kbSpaceQuota;
+    }
+
+    public Long getKbSpaceUsed()
+    {
+        return kbSpaceUsed;
+    }
+
+    public void setKbSpaceUsed(Long kbSpaceUsed)
+    {
+        this.kbSpaceUsed = kbSpaceUsed;
     }
 
     public String getKbSpaceIncludeKbIds()

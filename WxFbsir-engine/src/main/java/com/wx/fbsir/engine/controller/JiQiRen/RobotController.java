@@ -52,6 +52,11 @@ import java.util.concurrent.locks.Lock;
 public class RobotController extends StreamTaskHelper{
     protected final Logger log = LoggerFactory.getLogger(getClass());
     private static final String Robot_HOME_URL = "https://work.weixin.qq.com/wework_admin/loginpage_wx";
+    
+    // 企业微信机器人全局锁：确保同时只有一个用户可以操作机器人
+    private static final java.util.concurrent.locks.ReentrantLock ROBOT_GLOBAL_LOCK = new java.util.concurrent.locks.ReentrantLock();
+    private static volatile String currentUserId = null; // 当前正在使用机器人的用户ID
+    
     @Autowired
     private BrowserPoolManager browserPoolManager;
     @Autowired
@@ -167,20 +172,48 @@ public class RobotController extends StreamTaskHelper{
 
         StreamTaskHelper.StreamTask task = startStreamTask(userId, requestId, 2000);
         BrowserSession session = null;
-        //获取用户会话锁
-        Lock userSessionLock = BrowserSessionLockUtil.getUserSessionLock(userId);
-        boolean lockAcquired = false;
+        boolean globalLockAcquired = false;
         try {
-            //尝试获取锁（6分钟超时，避免死锁）
-            lockAcquired = userSessionLock.tryLock(6, TimeUnit.MINUTES);
-            if (!lockAcquired) {
-                task.sendError("当前有其他任务正在执行，请稍后重试");
-                log.warn("[企业微信机器人知识库配置] 获取用户会话锁超时 - 用户: {}", userId);
-                return;
+            // 步骤0: 尝试获取企业微信机器人全局锁
+            globalLockAcquired = ROBOT_GLOBAL_LOCK.tryLock(0, TimeUnit.SECONDS);
+            
+            if (!globalLockAcquired) {
+                // 锁被占用，说明有其他用户正在使用机器人
+                String currentUser = currentUserId != null ? "用户" + currentUserId : "其他用户";
+                int queueLength = ROBOT_GLOBAL_LOCK.hasQueuedThreads() ? ROBOT_GLOBAL_LOCK.getQueueLength() : 0;
+                
+                // 发送排队信息
+                task.sendLog("企业微信机器人当前正被" + currentUser + "使用中");
+                if (queueLength > 0) {
+                    task.sendLog("当前排队人数: " + queueLength + " 人，请稍后...");
+                } else {
+                    task.sendLog("正在等待机器人空闲...");
+                }
+                
+                log.info("[企业微信机器人知识库配置] 需要排队 - 用户: {}, 当前使用者: {}, 排队人数: {}", 
+                    userId, currentUserId, queueLength);
+                
+                // 等待获取锁（最多等待10分钟）
+                task.sendLog("正在排队等待...");
+                globalLockAcquired = ROBOT_GLOBAL_LOCK.tryLock(10, TimeUnit.MINUTES);
+                
+                if (!globalLockAcquired) {
+                    task.sendError("等待超时，请稍后重试");
+                    log.warn("[企业微信机器人知识库配置] 排队等待超时 - 用户: {}", userId);
+                    return;
+                }
+                
+                // 排队成功，获取到锁
+                task.sendLog("排队完成，开始配置机器人...");
             }
-            // 步骤1: 获取持久化浏览器会话
+            
+            // 成功获取锁，记录当前用户
+            currentUserId = userId;
+            log.info("[企业微信机器人知识库配置] 获取全局锁成功 - 用户: {}", userId);
+            
+            // 步骤1: 获取非持久化浏览器会话（不保存登录状态，每次都需要重新扫码）
             task.sendLog("正在获取浏览器会话...");
-            session = browserPoolManager.acquirePersistent(userId, "robot", false);
+            session = browserPoolManager.acquireTemporary(requestId, false);
 
             Page page = session.getOrCreatePage();
 
@@ -274,21 +307,32 @@ public class RobotController extends StreamTaskHelper{
             Locator confirmBtn = page.locator("button:has-text('确定')").first();
             confirmBtn.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
             confirmBtn.click();
-            page.waitForTimeout(2000);
-            //每两秒判断一次是否添加完成
-            long start_Ok = System.currentTimeMillis();
-            long maxWaitTime = 300000;
-            while(true){
-                long timeOut = System.currentTimeMillis() - start_Ok;
-                if (timeOut>maxWaitTime){
-                    log.error("[企业微信机器人知识库配置] “确认”超时 - 用户: {}, 请求: {}", userId, requestId);
+            
+            // 等待"添加网页数据"弹窗消失（说明添加成功）
+            task.sendLog("等待企业微信后台保存内容...");
+            // 检测整个弹窗容器，而不是只检测标题
+            // DOM: <div class="t-dialog"><div class="wd-top-nav__title">添加网页数据</div>...</div>
+            Locator addWebDialog = page.locator(".t-dialog:has(.wd-top-nav__title:has-text('添加网页数据'))");
+            
+            long startTime = System.currentTimeMillis();
+            long maxWaitTime = 60000; // 最长等待60秒
+            boolean dialogClosed = false;
+            
+            while (System.currentTimeMillis() - startTime < maxWaitTime) {
+                // 检查弹窗容器是否还存在
+                if (addWebDialog.count() == 0) {
+                    dialogClosed = true;
+                    task.sendLog("添加网页数据弹窗已关闭，内容添加成功");
                     break;
                 }
-                Locator check_confirmBtn = page.locator("div.u-bg-base_gray_007:has-text('添加中')");
-                System.out.println(check_confirmBtn.count());
-                if (check_confirmBtn.count()>0) break;
-                page.waitForTimeout(2000);
+                page.waitForTimeout(500); // 每500ms检查一次
             }
+            
+            if (!dialogClosed) {
+                log.warn("[企业微信机器人知识库配置] 等待弹窗关闭超时 - 用户: {}, 请求: {}", userId, requestId);
+                task.sendLog("等待超时，但继续执行后续步骤");
+            }
+            
             task.sendLog("知识库内容添加完成");
 
             // ========== 步骤11：完成配置 ==========
@@ -306,10 +350,13 @@ public class RobotController extends StreamTaskHelper{
             log.error("[企业微信机器人知识库配置] 执行失败 - 用户: {}, 请求: {}", userId, requestId, e);
             task.sendError("机器人知识库配置失败");
         } finally {
-            //释放锁
-            if (lockAcquired) {
-                userSessionLock.unlock();
+            // 释放全局锁
+            if (globalLockAcquired) {
+                currentUserId = null;
+                ROBOT_GLOBAL_LOCK.unlock();
+                log.info("[企业微信机器人知识库配置] 释放全局锁 - 用户: {}", userId);
             }
+            
             task.stop();
             // 确保资源释放
             if (session != null) {

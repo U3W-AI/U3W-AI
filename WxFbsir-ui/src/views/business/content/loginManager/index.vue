@@ -375,11 +375,7 @@ const handleWebSocketMessage = (message) => {
       ElMessage.success(message || `${currentServiceName.value} 登录成功！用户: ${userName}（耗时${loginTime}秒）`)
       
       console.log('✅ [登录管理器] 登录成功 - 用户:', userName, '耗时:', loginTime, '秒')
-      
-      // ✅ 扫码登录成功后，延迟1秒再次检测确认状态
-      setTimeout(() => {
-        checkLoginStatus(currentServiceId.value)
-      }, 1000)
+      console.log('✅ [登录管理器] 登录状态已保存，无需再次验证（避免数据库锁定）')
     }
     // 登录失败处理
     else if (messageType === 'TASK_RESULT' && payload?.success === false) {
@@ -409,11 +405,7 @@ const handleWebSocketMessage = (message) => {
         saveLoginStatusToStorage()
         
         ElMessage.success(`${currentServiceName.value} 登录成功！`)
-        
-        // ✅ 扫码登录成功后，延迟1秒再次检测确认状态
-        setTimeout(() => {
-          checkLoginStatus(currentServiceId.value)
-        }, 1000)
+        console.log('✅ [登录管理器] 登录状态已保存，无需再次验证（避免数据库锁定）')
       } 
       // 登录失败
       else if (payload?.status === 'failed' || payload?.success === false) {

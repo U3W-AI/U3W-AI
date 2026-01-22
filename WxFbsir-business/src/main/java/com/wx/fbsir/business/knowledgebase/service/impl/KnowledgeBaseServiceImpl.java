@@ -66,6 +66,8 @@ public class KnowledgeBaseServiceImpl implements IKnowledgeBaseService
 
         // 非公共模板：仅创建者或超级账户可以查看
         Long currentUserId = SecurityUtils.getUserId();
+        sysUserExtendMapper.insertUserExtend(currentUserId);
+        
         SysUserExtend currentUser = sysUserExtendMapper.selectUserExtendByUserId(currentUserId);
         boolean isOwner = currentUser != null
                 && knowledgeUtil.isKbOwnedByUser(currentUser.getHasKnowledgeBase(), kbId);
@@ -104,6 +106,10 @@ public class KnowledgeBaseServiceImpl implements IKnowledgeBaseService
     public List<KnowledgeBaseInfo> selectUserVisibleKnowledgeBase()
     {
         Long currentUserId = SecurityUtils.getUserId();
+        
+        // 确保用户扩展信息存在
+        sysUserExtendMapper.insertUserExtend(currentUserId);
+        
         SysUserExtend currentUser = sysUserExtendMapper.selectUserExtendByUserId(currentUserId);
 
         List<KnowledgeBaseInfo> result = new ArrayList<>();
@@ -181,18 +187,31 @@ public class KnowledgeBaseServiceImpl implements IKnowledgeBaseService
     @Transactional(rollbackFor = Exception.class) // 添加事务回滚，确保数据一致性
     public int insertKnowledgeBase(KnowledgeBaseInfo knowledgeBaseInfo)
     {
+        // 获取当前用户ID
+        Long currentUserId = SecurityUtils.getUserId();
+        
+        // 🔴 关键：设置创建者ID
+        knowledgeBaseInfo.setCreatorId(currentUserId);
+        
+        // 插入知识库
         int rows = knowledgeBaseMapper.insertKnowledgeBase(knowledgeBaseInfo);
-        // 记录到当前用户“拥有的知识库”字段中
+        
+        // 记录到当前用户"拥有的知识库"字段中
         if (rows > 0 && knowledgeBaseInfo.getKbId() != null)
         {
-            //获取用户id
-            Long currentUserId = SecurityUtils.getUserId();
-            //获取目前已经拥有的知识库id
+            // 确保用户扩展信息存在（如果不存在则初始化）
+            sysUserExtendMapper.insertUserExtend(currentUserId);
+            
+            // 获取目前已经拥有的知识库id
             SysUserExtend currentUser = sysUserExtendMapper.selectUserExtendByUserId(currentUserId);
             String ownedKb = currentUser != null ? currentUser.getHasKnowledgeBase() : null;
-           //添加在拥有知识库的字段下
+            
+            // 添加在拥有知识库的字段下
             String updated = knowledgeUtil.appendIdToList(ownedKb, knowledgeBaseInfo.getKbId());
             sysUserExtendMapper.updateHasKnowledgeBase(currentUserId, updated);
+            
+            log.info("知识库创建成功 - 用户: {}, 知识库ID: {}, 创建者ID: {}", 
+                    currentUserId, knowledgeBaseInfo.getKbId(), knowledgeBaseInfo.getCreatorId());
         }
         return rows;
     }
@@ -220,6 +239,8 @@ public class KnowledgeBaseServiceImpl implements IKnowledgeBaseService
         }
         
         Long currentUserId = SecurityUtils.getUserId();
+        sysUserExtendMapper.insertUserExtend(currentUserId);
+        
         SysUserExtend currentUser = sysUserExtendMapper.selectUserExtendByUserId(currentUserId);
 
         // 2. 公共模板：需要模块功能操作权限或超级账户
@@ -273,6 +294,8 @@ public class KnowledgeBaseServiceImpl implements IKnowledgeBaseService
             return 0;
         }
         Long currentUserId = SecurityUtils.getUserId();
+        sysUserExtendMapper.insertUserExtend(currentUserId);
+        
         SysUserExtend currentUser = sysUserExtendMapper.selectUserExtendByUserId(currentUserId);
 
         checkDeletePermission(currentUser, currentUserId, kbId);
@@ -291,6 +314,8 @@ public class KnowledgeBaseServiceImpl implements IKnowledgeBaseService
     public int deleteKnowledgeBaseByKbId(Long kbId)
     {
         Long currentUserId = SecurityUtils.getUserId();
+        sysUserExtendMapper.insertUserExtend(currentUserId);
+        
         SysUserExtend currentUser = sysUserExtendMapper.selectUserExtendByUserId(currentUserId);
         checkDeletePermission(currentUser, currentUserId, kbId);
         return knowledgeBaseMapper.deleteKnowledgeBaseByKbId(kbId);
@@ -320,11 +345,14 @@ public class KnowledgeBaseServiceImpl implements IKnowledgeBaseService
             return false;
         }
 
-        // 2. 获取用户当前的收藏列表
+        // 2. 确保用户扩展信息存在
+        sysUserExtendMapper.insertUserExtend(userId);
+        
+        // 3. 获取用户当前的收藏列表
         SysUserExtend userExtend = sysUserExtendMapper.selectUserExtendByUserId(userId);
         if (userExtend == null)
         {
-            log.error("用户不存在，userId: {}", userId);
+            log.error("用户扩展信息查询失败，userId: {}", userId);
             return false;
         }
 
@@ -338,7 +366,7 @@ public class KnowledgeBaseServiceImpl implements IKnowledgeBaseService
                     .collect(Collectors.toList());
         }
 
-        // 3. 如果已收藏则取消收藏，如果未收藏则添加收藏
+        // 4. 如果已收藏则取消收藏，如果未收藏则添加收藏
         String newLikes;
         if (likesList.contains(kbId))
         {
@@ -359,7 +387,7 @@ public class KnowledgeBaseServiceImpl implements IKnowledgeBaseService
             log.info("用户收藏知识库，userId: {}, kbId: {}", userId, kbId);
         }
 
-        // 4. 更新收藏列表
+        // 5. 更新收藏列表
         int result = sysUserExtendMapper.updateKbLikesIds(userId, newLikes);
         return result > 0;
     }
@@ -373,6 +401,10 @@ public class KnowledgeBaseServiceImpl implements IKnowledgeBaseService
     public List<KnowledgeBaseInfo> selectFavoriteKnowledgeBase()
     {
         Long currentUserId = SecurityUtils.getUserId();
+        
+        // 确保用户扩展信息存在
+        sysUserExtendMapper.insertUserExtend(currentUserId);
+        
         SysUserExtend currentUser = sysUserExtendMapper.selectUserExtendByUserId(currentUserId);
         
         if (currentUser == null || StringUtils.isEmpty(currentUser.getKbLikesIds()))

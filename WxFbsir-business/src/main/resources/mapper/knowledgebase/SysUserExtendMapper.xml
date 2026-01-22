@@ -9,6 +9,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="userName"            column="user_name"              />
         <result property="nickName"            column="nick_name"              />
         <result property="kbSpaceQuota"        column="kb_space_quota"         />
+        <result property="kbSpaceUsed"         column="kb_space_used"          />
         <result property="kbSpaceIncludeKbIds" column="kb_space_include_kb_ids" />
         <result property="hasKnowledgeBase"    column="has_knowledge_base"     />
         <result property="kbLikesIds"          column="kb_likes_ids"           />
@@ -18,43 +19,53 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectSysUserExtendVo">
-        select user_id, user_name, nick_name,  kb_space_quota, kb_space_include_kb_ids, 
-               has_knowledge_base, kb_likes_ids, is_super, is_open_account_perm, is_open_module_perm
-        from sys_user
+        select 
+            e.user_id, u.user_name, u.nick_name,
+            e.kb_space_quota, e.kb_space_used, e.kb_space_include_kb_ids, 
+            e.has_knowledge_base, e.kb_likes_ids, 
+            e.is_super, e.is_open_account_perm, e.is_open_module_perm
+        from sys_user_extend e
+        LEFT JOIN sys_user u ON e.user_id = u.user_id
     </sql>
 
     <select id="selectUserExtendByUserId" parameterType="Long" resultMap="SysUserExtendResult">
         <include refid="selectSysUserExtendVo"/>
-        where user_id = #{userId}
+        where e.user_id = #{userId}
     </select>
 
 
     <update id="updateKbSpaceQuota">
-        update sys_user
+        update sys_user_extend
         set kb_space_quota = #{kbSpaceQuota}
         where user_id = #{userId}
     </update>
 
+    <update id="updateKbSpaceUsed">
+        update sys_user_extend
+        set kb_space_used = #{kbSpaceUsed}
+        where user_id = #{userId}
+    </update>
+
     <update id="updateKbSpaceIncludeKbIds">
-        update sys_user
+        update sys_user_extend
         set kb_space_include_kb_ids = #{kbSpaceIncludeKbIds}
         where user_id = #{userId}
     </update>
 
     <update id="updateHasKnowledgeBase">
-        update sys_user
+        update sys_user_extend
         set has_knowledge_base = #{hasKnowledgeBase}
         where user_id = #{userId}
     </update>
 
     <update id="updateKbLikesIds">
-        update sys_user
+        update sys_user_extend
         set kb_likes_ids = #{kbLikesIds}
         where user_id = #{userId}
     </update>
 
     <update id="updateUserPermissions">
-        update sys_user
+        update sys_user_extend
         <trim prefix="SET" suffixOverrides=",">
             <if test="isSuper != null">is_super = #{isSuper},</if>
             <if test="isOpenAccountPerm != null">is_open_account_perm = #{isOpenAccountPerm},</if>
@@ -64,10 +75,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </update>
 
     <update id="updateUserExtend" parameterType="com.wx.fbsir.business.knowledgebase.domain.SysUserExtend">
-        update sys_user
+        update sys_user_extend
         <trim prefix="SET" suffixOverrides=",">
             <if test="kbSpaceQuota != null">kb_space_quota = #{kbSpaceQuota},</if>
+            <if test="kbSpaceUsed != null">kb_space_used = #{kbSpaceUsed},</if>
             <if test="kbSpaceIncludeKbIds != null">kb_space_include_kb_ids = #{kbSpaceIncludeKbIds},</if>
+            <if test="hasKnowledgeBase != null">has_knowledge_base = #{hasKnowledgeBase},</if>
+            <if test="kbLikesIds != null">kb_likes_ids = #{kbLikesIds},</if>
             <if test="isSuper != null">is_super = #{isSuper},</if>
             <if test="isOpenAccountPerm != null">is_open_account_perm = #{isOpenAccountPerm},</if>
             <if test="isOpenModulePerm != null">is_open_module_perm = #{isOpenModulePerm},</if>
@@ -77,8 +91,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <select id="selectAllUserPermissions" resultMap="SysUserExtendResult">
         <include refid="selectSysUserExtendVo"/>
-        where del_flag = '0'
-        order by user_id
+        where u.del_flag = '0'
+        order by e.user_id
     </select>
+    
+    <insert id="insertUserExtend" parameterType="Long">
+        insert into sys_user_extend (user_id, kb_space_quota, kb_space_used, is_super, is_open_account_perm, is_open_module_perm)
+        values (#{userId}, 1024, 0, 0, 0, 0)
+        ON DUPLICATE KEY UPDATE user_id = user_id
+    </insert>
 
 </mapper>

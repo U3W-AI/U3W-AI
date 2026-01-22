@@ -1,6 +1,7 @@
 package com.wx.fbsir.business.knowledgebase.domain;
 
 import com.wx.fbsir.common.annotation.Excel;
+import java.util.Date;
 
 /**
  * 知识库对象 kb_base
@@ -24,6 +25,20 @@ public class KnowledgeBaseInfo
     /** 是否为公共模板：0-私有，1-公共 */
     @Excel(name = "是否为公共模板", readConverterExp = "0=私有,1=公共")
     private Integer isPublicTemplate;
+
+    /** 创建者用户ID */
+    @Excel(name = "创建者ID")
+    private Long creatorId;
+
+    /** 知识库大小（MB） */
+    @Excel(name = "知识库大小(MB)")
+    private Long kbSize;
+
+    /** 创建时间 */
+    private Date createTime;
+
+    /** 更新时间 */
+    private Date updateTime;
 
     public KnowledgeBaseInfo()
     {
@@ -74,6 +89,46 @@ public class KnowledgeBaseInfo
         this.isPublicTemplate = isPublicTemplate;
     }
 
+    public Long getCreatorId()
+    {
+        return creatorId;
+    }
+
+    public void setCreatorId(Long creatorId)
+    {
+        this.creatorId = creatorId;
+    }
+
+    public Long getKbSize()
+    {
+        return kbSize;
+    }
+
+    public void setKbSize(Long kbSize)
+    {
+        this.kbSize = kbSize;
+    }
+
+    public Date getCreateTime()
+    {
+        return createTime;
+    }
+
+    public void setCreateTime(Date createTime)
+    {
+        this.createTime = createTime;
+    }
+
+    public Date getUpdateTime()
+    {
+        return updateTime;
+    }
+
+    public void setUpdateTime(Date updateTime)
+    {
+        this.updateTime = updateTime;
+    }
+
     @Override
     public String toString()
     {
@@ -82,6 +137,10 @@ public class KnowledgeBaseInfo
                 ", kbName='" + kbName + '\'' +
                 ", kbContent='" + kbContent + '\'' +
                 ", isPublicTemplate=" + isPublicTemplate +
+                ", creatorId=" + creatorId +
+                ", kbSize=" + kbSize +
+                ", createTime=" + createTime +
+                ", updateTime=" + updateTime +
                 '}';
     }
 }
