@@ -1193,7 +1193,7 @@ CREATE TABLE `daily_article` (
 
 
 -- ----------------------------
--- 22、腾讯元器智能体配置表
+-- 21、腾讯元器智能体配置表
 -- ----------------------------
 DROP TABLE IF EXISTS `yuanqi_agent_config`;
 CREATE TABLE `yuanqi_agent_config` (
@@ -1464,7 +1464,7 @@ CREATE TABLE `wx_points_rule` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分规则配置表';
 
 -- ----------------------------
--- 28、积分明细记录表
+-- 32、积分明细记录表
 -- ----------------------------
 DROP TABLE IF EXISTS `wx_points_record`;
 CREATE TABLE `wx_points_record` (
@@ -1488,7 +1488,7 @@ CREATE TABLE `wx_points_record` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分明细记录表';
 
 -- ----------------------------
--- 29、积分统计表
+-- 33、积分统计表
 -- ----------------------------
 DROP TABLE IF EXISTS `wx_points_statistics`;
 CREATE TABLE `wx_points_statistics` (
@@ -1562,7 +1562,7 @@ ON DUPLICATE KEY UPDATE
 -- =============================================
 
 -- ----------------------------
--- 30、Gitee绑定表
+-- 34、Gitee绑定表
 -- ----------------------------
 drop table if exists gitee_bind;
 create table gitee_bind (
@@ -1584,7 +1584,7 @@ create table gitee_bind (
 -- 在 Java 代码中删除用户时，同时执行：DELETE FROM gitee_bind WHERE user_id = ?
 
 -- ----------------------------
--- 31、Gitee评测报告表
+-- 35、Gitee评测报告表
 -- ----------------------------
 drop table if exists gitee_analysis_report;
 create table gitee_analysis_report (
@@ -1605,7 +1605,7 @@ create table gitee_analysis_report (
 ) engine=innodb comment = 'Gitee评测报告表';
 
 -- ----------------------------
--- 32、Gitee模块使用统计报表
+-- 36、Gitee模块使用统计报表
 -- ----------------------------
 drop table if exists gitee_usage_report;
 create table gitee_usage_report (
@@ -1632,7 +1632,7 @@ create table gitee_usage_report (
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ----------------------------
--- 33、主机白名单表
+-- 37、主机白名单表
 -- ----------------------------
 DROP TABLE IF EXISTS `ws_host_whitelist`;
 CREATE TABLE `ws_host_whitelist` (
@@ -1666,7 +1666,7 @@ INSERT INTO `ws_host_whitelist` (`host_id`, `host_name`, `owner_name`, `is_team`
 ('engine-prod-001', '生产节点-运维组', '运维组', 1, '运维团队', 1, '生产环境主节点');
 
 -- ----------------------------
--- 34、IP黑名单表
+-- 38、IP黑名单表
 -- ----------------------------
 DROP TABLE IF EXISTS `ws_ip_blacklist`;
 CREATE TABLE `ws_ip_blacklist` (
@@ -1692,7 +1692,7 @@ CREATE TABLE `ws_ip_blacklist` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='WebSocket IP黑名单表';
 
 -- ----------------------------
--- 35、WebSocket连接记录表
+-- 39、WebSocket连接记录表
 -- ----------------------------
 DROP TABLE IF EXISTS `ws_connection_log`;
 CREATE TABLE `ws_connection_log` (
@@ -1738,7 +1738,7 @@ CREATE TABLE `ws_connection_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='WebSocket连接记录表';
 
 -- ----------------------------
--- 36、连接统计视图
+-- 40、连接统计视图
 -- ----------------------------
 DROP VIEW IF EXISTS `v_ws_connection_stats`;
 CREATE VIEW `v_ws_connection_stats` AS
@@ -1757,7 +1757,7 @@ WHERE del_flag = 0
 GROUP BY DATE(connect_time);
 
 -- ----------------------------
--- 37、可疑连接视图
+-- 41、可疑连接视图
 -- ----------------------------
 DROP VIEW IF EXISTS `v_ws_suspicious_connections`;
 CREATE VIEW `v_ws_suspicious_connections` AS
@@ -1774,7 +1774,7 @@ GROUP BY device_id
 HAVING COUNT(DISTINCT host_id) > 1;
 
 -- ----------------------------
--- 38、团队主机统计视图
+-- 42、团队主机统计视图
 -- ----------------------------
 DROP VIEW IF EXISTS `v_ws_team_stats`;
 CREATE VIEW `v_ws_team_stats` AS

@@ -179,11 +179,11 @@ public class YuanQiKnowledgeController extends StreamTaskHelper {
         StreamTask task = startStreamTask(userId, requestId, 2000);
         BrowserSession session = null;
         //获取用户会话锁
-        Lock userSessionLock = BrowserSessionLockUtil.getUserSessionLock(userId);
+//        Lock userSessionLock = BrowserSessionLockUtil.getUserSessionLock(userId);
         boolean lockAcquired = false;
         try {
             //尝试获取锁（6分钟超时）
-            lockAcquired = userSessionLock.tryLock(6, TimeUnit.MINUTES);
+//            lockAcquired = userSessionLock.tryLock(6, TimeUnit.MINUTES);
             if (!lockAcquired) {
                 task.sendError("当前有其他任务正在执行，请稍后重试");
                 log.warn("[元器知识库配置] 获取用户会话锁超时 - 用户: {}", userId);
@@ -468,9 +468,9 @@ public class YuanQiKnowledgeController extends StreamTaskHelper {
             task.sendError("知识库配置失败");
         } finally {
             //释放锁
-            if (lockAcquired) {
-                userSessionLock.unlock();
-            }
+//            if (lockAcquired) {
+//                userSessionLock.unlock();
+//            }
             task.stop();
             
             // 确保资源释放
