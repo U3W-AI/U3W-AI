@@ -41,8 +41,21 @@ import {
   getAllUserPermissions,
   updateSpaceQuota
 } from '@/api/business/content/knowledge/knowledge'
+import { getEngineConfig } from '@/config/engineConfig'
 
 const userStore = useUserStore()
+
+// 元器登录状态
+const yuanqiConfig = getEngineConfig('yuanqi')
+const isYuanqiLoggedIn = ref(yuanqiConfig?.loggedIn || false)
+
+// 监听元器配置变化
+const watchYuanqiLogin = () => {
+  if (yuanqiConfig) {
+    // 直接访问响应式对象，Vue会自动追踪变化
+    isYuanqiLoggedIn.value = yuanqiConfig.loggedIn
+  }
+}
 
 // 列表 & 选择
 const loading = ref(false)
@@ -745,6 +758,30 @@ const handleUploadKnowledge = async () => {
       return
     }
   }
+  
+  // 检查元器登录状态（如果需要上传到元器或同时上传）
+  if (uploadKbType.value === 1 || uploadKbType.value === 3) {
+    watchYuanqiLogin() // 更新登录状态
+    if (!isYuanqiLoggedIn.value) {
+      try {
+        await ElMessageBox.confirm(
+          '检测到您还未登录元器平台，请先前往"登录管理器"页面登录后再进行上传操作。',
+          '需要登录',
+          {
+            confirmButtonText: '前往登录',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        )
+        // 用户点击确认，跳转到登录管理器页面
+        window.location.href = '/#/business/content/loginManager'
+        return
+      } catch (e) {
+        // 用户点击取消
+        return
+      }
+    }
+  }
   // 如果上传到元器或同时上传到两者，需要团队名称（不填则默认"个人空间"）
   const finalTeamName = (uploadKbType.value === 1 || uploadKbType.value === 3) 
     ? (uploadKbTeamName.value.trim() || '个人空间') 
@@ -765,7 +802,14 @@ const handleUploadKnowledge = async () => {
         uploadKbRobotName.value.trim(),
         finalTeamName
     )
-    ElMessage.info('知识库上传任务已触发，请等待二维码出现后扫码登录')
+    // 根据上传类型显示不同提示
+    if (uploadKbType.value === 1) {
+      ElMessage.success('元器智能体配置任务已提交')
+    } else if (uploadKbType.value === 2) {
+      ElMessage.success('企业微信机器人配置任务已提交')
+    } else {
+      ElMessage.success('元器和机器人配置任务已同时提交')
+    }
     uploadKbDialogVisible.value = false
   } catch (e) {
     ElMessage.error('知识库上传失败')
@@ -798,6 +842,30 @@ const handleSubmitUpload = async () => {
       return
     }
   }
+  
+  // 检查元器登录状态（如果需要上传到元器或同时上传）
+  if (uploadType.value === 1 || uploadType.value === 3) {
+    watchYuanqiLogin() // 更新登录状态
+    if (!isYuanqiLoggedIn.value) {
+      try {
+        await ElMessageBox.confirm(
+          '检测到您还未登录元器平台，请先前往"登录管理器"页面登录后再进行上传操作。',
+          '需要登录',
+          {
+            confirmButtonText: '前往登录',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        )
+        // 用户点击确认，跳转到登录管理器页面
+        window.location.href = '/#/business/content/loginManager'
+        return
+      } catch (e) {
+        // 用户点击取消
+        return
+      }
+    }
+  }
   // 如果上传到元器或同时上传到两者，需要团队名称（不填则默认"个人空间"）
   const finalTeamName = (uploadType.value === 1 || uploadType.value === 3) 
     ? (teamName.value.trim() || '个人空间') 
@@ -823,7 +891,14 @@ const handleSubmitUpload = async () => {
         kbName, // 传递知识库名称
         finalTeamName
     )
-    ElMessage.info('本地文档上传任务已触发，请等待二维码出现后扫码登录')
+    // 根据上传类型显示不同提示
+    if (uploadType.value === 1) {
+      ElMessage.success('元器智能体配置任务已提交')
+    } else if (uploadType.value === 2) {
+      ElMessage.success('企业微信机器人配置任务已提交')
+    } else {
+      ElMessage.success('元器和机器人配置任务已同时提交')
+    }
     uploadDialogVisible.value = false
     uploadFile.value = null
     uploadFileList.value = []

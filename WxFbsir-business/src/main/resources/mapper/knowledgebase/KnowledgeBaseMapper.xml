@@ -9,10 +9,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="kbName"           column="kb_name"         />
         <result property="kbContent"        column="kb_content"      />
         <result property="isPublicTemplate" column="is_public_template" />
+        <result property="creatorId"        column="creator_id"      />
+        <result property="kbSize"           column="kb_size"         />
+        <result property="createTime"       column="create_time"     />
+        <result property="updateTime"       column="update_time"     />
     </resultMap>
 
     <sql id="selectKnowledgeBaseVo">
-        select kb_id, kb_name, kb_content, is_public_template
+        select kb_id, kb_name, kb_content, is_public_template, creator_id, kb_size, create_time, update_time
         from kb_base
     </sql>
 
@@ -51,11 +55,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="kbName != null and kbName != ''">kb_name,</if>
             <if test="kbContent != null">kb_content,</if>
             <if test="isPublicTemplate != null">is_public_template,</if>
+            <if test="creatorId != null">creator_id,</if>
+            <if test="kbSize != null">kb_size,</if>
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="kbName != null and kbName != ''">#{kbName},</if>
             <if test="kbContent != null">#{kbContent},</if>
             <if test="isPublicTemplate != null">#{isPublicTemplate},</if>
+            <if test="creatorId != null">#{creatorId},</if>
+            <if test="kbSize != null">#{kbSize},</if>
          </trim>
     </insert>
 
@@ -65,6 +73,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="kbName != null and kbName != ''">kb_name = #{kbName},</if>
             <if test="kbContent != null">kb_content = #{kbContent},</if>
             <if test="isPublicTemplate != null">is_public_template = #{isPublicTemplate},</if>
+            <if test="kbSize != null">kb_size = #{kbSize},</if>
         </trim>
         where kb_id = #{kbId}
     </update>

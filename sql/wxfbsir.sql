@@ -664,7 +664,7 @@ insert into sys_role_menu values ('2', '1128'); -- 我的申请记录新增
 insert into sys_role_menu values ('2', '1129'); -- 我的申请记录修改
 insert into sys_role_menu values ('2', '1130'); -- 我的申请记录删除
 insert into sys_role_menu values ('2', '1131'); -- 我的申请记录撤回
--- 二级菜单-工作流节点编辑和策略管理（内测功能）
+-- 二级菜单-工作流节点编辑和策略管理
 insert into sys_role_menu values ('2', '148');  -- 工作流节点编辑
 insert into sys_role_menu values ('2', '149');  -- 策略管理
 -- 按钮权限-工作流节点编辑
@@ -1193,7 +1193,7 @@ CREATE TABLE `daily_article` (
 
 
 -- ----------------------------
--- 21、腾讯元器智能体配置表
+-- 22、腾讯元器智能体配置表
 -- ----------------------------
 DROP TABLE IF EXISTS `yuanqi_agent_config`;
 CREATE TABLE `yuanqi_agent_config` (
@@ -1464,7 +1464,7 @@ CREATE TABLE `wx_points_rule` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分规则配置表';
 
 -- ----------------------------
--- 32、积分明细记录表
+-- 28、积分明细记录表
 -- ----------------------------
 DROP TABLE IF EXISTS `wx_points_record`;
 CREATE TABLE `wx_points_record` (
@@ -1488,7 +1488,7 @@ CREATE TABLE `wx_points_record` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分明细记录表';
 
 -- ----------------------------
--- 33、积分统计表
+-- 29、积分统计表
 -- ----------------------------
 DROP TABLE IF EXISTS `wx_points_statistics`;
 CREATE TABLE `wx_points_statistics` (
@@ -1522,7 +1522,7 @@ INSERT INTO `wx_points_rule` (`rule_code`, `rule_name`, `points_value`, `limit_t
 ('GITEE_ANALYSIS', 'gitee分析', -1, '2', NULL, NULL, '0', 2, 'gitee分析', 'admin', NOW());
 
 -- ----------------------------
--- 初始化策略参数映射数据（内测功能）
+-- 初始化策略参数映射数据
 -- ----------------------------
 -- 成本优先
 INSERT INTO strategy_param_mapping (strategy_name, model_name, temperature, top_p, max_tokens, prompt)
@@ -1562,7 +1562,7 @@ ON DUPLICATE KEY UPDATE
 -- =============================================
 
 -- ----------------------------
--- 34、Gitee绑定表
+-- 30、Gitee绑定表
 -- ----------------------------
 drop table if exists gitee_bind;
 create table gitee_bind (
@@ -1584,7 +1584,7 @@ create table gitee_bind (
 -- 在 Java 代码中删除用户时，同时执行：DELETE FROM gitee_bind WHERE user_id = ?
 
 -- ----------------------------
--- 35、Gitee评测报告表
+-- 31、Gitee评测报告表
 -- ----------------------------
 drop table if exists gitee_analysis_report;
 create table gitee_analysis_report (
@@ -1605,7 +1605,7 @@ create table gitee_analysis_report (
 ) engine=innodb comment = 'Gitee评测报告表';
 
 -- ----------------------------
--- 36、Gitee模块使用统计报表
+-- 32、Gitee模块使用统计报表
 -- ----------------------------
 drop table if exists gitee_usage_report;
 create table gitee_usage_report (
@@ -1632,7 +1632,7 @@ create table gitee_usage_report (
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ----------------------------
--- 37、主机白名单表
+-- 33、主机白名单表
 -- ----------------------------
 DROP TABLE IF EXISTS `ws_host_whitelist`;
 CREATE TABLE `ws_host_whitelist` (
@@ -1666,7 +1666,7 @@ INSERT INTO `ws_host_whitelist` (`host_id`, `host_name`, `owner_name`, `is_team`
 ('engine-prod-001', '生产节点-运维组', '运维组', 1, '运维团队', 1, '生产环境主节点');
 
 -- ----------------------------
--- 38、IP黑名单表
+-- 34、IP黑名单表
 -- ----------------------------
 DROP TABLE IF EXISTS `ws_ip_blacklist`;
 CREATE TABLE `ws_ip_blacklist` (
@@ -1692,7 +1692,7 @@ CREATE TABLE `ws_ip_blacklist` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='WebSocket IP黑名单表';
 
 -- ----------------------------
--- 39、WebSocket连接记录表
+-- 35、WebSocket连接记录表
 -- ----------------------------
 DROP TABLE IF EXISTS `ws_connection_log`;
 CREATE TABLE `ws_connection_log` (
@@ -1738,7 +1738,7 @@ CREATE TABLE `ws_connection_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='WebSocket连接记录表';
 
 -- ----------------------------
--- 40、连接统计视图
+-- 36、连接统计视图
 -- ----------------------------
 DROP VIEW IF EXISTS `v_ws_connection_stats`;
 CREATE VIEW `v_ws_connection_stats` AS
@@ -1757,7 +1757,7 @@ WHERE del_flag = 0
 GROUP BY DATE(connect_time);
 
 -- ----------------------------
--- 41、可疑连接视图
+-- 37、可疑连接视图
 -- ----------------------------
 DROP VIEW IF EXISTS `v_ws_suspicious_connections`;
 CREATE VIEW `v_ws_suspicious_connections` AS
@@ -1774,7 +1774,7 @@ GROUP BY device_id
 HAVING COUNT(DISTINCT host_id) > 1;
 
 -- ----------------------------
--- 42、团队主机统计视图
+-- 38、团队主机统计视图
 -- ----------------------------
 DROP VIEW IF EXISTS `v_ws_team_stats`;
 CREATE VIEW `v_ws_team_stats` AS
