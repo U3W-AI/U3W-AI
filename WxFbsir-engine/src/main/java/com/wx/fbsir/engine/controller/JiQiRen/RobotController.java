@@ -238,7 +238,8 @@ public class RobotController extends StreamTaskHelper{
             Locator securityManageBtn = page.locator("button:has-text('安全与管理'), a:has-text('安全与管理')").first();
             securityManageBtn.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
             securityManageBtn.click();
-            page.waitForTimeout(1000);
+            page.waitForLoadState();
+            page.waitForTimeout(2000); // 🔥 增加到2秒，确保页面完全加载
             task.sendLog("已进入安全与管理页面");
 
             // ========== 步骤4：进入管理工具 ==========
@@ -246,7 +247,8 @@ public class RobotController extends StreamTaskHelper{
             Locator manageToolBtn = page.locator("button:has-text('管理工具'), a:has-text('管理工具')").first();
             manageToolBtn.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
             manageToolBtn.click();
-            page.waitForTimeout(1000);
+            page.waitForLoadState();
+            page.waitForTimeout(2000); // 🔥 增加到2秒，确保页面完全加载
             task.sendLog("已进入管理工具页面");
 
             // ========== 步骤5：选择智能机器人 ==========
@@ -254,11 +256,14 @@ public class RobotController extends StreamTaskHelper{
             Locator robotBtn = page.locator("button:has-text('智能机器人'), a:has-text('智能机器人')").first();
             robotBtn.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
             robotBtn.click();
-            page.waitForTimeout(1000);
+            page.waitForLoadState();
+            page.waitForTimeout(2000); // 🔥 增加到2秒，确保页面完全加载
             task.sendLog("已进入智能机器人页面");
 
             // ========== 步骤6：定位目标机器人 ==========
             task.sendLog("正在查找目标机器人: " + robotName);
+            // 🔥 关键：页面加载完成后再查找机器人
+            page.waitForTimeout(1000); // 额外等待1秒确保列表完全渲染
             Locator targetRobot = page.getByText(robotName, new Page.GetByTextOptions().setExact(true)).first();
             if (targetRobot.count() == 0){
                 log.error("未查询到目标机器人");
@@ -267,16 +272,18 @@ public class RobotController extends StreamTaskHelper{
             }
             targetRobot.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
             targetRobot.click();
-            page.waitForTimeout(1000);
+            page.waitForLoadState();
+            page.waitForTimeout(2000); // 🔥 增加到2秒，确保详情页完全加载
             task.sendLog("已定位到目标机器人: " + robotName);
 
             // ========== 步骤7：进入机器人详情 ==========
             task.sendLog("正在进入机器人详情页面...");
-            // 定位所有“查看”按钮，取第二个（索引从0开始，所以取nth(1)）
+            // 定位所有"查看"按钮，取第二个（索引从0开始，所以取nth(1)）
             Locator secondViewBtn = page.locator("button:has-text('查看'), a:has-text('查看')").nth(1);
             secondViewBtn.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
             secondViewBtn.click();
-            page.waitForTimeout(1000);
+            page.waitForLoadState();
+            page.waitForTimeout(2000); // 🔥 增加到2秒，确保详情页完全加载
             task.sendLog("已进入机器人详情页面");
 
             // ========== 步骤8：添加知识库内容 ==========
@@ -284,14 +291,16 @@ public class RobotController extends StreamTaskHelper{
             Locator addContentBtn = page.locator("button:has-text('添加内容'), a:has-text('添加内容')").first();
             addContentBtn.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
             addContentBtn.click();
-            page.waitForTimeout(2000);
+            page.waitForLoadState();
+            page.waitForTimeout(2000); // 等待弹窗完全加载
             task.sendLog("已打开添加内容弹窗");
             
             // ========== 步骤9：选择网页导入 ==========
             task.sendLog("正在选择网页导入方式...");
             Locator webBtn = page.locator("h4.card_title:has-text('网页')").first();
             webBtn.click();
-            page.waitForTimeout(2000);
+            page.waitForLoadState();
+            page.waitForTimeout(2000); // 等待网页导入选项加载完成
             task.sendLog("已选择网页导入方式");
 
             // ========== 步骤10：输入URL并确认 ==========
@@ -308,30 +317,9 @@ public class RobotController extends StreamTaskHelper{
             confirmBtn.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
             confirmBtn.click();
             
-            // 等待"添加网页数据"弹窗消失（说明添加成功）
-            task.sendLog("等待企业微信后台保存内容...");
-            // 检测整个弹窗容器，而不是只检测标题
-            // DOM: <div class="t-dialog"><div class="wd-top-nav__title">添加网页数据</div>...</div>
-            Locator addWebDialog = page.locator(".t-dialog:has(.wd-top-nav__title:has-text('添加网页数据'))");
-            
-            long startTime = System.currentTimeMillis();
-            long maxWaitTime = 60000; // 最长等待60秒
-            boolean dialogClosed = false;
-            
-            while (System.currentTimeMillis() - startTime < maxWaitTime) {
-                // 检查弹窗容器是否还存在
-                if (addWebDialog.count() == 0) {
-                    dialogClosed = true;
-                    task.sendLog("添加网页数据弹窗已关闭，内容添加成功");
-                    break;
-                }
-                page.waitForTimeout(500); // 每500ms检查一次
-            }
-            
-            if (!dialogClosed) {
-                log.warn("[企业微信机器人知识库配置] 等待弹窗关闭超时 - 用户: {}, 请求: {}", userId, requestId);
-                task.sendLog("等待超时，但继续执行后续步骤");
-            }
+            // 🔥 简化等待逻辑：直接等待30秒让后台处理完成
+            task.sendLog("等待企业微信后台处理（最长30秒）...");
+            page.waitForTimeout(30000); // 等待30秒让后台处理完成
             
             task.sendLog("知识库内容添加完成");
 

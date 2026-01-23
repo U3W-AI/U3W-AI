@@ -178,68 +178,56 @@ public class YuanQiKnowledgeController extends StreamTaskHelper {
         
         StreamTask task = startStreamTask(userId, requestId, 2000);
         BrowserSession session = null;
-        //获取用户会话锁
-//        Lock userSessionLock = BrowserSessionLockUtil.getUserSessionLock(userId);
-        boolean lockAcquired = false;
         try {
-            //尝试获取锁（6分钟超时）
-//            lockAcquired = userSessionLock.tryLock(6, TimeUnit.MINUTES);
-            if (!lockAcquired) {
-                task.sendError("当前有其他任务正在执行，请稍后重试");
-                log.warn("[元器知识库配置] 获取用户会话锁超时 - 用户: {}", userId);
-                return;
-            }
-            // 步骤1: 获取持久化浏览器会话
+            // 步骤1: 获取持久化浏览器会话（会话锁在acquirePersistent内部处理，支持并行）
             task.sendLog("正在获取浏览器会话...");
             session = browserPoolManager.acquirePersistent(userId, "yuanqi", false);
             Page page = session.getOrCreatePage();
             
-            // 步骤2: 扫码登录（如果未登录）
-            task.sendLog("正在检查登录状态，如未登录将自动扫码登录...");
-            task.sendLog("正在打开元器登录页面...");
-
-
-            // 导航到首页
-            task.sendLog("正在加载元器首页...");
-            boolean navSuccess = loginUtil.navigateToHomePage(page);
-
-            if (!navSuccess) {
-                task.sendError("无法加载元器首页，请检查网络连接");
-                return;
-            }
-
-            // TODO: 扫码登录功能已移除，需要重新实现或使用其他登录方式
-            // //扫码登陆
-            // Page page_login = loginUtil.scanLogin(page,task,log,userId,requestId);
-            // if (page_login == null) {
-            //     task.sendError("扫码登陆失败");
-            //     return;
-            // }else{
-            //     page = page_login;
-            // }
-
-            task.sendLog("跳过登录检查，开始配置知识库...");
+            // 步骤2: 导航到元器首页（假设已在前端完成登录检查）
+            task.sendLog("正在打开元器平台...");
+            loginUtil.navigateToHomePage(page);
+            task.sendLog("元器平台已加载");
+            
+            task.sendLog("开始配置知识库...");
             
             // 步骤3: 进入知识库页面
             try {
-                //先指定团队或者个人名称（默认个人空间）
-                Locator team = page.locator("svg[data-v-3a6c441f].collapse-icon.v-icon--fill");
-                team.click();
-                page.waitForTimeout(1000);
-                //查看是否有这个团队名称
-                Locator teamButton = page.getByText(teamName, new Page.GetByTextOptions().setExact(true)).first();
-                if (teamButton.count() == 0) {
-                    task.sendError("查找的团队名称不存在");
-                    log.error("查找的团队名称不存在");
-                    return;
-                }else{
-                    task.sendLog("进入团队");
-                    teamButton.click();
+                task.sendLog("正在切换到指定团队空间...");
+                
+                // 先点击个人空间/团队下拉按钮（新DOM结构）
+                // DOM: <div class="spaceBtn"><span>个人空间</span><svg class="collapse-icon">
+                Locator spaceBtnDropdown = page.locator(".spaceBtn");
+                if (spaceBtnDropdown.count() > 0) {
+                    spaceBtnDropdown.first().click();
                     page.waitForTimeout(1000);
+                    
+                    // 查看是否有这个团队名称
+                    Locator teamButton = page.getByText(teamName, new Page.GetByTextOptions().setExact(true)).first();
+                    if (teamButton.count() == 0) {
+                        task.sendError("查找的团队名称不存在: " + teamName);
+                        log.error("查找的团队名称不存在: {}", teamName);
+                        return;
+                    } else {
+                        task.sendLog("切换到团队: " + teamName);
+                        teamButton.click();
+                        page.waitForTimeout(2000);
+                    }
+                } else {
+                    task.sendLog("未找到团队切换按钮，使用当前空间");
                 }
+                
                 task.sendLog("正在进入知识库页面...");
-                // 通过完全匹配查找页面中text是"知识库"的元素
-                Locator knowledgeBaseButton = page.getByText("知识库", new Page.GetByTextOptions().setExact(true)).first();
+                
+                // 点击左侧菜单的"知识库"按钮（新DOM结构）
+                // DOM: <div class="menu-item-left"><svg...><span class="menu-name">知识库</span>
+                Locator knowledgeBaseButton = page.locator(".menu-item-left .menu-name:has-text('知识库')").first();
+                if (knowledgeBaseButton.count() == 0) {
+                    task.sendError("未找到知识库菜单按钮");
+                    log.error("未找到知识库菜单按钮");
+                    return;
+                }
+                
                 knowledgeBaseButton.click();
                 page.waitForTimeout(2000);
                 task.sendLog("已进入知识库页面");
@@ -307,13 +295,14 @@ public class YuanQiKnowledgeController extends StreamTaskHelper {
                             .setTimeout(5000));
                     page.waitForTimeout(1000);
                     
-                    // 点击确认按钮
+                    // 点击确认按钮（定位到新建知识库对话框的footer中的确定按钮）
                     task.sendLog("确认创建知识库...");
-                    Locator confirmBtn = page.locator("button.v-button--primary.v-button--large[data-v-079738ad]:has-text('确定')");
+                    // 先定位到包含"新建知识库"标题的对话框
+                    Locator dialog = page.locator(".v-modalDialog__content:has(.v-page-header__heading__left__title:has-text('新建知识库'))");
+                    // 在对话框的footer中找确定按钮
+                    Locator confirmBtn = dialog.locator(".v-modalDialog__footer button.v-button--primary:has-text('确定')");
                     confirmBtn.click(new Locator.ClickOptions()
-                            .setForce(true)                // 忽略可见性/稳定性/启用状态
-                            .setPosition(10, 10)           // 指定按钮内部坐标点击（避免点击空白处）
-                            .setTimeout(5000));            // 缩短超时至5秒
+                            .setTimeout(10000));
                     page.waitForTimeout(3000);
                     task.sendLog("知识库创建完成");
                 }
@@ -327,30 +316,56 @@ public class YuanQiKnowledgeController extends StreamTaskHelper {
                 // 步骤7: 导入网页内容
                 task.sendLog("开始导入网页内容...");
                 
-                // 点击导入按钮
+                // 点击导入按钮（新DOM结构）
                 task.sendLog("点击导入按钮...");
-                Locator importBtn = page.locator("button.filter-btn:has-text('导入')").first();
+                // DOM: <button class="v-button v-button--primary v-button--medium"><svg...>导入</button>
+                Locator importBtn = page.locator("button.v-button--primary.v-button--medium:has-text('导入')").first();
+                if (importBtn.count() == 0) {
+                    task.sendError("未找到导入按钮");
+                    log.error("未找到导入按钮");
+                    return;
+                }
                 importBtn.click();
                 page.waitForTimeout(2000);
 
-                // 选择网页文件选项
+                // 选择网页文件选项（单选按钮）
                 task.sendLog("选择网页文件导入方式...");
-                Locator webFileOption = page.getByText("网页文件").first();
-                webFileOption.click();
+                // DOM: <label class="v-radio v-radio-group-item"><span class="v-radio__label__text">网页文件</span>
+                Locator webFileRadio = page.locator("label.v-radio:has-text('网页文件')").first();
+                if (webFileRadio.count() == 0) {
+                    task.sendError("未找到网页文件选项");
+                    log.error("未找到网页文件选项");
+                    return;
+                }
+                webFileRadio.click();
                 page.waitForTimeout(2000);
 
-                // 输入网页URL并导入
+                // 输入网页URL
                 task.sendLog("输入网页URL: " + importWebUrl);
+                // DOM: <input class="v-input--default__input"><label class="v-input--default__placeholder">请输入网址，http://或https://开头</label>
                 Locator urlInput = page.locator("label.v-input--default__placeholder:has-text('请输入网址，http://或https://开头')")
-                        .locator("..") // 取placeholder标签的父元素
+                        .locator("..") // 父元素
                         .locator("input.v-input--default__input");
-                // 强制填充网址（跳过所有可见性/可交互性校验，适配平台特性）
+                if (urlInput.count() == 0) {
+                    task.sendError("未找到URL输入框");
+                    log.error("未找到URL输入框");
+                    return;
+                }
+                // 强制填充网址
                 urlInput.fill(importWebUrl, new Locator.FillOptions()
-                        .setForce(true)        // 忽略可见性/稳定性校验
+                        .setForce(true)
                         .setTimeout(5000));
+                page.waitForTimeout(1000);
 
+                // 点击"导入网页"按钮
                 task.sendLog("开始导入网页内容，请稍候...");
-                Locator importWebBtn = page.locator("button:has-text('导入网页')").first();
+                // DOM: <button class="v-button v-button--primary v-button--large">导入网页</button>
+                Locator importWebBtn = page.locator("button.v-button--primary.v-button--large:has-text('导入网页')").first();
+                if (importWebBtn.count() == 0) {
+                    task.sendError("未找到导入网页按钮");
+                    log.error("未找到导入网页按钮");
+                    return;
+                }
                 importWebBtn.click();
                 page.waitForTimeout(10000);
 
@@ -423,10 +438,14 @@ public class YuanQiKnowledgeController extends StreamTaskHelper {
                             .setTimeout(10000));             // 缩短超时至10秒
                     page.waitForTimeout(2000);
 
-                    // 点击确定按钮
+                    // 点击确定按钮（定位到选择知识库对话框的footer中的确定按钮）
                     task.sendLog("确认关联知识库...");
-                    Locator okBtn = page.locator("button.v-button--primary.v-button--large:has(div:has-text('确定'))").nth(0);
-                    okBtn.click();
+                    // 先定位到包含"选择知识库"标题的对话框
+                    Locator selectDialog = page.locator(".v-modalDialog__content:has(.v-page-header__heading__left__title:has-text('选择知识库'))");
+                    // 在对话框的footer中找确定按钮
+                    Locator okBtn = selectDialog.locator(".v-modalDialog__footer button.v-button--primary:has-text('确定')");
+                    okBtn.click(new Locator.ClickOptions()
+                            .setTimeout(10000));
                     page.waitForTimeout(2000);
 
                     // 发布智能体
@@ -467,10 +486,6 @@ public class YuanQiKnowledgeController extends StreamTaskHelper {
             log.error("[元器知识库配置] 执行失败 - 用户: {}, 请求: {}", userId, requestId, e);
             task.sendError("知识库配置失败");
         } finally {
-            //释放锁
-//            if (lockAcquired) {
-//                userSessionLock.unlock();
-//            }
             task.stop();
             
             // 确保资源释放

@@ -2521,7 +2521,7 @@ public class YuanQiNodeUtil {
             // 步骤7：等待发布完成，检查"已发布"状态
             // 使用传入的超时时间，默认90秒
             int timeout = (timeoutSeconds != null && timeoutSeconds > 0) ? timeoutSeconds : 90;
-            int checkInterval = 5; // 每次检查间隔5秒
+            int checkInterval = 3; // 每次检查间隔3秒（提高检测频率）
             int maxChecks = timeout / checkInterval; // 根据超时时间计算检查次数
             log.debug("[元器工作流发布] 步骤7: 等待发布完成 (超时时间: {}秒, 检查次数: {})", timeout, maxChecks);
             
@@ -2531,14 +2531,14 @@ public class YuanQiNodeUtil {
             
             // 根据超时时间动态计算检查次数
             for (int i = 0; i < maxChecks; i++) {
-                int waitedSeconds = (i + 1) * 5;
+                int waitedSeconds = (i + 1) * 3;
                 
-                // 每10秒输出一次等待日志
-                if (waitedSeconds % 10 == 0) {
+                // 每9秒输出一次等待日志
+                if (waitedSeconds % 9 == 0) {
                     log.debug("[元器工作流发布] 等待发布完成... 已等待{}秒", waitedSeconds);
                 }
                 
-                page.waitForTimeout(5000);
+                page.waitForTimeout(3000);
 
                 // 检查URL是否变化（发布成功后可能跳转）
                 try {
@@ -2554,7 +2554,32 @@ public class YuanQiNodeUtil {
                     // 忽略页面已关闭的错误
                 }
 
-                // 检查多种成功状态文本（使用模糊匹配，提高容错性）
+                // 🔥 核心检测：检查"发布详情"表格中的"已发布"状态
+                // DOM结构: <div class="publish-table"><div class="validate-status-text"> 已发布 </div></div>
+                try {
+                    // 方法1：精确检测发布详情表格中的状态文本
+                    Locator publishTable = page.locator(".publish-table");
+                    if (publishTable.count() > 0) {
+                        log.debug("[元器工作流发布] 找到发布详情表格，检查发布状态...");
+                        
+                        // 查找所有"已发布"状态文本
+                        Locator publishedStatus = publishTable.locator(".validate-status-text:has-text('已发布')");
+                        int publishedCount = publishedStatus.count();
+                        
+                        log.debug("[元器工作流发布] 发布详情表格中'已发布'状态数量: {}", publishedCount);
+                        
+                        // 如果至少有一个渠道显示"已发布"，则认为发布成功
+                        // 根据DOM结构，通常有2个渠道（官方小程序、元器官网）
+                        if (publishedCount > 0) {
+                            log.info("[元器工作流发布] 发布成功 - 发布详情表格中检测到{}个'已发布'状态", publishedCount);
+                            return new PublishResult(true, "发布成功");
+                        }
+                    }
+                } catch (Exception e) {
+                    log.debug("[元器工作流发布] 检查发布详情表格时出错: {}", e.getMessage());
+                }
+
+                // 方法2：检查多种成功状态文本（使用模糊匹配，提高容错性）
                 try {
                     // 检查"已发布"状态（页面可能刷新或出现提示）
                     if (page.getByText("已发布", new Page.GetByTextOptions().setExact(false)).count() > 0 ||

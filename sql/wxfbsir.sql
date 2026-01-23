@@ -220,6 +220,7 @@ insert into sys_menu values('129',  'AI助手', '1',     '3', 'aigc',           
 insert into sys_menu values('130',  '草稿库', '1',     '4', 'drafts',          'business/content/drafts/index',         '', '', 1, 0, 'C', '0', '0', 'aigc:drafts:list',        'documentation', 'admin', sysdate(), '', null, '草稿库菜单');
 insert into sys_menu values('131',  '登录管理器', '1',  '5', 'login-manager',   'business/content/loginManager/index',   '', '', 1, 0, 'C', '0', '0', 'engine:login:manager',    'logininfor',    'admin', sysdate(), '', null, 'Engine登录管理器菜单');
 insert into sys_menu values('132',  '文档解析助手', '1', '6', 'document-parse',  'business/content/documentparse/index',  '', '', 1, 0, 'C', '0', '0', 'business:document:view',  'documentation', 'admin', sysdate(), '', null, '文档解析助手菜单');
+insert into sys_menu values('150',  '知识库', '1', '7', 'knowledge', 'business/content/knowledge/knowledge', '', '', 1, 0, 'C', '0', '0', 'business:knowledge:view', 'guide', 'admin', sysdate(), '', null, '知识库管理，支持上传到元器/企微机器人');
 -- 积分管理子菜单（parent_id=6）
 insert into sys_menu values('120',  '积分总览', '6',   '1', 'points-overview', 'business/points/overview/index', '', '', 1, 0, 'C', '0', '0', 'business:points:view', 'money', 'admin', sysdate(), '', null, '积分总览菜单');
 insert into sys_menu values('121',  '积分规则配置', '6', '2', 'points-rule', 'system/points/rule/index', '', '', 1, 0, 'C', '0', '0', 'points:rule:list', 'edit', 'admin', sysdate(), '', null, '积分规则配置菜单');
@@ -413,6 +414,13 @@ insert into sys_menu values('1133', '策略管理查看', '149', '1', '', '', ''
 insert into sys_menu values('1134', '策略管理新增', '149', '2', '', '', '', '', 1, 0, 'F', '0', '0', 'system:strategy:add', '#', 'admin', sysdate(), '', NULL, '');
 insert into sys_menu values('1135', '策略管理修改', '149', '3', '', '', '', '', 1, 0, 'F', '0', '0', 'system:strategy:edit', '#', 'admin', sysdate(), '', NULL, '');
 insert into sys_menu values('1136', '策略管理删除', '149', '4', '', '', '', '', 1, 0, 'F', '0', '0', 'system:strategy:remove', '#', 'admin', sysdate(), '', NULL, '');
+-- 知识库按钮权限（parent_id=150）
+insert into sys_menu values('1137', '知识库查询', '150', '1', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:query', '#', 'admin', sysdate(), '', null, '查询知识库列表');
+insert into sys_menu values('1138', '知识库新增', '150', '2', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:add', '#', 'admin', sysdate(), '', null, '新增知识库');
+insert into sys_menu values('1139', '知识库修改', '150', '3', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:edit', '#', 'admin', sysdate(), '', null, '修改知识库');
+insert into sys_menu values('1140', '知识库删除', '150', '4', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:remove', '#', 'admin', sysdate(), '', null, '删除知识库');
+insert into sys_menu values('1141', '知识库上传', '150', '5', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:upload', '#', 'admin', sysdate(), '', null, '上传知识库到元器/企微机器人');
+insert into sys_menu values('1142', '空间管理', '150', '6', '#', '', '', '', 1, 0, 'F', '0', '0', 'business:knowledge:space', '#', 'admin', sysdate(), '', null, '知识库空间管理');
 
 -- ========================================----------------------------
 -- 6、用户和角色关联表  用户N-1角色
@@ -464,6 +472,7 @@ insert into sys_role_menu values ('2', '129');  -- AI助手
 insert into sys_role_menu values ('2', '130');  -- 草稿库
 insert into sys_role_menu values ('2', '131');  -- 登录管理器
 insert into sys_role_menu values ('2', '132');  -- 文档解析助手
+insert into sys_role_menu values ('2', '150');  -- 知识库
 -- 二级菜单-系统管理
 insert into sys_role_menu values ('2', '100');  -- 用户管理
 insert into sys_role_menu values ('2', '101');  -- 角色管理
@@ -674,6 +683,13 @@ insert into sys_role_menu values ('2', '1133'); -- 策略管理查看
 insert into sys_role_menu values ('2', '1134'); -- 策略管理新增
 insert into sys_role_menu values ('2', '1135'); -- 策略管理修改
 insert into sys_role_menu values ('2', '1136'); -- 策略管理删除
+-- 按钮权限-知识库
+insert into sys_role_menu values ('2', '1137'); -- 知识库查询
+insert into sys_role_menu values ('2', '1138'); -- 知识库新增
+insert into sys_role_menu values ('2', '1139'); -- 知识库修改
+insert into sys_role_menu values ('2', '1140'); -- 知识库删除
+insert into sys_role_menu values ('2', '1141'); -- 知识库上传
+insert into sys_role_menu values ('2', '1142'); -- 空间管理
 -- 只读权限角色（ID=3）拥有内容管理的全部权限，系统管理等模块只有查询权限
 -- 一级菜单
 insert into sys_role_menu values ('3', '1');    -- 内容管理
@@ -689,6 +705,7 @@ insert into sys_role_menu values ('3', '129');  -- AI助手
 insert into sys_role_menu values ('3', '130');  -- 草稿库
 insert into sys_role_menu values ('3', '131');  -- 登录管理器
 insert into sys_role_menu values ('3', '132');  -- 文档解析助手
+insert into sys_role_menu values ('3', '150');  -- 知识库
 -- 二级菜单-系统管理
 insert into sys_role_menu values ('3', '100');  -- 用户管理
 insert into sys_role_menu values ('3', '101');  -- 角色管理
@@ -780,6 +797,14 @@ insert into sys_role_menu values ('3', '1078');  -- 查看明细
 insert into sys_role_menu values ('3', '1104');  -- 模板查询
 insert into sys_role_menu values ('3', '1112');  -- 申请删除
 insert into sys_role_menu values ('3', '1120');  -- 证书删除
+insert into sys_role_menu values ('3', '1128');  -- 我的申请记录新增
+-- 按钮权限-知识库（全部权限）
+insert into sys_role_menu values ('3', '1137');  -- 知识库查询
+insert into sys_role_menu values ('3', '1138');  -- 知识库新增
+insert into sys_role_menu values ('3', '1139');  -- 知识库修改
+insert into sys_role_menu values ('3', '1140');  -- 知识库删除
+insert into sys_role_menu values ('3', '1141');  -- 知识库上传
+insert into sys_role_menu values ('3', '1142');  -- 空间管理
 -- 普通用户角色（ID=10）
 insert into sys_role_menu values ('10', '1');    -- 内容管理目录
 insert into sys_role_menu values ('10', '118');   -- 日更助手菜单
@@ -788,6 +813,13 @@ insert into sys_role_menu values ('10', '129');   -- AI助手菜单
 insert into sys_role_menu values ('10', '130');   -- 草稿库菜单
 insert into sys_role_menu values ('10', '131');   -- 登录管理器菜单
 insert into sys_role_menu values ('10', '132');   -- 文档解析助手菜单
+insert into sys_role_menu values ('10', '150');   -- 知识库菜单
+insert into sys_role_menu values ('10', '1137');  -- 知识库查询
+insert into sys_role_menu values ('10', '1138');  -- 知识库新增
+insert into sys_role_menu values ('10', '1139');  -- 知识库修改
+insert into sys_role_menu values ('10', '1140');  -- 知识库删除
+insert into sys_role_menu values ('10', '1141');  -- 知识库上传
+insert into sys_role_menu values ('10', '1142');  -- 空间管理
 insert into sys_role_menu values ('10', '1061'); -- 日更助手-文章查询
 insert into sys_role_menu values ('10', '1062'); -- 日更助手-文章新增
 insert into sys_role_menu values ('10', '1063'); -- 日更助手-文章删除
@@ -1789,4 +1821,67 @@ WHERE w.del_flag = 0
 GROUP BY w.team_name, w.is_team;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- ----------------------------
+-- 43、用户扩展表（知识库相关字段）
+-- 设计理念：分离业务扩展字段，避免核心用户表臃肿
+-- ----------------------------
+DROP TABLE IF EXISTS `sys_user_extend`;
+CREATE TABLE `sys_user_extend` (
+    `user_id` BIGINT(20) NOT NULL COMMENT '用户ID（关联 sys_user.user_id）',
+    
+    -- 知识库空间管理
+    `kb_space_quota` BIGINT DEFAULT 1024 COMMENT '知识库空间额度（MB，默认1GB）',
+    `kb_space_used` BIGINT DEFAULT 0 COMMENT '已使用空间（MB）',
+    
+    -- 知识库关联
+    `kb_space_include_kb_ids` VARCHAR(2000) DEFAULT '' COMMENT '空间内包含的知识库ID，逗号分隔（如1,2,3）',
+    `has_knowledge_base` VARCHAR(2000) DEFAULT '' COMMENT '用户自己创建的知识库ID，逗号分隔',
+    `kb_likes_ids` VARCHAR(2000) DEFAULT '' COMMENT '收藏的知识库ID，逗号分隔',
+    
+    -- 权限控制
+    `is_super` TINYINT(1) DEFAULT 0 COMMENT '是否为超级账户：0-普通，1-超级',
+    `is_open_account_perm` TINYINT(1) DEFAULT 0 COMMENT '账户权限管理：0-关闭，1-开放',
+    `is_open_module_perm` TINYINT(1) DEFAULT 0 COMMENT '模块功能操作权限：0-关闭，1-开放',
+    
+    -- 时间戳
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    
+    PRIMARY KEY (`user_id`),
+    CONSTRAINT `fk_user_extend_user_id` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户扩展表-知识库相关';
+
+-- 索引优化
+CREATE INDEX `idx_is_super` ON `sys_user_extend`(`is_super`);
+CREATE INDEX `idx_kb_space_quota` ON `sys_user_extend`(`kb_space_quota`);
+
+-- ----------------------------
+-- 44、知识库主表
+-- ----------------------------
+DROP TABLE IF EXISTS `kb_base`;
+CREATE TABLE `kb_base` (
+    `kb_id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '知识库ID（自增且唯一）',
+    `kb_name` VARCHAR(100) NOT NULL COMMENT '知识库名称',
+    `kb_content` LONGTEXT COMMENT '知识库内容（JSON格式）',
+    `is_public_template` TINYINT(1) DEFAULT 0 COMMENT '是否为公共模板：0-私有，1-公共',
+    `creator_id` BIGINT(20) COMMENT '创建者用户ID',
+    `kb_size` BIGINT DEFAULT 0 COMMENT '知识库大小（MB）',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`kb_id`),
+    KEY `idx_is_public_template` (`is_public_template`),
+    KEY `idx_creator_id` (`creator_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='知识库主表';
+
+-- ----------------------------
+-- 初始化 admin 用户的扩展信息（超级管理员）
+-- ----------------------------
+INSERT INTO `sys_user_extend` (`user_id`, `kb_space_quota`, `is_super`, `is_open_account_perm`, `is_open_module_perm`)
+SELECT `user_id`, 10240, 1, 1, 1 FROM `sys_user` WHERE `user_name` = 'admin'
+ON DUPLICATE KEY UPDATE 
+    `is_super` = 1, 
+    `is_open_account_perm` = 1, 
+    `is_open_module_perm` = 1,
+    `kb_space_quota` = 10240;
 
