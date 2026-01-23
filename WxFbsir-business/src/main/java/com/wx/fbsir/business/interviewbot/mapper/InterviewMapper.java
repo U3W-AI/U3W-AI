@@ -2,6 +2,8 @@ package com.wx.fbsir.business.interviewbot.mapper;
 
 import com.wx.fbsir.business.interviewbot.domain.InterviewRecord;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
@@ -19,6 +21,13 @@ public interface InterviewMapper {
      * * @return 今日记录列表
      */
     @Select("SELECT * FROM interview_record WHERE DATE(interview_time) = CURDATE() ORDER BY interview_time DESC")
+    @Results({
+            @Result(property = "interviewTime", column = "interview_time"),
+            @Result(property = "phoneNumber", column = "phone_number"),
+            @Result(property = "idCard", column = "id_card"),
+            @Result(property = "techStack", column = "tech_stack"),
+            @Result(property = "documentId", column = "document_id")
+    })
     List<InterviewRecord> selectTodayRecords();
 
     /**
@@ -27,5 +36,12 @@ public interface InterviewMapper {
      * @return 最近记录列表
      */
     @Select("SELECT * FROM interview_record WHERE interview_time <= NOW() ORDER BY interview_time DESC LIMIT #{limit}")
+    @Results({
+            @Result(property = "interviewTime", column = "interview_time"),
+            @Result(property = "phoneNumber", column = "phone_number"),
+            @Result(property = "idCard", column = "id_card"),
+            @Result(property = "techStack", column = "tech_stack"),
+            @Result(property = "documentId", column = "document_id")
+    })
     List<InterviewRecord> selectRecentRecords(int limit);
 }

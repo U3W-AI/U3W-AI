@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.wx.fbsir.business.interviewbot.service.InterviewService;
 import com.wx.fbsir.business.interviewbot.utils.WXBizJsonMsgCrypt;
+import com.wx.fbsir.common.annotation.Anonymous;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
  * * @author WxFbsir Team
  * @date 2026-01-22
  */
+@Anonymous
 @RestController
 @RequestMapping("/api/wechat")
 public class WechatBotController {
