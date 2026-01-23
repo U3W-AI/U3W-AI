@@ -80,19 +80,21 @@
     <el-dialog 
       v-model="loginDialogVisible" 
       :title="`${currentServiceName}扫码登录`" 
-      width="80%" 
-      :max-width="1000"
+      width="95%" 
+      :max-width="1400"
       center
       :close-on-click-modal="false"
+      class="login-dialog"
     >
-      <div class="login-dialog-content" style="padding: 40px 20px;">
-        <div v-if="loginLoading" class="login-loading" style="text-align: center;">
+      <div class="login-dialog-content">
+        <div v-if="loginLoading" class="login-loading">
           <el-icon class="is-loading" :size="40"><Loading /></el-icon>
-          <p style="margin-top: 20px; font-size: 16px; color: #666;">{{ loginStatusText }}</p>
+          <p class="loading-text">{{ loginStatusText }}</p>
         </div>
-        <div v-if="qrCodeUrl" class="qrcode-container" style="text-align: center;">
-          <img :src="qrCodeUrl" alt="登录二维码" class="qrcode-image" style="max-width: 500px; width: auto; height: auto; display: block; margin: 0 auto; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); object-fit: contain;" />
-          <p style="text-align: center; margin-top: 30px; font-size: 16px; color: #666;">请使用微信扫码登录{{ currentServiceName }}</p>
+        <div v-if="qrCodeUrl" class="qrcode-container">
+          <div class="qrcode-wrapper">
+            <img :src="qrCodeUrl" alt="登录二维码" class="qrcode-image" />
+          </div>
         </div>
       </div>
     </el-dialog>
@@ -661,38 +663,95 @@ onUnmounted(() => {
 
   .login-dialog-content {
     text-align: center;
-    padding: 20px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
 
     .login-loading {
-      padding: 40px 0;
+      padding: 60px 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
 
       .el-icon {
         display: block;
-        margin: 0 auto 16px;
+        margin: 0 auto 20px;
       }
 
-      p {
+      .loading-text {
         color: #606266;
-        font-size: 14px;
+        font-size: 16px;
+        margin: 0;
       }
     }
 
     .qrcode-container {
-      .qrcode-image {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      padding: 0;
+
+      .qrcode-wrapper {
         width: 100%;
-        max-width: 600px;
-        height: auto;
-        aspect-ratio: 1;
-        margin: 0 auto 16px;
-        display: block;
-        border: 1px solid #e4e7ed;
-        border-radius: 8px;
+        max-width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 0;
       }
 
-      p {
-        color: #606266;
-        font-size: 14px;
+      .qrcode-image {
+        width: 100%;
+        height: auto;
+        max-width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: contain;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        background: #fff;
       }
+
+      @media (max-width: 768px) {
+        .qrcode-image {
+          aspect-ratio: 16 / 9;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .qrcode-image {
+          aspect-ratio: 16 / 9;
+        }
+      }
+    }
+  }
+
+  :deep(.login-dialog) {
+    .el-dialog {
+      display: flex;
+      flex-direction: column;
+      max-height: 90vh;
+    }
+
+    .el-dialog__body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .el-dialog__header {
+      padding: 20px;
+      border-bottom: 1px solid #e4e7ed;
     }
   }
 }

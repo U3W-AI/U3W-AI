@@ -247,16 +247,20 @@ public class YuanQiLoginController extends StreamTaskHelper {
                     if (!"false".equals(finalLoginStatus)) {
                         Map<String, Object> successData = new HashMap<>();
                         successData.put("success", true);
+                        successData.put("isLoggedIn", true);  // 明确标识已登录
                         successData.put("userName", finalLoginStatus);
+                        successData.put("platform", "YuanQi");
                         successData.put("qrCodeUrl", lastQrCodeUrl);
                         successData.put("loginTime", elapsedTime / 1000);
+                        successData.put("timestamp", System.currentTimeMillis());
                         
                         task.sendSuccess("登录成功！欢迎，" + finalLoginStatus, successData);
                         log.info("[元器扫码登录] 成功 - 用户: {}, 元器用户: {}", userId, finalLoginStatus);
                         
-                        // 等待数据持久化
+                        // 等待数据持久化完成（增加等待时间，确保数据库锁完全释放）
                         try {
-                            Thread.sleep(3000);
+                            task.sendLog("正在保存登录状态...");
+                            Thread.sleep(5000); // 从3秒增加到5秒
                             log.debug("[元器扫码登录] 等待数据持久化完成 - 用户: {}", userId);
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
