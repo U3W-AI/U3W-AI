@@ -1,21 +1,17 @@
--- sql/updates/update_20260122_interview_record.sql
-
 -- ============================================
--- 数据库更新脚本
--- 功能：创建面试记录表 (interview_record)
--- 作者：WxFbsir Team
--- 日期：2026-01-22
+-- 数据库初始化脚本
+-- 功能：1. 检查并创建 wxfbsir 数据库
+--       2. 切换到 wxfbsir 数据库
+--       3. 创建面试记录表 (interview_record)
 -- ============================================
 
--- 1. 创建数据库
-CREATE DATABASE IF NOT EXISTS interview_bot 
-  DEFAULT CHARACTER SET utf8mb4 
-  COLLATE utf8mb4_unicode_ci;
+-- 1. 如果不存在 wxfbsir 数据库，则创建
+CREATE DATABASE IF NOT EXISTS `wxfbsir` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- 2. 切换到该数据库
-USE interview_bot;
+-- 2. 切换当前操作的数据库为 wxfbsir
+USE `wxfbsir`;
 
--- 3. 创建表结构
+-- 3. 建表
 
 DROP TABLE IF EXISTS interview_record;
 
