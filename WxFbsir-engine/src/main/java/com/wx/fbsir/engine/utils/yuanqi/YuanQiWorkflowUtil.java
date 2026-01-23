@@ -117,13 +117,18 @@ public class YuanQiWorkflowUtil {
                 return new WorkflowNavigationResult(false, "失败: 未找到个人空间按钮", null);
             }
             spaceButton.first().click();
-            page.waitForTimeout(1000); // 等待弹窗出现
+            page.waitForTimeout(2000); // 等待弹窗出现（增加到2秒）
             
             // 步骤2：点击指定的空间或团队
             log.debug("[元器工作流导航] 步骤2: 选择空间/团队 - {}", spaceName);
-            if (!clickByText(page, spaceName, "选择空间/团队", 1500)) {
+            if (!clickByText(page, spaceName, "选择空间/团队", 2000)) {
                 return new WorkflowNavigationResult(false, "失败: 未找到空间/团队 - " + spaceName, null);
             }
+            
+            // 🔥 关键：空间切换后需要充分等待页面加载
+            log.debug("[元器工作流导航] 等待空间切换完成...");
+            page.waitForLoadState();
+            page.waitForTimeout(2000); // 额外等待2秒确保菜单加载完成
             
             // 步骤3：点击"我的智能体"或"团队智能体"展开列表
             log.debug("[元器工作流导航] 步骤3: 展开智能体列表");
@@ -134,7 +139,7 @@ public class YuanQiWorkflowUtil {
             if (myAgentMenu.count() > 0) {
                 log.debug("[元器工作流导航] 点击'我的智能体'展开列表");
                 myAgentMenu.first().click();
-                page.waitForTimeout(1000);
+                page.waitForTimeout(2000); // 增加到2秒
                 agentListExpanded = true;
             } else {
                 // 如果没有"我的智能体"，尝试点击"团队智能体"
@@ -142,7 +147,7 @@ public class YuanQiWorkflowUtil {
                 if (teamAgentMenu.count() > 0) {
                     log.debug("[元器工作流导航] 点击'团队智能体'展开列表");
                     teamAgentMenu.first().click();
-                    page.waitForTimeout(1000);
+                    page.waitForTimeout(2000); // 增加到2秒
                     agentListExpanded = true;
                 }
             }
@@ -151,48 +156,82 @@ public class YuanQiWorkflowUtil {
                 return new WorkflowNavigationResult(false, "失败: 未找到'我的智能体'或'团队智能体'菜单", null);
             }
             
+            // 🔥 关键：智能体列表展开后需要充分等待DOM加载
+            log.debug("[元器工作流导航] 等待智能体列表加载完成...");
+            page.waitForTimeout(2000); // 额外等待2秒确保列表完全加载
+            
             // 步骤4：点击指定的智能体
             log.debug("[元器工作流导航] 步骤4: 选择智能体 - {}", agentName);
             // 智能体名称在 .content-title 中
             Locator agentCard = page.locator(".card-item .content-title:has-text('" + agentName + "')");
             if (agentCard.count() == 0) {
-                return new WorkflowNavigationResult(false, "失败: 未找到智能体 - " + agentName, null);
+                log.warn("[元器工作流导航] 未找到智能体: {}, 尝试模糊匹配", agentName);
+                // 尝试模糊匹配
+                agentCard = page.locator(".card-item .content-title").filter(new Locator.FilterOptions().setHasText(agentName));
+                if (agentCard.count() == 0) {
+                    return new WorkflowNavigationResult(false, "失败: 未找到智能体 - " + agentName, null);
+                }
             }
             
             log.info("[元器工作流导航] 点击智能体: {}", agentName);
             agentCard.first().click();
-            page.waitForTimeout(2000); // 等待智能体详情页加载
+            
+            // 🔥 关键：点击智能体后页面会跳转，需要充分等待
+            log.debug("[元器工作流导航] 等待智能体详情页加载...");
+            page.waitForLoadState();
+            page.waitForTimeout(3000); // 增加到3秒，确保详情页完全加载
             
             // 步骤5：点击"工作流管理"标签页
             log.debug("[元器工作流导航] 步骤5: 点击工作流管理标签");
-            if (!clickByText(page, "工作流管理", "点击工作流管理标签", 1500)) {
+            if (!clickByText(page, "工作流管理", "点击工作流管理标签", 2000)) {
                 return new WorkflowNavigationResult(false, "失败: 未找到工作流管理标签", null);
             }
+            
+            // 🔥 关键：标签页切换后需要充分等待工作流列表加载
+            log.debug("[元器工作流导航] 等待工作流列表加载完成...");
+            page.waitForLoadState();
+            page.waitForTimeout(2000); // 额外等待2秒确保工作流列表完全加载
             
             // 步骤6：在工作流列表中找到指定工作流
             log.debug("[元器工作流导航] 步骤6: 查找工作流 - {}", workflowName);
             Locator workflowRow = page.locator(".v-table-body__tr:has(.row-name:has-text('" + workflowName + "'))");
+            
+            // 如果未找到，尝试模糊匹配
+            if (workflowRow.count() == 0) {
+                log.warn("[元器工作流导航] 未找到工作流: {}, 尝试模糊匹配", workflowName);
+                workflowRow = page.locator(".v-table-body__tr").filter(new Locator.FilterOptions().setHasText(workflowName));
+            }
+            
             if (workflowRow.count() == 0) {
                 return new WorkflowNavigationResult(false, "失败: 未找到工作流 - " + workflowName, null);
             }
             
             // 步骤7：点击该工作流的"编辑"按钮（会打开新窗口）
             log.debug("[元器工作流导航] 步骤7: 点击编辑按钮");
-            Locator editButton = workflowRow.locator("a.operate:has-text('编辑')").first();
+            Locator editButton = workflowRow.first().locator("a.operate:has-text('编辑')");
+            if (editButton.count() == 0) {
+                // 尝试备选选择器
+                editButton = workflowRow.first().locator("a:has-text('编辑')");
+            }
             if (editButton.count() == 0) {
                 return new WorkflowNavigationResult(false, "失败: 未找到编辑按钮", null);
             }
             
             log.info("[元器工作流导航] 点击工作流编辑按钮: {}", workflowName);
             
+            // 🔥 使用final变量来解决lambda表达式中的变量问题
+            final Locator finalEditButton = editButton;
+            
             // 监听新页面打开事件
             Page newPage = page.context().waitForPage(() -> {
-                editButton.click();
+                finalEditButton.click();
             });
             
-            // 等待新页面加载完成
+            // 🔥 关键：新页面打开后需要充分等待加载
+            log.debug("[元器工作流导航] 等待新页面加载...");
             newPage.waitForLoadState();
-            newPage.waitForTimeout(2000);
+            page.waitForTimeout(2000); // 等待2秒
+            newPage.waitForTimeout(2000); // 新页面也等待2秒
             
             log.info("[元器工作流导航] 新窗口已打开 - URL: {}", newPage.url());
             log.info("[元器工作流导航] 导航成功 - 当前URL: {}", newPage.url());
