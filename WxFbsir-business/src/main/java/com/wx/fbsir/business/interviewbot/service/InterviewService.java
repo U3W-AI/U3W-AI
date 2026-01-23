@@ -1,7 +1,7 @@
-package com.wx.fbsir.business.service;
+package com.wx.fbsir.business.interviewbot.service;
 
-import com.wx.fbsir.business.domain.InterviewRecord;
-import com.wx.fbsir.business.mapper.InterviewMapper;
+import com.wx.fbsir.business.interviewbot.domain.InterviewRecord;
+import com.wx.fbsir.business.interviewbot.mapper.InterviewMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

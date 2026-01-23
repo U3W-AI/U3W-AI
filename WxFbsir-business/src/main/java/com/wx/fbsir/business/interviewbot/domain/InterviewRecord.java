@@ -1,4 +1,4 @@
-package com.wx.fbsir.business.domain;
+package com.wx.fbsir.business.interviewbot.domain;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;

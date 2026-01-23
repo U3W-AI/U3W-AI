@@ -6,7 +6,7 @@
 
 // ------------------------------------------------------------------------
 
-package com.wx.fbsir.business.utils;
+package com.wx.fbsir.business.interviewbot.utils;
 
 import java.nio.charset.Charset;
 import java.util.Arrays;

@@ -1,4 +1,4 @@
-package com.wx.fbsir.business.utils;
+package com.wx.fbsir.business.interviewbot.utils;
 
 import java.util.ArrayList;
 

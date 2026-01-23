@@ -6,7 +6,7 @@
 
 // ------------------------------------------------------------------------
 
-package com.wx.fbsir.business.utils;
+package com.wx.fbsir.business.interviewbot.utils;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;

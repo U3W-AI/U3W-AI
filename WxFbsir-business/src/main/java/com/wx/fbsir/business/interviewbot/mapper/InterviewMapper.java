@@ -1,6 +1,6 @@
-package com.wx.fbsir.business.mapper;
+package com.wx.fbsir.business.interviewbot.mapper;
 
-import com.wx.fbsir.business.domain.InterviewRecord;
+import com.wx.fbsir.business.interviewbot.domain.InterviewRecord;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 
