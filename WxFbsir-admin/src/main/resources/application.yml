@@ -204,3 +204,12 @@ gitee:
     frontend-url: ${GITEE_OAUTH_FRONTEND_URL:}
     # OAuth回调地址（与Gitee应用配置保持一致）
     callback-url: ${GITEE_OAUTH_CALLBACK_URL:}
+
+# 微信机器人配置
+wechat:
+  # 企业微信机器人Token（生产环境建议使用环境变量：WECHAT_TOKEN）
+  token: ${WECHAT_TOKEN:}
+  # 企业微信机器人AES密钥（生产环境建议使用环境变量：WECHAT_AES_KEY）
+  aes-key: ${WECHAT_AES_KEY:}
+  # 企业微信CorpID（生产环境建议使用环境变量：WECHAT_CORP_ID）
+  corp-id: ${WECHAT_CORP_ID:}
