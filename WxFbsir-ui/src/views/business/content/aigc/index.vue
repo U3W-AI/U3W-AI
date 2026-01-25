@@ -746,8 +746,13 @@ export default {
           const answerIsUrl = nestedData.answer && 
             (nestedData.answer.startsWith('http://') || nestedData.answer.startsWith('https://'))
           
+          // 🔥 动态获取 AI 显示名称
+          const historyAiType = nestedData.aiType || historyData.aiType || 'deepseek'
+          const historyAiConfig = getEngineConfig(historyAiType)
+          const historyAiName = historyAiConfig ? historyAiConfig.displayName : historyAiType
+          
           results.value = [{
-            aiName: 'DeepSeek',
+            aiName: historyAiName,  // 🔥 动态 AI 名称
             content: nestedData.answer,  // 可能是截图URL或文本
             screenshotUrl: nestedData.conversationScreenshot || (answerIsUrl ? nestedData.answer : null),
             hasScreenshot: nestedData.hasScreenshot !== false && (nestedData.conversationScreenshot || answerIsUrl),
@@ -861,11 +866,28 @@ export default {
     const sendPrompt = () => {
       if (!canSend.value) return
       
-      // 🔥 检查是否已登录（必须登录才能使用）
-      const deepseekConfig = getEngineConfig('deepseek')
-      if (deepseekConfig && deepseekConfig.requireLogin && !deepseekConfig.loggedIn) {
-        ElMessage.error('请先在"登录管理器"中登录DeepSeek')
-        console.warn('❌ [AI助手] 未登录，禁止发送请求')
+      // 🔥 获取所有启用的 AI
+      const enabledAiList = Object.entries(aiStates.value)
+        .filter(([aiId, state]) => state.enabled)
+        .map(([aiId, state]) => ({
+          aiId,
+          config: getEngineConfig(aiId),
+          state
+        }))
+      
+      if (enabledAiList.length === 0) {
+        ElMessage.error('请先选择并启用一个 AI')
+        return
+      }
+      
+      // 🔥 目前支持单个 AI（取第一个启用的）
+      const selectedAi = enabledAiList[0]
+      const { aiId, config, state } = selectedAi
+      
+      // 🔥 检查是否已登录（动态检查选中的 AI）
+      if (config.requireLogin && !config.loggedIn) {
+        ElMessage.error(`请先在"登录管理器"中登录 ${config.displayName}`)
+        console.warn(`❌ [AI助手] ${config.displayName} 未登录，禁止发送请求`)
         return
       }
       
@@ -878,7 +900,7 @@ export default {
       
       // 🔥 初始化启用的AI列表（支持多AI扩展）
       enabledAIs.value = [{
-        name: 'DeepSeek',
+        name: config.displayName,
         status: 'running',
         isExpanded: true,
         progressLogs: []
@@ -902,32 +924,45 @@ export default {
         console.log('📝 [首次使用] 生成新的chatId:', currentChatId.value)
       }
       
-      // 从配置获取AI查询消息类型
-      const queryType = getAiQueryMessageType('deepseek')
+      // 🔥 动态获取AI查询消息类型
+      const queryType = getAiQueryMessageType(aiId)
       
-      // 🔥 从aiStates中获取DeepSeek的选项状态
-      const deepseekOptions = aiStates.value['deepseek']?.options || {}
+      // 🔥 动态获取AI的选项状态
+      const aiOptions = state.options || {}
       
-      sendWebSocketMessage(queryType, {
+      // 🔥 动态获取AI的会话ID字段名
+      const chatIdField = config.chatIdField || `${aiId}ChatId`
+      const aiChatId = userInfoReq.value[chatIdField] || ''
+      
+      // 🔥 构建动态 payload
+      const payload = {
         query: promptInput.value,
-        enableDeepThinking: deepseekOptions.enableDeepThinking || false,
-        enableWebSearch: deepseekOptions.enableWebSearch || false,
         chatId: currentChatId.value,
-        deepseekChatId: userInfoReq.value.deepseekChatId,
         sessionId: sessionId,
-        aiType: 'deepseek',
+        aiType: aiId,  // 动态 aiType
         isNewChat: isNewChat.value,
         userPrompt: promptInput.value,
         enabledAIs: enabledAIs.value,
         progressLogs: progressLogs.value
+      }
+      
+      // 🔥 添加AI特有的会话ID
+      payload[chatIdField] = aiChatId
+      
+      // 🔥 添加AI特有的选项（如 DeepSeek 的深度思考、联网搜索）
+      Object.keys(aiOptions).forEach(optionKey => {
+        payload[optionKey] = aiOptions[optionKey]
       })
+      
+      // 发送消息
+      sendWebSocketMessage(queryType, payload)
       
       // 🔥 首次发送后标记为非新会话
       isNewChat.value = false
       userInfoReq.value.isNewChat = false
       
-      addProgressLog('已发送请求到DeepSeek')
-      console.log('📝 [发送请求] chatId:', currentChatId.value, 'sessionId:', sessionId, 'deepseekChatId:', userInfoReq.value.deepseekChatId)
+      addProgressLog(`已发送请求到 ${config.displayName}`)
+      console.log(`📝 [发送请求] AI: ${config.displayName}, chatId: ${currentChatId.value}, sessionId: ${sessionId}, ${chatIdField}: ${aiChatId}`)
     }
     
     const sendWebSocketMessage = (type, payload) => {
@@ -962,7 +997,12 @@ export default {
           aiType: payload.aiType || 'deepseek'
         }
       }
+      
+      // 🔥 详细日志：显示完整的消息对象（格式化）
       console.log('🔥 [WebSocket] 发送消息 - engineId:', engineId, 'chatId:', finalChatId, 'sessionId:', sessionId)
+      console.log('📤 [完整消息对象]', message)
+      console.log('📋 [JSON字符串]', JSON.stringify(message, null, 2))
+      
       websocket.send(JSON.stringify(message))
     }
     
@@ -1099,9 +1139,13 @@ export default {
                 targetAi.status = 'completed'
               }
               
+              // 🔥 动态获取 AI 显示名称
+              const aiConfig = getEngineConfig(aiType)
+              const aiDisplayName = aiConfig ? aiConfig.displayName : aiType
+              
               // 🔥 优先使用截图，文本作为备用
               const resultItem = {
-                aiName: 'DeepSeek',
+                aiName: aiDisplayName,  // 🔥 动态 AI 名称
                 content: resultData.answer,  // 文本内容（用于复制）
                 screenshotUrl: resultData.conversationScreenshot,  // 截图URL
                 hasScreenshot: resultData.hasScreenshot !== false && resultData.conversationScreenshot,  // 是否有截图
@@ -1126,8 +1170,8 @@ export default {
                 screenshots.value.push(resultData.conversationScreenshot)
               }
               
-              addProgressLog('DeepSeek回复完成，耗时' + resultData.elapsedTime + '秒')
-              ElMessage.success(payload.message || 'DeepSeek回复完成')
+              addProgressLog(`${aiDisplayName}回复完成，耗时${resultData.elapsedTime}秒`)
+              ElMessage.success(payload.message || `${aiDisplayName}回复完成`)
               
               // 🔥 后端Admin已自动存储，前端无需再调用数据库
               // 数据已在Admin收到Engine消息时实时保存
