@@ -175,8 +175,8 @@ public class GiteeAiUtil {
             try {
                 String bodyHtml = page.locator("body").innerHTML();
                 log.warn("⚠️ [Gitee AI] 无法确定登录状态，默认返回未登录（URL: {}）", currentUrl);
-                log.debug("📄 [Gitee AI 调试] 页面 body 前 2000 字符：\n{}", 
-                    bodyHtml.length() > 2000 ? bodyHtml.substring(0, 2000) : bodyHtml);
+//                log.debug("📄 [Gitee AI 调试] 页面 body 前 2000 字符：\n{}",
+//                    bodyHtml.length() > 2000 ? bodyHtml.substring(0, 2000) : bodyHtml);
             } catch (Exception e) {
                 log.warn("⚠️ [Gitee AI] 无法确定登录状态，默认返回未登录（URL: {}）", currentUrl);
             }
@@ -741,60 +741,240 @@ public class GiteeAiUtil {
      */
     private void toggleGiteeMode(Page page, String modeText, boolean shouldActive) {
         try {
-            // 查找包含指定文本的模式按钮
-            String buttonSelector = String.format(
-                "div.ant-dropdown-trigger:has-text('%s'), div:has-text('%s')", 
-                modeText, modeText);
+            log.debug("[Gitee AI] 开始切换{}模式，目标状态: {}", modeText, shouldActive);
             
-            Locator button = page.locator(buttonSelector).first();
+            // 第一步：找到"切换人设"按钮
+            // 使用更精确的选择器，基于实际的class
+            String toggleButtonSelector = ".ant-dropdown-trigger:has-text('切换人设')";
+            Locator toggleButton = page.locator(toggleButtonSelector).first();
             
-            // 快速检查按钮是否存在和可见，减少等待时间
-            if (button.count() == 0) {
-                log.debug("[Gitee AI] {}模式按钮不存在，跳过切换", modeText);
+            try {
+                // 等待"切换人设"按钮出现，最多等待5秒
+                toggleButton.waitFor(new Locator.WaitForOptions().setTimeout(5000));
+                log.debug("[Gitee AI] 找到切换人设按钮");
+            } catch (Exception e) {
+                log.debug("[Gitee AI] 切换人设按钮未找到: {}", e.getMessage());
                 return;
             }
-            
-            if (!button.isVisible()) {
-                log.debug("[Gitee AI] {}模式按钮不可见，跳过切换", modeText);
+
+            if (!toggleButton.isVisible()) {
+                log.debug("[Gitee AI] 切换人设按钮不可见，跳过{}模式切换", modeText);
                 return;
             }
+
+            // 第二步：点击"切换人设"按钮展开下拉菜单
+            // 先获取按钮的class，检查点击前状态
+            String buttonClassBefore = (String) toggleButton.evaluate("el => el.className");
+            log.debug("[Gitee AI] 切换人设按钮点击前class: {}", buttonClassBefore);
             
-            // 检查当前激活状态
-            String currentClasses = (String) button.evaluate("el => el.className");
-            boolean isCurrentlyActive = currentClasses.contains("bg-[#EAF2FE]") || 
-                                       currentClasses.contains("text-[#2C7EF8]");
-            
-            // 如果当前状态与目标状态不同，则切换
-            if (isCurrentlyActive != shouldActive) {
-                if (shouldActive) {
-                    // 激活模式：点击按钮
-                    button.click(new Locator.ClickOptions().setTimeout(3000).setForce(true));
-                    
-                    // 等待下拉菜单出现并选择第一个选项
-                    page.waitForTimeout(300);
-                    
-                    // 查找下拉菜单中的选项（通常是第一个选项）
-                    try {
-                        Locator dropdownOption = page.locator(".ant-dropdown-menu-item").first();
-                        if (dropdownOption.count() > 0 && dropdownOption.isVisible()) {
-                            dropdownOption.click();
-                            log.info("[Gitee AI] 已激活{}模式", modeText);
-                        } else {
-                            log.debug("[Gitee AI] 未找到下拉菜单选项，可能已直接激活");
-                        }
-                    } catch (Exception e) {
-                        log.debug("[Gitee AI] 下拉菜单操作失败: {}", e.getMessage());
+            // 尝试多种方式触发下拉菜单
+            try {
+                // 方法1：尝试点击div内部的文本元素
+                try {
+                    Locator textElement = toggleButton.locator("text='切换人设'");
+                    if (textElement.count() > 0) {
+                        log.debug("[Gitee AI] 找到div内部的文本元素，尝试点击");
+                        textElement.first().click(new Locator.ClickOptions().setTimeout(5000).setForce(true));
+                    } else {
+                        // 方法2：直接点击div
+                        log.debug("[Gitee AI] 未找到内部文本元素，直接点击div");
+                        toggleButton.click(new Locator.ClickOptions().setTimeout(5000).setForce(true));
                     }
-                } else {
-                    // 关闭模式：点击当前激活的按钮来取消选择
-                    button.click(new Locator.ClickOptions().setTimeout(3000).setForce(true));
-                    log.info("[Gitee AI] 已关闭{}模式", modeText);
+                } catch (Exception e) {
+                    log.debug("[Gitee AI] 点击异常: {}", e.getMessage());
+                    // 方法3：使用JavaScript点击
+                    toggleButton.evaluate("el => el.click()");
+                }
+            } catch (Exception e) {
+                log.debug("[Gitee AI] 触发下拉菜单异常: {}", e.getMessage());
+            }
+            
+            log.debug("[Gitee AI] 等待下拉菜单展开");
+            page.waitForTimeout(2000); // 增加等待时间，确保菜单完全展开
+            
+            // 检查按钮点击后的状态
+            String buttonClassAfter = (String) toggleButton.evaluate("el => el.className");
+            log.debug("[Gitee AI] 切换人设按钮点击后class: {}", buttonClassAfter);
+
+            // 第三步：在下拉菜单中找到目标模式选项
+            // 先检查下拉菜单是否真的展开了
+            Locator menuItem = null;
+            boolean found = false;
+            
+            try {
+                // 查找所有下拉菜单容器
+                Locator dropdownMenus = page.locator(".ant-dropdown, [class*='dropdown-menu'], [role='menu']");
+                int menuCount = dropdownMenus.count();
+
+                
+                if (menuCount == 0) {
+                    log.warn("[Gitee AI] 未找到下拉菜单容器，可能菜单未展开");
+                    // 尝试再次点击按钮
+                    toggleButton.click(new Locator.ClickOptions().setTimeout(2000).setForce(true));
+                    page.waitForTimeout(1000);
                 }
                 
-                // 等待状态变化
-                page.waitForTimeout(500);
-            } else {
-                log.debug("[Gitee AI] {}模式已经是{}状态", modeText, shouldActive ? "开启" : "关闭");
+                // 查找所有菜单项
+                Locator allMenuItems = page.locator(".ant-dropdown-menu-item, [class*='dropdown-menu-item'], [class*='menu-item'], [role='menuitem']");
+                int count = allMenuItems.count();
+                
+                // 如果还是没找到，尝试查找所有可见的元素
+                if (count == 0) {
+                    Locator allVisibleElements = page.locator("*:visible");
+                    int visibleCount = allVisibleElements.count();
+                    
+                    // 查找包含目标文本的元素
+                    for (int i = 0; i < visibleCount; i++) {
+                        try {
+                            Locator element = allVisibleElements.nth(i);
+                            String text = element.textContent();
+                            if (text != null && text.contains(modeText)) {
+                                break;
+                            }
+                        } catch (Exception e) {
+                            // 忽略异常
+                        }
+                    }
+                }
+                
+                // 遍历菜单项，查找包含目标文本的项
+                Locator targetMenuItem = null;
+                boolean isCurrentMode = false;
+                for (int i = 0; i < count; i++) {
+                    try {
+                        Locator currentMenuItem = allMenuItems.nth(i);
+                        String textContent = currentMenuItem.textContent();
+                        String className = (String) currentMenuItem.evaluate("el => el.className");
+                        
+                        if (textContent.contains(modeText)) {
+                            targetMenuItem = currentMenuItem;
+                            
+                            // 检查是否是当前激活的模式（通过class或其他属性）
+                            if (className.contains("active") || className.contains("selected") || className.contains("current") || className.contains("checked")) {
+                                isCurrentMode = true;
+                                log.debug("[Gitee AI] {}已经是当前激活的模式，无需切换", modeText);
+                            }
+                            break;
+                        }
+                    } catch (Exception e) {
+                        // 忽略异常
+                    }
+                }
+                
+                // 如果已经是当前模式，直接关闭菜单并返回
+                if (isCurrentMode) {
+                    log.debug("[Gitee AI] 无需切换模式，关闭下拉菜单");
+                    // 关闭下拉菜单
+                    try {
+                        toggleButton.click(new Locator.ClickOptions().setTimeout(2000).setForce(true));
+                        page.waitForTimeout(500);
+                    } catch (Exception e) {
+                        // 忽略关闭失败的异常
+                    }
+                    return;
+                }
+                
+                if (targetMenuItem != null && targetMenuItem.isVisible()) {
+                    // 找到目标菜单项，使用与切换人设按钮相同的多策略点击方法
+                    menuItem = targetMenuItem;
+                    found = true;
+                    
+                    // 使用与切换人设按钮相同的多策略点击方法
+                    try {
+                        // 方法1：尝试点击菜单项内的文本元素
+                        Locator menuItemText = menuItem.locator(String.format("text='%s'", modeText));
+                        if (menuItemText.count() > 0) {
+                            log.debug("[Gitee AI] 找到{}菜单项文本元素，点击文本", modeText);
+                            menuItemText.first().click(new Locator.ClickOptions().setTimeout(5000).setForce(true));
+                        } else {
+                            // 方法2：直接点击菜单项
+                            log.debug("[Gitee AI] 未找到{}菜单项文本元素，直接点击菜单项", modeText);
+                            menuItem.click(new Locator.ClickOptions().setTimeout(5000).setForce(true));
+                        }
+                    } catch (Exception e) {
+                        log.debug("[Gitee AI] 点击{}菜单项异常: {}", modeText, e.getMessage());
+                        // 方法3：使用JavaScript点击
+                        menuItem.evaluate("el => el.click()");
+                    }
+                    
+                    log.info("[Gitee AI] 已点击{}模式菜单项", modeText);
+                    page.waitForTimeout(1000); // 增加等待时间，确保模式切换完成
+                } else {
+                    // 如果没找到，尝试其他选择器策略
+                    log.debug("[Gitee AI] 未在菜单项中找到{}，尝试其他选择器", modeText);
+                }
+            } catch (Exception e) {
+                log.debug("[Gitee AI] 查找菜单项失败: {}", e.getMessage());
+            }
+            
+            // 如果上面的方法没找到，尝试使用选择器
+            if (!found) {
+                String[] menuItemSelectors = {
+                    String.format(".ant-dropdown-trigger:has-text('%s')", modeText),
+                    String.format(".ant-dropdown-menu-item:has-text('%s')", modeText),
+                    String.format(".ant-dropdown-menu > *:has-text('%s')", modeText),
+                    String.format("li:has-text('%s')", modeText),
+                    String.format("span:has-text('%s')", modeText),
+                    String.format("div:has-text('%s')", modeText),
+                    String.format("[class*='dropdown'] *:has-text('%s')", modeText),
+                    String.format("*:has-text('%s')", modeText)
+                };
+                
+                for (String selector : menuItemSelectors) {
+                    try {
+                        log.debug("[Gitee AI] 尝试选择器: {}", selector);
+                        Locator currentLocator = page.locator(selector).first();
+                        
+                        // 快速检查元素是否存在，不使用waitFor以节省时间
+                        if (currentLocator.count() > 0) {
+                            log.debug("[Gitee AI] 找到元素，检查可见性");
+                            if (currentLocator.isVisible()) {
+                                log.debug("[Gitee AI] 元素可见，使用此选择器");
+                                menuItem = currentLocator;
+                                found = true;
+                                break;
+                            }
+                        }
+                    } catch (Exception ex) {
+                        log.debug("[Gitee AI] 选择器{}尝试失败: {}", selector, ex.getMessage());
+                    }
+                }
+            }
+            
+            // 如果通过其他选择器策略找到了元素，执行点击
+            if (found && menuItem != null && menuItem.isVisible()) {
+                // 使用与切换人设按钮相同的多策略点击方法
+                try {
+                    // 方法1：尝试点击菜单项内的文本元素
+                    Locator menuItemText = menuItem.locator(String.format("text='%s'", modeText));
+                    if (menuItemText.count() > 0) {
+                        log.debug("[Gitee AI] 找到{}菜单项文本元素，点击文本", modeText);
+                        menuItemText.first().click(new Locator.ClickOptions().setTimeout(5000).setForce(true));
+                    } else {
+                        // 方法2：直接点击菜单项
+                        log.debug("[Gitee AI] 未找到{}菜单项文本元素，直接点击菜单项", modeText);
+                        menuItem.click(new Locator.ClickOptions().setTimeout(5000).setForce(true));
+                    }
+                } catch (Exception e) {
+                    log.debug("[Gitee AI] 点击{}菜单项异常: {}", modeText, e.getMessage());
+                    // 方法3：使用JavaScript点击
+                    menuItem.evaluate("el => el.click()");
+                }
+                
+                log.info("[Gitee AI] 已通过其他选择器点击{}模式菜单项", modeText);
+                page.waitForTimeout(1000); // 增加等待时间，确保模式切换完成
+            }
+            
+            // 关闭下拉菜单
+            try {
+                if (toggleButton != null && toggleButton.isVisible()) {
+                    toggleButton.click(new Locator.ClickOptions().setTimeout(2000).setForce(true));
+                    log.debug("[Gitee AI] 已关闭下拉菜单");
+                    page.waitForTimeout(500); // 等待菜单关闭
+                }
+            } catch (Exception e) {
+                // 忽略关闭失败的异常
+                log.debug("[Gitee AI] 关闭下拉菜单失败: {}", e.getMessage());
             }
         } catch (Exception e) {
             log.warn("[Gitee AI] 切换{}模式失败: {}", modeText, e.getMessage());
