@@ -121,15 +121,28 @@ export const ENGINE_CONFIGS = reactive([
 
     // 选项配置（Gitee AI Chat暂无特殊选项，预留扩展）
     options: [
-      // 预留：未来如果Gitee AI Chat支持特殊功能，可在此添加
-      // 例如：
-      // {
-      //   id: 'enableCodeAnalysis',
-      //   label: '代码分析',
-      //   defaultValue: false,
-      //   exclusive: [],
-      //   disabled: false
-      // }
+      {
+        id: 'openSourceExploration',
+        label: '开源探索',
+        defaultValue: false,
+        exclusive: [],
+        disabled: false
+      },
+      {
+        id: 'warehouseQA',
+        label: '仓库问答',
+        defaultValue: false,
+        exclusive: [],
+        disabled: false
+      },
+      {
+        id: 'helpCenter',
+        label: '帮助中心',
+        defaultValue: false,
+        exclusive: [],
+        disabled: false
+      }
+
     ],
 
     // AI会话ID字段名（AI服务特有）

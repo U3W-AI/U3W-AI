@@ -4,9 +4,13 @@ import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.TimeoutError;
 import com.microsoft.playwright.options.LoadState;
+import com.microsoft.playwright.options.WaitUntilState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+
+import java.util.Map;
+import java.util.HashMap;
 
 /**
  * Gitee AI Chat 平台工具类（简单原型）
@@ -195,19 +199,30 @@ public class GiteeAiUtil {
     public boolean navigateToLoginPage(Page page) {
         try {
             log.info("📍 [Gitee AI] 开始导航到登录页");
-            
+
             page.navigate(GITEE_AI_LOGIN_URL, new Page.NavigateOptions().setTimeout(15000));
             page.waitForLoadState(LoadState.DOMCONTENTLOADED, new Page.WaitForLoadStateOptions().setTimeout(15000));
             page.waitForTimeout(2000);
             
-            log.info("✅ [Gitee AI] 登录页加载完成");
-            return true;
+            log.info("✅ [Gitee AI] Gitee AI主页加载完成，开始寻找并点击「未登陆」入口");
             
+            // 定位「未登陆」入口
+            Locator loginEntry = page.getByText("未登陆");
+            
+            loginEntry.click();
+            log.info("✅ [Gitee AI] 已点击「未登陆」入口，等待登录界面加载");
+            
+            // 等待登录相关界面加载
+            page.waitForTimeout(2000);
+            
+            return true;
+
         } catch (Exception e) {
             log.error("❌ [Gitee AI] 导航到登录页失败: {}", e.getMessage());
             return false;
         }
     }
+    
 
     /**
      * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -218,21 +233,220 @@ public class GiteeAiUtil {
      * @param query 用户问题
      * @return AI 回复内容
      */
+//    public String sendMessageAndWaitResponse(Page page, String query) {
+//        try {
+//            log.info("💬 [Gitee AI] 开始发送消息: {}", query);
+//
+//            /**
+//             * 🔥 消息发送流程（原型实现）
+//             *
+//             * 1. 找到输入框
+//             * 2. 填入问题
+//             * 3. 点击发送按钮
+//             * 4. 等待 AI 回复
+//             * 5. 提取回复内容
+//             *
+//             * ⚠️ 实际选择器需要根据真实页面调整
+//             */
+//
+//            // 步骤1：定位输入框
+//            Locator inputBox = page.locator("textarea, input[type='text']").first();
+//            if (inputBox.count() == 0) {
+//                log.error("❌ [Gitee AI] 未找到输入框");
+//                return null;
+//            }
+//
+//            // 步骤2：清空并填入问题
+//            inputBox.click();
+//            inputBox.fill("");  // 清空
+//            page.waitForTimeout(500);
+//            inputBox.fill(query);
+//            page.waitForTimeout(500);
+//
+//            log.debug("✅ [Gitee AI] 问题已填入输入框");
+//
+//            // 步骤3：点击发送按钮
+//            // 🔥 TODO: 根据实际页面调整选择器
+//            try {
+//                Locator sendButton = page.locator("button:has-text('发送'), button[type='submit'], button:has-text('Send')").first();
+//                if (sendButton.count() > 0 && sendButton.isVisible()) {
+//                    sendButton.click();
+//                    log.debug("✅ [Gitee AI] 发送按钮已点击");
+//                } else {
+//                    // 如果没有发送按钮，尝试按 Enter 键
+//                    inputBox.press("Enter");
+//                    log.debug("✅ [Gitee AI] 已按 Enter 键发送");
+//                }
+//            } catch (Exception e) {
+//                log.warn("点击发送按钮失败，尝试按 Enter: {}", e.getMessage());
+//                inputBox.press("Enter");
+//            }
+//
+//            page.waitForTimeout(2000);
+//
+//            // 步骤4：等待 AI 回复
+//            log.debug("⏳ [Gitee AI] 等待 AI 回复...");
+//
+//            /**
+//             * 🔥 等待策略（原型实现）
+//             *
+//             * 由于不确定具体的加载指示器，采用简单的轮询策略：
+//             * 1. 等待一段时间让 AI 开始生成
+//             * 2. 检测回复内容是否出现
+//             * 3. 等待回复完成（通过检测"停止生成"按钮消失或"重新生成"按钮出现）
+//             */
+//
+//            // 等待 AI 开始响应（增加等待时间）
+//            log.debug("⏳ [Gitee AI] 等待5秒让AI开始生成回复...");
+//            page.waitForTimeout(5000);
+//
+//            // 轮询检测回复完成（最多等待60秒）
+//            int maxAttempts = 60;
+//            boolean responseComplete = false;
+//
+//            log.debug("🔍 [Gitee AI] 开始检测回复是否完成...");
+//            for (int i = 0; i < maxAttempts; i++) {
+//                try {
+//                    // 检测"停止生成"按钮是否消失（表示生成完成）
+//                    Locator stopButton = page.locator("button:has-text('停止'), button:has-text('Stop')");
+//                    if (stopButton.count() == 0 || !stopButton.first().isVisible()) {
+//                        responseComplete = true;
+//                        log.debug("✅ [Gitee AI] 检测到回复已完成（停止按钮消失）");
+//                        break;
+//                    }
+//                    if (i % 5 == 0) {
+//                        log.debug("⏳ [Gitee AI] 等待回复完成... ({}/{}秒)", i, maxAttempts);
+//                    }
+//                } catch (Exception e) {
+//                    // 忽略检测异常
+//                }
+//
+//                page.waitForTimeout(1000);
+//            }
+//
+//            if (!responseComplete) {
+//                log.warn("⚠️ [Gitee AI] 等待回复超时，尝试提取当前内容");
+//            }
+//
+//            // 步骤5：提取 AI 回复内容
+//            log.debug("📝 [Gitee AI] 开始提取回复内容");
+//
+//            /**
+//             * 🔥 内容提取策略（原型实现）
+//             *
+//             * 尝试多种可能的选择器：
+//             * 1. 最后一条消息
+//             * 2. AI 回复区域
+//             * 3. 消息内容容器
+//             *
+//             * ⚠️ 需要根据实际页面结构调整
+//             */
+//
+//            String aiResponse = null;
+//
+//            // 策略1：通过 Gitee AI Chat 特有的 prose 容器（根据实际页面结构）
+//            try {
+//                log.debug("🔍 [策略1] 尝试通过 prose 容器提取...");
+//                Locator proseContainer = page.locator(".n-prose, .prose-borderless, [class*='prose']").last();
+//                int count = proseContainer.count();
+//                log.debug("   找到 {} 个 prose 容器", count);
+//                if (count > 0) {
+//                    aiResponse = proseContainer.textContent().trim();
+//                    log.debug("✅ [Gitee AI] 通过 prose 容器提取到回复，长度: {}", aiResponse.length());
+//                } else {
+//                    log.debug("   未找到 prose 容器");
+//                }
+//            } catch (Exception e) {
+//                log.debug("❌ [策略1] 失败: {}", e.getMessage());
+//            }
+//
+//            // 策略2：通过 sipplebar-content-wrapper
+//            if (aiResponse == null || aiResponse.isEmpty()) {
+//                try {
+//                    log.debug("🔍 [策略2] 尝试通过 content-wrapper 提取...");
+//                    Locator contentWrapper = page.locator(".sipplebar-content-wrapper").last();
+//                    int count = contentWrapper.count();
+//                    log.debug("   找到 {} 个 content-wrapper", count);
+//                    if (count > 0) {
+//                        aiResponse = contentWrapper.textContent().trim();
+//                        log.debug("✅ [Gitee AI] 通过 content-wrapper 提取到回复，长度: {}", aiResponse.length());
+//                    } else {
+//                        log.debug("   未找到 content-wrapper");
+//                    }
+//                } catch (Exception e) {
+//                    log.debug("❌ [策略2] 失败: {}", e.getMessage());
+//                }
+//            }
+//
+//            // 策略3：获取最后一条消息
+//            if (aiResponse == null || aiResponse.isEmpty()) {
+//                try {
+//                    Locator messages = page.locator(".message, .chat-message, [class*='message']");
+//                    if (messages.count() > 0) {
+//                        Locator lastMessage = messages.last();
+//                        aiResponse = lastMessage.textContent().trim();
+//                        log.debug("✅ [Gitee AI] 通过消息列表提取到回复");
+//                    }
+//                } catch (Exception e) {
+//                    log.trace("策略3（消息列表）失败: {}", e.getMessage());
+//                }
+//            }
+//
+//            // 策略4：通过 AI 回复区域
+//            if (aiResponse == null || aiResponse.isEmpty()) {
+//                try {
+//                    Locator aiReply = page.locator(".ai-response, .assistant-message, [class*='assistant']").last();
+//                    if (aiReply.count() > 0) {
+//                        aiResponse = aiReply.textContent().trim();
+//                        log.debug("✅ [Gitee AI] 通过 AI 回复区域提取到回复");
+//                    }
+//                } catch (Exception e) {
+//                    log.trace("策略4（AI回复区域）失败: {}", e.getMessage());
+//                }
+//            }
+//
+//            if (aiResponse != null && !aiResponse.isEmpty()) {
+//                log.info("✅ [Gitee AI] 成功获取 AI 回复，长度: {}", aiResponse.length());
+//                return aiResponse;
+//            } else {
+//                log.error("❌ [Gitee AI] 未能提取到有效回复");
+//
+//                // 🔍 调试：输出页面结构帮助定位选择器
+//                try {
+//                    log.debug("🔍 [调试] 开始分析页面结构...");
+//
+//                    // 输出最后 10 个 div 的 class
+//                    String divClasses = page.evaluate(
+//                        "Array.from(document.querySelectorAll('div[class]')).slice(-10).map((el, i) => `${i}: ${el.className}`).join('\\n')"
+//                    ).toString();
+//                    log.debug("📄 [调试] 最后 10 个 div 的 class:\n{}", divClasses);
+//
+//                    // 输出最后 5 个有文本的叶子元素
+//                    String textElements = page.evaluate(
+//                        "Array.from(document.querySelectorAll('*')).filter(el => el.childElementCount === 0 && el.textContent.trim().length > 10).slice(-5).map(el => `${el.tagName}.${el.className}: ${el.textContent.trim().substring(0, 80)}`).join('\\n\\n')"
+//                    ).toString();
+//                    log.debug("📝 [调试] 最后 5 个有文本的叶子元素:\n{}", textElements);
+//
+//                } catch (Exception debugEx) {
+//                    log.warn("调试信息获取失败: {}", debugEx.getMessage());
+//                }
+//
+//                return null;
+//            }
+//
+//        } catch (Exception e) {
+//            log.error("❌ [Gitee AI] 发送消息失败: {}", e.getMessage(), e);
+//            return null;
+//        }
+//    }
+    // 方法重载：保持向后兼容性
     public String sendMessageAndWaitResponse(Page page, String query) {
+        return sendMessageAndWaitResponse(page, query, false, false);
+    }
+    
+    public String sendMessageAndWaitResponse(Page page, String query, boolean enableOpenSourceExploration, boolean enableHelpCenter) {
         try {
             log.info("💬 [Gitee AI] 开始发送消息: {}", query);
-            
-            /**
-             * 🔥 消息发送流程（原型实现）
-             * 
-             * 1. 找到输入框
-             * 2. 填入问题
-             * 3. 点击发送按钮
-             * 4. 等待 AI 回复
-             * 5. 提取回复内容
-             * 
-             * ⚠️ 实际选择器需要根据真实页面调整
-             */
             
             // 步骤1：定位输入框
             Locator inputBox = page.locator("textarea, input[type='text']").first();
@@ -241,7 +455,19 @@ public class GiteeAiUtil {
                 return null;
             }
             
-            // 步骤2：清空并填入问题
+            // 步骤2：切换模式（通过点击按钮）
+            try {
+                if (enableOpenSourceExploration) {
+                    toggleGiteeMode(page, "开源探索", true);
+                } else if (enableHelpCenter) {
+                    toggleGiteeMode(page, "帮助中心", true);
+                }
+                // 注意：不选择模式时，不强制关闭现有模式，让用户保持当前设置
+            } catch (Exception e) {
+                log.warn("[Gitee AI] 模式切换失败，继续发送消息: {}", e.getMessage());
+            }
+            
+            // 步骤3：清空并填入问题
             inputBox.click();
             inputBox.fill("");  // 清空
             page.waitForTimeout(500);
@@ -251,14 +477,12 @@ public class GiteeAiUtil {
             log.debug("✅ [Gitee AI] 问题已填入输入框");
             
             // 步骤3：点击发送按钮
-            // 🔥 TODO: 根据实际页面调整选择器
             try {
                 Locator sendButton = page.locator("button:has-text('发送'), button[type='submit'], button:has-text('Send')").first();
                 if (sendButton.count() > 0 && sendButton.isVisible()) {
                     sendButton.click();
                     log.debug("✅ [Gitee AI] 发送按钮已点击");
                 } else {
-                    // 如果没有发送按钮，尝试按 Enter 键
                     inputBox.press("Enter");
                     log.debug("✅ [Gitee AI] 已按 Enter 键发送");
                 }
@@ -269,153 +493,110 @@ public class GiteeAiUtil {
             
             page.waitForTimeout(2000);
             
-            // 步骤4：等待 AI 回复
-            log.debug("⏳ [Gitee AI] 等待 AI 回复...");
+            // 步骤4：等待 AI 回复（使用更健壮的检测逻辑，参考 DeepSeek）
+            log.info("⏳ [Gitee AI] 等待 AI 回复...");
             
-            /**
-             * 🔥 等待策略（原型实现）
-             * 
-             * 由于不确定具体的加载指示器，采用简单的轮询策略：
-             * 1. 等待一段时间让 AI 开始生成
-             * 2. 检测回复内容是否出现
-             * 3. 等待回复完成（通过检测"停止生成"按钮消失或"重新生成"按钮出现）
-             */
+            // 🔥 改进的等待逻辑：持续检测内容稳定性
+            String currentContent = "";
+            String lastContent = "";
+            int stableCount = 0;
+            int noChangeCount = 0;
+            int[] contentLengthHistory = new int[3];
+            boolean hasEverHadContent = false;
             
-            // 等待 AI 开始响应（增加等待时间）
-            log.debug("⏳ [Gitee AI] 等待5秒让AI开始生成回复...");
-            page.waitForTimeout(5000);
+            long startTime = System.currentTimeMillis();
+            long maxTimeout = 120000; // 2分钟超时
+            int requiredStableCount = 3; // 需要连续3次检测到内容不变
+            int checkInterval = 500; // 每500ms检查一次
             
-            // 轮询检测回复完成（最多等待60秒）
-            int maxAttempts = 60;
-            boolean responseComplete = false;
+            page.waitForTimeout(3000); // 等待AI开始生成
+            log.info("[Gitee AI] 开始检测回复完成状态");
             
-            log.debug("🔍 [Gitee AI] 开始检测回复是否完成...");
-            for (int i = 0; i < maxAttempts; i++) {
-                try {
-                    // 检测"停止生成"按钮是否消失（表示生成完成）
-                    Locator stopButton = page.locator("button:has-text('停止'), button:has-text('Stop')");
-                    if (stopButton.count() == 0 || !stopButton.first().isVisible()) {
-                        responseComplete = true;
-                        log.debug("✅ [Gitee AI] 检测到回复已完成（停止按钮消失）");
-                        break;
-                    }
-                    if (i % 5 == 0) {
-                        log.debug("⏳ [Gitee AI] 等待回复完成... ({}/{}秒)", i, maxAttempts);
-                    }
-                } catch (Exception e) {
-                    // 忽略检测异常
+            while (true) {
+                if (page.isClosed()) {
+                    log.error("[Gitee AI] 页面已关闭，停止监听");
+                    throw new RuntimeException("页面在监控过程中被关闭");
                 }
                 
-                page.waitForTimeout(1000);
-            }
-            
-            if (!responseComplete) {
-                log.warn("⚠️ [Gitee AI] 等待回复超时，尝试提取当前内容");
-            }
-            
-            // 步骤5：提取 AI 回复内容
-            log.debug("📝 [Gitee AI] 开始提取回复内容");
-            
-            /**
-             * 🔥 内容提取策略（原型实现）
-             * 
-             * 尝试多种可能的选择器：
-             * 1. 最后一条消息
-             * 2. AI 回复区域
-             * 3. 消息内容容器
-             * 
-             * ⚠️ 需要根据实际页面结构调整
-             */
-            
-            String aiResponse = null;
-            
-            // 策略1：通过 Gitee AI Chat 特有的 prose 容器（根据实际页面结构）
-            try {
-                log.debug("🔍 [策略1] 尝试通过 prose 容器提取...");
-                Locator proseContainer = page.locator(".n-prose, .prose-borderless, [class*='prose']").last();
-                int count = proseContainer.count();
-                log.debug("   找到 {} 个 prose 容器", count);
-                if (count > 0) {
-                    aiResponse = proseContainer.textContent().trim();
-                    log.debug("✅ [Gitee AI] 通过 prose 容器提取到回复，长度: {}", aiResponse.length());
-                } else {
-                    log.debug("   未找到 prose 容器");
+                long elapsedTime = System.currentTimeMillis() - startTime;
+                if (elapsedTime > maxTimeout) {
+                    log.warn("[Gitee AI] 超时，AI未完成回答或回答时间过长");
+                    break;
                 }
-            } catch (Exception e) {
-                log.debug("❌ [策略1] 失败: {}", e.getMessage());
-            }
-            
-            // 策略2：通过 sipplebar-content-wrapper
-            if (aiResponse == null || aiResponse.isEmpty()) {
+                
                 try {
-                    log.debug("🔍 [策略2] 尝试通过 content-wrapper 提取...");
-                    Locator contentWrapper = page.locator(".sipplebar-content-wrapper").last();
-                    int count = contentWrapper.count();
-                    log.debug("   找到 {} 个 content-wrapper", count);
-                    if (count > 0) {
-                        aiResponse = contentWrapper.textContent().trim();
-                        log.debug("✅ [Gitee AI] 通过 content-wrapper 提取到回复，长度: {}", aiResponse.length());
+                    // 提取当前内容
+                    Locator proseContainer = page.locator(".n-prose, .prose-borderless, [class*='prose']").last();
+                    if (proseContainer.count() > 0) {
+                        currentContent = proseContainer.textContent().trim();
+                    }
+                    
+                    int contentLength = currentContent.length();
+                    
+                    if (contentLength > 0) {
+                        hasEverHadContent = true;
+                        
+                        // 记录内容长度历史
+                        for (int i = contentLengthHistory.length - 1; i > 0; i--) {
+                            contentLengthHistory[i] = contentLengthHistory[i-1];
+                        }
+                        contentLengthHistory[0] = contentLength;
+                        
+                        // 检测内容是否稳定
+                        if (currentContent.equals(lastContent)) {
+                            stableCount++;
+                            noChangeCount++;
+                            
+                            // 检查是否还在生成（通过检测是否有加载指示器）
+                            boolean isGenerating = checkIfGenerating(page);
+                            
+                            if (!isGenerating && stableCount >= requiredStableCount) {
+                                log.info("[Gitee AI] 内容已稳定{}次，回复已完成", stableCount);
+                                break;
+                            } else if (isGenerating) {
+                                log.debug("[Gitee AI] 检测到正在生成，继续等待... (稳定次数: {})", stableCount);
+                            }
+                        } else {
+                            // 内容发生变化，重置计数器
+                            if (lastContent.length() > 0) {
+                                log.debug("[Gitee AI] 内容发生变化，长度: {} -> {}", lastContent.length(), contentLength);
+                            }
+                            stableCount = 0;
+                            noChangeCount = 0;
+                        }
+                        
+                        lastContent = currentContent;
                     } else {
-                        log.debug("   未找到 content-wrapper");
+                        if (hasEverHadContent) {
+                            log.debug("[Gitee AI] 内容为空，但之前有内容，继续等待...");
+                        }
                     }
+                    
+                    // 每10秒输出一次进度
+                    if (elapsedTime % 10000 < checkInterval) {
+                        log.info("[Gitee AI] 等待中... 已等待{}秒，当前内容长度: {}", elapsedTime / 1000, contentLength);
+                    }
+                    
                 } catch (Exception e) {
-                    log.debug("❌ [策略2] 失败: {}", e.getMessage());
+                    log.trace("[Gitee AI] 检测回复状态异常（忽略）: {}", e.getMessage());
                 }
+                
+                page.waitForTimeout(checkInterval);
             }
             
-            // 策略3：获取最后一条消息
-            if (aiResponse == null || aiResponse.isEmpty()) {
-                try {
-                    Locator messages = page.locator(".message, .chat-message, [class*='message']");
-                    if (messages.count() > 0) {
-                        Locator lastMessage = messages.last();
-                        aiResponse = lastMessage.textContent().trim();
-                        log.debug("✅ [Gitee AI] 通过消息列表提取到回复");
-                    }
-                } catch (Exception e) {
-                    log.trace("策略3（消息列表）失败: {}", e.getMessage());
-                }
-            }
+            log.info("[Gitee AI] AI回复检测完成，准备提取内容");
+            page.waitForTimeout(1000); // 等待内容稳定
             
-            // 策略4：通过 AI 回复区域
-            if (aiResponse == null || aiResponse.isEmpty()) {
-                try {
-                    Locator aiReply = page.locator(".ai-response, .assistant-message, [class*='assistant']").last();
-                    if (aiReply.count() > 0) {
-                        aiResponse = aiReply.textContent().trim();
-                        log.debug("✅ [Gitee AI] 通过 AI 回复区域提取到回复");
-                    }
-                } catch (Exception e) {
-                    log.trace("策略4（AI回复区域）失败: {}", e.getMessage());
-                }
-            }
+            // 步骤5：提取 AI 回复内容（参考 DeepSeek 的格式化处理）
+            log.info("📝 [Gitee AI] 开始提取回复内容");
+            
+            String aiResponse = extractGiteeResponse(page);
             
             if (aiResponse != null && !aiResponse.isEmpty()) {
                 log.info("✅ [Gitee AI] 成功获取 AI 回复，长度: {}", aiResponse.length());
                 return aiResponse;
             } else {
                 log.error("❌ [Gitee AI] 未能提取到有效回复");
-                
-                // 🔍 调试：输出页面结构帮助定位选择器
-                try {
-                    log.debug("🔍 [调试] 开始分析页面结构...");
-                    
-                    // 输出最后 10 个 div 的 class
-                    String divClasses = page.evaluate(
-                        "Array.from(document.querySelectorAll('div[class]')).slice(-10).map((el, i) => `${i}: ${el.className}`).join('\\n')"
-                    ).toString();
-                    log.debug("📄 [调试] 最后 10 个 div 的 class:\n{}", divClasses);
-                    
-                    // 输出最后 5 个有文本的叶子元素
-                    String textElements = page.evaluate(
-                        "Array.from(document.querySelectorAll('*')).filter(el => el.childElementCount === 0 && el.textContent.trim().length > 10).slice(-5).map(el => `${el.tagName}.${el.className}: ${el.textContent.trim().substring(0, 80)}`).join('\\n\\n')"
-                    ).toString();
-                    log.debug("📝 [调试] 最后 5 个有文本的叶子元素:\n{}", textElements);
-                    
-                } catch (Exception debugEx) {
-                    log.warn("调试信息获取失败: {}", debugEx.getMessage());
-                }
-                
                 return null;
             }
             
@@ -427,12 +608,422 @@ public class GiteeAiUtil {
 
     /**
      * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * 功能：提取 Gitee AI 回复内容（参考 DeepSeek 的格式化处理）
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * 
+     * @param page Playwright页面对象
+     * @return 格式化后的回复内容
+     */
+    private String extractGiteeResponse(Page page) {
+        try {
+            log.debug("[Gitee AI] 开始提取格式化的回复内容");
+            
+            Object jsResult = page.evaluate("""
+            () => {
+                try {
+                    // 策略1：通过 prose 容器提取（优先）
+                    const proseContainers = document.querySelectorAll('.n-prose, .prose-borderless, [class*="prose"]');
+                    if (proseContainers.length === 0) {
+                        return { content: '', source: 'no-prose-containers' };
+                    }
+                    
+                    const latestContainer = proseContainers[proseContainers.length - 1];
+                    const containerClone = latestContainer.cloneNode(true);
+                    
+                    // 移除不需要的元素
+                    const elementsToRemove = containerClone.querySelectorAll(
+                        'svg, button, [role="button"], ' +
+                        '[class*="loading"], [class*="typing"], [class*="cursor"], ' +
+                        '[class*="spinner"], [class*="icon"], ' +
+                        '.n-spin, .n-loading, .loading-indicator'
+                    );
+                    elementsToRemove.forEach(el => el.remove());
+                    
+                    // 移除空的 div
+                    const emptyDivs = containerClone.querySelectorAll('div:empty, span:empty, p:empty');
+                    emptyDivs.forEach(div => div.remove());
+                    
+                    // 清理多余的空白
+                    const cleanedContent = containerClone.innerHTML
+                        .replace(/\\s+/g, ' ')
+                        .replace(/<p>\\s*<\\/p>/g, '')
+                        .replace(/<div>\\s*<\\/div>/g, '')
+                        .trim();
+                    
+                    return {
+                        content: cleanedContent,
+                        source: 'prose-container-cleaned',
+                        timestamp: Date.now()
+                    };
+                } catch (e) {
+                    return {
+                        content: '',
+                        source: 'error',
+                        error: e.toString()
+                    };
+                }
+            }
+            """);
+
+            if (jsResult instanceof Map) {
+                Map<String, Object> result = (Map<String, Object>) jsResult;
+                String content = (String) result.getOrDefault("content", "");
+                String source = (String) result.getOrDefault("source", "");
+                
+                if (!content.trim().isEmpty()) {
+                    log.debug("[Gitee AI] 成功提取格式化内容，来源: {}", source);
+                    return content;
+                }
+            }
+            
+            log.warn("[Gitee AI] 策略1失败，尝试备用策略");
+            
+            // 策略2：通过 content-wrapper 提取
+            Object fallbackResult = page.evaluate("""
+            () => {
+                try {
+                    const wrappers = document.querySelectorAll('.sipplebar-content-wrapper');
+                    if (wrappers.length === 0) {
+                        return { content: '', source: 'no-wrappers' };
+                    }
+                    
+                    const latestWrapper = wrappers[wrappers.length - 1];
+                    const wrapperClone = latestWrapper.cloneNode(true);
+                    
+                    // 移除不需要的元素
+                    const elementsToRemove = wrapperClone.querySelectorAll(
+                        'svg, button, [role="button"], ' +
+                        '[class*="loading"], [class*="typing"], [class*="cursor"]'
+                    );
+                    elementsToRemove.forEach(el => el.remove());
+                    
+                    const cleanedContent = wrapperClone.innerHTML
+                        .replace(/\\s+/g, ' ')
+                        .trim();
+                    
+                    return {
+                        content: cleanedContent,
+                        source: 'wrapper-cleaned'
+                    };
+                } catch (e) {
+                    return {
+                        content: '',
+                        source: 'error',
+                        error: e.toString()
+                    };
+                }
+            }
+            """);
+            
+            if (fallbackResult instanceof Map) {
+                Map<String, Object> result = (Map<String, Object>) fallbackResult;
+                String content = (String) result.getOrDefault("content", "");
+                String source = (String) result.getOrDefault("source", "");
+                
+                if (!content.trim().isEmpty()) {
+                    log.debug("[Gitee AI] 备用策略成功，来源: {}", source);
+                    return content;
+                }
+            }
+            
+            return "";
+            
+        } catch (Exception e) {
+            log.error("[Gitee AI] 提取回复内容失败", e);
+            return "";
+        }
+    }
+
+    /**
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * 辅助方法：切换Gitee AI Chat模式（开源探索/帮助中心）
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     */
+    private void toggleGiteeMode(Page page, String modeText, boolean shouldActive) {
+        try {
+            // 查找包含指定文本的模式按钮
+            String buttonSelector = String.format(
+                "div.ant-dropdown-trigger:has-text('%s'), div:has-text('%s')", 
+                modeText, modeText);
+            
+            Locator button = page.locator(buttonSelector).first();
+            
+            // 快速检查按钮是否存在和可见，减少等待时间
+            if (button.count() == 0) {
+                log.debug("[Gitee AI] {}模式按钮不存在，跳过切换", modeText);
+                return;
+            }
+            
+            if (!button.isVisible()) {
+                log.debug("[Gitee AI] {}模式按钮不可见，跳过切换", modeText);
+                return;
+            }
+            
+            // 检查当前激活状态
+            String currentClasses = (String) button.evaluate("el => el.className");
+            boolean isCurrentlyActive = currentClasses.contains("bg-[#EAF2FE]") || 
+                                       currentClasses.contains("text-[#2C7EF8]");
+            
+            // 如果当前状态与目标状态不同，则切换
+            if (isCurrentlyActive != shouldActive) {
+                if (shouldActive) {
+                    // 激活模式：点击按钮
+                    button.click(new Locator.ClickOptions().setTimeout(3000).setForce(true));
+                    
+                    // 等待下拉菜单出现并选择第一个选项
+                    page.waitForTimeout(300);
+                    
+                    // 查找下拉菜单中的选项（通常是第一个选项）
+                    try {
+                        Locator dropdownOption = page.locator(".ant-dropdown-menu-item").first();
+                        if (dropdownOption.count() > 0 && dropdownOption.isVisible()) {
+                            dropdownOption.click();
+                            log.info("[Gitee AI] 已激活{}模式", modeText);
+                        } else {
+                            log.debug("[Gitee AI] 未找到下拉菜单选项，可能已直接激活");
+                        }
+                    } catch (Exception e) {
+                        log.debug("[Gitee AI] 下拉菜单操作失败: {}", e.getMessage());
+                    }
+                } else {
+                    // 关闭模式：点击当前激活的按钮来取消选择
+                    button.click(new Locator.ClickOptions().setTimeout(3000).setForce(true));
+                    log.info("[Gitee AI] 已关闭{}模式", modeText);
+                }
+                
+                // 等待状态变化
+                page.waitForTimeout(500);
+            } else {
+                log.debug("[Gitee AI] {}模式已经是{}状态", modeText, shouldActive ? "开启" : "关闭");
+            }
+        } catch (Exception e) {
+            log.warn("[Gitee AI] 切换{}模式失败: {}", modeText, e.getMessage());
+        }
+    }
+
+    /**
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      * 辅助方法：清理文本内容
      * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      */
     private String cleanText(String text) {
         if (text == null) return "";
         return text.replaceAll("\\s+", " ").trim();
+    }
+
+    /**
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * 功能：检查是否仍在生成内容
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * 
+     * @param page Playwright页面对象
+     * @return true表示正在生成，false表示已停止
+     */
+    private boolean checkIfGenerating(Page page) {
+        try {
+            Object generatingStatus = page.evaluate("""
+            () => {
+                try {
+                    // 检测Gitee AI特有的加载指示器
+                    const thinkingIndicators = document.querySelectorAll(
+                        '.n-spin, .n-loading, .loading-indicator, .thinking-indicator, ' +
+                        '[class*="loading"], [class*="typing"], [class*="generating"], ' +
+                        '.cursor-blink, .typing-indicator'
+                    );
+                    
+                    for (const indicator of thinkingIndicators) {
+                        if (indicator && 
+                            window.getComputedStyle(indicator).display !== 'none' && 
+                            window.getComputedStyle(indicator).visibility !== 'hidden') {
+                            return true;
+                        }
+                    }
+                    
+                    // 检测停止生成按钮
+                    const stopButtons = document.querySelectorAll(
+                        'button:has-text("停止"), button:has-text("Stop"), ' +
+                        '[title*="停止"], [title*="Stop"], ' +
+                        '.stop-generating-button, [class*="stop"]'
+                    );
+                    
+                    for (const btn of stopButtons) {
+                        if (btn && 
+                            window.getComputedStyle(btn).display !== 'none' && 
+                            window.getComputedStyle(btn).visibility !== 'hidden') {
+                            return true;
+                        }
+                    }
+                    
+                    // 检测光标闪烁（正在输入的标志）
+                    const cursors = document.querySelectorAll(
+                        '.cursor, [class*="cursor"], .typing-cursor'
+                    );
+                    
+                    for (const cursor of cursors) {
+                        if (cursor && 
+                            window.getComputedStyle(cursor).display !== 'none' && 
+                            window.getComputedStyle(cursor).visibility !== 'hidden') {
+                            return true;
+                        }
+                    }
+                    
+                    return false;
+                } catch (e) {
+                    console.error('检查生成状态时出错:', e);
+                    return false;
+                }
+            }
+            """);
+
+            return generatingStatus instanceof Boolean ? (Boolean) generatingStatus : false;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * 功能：提取当前会话ID
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * 
+     * @param page Playwright页面对象
+     * @return 会话ID，如果无法提取则返回null
+     */
+    public String extractChatId(Page page) {
+        try {
+            log.info("[Gitee AI] ========== 开始提取会话ID ==========");
+            
+            // 🔥 关键：等待 URL 更新（发送消息后，URL 可能需要时间更新）
+            log.info("[Gitee AI] 等待 URL 更新...");
+            page.waitForTimeout(2000);
+            
+            // 步骤1：从URL中提取会话ID（最快、最可靠）
+            try {
+                String currentUrl = page.url();
+                log.info("[Gitee AI] 当前URL: {}", currentUrl);
+                
+                // Gitee AI Chat 的实际会话URL格式：https://chat.gitee.com/c/{chatId}
+                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("/c/([^/?#]+)");
+                java.util.regex.Matcher matcher = pattern.matcher(currentUrl);
+                if (matcher.find()) {
+                    String chatId = matcher.group(1);
+                    log.info("[Gitee AI] ✅ 从URL提取到会话ID: {}", chatId);
+                    return chatId;
+                } else {
+                    log.warn("[Gitee AI] ⚠️ URL中未找到 /c/ 格式的会话ID");
+                }
+            } catch (Exception e) {
+                log.error("[Gitee AI] ❌ 从URL提取会话ID失败: {}", e.getMessage(), e);
+            }
+            
+            // 步骤2：尝试使用evaluate方法提取（轻量级）
+            try {
+                log.info("[Gitee AI] 尝试通过JavaScript获取URL...");
+                String currentUrl = (String) page.evaluate("() => window.location.href");
+                log.info("[Gitee AI] JavaScript获取的URL: {}", currentUrl);
+                
+                if (currentUrl != null) {
+                    java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("/c/([^/?#]+)");
+                    java.util.regex.Matcher matcher = pattern.matcher(currentUrl);
+                    if (matcher.find()) {
+                        String chatId = matcher.group(1);
+                        log.info("[Gitee AI] ✅ 从JavaScript提取到会话ID: {}", chatId);
+                        return chatId;
+                    } else {
+                        log.warn("[Gitee AI] ⚠️ JavaScript获取的URL中未找到 /c/ 格式的会话ID");
+                    }
+                }
+            } catch (Exception e) {
+                log.error("[Gitee AI] ❌ 从JavaScript提取会话ID失败: {}", e.getMessage(), e);
+            }
+            
+            // 步骤3：尝试从localStorage提取（备选方案）
+            try {
+                log.info("[Gitee AI] 尝试从localStorage提取...");
+                String chatId = (String) page.evaluate("() => localStorage.getItem('chatId')");
+                if (chatId != null && !chatId.isEmpty()) {
+                    log.info("[Gitee AI] ✅ 从localStorage提取到会话ID: {}", chatId);
+                    return chatId;
+                } else {
+                    log.warn("[Gitee AI] ⚠️ localStorage中没有chatId");
+                }
+            } catch (Exception e) {
+                log.error("[Gitee AI] ❌ 从localStorage提取会话ID失败: {}", e.getMessage(), e);
+            }
+            
+            // 步骤4：尝试从页面中查找会话ID（作为最后的备选方案）
+            try {
+                log.info("[Gitee AI] 尝试从页面元素中查找...");
+                String chatId = (String) page.evaluate("function() { try { const links = document.querySelectorAll('a'); for (let link of links) { const href = link.href; if (href && href.includes('chat.gitee.com/c/')) { const match = href.match(/chat\\.gitee\\.com\\/c\\/([^/?#]+)/); if (match) return match[1]; } } return null; } catch(e) { return null; } }");
+                if (chatId != null && !chatId.isEmpty()) {
+                    log.info("[Gitee AI] ✅ 从页面元素提取到会话ID: {}", chatId);
+                    return chatId;
+                } else {
+                    log.warn("[Gitee AI] ⚠️ 页面元素中未找到会话ID");
+                }
+            } catch (Exception e) {
+                log.error("[Gitee AI] ❌ 从页面元素提取会话ID失败: {}", e.getMessage(), e);
+            }
+            
+            // 🔥 调试：输出页面结构帮助定位问题
+            try {
+                log.info("[Gitee AI] ========== 调试信息 ==========");
+                log.info("[Gitee AI] 页面标题: {}", page.title());
+                
+                // 输出所有链接
+                String allLinks = (String) page.evaluate("() => Array.from(document.querySelectorAll('a[href*=\"chat.gitee.com/c/\"]')).map(a => a.href).join('\\n')");
+                if (allLinks != null && !allLinks.isEmpty()) {
+                    log.info("[Gitee AI] 找到的会话链接:\\n{}", allLinks);
+                } else {
+                    log.warn("[Gitee AI] 未找到任何 chat.gitee.com/c/ 格式的链接");
+                }
+            } catch (Exception e) {
+                log.warn("[Gitee AI] 获取调试信息失败: {}", e.getMessage());
+            }
+            
+            log.error("[Gitee AI] ❌ 所有提取方法都失败，未能提取到会话ID");
+            log.info("[Gitee AI] ========== 提取会话ID结束 ==========");
+            return null;
+            
+        } catch (Exception e) {
+            log.error("[Gitee AI] ❌ 提取会话ID过程中发生异常", e);
+            return null;
+        }
+    }
+
+    /**
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * 功能：导航到指定会话
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * 
+     * @param page Playwright页面对象
+     * @param chatId 会话ID
+     * @return 是否导航成功
+     */
+    public boolean navigateToChat(Page page, String chatId) {
+        if (chatId == null || chatId.isEmpty()) {
+            log.warn("[Gitee AI] 会话ID为空，导航到首页");
+            page.navigate(GITEE_AI_HOME_URL, new Page.NavigateOptions().setTimeout(10000));
+            return true;
+        }
+        
+        try {
+            log.info("[Gitee AI] 导航到会话: {}", chatId);
+            // Gitee AI Chat的实际会话URL格式：https://chat.gitee.com/c/{chatId}
+            String chatUrl = GITEE_AI_HOME_URL + "c/" + chatId;
+            page.navigate(chatUrl, new Page.NavigateOptions()
+                .setTimeout(15000)
+                .setWaitUntil(WaitUntilState.NETWORKIDLE));
+            
+            page.waitForLoadState(LoadState.DOMCONTENTLOADED);
+            page.waitForTimeout(2000);
+            
+            log.info("[Gitee AI] 成功导航到会话，等待页面稳定");
+            return true;
+        } catch (Exception e) {
+            log.error("[Gitee AI] 导航到会话失败: {}", e.getMessage());
+            return false;
+        }
     }
 }
 

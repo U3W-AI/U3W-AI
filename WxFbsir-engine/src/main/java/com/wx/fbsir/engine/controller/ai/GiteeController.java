@@ -321,12 +321,55 @@ public class GiteeController extends StreamTaskHelper {
         String sessionId = extractSessionId(message);
         String aiType = extractAiType(message);  // "gitee"
         
-        // 从 payload 中提取参数
-        String query = message.getPayloadValue("query");
-        String chatId = message.getPayloadValue("chatId");
-        String giteeChatId = message.getPayloadValue("giteeChatId");
+        log.info("🤖 [Gitee AI咨询] 收到消息 - 会话: {}, AI: {}", sessionId, aiType);
         
-        log.info("🤖 [Gitee AI咨询] 开始 - 用户: {}, 会话: {}, 问题: {}", userId, sessionId, query);
+        // 直接从原始JSON解析payload，完全绕过fastjson2的Map序列化问题
+        String rawJson = message.getRawJson();
+        if (rawJson == null || rawJson.isEmpty()) {
+            log.error("[Gitee咨询] 原始JSON为空");
+            return;
+        }
+        
+        // 直接解析原始JSON获取payload
+        com.alibaba.fastjson2.JSONObject rootJson = com.alibaba.fastjson2.JSON.parseObject(rawJson);
+        if (rootJson == null) {
+            log.error("[Gitee咨询] JSON解析失败");
+            return;
+        }
+        
+        com.alibaba.fastjson2.JSONObject payload = rootJson.getJSONObject("payload");
+        if (payload == null) {
+            log.error("[Gitee咨询] payload字段不存在");
+            return;
+        }
+        
+        // 使用JSONObject原生方法提取参数
+        String query = payload.getString("query");
+        // 🔥 区分两种ID：chatId是前端数据库分组ID，giteeChatId是Gitee的AI会话ID
+        String chatId = payload.getString("chatId");  // 前端分组ID（不用于Gitee导航）
+        // 🔥 兼容两种参数名：deepseek使用deepseekChatId，前端可能传递chatId
+        String giteeChatId = payload.getString("giteeChatId");  // Gitee AI会话ID（用于上下文复用）
+        if (giteeChatId == null || giteeChatId.isEmpty()) {
+            giteeChatId = payload.getString("chatId");  // 兼容前端传递的chatId参数
+        }
+        
+        // 提取模式参数
+        boolean enableOpenSourceExploration = payload.getBooleanValue("openSourceExploration", false);
+        boolean enableHelpCenter = payload.getBooleanValue("helpCenter", false);
+        
+        log.info("[Gitee咨询] ✅ 解析参数 - query: {}, openSourceExploration: {}, helpCenter: {}, 前端chatId: {}, giteeChatId: {}", 
+            query, enableOpenSourceExploration, enableHelpCenter, chatId, giteeChatId);
+        
+        // 确定使用的模式
+        String mode = "normal";
+        if (enableOpenSourceExploration) {
+            mode = "openSourceExploration";
+        } else if (enableHelpCenter) {
+            mode = "helpCenter";
+        }
+        
+        log.info("[Gitee咨询] 开始 - 用户: {}, sessionId: {}, 模式: {}, 前端chatId: {}, giteeChatId: {}", 
+            userId, sessionId, mode, chatId, giteeChatId != null ? giteeChatId : "新会话");
         
         // 启动 AI 流式任务（自动发送 AI_TASK_* 格式消息）
         StreamTask task = startAiStreamTask(userId, sessionId, aiType, 6000);
@@ -341,27 +384,40 @@ public class GiteeController extends StreamTaskHelper {
             session = browserPool.acquirePersistent(userId, "gitee", false);
             Page page = session.getOrCreatePage();
             
-            // 检查登录状态
-            task.sendLog("正在验证登录状态...");
-            
-            // 🔍 临时调试：跳过登录检测，直接测试发送消息流程
-            String loginStatus = giteeAiUtil.checkLoginStatus(page, true);
-            log.warn("🔍 [Gitee 调试] 登录状态检测结果: {}, 但暂时跳过登录检查", loginStatus);
-            task.sendLog("⚠️ 调试模式：已跳过登录检测");
-            
-            // if ("false".equals(loginStatus)) {
-            //     task.sendError("未登录，请先在登录管理器中完成 Gitee AI Chat 扫码登录");
-            //     // 🔥 未登录时立即销毁会话，关闭浏览器（节省资源）
-            //     browserPool.destroy(session);
-            //     session = null;
-            //     return;
-            // }
+            // 🔥 使用giteeChatId进行会话恢复（AI上下文复用）
+            if (giteeChatId != null && !giteeChatId.isEmpty()) {
+                task.sendLog("正在恢复Gitee会话: " + giteeChatId);
+                boolean navigated = giteeAiUtil.navigateToChat(page, giteeChatId);
+                log.info("[Gitee咨询] 导航到Gitee会话 {} 结果: {}", giteeChatId, navigated ? "成功" : "失败");
+                if (!navigated) {
+                    task.sendError("导航到Gitee会话失败: " + giteeChatId);
+                    return;
+                }
+                
+                // 在会话页面检查登录状态
+                task.sendLog("正在检查登录状态...");
+                String loginStatus = giteeAiUtil.checkLoginStatus(page, false);
+                if ("false".equals(loginStatus)) {
+                    task.sendError("未登录，请先完成扫码登录");
+                    return;
+                }
+            } else {
+                log.info("[Gitee咨询] 未提供 giteeChatId，将创建新Gitee会话");
+                // 访问首页并检查登录状态
+                task.sendLog("正在检查登录状态...");
+                String loginStatus = giteeAiUtil.checkLoginStatus(page, true);
+                if ("false".equals(loginStatus)) {
+                    task.sendError("未登录，请先完成扫码登录");
+                    return;
+                }
+            }
             
             task.sendLog("登录验证通过，准备发送问题...");
             
             // 发送问题并等待回复
             task.sendLog("正在向 Gitee AI 发送问题...");
-            String aiResponse = giteeAiUtil.sendMessageAndWaitResponse(page, query);
+            task.sendLog("当前模式: " + mode);
+            String aiResponse = giteeAiUtil.sendMessageAndWaitResponse(page, query, enableOpenSourceExploration, enableHelpCenter);
             
             if (aiResponse == null || aiResponse.isEmpty()) {
                 task.sendError("AI 未返回有效回复");
@@ -369,6 +425,16 @@ public class GiteeController extends StreamTaskHelper {
             }
             
             task.sendLog("✅ Gitee AI 回复完成");
+            
+            // 等待页面渲染完成
+            page.waitForTimeout(2000);
+            
+            task.sendLog("正在提取会话信息...");
+            
+            // 提取会话ID
+            String newChatId = giteeAiUtil.extractChatId(page);
+            String shareUrl = newChatId != null ? 
+                "https://chat.gitee.com/c/" + newChatId : null;
             
             // 截图保存结果
             String screenshotUrl = captureAndUpload(page, userId, "gitee_ai_result");
@@ -379,11 +445,19 @@ public class GiteeController extends StreamTaskHelper {
             // 构建返回数据
             long elapsedTime = (System.currentTimeMillis() - startTime) / 1000;
             Map<String, Object> resultData = new HashMap<>();
+            resultData.put("chatId", newChatId);  // 返回新的会话ID供下次复用（与DeepSeek保持一致）
             resultData.put("answer", aiResponse);
-            resultData.put("giteeChatId", giteeChatId);  // 暂时回传，后续需实现会话ID提取
-            resultData.put("shareUrl", "");  // 预留：分享链接
+            resultData.put("shareUrl", shareUrl);  // 分享链接
             resultData.put("elapsedTime", elapsedTime);
             resultData.put("query", query);
+            resultData.put("mode", mode);  // 添加使用的模式
+            
+            //  调试：打印返回数据
+//            log.debug("[Gitee AI咨询] newChatId值: '{}', 是否为空: {}", newChatId, newChatId == null || newChatId.isEmpty());
+//            log.debug("[Gitee AI咨询] 返回数据: chatId={}, shareUrl={}, elapsedTime={}秒, answer长度={}",
+//                newChatId, shareUrl, elapsedTime, aiResponse.length());
+//            log.debug("[Gitee AI咨询] resultData内容: {}", resultData);
+//            log.debug("[Gitee AI咨询] resultData是否包含chatId: {}", resultData.containsKey("chatId"));
             
             // 发送成功结果
             task.sendSuccess("Gitee AI Chat 回复完成", resultData);

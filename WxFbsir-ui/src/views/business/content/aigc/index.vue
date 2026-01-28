@@ -483,6 +483,7 @@ export default {
       dbChatId: '',
       tyChatId: '',
       deepseekChatId: '',
+      giteeChatId: '',
       maxChatId: '',
       metasoChatId: '',
       kimiChatId: '',
@@ -781,6 +782,7 @@ export default {
         userInfoReq.value.tyChatId = item.tyChatId || ''
         // 🔥 DeepSeek会话ID：优先从nestedData获取（AI上下文复用），其次从数据库字段
         userInfoReq.value.deepseekChatId = nestedData.chatId || item.deepseekChatId || ''
+        userInfoReq.value.giteeChatId = nestedData.chatId || item.giteeChatId || ''
         userInfoReq.value.maxChatId = item.maxChatId || ''
         userInfoReq.value.metasoChatId = item.metasoChatId || ''
         userInfoReq.value.kimiChatId = item.kimiChatId || ''
@@ -1157,12 +1159,14 @@ export default {
               }
               results.value.push(resultItem)
               
-              // 🔥 保存返回的AI会话ID（仅用于上下文复用，不覆盖前端chatId）
+              // 🔥 保存返回的AI会话ID（根据AI类型动态存储，仅用于上下文复用）
               // currentChatId 是前端生成的会话分组ID，用于数据库关联多轮对话
-              // deepseekChatId 是DeepSeek返回的AI内部会话ID，用于AI上下文复用
+              // [aiId]ChatId 是AI返回的内部会话ID，用于AI上下文复用
               if (resultData.chatId) {
-                userInfoReq.value.deepseekChatId = resultData.chatId
-                console.log('📝 [保存AI会话ID] deepseekChatId:', resultData.chatId, '(前端chatId保持不变:', currentChatId.value, ')')
+                const aiConfig = getEngineConfig(aiType)
+                const chatIdField = aiConfig?.chatIdField || `${aiType}ChatId`
+                userInfoReq.value[chatIdField] = resultData.chatId
+                console.log(`📝 [保存AI会话ID] ${chatIdField}:`, resultData.chatId, '(前端chatId保持不变:', currentChatId.value, ')')
               }
               
               // 添加对话截图到幻灯片（如果有）
@@ -1170,7 +1174,7 @@ export default {
                 screenshots.value.push(resultData.conversationScreenshot)
               }
               
-              addProgressLog(`${aiDisplayName}回复完成，耗时${resultData.elapsedTime}秒`)
+              addProgressLog(`${aiDisplayName}回复完成，耗时${resultData.elapsedTime}秒`, aiType)
               ElMessage.success(payload.message || `${aiDisplayName}回复完成`)
               
               // 🔥 后端Admin已自动存储，前端无需再调用数据库
