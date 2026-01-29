@@ -956,15 +956,71 @@ export default {
         payload[optionKey] = aiOptions[optionKey]
       })
       
-      // 发送消息
-      sendWebSocketMessage(queryType, payload)
-      
-      // 🔥 首次发送后标记为非新会话
-      isNewChat.value = false
-      userInfoReq.value.isNewChat = false
-      
-      addProgressLog(`已发送请求到 ${config.displayName}`)
-      console.log(`📝 [发送请求] AI: ${config.displayName}, chatId: ${currentChatId.value}, sessionId: ${sessionId}, ${chatIdField}: ${aiChatId}`)
+      // 🔥 检查是否为Gitee AI请求，如果是则使用HTTP调用Admin接口进行积分检查
+      if (aiId === 'gitee') {
+        console.log('🚀 [Gitee AI] 使用HTTP调用Admin接口进行积分检查')
+        
+        // 构建AI请求对象
+        const aiRequest = {
+          type: 'AI_GITEE_QUERY',
+          userId: userStore.id || '',
+          prompt: promptInput.value,
+          chatId: currentChatId.value,
+          sessionId: sessionId,
+          isNewChat: isNewChat.value,
+          [chatIdField]: aiChatId
+        }
+        
+        // 🔥 调试日志：输出完整的AI请求对象
+        console.log('📋 [AI请求对象]', aiRequest)
+        console.log('🔍 [请求类型]', aiRequest.type)
+        console.log('👤 [用户ID]', aiRequest.userId)
+        console.log('🔧 [UserStore]', {
+          id: userStore.id,
+          name: userStore.name,
+          token: userStore.token,
+          hasToken: !!userStore.token
+        })
+        
+        // 调用Admin接口
+        sendAiRequest(aiRequest)
+          .then(response => {
+            if (response.code === 200) {
+              console.log('✅ [Admin接口] 积分检查通过，请求已转发到Engine')
+              addProgressLog(`积分检查通过，正在处理请求...`)
+              
+              // 首次发送后标记为非新会话
+              isNewChat.value = false
+              userInfoReq.value.isNewChat = false
+              
+              // 🔥 积分检查通过后，继续发送WebSocket消息到Engine执行实际任务
+              console.log('🚀 [WebSocket] 积分检查通过，开始发送实际执行请求到Engine')
+              sendWebSocketMessage(queryType, payload)
+              
+              addProgressLog(`已发送请求到 ${config.displayName}`)
+              console.log(`📝 [发送请求] AI: ${config.displayName}, chatId: ${currentChatId.value}, sessionId: ${sessionId}, ${chatIdField}: ${aiChatId}`)
+            } else {
+              console.error('❌ [Admin接口] 积分检查失败:', response.msg)
+              ElMessage.error(response.msg || '积分检查失败')
+              isSending.value = false
+            }
+          })
+          .catch(error => {
+            console.error('❌ [Admin接口] 请求失败:', error)
+            ElMessage.error('请求失败，请稍后重试')
+            isSending.value = false
+          })
+      } else {
+        // 其他AI使用WebSocket直接调用
+        sendWebSocketMessage(queryType, payload)
+        
+        // 🔥 首次发送后标记为非新会话
+        isNewChat.value = false
+        userInfoReq.value.isNewChat = false
+        
+        addProgressLog(`已发送请求到 ${config.displayName}`)
+        console.log(`📝 [发送请求] AI: ${config.displayName}, chatId: ${currentChatId.value}, sessionId: ${sessionId}, ${chatIdField}: ${aiChatId}`)
+      }
     }
     
     const sendWebSocketMessage = (type, payload) => {

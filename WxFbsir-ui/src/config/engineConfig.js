@@ -104,7 +104,7 @@ export const ENGINE_CONFIGS = reactive([
     // 图标配置（支持URL或相对路径）
     icon: {
       type: 'url',              // 'element' | 'url' | 'local'
-      value: 'https://gitee.com/static/images/logo-black.svg',
+      value: 'https://chat.gitee.com/ai-teammates/_next/static/media/Ai@2x.f426668a.gif',
     },
 
     // 消息类型配置

@@ -3,6 +3,8 @@ package com.wx.fbsir.business.aigc.controller;
 import com.wx.fbsir.business.aigc.domain.ChatHistoryRequest;
 import com.wx.fbsir.business.aigc.domain.AiRequest;
 import com.wx.fbsir.business.aigc.service.IAigcService;
+import com.wx.fbsir.business.point.domain.PointsResult;
+import com.wx.fbsir.business.point.service.PointsPrecheckService;
 // import com.wx.fbsir.business.websocket.server.EngineSessionManager;
 import com.wx.fbsir.common.annotation.Log;
 import com.wx.fbsir.common.core.controller.BaseController;
@@ -48,6 +50,9 @@ public class AigcController extends BaseController {
 
     @Autowired
     private IAigcService aigcService;
+    
+    @Autowired
+    private PointsPrecheckService pointsPrecheckService;
 
     // TODO: 实现WebSocket通信到Engine端
     // @Autowired
@@ -89,13 +94,32 @@ public class AigcController extends BaseController {
             // 4. 保存初始请求记录到数据库（用于全链路追踪）
             aigcService.saveInitialRequest(aiRequest);
 
-            // 5. 通过WebSocket转发到Engine端处理 - 临时简化实现
-            // TODO: 实现具体的Engine通信逻辑
-            // boolean sent = engineSessionManager.sendToEngine(hostId, aiRequest);
-            // if (!sent) {
-            //     return AjaxResult.error("主机离线或连接异常，请检查Engine服务状态");
-            // }
+            // 5. 积分扣减（针对需要积分的AI服务）
+            // TODO: 积分扣减仍需要完善
+            String requestType = aiRequest.getType();
+            if (requestType != null && requestType.contains("GITEE")) {
+                // 扣减积分
+                try {
+//                    PointsResult pointsResult = pointsPrecheckService.tryChangePoints(userId, "GITEE_ANALYSIS", null);
+                    PointsResult pointsResult = pointsPrecheckService.tryChangePoints(userId, "USE_GITEE_AI", null);
+                    if (pointsResult.isSuccess()) {
+                        // 保存积分余额到请求中，前端可获取
+                        aiRequest.setPointsBalance(pointsResult.getBalanceAfter());
+                        logger.info("Gitee AI 积分扣减成功，用户ID: {}, 扣减后余额: {}", userId, pointsResult.getBalanceAfter());
+                    } else {
+                        // 积分扣减失败，记录日志但继续执行
+                        logger.warn("Gitee AI 积分扣减失败，用户ID: {}, 原因: {}", userId, pointsResult.getMsg());
+                    }
+                } catch (Exception e) {
+                    // 积分处理异常，记录日志但继续执行
+                    logger.error("Gitee AI 积分处理异常，用户ID: {}", userId, e);
+                }
+            }
 
+            // 6. 通过WebSocket转发到Engine端处理
+            // 临时实现：直接返回成功，Engine会通过WebSocket接收前端的实际请求
+            // TODO: 后续实现完整的Engine通信逻辑
+            
             return AjaxResult.success("请求已发送，正在处理中...", requestId);
             
         } catch (Exception e) {

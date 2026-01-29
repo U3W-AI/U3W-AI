@@ -452,12 +452,6 @@ public class GiteeController extends StreamTaskHelper {
             resultData.put("query", query);
             resultData.put("mode", mode);  // 添加使用的模式
             
-            //  调试：打印返回数据
-//            log.debug("[Gitee AI咨询] newChatId值: '{}', 是否为空: {}", newChatId, newChatId == null || newChatId.isEmpty());
-//            log.debug("[Gitee AI咨询] 返回数据: chatId={}, shareUrl={}, elapsedTime={}秒, answer长度={}",
-//                newChatId, shareUrl, elapsedTime, aiResponse.length());
-//            log.debug("[Gitee AI咨询] resultData内容: {}", resultData);
-//            log.debug("[Gitee AI咨询] resultData是否包含chatId: {}", resultData.containsKey("chatId"));
             
             // 发送成功结果
             task.sendSuccess("Gitee AI Chat 回复完成", resultData);

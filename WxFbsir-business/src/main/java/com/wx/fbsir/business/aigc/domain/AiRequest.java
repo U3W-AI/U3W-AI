@@ -78,6 +78,9 @@ public class AiRequest extends BaseEntity {
 
     /** 扩展参数（用于Admin端业务逻辑，如enabledAIs、progressLogs等） */
     private Map<String, Object> extraParams;
+    
+    /** 积分余额（扣减后的余额，用于前端显示） */
+    private Integer pointsBalance;
 
     public AiRequest() {
     }
@@ -169,6 +172,14 @@ public class AiRequest extends BaseEntity {
     public void setExtraParams(Map<String, Object> extraParams) {
         this.extraParams = extraParams;
     }
+
+    public Integer getPointsBalance() {
+        return pointsBalance;
+    }
+
+    public void setPointsBalance(Integer pointsBalance) {
+        this.pointsBalance = pointsBalance;
+    }
     
     // ==========================================================================
     // 🔧 便捷方法
@@ -211,6 +222,7 @@ public class AiRequest extends BaseEntity {
                 ", sessionId='" + sessionId + '\'' +
                 ", chatId='" + chatId + '\'' +
                 ", userPrompt='" + userPrompt + '\'' +
+                ", pointsBalance=" + pointsBalance +
                 ", payload=" + payload +
                 '}';
     }

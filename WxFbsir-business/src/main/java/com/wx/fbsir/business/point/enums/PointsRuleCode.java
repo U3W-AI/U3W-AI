@@ -21,7 +21,9 @@ public enum PointsRuleCode {
     /** 模板分成 */
     TEMPLATE_REWARD("TEMPLATE_REWARD", "模板分成", 8),
     /** 充值赠送 */
-    RECHARGE("RECHARGE", "充值赠送", 100);
+    RECHARGE("RECHARGE", "充值赠送", 100),
+    /** 使用Gitee AI助手 */
+    USE_GITEE_AI("USE_GITEE_AI", "使用Gitee AI助手", -1);
     
     /** 规则编码（唯一标识） */
     private final String code;
