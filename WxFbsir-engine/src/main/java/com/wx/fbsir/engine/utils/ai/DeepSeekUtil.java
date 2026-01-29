@@ -12,6 +12,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -75,6 +77,201 @@ public class DeepSeekUtil {
      * 刷新按钮点击标志（防止重复点击）
      */
     private volatile boolean hasClickedRefreshButton = false;
+    
+    /**
+     * 上传文件到DeepSeek
+     * 
+     * @param page Playwright页面对象
+     * @param filePath 本地文件路径
+     * @return 是否上传成功
+     */
+    public boolean uploadFile(Page page, String filePath) {
+        try {
+            log.info("[DeepSeek文件上传] 开始上传文件: {}", filePath);
+            
+            // 验证文件存在
+            Path path = Paths.get(filePath);
+            if (!path.toFile().exists()) {
+                log.error("[DeepSeek文件上传] 文件不存在: {}", filePath);
+                return false;
+            }
+            
+            // 方法1：尝试直接找到 input[type=file] 并设置文件
+            try {
+                Locator fileInput = page.locator("input[type='file']");
+                if (fileInput.count() > 0) {
+                    log.debug("[DeepSeek文件上传] 找到文件上传input元素");
+                    fileInput.setInputFiles(path);
+                    log.info("[DeepSeek文件上传] 文件已成功设置到input元素");
+                    
+                    // 等待文件解析完成
+                    return waitForFileParsing(page);
+                }
+            } catch (Exception e) {
+                log.debug("[DeepSeek文件上传] 直接设置input失败，尝试点击按钮方式: {}", e.getMessage());
+            }
+            
+            // 方法2：点击上传按钮触发文件选择器
+            try {
+                // 查找回形针图标的上传按钮
+                String uploadButtonSelector = "div.ds-icon-button:has(svg path[d*='M5.5498 9.75V5'])";
+                Locator uploadButton = page.locator(uploadButtonSelector);
+                
+                if (uploadButton.count() == 0) {
+                    // 尝试其他选择器
+                    uploadButtonSelector = "div.ds-icon-button[role='button']:has(svg)";
+                    uploadButton = page.locator(uploadButtonSelector);
+                }
+                
+                if (uploadButton.count() > 0) {
+                    log.debug("[DeepSeek文件上传] 找到上传按钮，准备点击");
+                    
+                    // 使用Playwright的文件选择器API
+                    page.onFileChooser(fileChooser -> {
+                        log.debug("[DeepSeek文件上传] 文件选择器已打开");
+                        fileChooser.setFiles(path);
+                        log.info("[DeepSeek文件上传] 文件已选择: {}", filePath);
+                    });
+                    
+                    // 点击按钮触发文件选择器
+                    uploadButton.first().click();
+                    
+                    // 等待文件解析完成
+                    return waitForFileParsing(page);
+                } else {
+                    log.error("[DeepSeek文件上传] 未找到上传按钮");
+                }
+            } catch (Exception e) {
+                log.error("[DeepSeek文件上传] 点击上传按钮失败: {}", e.getMessage(), e);
+            }
+            
+            return false;
+            
+        } catch (Exception e) {
+            log.error("[DeepSeek文件上传] 上传失败", e);
+            return false;
+        }
+    }
+    
+    /**
+     * 关闭联网搜索按钮（仅在启用时点击）
+     * 
+     * @param page Playwright页面对象
+     */
+    public void closeWebSearchButton(Page page) {
+        try {
+            log.info("[DeepSeek] 开始检查联网搜索按钮状态");
+            
+            // 查找联网搜索按钮
+            String[] selectors = {
+                "button.ds-toggle-button:has-text('联网搜索')",
+                "div[role='button'].ds-toggle-button:has-text('联网搜索')",
+                "button:has-text('联网搜索')",
+                "div:has-text('联网搜索')"
+            };
+            
+            for (String selector : selectors) {
+                try {
+                    Locator button = page.locator(selector).first();
+                    if (button.isVisible(new Locator.IsVisibleOptions().setTimeout(3000))) {
+                        // 获取按钮的className
+                        String className = (String) button.evaluate("el => el.className");
+                        log.debug("[DeepSeek] 联网搜索按钮className: {}", className);
+                        
+                        // 判断按钮是否处于启用状态（包含--selected类名）
+                        boolean isSelected = className.contains("ds-toggle-button--selected");
+                        
+                        if (isSelected) {
+                            log.info("[DeepSeek] 检测到联网搜索按钮处于【启用】状态，准备点击关闭");
+                            button.click(new Locator.ClickOptions().setTimeout(5000));
+                            page.waitForTimeout(800);
+                            
+                            // 验证关闭是否成功
+                            String newClassName = (String) button.evaluate("el => el.className");
+                            boolean stillSelected = newClassName.contains("ds-toggle-button--selected");
+                            
+                            if (!stillSelected) {
+                                log.info("[DeepSeek] 联网搜索按钮已成功关闭");
+                                return;
+                            } else {
+                                log.warn("[DeepSeek] 点击后按钮仍处于启用状态，重试一次");
+                                page.waitForTimeout(500);
+                                button.click(new Locator.ClickOptions().setTimeout(5000));
+                                page.waitForTimeout(800);
+                                log.info("[DeepSeek] 联网搜索按钮关闭重试完成");
+                                return;
+                            }
+                        } else {
+                            log.info("[DeepSeek] 联网搜索按钮已处于【关闭】状态，无需操作");
+                            return;
+                        }
+                    }
+                } catch (Exception e) {
+                    log.debug("[DeepSeek] 选择器 {} 失败: {}", selector, e.getMessage());
+                }
+            }
+            
+            log.warn("[DeepSeek] 未找到联网搜索按钮");
+            
+        } catch (Exception e) {
+            log.error("[DeepSeek] 关闭联网搜索按钮异常: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * 等待文件解析完成
+     * 
+     * @param page Playwright页面对象
+     * @return 是否解析成功
+     */
+    private boolean waitForFileParsing(Page page) {
+        try {
+            log.info("[DeepSeek文件上传] 等待文件解析...");
+            
+            // 等待"解析中..."文本出现（最多等待5秒）
+            try {
+                Locator parsingText = page.locator("text=解析中...");
+                parsingText.first().waitFor(new Locator.WaitForOptions().setTimeout(5000));
+                log.debug("[DeepSeek文件上传] 检测到文件开始解析");
+            } catch (Exception e) {
+                log.debug("[DeepSeek文件上传] 未检测到解析中状态，可能已经解析完成");
+            }
+            
+            // 等待"解析中..."文本消失，表示解析完成（最多等待60秒）
+            int maxWaitSeconds = 60;
+            int waitedSeconds = 0;
+            
+            while (waitedSeconds < maxWaitSeconds) {
+                try {
+                    Locator parsingText = page.locator("text=解析中...");
+                    if (parsingText.count() == 0) {
+                        log.info("[DeepSeek文件上传] 文件解析完成（耗时: {}秒）", waitedSeconds);
+                        
+                        // 再等待1秒确保UI完全就绪
+                        page.waitForTimeout(1000);
+                        return true;
+                    }
+                } catch (Exception e) {
+                    log.debug("[DeepSeek文件上传] 检查解析状态异常: {}", e.getMessage());
+                }
+                
+                // 每秒检查一次
+                page.waitForTimeout(1000);
+                waitedSeconds++;
+                
+                if (waitedSeconds % 5 == 0) {
+                    log.debug("[DeepSeek文件上传] 文件仍在解析中... (已等待{}秒)", waitedSeconds);
+                }
+            }
+            
+            log.warn("[DeepSeek文件上传] 文件解析超时（{}秒），继续尝试发送", maxWaitSeconds);
+            return true;
+            
+        } catch (Exception e) {
+            log.error("[DeepSeek文件上传] 等待文件解析失败: {}", e.getMessage(), e);
+            return false;
+        }
+    }
 
     /**
      * 检查DeepSeek登录状态（快速检测版本）

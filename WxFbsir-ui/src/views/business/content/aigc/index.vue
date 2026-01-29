@@ -375,13 +375,42 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- 文件上传对话框 -->
+    <el-dialog v-model="uploadDialogVisible" title="上传文件" width="500px" center>
+      <el-upload
+        ref="uploadRef"
+        :action="uploadAction"
+        :headers="uploadHeaders"
+        :on-success="handleUploadSuccess"
+        :on-error="handleUploadError"
+        :before-upload="beforeUpload"
+        :limit="1"
+        :file-list="fileList"
+        drag
+      >
+        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+        <div class="el-upload__text">
+          拖拽文件到此处或<em>点击上传</em>
+        </div>
+        <template #tip>
+          <div class="el-upload__tip">
+            支持图片、文档、压缩包等，最大50MB
+          </div>
+        </template>
+      </el-upload>
+      <template #footer>
+        <el-button @click="uploadDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmUpload" :disabled="!uploadedFileUrl">确认</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Clock, Loading, Document, Warning, CircleCheck, CircleClose, Link, Picture, ChatDotRound, ArrowRight, Setting } from '@element-plus/icons-vue'
+import { Plus, Clock, Loading, Document, Warning, CircleCheck, CircleClose, Link, Picture, ChatDotRound, ArrowRight, Setting, UploadFilled } from '@element-plus/icons-vue'
 import { marked } from 'marked'
 import { restoreLoginStatusFromStorage } from '@/config/engineConfig'
 import { getToken } from '@/utils/auth'
@@ -404,7 +433,7 @@ import {
 export default {
   name: 'AiAssistant',
   components: {
-    Plus, Clock, Loading, Document, Warning, CircleCheck, CircleClose, Link, Picture, ChatDotRound, ArrowRight, Setting
+    Plus, Clock, Loading, Document, Warning, CircleCheck, CircleClose, Link, Picture, ChatDotRound, ArrowRight, Setting, UploadFilled
   },
   setup() {
     // 获取用户store（用于获取hostId/engineId）
@@ -500,6 +529,16 @@ export default {
     const loginStatusText = ref('')
     const qrCodeUrl = ref('')
     
+    // 文件上传相关
+    const uploadDialogVisible = ref(false)
+    const uploadRef = ref(null)
+    const fileList = ref([])
+    const uploadedFileUrl = ref('')
+    const uploadAction = ref(import.meta.env.VITE_APP_BASE_API + '/common/upload')
+    const uploadHeaders = ref({
+      Authorization: 'Bearer ' + getToken()
+    })
+
     // WebSocket连接
     let websocket = null
     let sessionId = null  // 会话ID，用于全链路追踪（与系统的requestId区分）
@@ -633,7 +672,9 @@ export default {
       screenshots.value = []
       results.value = []
       enabledAIs.value = []
-      
+      uploadedFileUrl.value = ''
+      fileList.value = []
+
       // 🔥 重置AI会话ID
       userInfoReq.value = {
         chatId: '',
@@ -751,7 +792,7 @@ export default {
           const historyAiType = nestedData.aiType || historyData.aiType || 'deepseek'
           const historyAiConfig = getEngineConfig(historyAiType)
           const historyAiName = historyAiConfig ? historyAiConfig.displayName : historyAiType
-          
+
           results.value = [{
             aiName: historyAiName,  // 🔥 动态 AI 名称
             content: nestedData.answer,  // 可能是截图URL或文本
@@ -876,16 +917,16 @@ export default {
           config: getEngineConfig(aiId),
           state
         }))
-      
+
       if (enabledAiList.length === 0) {
         ElMessage.error('请先选择并启用一个 AI')
         return
       }
-      
+
       // 🔥 目前支持单个 AI（取第一个启用的）
       const selectedAi = enabledAiList[0]
       const { aiId, config, state } = selectedAi
-      
+
       // 🔥 检查是否已登录（动态检查选中的 AI）
       if (config.requireLogin && !config.loggedIn) {
         ElMessage.error(`请先在"登录管理器"中登录 ${config.displayName}`)
@@ -935,10 +976,14 @@ export default {
       // 🔥 动态获取AI的会话ID字段名
       const chatIdField = config.chatIdField || `${aiId}ChatId`
       const aiChatId = userInfoReq.value[chatIdField] || ''
-      
+
       // 🔥 构建动态 payload
       const payload = {
         query: promptInput.value,
+        enableDeepThinking: deepseekOptions.enableDeepThinking || false,
+        enableWebSearch: deepseekOptions.enableWebSearch || false,
+        enableFileUpload: deepseekOptions.enableFileUpload || false,
+        uploadedFileUrl: uploadedFileUrl.value || '',
         chatId: currentChatId.value,
         sessionId: sessionId,
         aiType: aiId,  // 动态 aiType
@@ -947,10 +992,10 @@ export default {
         enabledAIs: enabledAIs.value,
         progressLogs: progressLogs.value
       }
-      
+
       // 🔥 添加AI特有的会话ID
       payload[chatIdField] = aiChatId
-      
+
       // 🔥 添加AI特有的选项（如 DeepSeek 的深度思考、联网搜索）
       Object.keys(aiOptions).forEach(optionKey => {
         payload[optionKey] = aiOptions[optionKey]
@@ -959,7 +1004,7 @@ export default {
       // 🔥 检查是否为Gitee AI请求，如果是则使用HTTP调用Admin接口进行积分检查
       if (aiId === 'gitee') {
         console.log('🚀 [Gitee AI] 使用HTTP调用Admin接口进行积分检查')
-        
+
         // 构建AI请求对象
         const aiRequest = {
           type: 'AI_GITEE_QUERY',
@@ -970,7 +1015,7 @@ export default {
           isNewChat: isNewChat.value,
           [chatIdField]: aiChatId
         }
-        
+
         // 🔥 调试日志：输出完整的AI请求对象
         console.log('📋 [AI请求对象]', aiRequest)
         console.log('🔍 [请求类型]', aiRequest.type)
@@ -981,22 +1026,22 @@ export default {
           token: userStore.token,
           hasToken: !!userStore.token
         })
-        
+
         // 调用Admin接口
         sendAiRequest(aiRequest)
           .then(response => {
             if (response.code === 200) {
               console.log('✅ [Admin接口] 积分检查通过，请求已转发到Engine')
               addProgressLog(`积分检查通过，正在处理请求...`)
-              
+
               // 首次发送后标记为非新会话
               isNewChat.value = false
               userInfoReq.value.isNewChat = false
-              
+
               // 🔥 积分检查通过后，继续发送WebSocket消息到Engine执行实际任务
               console.log('🚀 [WebSocket] 积分检查通过，开始发送实际执行请求到Engine')
               sendWebSocketMessage(queryType, payload)
-              
+
               addProgressLog(`已发送请求到 ${config.displayName}`)
               console.log(`📝 [发送请求] AI: ${config.displayName}, chatId: ${currentChatId.value}, sessionId: ${sessionId}, ${chatIdField}: ${aiChatId}`)
             } else {
@@ -1013,11 +1058,11 @@ export default {
       } else {
         // 其他AI使用WebSocket直接调用
         sendWebSocketMessage(queryType, payload)
-        
+
         // 🔥 首次发送后标记为非新会话
         isNewChat.value = false
         userInfoReq.value.isNewChat = false
-        
+
         addProgressLog(`已发送请求到 ${config.displayName}`)
         console.log(`📝 [发送请求] AI: ${config.displayName}, chatId: ${currentChatId.value}, sessionId: ${sessionId}, ${chatIdField}: ${aiChatId}`)
       }
@@ -1055,12 +1100,7 @@ export default {
           aiType: payload.aiType || 'deepseek'
         }
       }
-      
-      // 🔥 详细日志：显示完整的消息对象（格式化）
       console.log('🔥 [WebSocket] 发送消息 - engineId:', engineId, 'chatId:', finalChatId, 'sessionId:', sessionId)
-      console.log('📤 [完整消息对象]', message)
-      console.log('📋 [JSON字符串]', JSON.stringify(message, null, 2))
-      
       websocket.send(JSON.stringify(message))
     }
     
@@ -1200,7 +1240,7 @@ export default {
               // 🔥 动态获取 AI 显示名称
               const aiConfig = getEngineConfig(aiType)
               const aiDisplayName = aiConfig ? aiConfig.displayName : aiType
-              
+
               // 🔥 优先使用截图，文本作为备用
               const resultItem = {
                 aiName: aiDisplayName,  // 🔥 动态 AI 名称
