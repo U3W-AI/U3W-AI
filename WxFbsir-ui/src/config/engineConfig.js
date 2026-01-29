@@ -135,21 +135,28 @@ export const ENGINE_CONFIGS = reactive([
         exclusive: [],
         disabled: false
       },
-      {
-        id: 'warehouseQA',
-        label: '仓库问答',
-        defaultValue: false,
-        exclusive: [],
-        disabled: false
-      },
+      // TODO: 暂未实现
+      // {
+      //   id: 'warehouseQA',
+      //   label: '仓库问答',
+      //   defaultValue: false,
+      //   exclusive: [],
+      //   disabled: false
+      // },
       {
         id: 'helpCenter',
         label: '帮助中心',
         defaultValue: false,
         exclusive: [],
         disabled: false
+      },
+            {
+        id: 'enableFileUpload',
+        label: '上传文件',
+        defaultValue: false,
+        exclusive: ['enableWebSearch'],
+        disabled: false
       }
-
     ],
 
     // AI会话ID字段名（AI服务特有）

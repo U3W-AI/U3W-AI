@@ -215,6 +215,45 @@ public class GiteeAiUtil {
             // 等待登录相关界面加载
             page.waitForTimeout(2000);
             
+            // 点击微信登录按钮
+            try {
+                log.info("📍 [Gitee AI] 开始寻找并点击微信登录按钮");
+                
+                // 步骤1：先找到并点击展开下拉菜单的按钮
+                Locator dropdownButton = page.locator(".session-oauth_other").first();
+                if (dropdownButton.count() > 0) {
+                    dropdownButton.click();
+                    log.info("✅ [Gitee AI] 已点击展开下拉菜单");
+                    page.waitForTimeout(1000); // 等待菜单展开
+                }
+                
+                // 步骤2：定位并点击微信登录链接
+                // 直接定位并点击指定的微信登录链接
+                Locator wechatLoginLink = page.locator("a[href='https://gitee.com/auth/wechat']").first();
+                if (wechatLoginLink.count() > 0) {
+                    wechatLoginLink.click();
+                    log.info("✅ [Gitee AI] 已点击微信登录链接: https://gitee.com/auth/wechat");
+                }
+                // 备用方案：通过href包含wechat的链接
+                else {
+                    Locator fallbackWechatLink = page.locator("a[href*='wechat']").first();
+                    if (fallbackWechatLink.count() > 0) {
+                        fallbackWechatLink.click();
+                        log.info("✅ [Gitee AI] 已点击微信登录链接（备用方案）");
+                    } else {
+                        log.warn("⚠️ [Gitee AI] 未找到微信登录链接");
+                    }
+                }
+                
+                // 等待微信登录页面加载
+                log.info("⏳ [Gitee AI] 等待微信登录页面加载");
+                page.waitForTimeout(3000);
+                
+            } catch (Exception e) {
+                log.warn("⚠️ [Gitee AI] 点击微信登录按钮失败: {}", e.getMessage());
+                // 继续执行，不影响整体流程
+            }
+            
             return true;
 
         } catch (Exception e) {

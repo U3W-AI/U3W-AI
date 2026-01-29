@@ -980,9 +980,9 @@ export default {
       // 🔥 构建动态 payload
       const payload = {
         query: promptInput.value,
-        enableDeepThinking: deepseekOptions.enableDeepThinking || false,
-        enableWebSearch: deepseekOptions.enableWebSearch || false,
-        enableFileUpload: deepseekOptions.enableFileUpload || false,
+        // enableDeepThinking: deepseekOptions.enableDeepThinking || false,
+        // enableWebSearch: deepseekOptions.enableWebSearch || false,
+        // enableFileUpload: deepseekOptions.enableFileUpload || false,
         uploadedFileUrl: uploadedFileUrl.value || '',
         chatId: currentChatId.value,
         sessionId: sessionId,
