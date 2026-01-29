@@ -80,7 +80,14 @@ export const ENGINE_CONFIGS = reactive([
         id: 'enableWebSearch',
         label: '联网搜索',
         defaultValue: false,
-        exclusive: [],
+        exclusive: ['enableFileUpload'],
+        disabled: false
+      },
+      {
+        id: 'enableFileUpload',
+        label: '上传文件',
+        defaultValue: false,
+        exclusive: ['enableWebSearch'],
         disabled: false
       }
     ],

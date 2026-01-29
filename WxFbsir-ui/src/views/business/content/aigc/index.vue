@@ -375,13 +375,42 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- 文件上传对话框 -->
+    <el-dialog v-model="uploadDialogVisible" title="上传文件" width="500px" center>
+      <el-upload
+        ref="uploadRef"
+        :action="uploadAction"
+        :headers="uploadHeaders"
+        :on-success="handleUploadSuccess"
+        :on-error="handleUploadError"
+        :before-upload="beforeUpload"
+        :limit="1"
+        :file-list="fileList"
+        drag
+      >
+        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+        <div class="el-upload__text">
+          拖拽文件到此处或<em>点击上传</em>
+        </div>
+        <template #tip>
+          <div class="el-upload__tip">
+            支持图片、文档、压缩包等，最大50MB
+          </div>
+        </template>
+      </el-upload>
+      <template #footer>
+        <el-button @click="uploadDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmUpload" :disabled="!uploadedFileUrl">确认</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Clock, Loading, Document, Warning, CircleCheck, CircleClose, Link, Picture, ChatDotRound, ArrowRight, Setting } from '@element-plus/icons-vue'
+import { Plus, Clock, Loading, Document, Warning, CircleCheck, CircleClose, Link, Picture, ChatDotRound, ArrowRight, Setting, UploadFilled } from '@element-plus/icons-vue'
 import { marked } from 'marked'
 import { restoreLoginStatusFromStorage } from '@/config/engineConfig'
 import { getToken } from '@/utils/auth'
@@ -404,7 +433,7 @@ import {
 export default {
   name: 'AiAssistant',
   components: {
-    Plus, Clock, Loading, Document, Warning, CircleCheck, CircleClose, Link, Picture, ChatDotRound, ArrowRight, Setting
+    Plus, Clock, Loading, Document, Warning, CircleCheck, CircleClose, Link, Picture, ChatDotRound, ArrowRight, Setting, UploadFilled
   },
   setup() {
     // 获取用户store（用于获取hostId/engineId）
@@ -498,6 +527,16 @@ export default {
     const loginLoading = ref(false)
     const loginStatusText = ref('')
     const qrCodeUrl = ref('')
+    
+    // 文件上传相关
+    const uploadDialogVisible = ref(false)
+    const uploadRef = ref(null)
+    const fileList = ref([])
+    const uploadedFileUrl = ref('')
+    const uploadAction = ref(import.meta.env.VITE_APP_BASE_API + '/common/upload')
+    const uploadHeaders = ref({
+      Authorization: 'Bearer ' + getToken()
+    })
     
     // WebSocket连接
     let websocket = null
@@ -632,6 +671,8 @@ export default {
       screenshots.value = []
       results.value = []
       enabledAIs.value = []
+      uploadedFileUrl.value = ''
+      fileList.value = []
       
       // 🔥 重置AI会话ID
       userInfoReq.value = {
@@ -912,6 +953,8 @@ export default {
         query: promptInput.value,
         enableDeepThinking: deepseekOptions.enableDeepThinking || false,
         enableWebSearch: deepseekOptions.enableWebSearch || false,
+        enableFileUpload: deepseekOptions.enableFileUpload || false,
+        uploadedFileUrl: uploadedFileUrl.value || '',
         chatId: currentChatId.value,
         deepseekChatId: userInfoReq.value.deepseekChatId,
         sessionId: sessionId,
@@ -1282,11 +1325,66 @@ export default {
       }
     }
     
+    // 文件上传处理函数
     const handleFileUpload = () => {
-      ElMessage.info({
-        message: '文件上传功能正在开发中，敬请期待！',
-        duration: 3000
-      })
+      // 检查是否启用了文件上传选项
+      const deepseekOptions = aiStates.value['deepseek']?.options || {}
+      if (!deepseekOptions.enableFileUpload) {
+        ElMessage.warning('请先启用"上传文件"选项')
+        return
+      }
+      uploadDialogVisible.value = true
+    }
+    
+    const beforeUpload = (file) => {
+      const isLt50M = file.size / 1024 / 1024 < 50
+      if (!isLt50M) {
+        ElMessage.error('文件大小不能超过 50MB!')
+        return false
+      }
+      return true
+    }
+    
+    const handleUploadSuccess = (response, file) => {
+      console.log('📤 文件上传响应:', response)
+      console.log('📤 响应类型检查 - code:', response.code, 'type:', typeof response.code)
+      
+      // 检查响应状态（支持code为数字或字符串）
+      const code = parseInt(response.code)
+      console.log('📤 转换后的code:', code)
+      
+      if (code === 200) {
+        // 直接从响应对象中提取URL（不需要data层级）
+        // 后端可能直接返回 url 或 fileName 字段
+        const fileUrl = response.url || response.fileName
+        
+        console.log('📤 提取的URL:', fileUrl)
+        
+        if (fileUrl) {
+          uploadedFileUrl.value = fileUrl
+          ElMessage.success('文件上传成功')
+          console.log('✅ 上传的文件URL已保存:', uploadedFileUrl.value)
+        } else {
+          ElMessage.error('文件上传失败: 返回的URL为空')
+          console.error('❌ 响应中没有URL字段:', response)
+        }
+      } else {
+        ElMessage.error('文件上传失败: ' + (response.msg || '未知错误'))
+        console.error('❌ 上传失败，code不是200，响应:', response)
+      }
+    }
+    
+    const handleUploadError = (error) => {
+      console.error('文件上传失败:', error)
+      ElMessage.error('文件上传失败，请重试')
+    }
+    
+    const confirmUpload = () => {
+      if (uploadedFileUrl.value) {
+        uploadDialogVisible.value = false
+        ElMessage.success('文件已添加到消息中')
+        console.log('确认上传，文件URL:', uploadedFileUrl.value)
+      }
     }
     
     const saveToDraft = async () => {
@@ -1427,6 +1525,17 @@ export default {
       copyToClipboard,
       handleFileUpload,
       saveToDraft,
+      // 🔥 文件上传相关
+      uploadDialogVisible,
+      uploadRef,
+      fileList,
+      uploadedFileUrl,
+      uploadAction,
+      uploadHeaders,
+      beforeUpload,
+      handleUploadSuccess,
+      handleUploadError,
+      confirmUpload,
       // 🔥 新增：历史记录和AI管理方法
       toggleHistoryExpansion,
       formatHistoryTime,

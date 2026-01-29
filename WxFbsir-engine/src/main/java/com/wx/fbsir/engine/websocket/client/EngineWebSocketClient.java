@@ -313,8 +313,27 @@ public class EngineWebSocketClient extends WebSocketClient {
             // 记录第一次断开时间
             if (firstDisconnectTime.get() == 0) {
                 firstDisconnectTime.set(System.currentTimeMillis());
-                log.info("[Engine] 连接断开，开始自动重连... (状态码: {}, HTTP: {})", 
-                    code, httpStatusCode > 0 ? httpStatusCode : "N/A");
+                
+                // 区分不同的断开原因
+                String disconnectReason = "未知原因";
+                if (code == 1006) {
+                    disconnectReason = "网络连接异常（Broken pipe）";
+                } else if (code == 1000) {
+                    disconnectReason = "正常关闭";
+                } else if (code == 1001) {
+                    disconnectReason = "端点离线";
+                } else if (code == 1002) {
+                    disconnectReason = "协议错误";
+                } else if (code == 1009) {
+                    disconnectReason = "消息过大";
+                } else if (code == 1010) {
+                    disconnectReason = "缺少扩展";
+                } else if (code == 1011) {
+                    disconnectReason = "服务器错误";
+                }
+                
+                log.info("[Engine] 连接断开，开始自动重连... (状态码: {}, 原因: {}, HTTP: {})", 
+                    code, disconnectReason, httpStatusCode > 0 ? httpStatusCode : "N/A");
             }
             
             // 检查是否超过5分钟
@@ -325,7 +344,9 @@ public class EngineWebSocketClient extends WebSocketClient {
                     "已尝试重连5分钟，仍无法连接主节点\n" +
                     "1. 检查主节点是否已启动\n" +
                     "2. 检查网络连接是否正常\n" +
-                    "3. 检查主节点地址配置: " + properties.getWsUrl());
+                    "3. 检查防火墙设置\n" +
+                    "4. 检查主节点地址配置: " + properties.getWsUrl() + "\n" +
+                    "5. 最后断开原因: " + reason);
                 return;
             }
             
