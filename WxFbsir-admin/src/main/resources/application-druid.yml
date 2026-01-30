@@ -7,16 +7,16 @@ spring:
             # 主库数据源
             # 生产环境建议使用环境变量：WXFBSIR_MYSQL_URL, WXFBSIR_MYSQL_USERNAME, WXFBSIR_MYSQL_PASSWORD
             master:
-                url: jdbc:mysql://localhost:3306/wxfbsir?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8&allowMultiQueries=true
-                username: root
-                password: 123456  # 修改为您的 MySQL 密码
+                url: ${WXFBSIR_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/wxfbsir?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8}
+                username: ${WXFBSIR_MYSQL_USERNAME:root}
+                password: ${WXFBSIR_MYSQL_PASSWORD:root}
             # 从库数据源
             slave:
                 # 从数据源开关/默认关闭
                 enabled: false
-                url: 
-                username: 
-                password: 
+                url:
+                username:
+                password:
             # 初始连接数
             initialSize: 5
             # 最小连接池数量
@@ -40,7 +40,7 @@ spring:
             testWhileIdle: true
             testOnBorrow: false
             testOnReturn: false
-            webStatFilter: 
+            webStatFilter:
                 enabled: true
             statViewServlet:
                 enabled: true

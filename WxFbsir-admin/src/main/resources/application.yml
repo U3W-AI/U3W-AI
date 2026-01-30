@@ -7,40 +7,40 @@ wxfbsir:
   # 版权年份
   copyrightYear: 2025
   # 文件路径 示例（ Windows配置D:/WxFbsir/uploadPath，Linux配置 /home/WxFbsir/uploadPath）
-  profile: D:/2-project/uploada
+  profile: ${WXFBSIR_FILE_PATH:D:/WxFbsir/uploadPath}
   # 获取ip地址开关
-  addressEnabled: true
+  addressEnabled: false
   # 验证码类型 math 数字计算 char 字符验证
   captchaType: math
   # 域名配置（用于拼接完整URL）
   # 开发环境：http://localhost:8080
   # 生产环境/内网穿透：使用实际访问域名（如 http://your-domain.com）
   # 建议使用环境变量：WXFBSIR_DOMAIN
-  domain: https://11908mq31fh21.vicp.fun
+  domain: ${WXFBSIR_DOMAIN:http://localhost:8080}
   websocket: # 是否启用 WebSocket 服务
-      enabled: true
-      # ⚠️ 【重要】WebSocket 端点路径 - 请勿随意更改
-      # 此路径用于Engine节点连接，同时影响：
-      # 1. WebSocket连接地址：ws://domain:port/ws/engine
-      # 2. HTTP截图上传地址：http://domain:port/engine/screenshot/upload
-      # 3. 前端WebSocket连接地址转换
-      # 修改此路径会导致Engine节点无法连接和截图上传失败
-      # 如需修改，必须同步修改：
-      # - WxFbsir-engine/application.yml 中的 ws-url
-      # - ScreenshotUploadClient.java 中的路径解析逻辑
-      path: /ws/engine
-      # 最大连接数
-      max-connections: 10000
-      # 最大消息大小（字节）1MB
-      max-message-size: 1048576
-      # 心跳间隔（秒）
-      heartbeat-interval: 30
-      # 心跳超时时间（秒）
-      heartbeat-timeout: 10
-      # 会话清理间隔（秒）
-      session-cleanup-interval: 60
-      # 消息队列最大大小
-      message-queue-size: 10000
+    enabled: true
+    # ⚠️ 【重要】WebSocket 端点路径 - 请勿随意更改
+    # 此路径用于Engine节点连接，同时影响：
+    # 1. WebSocket连接地址：ws://domain:port/ws/engine
+    # 2. HTTP截图上传地址：http://domain:port/engine/screenshot/upload
+    # 3. 前端WebSocket连接地址转换
+    # 修改此路径会导致Engine节点无法连接和截图上传失败
+    # 如需修改，必须同步修改：
+    # - WxFbsir-engine/application.yml 中的 ws-url
+    # - ScreenshotUploadClient.java 中的路径解析逻辑
+    path: /ws/engine
+    # 最大连接数
+    max-connections: 10000
+    # 最大消息大小（字节）1MB
+    max-message-size: 1048576
+    # 心跳间隔（秒）
+    heartbeat-interval: 30
+    # 心跳超时时间（秒）
+    heartbeat-timeout: 10
+    # 会话清理间隔（秒）
+    session-cleanup-interval: 60
+    # 消息队列最大大小
+    message-queue-size: 10000
 
 # 开发环境配置
 server:
@@ -100,13 +100,13 @@ spring:
     # redis 配置
     redis:
       # 地址
-      host: localhost
+      host: ${WXFBSIR_REDIS_HOST:127.0.0.1}
       # 端口，默认为6379
-      port: 6379
+      port: ${WXFBSIR_REDIS_PORT:6379}
       # 数据库索引
-      database: 0
+      database: ${WXFBSIR_REDIS_DATABASE:0}
       # 密码
-      password: 123456
+      password: ${WXFBSIR_REDIS_PASSWORD:}
       # 连接超时时间（减少到5秒，快速失败）
       timeout: 5s
       # 客户端名称
@@ -197,13 +197,13 @@ aes:
 gitee:
   oauth:
     # OAuth Client ID（生产环境建议使用环境变量：GITEE_OAUTH_CLIENT_ID）
-    client-id: 10f1f9ed7342422194fcba5c63b32c8ec23b7df7ddf5f05231efb6e04267e26c
+    client-id: ${GITEE_OAUTH_CLIENT_ID:}
     # OAuth Client Secret（生产环境建议使用环境变量：GITEE_OAUTH_CLIENT_SECRET）
-    client-secret: 97d43a0cb6e859b125be64bcfa99144b44325b96f0cd6d717d67a011d25d4458
+    client-secret: ${GITEE_OAUTH_CLIENT_SECRET:}
     # 前端地址（OAuth完成后跳转）
-    frontend-url: http://localhost:80
+    frontend-url: ${GITEE_OAUTH_FRONTEND_URL:}
     # OAuth回调地址（与Gitee应用配置保持一致）
-    callback-url: ${GITEE_OAUTH_CALLBACK_URL:http://localhost:8080/auth}
+    callback-url: ${GITEE_OAUTH_CALLBACK_URL:}
 
 # 微信机器人配置
 wechat:

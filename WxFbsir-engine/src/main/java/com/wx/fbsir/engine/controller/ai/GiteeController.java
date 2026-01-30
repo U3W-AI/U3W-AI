@@ -57,7 +57,7 @@ import java.util.Map;
  * - task.sendSuccess("提示", data) → AI_TASK_RESULT
  * - task.sendError("错误") → AI_TASK_ERROR
  * 
- * @author 实习生
+ * @author 郝少聪
  * @date 2026-01-22
  * @version 1.0 (原型阶段)
  */
