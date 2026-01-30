@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.HashMap;
 
 /**
- * Gitee AI Chat 平台工具类（简单原型）
+ * Gitee AI Chat 平台工具类
  * 
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  * 📌 核心职责
@@ -43,7 +43,7 @@ import java.util.HashMap;
  * ```
  * 
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- * ⚠️ 注意事项（原型阶段）
+ * ⚠️ 注意事项
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  * 
  * 1. 本工具类是原型实现，选择器（selector）需要根据实际页面结构调整
@@ -51,7 +51,7 @@ import java.util.HashMap;
  * 3. 登录方式可能需要调整（OAuth、二维码、账号密码等）
  * 4. 本实现采用通用的 DOM 操作方式，实际可能需要针对性优化
  * 
- * @author 郝少聪
+ * @author wxfbsir
  * @date 2026-01-22
  * @version 1.0 (原型阶段)
  */
@@ -120,7 +120,7 @@ public class GiteeAiUtil {
             try {
                 Locator notLoggedIn = page.locator("text=未登陆, text=未登录");
                 if (notLoggedIn.count() > 0 && notLoggedIn.first().isVisible()) {
-                    log.debug("🔍 [Gitee AI] 检测到'未登陆'文字，用户未登录");
+                    log.debug("🔍 [Gitee AI] 检测到'未登陆'文字，用户未登录1");
                     return "false";
                 }
             } catch (Exception e) {
@@ -131,7 +131,7 @@ public class GiteeAiUtil {
             try {
                 Locator loginButton = page.locator("button:has-text('登录'), a:has-text('登录'), button:has-text('立即登录')");
                 if (loginButton.count() > 0 && loginButton.first().isVisible()) {
-                    log.debug("🔍 [Gitee AI] 检测到登录按钮，用户未登录");
+                    log.debug("🔍 [Gitee AI] 检测到登录按钮，用户未登录2");
                     return "false";
                 }
             } catch (Exception e) {
@@ -141,7 +141,7 @@ public class GiteeAiUtil {
             // 策略2：通过 URL 判断（如果在登录页则未登录）
             String currentUrl = page.url();
             if (currentUrl.contains("login") || currentUrl.contains("signin") || currentUrl.contains("sign_in")) {
-                log.debug("🔍 [Gitee AI] 当前在登录页，用户未登录");
+                log.debug("🔍 [Gitee AI] 当前在登录页，用户未登录3");
                 return "false";
             }
             
@@ -152,7 +152,7 @@ public class GiteeAiUtil {
                 if (userNameElement.count() > 0 && userNameElement.isVisible()) {
                     String userName = userNameElement.textContent().trim();
                     if (!userName.isEmpty() && !userName.equals("未登陆") && !userName.equals("未登录")) {
-                        log.debug("✅ [Gitee AI] 已登录，用户: {}", userName);
+                        log.debug("✅ [Gitee AI] 已登录1，用户: {}", userName);
                         return userName;
                     }
                 }
@@ -164,7 +164,7 @@ public class GiteeAiUtil {
             try {
                 Locator userAvatar = page.locator(".user-avatar, .avatar, [class*='avatar']").first();
                 if (userAvatar.count() > 0 && userAvatar.isVisible()) {
-                    log.debug("✅ [Gitee AI] 已登录（检测到头像）");
+                    log.debug("✅ [Gitee AI] 已登录（检测到头像）2");
                     return "Gitee用户";
                 }
             } catch (Exception e) {
@@ -175,8 +175,6 @@ public class GiteeAiUtil {
             try {
                 String bodyHtml = page.locator("body").innerHTML();
                 log.warn("⚠️ [Gitee AI] 无法确定登录状态，默认返回未登录（URL: {}）", currentUrl);
-//                log.debug("📄 [Gitee AI 调试] 页面 body 前 2000 字符：\n{}",
-//                    bodyHtml.length() > 2000 ? bodyHtml.substring(0, 2000) : bodyHtml);
             } catch (Exception e) {
                 log.warn("⚠️ [Gitee AI] 无法确定登录状态，默认返回未登录（URL: {}）", currentUrl);
             }
@@ -208,50 +206,98 @@ public class GiteeAiUtil {
             
             // 定位「未登陆」入口
             Locator loginEntry = page.getByText("未登陆");
-            
-            loginEntry.click();
-            log.info("✅ [Gitee AI] 已点击「未登陆」入口，等待登录界面加载");
-            
-            // 等待登录相关界面加载
-            page.waitForTimeout(2000);
-            
-            // 点击微信登录按钮
-            try {
-                log.info("📍 [Gitee AI] 开始寻找并点击微信登录按钮");
+
+            if (loginEntry.count() > 0) {
+                loginEntry.click();
+                log.info("✅ [Gitee AI] 已点击「未登陆」入口，等待登录界面加载");
                 
-                // 步骤1：先找到并点击展开下拉菜单的按钮
-                Locator dropdownButton = page.locator(".session-oauth_other").first();
-                if (dropdownButton.count() > 0) {
-                    dropdownButton.click();
-                    log.info("✅ [Gitee AI] 已点击展开下拉菜单");
-                    page.waitForTimeout(1000); // 等待菜单展开
-                }
+                // 等待页面加载和可能的重定向
+                page.waitForTimeout(3000);
                 
-                // 步骤2：定位并点击微信登录链接
-                // 直接定位并点击指定的微信登录链接
-                Locator wechatLoginLink = page.locator("a[href='https://gitee.com/auth/wechat']").first();
-                if (wechatLoginLink.count() > 0) {
-                    wechatLoginLink.click();
-                    log.info("✅ [Gitee AI] 已点击微信登录链接: https://gitee.com/auth/wechat");
-                }
-                // 备用方案：通过href包含wechat的链接
-                else {
-                    Locator fallbackWechatLink = page.locator("a[href*='wechat']").first();
-                    if (fallbackWechatLink.count() > 0) {
-                        fallbackWechatLink.click();
-                        log.info("✅ [Gitee AI] 已点击微信登录链接（备用方案）");
+                // 检查是否重定向到 gitee.com 首页（说明已登录gitee.com）
+                String currentUrl = page.url();
+                if (currentUrl.equals("https://gitee.com/")) {
+                    log.info("🔍 [Gitee AI] 检测到重定向到 gitee.com 首页，说明已登录 gitee.com");
+                    log.info("📍 [Gitee AI] 重新导航到 chat.gitee.com");
+                    
+                    // 重新导航到 chat.gitee.com
+                    page.navigate(GITEE_AI_HOME_URL, new Page.NavigateOptions().setTimeout(15000));
+                    page.waitForLoadState(LoadState.DOMCONTENTLOADED, new Page.WaitForLoadStateOptions().setTimeout(15000));
+                    page.waitForTimeout(2000);
+                    
+                    // 检查是否已经登录 chat.gitee.com
+                    String loginStatus = checkLoginStatus(page, false);
+                    if (!"false".equals(loginStatus)) {
+                        log.info("✅ [Gitee AI] 已自动登录 chat.gitee.com，用户: {}", loginStatus);
+                        return true;
                     } else {
-                        log.warn("⚠️ [Gitee AI] 未找到微信登录链接");
+                        log.warn("⚠️ [Gitee AI] 已登录 gitee.com，但 chat.gitee.com 仍未登录");
                     }
                 }
                 
-                // 等待微信登录页面加载
-                log.info("⏳ [Gitee AI] 等待微信登录页面加载");
-                page.waitForTimeout(3000);
-                
-            } catch (Exception e) {
-                log.warn("⚠️ [Gitee AI] 点击微信登录按钮失败: {}", e.getMessage());
-                // 继续执行，不影响整体流程
+                // 点击微信登录按钮
+                try {
+                    log.info("📍 [Gitee AI] 开始寻找并点击微信登录按钮");
+                    
+                    // 步骤1：点击三点菜单按钮展开更多登录选项
+                    boolean menuExpanded = false;
+                    
+                    try {
+                        // 定位三点菜单按钮（根据截图）
+                        Locator moreButton = page.locator(".git-other-login-icon").first();
+                        if (moreButton.count() > 0) {
+                            log.info("🔍 [Gitee AI] 找到三点菜单按钮，尝试悬浮展开");
+                            // 使用hover方法悬浮在三点菜单按钮上，触发菜单展开
+                            moreButton.hover();
+                            log.info("✅ [Gitee AI] 已悬浮在三点菜单按钮上");
+                            page.waitForTimeout(1000); // 等待菜单展开
+                            menuExpanded = true;
+                        } else {
+                            log.warn("⚠️ [Gitee AI] 未找到三点菜单按钮");
+                        }
+                    } catch (Exception e) {
+                        log.warn("⚠️ [Gitee AI] 悬浮三点菜单按钮失败: {}", e.getMessage());
+                    }
+                    
+                    // 步骤2：定位并点击微信登录链接
+                    boolean wechatLinkClicked = false;
+                    
+                    // 通过JavaScript直接模拟点击微信登录图标按钮，绕过可见性检查
+                    try {
+                        Locator wechatIcon = page.locator(".icon-logo_wechat.iconfont.wechat").first();
+                        if (wechatIcon.count() > 0) {
+                            log.info("🔍 [Gitee AI] 找到微信登录图标按钮，尝试通过JavaScript点击");
+                            // 使用JavaScript直接点击，绕过Playwright的可见性检查
+                            wechatIcon.evaluate("el => el.click()");
+                            log.info("✅ [Gitee AI] 已通过JavaScript点击微信登录图标按钮");
+                            wechatLinkClicked = true;
+                        } else {
+                            log.warn("⚠️ [Gitee AI] 未找到微信登录图标按钮");
+                        }
+                    } catch (Exception e) {
+                        log.warn("⚠️ [Gitee AI] 通过JavaScript点击微信登录图标按钮失败: {}", e.getMessage());
+                    }
+                    
+                    if (!wechatLinkClicked) {
+                        log.warn("⚠️ [Gitee AI] 无法点击微信登录链接");
+                    }
+                    
+                    // 等待微信登录页面加载
+                    log.info("⏳ [Gitee AI] 等待微信登录页面加载");
+                    page.waitForTimeout(3000);
+                    
+                } catch (Exception e) {
+                    log.warn("⚠️ [Gitee AI] 点击微信登录按钮失败: {}", e.getMessage());
+                    // 继续执行，不影响整体流程
+                }
+            } else {
+                log.info("⚠️ [Gitee AI] 未找到「未登陆」入口，可能已经登录");
+                // 检查是否已经登录
+                String loginStatus = checkLoginStatus(page, false);
+                if (!"false".equals(loginStatus)) {
+                    log.info("✅ [Gitee AI] 检测到已登录，用户: {}", loginStatus);
+                    return true;
+                }
             }
             
             return true;

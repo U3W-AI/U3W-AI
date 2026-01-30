@@ -39,7 +39,7 @@ import java.util.Map;
  * Gitee → Engine(发送AI_TASK_*) → Admin(存储) → 前端(显示)
  * 
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- * 📌 功能清单（原型阶段）
+ * 📌 功能清单
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  * 
  * 1. 登录状态检测 - 检查用户是否已登录 Gitee AI Chat
@@ -57,7 +57,7 @@ import java.util.Map;
  * - task.sendSuccess("提示", data) → AI_TASK_RESULT
  * - task.sendError("错误") → AI_TASK_ERROR
  * 
- * @author 郝少聪
+ * @author wxfbsir
  * @date 2026-01-22
  * @version 1.0 (原型阶段)
  */

@@ -471,7 +471,24 @@ export default {
     const toggleAiOption = (aiId, optionId) => {
       const currentState = aiStates.value[aiId].options
       const newValue = !currentState[optionId]
-      aiStates.value[aiId].options = handleExclusiveOptionToggle(aiId, optionId, newValue, currentState)
+      
+      // gitee 服务使用单选逻辑
+      if (aiId === 'gitee') {
+        const newState = { ...currentState }
+        // 如果是选中操作，则将其他所有选项设置为 false
+        if (newValue) {
+          Object.keys(newState).forEach(key => {
+            newState[key] = key === optionId
+          })
+        } else {
+          // 如果是取消选中，则保持其他选项不变
+          newState[optionId] = false
+        }
+        aiStates.value[aiId].options = newState
+      } else {
+        // 其他服务使用默认的互斥逻辑
+        aiStates.value[aiId].options = handleExclusiveOptionToggle(aiId, optionId, newValue, currentState)
+      }
     }
     
     // 🔥 处理服务登录

@@ -126,7 +126,7 @@ export const ENGINE_CONFIGS = reactive([
     loggedIn: false,            // 是否已登录（动态更新）
     requireLogin: true,         // 是否需要登录才能使用
 
-    // 选项配置（Gitee AI Chat暂无特殊选项，预留扩展）
+    // 选项配置
     options: [
       {
         id: 'openSourceExploration',
@@ -141,19 +141,18 @@ export const ENGINE_CONFIGS = reactive([
         defaultValue: false,
         exclusive: [],
         disabled: false
-      },
-            {
-        id: 'enableFileUpload',
-        label: '上传文件',
-        defaultValue: false,
-        exclusive: ['enableWebSearch'],
-        disabled: false
       }
+      // {
+      //   id: 'enableFileUpload',
+      //   label: '上传文件',
+      //   defaultValue: false,
+      //   exclusive: ['enableWebSearch'],
+      //   disabled: false
+      // }
     ],
 
     // AI会话ID字段名（AI服务特有）
     chatIdField: 'giteeChatId',
-
     // 排序权重（数字越小越靠前）
     order: 2
   },
