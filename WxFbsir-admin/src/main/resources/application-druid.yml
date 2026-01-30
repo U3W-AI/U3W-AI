@@ -14,9 +14,9 @@ spring:
             slave:
                 # 从数据源开关/默认关闭
                 enabled: false
-                url:
-                username:
-                password:
+                url: 
+                username: 
+                password: 
             # 初始连接数
             initialSize: 5
             # 最小连接池数量
@@ -40,7 +40,7 @@ spring:
             testWhileIdle: true
             testOnBorrow: false
             testOnReturn: false
-            webStatFilter:
+            webStatFilter: 
                 enabled: true
             statViewServlet:
                 enabled: true

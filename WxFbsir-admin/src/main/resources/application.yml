@@ -18,29 +18,29 @@ wxfbsir:
   # 建议使用环境变量：WXFBSIR_DOMAIN
   domain: ${WXFBSIR_DOMAIN:http://localhost:8080}
   websocket: # 是否启用 WebSocket 服务
-    enabled: true
-    # ⚠️ 【重要】WebSocket 端点路径 - 请勿随意更改
-    # 此路径用于Engine节点连接，同时影响：
-    # 1. WebSocket连接地址：ws://domain:port/ws/engine
-    # 2. HTTP截图上传地址：http://domain:port/engine/screenshot/upload
-    # 3. 前端WebSocket连接地址转换
-    # 修改此路径会导致Engine节点无法连接和截图上传失败
-    # 如需修改，必须同步修改：
-    # - WxFbsir-engine/application.yml 中的 ws-url
-    # - ScreenshotUploadClient.java 中的路径解析逻辑
-    path: /ws/engine
-    # 最大连接数
-    max-connections: 10000
-    # 最大消息大小（字节）1MB
-    max-message-size: 1048576
-    # 心跳间隔（秒）
-    heartbeat-interval: 30
-    # 心跳超时时间（秒）
-    heartbeat-timeout: 10
-    # 会话清理间隔（秒）
-    session-cleanup-interval: 60
-    # 消息队列最大大小
-    message-queue-size: 10000
+      enabled: true
+      # ⚠️ 【重要】WebSocket 端点路径 - 请勿随意更改
+      # 此路径用于Engine节点连接，同时影响：
+      # 1. WebSocket连接地址：ws://domain:port/ws/engine
+      # 2. HTTP截图上传地址：http://domain:port/engine/screenshot/upload
+      # 3. 前端WebSocket连接地址转换
+      # 修改此路径会导致Engine节点无法连接和截图上传失败
+      # 如需修改，必须同步修改：
+      # - WxFbsir-engine/application.yml 中的 ws-url
+      # - ScreenshotUploadClient.java 中的路径解析逻辑
+      path: /ws/engine
+      # 最大连接数
+      max-connections: 10000
+      # 最大消息大小（字节）1MB
+      max-message-size: 1048576
+      # 心跳间隔（秒）
+      heartbeat-interval: 30
+      # 心跳超时时间（秒）
+      heartbeat-timeout: 10
+      # 会话清理间隔（秒）
+      session-cleanup-interval: 60
+      # 消息队列最大大小
+      message-queue-size: 10000
 
 # 开发环境配置
 server:
