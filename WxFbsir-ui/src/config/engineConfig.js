@@ -100,6 +100,64 @@ export const ENGINE_CONFIGS = reactive([
   },
 
   // =========================================================================
+  // Gitee AI Chat配置（AI服务）
+  // =========================================================================
+  {
+    id: 'gitee',
+    displayName: 'Gitee AI Chat',
+    description: 'Gitee AI Chat 智能助手',
+    type: SERVICE_TYPE.AI,      // 服务类型
+
+    // 图标配置（支持URL或相对路径）
+    icon: {
+      type: 'url',              // 'element' | 'url' | 'local'
+      value: 'https://chat.gitee.com/ai-teammates/_next/static/media/Ai@2x.f426668a.gif',
+    },
+
+    // 消息类型配置
+    messageTypes: {
+      checkLogin: 'GITEE_CHECK_LOGIN',     // 登录状态检测
+      scanLogin: 'GITEE_SCAN_LOGIN',       // 扫码登录
+      query: 'AI_GITEE_QUERY'              // AI咨询（AI服务特有）
+    },
+
+    // 默认状态
+    enabled: true,              // 是否默认启用
+    loggedIn: false,            // 是否已登录（动态更新）
+    requireLogin: true,         // 是否需要登录才能使用
+
+    // 选项配置
+    options: [
+      {
+        id: 'openSourceExploration',
+        label: '开源探索',
+        defaultValue: false,
+        exclusive: [],
+        disabled: false
+      },
+      {
+        id: 'helpCenter',
+        label: '帮助中心',
+        defaultValue: false,
+        exclusive: [],
+        disabled: false
+      }
+      // {
+      //   id: 'enableFileUpload',
+      //   label: '上传文件',
+      //   defaultValue: false,
+      //   exclusive: ['enableWebSearch'],
+      //   disabled: false
+      // }
+    ],
+
+    // AI会话ID字段名（AI服务特有）
+    chatIdField: 'giteeChatId',
+    // 排序权重（数字越小越靠前）
+    order: 2
+  },
+
+  // =========================================================================
   // 元器配置（其他服务）
   // =========================================================================
   {
@@ -129,7 +187,7 @@ export const ENGINE_CONFIGS = reactive([
     options: [],
 
     // 排序权重（数字越小越靠前）
-    order: 2
+    order: 3
   }
 
   // =========================================================================

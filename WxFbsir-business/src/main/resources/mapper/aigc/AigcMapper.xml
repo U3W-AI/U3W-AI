@@ -25,7 +25,8 @@
             metaso_chat_id,
             kimi_chat_id,
             baidu_chat_id,
-            zhzd_chat_id
+            zhzd_chat_id,
+            gitee_chat_id
         ) VALUES (
             #{id},
             #{userId},
@@ -42,7 +43,8 @@
             #{metasoChatId},
             #{kimiChatId},
             #{baiduChatId},
-            #{zhzdChatId}
+            #{zhzdChatId},
+            #{giteeChatId}
         )
         ON DUPLICATE KEY UPDATE
             userPrompt = VALUES(userPrompt),
@@ -56,7 +58,8 @@
             metaso_chat_id = COALESCE(VALUES(metaso_chat_id), metaso_chat_id),
             kimi_chat_id = COALESCE(VALUES(kimi_chat_id), kimi_chat_id),
             baidu_chat_id = COALESCE(VALUES(baidu_chat_id), baidu_chat_id),
-            zhzd_chat_id = COALESCE(VALUES(zhzd_chat_id), zhzd_chat_id)
+            zhzd_chat_id = COALESCE(VALUES(zhzd_chat_id), zhzd_chat_id),
+            gitee_chat_id = COALESCE(VALUES(gitee_chat_id), gitee_chat_id)
     </insert>
 
     <!-- 🔥 查询用户的聊天历史记录（返回所有AI会话ID，支持上下文复用） -->
@@ -76,7 +79,8 @@
             metaso_chat_id metasoChatId,
             kimi_chat_id kimiChatId,
             baidu_chat_id baiduChatId,
-            zhzd_chat_id zhzdChatId
+            zhzd_chat_id zhzdChatId,
+            gitee_chat_id giteeChatId
         FROM wc_chat_history 
         WHERE user_id = #{userId}
         <if test="keyword != null and keyword != ''">
@@ -89,6 +93,9 @@
                 </when>
                 <when test="aiName == 'yuanbao' or aiName == '元宝' or aiName == '腾讯元宝'">
                     AND yb_chat_id IS NOT NULL
+                </when>
+                <when test="aiName == 'gitee' or aiName == 'Gitee AI Chat'">
+                    AND gitee_chat_id IS NOT NULL
                 </when>
             </choose>
         </if>
@@ -115,7 +122,8 @@
             metaso_chat_id metasoChatId,
             kimi_chat_id kimiChatId,
             baidu_chat_id baiduChatId,
-            zhzd_chat_id zhzdChatId
+            zhzd_chat_id zhzdChatId,
+            gitee_chat_id giteeChatId
         FROM wc_chat_history 
         WHERE user_id = #{userId}
         ORDER BY create_time DESC
@@ -201,6 +209,7 @@
             kimi_chat_id kimiChatId,
             baidu_chat_id baiduChatId,
             zhzd_chat_id zhzdChatId,
+            gitee_chat_id giteeChatId,
             create_time createTime
         FROM wc_chat_history 
         WHERE id = #{sessionId}
@@ -221,7 +230,8 @@
             metaso_chat_id = COALESCE(#{metasoChatId}, metaso_chat_id),
             kimi_chat_id = COALESCE(#{kimiChatId}, kimi_chat_id),
             baidu_chat_id = COALESCE(#{baiduChatId}, baidu_chat_id),
-            zhzd_chat_id = COALESCE(#{zhzdChatId}, zhzd_chat_id)
+            zhzd_chat_id = COALESCE(#{zhzdChatId}, zhzd_chat_id),
+            gitee_chat_id = COALESCE(#{giteeChatId}, gitee_chat_id)
         WHERE id = #{id}
     </update>
 
@@ -243,6 +253,7 @@
             kimi_chat_id kimiChatId,
             baidu_chat_id baiduChatId,
             zhzd_chat_id zhzdChatId,
+            gitee_chat_id giteeChatId,
             DATE_FORMAT(create_time, '%Y-%c-%d %H:%i:%s') createTime
         FROM wc_chat_history 
         WHERE chat_id = #{chatId}
@@ -310,6 +321,8 @@
                 WHEN '百度' THEN '百度'
                 WHEN '知乎直答' THEN '知乎直答'
                 WHEN 'kimi' THEN 'Kimi'
+                WHEN 'gitee' THEN 'Gitee AI Chat'
+                WHEN 'Gitee AI Chat' THEN 'Gitee AI Chat'
                 ELSE ai_name 
             END name,
             draft_content content,

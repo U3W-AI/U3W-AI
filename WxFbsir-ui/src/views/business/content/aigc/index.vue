@@ -471,7 +471,24 @@ export default {
     const toggleAiOption = (aiId, optionId) => {
       const currentState = aiStates.value[aiId].options
       const newValue = !currentState[optionId]
-      aiStates.value[aiId].options = handleExclusiveOptionToggle(aiId, optionId, newValue, currentState)
+      
+      // gitee 服务使用单选逻辑
+      if (aiId === 'gitee') {
+        const newState = { ...currentState }
+        // 如果是选中操作，则将其他所有选项设置为 false
+        if (newValue) {
+          Object.keys(newState).forEach(key => {
+            newState[key] = key === optionId
+          })
+        } else {
+          // 如果是取消选中，则保持其他选项不变
+          newState[optionId] = false
+        }
+        aiStates.value[aiId].options = newState
+      } else {
+        // 其他服务使用默认的互斥逻辑
+        aiStates.value[aiId].options = handleExclusiveOptionToggle(aiId, optionId, newValue, currentState)
+      }
     }
     
     // 🔥 处理服务登录
@@ -512,6 +529,7 @@ export default {
       dbChatId: '',
       tyChatId: '',
       deepseekChatId: '',
+      giteeChatId: '',
       maxChatId: '',
       metasoChatId: '',
       kimiChatId: '',
@@ -537,7 +555,7 @@ export default {
     const uploadHeaders = ref({
       Authorization: 'Bearer ' + getToken()
     })
-    
+
     // WebSocket连接
     let websocket = null
     let sessionId = null  // 会话ID，用于全链路追踪（与系统的requestId区分）
@@ -673,7 +691,7 @@ export default {
       enabledAIs.value = []
       uploadedFileUrl.value = ''
       fileList.value = []
-      
+
       // 🔥 重置AI会话ID
       userInfoReq.value = {
         chatId: '',
@@ -787,8 +805,13 @@ export default {
           const answerIsUrl = nestedData.answer && 
             (nestedData.answer.startsWith('http://') || nestedData.answer.startsWith('https://'))
           
+          // 🔥 动态获取 AI 显示名称
+          const historyAiType = nestedData.aiType || historyData.aiType || 'deepseek'
+          const historyAiConfig = getEngineConfig(historyAiType)
+          const historyAiName = historyAiConfig ? historyAiConfig.displayName : historyAiType
+
           results.value = [{
-            aiName: 'DeepSeek',
+            aiName: historyAiName,  // 🔥 动态 AI 名称
             content: nestedData.answer,  // 可能是截图URL或文本
             screenshotUrl: nestedData.conversationScreenshot || (answerIsUrl ? nestedData.answer : null),
             hasScreenshot: nestedData.hasScreenshot !== false && (nestedData.conversationScreenshot || answerIsUrl),
@@ -817,6 +840,7 @@ export default {
         userInfoReq.value.tyChatId = item.tyChatId || ''
         // 🔥 DeepSeek会话ID：优先从nestedData获取（AI上下文复用），其次从数据库字段
         userInfoReq.value.deepseekChatId = nestedData.chatId || item.deepseekChatId || ''
+        userInfoReq.value.giteeChatId = nestedData.chatId || item.giteeChatId || ''
         userInfoReq.value.maxChatId = item.maxChatId || ''
         userInfoReq.value.metasoChatId = item.metasoChatId || ''
         userInfoReq.value.kimiChatId = item.kimiChatId || ''
@@ -902,11 +926,28 @@ export default {
     const sendPrompt = () => {
       if (!canSend.value) return
       
-      // 🔥 检查是否已登录（必须登录才能使用）
-      const deepseekConfig = getEngineConfig('deepseek')
-      if (deepseekConfig && deepseekConfig.requireLogin && !deepseekConfig.loggedIn) {
-        ElMessage.error('请先在"登录管理器"中登录DeepSeek')
-        console.warn('❌ [AI助手] 未登录，禁止发送请求')
+      // 🔥 获取所有启用的 AI
+      const enabledAiList = Object.entries(aiStates.value)
+        .filter(([aiId, state]) => state.enabled)
+        .map(([aiId, state]) => ({
+          aiId,
+          config: getEngineConfig(aiId),
+          state
+        }))
+
+      if (enabledAiList.length === 0) {
+        ElMessage.error('请先选择并启用一个 AI')
+        return
+      }
+
+      // 🔥 目前支持单个 AI（取第一个启用的）
+      const selectedAi = enabledAiList[0]
+      const { aiId, config, state } = selectedAi
+
+      // 🔥 检查是否已登录（动态检查选中的 AI）
+      if (config.requireLogin && !config.loggedIn) {
+        ElMessage.error(`请先在"登录管理器"中登录 ${config.displayName}`)
+        console.warn(`❌ [AI助手] ${config.displayName} 未登录，禁止发送请求`)
         return
       }
       
@@ -919,7 +960,7 @@ export default {
       
       // 🔥 初始化启用的AI列表（支持多AI扩展）
       enabledAIs.value = [{
-        name: 'DeepSeek',
+        name: config.displayName,
         status: 'running',
         isExpanded: true,
         progressLogs: []
@@ -943,34 +984,105 @@ export default {
         console.log('📝 [首次使用] 生成新的chatId:', currentChatId.value)
       }
       
-      // 从配置获取AI查询消息类型
-      const queryType = getAiQueryMessageType('deepseek')
+      // 🔥 动态获取AI查询消息类型
+      const queryType = getAiQueryMessageType(aiId)
       
-      // 🔥 从aiStates中获取DeepSeek的选项状态
-      const deepseekOptions = aiStates.value['deepseek']?.options || {}
+      // 🔥 动态获取AI的选项状态
+      const aiOptions = state.options || {}
       
-      sendWebSocketMessage(queryType, {
+      // 🔥 动态获取AI的会话ID字段名
+      const chatIdField = config.chatIdField || `${aiId}ChatId`
+      const aiChatId = userInfoReq.value[chatIdField] || ''
+
+      // 🔥 构建动态 payload
+      const payload = {
         query: promptInput.value,
-        enableDeepThinking: deepseekOptions.enableDeepThinking || false,
-        enableWebSearch: deepseekOptions.enableWebSearch || false,
-        enableFileUpload: deepseekOptions.enableFileUpload || false,
+        // enableDeepThinking: deepseekOptions.enableDeepThinking || false,
+        // enableWebSearch: deepseekOptions.enableWebSearch || false,
+        // enableFileUpload: deepseekOptions.enableFileUpload || false,
         uploadedFileUrl: uploadedFileUrl.value || '',
         chatId: currentChatId.value,
-        deepseekChatId: userInfoReq.value.deepseekChatId,
         sessionId: sessionId,
-        aiType: 'deepseek',
+        aiType: aiId,  // 动态 aiType
         isNewChat: isNewChat.value,
         userPrompt: promptInput.value,
         enabledAIs: enabledAIs.value,
         progressLogs: progressLogs.value
+      }
+
+      // 🔥 添加AI特有的会话ID
+      payload[chatIdField] = aiChatId
+
+      // 🔥 添加AI特有的选项（如 DeepSeek 的深度思考、联网搜索）
+      Object.keys(aiOptions).forEach(optionKey => {
+        payload[optionKey] = aiOptions[optionKey]
       })
       
-      // 🔥 首次发送后标记为非新会话
-      isNewChat.value = false
-      userInfoReq.value.isNewChat = false
-      
-      addProgressLog('已发送请求到DeepSeek')
-      console.log('📝 [发送请求] chatId:', currentChatId.value, 'sessionId:', sessionId, 'deepseekChatId:', userInfoReq.value.deepseekChatId)
+      // 🔥 检查是否为Gitee AI请求，如果是则使用HTTP调用Admin接口进行积分检查
+      if (aiId === 'gitee') {
+        console.log('🚀 [Gitee AI] 使用HTTP调用Admin接口进行积分检查')
+
+        // 构建AI请求对象
+        const aiRequest = {
+          type: 'AI_GITEE_QUERY',
+          userId: userStore.id || '',
+          prompt: promptInput.value,
+          chatId: currentChatId.value,
+          sessionId: sessionId,
+          isNewChat: isNewChat.value,
+          [chatIdField]: aiChatId
+        }
+
+        // 🔥 调试日志：输出完整的AI请求对象
+        console.log('📋 [AI请求对象]', aiRequest)
+        console.log('🔍 [请求类型]', aiRequest.type)
+        console.log('👤 [用户ID]', aiRequest.userId)
+        console.log('🔧 [UserStore]', {
+          id: userStore.id,
+          name: userStore.name,
+          token: userStore.token,
+          hasToken: !!userStore.token
+        })
+
+        // 调用Admin接口
+        sendAiRequest(aiRequest)
+          .then(response => {
+            if (response.code === 200) {
+              console.log('✅ [Admin接口] 积分检查通过，请求已转发到Engine')
+              addProgressLog(`积分检查通过，正在处理请求...`)
+
+              // 首次发送后标记为非新会话
+              isNewChat.value = false
+              userInfoReq.value.isNewChat = false
+
+              // 🔥 积分检查通过后，继续发送WebSocket消息到Engine执行实际任务
+              console.log('🚀 [WebSocket] 积分检查通过，开始发送实际执行请求到Engine')
+              sendWebSocketMessage(queryType, payload)
+
+              addProgressLog(`已发送请求到 ${config.displayName}`)
+              console.log(`📝 [发送请求] AI: ${config.displayName}, chatId: ${currentChatId.value}, sessionId: ${sessionId}, ${chatIdField}: ${aiChatId}`)
+            } else {
+              console.error('❌ [Admin接口] 积分检查失败:', response.msg)
+              ElMessage.error(response.msg || '积分检查失败')
+              isSending.value = false
+            }
+          })
+          .catch(error => {
+            console.error('❌ [Admin接口] 请求失败:', error)
+            ElMessage.error('请求失败，请稍后重试')
+            isSending.value = false
+          })
+      } else {
+        // 其他AI使用WebSocket直接调用
+        sendWebSocketMessage(queryType, payload)
+
+        // 🔥 首次发送后标记为非新会话
+        isNewChat.value = false
+        userInfoReq.value.isNewChat = false
+
+        addProgressLog(`已发送请求到 ${config.displayName}`)
+        console.log(`📝 [发送请求] AI: ${config.displayName}, chatId: ${currentChatId.value}, sessionId: ${sessionId}, ${chatIdField}: ${aiChatId}`)
+      }
     }
     
     const sendWebSocketMessage = (type, payload) => {
@@ -1142,9 +1254,13 @@ export default {
                 targetAi.status = 'completed'
               }
               
+              // 🔥 动态获取 AI 显示名称
+              const aiConfig = getEngineConfig(aiType)
+              const aiDisplayName = aiConfig ? aiConfig.displayName : aiType
+
               // 🔥 优先使用截图，文本作为备用
               const resultItem = {
-                aiName: 'DeepSeek',
+                aiName: aiDisplayName,  // 🔥 动态 AI 名称
                 content: resultData.answer,  // 文本内容（用于复制）
                 screenshotUrl: resultData.conversationScreenshot,  // 截图URL
                 hasScreenshot: resultData.hasScreenshot !== false && resultData.conversationScreenshot,  // 是否有截图
@@ -1156,12 +1272,14 @@ export default {
               }
               results.value.push(resultItem)
               
-              // 🔥 保存返回的AI会话ID（仅用于上下文复用，不覆盖前端chatId）
+              // 🔥 保存返回的AI会话ID（根据AI类型动态存储，仅用于上下文复用）
               // currentChatId 是前端生成的会话分组ID，用于数据库关联多轮对话
-              // deepseekChatId 是DeepSeek返回的AI内部会话ID，用于AI上下文复用
+              // [aiId]ChatId 是AI返回的内部会话ID，用于AI上下文复用
               if (resultData.chatId) {
-                userInfoReq.value.deepseekChatId = resultData.chatId
-                console.log('📝 [保存AI会话ID] deepseekChatId:', resultData.chatId, '(前端chatId保持不变:', currentChatId.value, ')')
+                const aiConfig = getEngineConfig(aiType)
+                const chatIdField = aiConfig?.chatIdField || `${aiType}ChatId`
+                userInfoReq.value[chatIdField] = resultData.chatId
+                console.log(`📝 [保存AI会话ID] ${chatIdField}:`, resultData.chatId, '(前端chatId保持不变:', currentChatId.value, ')')
               }
               
               // 添加对话截图到幻灯片（如果有）
@@ -1169,8 +1287,8 @@ export default {
                 screenshots.value.push(resultData.conversationScreenshot)
               }
               
-              addProgressLog('DeepSeek回复完成，耗时' + resultData.elapsedTime + '秒')
-              ElMessage.success(payload.message || 'DeepSeek回复完成')
+              addProgressLog(`${aiDisplayName}回复完成，耗时${resultData.elapsedTime}秒`, aiType)
+              ElMessage.success(payload.message || `${aiDisplayName}回复完成`)
               
               // 🔥 后端Admin已自动存储，前端无需再调用数据库
               // 数据已在Admin收到Engine消息时实时保存
@@ -1335,7 +1453,7 @@ export default {
       }
       uploadDialogVisible.value = true
     }
-    
+
     const beforeUpload = (file) => {
       const isLt50M = file.size / 1024 / 1024 < 50
       if (!isLt50M) {
@@ -1344,22 +1462,22 @@ export default {
       }
       return true
     }
-    
+
     const handleUploadSuccess = (response, file) => {
       console.log('📤 文件上传响应:', response)
       console.log('📤 响应类型检查 - code:', response.code, 'type:', typeof response.code)
-      
+
       // 检查响应状态（支持code为数字或字符串）
       const code = parseInt(response.code)
       console.log('📤 转换后的code:', code)
-      
+
       if (code === 200) {
         // 直接从响应对象中提取URL（不需要data层级）
         // 后端可能直接返回 url 或 fileName 字段
         const fileUrl = response.url || response.fileName
-        
+
         console.log('📤 提取的URL:', fileUrl)
-        
+
         if (fileUrl) {
           uploadedFileUrl.value = fileUrl
           ElMessage.success('文件上传成功')
@@ -1373,12 +1491,12 @@ export default {
         console.error('❌ 上传失败，code不是200，响应:', response)
       }
     }
-    
+
     const handleUploadError = (error) => {
       console.error('文件上传失败:', error)
       ElMessage.error('文件上传失败，请重试')
     }
-    
+
     const confirmUpload = () => {
       if (uploadedFileUrl.value) {
         uploadDialogVisible.value = false
