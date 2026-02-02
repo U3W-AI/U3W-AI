@@ -92,4 +92,58 @@ Admin 与 Engine 的 WebSocket 通信协议与实现说明。
 
 ---
 
-**最后更新：** 2026-01-13
+### [企业微信机器人配置说明](./企业微信机器人配置说明.md)
+企业微信机器人集成指南，包含配置步骤和参数说明。
+
+**代码位置：**
+- 后端：`WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/JiQiRen/`
+- 工具类：`WxFbsir-engine/src/main/java/com/wx/fbsir/engine/utils/JiQiRen/`
+
+---
+
+### [知识库管理功能说明](./知识库管理功能说明.md)
+知识库管理功能说明，包含知识库的创建、同步和管理功能。
+
+**代码位置：**
+- 后端：`WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/yuanqi/`
+- 工具类：`WxFbsir-engine/src/main/java/com/wx/fbsir/engine/utils/yuanqi/`
+
+---
+
+### [面试助手功能说明](./面试助手功能说明.md)
+面试助手功能说明，包含面试题生成、面试评估等功能。
+
+**代码位置：**
+- 后端：`WxFbsir-business/src/main/java/com/wx/fbsir/business/interviewbot/`
+- 前端：`WxFbsir-ui/src/views/business/interviewbot/`
+
+---
+
+### [认证易功能说明](./认证易功能说明.md)
+完整的证书申请和审核系统，覆盖用户侧和管理员不同角色，集成认证申请、证书模板管理、审核工作流标准化、积分系统适配等模块。
+
+**代码位置：**
+- 后端：`WxFbsir-business/src/main/java/com/wx/fbsir/business/certificate/`
+- 前端：`WxFbsir-ui/src/views/business/certificate/`
+
+---
+
+### [节点编辑管理和策略管理功能说明](./节点编辑管理和策略管理功能说明.md)
+节点编辑管理和策略管理功能说明，包含节点的创建、编辑、删除和策略配置。
+
+**代码位置：**
+- 后端：`WxFbsir-business/src/main/java/com/wx/fbsir/business/nodeeditwithstrategy/`
+- 前端：`WxFbsir-ui/src/views/business/nodeeditwithstrategy/`
+
+---
+
+### [engine知识库功能技术接口说明](./engine知识库功能技术接口说明.md)
+Engine端知识库功能的技术接口说明文档。
+
+**代码位置：**
+- 后端：`WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/yuanqi/`
+- 工具类：`WxFbsir-engine/src/main/java/com/wx/fbsir/engine/utils/yuanqi/`
+
+---
+
+**最后更新：** 2026-02-02
