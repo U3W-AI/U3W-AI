@@ -467,6 +467,7 @@ export default {
       })
     }
     
+  
     // 🔥 切换AI选项
     const toggleAiOption = (aiId, optionId) => {
       const currentState = aiStates.value[aiId].options
