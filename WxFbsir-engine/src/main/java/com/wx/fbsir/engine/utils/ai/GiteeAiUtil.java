@@ -327,14 +327,12 @@ public class GiteeAiUtil {
         try {
             log.info("💬 [Gitee AI] 开始发送消息: {}", query);
             
-            // 步骤1：定位输入框
-            Locator inputBox = page.locator("textarea, input[type='text']").first();
-            if (inputBox.count() == 0) {
-                log.error("❌ [Gitee AI] 未找到输入框");
-                return null;
-            }
+            // 等待页面稳定
+            page.waitForLoadState(LoadState.DOMCONTENTLOADED);
+            page.waitForTimeout(1000);
+            log.debug("✅ [Gitee AI] 页面已稳定");
             
-            // 步骤2：切换模式（通过点击按钮）
+            // 切换模式
             try {
                 if (enableOpenSourceExploration) {
                     toggleGiteeMode(page, "开源探索", true);
@@ -346,35 +344,243 @@ public class GiteeAiUtil {
                 log.warn("[Gitee AI] 模式切换失败，继续发送消息: {}", e.getMessage());
             }
             
-            // 步骤3：清空并填入问题
-            inputBox.click();
-            inputBox.fill("");  // 清空
-            page.waitForTimeout(500);
-            inputBox.fill(query);
-            page.waitForTimeout(500);
-            
-            log.debug("✅ [Gitee AI] 问题已填入输入框");
-            
-            // 步骤3：点击发送按钮
-            try {
-                Locator sendButton = page.locator("button:has-text('发送'), button[type='submit'], button:has-text('Send')").first();
-                if (sendButton.count() > 0 && sendButton.isVisible()) {
-                    sendButton.click();
-                    log.debug("✅ [Gitee AI] 发送按钮已点击");
-                } else {
-                    inputBox.press("Enter");
-                    log.debug("✅ [Gitee AI] 已按 Enter 键发送");
-                }
-            } catch (Exception e) {
-                log.warn("点击发送按钮失败，尝试按 Enter: {}", e.getMessage());
-                inputBox.press("Enter");
+            boolean inputSuccess = fillAndSendMessage(page, query);
+            if (!inputSuccess) {
+                log.error("❌ [Gitee AI] 发送消息失败：未找到输入框或发送失败");
+                return null;
             }
             
-            page.waitForTimeout(2000);
+            log.info("⏳ [Gitee AI] 开始监听回复");
+            String content = waitForResponse(page);
             
-            // 步骤4：等待 AI 回复（使用更健壮的检测逻辑，参考 DeepSeek）
-            log.info("⏳ [Gitee AI] 等待 AI 回复...");
+            if (content != null && !content.isEmpty()) {
+                log.info("✅ [Gitee AI] 回复接收完成，内容长度: {}", content.length());
+                return content;
+            } else {
+                log.error("❌ [Gitee AI] 未能获取有效回复");
+                return null;
+            }
             
+        } catch (Exception e) {
+            log.error("❌ [Gitee AI] 发送消息失败: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+    
+    /**
+     * 填充并发送消息
+     * 
+     * @param page Playwright页面对象
+     * @param query 用户问题
+     * @return 是否发送成功
+     */
+    private boolean fillAndSendMessage(Page page, String query) {
+        try {
+            // 步骤1：定位输入框
+            Locator inputBox = null;
+            boolean inputFound = false;
+            
+            // 尝试多种选择器
+            String[] inputSelectors = {
+                "textarea",
+                "input[type='text']",
+                "textarea[placeholder*='问题']",
+                "textarea[placeholder*='消息']",
+                "textarea[placeholder*='Ask']",
+                "textarea[placeholder*='Message']"
+            };
+            
+            for (String selector : inputSelectors) {
+                try {
+                    inputBox = page.locator(selector).first();
+                    if (inputBox.count() > 0 && inputBox.isVisible()) {
+                        inputFound = true;
+                        log.debug("✅ [Gitee AI] 使用选择器找到输入框: {}", selector);
+                        break;
+                    }
+                } catch (Exception e) {
+                    // 继续尝试下一个选择器
+                }
+            }
+            
+            if (!inputFound) {
+                try {
+                    Object jsResult = page.evaluate("""
+                        () => {
+                            const textareas = document.querySelectorAll('textarea');
+                            for (const textarea of textareas) {
+                                if (textarea.placeholder && 
+                                    (textarea.placeholder.includes('问题') || 
+                                     textarea.placeholder.includes('消息') ||
+                                     textarea.placeholder.includes('Ask') ||
+                                     textarea.placeholder.includes('Message'))) {
+                                    textarea.setAttribute('data-ai-input', 'true');
+                                    return true;
+                                }
+                            }
+                            return false;
+                        }
+                    """);
+                    
+                    if (Boolean.TRUE.equals(jsResult)) {
+                        inputBox = page.locator("textarea[data-ai-input='true']").first();
+                        if (inputBox.count() > 0 && inputBox.isVisible()) {
+                            inputFound = true;
+                            log.debug("✅ [Gitee AI] 通过JavaScript找到输入框");
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("❌ [Gitee AI] JavaScript查找输入框失败", e);
+                }
+            }
+            
+            if (inputFound && inputBox != null) {
+                inputBox.click();
+                page.waitForTimeout(500);
+                
+                inputBox.fill("");
+                page.waitForTimeout(200);
+                
+                inputBox.fill(query);
+                log.debug("✅ [Gitee AI] 问题已填入输入框");
+                
+                // 点击发送按钮
+                try {
+                    Locator sendButton = page.locator("button:has-text('发送'), button[type='submit'], button:has-text('Send')").first();
+                    if (sendButton.count() > 0 && sendButton.isVisible()) {
+                        sendButton.click();
+                        log.debug("✅ [Gitee AI] 发送按钮已点击");
+                    } else {
+                        inputBox.press("Enter");
+                        log.debug("✅ [Gitee AI] 已按 Enter 键发送");
+                    }
+                } catch (Exception e) {
+                    log.warn("点击发送按钮失败，尝试按 Enter: {}", e.getMessage());
+                    inputBox.press("Enter");
+                }
+                
+                page.waitForTimeout(2000);
+                log.info("✅ [Gitee AI] 消息发送成功");
+                return true;
+            } else {
+                log.error("❌ [Gitee AI] 未找到输入框");
+                return false;
+            }
+        } catch (Exception e) {
+            log.error("❌ [Gitee AI] 填充或发送消息失败", e);
+            return false;
+        }
+    }
+    
+    /**
+     * 定位微信二维码区域
+     * 
+     * @param page Playwright页面对象
+     * @return 微信二维码区域的Locator，如果未找到返回null
+     */
+    public com.microsoft.playwright.Locator locateWechatQrCode(Page page) {
+        try {
+            log.info("🔍 [Gitee AI] 开始定位微信二维码区域");
+            
+            // 策略1：根据用户提供的实际页面结构，直接定位二维码图片
+            try {
+                com.microsoft.playwright.Locator qrCodeImg = page.locator(".js_qrcode_img.web_qrcode_img").first();
+                if (qrCodeImg.count() > 0 && qrCodeImg.isVisible()) {
+                    log.info("✅ [Gitee AI] 找到微信二维码图片: .js_qrcode_img.web_qrcode_img");
+                    return qrCodeImg;
+                }
+            } catch (Exception e) {
+                log.debug("⚠️ [Gitee AI] 未找到微信二维码图片: {}", e.getMessage());
+            }
+            
+            // 策略2：定位二维码图片的直接父容器
+            try {
+                com.microsoft.playwright.Locator imgWrap = page.locator(".web_qrcode_img_wrap").first();
+                if (imgWrap.count() > 0 && imgWrap.isVisible()) {
+                    log.info("✅ [Gitee AI] 找到微信二维码图片容器: .web_qrcode_img_wrap");
+                    return imgWrap;
+                }
+            } catch (Exception e) {
+                log.debug("⚠️ [Gitee AI] 未找到微信二维码图片容器: {}", e.getMessage());
+            }
+            
+            // 策略3：定位二维码区域的更大容器
+            try {
+                com.microsoft.playwright.Locator imgArea = page.locator(".js_normal_login.web_qrcode_img_area").first();
+                if (imgArea.count() > 0 && imgArea.isVisible()) {
+                    log.info("✅ [Gitee AI] 找到微信二维码区域: .js_normal_login.web_qrcode_img_area");
+                    return imgArea;
+                }
+            } catch (Exception e) {
+                log.debug("⚠️ [Gitee AI] 未找到微信二维码区域: {}", e.getMessage());
+            }
+            
+            // 策略4：查找微信登录iframe
+            try {
+                com.microsoft.playwright.Locator iframeLocator = page.locator("iframe[src*='open.weixin.qq.com']").first();
+                if (iframeLocator.count() > 0 && iframeLocator.isVisible()) {
+                    log.info("✅ [Gitee AI] 找到微信登录iframe");
+                    return iframeLocator;
+                }
+            } catch (Exception e) {
+                log.debug("⚠️ [Gitee AI] 未找到微信登录iframe: {}", e.getMessage());
+            }
+            
+            // 策略5：查找包含"微信"文字的区域
+            try {
+                com.microsoft.playwright.Locator wechatTextArea = page.locator("text=微信").first();
+                if (wechatTextArea.count() > 0 && wechatTextArea.isVisible()) {
+                    log.info("✅ [Gitee AI] 找到包含'微信'文字的区域");
+                    // 尝试找到包含该文字的父容器
+                    com.microsoft.playwright.Locator parentContainer = wechatTextArea.locator("..").first();
+                    if (parentContainer.count() > 0) {
+                        log.info("✅ [Gitee AI] 找到'微信'文字父容器");
+                        return parentContainer;
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("⚠️ [Gitee AI] 未找到包含'微信'文字的区域: {}", e.getMessage());
+            }
+            
+            // 策略6：查找通用的登录二维码容器
+            try {
+                String[] qrCodeSelectors = {
+                    ".qrcode",
+                    ".qr-code",
+                    "[class*='qrcode']",
+                    "[class*='qr-code']",
+                    ".login-qrcode",
+                    ".wechat-qrcode"
+                };
+                
+                for (String selector : qrCodeSelectors) {
+                    com.microsoft.playwright.Locator qrCodeLocator = page.locator(selector).first();
+                    if (qrCodeLocator.count() > 0 && qrCodeLocator.isVisible()) {
+                        log.info("✅ [Gitee AI] 找到二维码容器: {}", selector);
+                        return qrCodeLocator;
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("⚠️ [Gitee AI] 未找到通用二维码容器: {}", e.getMessage());
+            }
+            
+            log.warn("❌ [Gitee AI] 未找到微信二维码区域");
+            return null;
+            
+        } catch (Exception e) {
+            log.error("❌ [Gitee AI] 定位微信二维码区域失败: {}", e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * 等待Gitee AI回答完成并提取内容
+     * 
+     * @param page Playwright页面实例
+     * @return 获取的回答内容
+     */
+    private String waitForResponse(Page page) {
+        try {
             // 🔥 改进的等待逻辑：持续检测内容稳定性
             String currentContent = "";
             String lastContent = "";
@@ -384,7 +590,7 @@ public class GiteeAiUtil {
             boolean hasEverHadContent = false;
             
             long startTime = System.currentTimeMillis();
-            long maxTimeout = 120000; // 2分钟超时
+            long maxTimeout = 240000; // 4分钟超时
             int requiredStableCount = 3; // 需要连续3次检测到内容不变
             int checkInterval = 500; // 每500ms检查一次
             
@@ -466,9 +672,8 @@ public class GiteeAiUtil {
             log.info("[Gitee AI] AI回复检测完成，准备提取内容");
             page.waitForTimeout(1000); // 等待内容稳定
             
-            // 步骤5：提取 AI 回复内容（参考 DeepSeek 的格式化处理）
+            // 提取 AI 回复内容
             log.info("📝 [Gitee AI] 开始提取回复内容");
-            
             String aiResponse = extractGiteeResponse(page);
             
             if (aiResponse != null && !aiResponse.isEmpty()) {
@@ -480,7 +685,7 @@ public class GiteeAiUtil {
             }
             
         } catch (Exception e) {
-            log.error("❌ [Gitee AI] 发送消息失败: {}", e.getMessage(), e);
+            log.error("❌ [Gitee AI] 等待响应失败", e);
             return null;
         }
     }

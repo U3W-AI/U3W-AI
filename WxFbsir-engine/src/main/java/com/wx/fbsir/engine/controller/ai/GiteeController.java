@@ -188,12 +188,19 @@ public class GiteeController extends StreamTaskHelper {
             
             task.sendLog("正在获取登录二维码...");
             
-            // 截图并上传
-            String screenshotUrl = captureAndUpload(page, userId, "gitee_login_qr");
+            // 截图并上传 - 使用微信二维码区域截图
+            String screenshotUrl = captureWechatQrCode(page, userId, "gitee_login_qr");
             
             if (screenshotUrl != null) {
                 task.sendLog("登录二维码已获取，请使用 Gitee 账号扫码");
                 task.sendScreenshot(screenshotUrl);
+            } else {
+                task.sendLog("二维码截图失败，使用全屏截图作为备用");
+                // 备用方案：使用全屏截图
+                String fullScreenshotUrl = captureAndUpload(page, userId, "gitee_login_qr_full");
+                if (fullScreenshotUrl != null) {
+                    task.sendScreenshot(fullScreenshotUrl);
+                }
             }
             
             // 每2秒检测一次登录状态
@@ -306,8 +313,9 @@ public class GiteeController extends StreamTaskHelper {
      * 返回数据结构：
      * {
      *   "answer": "AI的回复内容",
-     *   "giteeChatId": "平台会话ID",
+     *   "chatId": "平台会话ID",
      *   "shareUrl": "分享链接（如果有）",
+     *   "mode": "使用的模式",
      *   "elapsedTime": 执行耗时（秒）
      * }
      */
@@ -347,11 +355,12 @@ public class GiteeController extends StreamTaskHelper {
         String query = payload.getString("query");
         // 🔥 区分两种ID：chatId是前端数据库分组ID，giteeChatId是Gitee的AI会话ID
         String chatId = payload.getString("chatId");  // 前端分组ID（不用于Gitee导航）
-        // 🔥 兼容两种参数名：deepseek使用deepseekChatId，前端可能传递chatId
+        // 🔥 兼容两种参数名：gitee使用giteeChatId，前端可能传递chatId
         String giteeChatId = payload.getString("giteeChatId");  // Gitee AI会话ID（用于上下文复用）
-        if (giteeChatId == null || giteeChatId.isEmpty()) {
-            giteeChatId = payload.getString("chatId");  // 兼容前端传递的chatId参数
-        }
+        // 注意：不再自动使用chatId作为giteeChatId，确保新建会话时不会尝试恢复会话
+        // if (giteeChatId == null || giteeChatId.isEmpty()) {
+        //     giteeChatId = payload.getString("chatId");  // 兼容前端传递的chatId参数
+        // }
         
         // 提取模式参数
         boolean enableOpenSourceExploration = payload.getBooleanValue("openSourceExploration", false);
@@ -414,6 +423,28 @@ public class GiteeController extends StreamTaskHelper {
             
             task.sendLog("登录验证通过，准备发送问题...");
             
+            // 🔥 启动定时截图和日志推送（参考DeepSeek实现）
+            task.startAutoProgress(count -> {
+                try {
+                    // 文本日志消息
+                    long elapsedSeconds = (System.currentTimeMillis() - startTime) / 1000;
+                    String logMessage = "Gitee AI正在生成回复（已等待" + elapsedSeconds + "秒）...";
+                    task.sendLog(logMessage);
+                    
+                    // 截图消息（独立发送）
+                    String screenshotUrl = captureAndUpload(page, userId, 
+                        "gitee_progress_" + count);
+                    if (screenshotUrl != null) {
+                        task.sendScreenshot(screenshotUrl);
+                    }
+                    
+                    return logMessage; // 返回文本供日志记录
+                } catch (Exception e) {
+                    log.warn("[Gitee咨询] 进度更新失败", e);
+                    return "Gitee AI正在处理中...";
+                }
+            });
+            
             // 发送问题并等待回复
             task.sendLog("正在向 Gitee AI 发送问题...");
             task.sendLog("当前模式: " + mode);
@@ -424,7 +455,10 @@ public class GiteeController extends StreamTaskHelper {
                 return;
             }
             
-            task.sendLog("✅ Gitee AI 回复完成");
+            // 🔥 关键：回复完成后立即停止定时任务，避免继续发送正在生成的日志
+            task.stop();
+            task.sendLog("✅ Gitee AI 回复完成，等待页面渲染...");
+            
             
             // 等待页面渲染完成
             page.waitForTimeout(2000);
@@ -445,25 +479,34 @@ public class GiteeController extends StreamTaskHelper {
             // 构建返回数据
             long elapsedTime = (System.currentTimeMillis() - startTime) / 1000;
             Map<String, Object> resultData = new HashMap<>();
-            resultData.put("chatId", newChatId);  // 返回新的会话ID供下次复用（与DeepSeek保持一致）
-            resultData.put("answer", aiResponse);
-            resultData.put("shareUrl", shareUrl);  // 分享链接
-            resultData.put("elapsedTime", elapsedTime);
             resultData.put("query", query);
+            resultData.put("chatId", newChatId);  // 返回新的会话ID供下次复用（与DeepSeek保持一致）
+            resultData.put("shareUrl", shareUrl);  // 分享链接
             resultData.put("mode", mode);  // 添加使用的模式
+            resultData.put("elapsedTime", elapsedTime);
             
+            // 🔥 数据存储策略（优化版）：
+            // - answer字段：存储AI回复内容
+            resultData.put("answer", aiResponse != null ? aiResponse : "Gitee AI回复完成，但获取内容失败");
             
             // 发送成功结果
             task.sendSuccess("Gitee AI Chat 回复完成", resultData);
             
-            log.info("[Gitee AI咨询] 成功 - 用户: {}, 耗时: {}秒", userId, elapsedTime);
+            log.info("[Gitee AI咨询] 成功 - 用户: {}, 会话: {}, 耗时: {}秒", userId, sessionId, elapsedTime);
             
         } catch (Exception e) {
-            log.error("[Gitee AI咨询] 失败 - 用户: {}, 错误: {}", userId, e.getMessage(), e);
+            log.error("[Gitee AI咨询] 失败 - 用户: {}, 会话: {}, 错误: {}", userId, sessionId, e.getMessage(), e);
             task.sendError("AI 咨询失败: " + e.getMessage());
         } finally {
+            task.stop();
+            
             if (session != null) {
-                browserPool.release(session);
+                try {
+                    browserPool.release(session);
+                    log.debug("[Gitee咨询] 已释放会话到池中 - 用户: {}", userId);
+                } catch (Exception e) {
+                    log.warn("[Gitee咨询] 释放会话失败 - 用户: {}, 错误: {}", userId, e.getMessage());
+                }
             }
         }
     }
@@ -556,6 +599,109 @@ public class GiteeController extends StreamTaskHelper {
         } catch (Exception e) {
             log.error("[Gitee截图] 截图失败 - 错误: {}", e.getMessage(), e);
             return null;
+        }
+    }
+    
+    /**
+     * 截取微信二维码区域并上传到 Admin 服务器
+     */
+    private String captureWechatQrCode(Page page, String userId, String fileName) {
+        try {
+            log.info("[Gitee微信二维码截图] 开始定位微信二维码区域");
+            
+            // 定位微信二维码区域
+            com.microsoft.playwright.Locator qrCodeLocator = giteeAiUtil.locateWechatQrCode(page);
+            
+            if (qrCodeLocator != null && qrCodeLocator.isVisible()) {
+                log.info("[Gitee微信二维码截图] 找到微信二维码区域，开始截图");
+                
+                // 🔥 放大微信二维码图片
+                try {
+                    // 使用 JavaScript 调整二维码元素的大小
+                    page.evaluate("""
+                        () => {
+                            // 找到二维码图片元素
+                            const qrCodeImg = document.querySelector('.js_qrcode_img.web_qrcode_img');
+                            if (qrCodeImg) {
+                                // 保存原始样式
+                                const originalStyle = qrCodeImg.getAttribute('style') || '';
+                                qrCodeImg.setAttribute('data-original-style', originalStyle);
+                                
+                                // 放大二维码图片
+                                qrCodeImg.style.width = '300px';
+                                qrCodeImg.style.height = '300px';
+                                qrCodeImg.style.objectFit = 'contain';
+                                qrCodeImg.style.border = '2px solid #fff';
+                                qrCodeImg.style.backgroundColor = '#fff';
+                                qrCodeImg.style.padding = '10px';
+                                
+                                // 也调整父容器的大小
+                                const parentContainer = qrCodeImg.parentElement;
+                                if (parentContainer) {
+                                    parentContainer.style.width = '324px';
+                                    parentContainer.style.height = '324px';
+                                    parentContainer.style.display = 'flex';
+                                    parentContainer.style.alignItems = 'center';
+                                    parentContainer.style.justifyContent = 'center';
+                                    parentContainer.style.backgroundColor = '#fff';
+                                }
+                            }
+                        }
+                    """);
+                    
+                    // 等待样式生效
+                    page.waitForTimeout(1000);
+                    log.info("[Gitee微信二维码截图] 已放大微信二维码图片");
+                } catch (Exception e) {
+                    log.debug("[Gitee微信二维码截图] 放大二维码失败，使用原始大小截图: {}", e.getMessage());
+                }
+                
+                // 截取微信二维码区域
+                byte[] screenshotBytes = qrCodeLocator.screenshot(
+                    new com.microsoft.playwright.Locator.ScreenshotOptions()
+                );
+                
+                // 恢复原始样式
+                try {
+                    page.evaluate("""
+                        () => {
+                            const qrCodeImg = document.querySelector('.js_qrcode_img.web_qrcode_img');
+                            if (qrCodeImg) {
+                                const originalStyle = qrCodeImg.getAttribute('data-original-style') || '';
+                                if (originalStyle) {
+                                    qrCodeImg.setAttribute('style', originalStyle);
+                                    qrCodeImg.removeAttribute('data-original-style');
+                                } else {
+                                    qrCodeImg.removeAttribute('style');
+                                }
+                            }
+                        }
+                    """);
+                } catch (Exception e) {
+                    log.debug("[Gitee微信二维码截图] 恢复原始样式失败: {}", e.getMessage());
+                }
+                
+                // 上传到 Admin 服务器
+                com.wx.fbsir.engine.playwright.util.ScreenshotUploadClient.UploadResult result = 
+                    uploadClient.uploadScreenshot(userId, fileName, screenshotBytes);
+                
+                if (result.isSuccess()) {
+                    String uploadedUrl = result.getUrl();
+                    log.info("[Gitee微信二维码截图] 上传成功 - URL: {}", uploadedUrl);
+                    return uploadedUrl;
+                } else {
+                    log.error("[Gitee微信二维码截图] 上传失败 - 错误: {}", result.getErrorMessage());
+                    return null;
+                }
+            } else {
+                log.warn("[Gitee微信二维码截图] 未找到微信二维码区域，使用全屏截图作为备用");
+                // 备用方案：使用全屏截图
+                return captureAndUpload(page, userId, fileName + "_full");
+            }
+        } catch (Exception e) {
+            log.error("[Gitee微信二维码截图] 截图失败 - 错误: {}", e.getMessage(), e);
+            // 异常情况下使用全屏截图作为备用
+            return captureAndUpload(page, userId, fileName + "_error");
         }
     }
 }

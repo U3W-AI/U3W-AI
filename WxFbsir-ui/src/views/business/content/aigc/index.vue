@@ -147,6 +147,7 @@
                       active-color="#409eff" 
                       inactive-color="#dcdfe6" 
                       :disabled="!ai.loggedIn" 
+                      @change="handleAiToggle(ai.id)"
                     />
                   </div>
                 </div>
@@ -457,14 +458,37 @@ export default {
     
     // 🔥 初始化AI状态
     const initAiStates = () => {
+      let hasEnabled = false
       ENGINE_CONFIGS.forEach(service => {
         if (service.type === 'ai') {
+          // 确保只有第一个AI服务被默认启用
+          const enabled = !hasEnabled && service.enabled
+          if (enabled) {
+            hasEnabled = true
+          }
           aiStates.value[service.id] = {
-            enabled: service.enabled,
+            enabled: enabled,
             options: initServiceOptionsState(service.id)
           }
         }
       })
+    }
+    
+    // 🔥 处理AI切换（单选逻辑）
+    const handleAiToggle = (aiId) => {
+      const currentAiState = aiStates.value[aiId]
+      if (!currentAiState) return
+      
+      // 如果当前AI被启用，禁用所有其他AI
+      if (currentAiState.enabled) {
+        ENGINE_CONFIGS.forEach(service => {
+          if (service.type === 'ai' && service.id !== aiId) {
+            if (aiStates.value[service.id]) {
+              aiStates.value[service.id].enabled = false
+            }
+          }
+        })
+      }
     }
     
     // 🔥 切换AI选项
@@ -1631,6 +1655,7 @@ export default {
       showHistoryDrawer,
       loadHistoryItem,
       toggleAiOption,
+      handleAiToggle,
       handleServiceLogin,
       goToProfile,
       handleDeepSeekLogin,
