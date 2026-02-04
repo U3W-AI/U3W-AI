@@ -1,9 +1,8 @@
 <h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">福帮手数据智能化系统</h1>
-<h4 align="center">幸福有AI，幸运有你</h4>
+<h4 align="center">福帮手FBSir，幸福有AI，幸运有你。Fbsir, AI 4 Happiness, U 4 Fortune。</h4>
 <p align="center">
 	<a href="https://gitee.com/U3W-AI/RuoYi-Vue"><img src="https://img.shields.io/badge/WxFbsir-v1.2.5B-brightgreen.svg"></a>
 	<a href="https://www.fbsir.com"><img src="https://img.shields.io/badge/website-www.fbsir.com-blue.svg"></a>
-    <a href="https://gitee.com/U3W-AI/WxFbsir"><img src="https://img.shields.io/badge/WxFbsir-v1.0.0-brightgreen.svg"></a>
     <a href="https://gitee.com/U3W-AI/WxFbsir/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg"></a>
     <a href="https://spring.io/projects/spring-boot"><img src="https://img.shields.io/badge/Spring%20Boot-3.x-green.svg"></a>
     <a href="https://vuejs.org/"><img src="https://img.shields.io/badge/Vue-3.x-4FC08D.svg"></a>
@@ -11,7 +10,7 @@
 
 <p align="center">
     以AI工具链赋能团队建设，推动智能原生企业更快涌现，助力智能社会高质量发展。<br>
-    福帮手FBSir，幸福有AI，幸运有你。Fbsir, AI 4 Happiness, U 4 Fortune。
+
 </p>
 
 ---
@@ -147,7 +146,7 @@ npm run dev      # 启动开发服务器
 
 ---
 
-<p align="center">Copyright © 2024-2026 WxFbsir. All Rights Reserved.</p>
+
 
 
 ### ✨ **特色模块之Gitee用户能力分析**
@@ -175,46 +174,6 @@ npm run dev      # 启动开发服务器
 基于福帮手独特的engine-admin框架，有两个测试模块进库：1、知识库管理及同步机器人（目前支持企业微信、元器智能体知识库同步）2、元器智能体自动调参工具。
 
 
-## 快速开始
-
-### 环境要求
-- 必需：JDK 17+（推荐 OpenJDK 17）
-- 必需：Maven 3.8+
-- 必需：MySQL 8.0+
-- 必需：Node.js 18+（推荐 LTS）
-- 必需：npm 9+ 或 pnpm 8+
-- 可选：Redis 6.0+（缓存/会话）
-- 系统：Windows 10+ / macOS 10.15+ / Linux
-- 资源：内存 8GB+（推荐 16GB），硬盘可用空间 10GB+
-- 工具：IntelliJ IDEA 2023+ / Eclipse、VS Code / WebStorm、Navicat / DBeaver / MySQL Workbench
-
-
-### 快速部署
-
-详细部署步骤请查看 [部署文档](./部署文档.md)
-
-```bash
-# 1. 克隆项目
-git clone https://gitee.com/U3W-AI/U3W-AI.git
-cd U3W-AI
-
-# 2. 初始化数据库
-mysql -u root -p wxfbsir < sql/wxfbsir.sql
-
-# 3. 启动后端
-cd WxFbsir-admin
-mvn clean install
-mvn spring-boot:run
-
-# 4. 启动前端
-cd WxFbsir-ui
-npm install
-npm run dev
-```
-
-### 默认账户
-- 用户名：`admin`
-- 密码：`admin123`
 
 ## 文档中心
 
@@ -227,25 +186,9 @@ npm run dev
 - **[权限控制规范](./docs/开发规范/权限控制规范.md)** - 权限与鉴权规范
 - **[功能说明](./docs/功能说明)** - 功能说明目录
 
-## 贡献指南
-
-欢迎贡献代码和文档！请遵循以下步骤：
-
-1. Fork 本仓库到你的账号
-2. 创建功能分支：`git checkout -b feature/your-feature`
-3. 提交代码：`git commit -m "feat: 添加新功能 (2025-12-05)"`
-4. 推送到分支：`git push origin feature/your-feature`
-5. 提交 Pull Request
-
-详细规范请查看 [代码合并PR规范](./docs/开发规范/代码合并PR规范.md)
-
-## 技术支持
-
-- **源码**: [https://gitee.com/U3W-AI/U3W-AI](https://gitee.com/U3W-AI/U3W-AI)
-
----
-
 本项目后台管理系统基于 **若依(RuoYi)** 框架进行二次开发，感谢若依团队提供的优秀开源框架。
 
 
 文档更新日期：2026年2月4日 15：50  文档版本：1.2.5B
+
+<p align="center">Copyright © 2024-2026 WxFbsir. All Rights Reserved.</p>
