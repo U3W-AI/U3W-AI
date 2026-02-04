@@ -1,102 +1,153 @@
-<h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">福帮手</h1>
+<h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">福帮手数据智能化系统</h1>
 <h4 align="center">幸福有AI，幸运有你</h4>
 <p align="center">
 	<a href="https://gitee.com/U3W-AI/RuoYi-Vue"><img src="https://img.shields.io/badge/WxFbsir-v1.2.5B-brightgreen.svg"></a>
 	<a href="https://www.fbsir.com"><img src="https://img.shields.io/badge/website-www.fbsir.com-blue.svg"></a>
+    <a href="https://gitee.com/U3W-AI/WxFbsir"><img src="https://img.shields.io/badge/WxFbsir-v1.0.0-brightgreen.svg"></a>
+    <a href="https://gitee.com/U3W-AI/WxFbsir/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg"></a>
+    <a href="https://spring.io/projects/spring-boot"><img src="https://img.shields.io/badge/Spring%20Boot-3.x-green.svg"></a>
+    <a href="https://vuejs.org/"><img src="https://img.shields.io/badge/Vue-3.x-4FC08D.svg"></a>
 </p>
 
-
-
-以AI工具链赋能团队建设，推动智能原生企业更快涌现，助力智能社会高质量发展。福帮手FBSir，幸福有AI，幸运有你。Fbsir, AI 4 Happiness, U 4 Fortune。
-
-## 1. 项目摘要
-
-福帮手（WxFbsir）是一个面向企业团队与内容运营场景的**AI工具链与智能协同平台**，通过“主节点（Admin）+引擎节点（Engine）+多AI平台”的架构，将内容生产、文档解析、公众号投递、积分与权限治理等能力统一纳管，并在可扩展的AIGC框架内实现多模型协同与高并发任务处理。项目采用异步任务与回调机制，保障用户体验与系统稳定性，同时具备可运营的积分体系与可扩展的智能体工作流管理能力。
-
-核心价值：
-- **效率提升**：多模型并行生成与智能优化，显著缩短内容产出周期。
-- **可运营性**：积分系统、统计报表、角色权限体系支持精细化运营。
-- **可扩展性**：Engine端AIGC框架支持新增AI平台与新能力扩展。
-- **企业级能力**：安全、审计、可控部署、可定制流程适配企业场景。
+<p align="center">
+    以AI工具链赋能团队建设，推动智能原生企业更快涌现，助力智能社会高质量发展。<br>
+    福帮手FBSir，幸福有AI，幸运有你。Fbsir, AI 4 Happiness, U 4 Fortune。
+</p>
 
 ---
 
-## 2. 产品定位与愿景
+## 📖 项目介绍
 
-### 2.1 产品定位
-- **定位**：AI原生团队协作与内容智能生产平台
-- **目标用户**：内容运营团队、品牌市场团队、企业知识管理团队、开发者与技术运营团队
-- **核心场景**：内容生成与排版、文档解析与结构化输出、公众号草稿投递、AI咨询与对话、自动化流程执行
+**福帮手数据智能化系统（WxFbsir）** 是一个开源的、面向企业团队与内容运营场景的 **AI工具链与智能协同平台**。
 
-### 2.2 产品愿景
-以可治理、可扩展的AI工具链，推动企业从“人驱动流程”向“智能驱动流程”转变，实现“业务提效 + 资产沉淀 + 运营增长”的闭环。
+项目采用 **AGPL-3.0** 协议开源，旨在通过“主节点（Admin）+引擎节点（Engine）+多AI平台”的架构，将内容生产、文档解析、公众号投递、积分与权限治理等能力统一纳管，并在可扩展的AIGC框架内实现多模型协同与高并发任务处理。
 
----
-
-## 3. 产品体系与功能版图
-
-### 3.1 功能矩阵
-- **内容生产**：日更助手（多模型并行、优化合成、智能排版）
-- **知识解析**：文档解析助手（多格式解析、异步回调）
-- **渠道触达**：公众号草稿投递（素材管理、内容投递、发布记录）
-- **智能对话**：AIGC框架（多AI平台接入、上下文管理、流式任务）
-- **开发者能力**：Playwright自动化能力、WebSocket双节点协同
-- **运营体系**：积分规则与前置校验、统计报表、用户与权限管理
-
-### 3.2 关键能力特性
-- **多模型协同**：同时调用多个模型生成不同风格内容并进行优化合成。
-- **异步与回调**：后台异步生成，前端轮询/实时状态获取。
-- **多节点架构**：Admin主节点管理数据与业务，Engine副节点执行高负载与自动化能力。
-- **可运营机制**：积分体系支持规则配置、使用拦截、消耗与沉淀。
+### 核心价值
+- **🚀 效率提升**：多模型并行生成与智能优化，显著缩短内容产出周期。
+- **📊 可运营性**：内置积分系统、统计报表、角色权限体系，支持精细化运营。
+- **🔌 可扩展性**：Engine端AIGC框架设计，轻松支持新增AI平台与新能力扩展。
+- **🛡️ 企业级能力**：安全、审计、可控部署、可定制流程，完美适配企业场景。
 
 ---
 
-## 4. 技术架构与系统设计
+## ✨ 核心功能
 
-### 4.1 架构总览
-- **前端**：Vue 3 + Element Plus + Vite + Pinia
-- **后端**：Spring Boot 3.x + MyBatis + MySQL + Redis（可选）
-- **通信**：REST API + WebSocket（Admin ↔ Engine）
-- **自动化**：Playwright 在 Engine 侧执行
-- **AI平台**：腾讯元器工作流与多AI平台接入
+### 1. 内容生产与运营
+- **日更助手**：同时调用多个模型生成不同风格初稿，支持智能优化合成与排版。
+- **公众号集成**：支持微信公众号草稿箱投递、素材管理与发布记录追踪。
+- **文档解析**：强大的文档解析助手，支持多格式解析与异步回调处理。
 
-### 4.2 核心架构特性
-- **主/副节点协作**：主节点负责业务与数据，副节点执行自动化与AI任务。
-- **AIGC消息隔离**：AI业务消息与通用任务消息严格隔离，避免链路冲突。
-- **批量存储优化**：AIGC日志与截图攒批更新，降低数据库压力。
+### 2. AIGC 智能协同
+- **多模型协同**：支持腾讯元器等多种AI平台接入，实现流式对话与上下文管理。
+- **智能工作流**：内置AIGC框架，支持复杂的智能体工作流编排。
 
-### 4.3 可扩展性设计
-- 新增AI平台：仅需在 Engine 端新增处理器，前后端无需大改。
-- 模块化业务扩展：业务模块集中于 `WxFbsir-business`，支持按模块拓展。
+### 3. 系统治理与运维
+- **自动化引擎**：基于 Playwright 的自动化能力，支持 WebSocket 双节点协同（Admin ↔ Engine）。
+- **积分体系**：可配置的积分规则、消耗拦截与前置校验，助力商业化运营。
+- **权限管理**：完善的用户、角色、菜单权限控制，保障数据安全。
 
 ---
 
-## 5. 数据资产与智能资产
+## 🛠️ 技术栈
 
-### 5.1 数据资产维度
-- **内容资产**：文章草稿、优化内容、排版结果
-- **用户资产**：用户画像、积分行为、能力评测结果
-- **运营资产**：统计报表、活跃与使用指标
-- **交互资产**：AIGC对话历史、任务日志、结果沉淀
+本项目基于 **Spring Boot 3.x** + **Vue 3** 前后端分离架构开发。
 
-### 5.2 资产价值
-- **知识沉淀**：对话/解析结果可作为组织知识库素材
-- **运营洞察**：积分与统计为运营策略提供量化依据
-- **能力复用**：工作流模板与AI策略可在多场景复用
+### 后端 (Backend)
+- **核心框架**：Spring Boot 3.5.x
+- **ORM框架**：MyBatis 3.x
+- **数据库**：MySQL 8.x
+- **缓存**：Redis 7.x (可选，推荐)
+- **任务调度**：Quartz
+- **连接池**：Druid
+- **工具库**：Hutool, FastJson2, Lombok
+
+### 前端 (Frontend)
+- **框架**：Vue 3
+- **UI组件**：Element Plus
+- **构建工具**：Vite
+- **状态管理**：Pinia
+- **路由管理**：Vue Router
+
+### 引擎端 (Engine)
+- **自动化**：Playwright
+- **通信**：WebSocket
 
 ---
 
-## 6. 安全、合规与治理
+## 📂 项目结构
 
-- **权限控制**：完整用户、角色、菜单权限体系
-- **敏感信息保护**：AES加密存储（如公众号密钥）
-- **网络隔离**：Engine可独立部署，提升安全边界
-- **可控部署**：本地化部署与私有化部署兼容
+```
+WxFbsir
+├── WxFbsir-admin       // [核心] 后端启动入口，Web服务
+├── WxFbsir-ui          // [核心] 前端源代码 (Vue3)
+├── WxFbsir-business    // [业务] 核心业务逻辑 (AIGC, 证书, 积分等)
+├── WxFbsir-common      // [通用] 工具类、常量、注解
+├── WxFbsir-engine      // [引擎] 自动化任务执行引擎 (Playwright)
+├── WxFbsir-framework   // [框架] 核心配置 (Security, Redis, MyBatis)
+├── WxFbsir-generator   // [工具] 代码生成器
+├── WxFbsir-quartz      // [调度] 定时任务
+└── WxFbsir-system      // [系统] 用户、权限、日志管理
+```
 
-### ✨ **特色模块之日更助手**
+---
 
+## 🚀 快速开始
 
-同时调用多个模型生成不同风格初稿，优化后文章到微信公众号草稿箱。保存所有生成文章，支持查看、编辑和删除。
+### 1. 环境准备
+- **JDK**：>= 17
+- **Node.js**：>= 16 (推荐 18+)
+- **MySQL**：>= 8.0
+- **Redis**：>= 5.0
+
+### 2. 后端启动
+1.  **克隆项目**：
+    ```bash
+    git clone https://gitee.com/U3W-AI/WxFbsir.git
+    ```
+2.  **导入数据库**：
+    创建数据库 `wxfbsir`，并导入 `sql` 目录下的初始化脚本（如有）。
+3.  **修改配置**：
+    修改 `WxFbsir-admin/src/main/resources/application-druid.yml` 中的数据库连接信息。
+4.  **运行服务**：
+    运行 `WxFbsir-admin` 模块下的 `WxFbsirApplication.java`。
+
+### 3. 前端启动
+```bash
+cd WxFbsir-ui
+npm install      # 安装依赖
+npm run dev      # 启动开发服务器
+```
+访问地址：`http://localhost:80` (默认)
+
+### 4. 引擎启动 (可选)
+如果需要使用自动化功能（如爬虫、自动化操作）：
+1.  进入 `WxFbsir-engine` 模块。
+2.  配置相关参数。
+3.  运行 `WxFbsirEngineApplication.java`。
+
+---
+
+## 🤝 参与贡献
+
+欢迎提交 Pull Request 或 Issue！
+
+1.  **Fork** 本仓库
+2.  新建分支 `Feat_xxx`
+3.  提交代码
+4.  新建 Pull Request
+
+---
+
+## 📄 开源协议
+
+本项目采用 **AGPL-3.0** 开源协议。
+这意味着如果您基于本项目进行修改并提供网络服务，您必须**开源您的修改代码**。
+
+详细协议内容请参阅 [LICENSE](LICENSE) 文件。
+
+---
+
+<p align="center">Copyright © 2024-2026 WxFbsir. All Rights Reserved.</p>
 
 
 ### ✨ **特色模块之Gitee用户能力分析**
@@ -197,4 +248,4 @@ npm run dev
 本项目后台管理系统基于 **若依(RuoYi)** 框架进行二次开发，感谢若依团队提供的优秀开源框架。
 
 
-文档更新日期：2026年2月2日 15：00  文档版本：1.2.5B
+文档更新日期：2026年2月4日 15：50  文档版本：1.2.5B
