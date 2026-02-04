@@ -101,10 +101,10 @@ WxFbsir
 ### 2. 后端启动
 1.  **克隆项目**：
     ```bash
-    git clone https://gitee.com/U3W-AI/WxFbsir.git
+    git clone https://gitee.com/U3W-AI/U3W-AI.git
     ```
 2.  **导入数据库**：
-    创建数据库 `wxfbsir`，并导入 `sql` 目录下的初始化脚本（如有）。
+    创建数据库 `wxfbsir`，并导入 `sql` 目录下的初始化脚本。
 3.  **修改配置**：
     修改 `WxFbsir-admin/src/main/resources/application-druid.yml` 中的数据库连接信息。
 4.  **运行服务**：
@@ -189,6 +189,6 @@ npm run dev      # 启动开发服务器
 本项目后台管理系统基于 **若依(RuoYi)** 框架进行二次开发，感谢若依团队提供的优秀开源框架。
 
 
-文档更新日期：2026年2月4日 15：50  文档版本：1.2.5B
+文档更新日期：2026年2月4日 15：55  文档版本：1.2.5B
 
 <p align="center">Copyright © 2024-2026 WxFbsir. All Rights Reserved.</p>
