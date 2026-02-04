@@ -151,6 +151,22 @@ public class DeepSeekController extends StreamTaskHelper {
             BrowserSession session = null;
             try {
                 session = browserPool.acquirePersistent(userId, "deepseek", false);
+                
+                // 🔥 使用通用框架恢复登录状态
+                if (com.wx.fbsir.engine.playwright.login.manager.LoginStateManager.hasLoginState("deepseek", userId)) {
+                    try {
+                        boolean restored = com.wx.fbsir.engine.playwright.login.manager.LoginStateManager
+                            .restoreLoginState(session, "deepseek", userId);
+                        if (restored) {
+                            log.info("[DeepSeek登录检测] ✅ 登录状态已恢复 - 用户: {}", userId);
+                        } else {
+                            log.warn("[DeepSeek登录检测] ⚠️ 登录状态恢复失败 - 用户: {}", userId);
+                        }
+                    } catch (Exception e) {
+                        log.warn("[DeepSeek登录检测] ⚠️ 登录状态恢复异常: {}", e.getMessage());
+                    }
+                }
+                
                 String loginStatus = deepSeekUtil.checkLoginStatus(session.getOrCreatePage(), true);
                 boolean isLoggedIn = !"false".equals(loginStatus);
                 
@@ -555,13 +571,23 @@ public class DeepSeekController extends StreamTaskHelper {
                         task.sendSuccess("登录成功！欢迎，" + loginStatus, successData);
                         log.info("[DeepSeek扫码登录] 成功 - 用户: {}, DeepSeek用户: {}", userId, loginStatus);
                         
-                        // 🔥 关键：登录成功后等待3秒让Chromium完成数据持久化
-                        // Cookies/LocalStorage需要异步写入磁盘
+                        // 🔥 使用通用框架保存登录状态
+                        task.sendLog("正在保存登录状态...");
                         try {
-                            Thread.sleep(3000);
-                            log.debug("[DeepSeek扫码登录] 等待数据持久化完成 - 用户: {}", userId);
+                            Thread.sleep(2000);
+                            
+                            boolean saved = com.wx.fbsir.engine.playwright.login.manager.LoginStateManager
+                                .saveLoginState(session, "deepseek", userId, loginStatus);
+                            
+                            if (saved) {
+                                log.info("[DeepSeek扫码登录] ✅ 登录状态已保存 - 用户: {}", userId);
+                            } else {
+                                log.warn("[DeepSeek扫码登录] ⚠️ 登录状态保存失败 - 用户: {}", userId);
+                            }
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
+                        } catch (Exception e) {
+                            log.error("[DeepSeek扫码登录] 保存登录状态异常: {}", e.getMessage(), e);
                         }
                         
                         return;
@@ -697,6 +723,22 @@ public class DeepSeekController extends StreamTaskHelper {
             task.sendLog("正在打开DeepSeek...");
             
             session = browserPool.acquirePersistent(userId, "deepseek", false);
+            
+            // 🔥 使用通用框架恢复登录状态
+            if (com.wx.fbsir.engine.playwright.login.manager.LoginStateManager.hasLoginState("deepseek", userId)) {
+                try {
+                    boolean restored = com.wx.fbsir.engine.playwright.login.manager.LoginStateManager
+                        .restoreLoginState(session, "deepseek", userId);
+                    if (restored) {
+                        log.info("[DeepSeek AI咨询] ✅ 登录状态已恢复 - 用户: {}", userId);
+                    } else {
+                        log.warn("[DeepSeek AI咨询] ⚠️ 登录状态恢复失败 - 用户: {}", userId);
+                    }
+                } catch (Exception e) {
+                    log.warn("[DeepSeek AI咨询] ⚠️ 登录状态恢复异常: {}", e.getMessage());
+                }
+            }
+            
             Page page = session.getOrCreatePage();
             
             // 🔥 使用deepseekChatId进行会话恢复（AI上下文复用）

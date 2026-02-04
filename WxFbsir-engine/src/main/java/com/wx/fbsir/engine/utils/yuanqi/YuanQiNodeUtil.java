@@ -11,6 +11,8 @@ import com.wx.fbsir.engine.playwright.util.ScreenshotUploadClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.function.BiPredicate;
@@ -38,6 +40,8 @@ import java.util.regex.Pattern;
 @Slf4j
 @Component
 public class YuanQiNodeUtil {
+    
+    private static final Logger log = LoggerFactory.getLogger(YuanQiNodeUtil.class);
 
     @Autowired
     private ScreenshotUtil screenshotUtil;

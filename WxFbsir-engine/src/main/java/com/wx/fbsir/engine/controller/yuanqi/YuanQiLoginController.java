@@ -81,6 +81,22 @@ public class YuanQiLoginController extends StreamTaskHelper {
         try {
             // 获取持久化浏览器会话
             session = browserPool.acquirePersistent(userId, "yuanqi", false);
+            
+            // 🔥 使用通用框架恢复登录状态
+            if (com.wx.fbsir.engine.playwright.login.manager.LoginStateManager.hasLoginState("yuanqi", userId)) {
+                try {
+                    boolean restored = com.wx.fbsir.engine.playwright.login.manager.LoginStateManager
+                        .restoreLoginState(session, "yuanqi", userId);
+                    if (restored) {
+                        log.info("[元器登录检测] ✅ 登录状态已恢复 - 用户: {}", userId);
+                    } else {
+                        log.warn("[元器登录检测] ⚠️ 登录状态恢复失败 - 用户: {}", userId);
+                    }
+                } catch (Exception e) {
+                    log.warn("[元器登录检测] ⚠️ 登录状态恢复异常: {}", e.getMessage());
+                }
+            }
+            
             Page page = session.getOrCreatePage();
             
             // 检查登录状态
@@ -257,13 +273,23 @@ public class YuanQiLoginController extends StreamTaskHelper {
                         task.sendSuccess("登录成功！欢迎，" + finalLoginStatus, successData);
                         log.info("[元器扫码登录] 成功 - 用户: {}, 元器用户: {}", userId, finalLoginStatus);
                         
-                        // 等待数据持久化完成（增加等待时间，确保数据库锁完全释放）
+                        // 🔥 使用通用框架保存登录状态
+                        task.sendLog("正在保存登录状态...");
                         try {
-                            task.sendLog("正在保存登录状态...");
-                            Thread.sleep(5000); // 从3秒增加到5秒
-                            log.debug("[元器扫码登录] 等待数据持久化完成 - 用户: {}", userId);
+                            Thread.sleep(2000);
+                            
+                            boolean saved = com.wx.fbsir.engine.playwright.login.manager.LoginStateManager
+                                .saveLoginState(session, "yuanqi", userId, finalLoginStatus);
+                            
+                            if (saved) {
+                                log.info("[元器扫码登录] ✅ 登录状态已保存 - 用户: {}", userId);
+                            } else {
+                                log.warn("[元器扫码登录] ⚠️ 登录状态保存失败 - 用户: {}", userId);
+                            }
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
+                        } catch (Exception e) {
+                            log.error("[元器扫码登录] 保存登录状态异常: {}", e.getMessage(), e);
                         }
                         
                         return;

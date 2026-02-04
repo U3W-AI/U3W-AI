@@ -4,6 +4,8 @@ import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 元器（YuanQi）登录工具类
@@ -20,6 +22,8 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class YuanQiLoginUtil {
+    
+    private static final Logger log = LoggerFactory.getLogger(YuanQiLoginUtil.class);
 
     private static final String YUANQI_HOME_URL = "https://yuanqi.tencent.com/";
     

@@ -112,6 +112,21 @@ public class GiteeController extends StreamTaskHelper {
                 // 🔥 获取持久化浏览器会话（用于保持登录状态）
                 session = browserPool.acquirePersistent(userId, "gitee", false);
                 
+                // 🔥 关键：使用通用框架恢复登录状态（解决Gitee跨域Cookie问题）
+                if (com.wx.fbsir.engine.playwright.login.manager.LoginStateManager.hasLoginState("gitee", userId)) {
+                    try {
+                        boolean restored = com.wx.fbsir.engine.playwright.login.manager.LoginStateManager
+                            .restoreLoginState(session, "gitee", userId);
+                        if (restored) {
+                            log.info("[Gitee登录检测] ✅ 登录状态已恢复 - 用户: {}", userId);
+                        } else {
+                            log.warn("[Gitee登录检测] ⚠️ 登录状态恢复失败 - 用户: {}", userId);
+                        }
+                    } catch (Exception e) {
+                        log.warn("[Gitee登录检测] ⚠️ 登录状态恢复异常: {}", e.getMessage());
+                    }
+                }
+                
                 // 🔥 调用工具类检查登录状态
                 String loginStatus = giteeAiUtil.checkLoginStatus(session.getOrCreatePage(), true);
                 boolean isLoggedIn = !"false".equals(loginStatus);
@@ -248,13 +263,25 @@ public class GiteeController extends StreamTaskHelper {
                 task.sendSuccess("Gitee AI Chat 登录成功", resultData);
                 log.info("✅ [Gitee扫码登录] 成功 - 用户: {}, Gitee用户: {}", userId, userName);
                 
-                // 🔥 关键：登录成功后等待5秒让Chromium完成数据持久化
-                // 不要destroy！让浏览器保持打开，会话留在池中
+                // 🔥 关键：使用通用框架保存登录状态（解决跨域Cookie持久化问题）
+                task.sendLog("正在保存登录状态...");
                 try {
-                    Thread.sleep(5000);
-                    log.debug("[Gitee扫码登录] 数据持久化完成，会话已保留在池中 - 用户: {}", userId);
+                    // 等待页面稳定
+                    Thread.sleep(2000);
+                    
+                    // 使用LoginStateManager保存登录状态
+                    boolean saved = com.wx.fbsir.engine.playwright.login.manager.LoginStateManager
+                        .saveLoginState(session, "gitee", userId, userName);
+                    
+                    if (saved) {
+                        log.info("[Gitee扫码登录] ✅ 登录状态已保存 - 用户: {}", userId);
+                    } else {
+                        log.warn("[Gitee扫码登录] ⚠️ 登录状态保存失败 - 用户: {}", userId);
+                    }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
+                } catch (Exception e) {
+                    log.error("[Gitee扫码登录] 保存登录状态异常: {}", e.getMessage(), e);
                 }
                 
             } else {
@@ -268,26 +295,19 @@ public class GiteeController extends StreamTaskHelper {
         } finally {
             task.stop();
             
-            // 🔥 关键修改：登录成功后不要关闭浏览器！
-            // Gitee的Cookie持久化不可靠，直接保持浏览器打开，下次复用
-            // 对比DeepSeek：DeepSeek用destroy也能工作，因为它的Cookie持久化机制更完善
+            // 🔥 登录成功后销毁会话，依赖Chromium的Cookie持久化机制（与DeepSeek保持一致）
+            // Cookie已保存到用户数据目录：./data/playwright/user-{userId}-gitee
+            // 下次使用时会自动恢复登录状态
             if (session != null) {
-                if (loginSuccess) {
-                    // 登录成功：释放到池中，保持浏览器打开
-                    try {
-                        browserPool.release(session);
-                        log.info("[Gitee扫码登录] ✅ 登录成功，浏览器保持打开，可直接复用 - 用户: {}", userId);
-                    } catch (Exception e) {
-                        log.warn("[Gitee扫码登录] 释放会话失败 - 用户: {}, 错误: {}", userId, e.getMessage());
-                    }
-                } else {
-                    // 登录失败/超时：销毁会话，释放资源
-                    try {
-                        session.destroy();
+                try {
+                    browserPool.destroy(session);
+                    if (loginSuccess) {
+                        log.info("[Gitee扫码登录] ✅ 登录成功，会话已销毁，Cookie已持久化 - 用户: {}", userId);
+                    } else {
                         log.debug("[Gitee扫码登录] 登录失败，已销毁会话 - 用户: {}", userId);
-                    } catch (Exception e) {
-                        log.warn("[Gitee扫码登录] 销毁会话失败 - 用户: {}, 错误: {}", userId, e.getMessage());
                     }
+                } catch (Exception e) {
+                    log.warn("[Gitee扫码登录] 销毁会话失败 - 用户: {}, 错误: {}", userId, e.getMessage());
                 }
             }
         }
@@ -391,6 +411,22 @@ public class GiteeController extends StreamTaskHelper {
             
             // 获取持久化浏览器会话
             session = browserPool.acquirePersistent(userId, "gitee", false);
+            
+            // 🔥 关键：使用通用框架恢复登录状态（解决Gitee跨域Cookie问题）
+            if (com.wx.fbsir.engine.playwright.login.manager.LoginStateManager.hasLoginState("gitee", userId)) {
+                try {
+                    boolean restored = com.wx.fbsir.engine.playwright.login.manager.LoginStateManager
+                        .restoreLoginState(session, "gitee", userId);
+                    if (restored) {
+                        log.info("[Gitee AI咨询] ✅ 登录状态已恢复 - 用户: {}", userId);
+                    } else {
+                        log.warn("[Gitee AI咨询] ⚠️ 登录状态恢复失败 - 用户: {}", userId);
+                    }
+                } catch (Exception e) {
+                    log.warn("[Gitee AI咨询] ⚠️ 登录状态恢复异常: {}", e.getMessage());
+                }
+            }
+            
             Page page = session.getOrCreatePage();
             
             // 🔥 使用giteeChatId进行会话恢复（AI上下文复用）
@@ -500,12 +536,14 @@ public class GiteeController extends StreamTaskHelper {
         } finally {
             task.stop();
             
+            // 🔥 AI咨询完成后销毁会话，释放资源
+            // 登录状态已通过LoginStateManager持久化，下次使用时会自动恢复
             if (session != null) {
                 try {
-                    browserPool.release(session);
-                    log.debug("[Gitee咨询] 已释放会话到池中 - 用户: {}", userId);
+                    browserPool.destroy(session);
+                    log.debug("[Gitee咨询] 已销毁会话 - 用户: {}", userId);
                 } catch (Exception e) {
-                    log.warn("[Gitee咨询] 释放会话失败 - 用户: {}, 错误: {}", userId, e.getMessage());
+                    log.warn("[Gitee咨询] 销毁会话失败 - 用户: {}, 错误: {}", userId, e.getMessage());
                 }
             }
         }
