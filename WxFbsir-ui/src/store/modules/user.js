@@ -98,6 +98,7 @@ const useUserStore = defineStore(
             } else {
               this.roles = ['ROLE_DEFAULT']
             }
+            this.hostId = user.hostId || ''
             resolve(res)
           }).catch(error => {
             reject(error)

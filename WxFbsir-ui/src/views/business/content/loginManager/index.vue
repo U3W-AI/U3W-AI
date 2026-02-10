@@ -492,7 +492,7 @@ const handleLogin = (serviceId) => {
 
 // 生命周期
 onMounted(() => {
-  // 🔥 页面加载时恢复登录状态
+  // 页面加载时恢复登录状态
   restoreLoginStatusFromStorage()
   
   connectWebSocket(() => {

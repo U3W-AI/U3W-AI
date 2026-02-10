@@ -35,6 +35,7 @@
 
 <script setup>
 import { updateUserProfile } from "@/api/system/user"
+import useUserStore from '@/store/modules/user'
 
 const props = defineProps({
   user: {
@@ -42,6 +43,7 @@ const props = defineProps({
   }
 })
 
+const userStore = useUserStore()
 const { proxy } = getCurrentInstance()
 
 const form = ref({})
@@ -65,6 +67,8 @@ function submit() {
         props.user.phonenumber = form.value.phonenumber
         props.user.email = form.value.email
         props.user.hostId = form.value.hostId
+        // 立即同步更新全局store中的hostId
+        userStore.hostId = form.value.hostId
         console.log('✅ [个人中心] 用户信息更新成功，hostId:', form.value.hostId)
       }).catch(error => {
         console.error('❌ [个人中心] 用户信息更新失败:', error)

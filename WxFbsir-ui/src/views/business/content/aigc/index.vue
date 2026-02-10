@@ -1522,13 +1522,13 @@ export default {
 
     // 生命周期
     onMounted(() => {
-      // 🔥 页面加载时恢复登录状态
+      // 页面加载时恢复登录状态
       restoreLoginStatusFromStorage()
 
-      // 🔥 初始化AI状态
+      // 初始化AI状态
       initAiStates()
 
-      // 🔥 验证主机ID
+      // 验证主机ID
       if (!checkHostId()) {
         return  // 如果没有主机ID，不继续初始化
       }
