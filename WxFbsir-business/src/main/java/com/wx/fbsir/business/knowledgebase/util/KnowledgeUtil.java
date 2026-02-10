@@ -145,13 +145,8 @@ public class KnowledgeUtil {
             return false;
         }
 
-
-        java.util.List<String> engineIds = engineSessionManager.getOnlineEngineIds();
-        if (engineIds == null || engineIds.isEmpty()) {
-            log.error("无可用Engine在线，无法执行知识库上传");
-            return false;
-        }
-        String engineId = engineIds.get(0);
+        // 优先使用当前用户配置的hostId作为engineId
+        String engineId = resolveEngineId();
 
         boolean success = true;
 
@@ -222,12 +217,8 @@ public class KnowledgeUtil {
         Long userId = SecurityUtils.getUserId();
         String userIdStr = userId != null ? String.valueOf(userId) : null;
 
-        java.util.List<String> engineIds = engineSessionManager.getOnlineEngineIds();
-        if (engineIds == null || engineIds.isEmpty()) {
-            log.error("无可用Engine在线，无法执行文档上传");
-            return false;
-        }
-        String engineId = engineIds.get(0);
+        // 优先使用当前用户配置的hostId作为engineId
+        String engineId = resolveEngineId();
 
         boolean success = true;
 
@@ -286,9 +277,36 @@ public class KnowledgeUtil {
         return success;
     }
 
+    /**
+     * 解析当前用户应使用的engineId
+     * 优先级：用户配置的hostId（且在线） > 第一个在线Engine
+     */
+    private String resolveEngineId() {
+        // 优先使用用户配置的hostId
+        try {
+            String userHostId = SecurityUtils.getLoginUser().getUser().getHostId();
+            if (StringUtils.isNotEmpty(userHostId)) {
+                java.util.List<String> onlineIds = engineSessionManager.getOnlineEngineIds();
+                if (onlineIds != null && onlineIds.contains(userHostId)) {
+                    return userHostId;
+                }
+                log.warn("用户配置的主机ID [{}] 不在线，尝试使用其他在线Engine", userHostId);
+            }
+        } catch (Exception e) {
+            log.warn("获取用户hostId失败: {}", e.getMessage());
+        }
+
+        // 降级：使用第一个在线Engine
+        java.util.List<String> engineIds = engineSessionManager.getOnlineEngineIds();
+        if (engineIds == null || engineIds.isEmpty()) {
+            log.error("无可用Engine在线");
+            return null;
+        }
+        return engineIds.get(0);
+    }
 
     /**
-     * 判断某个知识库ID是否包含在“拥有的知识库”列表中
+     * 判断某个知识库ID是否包含在"拥有的知识库"列表中
      */
     public boolean isKbOwnedByUser(String hasKnowledgeBase, Long kbId) {
         if (kbId == null || StringUtils.isEmpty(hasKnowledgeBase)) {
