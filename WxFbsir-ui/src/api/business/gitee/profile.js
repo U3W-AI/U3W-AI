@@ -66,4 +66,38 @@ export function saveGiteeAnalysisReport(data) {
     method: "post",
     data
   })
+
+}
+
+export function checkResumeExists() {
+  return request({
+    url: "/resume/exists",
+    method: "get"
+  })
+}
+
+export function uploadResume(file) {
+  const formData = new FormData()
+  formData.append("file", file)
+  return request({
+    url: "/resume/upload",
+    method: "post",
+    data: formData,
+    headers: {
+      "Content-Type": "multipart/form-data"
+    }
+  })
+}
+
+export function updateResume(file) {
+  const formData = new FormData()
+  formData.append("file", file)
+  return request({
+    url: "/resume/updata",
+    method: "post",
+    data: formData,
+    headers: {
+      "Content-Type": "multipart/form-data"
+    }
+  })
 }

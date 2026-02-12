@@ -41,6 +41,38 @@
       </template>
     </el-alert>
 
+    <el-alert
+        title="个人简历"
+        type="info"
+        :closable="false"
+        class="gitee-alert"
+    >
+      <template #default>
+        <div class="gitee-status">
+          <el-tag :type="resumeExists ? 'success' : 'warning'" effect="plain">
+            {{ resumeExists ? "已上传" : "未上传" }}
+          </el-tag>
+          <span class="gitee-status-text">
+            {{ resumeExists ? "可在「Gitee 分析」中查看访问与使用数据" : "简历上传后，可在「Gitee 分析」中查看访问与使用数据" }}
+          </span>
+          <el-button
+              type="primary"
+              :loading="uploadingResume"
+              @click="resumeExists ? handleUpdateResume() : handleUploadResume()"
+          >
+            {{ resumeExists ? "更新简历" : "上传简历" }}
+          </el-button>
+        </div>
+      </template>
+    </el-alert>
+    <input
+        ref="fileInput"
+        type="file"
+        style="display: none"
+        accept=".pdf,.doc,.docx"
+        @change="handleFileChange"
+    >
+
     <el-card class="gitee-card">
       <template #header>
         <div class="gitee-card-header">
@@ -533,9 +565,11 @@
 </template>
 
 <script setup name="GiteeProfile">
+import { ref, computed, watch, onMounted } from "vue"
 import { ElMessage, ElMessageBox } from "element-plus"
 import { CaretBottom, CaretTop } from "@element-plus/icons-vue"
 import { parseTime } from "@/utils/WxFbsir"
+import { useRoute, useRouter } from "vue-router"
 import {
   getGiteeStatus,
   getGiteeAuthorizeUrl,
@@ -543,7 +577,10 @@ import {
   fetchGiteeRepos,
   fetchGiteeIssues,
   fetchGiteeNotifications,
-  unbindGitee
+  unbindGitee,
+  checkResumeExists,
+  uploadResume,
+  updateResume
 } from "@/api/business/gitee/profile"
 
 const redirectPath = "/user/profile/gitee"
@@ -555,6 +592,11 @@ const notifications = ref([])
 const authorized = ref(false)
 const authorizing = ref(false)
 const unbinding = ref(false)
+
+const resumeExists = ref(false)
+const uploadingResume = ref(false)
+const fileInput = ref(null)
+const selectedFile = ref(null)
 
 const repoKeyword = ref("")
 const issueKeyword = ref("")
@@ -967,6 +1009,82 @@ async function loadStatus() {
   }
 }
 
+async function loadResumeStatus() {
+  try {
+    const res = await checkResumeExists()
+    // 处理不同的响应格式
+    if (res.code === 200) {
+      // 标准格式: { code: 200, data: { exists: boolean|string } }
+      const existsValue = res.data?.exists
+      // 处理字符串类型的布尔值
+      if (typeof existsValue === 'string') {
+        resumeExists.value = existsValue.toLowerCase() === 'true'
+      } else {
+        resumeExists.value = Boolean(existsValue)
+      }
+    } else if (typeof res === 'boolean') {
+      // 直接返回布尔值的格式
+      resumeExists.value = res
+    } else if (res.data !== undefined) {
+      // { data: boolean|string } 格式
+      const dataValue = res.data
+      if (typeof dataValue === 'string') {
+        resumeExists.value = dataValue.toLowerCase() === 'true'
+      } else {
+        resumeExists.value = Boolean(dataValue)
+      }
+    } else {
+      // 其他格式，默认为false
+      resumeExists.value = false
+    }
+  } catch (error) {
+    handleError(error, "获取简历状态失败")
+    // 出错时默认为false
+    resumeExists.value = false
+  }
+}
+
+function handleUploadResume() {
+  fileInput.value?.click()
+}
+
+function handleUpdateResume() {
+  fileInput.value?.click()
+}
+
+async function handleFileChange(event) {
+  const file = event.target.files[0]
+  if (!file) {
+    return
+  }
+  selectedFile.value = file
+  await uploadResumeFile()
+  event.target.value = ""
+}
+
+async function uploadResumeFile() {
+  if (!selectedFile.value) {
+    return
+  }
+  uploadingResume.value = true
+  try {
+    if (resumeExists.value) {
+      await updateResume(selectedFile.value)
+      ElMessage.success("简历更新成功")
+    } else {
+      await uploadResume(selectedFile.value)
+      ElMessage.success("简历上传成功")
+    }
+    await loadResumeStatus()
+  } catch (error) {
+    handleError(error, resumeExists.value ? "简历更新失败" : "简历上传失败")
+  } finally {
+    uploadingResume.value = false
+    selectedFile.value = null
+  }
+}
+
+
 watch([repoVisibility, repoPerPage], () => {
   if (!authorized.value || loadingRepos.value) {
     return
@@ -1012,6 +1130,7 @@ onMounted(async () => {
     router.replace({ path: route.path, query: cleanQuery })
   }
   await loadStatus()
+  await loadResumeStatus()
   if (authorized.value) {
     handleRefreshAll()
   }
