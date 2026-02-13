@@ -84,11 +84,47 @@
     </insert>
 
     <select id="ResumeExists" resultType="com.wx.fbsir.business.resume.domain.CV">
-        select * from cv_storage where user_id = #{userId}
+        SELECT
+            id                              AS id,
+            user_id                         AS userId,
+            cv_id                           AS cvId,
+            cv_name                         AS cvName,
+            name                            AS name,
+            phone                           AS phone,
+            mail                            AS mail,
+            shortlink                       AS shortlink,
+            parse_content                   AS parseContent,
+            process_status                  AS processStatus,
+            file_url                        AS fileUrl,
+            available                       AS available,
+            deadline                        AS deadline,
+            access_code_available           AS accessCodeAvailable,
+            create_time                     AS createTime,
+            update_time                     AS updateTime
+        FROM cv_storage
+        WHERE user_id = #{userId}
     </select>
 
     <select id="selectResumeByUserId" resultType="com.wx.fbsir.business.resume.domain.CV">
-        select * from cv_storage where user_id = #{userId}
+        SELECT
+            id                              AS id,
+            user_id                         AS userId,
+            cv_id                           AS cvId,
+            cv_name                         AS cvName,
+            name                            AS name,
+            phone                           AS phone,
+            mail                            AS mail,
+            shortlink                       AS shortlink,
+            parse_content                   AS parseContent,
+            process_status                  AS processStatus,
+            file_url                        AS fileUrl,
+            available                       AS available,
+            deadline                        AS deadline,
+            access_code_available           AS accessCodeAvailable,
+            create_time                     AS createTime,
+            update_time                     AS updateTime
+        FROM cv_storage
+        WHERE user_id = #{userId}
     </select>
 
     <select id="getParseResult" resultType="com.wx.fbsir.business.resume.domain.ParseResult">
