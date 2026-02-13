@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.resume.mapper.ResumeMapper">
+
+    <resultMap type="com.wx.fbsir.business.resume.domain.CV" id="ResumeResult">
+        <result property="id"                 column="id"                  />
+        <result property="userId"             column="user_id"             />
+        <result property="cvId"               column="cv_id"               />
+        <result property="cvName"             column="cv_name"             />
+        <result property="name"               column="name"                />
+        <result property="phone"              column="phone"               />
+        <result property="mail"               column="mail"                />
+        <result property="shortlink"          column="shortlink"           />
+        <result property="parseContent"       column="parse_content"       />
+        <result property="processStatus"      column="process_status"      />
+        <result property="fileUrl"            column="file_url"            />
+        <result property="available"          column="available"           />
+        <result property="createBy"           column="create_by"           />
+        <result property="createTime"         column="create_time"         />
+        <result property="updateBy"           column="update_by"           />
+        <result property="updateTime"         column="update_time"         />
+        <result property="remark"             column="remark"              />
+    </resultMap>
+
+
+    <insert id="insertResume"
+            parameterType="com.wx.fbsir.business.resume.domain.CV"
+            useGeneratedKeys="true"
+            keyProperty="id">
+
+        insert into cv_storage (
+        <if test="userId != null">user_id, </if>
+        <if test="cvId != null and cvId != ''">cv_id, </if>
+        <if test="cvName != null and cvName != ''">cv_name, </if>
+        <if test="shortlink != null and shortlink != ''">shortlink, </if>
+        <if test="fileUrl != null and fileUrl != ''">file_url, </if>
+        <if test="available != null">available, </if>
+        create_time
+        ) values (
+        <if test="userId != null">#{userId}, </if>
+        <if test="cvId != null and cvId != ''">#{cvId}, </if>
+        <if test="cvName != null and cvName != ''">#{cvName}, </if>
+        <if test="shortlink != null and shortlink != ''">#{shortlink}, </if>
+        <if test="fileUrl != null and fileUrl != ''">#{fileUrl}, </if>
+        <if test="available != null">#{available}, </if>
+        sysdate()
+        )
+    </insert>
+
+    <insert id="addAccessCode" parameterType="com.wx.fbsir.business.resume.domain.ResumeAccessCode">
+        INSERT INTO cv_access_code (
+            shortlink,
+            access_code,
+            accessible_count,
+            deadline,
+            available,
+            del_flag
+        )
+        VALUES (
+                   #{short_link},
+                   #{resumeAccessCode.accessCode},
+                   #{resumeAccessCode.accessibleCount},
+                   #{resumeAccessCode.deadline},
+                   1,
+                   0
+               );
+    </insert>
+
+    <insert id="addVisitDate">
+        INSERT INTO cv_monitor (shortlink, date, count)
+        VALUES (#{shortlink}, #{now}, 1)
+            ON DUPLICATE KEY UPDATE
+            count = count + 1,
+            update_time = CURRENT_TIMESTAMP;
+    </insert>
+
+    <insert id="addAccessLog">
+        INSERT INTO cv_access_log
+            (shortlink, ip, browser, os, device)
+        VALUES
+            (#{shortlink},#{ip}, #{browser}, #{os}, #{device});
+    </insert>
+
+    <select id="ResumeExists" resultType="com.wx.fbsir.business.resume.domain.CV">
+        SELECT
+            id                              AS id,
+            user_id                         AS userId,
+            cv_id                           AS cvId,
+            cv_name                         AS cvName,
+            name                            AS name,
+            phone                           AS phone,
+            mail                            AS mail,
+            shortlink                       AS shortlink,
+            parse_content                   AS parseContent,
+            process_status                  AS processStatus,
+            file_url                        AS fileUrl,
+            available                       AS available,
+            deadline                        AS deadline,
+            access_code_available           AS accessCodeAvailable,
+            create_time                     AS createTime,
+            update_time                     AS updateTime
+        FROM cv_storage
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectResumeByUserId" resultType="com.wx.fbsir.business.resume.domain.CV">
+        SELECT
+            id                              AS id,
+            user_id                         AS userId,
+            cv_id                           AS cvId,
+            cv_name                         AS cvName,
+            name                            AS name,
+            phone                           AS phone,
+            mail                            AS mail,
+            shortlink                       AS shortlink,
+            parse_content                   AS parseContent,
+            process_status                  AS processStatus,
+            file_url                        AS fileUrl,
+            available                       AS available,
+            deadline                        AS deadline,
+            access_code_available           AS accessCodeAvailable,
+            create_time                     AS createTime,
+            update_time                     AS updateTime
+        FROM cv_storage
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="getParseResult" resultType="com.wx.fbsir.business.resume.domain.ParseResult">
+        select cv_name as cvName, name, phone, mail, shortlink, parse_content as parseContent, process_status as processStatus, update_time as updateTime
+        from cv_storage
+        where user_id = #{userId}
+    </select>
+
+    <select id="findCVcountByShortLink" resultType="java.lang.Long">
+        select count(shortlink) from cv_storage where shortlink=#{shortlink};
+    </select>
+
+
+    <select id="findResumeByShortLink" resultType="com.wx.fbsir.business.resume.domain.CV">
+        SELECT
+            id,
+            user_id AS userId,
+            cv_id AS cvId,
+            cv_name AS cvName,
+            name,
+            phone,
+            mail,
+            shortlink,
+            parse_content AS parseContent,
+            process_status AS processStatus,
+            file_url AS fileUrl,
+            available,
+            deadline,
+            create_time AS createTime,
+            update_time AS updateTime,
+            create_by AS createBy,
+            update_by AS updateBy,
+            remark,
+            access_code_available AS accessCodeAvailable
+        FROM cv_storage
+        WHERE shortlink = #{shortlink}
+    </select>
+
+    <select id="getTotalAccessCodeByUserId" resultType="java.lang.Long">
+        SELECT COUNT(*) AS total_access_codes
+        FROM cv_access_code ac
+                 JOIN cv_storage cs
+                      ON ac.shortlink = cs.shortlink
+        WHERE cs.user_id = #{userId} and ac.del_flag = 0;
+    </select>
+
+    <select id="getAllAccessCodeByUserId" resultType="com.wx.fbsir.business.resume.domain.ResumeAccessCode">
+        SELECT
+            ac.id,
+            ac.shortlink,
+            ac.access_code        AS accessCode,
+            ac.accessible_count   AS accessibleCount,
+            ac.deadline,
+            ac.available,
+            ac.create_time        AS createTime,
+            ac.update_time        AS updateTime
+        FROM cv_access_code ac
+                 JOIN cv_storage cs ON ac.shortlink = cs.shortlink
+        WHERE cs.user_id = #{userId}
+          AND ac.del_flag = 0
+        ORDER BY ac.create_time DESC
+            LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <select id="selectShortLinkByUserId" resultType="java.lang.String">
+        select shortlink
+        from cv_storage
+        where user_id = #{userId};
+    </select>
+
+    <select id="getLinkAccessData" resultType="com.wx.fbsir.business.resume.domain.ResumeMonitor">
+        select id, shortlink, date, count, create_time, update_time
+        from cv_monitor
+        where shortlink=#{shortlink}
+          and date between #{beginTime} and #{endTime};
+    </select>
+
+    <select id="getTotalAccessLog" resultType="java.lang.Long">
+        select count(*)
+        from cv_access_log
+        where shortlink=#{shortlink}
+    </select>
+
+    <select id="getAllAccessLog" resultType="com.wx.fbsir.business.resume.domain.ResumeAccessLog">
+        select ip, browser, os, device, create_time
+        from cv_access_log
+        where shortlink=#{shortlink}
+        ORDER BY create_time DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <update  id="getAccessibleCountByCode">
+        UPDATE cv_access_code
+        SET accessible_count = accessible_count - 1,
+        update_time = NOW()
+        WHERE shortlink = #{shortlink}
+        AND access_code = #{accessCode}
+        AND accessible_count > 0
+        AND available = 1
+        AND deadline > CURRENT_TIMESTAMP
+        LIMIT 1;
+    </update>
+
+    <update id="updataResume"
+            parameterType="com.wx.fbsir.business.resume.domain.CV">
+
+        update cv_storage
+        <set>
+            <if test="cvId != null and cvId != ''">
+                cv_id = #{cvId},
+            </if>
+            <if test="cvName != null and cvName != ''">
+                cv_name = #{cvName},
+            </if>
+            <if test="shortlink != null and shortlink != ''">
+                shortlink = #{shortlink},
+            </if>
+            <if test="fileUrl != null and fileUrl != ''">
+                file_url = #{fileUrl},
+            </if>
+            <if test="available != null">
+                available = #{available},
+            </if>
+            <if test="accessCodeAvailable != null">
+                access_code_available = #{accessCodeAvailable},
+            </if>
+            <if test="name != null">
+                name = #{name},
+            </if>
+            <if test="phone != null">
+                phone = #{phone},
+            </if>
+            <if test="mail != null">
+                mail = #{mail},
+            </if>
+            <if test="parseContent != null">
+                parse_content = #{parseContent},
+            </if>
+            update_time = sysdate()
+        </set>
+        where user_id = #{userId}
+
+    </update>
+
+
+    <update id="updataParseResult">
+        UPDATE cv_storage
+        SET
+            name           = #{parseContent.name},
+            phone          = #{parseContent.phone},
+            mail           = #{parseContent.mail},
+            parse_content  = #{parseContent.parseContent},
+            process_status = #{statusCode},
+            update_time    = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId};
+    </update>
+    <update id="updataParseStatus">
+        update cv_storage
+        <set>
+            <if test="parseStatus != null">
+                process_status = #{parseStatus},
+            </if>
+        </set>
+        where user_id = #{userId}
+    </update>
+
+    <update id="updateDeadLine">
+        update cv_storage
+        set
+            deadline = #{time}
+        where user_id = #{userId}
+    </update>
+</mapper>

@@ -83,6 +83,33 @@
               </div>
             </div>
           </div>
+
+          <div class="dimension-section">
+            <div class="section-title">
+              <el-icon><Document /></el-icon>
+              个人简历
+            </div>
+            <div class="dimension-list">
+              <div class="dimension-item">
+                <div class="dimension-header">
+                  <span class="dimension-title">访问码控制</span>
+                </div>
+                <div class="dimension-desc">可自定义访问码，保护个人数据安全</div>
+              </div>
+              <div class="dimension-item">
+                <div class="dimension-header">
+                  <span class="dimension-title">数据提取/AI分析</span>
+                </div>
+                <div class="dimension-desc">AI智能分析个人简历，并提取简历关键信息，让你的简历智能化</div>
+              </div>
+              <div class="dimension-item">
+                <div class="dimension-header">
+                  <span class="dimension-title">链接分享/数据监控</span>
+                </div>
+                <div class="dimension-desc">分享简历链接，让更多人看到你的简历，同时监控简历访问数据</div>
+              </div>
+            </div>
+          </div>
         </el-card>
       </el-col>
 
@@ -156,6 +183,244 @@
               </el-table>
               <el-empty v-else description="暂无评测记录，请点击“重新评测”生成报告" />
             </el-tab-pane>
+            <el-tab-pane label="访问码" name="accessCode">
+              <div class="access-code-section">
+                <div class="section-header">
+                  <div class="section-title">
+                    <el-icon><Key /></el-icon>
+                    访问码管理
+                    <el-switch
+                        v-model="accessCodeEnabled"
+                        :loading="accessCodeSwitchLoading"
+                        @change="handleAccessCodeSwitchChange"
+                        style="margin-left: 12px"
+                    />
+                  </div>
+                  <div class="header-actions">
+                    <el-button type="primary" size="small" @click="showAddAccessCodeDialog">
+                      <el-icon><Plus /></el-icon>
+                      新增
+                    </el-button>
+                    <el-button type="success" size="small" @click="showBatchAddAccessCodeDialog">
+                      <el-icon><Plus /></el-icon>
+                      批量生成
+                    </el-button>
+                    <el-button type="primary" size="small" @click="loadAccessCodeList">
+                      <el-icon><RefreshRight /></el-icon>
+                      刷新
+                    </el-button>
+                  </div>
+                </div>
+
+                <el-table
+                    v-loading="accessCodeLoading"
+                    :data="accessCodeList"
+                    size="small"
+                    border
+                    class="access-code-table"
+                >
+                  <el-table-column prop="accessCode" label="访问码" min-width="150">
+                    <template #default="{ row }">
+                      <el-tag type="primary" size="small">{{ row.accessCode }}</el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="accessibleCount" label="可访问次数" width="110" align="center">
+                    <template #default="{ row }">
+                      <el-tag :type="row.accessibleCount > 0 ? 'success' : 'info'" size="small">
+                        {{ row.accessibleCount === -1 ? '无限' : row.accessibleCount }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="deadline" label="截止时间" width="160" align="center">
+                    <template #default="{ row }">
+                      <span :class="{ 'text-danger': isDeadlineExpired(row.deadline) }">
+                        {{ row.deadline || '永久有效' }}
+                      </span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="available" label="状态" width="80" align="center">
+                    <template #default="{ row }">
+                      <el-tag :type="row.available === 1 ? 'success' : 'danger'" size="small">
+                        {{ row.available === 1 ? '启用' : '禁用' }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="createTime" label="创建时间" width="160" align="center" />
+                  <el-table-column prop="updateTime" label="更新时间" width="160" align="center" />
+                </el-table>
+
+                <el-pagination
+                    v-if="accessCodePagination.total > 0"
+                    v-model:current-page="accessCodePagination.pageNum"
+                    v-model:page-size="accessCodePagination.pageSize"
+                    :page-sizes="[10, 20, 50, 100]"
+                    :total="accessCodePagination.total"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    @current-change="handleAccessCodePageChange"
+                    @size-change="handleAccessCodeSizeChange"
+                    class="pagination"
+                />
+
+                <el-empty v-if="!accessCodeLoading && accessCodeList.length === 0" description="暂无访问码数据" :image-size="100" />
+              </div>
+            </el-tab-pane>
+            <el-tab-pane label="智能分析" name="ai">
+              <div class="card-header">
+                <span class="card-title">
+                  <el-icon><Document /></el-icon>
+                  个人简历
+                </span>
+                <div class="header-actions">
+                  <el-button type="primary" size="small" @click="handleRefreshResume">
+                    <el-icon><RefreshRight /></el-icon>
+                    刷新
+                  </el-button>
+                  <el-button type="success" size="small" :loading="resumeGenerating" @click="handleGenerateResume">
+                    <el-icon><MagicStick /></el-icon>
+                    一键生成
+                  </el-button>
+                  <el-button
+                      :type="cvAgentConfigured ? 'success' : 'primary'"
+                      size="small"
+                      @click="showCvConfigDialog"
+                  >
+                    <el-icon>
+                      <component :is="cvAgentConfigured ? 'CircleCheck' : 'Setting'" />
+                    </el-icon>
+                    {{ cvAgentConfigured ? '已配置' : '配置智能体' }}
+                  </el-button>
+                </div>
+              </div>
+
+              <div class="resume-data-section">
+                <el-descriptions :column="2" border class="resume-info">
+                  <el-descriptions-item label="简历名称">{{ resumeData.cvName || '--' }}</el-descriptions-item>
+                  <el-descriptions-item label="个人姓名">{{ resumeData.name || '--' }}</el-descriptions-item>
+                  <el-descriptions-item label="电话">{{ resumeData.phone || '--' }}</el-descriptions-item>
+                  <el-descriptions-item label="邮箱">{{ resumeData.mail || '--' }}</el-descriptions-item>
+                  <el-descriptions-item label="访问链接">
+                    <div class="access-link-item">
+                      <el-link v-if="resumeData.shortlink" type="primary" :href="resumeData.shortlink" target="_blank">{{ resumeData.shortlink }}</el-link>
+                      <span v-else>--</span>
+                      <el-button v-if="resumeData.shortlink" type="success" size="small" @click="showShareDialog">
+                        <el-icon><Share /></el-icon>
+                        分享
+                      </el-button>
+                    </div>
+                  </el-descriptions-item>
+                  <el-descriptions-item label="截止时间">
+                    <div class="deadline-item">
+                      <span>{{ resumeData.deadline || '无' }}</span>
+                      <el-button type="primary" size="small" @click="showSetDeadlineDialog">
+                        <el-icon><Setting /></el-icon>
+                        设置
+                      </el-button>
+                    </div>
+                  </el-descriptions-item>
+                  <el-descriptions-item label="更新时间">{{ resumeData.updateTime || '--' }}</el-descriptions-item>
+                </el-descriptions>
+
+                <div class="ai-analysis-section">
+                  <div class="section-title">
+                    <el-icon><MagicStick /></el-icon>
+                    AI智能分析
+                  </div>
+                  <div class="section-content">
+                    <div v-if="resumeGenerating" class="parsing-status">
+                      <el-icon class="is-loading"><Loading /></el-icon>
+                      <p>正在解析中...</p>
+                      <p class="tip">请稍候，AI正在处理您的简历</p>
+                    </div>
+                    <div v-else-if="resumeData.parseContent" class="analysis-content">
+                      <p>根据您的简历内容，AI分析如下：</p>
+                      <div class="parse-content-text">{{ resumeData.parseContent }}</div>
+                    </div>
+                    <el-empty v-else description='暂无解析内容，请点击"一键生成"开始分析' :image-size="100" />
+                  </div>
+                </div>
+              </div>
+            </el-tab-pane>
+            <el-tab-pane label="数据监控" name="monitoring">
+              <div class="monitoring-section">
+                <el-tabs v-model="monitoringSubTab" type="border-card">
+                  <el-tab-pane label="访问数据监控" name="accessData">
+                    <div class="monitoring-header">
+                      <div class="date-range-picker">
+                        <el-date-picker
+                            v-model="accessDateRange"
+                            type="daterange"
+                            range-separator="至"
+                            start-placeholder="开始日期"
+                            end-placeholder="结束日期"
+                            format="YYYY-MM-DD"
+                            value-format="YYYY-MM-DD"
+                            @change="loadAccessData"
+                        />
+                      </div>
+                      <el-button type="primary" size="small" @click="loadAccessData">
+                        <el-icon><RefreshRight /></el-icon>
+                        刷新
+                      </el-button>
+                    </div>
+
+                    <div v-loading="accessDataLoading" class="chart-container">
+                      <div ref="accessDataChartRef" class="access-data-chart"></div>
+                      <el-empty v-if="!accessDataLoading && accessDataList.length === 0" description="暂无访问数据" :image-size="100" />
+                    </div>
+                  </el-tab-pane>
+
+                  <el-tab-pane label="访问日志监控" name="accessLog">
+                    <div class="monitoring-header">
+                      <el-button type="primary" size="small" @click="loadAccessLog">
+                        <el-icon><RefreshRight /></el-icon>
+                        刷新
+                      </el-button>
+                    </div>
+
+                    <el-table
+                        v-loading="accessLogLoading"
+                        :data="accessLogList"
+                        size="small"
+                        border
+                        class="access-log-table"
+                    >
+                      <el-table-column prop="ip" label="IP地址" min-width="140" />
+                      <el-table-column prop="browser" label="浏览器" min-width="120">
+                        <template #default="{ row }">
+                          <el-tag size="small" type="info">{{ row.browser || '--' }}</el-tag>
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="os" label="操作系统" min-width="120">
+                        <template #default="{ row }">
+                          <el-tag size="small" type="success">{{ row.os || '--' }}</el-tag>
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="device" label="访问设备" min-width="100">
+                        <template #default="{ row }">
+                          <el-tag size="small" type="warning">{{ row.device || '--' }}</el-tag>
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="createTime" label="访问时间" width="160" align="center" />
+                    </el-table>
+
+                    <el-pagination
+                        v-if="accessLogPagination.total > 0"
+                        v-model:current-page="accessLogPagination.pageNum"
+                        v-model:page-size="accessLogPagination.pageSize"
+                        :page-sizes="[10, 20, 50, 100]"
+                        :total="accessLogPagination.total"
+                        layout="total, sizes, prev, pager, next, jumper"
+                        @current-change="handleAccessLogPageChange"
+                        @size-change="handleAccessLogSizeChange"
+                        class="pagination"
+                    />
+
+                    <el-empty v-if="!accessLogLoading && accessLogList.length === 0" description="暂无访问日志" :image-size="100" />
+                  </el-tab-pane>
+                </el-tabs>
+              </div>
+            </el-tab-pane>
+
           </el-tabs>
         </el-card>
       </el-col>
@@ -225,12 +490,229 @@
         <el-button type="primary" @click="handleSaveConfig">保存</el-button>
       </template>
     </el-dialog>
+    <!-- CV解析智能体配置对话框 -->
+    <el-dialog
+        v-model="cvConfigDialogVisible"
+        title="配置CV解析智能体"
+        width="600px"
+        @close="handleCvConfigDialogClose"
+    >
+      <el-form
+          ref="cvConfigFormRef"
+          :model="cvConfigForm"
+          :rules="configRules"
+          label-width="120px"
+      >
+        <el-form-item label="智能体ID" prop="agentId">
+          <el-input
+              v-model="cvConfigForm.agentId"
+              :placeholder="cvIsAgentIdEncrypted ? '已加密存储，输入新值可覆盖' : '请输入appid'"
+              @focus="handleCvAgentIdFocus"
+          >
+            <template #suffix>
+              <el-tag v-if="cvIsAgentIdEncrypted" type="success" size="small">已添加</el-tag>
+            </template>
+          </el-input>
+          <div style="color: #909399; font-size: 12px; margin-top: 4px;">
+            从 智能体配置→应用发布→体验链接 中获取
+          </div>
+        </el-form-item>
+        <el-form-item label="智能体名称" prop="agentName">
+          <el-input
+              v-model="cvConfigForm.agentName"
+              placeholder="自定义名称，如：CV解析助手"
+          />
+        </el-form-item>
+        <el-form-item label="API密钥" prop="apiKey">
+          <el-input
+              v-model="cvConfigForm.apiKey"
+              type="password"
+              :placeholder="cvIsApiKeyEncrypted ? '已加密存储，输入新值可覆盖' : '请输入appkey'"
+              show-password
+              @focus="handleCvApiKeyFocus"
+          >
+            <template #suffix>
+              <el-tag v-if="cvIsApiKeyEncrypted" type="success" size="small" style="margin-right: 30px;">已添加</el-tag>
+            </template>
+          </el-input>
+          <div style="color: #909399; font-size: 12px; margin-top: 4px;">
+            从 应用发布→API管理 中获取
+          </div>
+        </el-form-item>
+        <el-form-item label="API端点" prop="apiEndpoint">
+          <el-input
+              v-model="cvConfigForm.apiEndpoint"
+              placeholder="请输入API端点URL"
+          />
+          <div style="color: #909399; font-size: 12px; margin-top: 4px;">
+            默认：https://yuanqi.tencent.com/openapi/v1/agent/chat/completions
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="cvConfigDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSaveCvConfig">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 新增访问码对话框 -->
+    <el-dialog
+        v-model="addAccessCodeDialogVisible"
+        title="新增访问码"
+        width="500px"
+        @close="handleAddAccessCodeDialogClose"
+    >
+      <el-form
+          ref="addAccessCodeFormRef"
+          :model="addAccessCodeForm"
+          :rules="addAccessCodeRules"
+          label-width="100px"
+      >
+        <el-form-item label="可访问次数" prop="accessibleCount">
+          <el-input-number
+              v-model="addAccessCodeForm.accessibleCount"
+              :min="-1"
+              :max="999999"
+              controls-position="right"
+              style="width: 100%"
+          />
+          <div style="color: #909399; font-size: 12px; margin-top: 4px;">
+            设置为 -1 表示无限次访问
+          </div>
+        </el-form-item>
+        <el-form-item label="截止时间" prop="deadline">
+          <el-date-picker
+              v-model="addAccessCodeForm.deadline"
+              type="datetime"
+              placeholder="请选择截止时间"
+              format="YYYY-MM-DD HH:mm:ss"
+              value-format="YYYY-MM-DD HH:mm:ss"
+              style="width: 100%"
+          />
+          <div style="color: #909399; font-size: 12px; margin-top: 4px;">
+            访问码过期后将无法使用
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="addAccessCodeDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleAddAccessCode">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 批量生成访问码对话框 -->
+    <el-dialog
+        v-model="batchAddAccessCodeDialogVisible"
+        title="批量生成一次访问码"
+        width="500px"
+        @close="handleBatchAddAccessCodeDialogClose"
+    >
+      <el-form
+          ref="batchAddAccessCodeFormRef"
+          :model="batchAddAccessCodeForm"
+          :rules="batchAddAccessCodeRules"
+          label-width="100px"
+      >
+        <el-form-item label="截止时间" prop="deadline">
+          <el-date-picker
+              v-model="batchAddAccessCodeForm.deadline"
+              type="datetime"
+              placeholder="请选择截止时间"
+              format="YYYY-MM-DD HH:mm:ss"
+              value-format="YYYY-MM-DD"
+              style="width: 100%"
+          />
+          <div style="color: #909399; font-size: 12px; margin-top: 4px;">
+            访问码过期后将无法使用
+          </div>
+        </el-form-item>
+        <el-form-item label="生成数量" prop="count">
+          <el-input-number
+              v-model="batchAddAccessCodeForm.count"
+              :min="1"
+              :max="10"
+              controls-position="right"
+              style="width: 100%"
+          />
+          <div style="color: #909399; font-size: 12px; margin-top: 4px;">
+            生成数量不能超过10个
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="batchAddAccessCodeDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleBatchAddAccessCode">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 分享链接对话框 -->
+    <el-dialog
+        v-model="shareDialogVisible"
+        title="分享链接"
+        width="500px"
+    >
+      <div class="share-dialog-content">
+        <div class="share-description">分享你的链接，让更多人看到</div>
+        <div class="share-link-container">
+          <el-input
+              v-model="resumeData.shortlink"
+              readonly
+              style="margin-bottom: 12px"
+          />
+          <el-button type="primary" @click="handleCopyLink">
+            复制链接
+          </el-button>
+        </div>
+        <div class="share-tip">
+          <el-tag size="small" type="info">
+            如果设置了访问码，记得带上访问码
+          </el-tag>
+        </div>
+      </div>
+    </el-dialog>
+
+    <!-- 设置截止时间对话框 -->
+    <el-dialog
+        v-model="setDeadlineDialogVisible"
+        title="设置截止时间"
+        width="500px"
+        @close="handleSetDeadlineDialogClose"
+    >
+      <el-form
+          ref="setDeadlineFormRef"
+          :model="setDeadlineForm"
+          :rules="setDeadlineRules"
+          label-width="100px"
+      >
+        <el-form-item label="无限期">
+          <el-checkbox v-model="setDeadlineForm.isInfinite">设置为无限期</el-checkbox>
+        </el-form-item>
+        <el-form-item label="截止时间" prop="deadline" v-if="!setDeadlineForm.isInfinite">
+          <el-date-picker
+              v-model="setDeadlineForm.deadline"
+              type="datetime"
+              placeholder="请选择截止时间"
+              format="YYYY-MM-DD HH:mm:ss"
+              value-format="YYYY-MM-DD HH:mm:ss"
+              style="width: 100%"
+          />
+          <div style="color: #909399; font-size: 12px; margin-top: 4px;">
+            访问链接过期后将无法使用
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="setDeadlineDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSetDeadline">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup name="GiteeAnalysis">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElNotification } from 'element-plus'
+import * as echarts from 'echarts'
 import {
   DataAnalysis,
   RefreshRight,
@@ -239,7 +721,11 @@ import {
   Reading,
   Setting,
   CircleCheck,
-  MagicStick
+  MagicStick,
+  Loading,
+  Key,
+  Plus,
+  Share
 } from '@element-plus/icons-vue'
 import {
   getGiteeStatus,
@@ -250,6 +736,17 @@ import {
   reevaluateGiteeAnalysis,
   saveGiteeAnalysisReport
 } from '@/api/business/gitee/profile'
+import {
+  parseResume,
+  getResumeStatus,
+  getAccessCodeList,
+  addAccessCode,
+  batchAddAccessCode,
+  getAccessData,
+  getAccessLog,
+  updateDeadLine,
+  updateAccessCodeAvailable
+} from '@/api/business/gitee/report'
 import {
   getMyConfig,
   addYuanqiConfig,
@@ -297,6 +794,118 @@ const configRules = {
   agentName: [{ required: true, message: '请输入智能体名称', trigger: 'blur' }],
   apiKey: [{ required: true, message: '请输入API密钥', trigger: 'blur' }]
 }
+
+// CV解析智能体相关状态
+const cvAgentConfigured = ref(false)
+const cvConfigDialogVisible = ref(false)
+const cvConfigFormRef = ref(null)
+const cvConfigForm = ref({
+  id: null,
+  agentId: '',
+  agentName: '',
+  apiKey: '',
+  apiEndpoint: 'https://yuanqi.tencent.com/openapi/v1/agent/chat/completions',
+  isActive: 1
+})
+const cvIsAgentIdEncrypted = ref(false)
+const cvIsApiKeyEncrypted = ref(false)
+
+const resumeGenerating = ref(false)
+const resumeData = ref({
+  cvName: '',
+  name: '',
+  phone: '',
+  mail: '',
+  shortlink: '',
+  updateTime: '',
+  parseContent: '',
+  processStatus: null,
+  deadline: ''
+})
+
+const accessCodeList = ref([])
+const accessCodeLoading = ref(false)
+const accessCodePagination = ref({
+  pageNum: 1,
+  pageSize: 10,
+  total: 0
+})
+
+const addAccessCodeDialogVisible = ref(false)
+const addAccessCodeFormRef = ref(null)
+const addAccessCodeForm = ref({
+  accessibleCount: 1,
+  deadline: ''
+})
+const addAccessCodeRules = {
+  accessibleCount: [
+    { required: true, message: '请输入可访问次数', trigger: 'blur' },
+    { type: 'number', min: -1, message: '可访问次数必须大于等于-1', trigger: 'blur' }
+  ],
+  deadline: [
+    { required: true, message: '请选择截止时间', trigger: 'change' }
+  ]
+}
+
+const batchAddAccessCodeDialogVisible = ref(false)
+const batchAddAccessCodeFormRef = ref(null)
+const batchAddAccessCodeForm = ref({
+  deadline: '',
+  count: 1
+})
+const batchAddAccessCodeRules = {
+  deadline: [
+    { required: true, message: '请选择截止时间', trigger: 'change' }
+  ],
+  count: [
+    { required: true, message: '请输入生成数量', trigger: 'blur' },
+    { type: 'number', min: 1, max: 10, message: '生成数量必须在1-10之间', trigger: 'blur' }
+  ]
+}
+
+const setDeadlineDialogVisible = ref(false)
+const setDeadlineFormRef = ref(null)
+const setDeadlineForm = ref({
+  deadline: '',
+  isInfinite: false
+})
+const setDeadlineRules = {
+  deadline: []
+}
+
+const shareDialogVisible = ref(false)
+
+const accessCodeEnabled = ref(true)
+const accessCodeSwitchLoading = ref(false)
+
+const monitoringSubTab = ref('accessData')
+const accessDataLoading = ref(false)
+const accessDataList = ref([])
+const accessDataChartRef = ref(null)
+const accessDateRange = ref([])
+const accessDataTotal = ref(0)
+
+const accessLogLoading = ref(false)
+const accessLogList = ref([])
+const accessLogPagination = ref({
+  pageNum: 1,
+  pageSize: 10,
+  total: 0
+})
+
+const getDefaultDateRange = () => {
+  const end = new Date()
+  const start = new Date()
+  start.setDate(end.getDate() - 6)
+  const formatDate = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  return [formatDate(start), formatDate(end)]
+}
+
 
 function handleViewReport() {
   activeTab.value = 'report'
@@ -625,6 +1234,19 @@ const loadMyConfig = async () => {
   }
 }
 
+const loadCvAgentConfig = async () => {
+  try {
+    const response = await getMyConfig('cv_parse')
+    if (response.code === 200 && response.data) {
+      cvAgentConfigured.value = !!(response.data.agentId && response.data.apiKey)
+    } else {
+      cvAgentConfigured.value = false
+    }
+  } catch (error) {
+    cvAgentConfigured.value = false
+  }
+}
+
 const showConfigDialog = async () => {
   try {
     const response = await getMyConfig('gitee_analysis')
@@ -652,6 +1274,35 @@ const showConfigDialog = async () => {
   }
   configDialogVisible.value = true
 }
+
+const showCvConfigDialog = async () => {
+  try {
+    const response = await getMyConfig('cv_parse')
+    if (response.code === 200 && response.data) {
+      const config = { ...response.data }
+      if (!config.apiEndpoint) {
+        config.apiEndpoint = 'https://yuanqi.tencent.com/openapi/v1/agent/chat/completions'
+      }
+      cvIsAgentIdEncrypted.value = config.agentId === MASKED_VALUE
+      cvIsApiKeyEncrypted.value = config.apiKey === MASKED_VALUE
+      if (cvIsAgentIdEncrypted.value) {
+        config.agentId = ''
+      }
+      if (cvIsApiKeyEncrypted.value) {
+        config.apiKey = ''
+      }
+      cvConfigForm.value = config
+    } else {
+      cvConfigForm.value.apiEndpoint = 'https://yuanqi.tencent.com/openapi/v1/agent/chat/completions'
+      cvIsAgentIdEncrypted.value = false
+      cvIsApiKeyEncrypted.value = false
+    }
+  } catch (error) {
+    ElMessage.error('加载配置失败')
+  }
+  cvConfigDialogVisible.value = true
+}
+
 
 const handleSaveConfig = async () => {
   try {
@@ -681,10 +1332,44 @@ const handleSaveConfig = async () => {
   }
 }
 
+const handleSaveCvConfig = async () => {
+  try {
+    await cvConfigFormRef.value.validate()
+    ElMessage.info('正在保存配置，请稍候...')
+    const configData = {
+      ...cvConfigForm.value,
+      businessType: 'cv_parse'  // 指定业务类型为CV解析
+    }
+    if (!configData.agentId && cvIsAgentIdEncrypted.value) {
+      configData.agentId = MASKED_VALUE
+    }
+    if (!configData.apiKey && cvIsApiKeyEncrypted.value) {
+      configData.apiKey = MASKED_VALUE
+    }
+    const apiFunc = cvConfigForm.value.id ? updateYuanqiConfig : addYuanqiConfig
+    const response = await apiFunc(configData)
+    if (response.code === 200) {
+      ElMessage.success('配置保存成功')
+      cvConfigDialogVisible.value = false
+      await loadCvAgentConfig()
+    } else {
+      ElMessage.error(response.msg || '保存失败')
+    }
+  } catch (error) {
+    ElMessage.error('保存失败: ' + (error.response?.data?.msg || error.message))
+  }
+}
+
 const handleConfigDialogClose = () => {
   configFormRef.value?.resetFields()
   isAgentIdEncrypted.value = false
   isApiKeyEncrypted.value = false
+}
+
+const handleCvConfigDialogClose = () => {
+  cvConfigFormRef.value?.resetFields()
+  cvIsAgentIdEncrypted.value = false
+  cvIsApiKeyEncrypted.value = false
 }
 
 const handleAgentIdFocus = () => {
@@ -699,10 +1384,411 @@ const handleApiKeyFocus = () => {
   }
 }
 
+const handleCvAgentIdFocus = () => {
+  if (cvIsAgentIdEncrypted.value && !cvConfigForm.value.agentId) {
+    // 用户可输入新值
+  }
+}
+
+const handleCvApiKeyFocus = () => {
+  if (cvIsApiKeyEncrypted.value && !cvConfigForm.value.apiKey) {
+    // 用户可输入新值
+  }
+}
+
+const handleGenerateResume = async () => {
+  if (resumeGenerating.value) return
+  resumeGenerating.value = true
+
+  try {
+    const response = await parseResume()
+    if (response.code === 200) {
+      ElMessage.success('简历解析已启动，正在处理中...')
+
+      let pollCount = 0
+      const maxPolls = 150
+
+      const pollInterval = setInterval(async () => {
+        pollCount++
+
+        try {
+          const statusRes = await getResumeStatus()
+          console.log('轮询查询简历状态:', statusRes)
+          if (statusRes.code === 200 && statusRes.data) {
+            resumeData.value = statusRes.data
+
+            if (statusRes.data.processStatus == 1) {
+              clearInterval(pollInterval)
+              resumeGenerating.value = false
+              ElNotification({
+                title: '简历解析完成',
+                message: '简历已成功解析并生成',
+                type: 'success',
+                duration: 4000
+              })
+            } else if (pollCount >= maxPolls) {
+              clearInterval(pollInterval)
+              resumeGenerating.value = false
+              ElNotification({
+                title: '解析超时',
+                message: '简历解析超时（超过5分钟），请稍后重试',
+                type: 'warning',
+                duration: 0
+              })
+            }
+          }
+        } catch (error) {
+          console.error('查询简历状态失败:', error)
+          clearInterval(pollInterval)
+          resumeGenerating.value = false
+          ElNotification({
+            title: '查询失败',
+            message: '查询简历状态失败，请稍后重试',
+            type: 'error',
+            duration: 0
+          })
+        }
+      }, 2000)
+    } else {
+      resumeGenerating.value = false
+      ElMessage.error(response.msg || '启动简历解析失败')
+    }
+  } catch (error) {
+    resumeGenerating.value = false
+    ElMessage.error('启动简历解析失败：' + (error.message || '未知错误'))
+  }
+}
+
+const handleRefreshResume = async () => {
+  try {
+    const response = await getResumeStatus()
+    if (response.code === 200 && response.data) {
+      resumeData.value = response.data
+      ElMessage.success('简历数据已刷新')
+    }
+  } catch (error) {
+    ElMessage.error('刷新失败，请稍后重试')
+  }
+}
+
+const loadAccessCodeList = async () => {
+  accessCodeLoading.value = true
+  try {
+    const response = await getAccessCodeList({
+      PageNum: accessCodePagination.value.pageNum,
+      PageSize: accessCodePagination.value.pageSize
+    })
+    if (response.code === 200) {
+      accessCodeList.value = response.rows || []
+      accessCodePagination.value.total = response.total || 0
+    }
+  } catch (error) {
+    ElMessage.error('加载访问码列表失败')
+  } finally {
+    accessCodeLoading.value = false
+  }
+}
+
+const handleAccessCodePageChange = (page) => {
+  accessCodePagination.value.pageNum = page
+  loadAccessCodeList()
+}
+
+const handleAccessCodeSizeChange = (size) => {
+  accessCodePagination.value.pageSize = size
+  accessCodePagination.value.pageNum = 1
+  loadAccessCodeList()
+}
+
+const isDeadlineExpired = (deadline) => {
+  if (!deadline) return false
+  const deadlineTime = new Date(deadline).getTime()
+  return deadlineTime < Date.now()
+}
+
+const showAddAccessCodeDialog = () => {
+  addAccessCodeForm.value = {
+    accessibleCount: 1,
+    deadline: ''
+  }
+  addAccessCodeDialogVisible.value = true
+}
+
+const showBatchAddAccessCodeDialog = () => {
+  batchAddAccessCodeForm.value = {
+    deadline: '',
+    count: 1
+  }
+  batchAddAccessCodeDialogVisible.value = true
+}
+
+const handleAddAccessCode = async () => {
+  if (!addAccessCodeFormRef.value) return
+
+  await addAccessCodeFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const response = await addAccessCode(addAccessCodeForm.value)
+        if (response.code === 200) {
+          ElMessage.success('访问码添加成功')
+          addAccessCodeDialogVisible.value = false
+          loadAccessCodeList()
+        }
+      } catch (error) {
+        ElMessage.error('添加访问码失败')
+      }
+    }
+  })
+}
+
+const handleBatchAddAccessCode = async () => {
+  if (!batchAddAccessCodeFormRef.value) return
+
+  await batchAddAccessCodeFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const response = await batchAddAccessCode({
+          Time: batchAddAccessCodeForm.value.deadline,
+          count: batchAddAccessCodeForm.value.count
+        })
+        if (response.code === 200) {
+          ElMessage.success(`成功生成 ${batchAddAccessCodeForm.value.count} 个访问码`)
+          batchAddAccessCodeDialogVisible.value = false
+          loadAccessCodeList()
+        }
+      } catch (error) {
+        ElMessage.error('批量生成访问码失败')
+      }
+    }
+  })
+}
+
+const handleAddAccessCodeDialogClose = () => {
+  addAccessCodeFormRef.value?.resetFields()
+}
+
+const handleBatchAddAccessCodeDialogClose = () => {
+  batchAddAccessCodeFormRef.value?.resetFields()
+}
+
+const showSetDeadlineDialog = () => {
+  setDeadlineForm.value = {
+    deadline: resumeData.value.deadline || ''
+  }
+  setDeadlineDialogVisible.value = true
+}
+
+// 监听截止时间变化，当设置了截止时间时，自动取消无限期选项
+watch(() => setDeadlineForm.value.deadline, (newValue) => {
+  if (newValue) {
+    setDeadlineForm.value.isInfinite = false
+  }
+})
+
+// 监听无限期选项变化，当设置为无限期时，清空截止时间
+watch(() => setDeadlineForm.value.isInfinite, (newValue) => {
+  if (newValue) {
+    setDeadlineForm.value.deadline = ''
+  }
+})
+
+const showShareDialog = () => {
+  shareDialogVisible.value = true
+}
+
+const handleCopyLink = () => {
+  if (resumeData.value.shortlink) {
+    navigator.clipboard.writeText(resumeData.value.shortlink).then(() => {
+      ElMessage.success('链接已复制')
+    }).catch(() => {
+      ElMessage.error('复制失败，请手动复制')
+    })
+  }
+}
+
+const handleAccessCodeSwitchChange = async (value) => {
+  accessCodeSwitchLoading.value = true
+  try {
+    const available = value ? 1 : 0
+    const response = await updateAccessCodeAvailable(available)
+    if (response.code === 200) {
+      ElMessage.success(value ? '访问码已启用' : '访问码已禁用')
+    }
+  } catch (error) {
+    ElMessage.error('操作失败，请稍后重试')
+    accessCodeEnabled.value = !value
+  } finally {
+    accessCodeSwitchLoading.value = false
+  }
+}
+
+const handleSetDeadline = async () => {
+  if (!setDeadlineFormRef.value) return
+
+  await setDeadlineFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const deadline = setDeadlineForm.value.isInfinite ? null : setDeadlineForm.value.deadline
+        const response = await updateDeadLine(deadline)
+        if (response.code === 200) {
+          ElMessage.success('截止时间设置成功')
+          setDeadlineDialogVisible.value = false
+          resumeData.value.deadline = deadline || ''
+        }
+      } catch (error) {
+        ElMessage.error('设置截止时间失败')
+      }
+    }
+  })
+}
+
+const handleSetDeadlineDialogClose = () => {
+  setDeadlineFormRef.value?.resetFields()
+}
+
+const loadAccessData = async () => {
+  accessDataLoading.value = true
+  try {
+    const params = {}
+    if (!accessDateRange.value || accessDateRange.value.length !== 2) {
+      accessDateRange.value = getDefaultDateRange()
+    }
+    if (accessDateRange.value && accessDateRange.value.length === 2) {
+      params.beginTime = accessDateRange.value[0]
+      params.endTime = accessDateRange.value[1]
+    }
+    const response = await getAccessData(params)
+    if (response.code === 200) {
+      accessDataList.value = response.rows || []
+      accessDataTotal.value = response.total || 0
+      renderAccessDataChart()
+    }
+  } catch (error) {
+    ElMessage.error('加载访问数据失败')
+  } finally {
+    accessDataLoading.value = false
+  }
+}
+
+const renderAccessDataChart = () => {
+  if (!accessDataChartRef.value) return
+
+  const chartInstance = echarts.init(accessDataChartRef.value)
+  const dates = accessDataList.value.map(item => {
+    if (!item.date) return ''
+    const dateStr = String(item.date)
+    return dateStr.split(' ')[0]
+  })
+  const counts = accessDataList.value.map(item => item.count)
+
+  const option = {
+    tooltip: {
+      trigger: 'axis',
+      formatter: '{b}<br/>访问量: {c}'
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: dates,
+      axisLabel: {
+        rotate: 45
+      }
+    },
+    yAxis: {
+      type: 'value',
+      name: '访问量'
+    },
+    series: [
+      {
+        name: '访问量',
+        type: 'line',
+        smooth: true,
+        data: counts,
+        areaStyle: {
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(64, 158, 255, 0.3)' },
+              { offset: 1, color: 'rgba(64, 158, 255, 0.05)' }
+            ]
+          }
+        },
+        itemStyle: {
+          color: '#409EFF'
+        },
+        lineStyle: {
+          width: 2
+        }
+      }
+    ]
+  }
+
+  chartInstance.setOption(option)
+
+  window.addEventListener('resize', () => {
+    chartInstance.resize()
+  })
+}
+
+const loadAccessLog = async () => {
+  accessLogLoading.value = true
+  try {
+    const response = await getAccessLog({
+      PageNum: accessLogPagination.value.pageNum,
+      PageSize: accessLogPagination.value.pageSize
+    })
+    if (response.code === 200) {
+      accessLogList.value = response.rows || []
+      accessLogPagination.value.total = response.total || 0
+    }
+  } catch (error) {
+    ElMessage.error('加载访问日志失败')
+  } finally {
+    accessLogLoading.value = false
+  }
+}
+
+const handleAccessLogPageChange = (page) => {
+  accessLogPagination.value.pageNum = page
+  loadAccessLog()
+}
+
+const handleAccessLogSizeChange = (size) => {
+  accessLogPagination.value.pageSize = size
+  accessLogPagination.value.pageNum = 1
+  loadAccessLog()
+}
+
+
 onMounted(() => {
   loadReports()
   loadLatestAnalysis()
   loadMyConfig()
+  loadCvAgentConfig()
+})
+
+watch(activeTab, (newTab) => {
+  if (newTab === 'accessCode') {
+    loadAccessCodeList()
+  } else if (newTab === 'monitoring') {
+    loadAccessData()
+  }
+})
+
+watch(monitoringSubTab, (newSubTab) => {
+  if (newSubTab === 'accessLog') {
+    loadAccessLog()
+  }
 })
 </script>
 
@@ -857,5 +1943,170 @@ onMounted(() => {
   .report-table {
     margin-top: 6px;
   }
+
+
+  .resume-data-section {
+    margin-top: 20px;
+  }
+
+  .resume-info {
+    margin-bottom: 20px;
+  }
+
+  .ai-analysis-section {
+    margin-top: 20px;
+  }
+
+  .analysis-list {
+    margin: 0;
+    padding-left: 18px;
+    color: #606266;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+
+  .analysis-list li {
+    margin-bottom: 8px;
+  }
+
+  .analysis-list li:last-child {
+    margin-bottom: 0;
+  }
+
+  .parsing-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    color: #909399;
+
+    .el-icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+      color: #409eff;
+    }
+
+    p {
+      margin: 4px 0;
+      font-size: 14px;
+    }
+
+    .tip {
+      font-size: 12px;
+      color: #c0c4cc;
+    }
+  }
+
+  .analysis-content {
+    p {
+      font-size: 14px;
+      color: #303133;
+      margin-bottom: 12px;
+      font-weight: 500;
+    }
+  }
+
+  .parse-content-text {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    color: #606266;
+    font-size: 13px;
+    line-height: 1.8;
+    background-color: #f5f7fa;
+    padding: 12px;
+    border-radius: 4px;
+  }
+
+  .deadline-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .access-link-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .share-dialog-content {
+    padding: 10px 0;
+  }
+
+  .share-description {
+    font-size: 14px;
+    color: #606266;
+    margin-bottom: 16px;
+  }
+
+  .share-link-container {
+    margin-bottom: 16px;
+  }
+
+  .share-tip {
+    margin-top: 12px;
+  }
+
+  .access-code-section {
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+
+      .section-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 0;
+      }
+    }
+
+    .access-code-table {
+      margin-bottom: 16px;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 16px;
+    }
+
+    .text-danger {
+      color: #f56c6c;
+    }
+  }
+
+  .monitoring-section {
+    .monitoring-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+
+      .date-range-picker {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+    }
+
+    .chart-container {
+      min-height: 400px;
+      position: relative;
+
+      .access-data-chart {
+        width: 100%;
+        height: 400px;
+      }
+    }
+
+    .access-log-table {
+      margin-bottom: 16px;
+    }
+  }
+
 }
 </style>
