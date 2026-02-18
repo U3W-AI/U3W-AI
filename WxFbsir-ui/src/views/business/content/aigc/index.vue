@@ -426,6 +426,7 @@ import {
   getAiServices,
   getAiQueryMessageType,
   getServiceScanLoginMessageType,
+  getAiScanLoginMessageType,
   initServiceOptionsState,
   handleExclusiveOptionToggle,
   updateServiceLoginStatus
@@ -474,17 +475,20 @@ export default {
       const currentState = aiStates.value[aiId].options
       const newValue = !currentState[optionId]
 
-      // gitee 服务使用单选逻辑
+      // gitee 服务：模式选项（openSourceExploration/helpCenter）互斥，但 enableFileUpload 独立
       if (aiId === 'gitee') {
         const newState = { ...currentState }
-        // 如果是选中操作，则将其他所有选项设置为 false
-        if (newValue) {
-          Object.keys(newState).forEach(key => {
-            newState[key] = key === optionId
-          })
+        const modeOptions = ['openSourceExploration', 'helpCenter']
+        if (modeOptions.includes(optionId)) {
+          // 模式选项互斥：选中时取消其他模式，不影响 enableFileUpload
+          if (newValue) {
+            modeOptions.forEach(key => { newState[key] = key === optionId })
+          } else {
+            newState[optionId] = false
+          }
         } else {
-          // 如果是取消选中，则保持其他选项不变
-          newState[optionId] = false
+          // 非模式选项（如 enableFileUpload）独立切换
+          newState[optionId] = newValue
         }
         aiStates.value[aiId].options = newState
       } else {
@@ -922,12 +926,15 @@ export default {
       return ''
     }
 
+    const handleAiToggle = (aiId) => {
+      console.log(`[AI助手] AI切换: ${aiId} -> ${aiStates.value[aiId]?.enabled}`)
+    }
+
     const handleDeepSeekLogin = () => {
       loginDialogVisible.value = true
       loginLoading.value = true
       loginStatusText.value = '正在获取登录二维码...'
 
-      // 从配置获取扫码登录消息类型
       const scanLoginType = getAiScanLoginMessageType('deepseek')
       sendWebSocketMessage(scanLoginType, {})
     }
@@ -983,55 +990,57 @@ export default {
         console.log('📝 [首次使用] 生成新的chatId:', currentChatId.value)
       }
 
-      // 🔥 遍历所有启用的AI并发送请求
+      // 🔥 构建所有AI的请求payload列表（先收集，后并发发送）
+      const aiPayloads = []
       for (const selectedAi of enabledAiList) {
         const { aiId, config, state } = selectedAi
 
-        // 🔥 检查是否已登录（动态检查选中的 AI）
         if (config.requireLogin && !config.loggedIn) {
           ElMessage.error(`请先在"登录管理器"中登录 ${config.displayName}`)
           console.warn(`❌ [AI助手] ${config.displayName} 未登录，禁止发送请求`)
-          continue  // 跳过当前AI，继续处理下一个
+          continue
         }
 
-        // 🔥 动态获取AI的选项状态
         const aiOptions = state.options || {}
-
-        // 🔥 动态获取AI的会话ID字段名
         const chatIdField = config.chatIdField || `${aiId}ChatId`
         const aiChatId = userInfoReq.value[chatIdField] || ''
 
-        // 🔥 构建动态 payload
         const payload = {
           query: promptInput.value,
           uploadedFileUrl: uploadedFileUrl.value || '',
           chatId: currentChatId.value,
           sessionId: sessionId,
-          aiType: aiId,  // 动态 aiType
+          aiType: aiId,
           isNewChat: isNewChat.value,
           userPrompt: promptInput.value,
           enabledAIs: enabledAIs.value,
           progressLogs: progressLogs.value
         }
-
-        // 🔥 添加AI特有的会话ID
         payload[chatIdField] = aiChatId
-
-        // 🔥 添加AI特有的选项
         Object.keys(aiOptions).forEach(optionKey => {
           payload[optionKey] = aiOptions[optionKey]
         })
 
-        // 🔥 Gitee AI 使用 WebSocket 直接调用，与其他AI保持一致
-        // 原因：HTTP预检查可能导致多AI并发时出现竞态条件
-        sendWebSocketMessage(getAiQueryMessageType(aiId), payload)
+        aiPayloads.push({ aiId, config, payload })
+      }
 
-        // 🔥 首次发送后标记为非新会话
-        isNewChat.value = false
-        userInfoReq.value.isNewChat = false
+      // 🔥 首次发送后标记为非新会话
+      isNewChat.value = false
+      userInfoReq.value.isNewChat = false
 
-        addProgressLog(`已发送请求到 ${config.displayName}`, aiId)
-        console.log(`📝 [发送请求] AI: ${config.displayName}, chatId: ${currentChatId.value}, sessionId: ${sessionId}, ${chatIdField}: ${aiChatId}`)
+      // 🔥 确保WebSocket连接成功后，一次性并发发送所有AI请求
+      const sendAll = () => {
+        for (const { aiId, config, payload } of aiPayloads) {
+          doSendMessage(getAiQueryMessageType(aiId), payload)
+          addProgressLog(`已发送请求到 ${config.displayName}`, aiId)
+          console.log(`📝 [发送请求] AI: ${config.displayName}, chatId: ${currentChatId.value}, sessionId: ${sessionId}`)
+        }
+      }
+
+      if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+        connectWebSocket(sendAll)
+      } else {
+        sendAll()
       }
     }
 
@@ -1166,42 +1175,43 @@ export default {
 
           console.log('🔥 [AIGC] AI_TASK_RESULT - aiType:', aiType, 'success:', success, 'sessionId:', messageSessionId, 'resultData:', resultData)
 
-          if (success) {
-            // 🔥 检查是否是登录检查结果（兼容多种格式）
+            if (success) {
+            // 🔥 检查是否是登录检查结果
             if (resultData.isLoggedIn !== undefined || (resultData.data && resultData.data.isLoggedIn !== undefined)) {
               const isLoggedIn = resultData.isLoggedIn !== undefined ? resultData.isLoggedIn : resultData.data?.isLoggedIn
               const userName = resultData.userName || resultData.data?.userName || ''
-
-              deepseekLoggedIn.value = isLoggedIn === true
-              if (deepseekLoggedIn.value) {
-                ElMessage.success('DeepSeek已登录: ' + userName)
+              updateServiceLoginStatus(aiType, isLoggedIn === true)
+              if (isLoggedIn) {
+                ElMessage.success(`${aiType} 已登录: ${userName}`)
               } else {
-                ElMessage.info('DeepSeek未登录')
+                ElMessage.info(`${aiType} 未登录`)
               }
-              console.log('✅ [AIGC] 登录检测完成 - 已登录:', deepseekLoggedIn.value)
+              console.log('✅ [AIGC] 登录检测完成 - aiType:', aiType, '已登录:', isLoggedIn)
               return
             }
 
             // 检查是否是扫码登录结果
             if (resultData.loginTime !== undefined) {
-              deepseekLoggedIn.value = resultData.success === true
+              updateServiceLoginStatus(aiType, resultData.success === true)
               loginDialogVisible.value = false
               if (resultData.success) {
-                ElMessage.success('DeepSeek登录成功: ' + (resultData.userName || ''))
+                ElMessage.success(`${aiType} 登录成功: ${resultData.userName || ''}`)
               }
               return
             }
 
             // 处理AI咨询结果
             if (resultData.answer) {
-              taskStatus.value = 'completed'
-              isSending.value = false
-
-              // 🔥 更新启用AI的状态
-              const aiType = payload.aiType || 'deepseek'
+              // 🔥 更新对应AI的完成状态
               const targetAi = enabledAIs.value.find(ai => ai.name.toLowerCase().includes(aiType.toLowerCase()))
               if (targetAi) {
                 targetAi.status = 'completed'
+              }
+
+              // 🔥 所有AI全部完成/失败后，才关闭发送状态
+              if (enabledAIs.value.every(ai => ai.status === 'completed' || ai.status === 'failed' || ai.status === 'error')) {
+                taskStatus.value = 'completed'
+                isSending.value = false
               }
 
               // 🔥 动态获取 AI 显示名称
@@ -1210,23 +1220,20 @@ export default {
 
               // 🔥 优先使用截图，文本作为备用
               const resultItem = {
-                aiName: aiDisplayName,  // 🔥 动态 AI 名称
-                content: resultData.answer,  // 文本内容（用于复制）
-                screenshotUrl: resultData.conversationScreenshot,  // 截图URL
-                hasScreenshot: resultData.hasScreenshot !== false && resultData.conversationScreenshot,  // 是否有截图
+                aiName: aiDisplayName,
+                content: resultData.answer,
+                screenshotUrl: resultData.conversationScreenshot,
+                hasScreenshot: resultData.hasScreenshot !== false && resultData.conversationScreenshot,
                 shareUrl: resultData.shareUrl,
                 chatId: resultData.chatId,
-                sessionId: messageSessionId,  // 🔥 保存sessionId用于复制功能
+                sessionId: messageSessionId,
                 query: resultData.query,
                 mode: resultData.mode
               }
               results.value.push(resultItem)
 
-              // 🔥 保存返回的AI会话ID（根据AI类型动态存储，仅用于上下文复用）
-              // currentChatId 是前端生成的会话分组ID，用于数据库关联多轮对话
-              // [aiId]ChatId 是AI返回的内部会话ID，用于AI上下文复用
+              // 🔥 保存返回的AI会话ID（仅用于上下文复用）
               if (resultData.chatId) {
-                const aiConfig = getEngineConfig(aiType)
                 const chatIdField = aiConfig?.chatIdField || `${aiType}ChatId`
                 userInfoReq.value[chatIdField] = resultData.chatId
                 console.log(`📝 [保存AI会话ID] ${chatIdField}:`, resultData.chatId, '(前端chatId保持不变:', currentChatId.value, ')')
@@ -1239,40 +1246,30 @@ export default {
 
               addProgressLog(`${aiDisplayName}回复完成，耗时${resultData.elapsedTime}秒`, aiType)
               ElMessage.success(payload.message || `${aiDisplayName}回复完成`)
-
-              // 🔥 后端Admin已自动存储，前端无需再调用数据库
-              // 数据已在Admin收到Engine消息时实时保存
             }
           } else {
-            // 处理错误
-            taskStatus.value = 'failed'
-            isSending.value = false
+            // 处理错误（success=false）
+            const targetAi = enabledAIs.value.find(ai => ai.name.toLowerCase().includes(aiType.toLowerCase()))
+            if (targetAi) {
+              targetAi.status = 'failed'
+            }
+            // 所有AI完成/失败后再关闭发送状态
+            if (enabledAIs.value.every(ai => ai.status === 'completed' || ai.status === 'failed' || ai.status === 'error')) {
+              taskStatus.value = 'failed'
+              isSending.value = false
+            }
             const errorMsg = payload.errorMessage || payload.message || '请求失败'
-            addProgressLog('错误: ' + errorMsg)
+            addProgressLog('错误: ' + errorMsg, aiType)
             ElMessage.error(errorMsg)
           }
         }
 
         // 处理错误消息（AI_TASK_ERROR）
         if (messageType === 'AI_TASK_ERROR') {
-          taskStatus.value = 'failed'
-          isSending.value = false
           const aiType = payload.aiType || 'deepseek'
           const errorTitle = payload.errorTitle || '任务失败'
           const errorMessage = payload.errorMessage || payload.message || 'AI任务执行失败'
           const engineId = payload.engineId || '未知'
-
-          // 添加错误日志到进度日志
-          addProgressLog(`❌ ${errorTitle}`, aiType)
-          addProgressLog(errorMessage, aiType)
-
-          // 显示友好的错误提示
-          ElMessage({
-            message: `${errorTitle}: ${errorMessage}`,
-            type: 'error',
-            duration: 8000,  // 显示8秒，让用户有足够时间阅读
-            showClose: true
-          })
 
           // 更新对应AI的状态
           const targetAi = enabledAIs.value.find(ai =>
@@ -1281,6 +1278,23 @@ export default {
           if (targetAi) {
             targetAi.status = 'error'
           }
+
+          // 🔥 所有AI完成/失败后，才关闭发送状态
+          if (enabledAIs.value.every(ai => ai.status === 'completed' || ai.status === 'failed' || ai.status === 'error')) {
+            taskStatus.value = 'failed'
+            isSending.value = false
+          }
+
+          // 添加错误日志到进度日志
+          addProgressLog(`❌ ${errorTitle}`, aiType)
+          addProgressLog(errorMessage, aiType)
+
+          ElMessage({
+            message: `${errorTitle}: ${errorMessage}`,
+            type: 'error',
+            duration: 8000,
+            showClose: true
+          })
 
           console.error('🚨 [AI任务错误]', {
             errorTitle,
@@ -1395,10 +1409,12 @@ export default {
 
     // 文件上传处理函数
     const handleFileUpload = () => {
-      // 检查是否启用了文件上传选项
-      const deepseekOptions = aiStates.value['deepseek']?.options || {}
-      if (!deepseekOptions.enableFileUpload) {
-        ElMessage.warning('请先启用"上传文件"选项')
+      // 检查是否有任何已启用的AI开启了文件上传选项
+      const hasFileUploadEnabled = Object.entries(aiStates.value).some(([aiId, state]) => {
+        return state.enabled && state.options?.enableFileUpload
+      })
+      if (!hasFileUploadEnabled) {
+        ElMessage.warning('请先为至少一个AI启用"上传图片"选项')
         return
       }
       uploadDialogVisible.value = true
@@ -1591,6 +1607,7 @@ export default {
       showLargeImage,
       openShareUrl,
       copyToClipboard,
+      handleAiToggle,
       handleFileUpload,
       saveToDraft,
       // 🔥 文件上传相关

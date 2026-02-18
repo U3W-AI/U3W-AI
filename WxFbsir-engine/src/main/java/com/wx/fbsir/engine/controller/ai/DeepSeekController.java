@@ -8,26 +8,15 @@ import com.wx.fbsir.engine.playwright.pool.BrowserPoolManager;
 import com.wx.fbsir.engine.playwright.session.BrowserSession;
 import com.wx.fbsir.engine.playwright.util.ScreenshotUtil;
 import com.wx.fbsir.engine.utils.ai.DeepSeekUtil;
+import com.wx.fbsir.engine.utils.common.FileDownloadUtil;
 import com.wx.fbsir.engine.websocket.message.EngineMessage;
 import com.wx.fbsir.engine.websocket.message.MessageType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Controller;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * 🤖 DeepSeek AI WebSocket 控制器（新手指南）
@@ -123,6 +112,9 @@ public class DeepSeekController extends StreamTaskHelper {
     
     @Autowired
     private com.wx.fbsir.engine.playwright.util.ScreenshotUploadClient uploadClient;
+    
+    @Autowired
+    private FileDownloadUtil fileDownloadUtil;
 
     /**
      * 检查DeepSeek登录状态（单次返回）
@@ -215,160 +207,6 @@ public class DeepSeekController extends StreamTaskHelper {
     private String extractSessionId(EngineMessage message) {
         Object sessionId = message.getPayload().get("sessionId");
         return sessionId != null ? sessionId.toString() : "unknown";
-    }
-    
-    /**
-     * 编码URL中的中文字符和特殊字符
-     * 
-     * @param urlString 原始URL
-     * @return 编码后的URL
-     */
-    private String encodeUrl(String urlString) {
-        try {
-            // 分离协议、主机和路径
-            int protocolEnd = urlString.indexOf("://");
-            if (protocolEnd == -1) {
-                return urlString;
-            }
-            
-            String protocol = urlString.substring(0, protocolEnd + 3);
-            String remaining = urlString.substring(protocolEnd + 3);
-            
-            int pathStart = remaining.indexOf("/");
-            if (pathStart == -1) {
-                return urlString;
-            }
-            
-            String hostAndPort = remaining.substring(0, pathStart);
-            String path = remaining.substring(pathStart);
-            
-            // 分离路径和查询参数
-            String pathPart;
-            String queryPart = "";
-            int queryStart = path.indexOf("?");
-            if (queryStart != -1) {
-                pathPart = path.substring(0, queryStart);
-                queryPart = path.substring(queryStart);
-            } else {
-                pathPart = path;
-            }
-            
-            // 编码路径中的每个部分
-            String[] pathSegments = pathPart.split("/");
-            StringBuilder encodedPath = new StringBuilder();
-            for (String segment : pathSegments) {
-                if (!segment.isEmpty()) {
-                    encodedPath.append("/").append(URLEncoder.encode(segment, StandardCharsets.UTF_8)
-                            .replace("+", "%20")); // 空格用%20而不是+
-                }
-            }
-            
-            return protocol + hostAndPort + encodedPath.toString() + queryPart;
-            
-        } catch (Exception e) {
-            log.warn("[URL编码] 编码失败，使用原始URL: {}", urlString, e);
-            return urlString;
-        }
-    }
-    
-    /**
-     * 下载文件到本地临时目录
-     * 
-     * @param fileUrl 文件URL
-     * @return 本地文件路径，失败返回null
-     */
-    private String downloadFile(String fileUrl) {
-        HttpURLConnection connection = null;
-        InputStream inputStream = null;
-        FileOutputStream outputStream = null;
-        
-        try {
-            // 创建临时目录
-            String tempDir = System.getProperty("java.io.tmpdir");
-            String fileName = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
-            
-            // 如果文件名太长或包含特殊字符，使用UUID
-            if (fileName.length() > 100) {
-                String extension = "";
-                int dotIndex = fileName.lastIndexOf(".");
-                if (dotIndex > 0) {
-                    extension = fileName.substring(dotIndex);
-                }
-                fileName = UUID.randomUUID().toString() + extension;
-            }
-            
-            String localFilePath = tempDir + File.separator + fileName;
-            
-            log.debug("[文件下载] 开始下载: {} -> {}", fileUrl, localFilePath);
-            
-            // 建立HTTP连接，模拟浏览器请求
-            // 手动编码URL路径中的中文字符
-            String encodedUrl = encodeUrl(fileUrl);
-            log.debug("[文件下载] 编码后URL: {}", encodedUrl);
-            
-            URL url = new URL(encodedUrl);
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setConnectTimeout(30000);
-            connection.setReadTimeout(30000);
-            
-            // 添加浏览器请求头，避免被服务器拒绝
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-            connection.setRequestProperty("Accept", "*/*");
-            connection.setRequestProperty("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
-            connection.setRequestProperty("Accept-Encoding", "gzip, deflate");
-            connection.setRequestProperty("Connection", "keep-alive");
-            
-            connection.connect();
-            
-            int responseCode = connection.getResponseCode();
-            if (responseCode != HttpURLConnection.HTTP_OK) {
-                String errorMsg = connection.getResponseMessage();
-                log.error("[文件下载] HTTP错误: {} - {}", responseCode, errorMsg);
-                log.error("[文件下载] 请求URL: {}", fileUrl);
-                log.error("[文件下载] 实际URL: {}", url.toString());
-                
-                // 尝试读取错误响应
-                try (InputStream errorStream = connection.getErrorStream()) {
-                    if (errorStream != null) {
-                        byte[] errorBytes = errorStream.readAllBytes();
-                        String errorResponse = new String(errorBytes, StandardCharsets.UTF_8);
-                        log.error("[文件下载] 服务器错误响应: {}", errorResponse);
-                    }
-                } catch (Exception e) {
-                    log.debug("[文件下载] 无法读取错误响应", e);
-                }
-                return null;
-            }
-            
-            // 下载文件
-            inputStream = connection.getInputStream();
-            outputStream = new FileOutputStream(localFilePath);
-            
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-            long totalBytesRead = 0;
-            
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, bytesRead);
-                totalBytesRead += bytesRead;
-            }
-            
-            log.info("[文件下载] 下载完成: {} ({} bytes)", localFilePath, totalBytesRead);
-            return localFilePath;
-            
-        } catch (Exception e) {
-            log.error("[文件下载] 下载失败: {}", fileUrl, e);
-            return null;
-        } finally {
-            try {
-                if (outputStream != null) outputStream.close();
-                if (inputStream != null) inputStream.close();
-                if (connection != null) connection.disconnect();
-            } catch (Exception e) {
-                log.debug("[文件下载] 关闭连接失败", e);
-            }
-        }
     }
     
     /**
@@ -771,42 +609,29 @@ public class DeepSeekController extends StreamTaskHelper {
             
             task.sendLog("登录验证通过，准备发送问题...");
                 
-                // 🔥 处理文件上传（如果有）
+                // 🔥 处理文件上传（如果有）— 使用通用文件处理工具
                 if (enableFileUpload && uploadedFileUrl != null && !uploadedFileUrl.isEmpty()) {
-                    task.sendLog("检测到文件上传请求，正在下载文件...");
-                    log.info("[DeepSeek咨询] 开始下载文件: {}", uploadedFileUrl);
+                    task.sendLog("检测到文件上传请求，正在处理...");
+                    log.info("[DeepSeek咨询] 开始文件处理流程: {}", uploadedFileUrl);
                     
-                    String localFilePath = downloadFile(uploadedFileUrl);
-                    if (localFilePath != null) {
-                        task.sendLog("文件下载成功，正在上传到DeepSeek...");
-                        log.info("[DeepSeek咨询] 文件已下载到: {}", localFilePath);
-                        
-                        // 在上传文件前，无条件关闭联网搜索按钮
-                        // 原因：文件上传与联网搜索功能冲突，需要确保联网搜索处于关闭状态
-                        task.sendLog("上传文件前关闭联网搜索按钮...");
-                        log.info("[DeepSeek咨询] 关闭联网搜索按钮");
-                        deepSeekUtil.closeWebSearchButton(page);
-                        page.waitForTimeout(1500);
-                        
-                        boolean uploadSuccess = deepSeekUtil.uploadFile(page, localFilePath);
-                        if (uploadSuccess) {
-                            task.sendLog("文件已成功上传到DeepSeek");
-                            log.info("[DeepSeek咨询] 文件上传成功");
-                        } else {
-                            task.sendLog("文件上传失败，将继续发送文本消息");
-                            log.warn("[DeepSeek咨询] 文件上传失败，继续发送文本");
+                    FileDownloadUtil.UploadResult fileResult = fileDownloadUtil.downloadAndUploadToPage(
+                        uploadedFileUrl,
+                        page,
+                        (p, filePath) -> deepSeekUtil.uploadFile(p, filePath),
+                        () -> {
+                            // 上传前准备：关闭联网搜索按钮（文件上传与联网搜索冲突）
+                            task.sendLog("上传文件前关闭联网搜索按钮...");
+                            deepSeekUtil.closeWebSearchButton(page);
+                            page.waitForTimeout(1500);
                         }
-                        
-                        // 清理临时文件
-                        try {
-                            Files.deleteIfExists(Paths.get(localFilePath));
-                            log.debug("[DeepSeek咨询] 临时文件已清理: {}", localFilePath);
-                        } catch (Exception e) {
-                            log.warn("[DeepSeek咨询] 清理临时文件失败: {}", e.getMessage());
-                        }
+                    );
+                    
+                    if (fileResult.isSuccess()) {
+                        task.sendLog("文件已成功上传到DeepSeek");
+                        log.info("[DeepSeek咨询] 文件处理流程完成 - 成功");
                     } else {
-                        task.sendLog("文件下载失败，将继续发送文本消息");
-                        log.error("[DeepSeek咨询] 文件下载失败: {}", uploadedFileUrl);
+                        task.sendLog("文件处理失败(" + fileResult.getErrorMessage() + ")，将继续发送文本消息");
+                        log.warn("[DeepSeek咨询] 文件处理流程完成 - 失败: {}", fileResult.getErrorMessage());
                     }
                 }
                 
