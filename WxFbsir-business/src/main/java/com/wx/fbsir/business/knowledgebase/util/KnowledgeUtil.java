@@ -1,11 +1,5 @@
 package com.wx.fbsir.business.knowledgebase.util;
 
-import com.itextpdf.kernel.font.PdfFont;
-import com.itextpdf.kernel.font.PdfFontFactory;
-import com.itextpdf.kernel.pdf.PdfDocument;
-import com.itextpdf.kernel.pdf.PdfWriter;
-import com.itextpdf.layout.Document;
-import com.itextpdf.layout.element.Paragraph;
 import com.wx.fbsir.business.knowledgebase.domain.KnowledgeBaseInfo;
 import com.wx.fbsir.business.knowledgebase.enums.UploadType;
 import com.wx.fbsir.business.websocket.message.EngineMessage;
@@ -13,12 +7,19 @@ import com.wx.fbsir.business.websocket.server.EngineSessionManager;
 import com.wx.fbsir.common.config.WxFbsirConfig;
 import com.wx.fbsir.common.utils.SecurityUtils;
 import com.wx.fbsir.common.utils.StringUtils;
+import com.wx.fbsir.common.utils.file.FileUploadUtils;
+import com.wx.fbsir.common.utils.file.MimeTypeUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
 
 @Component
 public class KnowledgeUtil {
@@ -27,127 +28,100 @@ public class KnowledgeUtil {
     private EngineSessionManager engineSessionManager;
 
     /**
-     * 将知识库内容保存为PDF文件并上传，返回文件URL
-     *
-     * @param kb 知识库信息
-     * @return PDF文件URL（可直接下载）
+     * 将知识库内容写入文件并上传到服务器，返回可访问的URL
      */
     public String saveKnowledgeContentAndGetUrl(KnowledgeBaseInfo kb) throws IOException {
-        // 将知识库内容保存为PDF文件并上传到服务器
         String content = kb.getKbContent();
-        if (StringUtils.isEmpty(content)) {
-            throw new IOException("知识库内容为空");
+        if (content == null) {
+            content = "";
         }
+        // 将内容转换为UTF-8编码的字节数组，用于文件写入
+        byte[] bytes = content.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        // 构建文件原始名称：优先使用知识库名称，无则用默认值 + 知识库ID + .txt后缀
+        String originalFilename = (kb.getKbName() != null ? kb.getKbName() : "knowledgebase")
+                + "_" + kb.getKbId() + ".txt";
+        // 匿名实现MultipartFile接口，封装知识库内容为文件对象（无需实际文件，基于内存字节数组）
+        MultipartFile file = new MultipartFile() {
+            /**
+             * 获取文件参数名
+             * @return 拼接了知识库ID的唯一参数名
+             */
+            @Override
+            public String getName() {
+                return "kb-" + kb.getKbId();
+            }
 
-        // 清理知识库名称，移除特殊字符（只保留中文、英文、数字、下划线、短横线）
-        String cleanKbName = kb.getKbName().replaceAll("[^\\u4e00-\\u9fa5a-zA-Z0-9_-]", "_");
+            /**
+             * 获取文件原始名称（带后缀）
+             * @return 前面构建的包含知识库名称/ID的文件名
+             */
+            @Override
+            public String getOriginalFilename() {
+                return originalFilename;
+            }
 
-        // 生成文件名：知识库名称_kbId.pdf
-        String fileName = cleanKbName + "_" + kb.getKbId() + ".pdf";
+            /**
+             * 获取文件MIME类型
+             * @return text文件对应的MIME类型
+             */
+            @Override
+            public String getContentType() {
+                return "text/plain";
+            }
 
-        // 生成上传目录（按日期分类）
-        String datePath = com.wx.fbsir.common.utils.DateUtils.datePath();
-        String uploadDir = WxFbsirConfig.getProfile() + "/" + datePath;
+            /**
+             * 判断文件是否为空（即内容字节数组长度是否为0）
+             * @return 空返回true，非空返回false
+             */
+            @Override
+            public boolean isEmpty() {
+                return bytes.length == 0;
+            }
 
-        // 创建目录
-        java.io.File dir = new java.io.File(uploadDir);
-        if (!dir.exists()) {
-            dir.mkdirs();
-        }
+            /**
+             * 获取文件大小（字节数）
+             * @return 内容字节数组的长度
+             */
+            @Override
+            public long getSize() {
+                return bytes.length;
+            }
 
-        // 生成唯一文件名（避免重复）
-        String uniqueFileName = java.util.UUID.randomUUID().toString().replace("-", "") + "_" + fileName;
-        String filePath = uploadDir + "/" + uniqueFileName;
+            @Override
+            public byte[] getBytes() throws IOException {
+                return bytes;
+            }
 
-        // 生成PDF文件
-        PdfWriter writer = null;
-        PdfDocument pdfDoc = null;
-        Document document = null;
+            /**
+             * 获取文件输入流
+             * @return 基于字节数组构建的输入流，用于文件上传处理
+             * @throws IOException 此处无实际IO异常，仅遵循接口定义
+             */
+            @Override
+            public InputStream getInputStream() throws IOException {
+                return new ByteArrayInputStream(bytes);
+            }
 
+            /**
+             * 将文件内容写入指定的目标文件
+             * @param dest 目标文件对象
+             * @throws IOException 写入文件时出现IO异常时抛出
+             * @throws IllegalStateException 状态异常时抛出
+             */
+            @Override
+            public void transferTo(java.io.File dest) throws IOException, IllegalStateException {
+                java.nio.file.Files.write(dest.toPath(), bytes);
+            }
+        };
+        // 获取文件上传的基础目录（从配置类中读取）
+        String baseDir = WxFbsirConfig.getUploadPath();
         try {
-            // 创建PDF文档
-            writer = new PdfWriter(filePath);
-            pdfDoc = new PdfDocument(writer);
-            document = new Document(pdfDoc);
-
-            // 设置中文字体（使用iText内置的中文字体）
-            PdfFont font = PdfFontFactory.createFont("STSong-Light", "UniGB-UCS2-H");
-
-            // 添加标题
-            Paragraph title = new Paragraph(kb.getKbName())
-                    .setFont(font)
-                    .setFontSize(18)
-                    .setBold();
-            document.add(title);
-
-            // 添加空行
-            document.add(new Paragraph("\n"));
-
-            // 添加内容（按行分割，避免单个段落过长）
-            String[] lines = content.split("\n");
-            for (String line : lines) {
-                if (StringUtils.isNotEmpty(line.trim())) {
-                    Paragraph paragraph = new Paragraph(line)
-                            .setFont(font)
-                            .setFontSize(12);
-                    document.add(paragraph);
-                } else {
-                    // 空行
-                    document.add(new Paragraph("\n"));
-                }
-            }
-
-            log.info("[知识库PDF生成] PDF内容已添加 - 知识库: {}, 行数: {}", kb.getKbName(), lines.length);
-
+            // 调用文件上传工具类，上传文件并返回完整访问URL
+            return FileUploadUtils.uploadAndGetFullUrl(baseDir, file,
+                    MimeTypeUtils.DEFAULT_ALLOWED_EXTENSION);
         } catch (Exception e) {
-            log.error("[知识库PDF生成] 生成PDF失败 - 知识库: {}", kb.getKbName(), e);
-            throw new IOException("生成PDF文件失败: " + e.getMessage(), e);
-        } finally {
-            // 确保资源正确关闭
-            try {
-                if (document != null) {
-                    document.close();
-                }
-                if (pdfDoc != null) {
-                    pdfDoc.close();
-                }
-                if (writer != null) {
-                    writer.close();
-                }
-            } catch (Exception e) {
-                log.warn("[知识库PDF生成] 关闭PDF资源时出错: {}", e.getMessage());
-            }
+            throw new IOException("上传知识库内容文件失败", e);
         }
-
-        // 验证PDF文件
-        java.io.File pdfFile = new java.io.File(filePath);
-        if (!pdfFile.exists()) {
-            throw new IOException("PDF文件生成失败：文件不存在");
-        }
-
-        long fileSize = pdfFile.length();
-        if (fileSize == 0) {
-            throw new IOException("PDF文件生成失败：文件大小为0");
-        }
-
-        log.info("[知识库PDF生成] 成功生成PDF - 知识库: {}, 文件: {}, 大小: {} bytes",
-                kb.getKbName(), uniqueFileName, fileSize);
-
-        // 生成完整的文件访问URL
-        String domain = WxFbsirConfig.getDomain();
-        if (StringUtils.isEmpty(domain)) {
-            throw new IOException("域名配置为空，请在application.yml中配置wxfbsir.domain");
-        }
-        // 确保域名不以/结尾
-        if (domain.endsWith("/")) {
-            domain = domain.substring(0, domain.length() - 1);
-        }
-
-        // 返回文件URL（格式：http://domain/profile/upload/2026/03/02/xxx.pdf）
-        String fileUrl = domain + com.wx.fbsir.common.constant.Constants.RESOURCE_PREFIX + "/" + datePath + "/" + uniqueFileName;
-        log.info("[知识库PDF生成] 文件已上传 - URL: {}", fileUrl);
-
-        return fileUrl;
     }
 
     /**
@@ -184,7 +158,7 @@ public class KnowledgeUtil {
 
             // 如果未提供团队名称，默认"个人空间"
             String finalTeamName = StringUtils.isNotEmpty(teamName) ? teamName : "个人空间";
-
+            
             EngineMessage msg = EngineMessage.builder()
                     .type("YUANQI_SET_KNOWLEDGE")
                     .engineId(engineId)
@@ -250,7 +224,7 @@ public class KnowledgeUtil {
 
         // 如果没有提供知识库名称，使用默认值
         String knowledgeBaseName = StringUtils.isNotEmpty(kbName) ? kbName : "本地文档";
-
+        
         if (uploadType == UploadType.YUANQI || uploadType == UploadType.BOTH) {
             if (StringUtils.isEmpty(agentName)) {
                 log.error("上传到智能体元器时，智能体名称不能为空");
