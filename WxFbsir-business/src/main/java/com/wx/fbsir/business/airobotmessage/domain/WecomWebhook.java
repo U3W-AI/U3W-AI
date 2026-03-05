@@ -13,8 +13,6 @@ import java.time.LocalDateTime;
 
 @Table(name = "wc_webhook_url")
 @Getter
-
-
 public class WecomWebhook {
 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -58,5 +56,7 @@ public class WecomWebhook {
     @Column(name = "update_time", nullable = false)
     private LocalDateTime updateTime;
 
-
+    public String getWebhookUrl() {
+        return webhookUrl;
+    }
 }

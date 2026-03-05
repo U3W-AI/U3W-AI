@@ -50,4 +50,8 @@ public class SystemPrompt {
     @LastModifiedDate
     @Column(name = "update_time", nullable = false)
     private LocalDateTime updateTime;
+
+    public String getContent() {
+        return content;
+    }
 }

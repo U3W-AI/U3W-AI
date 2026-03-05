@@ -67,4 +67,8 @@ public class CertPointsRule {
         }
         return pointsValue; // 如果是正数，则直接返回
     }
+
+    public void setBusinessType(String businessType) {
+        this.businessType = businessType;
+    }
 }

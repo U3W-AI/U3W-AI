@@ -17,7 +17,7 @@ import java.time.format.DateTimeFormatter;
 @Service
 public class MessageServiceImpl implements MessageService {
 
-    @Value("${wechat.prompt-editor-url:${PROMPT_EDITOR_URL}")
+    @Value("${wechat.prompt-editor-url:${PROMPT_EDITOR_URL:}}")
     private String promptEditorUrl;
     @Autowired
     private MessageMapper messageMapper;
