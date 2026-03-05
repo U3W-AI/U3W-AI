@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
  */
 
 @Table(name = "wc_webhook_url")
-@Getter
+@Data
 public class WecomWebhook {
 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
