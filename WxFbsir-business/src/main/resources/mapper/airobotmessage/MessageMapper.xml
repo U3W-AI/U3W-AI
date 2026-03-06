@@ -19,12 +19,11 @@
     <update id="updateWecomWebhook" parameterType="com.wx.fbsir.business.airobotmessage.domain.WecomWebhook">
         update wc_webhook_url
         <set>
-        <if test="name != null">name = #{name, jdbcType=VARCHAR},</if>
-        <if test="webhookUrl != null">webhook_url = #{webhookUrl, jdbcType=VARCHAR},</if>
-        <if test="description != null">description = #{description, jdbcType=VARCHAR},</if>
-        <if test="status != null">status = #{status, jdbcType=TINYINT},</if>
-        <if test="createTime != null">create_time = #{createTime, jdbcType=TIMESTAMP},</if>
-        <if test="updateTime != null">update_time = #{updateTime, jdbcType=TIMESTAMP},</if>
+            <if test="name != null">name = #{name, jdbcType=VARCHAR},</if>
+            <if test="webhookUrl != null">webhook_url = #{webhookUrl, jdbcType=VARCHAR},</if>
+            <if test="description != null">description = #{description, jdbcType=VARCHAR},</if>
+            <if test="status != null">status = #{status, jdbcType=TINYINT},</if>
+            update_time = NOW()
         </set>
         where id = #{id, jdbcType=INTEGER}
 

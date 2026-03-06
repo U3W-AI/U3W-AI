@@ -31,8 +31,7 @@ public interface MessageMapper {
      * @param wecomWebhook Webhook 信息
      * @return 更新结果
      */
-    @Update("update wc_webhook_url set name = #{name}, webhook_url = #{webhookUrl}, description = #{description}, " +
-            "status = #{status}, update_time = #{updateTime} where id = #{id}")
+
     boolean updateWecomWebhook(WecomWebhook wecomWebhook);
 
     /**
