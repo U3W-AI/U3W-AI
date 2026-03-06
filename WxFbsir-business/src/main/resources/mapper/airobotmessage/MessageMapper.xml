@@ -16,7 +16,7 @@
         <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
         <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
     </resultMap>
-    <update id="updateSystemPrompt" parameterType="com.wx.fbsir.business.airobotmessage.domain.WecomWebhook">
+    <update id="updateWecomWebhook" parameterType="com.wx.fbsir.business.airobotmessage.domain.WecomWebhook">
         update wc_webhook_url
         <set>
         <if test="name != null">name = #{name, jdbcType=VARCHAR},</if>
