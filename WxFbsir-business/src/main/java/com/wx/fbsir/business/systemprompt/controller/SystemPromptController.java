@@ -13,7 +13,7 @@ import java.util.List;
 @RequestMapping("/business/prompt")
 public class SystemPromptController {
     @Resource
-    private SystemPromptService messageService;
+    private SystemPromptService systemPromptService;
 
     /**
      * 获取系统提示词列表
@@ -22,7 +22,7 @@ public class SystemPromptController {
     @Anonymous
     public AjaxResult listSystemPrompt() {
         try {
-            List<SystemPrompt> systemPromptList = messageService.selectSystemPromptList();
+            List<SystemPrompt> systemPromptList = systemPromptService.selectSystemPromptList();
             return AjaxResult.success(systemPromptList);
         } catch (Exception e) {
             return AjaxResult.error("获取系统提示词列表失败," + e.getMessage());
@@ -39,7 +39,7 @@ public class SystemPromptController {
     @Anonymous
     public String getPrompt(@RequestParam Long id) {
         try {
-            SystemPrompt systemPrompt = messageService.selectSystemPromptById(id);
+            SystemPrompt systemPrompt = systemPromptService.selectSystemPromptById(id);
             return systemPrompt.getContent();
         } catch (Exception e) {
             return "获取系统提示词失败";
@@ -56,7 +56,7 @@ public class SystemPromptController {
     @Anonymous
     public AjaxResult getSystemPrompt(@RequestParam Long id) {
         try {
-            SystemPrompt systemPrompt = messageService.selectSystemPromptById(id);
+            SystemPrompt systemPrompt = systemPromptService.selectSystemPromptById(id);
             return AjaxResult.success(systemPrompt);
         } catch (Exception e) {
             return AjaxResult.error("获取系统提示词失败," + e.getMessage());
@@ -74,7 +74,7 @@ public class SystemPromptController {
     @Anonymous
     public AjaxResult insertSystemPrompt(@RequestBody SystemPrompt systemPrompt) {
         try {
-            boolean result = messageService.insertSystemPrompt(systemPrompt);
+            boolean result = systemPromptService.insertSystemPrompt(systemPrompt);
             return result ? AjaxResult.success("插入成功") : AjaxResult.error("插入失败");
         } catch (Exception e) {
             return AjaxResult.error("插入系统提示词失败" + e.getMessage());
@@ -91,7 +91,7 @@ public class SystemPromptController {
     @Anonymous
     public AjaxResult updateSystemPrompt(@RequestBody SystemPrompt systemPrompt) {
         try {
-            boolean result = messageService.updateSystemPrompt(systemPrompt);
+            boolean result = systemPromptService.updateSystemPrompt(systemPrompt);
             return result ? AjaxResult.success("更新成功") : AjaxResult.error("更新失败");
         } catch (Exception e) {
             return AjaxResult.error("更新系统提示词失败" + e.getMessage());
@@ -108,7 +108,7 @@ public class SystemPromptController {
     @Anonymous
     public AjaxResult deleteSystemPrompt(@RequestParam Long id) {
         try {
-            boolean result = messageService.deleteSystemPrompt(id);
+            boolean result = systemPromptService.deleteSystemPrompt(id);
             return result ? AjaxResult.success("删除成功") : AjaxResult.error("删除失败");
         } catch (Exception e) {
             return AjaxResult.error("删除系统提示词失败" + e.getMessage());

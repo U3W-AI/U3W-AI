@@ -57,7 +57,7 @@ public class MessageController {
      */
     @PostMapping("/insert")
     @Anonymous
-    public AjaxResult insertSystemPrompt(@RequestBody WecomWebhook wecomWebhook) {
+    public AjaxResult insertWecomWebhook(@RequestBody WecomWebhook wecomWebhook) {
         try {
             int result = messageService.insertWecomWebhook(wecomWebhook);
             return result > 0 ? AjaxResult.success("插入成功") : AjaxResult.error("插入失败");
