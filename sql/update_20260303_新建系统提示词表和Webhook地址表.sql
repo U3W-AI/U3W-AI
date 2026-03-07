@@ -28,3 +28,6 @@ CREATE TABLE `wc_webhook_url`  (
                                   PRIMARY KEY (`id`),
                                   UNIQUE KEY `uk_name` (`name`) COMMENT '名称唯一，便于管理'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='企业微信 Webhook url配置表';
+
+insert into sys_menu values('151',  '企业微信Webhook', '1', '8', 'wecom-webhook', 'business/airobotmessage/wecomWebhook/index', '', '', 1, 0, 'C', '0', '0', 'business:message:view', 'link', 'admin', sysdate(), '', null, '企业微信机器人Webhook地址管理');
+insert into sys_menu values('152',  '系统提示词管理', '1', '9', 'systemPrompt', 'business/systemPrompt/systemPrompt', '', '', 1, 0, 'C', '0', '0', 'business:message:view', 'link', 'admin', sysdate(), '', null, '管理工作流提示词');
