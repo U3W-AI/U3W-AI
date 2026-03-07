@@ -42,7 +42,7 @@ public interface MessageService {
      * @param messageContent 用户消息
      * @throws Exception 异常信息
      */
-    void sendTemplateMessage(String userId, String messageContent) throws Exception;
+    void sendTemplateMessage(String userId, String messageContent,Long webhookId) throws Exception;
 
     /**
      * 更新企业微信 Webhook

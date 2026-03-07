@@ -108,9 +108,9 @@ public class MessageController {
      */
     @PostMapping("/send")
     @Anonymous
-    public void sendMessage(@RequestParam String userId, @RequestParam String messageContent) {
+    public void sendMessage(@RequestParam String userId, @RequestParam String messageContent,@RequestParam String webhookId) {
         try {
-            messageService.sendTemplateMessage(userId, messageContent);
+            messageService.sendTemplateMessage(userId, messageContent, Long.valueOf(webhookId));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

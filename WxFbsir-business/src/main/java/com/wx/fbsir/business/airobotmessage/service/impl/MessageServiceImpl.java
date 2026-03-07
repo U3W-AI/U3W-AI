@@ -115,9 +115,9 @@ public class MessageServiceImpl implements MessageService {
      * @throws Exception 异常信息
      */
     @Override
-    public void sendTemplateMessage(String userId, String messageContent) throws Exception {
+    public void sendTemplateMessage(String userId, String messageContent,Long webhookId) throws Exception {
         try {
-            WecomWebhook wecomWebhook = messageMapper.selectWecomWebhookById(1L);
+            WecomWebhook wecomWebhook = messageMapper.selectWecomWebhookById(webhookId);
             String webhookUrl = wecomWebhook.getWebhookUrl();
             String json = java.lang.String.format(
                     """
