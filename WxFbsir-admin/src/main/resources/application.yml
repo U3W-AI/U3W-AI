@@ -59,7 +59,6 @@ server:
       max: 800
       # Tomcat启动初始化的线程数，默认值10
       min-spare: 100
-
 # 日志配置
 logging:
   level:
@@ -213,3 +212,5 @@ wechat:
   aes-key: ${WECHAT_AES_KEY:}
   # 企业微信CorpID（生产环境建议使用环境变量：WECHAT_CORP_ID）
   corp-id: ${WECHAT_CORP_ID:}
+  # 企业微信提示词编辑器链接（生产环境建议使用环境变量：PROMPT_EDITOR_URL）
+  prompt-editor-url: ${PROMPT_EDITOR_URL:}

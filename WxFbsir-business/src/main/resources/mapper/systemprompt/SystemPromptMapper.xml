@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.systemprompt.mapper.SystemPromptMapper">
+    <resultMap id="BaseResultMap" type="com.wx.fbsir.business.systemprompt.domain.SystemPrompt">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="content" property="content" jdbcType="LONGVARCHAR"/> <!-- 或者CLOB -->
+        <result column="description" property="description" jdbcType="VARCHAR"/>
+        <result column="version" property="version" jdbcType="VARCHAR"/>
+        <result column="status" property="status" jdbcType="TINYINT"/> <!-- MyBatis会将TINYINT转为Boolean -->
+        <result column="category" property="category" jdbcType="VARCHAR"/>
+        <result column="tags" property="tags" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <update id="updateSystemPrompt" parameterType="com.wx.fbsir.business.systemprompt.domain.SystemPrompt">
+        update system_prompts
+        <set>
+            <if test="name != null">name = #{name, jdbcType=VARCHAR},</if>
+            <if test="content != null">content = #{content, jdbcType=LONGVARCHAR},</if>
+            <if test="description != null">description = #{description, jdbcType=VARCHAR},</if>
+            <if test="version != null">version = #{version, jdbcType=VARCHAR},</if>
+            <if test="status != null">status = #{status, jdbcType=TINYINT},</if>
+            <if test="category != null">category = #{category, jdbcType=VARCHAR},</if>
+            <if test="tags != null">tags = #{tags, jdbcType=VARCHAR},</if>
+            update_time = NOW()
+        </set>
+        where id = #{id, jdbcType=BIGINT}
+    </update>
+</mapper>

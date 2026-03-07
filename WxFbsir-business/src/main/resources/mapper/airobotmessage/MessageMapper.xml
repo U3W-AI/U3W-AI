@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.airobotmessage.mapper.MessageMapper">
+    <resultMap id="BaseResultMap" type="com.wx.fbsir.business.airobotmessage.domain.WecomWebhook">
+        <!-- 主键字段映射 -->
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <!-- 普通字段映射 -->
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="webhook_url" property="webhookUrl" jdbcType="VARCHAR"/>
+        <result column="description" property="description" jdbcType="VARCHAR"/>
+        <!-- 状态字段：TINYINT(1) 映射为 Boolean -->
+        <result column="status" property="status" jdbcType="TINYINT"/>
+        <!-- 时间字段：DATETIME 映射为 LocalDateTime，jdbcType 使用 TIMESTAMP -->
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+    </resultMap>
+    <select id="selectWecomWebhookList" resultMap="BaseResultMap">
+        select id, name, webhook_url, description, status, create_time, update_time
+        from wc_webhook_url
+        order by id
+    </select>
+
+    <update id="updateWecomWebhook" parameterType="com.wx.fbsir.business.airobotmessage.domain.WecomWebhook">
+        update wc_webhook_url
+        <set>
+            <if test="name != null">name = #{name, jdbcType=VARCHAR},</if>
+            <if test="webhookUrl != null">webhook_url = #{webhookUrl, jdbcType=VARCHAR},</if>
+            <if test="description != null">description = #{description, jdbcType=VARCHAR},</if>
+            <if test="status != null">status = #{status, jdbcType=TINYINT},</if>
+            update_time = NOW()
+        </set>
+        where id = #{id, jdbcType=INTEGER}
+
+    </update>
+
+
+</mapper>

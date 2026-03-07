@@ -146,4 +146,24 @@ Engine端知识库功能的技术接口说明文档。
 
 ---
 
-**最后更新：** 2026-02-02
+### [企业微信机器人消息功能说明](business功能/企业微信机器人消息功能说明.md)
+企业微信机器人消息推送功能，支持向微信群发送模板消息和文本消息。
+
+**代码位置：**
+- 后端：`WxFbsir-business/src/main/java/com/wx/fbsir/business/airobotmessage/`
+- 前端：`WxFbsir-ui/src/views/business/airobotmessage/`
+- 数据表：`wc_webhook_url`
+
+---
+
+### [系统提示词管理功能说明](business功能/系统提示词管理功能说明.md)
+系统提示词管理功能，支持工作流提示词的增删改查，用于AI工作流的系统提示词配置。
+
+**代码位置：**
+- 后端：`WxFbsir-business/src/main/java/com/wx/fbsir/business/systemprompt/`
+- 前端：`WxFbsir-ui/src/views/business/systemPrompt/`
+- 数据表：`system_prompts`
+
+---
+
+**最后更新：** 2026-03-07
