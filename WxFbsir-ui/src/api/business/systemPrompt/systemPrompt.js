@@ -1,5 +1,13 @@
 import request from '@/utils/request.js'
 
+// 查询系统提示词列表
+export function listSystemPrompt() {
+  return request({
+    url: '/business/prompt/list',
+    method: 'get'
+  })
+}
+
 // 获取系统提示词（前端接口）
 export function getSystemPrompt(id) {
   return request({

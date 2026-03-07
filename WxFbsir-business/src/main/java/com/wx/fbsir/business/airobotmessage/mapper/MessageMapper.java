@@ -4,8 +4,14 @@ import com.wx.fbsir.business.airobotmessage.domain.WecomWebhook;
 
 import org.apache.ibatis.annotations.*;
 
+import java.util.List;
+
 @Mapper
 public interface MessageMapper {
+    /**
+     * 查询企业微信 Webhook 列表
+     */
+    List<WecomWebhook> selectWecomWebhookList();
     /**
      * 查询企业微信 Webhook
      *
@@ -21,8 +27,8 @@ public interface MessageMapper {
      * @param wecomWebhook Webhook 信息
      * @return 插入结果
      */
-    @Insert("insert into wc_webhook_url (name, webhook_url, description, status, create_time, update_time) " +
-            "values (#{name}, #{webhookUrl}, #{description}, #{status}, #{createTime}, #{updateTime})")
+    @Insert("insert into wc_webhook_url (name, webhook_url, description, status) " +
+            "values (#{name}, #{webhookUrl}, #{description}, #{status})")
     int insertWecomWebhook(WecomWebhook wecomWebhook);
 
     /**

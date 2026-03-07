@@ -7,11 +7,27 @@ import com.wx.fbsir.common.core.domain.AjaxResult;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/business/prompt")
 public class SystemPromptController {
     @Resource
     private SystemPromptService messageService;
+
+    /**
+     * 获取系统提示词列表
+     */
+    @GetMapping("/list")
+    @Anonymous
+    public AjaxResult listSystemPrompt() {
+        try {
+            List<SystemPrompt> systemPromptList = messageService.selectSystemPromptList();
+            return AjaxResult.success(systemPromptList);
+        } catch (Exception e) {
+            return AjaxResult.error("获取系统提示词列表失败," + e.getMessage());
+        }
+    }
 
     /**
      * 获取系统提示词（工作流调用）

@@ -6,12 +6,21 @@ import com.wx.fbsir.business.systemprompt.service.SystemPromptService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 
 @Service
 public class SystemPromptServiceImpl implements SystemPromptService {
 
     @Autowired
     private SystemPromptMapper messageMapper;
+
+    /**
+     * 查询系统提示词列表
+     */
+    @Override
+    public List<SystemPrompt> selectSystemPromptList() {
+        return messageMapper.selectSystemPromptList();
+    }
 
     /**
      * 获取系统提示词

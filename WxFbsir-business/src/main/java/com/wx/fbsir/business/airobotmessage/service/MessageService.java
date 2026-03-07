@@ -2,7 +2,13 @@ package com.wx.fbsir.business.airobotmessage.service;
 
 import com.wx.fbsir.business.airobotmessage.domain.WecomWebhook;
 
+import java.util.List;
+
 public interface MessageService {
+    /**
+     * 查询企业微信 Webhook 列表
+     */
+    List<WecomWebhook> selectWecomWebhookList();
     /**
      * 根据 ID 查询企业微信 Webhook
      *

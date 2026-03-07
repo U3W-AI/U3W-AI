@@ -7,6 +7,8 @@ import com.wx.fbsir.common.core.domain.AjaxResult;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 
 @RestController
 @RequestMapping("/business/message")
@@ -14,6 +16,20 @@ import org.springframework.web.bind.annotation.*;
 public class MessageController {
     @Resource
     private MessageService messageService;
+
+    /**
+     * 获取 Webhook 列表
+     */
+    @GetMapping("/list")
+    @Anonymous
+    public AjaxResult listWecomWebhook() {
+        try {
+            List<WecomWebhook> wecomWebhookList=messageService.selectWecomWebhookList();
+            return AjaxResult.success(wecomWebhookList);
+        } catch (Exception e) {
+            return AjaxResult.error("获取Webhook列表失败," + e.getMessage());
+        }
+    }
 
     /**
      * 获取 Webhook地址

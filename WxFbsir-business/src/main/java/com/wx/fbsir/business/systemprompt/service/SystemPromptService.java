@@ -3,7 +3,14 @@ package com.wx.fbsir.business.systemprompt.service;
 
 import com.wx.fbsir.business.systemprompt.domain.SystemPrompt;
 
+import java.util.List;
+
 public interface SystemPromptService {
+    /**
+     * 查询系统提示词列表
+     */
+    List<SystemPrompt> selectSystemPromptList();
+
     /**
      * 获取系统提示词
      *

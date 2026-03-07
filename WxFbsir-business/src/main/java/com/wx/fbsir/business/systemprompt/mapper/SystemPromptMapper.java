@@ -3,8 +3,16 @@ package com.wx.fbsir.business.systemprompt.mapper;
 import com.wx.fbsir.business.systemprompt.domain.SystemPrompt;
 import org.apache.ibatis.annotations.*;
 
+import java.util.List;
+
 @Mapper
 public interface SystemPromptMapper {
+    /**
+     * 查询系统提示词列表
+     */
+    @Select("select * from system_prompts order by create_time desc")
+    List<SystemPrompt> selectSystemPromptList();
+
     /**
      * 查询系统提示词
      *

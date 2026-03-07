@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -21,6 +22,11 @@ public class MessageServiceImpl implements MessageService {
     private String promptEditorUrl;
     @Autowired
     private MessageMapper messageMapper;
+
+    @Override
+    public List<WecomWebhook> selectWecomWebhookList() {
+        return messageMapper.selectWecomWebhookList();
+    }
 
     /**
      * 根据 ID 查询企业微信 Webhook

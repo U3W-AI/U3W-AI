@@ -16,6 +16,12 @@
         <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
         <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
     </resultMap>
+    <select id="selectWecomWebhookList" resultMap="BaseResultMap">
+        select id, name, webhook_url, description, status, create_time, update_time
+        from wc_webhook_url
+        order by id
+    </select>
+
     <update id="updateWecomWebhook" parameterType="com.wx.fbsir.business.airobotmessage.domain.WecomWebhook">
         update wc_webhook_url
         <set>

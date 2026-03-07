@@ -10,21 +10,18 @@
       <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
     </el-row>
 
-    <el-table v-loading="loading" :data="promptList">
+    <el-table v-loading="loading" :data="webhookList">
       <el-table-column label="ID" align="center" width="80">
         <template #default="scope">{{ scope.row.id ?? '' }}</template>
       </el-table-column>
       <el-table-column label="名称" align="center" min-width="120" :show-overflow-tooltip="true">
         <template #default="scope">{{ scope.row.name ?? '' }}</template>
       </el-table-column>
+      <el-table-column label="Webhook 地址" align="center" min-width="200" :show-overflow-tooltip="true">
+        <template #default="scope">{{ scope.row.webhookUrl ?? scope.row.webhook_url ?? '' }}</template>
+      </el-table-column>
       <el-table-column label="描述" align="center" min-width="150" :show-overflow-tooltip="true">
         <template #default="scope">{{ scope.row.description ?? '' }}</template>
-      </el-table-column>
-      <el-table-column label="版本" align="center" width="90">
-        <template #default="scope">{{ scope.row.version ?? '' }}</template>
-      </el-table-column>
-      <el-table-column label="分类" align="center" width="100">
-        <template #default="scope">{{ scope.row.category ?? '' }}</template>
       </el-table-column>
       <el-table-column label="状态" align="center" width="90">
         <template #default="scope">
@@ -51,26 +48,17 @@
       </el-table-column>
     </el-table>
 
-    <!-- 添加或修改系统提示词对话框 -->
-    <el-dialog :title="title" v-model="open" width="800px" append-to-body>
+    <!-- 添加或修改企业微信 Webhook 对话框 -->
+    <el-dialog :title="title" v-model="open" width="560px" append-to-body>
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入提示词名称" maxlength="255" show-word-limit />
+          <el-input v-model="form.name" placeholder="请输入 Webhook 名称（唯一）" maxlength="100" show-word-limit />
+        </el-form-item>
+        <el-form-item label="Webhook 地址" prop="webhookUrl">
+          <el-input v-model="form.webhookUrl" type="textarea" placeholder="请输入企业微信机器人 Webhook 地址" :rows="3" maxlength="512" show-word-limit />
         </el-form-item>
         <el-form-item label="描述" prop="description">
-          <el-input v-model="form.description" type="textarea" placeholder="请输入描述信息" :rows="2" maxlength="500" show-word-limit />
-        </el-form-item>
-        <el-form-item label="提示词内容" prop="content">
-          <el-input v-model="form.content" type="textarea" placeholder="请输入提示词内容" :rows="10" />
-        </el-form-item>
-        <el-form-item label="版本" prop="version">
-          <el-input v-model="form.version" placeholder="请输入版本号" maxlength="50" />
-        </el-form-item>
-        <el-form-item label="分类" prop="category">
-          <el-input v-model="form.category" placeholder="请输入分类" maxlength="100" />
-        </el-form-item>
-        <el-form-item label="标签" prop="tags">
-          <el-input v-model="form.tags" type="textarea" placeholder="请输入标签（逗号分隔）" :rows="2" maxlength="500" />
+          <el-input v-model="form.description" type="textarea" placeholder="请输入描述信息" :rows="2" maxlength="255" show-word-limit />
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
@@ -89,13 +77,13 @@
   </div>
 </template>
 
-<script setup name="SystemPrompt">
-import { listSystemPrompt, getSystemPrompt, deleteSystemPrompt, insertSystemPrompt, updateSystemPrompt } from '@/api/business/systemPrompt/systemPrompt'
+<script setup name="WecomWebhook">
+import { listWecomWebhook, getWecomWebhook, delWecomWebhook, addWecomWebhook, updateWecomWebhook } from '@/api/business/airobotmessage/wecomWebhook'
 import { parseTime } from '@/utils/WxFbsir'
 
 const { proxy } = getCurrentInstance()
 
-const promptList = ref([])
+const webhookList = ref([])
 const open = ref(false)
 const loading = ref(true)
 const showSearch = ref(true)
@@ -105,7 +93,7 @@ const data = reactive({
   form: {},
   rules: {
     name: [{ required: true, message: '名称不能为空', trigger: 'blur' }],
-    content: [{ required: true, message: '提示词内容不能为空', trigger: 'blur' }]
+    webhookUrl: [{ required: true, message: 'Webhook 地址不能为空', trigger: 'blur' }]
   }
 })
 
@@ -117,11 +105,8 @@ function normalizeRow(row) {
   return {
     id: row.id ?? row.ID ?? row.Id,
     name: row.name,
-    content: row.content,
+    webhookUrl: row.webhookUrl ?? row.webhook_url,
     description: row.description,
-    version: row.version,
-    category: row.category,
-    tags: row.tags,
     status: row.status ?? true,
     createTime: row.createTime ?? row.create_time,
     updateTime: row.updateTime ?? row.update_time
@@ -131,7 +116,7 @@ function normalizeRow(row) {
 /** 查询列表 */
 function getList() {
   loading.value = true
-  listSystemPrompt().then(response => {
+  listWecomWebhook().then(response => {
     // 兼容多种返回格式：{ data: [] }、{ rows: [] }、或直接为数组
     let list = []
     if (Array.isArray(response)) {
@@ -145,7 +130,7 @@ function getList() {
     } else if (response?.data?.data && Array.isArray(response.data.data)) {
       list = response.data.data
     }
-    promptList.value = list.map(normalizeRow)
+    webhookList.value = list.map(normalizeRow)
     loading.value = false
   }).catch(() => {
     loading.value = false
@@ -163,11 +148,8 @@ function reset() {
   form.value = {
     id: null,
     name: null,
-    content: null,
+    webhookUrl: null,
     description: null,
-    version: '1.0',
-    category: null,
-    tags: null,
     status: true
   }
   proxy.resetForm('formRef')
@@ -177,13 +159,13 @@ function reset() {
 function handleAdd() {
   reset()
   open.value = true
-  title.value = '添加系统提示词'
+  title.value = '添加企业微信 Webhook'
 }
 
 /** 修改 */
 function handleUpdate(index) {
   reset()
-  const row = promptList.value[index]
+  const row = webhookList.value[index]
   if (!row) return
   const r = normalizeRow(row)
   const id = r.id ?? row.id
@@ -191,18 +173,9 @@ function handleUpdate(index) {
     proxy.$modal.msgError('无法获取记录ID，请刷新后重试')
     return
   }
-  form.value = { 
-    id, 
-    name: r.name, 
-    content: r.content, 
-    description: r.description, 
-    version: r.version ?? '1.0',
-    category: r.category,
-    tags: r.tags,
-    status: r.status ?? true 
-  }
+  form.value = { id, name: r.name, webhookUrl: r.webhookUrl, description: r.description, status: r.status ?? true }
   open.value = true
-  title.value = '修改系统提示词'
+  title.value = '修改企业微信 Webhook'
 }
 
 /** 提交 */
@@ -210,13 +183,13 @@ function submitForm() {
   proxy.$refs['formRef'].validate(valid => {
     if (valid) {
       if (form.value.id != null) {
-        updateSystemPrompt(form.value).then(() => {
+        updateWecomWebhook(form.value).then(() => {
           proxy.$modal.msgSuccess('修改成功')
           open.value = false
           getList()
         })
       } else {
-        insertSystemPrompt(form.value).then(() => {
+        addWecomWebhook(form.value).then(() => {
           proxy.$modal.msgSuccess('新增成功')
           open.value = false
           getList()
@@ -228,7 +201,7 @@ function submitForm() {
 
 /** 删除 */
 function handleDelete(index) {
-  const row = promptList.value[index]
+  const row = webhookList.value[index]
   if (!row) return
   const r = normalizeRow(row)
   const id = r.id ?? row.id
@@ -236,8 +209,8 @@ function handleDelete(index) {
     proxy.$modal.msgError('无法获取记录ID，请刷新后重试')
     return
   }
-  proxy.$modal.confirm('是否确认删除系统提示词 "' + (r.name || '') + '"？').then(() => {
-    return deleteSystemPrompt(id)
+  proxy.$modal.confirm('是否确认删除 Webhook "' + (r.name || '') + '"？').then(() => {
+    return delWecomWebhook(id)
   }).then(() => {
     getList()
     proxy.$modal.msgSuccess('删除成功')
