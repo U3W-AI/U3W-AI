@@ -1,7 +1,7 @@
 <h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">福帮手数据智能化系统</h1>
 <h4 align="center">福帮手FBSir，幸福有AI，幸运有你。Fbsir, AI 4 Happiness, U 4 Fortune。</h4>
 <p align="center">
-	<a href="https://gitee.com/U3W-AI/RuoYi-Vue"><img src="https://img.shields.io/badge/WxFbsir-v1.2.8-brightgreen.svg"></a>
+	<a href="https://gitee.com/U3W-AI/RuoYi-Vue"><img src="https://img.shields.io/badge/WxFbsir-v1.3.0-brightgreen.svg"></a>
 	<a href="https://www.fbsir.com"><img src="https://img.shields.io/badge/website-www.fbsir.com-blue.svg"></a>
     <a href="https://gitee.com/U3W-AI/WxFbsir/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg"></a>
     <a href="https://spring.io/projects/spring-boot"><img src="https://img.shields.io/badge/Spring%20Boot-3.x-green.svg"></a>
@@ -19,7 +19,7 @@
 
 **福帮手数据智能化系统（WxFbsir）** 是一个开源的、面向企业团队与内容运营场景的 **AI工具链与智能协同平台**。
 
-项目采用 **AGPL-3.0** 协议开源，旨在通过“主节点（Admin）+引擎节点（Engine）+多AI平台”的架构，将内容生产、文档解析、公众号投递、积分与权限治理等能力统一纳管，并在可扩展的AIGC框架内实现多模型协同与高并发任务处理。
+项目采用 **AGPL-3.0** 协议开源，旨在通过“主节点（Admin）+引擎节点（Engine）+多AI平台”的架构，将内容生产、文档解析、公众号投递、元器工作流智能体、企业微信智能机器人工作流编排、积分与权限治理等能力统一纳管，并在可扩展的AIGC框架内实现多模型协同与高并发任务处理。
 
 ### 核心价值
 - **🚀 效率提升**：多模型并行生成与智能优化，显著缩短内容产出周期。
@@ -36,9 +36,10 @@
 - **公众号集成**：支持微信公众号草稿箱投递、素材管理与发布记录追踪。
 - **文档解析**：强大的文档解析助手，支持多格式解析与异步回调处理。
 
-### 2. AIGC 智能协同
-- **多模型协同**：支持腾讯元器等多种AI平台接入，实现流式对话与上下文管理。
+### 2. 多AI应用协同
+- **多模型协同**：支持腾讯元器、企业微信智能机器人等多种AI平台接入，实现流式对话与上下文管理。
 - **智能工作流**：内置AIGC框架，支持复杂的智能体工作流编排。
+
 
 ### 3. 系统治理与运维
 - **自动化引擎**：基于 Playwright 的自动化能力，支持 WebSocket 双节点协同（Admin ↔ Engine）。
@@ -154,9 +155,9 @@ npm run dev      # 启动开发服务器
 支持Gitee用户在首页授权登录，并通过Gitee接口，拉取在开源社区的参与情况数据，进行用户画像和能力分析。
 
 
-### ✨ **特色功能之腾讯元器自动化工具链**
+### ✨ **特色功能之自动化工具链**
 
-福帮手主机引擎支持Playwright能力管理，并提供Playwright实现示例，如登录状态检查、工作流导航等元器控制器。
+福帮手主机引擎支持Playwright能力管理，并提供Playwright实现示例，如登录状态检查、工作流导航等元器控制器。支持企业微信智能机器人工作流编排。
 
 
 ### ✨ **特色功能之文档分析MCP服务**
@@ -169,9 +170,6 @@ npm run dev      # 启动开发服务器
 完整流程、全功能覆盖证书申请和审核系统，覆盖用户侧和管理员不同角色。集成认证申请、证书模板管理、审核工作流标准化、积分系统适配等模块。
 
 
-### ✨ **AI应用场景内测功能上线，可自行部署测试**
-
-基于福帮手独特的engine-admin框架，有两个测试模块进库：1、知识库管理及同步机器人（目前支持企业微信、元器智能体知识库同步）2、元器智能体自动调参工具。
 
 
 
@@ -189,6 +187,6 @@ npm run dev      # 启动开发服务器
 本项目后台管理系统基于 **若依(RuoYi)** 框架进行二次开发，感谢若依团队提供的优秀开源框架。
 
 
-文档更新日期：2026年2月18日 14：25  文档版本：1.2.8
+文档更新日期：2026年2月18日 10：00  文档版本：1.3.0
 
 <p align="center">Copyright © 2024-2026 WxFbsir. All Rights Reserved.</p>
