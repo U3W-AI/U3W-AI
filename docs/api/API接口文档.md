@@ -1190,14 +1190,14 @@
 #### 获取 Webhook 列表
 - **请求方式**: `GET`
 - **请求路径**: `/business/message/list`
-- **权限要求**: 无（@Anonymous）
+- **权限要求**: `business:wecom:list`
 - **返回类型**: `AjaxResult`
 - **功能说明**: 获取所有企业微信 Webhook 配置列表
 
 #### 获取 Webhook 详情
 - **请求方式**: `GET`
 - **请求路径**: `/business/message/get`
-- **权限要求**: 无（@Anonymous）
+- **权限要求**: `business:wecom:query`
 - **请求参数**: `id`: Long，Webhook ID
 - **返回类型**: `AjaxResult`
 - **功能说明**: 获取指定 Webhook 的详细信息
@@ -1205,7 +1205,7 @@
 #### 新增 Webhook
 - **请求方式**: `POST`
 - **请求路径**: `/business/message/insert`
-- **权限要求**: 无（@Anonymous）
+- **权限要求**: `business:wecom:add`
 - **请求体**: `WecomWebhook`对象
 - **返回类型**: `AjaxResult`
 - **功能说明**: 新增企业微信 Webhook 配置
@@ -1213,7 +1213,7 @@
 #### 修改 Webhook
 - **请求方式**: `POST`
 - **请求路径**: `/business/message/update`
-- **权限要求**: 无（@Anonymous）
+- **权限要求**: `business:wecom:edit`
 - **请求体**: `WecomWebhook`对象
 - **返回类型**: `AjaxResult`
 - **功能说明**: 更新 Webhook 配置信息
@@ -1221,7 +1221,7 @@
 #### 删除 Webhook
 - **请求方式**: `POST`
 - **请求路径**: `/business/message/delete`
-- **权限要求**: 无（@Anonymous）
+- **权限要求**: `business:wecom:remove`
 - **请求参数**: `id`: Long，Webhook ID
 - **返回类型**: `AjaxResult`
 - **功能说明**: 删除指定 Webhook 配置
@@ -1233,13 +1233,18 @@
 - **请求参数**:
   - `userId`: String，用户名
   - `messageContent`: String，消息内容
+  - `webhookId`: String，Webhook ID
+- **返回类型**: `void`
 - **功能说明**: 向微信群发送模板卡片消息
 
 #### 发送提示词更新通知
 - **请求方式**: `POST`
 - **请求路径**: `/business/message/updateprompt`
 - **权限要求**: 无（@Anonymous）
-- **请求参数**: `userId`: String，用户名
+- **请求参数**:
+  - `userId`: String，用户名
+  - `webhookId`: String，Webhook ID
+- **返回类型**: `void`
 - **功能说明**: 发送提示词修改请求通知
 
 ---
@@ -1249,7 +1254,7 @@
 #### 获取系统提示词列表
 - **请求方式**: `GET`
 - **请求路径**: `/business/prompt/list`
-- **权限要求**: 无（@Anonymous）
+- **权限要求**: `business:prompt:list`
 - **返回类型**: `AjaxResult`
 - **功能说明**: 获取所有系统提示词列表
 
@@ -1264,7 +1269,7 @@
 #### 获取系统提示词详情（前端接口）
 - **请求方式**: `GET`
 - **请求路径**: `/business/prompt/get`
-- **权限要求**: 无（@Anonymous）
+- **权限要求**: `business:prompt:query`
 - **请求参数**: `id`: Long，提示词 ID
 - **返回类型**: `AjaxResult`
 - **功能说明**: 获取系统提示词完整信息
@@ -1272,7 +1277,7 @@
 #### 新增系统提示词
 - **请求方式**: `POST`
 - **请求路径**: `/business/prompt/insert`
-- **权限要求**: 无（@Anonymous）
+- **权限要求**: `business:prompt:add`
 - **请求体**: `SystemPrompt`对象
 - **返回类型**: `AjaxResult`
 - **功能说明**: 新增系统提示词
@@ -1280,7 +1285,7 @@
 #### 修改系统提示词
 - **请求方式**: `POST`
 - **请求路径**: `/business/prompt/update`
-- **权限要求**: 无（@Anonymous）
+- **权限要求**: `business:prompt:edit`
 - **请求体**: `SystemPrompt`对象
 - **返回类型**: `AjaxResult`
 - **功能说明**: 更新系统提示词
@@ -1288,7 +1293,7 @@
 #### 删除系统提示词
 - **请求方式**: `POST`
 - **请求路径**: `/business/prompt/delete`
-- **权限要求**: 无（@Anonymous）
+- **权限要求**: `business:prompt:remove`
 - **请求参数**: `id`: Long，提示词 ID
 - **返回类型**: `AjaxResult`
 - **功能说明**: 删除系统提示词

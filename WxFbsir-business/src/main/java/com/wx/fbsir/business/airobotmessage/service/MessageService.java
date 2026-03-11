@@ -31,18 +31,20 @@ public interface MessageService {
      *
      * @param userId         用户名
      * @param messageContent 用户消息
+     * @param webhookId      Webhook ID
      * @throws Exception 异常信息
      */
-    void sendTextMessage(String userId, String messageContent) throws Exception;
+    void sendTextMessage(String userId, String messageContent, Long webhookId) throws Exception;
 
     /**
      * 向微信群推送模板卡片消息
      *
      * @param userId         用户名
      * @param messageContent 用户消息
+     * @param webhookId      Webhook ID
      * @throws Exception 异常信息
      */
-    void sendTemplateMessage(String userId, String messageContent,Long webhookId) throws Exception;
+    void sendTemplateMessage(String userId, String messageContent, Long webhookId) throws Exception;
 
     /**
      * 更新企业微信 Webhook
@@ -60,5 +62,38 @@ public interface MessageService {
      */
     int deleteWecomWebhookById(Long id);
 
-    void sendTemplatePromptMessage(String userId) throws Exception;
+    /**
+     * 向微信群推送修改提示词模板卡片消息
+     *
+     * @param userId      用户名
+     * @param webhookId   Webhook ID
+     * @throws Exception 异常信息
+     */
+    void sendTemplatePromptMessage(String userId, Long webhookId) throws Exception;
+
+    /**
+     * 异步向微信群推送文本消息
+     *
+     * @param userId         用户名
+     * @param messageContent 用户消息
+     * @param webhookId      Webhook ID
+     */
+    void sendTextMessageAsync(String userId, String messageContent, Long webhookId);
+
+    /**
+     * 异步向微信群推送模板卡片消息
+     *
+     * @param userId         用户名
+     * @param messageContent 用户消息
+     * @param webhookId      Webhook ID
+     */
+    void sendTemplateMessageAsync(String userId, String messageContent, Long webhookId);
+
+    /**
+     * 异步向微信群推送修改提示词模板卡片消息
+     *
+     * @param userId    用户名
+     * @param webhookId Webhook ID
+     */
+    void sendTemplatePromptMessageAsync(String userId, Long webhookId);
 }
