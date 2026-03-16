@@ -26,6 +26,7 @@
   - [2.8 WebSocket/Engine管理接口](#28-websocketengine管理接口-businesswebsocket)
   - [2.9 企业微信机器人消息接口](#29-企业微信机器人消息接口-businessmessage)  <!-- 新增 -->
   - [2.10 系统提示词管理接口](#210-系统提示词管理接口-businessprompt)
+  - [2.11 OpenClaw主机纳管接口](#211-openclaw主机纳管接口-businesshostwhitelist)
 - [三、监控管理模块](#三监控管理模块)
   - [3.1 缓存监控接口](#31-缓存监控接口-monitorcache)
   - [3.2 服务器监控接口](#32-服务器监控接口-monitorserver)
@@ -1185,6 +1186,80 @@
   - `IpBlacklist`对象（可选查询条件）
 - **返回类型**: `TableDataInfo`
 - **功能说明**: 分页查询IP黑名单列表
+
+### 2.11 OpenClaw主机纳管接口 (`/business/host/whitelist`)
+
+#### 获取主机白名单列表
+- **请求方式**: `GET`
+- **请求路径**: `/business/host/whitelist/list`
+- **权限要求**: `business:host:whitelist:query`
+- **请求参数**: 
+  - `hostId`: String，主机ID（可选）
+  - `hostName`: String，主机名称（可选）
+  - `hostType`: String，主机类型（可选）
+  - `status`: Integer，状态：0禁用 1启用（可选）
+- **返回类型**: `TableDataInfo`
+- **功能说明**: 分页查询主机白名单列表
+
+#### 获取主机详情
+- **请求方式**: `GET`
+- **请求路径**: `/business/host/whitelist/{id}`
+- **权限要求**: `business:host:whitelist:query`
+- **路径参数**: 
+  - `id`: Long，主机ID
+- **返回类型**: `AjaxResult`
+- **功能说明**: 获取指定主机详细信息
+
+#### 新增主机
+- **请求方式**: `POST`
+- **请求路径**: `/business/host/whitelist`
+- **权限要求**: `business:host:whitelist:add`
+- **请求体**: 
+  - `hostId`: String，主机ID
+  - `hostName`: String，主机名称
+  - `hostType`: String，主机类型：engine/openclaw
+  - `healthCheckUrl`: String，健康检查URL
+  - `status`: Integer，状态：0禁用 1启用
+- **返回类型**: `AjaxResult`
+- **功能说明**: 新增主机信息
+
+#### 修改主机
+- **请求方式**: `PUT`
+- **请求路径**: `/business/host/whitelist`
+- **权限要求**: `business:host:whitelist:edit`
+- **请求体**: 
+  - `id`: Long，主机ID
+  - `hostName`: String，主机名称（可选）
+  - `healthCheckUrl`: String，健康检查URL（可选）
+  - `status`: Integer，状态：0禁用 1启用（可选）
+- **返回类型**: `AjaxResult`
+- **功能说明**: 修改主机信息
+
+#### 删除主机
+- **请求方式**: `DELETE`
+- **请求路径**: `/business/host/whitelist/{ids}`
+- **权限要求**: `business:host:whitelist:remove`
+- **路径参数**: 
+  - `ids`: Long[]，主机ID数组
+- **返回类型**: `AjaxResult`
+- **功能说明**: 删除指定主机
+
+#### 手动健康检查
+- **请求方式**: `GET`
+- **请求路径**: `/business/host/whitelist/health-check/{id}`
+- **权限要求**: `business:host:whitelist:edit`
+- **路径参数**: 
+  - `id`: Long，主机ID
+- **返回类型**: `AjaxResult`
+- **功能说明**: 手动触发指定OpenClaw主机的健康检查
+
+#### 获取所有主机状态
+- **请求方式**: `GET`
+- **请求路径**: `/business/host/whitelist/status`
+- **权限要求**: `business:host:whitelist:query`
+- **返回类型**: `AjaxResult`
+- **功能说明**: 获取所有主机的ID和在线状态
+
 ### 2.9 企业微信机器人消息接口 (`/business/message`)
 
 #### 获取 Webhook 列表
