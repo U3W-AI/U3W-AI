@@ -102,15 +102,21 @@ public class ClientWebSocketInterceptor implements HandshakeInterceptor {
     }
 
     /**
-     * 从 Authorization Header 获取 Token
+     * 从 Authorization Header 或 URL 参数获取 Token
      */
     private String getTokenFromHeader(ServletServerHttpRequest request) {
         // 优先从 Header 获取
         String token = request.getServletRequest().getHeader(tokenHeader);
         
-        // 兼容：也支持从 URL 参数获取（方便测试）
+        // 兼容：支持从 URL 参数获取（方便测试）
         if (StringUtils.isEmpty(token)) {
+            // 先尝试获取 token 参数
             token = request.getServletRequest().getParameter("token");
+            
+            // 再尝试获取 key 参数（兼容前端调试工具的命名）
+            if (StringUtils.isEmpty(token)) {
+                token = request.getServletRequest().getParameter("key");
+            }
         }
         
         return token;
@@ -121,33 +127,54 @@ public class ClientWebSocketInterceptor implements HandshakeInterceptor {
      */
     private LoginUser getLoginUserFromToken(String token) {
         if (StringUtils.isEmpty(token)) {
+            log.warn("[Client WebSocket] 缺少 Token");
             return null;
         }
         
         try {
             // 去除 Bearer 前缀
-            if (token.startsWith(Constants.TOKEN_PREFIX)) {
-                token = token.replace(Constants.TOKEN_PREFIX, "");
+            String processedToken = token;
+            if (processedToken.startsWith(Constants.TOKEN_PREFIX)) {
+                processedToken = processedToken.replace(Constants.TOKEN_PREFIX, "");
             }
             
             // 解析 Token
             Claims claims = Jwts.parser()
                     .setSigningKey(secret)
-                    .parseClaimsJws(token)
+                    .parseClaimsJws(processedToken)
                     .getBody();
             
             // 获取 uuid
             String uuid = (String) claims.get(Constants.LOGIN_USER_KEY);
             if (StringUtils.isEmpty(uuid)) {
+                log.warn("[Client WebSocket] Token 中缺少用户标识");
                 return null;
             }
             
             // 从 Redis 获取用户信息
             String userKey = CacheConstants.LOGIN_TOKEN_KEY + uuid;
-            return redisCache.getCacheObject(userKey);
+            LoginUser loginUser = redisCache.getCacheObject(userKey);
             
+            if (loginUser == null) {
+                log.warn("[Client WebSocket] 用户信息已过期或不存在: uuid={}", uuid);
+                return null;
+            }
+            
+            log.debug("[Client WebSocket] Token 验证成功: uuid={}, username={}", uuid, loginUser.getUsername());
+            return loginUser;
+            
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
+            log.error("[Client WebSocket] Token 已过期: {}", e.getMessage());
+            return null;
+        } catch (io.jsonwebtoken.MalformedJwtException e) {
+            log.error("[Client WebSocket] Token 格式错误: {}", e.getMessage());
+            return null;
+        } catch (io.jsonwebtoken.SignatureException e) {
+            log.error("[Client WebSocket] Token 签名错误: {}", e.getMessage());
+            return null;
         } catch (Exception e) {
-            log.error("[Client WebSocket] Token 解析失败: {}", e.getMessage());
+            log.error("[Client WebSocket] Token 验证失败: {}", e.getMessage());
+            e.printStackTrace();
             return null;
         }
     }
