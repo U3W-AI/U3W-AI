@@ -6,8 +6,9 @@ import com.wx.fbsir.business.websocket.server.EngineWebSocketHandler;
 import com.wx.fbsir.business.websocket.server.EngineWebSocketInterceptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
@@ -24,7 +25,6 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
  */
 @Configuration
 @EnableWebSocket
-@ConditionalOnProperty(prefix = "wxfbsir.websocket", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class WebSocketConfig implements WebSocketConfigurer {
 
     private static final Logger log = LoggerFactory.getLogger(WebSocketConfig.class);
@@ -61,5 +61,15 @@ public class WebSocketConfig implements WebSocketConfigurer {
         
         log.info("[WebSocket] 服务端配置完成 - Engine: {}, Client: {}", 
             properties.getEnginePath(), properties.getClientPath());
+    }
+
+    /**
+     * 注册RestTemplate Bean，用于HTTP健康检查
+     *
+     * @return RestTemplate实例
+     */
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
     }
 }

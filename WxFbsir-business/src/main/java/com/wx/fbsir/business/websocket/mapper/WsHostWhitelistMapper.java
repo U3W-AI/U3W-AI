@@ -79,4 +79,11 @@ public interface WsHostWhitelistMapper {
      * @return 影响行数
      */
     int updateStatus(@Param("hostId") String hostId, @Param("status") Integer status);
+
+    /**
+     * 查询所有启用的OpenClaw主机
+     *
+     * @return OpenClaw主机列表
+     */
+    List<WsHostWhitelist> selectOpenclawHosts();
 }

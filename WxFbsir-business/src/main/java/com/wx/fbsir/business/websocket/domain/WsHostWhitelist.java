@@ -29,6 +29,9 @@ public class WsHostWhitelist implements Serializable {
     private LocalDateTime createTime;
     private String updateBy;
     private LocalDateTime updateTime;
+    private String hostType;
+    private String healthCheckUrl;
+    private String onlineStatus;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -62,4 +65,10 @@ public class WsHostWhitelist implements Serializable {
     public void setUpdateBy(String updateBy) { this.updateBy = updateBy; }
     public LocalDateTime getUpdateTime() { return updateTime; }
     public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
+    public String getHostType() { return hostType; }
+    public void setHostType(String hostType) { this.hostType = hostType; }
+    public String getHealthCheckUrl() { return healthCheckUrl; }
+    public void setHealthCheckUrl(String healthCheckUrl) { this.healthCheckUrl = healthCheckUrl; }
+    public String getOnlineStatus() { return onlineStatus; }
+    public void setOnlineStatus(String onlineStatus) { this.onlineStatus = onlineStatus; }
 }

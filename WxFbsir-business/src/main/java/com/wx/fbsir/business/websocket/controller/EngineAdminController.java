@@ -121,7 +121,7 @@ public class EngineAdminController {
             sessionId,
             4007,  // 自定义关闭码：管理员断开
             "管理员断开",
-            com.wx.fbsir.business.websocket.service.ConnectionLogService.STATUS_ADMIN_DISCONNECT,  // 状态7
+            ConnectionLogService.STATUS_ADMIN_DISCONNECT,  // 状态7
             session.getMessageSent(),
             session.getMessageReceived(),
             session.getHeartbeatCount(),

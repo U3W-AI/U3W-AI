@@ -103,7 +103,7 @@ public class EngineMessageRouter {
             // 根据来源类型路由
             if ("HTTP".equals(sourceType)) {
                 // HTTP 请求 → 仅完成 HTTP 响应
-                java.util.Map<String, Object> resultData = new java.util.HashMap<>();
+                Map<String, Object> resultData = new HashMap<>();
                 if (message.getPayload() != null) {
                     resultData.putAll(message.getPayload());
                 }
@@ -124,7 +124,7 @@ public class EngineMessageRouter {
                 log.warn("[Router] 未知来源类型: {}, 请求ID: {}, 执行兼容路由", sourceType, requestId);
                 
                 // 尝试完成 HTTP 请求
-                java.util.Map<String, Object> resultData = new java.util.HashMap<>();
+                Map<String, Object> resultData = new HashMap<>();
                 if (message.getPayload() != null) {
                     resultData.putAll(message.getPayload());
                 }
