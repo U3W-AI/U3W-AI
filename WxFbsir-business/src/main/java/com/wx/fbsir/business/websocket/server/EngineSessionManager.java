@@ -566,7 +566,7 @@ public class EngineSessionManager {
         int heartbeatTimeout = properties.getHeartbeatInterval() + properties.getHeartbeatTimeout();
         
         // 收集需要清理的sessionId，避免在遍历时修改Map
-        java.util.List<String> toRemove = new java.util.ArrayList<>();
+        List<String> toRemove = new ArrayList<>();
 
         for (Map.Entry<String, EngineSession> entry : sessionMap.entrySet()) {
             EngineSession session = entry.getValue();

@@ -72,6 +72,18 @@
           <el-tag v-else type="success">团队</el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="主机类型" align="center" prop="hostType" width="100">
+        <template #default="scope">
+          <el-tag v-if="scope.row.hostType === 'openclaw'" type="primary">OpenClaw</el-tag>
+          <el-tag v-else type="warning">Engine</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="在线状态" align="center" prop="onlineStatus" width="100">
+        <template #default="scope">
+          <el-tag v-if="scope.row.onlineStatus === 'online'" type="success">在线</el-tag>
+          <el-tag v-else type="danger">离线</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="团队名称" align="center" prop="teamName" width="120" />
       <el-table-column label="状态" align="center" prop="status" width="80">
         <template #default="scope">
@@ -95,7 +107,7 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding" width="160" fixed="right">
+      <el-table-column label="操作" align="center" class-name="small-padding" width="240" fixed="right">
         <template #default="scope">
           <el-button
             link
@@ -104,6 +116,14 @@
             @click="handleUpdate(scope.row)"
             v-hasPermi="['business:host:whitelist:edit']"
           >修改</el-button>
+          <el-button
+            link
+            type="success"
+            icon="Check"
+            @click="handleHealthCheck(scope.row)"
+            v-if="scope.row.hostType === 'openclaw'"
+            v-hasPermi="['business:host:whitelist:edit']"
+          >健康检查</el-button>
           <el-button
             link
             type="danger"
@@ -150,6 +170,15 @@
         <el-form-item label="允许的IP列表" prop="allowedIps">
           <el-input v-model="form.allowedIps" type="textarea" placeholder="多个IP用逗号分隔，为空表示不限制" />
         </el-form-item>
+        <el-form-item label="主机类型" prop="hostType">
+          <el-select v-model="form.hostType" placeholder="请选择主机类型">
+            <el-option label="Engine" value="engine" />
+            <el-option label="OpenClaw" value="openclaw" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="健康检查URL" prop="healthCheckUrl">
+          <el-input v-model="form.healthCheckUrl" placeholder="请输入健康检查URL（仅OpenClaw类型需要）" />
+        </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
             <el-radio :label="1">启用</el-radio>
@@ -179,7 +208,7 @@
 </template>
 
 <script setup name="HostWhitelist">
-import { listWhitelist, getWhitelist, delWhitelist, addWhitelist, updateWhitelist } from "@/api/business/host/whitelist";
+import { listWhitelist, getWhitelist, delWhitelist, addWhitelist, updateWhitelist, manualHealthCheck } from "@/api/business/host/whitelist";
 
 const { proxy } = getCurrentInstance();
 
@@ -249,6 +278,9 @@ function reset() {
     isTeam: 0,
     teamName: null,
     allowedIps: null,
+    hostType: "engine",
+    healthCheckUrl: null,
+    onlineStatus: "offline",
     status: 1,
     expireTime: null,
     remark: null
@@ -344,6 +376,38 @@ function handleStatusChange(row) {
     proxy.$modal.msgSuccess(text + "成功");
   }).catch(function() {
     row.status = row.status === 0 ? 1 : 0;
+  });
+}
+
+/** 手动健康检查 */
+function handleHealthCheck(row) {
+  if (!row.hostId) {
+    proxy.$modal.msgError("未找到主机ID");
+    return;
+  }
+
+  if (!row.healthCheckUrl) {
+    proxy.$modal.msgWarning("该主机未配置健康检查URL");
+    return;
+  }
+
+  proxy.$modal.confirm('确认要对"' + row.hostId + '"主机执行健康检查吗？').then(function() {
+    proxy.$modal.loading("正在执行健康检查，请稍候...");
+    return manualHealthCheck(row.id);
+  }).then((response) => {
+    proxy.$modal.closeLoading();
+    if (response.code === 200) {
+      proxy.$modal.msgSuccess("健康检查完成");
+      // 刷新列表
+      getList();
+    } else {
+      proxy.$modal.msgError("健康检查失败: " + (response.msg || "未知错误"));
+    }
+  }).catch(function(error) {
+    proxy.$modal.closeLoading();
+    if (error && error !== 'cancel') {
+      proxy.$modal.msgError("健康检查失败: " + (error.message || error));
+    }
   });
 }
 

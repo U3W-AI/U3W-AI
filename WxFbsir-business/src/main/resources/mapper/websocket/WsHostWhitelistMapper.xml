@@ -21,12 +21,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
         <result property="updateTime" column="update_time"/>
+        <result property="hostType" column="host_type"/>
+        <result property="healthCheckUrl" column="health_check_url"/>
+        <result property="onlineStatus" column="online_status"/>
     </resultMap>
 
     <sql id="selectWhitelistVo">
         SELECT id, host_id, host_name, owner_name, owner_contact, is_team, team_name,
                allowed_ips, status, expire_time, remark, del_flag, 
-               create_by, create_time, update_by, update_time
+               create_by, create_time, update_by, update_time, host_type, health_check_url, online_status
         FROM ws_host_whitelist
     </sql>
 
@@ -37,7 +40,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <select id="selectByHostId" parameterType="String" resultMap="WsHostWhitelistResult">
         <include refid="selectWhitelistVo"/>
-        WHERE host_id = #{hostId} AND del_flag = 0
+        WHERE host_id = #{hostId}
     </select>
 
     <select id="selectList" parameterType="com.wx.fbsir.business.websocket.domain.WsHostWhitelist" resultMap="WsHostWhitelistResult">
@@ -69,10 +72,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <insert id="insert" parameterType="com.wx.fbsir.business.websocket.domain.WsHostWhitelist" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ws_host_whitelist (
             host_id, host_name, owner_name, owner_contact, is_team, team_name,
-            allowed_ips, status, expire_time, remark, del_flag, create_by, create_time
+            allowed_ips, status, expire_time, remark, del_flag, create_by, create_time,
+            host_type, health_check_url, online_status
         ) VALUES (
             #{hostId}, #{hostName}, #{ownerName}, #{ownerContact}, #{isTeam}, #{teamName},
-            #{allowedIps}, #{status}, #{expireTime}, #{remark}, 0, #{createBy}, NOW()
+            #{allowedIps}, #{status}, #{expireTime}, #{remark}, 0, #{createBy}, NOW(),
+            COALESCE(#{hostType, jdbcType=VARCHAR}, 'engine'), #{healthCheckUrl, jdbcType=VARCHAR}, COALESCE(#{onlineStatus, jdbcType=VARCHAR}, 'offline')
         )
     </insert>
 
@@ -88,28 +93,36 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="status != null">status = #{status},</if>
             <if test="expireTime != null">expire_time = #{expireTime},</if>
             <if test="remark != null">remark = #{remark},</if>
+            <if test="hostType != null">host_type = #{hostType},</if>
+            <if test="healthCheckUrl != null">health_check_url = #{healthCheckUrl},</if>
+            <if test="onlineStatus != null">online_status = #{onlineStatus},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
             update_time = NOW()
         </set>
         WHERE id = #{id}
     </update>
 
-    <update id="deleteById" parameterType="Long">
-        UPDATE ws_host_whitelist SET del_flag = 1, update_time = NOW() WHERE id = #{id}
-    </update>
+    <delete id="deleteById" parameterType="Long">
+        DELETE FROM ws_host_whitelist WHERE id = #{id}
+    </delete>
 
-    <update id="deleteByIds" parameterType="Long">
-        UPDATE ws_host_whitelist SET del_flag = 1, update_time = NOW() 
+    <delete id="deleteByIds" parameterType="Long">
+        DELETE FROM ws_host_whitelist 
         WHERE id IN
         <foreach item="id" collection="ids" open="(" separator="," close=")">
             #{id}
         </foreach>
-    </update>
+    </delete>
 
     <update id="updateStatus">
         UPDATE ws_host_whitelist 
         SET status = #{status}, update_time = NOW() 
         WHERE host_id = #{hostId} AND del_flag = 0
     </update>
+
+    <select id="selectOpenclawHosts" resultMap="WsHostWhitelistResult">
+        <include refid="selectWhitelistVo"/>
+        WHERE del_flag = 0 AND status = 1 AND host_type = 'openclaw'
+    </select>
 
 </mapper>

@@ -51,3 +51,19 @@ export function exportWhitelist(query) {
     params: query
   })
 }
+
+// 手动健康检查
+export function manualHealthCheck(id) {
+  return request({
+    url: '/business/host/whitelist/health-check/' + id,
+    method: 'get'
+  })
+}
+
+// 获取所有主机状态
+export function getAllHostStatus() {
+  return request({
+    url: '/business/host/whitelist/status',
+    method: 'get'
+  })
+}
