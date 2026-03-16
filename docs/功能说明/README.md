@@ -166,4 +166,22 @@ Engine端知识库功能的技术接口说明文档。
 
 ---
 
-**最后更新：** 2026-03-07
+### [OpenClaw主机纳管功能说明](business功能/OpenClaw主机纳管功能说明.md)
+OpenClaw主机纳管功能，支持主机的登记、状态监控、管控和健康检查。
+
+**代码位置：**
+- 后端：`WxFbsir-business/src/main/java/com/wx/fbsir/business/websocket/`
+- 前端：与Engine主机管理共用界面
+
+---
+
+### [OpenClaw主机纳管部署指南](engine/OpenClaw主机纳管部署指南.md)
+OpenClaw主机纳管功能的部署和配置指南。
+
+**代码位置：**
+- 后端：`WxFbsir-business/src/main/java/com/wx/fbsir/business/websocket/`
+- 健康检查：`WxFbsir-business/src/main/java/com/wx/fbsir/business/websocket/task/OpenClawHealthChecker.java`
+
+---
+
+**最后更新：** 2026-03-16
