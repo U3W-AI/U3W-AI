@@ -1,5 +1,6 @@
 package com.wx.fbsir.business.aigc.controller;
 
+import com.alibaba.fastjson2.JSON;
 import com.wx.fbsir.business.aigc.domain.ChatHistoryRequest;
 import com.wx.fbsir.business.aigc.domain.AiRequest;
 import com.wx.fbsir.business.aigc.service.IAigcService;
@@ -12,6 +13,7 @@ import com.wx.fbsir.common.core.domain.AjaxResult;
 import com.wx.fbsir.common.core.page.TableDataInfo;
 import com.wx.fbsir.common.enums.BusinessType;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -313,5 +315,228 @@ public class AigcController extends BaseController {
         result.put("aiName", aiName);
         
         return AjaxResult.success(result);
+    }
+
+    /**
+     * 生成当前会话的输出物并落库
+     *
+     * 设计说明：
+     * 1. 前端仅传入 sessionId，由后端基于会话内容生成输出物，避免前端参与业务逻辑
+     * 2. 生成结果会直接写入会话数据中，供后续导出与推送复用
+     *
+     * @param params 请求参数（包含 sessionId）
+     * @return 统一响应结果（AjaxResult）
+     */
+    @PreAuthorize("@ss.hasPermi('business:output:generate')")
+    @PostMapping("/output/generate")
+    @Log(title = "生成输出物", businessType = BusinessType.INSERT)
+    public AjaxResult generateOutputArtifact(@RequestBody Map<String, Object> params) {
+        try {
+            String sessionId = (String) params.get("sessionId");
+
+            // sessionId 是定位会话的唯一标识，缺失时无法执行后续业务
+            if (sessionId == null || sessionId.isEmpty()) {
+                return AjaxResult.error("sessionId不能为空");
+            }
+
+            // 调用Service生成输出物
+            Map<String, Object> result = aigcService.generateOutputArtifact(sessionId);
+
+            // Service层返回失败时，直接透传业务错误信息
+            if (Boolean.FALSE.equals(result.get("success"))) {
+                return AjaxResult.error(String.valueOf(result.get("message")));
+            }
+
+            return AjaxResult.success(result);
+
+        } catch (Exception e) {
+            logger.error("[输出物生成] 接口异常 - sessionId: {}, 错误类型: {}, 错误信息: {}",
+                    params.get("sessionId"), e.getClass().getSimpleName(), e.getMessage());
+            return AjaxResult.error("生成输出物失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 导出当前会话的输出物为 Markdown 文件
+     *
+     * 设计说明：
+     * 1. 成功时以文件流形式返回 Markdown，触发浏览器下载
+     * 2. 业务失败时返回 JSON 结构，便于前端识别错误信息而不是下载无效文件
+     * 3. 统一使用 UTF-8 编码，避免中文乱码问题
+     *
+     * @param sessionId 会话ID
+     */
+    @PreAuthorize("@ss.hasPermi('business:output:exportMarkdown')")
+    @GetMapping("/output/exportMarkdown/{sessionId}")
+    @Log(title = "导出输出物Markdown", businessType = BusinessType.EXPORT)
+    public void exportMarkdown(@PathVariable String sessionId,
+                               jakarta.servlet.http.HttpServletResponse response) {
+        try {
+            Map<String, Object> result = aigcService.exportOutputArtifactMarkdown(sessionId);
+
+            // 业务失败时返回 JSON，前端可根据 content-type 判断并提示错误
+            if (Boolean.FALSE.equals(result.get("success"))) {
+                response.setCharacterEncoding("UTF-8");
+                response.setContentType("application/json;charset=UTF-8");
+                response.setStatus(200);
+
+                Map<String, Object> errorResult = AjaxResult.error(String.valueOf(result.get("message")));
+                response.getWriter().write(JSON.toJSONString(errorResult));
+                return;
+            }
+
+            // 成功时返回 Markdown 文件流，浏览器自动下载
+            String markdown = String.valueOf(result.get("data"));
+            response.setCharacterEncoding("UTF-8");
+            response.setContentType("text/markdown;charset=UTF-8");
+            response.setHeader("Content-Disposition",
+                    "attachment; filename=\"fubangshou-output-" + sessionId + ".md\"");
+
+            response.getWriter().write(markdown);
+
+        } catch (Exception e) {
+            logger.error("[输出物导出-Markdown] 接口异常 - sessionId: {}, 错误类型: {}, 错误信息: {}",
+                    sessionId, e.getClass().getSimpleName(), e.getMessage());
+            try {
+                // 异常兜底：返回统一 JSON 错误，避免前端无响应或下载异常文件
+                response.setCharacterEncoding("UTF-8");
+                response.setContentType("application/json;charset=UTF-8");
+                response.setStatus(500);
+
+                Map<String, Object> errorResult = AjaxResult.error("导出失败");
+                response.getWriter().write(JSON.toJSONString(errorResult));
+            } catch (Exception ignored) {
+                logger.error("[输出物导出-Markdown] 响应写出失败 - sessionId: {}", sessionId);
+            }
+        }
+    }
+
+    /**
+     * 导出当前会话的输出物为 JSON 数据
+     *
+     * 设计说明：
+     * 1. 返回标准结构数据，供前端展示或 Webhook 推送复用
+     * 2. 业务失败时直接返回错误信息，不做文件流处理
+     *
+     * @param sessionId 会话ID
+     * @return 输出物JSON结构
+     */
+    @PreAuthorize("@ss.hasPermi('business:output:exportJson')")
+    @GetMapping("/output/exportJson/{sessionId}")
+    @Log(title = "导出输出物JSON", businessType = BusinessType.EXPORT)
+    public AjaxResult exportJson(@PathVariable String sessionId) {
+        try {
+            Map<String, Object> result = aigcService.exportOutputArtifactJson(sessionId);
+
+            // 业务失败时直接透传错误信息
+            if (Boolean.FALSE.equals(result.get("success"))) {
+                return AjaxResult.error(String.valueOf(result.get("message")));
+            }
+
+            return AjaxResult.success(result);
+
+        } catch (Exception e) {
+            logger.error("[输出物导出-JSON] 接口异常 - sessionId: {}, 错误类型: {}, 错误信息: {}",
+                    sessionId, e.getClass().getSimpleName(), e.getMessage());
+            return AjaxResult.error("导出JSON失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 推送当前会话的输出物到指定 Webhook 地址
+     *
+     * 设计说明：
+     * 1. 前端传入 sessionId、format 和 webhookUrl，由后端统一构造推送内容
+     * 2. 推送逻辑依赖导出结果，保证推送内容与导出数据一致
+     * 3. 参数校验在入口完成，避免无效请求进入推送流程
+     *
+     * @param params 请求参数（包含 sessionId、format、webhookUrl）
+     * @return 推送结果
+     */
+    @PreAuthorize("@ss.hasPermi('business:output:pushWebhook')")
+    @PostMapping("/output/pushWebhook")
+    @Log(title = "推送输出物到Webhook", businessType = BusinessType.OTHER)
+    public AjaxResult pushWebhook(@RequestBody Map<String, Object> params) {
+        try {
+            String sessionId = (String) params.get("sessionId");
+            String format = (String) params.get("format");
+            String webhookUrl = (String) params.get("webhookUrl");
+
+            // 关键参数缺失时直接拦截，避免进入后续推送逻辑
+            if (sessionId == null || sessionId.isEmpty()) {
+                return AjaxResult.error("sessionId不能为空");
+            }
+            if (format == null || format.isEmpty()) {
+                return AjaxResult.error("format不能为空");
+            }
+            if (webhookUrl == null || webhookUrl.isEmpty()) {
+                return AjaxResult.error("webhookUrl不能为空");
+            }
+
+            Map<String, Object> result =
+                    aigcService.pushOutputArtifactWebhook(sessionId, format, webhookUrl);
+
+            // 业务失败时透传具体错误信息（如URL非法、推送失败等）
+            if (Boolean.FALSE.equals(result.get("success"))) {
+                return AjaxResult.error(String.valueOf(result.get("message")));
+            }
+
+            return AjaxResult.success(result);
+
+        } catch (Exception e) {
+            logger.error("[输出物推送] 接口异常 - sessionId: {}, format: {}, webhookUrl: {}, 错误类型: {}, 错误信息: {}",
+                    params.get("sessionId"), params.get("format"), params.get("webhookUrl"),
+                    e.getClass().getSimpleName(), e.getMessage());
+            return AjaxResult.error("推送Webhook失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 保存用户编辑后的输出物内容
+     *
+     * 设计说明：
+     * 1. 前端提交 sessionId、artifactId 及编辑后的内容，由后端定位目标输出物并回写
+     * 2. 保存后会覆盖当前会话中的对应输出物，保证后续导出与推送使用最新内容
+     * 3. 关键参数在入口完成校验，避免无效请求进入保存流程
+     *
+     * @param params 请求参数（包含 sessionId、artifactId、content 等）
+     * @return 保存结果
+     */
+    @PreAuthorize("@ss.hasPermi('business:output:save')")
+    @PostMapping("/output/save")
+    @Log(title = "保存输出物", businessType = BusinessType.UPDATE)
+    public AjaxResult saveOutputArtifact(@RequestBody Map<String, Object> params) {
+        try {
+            String sessionId = (String) params.get("sessionId");
+            String artifactId = (String) params.get("artifactId");
+            String content = (String) params.get("content");
+
+            // 保存操作依赖会话与输出物定位信息，关键字段缺失时不能继续处理
+            if (sessionId == null || sessionId.isEmpty()) {
+                return AjaxResult.error("sessionId不能为空");
+            }
+            if (artifactId == null || artifactId.isEmpty()) {
+                return AjaxResult.error("artifactId不能为空");
+            }
+            if (content == null || content.isEmpty()) {
+                return AjaxResult.error("输出物内容不能为空");
+            }
+
+            Map<String, Object> result = aigcService.saveOutputArtifact(params);
+
+            // 保存成功后返回最新输出物数据，便于前端直接刷新展示
+            if (Boolean.TRUE.equals(result.get("success"))) {
+                return AjaxResult.success("保存成功", result);
+            }
+
+            // 业务失败时透传具体错误信息
+            return AjaxResult.error(String.valueOf(result.get("message")));
+
+        } catch (Exception e) {
+            logger.error("[输出物保存] 接口异常 - sessionId: {}, artifactId: {}, 错误类型: {}, 错误信息: {}",
+                    params.get("sessionId"), params.get("artifactId"),
+                    e.getClass().getSimpleName(), e.getMessage());
+            return AjaxResult.error("保存输出物失败: " + e.getMessage());
+        }
     }
 }

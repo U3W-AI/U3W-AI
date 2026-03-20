@@ -292,6 +292,9 @@ public class AigcBatchUpdateService {
         }
     }
 
+
+
+
     // ==========================================================================
     // 📦 内部类：会话更新批次
     // ==========================================================================
@@ -324,4 +327,6 @@ public class AigcBatchUpdateService {
             return progressLogs.size() + screenshots.size();
         }
     }
+
+
 }

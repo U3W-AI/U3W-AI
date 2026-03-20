@@ -4,17 +4,34 @@
     <div class="top-nav">
       <div class="nav-container">
         <div class="logo-area">
-          <el-icon class="logo-icon" :size="28"><ChatDotRound /></el-icon>
+          <el-icon class="logo-icon" :size="28">
+            <ChatDotRound />
+          </el-icon>
           <h1 class="platform-title">AI助手</h1>
         </div>
         <div class="nav-buttons">
           <el-button type="primary" @click="createNewChat">
-            <el-icon><Plus /></el-icon>
+            <el-icon>
+              <Plus />
+            </el-icon>
             创建新对话
           </el-button>
           <el-button @click="showHistoryDrawer">
-            <el-icon><Clock /></el-icon>
+            <el-icon>
+              <Clock />
+            </el-icon>
             历史记录
+          </el-button>
+          <el-button size="mini" type="primary" @click="handleGenerateOutput" v-hasPermi="['business:output:generate']">
+            生成输出物
+          </el-button>
+
+          <el-button size="mini" @click="handleExportMarkdown" v-hasPermi="['business:output:exportMarkdown']">
+            导出Markdown
+          </el-button>
+
+          <el-button size="mini" @click="handlePushWebhook" v-hasPermi="['business:output:pushWebhook']">
+            推送Webhook
           </el-button>
         </div>
       </div>
@@ -24,7 +41,9 @@
     <el-drawer title="历史会话记录" v-model="historyDrawerVisible" direction="rtl" size="35%">
       <div class="history-content">
         <div v-if="historyLoading" class="history-loading">
-          <el-icon class="is-loading"><Loading /></el-icon>
+          <el-icon class="is-loading">
+            <Loading />
+          </el-icon>
           <span>加载中...</span>
         </div>
         <!-- 🔥 按日期和chatId分组显示历史记录 -->
@@ -35,16 +54,16 @@
               <div v-for="(item, index) in group" :key="index" class="history-item">
                 <!-- 🔥 会话组父记录 -->
                 <div class="history-parent"
-                     @click="item.isChatGroup ? toggleHistoryExpansion(item) : loadHistoryItem(item)">
+                  @click="item.isChatGroup ? toggleHistoryExpansion(item) : loadHistoryItem(item)">
                   <div class="history-header">
                     <!-- 会话组展开/收起箭头 -->
-                    <el-icon v-if="item.isChatGroup"
-                             :class="{ 'is-expanded': item.isExpanded }"
-                             class="expand-arrow">
+                    <el-icon v-if="item.isChatGroup" :class="{ 'is-expanded': item.isExpanded }" class="expand-arrow">
                       <ArrowRight />
                     </el-icon>
                     <!-- 单轮对话图标 -->
-                    <el-icon v-else class="chat-icon"><ChatDotRound /></el-icon>
+                    <el-icon v-else class="chat-icon">
+                      <ChatDotRound />
+                    </el-icon>
                     <div class="history-content-wrapper">
                       <div class="history-prompt">{{ item.userPrompt }}</div>
                       <div class="history-meta">
@@ -63,11 +82,9 @@
 
                 <!-- 🔥 展开显示各轮对话 -->
                 <div v-if="item.isChatGroup && item.children && item.children.length > 0 && item.isExpanded"
-                     class="history-children">
-                  <div v-for="(round, roundIndex) in item.children"
-                       :key="roundIndex"
-                       class="history-child-item"
-                       @click="loadHistoryItem(round)">
+                  class="history-children">
+                  <div v-for="(round, roundIndex) in item.children" :key="roundIndex" class="history-child-item"
+                    @click="loadHistoryItem(round)">
                     <div class="history-child-content">
                       <span class="child-index">第{{ roundIndex + 1 }}轮</span>
                       <div class="history-prompt">{{ round.roundPrompt || round.userPrompt }}</div>
@@ -84,7 +101,9 @@
           </div>
         </div>
         <div v-else class="history-empty">
-          <el-icon><Document /></el-icon>
+          <el-icon>
+            <Document />
+          </el-icon>
           <p>暂无历史记录</p>
         </div>
       </div>
@@ -97,30 +116,47 @@
           <el-collapse-item name="ai-selection">
             <template #title>
               <div class="ai-config-header">
-                <el-icon :size="18" style="margin-right: 8px;"><ChatDotRound /></el-icon>
+                <el-icon :size="18" style="margin-right: 8px;">
+                  <ChatDotRound />
+                </el-icon>
                 <span>AI选择配置</span>
               </div>
+              <el-dialog v-model="outputDialogVisible" title="编辑输出物" width="600px">
+                <el-form label-width="80px">
+                  <el-form-item label="标题">
+                    <el-input v-model="outputTitle" />
+                  </el-form-item>
+                  <el-form-item label="内容">
+                    <el-input v-model="outputContent" type="textarea" :rows="10" />
+                  </el-form-item>
+                </el-form>
+
+                <template #footer>
+                  <el-button @click="outputDialogVisible = false">取消</el-button>
+                  <el-button type="primary" @click="handleSaveOutputArtifact" v-hasPermi="['business:output:save']">
+                    保存输出物
+                  </el-button>
+                </template>
+              </el-dialog>
             </template>
             <div class="ai-selection-section">
               <div class="ai-cards">
                 <!-- 动态渲染AI卡片 -->
-                <el-card
-                    v-for="ai in aiServices"
-                    :key="ai.id"
-                    class="ai-card modern-card"
-                    :class="{
-                  'ai-card-not-logged': !ai.loggedIn, 
-                  'ai-card-enabled': aiStates[ai.id]?.enabled 
-                }"
-                    shadow="hover"
-                >
+                <el-card v-for="ai in aiServices" :key="ai.id" class="ai-card modern-card" :class="{
+                  'ai-card-not-logged': !ai.loggedIn,
+                  'ai-card-enabled': aiStates[ai.id]?.enabled
+                }" shadow="hover">
                   <!-- 未登录遮罩 -->
                   <div v-if="!ai.loggedIn" class="card-login-overlay">
                     <div class="card-login-message">
-                      <el-icon :size="24"><Warning /></el-icon>
+                      <el-icon :size="24">
+                        <Warning />
+                      </el-icon>
                       <span>未登录</span>
                       <el-button size="small" type="primary" @click="handleServiceLogin(ai.id)">
-                        <el-icon><Link /></el-icon>
+                        <el-icon>
+                          <Link />
+                        </el-icon>
                         前往登录
                       </el-button>
                     </div>
@@ -133,7 +169,9 @@
                       <div class="ai-avatar" :class="`${ai.id}-avatar`">
                         <img v-if="ai.icon.type === 'url'" :src="ai.icon.value" class="ai-avatar-img" />
                         <el-icon v-else-if="ai.icon.type === 'element'" :size="20">{{ ai.icon.value }}</el-icon>
-                        <el-icon v-else :size="20"><ChatDotRound /></el-icon>
+                        <el-icon v-else :size="20">
+                          <ChatDotRound />
+                        </el-icon>
                       </div>
                       <div class="ai-info">
                         <div class="ai-name">{{ ai.displayName }}</div>
@@ -141,14 +179,8 @@
                       </div>
                     </div>
                     <div class="ai-status">
-                      <el-switch
-                          v-if="aiStates[ai.id]"
-                          v-model="aiStates[ai.id].enabled"
-                          active-color="#409eff"
-                          inactive-color="#dcdfe6"
-                          :disabled="!ai.loggedIn"
-                          @change="handleAiToggle(ai.id)"
-                      />
+                      <el-switch v-if="aiStates[ai.id]" v-model="aiStates[ai.id].enabled" active-color="#409eff"
+                        inactive-color="#dcdfe6" :disabled="!ai.loggedIn" @change="handleAiToggle(ai.id)" />
                     </div>
                   </div>
 
@@ -156,19 +188,16 @@
                   <div class="ai-options" v-if="aiStates[ai.id]?.enabled && ai.options && ai.options.length > 0">
                     <div class="options-divider"></div>
                     <div class="ai-capabilities">
-                      <el-tag
-                          v-for="option in ai.options"
-                          :key="option.id"
-                          :type="aiStates[ai.id].options[option.id] ? 'primary' : 'info'"
-                          :effect="aiStates[ai.id].options[option.id] ? 'dark' : 'plain'"
-                          class="capability-tag"
-                          @click="toggleAiOption(ai.id, option.id)"
-                          :class="{
-                        'tag-disabled': !aiStates[ai.id].enabled || !ai.loggedIn || option.disabled,
-                        'tag-clickable': aiStates[ai.id].enabled && ai.loggedIn && !option.disabled
-                      }"
-                      >
-                        <el-icon><Setting /></el-icon>
+                      <el-tag v-for="option in ai.options" :key="option.id"
+                        :type="aiStates[ai.id].options[option.id] ? 'primary' : 'info'"
+                        :effect="aiStates[ai.id].options[option.id] ? 'dark' : 'plain'" class="capability-tag"
+                        @click="toggleAiOption(ai.id, option.id)" :class="{
+                          'tag-disabled': !aiStates[ai.id].enabled || !ai.loggedIn || option.disabled,
+                          'tag-clickable': aiStates[ai.id].enabled && ai.loggedIn && !option.disabled
+                        }">
+                        <el-icon>
+                          <Setting />
+                        </el-icon>
                         {{ option.label }}
                       </el-tag>
                     </div>
@@ -182,41 +211,37 @@
           <el-collapse-item name="prompt-input">
             <template #title>
               <div class="ai-config-header">
-                <el-icon :size="18" style="margin-right: 8px;"><Document /></el-icon>
+                <el-icon :size="18" style="margin-right: 8px;">
+                  <Document />
+                </el-icon>
                 <span>提示词输入</span>
               </div>
             </template>
             <div class="prompt-input-section modern-input">
               <div class="input-wrapper">
-                <el-input
-                    type="textarea"
-                    placeholder="请输入您的问题或需求，支持Markdown格式..."
-                    v-model="promptInput"
-                    resize="none"
-                    class="prompt-input dynamic-textarea"
-                    :autosize="{ minRows: 1, maxRows: 3 }"
-                />
+                <el-input type="textarea" placeholder="请输入您的问题或需求，支持Markdown格式..." v-model="promptInput" resize="none"
+                  class="prompt-input dynamic-textarea" :autosize="{ minRows: 1, maxRows: 3 }" />
               </div>
               <div class="prompt-footer">
                 <div class="footer-left">
                   <el-button size="small" class="upload-button" @click="handleFileUpload">
-                    <el-icon><Picture /></el-icon>
+                    <el-icon>
+                      <Picture />
+                    </el-icon>
                     上传文件
                   </el-button>
                   <span class="word-count">
-                  <el-icon><Document /></el-icon>
-                  {{ promptInput.length }} 字
-                </span>
+                    <el-icon>
+                      <Document />
+                    </el-icon>
+                    {{ promptInput.length }} 字
+                  </span>
                 </div>
-                <el-button
-                    type="primary"
-                    @click="sendPrompt"
-                    :disabled="!canSend"
-                    :loading="isSending"
-                    class="send-button"
-                    size="large"
-                >
-                  <el-icon v-if="!isSending"><ChatDotRound /></el-icon>
+                <el-button type="primary" @click="sendPrompt" :disabled="!canSend" :loading="isSending"
+                  class="send-button" size="large">
+                  <el-icon v-if="!isSending">
+                    <ChatDotRound />
+                  </el-icon>
                   {{ isSending ? '发送中...' : '发送' }}
                 </el-button>
               </div>
@@ -249,16 +274,26 @@
                     </div>
                     <div class="header-right">
                       <span class="status-text">{{ getStatusText(ai.status || taskStatus) }}</span>
-                      <el-icon v-if="(ai.status || taskStatus) === 'running'" class="is-loading"><Loading /></el-icon>
-                      <el-icon v-else-if="(ai.status || taskStatus) === 'completed'" color="#67c23a"><CircleCheck /></el-icon>
-                      <el-icon v-else-if="(ai.status || taskStatus) === 'failed'" color="#f56c6c"><CircleClose /></el-icon>
-                      <el-icon v-else color="#909399"><Clock /></el-icon>
+                      <el-icon v-if="(ai.status || taskStatus) === 'running'" class="is-loading">
+                        <Loading />
+                      </el-icon>
+                      <el-icon v-else-if="(ai.status || taskStatus) === 'completed'" color="#67c23a">
+                        <CircleCheck />
+                      </el-icon>
+                      <el-icon v-else-if="(ai.status || taskStatus) === 'failed'" color="#f56c6c">
+                        <CircleClose />
+                      </el-icon>
+                      <el-icon v-else color="#909399">
+                        <Clock />
+                      </el-icon>
                     </div>
                   </div>
                   <!-- 🔥 进度日志（按AI区分） -->
-                  <div class="progress-timeline" v-if="ai.isExpanded !== false && (ai.progressLogs || progressLogs).length > 0">
+                  <div class="progress-timeline"
+                    v-if="ai.isExpanded !== false && (ai.progressLogs || progressLogs).length > 0">
                     <div class="timeline-scroll">
-                      <div v-for="(log, logIndex) in (ai.progressLogs || progressLogs)" :key="logIndex" class="progress-item">
+                      <div v-for="(log, logIndex) in (ai.progressLogs || progressLogs)" :key="logIndex"
+                        class="progress-item">
                         <div class="progress-dot" :class="getLogDotClass(log)"></div>
                         <div class="progress-content">
                           <div class="progress-time">{{ formatTime(log.timestamp) }}</div>
@@ -279,13 +314,16 @@
                 </div>
               </template>
               <div class="screenshots">
-                <el-carousel ref="screenshotCarousel" v-if="screenshots.length > 0" :interval="3000" :autoplay="false" indicator-position="outside" height="700px">
+                <el-carousel ref="screenshotCarousel" v-if="screenshots.length > 0" :interval="3000" :autoplay="false"
+                  indicator-position="outside" height="700px">
                   <el-carousel-item v-for="(screenshot, index) in screenshots" :key="index">
                     <img :src="screenshot" alt="执行截图" class="screenshot-image" @click="showLargeImage(screenshot)" />
                   </el-carousel-item>
                 </el-carousel>
                 <div v-else class="no-screenshots">
-                  <el-icon :size="48"><Picture /></el-icon>
+                  <el-icon :size="48">
+                    <Picture />
+                  </el-icon>
                   <p>等待截图...</p>
                 </div>
               </div>
@@ -305,11 +343,15 @@
               <div class="result-title">{{ result.aiName }}的执行结果</div>
               <div class="result-actions">
                 <el-button v-if="result.shareUrl" size="small" type="primary" @click="openShareUrl(result.shareUrl)">
-                  <el-icon><Link /></el-icon>
+                  <el-icon>
+                    <Link />
+                  </el-icon>
                   查看原链接
                 </el-button>
                 <el-button v-if="result.content" size="small" @click="copyToClipboard(result)">
-                  <el-icon><Document /></el-icon>
+                  <el-icon>
+                    <Document />
+                  </el-icon>
                   复制文本
                 </el-button>
               </div>
@@ -317,7 +359,8 @@
 
             <!-- 🔥 优先显示截图 -->
             <div v-if="result.hasScreenshot && result.screenshotUrl" class="result-screenshot">
-              <img :src="result.screenshotUrl" alt="AI回复截图" class="result-screenshot-image" @click="showLargeImage(result.screenshotUrl)" />
+              <img :src="result.screenshotUrl" alt="AI回复截图" class="result-screenshot-image"
+                @click="showLargeImage(result.screenshotUrl)" />
               <div class="screenshot-tip">点击图片查看大图</div>
             </div>
 
@@ -326,7 +369,9 @@
 
             <!-- 🔥 既没有截图也没有文本 -->
             <div v-else class="no-result">
-              <el-icon :size="48"><Warning /></el-icon>
+              <el-icon :size="48">
+                <Warning />
+              </el-icon>
               <p>暂无结果内容</p>
             </div>
           </div>
@@ -340,17 +385,12 @@
     </el-dialog>
 
     <!-- 主机ID验证对话框 -->
-    <el-dialog
-        v-model="hostIdDialogVisible"
-        title="需要配置主机ID"
-        width="500px"
-        center
-        :close-on-click-modal="false"
-        :close-on-press-escape="false"
-        :show-close="false"
-    >
+    <el-dialog v-model="hostIdDialogVisible" title="需要配置主机ID" width="500px" center :close-on-click-modal="false"
+      :close-on-press-escape="false" :show-close="false">
       <div class="host-id-dialog-content">
-        <el-icon :size="64" color="#e6a23c" style="margin-bottom: 16px;"><Warning /></el-icon>
+        <el-icon :size="64" color="#e6a23c" style="margin-bottom: 16px;">
+          <Warning />
+        </el-icon>
         <p style="font-size: 16px; margin-bottom: 24px; color: #606266;">
           您还未配置Engine主机ID，无法使用AI助手功能。
         </p>
@@ -364,14 +404,18 @@
     </el-dialog>
 
     <!-- 服务登录对话框 -->
-    <el-dialog v-model="loginDialogVisible" :title="`${currentLoginServiceName}扫码登录`" width="600px" center :close-on-click-modal="false">
+    <el-dialog v-model="loginDialogVisible" :title="`${currentLoginServiceName}扫码登录`" width="600px" center
+      :close-on-click-modal="false">
       <div class="login-dialog-content">
         <div v-if="loginLoading" class="login-loading">
-          <el-icon class="is-loading" :size="32"><Loading /></el-icon>
+          <el-icon class="is-loading" :size="32">
+            <Loading />
+          </el-icon>
           <p>{{ loginStatusText }}</p>
         </div>
         <div v-if="qrCodeUrl" class="qrcode-container">
-          <img :src="qrCodeUrl" alt="登录二维码" class="qrcode-image" style="width: 400px; height: 400px; display: block; margin: 0 auto;" />
+          <img :src="qrCodeUrl" alt="登录二维码" class="qrcode-image"
+            style="width: 400px; height: 400px; display: block; margin: 0 auto;" />
           <p style="text-align: center; margin-top: 20px; color: #666;">请使用微信扫码登录{{ currentLoginServiceName }}</p>
         </div>
       </div>
@@ -379,17 +423,8 @@
 
     <!-- 文件上传对话框 -->
     <el-dialog v-model="uploadDialogVisible" title="上传文件" width="500px" center>
-      <el-upload
-          ref="uploadRef"
-          :action="uploadAction"
-          :headers="uploadHeaders"
-          :on-success="handleUploadSuccess"
-          :on-error="handleUploadError"
-          :before-upload="beforeUpload"
-          :limit="1"
-          :file-list="fileList"
-          drag
-      >
+      <el-upload ref="uploadRef" :action="uploadAction" :headers="uploadHeaders" :on-success="handleUploadSuccess"
+        :on-error="handleUploadError" :before-upload="beforeUpload" :limit="1" :file-list="fileList" drag>
         <el-icon class="el-icon--upload"><upload-filled /></el-icon>
         <div class="el-upload__text">
           拖拽文件到此处或<em>点击上传</em>
@@ -409,6 +444,7 @@
 </template>
 
 <script>
+import Cookies from 'js-cookie'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Clock, Loading, Document, Warning, CircleCheck, CircleClose, Link, Picture, ChatDotRound, ArrowRight, Setting, UploadFilled } from '@element-plus/icons-vue'
@@ -417,6 +453,13 @@ import { restoreLoginStatusFromStorage } from '@/config/engineConfig'
 import { getToken } from '@/utils/auth'
 import { addDraft, getDraftContent } from '@/api/aigc/drafts'
 import { sendAiRequest, getChatHistory } from '@/api/aigc/assistant'
+import {
+  generateOutputArtifact,
+  exportOutputMarkdown,
+  exportOutputJson,
+  pushOutputWebhook,
+  saveOutputArtifact
+} from '@/api/business/content/aigc/output'
 import { buildWebSocketUrl } from '@/utils/websocket'
 import useUserStore from '@/store/modules/user'
 import {
@@ -523,6 +566,11 @@ export default {
     const enabledAIs = ref([])  // 🔥 启用的AI列表（支持多AI）
     const screenshotCarousel = ref(null)  // 🔥 幻灯片组件引用
     const isNewChat = ref(true)  // 🔥 是否是新会话
+    // 输出物相关
+    const currentArtifactId = ref('')
+    const outputTitle = ref('')
+    const outputContent = ref('')
+    const outputDialogVisible = ref(false)
 
     // 当前登录的服务ID
     const currentLoginService = ref('')
@@ -785,7 +833,7 @@ export default {
           progressLogs.value.forEach(log => {
             const logAiType = log.aiType || 'deepseek'
             const targetAi = enabledAIs.value.find(ai =>
-                ai.name.toLowerCase().includes(logAiType.toLowerCase())
+              ai.name.toLowerCase().includes(logAiType.toLowerCase())
             )
             if (targetAi) {
               if (!targetAi.progressLogs) {
@@ -809,7 +857,7 @@ export default {
         if (nestedData.answer) {
           // 🔥 判断answer是否为截图URL
           const answerIsUrl = nestedData.answer &&
-              (nestedData.answer.startsWith('http://') || nestedData.answer.startsWith('https://'))
+            (nestedData.answer.startsWith('http://') || nestedData.answer.startsWith('https://'))
 
           // 🔥 动态获取 AI 显示名称
           const historyAiType = nestedData.aiType || historyData.aiType || 'deepseek'
@@ -944,12 +992,12 @@ export default {
 
       // 🔥 获取所有启用的 AI
       const enabledAiList = Object.entries(aiStates.value)
-          .filter(([aiId, state]) => state.enabled)
-          .map(([aiId, state]) => ({
-            aiId,
-            config: getEngineConfig(aiId),
-            state
-          }))
+        .filter(([aiId, state]) => state.enabled)
+        .map(([aiId, state]) => ({
+          aiId,
+          config: getEngineConfig(aiId),
+          state
+        }))
 
       if (enabledAiList.length === 0) {
         ElMessage.error('请先选择并启用一个 AI')
@@ -1081,22 +1129,22 @@ export default {
     }
 
     const connectWebSocket = (callback) => {
-      const token = getToken()
-      // 使用通用WebSocket工具类构建连接URL
-      const wsUrl = buildWebSocketUrl({
-        path: '/ws/client',
-        token: token,
-        clientType: 'web'
-      })
+      // 从 cookie 获取 token（比你原来的 getToken 更稳）
+      const token = Cookies.get('Admin-Token')
+
+      // 自动判断 ws / wss（关键）
+      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
+
+      // 直接拼接，不再用 buildWebSocketUrl（避免它写死 ws://）
+      const wsUrl = `${protocol}://${window.location.host}/ws/client?clientType=web&token=${token}`
 
       console.log('连接WebSocket:', wsUrl)
+
       websocket = new WebSocket(wsUrl)
 
       websocket.onopen = () => {
         console.log('WebSocket已连接')
         if (callback) callback()
-        // 测试阶段：跳过登录检查，默认已登录
-        // checkDeepSeekLoginStatus()
         ElMessage.success('WebSocket连接成功')
       }
 
@@ -1175,7 +1223,7 @@ export default {
 
           console.log('🔥 [AIGC] AI_TASK_RESULT - aiType:', aiType, 'success:', success, 'sessionId:', messageSessionId, 'resultData:', resultData)
 
-            if (success) {
+          if (success) {
             // 🔥 检查是否是登录检查结果
             if (resultData.isLoggedIn !== undefined || (resultData.data && resultData.data.isLoggedIn !== undefined)) {
               const isLoggedIn = resultData.isLoggedIn !== undefined ? resultData.isLoggedIn : resultData.data?.isLoggedIn
@@ -1273,7 +1321,7 @@ export default {
 
           // 更新对应AI的状态
           const targetAi = enabledAIs.value.find(ai =>
-              ai.name.toLowerCase().includes(aiType.toLowerCase())
+            ai.name.toLowerCase().includes(aiType.toLowerCase())
           )
           if (targetAi) {
             targetAi.status = 'error'
@@ -1330,7 +1378,7 @@ export default {
 
       // 🔥 同时添加到对应AI的日志列表（支持按AI区分显示）
       const targetAi = enabledAIs.value.find(ai =>
-          ai.name.toLowerCase().includes(aiType.toLowerCase())
+        ai.name.toLowerCase().includes(aiType.toLowerCase())
       )
       if (targetAi) {
         if (!targetAi.progressLogs) {
@@ -1495,7 +1543,7 @@ export default {
     }
 
     const generateUUID = () => {
-      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
         const r = Math.random() * 16 | 0
         const v = c === 'x' ? r : (r & 0x3 | 0x8)
         return v.toString(16)
@@ -1535,7 +1583,197 @@ export default {
         historyLoading.value = false
       }
     }
+    // 获取当前会话 sessionId
+    const getCurrentSessionId = () => {
+      if (sessionId) {
+        return sessionId
+      }
 
+      if (results.value && results.value.length > 0) {
+        const lastResult = results.value[results.value.length - 1]
+        return lastResult.sessionId || ''
+      }
+
+      return ''
+    }
+
+    // ==================== 输出物生成 ====================
+    /**
+     * 生成当前会话的输出物
+     * 设计说明：
+     * 1. 依赖当前 sessionId，未选择会话时禁止生成
+     * 2. 调用后端生成接口，并将结果填充到编辑弹窗中
+     * 3. 生成成功后自动打开编辑对话框，支持用户二次修改
+     */
+    const handleGenerateOutput = async () => {
+      const currentSessionId = getCurrentSessionId()
+
+      // 未选中会话时直接拦截
+      if (!currentSessionId) {
+        ElMessage.error('当前没有可用的会话ID')
+        return
+      }
+
+      try {
+        const res = await generateOutputArtifact({
+          sessionId: currentSessionId
+        })
+
+        if (res.code === 200) {
+          const artifact = res.data.data
+
+          // 将后端返回的输出物数据绑定到前端表单
+          currentArtifactId.value = artifact.id || ''
+          outputTitle.value = artifact.title || ''
+          outputContent.value = artifact.content || ''
+          outputDialogVisible.value = true
+
+          ElMessage.success('输出物生成成功')
+        } else {
+          // 透传后端业务错误信息
+          ElMessage.error(res.msg || res.data?.message || '生成输出物失败')
+        }
+      } catch (error) {
+        ElMessage.error('生成输出物失败')
+      }
+    }
+
+
+    // ==================== 输出物保存 ====================
+    /**
+     * 保存用户编辑后的输出物
+     * 设计说明：
+     * 1. 必须存在 sessionId 与 artifactId 才允许保存
+     * 2. 保存成功后关闭弹窗，数据以服务端为准
+     */
+    const handleSaveOutputArtifact = async () => {
+      const currentSessionId = getCurrentSessionId()
+
+      // 会话校验
+      if (!currentSessionId) {
+        ElMessage.error('当前没有可用的会话ID')
+        return
+      }
+
+      // 输出物存在性校验
+      if (!currentArtifactId.value) {
+        ElMessage.error('当前没有可保存的输出物')
+        return
+      }
+
+      try {
+        const res = await saveOutputArtifact({
+          sessionId: currentSessionId,
+          artifactId: currentArtifactId.value,
+          title: outputTitle.value,
+          content: outputContent.value
+        })
+
+        if (res.code === 200) {
+          ElMessage.success('保存成功')
+
+          // 保存成功后关闭编辑弹窗
+          outputDialogVisible.value = false
+        } else {
+          ElMessage.error(res.msg || '保存失败')
+        }
+      } catch (error) {
+        ElMessage.error('保存失败')
+      }
+    }
+
+
+    // ==================== Markdown 导出 ====================
+    /**
+     * 导出当前会话输出物为 Markdown 文件
+     * 设计说明：
+     * 1. 后端成功返回为二进制流（Markdown文件）
+     * 2. 后端失败返回为 JSON（需手动解析 Blob）
+     * 3. 通过 Content-Type 区分成功/失败，避免误下载错误内容
+     */
+    const handleExportMarkdown = async () => {
+      const currentSessionId = getCurrentSessionId()
+
+      // 会话校验
+      if (!currentSessionId) {
+        ElMessage.error('当前没有可用的会话ID')
+        return
+      }
+
+      try {
+        const response = await exportOutputMarkdown(currentSessionId)
+
+        // 根据响应类型判断结果（关键逻辑）
+        const contentType = response.headers['content-type']
+
+        // ===== 失败场景：返回 JSON =====
+        if (contentType && contentType.includes('application/json')) {
+          const text = await new Blob([response.data]).text()
+          const json = JSON.parse(text)
+
+          ElMessage.error(json.msg || json.message || '导出失败')
+          return
+        }
+
+        // ===== 成功场景：返回 Markdown 文件 =====
+        const blob = new Blob([response.data], { type: 'text/markdown;charset=utf-8' })
+        const url = window.URL.createObjectURL(blob)
+
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `fubangshou-output-${currentSessionId}.md`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+
+        window.URL.revokeObjectURL(url)
+
+        ElMessage.success('Markdown 导出成功')
+      } catch (error) {
+        ElMessage.error('导出失败')
+      }
+    }
+
+
+    // ==================== Webhook 推送 ====================
+    /**
+     * 推送当前会话输出物到指定 Webhook 地址
+     * 设计说明：
+     * 1. 必须依赖当前 sessionId，未选择会话时禁止推送
+     * 2. 用户手动输入 webhookUrl，空值时直接终止操作
+     * 3. 推送内容统一由后端生成（支持 Markdown / JSON）
+     * 4. 成功仅提示一次，失败时透传后端或网络异常信息
+     */
+    const handlePushWebhook = async () => {
+      const currentSessionId = getCurrentSessionId()
+
+      // 会话校验
+      if (!currentSessionId) {
+        ElMessage.error('当前没有可用的会话ID')
+        return
+      }
+
+      // 获取用户输入的 Webhook 地址
+      const webhookUrl = window.prompt('请输入Webhook地址')
+      if (!webhookUrl) {
+        return
+      }
+
+      try {
+        const res = await pushOutputWebhook({
+          sessionId: currentSessionId,
+          format: 'md',
+          webhookUrl
+        })
+
+        // 成功场景
+        if (res.code === 200 && res.data && res.data.success) {
+          ElMessage.success('已推送')
+        }
+      } catch (error) {
+        // 错误提示交给全局 request.js 统一处理，这里不再重复弹窗
+      }
+    }
     // 生命周期
     onMounted(() => {
       // 页面加载时恢复登录状态
@@ -1625,7 +1863,16 @@ export default {
       toggleHistoryExpansion,
       formatHistoryTime,
       toggleAiExpand,
-      getLogDotClass
+      getLogDotClass,
+      // 输出物相关
+      currentArtifactId,
+      outputTitle,
+      outputContent,
+      outputDialogVisible,
+      handleGenerateOutput,
+      handleSaveOutputArtifact,
+      handleExportMarkdown,
+      handlePushWebhook
     }
   }
 }
@@ -2096,11 +2343,11 @@ export default {
       border-radius: 8px;
       padding: 12px;
       margin-bottom: 15px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
       transition: box-shadow 0.3s;
 
       &:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
       }
 
       .task-header {
@@ -2224,12 +2471,12 @@ export default {
       cursor: pointer;
       transition: transform 0.3s;
       border-radius: 4px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
     }
 
     .screenshot-image:hover {
       transform: scale(1.02);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     }
 
     .no-screenshots {
@@ -2262,7 +2509,7 @@ export default {
     }
   }
 
-  > .el-card {
+  >.el-card {
     border-radius: 12px;
     border: 1px solid #e4e7ed;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
@@ -2273,7 +2520,7 @@ export default {
   }
 
   .result-content {
-    & + .result-content {
+    &+.result-content {
       margin-top: 32px;
       padding-top: 32px;
       border-top: 1px solid #e4e7ed;
@@ -2410,7 +2657,9 @@ export default {
         }
       }
 
-      :deep(h1), :deep(h2), :deep(h3) {
+      :deep(h1),
+      :deep(h2),
+      :deep(h3) {
         margin-top: 20px;
         margin-bottom: 10px;
       }
