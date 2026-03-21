@@ -1,7 +1,7 @@
 <h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">福帮手数据智能化系统</h1>
 <h4 align="center">福帮手FBSir，幸福有AI，幸运有你。Fbsir, AI 4 Happiness, U 4 Fortune。</h4>
 <p align="center">
-	<a href="https://gitee.com/U3W-AI/RuoYi-Vue"><img src="https://img.shields.io/badge/WxFbsir-v1.3.1-brightgreen.svg"></a>
+	<a href="https://gitee.com/U3W-AI/RuoYi-Vue"><img src="https://img.shields.io/badge/WxFbsir-v1.3.2-brightgreen.svg"></a>
 	<a href="https://www.fbsir.com"><img src="https://img.shields.io/badge/website-www.fbsir.com-blue.svg"></a>
     <a href="https://gitee.com/U3W-AI/WxFbsir/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg"></a>
     <a href="https://spring.io/projects/spring-boot"><img src="https://img.shields.io/badge/Spring%20Boot-3.x-green.svg"></a>
@@ -39,7 +39,7 @@
 ### 2. 多AI应用协同
 - **多模型协同**：支持腾讯元器、企业微信智能机器人等多种AI平台接入，实现流式对话与上下文管理。
 - **智能工作流**：内置AIGC框架，支持复杂的智能体工作流编排。
-
+- **结构化输出物复用(公测中)**：AI会话结果生成结构化输出物，供后续导出与推送复用。
 
 ### 3. 系统治理与运维
 - **自动化引擎**：基于 Playwright 的自动化能力，支持 WebSocket 双节点协同（Admin ↔ Engine）。
@@ -192,6 +192,6 @@ npm run dev      # 启动开发服务器
 本项目后台管理系统基于 **若依(RuoYi)** 框架进行二次开发，感谢若依团队提供的优秀开源框架。
 
 
-文档更新日期：2026年3月16日 19：30  文档版本：1.3.1
+文档更新日期：2026年3月21日 19：00  文档版本：1.3.2
 
 <p align="center">Copyright © 2024-2026 WxFbsir. All Rights Reserved.</p>
