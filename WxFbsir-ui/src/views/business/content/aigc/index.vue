@@ -1136,7 +1136,9 @@ export default {
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
 
       // 直接拼接，不再用 buildWebSocketUrl（避免它写死 ws://）
-      const wsUrl = `${protocol}://${window.location.host}/ws/client?clientType=web&token=${token}`
+      const host = window.location.hostname
+      const port = ['localhost', '127.0.0.1'].includes(host) ? ':8080' : ''
+      const wsUrl = `${protocol}://${host}${port}/ws/client?clientType=web&token=${token}`
 
       console.log('连接WebSocket:', wsUrl)
 
