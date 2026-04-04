@@ -218,13 +218,16 @@
 
     <update  id="getAccessibleCountByCode">
         UPDATE cv_access_code
-        SET accessible_count = accessible_count - 1,
-        update_time = NOW()
+        SET accessible_count = CASE
+                WHEN accessible_count > 0 THEN accessible_count - 1
+                ELSE accessible_count
+            END,
+            update_time = NOW()
         WHERE shortlink = #{shortlink}
         AND access_code = #{accessCode}
-        AND accessible_count > 0
+        AND (accessible_count = -1 OR accessible_count > 0)
         AND available = 1
-        AND deadline > CURRENT_TIMESTAMP
+        AND (deadline IS NULL OR deadline > CURRENT_TIMESTAMP)
         LIMIT 1;
     </update>
 
