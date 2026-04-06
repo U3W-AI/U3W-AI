@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -316,6 +318,7 @@ public class EngineMessageRouter {
             // 🔥 读取现有聊天记录，合并progressLogs和screenshots（避免覆盖）
             Map<String, Object> existingChat = aigcService.getChatBySessionId(sessionId);
             Map<String, Object> mergedData = new HashMap<>();
+            List<Map<String, Object>> existingResults = new ArrayList<>();
             
             if (existingChat != null) {
                 // 解析现有data，保留progressLogs和screenshots
@@ -328,11 +331,13 @@ public class EngineMessageRouter {
                     if (existingDataMap.get("screenshots") != null) {
                         mergedData.put("screenshots", existingDataMap.get("screenshots"));
                     }
+                    existingResults = extractStoredResults(existingDataMap);
                 }
             }
             
             // 合并payload到mergedData（payload中的字段优先级更高）
             mergedData.putAll(payload);
+            mergedData.put("results", mergeAiResults(existingResults, aiType, dataMap));
             
             Map<String, Object> chatData = new HashMap<>();
             chatData.put("id", sessionId);
@@ -435,6 +440,64 @@ public class EngineMessageRouter {
         return value != null ? value.toString() : null;
     }
 
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> extractStoredResults(Map<String, Object> existingDataMap) {
+        Object resultsObj = existingDataMap.get("results");
+        if (resultsObj instanceof List) {
+            return new ArrayList<>((List<Map<String, Object>>) resultsObj);
+        }
+
+        Object nestedObj = existingDataMap.get("data");
+        if (nestedObj instanceof Map) {
+            Object nestedResults = ((Map<String, Object>) nestedObj).get("results");
+            if (nestedResults instanceof List) {
+                return new ArrayList<>((List<Map<String, Object>>) nestedResults);
+            }
+        }
+
+        return new ArrayList<>();
+    }
+
+    private List<Map<String, Object>> mergeAiResults(List<Map<String, Object>> existingResults,
+                                                     String aiType,
+                                                     Map<String, Object> dataMap) {
+        List<Map<String, Object>> mergedResults =
+            existingResults != null ? new ArrayList<>(existingResults) : new ArrayList<>();
+
+        if (dataMap == null || aiType == null || aiType.isEmpty()) {
+            return mergedResults;
+        }
+
+        Map<String, Object> currentResult = new HashMap<>();
+        currentResult.put("aiType", aiType);
+        currentResult.put("answer", getStringValue(dataMap, "answer"));
+        currentResult.put("textContent", getStringValue(dataMap, "textContent"));
+        currentResult.put("conversationScreenshot", getStringValue(dataMap, "conversationScreenshot"));
+        currentResult.put("hasScreenshot", dataMap.get("hasScreenshot"));
+        currentResult.put("shareUrl", getStringValue(dataMap, "shareUrl"));
+        currentResult.put("chatId", getStringValue(dataMap, "chatId"));
+        currentResult.put("query", getStringValue(dataMap, "query"));
+        currentResult.put("mode", getStringValue(dataMap, "mode"));
+        currentResult.put("elapsedTime", dataMap.get("elapsedTime"));
+
+        boolean updated = false;
+        for (int i = 0; i < mergedResults.size(); i++) {
+            Map<String, Object> existing = mergedResults.get(i);
+            String existingAiType = getStringValue(existing, "aiType");
+            if (aiType.equalsIgnoreCase(existingAiType)) {
+                mergedResults.set(i, currentResult);
+                updated = true;
+                break;
+            }
+        }
+
+        if (!updated) {
+            mergedResults.add(currentResult);
+        }
+
+        return mergedResults;
+    }
+
     /**
      * 🔥 保存到AI记录扩展表（原草稿表）
      * 存储AI生成的分享链接和截图等扩展信息
@@ -519,6 +582,9 @@ public class EngineMessageRouter {
         switch (aiTypeLower) {
             case "deepseek":
                 chatData.put("deepseekChatId", aiChatId);
+                break;
+            case "gitee":
+                chatData.put("giteeChatId", aiChatId);
                 break;
             case "yuanbao":
             case "元宝":

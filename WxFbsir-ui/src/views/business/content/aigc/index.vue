@@ -801,6 +801,17 @@ export default {
         // 恢复提示词输入（优先从nestedData.query获取）
         promptInput.value = nestedData.query || historyData.promptInput || item.userPrompt || ''
 
+        const storedResults = historyData.results || nestedData.results || []
+        const buildEnabledAiFromType = (aiType) => {
+          const aiConfig = getEngineConfig(aiType)
+          return {
+            name: aiConfig ? aiConfig.displayName : aiType,
+            status: 'completed',
+            isExpanded: false,
+            progressLogs: []
+          }
+        }
+
         // 🔥 恢复任务流程（多层级解析）
         // 尝试从多个位置获取enabledAIs: historyData.enabledAIs, historyData.extraParams.enabledAIs
         let enabledAIsData = historyData.enabledAIs
@@ -810,15 +821,15 @@ export default {
 
         if (enabledAIsData && enabledAIsData.length > 0) {
           enabledAIs.value = enabledAIsData
+        } else if (Array.isArray(storedResults) && storedResults.length > 0) {
+          const uniqueAiTypes = [...new Set(storedResults
+            .map(result => (result?.aiType || '').toLowerCase())
+            .filter(Boolean))]
+          enabledAIs.value = uniqueAiTypes.map(buildEnabledAiFromType)
         } else {
           // 🔥 根据AI类型动态构造任务流程
           const aiType = historyData.aiType || nestedData.aiType || 'deepseek'
-          enabledAIs.value = [{
-            name: aiType === 'deepseek' ? 'DeepSeek' : aiType,
-            status: 'completed',
-            isExpanded: false,
-            progressLogs: []
-          }]
+          enabledAIs.value = [buildEnabledAiFromType(aiType)]
         }
 
         // 🔥 恢复进度日志（多层级解析）
@@ -854,7 +865,37 @@ export default {
         }
 
         // 恢复执行结果（🔥 添加截图相关字段）
-        if (nestedData.answer) {
+        const mapHistoryResult = (result = {}) => {
+          const resultAiType = result.aiType || historyData.aiType || nestedData.aiType || 'deepseek'
+          const resultAiConfig = getEngineConfig(resultAiType)
+          const resultAiName = resultAiConfig ? resultAiConfig.displayName : resultAiType
+          const resultAnswer = result.answer || result.content || ''
+          const answerIsUrl = resultAnswer &&
+            (resultAnswer.startsWith('http://') || resultAnswer.startsWith('https://'))
+          const screenshotUrl = result.conversationScreenshot || result.screenshotUrl || (answerIsUrl ? resultAnswer : null)
+
+          return {
+            aiName: result.aiName || resultAiName,
+            content: result.textContent || resultAnswer,
+            screenshotUrl,
+            hasScreenshot: result.hasScreenshot !== false && !!screenshotUrl,
+            shareUrl: result.shareUrl,
+            chatId: result.chatId,
+            sessionId: historyData.sessionId,
+            query: result.query,
+            mode: result.mode
+          }
+        }
+
+        const findStoredResultByAiType = (aiType) => {
+          if (!Array.isArray(storedResults)) return null
+          return storedResults.find(result =>
+            (result?.aiType || '').toLowerCase() === aiType.toLowerCase()
+          ) || null
+        }
+        if (Array.isArray(storedResults) && storedResults.length > 0) {
+          results.value = storedResults.map(mapHistoryResult)
+        } else if (nestedData.answer) {
           // 🔥 判断answer是否为截图URL
           const answerIsUrl = nestedData.answer &&
             (nestedData.answer.startsWith('http://') || nestedData.answer.startsWith('https://'))
@@ -900,8 +941,8 @@ export default {
         userInfoReq.value.dbChatId = item.dbChatId || ''
         userInfoReq.value.tyChatId = item.tyChatId || ''
         // 🔥 DeepSeek会话ID：优先从nestedData获取（AI上下文复用），其次从数据库字段
-        userInfoReq.value.deepseekChatId = nestedData.chatId || item.deepseekChatId || ''
-        userInfoReq.value.giteeChatId = nestedData.chatId || item.giteeChatId || ''
+        userInfoReq.value.deepseekChatId = item.deepseekChatId || findStoredResultByAiType('deepseek')?.chatId || nestedData.chatId || ''
+        userInfoReq.value.giteeChatId = item.giteeChatId || findStoredResultByAiType('gitee')?.chatId || nestedData.chatId || ''
         userInfoReq.value.maxChatId = item.maxChatId || ''
         userInfoReq.value.metasoChatId = item.metasoChatId || ''
         userInfoReq.value.kimiChatId = item.kimiChatId || ''
