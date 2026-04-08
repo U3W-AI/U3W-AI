@@ -23,6 +23,21 @@ public interface IPointsService {
      * @return 结果
      */
     public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmount);
+
+    /**
+     * Skill 消费场景包的轻量重载：复用现有积分扣减逻辑，并写入 FBS 关联字段。
+     *
+     * 不做冻结预占，不做并发大改造。若 ruleCode 为空（免费包），直接返回成功。
+     *
+     * @param userId 用户ID
+     * @param ruleCode 规则编码（空表示免费包）
+     * @param changeAmount 积分变动值
+     * @param scenePackId 场景包ID
+     * @param usageRecordId 使用记录幂等键
+     * @return 结果
+     */
+    public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmount,
+                                   Long scenePackId, String usageRecordId);
     
     /**
      * 查询用户积分余额

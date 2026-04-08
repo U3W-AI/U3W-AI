@@ -32,6 +32,12 @@ public class PointsRecord extends BaseEntity {
     /** 变动后余额 */
     private Integer balanceAfter;
 
+    /** 关联场景包ID（FBS场景包消费时写入，普通积分操作为NULL） */
+    private Long scenePackId;
+
+    /** 关联使用记录幂等键（FBS场景包消费时写入，普通积分操作为NULL） */
+    private String usageRecordId;
+
     public void setRecordId(Long recordId) {
         this.recordId = recordId;
     }
@@ -87,5 +93,20 @@ public class PointsRecord extends BaseEntity {
     public Integer getBalanceAfter() {
         return balanceAfter;
     }
-}
 
+    public Long getScenePackId() {
+        return scenePackId;
+    }
+
+    public void setScenePackId(Long scenePackId) {
+        this.scenePackId = scenePackId;
+    }
+
+    public String getUsageRecordId() {
+        return usageRecordId;
+    }
+
+    public void setUsageRecordId(String usageRecordId) {
+        this.usageRecordId = usageRecordId;
+    }
+}

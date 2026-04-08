@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.fbs.mapper.FbsUserPackMapper">
+
+    <resultMap type="com.wx.fbsir.business.fbs.domain.entity.FbsUserPack" id="FbsUserPackResult">
+        <id     property="id"           column="id"            />
+        <result property="userId"       column="user_id"       />
+        <result property="packId"       column="pack_id"       />
+        <result property="packVersion"  column="pack_version"  />
+        <result property="authCodeId"   column="auth_code_id"  />
+        <result property="activatedAt"  column="activated_at"  />
+        <result property="expiresAt"    column="expires_at"    />
+        <result property="status"       column="status"        />
+        <result property="sourceType"   column="source_type"   />
+        <result property="createdBy"    column="created_by"    />
+        <result property="createTime"   column="create_time"   />
+        <result property="updatedBy"    column="updated_by"    />
+        <result property="updateTime"   column="update_time"   />
+        <result property="delFlag"      column="del_flag"      />
+    </resultMap>
+
+    <sql id="selectFbsUserPackVo">
+        SELECT id, user_id, pack_id, pack_version, auth_code_id,
+               activated_at, expires_at, status, source_type,
+               created_by, create_time, updated_by, update_time, del_flag
+        FROM fbs_user_pack
+    </sql>
+
+    <!-- 查询用户对指定场景包的有效权益（status=1 且未过期） -->
+    <select id="selectActiveByUserIdAndPackId" resultMap="FbsUserPackResult">
+        <include refid="selectFbsUserPackVo"/>
+        WHERE user_id = #{userId}
+          AND pack_id = #{packId}
+          AND status  = 1
+          AND del_flag = '0'
+          AND (expires_at IS NULL OR expires_at > NOW())
+        LIMIT 1
+    </select>
+
+    <!-- 查询用户所有有效权益 -->
+    <select id="selectActiveByUserId" parameterType="Long" resultMap="FbsUserPackResult">
+        <include refid="selectFbsUserPackVo"/>
+        WHERE user_id = #{userId}
+          AND status  = 1
+          AND del_flag = '0'
+          AND (expires_at IS NULL OR expires_at > NOW())
+        ORDER BY activated_at DESC
+    </select>
+
+    <insert id="insertUserPack" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsUserPack"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_user_pack
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="packId != null">pack_id,</if>
+            <if test="packVersion != null">pack_version,</if>
+            <if test="authCodeId != null">auth_code_id,</if>
+            activated_at,
+            <if test="expiresAt != null">expires_at,</if>
+            status,
+            source_type,
+            <if test="createdBy != null">created_by,</if>
+            create_time,
+            del_flag
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="packId != null">#{packId},</if>
+            <if test="packVersion != null">#{packVersion},</if>
+            <if test="authCodeId != null">#{authCodeId},</if>
+            NOW(),
+            <if test="expiresAt != null">#{expiresAt},</if>
+            #{status},
+            #{sourceType},
+            <if test="createdBy != null">#{createdBy},</if>
+            NOW(),
+            '0'
+        </trim>
+    </insert>
+
+</mapper>

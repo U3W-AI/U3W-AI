@@ -117,6 +117,74 @@ public class PointsServiceImpl implements IPointsService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmount,
+                                   Long scenePackId, String usageRecordId) {
+        if (StringUtils.isEmpty(ruleCode)) {
+            return AjaxResult.success("免费包，无需扣减积分");
+        }
+
+        // 1. 参数校验
+        if (userId == null) {
+            return AjaxResult.error("用户ID不能为空");
+        }
+
+        // 2. 根据规则编码获取积分规则
+        PointsRule rule = pointsRuleService.getRuleByCode(ruleCode);
+        if (rule == null || !"0".equals(rule.getStatus())) {
+            return AjaxResult.error("积分规则未配置或已停用");
+        }
+
+        // 3. 计算实际变动值
+        Integer actualChange = changeAmount != null ? changeAmount : rule.getPointsValue();
+        if (actualChange == null || actualChange == 0) {
+            return AjaxResult.error("积分变动值无效");
+        }
+
+        // 4. 查询当前积分余额
+        Integer currentPoints = getUserPoints(userId);
+        if (currentPoints == null) {
+            currentPoints = 0;
+        }
+
+        // 5. 限频校验（使用规则编码）
+        if (!pointsRuleService.checkLimit(userId, ruleCode, rule)) {
+            return AjaxResult.error("已达到限频上限，请稍后再试");
+        }
+
+        // 6. 累计上限校验（使用规则编码）
+        if (!pointsRuleService.checkMaxAmount(userId, ruleCode, actualChange, rule)) {
+            return AjaxResult.error("已达到累计上限，无法继续发放");
+        }
+
+        // 7. 余额校验（扣减场景）
+        if (actualChange < 0 && (currentPoints + actualChange) < 0) {
+            return AjaxResult.error("积分余额不足，扣减失败");
+        }
+
+        // 8. 更新积分余额
+        Integer newPoints = currentPoints + actualChange;
+        pointsMapper.updateUserPoints(userId, newPoints);
+
+        // 9. 插入积分记录（使用规则编码，并写入FBS关联字段）
+        PointsRecord record = new PointsRecord();
+        record.setUserId(userId);
+        record.setRuleCode(ruleCode);
+        record.setChangeAmount(actualChange);
+        record.setBalanceBefore(currentPoints);
+        record.setBalanceAfter(newPoints);
+        record.setCreateTime(DateUtils.getNowDate());
+        record.setScenePackId(scenePackId);
+        record.setUsageRecordId(usageRecordId);
+        pointsRecordMapper.insertPointsRecord(record);
+
+        // 10. 成功后记录一次限频（避免失败情况下占用额度）
+        pointsRuleService.markLimit(userId, ruleCode, rule);
+
+        return AjaxResult.success("积分操作成功");
+    }
+
+    @Override
     public Integer getUserPoints(Long userId) {
         return pointsMapper.getUserPoints(userId);
     }

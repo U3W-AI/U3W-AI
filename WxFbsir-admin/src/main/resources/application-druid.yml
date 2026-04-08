@@ -7,9 +7,9 @@ spring:
             # 主库数据源
             # 生产环境建议使用环境变量：WXFBSIR_MYSQL_URL, WXFBSIR_MYSQL_USERNAME, WXFBSIR_MYSQL_PASSWORD
             master:
-                url: ${WXFBSIR_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/wxfbsir?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8}
+                url: ${WXFBSIR_MYSQL_URL:jdbc:mysql://119.45.71.36:3306/wxfbsir?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8}
                 username: ${WXFBSIR_MYSQL_USERNAME:root}
-                password: ${WXFBSIR_MYSQL_PASSWORD:root}
+                password: ${WXFBSIR_MYSQL_PASSWORD:2cf25db37323056e}
             # 从库数据源
             slave:
                 # 从数据源开关/默认关闭

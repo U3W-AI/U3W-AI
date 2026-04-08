@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.fbs.mapper.FbsSkillUsageRecordMapper">
+
+    <resultMap type="com.wx.fbsir.business.fbs.domain.entity.FbsSkillUsageRecord" id="FbsSkillUsageRecordResult">
+        <id     property="id"              column="id"               />
+        <result property="usageRecordId"   column="usage_record_id"  />
+        <result property="userId"          column="user_id"          />
+        <result property="hostType"        column="host_type"        />
+        <result property="hostSessionId"   column="host_session_id"  />
+        <result property="skillCode"       column="skill_code"       />
+        <result property="packId"          column="pack_id"          />
+        <result property="packVersion"     column="pack_version"     />
+        <result property="pointsAmount"    column="points_amount"    />
+        <result property="status"          column="status"           />
+        <result property="startTime"       column="start_time"       />
+        <result property="endTime"         column="end_time"         />
+        <result property="durationSeconds" column="duration_seconds" />
+        <result property="errorMessage"    column="error_message"    />
+        <result property="createdAt"       column="created_at"       />
+    </resultMap>
+
+    <sql id="selectFbsSkillUsageRecordVo">
+        SELECT id, usage_record_id, user_id, host_type, host_session_id,
+               skill_code, pack_id, pack_version, points_amount, status,
+               start_time, end_time, duration_seconds, error_message, created_at
+        FROM fbs_skill_usage_record
+    </sql>
+
+    <select id="selectByRecordId" parameterType="String" resultMap="FbsSkillUsageRecordResult">
+        <include refid="selectFbsSkillUsageRecordVo"/>
+        WHERE usage_record_id = #{usageRecordId}
+    </select>
+
+    <insert id="insertUsageRecord" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsSkillUsageRecord"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_skill_usage_record
+        (usage_record_id, user_id, host_type, host_session_id, skill_code,
+         pack_id, pack_version, points_amount, status, start_time, created_at)
+        VALUES
+        (#{usageRecordId}, #{userId}, #{hostType},
+         #{hostSessionId, jdbcType=VARCHAR},
+         #{skillCode},
+         #{packId, jdbcType=BIGINT},
+         #{packVersion, jdbcType=VARCHAR},
+         #{pointsAmount},
+         #{status},
+         #{startTime},
+         NOW())
+    </insert>
+
+    <!--
+        更新使用记录状态（成功/失败）
+        end_time = NOW()
+        duration_seconds = TIMESTAMPDIFF(SECOND, start_time, NOW())
+    -->
+    <update id="updateStatusByRecordId">
+        UPDATE fbs_skill_usage_record
+        SET status           = #{status},
+            end_time         = NOW(),
+            duration_seconds = TIMESTAMPDIFF(SECOND, start_time, NOW()),
+            error_message    = #{errorMessage, jdbcType=VARCHAR}
+        WHERE usage_record_id = #{usageRecordId}
+    </update>
+
+</mapper>
