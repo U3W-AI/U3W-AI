@@ -50,6 +50,48 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         WHERE auth_code = #{authCode} AND del_flag = '0'
     </select>
 
+    <!-- 列表查询（运营后台分页） -->
+    <select id="selectAuthCodeList" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsAuthCode" resultMap="FbsAuthCodeResult">
+        <include refid="selectFbsAuthCodeVo"/>
+        <where>
+            del_flag = '0'
+            <if test="filter.authCode != null and filter.authCode != ''">
+                AND auth_code LIKE CONCAT('%', #{filter.authCode}, '%')
+            </if>
+            <if test="filter.targetId != null">
+                AND target_id = #{filter.targetId}
+            </if>
+            <if test="filter.available != null">
+                AND available = #{filter.available}
+            </if>
+            <if test="filter.status != null">
+                AND status = #{filter.status}
+            </if>
+            <if test="filter.issuerType != null">
+                AND issuer_type = #{filter.issuerType}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 更新available字段（管理层面开关） -->
+    <update id="updateAvailable">
+        UPDATE fbs_auth_code
+        SET available    = #{available},
+            updated_by   = 'system',
+            update_time  = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!-- 更新status字段（撤销操作） -->
+    <update id="updateStatus">
+        UPDATE fbs_auth_code
+        SET status      = #{status},
+            updated_by  = 'system',
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
     <insert id="insertAuthCode" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsAuthCode"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO fbs_auth_code

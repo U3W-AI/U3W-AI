@@ -1,0 +1,22 @@
+# IMPLEMENTED
+
+## add-fbs-rights-foundation
+
+**状态**: ✅ COMPLETED
+**日期**: 2026-04-08
+**审批人**: 加号
+
+### 变更摘要
+
+为福帮手系统建立权益与场景包领域底座，包含：
+- 4 张核心业务表（fbs_scene_pack / fbs_auth_code / fbs_user_pack / fbs_usage_record）
+- 权益校验、积分扣减、使用记录 3 大核心能力
+- 完整的单元测试（20 用例）+ 集成测试验证
+
+### 待办项
+
+无（全部完成）
+
+---
+
+*由 OpenSpec 归档流程自动生成*

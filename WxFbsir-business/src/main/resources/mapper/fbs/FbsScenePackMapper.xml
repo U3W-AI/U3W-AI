@@ -42,6 +42,24 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         WHERE pack_code = #{packCode} AND del_flag = '0'
     </select>
 
+    <!-- 列表查询（运营后台分页） -->
+    <select id="selectScenePackList" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsScenePack" resultMap="FbsScenePackResult">
+        <include refid="selectFbsScenePackVo"/>
+        <where>
+            del_flag = '0'
+            <if test="filter.status != null">
+                AND status = #{filter.status}
+            </if>
+            <if test="filter.packType != null">
+                AND pack_type = #{filter.packType}
+            </if>
+            <if test="filter.ownerType != null">
+                AND owner_type = #{filter.ownerType}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
     <insert id="insertScenePack" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsScenePack"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO fbs_scene_pack

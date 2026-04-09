@@ -4,6 +4,8 @@ import com.wx.fbsir.business.fbs.domain.entity.FbsAuthCode;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  * 授权码Mapper接口
  *
@@ -36,6 +38,32 @@ public interface FbsAuthCodeMapper {
      * @return 授权码记录
      */
     FbsAuthCode selectByAuthCode(@Param("authCode") String authCode);
+
+    /**
+     * 列表查询（支持按targetId/available/status筛选，Mapper不带Page参数）
+     *
+     * @param filter 过滤条件
+     * @return 授权码列表
+     */
+    List<FbsAuthCode> selectAuthCodeList(@Param("filter") FbsAuthCode filter);
+
+    /**
+     * 更新available字段（管理层面开关，用于disable/enable操作）
+     *
+     * @param id        授权码ID
+     * @param available 0=禁用, 1=启用
+     * @return 影响行数
+     */
+    int updateAvailable(@Param("id") Long id, @Param("available") Integer available);
+
+    /**
+     * 更新status字段（用于revoke操作，将status改为4）
+     *
+     * @param id     授权码ID
+     * @param status 新状态（4=已撤销）
+     * @return 影响行数
+     */
+    int updateStatus(@Param("id") Long id, @Param("status") Integer status);
 
     /**
      * 新增授权码

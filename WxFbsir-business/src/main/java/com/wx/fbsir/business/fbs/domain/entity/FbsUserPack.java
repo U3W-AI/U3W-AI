@@ -57,6 +57,9 @@ public class FbsUserPack extends BaseEntity {
     /** 删除标志（0=存在, 2=删除） */
     private String delFlag;
 
+    /** 场景包名称（JOIN fbs_scene_pack查询用，非持久化字段） */
+    private String packName;
+
     // ========== getter / setter ==========
 
     public Long getId() { return id; }
@@ -94,4 +97,7 @@ public class FbsUserPack extends BaseEntity {
 
     public String getDelFlag() { return delFlag; }
     public void setDelFlag(String delFlag) { this.delFlag = delFlag; }
+
+    public String getPackName() { return packName; }
+    public void setPackName(String packName) { this.packName = packName; }
 }

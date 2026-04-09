@@ -4,6 +4,8 @@ import com.wx.fbsir.business.fbs.domain.entity.FbsScenePack;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  * 场景包Mapper接口
  *
@@ -32,6 +34,15 @@ public interface FbsScenePackMapper {
      * @return 场景包
      */
     FbsScenePack selectByPackCode(@Param("packCode") String packCode);
+
+    /**
+     * 列表查询（支持按status/packType筛选，Mapper不带Page参数）
+     * 分页由Controller层startPage()触发，PageHelper通过ThreadLocal拦截SQL
+     *
+     * @param filter 过滤条件（status/packType等）
+     * @return 场景包列表
+     */
+    List<FbsScenePack> selectScenePackList(@Param("filter") FbsScenePack filter);
 
     /**
      * 新增场景包

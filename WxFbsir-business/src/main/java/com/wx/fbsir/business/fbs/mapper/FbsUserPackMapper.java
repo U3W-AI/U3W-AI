@@ -34,6 +34,24 @@ public interface FbsUserPackMapper {
     List<FbsUserPack> selectActiveByUserId(@Param("userId") Long userId);
 
     /**
+     * 列表查询（支持按userId/status筛选，Mapper不带Page参数）
+     * JOIN fbs_scene_pack 获取 packName
+     *
+     * @param filter 过滤条件（userId/status）
+     * @return 用户权益列表（含packName）
+     */
+    List<FbsUserPack> selectUserPackList(@Param("filter") FbsUserPack filter);
+
+    /**
+     * 按用户ID和状态统计数量
+     *
+     * @param userId 用户ID（可为null表示统计所有）
+     * @param status 权益状态（1=有效, 2=已过期, 3=已撤销）
+     * @return 数量
+     */
+    Long countByUserIdAndStatus(@Param("userId") Long userId, @Param("status") Integer status);
+
+    /**
      * 新增用户场景包权益记录
      *
      * @param fbsUserPack 用户权益

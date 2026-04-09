@@ -49,6 +49,57 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         ORDER BY activated_at DESC
     </select>
 
+    <!-- 列表查询（运营后台分页，JOIN fbs_scene_pack获取packName） -->
+    <resultMap type="com.wx.fbsir.business.fbs.domain.entity.FbsUserPack" id="FbsUserPackWithPackNameResult">
+        <id     property="id"           column="id"            />
+        <result property="userId"       column="user_id"       />
+        <result property="packId"        column="pack_id"        />
+        <result property="packVersion"   column="pack_version"  />
+        <result property="authCodeId"    column="auth_code_id"  />
+        <result property="activatedAt"  column="activated_at"  />
+        <result property="expiresAt"     column="expires_at"    />
+        <result property="status"       column="status"        />
+        <result property="sourceType"   column="source_type"   />
+        <result property="createdBy"    column="created_by"    />
+        <result property="createTime"   column="create_time"   />
+        <result property="updatedBy"    column="updated_by"    />
+        <result property="updateTime"   column="update_time"   />
+        <result property="delFlag"      column="del_flag"      />
+        <result property="packName"     column="pack_name"      />
+    </resultMap>
+
+    <select id="selectUserPackList" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsUserPack" resultMap="FbsUserPackWithPackNameResult">
+        SELECT u.id, u.user_id, u.pack_id, u.pack_version, u.auth_code_id,
+               u.activated_at, u.expires_at, u.status, u.source_type,
+               u.created_by, u.create_time, u.updated_by, u.update_time, u.del_flag,
+               s.pack_name
+        FROM fbs_user_pack u
+        LEFT JOIN fbs_scene_pack s ON u.pack_id = s.id AND s.del_flag = '0'
+        <where>
+            u.del_flag = '0'
+            <if test="filter.userId != null">
+                AND u.user_id = #{filter.userId}
+            </if>
+            <if test="filter.status != null">
+                AND u.status = #{filter.status}
+            </if>
+        </where>
+        ORDER BY u.create_time DESC
+    </select>
+
+    <!-- 按用户ID和状态统计数量 -->
+    <select id="countByUserIdAndStatus" resultType="java.lang.Long">
+        SELECT COUNT(1)
+        FROM fbs_user_pack
+        WHERE del_flag = '0'
+          <if test="userId != null">
+              AND user_id = #{userId}
+          </if>
+          <if test="status != null">
+              AND status = #{status}
+          </if>
+    </select>
+
     <insert id="insertUserPack" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsUserPack"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO fbs_user_pack
