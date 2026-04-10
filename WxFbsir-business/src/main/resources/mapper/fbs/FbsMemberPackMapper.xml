@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.fbs.mapper.FbsMemberPackMapper">
+
+    <resultMap type="com.wx.fbsir.business.fbs.domain.entity.FbsMemberPack" id="FbsMemberPackResult">
+        <id     property="id"                 column="id"                  />
+        <result property="memberId"            column="member_id"            />
+        <result property="enterprisePackId"    column="enterprise_pack_id"   />
+        <result property="packId"               column="pack_id"             />
+        <result property="grantTime"            column="grant_time"          />
+        <result property="expiryTime"           column="expiry_time"         />
+        <result property="status"              column="status"              />
+        <result property="createdBy"            column="created_by"          />
+        <result property="createTime"           column="create_time"         />
+        <result property="updatedBy"            column="updated_by"          />
+        <result property="updateTime"           column="update_time"         />
+        <result property="delFlag"              column="del_flag"            />
+    </resultMap>
+
+    <sql id="selectFbsMemberPackVo">
+        SELECT id, member_id, enterprise_pack_id, pack_id, grant_time,
+               expiry_time, status, created_by, create_time,
+               updated_by, update_time, del_flag
+        FROM fbs_member_pack
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultMap="FbsMemberPackResult">
+        <include refid="selectFbsMemberPackVo"/>
+        WHERE id = #{id} AND del_flag = '0'
+    </select>
+
+    <select id="selectByMemberId" parameterType="Long" resultMap="FbsMemberPackResult">
+        <include refid="selectFbsMemberPackVo"/>
+        WHERE member_id = #{memberId} AND del_flag = '0'
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 批量插入（分发时为所有成员建授权记录） -->
+    <insert id="insertMemberPackBatch">
+        INSERT INTO fbs_member_pack
+        (member_id, enterprise_pack_id, pack_id, grant_time, expiry_time, status, created_by, create_time, del_flag)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.memberId}, #{item.enterprisePackId}, #{item.packId},
+             #{item.grantTime}, #{item.expiryTime}, #{item.status},
+             #{item.createdBy}, NOW(), '0')
+        </foreach>
+    </insert>
+
+    <!-- 批量更新状态（级联撤销：fbs_enterprise_pack 撤销时调用） -->
+    <update id="updateStatusByEnterprisePackId">
+        UPDATE fbs_member_pack
+        SET status = #{status},
+            updated_by = #{updatedBy},
+            update_time = NOW()
+        WHERE enterprise_pack_id = #{enterprisePackId}
+          AND del_flag = '0'
+    </update>
+
+    <!-- 查询成员是否获特定场景包授权（仅查 status=1 且未过期） -->
+    <select id="selectActiveByMemberIdAndPackId" resultMap="FbsMemberPackResult">
+        <include refid="selectFbsMemberPackVo"/>
+        WHERE member_id = #{memberId}
+          AND pack_id = #{packId}
+          AND status = 1
+          AND (expiry_time IS NULL OR expiry_time > NOW())
+          AND del_flag = '0'
+    </select>
+
+</mapper>

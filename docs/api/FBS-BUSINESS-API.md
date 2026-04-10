@@ -28,6 +28,22 @@
 - [3. 用户权益查询](#3-用户权益查询)
   - [3.1 用户-场景包分页列表](#31-用户-场景包分页列表)
   - [3.2 用户权益统计](#32-用户权益统计)
+- [4. 企业管理](#4-企业管理)
+  - [4.1 企业分页列表](#41-企业分页列表)
+  - [4.2 企业详情](#42-企业详情)
+  - [4.3 创建企业](#43-创建企业)
+  - [4.4 更新企业](#44-更新企业)
+  - [4.5 禁用企业](#45-禁用企业)
+- [5. 企业场景包管理](#5-企业场景包管理)
+  - [5.1 企业包分发](#51-企业包分发)
+  - [5.2 企业包回收](#52-企业包回收)
+  - [5.3 企业包详情](#53-企业包详情)
+  - [5.4 企业包列表](#54-企业包列表)
+- [6. 企业成员管理](#6-企业成员管理)
+  - [6.1 添加成员](#61-添加成员)
+  - [6.2 移除成员](#62-移除成员)
+  - [6.3 成员分页列表](#63-成员分页列表)
+  - [6.4 成员详情](#64-成员详情)
 - [附录 A：枚举值说明](#附录-a枚举值说明)
 - [附录 B：通用响应格式](#附录-b通用响应格式)
 
@@ -644,6 +660,447 @@
 
 ---
 
+## 4. 企业管理
+
+> **Controller**：`FbsEnterpriseBusinessController`
+>
+> **基础路径**：`/business/fbs/enterprise`
+>
+> **说明**：企业是场景包分发的组织单位。企业管理员可在后台创建/管理企业，并分发场景包给企业成员使用。
+
+### 4.1 企业分页列表
+
+- **路径**：`GET /business/fbs/enterprise/list`
+- **权限字符**：`business:fbs:enterprise:list`
+
+**请求参数**（Query）
+
+| 参数 | 类型 | 必填 | 说明 |
+:|------|------|------|------|
+| enterpriseName | String | 否 | 企业名称（模糊匹配） |
+| status | Integer | 否 | 状态：1=正常, 2=已禁用 |
+| pageNum | Integer | 否 | 页码（默认 1） |
+| pageSize | Integer | 否 | 每页大小（默认 10） |
+
+**响应**：`TableDataInfo`
+
+```json
+{
+  "total": 10,
+  "rows": [
+    {
+      "id": 1,
+      "enterpriseName": "悟空科技",
+      "enterpriseCode": "ENT_ABC12345",
+      "contactName": "张三",
+      "contactPhone": "13800138000",
+      "status": 1,
+      "statusDesc": "正常",
+      "createdBy": "admin",
+      "createTime": "2026-04-09 10:00:00"
+    }
+  ],
+  "code": 200,
+  "msg": "查询成功"
+}
+```
+
+---
+
+### 4.2 企业详情
+
+- **路径**：`GET /business/fbs/enterprise/{id}`
+- **权限字符**：`business:fbs:enterprise:query`
+
+**响应**：`AjaxResult<EnterpriseDetailResponse>`
+
+```json
+{
+  "code": 200,
+  "msg": "操作成功",
+  "data": {
+    "id": 1,
+    "enterpriseName": "悟空科技",
+    "enterpriseCode": "ENT_ABC12345",
+    "contactName": "张三",
+    "contactPhone": "13800138000",
+    "status": 1,
+    "statusDesc": "正常",
+    "memberCount": 15,
+    "packCount": 3,
+    "createdBy": "admin",
+    "createTime": "2026-04-09 10:00:00"
+  }
+}
+```
+
+> **统计说明**：`memberCount` 和 `packCount` 仅统计 `status=1`（正常）的记录。
+
+---
+
+### 4.3 创建企业
+
+- **路径**：`POST /business/fbs/enterprise`
+- **权限字符**：`business:fbs:enterprise:add`
+- **操作日志**：`FBS企业管理-新增`（INSERT）
+
+**请求体**
+
+```json
+{
+  "enterpriseName": "悟空科技",
+  "contactName": "张三",
+  "contactPhone": "13800138000",
+  "contactEmail": "admin@example.com"
+}
+```
+
+| 参数 | 类型 | 必填 | 说明 |
+:|------|------|------|------|
+| enterpriseName | String | **是** | 企业名称（唯一） |
+| contactName | String | 否 | 联系人姓名 |
+| contactPhone | String | 否 | 联系电话 |
+| contactEmail | String | 否 | 联系邮箱 |
+
+**响应**：`AjaxResult`
+
+```json
+{ "code": 200, "msg": "新增成功", "data": 1 }
+```
+
+**业务异常**
+
+| 场景 | code | msg |
+:|------|------|-----|
+| 企业名称为空 | 500 | 企业名称不能为空 |
+| 企业名称重复 | 500 | 企业名称已存在 |
+
+---
+
+### 4.4 更新企业
+
+- **路径**：`PUT /business/fbs/enterprise`
+- **权限字符**：`business:fbs:enterprise:edit`
+- **操作日志**：`FBS企业管理-编辑`（UPDATE）
+
+**响应**：`AjaxResult`
+
+```json
+{ "code": 200, "msg": "修改成功" }
+```
+
+---
+
+### 4.5 禁用企业
+
+将企业状态设为已禁用（status=2）。禁用后企业成员无法使用企业配额。
+
+- **路径**：`PUT /business/fbs/enterprise/disable`
+- **权限字符**：`business:fbs:enterprise:disable`
+- **操作日志**：`FBS企业管理-禁用`（UPDATE）
+
+**请求体**
+
+```json
+{ "id": 1 }
+```
+
+**响应**：`AjaxResult`
+
+```json
+{ "code": 200, "msg": "禁用成功" }
+```
+
+**业务异常**
+
+| 场景 | code | msg |
+:|------|------|-----|
+| 企业不存在 | 500 | 企业不存在 |
+| 已禁用 | 500 | 禁用失败（仅正常状态可禁用） |
+
+> **Fail-Closed**：仅 `status=1`（正常）可禁用。status=2 不可重复禁用。
+
+---
+
+## 5. 企业场景包管理
+
+> **Controller**：`FbsEnterprisePackBusinessController`
+>
+> **基础路径**：`/business/fbs/enterprise/pack`
+>
+> **说明**：平台管理员向指定企业分发/回收场景包授权。企业包授权后，所有正常企业成员均可使用该配额。
+
+### 5.1 企业包分发
+
+向企业分发场景包授权。**幂等分发**：已授权返回已有；已回收可重新授权。
+
+- **路径**：`POST /business/fbs/enterprise/pack`
+- **权限字符**：`business:fbs:enterprise:pack:grant`
+- **操作日志**：`FBS企业包-分发`（INSERT）
+
+**请求体**
+
+```json
+{
+  "enterpriseId": 1,
+  "packCode": "PACK_BOOK_WRITER",
+  "packQuota": 100,
+  "expiryTime": "2027-04-09 23:59:59"
+}
+```
+
+| 参数 | 类型 | 必填 | 说明 |
+:|------|------|------|------|
+| enterpriseId | Long | **是** | 企业ID |
+| packCode | String | **是** | 场景包编码 |
+| packQuota | Integer | **是** | 配额数量（正整数） |
+| expiryTime | String | 否 | 过期时间（格式：yyyy-MM-dd HH:mm:ss） |
+
+**响应**：`AjaxResult`
+
+```json
+{ "code": 200, "msg": "分发成功", "data": 1 }
+```
+
+**幂等规则**
+
+| 当前状态 | 行为 |
+|------|------|
+| 不存在 | 创建新记录（usedQuota=0） |
+| `status=1`（已授权） | 返回现有记录（幂等） |
+| `status=2`（已到期） | 重新激活（usedQuota 重置为 0） |
+| `status=3`（已回收） | 重新授权（usedQuota 重置为 0） |
+
+---
+
+### 5.2 企业包回收
+
+回收企业的场景包授权，级联将所有成员授权记录设为已撤销（status=4）。
+
+- **路径**：`PUT /business/fbs/enterprise/pack/revoke`
+- **权限字符**：`business:fbs:enterprise:pack:revoke`
+- **操作日志**：`FBS企业包-回收`（UPDATE）
+
+**请求体**
+
+```json
+{ "id": 1 }
+```
+
+**响应**：`AjaxResult`
+
+```json
+{ "code": 200, "msg": "回收成功" }
+```
+
+> **Fail-Closed**：仅 `status=1`（正常）可回收。`status != 1` 均不可回收。
+>
+> **级联影响**：回收操作将 `fbs_member_pack` 对应企业包的所有记录状态设为 4（已撤销）。
+
+---
+
+### 5.3 企业包详情
+
+- **路径**：`GET /business/fbs/enterprise/pack/{id}`
+- **权限字符**：`business:fbs:enterprise:pack:query`
+
+**响应**：`AjaxResult<EnterprisePackDetailResponse>`
+
+```json
+{
+  "code": 200,
+  "msg": "操作成功",
+  "data": {
+    "id": 1,
+    "enterpriseId": 1,
+    "enterpriseName": "悟空科技",
+    "packCode": "PACK_BOOK_WRITER",
+    "packName": "创作助手",
+    "packQuota": 100,
+    "usedQuota": 45,
+    "remainQuota": 55,
+    "expiryTime": "2027-04-09 23:59:59",
+    "status": 1,
+    "statusDesc": "已授权"
+  }
+}
+```
+
+> **remainQuota 计算**：`packQuota - usedQuota`（实时计算，不存储独立字段）。
+
+---
+
+### 5.4 企业包列表
+
+- **路径**：`GET /business/fbs/enterprise/pack/list`
+- **权限字符**：`business:fbs:enterprise:pack:list`
+
+**请求参数**（Query）
+
+| 参数 | 类型 | 必填 | 说明 |
+:|------|------|------|------|
+| enterpriseId | Long | **是** | 企业ID |
+| status | Integer | 否 | 状态：1=已授权, 2=已到期, 3=已回收 |
+
+**响应**：`TableDataInfo`
+
+```json
+{
+  "total": 3,
+  "rows": [
+    {
+      "id": 1,
+      "enterpriseId": 1,
+      "enterpriseName": "悟空科技",
+      "packCode": "PACK_BOOK_WRITER",
+      "packName": "创作助手",
+      "packQuota": 100,
+      "usedQuota": 45,
+      "remainQuota": 55,
+      "status": 1,
+      "statusDesc": "已授权"
+    }
+  ],
+  "code": 200,
+  "msg": "查询成功"
+}
+```
+
+---
+
+## 6. 企业成员管理
+
+> **Controller**：`FbsEnterpriseMemberBusinessController`
+>
+> **基础路径**：`/business/fbs/enterprise/member`
+>
+> **说明**：管理企业的成员。添加成员时自动继承企业所有已授权场景包；移除成员时授权记录保留（消费时 fail-closed）。
+
+### 6.1 添加成员
+
+将用户添加为企业成员，自动继承企业所有已授权场景包。
+
+- **路径**：`POST /business/fbs/enterprise/member`
+- **权限字符**：`business:fbs:enterprise:member:add`
+- **操作日志**：`FBS企业成员-添加`（INSERT）
+
+**请求体**
+
+```json
+{
+  "enterpriseId": 1,
+  "userId": 100,
+  "role": "MEMBER"
+}
+```
+
+| 参数 | 类型 | 必填 | 说明 |
+:|------|------|------|------|
+| enterpriseId | Long | **是** | 企业ID |
+| userId | Long | **是** | 用户ID（`sys_user.user_id`） |
+| role | String | 否 | 角色：MEMBER（默认）, ADMIN |
+
+**响应**：`AjaxResult`
+
+```json
+{ "code": 200, "msg": "添加成功", "data": 3001 }
+```
+
+**自动继承规则**：新成员自动继承企业所有 `status=1`（已授权）的场景包，在 `fbs_member_pack` 中创建授权记录。已移除成员重新添加时恢复为 `status=1`。
+
+---
+
+### 6.2 移除成员
+
+将企业成员状态设为已移除（status=2）。授权记录**保留不删除**，消费时 fail-closed。
+
+- **路径**：`DELETE /business/fbs/enterprise/member/{id}`
+- **权限字符**：`business:fbs:enterprise:member:remove`
+- **操作日志**：`FBS企业成员-移除`（UPDATE）
+
+**响应**：`AjaxResult`
+
+```json
+{ "code": 200, "msg": "移除成功" }
+```
+
+> **Fail-Closed**：仅 `status=1`（正常）可移除。移除成员**不删除** `fbs_member_pack` 授权记录。
+
+---
+
+### 6.3 成员分页列表
+
+- **路径**：`GET /business/fbs/enterprise/member/list`
+- **权限字符**：`business:fbs:enterprise:member:list`
+
+**请求参数**（Query）
+
+| 参数 | 类型 | 必填 | 说明 |
+:|------|------|------|------|
+| enterpriseId | Long | **是** | 企业ID |
+| status | Integer | 否 | 状态：1=正常, 2=已移除 |
+
+**响应**：`TableDataInfo`
+
+```json
+{
+  "total": 15,
+  "rows": [
+    {
+      "id": 3001,
+      "enterpriseId": 1,
+      "userId": 100,
+      "userName": "张三",
+      "role": "MEMBER",
+      "joinTime": "2026-04-09 10:00:00",
+      "status": 1,
+      "statusDesc": "正常"
+    }
+  ],
+  "code": 200,
+  "msg": "查询成功"
+}
+```
+
+---
+
+### 6.4 成员详情
+
+- **路径**：`GET /business/fbs/enterprise/member/{id}`
+- **权限字符**：`business:fbs:enterprise:member:query`
+
+**响应**：`AjaxResult<EnterpriseMemberDetailResponse>`
+
+```json
+{
+  "code": 200,
+  "msg": "操作成功",
+  "data": {
+    "id": 3001,
+    "enterpriseId": 1,
+    "enterpriseName": "悟空科技",
+    "userId": 100,
+    "userName": "张三",
+    "role": "MEMBER",
+    "joinTime": "2026-04-09 10:00:00",
+    "status": 1,
+    "statusDesc": "正常",
+    "inheritedPacks": [
+      {
+        "packCode": "PACK_BOOK_WRITER",
+        "packName": "创作助手",
+        "grantTime": "2026-04-09 10:00:00",
+        "expiryTime": "2027-04-09 23:59:59",
+        "status": 1,
+        "statusDesc": "正常"
+      }
+    ]
+  }
+}
+```
+
+---
+
 ## 附录 A：枚举值说明
 
 ### A.1 场景包状态（`fbs_scene_pack.status`）
@@ -711,6 +1168,50 @@
 | 2 | 企业分发 |
 | 3 | 用户激活（通过授权码） |
 
+### A.9 企业状态（`fbs_enterprise.status`）
+
+| 值 | 说明 |
+|----|------|
+| 1 | 正常 |
+| 2 | 已禁用 |
+
+### A.10 企业包状态（`fbs_enterprise_pack.status`）
+
+| 值 | 说明 | 触发条件 |
+|----|------|---------|
+| 1 | 已授权 | 正常可用，企业成员可消费 |
+| 2 | 已到期 | 超过 `expiry_time` |
+| 3 | 已回收 | 管理员主动回收 |
+
+### A.11 企业成员状态（`fbs_enterprise_member.status`）
+
+| 值 | 说明 |
+|----|------|
+| 1 | 正常 |
+| 2 | 已移除 |
+
+### A.12 成员包授权状态（`fbs_member_pack.status`）
+
+| 值 | 说明 | 触发条件 |
+|----|------|---------|
+| 1 | 正常 | 自动继承企业活跃包 |
+| 2 | 已移除 | 对应成员已被移除 |
+| 4 | 已撤销 | 对应企业包被回收 |
+
+### A.13 消费主机类型（`fbs_skill_usage_record.host_type`）
+
+| 值 | 说明 |
+|----|------|
+| WORKBUDDY | 个人授权路径（扣个人积分） |
+| ENTERPRISE | 企业配额路径（扣企业配额，不扣个人积分） |
+
+### A.14 配额消费流程说明
+
+- **hostType=WORKBUDDY**：用户个人授权 → 校验 `fbs_user_pack` 状态 → 扣减个人积分
+- **hostType=ENTERPRISE**：查找企业成员 → 校验 `fbs_enterprise.status=1` → 校验 `fbs_enterprise_pack` 状态和配额 → `usedQuota++`（原子操作）
+
+> **重要**：两条路径**完全独立**，互不 fallback。
+
 ---
 
 ## 附录 B：通用响应格式
@@ -750,4 +1251,4 @@
 
 ---
 
-**最后更新**：2026-04-08（OpenSpec #2 实施完成）
+**最后更新**：2026-04-09（OpenSpec #2 + OpenSpec #3 企业场景包运营实施完成）

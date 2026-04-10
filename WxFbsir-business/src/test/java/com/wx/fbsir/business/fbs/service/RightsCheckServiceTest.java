@@ -1,18 +1,13 @@
 package com.wx.fbsir.business.fbs.service;
 
-import com.wx.fbsir.business.fbs.service.impl.RightsCheckServiceImpl;
-import com.wx.fbsir.business.fbs.domain.entity.FbsAuthCode;
-import com.wx.fbsir.business.fbs.domain.entity.FbsScenePack;
-import com.wx.fbsir.business.fbs.domain.entity.FbsUserPack;
+import com.wx.fbsir.business.fbs.domain.entity.*;
 import com.wx.fbsir.business.fbs.dto.ComprehensiveRightsResult;
 import com.wx.fbsir.business.fbs.dto.RightsCheckResult;
-import com.wx.fbsir.business.fbs.mapper.FbsAuthCodeMapper;
-import com.wx.fbsir.business.fbs.mapper.FbsScenePackMapper;
-import com.wx.fbsir.business.fbs.mapper.FbsUserPackMapper;
+import com.wx.fbsir.business.fbs.mapper.*;
+import com.wx.fbsir.business.fbs.service.impl.RightsCheckServiceImpl;
 import com.wx.fbsir.business.point.domain.PointsRule;
 import com.wx.fbsir.business.point.mapper.PointsRuleMapper;
 import com.wx.fbsir.business.point.service.IPointsService;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -21,17 +16,17 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Arrays;
 import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
  * RightsCheckService 单元测试
  *
- * 覆盖 tasks.md §6.1 全部用例（共10个）
+ * 覆盖 tasks.md §6.1 全部用例（含企业路径扩展 §6.2）
  *
  * @author wxfbsir
  * @date 2026-04-08
@@ -40,26 +35,25 @@ import static org.mockito.Mockito.*;
 @DisplayName("权益校验服务测试")
 class RightsCheckServiceTest {
 
-    @Mock
-    private FbsScenePackMapper scenePackMapper;
-
-    @Mock
-    private FbsUserPackMapper userPackMapper;
-
-    @Mock
-    private FbsAuthCodeMapper authCodeMapper;
-
-    @Mock
-    private PointsRuleMapper pointsRuleMapper;
-
-    @Mock
-    private IPointsService pointsService;
+    @Mock private FbsScenePackMapper scenePackMapper;
+    @Mock private FbsUserPackMapper userPackMapper;
+    @Mock private FbsAuthCodeMapper authCodeMapper;
+    @Mock private PointsRuleMapper pointsRuleMapper;
+    @Mock private IPointsService pointsService;
+    // 企业 Mapper（required=false，无表时为 null）
+    @Mock private FbsEnterpriseMapper enterpriseMapper;
+    @Mock private FbsEnterprisePackMapper enterprisePackMapper;
+    @Mock private FbsEnterpriseMemberMapper enterpriseMemberMapper;
+    @Mock private FbsMemberPackMapper memberPackMapper;
 
     @InjectMocks
     private RightsCheckServiceImpl rightsCheckService;
 
     // ---- 常量 ----
     private static final Long USER_ID = 1001L;
+    private static final Long ENT_ID = 5001L;
+    private static final Long MEMBER_ID = 6001L;
+    private static final Long EPACK_ID = 7001L;
     private static final Long PACK_ID = 2001L;
     private static final String PACK_CODE = "pack_vip_monthly";
     private static final String AUTH_CODE = "AUTH_TEST_001";
@@ -104,12 +98,48 @@ class RightsCheckServiceTest {
         return rule;
     }
 
+    private FbsEnterprise buildEnterprise(int status) {
+        FbsEnterprise e = new FbsEnterprise();
+        e.setId(ENT_ID);
+        e.setStatus(status);
+        return e;
+    }
+
+    private FbsEnterpriseMember buildMember(int status) {
+        FbsEnterpriseMember m = new FbsEnterpriseMember();
+        m.setId(MEMBER_ID);
+        m.setEnterpriseId(ENT_ID);
+        m.setUserId(USER_ID);
+        m.setStatus(status);
+        return m;
+    }
+
+    private FbsEnterprisePack buildEnterprisePack(int status, int packQuota, int usedQuota) {
+        FbsEnterprisePack ep = new FbsEnterprisePack();
+        ep.setId(EPACK_ID);
+        ep.setEnterpriseId(ENT_ID);
+        ep.setPackId(PACK_ID);
+        ep.setStatus(status);
+        ep.setPackQuota(packQuota);
+        ep.setUsedQuota(usedQuota);
+        return ep;
+    }
+
+    private FbsMemberPack buildMemberPack(int status) {
+        FbsMemberPack mp = new FbsMemberPack();
+        mp.setId(1L);
+        mp.setMemberId(MEMBER_ID);
+        mp.setPackId(PACK_ID);
+        mp.setStatus(status);
+        return mp;
+    }
+
     // ========================================================================
     // §6.1 checkScenePack 测试
     // ========================================================================
 
     @Nested
-    @DisplayName("§6.1.1-6.1.3 checkScenePack")
+    @DisplayName("§6.1.1-6.1.3 checkScenePack（个人路径）")
     class CheckScenePackTests {
 
         @Test
@@ -199,7 +229,6 @@ class RightsCheckServiceTest {
         @Test
         @DisplayName("次数已用尽 → Fail-Closed")
         void authCodeExhausted() {
-            // status=2 时，实现先检查 status，返回"授权码已用尽"
             when(authCodeMapper.selectByAuthCode(AUTH_CODE))
                     .thenReturn(buildAuthCode(1, 2, 5, 5, null));
 
@@ -211,31 +240,30 @@ class RightsCheckServiceTest {
     }
 
     // ========================================================================
-    // §6.1 comprehensiveCheck 测试
+    // §6.1 comprehensiveCheck 测试（WORKBUDDY 路径）
+    // §6.2 comprehensiveCheck 测试（ENTERPRISE 路径）
     // ========================================================================
 
     @Nested
-    @DisplayName("§6.1.8-6.1.10 comprehensiveCheck")
-    class ComprehensiveCheckTests {
-
-        @BeforeEach
-        void setUp() {
-            // 注意：comprehensiveCheck 内部会调用 checkPoints → pointsService.getUserPoints
-            //         也会调用 checkScenePack → scenePackMapper.selectById
-            lenient().when(pointsService.getUserPoints(USER_ID)).thenReturn(1000);
-            lenient().when(pointsRuleMapper.selectPointsRuleByRuleCode(RULE_CODE))
-                    .thenReturn(buildRule("0", 10));
-            lenient().when(scenePackMapper.selectByPackCode(PACK_CODE))
-                    .thenReturn(buildPack(1));
-            lenient().when(scenePackMapper.selectById(PACK_ID))
-                    .thenReturn(buildPack(1));
-            lenient().when(userPackMapper.selectActiveByUserIdAndPackId(USER_ID, PACK_ID))
-                    .thenReturn(buildUserPack(1, null));
-        }
+    @DisplayName("§6.1.8-6.1.10 comprehensiveCheck（WORKBUDDY）")
+    class ComprehensiveCheckPersonalTests {
 
         @Test
-        @DisplayName("全部通过 → pass=true")
+        @DisplayName("WORKBUDDY 全部通过 → pass=true")
         void allChecksPass() {
+            // checkScenePack 内部先调 selectById(packId)
+            when(scenePackMapper.selectById(PACK_ID)).thenReturn(buildPack(1));
+            // comprehensiveCheck 先调 selectByPackCode
+            when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(buildPack(1));
+            // checkScenePack 调 selectActiveByUserIdAndPackId
+            when(userPackMapper.selectActiveByUserIdAndPackId(USER_ID, PACK_ID))
+                    .thenReturn(buildUserPack(1, null));
+            // pointsRuleMapper 读规则
+            when(pointsRuleMapper.selectPointsRuleByRuleCode(RULE_CODE))
+                    .thenReturn(buildRule("0", 10));
+            // pointsService 查余额
+            when(pointsService.getUserPoints(USER_ID)).thenReturn(1000);
+
             ComprehensiveRightsResult result = rightsCheckService.comprehensiveCheck(
                     USER_ID, PACK_CODE, null, "WORKBUDDY", "task-001");
 
@@ -245,7 +273,7 @@ class RightsCheckServiceTest {
         }
 
         @Test
-        @DisplayName("场景包失败 → Fail-Closed")
+        @DisplayName("WORKBUDDY 场景包失败 → Fail-Closed")
         void scenePackFails() {
             when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(null);
 
@@ -258,9 +286,15 @@ class RightsCheckServiceTest {
         }
 
         @Test
-        @DisplayName("积分不足 → Fail-ClOSED")
+        @DisplayName("WORKBUDDY 积分不足 → Fail-Closed")
         void pointsInsufficient() {
-            // 覆盖 setUp 的默认 mock（1000积分），改为5积分（不足10）
+            when(scenePackMapper.selectById(PACK_ID)).thenReturn(buildPack(1));
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(1));
+            when(userPackMapper.selectActiveByUserIdAndPackId(USER_ID, PACK_ID))
+                    .thenReturn(buildUserPack(1, null));
+            when(pointsRuleMapper.selectPointsRuleByRuleCode(RULE_CODE))
+                    .thenReturn(buildRule("0", 10));
             when(pointsService.getUserPoints(USER_ID)).thenReturn(5);
 
             ComprehensiveRightsResult result = rightsCheckService.comprehensiveCheck(
@@ -269,6 +303,174 @@ class RightsCheckServiceTest {
             assertFalse(result.isPass());
             assertNotNull(result.getFailReason());
             assertTrue(result.getFailReason().contains("积分"));
+        }
+    }
+
+    @Nested
+    @DisplayName("§6.2.1-6.2.5 comprehensiveCheck（ENTERPRISE 企业配额路径）")
+    class ComprehensiveCheckEnterpriseTests {
+
+        @Test
+        @DisplayName("ENTERPRISE 企业成员+配额充足 → pass=true，忽略个人积分")
+        void enterpriseQuotaSufficient() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(1));
+            when(enterpriseMemberMapper.selectActiveByUserId(USER_ID))
+                    .thenReturn(Arrays.asList(buildMember(1)));
+            when(enterpriseMapper.selectById(ENT_ID))
+                    .thenReturn(buildEnterprise(1));
+            when(enterprisePackMapper.selectByEnterpriseAndPack(ENT_ID, PACK_ID))
+                    .thenReturn(buildEnterprisePack(1, 100, 50));
+            // P0-1 新增：成员授权凭证必须存在且 status=1
+            when(memberPackMapper.selectActiveByMemberIdAndPackId(MEMBER_ID, PACK_ID))
+                    .thenReturn(buildMemberPack(1));
+
+            ComprehensiveRightsResult result = rightsCheckService.comprehensiveCheck(
+                    USER_ID, PACK_CODE, null, "ENTERPRISE", "task-001");
+
+            assertTrue(result.isPass());
+            assertEquals(PACK_ID, result.getPackId());
+            assertNull(result.getPointsRuleCode()); // 企业路径不返回积分规则
+        }
+
+        @Test
+        @DisplayName("ENTERPRISE 用户不是企业成员 → Fail-Closed（不 fallback 个人路径）")
+        void userNotEnterpriseMember() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(1));
+            when(enterpriseMemberMapper.selectActiveByUserId(USER_ID))
+                    .thenReturn(Arrays.asList()); // 空列表
+
+            ComprehensiveRightsResult result = rightsCheckService.comprehensiveCheck(
+                    USER_ID, PACK_CODE, null, "ENTERPRISE", "task-001");
+
+            assertFalse(result.isPass());
+            assertNotNull(result.getFailReason());
+            assertTrue(result.getFailReason().contains("企业成员"));
+        }
+
+        @Test
+        @DisplayName("ENTERPRISE 企业已禁用 → Fail-Closed")
+        void enterpriseDisabled() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(1));
+            when(enterpriseMemberMapper.selectActiveByUserId(USER_ID))
+                    .thenReturn(Arrays.asList(buildMember(1)));
+            when(enterpriseMapper.selectById(ENT_ID))
+                    .thenReturn(buildEnterprise(2)); // status=2 已禁用
+
+            ComprehensiveRightsResult result = rightsCheckService.comprehensiveCheck(
+                    USER_ID, PACK_CODE, null, "ENTERPRISE", "task-001");
+
+            assertFalse(result.isPass());
+            assertNotNull(result.getFailReason());
+            assertTrue(result.getFailReason().contains("禁用"));
+        }
+
+        @Test
+        @DisplayName("ENTERPRISE 企业未获此场景包授权 → Fail-Closed")
+        void enterprisePackNotFound() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(1));
+            when(enterpriseMemberMapper.selectActiveByUserId(USER_ID))
+                    .thenReturn(Arrays.asList(buildMember(1)));
+            when(enterpriseMapper.selectById(ENT_ID))
+                    .thenReturn(buildEnterprise(1));
+            when(enterprisePackMapper.selectByEnterpriseAndPack(ENT_ID, PACK_ID))
+                    .thenReturn(null);
+
+            ComprehensiveRightsResult result = rightsCheckService.comprehensiveCheck(
+                    USER_ID, PACK_CODE, null, "ENTERPRISE", "task-001");
+
+            assertFalse(result.isPass());
+            assertNotNull(result.getFailReason());
+            assertTrue(result.getFailReason().contains("授权"));
+        }
+
+        @Test
+        @DisplayName("ENTERPRISE 配额已用尽（usedQuota >= packQuota） → Fail-Closed")
+        void enterpriseQuotaExhausted() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(1));
+            when(enterpriseMemberMapper.selectActiveByUserId(USER_ID))
+                    .thenReturn(Arrays.asList(buildMember(1)));
+            when(enterpriseMapper.selectById(ENT_ID))
+                    .thenReturn(buildEnterprise(1));
+            when(enterprisePackMapper.selectByEnterpriseAndPack(ENT_ID, PACK_ID))
+                    .thenReturn(buildEnterprisePack(1, 100, 100)); // usedQuota == packQuota
+            when(memberPackMapper.selectActiveByMemberIdAndPackId(MEMBER_ID, PACK_ID))
+                    .thenReturn(buildMemberPack(1));
+
+            ComprehensiveRightsResult result = rightsCheckService.comprehensiveCheck(
+                    USER_ID, PACK_CODE, null, "ENTERPRISE", "task-001");
+
+            assertFalse(result.isPass());
+            assertNotNull(result.getFailReason());
+            assertTrue(result.getFailReason().contains("配额"));
+        }
+
+        @Test
+        @DisplayName("ENTERPRISE 成员授权凭证缺失（memberPack=null） → Fail-Closed（P0-1 修复）")
+        void enterpriseMemberPackNotFound() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(1));
+            when(enterpriseMemberMapper.selectActiveByUserId(USER_ID))
+                    .thenReturn(Arrays.asList(buildMember(1)));
+            when(enterpriseMapper.selectById(ENT_ID))
+                    .thenReturn(buildEnterprise(1));
+            when(enterprisePackMapper.selectByEnterpriseAndPack(ENT_ID, PACK_ID))
+                    .thenReturn(buildEnterprisePack(1, 100, 50));
+            // P0-1：成员授权凭证不存在（未 grant 或已级联撤销）
+            when(memberPackMapper.selectActiveByMemberIdAndPackId(MEMBER_ID, PACK_ID))
+                    .thenReturn(null);
+
+            ComprehensiveRightsResult result = rightsCheckService.comprehensiveCheck(
+                    USER_ID, PACK_CODE, null, "ENTERPRISE", "task-001");
+
+            assertFalse(result.isPass());
+            assertNotNull(result.getFailReason());
+            assertTrue(result.getFailReason().contains("成员授权"));
+        }
+
+        @Test
+        @DisplayName("ENTERPRISE 成员授权已失效（memberPack.status=3） → Fail-Closed（P0-1 修复）")
+        void enterpriseMemberPackRevoked() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(1));
+            when(enterpriseMemberMapper.selectActiveByUserId(USER_ID))
+                    .thenReturn(Arrays.asList(buildMember(1)));
+            when(enterpriseMapper.selectById(ENT_ID))
+                    .thenReturn(buildEnterprise(1));
+            when(enterprisePackMapper.selectByEnterpriseAndPack(ENT_ID, PACK_ID))
+                    .thenReturn(buildEnterprisePack(1, 100, 50));
+            // P0-1：成员授权已被撤销（级联撤销或手动撤销）
+            when(memberPackMapper.selectActiveByMemberIdAndPackId(MEMBER_ID, PACK_ID))
+                    .thenReturn(buildMemberPack(3)); // status=3 已撤销
+
+            ComprehensiveRightsResult result = rightsCheckService.comprehensiveCheck(
+                    USER_ID, PACK_CODE, null, "ENTERPRISE", "task-001");
+
+            assertFalse(result.isPass());
+            assertNotNull(result.getFailReason());
+            assertTrue(result.getFailReason().contains("失效"));
+        }
+
+        // §E4.8: selectActiveByUserId 不返回 status=2 的成员（该方法只筛选 status=1）
+        // 测试场景：成员不在企业成员列表中（已移除/不存在）→ 服务返回"不是企业成员"
+        @Test
+        @DisplayName("§E4.8 comprehensiveCheck ENTERPRISE — 用户不是企业成员，Fail-Closed")
+        void enterpriseMemberNotFound() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(1));
+            // selectActiveByUserId 只返回 status=1 的成员，成员不存在时返回 null
+            when(enterpriseMemberMapper.selectActiveByUserId(USER_ID))
+                    .thenReturn(null);
+
+            ComprehensiveRightsResult result = rightsCheckService.comprehensiveCheck(
+                    USER_ID, PACK_CODE, null, "ENTERPRISE", "task-001");
+
+            assertFalse(result.isPass());
+            assertTrue(result.getFailReason().contains("不是企业成员"));
         }
     }
 }

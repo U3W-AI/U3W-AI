@@ -1,13 +1,9 @@
 package com.wx.fbsir.business.fbs.service.impl;
 
-import com.wx.fbsir.business.fbs.domain.entity.FbsAuthCode;
-import com.wx.fbsir.business.fbs.domain.entity.FbsScenePack;
-import com.wx.fbsir.business.fbs.domain.entity.FbsUserPack;
+import com.wx.fbsir.business.fbs.domain.entity.*;
 import com.wx.fbsir.business.fbs.dto.ComprehensiveRightsResult;
 import com.wx.fbsir.business.fbs.dto.RightsCheckResult;
-import com.wx.fbsir.business.fbs.mapper.FbsAuthCodeMapper;
-import com.wx.fbsir.business.fbs.mapper.FbsScenePackMapper;
-import com.wx.fbsir.business.fbs.mapper.FbsUserPackMapper;
+import com.wx.fbsir.business.fbs.mapper.*;
 import com.wx.fbsir.business.fbs.service.RightsCheckService;
 import com.wx.fbsir.business.point.domain.PointsRule;
 import com.wx.fbsir.business.point.mapper.PointsRuleMapper;
@@ -17,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.Date;
+import java.util.List;
 
 /**
  * 权益校验服务实现
@@ -43,6 +40,18 @@ public class RightsCheckServiceImpl implements RightsCheckService {
 
     @Autowired
     private IPointsService pointsService;
+
+    @Autowired(required = false)
+    private com.wx.fbsir.business.fbs.mapper.FbsEnterpriseMapper enterpriseMapper;
+
+    @Autowired(required = false)
+    private com.wx.fbsir.business.fbs.mapper.FbsEnterpriseMemberMapper enterpriseMemberMapper;
+
+    @Autowired(required = false)
+    private com.wx.fbsir.business.fbs.mapper.FbsEnterprisePackMapper enterprisePackMapper;
+
+    @Autowired(required = false)
+    private com.wx.fbsir.business.fbs.mapper.FbsMemberPackMapper memberPackMapper;
 
     // =====================================================================
     // checkScenePack
@@ -188,13 +197,19 @@ public class RightsCheckServiceImpl implements RightsCheckService {
             return ComprehensiveRightsResult.fail("场景包未发布或已下架");
         }
 
-        // 2. 校验用户权益
+        // 2. 根据 hostType 分支
+        if ("ENTERPRISE".equalsIgnoreCase(hostType)) {
+            return checkEnterprisePath(userId, pack);
+        }
+
+        // ---- WORKBUDDY 路径（OpenSpec #1 个人授权路径）----
+        // 3. 校验用户权益
         RightsCheckResult packCheck = checkScenePack(userId, pack.getId());
         if (!packCheck.isAllowed()) {
             return ComprehensiveRightsResult.fail(packCheck.getReason());
         }
 
-        // 3. 校验授权码（如有）
+        // 4. 校验授权码（如有）
         if (StringUtils.hasText(authCode)) {
             RightsCheckResult codeCheck = checkAuthCode(authCode);
             if (!codeCheck.isAllowed()) {
@@ -202,7 +217,7 @@ public class RightsCheckServiceImpl implements RightsCheckService {
             }
         }
 
-        // 4. 积分校验（仅当 points_rule_code 不为空时）
+        // 5. 积分校验（仅当 points_rule_code 不为空时）
         String pointsRuleCode = pack.getPointsRuleCode();
         Integer pointsAmount  = 0;
 
@@ -224,5 +239,88 @@ public class RightsCheckServiceImpl implements RightsCheckService {
         }
 
         return ComprehensiveRightsResult.pass(pack.getId(), pointsRuleCode, pointsAmount);
+    }
+
+    // =====================================================================
+    // 企业配额路径（hostType=ENTERPRISE）
+    // hostType=ENTERPRISE 时强制走企业配额路径，互不 fallback
+    // =====================================================================
+
+    /**
+     * 企业配额校验路径
+     * 配额检查：remainQuota = packQuota - usedQuota，remainQuota > 0 才可通过
+     */
+    private ComprehensiveRightsResult checkEnterprisePath(Long userId, FbsScenePack pack) {
+        // 1. 检查是否为正常企业成员
+        if (enterpriseMemberMapper == null || enterprisePackMapper == null) {
+            return ComprehensiveRightsResult.fail("企业模块未初始化");
+        }
+
+        // 查该用户是否属于某个正常企业
+        // 注意：企业成员关系只通过 fbs_enterprise_member 查询
+        // MVP 简化：取第一个 status=1 的企业成员记录
+        FbsEnterpriseMember member = findActiveEnterpriseMember(userId);
+        if (member == null) {
+            return ComprehensiveRightsResult.fail("用户不是企业成员");
+        }
+
+        // 2. 检查企业是否正常
+        FbsEnterprise enterprise = enterpriseMapper.selectById(member.getEnterpriseId());
+        if (enterprise == null) {
+            return ComprehensiveRightsResult.fail("企业不存在");
+        }
+        if (enterprise.getStatus() != null && enterprise.getStatus() == 2) {
+            return ComprehensiveRightsResult.fail("企业账户已禁用");
+        }
+
+        // 3. 查询企业是否已获此场景包
+        FbsEnterprisePack enterprisePack = enterprisePackMapper
+            .selectByEnterpriseAndPack(member.getEnterpriseId(), pack.getId());
+        if (enterprisePack == null) {
+            return ComprehensiveRightsResult.fail("企业未获此场景包授权");
+        }
+
+        // 4. 检查企业包状态（仅 status=1 可用）
+        if (enterprisePack.getStatus() == null || enterprisePack.getStatus() != 1) {
+            return ComprehensiveRightsResult.fail("企业包状态不可用");
+        }
+
+        // 4.5 检查成员授权凭证（fbs_member_pack）
+        // 成员授权凭证：用户必须在 fbs_member_pack 上有一条 status=1 的活跃授权记录
+        // 只有企业包授权（grantPack）时会自动创建此凭证；企业包撤销时会级联撤销（status=3）
+        // 若凭证缺失或被撤销，即使企业包有效也拒绝消费
+        if (memberPackMapper != null) {
+            FbsMemberPack memberPack = memberPackMapper
+                    .selectActiveByMemberIdAndPackId(member.getId(), pack.getId());
+            if (memberPack == null) {
+                return ComprehensiveRightsResult.fail("用户未获此场景包成员授权");
+            }
+            if (memberPack.getStatus() == null || memberPack.getStatus() != 1) {
+                return ComprehensiveRightsResult.fail("成员授权已失效");
+            }
+        }
+
+        // 5. 配额充足性检查（企业级，配额充足性检查）
+        int packQuota = enterprisePack.getPackQuota() != null ? enterprisePack.getPackQuota() : 0;
+        int usedQuota = enterprisePack.getUsedQuota() != null ? enterprisePack.getUsedQuota() : 0;
+        if (usedQuota >= packQuota) {
+            return ComprehensiveRightsResult.fail("企业配额已用尽，请联系管理员");
+        }
+
+        // 企业路径不扣积分，pointsAmount = 0
+        // 通过后，consume 路径会直接 incrementUsedQuota
+        return ComprehensiveRightsResult.pass(pack.getId(), null, 0);
+    }
+
+    /**
+     * 查找用户所属的正常企业成员记录
+     * MVP 简化：取第一条 status=1 的记录
+     */
+    private FbsEnterpriseMember findActiveEnterpriseMember(Long userId) {
+        if (enterpriseMemberMapper == null) {
+            return null;
+        }
+        List<FbsEnterpriseMember> members = enterpriseMemberMapper.selectActiveByUserId(userId);
+        return (members != null && !members.isEmpty()) ? members.get(0) : null;
     }
 }
