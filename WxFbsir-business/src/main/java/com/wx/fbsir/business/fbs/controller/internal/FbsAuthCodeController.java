@@ -1,8 +1,10 @@
 package com.wx.fbsir.business.fbs.controller.internal;
 
 import com.wx.fbsir.business.fbs.domain.entity.FbsAuthCode;
+import com.wx.fbsir.business.fbs.domain.entity.FbsScenePack;
 import com.wx.fbsir.business.fbs.domain.enums.AuthCodeStatus;
 import com.wx.fbsir.business.fbs.mapper.FbsAuthCodeMapper;
+import com.wx.fbsir.business.fbs.mapper.FbsScenePackMapper;
 import com.wx.fbsir.business.fbs.service.AuthCodeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -25,6 +27,9 @@ public class FbsAuthCodeController {
     private FbsAuthCodeMapper authCodeMapper;
 
     @Autowired
+    private FbsScenePackMapper scenePackMapper;
+
+    @Autowired
     private AuthCodeService authCodeService;
 
     /**
@@ -35,6 +40,21 @@ public class FbsAuthCodeController {
     public com.wx.fbsir.common.core.domain.AjaxResult generate(@RequestBody GenerateAuthCodeRequest req) {
         if (req.getCodeType() == null || req.getIssuerType() == null || req.getIssuerId() == null) {
             return com.wx.fbsir.common.core.domain.AjaxResult.error("codeType/issuerType/issuerId不能为空");
+        }
+        if (req.getDeadline() != null && new Date().after(req.getDeadline())) {
+            return com.wx.fbsir.common.core.domain.AjaxResult.error("截止时间不能早于当前时间");
+        }
+
+        // 校验场景包状态：已下架/不存在的场景包不能生成授权码
+        String targetType = req.getTargetType() != null ? req.getTargetType() : "SCENE_PACK";
+        if ("SCENE_PACK".equals(targetType) && req.getTargetId() != null) {
+            FbsScenePack pack = scenePackMapper.selectById(req.getTargetId());
+            if (pack == null) {
+                return com.wx.fbsir.common.core.domain.AjaxResult.error("场景包不存在");
+            }
+            if (pack.getStatus() == null || pack.getStatus() != 1) {
+                return com.wx.fbsir.common.core.domain.AjaxResult.error("场景包已下架，无法生成授权码");
+            }
         }
 
         // 生成唯一授权码（UUID前16位+随机后4位，共20位）

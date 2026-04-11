@@ -77,6 +77,17 @@ public class FbsAuthCode extends BaseEntity {
     /** 删除标志（0=存在, 2=删除） */
     private String delFlag;
 
+    // ========== 非持久化字段（联查填充） ==========
+
+    /** 关联场景包编码（非持久化，列表查询时联查填充） */
+    private String targetPackCode;
+
+    /** 关联场景包名称（非持久化，列表查询时联查填充） */
+    private String targetPackName;
+
+    /** 场景包状态（非持久化，1=上架 0=草稿 2=已下架，列表查询时联查填充） */
+    private Integer packStatus;
+
     // ========== getter / setter ==========
 
     public Long getId() { return id; }
@@ -126,4 +137,13 @@ public class FbsAuthCode extends BaseEntity {
 
     public String getDelFlag() { return delFlag; }
     public void setDelFlag(String delFlag) { this.delFlag = delFlag; }
+
+    public String getTargetPackCode() { return targetPackCode; }
+    public void setTargetPackCode(String targetPackCode) { this.targetPackCode = targetPackCode; }
+
+    public String getTargetPackName() { return targetPackName; }
+    public void setTargetPackName(String targetPackName) { this.targetPackName = targetPackName; }
+
+    public Integer getPackStatus() { return packStatus; }
+    public void setPackStatus(Integer packStatus) { this.packStatus = packStatus; }
 }

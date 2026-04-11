@@ -1,10 +1,13 @@
 package com.wx.fbsir.business.fbs.service;
 
 import com.wx.fbsir.business.fbs.domain.entity.FbsAuthCode;
+import com.wx.fbsir.business.fbs.domain.entity.FbsScenePack;
 import com.wx.fbsir.business.fbs.dto.business.auth_code.AuthCodeGenerateRequest;
 import com.wx.fbsir.business.fbs.dto.business.auth_code.AuthCodePageRequest;
 import com.wx.fbsir.business.fbs.mapper.FbsAuthCodeMapper;
+import com.wx.fbsir.business.fbs.mapper.FbsScenePackMapper;
 import com.wx.fbsir.business.fbs.service.business.impl.FbsAuthCodeBusinessServiceImpl;
+import com.wx.fbsir.common.exception.ServiceException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -38,6 +41,9 @@ class FbsAuthCodeBusinessServiceTest {
 
     @Mock
     private FbsAuthCodeMapper authCodeMapper;
+
+    @Mock
+    private FbsScenePackMapper scenePackMapper;
 
     @InjectMocks
     private FbsAuthCodeBusinessServiceImpl service;
@@ -77,6 +83,12 @@ class FbsAuthCodeBusinessServiceTest {
             request.setIssuerType(1);
             request.setMaxActivations(1);
             request.setIssuerId(1L); // 显式设置 issuerId，避免走到 SecurityUtils.getUserId()
+
+            // mock 场景包存在且上架
+            FbsScenePack pack = new FbsScenePack();
+            pack.setId(TARGET_ID);
+            pack.setStatus(1);
+            when(scenePackMapper.selectById(TARGET_ID)).thenReturn(pack);
 
             // 模拟 MyBatis useGeneratedKeys 回填 id（每次 insert 赋递增主键）
             AtomicLong idGen = new AtomicLong(5001L);
@@ -150,6 +162,43 @@ class FbsAuthCodeBusinessServiceTest {
 
             assertFalse(result);
             verify(authCodeMapper, never()).updateStatus(anyLong(), anyInt());
+        }
+
+        @Test
+        @DisplayName("generateAuthCodeBatch — 场景包不存在时抛异常")
+        void generate_packNotFound() {
+            var request = new AuthCodeGenerateRequest();
+            request.setCount(1);
+            request.setTargetId(9999L);
+            request.setTargetType("SCENE_PACK");
+            request.setIssuerId(1L);
+
+            when(scenePackMapper.selectById(9999L)).thenReturn(null);
+
+            ServiceException ex = assertThrows(ServiceException.class,
+                    () -> service.generateAuthCodeBatch(request, "admin"));
+            assertEquals(400, ex.getCode());
+            assertTrue(ex.getMessage().contains("场景包不存在"));
+        }
+
+        @Test
+        @DisplayName("generateAuthCodeBatch — 场景包已下架时抛异常")
+        void generate_packOffline() {
+            var request = new AuthCodeGenerateRequest();
+            request.setCount(1);
+            request.setTargetId(TARGET_ID);
+            request.setTargetType("SCENE_PACK");
+            request.setIssuerId(1L);
+
+            FbsScenePack pack = new FbsScenePack();
+            pack.setId(TARGET_ID);
+            pack.setStatus(2); // 已下架
+            when(scenePackMapper.selectById(TARGET_ID)).thenReturn(pack);
+
+            ServiceException ex = assertThrows(ServiceException.class,
+                    () -> service.generateAuthCodeBatch(request, "admin"));
+            assertEquals(400, ex.getCode());
+            assertTrue(ex.getMessage().contains("场景包已下架"));
         }
     }
 }

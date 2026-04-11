@@ -107,8 +107,12 @@ public class AuthCodeServiceImpl implements AuthCodeService {
         userPack.setActivatedAt(new Date());
         userPack.setStatus(1); // 有效
         userPack.setSourceType(3); // 用户激活
+        // 审计字段（与 claimScenePack 路径保持一致）
+        userPack.setOperator(userId);
+        userPack.setRequestId(java.util.UUID.randomUUID().toString());
+        userPack.setOperateTime(new Date());
         userPackMapper.insertUserPack(userPack);
 
-        return ActivateResult.success(userPack.getId(), pack.getId(), pack.getPackCode());
+        return ActivateResult.success(userPack.getId(), pack.getId(), pack.getPackCode(), userPack.getExpiresAt());
     }
 }

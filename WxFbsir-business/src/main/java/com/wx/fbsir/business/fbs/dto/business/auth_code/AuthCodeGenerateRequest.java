@@ -6,37 +6,40 @@ import org.springframework.format.annotation.DateTimeFormat;
 import java.util.Date;
 
 /**
- * 鎺堟潈鐮佺敓鎴愯姹?
+ * 授权码生成请求
  *
  * @author wxfbsir
  * @date 2026-04-08
  */
 public class AuthCodeGenerateRequest {
 
-    /** 鍏宠仈鐩爣绫诲瀷锛歋CENE_PACK/GENERIC */
+    /** 关联目标类型：SCENE_PACK/GENERIC */
     private String targetType;
 
-    /** 鍏宠仈鐩爣ID锛堝鍦烘櫙鍖匢D锛?*/
+    /** 关联目标ID（如场景包ID） */
     private Long targetId;
 
-    /** 鍙戞斁鑰呯被鍨嬶細1=骞冲彴, 2=浼佷笟, 3=鐢ㄦ埛 */
+    /** 关联场景包编码（前端传入，后端据此查 targetId，优先于 targetId） */
+    private String targetPackCode;
+
+    /** 发放者类型：1=平台, 2=企业, 3=用户 */
     private Integer issuerType;
 
-    /** 鍙戞斁鑰匢D */
+    /** 发放者ID */
     private Long issuerId;
 
-    /** 鏈€澶ф縺娲绘鏁帮紙榛樿1锛?*/
+    /** 最大激活次数（默认1） */
     private Integer maxActivations;
 
-    /** 鎴鏃堕棿锛孨ULL=涓嶉檺 */
+    /** 截止时间，NULL=不限 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private Date deadline;
 
-    /** 璇存槑/澶囨敞 */
+    /** 说明/备注 */
     private String description;
 
-    /** 鐢熸垚鏁伴噺锛堟壒閲忕敓鎴愶級 */
+    /** 生成数量（批量生成） */
     private Integer count;
 
     public String getTargetType() { return targetType; }
@@ -44,6 +47,9 @@ public class AuthCodeGenerateRequest {
 
     public Long getTargetId() { return targetId; }
     public void setTargetId(Long targetId) { this.targetId = targetId; }
+
+    public String getTargetPackCode() { return targetPackCode; }
+    public void setTargetPackCode(String targetPackCode) { this.targetPackCode = targetPackCode; }
 
     public Integer getIssuerType() { return issuerType; }
     public void setIssuerType(Integer issuerType) { this.issuerType = issuerType; }

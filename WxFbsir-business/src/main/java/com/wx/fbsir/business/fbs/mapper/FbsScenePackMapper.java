@@ -45,6 +45,21 @@ public interface FbsScenePackMapper {
     List<FbsScenePack> selectScenePackList(@Param("filter") FbsScenePack filter);
 
     /**
+     * 可领取平台场景包查询（用户侧）
+     * <p>
+     * 条件：owner_type=1, status=1, visible_scope='ALL', points_rule_code IS NULL,
+     * 用户未拥有（NOT EXISTS），keyword 模糊搜索。
+     * </p>
+     * <p>MVP 说明：end_time 暂以 status=1（已发布）代替。</p>
+     *
+     * @param userId  当前用户ID
+     * @param keyword 搜索关键字（packName/packCode 模糊，可为 null）
+     * @return 可领取场景包列表
+     */
+    List<FbsScenePack> selectClaimablePacks(@Param("userId") Long userId,
+                                             @Param("keyword") String keyword);
+
+    /**
      * 新增场景包
      *
      * @param fbsScenePack 场景包

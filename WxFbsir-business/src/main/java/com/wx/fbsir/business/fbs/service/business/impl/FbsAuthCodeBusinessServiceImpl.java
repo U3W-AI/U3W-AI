@@ -1,11 +1,14 @@
 package com.wx.fbsir.business.fbs.service.business.impl;
 
 import com.wx.fbsir.business.fbs.domain.entity.FbsAuthCode;
+import com.wx.fbsir.business.fbs.domain.entity.FbsScenePack;
 import com.wx.fbsir.business.fbs.domain.enums.AuthCodeStatus;
 import com.wx.fbsir.business.fbs.dto.business.auth_code.AuthCodeGenerateRequest;
 import com.wx.fbsir.business.fbs.dto.business.auth_code.AuthCodePageRequest;
 import com.wx.fbsir.business.fbs.mapper.FbsAuthCodeMapper;
+import com.wx.fbsir.business.fbs.mapper.FbsScenePackMapper;
 import com.wx.fbsir.business.fbs.service.business.IFbsAuthCodeBusinessService;
+import com.wx.fbsir.common.exception.ServiceException;
 import com.wx.fbsir.common.utils.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,6 +30,9 @@ public class FbsAuthCodeBusinessServiceImpl implements IFbsAuthCodeBusinessServi
 
     @Autowired
     private FbsAuthCodeMapper authCodeMapper;
+
+    @Autowired
+    private FbsScenePackMapper scenePackMapper;
 
     @Override
     public List<FbsAuthCode> getAuthCodePage(AuthCodePageRequest request) {
@@ -52,6 +58,20 @@ public class FbsAuthCodeBusinessServiceImpl implements IFbsAuthCodeBusinessServi
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Map<Long, String> generateAuthCodeBatch(AuthCodeGenerateRequest request, String createdBy) {
+        // 校验场景包状态：已下架/不存在的场景包不能生成授权码
+        if (request.getTargetId() != null) {
+            String targetType = request.getTargetType() != null ? request.getTargetType() : "SCENE_PACK";
+            if ("SCENE_PACK".equals(targetType)) {
+                FbsScenePack pack = scenePackMapper.selectById(request.getTargetId());
+                if (pack == null) {
+                    throw new ServiceException("场景包不存在", 400);
+                }
+                if (pack.getStatus() == null || pack.getStatus() != 1) {
+                    throw new ServiceException("场景包已下架，无法生成授权码", 400);
+                }
+            }
+        }
+
         int count = request.getCount() != null && request.getCount() > 0 ? request.getCount() : 1;
         Map<Long, String> result = new LinkedHashMap<>();
         for (int i = 0; i < count; i++) {

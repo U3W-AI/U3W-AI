@@ -23,6 +23,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="updatedBy"       column="updated_by"       />
         <result property="updateTime"      column="update_time"      />
         <result property="delFlag"         column="del_flag"         />
+        <result property="targetPackCode"  column="target_pack_code" />
+        <result property="targetPackName"  column="target_pack_name" />
+        <result property="packStatus"      column="pack_status"      />
     </resultMap>
 
     <sql id="selectFbsAuthCodeVo">
@@ -50,28 +53,36 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         WHERE auth_code = #{authCode} AND del_flag = '0'
     </select>
 
-    <!-- 列表查询（运营后台分页） -->
+    <!-- 列表查询（运营后台分页，联查场景包编码/名称） -->
     <select id="selectAuthCodeList" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsAuthCode" resultMap="FbsAuthCodeResult">
-        <include refid="selectFbsAuthCodeVo"/>
+        SELECT a.id, a.auth_code, a.code_type, a.target_type, a.target_id,
+               a.issuer_type, a.issuer_id, a.available, a.status, a.deadline,
+               a.max_activations, a.activated_count, a.description,
+               a.created_by, a.create_time, a.updated_by, a.update_time, a.del_flag,
+               s.pack_code AS target_pack_code,
+               s.pack_name AS target_pack_name,
+               s.status AS pack_status
+        FROM fbs_auth_code a
+        LEFT JOIN fbs_scene_pack s ON a.target_id = s.id AND s.del_flag = '0'
         <where>
-            del_flag = '0'
+            a.del_flag = '0'
             <if test="filter.authCode != null and filter.authCode != ''">
-                AND auth_code LIKE CONCAT('%', #{filter.authCode}, '%')
+                AND a.auth_code LIKE CONCAT('%', #{filter.authCode}, '%')
             </if>
             <if test="filter.targetId != null">
-                AND target_id = #{filter.targetId}
+                AND a.target_id = #{filter.targetId}
             </if>
             <if test="filter.available != null">
-                AND available = #{filter.available}
+                AND a.available = #{filter.available}
             </if>
             <if test="filter.status != null">
-                AND status = #{filter.status}
+                AND a.status = #{filter.status}
             </if>
             <if test="filter.issuerType != null">
-                AND issuer_type = #{filter.issuerType}
+                AND a.issuer_type = #{filter.issuerType}
             </if>
         </where>
-        ORDER BY create_time DESC
+        ORDER BY a.create_time DESC
     </select>
 
     <!-- 更新available字段（管理层面开关） -->

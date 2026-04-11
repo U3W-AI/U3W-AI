@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +30,9 @@ public class FbsAuthCodeBusinessController extends BaseController {
 
     @Autowired
     private IFbsAuthCodeBusinessService authCodeBusinessService;
+
+    @Autowired
+    private com.wx.fbsir.business.fbs.mapper.FbsScenePackMapper scenePackMapper;
 
     /**
      * GET /business/fbs/auth-code/list
@@ -50,14 +54,26 @@ public class FbsAuthCodeBusinessController extends BaseController {
     @Log(title = "FBS授权码-生成", businessType = BusinessType.INSERT)
     @PostMapping("/generate")
     public AjaxResult generate(@RequestBody AuthCodeGenerateRequest request) {
+        // 优先用 targetPackCode 解析 targetId
+        if (request.getTargetPackCode() != null && !request.getTargetPackCode().trim().isEmpty()) {
+            com.wx.fbsir.business.fbs.domain.entity.FbsScenePack pack =
+                    scenePackMapper.selectByPackCode(request.getTargetPackCode().trim());
+            if (pack == null) {
+                return AjaxResult.error("场景包编码不存在");
+            }
+            request.setTargetId(pack.getId());
+        }
         if (request.getTargetId() == null) {
-            return AjaxResult.error("targetId不能为空");
+            return AjaxResult.error("请选择关联场景包");
         }
         if (request.getCount() == null || request.getCount() < 1) {
             request.setCount(1);
         }
         if (request.getCount() > 1000) {
             return AjaxResult.error("单次最多生成1000个授权码");
+        }
+        if (request.getDeadline() != null && new Date().after(request.getDeadline())) {
+            return AjaxResult.error("截止时间不能早于当前时间");
         }
         Map<Long, String> result = authCodeBusinessService.generateAuthCodeBatch(request, getUsername());
         return AjaxResult.success("生成成功", result);

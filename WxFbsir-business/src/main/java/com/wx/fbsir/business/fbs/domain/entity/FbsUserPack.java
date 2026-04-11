@@ -60,6 +60,21 @@ public class FbsUserPack extends BaseEntity {
     /** 场景包名称（JOIN fbs_scene_pack查询用，非持久化字段） */
     private String packName;
 
+    /** 场景包编码（JOIN fbs_scene_pack查询用，非持久化字段） */
+    private String packCode;
+
+    /** 场景包状态（JOIN fbs_scene_pack查询用，非持久化字段）：1=上架, 0=草稿, 2=已下架 */
+    private Integer packStatus;
+
+    /** 操作人用户ID */
+    private Long operator;
+
+    /** 请求追踪ID */
+    private String requestId;
+
+    /** 操作时间 */
+    private Date operateTime;
+
     // ========== getter / setter ==========
 
     public Long getId() { return id; }
@@ -100,4 +115,19 @@ public class FbsUserPack extends BaseEntity {
 
     public String getPackName() { return packName; }
     public void setPackName(String packName) { this.packName = packName; }
+
+    public String getPackCode() { return packCode; }
+    public void setPackCode(String packCode) { this.packCode = packCode; }
+
+    public Integer getPackStatus() { return packStatus; }
+    public void setPackStatus(Integer packStatus) { this.packStatus = packStatus; }
+
+    public Long getOperator() { return operator; }
+    public void setOperator(Long operator) { this.operator = operator; }
+
+    public String getRequestId() { return requestId; }
+    public void setRequestId(String requestId) { this.requestId = requestId; }
+
+    public Date getOperateTime() { return operateTime; }
+    public void setOperateTime(Date operateTime) { this.operateTime = operateTime; }
 }

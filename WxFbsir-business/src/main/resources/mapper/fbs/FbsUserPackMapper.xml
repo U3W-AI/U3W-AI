@@ -66,13 +66,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="updateTime"   column="update_time"   />
         <result property="delFlag"      column="del_flag"      />
         <result property="packName"     column="pack_name"      />
+        <result property="packCode"     column="pack_code"      />
+        <result property="packStatus"   column="pack_status"    />
     </resultMap>
 
     <select id="selectUserPackList" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsUserPack" resultMap="FbsUserPackWithPackNameResult">
         SELECT u.id, u.user_id, u.pack_id, u.pack_version, u.auth_code_id,
                u.activated_at, u.expires_at, u.status, u.source_type,
                u.created_by, u.create_time, u.updated_by, u.update_time, u.del_flag,
-               s.pack_name
+               s.pack_name, s.pack_code
         FROM fbs_user_pack u
         LEFT JOIN fbs_scene_pack s ON u.pack_id = s.id AND s.del_flag = '0'
         <where>
@@ -85,6 +87,54 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             </if>
         </where>
         ORDER BY u.create_time DESC
+    </select>
+
+    <!-- 用户自助权益查询（强制 userId，分页+过滤） -->
+    <select id="selectMyPacks" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsUserPack" resultMap="FbsUserPackWithPackNameResult">
+        SELECT u.id, u.user_id, u.pack_id, u.pack_version, u.auth_code_id,
+               u.activated_at, u.expires_at, u.status, u.source_type,
+               u.created_by, u.create_time, u.updated_by, u.update_time, u.del_flag,
+               s.pack_name, s.pack_code, s.status as pack_status
+        FROM fbs_user_pack u
+        LEFT JOIN fbs_scene_pack s ON u.pack_id = s.id AND s.del_flag = '0'
+        <where>
+            u.del_flag = '0'
+            AND u.user_id = #{userId}
+            <if test="status != null">
+                AND u.status = #{status}
+            </if>
+            <if test="sourceType != null">
+                AND u.source_type = #{sourceType}
+            </if>
+            <if test="packId != null">
+                AND u.pack_id = #{packId}
+            </if>
+        </where>
+        ORDER BY u.create_time DESC
+    </select>
+
+    <!-- 幂等检查：用户对指定包是否有非撤销权益（status!=3） -->
+    <select id="selectExistsByUserIdAndPackId" resultType="java.lang.Integer">
+        SELECT COUNT(1)
+        FROM fbs_user_pack
+        WHERE del_flag = '0'
+          AND user_id = #{userId}
+          AND pack_id = #{packId}
+          AND status != 3
+        LIMIT 1
+    </select>
+
+    <!-- 批量查询用户已领取的场景包ID集合（status!=3 且未删除） -->
+    <select id="selectClaimedPackIds" resultType="java.lang.Long">
+        SELECT DISTINCT pack_id
+        FROM fbs_user_pack
+        WHERE del_flag = '0'
+          AND user_id = #{userId}
+          AND status != 3
+          AND pack_id IN
+          <foreach collection="packIds" item="packId" open="(" separator="," close=")">
+              #{packId}
+          </foreach>
     </select>
 
     <!-- 按用户ID和状态统计数量 -->
@@ -114,7 +164,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             source_type,
             <if test="createdBy != null">created_by,</if>
             create_time,
-            del_flag
+            del_flag,
+            <if test="operator != null">operator,</if>
+            <if test="requestId != null">request_id,</if>
+            <if test="operateTime != null">operate_time,</if>
         </trim>
         <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
             <if test="userId != null">#{userId},</if>
@@ -127,7 +180,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{sourceType},
             <if test="createdBy != null">#{createdBy},</if>
             NOW(),
-            '0'
+            '0',
+            <if test="operator != null">#{operator},</if>
+            <if test="requestId != null">#{requestId},</if>
+            <if test="operateTime != null">#{operateTime},</if>
         </trim>
     </insert>
 

@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * 用户场景包关系Mapper接口
@@ -41,6 +42,33 @@ public interface FbsUserPackMapper {
      * @return 用户权益列表（含packName）
      */
     List<FbsUserPack> selectUserPackList(@Param("filter") FbsUserPack filter);
+
+    /**
+     * 用户自助权益查询（强制 userId，分页+过滤）
+     * JOIN fbs_scene_pack 获取 packName/packCode
+     *
+     * @param filter 过滤条件（userId必填，status/sourceType/packId可选）
+     * @return 用户权益列表（含packName/packCode）
+     */
+    List<FbsUserPack> selectMyPacks(FbsUserPack filter);
+
+    /**
+     * 幂等检查：用户对指定包是否有非撤销权益（status!=3）
+     *
+     * @param userId 用户ID
+     * @param packId 场景包ID
+     * @return 存在则返回1，否则返回0
+     */
+    int selectExistsByUserIdAndPackId(@Param("userId") Long userId, @Param("packId") Long packId);
+
+    /**
+     * 批量查询用户已领取的场景包ID集合（status!=3 且未删除）
+     *
+     * @param userId  用户ID
+     * @param packIds 场景包ID集合
+     * @return 已领取的包ID集合
+     */
+    Set<Long> selectClaimedPackIds(@Param("userId") Long userId, @Param("packIds") Set<Long> packIds);
 
     /**
      * 按用户ID和状态统计数量

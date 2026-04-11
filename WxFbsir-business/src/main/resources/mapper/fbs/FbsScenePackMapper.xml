@@ -60,6 +60,24 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         ORDER BY create_time DESC
     </select>
 
+    <!-- 可领取平台场景包查询（用户侧） -->
+    <!-- 返回所有可领取包（不再排除已领取），claimed 标记由 Service 层填充 -->
+    <select id="selectClaimablePacks" resultMap="FbsScenePackResult">
+        <include refid="selectFbsScenePackVo"/>
+        <where>
+            del_flag = '0'
+            AND owner_type = 1
+            AND status = 1
+            AND visible_scope = 'ALL'
+            AND points_rule_code IS NULL
+            <if test="keyword != null and keyword != ''">
+                AND (pack_name LIKE CONCAT('%', #{keyword}, '%')
+                     OR pack_code LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
     <insert id="insertScenePack" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsScenePack"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO fbs_scene_pack

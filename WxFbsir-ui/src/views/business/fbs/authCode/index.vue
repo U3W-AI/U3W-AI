@@ -55,7 +55,13 @@
           <el-button link size="small" icon="CopyDocument" @click="copyAuthCode(scope.row.authCode)">复制</el-button>
         </template>
       </el-table-column>
-      <el-table-column label="关联目标" align="center" prop="targetId" width="90" />
+      <el-table-column label="关联场景包" align="center" min-width="140">
+        <template #default="scope">
+          <span v-if="scope.row.targetPackName">{{ scope.row.targetPackName }}</span>
+          <span v-else class="text-muted">-</span>
+          <el-tag v-if="scope.row.packStatus != null && scope.row.packStatus !== 1" type="danger" size="small" style="margin-left: 4px">已下架</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="启用状态" align="center" prop="available" width="90">
         <template #default="scope">
           <el-tag :type="scope.row.available === 1 ? 'success' : 'danger'" size="small">
@@ -133,8 +139,15 @@
     <!-- 生成授权码对话框 -->
     <el-dialog title="批量生成授权码" v-model="generateOpen" width="550px" append-to-body>
       <el-form ref="genFormRef" :model="genForm" :rules="genRules" label-width="120px">
-        <el-form-item label="关联目标ID" prop="targetId">
-          <el-input-number v-model="genForm.targetId" :min="1" controls-position="right" style="width: 100%" placeholder="场景包ID" />
+        <el-form-item label="关联场景包" prop="targetPackCode">
+          <el-select v-model="genForm.targetPackCode" placeholder="请选择场景包" filterable style="width: 100%">
+            <el-option
+              v-for="pack in scenePackOptions"
+              :key="pack.packCode"
+              :label="pack.packName"
+              :value="pack.packCode"
+            />
+          </el-select>
         </el-form-item>
         <el-row>
           <el-col :span="12">
@@ -159,12 +172,13 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="截止时间">
+            <el-form-item label="截止时间" prop="deadline">
               <el-date-picker
                 v-model="genForm.deadline"
                 type="datetime"
                 placeholder="留空=不限"
                 value-format="YYYY-MM-DD HH:mm:ss"
+                :disabled-date="disablePastDate"
                 style="width: 100%"
               />
             </el-form-item>
@@ -211,6 +225,7 @@
 <script setup name="FbsAuthCode">
 import { ref, reactive, onMounted } from 'vue'
 import { listAuthCode, generateAuthCode, disableAuthCode, enableAuthCode, revokeAuthCode } from "@/api/business/fbs/authCode"
+import { listScenePack } from "@/api/business/fbs/scenePack"
 import { parseTime } from '@/utils/WxFbsir'
 
 const { proxy } = getCurrentInstance()
@@ -222,6 +237,7 @@ const loading = ref(true)
 const showSearch = ref(true)
 const total = ref(0)
 const generatedCodes = ref([])
+const scenePackOptions = ref([])
 
 const data = reactive({
   queryParams: {
@@ -233,7 +249,7 @@ const data = reactive({
   },
   genForm: {
     targetType: 'SCENE_PACK',
-    targetId: undefined,
+    targetPackCode: undefined,
     issuerType: 1,
     issuerId: undefined,
     maxActivations: 1,
@@ -242,12 +258,27 @@ const data = reactive({
     count: 1
   },
   genRules: {
-    targetId: [{ required: true, message: "关联目标ID不能为空", trigger: "blur" }],
-    count: [{ required: true, message: "生成数量不能为空", trigger: "blur" }]
+    targetPackCode: [{ required: true, message: "请选择关联场景包", trigger: "change" }],
+    count: [{ required: true, message: "生成数量不能为空", trigger: "blur" }],
+    deadline: [{ validator: validateDeadline, trigger: "change" }]
   }
 })
 
 const { queryParams, genForm, genRules } = toRefs(data)
+
+/** 禁用过去的日期 */
+function disablePastDate(date) {
+  return date.getTime() < Date.now() - 86400000
+}
+
+/** 校验截止时间不能早于当前时间 */
+function validateDeadline(rule, value, callback) {
+  if (value && new Date(value).getTime() < Date.now()) {
+    callback(new Error('截止时间不能早于当前时间'))
+  } else {
+    callback()
+  }
+}
 
 /** 获取列表 */
 function getList() {
@@ -256,6 +287,13 @@ function getList() {
     codeList.value = response.rows
     total.value = response.total
     loading.value = false
+  })
+}
+
+/** 加载场景包选项（已发布+已下架均可选，用于生成授权码） */
+function loadScenePackOptions() {
+  listScenePack({ pageNum: 1, pageSize: 9999 }).then(response => {
+    scenePackOptions.value = (response.rows || []).filter(p => p.status === 1)
   })
 }
 
@@ -275,13 +313,14 @@ function resetQuery() {
 function handleGenerate() {
   genForm.value = {
     targetType: 'SCENE_PACK',
-    targetId: undefined,
+    targetPackCode: undefined,
     issuerType: 1,
     maxActivations: 1,
     deadline: undefined,
     description: undefined,
     count: 1
   }
+  loadScenePackOptions()
   proxy.resetForm("genFormRef")
   generateOpen.value = true
 }

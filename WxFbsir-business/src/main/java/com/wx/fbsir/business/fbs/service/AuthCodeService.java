@@ -1,5 +1,7 @@
 package com.wx.fbsir.business.fbs.service;
 
+import java.util.Date;
+
 /**
  * 授权码激活服务接口
  *
@@ -33,16 +35,19 @@ public interface AuthCodeService {
         private Long    userPackId;
         private Long    packId;
         private String  packCode;
+        /** 权益过期时间（来自 fbs_user_pack.expiresAt 快照，null=永不过期） */
+        private Date    expiresAt;
         private String  failReason;
 
         private ActivateResult() {}
 
-        public static ActivateResult success(Long userPackId, Long packId, String packCode) {
+        public static ActivateResult success(Long userPackId, Long packId, String packCode, Date expiresAt) {
             ActivateResult r = new ActivateResult();
             r.success    = true;
             r.userPackId = userPackId;
             r.packId     = packId;
             r.packCode   = packCode;
+            r.expiresAt  = expiresAt;
             return r;
         }
 
@@ -57,6 +62,7 @@ public interface AuthCodeService {
         public Long getUserPackId()   { return userPackId; }
         public Long getPackId()       { return packId; }
         public String getPackCode()   { return packCode; }
+        public Date getExpiresAt()    { return expiresAt; }
         public String getFailReason() { return failReason; }
     }
 }

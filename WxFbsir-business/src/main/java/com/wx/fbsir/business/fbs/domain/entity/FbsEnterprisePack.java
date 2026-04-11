@@ -57,6 +57,14 @@ public class FbsEnterprisePack extends BaseEntity {
     /** 删除标志（0=存在, 2=删除） */
     private String delFlag;
 
+    // ========== 非持久化字段（用于 JOIN 查询回显）==========
+
+    /** 场景包编码（JOIN查询，不存储） */
+    private String packCode;
+
+    /** 场景包名称（JOIN查询，不存储） */
+    private String packName;
+
     // ========== getter / setter ==========
 
     public Long getId() { return id; }
@@ -97,4 +105,10 @@ public class FbsEnterprisePack extends BaseEntity {
 
     public String getDelFlag() { return delFlag; }
     public void setDelFlag(String delFlag) { this.delFlag = delFlag; }
+
+    public String getPackCode() { return packCode; }
+    public void setPackCode(String packCode) { this.packCode = packCode; }
+
+    public String getPackName() { return packName; }
+    public void setPackName(String packName) { this.packName = packName; }
 }
