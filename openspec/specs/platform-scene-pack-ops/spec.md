@@ -1,8 +1,8 @@
 # 平台侧场景包运营 - 规范
 
-> **规范版本**：v1.3（合并版）
+> **规范版本**：v1.4（合并版）
 > **归档日期**：2026-04-11
-> **来源 OpenSpec**：`add-platform-scene-pack-ops` + `add-enterprise-scene-pack-ops` + `add-user-self-service`
+> **来源 OpenSpec**：`add-platform-scene-pack-ops` + `add-enterprise-scene-pack-ops` + `add-user-self-service` + `add-skill-api-gateway`
 
 ---
 
@@ -769,4 +769,129 @@ THEN  系统 SHALL 返回 SESSION_REQUIRED（401）
 | SQL | `sql/V20260411__add-user-self-service__sys_menu.sql` | 菜单（parent_id=0 一级目录） |
 
 > **菜单结构**：我的权益中心（一级目录，parent_id=0）→ 我的权益 / 激活授权码 / 领取场景包
+
+---
+
+## 十二、Skill API 网关
+
+> **来源 OpenSpec**：`add-skill-api-gateway`（#5）
+>
+> **路径约定**：`/fbs/skill-api/**` 标识 Skill API 接口，使用 API Key 认证（`X-FBS-API-Key` Header），不使用 JWT。
+>
+> **⚠️ 安全边界声明**：API Key + body.userId 模型存在天然越权风险——持有有效 API Key 即可伪造任意 userId。MVP 接受此风险，前提：（1）仅部署在受控 WorkBuddy 宿主环境；（2）不面向公网第三方开放；（3）生产环境强制 HTTPS。后续迭代加固：API Key 绑定 packCode 白名单、宿主签名 userId（HMAC-SHA256）、IP 白名单。
+
+### Requirement: Skill API 网关
+
+系统 SHALL 提供一组面向 FBS-BookWriter Skill 的 REST API，使用 API Key 认证，让 Skill 脚本可以校验权益、扣减积分、查询场景包规则。
+
+#### Scenario: 权益校验（Skill 调用）
+
+```text
+GIVEN Skill 脚本携带有效 API Key 调用 POST /fbs/skill-api/rights/check
+WHEN  提交 userId + packCode + authCode（可选）+ hostType
+THEN  系统 SHALL 校验 API Key 有效性
+AND   复用 RightsCheckService.comprehensiveCheck 进行权益校验
+AND   返回 { pass, failReason, packId, pointsRuleCode, pointsAmount }
+```
+
+#### Scenario: Skill 消费（一次性扣减+记录）
+
+```text
+GIVEN Skill 脚本携带有效 API Key 调用 POST /fbs/skill-api/usage/consume
+WHEN  提交 userId + packCode + skillCode + usageRecordId(String) + hostType
+THEN  系统 SHALL 复用 SkillConsumeService.consume（不传 pointsAmount）
+AND   返回 ConsumeResult（success/failReason/pointsAmount/remainPoints）
+```
+
+#### Scenario: 使用记录两阶段模式
+
+> **⚠️ 与 consume 互斥**：start/end 和 consume 是两种独立的消费模式，同一个 usageRecordId 只能走一种。
+
+```text
+GIVEN Skill 脚本携带有效 API Key
+WHEN  调用 POST /fbs/skill-api/usage/start
+THEN  系统 SHALL 按幂等语义处理（status=0 返回已有 / status=1/2 返回 409 / 不存在则创建）
+
+WHEN  调用 PUT /fbs/skill-api/usage/end/{usageRecordId}
+THEN  系统 SHALL 按幂等语义更新状态（不存在→404 / status=0→更新 / status=1/2→409）
+```
+
+#### Scenario: 场景包规则查询
+
+```text
+GIVEN Skill 脚本携带有效 API Key 调用 POST /fbs/skill-api/scene-pack/query
+WHEN  提交 packCode
+THEN  系统 SHALL 返回 contentSnapshot（原始 JSON 字符串，不做二次结构化转换）
+```
+
+#### Scenario: 用户信息查询
+
+```text
+GIVEN Skill 脚本携带有效 API Key 调用 POST /fbs/skill-api/user/info
+WHEN  提交 userId
+THEN  系统 SHALL 返回 userId + pointsBalance + activatedPacks（不返回 T0-T3）
+```
+
+#### Scenario: API Key 认证失败
+
+```text
+GIVEN 请求路径匹配 /fbs/skill-api/**
+WHEN  API Key 缺失/不存在 → 401 SKILL_API_KEY_INVALID
+AND   API Key 已禁用 → 403 SKILL_API_KEY_DISABLED
+AND   速率超限 → 429 SKILL_API_RATE_LIMITED
+```
+
+---
+
+## 十三、API Key 管理
+
+### Requirement: API Key 管理
+
+系统 SHALL 支持 API Key 的生成、查询、启用/禁用、删除，供运营人员管理 Skill 访问凭证。
+
+#### Scenario: 生成 API Key
+
+```text
+GIVEN 管理员调用生成 API Key 接口
+WHEN  提交 name + packCode（可选）+ rateLimitPerMin（默认 60）
+THEN  系统 SHALL 生成唯一 API Key（前缀 fbs_ + 32位随机串）
+AND   存储到 fbs_api_key 表（status=1 启用）
+AND   MVP 明文存储，后续迭代改为 SHA-256 hash
+AND   返回完整 Key（仅创建时可见，后续查询脱敏：前8位+****）
+```
+
+#### Scenario: 禁用/启用/删除 API Key
+
+```text
+GIVEN 管理员调用禁用/启用/删除接口
+WHEN  提交 apiKeyId
+THEN  系统 SHALL 更新或删除 fbs_api_key 记录
+AND   禁用后使用该 Key 的请求返回 403
+AND   删除后使用该 Key 的请求返回 401
+```
+
+### API Key 权限控制
+
+| 权限标识 | 说明 |
+|----------|------|
+| business:fbs:apikey:add | 生成 API Key |
+| business:fbs:apikey:list | 查询 API Key 列表 |
+| business:fbs:apikey:query | 查询 API Key 详情 |
+| business:fbs:apikey:edit | 启用/禁用 API Key |
+| business:fbs:apikey:remove | 删除 API Key |
+
+---
+
+## 明确不在本 OpenSpec 范围（#5 更新）
+
+以下能力延期至后续 OpenSpec：
+
+- API Key 前端管理页面（P2-DEFERRED）
+- API Key sys_menu SQL（P2-DEFERRED）
+- fbs-rights-client.mjs 单元测试（P2-DEFERRED）
+- API Key SHA-256 hash 存储
+- Redis + 滑动窗口限流（替换内存计数器）
+- API Key 绑定 packCode 白名单
+- 宿主签名 userId（HMAC-SHA256）
+- IP 白名单
 

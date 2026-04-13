@@ -1,0 +1,150 @@
+﻿[INFO] Scanning for projects...
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Build Order:
+[INFO] 
+[INFO] ΢�Ÿ�����                                                              [pom]
+[INFO] WxFbsir-common                                                     [jar]
+[INFO] WxFbsir-system                                                     [jar]
+[INFO] WxFbsir-business                                                   [jar]
+[INFO] 
+[INFO] ------------------------< com.wx.fbsir:WxFbsir >------------------------
+[INFO] Building ΢�Ÿ����� 1.0.0                                               [1/4]
+[INFO]   from pom.xml
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] 
+[INFO] --------------------< com.wx.fbsir:WxFbsir-common >---------------------
+[INFO] Building WxFbsir-common 1.0.0                                      [2/4]
+[INFO]   from WxFbsir-common\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ WxFbsir-common ---
+[INFO] skip non existing resourceDirectory G:\Interview\wukongshigang\Weihu\U3W-AI\WxFbsir-common\src\main\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ WxFbsir-common ---
+[WARNING]  Parameter 'compilerVersion' (user property 'maven.compiler.compilerVersion') is deprecated: This parameter is no longer evaluated by the underlying compilers, instead the actual version of the javac binary is automatically retrieved.
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ WxFbsir-common ---
+[INFO] skip non existing resourceDirectory G:\Interview\wukongshigang\Weihu\U3W-AI\WxFbsir-common\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ WxFbsir-common ---
+[WARNING]  Parameter 'compilerVersion' (user property 'maven.compiler.compilerVersion') is deprecated: This parameter is no longer evaluated by the underlying compilers, instead the actual version of the javac binary is automatically retrieved.
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- surefire:3.2.5:test (default-test) @ WxFbsir-common ---
+[INFO] No tests to run.
+[INFO] 
+[INFO] --------------------< com.wx.fbsir:WxFbsir-system >---------------------
+[INFO] Building WxFbsir-system 1.0.0                                      [3/4]
+[INFO]   from WxFbsir-system\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ WxFbsir-system ---
+[INFO] Copying 15 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ WxFbsir-system ---
+[WARNING]  Parameter 'compilerVersion' (user property 'maven.compiler.compilerVersion') is deprecated: This parameter is no longer evaluated by the underlying compilers, instead the actual version of the javac binary is automatically retrieved.
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ WxFbsir-system ---
+[INFO] skip non existing resourceDirectory G:\Interview\wukongshigang\Weihu\U3W-AI\WxFbsir-system\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ WxFbsir-system ---
+[WARNING]  Parameter 'compilerVersion' (user property 'maven.compiler.compilerVersion') is deprecated: This parameter is no longer evaluated by the underlying compilers, instead the actual version of the javac binary is automatically retrieved.
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- surefire:3.2.5:test (default-test) @ WxFbsir-system ---
+[INFO] No tests to run.
+[INFO] 
+[INFO] -------------------< com.wx.fbsir:WxFbsir-business >--------------------
+[INFO] Building WxFbsir-business 1.0.0                                    [4/4]
+[INFO]   from WxFbsir-business\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ WxFbsir-business ---
+[INFO] Copying 34 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ WxFbsir-business ---
+[WARNING]  Parameter 'compilerVersion' (user property 'maven.compiler.compilerVersion') is deprecated: This parameter is no longer evaluated by the underlying compilers, instead the actual version of the javac binary is automatically retrieved.
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ WxFbsir-business ---
+[INFO] skip non existing resourceDirectory G:\Interview\wukongshigang\Weihu\U3W-AI\WxFbsir-business\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ WxFbsir-business ---
+[WARNING]  Parameter 'compilerVersion' (user property 'maven.compiler.compilerVersion') is deprecated: This parameter is no longer evaluated by the underlying compilers, instead the actual version of the javac binary is automatically retrieved.
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.2.5:test (default-test) @ WxFbsir-business ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyAuthServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyAuthServiceTest$ApiKeyCheckTests
+mvn.cmd : Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+所在位置 行:1 字符: 278
++ ... hu\U3W-AI"; & mvn test -pl WxFbsir-business -am "-Dtest=FbsApiKeyAuth ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Java HotSpot(TM...s been appended:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+17:43:50.279 [main] WARN com.wx.fbsir.business.fbs.service.FbsApiKeyAuthService -- API Key ���ʳ��� key=fbs_abc1****, count=3, limit=2
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.870 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyAuthServiceTest$ApiKeyCheckTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.883 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyAuthServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$DeleteApiKeyTests
+17:43:50.304 [main] INFO com.wx.fbsir.business.fbs.service.business.impl.FbsApiKeyBusinessServiceImpl -- API Key ��ɾ�� id=1
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.014 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$DeleteApiKeyTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$DisableApiKeyTests
+17:43:50.331 [main] INFO com.wx.fbsir.business.fbs.service.business.impl.FbsApiKeyBusinessServiceImpl -- API Key �ѽ��� id=1
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.017 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$DisableApiKeyTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$EnableApiKeyTests
+17:43:50.338 [main] INFO com.wx.fbsir.business.fbs.service.business.impl.FbsApiKeyBusinessServiceImpl -- API Key ������ id=1
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.008 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$EnableApiKeyTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$GenerateApiKeyTests
+17:43:50.350 [main] INFO com.wx.fbsir.business.fbs.service.business.impl.FbsApiKeyBusinessServiceImpl -- API Key ���ɳɹ� id=1, name=����Key, maskedKey=fbs_XgVe****
+17:43:50.354 [main] INFO com.wx.fbsir.business.fbs.service.business.impl.FbsApiKeyBusinessServiceImpl -- API Key ���ɳɹ� id=1, name=����Key, maskedKey=fbs_qRhL****
+17:43:50.358 [main] INFO com.wx.fbsir.business.fbs.service.business.impl.FbsApiKeyBusinessServiceImpl -- API Key ���ɳɹ� id=1, name=����Key, maskedKey=fbs_ntLi****
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.014 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$GenerateApiKeyTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$GetApiKeyByIdTests
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$GetApiKeyByIdTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$ListApiKeysTests
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$ListApiKeysTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$MaskingTests
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$MaskingTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.080 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$UserInfoTests
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.143 s -- in com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$UserInfoTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$ScenePackQueryTests
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.014 s -- in com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$ScenePackQueryTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$UsageEndTests
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.019 s -- in com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$UsageEndTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$UsageStartTests
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.014 s -- in com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$UsageStartTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$UsageConsumeTests
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.008 s -- in com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$UsageConsumeTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$RightsCheckTests
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.012 s -- in com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$RightsCheckTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.215 s -- in com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 48, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for ΢�Ÿ����� 1.0.0:
+[INFO] 
+[INFO] ΢�Ÿ����� .............................................. SUCCESS [  0.001 s]
+[INFO] WxFbsir-common ..................................... SUCCESS [  0.851 s]
+[INFO] WxFbsir-system ..................................... SUCCESS [  0.063 s]
+[INFO] WxFbsir-business ................................... SUCCESS [  1.943 s]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  3.058 s
+[INFO] Finished at: 2026-04-11T17:43:50+08:00
+[INFO] ------------------------------------------------------------------------
+

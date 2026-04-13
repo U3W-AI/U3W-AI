@@ -1,0 +1,9 @@
+{
+  "name": "fbs-bookwriter-skill",
+  "version": "1.0.0",
+  "description": "FBS-BookWriter Skill — 人机协同著书工作台",
+  "fbs": {
+    "api_key": "",
+    "api_base_url": "http://localhost:8080"
+  }
+}

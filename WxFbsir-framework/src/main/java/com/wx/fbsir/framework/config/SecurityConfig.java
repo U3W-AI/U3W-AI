@@ -15,6 +15,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.web.authentication.logout.LogoutFilter;
 import org.springframework.web.filter.CorsFilter;
 import com.wx.fbsir.framework.config.properties.PermitAllUrlProperties;
+import com.wx.fbsir.framework.security.filter.FbsApiKeyAuthFilter;
 import com.wx.fbsir.framework.security.filter.JwtAuthenticationTokenFilter;
 import com.wx.fbsir.framework.security.handle.AuthenticationEntryPointImpl;
 import com.wx.fbsir.framework.security.handle.LogoutSuccessHandlerImpl;
@@ -45,7 +46,13 @@ public class SecurityConfig
      */
     @Autowired
     private JwtAuthenticationTokenFilter authenticationTokenFilter;
-    
+
+    /**
+     * Skill API Key 认证过滤器
+     */
+    @Autowired
+    private FbsApiKeyAuthFilter fbsApiKeyAuthFilter;
+
     /**
      * 跨域过滤器
      */
@@ -112,6 +119,8 @@ public class SecurityConfig
                     .requestMatchers("/ws/**").permitAll()
                     // Engine专属接口（截图上传等），由接口内部验证主机ID
                     .requestMatchers("/engine/**").permitAll()
+                    // Skill API 网关（API Key 认证，不要求 JWT，由 FbsApiKeyAuthFilter 校验）
+                    .requestMatchers("/fbs/skill-api/**").permitAll()
                     // 除上面外的所有请求全部需要鉴权认证
                     .anyRequest().authenticated();
             })
@@ -119,6 +128,8 @@ public class SecurityConfig
             .logout(logout -> logout.logoutUrl("/logout").logoutSuccessHandler(logoutSuccessHandler))
             // 添加JWT filter
             .addFilterBefore(authenticationTokenFilter, UsernamePasswordAuthenticationFilter.class)
+            // 添加Skill API Key filter（在JWT filter之前，拦截 /fbs/skill-api/**）
+            .addFilterBefore(fbsApiKeyAuthFilter, JwtAuthenticationTokenFilter.class)
             // 添加CORS filter
             .addFilterBefore(corsFilter, JwtAuthenticationTokenFilter.class)
             .addFilterBefore(corsFilter, LogoutFilter.class)

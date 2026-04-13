@@ -1251,4 +1251,372 @@
 
 ---
 
-**最后更新**：2026-04-09（OpenSpec #2 + OpenSpec #3 企业场景包运营实施完成）
+## 7. Skill API 网关
+
+> **Controller**：`FbsSkillApiController`
+>
+> **基础路径**：`/fbs/skill-api`
+>
+> **认证方式**：API Key（`X-FBS-API-Key` Header），不使用 JWT
+>
+> **⚠️ 安全边界声明**：API Key + body.userId 模型存在天然越权风险——持有有效 API Key 即可伪造任意 userId。MVP 接受此风险，前提：（1）仅部署在受控 WorkBuddy 宿主环境；（2）不面向公网第三方开放；（3）生产环境强制 HTTPS。
+
+### 7.1 权益校验
+
+- **路径**：`POST /fbs/skill-api/rights/check`
+
+**请求体**：`SkillApiCheckRequest`
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| userId | Long | **是** | 用户ID |
+| packCode | String | **是** | 场景包编码 |
+| authCode | String | 否 | 授权码（个人包需要） |
+| hostType | String | 否 | 宿主类型（默认 WORKBUDDY） |
+
+**响应**：`AjaxResult`
+
+```json
+{
+  "code": 200,
+  "msg": "操作成功",
+  "data": {
+    "pass": true,
+    "failReason": null,
+    "packId": 1,
+    "pointsRuleCode": "rule_bookwriter",
+    "pointsAmount": 10
+  }
+}
+```
+
+**认证失败**
+
+| 场景 | HTTP Status | errorCode | msg |
+|------|-------------|-----------|-----|
+| API Key 缺失/无效 | 401 | SKILL_API_KEY_INVALID | API Key 无效 |
+| API Key 已禁用 | 403 | SKILL_API_KEY_DISABLED | API Key 已禁用 |
+| 速率超限 | 429 | SKILL_API_RATE_LIMITED | API 调用频率超限，请稍后重试 |
+
+---
+
+### 7.2 一次性消费
+
+⚠️ **与 start/end 互斥**：同一个 usageRecordId 只能走 consume 或 start/end 一种模式，不能组合调用。
+
+- **路径**：`POST /fbs/skill-api/usage/consume`
+
+**请求体**：`SkillApiConsumeRequest`
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| userId | Long | **是** | 用户ID |
+| packCode | String | **是** | 场景包编码 |
+| skillCode | String | **是** | Skill 编码（如 "bookwriter"） |
+| usageRecordId | String | **是** | 幂等键（UUID 或 taskId） |
+| authCode | String | 否 | 授权码 |
+| hostType | String | 否 | 宿主类型（默认 WORKBUDDY） |
+
+> **注意**：不传 pointsAmount，由后端按 packCode → pointsRuleCode → wx_points_rule.points_value 自动计算。
+
+**响应**：`AjaxResult`
+
+```json
+{
+  "code": 200,
+  "msg": "操作成功",
+  "data": {
+    "success": true,
+    "usageRecordId": "wb-task-uuid-001",
+    "remainPoints": 990,
+    "failReason": null
+  }
+}
+```
+
+---
+
+### 7.3 两阶段使用记录 — 开始
+
+⚠️ **与 consume 互斥**。start/end 模式不扣减积分/配额，仅记录使用日志。
+
+- **路径**：`POST /fbs/skill-api/usage/start`
+
+**请求体**：`SkillApiStartRequest`
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| userId | Long | **是** | 用户ID |
+| packCode | String | **是** | 场景包编码 |
+| skillCode | String | **是** | Skill 编码 |
+| usageRecordId | String | **是** | 幂等键（String 类型） |
+| hostType | String | 否 | 宿主类型（默认 WORKBUDDY） |
+
+**幂等语义**
+
+| 现有记录状态 | 行为 |
+|-------------|------|
+| 不存在 | 创建新记录（status=0） |
+| status=0（进行中） | 返回已有记录（200） |
+| status=1（成功） | 返回 409 "使用记录已成功结束" |
+| status=2（失败） | 返回 409 "使用记录已失败结束" |
+
+**响应**：`AjaxResult`
+
+```json
+{
+  "code": 200,
+  "msg": "操作成功",
+  "data": {
+    "usageRecordId": "wb-task-uuid-001",
+    "status": 0
+  }
+}
+```
+
+---
+
+### 7.4 两阶段使用记录 — 结束
+
+⚠️ **与 consume 互斥**。end 只负责更新记录状态，不扣减积分/配额。
+
+- **路径**：`PUT /fbs/skill-api/usage/end/{usageRecordId}`
+
+**路径参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| usageRecordId | String | **是** | 使用记录幂等键 |
+
+**请求体**：`SkillApiEndRequest`
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| status | Integer | **是** | 1=成功, 2=失败 |
+| errorMessage | String | 否 | 失败原因（成功时传 null） |
+
+**幂等语义**
+
+| 现有记录状态 | 行为 |
+|-------------|------|
+| 不存在 | 返回 404 "使用记录不存在" |
+| status=0（进行中） | 更新为 1 或 2（只允许一次） |
+| status=1（成功） | 返回 409 "使用记录已成功结束" |
+| status=2（失败） | 返回 409 "使用记录已失败结束" |
+
+**响应**：`AjaxResult`
+
+```json
+{ "code": 200, "msg": "更新成功" }
+```
+
+---
+
+### 7.5 场景包规则查询
+
+- **路径**：`POST /fbs/skill-api/scene-pack/query`
+
+**请求体**：`SkillApiScenePackQueryRequest`
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| packCode | String | **是** | 场景包编码 |
+
+**响应**：`AjaxResult`
+
+```json
+{
+  "code": 200,
+  "msg": "操作成功",
+  "data": {
+    "packCode": "pack_bookwriter_v2",
+    "packName": "写书助手 v2.0",
+    "currentVersion": "1.0.0",
+    "status": 1,
+    "pointsRuleCode": "rule_bookwriter",
+    "contentSnapshot": "{...JSON规则内容...}"
+  }
+}
+```
+
+> **contentSnapshot** 返回原始 JSON 字符串，Skill 端需自行 `JSON.parse`，后端不做二次结构化转换。**不返回 ruleFileUrl**（当前仓库无此字段/机制）。
+
+---
+
+### 7.6 用户信息查询
+
+- **路径**：`POST /fbs/skill-api/user/info`
+
+**请求体**：`SkillApiUserInfoRequest`
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| userId | Long | **是** | 用户ID |
+
+**响应**：`AjaxResult`
+
+```json
+{
+  "code": 200,
+  "msg": "操作成功",
+  "data": {
+    "userId": 1,
+    "pointsBalance": 990,
+    "activatedPacks": [
+      {
+        "packId": 1,
+        "packCode": "pack_bookwriter_v2",
+        "packName": "写书助手 v2.0",
+        "packStatus": 1,
+        "status": 1,
+        "expiresAt": null
+      }
+    ]
+  }
+}
+```
+
+> **不返回 T0-T3 用户层级**（当前仓库无此模型）。
+
+---
+
+## 8. API Key 管理
+
+> **Controller**：`FbsApiKeyBusinessController`
+>
+> **基础路径**：`/fbs/business/api-key`
+>
+> **认证方式**：JWT（运营侧，需登录 + 权限字符 `business:fbs:apikey:*`）
+
+### 8.1 生成 API Key
+
+- **路径**：`POST /fbs/business/api-key/generate`
+- **权限字符**：`business:fbs:apikey:add`
+
+⚠️ 创建时返回完整 Key（**仅此一次**），后续查询只返回脱敏值。
+
+**请求体**
+
+```json
+{
+  "name": "写书Skill对接",
+  "packCode": "pack_bookwriter_v2",
+  "rateLimitPerMin": 60,
+  "remark": "用于Skill脚本调用"
+}
+```
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| name | String | **是** | API Key 名称 |
+| packCode | String | 否 | 关联场景包编码（NULL=全局Key） |
+| rateLimitPerMin | Integer | 否 | 速率限制（默认 60次/分钟） |
+| remark | String | 否 | 备注 |
+
+**响应**：`AjaxResult<FbsApiKey>`
+
+```json
+{
+  "code": 200,
+  "msg": "操作成功",
+  "data": {
+    "id": 1,
+    "apiKey": "fbs_abc123def456ghi789jkl012mno345pqr",
+    "name": "写书Skill对接",
+    "packCode": "pack_bookwriter_v2",
+    "rateLimitPerMin": 60,
+    "status": 1
+  }
+}
+```
+
+> ⚠️ 完整 apiKey **仅创建时返回一次**，后续查询脱敏显示。
+
+---
+
+### 8.2 查询 API Key 列表
+
+- **路径**：`GET /fbs/business/api-key/list`
+- **权限字符**：`business:fbs:apikey:list`
+
+**请求参数**（Query）
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| status | Integer | 否 | 状态：1=启用, 0=禁用 |
+| name | String | 否 | 名称（模糊匹配） |
+| packCode | String | 否 | 关联场景包编码 |
+
+**响应**：`AjaxResult<List<FbsApiKey>>`（apiKey 脱敏：前8位+****）
+
+---
+
+### 8.3 查询 API Key 详情
+
+- **路径**：`GET /fbs/business/api-key/{id}`
+- **权限字符**：`business:fbs:apikey:query`
+
+**响应**：`AjaxResult<FbsApiKey>`（apiKey 脱敏）
+
+---
+
+### 8.4 禁用 API Key
+
+- **路径**：`PUT /fbs/business/api-key/disable/{id}`
+- **权限字符**：`business:fbs:apikey:edit`
+
+**响应**：`AjaxResult`
+
+禁用后所有使用该 Key 的 Skill API 调用返回 403（SKILL_API_KEY_DISABLED）。
+
+---
+
+### 8.5 启用 API Key
+
+- **路径**：`PUT /fbs/business/api-key/enable/{id}`
+- **权限字符**：`business:fbs:apikey:edit`
+
+**响应**：`AjaxResult`
+
+---
+
+### 8.6 删除 API Key
+
+- **路径**：`DELETE /fbs/business/api-key/{id}`
+- **权限字符**：`business:fbs:apikey:remove`
+
+**响应**：`AjaxResult`
+
+删除后所有使用该 Key 的 Skill API 调用返回 401（SKILL_API_KEY_INVALID）。
+
+---
+
+## 附录 A（续）
+
+### A.15 API Key 状态（`fbs_api_key.status`）
+
+| 值 | 说明 |
+|----|------|
+| 1 | 启用 |
+| 0 | 禁用 |
+
+### A.16 Skill API 错误码
+
+| HTTP Status | errorCode | 说明 |
+|-------------|-----------|------|
+| 401 | SKILL_API_KEY_INVALID | API Key 无效（缺失/不存在） |
+| 403 | SKILL_API_KEY_DISABLED | API Key 已禁用 |
+| 429 | SKILL_API_RATE_LIMITED | API 调用频率超限 |
+
+### A.17 consume vs start/end 模式
+
+| 模式 | 适用场景 | 是否扣费 | 流程 |
+|------|---------|---------|------|
+| consume | 需要扣减积分的操作 | ✅ 是 | 一次调用：校验→扣减→记录 |
+| start/end | 只需记录不需扣费 | ❌ 否 | 两次调用：start→执行→end |
+
+> **互斥**：同一个 usageRecordId 只能走一种模式，不能组合调用。
+
+---
+
+**最后更新**：2026-04-11（OpenSpec #5 Skill API Gateway 实施）

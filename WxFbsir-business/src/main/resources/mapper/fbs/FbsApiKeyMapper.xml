@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.fbs.mapper.FbsApiKeyMapper">
+
+    <resultMap type="com.wx.fbsir.business.fbs.domain.entity.FbsApiKey" id="FbsApiKeyResult">
+        <id     property="id"               column="id"                />
+        <result property="apiKey"           column="api_key"           />
+        <result property="name"             column="name"              />
+        <result property="packCode"         column="pack_code"         />
+        <result property="rateLimitPerMin"  column="rate_limit_per_min"/>
+        <result property="status"           column="status"            />
+        <result property="createdBy"        column="created_by"        />
+        <result property="createTime"       column="create_time"       />
+        <result property="updatedBy"        column="updated_by"        />
+        <result property="updateTime"       column="update_time"       />
+        <result property="remark"           column="remark"            />
+    </resultMap>
+
+    <sql id="selectFbsApiKeyVo">
+        SELECT id, api_key, name, pack_code, rate_limit_per_min, status,
+               created_by, create_time, updated_by, update_time, remark
+        FROM fbs_api_key
+    </sql>
+
+    <!-- 认证用：只查启用状态（status=1）的Key -->
+    <select id="selectActiveByKey" parameterType="String" resultMap="FbsApiKeyResult">
+        <include refid="selectFbsApiKeyVo"/>
+        WHERE api_key = #{apiKey}
+          AND status = 1
+    </select>
+
+    <!-- 管理用：不限状态 -->
+    <select id="selectByApiKey" parameterType="String" resultMap="FbsApiKeyResult">
+        <include refid="selectFbsApiKeyVo"/>
+        WHERE api_key = #{apiKey}
+    </select>
+
+    <select id="selectById" parameterType="Long" resultMap="FbsApiKeyResult">
+        <include refid="selectFbsApiKeyVo"/>
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectApiKeyList" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsApiKey" resultMap="FbsApiKeyResult">
+        <include refid="selectFbsApiKeyVo"/>
+        <where>
+            <if test="filter.status != null">
+                AND status = #{filter.status}
+            </if>
+            <if test="filter.name != null and filter.name != ''">
+                AND name LIKE CONCAT('%', #{filter.name}, '%')
+            </if>
+            <if test="filter.packCode != null and filter.packCode != ''">
+                AND pack_code = #{filter.packCode}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+    <insert id="insertApiKey" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsApiKey"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_api_key
+        (api_key, name, pack_code, rate_limit_per_min, status,
+         created_by, create_time, updated_by, update_time, remark)
+        VALUES
+        (#{apiKey}, #{name}, #{packCode, jdbcType=VARCHAR}, #{rateLimitPerMin}, #{status},
+         #{createdBy, jdbcType=VARCHAR}, NOW(), #{updatedBy, jdbcType=VARCHAR}, NOW(), #{remark, jdbcType=VARCHAR})
+    </insert>
+
+    <update id="updateApiKey" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsApiKey">
+        UPDATE fbs_api_key
+        <set>
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="packCode != null">pack_code = #{packCode},</if>
+            <if test="rateLimitPerMin != null">rate_limit_per_min = #{rateLimitPerMin},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="updatedBy != null">updated_by = #{updatedBy},</if>
+            update_time = NOW(),
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        DELETE FROM fbs_api_key WHERE id = #{id}
+    </delete>
+
+</mapper>
