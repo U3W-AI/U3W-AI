@@ -214,3 +214,18 @@ wechat:
   corp-id: ${WECHAT_CORP_ID:}
   # 企业微信提示词编辑器链接（生产环境建议使用环境变量：PROMPT_EDITOR_URL）
   prompt-editor-url: ${PROMPT_EDITOR_URL:}
+
+# 企微 CLI 集成配置（OpenSpec #6 MVP）
+wecom:
+  cli:
+    # wecom-cli.exe 绝对路径（不配置则 CLI 功能不可用，不影响应用启动）
+    path: ${WECOM_CLI_PATH:G:/Interview/wukongshigang/Weihu/wecom-cli/wecom-cli/node_modules/@wecom/cli-win32-x64/bin/wecom-cli.exe}
+    # 单次调用超时时间（毫秒）
+    timeout-ms: ${WECOM_CLI_TIMEOUT_MS:30000}
+  sheet:
+    # 企微智能表格 ID
+    doc-id: ${WECOM_SHEET_DOC_ID:dcIxqVAUO6KLCapL2psEoEbEy5Dn_il9ITZz5tdOYFVubhcKVNiWgEojwnuc0qPGkCPlVydF628yel8-hoeuPObg}
+    # Sheet 标题 → sheet_id 映射（通过 wecom-cli doc smartsheet_get_sheet 查询获得）
+    sheet-ids:
+      meta: ${WECOM_SHEET_ID_META:q979lj}
+      commercial-hub: ${WECOM_SHEET_ID_COMMERCIAL_HUB:04bLwp}

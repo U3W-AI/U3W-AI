@@ -1,8 +1,8 @@
 # 平台侧场景包运营 - 规范
 
-> **规范版本**：v1.4（合并版）
-> **归档日期**：2026-04-11
-> **来源 OpenSpec**：`add-platform-scene-pack-ops` + `add-enterprise-scene-pack-ops` + `add-user-self-service` + `add-skill-api-gateway`
+> **规范版本**：v1.5（合并版）
+> **归档日期**：2026-04-14
+> **来源 OpenSpec**：`add-platform-scene-pack-ops` + `add-enterprise-scene-pack-ops` + `add-user-self-service` + `add-skill-api-gateway` + `add-wecom-cli-integration`
 
 ---
 
@@ -17,6 +17,10 @@
 > **v1.2 扩展（add-user-self-service）**：新增用户侧自助权益中心：用户自助查看权益、激活授权码、查看可领取场景包、领取免费场景包；前端用户侧 Vue 页面。
 >
 > **v1.3 修订（归档后增强）**：激活校验链增强（已绑定/实时过期/场景包下架/重复码拒绝）、错误码中文化、可领取包 claimed 状态、我的权益展示场景包下架状态、授权码生成 deadline 校验、授权码管理 UI 改造（下拉框选场景包/列表显示名称）。
+>
+> **v1.4 扩展（add-skill-api-gateway）**：新增 Skill API 网关（6 个 /fbs/skill-api/ 接口）+ API Key 管理（6 个 /fbs/business/api-key/ 接口），API Key 认证替代 JWT，一次性消费 + 两阶段消费互斥模式，MVP 内存级限流。
+>
+> **v1.5 扩展（add-wecom-cli-integration）**：新增企微智能表格集成基础层——Java 调用 wecom-cli 读取 Sheet 数据，WecomCliService（命令执行封装）+ WecomSyncService（同步读取服务）+ fbs_wecom_sync_log 日志表，2 个 REST API（read + check）。集成测试全链路跑通，修复 Windows ProcessBuilder JSON 参数引号转义 Bug。
 
 ---
 
@@ -894,4 +898,188 @@ AND   删除后使用该 Key 的请求返回 401
 - API Key 绑定 packCode 白名单
 - 宿主签名 userId（HMAC-SHA256）
 - IP 白名单
+
+---
+
+## 十四、企微智能表格集成（MVP 基础层）
+
+> **来源 OpenSpec**：`add-wecom-cli-integration`（#6）
+>
+> **范围**：最简可跑通 — Java 调用 wecom-cli.exe 读取企微智能表格 Sheet 数据，通过手动触发 REST API 获取结果，落日志表。
+>
+> **后续**：#7（智能表格写入）、#8（场景包规则管理）。
+
+### Requirement: WecomCliService — wecom-cli 命令执行服务
+
+WHEN 系统需要调用 wecom-cli.exe 执行企微操作,
+系统 SHALL 提供 `WecomCliService` 接口封装 ProcessBuilder 调用。
+
+#### Scenario: 正常执行命令
+
+```text
+GIVEN wecom-cli.exe 路径已配置且文件存在
+AND   wecom-cli 已完成企业微信认证
+WHEN  调用 WecomCliService.execute("doc", "smartsheet_get_records", '{"docId":"xxx","sheetName":"meta"}')
+THEN  系统 shell=false 启动进程并传入 category/method/params 三个参数
+AND   在配置的超时时间（默认 30s）内返回 WecomCliResult(success=true, rawOutput=非空, durationMs>0)
+AND   不写入日志（日志由上层 WecomSyncService 统一负责）
+```
+
+#### Scenario: wecom-cli 文件不存在
+
+```text
+GIVEN 配置的 wecom-cli.exe 路径不存在
+WHEN  调用 execute 或 isAvailable 方法
+THEN  返回 WecomCliResult(success=false, errorCode="CLI_NOT_FOUND")
+AND   不尝试启动任何进程
+```
+
+#### Scenario: 认证未完成
+
+```text
+GIVEN wecom-cli.exe 可执行
+WHEN  调用 execute 方法且 wecom-cli 返回认证错误
+THEN  返回 WecomCliResult(success=false, errorCode="AUTH_REQUIRED", errorMessage包含"扫码"或"登录"或"auth")
+AND   不触发重试
+```
+
+#### Scenario: 进程超时
+
+```text
+GIVEN wecom-cli.exe 可执行且已认证
+WHEN  单次调用超过配置的超时时间（默认 30s）
+THEN  强制销毁进程（DestroyForcibly）
+AND   返回 WecomCliResult(success=false, errorCode="EXEC_TIMEOUT")
+```
+
+#### Scenario: 网络错误简单重试
+
+```text
+GIVEN wecom-cli.exe 可执行且已认证
+WHEN  调用 execute 方法且返回 NET_ 错误码（NET_TIMEOUT/NET_CONNECTION_FAILED）
+THEN  等待 500ms 后重试 1 次
+AND   重试仍失败则返回最后一次错误结果
+```
+
+---
+
+### Requirement: WecomSyncService — 最简同步读取服务
+
+WHEN 需要从企微智能表格读取数据并记录,
+系统 SHALL 通过 `WecomSyncService` 提供按 Sheet 读取并落日志的能力。
+
+#### Scenario: 读取 meta Sheet（场景包规则）
+
+```text
+GIVEN WecomCliService 可用
+WHEN  调用 WecomSyncService.readSheet("meta") 或不传 sheetName 默认读 meta
+THEN  构造 smartsheet_get_records 命令参数（含 docId + sheetName）
+AND   调用 WecomCliService.execute("doc", "smartsheet_get_records", params)
+AND   解析双层 JSON 结构（outer.content[0].text → inner data array）
+AND   将原始记录列表存入 fbs_wecom_sync_log 的 snapshot_json 字段
+AND   返回 WecomSyncReadResponse(sheetName="meta", recordCount=N, success=true)
+```
+
+#### Scenario: 读取 commercial_hub Sheet
+
+```text
+GIVEN WecomCliService 可用
+WHEN  调用 WecomSyncService.readSheet("commercial_hub")
+THEN  同上流程读取 commercial_hub Sheet
+AND   存入 fbs_wecom_sync_log（sheet_name="commercial_hub"）
+AND   不做 record_type 分类拆分，整体作为快照存储
+```
+
+#### Scenario: 读取失败
+
+```text
+GIVEN WecomCliService 不可用或网络异常
+WHEN  调用 readSheet 方法
+THEN  返回 WecomSyncReadResponse(success=false, errorcode=具体错误码)
+AND   fbs_wecom_sync_log 中 status=FAILED, snapshot_json=NULL
+AND   不抛未捕获异常到 Controller 层
+```
+
+---
+
+### Requirement: WecomSyncController — 手动触发读取 API
+
+WHEN 需要手动触发从企微智能表格读取数据,
+系统 SHALL 提供 RESTful API 端点。
+
+#### Scenario: 手动触发读取
+
+```text
+GIVEN 用户已登录且有权限
+WHEN  POST /fbs/business/wecom/sync/read（body 可选 { "sheetName": "meta" }）
+THEN  同步执行读取（非异步，等待结果后返回）
+AND   成功时返回 200 + { success, sheetName, recordCount, durationMs, syncLogId, snapshot[] }
+AND   失败时返回对应错误码（400/500 视错误类型）
+```
+
+#### Scenario: 连通性检测
+
+```text
+GIVEN wecom-cli 路径已配置
+WHEN  POST /fbs/business/wecom/sync/check
+THEN  检查 wecom-cli.exe 文件是否存在（File.exists()）
+AND   不验证认证态（认证态在 read 时自然暴露，MVP 不做额外检测）
+AND   返回 { cliAvailable: bool, cliPath: string, lastError: string? }
+AND   不写入 sync_log（轻量文件检查）
+```
+
+---
+
+### 数据模型：fbs_wecom_sync_log
+
+```sql
+CREATE TABLE fbs_wecom_sync_log (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    sync_type       VARCHAR(16)  NOT NULL DEFAULT 'READ' COMMENT 'READ/WRITE',
+    sheet_name      VARCHAR(64)  NOT NULL COMMENT 'Sheet 名称',
+    status          VARCHAR(16)  NOT NULL DEFAULT 'PENDING' COMMENT 'SUCCESS/FAILED/TIMEOUT/PARSE_ERROR',
+    record_count    INT          DEFAULT 0 COMMENT '读取到的记录数',
+    error_code      VARCHAR(32)  DEFAULT NULL COMMENT '错误码',
+    error_message   TEXT         DEFAULT NULL,
+    snapshot_json   LONGTEXT     DEFAULT NULL COMMENT '原始数据JSON快照',
+    duration_ms     BIGINT       DEFAULT 0,
+    created_by      BIGINT       DEFAULT NULL,
+    created_time    DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_status (status),
+    INDEX idx_sheet_name (sheet_name),
+    INDEX idx_created_time (created_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='企微同步日志表';
+```
+
+---
+
+### 附录 J：企微 CLI 错误码
+
+| 错误码 | 含义 | 重试 |
+|--------|------|------|
+| `CLI_NOT_FOUND` | wecom-cli.exe 不存在 | 不重试 |
+| `EXEC_TIMEOUT` | 进程超时（默认 30s） | 不重试 |
+| `AUTH_REQUIRED` | 未扫码认证或认证过期 | 不重试 |
+| `NET_TIMEOUT` | 网络超时 | 重试 ×1（等 500ms） |
+| `NET_CONNECTION_FAILED` | 连接失败 | 重试 ×1（等 500ms） |
+| `PARSE_ERROR` | JSON 解析失败 | 不重试 |
+
+> 完整错误码集（含 RATE_LIMITED / BIZ_PAYLOAD_TOO_LARGE 等）在 #7 阶段补充。
+
+---
+
+## 明确不在本 OpenSpec 范围（#6 更新）
+
+以下能力延期至后续 OpenSpec：
+
+- 8 张 Sheet 全量读取（MVP 只读 meta + commercial_hub）
+- 业务化落库（fbs_scene_pack_rule / fbs_commercial_hub）
+- entitlement 映射 / genre 对齐
+- 定时同步 / 异步任务
+- 双向同步（写入企微表格）
+- 分布式锁 / 并发控制
+- 前端页面 / sys_menu SQL
+- 安全加固（API Key 权限、IP 限制）
+- 分片写入 / 20KB 限制
+- 积分对齐
 
