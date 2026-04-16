@@ -1,7 +1,0 @@
-﻿wecom-cli.exe : Error: key must be a string at line 1 column 2
-所在位置 行:1 字符: 431
-+ ... '"}'; $out = & $cliPath doc smartsheet_get_sheet $params 2>&1 | Out-S ...
-+                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (Error: key must...line 1 column 2:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 

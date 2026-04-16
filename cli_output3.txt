@@ -1,1 +1,0 @@
-﻿{"content":[{"text":"{\n  \"errcode\": 0,\n  \"errmsg\": \"ok\",\n  \"total\": 1,\n  \"has_more\": false,\n  \"next\": 0,\n  \"fields\": [\n    {\n      \"field_id\": \"f04Gwj\",\n      \"field_title\": \"文本\",\n      \"field_type\": \"FIELD_TYPE_TEXT\",\n      \"property_text\": {}\n    }\n  ]\n}","type":"text"}],"isError":false}
