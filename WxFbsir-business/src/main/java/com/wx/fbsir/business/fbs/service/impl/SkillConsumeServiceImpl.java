@@ -7,6 +7,7 @@ import com.wx.fbsir.business.fbs.dto.ConsumeResult;
 import com.wx.fbsir.business.fbs.mapper.*;
 import com.wx.fbsir.business.fbs.service.RightsCheckService;
 import com.wx.fbsir.business.fbs.service.SkillConsumeService;
+import com.wx.fbsir.business.fbs.service.WecomBusinessSyncService;
 import com.wx.fbsir.business.point.domain.PointsRule;
 import com.wx.fbsir.business.point.mapper.PointsRuleMapper;
 import com.wx.fbsir.business.point.service.IPointsService;
@@ -66,6 +67,9 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
 
     @Autowired(required = false)
     private FbsMemberPackMapper memberPackMapper;
+
+    @Autowired(required = false)
+    private WecomBusinessSyncService wecomBusinessSyncService;
 
     // =====================================================================
     // consume
@@ -182,6 +186,16 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
 
         log.info("Skill消费成功 userId={}, packCode={}, usageRecordId={}, pointsAmount={}, remainPoints={}",
                 userId, packCode, usageRecordId, pointsAmount, remainPoints);
+
+        // ---- 步骤 7：同步到企微智能表格（commercial_hub）----
+        try {
+            if (wecomBusinessSyncService != null) {
+                wecomBusinessSyncService.syncCommercialHub(userId, packCode, pointsAmount, remainPoints);
+            }
+        } catch (Exception e) {
+            // 同步失败不影响业务
+            log.warn("同步积分消费到企微失败 userId={}, packCode={}", userId, packCode, e);
+        }
 
         return ConsumeResult.success(usageRecordId, remainPoints);
     }

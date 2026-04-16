@@ -38,8 +38,8 @@ public class WecomSyncServiceImpl implements WecomSyncService {
     @Autowired
     private FbsWecomSyncLogMapper syncLogMapper;
 
-    @Value("${wecom.sheet.doc-id:}")
-    private String docId;
+    @Value("${wecom.sheet.doc-url:}")
+    private String docUrl;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -159,16 +159,16 @@ public class WecomSyncServiceImpl implements WecomSyncService {
 
     /**
      * 构造 smartsheet_get_records 参数 JSON
-     * CLI 实际需要: {"docid": "xxx", "sheet_id": "q979lj"}
-     * 而非: {"docId": "xxx", "sheetName": "meta"}
+     * CLI 实际需要: {"url": "xxx", "sheet_id": "q979lj"}
+     * 支持使用 URL 或 docid 二选一
      */
     private String buildParams(String sheetName) {
         String sheetId = resolveSheetId(sheetName);
         try {
-            Map<String, String> params = Map.of("docid", docId, "sheet_id", sheetId);
+            Map<String, String> params = Map.of("url", docUrl, "sheet_id", sheetId);
             return objectMapper.writeValueAsString(params);
         } catch (Exception e) {
-            return "{\"docid\":\"" + docId + "\",\"sheet_id\":\"" + sheetId + "\"}";
+            return "{\"url\":\"" + docUrl + "\",\"sheet_id\":\"" + sheetId + "\"}";
         }
     }
 

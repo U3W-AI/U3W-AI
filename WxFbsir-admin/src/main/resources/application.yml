@@ -223,9 +223,13 @@ wecom:
     # 单次调用超时时间（毫秒）
     timeout-ms: ${WECOM_CLI_TIMEOUT_MS:30000}
   sheet:
-    # 企微智能表格 ID
-    doc-id: ${WECOM_SHEET_DOC_ID:dcIxqVAUO6KLCapL2psEoEbEy5Dn_il9ITZz5tdOYFVubhcKVNiWgEojwnuc0qPGkCPlVydF628yel8-hoeuPObg}
+    # 企微智能表格 URL（推荐，CLI 支持 URL 或 docid 二选一）
+    doc-url: ${WECOM_SHEET_DOC_URL:https://doc.weixin.qq.com/smartsheet/s3_AcQA0Aa1AIgCNci8FNLxdRaGFbVxz?scode=AMsARAf3AHEOJh2SlI}
     # Sheet 标题 → sheet_id 映射（通过 wecom-cli doc smartsheet_get_sheet 查询获得）
     sheet-ids:
-      meta: ${WECOM_SHEET_ID_META:q979lj}
-      commercial-hub: ${WECOM_SHEET_ID_COMMERCIAL_HUB:04bLwp}
+      meta: ${WECOM_SHEET_ID_META:0LgeK5}
+      commercial-hub: ${WECOM_SHEET_ID_COMMERCIAL_HUB:uvREDw}
+      entitlement: ${WECOM_SHEET_ID_ENTITLEMENT:87A2yO}
+  write:
+    # 写入时单次 payload 上限（字节），超过则分片
+    max-payload-bytes: ${WECOM_WRITE_MAX_PAYLOAD_BYTES:20480}

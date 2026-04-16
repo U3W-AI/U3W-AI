@@ -1,5 +1,7 @@
 package com.wx.fbsir.business.fbs.service.impl;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wx.fbsir.business.fbs.domain.WecomCliResult;
 import com.wx.fbsir.business.fbs.service.WecomCliService;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +29,8 @@ public class WecomCliServiceImpl implements WecomCliService {
 
     @Value("${wecom.cli.timeout-ms:30000}")
     private long timeoutMs;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /** 需要重试的错误码前缀 */
     private static final String NET_ERROR_PREFIX = "NET_";
@@ -122,7 +126,10 @@ public class WecomCliServiceImpl implements WecomCliService {
                         exitCode, durationMs);
             }
 
-            return WecomCliResult.success(rawOutput, durationMs);
+            // 解包 MCP 格式：{"content":[{"text":"<actual>","type":"text"}],"isError":false}
+            String unwrapped = unwrapMcpOutput(rawOutput);
+
+            return WecomCliResult.success(unwrapped, durationMs);
 
         } catch (Exception e) {
             long durationMs = System.currentTimeMillis() - startMs;
@@ -155,6 +162,50 @@ public class WecomCliServiceImpl implements WecomCliService {
             // 读取失败不影响主流程
         }
         return sb.toString();
+    }
+
+    /**
+     * 解包 MCP 格式输出。
+     *
+     * <p>wecom-cli 返回格式为：{"content":[{"text":"<actual JSON>","type":"text"}],"isError":false}
+     * 需要提取 content[0].text 中的实际 JSON 数据。
+     * 如果不是 MCP 格式（如旧版本或错误输出），则原样返回。</p>
+     */
+    private String unwrapMcpOutput(String rawOutput) {
+        if (rawOutput == null || rawOutput.isEmpty()) {
+            return rawOutput;
+        }
+        String trimmed = rawOutput.trim();
+        // 快速检测是否是 MCP 包装格式
+        if (!trimmed.startsWith("{\"content\":[{")) {
+            return rawOutput;
+        }
+        try {
+            JsonNode root = objectMapper.readTree(trimmed);
+            // 检查 isError 标志
+            if (root.has("isError") && root.get("isError").asBoolean()) {
+                // MCP 标记为错误，提取错误信息
+                JsonNode content = root.get("content");
+                if (content != null && content.isArray() && content.size() > 0) {
+                    JsonNode first = content.get(0);
+                    if (first.has("text")) {
+                        return first.get("text").asText();
+                    }
+                }
+                return rawOutput;
+            }
+            // 正常：提取 content[0].text
+            JsonNode content = root.get("content");
+            if (content != null && content.isArray() && content.size() > 0) {
+                JsonNode first = content.get(0);
+                if (first.has("text")) {
+                    return first.get("text").asText();
+                }
+            }
+        } catch (Exception e) {
+            // 解析失败，返回原始输出
+        }
+        return rawOutput;
     }
 
     /**

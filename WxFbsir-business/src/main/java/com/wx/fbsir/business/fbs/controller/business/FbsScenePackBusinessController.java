@@ -5,12 +5,16 @@ import com.wx.fbsir.business.fbs.dto.business.scene_pack.ScenePackCreateRequest;
 import com.wx.fbsir.business.fbs.dto.business.scene_pack.ScenePackDetailResponse;
 import com.wx.fbsir.business.fbs.dto.business.scene_pack.ScenePackPageRequest;
 import com.wx.fbsir.business.fbs.dto.business.scene_pack.ScenePackUpdateRequest;
+import com.wx.fbsir.business.fbs.mapper.FbsScenePackMapper;
 import com.wx.fbsir.business.fbs.service.business.IFbsScenePackBusinessService;
+import com.wx.fbsir.business.fbs.service.WecomBusinessSyncService;
 import com.wx.fbsir.common.annotation.Log;
 import com.wx.fbsir.common.core.controller.BaseController;
 import com.wx.fbsir.common.core.domain.AjaxResult;
 import com.wx.fbsir.common.core.page.TableDataInfo;
 import com.wx.fbsir.common.enums.BusinessType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -28,8 +32,16 @@ import java.util.List;
 @RequestMapping("/business/fbs/scene-pack")
 public class FbsScenePackBusinessController extends BaseController {
 
+    private static final Logger log = LoggerFactory.getLogger(FbsScenePackBusinessController.class);
+
     @Autowired
     private IFbsScenePackBusinessService scenePackBusinessService;
+
+    @Autowired(required = false)
+    private WecomBusinessSyncService wecomBusinessSyncService;
+
+    @Autowired
+    private FbsScenePackMapper scenePackMapper;
 
     /**
      * GET /business/fbs/scene-pack/list
@@ -72,6 +84,9 @@ public class FbsScenePackBusinessController extends BaseController {
             return AjaxResult.error("packName不能为空");
         }
         Long id = scenePackBusinessService.createScenePack(request, getUsername());
+
+        // 注意：创建时不同步到企微，只有发布时才同步
+
         return AjaxResult.success("创建成功", id);
     }
 
@@ -90,6 +105,9 @@ public class FbsScenePackBusinessController extends BaseController {
         if (!ok) {
             return AjaxResult.error("编辑失败（场景包不存在或已下架不可编辑）");
         }
+
+        // 注意：编辑时不同步到企微，只有发布时才同步
+
         return AjaxResult.success("编辑成功");
     }
 
@@ -108,6 +126,10 @@ public class FbsScenePackBusinessController extends BaseController {
         if (!ok) {
             return AjaxResult.error("发布失败（仅草稿状态可发布）");
         }
+
+        // 同步到企微智能表格（entitlement）
+        syncEntitlementToWecom(request.getId());
+
         return AjaxResult.success("发布成功");
     }
 
@@ -134,5 +156,38 @@ public class FbsScenePackBusinessController extends BaseController {
         private Long id;
         public Long getId() { return id; }
         public void setId(Long id) { this.id = id; }
+    }
+
+    /**
+     * 同步场景包到企微智能表格（entitlement）
+     *
+     * MVP 简化：creditsRequired 从 pointsRuleCode 推导
+     * - pointsRuleCode=null → creditsRequired=0（免费包）
+     * - pointsRuleCode!=null → creditsRequired=100（默认值，后续从积分规则表查询）
+     */
+    private void syncEntitlementToWecom(Long scenePackId) {
+        if (wecomBusinessSyncService == null) {
+            log.debug("WecomBusinessSyncService 未注入，跳过同步");
+            return;
+        }
+        try {
+            FbsScenePack pack = scenePackMapper.selectById(scenePackId);
+            if (pack == null) {
+                log.warn("同步 entitlement 失败：场景包不存在 id={}", scenePackId);
+                return;
+            }
+
+            // MVP: creditsRequired 推导逻辑
+            int creditsRequired = 0;
+            if (pack.getPointsRuleCode() != null && !pack.getPointsRuleCode().isEmpty()) {
+                // TODO: 从 wx_points_rule 表查询实际积分值
+                creditsRequired = 100; // 默认值
+            }
+
+            wecomBusinessSyncService.syncEntitlement(pack, creditsRequired);
+        } catch (Exception e) {
+            // 同步失败不影响业务
+            log.warn("同步场景包到企微失败 id={}", scenePackId, e);
+        }
     }
 }

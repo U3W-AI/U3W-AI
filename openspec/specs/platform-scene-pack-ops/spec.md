@@ -1,8 +1,8 @@
 # 平台侧场景包运营 - 规范
 
-> **规范版本**：v1.5（合并版）
-> **归档日期**：2026-04-14
-> **来源 OpenSpec**：`add-platform-scene-pack-ops` + `add-enterprise-scene-pack-ops` + `add-user-self-service` + `add-skill-api-gateway` + `add-wecom-cli-integration`
+> **规范版本**：v1.7（合并版）
+> **归档日期**：2026-04-15
+> **来源 OpenSpec**：`add-platform-scene-pack-ops` + `add-enterprise-scene-pack-ops` + `add-user-self-service` + `add-skill-api-gateway` + `add-wecom-cli-integration` + `add-smartsheet-write-mvp` + `add-smartsheet-schema-mgmt`
 
 ---
 
@@ -21,6 +21,10 @@
 > **v1.4 扩展（add-skill-api-gateway）**：新增 Skill API 网关（6 个 /fbs/skill-api/ 接口）+ API Key 管理（6 个 /fbs/business/api-key/ 接口），API Key 认证替代 JWT，一次性消费 + 两阶段消费互斥模式，MVP 内存级限流。
 >
 > **v1.5 扩展（add-wecom-cli-integration）**：新增企微智能表格集成基础层——Java 调用 wecom-cli 读取 Sheet 数据，WecomCliService（命令执行封装）+ WecomSyncService（同步读取服务）+ fbs_wecom_sync_log 日志表，2 个 REST API（read + check）。集成测试全链路跑通，修复 Windows ProcessBuilder JSON 参数引号转义 Bug。
+>
+> **v1.6 扩展（add-smartsheet-write-mvp）**：新增企微智能表格写入能力——WecomWriteService（分片写入服务）+ POST /fbs/business/wecom/sync/write API + 20KB 分片策略 + sync_type=WRITE 日志类型。单元测试 10/10 + 集成测试 10/10 全绿。
+>
+> **v1.7 扩展（add-smartsheet-schema-mgmt）**：新增企微智能表格结构管理能力——WecomSchemaService（子表+字段 CRUD）+ WecomWriteService 扩展（updateRecords/deleteRecords）+ 10 个新 REST API 端点 + 11 个 DTO + 字段类型白名单 + 150字段上限 + 100记录上限。单元测试 269/269 全绿。
 
 ---
 
@@ -1068,18 +1072,446 @@ CREATE TABLE fbs_wecom_sync_log (
 
 ---
 
-## 明确不在本 OpenSpec 范围（#6 更新）
+## 十五、企微智能表格写入（MVP）
+
+> **来源 OpenSpec**：`add-smartsheet-write-mvp`（#7）
+>
+> **范围**：最简可跑通 — Java 调用 wecom-cli 写入记录到企微智能表格 + 20KB 分片 + 手动触发写入 API。
+>
+> **依赖**：OpenSpec #6（WecomCliService + WecomSyncService）。
+
+### Requirement: WecomWriteService — 企微智能表格写入服务
+
+WHEN 需要向企微智能表格写入记录,
+系统 SHALL 提供 `WecomWriteService` 封装 `smartsheet_add_records` 命令调用。
+
+#### Scenario: 写入少量记录（无需分片）
+
+```text
+GIVEN WecomCliService 可用
+AND   记录总 payload ≤ 20KB
+AND   所有单条记录 payload ≤ 20KB
+WHEN  调用 WecomWriteService.writeRecords("meta", records)
+THEN  序列化 records 为 JSON（CLI 格式：[{values: {...}}]）
+AND   调用 WecomCliService.execute("doc", "smartsheet_add_records", {docid, sheet_id, records})
+AND   写入 fbs_wecom_sync_log（sync_type=WRITE, status=SUCCESS, record_count=N）
+AND   返回 WecomSyncWriteResponse(success=true, writtenRecords=N, shardCount=1)
+```
+
+#### Scenario: 写入大量记录（需要分片）
+
+```text
+GIVEN WecomCliService 可用
+AND   所有单条记录 payload ≤ 20KB
+AND   记录总 payload > 20KB
+WHEN  调用 WecomWriteService.writeRecords("meta", records)
+THEN  按 20KB 上限将 records 拆分为多个分片
+AND   串行逐片调用 WecomCliService.execute
+AND   汇总所有分片结果
+AND   写入 fbs_wecom_sync_log（sync_type=WRITE, status=SUCCESS, record_count=总写入数）
+AND   返回 WecomSyncWriteResponse(success=true, writtenRecords=总写入数, shardCount=M)
+```
+
+#### Scenario: 单条记录超过 20KB
+
+```text
+GIVEN WecomCliService 可用
+AND   单条记录序列化后 > 20KB
+WHEN  调用 WecomWriteService.writeRecords(sheetName, records)
+THEN  不尝试写入（前置校验阶段即拒绝）
+AND   不写入 sync_log
+AND   返回 WecomSyncWriteResponse(success=false, errorCode="BIZ_PAYLOAD_TOO_LARGE")
+```
+
+#### Scenario: 空记录列表
+
+```text
+GIVEN 传入的 records 为空列表
+WHEN  调用 WecomWriteService.writeRecords(sheetName, records)
+THEN  直接返回 no-op
+AND   不写入 sync_log
+AND   返回 WecomSyncWriteResponse(success=true, writtenRecords=0, shardCount=0)
+```
+
+#### Scenario: records 为 null
+
+```text
+GIVEN 传入的 records 为 null
+WHEN  调用 WecomWriteService.writeRecords(sheetName, records)
+THEN  不调用 WecomCliService
+AND   不写入 sync_log
+AND   返回 WecomSyncWriteResponse(success=false, errorCode="INVALID_REQUEST", errorMessage="records 不能为 null")
+```
+
+#### Scenario: 白名单外 Sheet
+
+```text
+GIVEN sheetName 不在允许列表中
+WHEN  调用 WecomWriteService.writeRecords(sheetName, records)
+THEN  不调用 WecomCliService
+AND   不写入 sync_log
+AND   返回 WecomSyncWriteResponse(success=false, errorCode="INVALID_SHEET")
+```
+
+#### Scenario: 写入失败（CLI 错误）
+
+```text
+GIVEN WecomCliService 返回失败结果
+WHEN  调用 WecomWriteService.writeRecords(sheetName, records)
+THEN  写入 fbs_wecom_sync_log（sync_type=WRITE, status=FAILED, error_code=具体错误码）
+AND   返回 WecomSyncWriteResponse(success=false, errorCode=具体错误码)
+```
+
+#### Scenario: 部分分片写入失败
+
+```text
+GIVEN 多分片写入中部分分片成功、部分失败
+WHEN  串行写入过程中某分片返回失败
+THEN  停止后续分片写入
+AND   写入 fbs_wecom_sync_log（sync_type=WRITE, status=FAILED, error_code=PARTIAL_WRITE_FAILED, record_count=已成功写入数）
+AND   返回 WecomSyncWriteResponse(success=false, errorCode="PARTIAL_WRITE_FAILED", writtenRecords=已成功写入数)
+AND   不回滚已成功写入的分片
+```
+
+---
+
+### Requirement: WecomSyncController — 写入 API 端点
+
+WHEN 需要手动触发向企微智能表格写入数据,
+系统 SHALL 提供 RESTful API 端点。
+
+#### Scenario: 手动触发写入
+
+```text
+GIVEN 用户已登录且有 business:fbs:wecom:sync:write 权限
+WHEN  POST /fbs/business/wecom/sync/write
+      body: { sheetName: "meta", records: [{ "values": { "字段标题": value } }] }
+THEN  同步执行写入（非异步，等待结果后返回）
+AND   成功时返回 200 + { success, sheetName, totalRecords, writtenRecords, shardCount, durationMs, syncLogId }
+AND   失败时返回 200 + { success:false, errorCode, errorMessage }
+```
+
+#### Scenario: 未登录写入
+
+```text
+GIVEN 请求未携带有效 JWT
+WHEN  POST /fbs/business/wecom/sync/write
+THEN  返回 401
+```
+
+#### Scenario: sheetName 为空时默认 meta
+
+```text
+GIVEN 用户已登录
+AND   sheetName 为 null 或空字符串
+WHEN  POST /fbs/business/wecom/sync/write
+      body: { sheetName: "", records: [...] }
+THEN  使用默认 Sheet "meta" 继续处理
+```
+
+---
+
+### Requirement: fbs_wecom_sync_log — 支持写入类型
+
+WHEN sync_type 为 WRITE 时,
+系统 SHALL 记录写入操作的日志。
+
+#### Scenario: 写入日志记录
+
+```text
+GIVEN 通过校验后的实际写入操作完成
+WHEN  WecomWriteService 写入 sync_log
+THEN  sync_type = "WRITE"
+AND   record_count = 成功写入的记录数
+AND   status = SUCCESS 或 FAILED
+AND   不记录 key_type（smartsheet_add_records 无此参数）
+```
+
+#### Scenario: 不写日志的拒绝场景
+
+```text
+GIVEN sheetName 不在白名单 或 records 为空列表 或 存在单条记录 > 20KB
+WHEN  WecomWriteService.writeRecords
+THEN  不写入 sync_log
+```
+
+---
+
+### 附录 K：写入相关错误码
+
+| 错误码 | 含义 | 重试 | 备注 |
+|--------|------|------|------|
+| `BIZ_PAYLOAD_TOO_LARGE` | 单条记录超过 payload 上限（默认 20KB） | 不重试 | 前置校验，不调用 CLI |
+| `PARTIAL_WRITE_FAILED` | 部分分片写入失败 | 不重试 | 已写入不回滚 |
+
+> 注：#6 已有错误码（CLI_NOT_FOUND / EXEC_TIMEOUT / AUTH_REQUIRED / NET_* / PARSE_ERROR）继续适用写入场景。
+
+---
+
+## 明确不在本 OpenSpec 范围（#8 更新）
 
 以下能力延期至后续 OpenSpec：
 
-- 8 张 Sheet 全量读取（MVP 只读 meta + commercial_hub）
-- 业务化落库（fbs_scene_pack_rule / fbs_commercial_hub）
-- entitlement 映射 / genre 对齐
-- 定时同步 / 异步任务
-- 双向同步（写入企微表格）
-- 分布式锁 / 并发控制
+- ~~smartsheet_update_records（更新已有记录）~~ ✅ #8 已实现
+- ~~smartsheet_delete_records（删除记录）~~ ✅ #8 已实现
+- ~~字段管理（add/update/delete fields）~~ ✅ #8 已实现
+- ~~子表管理（add/update/delete sheet）~~ ✅ #8 已实现
+- 冲突检测 / 双向 diff
+- SyncEngine 同步引擎
+- 定时同步 / Quartz
+- 异步任务 / syncTaskId / 任务队列
+- 分布式锁 / Redis 锁
+- 限频策略（Rate Limiting）
+- 分类写入（按 record_type 分类到不同 Sheet）
 - 前端页面 / sys_menu SQL
-- 安全加固（API Key 权限、IP 限制）
-- 分片写入 / 20KB 限制
-- 积分对齐
+- 回写触发器（业务操作自动触发回写）
+
+---
+
+## 十六、企微智能表格结构管理
+
+> **来源 OpenSpec**：`add-smartsheet-schema-mgmt`（#8）
+>
+> **范围**：最简可跑通 — 运营可通过 API 查看/编辑企微智能表格结构（子表+字段）及更新/删除记录。
+>
+> **依赖**：OpenSpec #6（WecomCliService）+ #7（WecomWriteService）。
+>
+> **新增文件**：1 接口 + 1 实现 + 11 DTO + 1 测试 | **修改文件**：1 Controller + 1 接口 + 1 实现 + 1 测试
+
+### Requirement: WecomSchemaService — 子表管理
+
+WHEN 需要管理企微智能表格中的子表,
+系统 SHALL 提供 `WecomSchemaService` 封装子表 CRUD 的 CLI 命令调用。
+
+#### Scenario: 查询子表列表
+
+```text
+GIVEN 管理员已登录且有 schema:read 权限
+AND   提供有效 docid
+WHEN  调用 GET /fbs/business/wecom/schema/sheets?docid={docid}
+THEN  调用 wecom-cli doc smartsheet_get_sheet
+AND   返回子表列表 [{sheetId, title, rowCount}]
+AND   返回 HTTP 200
+```
+
+#### Scenario: 添加子表
+
+```text
+GIVEN 管理员已登录且有 schema:write 权限
+AND   提供有效 docid 和 title
+WHEN  调用 POST /fbs/business/wecom/schema/sheet
+THEN  调用 wecom-cli doc smartsheet_add_sheet
+AND   返回新子表的 sheetId 和 title
+AND   写入 fbs_wecom_sync_log（sync_type=SCHEMA）
+AND   返回 HTTP 200
+```
+
+#### Scenario: 更新子表标题
+
+```text
+GIVEN 管理员已登录且有 schema:write 权限
+AND   提供有效 docid, sheetId, title
+WHEN  调用 PUT /fbs/business/wecom/schema/sheet
+THEN  调用 wecom-cli doc smartsheet_update_sheet
+AND   写入 fbs_wecom_sync_log（sync_type=SCHEMA）
+AND   返回 HTTP 200
+```
+
+#### Scenario: 删除子表
+
+```text
+GIVEN 管理员已登录且有 schema:delete 权限
+AND   提供有效 docid 和 sheetId
+WHEN  调用 DELETE /fbs/business/wecom/schema/sheet?docid={docid}&sheetId={sheetId}
+THEN  调用 wecom-cli doc smartsheet_delete_sheet
+AND   写入 fbs_wecom_sync_log（sync_type=SCHEMA）
+AND   返回 HTTP 200 + true
+```
+
+#### Scenario: 删除子表幂等
+
+```text
+GIVEN 子表已被删除
+WHEN  再次调用 DELETE /fbs/business/wecom/schema/sheet
+THEN  返回成功（CLI 行为：幂等）
+AND   返回 HTTP 200 + true
+```
+
+---
+
+### Requirement: WecomSchemaService — 字段管理
+
+WHEN 需要管理企微智能表格中的字段,
+系统 SHALL 提供 `WecomSchemaService` 封装字段 CRUD 的 CLI 命令调用。
+
+#### Scenario: 查询字段列表
+
+```text
+GIVEN 管理员已登录且有 schema:read 权限
+AND   提供有效 docid 和 sheetId
+WHEN  调用 GET /fbs/business/wecom/schema/fields?docid={docid}&sheetId={sheetId}
+THEN  调用 wecom-cli doc smartsheet_get_fields
+AND   返回字段列表 [{fieldId, fieldTitle, fieldType}]
+AND   返回 HTTP 200
+```
+
+#### Scenario: 添加字段
+
+```text
+GIVEN 管理员已登录且有 schema:write 权限
+AND   提供有效 docid, sheetId, fields: [{fieldTitle, fieldType}]
+AND   所有 fieldType 在白名单内（text/number/number自动编号/date/datetime/checkbox/phone/email/url/attachment/member/department/lookup/formula/progress/grade）
+AND   现有字段数 + 新增字段数 ≤ 150
+WHEN  调用 POST /fbs/business/wecom/schema/fields
+THEN  调用 wecom-cli doc smartsheet_add_fields
+AND   返回新字段列表 [{fieldId, fieldTitle, fieldType}]
+AND   写入 fbs_wecom_sync_log（sync_type=SCHEMA）
+AND   返回 HTTP 200
+```
+
+#### Scenario: 添加字段 — 无效类型
+
+```text
+GIVEN 请求包含无效 fieldType（如 "invalid_type"）
+WHEN  调用 POST /fbs/business/wecom/schema/fields
+THEN  不调用 CLI（前置校验拒绝）
+AND   返回 HTTP 200 + {fields: []}
+```
+
+#### Scenario: 添加字段 — 数量超限
+
+```text
+GIVEN 子表现有 N 个字段
+AND   请求添加 M 个新字段
+AND   N + M > 150
+WHEN  调用 POST /fbs/business/wecom/schema/fields
+THEN  不调用 CLI（前置校验拒绝）
+AND   返回 HTTP 200 + {fields: []}
+```
+
+#### Scenario: 更新字段
+
+```text
+GIVEN 管理员已登录且有 schema:write 权限
+AND   提供有效 docid, sheetId, fields: [{fieldId, fieldTitle?, fieldType?}]
+WHEN  调用 PUT /fbs/business/wecom/schema/fields
+THEN  调用 wecom-cli doc smartsheet_update_fields
+AND   写入 fbs_wecom_sync_log（sync_type=SCHEMA）
+AND   返回 HTTP 200
+```
+
+#### Scenario: 删除字段
+
+```text
+GIVEN 管理员已登录且有 schema:delete 权限
+AND   提供有效 docid, sheetId, fieldIds: ["f1", "f2"]
+WHEN  调用 DELETE /fbs/business/wecom/schema/fields
+THEN  调用 wecom-cli doc smartsheet_delete_fields
+AND   写入 fbs_wecom_sync_log（sync_type=SCHEMA）
+AND   返回 HTTP 200 + deletedCount
+```
+
+---
+
+### Requirement: WecomWriteService — 记录更新
+
+WHEN 需要更新企微智能表格中的已有记录,
+系统 SHALL 扩展 `WecomWriteService` 提供 `updateRecords` 方法。
+
+#### Scenario: 更新记录成功
+
+```text
+GIVEN 管理员已登录且有 records:write 权限
+AND   提供有效 sheetId, records: [{recordId, values}]
+AND   records 数量 ≤ 100
+AND   sheetName 在白名单内（meta/commercial_hub）
+WHEN  调用 PUT /fbs/business/wecom/records
+THEN  调用 wecom-cli doc smartsheet_update_records
+AND   写入 fbs_wecom_sync_log（sync_type=RECORD）
+AND   返回 HTTP 200 + {success: true, writtenRecords: N}
+```
+
+#### Scenario: 记录数量超限
+
+```text
+GIVEN records 数量 > 100
+WHEN  调用 PUT /fbs/business/wecom/records
+THEN  不调用 CLI（前置校验拒绝）
+AND   返回 HTTP 200 + {success: false, errorCode: "RECORD_LIMIT_EXCEEDED"}
+```
+
+---
+
+### Requirement: WecomWriteService — 记录删除
+
+WHEN 需要删除企微智能表格中的记录,
+系统 SHALL 扩展 `WecomWriteService` 提供 `deleteRecords` 方法。
+
+#### Scenario: 删除记录成功
+
+```text
+GIVEN 管理员已登录且有 records:delete 权限
+AND   提供有效 sheetId, recordIds
+AND   recordIds 数量 ≤ 100
+WHEN  调用 DELETE /fbs/business/wecom/records
+THEN  调用 wecom-cli doc smartsheet_delete_records
+AND   写入 fbs_wecom_sync_log（sync_type=RECORD）
+AND   返回 HTTP 200 + {success: true, writtenRecords: N}
+```
+
+#### Scenario: recordIds 为 null
+
+```text
+GIVEN recordIds 为 null
+WHEN  调用 DELETE /fbs/business/wecom/records
+THEN  不调用 CLI
+AND   返回 HTTP 200 + {success: false, errorCode: "INVALID_REQUEST"}
+```
+
+---
+
+### 数据模型：sync_type 扩展
+
+`fbs_wecom_sync_log` 表的 `sync_type` 字段新增支持值：
+
+| sync_type | 说明 | 来源 |
+|-----------|------|------|
+| READ | 读取操作 | #6 |
+| WRITE | 写入操作（addRecords） | #7 |
+| SCHEMA | 结构变更操作（addSheet/updateSheet/deleteSheet/addFields/updateFields/deleteFields） | #8 |
+| RECORD | 记录变更操作（updateRecords/deleteRecords） | #8 |
+
+---
+
+### 附录 L：Schema 管理相关错误码
+
+| 错误码 | 含义 | 重试 | 备注 |
+|--------|------|------|------|
+| `RECORD_LIMIT_EXCEEDED` | 单次操作记录数量超过限制（最多100条） | 不重试 | 前置校验，不调用 CLI |
+| `INVALID_FIELD_TYPE` | 无效的字段类型 | 不重试 | 前置校验，不调用 CLI |
+| `FIELD_LIMIT_EXCEEDED` | 字段数量超过限制（单表最多150个） | 不重试 | 前置校验，不调用 CLI |
+
+> 注：CLI 返回的 DOC_NOT_FOUND / SHEET_NOT_FOUND / FIELD_NOT_FOUND / RECORD_NOT_FOUND 在 Java 层统一映射为 `CLI_ERROR`，具体错误信息在 errorMessage 字段中返回。
+
+---
+
+### #8 权限标识
+
+| 权限标识 | 说明 |
+|----------|------|
+| `business:fbs:wecom:schema:read` | 查询子表/字段信息 |
+| `business:fbs:wecom:schema:write` | 添加/更新子表/字段 |
+| `business:fbs:wecom:schema:delete` | 删除子表/字段 |
+| `business:fbs:wecom:records:write` | 更新记录 |
+| `business:fbs:wecom:records:delete` | 删除记录 |
+
+---
+
+### #8 明确不在范围内
+
+以下能力延期至后续 OpenSpec 或前后端联调阶段：
+
+- create_doc 接口（需手动在企微创建 docid）
+- sys_menu SQL 权限入库（前后端联调时处理）
+- 前端管理页面（MVP 仅提供后端 API）
 

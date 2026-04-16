@@ -8,6 +8,9 @@ import org.springframework.validation.BindException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingPathVariableException;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -89,6 +92,28 @@ public class GlobalExceptionHandler
         }
         log.error("请求参数类型不匹配'{}',发生系统异常.", requestURI, e);
         return AjaxResult.error(String.format("请求参数类型不匹配，参数[%s]要求类型为：'%s'，但输入值为：'%s'", e.getName(), e.getRequiredType().getName(), value));
+    }
+
+    /**
+     * 请求体为空或格式错误（Fail-Closed: 400）
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<AjaxResult> handleHttpMessageNotReadable(HttpMessageNotReadableException e)
+    {
+        log.error("请求体解析失败: {}", e.getMessage());
+        return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                .body(AjaxResult.error("请求体不能为空或格式错误"));
+    }
+
+    /**
+     * 缺少必需的请求参数（Fail-Closed: 400）
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<AjaxResult> handleMissingServletRequestParameter(MissingServletRequestParameterException e)
+    {
+        log.error("缺少必需参数: {}", e.getMessage());
+        return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                .body(AjaxResult.error(String.format("缺少必需参数[%s]", e.getParameterName())));
     }
 
     /**
