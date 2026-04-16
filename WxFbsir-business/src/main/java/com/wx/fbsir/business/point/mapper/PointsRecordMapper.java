@@ -64,6 +64,14 @@ public interface PointsRecordMapper {
     public PointsRecord getLastPointChange(Long userId);
 
     /**
+     * 根据事件ID查询积分记录（幂等检查）
+     * 
+     * @param eventId 事件幂等键
+     * @return 积分记录
+     */
+    public PointsRecord selectByEventId(@Param("eventId") String eventId);
+
+    /**
      * 统计某用户在指定时间之后针对某规则的正向积分次数
      * 
      * @param userId 用户ID

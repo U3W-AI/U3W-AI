@@ -1,0 +1,381 @@
+﻿[INFO] Scanning for projects...
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Build Order:
+[INFO] 
+[INFO] ΢�Ÿ�����                                                              [pom]
+[INFO] WxFbsir-common                                                     [jar]
+[INFO] WxFbsir-system                                                     [jar]
+[INFO] WxFbsir-business                                                   [jar]
+[INFO] 
+[INFO] ------------------------< com.wx.fbsir:WxFbsir >------------------------
+[INFO] Building ΢�Ÿ����� 1.0.0                                               [1/4]
+[INFO]   from pom.xml
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] 
+[INFO] --------------------< com.wx.fbsir:WxFbsir-common >---------------------
+[INFO] Building WxFbsir-common 1.0.0                                      [2/4]
+[INFO]   from WxFbsir-common\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ WxFbsir-common ---
+[INFO] skip non existing resourceDirectory G:\Interview\wukongshigang\Weihu\U3W-AI\WxFbsir-common\src\main\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ WxFbsir-common ---
+[WARNING]  Parameter 'compilerVersion' (user property 'maven.compiler.compilerVersion') is deprecated: This parameter is no longer evaluated by the underlying compilers, instead the actual version of the javac binary is automatically retrieved.
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ WxFbsir-common ---
+[INFO] skip non existing resourceDirectory G:\Interview\wukongshigang\Weihu\U3W-AI\WxFbsir-common\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ WxFbsir-common ---
+[WARNING]  Parameter 'compilerVersion' (user property 'maven.compiler.compilerVersion') is deprecated: This parameter is no longer evaluated by the underlying compilers, instead the actual version of the javac binary is automatically retrieved.
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- surefire:3.2.5:test (default-test) @ WxFbsir-common ---
+[INFO] No tests to run.
+[INFO] 
+[INFO] --------------------< com.wx.fbsir:WxFbsir-system >---------------------
+[INFO] Building WxFbsir-system 1.0.0                                      [3/4]
+[INFO]   from WxFbsir-system\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ WxFbsir-system ---
+[INFO] Copying 15 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ WxFbsir-system ---
+[WARNING]  Parameter 'compilerVersion' (user property 'maven.compiler.compilerVersion') is deprecated: This parameter is no longer evaluated by the underlying compilers, instead the actual version of the javac binary is automatically retrieved.
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ WxFbsir-system ---
+[INFO] skip non existing resourceDirectory G:\Interview\wukongshigang\Weihu\U3W-AI\WxFbsir-system\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ WxFbsir-system ---
+[WARNING]  Parameter 'compilerVersion' (user property 'maven.compiler.compilerVersion') is deprecated: This parameter is no longer evaluated by the underlying compilers, instead the actual version of the javac binary is automatically retrieved.
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- surefire:3.2.5:test (default-test) @ WxFbsir-system ---
+[INFO] No tests to run.
+[INFO] 
+[INFO] -------------------< com.wx.fbsir:WxFbsir-business >--------------------
+[INFO] Building WxFbsir-business 1.0.0                                    [4/4]
+[INFO]   from WxFbsir-business\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ WxFbsir-business ---
+[INFO] Copying 35 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ WxFbsir-business ---
+[WARNING]  Parameter 'compilerVersion' (user property 'maven.compiler.compilerVersion') is deprecated: This parameter is no longer evaluated by the underlying compilers, instead the actual version of the javac binary is automatically retrieved.
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ WxFbsir-business ---
+[INFO] skip non existing resourceDirectory G:\Interview\wukongshigang\Weihu\U3W-AI\WxFbsir-business\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ WxFbsir-business ---
+[WARNING]  Parameter 'compilerVersion' (user property 'maven.compiler.compilerVersion') is deprecated: This parameter is no longer evaluated by the underlying compilers, instead the actual version of the javac binary is automatically retrieved.
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.2.5:test (default-test) @ WxFbsir-business ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running com.wx.fbsir.business.fbs.controller.business.FbsUserSelfServiceControllerTest
+[INFO] Running com.wx.fbsir.business.fbs.controller.business.FbsUserSelfServiceControllerTest$NormalFlowTests
+mvn : Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap cl
+asspath has been appended
+所在位置 行:1 字符: 208
++ ... gshigang/Weihu/U3W-AI; mvn -pl WxFbsir-business -am test 2>&1 | Out-F ...
++                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Java HotSpot(TM...s been appended:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.750 s -- in com.wx.fbsir.business.fbs.controller.business.FbsUserSelfServiceControllerTest$NormalFlowTests
+[INFO] Running com.wx.fbsir.business.fbs.controller.business.FbsUserSelfServiceControllerTest$ExceptionHandlerTests
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.015 s -- in com.wx.fbsir.business.fbs.controller.business.FbsUserSelfServiceControllerTest$ExceptionHandlerTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.786 s -- in com.wx.fbsir.business.fbs.controller.business.FbsUserSelfServiceControllerTest
+[INFO] Running com.wx.fbsir.business.fbs.service.AuthCodeServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.AuthCodeServiceTest$ActivateAuthCodeTests
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.094 s -- in com.wx.fbsir.business.fbs.service.AuthCodeServiceTest$ActivateAuthCodeTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.095 s -- in com.wx.fbsir.business.fbs.service.AuthCodeServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.business.FbsUserSelfServiceActivateTest
+[INFO] Running com.wx.fbsir.business.fbs.service.business.FbsUserSelfServiceActivateTest$ActivateTests
+[INFO] Tests run: 22, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.114 s -- in com.wx.fbsir.business.fbs.service.business.FbsUserSelfServiceActivateTest$ActivateTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.118 s -- in com.wx.fbsir.business.fbs.service.business.FbsUserSelfServiceActivateTest
+[INFO] Running com.wx.fbsir.business.fbs.service.business.FbsUserSelfServiceClaimTest
+[INFO] Running com.wx.fbsir.business.fbs.service.business.FbsUserSelfServiceClaimTest$ClaimTests
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.026 s -- in com.wx.fbsir.business.fbs.service.business.FbsUserSelfServiceClaimTest$ClaimTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.027 s -- in com.wx.fbsir.business.fbs.service.business.FbsUserSelfServiceClaimTest
+[INFO] Running com.wx.fbsir.business.fbs.service.business.FbsUserSelfServiceGetClaimablePacksTest
+[INFO] Running com.wx.fbsir.business.fbs.service.business.FbsUserSelfServiceGetClaimablePacksTest$GetClaimableTests
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.014 s -- in com.wx.fbsir.business.fbs.service.business.FbsUserSelfServiceGetClaimablePacksTest$GetClaimableTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.014 s -- in com.wx.fbsir.business.fbs.service.business.FbsUserSelfServiceGetClaimablePacksTest
+[INFO] Running com.wx.fbsir.business.fbs.service.business.FbsUserSelfServiceGetMyPacksTest
+[INFO] Running com.wx.fbsir.business.fbs.service.business.FbsUserSelfServiceGetMyPacksTest$GetMyPacksTests
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.015 s -- in com.wx.fbsir.business.fbs.service.business.FbsUserSelfServiceGetMyPacksTest$GetMyPacksTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.016 s -- in com.wx.fbsir.business.fbs.service.business.FbsUserSelfServiceGetMyPacksTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyAuthServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyAuthServiceTest$ApiKeyCheckTests
+14:45:12.582 [main] WARN com.wx.fbsir.business.fbs.service.FbsApiKeyAuthService -- API Key ���ʳ��� key=fbs_abc1****, count=3, limit=2
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.030 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyAuthServiceTest$ApiKeyCheckTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.032 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyAuthServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$MaskingTests
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$MaskingTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$GetApiKeyByIdTests
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$GetApiKeyByIdTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$ListApiKeysTests
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$ListApiKeysTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$DeleteApiKeyTests
+14:45:12.603 [main] INFO com.wx.fbsir.business.fbs.service.business.impl.FbsApiKeyBusinessServiceImpl -- API Key ��ɾ�� id=1
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$DeleteApiKeyTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$EnableApiKeyTests
+14:45:12.606 [main] INFO com.wx.fbsir.business.fbs.service.business.impl.FbsApiKeyBusinessServiceImpl -- API Key ������ id=1
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$EnableApiKeyTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$DisableApiKeyTests
+14:45:12.614 [main] INFO com.wx.fbsir.business.fbs.service.business.impl.FbsApiKeyBusinessServiceImpl -- API Key �ѽ��� id=1
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$DisableApiKeyTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$GenerateApiKeyTests
+14:45:12.617 [main] INFO com.wx.fbsir.business.fbs.service.business.impl.FbsApiKeyBusinessServiceImpl -- API Key ���ɳɹ� id=1, name=����Key, maskedKey=fbs_xpkt****
+14:45:12.618 [main] INFO com.wx.fbsir.business.fbs.service.business.impl.FbsApiKeyBusinessServiceImpl -- API Key ���ɳɹ� id=1, name=����Key, maskedKey=fbs_uIJu****
+14:45:12.620 [main] INFO com.wx.fbsir.business.fbs.service.business.impl.FbsApiKeyBusinessServiceImpl -- API Key ���ɳɹ� id=1, name=����Key, maskedKey=fbs_bB71****
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest$GenerateApiKeyTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.032 s -- in com.wx.fbsir.business.fbs.service.FbsApiKeyBusinessServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsAuthCodeBusinessServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsAuthCodeBusinessServiceTest$AuthCodeOperationTests
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.013 s -- in com.wx.fbsir.business.fbs.service.FbsAuthCodeBusinessServiceTest$AuthCodeOperationTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.014 s -- in com.wx.fbsir.business.fbs.service.FbsAuthCodeBusinessServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsEnterpriseBusinessServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsEnterpriseBusinessServiceTest$EnterprisePageFilterTests
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.050 s -- in com.wx.fbsir.business.fbs.service.FbsEnterpriseBusinessServiceTest$EnterprisePageFilterTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsEnterpriseBusinessServiceTest$EnterpriseDisableTests
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in com.wx.fbsir.business.fbs.service.FbsEnterpriseBusinessServiceTest$EnterpriseDisableTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsEnterpriseBusinessServiceTest$EnterpriseCrudTests
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.009 s -- in com.wx.fbsir.business.fbs.service.FbsEnterpriseBusinessServiceTest$EnterpriseCrudTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.068 s -- in com.wx.fbsir.business.fbs.service.FbsEnterpriseBusinessServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsEnterpriseMemberBusinessServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsEnterpriseMemberBusinessServiceTest$RemoveMemberTests
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.041 s -- in com.wx.fbsir.business.fbs.service.FbsEnterpriseMemberBusinessServiceTest$RemoveMemberTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsEnterpriseMemberBusinessServiceTest$AddMemberTests
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.015 s -- in com.wx.fbsir.business.fbs.service.FbsEnterpriseMemberBusinessServiceTest$AddMemberTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.057 s -- in com.wx.fbsir.business.fbs.service.FbsEnterpriseMemberBusinessServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsEnterprisePackBusinessServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsEnterprisePackBusinessServiceTest$QueryTests
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.006 s -- in com.wx.fbsir.business.fbs.service.FbsEnterprisePackBusinessServiceTest$QueryTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsEnterprisePackBusinessServiceTest$RevokeTests
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in com.wx.fbsir.business.fbs.service.FbsEnterprisePackBusinessServiceTest$RevokeTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsEnterprisePackBusinessServiceTest$GrantTests
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.014 s -- in com.wx.fbsir.business.fbs.service.FbsEnterprisePackBusinessServiceTest$GrantTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.029 s -- in com.wx.fbsir.business.fbs.service.FbsEnterprisePackBusinessServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsScenePackBusinessServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsScenePackBusinessServiceTest$ScenePackOperationTests
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.wx.fbsir.business.fbs.service.FbsScenePackBusinessServiceTest$ScenePackOperationTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.006 s -- in com.wx.fbsir.business.fbs.service.FbsScenePackBusinessServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$UserInfoTests
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.049 s -- in com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$UserInfoTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$ScenePackQueryTests
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$ScenePackQueryTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$UsageEndTests
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.008 s -- in com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$UsageEndTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$UsageStartTests
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$UsageStartTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$UsageConsumeTests
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$UsageConsumeTests
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$RightsCheckTests
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest$RightsCheckTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.080 s -- in com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsUserPackBusinessServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.FbsUserPackBusinessServiceTest$UserPackQueryTests
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.wx.fbsir.business.fbs.service.FbsUserPackBusinessServiceTest$UserPackQueryTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.wx.fbsir.business.fbs.service.FbsUserPackBusinessServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.impl.WecomCliServiceImplTest
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.684 s -- in com.wx.fbsir.business.fbs.service.impl.WecomCliServiceImplTest
+[INFO] Running com.wx.fbsir.business.fbs.service.RightsCheckServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.RightsCheckServiceTest$ComprehensiveCheckEnterpriseTests
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.037 s -- in com.wx.fbsir.business.fbs.service.RightsCheckServiceTest$ComprehensiveCheckEnterpriseTests
+[INFO] Running com.wx.fbsir.business.fbs.service.RightsCheckServiceTest$ComprehensiveCheckPersonalTests
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.009 s -- in com.wx.fbsir.business.fbs.service.RightsCheckServiceTest$ComprehensiveCheckPersonalTests
+[INFO] Running com.wx.fbsir.business.fbs.service.RightsCheckServiceTest$CheckAuthCodeTests
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in com.wx.fbsir.business.fbs.service.RightsCheckServiceTest$CheckAuthCodeTests
+[INFO] Running com.wx.fbsir.business.fbs.service.RightsCheckServiceTest$CheckScenePackTests
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.006 s -- in com.wx.fbsir.business.fbs.service.RightsCheckServiceTest$CheckScenePackTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.063 s -- in com.wx.fbsir.business.fbs.service.RightsCheckServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.SkillConsumeServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.SkillConsumeServiceTest$ConsumeEnterpriseTests
+14:45:13.646 [main] INFO com.wx.fbsir.business.fbs.service.impl.SkillConsumeServiceImpl -- ��ҵ������ѳɹ� userId=1001, enterpriseId=5001, packCode=pack_vip_monthly, usageRecordId=task-001-uuid, remainQuota=94
+14:45:13.654 [main] INFO com.wx.fbsir.business.fbs.service.impl.SkillConsumeServiceImpl -- ��ҵ������ѳɹ� userId=1001, enterpriseId=5001, packCode=pack_vip_monthly, usageRecordId=task-001-uuid, remainQuota=94
+14:45:13.675 [main] INFO com.wx.fbsir.business.fbs.service.impl.SkillConsumeServiceImpl -- Skill���ѳɹ� userId=1001, packCode=pack_vip_monthly, usageRecordId=task-001-uuid, pointsAmount=10, remainPoints=990
+14:45:13.677 [main] INFO com.wx.fbsir.business.fbs.service.impl.SkillConsumeServiceImpl -- ��ҵ������ѳɹ� userId=1001, enterpriseId=5001, packCode=pack_vip_monthly, usageRecordId=task-001-uuid, remainQuota=94
+[INFO] Tests run: 16, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.040 s -- in com.wx.fbsir.business.fbs.service.SkillConsumeServiceTest$ConsumeEnterpriseTests
+[INFO] Running com.wx.fbsir.business.fbs.service.SkillConsumeServiceTest$ConsumePersonalTests
+14:45:13.687 [main] INFO com.wx.fbsir.business.fbs.service.impl.SkillConsumeServiceImpl -- Skill���ѳɹ� userId=1001, packCode=pack_vip_monthly, usageRecordId=task-001-uuid, pointsAmount=0, remainPoints=1000
+14:45:13.691 [main] INFO com.wx.fbsir.business.fbs.service.impl.SkillConsumeServiceImpl -- Skill���ѳɹ� userId=1001, packCode=pack_vip_monthly, usageRecordId=task-001-uuid, pointsAmount=10, remainPoints=990
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.010 s -- in com.wx.fbsir.business.fbs.service.SkillConsumeServiceTest$ConsumePersonalTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.051 s -- in com.wx.fbsir.business.fbs.service.SkillConsumeServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomBusinessSyncServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomBusinessSyncServiceTest$FieldMappingTests
+14:45:13.710 [main] INFO com.wx.fbsir.business.fbs.service.impl.WecomBusinessSyncServiceImpl -- ͬ���������ѳɹ� userId=2001, packCode=FBS-mapping-test, writtenRecords=1
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.018 s -- in com.wx.fbsir.business.fbs.service.WecomBusinessSyncServiceTest$FieldMappingTests
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomBusinessSyncServiceTest$SyncCommercialHubTests
+14:45:13.714 [main] INFO com.wx.fbsir.business.fbs.service.impl.WecomBusinessSyncServiceImpl -- ͬ���������ѳɹ� userId=1001, packCode=FBS-test-pack, writtenRecords=1
+14:45:13.718 [main] ERROR com.wx.fbsir.business.fbs.service.impl.WecomBusinessSyncServiceImpl -- ͬ�����������쳣 userId=1003, packCode=FBS-test-pack
+java.lang.RuntimeException: ģ���쳣
+	at com.wx.fbsir.business.fbs.service.impl.WecomBusinessSyncServiceImpl.syncCommercialHub(WecomBusinessSyncServiceImpl.java:40)
+	at com.wx.fbsir.business.fbs.service.WecomBusinessSyncServiceTest$SyncCommercialHubTests.testSyncCommercialHubWriteException(WecomBusinessSyncServiceTest.java:144)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:775)
+	at org.junit.platform.commons.support.ReflectionSupport.invokeMethod(ReflectionSupport.java:479)
+	at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:161)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:152)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:91)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:112)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:94)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:93)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:87)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$7(TestMethodTestDescriptor.java:216)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:212)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:137)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:69)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:156)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:201)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:170)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:94)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:59)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:142)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:58)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85)
+	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47)
+	at org.junit.platform.launcher.core.InterceptingLauncher.lambda$execute$1(InterceptingLauncher.java:39)
+	at org.junit.platform.launcher.core.ClasspathAlignmentCheckingLauncherInterceptor.intercept(ClasspathAlignmentCheckingLauncherInterceptor.java:25)
+	at org.junit.platform.launcher.core.InterceptingLauncher.execute(InterceptingLauncher.java:38)
+	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47)
+	at org.apache.maven.surefire.junitplatform.LazyLauncher.execute(LazyLauncher.java:56)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.execute(JUnitPlatformProvider.java:184)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invokeAllTests(JUnitPlatformProvider.java:148)
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invoke(JUnitPlatformProvider.java:122)
+	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+14:45:13.724 [main] WARN com.wx.fbsir.business.fbs.service.impl.WecomBusinessSyncServiceImpl -- ͬ����������ʧ�� userId=1002, packCode=FBS-test-pack, errorCode=NET_TIMEOUT, errorMsg=���糬ʱ
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.011 s -- in com.wx.fbsir.business.fbs.service.WecomBusinessSyncServiceTest$SyncCommercialHubTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.030 s -- in com.wx.fbsir.business.fbs.service.WecomBusinessSyncServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$ParamValidationTests
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.078 s -- in com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$ParamValidationTests
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$DeleteFieldsTests
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.039 s -- in com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$DeleteFieldsTests
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$UpdateFieldsTests
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.015 s -- in com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$UpdateFieldsTests
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$AddFieldsTests
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.013 s -- in com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$AddFieldsTests
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$GetFieldsTests
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.006 s -- in com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$GetFieldsTests
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$DeleteSheetTests
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$DeleteSheetTests
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$UpdateSheetTests
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$UpdateSheetTests
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$AddSheetTests
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$AddSheetTests
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$GetSheetsTests
+14:45:13.899 [main] WARN com.wx.fbsir.business.fbs.service.impl.WecomSchemaServiceImpl -- ���� getSheets ��Ӧʧ��: Unrecognized token 'invalid': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')
+ at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 8]
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest$GetSheetsTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.176 s -- in com.wx.fbsir.business.fbs.service.WecomSchemaServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomSyncServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomSyncServiceTest$CheckTests
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.018 s -- in com.wx.fbsir.business.fbs.service.WecomSyncServiceTest$CheckTests
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomSyncServiceTest$ReadSheetTests
+[INFO] Tests run: 14, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.054 s -- in com.wx.fbsir.business.fbs.service.WecomSyncServiceTest$ReadSheetTests
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.073 s -- in com.wx.fbsir.business.fbs.service.WecomSyncServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomWriteServiceTest
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomWriteServiceTest$DeleteRecordsTests
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.027 s -- in com.wx.fbsir.business.fbs.service.WecomWriteServiceTest$DeleteRecordsTests
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomWriteServiceTest$UpdateRecordsTests
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.012 s -- in com.wx.fbsir.business.fbs.service.WecomWriteServiceTest$UpdateRecordsTests
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomWriteServiceTest$WriteFailed
+14:45:14.024 [main] WARN com.wx.fbsir.business.fbs.service.impl.WecomWriteServiceImpl -- д���Ƭ 1/1 ʧ��: CLI_ERROR - CLI ִ��ʧ��
+14:45:14.027 [main] WARN com.wx.fbsir.business.fbs.service.impl.WecomWriteServiceImpl -- д���Ƭ 2/2 ʧ��: EXEC_TIMEOUT - ִ�г�ʱ
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in com.wx.fbsir.business.fbs.service.WecomWriteServiceTest$WriteFailed
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomWriteServiceTest$WriteRejected
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.009 s -- in com.wx.fbsir.business.fbs.service.WecomWriteServiceTest$WriteRejected
+[INFO] Running com.wx.fbsir.business.fbs.service.WecomWriteServiceTest$WriteSuccess
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.014 s -- in com.wx.fbsir.business.fbs.service.WecomWriteServiceTest$WriteSuccess
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.072 s -- in com.wx.fbsir.business.fbs.service.WecomWriteServiceTest
+[INFO] Running com.wx.fbsir.business.point.service.impl.PointsServiceImplTest
+[INFO] Running com.wx.fbsir.business.point.service.impl.PointsServiceImplTest$FreePackTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.056 s -- in com.wx.fbsir.business.point.service.impl.PointsServiceImplTest$FreePackTest
+[INFO] Running com.wx.fbsir.business.point.service.impl.PointsServiceImplTest$ChangePointsWithEventId
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in com.wx.fbsir.business.point.service.impl.PointsServiceImplTest$ChangePointsWithEventId
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.065 s -- in com.wx.fbsir.business.point.service.impl.PointsServiceImplTest
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 286, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for ΢�Ÿ����� 1.0.0:
+[INFO] 
+[INFO] ΢�Ÿ����� .............................................. SUCCESS [  0.001 s]
+[INFO] WxFbsir-common ..................................... SUCCESS [  0.791 s]
+[INFO] WxFbsir-system ..................................... SUCCESS [  0.059 s]
+[INFO] WxFbsir-business ................................... SUCCESS [  3.505 s]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  4.566 s
+[INFO] Finished at: 2026-04-16T14:45:14+08:00
+[INFO] ------------------------------------------------------------------------

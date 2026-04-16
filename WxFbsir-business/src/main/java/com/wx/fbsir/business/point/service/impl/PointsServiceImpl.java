@@ -185,6 +185,88 @@ public class PointsServiceImpl implements IPointsService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmount,
+                                   Long scenePackId, String usageRecordId, String eventId) {
+        // 免费包：直接返回成功
+        if (StringUtils.isEmpty(ruleCode)) {
+            return AjaxResult.success("免费包，无需扣减积分");
+        }
+
+        // 参数校验
+        if (userId == null) {
+            return AjaxResult.error("用户ID不能为空");
+        }
+
+        // ===== 幂等检查（新增） =====
+        // 注意：MySQL UNIQUE 索引允许多个 NULL，eventId=null 不会触发幂等（符合预期）
+        // StringUtils.hasText 也排除了空字符串 "" 的情况
+        if (StringUtils.hasText(eventId)) {
+            PointsRecord existing = pointsRecordMapper.selectByEventId(eventId);
+            if (existing != null) {
+                // 已处理，返回既有余额（幂等）
+                return AjaxResult.success("积分操作成功（幂等）", existing.getBalanceAfter());
+            }
+        }
+        // ============================
+
+        // 获取积分规则
+        PointsRule rule = pointsRuleService.getRuleByCode(ruleCode);
+        if (rule == null || !"0".equals(rule.getStatus())) {
+            return AjaxResult.error("积分规则未配置或已停用");
+        }
+
+        // 计算实际变动值
+        Integer actualChange = changeAmount != null ? changeAmount : rule.getPointsValue();
+        if (actualChange == null || actualChange == 0) {
+            return AjaxResult.error("积分变动值无效");
+        }
+
+        // 查询当前余额
+        Integer currentPoints = getUserPoints(userId);
+        if (currentPoints == null) {
+            currentPoints = 0;
+        }
+
+        // 限频校验（使用规则编码）
+        if (!pointsRuleService.checkLimit(userId, ruleCode, rule)) {
+            return AjaxResult.error("已达到限频上限，请稍后再试");
+        }
+
+        // 累计上限校验
+        if (!pointsRuleService.checkMaxAmount(userId, ruleCode, actualChange, rule)) {
+            return AjaxResult.error("已达到累计上限，无法继续发放");
+        }
+
+        // 余额校验（扣减场景）
+        if (actualChange < 0 && (currentPoints + actualChange) < 0) {
+            return AjaxResult.error("积分余额不足，扣减失败");
+        }
+
+        // 更新积分余额
+        Integer newPoints = currentPoints + actualChange;
+        pointsMapper.updateUserPoints(userId, newPoints);
+
+        // 插入积分记录（包含 event_id）
+        PointsRecord record = new PointsRecord();
+        record.setUserId(userId);
+        record.setRuleCode(ruleCode);
+        record.setChangeAmount(actualChange);
+        record.setBalanceBefore(currentPoints);
+        record.setBalanceAfter(newPoints);
+        record.setScenePackId(scenePackId);
+        record.setUsageRecordId(usageRecordId);
+        record.setEventId(eventId);  // ← 新增
+        // 注意：create_time 在 XML 中硬编码为 NOW()，此处无需 setCreateTime
+        pointsRecordMapper.insertPointsRecord(record);
+
+        // 记录限频
+        pointsRuleService.markLimit(userId, ruleCode, rule);
+
+        return AjaxResult.success("积分操作成功", newPoints);
+    }
+
+    @Override
     public Integer getUserPoints(Long userId) {
         return pointsMapper.getUserPoints(userId);
     }

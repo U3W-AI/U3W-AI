@@ -83,9 +83,10 @@ class WecomWriteServiceTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        setField("docId", "test-doc-id");
+        setField("docUrl", "https://example.com/sheet/test-doc-id");
         setField("metaSheetId", "test-meta-sheet-id");
         setField("commercialHubSheetId", "test-commercial-hub-sheet-id");
+        setField("entitlementSheetId", "test-entitlement-sheet-id");
         setField("maxPayloadBytes", 20480);
     }
 

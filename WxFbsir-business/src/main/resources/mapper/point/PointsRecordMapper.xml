@@ -15,7 +15,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="remark"        column="remark"          />
         <result property="scenePackId"   column="scene_pack_id"   />
         <result property="usageRecordId" column="usage_record_id" />
-        <result property="createBy"      column="create_by"       />
+        <result property="eventId"       column="event_id"        />
+        <result property="createBy"       column="create_by"       />
         <result property="createTime"    column="create_time"     />
         <result property="updateBy"      column="update_by"       />
         <result property="updateTime"    column="update_time"     />
@@ -23,7 +24,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <sql id="selectPointsRecordVo">
         select r.record_id, r.user_id, r.rule_code, COALESCE(pr.rule_name, r.rule_code) as rule_name, r.change_amount, r.balance_before, r.balance_after,
-               r.remark, r.scene_pack_id, r.usage_record_id, r.create_by, r.create_time, r.update_by, r.update_time
+               r.remark, r.scene_pack_id, r.usage_record_id, r.event_id, r.create_by, r.create_time, r.update_by, r.update_time
         from wx_points_record r
         left join wx_points_rule pr on pr.rule_code = r.rule_code
     </sql>
@@ -83,6 +84,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         LIMIT 1
     </select>
 
+    <select id="selectByEventId" parameterType="String" resultMap="PointsRecordResult">
+        <include refid="selectPointsRecordVo"/>
+        WHERE event_id = #{eventId}
+        LIMIT 1
+    </select>
+
     <select id="countUserRuleSince" resultType="int">
         SELECT COUNT(1)
         FROM wx_points_record
@@ -105,6 +112,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="remark != null">remark,</if>
             <if test="scenePackId != null">scene_pack_id,</if>
             <if test="usageRecordId != null and usageRecordId != ''">usage_record_id,</if>
+            <if test="eventId != null and eventId != ''">event_id,</if>
             <if test="createBy != null">create_by,</if>
             create_time
         </trim>
@@ -117,6 +125,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="remark != null">#{remark},</if>
             <if test="scenePackId != null">#{scenePackId},</if>
             <if test="usageRecordId != null and usageRecordId != ''">#{usageRecordId},</if>
+            <if test="eventId != null and eventId != ''">#{eventId},</if>
             <if test="createBy != null">#{createBy},</if>
             NOW()
         </trim>
@@ -133,6 +142,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="remark != null">remark = #{remark},</if>
             <if test="scenePackId != null">scene_pack_id = #{scenePackId},</if>
             <if test="usageRecordId != null and usageRecordId != ''">usage_record_id = #{usageRecordId},</if>
+            <if test="eventId != null and eventId != ''">event_id = #{eventId},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
             update_time = NOW()
         </trim>

@@ -45,11 +45,11 @@ class WecomSyncServiceTest {
 
     // ---- 辅助方法 ----
 
-    /** 通过反射设置 docId（@Value 注入） */
-    private void setDocId(String docId) throws Exception {
-        Field f = WecomSyncServiceImpl.class.getDeclaredField("docId");
+    /** 通过反射设置 docUrl（@Value 注入） */
+    private void setDocUrl(String docUrl) throws Exception {
+        Field f = WecomSyncServiceImpl.class.getDeclaredField("docUrl");
         f.setAccessible(true);
-        f.set(wecomSyncService, docId);
+        f.set(wecomSyncService, docUrl);
     }
 
     /** 通过反射设置 metaSheetId / commercialHubSheetId（@Value 注入） */
@@ -63,9 +63,9 @@ class WecomSyncServiceTest {
         f2.set(wecomSyncService, "04bLwp");
     }
 
-    /** 统一初始化：设置 docId + sheetId 映射 */
+    /** 统一初始化：设置 docUrl + sheetId 映射 */
     private void setupConfig() throws Exception {
-        setDocId("test-doc-id");
+        setDocUrl("https://example.com/sheet/test-doc-id");
         setSheetIds();
     }
 

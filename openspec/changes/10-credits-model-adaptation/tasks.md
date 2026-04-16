@@ -2,169 +2,98 @@
 
 > **Change ID**: `credits-model-adaptation`
 > **日期**: 2026-04-16
-> **预估工时**: 6 小时
+> **预估工时**: 2.5 小时
 
 ---
 
-## Task 1: 数据表与实体（1h）
+## Task 1: 数据表扩展（0.5h）
 
-### 1.1 创建数据库表
-- [ ] 创建 `fbs_credits_ledger` 表（含索引）
-  - `idx_user_book` (user_id, book_id)
-  - `uk_event_id` UNIQUE (event_id)
+### 1.1 添加字段和索引
+- [ ] 为 `wx_points_record` 表添加 `event_id` 字段（VARCHAR(128)）
+- [ ] 添加唯一索引 `uk_event_id`
+- [ ] 更新 `PointsRecord.java` 实体类，添加 `eventId` 字段及 getter/setter（与现有手写风格一致，不使用 Lombok）
 
-### 1.2 创建实体类
-- [ ] 创建 `FbsCreditsLedger.java`（位于 `domain/entity/`）
-  - 字段：id / userId / bookId / eventType / eventId / delta / balanceAfter / remark / createdBy / createdTime
-  - 使用 Lombok 注解
-
-### 1.3 创建 Mapper
-- [ ] 创建 `FbsCreditsLedgerMapper.java`
-- [ ] 创建 `FbsCreditsLedgerMapper.xml`
-  - insert()
-  - selectByEventId()
-  - selectByUserIdAndBookId()
+### 1.2 Mapper 扩展
+- [ ] 在 `PointsRecordMapper.java` 中新增 `selectByEventId()` 方法
+- [ ] 在 `PointsRecordMapper.xml` 中：
+  - 新增 `selectByEventId` SQL
+  - 在 `insertPointsRecord` 中添加 `<if test="eventId != null and eventId != ''">event_id,</if>` 条件列（与现有 `usageRecordId` 写法一致）
 
 ---
 
-## Task 2: 核心服务（2h）
+## Task 2: 服务层扩展（1h）
 
-### 2.1 创建服务接口
-- [ ] 创建 `CreditsLedgerService.java`（位于 `service/`）
-  - getBalance(userId, bookId)
-  - changeCredits(userId, bookId, eventType, eventId, delta, remark)
-  - getLedgerRecords(userId, bookId, startTime, endTime)
-  - getSnapshot(userId, bookId)
-
-### 2.2 实现服务类
-- [ ] 创建 `CreditsLedgerServiceImpl.java`（位于 `service/impl/`）
-  - 实现 `getBalance()`: 从 sys_user.points 查询
-  - 实现 `changeCredits()`: 幂等控制 + 事务保证
-    - 检查 event_id 是否已存在
-    - 加锁查询 sys_user
-    - 更新 sys_user.points
-    - 插入 fbs_credits_ledger
-  - 实现 `getLedgerRecords()`: 按时间范围查询
-  - 实现 `getSnapshot()`: 返回余额快照
-
-### 2.3 异常处理
-- [ ] 创建 `InsufficientCreditsException.java`（积分余额不足异常）
-
----
-
-## Task 3: Skill API（1.5h）
-
-### 3.1 创建 DTO
-- [ ] 创建 `CreditsBalanceRequest.java`
-- [ ] 创建 `CreditsBalanceResponse.java`
-- [ ] 创建 `CreditsEarnRequest.java`
-- [ ] 创建 `CreditsEarnResponse.java`
-- [ ] 创建 `CreditsSyncResponse.java`
-
-### 3.2 创建 Controller
-- [ ] 创建 `CreditsInternalController.java`（位于 `controller/internal/`）
-  - `GET /fbs/internal/credits/balance`
-  - `POST /fbs/internal/credits/earn`
-  - `GET /fbs/internal/credits/sync`
-
-### 3.3 API 认证
-- [ ] 复用 OpenSpec #5 的 API Key 认证机制
-- [ ] 在 SecurityConfig 中配置 `/fbs/internal/credits/**` 路径权限
-
----
-
-## Task 4: LedgerSync 进程（1h）
-
-### 4.1 创建进程目录
-- [ ] 创建 `ledgersync/` 目录（项目根目录）
-
-### 4.2 编写 Python 脚本
-- [ ] 创建 `ledgersync.py`（主进程）
-  - load_config()
-  - fetch_balance()
-  - write_ledger()
-  - main() 循环
-
-### 4.3 配置文件
-- [ ] 创建 `ledgersync.conf.example`（配置模板）
-  - api.base_url
-  - api.api_key
-  - sync.interval_seconds
-  - sync.output_path
-
-### 4.4 本地文件格式
-- [ ] 定义 `credits-ledger.json` 格式
-  ```json
-  {
-    "userId": 1,
-    "bookId": "default",
-    "balance": 1000,
-    "lastUpdated": "2026-04-16T12:00:00",
-    "version": "v1.0.0"
-  }
+### 2.1 接口扩展
+- [ ] 在 `IPointsService.java` 中新增方法签名：
+  ```java
+  public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmount,
+                                 Long scenePackId, String usageRecordId, String eventId);
   ```
 
+### 2.2 实现幂等逻辑
+- [ ] 在 `PointsServiceImpl.java` 中实现新方法
+- [ ] 幂等检查：若 `eventId` 已存在，返回既有余额
+- [ ] 插入记录时写入 `event_id` 字段
+
 ---
 
-## Task 5: 测试（0.5h）
+## Task 3: LedgerSync 进程（0.5h）
 
-### 5.1 单元测试
-- [ ] 创建 `CreditsLedgerServiceTest.java`
-  - testGetBalance()
-  - testChangeCredits_Success()
-  - testChangeCredits_Idempotent()
-  - testChangeCredits_InsufficientBalance()
+### 3.1 Python 脚本
+- [ ] 创建 `ledgersync/ledgersync.py`（主进程）
+- [ ] 复用 `/fbs/skill-api/user/info` 端点（取 `data.pointsBalance`）
+- [ ] 请求头使用 `X-FBS-API-Key`（非 `X-API-Key`）
+- [ ] 支持环境变量配置：`API_BASE_URL` / `API_KEY` / `USER_ID` / `SYNC_INTERVAL` / `OUTPUT_PATH`
+- [ ] 写入 `credits-ledger.json`
 
-### 5.2 Controller 测试
-- [ ] 创建 `CreditsInternalControllerTest.java`
-  - testBalanceApi()
-  - testEarnApi()
-  - testSyncApi()
+---
 
-### 5.3 LedgerSync 集成测试
+## Task 4: 测试（0.5h）
+
+### 4.1 单元测试
+- [ ] `PointsServiceImplTest`：测试幂等逻辑
+  - `testChangePoints_WithEventId_Idempotent()`
+  - `testChangePoints_WithoutEventId_Normal()`
+
+### 4.2 LedgerSync 测试
 - [ ] 手动运行 LedgerSync 进程
-- [ ] 验证 credits-ledger.json 生成
-- [ ] 验证内容正确性
-
----
-
-## Task 6: 文档更新（可选）
-
-### 6.1 API 文档
-- [ ] 更新 `docs/api/FBS-BUSINESS-API.md`
-  - 新增 §14.9 积分账本 API 章节
-
-### 6.2 阶段规划更新
-- [ ] 更新 `quest/阶段规划.md`
-  - OpenSpec #10 状态改为已完成
+- [ ] 验证 `credits-ledger.json` 文件生成
 
 ---
 
 ## 任务依赖关系
 
 ```
-Task 1 (数据表与实体)
+Task 1 (数据表扩展)
    ↓
-Task 2 (核心服务)
+Task 2 (服务层扩展)
    ↓
-Task 3 (Skill API) ────┐
-   ↓                   │
-Task 4 (LedgerSync) ◄──┘
+Task 3 (LedgerSync)
    ↓
-Task 5 (测试)
-   ↓
-Task 6 (文档更新)
+Task 4 (测试)
 ```
 
 ---
 
 ## 验收清单
 
-- [ ] `fbs_credits_ledger` 表创建成功
-- [ ] `CreditsLedgerService` 实现余额查询 + 幂等变动
-- [ ] `/fbs/internal/credits/balance` API 返回用户积分
-- [ ] `/fbs/internal/credits/earn` API 支持幂等赚取
-- [ ] `/fbs/internal/credits/sync` API 返回快照
-- [ ] LedgerSync 进程可以轮询 API 并写入本地 JSON
-- [ ] 单元测试通过（余额计算、幂等控制）
-- [ ] 集成测试通过（Skill 端可读取 credits-ledger.json）
+- [ ] `wx_points_record.event_id` 字段添加成功
+- [ ] `IPointsService.changePoints()` 支持 `eventId` 参数（幂等）
+- [ ] LedgerSync 进程可以轮询 `/user/info` 并写入本地 JSON
+- [ ] 单元测试通过（幂等逻辑）
+- [ ] 集成测试通过（Skill 端可读取 `credits-ledger.json`）
+
+---
+
+## 变更文件清单
+
+| 类型 | 文件路径 | 变更说明 |
+|------|----------|----------|
+| SQL | `sql/openspec/10_credits_ledger.sql` | 添加 event_id 字段 |
+| Entity | `WxFbsir-business/.../point/domain/PointsRecord.java` | 添加 eventId 字段 |
+| Mapper | `WxFbsir-business/.../point/mapper/PointsRecordMapper.java` | 新增 selectByEventId() |
+| Mapper XML | `WxFbsir-business/.../point/mapper/PointsRecordMapper.xml` | 更新 SQL |
+| Service | `WxFbsir-business/.../point/service/IPointsService.java` | 新增方法签名 |
+| Service Impl | `WxFbsir-business/.../point/service/impl/PointsServiceImpl.java` | 实现幂等逻辑 |
+| Script | `ledgersync/ledgersync.py` | 新增 LedgerSync 进程 |
+| Test | `WxFbsir-business/.../point/service/impl/PointsServiceImplTest.java` | 新增幂等测试 |

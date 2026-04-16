@@ -38,6 +38,9 @@ public class PointsRecord extends BaseEntity {
     /** 关联使用记录幂等键（FBS场景包消费时写入，普通积分操作为NULL） */
     private String usageRecordId;
 
+    /** 事件幂等键（FIRST_INSTALL/DAILY_LOGIN等行为事件去重，普通积分操作为NULL） */
+    private String eventId;
+
     public void setRecordId(Long recordId) {
         this.recordId = recordId;
     }
@@ -108,5 +111,13 @@ public class PointsRecord extends BaseEntity {
 
     public void setUsageRecordId(String usageRecordId) {
         this.usageRecordId = usageRecordId;
+    }
+
+    public String getEventId() {
+        return eventId;
+    }
+
+    public void setEventId(String eventId) {
+        this.eventId = eventId;
     }
 }

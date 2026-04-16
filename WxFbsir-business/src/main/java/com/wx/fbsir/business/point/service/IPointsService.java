@@ -40,6 +40,23 @@ public interface IPointsService {
                                    Long scenePackId, String usageRecordId);
     
     /**
+     * 积分变动（幂等）
+     * 
+     * 支持事件幂等控制，用于 FIRST_INSTALL / DAILY_LOGIN 等行为去重。
+     * 若 eventId 已存在，直接返回既有余额（幂等）。
+     *
+     * @param userId 用户ID
+     * @param ruleCode 规则编码（空表示免费包）
+     * @param changeAmount 积分变动值
+     * @param scenePackId 场景包ID
+     * @param usageRecordId 使用记录幂等键
+     * @param eventId 事件幂等键（可选，用于行为事件去重）
+     * @return 结果
+     */
+    public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmount,
+                                   Long scenePackId, String usageRecordId, String eventId);
+    
+    /**
      * 查询用户积分余额
      * 
      * @param userId 用户ID

@@ -3,7 +3,7 @@
 > **Change ID**: `credits-model-adaptation`
 > **阶段**: 第四阶段 — 积分与乐包体系打通
 > **日期**: 2026-04-16
-> **依赖**: OpenSpec #6（企微 CLI 集成）
+> **依赖**: OpenSpec #6（企微 CLI 集成）+ OpenSpec #9（业务数据同步）
 
 ---
 
@@ -20,14 +20,12 @@
 当前缺口：
 1. **缺少幂等控制**：`FIRST_INSTALL` / `DAILY_LOGIN` 等行为事件需要去重
 2. **主机侧无同步机制**：Skill 需要离线/弱网访问积分数据
-3. **缺少余额查询 API**：Skill API 只有用户信息查询，无专门的积分余额端点
 
 ### 1.2 目标
 
 1. 扩展 **IPointsService**：增加 `event_id` 参数支持幂等控制
-2. 新增 **Skill API 端点**：`/fbs/skill-api/credits/balance` 供 Skill 端查询余额
-3. 实现 **LedgerSync 进程**：主机侧同步，写入本地 JSON
-4. 最小改动：复用现有 `wx_points_record` 表和 `IPointsService` 逻辑
+2. 实现 **LedgerSync 进程**：主机侧同步，写入本地 JSON
+3. 最小改动：复用现有 `wx_points_record` 表、`IPointsService` 逻辑、`/user/info` 端点
 
 ---
 
@@ -91,36 +89,15 @@ public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmoun
 - 若 `eventId != null` 且不存在 → 正常执行积分变动，插入时写入 `event_id`
 - 若 `eventId == null` → 走原有逻辑（不检查幂等）
 
-### 2.3 API 扩展
+### 2.3 API：复用现有端点
 
-#### Skill API 新增端点
+**不复用新建端点**。现有 `/fbs/skill-api/user/info` 已返回 `pointsBalance`，LedgerSync 直接复用此端点。
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/fbs/skill-api/credits/balance` | 查询用户积分余额 |
+| POST | `/fbs/skill-api/user/info` | 已有端点，返回 `pointsBalance` + `activatedPacks` |
 
-**请求**：
-```json
-{
-  "userId": 1
-}
-```
-
-**响应**：
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "userId": 1,
-    "balance": 1000
-  }
-}
-```
-
-**认证**：
-- 复用现有 `/fbs/skill-api/**` 的 API Key 认证机制
-- 无需新增 SecurityConfig 配置
+LedgerSync 调用 `/user/info`，只取 `data.pointsBalance` 字段即可。
 
 ### 2.4 event_id 生成规则
 
@@ -135,7 +112,7 @@ public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmoun
 #### 设计目标
 
 - 独立进程，部署在福帮手主机侧
-- 定期调用 Skill API，将积分余额写入本地 JSON
+- 定期调用 Skill API `/user/info`，将积分余额写入本地 JSON
 - 供 Skill 端离线/弱网访问
 
 #### 本地文件契约
@@ -160,14 +137,15 @@ public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmoun
 |------|------|
 | `wx_points_record` | 新增 `event_id` 字段 |
 | `IPointsService` | 新增 `changePoints()` 幂等重载 |
-| `FbsSkillApiController` | 新增 `/credits/balance` 端点 |
 | `LedgerSync` | 新增独立进程（Python） |
 
 ### 3.2 不在本 OpenSpec 范围内
 
+- `/earn` 专用 API（本轮 MVP 不新增，行为激励通过 `IPointsService.changePoints(eventId)` 直接调用）
 - WebSocket 推送（Phase 2）
 - 增量同步优化（Phase 2）
 - 新建积分账本表（复用现有 `wx_points_record`）
+- 新增 Skill API 端点（复用现有 `/user/info`）
 
 ---
 
@@ -175,10 +153,9 @@ public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmoun
 
 1. ✅ `wx_points_record.event_id` 字段添加成功
 2. ✅ `IPointsService.changePoints()` 支持 `eventId` 参数（幂等）
-3. ✅ `/fbs/skill-api/credits/balance` API 返回用户积分
-4. ✅ LedgerSync 进程可以轮询 API 并写入本地 JSON
-5. ✅ 单元测试覆盖幂等逻辑
-6. ✅ 集成测试：Skill 端可读取 `credits-ledger.json` 获取余额
+3. ✅ LedgerSync 进程可以轮询 `/user/info` API 并写入本地 JSON
+4. ✅ 单元测试覆盖幂等逻辑
+5. ✅ 集成测试：Skill 端可读取 `credits-ledger.json` 获取余额
 
 ---
 
@@ -191,13 +168,10 @@ public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmoun
 - [ ] 扩展 `PointsServiceImpl.changePoints()` 方法签名
 - [ ] 实现幂等检查逻辑
 
-### Task 3：Skill API 扩展
-- [ ] 在 `FbsSkillApiController` 中新增 `/credits/balance` 端点
+### Task 3：LedgerSync 进程
+- [ ] 编写 LedgerSync 脚本（Python），复用 `/user/info` 端点
 
-### Task 4：LedgerSync 进程
-- [ ] 编写 LedgerSync 脚本（Python）
-
-### Task 5：测试
+### Task 4：测试
 - [ ] 幂等逻辑单元测试
 - [ ] LedgerSync 集成测试
 
@@ -208,3 +182,4 @@ public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmoun
 - 技术方案文档：`u3wv2-fbs_skill_后台打通-技术方案.pdf`
 - 阶段规划：`quest/阶段规划.md`
 - OpenSpec #6：wecom-cli 集成
+- OpenSpec #9：业务数据同步到企微

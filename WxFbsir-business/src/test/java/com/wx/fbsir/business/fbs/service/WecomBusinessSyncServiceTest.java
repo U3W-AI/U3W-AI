@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -22,6 +23,13 @@ import static org.mockito.Mockito.*;
  *
  * <p>测试业务数据同步到企微智能表格的逻辑。</p>
  * <p>Mock WecomWriteService，不依赖真实企微 API。</p>
+ *
+ * <h3>企微智能表格字段格式</h3>
+ * <ul>
+ *   <li>文本字段：List&lt;Map&gt; 格式，如 [{"type":"text","text":"内容"}]</li>
+ *   <li>数字字段：直接值</li>
+ *   <li>布尔字段：直接 boolean 值</li>
+ * </ul>
  *
  * @author wxfbsir
  * @date 2026-04-15
@@ -35,6 +43,20 @@ class WecomBusinessSyncServiceTest {
 
     @InjectMocks
     private WecomBusinessSyncServiceImpl wecomBusinessSyncService;
+
+    // ---- 辅助方法：提取文本字段内容 ----
+
+    /** 从企微格式文本字段中提取实际文本内容 */
+    @SuppressWarnings("unchecked")
+    private String extractTextField(Object field) {
+        if (field instanceof List) {
+            List<Map<String, String>> list = (List<Map<String, String>>) field;
+            if (!list.isEmpty() && list.get(0).containsKey("text")) {
+                return list.get(0).get("text");
+            }
+        }
+        return null;
+    }
 
     @Nested
     @DisplayName("syncCommercialHub 方法")
@@ -64,15 +86,22 @@ class WecomBusinessSyncServiceTest {
                     argThat(records -> {
                         if (records.size() != 1) return false;
                         Map<String, Object> record = records.get(0);
-                        return record.containsKey("record_id")
-                                && "SKILL_USAGE".equals(record.get("record_type"))
+                        
+                        // 文本字段：从企微格式中提取
+                        String recordType = extractTextField(record.get("record_type"));
+                        String genre = extractTextField(record.get("genre"));
+                        String event = extractTextField(record.get("event"));
+                        String status = extractTextField(record.get("status"));
+                        
+                        return "SKILL_USAGE".equals(recordType)
+                                && packCode.equals(genre)
+                                && "CONSUME".equals(event)
+                                && "SUCCESS".equals(status)
+                                // 数字字段：直接比较
                                 && userId.equals(record.get("user_id"))
-                                && packCode.equals(record.get("genre"))
-                                && "CONSUME".equals(record.get("event"))
                                 && record.get("delta").equals(-pointsAmount)
                                 && record.get("balance_after").equals(remainPoints)
-                                && record.get("credits_required").equals(pointsAmount)
-                                && "SUCCESS".equals(record.get("status"));
+                                && record.get("credits_required").equals(pointsAmount);
                     })
             );
         }
@@ -141,22 +170,27 @@ class WecomBusinessSyncServiceTest {
             // When
             wecomBusinessSyncService.syncCommercialHub(userId, packCode, pointsAmount, remainPoints);
 
-            // Then - 验证所有 10 个字段都存在
+            // Then - 验证所有字段都存在（文本字段是 List 格式，数字是直接值）
             verify(wecomWriteService).writeRecords(
                     eq("commercial_hub"),
                     argThat(records -> {
                         Map<String, Object> record = records.get(0);
-                        return record.size() == 10
-                                && record.containsKey("record_id")
-                                && record.containsKey("record_type")
-                                && record.containsKey("user_id")
-                                && record.containsKey("genre")
-                                && record.containsKey("event")
+                        
+                        // 文本字段：应为 List<Map> 格式
+                        boolean textFieldsValid = record.get("record_id") instanceof List
+                                && record.get("record_type") instanceof List
+                                && record.get("genre") instanceof List
+                                && record.get("event") instanceof List
+                                && record.get("status") instanceof List
+                                && record.get("created_at") instanceof List;
+                        
+                        // 数字字段：直接值
+                        boolean numericFieldsValid = record.containsKey("user_id")
                                 && record.containsKey("delta")
                                 && record.containsKey("balance_after")
-                                && record.containsKey("credits_required")
-                                && record.containsKey("status")
-                                && record.containsKey("created_at");
+                                && record.containsKey("credits_required");
+                        
+                        return textFieldsValid && numericFieldsValid;
                     })
             );
         }

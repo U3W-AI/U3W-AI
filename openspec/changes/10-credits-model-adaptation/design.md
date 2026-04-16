@@ -7,45 +7,42 @@
 
 ## 一、架构设计
 
-### 1.1 整体架构
+### 1.1 整体架构（复用现有系统）
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    U3WV2 (WxFbsir)                          │
 │  ┌──────────────┐    ┌──────────────────┐                  │
-│  │ sys_user     │    │ fbs_credits_     │                  │
-│  │ (points余额) │◄───│ ledger (流水)     │                  │
+│  │ sys_user     │    │ wx_points_record │                  │
+│  │ (points余额) │◄───│ (流水+幂等)       │                  │
 │  └──────────────┘    └──────────────────┘                  │
 │         ▲                    ▲                              │
 │         │                    │                              │
 │  ┌──────┴────────────────────┴───────┐                     │
-│  │     CreditsLedgerService          │                     │
-│  │  - getBalance()                   │                     │
-│  │  - changeCredits() (幂等)         │                     │
-│  │  - getLedgerRecords()             │                     │
+│  │     IPointsService（扩展）          │                     │
+│  │  - getUserPoints()                │                     │
+│  │  - changePoints(eventId) (幂等)   │                     │
 │  └──────────────┬────────────────────┘                     │
 │                 │                                            │
 │  ┌──────────────▼────────────────────┐                     │
-│  │  CreditsInternalController        │                     │
-│  │  - GET  /balance                  │                     │
-│  │  - POST /earn                     │                     │
-│  │  - GET  /sync                     │                     │
+│  │  FbsSkillApiController             │                     │
+│  │  - POST /user/info  (已有，复用)   │                     │
 │  └──────────────┬────────────────────┘                     │
 └─────────────────┼───────────────────────────────────────────┘
-                  │ HTTP API
+                  │ HTTP API (X-FBS-API-Key)
                   │
 ┌─────────────────▼───────────────────────────────────────────┐
 │              福帮手主机侧                                     │
 │  ┌──────────────────────────────────┐                       │
 │  │      LedgerSync 进程             │                       │
-│  │  - 定期轮询 /sync API            │                       │
+│  │  - 定期轮询 /user/info           │                       │
 │  │  - 写入 credits-ledger.json      │                       │
-│  └──────────────┬───────────────────┘                       │
-│                 │                                            │
-│                 ▼                                            │
-│         credits-ledger.json                                  │
-│                 │                                            │
-│                 ▼                                            │
+│  └──────────────────┬───────────────┘                       │
+│                     │                                        │
+│                     ▼                                        │
+│           credits-ledger.json                                │
+│                     │                                        │
+│                     ▼                                        │
 │  ┌──────────────────────────────────┐                       │
 │  │   FBS-BookWriter Skill           │                       │
 │  │   - 读取本地 JSON 获取余额        │                       │
@@ -56,64 +53,42 @@
 
 ### 1.2 数据流
 
-**积分赚取流程**：
+**积分变动流程（幂等）**：
 ```
-Skill 端触发事件 → POST /earn → CreditsLedgerService.changeCredits()
-                                      ↓
-                              检查 event_id 幂等
-                                      ↓
-                              插入 fbs_credits_ledger
-                                      ↓
-                              更新 sys_user.points
-                                      ↓
-                              返回 balance_after
+业务层调用 changePoints(eventId)
+        ↓
+检查 event_id 是否已存在
+        ↓
+若存在：返回既有余额（幂等）
+若不存在：正常执行积分变动
+        ↓
+插入 wx_points_record（含 event_id）
+        ↓
+更新 sys_user.points
 ```
 
 **积分同步流程**：
 ```
-LedgerSync 定时器 → GET /sync → CreditsLedgerService.getBalance()
-                                       ↓
-                               返回余额快照
-                                       ↓
-                               写入 credits-ledger.json
+LedgerSync 定时器 → POST /user/info (X-FBS-API-Key)
+                          ↓
+                  返回 pointsBalance
+                          ↓
+                  写入 credits-ledger.json
 ```
 
 ---
 
-## 二、数据模型设计
+## 二、数据模型扩展
 
-### 2.1 fbs_credits_ledger 表
+### 2.1 wx_points_record 表扩展
 
+**新增字段**：
 ```sql
-CREATE TABLE fbs_credits_ledger (
-    id              BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
-    user_id         BIGINT NOT NULL COMMENT '用户 ID',
-    book_id         VARCHAR(64) NOT NULL DEFAULT 'default' COMMENT '账本 ID',
-    event_type      VARCHAR(32) NOT NULL COMMENT '事件类型',
-    event_id        VARCHAR(128) NOT NULL COMMENT '幂等键（事件唯一标识）',
-    delta           INT NOT NULL COMMENT '积分变动（正=增加，负=扣减）',
-    balance_after   INT NOT NULL COMMENT '变动后余额',
-    remark          VARCHAR(500) COMMENT '备注',
-    created_by      VARCHAR(64) COMMENT '创建人',
-    created_time    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    
-    INDEX idx_user_book (user_id, book_id),
-    UNIQUE KEY uk_event_id (event_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='积分账本流水表';
+ALTER TABLE wx_points_record ADD COLUMN event_id VARCHAR(128) COMMENT '幂等键';
+ALTER TABLE wx_points_record ADD UNIQUE KEY uk_event_id (event_id);
 ```
 
-### 2.2 event_type 枚举
-
-| 值 | 说明 | delta |
-|----|------|-------|
-| `FIRST_INSTALL` | 首次安装 | +100（配置） |
-| `DAILY_LOGIN` | 每日登录 | +10（配置） |
-| `SKILL_CONSUME` | Skill 消费 | -N（实际扣减） |
-| `ADMIN_GRANT` | 管理员发放 | +N |
-| `PACK_PURCHASE` | 场景包购买 | -N |
-| `REFUND` | 退款/返还 | +N |
-
-### 2.3 event_id 生成规则
+### 2.2 event_id 生成规则
 
 | event_type | event_id 格式 | 示例 |
 |------------|---------------|------|
@@ -124,109 +99,123 @@ CREATE TABLE fbs_credits_ledger (
 
 ---
 
-## 三、服务设计
+## 三、服务层扩展
 
-### 3.1 CreditsLedgerService
+### 3.1 IPointsService 接口扩展
 
 ```java
-public interface CreditsLedgerService {
+public interface IPointsService {
+    // 原有方法（保持不变）
+    public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmount);
     
-    /**
-     * 查询用户积分余额
-     * 
-     * @param userId 用户 ID
-     * @param bookId 账本 ID（默认 default）
-     * @return 积分余额
-     */
-    int getBalance(Long userId, String bookId);
+    // Skill 消费场景（保持不变）
+    public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmount,
+                                   Long scenePackId, String usageRecordId);
     
+    // 新增：幂等控制
     /**
-     * 积分变动（幂等）
+     * 积分变动（支持幂等）
      * 
-     * @param userId 用户 ID
-     * @param bookId 账本 ID
-     * @param eventType 事件类型
-     * @param eventId 幂等键
-     * @param delta 变动值（正数=增加，负数=扣减）
-     * @param remark 备注
-     * @return 变动后余额
+     * @param userId 用户ID
+     * @param ruleCode 规则编码
+     * @param changeAmount 积分变动值
+     * @param scenePackId 场景包ID
+     * @param usageRecordId 使用记录幂等键
+     * @param eventId 事件幂等键（可选，用于行为事件去重）
+     * @return 结果
      */
-    int changeCredits(Long userId, String bookId, String eventType, 
-                      String eventId, int delta, String remark);
+    public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmount,
+                                   Long scenePackId, String usageRecordId, String eventId);
     
-    /**
-     * 查询用户积分流水
-     * 
-     * @param userId 用户 ID
-     * @param bookId 账本 ID
-     * @param startTime 开始时间
-     * @param endTime 结束时间
-     * @return 流水记录列表
-     */
-    List<FbsCreditsLedger> getLedgerRecords(Long userId, String bookId,
-                                             LocalDateTime startTime, 
-                                             LocalDateTime endTime);
-    
-    /**
-     * 同步快照（供 LedgerSync 调用）
-     * 
-     * @param userId 用户 ID
-     * @param bookId 账本 ID
-     * @return 快照对象
-     */
-    CreditsSnapshot getSnapshot(Long userId, String bookId);
+    // 其他方法保持不变...
 }
 ```
 
-### 3.2 CreditsLedgerServiceImpl 实现要点
+### 3.2 PointsServiceImpl 实现要点
 
-#### getBalance()
-```java
-public int getBalance(Long userId, String bookId) {
-    // 直接从 sys_user.points 查询
-    SysUser user = userMapper.selectById(userId);
-    return user != null ? user.getPoints() : 0;
-}
-```
+#### 幂等检查逻辑
 
-#### changeCredits() 幂等控制
 ```java
-@Transactional
-public int changeCredits(Long userId, String bookId, String eventType,
-                         String eventId, int delta, String remark) {
-    // 1. 检查幂等
-    FbsCreditsLedger existing = ledgerMapper.selectByEventId(eventId);
-    if (existing != null) {
-        // 已处理，返回既有余额
-        return existing.getBalanceAfter();
+@Override
+@Transactional(rollbackFor = Exception.class)
+public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmount,
+                               Long scenePackId, String usageRecordId, String eventId) {
+    // 免费包：直接返回成功
+    if (StringUtils.isEmpty(ruleCode)) {
+        return AjaxResult.success("免费包，无需扣减积分");
     }
     
-    // 2. 获取当前余额（加锁）
-    SysUser user = userMapper.selectByIdForUpdate(userId);
-    int currentBalance = user.getPoints();
-    int newBalance = currentBalance + delta;
-    
-    // 3. 余额校验（扣减时不能为负）
-    if (newBalance < 0) {
-        throw new InsufficientCreditsException("积分余额不足");
+    // 参数校验
+    if (userId == null) {
+        return AjaxResult.error("用户ID不能为空");
     }
     
-    // 4. 更新 sys_user.points
-    userMapper.updatePoints(userId, newBalance);
+    // ===== 幂等检查（新增） =====
+    // 注意：MySQL UNIQUE 索引允许多个 NULL，eventId=null 不会触发幂等（符合预期）
+    // StringUtils.hasText 也排除了空字符串 "" 的情况
+    if (StringUtils.hasText(eventId)) {
+        PointsRecord existing = pointsRecordMapper.selectByEventId(eventId);
+        if (existing != null) {
+            // 已处理，返回既有余额（幂等）
+            return AjaxResult.success("积分操作成功（幂等）", existing.getBalanceAfter());
+        }
+    }
+    // ============================
     
-    // 5. 插入流水记录
-    FbsCreditsLedger ledger = new FbsCreditsLedger();
-    ledger.setUserId(userId);
-    ledger.setBookId(bookId);
-    ledger.setEventType(eventType);
-    ledger.setEventId(eventId);
-    ledger.setDelta(delta);
-    ledger.setBalanceAfter(newBalance);
-    ledger.setRemark(remark);
-    ledger.setCreatedBy("system");
-    ledgerMapper.insert(ledger);
+    // 获取积分规则
+    PointsRule rule = pointsRuleService.getRuleByCode(ruleCode);
+    if (rule == null || !"0".equals(rule.getStatus())) {
+        return AjaxResult.error("积分规则未配置或已停用");
+    }
     
-    return newBalance;
+    // 计算实际变动值
+    Integer actualChange = changeAmount != null ? changeAmount : rule.getPointsValue();
+    if (actualChange == null || actualChange == 0) {
+        return AjaxResult.error("积分变动值无效");
+    }
+    
+    // 查询当前余额
+    Integer currentPoints = getUserPoints(userId);
+    if (currentPoints == null) {
+        currentPoints = 0;
+    }
+    
+    // 限频校验（使用规则编码）
+    if (!pointsRuleService.checkLimit(userId, ruleCode, rule)) {
+        return AjaxResult.error("已达到限频上限，请稍后再试");
+    }
+    
+    // 累计上限校验
+    if (!pointsRuleService.checkMaxAmount(userId, ruleCode, actualChange, rule)) {
+        return AjaxResult.error("已达到累计上限，无法继续发放");
+    }
+    
+    // 余额校验（扣减场景）
+    if (actualChange < 0 && (currentPoints + actualChange) < 0) {
+        return AjaxResult.error("积分余额不足，扣减失败");
+    }
+    
+    // 更新积分余额
+    Integer newPoints = currentPoints + actualChange;
+    pointsMapper.updateUserPoints(userId, newPoints);
+    
+    // 插入积分记录（包含 event_id）
+    PointsRecord record = new PointsRecord();
+    record.setUserId(userId);
+    record.setRuleCode(ruleCode);
+    record.setChangeAmount(actualChange);
+    record.setBalanceBefore(currentPoints);
+    record.setBalanceAfter(newPoints);
+    record.setScenePackId(scenePackId);
+    record.setUsageRecordId(usageRecordId);
+    record.setEventId(eventId);  // ← 新增
+    // 注意：create_time 在 XML 中硬编码为 NOW()，此处无需 setCreateTime
+    pointsRecordMapper.insertPointsRecord(record);
+    
+    // 记录限频
+    pointsRuleService.markLimit(userId, ruleCode, rule);
+    
+    return AjaxResult.success("积分操作成功", newPoints);
 }
 ```
 
@@ -234,102 +223,45 @@ public int changeCredits(Long userId, String bookId, String eventType,
 
 ## 四、API 设计
 
-### 4.1 GET /fbs/internal/credits/balance
+### 4.1 复用现有端点
 
-**请求**：
+**本轮不新增 Skill API 端点**。LedgerSync 复用现有 `/fbs/skill-api/user/info`。
+
+| 方法 | 路径 | 说明 | 来源 |
+|------|------|------|------|
+| POST | `/fbs/skill-api/user/info` | 返回 `pointsBalance` + `activatedPacks` | OpenSpec #5 已有 |
+
+**请求**（已有）：
 ```json
 {
-  "userId": 1,
-  "bookId": "default"
+  "userId": 1
 }
 ```
 
-**响应**：
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "userId": 1,
-    "bookId": "default",
-    "balance": 1000
-  }
-}
-```
-
-### 4.2 POST /fbs/internal/credits/earn
-
-**请求**：
-```json
-{
-  "userId": 1,
-  "bookId": "default",
-  "eventType": "FIRST_INSTALL",
-  "eventId": "first_install_1",
-  "delta": 100,
-  "remark": "首次安装奖励"
-}
-```
-
-**响应**：
+**响应**（已有）：
 ```json
 {
   "code": 200,
   "msg": "操作成功",
   "data": {
     "userId": 1,
-    "bookId": "default",
-    "balanceBefore": 900,
-    "balanceAfter": 1000,
-    "delta": 100,
-    "eventId": "first_install_1"
+    "pointsBalance": 1000,
+    "activatedPacks": [...]
   }
 }
 ```
 
-### 4.3 GET /fbs/internal/credits/sync
+**认证**：
+- 复用现有 `/fbs/skill-api/**` 的 API Key 认证（`X-FBS-API-Key` Header）
+- 无需新增 SecurityConfig 配置
 
-**请求参数**：
-- `userId`: 用户 ID
-- `bookId`: 账本 ID（可选，默认 default）
-
-**响应**：
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "userId": 1,
-    "bookId": "default",
-    "balance": 1000,
-    "lastUpdated": "2026-04-16T12:00:00",
-    "version": "v1.0.0"
-  }
-}
-```
+**LedgerSync 取值**：`data.pointsBalance`
 
 ---
 
 ## 五、LedgerSync 进程设计
 
-### 5.1 配置文件
-
-`ledgersync.conf`：
-```ini
-[api]
-base_url = http://localhost:8080/fbs/internal/credits
-api_key = your_api_key_here
-
-[sync]
-interval_seconds = 300
-output_path = ./credits-ledger.json
-
-[logging]
-level = INFO
-file = ledgersync.log
-```
-
-### 5.2 Python 实现
+### 5.1 Python 实现
 
 ```python
 #!/usr/bin/env python3
@@ -338,130 +270,126 @@ file = ledgersync.log
 import requests
 import json
 import time
-import configparser
-import logging
-from pathlib import Path
+import os
+from datetime import datetime
 
-def load_config():
-    config = configparser.ConfigParser()
-    config.read('ledgersync.conf')
-    return {
-        'base_url': config.get('api', 'base_url'),
-        'api_key': config.get('api', 'api_key'),
-        'interval': config.getint('sync', 'interval_seconds'),
-        'output_path': config.get('sync', 'output_path'),
-    }
+# 配置（环境变量）
+API_BASE_URL = os.environ.get('API_BASE_URL', 'http://localhost:8080/fbs/skill-api')
+API_KEY = os.environ.get('API_KEY', 'your_api_key_here')
+USER_ID = int(os.environ.get('USER_ID', '1'))
+SYNC_INTERVAL = int(os.environ.get('SYNC_INTERVAL', '300'))  # 5分钟
+OUTPUT_PATH = os.environ.get('OUTPUT_PATH', './credits-ledger.json')
 
-def fetch_balance(config, user_id, book_id='default'):
-    url = f"{config['base_url']}/sync"
-    headers = {'Authorization': f"Bearer {config['api_key']}"}
-    params = {'userId': user_id, 'bookId': book_id}
+def fetch_balance():
+    """调用 /user/info 获取用户积分余额"""
+    url = f"{API_BASE_URL}/user/info"
+    headers = {'X-FBS-API-Key': API_KEY}  # ← 注意：X-FBS-API-Key，不是 X-API-Key
+    data = {'userId': USER_ID}
     
-    resp = requests.get(url, headers=headers, params=params, timeout=10)
+    resp = requests.post(url, headers=headers, json=data, timeout=10)
     resp.raise_for_status()
-    return resp.json()['data']
+    result = resp.json()
+    
+    if result.get('code') == 200:
+        return result['data']['pointsBalance']
+    else:
+        raise Exception(result.get('msg', '未知错误'))
 
-def write_ledger(config, data):
-    output_path = Path(config['output_path'])
-    with output_path.open('w', encoding='utf-8') as f:
+def write_ledger(balance):
+    """写入本地 JSON 文件"""
+    data = {
+        'user_id': USER_ID,
+        'balance': balance,
+        'last_updated': datetime.utcnow().isoformat() + 'Z',
+        'sync_version': 'v1.0.0'
+    }
+    
+    with open(OUTPUT_PATH, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 def main():
-    config = load_config()
-    user_id = 1  # TODO: 从配置或环境变量读取
+    """主循环"""
+    print(f"LedgerSync 启动，用户ID: {USER_ID}，轮询间隔: {SYNC_INTERVAL}s")
     
     while True:
         try:
-            data = fetch_balance(config, user_id)
-            write_ledger(config, data)
-            logging.info(f"同步成功: balance={data['balance']}")
+            balance = fetch_balance()
+            write_ledger(balance)
+            print(f"[{datetime.now().isoformat()}] 同步成功: balance={balance}")
         except Exception as e:
-            logging.error(f"同步失败: {e}")
+            print(f"[{datetime.now().isoformat()}] 同步失败: {e}")
         
-        time.sleep(config['interval'])
+        time.sleep(SYNC_INTERVAL)
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
     main()
 ```
 
-### 5.3 credits-ledger.json 格式
+### 5.2 本地文件格式
 
+`credits-ledger.json`：
 ```json
 {
-  "userId": 1,
-  "bookId": "default",
+  "user_id": 1,
   "balance": 1000,
-  "lastUpdated": "2026-04-16T12:00:00",
-  "version": "v1.0.0"
+  "last_updated": "2026-04-16T12:00:00Z",
+  "sync_version": "v1.0.0"
 }
+```
+
+### 5.3 环境变量配置
+
+```bash
+export API_BASE_URL="http://your-domain/fbs/skill-api"
+export API_KEY="fbs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+export USER_ID="1"
+export SYNC_INTERVAL="300"
+export OUTPUT_PATH="./credits-ledger.json"
 ```
 
 ---
 
-## 六、安全性设计
+## 六、测试设计
 
-### 6.1 API 认证
+### 6.1 单元测试
 
-- **内部 API**：使用 API Key 认证（Header: `Authorization: Bearer {api_key}`）
-- **API Key 管理**：复用 OpenSpec #5 的 `fbs_api_key` 表
+#### PointsServiceImplTest
+- `testChangePoints_WithEventId_Idempotent()` — 幂等测试
+- `testChangePoints_WithoutEventId_Normal()` — 正常流程测试
 
-### 6.2 权限控制
-
-- `/fbs/internal/*` 端点仅允许内部服务调用（通过 IP 白名单或 API Key）
-- 不对外暴露给终端用户
-
----
-
-## 七、测试设计
-
-### 7.1 单元测试
-
-- `CreditsLedgerServiceTest`
-  - testGetBalance()
-  - testChangeCredits_Success()
-  - testChangeCredits_Idempotent()
-  - testChangeCredits_InsufficientBalance()
-
-### 7.2 集成测试
-
-- `CreditsApiControllerTest`
-  - testBalanceApi()
-  - testEarnApi()
-  - testSyncApi()
-
-### 7.3 LedgerSync 测试
+### 6.2 集成测试
 
 - 手动运行 LedgerSync 进程
-- 验证 credits-ledger.json 文件生成
+- 验证 `credits-ledger.json` 文件生成
 - 验证内容正确性
 
 ---
 
-## 八、部署说明
+## 七、部署说明
 
-### 8.1 后端部署
+### 7.1 后端部署
 
 - 无特殊要求，常规 Spring Boot 部署
+- 需要执行 SQL 脚本添加 `event_id` 字段
 
-### 8.2 LedgerSync 部署
+### 7.2 LedgerSync 部署
 
 ```bash
 # 安装依赖
 pip install requests
 
-# 配置
-cp ledgersync.conf.example ledgersync.conf
-vim ledgersync.conf
+# 配置环境变量
+export API_BASE_URL="http://your-domain/fbs/skill-api"
+export API_KEY="fbs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+export USER_ID="1"
 
-# 启动（systemd 示例）
-systemctl start ledgersync
-systemctl enable ledgersync
+# 启动
+python ledgersync.py
 ```
 
 ---
 
-## 九、风险与缓解
+## 八、风险与缓解
 
 | 风险 | 缓解措施 |
 |------|----------|
