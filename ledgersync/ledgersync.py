@@ -91,7 +91,7 @@ def main():
     """
     # 配置检查
     if API_KEY == 'your_api_key_here':
-        print("⚠️  警告: 未配置 API_KEY 环境变量")
+        print("[WARN] 警告: 未配置 API_KEY 环境变量")
         print("   请设置: export API_KEY='your_api_key_here'")
         sys.exit(1)
     
@@ -106,12 +106,12 @@ def main():
         try:
             balance = fetch_balance()
             write_ledger(balance)
-            print(f"[{datetime.now().isoformat()}] ✅ 同步成功: balance={balance}")
+            print(f"[{datetime.now().isoformat()}] [OK] 同步成功: balance={balance}")
         except KeyboardInterrupt:
             print("\n收到中断信号，退出...")
             break
         except Exception as e:
-            print(f"[{datetime.now().isoformat()}] ❌ 同步失败: {e}")
+            print(f"[{datetime.now().isoformat()}] [FAIL] 同步失败: {e}")
         
         time.sleep(SYNC_INTERVAL)
 

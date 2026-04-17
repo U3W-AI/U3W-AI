@@ -108,7 +108,7 @@ def read_skill_ledger(ledger_path):
         with open(ledger_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
-        print(f"⚠️  读取现有账本失败: {e}，将创建新账本")
+        print(f"[WARN] 读取现有账本失败: {e}，将创建新账本")
         return {
             '_version': '1.0',
             'balance': 0,
@@ -190,7 +190,7 @@ def sync_once(skill_root=None):
         skill_root = get_skill_root()
     
     if not skill_root:
-        print("❌ 未找到 skill 根目录")
+        print("[FAIL] 未找到 skill 根目录")
         print("   请设置环境变量 FBS_SKILL_ROOT 或使用 --skill-root 参数")
         return False
     
@@ -207,7 +207,7 @@ def sync_once(skill_root=None):
         # 3. 写入 skill 格式账本
         ledger = write_skill_ledger(ledger_path, backend_balance, existing_ledger)
         
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✅ 同步成功")
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [OK] 同步成功")
         print(f"   后端余额: {backend_balance}")
         print(f"   Skill 余额: {ledger['balance']}")
         print(f"   输出文件: {ledger_path}")
@@ -215,7 +215,7 @@ def sync_once(skill_root=None):
         return True
         
     except Exception as e:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ❌ 同步失败: {e}")
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [FAIL] 同步失败: {e}")
         return False
 
 
@@ -238,7 +238,7 @@ def main():
     
     # 检查 API Key
     if not API_KEY:
-        print("⚠️  未配置 FBS_API_KEY")
+        print("[WARN] 未配置 FBS_API_KEY")
         print("   请设置环境变量或使用 --api-key 参数")
         print()
         print("   PowerShell:")
@@ -249,7 +249,7 @@ def main():
     skill_root = args.skill_root or get_skill_root()
     
     if not skill_root:
-        print("⚠️  未找到 skill 根目录")
+        print("[WARN] 未找到 skill 根目录")
         print("   请设置 FBS_SKILL_ROOT 环境变量或使用 --skill-root 参数")
         print()
         print("   PowerShell:")

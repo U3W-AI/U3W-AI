@@ -36,6 +36,7 @@ OpenSpec #10（积分模型适配与 LedgerSync）已完成所有开发任务。
 | Service | `WxFbsir-business/.../point/service/IPointsService.java` | 新增方法签名 |
 | Service Impl | `WxFbsir-business/.../point/service/impl/PointsServiceImpl.java` | 实现幂等逻辑 |
 | Script | `ledgersync/ledgersync.py` | 新增 LedgerSync 进程 |
+| Script | `ledgersync/ledgersync-skill-bridge.py` | 新增 LedgerSync Skill Bridge（后端积分同步到 Skill 本地 credits-ledger.json） |
 | Test | `WxFbsir-business/.../point/service/impl/PointsServiceImplTest.java` | 新增幂等测试 |
 
 ---
@@ -57,6 +58,9 @@ export API_BASE_URL="http://localhost:8080/fbs/skill-api"
 export API_KEY="fbs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 export USER_ID="1"
 python ledgersync.py
+
+# 3b. 同步到 Skill 本地账本（一次性）
+python ledgersync-skill-bridge.py --once --skill-root "/path/to/fbs-bookwriter" --api-key "fbs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
 ---
