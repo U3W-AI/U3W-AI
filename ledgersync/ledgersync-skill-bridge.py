@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 """
-LedgerSync Skill Bridge - 后端积分同步到 FBS-BookWriter Skill
+[已废弃] LedgerSync Skill Bridge
 
-将 U3W-AI 后端的用户积分同步到 FBS-BookWriter skill 的 credits-ledger.json，
-实现后端积分 → Skill 本地文件的单向同步。
+此文件已废弃（v2.1.2），功能已合并到 ledgersync.py。
+请使用以下命令替代：
 
-使用方法:
-    # 方式1：环境变量配置
-    $env:FBS_API_KEY = "fbs_ledgersync_test_key_00000000000001"
-    $env:FBS_SKILL_ROOT = "C:/Users/加号/.workbuddy/skills/FBS-BookWriter-Kit"
-    python ledgersync-skill-bridge.py
-    
-    # 方式2：命令行参数（一次性同步）
-    python ledgersync-skill-bridge.py --once --skill-root "C:/Users/加号/.workbuddy/skills/FBS-BookWriter-Kit"
+    # 旧命令（已废弃）：
+    python ledgersync-skill-bridge.py --once --skill-root "C:/Users/加号/.workbuddy/skills/fbs-bookwriter" --api-key "fbs_xxx"
+
+    # 新命令（推荐）：
+    python ledgersync.py --once --skill-root "C:/Users/加号/.workbuddy/skills/fbs-bookwriter" --api-key "fbs_xxx"
+
+旧文件保留仅用于向后兼容，不建议继续使用。
 """
 
 import requests

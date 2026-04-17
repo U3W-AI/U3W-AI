@@ -35,8 +35,8 @@ OpenSpec #10（积分模型适配与 LedgerSync）已完成所有开发任务。
 | Mapper XML | `WxFbsir-business/.../point/mapper/PointsRecordMapper.xml` | 更新 SQL |
 | Service | `WxFbsir-business/.../point/service/IPointsService.java` | 新增方法签名 |
 | Service Impl | `WxFbsir-business/.../point/service/impl/PointsServiceImpl.java` | 实现幂等逻辑 |
-| Script | `ledgersync/ledgersync.py` | 新增 LedgerSync 进程 |
-| Script | `ledgersync/ledgersync-skill-bridge.py` | 新增 LedgerSync Skill Bridge（后端积分同步到 Skill 本地 credits-ledger.json） |
+| Script | `ledgersync/ledgersync.py` | LedgerSync 进程（v2.1.2 合并 skill-bridge 功能，支持 --skill-root 参数） |
+| Script | `ledgersync/ledgersync-skill-bridge.py` | [已废弃] 功能已合并到 ledgersync.py，保留仅向后兼容 |
 | Test | `WxFbsir-business/.../point/service/impl/PointsServiceImplTest.java` | 新增幂等测试 |
 
 ---
@@ -52,15 +52,16 @@ mysql -u root -p wxdb < sql/V20260416__10-credits-model-adaptation__add_event_id
 # 2. 运行单元测试
 mvn test -Dtest=PointsServiceImplTest
 
-# 3. 启动 LedgerSync 进程（需要配置环境变量）
+# 3. 同步到 Skill 本地账本（推荐，支持 --skill-root）
 cd ledgersync
-export API_BASE_URL="http://localhost:8080/fbs/skill-api"
-export API_KEY="fbs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-export USER_ID="1"
+python ledgersync.py --once --skill-root "/path/to/fbs-bookwriter" --api-key "fbs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# 3b. 持续同步模式
+$env:API_KEY = "fbs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+$env:SKILL_ROOT = "/path/to/fbs-bookwriter"
 python ledgersync.py
 
-# 3b. 同步到 Skill 本地账本（一次性）
-python ledgersync-skill-bridge.py --once --skill-root "/path/to/fbs-bookwriter" --api-key "fbs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# 注：ledgersync-skill-bridge.py 已废弃，功能已合并到 ledgersync.py
 ```
 
 ---
