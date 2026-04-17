@@ -588,7 +588,7 @@ class FbsSkillApiControllerTest {
         }
 
         @Test
-        @DisplayName("§6.1.2.6.3 userId 为空 — 返回错误")
+        @DisplayName("§6.1.2.6.3 userId 为空 — 返回错误（旧版测试，已过时）")
         void queryMissingUserId() {
             setupSecurityContext();
             SkillApiUserInfoRequest request = new SkillApiUserInfoRequest();
@@ -596,7 +596,169 @@ class FbsSkillApiControllerTest {
 
             AjaxResult result = controller.userInfo(request);
 
-            assertEquals(500, result.get(AjaxResult.CODE_TAG));
+            // 【OpenSpec #12】改为 403（无法识别用户）
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            clearSecurityContext();
+        }
+        
+        // ===== OpenSpec #12 新增测试：API Key 反查 userId =====
+        
+        @Test
+        @DisplayName("§12.1 user/info：不传 userId，从 API Key 反查成功")
+        void queryFromApiKey() {
+            // 设置 API Key 绑定用户
+            FbsApiKey apiKey = buildApiKey();
+            apiKey.setUserId(USER_ID);
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                    apiKey, null, List.of(new SimpleGrantedAuthority("ROLE_SKILL_API")));
+            SecurityContextHolder.getContext().setAuthentication(auth);
+            
+            when(pointsService.getUserPoints(USER_ID)).thenReturn(990);
+            when(userPackMapper.selectActiveByUserId(USER_ID)).thenReturn(Collections.emptyList());
+
+            SkillApiUserInfoRequest request = new SkillApiUserInfoRequest();
+            // 不传 userId
+
+            AjaxResult result = controller.userInfo(request);
+
+            assertEquals(200, result.get(AjaxResult.CODE_TAG));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) result.get(AjaxResult.DATA_TAG);
+            assertEquals(USER_ID, data.get("userId"));
+            assertEquals(990, data.get("pointsBalance"));
+            clearSecurityContext();
+        }
+        
+        @Test
+        @DisplayName("§12.2 user/info：不传 userId，API Key 未绑定用户 → 403")
+        void queryApiKeyNotBound() {
+            // 设置 API Key 未绑定用户
+            FbsApiKey apiKey = buildApiKey();
+            apiKey.setUserId(null);  // 未绑定用户
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                    apiKey, null, List.of(new SimpleGrantedAuthority("ROLE_SKILL_API")));
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+            SkillApiUserInfoRequest request = new SkillApiUserInfoRequest();
+            // 不传 userId
+
+            AjaxResult result = controller.userInfo(request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            clearSecurityContext();
+        }
+        
+        @Test
+        @DisplayName("§12.3 user/info：传 userId，向后兼容（优先 API Key）")
+        void queryWithUserIdFallback() {
+            // 设置 API Key 绑定用户
+            FbsApiKey apiKey = buildApiKey();
+            apiKey.setUserId(USER_ID);
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                    apiKey, null, List.of(new SimpleGrantedAuthority("ROLE_SKILL_API")));
+            SecurityContextHolder.getContext().setAuthentication(auth);
+            
+            when(pointsService.getUserPoints(USER_ID)).thenReturn(990);
+            when(userPackMapper.selectActiveByUserId(USER_ID)).thenReturn(Collections.emptyList());
+
+            SkillApiUserInfoRequest request = new SkillApiUserInfoRequest();
+            request.setUserId(999L);  // 传了不同的 userId
+
+            AjaxResult result = controller.userInfo(request);
+
+            assertEquals(200, result.get(AjaxResult.CODE_TAG));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) result.get(AjaxResult.DATA_TAG);
+            // 应该使用 API Key 的 userId，而不是 request 的
+            assertEquals(USER_ID, data.get("userId"));
+            clearSecurityContext();
+        }
+    }
+    
+    // ========================================================================
+    // OpenSpec #12：usage/consume API Key 反查测试
+    // ========================================================================
+
+    @Nested
+    @DisplayName("§12 usage/consume API Key 反查")
+    class UsageConsumeApiKeyTests {
+
+        @Test
+        @DisplayName("§12.4 usage/consume：不传 userId，从 API Key 反查成功")
+        void consumeFromApiKey() {
+            // 设置 API Key 绑定用户
+            FbsApiKey apiKey = buildApiKey();
+            apiKey.setUserId(USER_ID);
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                    apiKey, null, List.of(new SimpleGrantedAuthority("ROLE_SKILL_API")));
+            SecurityContextHolder.getContext().setAuthentication(auth);
+            
+            ConsumeResult mockResult = ConsumeResult.success(USAGE_RECORD_ID, 990);
+            when(skillConsumeService.consume(eq(USER_ID), eq(PACK_CODE), eq(SKILL_CODE),
+                    eq(USAGE_RECORD_ID), eq("WORKBUDDY"), isNull(), isNull()))
+                    .thenReturn(mockResult);
+
+            SkillApiConsumeRequest request = new SkillApiConsumeRequest();
+            // 不传 userId
+            request.setPackCode(PACK_CODE);
+            request.setSkillCode(SKILL_CODE);
+            request.setUsageRecordId(USAGE_RECORD_ID);
+
+            AjaxResult result = controller.usageConsume(request);
+
+            assertEquals(200, result.get(AjaxResult.CODE_TAG));
+            clearSecurityContext();
+        }
+        
+        @Test
+        @DisplayName("§12.5 usage/consume：不传 userId，API Key 未绑定用户 → 403")
+        void consumeApiKeyNotBound() {
+            // 设置 API Key 未绑定用户
+            FbsApiKey apiKey = buildApiKey();
+            apiKey.setUserId(null);  // 未绑定用户
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                    apiKey, null, List.of(new SimpleGrantedAuthority("ROLE_SKILL_API")));
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+            SkillApiConsumeRequest request = new SkillApiConsumeRequest();
+            // 不传 userId
+            request.setPackCode(PACK_CODE);
+            request.setSkillCode(SKILL_CODE);
+            request.setUsageRecordId(USAGE_RECORD_ID);
+
+            AjaxResult result = controller.usageConsume(request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            clearSecurityContext();
+        }
+        
+        @Test
+        @DisplayName("§12.6 usage/consume：传 userId，向后兼容（优先 API Key）")
+        void consumeWithUserIdFallback() {
+            // 设置 API Key 绑定用户
+            FbsApiKey apiKey = buildApiKey();
+            apiKey.setUserId(USER_ID);
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                    apiKey, null, List.of(new SimpleGrantedAuthority("ROLE_SKILL_API")));
+            SecurityContextHolder.getContext().setAuthentication(auth);
+            
+            ConsumeResult mockResult = ConsumeResult.success(USAGE_RECORD_ID, 990);
+            when(skillConsumeService.consume(eq(USER_ID), eq(PACK_CODE), eq(SKILL_CODE),
+                    eq(USAGE_RECORD_ID), eq("WORKBUDDY"), isNull(), isNull()))
+                    .thenReturn(mockResult);
+
+            SkillApiConsumeRequest request = new SkillApiConsumeRequest();
+            request.setUserId(999L);  // 传了不同的 userId
+            request.setPackCode(PACK_CODE);
+            request.setSkillCode(SKILL_CODE);
+            request.setUsageRecordId(USAGE_RECORD_ID);
+
+            AjaxResult result = controller.usageConsume(request);
+
+            assertEquals(200, result.get(AjaxResult.CODE_TAG));
+            // 验证使用的是 API Key 的 userId，而不是 request 的
+            verify(skillConsumeService).consume(eq(USER_ID), eq(PACK_CODE), eq(SKILL_CODE),
+                    eq(USAGE_RECORD_ID), eq("WORKBUDDY"), isNull(), isNull());
             clearSecurityContext();
         }
     }

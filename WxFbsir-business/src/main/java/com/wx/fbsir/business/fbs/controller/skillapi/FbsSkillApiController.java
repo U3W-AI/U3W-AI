@@ -82,19 +82,35 @@ public class FbsSkillApiController {
 
     // =====================================================================
     // 2. POST /fbs/skill-api/usage/consume — 一次性消费
+    // 
+    // 【OpenSpec #12】userId 参数改为可选：
+    //   - 优先从 API Key 反查 userId
+    //   - fallback 到 request.getUserId()（兼容旧调用）
     // =====================================================================
 
     @PostMapping("/usage/consume")
     public AjaxResult usageConsume(@RequestBody SkillApiConsumeRequest request) {
-        if (request.getUserId() == null || !StringUtils.hasText(request.getPackCode())
-                || !StringUtils.hasText(request.getUsageRecordId()) || !StringUtils.hasText(request.getSkillCode())) {
+        // 1. 从 API Key 获取 userId（优先）
+        FbsApiKey apiKey = getCurrentApiKey();
+        Long userId = (apiKey != null && apiKey.getUserId() != null) 
+                      ? apiKey.getUserId() 
+                      : request.getUserId();
+        
+        if (userId == null) {
+            return AjaxResult.error(403, "无法识别用户（API Key 未绑定且未传 userId）");
+        }
+        
+        // 2. 校验其他参数
+        if (!StringUtils.hasText(request.getPackCode())
+                || !StringUtils.hasText(request.getUsageRecordId()) 
+                || !StringUtils.hasText(request.getSkillCode())) {
             return AjaxResult.error("参数不能为空");
         }
 
         String hostType = StringUtils.hasText(request.getHostType()) ? request.getHostType() : "WORKBUDDY";
         // hostSessionId 传 null（Skill API 场景无宿主会话）
         ConsumeResult result = skillConsumeService.consume(
-                request.getUserId(), request.getPackCode(), request.getSkillCode(),
+                userId, request.getPackCode(), request.getSkillCode(),
                 request.getUsageRecordId(), hostType, null, request.getAuthCode());
 
         Map<String, Object> data = new HashMap<>();
@@ -233,22 +249,32 @@ public class FbsSkillApiController {
     // =====================================================================
     // 6. POST /fbs/skill-api/user/info — 用户信息查询
     // 不返回 T0-T3（当前仓库无此模型）
+    // 
+    // 【OpenSpec #12】userId 参数改为可选：
+    //   - 优先从 API Key 反查 userId
+    //   - fallback 到 request.getUserId()（兼容旧调用）
     // =====================================================================
 
     @PostMapping("/user/info")
     public AjaxResult userInfo(@RequestBody SkillApiUserInfoRequest request) {
-        if (request.getUserId() == null) {
-            return AjaxResult.error("用户ID不能为空");
+        // 1. 从 API Key 获取 userId（优先）
+        FbsApiKey apiKey = getCurrentApiKey();
+        Long userId = (apiKey != null && apiKey.getUserId() != null) 
+                      ? apiKey.getUserId() 
+                      : request.getUserId();
+        
+        if (userId == null) {
+            return AjaxResult.error(403, "无法识别用户（API Key 未绑定且未传 userId）");
         }
 
-        // 积分余额
-        Integer pointsBalance = pointsService.getUserPoints(request.getUserId());
+        // 2. 积分余额
+        Integer pointsBalance = pointsService.getUserPoints(userId);
         if (pointsBalance == null) {
             pointsBalance = 0;
         }
 
-        // 已激活场景包列表（status=1 且未过期）
-        List<FbsUserPack> activePacks = userPackMapper.selectActiveByUserId(request.getUserId());
+        // 3. 已激活场景包列表（status=1 且未过期）
+        List<FbsUserPack> activePacks = userPackMapper.selectActiveByUserId(userId);
         List<Map<String, Object>> activatedPacks = new ArrayList<>();
         if (activePacks != null) {
             for (FbsUserPack up : activePacks) {
@@ -268,7 +294,7 @@ public class FbsSkillApiController {
         }
 
         Map<String, Object> data = new HashMap<>();
-        data.put("userId", request.getUserId());
+        data.put("userId", userId);
         data.put("pointsBalance", pointsBalance);
         data.put("activatedPacks", activatedPacks);
 
