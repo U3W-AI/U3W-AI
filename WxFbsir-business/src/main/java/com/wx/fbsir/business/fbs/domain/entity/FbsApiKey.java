@@ -19,6 +19,9 @@ public class FbsApiKey {
     /** API Key（MVP明文存储） */
     private String apiKey;
 
+    /** 绑定用户ID */
+    private Long userId;
+
     /** API Key 名称 */
     private String name;
 
@@ -30,6 +33,9 @@ public class FbsApiKey {
 
     /** 状态：1=启用, 0=禁用 */
     private Integer status;
+
+    /** 最后使用时间 */
+    private Date lastUsedAt;
 
     /** 创建者 */
     private String createdBy;
@@ -54,6 +60,9 @@ public class FbsApiKey {
     public String getApiKey() { return apiKey; }
     public void setApiKey(String apiKey) { this.apiKey = apiKey; }
 
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
 
@@ -65,6 +74,9 @@ public class FbsApiKey {
 
     public Integer getStatus() { return status; }
     public void setStatus(Integer status) { this.status = status; }
+
+    public Date getLastUsedAt() { return lastUsedAt; }
+    public void setLastUsedAt(Date lastUsedAt) { this.lastUsedAt = lastUsedAt; }
 
     public String getCreatedBy() { return createdBy; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }

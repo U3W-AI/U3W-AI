@@ -62,7 +62,15 @@ public class FbsApiKeyAuthService {
             return ApiKeyCheckResult.fail(429, "SKILL_API_RATE_LIMITED", "API 调用频率超限，请稍后重试");
         }
 
-        // 5. 通过
+        // 5. 更新最后使用时间
+        try {
+            apiKeyMapper.updateLastUsedAt(keyEntity.getApiKey());
+        } catch (Exception e) {
+            // 更新失败不影响主流程，仅记录日志
+            log.warn("更新 API Key 最后使用时间失败 key={}", keyEntity.getMaskedApiKey(), e);
+        }
+
+        // 6. 通过
         return ApiKeyCheckResult.success(keyEntity);
     }
 

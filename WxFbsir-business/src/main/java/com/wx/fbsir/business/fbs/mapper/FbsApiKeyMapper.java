@@ -70,4 +70,20 @@ public interface FbsApiKeyMapper {
      * @return 影响行数
      */
     int deleteById(@Param("id") Long id);
+
+    /**
+     * 根据用户ID查询API Key列表
+     *
+     * @param userId 用户ID
+     * @return API Key列表
+     */
+    List<FbsApiKey> selectByUserId(@Param("userId") Long userId);
+
+    /**
+     * 更新最后使用时间
+     *
+     * @param apiKey API Key字符串
+     * @return 影响行数
+     */
+    int updateLastUsedAt(@Param("apiKey") String apiKey);
 }

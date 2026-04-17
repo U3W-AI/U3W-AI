@@ -1515,3 +1515,151 @@ AND   返回 HTTP 200 + {success: false, errorCode: "INVALID_REQUEST"}
 - sys_menu SQL 权限入库（前后端联调时处理）
 - 前端管理页面（MVP 仅提供后端 API）
 
+---
+
+## 十七、用户侧 API Key 管理
+
+> **来源 OpenSpec**：`frontend-api-key-management`（#11）
+>
+> **范围**：用户自助创建/管理 API Key（用于 WorkBuddy Skill 调用后端 API）。
+>
+> **依赖**：OpenSpec #5（Skill API 网关 + API Key 认证）。
+
+### Requirement: 用户侧 API Key 管理
+
+系统 SHALL 支持用户通过前端界面自助创建和管理 API Key，用于 WorkBuddy Skill 调用后端 API。
+
+#### Scenario: 用户创建 API Key
+
+```text
+GIVEN 用户已登录
+AND   用户无该名称的 API Key（或允许重复，视业务规则）
+WHEN  调用 POST /fbs/business/my/apikey/create
+      body: { name: "我的 WorkBuddy 密钥" }
+THEN  系统 SHALL 生成唯一 API Key（前缀 fbs_ + 32位随机串）
+AND   自动绑定当前用户（user_id = SecurityContext.getUserId()）
+AND   状态默认为启用（status=1）
+AND   写入 fbs_api_key 表
+AND   返回完整密钥（仅此一次，后续查询只返回脱敏值）
+```
+
+#### Scenario: 创建时返回完整密钥（关键）
+
+```text
+GIVEN 用户创建 API Key 成功
+WHEN  Controller 返回响应
+THEN  apiKey 字段 SHALL 为完整密钥（如：fbs_abc123xyz789def456ghi012jkl345）
+AND   前端 SHALL 显示提示："请立即复制保存，关闭后无法再次查看完整密钥！"
+AND   后续查询该 Key 时只返回脱敏值（前8位+****）
+```
+
+#### Scenario: 用户查询自己的 API Key 列表
+
+```text
+GIVEN 用户已登录
+WHEN  调用 GET /fbs/business/my/apikey/list
+THEN  系统 SHALL 返回当前用户的 API Key 列表
+AND   apiKey 字段 SHALL 脱敏显示（如：fbs_abc12****）
+AND   userId 从 SecurityContext 获取，无需前端传参
+AND   只返回当前用户的 Key（数据隔离）
+```
+
+#### Scenario: 用户禁用/启用 API Key
+
+```text
+GIVEN 用户已登录
+AND   API Key ID 存在且属于当前用户
+WHEN  调用 PUT /fbs/business/my/apikey/toggle/{id}
+      params: { status: 0 或 1 }
+THEN  系统 SHALL 更新该 Key 的状态
+AND   校验归属（只能操作自己的 Key）
+AND   无权操作时抛出异常
+```
+
+#### Scenario: 用户删除 API Key
+
+```text
+GIVEN 用户已登录
+AND   API Key ID 存在且属于当前用户
+WHEN  调用 DELETE /fbs/business/my/apikey/{id}
+THEN  系统 SHALL 删除该 Key
+AND   校验归属（只能删除自己的 Key）
+AND   无权删除时抛出异常
+```
+
+---
+
+### 数据模型：fbs_api_key 扩展
+
+```sql
+ALTER TABLE fbs_api_key
+ADD COLUMN user_id BIGINT COMMENT '绑定用户ID',
+ADD COLUMN last_used_at DATETIME COMMENT '最后使用时间';
+
+CREATE INDEX idx_user_id ON fbs_api_key(user_id);
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| user_id | BIGINT | 绑定用户ID（用户自助创建时自动填充） |
+| last_used_at | DATETIME | 最后使用时间（Skill 调用时更新） |
+
+---
+
+### 用户侧权限控制
+
+| 权限标识 | 说明 |
+|----------|------|
+| `my:apikey:list` | 查询我的 API Key 列表 |
+| `my:apikey:create` | 创建 API Key |
+| `my:apikey:toggle` | 禁用/启用 API Key |
+| `my:apikey:delete` | 删除 API Key |
+
+---
+
+### 用户侧前端页面
+
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| API | `src/api/business/fbs/myApikey.js` | 用户侧 API Key 接口 |
+| 页面 | `src/views/business/fbs/myApikey/index.vue` | 我的 API Key 列表页 |
+| SQL | `sql/V20260417__11-user-api-key-menu.sql` | 菜单配置 |
+
+---
+
+### 菜单结构
+
+```
+我的权益中心（一级目录）
+├── 我的权益
+├── 激活授权码
+├── 领取场景包
+└── 我的 API Keys（新增，order_num=31）
+    ├── 创建 Key（按钮权限）
+    ├── 禁用 Key（按钮权限）
+    └── 删除 Key（按钮权限）
+```
+
+---
+
+### 数据脱敏规则
+
+| 场景 | 密钥显示 |
+|------|---------|
+| 创建时返回 | 完整密钥（仅此一次） |
+| 列表查询 | 前8位 + ****（如：`fbs_abc12****`） |
+| 数据库存储 | 明文（MVP） |
+
+> **安全建议**：用户需在创建后立即复制保存，关闭对话框后无法再次查看完整密钥。
+
+---
+
+### #11 明确不在范围内
+
+以下能力延期至后续 OpenSpec：
+
+- API Key SHA-256 hash 存储
+- 一个用户只能有一个 API Key 的限制
+- API Key 过期时间
+- API Key 使用统计图表
+

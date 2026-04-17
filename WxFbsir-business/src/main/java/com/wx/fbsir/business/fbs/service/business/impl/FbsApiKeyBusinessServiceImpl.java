@@ -3,6 +3,8 @@ package com.wx.fbsir.business.fbs.service.business.impl;
 import com.wx.fbsir.business.fbs.domain.entity.FbsApiKey;
 import com.wx.fbsir.business.fbs.mapper.FbsApiKeyMapper;
 import com.wx.fbsir.business.fbs.service.business.IFbsApiKeyBusinessService;
+import com.wx.fbsir.common.exception.ServiceException;
+import com.wx.fbsir.common.utils.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -113,5 +115,86 @@ public class FbsApiKeyBusinessServiceImpl implements IFbsApiKeyBusinessService {
             return generateUniqueKey();
         }
         return candidate;
+    }
+
+    // ========== 用户侧接口实现 ==========
+
+    @Override
+    public FbsApiKey createByUser(String name) {
+        Long userId = SecurityUtils.getUserId();
+        String username = SecurityUtils.getUsername();
+
+        // 生成 Key
+        String apiKey = generateUniqueKey();
+
+        FbsApiKey entity = new FbsApiKey();
+        entity.setApiKey(apiKey);
+        entity.setUserId(userId);  // 自动绑定当前用户
+        entity.setName(name);
+        entity.setStatus(1); // 默认启用
+        entity.setRateLimitPerMin(60);
+        entity.setCreatedBy(username);
+        entity.setUpdatedBy(username);
+
+        apiKeyMapper.insertApiKey(entity);
+
+        log.info("用户创建 API Key 成功 userId={}, id={}, name={}, maskedKey={}",
+                userId, entity.getId(), name, entity.getMaskedApiKey());
+        // ⚠️ 返回完整 Key（仅此一次），后续查询只返回脱敏值
+        return entity;
+    }
+
+    @Override
+    public List<FbsApiKey> listMyKeys() {
+        Long userId = SecurityUtils.getUserId();
+        List<FbsApiKey> keys = apiKeyMapper.selectByUserId(userId);
+
+        // 脱敏处理
+        for (FbsApiKey key : keys) {
+            key.setApiKey(key.getMaskedApiKey());
+        }
+
+        return keys;
+    }
+
+    @Override
+    public void toggleStatus(Long id, Integer status) {
+        Long userId = SecurityUtils.getUserId();
+        String username = SecurityUtils.getUsername();
+
+        FbsApiKey key = apiKeyMapper.selectById(id);
+
+        if (key == null) {
+            throw new ServiceException("API Key 不存在", 404);
+        }
+
+        if (!userId.equals(key.getUserId())) {
+            throw new ServiceException("无权操作此 API Key", 403);
+        }
+
+        key.setStatus(status);
+        key.setUpdatedBy(username);
+        apiKeyMapper.updateApiKey(key);
+
+        log.info("API Key 状态切换 userId={}, id={}, status={}", userId, id, status);
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        Long userId = SecurityUtils.getUserId();
+
+        FbsApiKey key = apiKeyMapper.selectById(id);
+
+        if (key == null) {
+            throw new ServiceException("API Key 不存在", 404);
+        }
+
+        if (!userId.equals(key.getUserId())) {
+            throw new ServiceException("无权删除此 API Key", 403);
+        }
+
+        apiKeyMapper.deleteById(id);
+
+        log.info("API Key 删除成功 userId={}, id={}", userId, id);
     }
 }

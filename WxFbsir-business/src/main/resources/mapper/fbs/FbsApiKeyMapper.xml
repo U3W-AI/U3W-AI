@@ -7,10 +7,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <resultMap type="com.wx.fbsir.business.fbs.domain.entity.FbsApiKey" id="FbsApiKeyResult">
         <id     property="id"               column="id"                />
         <result property="apiKey"           column="api_key"           />
+        <result property="userId"           column="user_id"           />
         <result property="name"             column="name"              />
         <result property="packCode"         column="pack_code"         />
         <result property="rateLimitPerMin"  column="rate_limit_per_min"/>
         <result property="status"           column="status"            />
+        <result property="lastUsedAt"       column="last_used_at"      />
         <result property="createdBy"        column="created_by"        />
         <result property="createTime"       column="create_time"       />
         <result property="updatedBy"        column="updated_by"        />
@@ -19,7 +21,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectFbsApiKeyVo">
-        SELECT id, api_key, name, pack_code, rate_limit_per_min, status,
+        SELECT id, api_key, user_id, name, pack_code, rate_limit_per_min, status, last_used_at,
                created_by, create_time, updated_by, update_time, remark
         FROM fbs_api_key
     </sql>
@@ -61,10 +63,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <insert id="insertApiKey" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsApiKey"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO fbs_api_key
-        (api_key, name, pack_code, rate_limit_per_min, status,
+        (api_key, user_id, name, pack_code, rate_limit_per_min, status,
          created_by, create_time, updated_by, update_time, remark)
         VALUES
-        (#{apiKey}, #{name}, #{packCode, jdbcType=VARCHAR}, #{rateLimitPerMin}, #{status},
+        (#{apiKey}, #{userId, jdbcType=BIGINT}, #{name}, #{packCode, jdbcType=VARCHAR}, #{rateLimitPerMin}, #{status},
          #{createdBy, jdbcType=VARCHAR}, NOW(), #{updatedBy, jdbcType=VARCHAR}, NOW(), #{remark, jdbcType=VARCHAR})
     </insert>
 
@@ -75,6 +77,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="packCode != null">pack_code = #{packCode},</if>
             <if test="rateLimitPerMin != null">rate_limit_per_min = #{rateLimitPerMin},</if>
             <if test="status != null">status = #{status},</if>
+            <if test="lastUsedAt != null">last_used_at = #{lastUsedAt},</if>
             <if test="updatedBy != null">updated_by = #{updatedBy},</if>
             update_time = NOW(),
             <if test="remark != null">remark = #{remark},</if>
@@ -85,5 +88,21 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <delete id="deleteById" parameterType="Long">
         DELETE FROM fbs_api_key WHERE id = #{id}
     </delete>
+
+    <!-- 用户侧：按用户ID查询 -->
+    <select id="selectByUserId" parameterType="Long" resultMap="FbsApiKeyResult">
+        <include refid="selectFbsApiKeyVo"/>
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 更新最后使用时间 -->
+    <update id="updateLastUsedAt" parameterType="String">
+        UPDATE fbs_api_key
+        SET last_used_at = NOW()
+        WHERE api_key = #{apiKey}
+    </update>
+
+
 
 </mapper>

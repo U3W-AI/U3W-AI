@@ -747,5 +747,187 @@
 
 ---
 
-*本文档由 OpenSpec #6/#7/#8 变更更新，变更 ID：`06-add-wecom-cli-integration` / `07-add-smartsheet-write-mvp` / `08-add-smartsheet-schema-mgmt`*  
-*最后更新：2026-04-15*
+## 15. 用户侧 API Key 管理
+
+> **变更 ID**：`11-frontend-api-key-management`  
+> **日期**：2026-04-17  
+> **范围**：用户自助创建/管理 API Key（用于 Skill 调用认证）
+
+### 15.1 概述
+
+用户可以通过前端界面自助创建和管理 API Key，用于 WorkBuddy Skill 调用后端 API。
+
+**核心特性**：
+- 创建时返回完整密钥（仅一次）
+- 后续查询只显示脱敏密钥
+- 数据隔离（用户只能看到自己的 Key）
+- 启用/禁用控制
+
+**认证方式**：JWT Token（需登录）
+
+---
+
+### 15.2 查询我的 API Key 列表
+
+**端点**：`GET /fbs/business/my/apikey/list`
+
+**权限**：`my:apikey:list`
+
+**请求参数**：无
+
+**成功响应**（HTTP 200）：
+```json
+{
+  "code": 200,
+  "msg": "操作成功",
+  "data": [
+    {
+      "id": 1,
+      "apiKey": "fbs_abc12****",
+      "name": "我的测试密钥",
+      "status": 1,
+      "createTime": "2026-04-17 14:00:00",
+      "lastUsedAt": "2026-04-17 14:30:00"
+    }
+  ]
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | API Key ID |
+| apiKey | String | 脱敏后的密钥（前8位 + ****） |
+| name | String | API Key 名称 |
+| status | Integer | 状态：1=启用, 0=禁用 |
+| createTime | String | 创建时间 |
+| lastUsedAt | String | 最后使用时间（可能为 null） |
+
+**数据隔离**：只返回当前用户的 API Key。
+
+---
+
+### 15.3 创建 API Key
+
+**端点**：`POST /fbs/business/my/apikey/create`
+
+**权限**：`my:apikey:create`
+
+**请求体**：
+```json
+{
+  "name": "我的 WorkBuddy 密钥"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| name | String | 是 | API Key 名称（最长50字符） |
+
+**成功响应**（HTTP 200）：
+```json
+{
+  "code": 200,
+  "msg": "创建成功",
+  "data": {
+    "id": 2,
+    "apiKey": "fbs_abc123xyz789def456ghi012jkl345",
+    "name": "我的 WorkBuddy 密钥",
+    "status": 1,
+    "createTime": "2026-04-17 14:05:00"
+  }
+}
+```
+
+⚠️ **重要**：`apiKey` 字段返回完整密钥，仅此一次！后续查询只返回脱敏值。
+
+**失败响应**（HTTP 200）：
+```json
+{
+  "code": 500,
+  "msg": "名称不能为空"
+}
+```
+
+---
+
+### 15.4 禁用/启用 API Key
+
+**端点**：`PUT /fbs/business/my/apikey/toggle/{id}`
+
+**权限**：`my:apikey:toggle`
+
+**路径参数**：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| id | Long | 是 | API Key ID |
+
+**请求参数**：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| status | Integer | 是 | 目标状态：1=启用, 0=禁用 |
+
+**成功响应**（HTTP 200）：
+```json
+{
+  "code": 200,
+  "msg": "操作成功"
+}
+```
+
+**失败场景**：
+- 无权操作别人的 Key：抛出异常
+- API Key 不存在：抛出异常
+
+---
+
+### 15.5 删除 API Key
+
+**端点**：`DELETE /fbs/business/my/apikey/{id}`
+
+**权限**：`my:apikey:delete`
+
+**路径参数**：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| id | Long | 是 | API Key ID |
+
+**成功响应**（HTTP 200）：
+```json
+{
+  "code": 200,
+  "msg": "操作成功"
+}
+```
+
+**失败场景**：
+- 无权删除别人的 Key：抛出异常
+- API Key 不存在：抛出异常
+
+---
+
+### 15.6 数据脱敏规则
+
+| 场景 | 密钥显示 |
+|------|---------|
+| 创建时返回 | 完整密钥（仅此一次） |
+| 列表查询 | 前8位 + ****（如：`fbs_abc12****`） |
+| 数据库存储 | 明文（MVP） |
+
+> **安全建议**：用户需在创建后立即复制保存，关闭对话框后无法再次查看完整密钥。
+
+---
+
+### 15.7 数据隔离
+
+所有接口都遵循数据隔离原则：
+- `listMyKeys()`：只返回当前用户（`userId`）的 Key
+- `toggleStatus()`：校验 `userId` 是否匹配
+- `deleteById()`：校验 `userId` 是否匹配
+
+---
+
+*本文档由 OpenSpec #6/#7/#8/#11 变更更新*  
+*最后更新：2026-04-17*

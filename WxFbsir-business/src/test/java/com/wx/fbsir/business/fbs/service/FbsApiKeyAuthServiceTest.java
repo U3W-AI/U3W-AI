@@ -65,7 +65,7 @@ class FbsApiKeyAuthServiceTest {
     class ApiKeyCheckTests {
 
         @Test
-        @DisplayName("§6.1.1.1 有效 Key — 校验通过")
+        @DisplayName("§6.1.1.1 有效 Key — 校验通过 + 更新 last_used_at")
         void validKey_shouldPass() {
             when(apiKeyMapper.selectActiveByKey(VALID_KEY)).thenReturn(buildActiveKey());
 
@@ -75,6 +75,9 @@ class FbsApiKeyAuthServiceTest {
             assertEquals(200, result.getHttpStatus());
             assertNotNull(result.getKeyEntity());
             assertEquals(VALID_KEY, result.getKeyEntity().getApiKey());
+            
+            // 验证更新最后使用时间被调用
+            verify(apiKeyMapper).updateLastUsedAt(VALID_KEY);
         }
 
         @Test
