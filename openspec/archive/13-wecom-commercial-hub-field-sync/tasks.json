@@ -1,0 +1,56 @@
+[
+  {
+    "number": 1,
+    "category": "阶段 1：DTO 与接口扩展",
+    "task": "新增 CommercialHubSyncContext DTO + 扩展 WecomBusinessSyncService 接口",
+    "steps": [
+      { "step": "创建 CommercialHubSyncContext.java（userId, packCode, pointsAmount, remainPoints, hostType, usageRecordId, packId, authCode, pointsRuleCode, packType）", "completed": true },
+      { "step": "在 WecomBusinessSyncService 新增重载方法 syncCommercialHub(CommercialHubSyncContext)", "completed": true },
+      { "step": "旧 4 参数签名标记 @Deprecated，内部构建最小 context 转调新签名", "completed": true }
+    ],
+    "passes": true
+  },
+  {
+    "number": 2,
+    "category": "阶段 2：核心改造",
+    "task": "改造 WecomBusinessSyncServiceImpl 补全 14 个空字段 + 修复 user_id 格式",
+    "steps": [
+      { "step": "修复 user_id 字段：从 values.put(\"user_id\", userId) 改为文本包装格式", "completed": true },
+      { "step": "改造 buildCommercialHubRecord(CommercialHubSyncContext) 补全 14 个字段（corp_id, code_prefix, code_hash, code_type, redeem_target, request_id, order_id, trial_allowed, enterprise_only, source, operator, risk_flag, payload_json, updated_at）", "completed": true },
+      { "step": "注入 FbsEnterpriseMemberMapper + FbsEnterpriseMapper，实现 resolveCorpId()：从 enterpriseId → enterpriseCode 关联查，失败降级空字符串", "completed": true },
+      { "step": "注入 FbsAuthCodeMapper，实现 resolveCodeType()：从 authCode 关联查 codeType，code_prefix/code_hash 写空字符串（FbsAuthCode 无此字段）", "completed": true },
+      { "step": "实现 resolveSource()：hostType 映射（WORKBUDDY→SKILL_API, ENTERPRISE→ENTERPRISE）", "completed": true },
+      { "step": "实现 buildPayloadJson()：序列化核心消费参数为 JSON 字符串", "completed": true },
+      { "step": "确认 trial_allowed/enterprise_only 的 SINGLE_SELECT 写入格式，实现对应逻辑", "completed": true }
+    ],
+    "passes": true
+  },
+  {
+    "number": 3,
+    "category": "阶段 3：调用点改造",
+    "task": "改造 SkillConsumeServiceImpl 消费路径（含 consumeEnterprise 新增同步）",
+    "steps": [
+      { "step": "改造 consume() 路径：构建 CommercialHubSyncContext 并调用新签名", "completed": true },
+      { "step": "新增 consumeEnterprise() 同步调用：构建 CommercialHubSyncContext（hostType=ENTERPRISE, source=ENTERPRISE, pointsAmount=0）——⚠️ 当前完全没有调用 syncCommercialHub！", "completed": true }
+    ],
+    "passes": true
+  },
+  {
+    "number": 4,
+    "category": "阶段 4：单元测试",
+    "task": "WecomBusinessSyncServiceImpl 单元测试",
+    "steps": [
+      { "step": "测试 buildCommercialHubRecord 全 24 字段输出验证", "completed": true },
+      { "step": "测试 user_id 字段为文本格式（非裸 Long）", "completed": true },
+      { "step": "测试 resolveCorpId 关联查询正常路径（enterpriseCode）", "completed": true },
+      { "step": "测试 resolveCorpId 关联查询失败降级（返回空字符串）", "completed": true },
+      { "step": "测试 resolveCodeType 授权码关联查询正常路径", "completed": true },
+      { "step": "测试 resolveCodeType 授权码关联查询失败降级", "completed": true },
+      { "step": "测试 code_prefix/code_hash 写空字符串（无数据源）", "completed": true },
+      { "step": "测试旧 4 参数签名兼容（补全字段为默认值）", "completed": true },
+      { "step": "测试 enterprise_only 字段判断逻辑（packType=2→true, 其他→false）", "completed": true },
+      { "step": "测试 source 字段映射逻辑（hostType→source）", "completed": true }
+    ],
+    "passes": true
+  }
+]

@@ -1,8 +1,8 @@
 # 平台侧场景包运营 - 规范
 
-> **规范版本**：v1.7（合并版）
-> **归档日期**：2026-04-15
-> **来源 OpenSpec**：`add-platform-scene-pack-ops` + `add-enterprise-scene-pack-ops` + `add-user-self-service` + `add-skill-api-gateway` + `add-wecom-cli-integration` + `add-smartsheet-write-mvp` + `add-smartsheet-schema-mgmt`
+> **规范版本**：v1.8（合并版）
+> **归档日期**：2026-04-18
+> **来源 OpenSpec**：`add-platform-scene-pack-ops` + `add-enterprise-scene-pack-ops` + `add-user-self-service` + `add-skill-api-gateway` + `add-wecom-cli-integration` + `add-smartsheet-write-mvp` + `add-smartsheet-schema-mgmt` + `wecom-commercial-hub-field-sync`
 
 ---
 
@@ -25,6 +25,8 @@
 > **v1.6 扩展（add-smartsheet-write-mvp）**：新增企微智能表格写入能力——WecomWriteService（分片写入服务）+ POST /fbs/business/wecom/sync/write API + 20KB 分片策略 + sync_type=WRITE 日志类型。单元测试 10/10 + 集成测试 10/10 全绿。
 >
 > **v1.7 扩展（add-smartsheet-schema-mgmt）**：新增企微智能表格结构管理能力——WecomSchemaService（子表+字段 CRUD）+ WecomWriteService 扩展（updateRecords/deleteRecords）+ 10 个新 REST API 端点 + 11 个 DTO + 字段类型白名单 + 150字段上限 + 100记录上限。单元测试 269/269 全绿。
+>
+> **v1.8 扩展（wecom-commercial-hub-field-sync）**：commercial_hub 完整字段同步——`CommercialHubSyncContext` DTO + `syncCommercialHub` 签名扩展 + 14 个空字段补全写入 + user_id 文本格式修复 + consumeEnterprise 同步调用补漏 + 关联查询降级策略 + cli-proxy.js 方案修复 Windows ProcessBuilder 嵌套 JSON 引号问题。单元测试 19/19 + 集成测试验证 24 字段全写入。
 
 ---
 
@@ -1662,4 +1664,197 @@ CREATE INDEX idx_user_id ON fbs_api_key(user_id);
 - 一个用户只能有一个 API Key 的限制
 - API Key 过期时间
 - API Key 使用统计图表
+
+---
+
+## 十八、commercial_hub 完整字段同步
+
+> **扩展来源**：OpenSpec #13 wecom-commercial-hub-field-sync。
+
+### Requirement: commercial_hub 完整字段同步
+
+WHEN 积分消费成功并触发 `syncCommercialHub()`,
+系统 SHALL 将 commercial_hub 子表的全部 24 个字段写入企微智能表格。
+
+#### Scenario: 个人用户消费完整同步
+
+GIVEN 用户消费场景包
+AND hostType="WORKBUDDY"
+AND usageRecordId 已生成
+WHEN 调用 syncCommercialHub(CommercialHubSyncContext)
+THEN 企微智能表格新增一条记录，包含全部 24 字段
+AND record_id 为 UUID（文本格式）
+AND user_id 为文本格式 `"1001"`（非裸 Long）
+AND source 为 "SKILL_API"
+AND enterprise_only 为 "false"
+AND trial_allowed 为 "false"
+AND redeem_target 与 genre 相同
+AND request_id = order_id = usageRecordId
+AND payload_json 包含完整消费参数 JSON
+AND created_at = updated_at 为当前时间
+
+#### Scenario: 企业用户消费完整同步
+
+GIVEN 企业用户消费企业场景包
+AND hostType="ENTERPRISE"
+AND 用户关联企业 enterpriseCode="ENT_abc123"
+AND authCode 非空
+WHEN 调用 syncCommercialHub(CommercialHubSyncContext)
+THEN commercial_hub 新增一条记录
+AND corp_id 为 "ENT_abc123"（从 FbsEnterpriseMember → FbsEnterprise 关联查）
+AND enterprise_only 为 "true"
+AND source 为 "ENTERPRISE"
+AND code_type 为授权码类型值
+AND pointsAmount 为 0（企业路径不扣个人积分）
+
+#### Scenario: 关联查询失败降级
+
+GIVEN 查询企业编码时 FbsEnterpriseMemberMapper 返回空列表
+WHEN 调用 syncCommercialHub(CommercialHubSyncContext)
+THEN corp_id 字段写入空字符串
+AND 同步不中断，其他字段正常写入
+
+---
+
+### Requirement: CommercialHubSyncContext 上下文传递
+
+WHEN SkillConsumeServiceImpl 执行积分消费,
+系统 SHALL 构建包含完整消费上下文的 CommercialHubSyncContext 并传递给同步服务。
+
+#### Scenario: 个人消费路径传参
+
+GIVEN 用户通过 WORKBUDDY 路径消费
+WHEN consume() 方法成功扣减积分
+THEN 构建 CommercialHubSyncContext 包含 userId, packCode, pointsAmount, remainPoints, hostType="WORKBUDDY", usageRecordId, packId, authCode, pointsRuleCode, packType
+AND 调用 syncCommercialHub(context)
+
+#### Scenario: 企业消费路径传参
+
+GIVEN 用户通过 ENTERPRISE 路径消费
+WHEN consumeEnterprise() 方法成功执行
+THEN 构建 CommercialHubSyncContext 包含 hostType="ENTERPRISE", pointsAmount=0
+AND 调用 syncCommercialHub(context)
+
+---
+
+### Requirement: 企业消费路径同步（补漏）
+
+WHEN 企业成员通过企业配额路径消费场景包,
+系统 SHALL 同步消费记录到企微智能表格 commercial_hub。
+
+#### Scenario: 企业消费同步
+
+GIVEN 企业成员成功消费场景包（consumeEnterprise 返回成功）
+WHEN 同步调用执行
+THEN commercial_hub 新增一条记录
+AND source 为 "ENTERPRISE"
+AND enterprise_only 为 "true"（packType=2）
+AND pointsAmount 为 0
+
+#### Scenario: 企业同步失败不影响配额扣减
+
+GIVEN 企业消费成功但同步到企微失败
+WHEN syncCommercialHub 抛出异常
+THEN 配额扣减结果不受影响
+AND 记录 warn 日志
+
+---
+
+### Requirement: user_id 字段格式修复
+
+WHEN 构建 commercial_hub 记录,
+系统 SHALL 将 user_id 字段以文本格式写入智能表格。
+
+#### Scenario: user_id 文本格式写入
+
+GIVEN userId=1001
+WHEN 构建 commercial_hub 记录
+THEN user_id 字段值为 `[{"type":"text","text":"1001"}]`
+AND 不直接传 Long 类型
+
+---
+
+### Requirement: syncCommercialHub 接口签名
+
+系统 SHALL 支持 CommercialHubSyncContext 上下文参数，旧 4 参数签名保留并标记 `@Deprecated`。
+
+#### Scenario: 旧签名兼容
+
+GIVEN 调用旧 4 参数签名 syncCommercialHub(userId, packCode, pointsAmount, remainPoints)
+WHEN 内部转调新签名
+THEN 构建 CommercialHubSyncContext，hostType 默认 "WORKBUDDY"，扩展字段为默认值
+AND 核心字段正常写入，扩展字段写入默认值
+
+---
+
+### commercial_hub 全量字段映射表
+
+| # | 字段 | 智能表格类型 | 写入格式 | 来源 |
+|---|------|:---:|---------|------|
+| 1 | record_id | TEXT | `[{"type":"text","text":"UUID"}]` | UUID 生成 |
+| 2 | record_type | TEXT | `[{"type":"text","text":"SKILL_USAGE"}]` | 固定值 |
+| 3 | corp_id | TEXT | `[{"type":"text","text":enterpriseCode}]` | FbsEnterpriseMember→FbsEnterprise 关联查，失败降级空字符串 |
+| 4 | user_id | TEXT | `[{"type":"text","text":"1001"}]` | ⚠️ 文本包装，非裸 Long |
+| 5 | genre | TEXT | `[{"type":"text","text":packCode}]` | ctx.packCode |
+| 6 | event | TEXT | `[{"type":"text","text":"CONSUME"}]` | 固定值 |
+| 7 | delta | NUMBER | 直接传 int | ctx.pointsAmount |
+| 8 | balance_after | NUMBER | 直接传 int | ctx.remainPoints |
+| 9 | credits_required | NUMBER | 直接传 int | ctx.pointsAmount |
+| 10 | code_prefix | TEXT | `[{"type":"text","text":""}]` | FbsAuthCode 无此字段，写空字符串 |
+| 11 | code_hash | TEXT | `[{"type":"text","text":""}]` | FbsAuthCode 无此字段，写空字符串 |
+| 12 | code_type | TEXT | `[{"type":"text","text":"1"/"2"}]` | FbsAuthCode.codeType，无授权码=空字符串 |
+| 13 | redeem_target | TEXT | `[{"type":"text","text":packCode}]` | 与 genre 相同 |
+| 14 | request_id | TEXT | `[{"type":"text","text":usageRecordId}]` | ctx.usageRecordId |
+| 15 | order_id | TEXT | `[{"type":"text","text":usageRecordId}]` | MVP 同 request_id |
+| 16 | trial_allowed | SINGLE_SELECT | `"true"/"false"` | MVP 固定 "false" |
+| 17 | enterprise_only | SINGLE_SELECT | `"true"/"false"` | packType=2→"true"，其他→"false" |
+| 18 | source | TEXT | `[{"type":"text","text":"SKILL_API"/"ENTERPRISE"}]` | hostType 映射 |
+| 19 | operator | TEXT | `[{"type":"text","text":userId}]` | ctx.userId |
+| 20 | status | TEXT | `[{"type":"text","text":"SUCCESS"}]` | 固定值 |
+| 21 | risk_flag | TEXT | `[{"type":"text","text":""}]` | P3 延期 |
+| 22 | payload_json | TEXT | `[{"type":"text","text":jsonString}]` | 消费请求体序列化 |
+| 23 | created_at | TEXT | `[{"type":"text","text":timestamp}]` | 当前时间 |
+| 24 | updated_at | TEXT | `[{"type":"text","text":timestamp}]` | 同 created_at |
+
+---
+
+### CommercialHubSyncContext DTO
+
+```java
+public class CommercialHubSyncContext {
+    private Long userId;
+    private String packCode;
+    private int pointsAmount;
+    private Integer remainPoints;
+    private String hostType;          // WORKBUDDY / ENTERPRISE
+    private String usageRecordId;     // 幂等 key
+    private Long packId;              // 用于关联查询
+    private String authCode;          // 授权码（可为空）
+    private String pointsRuleCode;    // 积分规则编码
+    private int packType;             // 场景包类型（1=平台,2=企业）
+}
+```
+
+---
+
+### Windows ProcessBuilder 引号转义修复
+
+**问题**：Java ProcessBuilder 在 Windows 上传递包含嵌套 JSON 引号的参数时，`escapeForWindows` 的 `replace("\"", "\\\"")` 对扁平 JSON 有效，但对嵌套 JSON（`records: [{values: {...}}]`）无效，CLI 收到格式错误的 JSON（exit code 1）。
+
+**修复方案**：新增 `cli-proxy.js` 中间层脚本——写参数到临时文件，用 Node.js `execFileSync` 调用 CLI。`WecomCliServiceImpl.doExecute()` 在 Windows 上改用代理脚本模式。
+
+**文件**：
+- `cli-proxy.js`：Node.js 代理脚本，从临时文件读取 JSON 参数调用 wecom-cli
+- `WecomCliServiceImpl.java`：`doExecute()` Windows 分支改用 cli-proxy.js
+
+---
+
+### #13 明确不在范围内
+
+以下能力延期至后续 OpenSpec：
+
+- code_prefix/code_hash 数据源补全（需 FbsAuthCode 表加字段）
+- risk_flag 风控逻辑
+- commercial_hub 批量历史回填
+- cli-proxy.js 非 Windows 路径优化
 

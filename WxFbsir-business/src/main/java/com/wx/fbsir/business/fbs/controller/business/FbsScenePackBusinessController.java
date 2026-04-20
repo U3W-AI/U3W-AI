@@ -8,6 +8,8 @@ import com.wx.fbsir.business.fbs.dto.business.scene_pack.ScenePackUpdateRequest;
 import com.wx.fbsir.business.fbs.mapper.FbsScenePackMapper;
 import com.wx.fbsir.business.fbs.service.business.IFbsScenePackBusinessService;
 import com.wx.fbsir.business.fbs.service.WecomBusinessSyncService;
+import com.wx.fbsir.business.point.domain.PointsRule;
+import com.wx.fbsir.business.point.service.IPointsRuleService;
 import com.wx.fbsir.common.annotation.Log;
 import com.wx.fbsir.common.core.controller.BaseController;
 import com.wx.fbsir.common.core.domain.AjaxResult;
@@ -42,6 +44,9 @@ public class FbsScenePackBusinessController extends BaseController {
 
     @Autowired
     private FbsScenePackMapper scenePackMapper;
+
+    @Autowired
+    private IPointsRuleService pointsRuleService;
 
     /**
      * GET /business/fbs/scene-pack/list
@@ -161,9 +166,9 @@ public class FbsScenePackBusinessController extends BaseController {
     /**
      * 同步场景包到企微智能表格（entitlement）
      *
-     * MVP 简化：creditsRequired 从 pointsRuleCode 推导
+     * creditsRequired 从 wx_points_rule 表查询实际积分值
      * - pointsRuleCode=null → creditsRequired=0（免费包）
-     * - pointsRuleCode!=null → creditsRequired=100（默认值，后续从积分规则表查询）
+     * - pointsRuleCode!=null → 从积分规则表查 pointsValue
      */
     private void syncEntitlementToWecom(Long scenePackId) {
         if (wecomBusinessSyncService == null) {
@@ -177,11 +182,16 @@ public class FbsScenePackBusinessController extends BaseController {
                 return;
             }
 
-            // MVP: creditsRequired 推导逻辑
+            // 从积分规则表查询实际 creditsRequired
             int creditsRequired = 0;
             if (pack.getPointsRuleCode() != null && !pack.getPointsRuleCode().isEmpty()) {
-                // TODO: 从 wx_points_rule 表查询实际积分值
-                creditsRequired = 100; // 默认值
+                PointsRule rule = pointsRuleService.getRuleByCode(pack.getPointsRuleCode());
+                if (rule != null && rule.getPointsValue() != null) {
+                    creditsRequired = rule.getPointsValue();
+                } else {
+                    log.warn("积分规则不存在或 pointsValue 为空 ruleCode={}, 默认 creditsRequired=0",
+                            pack.getPointsRuleCode());
+                }
             }
 
             wecomBusinessSyncService.syncEntitlement(pack, creditsRequired);

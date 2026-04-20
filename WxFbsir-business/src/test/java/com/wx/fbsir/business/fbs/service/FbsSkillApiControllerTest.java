@@ -762,4 +762,283 @@ class FbsSkillApiControllerTest {
             clearSecurityContext();
         }
     }
+
+    // ========================================================================
+    // OpenSpec #14：points/earn 行为积分上报测试
+    // ========================================================================
+
+    @Nested
+    @DisplayName("§14.1 points/earn 行为积分上报")
+    class PointsEarnTests {
+
+        @Test
+        @DisplayName("§14.1.1 积分上报成功 — changePoints 返回成功")
+        void earnSuccess() {
+            setupSecurityContext();
+            AjaxResult successResult = AjaxResult.success("积分操作成功", 1010);
+            // changePoints 重载3：(userId, source, amount, scenePackId=null, usageRecordId, eventId=usageRecordId)
+            when(pointsService.changePoints(eq(USER_ID), eq("chapter_done"), eq(10),
+                    isNull(), eq("wb-earn-001"), eq("wb-earn-001")))
+                    .thenReturn(successResult);
+            when(pointsService.getUserPoints(USER_ID)).thenReturn(1010);
+
+            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
+            request.setUserId(USER_ID);
+            request.setSource("chapter_done");
+            request.setAmount(10);
+            request.setUsageRecordId("wb-earn-001");
+
+            AjaxResult result = controller.pointsEarn(request);
+
+            assertEquals(200, result.get(AjaxResult.CODE_TAG));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) result.get(AjaxResult.DATA_TAG);
+            assertEquals(true, data.get("success"));
+            assertEquals(10, data.get("pointsAmount"));
+            assertEquals(1010, data.get("remainPoints"));
+            assertEquals("wb-earn-001", data.get("usageRecordId"));
+
+            // 验证 eventId = usageRecordId
+            verify(pointsService).changePoints(eq(USER_ID), eq("chapter_done"), eq(10),
+                    isNull(), eq("wb-earn-001"), eq("wb-earn-001"));
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("§14.1.2 幂等 — changePoints 返回幂等结果（eventId 已存在）")
+        void earnIdempotent() {
+            setupSecurityContext();
+            // changePoints 幂等返回（#10 模型：返回既有余额）
+            AjaxResult idempotentResult = AjaxResult.success("积分操作成功（幂等）", 1000);
+            when(pointsService.changePoints(eq(USER_ID), eq("daily_login"), eq(5),
+                    isNull(), eq("DL_1_2026-04-18"), eq("DL_1_2026-04-18")))
+                    .thenReturn(idempotentResult);
+            when(pointsService.getUserPoints(USER_ID)).thenReturn(1000);
+
+            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
+            request.setUserId(USER_ID);
+            request.setSource("daily_login");
+            request.setAmount(5);
+            request.setUsageRecordId("DL_1_2026-04-18");
+
+            AjaxResult result = controller.pointsEarn(request);
+
+            assertEquals(200, result.get(AjaxResult.CODE_TAG));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) result.get(AjaxResult.DATA_TAG);
+            assertEquals(true, data.get("success"));
+            assertEquals(5, data.get("pointsAmount"));  // 返回请求的 amount（不是实际变动）
+            assertEquals(1000, data.get("remainPoints"));
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("§14.1.3 参数校验 — source 为空")
+        void earnMissingSource() {
+            setupSecurityContext();
+            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
+            request.setUserId(USER_ID);
+            request.setSource("");
+            request.setAmount(10);
+            request.setUsageRecordId("wb-earn-001");
+
+            AjaxResult result = controller.pointsEarn(request);
+
+            assertEquals(500, result.get(AjaxResult.CODE_TAG));
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("§14.1.4 参数校验 — amount 为 null")
+        void earnMissingAmount() {
+            setupSecurityContext();
+            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
+            request.setUserId(USER_ID);
+            request.setSource("chapter_done");
+            request.setAmount(null);
+            request.setUsageRecordId("wb-earn-001");
+
+            AjaxResult result = controller.pointsEarn(request);
+
+            assertEquals(500, result.get(AjaxResult.CODE_TAG));
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("§14.1.5 参数校验 — amount 为负数")
+        void earnNegativeAmount() {
+            setupSecurityContext();
+            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
+            request.setUserId(USER_ID);
+            request.setSource("chapter_done");
+            request.setAmount(-5);
+            request.setUsageRecordId("wb-earn-001");
+
+            AjaxResult result = controller.pointsEarn(request);
+
+            assertEquals(500, result.get(AjaxResult.CODE_TAG));
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("§14.1.6 参数校验 — usageRecordId 为空")
+        void earnMissingUsageRecordId() {
+            setupSecurityContext();
+            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
+            request.setUserId(USER_ID);
+            request.setSource("chapter_done");
+            request.setAmount(10);
+            request.setUsageRecordId("");
+
+            AjaxResult result = controller.pointsEarn(request);
+
+            assertEquals(500, result.get(AjaxResult.CODE_TAG));
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("§14.1.7 userId 识别 — 不传 userId，从 API Key 反查成功")
+        void earnFromApiKey() {
+            FbsApiKey apiKey = buildApiKey();
+            apiKey.setUserId(USER_ID);
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                    apiKey, null, List.of(new SimpleGrantedAuthority("ROLE_SKILL_API")));
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+            AjaxResult successResult = AjaxResult.success("积分操作成功", 1010);
+            when(pointsService.changePoints(eq(USER_ID), eq("first_install"), eq(100),
+                    isNull(), eq("FI_1"), eq("FI_1")))
+                    .thenReturn(successResult);
+            when(pointsService.getUserPoints(USER_ID)).thenReturn(1010);
+
+            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
+            // 不传 userId
+            request.setSource("first_install");
+            request.setAmount(100);
+            request.setUsageRecordId("FI_1");
+
+            AjaxResult result = controller.pointsEarn(request);
+
+            assertEquals(200, result.get(AjaxResult.CODE_TAG));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) result.get(AjaxResult.DATA_TAG);
+            assertEquals(true, data.get("success"));
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("§14.1.8 userId 识别 — 不传 userId，API Key 未绑定 → 403")
+        void earnApiKeyNotBound() {
+            FbsApiKey apiKey = buildApiKey();
+            apiKey.setUserId(null);
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                    apiKey, null, List.of(new SimpleGrantedAuthority("ROLE_SKILL_API")));
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
+            request.setSource("chapter_done");
+            request.setAmount(10);
+            request.setUsageRecordId("wb-earn-001");
+
+            AjaxResult result = controller.pointsEarn(request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("§14.1.9 changePoints 返回业务错误（如规则未配置）")
+        void earnChangePointsError() {
+            setupSecurityContext();
+            AjaxResult errorResult = AjaxResult.error("积分规则未配置或已停用");
+            when(pointsService.changePoints(eq(USER_ID), eq("unknown_source"), eq(10),
+                    isNull(), eq("wb-earn-002"), eq("wb-earn-002")))
+                    .thenReturn(errorResult);
+            when(pointsService.getUserPoints(USER_ID)).thenReturn(1000);
+
+            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
+            request.setUserId(USER_ID);
+            request.setSource("unknown_source");
+            request.setAmount(10);
+            request.setUsageRecordId("wb-earn-002");
+
+            AjaxResult result = controller.pointsEarn(request);
+
+            // 返回错误（500）
+            assertEquals(500, result.get(AjaxResult.CODE_TAG));
+            clearSecurityContext();
+        }
+    }
+
+    // ========================================================================
+    // OpenSpec #14：user/info null 占位测试
+    // ========================================================================
+
+    @Nested
+    @DisplayName("§14.2 user/info activatedPacks null 占位")
+    class UserInfoNullPlaceholderTests {
+
+        @Test
+        @DisplayName("§14.2.1 scenePackMapper.selectById 返回 null → packCode/packName/packStatus 为 null")
+        void userInfoPackNull() {
+            setupSecurityContext();
+            when(pointsService.getUserPoints(USER_ID)).thenReturn(100);
+
+            FbsUserPack userPack = new FbsUserPack();
+            userPack.setId(1L);
+            userPack.setPackId(999L);  // packId 存在但场景包被删除
+            userPack.setStatus(1);
+            when(userPackMapper.selectActiveByUserId(USER_ID)).thenReturn(Collections.singletonList(userPack));
+            when(scenePackMapper.selectById(999L)).thenReturn(null);  // 场景包不存在
+
+            SkillApiUserInfoRequest request = new SkillApiUserInfoRequest();
+            request.setUserId(USER_ID);
+
+            AjaxResult result = controller.userInfo(request);
+
+            assertEquals(200, result.get(AjaxResult.CODE_TAG));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) result.get(AjaxResult.DATA_TAG);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> packs = (List<Map<String, Object>>) data.get("activatedPacks");
+            assertEquals(1, packs.size());
+            // null 占位：key 存在但值为 null
+            assertEquals(999L, packs.get(0).get("packId"));
+            assertNull(packs.get(0).get("packCode"));
+            assertNull(packs.get(0).get("packName"));
+            assertNull(packs.get(0).get("packStatus"));
+            assertEquals(1, packs.get(0).get("status"));
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("§14.2.2 scenePackMapper.selectById 正常返回 → packCode/packName/packStatus 有值")
+        void userInfoPackNotNull() {
+            setupSecurityContext();
+            when(pointsService.getUserPoints(USER_ID)).thenReturn(100);
+
+            FbsUserPack userPack = new FbsUserPack();
+            userPack.setId(1L);
+            userPack.setPackId(1L);
+            userPack.setStatus(1);
+            when(userPackMapper.selectActiveByUserId(USER_ID)).thenReturn(Collections.singletonList(userPack));
+            when(scenePackMapper.selectById(1L)).thenReturn(buildScenePack());
+
+            SkillApiUserInfoRequest request = new SkillApiUserInfoRequest();
+            request.setUserId(USER_ID);
+
+            AjaxResult result = controller.userInfo(request);
+
+            assertEquals(200, result.get(AjaxResult.CODE_TAG));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) result.get(AjaxResult.DATA_TAG);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> packs = (List<Map<String, Object>>) data.get("activatedPacks");
+            assertEquals(1, packs.size());
+            assertNotNull(packs.get(0).get("packCode"));
+            assertNotNull(packs.get(0).get("packName"));
+            assertNotNull(packs.get(0).get("packStatus"));
+            clearSecurityContext();
+        }
+    }
 }

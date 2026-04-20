@@ -282,11 +282,10 @@ public class FbsSkillApiController {
                 FbsScenePack pack = scenePackMapper.selectById(up.getPackId());
                 Map<String, Object> packInfo = new HashMap<>();
                 packInfo.put("packId", up.getPackId());
-                if (pack != null) {
-                    packInfo.put("packCode", pack.getPackCode());
-                    packInfo.put("packName", pack.getPackName());
-                    packInfo.put("packStatus", pack.getStatus());
-                }
+                // null 占位：scenePackMapper.selectById() 返回 null 时补 null，避免 Skill 端 key 不存在
+                packInfo.put("packCode", pack != null ? pack.getPackCode() : null);
+                packInfo.put("packName", pack != null ? pack.getPackName() : null);
+                packInfo.put("packStatus", pack != null ? pack.getStatus() : null);
                 packInfo.put("status", up.getStatus());
                 packInfo.put("expiresAt", up.getExpiresAt());
                 activatedPacks.add(packInfo);
@@ -299,6 +298,69 @@ public class FbsSkillApiController {
         data.put("activatedPacks", activatedPacks);
 
         return AjaxResult.success(data);
+    }
+
+    // =====================================================================
+    // 7. POST /fbs/skill-api/points/earn — 行为积分上报
+    //
+    // Skill 端在检测到行为积分事件（首次安装、每日登录、完章等）后调用。
+    // 幂等：eventId = usageRecordId，复用 wx_points_record.uk_event_id（#10 模型）
+    // =====================================================================
+
+    @PostMapping("/points/earn")
+    public AjaxResult pointsEarn(@RequestBody SkillApiPointsEarnRequest request) {
+        // 1. 从 API Key 获取 userId（优先）
+        FbsApiKey apiKey = getCurrentApiKey();
+        Long userId = (apiKey != null && apiKey.getUserId() != null)
+                      ? apiKey.getUserId()
+                      : request.getUserId();
+
+        if (userId == null) {
+            return AjaxResult.error(403, "无法识别用户（API Key 未绑定且未传 userId）");
+        }
+
+        // 2. 参数校验
+        if (!StringUtils.hasText(request.getSource())) {
+            return AjaxResult.error("source 不能为空");
+        }
+        if (request.getAmount() == null || request.getAmount() <= 0) {
+            return AjaxResult.error("amount 必须为正整数");
+        }
+        if (!StringUtils.hasText(request.getUsageRecordId())) {
+            return AjaxResult.error("usageRecordId 不能为空");
+        }
+
+        // 3. 调用 changePoints 重载3：eventId = usageRecordId（复用 #10 幂等模型）
+        //    scenePackId = null（行为积分不属于场景包消费）
+        AjaxResult result = pointsService.changePoints(
+                userId, request.getSource(), request.getAmount(),
+                null, request.getUsageRecordId(), request.getUsageRecordId());
+
+        // 4. 构造返回
+        if (result.get(AjaxResult.CODE_TAG) != null
+                && (int) result.get(AjaxResult.CODE_TAG) == 200) {
+            // 成功或幂等
+            Integer remainPoints = pointsService.getUserPoints(userId);
+            if (remainPoints == null) {
+                remainPoints = 0;
+            }
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("success", true);
+            data.put("pointsAmount", request.getAmount());
+            data.put("remainPoints", remainPoints);
+            data.put("usageRecordId", request.getUsageRecordId());
+            return AjaxResult.success(data);
+        } else {
+            // changePoints 返回错误（规则未配置、限频等）
+            Map<String, Object> data = new HashMap<>();
+            data.put("success", false);
+            data.put("pointsAmount", 0);
+            data.put("remainPoints", pointsService.getUserPoints(userId) != null ? pointsService.getUserPoints(userId) : 0);
+            data.put("usageRecordId", request.getUsageRecordId());
+            data.put("failReason", result.get(AjaxResult.MSG_TAG));
+            return AjaxResult.error(String.valueOf(result.get(AjaxResult.MSG_TAG)));
+        }
     }
 
     // =====================================================================

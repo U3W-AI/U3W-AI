@@ -97,39 +97,64 @@ public class WecomCliServiceImpl implements WecomCliService {
         long startMs = System.currentTimeMillis();
 
         try {
-            ProcessBuilder pb = new ProcessBuilder(
-                    cliPath, category, method, escapeForWindows(params));
-            pb.redirectErrorStream(true);  // 合并 stderr 到 stdout
-            pb.directory(null);             // 继承工作目录
-            // shell=false 是默认值，不显式设置（安全最佳实践）
+            // Windows ProcessBuilder 传递包含引号的 JSON 参数会破坏格式
+            // 修复方案：写临时文件，用 Node.js 代理脚本调用 CLI
+            File tempFile = null;
+            boolean useProxy = System.getProperty("os.name", "").toLowerCase().contains("win")
+                    && params != null && !params.isEmpty();
+
+            ProcessBuilder pb;
+            if (useProxy) {
+                // 写参数到临时文件
+                tempFile = File.createTempFile("wecom-cli-params-", ".json");
+                tempFile.deleteOnExit();
+                java.nio.file.Files.write(tempFile.toPath(), params.getBytes(StandardCharsets.UTF_8));
+
+                // 用 Node.js 代理脚本调用 CLI
+                String nodePath = "node";
+                String proxyScript = resolveProxyScriptPath();
+                pb = new ProcessBuilder(nodePath, proxyScript,
+                        cliPath, category, method, tempFile.getAbsolutePath());
+            } else {
+                // 非 Windows：直接传参
+                pb = new ProcessBuilder(cliPath, category, method, params != null ? params : "");
+            }
+
+            pb.redirectErrorStream(true);
+            pb.directory(null);
 
             Process process = pb.start();
 
-            boolean finished = process.waitFor(timeoutMs, TimeUnit.MILLISECONDS);
+            try {
+                boolean finished = process.waitFor(timeoutMs, TimeUnit.MILLISECONDS);
 
-            if (!finished) {
-                // 超时：强制销毁进程
-                process.destroyForcibly();
+                if (!finished) {
+                    process.destroyForcibly();
+                    long durationMs = System.currentTimeMillis() - startMs;
+                    return WecomCliResult.fail("EXEC_TIMEOUT",
+                            "wecom-cli 执行超时 (" + timeoutMs + "ms)", -1, durationMs);
+                }
+
+                int exitCode = process.exitValue();
+                String rawOutput = readOutput(process);
                 long durationMs = System.currentTimeMillis() - startMs;
-                return WecomCliResult.fail("EXEC_TIMEOUT",
-                        "wecom-cli 执行超时 (" + timeoutMs + "ms)", -1, durationMs);
+
+                if (exitCode != 0) {
+                    String errorCode = detectErrorCode(rawOutput, exitCode);
+                    return WecomCliResult.fail(errorCode, "wecom-cli exit code: " + exitCode,
+                            exitCode, durationMs);
+                }
+
+                // 解包 MCP 格式
+                String unwrapped = unwrapMcpOutput(rawOutput);
+                return WecomCliResult.success(unwrapped, durationMs);
+
+            } finally {
+                // 清理临时文件
+                if (tempFile != null && tempFile.exists()) {
+                    try { tempFile.delete(); } catch (Exception ignored) {}
+                }
             }
-
-            int exitCode = process.exitValue();
-            String rawOutput = readOutput(process);
-            long durationMs = System.currentTimeMillis() - startMs;
-
-            if (exitCode != 0) {
-                // 进程返回非零退出码
-                String errorCode = detectErrorCode(rawOutput, exitCode);
-                return WecomCliResult.fail(errorCode, "wecom-cli exit code: " + exitCode,
-                        exitCode, durationMs);
-            }
-
-            // 解包 MCP 格式：{"content":[{"text":"<actual>","type":"text"}],"isError":false}
-            String unwrapped = unwrapMcpOutput(rawOutput);
-
-            return WecomCliResult.success(unwrapped, durationMs);
 
         } catch (Exception e) {
             long durationMs = System.currentTimeMillis() - startMs;
@@ -206,6 +231,34 @@ public class WecomCliServiceImpl implements WecomCliService {
             // 解析失败，返回原始输出
         }
         return rawOutput;
+    }
+
+    /**
+     * 解析 CLI 代理脚本路径
+     * 代理脚本位于项目根目录的 cli-proxy.js
+     */
+    private String resolveProxyScriptPath() {
+        // 优先使用配置的路径
+        String proxyPath = System.getProperty("wecom.cli.proxy-path");
+        if (proxyPath != null && !proxyPath.isEmpty() && new File(proxyPath).exists()) {
+            return proxyPath;
+        }
+        // 默认：与 cliPath 同级目录的 cli-proxy.js
+        File cliDir = new File(cliPath).getParentFile();
+        if (cliDir != null) {
+            File proxy = new File(cliDir, "cli-proxy.js");
+            if (proxy.exists()) {
+                return proxy.getAbsolutePath();
+            }
+        }
+        // 兜底：项目根目录
+        File projectRoot = new File(System.getProperty("user.dir", "."));
+        File proxy = new File(projectRoot, "cli-proxy.js");
+        if (proxy.exists()) {
+            return proxy.getAbsolutePath();
+        }
+        // 最后兜底：假设在 jar 同目录
+        return "cli-proxy.js";
     }
 
     /**

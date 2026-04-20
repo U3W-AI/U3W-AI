@@ -53,7 +53,7 @@
 |---|------|------|
 | D-1 | `entitlement` 白名单扩展 | MVP 只做 `commercial_hub` |
 | D-2 | `entitlement` Sheet ID 配置 | MVP 只做 `commercial_hub` |
-| D-3 | `entitlement` 字段映射 | 需要新增字段或推导逻辑 |
+| D-3 | `entitlement` 字段映射 | 需要新增字段或推导逻辑 → credits_required 已修复（2026-04-18）：从 `wx_points_rule.points_value` 查询，不再写死 100 |
 | D-4 | `entitlement` Upsert 逻辑 | 需要读取能力 + record_id 定位 |
 | D-5 | 异步机制 | MVP 简化，使用同步调用 |
 | D-6 | 失败重试 | 同步失败记录日志即可 |

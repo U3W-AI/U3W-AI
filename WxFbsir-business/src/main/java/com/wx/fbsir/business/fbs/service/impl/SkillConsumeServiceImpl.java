@@ -4,6 +4,7 @@ import com.wx.fbsir.business.fbs.domain.entity.*;
 import com.wx.fbsir.business.fbs.domain.enums.UsageStatus;
 import com.wx.fbsir.business.fbs.dto.ComprehensiveRightsResult;
 import com.wx.fbsir.business.fbs.dto.ConsumeResult;
+import com.wx.fbsir.business.fbs.dto.business.wecom.CommercialHubSyncContext;
 import com.wx.fbsir.business.fbs.mapper.*;
 import com.wx.fbsir.business.fbs.service.RightsCheckService;
 import com.wx.fbsir.business.fbs.service.SkillConsumeService;
@@ -190,7 +191,19 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
         // ---- 步骤 7：同步到企微智能表格（commercial_hub）----
         try {
             if (wecomBusinessSyncService != null) {
-                wecomBusinessSyncService.syncCommercialHub(userId, packCode, pointsAmount, remainPoints);
+                CommercialHubSyncContext syncCtx = CommercialHubSyncContext.builder()
+                        .userId(userId)
+                        .packCode(packCode)
+                        .pointsAmount(pointsAmount)
+                        .remainPoints(remainPoints)
+                        .hostType(hostType != null ? hostType : "WORKBUDDY")
+                        .usageRecordId(usageRecordId)
+                        .packId(packId)
+                        .authCode(authCode)
+                        .pointsRuleCode(pointsRuleCode)
+                        .packType(pack.getPackType() != null ? pack.getPackType() : 0)
+                        .build();
+                wecomBusinessSyncService.syncCommercialHub(syncCtx);
             }
         } catch (Exception e) {
             // 同步失败不影响业务
@@ -339,6 +352,29 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
         int remain = computeRemainQuota(enterprisePack);
         log.info("企业配额消费成功 userId={}, enterpriseId={}, packCode={}, usageRecordId={}, remainQuota={}",
                 userId, member.getEnterpriseId(), packCode, usageRecordId, remain);
+
+        // ---- 步骤 10：同步到企微智能表格（commercial_hub）----
+        // ⚠️ OpenSpec #13：新增企业消费路径同步（之前完全没有调用！）
+        try {
+            if (wecomBusinessSyncService != null) {
+                CommercialHubSyncContext syncCtx = CommercialHubSyncContext.builder()
+                        .userId(userId)
+                        .packCode(packCode)
+                        .pointsAmount(0)              // 企业路径不扣个人积分
+                        .remainPoints(remain)         // 剩余企业配额
+                        .hostType("ENTERPRISE")
+                        .usageRecordId(usageRecordId)
+                        .packId(pack.getId())
+                        .authCode(null)               // 企业路径无授权码
+                        .pointsRuleCode(pack.getPointsRuleCode())
+                        .packType(pack.getPackType() != null ? pack.getPackType() : 0)
+                        .build();
+                wecomBusinessSyncService.syncCommercialHub(syncCtx);
+            }
+        } catch (Exception e) {
+            // 同步失败不影响配额扣减
+            log.warn("同步企业消费到企微失败 userId={}, packCode={}", userId, packCode, e);
+        }
 
         return ConsumeResult.success(usageRecordId, remain);
     }

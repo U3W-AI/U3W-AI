@@ -4,6 +4,11 @@
 > **日期**: 2026-04-17
 > **依赖**: `11-frontend-api-key-management`（用户侧 API Key 管理）
 
+> ⚠️ **当前状态（2026-04-18 更新）**：
+> - **后端改动（仍在）**：`/user/info` 和 `/usage/consume` 的 userId 可选改造、`getCurrentApiKey()` 辅助方法，代码均保留在 `FbsSkillApiController.java` 中
+> - **Skill 端改动（已恢复）**：`backend-api.mjs`、`credits-ledger.mjs` 异步化、`entitlement.mjs` 异步化——因 Skill 代码恢复，这些改动不再存在于当前 Skill 仓库
+> - **后续处理**：Skill 端对接由 OpenSpec #14 接续（含 #12 Skill 端改动的重做 + 新增 `points/earn` + 行为积分上报）
+
 ---
 
 ## 背景

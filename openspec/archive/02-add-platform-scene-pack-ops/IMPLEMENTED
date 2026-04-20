@@ -21,6 +21,7 @@
 | 日期 | 问题 | 修复 |
 |------|------|------|
 | 2026-04-09 | `issuer_id` NOT NULL 无默认值，POST generate 报错 | Service 层加 fallback: SecurityUtils.getUserId() |
+| 2026-04-18 | `syncEntitlementToWecom()` 写死 `creditsRequired=100`，智能表格 credits_required 永远是 100 | 注入 `IPointsRuleService`，用 `getRuleByCode()` 查 `wx_points_rule.points_value`；规则不存在时默认 0 + warn 日志 |
 
 ### 待办项
 
