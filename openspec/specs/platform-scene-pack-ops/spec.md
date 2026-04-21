@@ -866,7 +866,7 @@ GIVEN 管理员调用生成 API Key 接口
 WHEN  提交 name + packCode（可选）+ rateLimitPerMin（默认 60）
 THEN  系统 SHALL 生成唯一 API Key（前缀 fbs_ + 32位随机串）
 AND   存储到 fbs_api_key 表（status=1 启用）
-AND   MVP 明文存储，后续迭代改为 SHA-256 hash
+AND   明文存储（HMAC 签名校验需原文，不迁移到 SHA-256 hash）
 AND   返回完整 Key（仅创建时可见，后续查询脱敏：前8位+****）
 ```
 
@@ -899,8 +899,7 @@ AND   删除后使用该 Key 的请求返回 401
 - API Key 前端管理页面（P2-DEFERRED）
 - API Key sys_menu SQL（P2-DEFERRED）
 - fbs-rights-client.mjs 单元测试（P2-DEFERRED）
-- API Key SHA-256 hash 存储
-- Redis + 滑动窗口限流（替换内存计数器）
+- API Key SHA-256 hash 存储（已取消——#15 HMAC 签名方案依赖明文存储）
 - API Key 绑定 packCode 白名单
 - 宿主签名 userId（HMAC-SHA256）
 - IP 白名单
@@ -1660,7 +1659,7 @@ CREATE INDEX idx_user_id ON fbs_api_key(user_id);
 
 以下能力延期至后续 OpenSpec：
 
-- API Key SHA-256 hash 存储
+- ~~API Key SHA-256 hash 存储~~（已取消——#15 HMAC 签名方案依赖明文存储，不再迁移到 hash）
 - 一个用户只能有一个 API Key 的限制
 - API Key 过期时间
 - API Key 使用统计图表

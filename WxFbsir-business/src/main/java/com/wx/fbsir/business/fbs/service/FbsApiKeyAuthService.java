@@ -7,6 +7,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -72,6 +76,86 @@ public class FbsApiKeyAuthService {
 
         // 6. 通过
         return ApiKeyCheckResult.success(keyEntity);
+    }
+
+    // ========== #15 安全加固：时间戳校验 + 签名校验 ==========
+
+    /** 时间戳有效窗口：5 分钟（毫秒） */
+    private static final long TIMESTAMP_WINDOW_MS = 5 * 60 * 1000;
+
+    /**
+     * 校验时间戳
+     *
+     * @param timestamp X-FBS-Timestamp Header 值（Unix 毫秒时间戳字符串）
+     * @return 校验结果
+     */
+    public TimestampCheckResult verifyTimestamp(String timestamp) {
+        // 1. 缺失
+        if (timestamp == null || timestamp.trim().isEmpty()) {
+            return TimestampCheckResult.fail(401, "SKILL_API_TIMESTAMP_MISSING", "时间戳缺失");
+        }
+
+        // 2. 解析
+        long ts;
+        try {
+            ts = Long.parseLong(timestamp.trim());
+        } catch (NumberFormatException e) {
+            return TimestampCheckResult.fail(401, "SKILL_API_TIMESTAMP_MISSING", "时间戳格式无效");
+        }
+
+        // 3. 过期检查
+        long now = System.currentTimeMillis();
+        if (Math.abs(now - ts) > TIMESTAMP_WINDOW_MS) {
+            return TimestampCheckResult.fail(401, "SKILL_API_TIMESTAMP_EXPIRED", "时间戳已过期");
+        }
+
+        return TimestampCheckResult.success();
+    }
+
+    /**
+     * 校验 HMAC-SHA256 签名
+     *
+     * @param apiKey    API Key 原文（从数据库读取）
+     * @param timestamp 时间戳字符串
+     * @param body      原始 request body 字符串（不做反序列化再序列化）
+     * @param signature 客户端提供的签名（X-FBS-Signature Header）
+     * @return 校验结果
+     */
+    public SignatureCheckResult verifySignature(String apiKey, String timestamp, String body, String signature) {
+        // 1. 签名缺失
+        if (signature == null || signature.trim().isEmpty()) {
+            return SignatureCheckResult.fail(401, "SKILL_API_SIGNATURE_INVALID", "签名缺失");
+        }
+
+        // 2. 计算 HMAC-SHA256
+        try {
+            String message = timestamp + "\n" + body;
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(apiKey.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] computed = mac.doFinal(message.getBytes(StandardCharsets.UTF_8));
+
+            // 转为 hex 字符串
+            StringBuilder sb = new StringBuilder(computed.length * 2);
+            for (byte b : computed) {
+                sb.append(String.format("%02x", b));
+            }
+            String computedHex = sb.toString();
+
+            // 3. 比对签名（使用 MessageDigest.isEqual 防时序攻击）
+            boolean valid = MessageDigest.isEqual(
+                    computedHex.getBytes(StandardCharsets.UTF_8),
+                    signature.trim().getBytes(StandardCharsets.UTF_8)
+            );
+
+            if (!valid) {
+                return SignatureCheckResult.fail(401, "SKILL_API_SIGNATURE_INVALID", "签名不匹配");
+            }
+
+            return SignatureCheckResult.success();
+        } catch (Exception e) {
+            log.error("签名校验异常", e);
+            return SignatureCheckResult.fail(401, "SKILL_API_SIGNATURE_INVALID", "签名校验异常");
+        }
     }
 
     /**
@@ -146,5 +230,65 @@ public class FbsApiKeyAuthService {
         public String getErrorCode() { return errorCode; }
         public String getErrorMessage() { return errorMessage; }
         public FbsApiKey getKeyEntity() { return keyEntity; }
+    }
+
+    /**
+     * 时间戳校验结果（#15 安全加固）
+     */
+    public static class TimestampCheckResult {
+        private final boolean success;
+        private final int httpStatus;
+        private final String errorCode;
+        private final String errorMessage;
+
+        private TimestampCheckResult(boolean success, int httpStatus, String errorCode, String errorMessage) {
+            this.success = success;
+            this.httpStatus = httpStatus;
+            this.errorCode = errorCode;
+            this.errorMessage = errorMessage;
+        }
+
+        public static TimestampCheckResult success() {
+            return new TimestampCheckResult(true, 200, null, null);
+        }
+
+        public static TimestampCheckResult fail(int httpStatus, String errorCode, String errorMessage) {
+            return new TimestampCheckResult(false, httpStatus, errorCode, errorMessage);
+        }
+
+        public boolean isSuccess() { return success; }
+        public int getHttpStatus() { return httpStatus; }
+        public String getErrorCode() { return errorCode; }
+        public String getErrorMessage() { return errorMessage; }
+    }
+
+    /**
+     * 签名校验结果（#15 安全加固）
+     */
+    public static class SignatureCheckResult {
+        private final boolean success;
+        private final int httpStatus;
+        private final String errorCode;
+        private final String errorMessage;
+
+        private SignatureCheckResult(boolean success, int httpStatus, String errorCode, String errorMessage) {
+            this.success = success;
+            this.httpStatus = httpStatus;
+            this.errorCode = errorCode;
+            this.errorMessage = errorMessage;
+        }
+
+        public static SignatureCheckResult success() {
+            return new SignatureCheckResult(true, 200, null, null);
+        }
+
+        public static SignatureCheckResult fail(int httpStatus, String errorCode, String errorMessage) {
+            return new SignatureCheckResult(false, httpStatus, errorCode, errorMessage);
+        }
+
+        public boolean isSuccess() { return success; }
+        public int getHttpStatus() { return httpStatus; }
+        public String getErrorCode() { return errorCode; }
+        public String getErrorMessage() { return errorMessage; }
     }
 }

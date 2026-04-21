@@ -59,15 +59,15 @@ Body:   userId + packCode [+ authCode]
 >    - API Key 绑定 packCode 白名单（每个 Key 只能访问指定场景包的接口）
 >    - 宿主签名 userId（HMAC-SHA256(apiKey, userId + timestamp)）
 >    - IP 白名单限制
->    - API Key 改为 SHA-256 hash 存储
+>    - ~~API Key 改为 SHA-256 hash 存储~~（已取消——#15 HMAC 签名依赖明文）
 >
 > **如果不接受此风险**，则不应发布此 MVP，等待加固方案完成后再上线。
 
 ### 2.3 新增：API Key 管理
 
 - `fbs_api_key` 表：存储 API Key + 关联场景包 + 速率限制
-- **MVP 存明文**（api_key 字段直接存储原文），创建时返回完整 Key（仅此一次），后续查询脱敏显示前8位+`****`
-- **后续迭代**改为存 SHA-256 hash（不影响 MVP）
+- **存明文**（api_key 字段直接存储原文），创建时返回完整 Key（仅此一次），后续查询脱敏显示前8位+`****`
+- ~~**后续迭代**改为存 SHA-256 hash~~（已取消——#15 HMAC 签名依赖明文，不再迁移到 hash）
 - SecurityConfig 放行 `/fbs/skill-api/**`，改用自定义 Filter 校验 API Key
 
 ### 2.4 新增：Skill 端对接模块
@@ -306,7 +306,7 @@ Body:   userId + packCode [+ authCode]
 |---|------|
 | `fbs_api_key` | **新增表**：id, api_key VARCHAR(64) UNIQUE, name VARCHAR(128), pack_code VARCHAR(64), rate_limit_per_min INT DEFAULT 60, status TINYINT DEFAULT 1, created_by, created_time, updated_by, updated_time, remark |
 
-**MVP 明文存储 api_key**，后续迭代改为 SHA-256 hash。
+**明文存储 api_key**（#15 HMAC 签名依赖原文，不再迁移到 SHA-256 hash）。
 
 ### 4.3 受影响规范
 
@@ -371,8 +371,8 @@ Body:   userId + packCode [+ authCode]
 ### D-3：API Key 存储方式
 
 - **MVP**：明文存储（api_key 字段存原文），创建时返回完整 Key（仅此一次），列表查询脱敏
-- **后续迭代**：改为 SHA-256 hash 存储，校验时比对 hash
-- **理由**：MVP 阶段优先可用性，hash 存储需要前端/后端联动改造
+- ~~**后续迭代**：改为 SHA-256 hash 存储，校验时比对 hash~~（已取消——#15 HMAC 签名依赖明文）
+- **理由**：HMAC 签名方案需用原文 API Key 重新计算签名，hash 存储会破坏此能力
 
 ### D-4：consume 不传 pointsAmount
 

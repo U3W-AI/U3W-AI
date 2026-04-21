@@ -3,6 +3,8 @@ package com.wx.fbsir.business.fbs.service;
 import com.wx.fbsir.business.fbs.domain.entity.FbsApiKey;
 import com.wx.fbsir.business.fbs.mapper.FbsApiKeyMapper;
 import com.wx.fbsir.business.fbs.service.FbsApiKeyAuthService.ApiKeyCheckResult;
+import com.wx.fbsir.business.fbs.service.FbsApiKeyAuthService.TimestampCheckResult;
+import com.wx.fbsir.business.fbs.service.FbsApiKeyAuthService.SignatureCheckResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -10,6 +12,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -32,8 +38,8 @@ class FbsApiKeyAuthServiceTest {
     private FbsApiKeyAuthService service;
 
     // ---- 常量 ----
-    private static final String VALID_KEY = "fbs_abc123def456ghi789jkl012mno345pqr";
-    private static final String DISABLED_KEY = "fbs_disabled_key_1234567890abcdefghij";
+    private static final String VALID_KEY = "fbs_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2";
+    private static final String DISABLED_KEY = "fbs_0000000000000000000000000000000000000000000000000000000000000000";
 
     // ---- Fixture ----
     private FbsApiKey buildActiveKey() {
@@ -189,6 +195,181 @@ class FbsApiKeyAuthServiceTest {
             ApiKeyCheckResult result = service.checkApiKey(VALID_KEY);
 
             assertTrue(result.isSuccess());
+        }
+    }
+
+    // ========================================================================
+    // §6.3.1 时间戳校验逻辑测试（#15 安全加固）
+    // ========================================================================
+
+    @Nested
+    @DisplayName("§6.3.1 时间戳校验逻辑")
+    class TimestampCheckTests {
+
+        @Test
+        @DisplayName("§6.3.1.1 有效时间戳 — 校验通过")
+        void validTimestamp_shouldPass() {
+            String ts = String.valueOf(System.currentTimeMillis());
+            TimestampCheckResult result = service.verifyTimestamp(ts);
+
+            assertTrue(result.isSuccess());
+        }
+
+        @Test
+        @DisplayName("§6.3.1.2 时间戳为 null — 返回 401 MISSING")
+        void nullTimestamp_shouldReturn401() {
+            TimestampCheckResult result = service.verifyTimestamp(null);
+
+            assertFalse(result.isSuccess());
+            assertEquals(401, result.getHttpStatus());
+            assertEquals("SKILL_API_TIMESTAMP_MISSING", result.getErrorCode());
+        }
+
+        @Test
+        @DisplayName("§6.3.1.3 时间戳为空字符串 — 返回 401 MISSING")
+        void emptyTimestamp_shouldReturn401() {
+            TimestampCheckResult result = service.verifyTimestamp("");
+
+            assertFalse(result.isSuccess());
+            assertEquals(401, result.getHttpStatus());
+            assertEquals("SKILL_API_TIMESTAMP_MISSING", result.getErrorCode());
+        }
+
+        @Test
+        @DisplayName("§6.3.1.4 时间戳非数字 — 返回 401 MISSING")
+        void nonNumericTimestamp_shouldReturn401() {
+            TimestampCheckResult result = service.verifyTimestamp("not-a-number");
+
+            assertFalse(result.isSuccess());
+            assertEquals(401, result.getHttpStatus());
+            assertEquals("SKILL_API_TIMESTAMP_MISSING", result.getErrorCode());
+        }
+
+        @Test
+        @DisplayName("§6.3.1.5 时间戳已过期（超过 5 分钟）— 返回 401 EXPIRED")
+        void expiredTimestamp_shouldReturn401() {
+            // 10 分钟前
+            String ts = String.valueOf(System.currentTimeMillis() - 10 * 60 * 1000);
+            TimestampCheckResult result = service.verifyTimestamp(ts);
+
+            assertFalse(result.isSuccess());
+            assertEquals(401, result.getHttpStatus());
+            assertEquals("SKILL_API_TIMESTAMP_EXPIRED", result.getErrorCode());
+        }
+
+        @Test
+        @DisplayName("§6.3.1.6 时间戳在窗口边界内（4分59秒前）— 校验通过")
+        void nearEdgeTimestamp_shouldPass() {
+            // 4 分 50 秒前
+            String ts = String.valueOf(System.currentTimeMillis() - 290 * 1000);
+            TimestampCheckResult result = service.verifyTimestamp(ts);
+
+            assertTrue(result.isSuccess());
+        }
+    }
+
+    // ========================================================================
+    // §6.3.2 签名校验逻辑测试（#15 安全加固）
+    // ========================================================================
+
+    @Nested
+    @DisplayName("§6.3.2 签名校验逻辑")
+    class SignatureCheckTests {
+
+        /** 辅助：计算正确的 HMAC-SHA256 签名 */
+        private String computeHmac(String apiKey, String timestamp, String body) throws Exception {
+            String message = timestamp + "\n" + body;
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(apiKey.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] computed = mac.doFinal(message.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(computed.length * 2);
+            for (byte b : computed) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        }
+
+        @Test
+        @DisplayName("§6.3.2.1 正确签名 — 校验通过")
+        void validSignature_shouldPass() throws Exception {
+            String ts = String.valueOf(System.currentTimeMillis());
+            String body = "{\"userId\":1,\"ruleCode\":\"daily_login\",\"changeAmount\":10}";
+            String sig = computeHmac(VALID_KEY, ts, body);
+
+            SignatureCheckResult result = service.verifySignature(VALID_KEY, ts, body, sig);
+
+            assertTrue(result.isSuccess());
+        }
+
+        @Test
+        @DisplayName("§6.3.2.2 签名为 null — 返回 401 INVALID")
+        void nullSignature_shouldReturn401() {
+            SignatureCheckResult result = service.verifySignature(VALID_KEY, "1234567890", "{}", null);
+
+            assertFalse(result.isSuccess());
+            assertEquals(401, result.getHttpStatus());
+            assertEquals("SKILL_API_SIGNATURE_INVALID", result.getErrorCode());
+        }
+
+        @Test
+        @DisplayName("§6.3.2.3 签名为空字符串 — 返回 401 INVALID")
+        void emptySignature_shouldReturn401() {
+            SignatureCheckResult result = service.verifySignature(VALID_KEY, "1234567890", "{}", "");
+
+            assertFalse(result.isSuccess());
+            assertEquals(401, result.getHttpStatus());
+            assertEquals("SKILL_API_SIGNATURE_INVALID", result.getErrorCode());
+        }
+
+        @Test
+        @DisplayName("§6.3.2.4 签名不匹配 — 返回 401 INVALID")
+        void mismatchedSignature_shouldReturn401() {
+            SignatureCheckResult result = service.verifySignature(VALID_KEY, "1234567890", "{}", "deadbeef");
+
+            assertFalse(result.isSuccess());
+            assertEquals(401, result.getHttpStatus());
+            assertEquals("SKILL_API_SIGNATURE_INVALID", result.getErrorCode());
+            assertEquals("签名不匹配", result.getErrorMessage());
+        }
+
+        @Test
+        @DisplayName("§6.3.2.5 body 被篡改 — 签名不匹配")
+        void tamperedBody_shouldFail() throws Exception {
+            String ts = String.valueOf(System.currentTimeMillis());
+            String originalBody = "{\"userId\":1,\"changeAmount\":10}";
+            String tamperedBody = "{\"userId\":1,\"changeAmount\":999}";
+            String sig = computeHmac(VALID_KEY, ts, originalBody);
+
+            SignatureCheckResult result = service.verifySignature(VALID_KEY, ts, tamperedBody, sig);
+
+            assertFalse(result.isSuccess());
+            assertEquals("签名不匹配", result.getErrorMessage());
+        }
+
+        @Test
+        @DisplayName("§6.3.2.6 空 body — 正确签名可通过")
+        void emptyBody_shouldPass() throws Exception {
+            String ts = String.valueOf(System.currentTimeMillis());
+            String body = "";
+            String sig = computeHmac(VALID_KEY, ts, body);
+
+            SignatureCheckResult result = service.verifySignature(VALID_KEY, ts, body, sig);
+
+            assertTrue(result.isSuccess());
+        }
+
+        @Test
+        @DisplayName("§6.3.2.7 签名大小写混合 — 自动 trim 后比对失败")
+        void mixedCaseSignature_shouldFail() throws Exception {
+            String ts = String.valueOf(System.currentTimeMillis());
+            String body = "{}";
+            String sig = computeHmac(VALID_KEY, ts, body);
+            // 篡改一部分字符为大写
+            String mangledSig = sig.substring(0, 4).toUpperCase() + sig.substring(4);
+
+            SignatureCheckResult result = service.verifySignature(VALID_KEY, ts, body, mangledSig);
+
+            assertFalse(result.isSuccess());
         }
     }
 }

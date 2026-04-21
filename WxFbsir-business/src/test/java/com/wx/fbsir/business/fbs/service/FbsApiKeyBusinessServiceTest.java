@@ -44,7 +44,7 @@ class FbsApiKeyBusinessServiceTest {
     private FbsApiKey buildActiveKey() {
         FbsApiKey key = new FbsApiKey();
         key.setId(KEY_ID);
-        key.setApiKey("fbs_abc123def456ghi789jkl012mno345pqr");
+        key.setApiKey("fbs_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2");
         key.setName(KEY_NAME);
         key.setPackCode("pack_bookwriter_v2");
         key.setRateLimitPerMin(60);
@@ -55,7 +55,7 @@ class FbsApiKeyBusinessServiceTest {
     private FbsApiKey buildDisabledKey() {
         FbsApiKey key = new FbsApiKey();
         key.setId(2L);
-        key.setApiKey("fbs_disabled_key_1234567890abcdefghij");
+        key.setApiKey("fbs_0000000000000000000000000000000000000000000000000000000000000000");
         key.setName("已禁用Key");
         key.setStatus(0); // 禁用
         return key;
@@ -286,11 +286,11 @@ class FbsApiKeyBusinessServiceTest {
         @DisplayName("§6.1.3.7.1 正常 Key 脱敏 — 前8位+****")
         void maskNormalKey() {
             FbsApiKey key = new FbsApiKey();
-            key.setApiKey("fbs_abc123def456ghi789jkl012mno345pqr");
+            key.setApiKey("fbs_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2");
 
             String masked = key.getMaskedApiKey();
 
-            assertEquals("fbs_abc1****", masked);
+            assertEquals("fbs_a1b2****", masked);
         }
 
         @Test

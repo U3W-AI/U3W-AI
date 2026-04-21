@@ -110,7 +110,7 @@ GIVEN 管理员调用生成 API Key 接口
 WHEN  提交 name（名称）+ packCode（关联场景包，可选）+ rateLimitPerMin（速率限制，默认 60）
 THEN  系统 SHALL 生成唯一 API Key（前缀 fbs_ + 32位随机串）
 AND   存储到 fbs_api_key 表（status=1 启用）
-AND   MVP 明文存储 api_key 字段，后续迭代改为 SHA-256 hash
+AND   明文存储 api_key 字段（#15 HMAC 签名方案依赖原文，不再迁移到 SHA-256 hash）
 AND   返回 API Key（仅创建时可见，后续不可查询原文）
 ```
 

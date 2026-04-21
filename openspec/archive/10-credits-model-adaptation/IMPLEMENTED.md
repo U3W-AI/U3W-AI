@@ -41,6 +41,12 @@ OpenSpec #10（积分模型适配与 LedgerSync）已完成所有开发任务。
 
 ---
 
+## 踩坑记录
+
+1. **后端 API 失败时本地缓存余额不更新**（2026-04-21 发现并修复）：当 `FBS_API_BASE_URL` 末尾带 `/` 时，URL 拼接产生双斜杠（如 `http://localhost:8080//fbs/skill-api/user/info`），后端返回 404/500，`getBalance()` fallback 到本地 `credits-ledger.json` 读取旧余额，导致余额永远不更新。根因在 `backend-api.mjs._apiUrl()` 未去除末尾斜杠，已在 #15 归档后修复。
+
+---
+
 ## 下一步
 
 运行以下命令验证实施：

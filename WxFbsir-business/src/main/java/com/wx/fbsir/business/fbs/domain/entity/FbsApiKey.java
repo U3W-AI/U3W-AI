@@ -5,7 +5,7 @@ import java.util.Date;
 /**
  * FBS API Key 管理表实体 fbs_api_key
  *
- * MVP 阶段 api_key 明文存储，后续迭代改为 SHA-256 hash。
+ * API Key 明文存储（HMAC 签名校验需原文，不迁移到 SHA-256 hash）。
  * 创建时返回完整 Key（仅此一次），列表查询脱敏（前8位+****）。
  *
  * @author wxfbsir
@@ -16,7 +16,7 @@ public class FbsApiKey {
     /** 主键 */
     private Long id;
 
-    /** API Key（MVP明文存储） */
+    /** API Key（明文存储，HMAC签名需原文） */
     private String apiKey;
 
     /** 绑定用户ID */

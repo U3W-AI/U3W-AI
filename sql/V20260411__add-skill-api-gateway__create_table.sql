@@ -9,7 +9,7 @@
 -- ----------------------------
 CREATE TABLE IF NOT EXISTS `fbs_api_key` (
     `id`                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `api_key`           VARCHAR(64)  NOT NULL COMMENT 'API Key（MVP明文存储，后续迭代改为SHA-256 hash）',
+    `api_key`           VARCHAR(64)  NOT NULL COMMENT 'API Key（明文存储，HMAC签名需原文校验）',
     `name`              VARCHAR(128) NOT NULL COMMENT 'API Key 名称',
     `pack_code`         VARCHAR(64)  DEFAULT NULL COMMENT '关联场景包编码（NULL=全局Key）',
     `rate_limit_per_min` INT         NOT NULL DEFAULT 60 COMMENT '每分钟速率限制',

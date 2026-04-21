@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.List;
 
 /**
@@ -32,7 +31,7 @@ public class FbsApiKeyBusinessServiceImpl implements IFbsApiKeyBusinessService {
 
     @Override
     public FbsApiKey generateApiKey(String name, String packCode, Integer rateLimitPerMin, String remark) {
-        // 生成 Key：fbs_ + Base64.urlSafeEncode(randomBytes(24)) ≈ 36 字符
+        // 生成 Key：fbs_ + Hex(SecureRandom(32B)) = 68 字符
         String apiKey = generateUniqueKey();
 
         FbsApiKey entity = new FbsApiKey();
@@ -98,14 +97,15 @@ public class FbsApiKeyBusinessServiceImpl implements IFbsApiKeyBusinessService {
     }
 
     /**
-     * 生成唯一 API Key：fbs_ + 32位随机串
-     * 24 字节随机 → Base64 编码 ≈ 32 字符，前缀 fbs_ 便于识别
+     * 生成唯一 API Key：fbs_ + 64位hex随机串
+     * 32 字节 SecureRandom → hex 编码 = 64 字符，前缀 fbs_ 便于识别
+     * 字符集 [0-9a-f]，与 SHA-256 hash 格式一致，不暴露编码规律
      */
     private String generateUniqueKey() {
         SecureRandom random = new SecureRandom();
-        byte[] bytes = new byte[24];
+        byte[] bytes = new byte[32];
         random.nextBytes(bytes);
-        String encoded = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        String encoded = bytesToHex(bytes);
         String candidate = KEY_PREFIX + encoded;
 
         // 确保唯一（极小概率冲突）
@@ -115,6 +115,17 @@ public class FbsApiKeyBusinessServiceImpl implements IFbsApiKeyBusinessService {
             return generateUniqueKey();
         }
         return candidate;
+    }
+
+    /**
+     * 字节数组转 hex 字符串（小写）
+     */
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 
     // ========== 用户侧接口实现 ==========

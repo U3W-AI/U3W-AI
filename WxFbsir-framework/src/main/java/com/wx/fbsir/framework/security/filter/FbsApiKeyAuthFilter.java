@@ -18,19 +18,19 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
- * FBS Skill API Key 认证过滤器
+ * FBS Skill API Key 认证过滤器（#15 安全加固）
  *
- * 拦截 /fbs/skill-api/** 请求，校验 X-FBS-API-Key Header。
+ * 拦截 /fbs/skill-api/** 请求，四步校验链：
+ * 1. API Key 校验（Header 缺失/Key 不存在 → 401，已禁用 → 403）
+ * 2. 时间戳校验（缺失 → 401 TIMESTAMP_MISSING，过期 → 401 TIMESTAMP_EXPIRED）
+ * 3. 签名校验（缺失/不匹配 → 401 SIGNATURE_INVALID）
+ * 4. 速率限制（超限 → 429 RATE_LIMITED）
+ *
  * 注册在 JwtAuthenticationTokenFilter 之前。
- *
- * 认证链路：
- * - Header 缺失/Key 不存在 → 401 SKILL_API_KEY_INVALID
- * - Key 已禁用 → 403 SKILL_API_KEY_DISABLED
- * - 速率超限 → 429 SKILL_API_RATE_LIMITED
- * - 通过 → 设置 SecurityContext + chain.doFilter
  *
  * @author wxfbsir
  * @date 2026-04-11
@@ -41,6 +41,8 @@ public class FbsApiKeyAuthFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(FbsApiKeyAuthFilter.class);
 
     private static final String API_KEY_HEADER = "X-FBS-API-Key";
+    private static final String TIMESTAMP_HEADER = "X-FBS-Timestamp";
+    private static final String SIGNATURE_HEADER = "X-FBS-Signature";
     private static final String SKILL_API_PATH_PREFIX = "/fbs/skill-api/";
 
     @Autowired
@@ -60,22 +62,44 @@ public class FbsApiKeyAuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 读取 X-FBS-API-Key Header
-        String apiKey = request.getHeader(API_KEY_HEADER);
+        // Step 0: 包装 request（立即缓存 body，供签名校验和 Controller 使用）
+        RepeatedlyReadRequestWrapper wrappedRequest = new RepeatedlyReadRequestWrapper(request);
 
-        // 调用认证服务
-        FbsApiKeyAuthService.ApiKeyCheckResult result = apiKeyAuthService.checkApiKey(apiKey);
+        // Step 1: API Key 校验
+        String apiKey = wrappedRequest.getHeader(API_KEY_HEADER);
+        FbsApiKeyAuthService.ApiKeyCheckResult keyResult = apiKeyAuthService.checkApiKey(apiKey);
 
-        if (!result.isSuccess()) {
-            // 认证失败：返回错误 JSON
+        if (!keyResult.isSuccess()) {
             log.warn("Skill API Key 认证失败 uri={}, httpStatus={}, errorCode={}",
-                    requestURI, result.getHttpStatus(), result.getErrorCode());
-            writeErrorResponse(response, result.getHttpStatus(), result.getErrorCode(), result.getErrorMessage());
+                    requestURI, keyResult.getHttpStatus(), keyResult.getErrorCode());
+            writeErrorResponse(response, keyResult.getHttpStatus(), keyResult.getErrorCode(), keyResult.getErrorMessage());
             return;
         }
 
-        // 认证成功：设置 SecurityContext
-        FbsApiKey keyEntity = result.getKeyEntity();
+        // Step 2: 时间戳校验（#15 新增）
+        String timestamp = wrappedRequest.getHeader(TIMESTAMP_HEADER);
+        FbsApiKeyAuthService.TimestampCheckResult tsResult = apiKeyAuthService.verifyTimestamp(timestamp);
+
+        if (!tsResult.isSuccess()) {
+            log.warn("Skill API 时间戳校验失败 uri={}, errorCode={}", requestURI, tsResult.getErrorCode());
+            writeErrorResponse(response, tsResult.getHttpStatus(), tsResult.getErrorCode(), tsResult.getErrorMessage());
+            return;
+        }
+
+        // Step 3: 签名校验（#15 新增）
+        String signature = wrappedRequest.getHeader(SIGNATURE_HEADER);
+        String body = new String(wrappedRequest.getCachedBody(), StandardCharsets.UTF_8);
+        FbsApiKey keyEntity = keyResult.getKeyEntity();
+        FbsApiKeyAuthService.SignatureCheckResult sigResult =
+                apiKeyAuthService.verifySignature(keyEntity.getApiKey(), timestamp, body, signature);
+
+        if (!sigResult.isSuccess()) {
+            log.warn("Skill API 签名校验失败 uri={}, errorCode={}", requestURI, sigResult.getErrorCode());
+            writeErrorResponse(response, sigResult.getHttpStatus(), sigResult.getErrorCode(), sigResult.getErrorMessage());
+            return;
+        }
+
+        // Step 4: 认证成功（速率限制已在 checkApiKey 中完成）
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                 keyEntity, // principal：API Key 实体
                 null,      // credentials
@@ -83,8 +107,8 @@ public class FbsApiKeyAuthFilter extends OncePerRequestFilter {
         );
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        // 继续过滤器链
-        filterChain.doFilter(request, response);
+        // 传递 wrappedRequest，Controller 可正常读取 body
+        filterChain.doFilter(wrappedRequest, response);
     }
 
     /**

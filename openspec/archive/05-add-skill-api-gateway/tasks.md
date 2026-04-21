@@ -17,7 +17,7 @@
 - [x] 1.1.1 编写 SQL：`CREATE TABLE fbs_api_key（id BIGINT AUTO_INCREMENT, api_key VARCHAR(64) UNIQUE, name VARCHAR(128), pack_code VARCHAR(64), rate_limit_per_min INT DEFAULT 60, status TINYINT DEFAULT 1, created_by, created_time, updated_by, updated_time, remark）`
 - [x] 1.1.2 验证 SQL 可执行（目标库 MySQL 5.7）
 
-> **注意**：MVP 阶段 api_key 存明文，后续迭代改为 SHA-256 hash
+> **注意**：api_key 存明文（#15 HMAC 签名方案依赖原文，不再迁移到 SHA-256 hash）
 
 ### 1.2 创建 Entity + Mapper
 
