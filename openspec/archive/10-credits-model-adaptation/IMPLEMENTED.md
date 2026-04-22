@@ -8,13 +8,13 @@
 
 ## 实施摘要
 
-OpenSpec #10（积分模型适配与 LedgerSync）已完成所有开发任务。
+OpenSpec #10（积分模型适配与本地账本）已完成所有开发任务。
 
 ### 核心改动
 
 1. **数据表扩展**：`wx_points_record` 添加 `event_id` 字段（幂等控制）
 2. **服务层扩展**：`IPointsService` 新增 `changePoints(eventId)` 重载
-3. **LedgerSync 进程**：Python 脚本，复用 `/user/info` 端点
+3. **本地账本同步**：Skill 侧 `addCredits()`/`getBalance()` 等操作后同步后端余额到本地 `credits-ledger.json`
 4. **单元测试**：覆盖幂等逻辑
 
 ### 验收结果
@@ -35,8 +35,7 @@ OpenSpec #10（积分模型适配与 LedgerSync）已完成所有开发任务。
 | Mapper XML | `WxFbsir-business/.../point/mapper/PointsRecordMapper.xml` | 更新 SQL |
 | Service | `WxFbsir-business/.../point/service/IPointsService.java` | 新增方法签名 |
 | Service Impl | `WxFbsir-business/.../point/service/impl/PointsServiceImpl.java` | 实现幂等逻辑 |
-| Script | `ledgersync/ledgersync.py` | LedgerSync 进程（v2.1.2 合并 skill-bridge 功能，支持 --skill-root 参数） |
-| Script | `ledgersync/ledgersync-skill-bridge.py` | [已废弃] 功能已合并到 ledgersync.py，保留仅向后兼容 |
+| Script | `scripts/wecom/lib/credits-ledger.mjs` | Skill 侧本地账本，余额同步缓存（#14/#15 重构后为唯一本地存储） |
 | Test | `WxFbsir-business/.../point/service/impl/PointsServiceImplTest.java` | 新增幂等测试 |
 
 ---
@@ -58,16 +57,9 @@ mysql -u root -p wxdb < sql/V20260416__10-credits-model-adaptation__add_event_id
 # 2. 运行单元测试
 mvn test -Dtest=PointsServiceImplTest
 
-# 3. 同步到 Skill 本地账本（推荐，支持 --skill-root）
-cd ledgersync
-python ledgersync.py --once --skill-root "/path/to/fbs-bookwriter" --api-key "fbs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-
-# 3b. 持续同步模式
-$env:API_KEY = "fbs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-$env:SKILL_ROOT = "/path/to/fbs-bookwriter"
-python ledgersync.py
-
-# 注：ledgersync-skill-bridge.py 已废弃，功能已合并到 ledgersync.py
+# 3. Skill 侧积分操作自动同步（无需手动运行 LedgerSync）
+#    - 联网时 addCredits/getBalance 等操作后自动同步后端余额到 credits-ledger.json
+#    - 离线时本地 fallback 记账
 ```
 
 ---
