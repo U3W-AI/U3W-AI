@@ -99,13 +99,13 @@ spring:
     # redis 配置
     redis:
       # 地址
-      host: ${WXFBSIR_REDIS_HOST:119.45.71.36}
+      host: ${WXFBSIR_REDIS_HOST:127.0.0.1}
       # 端口，默认为6379
       port: ${WXFBSIR_REDIS_PORT:6379}
       # 数据库索引
       database: ${WXFBSIR_REDIS_DATABASE:0}
       # 密码
-      password: ${WXFBSIR_REDIS_PASSWORD:123123aa}
+      password: ${WXFBSIR_REDIS_PASSWORD:}
       # 连接超时时间（减少到5秒，快速失败）
       timeout: 5s
       # 客户端名称
@@ -214,22 +214,3 @@ wechat:
   corp-id: ${WECHAT_CORP_ID:}
   # 企业微信提示词编辑器链接（生产环境建议使用环境变量：PROMPT_EDITOR_URL）
   prompt-editor-url: ${PROMPT_EDITOR_URL:}
-
-# 企微 CLI 集成配置（OpenSpec #6 MVP）
-wecom:
-  cli:
-    # wecom-cli.exe 绝对路径（不配置则 CLI 功能不可用，不影响应用启动）
-    path: ${WECOM_CLI_PATH:G:/Interview/wukongshigang/Weihu/wecom-cli/wecom-cli/node_modules/@wecom/cli-win32-x64/bin/wecom-cli.exe}
-    # 单次调用超时时间（毫秒）
-    timeout-ms: ${WECOM_CLI_TIMEOUT_MS:30000}
-  sheet:
-    # 企微智能表格 URL（推荐，CLI 支持 URL 或 docid 二选一）
-    doc-url: ${WECOM_SHEET_DOC_URL:https://doc.weixin.qq.com/smartsheet/s3_AcQA0Aa1AIgCNci8FNLxdRaGFbVxz?scode=AMsARAf3AHEOJh2SlI}
-    # Sheet 标题 → sheet_id 映射（通过 wecom-cli doc smartsheet_get_sheet 查询获得）
-    sheet-ids:
-      meta: ${WECOM_SHEET_ID_META:0LgeK5}
-      commercial-hub: ${WECOM_SHEET_ID_COMMERCIAL_HUB:uvREDw}
-      entitlement: ${WECOM_SHEET_ID_ENTITLEMENT:87A2yO}
-  write:
-    # 写入时单次 payload 上限（字节），超过则分片
-    max-payload-bytes: ${WECOM_WRITE_MAX_PAYLOAD_BYTES:20480}
