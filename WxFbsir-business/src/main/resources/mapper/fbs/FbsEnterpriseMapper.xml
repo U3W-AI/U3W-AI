@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.fbs.mapper.FbsEnterpriseMapper">
+
+    <resultMap type="com.wx.fbsir.business.fbs.domain.entity.FbsEnterprise" id="FbsEnterpriseResult">
+        <id     property="id"              column="id"               />
+        <result property="enterpriseCode"  column="enterprise_code"  />
+        <result property="enterpriseName"  column="enterprise_name"  />
+        <result property="contactName"     column="contact_name"     />
+        <result property="contactPhone"    column="contact_phone"    />
+        <result property="contactEmail"   column="contact_email"    />
+        <result property="remark"          column="remark"           />
+        <result property="status"          column="status"           />
+        <result property="createdBy"       column="created_by"       />
+        <result property="createTime"      column="create_time"      />
+        <result property="updatedBy"       column="updated_by"       />
+        <result property="updateTime"      column="update_time"      />
+        <result property="delFlag"         column="del_flag"         />
+    </resultMap>
+
+    <sql id="selectFbsEnterpriseVo">
+        SELECT id, enterprise_code, enterprise_name, contact_name, contact_phone,
+               contact_email, remark, status, created_by, create_time,
+               updated_by, update_time, del_flag
+        FROM fbs_enterprise
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultMap="FbsEnterpriseResult">
+        <include refid="selectFbsEnterpriseVo"/>
+        WHERE id = #{id} AND del_flag = '0'
+    </select>
+
+    <select id="selectByName" parameterType="String" resultMap="FbsEnterpriseResult">
+        <include refid="selectFbsEnterpriseVo"/>
+        WHERE enterprise_name = #{enterpriseName} AND del_flag = '0'
+    </select>
+
+    <select id="selectEnterpriseList" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsEnterprise" resultMap="FbsEnterpriseResult">
+        <include refid="selectFbsEnterpriseVo"/>
+        <where>
+            del_flag = '0'
+            <if test="filter.enterpriseName != null and filter.enterpriseName != ''">
+                AND enterprise_name LIKE CONCAT('%', #{filter.enterpriseName}, '%')
+            </if>
+            <if test="filter.status != null">
+                AND status = #{filter.status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+    <insert id="insertEnterprise" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsEnterprise"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_enterprise
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="enterpriseCode != null">enterprise_code,</if>
+            <if test="enterpriseName != null">enterprise_name,</if>
+            <if test="contactName != null">contact_name,</if>
+            <if test="contactPhone != null">contact_phone,</if>
+            <if test="contactEmail != null">contact_email,</if>
+            <if test="remark != null">remark,</if>
+            <if test="status != null">status,</if>
+            <if test="createdBy != null">created_by,</if>
+            create_time,
+            del_flag
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            <if test="enterpriseCode != null">#{enterpriseCode},</if>
+            <if test="enterpriseName != null">#{enterpriseName},</if>
+            <if test="contactName != null">#{contactName},</if>
+            <if test="contactPhone != null">#{contactPhone},</if>
+            <if test="contactEmail != null">#{contactEmail},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createdBy != null">#{createdBy},</if>
+            NOW(),
+            '0'
+        </trim>
+    </insert>
+
+    <update id="updateEnterprise" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsEnterprise">
+        UPDATE fbs_enterprise
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="enterpriseName != null">enterprise_name = #{enterpriseName},</if>
+            <if test="contactName != null">contact_name = #{contactName},</if>
+            <if test="contactPhone != null">contact_phone = #{contactPhone},</if>
+            <if test="contactEmail != null">contact_email = #{contactEmail},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="updatedBy != null">updated_by = #{updatedBy},</if>
+            update_time = NOW()
+        </trim>
+        WHERE id = #{id} AND del_flag = '0'
+    </update>
+
+</mapper>

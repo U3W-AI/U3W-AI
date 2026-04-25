@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.fbs.mapper.FbsScenePackMapper">
+
+    <resultMap type="com.wx.fbsir.business.fbs.domain.entity.FbsScenePack" id="FbsScenePackResult">
+        <id     property="id"              column="id"               />
+        <result property="packCode"        column="pack_code"        />
+        <result property="packName"        column="pack_name"        />
+        <result property="packType"        column="pack_type"        />
+        <result property="ownerType"       column="owner_type"       />
+        <result property="ownerId"         column="owner_id"         />
+        <result property="description"     column="description"      />
+        <result property="status"          column="status"           />
+        <result property="visibleScope"    column="visible_scope"    />
+        <result property="pointsRuleCode"  column="points_rule_code" />
+        <result property="contentSnapshot" column="content_snapshot" />
+        <result property="currentVersion"  column="current_version"  />
+        <result property="createdBy"       column="created_by"       />
+        <result property="createTime"      column="create_time"      />
+        <result property="updatedBy"       column="updated_by"       />
+        <result property="updateTime"      column="update_time"      />
+        <result property="delFlag"         column="del_flag"         />
+    </resultMap>
+
+    <sql id="selectFbsScenePackVo">
+        SELECT id, pack_code, pack_name, pack_type, owner_type, owner_id,
+               description, status, visible_scope, points_rule_code,
+               content_snapshot, current_version,
+               created_by, create_time, updated_by, update_time, del_flag
+        FROM fbs_scene_pack
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultMap="FbsScenePackResult">
+        <include refid="selectFbsScenePackVo"/>
+        WHERE id = #{id} AND del_flag = '0'
+    </select>
+
+    <select id="selectByPackCode" parameterType="String" resultMap="FbsScenePackResult">
+        <include refid="selectFbsScenePackVo"/>
+        WHERE pack_code = #{packCode} AND del_flag = '0'
+    </select>
+
+    <!-- 列表查询（运营后台分页） -->
+    <select id="selectScenePackList" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsScenePack" resultMap="FbsScenePackResult">
+        <include refid="selectFbsScenePackVo"/>
+        <where>
+            del_flag = '0'
+            <if test="filter.status != null">
+                AND status = #{filter.status}
+            </if>
+            <if test="filter.packType != null">
+                AND pack_type = #{filter.packType}
+            </if>
+            <if test="filter.ownerType != null">
+                AND owner_type = #{filter.ownerType}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 可领取平台场景包查询（用户侧） -->
+    <!-- 返回所有可领取包（不再排除已领取），claimed 标记由 Service 层填充 -->
+    <select id="selectClaimablePacks" resultMap="FbsScenePackResult">
+        <include refid="selectFbsScenePackVo"/>
+        <where>
+            del_flag = '0'
+            AND owner_type = 1
+            AND status = 1
+            AND visible_scope = 'ALL'
+            AND points_rule_code IS NULL
+            <if test="keyword != null and keyword != ''">
+                AND (pack_name LIKE CONCAT('%', #{keyword}, '%')
+                     OR pack_code LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+    <insert id="insertScenePack" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsScenePack"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_scene_pack
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="packCode != null and packCode != ''">pack_code,</if>
+            <if test="packName != null and packName != ''">pack_name,</if>
+            <if test="packType != null">pack_type,</if>
+            <if test="ownerType != null">owner_type,</if>
+            <if test="ownerId != null">owner_id,</if>
+            <if test="description != null">description,</if>
+            <if test="status != null">status,</if>
+            <if test="visibleScope != null">visible_scope,</if>
+            <if test="pointsRuleCode != null">points_rule_code,</if>
+            <if test="contentSnapshot != null">content_snapshot,</if>
+            <if test="currentVersion != null">current_version,</if>
+            <if test="createdBy != null">created_by,</if>
+            create_time,
+            del_flag
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            <if test="packCode != null and packCode != ''">#{packCode},</if>
+            <if test="packName != null and packName != ''">#{packName},</if>
+            <if test="packType != null">#{packType},</if>
+            <if test="ownerType != null">#{ownerType},</if>
+            <if test="ownerId != null">#{ownerId},</if>
+            <if test="description != null">#{description},</if>
+            <if test="status != null">#{status},</if>
+            <if test="visibleScope != null">#{visibleScope},</if>
+            <if test="pointsRuleCode != null">#{pointsRuleCode},</if>
+            <if test="contentSnapshot != null">#{contentSnapshot},</if>
+            <if test="currentVersion != null">#{currentVersion},</if>
+            <if test="createdBy != null">#{createdBy},</if>
+            NOW(),
+            '0'
+        </trim>
+    </insert>
+
+    <update id="updateScenePack" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsScenePack">
+        UPDATE fbs_scene_pack
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="packName != null">pack_name = #{packName},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="visibleScope != null">visible_scope = #{visibleScope},</if>
+            <if test="pointsRuleCode != null">points_rule_code = #{pointsRuleCode},</if>
+            <if test="contentSnapshot != null">content_snapshot = #{contentSnapshot},</if>
+            <if test="currentVersion != null">current_version = #{currentVersion},</if>
+            <if test="updatedBy != null">updated_by = #{updatedBy},</if>
+            update_time = NOW()
+        </trim>
+        WHERE id = #{id} AND del_flag = '0'
+    </update>
+
+</mapper>

@@ -23,6 +23,38 @@ public interface IPointsService {
      * @return 结果
      */
     public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmount);
+
+    /**
+     * Skill 消费场景包的轻量重载：复用现有积分扣减逻辑，并写入 FBS 关联字段。
+     *
+     * 不做冻结预占，不做并发大改造。若 ruleCode 为空（免费包），直接返回成功。
+     *
+     * @param userId 用户ID
+     * @param ruleCode 规则编码（空表示免费包）
+     * @param changeAmount 积分变动值
+     * @param scenePackId 场景包ID
+     * @param usageRecordId 使用记录幂等键
+     * @return 结果
+     */
+    public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmount,
+                                   Long scenePackId, String usageRecordId);
+    
+    /**
+     * 积分变动（幂等）
+     * 
+     * 支持事件幂等控制，用于 FIRST_INSTALL / DAILY_LOGIN 等行为去重。
+     * 若 eventId 已存在，直接返回既有余额（幂等）。
+     *
+     * @param userId 用户ID
+     * @param ruleCode 规则编码（空表示免费包）
+     * @param changeAmount 积分变动值
+     * @param scenePackId 场景包ID
+     * @param usageRecordId 使用记录幂等键
+     * @param eventId 事件幂等键（可选，用于行为事件去重）
+     * @return 结果
+     */
+    public AjaxResult changePoints(Long userId, String ruleCode, Integer changeAmount,
+                                   Long scenePackId, String usageRecordId, String eventId);
     
     /**
      * 查询用户积分余额

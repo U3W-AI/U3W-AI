@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.fbs.mapper.FbsAuthCodeMapper">
+
+    <resultMap type="com.wx.fbsir.business.fbs.domain.entity.FbsAuthCode" id="FbsAuthCodeResult">
+        <id     property="id"              column="id"               />
+        <result property="authCode"        column="auth_code"        />
+        <result property="codeType"        column="code_type"        />
+        <result property="targetType"      column="target_type"      />
+        <result property="targetId"        column="target_id"        />
+        <result property="issuerType"      column="issuer_type"      />
+        <result property="issuerId"        column="issuer_id"        />
+        <result property="available"       column="available"        />
+        <result property="status"          column="status"           />
+        <result property="deadline"        column="deadline"         />
+        <result property="maxActivations"  column="max_activations"  />
+        <result property="activatedCount"  column="activated_count"  />
+        <result property="description"     column="description"      />
+        <result property="createdBy"       column="created_by"       />
+        <result property="createTime"      column="create_time"      />
+        <result property="updatedBy"       column="updated_by"       />
+        <result property="updateTime"      column="update_time"      />
+        <result property="delFlag"         column="del_flag"         />
+        <result property="targetPackCode"  column="target_pack_code" />
+        <result property="targetPackName"  column="target_pack_name" />
+        <result property="packStatus"      column="pack_status"      />
+    </resultMap>
+
+    <sql id="selectFbsAuthCodeVo">
+        SELECT id, auth_code, code_type, target_type, target_id,
+               issuer_type, issuer_id, available, status, deadline,
+               max_activations, activated_count, description,
+               created_by, create_time, updated_by, update_time, del_flag
+        FROM fbs_auth_code
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultMap="FbsAuthCodeResult">
+        <include refid="selectFbsAuthCodeVo"/>
+        WHERE id = #{id} AND del_flag = '0'
+    </select>
+
+    <!-- 带 FOR UPDATE 行锁，用于激活流程防并发 -->
+    <select id="selectByAuthCodeForUpdate" parameterType="String" resultMap="FbsAuthCodeResult">
+        <include refid="selectFbsAuthCodeVo"/>
+        WHERE auth_code = #{authCode} AND del_flag = '0'
+        FOR UPDATE
+    </select>
+
+    <select id="selectByAuthCode" parameterType="String" resultMap="FbsAuthCodeResult">
+        <include refid="selectFbsAuthCodeVo"/>
+        WHERE auth_code = #{authCode} AND del_flag = '0'
+    </select>
+
+    <!-- 列表查询（运营后台分页，联查场景包编码/名称） -->
+    <select id="selectAuthCodeList" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsAuthCode" resultMap="FbsAuthCodeResult">
+        SELECT a.id, a.auth_code, a.code_type, a.target_type, a.target_id,
+               a.issuer_type, a.issuer_id, a.available, a.status, a.deadline,
+               a.max_activations, a.activated_count, a.description,
+               a.created_by, a.create_time, a.updated_by, a.update_time, a.del_flag,
+               s.pack_code AS target_pack_code,
+               s.pack_name AS target_pack_name,
+               s.status AS pack_status
+        FROM fbs_auth_code a
+        LEFT JOIN fbs_scene_pack s ON a.target_id = s.id AND s.del_flag = '0'
+        <where>
+            a.del_flag = '0'
+            <if test="filter.authCode != null and filter.authCode != ''">
+                AND a.auth_code LIKE CONCAT('%', #{filter.authCode}, '%')
+            </if>
+            <if test="filter.targetId != null">
+                AND a.target_id = #{filter.targetId}
+            </if>
+            <if test="filter.available != null">
+                AND a.available = #{filter.available}
+            </if>
+            <if test="filter.status != null">
+                AND a.status = #{filter.status}
+            </if>
+            <if test="filter.issuerType != null">
+                AND a.issuer_type = #{filter.issuerType}
+            </if>
+        </where>
+        ORDER BY a.create_time DESC
+    </select>
+
+    <!-- 更新available字段（管理层面开关） -->
+    <update id="updateAvailable">
+        UPDATE fbs_auth_code
+        SET available    = #{available},
+            updated_by   = 'system',
+            update_time  = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!-- 更新status字段（撤销操作） -->
+    <update id="updateStatus">
+        UPDATE fbs_auth_code
+        SET status      = #{status},
+            updated_by  = 'system',
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <insert id="insertAuthCode" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsAuthCode"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_auth_code
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="authCode != null">auth_code,</if>
+            <if test="codeType != null">code_type,</if>
+            <if test="targetType != null">target_type,</if>
+            <if test="targetId != null">target_id,</if>
+            <if test="issuerType != null">issuer_type,</if>
+            <if test="issuerId != null">issuer_id,</if>
+            available,
+            status,
+            <if test="deadline != null">deadline,</if>
+            <if test="maxActivations != null">max_activations,</if>
+            activated_count,
+            <if test="description != null">description,</if>
+            <if test="createdBy != null">created_by,</if>
+            create_time,
+            del_flag
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            <if test="authCode != null">#{authCode},</if>
+            <if test="codeType != null">#{codeType},</if>
+            <if test="targetType != null">#{targetType},</if>
+            <if test="targetId != null">#{targetId},</if>
+            <if test="issuerType != null">#{issuerType},</if>
+            <if test="issuerId != null">#{issuerId},</if>
+            #{available, jdbcType=TINYINT},
+            #{status, jdbcType=TINYINT},
+            <if test="deadline != null">#{deadline},</if>
+            <if test="maxActivations != null">#{maxActivations},</if>
+            0,
+            <if test="description != null">#{description},</if>
+            <if test="createdBy != null">#{createdBy},</if>
+            NOW(),
+            '0'
+        </trim>
+    </insert>
+
+    <!--
+        激活更新：
+        1. activated_count + 1
+        2. 根据业务逻辑更新 status：
+           - 若激活前 status=0（未激活），激活后 status → 1（已激活）
+           - 若激活后 activated_count >= max_activations，status → 2（已用尽）
+        这里直接由调用方传入 newStatus（已在 Service 层计算好），简化 SQL
+    -->
+    <update id="updateActivated">
+        UPDATE fbs_auth_code
+        SET activated_count = #{activatedCount},
+            status          = #{newStatus},
+            updated_by      = 'system',
+            update_time     = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>

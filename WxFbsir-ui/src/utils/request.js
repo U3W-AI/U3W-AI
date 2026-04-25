@@ -104,7 +104,7 @@ service.interceptors.response.use(res => {
       return Promise.reject(new Error(msg))
     } else if (code !== 200) {
       ElNotification.error({ title: msg })
-      return Promise.reject('error')
+      return Promise.reject(new Error(msg))
     } else {
       return  Promise.resolve(res.data)
     }

@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.fbs.mapper.FbsEnterprisePackMapper">
+
+    <resultMap type="com.wx.fbsir.business.fbs.domain.entity.FbsEnterprisePack" id="FbsEnterprisePackResult">
+        <id     property="id"               column="id"                />
+        <result property="enterpriseId"     column="enterprise_id"    />
+        <result property="packId"           column="pack_id"          />
+        <result property="packQuota"        column="pack_quota"       />
+        <result property="usedQuota"        column="used_quota"       />
+        <result property="grantTime"         column="grant_time"       />
+        <result property="expiryTime"        column="expiry_time"      />
+        <result property="status"            column="status"            />
+        <result property="createdBy"         column="created_by"       />
+        <result property="createTime"        column="create_time"      />
+        <result property="updatedBy"         column="updated_by"       />
+        <result property="updateTime"        column="update_time"      />
+        <result property="delFlag"           column="del_flag"         />
+        <result property="packCode"          column="pack_code"        />
+        <result property="packName"          column="pack_name"        />
+    </resultMap>
+
+    <sql id="selectFbsEnterprisePackVo">
+        SELECT ep.id, ep.enterprise_id, ep.pack_id, ep.pack_quota, ep.used_quota,
+               ep.grant_time, ep.expiry_time, ep.status, ep.created_by, ep.create_time,
+               ep.updated_by, ep.update_time, ep.del_flag,
+               sp.pack_code, sp.pack_name
+        FROM fbs_enterprise_pack ep
+        LEFT JOIN fbs_scene_pack sp ON sp.id = ep.pack_id
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultMap="FbsEnterprisePackResult">
+        <include refid="selectFbsEnterprisePackVo"/>
+        WHERE ep.id = #{id} AND ep.del_flag = '0'
+    </select>
+
+    <select id="selectByEnterpriseAndPack" resultMap="FbsEnterprisePackResult">
+        <include refid="selectFbsEnterprisePackVo"/>
+        WHERE ep.enterprise_id = #{enterpriseId}
+          AND ep.pack_id = #{packId}
+          AND ep.del_flag = '0'
+    </select>
+
+    <select id="selectByEnterpriseId" parameterType="Long" resultMap="FbsEnterprisePackResult">
+        <include refid="selectFbsEnterprisePackVo"/>
+        WHERE ep.enterprise_id = #{enterpriseId} AND ep.del_flag = '0'
+        ORDER BY ep.create_time DESC
+    </select>
+
+    <select id="selectEnterprisePackList" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsEnterprisePack" resultMap="FbsEnterprisePackResult">
+        <include refid="selectFbsEnterprisePackVo"/>
+        <where>
+            ep.del_flag = '0'
+            <if test="filter.enterpriseId != null">
+                AND ep.enterprise_id = #{filter.enterpriseId}
+            </if>
+            <if test="filter.packId != null">
+                AND ep.pack_id = #{filter.packId}
+            </if>
+            <if test="filter.status != null">
+                AND ep.status = #{filter.status}
+            </if>
+        </where>
+        ORDER BY ep.create_time DESC
+    </select>
+
+    <insert id="insertEnterprisePack" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsEnterprisePack"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_enterprise_pack
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="enterpriseId != null">enterprise_id,</if>
+            <if test="packId != null">pack_id,</if>
+            <if test="packQuota != null">pack_quota,</if>
+            <if test="usedQuota != null">used_quota,</if>
+            <if test="grantTime != null">grant_time,</if>
+            <if test="expiryTime != null">expiry_time,</if>
+            <if test="status != null">status,</if>
+            <if test="createdBy != null">created_by,</if>
+            create_time,
+            del_flag
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            <if test="enterpriseId != null">#{enterpriseId},</if>
+            <if test="packId != null">#{packId},</if>
+            <if test="packQuota != null">#{packQuota},</if>
+            <if test="usedQuota != null">#{usedQuota},</if>
+            <if test="grantTime != null">#{grantTime},</if>
+            <if test="expiryTime != null">#{expiryTime},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createdBy != null">#{createdBy},</if>
+            NOW(),
+            '0'
+        </trim>
+    </insert>
+
+    <update id="updateEnterprisePack" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsEnterprisePack">
+        UPDATE fbs_enterprise_pack
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="packQuota != null">pack_quota = #{packQuota},</if>
+            <if test="usedQuota != null">used_quota = #{usedQuota},</if>
+            <if test="expiryTime != null">expiry_time = #{expiryTime},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="updatedBy != null">updated_by = #{updatedBy},</if>
+            update_time = NOW()
+        </trim>
+        WHERE id = #{id} AND del_flag = '0'
+    </update>
+
+    <!--
+        原子操作：usedQuota++（并发安全，含配额上限检查）
+        WHERE 条件同时满足以下全部条件才执行：
+          1. del_flag = '0'
+          2. status IN (1, 2)                 — 企业包状态可用（启用/已禁用不禁用量）
+          3. expiry_time 未过期或无过期时间
+          4. used_quota < pack_quota          — 【核心】配额上限检查，防止超扣
+        若并发两个请求同时到达，最多只有一个成功（另一个 returned=0 → 消费失败）
+    -->
+    <update id="incrementUsedQuota">
+        UPDATE fbs_enterprise_pack
+        SET used_quota = used_quota + 1,
+            updated_by  = 'system',
+            update_time = NOW()
+        WHERE id = #{id}
+          AND del_flag = '0'
+          AND status IN (1, 2)
+          AND (expiry_time IS NULL OR expiry_time > NOW())
+          AND used_quota &lt; pack_quota
+    </update>
+
+</mapper>
