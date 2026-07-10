@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.smartbot.mapper.OrchestrationStepMapper">
+    <insert id="insertStep">
+        INSERT INTO fbs_orchestration_step
+            (step_id, run_id, step_key, attempt, kind, executor_type, executor_ref,
+             status, input_hash, output_ref, evidence_ref, version,
+             started_at, finished_at, create_time, update_time)
+        VALUES
+            (#{stepId}, #{runId}, #{stepKey}, #{attempt}, #{kind}, #{executorType}, #{executorRef},
+             #{status}, #{inputHash}, #{outputRef}, #{evidenceRef}, #{version},
+             #{startedAt}, #{finishedAt}, NOW(), NOW())
+    </insert>
+</mapper>

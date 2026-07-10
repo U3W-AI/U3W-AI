@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.smartbot.mapper.OrchestrationRunMapper">
+    <resultMap id="RunResult" type="com.wx.fbsir.business.smartbot.domain.OrchestrationRun">
+        <id property="runId" column="run_id"/>
+        <result property="inboundEventId" column="inbound_event_id"/>
+        <result property="botBindingId" column="bot_binding_id"/>
+        <result property="enterpriseId" column="enterprise_id"/>
+        <result property="enterpriseMemberId" column="enterprise_member_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="definitionCode" column="definition_code"/>
+        <result property="definitionVersion" column="definition_version"/>
+        <result property="traceId" column="trace_id"/>
+        <result property="streamId" column="stream_id"/>
+        <result property="status" column="status"/>
+        <result property="version" column="version"/>
+        <result property="nextWakeupAt" column="next_wakeup_at"/>
+        <result property="leaseOwner" column="lease_owner"/>
+        <result property="leaseUntil" column="lease_until"/>
+        <result property="errorCode" column="error_code"/>
+        <result property="errorMessage" column="error_message"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+    <insert id="insertRun">
+        INSERT INTO fbs_orchestration_run
+            (run_id, inbound_event_id, bot_binding_id, enterprise_id,
+             enterprise_member_id, user_id, definition_code, definition_version,
+             trace_id, stream_id, status, version, next_wakeup_at, create_time, update_time)
+        VALUES
+            (#{runId}, #{inboundEventId}, #{botBindingId}, #{enterpriseId},
+             #{enterpriseMemberId}, #{userId}, #{definitionCode}, #{definitionVersion},
+             #{traceId}, #{streamId}, #{status}, #{version}, #{nextWakeupAt}, NOW(), NOW())
+    </insert>
+    <select id="selectByRunId" resultMap="RunResult">
+        SELECT * FROM fbs_orchestration_run WHERE run_id = #{runId}
+    </select>
+</mapper>

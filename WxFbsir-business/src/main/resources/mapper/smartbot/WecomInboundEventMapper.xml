@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.smartbot.mapper.WecomInboundEventMapper">
+    <resultMap id="InboundResult" type="com.wx.fbsir.business.smartbot.domain.WecomInboundEvent">
+        <id property="id" column="id"/>
+        <result property="botBindingId" column="bot_binding_id"/>
+        <result property="msgIdHash" column="msg_id_hash"/>
+        <result property="aibotId" column="aibot_id"/>
+        <result property="traceId" column="trace_id"/>
+        <result property="runId" column="run_id"/>
+        <result property="streamId" column="stream_id"/>
+        <result property="fromUserHash" column="from_user_hash"/>
+        <result property="chatType" column="chat_type"/>
+        <result property="chatIdHash" column="chat_id_hash"/>
+        <result property="msgType" column="msg_type"/>
+        <result property="eventType" column="event_type"/>
+        <result property="payloadHash" column="payload_hash"/>
+        <result property="status" column="status"/>
+        <result property="duplicateCount" column="duplicate_count"/>
+        <result property="firstReceivedAt" column="first_received_at"/>
+        <result property="lastReceivedAt" column="last_received_at"/>
+    </resultMap>
+
+    <insert id="claimInboundEvent" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_inbound_event
+            (bot_binding_id, msg_id_hash, aibot_id, trace_id, run_id, stream_id,
+             from_user_hash, chat_type, chat_id_hash, msg_type, event_type,
+             payload_hash, status, duplicate_count, first_received_at, last_received_at)
+        VALUES
+            (#{botBindingId}, #{msgIdHash}, #{aibotId}, #{traceId}, #{runId}, #{streamId},
+             #{fromUserHash}, #{chatType}, #{chatIdHash}, #{msgType}, #{eventType},
+             #{payloadHash}, #{status}, 0, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+            id = LAST_INSERT_ID(id),
+            duplicate_count = duplicate_count + 1,
+            last_received_at = NOW()
+    </insert>
+
+    <select id="selectById" parameterType="Long" resultMap="InboundResult">
+        SELECT id, bot_binding_id, msg_id_hash, aibot_id, trace_id, run_id, stream_id,
+               from_user_hash, chat_type, chat_id_hash, msg_type, event_type,
+               payload_hash, status, duplicate_count, first_received_at, last_received_at
+        FROM fbs_inbound_event
+        WHERE id = #{id}
+    </select>
+</mapper>
