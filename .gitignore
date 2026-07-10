@@ -199,6 +199,10 @@ data/
 
 ######################################################################
 # Environment & Config
+.env
+.env.*
+!.env.example
+!**/.env.example
 .env.local
 .env.*.local
 .env.development.local
@@ -208,6 +212,12 @@ data/
 # Runtime configuration files (auto-generated, environment-specific)
 **/engine-runtime.properties
 **/application-runtime.properties
+
+# Browser automation sessions and authenticated state
+**/.auth/
+**/browser-profile/
+**/storage-state*.json
+playwright-report/
 
 # Frontend environment files (contains sensitive configuration)
 WxFbsir-ui/.env.development
@@ -228,6 +238,9 @@ test-results/
 # Documentation
 .docusaurus/
 .vuepress/dist/
+
+# Contains environment-specific endpoints; only publish a reviewed, sanitized export.
+docs/workflows/export-简历解析工作流.zip
 
 ######################################################################
 # Misc
