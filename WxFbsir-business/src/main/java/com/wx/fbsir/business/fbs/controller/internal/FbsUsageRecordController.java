@@ -4,6 +4,7 @@ import com.wx.fbsir.business.fbs.domain.entity.FbsSkillUsageRecord;
 import com.wx.fbsir.business.fbs.domain.enums.UsageStatus;
 import com.wx.fbsir.business.fbs.mapper.FbsSkillUsageRecordMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
@@ -17,6 +18,7 @@ import java.util.Date;
  */
 @RestController
 @RequestMapping("/fbs/internal/usage")
+@PreAuthorize("@ss.hasRole('admin')")
 public class FbsUsageRecordController {
 
     @Autowired

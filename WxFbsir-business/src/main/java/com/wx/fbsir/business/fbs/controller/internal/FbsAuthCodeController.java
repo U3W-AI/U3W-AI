@@ -7,6 +7,7 @@ import com.wx.fbsir.business.fbs.mapper.FbsAuthCodeMapper;
 import com.wx.fbsir.business.fbs.mapper.FbsScenePackMapper;
 import com.wx.fbsir.business.fbs.service.AuthCodeService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
@@ -21,6 +22,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/fbs/internal/auth-code")
+@PreAuthorize("@ss.hasRole('admin')")
 public class FbsAuthCodeController {
 
     @Autowired

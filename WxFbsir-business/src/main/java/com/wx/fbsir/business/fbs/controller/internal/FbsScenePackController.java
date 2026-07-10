@@ -3,6 +3,7 @@ package com.wx.fbsir.business.fbs.controller.internal;
 import com.wx.fbsir.business.fbs.domain.entity.FbsScenePack;
 import com.wx.fbsir.business.fbs.mapper.FbsScenePackMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
@@ -16,6 +17,7 @@ import java.util.Date;
  */
 @RestController
 @RequestMapping("/fbs/internal/scene-pack")
+@PreAuthorize("@ss.hasRole('admin')")
 public class FbsScenePackController {
 
     @Autowired

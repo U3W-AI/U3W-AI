@@ -210,7 +210,6 @@ wechat:
   token: ${WECHAT_TOKEN:}
   # 企业微信机器人AES密钥（生产环境建议使用环境变量：WECHAT_AES_KEY）
   aes-key: ${WECHAT_AES_KEY:}
-  # 企业微信CorpID 在“我的企业” -> “企业信息”最下方找到 企业ID（生产环境建议使用环境变量：WECHAT_CORP_ID）
-  corp-id: ${WECHAT_CORP_ID:}
+  # 企业自建智能机器人回调的 receiveId 按官方协议固定为空字符串，不配置 CorpID
   # 企业微信提示词编辑器链接（生产环境建议使用环境变量：PROMPT_EDITOR_URL）
   prompt-editor-url: ${PROMPT_EDITOR_URL:}

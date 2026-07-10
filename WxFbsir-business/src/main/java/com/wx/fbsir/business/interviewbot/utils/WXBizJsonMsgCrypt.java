@@ -11,9 +11,9 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.Random;
 
 /**
  * 企业微信 JSON 协议加解密工具类
@@ -30,6 +30,7 @@ public class WXBizJsonMsgCrypt {
     private static final Logger log = LoggerFactory.getLogger(WXBizJsonMsgCrypt.class);
 
     static final int AES_BLOCK_SIZE = 32;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     String token;
     String encodingAesKey;
@@ -41,7 +42,7 @@ public class WXBizJsonMsgCrypt {
      *
      * @param token          企业微信后台配置的 Token
      * @param encodingAesKey 企业微信后台配置的 EncodingAESKey
-     * @param receiveId      企业ID (CorpID)
+     * @param receiveId      callback crypto receiveId; enterprise-created smart bots must pass an empty string
      * @throws AesException 初始化异常
      */
     public WXBizJsonMsgCrypt(String token, String encodingAesKey, String receiveId) throws AesException {
@@ -156,10 +157,22 @@ public class WXBizJsonMsgCrypt {
         String content;
         try {
             byte[] bytes = PKCS7Encoder.decode(original);
+            if (bytes.length < 20) {
+                throw new AesException(AesException.IllegalBuffer);
+            }
             byte[] networkOrder = Arrays.copyOfRange(bytes, 16, 20);
             int xmlLength = recoverNetworkBytesOrder(networkOrder);
-            content = new String(Arrays.copyOfRange(bytes, 20, 20 + xmlLength), StandardCharsets.UTF_8);
-            // receiveId 校验逻辑在此处省略，智能机器人场景通常不强校验
+            int contentEnd = 20 + xmlLength;
+            if (xmlLength < 0 || contentEnd > bytes.length) {
+                throw new AesException(AesException.IllegalBuffer);
+            }
+            content = new String(Arrays.copyOfRange(bytes, 20, contentEnd), StandardCharsets.UTF_8);
+            String actualReceiveId = new String(Arrays.copyOfRange(bytes, contentEnd, bytes.length), StandardCharsets.UTF_8);
+            if (!receiveId.equals(actualReceiveId)) {
+                throw new AesException(AesException.ValidateCorpidError);
+            }
+        } catch (AesException e) {
+            throw e;
         } catch (Exception e) {
             log.error("[加解密] 解密后Buffer解析失败", e);
             throw new AesException(AesException.IllegalBuffer);
@@ -248,10 +261,9 @@ public class WXBizJsonMsgCrypt {
 
     private static String getRandomStr() {
         String base = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        Random random = new Random();
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 16; i++) {
-            int number = random.nextInt(base.length());
+            int number = SECURE_RANDOM.nextInt(base.length());
             sb.append(base.charAt(number));
         }
         return sb.toString();

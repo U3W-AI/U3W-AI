@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,6 +50,8 @@ public class EngineUploadController {
     private String resourcePrefix;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy/MM/dd");
+    private static final long MAX_SCREENSHOT_BYTES = 10L * 1024 * 1024;
+    private static final long MAX_IMAGE_PIXELS = 40_000_000L;
 
     public EngineUploadController(EngineSessionManager sessionManager) {
         this.sessionManager = sessionManager;
@@ -88,17 +92,18 @@ public class EngineUploadController {
             return ResponseEntity.ok(result);
         }
         
-        // 3. 构建存储路径: /engine/{userId}/{date}/
-        String dateStr = LocalDateTime.now().format(DATE_FORMATTER);
-        
-        // 解析为绝对路径
-        Path uploadRoot = Paths.get(uploadPath).toAbsolutePath().normalize();
-        Path targetDir = uploadRoot.resolve("engine").resolve(userId).resolve(dateStr);
-        
-        log.debug("[截图上传] 目标路径 - 配置路径: {}, 绝对路径: {}, 目标目录: {}", 
-            uploadPath, uploadRoot, targetDir);
-        
         try {
+            String safeUserId = requireSafeSegment(userId, "userId");
+            BufferedImage image = readAndValidateScreenshot(file);
+            String dateStr = LocalDateTime.now().format(DATE_FORMATTER);
+            Path uploadRoot = Paths.get(uploadPath).toAbsolutePath().normalize();
+            Path engineRoot = uploadRoot.resolve("engine").normalize();
+            Path targetDir = engineRoot.resolve(safeUserId).resolve(dateStr).normalize();
+            requireUnderRoot(engineRoot, targetDir);
+
+            log.debug("[截图上传] 目标路径 - 配置路径: {}, 绝对路径: {}, 目标目录: {}",
+                uploadPath, uploadRoot, targetDir);
+
             // 创建目录
             if (!Files.exists(targetDir)) {
                 log.debug("[截图上传] 创建目录: {}", targetDir);
@@ -106,25 +111,17 @@ public class EngineUploadController {
                 log.debug("[截图上传] 目录创建成功");
             }
             
-            // 4. 生成文件名
-            String originalFilename = file.getOriginalFilename();
-            String extension = getFileExtension(originalFilename);
-            String finalFileName;
-            
-            if (fileName != null && !fileName.isEmpty()) {
-                // 使用指定的文件名
-                finalFileName = fileName + "_" + System.currentTimeMillis() + extension;
-            } else {
-                // 生成随机文件名
-                finalFileName = UUID.randomUUID().toString().replace("-", "").substring(0, 16) + extension;
-            }
+            // 文件名和扩展名完全由服务端生成，防止活动内容落入公开静态目录。
+            String finalFileName = UUID.randomUUID().toString().replace("-", "") + ".png";
             
             // 5. 保存文件
             Path targetPath = targetDir.resolve(finalFileName);
-            file.transferTo(targetPath.toFile());
+            if (!ImageIO.write(image, "png", targetPath.toFile())) {
+                throw new IOException("PNG 编码器不可用");
+            }
             
             // 6. 生成访问链接
-            String relativePath = "/profile/engine/" + userId + "/" + dateStr + "/" + finalFileName;
+            String relativePath = "/profile/engine/" + safeUserId + "/" + dateStr + "/" + finalFileName;
             String accessUrl = resourcePrefix + relativePath;
             
             result.put("success", true);
@@ -132,7 +129,7 @@ public class EngineUploadController {
             result.put("fileName", finalFileName);
             result.put("relativePath", relativePath);
             
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
             // 详细的错误诊断
             String errorType = "UNKNOWN";
             String errorDetail = e.getMessage();
@@ -156,9 +153,6 @@ public class EngineUploadController {
             log.error("[截图上传] 错误类型: {} ({})", errorType, e.getClass().getSimpleName());
             log.error("[截图上传] 错误详情: {}", errorDetail);
             log.error("[截图上传] 配置路径: {}", uploadPath);
-            log.error("[截图上传] 目标路径: {}", targetDir);
-            log.error("[截图上传] 路径是否存在: {}", Files.exists(targetDir.getParent()));
-            log.error("[截图上传] 路径是否可写: {}", Files.isWritable(targetDir.getParent()));
             if (!suggestion.isEmpty()) {
                 log.error("[截图上传] 建议: {}", suggestion);
             }
@@ -200,15 +194,19 @@ public class EngineUploadController {
         }
         
         String dateStr = LocalDateTime.now().format(DATE_FORMATTER);
-        Path targetDir = Paths.get(uploadPath, "engine", userId, dateStr);
-        
+        final String safeUserId;
+        final Path targetDir;
         try {
+            safeUserId = requireSafeSegment(userId, "userId");
+            Path engineRoot = Paths.get(uploadPath).toAbsolutePath().normalize().resolve("engine").normalize();
+            targetDir = engineRoot.resolve(safeUserId).resolve(dateStr).normalize();
+            requireUnderRoot(engineRoot, targetDir);
             if (!Files.exists(targetDir)) {
                 Files.createDirectories(targetDir);
             }
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
             result.put("success", false);
-            result.put("message", "创建目录失败");
+            result.put("message", "创建目录失败或用户标识非法");
             result.put("code", "DIR_CREATE_FAILED");
             return ResponseEntity.ok(result);
         }
@@ -224,12 +222,14 @@ public class EngineUploadController {
             }
             
             try {
-                String extension = getFileExtension(file.getOriginalFilename());
-                String finalFileName = UUID.randomUUID().toString().replace("-", "").substring(0, 16) + extension;
+                BufferedImage image = readAndValidateScreenshot(file);
+                String finalFileName = UUID.randomUUID().toString().replace("-", "") + ".png";
                 Path targetPath = targetDir.resolve(finalFileName);
-                file.transferTo(targetPath.toFile());
+                if (!ImageIO.write(image, "png", targetPath.toFile())) {
+                    throw new IOException("PNG 编码器不可用");
+                }
                 
-                String relativePath = "/profile/engine/" + userId + "/" + dateStr + "/" + finalFileName;
+                String relativePath = "/profile/engine/" + safeUserId + "/" + dateStr + "/" + finalFileName;
                 String accessUrl = resourcePrefix + relativePath;
                 
                 Map<String, String> fileInfo = new HashMap<>();
@@ -238,7 +238,7 @@ public class EngineUploadController {
                 uploadedFiles.add(fileInfo);
                 success++;
                 
-            } catch (IOException e) {
+            } catch (IOException | IllegalArgumentException e) {
                 failed++;
                 log.warn("[批量上传] 保存文件失败: {}", e.getMessage());
             }
@@ -247,7 +247,15 @@ public class EngineUploadController {
         log.info("[批量上传] 完成 - hostId: {}, userId: {}, 成功: {}, 失败: {}", 
             hostId, userId, success, failed);
         
-        result.put("success", true);
+        result.put("success", failed == 0 && success > 0);
+        result.put("partial", success > 0 && failed > 0);
+        if (success == 0) {
+            result.put("code", "ALL_UPLOADS_FAILED");
+            result.put("message", "所有截图上传均失败");
+        } else if (failed > 0) {
+            result.put("code", "PARTIAL_SUCCESS");
+            result.put("message", "部分截图上传失败");
+        }
         result.put("files", uploadedFiles);
         result.put("successCount", success);
         result.put("failedCount", failed);
@@ -255,17 +263,41 @@ public class EngineUploadController {
         return ResponseEntity.ok(result);
     }
 
-    /**
-     * 获取文件扩展名
-     */
-    private String getFileExtension(String filename) {
-        if (filename == null || filename.isEmpty()) {
-            return ".png";
+    private BufferedImage readAndValidateScreenshot(MultipartFile file) throws IOException {
+        if (file.getSize() <= 0 || file.getSize() > MAX_SCREENSHOT_BYTES) {
+            throw new IllegalArgumentException("截图大小必须在 1 字节到 10MB 之间");
         }
-        int dotIndex = filename.lastIndexOf('.');
-        if (dotIndex > 0) {
-            return filename.substring(dotIndex);
+        BufferedImage image;
+        try (var input = file.getInputStream()) {
+            image = ImageIO.read(input);
         }
-        return ".png";
+        if (image == null) {
+            throw new IllegalArgumentException("文件不是可解码的图片");
+        }
+        long pixels = (long) image.getWidth() * image.getHeight();
+        if (image.getWidth() <= 0 || image.getHeight() <= 0 || pixels > MAX_IMAGE_PIXELS) {
+            throw new IllegalArgumentException("截图像素尺寸超出限制");
+        }
+        return image;
+    }
+
+    private String requireSafeSegment(String value, String fieldName) {
+        if (value == null || value.isBlank() || value.length() > 128 ||
+            ".".equals(value) || "..".equals(value) || value.endsWith(".") || value.endsWith(" ")) {
+            throw new IllegalArgumentException(fieldName + " 非法");
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c < 0x20 || c == '/' || c == '\\' || "<>:\"|?*".indexOf(c) >= 0) {
+                throw new IllegalArgumentException(fieldName + " 包含非法路径字符");
+            }
+        }
+        return value;
+    }
+
+    private void requireUnderRoot(Path root, Path target) {
+        if (!target.startsWith(root)) {
+            throw new IllegalArgumentException("目标路径超出上传根目录");
+        }
     }
 }

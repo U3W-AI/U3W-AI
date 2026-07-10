@@ -24,15 +24,16 @@ import org.springframework.web.bind.annotation.*;
 public class WechatBotController {
 
     private static final Logger log = LoggerFactory.getLogger(WechatBotController.class);
+    // Enterprise-created WeCom smart bots require an empty receiveId for the
+    // official JSON callback crypto envelope. CorpID applies to a different
+    // application callback contract and must not be appended here.
+    private static final String WE_COM_SMART_BOT_RECEIVE_ID = "";
 
     @Value("${wechat.token}")
     private String sToken;
 
     @Value("${wechat.aes-key}")
     private String sEncodingAESKey;
-
-    @Value("${wechat.corp-id}")
-    private String sCorpID;
 
     @Autowired
     private InterviewService interviewService;
@@ -49,7 +50,7 @@ public class WechatBotController {
                          @RequestParam("nonce") String nonce,
                          @RequestParam("echostr") String echostr) {
         try {
-            WXBizJsonMsgCrypt wxcpt = new WXBizJsonMsgCrypt(sToken, sEncodingAESKey, sCorpID);
+            WXBizJsonMsgCrypt wxcpt = new WXBizJsonMsgCrypt(sToken, sEncodingAESKey, WE_COM_SMART_BOT_RECEIVE_ID);
             return wxcpt.VerifyURL(msgSignature, timestamp, nonce, echostr);
         } catch (Exception e) {
             log.error("[微信回调] URL验证失败 - signature: {}, timestamp: {}", msgSignature, timestamp, e);
@@ -67,26 +68,23 @@ public class WechatBotController {
                                 @RequestParam(name = "nonce") String nonce,
                                 @RequestBody String postData) {
         
-        // 调试级别记录原始数据，避免生产环境日志过多
-        log.debug("[微信回调] 收到原始消息: {}", postData);
-
         try {
             // 初始化加解密类
-            WXBizJsonMsgCrypt wxcpt = new WXBizJsonMsgCrypt(sToken, sEncodingAESKey, sCorpID);
+            WXBizJsonMsgCrypt wxcpt = new WXBizJsonMsgCrypt(sToken, sEncodingAESKey, WE_COM_SMART_BOT_RECEIVE_ID);
 
             // 解密
             String decryptedMsg = wxcpt.DecryptMsg(msgSignature, timestamp, nonce, postData);
-            log.debug("[微信回调] 解密后JSON: {}", decryptedMsg);
-
             // 解析 JSON 业务数据
             JsonNode root = jsonMapper.readTree(decryptedMsg);
             String msgType = root.path("msgtype").asText();
+            log.debug("[微信回调] 已解析消息 - msgId: {}, botId: {}, type: {}",
+                root.path("msgid").asText(), root.path("aibotid").asText(), msgType);
             String replyContent;
 
             // 业务逻辑处理
             if ("text".equals(msgType)) {
                 String content = root.path("text").path("content").asText().trim();
-                log.info("[业务处理] 收到文本指令: {}", content);
+                log.debug("[业务处理] 收到文本指令，长度: {}", content.length());
                 replyContent = handleTextCommand(content);
             } else if ("image".equals(msgType)) {
                 replyContent = "收到图片，但我是文本机器人哦。";
@@ -123,7 +121,7 @@ public class WechatBotController {
     private String handleTextCommand(String content) {
         // 清洗 @ (保留之前的正则逻辑)
         String cleanContent = content.replaceAll("^@\\S+\\s*", "").trim();
-        log.debug("[指令清洗] 原始: [{}] -> 清洗后: [{}]", content, cleanContent);
+        log.debug("[指令清洗] 已完成，原始长度: {}，清洗后长度: {}", content.length(), cleanContent.length());
 
         // 匹配 "今日面试"
         if ("今日面试".equals(cleanContent)) {
