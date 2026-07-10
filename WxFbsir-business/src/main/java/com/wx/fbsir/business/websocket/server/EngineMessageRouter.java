@@ -92,6 +92,14 @@ public class EngineMessageRouter {
         // 提取 requestId 和 sourceType
         String requestId = message.getPayloadValue("requestId");
         String sourceType = message.getPayloadValue("sourceType");
+        if ((sourceType == null || sourceType.isEmpty()) && requestId != null) {
+            sourceType = ClientMessageRouter.getRequestSource(requestId);
+            if (sourceType != null) {
+                // Make the recovered routing metadata visible to downstream
+                // handlers and to the forwarded client payload.
+                message.setPayloadValue("sourceType", sourceType);
+            }
+        }
         
         log.debug("[Router] 收到Engine响应: {} - 类型: {}, 用户: {}, 请求ID: {}", 
             session.getEngineId(), type, userId, requestId);
@@ -110,6 +118,7 @@ public class EngineMessageRouter {
                     resultData.putAll(message.getPayload());
                 }
                 engineRequestController.completeRequest(requestId, resultData);
+                ClientMessageRouter.removeRequestSource(requestId);
                 log.debug("[Router] HTTP响应完成 - 请求ID: {}, 类型: {}", requestId, type);
                 return; // 不转发给 WebSocket
                 
@@ -118,6 +127,7 @@ public class EngineMessageRouter {
                 if (userId != null && !userId.isEmpty()) {
                     String jsonMessage = message.toJson();
                     clientMessageRouter.routeToClient(userId, jsonMessage);
+                    ClientMessageRouter.removeRequestSource(requestId);
                     log.debug("[Router] WebSocket响应已转发 - 请求ID: {}, 类型: {}", requestId, type);
                     return;
                 }

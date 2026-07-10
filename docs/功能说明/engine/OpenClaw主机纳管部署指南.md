@@ -1,5 +1,7 @@
 # OpenClaw主机纳管部署指南
 
+> **更新日期**：2026-07-10
+
 本文档详细说明OpenClaw主机纳管功能的部署和配置过程，包括环境要求、部署步骤和常见问题解决。
 
 ---
@@ -25,7 +27,7 @@
 | JDK | 17+ | 运行Java应用 |
 | MySQL | 8.0+ | 数据存储 |
 | Redis | 7.0+ | 缓存支持（可选） |
-| Node.js | 16+ | 前端构建 |
+| Node.js | 与 Vite 6 兼容的版本 | 前端构建 |
 | Nginx | 1.20+ | 反向代理（可选） |
 
 ### 2. 软件依赖
@@ -56,7 +58,6 @@
 确保以下配置文件已正确配置：
 
 - `WxFbsir-admin/src/main/resources/application.yml`
-- `WxFbsir-business/src/main/resources/application.yml`
 
 ---
 
@@ -72,6 +73,9 @@ cd d:\code\project\U3W-AI-fbsir\U3W-AI-fbsir
 
 # 构建项目
 mvn clean package -DskipTests
+
+# Engine 是独立 Maven 工程，需单独构建
+mvn -f WxFbsir-engine/pom.xml clean package -DskipTests
 ```
 
 #### 1.2 运行Admin服务
@@ -85,7 +89,7 @@ java -jar WxFbsir-admin/target/WxFbsir-admin.jar
 
 ```bash
 # 运行Engine服务（如果需要）
-java -jar WxFbsir-engine/target/WxFbsir-engine.jar
+java -jar WxFbsir-engine/target/wxfbsir-engine-1.3.1.jar
 ```
 
 ### 2. 前端部署

@@ -3,7 +3,7 @@
     <el-row :gutter="20" justify="center">
       <el-col :xs="24" :sm="22" :md="20" :lg="18" :xl="16">
         <div class="welcome-section">
-          <h1 class="welcome-title">欢迎使用微信福帮手</h1>
+          <h1 class="welcome-title">欢迎使用福帮手</h1>
           <p class="welcome-subtitle">智能化的内容创作与发布助手</p>
           
           <el-row :gutter="20" class="feature-cards">

@@ -18,6 +18,7 @@ import com.wx.fbsir.common.core.domain.AjaxResult;
 import com.wx.fbsir.common.enums.BusinessType;
 import com.wx.fbsir.business.websocket.domain.WsHostWhitelist;
 import com.wx.fbsir.business.websocket.mapper.WsHostWhitelistMapper;
+import com.wx.fbsir.business.websocket.server.EngineSessionManager;
 import com.wx.fbsir.common.core.page.TableDataInfo;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -47,12 +48,16 @@ public class HostWhitelistController extends BaseController
     @Autowired
     private RestTemplate restTemplate;
 
+    @Autowired
+    private EngineSessionManager engineSessionManager;
+
     @PreAuthorize("@ss.hasPermi('business:host:whitelist:query')")
     @GetMapping("/list")
     public TableDataInfo list(WsHostWhitelist wsHostWhitelist)
     {
         startPage();
         List<WsHostWhitelist> list = wsHostWhitelistMapper.selectList(wsHostWhitelist);
+        applyRuntimeEngineStatus(list);
         return getDataTable(list);
     }
 
@@ -175,6 +180,7 @@ public class HostWhitelistController extends BaseController
             WsHostWhitelist query = new WsHostWhitelist();
             query.setDelFlag(0);
             List<WsHostWhitelist> hosts = wsHostWhitelistMapper.selectList(query);
+            applyRuntimeEngineStatus(hosts);
 
             // 转换为状态列表
             List<Map<String, Object>> statusList = hosts.stream().map(host -> {
@@ -190,6 +196,21 @@ public class HostWhitelistController extends BaseController
             return success(statusList);
         } catch (Exception e) {
             return error("获取主机状态失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Engine在线状态属于实时会话状态，不应使用白名单表中的历史快照覆盖。
+     * OpenClaw仍使用健康检查写入的数据库状态。
+     */
+    private void applyRuntimeEngineStatus(List<WsHostWhitelist> hosts) {
+        if (hosts == null || engineSessionManager == null) {
+            return;
+        }
+        for (WsHostWhitelist host : hosts) {
+            if (host != null && "engine".equalsIgnoreCase(host.getHostType())) {
+                host.setOnlineStatus(engineSessionManager.isEngineOnline(host.getHostId()) ? "online" : "offline");
+            }
         }
     }
 }

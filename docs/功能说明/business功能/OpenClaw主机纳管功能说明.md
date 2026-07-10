@@ -1,5 +1,7 @@
 # OpenClaw主机纳管功能说明
 
+> **更新日期**：2026-07-10
+
 OpenClaw主机纳管功能是福帮手Admin侧实现的主机管理原型，支持OpenClaw主机的登记、状态监控、管控和健康检查。
 
 ---
@@ -73,6 +75,8 @@ wxfbsir:
 | `/business/host/whitelist` | POST | `business:host:whitelist:add` | 新增主机 |
 | `/business/host/whitelist` | PUT | `business:host:whitelist:edit` | 修改主机信息 |
 | `/business/host/whitelist/{ids}` | DELETE | `business:host:whitelist:remove` | 删除主机 |
+| `/business/host/whitelist/health-check/{id}` | GET | `business:host:whitelist:edit` | 手动触发 OpenClaw 健康检查 |
+| `/business/host/whitelist/status` | GET | `business:host:whitelist:query` | 获取主机 ID、类型和在线状态 |
 
 ### 前端接口
 
@@ -118,12 +122,20 @@ export function delWhitelist(ids)
 - `engine`：引擎主机
 - `openclaw`：OpenClaw主机
 
+补充说明：
+- Engine 节点接入主节点时，白名单记录不仅需要 `hostId` 正确，还需要 `hostType=engine`
+- `openclaw` 类型仅参与健康检查与纳管，不会作为 Engine 节点注册
+
 ### 2. 健康检查机制
 
 - **定时检查**：每30秒自动执行一次健康检查
 - **并行处理**：多主机并行检查，提高效率
 - **超时控制**：5秒超时机制，避免长时间阻塞
 - **状态更新**：根据检查结果自动更新主机在线状态
+
+状态来源说明：
+- `engine` 类型主机的 `onlineStatus` 以运行时 Engine 会话状态为准
+- `openclaw` 类型主机的 `onlineStatus` 以健康检查结果和数据库字段为准
 
 ### 3. 增强的WebSocket支持
 
@@ -173,7 +185,7 @@ export function delWhitelist(ids)
 |------|---------|
 | 页面组件 | `WxFbsir-ui/src/views/business/host/whitelist/index.vue` |
 | API接口 | `WxFbsir-ui/src/api/business/host/whitelist.js` |
-| Nginx配置 | `WxFbsir-ui/nginx.conf` |
+| Nginx配置 | 参考部署文档中的反向代理示例；当前源码未提交独立 `nginx.conf` |
 
 ---
 

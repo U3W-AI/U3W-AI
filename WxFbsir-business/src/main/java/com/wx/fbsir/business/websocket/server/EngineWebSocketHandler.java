@@ -248,7 +248,7 @@ public class EngineWebSocketHandler extends TextWebSocketHandler {
         }
         
         // 5. 验证白名单（使用公网IP进行验证）
-        WhitelistService.ValidationResult whitelistResult = whitelistService.validateHostId(hostId, primaryIp);
+        WhitelistService.ValidationResult whitelistResult = whitelistService.validateHostId(hostId, primaryIp, "engine");
         if (!whitelistResult.isValid()) {
             log.warn("[拒绝] {} - HostID: {}, 公网IP: {}", whitelistResult.getCode(), hostId, primaryIp);
             
@@ -667,6 +667,7 @@ public class EngineWebSocketHandler extends TextWebSocketHandler {
             case "HOST_NOT_IN_WHITELIST" -> WebSocketErrorCode.HOST_ID_NOT_AUTHORIZED;
             case "HOST_DISABLED" -> WebSocketErrorCode.HOST_ID_DISABLED;
             case "HOST_EXPIRED" -> WebSocketErrorCode.HOST_ID_EXPIRED;
+            case "HOST_TYPE_MISMATCH" -> WebSocketErrorCode.HOST_TYPE_MISMATCH;
             case "IP_NOT_ALLOWED" -> WebSocketErrorCode.IP_NOT_IN_WHITELIST;
             case "IP_BLOCKED" -> WebSocketErrorCode.IP_IN_BLACKLIST;
             default -> WebSocketErrorCode.UNKNOWN_ERROR;

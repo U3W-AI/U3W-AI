@@ -1,5 +1,7 @@
 # 🔌 WebSocket 通信完整指南
 
+> **更新日期**：2026-07-10
+>
 > **目标读者**: 需要开发Engine能力或深入理解WebSocket通信机制的后端开发者  
 > **文档用途**: 从快速入门到深入精通，全面讲解WebSocket通信架构
 
@@ -52,6 +54,20 @@
 
 ### 第12章：开发指南 ⭐⭐⭐ 开发必读
 - [12. 流式输出 vs 单次输出完整指南](#12-流式输出-vs-单次输出完整指南)
+
+---
+
+## 源码校准说明（2026-07-10）
+
+以下事实以当前源码和已通过的自动化测试为准，优先级高于本文后续旧示例：
+
+1. Engine WebSocket 连接地址默认是 `ws://localhost:8080/ws/engine`，当前源码不要求通过查询参数传递 `clientId`。
+2. Engine 的身份信息在注册消息 `ENGINE_REGISTER` 中通过 `engineId` 提供。
+3. `/ws/engine` 与 `/ws/client` 仅对 WebSocket 握手路径放行；除握手路径外，其余 `/ws/**` HTTP 接口均要求 JWT，匿名访问返回 HTTP 401。
+4. Engine 注册时的白名单校验不仅包含 `hostId`，还会校验状态、过期时间、IP 规则以及 `hostType=engine`。
+5. Admin 发送给 Engine 的消息会自动补充顶层字段 `requestId`、`userId`、`sourceType`、`sourceClientId`，并在 `payload` 中补充 `requestId` 与 `sourceType`。
+6. `TASK_RESULT` 示例中的 `payload.requestId` 不应为 `null`；当前链路下会返回真实请求 ID，并按来源返回 `sourceType=WEBSOCKET` 或 `HTTP`。
+7. `/ws/client` 使用 `clientType` 识别客户端；服务端优先读取 `Authorization`，并兼容 `token` / `key` 查询参数。当前 Vue 页面因浏览器原生 WebSocket 不能设置自定义 Header，使用 `clientType + token` 查询参数建立连接。
 
 ---
 
@@ -963,19 +979,23 @@ Header: Authorization: Bearer {token}
 | 参数 | 位置 | 必填 | 说明 | 示例 |
 |------|------|------|------|------|
 | `clientType` | URL 参数 | ✅ | 客户端类型 | `web` / `mini` |
-| `Authorization` | Header | ✅ | JWT 认证令牌 | `Bearer eyJhbGciOiJIUzUxMiJ9...` |
+| `Authorization` | Header | 非浏览器客户端推荐 | JWT 认证令牌 | `Bearer eyJhbGciOiJIUzUxMiJ9...` |
+| `token` / `key` | URL 参数 | 浏览器客户端可用 | JWT 认证令牌的兼容传递方式 | `token=eyJhbGciOi...` |
 
 > ⚠️ **userId 无需传递**，后端自动从 Token 解析，自动生成 `clientId = {clientType}-{userId}`
 
 ### Engine 副节点连接
 
 ```
-ws://localhost:8080/ws/engine?clientId={engineId}
+ws://localhost:8080/ws/engine
 ```
 
-| 参数 | 必填 | 说明 | 示例 |
-|------|------|------|------|
-| `clientId` | ✅ | Engine 节点ID | `engine-0010` |
+> 说明：当前源码中 Engine 连接地址不要求额外查询参数，Engine 的身份信息在注册消息 `ENGINE_REGISTER` 中通过 `engineId` 传递。
+
+| 注册字段 | 必填 | 说明 | 示例 |
+|----------|------|------|------|
+| `ENGINE_REGISTER.engineId` | ✅ | Engine 节点ID（即白名单 `hostId`） | `engine-001` |
+| 白名单 `hostType` | ✅ | Engine 注册专用主机类型 | `engine` |
 
 > Engine 连接通过**白名单验证**，不需要 Token
 
@@ -985,6 +1005,7 @@ ws://localhost:8080/ws/engine?clientId={engineId}
 |------|----------|------|
 | `/ws/client` | Token 认证 | 前端必须携带有效 JWT Token |
 | `/ws/engine` | 白名单认证 | Engine 通过 hostId 白名单验证 |
+| `/ws/admin/**`、`/ws/engine/request`、`/ws/engine/list` | JWT 认证 | 仅 WebSocket 握手路径匿名放行，HTTP 管理/执行接口需要 JWT |
 
 ### 错误码
 
@@ -1102,20 +1123,20 @@ public class EngineMessageRouter {
 ### 5.5 REST API 接口
 
 ```bash
-# 获取连接统计
+# 获取连接统计（需要 JWT）
 GET /ws/admin/stats
-# 响应: {"totalConnections": 5, "registeredConnections": 5, "maxConnections": 10000}
+# 响应: {"success":true,"data":{"totalConnections":5},"timestamp":1730000000000}
 
-# 获取 Engine 列表
+# 获取 Engine 列表（需要 JWT）
 GET /ws/admin/engines
-# 响应: [{"engineId": "engine-001", "version": "1.0.0", "uptime": 3600}, ...]
+# 响应: {"success":true,"total":1,"engines":[{"engineId":"engine-001","version":"1.3.1"}]}
 
-# 发送任务到指定 Engine
+# 发送任务到指定 Engine（需要 JWT）
 POST /ws/admin/engines/{engineId}/task
 Content-Type: application/json
-{"taskType": "AI_CHAT", "prompt": "你好"}
+{"type": "PLAYWRIGHT_TEST", "prompt": "你好"}
 
-# 广播消息
+# 广播消息（需要 JWT）
 POST /ws/admin/broadcast
 Content-Type: application/json
 {"type": "SYSTEM_NOTICE", "message": "系统维护通知"}
@@ -1777,8 +1798,10 @@ public class DoubaoHandler extends BaseAiHandler {
 ### 12.5 前端处理流式消息
 
 ```javascript
-// 建立 WebSocket 连接
-const ws = new WebSocket('wss://admin.example.com/ws/client?clientId=web-' + userId);
+// 浏览器原生 WebSocket 不能设置 Authorization Header，当前前端使用兼容的查询参数方式
+const ws = new WebSocket(
+  'wss://admin.example.com/ws/client?clientType=web&token=' + encodeURIComponent(token)
+);
 
 // 监听消息
 ws.onmessage = (event) => {
@@ -2085,7 +2108,7 @@ public class MyCapability {
 使用 `websocat` 工具测试（一行JSON格式）：
 
 ```bash
-# 简单测试
+# 简单测试（token 查询参数是服务端兼容模式）
 echo '{"type":"YOUR_TYPE","engineId":"engine-001","payload":{"param1":"value1"}}' | websocat "ws://localhost:8080/ws/client?clientType=web&token=${TOKEN}"
 
 # 复杂嵌套测试
@@ -2390,7 +2413,8 @@ public class SimpleHealthCheckDemoController {
 {
   "type": "TASK_RESULT",
   "payload": {
-    "requestId": null,
+    "requestId": "1_20260710162054_SIMPLE_HEALTH_CHECK_DEMO_001",
+    "sourceType": "WEBSOCKET",
     "success": true,
     "data": {
       "status": "healthy",

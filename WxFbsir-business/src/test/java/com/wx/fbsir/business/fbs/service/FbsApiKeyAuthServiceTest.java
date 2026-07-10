@@ -365,7 +365,15 @@ class FbsApiKeyAuthServiceTest {
             String body = "{}";
             String sig = computeHmac(VALID_KEY, ts, body);
             // 篡改一部分字符为大写
-            String mangledSig = sig.substring(0, 4).toUpperCase() + sig.substring(4);
+            StringBuilder mangledBuilder = new StringBuilder(sig);
+            for (int i = 0; i < mangledBuilder.length(); i++) {
+                char current = mangledBuilder.charAt(i);
+                if (current >= 'a' && current <= 'f') {
+                    mangledBuilder.setCharAt(i, Character.toUpperCase(current));
+                    break;
+                }
+            }
+            String mangledSig = mangledBuilder.toString();
 
             SignatureCheckResult result = service.verifySignature(VALID_KEY, ts, body, mangledSig);
 

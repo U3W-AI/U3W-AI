@@ -74,6 +74,10 @@ public class WhitelistService {
      * @return 验证结果
      */
     public ValidationResult validateHostId(String hostId, String remoteIp) {
+        return validateHostId(hostId, remoteIp, null);
+    }
+
+    public ValidationResult validateHostId(String hostId, String remoteIp, String expectedHostType) {
         if (whitelistMapper == null) {
             log.warn("[白名单] Mapper未注入，跳过白名单验证");
             return ValidationResult.success();
@@ -114,6 +118,19 @@ public class WhitelistService {
             }
 
             // 5. 检查过期时间
+            if (expectedHostType != null && !expectedHostType.trim().isEmpty()) {
+                String actualHostType = whitelist.getHostType();
+                if (actualHostType != null && !actualHostType.trim().isEmpty()
+                    && !actualHostType.trim().equalsIgnoreCase(expectedHostType.trim())) {
+                    log.warn("[白名单拒绝] 主机类型不匹配 - HostID: {}, Expected: {}, Actual: {}, IP: {}",
+                        hostId, expectedHostType, actualHostType, remoteIp);
+                    recordFailure(remoteIp, "HOST_TYPE_MISMATCH", "主机类型不匹配");
+                    return ValidationResult.fail("HOST_TYPE_MISMATCH",
+                        "主机ID [" + hostId + "] 已登记为 [" + actualHostType + "] 类型，不允许作为 ["
+                            + expectedHostType + "] 节点连接");
+                }
+            }
+
             LocalDateTime expireTime = whitelist.getExpireTime();
             if (expireTime != null && expireTime.isBefore(LocalDateTime.now())) {
                 log.debug("[白名单] 已过期 - {}", hostId);

@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Client 消息路由器
@@ -35,6 +36,69 @@ public class ClientMessageRouter {
     
     // 🔥 sessionId → chatId 缓存（供 EngineMessageRouter 使用）
     private static final ConcurrentHashMap<String, String> SESSION_CHAT_ID_CACHE = new ConcurrentHashMap<>();
+
+    /**
+     * 请求来源登记表。Engine 的业务结果通常只回传 requestId，
+     * 因此由主节点保留来源，避免结果回到路由器时退化为兼容双路由。
+     */
+    private static final long REQUEST_SOURCE_TTL_MILLIS = TimeUnit.MINUTES.toMillis(10);
+    private static final ConcurrentHashMap<String, RequestSourceRegistration> REQUEST_SOURCE_CACHE =
+        new ConcurrentHashMap<>();
+
+    private record RequestSourceRegistration(String sourceType, long registeredAtMillis) {
+    }
+
+    public static void registerRequestSource(String requestId, String sourceType) {
+        registerRequestSource(requestId, sourceType, System.currentTimeMillis());
+    }
+
+    static void registerRequestSource(String requestId, String sourceType, long registeredAtMillis) {
+        if (requestId != null && !requestId.isEmpty() && sourceType != null && !sourceType.isEmpty()) {
+            REQUEST_SOURCE_CACHE.put(requestId, new RequestSourceRegistration(sourceType, registeredAtMillis));
+            cleanupExpiredRequestSources(registeredAtMillis);
+        }
+    }
+
+    public static String getRequestSource(String requestId) {
+        return getRequestSource(requestId, System.currentTimeMillis());
+    }
+
+    static String getRequestSource(String requestId, long currentTimeMillis) {
+        if (requestId == null) {
+            return null;
+        }
+        RequestSourceRegistration registration = REQUEST_SOURCE_CACHE.get(requestId);
+        if (registration == null) {
+            return null;
+        }
+        if (isExpired(registration, currentTimeMillis)) {
+            REQUEST_SOURCE_CACHE.remove(requestId, registration);
+            return null;
+        }
+        return registration.sourceType();
+    }
+
+    public static void removeRequestSource(String requestId) {
+        if (requestId != null) {
+            REQUEST_SOURCE_CACHE.remove(requestId);
+        }
+    }
+
+    static void clearRequestSourceCache() {
+        REQUEST_SOURCE_CACHE.clear();
+    }
+
+    static int getRequestSourceCacheSize() {
+        return REQUEST_SOURCE_CACHE.size();
+    }
+
+    static void cleanupExpiredRequestSources(long currentTimeMillis) {
+        REQUEST_SOURCE_CACHE.entrySet().removeIf(entry -> isExpired(entry.getValue(), currentTimeMillis));
+    }
+
+    private static boolean isExpired(RequestSourceRegistration registration, long currentTimeMillis) {
+        return currentTimeMillis - registration.registeredAtMillis() > REQUEST_SOURCE_TTL_MILLIS;
+    }
 
     private final ClientSessionManager clientSessionManager;
     private final EngineSessionManager engineSessionManager;
@@ -87,6 +151,7 @@ public class ClientMessageRouter {
      * ⚠️ payload字段完全透传，Admin不解析、不修改、不验证
      */
     public void routeToEngine(String clientId, String rawMessage) {
+        String requestId = null;
         try {
             JSONObject json = JSON.parseObject(rawMessage);
             String type = json.getString("type");
@@ -131,16 +196,25 @@ public class ClientMessageRouter {
             
             // ━━━━━━━━━━ 强制生成requestId（安全核心）━━━━━━━━━━
             json.remove("requestId");
-            String requestId = com.wx.fbsir.business.websocket.util.RequestIdGenerator.generate(userId, type);
+            requestId = com.wx.fbsir.business.websocket.util.RequestIdGenerator.generate(userId, type);
             json.put("requestId", requestId);
-            
+            registerRequestSource(requestId, "WEBSOCKET");
+
             // ━━━━━━━━━━ 添加路由必要字段，完整保留payload ━━━━━━━━━━
             json.put("userId", userId);
             json.put("sourceClientId", clientId);
             json.put("sourceType", "WEBSOCKET");
-            
-            // 🔥 缓存 sessionId → chatId 映射（用于 Engine 返回时查找）
+
+            // Engine控制器从payload读取关联字段；同时保留顶层字段兼容旧版本
             JSONObject payload = json.getJSONObject("payload");
+            if (payload == null) {
+                payload = new JSONObject();
+                json.put("payload", payload);
+            }
+            payload.put("requestId", requestId);
+            payload.put("sourceType", "WEBSOCKET");
+
+            // 🔥 缓存 sessionId → chatId 映射（用于 Engine 返回时查找）
             String sessionId = null;
             String chatId = null;
             String userPrompt = null;
@@ -215,6 +289,7 @@ public class ClientMessageRouter {
             // 发送消息到Engine
             boolean sent = engineSessionManager.sendRawMessage(engineId, messageToSend);
             if (!sent) {
+                removeRequestSource(requestId);
                 sendError(clientId, type, "SEND_FAILED", "消息发送失败，Engine可能已离线");
                 log.error("[Router] 发送失败: {} -> {} (用户: {}, 请求ID: {})", type, engineId, userId, requestId);
             } else {
@@ -222,6 +297,7 @@ public class ClientMessageRouter {
             }
             
         } catch (JSONException e) {
+            removeRequestSource(requestId);
             // JSON解析错误 - 友好提示
             log.error("========================================");
             log.error("[Admin路由] ❌ JSON解析失败");
@@ -239,6 +315,7 @@ public class ClientMessageRouter {
             sendError(clientId, "ERROR", "JSON_PARSE_ERROR", friendlyMessage);
             
         } catch (Exception e) {
+            removeRequestSource(requestId);
             // 其他错误
             log.error("========================================");
             log.error("[Admin路由] ❌ 处理客户端消息失败");

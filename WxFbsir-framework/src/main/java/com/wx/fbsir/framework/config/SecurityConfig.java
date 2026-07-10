@@ -115,8 +115,9 @@ public class SecurityConfig
                     .requestMatchers("/swagger-ui.html", "/v3/api-docs/**", "/swagger-ui/**", "/druid/**").permitAll()
                     // 元器工作流回调接口，允许匿名访问
                     .requestMatchers("/system/daily-article/saveModelContent", "/system/daily-article/updateOptimizedContent").permitAll()
-                    // WebSocket端点，允许匿名访问（WebSocket有自己的认证机制）
-                    .requestMatchers("/ws/**").permitAll()
+                    // 仅允许WebSocket握手匿名进入；同路径下的HTTP管理/执行接口必须经过JWT鉴权
+                    .requestMatchers("/ws/engine", "/ws/client").permitAll()
+                    .requestMatchers("/ws/**").authenticated()
                     // Engine专属接口（截图上传等），由接口内部验证主机ID
                     .requestMatchers("/engine/**").permitAll()
                     // Skill API 网关（API Key 认证，不要求 JWT，由 FbsApiKeyAuthFilter 校验）

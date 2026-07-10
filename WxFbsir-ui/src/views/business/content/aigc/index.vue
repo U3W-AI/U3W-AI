@@ -1181,7 +1181,7 @@ export default {
       const port = ['localhost', '127.0.0.1'].includes(host) ? ':8080' : ''
       const wsUrl = `${protocol}://${host}${port}/ws/client?clientType=web&token=${token}`
 
-      console.log('连接WebSocket:', wsUrl)
+      console.log('连接 WebSocket（已隐藏认证参数）')
 
       websocket = new WebSocket(wsUrl)
 

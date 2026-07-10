@@ -1,7 +1,19 @@
 # 🔧 Playwright和WebSocket故障排查手册
 
 > **文档目的**: 提供常见问题的排查方法  
-> **更新日期**: 2026-01-27
+> **更新日期**: 2026-07-10
+
+---
+
+## 源码校准说明（2026-07-10）
+
+以下事实以当前源码和已通过的自动化测试为准：
+
+1. Engine 默认连接地址是 `ws://localhost:8080/ws/engine`，连接地址本身不要求附带 `clientId` 查询参数。
+2. Engine 的身份在注册消息 `ENGINE_REGISTER` 中通过 `engineId` 提供。
+3. Engine 注册阶段的白名单校验不仅包含 `hostId`，还会校验 `hostType=engine`。
+4. 除握手路径 `/ws/engine`、`/ws/client` 外，其余 `/ws/**` HTTP 接口均要求 JWT，匿名访问返回 HTTP 401。
+5. Engine 端配置结构以 `wxfbsir.engine.ws-url`、`wxfbsir.engine.host-id`、`wxfbsir.engine.connection.*` 为准，不再使用旧版 `websocket.admin.*` 配置结构。
 
 ---
 
@@ -50,7 +62,7 @@
 
 **状态说明**：
 - 🟢 **已注册**：Engine成功连接并注册
-- 🔴 **白名单拒绝**：hostId不在白名单或已禁用
+- 🔴 **白名单拒绝**：hostId 不在白名单、已禁用、已过期，或白名单记录的 `hostType` 不是 `engine`
 - 🔴 **黑名单拒绝**：IP被封禁
 - 🟡 **重复连接**：同一hostId已有连接
 - 🟡 **异常断开**：网络异常或Engine崩溃
@@ -104,9 +116,10 @@
 
 | 状态 | 原因 | 解决方法 |
 |------|------|----------|
-| **白名单拒绝** | hostId不在白名单 | 在白名单页面添加该hostId |
-| **白名单拒绝** | hostId已禁用 | 在白名单页面启用该hostId |
+| **白名单拒绝** | hostId不在白名单 | 在白名单页面添加该 hostId |
+| **白名单拒绝** | hostId已禁用 | 在白名单页面启用该 hostId |
 | **白名单拒绝** | hostId已过期 | 在白名单页面延长过期时间 |
+| **白名单拒绝** | hostType 不匹配 | 确认白名单记录的 `hostType=engine` |
 | **黑名单拒绝** | IP被封禁 | 在黑名单页面解除封禁 |
 | **重复连接** | 同一hostId已连接 | 断开旧连接或使用不同hostId |
 
@@ -116,10 +129,10 @@
 
 ```yaml
 # Engine端 application.yml
-websocket:
-  admin:
-    url: ws://192.168.1.100:8080/ws/engine  # 确认Admin地址正确
-    engineId: engine-001                     # 确认engineId唯一
+wxfbsir:
+  engine:
+    ws-url: ws://192.168.1.100:8080/ws/engine  # 确认Admin地址正确
+    host-id: engine-001                        # 确认host-id唯一且已在白名单中配置为 hostType=engine
 ```
 
 #### 步骤3：检查网络连通性（仅在必要时）
@@ -143,6 +156,7 @@ telnet <admin_ip> 8080
 **情况1：hostId不存在**
 - 点击"新增"按钮
 - 填写主机ID、主机名称、负责人等信息
+- 主机类型必须选择 `engine`
 - 状态选择"启用"
 - 保存
 
@@ -186,10 +200,11 @@ UPDATE ws_host_whitelist SET status = 1 WHERE host_id = 'engine-001';
 2. **调整心跳配置**：
 ```yaml
 # Engine端
-websocket:
-  heartbeat:
-    interval: 60000      # 增加到60秒
-    timeout: 180000      # 增加到3分钟
+wxfbsir:
+  engine:
+    connection:
+      heartbeat-interval: 60   # 增加到60秒
+      heartbeat-timeout: 180   # 增加到180秒
 ```
 
 ---
@@ -458,36 +473,34 @@ server:
   port: 8080
 
 # WebSocket配置
-websocket:
-  heartbeat:
-    checkInterval: 60000  # 心跳检查间隔（毫秒）
-    timeout: 180000       # 心跳超时时间（毫秒）
+wxfbsir:
+  websocket:
+    heartbeat-interval: 60         # 心跳间隔（秒）
+    heartbeat-timeout: 180         # 心跳超时时间（秒）
+    session-cleanup-interval: 60   # 会话清理间隔（秒）
 ```
 
 ### Engine端 application.yml
 
 ```yaml
 server:
-  port: 9090
+  port: 8081
 
-# WebSocket配置
-websocket:
-  admin:
-    url: ws://192.168.1.100:8080/ws/engine  # Admin地址
-    engineId: engine-001                     # 主机ID（需在数据库白名单中）
-  heartbeat:
-    interval: 60000       # 心跳间隔（毫秒）
-    timeout: 180000       # 心跳超时（毫秒）
-
-# Playwright配置
-playwright:
-  browser:
-    type: chromium        # 浏览器类型
-    headless: true        # 无头模式
-    timeout: 30000        # 启动超时（毫秒）
-  pool:
-    maxSize: 10           # 最大浏览器实例数
-    maxConcurrent: 5      # 最大并发任务数
+# Engine配置
+wxfbsir:
+  engine:
+    ws-url: ws://192.168.1.100:8080/ws/engine  # Admin地址
+    host-id: engine-001                        # 主机ID（需在白名单中配置为 hostType=engine）
+    connection:
+      timeout: 10000                           # 连接超时（毫秒）
+      heartbeat-interval: 60                   # 心跳间隔（秒）
+      heartbeat-timeout: 180                    # 心跳超时（秒）
+    playwright:
+      headless: true                            # 无头模式
+      pool:
+        max-size: 10                            # 最大浏览器实例数
+      browser:
+        launch-timeout: 30000                   # 浏览器启动超时（毫秒）
 ```
 
 ---

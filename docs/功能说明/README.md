@@ -1,5 +1,7 @@
 # 功能说明文档目录
 
+> **更新日期**：2026-07-10
+
 系统功能模块说明文档索引。
 
 ---
@@ -30,7 +32,7 @@
 
 **代码位置：**
 - 后端：`WxFbsir-business/src/main/java/com/wx/fbsir/business/point/`
-- 前端：`WxFbsir-ui/src/views/system/point/`
+- 前端：`WxFbsir-ui/src/views/business/points/`
 
 ---
 
@@ -115,7 +117,7 @@ Admin 与 Engine 的 WebSocket 通信协议与实现说明。
 
 **代码位置：**
 - 后端：`WxFbsir-business/src/main/java/com/wx/fbsir/business/interviewbot/`
-- 前端：`WxFbsir-ui/src/views/business/interviewbot/`
+- 前端：当前源码未提供独立的面试助手页面；后端能力位于上述 `interviewbot` 模块。
 
 ---
 
@@ -133,7 +135,7 @@ Admin 与 Engine 的 WebSocket 通信协议与实现说明。
 
 **代码位置：**
 - 后端：`WxFbsir-business/src/main/java/com/wx/fbsir/business/nodeeditwithstrategy/`
-- 前端：`WxFbsir-ui/src/views/business/nodeeditwithstrategy/`
+- 前端：`WxFbsir-ui/src/views/business/content/NodeEditWithStrategy/`
 
 ---
 

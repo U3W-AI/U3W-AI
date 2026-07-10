@@ -70,6 +70,14 @@ public enum WebSocketErrorCode {
      * IP不在白名单中
      * 场景：客户端IP不在该主机ID允许的IP列表中
      */
+    HOST_TYPE_MISMATCH(
+        "E1005",
+        "主机类型不匹配",
+        "主机ID [%s] 类型不匹配，请检查白名单中的主机类型配置",
+        false,
+        true
+    ),
+
     IP_NOT_IN_WHITELIST(
         "E2001", 
         "IP地址未授权", 

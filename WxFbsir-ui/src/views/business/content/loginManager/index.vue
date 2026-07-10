@@ -166,7 +166,7 @@ const connectWebSocket = (onConnected) => {
     clientType: 'web'
   })
 
-  console.log('🔌 [登录管理器] 连接WebSocket:', wsUrl)
+  console.log('🔌 [登录管理器] 连接 WebSocket（已隐藏认证参数）')
 
   websocket = new WebSocket(wsUrl)
 

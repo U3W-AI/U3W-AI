@@ -16,7 +16,7 @@ public class WxFbsirApplication
     {
         // System.setProperty("spring.devtools.restart.enabled", "false");
         SpringApplication.run(WxFbsirApplication.class, args);
-        System.out.println("(♥◠‿◠)ﾉﾞ  微信福帮手系统启动成功   ლ(´ڡ`ლ)ﾞ  \n" +
+        System.out.println("(♥◠‿◠)ﾉﾞ  福帮手系统启动成功   ლ(´ڡ`ლ)ﾞ  \n" +
                 " .-------.       ____     __        \n" +
                 " |  _ _   \\      \\   \\   /  /    \n" +
                 " | ( ' )  |       \\  _. /  '       \n" +

@@ -117,6 +117,7 @@ public class EngineRequestController {
         
         // 5. 生成requestId（格式：userId_timestamp_messageType_sequence）
         String requestId = com.wx.fbsir.business.websocket.util.RequestIdGenerator.generate(userId, type);
+        com.wx.fbsir.business.websocket.server.ClientMessageRouter.registerRequestSource(requestId, "HTTP");
         
         // 6. 获取超时时间
         int timeout = requestData.containsKey("timeout") ? 
@@ -151,6 +152,7 @@ public class EngineRequestController {
         boolean sent = sessionManager.sendMessage(engineId, message);
         if (!sent) {
             pendingRequests.remove(requestId);
+            com.wx.fbsir.business.websocket.server.ClientMessageRouter.removeRequestSource(requestId);
             return ResponseEntity.ok(buildError("SEND_FAILED", "消息发送失败"));
         }
         
@@ -174,12 +176,14 @@ public class EngineRequestController {
             
         } catch (java.util.concurrent.TimeoutException e) {
             pendingRequests.remove(requestId);
+            com.wx.fbsir.business.websocket.server.ClientMessageRouter.removeRequestSource(requestId);
             log.warn("[Engine请求] 超时 - 请求ID: {}, 超时时间: {}秒", requestId, timeout);
             return ResponseEntity.ok(buildError("TIMEOUT", 
                 "请求超时（" + timeout + "秒），Engine可能处理时间过长或未响应"));
             
         } catch (Exception e) {
             pendingRequests.remove(requestId);
+            com.wx.fbsir.business.websocket.server.ClientMessageRouter.removeRequestSource(requestId);
             log.error("[Engine请求] 异常 - 请求ID: {}, 错误: {}", requestId, e.getMessage(), e);
             return ResponseEntity.ok(buildError("EXECUTION_ERROR", "请求执行异常: " + e.getMessage()));
         }
