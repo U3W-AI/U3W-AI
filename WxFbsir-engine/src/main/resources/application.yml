@@ -125,6 +125,8 @@ wxfbsir:
         launch-timeout: 60000
         # 页面导航超时（毫秒，默认30秒）
         navigation-timeout: 30000
+        # 普通页面动作默认超时（毫秒，默认30秒）
+        action-timeout: 30000
         # 视口宽度（像素）
         viewport-width: 1280
         # 视口高度（像素）
@@ -133,6 +135,10 @@ wxfbsir:
         disable-images: false
         # 是否禁用 GPU 加速（建议保持 true 以提高稳定性）
         disable-gpu: true
+        # 是否关闭 Chromium sandbox；默认 false，仅受控容器可按需启用
+        no-sandbox: false
+        # 是否允许自动清理 Chromium 锁文件；默认 false，避免误伤活跃会话
+        cleanup-stale-locks: false
         # 启动失败最大重试次数
         max-retries: 3
         # 重试间隔基础时间（毫秒，实际等待=重试次数*此值）

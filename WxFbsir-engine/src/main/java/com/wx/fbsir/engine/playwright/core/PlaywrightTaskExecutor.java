@@ -236,13 +236,7 @@ public class PlaywrightTaskExecutor {
             // 确保会话被正确释放
             if (session != null) {
                 try {
-                    // 临时会话需要完全销毁（关闭浏览器实例）
-                    if (!persistent) {
-                        log.debug("[任务执行器] 销毁临时会话 - 任务: {}", taskKey);
-                        session.destroy();
-                    } else {
-                        session.close();
-                    }
+                    browserPool.release(session);
                 } catch (Exception e) {
                     resourceLeakWarnings.incrementAndGet();
                     log.warn("[任务执行器] 会话关闭异常 - 任务: {}, 错误: {}", taskKey, e.getMessage());
@@ -329,13 +323,7 @@ public class PlaywrightTaskExecutor {
                 // 确保会话被正确释放
                 if (session != null) {
                     try {
-                        // 临时会话需要完全销毁（关闭浏览器实例）
-                        if (!persistent) {
-                            log.debug("[任务执行器] 销毁临时会话 - 任务: {}", taskKey);
-                            session.destroy();
-                        } else {
-                            session.close();
-                        }
+                        browserPool.release(session);
                     } catch (Exception e) {
                         resourceLeakWarnings.incrementAndGet();
                         log.warn("[任务执行器] 异步任务会话关闭异常 - 任务: {}, 错误: {}", taskKey, e.getMessage());

@@ -4,6 +4,7 @@ import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserType;
 import com.microsoft.playwright.Playwright;
 import com.wx.fbsir.engine.playwright.config.PlaywrightProperties;
+import com.wx.fbsir.engine.playwright.config.BrowserLaunchOptionsFactory;
 import com.wx.fbsir.engine.playwright.core.PlaywrightManager;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -255,13 +256,8 @@ public class GlobalBrowserPool {
     private Browser createBrowser() {
         Playwright playwright = playwrightManager.getPlaywright();
         
-        BrowserType.LaunchOptions options = new BrowserType.LaunchOptions()
-            .setHeadless(properties.isHeadless())
-            .setTimeout(properties.getBrowser().getLaunchTimeout());
-
-        if (properties.getBrowser().isDisableGpu()) {
-            options.setArgs(java.util.Arrays.asList("--disable-gpu"));
-        }
+        BrowserType.LaunchOptions options = BrowserLaunchOptionsFactory
+            .createLaunchOptions(properties, properties.isHeadless());
 
         return playwright.chromium().launch(options);
     }

@@ -444,7 +444,7 @@ public class DeepSeekController extends StreamTaskHelper {
             // 🔥 关键：完全销毁会话释放SingletonLock（数据已持久化）
             if (session != null) {
                 try {
-                    session.destroy();
+                    browserPool.destroy(session);
                     log.debug("[DeepSeek扫码登录] 已销毁会话释放资源 - 用户: {}", userId);
                 } catch (Exception e) {
                     log.warn("[DeepSeek扫码登录] 销毁会话失败 - 用户: {}, 错误: {}", userId, e.getMessage());
@@ -719,7 +719,7 @@ public class DeepSeekController extends StreamTaskHelper {
             // 🔥 关键：完全销毁会话释放资源
             if (session != null) {
                 try {
-                    session.destroy();
+                    browserPool.destroy(session);
                     log.debug("[DeepSeek咨询] 已销毁会话释放资源 - 用户: {}", userId);
                 } catch (Exception e) {
                     log.warn("[DeepSeek咨询] 销毁会话失败 - 用户: {}, 错误: {}", userId, e.getMessage());

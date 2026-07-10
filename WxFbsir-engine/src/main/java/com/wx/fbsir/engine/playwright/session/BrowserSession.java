@@ -203,7 +203,9 @@ public class BrowserSession implements AutoCloseable {
         this.name = name;
         this.browser = browser;
         this.context = context;
-        this.instanceId = instanceId != null ? instanceId : this.sessionId;
+        // instanceId 是调用方显式请求的隔离维度；不能用随机 sessionId 代替，
+        // 否则池在销毁无 instanceId 的持久会话时无法重建原始 key。
+        this.instanceId = instanceId;
         this.persistent = persistent;
         this.headless = headless;
         this.createTime = Instant.now();
@@ -374,9 +376,21 @@ public class BrowserSession implements AutoCloseable {
      * 释放使用状态
      */
     public void release() {
-        currentTask.set(null);
-        inUse.set(false);
-        touch();
+        releaseIfAcquired();
+    }
+
+    /**
+     * 幂等释放当前租约。
+     *
+     * @return 本次调用是否真正释放了一个使用中的租约
+     */
+    public boolean releaseIfAcquired() {
+        if (inUse.compareAndSet(true, false)) {
+            currentTask.set(null);
+            touch();
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -384,17 +398,19 @@ public class BrowserSession implements AutoCloseable {
      */
     @Override
     public void close() {
-        if (closed.compareAndSet(false, true)) {
-            log.debug("[会话] 关闭会话 - 会话ID: {}, 用户: {}, 运行时长: {}ms", 
-                sessionId, userId, getRunningTime());
-            // 先执行回调（归还到池）
-            if (onClose != null) {
-                try {
-                    onClose.run();
-                } catch (Exception e) {
-                    log.warn("[会话] 关闭回调执行失败 - 会话ID: {}, 错误: {}", sessionId, e.getMessage());
-                }
+        if (closed.get()) {
+            return;
+        }
+
+        if (onClose != null) {
+            try {
+                // 由池决定持久会话归还、临时会话销毁；不要提前把 closed 置为 true。
+                onClose.run();
+            } catch (Exception e) {
+                log.warn("[会话] 关闭回调执行失败 - 会话ID: {}, 错误: {}", sessionId, e.getMessage());
             }
+        } else {
+            destroy();
         }
     }
 

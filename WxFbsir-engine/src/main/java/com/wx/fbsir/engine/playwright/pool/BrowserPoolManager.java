@@ -4,11 +4,13 @@ import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.BrowserType;
 import com.microsoft.playwright.Playwright;
+import com.wx.fbsir.engine.playwright.config.BrowserLaunchOptionsFactory;
 import com.wx.fbsir.engine.playwright.config.PlaywrightProperties;
 import com.wx.fbsir.engine.playwright.core.PlaywrightManager;
 import com.wx.fbsir.engine.playwright.core.PlaywrightInstancePool;
 import com.wx.fbsir.engine.playwright.session.BrowserSession;
 import com.wx.fbsir.engine.playwright.util.ClipboardManager;
+import com.wx.fbsir.engine.playwright.util.SafePathResolver;
 import com.wx.fbsir.engine.playwright.util.ScreenshotUtil;
 import com.wx.fbsir.engine.util.BrowserSessionLockUtil;
 import jakarta.annotation.PostConstruct;
@@ -273,31 +275,48 @@ public class BrowserPoolManager {
         if (shutdown) {
             throw new IllegalStateException("BrowserPoolManager 已关闭");
         }
+
+        SafePathResolver.requireSafeSegment(userId, "userId");
+        SafePathResolver.requireSafeSegment(name, "name");
+        if (instanceId != null) {
+            SafePathResolver.requireSafeSegment(instanceId, "instanceId");
+        }
         
         // 构建会话键：支持实例ID隔离
         // 格式：userId:name 或 userId:name:instanceId
         String key = instanceId != null ? buildKey(userId, name, instanceId) : buildKey(userId, name);
         
-        // 🔴 P0修复：持久化会话复用存在竞态条件
-        // 旧问题：线程1 get()检查通过，线程2 put()覆盖，线程1返回旧Session → Session泄漏
-        // 新方案：使用computeIfAbsent原子性操作
         if (persistent) {
-            // 先尝试原子获取现有Session
-            BrowserSession existing = persistentSessions.computeIfPresent(key, (k, session) -> {
-                // 在computeIfPresent的lambda中，持有锁，线程安全
-                if (session.isValid() && session.acquire(name)) {
-                    log.debug("[浏览器池] 复用持久化会话: {}", key);
-                    return session; // 保留现有Session
+            BrowserSession existing = persistentSessions.get(key);
+            // A lease can exceed its nominal TTL while a browser action is still running.
+            // Never evict an in-use session solely because its validity window elapsed.
+            if (existing != null && !existing.isValid() && !existing.isInUse()) {
+                // 只有确认失效且仍是同一个映射时才移除，避免误删正在使用的会话。
+                if (persistentSessions.remove(key, existing)) {
+                    destroySessionQuietly(existing);
+                    activeCount.decrementAndGet();
+                    semaphore.release();
                 }
-                // Session无效或无法获取，返回null让外层重新创建
-                return null;
-            });
-            
-            if (existing != null) {
-                // 成功复用
-                return wrapSession(existing);
+                existing = null;
             }
-            // existing == null，说明没有可用的现有Session，继续创建新的
+
+            if (existing != null) {
+                long deadline = System.currentTimeMillis() + properties.getPool().getAcquireTimeout();
+                do {
+                    if (existing.acquire(name)) {
+                        log.debug("[浏览器池] 复用持久化会话: {}", key);
+                        return wrapSession(existing);
+                    }
+                    try {
+                        Thread.sleep(50);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("等待持久化会话被中断: " + key, e);
+                    }
+                } while (System.currentTimeMillis() < deadline && existing.isValid());
+
+                throw new RuntimeException("持久化会话正在被其他任务占用: " + key);
+            }
         }
         
         // 获取信号量（等待可用槽位）
@@ -331,6 +350,8 @@ public class BrowserPoolManager {
                     log.warn("[浏览器池] 并发创建冲突，销毁多余Session: {}", key);
                     destroySessionQuietly(session);
                     activeCount.decrementAndGet();
+                    semaphore.release();
+                    semaphoreAcquired = false;
                     // 使用已存在的Session
                     session = existing;
                     sessionCreated = false; // 标记未成功创建
@@ -344,7 +365,12 @@ public class BrowserPoolManager {
                 temporarySessions.put(session.getSessionId(), session);
             }
             
-            session.acquire(name);
+            // The concurrent persistent-session path has already acquired the
+            // winning session above. Acquiring it a second time is misleading
+            // today and would become incorrect if BrowserSession tracks lease depth.
+            if (sessionCreated) {
+                session.acquire(name);
+            }
             log.debug("[浏览器池] 创建新会话: {} (持久化={}, 无头={}, 总创建={})", 
                 key, persistent, headless, totalCreatedCount.get());
             
@@ -384,8 +410,11 @@ public class BrowserPoolManager {
      */
     public void release(BrowserSession session) {
         if (session == null) return;
-        
-        session.release();
+
+        if (!session.releaseIfAcquired()) {
+            log.debug("[浏览器池] 忽略重复释放 - 会话: {}", session.getSessionId());
+            return;
+        }
         
         // 临时会话：立即销毁
         if (!session.isPersistent()) {
@@ -411,14 +440,20 @@ public class BrowserPoolManager {
      */
     public void destroy(BrowserSession session) {
         if (session == null) return;
-        
-        String key = buildKey(session.getUserId(), session.getName());
-        
-        // 从池中移除
-        if (session.isPersistent()) {
-            persistentSessions.remove(key);
-        } else {
-            temporarySessions.remove(session.getSessionId());
+
+        String key = session.getInstanceId() != null
+            ? buildKey(session.getUserId(), session.getName(), session.getInstanceId())
+            : buildKey(session.getUserId(), session.getName());
+
+        boolean removed = session.isPersistent()
+            ? persistentSessions.remove(key, session)
+            : temporarySessions.remove(session.getSessionId(), session);
+
+        if (!removed) {
+            // 资源仍应安全关闭，但未被本池跟踪时不能修改池计数或许可。
+            destroySessionQuietly(session);
+            log.debug("[浏览器池] 会话已移除或未被跟踪，跳过重复计数 - 会话: {}", session.getSessionId());
+            return;
         }
         
         // 销毁会话
@@ -437,7 +472,7 @@ public class BrowserPoolManager {
      */
     public void closeSession(String userId, String name) {
         String key = buildKey(userId, name);
-        BrowserSession session = persistentSessions.remove(key);
+        BrowserSession session = persistentSessions.get(key);
         if (session != null) {
             destroy(session);
             log.info("[浏览器池] 关闭会话: {}", key);
@@ -483,10 +518,10 @@ public class BrowserPoolManager {
         int maxRetries = browserConfig.getMaxRetries();
         long retryInterval = browserConfig.getRetryInterval();
         
-        // 🔧 在创建前主动清理锁文件（预防性清理）
-        if (persistent) {
+        // 锁文件可能属于仍在运行的浏览器进程。仅在显式开启时清理，默认安全失败。
+        if (persistent && browserConfig.isCleanupStaleLocks()) {
             try {
-                cleanupBrowserLockFiles(userId, name);
+                cleanupBrowserLockFiles(userId, name, instanceId);
             } catch (Exception e) {
                 log.debug("[浏览器池] 预清理锁文件异常: {}", e.getMessage());
             }
@@ -530,8 +565,9 @@ public class BrowserPoolManager {
                     userId, attempt, maxRetries, e.getMessage());
                 // 清理失败时创建的资源
                 cleanupFailedResources(browser, context);
-                // 清理可能的锁文件
-                cleanupBrowserLockFiles(userId, name);
+                if (browserConfig.isCleanupStaleLocks()) {
+                    cleanupBrowserLockFiles(userId, name, instanceId);
+                }
             } catch (Exception e) {
                 lastException = e;
                 // 最后一次失败时输出完整堆栈，其他次只记录错误信息
@@ -587,22 +623,16 @@ public class BrowserPoolManager {
     private BrowserContextResult doCreateBrowserContext(String userId, String name, String instanceId, 
                                                          boolean persistent, boolean headless) {
         PlaywrightProperties.BrowserConfig browserConfig = properties.getBrowser();
-        List<String> args = buildBrowserArgs(headless);
-        
         if (persistent) {
             // 🎯 从实例池获取 Playwright 实例（Round-Robin 分配）
             Playwright playwright = playwrightInstancePool.acquirePlaywright();
             BrowserType browserType = playwright.chromium();
             
             // 持久化上下文：支持实例ID隔离
-            Path userDataPath;
-            if (instanceId != null) {
-                // 有实例ID：每个实例独立目录
-                userDataPath = Paths.get(properties.getDataDir(), name, userId, instanceId);
-            } else {
-                // 无实例ID：传统方式
-                userDataPath = Paths.get(properties.getDataDir(), name, userId);
-            }
+            Path dataRoot = Paths.get(properties.getDataDir());
+            Path userDataPath = instanceId != null
+                ? SafePathResolver.resolveUnder(dataRoot, name, userId, instanceId)
+                : SafePathResolver.resolveUnder(dataRoot, name, userId);
             
             try {
                 if (!Files.exists(userDataPath)) {
@@ -621,18 +651,12 @@ public class BrowserPoolManager {
                 log.debug("[浏览器池] 获取 Playwright 实例锁 - 用户: {}, 会话: {}", userId, name);
                 
                 // 🟠 P1修复：设置超时，防止页面加载卡死
-                BrowserContext context = browserType.launchPersistentContext(userDataPath, 
-                    new BrowserType.LaunchPersistentContextOptions()
-                        .setHeadless(headless)
-                        .setTimeout(browserConfig.getLaunchTimeout())
-                        .setViewportSize(browserConfig.getViewportWidth(), browserConfig.getViewportHeight()));
+                BrowserContext context = browserType.launchPersistentContext(userDataPath,
+                    BrowserLaunchOptionsFactory.createPersistentContextOptions(properties, headless));
                 
                 log.debug("[浏览器池] 释放 Playwright 实例锁 - 用户: {}, 会话: {}", userId, name);
                 
-                // 设置默认超时：30秒
-                context.setDefaultTimeout(30000);
-                // 设置导航超时：60秒
-                context.setDefaultNavigationTimeout(60000);
+                BrowserLaunchOptionsFactory.configureContextTimeouts(context, properties);
                 
                 // 持久化上下文不返回 Browser（由 Playwright 内部管理）
                 return new BrowserContextResult(null, context);
@@ -648,10 +672,7 @@ public class BrowserPoolManager {
                 BrowserContext context = browser.newContext(new Browser.NewContextOptions()
                     .setViewportSize(browserConfig.getViewportWidth(), browserConfig.getViewportHeight()));
                 
-                // 设置默认超时：30秒
-                context.setDefaultTimeout(30000);
-                // 设置导航超时：60秒
-                context.setDefaultNavigationTimeout(60000);
+                BrowserLaunchOptionsFactory.configureContextTimeouts(context, properties);
                 
                 // 返回 Browser 和 Context，确保两者都能被正确关闭
                 return new BrowserContextResult(browser, context);
@@ -690,9 +711,12 @@ public class BrowserPoolManager {
      * 清理浏览器锁文件（增强版：支持NFS等远程文件系统）
      * 当浏览器异常退出时，可能留下锁文件导致无法重新启动
      */
-    private void cleanupBrowserLockFiles(String userId, String name) {
+    private void cleanupBrowserLockFiles(String userId, String name, String instanceId) {
         try {
-            Path userDataPath = Paths.get(properties.getDataDir(), name, userId);
+            Path dataRoot = Paths.get(properties.getDataDir());
+            Path userDataPath = instanceId != null
+                ? SafePathResolver.resolveUnder(dataRoot, name, userId, instanceId)
+                : SafePathResolver.resolveUnder(dataRoot, name, userId);
             if (!Files.exists(userDataPath)) {
                 return;
             }
@@ -804,44 +828,6 @@ public class BrowserPoolManager {
         if (!deleted && Files.exists(lockFile)) {
             log.warn("[浏览器池] 无法清理锁文件: {}，可能需要手动删除或重启服务", fileName);
         }
-    }
-
-    /**
-     * 构建浏览器启动参数
-     */
-    private List<String> buildBrowserArgs(boolean headless) {
-        List<String> args = new ArrayList<>();
-        
-        // 基础参数
-        args.add("--no-sandbox");
-        args.add("--disable-dev-shm-usage");
-        args.add("--disable-extensions");
-        args.add("--disable-plugins");
-        
-        // GPU 设置
-        if (properties.getBrowser().isDisableGpu()) {
-            args.add("--disable-gpu");
-        }
-        
-        // 图片加载设置
-        if (properties.getBrowser().isDisableImages()) {
-            args.add("--disable-images");
-        }
-        
-        // 性能优化参数
-        args.add("--disable-background-timer-throttling");
-        args.add("--disable-backgrounding-occluded-windows");
-        args.add("--disable-renderer-backgrounding");
-        args.add("--disable-background-networking");
-        args.add("--disable-sync");
-        args.add("--no-first-run");
-        args.add("--disable-default-apps");
-        
-        // 内存优化
-        args.add("--memory-pressure-off");
-        args.add("--max_old_space_size=256");
-        
-        return args;
     }
 
     /**

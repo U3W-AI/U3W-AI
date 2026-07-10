@@ -3,6 +3,7 @@ package com.wx.fbsir.engine.controller.monitor;
 import com.wx.fbsir.engine.capability.TaskExecutionTracker;
 import com.wx.fbsir.engine.playwright.core.PlaywrightInstancePool;
 import com.wx.fbsir.engine.playwright.pool.BrowserPoolManager;
+import com.wx.fbsir.engine.websocket.client.WebSocketClientManager;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,13 +29,16 @@ public class ResourceMonitorController {
     private final TaskExecutionTracker taskTracker;
     private final PlaywrightInstancePool instancePool;
     private final BrowserPoolManager browserPool;
+    private final WebSocketClientManager webSocketClientManager;
     
     public ResourceMonitorController(TaskExecutionTracker taskTracker,
-                                      PlaywrightInstancePool instancePool,
-                                      BrowserPoolManager browserPool) {
+                                       PlaywrightInstancePool instancePool,
+                                       BrowserPoolManager browserPool,
+                                       WebSocketClientManager webSocketClientManager) {
         this.taskTracker = taskTracker;
         this.instancePool = instancePool;
         this.browserPool = browserPool;
+        this.webSocketClientManager = webSocketClientManager;
     }
     
     /**
@@ -46,8 +50,8 @@ public class ResourceMonitorController {
     public Map<String, Object> getHealth() {
         Map<String, Object> health = new HashMap<>();
         
-        // 基本状态
-        health.put("status", "UP");
+        // liveness 只说明进程可响应；readiness 反映是否可以执行和回传任务。
+        health.put("liveness", "UP");
         health.put("timestamp", System.currentTimeMillis());
         
         // 任务执行状态
@@ -68,6 +72,25 @@ public class ResourceMonitorController {
         browserStatus.put("persistentSessions", browserPool.getPersistentCount());
         browserStatus.put("temporarySessions", browserPool.getTemporaryCount());
         health.put("browserStatus", browserStatus);
+
+        java.util.List<String> readinessReasons = new java.util.ArrayList<>();
+        String readiness = "UP";
+        if (capacity <= 0) {
+            readiness = "DOWN";
+            readinessReasons.add("Playwright 实例池容量为 0");
+        }
+        if (browserPool.getAvailableSlots() <= 0 && "UP".equals(readiness)) {
+            readiness = "DEGRADED";
+            readinessReasons.add("浏览器会话池没有可用槽位");
+        }
+        if (webSocketClientManager == null || !webSocketClientManager.isConnected()) {
+            if ("UP".equals(readiness)) {
+                readiness = "DEGRADED";
+            }
+            readinessReasons.add("未连接 Admin WebSocket，任务回执无法可靠回传");
+        }
+        health.put("status", readiness);
+        health.put("readinessReasons", readinessReasons);
         
         // JVM状态
         Map<String, Object> jvmStatus = getJvmStatus();
@@ -112,7 +135,7 @@ public class ResourceMonitorController {
         stats.put("activeSessions", browserPool.getActiveCount());
         stats.put("persistentSessions", browserPool.getPersistentCount());
         stats.put("temporarySessions", browserPool.getTemporaryCount());
-        stats.put("maxSessions", 12); // 从配置读取
+        stats.put("maxSessions", browserPool.getStatus().get("maxSize"));
         
         return stats;
     }

@@ -10,6 +10,7 @@ import com.wx.fbsir.engine.playwright.pool.BrowserPoolManager;
 import com.wx.fbsir.engine.playwright.session.BrowserSession;
 import com.wx.fbsir.engine.util.BrowserSessionLockUtil;
 import com.wx.fbsir.engine.utils.JiQiRen.JiQiRenLoginUtil;
+import com.wx.fbsir.engine.utils.JiQiRen.WeComRobotAutomation;
 import com.wx.fbsir.engine.websocket.message.EngineMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +65,8 @@ public class RobotController extends StreamTaskHelper{
     private com.wx.fbsir.engine.playwright.util.ScreenshotUploadClient uploadClient;
     @Autowired
     private JiQiRenLoginUtil jiQiRenLoginUtil;
+    @Autowired
+    private WeComRobotAutomation weComRobotAutomation;
     
     /**
      * 企业微信机器人知识库配置（流式返回）
@@ -168,10 +171,19 @@ public class RobotController extends StreamTaskHelper{
         //获取用户添加知识库的机器人名称
         String robotName = message.getPayloadValue("robotName");
 
-        log.info("[企业微信机器人知识库配置] 开始 - 用户: {}, 请求: {},配置的知识库url：{}, 智能体: {}",
-                userId, requestId,importWebUrl,  robotName);
-
         StreamTaskHelper.StreamTask task = startStreamTask(userId, requestId, 2000);
+        try {
+            importWebUrl = weComRobotAutomation.validateImportUrl(importWebUrl);
+            robotName = weComRobotAutomation.validateRobotName(robotName);
+        } catch (IllegalArgumentException e) {
+            task.sendError("参数错误: " + e.getMessage());
+            task.stop();
+            return;
+        }
+
+        log.info("[企业微信机器人知识库配置] 开始 - 用户: {}, 请求: {}, 配置URL: {}, 智能体: {}",
+                userId, requestId, importWebUrl, robotName);
+
         BrowserSession session = null;
         boolean globalLockAcquired = false;
         try {
@@ -212,9 +224,9 @@ public class RobotController extends StreamTaskHelper{
             currentUserId = userId;
             log.info("[企业微信机器人知识库配置] 获取全局锁成功 - 用户: {}", userId);
             
-            // 步骤1: 获取非持久化浏览器会话（不保存登录状态，每次都需要重新扫码）
+            // 步骤1: 获取持久化浏览器会话，授权后可复用受控 Chromium 用户目录。
             task.sendLog("正在获取浏览器会话...");
-            session = browserPoolManager.acquireTemporary(requestId, false);
+            session = browserPoolManager.acquirePersistent(userId, "wecom-smart-bot", false);
 
             Page page = session.getOrCreatePage();
 
@@ -286,17 +298,7 @@ public class RobotController extends StreamTaskHelper{
 
             // ========== 步骤7：在管理列表中定位目标机器人 ==========
             task.sendLog("正在查找目标机器人: " + robotName);
-            // 在hl_list管理列表中，通过account_aibot_name_text定位机器人名称
-            Locator targetRobotRow = page.locator(".hl_list_content .hl_lc_line:has(.account_aibot_name_text:has-text('" + robotName + "'))").first();
-            if (targetRobotRow.count() == 0) {
-                // 备选：直接通过机器人名称文本定位所在行
-                targetRobotRow = page.locator(".hl_lc_line:has-text('" + robotName + "')").first();
-            }
-            if (targetRobotRow.count() == 0) {
-                log.error("[企业微信机器人知识库配置] 未查询到目标机器人: {}", robotName);
-                task.sendError("未查询到指定机器人: " + robotName);
-                return;
-            }
+            Locator targetRobotRow = weComRobotAutomation.findUniqueRobotRow(page, robotName);
             targetRobotRow.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE).setTimeout(10000));
             task.sendLog("已定位到目标机器人: " + robotName);
 
@@ -363,11 +365,14 @@ public class RobotController extends StreamTaskHelper{
             confirmBtn.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
             confirmBtn.click();
             
-            // 🔥 简化等待逻辑：直接等待30秒让后台处理完成
-            task.sendLog("等待企业微信后台处理（最长30秒）...");
-            page.waitForTimeout(30000); // 等待30秒让后台处理完成
-            
-            task.sendLog("知识库内容添加完成");
+            task.sendLog("正在验证企业微信后台处理结果...");
+            WeComRobotAutomation.ImportResult importResult =
+                weComRobotAutomation.waitForKnowledgeImportResult(page, importWebUrl, 60000);
+            if (!importResult.success()) {
+                task.sendError("知识库导入未确认成功: " + importResult.message());
+                return;
+            }
+            task.sendLog("知识库内容添加完成: " + importResult.message());
 
             // ========== 步骤13：完成配置 ==========
             task.sendLog("机器人知识库配置完成！");
@@ -395,8 +400,8 @@ public class RobotController extends StreamTaskHelper{
             // 确保资源释放
             if (session != null) {
                 try {
-                    session.destroy();
-                    log.debug("[企业微信机器人知识库配置] 已销毁会话释放资源 - 用户: {}", userId);
+                    browserPoolManager.release(session);
+                    log.debug("[企业微信机器人知识库配置] 已归还持久会话 - 用户: {}", userId);
                 } catch (Exception e) {
                     log.warn("[企业微信机器人知识库配置] 销毁会话失败 - 用户: {}, 错误: {}", userId, e.getMessage());
                 }

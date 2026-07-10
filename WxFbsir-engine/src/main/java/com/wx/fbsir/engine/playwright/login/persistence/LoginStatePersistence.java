@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONWriter;
 import com.wx.fbsir.engine.playwright.config.PlaywrightProperties;
 import com.wx.fbsir.engine.playwright.login.model.LoginState;
+import com.wx.fbsir.engine.playwright.util.SafePathResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
@@ -116,8 +117,20 @@ public class LoginStatePersistence {
             // 序列化为JSON（格式化输出，便于调试）
             String json = JSON.toJSONString(loginState, JSONWriter.Feature.PrettyFormat);
             
-            // 写入文件（覆盖模式）
-            Files.writeString(filePath, json, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            // 先写同目录临时文件，再原子替换，避免进程中断留下半个 JSON。
+            Path tempFile = Files.createTempFile(filePath.getParent(), "login-state-", ".tmp");
+            try {
+                Files.writeString(tempFile, json, StandardOpenOption.TRUNCATE_EXISTING);
+                try {
+                    Files.move(tempFile, filePath,
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+                    Files.move(tempFile, filePath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
+            } finally {
+                Files.deleteIfExists(tempFile);
+            }
             
             log.info("[登录状态持久化] ✅ 保存成功 - 平台: {}, 用户: {}, 路径: {}, Cookies: {}, Origins: {}", 
                 loginState.getPlatform(), 
@@ -128,7 +141,7 @@ public class LoginStatePersistence {
             
             return true;
             
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
             log.error("[登录状态持久化] ❌ 保存失败 - 平台: {}, 用户: {}, 错误: {}", 
                 loginState.getPlatform(), loginState.getUserId(), e.getMessage(), e);
             return false;
@@ -179,7 +192,7 @@ public class LoginStatePersistence {
             
             return loginState;
             
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
             log.error("[登录状态持久化] ❌ 加载失败 - 平台: {}, 用户: {}, 错误: {}", 
                 platform, userId, e.getMessage(), e);
             return null;
@@ -198,7 +211,13 @@ public class LoginStatePersistence {
             return false;
         }
         
-        Path filePath = getLoginStateFilePath(platform, userId);
+        final Path filePath;
+        try {
+            filePath = getLoginStateFilePath(platform, userId);
+        } catch (IllegalArgumentException e) {
+            log.warn("[登录状态持久化] 检查失败 - 平台或用户标识非法: {}", e.getMessage());
+            return false;
+        }
         boolean exists = Files.exists(filePath);
         
         log.debug("[登录状态持久化] 检查文件 - 平台: {}, 用户: {}, 存在: {}, 路径: {}", 
@@ -234,7 +253,7 @@ public class LoginStatePersistence {
             
             return true;
             
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
             log.error("[登录状态持久化] ❌ 删除失败 - 平台: {}, 用户: {}, 错误: {}", 
                 platform, userId, e.getMessage(), e);
             return false;
@@ -249,7 +268,7 @@ public class LoginStatePersistence {
      * @return 文件路径
      */
     private static Path getLoginStateFilePath(String platform, String userId) {
-        return Paths.get(getLoginStateRootDir(), platform, "user-" + userId, LOGIN_STATE_FILE_NAME);
+        return getLoginStateDirectory(platform, userId).resolve(LOGIN_STATE_FILE_NAME);
     }
     
     /**
@@ -260,6 +279,9 @@ public class LoginStatePersistence {
      * @return 目录路径
      */
     public static Path getLoginStateDirectory(String platform, String userId) {
-        return Paths.get(getLoginStateRootDir(), platform, "user-" + userId);
+        String safePlatform = SafePathResolver.requireSafeSegment(platform, "platform");
+        String safeUserId = SafePathResolver.requireSafeSegment(userId, "userId");
+        return SafePathResolver.resolveUnder(
+            Paths.get(getLoginStateRootDir()), safePlatform, "user-" + safeUserId);
     }
 }

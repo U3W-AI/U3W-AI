@@ -226,7 +226,7 @@ public class YuanQiNodeController extends StreamTaskHelper {
             if (session != null) {
                 try {
                     // 【关键】确保调用真正的销毁方法
-                    session.destroy();
+                    browserPool.destroy(session);
                     log.info("[元器节点编辑] 浏览器会话已销毁 - 用户: {}", userId);
                 } catch (Exception e) {
                     log.error("[元器节点编辑] 销毁浏览器会话失败 - 用户: {}, 错误: {}", userId, e.getMessage(), e);
@@ -393,7 +393,7 @@ public class YuanQiNodeController extends StreamTaskHelper {
             // 3. 最后销毁浏览器会话
             if (session != null) {
                 try {
-                    session.destroy();
+                    browserPool.destroy(session);
                     log.info("[元器工作流调试] 浏览器会话已销毁 - 用户: {}", userId);
                 } catch (Exception e) {
                     log.error("[元器工作流调试] 销毁浏览器会话失败 - 用户: {}, 错误: {}", userId, e.getMessage(), e);
@@ -513,7 +513,7 @@ public class YuanQiNodeController extends StreamTaskHelper {
             // 2. 最后销毁浏览器会话
             if (session != null) {
                 try {
-                    session.destroy();
+                    browserPool.destroy(session);
                     log.info("[元器工作流发布] 浏览器会话已销毁 - 用户: {}", userId);
                 } catch (Exception e) {
                     log.error("[元器工作流发布] 销毁浏览器会话失败 - 用户: {}, 错误: {}", userId, e.getMessage(), e);

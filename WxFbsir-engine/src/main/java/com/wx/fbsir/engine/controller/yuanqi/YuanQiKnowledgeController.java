@@ -491,7 +491,7 @@ public class YuanQiKnowledgeController extends StreamTaskHelper {
             // 确保资源释放
             if (session != null) {
                 try {
-                    session.destroy();
+                    browserPoolManager.destroy(session);
                     log.debug("[元器知识库配置] 已销毁会话释放资源 - 用户: {}", userId);
                 } catch (Exception e) {
                     log.warn("[元器知识库配置] 销毁会话失败 - 用户: {}, 错误: {}", userId, e.getMessage());

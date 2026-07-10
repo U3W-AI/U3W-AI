@@ -1,8 +1,8 @@
 param(
     [string]$BackendBaseUrl = 'http://127.0.0.1:18080',
     [string]$FrontendBaseUrl = 'http://127.0.0.1:18082',
-    [string]$Username = 'admin',
-    [string]$Password = 'admin123',
+    [string]$Username = $env:U3W_SMOKE_USERNAME,
+    [string]$Password = $env:U3W_SMOKE_PASSWORD,
     [string]$EngineId = 'engine-001',
     [string]$OpenClawHostId = 'test',
     [switch]$SkipFrontend,
@@ -10,6 +10,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($Username) -or [string]::IsNullOrWhiteSpace($Password)) {
+    throw 'Provide -Username/-Password or set U3W_SMOKE_USERNAME and U3W_SMOKE_PASSWORD. The smoke test no longer ships default credentials.'
+}
 
 function New-CheckResult {
     param(

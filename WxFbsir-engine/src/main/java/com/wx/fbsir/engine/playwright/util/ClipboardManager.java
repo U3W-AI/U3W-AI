@@ -83,9 +83,13 @@ public class ClipboardManager {
         ReentrantLock lock = getPageLock(pageId);
         
         try {
-            // 尝试获取锁，避免剪贴板冲突
+            if (!globalLock.tryLock(LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                log.error("[剪贴板] 写入失败 - 获取全局锁超时 ({}s)", LOCK_TIMEOUT_SECONDS);
+                return false;
+            }
             if (!lock.tryLock(LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                 log.error("[剪贴板] 写入失败 - 获取锁超时 ({}s)，可能存在剪贴板冲突", LOCK_TIMEOUT_SECONDS);
+                globalLock.unlock();
                 return false;
             }
             
@@ -103,8 +107,12 @@ public class ClipboardManager {
                 return writeWithExecCommand(page, text, pageId);
             } finally {
                 lock.unlock();
+                globalLock.unlock();
             }
         } catch (InterruptedException e) {
+            if (globalLock.isHeldByCurrentThread()) {
+                globalLock.unlock();
+            }
             Thread.currentThread().interrupt();
             log.error("[剪贴板] 写入被中断 - 页面: {}", pageId);
             return false;
@@ -127,14 +135,19 @@ public class ClipboardManager {
         ReentrantLock lock = getPageLock(pageId);
         
         try {
+            if (!globalLock.tryLock(LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                log.error("[剪贴板] 读取失败 - 获取全局锁超时 ({}s)", LOCK_TIMEOUT_SECONDS);
+                return null;
+            }
             if (!lock.tryLock(LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                 log.error("[剪贴板] 读取失败 - 获取锁超时 ({}s)", LOCK_TIMEOUT_SECONDS);
+                globalLock.unlock();
                 return null;
             }
             
             try {
                 Object result = page.evaluate("() => navigator.clipboard.readText()");
-                String text = result != null ? result.toString() : "";
+                String text = result != null ? normalizeLineEndings(result.toString()) : "";
                 log.debug("[剪贴板] 读取成功 - 页面: {}, 长度: {} 字符", pageId, text.length());
                 return text;
             } catch (com.microsoft.playwright.TimeoutError e) {
@@ -146,8 +159,12 @@ public class ClipboardManager {
                 return null;
             } finally {
                 lock.unlock();
+                globalLock.unlock();
             }
         } catch (InterruptedException e) {
+            if (globalLock.isHeldByCurrentThread()) {
+                globalLock.unlock();
+            }
             Thread.currentThread().interrupt();
             log.error("[剪贴板] 读取被中断 - 页面: {}", pageId);
             return null;
@@ -211,8 +228,13 @@ public class ClipboardManager {
         }
         
         String pageId = getPageId(page);
-        
+        boolean globalAcquired = false;
         try {
+            globalAcquired = globalLock.tryLock(LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            if (!globalAcquired) {
+                log.error("[剪贴板] 粘贴失败 - 获取全局锁超时 ({}s)", LOCK_TIMEOUT_SECONDS);
+                return false;
+            }
             // 先写入剪贴板
             if (!write(page, text)) {
                 log.error("[剪贴板] 粘贴失败 - 无法写入剪贴板，页面: {}, 选择器: {}", pageId, selector);
@@ -232,10 +254,18 @@ public class ClipboardManager {
         } catch (com.microsoft.playwright.TimeoutError e) {
             log.error("[剪贴板] 粘贴超时 - 页面: {}, 选择器: {}, 错误: {}", pageId, selector, e.getMessage());
             return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("[剪贴板] 粘贴被中断 - 页面: {}, 选择器: {}", pageId, selector);
+            return false;
         } catch (Exception e) {
             log.error("[剪贴板] 粘贴到元素失败 - 页面: {}, 选择器: {}, 错误类型: {}, 错误: {}", 
                 pageId, selector, e.getClass().getSimpleName(), e.getMessage());
             return false;
+        } finally {
+            if (globalAcquired) {
+                globalLock.unlock();
+            }
         }
     }
 
@@ -258,8 +288,13 @@ public class ClipboardManager {
         }
         
         String pageId = getPageId(page);
-        
+        boolean globalAcquired = false;
         try {
+            globalAcquired = globalLock.tryLock(LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            if (!globalAcquired) {
+                log.error("[剪贴板] 复制失败 - 获取全局锁超时 ({}s)", LOCK_TIMEOUT_SECONDS);
+                return null;
+            }
             // 全选元素内容
             page.locator(selector).click();
             String modifier = System.getProperty("os.name").toLowerCase().contains("mac") 
@@ -285,6 +320,10 @@ public class ClipboardManager {
             log.error("[剪贴板] 从元素复制失败 - 页面: {}, 选择器: {}, 错误类型: {}, 错误: {}", 
                 pageId, selector, e.getClass().getSimpleName(), e.getMessage());
             return null;
+        } finally {
+            if (globalAcquired) {
+                globalLock.unlock();
+            }
         }
     }
 
@@ -308,6 +347,10 @@ public class ClipboardManager {
     public boolean contains(Page page, String text) {
         String content = read(page);
         return content != null && content.contains(text);
+    }
+
+    private String normalizeLineEndings(String text) {
+        return text.replace("\r\n", "\n").replace('\r', '\n');
     }
     
     /**

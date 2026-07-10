@@ -1,5 +1,7 @@
 package com.wx.fbsir.engine.playwright.util;
 
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
 import com.wx.fbsir.engine.config.EngineProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,11 +97,12 @@ public class ScreenshotUploadClient {
         String hostId = properties.getHostId();
         String uploadUrl = adminBaseUrl + "/engine/screenshot/upload";
         
+        HttpURLConnection conn = null;
         try {
             String boundary = "----" + UUID.randomUUID().toString().replace("-", "");
             
             URL url = new URL(uploadUrl);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setDoOutput(true);
             conn.setConnectTimeout(CONNECT_TIMEOUT);
@@ -153,6 +156,10 @@ public class ScreenshotUploadClient {
         } catch (Exception e) {
             log.error("[截图上传] 上传失败 - 用户: {}, 错误: {}", userId, e.getMessage());
             return UploadResult.failure("上传失败: " + e.getMessage());
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
         }
     }
 
@@ -194,86 +201,27 @@ public class ScreenshotUploadClient {
      */
     private UploadResult parseResponse(String json) {
         try {
-            // 简单JSON解析（避免引入额外依赖）
-            if (json.contains("\"success\":true") || json.contains("\"success\": true")) {
-                String url = extractJsonValue(json, "url");
-                String fileName = extractJsonValue(json, "fileName");
-                return UploadResult.success(url, fileName);
-            } else {
-                String message = extractJsonValue(json, "message");
-                log.warn("[截图上传] 上传失败 - {}", message != null ? message : "未知错误");
-                return UploadResult.failure(message != null ? message : "上传失败");
+            JSONObject response = JSON.parseObject(json);
+            if (response == null) {
+                return UploadResult.failure("上传响应不是有效 JSON");
             }
+
+            boolean success = Boolean.TRUE.equals(response.getBoolean("success"));
+            if (success) {
+                String url = response.getString("url");
+                String fileName = response.getString("fileName");
+                if (url == null || url.isBlank()) {
+                    return UploadResult.failure("上传响应缺少访问地址");
+                }
+                return UploadResult.success(url, fileName);
+            }
+            String message = response.getString("message");
+            log.warn("[截图上传] 上传失败 - {}", message != null ? message : "未知错误");
+            return UploadResult.failure(message != null ? message : "上传失败");
         } catch (Exception e) {
             log.error("[截图上传] 解析响应异常 - {}", e.getMessage(), e);
             return UploadResult.failure("解析响应失败: " + e.getMessage());
         }
-    }
-
-    /**
-     * 简单提取JSON值（精确匹配 key）
-     */
-    private String extractJsonValue(String json, String key) {
-        // 精确匹配 "key":"value" 或 "key": "value"
-        String pattern1 = "\"" + key + "\":\"";
-        String pattern2 = "\"" + key + "\": \"";
-        
-        int start = -1;
-        int patternLen = 0;
-        
-        // 尝试两种模式
-        start = json.indexOf(pattern1);
-        if (start >= 0) {
-            patternLen = pattern1.length();
-        } else {
-            start = json.indexOf(pattern2);
-            if (start >= 0) {
-                patternLen = pattern2.length();
-            }
-        }
-        
-        if (start < 0) {
-            return null;
-        }
-        
-        // 确保前面是 { 或 ,（避免匹配到值中的内容）
-        if (start > 0) {
-            char before = json.charAt(start - 1);
-            if (before != '{' && before != ',' && before != ' ' && before != '\n') {
-                // 不是有效的 JSON 键，继续查找
-                int nextStart = json.indexOf(pattern1, start + 1);
-                if (nextStart < 0) {
-                    nextStart = json.indexOf(pattern2, start + 1);
-                }
-                if (nextStart < 0) {
-                    return null;
-                }
-                start = nextStart;
-            }
-        }
-        
-        start += patternLen;
-        
-        // 查找结束引号
-        int end = start;
-        while (end < json.length()) {
-            char c = json.charAt(end);
-            if (c == '"') {
-                // 检查是否是转义的引号
-                if (end > 0 && json.charAt(end - 1) == '\\') {
-                    end++;
-                    continue;
-                }
-                break;
-            }
-            end++;
-        }
-        
-        if (end >= json.length()) {
-            return null;
-        }
-        
-        return json.substring(start, end);
     }
 
     /**

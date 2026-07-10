@@ -317,6 +317,11 @@ public class PlaywrightProperties {
         private long navigationTimeout = 30000;
 
         /**
+         * 普通页面动作默认超时时间（毫秒）
+         */
+        private long actionTimeout = 30000;
+
+        /**
          * 默认视口宽度
          */
         private int viewportWidth = 1280;
@@ -335,6 +340,18 @@ public class PlaywrightProperties {
          * 是否禁用 GPU 加速
          */
         private boolean disableGpu = true;
+
+        /**
+         * 是否显式关闭 Chromium sandbox。
+         * 默认关闭该选项，仅在受控容器且经过安全评审后启用。
+         */
+        private boolean noSandbox = false;
+
+        /**
+         * 是否允许 Engine 自动删除 Chromium 用户目录中的陈旧锁文件。
+         * 默认禁用，避免误删仍被其他浏览器进程持有的锁。
+         */
+        private boolean cleanupStaleLocks = false;
 
         /**
          * 启动失败最大重试次数
@@ -360,6 +377,14 @@ public class PlaywrightProperties {
 
         public void setNavigationTimeout(long navigationTimeout) {
             this.navigationTimeout = navigationTimeout;
+        }
+
+        public long getActionTimeout() {
+            return actionTimeout;
+        }
+
+        public void setActionTimeout(long actionTimeout) {
+            this.actionTimeout = actionTimeout;
         }
 
         public int getViewportWidth() {
@@ -392,6 +417,22 @@ public class PlaywrightProperties {
 
         public void setDisableGpu(boolean disableGpu) {
             this.disableGpu = disableGpu;
+        }
+
+        public boolean isNoSandbox() {
+            return noSandbox;
+        }
+
+        public void setNoSandbox(boolean noSandbox) {
+            this.noSandbox = noSandbox;
+        }
+
+        public boolean isCleanupStaleLocks() {
+            return cleanupStaleLocks;
+        }
+
+        public void setCleanupStaleLocks(boolean cleanupStaleLocks) {
+            this.cleanupStaleLocks = cleanupStaleLocks;
         }
 
         public int getMaxRetries() {

@@ -367,7 +367,7 @@ public class BaiduHotSearchDemoController extends StreamTaskHelper {
                     // 
                     // ⚠️ 注意：会话数据（Cookies等）已经自动保存到磁盘
                     // 下次调用 acquirePersistent() 时会自动加载
-                    session.destroy();
+                    browserPool.destroy(session);
                     log.debug("[百度热搜演示] 会话已销毁 - 用户: {}", userId);
                 } catch (Exception e) {
                     log.warn("[百度热搜演示] 销毁会话失败: {}", e.getMessage());
