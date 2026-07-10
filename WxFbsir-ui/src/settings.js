@@ -52,6 +52,6 @@ export default {
   /**
    * 底部版权文本内容
    */
-  footerContent: 'Copyright © 2025 福帮手. All Rights Reserved.'
+  footerContent: 'Copyright © 2026 福帮手. All Rights Reserved.'
 }
 

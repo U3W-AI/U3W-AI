@@ -61,6 +61,46 @@ foreach ($target in $targets) {
     }
 }
 
+# Source-truth guardrails used by the documentation and release checklist.
+$sourceAssertions = @(
+    @{ rule = 'websocket_source_origin'; path = 'WxFbsir-ui/src/utils/websocket.js'; pattern = 'window\.location\.origin'; message = 'Relative API environments must derive WebSocket URLs from the current origin.' },
+    @{ rule = 'preview_websocket_proxy'; path = 'WxFbsir-ui/vite.config.js'; pattern = 'ws:\s*true'; message = 'Vite API proxy must support WebSocket upgrades.' },
+    @{ rule = 'footer_current_year'; path = 'WxFbsir-ui/src/settings.js'; pattern = 'Copyright.*2026'; message = 'Homepage footer must use the current requested year and brand.' }
+)
+
+foreach ($assertion in $sourceAssertions) {
+    $sourcePath = Join-Path $Root $assertion.path
+    if (-not (Test-Path $sourcePath)) {
+        Add-Finding $assertion.rule $sourcePath 0 '' "Missing source file: $($assertion.path)"
+        continue
+    }
+    $sourceText = Get-Content -Raw -Encoding UTF8 $sourcePath
+    if ($sourceText -notmatch $assertion.pattern) {
+        Add-Finding $assertion.rule $sourcePath 0 '' $assertion.message
+    }
+}
+
+$websocketSourcePath = Join-Path $Root 'WxFbsir-ui/src/utils/websocket.js'
+if ((Test-Path $websocketSourcePath) -and (Get-Content -Raw -Encoding UTF8 $websocketSourcePath) -match 'DEFAULT_BACKEND') {
+    Add-Finding 'websocket_no_fixed_backend' $websocketSourcePath 0 '' 'WebSocket utility must not retain a fixed localhost backend fallback.'
+}
+
+$fbsMenuMigration = Get-ChildItem -Path (Join-Path $Root 'sql') -File -Filter 'update_20260409_*.sql' |
+    Where-Object { (Get-Content -Raw -Encoding UTF8 $_.FullName) -match 'FBS.*0,\s*10,' } |
+    Select-Object -First 1
+if (-not $fbsMenuMigration) {
+    Add-Finding 'fbs_root_menu_source' (Join-Path $Root 'sql') 0 '' 'FBS menu migration must insert the menu at the root.'
+}
+
+# Dated migrations are located by their ASCII date prefix so this helper remains
+# safe to run under Windows PowerShell with legacy system encodings.
+$repairMigration = Get-ChildItem -Path (Join-Path $Root 'sql') -File -Filter 'update_20260710_*.sql' | Select-Object -First 1
+if (-not $repairMigration) {
+    Add-Finding 'fbs_parent_repair_migration' (Join-Path $Root 'sql') 0 '' 'The dated FBS parent repair migration is missing.'
+} elseif ((Get-Content -Raw -Encoding UTF8 $repairMigration.FullName) -notmatch 'parent_id\s*=\s*0') {
+    Add-Finding 'fbs_parent_repair_migration' $repairMigration.FullName 0 '' 'The dated FBS parent repair migration must set parent_id to zero.'
+}
+
 [PSCustomObject]@{
     root = $Root
     findingCount = $findings.Count

@@ -12,6 +12,10 @@ export function httpToWs(httpUrl) {
   if (!httpUrl) {
     return '';
   }
+
+  if (httpUrl.startsWith('ws://') || httpUrl.startsWith('wss://')) {
+    return httpUrl.replace(/\/$/, '');
+  }
   
   try {
     // 如果不是完整URL，添加协议
@@ -87,47 +91,31 @@ export function getWebSocketUrl(path = '/ws/client') {
     baseApi = process.env.VUE_APP_BASE_API;
   }
   
-  // 判断baseApi是完整URL还是路径前缀
+  const configuredWsBase = typeof import.meta !== 'undefined' && import.meta.env
+    ? import.meta.env.VITE_APP_WS_BASE_URL
+    : '';
+
+  // 显式配置优先；否则让相对 API 前缀与 HTTP 请求一样走同源网关/开发代理。
   let wsBaseUrl;
-  if (baseApi && (baseApi.startsWith('http://') || baseApi.startsWith('https://'))) {
+  if (configuredWsBase) {
+    wsBaseUrl = httpToWs(configuredWsBase);
+  } else if (baseApi && (baseApi.startsWith('http://') || baseApi.startsWith('https://'))) {
     // 情况1: 完整URL（如 http://localhost:8090 或 https://api.example.com）
     // 直接转换为WebSocket URL
     wsBaseUrl = httpToWs(baseApi);
   } else {
-    // 情况2: 路径前缀（如 /dev-api 或 /prod-api）
-    // WebSocket不能走Vite代理，需要直接连接后端服务器
-    
-    // 默认后端地址（开发环境）
-    const DEFAULT_BACKEND = 'http://localhost:8080';
-    
-    // 获取自定义后端地址（可选的环境变量）
-    let backendUrl = DEFAULT_BACKEND;
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_APP_WS_BASE_URL) {
-      backendUrl = import.meta.env.VITE_APP_WS_BASE_URL;
-    }
-    
-    // 如果当前在生产环境（https或非本地域名），使用当前域名
-    const isProduction = window.location.protocol === 'https:' || 
-                        !['localhost', '127.0.0.1'].includes(window.location.hostname);
-    
-    if (isProduction) {
-      const protocol = window.location.protocol;
-      const hostname = window.location.hostname;
-      const port = window.location.port;
-      
-      backendUrl = `${protocol}//${hostname}`;
-      if (port && port !== '80' && port !== '443') {
-        backendUrl += `:${port}`;
-      }
-    }
-    
-    wsBaseUrl = httpToWs(backendUrl);
+    // 情况2: 路径前缀（如 /dev-api 或 /prod-api）。保留前缀并使用当前页面同源地址，
+    // 由 Vite/nginx 网关代理 WebSocket Upgrade，避免固定端口和跨域配置漂移。
+    const normalizedBaseApi = baseApi
+      ? '/' + baseApi.replace(/^\/+|\/+$/g, '')
+      : '';
+    wsBaseUrl = httpToWs(`${window.location.origin}${normalizedBaseApi}`);
   }
   
   // 确保path以/开头
   const normalizedPath = path.startsWith('/') ? path : '/' + path;
   
-  return wsBaseUrl + normalizedPath;
+  return wsBaseUrl.replace(/\/$/, '') + normalizedPath;
 }
 
 /**

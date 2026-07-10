@@ -98,6 +98,12 @@
 
 **详细说明**：参考 `WxFbsir-ui/src/views/business/debug/README.md`
 
+**本地预览地址规则（源码校准，2026-07-10）**：
+
+- `.env.production` 使用 `/prod-api`，`.env.staging` 使用 `/stage-api`；调试页会在当前页面同源地址下拼接该前缀。
+- `VITE_APP_WS_BASE_URL` 只有在部署网关不是同源代理时才需要显式配置；不要把 `localhost:8080` 写死到前端构建产物。
+- 前端预览必须配置 `VITE_APP_PROXY_TARGET=http://127.0.0.1:18080`，并保留 WebSocket Upgrade 代理；浏览器原生 WebSocket 认证参数只存在于当前会话，不要写入日志或截图。
+
 ---
 
 ## 2. WebSocket故障排查
@@ -217,6 +223,8 @@ wxfbsir:
 2. **选择消息类型**：如"健康检查"
 3. **发送消息**：点击"发送消息"按钮
 4. **查看响应**：在消息输出区查看是否有返回
+
+本地验收优先执行 `scripts/local-joint-smoke.ps1`：它会验证 `/prod-api`、`/stage-api` 登录代理以及同源 WebSocket `CONNECTED` 回执。真实 OpenClaw 不在该脚本范围内，脚本中的 OpenClaw 检查仅针对模拟服务。
 
 **如果调试页面有响应**：
 - 说明Engine在线且正常
@@ -525,5 +533,5 @@ wxfbsir:
 
 ---
 
-**文档更新日期**：2026-01-27  
+**文档更新日期**：2026-07-10
 **重要提示**：优先使用前端管理页面进行排查，命令行和SQL仅作为备用方案

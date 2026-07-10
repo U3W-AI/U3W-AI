@@ -1,5 +1,7 @@
 # WebSocket 调试工具使用指南
 
+> **最新更新日期：2026-07-10**
+
 ## 📋 功能概述
 
 WebSocket调试工具是一个专为开发者设计的可视化调试页面，用于快速测试和调试WebSocket消息通信。
@@ -128,7 +130,7 @@ WebSocket调试工具是一个专为开发者设计的可视化调试页面，�
 
 | 字段 | 说明 | 示例 |
 |------|------|------|
-| **连接地址** | WebSocket连接URL（自动获取） | `ws://localhost:8080/ws/client?...` |
+| **连接地址** | WebSocket连接URL（自动获取） | `ws://当前页面主机/prod-api/ws/client?...` |
 | **Engine ID** | 目标Engine节点ID | `engine-001` |
 | **消息类型** | WebSocket消息类型（可选择或输入） | `SIMPLE_HEALTH_CHECK_DEMO` |
 | **Payload** | JSON格式的消息参数（支持多行） | `{"includeDetails": true}` |
@@ -307,16 +309,17 @@ WxFbsir-ui/
 
 **特性**:
 - 自动识别 `http/https` 并转换为 `ws/wss`
-- 自动从环境变量或当前域名获取baseURL
+- 相对 API 前缀（`/dev-api`、`/stage-api`、`/prod-api`）使用当前页面同源地址，交由开发代理或 Nginx 转发
+- 可通过 `VITE_APP_WS_BASE_URL` 显式指定非同源 WebSocket 网关
 - 支持自定义路径和查询参数
 
 ---
 
 ## 📚 相关文档
 
-- [WebSocket通信完整指南](../../../../docs/WebSocket通信完整指南.md) - 深入了解WebSocket通信机制
-- [快速入门 - 5分钟实现你的第一个能力](../../../../docs/WebSocket通信完整指南.md#0-快速入门---5分钟实现你的第一个能力) - 开发新能力
-- [流式输出 vs 单次输出完整指南](../../../../docs/WebSocket通信完整指南.md#12-流式输出-vs-单次输出完整指南) - 选择合适的实现方式
+- [WebSocket通信完整指南](../../../../../docs/功能说明/engine/WebSocket通信完整指南.md) - 深入了解WebSocket通信机制
+- [快速入门 - 5分钟实现你的第一个能力](../../../../../docs/功能说明/engine/WebSocket通信完整指南.md#0-快速入门---5分钟实现你的第一个能力) - 开发新能力
+- [流式输出 vs 单次输出完整指南](../../../../../docs/功能说明/engine/WebSocket通信完整指南.md#12-流式输出-vs-单次输出完整指南) - 选择合适的实现方式
 - [演示能力使用指南](../../../../WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/README.md) - 完整示例代码
 
 ---

@@ -5,12 +5,24 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-const baseUrl = 'http://localhost:8080' // 后端接口
+const defaultProxyTarget = 'http://localhost:8080'
+
+const createApiProxy = (prefix, target) => ({
+  target,
+  changeOrigin: true,
+  ws: true,
+  rewrite: (requestPath) => requestPath.replace(new RegExp(`^${prefix}`), '')
+})
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd())
   const { VITE_APP_ENV } = env
+  const proxyTarget = env.VITE_APP_PROXY_TARGET || defaultProxyTarget
+  const springDocProxy = {
+    target: proxyTarget,
+    changeOrigin: true
+  }
   return {
     // 部署生产环境和开发环境下的URL。
     // 默认情况下，vite 会假设你的应用是被部署在一个域名的根路径上
@@ -64,16 +76,18 @@ export default defineConfig(({ mode, command }) => {
       open: true,
       proxy: {
         // https://cn.vitejs.dev/config/#server-proxy
-        '/dev-api': {
-          target: baseUrl,
-          changeOrigin: true,
-          rewrite: (p) => p.replace(/^\/dev-api/, '')
-        },
-         // springdoc proxy
-         '^/v3/api-docs/(.*)': {
-          target: baseUrl,
-          changeOrigin: true,
-        }
+        '/dev-api': createApiProxy('/dev-api', proxyTarget),
+        // springdoc proxy
+        '^/v3/api-docs/(.*)': springDocProxy
+      }
+    },
+    // `vite preview` 用于本地验收生产/预发布构建，必须保留与部署网关一致的 API 前缀。
+    preview: {
+      proxy: {
+        '/dev-api': createApiProxy('/dev-api', proxyTarget),
+        '/prod-api': createApiProxy('/prod-api', proxyTarget),
+        '/stage-api': createApiProxy('/stage-api', proxyTarget),
+        '^/v3/api-docs/(.*)': springDocProxy
       }
     },
     css: {

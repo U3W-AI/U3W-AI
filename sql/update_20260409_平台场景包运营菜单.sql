@@ -27,7 +27,9 @@ INSERT INTO sys_menu (
     create_by, create_time, remark
 )
 VALUES (
-    'FBS运营管理', 1000, 10, 'fbs', NULL,
+    -- 必须作为根菜单挂载。RuoYi 基线库的 menu_id=1000 是“用户查询”按钮权限，
+    -- 将菜单挂到 1000 会使整棵 FBS 运营菜单无法出现在动态路由中。
+    'FBS运营管理', 0, 10, 'fbs', NULL,
     1, 'M', '0', '0', '', 'config',
     'admin', SYSDATE(), 'FBS场景包与授权码运营菜单'
 );

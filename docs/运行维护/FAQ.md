@@ -24,6 +24,8 @@
 3. 检查前端配置：查看 `.env.development` 中的 `VITE_APP_BASE_API`
 4. 检查跨域配置（后端已配置CORS，一般不会有问题）
 
+本地验收生产/预发布构建时，使用 `VITE_APP_PROXY_TARGET` 指向 Admin 地址，并通过 `vite preview` 验证 `/prod-api`、`/stage-api` 登录代理；不要把预览端口误当成后端端口。
+
 ### Q2: 数据库连接失败
 **问题描述**：后端启动报错 "Unable to connect to database"
 
@@ -61,6 +63,7 @@ kill -9 <PID>
 2. 检查 Nginx 的 `try_files` 配置
 3. 清除浏览器缓存
 4. 查看浏览器控制台错误信息
+5. 使用 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\local-joint-smoke.ps1` 验证前端代理、动态路由和同源 WebSocket
 
 ---
 
@@ -187,7 +190,7 @@ SELECT * FROM yuanqi_agent_config WHERE is_active = 1;
 **问题描述**：不知道如何配置腾讯元器智能体
 
 **解决方案**：
-参考 [部署文档](../部署文档.md) 第三阶段：元器工作流配置，主要步骤：
+参考 [完整服务器部署文档](../服务器部署/完整服务器部署文档.md) 和 `docs/workflows/` 中的工作流文件，主要步骤：
 1. 登录腾讯元器平台
 2. 导入工作流文件（`docs/workflows/` 目录）
 3. 配置回调地址（使用公网地址）
@@ -207,4 +210,4 @@ SELECT * FROM yuanqi_agent_config WHERE is_active = 1;
 
 ---
 
-**最后更新**: 2025-12-05
+**最后更新**: 2026-07-10
