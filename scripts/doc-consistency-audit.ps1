@@ -1,5 +1,5 @@
 param(
-    [string]$Root = 'C:\Users\dhc\Documents\Codex\2026-07-10\github-plugin-github-openai-curated-remote\U3W-AI'
+    [string]$Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 )
 
 $ErrorActionPreference = 'Stop'
