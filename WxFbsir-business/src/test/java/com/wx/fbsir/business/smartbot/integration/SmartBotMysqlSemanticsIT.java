@@ -3,6 +3,7 @@ package com.wx.fbsir.business.smartbot.integration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wx.fbsir.business.fbs.mapper.FbsEnterpriseMapper;
 import com.wx.fbsir.business.fbs.mapper.FbsEnterpriseMemberMapper;
+import com.wx.fbsir.business.smartbot.domain.DeliveryOutbox;
 import com.wx.fbsir.business.smartbot.dto.ResolvedBotBinding;
 import com.wx.fbsir.business.smartbot.dto.SmartBotInboundEnvelope;
 import com.wx.fbsir.business.smartbot.dto.SmartBotIngressResult;
@@ -13,6 +14,7 @@ import com.wx.fbsir.business.smartbot.mapper.WecomBotBindingMapper;
 import com.wx.fbsir.business.smartbot.mapper.WecomBotMemberBindingMapper;
 import com.wx.fbsir.business.smartbot.mapper.WecomInboundEventMapper;
 import com.wx.fbsir.business.smartbot.service.ExternalIdentityHasher;
+import com.wx.fbsir.business.smartbot.service.OutboxLeaseService;
 import com.wx.fbsir.business.smartbot.service.SmartBotIngressService;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.junit.jupiter.api.AfterAll;
@@ -31,6 +33,7 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
@@ -39,10 +42,13 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -70,7 +76,9 @@ class SmartBotMysqlSemanticsIT {
     private static AnnotationConfigApplicationContext context;
     private static DataSource dataSource;
     private static SmartBotIngressService ingressService;
+    private static OutboxLeaseService outboxLeaseService;
     private static ExternalIdentityHasher identityHasher;
+    private static TransactionTemplate transactionTemplate;
 
     @BeforeAll
     static void startContextAndApplyCurrentMigration() throws Exception {
@@ -91,11 +99,14 @@ class SmartBotMysqlSemanticsIT {
         context = new AnnotationConfigApplicationContext(TestConfiguration.class);
         dataSource = context.getBean(DataSource.class);
         ingressService = context.getBean(SmartBotIngressService.class);
+        outboxLeaseService = context.getBean(OutboxLeaseService.class);
         identityHasher = context.getBean(ExternalIdentityHasher.class);
+        transactionTemplate = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
 
         assertDedicatedDatabase();
+        dropTestTables();
         createFbsIdentityTables();
-        applyCurrentMigration();
+        applyCurrentMigrations();
         assertMySqlContract();
     }
 
@@ -255,6 +266,164 @@ class SmartBotMysqlSemanticsIT {
         assertEquals(2, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_run"));
     }
 
+    @Test
+    void concurrentOutboxClaimHasOneWinnerAndFencingControlsCompletion() throws Exception {
+        ingressService.accept(binding(7L, "AIBOT-01"), envelope());
+        int concurrency = 16;
+        ExecutorService pool = Executors.newFixedThreadPool(concurrency);
+        CountDownLatch ready = new CountDownLatch(concurrency);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<Optional<DeliveryOutbox>>> futures = new ArrayList<>();
+        try {
+            for (int i = 0; i < concurrency; i++) {
+                String owner = "worker-" + i;
+                futures.add(pool.submit(() -> {
+                    ready.countDown();
+                    if (!start.await(10, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("start barrier timed out");
+                    }
+                    for (int attempt = 0; attempt < 10; attempt++) {
+                        Optional<DeliveryOutbox> claimed =
+                            outboxLeaseService.claimNext(owner, Duration.ofSeconds(30));
+                        if (claimed.isPresent()) {
+                            return claimed;
+                        }
+                        Thread.yield();
+                    }
+                    return Optional.empty();
+                }));
+            }
+            assertTrue(ready.await(10, TimeUnit.SECONDS));
+            start.countDown();
+
+            List<DeliveryOutbox> claimed = new ArrayList<>();
+            for (Future<Optional<DeliveryOutbox>> future : futures) {
+                future.get(30, TimeUnit.SECONDS).ifPresent(claimed::add);
+            }
+            assertEquals(1, claimed.size());
+            DeliveryOutbox winner = claimed.get(0);
+            assertEquals("LEASED", winner.getStatus());
+            assertEquals(1, winner.getAttemptCount());
+            assertEquals(1, scalarInt("SELECT attempt_count FROM fbs_delivery_outbox"));
+
+            assertThrows(IllegalStateException.class, () -> outboxLeaseService.markDispatched(
+                winner.getId(), "00000000-0000-0000-0000-000000000001"));
+            assertEquals("LEASED", scalarString("SELECT status FROM fbs_delivery_outbox"));
+            outboxLeaseService.markDispatched(winner.getId(), winner.getLeaseToken());
+            assertEquals("DISPATCHED", scalarString("SELECT status FROM fbs_delivery_outbox"));
+            assertEquals(0, scalarInt(
+                "SELECT COUNT(*) FROM fbs_delivery_outbox WHERE lease_token IS NOT NULL"));
+        } finally {
+            start.countDown();
+            pool.shutdownNow();
+            assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void expiredLeaseCanBeReclaimedAndStaleWorkerCannotMutateIt() throws Exception {
+        ingressService.accept(binding(7L, "AIBOT-01"), envelope());
+        DeliveryOutbox first = outboxLeaseService
+            .claimNext("worker-first", Duration.ofSeconds(30)).orElseThrow();
+        execute("UPDATE fbs_delivery_outbox SET lease_until = DATE_SUB(NOW(), INTERVAL 1 SECOND)");
+
+        assertThrows(IllegalStateException.class,
+            () -> outboxLeaseService.extendLease(first.getId(), first.getLeaseToken(),
+                Duration.ofSeconds(30)));
+        assertThrows(IllegalStateException.class,
+            () -> outboxLeaseService.markDispatched(first.getId(), first.getLeaseToken()));
+        assertThrows(IllegalStateException.class,
+            () -> outboxLeaseService.scheduleRetry(first.getId(), first.getLeaseToken(),
+                new Date(), "stale retry"));
+        assertThrows(IllegalStateException.class,
+            () -> outboxLeaseService.markDead(first.getId(), first.getLeaseToken(), "stale dead"));
+
+        DeliveryOutbox second = outboxLeaseService
+            .claimNext("worker-second", Duration.ofSeconds(30)).orElseThrow();
+        assertFalse(first.getLeaseToken().equals(second.getLeaseToken()));
+        assertEquals(2, second.getAttemptCount());
+        assertThrows(IllegalStateException.class,
+            () -> outboxLeaseService.markDead(first.getId(), first.getLeaseToken(), "stale"));
+
+        outboxLeaseService.scheduleRetry(second.getId(), second.getLeaseToken(),
+            new Date(System.currentTimeMillis() - 1000), "temporary\nerror");
+        DeliveryOutbox third = outboxLeaseService
+            .claimNext("worker-third", Duration.ofSeconds(30)).orElseThrow();
+        assertEquals(3, third.getAttemptCount());
+        assertEquals("temporary error", scalarString("SELECT last_error FROM fbs_delivery_outbox"));
+        outboxLeaseService.markDead(third.getId(), third.getLeaseToken(), "permanent error");
+        assertEquals("DEAD", scalarString("SELECT status FROM fbs_delivery_outbox"));
+        assertEquals("permanent error", scalarString("SELECT last_error FROM fbs_delivery_outbox"));
+    }
+
+    @Test
+    void concurrentWorkersDrainIndependentRowsWithoutDuplicates() throws Exception {
+        List<String> inserts = new ArrayList<>();
+        for (int i = 0; i < 16; i++) {
+            inserts.add("INSERT INTO fbs_delivery_outbox "
+                + "(event_key, run_id, event_type, destination_type, payload_json, status, "
+                + "attempt_count, next_attempt_at, create_time, update_time) VALUES "
+                + "('drain-" + i + "', '00000000-0000-0000-0000-0000000000"
+                + String.format("%02d", i) + "', 'RUN_CREATED', 'INTERNAL_DISPATCHER', '{}', "
+                + "'PENDING', 0, DATE_SUB(NOW(), INTERVAL 1 SECOND), NOW(), NOW())");
+        }
+        execute(inserts.toArray(String[]::new));
+
+        int concurrency = 16;
+        ExecutorService pool = Executors.newFixedThreadPool(concurrency);
+        CountDownLatch ready = new CountDownLatch(concurrency);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<Optional<DeliveryOutbox>>> futures = new ArrayList<>();
+        try {
+            for (int i = 0; i < concurrency; i++) {
+                String owner = "drain-worker-" + i;
+                futures.add(pool.submit(() -> {
+                    ready.countDown();
+                    if (!start.await(10, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("start barrier timed out");
+                    }
+                    for (int attempt = 0; attempt < 10; attempt++) {
+                        Optional<DeliveryOutbox> claimed =
+                            outboxLeaseService.claimNext(owner, Duration.ofSeconds(30));
+                        if (claimed.isPresent()) {
+                            return claimed;
+                        }
+                        Thread.yield();
+                    }
+                    return Optional.empty();
+                }));
+            }
+            assertTrue(ready.await(10, TimeUnit.SECONDS));
+            start.countDown();
+            Set<Long> ids = new HashSet<>();
+            for (Future<Optional<DeliveryOutbox>> future : futures) {
+                ids.add(future.get(30, TimeUnit.SECONDS).orElseThrow().getId());
+            }
+            assertEquals(16, ids.size());
+            assertEquals(16, scalarInt("SELECT COUNT(*) FROM fbs_delivery_outbox WHERE status = 'LEASED'"));
+            assertEquals(16, scalarInt("SELECT SUM(attempt_count) FROM fbs_delivery_outbox"));
+        } finally {
+            start.countDown();
+            pool.shutdownNow();
+            assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void claimRollsBackWithOwningTransaction() throws Exception {
+        ingressService.accept(binding(7L, "AIBOT-01"), envelope());
+
+        assertThrows(IllegalStateException.class, () -> transactionTemplate.execute(status -> {
+            assertTrue(outboxLeaseService.claimNext("rollback-worker", Duration.ofSeconds(30)).isPresent());
+            throw new IllegalStateException("force rollback");
+        }));
+
+        assertEquals("PENDING", scalarString("SELECT status FROM fbs_delivery_outbox"));
+        assertEquals(0, scalarInt("SELECT attempt_count FROM fbs_delivery_outbox"));
+        assertEquals(0, scalarInt(
+            "SELECT COUNT(*) FROM fbs_delivery_outbox WHERE lease_token IS NOT NULL OR lease_owner IS NOT NULL"));
+    }
+
     private static void assertDedicatedDatabase() throws Exception {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement();
@@ -281,6 +450,21 @@ class SmartBotMysqlSemanticsIT {
         }
     }
 
+    private static void dropTestTables() throws Exception {
+        execute(
+            "DROP TRIGGER IF EXISTS smartbot_it_fail_step",
+            "DROP TABLE IF EXISTS fbs_delivery_outbox",
+            "DROP TABLE IF EXISTS fbs_orchestration_receipt",
+            "DROP TABLE IF EXISTS fbs_orchestration_step",
+            "DROP TABLE IF EXISTS fbs_orchestration_run",
+            "DROP TABLE IF EXISTS fbs_inbound_event",
+            "DROP TABLE IF EXISTS fbs_bot_member_binding",
+            "DROP TABLE IF EXISTS fbs_bot_binding",
+            "DROP TABLE IF EXISTS fbs_enterprise_member",
+            "DROP TABLE IF EXISTS fbs_enterprise"
+        );
+    }
+
     private static void createFbsIdentityTables() throws Exception {
         execute(
             "CREATE TABLE IF NOT EXISTS fbs_enterprise ("
@@ -297,9 +481,13 @@ class SmartBotMysqlSemanticsIT {
         );
     }
 
-    private static void applyCurrentMigration() throws Exception {
-        Path migration = locateMigration();
-        String sql = Files.readString(migration, StandardCharsets.UTF_8);
+    private static void applyCurrentMigrations() throws Exception {
+        applyMigration("update_20260711_企微智能机器人编排控制面建表.sql");
+        applyMigration("update_20260711_企微智能机器人编排Outbox租约增强.sql");
+    }
+
+    private static void applyMigration(String name) throws Exception {
+        String sql = Files.readString(locateMigration(name), StandardCharsets.UTF_8);
         List<String> statements = Arrays.stream(sql.split(";\\s*(?:\\r?\\n|$)"))
             .map(String::trim)
             .filter(value -> !value.isEmpty())
@@ -307,16 +495,15 @@ class SmartBotMysqlSemanticsIT {
         execute(statements.toArray(String[]::new));
     }
 
-    private static Path locateMigration() {
+    private static Path locateMigration(String name) {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
-        String name = "update_20260711_企微智能机器人编排控制面建表.sql";
         for (int i = 0; i < 4 && current != null; i++, current = current.getParent()) {
             Path candidate = current.resolve("sql").resolve(name);
             if (Files.isRegularFile(candidate)) {
                 return candidate;
             }
         }
-        throw new IllegalStateException("current SmartBot migration not found");
+        throw new IllegalStateException("current SmartBot migration not found: " + name);
     }
 
     private void seedBot(Long botId, String aibotId, String callbackKey,
@@ -355,6 +542,15 @@ class SmartBotMysqlSemanticsIT {
              ResultSet result = statement.executeQuery(sql)) {
             assertTrue(result.next());
             return result.getInt(1);
+        }
+    }
+
+    private static String scalarString(String sql) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery(sql)) {
+            assertTrue(result.next());
+            return result.getString(1);
         }
     }
 
@@ -476,6 +672,11 @@ class SmartBotMysqlSemanticsIT {
             return new SmartBotIngressService(botBindingMapper, memberBindingMapper,
                 enterpriseMapper, enterpriseMemberMapper, inboundEventMapper, runMapper,
                 stepMapper, outboxMapper, identityHasher, objectMapper);
+        }
+
+        @Bean
+        OutboxLeaseService outboxLeaseService(DeliveryOutboxMapper outboxMapper) {
+            return new OutboxLeaseService(outboxMapper);
         }
 
         private static <T> MapperFactoryBean<T> mapper(Class<T> type, SqlSessionFactory factory) {

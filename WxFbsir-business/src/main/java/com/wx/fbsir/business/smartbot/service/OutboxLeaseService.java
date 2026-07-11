@@ -1,0 +1,114 @@
+package com.wx.fbsir.business.smartbot.service;
+
+import com.wx.fbsir.business.smartbot.domain.DeliveryOutbox;
+import com.wx.fbsir.business.smartbot.mapper.DeliveryOutboxMapper;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.time.Duration;
+import java.util.Date;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.regex.Pattern;
+
+/** Database-backed claim/fencing state for a replaceable outbox worker. */
+@Service
+public class OutboxLeaseService {
+
+    private static final String INTERNAL_DISPATCHER = "INTERNAL_DISPATCHER";
+    private static final Pattern OWNER = Pattern.compile("[A-Za-z0-9._:-]{1,128}");
+    private static final Pattern ERROR_SECRET = Pattern.compile(
+        "(?i)(authorization|token|secret|api[_-]?key|response_url)\\s*[:=]\\s*([^\\s&]+)");
+    private static final Pattern BEARER = Pattern.compile("(?i)bearer\\s+[^\\s]+");
+    private static final long MIN_LEASE_SECONDS = 1;
+    private static final long MAX_LEASE_SECONDS = 900;
+
+    private final DeliveryOutboxMapper outboxMapper;
+
+    public OutboxLeaseService(DeliveryOutboxMapper outboxMapper) {
+        this.outboxMapper = outboxMapper;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Optional<DeliveryOutbox> claimNext(String leaseOwner, Duration leaseDuration) {
+        validateOwner(leaseOwner);
+        long seconds = validateDuration(leaseDuration);
+        Long id = outboxMapper.selectClaimCandidateForUpdate(INTERNAL_DISPATCHER);
+        if (id == null) {
+            return Optional.empty();
+        }
+        String token = UUID.randomUUID().toString();
+        int claimed = outboxMapper.claimById(id, INTERNAL_DISPATCHER, leaseOwner, token, seconds);
+        if (claimed != 1) {
+            throw new IllegalStateException("outbox claim affected an unexpected number of rows");
+        }
+        DeliveryOutbox outbox = outboxMapper.selectByLeaseToken(token);
+        if (outbox == null || outbox.getId() == null || !token.equals(outbox.getLeaseToken())) {
+            throw new IllegalStateException("claimed outbox row cannot be read by fencing token");
+        }
+        return Optional.of(outbox);
+    }
+
+    public void extendLease(Long id, String leaseToken, Duration leaseDuration) {
+        validateLease(id, leaseToken);
+        ensureLease(outboxMapper.extendLease(id, leaseToken, validateDuration(leaseDuration)));
+    }
+
+    public void markDispatched(Long id, String leaseToken) {
+        validateLease(id, leaseToken);
+        ensureLease(outboxMapper.markDispatched(id, leaseToken));
+    }
+
+    public void scheduleRetry(Long id, String leaseToken, Date nextAttemptAt, String lastError) {
+        validateLease(id, leaseToken);
+        if (nextAttemptAt == null) {
+            throw new IllegalArgumentException("nextAttemptAt is required");
+        }
+        ensureLease(outboxMapper.scheduleRetry(id, leaseToken, nextAttemptAt, sanitizeError(lastError)));
+    }
+
+    public void markDead(Long id, String leaseToken, String lastError) {
+        validateLease(id, leaseToken);
+        ensureLease(outboxMapper.markDead(id, leaseToken, sanitizeError(lastError)));
+    }
+
+    private void validateOwner(String owner) {
+        if (!StringUtils.hasText(owner) || !OWNER.matcher(owner).matches()) {
+            throw new IllegalArgumentException("leaseOwner is invalid");
+        }
+    }
+
+    private long validateDuration(Duration duration) {
+        if (duration == null || duration.isNegative() || duration.isZero()) {
+            throw new IllegalArgumentException("lease duration must be positive");
+        }
+        long seconds = duration.getSeconds();
+        if (seconds < MIN_LEASE_SECONDS || seconds > MAX_LEASE_SECONDS) {
+            throw new IllegalArgumentException("lease duration must be between 1 and 900 seconds");
+        }
+        return seconds;
+    }
+
+    private void validateLease(Long id, String token) {
+        if (id == null || id <= 0 || !StringUtils.hasText(token) || token.length() != 36) {
+            throw new IllegalArgumentException("outbox lease identity is invalid");
+        }
+    }
+
+    private String sanitizeError(String error) {
+        if (!StringUtils.hasText(error)) {
+            return null;
+        }
+        String sanitized = error.replaceAll("[\\r\\n\\t\\p{Cntrl}]", " ").trim();
+        sanitized = ERROR_SECRET.matcher(sanitized).replaceAll("$1=[REDACTED]");
+        sanitized = BEARER.matcher(sanitized).replaceAll("Bearer [REDACTED]");
+        return sanitized.length() <= 500 ? sanitized : sanitized.substring(0, 500);
+    }
+
+    private void ensureLease(int rows) {
+        if (rows != 1) {
+            throw new IllegalStateException("outbox lease lost or already completed");
+        }
+    }
+}

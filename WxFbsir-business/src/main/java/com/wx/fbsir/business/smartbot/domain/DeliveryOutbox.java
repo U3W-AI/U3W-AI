@@ -18,9 +18,11 @@ public class DeliveryOutbox {
     private Integer attemptCount;
     private Date nextAttemptAt;
     private String leaseOwner;
+    private String leaseToken;
     private Date leaseUntil;
     private Integer lastHttpStatus;
     private String lastError;
+    private Integer version;
     private Date createTime;
     private Date updateTime;
 }
