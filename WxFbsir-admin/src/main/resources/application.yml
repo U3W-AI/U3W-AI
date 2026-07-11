@@ -197,6 +197,7 @@ webhook:
   # 可写入消息卡片的U3W签名跳转域名，逗号分隔；空值时禁用行动链接。
   action-hosts: ${WXFBSIR_WEBHOOK_ACTION_HOSTS:}
   delivery:
+    sweep-enabled: ${WXFBSIR_WEBHOOK_SWEEP_ENABLED:true}
     sweep-ms: ${WXFBSIR_WEBHOOK_SWEEP_MS:60000}
   crypto:
     current-version: ${WXFBSIR_WEBHOOK_KEY_VERSION:v1}
