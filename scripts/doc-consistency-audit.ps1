@@ -20,9 +20,17 @@ $rules = @(
     @{ name = 'retired_source_path'; pattern = 'FBSir-business/src/main/resources/application\.yml|FBSir-ui/nginx\.conf|FBSir-ui/src/api/business/officeAccount\.js|FBSir-admin/main/resources|FBSir-ui/src/views/business/host/apps/|FBSir-ui/src/views/system/point/'; message = 'Document references a retired or nonexistent source path.' }
 )
 
-$targets = Get-ChildItem -Path $Root -Recurse -File -Include *.md |
-    Where-Object { $_.FullName -notmatch '\\node_modules\\|\\target\\|\\dist\\|\\\.fbs-engineering\\' } |
-    Select-Object -ExpandProperty FullName
+# Ask Git for the repository-owned Markdown set instead of recursively walking the
+# filesystem. Filtering after Get-ChildItem -Recurse is too late: dependency trees
+# can change during npm install and cause enumeration failures before the filter runs.
+$repositoryMarkdown = @(& git -c core.quotepath=false -C $Root ls-files --cached --others --exclude-standard -- '*.md')
+if ($LASTEXITCODE -ne 0) {
+    throw "Unable to enumerate repository-owned Markdown files under $Root."
+}
+$targets = $repositoryMarkdown |
+    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+    ForEach-Object { Join-Path $Root ($_ -replace '/', [IO.Path]::DirectorySeparatorChar) } |
+    Where-Object { Test-Path -LiteralPath $_ }
 $findings = New-Object System.Collections.Generic.List[object]
 
 function Add-Finding([string]$Rule, [string]$File, [int]$Line, [string]$Text, [string]$Message) {
