@@ -105,6 +105,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Explicitly enabled SmartBotMysqlSemanticsIT uses a disposable MySQL server. -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
 </project>

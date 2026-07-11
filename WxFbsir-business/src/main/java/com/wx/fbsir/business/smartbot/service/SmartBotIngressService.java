@@ -141,7 +141,7 @@ public class SmartBotIngressService {
                 || !sameOptionalHash(stored.getPayloadHash(), claimed.getPayloadHash())) {
             throw new SecurityException("重复回调元数据不一致");
         }
-        OrchestrationRun run = runMapper.selectByRunId(stored.getRunId());
+        OrchestrationRun run = runMapper.selectByRunIdForUpdate(stored.getRunId());
         if (run == null) {
             throw new IllegalStateException("重复回调对应运行不存在");
         }
@@ -248,6 +248,12 @@ public class SmartBotIngressService {
                 && (!Set.of("single", "group").contains(envelope.getChatType())
                     || envelope.getChatType().length() > 16)) {
             throw new IllegalArgumentException("chatType 不受支持");
+        }
+        if ("single".equals(envelope.getChatType()) && StringUtils.hasText(envelope.getChatId())) {
+            throw new IllegalArgumentException("single chat 不应包含 chatId");
+        }
+        if ("group".equals(envelope.getChatType()) && !StringUtils.hasText(envelope.getChatId())) {
+            throw new IllegalArgumentException("group chat 必须包含 chatId");
         }
         if (StringUtils.hasText(envelope.getChatId()) && envelope.getChatId().length() > 512) {
             throw new IllegalArgumentException("chatId 超限");

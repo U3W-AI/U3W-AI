@@ -35,4 +35,8 @@
     <select id="selectByRunId" resultMap="RunResult">
         SELECT * FROM fbs_orchestration_run WHERE run_id = #{runId}
     </select>
+    <!-- Locking read bypasses an older REPEATABLE READ snapshot after a duplicate claim waited for the winner. -->
+    <select id="selectByRunIdForUpdate" resultMap="RunResult">
+        SELECT * FROM fbs_orchestration_run WHERE run_id = #{runId} FOR UPDATE
+    </select>
 </mapper>

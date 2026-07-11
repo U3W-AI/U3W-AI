@@ -8,4 +8,5 @@ import org.apache.ibatis.annotations.Param;
 public interface OrchestrationRunMapper {
     int insertRun(OrchestrationRun run);
     OrchestrationRun selectByRunId(@Param("runId") String runId);
+    OrchestrationRun selectByRunIdForUpdate(@Param("runId") String runId);
 }

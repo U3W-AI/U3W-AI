@@ -12,10 +12,12 @@ import org.mockito.ArgumentCaptor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -48,7 +50,7 @@ class SmartBotCallbackAdapterTest {
 
         String decryptedPayload = "{\"msgid\":\"msg-01\",\"aibotid\":\"AIBOT-01\","
             + "\"from\":{\"userid\":\"opaque-user-01\"},\"chattype\":\"single\","
-            + "\"chatid\":\"chat-01\",\"msgtype\":\"text\","
+            + "\"msgtype\":\"text\","
             + "\"text\":{\"content\":\"message body must not persist\"}}";
         WXBizJsonMsgCrypt crypt = new WXBizJsonMsgCrypt(TOKEN, AES_KEY, "");
         String encryptedRequest = crypt.EncryptMsg(decryptedPayload, TIMESTAMP, NONCE);
@@ -63,6 +65,7 @@ class SmartBotCallbackAdapterTest {
         SmartBotInboundEnvelope normalized = captor.getValue();
         assertEquals("msg-01", normalized.getMsgId());
         assertEquals("opaque-user-01", normalized.getOpaqueSenderId());
+        assertNull(normalized.getChatId());
         assertEquals(64, normalized.getPayloadHash().length());
         assertFalse(normalized.toString().contains("opaque-user-01"));
         assertFalse(normalized.toString().contains("chat-01"));
@@ -78,6 +81,33 @@ class SmartBotCallbackAdapterTest {
         assertEquals("stable-stream-01", response.path("stream").path("id").asText());
         assertTrue(response.path("stream").path("finish").asBoolean());
         assertTrue(response.path("stream").path("content").asText().contains("编排队列"));
+    }
+
+    @Test
+    void eventAndStreamRefreshReturnEmptyWithoutCreatingBusinessRun() throws Exception {
+        ResolvedBotBinding binding = binding();
+        when(bindingResolver.resolve("bot_callback_key_01")).thenReturn(binding);
+        WXBizJsonMsgCrypt crypt = new WXBizJsonMsgCrypt(TOKEN, AES_KEY, "");
+
+        String event = encrypted(crypt,
+            "{\"msgid\":\"event-01\",\"aibotid\":\"AIBOT-01\",\"msgtype\":\"event\","
+                + "\"event\":{\"eventtype\":\"feedback_event\"}}" );
+        JsonNode eventEnvelope = objectMapper.readTree(event);
+        assertEquals("", adapter.acceptCallback("bot_callback_key_01",
+            eventEnvelope.path("msgsignature").asText(), TIMESTAMP, NONCE, event));
+
+        String refresh = encrypted(crypt,
+            "{\"msgid\":\"msg-01\",\"aibotid\":\"AIBOT-01\",\"msgtype\":\"stream\","
+                + "\"stream\":{\"id\":\"stable-stream-01\"}}" );
+        JsonNode refreshEnvelope = objectMapper.readTree(refresh);
+        assertEquals("", adapter.acceptCallback("bot_callback_key_01",
+            refreshEnvelope.path("msgsignature").asText(), TIMESTAMP, NONCE, refresh));
+
+        verify(ingressService, never()).accept(any(), any());
+    }
+
+    private String encrypted(WXBizJsonMsgCrypt crypt, String payload) throws Exception {
+        return crypt.EncryptMsg(payload, TIMESTAMP, NONCE);
     }
 
     private ResolvedBotBinding binding() {

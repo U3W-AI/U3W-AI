@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Set;
 
 /**
  * Short-connection protocol adapter. It only verifies/decrypts, normalizes
@@ -22,6 +23,8 @@ public class SmartBotCallbackAdapter {
 
     private static final String RECEIVE_ID = "";
     private static final String ACCEPTED_MESSAGE = "已接收，任务已进入福帮手编排队列。";
+    private static final Set<String> BUSINESS_MESSAGE_TYPES = Set.of(
+        "text", "image", "mixed", "voice", "file", "video", "quote");
 
     private final BotBindingResolver bindingResolver;
     private final SmartBotIngressService ingressService;
@@ -48,6 +51,17 @@ public class SmartBotCallbackAdapter {
         String decrypted = crypt.DecryptMsg(msgSignature, timestamp, nonce, encryptedBody);
         byte[] decryptedBytes = decrypted.getBytes(StandardCharsets.UTF_8);
         JsonNode root = objectMapper.readTree(decryptedBytes);
+        String msgType = text(root, "msgtype");
+
+        // Event and stream-refresh callbacks have different reply contracts.
+        // Until those state machines exist, acknowledge without creating a run
+        // or returning an invalid generic stream response.
+        if ("event".equals(msgType) || "stream".equals(msgType)) {
+            return "";
+        }
+        if (!BUSINESS_MESSAGE_TYPES.contains(msgType)) {
+            throw new IllegalArgumentException("unsupported smart-bot message type");
+        }
 
         SmartBotInboundEnvelope envelope = SmartBotInboundEnvelope.builder()
             .msgId(text(root, "msgid"))
@@ -55,7 +69,7 @@ public class SmartBotCallbackAdapter {
             .opaqueSenderId(text(root.path("from"), "userid"))
             .chatType(optionalText(root, "chattype"))
             .chatId(optionalText(root, "chatid"))
-            .msgType(text(root, "msgtype"))
+            .msgType(msgType)
             .eventType(optionalText(root.path("event"), "eventtype"))
             .payloadHash(sha256(decryptedBytes))
             .build();

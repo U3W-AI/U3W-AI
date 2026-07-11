@@ -131,7 +131,7 @@ class SmartBotIngressServiceTest {
         storedRun.setEnterpriseId(11L);
         storedRun.setEnterpriseMemberId(21L);
         storedRun.setUserId(31L);
-        when(runMapper.selectByRunId("stored-run")).thenReturn(storedRun);
+        when(runMapper.selectByRunIdForUpdate("stored-run")).thenReturn(storedRun);
 
         SmartBotIngressResult result = service.accept(binding(), envelope());
 
@@ -201,7 +201,7 @@ class SmartBotIngressServiceTest {
 
         assertThrows(SecurityException.class, () -> service.accept(binding(), envelope()));
 
-        verify(runMapper, never()).selectByRunId(any());
+        verify(runMapper, never()).selectByRunIdForUpdate(any());
         verify(runMapper, never()).insertRun(any());
     }
 
@@ -247,7 +247,6 @@ class SmartBotIngressServiceTest {
         arrangeControlState();
         when(identityHasher.hashUser(7L, "external-user-01")).thenReturn(USER_HASH);
         when(identityHasher.hashMessage(7L, "msg-01")).thenReturn(MSG_ID_HASH);
-        when(identityHasher.hashChat(7L, "chat-01")).thenReturn("d".repeat(64));
         when(memberBindingMapper.selectActiveByExternalHash(7L, USER_HASH)).thenReturn(memberBinding());
         when(enterpriseMemberMapper.selectById(21L)).thenReturn(activeMember());
     }
@@ -268,7 +267,6 @@ class SmartBotIngressServiceTest {
             .aibotId("AIBOT-01")
             .opaqueSenderId("external-user-01")
             .chatType("single")
-            .chatId("chat-01")
             .msgType("text")
             .payloadHash(PAYLOAD_HASH)
             .build();
