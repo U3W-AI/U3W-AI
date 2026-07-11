@@ -10,6 +10,9 @@ import useUserStore from '@/store/modules/user'
 let downloadLoadingInstance
 // 是否显示重新登录
 export let isRelogin = { show: false }
+const ERROR_DEDUP_WINDOW_MS = 3000
+let lastErrorAt = 0
+let lastErrorMessage = ''
 
 axios.defaults.headers['Content-Type'] = 'application/json;charset=utf-8'
 // 创建axios实例
@@ -112,14 +115,22 @@ service.interceptors.response.use(res => {
   error => {
     console.log('err' + error)
     let { message } = error
-    if (message == "Network Error") {
-      message = "后端接口连接异常"
+    const proxyConnectionFailed = message == "Network Error"
+      || message.includes("Request failed with status code 500")
+    if (proxyConnectionFailed) {
+      message = "后端接口连接异常：请确认 Admin 已启动并检查前端代理地址；若登录仍失败，再检查 Redis"
     } else if (message.includes("timeout")) {
       message = "系统接口请求超时"
     } else if (message.includes("Request failed with status code")) {
       message = "系统接口" + message.substr(message.length - 3) + "异常"
     }
-    ElMessage({ message: message, type: 'error', duration: 5 * 1000 })
+    const now = Date.now()
+    const shouldNotify = message !== lastErrorMessage || now - lastErrorAt >= ERROR_DEDUP_WINDOW_MS
+    lastErrorMessage = message
+    lastErrorAt = now
+    if (shouldNotify) {
+      ElMessage({ message: message, type: 'error', duration: 5 * 1000 })
+    }
     return Promise.reject(error)
   }
 )
