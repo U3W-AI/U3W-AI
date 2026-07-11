@@ -339,11 +339,11 @@ public class ClientMessageRouter {
             if (type != null) {
                 if (type.contains("PC_") || type.startsWith("RETURN_PC_")) {
                     // PC 专用消息
-                    clientSessionManager.sendToClient("web-" + userId, message);
-                    clientSessionManager.sendToClient("mypc-" + userId, message);
+                    clientSessionManager.sendToClientFamily("web-" + userId, message);
+                    clientSessionManager.sendToClientFamily("mypc-" + userId, message);
                 } else if (type.contains("MINI_")) {
                     // 小程序专用消息
-                    clientSessionManager.sendToClient("mini-" + userId, message);
+                    clientSessionManager.sendToClientFamily("mini-" + userId, message);
                 } else {
                     // 通用消息，发送给所有端
                     clientSessionManager.sendToUser(userId, message);
@@ -406,14 +406,18 @@ public class ClientMessageRouter {
     /**
      * 从 clientId 提取 userId
      */
-    private String extractUserId(String clientId) {
+    static String extractUserId(String clientId) {
+        String value;
         if (clientId.startsWith("web-")) {
-            return clientId.substring(4);
+            value = clientId.substring(4);
         } else if (clientId.startsWith("mypc-")) {
-            return clientId.substring(5);
+            value = clientId.substring(5);
         } else if (clientId.startsWith("mini-")) {
-            return clientId.substring(5);
+            value = clientId.substring(5);
+        } else {
+            return clientId;
         }
-        return clientId;
+        int instanceSeparator = value.indexOf('-');
+        return instanceSeparator > 0 ? value.substring(0, instanceSeparator) : value;
     }
 }

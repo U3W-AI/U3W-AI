@@ -92,7 +92,7 @@
             <div class="list-header">
               <span>我的文章 <el-tag v-if="totalArticles > 0" size="small" type="info">{{ totalArticles }}</el-tag></span>
               <el-button
-                type="text"
+                link
                 size="small"
                 @click="refreshArticles"
                 :loading="loading"

@@ -145,6 +145,8 @@ android/*.hprof
 .pub-cache/
 .pub/
 build/
+!FBSir-ui/src/views/tool/build/
+!FBSir-ui/src/views/tool/build/index.vue
 ios/Flutter/.last_build_id
 ios/Flutter/Flutter.framework
 ios/Flutter/Flutter.podspec

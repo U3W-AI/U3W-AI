@@ -70,7 +70,14 @@ function filterAsyncRouter(asyncRouterMap, lastRouter = false, type = false) {
       } else if (route.component === 'InnerLink') {
         route.component = InnerLink
       } else {
-        route.component = loadView(route.component)
+        const view = route.component
+        const component = loadView(view)
+        if (component) {
+          route.component = component
+        } else {
+          route.meta = { ...(route.meta || {}), loadErrorView: view }
+          route.component = loadView('error/route-load-error')
+        }
       }
     }
     if (route.children != null && route.children && route.children.length) {
@@ -120,6 +127,9 @@ export const loadView = (view) => {
     if (dir === view) {
       res = () => modules[path]()
     }
+  }
+  if (!res && import.meta.env.DEV) {
+    console.error(`[dynamic-route] 未找到页面组件: views/${view}.vue`)
   }
   return res
 }

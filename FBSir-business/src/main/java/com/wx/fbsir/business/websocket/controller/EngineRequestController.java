@@ -6,6 +6,7 @@ import com.wx.fbsir.business.websocket.server.EngineSessionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -85,6 +86,7 @@ public class EngineRequestController {
      * @return 响应结果
      */
     @PostMapping("/request")
+    @PreAuthorize("@ss.hasPermi('business:host:online:query')")
     public ResponseEntity<Map<String, Object>> sendRequest(@RequestBody Map<String, Object> requestData) {
         long startTime = System.currentTimeMillis();
         
@@ -215,6 +217,7 @@ public class EngineRequestController {
      * 
      * @return Engine列表
      */
+    @PreAuthorize("@ss.hasPermi('business:host:online:query')")
     @GetMapping("/list")
     public ResponseEntity<Map<String, Object>> listEngines() {
         List<EngineSession> sessions = sessionManager.getRegisteredSessions();

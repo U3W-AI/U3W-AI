@@ -1,6 +1,7 @@
 package com.wx.fbsir.business.websocket.controller;
 
 import com.wx.fbsir.business.websocket.server.EngineSessionManager;
+import com.wx.fbsir.business.websocket.security.EngineCredentialVerifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -30,20 +31,24 @@ class EngineUploadControllerTest {
 
     private EngineUploadController controller;
     private EngineSessionManager sessionManager;
+    private EngineCredentialVerifier credentialVerifier;
+    private static final String ENGINE_TOKEN = "engine-token-at-least-32-characters-long";
 
     @BeforeEach
     void setUp() throws Exception {
         sessionManager = mock(EngineSessionManager.class);
-        controller = new EngineUploadController(sessionManager);
+        credentialVerifier = mock(EngineCredentialVerifier.class);
+        controller = new EngineUploadController(sessionManager, credentialVerifier);
         setField("uploadPath", tempDir.toString());
         setField("resourcePrefix", "http://localhost:8080");
         when(sessionManager.isEngineOnline("engine-1")).thenReturn(true);
+        when(credentialVerifier.matches(ENGINE_TOKEN)).thenReturn(true);
     }
 
     @Test
     void rejectsTraversalUserId() throws Exception {
         Map<String, Object> body = controller.uploadScreenshot(
-            "engine-1", "..\\outside", "ignored", png()).getBody();
+            ENGINE_TOKEN, "engine-1", "engine-1", "..\\outside", "ignored", png()).getBody();
 
         assertNotNull(body);
         assertEquals(false, body.get("success"));
@@ -56,7 +61,7 @@ class EngineUploadControllerTest {
             "file", "payload.html", "text/html", "<script>alert(1)</script>".getBytes());
 
         Map<String, Object> body = controller.uploadScreenshot(
-            "engine-1", "user-1", "payload", html).getBody();
+            ENGINE_TOKEN, "engine-1", "engine-1", "user-1", "payload", html).getBody();
 
         assertNotNull(body);
         assertEquals(false, body.get("success"));
@@ -65,7 +70,7 @@ class EngineUploadControllerTest {
     @Test
     void reencodesValidImageToServerGeneratedPng() throws Exception {
         Map<String, Object> body = controller.uploadScreenshot(
-            "engine-1", "user-1", "..\\ignored", png()).getBody();
+            ENGINE_TOKEN, "engine-1", "engine-1", "user-1", "..\\ignored", png()).getBody();
 
         assertNotNull(body);
         assertEquals(true, body.get("success"));
@@ -84,12 +89,25 @@ class EngineUploadControllerTest {
             "files", "fake.svg", "image/svg+xml", "<svg/>".getBytes());
 
         Map<String, Object> body = controller.batchUploadScreenshots(
-            "engine-1", "user-1", new MockMultipartFile[]{fake}).getBody();
+            ENGINE_TOKEN, "engine-1", "engine-1", "user-1", new MockMultipartFile[]{fake}).getBody();
 
         assertNotNull(body);
         assertEquals(false, body.get("success"));
         assertEquals("ALL_UPLOADS_FAILED", body.get("code"));
         assertEquals(1, body.get("failedCount"));
+    }
+
+    @Test
+    void rejectsInvalidCredentialOrMismatchedHostBinding() throws Exception {
+        Map<String, Object> invalidToken = controller.uploadScreenshot(
+            "wrong-token", "engine-1", "engine-1", "user-1", "ignored", png()).getBody();
+        Map<String, Object> wrongHost = controller.uploadScreenshot(
+            ENGINE_TOKEN, "engine-2", "engine-1", "user-1", "ignored", png()).getBody();
+
+        assertNotNull(invalidToken);
+        assertEquals("ENGINE_UNAUTHORIZED", invalidToken.get("code"));
+        assertNotNull(wrongHost);
+        assertEquals("ENGINE_UNAUTHORIZED", wrongHost.get("code"));
     }
 
     @Test

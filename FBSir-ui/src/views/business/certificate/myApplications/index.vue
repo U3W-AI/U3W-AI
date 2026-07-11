@@ -113,14 +113,14 @@
         <template #default="scope">
           <el-button
               size="small"
-              type="text"
+              link
               icon="View"
               @click="handleView(scope.row)"
               v-hasPermi="['business:certificate:review:query']"
           >详情</el-button>
           <el-button
               size="small"
-              type="text"
+              link
               icon="Edit"
               @click="handlePreviewCertificate(scope.row)"
               v-if="isApprovedStatus(scope.row.applicationStatus) || isIssuedStatus(scope.row.applicationStatus)"
@@ -128,7 +128,7 @@
           >预览证书</el-button>
           <el-button
               size="small"
-              type="text"
+              link
               icon="Delete"
               @click="handleCancel(scope.row)"
               v-if="scope.row.applicationStatus === '1'"
@@ -136,14 +136,14 @@
           >撤销</el-button>
           <el-button
               size="small"
-              type="text"
+              link
               icon="Download"
               @click="handleReceive(scope.row)"
               v-if="(isApprovedStatus(scope.row.applicationStatus) || isIssuedStatus(scope.row.applicationStatus)) && scope.row.receiveStatus !== 'received'"
           >领取</el-button>
           <el-button
               size="small"
-              type="text"
+              link
               icon="Download"
               @click="handleDownload(scope.row)"
               v-if="isIssuedStatus(scope.row.applicationStatus) && scope.row.receiveStatus === 'received'"
@@ -151,7 +151,7 @@
           >下载</el-button>
           <el-button
               size="small"
-              type="text"
+              link
               @click="handleReapply(scope.row)"
               v-if="isRejectedStatus(scope.row.applicationStatus)"
               v-hasPermi="['business:certificate:application:add']"

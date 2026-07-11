@@ -1,440 +1,122 @@
-# FBSir-Engine 开发指南
+# FBSir Engine
 
-> **Engine端核心模块** - 基于Playwright的浏览器自动化任务引擎
->
-> **更新日期**：2026-07-11
+> 更新日期：2026-07-11
 
+FBSir Engine 是福帮手的受控执行节点，通过 WebSocket 接入 Admin，承载 Playwright 浏览器自动化、流式任务和可扩展执行能力。它是完整 U3W-AI 编排体系中的执行器底座，不是独立控制面。
 
----
+## 1. 运行前提
 
-## 📖 目录
+- JDK 17
+- Maven 3.8 或更高版本
+- Admin 已在 8080 端口启动
+- 已按根目录[部署文档](../部署文档.md)完成 26 步数据库初始化
+- `engine-001` 已在 `ws_host_whitelist` 中且主机类型为 Engine
+- 首次使用 Playwright 时允许下载浏览器组件并写入本机缓存
 
-1. [项目简介](#项目简介)
-2. [快速开始](#快速开始)
-3. [能力测试与调试](#能力测试与调试)
-4. [开发新能力](#开发新能力)
-5. [参考文档](#参考文档)
-6. [项目结构](#项目结构)
+Engine 默认监听 8081，Admin WebSocket 默认地址为 `ws://localhost:8080/ws/engine`。
 
----
+## 2. 配置事实
 
-## 项目简介
+当前主配置前缀是 `fbsir.engine`。历史 `wxfbsir.engine` 只用于完整旧配置兼容；同一配置层不能用两套前缀拼接缺失字段。
 
-FBSir-Engine 是一个基于 **Playwright** 的浏览器自动化任务引擎，通过 **WebSocket** 与业务端（FBSir-business）通信，接收任务请求并返回执行结果。
+出于安全策略，Engine 会屏蔽：
 
-### 核心特性
+- 系统环境变量
+- JVM `-D` 系统属性
+- Spring Boot 命令行属性覆盖
 
-- ✅ **浏览器自动化** - 基于Playwright，支持Chromium/Firefox/WebKit
-- ✅ **会话管理** - 持久化会话、状态保存、资源池管理
-- ✅ **流式输出** - 支持进度推送、日志推送、截图推送
-- ✅ **单次输出** - 支持快速返回的简单任务
-- ✅ **截图上传** - 自动截图并上传到业务端
-- ✅ **异常处理** - 完整的错误处理和资源清理机制
+因此，不能用环境变量或 `--server.port` 一类参数覆盖 Engine 配置。推荐在仓库已忽略的本地运行目录中放置外部 `application.yml`，并从该目录启动 JAR；不要把真实令牌提交到源码。
 
-### 技术栈
+```powershell
+New-Item -ItemType Directory -Force -Path .\fbsir\engine | Out-Null
+Copy-Item .\FBSir-engine\target\classes\application.yml .\fbsir\engine\application.yml -Force
+notepad .\fbsir\engine\application.yml
+```
 
-- **Spring Boot** - 应用框架
-- **Playwright** - 浏览器自动化
-- **WebSocket** - 与业务端通信
-- **Jackson** - JSON序列化
-
----
-
-## 快速开始
-
-### 1. 环境要求
-
-- **JDK 17+**
-- **Maven 3.6+**
-- **Playwright** - 首次运行会自动下载浏览器
-
-### 2. 配置文件
-
-编辑 `application.yml`：
+至少确认以下内容：
 
 ```yaml
-# WebSocket连接配置
-websocket:
-  admin:
-    url: ws://localhost:8080/ws/engine  # 业务端WebSocket地址
-    engineId: engine-001                # Engine唯一标识
-    reconnect:
+fbsir:
+  engine:
+    ws-url: ws://localhost:8080/ws/engine
+    host-id: engine-001
+    engine-token: "<SAME_VALUE_AS_ADMIN_FBSIR_ENGINE_TOKEN>"
+    playwright:
       enabled: true
-      maxAttempts: 10
-      initialDelay: 1000
-
-# Playwright配置
-playwright:
-  browser:
-    type: chromium                      # 浏览器类型
-    headless: true                      # 无头模式
-  pool:
-    maxSize: 5                          # 浏览器池最大数量
+      data-dir: ./data/playwright
+      headless: false
 ```
 
-### 3. 启动Engine
+`engine-token` 必须与 Admin 的 `FBSIR_ENGINE_TOKEN` 完全一致，长度至少 32 个字符。示例占位符不是可用凭据。
 
-```bash
-# 编译
-mvn clean package
+## 3. 构建与启动
 
-# 运行
-java -jar target/FBSir-engine.jar
+在仓库根目录执行：
+
+```powershell
+mvn -f .\FBSir-engine\pom.xml clean package
 ```
 
-启动成功后，Engine会自动连接到业务端WebSocket服务。
+精确产物为 `FBSir-engine/target/FBSir-engine-1.3.1.jar`。从外部配置所在目录启动：
 
----
-
-## 能力测试与调试
-
-### 方式一：使用前端调试工具（推荐）
-
-部署好前端后，登录系统，进入 **主机管理 > WebSocket调试** 页面进行能力测试。
-
-#### 优势
-- ✅ 图形化界面，操作简单
-- ✅ 自动格式化JSON
-- ✅ 实时查看消息流
-- ✅ 支持消息导出
-
-#### 测试步骤
-
-1. **登录前端系统**
-   ```
-   访问: http://localhost:80
-   账号: admin
-   密码: admin123
-   ```
-
-2. **进入调试页面**
-   ```
-   导航: 主机管理 > WebSocket调试
-   ```
-
-3. **发送测试消息**
-   
-   **示例1：健康检查（单次输出）**
-   ```json
-   {
-     "type": "SIMPLE_HEALTH_CHECK_DEMO",
-     "engineId": "engine-001",
-     "payload": {
-       "includeDetails": true
-     }
-   }
-   ```
-
-   **示例2：百度热搜（流式输出）**
-   ```json
-   {
-     "type": "BAIDU_HOT_SEARCH_DEMO",
-     "engineId": "engine-001",
-     "payload": {
-       "clickIndex": 0,
-       "needScreenshot": true
-     }
-   }
-   ```
-
-   **示例3：复杂任务**
-   ```json
-   {
-     "type": "COMPLEX_TASK",
-     "engineId": "engine-001",
-     "payload": {
-       "config": {
-         "timeout": 30000,
-         "retry": true
-       },
-       "filters": [
-         {"field": "status", "value": "active"}
-       ],
-       "metadata": {
-         "tags": ["tag1", "tag2"]
-       }
-     }
-   }
-   ```
-
-4. **查看返回结果**
-   - 消息输出区域会实时显示所有消息
-   - 发送消息显示为绿色
-   - 接收消息显示为蓝色
-   - JSON自动高亮显示
-
-### 方式二：使用websocat命令行工具
-
-```bash
-# 安装websocat
-brew install websocat  # macOS
-# 或
-cargo install websocat  # Rust
-
-# 连接WebSocket
-TOKEN="your_jwt_token"
-websocat "ws://localhost:8080/ws/client?clientType=web&token=${TOKEN}"
-
-# 发送测试消息（单行JSON）
-{"type":"SIMPLE_HEALTH_CHECK_DEMO","engineId":"engine-001","payload":{"includeDetails":true}}
+```powershell
+Push-Location .\fbsir\engine
+java -jar ..\..\FBSir-engine\target\FBSir-engine-1.3.1.jar
+Pop-Location
 ```
 
----
+注意：进程运行期间不要执行 `Pop-Location`；以上三行适合逐行输入。若需要自动化守护，应由 Windows 服务管理器或容器平台设置工作目录为 `fbsir/engine`，这属于外部运行环境配置。
 
-## 开发新能力
+## 4. 验证
 
-### 步骤1：查看演示代码
+健康检查：
 
-推荐先阅读 `src/main/java/com/wx/fbsir/engine/controller/demo/README.md`，了解：
-
-- **BaiduHotSearchDemoController** - 流式输出完整示例
-- **SimpleHealthCheckDemoController** - 单次输出完整示例
-
-### 步骤2：创建Controller
-
-在 `src/main/java/com/wx/fbsir/engine/controller/` 下创建新的Controller类：
-
-```java
-package com.wx.fbsir.engine.controller;
-
-import com.wx.fbsir.engine.capability.annotation.StreamCapability;
-import com.wx.fbsir.engine.capability.base.StreamTaskHelper;
-import com.wx.fbsir.engine.websocket.message.EngineMessage;
-import org.springframework.stereotype.Controller;
-
-@Controller
-public class MyNewController extends StreamTaskHelper {
-    
-    @StreamCapability(
-        type = "MY_NEW_TASK",
-        description = "我的新任务",
-        timeout = 60000L,
-        progressInterval = 3000L  // 可选：自动心跳间隔
-    )
-    public void handleMyTask(EngineMessage message) {
-        String userId = message.getUserId();
-        String requestId = message.getPayloadValue("requestId");
-        
-        // 创建流式任务
-        StreamTask task = startStreamTask(userId, requestId);
-        
-        try {
-            // 推送进度日志
-            task.sendLog("正在处理任务...");
-            
-            // 执行业务逻辑
-            // ...
-            
-            // 发送成功结果
-            Map<String, Object> resultData = new HashMap<>();
-            resultData.put("result", "success");
-            task.sendSuccess("任务完成", resultData);
-            
-        } catch (Exception e) {
-            task.sendError("任务失败: " + e.getMessage());
-        } finally {
-            task.stop();  // 停止心跳
-        }
-    }
-}
+```powershell
+Invoke-RestMethod http://localhost:8081/actuator/health
 ```
 
-### 步骤3：选择实现方式
+配置兼容测试：
 
-#### 单次输出（适合快速任务）
-
-- 不继承 `StreamTaskHelper`
-- 使用 `@OnceCapability` 注解
-- 直接返回最终结果
-- 适用场景：数据查询、状态检查（< 5秒）
-
-#### 流式输出（适合长时间任务）
-
-- 继承 `StreamTaskHelper`
-- 使用 `@StreamCapability` 注解
-- 支持进度推送、日志推送、截图推送
-- 适用场景：爬虫、AI对话、文件处理（> 5秒）
-
-### 步骤4：测试新能力
-
-1. 重启Engine
-2. 在前端调试工具中发送测试消息
-3. 观察消息流和返回结果
-
----
-
-## 参考文档
-
-### 核心文档
-
-1. **[Playwright框架完整指南](../docs/功能说明/engine/Playwright框架完整指南.md)**
-   - 浏览器自动化开发指南
-   - 会话管理、资源池、截图上传
-   - 最佳实践和常见问题
-
-2. **[WebSocket通信完整指南](../docs/功能说明/engine/WebSocket通信完整指南.md)**
-   - WebSocket消息协议
-   - 流式输出与单次输出对比
-   - 消息类型说明和示例代码
-
-3. **[演示Controller完整指南](src/main/java/com/wx/fbsir/engine/controller/demo/README.md)**
-   - 完整的代码示例
-   - 单次输出 vs 流式输出
-   - 开发建议和最佳实践
-
-### 快速索引
-
-| 需求 | 参考文档 | 章节 |
-|------|---------|------|
-| 快速入门Playwright | Playwright框架完整指南 | 第0章 |
-| 理解消息协议 | WebSocket通信完整指南 | 第3章 |
-| 查看代码示例 | 演示Controller完整指南 | 全文 |
-| 会话管理 | Playwright框架完整指南 | 第2章 |
-| 截图上传 | Playwright框架完整指南 | 附录A |
-| 流式输出 | WebSocket通信完整指南 | 第3.2节 |
-
----
-
-## 项目结构
-
-```
-FBSir-engine/
-├── src/main/java/com/wx/fbsir/engine/
-│   ├── capability/              # 能力注册与管理
-│   │   ├── annotation/          # 注解定义
-│   │   │   ├── OnceCapability.java      # 单次输出注解
-│   │   │   └── StreamCapability.java    # 流式输出注解
-│   │   ├── base/                # 基础类
-│   │   │   └── StreamTaskHelper.java    # 流式任务辅助类
-│   │   └── registry/            # 能力注册器
-│   ├── controller/              # 业务Controller
-│   │   └── demo/                # 演示Controller
-│   │       ├── BaiduHotSearchDemoController.java
-│   │       ├── SimpleHealthCheckDemoController.java
-│   │       └── README.md        # 演示文档
-│   ├── playwright/              # Playwright封装
-│   │   ├── pool/                # 浏览器池管理
-│   │   ├── session/             # 会话管理
-│   │   └── util/                # 工具类
-│   ├── websocket/               # WebSocket客户端
-│   │   ├── client/              # WebSocket客户端
-│   │   ├── message/             # 消息定义
-│   │   └── util/                # 工具类
-│   └── EngineApplication.java   # 启动类
-├── src/main/resources/
-│   ├── application.yml          # 配置文件
-│   └── logback-spring.xml       # 日志配置
-├── docs/                        # 文档目录（项目根目录）
-│   ├── Playwright框架完整指南.md
-│   └── WebSocket通信完整指南.md
-└── README.md                    # 本文档
+```powershell
+mvn -f .\FBSir-engine\pom.xml -Dtest=FBSirConfigurationAliasEnvironmentPostProcessorTest test
 ```
 
----
+再登录福帮手后台，在“主机管理”中确认 `engine-001` 在线。只有健康接口正常且 Admin 显示节点在线，才算 Engine 接入闭环通过。
 
-## 常见问题
+## 5. Playwright 边界
 
-### Q1: Engine无法连接到业务端？
+Playwright 浏览器下载、浏览器缓存、目标网站可达性和目标网站账号登录态都属于外部边界。Engine 负责会话隔离、执行与结果回传，但不会替代目标网站授权。
 
-**检查清单**:
-- ✅ 业务端是否已启动？
-- ✅ WebSocket地址是否正确？（默认 `ws://localhost:8080/ws/engine`）
-- ✅ Engine ID是否在白名单中？
-- ✅ 防火墙是否阻止了连接？
+首次浏览器任务可能因组件下载而明显变慢。浏览器资料保存在配置的 `data-dir` 下；该目录可能包含登录态，不得提交或共享。仓库已忽略常见浏览器会话与认证状态目录。
 
-### Q2: 浏览器启动失败？
+更多开发信息：
 
-**解决方案**:
-```bash
-# 手动安装Playwright浏览器
-mvn exec:java -e -D exec.mainClass=com.microsoft.playwright.CLI -D exec.args="install chromium"
+- [Playwright 框架完整指南](../docs/功能说明/engine/Playwright框架完整指南.md)
+- [WebSocket 通信完整指南](../docs/功能说明/engine/WebSocket通信完整指南.md)
+- [Playwright 与 WebSocket 故障排查](../docs/运行维护/Playwright和WebSocket故障排查手册.md)
+
+## 6. 常见故障
+
+### 健康接口不可访问
+
+```powershell
+Get-NetTCPConnection -LocalPort 8081 -ErrorAction SilentlyContinue
+Get-Process | Where-Object { $_.ProcessName -eq 'java' }
 ```
 
-### Q3: 如何查看详细日志？
+确认 JAR 已构建、8081 未被占用，并从包含外部 `application.yml` 的目录启动。
 
-修改 `logback-spring.xml`：
-```xml
-<logger name="com.wx.fbsir.engine" level="DEBUG"/>
-```
+### WebSocket 注册失败
 
-### Q4: 如何调试WebSocket消息？
+依次检查：Admin 8080 是否可访问、`ws-url` 路径是否为 `/ws/engine`、两侧令牌是否相同、`host-id` 是否存在且类型正确。
 
-使用前端调试工具（推荐）或查看Engine日志：
-```
-[WebSocket] 收到消息: {"type":"SIMPLE_HEALTH_CHECK_DEMO",...}
-[WebSocket] 发送消息: {"type":"TASK_RESULT",...}
-```
+### 浏览器启动失败
 
----
+先确认网络、磁盘空间和浏览器缓存目录权限，再查看 Engine 日志。不要在日志或问题报告中粘贴令牌、Cookie、存储状态或客户数据。
 
-## 开发建议
+## 7. 安全要求
 
-### 1. 代码规范
-
-- ✅ Controller类名以 `Controller` 结尾
-- ✅ 能力方法名以 `handle` 开头
-- ✅ 使用 `@Controller` 注解标记
-- ✅ 继承 `StreamTaskHelper`（流式任务）
-- ✅ 注入 `WebSocketClientManager`（单次任务）
-
-### 2. 异常处理
-
-```java
-try {
-    // 业务代码
-    task.sendSuccess("完成", resultData);
-} catch (Exception e) {
-    log.error("任务失败", e);
-    task.sendError("任务失败: " + e.getMessage());
-} finally {
-    task.stop();  // 停止心跳
-    if (session != null) session.destroy();  // 释放资源
-}
-```
-
-### 3. 资源管理
-
-```java
-BrowserSession session = null;
-try {
-    session = browserPool.acquirePersistent(userId, "key", false);
-    // 使用session...
-} finally {
-    if (session != null) session.destroy();  // 必须释放
-}
-```
-
-### 4. 参数提取
-
-```java
-// 带默认值
-Integer count = message.getPayloadValue("count");
-if (count == null) count = 10;
-
-// 类型转换异常处理
-try {
-    List<String> items = message.getPayloadValue("items");
-} catch (ClassCastException e) {
-    task.sendError("参数items必须是数组");
-    return;
-}
-```
-
----
-
-## 贡献指南
-
-欢迎提交Issue和Pull Request！
-
-### 提交规范
-
-- **feat**: 新功能
-- **fix**: 修复bug
-- **docs**: 文档更新
-- **refactor**: 代码重构
-- **test**: 测试相关
-
----
-
-
-最近更新：2025年12月29日 18:42
+- 不在仓库、截图、日志或工单中保存真实 `engine-token`。
+- 不把 Playwright 登录态当作可公开测试数据。
+- 对外部网站的写入、发送和关键业务状态修改必须保留授权与人工门禁。
+- 生产环境使用独立强令牌、最小权限账号、受控网络和可审计的密钥管理。

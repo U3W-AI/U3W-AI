@@ -36,8 +36,8 @@
           />
           <div class="hint-text">
             <span>💡 提示：按 Ctrl+Enter 快速发送</span>
-            <el-button type="text" size="small" @click="formatJson">格式化</el-button>
-            <el-button type="text" size="small" @click="loadExample">加载示例</el-button>
+            <el-button link size="small" @click="formatJson">格式化</el-button>
+            <el-button link size="small" @click="loadExample">加载示例</el-button>
           </div>
         </el-form-item>
 

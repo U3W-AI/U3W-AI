@@ -113,6 +113,12 @@ public class EngineConfigValidator implements CommandLineRunner {
         
         String wsUrl = engineProperties.getWsUrl();
         String hostId = engineProperties.getHostId();
+        String engineToken = engineProperties.getEngineToken();
+
+        if (engineToken == null || engineToken.length() < 32) {
+            throw new IllegalStateException(
+                "fbsir.engine.engine-token must be configured with at least 32 characters");
+        }
         
         log.info("[配置验证] 从application.yml读取 - ws-url: '{}', host-id: '{}'", wsUrl, hostId);
         

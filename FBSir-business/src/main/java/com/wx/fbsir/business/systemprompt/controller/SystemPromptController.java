@@ -2,9 +2,9 @@ package com.wx.fbsir.business.systemprompt.controller;
 
 import com.wx.fbsir.business.systemprompt.domain.SystemPrompt;
 import com.wx.fbsir.business.systemprompt.service.SystemPromptService;
-import com.wx.fbsir.common.annotation.Anonymous;
 import com.wx.fbsir.common.core.domain.AjaxResult;
 import jakarta.annotation.Resource;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,7 +19,7 @@ public class SystemPromptController {
      * 获取系统提示词列表
      */
     @GetMapping("/list")
-    @Anonymous
+    @PreAuthorize("@ss.hasPermi('business:prompt:list')")
     public AjaxResult listSystemPrompt() {
         try {
             List<SystemPrompt> systemPromptList = systemPromptService.selectSystemPromptList();
@@ -36,7 +36,7 @@ public class SystemPromptController {
      * @return 系统提示词
      */
     @GetMapping("/system")
-    @Anonymous
+    @PreAuthorize("@ss.hasPermi('business:prompt:query')")
     public String getPrompt(@RequestParam Long id) {
         try {
             SystemPrompt systemPrompt = systemPromptService.selectSystemPromptById(id);
@@ -53,7 +53,7 @@ public class SystemPromptController {
      * @return 系统提示词
      */
     @GetMapping("/get")
-    @Anonymous
+    @PreAuthorize("@ss.hasPermi('business:prompt:query')")
     public AjaxResult getSystemPrompt(@RequestParam Long id) {
         try {
             SystemPrompt systemPrompt = systemPromptService.selectSystemPromptById(id);
@@ -71,7 +71,7 @@ public class SystemPromptController {
      * @return 插入结果
      */
     @PostMapping("/insert")
-    @Anonymous
+    @PreAuthorize("@ss.hasPermi('business:prompt:add')")
     public AjaxResult insertSystemPrompt(@RequestBody SystemPrompt systemPrompt) {
         try {
             boolean result = systemPromptService.insertSystemPrompt(systemPrompt);
@@ -88,7 +88,7 @@ public class SystemPromptController {
      * @return 更新结果
      */
     @PostMapping("/update")
-    @Anonymous
+    @PreAuthorize("@ss.hasPermi('business:prompt:edit')")
     public AjaxResult updateSystemPrompt(@RequestBody SystemPrompt systemPrompt) {
         try {
             boolean result = systemPromptService.updateSystemPrompt(systemPrompt);
@@ -105,7 +105,7 @@ public class SystemPromptController {
      * @return 删除结果
      */
     @PostMapping("/delete")
-    @Anonymous
+    @PreAuthorize("@ss.hasPermi('business:prompt:remove')")
     public AjaxResult deleteSystemPrompt(@RequestParam Long id) {
         try {
             boolean result = systemPromptService.deleteSystemPrompt(id);

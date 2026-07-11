@@ -45,6 +45,10 @@ fbsir:
     #   - 请勿与他人共享主机ID
     #   - 如果未填写，启动时会提示在终端输入
     host-id: engine-001
+
+    # 与 Admin 的 fbsir.websocket.engine-token 使用同一强凭证；至少32字符。
+    # 不得把真实值提交到仓库，部署时通过外部 application.yml 覆盖。
+    engine-token: ""
     
     # 节点版本（用于版本追踪和兼容性检查）
     # 版本号从 pom.xml 的 engine.version 属性自动注入

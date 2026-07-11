@@ -14,7 +14,7 @@
         <p style="margin-left: 20px;">
           2️⃣ <strong style="color: #F56C6C;">【必须】先将服务器IP添加到公众号IP白名单中</strong>
           <el-button 
-            type="text" 
+            link
             size="small" 
             :loading="loadingIp"
             @click="handleGetServerIp"
@@ -27,7 +27,7 @@
         <p v-if="serverIp" style="color: #E6A23C; font-weight: bold; margin-left: 40px;">
           📍 服务器IP：{{ serverIp }}
           <el-button 
-            type="text" 
+            link
             size="small" 
             @click="handleCopyIp"
             style="margin-left: 5px;"

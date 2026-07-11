@@ -108,6 +108,8 @@ public class ScreenshotUploadClient {
             conn.setConnectTimeout(CONNECT_TIMEOUT);
             conn.setReadTimeout(READ_TIMEOUT);
             conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+            conn.setRequestProperty("X-FBSir-Engine-Token", properties.getEngineToken());
+            conn.setRequestProperty("X-FBSir-Engine-Id", hostId);
             
             try (OutputStream os = conn.getOutputStream();
                  PrintWriter writer = new PrintWriter(new OutputStreamWriter(os, StandardCharsets.UTF_8), true)) {

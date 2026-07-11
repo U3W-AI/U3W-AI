@@ -6,7 +6,11 @@ on:
       - 'FBSir-ui/package.json'
       - 'FBSir-ui/package-lock.json'
       - 'FBSir-ui/vite/**'
-      - 'FBSir-ui/scripts/verify-svg-sprite.mjs'
+      - 'FBSir-ui/scripts/**'
+      - 'FBSir-ui/src/views/**'
+      - 'FBSir-ui/src/settings.js'
+      - 'FBSir-ui/.env.*'
+      - 'sql/**'
       - '.github/workflows/dependency-security.yml'
   push:
     branches:
@@ -15,7 +19,11 @@ on:
       - 'FBSir-ui/package.json'
       - 'FBSir-ui/package-lock.json'
       - 'FBSir-ui/vite/**'
-      - 'FBSir-ui/scripts/verify-svg-sprite.mjs'
+      - 'FBSir-ui/scripts/**'
+      - 'FBSir-ui/src/views/**'
+      - 'FBSir-ui/src/settings.js'
+      - 'FBSir-ui/.env.*'
+      - 'sql/**'
       - '.github/workflows/dependency-security.yml'
   schedule:
     - cron: '17 2 * * 1'
@@ -40,4 +48,5 @@ jobs:
       - run: npm ci
       - run: npm audit --audit-level=low
       - run: npm run verify:svg-icons
+      - run: npm run verify:menu-components
       - run: npm run build:prod

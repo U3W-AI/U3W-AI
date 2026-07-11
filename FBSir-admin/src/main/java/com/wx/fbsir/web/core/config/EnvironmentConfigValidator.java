@@ -33,6 +33,7 @@ public class EnvironmentConfigValidator
         "REDIS_DATABASE",
         "AES_SECRET_KEY",
         "TOKEN_SECRET",
+        "ENGINE_TOKEN",
         "DOMAIN",
         "FILE_PATH"
     };
@@ -80,6 +81,14 @@ public class EnvironmentConfigValidator
                     + "FBSIR_* family (including FBSIR_MYSQL_PASSWORD), or the complete legacy "
                     + "WXFBSIR_* family. Alternatively, provide "
                     + "spring.datasource.druid.master.password in an external configuration file.");
+        }
+
+        String engineToken = environment.getProperty("fbsir.websocket.engine-token");
+        if (!hasText(engineToken) || engineToken.length() < 32) {
+            throw new IllegalStateException(
+                "Engine credential is empty or too short. Configure FBSIR_ENGINE_TOKEN with at least "
+                    + "32 characters (legacy WXFBSIR_ENGINE_TOKEN is supported), or provide "
+                    + "fbsir.websocket.engine-token in an external configuration file.");
         }
 
         boolean consoleEnabled = Boolean.parseBoolean(environment.getProperty(

@@ -99,6 +99,7 @@ foreach ($target in $targets) {
 $sourceAssertions = @(
     @{ rule = 'websocket_source_origin'; path = 'FBSir-ui/src/utils/websocket.js'; pattern = 'window\.location\.origin'; message = 'Relative API environments must derive WebSocket URLs from the current origin.' },
     @{ rule = 'preview_websocket_proxy'; path = 'FBSir-ui/vite.config.js'; pattern = 'ws:\s*true'; message = 'Vite API proxy must support WebSocket upgrades.' },
+    @{ rule = 'development_websocket_origin_rewrite'; path = 'FBSir-ui/vite.config.js'; pattern = 'rewriteWsOrigin:\s*true'; message = 'The local Vite proxy must preserve Admin same-origin WebSocket enforcement.' },
     @{ rule = 'footer_current_year'; path = 'FBSir-ui/src/settings.js'; pattern = 'Copyright.*2026'; message = 'Homepage footer must use the current requested year and brand.' },
     @{ rule = 'legacy_database_default'; path = 'FBSir-admin/src/main/resources/application-druid.yml'; pattern = 'jdbc:mysql://127\.0\.0\.1:3306/wxfbsir\?'; message = 'The default JDBC URL must preserve the historical wxfbsir database name.' },
     @{ rule = 'legacy_database_script'; path = 'sql/wxfbsir.sql'; pattern = 'CREATE DATABASE IF NOT EXISTS `wxfbsir`[\s\S]*USE `wxfbsir`'; message = 'The initialization script must preserve the historical wxfbsir database name.' },
@@ -109,6 +110,13 @@ $sourceAssertions = @(
     @{ rule = 'druid_console_disabled_default'; path = 'FBSir-admin/src/main/resources/application-druid.yml'; pattern = 'enabled:\s*\$\{FBSIR_DRUID_STAT_ENABLED:\$\{WXFBSIR_DRUID_STAT_ENABLED:false\}\}'; message = 'Druid console must be disabled by default while preserving the legacy override.' },
     @{ rule = 'frontend_lockfile'; path = 'FBSir-ui/package-lock.json'; pattern = '"lockfileVersion"\s*:\s*3'; message = 'The frontend must publish a current npm lockfile.' },
     @{ rule = 'frontend_svg_sprite_contract'; path = 'FBSir-ui/vite/plugins/svg-icon.js'; pattern = 'virtual:svg-icons-register'; message = 'The local SVG plugin must preserve the virtual module contract.' },
+    @{ rule = 'frontend_menu_component_gate'; path = 'FBSir-ui/package.json'; pattern = '"verify:menu-components"\s*:\s*"node scripts/verify-menu-components\.mjs"'; message = 'The frontend package must expose the SQL menu component consistency gate.' },
+    @{ rule = 'frontend_menu_component_ci_gate'; path = '.github/workflows/dependency-security.yml'; pattern = 'npm run verify:menu-components'; message = 'CI must run the SQL menu component consistency gate.' },
+    @{ rule = 'frontend_multitab_websocket_identity'; path = 'FBSir-ui/src/utils/websocket.js'; pattern = 'clientInstanceId\s*=\s*getWebSocketClientInstanceId\(\)'; message = 'Browser WebSocket connections must retain a per-tab client identity.' },
+    @{ rule = 'engine_external_filtered_config'; path = 'FBSir-engine/README.md'; pattern = 'target\\classes\\application\.yml'; message = 'Engine deployment must copy the Maven-filtered external application.yml.' },
+    @{ rule = 'database_manifest_quartz_step'; path = 'scripts/init-database.ps1'; pattern = 'New-Step "public_init_002" "Quartz scheduler schema" \(Resolve-SqlFile "quartz\.sql"\)'; message = 'The public database manifest must initialize the Quartz schema immediately after the base schema.' },
+    @{ rule = 'database_manifest_complete_count'; path = 'scripts/init-database.ps1'; pattern = '\$steps\.Count -ne 26'; message = 'The public database manifest must retain all 26 initialization steps.' },
+    @{ rule = 'database_manifest_quartz_verification'; path = 'scripts/init-database.ps1'; pattern = "QRTZ_JOB_DETAILS','QRTZ_TRIGGERS','QRTZ_LOCKS"; message = 'Database initialization must verify representative Quartz scheduler tables.' },
     @{ rule = 'source_package_paths_not_ignored'; path = '.gitignore'; pattern = '(?m)^/fbsir/\s*$'; message = 'The FBSir source package path must not be ignored at nested Java source locations.' }
 )
 
@@ -131,6 +139,19 @@ if ((Test-Path $frontendPackagePath) -and (Get-Content -Raw -Encoding UTF8 $fron
 }
 if ((Test-Path $frontendLockfilePath) -and (Get-Content -Raw -Encoding UTF8 $frontendLockfilePath) -match 'node_modules/vite-plugin-svg-icons') {
     Add-Finding 'retired_svg_build_dependency' $frontendLockfilePath 0 '' 'The frontend lockfile must not retain the retired SVG build dependency.'
+}
+
+$menuComponentGatePath = Resolve-BrandCompatiblePath 'FBSir-ui/scripts/verify-menu-components.mjs'
+$nodeCommand = Get-Command node -ErrorAction SilentlyContinue
+if (-not (Test-Path $menuComponentGatePath)) {
+    Add-Finding 'frontend_menu_component_gate' $menuComponentGatePath 0 '' 'The SQL menu component consistency gate is missing.'
+} elseif (-not $nodeCommand) {
+    Add-Finding 'frontend_menu_component_gate_runtime' $menuComponentGatePath 0 '' 'Node.js is required to execute the SQL menu component consistency gate.'
+} else {
+    $menuGateOutput = & $nodeCommand.Source $menuComponentGatePath 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0) {
+        Add-Finding 'frontend_menu_component_gate_failed' $menuComponentGatePath 0 $menuGateOutput 'The SQL menu component or branding contract is inconsistent.'
+    }
 }
 
 $unsafeEnvironmentFilterPath = Resolve-BrandCompatiblePath 'FBSir-admin/src/main/java/com/wx/fbsir/web/core/config/EnvironmentVariableFilter.java'

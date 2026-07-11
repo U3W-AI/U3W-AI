@@ -19,6 +19,8 @@ import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
 
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Client WebSocket 握手拦截器
@@ -40,6 +42,8 @@ import java.util.Map;
 public class ClientWebSocketInterceptor implements HandshakeInterceptor {
 
     private static final Logger log = LoggerFactory.getLogger(ClientWebSocketInterceptor.class);
+    private static final Set<String> SUPPORTED_CLIENT_TYPES = Set.of("web", "mypc", "mini");
+    private static final Pattern CLIENT_INSTANCE_PATTERN = Pattern.compile("^[A-Za-z0-9_-]{8,64}$");
 
     @Value("${token.secret}")
     private String secret;
@@ -74,6 +78,10 @@ public class ClientWebSocketInterceptor implements HandshakeInterceptor {
                 log.warn("[Client WebSocket] 握手失败: 缺少 clientType 参数");
                 return false;
             }
+            if (!SUPPORTED_CLIENT_TYPES.contains(clientType)) {
+                log.warn("[Client WebSocket] 握手失败: 不支持的 clientType={}", clientType);
+                return false;
+            }
             
             // 从 Authorization Header 获取 Token（和其他 API 一致）
             String token = getTokenFromHeader(servletRequest);
@@ -85,8 +93,13 @@ public class ClientWebSocketInterceptor implements HandshakeInterceptor {
                 return false;
             }
             
-            // 生成 clientId: {clientType}-{userId}
-            String clientId = clientType + "-" + loginUser.getUserId();
+            // 标签页实例标识允许同一用户并行打开多个受控 WebSocket 页面。
+            String clientInstanceId = servletRequest.getServletRequest().getParameter("clientInstanceId");
+            String clientId = buildClientId(clientType, loginUser.getUserId(), clientInstanceId);
+            if (clientId == null) {
+                log.warn("[Client WebSocket] 握手失败: clientInstanceId 格式非法");
+                return false;
+            }
             
             // 存入 session attributes
             attributes.put("clientId", clientId);
@@ -99,6 +112,17 @@ public class ClientWebSocketInterceptor implements HandshakeInterceptor {
         }
         
         return false;
+    }
+
+    static String buildClientId(String clientType, Object userId, String clientInstanceId) {
+        String baseClientId = clientType + "-" + userId;
+        if (StringUtils.isEmpty(clientInstanceId)) {
+            return baseClientId;
+        }
+        if (!CLIENT_INSTANCE_PATTERN.matcher(clientInstanceId).matches()) {
+            return null;
+        }
+        return baseClientId + "-" + clientInstanceId;
     }
 
     /**

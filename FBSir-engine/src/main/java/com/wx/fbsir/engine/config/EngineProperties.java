@@ -6,6 +6,7 @@ import org.springframework.validation.annotation.Validated;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 /**
  * Engine 副节点配置属性
@@ -33,6 +34,11 @@ public class EngineProperties {
      * 如果未配置，启动时会提示在终端输入
      */
     private String hostId;
+
+    /** Shared credential for the Admin WebSocket and Engine HTTP callbacks. */
+    @NotBlank(message = "Engine credential must be configured")
+    @Size(min = 32, message = "Engine credential must contain at least 32 characters")
+    private String engineToken;
 
     /**
      * 节点版本
@@ -65,6 +71,14 @@ public class EngineProperties {
     
     public void setHostId(String hostId) {
         this.hostId = hostId;
+    }
+
+    public String getEngineToken() {
+        return engineToken;
+    }
+
+    public void setEngineToken(String engineToken) {
+        this.engineToken = engineToken;
     }
     
     public String getVersion() {

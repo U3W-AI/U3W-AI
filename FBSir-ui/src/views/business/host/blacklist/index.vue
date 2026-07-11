@@ -138,8 +138,8 @@
         </el-form-item>
         <el-form-item label="封禁类型" prop="blockType">
           <el-radio-group v-model="form.blockType">
-            <el-radio :label="1">临时封禁</el-radio>
-            <el-radio :label="2">永久封禁</el-radio>
+            <el-radio :value="1">临时封禁</el-radio>
+            <el-radio :value="2">永久封禁</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="解封时间" prop="expireTime" v-if="form.blockType === 1">
@@ -152,8 +152,8 @@
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
-            <el-radio :label="1">生效</el-radio>
-            <el-radio :label="0">已解除</el-radio>
+            <el-radio :value="1">生效</el-radio>
+            <el-radio :value="0">已解除</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="备注" prop="remark">

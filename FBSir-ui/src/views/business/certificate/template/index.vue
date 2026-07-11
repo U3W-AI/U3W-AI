@@ -56,28 +56,28 @@
         <template #default="scope">
           <el-button
               size="small"
-              type="text"
+              link
               icon="Edit"
               @click="handleUpdate(scope.row)"
               v-hasPermi="['business:certificate:template:edit']"
           >修改</el-button>
           <el-button
               size="small"
-              type="text"
+              link
               icon="Delete"
               @click="handleDelete(scope.row)"
               v-hasPermi="['business:certificate:template:remove']"
           >删除</el-button>
           <el-button
               size="small"
-              type="text"
+              link
               @click="toggleShelf(scope.row)"
               v-if="scope.row.status === '0'"
               v-hasPermi="['business:certificate:template:edit']"
           >下架</el-button>
           <el-button
               size="small"
-              type="text"
+              link
               @click="toggleShelf(scope.row)"
               v-else
               v-hasPermi="['business:certificate:template:edit']"
@@ -115,8 +115,8 @@
             </el-form-item>
             <el-form-item label="上架状态" prop="status">
               <el-radio-group v-model="form.status">
-                <el-radio label="0">上架</el-radio>
-                <el-radio label="1">未上架</el-radio>
+                <el-radio value="0">上架</el-radio>
+                <el-radio value="1">未上架</el-radio>
               </el-radio-group>
             </el-form-item>
             <el-form-item label="证书描述" prop="remark">

@@ -234,7 +234,7 @@
             </div>
           </div>
           <el-button 
-            type="text" 
+            link
             size="small" 
             @click="clearResults" 
             :icon="Delete"

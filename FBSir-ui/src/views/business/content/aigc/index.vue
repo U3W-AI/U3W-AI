@@ -22,15 +22,15 @@
             </el-icon>
             历史记录
           </el-button>
-          <el-button size="mini" type="primary" @click="handleGenerateOutput" v-hasPermi="['business:output:generate']">
+          <el-button size="small" type="primary" @click="handleGenerateOutput" v-hasPermi="['business:output:generate']">
             生成输出物
           </el-button>
 
-          <el-button size="mini" @click="handleExportMarkdown" v-hasPermi="['business:output:exportMarkdown']">
+          <el-button size="small" @click="handleExportMarkdown" v-hasPermi="['business:output:exportMarkdown']">
             导出Markdown
           </el-button>
 
-          <el-button size="mini" @click="handlePushWebhook" v-hasPermi="['business:output:pushWebhook']">
+          <el-button size="small" @click="handlePushWebhook" v-hasPermi="['business:output:pushWebhook']">
             推送Webhook
           </el-button>
         </div>

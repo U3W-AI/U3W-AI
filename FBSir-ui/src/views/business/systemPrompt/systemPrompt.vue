@@ -2,7 +2,8 @@
   <div class="app-container">
     <el-row :gutter="10" class="mb8">
       <el-col :span="1.5">
-        <el-button type="primary" plain icon="Plus" @click="handleAdd">新增</el-button>
+        <el-button type="primary" plain icon="Plus" @click="handleAdd"
+          v-hasPermi="['business:prompt:add']">新增</el-button>
       </el-col>
       <el-col :span="1.5">
         <el-button type="primary" plain icon="Refresh" @click="getList">刷新</el-button>
@@ -45,8 +46,10 @@
       </el-table-column>
       <el-table-column label="操作" align="center" width="150" fixed="right">
         <template #default="scope">
-          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.$index)">修改</el-button>
-          <el-button link type="danger" icon="Delete" @click="handleDelete(scope.$index)">删除</el-button>
+          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.$index)"
+            v-hasPermi="['business:prompt:edit']">修改</el-button>
+          <el-button link type="danger" icon="Delete" @click="handleDelete(scope.$index)"
+            v-hasPermi="['business:prompt:remove']">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -74,14 +77,15 @@
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
-            <el-radio :label="true">启用</el-radio>
-            <el-radio :label="false">禁用</el-radio>
+            <el-radio :value="true">启用</el-radio>
+            <el-radio :value="false">禁用</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button type="primary" @click="submitForm">确 定</el-button>
+          <el-button type="primary" @click="submitForm"
+            v-hasPermi="[form.id != null ? 'business:prompt:edit' : 'business:prompt:add']">确 定</el-button>
           <el-button @click="cancel">取 消</el-button>
         </div>
       </template>

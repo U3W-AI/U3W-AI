@@ -53,6 +53,7 @@ public class EngineAdminController {
     /**
      * 获取连接统计信息
      */
+    @PreAuthorize("@ss.hasPermi('business:host:online:query')")
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getStats() {
         Map<String, Object> result = new HashMap<>();
@@ -65,6 +66,7 @@ public class EngineAdminController {
     /**
      * 获取所有已连接的 Engine 列表
      */
+    @PreAuthorize("@ss.hasPermi('business:host:online:query')")
     @GetMapping("/engines")
     public ResponseEntity<Map<String, Object>> getEngines() {
         List<EngineSession> sessions = sessionManager.getRegisteredSessions();
@@ -83,6 +85,7 @@ public class EngineAdminController {
     /**
      * 获取指定 Engine 的详细信息
      */
+    @PreAuthorize("@ss.hasPermi('business:host:online:query')")
     @GetMapping("/engines/{engineId}")
     public ResponseEntity<Map<String, Object>> getEngine(@PathVariable String engineId) {
         EngineSession session = sessionManager.getSessionByEngineId(engineId);
@@ -102,7 +105,7 @@ public class EngineAdminController {
     /**
      * 断开指定 Engine 的连接
      */
-    @PreAuthorize("@ss.hasPermi('business:host:connection:disconnect')")
+    @PreAuthorize("@ss.hasPermi('business:host:online:offline')")
     @Log(title = "强制下线主机", businessType = BusinessType.DELETE)
     @DeleteMapping("/engines/{engineId}")
     public ResponseEntity<Map<String, Object>> disconnectEngine(@PathVariable String engineId) {
@@ -165,6 +168,7 @@ public class EngineAdminController {
      * 向指定 Engine 发送任务
      */
     @PostMapping("/engines/{engineId}/task")
+    @PreAuthorize("@ss.hasPermi('business:debug:send')")
     public ResponseEntity<Map<String, Object>> sendTask(
             @PathVariable String engineId,
             @RequestBody Map<String, Object> taskData) {
@@ -205,6 +209,7 @@ public class EngineAdminController {
      * 广播消息给所有 Engine
      */
     @PostMapping("/broadcast")
+    @PreAuthorize("@ss.hasPermi('business:debug:send')")
     public ResponseEntity<Map<String, Object>> broadcast(@RequestBody Map<String, Object> messageData) {
         String type = (String) messageData.getOrDefault("type", "TASK_REQUEST");
         
@@ -229,6 +234,7 @@ public class EngineAdminController {
     /**
      * 获取 WebSocket 配置信息
      */
+    @PreAuthorize("@ss.hasPermi('business:host:online:query')")
     @GetMapping("/config")
     public ResponseEntity<Map<String, Object>> getConfig() {
         Map<String, Object> config = new HashMap<>();

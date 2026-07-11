@@ -160,8 +160,8 @@
         </el-form-item>
         <el-form-item label="是否团队主机" prop="isTeam">
           <el-radio-group v-model="form.isTeam">
-            <el-radio :label="0">个人</el-radio>
-            <el-radio :label="1">团队</el-radio>
+            <el-radio :value="0">个人</el-radio>
+            <el-radio :value="1">团队</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="团队名称" prop="teamName" v-if="form.isTeam === 1">
@@ -181,8 +181,8 @@
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
-            <el-radio :label="1">启用</el-radio>
-            <el-radio :label="0">禁用</el-radio>
+            <el-radio :value="1">启用</el-radio>
+            <el-radio :value="0">禁用</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="过期时间" prop="expireTime">

@@ -3,6 +3,37 @@
  * 从HTTP URL自动解析对应的WebSocket URL
  */
 
+const CLIENT_INSTANCE_STORAGE_KEY = 'fbsir_ws_client_instance'
+let fallbackClientInstanceId = ''
+
+function createClientInstanceId() {
+  const uuid = globalThis.crypto?.randomUUID?.()
+  if (uuid) return uuid.replace(/-/g, '')
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+}
+
+/**
+ * 返回当前浏览器标签页稳定且非敏感的连接实例标识。
+ * 同一用户打开多个标签页时，每个标签页拥有独立 WebSocket 会话。
+ */
+export function getWebSocketClientInstanceId() {
+  if (typeof window !== 'undefined') {
+    try {
+      const storage = window.sessionStorage
+      let instanceId = storage.getItem(CLIENT_INSTANCE_STORAGE_KEY)
+      if (!/^[A-Za-z0-9_-]{8,64}$/.test(instanceId || '')) {
+        instanceId = createClientInstanceId()
+        storage.setItem(CLIENT_INSTANCE_STORAGE_KEY, instanceId)
+      }
+      return instanceId
+    } catch {
+      // 浏览器禁用存储时使用当前页面生命周期内的回退值。
+    }
+  }
+  if (!fallbackClientInstanceId) fallbackClientInstanceId = createClientInstanceId()
+  return fallbackClientInstanceId
+}
+
 /**
  * 将HTTP URL转换为WebSocket URL
  * @param {string} httpUrl - HTTP URL (如: http://localhost:8080 或 https://api.example.com)
@@ -124,13 +155,15 @@ export function getWebSocketUrl(path = '/ws/client') {
  * @param {string} options.path - WebSocket路径
  * @param {string} options.token - 认证token
  * @param {string} options.clientType - 客户端类型 (默认: web)
+ * @param {string} options.clientInstanceId - 当前标签页实例标识
  * @returns {string} 完整的WebSocket URL
  */
 export function buildWebSocketUrl(options = {}) {
   const {
     path = '/ws/client',
     token = '',
-    clientType = 'web'
+    clientType = 'web',
+    clientInstanceId = getWebSocketClientInstanceId()
   } = options;
   
   const baseUrl = getWebSocketUrl(path);
@@ -138,6 +171,10 @@ export function buildWebSocketUrl(options = {}) {
   
   if (clientType) {
     params.append('clientType', clientType);
+  }
+
+  if (clientInstanceId) {
+    params.append('clientInstanceId', clientInstanceId);
   }
   
   if (token) {

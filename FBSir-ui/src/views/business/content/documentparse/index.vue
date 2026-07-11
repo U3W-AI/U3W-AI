@@ -87,7 +87,7 @@
             <div class="list-header">
               <span>我的解析记录 <el-tag v-if="totalParses > 0" size="small" type="info">{{ totalParses }}</el-tag></span>
               <el-button
-                type="text"
+                link
                 size="small"
                 @click="refreshParses"
                 :loading="loading"

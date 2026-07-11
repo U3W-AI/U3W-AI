@@ -56,6 +56,18 @@ class WhitelistServiceTest {
         assertTrue(result.isValid());
     }
 
+    @Test
+    @DisplayName("白名单数据访问不可用时必须拒绝连接")
+    void missingMapperFailsClosed() {
+        WhitelistService unavailable = new WhitelistService();
+
+        WhitelistService.ValidationResult result =
+            unavailable.validateHostId("engine-001", "127.0.0.1", "engine");
+
+        assertEquals("WHITELIST_UNAVAILABLE", result.getCode());
+        assertEquals(false, result.isValid());
+    }
+
     private WsHostWhitelist buildWhitelist(String hostId, String hostType) {
         WsHostWhitelist whitelist = new WsHostWhitelist();
         whitelist.setHostId(hostId);

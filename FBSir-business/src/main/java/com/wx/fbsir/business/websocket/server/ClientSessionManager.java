@@ -57,15 +57,35 @@ public class ClientSessionManager {
         log.info("[ClientSession] 客户端断开: {} (当前在线: {})", clientId, clientSessions.size());
     }
 
+    /**
+     * 仅在映射仍指向当前会话时移除，避免旧连接关闭回调误删新连接。
+     */
+    public void removeClient(String clientId, WebSocketSession session) {
+        if (clientSessions.remove(clientId, session)) {
+            log.info("[ClientSession] 客户端断开: {} (当前在线: {})", clientId, clientSessions.size());
+        }
+    }
+
     // ━━━━━━━━━━━━━━━━ 消息发送 ━━━━━━━━━━━━━━━━
 
     /**
      * 发送消息给指定用户（同时发送给 web 和 mini 端）
      */
     public void sendToUser(String userId, String message) {
-        sendToClient("web-" + userId, message);
-        sendToClient("mypc-" + userId, message);
-        sendToClient("mini-" + userId, message);
+        sendToClientFamily("web-" + userId, message);
+        sendToClientFamily("mypc-" + userId, message);
+        sendToClientFamily("mini-" + userId, message);
+    }
+
+    /**
+     * 发送给同一用户同一客户端类型下的所有标签页/设备实例，同时兼容旧客户端ID。
+     */
+    public void sendToClientFamily(String baseClientId, String message) {
+        clientSessions.forEach((clientId, session) -> {
+            if (clientId.equals(baseClientId) || clientId.startsWith(baseClientId + "-")) {
+                sendToClient(clientId, message);
+            }
+        });
     }
 
     /**

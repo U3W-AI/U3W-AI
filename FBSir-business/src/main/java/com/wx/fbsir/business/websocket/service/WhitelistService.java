@@ -79,8 +79,8 @@ public class WhitelistService {
 
     public ValidationResult validateHostId(String hostId, String remoteIp, String expectedHostType) {
         if (whitelistMapper == null) {
-            log.warn("[白名单] Mapper未注入，跳过白名单验证");
-            return ValidationResult.success();
+            log.error("[白名单] Mapper未注入，拒绝Engine连接");
+            return ValidationResult.fail("WHITELIST_UNAVAILABLE", "白名单服务不可用");
         }
 
         try {

@@ -7,7 +7,7 @@
             <div class="card-header">
               <div class="title">我的积分总览</div>
               <div class="actions">
-                <el-button type="text" size="small" @click="refreshSummary">
+                <el-button link size="small" @click="refreshSummary">
                   <el-icon><Refresh /></el-icon>刷新
                 </el-button>
                 <el-button type="primary" size="small" plain @click="showTaskList = true">
@@ -444,4 +444,3 @@ function getUserPointsRecord(params) {
   }
 }
 </style>
-

@@ -166,13 +166,11 @@ public class EngineWebSocketHandler extends TextWebSocketHandler {
         String deviceId = message.getPayloadValue("deviceId");
         Object capabilitiesObj = message.getPayloadValue("capabilities");
         
-        // 获取客户端上报的IP信息
+        // 客户端上报的IP仅用于诊断，绝不参与授权或白名单判断。
         String clientLocalIp = message.getPayloadValue("localIp");
         String clientPublicIp = message.getPayloadValue("publicIp");
-        String connectionIp = remoteIp;  // 连接来源IP（可能是127.0.0.1或代理IP）
-        
-        // 统一使用客户端上报的公网IP作为主要IP（用于验证、记录、管理）
-        String primaryIp = clientPublicIp != null && !clientPublicIp.isEmpty() ? clientPublicIp : remoteIp;
+        String connectionIp = remoteIp;
+        String primaryIp = remoteIp;
         
         // 收集设备信息用于记录
         Map<String, Object> deviceInfo = new HashMap<>();
@@ -188,7 +186,7 @@ public class EngineWebSocketHandler extends TextWebSocketHandler {
         log.info("[WebSocket] 注册请求 - HostID: {}, 连接IP: {}, 公网IP: {}, 主要IP: {}", 
             hostId, connectionIp, clientPublicIp, primaryIp);
         
-        // 更新连接记录的IP为公网IP
+        // 连接记录与访问控制统一使用服务端观察到的 TCP 对端地址。
         connectionLogService.updateConnectionIp(sessionId, primaryIp);
         
         // 1. 验证主机ID是否为空
@@ -519,37 +517,11 @@ public class EngineWebSocketHandler extends TextWebSocketHandler {
     }
 
     /**
-     * 获取客户端IP地址
-     * 支持反向代理场景，优先从HTTP头获取真实IP
+     * 获取服务端观察到的 TCP 对端 IP。代理头可被客户端伪造，不作为
+     * Engine 注册、黑白名单或限流的信任来源。
      */
     private String getRemoteIp(WebSocketSession session) {
         try {
-            // 1. 尝试从HTTP头获取真实IP（反向代理场景）
-            String realIp = getHeaderValue(session, "X-Real-IP");
-            if (realIp != null && !realIp.isEmpty() && !"unknown".equalsIgnoreCase(realIp)) {
-                return realIp;
-            }
-            
-            // 2. 尝试从X-Forwarded-For获取（可能有多个IP，取第一个）
-            String forwardedFor = getHeaderValue(session, "X-Forwarded-For");
-            if (forwardedFor != null && !forwardedFor.isEmpty() && !"unknown".equalsIgnoreCase(forwardedFor)) {
-                // X-Forwarded-For格式: client, proxy1, proxy2
-                String[] ips = forwardedFor.split(",");
-                if (ips.length > 0) {
-                    return ips[0].trim();
-                }
-            }
-            
-            // 3. 尝试其他常见代理头
-            String[] proxyHeaders = {"Proxy-Client-IP", "WL-Proxy-Client-IP", "HTTP_CLIENT_IP", "HTTP_X_FORWARDED_FOR"};
-            for (String header : proxyHeaders) {
-                String ip = getHeaderValue(session, header);
-                if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-                    return ip;
-                }
-            }
-            
-            // 4. 最后使用直连IP
             if (session.getRemoteAddress() != null) {
                 return session.getRemoteAddress().getAddress().getHostAddress();
             }
@@ -557,20 +529,6 @@ public class EngineWebSocketHandler extends TextWebSocketHandler {
             log.warn("[WebSocket] 获取客户端IP失败: {}", e.getMessage());
         }
         return "unknown";
-    }
-    
-    /**
-     * 从WebSocket会话的握手头中获取指定header值
-     */
-    private String getHeaderValue(WebSocketSession session, String headerName) {
-        try {
-            if (session.getHandshakeHeaders() != null) {
-                return session.getHandshakeHeaders().getFirst(headerName);
-            }
-        } catch (Exception e) {
-            // 忽略
-        }
-        return null;
     }
     
     /**

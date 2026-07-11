@@ -61,6 +61,7 @@ class EnvironmentConfigValidatorTest {
         );
         MockEnvironment effectiveConfiguration = new MockEnvironment()
             .withProperty("spring.datasource.druid.master.password", "configured-secret")
+            .withProperty("fbsir.websocket.engine-token", "engine-token-at-least-32-characters-long")
             .withProperty("spring.datasource.druid.statViewServlet.enabled", "false");
 
         IllegalStateException error = assertThrows(IllegalStateException.class,
@@ -73,6 +74,7 @@ class EnvironmentConfigValidatorTest {
     void rejectsEmptyEffectiveDatabasePasswordBeforeConnectionsAreOpened() {
         MockEnvironment environment = new MockEnvironment()
             .withProperty("spring.datasource.druid.master.password", "")
+            .withProperty("fbsir.websocket.engine-token", "engine-token-at-least-32-characters-long")
             .withProperty("spring.datasource.druid.statViewServlet.enabled", "false");
 
         IllegalStateException error = assertThrows(IllegalStateException.class,
@@ -114,6 +116,7 @@ class EnvironmentConfigValidatorTest {
     void acceptsExplicitDatabasePasswordWhenDruidConsoleIsDisabled() {
         MockEnvironment environment = new MockEnvironment()
             .withProperty("spring.datasource.druid.master.password", "configured-secret")
+            .withProperty("fbsir.websocket.engine-token", "engine-token-at-least-32-characters-long")
             .withProperty("spring.datasource.druid.statViewServlet.enabled", "false");
 
         assertDoesNotThrow(() -> validator.validateEffectiveConfig(environment));
@@ -123,6 +126,7 @@ class EnvironmentConfigValidatorTest {
     void rejectsEnabledDruidConsoleWithoutCredentials() {
         MockEnvironment environment = new MockEnvironment()
             .withProperty("spring.datasource.druid.master.password", "configured-secret")
+            .withProperty("fbsir.websocket.engine-token", "engine-token-at-least-32-characters-long")
             .withProperty("spring.datasource.druid.statViewServlet.enabled", "true");
 
         IllegalStateException error = assertThrows(IllegalStateException.class,
@@ -135,6 +139,7 @@ class EnvironmentConfigValidatorTest {
     void acceptsEnabledDruidConsoleWithExplicitCredentials() {
         MockEnvironment environment = new MockEnvironment()
             .withProperty("spring.datasource.druid.master.password", "configured-secret")
+            .withProperty("fbsir.websocket.engine-token", "engine-token-at-least-32-characters-long")
             .withProperty("spring.datasource.druid.statViewServlet.enabled", "true")
             .withProperty("spring.datasource.druid.statViewServlet.login-username", "operator")
             .withProperty("spring.datasource.druid.statViewServlet.login-password", "console-secret");
@@ -142,10 +147,26 @@ class EnvironmentConfigValidatorTest {
         assertDoesNotThrow(() -> validator.validateEffectiveConfig(environment));
     }
 
+    @Test
+    void rejectsMissingOrShortEngineCredential() {
+        MockEnvironment missing = new MockEnvironment()
+            .withProperty("spring.datasource.druid.master.password", "configured-secret")
+            .withProperty("spring.datasource.druid.statViewServlet.enabled", "false");
+        MockEnvironment shortToken = new MockEnvironment()
+            .withProperty("spring.datasource.druid.master.password", "configured-secret")
+            .withProperty("fbsir.websocket.engine-token", "too-short")
+            .withProperty("spring.datasource.druid.statViewServlet.enabled", "false");
+
+        assertThrows(IllegalStateException.class, () -> validator.validateEffectiveConfig(missing));
+        assertThrows(IllegalStateException.class, () -> validator.validateEffectiveConfig(shortToken));
+    }
+
     private static Map<String, String> completeFamily(String prefix) {
         Map<String, String> environment = new HashMap<>();
         for (String suffix : EnvironmentConfigValidator.REQUIRED_ENV_SUFFIXES) {
-            environment.put(prefix + suffix, "configured-" + suffix.toLowerCase());
+            environment.put(prefix + suffix, "ENGINE_TOKEN".equals(suffix)
+                ? "engine-token-at-least-32-characters-long"
+                : "configured-" + suffix.toLowerCase());
         }
         return environment;
     }

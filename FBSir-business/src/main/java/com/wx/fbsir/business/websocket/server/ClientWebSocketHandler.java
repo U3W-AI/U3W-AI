@@ -64,7 +64,7 @@ public class ClientWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         String clientId = (String) session.getAttributes().get("clientId");
         if (clientId != null) {
-            sessionManager.removeClient(clientId);
+            sessionManager.removeClient(clientId, session);
             log.info("❌ Client 断开: {}", clientId);
         }
     }

@@ -1,10 +1,12 @@
 package com.wx.fbsir.business.websocket.controller;
 
 import com.wx.fbsir.business.websocket.server.EngineSessionManager;
+import com.wx.fbsir.business.websocket.security.EngineCredentialVerifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -36,6 +38,7 @@ public class EngineUploadController {
     private static final Logger log = LoggerFactory.getLogger(EngineUploadController.class);
 
     private final EngineSessionManager sessionManager;
+    private final EngineCredentialVerifier credentialVerifier;
 
     /**
      * 文件上传根路径
@@ -53,8 +56,10 @@ public class EngineUploadController {
     private static final long MAX_SCREENSHOT_BYTES = 10L * 1024 * 1024;
     private static final long MAX_IMAGE_PIXELS = 40_000_000L;
 
-    public EngineUploadController(EngineSessionManager sessionManager) {
+    public EngineUploadController(EngineSessionManager sessionManager,
+                                  EngineCredentialVerifier credentialVerifier) {
         this.sessionManager = sessionManager;
+        this.credentialVerifier = credentialVerifier;
     }
 
     /**
@@ -68,12 +73,21 @@ public class EngineUploadController {
      */
     @PostMapping("/screenshot/upload")
     public ResponseEntity<Map<String, Object>> uploadScreenshot(
+            @RequestHeader(value = EngineCredentialVerifier.HEADER_NAME, required = false) String engineToken,
+            @RequestHeader(value = EngineCredentialVerifier.ENGINE_ID_HEADER_NAME, required = false) String authenticatedHostId,
             @RequestParam("hostId") String hostId,
             @RequestParam("userId") String userId,
             @RequestParam(value = "fileName", required = false) String fileName,
             @RequestParam("file") MultipartFile file) {
         
         Map<String, Object> result = new HashMap<>();
+
+        if (!isAuthenticatedEngine(engineToken, authenticatedHostId, hostId)) {
+            result.put("success", false);
+            result.put("message", "Engine凭证无效或与主机ID不匹配");
+            result.put("code", "ENGINE_UNAUTHORIZED");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(result);
+        }
         
         // 1. 验证主机ID是否在线
         if (!sessionManager.isEngineOnline(hostId)) {
@@ -172,11 +186,20 @@ public class EngineUploadController {
      */
     @PostMapping("/screenshot/batch-upload")
     public ResponseEntity<Map<String, Object>> batchUploadScreenshots(
+            @RequestHeader(value = EngineCredentialVerifier.HEADER_NAME, required = false) String engineToken,
+            @RequestHeader(value = EngineCredentialVerifier.ENGINE_ID_HEADER_NAME, required = false) String authenticatedHostId,
             @RequestParam("hostId") String hostId,
             @RequestParam("userId") String userId,
             @RequestParam("files") MultipartFile[] files) {
         
         Map<String, Object> result = new HashMap<>();
+
+        if (!isAuthenticatedEngine(engineToken, authenticatedHostId, hostId)) {
+            result.put("success", false);
+            result.put("message", "Engine凭证无效或与主机ID不匹配");
+            result.put("code", "ENGINE_UNAUTHORIZED");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(result);
+        }
         
         // 验证主机ID是否在线
         if (!sessionManager.isEngineOnline(hostId)) {
@@ -261,6 +284,13 @@ public class EngineUploadController {
         result.put("failedCount", failed);
         
         return ResponseEntity.ok(result);
+    }
+
+    private boolean isAuthenticatedEngine(String engineToken, String authenticatedHostId, String hostId) {
+        return credentialVerifier.matches(engineToken)
+            && authenticatedHostId != null
+            && authenticatedHostId.equals(hostId)
+            && sessionManager.isEngineOnline(hostId);
     }
 
     private BufferedImage readAndValidateScreenshot(MultipartFile file) throws IOException {

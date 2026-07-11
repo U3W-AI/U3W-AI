@@ -93,14 +93,14 @@
         <template #default="scope">
           <el-button
               size="small"
-              type="text"
+              link
               icon="View"
               @click="handleView(scope.row)"
               v-hasPermi="['business:certificate:review:query']"
           >详情</el-button>
           <el-button
               size="small"
-              type="text"
+              link
               icon="Edit"
               @click="handleUpdate(scope.row)"
               v-if="scope.row.applicationStatus === 'SUBMITTED' || scope.row.applicationStatus === '1'"
@@ -108,7 +108,7 @@
           >通过</el-button>
           <el-button
               size="small"
-              type="text"
+              link
               icon="Close"
               @click="handleReject(scope.row)"
               v-if="scope.row.applicationStatus === 'SUBMITTED' || scope.row.applicationStatus === '1'"

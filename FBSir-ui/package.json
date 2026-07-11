@@ -10,7 +10,8 @@
     "build:prod": "vite build",
     "build:stage": "vite build --mode staging",
     "preview": "vite preview",
-    "verify:svg-icons": "node scripts/verify-svg-sprite.mjs"
+    "verify:svg-icons": "node scripts/verify-svg-sprite.mjs",
+    "verify:menu-components": "node scripts/verify-menu-components.mjs"
   },
   "repository": {
     "type": "git",

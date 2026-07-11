@@ -75,14 +75,14 @@
         <template #default="scope">
           <el-button
             size="small"
-            type="text"
+            link
             icon="View"
             @click="handleView(scope.row)"
             v-hasPermi="['business:certificate:certificateManagement:query']"
           >查看</el-button>
           <el-button
             size="small"
-            type="text"
+            link
             icon="Download"
             @click="handleDownload(scope.row)"
             v-hasPermi="['business:certificate:certificateManagement:download']"

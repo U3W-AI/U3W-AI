@@ -11,6 +11,10 @@ const createApiProxy = (prefix, target) => ({
   target,
   changeOrigin: true,
   ws: true,
+  // Local development keeps Admin's strict same-origin WebSocket policy by
+  // presenting the proxy target as the handshake Origin. Never expose this
+  // development proxy as a public gateway.
+  rewriteWsOrigin: true,
   rewrite: (requestPath) => requestPath.replace(new RegExp(`^${prefix}`), '')
 })
 

@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -147,7 +148,7 @@ public class EngineWebSocketClient extends WebSocketClient {
                                   EngineProperties properties,
                                   ScheduledExecutorService scheduler,
                                   Consumer<EngineMessage> messageHandler) {
-        super(serverUri);
+        super(serverUri, buildHandshakeHeaders(properties));
         this.properties = properties;
         this.scheduler = scheduler;
         this.messageHandler = messageHandler;
@@ -156,6 +157,10 @@ public class EngineWebSocketClient extends WebSocketClient {
         this.setConnectionLostTimeout(properties.getConnection().getHeartbeatTimeout());
         
         log.info("[Engine] 初始化完成 - 目标: {}", serverUri);
+    }
+
+    static Map<String, String> buildHandshakeHeaders(EngineProperties properties) {
+        return Map.of("X-FBSir-Engine-Token", properties.getEngineToken());
     }
 
     @Override

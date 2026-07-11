@@ -286,7 +286,7 @@
         )
     </insert>
 
-    <!-- 🔥 获取草稿列表（按task_id分组，参考旧项目cube-admin） -->
+    <!-- 获取草稿列表：每个 task_id 取最新一条，兼容 ONLY_FULL_GROUP_BY -->
     <select id="getPlayWrightDraftList" resultType="java.util.Map">
         SELECT
             wpd.task_id taskId,
@@ -304,7 +304,26 @@
         <if test="userId != null">
             AND wpd.user_name = #{userId}
         </if>
-        GROUP BY wpd.task_id
+        AND NOT EXISTS (
+            SELECT 1
+            FROM wc_playwright_draft newer
+            WHERE newer.task_id &lt;=&gt; wpd.task_id
+            <if test="keyWord != null and keyWord != ''">
+                AND newer.user_prompt LIKE CONCAT('%', #{keyWord}, '%')
+            </if>
+            <if test="userId != null">
+                AND newer.user_name = #{userId}
+            </if>
+            AND (
+                COALESCE(newer.create_time, '1970-01-01 00:00:00')
+                    &gt; COALESCE(wpd.create_time, '1970-01-01 00:00:00')
+                OR (
+                    COALESCE(newer.create_time, '1970-01-01 00:00:00')
+                        = COALESCE(wpd.create_time, '1970-01-01 00:00:00')
+                    AND newer.id &gt; wpd.id
+                )
+            )
+        )
         ORDER BY wpd.create_time DESC
     </select>
 

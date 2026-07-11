@@ -75,8 +75,8 @@
         <!-- 🔥 查看模式切换（仅在同时有截图和文本时显示） -->
         <div v-if="selectedModel.shareImgUrl && selectedModel.content && selectedModel.content.trim()" class="view-mode-switch" style="margin-bottom: 16px;">
           <el-radio-group v-model="viewMode" size="small">
-            <el-radio-button label="screenshot">截图查看</el-radio-button>
-            <el-radio-button label="text">文本查看</el-radio-button>
+            <el-radio-button value="screenshot">截图查看</el-radio-button>
+            <el-radio-button value="text">文本查看</el-radio-button>
           </el-radio-group>
         </div>
         

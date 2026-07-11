@@ -30,6 +30,10 @@ fbsir:
       # - FBSir-engine/application.yml 中的 ws-url
       # - ScreenshotUploadClient.java 中的路径解析逻辑
       path: /ws/engine
+      # Engine 节点握手与截图上传共享凭证；至少32字符，不得提交默认值。
+      engine-token: ${FBSIR_ENGINE_TOKEN:${WXFBSIR_ENGINE_TOKEN:}}
+      # 浏览器 WebSocket 允许来源，逗号分隔；空值保留同源策略，禁止默认 *。
+      allowed-origins: ${FBSIR_WEBSOCKET_ALLOWED_ORIGINS:${WXFBSIR_WEBSOCKET_ALLOWED_ORIGINS:}}
       # 最大连接数
       max-connections: 10000
       # 最大消息大小（字节）1MB

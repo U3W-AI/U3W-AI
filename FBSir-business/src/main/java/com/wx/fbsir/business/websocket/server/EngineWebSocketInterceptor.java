@@ -1,6 +1,7 @@
 package com.wx.fbsir.business.websocket.server;
 
 import com.wx.fbsir.business.websocket.service.IpAccessControlService;
+import com.wx.fbsir.business.websocket.security.EngineCredentialVerifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,12 @@ public class EngineWebSocketInterceptor implements HandshakeInterceptor {
     @Autowired(required = false)
     private IpAccessControlService ipAccessControl;
 
+    private final EngineCredentialVerifier credentialVerifier;
+
+    public EngineWebSocketInterceptor(EngineCredentialVerifier credentialVerifier) {
+        this.credentialVerifier = credentialVerifier;
+    }
+
     @Override
     public boolean beforeHandshake(ServerHttpRequest request, 
                                     ServerHttpResponse response,
@@ -43,7 +50,6 @@ public class EngineWebSocketInterceptor implements HandshakeInterceptor {
                                     Map<String, Object> attributes) throws Exception {
         
         String remoteAddress = getRemoteAddress(request);
-        String uri = request.getURI().toString();
         
         // 1. 限流检查（最早拦截，防止DDoS）
         if (ipAccessControl != null && !ipAccessControl.checkRateLimit(remoteAddress)) {
@@ -69,23 +75,28 @@ public class EngineWebSocketInterceptor implements HandshakeInterceptor {
             }
         }
         
-        // 3. 提取请求参数
-        if (request instanceof ServletServerHttpRequest) {
-            ServletServerHttpRequest servletRequest = (ServletServerHttpRequest) request;
-            
-            // 提取 engineId 参数（可选，用于预注册）
-            String engineId = servletRequest.getServletRequest().getParameter("engineId");
-            if (engineId != null && !engineId.isEmpty()) {
-                attributes.put("engineId", engineId);
-            }
-            
-            // 提取 token 参数（用于鉴权，可扩展）
-            String token = servletRequest.getServletRequest().getParameter("token");
-            if (token != null && !token.isEmpty()) {
-                attributes.put("token", token);
-                // TODO: 实现 token 验证逻辑
-            }
+        // 3. Engine 握手必须来自可校验请求；未知传输类型默认拒绝。
+        if (!(request instanceof ServletServerHttpRequest servletRequest)) {
+            response.setStatusCode(HttpStatus.UNAUTHORIZED);
+            return false;
         }
+
+        String suppliedToken = servletRequest.getServletRequest()
+            .getHeader(EngineCredentialVerifier.HEADER_NAME);
+        if (!credentialVerifier.matches(suppliedToken)) {
+            log.warn("[拦截] Engine凭证拒绝 - IP: {}", remoteAddress);
+            response.setStatusCode(HttpStatus.UNAUTHORIZED);
+            response.getHeaders().add("X-WS-Reject-Reason", "ENGINE_CREDENTIAL");
+            response.getHeaders().add("X-WS-Reject-Code", "4011");
+            return false;
+        }
+
+        // 提取 engineId 参数（可选，用于预注册）
+        String engineId = servletRequest.getServletRequest().getParameter("engineId");
+        if (engineId != null && !engineId.isEmpty()) {
+            attributes.put("engineId", engineId);
+        }
+        attributes.put("engineCredentialVerified", Boolean.TRUE);
         
         // 记录来源 IP
         attributes.put("remoteAddress", remoteAddress);
@@ -107,25 +118,12 @@ public class EngineWebSocketInterceptor implements HandshakeInterceptor {
     }
 
     /**
-     * 获取客户端真实 IP
+     * 获取 TCP 对端 IP。代理转发头不参与 Engine 身份或白名单判断，
+     * 避免客户端伪造 X-Forwarded-For/X-Real-IP 绕过访问控制。
      */
     private String getRemoteAddress(ServerHttpRequest request) {
         if (request instanceof ServletServerHttpRequest) {
-            ServletServerHttpRequest servletRequest = (ServletServerHttpRequest) request;
-            
-            // 尝试从代理头获取真实 IP
-            String xForwardedFor = servletRequest.getServletRequest().getHeader("X-Forwarded-For");
-            if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-                // X-Forwarded-For 可能包含多个 IP，取第一个
-                return xForwardedFor.split(",")[0].trim();
-            }
-            
-            String xRealIp = servletRequest.getServletRequest().getHeader("X-Real-IP");
-            if (xRealIp != null && !xRealIp.isEmpty()) {
-                return xRealIp;
-            }
-            
-            return servletRequest.getServletRequest().getRemoteAddr();
+            return ((ServletServerHttpRequest) request).getServletRequest().getRemoteAddr();
         }
         
         return request.getRemoteAddress() != null ? 

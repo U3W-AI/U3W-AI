@@ -6,6 +6,8 @@ import org.springframework.validation.annotation.Validated;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 /**
  * WebSocket 服务端配置属性
@@ -34,6 +36,20 @@ public class WebSocketProperties {
      * Client 端点路径（前端/小程序连接）
      */
     private String clientPath = "/ws/client";
+
+    /**
+     * Shared credential used by Engine nodes for WebSocket handshakes and
+     * authenticated HTTP callbacks such as screenshot uploads.
+     */
+    @NotBlank(message = "Engine credential must be configured")
+    @Size(min = 32, message = "Engine credential must contain at least 32 characters")
+    private String engineToken;
+
+    /**
+     * Browser origins allowed to open WebSocket connections. An empty value
+     * keeps Spring's same-origin default instead of allowing every origin.
+     */
+    private String allowedOrigins = "";
 
     /**
      * 最大连接数
@@ -95,6 +111,28 @@ public class WebSocketProperties {
 
     public void setClientPath(String clientPath) {
         this.clientPath = clientPath;
+    }
+
+    public String getEngineToken() {
+        return engineToken;
+    }
+
+    public void setEngineToken(String engineToken) {
+        this.engineToken = engineToken;
+    }
+
+    public String[] getAllowedOrigins() {
+        if (allowedOrigins == null || allowedOrigins.isBlank()) {
+            return new String[0];
+        }
+        return java.util.Arrays.stream(allowedOrigins.split(","))
+            .map(String::trim)
+            .filter(origin -> !origin.isEmpty())
+            .toArray(String[]::new);
+    }
+
+    public void setAllowedOrigins(String allowedOrigins) {
+        this.allowedOrigins = allowedOrigins == null ? "" : allowedOrigins;
     }
 
     public int getMaxConnections() {

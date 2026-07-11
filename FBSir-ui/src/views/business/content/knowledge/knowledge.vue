@@ -1022,11 +1022,11 @@ onBeforeUnmount(() => {
           <div class="knowledge-list">
             <div class="list-header">
               <el-radio-group v-model="listType" @change="switchListType" size="small">
-                <el-radio-button label="my">我的知识库</el-radio-button>
-                <el-radio-button label="favorite">收藏</el-radio-button>
+                <el-radio-button value="my">我的知识库</el-radio-button>
+                <el-radio-button value="favorite">收藏</el-radio-button>
               </el-radio-group>
               <el-button
-                  type="text"
+                  link
                   size="small"
                   @click="loadData"
                   :loading="loading"
@@ -1285,7 +1285,7 @@ onBeforeUnmount(() => {
       <el-form label-width="120px">
         <el-form-item label="上传目标">
           <el-radio-group v-model="uploadKbType">
-            <el-radio v-for="opt in uploadTypeOptions" :key="opt.value" :label="opt.value">
+            <el-radio v-for="opt in uploadTypeOptions" :key="opt.value" :value="opt.value">
               {{ opt.label }}
             </el-radio>
           </el-radio-group>
@@ -1338,7 +1338,7 @@ onBeforeUnmount(() => {
       <el-form label-width="120px">
         <el-form-item label="上传目标">
           <el-radio-group v-model="uploadType">
-            <el-radio v-for="opt in uploadTypeOptions" :key="opt.value" :label="opt.value">
+            <el-radio v-for="opt in uploadTypeOptions" :key="opt.value" :value="opt.value">
               {{ opt.label }}
             </el-radio>
           </el-radio-group>

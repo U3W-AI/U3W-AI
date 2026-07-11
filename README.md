@@ -1,200 +1,114 @@
-<h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">福帮手数据智能化系统</h1>
+# 福帮手 FBSir
 
 > 更新日期：2026-07-11
 
-<h4 align="center">福帮手 FBSir，幸福有 AI，幸运有你。FBSir, AI 4 Happiness, U 4 Fortune。</h4>
-<p align="center">
-	<a href="https://github.com/U3W-AI/U3W-AI"><img src="https://img.shields.io/badge/FBSir-v1.3.2-brightgreen.svg"></a>
-	<a href="https://www.fbsir.com"><img src="https://img.shields.io/badge/website-www.fbsir.com-blue.svg"></a>
-    <a href="https://github.com/U3W-AI/U3W-AI/blob/fbsir/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg"></a>
-    <a href="https://spring.io/projects/spring-boot"><img src="https://img.shields.io/badge/Spring%20Boot-3.x-green.svg"></a>
-    <a href="https://vuejs.org/"><img src="https://img.shields.io/badge/Vue-3.x-4FC08D.svg"></a>
-</p>
+福帮手是一个以 Admin 为控制面、Engine 为自动化执行节点的前后端分离系统，包含企业微信智能机器人编排、Webhook 管理、内容与长文档处理、场景包、积分和权限治理等能力。
 
-<p align="center">
-    以AI工具链赋能团队建设，推动智能原生企业更快涌现，助力智能社会高质量发展。<br>
+- 后端：Spring Boot 3、Java 17、MySQL 8、Redis
+- 前端：Vue 3、Vite 6、Node.js 18+
+- Engine：Java 17、Playwright、WebSocket
+- 开源协议：[AGPL-3.0](LICENSE)
 
-</p>
+## Windows PowerShell 快速入口
 
----
+完整步骤、26 步数据库清单和故障排查以 [部署文档](部署文档.md) 为准。下面只给出不会偏离该文档的最短入口。
 
-## 📖 项目介绍
+### 1. 下载 GitHub 仓库
 
-**福帮手数据智能化系统（FBSir）** 是一个开源的、面向企业团队与内容运营场景的 **AI工具链与智能协同平台**。
-
-项目采用 **AGPL-3.0** 协议开源，旨在通过“主节点（Admin）+引擎节点（Engine）+多AI平台”的架构，将内容生产、文档解析、公众号投递、元器工作流智能体、企业微信智能机器人工作流编排、积分与权限治理等能力统一纳管，并在可扩展的AIGC框架内实现多模型协同与高并发任务处理。
-
-### 核心价值
-- **🚀 效率提升**：多模型并行生成与智能优化，显著缩短内容产出周期。
-- **📊 可运营性**：内置积分系统、统计报表、角色权限体系，支持精细化运营。
-- **🔌 可扩展性**：Engine端AIGC框架设计，轻松支持新增AI平台与新能力扩展。
-- **🛡️ 企业级能力**：安全、审计、可控部署、可定制流程，完美适配企业场景。
-
----
-
-## ✨ 核心功能
-
-### 1. 内容生产与运营
-- **日更助手**：同时调用多个模型生成不同风格初稿，支持智能优化合成与排版。
-- **公众号集成**：支持微信公众号草稿箱投递、素材管理与发布记录追踪。
-- **文档解析**：强大的文档解析助手，支持多格式解析与异步回调处理。
-
-### 2. 多AI应用协同
-- **多模型协同**：支持腾讯元器、企业微信智能机器人等多种AI平台接入，实现流式对话与上下文管理。
-- **智能工作流**：内置AIGC框架，支持复杂的智能体工作流编排。
-- **结构化输出物复用(公测中)**：AI会话结果生成结构化输出物，供后续导出与推送复用。
-
-### 3. 系统治理与运维
-- **自动化引擎**：基于 Playwright 的自动化能力，支持 WebSocket 双节点协同（Admin ↔ Engine）。
-- **积分体系**：可配置的积分规则、消耗拦截与前置校验，助力商业化运营。
-- **权限管理**：完善的用户、角色、菜单权限控制，保障数据安全。
-
----
-
-## 🛠️ 技术栈
-
-本项目基于 **Spring Boot 3.x** + **Vue 3** 前后端分离架构开发。
-
-### 后端 (Backend)
-- **核心框架**：Spring Boot 3.5.x
-- **ORM框架**：MyBatis 3.x
-- **数据库**：MySQL 8.x
-- **缓存**：Redis 7.x (可选，推荐)
-- **任务调度**：Quartz
-- **连接池**：Druid
-- **工具库**：Hutool, FastJson2, Lombok
-
-### 前端 (Frontend)
-- **框架**：Vue 3
-- **UI组件**：Element Plus
-- **构建工具**：Vite
-- **状态管理**：Pinia
-- **路由管理**：Vue Router
-
-### 引擎端 (Engine)
-- **自动化**：Playwright
-- **通信**：WebSocket
-
----
-
-## 📂 项目结构
-
-```
-FBSir
-├── FBSir-admin       // [核心] 后端启动入口，Web服务
-├── FBSir-ui          // [核心] 前端源代码 (Vue3)
-├── FBSir-business    // [业务] 核心业务逻辑 (AIGC, 证书, 积分等)
-├── FBSir-common      // [通用] 工具类、常量、注解
-├── FBSir-engine      // [引擎] 自动化任务执行引擎 (Playwright)
-├── FBSir-framework   // [框架] 核心配置 (Security, Redis, MyBatis)
-├── FBSir-generator   // [工具] 代码生成器
-├── FBSir-quartz      // [调度] 定时任务
-└── FBSir-system      // [系统] 用户、权限、日志管理
+```powershell
+git clone --branch fbsir --single-branch https://github.com/U3W-AI/U3W-AI.git
+Set-Location .\U3W-AI
 ```
 
----
+也可以在 GitHub 页面选择 **Code → Download ZIP**，解压后在项目根目录打开 PowerShell。
 
-## 🚀 快速开始
+### 2. 检查环境
 
-### 1. 环境准备
-- **JDK**：>= 17
-- **Node.js**：>= 16 (推荐 18+)
-- **MySQL**：>= 8.0
-- **Redis**：>= 5.0
-
-### 2. 后端启动
-1.  **克隆项目**：
-    ```bash
-    git clone https://gitee.com/U3W-AI/U3W-AI.git
-    ```
-2.  **导入数据库**：
-    创建历史兼容数据库 `wxfbsir`，并导入 `sql/wxfbsir.sql` 初始化脚本。对外品牌为 FBSir，但现有数据库 schema 不随品牌自动改名。
-3.  **修改配置**：
-    修改 `FBSir-admin/src/main/resources/application-druid.yml` 中的数据库连接信息。
-4.  **运行服务**：
-    运行 `FBSir-admin` 模块下的 `FBSirApplication.java`。
-
-### 3. 前端启动
-```bash
-cd FBSir-ui
-npm install      # 安装依赖
-npm run dev      # 启动开发服务器
+```powershell
+git --version
+java -version
+mvn -version
+mysql --version
+mysql_config_editor --version
+node --version
+npm --version
+redis-cli --version
 ```
-访问地址：`http://localhost:80` (默认)
 
-### 4. 引擎启动 (可选)
-如果需要使用自动化功能（如爬虫、自动化操作）：
-1.  进入 `FBSir-engine` 模块。
-2.  配置相关参数。
-3.  运行 `FBSirEngineApplication.java`。
+最低要求：JDK 17、Maven 3.8、MySQL 8、Node.js 18、npm 9。登录、验证码和会话依赖 Redis 6+，因此可登录的本地部署必须启动 Redis。
 
----
+### 3. 初始化数据库
 
-## 🤝 参与贡献
+先创建不把密码写入命令历史的 MySQL 登录路径：
 
-欢迎提交 Pull Request 或 Issue！
+```powershell
+mysql_config_editor set --login-path=fbsir-local --host=127.0.0.1 --port=3306 --user=root --password
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\init-database.ps1 -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\init-database.ps1
+```
 
-1.  **Fork** 本仓库
-2.  新建分支 `Feat_xxx`
-3.  提交代码
-4.  新建 Pull Request
+脚本固定执行 26 步并记录回执；已完成步骤重复运行会跳过，失败步骤不会盲目重放。数据库技术名保留为 `wxfbsir`。
 
----
+### 4. 配置并启动三个进程
 
-## 📄 开源协议
+Admin 使用完整 `FBSIR_*` 环境变量组；不能只设置其中一个变量。Engine 的共享凭证必须与 Admin 相同。完整的可复制配置块见 [部署文档：配置 Admin](部署文档.md#5-配置-admin)。
 
-本项目采用 **AGPL-3.0** 开源协议。
-这意味着如果您基于本项目进行修改并提供网络服务，您必须**开源您的修改代码**。
+在项目根目录分别打开三个 PowerShell 终端：
 
-详细协议内容请参阅 [LICENSE](LICENSE) 文件。
+```powershell
+# Terminal A - Admin
+mvn -f .\FBSir-admin\pom.xml spring-boot:run
+```
 
----
+```powershell
+# Terminal B - Engine（先按部署文档创建本地外部 application.yml）
+mvn -f .\FBSir-engine\pom.xml clean package
+New-Item -ItemType Directory -Force -Path .\fbsir\engine | Out-Null
+Copy-Item .\FBSir-engine\target\classes\application.yml .\fbsir\engine\application.yml -Force
+Push-Location .\fbsir\engine
+java -jar ..\..\FBSir-engine\target\FBSir-engine-1.3.1.jar
+```
 
+```powershell
+# Terminal C - UI
+Set-Location .\FBSir-ui
+npm ci
+npm run dev
+```
 
+默认访问关系：UI `http://localhost:80`，Admin `http://localhost:8080`，Engine 健康端口 `8081`。若端口 80 被占用，请按部署文档使用临时端口，不要修改 API 代理前缀。
 
+## 项目结构
 
-### ✨ **特色模块之Gitee用户能力分析**
+```text
+FBSir-admin       Admin 启动入口
+FBSir-business    业务与企微编排控制面
+FBSir-common      通用配置与工具
+FBSir-framework   Security、Redis、MyBatis
+FBSir-system      用户、角色和菜单
+FBSir-quartz      调度任务
+FBSir-generator   代码生成
+FBSir-engine      Playwright 自动化执行节点
+FBSir-ui          Vue 3 前端
+sql               基础结构与有序迁移
+scripts           公共初始化和校验脚本
+docs              API、功能与运维说明
+```
 
-支持Gitee用户在首页授权登录，并通过Gitee接口，拉取在开源社区的参与情况数据，进行用户画像和能力分析。
+## 外部服务边界
 
+MySQL、Redis、Admin、Engine 和 UI 构成本地基础闭环。Gitee OAuth、企业微信回调/Webhook、元器工作流、OpenClaw、第三方 AI 平台和公网穿透都属于按场景启用的外部系统；未配置它们不应阻止基础后台启动，但对应功能不会可用。真实第三方凭据不得提交到仓库。
 
-### ✨ **特色功能之自动化工具链**
+## 安全提醒
 
-福帮手主机引擎支持Playwright能力管理，并提供Playwright实现示例，如登录状态检查、工作流导航等元器控制器。支持企业微信智能机器人工作流编排。
+- 数据库、Token、AES、Engine 和 Webhook 密钥没有可用的仓库默认值。
+- 首次登录后立即更换初始化管理员口令，不在文档、脚本或截图中传播默认凭据。
+- 不要把真实企微 Webhook、回调 Token、EncodingAESKey、OAuth Secret 或浏览器登录态提交到 Git。
+- Druid 控制台默认关闭；只有配置独立账号密码后才可显式开启。
 
+## 文档入口
 
-### ✨ **特色功能之文档分析MCP服务**
-
-文档分析MCP及可用于验证的元器智能体工作流上线，支付丰富格式和快速接入。
-
-
-### ✨ **OpenClaw主机管理功能上线**
-
-集中管理多个OpenClaw主机的配置和状态，实时掌握所有主机的运行状态，精细控制主机的访问权限。
-
-
-### ✨ **特色模块之认证易**
-
-完整流程、全功能覆盖证书申请和审核系统，覆盖用户侧和管理员不同角色。集成认证申请、证书模板管理、审核工作流标准化、积分系统适配等模块。
-
-
-
-
-
-## 文档中心
-
-- **[部署文档](./部署文档.md)** - 完整的部署指南（包含元器工作流配置）
-- **[项目结构说明](./项目结构说明.md)** - 项目目录结构和模块说明
-- **[常见问题 (FAQ)](./docs/运行维护/FAQ.md)** - 常见问题解答
-- **[代码合并PR规范](./docs/开发规范/代码合并PR规范.md)** - PR 合并与提交流程
-- **[代码规范](./docs/开发规范/代码规范.md)** - 代码风格与质量规范
-- **[文档规范总结](./docs/开发规范/文档规范总结.md)** - 文档编写规范汇总
-- **[权限控制规范](./docs/开发规范/权限控制规范.md)** - 权限与鉴权规范
-- **[功能说明](./docs/功能说明)** - 功能说明目录
-
-本项目后台管理系统基于 **若依(RuoYi)** 框架进行二次开发，感谢若依团队提供的优秀开源框架。
-
-
-文档更新日期：2026-07-11 19：00  文档版本：1.3.2
-
-<p align="center">Copyright © 2024-2026 FBSir. All Rights Reserved.</p>
+- [完整部署文档](部署文档.md)
+- [Engine 开发与部署](FBSir-engine/README.md)
+- [文档中心](docs/README.md)
+- [项目结构](项目结构说明.md)

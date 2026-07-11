@@ -52,12 +52,12 @@ public class WebSocketConfig implements WebSocketConfigurer {
         // ━━━━━━━━━━ Engine 端点（副节点连接）━━━━━━━━━━
         registry.addHandler(engineHandler, properties.getEnginePath())
                 .addInterceptors(engineInterceptor)
-                .setAllowedOrigins("*");
+                .setAllowedOrigins(properties.getAllowedOrigins());
         
         // ━━━━━━━━━━ Client 端点（前端/小程序连接）━━━━━━━━━━
         registry.addHandler(clientHandler, properties.getClientPath())
                 .addInterceptors(clientInterceptor)
-                .setAllowedOrigins("*");
+                .setAllowedOrigins(properties.getAllowedOrigins());
         
         log.info("[WebSocket] 服务端配置完成 - Engine: {}, Client: {}", 
             properties.getEnginePath(), properties.getClientPath());
