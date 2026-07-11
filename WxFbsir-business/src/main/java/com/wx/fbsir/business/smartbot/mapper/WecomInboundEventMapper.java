@@ -13,4 +13,6 @@ public interface WecomInboundEventMapper {
     int claimInboundEvent(WecomInboundEvent event);
 
     WecomInboundEvent selectById(@Param("id") Long id);
+
+    WecomInboundEvent selectByIdForUpdate(@Param("id") Long id);
 }

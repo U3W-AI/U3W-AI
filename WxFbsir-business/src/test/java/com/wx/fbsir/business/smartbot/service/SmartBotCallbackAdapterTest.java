@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wx.fbsir.business.interviewbot.utils.WXBizJsonMsgCrypt;
 import com.wx.fbsir.business.smartbot.dto.ResolvedBotBinding;
+import com.wx.fbsir.business.smartbot.dto.SmartBotContentArtifactPayload;
 import com.wx.fbsir.business.smartbot.dto.SmartBotInboundEnvelope;
 import com.wx.fbsir.business.smartbot.dto.SmartBotIngressResult;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,6 +32,7 @@ class SmartBotCallbackAdapterTest {
     private BotBindingResolver bindingResolver;
     private SmartBotIngressService ingressService;
     private ObjectMapper objectMapper;
+    private SmartBotContentArtifactProjector contentProjector;
     private SmartBotCallbackAdapter adapter;
 
     @BeforeEach
@@ -38,18 +40,20 @@ class SmartBotCallbackAdapterTest {
         bindingResolver = mock(BotBindingResolver.class);
         ingressService = mock(SmartBotIngressService.class);
         objectMapper = new ObjectMapper();
-        adapter = new SmartBotCallbackAdapter(bindingResolver, ingressService, objectMapper);
+        contentProjector = new SmartBotContentArtifactProjector(objectMapper);
+        adapter = new SmartBotCallbackAdapter(bindingResolver, ingressService, contentProjector, objectMapper);
     }
 
     @Test
     void decryptsNormalizesPersistsAndReturnsStableFinalStream() throws Exception {
         ResolvedBotBinding binding = binding();
         when(bindingResolver.resolve("bot_callback_key_01")).thenReturn(binding);
-        when(ingressService.accept(eq(binding), any())).thenReturn(new SmartBotIngressResult(
+        when(ingressService.accept(eq(binding), any(), any(), any())).thenReturn(new SmartBotIngressResult(
             true, 101L, "trace-01", "run-01", "stable-stream-01", 11L, 21L, 31L));
 
         String decryptedPayload = "{\"msgid\":\"msg-01\",\"aibotid\":\"AIBOT-01\","
             + "\"from\":{\"userid\":\"opaque-user-01\"},\"chattype\":\"single\","
+            + "\"response_url\":\"https://temporary.example.invalid/response\","
             + "\"msgtype\":\"text\","
             + "\"text\":{\"content\":\"message body must not persist\"}}";
         WXBizJsonMsgCrypt crypt = new WXBizJsonMsgCrypt(TOKEN, AES_KEY, "");
@@ -61,7 +65,9 @@ class SmartBotCallbackAdapterTest {
 
         ArgumentCaptor<SmartBotInboundEnvelope> captor =
             ArgumentCaptor.forClass(SmartBotInboundEnvelope.class);
-        verify(ingressService).accept(eq(binding), captor.capture());
+        ArgumentCaptor<SmartBotContentArtifactPayload> contentCaptor =
+            ArgumentCaptor.forClass(SmartBotContentArtifactPayload.class);
+        verify(ingressService).accept(eq(binding), captor.capture(), any(), contentCaptor.capture());
         SmartBotInboundEnvelope normalized = captor.getValue();
         assertEquals("msg-01", normalized.getMsgId());
         assertEquals("opaque-user-01", normalized.getOpaqueSenderId());
@@ -70,6 +76,8 @@ class SmartBotCallbackAdapterTest {
         assertFalse(normalized.toString().contains("opaque-user-01"));
         assertFalse(normalized.toString().contains("chat-01"));
         assertFalse(normalized.toString().contains("msg-01"));
+        assertFalse(normalized.toString().contains(normalized.getPayloadHash()));
+        assertEquals(SmartBotContentArtifactProjector.INPUT_KIND, contentCaptor.getValue().getKind());
 
         JsonNode responseEnvelope = objectMapper.readTree(encryptedResponse);
         String responsePlaintext = crypt.DecryptMsg(
@@ -103,7 +111,7 @@ class SmartBotCallbackAdapterTest {
         assertEquals("", adapter.acceptCallback("bot_callback_key_01",
             refreshEnvelope.path("msgsignature").asText(), TIMESTAMP, NONCE, refresh));
 
-        verify(ingressService, never()).accept(any(), any());
+        verify(ingressService, never()).accept(any(), any(), any(), any());
     }
 
     private String encrypted(WXBizJsonMsgCrypt crypt, String payload) throws Exception {

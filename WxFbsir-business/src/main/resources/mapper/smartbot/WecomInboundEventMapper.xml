@@ -43,4 +43,14 @@
         FROM fbs_inbound_event
         WHERE id = #{id}
     </select>
+
+    <!-- Current read is required after an INSERT ... ON DUPLICATE KEY UPDATE waited under REPEATABLE READ. -->
+    <select id="selectByIdForUpdate" parameterType="Long" resultMap="InboundResult">
+        SELECT id, bot_binding_id, msg_id_hash, aibot_id, trace_id, run_id, stream_id,
+               from_user_hash, chat_type, chat_id_hash, msg_type, event_type,
+               payload_hash, status, duplicate_count, first_received_at, last_received_at
+        FROM fbs_inbound_event
+        WHERE id = #{id}
+        FOR UPDATE
+    </select>
 </mapper>

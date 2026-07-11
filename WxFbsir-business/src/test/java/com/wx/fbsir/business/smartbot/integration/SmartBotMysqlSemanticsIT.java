@@ -5,11 +5,13 @@ import com.wx.fbsir.business.fbs.mapper.FbsEnterpriseMapper;
 import com.wx.fbsir.business.fbs.mapper.FbsEnterpriseMemberMapper;
 import com.wx.fbsir.business.smartbot.domain.DeliveryOutbox;
 import com.wx.fbsir.business.smartbot.dto.ResolvedBotBinding;
+import com.wx.fbsir.business.smartbot.dto.SmartBotContentArtifactPayload;
 import com.wx.fbsir.business.smartbot.dto.SmartBotInboundEnvelope;
 import com.wx.fbsir.business.smartbot.dto.SmartBotIngressResult;
 import com.wx.fbsir.business.smartbot.mapper.DeliveryOutboxMapper;
 import com.wx.fbsir.business.smartbot.mapper.OrchestrationRunMapper;
 import com.wx.fbsir.business.smartbot.mapper.OrchestrationStepMapper;
+import com.wx.fbsir.business.smartbot.mapper.SmartBotInputArtifactMapper;
 import com.wx.fbsir.business.smartbot.mapper.WecomBotBindingMapper;
 import com.wx.fbsir.business.smartbot.mapper.WecomBotMemberBindingMapper;
 import com.wx.fbsir.business.smartbot.mapper.WecomInboundEventMapper;
@@ -19,6 +21,9 @@ import com.wx.fbsir.business.smartbot.service.InternalRunActivationService;
 import com.wx.fbsir.business.smartbot.service.OutboxClaimTransactionService;
 import com.wx.fbsir.business.smartbot.service.OutboxLeaseService;
 import com.wx.fbsir.business.smartbot.service.SmartBotIngressService;
+import com.wx.fbsir.business.smartbot.service.SmartBotInputArtifactService;
+import com.wx.fbsir.business.smartbot.service.SmartBotInputCryptoService;
+import com.wx.fbsir.business.smartbot.service.SecretReferenceResolver;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -45,6 +50,7 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -73,7 +79,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SmartBotMysqlSemanticsIT {
 
     private static final String DATABASE = "u3w_smartbot_it";
-    private static final String PAYLOAD_HASH = "a".repeat(64);
+    private static final byte[] SOURCE_PAYLOAD = ("{\"msgid\":\"msg-01\",\"aibotid\":\"AIBOT-01\","
+        + "\"from\":{\"userid\":\"opaque-user-01\"},\"msgtype\":\"text\","
+        + "\"text\":{\"content\":\"mysql-contract-test\"}}").getBytes(StandardCharsets.UTF_8);
+    private static final String PAYLOAD_HASH = sha256(SOURCE_PAYLOAD);
     private static final String HMAC_KEY_BASE64 =
         "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
 
@@ -138,6 +147,7 @@ class SmartBotMysqlSemanticsIT {
             "DELETE FROM fbs_delivery_outbox",
             "DELETE FROM fbs_orchestration_receipt",
             "DELETE FROM fbs_orchestration_step",
+            "DELETE FROM fbs_smartbot_input_artifact",
             "DELETE FROM fbs_orchestration_run",
             "DELETE FROM fbs_inbound_event",
             "DELETE FROM fbs_bot_member_binding",
@@ -154,8 +164,8 @@ class SmartBotMysqlSemanticsIT {
 
     @Test
     void firstAndDuplicateDeliveryReuseGeneratedIdAndStableRun() throws Exception {
-        SmartBotIngressResult first = ingressService.accept(binding(7L, "AIBOT-01"), envelope());
-        SmartBotIngressResult duplicate = ingressService.accept(binding(7L, "AIBOT-01"), envelope());
+        SmartBotIngressResult first = accept(binding(7L, "AIBOT-01"), envelope());
+        SmartBotIngressResult duplicate = accept(binding(7L, "AIBOT-01"), envelope());
 
         assertTrue(first.firstDelivery());
         assertFalse(duplicate.firstDelivery());
@@ -166,9 +176,20 @@ class SmartBotMysqlSemanticsIT {
         assertEquals(first.streamId(), duplicate.streamId());
         assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_inbound_event"));
         assertEquals(1, scalarInt("SELECT duplicate_count FROM fbs_inbound_event"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_smartbot_input_artifact"));
         assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_run"));
         assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_step"));
         assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_delivery_outbox"));
+        String inputRef = scalarString("SELECT input_ref FROM fbs_smartbot_input_artifact");
+        assertTrue(inputRef.matches("vault:v1:[0-9a-f-]{36}"));
+        assertEquals(inputRef, scalarString(
+            "SELECT input_ref FROM fbs_orchestration_step WHERE step_key = 'ingress.accepted'"));
+        assertTrue(scalarString("SELECT payload_json FROM fbs_delivery_outbox").contains(inputRef));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_smartbot_input_artifact "
+            + "WHERE LOCATE('mysql-contract-test', ciphertext) > 0"));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_delivery_outbox "
+            + "WHERE payload_json LIKE '%mysql-contract-test%'"));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_receipt"));
     }
 
     @RepeatedTest(5)
@@ -185,7 +206,7 @@ class SmartBotMysqlSemanticsIT {
                     if (!start.await(10, TimeUnit.SECONDS)) {
                         throw new IllegalStateException("start barrier timed out");
                     }
-                    return ingressService.accept(binding(7L, "AIBOT-01"), envelope());
+                    return accept(binding(7L, "AIBOT-01"), envelope());
                 }));
             }
             assertTrue(ready.await(10, TimeUnit.SECONDS));
@@ -209,6 +230,7 @@ class SmartBotMysqlSemanticsIT {
             assertEquals(1, streamIds.size());
             assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_inbound_event"));
             assertEquals(31, scalarInt("SELECT duplicate_count FROM fbs_inbound_event"));
+            assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_smartbot_input_artifact"));
             assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_run"));
             assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_step"));
             assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_delivery_outbox"));
@@ -225,32 +247,34 @@ class SmartBotMysqlSemanticsIT {
             + "FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced smartbot IT failure'");
 
         assertThrows(RuntimeException.class,
-            () -> ingressService.accept(binding(7L, "AIBOT-01"), envelope()));
+            () -> accept(binding(7L, "AIBOT-01"), envelope()));
         assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_inbound_event"));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_smartbot_input_artifact"));
         assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_run"));
         assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_step"));
         assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_delivery_outbox"));
 
         execute("DROP TRIGGER smartbot_it_fail_step");
-        SmartBotIngressResult retry = ingressService.accept(binding(7L, "AIBOT-01"), envelope());
+        SmartBotIngressResult retry = accept(binding(7L, "AIBOT-01"), envelope());
         assertTrue(retry.firstDelivery());
         assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_inbound_event"));
     }
 
     @Test
     void mismatchedDuplicatePayloadRollsBackDuplicateCounter() throws Exception {
-        ingressService.accept(binding(7L, "AIBOT-01"), envelope());
+        accept(binding(7L, "AIBOT-01"), envelope());
         SmartBotInboundEnvelope changed = SmartBotInboundEnvelope.builder()
             .msgId("msg-01")
             .aibotId("AIBOT-01")
             .opaqueSenderId("opaque-user-01")
             .chatType("single")
             .msgType("text")
-            .payloadHash("b".repeat(64))
+            .payloadHash(sha256("changed-source".getBytes(StandardCharsets.UTF_8)))
             .build();
 
         assertThrows(SecurityException.class,
-            () -> ingressService.accept(binding(7L, "AIBOT-01"), changed));
+            () -> ingressService.accept(binding(7L, "AIBOT-01"), changed,
+                "changed-source".getBytes(StandardCharsets.UTF_8), content()));
         assertEquals(0, scalarInt("SELECT duplicate_count FROM fbs_inbound_event"));
         assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_run"));
     }
@@ -259,7 +283,7 @@ class SmartBotMysqlSemanticsIT {
     void sameProviderMessageIdIsIsolatedByBot() throws Exception {
         seedBot(8L, "AIBOT-02", "callback_key_it_0002", "opaque-user-01");
 
-        SmartBotIngressResult first = ingressService.accept(binding(7L, "AIBOT-01"), envelope());
+        SmartBotIngressResult first = accept(binding(7L, "AIBOT-01"), envelope());
         SmartBotInboundEnvelope secondEnvelope = SmartBotInboundEnvelope.builder()
             .msgId("msg-01")
             .aibotId("AIBOT-02")
@@ -268,7 +292,7 @@ class SmartBotMysqlSemanticsIT {
             .msgType("text")
             .payloadHash(PAYLOAD_HASH)
             .build();
-        SmartBotIngressResult second = ingressService.accept(binding(8L, "AIBOT-02"), secondEnvelope);
+        SmartBotIngressResult second = accept(binding(8L, "AIBOT-02"), secondEnvelope);
 
         assertTrue(first.firstDelivery());
         assertTrue(second.firstDelivery());
@@ -279,7 +303,7 @@ class SmartBotMysqlSemanticsIT {
 
     @Test
     void concurrentOutboxClaimHasOneWinnerAndFencingControlsCompletion() throws Exception {
-        ingressService.accept(binding(7L, "AIBOT-01"), envelope());
+        accept(binding(7L, "AIBOT-01"), envelope());
         int concurrency = 16;
         ExecutorService pool = Executors.newFixedThreadPool(concurrency);
         CountDownLatch ready = new CountDownLatch(concurrency);
@@ -333,7 +357,7 @@ class SmartBotMysqlSemanticsIT {
 
     @Test
     void expiredLeaseCanBeReclaimedAndStaleWorkerCannotMutateIt() throws Exception {
-        ingressService.accept(binding(7L, "AIBOT-01"), envelope());
+        accept(binding(7L, "AIBOT-01"), envelope());
         DeliveryOutbox first = outboxLeaseService
             .claimNext("worker-first", Duration.ofSeconds(30)).orElseThrow();
         execute("UPDATE fbs_delivery_outbox SET lease_until = DATE_SUB(NOW(), INTERVAL 1 SECOND)");
@@ -422,7 +446,7 @@ class SmartBotMysqlSemanticsIT {
 
     @Test
     void claimUsesAnIndependentShortTransaction() throws Exception {
-        ingressService.accept(binding(7L, "AIBOT-01"), envelope());
+        accept(binding(7L, "AIBOT-01"), envelope());
 
         assertThrows(IllegalStateException.class, () -> transactionTemplate.execute(status -> {
             assertTrue(outboxLeaseService.claimNext("rollback-worker", Duration.ofSeconds(30)).isPresent());
@@ -437,7 +461,7 @@ class SmartBotMysqlSemanticsIT {
 
     @Test
     void internalDispatcherAtomicallyMakesRunReadyAndConsumesOutbox() throws Exception {
-        ingressService.accept(binding(7L, "AIBOT-01"), envelope());
+        accept(binding(7L, "AIBOT-01"), envelope());
 
         InternalOutboxDispatcherService.DispatchOutcome result = internalDispatcher
             .dispatchOne("internal-worker", Duration.ofSeconds(30)).orElseThrow();
@@ -494,7 +518,7 @@ class SmartBotMysqlSemanticsIT {
 
     private void assertActivationRollbackAndRecovery(String triggerName,
                                                      String createTriggerSql) throws Exception {
-        ingressService.accept(binding(7L, "AIBOT-01"), envelope());
+        accept(binding(7L, "AIBOT-01"), envelope());
         DeliveryOutbox claimed = outboxLeaseService
             .claimNext("failure-worker", Duration.ofSeconds(30)).orElseThrow();
         execute(createTriggerSql);
@@ -549,6 +573,7 @@ class SmartBotMysqlSemanticsIT {
             "DROP TABLE IF EXISTS fbs_delivery_outbox",
             "DROP TABLE IF EXISTS fbs_orchestration_receipt",
             "DROP TABLE IF EXISTS fbs_orchestration_step",
+            "DROP TABLE IF EXISTS fbs_smartbot_input_artifact",
             "DROP TABLE IF EXISTS fbs_orchestration_run",
             "DROP TABLE IF EXISTS fbs_inbound_event",
             "DROP TABLE IF EXISTS fbs_bot_member_binding",
@@ -577,6 +602,7 @@ class SmartBotMysqlSemanticsIT {
     private static void applyCurrentMigrations() throws Exception {
         applyMigration("update_20260711_企微智能机器人编排控制面建表.sql");
         applyMigration("update_20260711_企微智能机器人编排Outbox租约增强.sql");
+        applyMigration("update_20260711_企微智能机器人编排加密内容工件.sql");
     }
 
     private static void applyMigration(String name) throws Exception {
@@ -618,6 +644,18 @@ class SmartBotMysqlSemanticsIT {
             "CALLBACK", 1, "test-token", "test-aes");
     }
 
+    private SmartBotIngressResult accept(ResolvedBotBinding binding, SmartBotInboundEnvelope envelope) {
+        return ingressService.accept(binding, envelope, SOURCE_PAYLOAD, content());
+    }
+
+    private SmartBotContentArtifactPayload content() {
+        return SmartBotContentArtifactPayload.ofUtf8Json(SmartBotInputArtifactService.PURPOSE,
+            "{\"schemaVersion\":1,\"sourceType\":\"WECOM_SMARTBOT_CALLBACK\","
+                + "\"kind\":\"smartbot.input.message.v1\",\"msgType\":\"text\","
+                + "\"classification\":\"UNTRUSTED_USER_CONTENT\","
+                + "\"content\":{\"text\":\"mysql-contract-test\"}}");
+    }
+
     private SmartBotInboundEnvelope envelope() {
         return SmartBotInboundEnvelope.builder()
             .msgId("msg-01")
@@ -627,6 +665,19 @@ class SmartBotMysqlSemanticsIT {
             .msgType("text")
             .payloadHash(PAYLOAD_HASH)
             .build();
+    }
+
+    private static String sha256(byte[] value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(value);
+            StringBuilder hex = new StringBuilder(digest.length * 2);
+            for (byte b : digest) {
+                hex.append(String.format("%02x", b & 0xff));
+            }
+            return hex.toString();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private static int scalarInt(String sql) throws Exception {
@@ -727,6 +778,11 @@ class SmartBotMysqlSemanticsIT {
         }
 
         @Bean
+        MapperFactoryBean<SmartBotInputArtifactMapper> inputArtifactMapper(SqlSessionFactory factory) {
+            return mapper(SmartBotInputArtifactMapper.class, factory);
+        }
+
+        @Bean
         MapperFactoryBean<DeliveryOutboxMapper> outboxMapper(SqlSessionFactory factory) {
             return mapper(DeliveryOutboxMapper.class, factory);
         }
@@ -747,6 +803,28 @@ class SmartBotMysqlSemanticsIT {
         }
 
         @Bean
+        SecretReferenceResolver secretReferenceResolver() {
+            return reference -> {
+                if (!SmartBotInputCryptoService.KEY_REF.equals(reference)) {
+                    throw new IllegalArgumentException("unexpected test secret reference");
+                }
+                return HMAC_KEY_BASE64;
+            };
+        }
+
+        @Bean
+        SmartBotInputCryptoService smartBotInputCryptoService(SecretReferenceResolver secretReferenceResolver) {
+            return new SmartBotInputCryptoService(secretReferenceResolver);
+        }
+
+        @Bean
+        SmartBotInputArtifactService smartBotInputArtifactService(
+                SmartBotInputArtifactMapper inputArtifactMapper,
+                SmartBotInputCryptoService smartBotInputCryptoService) {
+            return new SmartBotInputArtifactService(inputArtifactMapper, smartBotInputCryptoService);
+        }
+
+        @Bean
         ObjectMapper objectMapper() {
             return new ObjectMapper();
         }
@@ -761,10 +839,11 @@ class SmartBotMysqlSemanticsIT {
                                                        OrchestrationStepMapper stepMapper,
                                                        DeliveryOutboxMapper outboxMapper,
                                                        ExternalIdentityHasher identityHasher,
+                                                       SmartBotInputArtifactService inputArtifactService,
                                                        ObjectMapper objectMapper) {
             return new SmartBotIngressService(botBindingMapper, memberBindingMapper,
                 enterpriseMapper, enterpriseMemberMapper, inboundEventMapper, runMapper,
-                stepMapper, outboxMapper, identityHasher, objectMapper);
+                stepMapper, outboxMapper, identityHasher, inputArtifactService, objectMapper);
         }
 
         @Bean
@@ -783,8 +862,10 @@ class SmartBotMysqlSemanticsIT {
         InternalRunActivationService internalRunActivationService(DeliveryOutboxMapper outboxMapper,
                                                                    OrchestrationRunMapper runMapper,
                                                                    OrchestrationStepMapper stepMapper,
+                                                                   SmartBotInputArtifactService inputArtifactService,
                                                                    ObjectMapper objectMapper) {
-            return new InternalRunActivationService(outboxMapper, runMapper, stepMapper, objectMapper);
+            return new InternalRunActivationService(outboxMapper, runMapper, stepMapper,
+                inputArtifactService, objectMapper);
         }
 
         @Bean

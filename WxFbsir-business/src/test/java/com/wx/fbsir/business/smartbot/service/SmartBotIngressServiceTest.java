@@ -8,10 +8,12 @@ import com.wx.fbsir.business.fbs.mapper.FbsEnterpriseMemberMapper;
 import com.wx.fbsir.business.smartbot.domain.DeliveryOutbox;
 import com.wx.fbsir.business.smartbot.domain.OrchestrationRun;
 import com.wx.fbsir.business.smartbot.domain.OrchestrationStep;
+import com.wx.fbsir.business.smartbot.domain.SmartBotInputArtifact;
 import com.wx.fbsir.business.smartbot.domain.WecomBotMemberBinding;
 import com.wx.fbsir.business.smartbot.domain.WecomBotBinding;
 import com.wx.fbsir.business.smartbot.domain.WecomInboundEvent;
 import com.wx.fbsir.business.smartbot.dto.ResolvedBotBinding;
+import com.wx.fbsir.business.smartbot.dto.SmartBotContentArtifactPayload;
 import com.wx.fbsir.business.smartbot.dto.SmartBotInboundEnvelope;
 import com.wx.fbsir.business.smartbot.dto.SmartBotIngressResult;
 import com.wx.fbsir.business.smartbot.mapper.DeliveryOutboxMapper;
@@ -23,6 +25,9 @@ import com.wx.fbsir.business.smartbot.mapper.WecomInboundEventMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -37,7 +42,10 @@ import static org.mockito.Mockito.when;
 
 class SmartBotIngressServiceTest {
 
-    private static final String PAYLOAD_HASH = "a".repeat(64);
+    private static final byte[] SOURCE_PAYLOAD = ("{\"msgid\":\"msg-01\",\"aibotid\":\"AIBOT-01\","
+        + "\"from\":{\"userid\":\"external-user-01\"},\"msgtype\":\"text\","
+        + "\"text\":{\"content\":\"contract-test\"}}").getBytes(StandardCharsets.UTF_8);
+    private static final String PAYLOAD_HASH = sha256(SOURCE_PAYLOAD);
     private static final String USER_HASH = "b".repeat(64);
     private static final String MSG_ID_HASH = "e".repeat(64);
 
@@ -50,6 +58,7 @@ class SmartBotIngressServiceTest {
     private OrchestrationStepMapper stepMapper;
     private DeliveryOutboxMapper outboxMapper;
     private ExternalIdentityHasher identityHasher;
+    private SmartBotInputArtifactService inputArtifactService;
     private SmartBotIngressService service;
 
     @BeforeEach
@@ -63,9 +72,11 @@ class SmartBotIngressServiceTest {
         stepMapper = mock(OrchestrationStepMapper.class);
         outboxMapper = mock(DeliveryOutboxMapper.class);
         identityHasher = mock(ExternalIdentityHasher.class);
+        inputArtifactService = mock(SmartBotInputArtifactService.class);
         service = new SmartBotIngressService(botBindingMapper, memberBindingMapper,
             enterpriseMapper, enterpriseMemberMapper,
             inboundEventMapper, runMapper, stepMapper, outboxMapper, identityHasher,
+            inputArtifactService,
             new ObjectMapper());
     }
 
@@ -80,8 +91,9 @@ class SmartBotIngressServiceTest {
         when(runMapper.insertRun(any())).thenReturn(1);
         when(stepMapper.insertStep(any())).thenReturn(1);
         when(outboxMapper.insertOutbox(any())).thenReturn(1);
+        when(inputArtifactService.create(any(), any(), any(), any(), any(), any())).thenReturn(artifact());
 
-        SmartBotIngressResult result = service.accept(binding(), envelope());
+        SmartBotIngressResult result = accept(binding(), envelope());
 
         assertTrue(result.firstDelivery());
         assertEquals(101L, result.inboundEventId());
@@ -125,7 +137,7 @@ class SmartBotIngressServiceTest {
             return 2;
         });
         WecomInboundEvent stored = storedEvent();
-        when(inboundEventMapper.selectById(101L)).thenReturn(stored);
+        when(inboundEventMapper.selectByIdForUpdate(101L)).thenReturn(stored);
         OrchestrationRun storedRun = new OrchestrationRun();
         storedRun.setRunId("stored-run");
         storedRun.setEnterpriseId(11L);
@@ -133,7 +145,7 @@ class SmartBotIngressServiceTest {
         storedRun.setUserId(31L);
         when(runMapper.selectByRunIdForUpdate("stored-run")).thenReturn(storedRun);
 
-        SmartBotIngressResult result = service.accept(binding(), envelope());
+        SmartBotIngressResult result = accept(binding(), envelope());
 
         assertFalse(result.firstDelivery());
         assertEquals("stored-trace", result.traceId());
@@ -154,7 +166,7 @@ class SmartBotIngressServiceTest {
             .payloadHash(PAYLOAD_HASH)
             .build();
 
-        assertThrows(SecurityException.class, () -> service.accept(binding(), envelope));
+        assertThrows(SecurityException.class, () -> accept(binding(), envelope));
 
         verify(identityHasher, never()).hashUser(any(), any());
         verify(inboundEventMapper, never()).claimInboundEvent(any());
@@ -166,7 +178,7 @@ class SmartBotIngressServiceTest {
         when(identityHasher.hashUser(7L, "external-user-01")).thenReturn(USER_HASH);
         when(identityHasher.hashMessage(7L, "msg-01")).thenReturn(MSG_ID_HASH);
 
-        assertThrows(SecurityException.class, () -> service.accept(binding(), envelope()));
+        assertThrows(SecurityException.class, () -> accept(binding(), envelope()));
 
         verify(inboundEventMapper, never()).claimInboundEvent(any());
     }
@@ -182,7 +194,7 @@ class SmartBotIngressServiceTest {
         stale.setEnterpriseId(999L);
         when(enterpriseMemberMapper.selectById(21L)).thenReturn(stale);
 
-        assertThrows(SecurityException.class, () -> service.accept(binding(), envelope()));
+        assertThrows(SecurityException.class, () -> accept(binding(), envelope()));
 
         verify(inboundEventMapper, never()).claimInboundEvent(any());
     }
@@ -197,9 +209,9 @@ class SmartBotIngressServiceTest {
         });
         WecomInboundEvent stored = storedEvent();
         stored.setPayloadHash("c".repeat(64));
-        when(inboundEventMapper.selectById(101L)).thenReturn(stored);
+        when(inboundEventMapper.selectByIdForUpdate(101L)).thenReturn(stored);
 
-        assertThrows(SecurityException.class, () -> service.accept(binding(), envelope()));
+        assertThrows(SecurityException.class, () -> accept(binding(), envelope()));
 
         verify(runMapper, never()).selectByRunIdForUpdate(any());
         verify(runMapper, never()).insertRun(any());
@@ -215,8 +227,9 @@ class SmartBotIngressServiceTest {
         });
         when(runMapper.insertRun(any())).thenReturn(1);
         when(stepMapper.insertStep(any())).thenReturn(0);
+        when(inputArtifactService.create(any(), any(), any(), any(), any(), any())).thenReturn(artifact());
 
-        assertThrows(IllegalStateException.class, () -> service.accept(binding(), envelope()));
+        assertThrows(IllegalStateException.class, () -> accept(binding(), envelope()));
 
         verify(outboxMapper, never()).insertOutbox(any());
     }
@@ -226,7 +239,7 @@ class SmartBotIngressServiceTest {
         arrangeActiveMember();
         when(inboundEventMapper.claimInboundEvent(any())).thenReturn(1);
 
-        assertThrows(IllegalStateException.class, () -> service.accept(binding(), envelope()));
+        assertThrows(IllegalStateException.class, () -> accept(binding(), envelope()));
 
         verify(runMapper, never()).insertRun(any());
     }
@@ -238,7 +251,7 @@ class SmartBotIngressServiceTest {
         disabled.setStatus(2);
         when(enterpriseMapper.selectById(11L)).thenReturn(disabled);
 
-        assertThrows(SecurityException.class, () -> service.accept(binding(), envelope()));
+        assertThrows(SecurityException.class, () -> accept(binding(), envelope()));
 
         verify(inboundEventMapper, never()).claimInboundEvent(any());
     }
@@ -259,6 +272,23 @@ class SmartBotIngressServiceTest {
     private ResolvedBotBinding binding() {
         return new ResolvedBotBinding(7L, "bot_callback_key_01", "AIBOT-01", 11L,
             "CALLBACK", 1, "token-secret", "aes-secret");
+    }
+
+    private SmartBotIngressResult accept(ResolvedBotBinding binding, SmartBotInboundEnvelope envelope) {
+        return service.accept(binding, envelope, SOURCE_PAYLOAD, content());
+    }
+
+    private SmartBotContentArtifactPayload content() {
+        return SmartBotContentArtifactPayload.ofUtf8Json(
+            SmartBotInputArtifactService.PURPOSE,
+            "{\"schemaVersion\":1,\"msgType\":\"text\",\"content\":{\"text\":\"contract-test\"}}");
+    }
+
+    private SmartBotInputArtifact artifact() {
+        SmartBotInputArtifact artifact = new SmartBotInputArtifact();
+        artifact.setInputRef("vault:v1:00000000-0000-0000-0000-000000000001");
+        artifact.setContentHash(content().getContentHash());
+        return artifact;
     }
 
     private SmartBotInboundEnvelope envelope() {
@@ -327,5 +357,18 @@ class SmartBotIngressServiceTest {
         stored.setFromUserHash(USER_HASH);
         stored.setPayloadHash(PAYLOAD_HASH);
         return stored;
+    }
+
+    private static String sha256(byte[] value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(value);
+            StringBuilder hex = new StringBuilder(digest.length * 2);
+            for (byte b : digest) {
+                hex.append(String.format("%02x", b & 0xff));
+            }
+            return hex.toString();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

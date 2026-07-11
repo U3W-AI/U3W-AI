@@ -21,6 +21,6 @@ public class SmartBotInboundEnvelope {
         return "SmartBotInboundEnvelope[msgId=***, aibotId=" + aibotId
             + ", opaqueSenderId=***, chatType=" + chatType
             + ", chatId=***, msgType=" + msgType
-            + ", eventType=" + eventType + ", payloadHash=" + payloadHash + "]";
+            + ", eventType=" + eventType + ", payloadHash=***]";
     }
 }

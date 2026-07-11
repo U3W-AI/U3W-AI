@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wx.fbsir.business.smartbot.domain.DeliveryOutbox;
 import com.wx.fbsir.business.smartbot.domain.OrchestrationRun;
 import com.wx.fbsir.business.smartbot.domain.OrchestrationStep;
+import com.wx.fbsir.business.smartbot.domain.SmartBotInputArtifact;
 import com.wx.fbsir.business.smartbot.mapper.DeliveryOutboxMapper;
 import com.wx.fbsir.business.smartbot.mapper.OrchestrationRunMapper;
 import com.wx.fbsir.business.smartbot.mapper.OrchestrationStepMapper;
@@ -22,19 +23,23 @@ public class InternalRunActivationService {
 
     static final String RUN_CREATED = "RUN_CREATED";
     static final String ACTIVATION_STEP = "internal.dispatch.accepted";
+    static final String INGRESS_STEP = "ingress.accepted";
 
     private final DeliveryOutboxMapper outboxMapper;
     private final OrchestrationRunMapper runMapper;
     private final OrchestrationStepMapper stepMapper;
+    private final SmartBotInputArtifactService inputArtifactService;
     private final ObjectMapper objectMapper;
 
     public InternalRunActivationService(DeliveryOutboxMapper outboxMapper,
                                         OrchestrationRunMapper runMapper,
                                         OrchestrationStepMapper stepMapper,
+                                        SmartBotInputArtifactService inputArtifactService,
                                         ObjectMapper objectMapper) {
         this.outboxMapper = outboxMapper;
         this.runMapper = runMapper;
         this.stepMapper = stepMapper;
+        this.inputArtifactService = inputArtifactService;
         this.objectMapper = objectMapper;
     }
 
@@ -46,12 +51,17 @@ public class InternalRunActivationService {
         if (outbox == null) {
             throw new IllegalStateException("outbox lease expired, lost, or already consumed");
         }
-        validateInternalEvent(outbox);
+        InternalEventPayload payload = validateInternalEvent(outbox);
 
         OrchestrationRun run = runMapper.selectByRunIdForUpdate(outbox.getRunId());
         if (run == null) {
             throw new IllegalStateException("leased outbox run does not exist");
         }
+        SmartBotInputArtifact artifact = inputArtifactService.requireAvailableForActivation(
+            run, payload.inputArtifactRef(), payload.contentHash());
+        OrchestrationStep ingressStep = stepMapper.selectByRunStepAttemptForUpdate(
+            run.getRunId(), INGRESS_STEP, 1);
+        verifyIngressStep(ingressStep, run, artifact);
         OrchestrationStep existing = stepMapper.selectByRunStepAttemptForUpdate(
             run.getRunId(), ACTIVATION_STEP, 1);
 
@@ -60,13 +70,13 @@ public class InternalRunActivationService {
             if (existing != null) {
                 throw new IllegalStateException("pending run already has an activation step");
             }
-            insertActivationStep(run);
+            insertActivationStep(run, artifact);
             if (run.getVersion() == null || runMapper.markReady(run.getRunId(), run.getVersion()) != 1) {
                 throw new IllegalStateException("run readiness CAS failed");
             }
             outcome = "READY";
         } else if ("READY".equals(run.getStatus())) {
-            verifyActivationStep(existing, run);
+            verifyActivationStep(existing, run, artifact);
             outcome = "ALREADY_READY";
         } else {
             throw new IllegalStateException("run cannot accept RUN_CREATED from state " + run.getStatus());
@@ -78,16 +88,21 @@ public class InternalRunActivationService {
         return new InternalOutboxDispatcherService.DispatchOutcome(run.getRunId(), outcome);
     }
 
-    private void validateInternalEvent(DeliveryOutbox outbox) {
+    private InternalEventPayload validateInternalEvent(DeliveryOutbox outbox) {
         if (!RUN_CREATED.equals(outbox.getEventType()) || !StringUtils.hasText(outbox.getRunId())
                 || !Objects.equals("run:" + outbox.getRunId() + ":created", outbox.getEventKey())) {
             throw new IllegalStateException("unsupported or inconsistent internal outbox event");
         }
         try {
             JsonNode payload = objectMapper.readTree(outbox.getPayloadJson());
-            if (payload == null || !Objects.equals(outbox.getRunId(), payload.path("runId").asText(null))) {
+            String inputArtifactRef = payload == null ? null : payload.path("inputArtifactRef").asText(null);
+            String contentHash = payload == null ? null : payload.path("contentHash").asText(null);
+            if (payload == null || !Objects.equals(outbox.getRunId(), payload.path("runId").asText(null))
+                    || !StringUtils.hasText(inputArtifactRef)
+                    || !StringUtils.hasText(contentHash)) {
                 throw new IllegalStateException("outbox payload runId mismatch");
             }
+            return new InternalEventPayload(inputArtifactRef, contentHash);
         } catch (IllegalStateException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -95,7 +110,7 @@ public class InternalRunActivationService {
         }
     }
 
-    private void insertActivationStep(OrchestrationRun run) {
+    private void insertActivationStep(OrchestrationRun run, SmartBotInputArtifact artifact) {
         Date now = new Date();
         OrchestrationStep step = new OrchestrationStep();
         step.setStepId(UUID.randomUUID().toString());
@@ -106,6 +121,8 @@ public class InternalRunActivationService {
         step.setExecutorType("JAVA");
         step.setExecutorRef("smartbot.internal-dispatcher");
         step.setStatus("SUCCEEDED");
+        step.setInputRef(artifact.getInputRef());
+        step.setInputHash(artifact.getContentHash());
         step.setVersion(0);
         step.setStartedAt(now);
         step.setFinishedAt(now);
@@ -114,14 +131,34 @@ public class InternalRunActivationService {
         }
     }
 
-    private void verifyActivationStep(OrchestrationStep step, OrchestrationRun run) {
+    private void verifyIngressStep(OrchestrationStep step, OrchestrationRun run,
+                                   SmartBotInputArtifact artifact) {
+        if (step == null || !Objects.equals(run.getRunId(), step.getRunId())
+                || !INGRESS_STEP.equals(step.getStepKey()) || !Objects.equals(1, step.getAttempt())
+                || !"SYSTEM".equals(step.getKind()) || !"JAVA".equals(step.getExecutorType())
+                || !"smartbot.ingress".equals(step.getExecutorRef())
+                || !"SUCCEEDED".equals(step.getStatus())
+                || !Objects.equals(artifact.getInputRef(), step.getInputRef())
+                || !sameHash(artifact.getContentHash(), step.getInputHash())) {
+            throw new IllegalStateException("run lacks a matching ingress content step");
+        }
+    }
+
+    private void verifyActivationStep(OrchestrationStep step, OrchestrationRun run,
+                                      SmartBotInputArtifact artifact) {
         if (step == null || !Objects.equals(run.getRunId(), step.getRunId())
                 || !ACTIVATION_STEP.equals(step.getStepKey()) || !Objects.equals(1, step.getAttempt())
                 || !"SYSTEM".equals(step.getKind()) || !"JAVA".equals(step.getExecutorType())
                 || !"smartbot.internal-dispatcher".equals(step.getExecutorRef())
-                || !"SUCCEEDED".equals(step.getStatus())) {
+                || !"SUCCEEDED".equals(step.getStatus())
+                || !Objects.equals(artifact.getInputRef(), step.getInputRef())
+                || !sameHash(artifact.getContentHash(), step.getInputHash())) {
             throw new IllegalStateException("ready run lacks a matching activation step");
         }
+    }
+
+    private boolean sameHash(String left, String right) {
+        return StringUtils.hasText(left) && StringUtils.hasText(right) && left.equalsIgnoreCase(right);
     }
 
     private void requireLeaseIdentity(DeliveryOutbox claimed) {
@@ -129,5 +166,8 @@ public class InternalRunActivationService {
                 || !StringUtils.hasText(claimed.getLeaseToken())) {
             throw new IllegalArgumentException("claimed outbox lease identity is invalid");
         }
+    }
+
+    private record InternalEventPayload(String inputArtifactRef, String contentHash) {
     }
 }

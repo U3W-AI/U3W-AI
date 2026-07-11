@@ -15,6 +15,7 @@ public class OrchestrationStep {
     private String executorType;
     private String executorRef;
     private String status;
+    private String inputRef;
     private String inputHash;
     private String outputRef;
     private String evidenceRef;

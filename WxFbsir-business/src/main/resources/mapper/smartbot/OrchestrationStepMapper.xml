@@ -10,6 +10,7 @@
         <result property="executorType" column="executor_type"/>
         <result property="executorRef" column="executor_ref"/>
         <result property="status" column="status"/>
+        <result property="inputRef" column="input_ref"/>
         <result property="inputHash" column="input_hash"/>
         <result property="outputRef" column="output_ref"/>
         <result property="evidenceRef" column="evidence_ref"/>
@@ -26,11 +27,11 @@
     <insert id="insertStep">
         INSERT INTO fbs_orchestration_step
             (step_id, run_id, step_key, attempt, kind, executor_type, executor_ref,
-             status, input_hash, output_ref, evidence_ref, version,
+             status, input_ref, input_hash, output_ref, evidence_ref, version,
              started_at, finished_at, create_time, update_time)
         VALUES
             (#{stepId}, #{runId}, #{stepKey}, #{attempt}, #{kind}, #{executorType}, #{executorRef},
-             #{status}, #{inputHash}, #{outputRef}, #{evidenceRef}, #{version},
+             #{status}, #{inputRef}, #{inputHash}, #{outputRef}, #{evidenceRef}, #{version},
              #{startedAt}, #{finishedAt}, NOW(), NOW())
     </insert>
     <select id="selectByRunStepAttemptForUpdate" resultMap="StepResult">

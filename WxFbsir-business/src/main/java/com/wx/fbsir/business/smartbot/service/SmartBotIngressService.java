@@ -9,9 +9,11 @@ import com.wx.fbsir.business.fbs.mapper.FbsEnterpriseMemberMapper;
 import com.wx.fbsir.business.smartbot.domain.DeliveryOutbox;
 import com.wx.fbsir.business.smartbot.domain.OrchestrationRun;
 import com.wx.fbsir.business.smartbot.domain.OrchestrationStep;
+import com.wx.fbsir.business.smartbot.domain.SmartBotInputArtifact;
 import com.wx.fbsir.business.smartbot.domain.WecomBotMemberBinding;
 import com.wx.fbsir.business.smartbot.domain.WecomInboundEvent;
 import com.wx.fbsir.business.smartbot.dto.ResolvedBotBinding;
+import com.wx.fbsir.business.smartbot.dto.SmartBotContentArtifactPayload;
 import com.wx.fbsir.business.smartbot.dto.SmartBotInboundEnvelope;
 import com.wx.fbsir.business.smartbot.dto.SmartBotIngressResult;
 import com.wx.fbsir.business.smartbot.mapper.DeliveryOutboxMapper;
@@ -28,6 +30,7 @@ import java.util.Date;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.security.MessageDigest;
 import java.util.regex.Pattern;
 
 /**
@@ -39,6 +42,7 @@ public class SmartBotIngressService {
 
     private static final Pattern SHA256 = Pattern.compile("[a-fA-F0-9]{64}");
     private static final String DEFAULT_DEFINITION = "u3w.smartbot.default";
+    private static final int MAX_SOURCE_PAYLOAD_BYTES = 512 * 1024;
 
     private final WecomBotBindingMapper botBindingMapper;
     private final WecomBotMemberBindingMapper memberBindingMapper;
@@ -49,6 +53,7 @@ public class SmartBotIngressService {
     private final OrchestrationStepMapper stepMapper;
     private final DeliveryOutboxMapper outboxMapper;
     private final ExternalIdentityHasher identityHasher;
+    private final SmartBotInputArtifactService inputArtifactService;
     private final ObjectMapper objectMapper;
 
     public SmartBotIngressService(WecomBotBindingMapper botBindingMapper,
@@ -60,6 +65,7 @@ public class SmartBotIngressService {
                                   OrchestrationStepMapper stepMapper,
                                   DeliveryOutboxMapper outboxMapper,
                                   ExternalIdentityHasher identityHasher,
+                                  SmartBotInputArtifactService inputArtifactService,
                                   ObjectMapper objectMapper) {
         this.botBindingMapper = botBindingMapper;
         this.memberBindingMapper = memberBindingMapper;
@@ -70,13 +76,16 @@ public class SmartBotIngressService {
         this.stepMapper = stepMapper;
         this.outboxMapper = outboxMapper;
         this.identityHasher = identityHasher;
+        this.inputArtifactService = inputArtifactService;
         this.objectMapper = objectMapper;
     }
 
     @Transactional(rollbackFor = Exception.class)
     public SmartBotIngressResult accept(ResolvedBotBinding binding,
-                                        SmartBotInboundEnvelope envelope) {
-        validate(binding, envelope);
+                                        SmartBotInboundEnvelope envelope,
+                                        byte[] sourcePayload,
+                                        SmartBotContentArtifactPayload content) {
+        validate(binding, envelope, sourcePayload, content);
         if (!Objects.equals(binding.aibotId(), envelope.getAibotId())) {
             throw new SecurityException("回调机器人与绑定不一致");
         }
@@ -117,13 +126,15 @@ public class SmartBotIngressService {
         }
 
         Date now = new Date();
+        SmartBotInputArtifact artifact = inputArtifactService.create(
+            binding, memberBinding, event, envelope.getMsgType(), content, now);
         OrchestrationRun run = buildRun(binding, memberBinding, event, now);
         ensureInserted(runMapper.insertRun(run), "编排运行创建失败");
 
-        OrchestrationStep step = buildIngressStep(envelope, event, now);
+        OrchestrationStep step = buildIngressStep(artifact, event, now);
         ensureInserted(stepMapper.insertStep(step), "入站步骤创建失败");
 
-        DeliveryOutbox outbox = buildRunCreatedOutbox(binding, event, now);
+        DeliveryOutbox outbox = buildRunCreatedOutbox(binding, event, artifact, now);
         ensureInserted(outboxMapper.insertOutbox(outbox), "事务 Outbox 创建失败");
 
         return new SmartBotIngressResult(true, event.getId(), event.getTraceId(),
@@ -133,7 +144,7 @@ public class SmartBotIngressService {
 
     private SmartBotIngressResult duplicateResult(WecomInboundEvent claimed,
                                                    String currentUserHash) {
-        WecomInboundEvent stored = inboundEventMapper.selectById(claimed.getId());
+        WecomInboundEvent stored = inboundEventMapper.selectByIdForUpdate(claimed.getId());
         if (stored == null || !Objects.equals(stored.getBotBindingId(), claimed.getBotBindingId())
                 || !Objects.equals(stored.getMsgIdHash(), claimed.getMsgIdHash())
                 || !Objects.equals(stored.getAibotId(), claimed.getAibotId())
@@ -145,6 +156,7 @@ public class SmartBotIngressService {
         if (run == null) {
             throw new IllegalStateException("重复回调对应运行不存在");
         }
+        inputArtifactService.verifyDuplicateInvariant(stored, run);
         return new SmartBotIngressResult(false, stored.getId(), stored.getTraceId(),
             stored.getRunId(), stored.getStreamId(), run.getEnterpriseId(),
             run.getEnterpriseMemberId(), run.getUserId());
@@ -188,7 +200,7 @@ public class SmartBotIngressService {
         return run;
     }
 
-    private OrchestrationStep buildIngressStep(SmartBotInboundEnvelope envelope,
+    private OrchestrationStep buildIngressStep(SmartBotInputArtifact artifact,
                                                WecomInboundEvent event,
                                                Date now) {
         OrchestrationStep step = new OrchestrationStep();
@@ -200,7 +212,8 @@ public class SmartBotIngressService {
         step.setExecutorType("JAVA");
         step.setExecutorRef("smartbot.ingress");
         step.setStatus("SUCCEEDED");
-        step.setInputHash(normalizeHash(envelope.getPayloadHash()));
+        step.setInputRef(artifact.getInputRef());
+        step.setInputHash(normalizeHash(artifact.getContentHash()));
         step.setVersion(0);
         step.setStartedAt(now);
         step.setFinishedAt(now);
@@ -209,12 +222,15 @@ public class SmartBotIngressService {
 
     private DeliveryOutbox buildRunCreatedOutbox(ResolvedBotBinding binding,
                                                  WecomInboundEvent event,
+                                                 SmartBotInputArtifact artifact,
                                                  Date now) {
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("runId", event.getRunId());
         payload.put("traceId", event.getTraceId());
         payload.put("botBindingId", binding.bindingId());
         payload.put("definitionCode", DEFAULT_DEFINITION);
+        payload.put("inputArtifactRef", artifact.getInputRef());
+        payload.put("contentHash", artifact.getContentHash());
 
         DeliveryOutbox outbox = new DeliveryOutbox();
         outbox.setEventKey("run:" + event.getRunId() + ":created");
@@ -228,7 +244,8 @@ public class SmartBotIngressService {
         return outbox;
     }
 
-    private void validate(ResolvedBotBinding binding, SmartBotInboundEnvelope envelope) {
+    private void validate(ResolvedBotBinding binding, SmartBotInboundEnvelope envelope,
+                          byte[] sourcePayload, SmartBotContentArtifactPayload content) {
         if (binding == null || binding.bindingId() == null || binding.enterpriseId() == null
                 || !StringUtils.hasText(binding.aibotId())) {
             throw new IllegalArgumentException("机器人绑定不完整");
@@ -243,6 +260,11 @@ public class SmartBotIngressService {
                 || envelope.getMsgType().length() > 32
                 || !StringUtils.hasText(envelope.getPayloadHash())) {
             throw new IllegalArgumentException("入站事件元数据不完整或超限");
+        }
+        if (sourcePayload == null || sourcePayload.length == 0 || sourcePayload.length > MAX_SOURCE_PAYLOAD_BYTES
+                || content == null || !SmartBotInputArtifactService.PURPOSE.equals(content.getKind())
+                || content.getContentSize() <= 0 || content.getContentSize() > 256 * 1024) {
+            throw new IllegalArgumentException("入站内容不完整或超限");
         }
         if (StringUtils.hasText(envelope.getChatType())
                 && (!Set.of("single", "group").contains(envelope.getChatType())
@@ -261,7 +283,18 @@ public class SmartBotIngressService {
         if (StringUtils.hasText(envelope.getEventType()) && envelope.getEventType().length() > 64) {
             throw new IllegalArgumentException("eventType 超限");
         }
-        normalizeHash(envelope.getPayloadHash());
+        String sourceHash = normalizeHash(envelope.getPayloadHash());
+        if (!sourceHash.equals(sha256(sourcePayload))) {
+            throw new SecurityException("入站负载摘要不一致");
+        }
+        byte[] contentBytes = content.copyContentBytes();
+        try {
+            if (!normalizeHash(content.getContentHash()).equals(sha256(contentBytes))) {
+                throw new SecurityException("入站内容摘要不一致");
+            }
+        } finally {
+            java.util.Arrays.fill(contentBytes, (byte) 0);
+        }
     }
 
     private void validateControlPlaneState(ResolvedBotBinding binding) {
@@ -288,6 +321,19 @@ public class SmartBotIngressService {
             throw new IllegalArgumentException("payloadHash 必须是 SHA-256 十六进制");
         }
         return hash.toLowerCase();
+    }
+
+    private String sha256(byte[] value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(value);
+            StringBuilder hex = new StringBuilder(digest.length * 2);
+            for (byte b : digest) {
+                hex.append(String.format("%02x", b & 0xff));
+            }
+            return hex.toString();
+        } catch (Exception e) {
+            throw new IllegalStateException("SHA-256 不可用", e);
+        }
     }
 
     private boolean sameOptionalHash(String left, String right) {
