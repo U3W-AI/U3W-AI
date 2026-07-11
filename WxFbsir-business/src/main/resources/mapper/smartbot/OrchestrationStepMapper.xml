@@ -39,4 +39,9 @@
         WHERE run_id = #{runId} AND step_key = #{stepKey} AND attempt = #{attempt}
         FOR UPDATE
     </select>
+    <select id="selectByRunId" resultMap="StepResult">
+        SELECT * FROM fbs_orchestration_step
+        WHERE run_id = #{runId}
+        ORDER BY create_time, step_id
+    </select>
 </mapper>

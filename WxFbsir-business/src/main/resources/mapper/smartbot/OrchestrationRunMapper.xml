@@ -46,4 +46,18 @@
             update_time = NOW()
         WHERE run_id = #{runId} AND status = 'PENDING' AND version = #{expectedVersion}
     </update>
+    <update id="markWebhookQueued">
+        UPDATE fbs_orchestration_run
+        SET status = 'WEBHOOK_QUEUED', version = version + 1,
+            next_wakeup_at = NOW(), error_code = NULL, error_message = NULL,
+            update_time = NOW()
+        WHERE run_id = #{runId} AND status = 'READY' AND version = #{expectedVersion}
+    </update>
+    <update id="markWebhookResult">
+        UPDATE fbs_orchestration_run
+        SET status = #{status}, version = version + 1,
+            next_wakeup_at = NULL, error_code = NULL, error_message = NULL,
+            update_time = NOW()
+        WHERE run_id = #{runId} AND status = 'WEBHOOK_QUEUED' AND version = #{expectedVersion}
+    </update>
 </mapper>

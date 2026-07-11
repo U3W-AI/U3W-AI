@@ -34,6 +34,30 @@ public class OutboxLeaseService {
     }
 
     public Optional<DeliveryOutbox> claimNext(String leaseOwner, Duration leaseDuration) {
+        return claimNextInternal(leaseOwner, leaseDuration);
+    }
+
+    public Optional<DeliveryOutbox> claimNext(String destinationType, String leaseOwner,
+                                               Duration leaseDuration) {
+        if (!"INTERNAL_DISPATCHER".equals(destinationType) && !"WEBHOOK_HUB".equals(destinationType)) {
+            throw new IllegalArgumentException("unsupported outbox destination type");
+        }
+        validateOwner(leaseOwner);
+        long seconds = validateDuration(leaseDuration);
+        String token = UUID.randomUUID().toString();
+        for (int attempt = 1; attempt <= MAX_CLAIM_ATTEMPTS; attempt++) {
+            try {
+                return claimTransactionService.claimOnce(destinationType, leaseOwner, token, seconds);
+            } catch (TransientDataAccessException ex) {
+                if (attempt == MAX_CLAIM_ATTEMPTS) {
+                    throw ex;
+                }
+            }
+        }
+        throw new IllegalStateException("outbox claim retry loop exhausted");
+    }
+
+    private Optional<DeliveryOutbox> claimNextInternal(String leaseOwner, Duration leaseDuration) {
         validateOwner(leaseOwner);
         long seconds = validateDuration(leaseDuration);
         String token = UUID.randomUUID().toString();

@@ -4,10 +4,13 @@ import com.wx.fbsir.business.smartbot.domain.OrchestrationStep;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 @Mapper
 public interface OrchestrationStepMapper {
     int insertStep(OrchestrationStep step);
     OrchestrationStep selectByRunStepAttemptForUpdate(@Param("runId") String runId,
                                                       @Param("stepKey") String stepKey,
                                                       @Param("attempt") Integer attempt);
+    List<OrchestrationStep> selectByRunId(@Param("runId") String runId);
 }

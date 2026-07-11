@@ -1,6 +1,7 @@
 package com.wx.fbsir.business.airobotmessage.service;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -28,6 +29,7 @@ public class WebhookSecretCodec {
     private final Map<String, String> keys;
     private final SecureRandom secureRandom;
 
+    @Autowired
     public WebhookSecretCodec(
             @Value("${webhook.crypto.current-version:v1}") String currentVersion,
             @Value("${webhook.crypto.keys.v1:}") String v1,

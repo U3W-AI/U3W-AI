@@ -3,6 +3,7 @@ package com.wx.fbsir.business.smartbot.service;
 import com.wx.fbsir.business.smartbot.domain.SmartBotInputArtifact;
 import com.wx.fbsir.business.smartbot.dto.SmartBotInputArtifactScope;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 
 import javax.crypto.Cipher;
@@ -32,6 +33,7 @@ public class SmartBotInputCryptoService {
     private final SecretReferenceResolver secretResolver;
     private final SecureRandom secureRandom;
 
+    @Autowired
     public SmartBotInputCryptoService(SecretReferenceResolver secretResolver) {
         this(secretResolver, new SecureRandom());
     }

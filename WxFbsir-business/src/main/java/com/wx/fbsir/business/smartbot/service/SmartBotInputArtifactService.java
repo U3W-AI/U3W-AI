@@ -6,6 +6,7 @@ import com.wx.fbsir.business.smartbot.domain.WecomBotMemberBinding;
 import com.wx.fbsir.business.smartbot.domain.WecomInboundEvent;
 import com.wx.fbsir.business.smartbot.dto.ResolvedBotBinding;
 import com.wx.fbsir.business.smartbot.dto.SmartBotContentArtifactPayload;
+import com.wx.fbsir.business.smartbot.dto.SmartBotInputArtifactScope;
 import com.wx.fbsir.business.smartbot.mapper.SmartBotInputArtifactMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -14,6 +15,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.Objects;
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -95,6 +97,21 @@ public class SmartBotInputArtifactService {
             throw new IllegalStateException("运行输入内容不可用或作用域不一致");
         }
         return artifact;
+    }
+
+    /** Returns short-lived plaintext only after a full run/tenant/member/hash scope check. */
+    public String readDecryptedForWebhook(OrchestrationRun run, String inputRef, String contentHash) {
+        SmartBotInputArtifact artifact = requireAvailableForActivation(run, inputRef, contentHash);
+        SmartBotInputArtifactScope scope = new SmartBotInputArtifactScope(
+            artifact.getInputRef(), artifact.getRunId(), artifact.getInboundEventId(),
+            artifact.getBotBindingId(), artifact.getEnterpriseId(), artifact.getEnterpriseMemberId(),
+            artifact.getUserId(), artifact.getMsgType(), artifact.getSourcePayloadHash(), artifact.getContentHash());
+        byte[] plaintext = cryptoService.decrypt(artifact, scope);
+        try {
+            return new String(plaintext, StandardCharsets.UTF_8);
+        } finally {
+            Arrays.fill(plaintext, (byte) 0);
+        }
     }
 
     /** Duplicate callbacks must observe the original artifact instead of creating a new one. */

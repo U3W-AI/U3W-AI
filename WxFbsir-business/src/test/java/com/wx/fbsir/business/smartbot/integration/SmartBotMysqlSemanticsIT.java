@@ -10,6 +10,7 @@ import com.wx.fbsir.business.smartbot.dto.SmartBotInboundEnvelope;
 import com.wx.fbsir.business.smartbot.dto.SmartBotIngressResult;
 import com.wx.fbsir.business.smartbot.mapper.DeliveryOutboxMapper;
 import com.wx.fbsir.business.smartbot.mapper.OrchestrationRunMapper;
+import com.wx.fbsir.business.smartbot.mapper.OrchestrationReceiptMapper;
 import com.wx.fbsir.business.smartbot.mapper.OrchestrationStepMapper;
 import com.wx.fbsir.business.smartbot.mapper.SmartBotInputArtifactMapper;
 import com.wx.fbsir.business.smartbot.mapper.WecomBotBindingMapper;
@@ -18,12 +19,21 @@ import com.wx.fbsir.business.smartbot.mapper.WecomInboundEventMapper;
 import com.wx.fbsir.business.smartbot.service.ExternalIdentityHasher;
 import com.wx.fbsir.business.smartbot.service.InternalOutboxDispatcherService;
 import com.wx.fbsir.business.smartbot.service.InternalRunActivationService;
+import com.wx.fbsir.business.smartbot.service.HumanWebhookApprovalService;
 import com.wx.fbsir.business.smartbot.service.OutboxClaimTransactionService;
 import com.wx.fbsir.business.smartbot.service.OutboxLeaseService;
 import com.wx.fbsir.business.smartbot.service.SmartBotIngressService;
 import com.wx.fbsir.business.smartbot.service.SmartBotInputArtifactService;
 import com.wx.fbsir.business.smartbot.service.SmartBotInputCryptoService;
 import com.wx.fbsir.business.smartbot.service.SecretReferenceResolver;
+import com.wx.fbsir.business.airobotmessage.service.MessageService;
+import com.wx.fbsir.business.airobotmessage.service.WebhookScopeGuard;
+import com.wx.fbsir.business.airobotmessage.dto.WebhookDeliveryReceipt;
+import com.wx.fbsir.business.airobotmessage.dto.WebhookSendRequest;
+import com.wx.fbsir.business.airobotmessage.dto.WebhookMetadataResponse;
+import com.wx.fbsir.business.smartbot.service.SmartBotWebhookPayloadRenderer;
+import com.wx.fbsir.business.smartbot.service.WebhookDispatchTransactionService;
+import com.wx.fbsir.business.smartbot.service.WebhookOutboxDispatcherService;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -71,6 +81,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.when;
 
 /**
  * Explicit real-MySQL contract test. The normal Maven test lifecycle does not
@@ -92,6 +106,9 @@ class SmartBotMysqlSemanticsIT {
     private static OutboxLeaseService outboxLeaseService;
     private static InternalOutboxDispatcherService internalDispatcher;
     private static InternalRunActivationService activationService;
+    private static HumanWebhookApprovalService approvalService;
+    private static WebhookOutboxDispatcherService webhookDispatcher;
+    private static MessageService messageService;
     private static ExternalIdentityHasher identityHasher;
     private static TransactionTemplate transactionTemplate;
 
@@ -117,6 +134,9 @@ class SmartBotMysqlSemanticsIT {
         outboxLeaseService = context.getBean(OutboxLeaseService.class);
         internalDispatcher = context.getBean(InternalOutboxDispatcherService.class);
         activationService = context.getBean(InternalRunActivationService.class);
+        approvalService = context.getBean(HumanWebhookApprovalService.class);
+        webhookDispatcher = context.getBean(WebhookOutboxDispatcherService.class);
+        messageService = context.getBean(MessageService.class);
         identityHasher = context.getBean(ExternalIdentityHasher.class);
         transactionTemplate = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
 
@@ -139,6 +159,9 @@ class SmartBotMysqlSemanticsIT {
 
     @BeforeEach
     void resetAndSeed() throws Exception {
+        reset(messageService);
+        when(messageService.get(any(), any(), any())).thenReturn(new WebhookMetadataResponse(
+            77L, 11L, "mysql-it", "masked", null, true, 1, null, null));
         execute(
             "DROP TRIGGER IF EXISTS smartbot_it_fail_step",
             "DROP TRIGGER IF EXISTS smartbot_it_fail_activation_step",
@@ -317,15 +340,7 @@ class SmartBotMysqlSemanticsIT {
                     if (!start.await(10, TimeUnit.SECONDS)) {
                         throw new IllegalStateException("start barrier timed out");
                     }
-                    for (int attempt = 0; attempt < 100; attempt++) {
-                        Optional<DeliveryOutbox> claimed =
-                            outboxLeaseService.claimNext(owner, Duration.ofSeconds(30));
-                        if (claimed.isPresent()) {
-                            return claimed;
-                        }
-                        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1));
-                    }
-                    return Optional.empty();
+                    return outboxLeaseService.claimNext(owner, Duration.ofSeconds(30));
                 }));
             }
             assertTrue(ready.await(10, TimeUnit.SECONDS));
@@ -514,6 +529,71 @@ class SmartBotMysqlSemanticsIT {
             "smartbot_it_fail_activation_outbox",
             "CREATE TRIGGER smartbot_it_fail_activation_outbox BEFORE UPDATE ON fbs_delivery_outbox "
                 + "FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced outbox consume failure'");
+    }
+
+    @Test
+    void concurrentHumanApprovalsCreateOneActionReceiptAndOneWebhookCommand() throws Exception {
+        SmartBotIngressResult accepted = accept(binding(7L, "AIBOT-01"), envelope());
+        assertTrue(internalDispatcher.dispatchOne("activation-worker", Duration.ofSeconds(30)).isPresent());
+        assertEquals("READY", scalarString("SELECT status FROM fbs_orchestration_run WHERE run_id='"
+            + accepted.runId() + "'"));
+        String approvedHash = approvalService.preview(accepted.runId(), 31L).contentHash();
+
+        int workers = 32;
+        ExecutorService executor = Executors.newFixedThreadPool(workers);
+        CountDownLatch ready = new CountDownLatch(workers);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<?>> futures = new ArrayList<>();
+        for (int i = 0; i < workers; i++) {
+            futures.add(executor.submit(() -> {
+                ready.countDown();
+                start.await(10, TimeUnit.SECONDS);
+                approvalService.approve(accepted.runId(), 77L, 1, 31L, approvedHash);
+                return null;
+            }));
+        }
+        assertTrue(ready.await(10, TimeUnit.SECONDS));
+        start.countDown();
+        for (Future<?> future : futures) {
+            future.get(15, TimeUnit.SECONDS);
+        }
+        executor.shutdownNow();
+
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_step WHERE run_id='"
+            + accepted.runId() + "' AND step_key='human.webhook.approved'"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_receipt WHERE run_id='"
+            + accepted.runId() + "' AND receipt_type='ACTION' AND status='APPROVED'"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_delivery_outbox WHERE run_id='"
+            + accepted.runId() + "' AND destination_type='WEBHOOK_HUB'"));
+        assertEquals("WEBHOOK_QUEUED", scalarString("SELECT status FROM fbs_orchestration_run WHERE run_id='"
+            + accepted.runId() + "'"));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_delivery_outbox WHERE run_id='"
+            + accepted.runId() + "' AND payload_json LIKE '%mysql-contract-test%'"));
+    }
+
+    @Test
+    void completeVerticalSliceSeparatesHumanActionFromProviderDeliveryReceipt() throws Exception {
+        SmartBotIngressResult accepted = accept(binding(7L, "AIBOT-01"), envelope());
+        assertTrue(internalDispatcher.dispatchOne("activation-worker", Duration.ofSeconds(30)).isPresent());
+        String approvedHash = approvalService.preview(accepted.runId(), 31L).contentHash();
+        approvalService.approve(accepted.runId(), 77L, 1, 31L, approvedHash);
+        when(messageService.send(any(WebhookSendRequest.class), eq(31L)))
+            .thenReturn(new WebhookDeliveryReceipt(88L,
+                "22222222-2222-2222-2222-222222222222", "PROVIDER_ACCEPTED", 200, 0, "ok"));
+
+        var result = webhookDispatcher.dispatchOne("webhook-worker", Duration.ofSeconds(30)).orElseThrow();
+
+        assertEquals("WEBHOOK_ACCEPTED_AWAIT_READBACK", result.status());
+        assertEquals("WEBHOOK_ACCEPTED_AWAIT_READBACK", scalarString(
+            "SELECT status FROM fbs_orchestration_run WHERE run_id='" + accepted.runId() + "'"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_receipt WHERE run_id='"
+            + accepted.runId() + "' AND receipt_type='ACTION' AND status='APPROVED'"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_receipt WHERE run_id='"
+            + accepted.runId() + "' AND receipt_type='DELIVERY' AND status='PROVIDER_ACCEPTED'"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_delivery_outbox WHERE run_id='"
+            + accepted.runId() + "' AND destination_type='WEBHOOK_HUB' AND status='CONSUMED'"));
+        assertEquals(4, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_step WHERE run_id='"
+            + accepted.runId() + "'"));
     }
 
     private void assertActivationRollbackAndRecovery(String triggerName,
@@ -778,6 +858,11 @@ class SmartBotMysqlSemanticsIT {
         }
 
         @Bean
+        MapperFactoryBean<OrchestrationReceiptMapper> receiptMapper(SqlSessionFactory factory) {
+            return mapper(OrchestrationReceiptMapper.class, factory);
+        }
+
+        @Bean
         MapperFactoryBean<SmartBotInputArtifactMapper> inputArtifactMapper(SqlSessionFactory factory) {
             return mapper(SmartBotInputArtifactMapper.class, factory);
         }
@@ -873,6 +958,57 @@ class SmartBotMysqlSemanticsIT {
                 OutboxLeaseService outboxLeaseService,
                 InternalRunActivationService activationService) {
             return new InternalOutboxDispatcherService(outboxLeaseService, activationService);
+        }
+
+        @Bean
+        WebhookScopeGuard webhookScopeGuard() {
+            return org.mockito.Mockito.mock(WebhookScopeGuard.class);
+        }
+
+        @Bean
+        MessageService messageService() {
+            return org.mockito.Mockito.mock(MessageService.class);
+        }
+
+        @Bean
+        SmartBotWebhookPayloadRenderer smartBotWebhookPayloadRenderer(
+                SmartBotInputArtifactService inputArtifactService, ObjectMapper objectMapper) {
+            return new SmartBotWebhookPayloadRenderer(inputArtifactService, objectMapper);
+        }
+
+        @Bean
+        WebhookDispatchTransactionService webhookDispatchTransactionService(
+                DeliveryOutboxMapper outboxMapper,
+                OrchestrationRunMapper runMapper,
+                OrchestrationStepMapper stepMapper,
+                OrchestrationReceiptMapper receiptMapper,
+                SmartBotWebhookPayloadRenderer renderer,
+                ObjectMapper objectMapper) {
+            return new WebhookDispatchTransactionService(outboxMapper, runMapper, stepMapper,
+                receiptMapper, renderer, objectMapper);
+        }
+
+        @Bean
+        WebhookOutboxDispatcherService webhookOutboxDispatcherService(
+                OutboxLeaseService leaseService,
+                WebhookDispatchTransactionService transactionService,
+                MessageService messageService) {
+            return new WebhookOutboxDispatcherService(leaseService, transactionService, messageService);
+        }
+
+        @Bean
+        HumanWebhookApprovalService humanWebhookApprovalService(
+                OrchestrationRunMapper runMapper,
+                OrchestrationStepMapper stepMapper,
+                OrchestrationReceiptMapper receiptMapper,
+                DeliveryOutboxMapper outboxMapper,
+                SmartBotInputArtifactService inputArtifactService,
+                WebhookScopeGuard scopeGuard,
+                MessageService messageService,
+                SmartBotWebhookPayloadRenderer renderer,
+                ObjectMapper objectMapper) {
+            return new HumanWebhookApprovalService(runMapper, stepMapper, receiptMapper,
+                outboxMapper, inputArtifactService, scopeGuard, messageService, renderer, objectMapper);
         }
 
         private static <T> MapperFactoryBean<T> mapper(Class<T> type, SqlSessionFactory factory) {

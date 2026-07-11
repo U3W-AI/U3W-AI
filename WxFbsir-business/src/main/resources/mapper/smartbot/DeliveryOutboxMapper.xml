@@ -31,6 +31,16 @@
              #{payloadJson}, #{status}, #{attemptCount}, NOW(), NOW(), NOW())
     </insert>
 
+    <select id="selectByEventKeyForUpdate" resultMap="OutboxResult">
+        SELECT id, event_key, run_id, event_type, destination_type, destination_ref,
+               payload_json, status, attempt_count, next_attempt_at, lease_owner,
+               lease_token, lease_until, last_http_status, last_error, version,
+               create_time, update_time
+        FROM fbs_delivery_outbox
+        WHERE event_key = #{eventKey}
+        FOR UPDATE
+    </select>
+
     <!-- MySQL 8 queue claim: skip rows held by another short claim transaction. -->
     <select id="selectClaimCandidateForUpdate" resultType="java.lang.Long">
         SELECT id
@@ -75,6 +85,18 @@
                create_time, update_time
         FROM fbs_delivery_outbox
         WHERE id = #{id} AND destination_type = 'INTERNAL_DISPATCHER'
+          AND status = 'LEASED' AND lease_token = #{leaseToken}
+          AND lease_until &gt; NOW()
+        FOR UPDATE
+    </select>
+
+    <select id="selectActiveLeaseForUpdateByDestination" resultMap="OutboxResult">
+        SELECT id, event_key, run_id, event_type, destination_type, destination_ref,
+               payload_json, status, attempt_count, next_attempt_at, lease_owner,
+               lease_token, lease_until, last_http_status, last_error, version,
+               create_time, update_time
+        FROM fbs_delivery_outbox
+        WHERE id = #{id} AND destination_type = #{destinationType}
           AND status = 'LEASED' AND lease_token = #{leaseToken}
           AND lease_until &gt; NOW()
         FOR UPDATE

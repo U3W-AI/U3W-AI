@@ -11,4 +11,9 @@ public interface OrchestrationRunMapper {
     OrchestrationRun selectByRunIdForUpdate(@Param("runId") String runId);
     int markReady(@Param("runId") String runId,
                   @Param("expectedVersion") Integer expectedVersion);
+    int markWebhookQueued(@Param("runId") String runId,
+                          @Param("expectedVersion") Integer expectedVersion);
+    int markWebhookResult(@Param("runId") String runId,
+                          @Param("expectedVersion") Integer expectedVersion,
+                          @Param("status") String status);
 }

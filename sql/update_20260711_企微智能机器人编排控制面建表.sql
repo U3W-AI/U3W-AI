@@ -145,7 +145,7 @@ CREATE TABLE IF NOT EXISTS `fbs_delivery_outbox` (
     `event_key`         VARCHAR(191) NOT NULL COMMENT '投递幂等键',
     `run_id`            CHAR(36)     NOT NULL,
     `event_type`        VARCHAR(64)  NOT NULL,
-    `destination_type`  VARCHAR(32)  NOT NULL COMMENT 'INTERNAL_DISPATCHER/RESPONSE_URL',
+    `destination_type`  VARCHAR(32)  NOT NULL COMMENT 'INTERNAL_DISPATCHER/WEBHOOK_HUB/RESPONSE_URL',
     `destination_ref`   VARCHAR(512) DEFAULT NULL COMMENT '加密目标或内部引用',
     `payload_json`      JSON         NOT NULL COMMENT '最小事件负载，不含消息正文或凭据',
     `status`            VARCHAR(32)  NOT NULL DEFAULT 'PENDING',

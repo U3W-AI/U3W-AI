@@ -12,7 +12,6 @@ import java.util.Optional;
 @Service
 public class OutboxClaimTransactionService {
 
-    private static final String INTERNAL_DISPATCHER = "INTERNAL_DISPATCHER";
     private final DeliveryOutboxMapper outboxMapper;
 
     public OutboxClaimTransactionService(DeliveryOutboxMapper outboxMapper) {
@@ -22,12 +21,18 @@ public class OutboxClaimTransactionService {
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public Optional<DeliveryOutbox> claimOnce(String leaseOwner, String leaseToken,
                                                long leaseSeconds) {
-        Long id = outboxMapper.selectClaimCandidateForUpdate(INTERNAL_DISPATCHER);
+        return claimOnce("INTERNAL_DISPATCHER", leaseOwner, leaseToken, leaseSeconds);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    public Optional<DeliveryOutbox> claimOnce(String destinationType, String leaseOwner, String leaseToken,
+                                               long leaseSeconds) {
+        Long id = outboxMapper.selectClaimCandidateForUpdate(destinationType);
         if (id == null) {
             return Optional.empty();
         }
         int claimed = outboxMapper.claimById(
-            id, INTERNAL_DISPATCHER, leaseOwner, leaseToken, leaseSeconds);
+            id, destinationType, leaseOwner, leaseToken, leaseSeconds);
         if (claimed != 1) {
             throw new IllegalStateException("outbox claim affected an unexpected number of rows");
         }

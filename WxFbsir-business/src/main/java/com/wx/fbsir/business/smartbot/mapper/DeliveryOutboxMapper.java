@@ -10,6 +10,8 @@ import java.util.Date;
 public interface DeliveryOutboxMapper {
     int insertOutbox(DeliveryOutbox outbox);
 
+    DeliveryOutbox selectByEventKeyForUpdate(@Param("eventKey") String eventKey);
+
     Long selectClaimCandidateForUpdate(@Param("destinationType") String destinationType);
 
     int claimById(@Param("id") Long id,
@@ -22,6 +24,10 @@ public interface DeliveryOutboxMapper {
 
     DeliveryOutbox selectActiveLeaseForUpdate(@Param("id") Long id,
                                               @Param("leaseToken") String leaseToken);
+
+    DeliveryOutbox selectActiveLeaseForUpdateByDestination(@Param("id") Long id,
+                                                           @Param("leaseToken") String leaseToken,
+                                                           @Param("destinationType") String destinationType);
 
     int extendLease(@Param("id") Long id,
                     @Param("leaseToken") String leaseToken,
