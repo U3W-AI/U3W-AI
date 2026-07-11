@@ -20,12 +20,15 @@ public interface DeliveryOutboxMapper {
 
     DeliveryOutbox selectByLeaseToken(@Param("leaseToken") String leaseToken);
 
+    DeliveryOutbox selectActiveLeaseForUpdate(@Param("id") Long id,
+                                              @Param("leaseToken") String leaseToken);
+
     int extendLease(@Param("id") Long id,
                     @Param("leaseToken") String leaseToken,
                     @Param("leaseSeconds") long leaseSeconds);
 
-    int markDispatched(@Param("id") Long id,
-                       @Param("leaseToken") String leaseToken);
+    int markConsumed(@Param("id") Long id,
+                     @Param("leaseToken") String leaseToken);
 
     int scheduleRetry(@Param("id") Long id,
                       @Param("leaseToken") String leaseToken,

@@ -68,6 +68,18 @@
         LIMIT 1
     </select>
 
+    <select id="selectActiveLeaseForUpdate" resultMap="OutboxResult">
+        SELECT id, event_key, run_id, event_type, destination_type, destination_ref,
+               payload_json, status, attempt_count, next_attempt_at, lease_owner,
+               lease_token, lease_until, last_http_status, last_error, version,
+               create_time, update_time
+        FROM fbs_delivery_outbox
+        WHERE id = #{id} AND destination_type = 'INTERNAL_DISPATCHER'
+          AND status = 'LEASED' AND lease_token = #{leaseToken}
+          AND lease_until &gt; NOW()
+        FOR UPDATE
+    </select>
+
     <update id="extendLease">
         UPDATE fbs_delivery_outbox
         SET lease_until = DATE_ADD(NOW(), INTERVAL #{leaseSeconds} SECOND),
@@ -77,9 +89,9 @@
           AND lease_until &gt; NOW()
     </update>
 
-    <update id="markDispatched">
+    <update id="markConsumed">
         UPDATE fbs_delivery_outbox
-        SET status = 'DISPATCHED', lease_owner = NULL, lease_token = NULL,
+        SET status = 'CONSUMED', lease_owner = NULL, lease_token = NULL,
             lease_until = NULL, last_error = NULL, version = version + 1,
             update_time = NOW()
         WHERE id = #{id} AND lease_token = #{leaseToken} AND status = 'LEASED'

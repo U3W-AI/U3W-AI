@@ -39,4 +39,11 @@
     <select id="selectByRunIdForUpdate" resultMap="RunResult">
         SELECT * FROM fbs_orchestration_run WHERE run_id = #{runId} FOR UPDATE
     </select>
+    <update id="markReady">
+        UPDATE fbs_orchestration_run
+        SET status = 'READY', version = version + 1,
+            next_wakeup_at = NOW(), error_code = NULL, error_message = NULL,
+            update_time = NOW()
+        WHERE run_id = #{runId} AND status = 'PENDING' AND version = #{expectedVersion}
+    </update>
 </mapper>

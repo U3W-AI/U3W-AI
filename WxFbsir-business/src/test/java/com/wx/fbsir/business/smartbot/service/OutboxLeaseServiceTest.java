@@ -5,6 +5,7 @@ import com.wx.fbsir.business.smartbot.mapper.DeliveryOutboxMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.CannotAcquireLockException;
 
 import java.time.Duration;
 import java.util.Date;
@@ -25,25 +26,25 @@ import static org.mockito.Mockito.when;
 class OutboxLeaseServiceTest {
 
     private DeliveryOutboxMapper mapper;
+    private OutboxClaimTransactionService claimTransactionService;
     private OutboxLeaseService service;
 
     @BeforeEach
     void setUp() {
         mapper = mock(DeliveryOutboxMapper.class);
-        service = new OutboxLeaseService(mapper);
+        claimTransactionService = mock(OutboxClaimTransactionService.class);
+        service = new OutboxLeaseService(claimTransactionService, mapper);
     }
 
     @Test
     void claimsOneRowAndReturnsItsFencingToken() {
         ArgumentCaptor<String> token = ArgumentCaptor.forClass(String.class);
-        when(mapper.selectClaimCandidateForUpdate("INTERNAL_DISPATCHER")).thenReturn(7L);
-        when(mapper.claimById(eq(7L), eq("INTERNAL_DISPATCHER"), eq("worker-01"),
-            token.capture(), eq(30L))).thenReturn(1);
         DeliveryOutbox outbox = new DeliveryOutbox();
         outbox.setId(7L);
-        when(mapper.selectByLeaseToken(any())).thenAnswer(invocation -> {
-            outbox.setLeaseToken(invocation.getArgument(0));
-            return outbox;
+        when(claimTransactionService.claimOnce(eq("worker-01"), token.capture(),
+            eq(30L))).thenAnswer(invocation -> {
+            outbox.setLeaseToken(invocation.getArgument(1));
+            return Optional.of(outbox);
         });
 
         Optional<DeliveryOutbox> claimed = service.claimNext("worker-01", Duration.ofSeconds(30));
@@ -55,7 +56,8 @@ class OutboxLeaseServiceTest {
 
     @Test
     void noCandidateReturnsEmptyWithoutLeaseLookup() {
-        when(mapper.selectClaimCandidateForUpdate("INTERNAL_DISPATCHER")).thenReturn(null);
+        when(claimTransactionService.claimOnce(eq("worker-01"), any(),
+            eq(30L))).thenReturn(Optional.empty());
 
         assertFalse(service.claimNext("worker-01", Duration.ofSeconds(30)).isPresent());
 
@@ -65,11 +67,11 @@ class OutboxLeaseServiceTest {
 
     @Test
     void staleWorkerCannotCompleteOrRetry() {
-        when(mapper.markDispatched(7L, "00000000-0000-0000-0000-000000000001")).thenReturn(0);
+        when(mapper.markConsumed(7L, "00000000-0000-0000-0000-000000000001")).thenReturn(0);
         when(mapper.scheduleRetry(eq(7L), eq("00000000-0000-0000-0000-000000000001"),
             any(Date.class), any())).thenReturn(0);
 
-        assertThrows(IllegalStateException.class, () -> service.markDispatched(
+        assertThrows(IllegalStateException.class, () -> service.markConsumed(
             7L, "00000000-0000-0000-0000-000000000001"));
         assertThrows(IllegalStateException.class, () -> service.scheduleRetry(
             7L, "00000000-0000-0000-0000-000000000001", new Date(), "retry"));
@@ -91,5 +93,19 @@ class OutboxLeaseServiceTest {
 
         verify(mapper).markDead(7L, "00000000-0000-0000-0000-000000000001",
             "line1 line2 token=[REDACTED] Authorization=[REDACTED]");
+    }
+
+    @Test
+    void retriesOnlyBoundedTransientClaimFailures() {
+        DeliveryOutbox outbox = new DeliveryOutbox();
+        outbox.setId(7L);
+        when(claimTransactionService.claimOnce(eq("worker-01"), any(), eq(30L)))
+            .thenThrow(new CannotAcquireLockException("deadlock-1", null))
+            .thenThrow(new CannotAcquireLockException("deadlock-2", null))
+            .thenReturn(Optional.of(outbox));
+
+        assertTrue(service.claimNext("worker-01", Duration.ofSeconds(30)).isPresent());
+        verify(claimTransactionService, org.mockito.Mockito.times(3)).claimOnce(
+            eq("worker-01"), any(), eq(30L));
     }
 }

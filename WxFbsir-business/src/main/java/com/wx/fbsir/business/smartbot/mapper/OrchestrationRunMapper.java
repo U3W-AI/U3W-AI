@@ -9,4 +9,6 @@ public interface OrchestrationRunMapper {
     int insertRun(OrchestrationRun run);
     OrchestrationRun selectByRunId(@Param("runId") String runId);
     OrchestrationRun selectByRunIdForUpdate(@Param("runId") String runId);
+    int markReady(@Param("runId") String runId,
+                  @Param("expectedVersion") Integer expectedVersion);
 }

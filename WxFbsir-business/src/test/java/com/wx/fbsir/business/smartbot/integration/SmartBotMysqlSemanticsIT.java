@@ -14,6 +14,9 @@ import com.wx.fbsir.business.smartbot.mapper.WecomBotBindingMapper;
 import com.wx.fbsir.business.smartbot.mapper.WecomBotMemberBindingMapper;
 import com.wx.fbsir.business.smartbot.mapper.WecomInboundEventMapper;
 import com.wx.fbsir.business.smartbot.service.ExternalIdentityHasher;
+import com.wx.fbsir.business.smartbot.service.InternalOutboxDispatcherService;
+import com.wx.fbsir.business.smartbot.service.InternalRunActivationService;
+import com.wx.fbsir.business.smartbot.service.OutboxClaimTransactionService;
 import com.wx.fbsir.business.smartbot.service.OutboxLeaseService;
 import com.wx.fbsir.business.smartbot.service.SmartBotIngressService;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -54,6 +57,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -77,6 +81,8 @@ class SmartBotMysqlSemanticsIT {
     private static DataSource dataSource;
     private static SmartBotIngressService ingressService;
     private static OutboxLeaseService outboxLeaseService;
+    private static InternalOutboxDispatcherService internalDispatcher;
+    private static InternalRunActivationService activationService;
     private static ExternalIdentityHasher identityHasher;
     private static TransactionTemplate transactionTemplate;
 
@@ -100,6 +106,8 @@ class SmartBotMysqlSemanticsIT {
         dataSource = context.getBean(DataSource.class);
         ingressService = context.getBean(SmartBotIngressService.class);
         outboxLeaseService = context.getBean(OutboxLeaseService.class);
+        internalDispatcher = context.getBean(InternalOutboxDispatcherService.class);
+        activationService = context.getBean(InternalRunActivationService.class);
         identityHasher = context.getBean(ExternalIdentityHasher.class);
         transactionTemplate = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
 
@@ -124,6 +132,9 @@ class SmartBotMysqlSemanticsIT {
     void resetAndSeed() throws Exception {
         execute(
             "DROP TRIGGER IF EXISTS smartbot_it_fail_step",
+            "DROP TRIGGER IF EXISTS smartbot_it_fail_activation_step",
+            "DROP TRIGGER IF EXISTS smartbot_it_fail_activation_run",
+            "DROP TRIGGER IF EXISTS smartbot_it_fail_activation_outbox",
             "DELETE FROM fbs_delivery_outbox",
             "DELETE FROM fbs_orchestration_receipt",
             "DELETE FROM fbs_orchestration_step",
@@ -282,13 +293,13 @@ class SmartBotMysqlSemanticsIT {
                     if (!start.await(10, TimeUnit.SECONDS)) {
                         throw new IllegalStateException("start barrier timed out");
                     }
-                    for (int attempt = 0; attempt < 10; attempt++) {
+                    for (int attempt = 0; attempt < 100; attempt++) {
                         Optional<DeliveryOutbox> claimed =
                             outboxLeaseService.claimNext(owner, Duration.ofSeconds(30));
                         if (claimed.isPresent()) {
                             return claimed;
                         }
-                        Thread.yield();
+                        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1));
                     }
                     return Optional.empty();
                 }));
@@ -306,11 +317,11 @@ class SmartBotMysqlSemanticsIT {
             assertEquals(1, winner.getAttemptCount());
             assertEquals(1, scalarInt("SELECT attempt_count FROM fbs_delivery_outbox"));
 
-            assertThrows(IllegalStateException.class, () -> outboxLeaseService.markDispatched(
+            assertThrows(IllegalStateException.class, () -> outboxLeaseService.markConsumed(
                 winner.getId(), "00000000-0000-0000-0000-000000000001"));
             assertEquals("LEASED", scalarString("SELECT status FROM fbs_delivery_outbox"));
-            outboxLeaseService.markDispatched(winner.getId(), winner.getLeaseToken());
-            assertEquals("DISPATCHED", scalarString("SELECT status FROM fbs_delivery_outbox"));
+            outboxLeaseService.markConsumed(winner.getId(), winner.getLeaseToken());
+            assertEquals("CONSUMED", scalarString("SELECT status FROM fbs_delivery_outbox"));
             assertEquals(0, scalarInt(
                 "SELECT COUNT(*) FROM fbs_delivery_outbox WHERE lease_token IS NOT NULL"));
         } finally {
@@ -331,7 +342,7 @@ class SmartBotMysqlSemanticsIT {
             () -> outboxLeaseService.extendLease(first.getId(), first.getLeaseToken(),
                 Duration.ofSeconds(30)));
         assertThrows(IllegalStateException.class,
-            () -> outboxLeaseService.markDispatched(first.getId(), first.getLeaseToken()));
+            () -> outboxLeaseService.markConsumed(first.getId(), first.getLeaseToken()));
         assertThrows(IllegalStateException.class,
             () -> outboxLeaseService.scheduleRetry(first.getId(), first.getLeaseToken(),
                 new Date(), "stale retry"));
@@ -356,7 +367,7 @@ class SmartBotMysqlSemanticsIT {
         assertEquals("permanent error", scalarString("SELECT last_error FROM fbs_delivery_outbox"));
     }
 
-    @Test
+    @RepeatedTest(5)
     void concurrentWorkersDrainIndependentRowsWithoutDuplicates() throws Exception {
         List<String> inserts = new ArrayList<>();
         for (int i = 0; i < 16; i++) {
@@ -382,13 +393,13 @@ class SmartBotMysqlSemanticsIT {
                     if (!start.await(10, TimeUnit.SECONDS)) {
                         throw new IllegalStateException("start barrier timed out");
                     }
-                    for (int attempt = 0; attempt < 10; attempt++) {
+                    for (int attempt = 0; attempt < 100; attempt++) {
                         Optional<DeliveryOutbox> claimed =
                             outboxLeaseService.claimNext(owner, Duration.ofSeconds(30));
                         if (claimed.isPresent()) {
                             return claimed;
                         }
-                        Thread.yield();
+                        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1));
                     }
                     return Optional.empty();
                 }));
@@ -410,7 +421,7 @@ class SmartBotMysqlSemanticsIT {
     }
 
     @Test
-    void claimRollsBackWithOwningTransaction() throws Exception {
+    void claimUsesAnIndependentShortTransaction() throws Exception {
         ingressService.accept(binding(7L, "AIBOT-01"), envelope());
 
         assertThrows(IllegalStateException.class, () -> transactionTemplate.execute(status -> {
@@ -418,10 +429,92 @@ class SmartBotMysqlSemanticsIT {
             throw new IllegalStateException("force rollback");
         }));
 
+        assertEquals("LEASED", scalarString("SELECT status FROM fbs_delivery_outbox"));
+        assertEquals(1, scalarInt("SELECT attempt_count FROM fbs_delivery_outbox"));
+        assertEquals(1, scalarInt(
+            "SELECT COUNT(*) FROM fbs_delivery_outbox WHERE lease_token IS NOT NULL AND lease_owner IS NOT NULL"));
+    }
+
+    @Test
+    void internalDispatcherAtomicallyMakesRunReadyAndConsumesOutbox() throws Exception {
+        ingressService.accept(binding(7L, "AIBOT-01"), envelope());
+
+        InternalOutboxDispatcherService.DispatchOutcome result = internalDispatcher
+            .dispatchOne("internal-worker", Duration.ofSeconds(30)).orElseThrow();
+
+        assertEquals("READY", result.status());
+        assertEquals("READY", scalarString("SELECT status FROM fbs_orchestration_run"));
+        assertEquals(1, scalarInt("SELECT version FROM fbs_orchestration_run"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_step "
+            + "WHERE step_key = 'internal.dispatch.accepted' AND status = 'SUCCEEDED'"));
+        assertEquals("CONSUMED", scalarString("SELECT status FROM fbs_delivery_outbox"));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_delivery_outbox "
+            + "WHERE lease_owner IS NOT NULL OR lease_token IS NOT NULL OR lease_until IS NOT NULL"));
+        assertTrue(internalDispatcher.dispatchOne("internal-worker", Duration.ofSeconds(30)).isEmpty());
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_receipt"));
+    }
+
+    @Test
+    void internalWorkerNeverClaimsResponseUrlDestination() throws Exception {
+        execute("INSERT INTO fbs_delivery_outbox "
+            + "(event_key, run_id, event_type, destination_type, payload_json, status, "
+            + "attempt_count, next_attempt_at, create_time, update_time) VALUES "
+            + "('external-only', '22222222-2222-2222-2222-222222222222', 'REPLY', "
+            + "'RESPONSE_URL', '{}', 'PENDING', 0, DATE_SUB(NOW(), INTERVAL 1 SECOND), NOW(), NOW())");
+
+        assertTrue(internalDispatcher.dispatchOne(
+            "internal-worker", Duration.ofSeconds(30)).isEmpty());
         assertEquals("PENDING", scalarString("SELECT status FROM fbs_delivery_outbox"));
         assertEquals(0, scalarInt("SELECT attempt_count FROM fbs_delivery_outbox"));
-        assertEquals(0, scalarInt(
-            "SELECT COUNT(*) FROM fbs_delivery_outbox WHERE lease_token IS NOT NULL OR lease_owner IS NOT NULL"));
+    }
+
+    @Test
+    void activationStepFailureRollsBackTransactionBAndCanBeReclaimed() throws Exception {
+        assertActivationRollbackAndRecovery(
+            "smartbot_it_fail_activation_step",
+            "CREATE TRIGGER smartbot_it_fail_activation_step BEFORE INSERT ON fbs_orchestration_step "
+                + "FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced activation step failure'");
+    }
+
+    @Test
+    void activationRunFailureRollsBackTransactionBAndCanBeReclaimed() throws Exception {
+        assertActivationRollbackAndRecovery(
+            "smartbot_it_fail_activation_run",
+            "CREATE TRIGGER smartbot_it_fail_activation_run BEFORE UPDATE ON fbs_orchestration_run "
+                + "FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced activation run failure'");
+    }
+
+    @Test
+    void outboxConsumeFailureRollsBackRunAndStepAndCanBeReclaimed() throws Exception {
+        assertActivationRollbackAndRecovery(
+            "smartbot_it_fail_activation_outbox",
+            "CREATE TRIGGER smartbot_it_fail_activation_outbox BEFORE UPDATE ON fbs_delivery_outbox "
+                + "FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced outbox consume failure'");
+    }
+
+    private void assertActivationRollbackAndRecovery(String triggerName,
+                                                     String createTriggerSql) throws Exception {
+        ingressService.accept(binding(7L, "AIBOT-01"), envelope());
+        DeliveryOutbox claimed = outboxLeaseService
+            .claimNext("failure-worker", Duration.ofSeconds(30)).orElseThrow();
+        execute(createTriggerSql);
+
+        assertThrows(RuntimeException.class, () -> activationService.apply(claimed));
+        assertEquals("PENDING", scalarString("SELECT status FROM fbs_orchestration_run"));
+        assertEquals(0, scalarInt("SELECT version FROM fbs_orchestration_run"));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_step "
+            + "WHERE step_key = 'internal.dispatch.accepted'"));
+        assertEquals("LEASED", scalarString("SELECT status FROM fbs_delivery_outbox"));
+        assertEquals(claimed.getLeaseToken(), scalarString("SELECT lease_token FROM fbs_delivery_outbox"));
+
+        execute("DROP TRIGGER " + triggerName,
+            "UPDATE fbs_delivery_outbox SET lease_until = DATE_SUB(NOW(), INTERVAL 1 SECOND)");
+        assertEquals("READY", internalDispatcher.dispatchOne(
+            "recovery-worker", Duration.ofSeconds(30)).orElseThrow().status());
+        assertEquals("READY", scalarString("SELECT status FROM fbs_orchestration_run"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_orchestration_step "
+            + "WHERE step_key = 'internal.dispatch.accepted'"));
+        assertEquals("CONSUMED", scalarString("SELECT status FROM fbs_delivery_outbox"));
     }
 
     private static void assertDedicatedDatabase() throws Exception {
@@ -675,8 +768,30 @@ class SmartBotMysqlSemanticsIT {
         }
 
         @Bean
-        OutboxLeaseService outboxLeaseService(DeliveryOutboxMapper outboxMapper) {
-            return new OutboxLeaseService(outboxMapper);
+        OutboxClaimTransactionService outboxClaimTransactionService(
+                DeliveryOutboxMapper outboxMapper) {
+            return new OutboxClaimTransactionService(outboxMapper);
+        }
+
+        @Bean
+        OutboxLeaseService outboxLeaseService(OutboxClaimTransactionService claimTransactionService,
+                                              DeliveryOutboxMapper outboxMapper) {
+            return new OutboxLeaseService(claimTransactionService, outboxMapper);
+        }
+
+        @Bean
+        InternalRunActivationService internalRunActivationService(DeliveryOutboxMapper outboxMapper,
+                                                                   OrchestrationRunMapper runMapper,
+                                                                   OrchestrationStepMapper stepMapper,
+                                                                   ObjectMapper objectMapper) {
+            return new InternalRunActivationService(outboxMapper, runMapper, stepMapper, objectMapper);
+        }
+
+        @Bean
+        InternalOutboxDispatcherService internalOutboxDispatcherService(
+                OutboxLeaseService outboxLeaseService,
+                InternalRunActivationService activationService) {
+            return new InternalOutboxDispatcherService(outboxLeaseService, activationService);
         }
 
         private static <T> MapperFactoryBean<T> mapper(Class<T> type, SqlSessionFactory factory) {
