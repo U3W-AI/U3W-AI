@@ -63,4 +63,13 @@ public interface RightsCheckService {
     ComprehensiveRightsResult comprehensiveCheck(
             Long userId, String packCode, String authCode,
             String hostType, String taskId);
+
+    /**
+     * Read-only, fail-closed enterprise entitlement snapshot for an already
+     * resolved tenant/member/run scope. Unlike {@link #comprehensiveCheck}, it
+     * never infers a tenant by selecting a user's first enterprise membership.
+     * It does not consume quota, points, authorizations, or create receipts.
+     */
+    ComprehensiveRightsResult checkEnterpriseScoped(
+            Long enterpriseId, Long enterpriseMemberId, Long userId, String packCode);
 }

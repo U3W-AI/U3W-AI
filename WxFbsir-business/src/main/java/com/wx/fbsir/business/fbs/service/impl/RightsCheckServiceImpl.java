@@ -14,6 +14,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 权益校验服务实现
@@ -264,18 +265,57 @@ public class RightsCheckServiceImpl implements RightsCheckService {
             return ComprehensiveRightsResult.fail("用户不是企业成员");
         }
 
+        return checkEnterpriseScope(member.getEnterpriseId(), member.getId(), userId, pack, member);
+    }
+
+    @Override
+    public ComprehensiveRightsResult checkEnterpriseScoped(
+            Long enterpriseId, Long enterpriseMemberId, Long userId, String packCode) {
+        if (enterpriseId == null || enterpriseMemberId == null || userId == null
+                || !StringUtils.hasText(packCode)) {
+            return ComprehensiveRightsResult.fail("企业权益作用域参数不完整");
+        }
+        FbsScenePack pack = scenePackMapper.selectByPackCode(packCode);
+        if (pack == null || pack.getStatus() == null || pack.getStatus() != 1) {
+            return ComprehensiveRightsResult.fail("场景包不存在、未发布或已下架");
+        }
+        return checkEnterpriseScope(enterpriseId, enterpriseMemberId, userId, pack, null);
+    }
+
+    /** Exact tenant/member/user check used by the SmartBot control plane. */
+    private ComprehensiveRightsResult checkEnterpriseScope(
+            Long enterpriseId, Long enterpriseMemberId, Long userId, FbsScenePack pack,
+            FbsEnterpriseMember resolvedMember) {
+        if (enterpriseMapper == null || enterpriseMemberMapper == null
+                || enterprisePackMapper == null || memberPackMapper == null) {
+            return ComprehensiveRightsResult.fail("企业权益模块未初始化");
+        }
+
+        FbsEnterpriseMember member = resolvedMember != null ? resolvedMember
+                : enterpriseMemberMapper.selectById(enterpriseMemberId);
+        if (member == null || !Objects.equals(enterpriseId, member.getEnterpriseId())
+                || !Objects.equals(userId, member.getUserId())
+                || member.getStatus() == null || member.getStatus() != 1
+                || (member.getDelFlag() != null && !"0".equals(member.getDelFlag()))) {
+            return ComprehensiveRightsResult.fail("企业成员作用域无效");
+        }
+
         // 2. 检查企业是否正常
-        FbsEnterprise enterprise = enterpriseMapper.selectById(member.getEnterpriseId());
+        FbsEnterprise enterprise = enterpriseMapper.selectById(enterpriseId);
         if (enterprise == null) {
             return ComprehensiveRightsResult.fail("企业不存在");
         }
         if (enterprise.getStatus() != null && enterprise.getStatus() == 2) {
             return ComprehensiveRightsResult.fail("企业账户已禁用");
         }
+        if (enterprise.getStatus() == null || enterprise.getStatus() != 1
+                || (enterprise.getDelFlag() != null && !"0".equals(enterprise.getDelFlag()))) {
+            return ComprehensiveRightsResult.fail("企业账户不可用");
+        }
 
         // 3. 查询企业是否已获此场景包
         FbsEnterprisePack enterprisePack = enterprisePackMapper
-            .selectByEnterpriseAndPack(member.getEnterpriseId(), pack.getId());
+            .selectByEnterpriseAndPack(enterpriseId, pack.getId());
         if (enterprisePack == null) {
             return ComprehensiveRightsResult.fail("企业未获此场景包授权");
         }
@@ -284,20 +324,21 @@ public class RightsCheckServiceImpl implements RightsCheckService {
         if (enterprisePack.getStatus() == null || enterprisePack.getStatus() != 1) {
             return ComprehensiveRightsResult.fail("企业包状态不可用");
         }
+        if (enterprisePack.getExpiryTime() != null && !enterprisePack.getExpiryTime().after(new Date())) {
+            return ComprehensiveRightsResult.fail("企业包已过期");
+        }
 
         // 4.5 检查成员授权凭证（fbs_member_pack）
         // 成员授权凭证：用户必须在 fbs_member_pack 上有一条 status=1 的活跃授权记录
         // 只有企业包授权（grantPack）时会自动创建此凭证；企业包撤销时会级联撤销（status=3）
         // 若凭证缺失或被撤销，即使企业包有效也拒绝消费
-        if (memberPackMapper != null) {
-            FbsMemberPack memberPack = memberPackMapper
-                    .selectActiveByMemberIdAndPackId(member.getId(), pack.getId());
-            if (memberPack == null) {
-                return ComprehensiveRightsResult.fail("用户未获此场景包成员授权");
-            }
-            if (memberPack.getStatus() == null || memberPack.getStatus() != 1) {
-                return ComprehensiveRightsResult.fail("成员授权已失效");
-            }
+        FbsMemberPack memberPack = memberPackMapper
+                .selectActiveByMemberIdAndPackId(enterpriseMemberId, pack.getId());
+        if (memberPack == null || !Objects.equals(memberPack.getMemberId(), enterpriseMemberId)
+                || !Objects.equals(memberPack.getPackId(), pack.getId())
+                || !Objects.equals(memberPack.getEnterprisePackId(), enterprisePack.getId())
+                || memberPack.getStatus() == null || memberPack.getStatus() != 1) {
+            return ComprehensiveRightsResult.fail("成员授权已失效或不属于当前企业包");
         }
 
         // 5. 配额充足性检查（企业级，配额充足性检查）

@@ -129,6 +129,7 @@ class RightsCheckServiceTest {
         FbsMemberPack mp = new FbsMemberPack();
         mp.setId(1L);
         mp.setMemberId(MEMBER_ID);
+        mp.setEnterprisePackId(EPACK_ID);
         mp.setPackId(PACK_ID);
         mp.setStatus(status);
         return mp;
@@ -471,6 +472,87 @@ class RightsCheckServiceTest {
 
             assertFalse(result.isPass());
             assertTrue(result.getFailReason().contains("不是企业成员"));
+        }
+    }
+
+    @Nested
+    @DisplayName("智能机器人精确企业作用域权益快照")
+    class SmartBotScopedEnterpriseRightsTests {
+
+        @Test
+        @DisplayName("精确企业、成员、用户和企业包一致时通过，且不消费配额")
+        void exactScopePassesWithoutInferringAFirstEnterprise() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(buildPack(1));
+            when(enterpriseMemberMapper.selectById(MEMBER_ID)).thenReturn(buildMember(1));
+            when(enterpriseMapper.selectById(ENT_ID)).thenReturn(buildEnterprise(1));
+            when(enterprisePackMapper.selectByEnterpriseAndPack(ENT_ID, PACK_ID))
+                    .thenReturn(buildEnterprisePack(1, 10, 3));
+            when(memberPackMapper.selectActiveByMemberIdAndPackId(MEMBER_ID, PACK_ID))
+                    .thenReturn(buildMemberPack(1));
+
+            ComprehensiveRightsResult result = rightsCheckService.checkEnterpriseScoped(
+                    ENT_ID, MEMBER_ID, USER_ID, PACK_CODE);
+
+            assertTrue(result.isPass());
+            assertEquals(PACK_ID, result.getPackId());
+            assertNull(result.getPointsRuleCode());
+            verify(enterpriseMemberMapper, never()).selectActiveByUserId(anyLong());
+            verify(enterprisePackMapper, never()).incrementUsedQuota(anyLong());
+            verifyNoInteractions(pointsService);
+        }
+
+        @Test
+        @DisplayName("同一用户的另一个企业成员不能越权通过")
+        void memberMustMatchTheExactTenantAndUserScope() {
+            FbsEnterpriseMember member = buildMember(1);
+            member.setEnterpriseId(ENT_ID + 1);
+            when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(buildPack(1));
+            when(enterpriseMemberMapper.selectById(MEMBER_ID)).thenReturn(member);
+
+            ComprehensiveRightsResult result = rightsCheckService.checkEnterpriseScoped(
+                    ENT_ID, MEMBER_ID, USER_ID, PACK_CODE);
+
+            assertFalse(result.isPass());
+            assertTrue(result.getFailReason().contains("作用域"));
+            verify(enterprisePackMapper, never()).selectByEnterpriseAndPack(anyLong(), anyLong());
+        }
+
+        @Test
+        @DisplayName("成员授权必须属于当前企业包，不能仅按同一 packId 通过")
+        void memberAuthorizationMustBelongToTheExactEnterprisePack() {
+            FbsMemberPack crossEnterprisePack = buildMemberPack(1);
+            crossEnterprisePack.setEnterprisePackId(EPACK_ID + 1);
+            when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(buildPack(1));
+            when(enterpriseMemberMapper.selectById(MEMBER_ID)).thenReturn(buildMember(1));
+            when(enterpriseMapper.selectById(ENT_ID)).thenReturn(buildEnterprise(1));
+            when(enterprisePackMapper.selectByEnterpriseAndPack(ENT_ID, PACK_ID))
+                    .thenReturn(buildEnterprisePack(1, 10, 3));
+            when(memberPackMapper.selectActiveByMemberIdAndPackId(MEMBER_ID, PACK_ID))
+                    .thenReturn(crossEnterprisePack);
+
+            ComprehensiveRightsResult result = rightsCheckService.checkEnterpriseScoped(
+                    ENT_ID, MEMBER_ID, USER_ID, PACK_CODE);
+
+            assertFalse(result.isPass());
+            assertTrue(result.getFailReason().contains("当前企业包"));
+        }
+
+        @Test
+        @DisplayName("已过期企业包不能作为智能机器人权益快照通过")
+        void expiredEnterprisePackFailsClosed() {
+            FbsEnterprisePack expired = buildEnterprisePack(1, 10, 3);
+            expired.setExpiryTime(new Date(System.currentTimeMillis() - 1_000));
+            when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(buildPack(1));
+            when(enterpriseMemberMapper.selectById(MEMBER_ID)).thenReturn(buildMember(1));
+            when(enterpriseMapper.selectById(ENT_ID)).thenReturn(buildEnterprise(1));
+            when(enterprisePackMapper.selectByEnterpriseAndPack(ENT_ID, PACK_ID)).thenReturn(expired);
+
+            ComprehensiveRightsResult result = rightsCheckService.checkEnterpriseScoped(
+                    ENT_ID, MEMBER_ID, USER_ID, PACK_CODE);
+
+            assertFalse(result.isPass());
+            assertTrue(result.getFailReason().contains("过期"));
+            verify(memberPackMapper, never()).selectActiveByMemberIdAndPackId(anyLong(), anyLong());
         }
     }
 }
