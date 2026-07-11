@@ -240,6 +240,9 @@ test-results/
 .docusaurus/
 .vuepress/dist/
 
+# Internal engineering plans, contracts, progress boards, and evidence
+.fbs-engineering/
+
 # Contains environment-specific endpoints; only publish a reviewed, sanitized export.
 docs/workflows/export-简历解析工作流.zip
 

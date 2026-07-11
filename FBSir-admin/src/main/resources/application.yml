@@ -135,8 +135,8 @@ spring:
 token:
   # 令牌自定义标识
   header: Authorization
-  # 令牌密钥（生产环境建议使用环境变量：WXFBSIR_TOKEN_SECRET）
-  secret: ${FBSIR_TOKEN_SECRET:${WXFBSIR_TOKEN_SECRET:abcdefghijklmnopqrstuvwxyz}}
+  # 令牌密钥（必须通过 FBSIR_TOKEN_SECRET 提供；WXFBSIR_TOKEN_SECRET 仅兼容旧部署）
+  secret: ${FBSIR_TOKEN_SECRET:${WXFBSIR_TOKEN_SECRET:}}
   # 令牌有效期（默认30分钟）
   expireTime: 30
 

@@ -33,7 +33,7 @@
 
 ### 1. Gitee绑定表 (gitee_bind)
 
-**表位置：** `sql/gitee.sql`
+**表位置：** `sql/wxfbsir.sql`（`gitee_bind` 及相关表已并入统一初始化脚本）
 
 存储系统用户与Gitee账号的绑定关系，用于授权与账号关联。
 

@@ -3,6 +3,7 @@ package com.wx.fbsir.framework.web.service;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +54,16 @@ public class TokenService
 
     @Autowired
     private RedisCache redisCache;
+
+    @PostConstruct
+    public void validateSecret()
+    {
+        if (StringUtils.isEmpty(secret) || secret.length() < 32)
+        {
+            throw new IllegalStateException(
+                "FBSIR_TOKEN_SECRET must be configured with at least 32 characters");
+        }
+    }
 
     /**
      * 获取用户身份信息

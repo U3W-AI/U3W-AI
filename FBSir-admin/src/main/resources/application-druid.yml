@@ -5,11 +5,11 @@ spring:
         driverClassName: com.mysql.cj.jdbc.Driver
         druid:
             # 主库数据源
-            # 生产环境建议使用环境变量：WXFBSIR_MYSQL_URL, WXFBSIR_MYSQL_USERNAME, WXFBSIR_MYSQL_PASSWORD
+            # 生产环境建议使用环境变量：FBSIR_MYSQL_URL, FBSIR_MYSQL_USERNAME, FBSIR_MYSQL_PASSWORD
             master:
-                url: ${FBSIR_MYSQL_URL:${WXFBSIR_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/fbsir?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8}}
+                url: ${FBSIR_MYSQL_URL:${WXFBSIR_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/wxfbsir?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8}}
                 username: ${FBSIR_MYSQL_USERNAME:${WXFBSIR_MYSQL_USERNAME:root}}
-                password: ${FBSIR_MYSQL_PASSWORD:${WXFBSIR_MYSQL_PASSWORD:root}}
+                password: ${FBSIR_MYSQL_PASSWORD:${WXFBSIR_MYSQL_PASSWORD:}}
             # 从库数据源
             slave:
                 # 从数据源开关/默认关闭
@@ -41,16 +41,16 @@ spring:
             testOnBorrow: false
             testOnReturn: false
             webStatFilter: 
-                enabled: true
+                enabled: ${FBSIR_DRUID_STAT_ENABLED:false}
             statViewServlet:
                 enabled: true
                 # 设置白名单，不填则允许所有访问
                 allow:
                 url-pattern: /druid/*
                 # 控制台管理用户名和密码
-                # 生产环境建议使用环境变量：WXFBSIR_DRUID_USERNAME, WXFBSIR_DRUID_PASSWORD
-                login-username: ${FBSIR_DRUID_USERNAME:${WXFBSIR_DRUID_USERNAME:fbsir}}
-                login-password: ${FBSIR_DRUID_PASSWORD:${WXFBSIR_DRUID_PASSWORD:123456}}
+                # 生产环境建议使用环境变量：FBSIR_DRUID_USERNAME, FBSIR_DRUID_PASSWORD
+                login-username: ${FBSIR_DRUID_USERNAME:${WXFBSIR_DRUID_USERNAME:}}
+                login-password: ${FBSIR_DRUID_PASSWORD:${WXFBSIR_DRUID_PASSWORD:}}
             filter:
                 stat:
                     enabled: true

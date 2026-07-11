@@ -1,6 +1,7 @@
 package com.wx.fbsir.engine.config;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.StandardEnvironment;
 
@@ -26,13 +27,16 @@ class FBSirConfigurationAliasEnvironmentPostProcessorTest {
 
         processor.postProcessEnvironment(environment, null);
 
-        assertEquals("legacy-host", environment.getProperty("wxfbsir.engine.host-id"));
-        assertFalse(environment.getPropertySources().contains(
+        assertEquals("legacy-host", environment.getProperty("fbsir.engine.host-id"));
+        assertTrue(environment.getPropertySources().contains(
             FBSirConfigurationAliasEnvironmentPostProcessor.PROPERTY_SOURCE_NAME));
+        EngineProperties bound = Binder.get(environment).bind("fbsir.engine", EngineProperties.class).get();
+        assertEquals("legacy-host", bound.getHostId());
+        assertEquals("ws://legacy", bound.getWsUrl());
     }
 
     @Test
-    void exposesCompletePrimaryConfigurationUnderLegacyBinderPrefix() {
+    void keepsCompletePrimaryConfigurationOnPrimaryBinderPrefix() {
         StandardEnvironment environment = environment(Map.of(
             "fbsir.engine.host-id", "primary-host",
             "fbsir.engine.ws-url", "ws://primary"
@@ -40,8 +44,10 @@ class FBSirConfigurationAliasEnvironmentPostProcessorTest {
 
         processor.postProcessEnvironment(environment, null);
 
-        assertEquals("primary-host", environment.getProperty("wxfbsir.engine.host-id"));
-        assertEquals("ws://primary", environment.getProperty("wxfbsir.engine.ws-url"));
+        assertEquals("primary-host", environment.getProperty("fbsir.engine.host-id"));
+        assertEquals("ws://primary", environment.getProperty("fbsir.engine.ws-url"));
+        assertFalse(environment.getPropertySources().contains(
+            FBSirConfigurationAliasEnvironmentPostProcessor.PROPERTY_SOURCE_NAME));
     }
 
     @Test
@@ -55,8 +61,10 @@ class FBSirConfigurationAliasEnvironmentPostProcessorTest {
 
         processor.postProcessEnvironment(environment, null);
 
-        assertEquals("primary-host", environment.getProperty("wxfbsir.engine.host-id"));
-        assertEquals("ws://primary", environment.getProperty("wxfbsir.engine.ws-url"));
+        assertEquals("primary-host", environment.getProperty("fbsir.engine.host-id"));
+        assertEquals("ws://primary", environment.getProperty("fbsir.engine.ws-url"));
+        assertFalse(environment.getPropertySources().contains(
+            FBSirConfigurationAliasEnvironmentPostProcessor.PROPERTY_SOURCE_NAME));
     }
 
     @Test

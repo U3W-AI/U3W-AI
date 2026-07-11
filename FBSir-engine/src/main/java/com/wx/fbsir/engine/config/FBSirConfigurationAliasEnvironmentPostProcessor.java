@@ -15,8 +15,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Exposes a complete {@code fbsir.*} Engine configuration through the legacy
- * prefix still used by the current configuration-property binders.
+ * Exposes a complete legacy {@code wxfbsir.*} Engine configuration through the
+ * current {@code fbsir.*} configuration-property binder.
  */
 public class FBSirConfigurationAliasEnvironmentPostProcessor
     implements EnvironmentPostProcessor, Ordered {
@@ -27,23 +27,24 @@ public class FBSirConfigurationAliasEnvironmentPostProcessor
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
-        Map<String, Object> primary = collect(environment, PRIMARY_PREFIX);
-        if (primary.isEmpty()) {
+        Map<String, Object> legacy = collect(environment, LEGACY_PREFIX);
+        if (legacy.isEmpty()) {
             return;
         }
 
-        Map<String, Object> legacy = collect(environment, LEGACY_PREFIX);
-        if (!legacy.isEmpty()) {
+        Map<String, Object> primary = collect(environment, PRIMARY_PREFIX);
+        if (!primary.isEmpty()) {
             Set<String> missing = new LinkedHashSet<>(legacy.keySet());
             missing.removeAll(primary.keySet());
             if (!missing.isEmpty()) {
                 throw new IllegalStateException("Incomplete primary configuration prefix 'fbsir': missing "
                     + missing + ". Refusing to mix values from legacy prefix 'wxfbsir'.");
             }
+            return;
         }
 
         Map<String, Object> aliases = new LinkedHashMap<>();
-        primary.forEach((suffix, value) -> aliases.put(LEGACY_PREFIX + "." + suffix, value));
+        legacy.forEach((suffix, value) -> aliases.put(PRIMARY_PREFIX + "." + suffix, value));
         environment.getPropertySources().addFirst(new MapPropertySource(PROPERTY_SOURCE_NAME, aliases));
     }
 

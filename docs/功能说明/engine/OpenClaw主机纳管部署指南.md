@@ -46,12 +46,12 @@
 
 1. 创建数据库
    ```sql
-   CREATE DATABASE fbsir CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE DATABASE wxfbsir CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
    ```
 
 2. 导入初始化脚本
    ```bash
-   mysql -u root -p fbsir < sql/fbsir.sql
+   mysql -u root -p wxfbsir < sql/wxfbsir.sql
    ```
 
 ### 2. 配置文件准备

@@ -14,9 +14,10 @@ import java.util.Set;
 /**
  * Installs an atomic configuration-prefix alias.
  *
- * <p>The primary family is never completed with values from the legacy family.
- * If both families are visible, the primary family must contain every legacy
- * key before it is exposed under the legacy prefix used by existing binders.</p>
+ * <p>The primary family is never partially completed with values from the
+ * legacy family. A legacy-only configuration is exposed under the primary
+ * prefix. If both families are visible, the primary family must contain every
+ * legacy key and wins without installing aliases.</p>
  */
 public final class ConfigurationPrefixAliasProcessor {
 
@@ -27,13 +28,13 @@ public final class ConfigurationPrefixAliasProcessor {
                              String primaryPrefix,
                              String legacyPrefix,
                              String propertySourceName) {
-        Map<String, Object> primary = collect(environment, primaryPrefix);
-        if (primary.isEmpty()) {
+        Map<String, Object> legacy = collect(environment, legacyPrefix);
+        if (legacy.isEmpty()) {
             return;
         }
 
-        Map<String, Object> legacy = collect(environment, legacyPrefix);
-        if (!legacy.isEmpty()) {
+        Map<String, Object> primary = collect(environment, primaryPrefix);
+        if (!primary.isEmpty()) {
             Set<String> missing = new LinkedHashSet<>(legacy.keySet());
             missing.removeAll(primary.keySet());
             if (!missing.isEmpty()) {
@@ -41,10 +42,11 @@ public final class ConfigurationPrefixAliasProcessor {
                     + primaryPrefix + "': missing " + missing
                     + ". Refusing to mix values from legacy prefix '" + legacyPrefix + "'.");
             }
+            return;
         }
 
         Map<String, Object> aliases = new LinkedHashMap<>();
-        primary.forEach((suffix, value) -> aliases.put(legacyPrefix + "." + suffix, value));
+        legacy.forEach((suffix, value) -> aliases.put(primaryPrefix + "." + suffix, value));
         environment.getPropertySources().addFirst(new MapPropertySource(propertySourceName, aliases));
     }
 

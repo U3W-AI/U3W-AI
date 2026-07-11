@@ -267,12 +267,12 @@ public class MyNewController extends StreamTaskHelper {
 
 ### 核心文档
 
-1. **[Playwright框架完整指南](../docs/Playwright框架完整指南.md)**
+1. **[Playwright框架完整指南](../docs/功能说明/engine/Playwright框架完整指南.md)**
    - 浏览器自动化开发指南
    - 会话管理、资源池、截图上传
    - 最佳实践和常见问题
 
-2. **[WebSocket通信完整指南](../docs/WebSocket通信完整指南.md)**
+2. **[WebSocket通信完整指南](../docs/功能说明/engine/WebSocket通信完整指南.md)**
    - WebSocket消息协议
    - 流式输出与单次输出对比
    - 消息类型说明和示例代码

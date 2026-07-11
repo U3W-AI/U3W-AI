@@ -5,7 +5,7 @@ import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.Ordered;
 import org.springframework.core.env.ConfigurableEnvironment;
 
-/** Makes {@code fbsir.*} the primary spelling while preserving legacy binders. */
+/** Makes {@code fbsir.*} the primary spelling while preserving legacy configuration. */
 public class FBSirConfigurationAliasEnvironmentPostProcessor
     implements EnvironmentPostProcessor, Ordered {
 
