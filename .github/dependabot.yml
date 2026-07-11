@@ -1,0 +1,15 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /FBSir-ui
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      non-major:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch

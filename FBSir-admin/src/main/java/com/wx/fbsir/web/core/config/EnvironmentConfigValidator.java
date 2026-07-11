@@ -1,8 +1,10 @@
 package com.wx.fbsir.web.core.config;
 
 import org.springframework.boot.context.event.ApplicationEnvironmentPreparedEvent;
+import org.springframework.boot.env.EnvironmentPostProcessorApplicationListener;
 import org.springframework.context.ApplicationListener;
 import org.springframework.core.Ordered;
+import org.springframework.core.env.Environment;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,15 +34,13 @@ public class EnvironmentConfigValidator
         "AES_SECRET_KEY",
         "TOKEN_SECRET",
         "DOMAIN",
-        "FILE_PATH",
-        "DRUID_USERNAME",
-        "DRUID_PASSWORD"
+        "FILE_PATH"
     };
 
     @Override
     public void onApplicationEvent(ApplicationEnvironmentPreparedEvent event) {
         try {
-            validateEnvironmentConfig(System.getenv());
+            validateStartupConfig(System.getenv(), event.getEnvironment());
         } catch (IllegalStateException e) {
             System.err.println("\n"
                 + "=======================================================\n"
@@ -48,7 +48,7 @@ public class EnvironmentConfigValidator
                 + "=======================================================\n"
                 + e.getMessage() + "\n"
                 + "=======================================================");
-            System.exit(1);
+            throw e;
         }
     }
 
@@ -59,6 +59,45 @@ public class EnvironmentConfigValidator
             validateSelectedFamily(environment, LEGACY_ENV_PREFIX);
         } else {
             logUsingDefaultConfig();
+        }
+    }
+
+    void validateStartupConfig(Map<String, String> systemEnvironment, Environment environment) {
+        validateEnvironmentConfig(systemEnvironment);
+        validateEffectiveConfig(environment);
+    }
+
+    /**
+     * Validates resolved configuration without opening a database or Redis
+     * connection. A password must be supplied explicitly through an environment
+     * variable or an external configuration file.
+     */
+    void validateEffectiveConfig(Environment environment) {
+        String databasePassword = environment.getProperty("spring.datasource.druid.master.password");
+        if (!hasText(databasePassword)) {
+            throw new IllegalStateException(
+                "Database password is empty. Environment-variable mode requires the complete "
+                    + "FBSIR_* family (including FBSIR_MYSQL_PASSWORD), or the complete legacy "
+                    + "WXFBSIR_* family. Alternatively, provide "
+                    + "spring.datasource.druid.master.password in an external configuration file.");
+        }
+
+        boolean consoleEnabled = Boolean.parseBoolean(environment.getProperty(
+            "spring.datasource.druid.statViewServlet.enabled", "false"));
+        if (!consoleEnabled) {
+            return;
+        }
+
+        String consoleUsername = environment.getProperty(
+            "spring.datasource.druid.statViewServlet.login-username");
+        String consolePassword = environment.getProperty(
+            "spring.datasource.druid.statViewServlet.login-password");
+        if (!hasText(consoleUsername) || !hasText(consolePassword)) {
+            throw new IllegalStateException(
+                "Druid console is enabled without credentials. With a complete FBSIR_* "
+                    + "environment family, also set FBSIR_DRUID_USERNAME and FBSIR_DRUID_PASSWORD "
+                    + "(legacy WXFBSIR_* is supported as a complete family), or disable "
+                    + "spring.datasource.druid.statViewServlet.enabled.");
         }
     }
 
@@ -118,6 +157,8 @@ public class EnvironmentConfigValidator
 
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE;
+        // application.yml must be loaded and placeholders resolved before the
+        // effective database/Druid checks run.
+        return EnvironmentPostProcessorApplicationListener.DEFAULT_ORDER + 10;
     }
 }

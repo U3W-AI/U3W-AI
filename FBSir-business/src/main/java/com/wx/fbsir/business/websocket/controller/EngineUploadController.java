@@ -40,7 +40,7 @@ public class EngineUploadController {
     /**
      * 文件上传根路径
      */
-    @Value("${fbsir.profile:/data/fbsir/uploadPath}")
+    @Value("${fbsir.profile:/data/wxfbsir/uploadPath}")
     private String uploadPath;
 
     /**

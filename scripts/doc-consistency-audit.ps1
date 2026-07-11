@@ -102,9 +102,14 @@ $sourceAssertions = @(
     @{ rule = 'footer_current_year'; path = 'FBSir-ui/src/settings.js'; pattern = 'Copyright.*2026'; message = 'Homepage footer must use the current requested year and brand.' },
     @{ rule = 'legacy_database_default'; path = 'FBSir-admin/src/main/resources/application-druid.yml'; pattern = 'jdbc:mysql://127\.0\.0\.1:3306/wxfbsir\?'; message = 'The default JDBC URL must preserve the historical wxfbsir database name.' },
     @{ rule = 'legacy_database_script'; path = 'sql/wxfbsir.sql'; pattern = 'CREATE DATABASE IF NOT EXISTS `wxfbsir`[\s\S]*USE `wxfbsir`'; message = 'The initialization script must preserve the historical wxfbsir database name.' },
+    @{ rule = 'legacy_upload_default'; path = 'FBSir-admin/src/main/resources/application.yml'; pattern = 'profile:\s*\$\{FBSIR_FILE_PATH:\$\{WXFBSIR_FILE_PATH:D:/WxFbsir/uploadPath\}\}'; message = 'The default upload path must preserve the historical directory.' },
+    @{ rule = 'legacy_engine_upload_default'; path = 'FBSir-business/src/main/java/com/wx/fbsir/business/websocket/controller/EngineUploadController.java'; pattern = '@Value\("\$\{fbsir\.profile:/data/wxfbsir/uploadPath\}"\)'; message = 'The Engine upload fallback must preserve the historical data directory.' },
     @{ rule = 'token_secret_no_default'; path = 'FBSir-admin/src/main/resources/application.yml'; pattern = 'secret:\s*\$\{FBSIR_TOKEN_SECRET:\$\{WXFBSIR_TOKEN_SECRET:\}\}'; message = 'Token signing secret must not ship with a non-empty default.' },
     @{ rule = 'database_password_no_default'; path = 'FBSir-admin/src/main/resources/application-druid.yml'; pattern = 'password:\s*\$\{FBSIR_MYSQL_PASSWORD:\$\{WXFBSIR_MYSQL_PASSWORD:\}\}'; message = 'Database password must not ship with a non-empty default.' },
-    @{ rule = 'druid_console_disabled_default'; path = 'FBSir-admin/src/main/resources/application-druid.yml'; pattern = 'enabled:\s*\$\{FBSIR_DRUID_STAT_ENABLED:false\}'; message = 'Druid console must be disabled by default.' }
+    @{ rule = 'druid_console_disabled_default'; path = 'FBSir-admin/src/main/resources/application-druid.yml'; pattern = 'enabled:\s*\$\{FBSIR_DRUID_STAT_ENABLED:\$\{WXFBSIR_DRUID_STAT_ENABLED:false\}\}'; message = 'Druid console must be disabled by default while preserving the legacy override.' },
+    @{ rule = 'frontend_lockfile'; path = 'FBSir-ui/package-lock.json'; pattern = '"lockfileVersion"\s*:\s*3'; message = 'The frontend must publish a current npm lockfile.' },
+    @{ rule = 'frontend_svg_sprite_contract'; path = 'FBSir-ui/vite/plugins/svg-icon.js'; pattern = 'virtual:svg-icons-register'; message = 'The local SVG plugin must preserve the virtual module contract.' },
+    @{ rule = 'source_package_paths_not_ignored'; path = '.gitignore'; pattern = '(?m)^/fbsir/\s*$'; message = 'The FBSir source package path must not be ignored at nested Java source locations.' }
 )
 
 foreach ($assertion in $sourceAssertions) {
@@ -117,6 +122,20 @@ foreach ($assertion in $sourceAssertions) {
     if ($sourceText -notmatch $assertion.pattern) {
         Add-Finding $assertion.rule $sourcePath 0 '' $assertion.message
     }
+}
+
+$frontendPackagePath = Resolve-BrandCompatiblePath 'FBSir-ui/package.json'
+$frontendLockfilePath = Resolve-BrandCompatiblePath 'FBSir-ui/package-lock.json'
+if ((Test-Path $frontendPackagePath) -and (Get-Content -Raw -Encoding UTF8 $frontendPackagePath) -match '"vite-plugin-svg-icons"') {
+    Add-Finding 'retired_svg_build_dependency' $frontendPackagePath 0 '' 'The frontend must not restore the retired SVG build dependency.'
+}
+if ((Test-Path $frontendLockfilePath) -and (Get-Content -Raw -Encoding UTF8 $frontendLockfilePath) -match 'node_modules/vite-plugin-svg-icons') {
+    Add-Finding 'retired_svg_build_dependency' $frontendLockfilePath 0 '' 'The frontend lockfile must not retain the retired SVG build dependency.'
+}
+
+$unsafeEnvironmentFilterPath = Resolve-BrandCompatiblePath 'FBSir-admin/src/main/java/com/wx/fbsir/web/core/config/EnvironmentVariableFilter.java'
+if (Test-Path $unsafeEnvironmentFilterPath) {
+    Add-Finding 'unsafe_environment_filter' $unsafeEnvironmentFilterPath 0 '' 'The retired environment filter must not be restored without a complete allowlist and startup verification.'
 }
 
 $websocketSourcePath = Resolve-BrandCompatiblePath 'FBSir-ui/src/utils/websocket.js'

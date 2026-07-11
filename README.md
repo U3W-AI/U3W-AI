@@ -108,7 +108,7 @@ FBSir
     git clone https://gitee.com/U3W-AI/U3W-AI.git
     ```
 2.  **导入数据库**：
-    创建数据库 `fbsir`，并导入 `sql` 目录下的初始化脚本。
+    创建历史兼容数据库 `wxfbsir`，并导入 `sql/wxfbsir.sql` 初始化脚本。对外品牌为 FBSir，但现有数据库 schema 不随品牌自动改名。
 3.  **修改配置**：
     修改 `FBSir-admin/src/main/resources/application-druid.yml` 中的数据库连接信息。
 4.  **运行服务**：

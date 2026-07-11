@@ -1,0 +1,43 @@
+name: Dependency Security
+
+on:
+  pull_request:
+    paths:
+      - 'FBSir-ui/package.json'
+      - 'FBSir-ui/package-lock.json'
+      - 'FBSir-ui/vite/**'
+      - 'FBSir-ui/scripts/verify-svg-sprite.mjs'
+      - '.github/workflows/dependency-security.yml'
+  push:
+    branches:
+      - fbsir
+    paths:
+      - 'FBSir-ui/package.json'
+      - 'FBSir-ui/package-lock.json'
+      - 'FBSir-ui/vite/**'
+      - 'FBSir-ui/scripts/verify-svg-sprite.mjs'
+      - '.github/workflows/dependency-security.yml'
+  schedule:
+    - cron: '17 2 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-dependency-gate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: FBSir-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: FBSir-ui/package-lock.json
+      - run: npm ci
+      - run: npm audit --audit-level=low
+      - run: npm run verify:svg-icons
+      - run: npm run build:prod

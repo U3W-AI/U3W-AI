@@ -41,9 +41,9 @@ spring:
             testOnBorrow: false
             testOnReturn: false
             webStatFilter: 
-                enabled: ${FBSIR_DRUID_STAT_ENABLED:false}
+                enabled: ${FBSIR_DRUID_STAT_ENABLED:${WXFBSIR_DRUID_STAT_ENABLED:false}}
             statViewServlet:
-                enabled: true
+                enabled: ${FBSIR_DRUID_STAT_ENABLED:${WXFBSIR_DRUID_STAT_ENABLED:false}}
                 # 设置白名单，不填则允许所有访问
                 allow:
                 url-pattern: /druid/*

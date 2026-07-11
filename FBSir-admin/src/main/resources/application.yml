@@ -6,9 +6,9 @@ fbsir:
   version: 1.0.0
   # 版权年份
   copyrightYear: 2026
-  # 文件路径 示例（ Windows配置D:/FBSir/uploadPath，Linux配置 /home/FBSir/uploadPath）
+  # 文件路径示例（Windows 默认保留 D:/WxFbsir/uploadPath，Linux 可配置 /home/FBSir/uploadPath）
   # 兼容说明：未显式配置路径时继续使用历史目录，避免升级后看不到既有文件。
-  profile: ${FBSIR_FILE_PATH:${WXFBSIR_FILE_PATH:D:/FBSir/uploadPath}}
+  profile: ${FBSIR_FILE_PATH:${WXFBSIR_FILE_PATH:D:/WxFbsir/uploadPath}}
   # 获取ip地址开关
   addressEnabled: false
   # 验证码类型 math 数字计算 char 字符验证

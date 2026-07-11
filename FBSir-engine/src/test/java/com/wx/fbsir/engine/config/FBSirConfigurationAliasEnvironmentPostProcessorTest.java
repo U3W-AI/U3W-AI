@@ -81,11 +81,65 @@ class FBSirConfigurationAliasEnvironmentPostProcessorTest {
         assertTrue(error.getMessage().contains("engine.ws-url"));
     }
 
+    @Test
+    void higherPriorityLegacyOverridesLowerPriorityPrimaryDefaults() {
+        StandardEnvironment environment = layeredEnvironment(
+            Map.of(
+                "fbsir.engine.host-id", "built-in-host",
+                "fbsir.engine.ws-url", "ws://built-in"
+            ),
+            Map.of(
+                "wxfbsir.engine.host-id", "legacy-external-host",
+                "wxfbsir.engine.ws-url", "ws://legacy-external"
+            )
+        );
+
+        processor.postProcessEnvironment(environment, null);
+
+        assertEquals("legacy-external-host", environment.getProperty("fbsir.engine.host-id"));
+        assertEquals("ws://legacy-external", environment.getProperty("fbsir.engine.ws-url"));
+        assertTrue(environment.getPropertySources().contains(
+            FBSirConfigurationAliasEnvironmentPostProcessor.PROPERTY_SOURCE_NAME));
+    }
+
+    @Test
+    void lowerPriorityPrimaryDefaultsCannotCompleteExplicitPrimaryOverrides() {
+        StandardEnvironment environment = layeredEnvironment(
+            Map.of(
+                "fbsir.engine.host-id", "built-in-host",
+                "fbsir.engine.ws-url", "ws://built-in"
+            ),
+            Map.of(
+                "wxfbsir.engine.host-id", "legacy-external-host",
+                "wxfbsir.engine.ws-url", "ws://legacy-external"
+            )
+        );
+        environment.getPropertySources().addFirst(new MapPropertySource(
+            "primaryOverrides", Map.of("fbsir.engine.host-id", "explicit-primary-host")));
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+            () -> processor.postProcessEnvironment(environment, null));
+
+        assertTrue(error.getMessage().contains("engine.ws-url"));
+    }
+
     private static StandardEnvironment environment(Map<String, ?> values) {
         StandardEnvironment environment = new StandardEnvironment();
         Map<String, Object> sourceValues = new LinkedHashMap<>();
         values.forEach(sourceValues::put);
         environment.getPropertySources().addFirst(new MapPropertySource("test", sourceValues));
+        return environment;
+    }
+
+    private static StandardEnvironment layeredEnvironment(Map<String, ?> primaryDefaults,
+                                                           Map<String, ?> legacyExternal) {
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
+        environment.getPropertySources().remove(StandardEnvironment.SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME);
+        environment.getPropertySources().addLast(new MapPropertySource(
+            "builtInPrimaryDefaults", new LinkedHashMap<>(primaryDefaults)));
+        environment.getPropertySources().addFirst(new MapPropertySource(
+            "legacyExternal", new LinkedHashMap<>(legacyExternal)));
         return environment;
     }
 }

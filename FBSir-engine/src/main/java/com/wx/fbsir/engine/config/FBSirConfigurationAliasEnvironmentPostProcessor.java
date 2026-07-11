@@ -9,14 +9,16 @@ import org.springframework.core.env.EnumerablePropertySource;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.PropertySource;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * Exposes a complete legacy {@code wxfbsir.*} Engine configuration through the
- * current {@code fbsir.*} configuration-property binder.
+ * Exposes legacy {@code wxfbsir.*} Engine configuration through the current
+ * {@code fbsir.*} binder while preserving property-source precedence.
  */
 public class FBSirConfigurationAliasEnvironmentPostProcessor
     implements EnvironmentPostProcessor, Ordered {
@@ -27,15 +29,19 @@ public class FBSirConfigurationAliasEnvironmentPostProcessor
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
-        Map<String, Object> legacy = collect(environment, LEGACY_PREFIX);
-        if (legacy.isEmpty()) {
+        List<Map<String, Object>> primaryBySource = collectBySource(environment, PRIMARY_PREFIX);
+        List<Map<String, Object>> legacyBySource = collectBySource(environment, LEGACY_PREFIX);
+        int firstPrimarySource = firstNonEmpty(primaryBySource);
+        int firstLegacySource = firstNonEmpty(legacyBySource);
+        if (firstLegacySource < 0) {
             return;
         }
 
-        Map<String, Object> primary = collect(environment, PRIMARY_PREFIX);
-        if (!primary.isEmpty()) {
+        if (firstPrimarySource >= 0 && firstPrimarySource <= firstLegacySource) {
+            Map<String, Object> legacy = collectEffective(legacyBySource, legacyBySource.size() - 1);
+            Map<String, Object> explicitPrimary = collectEffective(primaryBySource, firstLegacySource);
             Set<String> missing = new LinkedHashSet<>(legacy.keySet());
-            missing.removeAll(primary.keySet());
+            missing.removeAll(explicitPrimary.keySet());
             if (!missing.isEmpty()) {
                 throw new IllegalStateException("Incomplete primary configuration prefix 'fbsir': missing "
                     + missing + ". Refusing to mix values from legacy prefix 'wxfbsir'.");
@@ -43,25 +49,54 @@ public class FBSirConfigurationAliasEnvironmentPostProcessor
             return;
         }
 
+        int lastLegacySource = firstPrimarySource < 0
+            ? legacyBySource.size() - 1
+            : firstPrimarySource - 1;
+        Map<String, Object> legacy = collectEffective(legacyBySource, lastLegacySource);
         Map<String, Object> aliases = new LinkedHashMap<>();
         legacy.forEach((suffix, value) -> aliases.put(PRIMARY_PREFIX + "." + suffix, value));
         environment.getPropertySources().addFirst(new MapPropertySource(PROPERTY_SOURCE_NAME, aliases));
     }
 
-    private static Map<String, Object> collect(ConfigurableEnvironment environment, String prefix) {
+    private static List<Map<String, Object>> collectBySource(ConfigurableEnvironment environment, String prefix) {
         String canonicalPrefix = canonical(prefix) + ".";
-        Map<String, Object> values = new LinkedHashMap<>();
+        List<Map<String, Object>> valuesBySource = new ArrayList<>();
         for (PropertySource<?> source : environment.getPropertySources()) {
-            if (!(source instanceof EnumerablePropertySource<?> enumerable)) {
-                continue;
+            Map<String, Object> values = new LinkedHashMap<>();
+            if (source instanceof EnumerablePropertySource<?> enumerable) {
+                for (String propertyName : enumerable.getPropertyNames()) {
+                    String canonicalName = canonical(propertyName);
+                    if (!canonicalName.startsWith(canonicalPrefix)) {
+                        continue;
+                    }
+                    String suffix = canonicalName.substring(canonicalPrefix.length());
+                    values.putIfAbsent(suffix, source.getProperty(propertyName));
+                }
             }
-            for (String propertyName : enumerable.getPropertyNames()) {
-                String canonicalName = canonical(propertyName);
-                if (!canonicalName.startsWith(canonicalPrefix)) {
+            valuesBySource.add(values);
+        }
+        return valuesBySource;
+    }
+
+    private static int firstNonEmpty(List<Map<String, Object>> valuesBySource) {
+        for (int i = 0; i < valuesBySource.size(); i++) {
+            if (!valuesBySource.get(i).isEmpty()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static Map<String, Object> collectEffective(List<Map<String, Object>> valuesBySource,
+                                                         int lastSourceIndex) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        int end = Math.min(lastSourceIndex, valuesBySource.size() - 1);
+        for (int i = 0; i <= end; i++) {
+            for (Map.Entry<String, Object> entry : valuesBySource.get(i).entrySet()) {
+                if (entry.getValue() == null) {
                     continue;
                 }
-                String suffix = canonicalName.substring(canonicalPrefix.length());
-                values.putIfAbsent(suffix, environment.getProperty(propertyName));
+                values.putIfAbsent(entry.getKey(), entry.getValue());
             }
         }
         return values;

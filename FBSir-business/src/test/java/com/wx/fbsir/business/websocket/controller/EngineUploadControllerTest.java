@@ -4,6 +4,7 @@ import com.wx.fbsir.business.websocket.server.EngineSessionManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mock.web.MockMultipartFile;
 
 import javax.imageio.ImageIO;
@@ -89,6 +90,14 @@ class EngineUploadControllerTest {
         assertEquals(false, body.get("success"));
         assertEquals("ALL_UPLOADS_FAILED", body.get("code"));
         assertEquals(1, body.get("failedCount"));
+    }
+
+    @Test
+    void defaultUploadPathPreservesHistoricalEngineDataDirectory() throws Exception {
+        Field field = EngineUploadController.class.getDeclaredField("uploadPath");
+
+        assertEquals("${fbsir.profile:/data/wxfbsir/uploadPath}",
+            field.getAnnotation(Value.class).value());
     }
 
     private MockMultipartFile png() throws Exception {

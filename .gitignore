@@ -122,8 +122,8 @@ mini.project.json
 .temp/
 .rn_temp/
 dist/
-fbsir/
-wxfbsir/
+/fbsir/
+/wxfbsir/
 
 
 # React Native

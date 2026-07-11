@@ -1,5 +1,2 @@
 org.springframework.context.ApplicationListener=\
 com.wx.fbsir.web.core.config.EnvironmentConfigValidator
-
-# org.springframework.boot.env.EnvironmentPostProcessor=\
-# com.wx.fbsir.web.core.config.EnvironmentVariableFilter
