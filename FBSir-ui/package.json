@@ -19,7 +19,7 @@
   "dependencies": {
     "@element-plus/icons-vue": "2.3.1",
     "@vueup/vue-quill": "1.2.0",
-    "@vueuse/core": "13.3.0",
+    "@vueuse/core": "14.3.0",
     "axios": "1.18.1",
     "clipboard": "2.0.11",
     "echarts": "6.1.0",
