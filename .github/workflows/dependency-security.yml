@@ -12,6 +12,9 @@ on:
       - 'FBSir-ui/src/settings.js'
       - 'FBSir-ui/.env.*'
       - 'sql/**'
+      - 'scripts/doc-consistency-audit.ps1'
+      - 'scripts/database-compatibility-audit.ps1'
+      - '**/*.md'
       - '.github/workflows/dependency-security.yml'
   push:
     branches:
@@ -26,6 +29,9 @@ on:
       - 'FBSir-ui/src/settings.js'
       - 'FBSir-ui/.env.*'
       - 'sql/**'
+      - 'scripts/doc-consistency-audit.ps1'
+      - 'scripts/database-compatibility-audit.ps1'
+      - '**/*.md'
       - '.github/workflows/dependency-security.yml'
   schedule:
     - cron: '17 2 * * 1'
@@ -53,3 +59,11 @@ jobs:
       - run: npm run verify:menu-components
       - run: npm run verify:websocket-security
       - run: npm run build:prod
+      - name: Verify repository documentation consistency
+        shell: pwsh
+        working-directory: .
+        run: ./scripts/doc-consistency-audit.ps1
+      - name: Verify database compatibility documentation
+        shell: pwsh
+        working-directory: .
+        run: ./scripts/database-compatibility-audit.ps1

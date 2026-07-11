@@ -24,8 +24,15 @@ if (Test-Path -LiteralPath (Join-Path $Root 'sql/fbsir.sql')) {
     $findings.Add('Do not introduce sql/fbsir.sql without an explicit database migration and rollback plan.')
 }
 
-$markdownFiles = Get-ChildItem -Path $Root -Recurse -File -Filter '*.md' |
-    Where-Object { $_.FullName -notmatch '\\node_modules\\|\\target\\|\\dist\\|\\work\\|\\logs\\|\\\.git\\|\\\.fbs-engineering\\' }
+$repositoryMarkdown = @(& git -c core.quotepath=false -C $Root ls-files --cached --others --exclude-standard -- '*.md')
+if ($LASTEXITCODE -ne 0) {
+    throw "Unable to enumerate repository-owned Markdown files under $Root."
+}
+$markdownFiles = $repositoryMarkdown |
+    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+    ForEach-Object { Join-Path $Root ($_ -replace '/', [IO.Path]::DirectorySeparatorChar) } |
+    Where-Object { Test-Path -LiteralPath $_ } |
+    ForEach-Object { Get-Item -LiteralPath $_ }
 $forbiddenDocumentPatterns = @(
     'sql/fbsir\.sql',
     '\u6570\u636e\u5e93\s*\x60fbsir\x60',
