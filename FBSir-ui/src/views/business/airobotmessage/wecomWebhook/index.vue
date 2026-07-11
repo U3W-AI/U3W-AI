@@ -14,6 +14,12 @@
     </el-form>
 
     <el-alert
+      v-if="enterpriseOptionsLoaded && enterpriseOptions.length === 0"
+      title="当前账号尚未加入可用企业"
+      description="请先在“FBS运营管理 → 企业管理”创建企业，再到“企业成员”把当前用户加入该企业；完成后返回本页刷新。"
+      type="warning" show-icon :closable="false" class="mb8" />
+
+    <el-alert
       title="Webhook 密钥已加密保存，列表和详情只显示掩码；每次投递都生成可审计回执。"
       type="info" show-icon :closable="false" class="mb8" />
 
@@ -86,6 +92,7 @@ import {
 const { proxy } = getCurrentInstance()
 const enterpriseId = ref()
 const enterpriseOptions = ref([])
+const enterpriseOptionsLoaded = ref(false)
 const webhookList = ref([])
 const loading = ref(false)
 const editOpen = ref(false)
@@ -109,10 +116,15 @@ function responseRows(response) {
 }
 
 async function loadEnterprises() {
-  const response = await listWebhookEnterprises()
-  enterpriseOptions.value = responseRows(response)
-  if (!enterpriseId.value && enterpriseOptions.value.length) enterpriseId.value = enterpriseOptions.value[0].id
-  await getList()
+  enterpriseOptionsLoaded.value = false
+  try {
+    const response = await listWebhookEnterprises()
+    enterpriseOptions.value = responseRows(response)
+    if (!enterpriseId.value && enterpriseOptions.value.length) enterpriseId.value = enterpriseOptions.value[0].id
+    await getList()
+  } finally {
+    enterpriseOptionsLoaded.value = true
+  }
 }
 
 async function getList() {

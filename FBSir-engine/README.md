@@ -45,9 +45,14 @@ fbsir:
       enabled: true
       data-dir: ./data/playwright
       headless: false
+      pool:
+        max-size: 0
+        min-idle: 0
 ```
 
 `engine-token` 必须与 Admin 的 `FBSIR_ENGINE_TOKEN` 完全一致，长度至少 32 个字符。示例占位符不是可用凭据。
+
+`max-size: 0` 使用运行时资源检测得到并发上限；`min-idle: 0` 表示启动阶段不预热 Chromium，首次真实浏览器任务才按需创建。只有明确需要降低首个任务延迟且内存足够时才提高 `min-idle`。
 
 ## 3. 构建与启动
 

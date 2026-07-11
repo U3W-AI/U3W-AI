@@ -4,6 +4,7 @@ import com.wx.fbsir.business.websocket.domain.WsHostWhitelist;
 import com.wx.fbsir.business.websocket.domain.WsIpBlacklist;
 import com.wx.fbsir.business.websocket.mapper.WsHostWhitelistMapper;
 import com.wx.fbsir.business.websocket.mapper.WsIpBlacklistMapper;
+import com.wx.fbsir.common.utils.DesensitizedUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -92,7 +93,7 @@ public class WhitelistService {
 
             // 2. 检查主机ID是否为空
             if (hostId == null || hostId.trim().isEmpty()) {
-                log.debug("[白名单] ID为空 - {}", remoteIp);
+                log.debug("[白名单] ID为空 - {}", DesensitizedUtil.ipAddress(remoteIp));
                 recordFailure(remoteIp, "EMPTY_HOST_ID", "主机ID为空");
                 return ValidationResult.fail("EMPTY_HOST_ID", "主机ID不能为空，请向管理员申请主机ID");
             }
@@ -102,7 +103,8 @@ public class WhitelistService {
             
             // 3.1 检查是否存在（不存在或已被删除）
             if (whitelist == null) {
-                log.warn("[白名单拒绝] 主机ID不存在或已被删除 - HostID: {}, IP: {}", hostId, remoteIp);
+                log.warn("[白名单拒绝] 主机ID不存在或已被删除 - HostID: {}, IP: {}", hostId,
+                    DesensitizedUtil.ipAddress(remoteIp));
                 recordFailure(remoteIp, "HOST_NOT_IN_WHITELIST", "主机ID不在白名单或已被删除");
                 return ValidationResult.fail("HOST_NOT_IN_WHITELIST", 
                     "主机ID [" + hostId + "] 未授权或已被移除，请联系管理员添加到白名单");
@@ -111,7 +113,7 @@ public class WhitelistService {
             // 3.2 检查状态（status=0 表示禁用）
             if (whitelist.getStatus() == null || whitelist.getStatus() != 1) {
                 log.warn("[白名单拒绝] 主机ID已被禁用 - HostID: {}, Status: {}, IP: {}", 
-                    hostId, whitelist.getStatus(), remoteIp);
+                    hostId, whitelist.getStatus(), DesensitizedUtil.ipAddress(remoteIp));
                 recordFailure(remoteIp, "HOST_DISABLED", "主机ID已禁用");
                 return ValidationResult.fail("HOST_DISABLED", 
                     "主机ID [" + hostId + "] 已被管理员停用，请联系管理员启用后再连接");
@@ -123,7 +125,7 @@ public class WhitelistService {
                 if (actualHostType != null && !actualHostType.trim().isEmpty()
                     && !actualHostType.trim().equalsIgnoreCase(expectedHostType.trim())) {
                     log.warn("[白名单拒绝] 主机类型不匹配 - HostID: {}, Expected: {}, Actual: {}, IP: {}",
-                        hostId, expectedHostType, actualHostType, remoteIp);
+                        hostId, expectedHostType, actualHostType, DesensitizedUtil.ipAddress(remoteIp));
                     recordFailure(remoteIp, "HOST_TYPE_MISMATCH", "主机类型不匹配");
                     return ValidationResult.fail("HOST_TYPE_MISMATCH",
                         "主机ID [" + hostId + "] 已登记为 [" + actualHostType + "] 类型，不允许作为 ["
@@ -222,7 +224,7 @@ public class WhitelistService {
                     String reason = blacklist.getBlockReason();
                     
                     log.warn("[黑名单拒绝] IP已被封禁 - IP: {}, 类型: {}, 原因: {}", 
-                        remoteIp, blockTypeText, reason);
+                        DesensitizedUtil.ipAddress(remoteIp), blockTypeText, reason);
                     
                     String message = "IP地址 [" + remoteIp + "] 已被" + blockTypeText;
                     if (reason != null && !reason.trim().isEmpty()) {
@@ -237,7 +239,8 @@ public class WhitelistService {
             return ValidationResult.success();
 
         } catch (Exception e) {
-            log.error("[黑名单] 检查异常 - IP: {}, 错误: {}", remoteIp, e.getMessage(), e);
+            log.error("[黑名单] 检查异常 - IP: {}, 错误: {}",
+                DesensitizedUtil.ipAddress(remoteIp), e.getMessage(), e);
             return ValidationResult.success(); // 查询异常时允许连接，避免误拦截
         }
     }
@@ -265,10 +268,11 @@ public class WhitelistService {
             blacklist.setStatus(1);
             
             blacklistMapper.insert(blacklist);
-            log.info("[黑名单] 添加 - IP: {}, 原因: {}", ipAddress, blockReason);
+            log.info("[黑名单] 添加 - IP: {}, 原因: {}", DesensitizedUtil.ipAddress(ipAddress), blockReason);
 
         } catch (Exception e) {
-            log.error("[黑名单] 添加失败 - IP: {}, 错误: {}", ipAddress, e.getMessage(), e);
+            log.error("[黑名单] 添加失败 - IP: {}, 错误: {}",
+                DesensitizedUtil.ipAddress(ipAddress), e.getMessage(), e);
         }
     }
 

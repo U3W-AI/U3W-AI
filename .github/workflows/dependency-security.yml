@@ -7,6 +7,7 @@ on:
       - 'FBSir-ui/package-lock.json'
       - 'FBSir-ui/vite/**'
       - 'FBSir-ui/scripts/**'
+      - 'FBSir-ui/src/utils/**'
       - 'FBSir-ui/src/views/**'
       - 'FBSir-ui/src/settings.js'
       - 'FBSir-ui/.env.*'
@@ -20,6 +21,7 @@ on:
       - 'FBSir-ui/package-lock.json'
       - 'FBSir-ui/vite/**'
       - 'FBSir-ui/scripts/**'
+      - 'FBSir-ui/src/utils/**'
       - 'FBSir-ui/src/views/**'
       - 'FBSir-ui/src/settings.js'
       - 'FBSir-ui/.env.*'
@@ -49,4 +51,5 @@ jobs:
       - run: npm audit --audit-level=low
       - run: npm run verify:svg-icons
       - run: npm run verify:menu-components
+      - run: npm run verify:websocket-security
       - run: npm run build:prod

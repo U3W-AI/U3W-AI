@@ -2,6 +2,7 @@ package com.wx.fbsir.business.websocket.server;
 
 import com.wx.fbsir.business.websocket.service.IpAccessControlService;
 import com.wx.fbsir.business.websocket.security.EngineCredentialVerifier;
+import com.wx.fbsir.common.utils.DesensitizedUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,7 +54,7 @@ public class EngineWebSocketInterceptor implements HandshakeInterceptor {
         
         // 1. 限流检查（最早拦截，防止DDoS）
         if (ipAccessControl != null && !ipAccessControl.checkRateLimit(remoteAddress)) {
-            log.warn("[拦截] 限流拒绝 - IP: {}", remoteAddress);
+            log.warn("[拦截] 限流拒绝 - IP: {}", DesensitizedUtil.ipAddress(remoteAddress));
             response.setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
             // 添加自定义头，让副节点能识别拒绝原因
             response.getHeaders().add("X-WS-Reject-Reason", "RATE_LIMIT");
@@ -65,7 +66,7 @@ public class EngineWebSocketInterceptor implements HandshakeInterceptor {
         if (ipAccessControl != null) {
             var blacklist = ipAccessControl.checkBlacklistWithCache(remoteAddress);
             if (blacklist != null && blacklist.getBlockType() != null && blacklist.getBlockType() >= 1) {
-                log.warn("[拦截] 黑名单拒绝 - IP: {}", remoteAddress);
+                log.warn("[拦截] 黑名单拒绝 - IP: {}", DesensitizedUtil.ipAddress(remoteAddress));
                 ipAccessControl.updateHitCount(blacklist.getId());
                 response.setStatusCode(HttpStatus.FORBIDDEN);
                 // 添加自定义头，让副节点能识别拒绝原因
@@ -84,7 +85,7 @@ public class EngineWebSocketInterceptor implements HandshakeInterceptor {
         String suppliedToken = servletRequest.getServletRequest()
             .getHeader(EngineCredentialVerifier.HEADER_NAME);
         if (!credentialVerifier.matches(suppliedToken)) {
-            log.warn("[拦截] Engine凭证拒绝 - IP: {}", remoteAddress);
+            log.warn("[拦截] Engine凭证拒绝 - IP: {}", DesensitizedUtil.ipAddress(remoteAddress));
             response.setStatusCode(HttpStatus.UNAUTHORIZED);
             response.getHeaders().add("X-WS-Reject-Reason", "ENGINE_CREDENTIAL");
             response.getHeaders().add("X-WS-Reject-Code", "4011");

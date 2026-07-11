@@ -188,7 +188,7 @@ public class SystemPerformanceDetector {
     public static double getSystemLoad() {
         try {
             OperatingSystemMXBean osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
-            return osBean.getSystemCpuLoad();
+            return osBean.getCpuLoad();
         } catch (Exception e) {
             return -1;
         }

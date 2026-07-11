@@ -92,11 +92,14 @@ public class GlobalBrowserPool {
     public GlobalBrowserPool(PlaywrightManager playwrightManager, PlaywrightProperties properties) {
         this.playwrightManager = playwrightManager;
         this.properties = properties;
-        // 🟠 P1修复：动态计算Browser池大小
+        // 使用已经过 PlaywrightProperties 动态适配的上限，同时保留硬上限，
+        // 避免配置与实际池大小出现两个互相矛盾的事实来源。
         int cpuCores = Runtime.getRuntime().availableProcessors();
-        this.poolSize = Math.max(2, Math.min(cpuCores, 8)); // 最小2个，最大8个
+        int configuredSize = properties.getPool().getMaxSize();
+        int requestedSize = configuredSize > 0 ? configuredSize : cpuCores;
+        this.poolSize = Math.max(1, Math.min(requestedSize, 8));
         this.browserSemaphore = new Semaphore(poolSize);
-        log.info("[Browser池] 动态配置池大小: {} (CPU核心数: {})", poolSize, cpuCores);
+        log.info("[Browser池] 配置池上限: {} (请求值: {}, CPU核心数: {})", poolSize, requestedSize, cpuCores);
     }
 
     @PostConstruct
@@ -106,8 +109,9 @@ public class GlobalBrowserPool {
             return;
         }
 
+        int prewarmCount = Math.min(poolSize, Math.max(0, properties.getPool().getMinIdle()));
         int successCount = 0;
-        for (int i = 0; i < poolSize; i++) {
+        for (int i = 0; i < prewarmCount; i++) {
             try {
                 Browser browser = createBrowser();
                 availableBrowsers.offer(browser);
@@ -118,7 +122,7 @@ public class GlobalBrowserPool {
             }
         }
         
-        log.info("[Browser池] 初始化完成 - 可用Browser: {}/{}", successCount, poolSize);
+        log.info("[Browser池] 初始化完成 - 预热Browser: {}/{}, 池上限: {}", successCount, prewarmCount, poolSize);
     }
 
     /**

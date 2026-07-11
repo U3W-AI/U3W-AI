@@ -1,5 +1,6 @@
 package com.wx.fbsir.business.websocket.service;
 
+import com.wx.fbsir.common.utils.DesensitizedUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -154,7 +155,7 @@ public class ConnectionRateLimiter {
         if (failures1Hour >= BAN_THRESHOLD_1HOUR) {
             ipBanMap.put(ip, now + BAN_DURATION_1HOUR);
             log.error("[频率限制] IP [{}] 已封禁1小时 - 1小时内失败{}次 - 原因: {}", 
-                ip, failures1Hour, reason);
+                DesensitizedUtil.ipAddress(ip), failures1Hour, reason);
             return;
         }
         
@@ -162,14 +163,14 @@ public class ConnectionRateLimiter {
         if (failures5Min >= BAN_THRESHOLD_5MIN) {
             ipBanMap.put(ip, now + BAN_DURATION_10MIN);
             log.warn("[频率限制] IP [{}] 已封禁10分钟 - 5分钟内失败{}次 - 原因: {}", 
-                ip, failures5Min, reason);
+                DesensitizedUtil.ipAddress(ip), failures5Min, reason);
             return;
         }
         
         // 1分钟内失败10次 → 警告
         if (failures1Min >= WARN_THRESHOLD_1MIN) {
             log.warn("[频率限制] IP [{}] 高频失败警告 - 1分钟内失败{}次 - 原因: {}", 
-                ip, failures1Min, reason);
+                DesensitizedUtil.ipAddress(ip), failures1Min, reason);
         }
     }
     
@@ -236,7 +237,7 @@ public class ConnectionRateLimiter {
     public void unbanIp(String ip) {
         ipBanMap.remove(ip);
         ipFailureMap.remove(ip);
-        log.info("[频率限制] 管理员手动解除IP封禁: {}", ip);
+        log.info("[频率限制] 管理员手动解除IP封禁: {}", DesensitizedUtil.ipAddress(ip));
     }
     
     /**

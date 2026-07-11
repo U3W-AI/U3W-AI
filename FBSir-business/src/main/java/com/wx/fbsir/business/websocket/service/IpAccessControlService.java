@@ -3,6 +3,7 @@ package com.wx.fbsir.business.websocket.service;
 import com.wx.fbsir.business.websocket.domain.WsIpBlacklist;
 import com.wx.fbsir.business.websocket.mapper.WsIpBlacklistMapper;
 import com.wx.fbsir.common.core.redis.RedisCache;
+import com.wx.fbsir.common.utils.DesensitizedUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -75,7 +76,8 @@ public class IpAccessControlService {
             String ipKey = KEY_RATE_LIMIT_IP + ip + ":" + getCurrentSecond();
             Long ipCount = incrementAndGet(ipKey, 2);
             if (ipCount != null && ipCount > IP_RATE_LIMIT) {
-                log.warn("[限流] IP限流触发 - IP: {}, 当前QPS: {}", ip, ipCount);
+                log.warn("[限流] IP限流触发 - IP: {}, 当前QPS: {}",
+                    DesensitizedUtil.ipAddress(ip), ipCount);
                 recordFailedAttempt(ip, "RATE_LIMITED", "触发IP级别限流");
                 return false;
             }
@@ -106,7 +108,8 @@ public class IpAccessControlService {
             // 增加失败计数
             Long failCount = incrementAndGet(failKey, FAIL_WINDOW_SECONDS);
             
-            log.debug("[访问控制] IP: {} 失败次数: {}/{}", ip, failCount, FAIL_THRESHOLD);
+            log.debug("[访问控制] IP: {} 失败次数: {}/{}",
+                DesensitizedUtil.ipAddress(ip), failCount, FAIL_THRESHOLD);
             
             // 达到阈值，自动加入黑名单
             if (failCount != null && failCount >= FAIL_THRESHOLD) {
@@ -131,7 +134,7 @@ public class IpAccessControlService {
             // 检查是否已在黑名单
             WsIpBlacklist existing = blacklistMapper.selectByIpAddress(ip);
             if (existing != null && existing.getStatus() == 1) {
-                log.info("[自动封禁] IP已在黑名单中: {}", ip);
+                log.info("[自动封禁] IP已在黑名单中: {}", DesensitizedUtil.ipAddress(ip));
                 return;
             }
 
@@ -148,9 +151,10 @@ public class IpAccessControlService {
             blacklistMapper.insert(blacklist);
             
             log.warn("[自动封禁] IP: {} 已被自动加入黑名单 - 原因: {}, 封禁时长: {}小时", 
-                ip, reason, AUTO_BLOCK_HOURS);
+                DesensitizedUtil.ipAddress(ip), reason, AUTO_BLOCK_HOURS);
         } catch (Exception e) {
-            log.error("[自动封禁] 添加黑名单失败 - IP: {}, 错误: {}", ip, e.getMessage(), e);
+            log.error("[自动封禁] 添加黑名单失败 - IP: {}, 错误: {}",
+                DesensitizedUtil.ipAddress(ip), e.getMessage(), e);
         }
     }
 

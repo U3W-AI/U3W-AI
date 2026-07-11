@@ -4,8 +4,6 @@ import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * 元器（YuanQi）工作流编辑工具类
@@ -21,8 +19,6 @@ import org.slf4j.LoggerFactory;
 @Slf4j
 @Component
 public class YuanQiWorkflowUtil {
-    
-    private static final Logger log = LoggerFactory.getLogger(YuanQiWorkflowUtil.class);
     
     /**
      * 通用的文本内容点击方法

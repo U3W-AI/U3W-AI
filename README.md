@@ -31,11 +31,13 @@ mvn -version
 mysql --version
 mysql_config_editor --version
 node --version
-npm --version
+npm.cmd --version
 redis-cli --version
 ```
 
 最低要求：JDK 17、Maven 3.8、MySQL 8、Node.js 18、npm 9。登录、验证码和会话依赖 Redis 6+，因此可登录的本地部署必须启动 Redis。
+
+如果 MySQL 已安装却未加入 `PATH`，或 Windows 尚未选择 Redis 运行方式，请直接按[部署文档：环境准备](部署文档.md#2-环境准备)中的可复制命令处理；不要在缺少 Redis 时继续排查登录页面。
 
 ### 3. 初始化数据库
 
@@ -72,9 +74,11 @@ java -jar ..\..\FBSir-engine\target\FBSir-engine-1.3.1.jar
 ```powershell
 # Terminal C - UI
 Set-Location .\FBSir-ui
-npm ci
-npm run dev
+npm.cmd ci
+npm.cmd run dev
 ```
+
+Windows PowerShell 可能因执行策略拦截 `npm.ps1`；使用上面的 `npm.cmd` 不会修改系统执行策略。仓库自带的 PowerShell 脚本也应按本文示例通过仅对当前子进程生效的 `-ExecutionPolicy Bypass` 运行。
 
 默认访问关系：UI `http://localhost:80`，Admin `http://localhost:8080`，Engine 健康端口 `8081`。若端口 80 被占用，请按部署文档使用临时端口，不要修改 API 代理前缀。
 

@@ -7,6 +7,7 @@ import com.wx.fbsir.business.websocket.message.MessageType;
 import com.wx.fbsir.business.websocket.service.ConnectionLogService;
 import com.wx.fbsir.business.websocket.service.ConnectionRateLimiter;
 import com.wx.fbsir.business.websocket.service.WhitelistService;
+import com.wx.fbsir.common.utils.DesensitizedUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -63,18 +64,17 @@ public class EngineWebSocketHandler extends TextWebSocketHandler {
         String connectionIp = getRemoteIp(session);  // 连接来源IP（可能是127.0.0.1或代理IP）
         Integer remotePort = getRemotePort(session);
         
-        log.debug("[WebSocket] 新连接 - 连接IP: {}", connectionIp);
+        log.debug("[WebSocket] 新连接 - 连接IP: {}", DesensitizedUtil.ipAddress(connectionIp));
         
-        // 记录连接请求（先使用连接IP，注册时会更新为公网IP）
+        // 记录服务端实际观察到的 TCP 对端地址。
         connectionLogService.logConnection(sessionId, connectionIp, remotePort, "/ws/engine");
         
-        // 注意：连接阶段不做IP验证，等待客户端注册时上报公网IP后再验证
-        // 这样可以避免本地开发时127.0.0.1被误判
+        // 客户端自报地址只用于诊断；授权、限流和黑白名单都以 TCP 对端为准。
         
         EngineSession engineSession = sessionManager.addSession(session);
         if (engineSession == null) {
             // 连接数超限，拒绝连接
-            log.warn("[WebSocket] 连接数超限 - IP: {}", connectionIp);
+            log.warn("[WebSocket] 连接数超限 - IP: {}", DesensitizedUtil.ipAddress(connectionIp));
             connectionLogService.updateRejected(sessionId, null,
                 ConnectionLogService.STATUS_REJECT_WHITELIST, "连接数超限");
             
@@ -183,30 +183,32 @@ public class EngineWebSocketHandler extends TextWebSocketHandler {
         deviceInfo.put("publicIp", clientPublicIp);
         deviceInfo.put("connectionIp", connectionIp);
         
-        log.info("[WebSocket] 注册请求 - HostID: {}, 连接IP: {}, 公网IP: {}, 主要IP: {}", 
-            hostId, connectionIp, clientPublicIp, primaryIp);
+        log.info("[WebSocket] 注册请求 - HostID: {}, 对端IP: {}, 自报公网IP: {}, 鉴权IP: {}",
+            hostId, DesensitizedUtil.ipAddress(connectionIp),
+            DesensitizedUtil.ipAddress(clientPublicIp), DesensitizedUtil.ipAddress(primaryIp));
         
         // 连接记录与访问控制统一使用服务端观察到的 TCP 对端地址。
         connectionLogService.updateConnectionIp(sessionId, primaryIp);
         
         // 1. 验证主机ID是否为空
         if (hostId == null || hostId.trim().isEmpty()) {
-            log.warn("[WebSocket] 拒绝: 主机ID为空 - 公网IP: {}", primaryIp);
+            log.warn("[WebSocket] 拒绝: 主机ID为空 - 对端IP: {}", DesensitizedUtil.ipAddress(primaryIp));
             connectionLogService.updateRejected(sessionId, hostId, 
                 ConnectionLogService.STATUS_REJECT_WHITELIST, "主机ID为空",
                 WebSocketErrorCode.EMPTY_HOST_ID.getCode());
             
-            // 记录失败并发送错误（使用公网IP）
+            // 记录失败并发送错误。
             rateLimiter.recordFailure(primaryIp, null, "主机ID为空");
             sendErrorAndClose(session, WebSocketErrorCode.EMPTY_HOST_ID.getMessage(), 
                 WebSocketErrorCode.EMPTY_HOST_ID.getCode(), CloseStatus.POLICY_VIOLATION);
             return true;
         }
         
-        // 2. 检查公网IP频率限制
+        // 2. 检查 TCP 对端 IP 频率限制
         ConnectionRateLimiter.RateLimitResult ipRateLimit = rateLimiter.checkIpBan(primaryIp);
         if (!ipRateLimit.isAllowed()) {
-            log.warn("[WebSocket] 公网IP被限流 - IP: {}, 原因: {}", primaryIp, ipRateLimit.getReason());
+            log.warn("[WebSocket] 对端IP被限流 - IP: {}, 原因: {}",
+                DesensitizedUtil.ipAddress(primaryIp), ipRateLimit.getReason());
             connectionLogService.updateRejected(sessionId, hostId,
                 ConnectionLogService.STATUS_REJECT_BLACKLIST, ipRateLimit.getReason(),
                 WebSocketErrorCode.CONNECTION_RATE_LIMIT.getCode());
@@ -217,10 +219,11 @@ public class EngineWebSocketHandler extends TextWebSocketHandler {
             return true;
         }
         
-        // 3. 检查公网IP黑名单
+        // 3. 检查 TCP 对端 IP 黑名单
         WhitelistService.ValidationResult ipBlacklistResult = whitelistService.checkIpBlacklist(primaryIp);
         if (!ipBlacklistResult.isValid()) {
-            log.warn("[WebSocket] 公网IP在黑名单中 - IP: {}, 原因: {}", primaryIp, ipBlacklistResult.getMessage());
+            log.warn("[WebSocket] 对端IP在黑名单中 - IP: {}, 原因: {}",
+                DesensitizedUtil.ipAddress(primaryIp), ipBlacklistResult.getMessage());
             connectionLogService.updateRejected(sessionId, hostId, 
                 ConnectionLogService.STATUS_REJECT_BLACKLIST, ipBlacklistResult.getMessage(),
                 WebSocketErrorCode.IP_IN_BLACKLIST.getCode());
@@ -245,12 +248,13 @@ public class EngineWebSocketHandler extends TextWebSocketHandler {
             return true;
         }
         
-        // 5. 验证白名单（使用公网IP进行验证）
+        // 5. 验证白名单（使用服务端观察到的 TCP 对端 IP）
         WhitelistService.ValidationResult whitelistResult = whitelistService.validateHostId(hostId, primaryIp, "engine");
         if (!whitelistResult.isValid()) {
-            log.warn("[拒绝] {} - HostID: {}, 公网IP: {}", whitelistResult.getCode(), hostId, primaryIp);
+            log.warn("[拒绝] {} - HostID: {}, 对端IP: {}", whitelistResult.getCode(), hostId,
+                DesensitizedUtil.ipAddress(primaryIp));
             
-            // 记录失败并发送对应错误码（使用公网IP）
+            // 记录失败并发送对应错误码。
             rateLimiter.recordFailure(primaryIp, hostId, whitelistResult.getMessage());
             
             WebSocketErrorCode errorCode = mapValidationCodeToErrorCode(whitelistResult.getCode());

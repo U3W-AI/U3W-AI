@@ -25,6 +25,16 @@
       </el-form-item>
     </el-form>
 
+    <el-alert
+      v-if="enterpriseOptionsLoaded && enterpriseOptions.length === 0"
+      title="尚未创建可管理的企业"
+      description="请先在“FBS运营管理 → 企业管理”创建企业，再返回本页添加成员。"
+      type="warning"
+      show-icon
+      :closable="false"
+      class="mb8"
+    />
+
     <!-- 工具栏 -->
     <el-row :gutter="10" class="mb8">
       <el-col :span="1.5">
@@ -162,6 +172,7 @@ const { proxy } = getCurrentInstance()
 
 const memberList = ref([])
 const enterpriseOptions = ref([])
+const enterpriseOptionsLoaded = ref(false)
 const addOpen = ref(false)
 const detailOpen = ref(false)
 const loading = ref(true)
@@ -193,10 +204,17 @@ const currentEnterpriseName = computed(() => {
 })
 
 /** 加载企业列表（下拉框） */
-function loadEnterpriseOptions() {
-  listEnterprise({ pageNum: 1, pageSize: 1000 }).then(response => {
+async function loadEnterpriseOptions() {
+  enterpriseOptionsLoaded.value = false
+  try {
+    const response = await listEnterprise({ pageNum: 1, pageSize: 1000 })
     enterpriseOptions.value = response.rows || []
-  })
+    if (!queryParams.value.enterpriseId && enterpriseOptions.value.length > 0) {
+      queryParams.value.enterpriseId = enterpriseOptions.value[0].id
+    }
+  } finally {
+    enterpriseOptionsLoaded.value = true
+  }
 }
 
 /** 获取列表 */
@@ -273,8 +291,8 @@ function handleRemove(row) {
   }).catch(() => {})
 }
 
-onMounted(() => {
-  loadEnterpriseOptions()
+onMounted(async () => {
+  await loadEnterpriseOptions()
   getList()
 })
 </script>

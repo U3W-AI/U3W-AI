@@ -9,8 +9,6 @@ import com.microsoft.playwright.options.SameSiteAttribute;
 import com.wx.fbsir.engine.playwright.login.model.LoginState;
 import com.wx.fbsir.engine.playwright.session.BrowserSession;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,8 +35,6 @@ import java.util.List;
  */
 @Slf4j
 public class LoginStateRestorer {
-    
-    private static final Logger log = LoggerFactory.getLogger(LoginStateRestorer.class);
     
     /**
      * 恢复登录状态到浏览器会话

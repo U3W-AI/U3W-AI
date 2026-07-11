@@ -2,6 +2,7 @@ package com.wx.fbsir.business.websocket.service;
 
 import com.wx.fbsir.business.websocket.domain.WsConnectionLog;
 import com.wx.fbsir.business.websocket.mapper.WsConnectionLogMapper;
+import com.wx.fbsir.common.utils.DesensitizedUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -122,7 +123,7 @@ public class ConnectionLogService {
             connectionLog.setStatus(STATUS_CONNECTING);
             
             connectionLogMapper.insert(connectionLog);
-            log.debug("[连接记录] 新连接 - IP: {}", remoteIp);
+            log.debug("[连接记录] 新连接 - IP: {}", DesensitizedUtil.ipAddress(remoteIp));
 
         } catch (Exception e) {
             log.error("[连接记录] 记录失败 - SessionID: {}, 错误: {}", sessionId, e.getMessage(), e);
@@ -163,20 +164,21 @@ public class ConnectionLogService {
     }
 
     /**
-     * 更新连接记录的IP地址（注册时使用客户端上报的公网IP替换连接IP）
+     * 更新连接记录的 IP 地址（使用服务端观察到的 TCP 对端地址）
      *
      * @param sessionId 会话ID
-     * @param publicIp  公网IP
+     * @param observedIp 服务端观察到的连接 IP
      */
     @Async
-    public void updateConnectionIp(String sessionId, String publicIp) {
-        if (connectionLogMapper == null || publicIp == null || publicIp.isEmpty()) {
+    public void updateConnectionIp(String sessionId, String observedIp) {
+        if (connectionLogMapper == null || observedIp == null || observedIp.isEmpty()) {
             return;
         }
 
         try {
-            connectionLogMapper.updateConnectionIp(sessionId, publicIp);
-            log.debug("[记录] 更新IP - SessionID: {}, 公网IP: {}", sessionId, publicIp);
+            connectionLogMapper.updateConnectionIp(sessionId, observedIp);
+            log.debug("[记录] 更新IP - SessionID: {}, 对端IP: {}", sessionId,
+                DesensitizedUtil.ipAddress(observedIp));
         } catch (Exception e) {
             log.error("[连接记录] 更新IP失败 - SessionID: {}, 错误: {}", sessionId, e.getMessage(), e);
         }

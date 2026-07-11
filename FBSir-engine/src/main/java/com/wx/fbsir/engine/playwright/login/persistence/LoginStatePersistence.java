@@ -7,8 +7,6 @@ import com.wx.fbsir.engine.playwright.login.model.LoginState;
 import com.wx.fbsir.engine.playwright.util.SafePathResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -52,8 +50,6 @@ import java.nio.file.StandardOpenOption;
 @Slf4j
 @Component
 public class LoginStatePersistence {
-    
-    private static final Logger log = LoggerFactory.getLogger(LoginStatePersistence.class);
     
     /**
      * Playwright配置属性（注入）

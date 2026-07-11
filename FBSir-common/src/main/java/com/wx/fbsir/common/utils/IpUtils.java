@@ -37,7 +37,8 @@ public class IpUtils {
             try {
                 String ip = getIpFromUrl(url);
                 if (ip != null && !ip.isEmpty()) {
-                    log.debug("[IP获取] 成功获取公网IP: {} (来源: {})", ip, url);
+                    log.debug("[IP获取] 成功获取公网IP: {} (来源: {})",
+                        DesensitizedUtil.ipAddress(ip), url);
                     return ip.trim();
                 }
             } catch (Exception e) {
@@ -142,7 +143,7 @@ public class IpUtils {
         
         // 如果缓存有效，直接返回
         if (cachedIp != null && (now - cacheTime) < CACHE_DURATION) {
-            log.debug("使用缓存的公网IP: {}", cachedIp);
+            log.debug("使用缓存的公网IP: {}", DesensitizedUtil.ipAddress(cachedIp));
             return cachedIp;
         }
         

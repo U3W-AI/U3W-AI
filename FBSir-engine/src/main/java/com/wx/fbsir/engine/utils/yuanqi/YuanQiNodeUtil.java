@@ -11,8 +11,6 @@ import com.wx.fbsir.engine.playwright.util.ScreenshotUploadClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.function.BiPredicate;
@@ -41,8 +39,6 @@ import java.util.regex.Pattern;
 @Component
 public class YuanQiNodeUtil {
     
-    private static final Logger log = LoggerFactory.getLogger(YuanQiNodeUtil.class);
-
     @Autowired
     private ScreenshotUtil screenshotUtil;
 
@@ -3145,11 +3141,11 @@ public class YuanQiNodeUtil {
                     page.waitForTimeout(200);
                     
                     // 2️⃣ 输入"以"
-                    promptArea.type("以", new Locator.TypeOptions().setDelay(50));
+                    promptArea.pressSequentially("以", new Locator.PressSequentiallyOptions().setDelay(50));
                     page.waitForTimeout(200);
                     
                     // 3️⃣ 输入"/"触发占位符列表
-                    promptArea.type("/", new Locator.TypeOptions().setDelay(50));
+                    promptArea.pressSequentially("/", new Locator.PressSequentiallyOptions().setDelay(50));
                     page.waitForTimeout(800); // 等待占位符列表出现（增加等待时间）
                     
                     // 检查占位符列表是否出现（可选，用于调试）
@@ -3167,11 +3163,11 @@ public class YuanQiNodeUtil {
                     page.waitForTimeout(500); // 等待占位符插入完成（增加等待时间）
                     
                     // 5️⃣ 输入"为题，"
-                    promptArea.type("为题，", new Locator.TypeOptions().setDelay(50));
+                    promptArea.pressSequentially("为题，", new Locator.PressSequentiallyOptions().setDelay(50));
                     page.waitForTimeout(200);
                     
                     // 6️⃣ 输入新的提示词内容
-                    promptArea.type(newPrompt, new Locator.TypeOptions().setDelay(10));
+                    promptArea.pressSequentially(newPrompt, new Locator.PressSequentiallyOptions().setDelay(10));
                     page.waitForTimeout(500);
                     
                     log.info("[元器提示词填充] 通过用户行为模拟成功（占位符重建）");
@@ -3193,7 +3189,7 @@ public class YuanQiNodeUtil {
                     page.waitForTimeout(200);
                     
                     // 2️⃣ 输入新的提示词内容
-                    promptArea.type(newPrompt, new Locator.TypeOptions().setDelay(10));
+                    promptArea.pressSequentially(newPrompt, new Locator.PressSequentiallyOptions().setDelay(10));
                     page.waitForTimeout(300);
                     
                     // 2.5️⃣ 按Enter换行（为后续占位符做准备）
@@ -3214,7 +3210,7 @@ public class YuanQiNodeUtil {
                         promptArea.press("Delete");
                         page.waitForTimeout(200);
                         // 输入新内容
-                        promptArea.type(newPrompt, new Locator.TypeOptions().setDelay(10));
+                        promptArea.pressSequentially(newPrompt, new Locator.PressSequentiallyOptions().setDelay(10));
                         page.waitForTimeout(300);
                         log.debug("[元器提示词填充] 通过type方法设置内容成功");
                     } catch (Exception e) {
@@ -3278,11 +3274,11 @@ public class YuanQiNodeUtil {
 
                 // 1️⃣ 输入"模型X结果："
                 String prefix = modelName + "结果：";
-                promptArea.type(prefix, new Locator.TypeOptions().setDelay(50));
+                promptArea.pressSequentially(prefix, new Locator.PressSequentiallyOptions().setDelay(50));
                 page.waitForTimeout(50);
 
                 // 2️⃣ 输入"/"触发占位符列表
-                promptArea.type("/", new Locator.TypeOptions().setDelay(50));
+                promptArea.pressSequentially("/", new Locator.PressSequentiallyOptions().setDelay(50));
                 page.waitForTimeout(100); // 等待占位符列表出现
 
                 // 3️⃣ 根据模型索引使用键盘导航选择
@@ -3375,7 +3371,7 @@ public class YuanQiNodeUtil {
 
             // 没有占位符时，直接整体输入
             if (placeholderRanges.isEmpty()) {
-                promptArea.type(prompt, new Locator.TypeOptions().setDelay(10));
+                promptArea.pressSequentially(prompt, new Locator.PressSequentiallyOptions().setDelay(10));
                 return;
             }
 
@@ -3389,7 +3385,7 @@ public class YuanQiNodeUtil {
                 if (start > lastIndex) {
                     String textSegment = prompt.substring(lastIndex, start);
                     if (!textSegment.isEmpty()) {
-                        promptArea.type(textSegment, new Locator.TypeOptions().setDelay(10));
+                        promptArea.pressSequentially(textSegment, new Locator.PressSequentiallyOptions().setDelay(10));
                     }
                 }
 
@@ -3398,7 +3394,7 @@ public class YuanQiNodeUtil {
                 log.debug("[元器提示词填充] 处理占位符区间: [{} , {}), 对应变量序号: {}", start, end, id);
 
                 // 输入 "/" 触发占位符列表
-                promptArea.type("/", new Locator.TypeOptions().setDelay(50));
+                promptArea.pressSequentially("/", new Locator.PressSequentiallyOptions().setDelay(50));
                 page.waitForTimeout(500);
 
                 // 通过向下箭头选择第 id 个变量（id=1 时不按向下）
@@ -3420,7 +3416,7 @@ public class YuanQiNodeUtil {
             if (lastIndex < prompt.length()) {
                 String tail = prompt.substring(lastIndex);
                 if (!tail.isEmpty()) {
-                    promptArea.type(tail, new Locator.TypeOptions().setDelay(10));
+                    promptArea.pressSequentially(tail, new Locator.PressSequentiallyOptions().setDelay(10));
                 }
             }
 
@@ -3430,7 +3426,7 @@ public class YuanQiNodeUtil {
             log.warn("[元器提示词填充] 按占位符规则输入失败，回退为直接输入: {}", e.getMessage());
             // 兜底：直接整体输入
             try {
-                promptArea.type(prompt, new Locator.TypeOptions().setDelay(10));
+                promptArea.pressSequentially(prompt, new Locator.PressSequentiallyOptions().setDelay(10));
             } catch (Exception ignore) {
                 // 最终失败忽略
             }

@@ -8,8 +8,6 @@ import com.wx.fbsir.engine.playwright.login.persistence.LoginStatePersistence;
 import com.wx.fbsir.engine.playwright.login.restorer.LoginStateRestorer;
 import com.wx.fbsir.engine.playwright.session.BrowserSession;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -47,8 +45,6 @@ import java.util.Map;
  */
 @Slf4j
 public class LoginStateManager {
-    
-    private static final Logger log = LoggerFactory.getLogger(LoginStateManager.class);
     
     /**
      * 登录状态有效期策略：依赖平台自身管理

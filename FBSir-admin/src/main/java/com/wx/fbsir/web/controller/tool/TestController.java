@@ -24,15 +24,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
  *
  * @author FBSir
  */
-@Tag(name = "用户信息管理")
+@Tag(name = "Swagger 示例用户管理")
 @RestController
 @RequestMapping("/test/user")
 public class TestController extends BaseController
 {
     private final static Map<Integer, UserEntity> users = new LinkedHashMap<Integer, UserEntity>();
     {
-        users.put(1, new UserEntity(1, "admin", "admin123", "15888888888"));
-        users.put(2, new UserEntity(2, "ry", "admin123", "15666666666"));
+        users.put(1, new UserEntity(1, "demo-user-1", "10000000001"));
+        users.put(2, new UserEntity(2, "demo-user-2", "10000000002"));
     }
     
     @Operation(summary = "获取用户列表")
@@ -114,9 +114,6 @@ class UserEntity
     @Schema(title = "用户名称")
     private String username;
     
-    @Schema(title = "用户密码")
-    private String password;
-    
     @Schema(title = "用户手机")
     private String mobile;
     
@@ -125,11 +122,10 @@ class UserEntity
         
     }
     
-    public UserEntity(Integer userId, String username, String password, String mobile)
+    public UserEntity(Integer userId, String username, String mobile)
     {
         this.userId = userId;
         this.username = username;
-        this.password = password;
         this.mobile = mobile;
     }
     
@@ -151,16 +147,6 @@ class UserEntity
     public void setUsername(String username)
     {
         this.username = username;
-    }
-    
-    public String getPassword()
-    {
-        return password;
-    }
-    
-    public void setPassword(String password)
-    {
-        this.password = password;
     }
     
     public String getMobile()

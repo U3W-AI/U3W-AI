@@ -50,8 +50,8 @@ public class SystemPerformanceMonitor {
 
             OperatingSystemMXBean osBean = ManagementFactory.getOperatingSystemMXBean();
             if (osBean instanceof com.sun.management.OperatingSystemMXBean sunOsBean) {
-                long totalMemory = sunOsBean.getTotalPhysicalMemorySize();
-                long freeMemory = sunOsBean.getFreePhysicalMemorySize();
+                long totalMemory = sunOsBean.getTotalMemorySize();
+                long freeMemory = sunOsBean.getFreeMemorySize();
                 long usedMemory = totalMemory - freeMemory;
                 double memoryUsage = totalMemory <= 0 ? 0.0 : (usedMemory * 100.0) / totalMemory;
 
@@ -143,7 +143,7 @@ public class SystemPerformanceMonitor {
         try {
             OperatingSystemMXBean osBean = ManagementFactory.getOperatingSystemMXBean();
             if (osBean instanceof com.sun.management.OperatingSystemMXBean sunOsBean) {
-                cachedTotalMemory = sunOsBean.getTotalPhysicalMemorySize();
+                cachedTotalMemory = sunOsBean.getTotalMemorySize();
                 return cachedTotalMemory;
             }
         } catch (Exception e) {
@@ -173,7 +173,7 @@ public class SystemPerformanceMonitor {
         try {
             OperatingSystemMXBean osBean = ManagementFactory.getOperatingSystemMXBean();
             if (osBean instanceof com.sun.management.OperatingSystemMXBean sunOsBean) {
-                double cpuLoad = sunOsBean.getSystemCpuLoad();
+                double cpuLoad = sunOsBean.getCpuLoad();
                 if (cpuLoad >= 0) {
                     return cpuLoad * 100.0;
                 }

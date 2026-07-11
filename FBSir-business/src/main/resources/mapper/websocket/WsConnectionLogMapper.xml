@@ -137,7 +137,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <update id="updateConnectionIp">
         UPDATE ws_connection_log SET
-            remote_ip = #{publicIp},
+            remote_ip = #{observedIp},
             update_time = NOW()
         WHERE session_id = #{sessionId}
     </update>

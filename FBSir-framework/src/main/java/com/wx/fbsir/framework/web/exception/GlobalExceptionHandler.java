@@ -14,6 +14,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import com.wx.fbsir.common.constant.HttpStatus;
 import com.wx.fbsir.common.core.domain.AjaxResult;
 import com.wx.fbsir.common.core.text.Convert;
@@ -114,6 +115,20 @@ public class GlobalExceptionHandler
         log.error("缺少必需参数: {}", e.getMessage());
         return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
                 .body(AjaxResult.error(String.format("缺少必需参数[%s]", e.getParameterName())));
+    }
+
+    /**
+     * 静态资源或未映射地址不存在。404 属于正常客户端结果，不能被兜底处理器
+     * 伪装成 200/500，也不应在每次可用性探测时污染错误日志。
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<AjaxResult> handleNoResourceFoundException(NoResourceFoundException e,
+            HttpServletRequest request)
+    {
+        String requestURI = request.getRequestURI();
+        log.debug("请求资源不存在: '{}'", requestURI);
+        return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND)
+                .body(AjaxResult.error(HttpStatus.NOT_FOUND, "请求资源不存在"));
     }
 
     /**

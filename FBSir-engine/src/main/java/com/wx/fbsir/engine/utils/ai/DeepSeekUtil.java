@@ -173,7 +173,7 @@ public class DeepSeekUtil {
             for (String selector : selectors) {
                 try {
                     Locator button = page.locator(selector).first();
-                    if (button.isVisible(new Locator.IsVisibleOptions().setTimeout(3000))) {
+                    if (button.isVisible()) {
                         // 获取按钮的className
                         String className = (String) button.evaluate("el => el.className");
                         log.debug("[DeepSeek] 联网搜索按钮className: {}", className);
@@ -1014,8 +1014,14 @@ public class DeepSeekUtil {
             }
             """);
 
-            if (jsResult instanceof Map) {
-                return (Map<String, Object>) jsResult;
+            if (jsResult instanceof Map<?, ?> result) {
+                Map<String, Object> normalizedResult = new HashMap<>();
+                result.forEach((key, value) -> {
+                    if (key instanceof String stringKey) {
+                        normalizedResult.put(stringKey, value);
+                    }
+                });
+                return normalizedResult;
             }
         } catch (Exception e) {
             log.error("[DeepSeek] 获取回答时出错", e);
@@ -1069,9 +1075,9 @@ public class DeepSeekUtil {
             }
             """);
 
-            if (jsResult instanceof Map) {
-                Map<String, Object> result = (Map<String, Object>) jsResult;
-                String content = (String) result.getOrDefault("content", "");
+            if (jsResult instanceof Map<?, ?> result) {
+                Object contentValue = result.get("content");
+                String content = contentValue instanceof String ? (String) contentValue : "";
                 if (!content.trim().isEmpty()) {
                     log.debug("[DeepSeek] 成功获取最后一组对话内容");
                     return content;
@@ -1151,10 +1157,7 @@ public class DeepSeekUtil {
                 }
             """);
             
-            if (result instanceof Map) {
-                Map<String, Object> resultMap = (Map<String, Object>) result;
-                Boolean success = (Boolean) resultMap.get("success");
-                
+            if (result instanceof Map<?, ?> resultMap) {
                 if (Boolean.TRUE.equals(resultMap.get("success"))) {
                     // 等待剪贴板操作完成
                     page.waitForTimeout(2000);

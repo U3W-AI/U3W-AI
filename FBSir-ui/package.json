@@ -11,7 +11,8 @@
     "build:stage": "vite build --mode staging",
     "preview": "vite preview",
     "verify:svg-icons": "node scripts/verify-svg-sprite.mjs",
-    "verify:menu-components": "node scripts/verify-menu-components.mjs"
+    "verify:menu-components": "node scripts/verify-menu-components.mjs",
+    "verify:websocket-security": "node scripts/verify-websocket-security.mjs"
   },
   "repository": {
     "type": "git",

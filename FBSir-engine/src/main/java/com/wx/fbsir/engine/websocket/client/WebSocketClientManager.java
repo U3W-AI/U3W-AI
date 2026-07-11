@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PreDestroy;
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -86,7 +87,7 @@ public class WebSocketClientManager {
         scheduler.schedule(() -> {
             log.info("[ClientManager] Playwright 初始化完成，开始连接主节点");
             connect();
-        }, new java.util.Date(System.currentTimeMillis() + 2000));
+        }, Instant.now().plusSeconds(2));
     }
 
     /**

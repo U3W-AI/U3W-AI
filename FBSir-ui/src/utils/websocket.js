@@ -184,3 +184,11 @@ export function buildWebSocketUrl(options = {}) {
   const queryString = params.toString();
   return queryString ? `${baseUrl}?${queryString}` : baseUrl;
 }
+
+/**
+ * 返回适合展示和截图的 WebSocket 地址，同时保留实际连接所需的非敏感参数。
+ * 真实 token 只能交给 WebSocket 构造函数，不能进入可见输入框或导出内容。
+ */
+export function redactWebSocketUrl(url = '') {
+  return String(url).replace(/([?&]token=)[^&#]*/gi, '$1[REDACTED]')
+}

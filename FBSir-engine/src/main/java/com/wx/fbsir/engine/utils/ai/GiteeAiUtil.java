@@ -749,10 +749,11 @@ public class GiteeAiUtil {
             }
             """);
 
-            if (jsResult instanceof Map) {
-                Map<String, Object> result = (Map<String, Object>) jsResult;
-                String content = (String) result.getOrDefault("content", "");
-                String source = (String) result.getOrDefault("source", "");
+            if (jsResult instanceof Map<?, ?> result) {
+                Object contentValue = result.get("content");
+                Object sourceValue = result.get("source");
+                String content = contentValue instanceof String ? (String) contentValue : "";
+                String source = sourceValue instanceof String ? (String) sourceValue : "";
                 
                 if (!content.trim().isEmpty()) {
                     log.debug("[Gitee AI] 成功提取格式化内容，来源: {}", source);
@@ -799,10 +800,11 @@ public class GiteeAiUtil {
             }
             """);
             
-            if (fallbackResult instanceof Map) {
-                Map<String, Object> result = (Map<String, Object>) fallbackResult;
-                String content = (String) result.getOrDefault("content", "");
-                String source = (String) result.getOrDefault("source", "");
+            if (fallbackResult instanceof Map<?, ?> result) {
+                Object contentValue = result.get("content");
+                Object sourceValue = result.get("source");
+                String content = contentValue instanceof String ? (String) contentValue : "";
+                String source = sourceValue instanceof String ? (String) sourceValue : "";
                 
                 if (!content.trim().isEmpty()) {
                     log.debug("[Gitee AI] 备用策略成功，来源: {}", source);

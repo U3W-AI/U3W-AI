@@ -65,10 +65,11 @@
 1. Engine WebSocket 连接地址默认是 `ws://localhost:8080/ws/engine`，当前源码不要求通过查询参数传递 `clientId`。
 2. Engine 的身份信息在注册消息 `ENGINE_REGISTER` 中通过 `engineId` 提供。
 3. `/ws/engine` 与 `/ws/client` 仅对 WebSocket 握手路径放行；除握手路径外，其余 `/ws/**` HTTP 接口均要求 JWT，匿名访问返回 HTTP 401。
-4. Engine 注册时的白名单校验不仅包含 `hostId`，还会校验状态、过期时间、IP 规则以及 `hostType=engine`。
+4. Engine 握手必须携带 `X-FBSir-Engine-Token` 强凭证；注册时还会校验 `hostId`、状态、过期时间、服务端观察到的 TCP 对端 IP 规则以及 `hostType=engine`。客户端自报的 `localIp` / `publicIp` 只用于诊断，不参与授权。
 5. Admin 发送给 Engine 的消息会自动补充顶层字段 `requestId`、`userId`、`sourceType`、`sourceClientId`，并在 `payload` 中补充 `requestId` 与 `sourceType`。
 6. `TASK_RESULT` 示例中的 `payload.requestId` 不应为 `null`；当前链路下会返回真实请求 ID，并按来源返回 `sourceType=WEBSOCKET` 或 `HTTP`。
-7. `/ws/client` 使用 `clientType` 识别客户端；服务端优先读取 `Authorization`，并兼容 `token` / `key` 查询参数。当前 Vue 页面因浏览器原生 WebSocket 不能设置自定义 Header，使用 `clientType + token` 查询参数建立连接。
+7. `/ws/client` 使用 `clientType` 识别客户端；服务端优先读取 `Authorization`，并兼容 `token` / `key` 查询参数。当前 Vue 页面因浏览器原生 WebSocket 不能设置自定义 Header，使用 `clientType + token` 查询参数建立连接，但页面展示和截图必须把令牌替换为 `[REDACTED]`。
+8. Engine 连接日志中的 IP 必须脱敏；原始 TCP 对端地址仅用于访问控制和受权限保护的连接台账。
 
 ---
 
@@ -991,21 +992,21 @@ Header: Authorization: Bearer {token}
 ws://localhost:8080/ws/engine
 ```
 
-> 说明：当前源码中 Engine 连接地址不要求额外查询参数，Engine 的身份信息在注册消息 `ENGINE_REGISTER` 中通过 `engineId` 传递。
+> 说明：当前源码中 Engine 连接地址不要求额外查询参数。握手阶段通过 `X-FBSir-Engine-Token` 请求头校验共享强凭证，注册消息 `ENGINE_REGISTER` 再通过 `engineId` 绑定白名单节点。
 
 | 注册字段 | 必填 | 说明 | 示例 |
 |----------|------|------|------|
 | `ENGINE_REGISTER.engineId` | ✅ | Engine 节点ID（即白名单 `hostId`） | `engine-001` |
 | 白名单 `hostType` | ✅ | Engine 注册专用主机类型 | `engine` |
 
-> Engine 连接通过**白名单验证**，不需要 Token
+> Engine 连接同时需要**强凭证握手**和**白名单注册**。Admin 的 `FBSIR_ENGINE_TOKEN` 必须与 Engine 外部 `application.yml` 中的 `fbsir.engine.engine-token` 完全一致，且长度至少 32 字符。
 
 ### 认证规则
 
 | 端点 | 认证方式 | 说明 |
 |------|----------|------|
 | `/ws/client` | Token 认证 | 前端必须携带有效 JWT Token |
-| `/ws/engine` | 白名单认证 | Engine 通过 hostId 白名单验证 |
+| `/ws/engine` | 强凭证 + 白名单认证 | 握手请求头验证共享凭证，注册阶段再验证 hostId、类型、状态、有效期和 TCP 对端 IP |
 | `/ws/admin/**`、`/ws/engine/request`、`/ws/engine/list` | JWT 认证 | 仅 WebSocket 握手路径匿名放行，HTTP 管理/执行接口需要 JWT |
 
 ### 错误码
@@ -1257,6 +1258,7 @@ GET /health/detail
 fbsir:
   websocket:
     enabled: true                      # 是否启用
+    engine-token: "<至少32字符的共享强凭证>"
     path: /ws/engine                   # WebSocket 端点路径
     max-connections: 10000             # 最大连接数
     max-message-size: 5242880          # 最大消息大小（5MB）
@@ -1272,11 +1274,10 @@ fbsir:
   engine:
     # 主机ID（必须申请白名单）
     host-id: engine-001
-    version: 1.0.0
+    engine-token: "<与Admin完全一致的共享强凭证>"
     
     # 主节点连接配置
-    admin:
-      ws-url: ws://localhost:8080/ws/engine
+    ws-url: ws://localhost:8080/ws/engine
     
     # 连接配置
     connection:
@@ -1298,6 +1299,7 @@ fbsir:
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
 | `host-id` | - | **必填**，需向管理员申请白名单 |
+| `engine-token` | - | **必填**，与 Admin 共享，至少 32 字符；只写入忽略提交的外部配置 |
 | `ws-url` | - | 主节点 WebSocket 地址 |
 | `max-message-size` | 5MB | 单条消息最大大小 |
 | `heartbeat-interval` | 30s | 心跳发送间隔 |
@@ -1607,8 +1609,9 @@ public class BatchTaskService {
 **排查步骤**：
 1. 检查主节点是否启动：`curl http://localhost:8080/actuator/health`
 2. 检查 WebSocket 端点路径：确认 `/ws/engine` 配置正确
-3. 检查防火墙/网络设置
-4. 检查日志中的详细错误信息
+3. 确认 Admin 的 `FBSIR_ENGINE_TOKEN` 与 Engine 外部配置中的 `engine-token` 完全一致且至少 32 字符
+4. 检查防火墙/网络设置，以及白名单中的 `hostId`、`hostType=engine`、状态、有效期和 TCP 对端 IP
+5. 检查已脱敏日志中的拒绝代码；不要在日志或截图中输出原始令牌和完整 IP
 
 #### 连接被拒绝 (4007)
 
@@ -2618,4 +2621,3 @@ public class BaiduHotSearchDemoController extends StreamTaskHelper {
 - `FBSir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/BaiduHotSearchDemoController.java` - 流式输出完整示例
 - `FBSir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/SimpleHealthCheckDemoController.java` - 单次输出完整示例
 - `FBSir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/README.md` - 演示能力使用指南
-

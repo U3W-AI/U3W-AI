@@ -102,11 +102,11 @@ public interface WsConnectionLogMapper {
      * 更新连接记录的IP地址
      *
      * @param sessionId 会话ID
-     * @param publicIp  公网IP
+     * @param observedIp 服务端观察到的连接 IP
      * @return 影响行数
      */
     int updateConnectionIp(@Param("sessionId") String sessionId,
-                           @Param("publicIp") String publicIp);
+                           @Param("observedIp") String observedIp);
 
     /**
      * 根据会话ID更新拒绝信息

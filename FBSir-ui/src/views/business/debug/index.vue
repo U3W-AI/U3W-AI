@@ -11,7 +11,7 @@
       <!-- 连接配置 -->
       <el-form :model="form" label-width="100px" size="default">
         <el-form-item label="连接地址">
-          <el-input v-model="wsUrl" placeholder="自动从系统配置获取" readonly>
+          <el-input :model-value="displayWsUrl" placeholder="自动从系统配置获取" readonly>
             <template #prepend>
               <el-button :icon="Link" @click="reconnect">{{ isConnected ? '重新连接' : '连接' }}</el-button>
             </template>
@@ -107,7 +107,7 @@ import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed } from 'v
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Link, Promotion, Delete, Download } from '@element-plus/icons-vue';
 import { getToken } from '@/utils/auth';
-import { buildWebSocketUrl } from '@/utils/websocket';
+import { buildWebSocketUrl, redactWebSocketUrl } from '@/utils/websocket';
 
 export default {
   name: 'WebSocketDebug',
@@ -146,6 +146,9 @@ export default {
         clientType: form.clientType || 'web'
       });
     });
+
+    // 调试页面可以显示连接目标，但不能把当前登录令牌暴露在页面、截图或复制内容中。
+    const displayWsUrl = computed(() => redactWebSocketUrl(wsUrl.value));
 
     // 连接状态
     const connectionStatus = computed(() => {
@@ -464,6 +467,7 @@ export default {
       messages,
       isConnected,
       wsUrl,
+      displayWsUrl,
       connectionStatus,
       autoScroll,
       prettyPrint,

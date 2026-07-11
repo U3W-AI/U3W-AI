@@ -13,9 +13,11 @@
 ### 1. 获取Token
 
 ```bash
-export TOKEN=$(curl -s -X POST http://localhost:8080/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}' | jq -r '.token')
+read -rsp "Admin password: " FBSIR_ADMIN_PASSWORD; echo
+export TOKEN=$(jq -n --arg username "${FBSIR_ADMIN_USERNAME:-admin}" --arg password "$FBSIR_ADMIN_PASSWORD" \
+  '{username:$username,password:$password}' | curl -s -X POST http://localhost:8080/login \
+  -H "Content-Type: application/json" --data-binary @- | jq -r '.token')
+unset FBSIR_ADMIN_PASSWORD
 ```
 
 ### 2. WebSocket连接
@@ -235,9 +237,11 @@ websocat "ws://localhost:8080/ws/client?clientType=web&token=${TOKEN}"
 
 ```bash
 # 1. 获取Token
-export TOKEN=$(curl -s -X POST http://localhost:8080/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}' | jq -r '.token')
+read -rsp "Admin password: " FBSIR_ADMIN_PASSWORD; echo
+export TOKEN=$(jq -n --arg username "${FBSIR_ADMIN_USERNAME:-admin}" --arg password "$FBSIR_ADMIN_PASSWORD" \
+  '{username:$username,password:$password}' | curl -s -X POST http://localhost:8080/login \
+  -H "Content-Type: application/json" --data-binary @- | jq -r '.token')
+unset FBSIR_ADMIN_PASSWORD
 
 # 2. 连接WebSocket
 websocat "ws://localhost:8080/ws/client?clientType=web&token=${TOKEN}"
@@ -329,9 +333,11 @@ websocat "ws://localhost:8080/ws/client?clientType=web&token=${TOKEN}" | tee dee
 #!/bin/bash
 
 # 获取Token
-TOKEN=$(curl -s -X POST http://localhost:8080/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}' | jq -r '.token')
+read -rsp "Admin password: " FBSIR_ADMIN_PASSWORD; echo
+TOKEN=$(jq -n --arg username "${FBSIR_ADMIN_USERNAME:-admin}" --arg password "$FBSIR_ADMIN_PASSWORD" \
+  '{username:$username,password:$password}' | curl -s -X POST http://localhost:8080/login \
+  -H "Content-Type: application/json" --data-binary @- | jq -r '.token')
+unset FBSIR_ADMIN_PASSWORD
 
 echo "Token: $TOKEN"
 
