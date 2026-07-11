@@ -1254,7 +1254,7 @@ GET /health/detail
 ### 7.1 主节点配置 (application.yml)
 
 ```yaml
-wxfbsir:
+fbsir:
   websocket:
     enabled: true                      # 是否启用
     path: /ws/engine                   # WebSocket 端点路径
@@ -1268,7 +1268,7 @@ wxfbsir:
 ### 7.2 副节点配置 (application.yml)
 
 ```yaml
-wxfbsir:
+fbsir:
   engine:
     # 主机ID（必须申请白名单）
     host-id: engine-001
@@ -1876,12 +1876,12 @@ function getDoubaoQrCode() {
 
 ```yaml
 # 主节点
-wxfbsir:
+fbsir:
   websocket:
     max-message-size: 10485760  # 10MB
 
 # 副节点
-wxfbsir:
+fbsir:
   engine:
     connection:
       max-message-size: 10485760  # 10MB

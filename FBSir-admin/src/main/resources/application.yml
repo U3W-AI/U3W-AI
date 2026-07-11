@@ -1,5 +1,5 @@
 # 项目相关配置
-wxfbsir:
+fbsir:
   # 名称
   name: 福帮手
   # 版本
@@ -8,7 +8,7 @@ wxfbsir:
   copyrightYear: 2026
   # 文件路径 示例（ Windows配置D:/FBSir/uploadPath，Linux配置 /home/FBSir/uploadPath）
   # 兼容说明：未显式配置路径时继续使用历史目录，避免升级后看不到既有文件。
-  profile: ${FBSIR_FILE_PATH:${WXFBSIR_FILE_PATH:D:/WxFbsir/uploadPath}}
+  profile: ${FBSIR_FILE_PATH:${WXFBSIR_FILE_PATH:D:/FBSir/uploadPath}}
   # 获取ip地址开关
   addressEnabled: false
   # 验证码类型 math 数字计算 char 字符验证
@@ -110,7 +110,7 @@ spring:
       # 连接超时时间（减少到5秒，快速失败）
       timeout: 5s
       # 客户端名称
-      client-name: wxfbsir-admin
+      client-name: fbsir-admin
       lettuce:
         pool:
           # 连接池中的最小空闲连接（减少初始连接数）

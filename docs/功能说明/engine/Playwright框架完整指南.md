@@ -453,7 +453,7 @@ for (int i = 0; i < 3; i++) {
 
 ```
 数据目录结构：
-${user.home}/.wxfbsir/playwright-data/
+${user.home}/.fbsir/playwright-data/
 ├── persistent/
 │   ├── user-001/
 │   │   ├── baidu/          # 用户001的百度会话
@@ -588,12 +588,12 @@ FBSir-engine/src/main/java/com/wx/fbsir/engine/playwright/
 ### 4.1 完整配置示例
 
 ```yaml
-wxfbsir:
+fbsir:
   engine:
     playwright:
       # 基础配置
       enabled: true                                    # 是否启用
-      data-dir: ${user.home}/.wxfbsir/playwright-data  # 数据目录
+      data-dir: ${user.home}/.fbsir/playwright-data  # 数据目录
       headless: false                                  # 默认无头模式
       dynamic-performance: true                        # 启用动态性能计算
       
@@ -1616,7 +1616,7 @@ taskkill /F /IM chrome.exe
 | 参数路径 | 默认值 | 说明 |
 |----------|--------|------|
 | `playwright.enabled` | true | 是否启用 |
-| `playwright.data-dir` | `${user.home}/.wxfbsir/playwright-data` | 数据目录 |
+| `playwright.data-dir` | `${user.home}/.fbsir/playwright-data` | 数据目录 |
 | `playwright.headless` | false | 默认无头模式 |
 | `playwright.dynamic-performance` | true | 动态性能计算 |
 | `playwright.pool.max-size` | 0 (动态) | 最大会话数 |

@@ -36,7 +36,7 @@ public class ResumeManagementServiceImpl implements ResumeManagementService {
     @Autowired
     private YuanqiAgentApiService yuanqiAgentApiService;
 
-    @Value("${wxfbsir.domain}")
+    @Value("${fbsir.domain}")
     private String Domain;
 
     @Override

@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
  * @author FBSir
  */
 @Component
-@ConfigurationProperties(prefix = "wxfbsir")
+@ConfigurationProperties(prefix = "fbsir")
 public class FBSirConfig
 {
     /** 项目名称 */

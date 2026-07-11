@@ -133,7 +133,7 @@ public class PlaywrightManager {
         }
         
         if (!properties.isEnabled()) {
-            log.error("[Playwright] 功能已禁用，请检查配置 wxfbsir.engine.playwright.enabled");
+            log.error("[Playwright] 功能已禁用，请检查配置 fbsir.engine.playwright.enabled");
             throw new IllegalStateException("[Playwright] 功能已禁用");
         }
         

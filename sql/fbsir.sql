@@ -1,8 +1,8 @@
 -- ----------------------------
 -- 创建数据库
 -- ----------------------------
-CREATE DATABASE IF NOT EXISTS `wxfbsir` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `wxfbsir`;
+CREATE DATABASE IF NOT EXISTS `fbsir` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `fbsir`;
 -- ----------------------------
 -- 1、部门表
 -- ----------------------------

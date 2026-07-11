@@ -48,7 +48,7 @@ OpenClaw主机纳管功能提供了一套完整的主机管理解决方案，主
 无需额外配置，使用默认的WebSocket配置即可：
 
 ```yaml
-wxfbsir:
+fbsir:
   websocket: 
       enabled: true
       path: /ws/engine

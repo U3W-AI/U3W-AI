@@ -7,7 +7,7 @@ spring:
             # 主库数据源
             # 生产环境建议使用环境变量：WXFBSIR_MYSQL_URL, WXFBSIR_MYSQL_USERNAME, WXFBSIR_MYSQL_PASSWORD
             master:
-                url: ${FBSIR_MYSQL_URL:${WXFBSIR_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/wxfbsir?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8}}
+                url: ${FBSIR_MYSQL_URL:${WXFBSIR_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/fbsir?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8}}
                 username: ${FBSIR_MYSQL_USERNAME:${WXFBSIR_MYSQL_USERNAME:root}}
                 password: ${FBSIR_MYSQL_PASSWORD:${WXFBSIR_MYSQL_PASSWORD:root}}
             # 从库数据源
@@ -49,7 +49,7 @@ spring:
                 url-pattern: /druid/*
                 # 控制台管理用户名和密码
                 # 生产环境建议使用环境变量：WXFBSIR_DRUID_USERNAME, WXFBSIR_DRUID_PASSWORD
-                login-username: ${FBSIR_DRUID_USERNAME:${WXFBSIR_DRUID_USERNAME:wxfbsir}}
+                login-username: ${FBSIR_DRUID_USERNAME:${WXFBSIR_DRUID_USERNAME:fbsir}}
                 login-password: ${FBSIR_DRUID_PASSWORD:${WXFBSIR_DRUID_PASSWORD:123456}}
             filter:
                 stat:

@@ -46,12 +46,12 @@
 
 1. 创建数据库
    ```sql
-   CREATE DATABASE wxfbsir CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE DATABASE fbsir CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
    ```
 
 2. 导入初始化脚本
    ```bash
-   mysql -u root -p wxfbsir < sql/wxfbsir.sql
+   mysql -u root -p fbsir < sql/fbsir.sql
    ```
 
 ### 2. 配置文件准备
@@ -90,7 +90,7 @@ java -jar FBSir-admin/target/FBSir-admin.jar
 
 ```bash
 # 运行Engine服务（如果需要）
-java -jar FBSir-engine/target/wxfbsir-engine-1.3.1.jar
+java -jar FBSir-engine/target/fbsir-engine-1.3.1.jar
 ```
 
 ### 2. 前端部署
@@ -125,7 +125,7 @@ npm run build
 在 `application.yml` 中配置WebSocket服务：
 
 ```yaml
-wxfbsir:
+fbsir:
   websocket: 
       enabled: true
       path: /ws/engine

@@ -531,7 +531,7 @@ public class EngineSessionManager {
      * 定时清理lastForceDisconnectTime中的过期记录
      * <p>企业级保障：防止内存泄漏，定期清理1小时前的断开记录
      */
-    @Scheduled(fixedDelayString = "${wxfbsir.websocket.session-cleanup-interval:60}000")
+    @Scheduled(fixedDelayString = "${fbsir.websocket.session-cleanup-interval:60}000")
     public void cleanupOldDisconnectRecords() {
         long oneHourAgo = System.currentTimeMillis() - 3600000;
         int removed = 0;
@@ -561,7 +561,7 @@ public class EngineSessionManager {
      * <p>⚠️ 并发安全：使用ArrayList避免ConcurrentModificationException
      * <p>🔴 P0修复：缩短清理间隔至30秒，与心跳间隔一致，及时检测断线
      */
-    @Scheduled(fixedDelayString = "${wxfbsir.websocket.session-cleanup-interval:30}000")
+    @Scheduled(fixedDelayString = "${fbsir.websocket.session-cleanup-interval:30}000")
     public void cleanupSessions() {
         int heartbeatTimeout = properties.getHeartbeatInterval() + properties.getHeartbeatTimeout();
         

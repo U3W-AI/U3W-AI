@@ -16,7 +16,7 @@ import jakarta.validation.constraints.Min;
  * @date 2025-12-15
  */
 @Component
-@ConfigurationProperties(prefix = "wxfbsir.websocket")
+@ConfigurationProperties(prefix = "fbsir.websocket")
 @Validated
 public class WebSocketProperties {
 

@@ -221,7 +221,7 @@ public class FileUploadUtils
         String domain = FBSirConfig.getDomain();
         if (StringUtils.isEmpty(domain))
         {
-            throw new IOException("域名配置为空，请在application.yml中配置wxfbsir.domain");
+            throw new IOException("域名配置为空，请在application.yml中配置fbsir.domain");
         }
         // 确保域名不以/结尾
         if (domain.endsWith("/"))

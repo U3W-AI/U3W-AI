@@ -379,7 +379,7 @@ set AES_SECRET_KEY=7Kx#9mP@2wQe$8vN!5hB^4gT&1cR*6yL+3dF%0jM(9sA)8zX~7uW<5iO>4nE|
 ```yaml
 # docker-compose.yml
 services:
-  wxfbsir:
+  fbsir:
     environment:
       - AES_SECRET_KEY=7Kx#9mP@2wQe$8vN!5hB^4gT&1cR*6yL+3dF%0jM(9sA)8zX~7uW<5iO>4nE|2kV
 ```

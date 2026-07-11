@@ -1,4 +1,4 @@
-Application Version: ${wxfbsir.version}
+Application Version: ${fbsir.version}
 Spring Boot Version: ${spring-boot.version}
 ////////////////////////////////////////////////////////////////////
 //                          _ooOoo_                               //

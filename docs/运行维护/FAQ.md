@@ -175,10 +175,10 @@ curl http://您的公网IP:端口/system/daily-article/saveModelContent
 **排查步骤**：
 ```bash
 # 1. 检查后端日志
-tail -f logs/wxfbsir.log
+tail -f logs/fbsir.log
 
 # 2. 查看是否有错误信息
-grep "ERROR" logs/wxfbsir.log
+grep "ERROR" logs/fbsir.log
 
 # 3. 检查数据库记录
 SELECT * FROM daily_article WHERE process_status = 0 ORDER BY create_time DESC LIMIT 10;

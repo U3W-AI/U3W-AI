@@ -660,7 +660,7 @@ public class EngineWebSocketClient extends WebSocketClient {
         case "EMPTY_HOST_ID" -> 
             "主机ID未配置\n" +
             "1. 编辑 application.yml\n" +
-            "2. 设置 wxfbsir.engine.host-id 为有效的主机ID\n" +
+            "2. 设置 fbsir.engine.host-id 为有效的主机ID\n" +
             "3. 主机ID需向管理员申请";
             
         case "HOST_NOT_IN_WHITELIST" -> 

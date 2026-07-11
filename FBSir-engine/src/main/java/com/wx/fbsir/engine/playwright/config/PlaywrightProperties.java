@@ -15,11 +15,11 @@ import org.springframework.stereotype.Component;
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  * 
  * 此类定义了 Playwright 浏览器自动化框架的所有可配置参数。
- * 配置前缀：wxfbsir.engine.playwright
+ * 配置前缀：fbsir.engine.playwright
  * 
  * 配置示例 (application.yml):
  * ```yaml
- * wxfbsir:
+ * fbsir:
  *   engine:
  *     playwright:
  *     enabled: true
@@ -40,7 +40,7 @@ import org.springframework.stereotype.Component;
  * @date 2025-12-16
  */
 @Component
-@ConfigurationProperties(prefix = "wxfbsir.engine.playwright")
+@ConfigurationProperties(prefix = "fbsir.engine.playwright")
 public class PlaywrightProperties {
 
     private static final Logger log = LoggerFactory.getLogger(PlaywrightProperties.class);

@@ -24,10 +24,10 @@ export default defineConfig(({ mode, command }) => {
     changeOrigin: true
   }
   return {
-    // 部署生产环境和开发环境下的URL。
-    // 默认情况下，vite 会假设你的应用是被部署在一个域名的根路径上
-    // 例如 https://wx.wxfbsir.com/。如果应用被部署在一个子路径上，你就需要用这个选项指定这个子路径。例如，如果你的应用被部署在 https://wx.wxfbsir.com/admin/，则设置 baseUrl 为 /admin/。
-    base: VITE_APP_ENV === 'production' ? '/' : '/',
+    // Configure URLs for production and development.
+    // By default, vite assumes the app is deployed at the domain root.
+    // For example, if deployed at https://wx.fbsir.com/, no extra base path is needed.
+    // If deployed under a subpath such as /admin/, set base to /admin/.
     plugins: createVitePlugins(env, command === 'build'),
     resolve: {
       // https://cn.vitejs.dev/config/#resolve-alias
@@ -81,7 +81,7 @@ export default defineConfig(({ mode, command }) => {
         '^/v3/api-docs/(.*)': springDocProxy
       }
     },
-    // `vite preview` 用于本地验收生产/预发布构建，必须保留与部署网关一致的 API 前缀。
+    // Vite preview keeps the same API prefix as the deployed gateway.
     preview: {
       proxy: {
         '/dev-api': createApiProxy('/dev-api', proxyTarget),

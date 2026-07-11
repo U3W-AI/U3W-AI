@@ -40,13 +40,13 @@ public class EngineUploadController {
     /**
      * 文件上传根路径
      */
-    @Value("${wxfbsir.profile:/data/wxfbsir/uploadPath}")
+    @Value("${fbsir.profile:/data/fbsir/uploadPath}")
     private String uploadPath;
 
     /**
      * 资源访问前缀
      */
-    @Value("${wxfbsir.domain:http://localhost:8080}")
+    @Value("${fbsir.domain:http://localhost:8080}")
     private String resourcePrefix;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy/MM/dd");

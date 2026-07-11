@@ -14,7 +14,7 @@
 2. Engine 的身份在注册消息 `ENGINE_REGISTER` 中通过 `engineId` 提供。
 3. Engine 注册阶段的白名单校验不仅包含 `hostId`，还会校验 `hostType=engine`。
 4. 除握手路径 `/ws/engine`、`/ws/client` 外，其余 `/ws/**` HTTP 接口均要求 JWT，匿名访问返回 HTTP 401。
-5. Engine 端配置结构以 `wxfbsir.engine.ws-url`、`wxfbsir.engine.host-id`、`wxfbsir.engine.connection.*` 为准，不再使用旧版 `websocket.admin.*` 配置结构。
+5. Engine 端配置结构以 `fbsir.engine.ws-url`、`fbsir.engine.host-id`、`fbsir.engine.connection.*` 为准，不再使用旧版 `websocket.admin.*` 配置结构。
 
 ---
 
@@ -136,7 +136,7 @@
 
 ```yaml
 # Engine端 application.yml
-wxfbsir:
+fbsir:
   engine:
     ws-url: ws://192.168.1.100:8080/ws/engine  # 确认Admin地址正确
     host-id: engine-001                        # 确认host-id唯一且已在白名单中配置为 hostType=engine
@@ -207,7 +207,7 @@ UPDATE ws_host_whitelist SET status = 1 WHERE host_id = 'engine-001';
 2. **调整心跳配置**：
 ```yaml
 # Engine端
-wxfbsir:
+fbsir:
   engine:
     connection:
       heartbeat-interval: 60   # 增加到60秒
@@ -344,12 +344,12 @@ pkill -9 chromium
 
 2. **清理锁文件**：
 ```bash
-find ~/.wxfbsir/playwright-data/ -name "SingletonLock" -delete
+find ~/.fbsir/playwright-data/ -name "SingletonLock" -delete
 ```
 
 3. **重启Engine**：
 ```bash
-systemctl restart wxfbsir-engine
+systemctl restart fbsir-engine
 ```
 
 ---
@@ -461,10 +461,10 @@ WHERE status = 1 AND del_flag = 0;
 
 ```bash
 # 重启Admin
-systemctl restart wxfbsir-admin
+systemctl restart fbsir-admin
 
 # 重启Engine
-systemctl restart wxfbsir-engine
+systemctl restart fbsir-engine
 
 # 或使用脚本
 ./restart-admin.sh
@@ -482,7 +482,7 @@ server:
   port: 8080
 
 # WebSocket配置
-wxfbsir:
+fbsir:
   websocket:
     heartbeat-interval: 60         # 心跳间隔（秒）
     heartbeat-timeout: 180         # 心跳超时时间（秒）
@@ -496,7 +496,7 @@ server:
   port: 8081
 
 # Engine配置
-wxfbsir:
+fbsir:
   engine:
     ws-url: ws://192.168.1.100:8080/ws/engine  # Admin地址
     host-id: engine-001                        # 主机ID（需在白名单中配置为 hostType=engine）

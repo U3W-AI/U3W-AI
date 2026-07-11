@@ -17,7 +17,7 @@ import jakarta.validation.constraints.NotBlank;
  * &#064;date  2025-12-15
  */
 @Component
-@ConfigurationProperties(prefix = "wxfbsir.engine")
+@ConfigurationProperties(prefix = "fbsir.engine")
 @Validated
 public class EngineProperties {
 
