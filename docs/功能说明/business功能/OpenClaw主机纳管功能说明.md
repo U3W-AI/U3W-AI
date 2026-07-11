@@ -1,6 +1,7 @@
 # OpenClaw主机纳管功能说明
+> 更新日期：2026-07-11
 
-> **更新日期**：2026-07-10
+> **更新日期**：2026-07-11
 
 OpenClaw主机纳管功能是福帮手Admin侧实现的主机管理原型，支持OpenClaw主机的登记、状态监控、管控和健康检查。
 
@@ -80,7 +81,7 @@ wxfbsir:
 
 ### 前端接口
 
-位于 `WxFbsir-ui/src/api/business/host/whitelist.js`
+位于 `FBSir-ui/src/api/business/host/whitelist.js`
 
 ```javascript
 // 查询主机白名单列表
@@ -171,20 +172,20 @@ export function delWhitelist(ids)
 
 | 模块 | 文件位置 |
 |------|---------|
-| 实体类 | `WxFbsir-business/src/main/java/com/wx/fbsir/business/websocket/domain/WsHostWhitelist.java` |
-| Mapper | `WxFbsir-business/src/main/java/com/wx/fbsir/business/websocket/mapper/WsHostWhitelistMapper.java` |
-| Mapper XML | `WxFbsir-business/src/main/resources/mapper/websocket/WsHostWhitelistMapper.xml` |
-| 控制器 | `WxFbsir-business/src/main/java/com/wx/fbsir/business/websocket/controller/HostWhitelistController.java` |
-| 健康检查 | `WxFbsir-business/src/main/java/com/wx/fbsir/business/websocket/task/OpenClawHealthChecker.java` |
-| WebSocket配置 | `WxFbsir-business/src/main/java/com/wx/fbsir/business/websocket/config/WebSocketConfig.java` |
-| WebSocket拦截器 | `WxFbsir-business/src/main/java/com/wx/fbsir/business/websocket/server/ClientWebSocketInterceptor.java` |
+| 实体类 | `FBSir-business/src/main/java/com/wx/fbsir/business/websocket/domain/WsHostWhitelist.java` |
+| Mapper | `FBSir-business/src/main/java/com/wx/fbsir/business/websocket/mapper/WsHostWhitelistMapper.java` |
+| Mapper XML | `FBSir-business/src/main/resources/mapper/websocket/WsHostWhitelistMapper.xml` |
+| 控制器 | `FBSir-business/src/main/java/com/wx/fbsir/business/websocket/controller/HostWhitelistController.java` |
+| 健康检查 | `FBSir-business/src/main/java/com/wx/fbsir/business/websocket/task/OpenClawHealthChecker.java` |
+| WebSocket配置 | `FBSir-business/src/main/java/com/wx/fbsir/business/websocket/config/WebSocketConfig.java` |
+| WebSocket拦截器 | `FBSir-business/src/main/java/com/wx/fbsir/business/websocket/server/ClientWebSocketInterceptor.java` |
 
 ### 前端代码
 
 | 模块 | 文件位置 |
 |------|---------|
-| 页面组件 | `WxFbsir-ui/src/views/business/host/whitelist/index.vue` |
-| API接口 | `WxFbsir-ui/src/api/business/host/whitelist.js` |
+| 页面组件 | `FBSir-ui/src/views/business/host/whitelist/index.vue` |
+| API接口 | `FBSir-ui/src/api/business/host/whitelist.js` |
 | Nginx配置 | 参考部署文档中的反向代理示例；当前源码未提交独立 `nginx.conf` |
 
 ---
@@ -223,5 +224,5 @@ export function delWhitelist(ids)
 
 ---
 
-**最后更新**: 2026-03-16  
+**最后更新**: 2026-07-11
 **文档版本**: v1.0.0

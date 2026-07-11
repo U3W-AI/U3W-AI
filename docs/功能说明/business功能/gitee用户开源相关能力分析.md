@@ -1,4 +1,5 @@
 # 📊 Gitee用户开源相关能力分析
+> 更新日期：2026-07-11
 
 本文档介绍Gitee用户开源能力分析功能的技术实现，供开发人员快速了解功能架构与代码结构。
 
@@ -114,10 +115,10 @@
 3. 若已绑定账号，直接登录并保存token；未绑定则生成绑定令牌，引导前端完成绑定/注册。
 
 **核心代码位置：**
-- 授权与回调：`WxFbsir-business/src/main/java/com/wx/fbsir/business/gitee/controller/GiteeLoginController.java`
-- 个人授权入口：`WxFbsir-business/src/main/java/com/wx/fbsir/business/gitee/controller/GiteeProfileController.java`
-- OAuth工具：`WxFbsir-business/src/main/java/com/wx/fbsir/business/gitee/util/GiteeOauthUtil.java`
-- 缓存Key：`WxFbsir-business/src/main/java/com/wx/fbsir/business/gitee/util/GiteeCacheKeyUtil.java`
+- 授权与回调：`FBSir-business/src/main/java/com/wx/fbsir/business/gitee/controller/GiteeLoginController.java`
+- 个人授权入口：`FBSir-business/src/main/java/com/wx/fbsir/business/gitee/controller/GiteeProfileController.java`
+- OAuth工具：`FBSir-business/src/main/java/com/wx/fbsir/business/gitee/util/GiteeOauthUtil.java`
+- 缓存Key：`FBSir-business/src/main/java/com/wx/fbsir/business/gitee/util/GiteeCacheKeyUtil.java`
 
 ---
 
@@ -130,8 +131,8 @@
 5. **解析与存档**：解析评分/等级/建议并保存到评测报告表。
 
 **核心代码位置：**
-- 评测入口：`WxFbsir-business/src/main/java/com/wx/fbsir/business/gitee/controller/GiteeAnalysisController.java`
-- 评测服务：`WxFbsir-business/src/main/java/com/wx/fbsir/business/gitee/service/GiteeAnalysisService.java`
+- 评测入口：`FBSir-business/src/main/java/com/wx/fbsir/business/gitee/controller/GiteeAnalysisController.java`
+- 评测服务：`FBSir-business/src/main/java/com/wx/fbsir/business/gitee/service/GiteeAnalysisService.java`
 
 ---
 
@@ -140,16 +141,16 @@
 每日凌晨定时生成前一天报表，同时在列表查询时按需补齐当天报表。
 
 **核心代码位置：**
-- 统计服务：`WxFbsir-business/src/main/java/com/wx/fbsir/business/gitee/service/GiteeUsageReportService.java`
-- 定时任务：`WxFbsir-business/src/main/java/com/wx/fbsir/business/gitee/service/GiteeUsageReportScheduler.java`
-- 管理接口：`WxFbsir-business/src/main/java/com/wx/fbsir/business/gitee/controller/GiteeAdminController.java`
+- 统计服务：`FBSir-business/src/main/java/com/wx/fbsir/business/gitee/service/GiteeUsageReportService.java`
+- 定时任务：`FBSir-business/src/main/java/com/wx/fbsir/business/gitee/service/GiteeUsageReportScheduler.java`
+- 管理接口：`FBSir-business/src/main/java/com/wx/fbsir/business/gitee/controller/GiteeAdminController.java`
 
 ---
 
 ## 🗂️ 代码文件结构
 
 ```
-WxFbsir-business/src/main/java/com/wx/fbsir/business/gitee/
+FBSir-business/src/main/java/com/wx/fbsir/business/gitee/
 ├── controller
 │   ├── GiteeLoginController.java        # OAuth登录与绑定
 │   ├── GiteeProfileController.java      # 授权状态与数据接口

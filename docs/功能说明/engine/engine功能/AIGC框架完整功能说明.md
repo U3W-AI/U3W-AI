@@ -1,7 +1,8 @@
 # 🤖 AIGC框架完整功能说明
+> 更新日期：2026-07-11
 
 > **作者**：15年经验Java开发工程师
-> **更新时间**：2026-07-10
+> **更新时间**：2026-07-11
 > **版本**：v3.0（性能优化版）
 > **适用人群**：刚毕业的新手开发者 + 深入研究AIGC的技术专家
 
@@ -30,8 +31,8 @@
 
 ## 源码校准说明（2026-07-10）
 
-1. 当前前端入口为 `WxFbsir-ui/src/views/business/content/aigc/index.vue`，接口封装位于 `WxFbsir-ui/src/api/aigc/` 与 `WxFbsir-ui/src/api/business/content/aigc/output.js`。
-2. 当前 Engine 的 AI 控制器为 `WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/ai/DeepSeekController.java`，已实现的 AI 查询能力是 `AI_DEEPSEEK_QUERY`；其他平台名称、控制器和 SQL 片段仅是扩展模板，不代表已交付能力。
+1. 当前前端入口为 `FBSir-ui/src/views/business/content/aigc/index.vue`，接口封装位于 `FBSir-ui/src/api/aigc/` 与 `FBSir-ui/src/api/business/content/aigc/output.js`。
+2. 当前 Engine 的 AI 控制器为 `FBSir-engine/src/main/java/com/wx/fbsir/engine/controller/ai/DeepSeekController.java`，已实现的 AI 查询能力是 `AI_DEEPSEEK_QUERY`；其他平台名称、控制器和 SQL 片段仅是扩展模板，不代表已交付能力。
 3. 新增平台必须同时实现 Engine 能力、前端触发入口、消息存储处理及自动化测试；不要把本文的示例文件名当作当前已存在文件。
 
 ---
@@ -157,7 +158,7 @@ AI_TASK_ERROR           - AI错误信息（Admin记录错误）
 
 | 文件路径 | 作用 | 关键方法 |
 |---------|------|---------|
-| `WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/ai/DeepSeekController.java` | DeepSeek AI控制器 | `handleAiQuery()` - AI咨询入口 |
+| `FBSir-engine/src/main/java/com/wx/fbsir/engine/controller/ai/DeepSeekController.java` | DeepSeek AI控制器 | `handleAiQuery()` - AI咨询入口 |
 | `engine/capability/base/StreamTaskHelper.java` | 流式任务辅助类 | `startAiStreamTask()` - 启动AI任务<br>`startStreamTask()` - 启动通用任务 |
 | `engine/websocket/message/MessageType.java` | 消息类型定义 | `AI_TASK_*` - AI消息枚举 |
 
@@ -210,8 +211,8 @@ processRealtimeStorage(message, session) {
 
 | 文件路径 | 作用 | 关键方法 |
 |---------|------|---------|
-| `WxFbsir-ui/src/views/business/content/aigc/index.vue` | AIGC主页面 | WebSocket 消息处理、请求发送与历史加载 |
-| `WxFbsir-ui/src/api/aigc/assistant.js` | API封装 | `getChatHistory()` - 获取历史 |
+| `FBSir-ui/src/views/business/content/aigc/index.vue` | AIGC主页面 | WebSocket 消息处理、请求发送与历史加载 |
+| `FBSir-ui/src/api/aigc/assistant.js` | API封装 | `getChatHistory()` - 获取历史 |
 
 ---
 
@@ -242,7 +243,7 @@ export const AI_CONFIGS = [
 #### 步骤2：Engine添加处理器（10分钟）
 
 ```java
-// 扩展示例：需要新建 WxFbsir-engine/.../controller/ai/TongyiController.java
+// 扩展示例：需要新建 FBSir-engine/.../controller/ai/TongyiController.java
 @Controller
 public class TongyiController extends StreamTaskHelper {
     
@@ -295,15 +296,15 @@ public class TongyiController extends StreamTaskHelper {
 
 ```bash
 # 1. 启动Engine（AI调用服务）
-cd WxFbsir-engine
+cd FBSir-engine
 mvn spring-boot:run
 
 # 2. 启动Admin（存储服务）
-cd WxFbsir-business
+cd FBSir-business
 mvn spring-boot:run
 
 # 3. 启动前端
-cd WxFbsir-ui
+cd FBSir-ui
 npm run dev
 ```
 
@@ -333,7 +334,7 @@ npm run dev
 ### 5.1 阶段1：前端发起请求
 
 ```javascript
-// 前端操作（WxFbsir-ui/src/views/business/content/aigc/index.vue）
+// 前端操作（FBSir-ui/src/views/business/content/aigc/index.vue）
 const sendPrompt = () => {
   const sessionId = uuidv4()  // 生成业务会话ID
   
@@ -378,7 +379,7 @@ VALUES ('session-001', '103', '什么是人工智能？', 'chat-001', '{}');
 ### 5.3 阶段3：Engine调用AI
 
 ```java
-// Engine操作（WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/ai/DeepSeekController.java）
+// Engine操作（FBSir-engine/src/main/java/com/wx/fbsir/engine/controller/ai/DeepSeekController.java）
 @StreamCapability(type = "AI_DEEPSEEK_QUERY")
 public void handleAiQuery(EngineMessage message) {
     String sessionId = extractSessionId(message);
@@ -475,7 +476,7 @@ saveAiResult(userId, sessionId, chatId, aiType, payload) {
 ### 5.6 阶段6：前端接收显示
 
 ```javascript
-// 前端操作（WxFbsir-ui/src/views/business/content/aigc/index.vue）
+// 前端操作（FBSir-ui/src/views/business/content/aigc/index.vue）
 const handleWebSocketMessage = (data) => {
   const message = JSON.parse(data)
   const messageType = message.type
@@ -655,7 +656,7 @@ private void flushBatch(SessionUpdateBatch batch) {
 
 **当前目录结构**：
 ```
-WxFbsir-engine/src/main/java/com/wx/fbsir/engine/
+FBSir-engine/src/main/java/com/wx/fbsir/engine/
 ├── controller/ai/DeepSeekController.java
 ├── controller/yuanqi/YuanQiNodeController.java
 ├── capability/base/StreamTaskHelper.java
@@ -715,7 +716,7 @@ private void processRealtimeStorage(EngineMessage message, EngineSession session
 
 **业务存储层**：
 ```
-WxFbsir-business/src/main/java/com/wx/fbsir/business/aigc/
+FBSir-business/src/main/java/com/wx/fbsir/business/aigc/
 ├── controller/AigcController.java
 └── service/
 ```
@@ -724,13 +725,13 @@ WxFbsir-business/src/main/java/com/wx/fbsir/business/aigc/
 
 **当前目录结构**：
 ```
-WxFbsir-ui/src/views/business/content/aigc/
+FBSir-ui/src/views/business/content/aigc/
 └── index.vue          ← AIGC 主页面
 ```
 
 **消息处理隔离**：
 ```javascript
-// WxFbsir-ui/src/views/business/content/aigc/index.vue
+// FBSir-ui/src/views/business/content/aigc/index.vue
 
 // ==========================================================================
 // 🤖 AIGC消息处理（仅支持AI_TASK_*格式）
@@ -802,7 +803,7 @@ ADD COLUMN tongyi_chat_id VARCHAR(100) COMMENT '通义千问会话ID';
 ```
 
 ```javascript
-// 3. 前端扩展示例（WxFbsir-ui/src/views/business/content/aigc/index.vue）
+// 3. 前端扩展示例（FBSir-ui/src/views/business/content/aigc/index.vue）
 const enabledAIs = ref([
   {
     id: 'deepseek',

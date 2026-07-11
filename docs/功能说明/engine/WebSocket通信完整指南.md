@@ -1,6 +1,7 @@
 # 🔌 WebSocket 通信完整指南
+> 更新日期：2026-07-11
 
-> **更新日期**：2026-07-10
+> **更新日期**：2026-07-11
 >
 > **目标读者**: 需要开发Engine能力或深入理解WebSocket通信机制的后端开发者  
 > **文档用途**: 从快速入门到深入精通，全面讲解WebSocket通信架构
@@ -89,7 +90,7 @@
 
 #### 步骤2：在Engine创建Controller
 
-**位置**: `WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/`
+**位置**: `FBSir-engine/src/main/java/com/wx/fbsir/engine/controller/`
 
 **目录结构**:
 ```
@@ -229,12 +230,12 @@ websocat ws://localhost:8080/ws/client
 1. 不要修改Admin端代码（只在Engine端开发）
 2. 不要忘记添加异常处理
 3. 不要忘记添加日志
-4. 不要在WxFbsir-engine中直接操作数据库（数据传回admin进行存储）
+4. 不要在FBSir-engine中直接操作数据库（数据传回admin进行存储）
 
 **📁 文件放置位置**:
-- Controller: `WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/business/`
-- Service: `WxFbsir-engine/src/main/java/com/wx/fbsir/engine/service/`
-- Utils: `WxFbsir-engine/src/main/java/com/wx/fbsir/engine/utils/`
+- Controller: `FBSir-engine/src/main/java/com/wx/fbsir/engine/controller/business/`
+- Service: `FBSir-engine/src/main/java/com/wx/fbsir/engine/service/`
+- Utils: `FBSir-engine/src/main/java/com/wx/fbsir/engine/utils/`
 
 ---
 
@@ -329,7 +330,7 @@ public void handleRequest(EngineMessage message) {
 
 #### Q2: 如何封装业务工具类？
 
-**位置**: `WxFbsir-engine/src/main/java/com/wx/fbsir/engine/utils/`
+**位置**: `FBSir-engine/src/main/java/com/wx/fbsir/engine/utils/`
 
 **示例**:
 ```java
@@ -434,7 +435,7 @@ public void handleTask(EngineMessage message) {
                               │ HTTP / WebSocket
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      主节点 (WxFbsir-admin)                           │
+│                      主节点 (FBSir-admin)                           │
 │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐           │
 │  │  WebSocket    │  │   Message     │  │   Session     │           │
 │  │  Server       │  │   Router      │  │   Manager     │           │
@@ -591,10 +592,10 @@ future.orTimeout(30, TimeUnit.SECONDS)
 
 ## 7. 代码文件结构
 
-### 3.1 副节点 (WxFbsir-engine)
+### 3.1 副节点 (FBSir-engine)
 
 ```
-WxFbsir-engine/src/main/java/com/wx/fbsir/engine/websocket/
+FBSir-engine/src/main/java/com/wx/fbsir/engine/websocket/
 │
 ├── client/
 │   ├── EngineWebSocketClient.java     # WebSocket 客户端
@@ -630,10 +631,10 @@ WxFbsir-engine/src/main/java/com/wx/fbsir/engine/websocket/
         - 业务消息类型
 ```
 
-### 3.2 主节点 (WxFbsir-admin)
+### 3.2 主节点 (FBSir-admin)
 
 ```
-WxFbsir-business/.../websocket/
+FBSir-business/.../websocket/
 │
 ├── server/
 │   ├── EngineWebSocketHandler.java    # WebSocket 处理器
@@ -2177,7 +2178,7 @@ try {
 
 ### 11.7 完整示例代码
 
-参考文件：`WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/PayloadExampleController.java`
+参考文件：`FBSir-engine/src/main/java/com/wx/fbsir/engine/controller/PayloadExampleController.java`
 
 该文件包含了所有常见payload处理场景的完整示例代码。
 
@@ -2614,7 +2615,7 @@ public class BaiduHotSearchDemoController extends StreamTaskHelper {
 
 详细的演示代码和使用指南请参考：
 
-- `WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/BaiduHotSearchDemoController.java` - 流式输出完整示例
-- `WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/SimpleHealthCheckDemoController.java` - 单次输出完整示例
-- `WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/README.md` - 演示能力使用指南
+- `FBSir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/BaiduHotSearchDemoController.java` - 流式输出完整示例
+- `FBSir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/SimpleHealthCheckDemoController.java` - 单次输出完整示例
+- `FBSir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/README.md` - 演示能力使用指南
 

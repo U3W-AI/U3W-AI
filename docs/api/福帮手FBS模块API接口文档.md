@@ -1,4 +1,5 @@
-# 福帮手（WxFbsir）FBS模块API接口文档
+# 福帮手（FBSir）FBS模块API接口文档
+> 更新日期：2026-07-11
 
 > **文档范围说明**：本文档收录当前仓库已实现的全部API，包括：
 > - Skill API（`/fbs/skill-api/**`）- 面向Skill脚本的API Key认证接口
@@ -505,4 +506,4 @@ Authorization: Bearer {token}
 
 ---
 
-**最后更新**: 2026-04-22
+**最后更新**: 2026-07-11

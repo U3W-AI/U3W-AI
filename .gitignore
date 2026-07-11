@@ -220,8 +220,8 @@ data/
 playwright-report/
 
 # Frontend environment files (contains sensitive configuration)
-WxFbsir-ui/.env.development
-WxFbsir-ui/.env.production
+FBSir-ui/.env.development
+FBSir-ui/.env.production
 
 # Sensitive config files (uncomment if needed)
 # application-prod.yml

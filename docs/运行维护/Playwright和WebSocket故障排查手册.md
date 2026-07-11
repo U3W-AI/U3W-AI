@@ -1,7 +1,8 @@
 # 🔧 Playwright和WebSocket故障排查手册
+> 更新日期：2026-07-11
 
 > **文档目的**: 提供常见问题的排查方法  
-> **更新日期**: 2026-07-10
+> **更新日期**: 2026-07-11
 
 ---
 
@@ -96,7 +97,7 @@
 - 调试新开发的功能
 - 查看消息格式是否正确
 
-**详细说明**：参考 `WxFbsir-ui/src/views/business/debug/README.md`
+**详细说明**：参考 `FBSir-ui/src/views/business/debug/README.md`
 
 **本地预览地址规则（源码校准，2026-07-10）**：
 
@@ -263,7 +264,7 @@ wxfbsir:
 
 1. **安装Playwright浏览器**：
 ```bash
-cd WxFbsir-engine
+cd FBSir-engine
 mvn exec:java -e -D exec.mainClass=com.microsoft.playwright.CLI -D exec.args="install"
 ```
 
@@ -407,10 +408,10 @@ public String screenshot(Page page) {
 
 ```bash
 # 查看Admin进程
-ps aux | grep WxFbsir-admin
+ps aux | grep FBSir-admin
 
 # 查看Engine进程
-ps aux | grep WxFbsir-engine
+ps aux | grep FBSir-engine
 
 # 查看端口监听
 netstat -tuln | grep 8080
@@ -533,5 +534,5 @@ wxfbsir:
 
 ---
 
-**文档更新日期**：2026-07-10
+**文档更新日期**：2026-07-11
 **重要提示**：优先使用前端管理页面进行排查，命令行和SQL仅作为备用方案

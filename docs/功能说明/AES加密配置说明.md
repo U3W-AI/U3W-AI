@@ -1,4 +1,5 @@
 # AES加密配置说明
+> 更新日期：2026-07-11
 
 ## 📋 目录
 - [概述](#概述)
@@ -59,7 +60,7 @@
 
 ### 1. 在application.yml中配置密钥
 
-已在 `WxFbsir-admin/src/main/resources/application.yml` 添加以下配置：
+已在 `FBSir-admin/src/main/resources/application.yml` 添加以下配置：
 
 ```yaml
 # AES加密配置
@@ -126,7 +127,7 @@ System.out.println("新密钥: " + newKey);
 
 ## 使用方法
 
-**工具类位置：** `WxFbsir-common/src/main/java/com/wx/fbsir/common/utils/AesEncryptUtils.java`
+**工具类位置：** `FBSir-common/src/main/java/com/wx/fbsir/common/utils/AesEncryptUtils.java`
 
 ### 1. 加密数据
 
@@ -162,7 +163,7 @@ if (isValid) {
 
 ## AesEncryptUtils工具类详解
 
-**文件路径：** `WxFbsir-common/src/main/java/com/wx/fbsir/common/utils/AesEncryptUtils.java`
+**文件路径：** `FBSir-common/src/main/java/com/wx/fbsir/common/utils/AesEncryptUtils.java`
 
 ### 核心方法
 
@@ -450,4 +451,4 @@ services:
 ---
 
 
-**最后更新：** 2025-12-09
+**最后更新：** 2026-07-11

@@ -1,6 +1,7 @@
 # 福帮手 API 接口文档
+> 更新日期：2026-07-11
 
-> **更新日期**：2026-07-10（源码校准）。本文根据当前 Controller 映射整理；实际参数、权限注解和响应体以对应控制器及运行中的 SpringDoc 为准。
+> **更新日期**：2026-07-11（源码校准）。本文根据当前 Controller 映射整理；实际参数、权限注解和响应体以对应控制器及运行中的 SpringDoc 为准。
 
 ## 基础约定
 
@@ -117,6 +118,6 @@
 
 ## 变更与校验原则
 
-- 以 `WxFbsir-admin`、`WxFbsir-business` 控制器映射为接口真相。
+- 以 `FBSir-admin`、`FBSir-business` 控制器映射为接口真相。
 - 新增或修改路由时，同步更新本文、对应功能说明与自动化校验脚本。
 - 不再使用已移除的 `/business/aigc/**`、`/business/dailyassistant/**`、`/business/documentparse/**`、`/business/officialaccount/**` 等旧路径。

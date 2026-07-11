@@ -5,7 +5,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	
     <groupId>com.wx.fbsir</groupId>
-    <artifactId>WxFbsir</artifactId>
+    <artifactId>FBSir</artifactId>
     <version>1.0.0</version>
 
     <name>福帮手</name>
@@ -13,7 +13,7 @@
     <description>福帮手</description>
     
     <properties>
-        <wxfbsir.version>1.0.0</wxfbsir.version>
+        <fbsir.version>1.0.0</fbsir.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>17</java.version>
@@ -153,56 +153,56 @@
             <!-- 定时任务-->
             <dependency>
                 <groupId>com.wx.fbsir</groupId>
-                <artifactId>WxFbsir-quartz</artifactId>
-                <version>${wxfbsir.version}</version>
+                <artifactId>FBSir-quartz</artifactId>
+                <version>${fbsir.version}</version>
             </dependency>
 
             <!-- 代码生成-->
             <dependency>
                 <groupId>com.wx.fbsir</groupId>
-                <artifactId>WxFbsir-generator</artifactId>
-                <version>${wxfbsir.version}</version>
+                <artifactId>FBSir-generator</artifactId>
+                <version>${fbsir.version}</version>
             </dependency>
 
             <!-- 核心模块-->
             <dependency>
                 <groupId>com.wx.fbsir</groupId>
-                <artifactId>WxFbsir-framework</artifactId>
-                <version>${wxfbsir.version}</version>
+                <artifactId>FBSir-framework</artifactId>
+                <version>${fbsir.version}</version>
             </dependency>
 
             <!-- 系统模块-->
             <dependency>
                 <groupId>com.wx.fbsir</groupId>
-                <artifactId>WxFbsir-system</artifactId>
-                <version>${wxfbsir.version}</version>
+                <artifactId>FBSir-system</artifactId>
+                <version>${fbsir.version}</version>
             </dependency>
 
             <!-- 通用工具-->
             <dependency>
                 <groupId>com.wx.fbsir</groupId>
-                <artifactId>WxFbsir-common</artifactId>
-                <version>${wxfbsir.version}</version>
+                <artifactId>FBSir-common</artifactId>
+                <version>${fbsir.version}</version>
             </dependency>
 
             <!-- 业务模块-->
             <dependency>
                 <groupId>com.wx.fbsir</groupId>
-                <artifactId>WxFbsir-business</artifactId>
-                <version>${wxfbsir.version}</version>
+                <artifactId>FBSir-business</artifactId>
+                <version>${fbsir.version}</version>
             </dependency>
 
         </dependencies>
     </dependencyManagement>
 
     <modules>
-        <module>WxFbsir-admin</module>
-        <module>WxFbsir-framework</module>
-        <module>WxFbsir-system</module>
-        <module>WxFbsir-quartz</module>
-        <module>WxFbsir-generator</module>
-        <module>WxFbsir-common</module>
-        <module>WxFbsir-business</module>
+        <module>FBSir-admin</module>
+        <module>FBSir-framework</module>
+        <module>FBSir-system</module>
+        <module>FBSir-quartz</module>
+        <module>FBSir-generator</module>
+        <module>FBSir-common</module>
+        <module>FBSir-business</module>
     </modules>
     <packaging>pom</packaging>
 

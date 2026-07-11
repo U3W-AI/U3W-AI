@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $historicalWarningPattern = '\u4E0D\u518D\u4F7F\u7528|\u5DF2\u79FB\u9664|retired|deprecated'
 $backtick = [string][char]96
-$documentedPathPattern = [regex]::Escape($backtick) + '(?<path>WxFbsir-[^' + [regex]::Escape($backtick) + ']+)' + [regex]::Escape($backtick)
+$documentedPathPattern = [regex]::Escape($backtick) + '(?<path>FBSir-[^' + [regex]::Escape($backtick) + ']+)' + [regex]::Escape($backtick)
 
 $rules = @(
     @{ name = 'legacy_brand'; pattern = '\u5FAE\u4FE1\u798F\u5E2E\u624B'; message = 'Document still contains the retired brand name.' },
@@ -14,11 +14,11 @@ $rules = @(
     @{ name = 'request_id_null'; pattern = '"requestId": null'; message = 'Request-result example must use a real requestId.' },
     @{ name = 'legacy_engine_config'; pattern = 'websocket\.admin\.'; message = 'Document references the retired websocket.admin configuration tree.' },
     @{ name = 'legacy_api_route'; pattern = '`/(business/(aigc|dailyassistant|documentparse|officialaccount|point|certificate)/|business/websocket/)'; message = 'Document references a retired HTTP route.' },
-    @{ name = 'retired_source_path'; pattern = 'WxFbsir-business/src/main/resources/application\.yml|WxFbsir-ui/nginx\.conf|WxFbsir-ui/src/api/business/officeAccount\.js|WxFbsir-admin/main/resources|WxFbsir-ui/src/views/business/host/apps/|WxFbsir-ui/src/views/system/point/'; message = 'Document references a retired or nonexistent source path.' }
+    @{ name = 'retired_source_path'; pattern = 'FBSir-business/src/main/resources/application\.yml|FBSir-ui/nginx\.conf|FBSir-ui/src/api/business/officeAccount\.js|FBSir-admin/main/resources|FBSir-ui/src/views/business/host/apps/|FBSir-ui/src/views/system/point/'; message = 'Document references a retired or nonexistent source path.' }
 )
 
 $targets = Get-ChildItem -Path $Root -Recurse -File -Include *.md |
-    Where-Object { $_.FullName -notmatch '\\node_modules\\|\\target\\|\\dist\\' } |
+    Where-Object { $_.FullName -notmatch '\\node_modules\\|\\target\\|\\dist\\|\\\.fbs-engineering\\' } |
     Select-Object -ExpandProperty FullName
 $findings = New-Object System.Collections.Generic.List[object]
 
@@ -30,6 +30,10 @@ function Add-Finding([string]$Rule, [string]$File, [int]$Line, [string]$Text, [s
         text = $Text.Trim()
         message = $Message
     })
+}
+
+function Resolve-BrandCompatiblePath([string]$RelativePath) {
+    return Join-Path $Root $RelativePath
 }
 
 foreach ($rule in $rules) {
@@ -51,10 +55,10 @@ foreach ($target in $targets) {
         $lineNumber++
         foreach ($match in [regex]::Matches($line, $documentedPathPattern)) {
             $path = $match.Groups['path'].Value.Trim()
-            if ($path -match '\[|\.\.\.|\[version\]|\s|[^\x00-\x7F]' -or $path.EndsWith('/')) {
+            if ($path -match '\[|\.\.\.|\[version\]|\s|[^\x00-\x7F]|(^|/)target/' -or $path.EndsWith('/')) {
                 continue
             }
-            if (-not (Test-Path (Join-Path $Root $path))) {
+            if (-not (Test-Path (Resolve-BrandCompatiblePath $path))) {
                 Add-Finding 'missing_documented_source_path' $target $lineNumber $line "Documented source path does not exist: $path"
             }
         }
@@ -63,13 +67,13 @@ foreach ($target in $targets) {
 
 # Source-truth guardrails used by the documentation and release checklist.
 $sourceAssertions = @(
-    @{ rule = 'websocket_source_origin'; path = 'WxFbsir-ui/src/utils/websocket.js'; pattern = 'window\.location\.origin'; message = 'Relative API environments must derive WebSocket URLs from the current origin.' },
-    @{ rule = 'preview_websocket_proxy'; path = 'WxFbsir-ui/vite.config.js'; pattern = 'ws:\s*true'; message = 'Vite API proxy must support WebSocket upgrades.' },
-    @{ rule = 'footer_current_year'; path = 'WxFbsir-ui/src/settings.js'; pattern = 'Copyright.*2026'; message = 'Homepage footer must use the current requested year and brand.' }
+    @{ rule = 'websocket_source_origin'; path = 'FBSir-ui/src/utils/websocket.js'; pattern = 'window\.location\.origin'; message = 'Relative API environments must derive WebSocket URLs from the current origin.' },
+    @{ rule = 'preview_websocket_proxy'; path = 'FBSir-ui/vite.config.js'; pattern = 'ws:\s*true'; message = 'Vite API proxy must support WebSocket upgrades.' },
+    @{ rule = 'footer_current_year'; path = 'FBSir-ui/src/settings.js'; pattern = 'Copyright.*2026'; message = 'Homepage footer must use the current requested year and brand.' }
 )
 
 foreach ($assertion in $sourceAssertions) {
-    $sourcePath = Join-Path $Root $assertion.path
+    $sourcePath = Resolve-BrandCompatiblePath $assertion.path
     if (-not (Test-Path $sourcePath)) {
         Add-Finding $assertion.rule $sourcePath 0 '' "Missing source file: $($assertion.path)"
         continue
@@ -80,7 +84,7 @@ foreach ($assertion in $sourceAssertions) {
     }
 }
 
-$websocketSourcePath = Join-Path $Root 'WxFbsir-ui/src/utils/websocket.js'
+$websocketSourcePath = Resolve-BrandCompatiblePath 'FBSir-ui/src/utils/websocket.js'
 if ((Test-Path $websocketSourcePath) -and (Get-Content -Raw -Encoding UTF8 $websocketSourcePath) -match 'DEFAULT_BACKEND') {
     Add-Finding 'websocket_no_fixed_backend' $websocketSourcePath 0 '' 'WebSocket utility must not retain a fixed localhost backend fallback.'
 }

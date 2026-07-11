@@ -1079,9 +1079,9 @@ create table sys_job (
   primary key (job_id, job_name, job_group)
 ) engine=innodb auto_increment=100 comment = '定时任务调度表';
 
-insert into sys_job values(1, '系统默认（无参）', 'DEFAULT', 'WxFbsirTask.WxFbsirNoParams',        '0/10 * * * * ?', '3', '1', '1', 'admin', sysdate(), '', null, '');
-insert into sys_job values(2, '系统默认（有参）', 'DEFAULT', 'WxFbsirTask.WxFbsirParams(\'WxFbsir\')',  '0/15 * * * * ?', '3', '1', '1', 'admin', sysdate(), '', null, '');
-insert into sys_job values(3, '系统默认（多参）', 'DEFAULT', 'WxFbsirTask.WxFbsirMultipleParams(\'WxFbsir\', true, 2000L, 316.50D, 100)',  '0/20 * * * * ?', '3', '1', '1', 'admin', sysdate(), '', null, '');
+insert into sys_job values(1, '系统默认（无参）', 'DEFAULT', 'FBSirTask.FBSirNoParams',        '0/10 * * * * ?', '3', '1', '1', 'admin', sysdate(), '', null, '');
+insert into sys_job values(2, '系统默认（有参）', 'DEFAULT', 'FBSirTask.FBSirParams(\'FBSir\')',  '0/15 * * * * ?', '3', '1', '1', 'admin', sysdate(), '', null, '');
+insert into sys_job values(3, '系统默认（多参）', 'DEFAULT', 'FBSirTask.FBSirMultipleParams(\'FBSir\', true, 2000L, 316.50D, 100)',  '0/20 * * * * ?', '3', '1', '1', 'admin', sysdate(), '', null, '');
 
 
 -- ----------------------------

@@ -1,4 +1,5 @@
 # 🎭 Playwright 框架完整指南
+> 更新日期：2026-07-11
 
 > **目标读者**: 需要使用Playwright实现浏览器自动化任务的Engine端开发者  
 > **文档用途**: 从快速入门到深入精通，全面讲解Playwright框架
@@ -359,7 +360,7 @@ for (int i = 0; i < 3; i++) {
 
 ### 0.5 完整示例参考
 
-**位置**: `WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/`
+**位置**: `FBSir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/`
 
 **文件**:
 - `BaiduHotSearchDemoController.java` - 完整的浏览器自动化示例
@@ -382,7 +383,7 @@ for (int i = 0; i < 3; i++) {
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        WxFbsir-engine                                │
+│                        FBSir-engine                                │
 │  ┌─────────────────────────────────────────────────────────────┐   │
 │  │                    PlaywrightTaskExecutor                     │   │
 │  │    ┌──────────┐  ┌──────────┐  ┌──────────┐                  │   │
@@ -501,7 +502,7 @@ ScreenshotUtil.pageLocks: Map<PageId, ReentrantLock>
 ## 注：代码文件结构详情
 
 ```
-WxFbsir-engine/src/main/java/com/wx/fbsir/engine/playwright/
+FBSir-engine/src/main/java/com/wx/fbsir/engine/playwright/
 │
 ├── config/
 │   └── PlaywrightProperties.java      # 配置属性类
@@ -1787,7 +1788,7 @@ String message = result.getMessage();   // 错误信息（失败时）
 
 ### B.1 BaiduHotSearchDemoController - 流式输出完整示例
 
-**位置**: `WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/BaiduHotSearchDemoController.java`
+**位置**: `FBSir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/BaiduHotSearchDemoController.java`
 
 **演示内容**:
 - ✅ Playwright自动化（打开百度、抓取热搜、点击链接）
@@ -1804,7 +1805,7 @@ String message = result.getMessage();   // 错误信息（失败时）
 
 ### B.2 SimpleHealthCheckDemoController - 单次输出完整示例
 
-**位置**: `WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/SimpleHealthCheckDemoController.java`
+**位置**: `FBSir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/SimpleHealthCheckDemoController.java`
 
 **演示内容**:
 - ✅ 单次返回（不继承StreamTaskHelper）
@@ -1820,7 +1821,7 @@ String message = result.getMessage();   // 错误信息（失败时）
 
 ### B.3 演示能力使用指南
 
-**位置**: `WxFbsir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/README.md`
+**位置**: `FBSir-engine/src/main/java/com/wx/fbsir/engine/controller/demo/README.md`
 
 该文档包含：
 - 两个Controller的详细说明
@@ -2001,8 +2002,8 @@ curl http://localhost:8080/api/monitor/health
 
 ---
 
-**维护者**: WxFbsir Team  
-**最后更新**: 2026-01-20
+**维护者**: FBSir Team
+**最后更新**: 2026-07-11
 
 ## 📚 相关文档
 

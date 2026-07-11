@@ -1,8 +1,9 @@
 # 📋 代码合并PR规范
+> 更新日期：2026-07-11
 
 > **目标读者**: 所有需要提交代码和发起Pull Request的开发者  
 > **文档用途**: 规范Fork仓库、分支管理、Commit格式、PR提交流程  
-> **更新日期**: 2025-12-28
+> **更新日期**: 2026-07-11
 
 ---
 
@@ -22,10 +23,10 @@
 
 **强制要求**：
 ```
-WxFbsir-business/src/main/java/com/wx/fbsir/business/
+FBSir-business/src/main/java/com/wx/fbsir/business/
 ```
 
-- ✅ **所有业务代码必须放在 `WxFbsir-business` 模块下**
+- ✅ **所有业务代码必须放在 `FBSir-business` 模块下**
 - ❌ **未经管理员允许，不得在其他位置存放业务代码**
 
 ### 2. 前端代码位置
@@ -34,10 +35,10 @@ WxFbsir-business/src/main/java/com/wx/fbsir/business/
 
 #### 页面位置：
 ```
-WxFbsir-ui/src/views/business/[二级目录]/[三级目录]/
+FBSir-ui/src/views/business/[二级目录]/[三级目录]/
 
 示例：
-WxFbsir-ui/src/views/business/content/dailyassistant/
+FBSir-ui/src/views/business/content/dailyassistant/
 └── business/     # 一级目录（对应一级菜单）
     └── content/  # 二级目录（对应二级菜单：内容管理）
         └── dailyassistant/  # 三级目录（对应三级菜单：日更助手）
@@ -45,10 +46,10 @@ WxFbsir-ui/src/views/business/content/dailyassistant/
 
 #### API位置：
 ```
-WxFbsir-ui/src/api/business/[二级目录]/[文件名].js
+FBSir-ui/src/api/business/[二级目录]/[文件名].js
 
 示例：
-WxFbsir-ui/src/api/business/content/dailyassistant.js
+FBSir-ui/src/api/business/content/dailyassistant.js
 └── business/     # 一级目录
     └── content/  # 二级目录（与页面目录对应）
         └── dailyassistant.js  # API文件（与页面目录名对应）
@@ -220,10 +221,10 @@ git push origin feature/your-feature-name
 
 **强制要求**：
 ```
-WxFbsir-business/src/main/java/com/wx/fbsir/business/
+FBSir-business/src/main/java/com/wx/fbsir/business/
 ```
 
-- ✅ **所有业务代码必须放在 `WxFbsir-business` 模块下**
+- ✅ **所有业务代码必须放在 `FBSir-business` 模块下**
 - ❌ **未经管理员允许，不得在其他位置存放业务代码**
 
 ### 2. 前端代码位置
@@ -232,10 +233,10 @@ WxFbsir-business/src/main/java/com/wx/fbsir/business/
 
 #### 页面位置：
 ```
-WxFbsir-ui/src/views/business/[二级目录]/[三级目录]/
+FBSir-ui/src/views/business/[二级目录]/[三级目录]/
 
 示例：
-WxFbsir-ui/src/views/business/content/dailyassistant/
+FBSir-ui/src/views/business/content/dailyassistant/
 └── business/     # 一级目录（对应一级菜单）
     └── content/  # 二级目录（对应二级菜单：内容管理）
         └── dailyassistant/  # 三级目录（对应三级菜单：日更助手）
@@ -243,10 +244,10 @@ WxFbsir-ui/src/views/business/content/dailyassistant/
 
 #### API位置：
 ```
-WxFbsir-ui/src/api/business/[二级目录]/[文件名].js
+FBSir-ui/src/api/business/[二级目录]/[文件名].js
 
 示例：
-WxFbsir-ui/src/api/business/content/dailyassistant.js
+FBSir-ui/src/api/business/content/dailyassistant.js
 └── business/     # 一级目录
     └── content/  # 二级目录（与页面目录对应）
         └── dailyassistant.js  # API文件（与页面目录名对应）
@@ -314,8 +315,8 @@ docs: 更新部署文档添加元器配置说明 (2025-12-05)
 简要描述本次PR的主要变更内容
 
 ## 变更文件
-- 后端：`WxFbsir-business/src/main/java/...`
-- 前端：`WxFbsir-ui/src/views/business/...`
+- 后端：`FBSir-business/src/main/java/...`
+- 前端：`FBSir-ui/src/views/business/...`
 - 数据库：`sql/updates/update_YYYYMMDD.sql`（如有）
 
 ## 测试情况
@@ -428,9 +429,9 @@ CREATE TABLE IF NOT EXISTS `daily_article` (
 - [ ] 没有敏感信息（密码、密钥）
 
 #### 模块划分（⭐⭐⭐ 必检查）
-- [ ] 后端业务代码放在 `WxFbsir-business/src/main/java/com/wx/fbsir/business/`
-- [ ] 前端页面放在 `WxFbsir-ui/src/views/business/[二级目录]/[三级目录]/`
-- [ ] 前端API放在 `WxFbsir-ui/src/api/business/[二级目录]/[文件名].js`
+- [ ] 后端业务代码放在 `FBSir-business/src/main/java/com/wx/fbsir/business/`
+- [ ] 前端页面放在 `FBSir-ui/src/views/business/[二级目录]/[三级目录]/`
+- [ ] 前端API放在 `FBSir-ui/src/api/business/[二级目录]/[文件名].js`
 - [ ] 目录层级与数据库菜单表层级一致
 - [ ] API文件名与页面目录名保持一致
 - [ ] 没有在未经允许的位置存放代码
@@ -515,5 +516,5 @@ git push origin --delete feature/your-feature-name
 
 ---
 
-**最后更新**: 2025-12-28 
-**维护者**: WxFbsir Team
+**最后更新**: 2026-07-11
+**维护者**: FBSir Team

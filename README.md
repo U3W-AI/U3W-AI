@@ -1,9 +1,12 @@
 <h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">福帮手数据智能化系统</h1>
-<h4 align="center">福帮手FBSir，幸福有AI，幸运有你。Fbsir, AI 4 Happiness, U 4 Fortune。</h4>
+
+> 更新日期：2026-07-11
+
+<h4 align="center">福帮手 FBSir，幸福有 AI，幸运有你。FBSir, AI 4 Happiness, U 4 Fortune。</h4>
 <p align="center">
-	<a href="https://gitee.com/U3W-AI/RuoYi-Vue"><img src="https://img.shields.io/badge/WxFbsir-v1.3.2-brightgreen.svg"></a>
+	<a href="https://github.com/U3W-AI/U3W-AI"><img src="https://img.shields.io/badge/FBSir-v1.3.2-brightgreen.svg"></a>
 	<a href="https://www.fbsir.com"><img src="https://img.shields.io/badge/website-www.fbsir.com-blue.svg"></a>
-    <a href="https://gitee.com/U3W-AI/WxFbsir/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg"></a>
+    <a href="https://github.com/U3W-AI/U3W-AI/blob/fbsir/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg"></a>
     <a href="https://spring.io/projects/spring-boot"><img src="https://img.shields.io/badge/Spring%20Boot-3.x-green.svg"></a>
     <a href="https://vuejs.org/"><img src="https://img.shields.io/badge/Vue-3.x-4FC08D.svg"></a>
 </p>
@@ -17,7 +20,7 @@
 
 ## 📖 项目介绍
 
-**福帮手数据智能化系统（WxFbsir）** 是一个开源的、面向企业团队与内容运营场景的 **AI工具链与智能协同平台**。
+**福帮手数据智能化系统（FBSir）** 是一个开源的、面向企业团队与内容运营场景的 **AI工具链与智能协同平台**。
 
 项目采用 **AGPL-3.0** 协议开源，旨在通过“主节点（Admin）+引擎节点（Engine）+多AI平台”的架构，将内容生产、文档解析、公众号投递、元器工作流智能体、企业微信智能机器人工作流编排、积分与权限治理等能力统一纳管，并在可扩展的AIGC框架内实现多模型协同与高并发任务处理。
 
@@ -77,16 +80,16 @@
 ## 📂 项目结构
 
 ```
-WxFbsir
-├── WxFbsir-admin       // [核心] 后端启动入口，Web服务
-├── WxFbsir-ui          // [核心] 前端源代码 (Vue3)
-├── WxFbsir-business    // [业务] 核心业务逻辑 (AIGC, 证书, 积分等)
-├── WxFbsir-common      // [通用] 工具类、常量、注解
-├── WxFbsir-engine      // [引擎] 自动化任务执行引擎 (Playwright)
-├── WxFbsir-framework   // [框架] 核心配置 (Security, Redis, MyBatis)
-├── WxFbsir-generator   // [工具] 代码生成器
-├── WxFbsir-quartz      // [调度] 定时任务
-└── WxFbsir-system      // [系统] 用户、权限、日志管理
+FBSir
+├── FBSir-admin       // [核心] 后端启动入口，Web服务
+├── FBSir-ui          // [核心] 前端源代码 (Vue3)
+├── FBSir-business    // [业务] 核心业务逻辑 (AIGC, 证书, 积分等)
+├── FBSir-common      // [通用] 工具类、常量、注解
+├── FBSir-engine      // [引擎] 自动化任务执行引擎 (Playwright)
+├── FBSir-framework   // [框架] 核心配置 (Security, Redis, MyBatis)
+├── FBSir-generator   // [工具] 代码生成器
+├── FBSir-quartz      // [调度] 定时任务
+└── FBSir-system      // [系统] 用户、权限、日志管理
 ```
 
 ---
@@ -107,13 +110,13 @@ WxFbsir
 2.  **导入数据库**：
     创建数据库 `wxfbsir`，并导入 `sql` 目录下的初始化脚本。
 3.  **修改配置**：
-    修改 `WxFbsir-admin/src/main/resources/application-druid.yml` 中的数据库连接信息。
+    修改 `FBSir-admin/src/main/resources/application-druid.yml` 中的数据库连接信息。
 4.  **运行服务**：
-    运行 `WxFbsir-admin` 模块下的 `WxFbsirApplication.java`。
+    运行 `FBSir-admin` 模块下的 `FBSirApplication.java`。
 
 ### 3. 前端启动
 ```bash
-cd WxFbsir-ui
+cd FBSir-ui
 npm install      # 安装依赖
 npm run dev      # 启动开发服务器
 ```
@@ -121,9 +124,9 @@ npm run dev      # 启动开发服务器
 
 ### 4. 引擎启动 (可选)
 如果需要使用自动化功能（如爬虫、自动化操作）：
-1.  进入 `WxFbsir-engine` 模块。
+1.  进入 `FBSir-engine` 模块。
 2.  配置相关参数。
-3.  运行 `WxFbsirEngineApplication.java`。
+3.  运行 `FBSirEngineApplication.java`。
 
 ---
 
@@ -192,6 +195,6 @@ npm run dev      # 启动开发服务器
 本项目后台管理系统基于 **若依(RuoYi)** 框架进行二次开发，感谢若依团队提供的优秀开源框架。
 
 
-文档更新日期：2026年3月21日 19：00  文档版本：1.3.2
+文档更新日期：2026-07-11 19：00  文档版本：1.3.2
 
-<p align="center">Copyright © 2024-2026 WxFbsir. All Rights Reserved.</p>
+<p align="center">Copyright © 2024-2026 FBSir. All Rights Reserved.</p>

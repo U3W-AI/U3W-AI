@@ -1,6 +1,7 @@
 # OpenClaw主机纳管部署指南
+> 更新日期：2026-07-11
 
-> **更新日期**：2026-07-10
+> **更新日期**：2026-07-11
 
 本文档详细说明OpenClaw主机纳管功能的部署和配置过程，包括环境要求、部署步骤和常见问题解决。
 
@@ -57,7 +58,7 @@
 
 确保以下配置文件已正确配置：
 
-- `WxFbsir-admin/src/main/resources/application.yml`
+- `FBSir-admin/src/main/resources/application.yml`
 
 ---
 
@@ -75,21 +76,21 @@ cd d:\code\project\U3W-AI-fbsir\U3W-AI-fbsir
 mvn clean package -DskipTests
 
 # Engine 是独立 Maven 工程，需单独构建
-mvn -f WxFbsir-engine/pom.xml clean package -DskipTests
+mvn -f FBSir-engine/pom.xml clean package -DskipTests
 ```
 
 #### 1.2 运行Admin服务
 
 ```bash
 # 运行Admin服务
-java -jar WxFbsir-admin/target/WxFbsir-admin.jar
+java -jar FBSir-admin/target/FBSir-admin.jar
 ```
 
 #### 1.3 运行Engine服务（可选）
 
 ```bash
 # 运行Engine服务（如果需要）
-java -jar WxFbsir-engine/target/wxfbsir-engine-1.3.1.jar
+java -jar FBSir-engine/target/wxfbsir-engine-1.3.1.jar
 ```
 
 ### 2. 前端部署
@@ -98,7 +99,7 @@ java -jar WxFbsir-engine/target/wxfbsir-engine-1.3.1.jar
 
 ```bash
 # 进入前端目录
-cd WxFbsir-ui
+cd FBSir-ui
 
 # 安装依赖
 npm install
@@ -248,5 +249,5 @@ location / {
 
 ---
 
-**最后更新**: 2026-03-16  
+**最后更新**: 2026-07-11
 **文档版本**: v1.0.0
