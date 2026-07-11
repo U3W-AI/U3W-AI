@@ -12,12 +12,14 @@ import java.time.LocalDateTime;
  */
 
 @Table(name = "wc_webhook_url")
-@Data
-
 public class WecomWebhook {
 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** Enterprise scope. Every read/write must include this value. */
+    @Column(name = "enterprise_id", nullable = false)
+    private Long enterpriseId;
 
     /**
      * Webhook 名称，唯一
@@ -28,8 +30,14 @@ public class WecomWebhook {
     /**
      * 企业微信 Webhook 地址
      */
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(name = "webhook_url", nullable = false, length = 512)
     private String webhookUrl;
+
+    /** Encrypted or external secret reference; never serialized to clients. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Column(name = "webhook_secret_ref", length = 1024)
+    private String webhookSecretRef;
 
     /**
      * 描述信息
@@ -42,6 +50,10 @@ public class WecomWebhook {
      */
     @Column(nullable = false)
     private Boolean status = true;
+
+    /** Optimistic-lock version for updates. */
+    @Column(nullable = false)
+    private Integer version = 1;
 
     /**
      * 创建时间，由数据库自动生成，插入后不可更新
@@ -65,6 +77,9 @@ public class WecomWebhook {
         this.id = id;
     }
 
+    public Long getEnterpriseId() { return enterpriseId; }
+    public void setEnterpriseId(Long enterpriseId) { this.enterpriseId = enterpriseId; }
+
     public String getName() {
         return name;
     }
@@ -81,6 +96,9 @@ public class WecomWebhook {
         this.webhookUrl = webhookUrl;
     }
 
+    public String getWebhookSecretRef() { return webhookSecretRef; }
+    public void setWebhookSecretRef(String webhookSecretRef) { this.webhookSecretRef = webhookSecretRef; }
+
     public String getDescription() {
         return description;
     }
@@ -96,6 +114,9 @@ public class WecomWebhook {
     public void setStatus(Boolean status) {
         this.status = status;
     }
+
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
 
     public LocalDateTime getCreateTime() {
         return createTime;

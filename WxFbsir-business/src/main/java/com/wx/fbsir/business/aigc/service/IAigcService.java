@@ -182,10 +182,14 @@ public interface IAigcService {
      *
      * @param sessionId 会话ID
      * @param format 推送格式（md/json）
-     * @param webhookUrl Webhook地址
+     * @param enterpriseId 企业ID
+     * @param webhookId 已登记的Webhook ID
+     * @param idempotencyKey 幂等键
+     * @param userId 操作用户ID
      * @return 推送结果
      */
-    Map<String, Object> pushOutputArtifactWebhook(String sessionId, String format, String webhookUrl);
+    Map<String, Object> pushOutputArtifactWebhook(String sessionId, String format, Long enterpriseId,
+                                                   Long webhookId, String idempotencyKey, Long userId);
 
 
     /**

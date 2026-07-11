@@ -440,6 +440,29 @@
         <el-button type="primary" @click="confirmUpload" :disabled="!uploadedFileUrl">确认</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="webhookPushDialogVisible" title="推送到企业 Webhook" width="520px" append-to-body>
+      <el-form label-width="90px">
+        <el-form-item label="企业">
+          <el-select v-model="webhookPushForm.enterpriseId" style="width: 100%" @change="loadPushWebhookOptions">
+            <el-option v-for="item in webhookPushEnterpriseOptions" :key="item.id"
+              :label="item.name" :value="item.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Webhook">
+          <el-select v-model="webhookPushForm.webhookId" style="width: 100%" no-data-text="请先在 Webhook 管理中登记">
+            <el-option v-for="item in webhookPushWebhookOptions" :key="item.id"
+              :label="item.name" :value="item.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <el-alert type="info" :closable="false" show-icon
+        title="只可选择当前账号管理企业内已登记的 Webhook；原始地址和密钥不会进入本页面。" />
+      <template #footer>
+        <el-button @click="webhookPushDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="webhookPushLoading" @click="submitPushWebhook">发送并生成回执</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -460,6 +483,7 @@ import {
   pushOutputWebhook,
   saveOutputArtifact
 } from '@/api/business/content/aigc/output'
+import { listWebhookEnterprises, listWecomWebhook } from '@/api/business/airobotmessage/wecomWebhook'
 import { buildWebSocketUrl } from '@/utils/websocket'
 import useUserStore from '@/store/modules/user'
 import {
@@ -571,6 +595,11 @@ export default {
     const outputTitle = ref('')
     const outputContent = ref('')
     const outputDialogVisible = ref(false)
+    const webhookPushDialogVisible = ref(false)
+    const webhookPushLoading = ref(false)
+    const webhookPushEnterpriseOptions = ref([])
+    const webhookPushWebhookOptions = ref([])
+    const webhookPushForm = ref({ enterpriseId: null, webhookId: null, idempotencyKey: '' })
 
     // 当前登录的服务ID
     const currentLoginService = ref('')
@@ -1779,13 +1808,28 @@ export default {
 
 
     // ==================== Webhook 推送 ====================
+    const createWebhookIdempotencyKey = () =>
+      `aigc:${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`
+
+    const loadPushWebhookOptions = async () => {
+      webhookPushForm.value.webhookId = null
+      webhookPushWebhookOptions.value = []
+      if (!webhookPushForm.value.enterpriseId) return
+      const response = await listWecomWebhook(webhookPushForm.value.enterpriseId)
+      const rows = Array.isArray(response?.data) ? response.data
+        : Array.isArray(response?.rows) ? response.rows : []
+      webhookPushWebhookOptions.value = rows.filter(item => item.status)
+      if (webhookPushWebhookOptions.value.length > 0) {
+        webhookPushForm.value.webhookId = webhookPushWebhookOptions.value[0].id
+      }
+    }
+
     /**
-     * 推送当前会话输出物到指定 Webhook 地址
+     * 推送当前会话输出物到已登记的企业 Webhook
      * 设计说明：
      * 1. 必须依赖当前 sessionId，未选择会话时禁止推送
-     * 2. 用户手动输入 webhookUrl，空值时直接终止操作
-     * 3. 推送内容统一由后端生成（支持 Markdown / JSON）
-     * 4. 成功仅提示一次，失败时透传后端或网络异常信息
+     * 2. 只从当前用户管理的企业和已登记 Webhook 中选择
+     * 3. 对话框打开时生成一次幂等键，超时重试复用同一键
      */
     const handlePushWebhook = async () => {
       const currentSessionId = getCurrentSessionId()
@@ -1796,25 +1840,52 @@ export default {
         return
       }
 
-      // 获取用户输入的 Webhook 地址
-      const webhookUrl = window.prompt('请输入Webhook地址')
-      if (!webhookUrl) {
+      try {
+        const response = await listWebhookEnterprises()
+        webhookPushEnterpriseOptions.value = Array.isArray(response?.data) ? response.data : []
+        if (webhookPushEnterpriseOptions.value.length === 0) {
+          ElMessage.error('当前账号没有可管理的企业 Webhook')
+          return
+        }
+        webhookPushForm.value = {
+          enterpriseId: webhookPushEnterpriseOptions.value[0].id,
+          webhookId: null,
+          idempotencyKey: createWebhookIdempotencyKey()
+        }
+        await loadPushWebhookOptions()
+        webhookPushDialogVisible.value = true
+      } catch (error) {
+        ElMessage.error('加载 Webhook 列表失败')
+      }
+    }
+
+    const submitPushWebhook = async () => {
+      const currentSessionId = getCurrentSessionId()
+      if (!currentSessionId || !webhookPushForm.value.webhookId) {
+        ElMessage.error('请选择可用的 Webhook')
         return
       }
-
+      webhookPushLoading.value = true
       try {
         const res = await pushOutputWebhook({
           sessionId: currentSessionId,
           format: 'md',
-          webhookUrl
+          enterpriseId: webhookPushForm.value.enterpriseId,
+          webhookId: webhookPushForm.value.webhookId,
+          idempotencyKey: webhookPushForm.value.idempotencyKey
         })
 
-        // 成功场景
         if (res.code === 200 && res.data && res.data.success) {
-          ElMessage.success('已推送')
+          const receipt = res.data.data || {}
+          ElMessage.success(`企微接口已接受，traceId：${receipt.traceId || '-'}`)
+          webhookPushDialogVisible.value = false
+        } else {
+          ElMessage.warning(res?.data?.message || '投递未获得确定回执')
         }
       } catch (error) {
-        // 错误提示交给全局 request.js 统一处理，这里不再重复弹窗
+        // 同一对话框内保留幂等键，用户可安全重试。
+      } finally {
+        webhookPushLoading.value = false
       }
     }
     // 生命周期
@@ -1912,10 +1983,17 @@ export default {
       outputTitle,
       outputContent,
       outputDialogVisible,
+      webhookPushDialogVisible,
+      webhookPushLoading,
+      webhookPushEnterpriseOptions,
+      webhookPushWebhookOptions,
+      webhookPushForm,
       handleGenerateOutput,
       handleSaveOutputArtifact,
       handleExportMarkdown,
-      handlePushWebhook
+      handlePushWebhook,
+      loadPushWebhookOptions,
+      submitPushWebhook
     }
   }
 }

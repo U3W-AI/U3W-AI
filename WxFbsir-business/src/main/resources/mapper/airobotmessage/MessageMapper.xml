@@ -1,39 +1,61 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper
-        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.wx.fbsir.business.airobotmessage.mapper.MessageMapper">
     <resultMap id="BaseResultMap" type="com.wx.fbsir.business.airobotmessage.domain.WecomWebhook">
-        <!-- 主键字段映射 -->
-        <id column="id" property="id" jdbcType="INTEGER"/>
-        <!-- 普通字段映射 -->
-        <result column="name" property="name" jdbcType="VARCHAR"/>
-        <result column="webhook_url" property="webhookUrl" jdbcType="VARCHAR"/>
-        <result column="description" property="description" jdbcType="VARCHAR"/>
-        <!-- 状态字段：TINYINT(1) 映射为 Boolean -->
-        <result column="status" property="status" jdbcType="TINYINT"/>
-        <!-- 时间字段：DATETIME 映射为 LocalDateTime，jdbcType 使用 TIMESTAMP -->
-        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
-        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+        <id column="id" property="id"/>
+        <result column="enterprise_id" property="enterpriseId"/>
+        <result column="name" property="name"/>
+        <result column="webhook_url" property="webhookUrl"/>
+        <result column="webhook_secret_ref" property="webhookSecretRef"/>
+        <result column="description" property="description"/>
+        <result column="status" property="status"/>
+        <result column="version" property="version"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
     </resultMap>
+
+    <sql id="columns">
+        id, enterprise_id, name, webhook_url, webhook_secret_ref, description,
+        status, version, create_time, update_time
+    </sql>
+
     <select id="selectWecomWebhookList" resultMap="BaseResultMap">
-        select id, name, webhook_url, description, status, create_time, update_time
-        from wc_webhook_url
-        order by id
+        SELECT <include refid="columns"/>
+        FROM wc_webhook_url
+        WHERE enterprise_id = #{enterpriseId}
+        ORDER BY id
     </select>
 
-    <update id="updateWecomWebhook" parameterType="com.wx.fbsir.business.airobotmessage.domain.WecomWebhook">
-        update wc_webhook_url
-        <set>
-            <if test="name != null">name = #{name, jdbcType=VARCHAR},</if>
-            <if test="webhookUrl != null">webhook_url = #{webhookUrl, jdbcType=VARCHAR},</if>
-            <if test="description != null">description = #{description, jdbcType=VARCHAR},</if>
-            <if test="status != null">status = #{status, jdbcType=TINYINT},</if>
-            update_time = NOW()
-        </set>
-        where id = #{id, jdbcType=INTEGER}
+    <select id="selectWecomWebhookById" resultMap="BaseResultMap">
+        SELECT <include refid="columns"/>
+        FROM wc_webhook_url
+        WHERE id = #{id} AND enterprise_id = #{enterpriseId}
+        LIMIT 1
+    </select>
 
+    <insert id="insertWecomWebhook" parameterType="com.wx.fbsir.business.airobotmessage.domain.WecomWebhook"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO wc_webhook_url
+          (enterprise_id, name, webhook_url, webhook_secret_ref, description, status, version)
+        VALUES
+          (#{enterpriseId}, #{name}, #{webhookUrl}, #{webhookSecretRef}, #{description}, #{status}, 1)
+    </insert>
+
+    <update id="updateWecomWebhook" parameterType="com.wx.fbsir.business.airobotmessage.domain.WecomWebhook">
+        UPDATE wc_webhook_url
+        <set>
+            name = #{name},
+            <if test="webhookSecretRef != null">
+                webhook_url = #{webhookUrl}, webhook_secret_ref = #{webhookSecretRef},
+            </if>
+            description = #{description}, status = #{status},
+            version = version + 1, update_time = NOW()
+        </set>
+        WHERE id = #{id} AND enterprise_id = #{enterpriseId} AND version = #{version}
     </update>
 
-
+    <delete id="deleteWecomWebhookById">
+        DELETE FROM wc_webhook_url
+        WHERE id = #{id} AND enterprise_id = #{enterpriseId} AND version = #{version}
+    </delete>
 </mapper>

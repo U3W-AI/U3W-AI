@@ -1,45 +1,29 @@
 import request from '@/utils/request'
 
-// 查询企业微信 Webhook 列表
-export function listWecomWebhook() {
-  return request({
-    url: '/business/message/list',
-    method: 'get'
-  })
+export function listWecomWebhook(enterpriseId) {
+  return request({ url: '/business/message/list', method: 'get', params: { enterpriseId } })
 }
 
-// 查询企业微信 Webhook 详情
-export function getWecomWebhook(id) {
-  return request({
-    url: '/business/message/get',
-    method: 'get',
-    params: { id }
-  })
+export function listWebhookEnterprises() {
+  return request({ url: '/business/message/enterprises', method: 'get' })
 }
 
-// 新增企业微信 Webhook
+export function getWecomWebhook(id, enterpriseId) {
+  return request({ url: '/business/message/get', method: 'get', params: { id, enterpriseId } })
+}
+
 export function addWecomWebhook(data) {
-  return request({
-    url: '/business/message/insert',
-    method: 'post',
-    data
-  })
+  return request({ url: '/business/message/insert', method: 'post', data })
 }
 
-// 修改企业微信 Webhook
 export function updateWecomWebhook(data) {
-  return request({
-    url: '/business/message/update',
-    method: 'post',
-    data
-  })
+  return request({ url: '/business/message/update', method: 'post', data })
 }
 
-// 删除企业微信 Webhook
-export function delWecomWebhook(id) {
-  return request({
-    url: '/business/message/delete',
-    method: 'post',
-    params: { id }
-  })
+export function delWecomWebhook(id, enterpriseId, version) {
+  return request({ url: '/business/message/delete', method: 'post', params: { id, enterpriseId, version } })
+}
+
+export function sendWecomWebhook(data) {
+  return request({ url: '/business/message/send', method: 'post', data })
 }

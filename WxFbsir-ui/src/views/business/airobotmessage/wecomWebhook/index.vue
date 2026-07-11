@@ -1,221 +1,201 @@
 <template>
   <div class="app-container">
-    <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-button type="primary" plain icon="Plus" @click="handleAdd">新增</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="primary" plain icon="Refresh" @click="getList">刷新</el-button>
-      </el-col>
-      <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
-    </el-row>
+    <el-form :inline="true" class="mb8">
+      <el-form-item label="所属企业">
+        <el-select v-model="enterpriseId" placeholder="请选择企业" filterable style="width: 260px" @change="getList">
+          <el-option v-for="item in enterpriseOptions" :key="item.id" :label="item.name" :value="item.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" icon="Plus" :disabled="!enterpriseId" @click="handleAdd"
+                   v-hasPermi="['business:wecom:add']">新增</el-button>
+        <el-button icon="Refresh" :disabled="!enterpriseId" @click="getList">刷新</el-button>
+      </el-form-item>
+    </el-form>
+
+    <el-alert
+      title="Webhook 密钥已加密保存，列表和详情只显示掩码；每次投递都生成可审计回执。"
+      type="info" show-icon :closable="false" class="mb8" />
 
     <el-table v-loading="loading" :data="webhookList">
-      <el-table-column label="ID" align="center" width="80">
-        <template #default="scope">{{ scope.row.id ?? '' }}</template>
-      </el-table-column>
-      <el-table-column label="名称" align="center" min-width="120" :show-overflow-tooltip="true">
-        <template #default="scope">{{ scope.row.name ?? '' }}</template>
-      </el-table-column>
-      <el-table-column label="Webhook 地址" align="center" min-width="200" :show-overflow-tooltip="true">
-        <template #default="scope">{{ scope.row.webhookUrl ?? scope.row.webhook_url ?? '' }}</template>
-      </el-table-column>
-      <el-table-column label="描述" align="center" min-width="150" :show-overflow-tooltip="true">
-        <template #default="scope">{{ scope.row.description ?? '' }}</template>
-      </el-table-column>
-      <el-table-column label="状态" align="center" width="90">
+      <el-table-column label="名称" prop="name" min-width="140" />
+      <el-table-column label="Webhook 地址" prop="webhookUrl" min-width="320" show-overflow-tooltip />
+      <el-table-column label="描述" prop="description" min-width="180" show-overflow-tooltip />
+      <el-table-column label="状态" width="90" align="center">
         <template #default="scope">
-          <el-tag :type="(scope.row.status !== false && scope.row.status !== 0) ? 'success' : 'danger'">
-            {{ (scope.row.status !== false && scope.row.status !== 0) ? '启用' : '禁用' }}
-          </el-tag>
+          <el-tag :type="scope.row.status ? 'success' : 'danger'">{{ scope.row.status ? '启用' : '禁用' }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="创建时间" align="center" width="170">
-        <template #default="scope">
-          <span>{{ parseTime(scope.row.createTime ?? scope.row.create_time) }}</span>
-        </template>
+      <el-table-column label="更新时间" width="170">
+        <template #default="scope">{{ parseTime(scope.row.updateTime) }}</template>
       </el-table-column>
-      <el-table-column label="更新时间" align="center" width="170">
+      <el-table-column label="操作" width="230" fixed="right">
         <template #default="scope">
-          <span>{{ parseTime(scope.row.updateTime ?? scope.row.update_time) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" align="center" width="150" fixed="right">
-        <template #default="scope">
-          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.$index)">修改</el-button>
-          <el-button link type="danger" icon="Delete" @click="handleDelete(scope.$index)">删除</el-button>
+          <el-button link type="success" icon="Promotion" @click="handleSend(scope.row)"
+                     v-hasPermi="['business:wecom:send']">测试投递</el-button>
+          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)"
+                     v-hasPermi="['business:wecom:edit']">修改</el-button>
+          <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)"
+                     v-hasPermi="['business:wecom:remove']">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <!-- 添加或修改企业微信 Webhook 对话框 -->
-    <el-dialog :title="title" v-model="open" width="560px" append-to-body>
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
+    <el-dialog v-model="editOpen" :title="editTitle" width="600px" append-to-body>
+      <el-form ref="editFormRef" :model="editForm" :rules="editRules" label-width="110px">
         <el-form-item label="名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入 Webhook 名称（唯一）" maxlength="100" show-word-limit />
+          <el-input v-model="editForm.name" maxlength="100" show-word-limit />
         </el-form-item>
-        <el-form-item label="Webhook 地址" prop="webhookUrl">
-          <el-input v-model="form.webhookUrl" type="textarea" placeholder="请输入企业微信机器人 Webhook 地址" :rows="3" maxlength="512" show-word-limit />
+        <el-form-item label="Webhook 地址" :prop="editForm.id ? undefined : 'webhookUrl'">
+          <el-input v-model="editForm.webhookUrl" type="textarea" :rows="3"
+                    :placeholder="editForm.id ? '留空表示不更换密钥' : '请输入企业微信消息推送 Webhook 地址'" />
         </el-form-item>
         <el-form-item label="描述" prop="description">
-          <el-input v-model="form.description" type="textarea" placeholder="请输入描述信息" :rows="2" maxlength="255" show-word-limit />
+          <el-input v-model="editForm.description" type="textarea" :rows="2" maxlength="255" show-word-limit />
         </el-form-item>
         <el-form-item label="状态" prop="status">
-          <el-radio-group v-model="form.status">
-            <el-radio :label="true">启用</el-radio>
-            <el-radio :label="false">禁用</el-radio>
-          </el-radio-group>
+          <el-switch v-model="editForm.status" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <div class="dialog-footer">
-          <el-button type="primary" @click="submitForm">确 定</el-button>
-          <el-button @click="cancel">取 消</el-button>
-        </div>
+        <el-button @click="editOpen = false">取消</el-button>
+        <el-button type="primary" @click="submitEdit">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="sendOpen" title="测试投递" width="600px" append-to-body>
+      <el-form :model="sendForm" label-width="90px">
+        <el-form-item label="标题"><el-input v-model="sendForm.title" maxlength="100" /></el-form-item>
+        <el-form-item label="内容"><el-input v-model="sendForm.messageContent" type="textarea" :rows="5" maxlength="4096" show-word-limit /></el-form-item>
+        <el-form-item label="行动链接"><el-input v-model="sendForm.actionUrl" placeholder="可选：U3W 签名跳转链接" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="sendOpen = false">取消</el-button>
+        <el-button type="primary" :loading="sending" @click="submitSend">发送并生成回执</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup name="WecomWebhook">
-import { listWecomWebhook, getWecomWebhook, delWecomWebhook, addWecomWebhook, updateWecomWebhook } from '@/api/business/airobotmessage/wecomWebhook'
 import { parseTime } from '@/utils/WxFbsir'
+import {
+  listWecomWebhook, listWebhookEnterprises, addWecomWebhook, updateWecomWebhook, delWecomWebhook, sendWecomWebhook
+} from '@/api/business/airobotmessage/wecomWebhook'
 
 const { proxy } = getCurrentInstance()
-
+const enterpriseId = ref()
+const enterpriseOptions = ref([])
 const webhookList = ref([])
-const open = ref(false)
-const loading = ref(true)
-const showSearch = ref(true)
-const title = ref('')
+const loading = ref(false)
+const editOpen = ref(false)
+const editTitle = ref('')
+const editFormRef = ref()
+const editForm = reactive({ id: null, name: '', webhookUrl: '', description: '', status: true, version: 1 })
+const editRules = { name: [{ required: true, message: '名称不能为空', trigger: 'blur' }] }
+const sendOpen = ref(false)
+const sending = ref(false)
+const sendForm = reactive({ webhookId: null, idempotencyKey: '', title: 'U3W归因联测', messageContent: '', actionUrl: '' })
 
-const data = reactive({
-  form: {},
-  rules: {
-    name: [{ required: true, message: '名称不能为空', trigger: 'blur' }],
-    webhookUrl: [{ required: true, message: 'Webhook 地址不能为空', trigger: 'blur' }]
-  }
-})
-
-const { form, rules } = toRefs(data)
-
-/** 将后端返回的数据统一转为 camelCase（兼容 snake_case） */
-function normalizeRow(row) {
-  if (!row || typeof row !== 'object') return row
-  return {
-    id: row.id ?? row.ID ?? row.Id,
-    name: row.name,
-    webhookUrl: row.webhookUrl ?? row.webhook_url,
-    description: row.description,
-    status: row.status ?? true,
-    createTime: row.createTime ?? row.create_time,
-    updateTime: row.updateTime ?? row.update_time
-  }
+function newIdempotencyKey() {
+  return `ui:${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`
 }
 
-/** 查询列表 */
-function getList() {
+function responseRows(response) {
+  if (Array.isArray(response?.rows)) return response.rows
+  if (Array.isArray(response?.data?.rows)) return response.data.rows
+  if (Array.isArray(response?.data)) return response.data
+  return []
+}
+
+async function loadEnterprises() {
+  const response = await listWebhookEnterprises()
+  enterpriseOptions.value = responseRows(response)
+  if (!enterpriseId.value && enterpriseOptions.value.length) enterpriseId.value = enterpriseOptions.value[0].id
+  await getList()
+}
+
+async function getList() {
+  if (!enterpriseId.value) { webhookList.value = []; return }
   loading.value = true
-  listWecomWebhook().then(response => {
-    // 兼容多种返回格式：{ data: [] }、{ rows: [] }、或直接为数组
-    let list = []
-    if (Array.isArray(response)) {
-      list = response
-    } else if (Array.isArray(response?.data)) {
-      list = response.data
-    } else if (Array.isArray(response?.rows)) {
-      list = response.rows
-    } else if (response?.data?.rows && Array.isArray(response.data.rows)) {
-      list = response.data.rows
-    } else if (response?.data?.data && Array.isArray(response.data.data)) {
-      list = response.data.data
-    }
-    webhookList.value = list.map(normalizeRow)
+  try {
+    const response = await listWecomWebhook(enterpriseId.value)
+    webhookList.value = responseRows(response)
+  } finally {
     loading.value = false
-  }).catch(() => {
-    loading.value = false
-  })
-}
-
-/** 取消 */
-function cancel() {
-  open.value = false
-  reset()
-}
-
-/** 表单重置 */
-function reset() {
-  form.value = {
-    id: null,
-    name: null,
-    webhookUrl: null,
-    description: null,
-    status: true
   }
-  proxy.resetForm('formRef')
 }
 
-/** 新增 */
+function resetEdit() {
+  Object.assign(editForm, { id: null, name: '', webhookUrl: '', description: '', status: true, version: 1 })
+}
+
 function handleAdd() {
-  reset()
-  open.value = true
-  title.value = '添加企业微信 Webhook'
+  resetEdit()
+  editTitle.value = '新增企业微信消息推送'
+  editOpen.value = true
 }
 
-/** 修改 */
-function handleUpdate(index) {
-  reset()
-  const row = webhookList.value[index]
-  if (!row) return
-  const r = normalizeRow(row)
-  const id = r.id ?? row.id
-  if (id == null || id === undefined) {
-    proxy.$modal.msgError('无法获取记录ID，请刷新后重试')
-    return
-  }
-  form.value = { id, name: r.name, webhookUrl: r.webhookUrl, description: r.description, status: r.status ?? true }
-  open.value = true
-  title.value = '修改企业微信 Webhook'
+function handleUpdate(row) {
+  Object.assign(editForm, { id: row.id, name: row.name, webhookUrl: '', description: row.description || '', status: !!row.status, version: row.version })
+  editTitle.value = '修改企业微信消息推送'
+  editOpen.value = true
 }
 
-/** 提交 */
-function submitForm() {
-  proxy.$refs['formRef'].validate(valid => {
-    if (valid) {
-      if (form.value.id != null) {
-        updateWecomWebhook(form.value).then(() => {
-          proxy.$modal.msgSuccess('修改成功')
-          open.value = false
-          getList()
-        })
-      } else {
-        addWecomWebhook(form.value).then(() => {
-          proxy.$modal.msgSuccess('新增成功')
-          open.value = false
-          getList()
-        })
-      }
-    }
-  })
+async function submitEdit() {
+  await editFormRef.value.validate()
+  const data = { ...editForm, enterpriseId: enterpriseId.value }
+  if (data.id) await updateWecomWebhook(data)
+  else await addWecomWebhook(data)
+  proxy.$modal.msgSuccess(data.id ? '修改成功' : '新增成功')
+  editOpen.value = false
+  await getList()
 }
 
-/** 删除 */
-function handleDelete(index) {
-  const row = webhookList.value[index]
-  if (!row) return
-  const r = normalizeRow(row)
-  const id = r.id ?? row.id
-  if (id == null || id === undefined) {
-    proxy.$modal.msgError('无法获取记录ID，请刷新后重试')
-    return
-  }
-  proxy.$modal.confirm('是否确认删除 Webhook "' + (r.name || '') + '"？').then(() => {
-    return delWecomWebhook(id)
-  }).then(() => {
-    getList()
+function handleDelete(row) {
+  proxy.$modal.confirm(`确认删除 Webhook“${row.name}”吗？`).then(async () => {
+    await delWecomWebhook(row.id, enterpriseId.value, row.version)
     proxy.$modal.msgSuccess('删除成功')
+    await getList()
   }).catch(() => {})
 }
 
-getList()
+function handleSend(row) {
+  sendForm.webhookId = row.id
+  // Keep the key stable while this dialog remains open so a timeout retry cannot double-send.
+  sendForm.idempotencyKey = newIdempotencyKey()
+  sendForm.title = 'U3W归因联测'
+  sendForm.messageContent = `测试时间：${new Date().toLocaleString()}\n本消息只用于验证 U3W 投递与回执链路。`
+  sendForm.actionUrl = ''
+  sendOpen.value = true
+}
+
+async function submitSend() {
+  if (!sendForm.messageContent.trim()) return proxy.$modal.msgError('内容不能为空')
+  sending.value = true
+  try {
+    const response = await sendWecomWebhook({
+      enterpriseId: enterpriseId.value,
+      webhookId: sendForm.webhookId,
+      idempotencyKey: sendForm.idempotencyKey,
+      title: sendForm.title,
+      messageContent: sendForm.messageContent,
+      actionUrl: sendForm.actionUrl || null
+    })
+    const receipt = response?.data || {}
+    const text = `投递状态：${receipt.status || 'UNKNOWN'}，traceId：${receipt.traceId || '-'}`
+    if (receipt.status === 'PROVIDER_ACCEPTED') {
+      proxy.$modal.msgSuccess(text)
+      sendOpen.value = false
+    } else if (receipt.status === 'UNKNOWN' || receipt.status === 'PENDING') {
+      proxy.$modal.msgWarning(text)
+    } else {
+      proxy.$modal.msgError(text)
+    }
+  } finally {
+    sending.value = false
+  }
+}
+
+loadEnterprises()
 </script>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.airobotmessage.mapper.WebhookDeliveryMapper">
+    <resultMap id="DeliveryMap" type="com.wx.fbsir.business.airobotmessage.domain.WebhookDelivery">
+        <id column="id" property="id"/>
+        <result column="enterprise_id" property="enterpriseId"/>
+        <result column="webhook_id" property="webhookId"/>
+        <result column="actor_user_id" property="actorUserId"/>
+        <result column="idempotency_key" property="idempotencyKey"/>
+        <result column="payload_hash" property="payloadHash"/>
+        <result column="trace_id" property="traceId"/>
+        <result column="status" property="status"/>
+        <result column="provider_http_status" property="providerHttpStatus"/>
+        <result column="provider_errcode" property="providerErrcode"/>
+        <result column="provider_errmsg" property="providerErrmsg"/>
+        <result column="attempt_count" property="attemptCount"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="selectByIdempotencyKey" resultMap="DeliveryMap">
+        SELECT id, enterprise_id, webhook_id, actor_user_id, idempotency_key, payload_hash, trace_id,
+               status, provider_http_status, provider_errcode, provider_errmsg,
+               attempt_count, create_time, update_time
+        FROM wc_webhook_delivery
+        WHERE enterprise_id = #{enterpriseId} AND idempotency_key = #{idempotencyKey}
+        LIMIT 1
+    </select>
+
+    <insert id="insert" parameterType="com.wx.fbsir.business.airobotmessage.domain.WebhookDelivery"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO wc_webhook_delivery
+          (enterprise_id, webhook_id, actor_user_id, idempotency_key, payload_hash, trace_id, status, attempt_count)
+        VALUES
+          (#{enterpriseId}, #{webhookId}, #{actorUserId}, #{idempotencyKey}, #{payloadHash}, #{traceId}, #{status}, 1)
+    </insert>
+
+    <update id="updateResult" parameterType="com.wx.fbsir.business.airobotmessage.domain.WebhookDelivery">
+        UPDATE wc_webhook_delivery
+        SET status = #{status}, provider_http_status = #{providerHttpStatus},
+            provider_errcode = #{providerErrcode}, provider_errmsg = #{providerErrmsg},
+            update_time = NOW()
+        WHERE id = #{id} AND enterprise_id = #{enterpriseId}
+    </update>
+
+    <update id="markStalePendingUnknown">
+        UPDATE wc_webhook_delivery
+        SET status = 'UNKNOWN', provider_errmsg = 'stale pending delivery requires reconciliation',
+            update_time = NOW()
+        WHERE enterprise_id = #{enterpriseId} AND idempotency_key = #{idempotencyKey}
+          AND status = 'PENDING' AND update_time &lt; DATE_SUB(NOW(), INTERVAL 2 MINUTE)
+    </update>
+
+    <update id="markAllStalePendingUnknown">
+        UPDATE wc_webhook_delivery
+        SET status = 'UNKNOWN', provider_errmsg = 'stale pending delivery requires reconciliation',
+            update_time = NOW()
+        WHERE status = 'PENDING' AND update_time &lt; DATE_SUB(NOW(), INTERVAL 2 MINUTE)
+        ORDER BY update_time
+        LIMIT 500
+    </update>
+</mapper>

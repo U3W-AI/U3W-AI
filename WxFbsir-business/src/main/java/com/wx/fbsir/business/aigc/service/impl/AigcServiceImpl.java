@@ -4,17 +4,14 @@ import com.wx.fbsir.business.aigc.domain.AiRequest;
 import com.wx.fbsir.business.aigc.domain.ChatHistoryRequest;
 import com.wx.fbsir.business.aigc.mapper.AigcMapper;
 import com.wx.fbsir.business.aigc.service.IAigcService;
+import com.wx.fbsir.business.airobotmessage.dto.WebhookDeliveryReceipt;
+import com.wx.fbsir.business.airobotmessage.dto.WebhookSendRequest;
+import com.wx.fbsir.business.airobotmessage.service.MessageService;
 import com.wx.fbsir.common.utils.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.alibaba.fastjson2.JSON;
-import org.springframework.web.client.RestTemplate;
-
-import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -36,6 +33,9 @@ public class AigcServiceImpl implements IAigcService {
 
     @Autowired
     private AigcMapper aigcMapper;
+
+    @Autowired
+    private MessageService messageService;
 
     @Override
     public String getUserHostId(Long userId) {
@@ -447,22 +447,24 @@ public class AigcServiceImpl implements IAigcService {
     }
 
     /**
-     * 将当前会话的输出物推送到指定 Webhook 地址
+     * 将当前会话的输出物推送到租户范围内已登记的 Webhook
      *
      * 设计说明：
      * 1. 推送仅允许操作当前用户自己的会话，避免通过伪造 sessionId 推送他人数据
      * 2. 推送内容复用现有导出结果，避免重复拼装输出物结构，保证导出与推送口径一致
-     * 3. 当前版本统一按企业微信机器人 text 消息格式发送，便于快速落地 MVP
-     * 4. 推送前统一校验会话有效性、归属、Webhook 地址合法性以及输出物内容有效性
-     * 5. 推送结果保留状态码与响应内容，便于后续排查网络或目标服务异常
+     * 3. 统一复用 MessageService 的租户管理员校验、密钥解密、幂等台账和审计回执
      *
      * @param sessionId 会话ID
      * @param format 推送格式，md 表示复用 Markdown 导出结果，其他情况默认复用 JSON 导出结果
-     * @param webhookUrl Webhook 地址
-     * @return 推送结果（success / message / data），并在需要时附带状态码与响应内容
+     * @param enterpriseId 企业ID
+     * @param webhookId 已登记的Webhook ID
+     * @param idempotencyKey 幂等键
+     * @param userId 操作用户ID
+     * @return 推送结果（success / message / data）
      */
     @Override
-    public Map<String, Object> pushOutputArtifactWebhook(String sessionId, String format, String webhookUrl) {
+    public Map<String, Object> pushOutputArtifactWebhook(String sessionId, String format, Long enterpriseId,
+                                                          Long webhookId, String idempotencyKey, Long userId) {
         Map<String, Object> result = new HashMap<>();
 
         // 校验会话是否存在及归属，防止越权访问或将他人会话内容推送到外部系统
@@ -480,31 +482,12 @@ public class AigcServiceImpl implements IAigcService {
             return result;
         }
 
-        // Webhook 地址属于外部输入，推送前必须校验格式与协议，避免无效请求或非法协议带来的风险
-        if (webhookUrl == null || webhookUrl.trim().isEmpty()) {
+        if (enterpriseId == null || webhookId == null || idempotencyKey == null || idempotencyKey.isBlank()) {
             result.put("success", false);
-            result.put("message", "Webhook 地址格式错误");
+            result.put("message", "Webhook目标或幂等键无效");
             result.put("data", null);
             return result;
         }
-        try {
-            URI uri = new URI(webhookUrl.trim());
-            String scheme = uri.getScheme();
-            if (scheme == null || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))) {
-                result.put("success", false);
-                result.put("message", "Webhook 地址格式错误");
-                result.put("data", null);
-                return result;
-            }
-        } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", "Webhook 地址格式错误");
-            result.put("data", null);
-            return result;
-        }
-
-        String body;
-        String contentType = "application/json";
 
         try {
             String content;
@@ -549,62 +532,21 @@ public class AigcServiceImpl implements IAigcService {
                 content = "AI输出物\n\n" + title + "\n\n" + artifactContent;
             }
 
-            // 当前版本统一按企业微信机器人 text 消息体发送，后续若扩展更多平台可在此处做适配
-            Map<String, Object> wecomBody = new HashMap<>();
-            wecomBody.put("msgtype", "text");
-
-            Map<String, Object> textBody = new HashMap<>();
-            textBody.put("content", content);
-
-            wecomBody.put("text", textBody);
-            body = JSON.toJSONString(wecomBody);
-
-            // 使用独立 HTTP 请求向外部系统推送，避免与内部业务调用链耦合
-            RestTemplate restTemplate = new RestTemplate();
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("Content-Type", contentType);
-            headers.set("X-Source", "福帮手");
-
-            HttpEntity<String> entity = new HttpEntity<>(body, headers);
-
-            // 发起推送请求，并记录外部系统的响应结果，便于后续排查网络或服务端问题
-            ResponseEntity<String> response =
-                    restTemplate.postForEntity(webhookUrl, entity, String.class);
-
-            int statusCode = response.getStatusCodeValue();
-            String responseBody = response.getBody();
-
-            // 非 2xx 响应统一视为推送失败，并保留状态码与响应体用于定位问题
-            if (statusCode < 200 || statusCode >= 300) {
-                log.error("[输出物推送] 推送失败 - sessionId: {}, webhookUrl: {}, statusCode: {}, responseBody: {}",
-                        sessionId, webhookUrl, statusCode, responseBody);
-
-                result.put("success", false);
-                result.put("message", "推送失败，请检查 URL 与网络");
-                result.put("statusCode", statusCode);
-                result.put("responseBody", responseBody);
-                result.put("data", null);
-                return result;
-            }
-
-            log.info("[输出物推送] 推送成功 - sessionId: {}, webhookUrl: {}, statusCode: {}",
-                    sessionId, webhookUrl, statusCode);
-
-            result.put("success", true);
-            result.put("statusCode", statusCode);
-            result.put("responseBody", responseBody);
-            result.put("message", "推送成功");
-            result.put("data", null);
+            WebhookDeliveryReceipt receipt = messageService.send(
+                    new WebhookSendRequest(enterpriseId, webhookId, idempotencyKey,
+                            "AI输出物", content, null), userId);
+            boolean accepted = "PROVIDER_ACCEPTED".equals(receipt.status());
+            result.put("success", accepted);
+            result.put("message", accepted ? "企微接口已接受" : "投递状态：" + receipt.status());
+            result.put("data", receipt);
             return result;
 
         } catch (Exception e) {
-            // 推送链路受网络、目标服务可用性等外部因素影响较大，异常需记录完整上下文便于排查
-            log.error("[输出物推送] 推送异常 - sessionId: {}, webhookUrl: {}, 错误类型: {}, 错误信息: {}",
-                    sessionId, webhookUrl, e.getClass().getSimpleName(), e.getMessage());
+            log.error("[输出物推送] 推送异常 - sessionId: {}, enterpriseId: {}, webhookId: {}, 错误类型: {}",
+                    sessionId, enterpriseId, webhookId, e.getClass().getSimpleName());
 
             result.put("success", false);
-            result.put("message", "推送失败，请检查 URL 与网络");
+            result.put("message", "推送失败");
             result.put("data", null);
             return result;
         }

@@ -3,6 +3,7 @@ package com.wx.fbsir;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * 启动程序
@@ -10,6 +11,7 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
  * @author WxFbsir
  */
 @SpringBootApplication(exclude = { DataSourceAutoConfiguration.class })
+@EnableScheduling
 public class WxFbsirApplication
 {
     public static void main(String[] args)

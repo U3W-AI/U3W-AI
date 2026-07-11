@@ -190,7 +190,19 @@ aes:
     # 生产环境建议使用环境变量：WXFBSIR_AES_SECRET_KEY
     # 此密钥用于加密敏感数据（如公众号AppID、AppSecret等）
     # 密钥复杂度：包含大小写字母、数字、特殊符号，长度64位
-    key: ${WXFBSIR_AES_SECRET_KEY:WxFbsir2025SecretKey@#$%^&*()}
+    key: ${WXFBSIR_AES_SECRET_KEY:}
+
+# 企业微信消息推送密钥使用独立的可轮换版本密钥；不得提交默认密钥。
+webhook:
+  # 可写入消息卡片的U3W签名跳转域名，逗号分隔；空值时禁用行动链接。
+  action-hosts: ${WXFBSIR_WEBHOOK_ACTION_HOSTS:}
+  delivery:
+    sweep-ms: ${WXFBSIR_WEBHOOK_SWEEP_MS:60000}
+  crypto:
+    current-version: ${WXFBSIR_WEBHOOK_KEY_VERSION:v1}
+    keys:
+      v1: ${WXFBSIR_WEBHOOK_SECRET_KEY_V1:}
+      v2: ${WXFBSIR_WEBHOOK_SECRET_KEY_V2:}
 
 # Gitee OAuth配置
 gitee:

@@ -443,24 +443,26 @@ public class AigcController extends BaseController {
     }
 
     /**
-     * 推送当前会话的输出物到指定 Webhook 地址
+     * 推送当前会话的输出物到已登记的企业 Webhook
      *
      * 设计说明：
-     * 1. 前端传入 sessionId、format 和 webhookUrl，由后端统一构造推送内容
+     * 1. 前端只传入 sessionId、format、enterpriseId 和 webhookId，不接收原始密钥
      * 2. 推送逻辑依赖导出结果，保证推送内容与导出数据一致
      * 3. 参数校验在入口完成，避免无效请求进入推送流程
      *
-     * @param params 请求参数（包含 sessionId、format、webhookUrl）
+     * @param params 请求参数（包含 sessionId、format、enterpriseId、webhookId、idempotencyKey）
      * @return 推送结果
      */
     @PreAuthorize("@ss.hasPermi('business:output:pushWebhook')")
     @PostMapping("/output/pushWebhook")
-    @Log(title = "推送输出物到Webhook", businessType = BusinessType.OTHER)
+    @Log(title = "推送输出物到Webhook", businessType = BusinessType.OTHER, isSaveRequestData = false)
     public AjaxResult pushWebhook(@RequestBody Map<String, Object> params) {
         try {
             String sessionId = (String) params.get("sessionId");
             String format = (String) params.get("format");
-            String webhookUrl = (String) params.get("webhookUrl");
+            Number enterpriseIdValue = (Number) params.get("enterpriseId");
+            Number webhookIdValue = (Number) params.get("webhookId");
+            String idempotencyKey = (String) params.get("idempotencyKey");
 
             // 关键参数缺失时直接拦截，避免进入后续推送逻辑
             if (sessionId == null || sessionId.isEmpty()) {
@@ -469,25 +471,25 @@ public class AigcController extends BaseController {
             if (format == null || format.isEmpty()) {
                 return AjaxResult.error("format不能为空");
             }
-            if (webhookUrl == null || webhookUrl.isEmpty()) {
-                return AjaxResult.error("webhookUrl不能为空");
+            if (enterpriseIdValue == null || webhookIdValue == null) {
+                return AjaxResult.error("企业和Webhook不能为空");
+            }
+            if (idempotencyKey == null || idempotencyKey.isBlank()) {
+                return AjaxResult.error("idempotencyKey不能为空");
             }
 
             Map<String, Object> result =
-                    aigcService.pushOutputArtifactWebhook(sessionId, format, webhookUrl);
-
-            // 业务失败时透传具体错误信息（如URL非法、推送失败等）
-            if (Boolean.FALSE.equals(result.get("success"))) {
-                return AjaxResult.error(String.valueOf(result.get("message")));
-            }
+                    aigcService.pushOutputArtifactWebhook(sessionId, format,
+                            enterpriseIdValue.longValue(), webhookIdValue.longValue(),
+                            idempotencyKey, com.wx.fbsir.common.utils.SecurityUtils.getUserId());
 
             return AjaxResult.success(result);
 
         } catch (Exception e) {
-            logger.error("[输出物推送] 接口异常 - sessionId: {}, format: {}, webhookUrl: {}, 错误类型: {}, 错误信息: {}",
-                    params.get("sessionId"), params.get("format"), params.get("webhookUrl"),
-                    e.getClass().getSimpleName(), e.getMessage());
-            return AjaxResult.error("推送Webhook失败: " + e.getMessage());
+            logger.error("[输出物推送] 接口异常 - sessionId: {}, format: {}, enterpriseId: {}, webhookId: {}, 错误类型: {}",
+                    params.get("sessionId"), params.get("format"), params.get("enterpriseId"), params.get("webhookId"),
+                    e.getClass().getSimpleName());
+            return AjaxResult.error("推送Webhook失败");
         }
     }
 
