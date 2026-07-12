@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.truthspine.mapper.TruthSpineReceiptBatchMapper">
+    <resultMap id="TruthSpineReceiptBatchResult" type="com.wx.fbsir.business.truthspine.domain.TruthSpineReceiptBatch">
+        <id property="batchId" column="batch_id"/>
+        <result property="workloadId" column="workload_id"/>
+        <result property="idempotencyKey" column="idempotency_key"/>
+        <result property="invocationId" column="invocation_id"/>
+        <result property="productId" column="product_id"/>
+        <result property="bindingHash" column="binding_hash"/>
+        <result property="hostReceiptHash" column="host_receipt_hash"/>
+        <result property="signerKeyId" column="signer_key_id"/>
+        <result property="payloadSha256" column="payload_sha256"/>
+        <result property="stateClass" column="state_class"/>
+        <result property="verificationStatus" column="verification_status"/>
+        <result property="status" column="status"/>
+        <result property="productCreditEligible" column="product_credit_eligible"/>
+        <result property="businessClosureEligible" column="business_closure_eligible"/>
+        <result property="verifiedAt" column="verified_at"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <select id="selectByWorkloadAndIdempotencyKeyForUpdate" resultMap="TruthSpineReceiptBatchResult">
+        SELECT batch_id, workload_id, idempotency_key, invocation_id, product_id, binding_hash, host_receipt_hash,
+               signer_key_id, payload_sha256, state_class, verification_status, status,
+               product_credit_eligible, business_closure_eligible, verified_at, create_time
+        FROM fbs_truth_spine_receipt_batch
+        WHERE workload_id = #{workloadId}
+          AND idempotency_key = #{idempotencyKey}
+        FOR UPDATE
+    </select>
+
+    <insert id="insertIfAbsent">
+        INSERT INTO fbs_truth_spine_receipt_batch
+            (batch_id, workload_id, idempotency_key, invocation_id, product_id, binding_hash, host_receipt_hash,
+             signer_key_id, payload_sha256, state_class, verification_status, status,
+             product_credit_eligible, business_closure_eligible, verified_at, create_time)
+        VALUES
+            (#{batchId}, #{workloadId}, #{idempotencyKey}, #{invocationId}, #{productId}, #{bindingHash}, #{hostReceiptHash},
+             #{signerKeyId}, #{payloadSha256}, #{stateClass}, #{verificationStatus}, #{status},
+             #{productCreditEligible}, #{businessClosureEligible}, #{verifiedAt}, NOW())
+        ON DUPLICATE KEY UPDATE idempotency_key = VALUES(idempotency_key)
+    </insert>
+</mapper>
