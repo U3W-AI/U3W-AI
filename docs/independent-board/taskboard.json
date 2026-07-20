@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the submitted 26.7.20 expert package.",
-  "singleNextAction": "Lock the W4b OAuth 2.1, PKCE S256, PRM/AS metadata, token-family and MCP resource-server contract on top of the verified W4a internal binding port; keep public routes closed until its negative matrix is executable.",
+  "singleNextAction": "Implement and verify the W4b.1 public_init_033 schema, W4a orchestration-port repair, digest-only authorization artifacts and token-family internal services; keep every public OAuth/MCP route and detailed me/admin page closed.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -82,8 +82,8 @@
     },
     {
       "id": "W4_OAUTH_CONNECTOR",
-      "state": "w4a_verified_local_w4b_pending",
-      "activeSlice": "W4b_oauth_and_mcp_contract",
+      "state": "w4a_verified_local_w4b_contract_locked",
+      "activeSlice": "W4b_1_internal_oauth_foundation",
       "completedSubset": [
         "repository_first_conflict_resolution",
         "existing_fbs_connector_preserved_as_single_marketplace_entry",
@@ -93,7 +93,12 @@
         "authoritative_binding_three_table_migration_and_exact_current_read_verified",
         "immutable_binding_receipts_and_entitlement_revoke_linkage_verified",
         "mysql_8_4_partial_state_drift_lock_and_repeatable_read_scope_race_matrix_passed",
-        "full_backend_http_frontend_and_prior_menu_regression_passed"
+        "full_backend_http_frontend_and_prior_menu_regression_passed",
+        "w4b_current_mcp_and_published_oauth_rfc_contract_locked",
+        "w4b_unauthenticated_profile_constrained_dcr_and_loopback_contract_locked",
+        "w4b_opaque_digest_only_token_family_and_replay_contract_locked",
+        "w4b_external_inputs_hashed_as_non_runtime_provenance",
+        "w4b_public_routes_and_detailed_ui_remain_closed"
       ],
       "exit": [
         "oauth_metadata_and_prm",

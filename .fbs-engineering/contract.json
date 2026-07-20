@@ -62,6 +62,8 @@
     "w4aConnectorBindingContract": "docs/independent-board/W4A-AUTHORITATIVE-CONNECTOR-BINDING-CONTRACT.md",
     "w4aConnectorBindingMigration": "sql/update_20260721_independent_board_connector_binding.sql",
     "w4aVerificationReport": "reports/independent-board/w4a-authoritative-connector-binding-verification-20260721.json",
+    "w4bAuthorizationContract": "docs/independent-board/W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md",
+    "w4bInputEvidence": "docs/independent-board/W4B-INPUT-EVIDENCE.json",
     "w2VerificationReport": "reports/independent-board/w2-user-portal-verification-20260720.json",
     "w3VerificationReport": "reports/independent-board/w3-admin-portal-verification-20260720.json",
     "w3bVerificationReport": "reports/independent-board/w3b-entitlement-lifecycle-verification-20260720.json",
@@ -261,6 +263,22 @@
           "board.meeting.reserve",
           "board.receipt.write"
         ]
+      },
+      "w4bImplementation": {
+        "state": "contract_locked_design_only",
+        "contract": "docs/independent-board/W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md",
+        "inputEvidence": "docs/independent-board/W4B-INPUT-EVIDENCE.json",
+        "issuer": "https://api2.u3w.com",
+        "resourceUri": "https://api2.u3w.com/fbs-mcp/mcp",
+        "protocolBaseline": "MCP_2025_11_25_and_published_OAuth_RFCs_aligned_with_OAuth_2_1_draft_15",
+        "tokenProfile": "opaque_digest_only_access_10m_refresh_family_absolute_30d",
+        "clientRegistration": "unauthenticated_profile_constrained_dcr_for_workbuddy_compatibility_not_host_identity_proof",
+        "publicRoutes": "closed_until_executable_negative_matrix_passes",
+        "detailedUiPrototype": {
+          "state": "required_not_yet_confirmed",
+          "productionImplementationAllowed": false,
+          "unlockCondition": "explicit_user_confirmation_after_detailed_oauth_connector_prototype"
+        }
       },
       "mustReuse": [
         "FBSir-ui/src/layout",

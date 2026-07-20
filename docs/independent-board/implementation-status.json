@@ -5,7 +5,7 @@
     "brandEn": "FBSir",
     "name": "独董会"
   },
-  "platformVersion": "0.4.0-dev",
+  "platformVersion": "0.4.1-dev",
   "expertPackage": {
     "version": "26.7.20",
     "state": "submitted_for_review",
@@ -34,6 +34,8 @@
     "FBSir-ui/src/views/business/independentBoard/admin/meetingAudit/index.vue",
     "docs/independent-board/W3B-ENTITLEMENT-LIFECYCLE-CONTRACT.md",
     "docs/independent-board/W4A-AUTHORITATIVE-CONNECTOR-BINDING-CONTRACT.md",
+    "docs/independent-board/W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md",
+    "docs/independent-board/W4B-INPUT-EVIDENCE.json",
     "docs/independent-board/PORTAL-PROTOTYPE-SPEC.md",
     "docs/independent-board/prototypes/portals/index.html",
     "reports/independent-board/w2-user-portal-verification-20260720.json",
@@ -91,10 +93,19 @@
     "w4a_connector_batch_current_read_is_bounded_and_plan_joined_without_connector_n_plus_one",
     "w4a_current_vip_plan_missing_disabled_or_field_drift_fails_closed_across_single_and_batch_reads",
     "w4a_vip_downgrade_terminalizes_binding_and_reupgrade_requires_w4b_reauthorization",
-    "w4a_full_backend_http_security_frontend_and_prior_menu_regression_passed"
+    "w4a_full_backend_http_security_frontend_and_prior_menu_regression_passed",
+    "w4b_mcp_2025_11_25_and_published_oauth_rfc_contract_locked",
+    "w4b_oauth_2_1_status_correctly_bounded_to_draft_15_alignment",
+    "w4b_unauthenticated_profile_constrained_dcr_loopback_and_exact_resource_contract_locked",
+    "w4b_opaque_digest_only_token_family_rotation_and_replay_contract_locked",
+    "w4b_external_inputs_hashed_without_runtime_or_build_dependency",
+    "w4b_public_routes_and_detailed_oauth_ui_remain_closed"
   ],
   "notProven": [
+    "oauth_schema_and_internal_services",
+    "oauth_public_routes",
     "oauth_end_to_end",
+    "w4b_detailed_me_admin_prototype_confirmation",
     "production_database_migration",
     "me_portal_production_runtime",
     "admin_portal_production_runtime",
@@ -127,6 +138,7 @@
     ],
     "adminAccessModel": "global_system_admin_only",
     "connectorAction": "deferred_to_W4_oauth_connector",
+    "w4bDetailedPrototype": "required_not_yet_confirmed",
     "watchAndWebhookDeepPages": "deferred_to_W5_delivery_and_watch"
   },
   "w4a": {
@@ -151,5 +163,19 @@
       "board.receipt.write"
     ]
   },
-  "updatedAt": "2026-07-21T02:18:31+08:00"
+  "w4b": {
+    "state": "contract_locked_design_only",
+    "contract": "docs/independent-board/W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md",
+    "inputEvidence": "docs/independent-board/W4B-INPUT-EVIDENCE.json",
+    "issuer": "https://api2.u3w.com",
+    "resourceUri": "https://api2.u3w.com/fbs-mcp/mcp",
+    "mcpAuthorizationVersion": "2025-11-25",
+    "oauth21Status": "aligned_with_draft_15_not_rfc_compliant_claim",
+    "clientRegistration": "unauthenticated_profile_constrained_dcr_for_workbuddy_compatibility_not_host_identity_proof",
+    "tokenProfile": "opaque_digest_only_access_10m_refresh_family_absolute_30d",
+    "publicRoutes": "closed",
+    "detailedUiPrototype": "required_not_yet_confirmed",
+    "nextSlice": "public_init_033_and_internal_services"
+  },
+  "updatedAt": "2026-07-21T02:42:00+08:00"
 }

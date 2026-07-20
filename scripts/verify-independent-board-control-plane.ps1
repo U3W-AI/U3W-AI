@@ -45,6 +45,8 @@ function Invoke-ContractChecks {
         'docs\independent-board\PORTAL-PROTOTYPE-SPEC.md',
         'docs\independent-board\W3B-ENTITLEMENT-LIFECYCLE-CONTRACT.md',
         'docs\independent-board\W4A-AUTHORITATIVE-CONNECTOR-BINDING-CONTRACT.md',
+        'docs\independent-board\W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md',
+        'docs\independent-board\W4B-INPUT-EVIDENCE.json',
         'docs\independent-board\prototypes\portals\index.html',
         'sql\update_20260720_independent_board_control_plane.sql',
         'sql\update_20260720_independent_board_me_menu.sql',
@@ -92,6 +94,39 @@ function Invoke-ContractChecks {
         -Source 'implementation status'
     Assert-ProductBrand -Product (Read-Utf8Json -RelativePath 'reports\independent-board\w4a-authoritative-connector-binding-verification-20260721.json').product `
         -Source 'W4a verification report'
+    $w4bEvidence = Read-Utf8Json -RelativePath 'docs\independent-board\W4B-INPUT-EVIDENCE.json'
+    Assert-ProductBrand -Product $w4bEvidence.product -Source 'W4b input evidence'
+    if ($w4bEvidence.runtimeDependency -ne $false -or $w4bEvidence.buildDependency -ne $false) {
+        throw 'W4b external evidence must not become a runtime or build dependency'
+    }
+    if (@($w4bEvidence.sources).Count -ne 4) {
+        throw 'W4b input evidence must contain the four fixed provenance records'
+    }
+    $expectedW4bHashes = @(
+        'f7c0adf634f373f125352181b6a5a20e20c5c256751ea5ed72fc3e9b6c3fb1dc',
+        '1a025b8adeda795f0c87c1169497f431b7a2fc9f2e7405e968050c20d2ae6cf3',
+        'ff844050977bf99d4bffba572b1daf86a0feda74bfb44a9233dea8b853b12e76',
+        'ebbac0da1c7a4d5427ef76953fba8946c1dafe354617a5b0a48c4538cfa3cdb6'
+    )
+    $actualW4bHashes = @($w4bEvidence.sources | ForEach-Object { $_.sha256 })
+    if ((Compare-Object -ReferenceObject $expectedW4bHashes -DifferenceObject $actualW4bHashes).Count -ne 0) {
+        throw 'W4b input evidence hash set drifted'
+    }
+
+    $w4bContract = Get-Content -LiteralPath (Join-Path $RepoRoot 'docs\independent-board\W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md') -Raw -Encoding UTF8
+    foreach ($marker in @(
+        'contract_locked_design_only',
+        'https://api2.u3w.com/fbs-mcp/mcp',
+        'https://api2.u3w.com/.well-known/oauth-protected-resource/fbs-mcp/mcp',
+        'code_challenge_method=S256',
+        'WorkBuddy',
+        'PENDING_BINDING',
+        'public_init_033',
+        'N45')) {
+        if (-not $w4bContract.Contains($marker)) {
+            throw "W4b authorization contract is missing required marker: $marker"
+        }
+    }
 
     $ExpectedBrandZh = -join @([char]0x798F, [char]0x5E2E, [char]0x624B)
     $ExpectedProductName = -join @([char]0x72EC, [char]0x8463, [char]0x4F1A)

@@ -1,0 +1,49 @@
+{
+  "schema": "fbsir.independent-board.w4b-input-evidence/v1",
+  "product": {
+    "brandZh": "福帮手",
+    "brandEn": "FBSir",
+    "name": "独董会"
+  },
+  "capturedAt": "2026-07-21T02:42:00+08:00",
+  "classification": "read_only_external_design_provenance",
+  "runtimeDependency": false,
+  "buildDependency": false,
+  "copyIntoRepository": false,
+  "precedence": "repository_and_current_standards_override_historical_examples",
+  "sources": [
+    {
+      "fileName": "WorkBuddy+专家开发规范2.3.md",
+      "length": 37875,
+      "sha256": "f7c0adf634f373f125352181b6a5a20e20c5c256751ea5ed72fc3e9b6c3fb1dc",
+      "usage": "expert_package_contract_only_not_oauth_authority"
+    },
+    {
+      "fileName": "WorkBuddy Connector 第三方开发者对接规范.pdf",
+      "length": 552427,
+      "sha256": "1a025b8adeda795f0c87c1169497f431b7a2fc9f2e7405e968050c20d2ae6cf3",
+      "usage": "connector_host_and_oauth_integration_context"
+    },
+    {
+      "fileName": "MCP OAuth 交互流程.docx",
+      "length": 11762,
+      "sha256": "ff844050977bf99d4bffba572b1daf86a0feda74bfb44a9233dea8b853b12e76",
+      "usage": "workbuddy_dcr_loopback_pkce_sequence_with_current_standard_corrections"
+    },
+    {
+      "fileName": "mcp-oauth-demo.zip",
+      "length": 14863,
+      "sha256": "ebbac0da1c7a4d5427ef76953fba8946c1dafe354617a5b0a48c4538cfa3cdb6",
+      "usage": "interaction_example_only_never_runtime_or_code_source"
+    }
+  ],
+  "corrections": [
+    "oauth2_1_is_draft_15_not_an_rfc",
+    "token_and_revocation_requests_are_form_urlencoded_not_json",
+    "resource_is_required_in_authorization_token_and_refresh_requests",
+    "metadata_discovery_failure_is_fail_closed_without_endpoint_guessing",
+    "opaque_tokens_require_exact_server_side_resource_identity_scope_family_and_live_vip_validation",
+    "dcr_without_iat_or_signed_host_proof_is_unauthenticated_and_cannot_prove_workbuddy_identity",
+    "only_a_profile_constrained_public_client_registration_may_be_enabled_after_negative_tests"
+  ]
+}
