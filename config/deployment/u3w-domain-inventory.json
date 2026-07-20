@@ -2,37 +2,44 @@
   "schema": "fbsir.u3w-domain-inventory/v1",
   "authoritativeSource": "this_repository",
   "alignmentKey": "gitCommit",
-  "inventoryState": "initial_repository_inventory",
+  "inventoryState": "declared_inventory_with_live_reachability_readback",
+  "observedAt": "2026-07-20T20:28:00+08:00",
+  "discoveryCompleteness": "declared_hosts_only_not_exhaustive_for_all_u3w.com_subdomains",
   "domains": [
     {
       "host": "u3w.com",
       "role": "public_entry",
       "codeSurface": "FBSir-ui",
-      "deploymentState": "requires_live_readback"
+      "deploymentState": "public_page_observed_version_unbound",
+      "reachability": "dns_resolved_browser_https_page_observed_curl_inconclusive"
     },
     {
       "host": "me.u3w.com",
       "role": "vip_user_portal",
       "codeSurface": "FBSir-ui",
-      "deploymentState": "domain_open_runtime_not_proven"
+      "deploymentState": "dns_and_https_route_present_application_not_deployed",
+      "reachability": "https_404"
     },
     {
       "host": "admin.u3w.com",
       "role": "system_administration_portal",
       "codeSurface": "FBSir-ui",
-      "deploymentState": "domain_open_runtime_not_proven"
+      "deploymentState": "dns_and_https_route_present_application_not_deployed",
+      "reachability": "https_404"
     },
     {
       "host": "api2.u3w.com",
       "role": "runtime_and_mcp_api",
       "codeSurface": "FBSir-admin,FBSir-business",
-      "deploymentState": "requires_current_service_alignment"
+      "deploymentState": "service_reachable_version_unbound",
+      "reachability": "https_200"
     },
     {
       "host": "track.u3w.com",
       "role": "receipt_and_action_tracking",
       "codeSurface": "FBSir-business",
-      "deploymentState": "repository_reference_only"
+      "deploymentState": "repository_reference_only_dns_absent",
+      "reachability": "dns_absent"
     }
   ],
   "rules": [

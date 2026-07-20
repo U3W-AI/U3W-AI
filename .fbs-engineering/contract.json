@@ -23,13 +23,23 @@
       "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-control-plane.ps1 -Mode All",
       "cwd": ".",
       "timeout_ms": 900000
+    },
+    "database-live": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-live-database.ps1 -Database $env:U3W_LIVE_TEST_DATABASE -LoginPath $env:U3W_LIVE_TEST_LOGIN_PATH -MySqlExe $env:U3W_MYSQL_EXE -Json",
+      "cwd": ".",
+      "timeout_ms": 900000
+    },
+    "database-concurrency": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-mysql-concurrency.ps1 -Database $env:U3W_LIVE_TEST_DATABASE -LoginPath $env:U3W_LIVE_TEST_LOGIN_PATH -MySqlExe $env:U3W_MYSQL_EXE",
+      "cwd": ".",
+      "timeout_ms": 300000
     }
   },
   "artifacts": {
     "taskboard": "docs/independent-board/taskboard.json",
     "status": "docs/independent-board/implementation-status.json",
     "domainInventory": "config/deployment/u3w-domain-inventory.json",
-    "migrations": "sql/independent-board/*.sql",
+    "migrations": "sql/update_20260720_independent_board_control_plane.sql",
     "verificationReports": "reports/independent-board/*.json"
   },
   "policy": {
@@ -54,9 +64,14 @@
         "verify"
       ]
     },
+    "w1ScratchEvidenceCommands": [
+      "database-live",
+      "database-concurrency"
+    ],
     "requiresContractDrivenFlow": true,
     "submittedExpertPackageFrozen": true,
-    "productionWriteRequiresApproval": true
+    "productionWriteRequiresApproval": true,
+    "staticVerificationCannotProveLiveDatabase": true
   },
   "workflows": {
     "assess": [
@@ -78,7 +93,14 @@
       "externalDirectoryDependency": "forbidden",
       "runtimeAssetsMustBeRepositoryRelative": true,
       "githubRemote": "https://github.com/U3W-AI/U3W-AI.git",
-      "alignmentRule": "one_commit_one_migration_manifest_one_deployment_receipt"
+      "alignmentRule": "one_commit_one_migration_manifest_one_deployment_receipt",
+      "conflictPrecedence": [
+        "repository_contract_and_current_product_principles",
+        "repository_current_code_tests_and_migrations",
+        "github_same_commit_state",
+        "current_service_readback",
+        "historical_external_materials"
+      ]
     },
     "frozenSurface": {
       "productId": "fbsir-eight-seat-board",
@@ -91,10 +113,27 @@
       "userPortal": "https://me.u3w.com",
       "adminPortal": "https://admin.u3w.com",
       "domainInventory": "config/deployment/u3w-domain-inventory.json",
+      "frontendBase": "FBSir-ui existing RuoYi Vue 3 and Element Plus shell",
+      "reuseRule": "extend_existing_identity_role_menu_permission_layout_and_component_system",
+      "parallelFrontendFramework": "forbidden",
       "controlOwner": "U3W",
       "runtimeOwner": "FBSir Hub and approved runtime adapters",
       "systemOfRecordOwner": "U3W plus bound first-party systems",
       "tenantRequiredForPersonalUsers": true
+    },
+    "uiPrototypeGate": {
+      "prototype": "docs/independent-board/prototypes/portals/index.html",
+      "specification": "docs/independent-board/PORTAL-PROTOTYPE-SPEC.md",
+      "productionUiImplementationAllowed": false,
+      "unlockCondition": "explicit_user_confirmation",
+      "mustReuse": [
+        "FBSir-ui/src/layout",
+        "FBSir-ui/src/router",
+        "FBSir-ui/src/store/modules/permission.js",
+        "FBSir-ui/src/utils/request.js",
+        "Element Plus",
+        "existing menu and permission conventions"
+      ]
     },
     "identityAndEntitlement": {
       "identityRefs": [

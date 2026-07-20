@@ -1,0 +1,50 @@
+{
+  "schema": "fbsir.independent-board-w1-database-verification/v1",
+  "classification": "public_safe_verification_summary",
+  "containsSecrets": false,
+  "observedAt": "2026-07-20T20:45:00+08:00",
+  "runtime": {
+    "database": "MySQL 8.4.8",
+    "binding": "isolated_localhost_scratch",
+    "sourceCommit": "recorded_by_enclosing_git_commit"
+  },
+  "manifest": {
+    "steps": 28,
+    "managedUpdateSql": 25,
+    "firstApply": "PASS",
+    "completedRerun": "PASS",
+    "readOnlyCurrentRead": "PASS"
+  },
+  "negativeEvidence": {
+    "schemaDriftDetected": true,
+    "restoredCurrentReadPassed": true,
+    "actualFailedMigrationReceiptObserved": true,
+    "manifestLockFreeAfterFailure": true,
+    "truthSpineLockFreeAfterFailure": true
+  },
+  "concurrency": {
+    "workers": 32,
+    "dailyLimit": 5,
+    "budgetSuccess": 5,
+    "budgetRejected": 27,
+    "sameTenantIdempotencyInsertSuccess": 1,
+    "sameTenantIdempotencyDuplicates": 31,
+    "crossTenantSameOperationIdSuccess": 2,
+    "testRowsRemainingAfterCleanup": 0
+  },
+  "repositoryRegression": {
+    "backendTests": 488,
+    "backendFailures": 0,
+    "independentBoardTests": 17,
+    "frontendMenuContract": "PASS",
+    "frontendProductionBuild": "PASS",
+    "documentConsistencyFindings": 0,
+    "engineeringContract": "PASS"
+  },
+  "notProven": [
+    "spring_service_to_mysql_transaction_and_rollback_matrix",
+    "spring_http_jwt_and_admin_scope_integration",
+    "production_database_migration",
+    "production_deployment"
+  ]
+}

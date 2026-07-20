@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.board.mapper.IndependentBoardMapper">
+
+    <resultMap id="MemberScope" type="com.wx.fbsir.business.board.domain.BoardEnterpriseMemberScope">
+        <id property="memberId" column="member_id" />
+        <result property="tenantId" column="tenant_id" />
+        <result property="userId" column="user_id" />
+        <result property="status" column="status" />
+        <result property="delFlag" column="del_flag" />
+    </resultMap>
+
+    <resultMap id="Plan" type="com.wx.fbsir.business.board.domain.BoardProductPlan">
+        <result property="productCode" column="product_code" />
+        <result property="planCode" column="plan_code" />
+        <result property="vip" column="vip" />
+        <result property="connectorRequired" column="connector_required" />
+        <result property="dailyMeetingLimit" column="daily_meeting_limit" />
+        <result property="agendaLimit" column="agenda_limit" />
+        <result property="seatLimit" column="seat_limit" />
+        <result property="secretaryEnabled" column="secretary_enabled" />
+        <result property="status" column="status" />
+    </resultMap>
+
+    <resultMap id="Entitlement" type="com.wx.fbsir.business.board.domain.BoardProductEntitlement">
+        <id property="id" column="id" />
+        <result property="tenantId" column="enterprise_id" />
+        <result property="memberId" column="member_id" />
+        <result property="userId" column="user_id" />
+        <result property="productCode" column="product_code" />
+        <result property="planCode" column="plan_code" />
+        <result property="status" column="status" />
+        <result property="connectorBindingId" column="connector_binding_id" />
+        <result property="connectorVerifiedAt" column="connector_verified_at" />
+        <result property="validFrom" column="valid_from" />
+        <result property="validUntil" column="valid_until" />
+        <result property="version" column="version" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <resultMap id="Budget" type="com.wx.fbsir.business.board.domain.BoardUsageBudget">
+        <id property="id" column="id" />
+        <result property="tenantId" column="enterprise_id" />
+        <result property="memberId" column="member_id" />
+        <result property="productCode" column="product_code" />
+        <result property="metricCode" column="metric_code" />
+        <result property="bucketDate" column="bucket_date" />
+        <result property="dailyLimit" column="daily_limit" />
+        <result property="reservedCount" column="reserved_count" />
+        <result property="usedCount" column="used_count" />
+        <result property="version" column="version" />
+    </resultMap>
+
+    <resultMap id="Operation" type="com.wx.fbsir.business.board.domain.BoardUsageOperation">
+        <id property="id" column="id" />
+        <result property="operationId" column="operation_id" />
+        <result property="requestDigest" column="request_digest" />
+        <result property="tenantId" column="enterprise_id" />
+        <result property="memberId" column="member_id" />
+        <result property="userId" column="user_id" />
+        <result property="productCode" column="product_code" />
+        <result property="metricCode" column="metric_code" />
+        <result property="bucketDate" column="bucket_date" />
+        <result property="units" column="units" />
+        <result property="status" column="status" />
+        <result property="effectivePlanCode" column="effective_plan_code" />
+        <result property="agendaCount" column="agenda_count" />
+        <result property="seatCount" column="seat_count" />
+        <result property="remainingCount" column="remaining_count" />
+        <result property="createTime" column="created_at" />
+        <result property="updateTime" column="updated_at" />
+        <result property="completedAt" column="completed_at" />
+    </resultMap>
+
+    <select id="selectActiveMember" resultMap="MemberScope">
+        SELECT id AS member_id, enterprise_id AS tenant_id, user_id, status, del_flag
+        FROM fbs_enterprise_member
+        WHERE enterprise_id = #{tenantId}
+          AND user_id = #{userId}
+          AND status = 1
+          AND del_flag = '0'
+        LIMIT 1
+    </select>
+
+    <select id="selectExactActiveMember" resultMap="MemberScope">
+        SELECT id AS member_id, enterprise_id AS tenant_id, user_id, status, del_flag
+        FROM fbs_enterprise_member
+        WHERE enterprise_id = #{tenantId}
+          AND id = #{memberId}
+          AND user_id = #{userId}
+          AND status = 1
+          AND del_flag = '0'
+        LIMIT 1
+    </select>
+
+    <select id="selectActivePlan" resultMap="Plan">
+        SELECT product_code, plan_code, vip, connector_required, daily_meeting_limit,
+               agenda_limit, seat_limit, secretary_enabled, status
+        FROM fbs_product_plan
+        WHERE product_code = #{productCode}
+          AND plan_code = #{planCode}
+          AND status = 'ACTIVE'
+        LIMIT 1
+    </select>
+
+    <sql id="EntitlementColumns">
+        id, enterprise_id, member_id, user_id, product_code, plan_code, status,
+        connector_binding_id, connector_verified_at, valid_from, valid_until,
+        version, created_at, updated_at
+    </sql>
+
+    <select id="selectEntitlement" resultMap="Entitlement">
+        SELECT <include refid="EntitlementColumns" />
+        FROM fbs_product_entitlement
+        WHERE enterprise_id = #{tenantId}
+          AND member_id = #{memberId}
+          AND user_id = #{userId}
+          AND product_code = #{productCode}
+        LIMIT 1
+    </select>
+
+    <select id="selectEntitlementForUpdate" resultMap="Entitlement">
+        SELECT <include refid="EntitlementColumns" />
+        FROM fbs_product_entitlement
+        WHERE enterprise_id = #{tenantId}
+          AND member_id = #{memberId}
+          AND product_code = #{productCode}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="selectEntitlementsByTenant" resultMap="Entitlement">
+        SELECT <include refid="EntitlementColumns" />
+        FROM fbs_product_entitlement
+        WHERE enterprise_id = #{tenantId}
+          AND product_code = #{productCode}
+        ORDER BY updated_at DESC, id DESC
+    </select>
+
+    <insert id="insertEntitlement" parameterType="com.wx.fbsir.business.board.domain.BoardProductEntitlement"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_product_entitlement
+            (enterprise_id, member_id, user_id, product_code, plan_code, status,
+             connector_binding_id, connector_verified_at, valid_from, valid_until,
+             version, created_at, updated_at)
+        VALUES
+            (#{tenantId}, #{memberId}, #{userId}, #{productCode}, #{planCode}, #{status},
+             #{connectorBindingId}, #{connectorVerifiedAt}, #{validFrom}, #{validUntil},
+             #{version}, NOW(), NOW())
+    </insert>
+
+    <update id="updateEntitlementIfVersion">
+        UPDATE fbs_product_entitlement
+        SET user_id = #{entitlement.userId},
+            plan_code = #{entitlement.planCode},
+            status = #{entitlement.status},
+            valid_from = #{entitlement.validFrom},
+            valid_until = #{entitlement.validUntil},
+            version = version + 1,
+            updated_at = NOW()
+        WHERE id = #{entitlement.id}
+          AND version = #{expectedVersion}
+    </update>
+
+    <insert id="insertEntitlementReceipt" parameterType="com.wx.fbsir.business.board.domain.BoardEntitlementReceipt">
+        INSERT INTO fbs_entitlement_receipt
+            (receipt_id, enterprise_id, actor_user_id, target_member_id, action,
+             payload_digest, evidence_level, created_at)
+        VALUES
+            (#{receiptId}, #{tenantId}, #{actorUserId}, #{targetMemberId}, #{action},
+             #{payloadDigest}, #{evidenceLevel}, #{createdAt})
+    </insert>
+
+    <select id="selectUsageBudget" resultMap="Budget">
+        SELECT id, enterprise_id, member_id, product_code, metric_code, bucket_date,
+               daily_limit, reserved_count, used_count, version
+        FROM fbs_usage_budget
+        WHERE enterprise_id = #{tenantId}
+          AND member_id = #{memberId}
+          AND product_code = #{productCode}
+          AND metric_code = #{metricCode}
+          AND bucket_date = #{bucketDate,jdbcType=DATE}
+        LIMIT 1
+    </select>
+
+    <insert id="prepareUsageBudget">
+        INSERT INTO fbs_usage_budget
+            (enterprise_id, member_id, product_code, metric_code, bucket_date,
+             daily_limit, reserved_count, used_count, version, created_at, updated_at)
+        VALUES
+            (#{tenantId}, #{memberId}, #{productCode}, #{metricCode}, #{bucketDate,jdbcType=DATE},
+             #{dailyLimit}, 0, 0, 1, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+            updated_at = NOW()
+    </insert>
+
+    <update id="reserveOneMeeting">
+        UPDATE fbs_usage_budget
+        SET daily_limit = #{dailyLimit},
+            reserved_count = reserved_count + 1,
+            version = version + 1,
+            updated_at = NOW()
+        WHERE enterprise_id = #{tenantId}
+          AND member_id = #{memberId}
+          AND product_code = #{productCode}
+          AND metric_code = #{metricCode}
+          AND bucket_date = #{bucketDate,jdbcType=DATE}
+          AND used_count + reserved_count &lt; #{dailyLimit}
+    </update>
+
+    <select id="selectOperation" resultMap="Operation">
+        SELECT id, operation_id, request_digest, enterprise_id, member_id, user_id,
+               product_code, metric_code, bucket_date, units, status, effective_plan_code,
+               agenda_count, seat_count, remaining_count, created_at, updated_at, completed_at
+        FROM fbs_usage_operation
+        WHERE enterprise_id = #{tenantId}
+          AND operation_id = #{operationId}
+        LIMIT 1
+    </select>
+
+    <select id="selectOperationForUpdate" resultMap="Operation">
+        SELECT id, operation_id, request_digest, enterprise_id, member_id, user_id,
+               product_code, metric_code, bucket_date, units, status, effective_plan_code,
+               agenda_count, seat_count, remaining_count, created_at, updated_at, completed_at
+        FROM fbs_usage_operation
+        WHERE enterprise_id = #{tenantId}
+          AND operation_id = #{operationId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <insert id="insertOperation" parameterType="com.wx.fbsir.business.board.domain.BoardUsageOperation"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_usage_operation
+            (operation_id, request_digest, enterprise_id, member_id, user_id, product_code,
+             metric_code, bucket_date, units, status, effective_plan_code, agenda_count,
+             seat_count, remaining_count, created_at, updated_at)
+        VALUES
+            (#{operationId}, #{requestDigest}, #{tenantId}, #{memberId}, #{userId}, #{productCode},
+             #{metricCode}, #{bucketDate}, #{units}, #{status}, #{effectivePlanCode}, #{agendaCount},
+             #{seatCount}, #{remainingCount}, NOW(), NOW())
+    </insert>
+
+    <update id="markOperationReserved">
+        UPDATE fbs_usage_operation
+        SET status = 'RESERVED',
+            remaining_count = #{remainingCount},
+            updated_at = NOW(),
+            completed_at = NOW()
+        WHERE enterprise_id = #{tenantId}
+          AND operation_id = #{operationId}
+          AND status = 'PENDING'
+    </update>
+
+    <select id="selectOperationsByTenant" resultMap="Operation">
+        SELECT id, operation_id, request_digest, enterprise_id, member_id, user_id,
+               product_code, metric_code, bucket_date, units, status, effective_plan_code,
+               agenda_count, seat_count, remaining_count, created_at, updated_at, completed_at
+        FROM fbs_usage_operation
+        WHERE enterprise_id = #{tenantId}
+          AND product_code = #{productCode}
+        ORDER BY created_at DESC, id DESC
+        LIMIT 500
+    </select>
+</mapper>

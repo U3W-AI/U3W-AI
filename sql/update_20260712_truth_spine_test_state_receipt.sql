@@ -18,7 +18,10 @@ DELIMITER $$
 DROP PROCEDURE IF EXISTS `u3w_migrate_truth_spine_test_state_20260712`$$
 CREATE PROCEDURE `u3w_migrate_truth_spine_test_state_20260712`()
 BEGIN
-    DECLARE migration_lock INT DEFAULT 0;
+    DECLARE migration_lock_name CHAR(64);
+    DECLARE migration_lock_acquired INT DEFAULT 0;
+    DECLARE migration_lock_owner BIGINT DEFAULT NULL;
+    DECLARE current_connection BIGINT DEFAULT 0;
     DECLARE table_exists INT DEFAULT 0;
     DECLARE migration_exists INT DEFAULT 0;
     DECLARE required_columns INT DEFAULT 0;
@@ -29,8 +32,11 @@ BEGIN
     DECLARE storage_engine VARCHAR(64);
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-        IF migration_lock = 1 THEN
-            DO RELEASE_LOCK(CONCAT(DATABASE(), ':20260712_truth_spine_test_state_v1'));
+        IF migration_lock_acquired = 1 THEN
+            SELECT IS_USED_LOCK(migration_lock_name) INTO migration_lock_owner;
+            IF migration_lock_owner = CONNECTION_ID() THEN
+                DO RELEASE_LOCK(migration_lock_name);
+            END IF;
         END IF;
         RESIGNAL;
     END;
@@ -38,10 +44,18 @@ BEGIN
     IF DATABASE() IS NULL OR DATABASE() = '' THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Truth Spine migration requires an explicit target database';
     END IF;
-    SELECT GET_LOCK(CONCAT(DATABASE(), ':20260712_truth_spine_test_state_v1'), 30)
-      INTO migration_lock;
-    IF migration_lock IS NULL OR migration_lock <> 1 THEN
+    SET migration_lock_name = SHA2(CONCAT(DATABASE(), ':20260712_truth_spine_test_state_v1'), 256);
+    IF CHAR_LENGTH(migration_lock_name) <> 64 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Truth Spine migration lock name must be a stable 64-character digest';
+    END IF;
+    SELECT GET_LOCK(migration_lock_name, 30) INTO migration_lock_acquired;
+    IF migration_lock_acquired IS NULL OR migration_lock_acquired <> 1 THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Could not acquire the Truth Spine migration lock';
+    END IF;
+    SELECT IS_USED_LOCK(migration_lock_name), CONNECTION_ID()
+      INTO migration_lock_owner, current_connection;
+    IF migration_lock_owner IS NULL OR migration_lock_owner <> current_connection THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Truth Spine migration lock is not owned by the current connection';
     END IF;
 
     SELECT COUNT(*) INTO table_exists
@@ -150,7 +164,15 @@ BEGIN
     INSERT INTO u3w_schema_migration (`version`, `description`)
     VALUES ('20260712_truth_spine_test_state_v1', 'Truth Spine测试态批次账本、工作负载幂等与零信用约束')
     ON DUPLICATE KEY UPDATE description = VALUES(description);
-    DO RELEASE_LOCK(CONCAT(DATABASE(), ':20260712_truth_spine_test_state_v1'));
+    SELECT IS_USED_LOCK(migration_lock_name) INTO migration_lock_owner;
+    IF migration_lock_owner <> CONNECTION_ID() THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Truth Spine migration lost advisory lock ownership before release';
+    END IF;
+    SELECT RELEASE_LOCK(migration_lock_name) INTO migration_lock_acquired;
+    IF migration_lock_acquired IS NULL OR migration_lock_acquired <> 1 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Truth Spine migration advisory lock release failed';
+    END IF;
+    SET migration_lock_acquired = 0;
 END$$
 
 CALL `u3w_migrate_truth_spine_test_state_20260712`()$$

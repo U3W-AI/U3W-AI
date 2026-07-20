@@ -123,7 +123,7 @@ $sourceAssertions = @(
     @{ rule = 'frontend_multitab_websocket_identity'; path = 'FBSir-ui/src/utils/websocket.js'; pattern = 'clientInstanceId\s*=\s*getWebSocketClientInstanceId\(\)'; message = 'Browser WebSocket connections must retain a per-tab client identity.' },
     @{ rule = 'engine_external_filtered_config'; path = 'FBSir-engine/README.md'; pattern = 'target\\classes\\application\.yml'; message = 'Engine deployment must copy the Maven-filtered external application.yml.' },
     @{ rule = 'database_manifest_quartz_step'; path = 'scripts/init-database.ps1'; pattern = 'New-Step "public_init_002" "Quartz scheduler schema" \(Resolve-SqlFile "quartz\.sql"\)'; message = 'The public database manifest must initialize the Quartz schema immediately after the base schema.' },
-    @{ rule = 'database_manifest_complete_count'; path = 'scripts/init-database.ps1'; pattern = '\$steps\.Count -ne 26'; message = 'The public database manifest must retain all 26 initialization steps.' },
+    @{ rule = 'database_manifest_dynamic_coverage'; path = 'scripts/init-database.ps1'; pattern = 'Database manifest must cover every managed update SQL exactly once'; message = 'The public database manifest must dynamically cover every managed update SQL exactly once.' },
     @{ rule = 'database_manifest_quartz_verification'; path = 'scripts/init-database.ps1'; pattern = "QRTZ_JOB_DETAILS','QRTZ_TRIGGERS','QRTZ_LOCKS"; message = 'Database initialization must verify representative Quartz scheduler tables.' },
     @{ rule = 'source_package_paths_not_ignored'; path = '.gitignore'; pattern = '(?m)^/fbsir/\s*$'; message = 'The FBSir source package path must not be ignored at nested Java source locations.' }
 )
@@ -137,6 +137,17 @@ foreach ($assertion in $sourceAssertions) {
     $sourceText = Get-Content -Raw -Encoding UTF8 $sourcePath
     if ($sourceText -notmatch $assertion.pattern) {
         Add-Finding $assertion.rule $sourcePath 0 '' $assertion.message
+    }
+}
+
+$databaseManifestVerifierPath = Resolve-BrandCompatiblePath 'scripts/verify-database-manifest.ps1'
+if (-not (Test-Path $databaseManifestVerifierPath)) {
+    Add-Finding 'database_manifest_verifier' $databaseManifestVerifierPath 0 '' 'The database manifest coverage verifier is missing.'
+}
+else {
+    $databaseManifestOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File $databaseManifestVerifierPath -Root $Root -Json 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0) {
+        Add-Finding 'database_manifest_verifier_failed' $databaseManifestVerifierPath 0 $databaseManifestOutput 'The database manifest does not cover every managed update SQL exactly once.'
     }
 }
 
@@ -189,8 +200,19 @@ if (-not $repairMigration) {
 }
 
 # Internal plans and runtime evidence may exist locally, but they must not be tracked by Git.
+# This repository deliberately tracks the reviewed Independent Board contract and taskboard
+# as its self-contained source-of-truth pair; the older blanket rule must not override that
+# explicit repository contract.
+$trackedEngineeringAllowlist = @(
+    '.fbs-engineering/contract.json',
+    'docs/independent-board/taskboard.json'
+)
 $trackedPaths = @(& git -C $Root ls-files)
 foreach ($trackedPath in $trackedPaths) {
+    $normalizedTrackedPath = $trackedPath -replace '\\', '/'
+    if ($trackedEngineeringAllowlist -contains $normalizedTrackedPath) {
+        continue
+    }
     if ($trackedPath -match '(^|/)\.fbs-engineering/|U3W-AI-.*\u5355\u4F53\u7CFB\u5B9E\u65BD\u603B\u7EB2|\u5168\u529F\u80FD\u8054\u6D4B\u4E0EBug\u4FEE\u590D\u6E05\u5355|(^|/)(NEXT-ROUND-MEMO|taskboard|contract)') {
         Add-Finding 'public_boundary_internal_artifact' (Join-Path $Root $trackedPath) 0 '' 'Internal engineering material must not be tracked in the public repository.'
     }

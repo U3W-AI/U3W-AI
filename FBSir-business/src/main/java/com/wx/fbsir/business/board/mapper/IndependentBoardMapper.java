@@ -1,0 +1,79 @@
+package com.wx.fbsir.business.board.mapper;
+
+import com.wx.fbsir.business.board.domain.BoardEnterpriseMemberScope;
+import com.wx.fbsir.business.board.domain.BoardEntitlementReceipt;
+import com.wx.fbsir.business.board.domain.BoardProductEntitlement;
+import com.wx.fbsir.business.board.domain.BoardProductPlan;
+import com.wx.fbsir.business.board.domain.BoardUsageBudget;
+import com.wx.fbsir.business.board.domain.BoardUsageOperation;
+import java.time.LocalDate;
+import java.util.List;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+@Mapper
+public interface IndependentBoardMapper {
+    BoardEnterpriseMemberScope selectActiveMember(@Param("tenantId") Long tenantId,
+                                                  @Param("userId") Long userId);
+
+    BoardEnterpriseMemberScope selectExactActiveMember(@Param("tenantId") Long tenantId,
+                                                       @Param("memberId") Long memberId,
+                                                       @Param("userId") Long userId);
+
+    BoardProductPlan selectActivePlan(@Param("productCode") String productCode,
+                                      @Param("planCode") String planCode);
+
+    BoardProductEntitlement selectEntitlement(@Param("tenantId") Long tenantId,
+                                              @Param("memberId") Long memberId,
+                                              @Param("userId") Long userId,
+                                              @Param("productCode") String productCode);
+
+    BoardProductEntitlement selectEntitlementForUpdate(@Param("tenantId") Long tenantId,
+                                                       @Param("memberId") Long memberId,
+                                                       @Param("productCode") String productCode);
+
+    List<BoardProductEntitlement> selectEntitlementsByTenant(@Param("tenantId") Long tenantId,
+                                                            @Param("productCode") String productCode);
+
+    int insertEntitlement(BoardProductEntitlement entitlement);
+
+    int updateEntitlementIfVersion(@Param("entitlement") BoardProductEntitlement entitlement,
+                                   @Param("expectedVersion") Long expectedVersion);
+
+    int insertEntitlementReceipt(BoardEntitlementReceipt receipt);
+
+    BoardUsageBudget selectUsageBudget(@Param("tenantId") Long tenantId,
+                                       @Param("memberId") Long memberId,
+                                       @Param("productCode") String productCode,
+                                       @Param("metricCode") String metricCode,
+                                       @Param("bucketDate") LocalDate bucketDate);
+
+    int prepareUsageBudget(@Param("tenantId") Long tenantId,
+                           @Param("memberId") Long memberId,
+                           @Param("productCode") String productCode,
+                           @Param("metricCode") String metricCode,
+                           @Param("bucketDate") LocalDate bucketDate,
+                           @Param("dailyLimit") Integer dailyLimit);
+
+    int reserveOneMeeting(@Param("tenantId") Long tenantId,
+                          @Param("memberId") Long memberId,
+                          @Param("productCode") String productCode,
+                          @Param("metricCode") String metricCode,
+                          @Param("bucketDate") LocalDate bucketDate,
+                          @Param("dailyLimit") Integer dailyLimit);
+
+    BoardUsageOperation selectOperation(@Param("tenantId") Long tenantId,
+                                        @Param("operationId") String operationId);
+
+    BoardUsageOperation selectOperationForUpdate(@Param("tenantId") Long tenantId,
+                                                 @Param("operationId") String operationId);
+
+    int insertOperation(BoardUsageOperation operation);
+
+    int markOperationReserved(@Param("tenantId") Long tenantId,
+                              @Param("operationId") String operationId,
+                              @Param("remainingCount") Integer remainingCount);
+
+    List<BoardUsageOperation> selectOperationsByTenant(@Param("tenantId") Long tenantId,
+                                                      @Param("productCode") String productCode);
+}

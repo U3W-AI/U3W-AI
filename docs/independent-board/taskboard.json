@@ -1,11 +1,11 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the submitted 26.7.20 expert package.",
-  "singleNextAction": "Complete W1 authenticated VIP entitlement and atomic meeting quota reservation vertical slice.",
+  "singleNextAction": "Prove the W1 services through Spring Security HTTP and real MySQL transaction integration before promotion.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
-      "state": "in_progress",
+      "state": "completed",
       "exit": [
         "standalone_self_contained_repository",
         "valid_engineering_contract",
@@ -16,18 +16,20 @@
     },
     {
       "id": "W1_VERTICAL_SLICE",
-      "state": "pending",
+      "state": "database_verified_http_integration_pending",
       "exit": [
         "principal_is_server_derived",
         "vip_entitlement_is_fail_closed",
         "meeting_quota_reservation_is_atomic_and_idempotent",
         "me_and_admin_readbacks_are_authorization_separated",
-        "migration_and_negative_tests_pass"
+        "migration_and_negative_tests_pass",
+        "mysql_first_apply_rerun_failure_release_and_32_way_contention_pass",
+        "spring_http_jwt_permission_and_admin_scope_tests_pass"
       ]
     },
     {
       "id": "W2_USER_PORTAL",
-      "state": "pending",
+      "state": "prototype_pending_user_confirmation",
       "exit": [
         "me_dashboard",
         "entitlement_and_credit_views",
@@ -38,7 +40,7 @@
     },
     {
       "id": "W3_ADMIN_PORTAL",
-      "state": "pending",
+      "state": "prototype_pending_user_confirmation",
       "exit": [
         "tenant_and_member_governance",
         "product_plan_and_quota_policy",
@@ -83,6 +85,8 @@
   "antiFragmentationRules": [
     "This repository is the only development source of truth and may not depend on any external directory.",
     "GitHub and every managed u3w.com deployment surface must align to a repository commit and deployment receipt.",
+    "Me and admin production pages remain locked until the RuoYi-based prototype receives explicit user confirmation.",
+    "Portal implementation must extend the existing U3W-AI RuoYi shell and may not create a parallel frontend framework.",
     "Each wave must close one runnable vertical slice before opening adjacent features.",
     "Every user-facing state must map to a server-side durable object and authorization rule.",
     "No expert package change is allowed during the 26.7.20 review freeze.",

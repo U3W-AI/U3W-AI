@@ -11,30 +11,42 @@
     "state": "submitted_for_review",
     "frozen": true
   },
-  "activeWave": "W1_VERTICAL_SLICE",
-  "stage": "fix",
+  "activeWave": "W1_INTEGRATION_GATE",
+  "stage": "verify",
   "authoritativeRoot": {
     "mode": "standalone_git_repository",
     "externalDirectoryDependency": "forbidden",
-    "state": "migration_in_progress"
+    "state": "proven"
   },
   "truthSources": [
     ".fbs-engineering/contract.json",
     "docs/independent-board/taskboard.json",
     "config/deployment/u3w-domain-inventory.json",
-    "sql/independent-board/",
+    "sql/update_20260720_independent_board_control_plane.sql",
     "FBSir-business/src/main/java/com/wx/fbsir/business/board/",
-    "FBSir-ui/src/views/independent-board/"
+    "docs/independent-board/PORTAL-PROTOTYPE-SPEC.md",
+    "docs/independent-board/prototypes/portals/index.html"
   ],
   "proven": [
     "isolated_u3w_branch_created",
+    "standalone_repository_matches_migration_source_commit_and_tree",
     "backend_baseline_passed",
     "frontend_baseline_passed",
-    "submitted_expert_package_is_outside_writable_boundary"
+    "submitted_expert_package_is_outside_writable_boundary",
+    "database_manifest_and_dry_run_passed",
+    "board_java_branch_tests_passed",
+    "full_backend_and_frontend_regression_passed",
+    "portal_prototype_is_static_and_production_ui_remains_locked",
+    "mysql_8_4_first_apply_completed_rerun_and_readonly_current_read_passed",
+    "mysql_actual_failure_released_manifest_and_truth_spine_locks",
+    "mysql_schema_drift_was_detected_and_restored",
+    "mysql_32_way_budget_and_idempotency_contention_passed"
   ],
   "notProven": [
     "oauth_end_to_end",
-    "database_migration",
+    "production_database_migration",
+    "spring_service_to_mysql_transaction_and_rollback_matrix",
+    "spring_http_jwt_and_admin_scope_integration",
     "me_portal_runtime",
     "admin_portal_runtime",
     "connector_vip_binding",
@@ -42,5 +54,11 @@
     "watch_device_control",
     "production_deployment"
   ],
-  "updatedAt": "2026-07-20T19:55:00+08:00"
+  "ui": {
+    "base": "existing_u3w_ai_ruoyi_vue3_element_plus",
+    "state": "prototype_before_implementation",
+    "productionImplementationAllowed": false,
+    "unlockCondition": "explicit_user_confirmation"
+  },
+  "updatedAt": "2026-07-20T20:45:00+08:00"
 }

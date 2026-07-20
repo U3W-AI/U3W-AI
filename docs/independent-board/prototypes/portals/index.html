@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>福帮手独董会双后台原型</title>
+  <style>
+    :root{--nav:#304156;--nav2:#263445;--bg:#f2f5f8;--line:#e5e7eb;--text:#1f2937;--muted:#6b7280;--primary:#409eff;--success:#16a34a;--warn:#d97706;--danger:#dc2626;--card:#fff}
+    *{box-sizing:border-box}body{margin:0;font-family:"Microsoft YaHei",Inter,Arial,sans-serif;color:var(--text);background:var(--bg)}button{font:inherit}.prototype-banner{height:34px;background:#fff7ed;color:#9a3412;border-bottom:1px solid #fed7aa;display:flex;align-items:center;justify-content:center;font-size:12px}.app{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 34px)}
+    .sidebar{background:var(--nav);color:#cbd5e1}.logo{height:58px;display:flex;align-items:center;padding:0 18px;background:var(--nav2);font-weight:700;color:#fff}.logo-mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#38bdf8,#22c55e);display:grid;place-items:center;margin-right:10px}.nav-group{padding:14px 10px}.nav-title{font-size:11px;color:#7f93aa;padding:8px 12px}.nav-item{width:100%;border:0;background:transparent;color:#cbd5e1;text-align:left;padding:11px 12px;border-radius:6px;cursor:pointer;margin:2px 0}.nav-item:hover,.nav-item.active{background:#263445;color:#fff}.nav-item .icon{display:inline-block;width:24px;color:#91a6ba}
+    .shell{min-width:0}.topbar{height:58px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 20px}.crumb{color:var(--muted);font-size:13px}.mode-switch{display:flex;gap:6px;padding:3px;background:#f3f4f6;border-radius:8px}.mode-switch button{border:0;background:transparent;padding:7px 12px;border-radius:6px;cursor:pointer;color:#64748b}.mode-switch button.active{background:#fff;color:#0f172a;box-shadow:0 1px 4px #0001}.user{display:flex;gap:10px;align-items:center}.avatar{width:30px;height:30px;border-radius:50%;background:#dbeafe;color:#1d4ed8;display:grid;place-items:center;font-size:12px;font-weight:700}.tabs{height:36px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:end;padding-left:16px}.tab{font-size:12px;padding:8px 14px;border:1px solid var(--line);border-bottom:0;background:#fff;color:#475569}.tab.active{color:var(--primary);border-top:2px solid var(--primary)}
+    main{padding:20px;max-width:1440px}.heading{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:16px}.eyebrow{font-size:12px;color:#0f766e;font-weight:700;letter-spacing:.08em}.heading h1{margin:5px 0 7px;font-size:24px}.heading p{margin:0;color:var(--muted);font-size:13px}.badge{display:inline-flex;align-items:center;border-radius:12px;padding:5px 10px;font-size:12px;background:#fff7ed;color:#b45309;border:1px solid #fed7aa}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:16px;box-shadow:0 1px 2px #00000008}.metric-label{font-size:12px;color:var(--muted)}.metric-value{font-size:26px;font-weight:700;margin:8px 0 4px}.metric-note{font-size:12px;color:#94a3b8}.split{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;margin-top:14px}.card-title{font-size:15px;font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}.button{border:1px solid #dcdfe6;background:#fff;border-radius:4px;padding:8px 13px;cursor:pointer;color:#374151}.button.primary{background:var(--primary);border-color:var(--primary);color:#fff}.button.link{border:0;color:var(--primary);padding:0}.progress{height:8px;background:#eef2f7;border-radius:10px;overflow:hidden}.progress span{display:block;height:100%;background:linear-gradient(90deg,#409eff,#67c23a)}.steps{display:grid;gap:10px}.step{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:6px}.step-no{width:26px;height:26px;border-radius:50%;background:#eff6ff;color:#2563eb;display:grid;place-items:center;font-weight:700;font-size:12px}.step strong{font-size:13px}.step small{display:block;color:var(--muted);margin-top:3px}.status{font-size:11px;border-radius:10px;padding:4px 8px}.status.ok{background:#ecfdf5;color:#15803d}.status.wait{background:#fff7ed;color:#b45309}.status.off{background:#f3f4f6;color:#64748b}
+    table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line)}th{color:#64748b;background:#fafafa;font-weight:600}.callout{background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:14px;color:#1e40af;font-size:13px}.risk-list{display:grid;gap:8px}.risk{display:flex;justify-content:space-between;align-items:center;padding:10px;border-left:3px solid #f59e0b;background:#fffbeb;font-size:12px}.hidden{display:none!important}
+    .prototype-note{position:fixed;right:16px;bottom:16px;background:#111827;color:#fff;padding:10px 13px;border-radius:6px;font-size:12px;box-shadow:0 8px 24px #0003}.mobile-menu{display:none}
+    @media(max-width:1000px){.app{grid-template-columns:76px 1fr}.logo{padding:0 12px}.logo span:last-child,.nav-title,.nav-item .label{display:none}.nav-item{text-align:center}.nav-item .icon{width:auto}.grid{grid-template-columns:repeat(2,1fr)}.split{grid-template-columns:1fr}}
+    @media(max-width:620px){.app{display:block}.sidebar{display:none}.grid{grid-template-columns:1fr}.topbar{padding:0 10px}.crumb{display:none}.heading{display:block}.badge{margin-top:10px}main{padding:12px}.mode-switch button{padding:6px 8px}.prototype-note{left:12px;right:12px;text-align:center}}
+  </style>
+</head>
+<body>
+  <div class="prototype-banner">原型预览 · 基于现有 U3W-AI 若依布局 · 不连接真实 API · 不代表已经实施</div>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo"><span class="logo-mark">福</span><span>福帮手 FBSir</span></div>
+      <div class="nav-group" id="nav"></div>
+    </aside>
+    <section class="shell">
+      <header class="topbar">
+        <div class="crumb" id="crumb">首页 / 独董会</div>
+        <div class="mode-switch"><button data-mode="me" class="active">me 用户后台</button><button data-mode="admin">admin 管理后台</button></div>
+        <div class="user"><span id="identity">VIP 用户</span><span class="avatar">福</span></div>
+      </header>
+      <div class="tabs"><div class="tab active" id="tabTitle">我的首页</div></div>
+      <main>
+        <section id="meView">
+          <div class="heading"><div><div class="eyebrow">福帮手 · 独董会</div><h1>晚上好，陈先生</h1><p>先看清权益和今日额度，再继续最重要的一场经营会议。</p></div><span class="badge">VIP 待连接 WorkBuddy</span></div>
+          <div class="grid">
+            <div class="card"><div class="metric-label">当前有效计划</div><div class="metric-value">免费版</div><div class="metric-note">已授予 VIP，连接后生效</div></div>
+            <div class="card"><div class="metric-label">今日会议额度</div><div class="metric-value">0 / 1</div><div class="metric-note">VIP 生效后提升至 5 次</div></div>
+            <div class="card"><div class="metric-label">福帮手积分</div><div class="metric-value">1,260</div><div class="metric-note">只用于能力解锁，不等同现金</div></div>
+            <div class="card"><div class="metric-label">设备与主机</div><div class="metric-value">1 / 2</div><div class="metric-note">1 台 Hub 在线，Watch 待绑定</div></div>
+          </div>
+          <div class="split">
+            <div class="card"><div class="card-title"><span>唯一下一步</span><button class="button primary">连接 WorkBuddy</button></div><div class="callout">完成 OAuth 授权后，VIP 会议额度、全员席位和独董会秘书才会生效。授权不会把 WorkBuddy 密码、Cookie 或本地文件交给 U3W。</div><div style="margin-top:16px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span>VIP 激活进度</span><span>2 / 3</span></div><div class="progress"><span style="width:66%"></span></div></div></div>
+            <div class="card"><div class="card-title">激活步骤</div><div class="steps"><div class="step"><span class="step-no">1</span><div><strong>VIP 权益已授予</strong><small>管理员授权及回执已记录</small></div><span class="status ok">完成</span></div><div class="step"><span class="step-no">2</span><div><strong>连接 WorkBuddy</strong><small>OAuth + PKCE，精确 Scope</small></div><span class="status wait">待处理</span></div><div class="step"><span class="step-no">3</span><div><strong>召开 VIP 独董会</strong><small>5 次/日、30 议题、全员与秘书</small></div><span class="status off">未解锁</span></div></div></div>
+          </div>
+          <div class="card" style="margin-top:14px"><div class="card-title"><span>最近独董会</span><button class="button link">查看全部</button></div><table><thead><tr><th>会议</th><th>状态</th><th>议题</th><th>生效计划</th><th>最近更新</th></tr></thead><tbody><tr><td>下半年旗舰产品上架决策</td><td><span class="status ok">已完成</span></td><td>3</td><td>免费版</td><td>今天 19:07</td></tr><tr><td>VIP 商业模式评审</td><td><span class="status wait">待继续</span></td><td>5</td><td>免费版</td><td>昨天 22:14</td></tr></tbody></table></div>
+        </section>
+        <section id="adminView" class="hidden">
+          <div class="heading"><div><div class="eyebrow">福帮手 · 系统管理后台</div><h1>独董会运营总览</h1><p>以租户、权益、连接、会议和回执为主线处置运营问题。</p></div><span class="badge">3 项需要处理</span></div>
+          <div class="grid"><div class="card"><div class="metric-label">有效 VIP</div><div class="metric-value">128</div><div class="metric-note">其中 19 个待连接</div></div><div class="card"><div class="metric-label">今日会议完成</div><div class="metric-value">214</div><div class="metric-note">DELIVERY 197，UNKNOWN 3</div></div><div class="card"><div class="metric-label">连接器健康</div><div class="metric-value">96.8%</div><div class="metric-note">7 日成功率</div></div><div class="card"><div class="metric-label">待处置投递</div><div class="metric-value">3</div><div class="metric-note">不得自动重试未知副作用</div></div></div>
+          <div class="split"><div class="card"><div class="card-title"><span>权益与连接状态</span><button class="button primary">授予权益</button></div><table><thead><tr><th>用户/企业</th><th>授予计划</th><th>有效计划</th><th>连接状态</th><th>版本</th></tr></thead><tbody><tr><td>辰海咨询 / 陈先生</td><td>BOARD_VIP</td><td>BOARD_FREE</td><td><span class="status wait">待 OAuth</span></td><td>v1</td></tr><tr><td>山海工作室 / 林女士</td><td>BOARD_VIP</td><td>BOARD_VIP</td><td><span class="status ok">已验证</span></td><td>v3</td></tr><tr><td>个人空间 / 王先生</td><td>BOARD_FREE</td><td>BOARD_FREE</td><td><span class="status off">无需连接</span></td><td>v1</td></tr></tbody></table></div><div class="card"><div class="card-title">风险与待办</div><div class="risk-list"><div class="risk"><span>UNKNOWN Webhook 投递</span><strong>2</strong></div><div class="risk"><span>Token family 重放撤销</span><strong>1</strong></div><div class="risk"><span>离线 FBSir Hub</span><strong>4</strong></div><div class="risk"><span>域名版本待回读</span><strong>2</strong></div></div></div></div>
+          <div class="card" style="margin-top:14px"><div class="card-title"><span>最近会议与回执</span><button class="button link">进入审计中心</button></div><table><thead><tr><th>Run</th><th>租户</th><th>动作</th><th>回执等级</th><th>状态</th><th>更新时间</th></tr></thead><tbody><tr><td>run_b_260720_0214</td><td>山海工作室</td><td>board.meeting.reserve</td><td>ACTION_COMPLETED</td><td><span class="status ok">完成</span></td><td>19:42:03</td></tr><tr><td>run_b_260720_0207</td><td>辰海咨询</td><td>webhook.deliver</td><td>UNKNOWN</td><td><span class="status wait">需回读</span></td><td>19:31:48</td></tr></tbody></table></div>
+        </section>
+      </main>
+    </section>
+  </div>
+  <div class="prototype-note">点击顶部 me / admin 切换原型；侧栏展示规划菜单。</div>
+  <script>
+    const menus={me:['我的首页','独董会','能力与积分','连接与授权','推送订阅','设备与云资产','安全与回执'],admin:['运营总览','用户与企业','产品与权益','积分与账本','OAuth 与连接器','Webhook 与投递','设备与主机','会议与回执','域名与发布']};
+    const icons=['⌂','◫','◆','↔','◉','▣','✓','☷','⚙'];
+    let mode='me';
+    function render(){document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));document.getElementById('meView').classList.toggle('hidden',mode!=='me');document.getElementById('adminView').classList.toggle('hidden',mode!=='admin');document.getElementById('identity').textContent=mode==='me'?'VIP 用户':'系统管理员';document.getElementById('tabTitle').textContent=menus[mode][0];document.getElementById('crumb').textContent=(mode==='me'?'用户后台':'系统管理')+' / '+menus[mode][0];document.getElementById('nav').innerHTML='<div class="nav-title">'+(mode==='me'?'我的服务':'系统运营')+'</div>'+menus[mode].map((m,i)=>'<button class="nav-item '+(i===0?'active':'')+'"><span class="icon">'+icons[i]+'</span><span class="label">'+m+'</span></button>').join('');document.querySelectorAll('.nav-item').forEach((b,i)=>b.onclick=()=>{document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById('tabTitle').textContent=menus[mode][i];document.getElementById('crumb').textContent=(mode==='me'?'用户后台':'系统管理')+' / '+menus[mode][i]})}
+    document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;render()});render();
+  </script>
+</body>
+</html>
