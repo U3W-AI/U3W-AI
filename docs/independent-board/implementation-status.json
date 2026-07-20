@@ -137,6 +137,8 @@
     "issuer": "deployment_configuration_required_fail_closed",
     "minimumMySql": "8.0.29",
     "verifiedMySql": "8.4.8",
+    "implementationCommit": "0a55bb4246131893da90d1b4ac66849019edb33b",
+    "implementationTree": "4cce9f940e40a24d194da88cf6334b446e403b0b",
     "verificationReport": "reports/independent-board/w4a-authoritative-connector-binding-verification-20260721.json",
     "activationEvidence": [
       "MCP_INITIALIZE",
@@ -149,5 +151,5 @@
       "board.receipt.write"
     ]
   },
-  "updatedAt": "2026-07-21T02:17:34+08:00"
+  "updatedAt": "2026-07-21T02:18:31+08:00"
 }

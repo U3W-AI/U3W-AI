@@ -252,6 +252,8 @@
         "publicOAuthRoutes": "deferred_to_W4b",
         "minimumMySql": "8.0.29",
         "verifiedMySql": "8.4.8",
+        "implementationCommit": "0a55bb4246131893da90d1b4ac66849019edb33b",
+        "implementationTree": "4cce9f940e40a24d194da88cf6334b446e403b0b",
         "verificationReport": "reports/independent-board/w4a-authoritative-connector-binding-verification-20260721.json",
         "requiredScopes": [
           "identity.read",
