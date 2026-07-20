@@ -1,0 +1,192 @@
+{
+  "schema": "fbsir.independent-board.w4b-foundation-verification/v1",
+  "result": "VERIFIED_LOCAL_INTERNAL_FOUNDATION",
+  "observedAt": "2026-07-21T04:38:30+08:00",
+  "product": {
+    "brandZh": "福帮手",
+    "brandEn": "FBSir",
+    "name": "独董会",
+    "version": "26.7.20"
+  },
+  "repository": {
+    "root": "u3w-independent-board-control-plane",
+    "branch": "codex/independent-board-control-plane",
+    "remote": "https://github.com/U3W-AI/U3W-AI.git",
+    "baseCommit": "bf46c00b446cdf07e34121d2e072d655dce90ca1",
+    "implementationCommit": "112b1967cd83f66175e5aa7a98cbc751972e8ea5",
+    "implementationTree": "7a1219e6287a04eb32a00bbcfef5289338cce69f"
+  },
+  "contract": {
+    "issuer": "https://api2.u3w.com",
+    "resource": "https://api2.u3w.com/fbs-mcp/mcp",
+    "productCode": "FBSIR_INDEPENDENT_BOARD",
+    "sourceCode": "WORKBUDDY",
+    "connectorCode": "fbs-connector",
+    "scopes": [
+      "identity.read",
+      "entitlement.read",
+      "board.meeting.reserve",
+      "board.receipt.write"
+    ],
+    "mcpAuthorizationVersion": "2025-11-25",
+    "oauth21Claim": "aligned_with_draft_15_not_rfc_compliant_claim",
+    "publicRoutesEnabled": false,
+    "detailedMeAdminUiImplemented": false
+  },
+  "migration": {
+    "manifestStep": "public_init_033",
+    "version": "20260721_independent_board_oauth_foundation_v1",
+    "path": "sql/update_20260721_independent_board_oauth_foundation.sql",
+    "sha256": "b103ac5936ab1cb4bce865f04256f41826d90693556bc5627c09fc4ffee5de27",
+    "exactShape": {
+      "tables": 6,
+      "columns": 144,
+      "indexes": 52,
+      "foreignKeys": 14,
+      "foreignKeyColumnLinks": 57,
+      "checks": 33,
+      "immutableReceiptTriggers": 2
+    },
+    "rawTypedMetadataDigests": {
+      "columns": "89883a39d5aca493a15777ed12fee5a2c478627d7290e02c22ec0d3ffeaf0cf0",
+      "indexes": "1a3122b7238b444939a7981ccd759322bd168f351131e4d9c0a16346242c3d79",
+      "foreignKeysByExactBuild": {
+        "8.0.30": "016bed0a311d4dbd85f1d3c63e1bf46e82b9ce21527ad304b4139482f274f539",
+        "8.4.8": "3bc201df5f29e65e40024a6cf95dd2b5d46be928bef422f6934ab7c06a94368f"
+      },
+      "checks": "51f71711dfc17b5a6741fbbd1bd3d31ae7d4761e9da5722c614eb199a81afb11"
+    },
+    "canonicalInitializer": {
+      "staticManifestAndPreflightVerified": true,
+      "liveInitializerExecutionVerifiedInThisReceipt": false,
+      "outsideAllowlistFailsBeforeRunningReceiptAndMigrationFileExecution": true
+    },
+    "directSql": {
+      "liveFirstApplyAndReplayVerified": true,
+      "outsideAllowlistFailsBeforeFirstPersistentTargetTable": true,
+      "helperProcedureMayPrecedeVersionRejection": true
+    }
+  },
+  "mysqlRuns": [
+    {
+      "exactVersion": "8.0.30",
+      "versionComment": "MySQL Community Server - GPL",
+      "engine": "InnoDB",
+      "isolation": "REPEATABLE-READ",
+      "finishedAt": "2026-07-21T04:33:49+08:00",
+      "command": "powershell -ExecutionPolicy Bypass -File .\\scripts\\run-independent-board-mysql-transaction-it.ps1 -AllowDestructiveTest -MySqlBinDirectory .\\work\\mysql-toolchains\\mysql-8.0.30\\mysql-8.0.30-winx64\\bin",
+      "tests": 44,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "loopbackDisposableDatabase": true,
+      "productionConnectionUsed": false,
+      "workDirectoryCleaned": true
+    },
+    {
+      "exactVersion": "8.4.8",
+      "versionComment": "MySQL Community Server - GPL",
+      "engine": "InnoDB",
+      "isolation": "REPEATABLE-READ",
+      "finishedAt": "2026-07-21T04:34:25+08:00",
+      "command": "powershell -ExecutionPolicy Bypass -File .\\scripts\\run-independent-board-mysql-transaction-it.ps1 -AllowDestructiveTest -MySqlBinDirectory 'C:\\Program Files\\MySQL\\MySQL Server 8.4\\bin'",
+      "tests": 44,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "loopbackDisposableDatabase": true,
+      "productionConnectionUsed": false,
+      "workDirectoryCleaned": true
+    }
+  ],
+  "negativeAndRecoveryMatrix": {
+    "migrationVectors": [
+      "partial_orphan_target_table",
+      "orphan_completed_migration_receipt",
+      "trigger_name_collision_before_first_target_table",
+      "external_w4a_foreign_key_dependency_drift",
+      "same_name_weakened_check",
+      "column_type_nullable_charset_drift",
+      "generated_column_expression_drift",
+      "index_visibility_drift",
+      "foreign_key_action_drift",
+      "missing_immutability_trigger",
+      "same_name_same_body_triggers_transplanted_to_wrong_table"
+    ],
+    "lifecycleCheckThreeValuedLogicVectors": 12,
+    "receiptRequiredObjectTupleVectors": 9,
+    "everyMigrationFailureReleasedNamedLock": true,
+    "everyCompletedStateDriftWasResetAndReapplied": true,
+    "zeroOauthTablesAfterPreApplyCollisionOrExternalDependencyFailure": true
+  },
+  "internalDcr": {
+    "service": "FBSir-business/src/main/java/com/wx/fbsir/business/board/oauth/service/IndependentBoardOAuthClientRegistrationService.java",
+    "profileConstrained": true,
+    "rawMetadataPersisted": false,
+    "registrationSourcePersisted": false,
+    "digestsOnly": true,
+    "clientAndActionCompletedReceiptCommitInOneTransaction": true,
+    "forcedReceiptFailureRolledBackClient": true,
+    "sameRequestSucceededAfterFaultRemoval": true,
+    "focusedTests": {
+      "tests": 22,
+      "failures": 0,
+      "finishedAt": "2026-07-21T04:32:15+08:00"
+    }
+  },
+  "tokenTerminationPrimitive": {
+    "expiredActiveTokenTransition": "EXPIRED",
+    "liveActiveTokenTransition": "REVOKED",
+    "revocationTime": "greatest_of_event_time_and_token_issued_at",
+    "realMysqlVectorPassedOnBothExactBuilds": true,
+    "authorizationCodeAndTokenFamilyServiceComplete": false
+  },
+  "repositoryVerification": {
+    "contract": {
+      "command": "powershell -ExecutionPolicy Bypass -File .\\scripts\\verify-independent-board-control-plane.ps1 -Mode Contract",
+      "finishedAt": "2026-07-21T04:37:00+08:00",
+      "exitCode": 0
+    },
+    "all": {
+      "command": "powershell -ExecutionPolicy Bypass -File .\\scripts\\verify-independent-board-control-plane.ps1 -Mode All",
+      "finishedAt": "2026-07-21T04:38:08+08:00",
+      "exitCode": 0,
+      "backendHttpSecurityIncluded": true,
+      "frontendProductionBuildIncluded": true,
+      "databaseTransactionsRunSeparately": true,
+      "menuMigrationsRunSeparately": true
+    },
+    "menuMigrationReplay": {
+      "command": "powershell -ExecutionPolicy Bypass -File .\\scripts\\run-independent-board-menu-migration-it.ps1 -AllowDestructiveTest -MySqlBinDirectory 'C:\\Program Files\\MySQL\\MySQL Server 8.4\\bin'",
+      "finishedAt": "2026-07-21T04:38:30+08:00",
+      "exitCode": 0,
+      "phases": 13,
+      "productionConnectionUsed": false,
+      "workDirectoryCleaned": true
+    }
+  },
+  "evidenceBoundaries": {
+    "localInternalFoundationVerified": true,
+    "oauthAuthorizationCodeServiceVerified": false,
+    "tokenFamilyRotationServiceVerified": false,
+    "protectedMcpServiceVerified": false,
+    "oauthHttpEndToEndVerified": false,
+    "publicOAuthOrMcpRoutesEnabled": false,
+    "workBuddyHostIntegrated": false,
+    "connectorMarketplaceListedByThisWork": false,
+    "productionDatabaseMigrated": false,
+    "productionDomainsDeployed": false,
+    "vipBusinessClosureConfirmed": false,
+    "businessConfirmed": false
+  },
+  "knownFollowUps": [
+    "add_named_explicit_reauthorization_port_and_preserve_family_token_receipt_order",
+    "implement_authorization_code_token_family_rotation_and_protected_mcp_internal_services",
+    "recheck_final_raw_metadata_inside_sql_finalizer_to_reduce_privileged_ddl_toctou",
+    "separate_migration_and_runtime_database_accounts_and_remove_runtime_ddl_privileges",
+    "verify_cross_table_client_family_and_token_expiry_and_generation_invariants",
+    "obtain_explicit_confirmation_of_detailed_me_admin_oauth_connector_prototype_before_ui_or_public_route_implementation"
+  ]
+}

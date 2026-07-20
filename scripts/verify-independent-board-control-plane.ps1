@@ -86,7 +86,8 @@ function Invoke-ContractChecks {
         'reports\independent-board\w2-user-portal-verification-20260720.json',
         'reports\independent-board\w3-admin-portal-verification-20260720.json',
         'reports\independent-board\w3b-entitlement-lifecycle-verification-20260720.json',
-        'reports\independent-board\w4a-authoritative-connector-binding-verification-20260721.json'
+        'reports\independent-board\w4a-authoritative-connector-binding-verification-20260721.json',
+        'reports\independent-board\w4b-oauth-foundation-verification-20260721.json'
     )
     foreach ($path in $required) {
         Assert-PathExists -RelativePath $path
@@ -99,6 +100,19 @@ function Invoke-ContractChecks {
         -Source 'implementation status'
     Assert-ProductBrand -Product (Read-Utf8Json -RelativePath 'reports\independent-board\w4a-authoritative-connector-binding-verification-20260721.json').product `
         -Source 'W4a verification report'
+    $w4bReport = Read-Utf8Json -RelativePath 'reports\independent-board\w4b-oauth-foundation-verification-20260721.json'
+    Assert-ProductBrand -Product $w4bReport.product -Source 'W4b foundation verification report'
+    if ($w4bReport.result -cne 'VERIFIED_LOCAL_INTERNAL_FOUNDATION' `
+            -or $w4bReport.repository.implementationCommit -cne '112b1967cd83f66175e5aa7a98cbc751972e8ea5' `
+            -or $w4bReport.migration.sha256 -cne 'b103ac5936ab1cb4bce865f04256f41826d90693556bc5627c09fc4ffee5de27' `
+            -or @($w4bReport.mysqlRuns).Count -ne 2 `
+            -or @($w4bReport.mysqlRuns | Where-Object { $_.tests -eq 44 -and $_.exitCode -eq 0 }).Count -ne 2 `
+            -or $w4bReport.contract.publicRoutesEnabled -ne $false `
+            -or $w4bReport.evidenceBoundaries.workBuddyHostIntegrated -ne $false `
+            -or $w4bReport.evidenceBoundaries.productionDatabaseMigrated -ne $false `
+            -or $w4bReport.evidenceBoundaries.businessConfirmed -ne $false) {
+        throw 'W4b foundation verification receipt drifted or exceeds its evidence boundary'
+    }
     $w4bEvidence = Read-Utf8Json -RelativePath 'docs\independent-board\W4B-INPUT-EVIDENCE.json'
     Assert-ProductBrand -Product $w4bEvidence.product -Source 'W4b input evidence'
     if ($w4bEvidence.runtimeDependency -ne $false -or $w4bEvidence.buildDependency -ne $false) {

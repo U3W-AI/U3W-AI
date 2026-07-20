@@ -35,13 +35,16 @@
     "docs/independent-board/W3B-ENTITLEMENT-LIFECYCLE-CONTRACT.md",
     "docs/independent-board/W4A-AUTHORITATIVE-CONNECTOR-BINDING-CONTRACT.md",
     "docs/independent-board/W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md",
+    "docs/independent-board/W4B-DATABASE-SUPPORT-MATRIX.md",
     "docs/independent-board/W4B-INPUT-EVIDENCE.json",
+    "sql/update_20260721_independent_board_oauth_foundation.sql",
     "docs/independent-board/PORTAL-PROTOTYPE-SPEC.md",
     "docs/independent-board/prototypes/portals/index.html",
     "reports/independent-board/w2-user-portal-verification-20260720.json",
     "reports/independent-board/w3-admin-portal-verification-20260720.json",
     "reports/independent-board/w3b-entitlement-lifecycle-verification-20260720.json",
-    "reports/independent-board/w4a-authoritative-connector-binding-verification-20260721.json"
+    "reports/independent-board/w4a-authoritative-connector-binding-verification-20260721.json",
+    "reports/independent-board/w4b-oauth-foundation-verification-20260721.json"
   ],
   "proven": [
     "isolated_u3w_branch_created",
@@ -99,10 +102,18 @@
     "w4b_unauthenticated_profile_constrained_dcr_loopback_and_exact_resource_contract_locked",
     "w4b_opaque_digest_only_token_family_rotation_and_replay_contract_locked",
     "w4b_external_inputs_hashed_without_runtime_or_build_dependency",
+    "w4b_mysql_8_0_30_and_8_4_8_real_raw_typed_metadata_baselines_locked",
+    "w4b_mysql_8_0_30_and_8_4_8_first_apply_replay_partial_state_and_negative_drift_matrix_passed",
+    "w4b_mysql_lifecycle_unknown_vectors_rejected_and_receipt_object_tuples_enforced",
+    "w4b_internal_profile_constrained_dcr_writes_client_and_action_completed_receipt_atomically",
+    "w4b_token_termination_primitive_expires_historical_tokens_and_revokes_live_tokens_at_logical_time_floor",
+    "w4b_full_repository_backend_http_security_frontend_brand_and_prior_menu_regression_passed",
+    "w4b_canonical_initializer_rejects_non_allowlisted_builds_before_running_or_migration_file_execution",
+    "w4b_direct_sql_rejects_non_allowlisted_builds_before_first_persistent_target_table_without_incompatibility_claim",
     "w4b_public_routes_and_detailed_oauth_ui_remain_closed"
   ],
   "notProven": [
-    "oauth_schema_and_internal_services",
+    "oauth_authorization_code_and_token_family_internal_services",
     "oauth_public_routes",
     "oauth_end_to_end",
     "w4b_detailed_me_admin_prototype_confirmation",
@@ -139,6 +150,8 @@
     "adminAccessModel": "global_system_admin_only",
     "connectorAction": "deferred_to_W4_oauth_connector",
     "w4bDetailedPrototype": "required_not_yet_confirmed",
+    "w4bOauthConnectorProductionImplementationAllowed": false,
+    "w4bOauthConnectorUnlockCondition": "detailed_me_admin_prototype_explicitly_confirmed",
     "watchAndWebhookDeepPages": "deferred_to_W5_delivery_and_watch"
   },
   "w4a": {
@@ -164,8 +177,9 @@
     ]
   },
   "w4b": {
-    "state": "contract_locked_design_only",
+    "state": "w4b_1_database_and_dcr_foundation_verified_local",
     "contract": "docs/independent-board/W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md",
+    "databaseSupportMatrix": "docs/independent-board/W4B-DATABASE-SUPPORT-MATRIX.md",
     "inputEvidence": "docs/independent-board/W4B-INPUT-EVIDENCE.json",
     "issuer": "https://api2.u3w.com",
     "resourceUri": "https://api2.u3w.com/fbs-mcp/mcp",
@@ -173,9 +187,30 @@
     "oauth21Status": "aligned_with_draft_15_not_rfc_compliant_claim",
     "clientRegistration": "unauthenticated_profile_constrained_dcr_for_workbuddy_compatibility_not_host_identity_proof",
     "tokenProfile": "opaque_digest_only_access_10m_refresh_family_absolute_30d",
+    "databaseSupport": {
+      "state": "exact_build_allowlist_and_dual_build_foundation_verified_local",
+      "exactAllowlist": [
+        "MySQL Community 8.0.30",
+        "MySQL Community 8.4.8"
+      ],
+      "w4aMinimumSyntaxGateOnly": "8.0.29",
+      "outsideAllowlistBehavior": "canonical_initializer_rejects_before_running_and_file_execution_direct_sql_rejects_before_first_persistent_target_table_without_incompatibility_claim",
+      "metadataContract": "raw_typed_columns_indexes_foreign_keys_checks_and_triggers",
+      "supportExpansionGate": [
+        "real_mysql_exact_build_baseline",
+        "raw_typed_metadata_digest",
+        "negative_schema_drift_matrix",
+        "authorization_contract_and_support_matrix_revision"
+      ],
+      "fullW4bMysqlVerification": "foundation_migration_internal_dcr_and_token_termination_primitive_dual_exact_build_verified_local_44_of_44_each"
+    },
+    "verificationReport": "reports/independent-board/w4b-oauth-foundation-verification-20260721.json",
+    "internalDcr": "profile_constrained_client_and_action_completed_receipt_verified_by_focused_tests_and_real_mysql_transaction_rollback_retry",
+    "tokenTerminationPrimitive": "expired_active_tokens_transition_to_expired_and_live_tokens_revoke_at_per_row_logical_time_floor_verified_real_mysql",
     "publicRoutes": "closed",
     "detailedUiPrototype": "required_not_yet_confirmed",
-    "nextSlice": "public_init_033_and_internal_services"
+    "detailedUiProductionImplementation": "forbidden_until_explicit_prototype_confirmation",
+    "nextSlice": "authorization_code_token_family_and_mcp_internal_services_without_public_routes"
   },
-  "updatedAt": "2026-07-21T02:42:00+08:00"
+  "updatedAt": "2026-07-21T04:38:30+08:00"
 }

@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the submitted 26.7.20 expert package.",
-  "singleNextAction": "Implement and verify the W4b.1 public_init_033 schema, W4a orchestration-port repair, digest-only authorization artifacts and token-family internal services; keep every public OAuth/MCP route and detailed me/admin page closed.",
+  "singleNextAction": "Implement and verify W4b.1 authorization-code, token-family, rotation and protected-MCP internal services on the verified public_init_033 foundation; keep every public OAuth/MCP route and detailed me/admin page closed.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -82,7 +82,7 @@
     },
     {
       "id": "W4_OAUTH_CONNECTOR",
-      "state": "w4a_verified_local_w4b_contract_locked",
+      "state": "w4a_verified_local_w4b_database_and_dcr_foundation_verified_local",
       "activeSlice": "W4b_1_internal_oauth_foundation",
       "completedSubset": [
         "repository_first_conflict_resolution",
@@ -98,7 +98,34 @@
         "w4b_unauthenticated_profile_constrained_dcr_and_loopback_contract_locked",
         "w4b_opaque_digest_only_token_family_and_replay_contract_locked",
         "w4b_external_inputs_hashed_as_non_runtime_provenance",
+        "w4b_mysql_8_0_30_and_8_4_8_real_raw_typed_metadata_baselines_locked",
+        "w4b_mysql_8_0_30_and_8_4_8_first_apply_replay_partial_state_and_negative_drift_matrix_passed",
+        "w4b_mysql_lifecycle_unknown_vectors_and_receipt_object_tuple_matrix_passed",
+        "w4b_internal_profile_constrained_dcr_client_and_action_completed_receipt_focused_and_real_mysql_transaction_rollback_retry_passed",
+        "w4b_token_family_termination_primitive_expires_historical_tokens_and_revokes_live_tokens_at_logical_time_floor_real_mysql_passed",
+        "w4b_full_repository_backend_http_security_frontend_brand_and_prior_menu_regression_passed",
+        "w4b_canonical_initializer_rejects_non_allowlisted_builds_before_running_and_file_execution",
+        "w4b_direct_sql_rejects_before_first_persistent_target_table_without_incompatibility_claim",
         "w4b_public_routes_and_detailed_ui_remain_closed"
+      ],
+      "databaseSupport": {
+        "w4aMinimumSyntaxGateOnly": "8.0.29",
+        "w4bExactAllowlist": [
+          "MySQL Community 8.0.30",
+          "MySQL Community 8.4.8"
+        ],
+        "outsideAllowlist": "canonical_initializer_rejects_before_running_and_file_execution_direct_sql_rejects_before_first_persistent_target_table_without_incompatibility_claim",
+        "supportExpansionRequires": [
+          "real_mysql_exact_build_baseline",
+          "raw_typed_metadata_digest",
+          "negative_schema_drift_matrix",
+          "w4b_contract_revision"
+        ]
+      },
+      "heldClosed": [
+        "all_public_oauth_and_mcp_routes",
+        "me_oauth_consent_connect_and_disconnect_production_pages",
+        "admin_oauth_client_family_security_event_and_connector_production_pages_pending_detailed_prototype_confirmation"
       ],
       "exit": [
         "oauth_metadata_and_prm",
