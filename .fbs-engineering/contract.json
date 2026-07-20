@@ -50,6 +50,8 @@
     "status": "docs/independent-board/implementation-status.json",
     "domainInventory": "config/deployment/u3w-domain-inventory.json",
     "migrations": "sql/update_20260720_independent_board_control_plane.sql",
+    "portalMenuMigration": "sql/update_20260720_independent_board_me_menu.sql",
+    "w2VerificationReport": "reports/independent-board/w2-user-portal-verification-20260720.json",
     "verificationReports": "reports/independent-board/*.json"
   },
   "policy": {
@@ -137,7 +139,13 @@
       "controlOwner": "U3W",
       "runtimeOwner": "FBSir Hub and approved runtime adapters",
       "systemOfRecordOwner": "U3W plus bound first-party systems",
-      "tenantRequiredForPersonalUsers": true
+      "tenantRequiredForPersonalUsers": true,
+      "defaultPortalEntry": {
+        "path": "/portal-entry",
+        "meRoute": "IndependentBoardMe",
+        "fallbackPath": "/index",
+        "permissionRule": "hostname_selects_default_experience_only_after_dynamic_route_authorization"
+      }
     },
     "uiPrototypeGate": {
       "prototype": "docs/independent-board/prototypes/portals/index.html",
@@ -148,6 +156,22 @@
         "state": "confirmed",
         "decision": "recommended_five_points",
         "confirmedAt": "2026-07-20T21:03:00+08:00"
+      },
+      "w2Implementation": {
+        "state": "local_source_and_integration_verified",
+        "surface": "FBSir-ui/src/views/business/independentBoard/me/index.vue",
+        "scope": [
+          "entitlement_quota_meeting_dashboard",
+          "server_derived_enterprise_context",
+          "connector_activation_state",
+          "idempotent_reservation_and_exact_readback",
+          "host_aware_default_entry"
+        ],
+        "deferred": [
+          "connector_oauth_self_service",
+          "webhook_deep_page",
+          "watch_deep_page"
+        ]
       },
       "mustReuse": [
         "FBSir-ui/src/layout",

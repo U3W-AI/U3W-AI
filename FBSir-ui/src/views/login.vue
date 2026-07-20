@@ -143,6 +143,7 @@ import { setToken } from "@/utils/auth"
 import useUserStore from '@/store/modules/user'
 import usePermissionStore from '@/store/modules/permission'
 import { isHttp } from "@/utils/validate"
+import { resolveLoginDestination } from "@/utils/portalEntry"
 import defaultSettings from '@/settings'
 import { ElMessage, ElMessageBox } from "element-plus"
 
@@ -213,7 +214,7 @@ function handleLogin() {
           }
           return acc
         }, {})
-        router.push({ path: redirect.value || "/", query: otherQueryParams })
+        router.push({ path: resolveLoginDestination(redirect.value), query: otherQueryParams })
       }).catch(() => {
         loading.value = false
         // 重新获取验证码
@@ -325,7 +326,7 @@ function completeOauthLogin(token, targetPath = "", targetQuery = {}) {
       delete cleanQuery.giteeBound
       delete cleanQuery.giteeUsername
       delete cleanQuery.giteeError
-      router.replace({ path: redirect.value || "/", query: cleanQuery })
+      router.replace({ path: resolveLoginDestination(redirect.value), query: cleanQuery })
     })
   })
 }
@@ -344,7 +345,7 @@ function tryAutoLogin(username, password) {
   }
   loading.value = true
   userStore.login(loginForm.value).then(() => {
-    router.replace({ path: "/index" })
+    router.replace({ path: resolveLoginDestination(redirect.value) })
   }).catch(() => {
     loading.value = false
   })

@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the submitted 26.7.20 expert package.",
-  "singleNextAction": "Build the confirmed RuoYi W2 user dashboard with server-derived tenant contexts, entitlement/quota current-read, user-scoped meeting history and reservation action.",
+  "singleNextAction": "Build the confirmed W3 Independent Board first-level administration module inside the existing RuoYi admin shell, starting with tenant entitlement governance and meeting-operation audit current-read.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -29,18 +29,28 @@
     },
     {
       "id": "W2_USER_PORTAL",
-      "state": "confirmed_implementation_in_progress",
+      "state": "local_source_and_integration_verified",
       "exit": [
-        "me_dashboard",
-        "entitlement_and_credit_views",
-        "meeting_history",
-        "webhook_self_service",
-        "device_and_channel_bindings"
+        "server_derived_enterprise_context_selector",
+        "enterprise_and_member_dual_active_scope_for_every_me_read_and_write",
+        "entitlement_quota_meeting_dashboard",
+        "user_scoped_recent_meeting_history",
+        "idempotent_reservation_with_exact_non_leaking_readback",
+        "connector_pending_state_without_false_activation",
+        "host_aware_default_entry_after_dynamic_route_authorization",
+        "top_level_ordinary_user_menu_migration",
+        "latest_byte_http_jwt_and_mysql_integration_pass"
+      ],
+      "deferred": [
+        "connector_oauth_self_service_to_W4",
+        "webhook_subscription_deep_page_to_W5",
+        "watch_and_device_deep_page_to_W5",
+        "production_domain_browser_readback_to_W6"
       ]
     },
     {
       "id": "W3_ADMIN_PORTAL",
-      "state": "prototype_pending_user_confirmation",
+      "state": "confirmed_implementation_ready",
       "exit": [
         "tenant_and_member_governance",
         "product_plan_and_quota_policy",

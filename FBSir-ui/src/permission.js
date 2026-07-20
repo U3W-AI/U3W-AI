@@ -8,6 +8,11 @@ import { isRelogin } from '@/utils/request'
 import useUserStore from '@/store/modules/user'
 import useSettingsStore from '@/store/modules/settings'
 import usePermissionStore from '@/store/modules/permission'
+import {
+  INDEPENDENT_BOARD_ROUTE_NAME,
+  PORTAL_ENTRY_PATH,
+  resolvePortalEntry
+} from '@/utils/portalEntry'
 
 NProgress.configure({ showSpinner: false })
 
@@ -17,13 +22,26 @@ const isWhiteList = (path) => {
   return whiteList.some(pattern => isPathMatch(pattern, path))
 }
 
+const resolveCurrentPortalEntry = () => resolvePortalEntry(
+  window.location.hostname,
+  router.hasRoute(INDEPENDENT_BOARD_ROUTE_NAME)
+)
+
+const continueAfterRoutesLoaded = (to, next) => {
+  if (to.path === PORTAL_ENTRY_PATH) {
+    next({ ...resolveCurrentPortalEntry(), replace: true })
+    return
+  }
+  next({ ...to, replace: true })
+}
+
 router.beforeEach((to, from, next) => {
   NProgress.start()
   if (getToken()) {
     to.meta.title && useSettingsStore().setTitle(to.meta.title)
     /* has token*/
     if (to.path === '/login') {
-      next({ path: '/' })
+      next({ path: PORTAL_ENTRY_PATH, replace: true })
       NProgress.done()
     } else if (isWhiteList(to.path)) {
       next()
@@ -40,7 +58,7 @@ router.beforeEach((to, from, next) => {
                 router.addRoute(route) // 动态添加可访问路由表
               }
             })
-            next({ ...to, replace: true }) // hack方法 确保addRoutes已完成
+            continueAfterRoutesLoaded(to, next) // 确保动态路由已完成后再解析域名默认入口
           })
         }).catch(err => {
           useUserStore().logOut().then(() => {
@@ -49,8 +67,12 @@ router.beforeEach((to, from, next) => {
           })
         })
       } else {
-        // 已登录且有角色信息，直接放行
-        next()
+        // 已登录且有角色信息，只在隐藏入口解析域名默认首屏；显式深链保持不变
+        if (to.path === PORTAL_ENTRY_PATH) {
+          next({ ...resolveCurrentPortalEntry(), replace: true })
+        } else {
+          next()
+        }
       }
     }
   } else {

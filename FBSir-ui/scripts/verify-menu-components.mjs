@@ -19,7 +19,8 @@ const extractionFixtures = new Set([
   'tool/build/index',
   'business/airobotmessage/wecomWebhook/index',
   'business/fbs/scenePack/index',
-  'business/fbs/myApikey/index'
+  'business/fbs/myApikey/index',
+  'business/independentBoard/me/index'
 ])
 
 function stripSqlComments(sql) {

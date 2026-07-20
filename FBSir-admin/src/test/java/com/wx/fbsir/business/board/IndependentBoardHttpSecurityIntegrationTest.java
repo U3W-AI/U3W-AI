@@ -4,7 +4,9 @@ import com.wx.fbsir.business.board.controller.IndependentBoardAdminController;
 import com.wx.fbsir.business.board.controller.IndependentBoardMeController;
 import com.wx.fbsir.business.board.domain.BoardEnterpriseMemberScope;
 import com.wx.fbsir.business.board.domain.BoardProductPlan;
+import com.wx.fbsir.business.board.domain.BoardUsageOperation;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
+import com.wx.fbsir.business.board.service.IndependentBoardDashboardService;
 import com.wx.fbsir.business.board.service.IndependentBoardEntitlementService;
 import com.wx.fbsir.business.board.service.IndependentBoardMeetingService;
 import com.wx.fbsir.business.board.service.IndependentBoardMeetingTransactionService;
@@ -22,6 +24,8 @@ import com.wx.fbsir.framework.web.service.TokenService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import java.util.Collections;
+import java.time.LocalDate;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockServletContext;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -51,9 +56,12 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -118,7 +126,25 @@ class IndependentBoardHttpSecurityIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401));
 
-        verify(mapper, never()).selectActiveMember(any(), any());
+        verify(mapper, never()).selectActiveContext(any(), any());
+    }
+
+    @Test
+    void contextsAndDashboardAreBothUnavailableWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/my/independent-board/contexts"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+        mockMvc.perform(get("/my/independent-board/dashboard")
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+        mockMvc.perform(get("/my/independent-board/meeting-reservations/meeting-001")
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+
+        verify(mapper, never()).selectActiveContextsByUser(any());
+        verify(mapper, never()).selectActiveContext(any(), any());
     }
 
     @Test
@@ -132,12 +158,12 @@ class IndependentBoardHttpSecurityIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401));
 
-        verify(mapper, never()).selectActiveMember(any(), any());
+        verify(mapper, never()).selectActiveContext(any(), any());
     }
 
     @Test
     void ordinaryUserCanReadOnlyTheEnterpriseBoundToTheJwtPrincipal() throws Exception {
-        when(mapper.selectActiveMember(TENANT_ID, USER_ID))
+        when(mapper.selectActiveContext(TENANT_ID, USER_ID))
                 .thenReturn(member(TENANT_ID, 11L, USER_ID));
 
         mockMvc.perform(get("/my/independent-board/entitlement")
@@ -149,13 +175,13 @@ class IndependentBoardHttpSecurityIntegrationTest {
                 .andExpect(jsonPath("$.data.userId").value(USER_ID))
                 .andExpect(jsonPath("$.data.effectivePlanCode").value("BOARD_FREE"));
 
-        verify(mapper).selectActiveMember(TENANT_ID, USER_ID);
+        verify(mapper).selectActiveContext(TENANT_ID, USER_ID);
     }
 
     @Test
     void ordinaryUserCrossTenantRequestFailsClosedAtTheMembershipBoundary() throws Exception {
         long foreignTenantId = 99L;
-        when(mapper.selectActiveMember(foreignTenantId, USER_ID)).thenReturn(null);
+        when(mapper.selectActiveContext(foreignTenantId, USER_ID)).thenReturn(null);
 
         mockMvc.perform(get("/my/independent-board/entitlement")
                         .header("Authorization", bearer(loginUser(USER_ID, "member", Set.of(), "user")))
@@ -164,8 +190,224 @@ class IndependentBoardHttpSecurityIntegrationTest {
                 .andExpect(jsonPath("$.code").value(403))
                 .andExpect(jsonPath("$.msg").value("TENANT_MEMBER_USER_SCOPE_INVALID"));
 
-        verify(mapper).selectActiveMember(foreignTenantId, USER_ID);
+        verify(mapper).selectActiveContext(foreignTenantId, USER_ID);
         verify(mapper, never()).selectEntitlement(any(), any(), any(), any());
+    }
+
+    @Test
+    void inactiveEnterpriseCurrentReadClosesAllMeSurfacesBeforeAnyWrite() throws Exception {
+        when(mapper.selectActiveContext(TENANT_ID, USER_ID)).thenReturn(null);
+        String authorization = bearer(loginUser(USER_ID, "member", Set.of(), "user"));
+
+        mockMvc.perform(get("/my/independent-board/entitlement")
+                        .header("Authorization", authorization)
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.msg").value("TENANT_MEMBER_USER_SCOPE_INVALID"));
+        mockMvc.perform(post("/my/independent-board/meeting-reservations")
+                        .header("Authorization", authorization)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tenantId\":7,\"operationId\":\"inactive-001\","
+                                + "\"agendaCount\":1,\"seatCount\":1}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.msg").value("TENANT_MEMBER_USER_SCOPE_INVALID"));
+        mockMvc.perform(get("/my/independent-board/dashboard")
+                        .header("Authorization", authorization)
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.msg").value("TENANT_MEMBER_USER_SCOPE_INVALID"));
+        mockMvc.perform(get("/my/independent-board/meeting-reservations/inactive-001")
+                        .header("Authorization", authorization)
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.msg").value("TENANT_MEMBER_USER_SCOPE_INVALID"));
+
+        verify(mapper, times(4)).selectActiveContext(TENANT_ID, USER_ID);
+        verify(mapper, never()).selectEntitlement(any(), any(), any(), any());
+        verify(mapper, never()).selectEntitlementForUpdate(any(), any(), any());
+        verify(mapper, never()).selectOperation(any(), any());
+        verify(mapper, never()).insertOperation(any());
+        verify(mapper, never()).prepareUsageBudget(
+                any(), any(), any(), any(), any(), any());
+        verify(mapper, never()).reserveOneMeeting(
+                any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void contextsIgnoreClientIdentityParametersAndUseOnlyTheJwtUser() throws Exception {
+        when(mapper.selectActiveContextsByUser(USER_ID)).thenReturn(List.of(
+                context(TENANT_ID, 11L, USER_ID, "福帮手", "MEMBER")));
+
+        mockMvc.perform(get("/my/independent-board/contexts")
+                        .header("Authorization", bearer(loginUser(USER_ID, "member", Set.of(), "user")))
+                        .param("userId", "999")
+                        .param("memberId", "999"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0].tenantId").value(TENANT_ID))
+                .andExpect(jsonPath("$.data[0].memberId").value(11L))
+                .andExpect(jsonPath("$.data[0].tenantName").value("福帮手"))
+                .andExpect(jsonPath("$.data[0].memberRole").value("MEMBER"))
+                .andExpect(jsonPath("$.data[0].userId").doesNotExist());
+
+        verify(mapper).selectActiveContextsByUser(USER_ID);
+        verify(mapper, never()).selectActiveContextsByUser(999L);
+    }
+
+    @Test
+    void dashboardReturnsOnlyTheJwtUsersSelectedContextAndRecentMeetings() throws Exception {
+        when(mapper.selectActiveContext(TENANT_ID, USER_ID)).thenReturn(
+                context(TENANT_ID, 11L, USER_ID, "福帮手", "MEMBER"));
+        when(mapper.selectRecentOperationsByTenantAndUser(
+                TENANT_ID, USER_ID,
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.MEETING_METRIC))
+                .thenReturn(List.of(operation(TENANT_ID, USER_ID, "meeting-001")));
+
+        mockMvc.perform(get("/my/independent-board/dashboard")
+                        .header("Authorization", bearer(loginUser(USER_ID, "member", Set.of(), "user")))
+                        .param("tenantId", String.valueOf(TENANT_ID))
+                        .param("userId", "999"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.context.tenantId").value(TENANT_ID))
+                .andExpect(jsonPath("$.data.entitlement.userId").value(USER_ID))
+                .andExpect(jsonPath("$.data.entitlement.effectivePlanCode").value("BOARD_FREE"))
+                .andExpect(jsonPath("$.data.recentMeetings.length()").value(1))
+                .andExpect(jsonPath("$.data.recentMeetings[0].operationId").value("meeting-001"))
+                .andExpect(jsonPath("$.data.recentMeetings[0].requestDigest").doesNotExist())
+                .andExpect(jsonPath("$.data.connectorState").value("NOT_CONNECTED"))
+                .andExpect(jsonPath("$.data.webhookState").value("COMING_SOON"))
+                .andExpect(jsonPath("$.data.watchState").value("COMING_SOON"));
+
+        verify(mapper).selectRecentOperationsByTenantAndUser(
+                TENANT_ID, USER_ID,
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.MEETING_METRIC);
+    }
+
+    @Test
+    void dashboardRejectsCrossTenantBeforeEntitlementAndHistoryReads() throws Exception {
+        long foreignTenantId = 99L;
+        when(mapper.selectActiveContext(foreignTenantId, USER_ID)).thenReturn(null);
+
+        mockMvc.perform(get("/my/independent-board/dashboard")
+                        .header("Authorization", bearer(loginUser(USER_ID, "member", Set.of(), "user")))
+                        .param("tenantId", String.valueOf(foreignTenantId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.msg").value("TENANT_MEMBER_USER_SCOPE_INVALID"));
+
+        verify(mapper, never()).selectActivePlan(any(), any());
+        verify(mapper, never()).selectRecentOperationsByTenantAndUser(any(), any(), any(), any());
+    }
+
+    @Test
+    void exactMeetingReservationReadUsesJwtScopeAndReturnsTheSafeProjection() throws Exception {
+        when(mapper.selectActiveContext(TENANT_ID, USER_ID)).thenReturn(
+                context(TENANT_ID, 11L, USER_ID, "福帮手", "MEMBER"));
+        when(mapper.selectOperation(TENANT_ID, "meeting-001"))
+                .thenReturn(operation(TENANT_ID, USER_ID, "meeting-001"));
+
+        mockMvc.perform(get("/my/independent-board/meeting-reservations/meeting-001")
+                        .header("Authorization", bearer(loginUser(USER_ID, "member", Set.of(), "user")))
+                        .param("tenantId", String.valueOf(TENANT_ID))
+                        .param("userId", "999"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.found").value(true))
+                .andExpect(jsonPath("$.data.meeting.operationId").value("meeting-001"))
+                .andExpect(jsonPath("$.data.meeting.status").value("RESERVED"))
+                .andExpect(jsonPath("$.data.meeting.effectivePlanCode").value("BOARD_FREE"))
+                .andExpect(jsonPath("$.data.meeting.bucketDate").value("2026-07-20"))
+                .andExpect(jsonPath("$.data.meeting.requestDigest").doesNotExist())
+                .andExpect(jsonPath("$.data.meeting.userId").doesNotExist());
+
+        verify(mapper).selectOperation(TENANT_ID, "meeting-001");
+    }
+
+    @Test
+    void exactMeetingReservationReadDoesNotRevealMissingOrAnotherUsersOperation() throws Exception {
+        when(mapper.selectActiveContext(TENANT_ID, USER_ID)).thenReturn(
+                context(TENANT_ID, 11L, USER_ID, "福帮手", "MEMBER"));
+        when(mapper.selectOperation(TENANT_ID, "missing-001")).thenReturn(null);
+        when(mapper.selectOperation(TENANT_ID, "private-001"))
+                .thenReturn(operation(TENANT_ID, 999L, "private-001"));
+
+        String authorization = bearer(loginUser(USER_ID, "member", Set.of(), "user"));
+        mockMvc.perform(get("/my/independent-board/meeting-reservations/missing-001")
+                        .header("Authorization", authorization)
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.found").value(false))
+                .andExpect(jsonPath("$.data.meeting").value(nullValue()));
+        mockMvc.perform(get("/my/independent-board/meeting-reservations/private-001")
+                        .header("Authorization", authorization)
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.found").value(false))
+                .andExpect(jsonPath("$.data.meeting").value(nullValue()));
+    }
+
+    @Test
+    void exactMeetingReservationReadDoesNotExposeAnotherProductOrMetric() throws Exception {
+        when(mapper.selectActiveContext(TENANT_ID, USER_ID)).thenReturn(
+                context(TENANT_ID, 11L, USER_ID, "Tenant", "MEMBER"));
+        BoardUsageOperation otherProduct = operation(TENANT_ID, USER_ID, "product-001");
+        otherProduct.setProductCode("ANOTHER_PRODUCT");
+        BoardUsageOperation otherMetric = operation(TENANT_ID, USER_ID, "metric--001");
+        otherMetric.setMetricCode("ANOTHER_METRIC");
+        when(mapper.selectOperation(TENANT_ID, "product-001")).thenReturn(otherProduct);
+        when(mapper.selectOperation(TENANT_ID, "metric--001")).thenReturn(otherMetric);
+
+        String authorization = bearer(loginUser(USER_ID, "member", Set.of(), "user"));
+        mockMvc.perform(get("/my/independent-board/meeting-reservations/product-001")
+                        .header("Authorization", authorization)
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.found").value(false))
+                .andExpect(jsonPath("$.data.meeting").value(nullValue()));
+        mockMvc.perform(get("/my/independent-board/meeting-reservations/metric--001")
+                        .header("Authorization", authorization)
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.found").value(false))
+                .andExpect(jsonPath("$.data.meeting").value(nullValue()));
+    }
+
+    @Test
+    void exactMeetingReservationReadRejectsCrossTenantBeforeOperationLookup() throws Exception {
+        long foreignTenantId = 99L;
+        when(mapper.selectActiveContext(foreignTenantId, USER_ID)).thenReturn(null);
+
+        mockMvc.perform(get("/my/independent-board/meeting-reservations/meeting-001")
+                        .header("Authorization", bearer(loginUser(USER_ID, "member", Set.of(), "user")))
+                        .param("tenantId", String.valueOf(foreignTenantId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.msg").value("TENANT_MEMBER_USER_SCOPE_INVALID"));
+
+        verify(mapper, never()).selectOperation(any(), any());
+    }
+
+    @Test
+    void exactMeetingReservationReadRejectsInvalidOperationId() throws Exception {
+        mockMvc.perform(get("/my/independent-board/meeting-reservations/short")
+                        .header("Authorization", bearer(loginUser(USER_ID, "member", Set.of(), "user")))
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400));
+
+        verify(mapper, never()).selectActiveContext(any(), any());
+        verify(mapper, never()).selectOperation(any(), any());
     }
 
     @Test
@@ -252,6 +494,33 @@ class IndependentBoardHttpSecurityIntegrationTest {
         return member;
     }
 
+    private static BoardEnterpriseMemberScope context(
+            long tenantId, long memberId, long userId, String tenantName, String memberRole) {
+        BoardEnterpriseMemberScope context = member(tenantId, memberId, userId);
+        context.setTenantName(tenantName);
+        context.setMemberRole(memberRole);
+        return context;
+    }
+
+    private static BoardUsageOperation operation(long tenantId, long userId, String operationId) {
+        BoardUsageOperation operation = new BoardUsageOperation();
+        operation.setOperationId(operationId);
+        operation.setTenantId(tenantId);
+        operation.setMemberId(11L);
+        operation.setUserId(userId);
+        operation.setProductCode(IndependentBoardEntitlementService.PRODUCT_CODE);
+        operation.setMetricCode(IndependentBoardEntitlementService.MEETING_METRIC);
+        operation.setStatus("RESERVED");
+        operation.setEffectivePlanCode("BOARD_FREE");
+        operation.setAgendaCount(3);
+        operation.setSeatCount(2);
+        operation.setRemainingCount(0);
+        operation.setBucketDate(LocalDate.of(2026, 7, 20));
+        operation.setCreateTime(new Date(1_790_000_000_000L));
+        operation.setRequestDigest("a".repeat(64));
+        return operation;
+    }
+
     private static BoardProductPlan freePlan() {
         BoardProductPlan plan = new BoardProductPlan();
         plan.setProductCode(IndependentBoardEntitlementService.PRODUCT_CODE);
@@ -313,6 +582,13 @@ class IndependentBoardHttpSecurityIntegrationTest {
         }
 
         @Bean
+        IndependentBoardDashboardService dashboardService(
+                IndependentBoardMapper mapper,
+                IndependentBoardEntitlementService entitlementService) {
+            return new IndependentBoardDashboardService(mapper, entitlementService);
+        }
+
+        @Bean
         IndependentBoardMeetingTransactionService meetingTransactionService(
                 IndependentBoardMapper mapper,
                 IndependentBoardEntitlementService entitlementService) {
@@ -328,9 +604,11 @@ class IndependentBoardHttpSecurityIntegrationTest {
 
         @Bean
         IndependentBoardMeController meController(
+                IndependentBoardDashboardService dashboardService,
                 IndependentBoardEntitlementService entitlementService,
                 IndependentBoardMeetingService meetingService) {
-            return new IndependentBoardMeController(entitlementService, meetingService);
+            return new IndependentBoardMeController(
+                    dashboardService, entitlementService, meetingService);
         }
 
         @Bean

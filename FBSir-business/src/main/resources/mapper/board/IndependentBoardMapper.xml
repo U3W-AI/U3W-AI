@@ -5,7 +5,9 @@
     <resultMap id="MemberScope" type="com.wx.fbsir.business.board.domain.BoardEnterpriseMemberScope">
         <id property="memberId" column="member_id" />
         <result property="tenantId" column="tenant_id" />
+        <result property="tenantName" column="tenant_name" />
         <result property="userId" column="user_id" />
+        <result property="memberRole" column="member_role" />
         <result property="status" column="status" />
         <result property="delFlag" column="del_flag" />
     </resultMap>
@@ -73,13 +75,36 @@
         <result property="completedAt" column="completed_at" />
     </resultMap>
 
-    <select id="selectActiveMember" resultMap="MemberScope">
-        SELECT id AS member_id, enterprise_id AS tenant_id, user_id, status, del_flag
-        FROM fbs_enterprise_member
-        WHERE enterprise_id = #{tenantId}
-          AND user_id = #{userId}
-          AND status = 1
-          AND del_flag = '0'
+    <sql id="ActiveContextColumns">
+        m.id AS member_id, m.enterprise_id AS tenant_id, e.enterprise_name AS tenant_name,
+        m.user_id, m.role AS member_role, m.status, m.del_flag
+    </sql>
+
+    <select id="selectActiveContextsByUser" resultMap="MemberScope">
+        SELECT <include refid="ActiveContextColumns" />
+        FROM fbs_enterprise_member m
+        INNER JOIN fbs_enterprise e
+            ON e.id = m.enterprise_id
+           AND e.status = 1
+           AND e.del_flag = '0'
+        WHERE m.user_id = #{userId}
+          AND m.status = 1
+          AND m.del_flag = '0'
+        ORDER BY m.enterprise_id ASC, m.id ASC
+        LIMIT 101
+    </select>
+
+    <select id="selectActiveContext" resultMap="MemberScope">
+        SELECT <include refid="ActiveContextColumns" />
+        FROM fbs_enterprise_member m
+        INNER JOIN fbs_enterprise e
+            ON e.id = m.enterprise_id
+           AND e.status = 1
+           AND e.del_flag = '0'
+        WHERE m.enterprise_id = #{tenantId}
+          AND m.user_id = #{userId}
+          AND m.status = 1
+          AND m.del_flag = '0'
         LIMIT 1
     </select>
 
@@ -262,5 +287,18 @@
           AND product_code = #{productCode}
         ORDER BY created_at DESC, id DESC
         LIMIT 500
+    </select>
+
+    <select id="selectRecentOperationsByTenantAndUser" resultMap="Operation">
+        SELECT id, operation_id, request_digest, enterprise_id, member_id, user_id,
+               product_code, metric_code, bucket_date, units, status, effective_plan_code,
+               agenda_count, seat_count, remaining_count, created_at, updated_at, completed_at
+        FROM fbs_usage_operation
+        WHERE enterprise_id = #{tenantId}
+          AND user_id = #{userId}
+          AND product_code = #{productCode}
+          AND metric_code = #{metricCode}
+        ORDER BY created_at DESC, id DESC
+        LIMIT 10
     </select>
 </mapper>

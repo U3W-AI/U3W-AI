@@ -131,7 +131,7 @@ public class IndependentBoardEntitlementService {
     private BoardEntitlementSnapshot resolveSnapshot(Long tenantId, Long authenticatedUserId, boolean lockEntitlement) {
         requirePositive(tenantId, "TENANT_REQUIRED");
         requirePositive(authenticatedUserId, "AUTHENTICATED_PRINCIPAL_REQUIRED");
-        BoardEnterpriseMemberScope member = mapper.selectActiveMember(tenantId, authenticatedUserId);
+        BoardEnterpriseMemberScope member = mapper.selectActiveContext(tenantId, authenticatedUserId);
         verifyMember(member, tenantId, authenticatedUserId);
 
         BoardProductPlan free = requirePlan(FREE_PLAN);

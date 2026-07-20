@@ -84,6 +84,7 @@ $steps = @(
     New-Step "public_init_026" "smart bot scheduler jobs" (Resolve-SqlFile "update_20260711_*.sql" "smartBotInternalDispatcherTask")
     New-Step "public_init_027" "Truth Spine test-state receipt ledger" (Resolve-SqlFile "update_20260712_truth_spine_test_state_receipt.sql")
     New-Step "public_init_028" "Independent Board product entitlement control plane" (Resolve-SqlFile "update_20260720_independent_board_control_plane.sql")
+    New-Step "public_init_029" "Independent Board me portal menu" (Resolve-SqlFile "update_20260720_independent_board_me_menu.sql")
 )
 
 for ($index = 0; $index -lt $steps.Count; $index++) {
@@ -324,6 +325,62 @@ SELECT CONCAT_WS('|',
     Write-Host "PASS Independent Board current-read audit (5 tables, 67 columns, 13 unique-index columns, 2 digest columns, 2 plan seeds, 1 internal receipt)."
 }
 
+function Assert-IndependentBoardMeMenuCurrentState {
+    $stateResponse = Invoke-MySqlText -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM sys_menu
+   WHERE menu_name = '独董会'
+     AND parent_id = 0
+     AND order_num = 0
+     AND path = 'independent-board'
+     AND component = 'business/independentBoard/me/index'
+     AND query IS NULL
+     AND route_name = 'IndependentBoardMe'
+     AND is_frame = 1
+     AND is_cache = 0
+     AND menu_type = 'C'
+     AND visible = '0'
+     AND status = '0'
+     AND perms = 'my:independent-board:view'
+     AND icon = 'peoples'),
+  (SELECT COUNT(*) FROM sys_menu
+   WHERE path = 'independent-board'
+      OR component = 'business/independentBoard/me/index'
+      OR route_name = 'IndependentBoardMe'
+      OR perms = 'my:independent-board:view'),
+  (SELECT COUNT(*) FROM sys_role
+   WHERE role_id = 10 AND role_key = 'user' AND status = '0' AND del_flag = '0'),
+  (SELECT COUNT(*) FROM sys_role
+   WHERE role_key = 'user' AND status = '0' AND del_flag = '0'),
+  (SELECT COUNT(*) FROM sys_role_menu AS role_menu
+   INNER JOIN sys_role AS role_row ON role_row.role_id = role_menu.role_id
+   INNER JOIN sys_menu AS menu_row ON menu_row.menu_id = role_menu.menu_id
+   WHERE role_row.role_key = 'user'
+     AND role_row.role_id = 10
+     AND role_row.status = '0'
+     AND role_row.del_flag = '0'
+     AND menu_row.perms = 'my:independent-board:view'
+     AND menu_row.component = 'business/independentBoard/me/index'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = '20260720_independent_board_me_menu_v1'
+     AND description = 'Independent Board top-level me portal menu and ordinary-user role binding'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = '20260720_independent_board_me_menu_v1')
+);
+"@
+    $stateParts = @($stateResponse.Split('|'))
+    $expectedState = @(1, 1, 1, 1, 1, 1, 1)
+    if ($stateParts.Count -ne $expectedState.Count) {
+        throw "Independent Board me menu current-read verifier returned an invalid field count: '$stateResponse'."
+    }
+    for ($index = 0; $index -lt $expectedState.Count; $index++) {
+        if ($stateParts[$index] -notmatch '^\d+$' -or [int]$stateParts[$index] -ne $expectedState[$index]) {
+            throw "Independent Board me menu current-read drift detected at field $($index + 1): expected $($expectedState[$index]), found '$($stateParts[$index])'."
+        }
+    }
+    Write-Host "PASS Independent Board me menu current-read audit (1 page, 1 ordinary-user binding, 1 internal receipt)."
+}
+
 function New-MySqlSession {
     # The mysql client buffers stdout by default when redirected. The persistent
     # advisory-lock session relies on response markers, so force a flush after
@@ -397,6 +454,7 @@ function Stop-MySqlSession {
 
 if ($CurrentReadOnly) {
     Assert-IndependentBoardControlPlaneCurrentState
+    Assert-IndependentBoardMeMenuCurrentState
     Write-Host "Independent Board current-read verification complete for '$Database'. No database write was requested."
     return
 }
@@ -473,6 +531,7 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
     }
 
     Assert-IndependentBoardControlPlaneCurrentState
+    Assert-IndependentBoardMeMenuCurrentState
 
     $appliedCount = [int](Invoke-MySqlText -Sql "SELECT COUNT(*) FROM u3w_schema_migration WHERE version LIKE 'public_init_%' AND description LIKE 'APPLIED:%';")
     if ($appliedCount -ne $steps.Count) {

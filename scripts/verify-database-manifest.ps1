@@ -72,6 +72,7 @@ for ($index = 0; $index -lt $manifest.steps.Count; $index++) {
 $requiredTail = @{
     public_init_027 = "update_20260712_truth_spine_test_state_receipt.sql"
     public_init_028 = "update_20260720_independent_board_control_plane.sql"
+    public_init_029 = "update_20260720_independent_board_me_menu.sql"
 }
 foreach ($version in $requiredTail.Keys) {
     $matches = @($manifest.steps | Where-Object { $_.version -eq $version -and $_.file -eq $requiredTail[$version] })
@@ -95,7 +96,10 @@ $requiredInitNeedles = @(
     "--unbuffered --database=`$Database",
     "finally {",
     "Assert-IndependentBoardControlPlaneCurrentState",
+    "Assert-IndependentBoardMeMenuCurrentState",
     '$expectedState = @(5, 5, 67, 67, 13, 13, 2, 2, 2, 1, 1)',
+    '$expectedState = @(1, 1, 1, 1, 1, 1, 1)',
+    "role_id = 10 AND role_key = 'user'",
     '[string]$Database = "wxfbsir"',
     "^[A-Za-z0-9_]+$",
     "[switch]`$CurrentReadOnly",
@@ -151,6 +155,71 @@ $requiredSqlNeedles = @(
 foreach ($needle in $requiredSqlNeedles) {
     if (-not $controlPlaneSql.Contains($needle)) {
         $errors.Add("control-plane SQL is missing required contract: $needle")
+    }
+}
+
+$meMenuSqlPath = Join-Path $sqlRoot "update_20260720_independent_board_me_menu.sql"
+$meMenuSql = Get-Content -LiteralPath $meMenuSqlPath -Raw -Encoding UTF8
+$requiredMeMenuNeedles = @(
+    "SHA2(",
+    "CHAR_LENGTH(migration_lock_name) <> 64",
+    "GET_LOCK(migration_lock_name, 30)",
+    "IS_USED_LOCK(migration_lock_name)",
+    "RELEASE_LOCK(migration_lock_name)",
+    "DECLARE EXIT HANDLER FOR SQLEXCEPTION",
+    "START TRANSACTION",
+    "COMMIT",
+    "IF migration_exists = 0 THEN",
+    "target_identity_count <> 0",
+    "business/independentBoard/me/index",
+    "my:independent-board:view",
+    "IndependentBoardMe",
+    'WHERE `role_key` = ''user''',
+    'target_user_role_id <> 10',
+    'AND role_row.`role_id` = target_user_role_id',
+    "same named lock and use one transaction",
+    "delete only the exact version+description receipt",
+    "leaving its receipt behind",
+    "table_type = 'BASE TABLE'",
+    "engine = 'InnoDB'",
+    'INSERT INTO `sys_role_menu`',
+    "20260720_independent_board_me_menu_v1",
+    "ordinary-user role binding"
+)
+foreach ($needle in $requiredMeMenuNeedles) {
+    if (-not $meMenuSql.Contains($needle)) {
+        $errors.Add("Independent Board me menu SQL is missing required contract: $needle")
+    }
+}
+if ($meMenuSql -match '(?im)^\s*DELETE\s+FROM\s+`?sys_menu`?' -or
+    $meMenuSql -match '(?im)^\s*UPDATE\s+`?sys_menu`?') {
+    $errors.Add("Independent Board me menu migration must not delete or repair an existing menu row")
+}
+$menuInsertIndex = $meMenuSql.IndexOf('INSERT INTO `sys_menu`', [StringComparison]::Ordinal)
+$roleBindingInsertIndex = $meMenuSql.IndexOf('INSERT INTO `sys_role_menu`', [StringComparison]::Ordinal)
+$menuReceiptInsertIndex = $meMenuSql.IndexOf('INSERT INTO `u3w_schema_migration`', [StringComparison]::Ordinal)
+$menuStateAuditIndex = $meMenuSql.IndexOf('SELECT COUNT(*), MIN(`menu_id`)', [StringComparison]::Ordinal)
+$roleBindingAuditIndex = $meMenuSql.IndexOf('SELECT COUNT(*) INTO user_role_binding_count', [StringComparison]::Ordinal)
+$receiptAuditIndex = $meMenuSql.IndexOf('SELECT COUNT(*) INTO exact_receipt_count', [StringComparison]::Ordinal)
+$menuLockReleaseIndex = $meMenuSql.LastIndexOf('SELECT RELEASE_LOCK(migration_lock_name)', [StringComparison]::Ordinal)
+$menuCommitIndex = $meMenuSql.LastIndexOf('COMMIT;', [StringComparison]::Ordinal)
+$menuProcedureEndIndex = $meMenuSql.IndexOf('END$$', [StringComparison]::Ordinal)
+if ($menuInsertIndex -lt 0 -or
+    $roleBindingInsertIndex -le $menuInsertIndex -or
+    $menuReceiptInsertIndex -le $roleBindingInsertIndex -or
+    $menuStateAuditIndex -le $menuReceiptInsertIndex -or
+    $roleBindingAuditIndex -le $menuStateAuditIndex -or
+    $receiptAuditIndex -le $roleBindingAuditIndex -or
+    $menuLockReleaseIndex -le $receiptAuditIndex -or
+    $menuCommitIndex -le $menuLockReleaseIndex -or
+    $menuProcedureEndIndex -le $menuCommitIndex) {
+    $errors.Add("Independent Board me menu migration must audit menu, role binding and receipt before releasing its lock and committing")
+}
+if ($menuCommitIndex -ge 0 -and $menuProcedureEndIndex -gt $menuCommitIndex) {
+    $postCommitBody = $meMenuSql.Substring($menuCommitIndex + 'COMMIT;'.Length,
+        $menuProcedureEndIndex - ($menuCommitIndex + 'COMMIT;'.Length))
+    if ($postCommitBody -match '(?i)\bSIGNAL\b') {
+        $errors.Add("Independent Board me menu migration must not contain a failing state assertion after COMMIT")
     }
 }
 
@@ -215,9 +284,13 @@ if ($targetCreateMatches.Count -ne 5 -or @($targetCreateMatches | Where-Object {
     $errors.Add("all five target CREATE TABLE statements must be confined to the first-apply guard")
 }
 $lastCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardControlPlaneCurrentState', [StringComparison]::Ordinal)
+$lastMeMenuCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardMeMenuCurrentState', [StringComparison]::Ordinal)
 $manifestLoopIndex = $initSource.IndexOf('foreach ($step in $steps)', [StringComparison]::Ordinal)
 if ($lastCurrentReadCall -le $manifestLoopIndex) {
     $errors.Add("initializer must run the Independent Board current-read audit after the complete manifest loop")
+}
+if ($lastMeMenuCurrentReadCall -le $manifestLoopIndex) {
+    $errors.Add("initializer must run the Independent Board me menu current-read audit after the complete manifest loop")
 }
 
 $liveVerifierPath = Join-Path $resolvedRoot 'scripts\verify-independent-board-live-database.ps1'
@@ -298,6 +371,7 @@ $result = [pscustomobject]@{
     dryRunDatabaseIsolation = [bool]($manifest.dryRun -and -not $manifest.databaseConnectionOpened)
     truthSpineVersion = "public_init_027"
     controlPlaneVersion = "public_init_028"
+    meMenuVersion = "public_init_029"
     errors = @($errors)
 }
 

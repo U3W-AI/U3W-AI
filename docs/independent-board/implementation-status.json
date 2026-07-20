@@ -5,13 +5,13 @@
     "brandEn": "FBSir",
     "name": "独董会"
   },
-  "platformVersion": "0.1.0-dev",
+  "platformVersion": "0.2.0-dev",
   "expertPackage": {
     "version": "26.7.20",
     "state": "submitted_for_review",
     "frozen": true
   },
-  "activeWave": "W2_USER_PORTAL",
+  "activeWave": "W3_ADMIN_PORTAL",
   "stage": "fix",
   "authoritativeRoot": {
     "mode": "standalone_git_repository",
@@ -23,9 +23,12 @@
     "docs/independent-board/taskboard.json",
     "config/deployment/u3w-domain-inventory.json",
     "sql/update_20260720_independent_board_control_plane.sql",
+    "sql/update_20260720_independent_board_me_menu.sql",
     "FBSir-business/src/main/java/com/wx/fbsir/business/board/",
+    "FBSir-ui/src/views/business/independentBoard/me/index.vue",
     "docs/independent-board/PORTAL-PROTOTYPE-SPEC.md",
-    "docs/independent-board/prototypes/portals/index.html"
+    "docs/independent-board/prototypes/portals/index.html",
+    "reports/independent-board/w2-user-portal-verification-20260720.json"
   ],
   "proven": [
     "isolated_u3w_branch_created",
@@ -36,20 +39,29 @@
     "database_manifest_and_dry_run_passed",
     "board_java_branch_tests_passed",
     "full_backend_and_frontend_regression_passed",
-    "portal_prototype_is_static_and_production_ui_remains_locked",
+    "portal_prototype_is_static_and_production_ui_was_explicitly_unlocked_for_implementation",
     "mysql_8_4_first_apply_completed_rerun_and_readonly_current_read_passed",
     "mysql_actual_failure_released_manifest_and_truth_spine_locks",
     "mysql_schema_drift_was_detected_and_restored",
     "mysql_32_way_budget_and_idempotency_contention_passed",
     "spring_http_jwt_tenant_and_admin_permission_integration_passed",
     "spring_mybatis_mysql_transaction_rollback_and_idempotency_matrix_passed",
-    "same_key_concurrency_deadlock_reproduced_fixed_and_twice_reverified"
+    "same_key_concurrency_deadlock_reproduced_fixed_and_twice_reverified",
+    "w2_me_dashboard_source_and_production_build_passed",
+    "w2_server_derived_context_and_user_scoped_current_read_passed",
+    "w2_inactive_or_deleted_enterprise_denied_without_reservation_side_effects",
+    "w2_exact_reservation_lookup_non_leakage_http_jwt_passed",
+    "w2_unknown_reservation_result_preserves_same_operation_and_payload",
+    "w2_unrecoverable_browser_draft_blocks_reservation_side_effect",
+    "w2_me_menu_first_apply_rerun_and_current_state_mysql_passed",
+    "w2_hostname_default_entry_permission_matrix_passed"
   ],
   "notProven": [
     "oauth_end_to_end",
     "production_database_migration",
-    "me_portal_runtime",
-    "admin_portal_runtime",
+    "me_portal_production_runtime",
+    "admin_portal_production_runtime",
+    "me_and_admin_real_domain_browser_readback",
     "connector_vip_binding",
     "webhook_delivery",
     "watch_device_control",
@@ -57,11 +69,14 @@
   ],
   "ui": {
     "base": "existing_u3w_ai_ruoyi_vue3_element_plus",
-    "state": "confirmed_for_ruoyi_implementation",
+    "state": "w2_local_source_and_build_verified",
     "productionImplementationAllowed": true,
     "unlockCondition": "satisfied",
     "confirmation": "recommended_five_points",
-    "confirmedAt": "2026-07-20T21:03:00+08:00"
+    "confirmedAt": "2026-07-20T21:03:00+08:00",
+    "w2Surface": "FBSir-ui/src/views/business/independentBoard/me/index.vue",
+    "connectorAction": "deferred_to_W4_oauth_connector",
+    "watchAndWebhookDeepPages": "deferred_to_W5_delivery_and_watch"
   },
-  "updatedAt": "2026-07-20T21:25:00+08:00"
+  "updatedAt": "2026-07-20T22:14:45+08:00"
 }

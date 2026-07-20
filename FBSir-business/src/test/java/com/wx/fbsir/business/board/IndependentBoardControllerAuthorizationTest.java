@@ -6,6 +6,7 @@ import com.wx.fbsir.business.board.dto.BoardEntitlementGrantRequest;
 import com.wx.fbsir.business.board.dto.BoardMeetingReservationRequest;
 import com.wx.fbsir.common.annotation.Anonymous;
 import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Pattern;
 import java.lang.reflect.Method;
 import java.lang.reflect.RecordComponent;
 import java.util.Arrays;
@@ -28,6 +29,12 @@ class IndependentBoardControllerAuthorizationTest {
         assertEquals("/my/independent-board", basePath(IndependentBoardMeController.class));
         assertEquals("/business/independent-board", basePath(IndependentBoardAdminController.class));
 
+        assertEndpoint(IndependentBoardMeController.class, "contexts", "isAuthenticated()",
+                GetMapping.class, "/contexts");
+        assertEndpoint(IndependentBoardMeController.class, "dashboard", "isAuthenticated()",
+                GetMapping.class, "/dashboard", Long.class);
+        assertEndpoint(IndependentBoardMeController.class, "meetingReservation", "isAuthenticated()",
+                GetMapping.class, "/meeting-reservations/{operationId}", String.class, Long.class);
         assertEndpoint(IndependentBoardMeController.class, "entitlement", "isAuthenticated()",
                 GetMapping.class, "/entitlement", Long.class);
         assertEndpoint(IndependentBoardMeController.class, "reserve", "isAuthenticated()",
@@ -56,6 +63,12 @@ class IndependentBoardControllerAuthorizationTest {
                 .findFirst().orElseThrow().getAccessor().getAnnotation(Max.class);
         assertNotNull(safetyLimit);
         assertEquals(BoardMeetingReservationRequest.INITIAL_SAFETY_MAX_SEAT_COUNT, safetyLimit.value());
+        Pattern operationIdPattern = Arrays.stream(BoardMeetingReservationRequest.class.getRecordComponents())
+                .filter(component -> component.getName().equals("operationId"))
+                .findFirst().orElseThrow().getAccessor().getAnnotation(Pattern.class);
+        assertNotNull(operationIdPattern);
+        assertEquals(BoardMeetingReservationRequest.OPERATION_ID_PATTERN,
+                operationIdPattern.regexp());
     }
 
     private String basePath(Class<?> controller) {

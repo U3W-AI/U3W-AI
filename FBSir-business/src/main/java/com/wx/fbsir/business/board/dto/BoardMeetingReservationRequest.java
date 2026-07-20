@@ -8,9 +8,14 @@ import jakarta.validation.constraints.Pattern;
 
 public record BoardMeetingReservationRequest(
         @NotNull @Min(1) Long tenantId,
-        @NotBlank @Pattern(regexp = "[A-Za-z0-9][A-Za-z0-9._:-]{7,127}") String operationId,
+        @NotBlank @Pattern(regexp = BoardMeetingReservationRequest.OPERATION_ID_PATTERN)
+        String operationId,
         @NotNull @Min(1) @Max(30) Integer agendaCount,
         @NotNull @Min(1) @Max(INITIAL_SAFETY_MAX_SEAT_COUNT) Integer seatCount) {
     /** Abuse-prevention ceiling for the initial API, not the VIP product seat limit. */
     public static final int INITIAL_SAFETY_MAX_SEAT_COUNT = 100;
+
+    /** Shared route/body contract: 8-128 safe idempotency-key characters. */
+    public static final String OPERATION_ID_PATTERN =
+            "[A-Za-z0-9][A-Za-z0-9._:-]{7,127}";
 }

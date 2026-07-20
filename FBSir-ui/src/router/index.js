@@ -1,6 +1,7 @@
 import { createWebHistory, createRouter } from 'vue-router'
 /* Layout */
 import Layout from '@/layout'
+import { PORTAL_ENTRY_PATH } from '@/utils/portalEntry'
 
 /**
  * Note: 路由配置项
@@ -58,9 +59,14 @@ export const constantRoutes = [
     hidden: true
   },
   {
+    path: PORTAL_ENTRY_PATH,
+    component: Layout,
+    hidden: true
+  },
+  {
     path: '',
     component: Layout,
-    redirect: '/index',
+    redirect: PORTAL_ENTRY_PATH,
     children: [
       {
         path: '/index',

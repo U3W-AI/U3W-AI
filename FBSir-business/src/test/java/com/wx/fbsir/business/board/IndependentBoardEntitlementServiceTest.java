@@ -45,7 +45,7 @@ class IndependentBoardEntitlementServiceTest {
 
     @Test
     void defaultsToExactFreePolicyForServerDerivedMember() {
-        when(mapper.selectActiveMember(7L, 42L)).thenReturn(member(7L, 11L, 42L));
+        when(mapper.selectActiveContext(7L, 42L)).thenReturn(member(7L, 11L, 42L));
 
         BoardEntitlementSnapshot snapshot = service.getSnapshot(7L, 42L);
 
@@ -57,12 +57,12 @@ class IndependentBoardEntitlementServiceTest {
         assertEquals(3, snapshot.seatLimit());
         assertFalse(snapshot.secretaryEnabled());
         assertEquals(1, snapshot.remainingCount());
-        verify(mapper).selectActiveMember(7L, 42L);
+        verify(mapper).selectActiveContext(7L, 42L);
     }
 
     @Test
     void vipGrantWithoutConnectorVerificationFailsClosedToFree() {
-        when(mapper.selectActiveMember(7L, 42L)).thenReturn(member(7L, 11L, 42L));
+        when(mapper.selectActiveContext(7L, 42L)).thenReturn(member(7L, 11L, 42L));
         when(mapper.selectEntitlement(7L, 11L, 42L, IndependentBoardEntitlementService.PRODUCT_CODE))
                 .thenReturn(entitlement(null, null));
 
@@ -78,7 +78,7 @@ class IndependentBoardEntitlementServiceTest {
 
     @Test
     void legacyBindingFieldsCannotActivateVipBeforeAuthoritativeW4CurrentRead() {
-        when(mapper.selectActiveMember(7L, 42L)).thenReturn(member(7L, 11L, 42L));
+        when(mapper.selectActiveContext(7L, 42L)).thenReturn(member(7L, 11L, 42L));
         when(mapper.selectEntitlement(7L, 11L, 42L, IndependentBoardEntitlementService.PRODUCT_CODE))
                 .thenReturn(entitlement("connector-1", Date.from(NOW.minusSeconds(60))));
 
@@ -96,13 +96,15 @@ class IndependentBoardEntitlementServiceTest {
 
     @Test
     void rejectsClientTenantWhenMembershipDoesNotMatchAuthenticatedUser() {
-        when(mapper.selectActiveMember(99L, 42L)).thenReturn(null);
+        when(mapper.selectActiveContext(99L, 42L)).thenReturn(null);
 
         ServiceException error = assertThrows(ServiceException.class, () -> service.getSnapshot(99L, 42L));
 
         assertEquals(403, error.getCode());
         assertEquals("TENANT_MEMBER_USER_SCOPE_INVALID", error.getMessage());
+        verify(mapper, never()).selectActivePlan(any(), any());
         verify(mapper, never()).selectEntitlement(any(), any(), any(), any());
+        verify(mapper, never()).selectUsageBudget(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -127,6 +129,7 @@ class IndependentBoardEntitlementServiceTest {
         assertEquals("ENTITLEMENT_GRANTED", receipt.getValue().getAction());
         assertEquals("ACTION_COMPLETED", receipt.getValue().getEvidenceLevel());
         assertEquals(64, receipt.getValue().getPayloadDigest().length());
+        verify(mapper, never()).selectActiveContext(any(), any());
     }
 
     @Test

@@ -13,8 +13,10 @@ import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface IndependentBoardMapper {
-    BoardEnterpriseMemberScope selectActiveMember(@Param("tenantId") Long tenantId,
-                                                  @Param("userId") Long userId);
+    List<BoardEnterpriseMemberScope> selectActiveContextsByUser(@Param("userId") Long userId);
+
+    BoardEnterpriseMemberScope selectActiveContext(@Param("tenantId") Long tenantId,
+                                                    @Param("userId") Long userId);
 
     BoardEnterpriseMemberScope selectExactActiveMember(@Param("tenantId") Long tenantId,
                                                        @Param("memberId") Long memberId,
@@ -76,4 +78,10 @@ public interface IndependentBoardMapper {
 
     List<BoardUsageOperation> selectOperationsByTenant(@Param("tenantId") Long tenantId,
                                                       @Param("productCode") String productCode);
+
+    List<BoardUsageOperation> selectRecentOperationsByTenantAndUser(
+            @Param("tenantId") Long tenantId,
+            @Param("userId") Long userId,
+            @Param("productCode") String productCode,
+            @Param("metricCode") String metricCode);
 }

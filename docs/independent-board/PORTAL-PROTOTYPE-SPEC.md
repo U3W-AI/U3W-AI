@@ -1,6 +1,6 @@
 # me / admin 双后台原型说明
 
-状态：`CONFIRMED_FOR_IMPLEMENTATION`。用户已于 2026-07-20 明确回复“按建议确认”；本原型的五项建议成为若依生产页面实施基线。原型本身仍不连接 API，也不代表生产页面已经完成。
+状态：`CONFIRMED_AND_W2_LOCALLY_IMPLEMENTED`。用户已于 2026-07-20 明确回复“按建议确认”；本原型的五项建议成为若依生产页面实施基线。静态原型本身仍不连接 API；W2 用户门户的源码、构建、HTTP/JWT 和真实 MySQL 候选态已验证，但尚未部署到真实域名。
 
 ## 设计基准
 
@@ -79,5 +79,19 @@
 5. 首期是否只实现首页、权益、会议、连接器四个页面，把 Watch/Webhook 深页延后。
 
 确认决策：`recommended_five_points`。
+
+## W2 落地映射与边界
+
+首期以任务优先的一体化页面落地“权益—额度—会议”，而不是复制一套平行门户：
+
+| 已落地能力 | 仓库真源 |
+|---|---|
+| 服务端派生企业上下文、权益/额度、本人最近会议 | `IndependentBoardDashboardService` 与 `/my/independent-board/*` |
+| 同一预约编号与载荷的幂等提交、精确回读和未知结果恢复 | `IndependentBoardMeetingTransactionService`、精确回读 API 与 me 页面会话草稿 |
+| VIP 待连接黄色状态，不把授予误写成生效 | me 页面权益卡与服务端 Connector 状态映射 |
+| me 域名默认进入独董会、无权限时回退首页 | 隐藏 `/portal-entry`、动态路由授权后解析 |
+| 普通用户顶级“独董会”菜单 | `update_20260720_independent_board_me_menu.sql` |
+
+Connector OAuth 自助连接属于 W4；Webhook 与 Watch 深页属于 W5。当前只展示其真实状态或“后续能力”，不提供假入口。真实 `me.u3w.com` / `admin.u3w.com` 部署和浏览器回读属于 W6，不能从本地构建通过推断。
 
 可点击原型入口：[双后台原型](./prototypes/portals/index.html)。

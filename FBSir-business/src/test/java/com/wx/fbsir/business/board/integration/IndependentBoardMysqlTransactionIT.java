@@ -2,10 +2,14 @@ package com.wx.fbsir.business.board.integration;
 
 import com.wx.fbsir.business.board.dto.BoardEntitlementAdminView;
 import com.wx.fbsir.business.board.dto.BoardEntitlementGrantRequest;
+import com.wx.fbsir.business.board.dto.BoardDashboardView;
+import com.wx.fbsir.business.board.dto.BoardEnterpriseContextView;
 import com.wx.fbsir.business.board.dto.BoardMeetingReservationRequest;
 import com.wx.fbsir.business.board.dto.BoardMeetingReservationView;
+import com.wx.fbsir.business.board.dto.BoardMeetingLookupView;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
 import com.wx.fbsir.business.board.service.IndependentBoardEntitlementService;
+import com.wx.fbsir.business.board.service.IndependentBoardDashboardService;
 import com.wx.fbsir.business.board.service.IndependentBoardMeetingService;
 import com.wx.fbsir.business.board.service.IndependentBoardMeetingTransactionService;
 import com.wx.fbsir.common.exception.ServiceException;
@@ -32,6 +36,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.SqlSessionTemplate;
 import org.springframework.aop.support.AopUtils;
@@ -45,7 +50,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -57,17 +64,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class IndependentBoardMysqlTransactionIT {
     private static final String DATABASE = "u3w_independent_board_it";
     private static final String MIGRATION_VERSION = "20260720_independent_board_control_plane_v1";
+    private static final String MENU_MIGRATION_VERSION =
+            "20260720_independent_board_me_menu_v1";
     private static final long TENANT_ONE = 1001L;
     private static final long MEMBER_ONE = 101L;
     private static final long USER_ONE = 501L;
     private static final long TENANT_TWO = 1002L;
     private static final long MEMBER_TWO = 102L;
     private static final long USER_TWO = 502L;
+    private static final long TENANT_ONE_MEMBER_TWO = 103L;
 
     private static AnnotationConfigApplicationContext context;
     private static DataSource dataSource;
     private static IndependentBoardEntitlementService entitlementService;
     private static IndependentBoardMeetingService meetingService;
+    private static IndependentBoardDashboardService dashboardService;
 
     @BeforeAll
     static void startSpringContextAndApplyCurrentMigration() throws Exception {
@@ -87,11 +98,14 @@ class IndependentBoardMysqlTransactionIT {
         dataSource = context.getBean(DataSource.class);
         entitlementService = context.getBean(IndependentBoardEntitlementService.class);
         meetingService = context.getBean(IndependentBoardMeetingService.class);
+        dashboardService = context.getBean(IndependentBoardDashboardService.class);
 
         assertTrue(AopUtils.isAopProxy(entitlementService),
                 "entitlement service must be a Spring transaction proxy");
         assertTrue(AopUtils.isAopProxy(meetingService),
                 "meeting service must be a Spring transaction proxy");
+        assertTrue(AopUtils.isAopProxy(dashboardService),
+                "dashboard service must be a Spring transaction proxy");
         assertTrue(AopUtils.isAopProxy(
                         context.getBean(IndependentBoardMeetingTransactionService.class)),
                 "meeting transaction service must be a Spring transaction proxy");
@@ -119,13 +133,153 @@ class IndependentBoardMysqlTransactionIT {
                 "DELETE FROM fbs_entitlement_receipt",
                 "DELETE FROM fbs_product_entitlement",
                 "DELETE FROM fbs_enterprise_member",
+                "DELETE FROM fbs_enterprise",
+                "INSERT INTO fbs_enterprise (id, enterprise_name, status, del_flag) VALUES "
+                        + "(" + TENANT_ONE + ", 'Tenant One', 1, '0'), "
+                        + "(" + TENANT_TWO + ", 'Tenant Two', 1, '0')",
                 "INSERT INTO fbs_enterprise_member "
                         + "(id, enterprise_id, user_id, role, status, del_flag) VALUES "
                         + "(" + MEMBER_ONE + ", " + TENANT_ONE + ", " + USER_ONE
                         + ", 'MEMBER', 1, '0'), "
                         + "(" + MEMBER_TWO + ", " + TENANT_TWO + ", " + USER_TWO
+                        + ", 'ADMIN', 1, '0'), "
+                        + "(" + TENANT_ONE_MEMBER_TWO + ", " + TENANT_ONE + ", " + USER_TWO
                         + ", 'MEMBER', 1, '0')"
         );
+    }
+
+    @Test
+    void contextCurrentReadReturnsOnlyTheAuthenticatedUsersActiveEnterprises() {
+        List<BoardEnterpriseContextView> userOneContexts = dashboardService.listContexts(USER_ONE);
+        List<BoardEnterpriseContextView> userTwoContexts = dashboardService.listContexts(USER_TWO);
+
+        assertEquals(1, userOneContexts.size());
+        assertEquals(TENANT_ONE, userOneContexts.get(0).tenantId());
+        assertEquals(MEMBER_ONE, userOneContexts.get(0).memberId());
+        assertEquals("Tenant One", userOneContexts.get(0).tenantName());
+        assertEquals(2, userTwoContexts.size());
+        assertTrue(userTwoContexts.stream().noneMatch(context -> context.memberId().equals(MEMBER_ONE)));
+    }
+
+    @Test
+    void dashboardHistoryIsStrictlyFilteredByTenantAndAuthenticatedUser() {
+        meetingService.reserve(request(TENANT_ONE, "history-user-one", 1, 1), USER_ONE);
+        meetingService.reserve(request(TENANT_ONE, "history-user-two", 1, 1), USER_TWO);
+
+        BoardDashboardView dashboard = dashboardService.getDashboard(TENANT_ONE, USER_ONE);
+
+        assertEquals(TENANT_ONE, dashboard.context().tenantId());
+        assertEquals(USER_ONE, dashboard.entitlement().userId());
+        assertEquals(1, dashboard.recentMeetings().size());
+        assertEquals("history-user-one", dashboard.recentMeetings().get(0).operationId());
+        assertEquals(IndependentBoardDashboardService.CONNECTOR_NOT_CONNECTED,
+                dashboard.connectorState());
+        assertEquals(IndependentBoardDashboardService.COMING_SOON, dashboard.webhookState());
+        assertEquals(IndependentBoardDashboardService.COMING_SOON, dashboard.watchState());
+    }
+
+    @Test
+    void dashboardRejectsCrossTenantBeforeReturningAnyReadModel() {
+        ServiceException rejected = assertThrows(ServiceException.class,
+                () -> dashboardService.getDashboard(TENANT_TWO, USER_ONE));
+
+        assertEquals(403, rejected.getCode());
+        assertEquals("TENANT_MEMBER_USER_SCOPE_INVALID", rejected.getMessage());
+    }
+
+    @Test
+    void exactMeetingReservationReadReturnsTheCommittedReservation() {
+        meetingService.reserve(request(TENANT_ONE, "exact-read-001", 2, 2), USER_ONE);
+
+        BoardMeetingLookupView result = dashboardService.getMeetingReservation(
+                TENANT_ONE, "exact-read-001", USER_ONE);
+
+        assertTrue(result.found());
+        assertEquals("exact-read-001", result.meeting().operationId());
+        assertEquals("RESERVED", result.meeting().status());
+        assertEquals(IndependentBoardEntitlementService.FREE_PLAN,
+                result.meeting().effectivePlanCode());
+        assertNotNull(result.meeting().bucketDate());
+        assertNotNull(result.meeting().createdAt());
+    }
+
+    @Test
+    void exactMeetingReservationReadDoesNotRevealAnotherUsersOperation() {
+        meetingService.reserve(request(TENANT_ONE, "private-read1", 1, 1), USER_TWO);
+
+        BoardMeetingLookupView missing = dashboardService.getMeetingReservation(
+                TENANT_ONE, "missing-read1", USER_ONE);
+        BoardMeetingLookupView privateOperation = dashboardService.getMeetingReservation(
+                TENANT_ONE, "private-read1", USER_ONE);
+
+        assertFalse(missing.found());
+        assertNull(missing.meeting());
+        assertEquals(missing, privateOperation);
+    }
+
+    @Test
+    void exactMeetingReservationReadRejectsCrossTenantBeforeLookup() {
+        meetingService.reserve(request(TENANT_TWO, "tenant2-read1", 1, 1), USER_TWO);
+
+        ServiceException rejected = assertThrows(ServiceException.class,
+                () -> dashboardService.getMeetingReservation(
+                        TENANT_TWO, "tenant2-read1", USER_ONE));
+
+        assertEquals(403, rejected.getCode());
+        assertEquals("TENANT_MEMBER_USER_SCOPE_INVALID", rejected.getMessage());
+    }
+
+    @Test
+    void disabledEnterpriseClosesEveryMeSurfaceBeforeAnyBudgetOrOperationSideEffect()
+            throws Exception {
+        assertInactiveEnterpriseClosesEveryMeSurface(0, "0", "disabled");
+    }
+
+    @Test
+    void deletedEnterpriseClosesEveryMeSurfaceBeforeAnyBudgetOrOperationSideEffect()
+            throws Exception {
+        assertInactiveEnterpriseClosesEveryMeSurface(1, "1", "deleted");
+    }
+
+    @Test
+    void menuMigrationCreatesExactRoutePermissionAndOrdinaryUserRoleBinding() throws Exception {
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM sys_menu AS menu "
+                + "INNER JOIN sys_role_menu AS role_menu ON role_menu.menu_id = menu.menu_id "
+                + "INNER JOIN sys_role AS role_row ON role_row.role_id = role_menu.role_id "
+                + "WHERE menu.menu_name = '独董会' "
+                + "AND menu.parent_id = 0 AND menu.order_num = 0 "
+                + "AND menu.path = 'independent-board' "
+                + "AND menu.component = 'business/independentBoard/me/index' "
+                + "AND menu.route_name = 'IndependentBoardMe' "
+                + "AND menu.perms = 'my:independent-board:view' "
+                + "AND menu.menu_type = 'C' AND menu.visible = '0' AND menu.status = '0' "
+                + "AND role_row.role_key = 'user' "
+                + "AND role_row.status = '0' AND role_row.del_flag = '0'"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM u3w_schema_migration "
+                + "WHERE version = '" + MENU_MIGRATION_VERSION + "' "
+                + "AND description = 'Independent Board top-level me portal menu "
+                + "and ordinary-user role binding'"));
+    }
+
+    @Test
+    void menuMigrationFailsClosedOnDriftAndPassesAfterExactRestore() throws Exception {
+        Path migration = locateMigration("update_20260720_independent_board_me_menu.sql");
+        execute("UPDATE sys_menu SET component = 'drifted/component' "
+                + "WHERE path = 'independent-board'");
+        try {
+            SQLException drift = assertThrows(SQLException.class,
+                    () -> executeMigration(migration));
+            assertTrue(drift.getMessage().contains("current state is missing or drifted"));
+        } finally {
+            execute("UPDATE sys_menu SET component = 'business/independentBoard/me/index' "
+                    + "WHERE path = 'independent-board'");
+        }
+
+        executeMigration(migration);
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM sys_menu "
+                + "WHERE path = 'independent-board' "
+                + "AND component = 'business/independentBoard/me/index' "
+                + "AND perms = 'my:independent-board:view'"));
     }
 
     @Test
@@ -338,6 +492,45 @@ class IndependentBoardMysqlTransactionIT {
         return new BoardMeetingReservationRequest(tenantId, operationId, agendaCount, seatCount);
     }
 
+    private void assertInactiveEnterpriseClosesEveryMeSurface(
+            int enterpriseStatus,
+            String enterpriseDelFlag,
+            String operationPrefix) throws Exception {
+        String existingOperationId = operationPrefix + "-existing-001";
+        String rejectedOperationId = operationPrefix + "-new-001";
+        meetingService.reserve(
+                request(TENANT_ONE, existingOperationId, 1, 1), USER_ONE);
+        execute("DELETE FROM fbs_usage_budget WHERE enterprise_id = " + TENANT_ONE);
+        int operationCountBefore = scalarInt(
+                "SELECT COUNT(*) FROM fbs_usage_operation WHERE enterprise_id = " + TENANT_ONE);
+        int budgetCountBefore = scalarInt(
+                "SELECT COUNT(*) FROM fbs_usage_budget WHERE enterprise_id = " + TENANT_ONE);
+
+        execute("UPDATE fbs_enterprise SET status = " + enterpriseStatus
+                + ", del_flag = '" + enterpriseDelFlag + "' WHERE id = " + TENANT_ONE);
+
+        assertMeScopeRejected(() -> entitlementService.getSnapshot(TENANT_ONE, USER_ONE));
+        assertMeScopeRejected(() -> meetingService.reserve(
+                request(TENANT_ONE, rejectedOperationId, 1, 1), USER_ONE));
+        assertMeScopeRejected(() -> dashboardService.getDashboard(TENANT_ONE, USER_ONE));
+        assertMeScopeRejected(() -> dashboardService.getMeetingReservation(
+                TENANT_ONE, existingOperationId, USER_ONE));
+
+        assertEquals(operationCountBefore, scalarInt(
+                "SELECT COUNT(*) FROM fbs_usage_operation WHERE enterprise_id = " + TENANT_ONE));
+        assertEquals(budgetCountBefore, scalarInt(
+                "SELECT COUNT(*) FROM fbs_usage_budget WHERE enterprise_id = " + TENANT_ONE));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_usage_operation "
+                + "WHERE enterprise_id = " + TENANT_ONE
+                + " AND operation_id = '" + rejectedOperationId + "'"));
+    }
+
+    private void assertMeScopeRejected(Executable action) {
+        ServiceException rejected = assertThrows(ServiceException.class, action);
+        assertEquals(403, rejected.getCode());
+        assertEquals("TENANT_MEMBER_USER_SCOPE_INVALID", rejected.getMessage());
+    }
+
     private static void assertSafeDedicatedUrl(String url) {
         if (!url.matches("^jdbc:mysql://127\\.0\\.0\\.1:(?!3306(?:/|$))\\d+/"
                 + DATABASE + "(?:\\?.*)?$")
@@ -382,12 +575,39 @@ class IndependentBoardMysqlTransactionIT {
                 "DROP TABLE IF EXISTS fbs_usage_budget",
                 "DROP TABLE IF EXISTS fbs_entitlement_receipt",
                 "DROP TABLE IF EXISTS fbs_product_plan",
+                "DROP TABLE IF EXISTS sys_role_menu",
+                "DROP TABLE IF EXISTS sys_menu",
+                "DROP TABLE IF EXISTS sys_role",
                 "DROP TABLE IF EXISTS fbs_enterprise_member",
+                "DROP TABLE IF EXISTS fbs_enterprise",
                 "CREATE TABLE IF NOT EXISTS u3w_schema_migration ("
                         + "version VARCHAR(96) NOT NULL, "
                         + "applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "
                         + "description VARCHAR(255) NOT NULL, PRIMARY KEY (version)) ENGINE=InnoDB",
                 "DELETE FROM u3w_schema_migration WHERE version = '" + MIGRATION_VERSION + "'",
+                "DELETE FROM u3w_schema_migration WHERE version = '" + MENU_MIGRATION_VERSION + "'",
+                "CREATE TABLE sys_menu ("
+                        + "menu_id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
+                        + "menu_name VARCHAR(64) NOT NULL, parent_id BIGINT NOT NULL, "
+                        + "order_num INT NOT NULL, path VARCHAR(128) NOT NULL, "
+                        + "component VARCHAR(255), query VARCHAR(255), route_name VARCHAR(128), "
+                        + "is_frame TINYINT NOT NULL, is_cache TINYINT NOT NULL, "
+                        + "menu_type CHAR(1) NOT NULL, visible CHAR(1) NOT NULL, "
+                        + "status CHAR(1) NOT NULL, perms VARCHAR(128), icon VARCHAR(128), "
+                        + "create_by VARCHAR(64), create_time DATETIME, update_by VARCHAR(64), "
+                        + "update_time DATETIME, remark VARCHAR(512)) ENGINE=InnoDB",
+                "CREATE TABLE sys_role ("
+                        + "role_id BIGINT NOT NULL PRIMARY KEY, role_key VARCHAR(64) NOT NULL, "
+                        + "status CHAR(1) NOT NULL, del_flag CHAR(1) NOT NULL) ENGINE=InnoDB",
+                "CREATE TABLE sys_role_menu ("
+                        + "role_id BIGINT NOT NULL, menu_id BIGINT NOT NULL, "
+                        + "PRIMARY KEY (role_id, menu_id)) ENGINE=InnoDB",
+                "INSERT INTO sys_role (role_id, role_key, status, del_flag) "
+                        + "VALUES (10, 'user', '0', '0')",
+                "CREATE TABLE fbs_enterprise ("
+                        + "id BIGINT UNSIGNED NOT NULL PRIMARY KEY, "
+                        + "enterprise_name VARCHAR(128) NOT NULL, "
+                        + "status TINYINT NOT NULL, del_flag CHAR(1) NOT NULL) ENGINE=InnoDB",
                 "CREATE TABLE fbs_enterprise_member ("
                         + "id BIGINT UNSIGNED NOT NULL PRIMARY KEY, "
                         + "enterprise_id BIGINT UNSIGNED NOT NULL, "
@@ -396,8 +616,13 @@ class IndependentBoardMysqlTransactionIT {
                         + "UNIQUE KEY uk_board_it_member (enterprise_id, user_id)) ENGINE=InnoDB"
         );
         executeMigration(locateMigration("update_20260720_independent_board_control_plane.sql"));
+        Path menuMigration = locateMigration("update_20260720_independent_board_me_menu.sql");
+        executeMigration(menuMigration);
+        executeMigration(menuMigration);
         assertEquals(1, scalarInt("SELECT COUNT(*) FROM u3w_schema_migration "
                 + "WHERE version = '" + MIGRATION_VERSION + "'"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM u3w_schema_migration "
+                + "WHERE version = '" + MENU_MIGRATION_VERSION + "'"));
         assertEquals(5, scalarInt("SELECT COUNT(*) FROM information_schema.tables "
                 + "WHERE table_schema = DATABASE() AND table_name IN "
                 + "('fbs_product_plan','fbs_product_entitlement','fbs_usage_budget',"
@@ -552,6 +777,13 @@ class IndependentBoardMysqlTransactionIT {
         @Bean
         IndependentBoardEntitlementService entitlementService(IndependentBoardMapper mapper) {
             return new IndependentBoardEntitlementService(mapper);
+        }
+
+        @Bean
+        IndependentBoardDashboardService dashboardService(
+                IndependentBoardMapper mapper,
+                IndependentBoardEntitlementService entitlementService) {
+            return new IndependentBoardDashboardService(mapper, entitlementService);
         }
 
         @Bean

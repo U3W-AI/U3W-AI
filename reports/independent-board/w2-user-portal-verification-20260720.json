@@ -1,0 +1,143 @@
+{
+  "schema": "fbsir.independent-board-w2-verification/v1",
+  "wave": "W2_USER_PORTAL",
+  "product": {
+    "brandZh": "福帮手",
+    "brandEn": "FBSir",
+    "name": "独董会"
+  },
+  "candidate": {
+    "branch": "codex/independent-board-control-plane",
+    "baseCommit": "22f23cfe0505cea5cc6f7118473d90b8a01f5dbf",
+    "binding": "the containing Git commit binds this report to the verified candidate tree",
+    "submittedExpertPackage": {
+      "version": "26.7.20",
+      "state": "frozen_outside_writable_boundary",
+      "modified": false
+    }
+  },
+  "observedAt": "2026-07-20T22:14:45+08:00",
+  "result": "PASS_LOCAL_CANDIDATE",
+  "verification": {
+    "controlPlaneAll": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-control-plane.ps1 -Mode All",
+      "result": "PASS",
+      "backendTests": {
+        "tests": 556,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "frontendModulesBuilt": 3016
+    },
+    "boardBusinessAndContract": {
+      "command": "mvn.cmd -pl FBSir-admin -am -Dtest=IndependentBoardHttpSecurityIntegrationTest,IndependentBoard*Test -Dsurefire.failIfNoSpecifiedTests=false test",
+      "businessTests": 33,
+      "httpJwtTests": 17,
+      "failures": 0
+    },
+    "mysqlTransactions": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-mysql-transaction-it.ps1 -AllowDestructiveTest",
+      "tests": 20,
+      "failures": 0,
+      "database": "MySQL 8.4.8",
+      "engine": "InnoDB",
+      "isolation": "REPEATABLE-READ",
+      "connector": "MySQL Connector/J 8.2.0",
+      "loopbackOnly": true,
+      "temporaryDatabaseCleaned": true
+    },
+    "databaseManifest": {
+      "result": "PASS",
+      "manifestSteps": 29,
+      "managedUpdateSqlFiles": 26,
+      "meMenuVersion": "public_init_029"
+    },
+    "frontendContracts": {
+      "portalEntryPureCases": 8,
+      "portalEntryRouterCases": 5,
+      "independentBoardUiSafetyAssertions": 19,
+      "menuComponents": 55,
+      "menuSqlFiles": 29,
+      "productionBuild": "PASS"
+    },
+    "worktreeIntegrity": {
+      "gitDiffCheck": "PASS",
+      "submittedPackageTouched": false
+    }
+  },
+  "securityAndConsistencyAssertions": [
+    "authenticated principal is server-derived",
+    "tenant context is selected only from active memberships returned for the authenticated user",
+    "entitlement, reservation, dashboard and exact readback all require both the enterprise and membership to be active and not deleted",
+    "dashboard meeting history is constrained by tenant, user, product and metric",
+    "exact reservation lookup returns a non-leaking found/meeting envelope",
+    "cross-tenant access fails closed while missing or another user's operation is indistinguishable",
+    "an unknown POST result preserves the same operationId and payload for exact readback or retry",
+    "a reservation readback is successful only when status is RESERVED and operationId, agendaCount and seatCount match the frozen submission",
+    "a reservation side effect is blocked unless its recovery draft can be written and read back exactly",
+    "hostname chooses only the default experience after dynamic-route authorization and grants no permission",
+    "the me menu migration is lock-owned, transactional, receipt-bound, rerunnable and tied to the canonical ordinary-user role"
+  ],
+  "userExperienceAssertions": [
+    "the visible brand is 福帮手 / 独董会 / FBSir",
+    "the first-value order is entitlement, quota, meeting",
+    "VIP pending Connector is shown in amber as 待连接 and is not promoted to active",
+    "dashboard failures do not render fabricated free-plan or zero-quota data",
+    "reservation input is locked after submission uncertainty until exact retry or explicit abandonment",
+    "Watch and Webhook are status-only future capabilities in W2"
+  ],
+  "redTeamFixesIncluded": [
+    "response context and entitlement binding validation",
+    "inactive or deleted enterprise denial with zero reservation and budget side effects",
+    "request sequence protection against stale tenant responses",
+    "exact operation lookup instead of relying only on a last-ten dashboard",
+    "strict RESERVED and frozen-payload reconciliation across direct response, exact lookup and dashboard fallback",
+    "sessionStorage write-and-readback preflight before the reservation POST",
+    "session-scoped user-and-tenant reservation draft recovery",
+    "explicit abandon warning before rotating an uncertain idempotency key",
+    "menu identity separated from the Chinese display name",
+    "all fallible migration assertions moved before COMMIT",
+    "role_id 10 registration semantics and InnoDB preflight verified",
+    "rollback instructions delete the exact binding, menu and migration receipt in one locked transaction"
+  ],
+  "methodReferences": [
+    {
+      "title": "Vue Router Dynamic Routing",
+      "url": "https://router.vuejs.org/guide/advanced/dynamic-routing.html",
+      "appliedTo": "resolve the host-aware entry only after authorized dynamic routes are installed"
+    },
+    {
+      "title": "Vue Router Navigation Guards",
+      "url": "https://router.vuejs.org/guide/advanced/navigation-guards.html",
+      "appliedTo": "preserve explicit deep links while redirecting only the hidden default entry"
+    },
+    {
+      "title": "AWS Making retries safe with idempotent APIs",
+      "url": "https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/",
+      "appliedTo": "retain a caller-provided operation identity across an uncertain result"
+    },
+    {
+      "title": "Stripe Idempotent requests",
+      "url": "https://docs.stripe.com/api/idempotent_requests?javascript=false&lang=node",
+      "appliedTo": "retry the same intent with the same key and parameters"
+    }
+  ],
+  "knownNonBlockingWarnings": [
+    "existing Rollup PURE annotation warnings in the Element Plus dependency tree",
+    "existing production bundle chunks above 1000 kB"
+  ],
+  "evidenceBoundary": {
+    "proven": "repository source, automated contracts, production build, HTTP/JWT behavior and disposable real-MySQL integration",
+    "notProven": [
+      "production database migration",
+      "real me.u3w.com or admin.u3w.com deployment",
+      "browser readback on the real domains",
+      "Connector OAuth end-to-end",
+      "Webhook delivery",
+      "Apple Watch device control"
+    ],
+    "releaseReady": false,
+    "reason": "W2 is a locally verified candidate; production deployment and later-wave integrations remain open"
+  }
+}
