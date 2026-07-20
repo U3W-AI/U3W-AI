@@ -1,0 +1,102 @@
+{
+  "schema": "fbsir.independent-board-w1-application-integration-verification/v1",
+  "classification": "public_safe_verification_summary",
+  "containsSecrets": false,
+  "observedAt": "2026-07-20T21:25:00+08:00",
+  "sourceCommit": "recorded_by_enclosing_git_commit",
+  "httpSecurity": {
+    "springMvc": true,
+    "securityFilterChain": true,
+    "jwtSignatureParsing": true,
+    "methodSecurity": true,
+    "serverDerivedPrincipal": true,
+    "redisBoundary": "in_memory_test_double",
+    "databaseBoundary": "mapper_test_double",
+    "boardUnitTests": 17,
+    "httpIntegrationTests": 7,
+    "failures": 0,
+    "transportSemantics": {
+      "missingOrInvalidJwt": "HTTP_401",
+      "methodOrTenantDenial": "HTTP_200_WITH_AJAX_CODE_403_EXISTING_RUOYI_SEMANTICS"
+    },
+    "covered": [
+      "missing_jwt_rejected",
+      "tampered_jwt_rejected",
+      "member_exact_tenant_allowed",
+      "member_cross_tenant_rejected",
+      "non_admin_with_fine_permission_rejected",
+      "admin_without_fine_permission_rejected",
+      "admin_with_role_and_fine_permission_allowed"
+    ]
+  },
+  "mysqlTransactions": {
+    "database": "MySQL 8.4.8",
+    "connector": "MySQL Connector/J 8.2.0",
+    "engine": "InnoDB",
+    "isolation": "REPEATABLE_READ",
+    "binding": "127.0.0.1_random_non_3306_disposable_instance",
+    "productionConnectionUsed": false,
+    "destructiveTestConsentRequired": true,
+    "initialRun": {
+      "tests": 10,
+      "passed": 9,
+      "errors": 1,
+      "finding": "duplicate_insert_losers_deadlocked_when_select_for_update_ran_in_the_same_failed_transaction"
+    },
+    "fix": {
+      "plainInsertPreserved": true,
+      "claimTransaction": "reserveFresh",
+      "replayTransaction": "REQUIRES_NEW_current_read_after_claim_rollback",
+      "affectedRowModeDependencyAdded": false,
+      "unboundedRetryAdded": false
+    },
+    "fixedRunOne": {
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "fixedRunTwo": {
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "covered": [
+      "successful_reservation_commit",
+      "quota_exhaustion_full_rollback",
+      "sequential_same_key_same_payload_replay",
+      "same_key_different_payload_rejected_without_mutation",
+      "tenant_isolation",
+      "forced_finalize_failure_full_rollback_and_same_key_retry",
+      "thirty_two_way_unique_key_quota_contention_one_winner",
+      "sixteen_way_same_key_replay_one_durable_row",
+      "entitlement_and_audit_atomic_commit",
+      "audit_failure_rolls_back_entitlement_and_retry_succeeds"
+    ],
+    "workDirectoryCleanedAfterPassingRuns": true
+  },
+  "proven": [
+    "spring_http_jwt_method_and_tenant_authorization_contract",
+    "spring_mybatis_mysql_transaction_rollback_and_current_read_contract",
+    "same_key_concurrency_failure_reproduced_fixed_and_twice_reverified"
+  ],
+  "repositoryRegression": {
+    "normalMavenTests": 510,
+    "normalMavenFailures": 0,
+    "normalMavenErrors": 0,
+    "normalMavenSkipped": 0,
+    "mysqlIntegrationTestsReportedSeparately": 10,
+    "frontendMenuContract": "PASS",
+    "frontendProductionBuild": "PASS",
+    "documentConsistencyFindings": 0,
+    "engineeringContract": "PASS"
+  },
+  "notProven": [
+    "real_redis_session_integration",
+    "full_production_security_filter_composition",
+    "production_database_migration",
+    "production_deployment",
+    "natural_user_business_closure"
+  ]
+}

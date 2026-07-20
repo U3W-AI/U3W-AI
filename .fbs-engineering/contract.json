@@ -14,6 +14,11 @@
       "cwd": ".",
       "timeout_ms": 600000
     },
+    "board-http-security": {
+      "run": "mvn -pl FBSir-admin -am \"-Dtest=IndependentBoardHttpSecurityIntegrationTest,IndependentBoard*Test\" \"-Dsurefire.failIfNoSpecifiedTests=false\" test",
+      "cwd": ".",
+      "timeout_ms": 600000
+    },
     "frontend": {
       "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-control-plane.ps1 -Mode Frontend",
       "cwd": ".",
@@ -33,6 +38,11 @@
       "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-mysql-concurrency.ps1 -Database $env:U3W_LIVE_TEST_DATABASE -LoginPath $env:U3W_LIVE_TEST_LOGIN_PATH -MySqlExe $env:U3W_MYSQL_EXE",
       "cwd": ".",
       "timeout_ms": 300000
+    },
+    "database-transactions": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-mysql-transaction-it.ps1 -AllowDestructiveTest",
+      "cwd": ".",
+      "timeout_ms": 900000
     }
   },
   "artifacts": {
@@ -48,22 +58,29 @@
       "contract",
       "backend",
       "frontend",
-      "verify"
+      "verify",
+      "database-transactions"
     ],
     "requiredReleaseBlockers": [
       "contract",
       "backend",
       "frontend",
-      "verify"
+      "verify",
+      "database-transactions"
     ],
     "requiredWorkflowCommands": {
       "verify": [
         "contract",
         "backend",
         "frontend",
-        "verify"
+        "verify",
+        "database-transactions"
       ]
     },
+    "applicationRuntimeEvidenceCommands": [
+      "board-http-security",
+      "database-transactions"
+    ],
     "w1ScratchEvidenceCommands": [
       "database-live",
       "database-concurrency"
@@ -84,7 +101,8 @@
       "contract",
       "backend",
       "frontend",
-      "verify"
+      "verify",
+      "database-transactions"
     ]
   },
   "contracts": {
@@ -124,8 +142,13 @@
     "uiPrototypeGate": {
       "prototype": "docs/independent-board/prototypes/portals/index.html",
       "specification": "docs/independent-board/PORTAL-PROTOTYPE-SPEC.md",
-      "productionUiImplementationAllowed": false,
-      "unlockCondition": "explicit_user_confirmation",
+      "productionUiImplementationAllowed": true,
+      "unlockCondition": "satisfied_by_explicit_user_confirmation_2026_07_20",
+      "confirmation": {
+        "state": "confirmed",
+        "decision": "recommended_five_points",
+        "confirmedAt": "2026-07-20T21:03:00+08:00"
+      },
       "mustReuse": [
         "FBSir-ui/src/layout",
         "FBSir-ui/src/router",

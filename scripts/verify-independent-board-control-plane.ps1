@@ -26,7 +26,12 @@ function Invoke-ContractChecks {
         'sql\update_20260720_independent_board_control_plane.sql',
         'scripts\verify-database-manifest.ps1',
         'scripts\verify-independent-board-live-database.ps1',
-        'scripts\verify-independent-board-mysql-concurrency.ps1'
+        'scripts\verify-independent-board-mysql-concurrency.ps1',
+        'scripts\run-independent-board-mysql-transaction-it.ps1',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\service\IndependentBoardMeetingTransactionService.java',
+        'FBSir-business\src\test\java\com\wx\fbsir\business\board\integration\IndependentBoardMysqlTransactionIT.java',
+        'FBSir-admin\src\test\java\com\wx\fbsir\business\board\IndependentBoardHttpSecurityIntegrationTest.java',
+        'reports\independent-board\w1-application-integration-verification-20260720.json'
     )
     foreach ($path in $required) {
         Assert-PathExists -RelativePath $path
@@ -51,7 +56,7 @@ function Invoke-ContractChecks {
 function Invoke-BackendChecks {
     Push-Location $RepoRoot
     try {
-        & mvn.cmd -q -pl FBSir-business -am test
+        & mvn.cmd -q -pl FBSir-admin -am test
         if ($LASTEXITCODE -ne 0) { throw "Backend verification failed with exit code $LASTEXITCODE" }
     }
     finally {
@@ -95,7 +100,10 @@ if ($Mode -in @('Frontend', 'All')) {
     observedAt = [DateTimeOffset]::Now.ToString('o')
     databaseEvidence = 'manifest_and_dry_run_static_only_in_this_command'
     liveDatabaseVerified = $false
+    boardHttpSecurityIncluded = ($Mode -in @('Backend', 'All'))
+    databaseTransactionsVerified = $false
     releaseReady = $false
-    w1EvidenceNextAction = 'RUN_DATABASE_LIVE_AND_DATABASE_CONCURRENCY_ON_AN_ISOLATED_SCRATCH_DATABASE'
+    releaseBlocker = 'DATABASE_TRANSACTIONS_IS_A_SEPARATE_REQUIRED_COMMAND'
+    requiredReleaseCompanionCommands = @('database-transactions')
     scratchEvidenceCommands = @('database-live', 'database-concurrency')
 } | ConvertTo-Json -Depth 4 -Compress

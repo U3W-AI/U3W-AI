@@ -11,8 +11,8 @@
     "state": "submitted_for_review",
     "frozen": true
   },
-  "activeWave": "W1_INTEGRATION_GATE",
-  "stage": "verify",
+  "activeWave": "W2_USER_PORTAL",
+  "stage": "fix",
   "authoritativeRoot": {
     "mode": "standalone_git_repository",
     "externalDirectoryDependency": "forbidden",
@@ -40,13 +40,14 @@
     "mysql_8_4_first_apply_completed_rerun_and_readonly_current_read_passed",
     "mysql_actual_failure_released_manifest_and_truth_spine_locks",
     "mysql_schema_drift_was_detected_and_restored",
-    "mysql_32_way_budget_and_idempotency_contention_passed"
+    "mysql_32_way_budget_and_idempotency_contention_passed",
+    "spring_http_jwt_tenant_and_admin_permission_integration_passed",
+    "spring_mybatis_mysql_transaction_rollback_and_idempotency_matrix_passed",
+    "same_key_concurrency_deadlock_reproduced_fixed_and_twice_reverified"
   ],
   "notProven": [
     "oauth_end_to_end",
     "production_database_migration",
-    "spring_service_to_mysql_transaction_and_rollback_matrix",
-    "spring_http_jwt_and_admin_scope_integration",
     "me_portal_runtime",
     "admin_portal_runtime",
     "connector_vip_binding",
@@ -56,9 +57,11 @@
   ],
   "ui": {
     "base": "existing_u3w_ai_ruoyi_vue3_element_plus",
-    "state": "prototype_before_implementation",
-    "productionImplementationAllowed": false,
-    "unlockCondition": "explicit_user_confirmation"
+    "state": "confirmed_for_ruoyi_implementation",
+    "productionImplementationAllowed": true,
+    "unlockCondition": "satisfied",
+    "confirmation": "recommended_five_points",
+    "confirmedAt": "2026-07-20T21:03:00+08:00"
   },
-  "updatedAt": "2026-07-20T20:45:00+08:00"
+  "updatedAt": "2026-07-20T21:25:00+08:00"
 }
