@@ -3,6 +3,7 @@ package com.wx.fbsir.business.board;
 import com.wx.fbsir.business.board.controller.IndependentBoardAdminController;
 import com.wx.fbsir.business.board.controller.IndependentBoardMeController;
 import com.wx.fbsir.business.board.domain.BoardEnterpriseMemberScope;
+import com.wx.fbsir.business.board.domain.BoardEntitlementReceipt;
 import com.wx.fbsir.business.board.domain.BoardProductEntitlement;
 import com.wx.fbsir.business.board.domain.BoardProductPlan;
 import com.wx.fbsir.business.board.domain.BoardUsageOperation;
@@ -577,6 +578,225 @@ class IndependentBoardHttpSecurityIntegrationTest {
     }
 
     @Test
+    void entitlementRevokeRequiresBothGlobalAdminRoleAndFinePermission() throws Exception {
+        String body = "{\"tenantId\":7,\"memberId\":11,\"userId\":42,\"expectedVersion\":1}";
+
+        mockMvc.perform(post("/business/independent-board/entitlements/revoke")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "member", Set.of("board:entitlement:revoke"), "user")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+        mockMvc.perform(post("/business/independent-board/entitlements/revoke")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "operator", Set.of(), "admin")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+
+        verify(mapper, never()).selectEntitlementForUpdate(any(), any(), any());
+        verify(mapper, never()).updateEntitlementIfVersion(any(), any());
+        verify(mapper, never()).insertEntitlementReceipt(any());
+    }
+
+    @Test
+    void entitlementRevokeRejectsUnknownReasonOrPayloadFieldsBeforeAnySideEffect()
+            throws Exception {
+        String prefix = "{\"tenantId\":7,\"memberId\":11,\"userId\":42,\"expectedVersion\":1,";
+        String token = bearer(loginUser(
+                900L, "operator", Set.of("board:entitlement:revoke"), "admin"));
+
+        mockMvc.perform(post("/business/independent-board/entitlements/revoke")
+                        .header("Authorization", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(prefix + "\"reason\":\"MEMBER_LEFT\"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/business/independent-board/entitlements/revoke")
+                        .header("Authorization", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(prefix + "\"payload\":{\"secret\":\"x\"}}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/business/independent-board/entitlements/revoke")
+                        .header("Authorization", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tenantId\":7,\"memberId\":11,\"userId\":42}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/business/independent-board/entitlements/revoke")
+                        .header("Authorization", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tenantId\":7,\"memberId\":11,\"userId\":42,"
+                                + "\"expectedVersion\":null}"))
+                .andExpect(status().isBadRequest());
+
+        verify(mapper, never()).selectEntitlementForUpdate(any(), any(), any());
+        verify(mapper, never()).updateEntitlementIfVersion(any(), any());
+        verify(mapper, never()).insertEntitlementReceipt(any());
+    }
+
+    @Test
+    void entitlementRevokeRejectsEveryDuplicateContractFieldBeforeAnySideEffect()
+            throws Exception {
+        String token = bearer(loginUser(
+                900L, "operator", Set.of("board:entitlement:revoke"), "admin"));
+        List<String> duplicateBodies = List.of(
+                "{\"tenantId\":7,\"tenantId\":8,\"memberId\":11,"
+                        + "\"userId\":42,\"expectedVersion\":1}",
+                "{\"tenantId\":7,\"memberId\":11,\"memberId\":12,"
+                        + "\"userId\":42,\"expectedVersion\":1}",
+                "{\"tenantId\":7,\"memberId\":11,\"userId\":42,"
+                        + "\"userId\":43,\"expectedVersion\":1}",
+                "{\"tenantId\":7,\"memberId\":11,\"userId\":42,"
+                        + "\"expectedVersion\":1,\"expectedVersion\":2}");
+
+        for (String body : duplicateBodies) {
+            mockMvc.perform(post("/business/independent-board/entitlements/revoke")
+                            .header("Authorization", token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isBadRequest());
+        }
+
+        verify(mapper, never()).selectEntitlementForUpdate(any(), any(), any());
+        verify(mapper, never()).updateEntitlementIfVersion(any(), any());
+        verify(mapper, never()).insertEntitlementReceipt(any());
+    }
+
+    @Test
+    void entitlementRevokeRejectsTrailingRootTokensBeforeAnySideEffect()
+            throws Exception {
+        String token = bearer(loginUser(
+                900L, "operator", Set.of("board:entitlement:revoke"), "admin"));
+        String valid = "{\"tenantId\":7,\"memberId\":11,\"userId\":42,"
+                + "\"expectedVersion\":1}";
+
+        for (String body : List.of(valid + "{}", valid + "null", valid + "123")) {
+            mockMvc.perform(post("/business/independent-board/entitlements/revoke")
+                            .header("Authorization", token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isBadRequest());
+        }
+
+        verify(mapper, never()).selectEntitlementForUpdate(any(), any(), any());
+        verify(mapper, never()).updateEntitlementIfVersion(any(), any());
+        verify(mapper, never()).insertEntitlementReceipt(any());
+    }
+
+    @Test
+    void globalAdminCanRevokeWithoutAnActiveMemberAndReceivesRevokedProjection()
+            throws Exception {
+        BoardProductEntitlement current = entitlement();
+        when(mapper.selectEntitlementForUpdate(
+                TENANT_ID, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(current);
+        when(mapper.updateEntitlementIfVersion(any(), any())).thenReturn(1);
+        when(mapper.insertEntitlementReceipt(any())).thenReturn(1);
+
+        mockMvc.perform(post("/business/independent-board/entitlements/revoke")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "operator", Set.of("board:entitlement:revoke"), "admin")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tenantId\":7,\"memberId\":11,\"userId\":42,"
+                                + "\"expectedVersion\":1}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.tenantId").value(TENANT_ID))
+                .andExpect(jsonPath("$.data.memberId").value(11L))
+                .andExpect(jsonPath("$.data.userId").value(USER_ID))
+                .andExpect(jsonPath("$.data.planCode").value("BOARD_VIP"))
+                .andExpect(jsonPath("$.data.entitlementStatus").value("REVOKED"))
+                .andExpect(jsonPath("$.data.activationState").value("REVOKED"))
+                .andExpect(jsonPath("$.data.version").value(2L))
+                .andExpect(jsonPath("$.data.validUntil").exists())
+                .andExpect(jsonPath("$.data.id").doesNotExist())
+                .andExpect(jsonPath("$.data.productCode").doesNotExist())
+                .andExpect(jsonPath("$.data.connectorBindingId").doesNotExist())
+                .andExpect(jsonPath("$.data.connectorVerifiedAt").doesNotExist());
+
+        verify(mapper).updateEntitlementIfVersion(any(), org.mockito.ArgumentMatchers.eq(1L));
+        verify(mapper).insertEntitlementReceipt(any());
+        verify(mapper, never()).selectExactActiveMemberForUpdate(any(), any(), any());
+    }
+
+    @Test
+    void entitlementGrantCannotRestoreARevokedRow() throws Exception {
+        when(mapper.selectExactActiveMemberForUpdate(TENANT_ID, 11L, USER_ID))
+                .thenReturn(member(TENANT_ID, 11L, USER_ID));
+        when(mapper.selectActivePlan(
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.VIP_PLAN)).thenReturn(vipPlan());
+        BoardProductEntitlement revoked = entitlement();
+        revoked.setStatus("REVOKED");
+        when(mapper.selectEntitlementForUpdate(
+                TENANT_ID, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(revoked);
+
+        mockMvc.perform(post("/business/independent-board/entitlements")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "operator", Set.of("board:entitlement:grant"), "admin")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tenantId\":7,\"memberId\":11,\"userId\":42,"
+                                + "\"planCode\":\"BOARD_VIP\",\"validUntil\":null,"
+                                + "\"expectedVersion\":1}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(409))
+                .andExpect(jsonPath("$.msg").value("ENTITLEMENT_SCOPE_OR_VERSION_CONFLICT"));
+
+        verify(mapper, never()).updateEntitlementIfVersion(any(), any());
+        verify(mapper, never()).insertEntitlementReceipt(any());
+    }
+
+    @Test
+    void entitlementReceiptAuditRequiresBothGlobalAdminRoleAndFinePermission()
+            throws Exception {
+        mockMvc.perform(get("/business/independent-board/entitlement-receipts")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "member", Set.of("board:entitlement:audit"), "user")))
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+        mockMvc.perform(get("/business/independent-board/entitlement-receipts")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "operator", Set.of(), "admin")))
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+
+        verify(mapper, never()).selectEntitlementReceiptsByTenant(any());
+    }
+
+    @Test
+    void globalAdminEntitlementReceiptAuditReturnsTheBoundedSafeEnvelope()
+            throws Exception {
+        BoardEntitlementReceipt receipt = entitlementReceipt();
+        when(mapper.selectEntitlementReceiptsByTenant(TENANT_ID)).thenReturn(List.of(receipt));
+
+        mockMvc.perform(get("/business/independent-board/entitlement-receipts")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "operator", Set.of("board:entitlement:audit"), "admin")))
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.limit").value(500))
+                .andExpect(jsonPath("$.data.truncated").value(false))
+                .andExpect(jsonPath("$.data.records.length()").value(1))
+                .andExpect(jsonPath("$.data.records[0].receiptId").value("receipt-001"))
+                .andExpect(jsonPath("$.data.records[0].tenantId").value(TENANT_ID))
+                .andExpect(jsonPath("$.data.records[0].actorUserId").value(900L))
+                .andExpect(jsonPath("$.data.records[0].targetMemberId").value(11L))
+                .andExpect(jsonPath("$.data.records[0].action").value("ENTITLEMENT_REVOKED"))
+                .andExpect(jsonPath("$.data.records[0].evidenceLevel").value("ACTION_COMPLETED"))
+                .andExpect(jsonPath("$.data.records[0].createdAt").exists())
+                .andExpect(jsonPath("$.data.records[0].id").doesNotExist())
+                .andExpect(jsonPath("$.data.records[0].payloadDigest").doesNotExist())
+                .andExpect(jsonPath("$.data.records[0].productCode").doesNotExist());
+
+        verify(mapper).selectEntitlementReceiptsByTenant(TENANT_ID);
+    }
+
+    @Test
     void operationAuditRequiresBothGlobalAdminRoleAndFinePermission() throws Exception {
         mockMvc.perform(get("/business/independent-board/operations")
                         .header("Authorization", bearer(loginUser(
@@ -754,6 +974,19 @@ class IndependentBoardHttpSecurityIntegrationTest {
         entitlement.setCreatedAt(new Date(now - 7_200_000L));
         entitlement.setUpdatedAt(new Date(now - 30_000L));
         return entitlement;
+    }
+
+    private static BoardEntitlementReceipt entitlementReceipt() {
+        BoardEntitlementReceipt receipt = new BoardEntitlementReceipt();
+        receipt.setReceiptId("receipt-001");
+        receipt.setTenantId(TENANT_ID);
+        receipt.setActorUserId(900L);
+        receipt.setTargetMemberId(11L);
+        receipt.setAction("ENTITLEMENT_REVOKED");
+        receipt.setPayloadDigest("a".repeat(64));
+        receipt.setEvidenceLevel("ACTION_COMPLETED");
+        receipt.setCreatedAt(new Date(1_790_000_003_000L));
+        return receipt;
     }
 
     @Configuration(proxyBeanMethods = false)

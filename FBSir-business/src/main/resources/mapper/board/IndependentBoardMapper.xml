@@ -41,6 +41,17 @@
         <result property="updatedAt" column="updated_at" />
     </resultMap>
 
+    <resultMap id="EntitlementReceipt" type="com.wx.fbsir.business.board.domain.BoardEntitlementReceipt">
+        <id property="receiptId" column="receipt_id" />
+        <result property="tenantId" column="enterprise_id" />
+        <result property="actorUserId" column="actor_user_id" />
+        <result property="targetMemberId" column="target_member_id" />
+        <result property="action" column="action" />
+        <result property="payloadDigest" column="payload_digest" />
+        <result property="evidenceLevel" column="evidence_level" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
     <resultMap id="Budget" type="com.wx.fbsir.business.board.domain.BoardUsageBudget">
         <id property="id" column="id" />
         <result property="tenantId" column="enterprise_id" />
@@ -202,6 +213,16 @@
             (#{receiptId}, #{tenantId}, #{actorUserId}, #{targetMemberId}, #{action},
              #{payloadDigest}, #{evidenceLevel}, #{createdAt})
     </insert>
+
+    <!-- This board-specific receipt table has no product_code column; tenant is its fixed audit scope. -->
+    <select id="selectEntitlementReceiptsByTenant" resultMap="EntitlementReceipt">
+        SELECT receipt_id, enterprise_id, actor_user_id, target_member_id, action,
+               evidence_level, created_at
+        FROM fbs_entitlement_receipt
+        WHERE enterprise_id = #{tenantId}
+        ORDER BY created_at DESC, id DESC
+        LIMIT 501
+    </select>
 
     <select id="selectUsageBudget" resultMap="Budget">
         SELECT id, enterprise_id, member_id, product_code, metric_code, bucket_date,

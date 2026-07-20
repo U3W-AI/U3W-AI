@@ -5,14 +5,14 @@
     "brandEn": "FBSir",
     "name": "独董会"
   },
-  "platformVersion": "0.3.0-dev",
+  "platformVersion": "0.3.1-dev",
   "expertPackage": {
     "version": "26.7.20",
     "state": "submitted_for_review",
     "frozen": true
   },
-  "activeWave": "W3_ADMIN_PORTAL",
-  "stage": "fix",
+  "activeWave": "W4_OAUTH_CONNECTOR",
+  "stage": "assess",
   "authoritativeRoot": {
     "mode": "standalone_git_repository",
     "externalDirectoryDependency": "forbidden",
@@ -25,14 +25,18 @@
     "sql/update_20260720_independent_board_control_plane.sql",
     "sql/update_20260720_independent_board_me_menu.sql",
     "sql/update_20260720_independent_board_admin_menu.sql",
+    "sql/update_20260720_independent_board_entitlement_lifecycle_menu.sql",
     "FBSir-business/src/main/java/com/wx/fbsir/business/board/",
     "FBSir-ui/src/views/business/independentBoard/me/index.vue",
     "FBSir-ui/src/views/business/independentBoard/admin/entitlement/index.vue",
+    "FBSir-ui/src/views/business/independentBoard/admin/entitlementReceipt/index.vue",
     "FBSir-ui/src/views/business/independentBoard/admin/meetingAudit/index.vue",
+    "docs/independent-board/W3B-ENTITLEMENT-LIFECYCLE-CONTRACT.md",
     "docs/independent-board/PORTAL-PROTOTYPE-SPEC.md",
     "docs/independent-board/prototypes/portals/index.html",
     "reports/independent-board/w2-user-portal-verification-20260720.json",
-    "reports/independent-board/w3-admin-portal-verification-20260720.json"
+    "reports/independent-board/w3-admin-portal-verification-20260720.json",
+    "reports/independent-board/w3b-entitlement-lifecycle-verification-20260720.json"
   ],
   "proven": [
     "isolated_u3w_branch_created",
@@ -64,7 +68,18 @@
     "w3a_active_enterprise_and_member_locking_read_passed",
     "w3a_enterprise_disable_and_member_remove_lock_wait_barriers_passed",
     "w3a_admin_menu_first_apply_rerun_collision_and_current_read_passed",
-    "w3a_admin_ui_source_safety_and_production_build_passed"
+    "w3a_admin_ui_source_safety_and_production_build_passed",
+    "w3b_strict_four_field_revoke_rejects_unknown_duplicate_missing_invalid_and_trailing_json",
+    "w3b_active_to_revoked_cas_and_immutable_receipt_commit_atomically",
+    "w3b_receipt_failure_rolls_back_revoke_and_same_version_can_retry",
+    "w3b_inactive_enterprise_or_member_does_not_block_legacy_entitlement_revoke",
+    "w3b_revoked_entitlement_cannot_be_implicitly_restored",
+    "w3b_revoked_state_falls_back_to_free_policy",
+    "w3b_receipt_audit_is_seven_field_tenant_bound_and_bounded_to_500",
+    "w3b_receipt_fetch_sentinel_is_validated_fail_closed",
+    "w3b_same_instant_and_clock_rollback_validity_floor_passed",
+    "w3b_w2_w3a_w3b_menu_migration_replay_gate_passed",
+    "w3b_admin_and_me_pure_model_negative_vectors_and_production_build_passed"
   ],
   "notProven": [
     "oauth_end_to_end",
@@ -73,8 +88,8 @@
     "admin_portal_production_runtime",
     "me_and_admin_real_domain_browser_readback",
     "delegated_tenant_admin_role_and_data_scope",
-    "entitlement_revoke_or_expiry_action",
-    "entitlement_receipt_admin_readback",
+    "entitlement_revoke_reason_readback",
+    "entitlement_reinstatement_action",
     "credit_ledger_admin_operations",
     "connector_vip_binding",
     "webhook_delivery",
@@ -83,7 +98,7 @@
   ],
   "ui": {
     "base": "existing_u3w_ai_ruoyi_vue3_element_plus",
-    "state": "w3a_local_source_and_build_verified",
+    "state": "w3b_local_source_and_build_verified",
     "productionImplementationAllowed": true,
     "unlockCondition": "satisfied",
     "confirmation": "recommended_five_points",
@@ -93,9 +108,14 @@
       "FBSir-ui/src/views/business/independentBoard/admin/entitlement/index.vue",
       "FBSir-ui/src/views/business/independentBoard/admin/meetingAudit/index.vue"
     ],
+    "w3bSurfaces": [
+      "FBSir-ui/src/views/business/independentBoard/admin/entitlement/index.vue",
+      "FBSir-ui/src/views/business/independentBoard/admin/entitlementReceipt/index.vue",
+      "FBSir-ui/src/views/business/independentBoard/me/index.vue"
+    ],
     "adminAccessModel": "global_system_admin_only",
     "connectorAction": "deferred_to_W4_oauth_connector",
     "watchAndWebhookDeepPages": "deferred_to_W5_delivery_and_watch"
   },
-  "updatedAt": "2026-07-20T22:54:57+08:00"
+  "updatedAt": "2026-07-20T23:55:56+08:00"
 }

@@ -3,6 +3,7 @@ package com.wx.fbsir.business.board;
 import com.wx.fbsir.business.board.controller.IndependentBoardAdminController;
 import com.wx.fbsir.business.board.controller.IndependentBoardMeController;
 import com.wx.fbsir.business.board.dto.BoardEntitlementGrantRequest;
+import com.wx.fbsir.business.board.dto.BoardEntitlementRevokeRequest;
 import com.wx.fbsir.business.board.dto.BoardMeetingReservationRequest;
 import com.wx.fbsir.common.annotation.Anonymous;
 import com.wx.fbsir.common.annotation.Log;
@@ -47,6 +48,12 @@ class IndependentBoardControllerAuthorizationTest {
         assertEndpoint(IndependentBoardAdminController.class, "entitlements",
                 "@ss.hasRole('admin') and @ss.hasPermi('board:entitlement:query')",
                 GetMapping.class, "/entitlements", Long.class);
+        assertEndpoint(IndependentBoardAdminController.class, "revoke",
+                "@ss.hasRole('admin') and @ss.hasPermi('board:entitlement:revoke')",
+                PostMapping.class, "/entitlements/revoke", BoardEntitlementRevokeRequest.class);
+        assertEndpoint(IndependentBoardAdminController.class, "entitlementReceipts",
+                "@ss.hasRole('admin') and @ss.hasPermi('board:entitlement:audit')",
+                GetMapping.class, "/entitlement-receipts", Long.class);
         assertEndpoint(IndependentBoardAdminController.class, "operations",
                 "@ss.hasRole('admin') and @ss.hasPermi('board:operation:audit')",
                 GetMapping.class, "/operations", Long.class);
@@ -82,6 +89,22 @@ class IndependentBoardControllerAuthorizationTest {
 
         assertNotNull(log);
         assertEquals(BusinessType.GRANT, log.businessType());
+        assertEquals("Independent Board entitlement", log.title());
+    }
+
+    @Test
+    void entitlementRevokeHasExactlyFourFieldsAndIsRecordedAsAnUpdate() throws Exception {
+        assertEquals(
+                Arrays.asList("tenantId", "memberId", "userId", "expectedVersion"),
+                Arrays.stream(BoardEntitlementRevokeRequest.class.getRecordComponents())
+                        .map(RecordComponent::getName).toList());
+        Method revoke = IndependentBoardAdminController.class.getMethod(
+                "revoke", BoardEntitlementRevokeRequest.class);
+
+        Log log = revoke.getAnnotation(Log.class);
+
+        assertNotNull(log);
+        assertEquals(BusinessType.UPDATE, log.businessType());
         assertEquals("Independent Board entitlement", log.title());
     }
 

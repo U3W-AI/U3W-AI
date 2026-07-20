@@ -1,6 +1,7 @@
 package com.wx.fbsir.business.board.controller;
 
 import com.wx.fbsir.business.board.dto.BoardEntitlementGrantRequest;
+import com.wx.fbsir.business.board.dto.BoardEntitlementRevokeRequest;
 import com.wx.fbsir.business.board.service.IndependentBoardEntitlementService;
 import com.wx.fbsir.business.board.service.IndependentBoardMeetingService;
 import com.wx.fbsir.common.annotation.Log;
@@ -40,10 +41,23 @@ public class IndependentBoardAdminController extends BaseController {
         return AjaxResult.success(entitlementService.grant(request, getUserId()));
     }
 
+    @PreAuthorize("@ss.hasRole('admin') and @ss.hasPermi('board:entitlement:revoke')")
+    @Log(title = "Independent Board entitlement", businessType = BusinessType.UPDATE)
+    @PostMapping("/entitlements/revoke")
+    public AjaxResult revoke(@Valid @RequestBody BoardEntitlementRevokeRequest request) {
+        return AjaxResult.success(entitlementService.revoke(request, getUserId()));
+    }
+
     @PreAuthorize("@ss.hasRole('admin') and @ss.hasPermi('board:entitlement:query')")
     @GetMapping("/entitlements")
     public AjaxResult entitlements(@RequestParam @Min(1) Long tenantId) {
         return AjaxResult.success(entitlementService.listEntitlements(tenantId));
+    }
+
+    @PreAuthorize("@ss.hasRole('admin') and @ss.hasPermi('board:entitlement:audit')")
+    @GetMapping("/entitlement-receipts")
+    public AjaxResult entitlementReceipts(@RequestParam @Min(1) Long tenantId) {
+        return AjaxResult.success(entitlementService.listReceipts(tenantId));
     }
 
     @PreAuthorize("@ss.hasRole('admin') and @ss.hasPermi('board:operation:audit')")

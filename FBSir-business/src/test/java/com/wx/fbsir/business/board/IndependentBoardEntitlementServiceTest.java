@@ -1,16 +1,21 @@
 package com.wx.fbsir.business.board.service;
 
 import com.wx.fbsir.business.board.domain.BoardEnterpriseMemberScope;
+import com.wx.fbsir.business.board.domain.BoardEntitlementReceipt;
 import com.wx.fbsir.business.board.domain.BoardProductEntitlement;
 import com.wx.fbsir.business.board.domain.BoardProductPlan;
 import com.wx.fbsir.business.board.dto.BoardEntitlementAdminView;
 import com.wx.fbsir.business.board.dto.BoardEntitlementGrantRequest;
+import com.wx.fbsir.business.board.dto.BoardEntitlementReceiptAuditEnvelope;
+import com.wx.fbsir.business.board.dto.BoardEntitlementReceiptView;
+import com.wx.fbsir.business.board.dto.BoardEntitlementRevokeRequest;
 import com.wx.fbsir.business.board.dto.BoardEntitlementSnapshot;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
 import com.wx.fbsir.common.exception.ServiceException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -235,6 +240,48 @@ class IndependentBoardEntitlementServiceTest {
     }
 
     @Test
+    void grantCannotReactivateARevokedEntitlementWithoutAReviewedRestoreContract() {
+        when(mapper.selectExactActiveMemberForUpdate(7L, 11L, 42L))
+                .thenReturn(member(7L, 11L, 42L));
+        BoardProductEntitlement revoked = entitlement(null, null);
+        revoked.setStatus("REVOKED");
+        when(mapper.selectEntitlementForUpdate(
+                7L, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(revoked);
+        BoardEntitlementGrantRequest request = new BoardEntitlementGrantRequest(
+                7L, 11L, 42L, "BOARD_VIP", null, 1L);
+
+        ServiceException error = assertThrows(
+                ServiceException.class, () -> service.grant(request, 900L));
+
+        assertEquals(409, error.getCode());
+        assertEquals("ENTITLEMENT_SCOPE_OR_VERSION_CONFLICT", error.getMessage());
+        verify(mapper, never()).updateEntitlementIfVersion(any(), any());
+        verify(mapper, never()).insertEntitlementReceipt(any());
+    }
+
+    @Test
+    void grantUpdateRejectsAnOverflowingExpectedVersionBeforeMutation() {
+        when(mapper.selectExactActiveMemberForUpdate(7L, 11L, 42L))
+                .thenReturn(member(7L, 11L, 42L));
+        BoardProductEntitlement current = entitlement(null, null);
+        current.setVersion(Long.MAX_VALUE);
+        when(mapper.selectEntitlementForUpdate(
+                7L, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(current);
+        BoardEntitlementGrantRequest request = new BoardEntitlementGrantRequest(
+                7L, 11L, 42L, "BOARD_VIP", null, Long.MAX_VALUE);
+
+        ServiceException error = assertThrows(
+                ServiceException.class, () -> service.grant(request, 900L));
+
+        assertEquals(400, error.getCode());
+        assertEquals("ENTITLEMENT_EXPECTED_VERSION_OUT_OF_RANGE", error.getMessage());
+        verify(mapper, never()).updateEntitlementIfVersion(any(), any());
+        verify(mapper, never()).insertEntitlementReceipt(any());
+    }
+
+    @Test
     void concurrentFirstGrantDuplicateIsReportedAsVersionConflictWithoutAudit() {
         when(mapper.selectExactActiveMemberForUpdate(7L, 11L, 42L))
                 .thenReturn(member(7L, 11L, 42L));
@@ -267,6 +314,297 @@ class IndependentBoardEntitlementServiceTest {
         assertEquals(409, error.getCode());
         assertEquals("ENTITLEMENT_VERSION_CONFLICT", error.getMessage());
         verify(mapper, never()).insertEntitlementReceipt(any());
+    }
+
+    @Test
+    void revokedSnapshotIsExplicitlyRevokedAndUsesTheFreePolicy() {
+        when(mapper.selectActiveContext(7L, 42L)).thenReturn(member(7L, 11L, 42L));
+        BoardProductEntitlement revoked = entitlement("legacy-binding", Date.from(NOW.minusSeconds(60)));
+        revoked.setStatus("REVOKED");
+        revoked.setValidUntil(Date.from(NOW));
+        when(mapper.selectEntitlement(
+                7L, 11L, 42L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(revoked);
+
+        BoardEntitlementSnapshot snapshot = service.getSnapshot(7L, 42L);
+
+        assertEquals("BOARD_VIP", snapshot.grantedPlanCode());
+        assertEquals("BOARD_FREE", snapshot.effectivePlanCode());
+        assertEquals("REVOKED", snapshot.activationState());
+        assertFalse(snapshot.connectorRequired());
+        assertFalse(snapshot.connectorVerified());
+        assertEquals(1, snapshot.dailyMeetingLimit());
+        assertEquals(5, snapshot.agendaLimit());
+        assertEquals(3, snapshot.seatLimit());
+        assertFalse(snapshot.secretaryEnabled());
+        verify(mapper, never()).selectActivePlan(
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.VIP_PLAN);
+    }
+
+    @Test
+    void revokeDoesNotDependOnAnActiveMembershipAndWritesAnImmutableReceipt() {
+        BoardProductEntitlement current = entitlement(
+                "legacy-binding", Date.from(NOW.minusSeconds(60)));
+        current.setVersion(3L);
+        when(mapper.selectEntitlementForUpdate(
+                7L, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(current);
+        when(mapper.updateEntitlementIfVersion(any(), any())).thenReturn(1);
+        when(mapper.insertEntitlementReceipt(any())).thenReturn(1);
+
+        BoardEntitlementAdminView view = service.revoke(
+                new BoardEntitlementRevokeRequest(7L, 11L, 42L, 3L), 900L);
+
+        assertEquals("REVOKED", view.entitlementStatus());
+        assertEquals("REVOKED", view.activationState());
+        assertEquals(4L, view.version());
+        assertEquals(Date.from(NOW), view.validUntil());
+        ArgumentCaptor<BoardProductEntitlement> updated =
+                ArgumentCaptor.forClass(BoardProductEntitlement.class);
+        verify(mapper).updateEntitlementIfVersion(updated.capture(), org.mockito.ArgumentMatchers.eq(3L));
+        assertEquals("REVOKED", updated.getValue().getStatus());
+        assertEquals(4L, updated.getValue().getVersion());
+        assertEquals(Date.from(NOW), updated.getValue().getValidUntil());
+        ArgumentCaptor<BoardEntitlementReceipt> receipt =
+                ArgumentCaptor.forClass(BoardEntitlementReceipt.class);
+        verify(mapper).insertEntitlementReceipt(receipt.capture());
+        assertEquals(7L, receipt.getValue().getTenantId());
+        assertEquals(900L, receipt.getValue().getActorUserId());
+        assertEquals(11L, receipt.getValue().getTargetMemberId());
+        assertEquals("ENTITLEMENT_REVOKED", receipt.getValue().getAction());
+        assertEquals("ACTION_COMPLETED", receipt.getValue().getEvidenceLevel());
+        assertEquals(64, receipt.getValue().getPayloadDigest().length());
+        verify(mapper, never()).selectExactActiveMemberForUpdate(any(), any(), any());
+        verify(mapper, never()).selectActiveContext(any(), any());
+        verify(mapper, never()).selectActivePlan(
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.VIP_PLAN);
+    }
+
+    @Test
+    void revokeRejectsMissingMismatchedOrAlreadyRevokedRowsWithoutMutationOrReceipt() {
+        BoardEntitlementRevokeRequest request =
+                new BoardEntitlementRevokeRequest(7L, 11L, 42L, 3L);
+        when(mapper.selectEntitlementForUpdate(
+                7L, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(null);
+        assertRevokeConflict(request);
+
+        BoardProductEntitlement wrongUser = entitlement(null, null);
+        wrongUser.setVersion(3L);
+        wrongUser.setUserId(43L);
+        when(mapper.selectEntitlementForUpdate(
+                7L, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(wrongUser);
+        assertRevokeConflict(request);
+
+        BoardProductEntitlement stale = entitlement(null, null);
+        stale.setVersion(4L);
+        when(mapper.selectEntitlementForUpdate(
+                7L, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(stale);
+        assertRevokeConflict(request);
+
+        BoardProductEntitlement revoked = entitlement(null, null);
+        revoked.setVersion(3L);
+        revoked.setStatus("REVOKED");
+        when(mapper.selectEntitlementForUpdate(
+                7L, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(revoked);
+        assertRevokeConflict(request);
+
+        verify(mapper, never()).updateEntitlementIfVersion(any(), any());
+        verify(mapper, never()).insertEntitlementReceipt(any());
+    }
+
+    @Test
+    void revokeCasFailureDoesNotCreateAReceipt() {
+        BoardProductEntitlement current = entitlement(null, null);
+        current.setVersion(3L);
+        when(mapper.selectEntitlementForUpdate(
+                7L, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(current);
+        when(mapper.updateEntitlementIfVersion(any(), any())).thenReturn(0);
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.revoke(
+                new BoardEntitlementRevokeRequest(7L, 11L, 42L, 3L), 900L));
+
+        assertEquals(409, error.getCode());
+        assertEquals("ENTITLEMENT_VERSION_CONFLICT", error.getMessage());
+        verify(mapper, never()).insertEntitlementReceipt(any());
+    }
+
+    @Test
+    void revokeAtTheGrantInstantPreservesTheDatabaseValidityCheckWithOneMillisecondFloor() {
+        BoardProductEntitlement current = entitlement(null, null);
+        current.setVersion(3L);
+        current.setValidFrom(Date.from(NOW));
+        when(mapper.selectEntitlementForUpdate(
+                7L, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(current);
+        when(mapper.updateEntitlementIfVersion(any(), any())).thenReturn(1);
+        when(mapper.insertEntitlementReceipt(any())).thenReturn(1);
+
+        BoardEntitlementAdminView view = service.revoke(
+                new BoardEntitlementRevokeRequest(7L, 11L, 42L, 3L), 900L);
+
+        assertEquals(new Date(NOW.toEpochMilli() + 1L), view.validUntil());
+        assertEquals("REVOKED", view.entitlementStatus());
+        verify(mapper).updateEntitlementIfVersion(any(), org.mockito.ArgumentMatchers.eq(3L));
+        verify(mapper).insertEntitlementReceipt(any());
+    }
+
+    @Test
+    void revokeRejectsAnUnrepresentableValidityFloorBeforeAnyWrite() {
+        BoardProductEntitlement current = entitlement(null, null);
+        current.setVersion(3L);
+        current.setValidFrom(new Date(Long.MAX_VALUE));
+        when(mapper.selectEntitlementForUpdate(
+                7L, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(current);
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.revoke(
+                new BoardEntitlementRevokeRequest(7L, 11L, 42L, 3L), 900L));
+
+        assertEquals(409, error.getCode());
+        assertEquals("ENTITLEMENT_VALIDITY_CONFLICT", error.getMessage());
+        verify(mapper, never()).updateEntitlementIfVersion(any(), any());
+        verify(mapper, never()).insertEntitlementReceipt(any());
+    }
+
+    @Test
+    void revokeRejectsAnOverflowingExpectedVersionBeforeAnyCurrentReadOrWrite() {
+        ServiceException error = assertThrows(ServiceException.class, () -> service.revoke(
+                new BoardEntitlementRevokeRequest(7L, 11L, 42L, Long.MAX_VALUE), 900L));
+
+        assertEquals(400, error.getCode());
+        assertEquals("ENTITLEMENT_EXPECTED_VERSION_OUT_OF_RANGE", error.getMessage());
+        verify(mapper, never()).selectEntitlementForUpdate(any(), any(), any());
+        verify(mapper, never()).updateEntitlementIfVersion(any(), any());
+        verify(mapper, never()).insertEntitlementReceipt(any());
+    }
+
+    @Test
+    void receiptAuditReturnsOnlyTheBoundedSevenFieldProjection() {
+        BoardEntitlementReceipt receipt = receipt("receipt-1", 7L);
+        receipt.setPayloadDigest("secret-digest-must-not-leak");
+        when(mapper.selectEntitlementReceiptsByTenant(7L)).thenReturn(List.of(receipt));
+
+        BoardEntitlementReceiptAuditEnvelope result = service.listReceipts(7L);
+
+        assertEquals(500, result.limit());
+        assertFalse(result.truncated());
+        assertEquals(1, result.records().size());
+        BoardEntitlementReceiptView view = result.records().get(0);
+        assertEquals("receipt-1", view.receiptId());
+        assertEquals(7L, view.tenantId());
+        assertEquals(900L, view.actorUserId());
+        assertEquals(11L, view.targetMemberId());
+        assertEquals("ENTITLEMENT_REVOKED", view.action());
+        assertEquals("ACTION_COMPLETED", view.evidenceLevel());
+        assertEquals(Date.from(NOW), view.createdAt());
+        assertEquals(List.of(
+                        "receiptId", "tenantId", "actorUserId", "targetMemberId",
+                        "action", "evidenceLevel", "createdAt"),
+                Arrays.stream(BoardEntitlementReceiptView.class.getRecordComponents())
+                        .map(component -> component.getName()).toList());
+    }
+
+    @Test
+    void receiptAuditTruncatesExactlyAtFiveHundredAndFailsClosedBeyondFetchLimit() {
+        when(mapper.selectEntitlementReceiptsByTenant(7L)).thenReturn(
+                IntStream.range(0, 501)
+                        .mapToObj(index -> receipt("receipt-" + index, 7L)).toList());
+
+        BoardEntitlementReceiptAuditEnvelope truncated = service.listReceipts(7L);
+
+        assertEquals(500, truncated.records().size());
+        assertTrue(truncated.truncated());
+
+        when(mapper.selectEntitlementReceiptsByTenant(7L)).thenReturn(
+                IntStream.range(0, 502)
+                        .mapToObj(index -> receipt("receipt-" + index, 7L)).toList());
+        ServiceException error = assertThrows(ServiceException.class, () -> service.listReceipts(7L));
+        assertEquals(500, error.getCode());
+        assertEquals("BOARD_ENTITLEMENT_RECEIPT_CURRENT_READ_FAILED", error.getMessage());
+    }
+
+    @Test
+    void receiptAuditValidatesTheFiveHundredAndFirstTruncationSentinel() {
+        List<BoardEntitlementReceipt> rows = new ArrayList<>(IntStream.range(0, 501)
+                .mapToObj(index -> receipt("receipt-" + index, 7L)).toList());
+
+        rows.set(500, receipt("receipt-cross-tenant-sentinel", 8L));
+        when(mapper.selectEntitlementReceiptsByTenant(7L)).thenReturn(rows);
+        assertReceiptAuditScopeFailure();
+
+        BoardEntitlementReceipt unknownAction = receipt("receipt-action-sentinel", 7L);
+        unknownAction.setAction("ENTITLEMENT_PURGED");
+        rows.set(500, unknownAction);
+        when(mapper.selectEntitlementReceiptsByTenant(7L)).thenReturn(rows);
+        assertReceiptAuditScopeFailure();
+
+        BoardEntitlementReceipt weakEvidence = receipt("receipt-evidence-sentinel", 7L);
+        weakEvidence.setEvidenceLevel("DECLARED");
+        rows.set(500, weakEvidence);
+        when(mapper.selectEntitlementReceiptsByTenant(7L)).thenReturn(rows);
+        assertReceiptAuditScopeFailure();
+    }
+
+    @Test
+    void receiptAuditRejectsAnyMapperRowOutsideTheRequestedTenant() {
+        when(mapper.selectEntitlementReceiptsByTenant(7L))
+                .thenReturn(List.of(receipt("receipt-leak", 8L)));
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.listReceipts(7L));
+
+        assertEquals(500, error.getCode());
+        assertEquals("BOARD_ENTITLEMENT_RECEIPT_SCOPE_INVALID", error.getMessage());
+    }
+
+    @Test
+    void receiptAuditRejectsUnknownActionsAndEvidenceLevels() {
+        BoardEntitlementReceipt unknownAction = receipt("receipt-action", 7L);
+        unknownAction.setAction("ENTITLEMENT_PURGED");
+        when(mapper.selectEntitlementReceiptsByTenant(7L)).thenReturn(List.of(unknownAction));
+        ServiceException actionError = assertThrows(
+                ServiceException.class, () -> service.listReceipts(7L));
+        assertEquals("BOARD_ENTITLEMENT_RECEIPT_SCOPE_INVALID", actionError.getMessage());
+
+        BoardEntitlementReceipt weakEvidence = receipt("receipt-evidence", 7L);
+        weakEvidence.setEvidenceLevel("DECLARED");
+        when(mapper.selectEntitlementReceiptsByTenant(7L)).thenReturn(List.of(weakEvidence));
+        ServiceException evidenceError = assertThrows(
+                ServiceException.class, () -> service.listReceipts(7L));
+        assertEquals("BOARD_ENTITLEMENT_RECEIPT_SCOPE_INVALID", evidenceError.getMessage());
+    }
+
+    private void assertRevokeConflict(BoardEntitlementRevokeRequest request) {
+        ServiceException error = assertThrows(
+                ServiceException.class, () -> service.revoke(request, 900L));
+        assertEquals(409, error.getCode());
+        assertEquals("ENTITLEMENT_SCOPE_OR_VERSION_CONFLICT", error.getMessage());
+    }
+
+    private void assertReceiptAuditScopeFailure() {
+        ServiceException error = assertThrows(
+                ServiceException.class, () -> service.listReceipts(7L));
+        assertEquals(500, error.getCode());
+        assertEquals("BOARD_ENTITLEMENT_RECEIPT_SCOPE_INVALID", error.getMessage());
+    }
+
+    private BoardEntitlementReceipt receipt(String receiptId, long tenantId) {
+        BoardEntitlementReceipt receipt = new BoardEntitlementReceipt();
+        receipt.setReceiptId(receiptId);
+        receipt.setTenantId(tenantId);
+        receipt.setActorUserId(900L);
+        receipt.setTargetMemberId(11L);
+        receipt.setAction("ENTITLEMENT_REVOKED");
+        receipt.setPayloadDigest("a".repeat(64));
+        receipt.setEvidenceLevel("ACTION_COMPLETED");
+        receipt.setCreatedAt(Date.from(NOW));
+        return receipt;
     }
 
     private BoardEnterpriseMemberScope member(long tenantId, long memberId, long userId) {

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -108,6 +109,24 @@ class IndependentBoardDashboardMapperContractTest {
     }
 
     @Test
+    void entitlementLifecycleLockUsesOnlyTheExactDurableEntitlementScope() {
+        String sql = sql("selectEntitlementForUpdate", Map.of(
+                "tenantId", 7L,
+                "memberId", 11L,
+                "productCode", "FBSIR_INDEPENDENT_BOARD"));
+
+        assertTrue(sql.contains("where enterprise_id = ?"));
+        assertTrue(sql.contains("and member_id = ?"));
+        assertTrue(sql.contains("and product_code = ?"));
+        assertTrue(sql.endsWith("limit 1 for update"));
+        assertFalse(sql.contains("fbs_enterprise_member"),
+                "revocation must remain possible after membership removal");
+        assertFalse(sql.contains("fbs_enterprise e"),
+                "revocation must remain possible after enterprise disablement");
+        assertFalse(sql.contains("${"), "entitlement lifecycle locks must never use substitution");
+    }
+
+    @Test
     void adminOperationReadIsFixedToProductAndMetricAndHasBoundedOverflowFetch() {
         String sql = sql("selectOperationsByTenant", Map.of(
                 "tenantId", 7L,
@@ -120,6 +139,24 @@ class IndependentBoardDashboardMapperContractTest {
         assertTrue(sql.contains("order by created_at desc, id desc"));
         assertTrue(sql.endsWith("limit 501"));
         assertFalse(sql.contains("${"), "operation reads must never use string substitution");
+    }
+
+    @Test
+    void entitlementReceiptAuditSelectsOnlyTheSevenSafeFieldsAndIsHardBounded() {
+        String sql = sql("selectEntitlementReceiptsByTenant", Map.of("tenantId", 7L));
+        String projection = sql.substring("select ".length(), sql.indexOf(" from "));
+
+        assertEquals(
+                "receipt_id, enterprise_id, actor_user_id, target_member_id, action, "
+                        + "evidence_level, created_at",
+                projection);
+        assertTrue(sql.contains("where enterprise_id = ?"));
+        assertTrue(sql.contains("order by created_at desc, id desc"));
+        assertTrue(sql.endsWith("limit 501"));
+        assertFalse(sql.contains("payload_digest"));
+        assertFalse(sql.contains("product_code"),
+                "the board receipt schema has no product_code and must not pretend otherwise");
+        assertFalse(sql.contains("${"), "receipt reads must never use string substitution");
     }
 
     private static String sql(String statement, Map<String, Object> parameters) {

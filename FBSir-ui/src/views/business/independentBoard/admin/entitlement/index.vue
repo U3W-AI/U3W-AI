@@ -26,7 +26,7 @@
             filterable
             clearable
             :loading="enterpriseLoading"
-            :disabled="enterpriseLoading || submitting"
+            :disabled="enterpriseLoading || isMutating"
             placeholder="从可管理企业中选择"
             class="tenant-select"
             @change="handleTenantChange"
@@ -43,7 +43,7 @@
           <el-button
             icon="Refresh"
             :loading="dataLoading"
-            :disabled="!selectedTenantId || submitting"
+            :disabled="!selectedTenantId || isMutating"
             @click="refreshCurrentTenant"
           >刷新当前企业</el-button>
         </el-form-item>
@@ -94,7 +94,7 @@
           <small>当前企业</small>
         </el-card>
         <el-card shadow="never" class="summary-card">
-          <span>已授予 VIP</span>
+          <span>当前授予 VIP</span>
           <strong>{{ grantedVipCount }}</strong>
           <small>不等于已激活</small>
         </el-card>
@@ -119,7 +119,7 @@
           <el-button
             type="primary"
             icon="Plus"
-            :disabled="!canOpenGrant || submitting"
+            :disabled="!canOpenGrant || isMutating"
             @click="openGrantDialog"
             v-hasPermi="['board:entitlement:grant']"
           >授予权益</el-button>
@@ -171,15 +171,23 @@
             <el-table-column label="更新时间" min-width="175">
               <template #default="scope">{{ formatBoardDateTime(scope.row.updatedAt) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="100" fixed="right" align="center">
+            <el-table-column label="操作" width="150" fixed="right" align="center">
               <template #default="scope">
                 <el-button
                   link
                   type="primary"
-                  :disabled="!canAdjust(scope.row) || submitting"
+                  :disabled="!canAdjust(scope.row) || isMutating"
                   @click="openAdjustDialog(scope.row)"
                   v-hasPermi="['board:entitlement:grant']"
                 >调整</el-button>
+                <el-button
+                  link
+                  type="danger"
+                  :loading="revokingMemberId === scope.row.memberId"
+                  :disabled="!canRevoke(scope.row) || isMutating"
+                  @click="revokeEntitlement(scope.row)"
+                  v-hasPermi="['board:entitlement:revoke']"
+                >撤销</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -266,17 +274,20 @@
 
 <script setup name="IndependentBoardAdminEntitlement">
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { listEnterprise } from '@/api/business/fbs/enterprise'
 import { listEnterpriseMember } from '@/api/business/fbs/enterpriseMember'
 import {
   grantIndependentBoardEntitlement,
-  listIndependentBoardEntitlements
+  listIndependentBoardEntitlements,
+  revokeIndependentBoardEntitlement
 } from '@/api/business/independentBoard/admin'
 import { checkPermi } from '@/utils/permission'
 import {
   activationMeta,
   buildEntitlementGrantPayload,
+  buildEntitlementRevokeConfirmation,
+  buildEntitlementRevokePayload,
   createLatestRequestGuard,
   entitlementStatusMeta,
   expectedSavedEntitlementVersion,
@@ -288,13 +299,15 @@ import {
   parseEntitlementList,
   parseMemberPage,
   planLabel,
-  toBoardDateTimeInput
+  toBoardDateTimeInput,
+  verifyEntitlementRevokeReadback
 } from '../model.js'
 
 const canListEnterprises = checkPermi(['business:fbs:enterprise:list'])
 const canListMembers = checkPermi(['business:fbs:enterpriseMember:list'])
 const canQueryEntitlements = checkPermi(['board:entitlement:query'])
 const canGrantEntitlements = checkPermi(['board:entitlement:grant'])
+const canRevokeEntitlements = checkPermi(['board:entitlement:revoke'])
 const canOperatePage = canListEnterprises && canListMembers && canQueryEntitlements
 
 const enterpriseOptions = ref([])
@@ -313,6 +326,8 @@ const dialogVisible = ref(false)
 const dialogMode = ref('create')
 const editingEntitlement = ref(null)
 const submitting = ref(false)
+const revokeGuardMemberId = ref(null)
+const revokingMemberId = ref(null)
 const formError = ref('')
 const grantFormRef = ref(null)
 const grantForm = reactive({
@@ -329,9 +344,13 @@ const grantRules = {
 
 const selectedEnterprise = computed(() =>
   enterpriseOptions.value.find(item => item.id === selectedTenantId.value) || null)
+const isMutating = computed(() => submitting.value
+  || revokeGuardMemberId.value !== null
+  || revokingMemberId.value !== null)
 const memberMap = computed(() => new Map(members.value.map(item => [item.id, item])))
 const grantedVipCount = computed(() =>
-  entitlements.value.filter(item => item.planCode === 'BOARD_VIP').length)
+  entitlements.value.filter(item =>
+    item.planCode === 'BOARD_VIP' && item.entitlementStatus === 'ACTIVE').length)
 const pendingConnectorCount = computed(() =>
   entitlements.value.filter(item => item.activationState === 'PENDING_CONNECTOR').length)
 const activeVipCount = computed(() =>
@@ -368,9 +387,16 @@ function memberFor(entitlement) {
 function canAdjust(entitlement) {
   const member = memberFor(entitlement)
   return canGrantEntitlements
+    && entitlement.entitlementStatus === 'ACTIVE'
     && selectedEnterprise.value?.status === 1
     && !memberTruncated.value
     && member?.status === 1
+}
+
+function canRevoke(entitlement) {
+  return canRevokeEntitlements
+    && entitlement?.tenantId === selectedTenantId.value
+    && entitlement?.entitlementStatus === 'ACTIVE'
 }
 
 async function loadEnterpriseOptions() {
@@ -536,6 +562,78 @@ async function submitGrant() {
     }
   } finally {
     submitting.value = false
+  }
+}
+
+async function revokeEntitlement(entitlement) {
+  if (isMutating.value || !canRevoke(entitlement)) return
+  revokeGuardMemberId.value = entitlement.memberId
+  const tenantId = selectedTenantId.value
+  let payload
+  try {
+    payload = buildEntitlementRevokePayload({ tenantId, entitlement })
+  } catch (error) {
+    revokeGuardMemberId.value = null
+    ElMessage.error(error.message)
+    return
+  }
+
+  let confirmation
+  try {
+    confirmation = buildEntitlementRevokeConfirmation({
+      enterprise: selectedEnterprise.value,
+      member: memberFor(entitlement),
+      entitlement
+    })
+  } catch (error) {
+    revokeGuardMemberId.value = null
+    ElMessage.error(error.message)
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      confirmation.message,
+      confirmation.title,
+      {
+        confirmButtonText: confirmation.confirmButtonText,
+        cancelButtonText: '取消',
+        type: 'warning',
+        distinguishCancelAndClose: true,
+        closeOnClickModal: false
+      }
+    )
+  } catch {
+    revokeGuardMemberId.value = null
+    return
+  }
+
+  const current = entitlements.value.find(item => item.memberId === payload.memberId)
+  if (selectedTenantId.value !== tenantId
+      || !current
+      || current.userId !== payload.userId
+      || current.version !== payload.expectedVersion
+      || !canRevoke(current)) {
+    revokeGuardMemberId.value = null
+    ElMessage.warning('权益数据已变化，请刷新后重新确认；本次未发出撤销请求。')
+    return
+  }
+
+  revokingMemberId.value = payload.memberId
+  try {
+    const response = await revokeIndependentBoardEntitlement(payload)
+    verifyEntitlementRevokeReadback({ tenantId, original: current, saved: response.data })
+    ElMessage.success('独董会权益已撤销，该成员已回退为免费版；审计回执已生成。')
+    await loadSelectedTenant()
+  } catch (error) {
+    if (isCasConflict(error)) {
+      ElMessage.warning('权益数据已被其他操作更新，页面已刷新；本次不会自动重试撤销。')
+      await loadSelectedTenant()
+    } else {
+      ElMessage.error('权益撤销失败或回读不一致，未将本次操作显示为成功。')
+    }
+  } finally {
+    revokingMemberId.value = null
+    revokeGuardMemberId.value = null
   }
 }
 

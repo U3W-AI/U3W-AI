@@ -1,6 +1,6 @@
 # me / admin 双后台原型说明
 
-状态：`CONFIRMED_AND_W3A_LOCALLY_IMPLEMENTED`。用户已于 2026-07-20 明确回复“按建议确认”；本原型的五项建议成为若依生产页面实施基线。静态原型本身仍不连接 API；W2 用户门户和 W3a 管理门户首个闭环的源码、构建、HTTP/JWT 与真实 MySQL 候选态已验证，但尚未部署到真实域名。
+状态：`CONFIRMED_AND_W3B_LOCALLY_IMPLEMENTED`。用户已于 2026-07-20 明确回复“按建议确认”；本原型的五项建议成为若依生产页面实施基线。静态原型本身仍不连接 API；W2 用户门户以及 W3a/W3b 管理闭环的源码、构建、HTTP/JWT 与真实 MySQL 候选态已验证，但尚未部署到真实域名。
 
 ## 设计基准
 
@@ -107,5 +107,22 @@ W3a 保留若依全部现有系统菜单，并新增一级目录“独董会管�
 | W3 菜单首次应用、可重入、碰撞失败关闭和组件存在性 | `update_20260720_independent_board_admin_menu.sql` 与数据库/菜单门禁 |
 
 W3a 的“权益治理”仅表示授予和调整，不包含撤销、失效处置或权益回执页面；“会议审计”只读额度预约操作，不代表会议已完成。W3b 继续完成受控撤销/失效与不可变权益回执审计。积分、OAuth、Webhook、Watch、FBSir Hub 及真实域名部署仍分别留在后续波次。
+
+## W3b 落地映射与边界
+
+W3b 在 W3a 的全局系统管理员边界内补齐权益关闭和审计回读，不引入租户委派角色，也不把撤销误写为删除：
+
+| 已落地能力 | 仓库真源 |
+|---|---|
+| 只接受租户、成员、用户和期望版本四字段的受控撤销，未知字段失败关闭 | `BoardEntitlementRevokeRequest` 与 `/business/independent-board/entitlements/revoke` |
+| 权益锁定当前读、ACTIVE→REVOKED CAS 与不可变回执同事务；企业或成员停用后仍可关闭遗留权益 | `IndependentBoardEntitlementService` 与真实 MySQL 事务门禁 |
+| REVOKED 明确回退免费版，不能借原“调整”入口隐式恢复 | me/admin 安全 DTO、状态模型与前后端负向测试 |
+| 权益回执固定七字段、最多 500 条并显式标记截断，不读取或暴露摘要 | `/business/independent-board/entitlement-receipts` 与权益回执页 |
+| 权益撤销按钮和只读回执页菜单，无 W3b 角色绑定 | `update_20260720_independent_board_entitlement_lifecycle_menu.sql` |
+| W2/W3a/W3b 首次应用、重跑、漂移和碰撞可重复验证 | `scripts/run-independent-board-menu-migration-it.ps1` |
+
+当前回执表是独董会专用表，但没有 `productCode` 列；W3b 只能如实证明按租户读取该专用表，不能把它描述为数据库层的产品过滤。撤销原因、恢复撤销、套餐与额度编辑、积分、OAuth/Connector、Webhook、Watch 和租户委派管理仍需要各自的后续合同。
+
+W3b 关闭后，最具业务绩效的下一步是 W4a：建立权威 OAuth/Connector 绑定 current-read，使已授予 VIP 可以从 `PENDING_CONNECTOR` 安全进入 `ACTIVE`。这一步不会从本地通过推断生产域名或真实 Connector 已可用。
 
 可点击原型入口：[双后台原型](./prototypes/portals/index.html)。

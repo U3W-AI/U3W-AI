@@ -22,7 +22,8 @@ const extractionFixtures = new Set([
   'business/fbs/myApikey/index',
   'business/independentBoard/me/index',
   'business/independentBoard/admin/entitlement/index',
-  'business/independentBoard/admin/meetingAudit/index'
+  'business/independentBoard/admin/meetingAudit/index',
+  'business/independentBoard/admin/entitlementReceipt/index'
 ])
 
 function stripSqlComments(sql) {

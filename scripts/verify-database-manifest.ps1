@@ -110,6 +110,7 @@ $requiredTail = @{
     public_init_028 = "update_20260720_independent_board_control_plane.sql"
     public_init_029 = "update_20260720_independent_board_me_menu.sql"
     public_init_030 = "update_20260720_independent_board_admin_menu.sql"
+    public_init_031 = "update_20260720_independent_board_entitlement_lifecycle_menu.sql"
 }
 foreach ($version in $requiredTail.Keys) {
     $matches = @($manifest.steps | Where-Object { $_.version -eq $version -and $_.file -eq $requiredTail[$version] })
@@ -135,9 +136,12 @@ $requiredInitNeedles = @(
     "Assert-IndependentBoardControlPlaneCurrentState",
     "Assert-IndependentBoardMeMenuCurrentState",
     "Assert-IndependentBoardAdminMenuCurrentState",
+    "Assert-IndependentBoardEntitlementLifecycleMenuCurrentState",
     '$expectedState = @(5, 5, 67, 67, 13, 13, 2, 2, 2, 1, 1)',
     '$expectedState = @(1, 1, 1, 1, 1, 1, 1)',
-    '$expectedState = @(1, 1, 1, 1, 4, 1, 1, 1)',
+    '# The four W3a identities are asserted individually above.',
+    'Independent Board entitlement lifecycle menu current-read audit',
+    '$expectedState = @(1, 1, 1, 1, 2, 1, 1, 1)',
     "role_id = 10 AND role_key = 'user'",
     'fbsir.public-database-init-manifest/v1',
     'init-manifest.json',
@@ -309,6 +313,11 @@ foreach ($needle in $requiredAdminMenuNeedles) {
 if ($adminMenuSql -match '(?im)^\s*(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+`?sys_role_menu`?\b') {
     $errors.Add("Independent Board admin menu migration must not create, update or delete role bindings")
 }
+if ($adminMenuSql.Contains('board:entitlement:revoke') -or
+    $adminMenuSql.Contains('business/independentBoard/admin/entitlementReceipt/index') -or
+    $adminMenuSql.Contains('IndependentBoardEntitlementReceipts')) {
+    $errors.Add("Independent Board W3a admin menu migration must not absorb W3b lifecycle identities")
+}
 if ($adminMenuSql.Contains("'IndependentBoardMe'") -or
     $adminMenuSql.Contains('business/independentBoard/me/index') -or
     $adminMenuSql.Contains('my:independent-board:view')) {
@@ -359,6 +368,97 @@ if ($adminApplyGuardIndex -lt 0 -or
     $adminLockReleaseIndex -le $adminCommitIndex -or
     $adminProcedureEndIndex -le $adminLockReleaseIndex) {
     $errors.Add("Independent Board admin menu migration must write root, pages, permission and receipt, audit completion, commit while locked and only then release its lock")
+}
+
+$lifecycleMenuSqlPath = Join-Path $sqlRoot "update_20260720_independent_board_entitlement_lifecycle_menu.sql"
+$lifecycleMenuSql = Get-Content -LiteralPath $lifecycleMenuSqlPath -Raw -Encoding UTF8
+$requiredLifecycleMenuNeedles = @(
+    "SHA2(",
+    "CHAR_LENGTH(migration_lock_name) <> 64",
+    "GET_LOCK(migration_lock_name, 30)",
+    "IS_USED_LOCK(migration_lock_name)",
+    "migration_lock_owner <> current_connection",
+    "RELEASE_LOCK(migration_lock_name)",
+    "DECLARE EXIT HANDLER FOR SQLEXCEPTION",
+    "START TRANSACTION",
+    "COMMIT",
+    "IF migration_exists = 0 THEN",
+    "target_identity_count <> 0",
+    "target_identity_count <> 2",
+    "LAST_INSERT_ID()",
+    "IndependentBoardAdmin",
+    "IndependentBoardEntitlementGovernance",
+    "IndependentBoardEntitlementReceipts",
+    "business/independentBoard/admin/entitlementReceipt/index",
+    "board:entitlement:revoke",
+    "board:entitlement:audit",
+    "20260720_independent_board_admin_menu_v1",
+    "20260720_independent_board_entitlement_lifecycle_menu_v1",
+    "Independent Board controlled entitlement revoke permission and immutable receipt audit menu",
+    "table_type = 'BASE TABLE'",
+    "engine = 'InnoDB'",
+    "public manifest lock first and then",
+    "refuse unknown children or",
+    "any sys_role_menu references",
+    "Never roll back",
+    "named lock remains held",
+    "read-only completion-state audit",
+    "must never be cleared or replayed automatically"
+)
+foreach ($needle in $requiredLifecycleMenuNeedles) {
+    if (-not $lifecycleMenuSql.Contains($needle)) {
+        $errors.Add("Independent Board entitlement lifecycle menu SQL is missing required contract: $needle")
+    }
+}
+if ($lifecycleMenuSql -match '(?im)^\s*(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+`?sys_role_menu`?\b') {
+    $errors.Add("Independent Board entitlement lifecycle menu migration must not create, update or delete role bindings")
+}
+if ($lifecycleMenuSql.Contains("'IndependentBoardMe'") -or
+    $lifecycleMenuSql.Contains('business/independentBoard/me/index') -or
+    $lifecycleMenuSql.Contains('my:independent-board:view')) {
+    $errors.Add("Independent Board entitlement lifecycle menu migration must not absorb or rewrite the W2 user menu identity")
+}
+if ($lifecycleMenuSql -match '(?im)^\s*(?:DELETE\s+FROM|UPDATE)\s+`?sys_menu`?' -or
+    $lifecycleMenuSql.Contains('ON DUPLICATE KEY UPDATE')) {
+    $errors.Add("Independent Board entitlement lifecycle menu migration must fail closed instead of repairing menu rows")
+}
+$lifecycleMenuInserts = @([regex]::Matches(
+    $lifecycleMenuSql,
+    'INSERT\s+INTO\s+`sys_menu`\s*\((?<columns>[^)]*)\)',
+    [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+))
+if ($lifecycleMenuInserts.Count -ne 2) {
+    $errors.Add("Independent Board entitlement lifecycle menu migration must insert exactly two generated-id menu rows")
+}
+foreach ($menuInsert in $lifecycleMenuInserts) {
+    if ($menuInsert.Groups['columns'].Value -match '(?<![A-Za-z0-9_])`?menu_id`?(?![A-Za-z0-9_])') {
+        $errors.Add("Independent Board entitlement lifecycle menu migration must not insert a fixed menu_id")
+    }
+}
+if (@([regex]::Matches($lifecycleMenuSql, 'LAST_INSERT_ID\(\)', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)).Count -ne 2) {
+    $errors.Add("Independent Board entitlement lifecycle menu migration must capture two generated menu identifiers")
+}
+$lifecycleApplyGuardIndex = $lifecycleMenuSql.IndexOf('IF migration_exists = 0 THEN', [StringComparison]::Ordinal)
+$lifecycleStartTransactionIndex = $lifecycleMenuSql.IndexOf('START TRANSACTION;', [StringComparison]::Ordinal)
+$lifecycleRevokeInsertIndex = $lifecycleMenuSql.IndexOf("'board:entitlement:revoke', '#'", [StringComparison]::Ordinal)
+$lifecycleReceiptPageInsertIndex = $lifecycleMenuSql.IndexOf("'IndependentBoardEntitlementReceipts', 1, 0, 'C'", [StringComparison]::Ordinal)
+$lifecycleReceiptInsertIndex = $lifecycleMenuSql.IndexOf('INSERT INTO `u3w_schema_migration`', [StringComparison]::Ordinal)
+$lifecycleStateAuditIndex = if ($lifecycleReceiptInsertIndex -ge 0) {
+    $lifecycleMenuSql.IndexOf('SELECT COUNT(*), MIN(`menu_id`)', $lifecycleReceiptInsertIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$lifecycleLockReleaseIndex = $lifecycleMenuSql.LastIndexOf('SELECT RELEASE_LOCK(migration_lock_name)', [StringComparison]::Ordinal)
+$lifecycleCommitIndex = $lifecycleMenuSql.LastIndexOf('COMMIT;', [StringComparison]::Ordinal)
+$lifecycleProcedureEndIndex = $lifecycleMenuSql.IndexOf('END$$', [StringComparison]::Ordinal)
+if ($lifecycleApplyGuardIndex -lt 0 -or
+    $lifecycleStartTransactionIndex -le $lifecycleApplyGuardIndex -or
+    $lifecycleRevokeInsertIndex -le $lifecycleStartTransactionIndex -or
+    $lifecycleReceiptPageInsertIndex -le $lifecycleRevokeInsertIndex -or
+    $lifecycleReceiptInsertIndex -le $lifecycleReceiptPageInsertIndex -or
+    $lifecycleStateAuditIndex -le $lifecycleReceiptInsertIndex -or
+    $lifecycleCommitIndex -le $lifecycleStateAuditIndex -or
+    $lifecycleLockReleaseIndex -le $lifecycleCommitIndex -or
+    $lifecycleProcedureEndIndex -le $lifecycleLockReleaseIndex) {
+    $errors.Add("Independent Board entitlement lifecycle menu migration must write permission, page and receipt, audit completion, commit while locked and only then release its lock")
 }
 
 $truthSpineSqlPath = Join-Path $sqlRoot 'update_20260712_truth_spine_test_state_receipt.sql'
@@ -424,6 +524,7 @@ if ($targetCreateMatches.Count -ne 5 -or @($targetCreateMatches | Where-Object {
 $lastCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardControlPlaneCurrentState', [StringComparison]::Ordinal)
 $lastMeMenuCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardMeMenuCurrentState', [StringComparison]::Ordinal)
 $lastAdminMenuCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardAdminMenuCurrentState', [StringComparison]::Ordinal)
+$lastLifecycleMenuCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardEntitlementLifecycleMenuCurrentState', [StringComparison]::Ordinal)
 $manifestLoopIndex = $initSource.IndexOf('foreach ($step in $steps)', [StringComparison]::Ordinal)
 if ($lastCurrentReadCall -le $manifestLoopIndex) {
     $errors.Add("initializer must run the Independent Board current-read audit after the complete manifest loop")
@@ -433,6 +534,9 @@ if ($lastMeMenuCurrentReadCall -le $manifestLoopIndex) {
 }
 if ($lastAdminMenuCurrentReadCall -le $manifestLoopIndex) {
     $errors.Add("initializer must run the Independent Board admin menu current-read audit after the complete manifest loop")
+}
+if ($lastLifecycleMenuCurrentReadCall -le $manifestLoopIndex) {
+    $errors.Add("initializer must run the Independent Board entitlement lifecycle menu current-read audit after the complete manifest loop")
 }
 
 $liveVerifierPath = Join-Path $resolvedRoot 'scripts\verify-independent-board-live-database.ps1'
@@ -455,6 +559,37 @@ else {
     foreach ($needle in $requiredLiveNeedles) {
         if (-not $liveVerifierSource.Contains($needle)) {
             $errors.Add("live database verifier is missing required gate semantics: $needle")
+        }
+    }
+}
+
+$menuMigrationItPath = Join-Path $resolvedRoot 'scripts\run-independent-board-menu-migration-it.ps1'
+if (-not (Test-Path -LiteralPath $menuMigrationItPath -PathType Leaf)) {
+    $errors.Add("Independent Board menu migration MySQL replay gate is missing")
+}
+else {
+    $menuMigrationItSource = Get-Content -LiteralPath $menuMigrationItPath -Raw -Encoding UTF8
+    $requiredMenuMigrationItNeedles = @(
+        '[switch]$AllowDestructiveTest',
+        "throw 'Explicit -AllowDestructiveTest consent is required.'",
+        "Port 3306 is forbidden",
+        "bind-address=127.0.0.1",
+        "productionConnectionUsed = `$false",
+        "workDirectoryCleaned = `$true",
+        "w2_first_apply",
+        "w3a_first_apply",
+        "w3b_first_apply",
+        "w3b_completed_rerun_preserves_external_binding",
+        "w3a_rerun_after_w3b",
+        "w3b_completed_state_drift_fail_closed",
+        "w3b_prewrite_identity_collision_fail_closed",
+        "schemaNameLength",
+        "Assert-SafeCleanupPath",
+        "Get-VerifiedMySqlProcessId"
+    )
+    foreach ($needle in $requiredMenuMigrationItNeedles) {
+        if (-not $menuMigrationItSource.Contains($needle)) {
+            $errors.Add("menu migration MySQL replay gate is missing required safety or scenario contract: $needle")
         }
     }
 }
@@ -515,6 +650,8 @@ $result = [pscustomobject]@{
     controlPlaneVersion = "public_init_028"
     meMenuVersion = "public_init_029"
     adminMenuVersion = "public_init_030"
+    entitlementLifecycleMenuVersion = "public_init_031"
+    menuMigrationReplayGate = "scripts/run-independent-board-menu-migration-it.ps1"
     errors = @($errors)
 }
 

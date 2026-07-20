@@ -16,6 +16,22 @@ export function grantIndependentBoardEntitlement(data) {
   })
 }
 
+export function revokeIndependentBoardEntitlement(data) {
+  return request({
+    url: '/business/independent-board/entitlements/revoke',
+    method: 'post',
+    data
+  })
+}
+
+export function listIndependentBoardEntitlementReceipts(tenantId) {
+  return request({
+    url: '/business/independent-board/entitlement-receipts',
+    method: 'get',
+    params: { tenantId }
+  })
+}
+
 export function listIndependentBoardOperations(tenantId) {
   return request({
     url: '/business/independent-board/operations',

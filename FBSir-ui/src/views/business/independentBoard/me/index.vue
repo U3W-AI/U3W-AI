@@ -114,6 +114,13 @@
                 <p>VIP 权益已授予，完成 WorkBuddy Connector 验证后生效；当前继续按免费版额度运行。</p>
               </div>
             </div>
+            <div v-else-if="isRevoked" class="entitlement-revoked">
+              <el-icon><WarningFilled /></el-icon>
+              <div>
+                <strong>权益已撤销</strong>
+                <p>原授予已由管理员撤销，当前明确按免费版额度运行；如有疑问请联系管理员核验权益回执。</p>
+              </div>
+            </div>
             <div v-else class="plan-features">
               <span>{{ entitlement.secretaryEnabled ? '已含独董会秘书' : '暂不含独董会秘书' }}</span>
               <span>{{ seatLimitText }}</span>
@@ -330,6 +337,11 @@ import {
   reserveIndependentBoardMeeting
 } from '@/api/business/independentBoard'
 import {
+  parseBoardContext,
+  parseBoardContexts,
+  parseBoardDashboardEnvelope,
+  parseBoardEntitlementSnapshot,
+  parseBoardRecentMeetings,
   parseStoredDraft,
   persistDraftWithReadback,
   reservationMatchesSubmitted
@@ -381,6 +393,7 @@ const planName = computed(() => formatPlan(entitlement.value.effectivePlanCode))
 const isPendingConnection = computed(() => {
   return connectorState.value === 'PENDING_CONNECTION' || entitlement.value.activationState === 'PENDING_CONNECTOR'
 })
+const isRevoked = computed(() => entitlement.value.activationState === 'REVOKED')
 const agendaLimit = computed(() => Math.max(1, Number(entitlement.value.agendaLimit || 1)))
 const seatSafetyLimit = computed(() => {
   const planLimit = Number(entitlement.value.seatLimit)
@@ -412,6 +425,7 @@ const activationTag = computed(() => {
     return { label: '待连接', type: 'warning', className: 'pending-tag' }
   }
   if (state === 'ACTIVE') return { label: 'VIP 已生效', type: 'success', className: '' }
+  if (state === 'REVOKED') return { label: '权益已撤销', type: 'danger', className: '' }
   if (state === 'EXPIRED') return { label: '权益已过期', type: 'danger', className: '' }
   if (state === 'INVALID_ENTITLEMENT') return { label: '权益待核验', type: 'danger', className: '' }
   return { label: '免费版', type: 'info', className: '' }
@@ -629,32 +643,13 @@ function completeReservation(remainingCount) {
 }
 
 function validateContexts(value) {
-  if (!Array.isArray(value)) throw new Error('企业数据格式不正确，请刷新后重试。')
-  const tenantIds = new Set()
-  return value.map(item => {
-    if (!isPlainObject(item)
-        || !isPositiveSafeInteger(item.tenantId)
-        || !isPositiveSafeInteger(item.memberId)
-        || !isNonBlankString(item.tenantName)
-        || !isNonBlankString(item.memberRole)) {
-      throw new Error('企业数据不完整，请联系管理员核验成员配置。')
-    }
-    const key = String(item.tenantId)
-    if (tenantIds.has(key)) throw new Error('企业数据存在重复项，请联系管理员核验成员配置。')
-    tenantIds.add(key)
-    return {
-      tenantId: item.tenantId,
-      memberId: item.memberId,
-      tenantName: item.tenantName.trim(),
-      memberRole: item.memberRole.trim()
-    }
-  })
+  return parseBoardContexts(value)
 }
 
 function validateDashboard(value, requestedTenantId) {
-  if (!isPlainObject(value)) throw new Error('独董会数据格式不正确，请刷新后重试。')
-  const context = validateContext(value.context)
-  const entitlementView = validateEntitlement(value.entitlement)
+  const dashboard = parseBoardDashboardEnvelope(value)
+  const context = parseBoardContext(dashboard.context)
+  const entitlementView = parseBoardEntitlementSnapshot(dashboard.entitlement)
   const listedContext = contexts.value.find(item => String(item.tenantId) === String(requestedTenantId))
   if (String(context.tenantId) !== String(requestedTenantId)
       || String(entitlementView.tenantId) !== String(requestedTenantId)
@@ -667,90 +662,31 @@ function validateDashboard(value, requestedTenantId) {
   }
 
   const allowedConnectorStates = ['ACTIVE', 'PENDING_CONNECTION', 'NOT_CONNECTED']
-  if (!allowedConnectorStates.includes(value.connectorState)
-      || value.webhookState !== 'COMING_SOON'
-      || value.watchState !== 'COMING_SOON') {
+  if (!allowedConnectorStates.includes(dashboard.connectorState)
+      || dashboard.webhookState !== 'COMING_SOON'
+      || dashboard.watchState !== 'COMING_SOON') {
     throw new Error('能力状态数据不受支持，请刷新后重试。')
   }
-  if (value.connectorState === 'PENDING_CONNECTION'
+  if (dashboard.connectorState === 'PENDING_CONNECTION'
       && entitlementView.activationState !== 'PENDING_CONNECTOR') {
     throw new Error('连接状态与权益状态不一致，页面已停止展示。')
   }
   if (entitlementView.activationState === 'PENDING_CONNECTOR'
-      && value.connectorState !== 'PENDING_CONNECTION') {
+      && dashboard.connectorState !== 'PENDING_CONNECTION') {
     throw new Error('待连接权益缺少连接状态证据，页面已停止展示。')
   }
-  if (value.connectorState === 'ACTIVE'
+  if (dashboard.connectorState === 'ACTIVE'
       && (!entitlementView.connectorVerified || entitlementView.activationState !== 'ACTIVE')) {
     throw new Error('连接状态缺少有效权益证据，页面已停止展示。')
   }
 
-  return {
+  return Object.freeze({
     context,
     entitlement: entitlementView,
-    recentMeetings: validateRecentMeetings(value.recentMeetings),
-    connectorState: value.connectorState,
-    webhookState: value.webhookState,
-    watchState: value.watchState
-  }
-}
-
-function validateContext(value) {
-  if (!isPlainObject(value)
-      || !isPositiveSafeInteger(value.tenantId)
-      || !isPositiveSafeInteger(value.memberId)
-      || !isNonBlankString(value.tenantName)
-      || !isNonBlankString(value.memberRole)) {
-    throw new Error('企业上下文数据不完整。')
-  }
-  return value
-}
-
-function validateEntitlement(value) {
-  const activationStates = ['FREE', 'ACTIVE', 'PENDING_CONNECTOR', 'INVALID_ENTITLEMENT', 'EXPIRED']
-  if (!isPlainObject(value)
-      || !isPositiveSafeInteger(value.tenantId)
-      || !isPositiveSafeInteger(value.memberId)
-      || !isPositiveSafeInteger(value.userId)
-      || (value.grantedPlanCode !== null && !['BOARD_FREE', 'BOARD_VIP'].includes(value.grantedPlanCode))
-      || !['BOARD_FREE', 'BOARD_VIP'].includes(value.effectivePlanCode)
-      || !activationStates.includes(value.activationState)
-      || !isPositiveSafeInteger(value.dailyMeetingLimit)
-      || !isPositiveSafeInteger(value.agendaLimit) || value.agendaLimit > 30
-      || !(value.seatLimit === null
-        || (isPositiveSafeInteger(value.seatLimit) && value.seatLimit <= INITIAL_SAFETY_MAX_SEAT_COUNT))
-      || typeof value.secretaryEnabled !== 'boolean'
-      || typeof value.connectorRequired !== 'boolean'
-      || typeof value.connectorVerified !== 'boolean'
-      || !isNonNegativeSafeInteger(value.usedCount)
-      || !isNonNegativeSafeInteger(value.reservedCount)
-      || !isNonNegativeSafeInteger(value.remainingCount)) {
-    throw new Error('权益数据不完整或包含非法值。')
-  }
-  const expectedRemaining = Math.max(0,
-    value.dailyMeetingLimit - value.usedCount - value.reservedCount)
-  if (value.remainingCount !== expectedRemaining) {
-    throw new Error('今日额度数据不一致，页面已停止预约。')
-  }
-  return value
-}
-
-function validateRecentMeetings(value) {
-  if (!Array.isArray(value) || value.length > 10) throw new Error('最近会议数据格式不正确。')
-  const allowedStatuses = ['PENDING', 'RESERVED', 'COMPLETED', 'REJECTED', 'RELEASED', 'FAILED', 'UNKNOWN']
-  return value.map(item => {
-    if (!isPlainObject(item)
-        || !isValidOperationId(item.operationId)
-        || !allowedStatuses.includes(item.status)
-        || !['BOARD_FREE', 'BOARD_VIP'].includes(item.effectivePlanCode)
-        || !isPositiveSafeInteger(item.agendaCount) || item.agendaCount > 30
-        || !isPositiveSafeInteger(item.seatCount) || item.seatCount > INITIAL_SAFETY_MAX_SEAT_COUNT
-        || !isNonNegativeSafeInteger(item.remainingCount)
-        || !/^\d{4}-\d{2}-\d{2}$/.test(item.bucketDate || '')
-        || Number.isNaN(new Date(item.createdAt).getTime())) {
-      throw new Error('最近会议记录包含非法值。')
-    }
-    return item
+    recentMeetings: parseBoardRecentMeetings(dashboard.recentMeetings),
+    connectorState: dashboard.connectorState,
+    webhookState: dashboard.webhookState,
+    watchState: dashboard.watchState
   })
 }
 
@@ -772,7 +708,7 @@ function validateReservationLookup(value, operationId) {
     if (value.meeting !== null) throw new Error('预约回读状态不一致。')
     return { found: false, meeting: null }
   }
-  const meeting = validateRecentMeetings([value.meeting])[0]
+  const meeting = parseBoardRecentMeetings([value.meeting])[0]
   if (meeting.operationId !== operationId) throw new Error('预约回读编号不一致。')
   return { found: true, meeting }
 }
@@ -797,16 +733,8 @@ function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function isNonBlankString(value) {
-  return typeof value === 'string' && value.trim().length > 0
-}
-
 function isPositiveSafeInteger(value) {
   return Number.isSafeInteger(value) && value > 0
-}
-
-function isNonNegativeSafeInteger(value) {
-  return Number.isSafeInteger(value) && value >= 0
 }
 
 function isValidOperationId(value) {
@@ -1144,6 +1072,33 @@ function numberOrZero(value) {
   p {
     margin: 3px 0 0;
     color: #805c16;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+}
+
+.entitlement-revoked {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid #f2b8b5;
+  border-radius: 11px;
+  background: #fff2f1;
+  color: #b42318;
+
+  .el-icon {
+    margin-top: 2px;
+    font-size: 18px;
+  }
+
+  strong {
+    font-size: 14px;
+  }
+
+  p {
+    margin: 3px 0 0;
+    color: #912018;
     font-size: 12px;
     line-height: 1.55;
   }

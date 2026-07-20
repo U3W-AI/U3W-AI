@@ -1,0 +1,172 @@
+{
+  "schema": "fbsir.independent-board-w3b-entitlement-lifecycle-verification/v1",
+  "observedAt": "2026-07-21T00:03:30+08:00",
+  "result": "PASS_LOCAL_CANDIDATE",
+  "releaseReady": false,
+  "wave": "W3_ADMIN_PORTAL",
+  "slice": "W3b_controlled_revoke_and_immutable_entitlement_receipt_audit",
+  "repository": {
+    "root": "E:/ddh/u3w-independent-board-control-plane",
+    "branch": "codex/independent-board-control-plane",
+    "sourceBaseCommit": "9970345dbc69c04cb6cf4e99e21c1a621d001ba5",
+    "binding": "the containing Git commit binds this report to the verified W3b candidate tree",
+    "remote": "https://github.com/U3W-AI/U3W-AI.git",
+    "submittedExpertPackageModified": false,
+    "frozenExpertPackageCommit": "dcd28a8583e35d6f481695dee612aa4604cd46e2"
+  },
+  "accessModel": {
+    "current": "global_system_admin_only",
+    "requiredRole": "admin",
+    "newFinePermissions": [
+      "board:entitlement:revoke",
+      "board:entitlement:audit"
+    ],
+    "cumulativeIndependentBoardAdminPermissions": [
+      "board:entitlement:query",
+      "board:entitlement:grant",
+      "board:entitlement:revoke",
+      "board:entitlement:audit",
+      "board:operation:audit"
+    ],
+    "delegatedTenantAdministration": "NOT_IMPLEMENTED",
+    "sysRoleMenuWritesByW3b": 0
+  },
+  "scope": [
+    "strict_four_field_controlled_entitlement_revoke",
+    "duplicate_unknown_missing_null_non_integer_and_trailing_json_fail_closed",
+    "active_to_revoked_compare_and_swap_without_active_member_dependency",
+    "revoke_and_immutable_receipt_same_transaction",
+    "receipt_failure_rollback_and_same_version_retry",
+    "revoked_state_explicitly_falls_back_to_free_policy",
+    "revoked_entitlement_cannot_be_implicitly_restored",
+    "seven_field_tenant_bound_receipt_audit_with_501_sentinel",
+    "w2_w3a_w3b_replayable_menu_migration_gate"
+  ],
+  "verification": {
+    "backendFocused": {
+      "command": "mvn.cmd -pl FBSir-admin -am -Dtest=BoardEntitlementRevokeRequestTest,IndependentBoardControllerAuthorizationTest,IndependentBoardDashboardMapperContractTest,IndependentBoardEntitlementServiceTest,IndependentBoardHttpSecurityIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false test",
+      "dtoTests": 4,
+      "controllerTests": 4,
+      "mapperTests": 8,
+      "serviceTests": 26,
+      "httpJwtTests": 31,
+      "total": 73,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "mysqlTransactions": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-mysql-transaction-it.ps1 -AllowDestructiveTest",
+      "database": "MySQL 8.4.8 Community Server",
+      "engine": "InnoDB",
+      "isolation": "REPEATABLE-READ",
+      "tests": 34,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "covered": [
+        "concurrent_revoke_one_commit_one_conflict",
+        "receipt_failure_rolls_back_revoke",
+        "inactive_enterprise_and_member_still_allow_legacy_revoke",
+        "revoked_grant_restore_is_rejected",
+        "same_instant_and_clock_rollback_validity_floor",
+        "tenant_bound_501_receipt_boundary"
+      ],
+      "productionConnectionUsed": false,
+      "workDirectoryCleaned": true
+    },
+    "frontend": {
+      "commands": [
+        "npm.cmd run verify:independent-board-admin-ui",
+        "npm.cmd run verify:independent-board-ui",
+        "npm.cmd run verify:menu-components",
+        "npm.cmd run build:prod"
+      ],
+      "adminAndMePureModelNegativeVectors": "PASS",
+      "strictDtoAndRevokeReadback": "PASS",
+      "confirmationTargetBinding": "PASS",
+      "menuComponents": 58,
+      "menuSqlFiles": 31,
+      "viteModulesTransformed": 3025,
+      "productionBuild": "PASS",
+      "mountedVueComponentInteraction": "NOT_EXECUTED_SOURCE_AND_EXECUTABLE_PURE_MODEL_GATE_ONLY"
+    },
+    "databaseManifest": {
+      "schema": "fbsir.public-database-init-manifest/v1",
+      "steps": 31,
+      "managedUpdateSqlFiles": 28,
+      "w3bPublicVersion": "public_init_031",
+      "w3bInternalReceipt": "20260720_independent_board_entitlement_lifecycle_menu_v1",
+      "dryRunOpenedDatabaseConnection": false,
+      "coverage": "PASS"
+    },
+    "menuMigrationMysqlIsolation": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-menu-migration-it.ps1 -AllowDestructiveTest",
+      "evidenceMode": "REPOSITORY_OWNED_REPLAYABLE_DISPOSABLE_MYSQL_GATE",
+      "database": "MySQL 8.4.8 Community Server",
+      "engine": "InnoDB",
+      "isolation": "REPEATABLE-READ",
+      "phases": 13,
+      "w3bMigrationSha256": "2c9b018f43c4461fee2f541e2f99b263d84501198d317d0202a9fb1a53faae53",
+      "gateScriptSha256": "31e0cf5ccb9ed588d6dc56001021934f8be44d48607e11ed9627abab2b9e2287",
+      "firstApplyAndCompletedRerun": "PASS",
+      "w2AndW3aRerunAfterW3b": "PASS",
+      "externalRoleBindingPreserved": true,
+      "completedStateDrift": "FAIL_CLOSED_THEN_REVIEWED_FIXTURE_RECOVERY_PASS",
+      "prewriteIdentityCollisionOn64CharacterDatabaseName": "FAIL_CLOSED_WITH_0_W3B_RECEIPTS",
+      "productionConnectionUsed": false,
+      "workDirectoryCleaned": true
+    },
+    "fullRegression": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-control-plane.ps1 -Mode All",
+      "state": "PASS",
+      "backendTests": 584,
+      "backendTestSuites": 146,
+      "backendCountMethod": "sum_of_surefire_xml_rewritten_by_final_all_replay_excluding_separate_IndependentBoardMysqlTransactionIT",
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "frontendProductionBuild": "PASS_3025_MODULES",
+      "databaseTransactionsRunSeparately": true,
+      "menuMigrationsRunSeparately": true,
+      "releaseReady": false
+    },
+    "documentationConsistency": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/doc-consistency-audit.ps1 -Json",
+      "state": "PASS",
+      "findings": 0
+    },
+    "gitDiffCheck": {
+      "command": "git diff --check",
+      "state": "PASS"
+    }
+  },
+  "closedFindings": [
+    "revoked_entitlement_could_be_implicitly_restored_by_grant",
+    "revoke_confirmation_did_not_bind_full_human_verifiable_target",
+    "me_dashboard_objects_propagated_unknown_fields",
+    "revoked_readback_allowed_missing_valid_until",
+    "receipt_page_product_filter_evidence_boundary_was_implicit",
+    "duplicate_revoke_json_fields_were_accepted",
+    "trailing_revoke_json_tokens_were_accepted",
+    "receipt_501_sentinel_was_not_validated",
+    "same_instant_revoke_could_violate_validity_check",
+    "menu_migration_was_not_repository_replayable"
+  ],
+  "notProven": [
+    "production_database_migration",
+    "admin_portal_production_runtime",
+    "me_portal_production_runtime",
+    "me_and_admin_real_domain_browser_readback",
+    "mounted_vue_component_interaction_matrix",
+    "delegated_tenant_admin_role_and_data_scope",
+    "entitlement_revoke_reason_readback",
+    "entitlement_reinstatement_action",
+    "credit_ledger_admin_operations",
+    "connector_oauth_vip_binding",
+    "webhook_delivery",
+    "watch_device_control",
+    "production_deployment"
+  ],
+  "nextAction": "Open W4a with an authoritative OAuth and Connector binding current-read so a granted VIP entitlement can move from PENDING_CONNECTOR to ACTIVE without weakening the W3b lifecycle and receipt boundaries."
+}

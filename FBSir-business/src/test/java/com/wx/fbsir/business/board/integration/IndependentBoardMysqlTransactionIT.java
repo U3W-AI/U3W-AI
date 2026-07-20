@@ -2,6 +2,9 @@ package com.wx.fbsir.business.board.integration;
 
 import com.wx.fbsir.business.board.dto.BoardEntitlementAdminView;
 import com.wx.fbsir.business.board.dto.BoardEntitlementGrantRequest;
+import com.wx.fbsir.business.board.dto.BoardEntitlementReceiptAuditEnvelope;
+import com.wx.fbsir.business.board.dto.BoardEntitlementRevokeRequest;
+import com.wx.fbsir.business.board.dto.BoardEntitlementSnapshot;
 import com.wx.fbsir.business.board.dto.BoardDashboardView;
 import com.wx.fbsir.business.board.dto.BoardEnterpriseContextView;
 import com.wx.fbsir.business.board.dto.BoardMeetingReservationRequest;
@@ -547,6 +550,187 @@ class IndependentBoardMysqlTransactionIT {
                 + "WHERE action = 'ENTITLEMENT_UPDATED'"));
     }
 
+    @Test
+    void revokeCommitsWithReceiptAndMeCurrentReadFallsBackToExplicitFreeState()
+            throws Exception {
+        entitlementService.grant(new BoardEntitlementGrantRequest(
+                        TENANT_ONE, MEMBER_ONE, USER_ONE,
+                        IndependentBoardEntitlementService.VIP_PLAN,
+                        new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1)), 0L),
+                9000L);
+
+        BoardEntitlementAdminView revoked = entitlementService.revoke(
+                new BoardEntitlementRevokeRequest(TENANT_ONE, MEMBER_ONE, USER_ONE, 1L),
+                9001L);
+        BoardEntitlementSnapshot snapshot = entitlementService.getSnapshot(TENANT_ONE, USER_ONE);
+
+        assertEquals("REVOKED", revoked.entitlementStatus());
+        assertEquals("REVOKED", revoked.activationState());
+        assertEquals(2L, revoked.version());
+        assertEquals("REVOKED", snapshot.activationState());
+        assertEquals(IndependentBoardEntitlementService.FREE_PLAN, snapshot.effectivePlanCode());
+        assertFalse(snapshot.connectorRequired());
+        assertEquals("REVOKED", scalarString("SELECT status FROM fbs_product_entitlement"));
+        assertEquals(2, scalarInt("SELECT version FROM fbs_product_entitlement"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt "
+                + "WHERE action = 'ENTITLEMENT_REVOKED' "
+                + "AND evidence_level = 'ACTION_COMPLETED'"));
+    }
+
+    @Test
+    void revokeStillWorksAfterEnterpriseAndMemberBecomeInactive() throws Exception {
+        entitlementService.grant(new BoardEntitlementGrantRequest(
+                        TENANT_ONE, MEMBER_ONE, USER_ONE,
+                        IndependentBoardEntitlementService.VIP_PLAN,
+                        new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1)), 0L),
+                9000L);
+        execute(
+                "UPDATE fbs_enterprise SET status = 2 WHERE id = " + TENANT_ONE,
+                "UPDATE fbs_enterprise_member SET status = 2, del_flag = '1' WHERE id = "
+                        + MEMBER_ONE);
+
+        BoardEntitlementAdminView revoked = entitlementService.revoke(
+                new BoardEntitlementRevokeRequest(TENANT_ONE, MEMBER_ONE, USER_ONE, 1L),
+                9001L);
+
+        assertEquals("REVOKED", revoked.entitlementStatus());
+        assertEquals(2L, revoked.version());
+        assertEquals("REVOKED", scalarString("SELECT status FROM fbs_product_entitlement"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt "
+                + "WHERE action = 'ENTITLEMENT_REVOKED'"));
+    }
+
+    @Test
+    void revokeSurvivesAClockRollbackWithoutViolatingTheMysqlValidityCheck()
+            throws Exception {
+        execute("INSERT INTO fbs_product_entitlement "
+                + "(enterprise_id, member_id, user_id, product_code, plan_code, status, "
+                + "valid_from, valid_until, version, created_at, updated_at) VALUES ("
+                + TENANT_ONE + "," + MEMBER_ONE + "," + USER_ONE + ","
+                + "'" + IndependentBoardEntitlementService.PRODUCT_CODE + "',"
+                + "'" + IndependentBoardEntitlementService.VIP_PLAN + "','ACTIVE',"
+                + "TIMESTAMPADD(MINUTE,1,NOW(3)),TIMESTAMPADD(HOUR,2,NOW(3)),1,NOW(3),NOW(3))");
+
+        BoardEntitlementAdminView revoked = entitlementService.revoke(
+                new BoardEntitlementRevokeRequest(TENANT_ONE, MEMBER_ONE, USER_ONE, 1L),
+                9001L);
+
+        assertEquals("REVOKED", revoked.entitlementStatus());
+        assertEquals(2L, revoked.version());
+        assertEquals(1000, scalarInt("SELECT TIMESTAMPDIFF(MICROSECOND, valid_from, valid_until) "
+                + "FROM fbs_product_entitlement"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt "
+                + "WHERE action = 'ENTITLEMENT_REVOKED'"));
+    }
+
+    @Test
+    void revokeReceiptFailureRollsBackEntitlementMutationAndSameVersionCanRetry()
+            throws Exception {
+        entitlementService.grant(new BoardEntitlementGrantRequest(
+                        TENANT_ONE, MEMBER_ONE, USER_ONE,
+                        IndependentBoardEntitlementService.VIP_PLAN,
+                        new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1)), 0L),
+                9000L);
+        execute("CREATE TRIGGER independent_board_it_fail_receipt "
+                + "BEFORE INSERT ON fbs_entitlement_receipt FOR EACH ROW "
+                + "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced board receipt failure'");
+        BoardEntitlementRevokeRequest request =
+                new BoardEntitlementRevokeRequest(TENANT_ONE, MEMBER_ONE, USER_ONE, 1L);
+
+        assertThrows(RuntimeException.class, () -> entitlementService.revoke(request, 9001L));
+        assertEquals("ACTIVE", scalarString("SELECT status FROM fbs_product_entitlement"));
+        assertEquals(1, scalarInt("SELECT version FROM fbs_product_entitlement"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt"));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt "
+                + "WHERE action = 'ENTITLEMENT_REVOKED'"));
+
+        execute("DROP TRIGGER independent_board_it_fail_receipt");
+        BoardEntitlementAdminView retry = entitlementService.revoke(request, 9001L);
+        assertEquals("REVOKED", retry.entitlementStatus());
+        assertEquals(2L, retry.version());
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt "
+                + "WHERE action = 'ENTITLEMENT_REVOKED'"));
+    }
+
+    @Test
+    void concurrentRevokesAllowExactlyOneCasWinnerAndOneImmutableReceipt()
+            throws Exception {
+        entitlementService.grant(new BoardEntitlementGrantRequest(
+                        TENANT_ONE, MEMBER_ONE, USER_ONE,
+                        IndependentBoardEntitlementService.VIP_PLAN,
+                        new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1)), 0L),
+                9000L);
+        BoardEntitlementRevokeRequest request =
+                new BoardEntitlementRevokeRequest(TENANT_ONE, MEMBER_ONE, USER_ONE, 1L);
+
+        List<EntitlementAttempt> attempts = runConcurrentRevoke(
+                2, request, index -> 9010L + index);
+
+        assertEquals(1, attempts.stream().filter(EntitlementAttempt::success).count());
+        assertEquals(1, attempts.stream().filter(EntitlementAttempt::versionConflict).count());
+        assertEquals("REVOKED", scalarString("SELECT status FROM fbs_product_entitlement"));
+        assertEquals(2, scalarInt("SELECT version FROM fbs_product_entitlement"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt "
+                + "WHERE action = 'ENTITLEMENT_REVOKED'"));
+    }
+
+    @Test
+    void grantCannotRestoreARevokedEntitlementInMysql() throws Exception {
+        entitlementService.grant(new BoardEntitlementGrantRequest(
+                        TENANT_ONE, MEMBER_ONE, USER_ONE,
+                        IndependentBoardEntitlementService.VIP_PLAN,
+                        new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1)), 0L),
+                9000L);
+        entitlementService.revoke(
+                new BoardEntitlementRevokeRequest(TENANT_ONE, MEMBER_ONE, USER_ONE, 1L),
+                9001L);
+
+        ServiceException conflict = assertThrows(ServiceException.class, () -> entitlementService.grant(
+                new BoardEntitlementGrantRequest(
+                        TENANT_ONE, MEMBER_ONE, USER_ONE,
+                        IndependentBoardEntitlementService.VIP_PLAN,
+                        new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(2)), 2L),
+                9002L));
+
+        assertEquals(409, conflict.getCode());
+        assertEquals("ENTITLEMENT_SCOPE_OR_VERSION_CONFLICT", conflict.getMessage());
+        assertEquals("REVOKED", scalarString("SELECT status FROM fbs_product_entitlement"));
+        assertEquals(2, scalarInt("SELECT version FROM fbs_product_entitlement"));
+        assertEquals(2, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt"));
+    }
+
+    @Test
+    void receiptAuditIsTenantBoundAndTruncatesAtFiveHundred() throws Exception {
+        StringBuilder values = new StringBuilder();
+        for (int index = 0; index < 501; index++) {
+            if (index > 0) {
+                values.append(',');
+            }
+            values.append("('receipt-bound-").append(index).append("',")
+                    .append(TENANT_ONE).append(",9001,").append(MEMBER_ONE)
+                    .append(",'ENTITLEMENT_REVOKED',REPEAT('a',64),'ACTION_COMPLETED',")
+                    .append("TIMESTAMPADD(MICROSECOND,").append(index)
+                    .append(",'2026-07-20 12:00:00.000'))");
+        }
+        execute("INSERT INTO fbs_entitlement_receipt "
+                + "(receipt_id, enterprise_id, actor_user_id, target_member_id, action, "
+                + "payload_digest, evidence_level, created_at) VALUES " + values,
+                "INSERT INTO fbs_entitlement_receipt "
+                        + "(receipt_id, enterprise_id, actor_user_id, target_member_id, action, "
+                        + "payload_digest, evidence_level, created_at) VALUES "
+                        + "('receipt-other-tenant'," + TENANT_TWO + ",9002," + MEMBER_TWO
+                        + ",'ENTITLEMENT_GRANTED',REPEAT('b',64),'ACTION_COMPLETED',NOW(3))");
+
+        BoardEntitlementReceiptAuditEnvelope result = entitlementService.listReceipts(TENANT_ONE);
+
+        assertEquals(500, result.limit());
+        assertTrue(result.truncated());
+        assertEquals(500, result.records().size());
+        assertTrue(result.records().stream().allMatch(row -> row.tenantId().equals(TENANT_ONE)));
+        assertTrue(result.records().stream().noneMatch(
+                row -> row.receiptId().equals("receipt-other-tenant")));
+    }
+
     private static List<Attempt> runConcurrent(
             int concurrency,
             IntFunction<BoardMeetingReservationRequest> requestFactory,
@@ -603,6 +787,44 @@ class IndependentBoardMysqlTransactionIT {
                     try {
                         return EntitlementAttempt.succeeded(entitlementService.grant(
                                 requestFactory.apply(index), actorFactory.apply(index)));
+                    } catch (ServiceException expected) {
+                        return EntitlementAttempt.rejected(expected.getMessage());
+                    }
+                }));
+            }
+            assertTrue(ready.await(10, TimeUnit.SECONDS));
+            start.countDown();
+            List<EntitlementAttempt> attempts = new ArrayList<>();
+            for (Future<EntitlementAttempt> future : futures) {
+                attempts.add(future.get(30, TimeUnit.SECONDS));
+            }
+            return attempts;
+        } finally {
+            start.countDown();
+            pool.shutdownNow();
+            assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS));
+        }
+    }
+
+    private static List<EntitlementAttempt> runConcurrentRevoke(
+            int concurrency,
+            BoardEntitlementRevokeRequest request,
+            IntFunction<Long> actorFactory) throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(concurrency);
+        CountDownLatch ready = new CountDownLatch(concurrency);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<EntitlementAttempt>> futures = new ArrayList<>();
+        try {
+            for (int i = 0; i < concurrency; i++) {
+                int index = i;
+                futures.add(pool.submit(() -> {
+                    ready.countDown();
+                    if (!start.await(10, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("start barrier timed out");
+                    }
+                    try {
+                        return EntitlementAttempt.succeeded(
+                                entitlementService.revoke(request, actorFactory.apply(index)));
                     } catch (ServiceException expected) {
                         return EntitlementAttempt.rejected(expected.getMessage());
                     }

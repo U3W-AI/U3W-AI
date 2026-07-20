@@ -22,16 +22,22 @@ function Invoke-ContractChecks {
         'docs\independent-board\taskboard.json',
         'docs\independent-board\AUTHORITATIVE-ROOT.md',
         'docs\independent-board\PORTAL-PROTOTYPE-SPEC.md',
+        'docs\independent-board\W3B-ENTITLEMENT-LIFECYCLE-CONTRACT.md',
         'docs\independent-board\prototypes\portals\index.html',
         'sql\update_20260720_independent_board_control_plane.sql',
         'sql\update_20260720_independent_board_me_menu.sql',
         'sql\update_20260720_independent_board_admin_menu.sql',
+        'sql\update_20260720_independent_board_entitlement_lifecycle_menu.sql',
         'scripts\verify-database-manifest.ps1',
         'scripts\verify-independent-board-live-database.ps1',
+        'scripts\run-independent-board-menu-migration-it.ps1',
         'scripts\verify-independent-board-mysql-concurrency.ps1',
         'scripts\run-independent-board-mysql-transaction-it.ps1',
         'FBSir-business\src\main\java\com\wx\fbsir\business\board\service\IndependentBoardMeetingTransactionService.java',
         'FBSir-business\src\main\java\com\wx\fbsir\business\board\service\IndependentBoardDashboardService.java',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\dto\BoardEntitlementRevokeRequest.java',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\dto\BoardEntitlementReceiptView.java',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\dto\BoardEntitlementReceiptAuditEnvelope.java',
         'FBSir-business\src\test\java\com\wx\fbsir\business\board\integration\IndependentBoardMysqlTransactionIT.java',
         'FBSir-admin\src\test\java\com\wx\fbsir\business\board\IndependentBoardHttpSecurityIntegrationTest.java',
         'FBSir-ui\src\api\business\independentBoard\index.js',
@@ -41,13 +47,15 @@ function Invoke-ContractChecks {
         'FBSir-ui\src\api\business\independentBoard\admin.js',
         'FBSir-ui\src\views\business\independentBoard\admin\model.js',
         'FBSir-ui\src\views\business\independentBoard\admin\entitlement\index.vue',
+        'FBSir-ui\src\views\business\independentBoard\admin\entitlementReceipt\index.vue',
         'FBSir-ui\src\views\business\independentBoard\admin\meetingAudit\index.vue',
         'FBSir-ui\scripts\verify-independent-board-admin-ui.mjs',
         'FBSir-ui\src\utils\portalEntry.js',
         'FBSir-ui\scripts\verify-portal-entry.mjs',
         'reports\independent-board\w1-application-integration-verification-20260720.json',
         'reports\independent-board\w2-user-portal-verification-20260720.json',
-        'reports\independent-board\w3-admin-portal-verification-20260720.json'
+        'reports\independent-board\w3-admin-portal-verification-20260720.json',
+        'reports\independent-board\w3b-entitlement-lifecycle-verification-20260720.json'
     )
     foreach ($path in $required) {
         Assert-PathExists -RelativePath $path
@@ -125,7 +133,8 @@ if ($Mode -in @('Frontend', 'All')) {
     boardHttpSecurityIncluded = ($Mode -in @('Backend', 'All'))
     databaseTransactionsVerified = $false
     releaseReady = $false
-    releaseBlocker = 'DATABASE_TRANSACTIONS_IS_A_SEPARATE_REQUIRED_COMMAND'
-    requiredReleaseCompanionCommands = @('database-transactions')
+    releaseBlocker = 'DATABASE_TRANSACTIONS_AND_MENU_MIGRATIONS_ARE_SEPARATE_REQUIRED_COMMANDS'
+    requiredReleaseCompanionCommands = @('database-transactions', 'database-menu-migrations')
     scratchEvidenceCommands = @('database-live', 'database-concurrency')
+    menuMigrationsVerified = $false
 } | ConvertTo-Json -Depth 4 -Compress

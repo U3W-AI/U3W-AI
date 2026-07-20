@@ -7,12 +7,16 @@ import com.wx.fbsir.business.board.domain.BoardProductPlan;
 import com.wx.fbsir.business.board.domain.BoardUsageBudget;
 import com.wx.fbsir.business.board.dto.BoardEntitlementAdminView;
 import com.wx.fbsir.business.board.dto.BoardEntitlementGrantRequest;
+import com.wx.fbsir.business.board.dto.BoardEntitlementReceiptAuditEnvelope;
+import com.wx.fbsir.business.board.dto.BoardEntitlementReceiptView;
+import com.wx.fbsir.business.board.dto.BoardEntitlementRevokeRequest;
 import com.wx.fbsir.business.board.dto.BoardEntitlementSnapshot;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
 import com.wx.fbsir.common.exception.ServiceException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
@@ -31,6 +35,8 @@ public class IndependentBoardEntitlementService {
     public static final String MEETING_METRIC = "DAILY_MEETING";
     public static final ZoneId INITIAL_TENANT_ZONE = ZoneId.of("Asia/Shanghai");
     public static final int ADMIN_ENTITLEMENT_LIMIT = 100;
+    public static final int ADMIN_RECEIPT_LIMIT = 500;
+    public static final int ADMIN_RECEIPT_FETCH_LIMIT = ADMIN_RECEIPT_LIMIT + 1;
 
     private final IndependentBoardMapper mapper;
     private final Clock clock;
@@ -65,6 +71,25 @@ public class IndependentBoardEntitlementService {
         return rows.stream()
                 .map(entitlement -> toAdminView(entitlement, now, tenantId))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public BoardEntitlementReceiptAuditEnvelope listReceipts(Long tenantId) {
+        requirePositive(tenantId, "TENANT_REQUIRED");
+        List<BoardEntitlementReceipt> rows = mapper.selectEntitlementReceiptsByTenant(tenantId);
+        if (rows == null || rows.size() > ADMIN_RECEIPT_FETCH_LIMIT) {
+            throw new ServiceException("BOARD_ENTITLEMENT_RECEIPT_CURRENT_READ_FAILED", 500);
+        }
+        boolean truncated = rows.size() > ADMIN_RECEIPT_LIMIT;
+        int resultSize = Math.min(rows.size(), ADMIN_RECEIPT_LIMIT);
+        List<BoardEntitlementReceiptView> records = new ArrayList<>(resultSize);
+        for (int index = 0; index < rows.size(); index++) {
+            BoardEntitlementReceiptView view = toReceiptView(rows.get(index), tenantId);
+            if (index < ADMIN_RECEIPT_LIMIT) {
+                records.add(view);
+            }
+        }
+        return new BoardEntitlementReceiptAuditEnvelope(records, ADMIN_RECEIPT_LIMIT, truncated);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -107,8 +132,12 @@ public class IndependentBoardEntitlementService {
             }
             action = "ENTITLEMENT_GRANTED";
         } else {
+            if (Objects.equals(request.expectedVersion(), Long.MAX_VALUE)) {
+                throw new ServiceException("ENTITLEMENT_EXPECTED_VERSION_OUT_OF_RANGE", 400);
+            }
             if (!Objects.equals(current.getUserId(), request.userId())
-                    || !Objects.equals(current.getVersion(), request.expectedVersion())) {
+                    || !Objects.equals(current.getVersion(), request.expectedVersion())
+                    || !Objects.equals(current.getStatus(), "ACTIVE")) {
                 throw new ServiceException("ENTITLEMENT_SCOPE_OR_VERSION_CONFLICT", 409);
             }
             next.setId(current.getId());
@@ -137,6 +166,48 @@ public class IndependentBoardEntitlementService {
         return toAdminView(next, now, request.tenantId());
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public BoardEntitlementAdminView revoke(BoardEntitlementRevokeRequest request, Long actorUserId) {
+        requirePositive(actorUserId, "AUTHENTICATED_PRINCIPAL_REQUIRED");
+        requirePositive(request.tenantId(), "TENANT_REQUIRED");
+        requirePositive(request.memberId(), "MEMBER_REQUIRED");
+        requirePositive(request.userId(), "USER_REQUIRED");
+        requirePositive(request.expectedVersion(), "ENTITLEMENT_EXPECTED_VERSION_REQUIRED");
+        if (Objects.equals(request.expectedVersion(), Long.MAX_VALUE)) {
+            throw new ServiceException("ENTITLEMENT_EXPECTED_VERSION_OUT_OF_RANGE", 400);
+        }
+
+        BoardProductEntitlement current = mapper.selectEntitlementForUpdate(
+                request.tenantId(), request.memberId(), PRODUCT_CODE);
+        if (!isExactActiveEntitlement(current, request)) {
+            throw new ServiceException("ENTITLEMENT_SCOPE_OR_VERSION_CONFLICT", 409);
+        }
+
+        Date now = Date.from(clock.instant());
+        Date revocationValidUntil = revokeValidUntil(current, now);
+        current.setStatus("REVOKED");
+        current.setValidUntil(revocationValidUntil);
+        current.setUpdatedAt(now);
+        current.setVersion(request.expectedVersion() + 1L);
+        if (mapper.updateEntitlementIfVersion(current, request.expectedVersion()) != 1) {
+            throw new ServiceException("ENTITLEMENT_VERSION_CONFLICT", 409);
+        }
+
+        BoardEntitlementReceipt receipt = new BoardEntitlementReceipt();
+        receipt.setReceiptId(UUID.randomUUID().toString());
+        receipt.setTenantId(request.tenantId());
+        receipt.setActorUserId(actorUserId);
+        receipt.setTargetMemberId(request.memberId());
+        receipt.setAction("ENTITLEMENT_REVOKED");
+        receipt.setPayloadDigest(revokeDigest(request, actorUserId));
+        receipt.setEvidenceLevel("ACTION_COMPLETED");
+        receipt.setCreatedAt(now);
+        if (mapper.insertEntitlementReceipt(receipt) != 1) {
+            throw new ServiceException("ENTITLEMENT_AUDIT_WRITE_FAILED", 500);
+        }
+        return toAdminView(current, now, request.tenantId());
+    }
+
     BoardEntitlementSnapshot getSnapshotForReservation(Long tenantId, Long authenticatedUserId) {
         return resolveSnapshot(tenantId, authenticatedUserId, true);
     }
@@ -156,7 +227,9 @@ public class IndependentBoardEntitlementService {
         }
 
         Date now = Date.from(clock.instant());
-        BoardProductPlan granted = entitlement == null ? null : mapper.selectActivePlan(PRODUCT_CODE, entitlement.getPlanCode());
+        boolean revoked = entitlement != null && Objects.equals(entitlement.getStatus(), "REVOKED");
+        BoardProductPlan granted = entitlement == null || revoked
+                ? null : mapper.selectActivePlan(PRODUCT_CODE, entitlement.getPlanCode());
         if (granted != null) {
             validatePlanContract(granted);
         }
@@ -164,7 +237,9 @@ public class IndependentBoardEntitlementService {
         boolean connectorVerified = hasAuthoritativeConnectorCurrentRead();
         BoardProductPlan effective = free;
         String activationState = "FREE";
-        if (entitlement != null && temporallyValid && granted != null) {
+        if (revoked) {
+            activationState = "REVOKED";
+        } else if (entitlement != null && temporallyValid && granted != null) {
             boolean connectorSatisfied = !Boolean.TRUE.equals(granted.getConnectorRequired()) || connectorVerified;
             if (connectorSatisfied) {
                 effective = granted;
@@ -202,12 +277,16 @@ public class IndependentBoardEntitlementService {
                 || entitlement.getUserId() == null || entitlement.getUserId() <= 0L) {
             throw new ServiceException("BOARD_ENTITLEMENT_SCOPE_INVALID", 500);
         }
-        BoardProductPlan plan = mapper.selectActivePlan(PRODUCT_CODE, entitlement.getPlanCode());
+        boolean revoked = Objects.equals(entitlement.getStatus(), "REVOKED");
+        BoardProductPlan plan = revoked
+                ? null : mapper.selectActivePlan(PRODUCT_CODE, entitlement.getPlanCode());
         if (plan != null) {
             validatePlanContract(plan);
         }
         String state;
-        if (!isTemporallyValid(entitlement, now)) {
+        if (revoked) {
+            state = "REVOKED";
+        } else if (!isTemporallyValid(entitlement, now)) {
             state = "EXPIRED";
         } else if (plan == null) {
             state = "INVALID_ENTITLEMENT";
@@ -221,6 +300,56 @@ public class IndependentBoardEntitlementService {
                 entitlement.getPlanCode(), entitlement.getStatus(), state,
                 entitlement.getValidFrom(), entitlement.getValidUntil(), entitlement.getVersion(),
                 entitlement.getUpdatedAt());
+    }
+
+    private BoardEntitlementReceiptView toReceiptView(
+            BoardEntitlementReceipt receipt,
+            Long expectedTenantId) {
+        if (receipt == null
+                || !Objects.equals(receipt.getTenantId(), expectedTenantId)
+                || receipt.getReceiptId() == null || receipt.getReceiptId().isBlank()
+                || receipt.getActorUserId() == null || receipt.getActorUserId() <= 0L
+                || receipt.getTargetMemberId() == null || receipt.getTargetMemberId() <= 0L
+                || !isKnownReceiptAction(receipt.getAction())
+                || !Objects.equals(receipt.getEvidenceLevel(), "ACTION_COMPLETED")
+                || receipt.getCreatedAt() == null) {
+            throw new ServiceException("BOARD_ENTITLEMENT_RECEIPT_SCOPE_INVALID", 500);
+        }
+        return new BoardEntitlementReceiptView(
+                receipt.getReceiptId(), receipt.getTenantId(), receipt.getActorUserId(),
+                receipt.getTargetMemberId(), receipt.getAction(), receipt.getEvidenceLevel(),
+                receipt.getCreatedAt());
+    }
+
+    private boolean isKnownReceiptAction(String action) {
+        return Objects.equals(action, "ENTITLEMENT_GRANTED")
+                || Objects.equals(action, "ENTITLEMENT_UPDATED")
+                || Objects.equals(action, "ENTITLEMENT_REVOKED");
+    }
+
+    private boolean isExactActiveEntitlement(
+            BoardProductEntitlement entitlement,
+            BoardEntitlementRevokeRequest request) {
+        return entitlement != null
+                && Objects.equals(entitlement.getTenantId(), request.tenantId())
+                && Objects.equals(entitlement.getMemberId(), request.memberId())
+                && Objects.equals(entitlement.getUserId(), request.userId())
+                && Objects.equals(entitlement.getProductCode(), PRODUCT_CODE)
+                && Objects.equals(entitlement.getVersion(), request.expectedVersion())
+                && Objects.equals(entitlement.getStatus(), "ACTIVE");
+    }
+
+    private Date revokeValidUntil(BoardProductEntitlement entitlement, Date now) {
+        Date validFrom = entitlement.getValidFrom();
+        if (validFrom == null) {
+            return now;
+        }
+        long validFromMillis = validFrom.getTime();
+        if (validFromMillis == Long.MAX_VALUE) {
+            throw new ServiceException("ENTITLEMENT_VALIDITY_CONFLICT", 409);
+        }
+        long validityFloor = validFromMillis + 1L;
+        return now.getTime() >= validityFloor ? now : new Date(validityFloor);
     }
 
     private BoardEnterpriseMemberScope requireExactMember(Long tenantId, Long memberId, Long userId) {
@@ -297,6 +426,19 @@ public class IndependentBoardEntitlementService {
                 request.planCode(),
                 request.validUntil() == null ? "" : String.valueOf(request.validUntil().getTime()),
                 String.valueOf(request.expectedVersion()),
+                String.valueOf(actorUserId));
+        return BoardDigest.sha256(canonical);
+    }
+
+    private String revokeDigest(BoardEntitlementRevokeRequest request, Long actorUserId) {
+        String canonical = String.join("\n",
+                PRODUCT_CODE,
+                "ENTITLEMENT_REVOKED",
+                String.valueOf(request.tenantId()),
+                String.valueOf(request.memberId()),
+                String.valueOf(request.userId()),
+                String.valueOf(request.expectedVersion()),
+                String.valueOf(request.expectedVersion() + 1L),
                 String.valueOf(actorUserId));
         return BoardDigest.sha256(canonical);
     }

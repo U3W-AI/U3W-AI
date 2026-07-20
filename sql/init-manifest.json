@@ -30,6 +30,7 @@
     { "version": "public_init_027", "description": "Truth Spine test-state receipt ledger", "file": "update_20260712_truth_spine_test_state_receipt.sql" },
     { "version": "public_init_028", "description": "Independent Board product entitlement control plane", "file": "update_20260720_independent_board_control_plane.sql" },
     { "version": "public_init_029", "description": "Independent Board me portal menu", "file": "update_20260720_independent_board_me_menu.sql" },
-    { "version": "public_init_030", "description": "Independent Board administration menu", "file": "update_20260720_independent_board_admin_menu.sql" }
+    { "version": "public_init_030", "description": "Independent Board administration menu", "file": "update_20260720_independent_board_admin_menu.sql" },
+    { "version": "public_init_031", "description": "Independent Board entitlement lifecycle administration menu", "file": "update_20260720_independent_board_entitlement_lifecycle_menu.sql" }
   ]
 }

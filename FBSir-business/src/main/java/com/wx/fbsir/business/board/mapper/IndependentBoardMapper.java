@@ -45,6 +45,9 @@ public interface IndependentBoardMapper {
 
     int insertEntitlementReceipt(BoardEntitlementReceipt receipt);
 
+    List<BoardEntitlementReceipt> selectEntitlementReceiptsByTenant(
+            @Param("tenantId") Long tenantId);
+
     BoardUsageBudget selectUsageBudget(@Param("tenantId") Long tenantId,
                                        @Param("memberId") Long memberId,
                                        @Param("productCode") String productCode,
