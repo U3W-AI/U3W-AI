@@ -25,6 +25,7 @@ function Invoke-ContractChecks {
         'docs\independent-board\prototypes\portals\index.html',
         'sql\update_20260720_independent_board_control_plane.sql',
         'sql\update_20260720_independent_board_me_menu.sql',
+        'sql\update_20260720_independent_board_admin_menu.sql',
         'scripts\verify-database-manifest.ps1',
         'scripts\verify-independent-board-live-database.ps1',
         'scripts\verify-independent-board-mysql-concurrency.ps1',
@@ -37,10 +38,16 @@ function Invoke-ContractChecks {
         'FBSir-ui\src\views\business\independentBoard\me\index.vue',
         'FBSir-ui\src\views\business\independentBoard\me\reservationSafety.js',
         'FBSir-ui\scripts\verify-independent-board-ui.mjs',
+        'FBSir-ui\src\api\business\independentBoard\admin.js',
+        'FBSir-ui\src\views\business\independentBoard\admin\model.js',
+        'FBSir-ui\src\views\business\independentBoard\admin\entitlement\index.vue',
+        'FBSir-ui\src\views\business\independentBoard\admin\meetingAudit\index.vue',
+        'FBSir-ui\scripts\verify-independent-board-admin-ui.mjs',
         'FBSir-ui\src\utils\portalEntry.js',
         'FBSir-ui\scripts\verify-portal-entry.mjs',
         'reports\independent-board\w1-application-integration-verification-20260720.json',
-        'reports\independent-board\w2-user-portal-verification-20260720.json'
+        'reports\independent-board\w2-user-portal-verification-20260720.json',
+        'reports\independent-board\w3-admin-portal-verification-20260720.json'
     )
     foreach ($path in $required) {
         Assert-PathExists -RelativePath $path
@@ -85,6 +92,8 @@ function Invoke-FrontendChecks {
         if ($LASTEXITCODE -ne 0) { throw "Portal entry verification failed with exit code $LASTEXITCODE" }
         & npm.cmd run verify:independent-board-ui
         if ($LASTEXITCODE -ne 0) { throw "Independent Board UI verification failed with exit code $LASTEXITCODE" }
+        & npm.cmd run verify:independent-board-admin-ui
+        if ($LASTEXITCODE -ne 0) { throw "Independent Board admin UI verification failed with exit code $LASTEXITCODE" }
         & npm.cmd run verify:menu-components
         if ($LASTEXITCODE -ne 0) { throw "Menu verification failed with exit code $LASTEXITCODE" }
         & npm.cmd run build:prod

@@ -5,7 +5,7 @@
     "brandEn": "FBSir",
     "name": "独董会"
   },
-  "platformVersion": "0.2.0-dev",
+  "platformVersion": "0.3.0-dev",
   "expertPackage": {
     "version": "26.7.20",
     "state": "submitted_for_review",
@@ -24,11 +24,15 @@
     "config/deployment/u3w-domain-inventory.json",
     "sql/update_20260720_independent_board_control_plane.sql",
     "sql/update_20260720_independent_board_me_menu.sql",
+    "sql/update_20260720_independent_board_admin_menu.sql",
     "FBSir-business/src/main/java/com/wx/fbsir/business/board/",
     "FBSir-ui/src/views/business/independentBoard/me/index.vue",
+    "FBSir-ui/src/views/business/independentBoard/admin/entitlement/index.vue",
+    "FBSir-ui/src/views/business/independentBoard/admin/meetingAudit/index.vue",
     "docs/independent-board/PORTAL-PROTOTYPE-SPEC.md",
     "docs/independent-board/prototypes/portals/index.html",
-    "reports/independent-board/w2-user-portal-verification-20260720.json"
+    "reports/independent-board/w2-user-portal-verification-20260720.json",
+    "reports/independent-board/w3-admin-portal-verification-20260720.json"
   ],
   "proven": [
     "isolated_u3w_branch_created",
@@ -54,7 +58,13 @@
     "w2_unknown_reservation_result_preserves_same_operation_and_payload",
     "w2_unrecoverable_browser_draft_blocks_reservation_side_effect",
     "w2_me_menu_first_apply_rerun_and_current_state_mysql_passed",
-    "w2_hostname_default_entry_permission_matrix_passed"
+    "w2_hostname_default_entry_permission_matrix_passed",
+    "w3a_global_admin_role_and_fine_permission_matrix_passed",
+    "w3a_entitlement_and_operation_admin_dto_allowlists_passed",
+    "w3a_active_enterprise_and_member_locking_read_passed",
+    "w3a_enterprise_disable_and_member_remove_lock_wait_barriers_passed",
+    "w3a_admin_menu_first_apply_rerun_collision_and_current_read_passed",
+    "w3a_admin_ui_source_safety_and_production_build_passed"
   ],
   "notProven": [
     "oauth_end_to_end",
@@ -62,6 +72,10 @@
     "me_portal_production_runtime",
     "admin_portal_production_runtime",
     "me_and_admin_real_domain_browser_readback",
+    "delegated_tenant_admin_role_and_data_scope",
+    "entitlement_revoke_or_expiry_action",
+    "entitlement_receipt_admin_readback",
+    "credit_ledger_admin_operations",
     "connector_vip_binding",
     "webhook_delivery",
     "watch_device_control",
@@ -69,14 +83,19 @@
   ],
   "ui": {
     "base": "existing_u3w_ai_ruoyi_vue3_element_plus",
-    "state": "w2_local_source_and_build_verified",
+    "state": "w3a_local_source_and_build_verified",
     "productionImplementationAllowed": true,
     "unlockCondition": "satisfied",
     "confirmation": "recommended_five_points",
     "confirmedAt": "2026-07-20T21:03:00+08:00",
     "w2Surface": "FBSir-ui/src/views/business/independentBoard/me/index.vue",
+    "w3aSurfaces": [
+      "FBSir-ui/src/views/business/independentBoard/admin/entitlement/index.vue",
+      "FBSir-ui/src/views/business/independentBoard/admin/meetingAudit/index.vue"
+    ],
+    "adminAccessModel": "global_system_admin_only",
     "connectorAction": "deferred_to_W4_oauth_connector",
     "watchAndWebhookDeepPages": "deferred_to_W5_delivery_and_watch"
   },
-  "updatedAt": "2026-07-20T22:14:45+08:00"
+  "updatedAt": "2026-07-20T22:54:57+08:00"
 }

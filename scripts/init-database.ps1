@@ -13,6 +13,7 @@ $ErrorActionPreference = "Stop"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $SqlRoot = Join-Path $RepoRoot "sql"
+$DeclarativeManifestPath = Join-Path $SqlRoot "init-manifest.json"
 
 if ($LoginPath -notmatch '^[A-Za-z0-9_.-]+$') {
     throw "LoginPath may contain only letters, numbers, dot, underscore, and dash."
@@ -85,7 +86,34 @@ $steps = @(
     New-Step "public_init_027" "Truth Spine test-state receipt ledger" (Resolve-SqlFile "update_20260712_truth_spine_test_state_receipt.sql")
     New-Step "public_init_028" "Independent Board product entitlement control plane" (Resolve-SqlFile "update_20260720_independent_board_control_plane.sql")
     New-Step "public_init_029" "Independent Board me portal menu" (Resolve-SqlFile "update_20260720_independent_board_me_menu.sql")
+    New-Step "public_init_030" "Independent Board administration menu" (Resolve-SqlFile "update_20260720_independent_board_admin_menu.sql")
 )
+
+if (-not (Test-Path -LiteralPath $DeclarativeManifestPath -PathType Leaf)) {
+    throw "The declarative database manifest is missing: $DeclarativeManifestPath"
+}
+try {
+    $declarativeManifest = Get-Content -LiteralPath $DeclarativeManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+}
+catch {
+    throw "The declarative database manifest is not valid JSON: $($_.Exception.Message)"
+}
+if ([string]$declarativeManifest.schema -ne 'fbsir.public-database-init-manifest/v1') {
+    throw "The declarative database manifest schema is unsupported: '$($declarativeManifest.schema)'."
+}
+$declaredSteps = @($declarativeManifest.steps)
+if ($declaredSteps.Count -ne $steps.Count) {
+    throw "Declarative manifest step count mismatch: declared=$($declaredSteps.Count), executable=$($steps.Count)."
+}
+for ($index = 0; $index -lt $steps.Count; $index++) {
+    $declared = $declaredSteps[$index]
+    $executable = $steps[$index]
+    if ([string]$declared.version -ne $executable.Version -or
+        [string]$declared.description -ne $executable.Description -or
+        [string]$declared.file -ne $executable.File.Name) {
+        throw "Declarative manifest drift at position $($index + 1): expected '$($executable.Version)|$($executable.Description)|$($executable.File.Name)'."
+    }
+}
 
 for ($index = 0; $index -lt $steps.Count; $index++) {
     $expectedVersion = "public_init_{0:D3}" -f ($index + 1)
@@ -132,6 +160,8 @@ if ($ManifestJson) {
         dryRun = [bool]$DryRun
         databaseConnectionOpened = $false
         database = $Database
+        manifestFile = "sql/init-manifest.json"
+        manifestSchema = [string]$declarativeManifest.schema
         steps = @($steps | ForEach-Object {
             [pscustomobject]@{
                 version = $_.Version
@@ -381,6 +411,113 @@ SELECT CONCAT_WS('|',
     Write-Host "PASS Independent Board me menu current-read audit (1 page, 1 ordinary-user binding, 1 internal receipt)."
 }
 
+function Assert-IndependentBoardAdminMenuCurrentState {
+    $stateResponse = Invoke-MySqlText -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM sys_menu
+   WHERE menu_name = '独董会管理'
+     AND parent_id = 0
+     AND order_num = 5
+     AND path = 'independent-board-admin'
+     AND component IS NULL
+     AND query IS NULL
+     AND route_name = 'IndependentBoardAdmin'
+     AND is_frame = 1
+     AND is_cache = 0
+     AND menu_type = 'M'
+     AND visible = '0'
+     AND status = '0'
+     AND perms = ''
+     AND icon = 'peoples'),
+  (SELECT COUNT(*) FROM sys_menu AS child
+   INNER JOIN sys_menu AS root ON root.menu_id = child.parent_id
+   WHERE root.path = 'independent-board-admin'
+     AND root.route_name = 'IndependentBoardAdmin'
+     AND child.menu_name = '权益治理'
+     AND child.order_num = 1
+     AND child.path = 'entitlements'
+     AND child.component = 'business/independentBoard/admin/entitlement/index'
+     AND child.query IS NULL
+     AND child.route_name = 'IndependentBoardEntitlementGovernance'
+     AND child.is_frame = 1
+     AND child.is_cache = 0
+     AND child.menu_type = 'C'
+     AND child.visible = '0'
+     AND child.status = '0'
+     AND child.perms = 'board:entitlement:query'
+     AND child.icon = 'peoples'),
+  (SELECT COUNT(*) FROM sys_menu AS child
+   INNER JOIN sys_menu AS root ON root.menu_id = child.parent_id
+   WHERE root.path = 'independent-board-admin'
+     AND root.route_name = 'IndependentBoardAdmin'
+     AND child.menu_name = '会议审计'
+     AND child.order_num = 2
+     AND child.path = 'meeting-audit'
+     AND child.component = 'business/independentBoard/admin/meetingAudit/index'
+     AND child.query IS NULL
+     AND child.route_name = 'IndependentBoardMeetingAudit'
+     AND child.is_frame = 1
+     AND child.is_cache = 0
+     AND child.menu_type = 'C'
+     AND child.visible = '0'
+     AND child.status = '0'
+     AND child.perms = 'board:operation:audit'
+     AND child.icon = 'form'),
+  (SELECT COUNT(*) FROM sys_menu AS grant_row
+   INNER JOIN sys_menu AS page_row ON page_row.menu_id = grant_row.parent_id
+   WHERE page_row.component = 'business/independentBoard/admin/entitlement/index'
+     AND page_row.route_name = 'IndependentBoardEntitlementGovernance'
+     AND grant_row.menu_name = '权益授予'
+     AND grant_row.order_num = 1
+     AND grant_row.path = ''
+     AND grant_row.component IS NULL
+     AND grant_row.query IS NULL
+     AND grant_row.route_name = ''
+     AND grant_row.is_frame = 1
+     AND grant_row.is_cache = 0
+     AND grant_row.menu_type = 'F'
+     AND grant_row.visible = '0'
+     AND grant_row.status = '0'
+     AND grant_row.perms = 'board:entitlement:grant'
+     AND grant_row.icon = '#'),
+  (SELECT COUNT(*) FROM sys_menu
+   WHERE path = 'independent-board-admin'
+      OR route_name = 'IndependentBoardAdmin'
+      OR component = 'business/independentBoard/admin/entitlement/index'
+      OR route_name = 'IndependentBoardEntitlementGovernance'
+      OR perms = 'board:entitlement:query'
+      OR component = 'business/independentBoard/admin/meetingAudit/index'
+      OR route_name = 'IndependentBoardMeetingAudit'
+      OR perms = 'board:operation:audit'
+      OR perms = 'board:entitlement:grant'),
+  (SELECT COUNT(*) FROM sys_menu
+   WHERE menu_name = '独董会'
+     AND parent_id = 0
+     AND path = 'independent-board'
+     AND component = 'business/independentBoard/me/index'
+     AND route_name = 'IndependentBoardMe'
+     AND menu_type = 'C'
+     AND perms = 'my:independent-board:view'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = '20260720_independent_board_admin_menu_v1'
+     AND description = 'Independent Board administration directory, entitlement governance and meeting audit menus'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = '20260720_independent_board_admin_menu_v1')
+);
+"@
+    $stateParts = @($stateResponse.Split('|'))
+    $expectedState = @(1, 1, 1, 1, 4, 1, 1, 1)
+    if ($stateParts.Count -ne $expectedState.Count) {
+        throw "Independent Board admin menu current-read verifier returned an invalid field count: '$stateResponse'."
+    }
+    for ($index = 0; $index -lt $expectedState.Count; $index++) {
+        if ($stateParts[$index] -notmatch '^\d+$' -or [int]$stateParts[$index] -ne $expectedState[$index]) {
+            throw "Independent Board admin menu current-read drift detected at field $($index + 1): expected $($expectedState[$index]), found '$($stateParts[$index])'."
+        }
+    }
+    Write-Host "PASS Independent Board admin menu current-read audit (1 directory, 2 pages, 1 action permission, 1 internal receipt; role bindings are externally governable)."
+}
+
 function New-MySqlSession {
     # The mysql client buffers stdout by default when redirected. The persistent
     # advisory-lock session relies on response markers, so force a flush after
@@ -455,6 +592,7 @@ function Stop-MySqlSession {
 if ($CurrentReadOnly) {
     Assert-IndependentBoardControlPlaneCurrentState
     Assert-IndependentBoardMeMenuCurrentState
+    Assert-IndependentBoardAdminMenuCurrentState
     Write-Host "Independent Board current-read verification complete for '$Database'. No database write was requested."
     return
 }
@@ -532,6 +670,7 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
 
     Assert-IndependentBoardControlPlaneCurrentState
     Assert-IndependentBoardMeMenuCurrentState
+    Assert-IndependentBoardAdminMenuCurrentState
 
     $appliedCount = [int](Invoke-MySqlText -Sql "SELECT COUNT(*) FROM u3w_schema_migration WHERE version LIKE 'public_init_%' AND description LIKE 'APPLIED:%';")
     if ($appliedCount -ne $steps.Count) {

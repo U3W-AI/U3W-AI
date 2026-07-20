@@ -19,6 +19,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +30,7 @@ public class IndependentBoardEntitlementService {
     public static final String VIP_PLAN = "BOARD_VIP";
     public static final String MEETING_METRIC = "DAILY_MEETING";
     public static final ZoneId INITIAL_TENANT_ZONE = ZoneId.of("Asia/Shanghai");
+    public static final int ADMIN_ENTITLEMENT_LIMIT = 100;
 
     private final IndependentBoardMapper mapper;
     private final Clock clock;
@@ -52,8 +54,16 @@ public class IndependentBoardEntitlementService {
     public List<BoardEntitlementAdminView> listEntitlements(Long tenantId) {
         requirePositive(tenantId, "TENANT_REQUIRED");
         Date now = Date.from(clock.instant());
-        return mapper.selectEntitlementsByTenant(tenantId, PRODUCT_CODE).stream()
-                .map(entitlement -> toAdminView(entitlement, now))
+        List<BoardProductEntitlement> rows = mapper.selectEntitlementsByTenant(
+                tenantId, PRODUCT_CODE);
+        if (rows == null) {
+            throw new ServiceException("BOARD_ENTITLEMENT_CURRENT_READ_FAILED", 500);
+        }
+        if (rows.size() > ADMIN_ENTITLEMENT_LIMIT) {
+            throw new ServiceException("BOARD_ENTITLEMENT_LIMIT_EXCEEDED", 500);
+        }
+        return rows.stream()
+                .map(entitlement -> toAdminView(entitlement, now, tenantId))
                 .toList();
     }
 
@@ -79,6 +89,7 @@ public class IndependentBoardEntitlementService {
         next.setStatus("ACTIVE");
         next.setValidFrom(now);
         next.setValidUntil(request.validUntil());
+        next.setUpdatedAt(now);
 
         String action;
         if (current == null) {
@@ -86,11 +97,12 @@ public class IndependentBoardEntitlementService {
                 throw new ServiceException("ENTITLEMENT_VERSION_CONFLICT", 409);
             }
             next.setVersion(1L);
+            next.setCreatedAt(now);
             try {
                 if (mapper.insertEntitlement(next) != 1) {
                     throw new ServiceException("ENTITLEMENT_WRITE_FAILED", 500);
                 }
-            } catch (DuplicateKeyException duplicate) {
+            } catch (DuplicateKeyException | PessimisticLockingFailureException conflict) {
                 throw new ServiceException("ENTITLEMENT_VERSION_CONFLICT", 409);
             }
             action = "ENTITLEMENT_GRANTED";
@@ -103,6 +115,7 @@ public class IndependentBoardEntitlementService {
             next.setConnectorBindingId(current.getConnectorBindingId());
             next.setConnectorVerifiedAt(current.getConnectorVerifiedAt());
             next.setVersion(request.expectedVersion() + 1L);
+            next.setCreatedAt(current.getCreatedAt());
             if (mapper.updateEntitlementIfVersion(next, request.expectedVersion()) != 1) {
                 throw new ServiceException("ENTITLEMENT_VERSION_CONFLICT", 409);
             }
@@ -121,7 +134,7 @@ public class IndependentBoardEntitlementService {
         if (mapper.insertEntitlementReceipt(receipt) != 1) {
             throw new ServiceException("ENTITLEMENT_AUDIT_WRITE_FAILED", 500);
         }
-        return toAdminView(next, now);
+        return toAdminView(next, now, request.tenantId());
     }
 
     BoardEntitlementSnapshot getSnapshotForReservation(Long tenantId, Long authenticatedUserId) {
@@ -178,7 +191,17 @@ public class IndependentBoardEntitlementService {
                 used, reserved, remaining);
     }
 
-    private BoardEntitlementAdminView toAdminView(BoardProductEntitlement entitlement, Date now) {
+    private BoardEntitlementAdminView toAdminView(
+            BoardProductEntitlement entitlement,
+            Date now,
+            Long expectedTenantId) {
+        if (entitlement == null
+                || !Objects.equals(entitlement.getTenantId(), expectedTenantId)
+                || !Objects.equals(entitlement.getProductCode(), PRODUCT_CODE)
+                || entitlement.getMemberId() == null || entitlement.getMemberId() <= 0L
+                || entitlement.getUserId() == null || entitlement.getUserId() <= 0L) {
+            throw new ServiceException("BOARD_ENTITLEMENT_SCOPE_INVALID", 500);
+        }
         BoardProductPlan plan = mapper.selectActivePlan(PRODUCT_CODE, entitlement.getPlanCode());
         if (plan != null) {
             validatePlanContract(plan);
@@ -195,15 +218,17 @@ public class IndependentBoardEntitlementService {
         }
         return new BoardEntitlementAdminView(
                 entitlement.getTenantId(), entitlement.getMemberId(), entitlement.getUserId(),
-                entitlement.getPlanCode(), state, entitlement.getConnectorVerifiedAt(),
-                entitlement.getValidUntil(), entitlement.getVersion());
+                entitlement.getPlanCode(), entitlement.getStatus(), state,
+                entitlement.getValidFrom(), entitlement.getValidUntil(), entitlement.getVersion(),
+                entitlement.getUpdatedAt());
     }
 
     private BoardEnterpriseMemberScope requireExactMember(Long tenantId, Long memberId, Long userId) {
         requirePositive(tenantId, "TENANT_REQUIRED");
         requirePositive(memberId, "MEMBER_REQUIRED");
         requirePositive(userId, "USER_REQUIRED");
-        BoardEnterpriseMemberScope member = mapper.selectExactActiveMember(tenantId, memberId, userId);
+        BoardEnterpriseMemberScope member = mapper.selectExactActiveMemberForUpdate(
+                tenantId, memberId, userId);
         verifyMember(member, tenantId, userId);
         if (!Objects.equals(member.getMemberId(), memberId)) {
             throw new ServiceException("TENANT_MEMBER_USER_SCOPE_INVALID", 403);

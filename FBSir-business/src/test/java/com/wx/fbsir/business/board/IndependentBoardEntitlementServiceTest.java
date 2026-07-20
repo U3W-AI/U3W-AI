@@ -11,11 +11,15 @@ import com.wx.fbsir.common.exception.ServiceException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.PessimisticLockingFailureException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -109,7 +113,8 @@ class IndependentBoardEntitlementServiceTest {
 
     @Test
     void grantValidatesExactTenantMemberUserAndWritesImmutableAuditReceipt() {
-        when(mapper.selectExactActiveMember(7L, 11L, 42L)).thenReturn(member(7L, 11L, 42L));
+        when(mapper.selectExactActiveMemberForUpdate(7L, 11L, 42L))
+                .thenReturn(member(7L, 11L, 42L));
         when(mapper.selectEntitlementForUpdate(7L, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
                 .thenReturn(null);
         when(mapper.insertEntitlement(any())).thenReturn(1);
@@ -133,8 +138,87 @@ class IndependentBoardEntitlementServiceTest {
     }
 
     @Test
+    void listEntitlementsReturnsOnlyTheBoundedSafeManagementProjection() {
+        BoardProductEntitlement entitlement = entitlement(
+                "legacy-binding-must-not-leak", Date.from(NOW.minusSeconds(60)));
+        when(mapper.selectEntitlementsByTenant(
+                7L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(List.of(entitlement));
+
+        List<BoardEntitlementAdminView> result = service.listEntitlements(7L);
+
+        assertEquals(1, result.size());
+        BoardEntitlementAdminView view = result.get(0);
+        assertEquals(7L, view.tenantId());
+        assertEquals(11L, view.memberId());
+        assertEquals(42L, view.userId());
+        assertEquals("BOARD_VIP", view.planCode());
+        assertEquals("ACTIVE", view.entitlementStatus());
+        assertEquals("PENDING_CONNECTOR", view.activationState());
+        assertEquals(Date.from(NOW.minusSeconds(600)), view.validFrom());
+        assertEquals(Date.from(NOW.plusSeconds(3600)), view.validUntil());
+        assertEquals(1L, view.version());
+        assertEquals(Date.from(NOW.minusSeconds(100)), view.updatedAt());
+        assertEquals(List.of(
+                        "tenantId", "memberId", "userId", "planCode", "entitlementStatus",
+                        "activationState", "validFrom", "validUntil", "version",
+                        "updatedAt"),
+                Arrays.stream(BoardEntitlementAdminView.class.getRecordComponents())
+                        .map(component -> component.getName()).toList());
+    }
+
+    @Test
+    void entitlementListFailsClosedWhenTheMapperSignalsMoreThanOneHundredRows() {
+        when(mapper.selectEntitlementsByTenant(
+                7L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(IntStream.range(0, 101)
+                        .mapToObj(index -> entitlement(null, null)).toList());
+
+        ServiceException error = assertThrows(
+                ServiceException.class, () -> service.listEntitlements(7L));
+
+        assertEquals(500, error.getCode());
+        assertEquals("BOARD_ENTITLEMENT_LIMIT_EXCEEDED", error.getMessage());
+        verify(mapper, never()).selectActivePlan(any(), any());
+    }
+
+    @Test
+    void entitlementListRejectsMapperRowsOutsideTheRequestedProductScope() {
+        BoardProductEntitlement leaked = entitlement(null, null);
+        leaked.setProductCode("ANOTHER_PRODUCT");
+        when(mapper.selectEntitlementsByTenant(
+                7L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(List.of(leaked));
+
+        ServiceException error = assertThrows(
+                ServiceException.class, () -> service.listEntitlements(7L));
+
+        assertEquals(500, error.getCode());
+        assertEquals("BOARD_ENTITLEMENT_SCOPE_INVALID", error.getMessage());
+        verify(mapper, never()).selectActivePlan(any(), any());
+    }
+
+    @Test
+    void inactiveEnterpriseOrMemberRejectsGrantBeforeAnyEntitlementWrite() {
+        when(mapper.selectExactActiveMemberForUpdate(7L, 11L, 42L)).thenReturn(null);
+        BoardEntitlementGrantRequest request = new BoardEntitlementGrantRequest(
+                7L, 11L, 42L, "BOARD_VIP", null, 0L);
+
+        ServiceException error = assertThrows(
+                ServiceException.class, () -> service.grant(request, 900L));
+
+        assertEquals(403, error.getCode());
+        assertEquals("TENANT_MEMBER_USER_SCOPE_INVALID", error.getMessage());
+        verify(mapper, never()).selectEntitlementForUpdate(any(), any(), any());
+        verify(mapper, never()).insertEntitlement(any());
+        verify(mapper, never()).updateEntitlementIfVersion(any(), any());
+        verify(mapper, never()).insertEntitlementReceipt(any());
+    }
+
+    @Test
     void grantFailsClosedOnOptimisticVersionConflict() {
-        when(mapper.selectExactActiveMember(7L, 11L, 42L)).thenReturn(member(7L, 11L, 42L));
+        when(mapper.selectExactActiveMemberForUpdate(7L, 11L, 42L))
+                .thenReturn(member(7L, 11L, 42L));
         BoardProductEntitlement current = entitlement("connector-1", Date.from(NOW.minusSeconds(60)));
         current.setId(8L);
         current.setVersion(3L);
@@ -152,10 +236,29 @@ class IndependentBoardEntitlementServiceTest {
 
     @Test
     void concurrentFirstGrantDuplicateIsReportedAsVersionConflictWithoutAudit() {
-        when(mapper.selectExactActiveMember(7L, 11L, 42L)).thenReturn(member(7L, 11L, 42L));
+        when(mapper.selectExactActiveMemberForUpdate(7L, 11L, 42L))
+                .thenReturn(member(7L, 11L, 42L));
         when(mapper.selectEntitlementForUpdate(7L, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
                 .thenReturn(null);
         when(mapper.insertEntitlement(any())).thenThrow(new DuplicateKeyException("concurrent grant"));
+        BoardEntitlementGrantRequest request = new BoardEntitlementGrantRequest(
+                7L, 11L, 42L, "BOARD_VIP", null, 0L);
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.grant(request, 900L));
+
+        assertEquals(409, error.getCode());
+        assertEquals("ENTITLEMENT_VERSION_CONFLICT", error.getMessage());
+        verify(mapper, never()).insertEntitlementReceipt(any());
+    }
+
+    @Test
+    void concurrentFirstGrantDeadlockIsReportedAsVersionConflictWithoutAudit() {
+        when(mapper.selectExactActiveMemberForUpdate(7L, 11L, 42L))
+                .thenReturn(member(7L, 11L, 42L));
+        when(mapper.selectEntitlementForUpdate(7L, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(null);
+        when(mapper.insertEntitlement(any()))
+                .thenThrow(new PessimisticLockingFailureException("concurrent grant"));
         BoardEntitlementGrantRequest request = new BoardEntitlementGrantRequest(
                 7L, 11L, 42L, "BOARD_VIP", null, 0L);
 
@@ -190,6 +293,8 @@ class IndependentBoardEntitlementServiceTest {
         entitlement.setValidFrom(Date.from(NOW.minusSeconds(600)));
         entitlement.setValidUntil(Date.from(NOW.plusSeconds(3600)));
         entitlement.setVersion(1L);
+        entitlement.setCreatedAt(Date.from(NOW.minusSeconds(700)));
+        entitlement.setUpdatedAt(Date.from(NOW.minusSeconds(100)));
         return entitlement;
     }
 

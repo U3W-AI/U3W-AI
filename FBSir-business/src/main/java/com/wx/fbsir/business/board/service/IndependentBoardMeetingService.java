@@ -3,10 +3,14 @@ package com.wx.fbsir.business.board.service;
 import com.wx.fbsir.business.board.domain.BoardUsageOperation;
 import com.wx.fbsir.business.board.dto.BoardMeetingReservationRequest;
 import com.wx.fbsir.business.board.dto.BoardMeetingReservationView;
+import com.wx.fbsir.business.board.dto.BoardOperationAuditEnvelope;
+import com.wx.fbsir.business.board.dto.BoardOperationAuditView;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
 import com.wx.fbsir.common.exception.ServiceException;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -21,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class IndependentBoardMeetingService {
+    public static final int ADMIN_OPERATION_LIMIT = 500;
+    public static final int ADMIN_OPERATION_FETCH_LIMIT = ADMIN_OPERATION_LIMIT + 1;
     private final IndependentBoardMapper mapper;
     private final IndependentBoardMeetingTransactionService transactionService;
 
@@ -49,10 +55,42 @@ public class IndependentBoardMeetingService {
     }
 
     @Transactional(readOnly = true)
-    public List<BoardUsageOperation> listOperations(Long tenantId) {
+    public BoardOperationAuditEnvelope listOperations(Long tenantId) {
         if (tenantId == null || tenantId <= 0L) {
             throw new ServiceException("TENANT_REQUIRED", 400);
         }
-        return mapper.selectOperationsByTenant(tenantId, IndependentBoardEntitlementService.PRODUCT_CODE);
+        List<BoardUsageOperation> rows = mapper.selectOperationsByTenant(
+                tenantId,
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.MEETING_METRIC);
+        if (rows == null || rows.size() > ADMIN_OPERATION_FETCH_LIMIT) {
+            throw new ServiceException("BOARD_OPERATION_AUDIT_CURRENT_READ_FAILED", 500);
+        }
+        boolean truncated = rows.size() > ADMIN_OPERATION_LIMIT;
+        int resultSize = Math.min(rows.size(), ADMIN_OPERATION_LIMIT);
+        List<BoardOperationAuditView> records = new ArrayList<>(resultSize);
+        for (int index = 0; index < resultSize; index++) {
+            records.add(toAuditView(rows.get(index), tenantId));
+        }
+        return new BoardOperationAuditEnvelope(records, ADMIN_OPERATION_LIMIT, truncated);
+    }
+
+    private BoardOperationAuditView toAuditView(
+            BoardUsageOperation operation,
+            Long expectedTenantId) {
+        if (operation == null
+                || !Objects.equals(operation.getTenantId(), expectedTenantId)
+                || !Objects.equals(operation.getProductCode(),
+                        IndependentBoardEntitlementService.PRODUCT_CODE)
+                || !Objects.equals(operation.getMetricCode(),
+                        IndependentBoardEntitlementService.MEETING_METRIC)) {
+            throw new ServiceException("BOARD_OPERATION_AUDIT_SCOPE_INVALID", 500);
+        }
+        return new BoardOperationAuditView(
+                operation.getOperationId(), operation.getTenantId(), operation.getMemberId(),
+                operation.getUserId(), operation.getStatus(), operation.getEffectivePlanCode(),
+                operation.getBucketDate(), operation.getAgendaCount(), operation.getSeatCount(),
+                operation.getRemainingCount(), operation.getCreateTime(), operation.getUpdateTime(),
+                operation.getCompletedAt());
     }
 }

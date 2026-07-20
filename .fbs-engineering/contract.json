@@ -51,7 +51,9 @@
     "domainInventory": "config/deployment/u3w-domain-inventory.json",
     "migrations": "sql/update_20260720_independent_board_control_plane.sql",
     "portalMenuMigration": "sql/update_20260720_independent_board_me_menu.sql",
+    "portalAdminMenuMigration": "sql/update_20260720_independent_board_admin_menu.sql",
     "w2VerificationReport": "reports/independent-board/w2-user-portal-verification-20260720.json",
+    "w3VerificationReport": "reports/independent-board/w3-admin-portal-verification-20260720.json",
     "verificationReports": "reports/independent-board/*.json"
   },
   "policy": {
@@ -145,6 +147,12 @@
         "meRoute": "IndependentBoardMe",
         "fallbackPath": "/index",
         "permissionRule": "hostname_selects_default_experience_only_after_dynamic_route_authorization"
+      },
+      "adminAccessModel": {
+        "current": "global_system_admin_only",
+        "controllerGuard": "admin_role_and_fine_grained_board_permission",
+        "delegatedTenantAdministration": "not_implemented",
+        "menuRoleBinding": "not_created_by_w3a"
       }
     },
     "uiPrototypeGate": {
@@ -171,6 +179,28 @@
           "connector_oauth_self_service",
           "webhook_deep_page",
           "watch_deep_page"
+        ]
+      },
+      "w3aImplementation": {
+        "state": "local_source_and_integration_verified",
+        "menuRoot": "IndependentBoardAdmin",
+        "surfaces": [
+          "FBSir-ui/src/views/business/independentBoard/admin/entitlement/index.vue",
+          "FBSir-ui/src/views/business/independentBoard/admin/meetingAudit/index.vue"
+        ],
+        "scope": [
+          "active_enterprise_and_member_locked_entitlement_grant_or_adjustment",
+          "strict_safe_admin_entitlement_projection",
+          "bounded_safe_meeting_operation_audit",
+          "global_admin_role_and_fine_permission_separation",
+          "first_apply_rerun_collision_and_menu_current_read"
+        ],
+        "deferred": [
+          "delegated_tenant_admin_role",
+          "entitlement_revoke_and_expiry_actions",
+          "entitlement_receipt_audit_page",
+          "credit_ledger_operations",
+          "connector_and_device_operations"
         ]
       },
       "mustReuse": [

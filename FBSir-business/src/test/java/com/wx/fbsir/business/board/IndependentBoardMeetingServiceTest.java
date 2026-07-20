@@ -5,6 +5,8 @@ import com.wx.fbsir.business.board.domain.BoardUsageOperation;
 import com.wx.fbsir.business.board.dto.BoardEntitlementSnapshot;
 import com.wx.fbsir.business.board.dto.BoardMeetingReservationRequest;
 import com.wx.fbsir.business.board.dto.BoardMeetingReservationView;
+import com.wx.fbsir.business.board.dto.BoardOperationAuditEnvelope;
+import com.wx.fbsir.business.board.dto.BoardOperationAuditView;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
 import com.wx.fbsir.common.exception.ServiceException;
 import java.time.Clock;
@@ -12,15 +14,21 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -190,6 +198,97 @@ class IndependentBoardMeetingServiceTest {
         verify(mapper, never()).insertOperation(any());
     }
 
+    @Test
+    void adminOperationAuditUsesFixedScopeAndReturnsA500RowSafeEnvelope() {
+        List<BoardUsageOperation> rows = IntStream.rangeClosed(1, 501)
+                .mapToObj(index -> auditOperation(String.format("audit-%03d", index)))
+                .toList();
+        when(mapper.selectOperationsByTenant(
+                7L,
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.MEETING_METRIC))
+                .thenReturn(rows);
+
+        BoardOperationAuditEnvelope result = service.listOperations(7L);
+
+        assertEquals(500, result.limit());
+        assertTrue(result.truncated());
+        assertEquals(500, result.records().size());
+        BoardOperationAuditView first = result.records().get(0);
+        assertEquals("audit-001", first.operationId());
+        assertEquals(7L, first.tenantId());
+        assertEquals(11L, first.memberId());
+        assertEquals(42L, first.userId());
+        assertEquals("RESERVED", first.status());
+        assertEquals("BOARD_FREE", first.effectivePlanCode());
+        assertEquals(LocalDate.of(2026, 7, 20), first.bucketDate());
+        assertEquals(3, first.agendaCount());
+        assertEquals(2, first.seatCount());
+        assertEquals(0, first.remainingCount());
+        assertEquals(List.of(
+                        "operationId", "tenantId", "memberId", "userId", "status",
+                        "effectivePlanCode", "bucketDate", "agendaCount", "seatCount",
+                        "remainingCount", "createdAt", "updatedAt", "completedAt"),
+                Arrays.stream(BoardOperationAuditView.class.getRecordComponents())
+                        .map(component -> component.getName()).toList());
+        verify(mapper).selectOperationsByTenant(
+                7L,
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.MEETING_METRIC);
+    }
+
+    @Test
+    void adminOperationAuditRejectsRowsOutsideTheFixedScope() {
+        BoardUsageOperation wrongTenant = auditOperation("audit-tenant");
+        wrongTenant.setTenantId(99L);
+        BoardUsageOperation wrongProduct = auditOperation("audit-product");
+        wrongProduct.setProductCode("ANOTHER_PRODUCT");
+        BoardUsageOperation wrongMetric = auditOperation("audit-metric");
+        wrongMetric.setMetricCode("ANOTHER_METRIC");
+        when(mapper.selectOperationsByTenant(
+                7L,
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.MEETING_METRIC))
+                .thenReturn(List.of(wrongTenant), List.of(wrongProduct), List.of(wrongMetric));
+
+        for (int attempt = 0; attempt < 3; attempt++) {
+            ServiceException error = assertThrows(
+                    ServiceException.class, () -> service.listOperations(7L));
+            assertEquals(500, error.getCode());
+            assertEquals("BOARD_OPERATION_AUDIT_SCOPE_INVALID", error.getMessage());
+        }
+    }
+
+    @Test
+    void adminOperationAuditFailsClosedOnAnImpossibleOversizedMapperResult() {
+        when(mapper.selectOperationsByTenant(
+                7L,
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.MEETING_METRIC))
+                .thenReturn(IntStream.range(0, 502)
+                        .mapToObj(index -> auditOperation("audit-" + index)).toList());
+
+        ServiceException error = assertThrows(
+                ServiceException.class, () -> service.listOperations(7L));
+
+        assertEquals(500, error.getCode());
+        assertEquals("BOARD_OPERATION_AUDIT_CURRENT_READ_FAILED", error.getMessage());
+    }
+
+    @Test
+    void adminOperationAuditDoesNotReportTruncationBelowTheLimit() {
+        when(mapper.selectOperationsByTenant(
+                7L,
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.MEETING_METRIC))
+                .thenReturn(List.of(auditOperation("audit-one")));
+
+        BoardOperationAuditEnvelope result = service.listOperations(7L);
+
+        assertFalse(result.truncated());
+        assertEquals(1, result.records().size());
+    }
+
     private BoardMeetingReservationRequest request(String operationId, int agendas, int seats) {
         return new BoardMeetingReservationRequest(7L, operationId, agendas, seats);
     }
@@ -212,6 +311,19 @@ class IndependentBoardMeetingServiceTest {
         operation.setEffectivePlanCode("BOARD_FREE");
         operation.setAgendaCount(5);
         operation.setSeatCount(3);
+        return operation;
+    }
+
+    private BoardUsageOperation auditOperation(String operationId) {
+        BoardUsageOperation operation = operation(operationId, "a".repeat(64));
+        operation.setStatus("RESERVED");
+        operation.setBucketDate(LocalDate.of(2026, 7, 20));
+        operation.setAgendaCount(3);
+        operation.setSeatCount(2);
+        operation.setRemainingCount(0);
+        operation.setCreateTime(new Date(1_790_000_000_000L));
+        operation.setUpdateTime(new Date(1_790_000_001_000L));
+        operation.setCompletedAt(new Date(1_790_000_002_000L));
         return operation;
     }
 }

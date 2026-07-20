@@ -14,6 +14,7 @@
     "verify:menu-components": "node scripts/verify-menu-components.mjs",
     "verify:portal-entry": "node scripts/verify-portal-entry.mjs",
     "verify:independent-board-ui": "node scripts/verify-independent-board-ui.mjs",
+    "verify:independent-board-admin-ui": "node scripts/verify-independent-board-admin-ui.mjs",
     "verify:websocket-security": "node scripts/verify-websocket-security.mjs"
   },
   "repository": {

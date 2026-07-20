@@ -77,6 +77,51 @@ class IndependentBoardDashboardMapperContractTest {
         assertFalse(sql.contains("${"), "dashboard reads must never use string substitution");
     }
 
+    @Test
+    void adminGrantMemberLookupRequiresAnActiveEnterpriseAndExactActiveMember() {
+        String sql = sql("selectExactActiveMemberForUpdate", Map.of(
+                "tenantId", 7L, "memberId", 11L, "userId", 42L));
+
+        assertTrue(sql.contains("inner join fbs_enterprise e"));
+        assertTrue(sql.contains("e.id = m.enterprise_id"));
+        assertTrue(sql.contains("e.status = 1"));
+        assertTrue(sql.contains("e.del_flag = '0'"));
+        assertTrue(sql.contains("m.enterprise_id = ?"));
+        assertTrue(sql.contains("m.id = ?"));
+        assertTrue(sql.contains("m.user_id = ?"));
+        assertTrue(sql.contains("m.status = 1"));
+        assertTrue(sql.contains("m.del_flag = '0'"));
+        assertTrue(sql.endsWith("limit 1 for update"));
+        assertFalse(sql.contains("${"), "grant scope must never use string substitution");
+    }
+
+    @Test
+    void adminEntitlementReadIsProductScopedAndFetchesAtMostOneOverflowRow() {
+        String sql = sql("selectEntitlementsByTenant", Map.of(
+                "tenantId", 7L, "productCode", "FBSIR_INDEPENDENT_BOARD"));
+
+        assertTrue(sql.contains("where enterprise_id = ?"));
+        assertTrue(sql.contains("and product_code = ?"));
+        assertTrue(sql.contains("order by updated_at desc, id desc"));
+        assertTrue(sql.endsWith("limit 101"));
+        assertFalse(sql.contains("${"), "entitlement reads must never use string substitution");
+    }
+
+    @Test
+    void adminOperationReadIsFixedToProductAndMetricAndHasBoundedOverflowFetch() {
+        String sql = sql("selectOperationsByTenant", Map.of(
+                "tenantId", 7L,
+                "productCode", "FBSIR_INDEPENDENT_BOARD",
+                "metricCode", "DAILY_MEETING"));
+
+        assertTrue(sql.contains("where enterprise_id = ?"));
+        assertTrue(sql.contains("and product_code = ?"));
+        assertTrue(sql.contains("and metric_code = ?"));
+        assertTrue(sql.contains("order by created_at desc, id desc"));
+        assertTrue(sql.endsWith("limit 501"));
+        assertFalse(sql.contains("${"), "operation reads must never use string substitution");
+    }
+
     private static String sql(String statement, Map<String, Object> parameters) {
         String id = IndependentBoardMapper.class.getName() + "." + statement;
         assertTrue(configuration.hasStatement(id), "missing mapper statement " + id);

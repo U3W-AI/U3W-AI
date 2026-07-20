@@ -18,9 +18,10 @@ public interface IndependentBoardMapper {
     BoardEnterpriseMemberScope selectActiveContext(@Param("tenantId") Long tenantId,
                                                     @Param("userId") Long userId);
 
-    BoardEnterpriseMemberScope selectExactActiveMember(@Param("tenantId") Long tenantId,
-                                                       @Param("memberId") Long memberId,
-                                                       @Param("userId") Long userId);
+    BoardEnterpriseMemberScope selectExactActiveMemberForUpdate(
+            @Param("tenantId") Long tenantId,
+            @Param("memberId") Long memberId,
+            @Param("userId") Long userId);
 
     BoardProductPlan selectActivePlan(@Param("productCode") String productCode,
                                       @Param("planCode") String planCode);
@@ -77,7 +78,8 @@ public interface IndependentBoardMapper {
                               @Param("remainingCount") Integer remainingCount);
 
     List<BoardUsageOperation> selectOperationsByTenant(@Param("tenantId") Long tenantId,
-                                                      @Param("productCode") String productCode);
+                                                      @Param("productCode") String productCode,
+                                                      @Param("metricCode") String metricCode);
 
     List<BoardUsageOperation> selectRecentOperationsByTenantAndUser(
             @Param("tenantId") Long tenantId,

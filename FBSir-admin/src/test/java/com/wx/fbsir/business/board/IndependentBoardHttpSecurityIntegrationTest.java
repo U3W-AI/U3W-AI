@@ -3,6 +3,7 @@ package com.wx.fbsir.business.board;
 import com.wx.fbsir.business.board.controller.IndependentBoardAdminController;
 import com.wx.fbsir.business.board.controller.IndependentBoardMeController;
 import com.wx.fbsir.business.board.domain.BoardEnterpriseMemberScope;
+import com.wx.fbsir.business.board.domain.BoardProductEntitlement;
 import com.wx.fbsir.business.board.domain.BoardProductPlan;
 import com.wx.fbsir.business.board.domain.BoardUsageOperation;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
@@ -452,6 +453,192 @@ class IndependentBoardHttpSecurityIntegrationTest {
                 TENANT_ID, IndependentBoardEntitlementService.PRODUCT_CODE);
     }
 
+    @Test
+    void administratorEntitlementQueryReturnsOnlyTheSafeManagementFields() throws Exception {
+        BoardProductEntitlement entitlement = entitlement();
+        when(mapper.selectEntitlementsByTenant(
+                TENANT_ID, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(List.of(entitlement));
+        when(mapper.selectActivePlan(
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.VIP_PLAN)).thenReturn(vipPlan());
+
+        mockMvc.perform(get("/business/independent-board/entitlements")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "operator", Set.of("board:entitlement:query"), "admin")))
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0].tenantId").value(TENANT_ID))
+                .andExpect(jsonPath("$.data[0].memberId").value(11L))
+                .andExpect(jsonPath("$.data[0].userId").value(USER_ID))
+                .andExpect(jsonPath("$.data[0].planCode").value("BOARD_VIP"))
+                .andExpect(jsonPath("$.data[0].entitlementStatus").value("ACTIVE"))
+                .andExpect(jsonPath("$.data[0].activationState").value("PENDING_CONNECTOR"))
+                .andExpect(jsonPath("$.data[0].validFrom").exists())
+                .andExpect(jsonPath("$.data[0].validUntil").exists())
+                .andExpect(jsonPath("$.data[0].version").value(1L))
+                .andExpect(jsonPath("$.data[0].updatedAt").exists())
+                .andExpect(jsonPath("$.data[0].status").doesNotExist())
+                .andExpect(jsonPath("$.data[0].createdAt").doesNotExist())
+                .andExpect(jsonPath("$.data[0].id").doesNotExist())
+                .andExpect(jsonPath("$.data[0].productCode").doesNotExist())
+                .andExpect(jsonPath("$.data[0].connectorBindingId").doesNotExist())
+                .andExpect(jsonPath("$.data[0].connectorVerifiedAt").doesNotExist());
+    }
+
+    @Test
+    void entitlementGrantRequiresBothGlobalAdminRoleAndFinePermission() throws Exception {
+        String body = "{\"tenantId\":7,\"memberId\":11,\"userId\":42,"
+                + "\"planCode\":\"BOARD_VIP\",\"validUntil\":null,\"expectedVersion\":0}";
+
+        mockMvc.perform(post("/business/independent-board/entitlements")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "member", Set.of("board:entitlement:grant"), "user")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+        mockMvc.perform(post("/business/independent-board/entitlements")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "operator", Set.of(), "admin")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+
+        verify(mapper, never()).selectExactActiveMemberForUpdate(any(), any(), any());
+        verify(mapper, never()).insertEntitlement(any());
+        verify(mapper, never()).insertEntitlementReceipt(any());
+    }
+
+    @Test
+    void globalAdminCanGrantEntitlementAndReceivesTheSafeProjection() throws Exception {
+        when(mapper.selectExactActiveMemberForUpdate(TENANT_ID, 11L, USER_ID))
+                .thenReturn(member(TENANT_ID, 11L, USER_ID));
+        when(mapper.selectActivePlan(
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.VIP_PLAN)).thenReturn(vipPlan());
+        when(mapper.selectEntitlementForUpdate(
+                TENANT_ID, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(null);
+        when(mapper.insertEntitlement(any())).thenReturn(1);
+        when(mapper.insertEntitlementReceipt(any())).thenReturn(1);
+
+        mockMvc.perform(post("/business/independent-board/entitlements")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "operator", Set.of("board:entitlement:grant"), "admin")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tenantId\":7,\"memberId\":11,\"userId\":42,"
+                                + "\"planCode\":\"BOARD_VIP\","
+                                + "\"validUntil\":\"2030-01-01T00:00:00\","
+                                + "\"expectedVersion\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.tenantId").value(TENANT_ID))
+                .andExpect(jsonPath("$.data.memberId").value(11L))
+                .andExpect(jsonPath("$.data.userId").value(USER_ID))
+                .andExpect(jsonPath("$.data.planCode").value("BOARD_VIP"))
+                .andExpect(jsonPath("$.data.entitlementStatus").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.activationState").value("PENDING_CONNECTOR"))
+                .andExpect(jsonPath("$.data.validFrom").exists())
+                .andExpect(jsonPath("$.data.validUntil").value("2030-01-01T00:00:00"))
+                .andExpect(jsonPath("$.data.version").value(1L))
+                .andExpect(jsonPath("$.data.updatedAt").exists())
+                .andExpect(jsonPath("$.data.createdAt").doesNotExist())
+                .andExpect(jsonPath("$.data.id").doesNotExist())
+                .andExpect(jsonPath("$.data.productCode").doesNotExist())
+                .andExpect(jsonPath("$.data.connectorBindingId").doesNotExist())
+                .andExpect(jsonPath("$.data.connectorVerifiedAt").doesNotExist());
+
+        verify(mapper).insertEntitlement(any());
+        verify(mapper).insertEntitlementReceipt(any());
+    }
+
+    @Test
+    void inactiveEnterpriseRejectsAdminGrantBeforeAnyWrite() throws Exception {
+        when(mapper.selectExactActiveMemberForUpdate(TENANT_ID, 11L, USER_ID)).thenReturn(null);
+
+        mockMvc.perform(post("/business/independent-board/entitlements")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "operator", Set.of("board:entitlement:grant"), "admin")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tenantId\":7,\"memberId\":11,\"userId\":42,"
+                                + "\"planCode\":\"BOARD_VIP\","
+                                + "\"validUntil\":null,\"expectedVersion\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.msg").value("TENANT_MEMBER_USER_SCOPE_INVALID"));
+
+        verify(mapper, never()).selectEntitlementForUpdate(any(), any(), any());
+        verify(mapper, never()).insertEntitlement(any());
+        verify(mapper, never()).updateEntitlementIfVersion(any(), any());
+        verify(mapper, never()).insertEntitlementReceipt(any());
+    }
+
+    @Test
+    void operationAuditRequiresBothGlobalAdminRoleAndFinePermission() throws Exception {
+        mockMvc.perform(get("/business/independent-board/operations")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "member", Set.of("board:operation:audit"), "user")))
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+        mockMvc.perform(get("/business/independent-board/operations")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "operator", Set.of(), "admin")))
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+
+        verify(mapper, never()).selectOperationsByTenant(any(), any(), any());
+    }
+
+    @Test
+    void globalAdminOperationAuditReturnsTheBoundedSafeEnvelope() throws Exception {
+        BoardUsageOperation operation = operation(TENANT_ID, USER_ID, "audit-001");
+        operation.setUpdateTime(new Date(1_790_000_001_000L));
+        operation.setCompletedAt(new Date(1_790_000_002_000L));
+        when(mapper.selectOperationsByTenant(
+                TENANT_ID,
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.MEETING_METRIC))
+                .thenReturn(List.of(operation));
+
+        mockMvc.perform(get("/business/independent-board/operations")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "operator", Set.of("board:operation:audit"), "admin")))
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.limit").value(500))
+                .andExpect(jsonPath("$.data.truncated").value(false))
+                .andExpect(jsonPath("$.data.records.length()").value(1))
+                .andExpect(jsonPath("$.data.records[0].operationId").value("audit-001"))
+                .andExpect(jsonPath("$.data.records[0].tenantId").value(TENANT_ID))
+                .andExpect(jsonPath("$.data.records[0].memberId").value(11L))
+                .andExpect(jsonPath("$.data.records[0].userId").value(USER_ID))
+                .andExpect(jsonPath("$.data.records[0].status").value("RESERVED"))
+                .andExpect(jsonPath("$.data.records[0].effectivePlanCode").value("BOARD_FREE"))
+                .andExpect(jsonPath("$.data.records[0].bucketDate").value("2026-07-20"))
+                .andExpect(jsonPath("$.data.records[0].agendaCount").value(3))
+                .andExpect(jsonPath("$.data.records[0].seatCount").value(2))
+                .andExpect(jsonPath("$.data.records[0].remainingCount").value(0))
+                .andExpect(jsonPath("$.data.records[0].createdAt").exists())
+                .andExpect(jsonPath("$.data.records[0].updatedAt").exists())
+                .andExpect(jsonPath("$.data.records[0].completedAt").exists())
+                .andExpect(jsonPath("$.data.records[0].id").doesNotExist())
+                .andExpect(jsonPath("$.data.records[0].requestDigest").doesNotExist())
+                .andExpect(jsonPath("$.data.records[0].productCode").doesNotExist())
+                .andExpect(jsonPath("$.data.records[0].metricCode").doesNotExist())
+                .andExpect(jsonPath("$.data.records[0].units").doesNotExist());
+
+        verify(mapper).selectOperationsByTenant(
+                TENANT_ID,
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.MEETING_METRIC);
+    }
+
     private static String bearer(LoginUser loginUser) {
         return Constants.TOKEN_PREFIX + jwtFor(loginUser, TOKEN_SECRET);
     }
@@ -533,6 +720,40 @@ class IndependentBoardHttpSecurityIntegrationTest {
         plan.setSecretaryEnabled(false);
         plan.setStatus("ACTIVE");
         return plan;
+    }
+
+    private static BoardProductPlan vipPlan() {
+        BoardProductPlan plan = new BoardProductPlan();
+        plan.setProductCode(IndependentBoardEntitlementService.PRODUCT_CODE);
+        plan.setPlanCode(IndependentBoardEntitlementService.VIP_PLAN);
+        plan.setVip(true);
+        plan.setConnectorRequired(true);
+        plan.setDailyMeetingLimit(5);
+        plan.setAgendaLimit(30);
+        plan.setSeatLimit(null);
+        plan.setSecretaryEnabled(true);
+        plan.setStatus("ACTIVE");
+        return plan;
+    }
+
+    private static BoardProductEntitlement entitlement() {
+        long now = System.currentTimeMillis();
+        BoardProductEntitlement entitlement = new BoardProductEntitlement();
+        entitlement.setId(88L);
+        entitlement.setTenantId(TENANT_ID);
+        entitlement.setMemberId(11L);
+        entitlement.setUserId(USER_ID);
+        entitlement.setProductCode(IndependentBoardEntitlementService.PRODUCT_CODE);
+        entitlement.setPlanCode(IndependentBoardEntitlementService.VIP_PLAN);
+        entitlement.setStatus("ACTIVE");
+        entitlement.setConnectorBindingId("must-not-leak");
+        entitlement.setConnectorVerifiedAt(new Date(now - 60_000L));
+        entitlement.setValidFrom(new Date(now - 3_600_000L));
+        entitlement.setValidUntil(new Date(now + 3_600_000L));
+        entitlement.setVersion(1L);
+        entitlement.setCreatedAt(new Date(now - 7_200_000L));
+        entitlement.setUpdatedAt(new Date(now - 30_000L));
+        return entitlement;
     }
 
     @Configuration(proxyBeanMethods = false)

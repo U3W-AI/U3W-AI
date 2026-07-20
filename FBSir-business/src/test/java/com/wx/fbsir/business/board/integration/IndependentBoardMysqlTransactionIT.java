@@ -450,6 +450,103 @@ class IndependentBoardMysqlTransactionIT {
         assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt"));
     }
 
+    @Test
+    void disabledEnterpriseRejectsAdminGrantBeforeEntitlementOrReceiptWrite() throws Exception {
+        assertInactiveEnterpriseRejectsGrant(0, "0");
+    }
+
+    @Test
+    void deletedEnterpriseRejectsAdminGrantBeforeEntitlementOrReceiptWrite() throws Exception {
+        assertInactiveEnterpriseRejectsGrant(1, "1");
+    }
+
+    @Test
+    void disabledAndDeletedEnterpriseRejectExistingEntitlementUpdatesWithoutMutation()
+            throws Exception {
+        entitlementService.grant(new BoardEntitlementGrantRequest(
+                        TENANT_ONE, MEMBER_ONE, USER_ONE,
+                        IndependentBoardEntitlementService.VIP_PLAN,
+                        new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1)), 0L),
+                9000L);
+        BoardEntitlementGrantRequest update = new BoardEntitlementGrantRequest(
+                TENANT_ONE, MEMBER_ONE, USER_ONE,
+                IndependentBoardEntitlementService.FREE_PLAN,
+                new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(2)), 1L);
+
+        execute("UPDATE fbs_enterprise SET status = 0, del_flag = '0' WHERE id = " + TENANT_ONE);
+        assertEntitlementScopeRejected(() -> entitlementService.grant(update, 9001L));
+        execute("UPDATE fbs_enterprise SET status = 1, del_flag = '1' WHERE id = " + TENANT_ONE);
+        assertEntitlementScopeRejected(() -> entitlementService.grant(update, 9002L));
+
+        assertEquals(1, scalarInt("SELECT version FROM fbs_product_entitlement"));
+        assertEquals(IndependentBoardEntitlementService.VIP_PLAN,
+                scalarString("SELECT plan_code FROM fbs_product_entitlement"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt"));
+    }
+
+    @Test
+    void grantWaitsForConcurrentEnterpriseDisableAndRejectsTheCommittedFinalState()
+            throws Exception {
+        assertConcurrentScopeMutationRejectsGrant(
+                "UPDATE fbs_enterprise SET status = 2 WHERE id = " + TENANT_ONE,
+                "SELECT status FROM fbs_enterprise WHERE id = " + TENANT_ONE);
+    }
+
+    @Test
+    void grantWaitsForConcurrentMemberRemovalAndRejectsTheCommittedFinalState()
+            throws Exception {
+        assertConcurrentScopeMutationRejectsGrant(
+                "UPDATE fbs_enterprise_member SET status = 2 WHERE id = " + MEMBER_ONE,
+                "SELECT status FROM fbs_enterprise_member WHERE id = " + MEMBER_ONE);
+    }
+
+    @Test
+    void concurrentFirstEntitlementGrantsProduceOneVersionAndOneReceipt() throws Exception {
+        BoardEntitlementGrantRequest request = new BoardEntitlementGrantRequest(
+                TENANT_ONE, MEMBER_ONE, USER_ONE,
+                IndependentBoardEntitlementService.VIP_PLAN,
+                new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1)), 0L);
+
+        List<EntitlementAttempt> attempts = runConcurrentEntitlement(
+                2, index -> request, index -> 9001L + index);
+
+        assertEquals(1, attempts.stream().filter(EntitlementAttempt::success).count());
+        assertEquals(1, attempts.stream().filter(EntitlementAttempt::versionConflict).count());
+        assertEquals(1L, attempts.stream().filter(EntitlementAttempt::success)
+                .findFirst().orElseThrow().view().version());
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_product_entitlement"));
+        assertEquals(1, scalarInt("SELECT version FROM fbs_product_entitlement"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt"));
+    }
+
+    @Test
+    void concurrentEntitlementUpdatesAllowOneExpectedVersionWinner() throws Exception {
+        entitlementService.grant(new BoardEntitlementGrantRequest(
+                        TENANT_ONE, MEMBER_ONE, USER_ONE,
+                        IndependentBoardEntitlementService.VIP_PLAN,
+                        new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1)), 0L),
+                9000L);
+        BoardEntitlementGrantRequest update = new BoardEntitlementGrantRequest(
+                TENANT_ONE, MEMBER_ONE, USER_ONE,
+                IndependentBoardEntitlementService.FREE_PLAN,
+                new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(2)), 1L);
+
+        List<EntitlementAttempt> attempts = runConcurrentEntitlement(
+                2, index -> update, index -> 9010L + index);
+
+        assertEquals(1, attempts.stream().filter(EntitlementAttempt::success).count());
+        assertEquals(1, attempts.stream().filter(EntitlementAttempt::versionConflict).count());
+        BoardEntitlementAdminView winner = attempts.stream()
+                .filter(EntitlementAttempt::success).findFirst().orElseThrow().view();
+        assertEquals(2L, winner.version());
+        assertEquals(IndependentBoardEntitlementService.FREE_PLAN, winner.planCode());
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_product_entitlement"));
+        assertEquals(2, scalarInt("SELECT version FROM fbs_product_entitlement"));
+        assertEquals(2, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt "
+                + "WHERE action = 'ENTITLEMENT_UPDATED'"));
+    }
+
     private static List<Attempt> runConcurrent(
             int concurrency,
             IntFunction<BoardMeetingReservationRequest> requestFactory,
@@ -477,6 +574,44 @@ class IndependentBoardMysqlTransactionIT {
             start.countDown();
             List<Attempt> attempts = new ArrayList<>();
             for (Future<Attempt> future : futures) {
+                attempts.add(future.get(30, TimeUnit.SECONDS));
+            }
+            return attempts;
+        } finally {
+            start.countDown();
+            pool.shutdownNow();
+            assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS));
+        }
+    }
+
+    private static List<EntitlementAttempt> runConcurrentEntitlement(
+            int concurrency,
+            IntFunction<BoardEntitlementGrantRequest> requestFactory,
+            IntFunction<Long> actorFactory) throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(concurrency);
+        CountDownLatch ready = new CountDownLatch(concurrency);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<EntitlementAttempt>> futures = new ArrayList<>();
+        try {
+            for (int i = 0; i < concurrency; i++) {
+                int index = i;
+                futures.add(pool.submit(() -> {
+                    ready.countDown();
+                    if (!start.await(10, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("start barrier timed out");
+                    }
+                    try {
+                        return EntitlementAttempt.succeeded(entitlementService.grant(
+                                requestFactory.apply(index), actorFactory.apply(index)));
+                    } catch (ServiceException expected) {
+                        return EntitlementAttempt.rejected(expected.getMessage());
+                    }
+                }));
+            }
+            assertTrue(ready.await(10, TimeUnit.SECONDS));
+            start.countDown();
+            List<EntitlementAttempt> attempts = new ArrayList<>();
+            for (Future<EntitlementAttempt> future : futures) {
                 attempts.add(future.get(30, TimeUnit.SECONDS));
             }
             return attempts;
@@ -523,6 +658,89 @@ class IndependentBoardMysqlTransactionIT {
         assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_usage_operation "
                 + "WHERE enterprise_id = " + TENANT_ONE
                 + " AND operation_id = '" + rejectedOperationId + "'"));
+    }
+
+    private void assertInactiveEnterpriseRejectsGrant(
+            int enterpriseStatus,
+            String enterpriseDelFlag) throws Exception {
+        execute("UPDATE fbs_enterprise SET status = " + enterpriseStatus
+                + ", del_flag = '" + enterpriseDelFlag + "' WHERE id = " + TENANT_ONE);
+        BoardEntitlementGrantRequest request = new BoardEntitlementGrantRequest(
+                TENANT_ONE, MEMBER_ONE, USER_ONE,
+                IndependentBoardEntitlementService.VIP_PLAN,
+                new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1)), 0L);
+
+        ServiceException rejected = assertThrows(
+                ServiceException.class, () -> entitlementService.grant(request, 9001L));
+
+        assertEquals(403, rejected.getCode());
+        assertEquals("TENANT_MEMBER_USER_SCOPE_INVALID", rejected.getMessage());
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_product_entitlement"));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt"));
+    }
+
+    private void assertEntitlementScopeRejected(Executable action) {
+        ServiceException rejected = assertThrows(ServiceException.class, action);
+        assertEquals(403, rejected.getCode());
+        assertEquals("TENANT_MEMBER_USER_SCOPE_INVALID", rejected.getMessage());
+    }
+
+    private void assertConcurrentScopeMutationRejectsGrant(
+            String scopeMutationSql,
+            String finalStatusSql) throws Exception {
+        ExecutorService pool = Executors.newSingleThreadExecutor();
+        Connection scopeMutation = dataSource.getConnection();
+        boolean committed = false;
+        try {
+            scopeMutation.setAutoCommit(false);
+            try (Statement statement = scopeMutation.createStatement()) {
+                assertEquals(1, statement.executeUpdate(scopeMutationSql));
+            }
+            BoardEntitlementGrantRequest request = new BoardEntitlementGrantRequest(
+                    TENANT_ONE, MEMBER_ONE, USER_ONE,
+                    IndependentBoardEntitlementService.VIP_PLAN,
+                    new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1)), 0L);
+            Future<ServiceException> grant = pool.submit(() -> {
+                try {
+                    entitlementService.grant(request, 9001L);
+                    return null;
+                } catch (ServiceException expected) {
+                    return expected;
+                }
+            });
+
+            awaitMysqlRowLockWait();
+            assertFalse(grant.isDone(),
+                    "grant must remain blocked while the canonical scope row is uncommitted");
+            scopeMutation.commit();
+            committed = true;
+
+            ServiceException rejected = grant.get(10, TimeUnit.SECONDS);
+            assertNotNull(rejected, "grant must not commit after the scope becomes inactive");
+            assertEquals(403, rejected.getCode());
+            assertEquals("TENANT_MEMBER_USER_SCOPE_INVALID", rejected.getMessage());
+            assertEquals(2, scalarInt(finalStatusSql));
+            assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_product_entitlement"));
+            assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt"));
+        } finally {
+            if (!committed) {
+                scopeMutation.rollback();
+            }
+            scopeMutation.close();
+            pool.shutdownNow();
+            assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS));
+        }
+    }
+
+    private static void awaitMysqlRowLockWait() throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (System.nanoTime() < deadline) {
+            if (scalarInt("SELECT COUNT(*) FROM performance_schema.data_lock_waits") > 0) {
+                return;
+            }
+            Thread.sleep(25L);
+        }
+        throw new AssertionError("grant did not enter the expected MySQL row-lock wait");
     }
 
     private void assertMeScopeRejected(Executable action) {
@@ -739,6 +957,25 @@ class IndependentBoardMysqlTransactionIT {
 
         boolean success() {
             return view != null;
+        }
+    }
+
+    private record EntitlementAttempt(BoardEntitlementAdminView view, String errorCode) {
+        static EntitlementAttempt succeeded(BoardEntitlementAdminView view) {
+            return new EntitlementAttempt(view, null);
+        }
+
+        static EntitlementAttempt rejected(String errorCode) {
+            return new EntitlementAttempt(null, errorCode);
+        }
+
+        boolean success() {
+            return view != null;
+        }
+
+        boolean versionConflict() {
+            return "ENTITLEMENT_VERSION_CONFLICT".equals(errorCode)
+                    || "ENTITLEMENT_SCOPE_OR_VERSION_CONFLICT".equals(errorCode);
         }
     }
 

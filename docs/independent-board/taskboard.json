@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the submitted 26.7.20 expert package.",
-  "singleNextAction": "Build the confirmed W3 Independent Board first-level administration module inside the existing RuoYi admin shell, starting with tenant entitlement governance and meeting-operation audit current-read.",
+  "singleNextAction": "Continue W3b inside the existing RuoYi administration shell with controlled entitlement revoke or expiry and immutable entitlement-receipt audit readback; keep delegated tenant administration, credits, Connector and device operations behind their own contracts.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -50,7 +50,24 @@
     },
     {
       "id": "W3_ADMIN_PORTAL",
-      "state": "confirmed_implementation_ready",
+      "state": "w3a_local_source_and_integration_verified",
+      "completedSubset": [
+        "global_system_admin_only_access_model",
+        "active_enterprise_and_member_locked_entitlement_grant_and_adjustment",
+        "strict_safe_entitlement_current_read",
+        "bounded_safe_meeting_operation_audit_current_read",
+        "ruoyi_first_level_independent_board_admin_menu",
+        "first_apply_rerun_collision_and_component_mapping_verification"
+      ],
+      "remaining": [
+        "controlled_entitlement_revoke_or_expiry",
+        "immutable_entitlement_receipt_audit_readback",
+        "product_plan_and_quota_policy_governance",
+        "credit_ledger_operations",
+        "run_receipt_and_failure_audit",
+        "connector_and_device_operations",
+        "separately_reviewed_delegated_tenant_admin_role"
+      ],
       "exit": [
         "tenant_and_member_governance",
         "product_plan_and_quota_policy",

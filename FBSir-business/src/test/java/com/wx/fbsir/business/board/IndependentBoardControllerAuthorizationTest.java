@@ -5,6 +5,8 @@ import com.wx.fbsir.business.board.controller.IndependentBoardMeController;
 import com.wx.fbsir.business.board.dto.BoardEntitlementGrantRequest;
 import com.wx.fbsir.business.board.dto.BoardMeetingReservationRequest;
 import com.wx.fbsir.common.annotation.Anonymous;
+import com.wx.fbsir.common.annotation.Log;
+import com.wx.fbsir.common.enums.BusinessType;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Pattern;
 import java.lang.reflect.Method;
@@ -69,6 +71,18 @@ class IndependentBoardControllerAuthorizationTest {
         assertNotNull(operationIdPattern);
         assertEquals(BoardMeetingReservationRequest.OPERATION_ID_PATTERN,
                 operationIdPattern.regexp());
+    }
+
+    @Test
+    void entitlementGrantIsRecordedByTheRuoYiOperationLog() throws Exception {
+        Method grant = IndependentBoardAdminController.class.getMethod(
+                "grant", BoardEntitlementGrantRequest.class);
+
+        Log log = grant.getAnnotation(Log.class);
+
+        assertNotNull(log);
+        assertEquals(BusinessType.GRANT, log.businessType());
+        assertEquals("Independent Board entitlement", log.title());
     }
 
     private String basePath(Class<?> controller) {

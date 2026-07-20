@@ -3,8 +3,10 @@ package com.wx.fbsir.business.board.controller;
 import com.wx.fbsir.business.board.dto.BoardEntitlementGrantRequest;
 import com.wx.fbsir.business.board.service.IndependentBoardEntitlementService;
 import com.wx.fbsir.business.board.service.IndependentBoardMeetingService;
+import com.wx.fbsir.common.annotation.Log;
 import com.wx.fbsir.common.core.controller.BaseController;
 import com.wx.fbsir.common.core.domain.AjaxResult;
+import com.wx.fbsir.common.enums.BusinessType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/** Global RuoYi administrator surface; tenant-delegated administration is not enabled. */
 @Validated
 @RestController
 @RequestMapping("/business/independent-board")
@@ -31,6 +34,7 @@ public class IndependentBoardAdminController extends BaseController {
     }
 
     @PreAuthorize("@ss.hasRole('admin') and @ss.hasPermi('board:entitlement:grant')")
+    @Log(title = "Independent Board entitlement", businessType = BusinessType.GRANT)
     @PostMapping("/entitlements")
     public AjaxResult grant(@Valid @RequestBody BoardEntitlementGrantRequest request) {
         return AjaxResult.success(entitlementService.grant(request, getUserId()));

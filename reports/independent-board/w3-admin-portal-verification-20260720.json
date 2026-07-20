@@ -1,0 +1,132 @@
+{
+  "schema": "fbsir.independent-board-w3-admin-verification/v1",
+  "observedAt": "2026-07-20T23:11:01+08:00",
+  "result": "PASS_LOCAL_CANDIDATE",
+  "releaseReady": false,
+  "wave": "W3_ADMIN_PORTAL",
+  "slice": "W3a_entitlement_governance_and_meeting_operation_audit",
+  "repository": {
+    "root": "E:/ddh/u3w-independent-board-control-plane",
+    "branch": "codex/independent-board-control-plane",
+    "sourceBaseCommit": "0ad68ea37f920beb0279f9e90c5aff660493f75a",
+    "binding": "the containing Git commit binds this report to the verified W3a candidate tree",
+    "remote": "https://github.com/U3W-AI/U3W-AI.git",
+    "submittedExpertPackageModified": false,
+    "frozenExpertPackageCommit": "dcd28a8583e35d6f481695dee612aa4604cd46e2"
+  },
+  "accessModel": {
+    "current": "global_system_admin_only",
+    "requiredRole": "admin",
+    "finePermissions": [
+      "board:entitlement:query",
+      "board:entitlement:grant",
+      "board:operation:audit"
+    ],
+    "delegatedTenantAdministration": "NOT_IMPLEMENTED",
+    "sysRoleMenuWrites": 0
+  },
+  "scope": [
+    "existing_ruoyi_admin_shell_and_dynamic_menu_reuse",
+    "enterprise_and_member_selected_from_existing_governance_apis",
+    "entitlement_grant_and_adjustment_with_compare_and_swap",
+    "active_enterprise_and_member_locking_current_read",
+    "safe_entitlement_projection",
+    "bounded_safe_meeting_operation_audit",
+    "independent_board_admin_menu_first_apply_rerun_and_collision_guard"
+  ],
+  "verification": {
+    "backendFocused": {
+      "command": "mvn.cmd -pl FBSir-admin -am -Dtest=IndependentBoardHttpSecurityIntegrationTest,IndependentBoard*Test -Dsurefire.failIfNoSpecifiedTests=false test",
+      "businessTests": 46,
+      "httpJwtTests": 23,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "mysqlTransactions": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-mysql-transaction-it.ps1 -AllowDestructiveTest",
+      "database": "MySQL 8.4.8 Community Server",
+      "engine": "InnoDB",
+      "isolation": "REPEATABLE-READ",
+      "tests": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "productionConnectionUsed": false,
+      "workDirectoryCleaned": true
+    },
+    "frontend": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-control-plane.ps1 -Mode Frontend",
+      "portalEntryPureCases": 8,
+      "portalEntryRouterCases": 5,
+      "meUiSafetyAssertions": 19,
+      "adminUiMatrix": "PASS",
+      "menuComponents": 57,
+      "menuSqlFiles": 30,
+      "viteModulesTransformed": 3023,
+      "productionBuild": "PASS"
+    },
+    "databaseManifest": {
+      "schema": "fbsir.public-database-init-manifest/v1",
+      "steps": 30,
+      "managedUpdateSqlFiles": 27,
+      "w3PublicVersion": "public_init_030",
+      "w3InternalReceipt": "20260720_independent_board_admin_menu_v1",
+      "dryRunOpenedDatabaseConnection": false,
+      "coverage": "PASS"
+    },
+    "adminMenuMysqlIsolation": {
+      "evidenceMode": "ONE_TIME_DISPOSABLE_MYSQL_OBSERVATION",
+      "replayableRepositoryEntrypoint": null,
+      "migrationSha256": "3859bf8789ecb6e7eeebf060d1258a8352d5164548923c8d9c2830fd3304e569",
+      "database": "MySQL 8.4.8 Community Server",
+      "firstApply": "PASS_4_MENUS_1_INTERNAL_RECEIPT_0_ROLE_BINDINGS",
+      "rerun": "PASS_READ_ONLY_AND_FUTURE_ROLE_BINDING_PRESERVED",
+      "identityCollision": "PASS_FAIL_CLOSED_WITH_0_RECEIPTS",
+      "exactMeetingAuditRemark": "独董会会议额度预留操作审计",
+      "productionConnectionUsed": false,
+      "promotionBoundary": "requires_a_repo_owned_replayable_gate_before_release_credit"
+    },
+    "fullRegression": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-control-plane.ps1 -Mode All",
+      "state": "PASS",
+      "backendTests": 555,
+      "backendTestSuites": 145,
+      "backendCountMethod": "sum_of_surefire_xml_rewritten_by_final_all_replay_excluding_separate_mysql_it",
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "frontendProductionBuild": "PASS",
+      "databaseTransactionsRunSeparately": true,
+      "releaseReady": false
+    },
+    "documentationConsistency": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/doc-consistency-audit.ps1 -Json",
+      "findings": 0
+    }
+  },
+  "closedFindings": [
+    "entitlement_and_operation_dto_internal_field_leakage",
+    "first_grant_request_version_0_vs_persisted_version_1_ui_mismatch",
+    "admin_menu_commit_before_named_lock_release_race",
+    "active_enterprise_or_member_check_to_entitlement_write_toctou"
+  ],
+  "toctouEvidence": {
+    "enterpriseDisableBarrier": "LOCK_WAIT_OBSERVED_THEN_403_WITH_0_ENTITLEMENTS_AND_0_RECEIPTS",
+    "memberRemoveBarrier": "LOCK_WAIT_OBSERVED_THEN_403_WITH_0_ENTITLEMENTS_AND_0_RECEIPTS"
+  },
+  "notProven": [
+    "production_database_migration",
+    "admin_portal_production_runtime",
+    "admin_u3w_com_browser_readback",
+    "delegated_tenant_admin_role_and_data_scope",
+    "entitlement_revoke_or_expiry_action",
+    "entitlement_receipt_admin_readback",
+    "credit_ledger_admin_operations",
+    "connector_oauth_vip_binding",
+    "webhook_delivery",
+    "watch_device_control",
+    "production_deployment"
+  ],
+  "nextAction": "Continue W3b with controlled entitlement revoke or expiry and immutable entitlement-receipt audit readback before opening adjacent admin capabilities."
+}

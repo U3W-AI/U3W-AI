@@ -13,11 +13,15 @@ if (-not $Root) {
 $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
 $initScript = Join-Path $resolvedRoot "scripts\init-database.ps1"
 $sqlRoot = Join-Path $resolvedRoot "sql"
+$declarativeManifestPath = Join-Path $sqlRoot "init-manifest.json"
 if (-not (Test-Path -LiteralPath $initScript -PathType Leaf)) {
     throw "Database initializer not found: $initScript"
 }
 if (-not (Test-Path -LiteralPath $sqlRoot -PathType Container)) {
     throw "SQL root not found: $sqlRoot"
+}
+if (-not (Test-Path -LiteralPath $declarativeManifestPath -PathType Leaf)) {
+    throw "Declarative database manifest not found: $declarativeManifestPath"
 }
 
 $shell = (Get-Process -Id $PID).Path
@@ -38,6 +42,38 @@ catch {
 $errors = [System.Collections.Generic.List[string]]::new()
 $managedFiles = @(Get-ChildItem -LiteralPath $sqlRoot -Filter "update_*.sql" -File | Sort-Object Name)
 $manifestUpdateSteps = @($manifest.steps | Where-Object { $_.file -like "update_*.sql" })
+try {
+    $declarativeManifest = Get-Content -LiteralPath $declarativeManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+}
+catch {
+    $errors.Add("declarative database manifest is invalid JSON: $($_.Exception.Message)")
+    $declarativeManifest = $null
+}
+
+if ($null -ne $declarativeManifest) {
+    if ([string]$declarativeManifest.schema -ne 'fbsir.public-database-init-manifest/v1') {
+        $errors.Add("declarative database manifest schema is unsupported: $($declarativeManifest.schema)")
+    }
+    $declaredSteps = @($declarativeManifest.steps)
+    if ($declaredSteps.Count -ne $manifest.steps.Count) {
+        $errors.Add("declarative and executable manifest step counts differ: declared=$($declaredSteps.Count), executable=$($manifest.steps.Count)")
+    }
+    else {
+        for ($index = 0; $index -lt $manifest.steps.Count; $index++) {
+            $declared = $declaredSteps[$index]
+            $executable = $manifest.steps[$index]
+            if ([string]$declared.version -ne [string]$executable.version -or
+                [string]$declared.description -ne [string]$executable.description -or
+                [string]$declared.file -ne [string]$executable.file) {
+                $errors.Add("declarative manifest drift at position $($index + 1)")
+            }
+        }
+    }
+}
+if ([string]$manifest.manifestFile -ne 'sql/init-manifest.json' -or
+    [string]$manifest.manifestSchema -ne 'fbsir.public-database-init-manifest/v1') {
+    $errors.Add("initializer DryRun did not bind the declarative manifest identity")
+}
 
 if (-not $manifest.coverageOk) {
     $errors.Add("initializer reported coverageOk=false")
@@ -73,6 +109,7 @@ $requiredTail = @{
     public_init_027 = "update_20260712_truth_spine_test_state_receipt.sql"
     public_init_028 = "update_20260720_independent_board_control_plane.sql"
     public_init_029 = "update_20260720_independent_board_me_menu.sql"
+    public_init_030 = "update_20260720_independent_board_admin_menu.sql"
 }
 foreach ($version in $requiredTail.Keys) {
     $matches = @($manifest.steps | Where-Object { $_.version -eq $version -and $_.file -eq $requiredTail[$version] })
@@ -97,9 +134,13 @@ $requiredInitNeedles = @(
     "finally {",
     "Assert-IndependentBoardControlPlaneCurrentState",
     "Assert-IndependentBoardMeMenuCurrentState",
+    "Assert-IndependentBoardAdminMenuCurrentState",
     '$expectedState = @(5, 5, 67, 67, 13, 13, 2, 2, 2, 1, 1)',
     '$expectedState = @(1, 1, 1, 1, 1, 1, 1)',
+    '$expectedState = @(1, 1, 1, 1, 4, 1, 1, 1)',
     "role_id = 10 AND role_key = 'user'",
+    'fbsir.public-database-init-manifest/v1',
+    'init-manifest.json',
     '[string]$Database = "wxfbsir"',
     "^[A-Za-z0-9_]+$",
     "[switch]`$CurrentReadOnly",
@@ -223,6 +264,103 @@ if ($menuCommitIndex -ge 0 -and $menuProcedureEndIndex -gt $menuCommitIndex) {
     }
 }
 
+$adminMenuSqlPath = Join-Path $sqlRoot "update_20260720_independent_board_admin_menu.sql"
+$adminMenuSql = Get-Content -LiteralPath $adminMenuSqlPath -Raw -Encoding UTF8
+$requiredAdminMenuNeedles = @(
+    "SHA2(",
+    "CHAR_LENGTH(migration_lock_name) <> 64",
+    "GET_LOCK(migration_lock_name, 30)",
+    "IS_USED_LOCK(migration_lock_name)",
+    "migration_lock_owner <> current_connection",
+    "RELEASE_LOCK(migration_lock_name)",
+    "DECLARE EXIT HANDLER FOR SQLEXCEPTION",
+    "START TRANSACTION",
+    "COMMIT",
+    "IF migration_exists = 0 THEN",
+    "target_identity_count <> 0",
+    "target_identity_count <> 4",
+    "LAST_INSERT_ID()",
+    "IndependentBoardAdmin",
+    "IndependentBoardEntitlementGovernance",
+    "IndependentBoardMeetingAudit",
+    "business/independentBoard/admin/entitlement/index",
+    "business/independentBoard/admin/meetingAudit/index",
+    "board:entitlement:query",
+    "board:entitlement:grant",
+    "board:operation:audit",
+    "20260720_independent_board_admin_menu_v1",
+    "Independent Board administration directory, entitlement governance and meeting audit menus",
+    "table_type = 'BASE TABLE'",
+    "engine = 'InnoDB'",
+    "public manifest lock first and then",
+    "refuse unknown children or",
+    "any sys_role_menu references",
+    "Never roll back",
+    "semantic role_key",
+    "named lock remains held",
+    "read-only completion-state audit",
+    "must never be cleared or replayed automatically"
+)
+foreach ($needle in $requiredAdminMenuNeedles) {
+    if (-not $adminMenuSql.Contains($needle)) {
+        $errors.Add("Independent Board admin menu SQL is missing required contract: $needle")
+    }
+}
+if ($adminMenuSql -match '(?im)^\s*(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+`?sys_role_menu`?\b') {
+    $errors.Add("Independent Board admin menu migration must not create, update or delete role bindings")
+}
+if ($adminMenuSql.Contains("'IndependentBoardMe'") -or
+    $adminMenuSql.Contains('business/independentBoard/me/index') -or
+    $adminMenuSql.Contains('my:independent-board:view')) {
+    $errors.Add("Independent Board admin menu migration must not absorb or rewrite the W2 user menu identity")
+}
+if ($adminMenuSql -match '(?im)^\s*(?:DELETE\s+FROM|UPDATE)\s+`?sys_menu`?' -or
+    $adminMenuSql.Contains('ON DUPLICATE KEY UPDATE')) {
+    $errors.Add("Independent Board admin menu migration must fail closed instead of repairing menu rows")
+}
+$adminMenuInserts = @([regex]::Matches(
+    $adminMenuSql,
+    'INSERT\s+INTO\s+`sys_menu`\s*\((?<columns>[^)]*)\)',
+    [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+))
+if ($adminMenuInserts.Count -ne 4) {
+    $errors.Add("Independent Board admin menu migration must insert exactly four generated-id menu rows")
+}
+foreach ($menuInsert in $adminMenuInserts) {
+    if ($menuInsert.Groups['columns'].Value -match '(?<![A-Za-z0-9_])`?menu_id`?(?![A-Za-z0-9_])') {
+        $errors.Add("Independent Board admin menu migration must not insert a fixed menu_id")
+    }
+}
+if (@([regex]::Matches($adminMenuSql, 'LAST_INSERT_ID\(\)', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)).Count -ne 4) {
+    $errors.Add("Independent Board admin menu migration must capture four generated menu identifiers")
+}
+$adminApplyGuardIndex = $adminMenuSql.IndexOf('IF migration_exists = 0 THEN', [StringComparison]::Ordinal)
+$adminStartTransactionIndex = $adminMenuSql.IndexOf('START TRANSACTION;', [StringComparison]::Ordinal)
+$adminRootInsertIndex = $adminMenuSql.IndexOf("'IndependentBoardAdmin', 1, 0, 'M'", [StringComparison]::Ordinal)
+$adminEntitlementInsertIndex = $adminMenuSql.IndexOf("'IndependentBoardEntitlementGovernance', 1, 0, 'C'", [StringComparison]::Ordinal)
+$adminAuditInsertIndex = $adminMenuSql.IndexOf("'IndependentBoardMeetingAudit', 1, 0, 'C'", [StringComparison]::Ordinal)
+$adminGrantInsertIndex = $adminMenuSql.IndexOf("'board:entitlement:grant', '#'", [StringComparison]::Ordinal)
+$adminReceiptInsertIndex = $adminMenuSql.IndexOf('INSERT INTO `u3w_schema_migration`', [StringComparison]::Ordinal)
+$adminStateAuditIndex = if ($adminReceiptInsertIndex -ge 0) {
+    $adminMenuSql.IndexOf('SELECT COUNT(*), MIN(`menu_id`)', $adminReceiptInsertIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$adminLockReleaseIndex = $adminMenuSql.LastIndexOf('SELECT RELEASE_LOCK(migration_lock_name)', [StringComparison]::Ordinal)
+$adminCommitIndex = $adminMenuSql.LastIndexOf('COMMIT;', [StringComparison]::Ordinal)
+$adminProcedureEndIndex = $adminMenuSql.IndexOf('END$$', [StringComparison]::Ordinal)
+if ($adminApplyGuardIndex -lt 0 -or
+    $adminStartTransactionIndex -le $adminApplyGuardIndex -or
+    $adminRootInsertIndex -le $adminStartTransactionIndex -or
+    $adminEntitlementInsertIndex -le $adminRootInsertIndex -or
+    $adminAuditInsertIndex -le $adminEntitlementInsertIndex -or
+    $adminGrantInsertIndex -le $adminAuditInsertIndex -or
+    $adminReceiptInsertIndex -le $adminGrantInsertIndex -or
+    $adminStateAuditIndex -le $adminReceiptInsertIndex -or
+    $adminCommitIndex -le $adminStateAuditIndex -or
+    $adminLockReleaseIndex -le $adminCommitIndex -or
+    $adminProcedureEndIndex -le $adminLockReleaseIndex) {
+    $errors.Add("Independent Board admin menu migration must write root, pages, permission and receipt, audit completion, commit while locked and only then release its lock")
+}
+
 $truthSpineSqlPath = Join-Path $sqlRoot 'update_20260712_truth_spine_test_state_receipt.sql'
 $truthSpineSql = Get-Content -LiteralPath $truthSpineSqlPath -Raw -Encoding UTF8
 $requiredTruthSpineLockNeedles = @(
@@ -285,12 +423,16 @@ if ($targetCreateMatches.Count -ne 5 -or @($targetCreateMatches | Where-Object {
 }
 $lastCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardControlPlaneCurrentState', [StringComparison]::Ordinal)
 $lastMeMenuCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardMeMenuCurrentState', [StringComparison]::Ordinal)
+$lastAdminMenuCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardAdminMenuCurrentState', [StringComparison]::Ordinal)
 $manifestLoopIndex = $initSource.IndexOf('foreach ($step in $steps)', [StringComparison]::Ordinal)
 if ($lastCurrentReadCall -le $manifestLoopIndex) {
     $errors.Add("initializer must run the Independent Board current-read audit after the complete manifest loop")
 }
 if ($lastMeMenuCurrentReadCall -le $manifestLoopIndex) {
     $errors.Add("initializer must run the Independent Board me menu current-read audit after the complete manifest loop")
+}
+if ($lastAdminMenuCurrentReadCall -le $manifestLoopIndex) {
+    $errors.Add("initializer must run the Independent Board admin menu current-read audit after the complete manifest loop")
 }
 
 $liveVerifierPath = Join-Path $resolvedRoot 'scripts\verify-independent-board-live-database.ps1'
@@ -372,6 +514,7 @@ $result = [pscustomobject]@{
     truthSpineVersion = "public_init_027"
     controlPlaneVersion = "public_init_028"
     meMenuVersion = "public_init_029"
+    adminMenuVersion = "public_init_030"
     errors = @($errors)
 }
 

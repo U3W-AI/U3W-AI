@@ -108,15 +108,20 @@
         LIMIT 1
     </select>
 
-    <select id="selectExactActiveMember" resultMap="MemberScope">
-        SELECT id AS member_id, enterprise_id AS tenant_id, user_id, status, del_flag
-        FROM fbs_enterprise_member
-        WHERE enterprise_id = #{tenantId}
-          AND id = #{memberId}
-          AND user_id = #{userId}
-          AND status = 1
-          AND del_flag = '0'
+    <select id="selectExactActiveMemberForUpdate" resultMap="MemberScope">
+        SELECT <include refid="ActiveContextColumns" />
+        FROM fbs_enterprise_member m
+        INNER JOIN fbs_enterprise e
+            ON e.id = m.enterprise_id
+           AND e.status = 1
+           AND e.del_flag = '0'
+        WHERE m.enterprise_id = #{tenantId}
+          AND m.id = #{memberId}
+          AND m.user_id = #{userId}
+          AND m.status = 1
+          AND m.del_flag = '0'
         LIMIT 1
+        FOR UPDATE
     </select>
 
     <select id="selectActivePlan" resultMap="Plan">
@@ -161,6 +166,7 @@
         WHERE enterprise_id = #{tenantId}
           AND product_code = #{productCode}
         ORDER BY updated_at DESC, id DESC
+        LIMIT 101
     </select>
 
     <insert id="insertEntitlement" parameterType="com.wx.fbsir.business.board.domain.BoardProductEntitlement"
@@ -285,8 +291,9 @@
         FROM fbs_usage_operation
         WHERE enterprise_id = #{tenantId}
           AND product_code = #{productCode}
+          AND metric_code = #{metricCode}
         ORDER BY created_at DESC, id DESC
-        LIMIT 500
+        LIMIT 501
     </select>
 
     <select id="selectRecentOperationsByTenantAndUser" resultMap="Operation">

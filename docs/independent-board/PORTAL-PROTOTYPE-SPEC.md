@@ -1,6 +1,6 @@
 # me / admin 双后台原型说明
 
-状态：`CONFIRMED_AND_W2_LOCALLY_IMPLEMENTED`。用户已于 2026-07-20 明确回复“按建议确认”；本原型的五项建议成为若依生产页面实施基线。静态原型本身仍不连接 API；W2 用户门户的源码、构建、HTTP/JWT 和真实 MySQL 候选态已验证，但尚未部署到真实域名。
+状态：`CONFIRMED_AND_W3A_LOCALLY_IMPLEMENTED`。用户已于 2026-07-20 明确回复“按建议确认”；本原型的五项建议成为若依生产页面实施基线。静态原型本身仍不连接 API；W2 用户门户和 W3a 管理门户首个闭环的源码、构建、HTTP/JWT 与真实 MySQL 候选态已验证，但尚未部署到真实域名。
 
 ## 设计基准
 
@@ -93,5 +93,19 @@
 | 普通用户顶级“独董会”菜单 | `update_20260720_independent_board_me_menu.sql` |
 
 Connector OAuth 自助连接属于 W4；Webhook 与 Watch 深页属于 W5。当前只展示其真实状态或“后续能力”，不提供假入口。真实 `me.u3w.com` / `admin.u3w.com` 部署和浏览器回读属于 W6，不能从本地构建通过推断。
+
+## W3a 落地映射与边界
+
+W3a 保留若依全部现有系统菜单，并新增一级目录“独董会管理”，避免与普通用户顶级“独董会”菜单混淆。当前控制器采用“全局系统管理员角色 + 独董会细粒度权限”双重校验；没有创建租户委派角色或 `sys_role_menu` 绑定，因而不能宣称已支持租户级管理员。
+
+| 已落地能力 | 仓库真源 |
+|---|---|
+| 从现有企业和成员列表选择上下文，不提供编号手填旁路 | 两个 W3a 管理页面及既有企业 API |
+| 权益授予/调整采用 CAS 版本，企业与成员活跃行锁持有至权益和回执提交 | `IndependentBoardEntitlementService`、`selectExactActiveMemberForUpdate` |
+| VIP 授予与 Connector 生效分离，待认证不冒充已激活 | 安全管理 DTO、权益页面状态映射 |
+| 会议额度审计固定产品与指标、最多 500 条并显式标记截断 | `BoardOperationAuditEnvelope` 与会议审计页 |
+| W3 菜单首次应用、可重入、碰撞失败关闭和组件存在性 | `update_20260720_independent_board_admin_menu.sql` 与数据库/菜单门禁 |
+
+W3a 的“权益治理”仅表示授予和调整，不包含撤销、失效处置或权益回执页面；“会议审计”只读额度预约操作，不代表会议已完成。W3b 继续完成受控撤销/失效与不可变权益回执审计。积分、OAuth、Webhook、Watch、FBSir Hub 及真实域名部署仍分别留在后续波次。
 
 可点击原型入口：[双后台原型](./prototypes/portals/index.html)。
