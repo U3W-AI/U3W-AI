@@ -46,6 +46,7 @@ function Invoke-ContractChecks {
         'docs\independent-board\W3B-ENTITLEMENT-LIFECYCLE-CONTRACT.md',
         'docs\independent-board\W4A-AUTHORITATIVE-CONNECTOR-BINDING-CONTRACT.md',
         'docs\independent-board\W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md',
+        'docs\independent-board\W4B-DATABASE-SUPPORT-MATRIX.md',
         'docs\independent-board\W4B-INPUT-EVIDENCE.json',
         'docs\independent-board\prototypes\portals\index.html',
         'sql\update_20260720_independent_board_control_plane.sql',
@@ -53,6 +54,7 @@ function Invoke-ContractChecks {
         'sql\update_20260720_independent_board_admin_menu.sql',
         'sql\update_20260720_independent_board_entitlement_lifecycle_menu.sql',
         'sql\update_20260721_independent_board_connector_binding.sql',
+        'sql\update_20260721_independent_board_oauth_foundation.sql',
         'scripts\verify-database-manifest.ps1',
         'scripts\verify-independent-board-live-database.ps1',
         'scripts\run-independent-board-menu-migration-it.ps1',
@@ -64,6 +66,9 @@ function Invoke-ContractChecks {
         'FBSir-business\src\main\java\com\wx\fbsir\business\board\dto\BoardEntitlementReceiptView.java',
         'FBSir-business\src\main\java\com\wx\fbsir\business\board\dto\BoardEntitlementReceiptAuditEnvelope.java',
         'FBSir-business\src\test\java\com\wx\fbsir\business\board\integration\IndependentBoardMysqlTransactionIT.java',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\oauth\service\IndependentBoardOAuthClientRegistrationService.java',
+        'FBSir-business\src\main\resources\mapper\board\IndependentBoardOAuthMapper.xml',
+        'FBSir-business\src\test\java\com\wx\fbsir\business\board\oauth\service\IndependentBoardOAuthClientRegistrationServiceTest.java',
         'FBSir-admin\src\test\java\com\wx\fbsir\business\board\IndependentBoardHttpSecurityIntegrationTest.java',
         'FBSir-ui\src\api\business\independentBoard\index.js',
         'FBSir-ui\src\views\business\independentBoard\me\index.vue',
@@ -115,7 +120,7 @@ function Invoke-ContractChecks {
 
     $w4bContract = Get-Content -LiteralPath (Join-Path $RepoRoot 'docs\independent-board\W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md') -Raw -Encoding UTF8
     foreach ($marker in @(
-        'contract_locked_design_only',
+        'contract_locked_with_w4b_1_foundation_verified_local',
         'https://api2.u3w.com/fbs-mcp/mcp',
         'https://api2.u3w.com/.well-known/oauth-protected-resource/fbs-mcp/mcp',
         'code_challenge_method=S256',

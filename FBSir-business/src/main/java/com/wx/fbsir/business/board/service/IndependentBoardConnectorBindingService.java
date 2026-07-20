@@ -78,6 +78,7 @@ public class IndependentBoardConnectorBindingService implements BoardConnectorBi
         this.clock = clock;
     }
 
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public BoardConnectorBindingSnapshot confirmProtectedRequest(
             BoardConnectorProtectedRequestAttestation attestation,

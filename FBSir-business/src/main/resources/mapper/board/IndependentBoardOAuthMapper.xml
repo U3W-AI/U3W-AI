@@ -1,0 +1,461 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.board.oauth.mapper.IndependentBoardOAuthMapper">
+
+    <resultMap id="OAuthClientMap" type="com.wx.fbsir.business.board.oauth.domain.BoardOAuthClient">
+        <id property="id" column="id" />
+        <result property="clientId" column="client_id" />
+        <result property="clientName" column="client_name" />
+        <result property="issuerUri" column="issuer_uri" />
+        <result property="resourceUri" column="resource_uri" />
+        <result property="productCode" column="product_code" />
+        <result property="sourceCode" column="source_code" />
+        <result property="connectorCode" column="connector_code" />
+        <result property="redirectPort" column="redirect_port" />
+        <result property="redirectUri" column="redirect_uri" />
+        <result property="tokenEndpointAuthMethod" column="token_endpoint_auth_method" />
+        <result property="grantTypesCanonical" column="grant_types_canonical" />
+        <result property="responseTypesCanonical" column="response_types_canonical" />
+        <result property="scopeCanonical" column="scope_canonical" />
+        <result property="scopeDigest" column="scope_digest" />
+        <result property="metadataDigest" column="metadata_digest" />
+        <result property="registrationSourceDigest" column="registration_source_digest" />
+        <result property="status" column="status" />
+        <result property="registeredAt" column="registered_at" />
+        <result property="expiresAt" column="expires_at" />
+        <result property="terminatedAt" column="terminated_at" />
+        <result property="version" column="version" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <resultMap id="OAuthRequestMap" type="com.wx.fbsir.business.board.oauth.domain.BoardOAuthAuthorizationRequest">
+        <id property="id" column="id" />
+        <result property="requestHandleDigest" column="request_handle_digest" />
+        <result property="clientId" column="client_id" />
+        <result property="redirectUri" column="redirect_uri" />
+        <result property="codeChallenge" column="code_challenge" />
+        <result property="codeChallengeMethod" column="code_challenge_method" />
+        <result property="stateDigest" column="state_digest" />
+        <result property="stateKeyRef" column="state_key_ref" />
+        <result property="stateNonce" column="state_nonce" />
+        <result property="stateCiphertext" column="state_ciphertext" />
+        <result property="issuerUri" column="issuer_uri" />
+        <result property="resourceUri" column="resource_uri" />
+        <result property="productCode" column="product_code" />
+        <result property="sourceCode" column="source_code" />
+        <result property="connectorCode" column="connector_code" />
+        <result property="scopeCanonical" column="scope_canonical" />
+        <result property="scopeDigest" column="scope_digest" />
+        <result property="tenantId" column="enterprise_id" />
+        <result property="memberId" column="member_id" />
+        <result property="userId" column="user_id" />
+        <result property="principalSubjectDigest" column="principal_subject_digest" />
+        <result property="status" column="status" />
+        <result property="requestedAt" column="requested_at" />
+        <result property="expiresAt" column="expires_at" />
+        <result property="approvedAt" column="approved_at" />
+        <result property="deniedAt" column="denied_at" />
+        <result property="consumedAt" column="consumed_at" />
+        <result property="version" column="version" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <resultMap id="OAuthCodeMap" type="com.wx.fbsir.business.board.oauth.domain.BoardOAuthAuthorizationCode">
+        <id property="id" column="id" />
+        <result property="codeDigest" column="code_digest" />
+        <result property="authorizationRequestId" column="authorization_request_id" />
+        <result property="clientId" column="client_id" />
+        <result property="redirectUri" column="redirect_uri" />
+        <result property="codeChallenge" column="code_challenge" />
+        <result property="codeChallengeMethod" column="code_challenge_method" />
+        <result property="issuerUri" column="issuer_uri" />
+        <result property="resourceUri" column="resource_uri" />
+        <result property="productCode" column="product_code" />
+        <result property="sourceCode" column="source_code" />
+        <result property="connectorCode" column="connector_code" />
+        <result property="scopeCanonical" column="scope_canonical" />
+        <result property="scopeDigest" column="scope_digest" />
+        <result property="tenantId" column="enterprise_id" />
+        <result property="memberId" column="member_id" />
+        <result property="userId" column="user_id" />
+        <result property="principalSubjectDigest" column="principal_subject_digest" />
+        <result property="status" column="status" />
+        <result property="issuedAt" column="issued_at" />
+        <result property="expiresAt" column="expires_at" />
+        <result property="usedAt" column="used_at" />
+        <result property="revokedAt" column="revoked_at" />
+        <result property="version" column="version" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <resultMap id="OAuthFamilyMap" type="com.wx.fbsir.business.board.oauth.domain.BoardOAuthTokenFamily">
+        <id property="id" column="id" />
+        <result property="familyId" column="family_id" />
+        <result property="originAuthorizationCodeId" column="origin_authorization_code_id" />
+        <result property="clientId" column="client_id" />
+        <result property="tenantId" column="enterprise_id" />
+        <result property="memberId" column="member_id" />
+        <result property="userId" column="user_id" />
+        <result property="productCode" column="product_code" />
+        <result property="sourceCode" column="source_code" />
+        <result property="connectorCode" column="connector_code" />
+        <result property="issuerUri" column="issuer_uri" />
+        <result property="resourceUri" column="resource_uri" />
+        <result property="scopeCanonical" column="scope_canonical" />
+        <result property="scopeDigest" column="scope_digest" />
+        <result property="principalSubjectDigest" column="principal_subject_digest" />
+        <result property="bindingId" column="binding_id" />
+        <result property="bindingVersion" column="binding_version" />
+        <result property="status" column="status" />
+        <result property="lifecycleSlot" column="lifecycle_slot" />
+        <result property="currentRefreshGeneration" column="current_refresh_generation" />
+        <result property="issuedAt" column="issued_at" />
+        <result property="activatedAt" column="activated_at" />
+        <result property="expiresAt" column="expires_at" />
+        <result property="terminatedAt" column="terminated_at" />
+        <result property="version" column="version" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <resultMap id="OAuthTokenMap" type="com.wx.fbsir.business.board.oauth.domain.BoardOAuthToken">
+        <id property="id" column="id" />
+        <result property="tokenDigest" column="token_digest" />
+        <result property="familyId" column="family_id" />
+        <result property="tokenType" column="token_type" />
+        <result property="generation" column="generation" />
+        <result property="resourceUri" column="resource_uri" />
+        <result property="scopeCanonical" column="scope_canonical" />
+        <result property="scopeDigest" column="scope_digest" />
+        <result property="status" column="status" />
+        <result property="activeRefreshSlot" column="active_refresh_slot" />
+        <result property="issuedAt" column="issued_at" />
+        <result property="usedAt" column="used_at" />
+        <result property="revokedAt" column="revoked_at" />
+        <result property="expiresAt" column="expires_at" />
+        <result property="version" column="version" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <insert id="insertClient" parameterType="com.wx.fbsir.business.board.oauth.domain.BoardOAuthClient"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_oauth_client
+            (client_id, client_name, issuer_uri, resource_uri, product_code,
+             source_code, connector_code, redirect_port, redirect_uri,
+             token_endpoint_auth_method, grant_types_canonical,
+             response_types_canonical, scope_canonical, scope_digest,
+             metadata_digest, registration_source_digest, status,
+             registered_at, expires_at, terminated_at, version)
+        VALUES
+            (#{clientId}, #{clientName}, #{issuerUri}, #{resourceUri}, #{productCode},
+             #{sourceCode}, #{connectorCode}, #{redirectPort}, #{redirectUri},
+             #{tokenEndpointAuthMethod}, #{grantTypesCanonical},
+             #{responseTypesCanonical}, #{scopeCanonical}, #{scopeDigest},
+             #{metadataDigest}, #{registrationSourceDigest}, #{status},
+             #{registeredAt}, #{expiresAt}, #{terminatedAt}, #{version})
+    </insert>
+
+    <select id="selectClientForUpdate" resultMap="OAuthClientMap">
+        SELECT *
+        FROM fbs_oauth_client
+        WHERE client_id = #{clientId}
+        FOR UPDATE
+    </select>
+
+    <update id="terminateClientIfVersion">
+        UPDATE fbs_oauth_client
+        SET status = #{targetStatus},
+            terminated_at = #{terminatedAt},
+            version = version + 1
+        WHERE client_id = #{clientId}
+          AND version = #{expectedVersion}
+          AND status = 'ACTIVE'
+    </update>
+
+    <insert id="insertAuthorizationRequest"
+            parameterType="com.wx.fbsir.business.board.oauth.domain.BoardOAuthAuthorizationRequest"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_oauth_authorization_request
+            (request_handle_digest, client_id, redirect_uri, code_challenge,
+             code_challenge_method, state_digest, state_key_ref, state_nonce,
+             state_ciphertext, issuer_uri, resource_uri, product_code,
+             source_code, connector_code, scope_canonical, scope_digest,
+             enterprise_id, member_id, user_id, principal_subject_digest,
+             status, requested_at, expires_at, approved_at, denied_at,
+             consumed_at, version)
+        VALUES
+            (#{requestHandleDigest}, #{clientId}, #{redirectUri}, #{codeChallenge},
+             #{codeChallengeMethod}, #{stateDigest}, #{stateKeyRef}, #{stateNonce},
+             #{stateCiphertext}, #{issuerUri}, #{resourceUri}, #{productCode},
+             #{sourceCode}, #{connectorCode}, #{scopeCanonical}, #{scopeDigest},
+             #{tenantId}, #{memberId}, #{userId}, #{principalSubjectDigest},
+             #{status}, #{requestedAt}, #{expiresAt}, #{approvedAt}, #{deniedAt},
+             #{consumedAt}, #{version})
+    </insert>
+
+    <select id="selectAuthorizationRequestByHandleForUpdate" resultMap="OAuthRequestMap">
+        SELECT *
+        FROM fbs_oauth_authorization_request
+        WHERE request_handle_digest = #{requestHandleDigest}
+        FOR UPDATE
+    </select>
+
+    <update id="approveAuthorizationRequestIfVersion">
+        UPDATE fbs_oauth_authorization_request
+        SET enterprise_id = #{request.tenantId},
+            member_id = #{request.memberId},
+            user_id = #{request.userId},
+            principal_subject_digest = #{request.principalSubjectDigest},
+            status = 'APPROVED',
+            approved_at = #{request.approvedAt},
+            version = version + 1
+        WHERE id = #{request.id}
+          AND client_id = #{request.clientId}
+          AND version = #{expectedVersion}
+          AND status = 'PENDING'
+          AND expires_at &gt; #{request.approvedAt}
+    </update>
+
+    <update id="denyAuthorizationRequestIfVersion">
+        UPDATE fbs_oauth_authorization_request
+        SET enterprise_id = #{request.tenantId},
+            member_id = #{request.memberId},
+            user_id = #{request.userId},
+            principal_subject_digest = #{request.principalSubjectDigest},
+            status = 'DENIED',
+            denied_at = #{request.deniedAt},
+            state_key_ref = NULL,
+            state_nonce = NULL,
+            state_ciphertext = NULL,
+            version = version + 1
+        WHERE id = #{request.id}
+          AND client_id = #{request.clientId}
+          AND version = #{expectedVersion}
+          AND status = 'PENDING'
+          AND expires_at &gt; #{request.deniedAt}
+    </update>
+
+    <update id="consumeAuthorizationRequestIfVersion">
+        UPDATE fbs_oauth_authorization_request
+        SET status = 'CONSUMED',
+            consumed_at = #{request.consumedAt},
+            state_key_ref = NULL,
+            state_nonce = NULL,
+            state_ciphertext = NULL,
+            version = version + 1
+        WHERE id = #{request.id}
+          AND client_id = #{request.clientId}
+          AND version = #{expectedVersion}
+          AND status = 'APPROVED'
+          AND expires_at &gt;= #{request.consumedAt}
+    </update>
+
+    <insert id="insertAuthorizationCode"
+            parameterType="com.wx.fbsir.business.board.oauth.domain.BoardOAuthAuthorizationCode"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_oauth_authorization_code
+            (code_digest, authorization_request_id, client_id, redirect_uri,
+             code_challenge, code_challenge_method, issuer_uri, resource_uri,
+             product_code, source_code, connector_code, scope_canonical,
+             scope_digest, enterprise_id, member_id, user_id,
+             principal_subject_digest, status, issued_at, expires_at,
+             used_at, revoked_at, version)
+        VALUES
+            (#{codeDigest}, #{authorizationRequestId}, #{clientId}, #{redirectUri},
+             #{codeChallenge}, #{codeChallengeMethod}, #{issuerUri}, #{resourceUri},
+             #{productCode}, #{sourceCode}, #{connectorCode}, #{scopeCanonical},
+             #{scopeDigest}, #{tenantId}, #{memberId}, #{userId},
+             #{principalSubjectDigest}, #{status}, #{issuedAt}, #{expiresAt},
+             #{usedAt}, #{revokedAt}, #{version})
+    </insert>
+
+    <select id="selectAuthorizationCodeByDigestForUpdate" resultMap="OAuthCodeMap">
+        SELECT *
+        FROM fbs_oauth_authorization_code
+        WHERE code_digest = #{codeDigest}
+        FOR UPDATE
+    </select>
+
+    <update id="consumeAuthorizationCodeIfVersion">
+        UPDATE fbs_oauth_authorization_code
+        SET status = 'USED', used_at = #{usedAt}, version = version + 1
+        WHERE id = #{codeId}
+          AND version = #{expectedVersion}
+          AND status = 'ACTIVE'
+          AND expires_at &gt; #{usedAt}
+    </update>
+
+    <update id="revokeAuthorizationCodeIfVersion">
+        UPDATE fbs_oauth_authorization_code
+        SET status = 'REVOKED', revoked_at = #{revokedAt}, version = version + 1
+        WHERE id = #{codeId}
+          AND version = #{expectedVersion}
+          AND status = 'ACTIVE'
+    </update>
+
+    <insert id="insertTokenFamily"
+            parameterType="com.wx.fbsir.business.board.oauth.domain.BoardOAuthTokenFamily"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_oauth_token_family
+            (family_id, origin_authorization_code_id, client_id, enterprise_id,
+             member_id, user_id, product_code, source_code, connector_code,
+             issuer_uri, resource_uri, scope_canonical, scope_digest,
+             principal_subject_digest, binding_id, binding_version, status,
+             current_refresh_generation, issued_at, activated_at, expires_at,
+             terminated_at, version)
+        VALUES
+            (#{familyId}, #{originAuthorizationCodeId}, #{clientId}, #{tenantId},
+             #{memberId}, #{userId}, #{productCode}, #{sourceCode}, #{connectorCode},
+             #{issuerUri}, #{resourceUri}, #{scopeCanonical}, #{scopeDigest},
+             #{principalSubjectDigest}, #{bindingId}, #{bindingVersion}, #{status},
+             #{currentRefreshGeneration}, #{issuedAt}, #{activatedAt}, #{expiresAt},
+             #{terminatedAt}, #{version})
+    </insert>
+
+    <select id="selectTokenFamilyForUpdate" resultMap="OAuthFamilyMap">
+        SELECT *
+        FROM fbs_oauth_token_family
+        WHERE family_id = #{familyId}
+          AND client_id = #{clientId}
+        FOR UPDATE
+    </select>
+
+    <select id="selectLiveTokenFamiliesForUpdate" resultMap="OAuthFamilyMap">
+        SELECT *
+        FROM fbs_oauth_token_family
+        WHERE enterprise_id = #{tenantId}
+          AND member_id = #{memberId}
+          AND user_id = #{userId}
+          AND CAST(product_code AS BINARY) = CAST(#{productCode} AS BINARY)
+          AND source_code = #{sourceCode}
+          AND connector_code = #{connectorCode}
+          AND status IN ('PENDING_BINDING', 'ACTIVE')
+        ORDER BY id
+        FOR UPDATE
+    </select>
+
+    <update id="activateTokenFamilyIfVersion">
+        UPDATE fbs_oauth_token_family
+        SET binding_id = #{family.bindingId},
+            binding_version = #{family.bindingVersion},
+            status = 'ACTIVE',
+            activated_at = #{family.activatedAt},
+            version = version + 1
+        WHERE family_id = #{family.familyId}
+          AND client_id = #{family.clientId}
+          AND enterprise_id = #{family.tenantId}
+          AND member_id = #{family.memberId}
+          AND user_id = #{family.userId}
+          AND resource_uri = #{family.resourceUri}
+          AND version = #{expectedVersion}
+          AND status = 'PENDING_BINDING'
+          AND expires_at &gt; #{family.activatedAt}
+    </update>
+
+    <update id="advanceTokenFamilyGenerationIfVersion">
+        UPDATE fbs_oauth_token_family
+        SET current_refresh_generation = current_refresh_generation + 1,
+            version = version + 1
+        WHERE family_id = #{familyId}
+          AND version = #{expectedVersion}
+          AND current_refresh_generation = #{expectedGeneration}
+          AND status = 'ACTIVE'
+    </update>
+
+    <update id="terminateTokenFamilyIfVersion">
+        UPDATE fbs_oauth_token_family
+        SET status = #{targetStatus},
+            terminated_at = #{terminatedAt},
+            version = version + 1
+        WHERE family_id = #{familyId}
+          AND version = #{expectedVersion}
+          AND status IN ('PENDING_BINDING', 'ACTIVE')
+    </update>
+
+    <insert id="insertToken"
+            parameterType="com.wx.fbsir.business.board.oauth.domain.BoardOAuthToken"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_oauth_token
+            (token_digest, family_id, token_type, generation, resource_uri,
+             scope_canonical, scope_digest, status, issued_at, used_at,
+             revoked_at, expires_at, version)
+        VALUES
+            (#{tokenDigest}, #{familyId}, #{tokenType}, #{generation}, #{resourceUri},
+             #{scopeCanonical}, #{scopeDigest}, #{status}, #{issuedAt}, #{usedAt},
+             #{revokedAt}, #{expiresAt}, #{version})
+    </insert>
+
+    <select id="selectTokenLocatorByDigest" resultMap="OAuthTokenMap">
+        SELECT *
+        FROM fbs_oauth_token
+        WHERE token_digest = #{tokenDigest}
+    </select>
+
+    <select id="selectTokenForUpdate" resultMap="OAuthTokenMap">
+        SELECT *
+        FROM fbs_oauth_token
+        WHERE family_id = #{familyId}
+          AND token_digest = #{tokenDigest}
+        FOR UPDATE
+    </select>
+
+    <select id="selectFamilyTokensForUpdate" resultMap="OAuthTokenMap">
+        SELECT *
+        FROM fbs_oauth_token
+        WHERE family_id = #{familyId}
+        ORDER BY id
+        FOR UPDATE
+    </select>
+
+    <update id="useRefreshTokenIfVersion">
+        UPDATE fbs_oauth_token
+        SET status = 'USED', used_at = #{usedAt}, version = version + 1
+        WHERE id = #{tokenId}
+          AND family_id = #{familyId}
+          AND version = #{expectedVersion}
+          AND token_type = 'REFRESH'
+          AND status = 'ACTIVE'
+          AND expires_at &gt; #{usedAt}
+    </update>
+
+    <update id="revokeActiveFamilyTokens">
+        UPDATE fbs_oauth_token
+        SET status = CASE
+                WHEN expires_at &lt;= #{revokedAt} THEN 'EXPIRED'
+                ELSE 'REVOKED'
+            END,
+            revoked_at = CASE
+                WHEN expires_at &lt;= #{revokedAt} THEN NULL
+                ELSE GREATEST(issued_at, #{revokedAt})
+            END,
+            version = version + 1
+        WHERE family_id = #{familyId}
+          AND status = 'ACTIVE'
+    </update>
+
+    <insert id="insertReceipt"
+            parameterType="com.wx.fbsir.business.board.oauth.domain.BoardOAuthReceipt"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_oauth_receipt
+            (receipt_id, action, client_id, authorization_request_id,
+             authorization_code_id, family_id, token_id, binding_id,
+             enterprise_id, member_id, user_id, principal_subject_digest,
+             actor_type, actor_user_id,
+             actor_subject_digest, correlation_id, payload_digest,
+             evidence_level, created_at)
+        VALUES
+            (#{receiptId}, #{action}, #{clientId}, #{authorizationRequestId},
+             #{authorizationCodeId}, #{familyId}, #{tokenId}, #{bindingId},
+             #{tenantId}, #{memberId}, #{userId}, #{principalSubjectDigest},
+             #{actorType}, #{actorUserId},
+             #{actorSubjectDigest}, #{correlationId}, #{payloadDigest},
+             #{evidenceLevel}, #{createdAt})
+    </insert>
+
+</mapper>

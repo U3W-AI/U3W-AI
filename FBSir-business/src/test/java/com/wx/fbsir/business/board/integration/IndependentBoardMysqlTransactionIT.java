@@ -14,6 +14,11 @@ import com.wx.fbsir.business.board.dto.BoardMeetingReservationRequest;
 import com.wx.fbsir.business.board.dto.BoardMeetingReservationView;
 import com.wx.fbsir.business.board.dto.BoardMeetingLookupView;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
+import com.wx.fbsir.business.board.oauth.BoardOAuthProfile;
+import com.wx.fbsir.business.board.oauth.dto.BoardOAuthClientRegistrationRequest;
+import com.wx.fbsir.business.board.oauth.dto.BoardOAuthClientRegistrationResponse;
+import com.wx.fbsir.business.board.oauth.mapper.IndependentBoardOAuthMapper;
+import com.wx.fbsir.business.board.oauth.service.IndependentBoardOAuthClientRegistrationService;
 import com.wx.fbsir.business.board.service.IndependentBoardEntitlementService;
 import com.wx.fbsir.business.board.service.IndependentBoardConnectorBindingService;
 import com.wx.fbsir.business.board.service.IndependentBoardDashboardService;
@@ -76,6 +81,8 @@ class IndependentBoardMysqlTransactionIT {
             "20260720_independent_board_me_menu_v1";
     private static final String CONNECTOR_MIGRATION_VERSION =
             "20260721_independent_board_connector_binding_v1";
+    private static final String OAUTH_MIGRATION_VERSION =
+            "20260721_independent_board_oauth_foundation_v1";
     private static final String CONNECTOR_ISSUER = "https://api2.u3w.com";
     private static final String CONNECTOR_RESOURCE = "https://api2.u3w.com/fbs-mcp/mcp";
     private static final long TENANT_ONE = 1001L;
@@ -92,6 +99,8 @@ class IndependentBoardMysqlTransactionIT {
     private static IndependentBoardConnectorBindingService connectorBindingService;
     private static IndependentBoardMeetingService meetingService;
     private static IndependentBoardDashboardService dashboardService;
+    private static IndependentBoardOAuthClientRegistrationService oauthClientRegistrationService;
+    private static IndependentBoardOAuthMapper oauthMapper;
 
     @BeforeAll
     static void startSpringContextAndApplyCurrentMigration() throws Exception {
@@ -113,6 +122,9 @@ class IndependentBoardMysqlTransactionIT {
         connectorBindingService = context.getBean(IndependentBoardConnectorBindingService.class);
         meetingService = context.getBean(IndependentBoardMeetingService.class);
         dashboardService = context.getBean(IndependentBoardDashboardService.class);
+        oauthClientRegistrationService = context.getBean(
+                IndependentBoardOAuthClientRegistrationService.class);
+        oauthMapper = context.getBean(IndependentBoardOAuthMapper.class);
 
         assertTrue(AopUtils.isAopProxy(entitlementService),
                 "entitlement service must be a Spring transaction proxy");
@@ -122,6 +134,8 @@ class IndependentBoardMysqlTransactionIT {
                 "meeting service must be a Spring transaction proxy");
         assertTrue(AopUtils.isAopProxy(dashboardService),
                 "dashboard service must be a Spring transaction proxy");
+        assertTrue(AopUtils.isAopProxy(oauthClientRegistrationService),
+                "OAuth client registration service must be a Spring transaction proxy");
         assertTrue(AopUtils.isAopProxy(
                         context.getBean(IndependentBoardMeetingTransactionService.class)),
                 "meeting transaction service must be a Spring transaction proxy");
@@ -145,6 +159,13 @@ class IndependentBoardMysqlTransactionIT {
                 "DROP TRIGGER IF EXISTS independent_board_it_fail_finalize",
                 "DROP TRIGGER IF EXISTS independent_board_it_fail_receipt",
                 "DROP TRIGGER IF EXISTS independent_board_it_fail_binding_receipt",
+                "DROP TRIGGER IF EXISTS independent_board_it_fail_oauth_receipt",
+                "TRUNCATE TABLE fbs_oauth_receipt",
+                "DELETE FROM fbs_oauth_token",
+                "DELETE FROM fbs_oauth_token_family",
+                "DELETE FROM fbs_oauth_authorization_code",
+                "DELETE FROM fbs_oauth_authorization_request",
+                "DELETE FROM fbs_oauth_client",
                 "DELETE FROM fbs_usage_operation",
                 "DELETE FROM fbs_usage_budget",
                 "TRUNCATE TABLE fbs_connector_binding_receipt",
@@ -166,6 +187,98 @@ class IndependentBoardMysqlTransactionIT {
                         + "(" + TENANT_ONE_MEMBER_TWO + ", " + TENANT_ONE + ", " + USER_TWO
                         + ", 'MEMBER', 1, '0')"
         );
+    }
+
+    @Test
+    void oauthClientRegistrationAndReceiptCommitAtomicallyAndCanRetryAfterReceiptFailure()
+            throws Exception {
+        BoardOAuthClientRegistrationRequest request = new BoardOAuthClientRegistrationRequest(
+                List.of("http://127.0.0.1:54321/oauth/callback"),
+                IndependentBoardOAuthClientRegistrationService.TOKEN_ENDPOINT_AUTH_METHOD,
+                List.of("authorization_code", "refresh_token"),
+                List.of("code"),
+                List.of(
+                        "board.receipt.write",
+                        "identity.read",
+                        "board.meeting.reserve",
+                        "entitlement.read"),
+                "{\"client_name\":\"WorkBuddy\"}".getBytes(StandardCharsets.UTF_8),
+                "internal-w4b-registration".getBytes(StandardCharsets.UTF_8));
+
+        execute("CREATE TRIGGER independent_board_it_fail_oauth_receipt "
+                + "BEFORE INSERT ON fbs_oauth_receipt FOR EACH ROW "
+                + "SIGNAL SQLSTATE '45000' "
+                + "SET MESSAGE_TEXT = 'forced OAuth receipt failure'");
+
+        ServiceException failed = assertThrows(
+                ServiceException.class, () -> oauthClientRegistrationService.register(request));
+        assertEquals(500, failed.getCode());
+        assertEquals(IndependentBoardOAuthClientRegistrationService.RECEIPT_WRITE_FAILED,
+                failed.getMessage());
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_oauth_client"));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_oauth_receipt"));
+
+        execute("DROP TRIGGER independent_board_it_fail_oauth_receipt");
+        BoardOAuthClientRegistrationResponse response =
+                oauthClientRegistrationService.register(request);
+
+        assertNotNull(response.clientId());
+        assertEquals(BoardOAuthProfile.CANONICAL_SCOPE, response.scope());
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_oauth_client "
+                + "WHERE client_id = '" + response.clientId() + "' AND status = 'ACTIVE'"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_oauth_receipt "
+                + "WHERE client_id = '" + response.clientId() + "' "
+                + "AND action = 'OAUTH_CLIENT_REGISTERED' "
+                + "AND evidence_level = 'ACTION_COMPLETED'"));
+    }
+
+    @Test
+    void familyTokenTerminationExpiresHistoricalAccessAndRevokesLiveRefreshAtTimeFloor()
+            throws Exception {
+        execute(
+                "SET FOREIGN_KEY_CHECKS = 0",
+                "INSERT INTO fbs_oauth_token_family SET "
+                        + "family_id = 'family-termination-it', "
+                        + "origin_authorization_code_id = 1, client_id = REPEAT('A', 43), "
+                        + "enterprise_id = 1001, member_id = 101, user_id = 501, "
+                        + "product_code = 'FBSIR_INDEPENDENT_BOARD', source_code = 'WORKBUDDY', "
+                        + "connector_code = 'fbs-connector', issuer_uri = 'https://api2.u3w.com', "
+                        + "resource_uri = 'https://api2.u3w.com/fbs-mcp/mcp', "
+                        + "scope_canonical = 'identity.read entitlement.read board.meeting.reserve board.receipt.write', "
+                        + "scope_digest = UNHEX('351185152796016cff0c4aba15af369a4891a1e484d9a1cb3513b001e5b8e1d1'), "
+                        + "principal_subject_digest = UNHEX(REPEAT('51', 32)), "
+                        + "binding_id = 'binding-termination-it', binding_version = 1, "
+                        + "status = 'ACTIVE', current_refresh_generation = 0, "
+                        + "issued_at = '2026-07-20 00:00:00.000', "
+                        + "activated_at = '2026-07-20 00:00:00.000', "
+                        + "expires_at = '2026-07-20 01:00:00.000'",
+                "INSERT INTO fbs_oauth_token "
+                        + "(token_digest, family_id, token_type, generation, resource_uri, "
+                        + "scope_canonical, scope_digest, status, issued_at, expires_at) VALUES "
+                        + "(UNHEX(REPEAT('71', 32)), 'family-termination-it', 'ACCESS', 0, "
+                        + "'https://api2.u3w.com/fbs-mcp/mcp', "
+                        + "'identity.read entitlement.read board.meeting.reserve board.receipt.write', "
+                        + "UNHEX('351185152796016cff0c4aba15af369a4891a1e484d9a1cb3513b001e5b8e1d1'), "
+                        + "'ACTIVE', '2026-07-20 00:00:00.000', '2026-07-20 00:10:00.000'), "
+                        + "(UNHEX(REPEAT('72', 32)), 'family-termination-it', 'REFRESH', 0, "
+                        + "'https://api2.u3w.com/fbs-mcp/mcp', "
+                        + "'identity.read entitlement.read board.meeting.reserve board.receipt.write', "
+                        + "UNHEX('351185152796016cff0c4aba15af369a4891a1e484d9a1cb3513b001e5b8e1d1'), "
+                        + "'ACTIVE', '2026-07-20 00:25:00.000', '2026-07-20 00:55:00.000')",
+                "SET FOREIGN_KEY_CHECKS = 1");
+
+        int updated = oauthMapper.revokeActiveFamilyTokens(
+                "family-termination-it",
+                java.sql.Timestamp.valueOf("2026-07-20 00:20:00.000"));
+
+        assertEquals(2, updated);
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_oauth_token "
+                + "WHERE family_id = 'family-termination-it' AND token_type = 'ACCESS' "
+                + "AND status = 'EXPIRED' AND revoked_at IS NULL AND version = 1"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_oauth_token "
+                + "WHERE family_id = 'family-termination-it' AND token_type = 'REFRESH' "
+                + "AND status = 'REVOKED' "
+                + "AND revoked_at = '2026-07-20 00:25:00.000' AND version = 1"));
     }
 
     @Test
@@ -1281,6 +1394,12 @@ class IndependentBoardMysqlTransactionIT {
                 "DROP TRIGGER IF EXISTS independent_board_it_fail_finalize",
                 "DROP TRIGGER IF EXISTS independent_board_it_fail_receipt",
                 "DROP TRIGGER IF EXISTS independent_board_it_fail_binding_receipt",
+                "DROP TABLE IF EXISTS fbs_oauth_receipt",
+                "DROP TABLE IF EXISTS fbs_oauth_token",
+                "DROP TABLE IF EXISTS fbs_oauth_token_family",
+                "DROP TABLE IF EXISTS fbs_oauth_authorization_code",
+                "DROP TABLE IF EXISTS fbs_oauth_authorization_request",
+                "DROP TABLE IF EXISTS fbs_oauth_client",
                 "DROP TABLE IF EXISTS fbs_connector_binding_receipt",
                 "DROP TABLE IF EXISTS fbs_connector_binding_scope",
                 "DROP TABLE IF EXISTS fbs_connector_binding",
@@ -1301,6 +1420,7 @@ class IndependentBoardMysqlTransactionIT {
                 "DELETE FROM u3w_schema_migration WHERE version = '" + MIGRATION_VERSION + "'",
                 "DELETE FROM u3w_schema_migration WHERE version = '" + MENU_MIGRATION_VERSION + "'",
                 "DELETE FROM u3w_schema_migration WHERE version = '" + CONNECTOR_MIGRATION_VERSION + "'",
+                "DELETE FROM u3w_schema_migration WHERE version = '" + OAUTH_MIGRATION_VERSION + "'",
                 "CREATE TABLE sys_menu ("
                         + "menu_id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
                         + "menu_name VARCHAR(64) NOT NULL, parent_id BIGINT NOT NULL, "
@@ -1344,6 +1464,28 @@ class IndependentBoardMysqlTransactionIT {
         assertConnectorMigrationRejectsCheckDriftAndReleasesLock(connectorMigration);
         assertConnectorMigrationRejectsMissingImmutabilityTriggerAndReleasesLock(
                 connectorMigration);
+        Path oauthMigration = locateMigration(
+                "update_20260721_independent_board_oauth_foundation.sql");
+        assertOAuthMigrationRejectsPartialStatesAndReleasesLock(oauthMigration);
+        assertOAuthMigrationRejectsExternalDependencyDriftAndReleasesLock(oauthMigration);
+        try {
+            executeMigration(oauthMigration);
+        } catch (SQLException migrationFailure) {
+            printOAuthIndexContractForDiagnosis();
+            printOAuthExactContractEvidence();
+            throw migrationFailure;
+        }
+        executeMigration(oauthMigration);
+        assertOAuthLifecycleNullVectorsAreRejected();
+        assertOAuthReceiptRequiredObjectVectorsAreRejected();
+        assertOAuthMigrationRejectsSameNameCheckDriftAndReleasesLock(oauthMigration);
+        assertOAuthMigrationRejectsColumnShapeDriftAndReleasesLock(oauthMigration);
+        assertOAuthMigrationRejectsGeneratedExpressionDriftAndReleasesLock(oauthMigration);
+        assertOAuthMigrationRejectsIndexVisibilityDriftAndReleasesLock(oauthMigration);
+        assertOAuthMigrationRejectsForeignKeyActionDriftAndReleasesLock(oauthMigration);
+        assertOAuthMigrationRejectsMissingImmutabilityTriggerAndReleasesLock(oauthMigration);
+        assertOAuthMigrationRejectsTransplantedImmutabilityTriggersAndReleasesLock(
+                oauthMigration);
         Path menuMigration = locateMigration("update_20260720_independent_board_me_menu.sql");
         executeMigration(menuMigration);
         executeMigration(menuMigration);
@@ -1353,6 +1495,8 @@ class IndependentBoardMysqlTransactionIT {
                 + "WHERE version = '" + MENU_MIGRATION_VERSION + "'"));
         assertEquals(1, scalarInt("SELECT COUNT(*) FROM u3w_schema_migration "
                 + "WHERE version = '" + CONNECTOR_MIGRATION_VERSION + "'"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM u3w_schema_migration "
+                + "WHERE version = '" + OAUTH_MIGRATION_VERSION + "'"));
         assertEquals(5, scalarInt("SELECT COUNT(*) FROM information_schema.tables "
                 + "WHERE table_schema = DATABASE() AND table_name IN "
                 + "('fbs_product_plan','fbs_product_entitlement','fbs_usage_budget',"
@@ -1364,6 +1508,443 @@ class IndependentBoardMysqlTransactionIT {
         assertEquals(2, scalarInt("SELECT COUNT(*) FROM information_schema.triggers "
                 + "WHERE trigger_schema = DATABASE() "
                 + "AND event_object_table = 'fbs_connector_binding_receipt'"));
+        assertEquals(6, scalarInt("SELECT COUNT(*) FROM information_schema.tables "
+                + "WHERE table_schema = DATABASE() AND table_name IN "
+                + "('fbs_oauth_client','fbs_oauth_authorization_request',"
+                + "'fbs_oauth_authorization_code','fbs_oauth_token_family',"
+                + "'fbs_oauth_token','fbs_oauth_receipt') AND engine = 'InnoDB'"));
+        assertEquals(2, scalarInt("SELECT COUNT(*) FROM information_schema.triggers "
+                + "WHERE trigger_schema = DATABASE() "
+                + "AND event_object_table = 'fbs_oauth_receipt'"));
+    }
+
+    private static void assertOAuthMigrationRejectsPartialStatesAndReleasesLock(
+            Path oauthMigration) throws Exception {
+        String lockFreeSql = "SELECT IS_FREE_LOCK(SHA2(CONCAT(DATABASE(), "
+                + "':20260721_independent_board_oauth_foundation_v1'), 256))";
+        execute("CREATE TABLE fbs_oauth_client ("
+                + "id BIGINT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=InnoDB");
+        SQLException orphanTable = assertThrows(
+                SQLException.class, () -> executeMigration(oauthMigration));
+        assertTrue(orphanTable.getMessage().contains(
+                "tables exist without the exact migration receipt"), orphanTable.getMessage());
+        assertEquals(1, scalarInt(lockFreeSql));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM u3w_schema_migration "
+                + "WHERE version = '" + OAUTH_MIGRATION_VERSION + "'"));
+        execute("DROP TABLE fbs_oauth_client");
+
+        execute("INSERT INTO u3w_schema_migration (version, description) VALUES ('"
+                + OAUTH_MIGRATION_VERSION + "', "
+                + "'Independent Board OAuth client, authorization, token family "
+                + "and immutable receipt tables')");
+        SQLException orphanReceipt = assertThrows(
+                SQLException.class, () -> executeMigration(oauthMigration));
+        assertTrue(orphanReceipt.getMessage().contains(
+                "migration receipt exists but its six-table set is incomplete"),
+                orphanReceipt.getMessage());
+        assertEquals(1, scalarInt(lockFreeSql));
+        execute("DELETE FROM u3w_schema_migration WHERE version = '"
+                + OAUTH_MIGRATION_VERSION + "'");
+
+        execute(
+                "CREATE TRIGGER trg_oauth_receipt_no_update "
+                        + "BEFORE UPDATE ON fbs_connector_binding FOR EACH ROW "
+                        + "SIGNAL SQLSTATE '45000' "
+                        + "SET MESSAGE_TEXT = 'OAuth receipts are immutable'",
+                "CREATE TRIGGER trg_oauth_receipt_no_delete "
+                        + "BEFORE DELETE ON fbs_connector_binding FOR EACH ROW "
+                        + "SIGNAL SQLSTATE '45000' "
+                        + "SET MESSAGE_TEXT = 'OAuth receipts are immutable'");
+        SQLException triggerNameCollision = assertThrows(
+                SQLException.class, () -> executeMigration(oauthMigration));
+        assertTrue(triggerNameCollision.getMessage().contains(
+                "trigger names collide before first apply"),
+                triggerNameCollision.getMessage());
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM information_schema.tables "
+                + "WHERE table_schema = DATABASE() AND table_name LIKE 'fbs_oauth_%'"));
+        assertEquals(1, scalarInt(lockFreeSql));
+        execute(
+                "DROP TRIGGER trg_oauth_receipt_no_update",
+                "DROP TRIGGER trg_oauth_receipt_no_delete");
+    }
+
+    private static void assertOAuthMigrationRejectsExternalDependencyDriftAndReleasesLock(
+            Path oauthMigration) throws Exception {
+        String lockFreeSql = oauthMigrationLockFreeSql();
+        execute("ALTER TABLE fbs_connector_binding "
+                + "DROP FOREIGN KEY fk_connector_binding_entitlement");
+
+        SQLException drift = assertThrows(
+                SQLException.class, () -> executeMigration(oauthMigration));
+        assertTrue(drift.getMessage().contains(
+                "external FK dependency contract has drifted"), drift.getMessage());
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM information_schema.tables "
+                + "WHERE table_schema = DATABASE() AND table_name LIKE 'fbs_oauth_%'"));
+        assertEquals(1, scalarInt(lockFreeSql));
+
+        execute("ALTER TABLE fbs_connector_binding "
+                + "ADD CONSTRAINT fk_connector_binding_entitlement "
+                + "FOREIGN KEY (enterprise_id, member_id, product_code) "
+                + "REFERENCES fbs_product_entitlement "
+                + "(enterprise_id, member_id, product_code) "
+                + "ON UPDATE RESTRICT ON DELETE RESTRICT");
+    }
+
+    private static void assertOAuthLifecycleNullVectorsAreRejected() throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute("SET FOREIGN_KEY_CHECKS = 0");
+            try {
+                assertCheckConstraintRejects(statement, "chk_oauth_client_lifecycle",
+                        invalidOAuthClientInsert("REVOKED"));
+                assertCheckConstraintRejects(statement, "chk_oauth_client_lifecycle",
+                        invalidOAuthClientInsert("EXPIRED"));
+                assertCheckConstraintRejects(statement, "chk_oauth_request_lifecycle",
+                        invalidOAuthRequestInsert("31", "APPROVED", true, ""));
+                assertCheckConstraintRejects(statement, "chk_oauth_request_lifecycle",
+                        invalidOAuthRequestInsert("32", "DENIED", false, ""));
+                assertCheckConstraintRejects(statement, "chk_oauth_request_lifecycle",
+                        invalidOAuthRequestInsert("33", "CONSUMED", false,
+                                ", consumed_at = '2026-07-20 00:03:00.000'"));
+                assertCheckConstraintRejects(statement, "chk_oauth_request_lifecycle",
+                        invalidOAuthRequestInsert("34", "CONSUMED", false,
+                                ", approved_at = '2026-07-20 00:02:00.000'"));
+                assertCheckConstraintRejects(statement, "chk_oauth_request_lifecycle",
+                        invalidOAuthRequestInsert("35", "EXPIRED", false,
+                                ", approved_at = '2026-07-19 23:59:00.000'"));
+                assertCheckConstraintRejects(statement, "chk_oauth_code_lifecycle",
+                        invalidOAuthCodeInsert("41", "USED"));
+                assertCheckConstraintRejects(statement, "chk_oauth_code_lifecycle",
+                        invalidOAuthCodeInsert("42", "REVOKED"));
+                assertCheckConstraintRejects(statement, "chk_oauth_family_lifecycle",
+                        invalidOAuthFamilyInsert("family-invalid-active", "ACTIVE",
+                                ", binding_id = 'binding-invalid-active', binding_version = 1"));
+                assertCheckConstraintRejects(statement, "chk_oauth_family_lifecycle",
+                        invalidOAuthFamilyInsert("family-invalid-terminal", "REVOKED", ""));
+                assertCheckConstraintRejects(statement, "chk_oauth_family_lifecycle",
+                        invalidOAuthFamilyInsert("family-invalid-bound-terminal", "COMPROMISED",
+                                ", binding_id = 'binding-invalid-terminal', binding_version = 1"
+                                        + ", terminated_at = '2026-07-20 00:04:00.000'"));
+            } finally {
+                statement.execute("SET FOREIGN_KEY_CHECKS = 1");
+            }
+        }
+    }
+
+    private static void assertOAuthReceiptRequiredObjectVectorsAreRejected() throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute("SET FOREIGN_KEY_CHECKS = 0");
+            try {
+                assertCheckConstraintRejects(statement, "chk_oauth_receipt_required_objects",
+                        invalidOAuthReceiptInsert("61", "OAUTH_CLIENT_REGISTERED",
+                                ", family_id = 'family-unexpected'", false));
+                assertCheckConstraintRejects(statement, "chk_oauth_receipt_required_objects",
+                        invalidOAuthReceiptInsert("62", "AUTHORIZATION_APPROVED",
+                                "", true));
+                assertCheckConstraintRejects(statement, "chk_oauth_receipt_required_objects",
+                        invalidOAuthReceiptInsert("63", "AUTHORIZATION_CODE_ISSUED",
+                                ", authorization_request_id = 1", true));
+                assertCheckConstraintRejects(statement, "chk_oauth_receipt_required_objects",
+                        invalidOAuthReceiptInsert("64", "AUTHORIZATION_CODE_REPLAY_DETECTED",
+                                ", authorization_request_id = 1, authorization_code_id = 1, "
+                                        + "family_id = 'family-replay'", true));
+                assertCheckConstraintRejects(statement, "chk_oauth_receipt_required_objects",
+                        invalidOAuthReceiptInsert("65", "TOKEN_FAMILY_CREATED",
+                                ", authorization_code_id = 1, family_id = 'family-created', "
+                                        + "binding_id = 'binding-unexpected'", true));
+                assertCheckConstraintRejects(statement, "chk_oauth_receipt_required_objects",
+                        invalidOAuthReceiptInsert("66", "TOKEN_FAMILY_ACTIVATED",
+                                ", family_id = 'family-activated'", true));
+                assertCheckConstraintRejects(statement, "chk_oauth_receipt_required_objects",
+                        invalidOAuthReceiptInsert("67", "TOKEN_FAMILY_ROTATED",
+                                ", family_id = 'family-rotated', binding_id = 'binding-rotated'",
+                                true));
+                assertCheckConstraintRejects(statement, "chk_oauth_receipt_required_objects",
+                        invalidOAuthReceiptInsert("68", "TOKEN_FAMILY_REVOKED",
+                                ", family_id = 'family-revoked', token_id = 1", true));
+                assertCheckConstraintRejects(statement, "chk_oauth_receipt_required_objects",
+                        invalidOAuthReceiptInsert("69", "REFRESH_REPLAY_DETECTED",
+                                ", family_id = 'family-refresh'", true));
+            } finally {
+                statement.execute("SET FOREIGN_KEY_CHECKS = 1");
+            }
+        }
+    }
+
+    private static void assertCheckConstraintRejects(
+            Statement statement,
+            String expectedConstraint,
+            String insertSql) {
+        SQLException rejected = assertThrows(SQLException.class, () -> statement.execute(insertSql));
+        assertTrue(rejected.getMessage().contains(expectedConstraint), rejected.getMessage());
+    }
+
+    private static String invalidOAuthClientInsert(String status) {
+        return "INSERT INTO fbs_oauth_client SET "
+                + "client_id = REPEAT('A', 43), "
+                + "client_name = CONVERT(0xe69caae9aa8ce8af81e79a84e69cace59cb0e585ace585b1e5aea2e688b7e7abaf USING utf8mb4), "
+                + "issuer_uri = 'https://api2.u3w.com', "
+                + "resource_uri = 'https://api2.u3w.com/fbs-mcp/mcp', "
+                + "product_code = 'FBSIR_INDEPENDENT_BOARD', source_code = 'WORKBUDDY', "
+                + "connector_code = 'fbs-connector', redirect_port = 49152, "
+                + "redirect_uri = 'http://127.0.0.1:49152/oauth/callback', "
+                + "token_endpoint_auth_method = 'none', "
+                + "grant_types_canonical = 'authorization_code refresh_token', "
+                + "response_types_canonical = 'code', "
+                + "scope_canonical = 'identity.read entitlement.read board.meeting.reserve board.receipt.write', "
+                + "scope_digest = UNHEX('351185152796016cff0c4aba15af369a4891a1e484d9a1cb3513b001e5b8e1d1'), "
+                + "metadata_digest = UNHEX(REPEAT('11', 32)), "
+                + "registration_source_digest = UNHEX(REPEAT('12', 32)), "
+                + "status = '" + status + "', registered_at = '2026-07-20 00:00:00.000', "
+                + "expires_at = '2026-08-20 00:00:00.000'";
+    }
+
+    private static String invalidOAuthRequestInsert(
+            String marker,
+            String status,
+            boolean encryptedState,
+            String lifecycleAssignments) {
+        String cryptoAssignments = encryptedState
+                ? ", state_key_ref = 'kms:test', "
+                        + "state_nonce = UNHEX('000102030405060708090a0b'), "
+                        + "state_ciphertext = UNHEX(REPEAT('ab', 32))"
+                : "";
+        return "INSERT INTO fbs_oauth_authorization_request SET "
+                + "request_handle_digest = UNHEX(REPEAT('" + marker + "', 32)), "
+                + "client_id = REPEAT('A', 43), "
+                + "redirect_uri = 'http://127.0.0.1:49152/oauth/callback', "
+                + "code_challenge = REPEAT('B', 43), code_challenge_method = 'S256', "
+                + "state_digest = UNHEX(REPEAT('" + marker + "', 32)), "
+                + "issuer_uri = 'https://api2.u3w.com', "
+                + "resource_uri = 'https://api2.u3w.com/fbs-mcp/mcp', "
+                + "product_code = 'FBSIR_INDEPENDENT_BOARD', source_code = 'WORKBUDDY', "
+                + "connector_code = 'fbs-connector', "
+                + "scope_canonical = 'identity.read entitlement.read board.meeting.reserve board.receipt.write', "
+                + "scope_digest = UNHEX('351185152796016cff0c4aba15af369a4891a1e484d9a1cb3513b001e5b8e1d1'), "
+                + "principal_subject_digest = UNHEX(REPEAT('51', 32)), "
+                + "enterprise_id = 1001, member_id = 101, user_id = 501, "
+                + "status = '" + status + "', requested_at = '2026-07-20 00:00:00.000', "
+                + "expires_at = '2026-07-20 00:05:00.000'"
+                + cryptoAssignments + lifecycleAssignments;
+    }
+
+    private static String invalidOAuthCodeInsert(String marker, String status) {
+        return "INSERT INTO fbs_oauth_authorization_code SET "
+                + "code_digest = UNHEX(REPEAT('" + marker + "', 32)), "
+                + "authorization_request_id = 1, client_id = REPEAT('A', 43), "
+                + "redirect_uri = 'http://127.0.0.1:49152/oauth/callback', "
+                + "code_challenge = REPEAT('B', 43), code_challenge_method = 'S256', "
+                + "issuer_uri = 'https://api2.u3w.com', "
+                + "resource_uri = 'https://api2.u3w.com/fbs-mcp/mcp', "
+                + "product_code = 'FBSIR_INDEPENDENT_BOARD', source_code = 'WORKBUDDY', "
+                + "connector_code = 'fbs-connector', "
+                + "scope_canonical = 'identity.read entitlement.read board.meeting.reserve board.receipt.write', "
+                + "scope_digest = UNHEX('351185152796016cff0c4aba15af369a4891a1e484d9a1cb3513b001e5b8e1d1'), "
+                + "principal_subject_digest = UNHEX(REPEAT('51', 32)), "
+                + "enterprise_id = 1001, member_id = 101, user_id = 501, "
+                + "status = '" + status + "', issued_at = '2026-07-20 00:00:00.000', "
+                + "expires_at = '2026-07-20 00:01:00.000'";
+    }
+
+    private static String invalidOAuthFamilyInsert(
+            String familyId,
+            String status,
+            String lifecycleAssignments) {
+        return "INSERT INTO fbs_oauth_token_family SET "
+                + "family_id = '" + familyId + "', origin_authorization_code_id = 1, "
+                + "client_id = REPEAT('A', 43), enterprise_id = 1001, "
+                + "member_id = 101, user_id = 501, "
+                + "product_code = 'FBSIR_INDEPENDENT_BOARD', source_code = 'WORKBUDDY', "
+                + "connector_code = 'fbs-connector', issuer_uri = 'https://api2.u3w.com', "
+                + "resource_uri = 'https://api2.u3w.com/fbs-mcp/mcp', "
+                + "scope_canonical = 'identity.read entitlement.read board.meeting.reserve board.receipt.write', "
+                + "scope_digest = UNHEX('351185152796016cff0c4aba15af369a4891a1e484d9a1cb3513b001e5b8e1d1'), "
+                + "principal_subject_digest = UNHEX(REPEAT('51', 32)), "
+                + "status = '" + status + "', current_refresh_generation = 0, "
+                + "issued_at = '2026-07-20 00:00:00.000', "
+                + "expires_at = '2026-07-20 00:05:00.000'"
+                + lifecycleAssignments;
+    }
+
+    private static String invalidOAuthReceiptInsert(
+            String marker,
+            String action,
+            String objectAssignments,
+            boolean identityBound) {
+        String identityAssignments = identityBound
+                ? ", enterprise_id = 1001, member_id = 101, user_id = 501, "
+                        + "principal_subject_digest = UNHEX(REPEAT('51', 32))"
+                : "";
+        return "INSERT INTO fbs_oauth_receipt SET "
+                + "receipt_id = 'receipt-invalid-" + marker + "', "
+                + "action = '" + action + "', client_id = REPEAT('A', 43), "
+                + "actor_type = 'SYSTEM', actor_subject_digest = UNHEX(REPEAT('52', 32)), "
+                + "correlation_id = 'correlation-invalid-" + marker + "', "
+                + "payload_digest = UNHEX(REPEAT('53', 32)), "
+                + "evidence_level = 'ACTION_COMPLETED'"
+                + identityAssignments + objectAssignments;
+    }
+
+    private static void assertOAuthMigrationRejectsSameNameCheckDriftAndReleasesLock(
+            Path oauthMigration) throws Exception {
+        String lockFreeSql = oauthMigrationLockFreeSql();
+        execute(
+                "ALTER TABLE fbs_oauth_client DROP CHECK chk_oauth_client_status",
+                "ALTER TABLE fbs_oauth_client ADD CONSTRAINT chk_oauth_client_status "
+                        + "CHECK (1 = 1)");
+
+        SQLException drift = assertThrows(
+                SQLException.class, () -> executeMigration(oauthMigration));
+        assertTrue(drift.getMessage().contains("exact CHECK clause contract has drifted"),
+                drift.getMessage());
+        assertEquals(1, scalarInt(lockFreeSql));
+        resetOAuthFoundation(oauthMigration);
+    }
+
+    private static void assertOAuthMigrationRejectsColumnShapeDriftAndReleasesLock(
+            Path oauthMigration) throws Exception {
+        String lockFreeSql = oauthMigrationLockFreeSql();
+        execute("ALTER TABLE fbs_oauth_receipt MODIFY correlation_id "
+                + "VARCHAR(127) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL");
+
+        SQLException drift = assertThrows(
+                SQLException.class, () -> executeMigration(oauthMigration));
+        assertTrue(drift.getMessage().contains("exact column metadata contract has drifted"),
+                drift.getMessage());
+        assertEquals(1, scalarInt(lockFreeSql));
+        resetOAuthFoundation(oauthMigration);
+    }
+
+    private static void assertOAuthMigrationRejectsGeneratedExpressionDriftAndReleasesLock(
+            Path oauthMigration) throws Exception {
+        String lockFreeSql = oauthMigrationLockFreeSql();
+        execute(
+                "ALTER TABLE fbs_oauth_token_family ADD INDEX "
+                        + "tmp_oauth_family_entitlement (enterprise_id, member_id, product_code)",
+                "ALTER TABLE fbs_oauth_token_family DROP INDEX uk_oauth_family_live_slot",
+                "ALTER TABLE fbs_oauth_token_family DROP COLUMN lifecycle_slot",
+                "ALTER TABLE fbs_oauth_token_family ADD COLUMN lifecycle_slot "
+                        + "VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin "
+                        + "GENERATED ALWAYS AS (CASE WHEN status = 'ACTIVE' "
+                        + "THEN 'ACTIVE' ELSE NULL END) STORED AFTER status",
+                "ALTER TABLE fbs_oauth_token_family ADD UNIQUE INDEX "
+                        + "uk_oauth_family_live_slot "
+                        + "(enterprise_id, member_id, product_code, source_code, "
+                        + "connector_code, lifecycle_slot)");
+
+        SQLException drift = assertThrows(
+                SQLException.class, () -> executeMigration(oauthMigration));
+        assertTrue(drift.getMessage().contains("exact column metadata contract has drifted"),
+                drift.getMessage());
+        assertEquals(1, scalarInt(lockFreeSql));
+        resetOAuthFoundation(oauthMigration);
+    }
+
+    private static void assertOAuthMigrationRejectsIndexVisibilityDriftAndReleasesLock(
+            Path oauthMigration) throws Exception {
+        String lockFreeSql = oauthMigrationLockFreeSql();
+        execute("ALTER TABLE fbs_oauth_client "
+                + "ALTER INDEX idx_oauth_client_status_expiry INVISIBLE");
+
+        SQLException drift = assertThrows(
+                SQLException.class, () -> executeMigration(oauthMigration));
+        assertTrue(drift.getMessage().contains("exact visible full-index contract has drifted"),
+                drift.getMessage());
+        assertEquals(1, scalarInt(lockFreeSql));
+        resetOAuthFoundation(oauthMigration);
+    }
+
+    private static void assertOAuthMigrationRejectsForeignKeyActionDriftAndReleasesLock(
+            Path oauthMigration) throws Exception {
+        String lockFreeSql = oauthMigrationLockFreeSql();
+        execute(
+                "ALTER TABLE fbs_oauth_authorization_request "
+                        + "DROP FOREIGN KEY fk_oauth_request_client_redirect",
+                "ALTER TABLE fbs_oauth_authorization_request "
+                + "ADD CONSTRAINT fk_oauth_request_client_redirect "
+                + "FOREIGN KEY (client_id, redirect_uri) "
+                + "REFERENCES fbs_oauth_client (client_id, redirect_uri) "
+                + "ON UPDATE RESTRICT ON DELETE CASCADE");
+
+        SQLException drift = assertThrows(
+                SQLException.class, () -> executeMigration(oauthMigration));
+        assertTrue(drift.getMessage().contains("foreign-key contract has drifted"),
+                drift.getMessage());
+        assertEquals(1, scalarInt(lockFreeSql));
+        resetOAuthFoundation(oauthMigration);
+    }
+
+    private static String oauthMigrationLockFreeSql() {
+        return "SELECT IS_FREE_LOCK(SHA2(CONCAT(DATABASE(), "
+                + "':20260721_independent_board_oauth_foundation_v1'), 256))";
+    }
+
+    private static void resetOAuthFoundation(Path oauthMigration) throws Exception {
+        execute(
+                "DROP TABLE fbs_oauth_receipt",
+                "DROP TABLE fbs_oauth_token",
+                "DROP TABLE fbs_oauth_token_family",
+                "DROP TABLE fbs_oauth_authorization_code",
+                "DROP TABLE fbs_oauth_authorization_request",
+                "DROP TABLE fbs_oauth_client",
+                "DELETE FROM u3w_schema_migration WHERE version = '"
+                        + OAUTH_MIGRATION_VERSION + "'");
+        executeMigration(oauthMigration);
+    }
+
+    private static void assertOAuthMigrationRejectsMissingImmutabilityTriggerAndReleasesLock(
+            Path oauthMigration) throws Exception {
+        String lockFreeSql = "SELECT IS_FREE_LOCK(SHA2(CONCAT(DATABASE(), "
+                + "':20260721_independent_board_oauth_foundation_v1'), 256))";
+        execute("DROP TRIGGER trg_oauth_receipt_no_delete");
+        SQLException drift = assertThrows(
+                SQLException.class, () -> executeMigration(oauthMigration));
+        assertTrue(drift.getMessage().contains("immutability trigger contract has drifted"),
+                drift.getMessage());
+        assertEquals(1, scalarInt(lockFreeSql));
+
+        execute("CREATE TRIGGER trg_oauth_receipt_no_delete "
+                + "BEFORE DELETE ON fbs_oauth_receipt FOR EACH ROW "
+                + "SIGNAL SQLSTATE '45000' "
+                + "SET MESSAGE_TEXT = 'OAuth receipts are immutable'");
+        executeMigration(oauthMigration);
+    }
+
+    private static void assertOAuthMigrationRejectsTransplantedImmutabilityTriggersAndReleasesLock(
+            Path oauthMigration) throws Exception {
+        String lockFreeSql = "SELECT IS_FREE_LOCK(SHA2(CONCAT(DATABASE(), "
+                + "':20260721_independent_board_oauth_foundation_v1'), 256))";
+        execute(
+                "DROP TRIGGER trg_oauth_receipt_no_update",
+                "DROP TRIGGER trg_oauth_receipt_no_delete",
+                "CREATE TRIGGER trg_oauth_receipt_no_update "
+                        + "BEFORE UPDATE ON fbs_oauth_client FOR EACH ROW "
+                        + "SIGNAL SQLSTATE '45000' "
+                        + "SET MESSAGE_TEXT = 'OAuth receipts are immutable'",
+                "CREATE TRIGGER trg_oauth_receipt_no_delete "
+                        + "BEFORE DELETE ON fbs_oauth_client FOR EACH ROW "
+                        + "SIGNAL SQLSTATE '45000' "
+                        + "SET MESSAGE_TEXT = 'OAuth receipts are immutable'");
+
+        SQLException drift = assertThrows(
+                SQLException.class, () -> executeMigration(oauthMigration));
+        assertTrue(drift.getMessage().contains("immutability trigger contract has drifted"),
+                drift.getMessage());
+        assertEquals(1, scalarInt(lockFreeSql));
+
+        execute(
+                "DROP TRIGGER trg_oauth_receipt_no_update",
+                "DROP TRIGGER trg_oauth_receipt_no_delete",
+                "CREATE TRIGGER trg_oauth_receipt_no_update "
+                        + "BEFORE UPDATE ON fbs_oauth_receipt FOR EACH ROW "
+                        + "SIGNAL SQLSTATE '45000' "
+                        + "SET MESSAGE_TEXT = 'OAuth receipts are immutable'",
+                "CREATE TRIGGER trg_oauth_receipt_no_delete "
+                        + "BEFORE DELETE ON fbs_oauth_receipt FOR EACH ROW "
+                        + "SIGNAL SQLSTATE '45000' "
+                        + "SET MESSAGE_TEXT = 'OAuth receipts are immutable'");
+        executeMigration(oauthMigration);
     }
 
     private static void assertConnectorMigrationRejectsPartialStatesAndReleasesLock(
@@ -1530,6 +2111,136 @@ class IndependentBoardMysqlTransactionIT {
         }
     }
 
+    private static void printOAuthIndexContractForDiagnosis() throws SQLException {
+        String sql = "SELECT table_name, index_name, non_unique, index_type, "
+                + "MIN(is_visible), "
+                + "GROUP_CONCAT(CONCAT(column_name, ':', COALESCE(collation, 'NULL')) "
+                + "ORDER BY seq_in_index SEPARATOR ',') "
+                + "FROM information_schema.statistics "
+                + "WHERE table_schema = DATABASE() "
+                + "AND table_name IN ('fbs_oauth_client', "
+                + "'fbs_oauth_authorization_request', 'fbs_oauth_authorization_code', "
+                + "'fbs_oauth_token_family', 'fbs_oauth_token', 'fbs_oauth_receipt') "
+                + "GROUP BY table_name, index_name, non_unique, index_type "
+                + "ORDER BY table_name, index_name";
+        try (Connection connection = dataSource.getConnection();
+             Statement jdbc = connection.createStatement();
+             ResultSet rows = jdbc.executeQuery(sql)) {
+            while (rows.next()) {
+                System.err.printf(
+                        "OAuth INDEX diagnostic: %s.%s unique=%s type=%s visible=%s columns=%s%n",
+                        rows.getString(1), rows.getString(2), rows.getInt(3) == 0,
+                        rows.getString(4), rows.getString(5), rows.getString(6));
+            }
+        }
+    }
+
+    private static void printOAuthExactContractEvidence() throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             Statement jdbc = connection.createStatement()) {
+            jdbc.execute("SET SESSION group_concat_max_len = 1048576");
+            printOAuthDigest(jdbc, "columns_raw", "SELECT SHA2(GROUP_CONCAT(CONCAT("
+                    + "'T:', HEX(CAST(table_name AS BINARY)), "
+                    + "'|O:', LPAD(ordinal_position, 3, '0'), "
+                    + "'|N:', HEX(CAST(column_name AS BINARY)), "
+                    + "'|Y:', HEX(CAST(column_type AS BINARY)), "
+                    + "'|U:', HEX(CAST(is_nullable AS BINARY)), "
+                    + "'|D:', IF(column_default IS NULL, 'N', "
+                    + "CONCAT('V:', HEX(CAST(column_default AS BINARY)))), "
+                    + "'|C:', IF(character_set_name IS NULL, 'N', "
+                    + "CONCAT('V:', HEX(CAST(character_set_name AS BINARY)))), "
+                    + "'|L:', IF(collation_name IS NULL, 'N', "
+                    + "CONCAT('V:', HEX(CAST(collation_name AS BINARY)))), "
+                    + "'|E:', HEX(CAST(extra AS BINARY)), "
+                    + "'|G:', IF(generation_expression IS NULL, 'N', "
+                    + "CONCAT('V:', HEX(CAST(generation_expression AS BINARY))))) "
+                    + "ORDER BY table_name, ordinal_position SEPARATOR 0x0A), 256) "
+                    + "FROM information_schema.columns WHERE table_schema = DATABASE() "
+                    + "AND table_name IN ('fbs_oauth_client','fbs_oauth_authorization_request',"
+                    + "'fbs_oauth_authorization_code','fbs_oauth_token_family',"
+                    + "'fbs_oauth_token','fbs_oauth_receipt')");
+            printOAuthDigest(jdbc, "indexes_raw", "SELECT SHA2(GROUP_CONCAT(CONCAT("
+                    + "'T:', HEX(CAST(table_name AS BINARY)), "
+                    + "'|I:', HEX(CAST(index_name AS BINARY)), "
+                    + "'|U:', non_unique, '|Y:', HEX(CAST(index_type AS BINARY)), "
+                    + "'|V:', HEX(CAST(is_visible AS BINARY)), '|S:', seq_in_index, "
+                    + "'|N:', IF(column_name IS NULL, 'N', "
+                    + "CONCAT('V:', HEX(CAST(column_name AS BINARY)))), "
+                    + "'|X:', IF(expression IS NULL, 'N', "
+                    + "CONCAT('V:', HEX(CAST(expression AS BINARY)))), "
+                    + "'|C:', IF(collation IS NULL, 'N', "
+                    + "CONCAT('V:', HEX(CAST(collation AS BINARY)))), "
+                    + "'|P:', IF(sub_part IS NULL, 'N', CONCAT('V:', sub_part)), "
+                    + "'|Q:', HEX(CAST(nullable AS BINARY))) "
+                    + "ORDER BY table_name, index_name, seq_in_index SEPARATOR 0x0A), 256) "
+                    + "FROM information_schema.statistics WHERE table_schema = DATABASE() "
+                    + "AND table_name IN ('fbs_oauth_client','fbs_oauth_authorization_request',"
+                    + "'fbs_oauth_authorization_code','fbs_oauth_token_family',"
+                    + "'fbs_oauth_token','fbs_oauth_receipt')");
+            printOAuthDigest(jdbc, "foreign_keys_raw", "SELECT SHA2(GROUP_CONCAT(CONCAT("
+                    + "'T:', HEX(CAST(rc.table_name AS BINARY)), "
+                    + "'|C:', HEX(CAST(rc.constraint_name AS BINARY)), "
+                    + "'|S:', IF(rc.unique_constraint_schema = DATABASE(), 'SAME', 'OTHER'), "
+                    + "'|K:', HEX(CAST(rc.unique_constraint_name AS BINARY)), "
+                    + "'|R:', HEX(CAST(rc.referenced_table_name AS BINARY)), "
+                    + "'|U:', HEX(CAST(rc.update_rule AS BINARY)), "
+                    + "'|D:', HEX(CAST(rc.delete_rule AS BINARY)), "
+                    + "'|M:', HEX(CAST(rc.match_option AS BINARY)), "
+                    + "'|O:', kcu.ordinal_position, "
+                    + "'|N:', HEX(CAST(kcu.column_name AS BINARY)), "
+                    + "'|Q:', IF(kcu.referenced_table_schema = DATABASE(), 'SAME', 'OTHER'), "
+                    + "'|P:', HEX(CAST(kcu.referenced_column_name AS BINARY)), "
+                    + "'|I:', IF(kcu.position_in_unique_constraint IS NULL, 'N', "
+                    + "CONCAT('V:', kcu.position_in_unique_constraint))) "
+                    + "ORDER BY rc.table_name, rc.constraint_name, kcu.ordinal_position SEPARATOR 0x0A), 256) "
+                    + "FROM information_schema.referential_constraints rc "
+                    + "INNER JOIN information_schema.key_column_usage kcu "
+                    + "ON kcu.constraint_schema = rc.constraint_schema "
+                    + "AND kcu.table_name = rc.table_name "
+                    + "AND kcu.constraint_name = rc.constraint_name "
+                    + "WHERE rc.constraint_schema = DATABASE() "
+                    + "AND rc.unique_constraint_schema = DATABASE() "
+                    + "AND kcu.referenced_table_schema = DATABASE() "
+                    + "AND rc.table_name IN ('fbs_oauth_authorization_request',"
+                    + "'fbs_oauth_authorization_code','fbs_oauth_token_family',"
+                    + "'fbs_oauth_token','fbs_oauth_receipt')");
+            printOAuthDigest(jdbc, "checks_raw", "SELECT SHA2(GROUP_CONCAT(CONCAT("
+                    + "'T:', HEX(CAST(table_name AS BINARY)), "
+                    + "'|C:', HEX(CAST(constraint_name AS BINARY)), "
+                    + "'|E:', HEX(CAST(enforced AS BINARY)), "
+                    + "'|X:', HEX(CAST(check_clause AS BINARY))) "
+                    + "ORDER BY table_name, constraint_name SEPARATOR 0x0A), 256) FROM ("
+                    + "SELECT tc.table_name, tc.constraint_name, tc.enforced, cc.check_clause "
+                    + "FROM information_schema.table_constraints tc "
+                    + "INNER JOIN information_schema.check_constraints cc "
+                    + "ON cc.constraint_schema = tc.constraint_schema "
+                    + "AND cc.constraint_name = tc.constraint_name "
+                    + "WHERE tc.constraint_schema = DATABASE() AND tc.constraint_type = 'CHECK' "
+                    + "AND tc.table_name IN ('fbs_oauth_client','fbs_oauth_authorization_request',"
+                    + "'fbs_oauth_authorization_code','fbs_oauth_token_family',"
+                    + "'fbs_oauth_token','fbs_oauth_receipt')) exact_checks");
+
+            try (ResultSet rows = jdbc.executeQuery("SELECT table_name, column_name, "
+                    + "generation_expression FROM information_schema.columns "
+                    + "WHERE table_schema = DATABASE() AND generation_expression <> '' "
+                    + "AND table_name IN ('fbs_oauth_token_family','fbs_oauth_token') "
+                    + "ORDER BY table_name, column_name")) {
+                while (rows.next()) {
+                    System.err.printf("OAuth generated expression: %s.%s=%s%n",
+                            rows.getString(1), rows.getString(2), rows.getString(3));
+                }
+            }
+        }
+    }
+
+    private static void printOAuthDigest(Statement jdbc, String label, String sql)
+            throws SQLException {
+        try (ResultSet rows = jdbc.executeQuery(sql)) {
+            assertTrue(rows.next());
+            System.err.printf("OAuth exact contract digest: %s=%s%n", label, rows.getString(1));
+        }
+    }
+
     private static void execute(String... statements) throws SQLException {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {
@@ -1647,13 +2358,26 @@ class IndependentBoardMysqlTransactionIT {
             SqlSessionFactoryBean factory = new SqlSessionFactoryBean();
             factory.setDataSource(dataSource);
             factory.setMapperLocations(new PathMatchingResourcePatternResolver()
-                    .getResource("classpath:mapper/board/IndependentBoardMapper.xml"));
+                    .getResources("classpath*:mapper/board/IndependentBoard*Mapper.xml"));
             return factory.getObject();
         }
 
         @Bean
         IndependentBoardMapper independentBoardMapper(SqlSessionFactory sqlSessionFactory) {
             return new SqlSessionTemplate(sqlSessionFactory).getMapper(IndependentBoardMapper.class);
+        }
+
+        @Bean
+        IndependentBoardOAuthMapper independentBoardOAuthMapper(
+                SqlSessionFactory sqlSessionFactory) {
+            return new SqlSessionTemplate(sqlSessionFactory)
+                    .getMapper(IndependentBoardOAuthMapper.class);
+        }
+
+        @Bean
+        IndependentBoardOAuthClientRegistrationService oauthClientRegistrationService(
+                IndependentBoardOAuthMapper mapper) {
+            return new IndependentBoardOAuthClientRegistrationService(mapper);
         }
 
         @Bean

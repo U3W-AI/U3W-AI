@@ -1,6 +1,6 @@
 # 独董会 W4b OAuth / MCP 授权合同
 
-状态：`contract_locked_design_only`
+状态：`contract_locked_with_w4b_1_foundation_verified_local`
 
 品牌：福帮手 / FBSir
 
@@ -16,9 +16,12 @@ W4b 在已验证的 W4a 权威 Connector 绑定之上，建立 WorkBuddy Connect
 OAuth 授权码、PKCE S256、受保护资源发现、短寿命访问令牌、refresh-token family
 轮换与 MCP Resource Server 合同。
 
-本合同当前只证明协议、威胁模型、数据模型、状态机和实施门禁已锁定。它不证明 OAuth
-端点已经开放、WorkBuddy 已联调、Connector 已上架、VIP 已真实连接或生产域名已经部署。
-在本合同负向矩阵成为可执行测试并通过以前：
+完整 W4b 仍只锁定协议、威胁模型、状态机和实施门禁；当前已额外证明 W4b.1 的
+`public_init_033` 六表迁移可在 MySQL Community `8.0.30` 与 `8.4.8` 精确构建上首次执行、
+重放并对负向漂移 fail closed，以及内部 profile-constrained DCR 的 client 与
+`ACTION_COMPLETED` 回执真库事务原子性。授权码、token family、受保护 MCP 内部服务及公开
+协议适配器尚未完成。上述局部证据不证明 OAuth 端点已经开放、WorkBuddy 已联调、Connector
+已上架、VIP 已真实连接或生产域名已经部署。在完整 HTTP/协议负向矩阵成为可执行测试并通过以前：
 
 - `/oauth2/register`、`/oauth2/authorize`、`/oauth2/token`、`/oauth2/revoke` 和
   `/fbs-mcp/mcp` 公共路由必须保持不存在或关闭；
@@ -303,6 +306,31 @@ ascii_bin、CHECK、FK 和唯一键约束固定常量与状态；token/code 摘�
 family 以 nullable slot 唯一键保证同一 tenant/member/product/source/connector 最多一个
 `ACTIVE` 和一个 `PENDING_BINDING`。终态行的 slot 为 NULL。新 code 兑换会原子撤销旧
 pending family；在新 family 首个受保护请求成功以前，旧 active family 不被隐式替换。
+
+### 9.1 精确 MySQL 构建支持合同
+
+W4b 当前只支持并已用真实 MySQL Server 核对以下两个精确 MySQL Community 元数据基线：
+
+- `8.0.30`
+- `8.4.8`
+
+`8.0.29` 仅是 W4a 因 `CREATE TRIGGER IF NOT EXISTS` 所需的最低语法门槛，不属于 W4b
+已验证 allowlist。canonical initializer 必须在写入 `public_init_033=RUNNING` 和执行迁移文件
+之前拒绝其它构建；若直接执行迁移 SQL，文件会先创建用于条件控制的 helper procedure，
+但必须在首张 W4b 持久化目标表 DDL 前 fail closed。直接执行失败时 helper procedure 可能保留，
+必须由受控恢复流程清理。这只表示当前没有该精确构建的 W4b 验证合同，不能表述为其天然
+不兼容。
+
+W4b current-read 必须使用 raw typed metadata digest 精确覆盖列类型/nullable/默认值/字符集/
+生成表达式、索引表达式/方向/前缀/可见性、同库 FK 列链接与动作、CHECK 原始子句与 enforced
+状态，以及六张 W4b 表的 trigger 集合；摘要为 `NULL` 或任何语义漂移都必须 fail closed。
+支持一个新精确构建前，必须补齐真实 MySQL 基线、对应 raw typed metadata digest、同名弱化
+CHECK/生成列/type/nullable/charset/索引/FK/trigger/外部依赖负向漂移矩阵，并同步修订本合同。
+
+精确矩阵及声明边界见
+[`W4B-DATABASE-SUPPORT-MATRIX.md`](./W4B-DATABASE-SUPPORT-MATRIX.md)。元数据基线已验证只证明
+该精确构建可进入 W4b 迁移门禁；不能据此提前声明整个 W4b 已 `mysql_verified`，更不能解锁
+公共 OAuth/MCP 路由或 me/admin 的详细 OAuth/Connector 生产页面。
 
 ## 10. 首次受保护请求与显式重授权
 

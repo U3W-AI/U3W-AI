@@ -54,6 +54,7 @@ dist/
 .cache/
 .temp/
 .tmp/
+/work/
 
 # Frontend logs
 npm-debug.log*

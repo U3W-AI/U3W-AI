@@ -32,6 +32,7 @@
     { "version": "public_init_029", "description": "Independent Board me portal menu", "file": "update_20260720_independent_board_me_menu.sql" },
     { "version": "public_init_030", "description": "Independent Board administration menu", "file": "update_20260720_independent_board_admin_menu.sql" },
     { "version": "public_init_031", "description": "Independent Board entitlement lifecycle administration menu", "file": "update_20260720_independent_board_entitlement_lifecycle_menu.sql" },
-    { "version": "public_init_032", "description": "Independent Board authoritative Connector binding", "file": "update_20260721_independent_board_connector_binding.sql" }
+    { "version": "public_init_032", "description": "Independent Board authoritative Connector binding", "file": "update_20260721_independent_board_connector_binding.sql" },
+    { "version": "public_init_033", "description": "Independent Board OAuth authorization foundation", "file": "update_20260721_independent_board_oauth_foundation.sql" }
   ]
 }
