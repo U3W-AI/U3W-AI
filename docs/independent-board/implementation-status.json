@@ -1,0 +1,46 @@
+{
+  "schema": "fbsir.independent-board-control-plane-status/v1",
+  "product": {
+    "brandZh": "福帮手",
+    "brandEn": "FBSir",
+    "name": "独董会"
+  },
+  "platformVersion": "0.1.0-dev",
+  "expertPackage": {
+    "version": "26.7.20",
+    "state": "submitted_for_review",
+    "frozen": true
+  },
+  "activeWave": "W1_VERTICAL_SLICE",
+  "stage": "fix",
+  "authoritativeRoot": {
+    "mode": "standalone_git_repository",
+    "externalDirectoryDependency": "forbidden",
+    "state": "migration_in_progress"
+  },
+  "truthSources": [
+    ".fbs-engineering/contract.json",
+    "docs/independent-board/taskboard.json",
+    "config/deployment/u3w-domain-inventory.json",
+    "sql/independent-board/",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/",
+    "FBSir-ui/src/views/independent-board/"
+  ],
+  "proven": [
+    "isolated_u3w_branch_created",
+    "backend_baseline_passed",
+    "frontend_baseline_passed",
+    "submitted_expert_package_is_outside_writable_boundary"
+  ],
+  "notProven": [
+    "oauth_end_to_end",
+    "database_migration",
+    "me_portal_runtime",
+    "admin_portal_runtime",
+    "connector_vip_binding",
+    "webhook_delivery",
+    "watch_device_control",
+    "production_deployment"
+  ],
+  "updatedAt": "2026-07-20T19:55:00+08:00"
+}

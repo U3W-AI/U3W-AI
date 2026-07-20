@@ -1,0 +1,152 @@
+{
+  "surface": "u3w-control-plane",
+  "id": "independent-board-control-plane",
+  "summary": "U3W control plane for the FBSir Independent Review Board user and administration portals",
+  "versionSource": "docs/independent-board/implementation-status.json",
+  "commands": {
+    "contract": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-control-plane.ps1 -Mode Contract",
+      "cwd": ".",
+      "timeout_ms": 120000
+    },
+    "backend": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-control-plane.ps1 -Mode Backend",
+      "cwd": ".",
+      "timeout_ms": 600000
+    },
+    "frontend": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-control-plane.ps1 -Mode Frontend",
+      "cwd": ".",
+      "timeout_ms": 600000
+    },
+    "verify": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-control-plane.ps1 -Mode All",
+      "cwd": ".",
+      "timeout_ms": 900000
+    }
+  },
+  "artifacts": {
+    "taskboard": "docs/independent-board/taskboard.json",
+    "status": "docs/independent-board/implementation-status.json",
+    "domainInventory": "config/deployment/u3w-domain-inventory.json",
+    "migrations": "sql/independent-board/*.sql",
+    "verificationReports": "reports/independent-board/*.json"
+  },
+  "policy": {
+    "defaultStage": "fix",
+    "releaseBlockers": [
+      "contract",
+      "backend",
+      "frontend",
+      "verify"
+    ],
+    "requiredReleaseBlockers": [
+      "contract",
+      "backend",
+      "frontend",
+      "verify"
+    ],
+    "requiredWorkflowCommands": {
+      "verify": [
+        "contract",
+        "backend",
+        "frontend",
+        "verify"
+      ]
+    },
+    "requiresContractDrivenFlow": true,
+    "submittedExpertPackageFrozen": true,
+    "productionWriteRequiresApproval": true
+  },
+  "workflows": {
+    "assess": [
+      "contract"
+    ],
+    "fix": [
+      "contract"
+    ],
+    "verify": [
+      "contract",
+      "backend",
+      "frontend",
+      "verify"
+    ]
+  },
+  "contracts": {
+    "authoritativeRoot": {
+      "mode": "standalone_git_repository",
+      "externalDirectoryDependency": "forbidden",
+      "runtimeAssetsMustBeRepositoryRelative": true,
+      "githubRemote": "https://github.com/U3W-AI/U3W-AI.git",
+      "alignmentRule": "one_commit_one_migration_manifest_one_deployment_receipt"
+    },
+    "frozenSurface": {
+      "productId": "fbsir-eight-seat-board",
+      "version": "26.7.20",
+      "state": "submitted_for_review",
+      "writePolicy": "forbidden_during_review",
+      "sourceDependency": false
+    },
+    "controlPlane": {
+      "userPortal": "https://me.u3w.com",
+      "adminPortal": "https://admin.u3w.com",
+      "domainInventory": "config/deployment/u3w-domain-inventory.json",
+      "controlOwner": "U3W",
+      "runtimeOwner": "FBSir Hub and approved runtime adapters",
+      "systemOfRecordOwner": "U3W plus bound first-party systems",
+      "tenantRequiredForPersonalUsers": true
+    },
+    "identityAndEntitlement": {
+      "identityRefs": [
+        "anonymousJourneyRef",
+        "principalSubjectRef",
+        "tenantId",
+        "channelBindingId",
+        "runId"
+      ],
+      "oauthScopes": [
+        "identity.read",
+        "entitlement.read",
+        "board.meeting.reserve",
+        "board.receipt.write"
+      ],
+      "failClosed": true
+    },
+    "firstVerticalSlice": {
+      "flow": [
+        "authenticated_principal",
+        "vip_entitlement_snapshot",
+        "meeting_quota_reservation",
+        "user_portal_readback",
+        "admin_portal_audit_readback"
+      ],
+      "requiresIdempotencyDigest": true,
+      "requiresTenantIsolation": true,
+      "requiresImmutableAudit": true,
+      "externalSideEffects": false
+    },
+    "receiptBoundary": {
+      "levels": [
+        "ACTION_ACCEPTED",
+        "ACTION_COMPLETED",
+        "PROVIDER_ACCEPTED",
+        "PROVIDER_REJECTED",
+        "UNKNOWN",
+        "DELIVERED",
+        "INTERACTED",
+        "BUSINESS_CONFIRMED"
+      ],
+      "noCrossLevelInference": true
+    },
+    "publicBoundary": {
+      "exclude": [
+        "secrets",
+        "cookies",
+        "real_tokens",
+        "tenant_exports",
+        "internal_evidence",
+        "review_package_changes"
+      ]
+    }
+  }
+}

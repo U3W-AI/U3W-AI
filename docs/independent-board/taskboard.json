@@ -1,0 +1,92 @@
+{
+  "schema": "fbsir.independent-board-taskboard/v1",
+  "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the submitted 26.7.20 expert package.",
+  "singleNextAction": "Complete W1 authenticated VIP entitlement and atomic meeting quota reservation vertical slice.",
+  "waves": [
+    {
+      "id": "W0_FOUNDATION",
+      "state": "in_progress",
+      "exit": [
+        "standalone_self_contained_repository",
+        "valid_engineering_contract",
+        "baseline_build_recorded",
+        "github_remote_declared",
+        "u3w_domain_inventory_materialized"
+      ]
+    },
+    {
+      "id": "W1_VERTICAL_SLICE",
+      "state": "pending",
+      "exit": [
+        "principal_is_server_derived",
+        "vip_entitlement_is_fail_closed",
+        "meeting_quota_reservation_is_atomic_and_idempotent",
+        "me_and_admin_readbacks_are_authorization_separated",
+        "migration_and_negative_tests_pass"
+      ]
+    },
+    {
+      "id": "W2_USER_PORTAL",
+      "state": "pending",
+      "exit": [
+        "me_dashboard",
+        "entitlement_and_credit_views",
+        "meeting_history",
+        "webhook_self_service",
+        "device_and_channel_bindings"
+      ]
+    },
+    {
+      "id": "W3_ADMIN_PORTAL",
+      "state": "pending",
+      "exit": [
+        "tenant_and_member_governance",
+        "product_plan_and_quota_policy",
+        "credit_ledger_operations",
+        "run_receipt_and_failure_audit",
+        "connector_and_device_operations"
+      ]
+    },
+    {
+      "id": "W4_OAUTH_CONNECTOR",
+      "state": "pending",
+      "exit": [
+        "oauth_metadata_and_prm",
+        "pkce_s256",
+        "exact_resource_audience_and_scope",
+        "refresh_family_rotation_and_replay_revocation",
+        "workbuddy_connector_vip_binding"
+      ]
+    },
+    {
+      "id": "W5_DELIVERY_AND_WATCH",
+      "state": "pending",
+      "exit": [
+        "lease_fenced_outbox",
+        "webhook_receipts_and_reconciliation",
+        "watch_approval_challenge",
+        "fbsir_hub_asset_inventory_and_safe_commands"
+      ]
+    },
+    {
+      "id": "W6_RELEASE_READINESS",
+      "state": "pending",
+      "exit": [
+        "cleanroom_build",
+        "database_migration_rehearsal",
+        "local_equivalent_integration",
+        "domain_route_configuration",
+        "rollback_and_observation_receipts"
+      ]
+    }
+  ],
+  "antiFragmentationRules": [
+    "This repository is the only development source of truth and may not depend on any external directory.",
+    "GitHub and every managed u3w.com deployment surface must align to a repository commit and deployment receipt.",
+    "Each wave must close one runnable vertical slice before opening adjacent features.",
+    "Every user-facing state must map to a server-side durable object and authorization rule.",
+    "No expert package change is allowed during the 26.7.20 review freeze.",
+    "No external acceptance or HTTP success may be promoted to business confirmation.",
+    "Review suggestions for host-side products go to next-version demand ledgers."
+  ]
+}

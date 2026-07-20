@@ -1,0 +1,44 @@
+{
+  "schema": "fbsir.u3w-domain-inventory/v1",
+  "authoritativeSource": "this_repository",
+  "alignmentKey": "gitCommit",
+  "inventoryState": "initial_repository_inventory",
+  "domains": [
+    {
+      "host": "u3w.com",
+      "role": "public_entry",
+      "codeSurface": "FBSir-ui",
+      "deploymentState": "requires_live_readback"
+    },
+    {
+      "host": "me.u3w.com",
+      "role": "vip_user_portal",
+      "codeSurface": "FBSir-ui",
+      "deploymentState": "domain_open_runtime_not_proven"
+    },
+    {
+      "host": "admin.u3w.com",
+      "role": "system_administration_portal",
+      "codeSurface": "FBSir-ui",
+      "deploymentState": "domain_open_runtime_not_proven"
+    },
+    {
+      "host": "api2.u3w.com",
+      "role": "runtime_and_mcp_api",
+      "codeSurface": "FBSir-admin,FBSir-business",
+      "deploymentState": "requires_current_service_alignment"
+    },
+    {
+      "host": "track.u3w.com",
+      "role": "receipt_and_action_tracking",
+      "codeSurface": "FBSir-business",
+      "deploymentState": "repository_reference_only"
+    }
+  ],
+  "rules": [
+    "No domain may be deployed from an uncommitted working tree.",
+    "Every deployment must record commit, build digest, migration set, target host and readback result.",
+    "A DNS or HTTP response does not prove application version alignment.",
+    "Uninventoried subdomains fail closed for coordinated release claims."
+  ]
+}
