@@ -1,0 +1,102 @@
+{
+  "schema": "fbsir.independent-board.w4a-verification/v1",
+  "product": {
+    "brandZh": "福帮手",
+    "brandEn": "FBSir",
+    "name": "独董会",
+    "version": "26.7.20"
+  },
+  "scope": "W4a authoritative WorkBuddy Connector binding",
+  "result": "VERIFIED_LOCAL",
+  "observedAt": "2026-07-21T02:17:34+08:00",
+  "repository": {
+    "branch": "codex/independent-board-control-plane",
+    "remote": "https://github.com/U3W-AI/U3W-AI.git",
+    "baseCommit": "16dcc805ea473c92e89b6d7e391d863cc96b0ab0",
+    "authoritativeRoot": true,
+    "externalDirectoryDependency": false
+  },
+  "contract": {
+    "marketplaceEntry": "fbs-connector",
+    "source": "WORKBUDDY",
+    "resourceUri": "https://api2.u3w.com/fbs-mcp/mcp",
+    "activationEvidence": ["MCP_INITIALIZE", "MCP_TOOLS_LIST"],
+    "requiredScopes": [
+      "identity.read",
+      "entitlement.read",
+      "board.meeting.reserve",
+      "board.receipt.write"
+    ],
+    "publicOAuthRoutes": false,
+    "minimumMySql": "8.0.29"
+  },
+  "migration": {
+    "manifestStep": "public_init_032",
+    "internalVersion": "20260721_independent_board_connector_binding_v1",
+    "path": "sql/update_20260721_independent_board_connector_binding.sql",
+    "sha256": "6cf0fa70141ef05c9e84d8c730230cf546c7bffb348fd3e2a40897e5ab472c0f",
+    "exactState": {
+      "tables": 3,
+      "columns": 36,
+      "defaultContracts": 7,
+      "indexes": 11,
+      "foreignKeys": 3,
+      "foreignKeyColumnLinks": 8,
+      "enforcedChecks": 15,
+      "immutabilityTriggers": 2
+    }
+  },
+  "gates": [
+    {
+      "name": "database_manifest",
+      "result": "PASS",
+      "evidence": "32 manifest steps and 29 managed update SQL files covered exactly once"
+    },
+    {
+      "name": "focused_connector_mapper_entitlement_tests",
+      "result": "PASS",
+      "evidence": "62 tests; 0 failures; 0 errors; 0 skipped"
+    },
+    {
+      "name": "real_mysql_transaction_matrix",
+      "result": "PASS",
+      "evidence": "42 tests on MySQL 8.4.8, InnoDB, REPEATABLE-READ; disposable loopback database; no production connection"
+    },
+    {
+      "name": "mysql_negative_and_concurrency_vectors",
+      "result": "PASS",
+      "evidence": "partial state, CHECK drift, missing trigger, lock release, immutable receipt, 32-way first binding, rollback, VIP downgrade terminalization and RR scope-removal race"
+    },
+    {
+      "name": "vip_plan_drift_fail_closed",
+      "result": "PASS",
+      "evidence": "single-user entitlement snapshot, authoritative binding read and bounded admin batch reject missing, disabled or field-drifted current VIP plan with service error"
+    },
+    {
+      "name": "full_backend_http_security_and_frontend",
+      "result": "PASS",
+      "evidence": "contract, full Maven reactor, HTTP security tests, UI model scripts, menu component checks and production build"
+    },
+    {
+      "name": "menu_migration_replay",
+      "result": "PASS",
+      "evidence": "13 W2-W3b first-apply, rerun, drift and collision phases on disposable MySQL 8.4.8"
+    },
+    {
+      "name": "frozen_review_package",
+      "result": "PASS",
+      "evidence": "E:/ddh/fbsir-eight-seat-board clean at dcd28a8583e35d6f481695dee612aa4604cd46e2"
+    }
+  ],
+  "evidenceBoundaries": {
+    "productionDatabaseMigrated": false,
+    "oauthEndToEnd": false,
+    "workBuddyConnectorPackaged": false,
+    "marketplaceListed": false,
+    "realDomainRuntimeVerified": false,
+    "businessConfirmed": false,
+    "mysqlVersionsActuallyTested": ["8.4.8"],
+    "productionRuntimeLeastPrivilege": "required_before_W6_release"
+  },
+  "next": "W4b OAuth 2.1, PKCE S256, PRM/AS metadata, token-family and MCP resource-server contract"
+}

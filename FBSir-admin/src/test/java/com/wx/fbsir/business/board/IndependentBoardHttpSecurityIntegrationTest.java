@@ -7,7 +7,9 @@ import com.wx.fbsir.business.board.domain.BoardEntitlementReceipt;
 import com.wx.fbsir.business.board.domain.BoardProductEntitlement;
 import com.wx.fbsir.business.board.domain.BoardProductPlan;
 import com.wx.fbsir.business.board.domain.BoardUsageOperation;
+import com.wx.fbsir.business.board.dto.BoardConnectorBindingKey;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
+import com.wx.fbsir.business.board.service.BoardConnectorBindingPort;
 import com.wx.fbsir.business.board.service.IndependentBoardDashboardService;
 import com.wx.fbsir.business.board.service.IndependentBoardEntitlementService;
 import com.wx.fbsir.business.board.service.IndependentBoardMeetingService;
@@ -84,6 +86,7 @@ class IndependentBoardHttpSecurityIntegrationTest {
     private static AnnotationConfigWebApplicationContext context;
     private static MockMvc mockMvc;
     private static IndependentBoardMapper mapper;
+    private static BoardConnectorBindingPort connectorBindingPort;
     private static InMemoryRedisCache redisCache;
 
     @BeforeAll
@@ -99,6 +102,7 @@ class IndependentBoardHttpSecurityIntegrationTest {
         context.refresh();
 
         mapper = context.getBean(IndependentBoardMapper.class);
+        connectorBindingPort = context.getBean(BoardConnectorBindingPort.class);
         redisCache = context.getBean(InMemoryRedisCache.class);
         mockMvc = MockMvcBuilders.webAppContextSetup(context)
                 .addFilters(context.getBean("springSecurityFilterChain", jakarta.servlet.Filter.class))
@@ -114,8 +118,12 @@ class IndependentBoardHttpSecurityIntegrationTest {
 
     @BeforeEach
     void resetBoundaries() {
-        reset(mapper);
+        reset(mapper, connectorBindingPort);
         redisCache.clear();
+        when(connectorBindingPort.selectAuthoritativeCurrentBindingKeys(any(), any()))
+                .thenReturn(Set.of());
+        when(connectorBindingPort.hasAuthoritativeCurrentBinding(
+                any(), any(), any(), any(), Mockito.anyBoolean())).thenReturn(false);
         when(mapper.selectActivePlan(
                 IndependentBoardEntitlementService.PRODUCT_CODE,
                 IndependentBoardEntitlementService.FREE_PLAN)).thenReturn(freePlan());
@@ -228,7 +236,8 @@ class IndependentBoardHttpSecurityIntegrationTest {
                 .andExpect(jsonPath("$.code").value(403))
                 .andExpect(jsonPath("$.msg").value("TENANT_MEMBER_USER_SCOPE_INVALID"));
 
-        verify(mapper, times(4)).selectActiveContext(TENANT_ID, USER_ID);
+        verify(mapper, times(3)).selectActiveContext(TENANT_ID, USER_ID);
+        verify(mapper).selectActiveContextForUpdate(TENANT_ID, USER_ID);
         verify(mapper, never()).selectEntitlement(any(), any(), any(), any());
         verify(mapper, never()).selectEntitlementForUpdate(any(), any(), any());
         verify(mapper, never()).selectOperation(any(), any());
@@ -486,6 +495,36 @@ class IndependentBoardHttpSecurityIntegrationTest {
                 .andExpect(jsonPath("$.data[0].productCode").doesNotExist())
                 .andExpect(jsonPath("$.data[0].connectorBindingId").doesNotExist())
                 .andExpect(jsonPath("$.data[0].connectorVerifiedAt").doesNotExist());
+    }
+
+    @Test
+    void administratorReadbackShowsActiveOnlyForAuthoritativeConnectorBinding() throws Exception {
+        BoardProductEntitlement entitlement = entitlement();
+        when(mapper.selectEntitlementsByTenant(
+                TENANT_ID, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(List.of(entitlement));
+        when(mapper.selectActivePlan(
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.VIP_PLAN)).thenReturn(vipPlan());
+        when(connectorBindingPort.selectAuthoritativeCurrentBindingKeys(
+                TENANT_ID, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(Set.of(new BoardConnectorBindingKey(
+                        TENANT_ID, 11L, USER_ID, IndependentBoardEntitlementService.PRODUCT_CODE)));
+
+        mockMvc.perform(get("/business/independent-board/entitlements")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "operator", Set.of("board:entitlement:query"), "admin")))
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0].activationState").value("ACTIVE"))
+                .andExpect(jsonPath("$.data[0].connectorBindingId").doesNotExist())
+                .andExpect(jsonPath("$.data[0].connectorVerifiedAt").doesNotExist());
+
+        verify(connectorBindingPort).selectAuthoritativeCurrentBindingKeys(
+                TENANT_ID, IndependentBoardEntitlementService.PRODUCT_CODE);
+        verify(connectorBindingPort, never()).hasAuthoritativeCurrentBinding(
+                any(), any(), any(), any(), Mockito.anyBoolean());
     }
 
     @Test
@@ -1031,8 +1070,15 @@ class IndependentBoardHttpSecurityIntegrationTest {
         }
 
         @Bean
-        IndependentBoardEntitlementService entitlementService(IndependentBoardMapper mapper) {
-            return new IndependentBoardEntitlementService(mapper);
+        BoardConnectorBindingPort connectorBindingPort() {
+            return Mockito.mock(BoardConnectorBindingPort.class);
+        }
+
+        @Bean
+        IndependentBoardEntitlementService entitlementService(
+                IndependentBoardMapper mapper,
+                BoardConnectorBindingPort connectorBindingPort) {
+            return new IndependentBoardEntitlementService(mapper, connectorBindingPort);
         }
 
         @Bean

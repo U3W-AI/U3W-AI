@@ -111,6 +111,7 @@ $requiredTail = @{
     public_init_029 = "update_20260720_independent_board_me_menu.sql"
     public_init_030 = "update_20260720_independent_board_admin_menu.sql"
     public_init_031 = "update_20260720_independent_board_entitlement_lifecycle_menu.sql"
+    public_init_032 = "update_20260721_independent_board_connector_binding.sql"
 }
 foreach ($version in $requiredTail.Keys) {
     $matches = @($manifest.steps | Where-Object { $_.version -eq $version -and $_.file -eq $requiredTail[$version] })
@@ -461,6 +462,200 @@ if ($lifecycleApplyGuardIndex -lt 0 -or
     $errors.Add("Independent Board entitlement lifecycle menu migration must write permission, page and receipt, audit completion, commit while locked and only then release its lock")
 }
 
+$connectorBindingSqlPath = Join-Path $sqlRoot "update_20260721_independent_board_connector_binding.sql"
+if (-not (Test-Path -LiteralPath $connectorBindingSqlPath -PathType Leaf)) {
+    $errors.Add("Independent Board authoritative Connector binding migration is missing")
+    $connectorBindingSql = ''
+}
+else {
+    $connectorBindingSql = Get-Content -LiteralPath $connectorBindingSqlPath -Raw -Encoding UTF8
+}
+$requiredConnectorBindingNeedles = @(
+    "20260721_independent_board_connector_binding_v1",
+    "public_init_032",
+    "Target: MySQL >= 8.0.29",
+    "migration requires MySQL 8.0.29 or newer",
+    "SHA2(",
+    "CHAR_LENGTH(migration_lock_name) <> 64",
+    "GET_LOCK(migration_lock_name, 30)",
+    "IS_USED_LOCK(migration_lock_name)",
+    "migration_lock_owner <> current_connection",
+    "RELEASE_LOCK(migration_lock_name)",
+    "DECLARE EXIT HANDLER FOR SQLEXCEPTION",
+    "ROLLBACK;",
+    "START TRANSACTION;",
+    "COMMIT;",
+    "IF migration_exists = 0 AND target_table_count <> 0 THEN",
+    "IF migration_exists <> 0 AND target_table_count <> 3 THEN",
+    'CREATE TABLE IF NOT EXISTS `fbs_connector_binding`',
+    'CREATE TABLE IF NOT EXISTS `fbs_connector_binding_scope`',
+    'CREATE TABLE IF NOT EXISTS `fbs_connector_binding_receipt`',
+    "uk_connector_binding_id",
+    "uk_connector_binding_receipt_scope",
+    "uk_connector_binding_scope",
+    "fk_connector_binding_entitlement",
+    "fk_connector_binding_scope_binding",
+    "fk_connector_binding_receipt_binding",
+    "target_column_count <> 36",
+    "target_index_count <> 11",
+    "target_foreign_key_count <> 3",
+    "target_foreign_key_total_column_count <> 8",
+    "target_check_count <> 15",
+    "target_enforced_check_count <> 15",
+    "target_check_contract_count <> 15",
+    "unique_constraint_schema = DATABASE()",
+    "referenced_table_schema = DATABASE()",
+    "tc.enforced = 'YES'",
+    "CAST(normalized_clause AS BINARY) = CAST('(source_code=''workbuddy'')' AS BINARY)",
+    "CAST(normalized_clause AS BINARY) = CAST('(evidence_level=''action_completed'')' AS BINARY)",
+    "target_digest_column_count <> 3",
+    "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin",
+    "``source_code`` = 'WORKBUDDY'",
+    "``connector_code`` = 'fbs-connector'",
+    "``resource_uri`` = 'https://api2.u3w.com/fbs-mcp/mcp'",
+    "MCP_INITIALIZE",
+    "MCP_TOOLS_LIST",
+    "identity.read",
+    "entitlement.read",
+    "board.meeting.reserve",
+    "board.receipt.write",
+    "CONNECTOR_BINDING_VERIFIED",
+    "CONNECTOR_BINDING_REVOKED",
+    "ACTION_COMPLETED",
+    "Independent Board authoritative Connector binding, scope and receipt tables",
+    "target_internal_receipt_count <> 1",
+    "lost lock ownership before trigger finalization",
+    'CREATE TRIGGER IF NOT EXISTS `trg_connector_binding_receipt_no_update`',
+    'CREATE TRIGGER IF NOT EXISTS `trg_connector_binding_receipt_no_delete`',
+    'CALL `u3w_finalize_independent_board_connector_binding_20260721`()$$',
+    "Connector binding receipts are immutable"
+)
+foreach ($needle in $requiredConnectorBindingNeedles) {
+    if (-not $connectorBindingSql.Contains($needle)) {
+        $errors.Add("Independent Board Connector binding SQL is missing required contract: $needle")
+    }
+}
+if ($connectorBindingSql.Contains('ON DUPLICATE KEY UPDATE') -or
+    $connectorBindingSql.Contains('CREATE TABLE IF NOT EXISTS `u3w_schema_migration`')) {
+    $errors.Add("Independent Board Connector binding migration must fail closed and must not bootstrap or repair its migration receipt ledger")
+}
+if ($connectorBindingSql -match '(?im)^\s*(?:ALTER|DROP)\s+TABLE\s+`?fbs_product_entitlement`?' -or
+    $connectorBindingSql -match '(?im)^\s*(?:UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+`?fbs_product_entitlement`?') {
+    $errors.Add("Independent Board Connector binding migration must not mutate legacy entitlement Connector columns or entitlement rows")
+}
+
+$connectorApplyGuardIndex = $connectorBindingSql.IndexOf('IF migration_exists = 0 THEN', [StringComparison]::Ordinal)
+$connectorBindingCreateIndex = $connectorBindingSql.IndexOf('CREATE TABLE IF NOT EXISTS `fbs_connector_binding`', [StringComparison]::Ordinal)
+$connectorScopeCreateIndex = $connectorBindingSql.IndexOf('CREATE TABLE IF NOT EXISTS `fbs_connector_binding_scope`', [StringComparison]::Ordinal)
+$connectorReceiptCreateIndex = $connectorBindingSql.IndexOf('CREATE TABLE IF NOT EXISTS `fbs_connector_binding_receipt`', [StringComparison]::Ordinal)
+$connectorApplyGuardEndIndex = if ($connectorReceiptCreateIndex -ge 0) {
+    $connectorBindingSql.IndexOf('END IF;', $connectorReceiptCreateIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$connectorCompletionAuditIndex = if ($connectorApplyGuardEndIndex -ge 0) {
+    $connectorBindingSql.IndexOf('-- Exact table, engine and collation audit.', $connectorApplyGuardEndIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$connectorFinalizerDefinitionIndex = $connectorBindingSql.IndexOf(
+    'CREATE PROCEDURE `u3w_finalize_independent_board_connector_binding_20260721`()',
+    [StringComparison]::Ordinal)
+$connectorTransactionIndex = if ($connectorFinalizerDefinitionIndex -ge 0) {
+    $connectorBindingSql.IndexOf('START TRANSACTION;', $connectorFinalizerDefinitionIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$connectorReceiptInsertIndex = if ($connectorTransactionIndex -ge 0) {
+    $connectorBindingSql.IndexOf('INSERT INTO `u3w_schema_migration`', $connectorTransactionIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$connectorReceiptAuditIndex = if ($connectorReceiptInsertIndex -ge 0) {
+    $connectorBindingSql.IndexOf('SELECT COUNT(*) INTO target_internal_receipt_count', $connectorReceiptInsertIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$connectorCommitIndex = if ($connectorReceiptAuditIndex -ge 0) {
+    $connectorBindingSql.IndexOf('COMMIT;', $connectorReceiptAuditIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$connectorReleaseIndex = if ($connectorCommitIndex -ge 0) {
+    $connectorBindingSql.IndexOf('SELECT RELEASE_LOCK(migration_lock_name)', $connectorCommitIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$connectorFinalizerEndIndex = if ($connectorReleaseIndex -ge 0) {
+    $connectorBindingSql.IndexOf('END$$', $connectorReleaseIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$connectorPrepareCallIndex = $connectorBindingSql.LastIndexOf(
+    'CALL `u3w_migrate_independent_board_connector_binding_20260721`()$$',
+    [StringComparison]::Ordinal)
+$connectorUpdateTriggerIndex = $connectorBindingSql.LastIndexOf(
+    'CREATE TRIGGER IF NOT EXISTS `trg_connector_binding_receipt_no_update`',
+    [StringComparison]::Ordinal)
+$connectorDeleteTriggerIndex = $connectorBindingSql.LastIndexOf(
+    'CREATE TRIGGER IF NOT EXISTS `trg_connector_binding_receipt_no_delete`',
+    [StringComparison]::Ordinal)
+$connectorFinalizeCallIndex = $connectorBindingSql.LastIndexOf(
+    'CALL `u3w_finalize_independent_board_connector_binding_20260721`()$$',
+    [StringComparison]::Ordinal)
+$connectorPrepareDropIndex = $connectorBindingSql.LastIndexOf(
+    'DROP PROCEDURE IF EXISTS `u3w_migrate_independent_board_connector_binding_20260721`$$',
+    [StringComparison]::Ordinal)
+$connectorFinalizerDropIndex = $connectorBindingSql.LastIndexOf(
+    'DROP PROCEDURE IF EXISTS `u3w_finalize_independent_board_connector_binding_20260721`$$',
+    [StringComparison]::Ordinal)
+if ($connectorApplyGuardIndex -lt 0 -or
+    $connectorBindingCreateIndex -le $connectorApplyGuardIndex -or
+    $connectorScopeCreateIndex -le $connectorBindingCreateIndex -or
+    $connectorReceiptCreateIndex -le $connectorScopeCreateIndex -or
+    $connectorApplyGuardEndIndex -le $connectorReceiptCreateIndex -or
+    $connectorCompletionAuditIndex -le $connectorApplyGuardEndIndex -or
+    $connectorFinalizerDefinitionIndex -le $connectorCompletionAuditIndex -or
+    $connectorTransactionIndex -le $connectorFinalizerDefinitionIndex -or
+    $connectorReceiptInsertIndex -le $connectorTransactionIndex -or
+    $connectorReceiptAuditIndex -le $connectorReceiptInsertIndex -or
+    $connectorCommitIndex -le $connectorReceiptAuditIndex -or
+    $connectorReleaseIndex -le $connectorCommitIndex -or
+    $connectorFinalizerEndIndex -le $connectorReleaseIndex -or
+    $connectorPrepareCallIndex -le $connectorFinalizerEndIndex -or
+    $connectorUpdateTriggerIndex -le $connectorPrepareCallIndex -or
+    $connectorDeleteTriggerIndex -le $connectorUpdateTriggerIndex -or
+    $connectorFinalizeCallIndex -le $connectorDeleteTriggerIndex -or
+    $connectorPrepareDropIndex -le $connectorFinalizeCallIndex -or
+    $connectorFinalizerDropIndex -le $connectorPrepareDropIndex) {
+    $errors.Add("Independent Board Connector binding migration must prepare and audit while locked, create immutable triggers at top level, finalize its receipt, release the lock and then remove both procedures")
+}
+$connectorTargetCreates = @([regex]::Matches(
+    $connectorBindingSql,
+    'CREATE TABLE IF NOT EXISTS `fbs_connector_binding(?:_scope|_receipt)?`',
+    [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+))
+if ($connectorTargetCreates.Count -ne 3 -or @($connectorTargetCreates | Where-Object {
+    $_.Index -le $connectorApplyGuardIndex -or $_.Index -ge $connectorApplyGuardEndIndex
+}).Count -ne 0) {
+    $errors.Add("all three Connector binding CREATE TABLE statements must be confined to the first-apply guard")
+}
+
+$expectedConnectorBindingColumns = [ordered]@{
+    fbs_connector_binding = @(
+        'id','binding_id','enterprise_id','member_id','user_id','product_code','source_code','connector_code',
+        'issuer_uri','resource_uri','client_id','principal_subject_digest','status','verification_method',
+        'evidence_digest','verified_at','last_seen_at','valid_until','revoked_at','version','created_at','updated_at'
+    )
+    fbs_connector_binding_scope = @('binding_id','scope_code','created_at')
+    fbs_connector_binding_receipt = @(
+        'id','receipt_id','binding_id','enterprise_id','member_id','user_id','actor_user_id','action',
+        'payload_digest','evidence_level','created_at'
+    )
+}
+foreach ($tableName in $expectedConnectorBindingColumns.Keys) {
+    $escapedTableName = [regex]::Escape($tableName)
+    $tableMatch = [regex]::Match(
+        $connectorBindingSql,
+        "CREATE TABLE IF NOT EXISTS ``$escapedTableName``\s*\((?<body>[\s\S]*?)\) ENGINE=InnoDB",
+        [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+    )
+    if (-not $tableMatch.Success) {
+        $errors.Add("Connector binding SQL table body is missing: $tableName")
+        continue
+    }
+    $actualColumns = @([regex]::Matches($tableMatch.Groups['body'].Value, '(?m)^\s*`(?<name>[^`]+)`\s+') |
+        ForEach-Object { $_.Groups['name'].Value })
+    $expectedColumns = @($expectedConnectorBindingColumns[$tableName])
+    if (($actualColumns -join '|') -ne ($expectedColumns -join '|')) {
+        $errors.Add("ordered column contract mismatch for $tableName")
+    }
+}
+
 $truthSpineSqlPath = Join-Path $sqlRoot 'update_20260712_truth_spine_test_state_receipt.sql'
 $truthSpineSql = Get-Content -LiteralPath $truthSpineSqlPath -Raw -Encoding UTF8
 $requiredTruthSpineLockNeedles = @(
@@ -525,6 +720,7 @@ $lastCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardControlPl
 $lastMeMenuCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardMeMenuCurrentState', [StringComparison]::Ordinal)
 $lastAdminMenuCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardAdminMenuCurrentState', [StringComparison]::Ordinal)
 $lastLifecycleMenuCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardEntitlementLifecycleMenuCurrentState', [StringComparison]::Ordinal)
+$lastConnectorBindingCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardConnectorBindingCurrentState', [StringComparison]::Ordinal)
 $manifestLoopIndex = $initSource.IndexOf('foreach ($step in $steps)', [StringComparison]::Ordinal)
 if ($lastCurrentReadCall -le $manifestLoopIndex) {
     $errors.Add("initializer must run the Independent Board current-read audit after the complete manifest loop")
@@ -537,6 +733,28 @@ if ($lastAdminMenuCurrentReadCall -le $manifestLoopIndex) {
 }
 if ($lastLifecycleMenuCurrentReadCall -le $manifestLoopIndex) {
     $errors.Add("initializer must run the Independent Board entitlement lifecycle menu current-read audit after the complete manifest loop")
+}
+if ($lastConnectorBindingCurrentReadCall -le $manifestLoopIndex) {
+    $errors.Add("initializer must run the Independent Board Connector binding current-read audit after the complete manifest loop")
+}
+$requiredConnectorCurrentReadNeedles = @(
+    '$expectedAppliedState = "APPLIED:$($step.Description)"',
+    '$expectedExactState = @(3, 36, 7, 11, 3, 8, 15, 15, 2, 2)',
+    "column_type = 'varchar(191)'",
+    "CAST(visibility AS BINARY) = CAST('YES' AS BINARY) AND partial_columns = 0",
+    "unique_constraint_schema = DATABASE()",
+    "referenced_table_schema = DATABASE()",
+    "tc.enforced = 'YES'",
+    "CAST(normalized_clause AS BINARY) = CAST('(source_code=''workbuddy'')' AS BINARY)",
+    "CAST(normalized_clause AS BINARY) = CAST('(evidence_level=''action_completed'')' AS BINARY)",
+    "trg_connector_binding_receipt_no_update",
+    "trg_connector_binding_receipt_no_delete",
+    'Independent Board Connector binding exact current-read audit'
+)
+foreach ($needle in $requiredConnectorCurrentReadNeedles) {
+    if (-not $initSource.Contains($needle)) {
+        $errors.Add("initializer is missing exact Connector current-read contract: $needle")
+    }
 }
 
 $liveVerifierPath = Join-Path $resolvedRoot 'scripts\verify-independent-board-live-database.ps1'
@@ -651,6 +869,7 @@ $result = [pscustomobject]@{
     meMenuVersion = "public_init_029"
     adminMenuVersion = "public_init_030"
     entitlementLifecycleMenuVersion = "public_init_031"
+    connectorBindingVersion = "public_init_032"
     menuMigrationReplayGate = "scripts/run-independent-board-menu-migration-it.ps1"
     errors = @($errors)
 }

@@ -14,6 +14,27 @@ function Assert-PathExists {
     }
 }
 
+function Read-Utf8Json {
+    param([string]$RelativePath)
+    return Get-Content -LiteralPath (Join-Path $RepoRoot $RelativePath) -Raw -Encoding UTF8 | ConvertFrom-Json
+}
+
+function Assert-ProductBrand {
+    param(
+        [object]$Product,
+        [string]$Source
+    )
+    # Keep this script ASCII-safe for Windows PowerShell 5.1.
+    $ExpectedBrandZh = -join @([char]0x798F, [char]0x5E2E, [char]0x624B)
+    $ExpectedProductName = -join @([char]0x72EC, [char]0x8463, [char]0x4F1A)
+    if ($null -eq $Product `
+            -or $Product.brandZh -cne $ExpectedBrandZh `
+            -or $Product.brandEn -cne 'FBSir' `
+            -or $Product.name -cne $ExpectedProductName) {
+        throw "Product brand contract mismatch: $Source"
+    }
+}
+
 function Invoke-ContractChecks {
     $required = @(
         '.fbs-engineering\contract.json',
@@ -23,11 +44,13 @@ function Invoke-ContractChecks {
         'docs\independent-board\AUTHORITATIVE-ROOT.md',
         'docs\independent-board\PORTAL-PROTOTYPE-SPEC.md',
         'docs\independent-board\W3B-ENTITLEMENT-LIFECYCLE-CONTRACT.md',
+        'docs\independent-board\W4A-AUTHORITATIVE-CONNECTOR-BINDING-CONTRACT.md',
         'docs\independent-board\prototypes\portals\index.html',
         'sql\update_20260720_independent_board_control_plane.sql',
         'sql\update_20260720_independent_board_me_menu.sql',
         'sql\update_20260720_independent_board_admin_menu.sql',
         'sql\update_20260720_independent_board_entitlement_lifecycle_menu.sql',
+        'sql\update_20260721_independent_board_connector_binding.sql',
         'scripts\verify-database-manifest.ps1',
         'scripts\verify-independent-board-live-database.ps1',
         'scripts\run-independent-board-menu-migration-it.ps1',
@@ -55,12 +78,40 @@ function Invoke-ContractChecks {
         'reports\independent-board\w1-application-integration-verification-20260720.json',
         'reports\independent-board\w2-user-portal-verification-20260720.json',
         'reports\independent-board\w3-admin-portal-verification-20260720.json',
-        'reports\independent-board\w3b-entitlement-lifecycle-verification-20260720.json'
+        'reports\independent-board\w3b-entitlement-lifecycle-verification-20260720.json',
+        'reports\independent-board\w4a-authoritative-connector-binding-verification-20260721.json'
     )
     foreach ($path in $required) {
         Assert-PathExists -RelativePath $path
         if ([System.IO.Path]::GetExtension($path) -eq '.json') {
-            $null = Get-Content -LiteralPath (Join-Path $RepoRoot $path) -Raw -Encoding UTF8 | ConvertFrom-Json
+            $null = Read-Utf8Json -RelativePath $path
+        }
+    }
+
+    Assert-ProductBrand -Product (Read-Utf8Json -RelativePath 'docs\independent-board\implementation-status.json').product `
+        -Source 'implementation status'
+    Assert-ProductBrand -Product (Read-Utf8Json -RelativePath 'reports\independent-board\w4a-authoritative-connector-binding-verification-20260721.json').product `
+        -Source 'W4a verification report'
+
+    $ExpectedBrandZh = -join @([char]0x798F, [char]0x5E2E, [char]0x624B)
+    $ExpectedProductName = -join @([char]0x72EC, [char]0x8463, [char]0x4F1A)
+    $LegacyProductName = -join @(
+        [char]0x8D85, [char]0x7EA7, [char]0x5408, [char]0x4F19, [char]0x4EBA,
+        [char]0x72EC, [char]0x8463, [char]0x4F1A)
+    foreach ($surface in @(
+        'docs\independent-board\prototypes\portals\index.html',
+        'FBSir-ui\src\views\business\independentBoard\me\index.vue',
+        'FBSir-ui\src\views\business\independentBoard\admin\entitlement\index.vue',
+        'FBSir-ui\src\views\business\independentBoard\admin\entitlementReceipt\index.vue',
+        'FBSir-ui\src\views\business\independentBoard\admin\meetingAudit\index.vue')) {
+        $content = Get-Content -LiteralPath (Join-Path $RepoRoot $surface) -Raw -Encoding UTF8
+        foreach ($marker in @($ExpectedBrandZh, 'FBSir', $ExpectedProductName)) {
+            if (-not $content.Contains($marker)) {
+                throw "Product brand marker is missing from ${surface}: $marker"
+            }
+        }
+        if ($content.Contains($LegacyProductName)) {
+            throw "Legacy product name is forbidden on product surface: $surface"
         }
     }
 

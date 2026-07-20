@@ -88,6 +88,7 @@ $steps = @(
     New-Step "public_init_029" "Independent Board me portal menu" (Resolve-SqlFile "update_20260720_independent_board_me_menu.sql")
     New-Step "public_init_030" "Independent Board administration menu" (Resolve-SqlFile "update_20260720_independent_board_admin_menu.sql")
     New-Step "public_init_031" "Independent Board entitlement lifecycle administration menu" (Resolve-SqlFile "update_20260720_independent_board_entitlement_lifecycle_menu.sql")
+    New-Step "public_init_032" "Independent Board authoritative Connector binding" (Resolve-SqlFile "update_20260721_independent_board_connector_binding.sql")
 )
 
 if (-not (Test-Path -LiteralPath $DeclarativeManifestPath -PathType Leaf)) {
@@ -610,6 +611,301 @@ SELECT CONCAT_WS('|',
     Write-Host "PASS Independent Board entitlement lifecycle menu current-read audit (1 revoke permission, 1 receipt page, W3a prerequisite and 1 internal receipt; role bindings are externally governable)."
 }
 
+function Assert-IndependentBoardConnectorBindingCurrentState {
+    $stateResponse = Invoke-MySqlText -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema = DATABASE()
+     AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')),
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema = DATABASE()
+     AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')
+     AND table_type = 'BASE TABLE'),
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema = DATABASE()
+     AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')
+     AND engine = 'InnoDB'),
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema = DATABASE()
+     AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')
+     AND table_collation = 'utf8mb4_unicode_ci'),
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema = DATABASE()
+     AND ((table_name = 'fbs_connector_binding' AND column_name IN
+           ('id','binding_id','enterprise_id','member_id','user_id','product_code','source_code','connector_code','issuer_uri','resource_uri','client_id','principal_subject_digest','status','verification_method','evidence_digest','verified_at','last_seen_at','valid_until','revoked_at','version','created_at','updated_at'))
+       OR (table_name = 'fbs_connector_binding_scope' AND column_name IN
+           ('binding_id','scope_code','created_at'))
+       OR (table_name = 'fbs_connector_binding_receipt' AND column_name IN
+           ('id','receipt_id','binding_id','enterprise_id','member_id','user_id','actor_user_id','action','payload_digest','evidence_level','created_at')))),
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema = DATABASE()
+     AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')),
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema = DATABASE()
+     AND ((table_name = 'fbs_connector_binding' AND column_name IN ('principal_subject_digest','evidence_digest'))
+       OR (table_name = 'fbs_connector_binding_receipt' AND column_name = 'payload_digest'))
+     AND column_type = 'char(64)' AND is_nullable = 'NO'
+     AND character_set_name = 'ascii' AND collation_name = 'ascii_bin'),
+  (SELECT COUNT(*) FROM (
+       SELECT table_name, index_name
+       FROM information_schema.statistics
+       WHERE table_schema = DATABASE()
+         AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')
+       GROUP BY table_name, index_name
+   ) target_indexes),
+  (SELECT COUNT(*) FROM (
+       SELECT table_name, index_name, non_unique, index_type,
+              GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',') AS column_signature
+       FROM information_schema.statistics
+       WHERE table_schema = DATABASE()
+         AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')
+       GROUP BY table_name, index_name, non_unique, index_type
+   ) indexes_by_name
+   WHERE (table_name = 'fbs_connector_binding' AND index_name = 'PRIMARY' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('id' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND index_name = 'uk_connector_binding_id' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('binding_id' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND index_name = 'uk_connector_binding_receipt_scope' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('binding_id,enterprise_id,member_id,user_id' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND index_name = 'uk_connector_binding_scope' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('enterprise_id,member_id,product_code,source_code,connector_code' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND index_name = 'idx_connector_binding_user' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('enterprise_id,user_id,product_code,status' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND index_name = 'idx_connector_binding_state' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('status,valid_until' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_scope' AND index_name = 'PRIMARY' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('binding_id,scope_code' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'PRIMARY' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('id' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'uk_connector_binding_receipt_id' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('receipt_id' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'idx_connector_binding_receipt_binding' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('binding_id,enterprise_id,member_id,user_id,created_at' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'idx_connector_binding_receipt_scope' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('enterprise_id,member_id,created_at' AS BINARY))),
+  (SELECT COUNT(*) FROM information_schema.referential_constraints
+   WHERE constraint_schema = DATABASE()
+     AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')),
+  (SELECT COUNT(*) FROM information_schema.referential_constraints
+   WHERE constraint_schema = DATABASE() AND update_rule = 'RESTRICT' AND delete_rule = 'RESTRICT'
+     AND ((table_name = 'fbs_connector_binding' AND constraint_name = 'fk_connector_binding_entitlement' AND referenced_table_name = 'fbs_product_entitlement')
+       OR (table_name = 'fbs_connector_binding_scope' AND constraint_name = 'fk_connector_binding_scope_binding' AND referenced_table_name = 'fbs_connector_binding')
+       OR (table_name = 'fbs_connector_binding_receipt' AND constraint_name = 'fk_connector_binding_receipt_binding' AND referenced_table_name = 'fbs_connector_binding'))),
+  (SELECT COUNT(*) FROM information_schema.key_column_usage
+   WHERE constraint_schema = DATABASE() AND referenced_table_name IS NOT NULL
+     AND ((table_name = 'fbs_connector_binding' AND constraint_name = 'fk_connector_binding_entitlement'
+           AND ((ordinal_position = 1 AND column_name = 'enterprise_id' AND referenced_column_name = 'enterprise_id')
+             OR (ordinal_position = 2 AND column_name = 'member_id' AND referenced_column_name = 'member_id')
+             OR (ordinal_position = 3 AND column_name = 'product_code' AND referenced_column_name = 'product_code')))
+       OR (table_name = 'fbs_connector_binding_scope' AND constraint_name = 'fk_connector_binding_scope_binding'
+           AND ordinal_position = 1 AND column_name = 'binding_id' AND referenced_column_name = 'binding_id')
+       OR (table_name = 'fbs_connector_binding_receipt' AND constraint_name = 'fk_connector_binding_receipt_binding'
+           AND ((ordinal_position = 1 AND column_name = 'binding_id' AND referenced_column_name = 'binding_id')
+             OR (ordinal_position = 2 AND column_name = 'enterprise_id' AND referenced_column_name = 'enterprise_id')
+             OR (ordinal_position = 3 AND column_name = 'member_id' AND referenced_column_name = 'member_id')
+             OR (ordinal_position = 4 AND column_name = 'user_id' AND referenced_column_name = 'user_id'))))),
+  (SELECT COUNT(*) FROM information_schema.table_constraints
+   WHERE constraint_schema = DATABASE() AND constraint_type = 'CHECK'
+     AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')),
+  (SELECT COUNT(*) FROM information_schema.table_constraints
+   WHERE constraint_schema = DATABASE() AND constraint_type = 'CHECK'
+     AND ((table_name = 'fbs_connector_binding' AND constraint_name IN
+           ('chk_connector_binding_identifiers','chk_connector_binding_source','chk_connector_binding_connector','chk_connector_binding_resource','chk_connector_binding_status','chk_connector_binding_verification','chk_connector_binding_principal_digest','chk_connector_binding_evidence_digest','chk_connector_binding_lifecycle','chk_connector_binding_temporal'))
+       OR (table_name = 'fbs_connector_binding_scope' AND constraint_name = 'chk_connector_binding_scope_code')
+       OR (table_name = 'fbs_connector_binding_receipt' AND constraint_name IN
+           ('chk_connector_binding_receipt_id','chk_connector_binding_receipt_action','chk_connector_binding_receipt_payload_digest','chk_connector_binding_receipt_evidence')))),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = '20260721_independent_board_connector_binding_v1'
+     AND description = 'Independent Board authoritative Connector binding, scope and receipt tables'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = '20260721_independent_board_connector_binding_v1')
+);
+"@
+    $stateParts = @($stateResponse.Split('|'))
+    $expectedState = @(3, 3, 3, 3, 36, 36, 3, 11, 11, 3, 3, 8, 15, 15, 1, 1)
+    if ($stateParts.Count -ne $expectedState.Count) {
+        throw "Independent Board Connector binding current-read verifier returned an invalid field count: '$stateResponse'."
+    }
+    for ($index = 0; $index -lt $expectedState.Count; $index++) {
+        if ($stateParts[$index] -notmatch '^\d+$' -or [int]$stateParts[$index] -ne $expectedState[$index]) {
+            throw "Independent Board Connector binding current-read drift detected at field $($index + 1): expected $($expectedState[$index]), found '$($stateParts[$index])'."
+        }
+    }
+
+    $exactStateResponse = Invoke-MySqlText -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM (
+       SELECT table_name,
+              GROUP_CONCAT(column_name ORDER BY ordinal_position SEPARATOR ',') AS column_signature
+       FROM information_schema.columns
+       WHERE table_schema = DATABASE()
+         AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')
+       GROUP BY table_name
+   ) ordered_columns
+   WHERE (table_name = 'fbs_connector_binding'
+          AND CAST(column_signature AS BINARY) = CAST('id,binding_id,enterprise_id,member_id,user_id,product_code,source_code,connector_code,issuer_uri,resource_uri,client_id,principal_subject_digest,status,verification_method,evidence_digest,verified_at,last_seen_at,valid_until,revoked_at,version,created_at,updated_at' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_scope'
+          AND CAST(column_signature AS BINARY) = CAST('binding_id,scope_code,created_at' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_receipt'
+          AND CAST(column_signature AS BINARY) = CAST('id,receipt_id,binding_id,enterprise_id,member_id,user_id,actor_user_id,action,payload_digest,evidence_level,created_at' AS BINARY))),
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema = DATABASE() AND (
+      (table_name = 'fbs_connector_binding' AND column_name = 'id'
+       AND column_type = 'bigint unsigned' AND is_nullable = 'NO' AND extra = 'auto_increment')
+      OR (table_name = 'fbs_connector_binding' AND column_name IN ('enterprise_id','member_id','user_id')
+          AND column_type = 'bigint unsigned' AND is_nullable = 'NO' AND column_default IS NULL AND extra = '')
+      OR (table_name = 'fbs_connector_binding' AND column_name = 'version'
+          AND column_type = 'bigint unsigned' AND is_nullable = 'NO' AND column_default = '0' AND extra = '')
+      OR (table_name = 'fbs_connector_binding' AND column_name = 'binding_id'
+          AND column_type = 'varchar(128)' AND is_nullable = 'NO' AND column_default IS NULL
+          AND character_set_name = 'ascii' AND collation_name = 'ascii_bin' AND extra = '')
+      OR (table_name = 'fbs_connector_binding' AND column_name = 'product_code'
+          AND column_type = 'varchar(64)' AND is_nullable = 'NO' AND column_default IS NULL
+          AND character_set_name = 'utf8mb4' AND collation_name = 'utf8mb4_unicode_ci' AND extra = '')
+      OR (table_name = 'fbs_connector_binding' AND column_name IN ('source_code','connector_code')
+          AND column_type = 'varchar(64)' AND is_nullable = 'NO' AND column_default IS NULL
+          AND character_set_name = 'ascii' AND collation_name = 'ascii_bin' AND extra = '')
+      OR (table_name = 'fbs_connector_binding' AND column_name IN ('issuer_uri','resource_uri')
+          AND column_type = 'varchar(512)' AND is_nullable = 'NO' AND column_default IS NULL
+          AND character_set_name = 'ascii' AND collation_name = 'ascii_bin' AND extra = '')
+      OR (table_name = 'fbs_connector_binding' AND column_name = 'client_id'
+          AND column_type = 'varchar(191)' AND is_nullable = 'NO' AND column_default IS NULL
+          AND character_set_name = 'ascii' AND collation_name = 'ascii_bin' AND extra = '')
+      OR (table_name = 'fbs_connector_binding' AND column_name IN ('principal_subject_digest','evidence_digest')
+          AND column_type = 'char(64)' AND is_nullable = 'NO' AND column_default IS NULL
+          AND character_set_name = 'ascii' AND collation_name = 'ascii_bin' AND extra = '')
+      OR (table_name = 'fbs_connector_binding' AND column_name IN ('status','verification_method')
+          AND column_type = 'varchar(32)' AND is_nullable = 'NO' AND column_default IS NULL
+          AND character_set_name = 'ascii' AND collation_name = 'ascii_bin' AND extra = '')
+      OR (table_name = 'fbs_connector_binding' AND column_name IN ('verified_at','last_seen_at','valid_until')
+          AND column_type = 'datetime(3)' AND is_nullable = 'NO' AND column_default IS NULL AND extra = '')
+      OR (table_name = 'fbs_connector_binding' AND column_name = 'revoked_at'
+          AND column_type = 'datetime(3)' AND is_nullable = 'YES' AND column_default IS NULL AND extra = '')
+      OR (table_name = 'fbs_connector_binding' AND column_name IN ('created_at','updated_at')
+          AND column_type = 'datetime(3)' AND is_nullable = 'NO')
+      OR (table_name = 'fbs_connector_binding_scope' AND column_name = 'binding_id'
+          AND column_type = 'varchar(128)' AND is_nullable = 'NO' AND column_default IS NULL
+          AND character_set_name = 'ascii' AND collation_name = 'ascii_bin' AND extra = '')
+      OR (table_name = 'fbs_connector_binding_scope' AND column_name = 'scope_code'
+          AND column_type = 'varchar(64)' AND is_nullable = 'NO' AND column_default IS NULL
+          AND character_set_name = 'ascii' AND collation_name = 'ascii_bin' AND extra = '')
+      OR (table_name = 'fbs_connector_binding_scope' AND column_name = 'created_at'
+          AND column_type = 'datetime(3)' AND is_nullable = 'NO')
+      OR (table_name = 'fbs_connector_binding_receipt' AND column_name = 'id'
+          AND column_type = 'bigint unsigned' AND is_nullable = 'NO' AND extra = 'auto_increment')
+      OR (table_name = 'fbs_connector_binding_receipt' AND column_name IN ('receipt_id','binding_id')
+          AND column_type = 'varchar(128)' AND is_nullable = 'NO' AND column_default IS NULL
+          AND character_set_name = 'ascii' AND collation_name = 'ascii_bin' AND extra = '')
+      OR (table_name = 'fbs_connector_binding_receipt' AND column_name IN ('enterprise_id','member_id','user_id','actor_user_id')
+          AND column_type = 'bigint unsigned' AND is_nullable = 'NO' AND column_default IS NULL AND extra = '')
+      OR (table_name = 'fbs_connector_binding_receipt' AND column_name = 'action'
+          AND column_type = 'varchar(64)' AND is_nullable = 'NO' AND column_default IS NULL
+          AND character_set_name = 'ascii' AND collation_name = 'ascii_bin' AND extra = '')
+      OR (table_name = 'fbs_connector_binding_receipt' AND column_name = 'payload_digest'
+          AND column_type = 'char(64)' AND is_nullable = 'NO' AND column_default IS NULL
+          AND character_set_name = 'ascii' AND collation_name = 'ascii_bin' AND extra = '')
+      OR (table_name = 'fbs_connector_binding_receipt' AND column_name = 'evidence_level'
+          AND column_type = 'varchar(32)' AND is_nullable = 'NO' AND column_default IS NULL
+          AND character_set_name = 'ascii' AND collation_name = 'ascii_bin' AND extra = '')
+      OR (table_name = 'fbs_connector_binding_receipt' AND column_name = 'created_at'
+          AND column_type = 'datetime(3)' AND is_nullable = 'NO'))),
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema = DATABASE()
+     AND ((table_name = 'fbs_connector_binding' AND column_name = 'id' AND extra = 'auto_increment')
+       OR (table_name = 'fbs_connector_binding_receipt' AND column_name = 'id' AND extra = 'auto_increment')
+       OR (table_name = 'fbs_connector_binding' AND column_name = 'version' AND column_default = '0' AND extra = '')
+       OR (table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')
+           AND column_name = 'created_at'
+           AND CAST(UPPER(column_default) AS BINARY) = CAST('CURRENT_TIMESTAMP(3)' AS BINARY)
+           AND extra = 'DEFAULT_GENERATED')
+       OR (table_name = 'fbs_connector_binding' AND column_name = 'updated_at'
+           AND CAST(UPPER(column_default) AS BINARY) = CAST('CURRENT_TIMESTAMP(3)' AS BINARY)
+           AND CAST(LOWER(extra) AS BINARY) = CAST('default_generated on update current_timestamp(3)' AS BINARY)))),
+  (SELECT COUNT(*) FROM (
+       SELECT table_name, index_name, non_unique, index_type,
+              MIN(is_visible) AS visibility,
+              SUM(CASE WHEN sub_part IS NULL THEN 0 ELSE 1 END) AS partial_columns,
+              GROUP_CONCAT(CONCAT(column_name, ':', COALESCE(collation, 'NULL'))
+                           ORDER BY seq_in_index SEPARATOR ',') AS column_signature
+       FROM information_schema.statistics
+       WHERE table_schema = DATABASE()
+         AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')
+       GROUP BY table_name, index_name, non_unique, index_type
+   ) indexes_by_name
+   WHERE CAST(visibility AS BINARY) = CAST('YES' AS BINARY) AND partial_columns = 0 AND (
+      (table_name = 'fbs_connector_binding' AND index_name = 'PRIMARY' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('id:A' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND index_name = 'uk_connector_binding_id' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('binding_id:A' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND index_name = 'uk_connector_binding_receipt_scope' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('binding_id:A,enterprise_id:A,member_id:A,user_id:A' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND index_name = 'uk_connector_binding_scope' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('enterprise_id:A,member_id:A,product_code:A,source_code:A,connector_code:A' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND index_name = 'idx_connector_binding_user' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('enterprise_id:A,user_id:A,product_code:A,status:A' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND index_name = 'idx_connector_binding_state' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('status:A,valid_until:A' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_scope' AND index_name = 'PRIMARY' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('binding_id:A,scope_code:A' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'PRIMARY' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('id:A' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'uk_connector_binding_receipt_id' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('receipt_id:A' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'idx_connector_binding_receipt_binding' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('binding_id:A,enterprise_id:A,member_id:A,user_id:A,created_at:A' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'idx_connector_binding_receipt_scope' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('enterprise_id:A,member_id:A,created_at:A' AS BINARY)))),
+  (SELECT COUNT(*) FROM information_schema.referential_constraints
+   WHERE constraint_schema = DATABASE() AND unique_constraint_schema = DATABASE()
+     AND update_rule = 'RESTRICT' AND delete_rule = 'RESTRICT'
+     AND ((table_name = 'fbs_connector_binding' AND constraint_name = 'fk_connector_binding_entitlement' AND referenced_table_name = 'fbs_product_entitlement')
+       OR (table_name = 'fbs_connector_binding_scope' AND constraint_name = 'fk_connector_binding_scope_binding' AND referenced_table_name = 'fbs_connector_binding')
+       OR (table_name = 'fbs_connector_binding_receipt' AND constraint_name = 'fk_connector_binding_receipt_binding' AND referenced_table_name = 'fbs_connector_binding'))),
+  (SELECT COUNT(*) FROM information_schema.key_column_usage
+   WHERE constraint_schema = DATABASE() AND referenced_table_schema = DATABASE()
+     AND referenced_table_name IS NOT NULL
+     AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')),
+  (SELECT COUNT(*) FROM information_schema.table_constraints
+   WHERE constraint_schema = DATABASE() AND constraint_type = 'CHECK' AND enforced = 'YES'
+     AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')),
+  (SELECT COUNT(*) FROM (
+       SELECT tc.table_name, tc.constraint_name,
+              REPLACE(REPLACE(LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                  cc.check_clause, '`', ''), ' ', ''), CHAR(9), ''), CHAR(10), ''), CHAR(13), ''), CHAR(92), '')),
+                  '_utf8mb4', ''), '_utf8mb3', '') AS normalized_clause
+       FROM information_schema.table_constraints tc
+       INNER JOIN information_schema.check_constraints cc
+         ON cc.constraint_schema = tc.constraint_schema AND cc.constraint_name = tc.constraint_name
+       WHERE tc.constraint_schema = DATABASE() AND tc.constraint_type = 'CHECK' AND tc.enforced = 'YES'
+         AND tc.table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')
+   ) checks_by_name
+   WHERE (table_name = 'fbs_connector_binding' AND constraint_name = 'chk_connector_binding_identifiers' AND CAST(normalized_clause AS BINARY) = CAST('((char_length(binding_id)>0)and(char_length(issuer_uri)>0)and(char_length(resource_uri)>0)and(char_length(client_id)>0)and(cast(product_codeascharcharsetbinary)=cast(''fbsir_independent_board''ascharcharsetbinary)))' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND constraint_name = 'chk_connector_binding_source' AND CAST(normalized_clause AS BINARY) = CAST('(source_code=''workbuddy'')' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND constraint_name = 'chk_connector_binding_connector' AND CAST(normalized_clause AS BINARY) = CAST('(connector_code=''fbs-connector'')' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND constraint_name = 'chk_connector_binding_resource' AND CAST(normalized_clause AS BINARY) = CAST('(resource_uri=''https://api2.u3w.com/fbs-mcp/mcp'')' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND constraint_name = 'chk_connector_binding_status' AND CAST(normalized_clause AS BINARY) = CAST('(statusin(''active'',''revoked'',''compromised''))' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND constraint_name = 'chk_connector_binding_verification' AND CAST(normalized_clause AS BINARY) = CAST('(verification_methodin(''mcp_initialize'',''mcp_tools_list''))' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND constraint_name = 'chk_connector_binding_principal_digest' AND CAST(normalized_clause AS BINARY) = CAST('regexp_like(principal_subject_digest,''^[0-9a-f]{64}$'')' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND constraint_name = 'chk_connector_binding_evidence_digest' AND CAST(normalized_clause AS BINARY) = CAST('regexp_like(evidence_digest,''^[0-9a-f]{64}$'')' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND constraint_name = 'chk_connector_binding_lifecycle' AND CAST(normalized_clause AS BINARY) = CAST('(((status=''active'')and(revoked_atisnull))or((statusin(''revoked'',''compromised''))and(revoked_atisnotnull)))' AS BINARY))
+      OR (table_name = 'fbs_connector_binding' AND constraint_name = 'chk_connector_binding_temporal' AND CAST(normalized_clause AS BINARY) = CAST('((last_seen_at>=verified_at)and(valid_until>last_seen_at)and((revoked_atisnull)or(revoked_at>=last_seen_at)))' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_scope' AND constraint_name = 'chk_connector_binding_scope_code' AND CAST(normalized_clause AS BINARY) = CAST('(scope_codein(''identity.read'',''entitlement.read'',''board.meeting.reserve'',''board.receipt.write''))' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_receipt' AND constraint_name = 'chk_connector_binding_receipt_id' AND CAST(normalized_clause AS BINARY) = CAST('(char_length(receipt_id)>0)' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_receipt' AND constraint_name = 'chk_connector_binding_receipt_action' AND CAST(normalized_clause AS BINARY) = CAST('(actionin(''connector_binding_verified'',''connector_binding_revoked''))' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_receipt' AND constraint_name = 'chk_connector_binding_receipt_payload_digest' AND CAST(normalized_clause AS BINARY) = CAST('regexp_like(payload_digest,''^[0-9a-f]{64}$'')' AS BINARY))
+      OR (table_name = 'fbs_connector_binding_receipt' AND constraint_name = 'chk_connector_binding_receipt_evidence' AND CAST(normalized_clause AS BINARY) = CAST('(evidence_level=''action_completed'')' AS BINARY))),
+  (SELECT COUNT(*) FROM information_schema.triggers
+   WHERE trigger_schema = DATABASE()
+     AND event_object_table = 'fbs_connector_binding_receipt'),
+  (SELECT COUNT(*) FROM (
+       SELECT trigger_name, event_manipulation, action_timing, action_orientation,
+              LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                  action_statement, '`', ''), ' ', ''), CHAR(9), ''), CHAR(10), ''),
+                  CHAR(13), ''), CHAR(92), '')) AS normalized_action
+       FROM information_schema.triggers
+       WHERE trigger_schema = DATABASE()
+         AND event_object_table = 'fbs_connector_binding_receipt'
+         AND action_condition IS NULL
+   ) receipt_triggers
+   WHERE action_timing = 'BEFORE' AND action_orientation = 'ROW'
+     AND CAST(normalized_action AS BINARY) = CAST(
+         'signalsqlstate''45000''setmessage_text=''connectorbindingreceiptsareimmutable'''
+         AS BINARY)
+     AND ((trigger_name = 'trg_connector_binding_receipt_no_update' AND event_manipulation = 'UPDATE')
+       OR (trigger_name = 'trg_connector_binding_receipt_no_delete' AND event_manipulation = 'DELETE')))
+);
+"@
+    $exactStateParts = @($exactStateResponse.Split('|'))
+    $expectedExactState = @(3, 36, 7, 11, 3, 8, 15, 15, 2, 2)
+    if ($exactStateParts.Count -ne $expectedExactState.Count) {
+        throw "Independent Board Connector exact current-read verifier returned an invalid field count: '$exactStateResponse'."
+    }
+    for ($index = 0; $index -lt $expectedExactState.Count; $index++) {
+        if ($exactStateParts[$index] -notmatch '^\d+$' -or [int]$exactStateParts[$index] -ne $expectedExactState[$index]) {
+            throw "Independent Board Connector exact current-read drift detected at field $($index + 1): expected $($expectedExactState[$index]), found '$($exactStateParts[$index])'."
+        }
+    }
+    Write-Host "PASS Independent Board Connector binding exact current-read audit (ordered and typed columns/defaults, visible full indexes, same-schema foreign keys, enforced exact checks and internal receipt)."
+}
+
 function New-MySqlSession {
     # The mysql client buffers stdout by default when redirected. The persistent
     # advisory-lock session relies on response markers, so force a flush after
@@ -686,6 +982,7 @@ if ($CurrentReadOnly) {
     Assert-IndependentBoardMeMenuCurrentState
     Assert-IndependentBoardAdminMenuCurrentState
     Assert-IndependentBoardEntitlementLifecycleMenuCurrentState
+    Assert-IndependentBoardConnectorBindingCurrentState
     Write-Host "Independent Board current-read verification complete for '$Database'. No database write was requested."
     return
 }
@@ -731,7 +1028,8 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
 
     foreach ($step in $steps) {
         $state = Invoke-MySqlText -Sql "SELECT description FROM u3w_schema_migration WHERE version='$($step.Version)' LIMIT 1;"
-        if ($state -like "APPLIED:*") {
+        $expectedAppliedState = "APPLIED:$($step.Description)"
+        if ($state -eq $expectedAppliedState) {
             Write-Host "SKIP $($step.Version) (already applied)"
             continue
         }
@@ -751,13 +1049,32 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
         }
         catch {
+            $migrationFailure = $_
+            if ($step.Version -eq 'public_init_032') {
+                try {
+                    # The W4a migration commits its internal receipt before best-effort
+                    # lock/procedure cleanup. Reconcile only from a complete, exact
+                    # current-read; any earlier or drifted state still fails closed.
+                    Assert-IndependentBoardConnectorBindingCurrentState
+                    Invoke-MySqlText -Sql @"
+DROP PROCEDURE IF EXISTS u3w_migrate_independent_board_connector_binding_20260721;
+DROP PROCEDURE IF EXISTS u3w_finalize_independent_board_connector_binding_20260721;
+"@ | Out-Null
+                    Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
+                    Write-Warning "Reconciled $($step.Version) from its exact committed current state after a post-commit runner error."
+                    continue
+                }
+                catch {
+                    Write-Warning "W4a exact post-commit reconciliation did not pass; recording FAILED."
+                }
+            }
             try {
                 Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='FAILED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
             }
             catch {
                 Write-Warning "Could not record the FAILED state."
             }
-            throw
+            throw $migrationFailure
         }
     }
 
@@ -765,6 +1082,7 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
     Assert-IndependentBoardMeMenuCurrentState
     Assert-IndependentBoardAdminMenuCurrentState
     Assert-IndependentBoardEntitlementLifecycleMenuCurrentState
+    Assert-IndependentBoardConnectorBindingCurrentState
 
     $appliedCount = [int](Invoke-MySqlText -Sql "SELECT COUNT(*) FROM u3w_schema_migration WHERE version LIKE 'public_init_%' AND description LIKE 'APPLIED:%';")
     if ($appliedCount -ne $steps.Count) {
@@ -775,10 +1093,11 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
 SELECT COUNT(*) FROM information_schema.tables
 WHERE table_schema='$Database'
   AND table_name IN ('cv_storage','fbs_api_key','fbs_bot_binding','fbs_smartbot_input_artifact','fbs_delivery_outbox','wc_webhook_delivery',
-                     'fbs_truth_spine_receipt_batch','fbs_product_plan','fbs_product_entitlement','fbs_usage_budget','fbs_usage_operation','fbs_entitlement_receipt');
+                     'fbs_truth_spine_receipt_batch','fbs_product_plan','fbs_product_entitlement','fbs_usage_budget','fbs_usage_operation','fbs_entitlement_receipt',
+                     'fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt');
 "@)
-    if ($verification -ne 12) {
-        throw "Database verification failed: expected twelve representative current tables; found $verification."
+    if ($verification -ne 15) {
+        throw "Database verification failed: expected fifteen representative current tables; found $verification."
     }
 
     $hostTypeColumn = [int](Invoke-MySqlText -Sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$Database' AND table_name='ws_host_whitelist' AND column_name='host_type';")

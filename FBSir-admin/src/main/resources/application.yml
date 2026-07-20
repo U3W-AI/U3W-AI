@@ -18,6 +18,12 @@ fbsir:
   # 生产环境/内网穿透：使用实际访问域名（如 http://your-domain.com）
   # 建议使用环境变量：WXFBSIR_DOMAIN
   domain: ${FBSIR_DOMAIN:${WXFBSIR_DOMAIN:http://localhost:8080}}
+  independent-board:
+    connector:
+      # OAuth issuer 必须由部署环境显式绑定；空值保持 VIP fail closed。
+      issuer-uri: ${FBSIR_BOARD_OAUTH_ISSUER:}
+      # 延续现有福帮手 Connector 的唯一 MCP 资源，不另造 Marketplace 入口。
+      resource-uri: ${FBSIR_BOARD_OAUTH_RESOURCE:https://api2.u3w.com/fbs-mcp/mcp}
   websocket: # 是否启用 WebSocket 服务
       enabled: true
       # ⚠️ 【重要】WebSocket 端点路径 - 请勿随意更改

@@ -59,6 +59,9 @@
     "portalAdminMenuMigration": "sql/update_20260720_independent_board_admin_menu.sql",
     "portalEntitlementLifecycleMenuMigration": "sql/update_20260720_independent_board_entitlement_lifecycle_menu.sql",
     "w3bLifecycleContract": "docs/independent-board/W3B-ENTITLEMENT-LIFECYCLE-CONTRACT.md",
+    "w4aConnectorBindingContract": "docs/independent-board/W4A-AUTHORITATIVE-CONNECTOR-BINDING-CONTRACT.md",
+    "w4aConnectorBindingMigration": "sql/update_20260721_independent_board_connector_binding.sql",
+    "w4aVerificationReport": "reports/independent-board/w4a-authoritative-connector-binding-verification-20260721.json",
     "w2VerificationReport": "reports/independent-board/w2-user-portal-verification-20260720.json",
     "w3VerificationReport": "reports/independent-board/w3-admin-portal-verification-20260720.json",
     "w3bVerificationReport": "reports/independent-board/w3b-entitlement-lifecycle-verification-20260720.json",
@@ -237,6 +240,24 @@
           "credit_ledger_operations",
           "connector_oauth_binding",
           "webhook_and_device_operations"
+        ]
+      },
+      "w4aImplementation": {
+        "state": "local_source_and_mysql_verified",
+        "contract": "docs/independent-board/W4A-AUTHORITATIVE-CONNECTOR-BINDING-CONTRACT.md",
+        "singleMarketplaceEntry": "fbs-connector",
+        "resourceUri": "https://api2.u3w.com/fbs-mcp/mcp",
+        "issuerPolicy": "explicit_environment_configuration_or_fail_closed",
+        "activationBoundary": "first_validated_MCP_INITIALIZE_or_MCP_TOOLS_LIST",
+        "publicOAuthRoutes": "deferred_to_W4b",
+        "minimumMySql": "8.0.29",
+        "verifiedMySql": "8.4.8",
+        "verificationReport": "reports/independent-board/w4a-authoritative-connector-binding-verification-20260721.json",
+        "requiredScopes": [
+          "identity.read",
+          "entitlement.read",
+          "board.meeting.reserve",
+          "board.receipt.write"
         ]
       },
       "mustReuse": [

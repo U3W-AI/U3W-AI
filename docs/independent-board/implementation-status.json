@@ -5,14 +5,14 @@
     "brandEn": "FBSir",
     "name": "独董会"
   },
-  "platformVersion": "0.3.1-dev",
+  "platformVersion": "0.4.0-dev",
   "expertPackage": {
     "version": "26.7.20",
     "state": "submitted_for_review",
     "frozen": true
   },
   "activeWave": "W4_OAUTH_CONNECTOR",
-  "stage": "assess",
+  "stage": "fix",
   "authoritativeRoot": {
     "mode": "standalone_git_repository",
     "externalDirectoryDependency": "forbidden",
@@ -26,17 +26,20 @@
     "sql/update_20260720_independent_board_me_menu.sql",
     "sql/update_20260720_independent_board_admin_menu.sql",
     "sql/update_20260720_independent_board_entitlement_lifecycle_menu.sql",
+    "sql/update_20260721_independent_board_connector_binding.sql",
     "FBSir-business/src/main/java/com/wx/fbsir/business/board/",
     "FBSir-ui/src/views/business/independentBoard/me/index.vue",
     "FBSir-ui/src/views/business/independentBoard/admin/entitlement/index.vue",
     "FBSir-ui/src/views/business/independentBoard/admin/entitlementReceipt/index.vue",
     "FBSir-ui/src/views/business/independentBoard/admin/meetingAudit/index.vue",
     "docs/independent-board/W3B-ENTITLEMENT-LIFECYCLE-CONTRACT.md",
+    "docs/independent-board/W4A-AUTHORITATIVE-CONNECTOR-BINDING-CONTRACT.md",
     "docs/independent-board/PORTAL-PROTOTYPE-SPEC.md",
     "docs/independent-board/prototypes/portals/index.html",
     "reports/independent-board/w2-user-portal-verification-20260720.json",
     "reports/independent-board/w3-admin-portal-verification-20260720.json",
-    "reports/independent-board/w3b-entitlement-lifecycle-verification-20260720.json"
+    "reports/independent-board/w3b-entitlement-lifecycle-verification-20260720.json",
+    "reports/independent-board/w4a-authoritative-connector-binding-verification-20260721.json"
   ],
   "proven": [
     "isolated_u3w_branch_created",
@@ -79,7 +82,16 @@
     "w3b_receipt_fetch_sentinel_is_validated_fail_closed",
     "w3b_same_instant_and_clock_rollback_validity_floor_passed",
     "w3b_w2_w3a_w3b_menu_migration_replay_gate_passed",
-    "w3b_admin_and_me_pure_model_negative_vectors_and_production_build_passed"
+    "w3b_admin_and_me_pure_model_negative_vectors_and_production_build_passed",
+    "w4a_authoritative_connector_binding_and_exact_four_scope_current_read_verified_local",
+    "w4a_binding_and_immutable_receipt_commit_atomically_with_failure_rollback",
+    "w4a_mysql_8_4_first_apply_completed_rerun_partial_state_and_drift_fail_closed",
+    "w4a_mysql_named_lock_release_check_and_trigger_drift_matrix_passed",
+    "w4a_32_way_first_binding_and_repeatable_read_scope_removal_race_passed",
+    "w4a_connector_batch_current_read_is_bounded_and_plan_joined_without_connector_n_plus_one",
+    "w4a_current_vip_plan_missing_disabled_or_field_drift_fails_closed_across_single_and_batch_reads",
+    "w4a_vip_downgrade_terminalizes_binding_and_reupgrade_requires_w4b_reauthorization",
+    "w4a_full_backend_http_security_frontend_and_prior_menu_regression_passed"
   ],
   "notProven": [
     "oauth_end_to_end",
@@ -117,5 +129,25 @@
     "connectorAction": "deferred_to_W4_oauth_connector",
     "watchAndWebhookDeepPages": "deferred_to_W5_delivery_and_watch"
   },
-  "updatedAt": "2026-07-20T23:55:56+08:00"
+  "w4a": {
+    "state": "local_source_and_mysql_verified",
+    "publicOAuthRoutes": "forbidden_until_W4b",
+    "workbuddyEntry": "existing_fbs_connector_only",
+    "resourceUri": "https://api2.u3w.com/fbs-mcp/mcp",
+    "issuer": "deployment_configuration_required_fail_closed",
+    "minimumMySql": "8.0.29",
+    "verifiedMySql": "8.4.8",
+    "verificationReport": "reports/independent-board/w4a-authoritative-connector-binding-verification-20260721.json",
+    "activationEvidence": [
+      "MCP_INITIALIZE",
+      "MCP_TOOLS_LIST"
+    ],
+    "requiredScopes": [
+      "identity.read",
+      "entitlement.read",
+      "board.meeting.reserve",
+      "board.receipt.write"
+    ]
+  },
+  "updatedAt": "2026-07-21T02:17:34+08:00"
 }

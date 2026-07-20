@@ -6,6 +6,7 @@ import com.wx.fbsir.business.board.domain.BoardProductEntitlement;
 import com.wx.fbsir.business.board.domain.BoardProductPlan;
 import com.wx.fbsir.business.board.domain.BoardUsageBudget;
 import com.wx.fbsir.business.board.dto.BoardEntitlementAdminView;
+import com.wx.fbsir.business.board.dto.BoardConnectorBindingKey;
 import com.wx.fbsir.business.board.dto.BoardEntitlementGrantRequest;
 import com.wx.fbsir.business.board.dto.BoardEntitlementReceiptAuditEnvelope;
 import com.wx.fbsir.business.board.dto.BoardEntitlementReceiptView;
@@ -20,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
@@ -38,17 +40,55 @@ public class IndependentBoardEntitlementService {
     public static final int ADMIN_RECEIPT_LIMIT = 500;
     public static final int ADMIN_RECEIPT_FETCH_LIMIT = ADMIN_RECEIPT_LIMIT + 1;
 
+    private static final BoardConnectorBindingPort FAIL_CLOSED_CONNECTOR_PORT =
+            new BoardConnectorBindingPort() {
+                @Override
+                public boolean hasAuthoritativeCurrentBinding(
+                        Long tenantId, Long memberId, Long userId,
+                        String productCode, boolean lockBinding) {
+                    return false;
+                }
+
+                @Override
+                public Set<BoardConnectorBindingKey> selectAuthoritativeCurrentBindingKeys(
+                        Long tenantId, String productCode) {
+                    return Set.of();
+                }
+
+                @Override
+                public void revokeForEntitlement(
+                        Long tenantId, Long memberId, Long userId,
+                        String productCode, Long actorUserId) {
+                    // Compatibility constructor is intentionally fail closed.
+                }
+            };
+
     private final IndependentBoardMapper mapper;
+    private final BoardConnectorBindingPort connectorBindingPort;
     private final Clock clock;
 
     @Autowired
+    public IndependentBoardEntitlementService(
+            IndependentBoardMapper mapper,
+            BoardConnectorBindingPort connectorBindingPort) {
+        this(mapper, Clock.system(INITIAL_TENANT_ZONE), connectorBindingPort);
+    }
+
     public IndependentBoardEntitlementService(IndependentBoardMapper mapper) {
-        this(mapper, Clock.system(INITIAL_TENANT_ZONE));
+        this(mapper, Clock.system(INITIAL_TENANT_ZONE), FAIL_CLOSED_CONNECTOR_PORT);
     }
 
     IndependentBoardEntitlementService(IndependentBoardMapper mapper, Clock clock) {
+        this(mapper, clock, FAIL_CLOSED_CONNECTOR_PORT);
+    }
+
+    IndependentBoardEntitlementService(
+            IndependentBoardMapper mapper,
+            Clock clock,
+            BoardConnectorBindingPort connectorBindingPort) {
         this.mapper = mapper;
         this.clock = clock;
+        this.connectorBindingPort = connectorBindingPort;
     }
 
     @Transactional(readOnly = true)
@@ -68,8 +108,17 @@ public class IndependentBoardEntitlementService {
         if (rows.size() > ADMIN_ENTITLEMENT_LIMIT) {
             throw new ServiceException("BOARD_ENTITLEMENT_LIMIT_EXCEEDED", 500);
         }
+        Set<BoardConnectorBindingKey> currentBindings = rows.isEmpty()
+                ? Set.of()
+                : connectorBindingPort.selectAuthoritativeCurrentBindingKeys(
+                        tenantId, PRODUCT_CODE);
         return rows.stream()
-                .map(entitlement -> toAdminView(entitlement, now, tenantId))
+                .map(entitlement -> toAdminView(
+                        entitlement,
+                        now,
+                        tenantId,
+                        currentBindings.contains(new BoardConnectorBindingKey(
+                                tenantId, entitlement.getMemberId(), entitlement.getUserId(), PRODUCT_CODE))))
                 .toList();
     }
 
@@ -151,6 +200,13 @@ public class IndependentBoardEntitlementService {
             action = "ENTITLEMENT_UPDATED";
         }
 
+        if (!Boolean.TRUE.equals(plan.getConnectorRequired())) {
+            connectorBindingPort.revokeForEntitlement(
+                    request.tenantId(), request.memberId(), request.userId(), PRODUCT_CODE, actorUserId);
+        }
+        boolean connectorVerified = Boolean.TRUE.equals(plan.getConnectorRequired())
+                && connectorBindingPort.hasAuthoritativeCurrentBinding(
+                        request.tenantId(), request.memberId(), request.userId(), PRODUCT_CODE, true);
         BoardEntitlementReceipt receipt = new BoardEntitlementReceipt();
         receipt.setReceiptId(UUID.randomUUID().toString());
         receipt.setTenantId(request.tenantId());
@@ -163,7 +219,7 @@ public class IndependentBoardEntitlementService {
         if (mapper.insertEntitlementReceipt(receipt) != 1) {
             throw new ServiceException("ENTITLEMENT_AUDIT_WRITE_FAILED", 500);
         }
-        return toAdminView(next, now, request.tenantId());
+        return toAdminView(next, now, request.tenantId(), connectorVerified);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -193,6 +249,9 @@ public class IndependentBoardEntitlementService {
             throw new ServiceException("ENTITLEMENT_VERSION_CONFLICT", 409);
         }
 
+        connectorBindingPort.revokeForEntitlement(
+                request.tenantId(), request.memberId(), request.userId(), PRODUCT_CODE, actorUserId);
+
         BoardEntitlementReceipt receipt = new BoardEntitlementReceipt();
         receipt.setReceiptId(UUID.randomUUID().toString());
         receipt.setTenantId(request.tenantId());
@@ -205,7 +264,7 @@ public class IndependentBoardEntitlementService {
         if (mapper.insertEntitlementReceipt(receipt) != 1) {
             throw new ServiceException("ENTITLEMENT_AUDIT_WRITE_FAILED", 500);
         }
-        return toAdminView(current, now, request.tenantId());
+        return toAdminView(current, now, request.tenantId(), false);
     }
 
     BoardEntitlementSnapshot getSnapshotForReservation(Long tenantId, Long authenticatedUserId) {
@@ -215,7 +274,9 @@ public class IndependentBoardEntitlementService {
     private BoardEntitlementSnapshot resolveSnapshot(Long tenantId, Long authenticatedUserId, boolean lockEntitlement) {
         requirePositive(tenantId, "TENANT_REQUIRED");
         requirePositive(authenticatedUserId, "AUTHENTICATED_PRINCIPAL_REQUIRED");
-        BoardEnterpriseMemberScope member = mapper.selectActiveContext(tenantId, authenticatedUserId);
+        BoardEnterpriseMemberScope member = lockEntitlement
+                ? mapper.selectActiveContextForUpdate(tenantId, authenticatedUserId)
+                : mapper.selectActiveContext(tenantId, authenticatedUserId);
         verifyMember(member, tenantId, authenticatedUserId);
 
         BoardProductPlan free = requirePlan(FREE_PLAN);
@@ -228,13 +289,20 @@ public class IndependentBoardEntitlementService {
 
         Date now = Date.from(clock.instant());
         boolean revoked = entitlement != null && Objects.equals(entitlement.getStatus(), "REVOKED");
+        boolean temporallyValid = isTemporallyValid(entitlement, now);
         BoardProductPlan granted = entitlement == null || revoked
                 ? null : mapper.selectActivePlan(PRODUCT_CODE, entitlement.getPlanCode());
+        if (entitlement != null && !revoked && temporallyValid && granted == null) {
+            throw new ServiceException("BOARD_PLAN_CONTRACT_DRIFT", 500);
+        }
         if (granted != null) {
             validatePlanContract(granted);
         }
-        boolean temporallyValid = isTemporallyValid(entitlement, now);
-        boolean connectorVerified = hasAuthoritativeConnectorCurrentRead();
+        boolean connectorVerified = granted != null
+                && Boolean.TRUE.equals(granted.getConnectorRequired())
+                && connectorBindingPort.hasAuthoritativeCurrentBinding(
+                        tenantId, member.getMemberId(), authenticatedUserId,
+                        PRODUCT_CODE, lockEntitlement);
         BoardProductPlan effective = free;
         String activationState = "FREE";
         if (revoked) {
@@ -269,7 +337,8 @@ public class IndependentBoardEntitlementService {
     private BoardEntitlementAdminView toAdminView(
             BoardProductEntitlement entitlement,
             Date now,
-            Long expectedTenantId) {
+            Long expectedTenantId,
+            boolean connectorVerified) {
         if (entitlement == null
                 || !Objects.equals(entitlement.getTenantId(), expectedTenantId)
                 || !Objects.equals(entitlement.getProductCode(), PRODUCT_CODE)
@@ -278,19 +347,23 @@ public class IndependentBoardEntitlementService {
             throw new ServiceException("BOARD_ENTITLEMENT_SCOPE_INVALID", 500);
         }
         boolean revoked = Objects.equals(entitlement.getStatus(), "REVOKED");
+        boolean temporallyValid = isTemporallyValid(entitlement, now);
         BoardProductPlan plan = revoked
                 ? null : mapper.selectActivePlan(PRODUCT_CODE, entitlement.getPlanCode());
+        if (!revoked && temporallyValid && plan == null) {
+            throw new ServiceException("BOARD_PLAN_CONTRACT_DRIFT", 500);
+        }
         if (plan != null) {
             validatePlanContract(plan);
         }
         String state;
         if (revoked) {
             state = "REVOKED";
-        } else if (!isTemporallyValid(entitlement, now)) {
+        } else if (!temporallyValid) {
             state = "EXPIRED";
         } else if (plan == null) {
             state = "INVALID_ENTITLEMENT";
-        } else if (Boolean.TRUE.equals(plan.getConnectorRequired()) && !hasAuthoritativeConnectorCurrentRead()) {
+        } else if (Boolean.TRUE.equals(plan.getConnectorRequired()) && !connectorVerified) {
             state = "PENDING_CONNECTOR";
         } else {
             state = Boolean.TRUE.equals(plan.getVip()) ? "ACTIVE" : "FREE";
@@ -409,12 +482,6 @@ public class IndependentBoardEntitlementService {
                 && Objects.equals(entitlement.getStatus(), "ACTIVE")
                 && (entitlement.getValidFrom() == null || !entitlement.getValidFrom().after(now))
                 && (entitlement.getValidUntil() == null || entitlement.getValidUntil().after(now));
-    }
-
-    private boolean hasAuthoritativeConnectorCurrentRead() {
-        // W4 gate: entitlement-row legacy fields are not an authoritative Connector current-read.
-        // Keep VIP fail-closed until the reviewed binding source, status and freshness query lands.
-        return false;
     }
 
     private String grantDigest(BoardEntitlementGrantRequest request, Long actorUserId) {

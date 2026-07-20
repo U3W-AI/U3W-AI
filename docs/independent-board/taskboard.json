@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the submitted 26.7.20 expert package.",
-  "singleNextAction": "Open W4a with a repository-owned OAuth and Connector binding contract that can turn an explicitly granted VIP entitlement from PENDING_CONNECTOR into ACTIVE using authoritative current-read; keep credits, Webhook, Watch, entitlement reinstatement and delegated tenant administration behind separate contracts.",
+  "singleNextAction": "Lock the W4b OAuth 2.1, PKCE S256, PRM/AS metadata, token-family and MCP resource-server contract on top of the verified W4a internal binding port; keep public routes closed until its negative matrix is executable.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -82,7 +82,19 @@
     },
     {
       "id": "W4_OAUTH_CONNECTOR",
-      "state": "contract_assessment_next",
+      "state": "w4a_verified_local_w4b_pending",
+      "activeSlice": "W4b_oauth_and_mcp_contract",
+      "completedSubset": [
+        "repository_first_conflict_resolution",
+        "existing_fbs_connector_preserved_as_single_marketplace_entry",
+        "first_protected_mcp_request_required_for_vip_activation",
+        "four_scope_contract_preserved",
+        "oauth_public_routes_deferred_until_binding_current_read_is_proven",
+        "authoritative_binding_three_table_migration_and_exact_current_read_verified",
+        "immutable_binding_receipts_and_entitlement_revoke_linkage_verified",
+        "mysql_8_4_partial_state_drift_lock_and_repeatable_read_scope_race_matrix_passed",
+        "full_backend_http_frontend_and_prior_menu_regression_passed"
+      ],
       "exit": [
         "oauth_metadata_and_prm",
         "pkce_s256",

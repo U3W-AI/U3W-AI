@@ -52,6 +52,38 @@
         <result property="createdAt" column="created_at" />
     </resultMap>
 
+    <resultMap id="ConnectorBinding" type="com.wx.fbsir.business.board.domain.BoardConnectorBinding">
+        <id property="id" column="binding_row_id" />
+        <result property="bindingId" column="binding_id" />
+        <result property="tenantId" column="enterprise_id" />
+        <result property="memberId" column="member_id" />
+        <result property="userId" column="user_id" />
+        <result property="productCode" column="product_code" />
+        <result property="sourceCode" column="source_code" />
+        <result property="connectorCode" column="connector_code" />
+        <result property="issuerUri" column="issuer_uri" />
+        <result property="resourceUri" column="resource_uri" />
+        <result property="clientId" column="client_id" />
+        <result property="principalSubjectDigest" column="principal_subject_digest" />
+        <result property="status" column="binding_status" />
+        <result property="verificationMethod" column="verification_method" />
+        <result property="evidenceDigest" column="evidence_digest" />
+        <result property="verifiedAt" column="verified_at" />
+        <result property="lastSeenAt" column="last_seen_at" />
+        <result property="validUntil" column="binding_valid_until" />
+        <result property="revokedAt" column="revoked_at" />
+        <result property="version" column="binding_version" />
+        <result property="createdAt" column="binding_created_at" />
+        <result property="updatedAt" column="binding_updated_at" />
+    </resultMap>
+
+    <resultMap id="ConnectorBindingWithScopes" type="com.wx.fbsir.business.board.domain.BoardConnectorBinding"
+               extends="ConnectorBinding">
+        <collection property="scopes" ofType="java.lang.String" javaType="java.util.ArrayList">
+            <result column="scope_code" />
+        </collection>
+    </resultMap>
+
     <resultMap id="Budget" type="com.wx.fbsir.business.board.domain.BoardUsageBudget">
         <id property="id" column="id" />
         <result property="tenantId" column="enterprise_id" />
@@ -117,6 +149,21 @@
           AND m.status = 1
           AND m.del_flag = '0'
         LIMIT 1
+    </select>
+
+    <select id="selectActiveContextForUpdate" resultMap="MemberScope">
+        SELECT <include refid="ActiveContextColumns" />
+        FROM fbs_enterprise_member m
+        INNER JOIN fbs_enterprise e
+            ON e.id = m.enterprise_id
+           AND e.status = 1
+           AND e.del_flag = '0'
+        WHERE m.enterprise_id = #{tenantId}
+          AND m.user_id = #{userId}
+          AND m.status = 1
+          AND m.del_flag = '0'
+        LIMIT 1
+        FOR UPDATE
     </select>
 
     <select id="selectExactActiveMemberForUpdate" resultMap="MemberScope">
@@ -223,6 +270,161 @@
         ORDER BY created_at DESC, id DESC
         LIMIT 501
     </select>
+
+    <sql id="ConnectorBindingColumns">
+        b.id AS binding_row_id, b.binding_id, b.enterprise_id, b.member_id, b.user_id,
+        b.product_code, b.source_code, b.connector_code, b.issuer_uri, b.resource_uri,
+        b.client_id, b.principal_subject_digest, b.status AS binding_status,
+        b.verification_method, b.evidence_digest, b.verified_at, b.last_seen_at,
+        b.valid_until AS binding_valid_until, b.revoked_at, b.version AS binding_version,
+        b.created_at AS binding_created_at, b.updated_at AS binding_updated_at
+    </sql>
+
+    <select id="selectConnectorBinding" resultMap="ConnectorBinding">
+        SELECT <include refid="ConnectorBindingColumns" />
+        FROM fbs_connector_binding b
+        INNER JOIN fbs_enterprise_member m
+            ON m.id = b.member_id
+           AND m.enterprise_id = b.enterprise_id
+           AND m.user_id = b.user_id
+           AND m.status = 1
+           AND m.del_flag = '0'
+        INNER JOIN fbs_enterprise e
+            ON e.id = b.enterprise_id
+           AND e.status = 1
+           AND e.del_flag = '0'
+        WHERE b.enterprise_id = #{tenantId}
+          AND b.member_id = #{memberId}
+          AND b.user_id = #{userId}
+          AND b.product_code = #{productCode}
+          AND b.source_code = #{sourceCode}
+          AND b.connector_code = #{connectorCode}
+        LIMIT 1
+    </select>
+
+    <select id="selectConnectorBindingForUpdate" resultMap="ConnectorBinding">
+        SELECT <include refid="ConnectorBindingColumns" />
+        FROM fbs_connector_binding b
+        WHERE b.enterprise_id = #{tenantId}
+          AND b.member_id = #{memberId}
+          AND b.user_id = #{userId}
+          AND b.product_code = #{productCode}
+          AND b.source_code = #{sourceCode}
+          AND b.connector_code = #{connectorCode}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="selectConnectorBindingsByTenant" resultMap="ConnectorBindingWithScopes" resultOrdered="true">
+        SELECT <include refid="ConnectorBindingColumns" />, s.scope_code
+        FROM (
+            SELECT candidate.*
+            FROM fbs_connector_binding candidate
+            INNER JOIN fbs_enterprise_member m
+                ON m.id = candidate.member_id
+               AND m.enterprise_id = candidate.enterprise_id
+               AND m.user_id = candidate.user_id
+               AND m.status = 1
+               AND m.del_flag = '0'
+            INNER JOIN fbs_enterprise e
+                ON e.id = candidate.enterprise_id
+               AND e.status = 1
+               AND e.del_flag = '0'
+            INNER JOIN fbs_product_entitlement entitlement
+                ON entitlement.enterprise_id = candidate.enterprise_id
+               AND entitlement.member_id = candidate.member_id
+               AND entitlement.user_id = candidate.user_id
+               AND entitlement.product_code = candidate.product_code
+               AND CAST(entitlement.plan_code AS BINARY) = CAST('BOARD_VIP' AS BINARY)
+               AND CAST(entitlement.status AS BINARY) = CAST('ACTIVE' AS BINARY)
+               AND entitlement.valid_from &lt;= NOW(3)
+               AND (entitlement.valid_until IS NULL OR entitlement.valid_until &gt; NOW(3))
+            INNER JOIN fbs_product_plan plan
+                ON CAST(plan.product_code AS BINARY) = CAST(entitlement.product_code AS BINARY)
+               AND CAST(plan.plan_code AS BINARY) = CAST(entitlement.plan_code AS BINARY)
+               AND CAST(plan.product_code AS BINARY) = CAST('FBSIR_INDEPENDENT_BOARD' AS BINARY)
+               AND CAST(plan.plan_code AS BINARY) = CAST('BOARD_VIP' AS BINARY)
+               AND plan.vip = 1
+               AND plan.connector_required = 1
+               AND plan.daily_meeting_limit = 5
+               AND plan.agenda_limit = 30
+               AND plan.seat_limit IS NULL
+               AND plan.secretary_enabled = 1
+               AND CAST(plan.status AS BINARY) = CAST('ACTIVE' AS BINARY)
+            WHERE candidate.enterprise_id = #{tenantId}
+              AND candidate.product_code = #{productCode}
+              AND candidate.source_code = #{sourceCode}
+              AND candidate.connector_code = #{connectorCode}
+            ORDER BY candidate.id ASC
+            LIMIT 101
+        ) b
+        LEFT JOIN fbs_connector_binding_scope s ON s.binding_id = b.binding_id
+        ORDER BY b.id ASC, s.scope_code ASC
+    </select>
+
+    <select id="selectConnectorBindingScopes" resultType="java.lang.String">
+        SELECT scope_code
+        FROM fbs_connector_binding_scope
+        WHERE binding_id = #{bindingId}
+        ORDER BY scope_code ASC
+        LIMIT 5
+    </select>
+
+    <select id="selectConnectorBindingScopesForUpdate" resultType="java.lang.String">
+        SELECT scope_code
+        FROM fbs_connector_binding_scope
+        WHERE binding_id = #{bindingId}
+        ORDER BY scope_code ASC
+        LIMIT 5
+        FOR UPDATE
+    </select>
+
+    <insert id="insertConnectorBinding"
+            parameterType="com.wx.fbsir.business.board.domain.BoardConnectorBinding"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_connector_binding
+            (binding_id, enterprise_id, member_id, user_id, product_code, source_code,
+             connector_code, issuer_uri, resource_uri, client_id, principal_subject_digest,
+             status, verification_method, evidence_digest, verified_at, last_seen_at,
+             valid_until, revoked_at, version, created_at, updated_at)
+        VALUES
+            (#{bindingId}, #{tenantId}, #{memberId}, #{userId}, #{productCode}, #{sourceCode},
+             #{connectorCode}, #{issuerUri}, #{resourceUri}, #{clientId}, #{principalSubjectDigest},
+             #{status}, #{verificationMethod}, #{evidenceDigest}, #{verifiedAt}, #{lastSeenAt},
+             #{validUntil}, #{revokedAt}, #{version}, #{verifiedAt}, #{verifiedAt})
+    </insert>
+
+    <insert id="insertConnectorBindingScope">
+        INSERT INTO fbs_connector_binding_scope (binding_id, scope_code, created_at)
+        VALUES (#{bindingId}, #{scopeCode}, #{createdAt})
+    </insert>
+
+    <update id="revokeConnectorBindingIfVersion">
+        UPDATE fbs_connector_binding
+        SET status = #{binding.status},
+            revoked_at = #{binding.revokedAt},
+            version = version + 1,
+            updated_at = NOW(3)
+        WHERE id = #{binding.id}
+          AND enterprise_id = #{binding.tenantId}
+          AND member_id = #{binding.memberId}
+          AND user_id = #{binding.userId}
+          AND product_code = #{binding.productCode}
+          AND source_code = #{binding.sourceCode}
+          AND connector_code = #{binding.connectorCode}
+          AND status = 'ACTIVE'
+          AND version = #{expectedVersion}
+    </update>
+
+    <insert id="insertConnectorBindingReceipt"
+            parameterType="com.wx.fbsir.business.board.domain.BoardConnectorBindingReceipt">
+        INSERT INTO fbs_connector_binding_receipt
+            (receipt_id, binding_id, enterprise_id, member_id, user_id, actor_user_id,
+             action, payload_digest, evidence_level, created_at)
+        VALUES
+            (#{receiptId}, #{bindingId}, #{tenantId}, #{memberId}, #{userId}, #{actorUserId},
+             #{action}, #{payloadDigest}, #{evidenceLevel}, #{createdAt})
+    </insert>
 
     <select id="selectUsageBudget" resultMap="Budget">
         SELECT id, enterprise_id, member_id, product_code, metric_code, bucket_date,

@@ -1,5 +1,8 @@
 package com.wx.fbsir.business.board.integration;
 
+import com.wx.fbsir.business.board.config.IndependentBoardConnectorProperties;
+import com.wx.fbsir.business.board.dto.BoardConnectorBindingSnapshot;
+import com.wx.fbsir.business.board.dto.BoardConnectorProtectedRequestAttestation;
 import com.wx.fbsir.business.board.dto.BoardEntitlementAdminView;
 import com.wx.fbsir.business.board.dto.BoardEntitlementGrantRequest;
 import com.wx.fbsir.business.board.dto.BoardEntitlementReceiptAuditEnvelope;
@@ -12,6 +15,7 @@ import com.wx.fbsir.business.board.dto.BoardMeetingReservationView;
 import com.wx.fbsir.business.board.dto.BoardMeetingLookupView;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
 import com.wx.fbsir.business.board.service.IndependentBoardEntitlementService;
+import com.wx.fbsir.business.board.service.IndependentBoardConnectorBindingService;
 import com.wx.fbsir.business.board.service.IndependentBoardDashboardService;
 import com.wx.fbsir.business.board.service.IndependentBoardMeetingService;
 import com.wx.fbsir.business.board.service.IndependentBoardMeetingTransactionService;
@@ -27,6 +31,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -69,6 +74,10 @@ class IndependentBoardMysqlTransactionIT {
     private static final String MIGRATION_VERSION = "20260720_independent_board_control_plane_v1";
     private static final String MENU_MIGRATION_VERSION =
             "20260720_independent_board_me_menu_v1";
+    private static final String CONNECTOR_MIGRATION_VERSION =
+            "20260721_independent_board_connector_binding_v1";
+    private static final String CONNECTOR_ISSUER = "https://api2.u3w.com";
+    private static final String CONNECTOR_RESOURCE = "https://api2.u3w.com/fbs-mcp/mcp";
     private static final long TENANT_ONE = 1001L;
     private static final long MEMBER_ONE = 101L;
     private static final long USER_ONE = 501L;
@@ -80,6 +89,7 @@ class IndependentBoardMysqlTransactionIT {
     private static AnnotationConfigApplicationContext context;
     private static DataSource dataSource;
     private static IndependentBoardEntitlementService entitlementService;
+    private static IndependentBoardConnectorBindingService connectorBindingService;
     private static IndependentBoardMeetingService meetingService;
     private static IndependentBoardDashboardService dashboardService;
 
@@ -100,11 +110,14 @@ class IndependentBoardMysqlTransactionIT {
         context = new AnnotationConfigApplicationContext(TestConfiguration.class);
         dataSource = context.getBean(DataSource.class);
         entitlementService = context.getBean(IndependentBoardEntitlementService.class);
+        connectorBindingService = context.getBean(IndependentBoardConnectorBindingService.class);
         meetingService = context.getBean(IndependentBoardMeetingService.class);
         dashboardService = context.getBean(IndependentBoardDashboardService.class);
 
         assertTrue(AopUtils.isAopProxy(entitlementService),
                 "entitlement service must be a Spring transaction proxy");
+        assertTrue(AopUtils.isAopProxy(connectorBindingService),
+                "connector binding service must be a Spring transaction proxy");
         assertTrue(AopUtils.isAopProxy(meetingService),
                 "meeting service must be a Spring transaction proxy");
         assertTrue(AopUtils.isAopProxy(dashboardService),
@@ -131,8 +144,12 @@ class IndependentBoardMysqlTransactionIT {
         execute(
                 "DROP TRIGGER IF EXISTS independent_board_it_fail_finalize",
                 "DROP TRIGGER IF EXISTS independent_board_it_fail_receipt",
+                "DROP TRIGGER IF EXISTS independent_board_it_fail_binding_receipt",
                 "DELETE FROM fbs_usage_operation",
                 "DELETE FROM fbs_usage_budget",
+                "TRUNCATE TABLE fbs_connector_binding_receipt",
+                "DELETE FROM fbs_connector_binding_scope",
+                "DELETE FROM fbs_connector_binding",
                 "DELETE FROM fbs_entitlement_receipt",
                 "DELETE FROM fbs_product_entitlement",
                 "DELETE FROM fbs_enterprise_member",
@@ -451,6 +468,230 @@ class IndependentBoardMysqlTransactionIT {
         assertEquals(1L, retry.version());
         assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_product_entitlement"));
         assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt"));
+    }
+
+    @Test
+    void firstProtectedConnectorRequestActivatesVipWithExactDurableEvidence() throws Exception {
+        grantVip();
+
+        BoardConnectorBindingSnapshot binding = connectorBindingService.confirmProtectedRequest(
+                connectorAttestation(), USER_ONE);
+        BoardEntitlementSnapshot active = entitlementService.getSnapshot(TENANT_ONE, USER_ONE);
+        BoardConnectorBindingSnapshot replay = connectorBindingService.confirmProtectedRequest(
+                connectorAttestation(), USER_ONE);
+
+        assertEquals("ACTIVE", binding.status());
+        assertEquals(binding.bindingId(), replay.bindingId());
+        assertEquals(1L, replay.version());
+        assertEquals("ACTIVE", active.activationState());
+        assertEquals(IndependentBoardEntitlementService.VIP_PLAN, active.effectivePlanCode());
+        assertTrue(active.connectorVerified());
+        assertTrue(active.secretaryEnabled());
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_connector_binding"));
+        assertEquals(4, scalarInt("SELECT COUNT(*) FROM fbs_connector_binding_scope"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_connector_binding_receipt "
+                + "WHERE action = 'CONNECTOR_BINDING_VERIFIED' "
+                + "AND evidence_level = 'ACTION_COMPLETED'"));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_product_entitlement "
+                + "WHERE connector_binding_id IS NOT NULL OR connector_verified_at IS NOT NULL"));
+    }
+
+    @Test
+    void connectorBindingReceiptsAreDatabaseImmutable() throws Exception {
+        grantVip();
+        connectorBindingService.confirmProtectedRequest(connectorAttestation(), USER_ONE);
+
+        SQLException updateRejected = assertThrows(SQLException.class, () -> execute(
+                "UPDATE fbs_connector_binding_receipt SET action = 'CONNECTOR_BINDING_REVOKED'"));
+        SQLException deleteRejected = assertThrows(SQLException.class, () -> execute(
+                "DELETE FROM fbs_connector_binding_receipt"));
+
+        assertTrue(updateRejected.getMessage().contains("Connector binding receipts are immutable"));
+        assertTrue(deleteRejected.getMessage().contains("Connector binding receipts are immutable"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_connector_binding_receipt "
+                + "WHERE action = 'CONNECTOR_BINDING_VERIFIED' "
+                + "AND evidence_level = 'ACTION_COMPLETED'"));
+    }
+
+    @Test
+    void connectorReceiptFailureRollsBackBindingAndSameProofCanRetry() throws Exception {
+        grantVip();
+        execute("CREATE TRIGGER independent_board_it_fail_binding_receipt "
+                + "BEFORE INSERT ON fbs_connector_binding_receipt FOR EACH ROW "
+                + "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced connector receipt failure'");
+
+        assertThrows(RuntimeException.class, () -> connectorBindingService.confirmProtectedRequest(
+                connectorAttestation(), USER_ONE));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_connector_binding"));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_connector_binding_scope"));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_connector_binding_receipt"));
+
+        execute("DROP TRIGGER independent_board_it_fail_binding_receipt");
+        BoardConnectorBindingSnapshot retry = connectorBindingService.confirmProtectedRequest(
+                connectorAttestation(), USER_ONE);
+        assertEquals("ACTIVE", retry.status());
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_connector_binding"));
+        assertEquals(4, scalarInt("SELECT COUNT(*) FROM fbs_connector_binding_scope"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_connector_binding_receipt"));
+    }
+
+    @Test
+    void thirtyTwoConcurrentFirstConnectorProofsProduceOneBindingAndOneReceipt()
+            throws Exception {
+        grantVip();
+        BoardConnectorProtectedRequestAttestation attestation = connectorAttestation();
+        int concurrency = 32;
+        ExecutorService pool = Executors.newFixedThreadPool(concurrency);
+        CountDownLatch ready = new CountDownLatch(concurrency);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            List<Future<BoardConnectorBindingSnapshot>> futures = new ArrayList<>();
+            for (int index = 0; index < concurrency; index++) {
+                futures.add(pool.submit(() -> {
+                    ready.countDown();
+                    start.await(30, TimeUnit.SECONDS);
+                    return connectorBindingService.confirmProtectedRequest(attestation, USER_ONE);
+                }));
+            }
+            assertTrue(ready.await(30, TimeUnit.SECONDS));
+            start.countDown();
+            Set<String> bindingIds = new java.util.HashSet<>();
+            for (Future<BoardConnectorBindingSnapshot> future : futures) {
+                bindingIds.add(future.get(60, TimeUnit.SECONDS).bindingId());
+            }
+            assertEquals(1, bindingIds.size());
+        } finally {
+            pool.shutdownNow();
+            assertTrue(pool.awaitTermination(30, TimeUnit.SECONDS));
+        }
+
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_connector_binding"));
+        assertEquals(4, scalarInt("SELECT COUNT(*) FROM fbs_connector_binding_scope"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_connector_binding_receipt"));
+    }
+
+    @Test
+    void missingScopeAndExpiredBindingImmediatelyFallBackToPendingConnector() throws Exception {
+        grantVip();
+        connectorBindingService.confirmProtectedRequest(connectorAttestation(), USER_ONE);
+
+        execute("DELETE FROM fbs_connector_binding_scope "
+                + "WHERE scope_code = 'board.receipt.write'");
+        BoardEntitlementSnapshot missingScope = entitlementService.getSnapshot(TENANT_ONE, USER_ONE);
+        assertEquals("PENDING_CONNECTOR", missingScope.activationState());
+        assertFalse(missingScope.connectorVerified());
+
+        execute("INSERT INTO fbs_connector_binding_scope (binding_id, scope_code) "
+                + "SELECT binding_id, 'board.receipt.write' FROM fbs_connector_binding",
+                "UPDATE fbs_connector_binding "
+                        + "SET verified_at = DATE_SUB(NOW(3), INTERVAL 3 SECOND), "
+                        + "last_seen_at = DATE_SUB(NOW(3), INTERVAL 2 SECOND), "
+                        + "valid_until = DATE_SUB(NOW(3), INTERVAL 1 SECOND)");
+        BoardEntitlementSnapshot expired = entitlementService.getSnapshot(TENANT_ONE, USER_ONE);
+        assertEquals("PENDING_CONNECTOR", expired.activationState());
+        assertFalse(expired.connectorVerified());
+    }
+
+    @Test
+    void reservationWaitsForConcurrentScopeRemovalAndUsesCommittedFreePolicyWithoutWrites()
+            throws Exception {
+        grantVip();
+        connectorBindingService.confirmProtectedRequest(connectorAttestation(), USER_ONE);
+
+        ExecutorService pool = Executors.newSingleThreadExecutor();
+        Connection scopeRemoval = dataSource.getConnection();
+        boolean committed = false;
+        try {
+            scopeRemoval.setAutoCommit(false);
+            try (Statement statement = scopeRemoval.createStatement()) {
+                assertEquals(1, statement.executeUpdate(
+                        "DELETE FROM fbs_connector_binding_scope "
+                                + "WHERE scope_code = 'board.receipt.write'"));
+            }
+            Future<ServiceException> reservation = pool.submit(() -> {
+                try {
+                    meetingService.reserve(
+                            request(TENANT_ONE, "scope-race-001", 6, 3), USER_ONE);
+                    return null;
+                } catch (ServiceException expected) {
+                    return expected;
+                }
+            });
+
+            awaitMysqlRowLockWait();
+            assertFalse(reservation.isDone(),
+                    "reservation must wait for the authoritative scope write to commit");
+            scopeRemoval.commit();
+            committed = true;
+
+            ServiceException rejected = reservation.get(10, TimeUnit.SECONDS);
+            assertNotNull(rejected, "reservation must not retain a stale VIP scope snapshot");
+            assertEquals(400, rejected.getCode());
+            assertEquals("AGENDA_LIMIT_EXCEEDED", rejected.getMessage());
+            assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_usage_operation"));
+            assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_usage_budget"));
+        } finally {
+            if (!committed) {
+                scopeRemoval.rollback();
+            }
+            scopeRemoval.close();
+            pool.shutdownNow();
+            assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void vipDowngradeRevokesBindingAndLaterUpgradeRequiresASeparateReauthorization()
+            throws Exception {
+        grantVip();
+        connectorBindingService.confirmProtectedRequest(connectorAttestation(), USER_ONE);
+
+        BoardEntitlementAdminView free = entitlementService.grant(
+                new BoardEntitlementGrantRequest(
+                        TENANT_ONE, MEMBER_ONE, USER_ONE,
+                        IndependentBoardEntitlementService.FREE_PLAN,
+                        new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(2)), 1L),
+                9001L);
+        assertEquals("FREE", free.activationState());
+        assertEquals("REVOKED", scalarString("SELECT status FROM fbs_connector_binding"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_connector_binding_receipt "
+                + "WHERE action = 'CONNECTOR_BINDING_REVOKED'"));
+
+        BoardEntitlementAdminView upgraded = entitlementService.grant(
+                new BoardEntitlementGrantRequest(
+                        TENANT_ONE, MEMBER_ONE, USER_ONE,
+                        IndependentBoardEntitlementService.VIP_PLAN,
+                        new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(2)), 2L),
+                9002L);
+        assertEquals("PENDING_CONNECTOR", upgraded.activationState());
+        ServiceException terminalBinding = assertThrows(
+                ServiceException.class,
+                () -> connectorBindingService.confirmProtectedRequest(
+                        connectorAttestation(), USER_ONE));
+        assertEquals(409, terminalBinding.getCode());
+        assertEquals("BOARD_CONNECTOR_BINDING_CONFLICT", terminalBinding.getMessage());
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_usage_operation"));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM fbs_usage_budget"));
+    }
+
+    @Test
+    void entitlementRevokeAlsoRevokesBindingAfterEnterpriseDisablement() throws Exception {
+        grantVip();
+        connectorBindingService.confirmProtectedRequest(connectorAttestation(), USER_ONE);
+        execute("UPDATE fbs_enterprise SET status = 0 WHERE id = " + TENANT_ONE);
+
+        BoardEntitlementAdminView revoked = entitlementService.revoke(
+                new BoardEntitlementRevokeRequest(
+                        TENANT_ONE, MEMBER_ONE, USER_ONE, 1L),
+                9001L);
+
+        assertEquals("REVOKED", revoked.activationState());
+        assertEquals("REVOKED", scalarString("SELECT status FROM fbs_connector_binding"));
+        assertEquals(2, scalarInt("SELECT version FROM fbs_connector_binding"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_connector_binding_receipt "
+                + "WHERE action = 'CONNECTOR_BINDING_REVOKED'"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_entitlement_receipt "
+                + "WHERE action = 'ENTITLEMENT_REVOKED'"));
     }
 
     @Test
@@ -849,6 +1090,35 @@ class IndependentBoardMysqlTransactionIT {
         return new BoardMeetingReservationRequest(tenantId, operationId, agendaCount, seatCount);
     }
 
+    private static BoardEntitlementAdminView grantVip() {
+        return entitlementService.grant(new BoardEntitlementGrantRequest(
+                TENANT_ONE,
+                MEMBER_ONE,
+                USER_ONE,
+                IndependentBoardEntitlementService.VIP_PLAN,
+                new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(2)),
+                0L), 9000L);
+    }
+
+    private static BoardConnectorProtectedRequestAttestation connectorAttestation() {
+        return new BoardConnectorProtectedRequestAttestation(
+                TENANT_ONE,
+                MEMBER_ONE,
+                USER_ONE,
+                CONNECTOR_ISSUER,
+                CONNECTOR_RESOURCE,
+                "workbuddy-mysql-it-client",
+                "a".repeat(64),
+                List.of(
+                        "identity.read",
+                        "entitlement.read",
+                        "board.meeting.reserve",
+                        "board.receipt.write"),
+                IndependentBoardConnectorBindingService.VERIFY_INITIALIZE,
+                "b".repeat(64),
+                new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1)));
+    }
+
     private void assertInactiveEnterpriseClosesEveryMeSurface(
             int enterpriseStatus,
             String enterpriseDelFlag,
@@ -1010,6 +1280,10 @@ class IndependentBoardMysqlTransactionIT {
         execute(
                 "DROP TRIGGER IF EXISTS independent_board_it_fail_finalize",
                 "DROP TRIGGER IF EXISTS independent_board_it_fail_receipt",
+                "DROP TRIGGER IF EXISTS independent_board_it_fail_binding_receipt",
+                "DROP TABLE IF EXISTS fbs_connector_binding_receipt",
+                "DROP TABLE IF EXISTS fbs_connector_binding_scope",
+                "DROP TABLE IF EXISTS fbs_connector_binding",
                 "DROP TABLE IF EXISTS fbs_product_entitlement",
                 "DROP TABLE IF EXISTS fbs_usage_operation",
                 "DROP TABLE IF EXISTS fbs_usage_budget",
@@ -1026,6 +1300,7 @@ class IndependentBoardMysqlTransactionIT {
                         + "description VARCHAR(255) NOT NULL, PRIMARY KEY (version)) ENGINE=InnoDB",
                 "DELETE FROM u3w_schema_migration WHERE version = '" + MIGRATION_VERSION + "'",
                 "DELETE FROM u3w_schema_migration WHERE version = '" + MENU_MIGRATION_VERSION + "'",
+                "DELETE FROM u3w_schema_migration WHERE version = '" + CONNECTOR_MIGRATION_VERSION + "'",
                 "CREATE TABLE sys_menu ("
                         + "menu_id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
                         + "menu_name VARCHAR(64) NOT NULL, parent_id BIGINT NOT NULL, "
@@ -1056,6 +1331,19 @@ class IndependentBoardMysqlTransactionIT {
                         + "UNIQUE KEY uk_board_it_member (enterprise_id, user_id)) ENGINE=InnoDB"
         );
         executeMigration(locateMigration("update_20260720_independent_board_control_plane.sql"));
+        Path connectorMigration = locateMigration(
+                "update_20260721_independent_board_connector_binding.sql");
+        assertConnectorMigrationRejectsPartialStatesAndReleasesLock(connectorMigration);
+        try {
+            executeMigration(connectorMigration);
+        } catch (SQLException migrationFailure) {
+            printConnectorCheckContractForDiagnosis();
+            throw migrationFailure;
+        }
+        executeMigration(connectorMigration);
+        assertConnectorMigrationRejectsCheckDriftAndReleasesLock(connectorMigration);
+        assertConnectorMigrationRejectsMissingImmutabilityTriggerAndReleasesLock(
+                connectorMigration);
         Path menuMigration = locateMigration("update_20260720_independent_board_me_menu.sql");
         executeMigration(menuMigration);
         executeMigration(menuMigration);
@@ -1063,15 +1351,96 @@ class IndependentBoardMysqlTransactionIT {
                 + "WHERE version = '" + MIGRATION_VERSION + "'"));
         assertEquals(1, scalarInt("SELECT COUNT(*) FROM u3w_schema_migration "
                 + "WHERE version = '" + MENU_MIGRATION_VERSION + "'"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM u3w_schema_migration "
+                + "WHERE version = '" + CONNECTOR_MIGRATION_VERSION + "'"));
         assertEquals(5, scalarInt("SELECT COUNT(*) FROM information_schema.tables "
                 + "WHERE table_schema = DATABASE() AND table_name IN "
                 + "('fbs_product_plan','fbs_product_entitlement','fbs_usage_budget',"
                 + "'fbs_usage_operation','fbs_entitlement_receipt') AND engine = 'InnoDB'"));
+        assertEquals(3, scalarInt("SELECT COUNT(*) FROM information_schema.tables "
+                + "WHERE table_schema = DATABASE() AND table_name IN "
+                + "('fbs_connector_binding','fbs_connector_binding_scope',"
+                + "'fbs_connector_binding_receipt') AND engine = 'InnoDB'"));
+        assertEquals(2, scalarInt("SELECT COUNT(*) FROM information_schema.triggers "
+                + "WHERE trigger_schema = DATABASE() "
+                + "AND event_object_table = 'fbs_connector_binding_receipt'"));
+    }
+
+    private static void assertConnectorMigrationRejectsPartialStatesAndReleasesLock(
+            Path connectorMigration) throws Exception {
+        String lockFreeSql = "SELECT IS_FREE_LOCK(SHA2(CONCAT(DATABASE(), "
+                + "':20260721_independent_board_connector_binding_v1'), 256))";
+        execute("CREATE TABLE fbs_connector_binding ("
+                + "id BIGINT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=InnoDB");
+        SQLException orphanTable = assertThrows(
+                SQLException.class, () -> executeMigration(connectorMigration));
+        assertTrue(orphanTable.getMessage().contains(
+                "tables exist without the exact migration receipt"), orphanTable.getMessage());
+        assertEquals(1, scalarInt(lockFreeSql));
+        assertEquals(0, scalarInt("SELECT COUNT(*) FROM u3w_schema_migration "
+                + "WHERE version = '" + CONNECTOR_MIGRATION_VERSION + "'"));
+        execute("DROP TABLE fbs_connector_binding");
+
+        execute("INSERT INTO u3w_schema_migration (version, description) VALUES ('"
+                + CONNECTOR_MIGRATION_VERSION + "', "
+                + "'Independent Board authoritative Connector binding, scope and receipt tables')");
+        SQLException orphanReceipt = assertThrows(
+                SQLException.class, () -> executeMigration(connectorMigration));
+        assertTrue(orphanReceipt.getMessage().contains(
+                "migration receipt exists but its three-table set is incomplete"),
+                orphanReceipt.getMessage());
+        assertEquals(1, scalarInt(lockFreeSql));
+        execute("DELETE FROM u3w_schema_migration WHERE version = '"
+                + CONNECTOR_MIGRATION_VERSION + "'");
+    }
+
+    private static void assertConnectorMigrationRejectsCheckDriftAndReleasesLock(
+            Path connectorMigration) throws Exception {
+        String lockFreeSql = "SELECT IS_FREE_LOCK(SHA2(CONCAT(DATABASE(), "
+                + "':20260721_independent_board_connector_binding_v1'), 256))";
+        execute(
+                "ALTER TABLE fbs_connector_binding "
+                        + "DROP CHECK chk_connector_binding_source",
+                "ALTER TABLE fbs_connector_binding ADD CONSTRAINT "
+                        + "chk_connector_binding_source "
+                        + "CHECK (source_code = 'WORKBUDDY' OR 1 = 1)");
+        SQLException drift = assertThrows(
+                SQLException.class, () -> executeMigration(connectorMigration));
+        assertTrue(drift.getMessage().contains("exact fifteen-check contract has drifted"),
+                drift.getMessage());
+        assertEquals(1, scalarInt(lockFreeSql));
+
+        execute(
+                "DROP TABLE fbs_connector_binding_receipt",
+                "DROP TABLE fbs_connector_binding_scope",
+                "DROP TABLE fbs_connector_binding",
+                "DELETE FROM u3w_schema_migration WHERE version = '"
+                        + CONNECTOR_MIGRATION_VERSION + "'");
+        executeMigration(connectorMigration);
+    }
+
+    private static void assertConnectorMigrationRejectsMissingImmutabilityTriggerAndReleasesLock(
+            Path connectorMigration) throws Exception {
+        String lockFreeSql = "SELECT IS_FREE_LOCK(SHA2(CONCAT(DATABASE(), "
+                + "':20260721_independent_board_connector_binding_v1'), 256))";
+        execute("DROP TRIGGER trg_connector_binding_receipt_no_delete");
+        SQLException drift = assertThrows(
+                SQLException.class, () -> executeMigration(connectorMigration));
+        assertTrue(drift.getMessage().contains("immutability trigger contract has drifted"),
+                drift.getMessage());
+        assertEquals(1, scalarInt(lockFreeSql));
+
+        execute("CREATE TRIGGER trg_connector_binding_receipt_no_delete "
+                + "BEFORE DELETE ON fbs_connector_binding_receipt FOR EACH ROW "
+                + "SIGNAL SQLSTATE '45000' "
+                + "SET MESSAGE_TEXT = 'Connector binding receipts are immutable'");
+        executeMigration(connectorMigration);
     }
 
     private static void executeMigration(Path path) throws Exception {
         String delimiter = ";";
         StringBuilder statement = new StringBuilder();
+        int statementNumber = 0;
         try (Connection connection = dataSource.getConnection();
              Statement jdbc = connection.createStatement()) {
             for (String line : Files.readAllLines(path, StandardCharsets.UTF_8)) {
@@ -1086,7 +1455,17 @@ class IndependentBoardMysqlTransactionIT {
                 statement.append(line).append('\n');
                 if (trimmed.endsWith(delimiter)) {
                     int end = statement.lastIndexOf(delimiter);
-                    jdbc.execute(statement.substring(0, end));
+                    String sql = statement.substring(0, end);
+                    statementNumber++;
+                    try {
+                        jdbc.execute(sql);
+                    } catch (SQLException failure) {
+                        String firstLine = sql.lines().findFirst().orElse("<empty>").trim();
+                        throw new SQLException(
+                                "Migration statement " + statementNumber + " failed at '"
+                                        + firstLine + "': " + failure.getMessage(),
+                                failure.getSQLState(), failure.getErrorCode(), failure);
+                    }
                     statement.setLength(0);
                 }
             }
@@ -1105,6 +1484,50 @@ class IndependentBoardMysqlTransactionIT {
             }
         }
         throw new IllegalStateException("current Independent Board migration not found: " + name);
+    }
+
+    private static void printConnectorCheckContractForDiagnosis() throws SQLException {
+        String sql = "SELECT tc.table_name, tc.constraint_name, cc.check_clause "
+                + "FROM information_schema.table_constraints tc "
+                + "INNER JOIN information_schema.check_constraints cc "
+                + "ON cc.constraint_schema = tc.constraint_schema "
+                + "AND cc.constraint_name = tc.constraint_name "
+                + "WHERE tc.constraint_schema = DATABASE() "
+                + "AND tc.constraint_type = 'CHECK' "
+                + "AND tc.table_name IN ('fbs_connector_binding', "
+                + "'fbs_connector_binding_scope', 'fbs_connector_binding_receipt') "
+                + "ORDER BY tc.table_name, tc.constraint_name";
+        try (Connection connection = dataSource.getConnection();
+             Statement jdbc = connection.createStatement();
+             ResultSet rows = jdbc.executeQuery(sql)) {
+            while (rows.next()) {
+                System.err.printf(
+                        "Connector CHECK diagnostic: %s.%s = %s%n",
+                        rows.getString(1),
+                        rows.getString(2),
+                        rows.getString(3));
+            }
+        }
+        String indexSql = "SELECT table_name, index_name, non_unique, index_type, "
+                + "MIN(is_visible), "
+                + "GROUP_CONCAT(CONCAT(column_name, ':', COALESCE(collation, 'NULL')) "
+                + "ORDER BY seq_in_index SEPARATOR ',') "
+                + "FROM information_schema.statistics "
+                + "WHERE table_schema = DATABASE() "
+                + "AND table_name IN ('fbs_connector_binding', "
+                + "'fbs_connector_binding_scope', 'fbs_connector_binding_receipt') "
+                + "GROUP BY table_name, index_name, non_unique, index_type "
+                + "ORDER BY table_name, index_name";
+        try (Connection connection = dataSource.getConnection();
+             Statement jdbc = connection.createStatement();
+             ResultSet rows = jdbc.executeQuery(indexSql)) {
+            while (rows.next()) {
+                System.err.printf(
+                        "Connector INDEX diagnostic: %s.%s unique=%s type=%s visible=%s columns=%s%n",
+                        rows.getString(1), rows.getString(2), rows.getInt(3) == 0,
+                        rows.getString(4), rows.getString(5), rows.getString(6));
+            }
+        }
     }
 
     private static void execute(String... statements) throws SQLException {
@@ -1234,8 +1657,25 @@ class IndependentBoardMysqlTransactionIT {
         }
 
         @Bean
-        IndependentBoardEntitlementService entitlementService(IndependentBoardMapper mapper) {
-            return new IndependentBoardEntitlementService(mapper);
+        IndependentBoardConnectorProperties connectorProperties() {
+            IndependentBoardConnectorProperties properties = new IndependentBoardConnectorProperties();
+            properties.setIssuerUri(CONNECTOR_ISSUER);
+            properties.setResourceUri(CONNECTOR_RESOURCE);
+            return properties;
+        }
+
+        @Bean
+        IndependentBoardConnectorBindingService connectorBindingService(
+                IndependentBoardMapper mapper,
+                IndependentBoardConnectorProperties properties) {
+            return new IndependentBoardConnectorBindingService(mapper, properties);
+        }
+
+        @Bean
+        IndependentBoardEntitlementService entitlementService(
+                IndependentBoardMapper mapper,
+                IndependentBoardConnectorBindingService connectorBindingService) {
+            return new IndependentBoardEntitlementService(mapper, connectorBindingService);
         }
 
         @Bean

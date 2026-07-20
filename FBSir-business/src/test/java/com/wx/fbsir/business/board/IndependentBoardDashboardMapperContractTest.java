@@ -62,6 +62,20 @@ class IndependentBoardDashboardMapperContractTest {
     }
 
     @Test
+    void reservationContextUsesTheSameActiveScopeAndLocksBeforeEntitlement() {
+        String sql = sql("selectActiveContextForUpdate", Map.of(
+                "tenantId", 7L, "userId", 42L));
+
+        assertTrue(sql.contains("inner join fbs_enterprise e"));
+        assertTrue(sql.contains("m.enterprise_id = ?"));
+        assertTrue(sql.contains("m.user_id = ?"));
+        assertTrue(sql.contains("m.status = 1"));
+        assertTrue(sql.contains("e.status = 1"));
+        assertTrue(sql.endsWith("limit 1 for update"));
+        assertFalse(sql.contains("${"), "reservation context locks must never use substitution");
+    }
+
+    @Test
     void recentMeetingReadHasAllScopePredicatesAndAHardLimitOfTen() {
         String sql = sql("selectRecentOperationsByTenantAndUser", Map.of(
                 "tenantId", 7L,
@@ -157,6 +171,95 @@ class IndependentBoardDashboardMapperContractTest {
         assertFalse(sql.contains("product_code"),
                 "the board receipt schema has no product_code and must not pretend otherwise");
         assertFalse(sql.contains("${"), "receipt reads must never use string substitution");
+    }
+
+    @Test
+    void connectorCurrentReadIsBoundToActiveTenantMemberUserProductAndConnector() {
+        String sql = sql("selectConnectorBinding", Map.of(
+                "tenantId", 7L,
+                "memberId", 11L,
+                "userId", 42L,
+                "productCode", "FBSIR_INDEPENDENT_BOARD",
+                "sourceCode", "WORKBUDDY",
+                "connectorCode", "fbs-connector"));
+
+        assertTrue(sql.contains("inner join fbs_enterprise_member m"));
+        assertTrue(sql.contains("inner join fbs_enterprise e"));
+        assertTrue(sql.contains("b.enterprise_id = ?"));
+        assertTrue(sql.contains("b.member_id = ?"));
+        assertTrue(sql.contains("b.user_id = ?"));
+        assertTrue(sql.contains("b.product_code = ?"));
+        assertTrue(sql.contains("b.source_code = ?"));
+        assertTrue(sql.contains("b.connector_code = ?"));
+        assertTrue(sql.endsWith("limit 1"));
+        assertFalse(sql.contains("${"), "connector current reads must never use substitution");
+    }
+
+    @Test
+    void connectorLifecycleLockDoesNotDependOnActiveMembership() {
+        String sql = sql("selectConnectorBindingForUpdate", Map.of(
+                "tenantId", 7L,
+                "memberId", 11L,
+                "userId", 42L,
+                "productCode", "FBSIR_INDEPENDENT_BOARD",
+                "sourceCode", "WORKBUDDY",
+                "connectorCode", "fbs-connector"));
+
+        assertTrue(sql.contains("b.enterprise_id = ?"));
+        assertTrue(sql.contains("b.member_id = ?"));
+        assertTrue(sql.contains("b.user_id = ?"));
+        assertTrue(sql.endsWith("limit 1 for update"));
+        assertFalse(sql.contains("fbs_enterprise_member"));
+        assertFalse(sql.contains("fbs_enterprise e"));
+        assertFalse(sql.contains("${"), "connector lifecycle locks must never use substitution");
+    }
+
+    @Test
+    void connectorAdminBatchUsesOneBoundedJoinInsteadOfNPlusOneScopeReads() {
+        String sql = sql("selectConnectorBindingsByTenant", Map.of(
+                "tenantId", 7L,
+                "productCode", "FBSIR_INDEPENDENT_BOARD",
+                "sourceCode", "WORKBUDDY",
+                "connectorCode", "fbs-connector"));
+
+        assertTrue(sql.contains("from ( select candidate.*"));
+        assertTrue(sql.contains("candidate.enterprise_id = ?"));
+        assertTrue(sql.contains("candidate.product_code = ?"));
+        assertTrue(sql.contains("inner join fbs_product_entitlement entitlement"));
+        assertTrue(sql.contains("cast(entitlement.plan_code as binary) = cast('board_vip' as binary)"));
+        assertTrue(sql.contains("entitlement.valid_from <= now(3)"));
+        assertTrue(sql.contains("inner join fbs_product_plan plan"));
+        assertTrue(sql.contains("cast(plan.product_code as binary) = cast(entitlement.product_code as binary)"));
+        assertTrue(sql.contains("cast(plan.plan_code as binary) = cast('board_vip' as binary)"));
+        assertTrue(sql.contains("cast(entitlement.status as binary) = cast('active' as binary)"));
+        assertTrue(sql.contains("cast(plan.status as binary) = cast('active' as binary)"));
+        assertTrue(sql.contains("plan.connector_required = 1"));
+        assertTrue(sql.contains("plan.daily_meeting_limit = 5"));
+        assertTrue(sql.contains("plan.seat_limit is null"));
+        assertTrue(sql.contains("limit 101"));
+        assertTrue(sql.contains("left join fbs_connector_binding_scope s"));
+        assertTrue(sql.endsWith("order by b.id asc, s.scope_code asc"));
+        assertFalse(sql.contains("${"), "connector batch reads must never use substitution");
+    }
+
+    @Test
+    void connectorScopeReadHasAOneRowOverflowSentinel() {
+        String sql = sql("selectConnectorBindingScopes", Map.of("bindingId", "binding-1"));
+
+        assertTrue(sql.contains("where binding_id = ?"));
+        assertTrue(sql.contains("order by scope_code asc"));
+        assertTrue(sql.endsWith("limit 5"));
+        assertFalse(sql.contains("${"), "connector scope reads must never use substitution");
+    }
+
+    @Test
+    void connectorScopeLockClosesSnapshotRaceAfterBindingLock() {
+        String sql = sql("selectConnectorBindingScopesForUpdate", Map.of("bindingId", "binding-1"));
+
+        assertTrue(sql.contains("where binding_id = ?"));
+        assertTrue(sql.contains("order by scope_code asc"));
+        assertTrue(sql.endsWith("limit 5 for update"));
+        assertFalse(sql.contains("${"), "connector scope locks must never use substitution");
     }
 
     private static String sql(String statement, Map<String, Object> parameters) {

@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -40,12 +42,19 @@ import static org.mockito.Mockito.when;
 class IndependentBoardEntitlementServiceTest {
     private static final Instant NOW = Instant.parse("2026-07-20T12:00:00Z");
     private IndependentBoardMapper mapper;
+    private BoardConnectorBindingPort connectorBindingPort;
     private IndependentBoardEntitlementService service;
 
     @BeforeEach
     void setUp() {
         mapper = mock(IndependentBoardMapper.class);
-        service = new IndependentBoardEntitlementService(mapper, Clock.fixed(NOW, ZoneOffset.UTC));
+        connectorBindingPort = mock(BoardConnectorBindingPort.class);
+        service = new IndependentBoardEntitlementService(
+                mapper, Clock.fixed(NOW, ZoneOffset.UTC), connectorBindingPort);
+        when(connectorBindingPort.selectAuthoritativeCurrentBindingKeys(
+                any(), any())).thenReturn(Set.of());
+        when(connectorBindingPort.hasAuthoritativeCurrentBinding(
+                any(), any(), any(), any(), anyBoolean())).thenReturn(false);
         when(mapper.selectActivePlan(IndependentBoardEntitlementService.PRODUCT_CODE,
                 IndependentBoardEntitlementService.FREE_PLAN)).thenReturn(freePlan());
         when(mapper.selectActivePlan(IndependentBoardEntitlementService.PRODUCT_CODE,
@@ -86,6 +95,25 @@ class IndependentBoardEntitlementServiceTest {
     }
 
     @Test
+    void currentVipEntitlementWithMissingPlanFailsClosedAsContractDrift() {
+        when(mapper.selectActiveContext(7L, 42L)).thenReturn(member(7L, 11L, 42L));
+        when(mapper.selectEntitlement(
+                7L, 11L, 42L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(entitlement(null, null));
+        when(mapper.selectActivePlan(
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.VIP_PLAN)).thenReturn(null);
+
+        ServiceException error = assertThrows(
+                ServiceException.class, () -> service.getSnapshot(7L, 42L));
+
+        assertEquals(500, error.getCode());
+        assertEquals("BOARD_PLAN_CONTRACT_DRIFT", error.getMessage());
+        verify(connectorBindingPort, never()).hasAuthoritativeCurrentBinding(
+                any(), any(), any(), any(), anyBoolean());
+    }
+
+    @Test
     void legacyBindingFieldsCannotActivateVipBeforeAuthoritativeW4CurrentRead() {
         when(mapper.selectActiveContext(7L, 42L)).thenReturn(member(7L, 11L, 42L));
         when(mapper.selectEntitlement(7L, 11L, 42L, IndependentBoardEntitlementService.PRODUCT_CODE))
@@ -101,6 +129,27 @@ class IndependentBoardEntitlementServiceTest {
         assertEquals(3, snapshot.seatLimit());
         assertFalse(snapshot.secretaryEnabled());
         assertFalse(snapshot.connectorVerified());
+    }
+
+    @Test
+    void authoritativeCurrentBindingActivatesVipWithoutTrustingLegacyColumns() {
+        when(mapper.selectActiveContext(7L, 42L)).thenReturn(member(7L, 11L, 42L));
+        when(mapper.selectEntitlement(7L, 11L, 42L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(entitlement("legacy-binding-must-not-be-read", null));
+        when(connectorBindingPort.hasAuthoritativeCurrentBinding(
+                7L, 11L, 42L, IndependentBoardEntitlementService.PRODUCT_CODE, false))
+                .thenReturn(true);
+
+        BoardEntitlementSnapshot snapshot = service.getSnapshot(7L, 42L);
+
+        assertEquals("BOARD_VIP", snapshot.grantedPlanCode());
+        assertEquals("BOARD_VIP", snapshot.effectivePlanCode());
+        assertEquals("ACTIVE", snapshot.activationState());
+        assertEquals(5, snapshot.dailyMeetingLimit());
+        assertEquals(30, snapshot.agendaLimit());
+        assertNull(snapshot.seatLimit());
+        assertTrue(snapshot.secretaryEnabled());
+        assertTrue(snapshot.connectorVerified());
     }
 
     @Test
@@ -143,6 +192,31 @@ class IndependentBoardEntitlementServiceTest {
     }
 
     @Test
+    void freePlanAdjustmentRevokesAnyAuthoritativeConnectorBindingInTheSameTransaction() {
+        when(mapper.selectExactActiveMemberForUpdate(7L, 11L, 42L))
+                .thenReturn(member(7L, 11L, 42L));
+        BoardProductEntitlement current = entitlement(null, null);
+        when(mapper.selectEntitlementForUpdate(
+                7L, 11L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(current);
+        when(mapper.updateEntitlementIfVersion(any(), any())).thenReturn(1);
+        when(mapper.insertEntitlementReceipt(any())).thenReturn(1);
+
+        BoardEntitlementAdminView view = service.grant(
+                new BoardEntitlementGrantRequest(
+                        7L, 11L, 42L, IndependentBoardEntitlementService.FREE_PLAN,
+                        Date.from(NOW.plusSeconds(3600)), 1L),
+                900L);
+
+        assertEquals(IndependentBoardEntitlementService.FREE_PLAN, view.planCode());
+        assertEquals("FREE", view.activationState());
+        verify(connectorBindingPort).revokeForEntitlement(
+                7L, 11L, 42L, IndependentBoardEntitlementService.PRODUCT_CODE, 900L);
+        verify(connectorBindingPort, never()).hasAuthoritativeCurrentBinding(
+                any(), any(), any(), any(), anyBoolean());
+    }
+
+    @Test
     void listEntitlementsReturnsOnlyTheBoundedSafeManagementProjection() {
         BoardProductEntitlement entitlement = entitlement(
                 "legacy-binding-must-not-leak", Date.from(NOW.minusSeconds(60)));
@@ -170,6 +244,26 @@ class IndependentBoardEntitlementServiceTest {
                         "updatedAt"),
                 Arrays.stream(BoardEntitlementAdminView.class.getRecordComponents())
                         .map(component -> component.getName()).toList());
+        verify(connectorBindingPort).selectAuthoritativeCurrentBindingKeys(
+                7L, IndependentBoardEntitlementService.PRODUCT_CODE);
+        verify(connectorBindingPort, never()).hasAuthoritativeCurrentBinding(
+                any(), any(), any(), any(), anyBoolean());
+    }
+
+    @Test
+    void entitlementListRejectsCurrentVipEntitlementWhenPlanIsMissing() {
+        when(mapper.selectEntitlementsByTenant(
+                7L, IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(List.of(entitlement(null, null)));
+        when(mapper.selectActivePlan(
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.VIP_PLAN)).thenReturn(null);
+
+        ServiceException error = assertThrows(
+                ServiceException.class, () -> service.listEntitlements(7L));
+
+        assertEquals(500, error.getCode());
+        assertEquals("BOARD_PLAN_CONTRACT_DRIFT", error.getMessage());
     }
 
     @Test
@@ -380,6 +474,8 @@ class IndependentBoardEntitlementServiceTest {
         verify(mapper, never()).selectActivePlan(
                 IndependentBoardEntitlementService.PRODUCT_CODE,
                 IndependentBoardEntitlementService.VIP_PLAN);
+        verify(connectorBindingPort).revokeForEntitlement(
+                7L, 11L, 42L, IndependentBoardEntitlementService.PRODUCT_CODE, 900L);
     }
 
     @Test

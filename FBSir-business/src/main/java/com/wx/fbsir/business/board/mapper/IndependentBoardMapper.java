@@ -1,12 +1,15 @@
 package com.wx.fbsir.business.board.mapper;
 
 import com.wx.fbsir.business.board.domain.BoardEnterpriseMemberScope;
+import com.wx.fbsir.business.board.domain.BoardConnectorBinding;
+import com.wx.fbsir.business.board.domain.BoardConnectorBindingReceipt;
 import com.wx.fbsir.business.board.domain.BoardEntitlementReceipt;
 import com.wx.fbsir.business.board.domain.BoardProductEntitlement;
 import com.wx.fbsir.business.board.domain.BoardProductPlan;
 import com.wx.fbsir.business.board.domain.BoardUsageBudget;
 import com.wx.fbsir.business.board.domain.BoardUsageOperation;
 import java.time.LocalDate;
+import java.util.Date;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -17,6 +20,9 @@ public interface IndependentBoardMapper {
 
     BoardEnterpriseMemberScope selectActiveContext(@Param("tenantId") Long tenantId,
                                                     @Param("userId") Long userId);
+
+    BoardEnterpriseMemberScope selectActiveContextForUpdate(@Param("tenantId") Long tenantId,
+                                                             @Param("userId") Long userId);
 
     BoardEnterpriseMemberScope selectExactActiveMemberForUpdate(
             @Param("tenantId") Long tenantId,
@@ -47,6 +53,43 @@ public interface IndependentBoardMapper {
 
     List<BoardEntitlementReceipt> selectEntitlementReceiptsByTenant(
             @Param("tenantId") Long tenantId);
+
+    BoardConnectorBinding selectConnectorBinding(
+            @Param("tenantId") Long tenantId,
+            @Param("memberId") Long memberId,
+            @Param("userId") Long userId,
+            @Param("productCode") String productCode,
+            @Param("sourceCode") String sourceCode,
+            @Param("connectorCode") String connectorCode);
+
+    BoardConnectorBinding selectConnectorBindingForUpdate(
+            @Param("tenantId") Long tenantId,
+            @Param("memberId") Long memberId,
+            @Param("userId") Long userId,
+            @Param("productCode") String productCode,
+            @Param("sourceCode") String sourceCode,
+            @Param("connectorCode") String connectorCode);
+
+    List<BoardConnectorBinding> selectConnectorBindingsByTenant(
+            @Param("tenantId") Long tenantId,
+            @Param("productCode") String productCode,
+            @Param("sourceCode") String sourceCode,
+            @Param("connectorCode") String connectorCode);
+
+    List<String> selectConnectorBindingScopes(@Param("bindingId") String bindingId);
+
+    List<String> selectConnectorBindingScopesForUpdate(@Param("bindingId") String bindingId);
+
+    int insertConnectorBinding(BoardConnectorBinding binding);
+
+    int insertConnectorBindingScope(@Param("bindingId") String bindingId,
+                                    @Param("scopeCode") String scopeCode,
+                                    @Param("createdAt") Date createdAt);
+
+    int revokeConnectorBindingIfVersion(@Param("binding") BoardConnectorBinding binding,
+                                        @Param("expectedVersion") Long expectedVersion);
+
+    int insertConnectorBindingReceipt(BoardConnectorBindingReceipt receipt);
 
     BoardUsageBudget selectUsageBudget(@Param("tenantId") Long tenantId,
                                        @Param("memberId") Long memberId,
