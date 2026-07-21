@@ -25,6 +25,11 @@ const ENTITLEMENT_RECEIPT_KEYS = Object.freeze([
 const ENTITLEMENT_RECEIPT_ACTIONS = Object.freeze([
   'ENTITLEMENT_GRANTED', 'ENTITLEMENT_UPDATED', 'ENTITLEMENT_REVOKED'
 ])
+const PLAN_KEYS = Object.freeze([
+  'productCode', 'planCode', 'planName', 'vip', 'connectorRequired',
+  'dailyMeetingLimit', 'agendaLimit', 'seatLimit', 'secretaryEnabled',
+  'status', 'version', 'updatedAt'
+])
 
 function fail(message) {
   throw new Error(message)
@@ -269,6 +274,49 @@ export function parseEntitlementList(value, expectedTenantId) {
   }))
 }
 
+export function parseProductPlanCatalog(value) {
+  if (!Array.isArray(value) || value.length !== BOARD_PLAN_CODES.length) {
+    fail('套餐目录必须包含且仅包含当前受支持的独董会套餐')
+  }
+  const seen = new Set()
+  const plans = value.map((item, index) => {
+    assertExactKeys(item, PLAN_KEYS, `第${index + 1}条套餐策略`)
+    if (item.productCode !== 'FBSIR_INDEPENDENT_BOARD'
+        || !BOARD_PLAN_CODES.includes(item.planCode)
+        || !isNonBlankString(item.planName)
+        || item.planName.length > 128
+        || /[\u0000-\u001f\u007f-\u009f]/.test(item.planName)
+        || typeof item.vip !== 'boolean'
+        || typeof item.connectorRequired !== 'boolean'
+        || !isPositiveSafeInteger(item.dailyMeetingLimit)
+        || !isPositiveSafeInteger(item.agendaLimit)
+        || !(item.seatLimit === null || isPositiveSafeInteger(item.seatLimit))
+        || typeof item.secretaryEnabled !== 'boolean'
+        || item.status !== 'ACTIVE'
+        || !isNonNegativeSafeInteger(item.version)) {
+      fail(`第${index + 1}条套餐策略包含非法值`)
+    }
+    parseBoardDateTime(item.updatedAt, '套餐策略更新时间')
+    if (seen.has(item.planCode)) fail('套餐目录包含重复套餐')
+    seen.add(item.planCode)
+    const isVip = item.planCode === 'BOARD_VIP'
+    if (item.vip !== isVip
+        || item.connectorRequired !== isVip
+        || item.secretaryEnabled !== isVip
+        || item.dailyMeetingLimit !== (isVip ? 5 : 1)
+        || item.agendaLimit !== (isVip ? 30 : 5)
+        || (isVip ? item.seatLimit !== null : item.seatLimit !== 3)) {
+      fail('套餐策略能力与套餐代码不一致')
+    }
+    return Object.freeze({ ...item, planName: item.planName.trim() })
+  })
+  if (BOARD_PLAN_CODES.some(code => !seen.has(code))) {
+    fail('套餐目录缺少受支持的独董会套餐')
+  }
+  plans.sort((left, right) => left.planCode.localeCompare(right.planCode))
+  return Object.freeze(plans)
+}
+
 export function parseOperationEnvelope(value, expectedTenantId) {
   assertExactKeys(value, ['records', 'limit', 'truncated'], '会议额度审计响应')
   if (!Array.isArray(value.records)
@@ -363,7 +411,12 @@ export function buildEntitlementRevokePayload({ tenantId, entitlement }) {
   })
 }
 
-export function buildEntitlementRevokeConfirmation({ enterprise, member = null, entitlement }) {
+export function buildEntitlementRevokeConfirmation({
+  enterprise,
+  member = null,
+  entitlement,
+  planCatalog
+}) {
   assertExactKeys(enterprise, ['id', 'enterpriseName', 'status'], '撤销确认企业')
   if (!isPositiveSafeInteger(enterprise.id)
       || !isNonBlankString(enterprise.enterpriseName)
@@ -371,6 +424,15 @@ export function buildEntitlementRevokeConfirmation({ enterprise, member = null, 
     fail('撤销确认企业上下文无效')
   }
   const current = parseEntitlement(entitlement, enterprise.id)
+  let currentPlanName = current.planCode
+  let freePlanName = 'BOARD_FREE'
+  try {
+    const plans = parseProductPlanCatalog(planCatalog)
+    currentPlanName = plans.find(plan => plan.planCode === current.planCode).planName
+    freePlanName = plans.find(plan => plan.planCode === 'BOARD_FREE').planName
+  } catch {
+    // Revocation is a risk-closing path. Catalog display drift must not block it.
+  }
   let targetMemberLabel = `历史成员 #${current.memberId}`
   if (member !== null) {
     assertExactKeys(member,
@@ -387,7 +449,7 @@ export function buildEntitlementRevokeConfirmation({ enterprise, member = null, 
   }
   return Object.freeze({
     title: '确认撤销权益',
-    message: `企业：${enterprise.enterpriseName.trim()}（企业 #${enterprise.id}）；成员：${targetMemberLabel}；用户 ID：${current.userId}；授予计划：${planLabel(current.planCode)}；当前版本：${current.version}。撤销生效后该成员将按免费版运行，并写入不可变审计回执。`,
+    message: `企业：${enterprise.enterpriseName.trim()}（企业 #${enterprise.id}）；成员：${targetMemberLabel}；用户 ID：${current.userId}；授予计划：${currentPlanName}；当前版本：${current.version}。撤销生效后该成员将按${freePlanName}运行，并写入不可变审计回执。`,
     confirmButtonText: '确认撤销'
   })
 }

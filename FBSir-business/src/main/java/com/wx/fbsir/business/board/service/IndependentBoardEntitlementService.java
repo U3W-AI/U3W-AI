@@ -12,6 +12,7 @@ import com.wx.fbsir.business.board.dto.BoardEntitlementReceiptAuditEnvelope;
 import com.wx.fbsir.business.board.dto.BoardEntitlementReceiptView;
 import com.wx.fbsir.business.board.dto.BoardEntitlementRevokeRequest;
 import com.wx.fbsir.business.board.dto.BoardEntitlementSnapshot;
+import com.wx.fbsir.business.board.dto.BoardProductPlanAdminView;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
 import com.wx.fbsir.common.exception.ServiceException;
 import java.time.Clock;
@@ -19,6 +20,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -120,6 +122,37 @@ public class IndependentBoardEntitlementService {
                         currentBindings.contains(new BoardConnectorBindingKey(
                                 tenantId, entitlement.getMemberId(), entitlement.getUserId(), PRODUCT_CODE))))
                 .toList();
+    }
+
+    /**
+     * Reads the exact current policy catalog without exposing a write surface.
+     * The entitlement-query permission is intentionally reused because the
+     * catalog is a prerequisite to the existing entitlement grant form.
+     */
+    @Transactional(readOnly = true)
+    public List<BoardProductPlanAdminView> listPlans() {
+        List<BoardProductPlan> plans = mapper.selectPlansByProduct(PRODUCT_CODE);
+        if (plans == null || plans.size() != 2) {
+            throw new ServiceException("BOARD_PLAN_CURRENT_READ_FAILED", 500);
+        }
+        Set<String> planCodes = new HashSet<>();
+        List<BoardProductPlanAdminView> result = new ArrayList<>(2);
+        for (BoardProductPlan plan : plans) {
+            if (plan == null) {
+                throw new ServiceException("BOARD_PLAN_CONTRACT_DRIFT", 500);
+            }
+            validatePlanContract(plan);
+            validatePlanReadMetadata(plan);
+            if (!planCodes.add(plan.getPlanCode())) {
+                throw new ServiceException("BOARD_PLAN_CONTRACT_DRIFT", 500);
+            }
+            result.add(toPlanAdminView(plan));
+        }
+        if (!planCodes.equals(Set.of(FREE_PLAN, VIP_PLAN))) {
+            throw new ServiceException("BOARD_PLAN_CONTRACT_DRIFT", 500);
+        }
+        result.sort(java.util.Comparator.comparing(BoardProductPlanAdminView::planCode));
+        return List.copyOf(result);
     }
 
     @Transactional(readOnly = true)
@@ -475,6 +508,25 @@ public class IndependentBoardEntitlementService {
                 || !Objects.equals(plan.getStatus(), "ACTIVE") || (!freeValid && !vipValid)) {
             throw new ServiceException("BOARD_PLAN_CONTRACT_DRIFT", 500);
         }
+    }
+
+    private void validatePlanReadMetadata(BoardProductPlan plan) {
+        String name = plan.getPlanName();
+        if (name == null || name.isBlank() || name.length() > 128
+                || name.chars().anyMatch(Character::isISOControl)
+                || plan.getVersion() == null || plan.getVersion() < 0L
+                || plan.getUpdatedAt() == null) {
+            throw new ServiceException("BOARD_PLAN_CONTRACT_DRIFT", 500);
+        }
+    }
+
+    private BoardProductPlanAdminView toPlanAdminView(BoardProductPlan plan) {
+        return new BoardProductPlanAdminView(
+                plan.getProductCode(), plan.getPlanCode(), plan.getPlanName().trim(),
+                Boolean.TRUE.equals(plan.getVip()), Boolean.TRUE.equals(plan.getConnectorRequired()),
+                plan.getDailyMeetingLimit(), plan.getAgendaLimit(), plan.getSeatLimit(),
+                Boolean.TRUE.equals(plan.getSecretaryEnabled()), plan.getStatus(),
+                plan.getVersion(), new Date(plan.getUpdatedAt().getTime()));
     }
 
     private boolean isTemporallyValid(BoardProductEntitlement entitlement, Date now) {

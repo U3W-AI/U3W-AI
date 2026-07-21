@@ -1,5 +1,12 @@
 import request from '@/utils/request'
 
+export function listIndependentBoardPlans() {
+  return request({
+    url: '/business/independent-board/plans',
+    method: 'get'
+  })
+}
+
 export function listIndependentBoardEntitlements(tenantId) {
   return request({
     url: '/business/independent-board/entitlements',

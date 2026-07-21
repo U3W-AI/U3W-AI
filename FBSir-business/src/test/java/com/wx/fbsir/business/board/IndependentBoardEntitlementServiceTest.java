@@ -6,6 +6,7 @@ import com.wx.fbsir.business.board.domain.BoardProductEntitlement;
 import com.wx.fbsir.business.board.domain.BoardProductPlan;
 import com.wx.fbsir.business.board.dto.BoardEntitlementAdminView;
 import com.wx.fbsir.business.board.dto.BoardEntitlementGrantRequest;
+import com.wx.fbsir.business.board.dto.BoardProductPlanAdminView;
 import com.wx.fbsir.business.board.dto.BoardEntitlementReceiptAuditEnvelope;
 import com.wx.fbsir.business.board.dto.BoardEntitlementReceiptView;
 import com.wx.fbsir.business.board.dto.BoardEntitlementRevokeRequest;
@@ -59,6 +60,60 @@ class IndependentBoardEntitlementServiceTest {
                 IndependentBoardEntitlementService.FREE_PLAN)).thenReturn(freePlan());
         when(mapper.selectActivePlan(IndependentBoardEntitlementService.PRODUCT_CODE,
                 IndependentBoardEntitlementService.VIP_PLAN)).thenReturn(vipPlan());
+    }
+
+    @Test
+    void listsTheExactVersionedProductPlanCatalogForAdminCurrentRead() {
+        BoardProductPlan free = versionedPlan(freePlan(), "免费版", 3L);
+        BoardProductPlan vip = versionedPlan(vipPlan(), "VIP版", 7L);
+        when(mapper.selectPlansByProduct(IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(List.of(free, vip));
+
+        List<BoardProductPlanAdminView> plans = service.listPlans();
+
+        assertEquals(2, plans.size());
+        assertEquals("BOARD_FREE", plans.get(0).planCode());
+        assertEquals("免费版", plans.get(0).planName());
+        assertEquals(3L, plans.get(0).version());
+        assertEquals("BOARD_VIP", plans.get(1).planCode());
+        assertEquals(5, plans.get(1).dailyMeetingLimit());
+        assertEquals(30, plans.get(1).agendaLimit());
+        assertNull(plans.get(1).seatLimit());
+        assertEquals(Date.from(NOW), plans.get(1).updatedAt());
+
+        free.getUpdatedAt().setTime(0L);
+        Date returnedUpdatedAt = plans.get(0).updatedAt();
+        returnedUpdatedAt.setTime(0L);
+        assertEquals(Date.from(NOW), plans.get(0).updatedAt());
+    }
+
+    @Test
+    void planCatalogFailsClosedOnMissingDuplicateOrUnversionedPolicy() {
+        when(mapper.selectPlansByProduct(IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(List.of(versionedPlan(freePlan(), "免费版", 3L)));
+        ServiceException missing = assertThrows(ServiceException.class, service::listPlans);
+        assertEquals("BOARD_PLAN_CURRENT_READ_FAILED", missing.getMessage());
+
+        BoardProductPlan duplicate = versionedPlan(freePlan(), "免费版", 4L);
+        when(mapper.selectPlansByProduct(IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(List.of(
+                        versionedPlan(freePlan(), "免费版", 3L), duplicate));
+        ServiceException duplicateError = assertThrows(ServiceException.class, service::listPlans);
+        assertEquals("BOARD_PLAN_CONTRACT_DRIFT", duplicateError.getMessage());
+
+        BoardProductPlan unversioned = versionedPlan(vipPlan(), "VIP版", 7L);
+        unversioned.setUpdatedAt(null);
+        when(mapper.selectPlansByProduct(IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(List.of(
+                        versionedPlan(freePlan(), "免费版", 3L), unversioned));
+        ServiceException metadataError = assertThrows(ServiceException.class, service::listPlans);
+        assertEquals("BOARD_PLAN_CONTRACT_DRIFT", metadataError.getMessage());
+
+        when(mapper.selectPlansByProduct(IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(Arrays.asList(
+                        versionedPlan(freePlan(), "free", 3L), null));
+        ServiceException nullRow = assertThrows(ServiceException.class, service::listPlans);
+        assertEquals("BOARD_PLAN_CONTRACT_DRIFT", nullRow.getMessage());
     }
 
     @Test
@@ -753,6 +808,13 @@ class IndependentBoardEntitlementServiceTest {
         plan.setSeatLimit(seats);
         plan.setSecretaryEnabled(secretary);
         plan.setStatus("ACTIVE");
+        return plan;
+    }
+
+    private BoardProductPlan versionedPlan(BoardProductPlan plan, String planName, long version) {
+        plan.setPlanName(planName);
+        plan.setVersion(version);
+        plan.setUpdatedAt(Date.from(NOW));
         return plan;
     }
 }

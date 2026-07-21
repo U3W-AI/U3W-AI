@@ -48,6 +48,9 @@ class IndependentBoardControllerAuthorizationTest {
         assertEndpoint(IndependentBoardAdminController.class, "entitlements",
                 "@ss.hasRole('admin') and @ss.hasPermi('board:entitlement:query')",
                 GetMapping.class, "/entitlements", Long.class);
+        assertEndpoint(IndependentBoardAdminController.class, "plans",
+                "@ss.hasRole('admin') and @ss.hasPermi('board:entitlement:query')",
+                GetMapping.class, "/plans");
         assertEndpoint(IndependentBoardAdminController.class, "revoke",
                 "@ss.hasRole('admin') and @ss.hasPermi('board:entitlement:revoke')",
                 PostMapping.class, "/entitlements/revoke", BoardEntitlementRevokeRequest.class);

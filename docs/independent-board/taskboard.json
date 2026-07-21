@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the officially listed and post-listing-frozen 26.7.20 expert package.",
-  "singleNextAction": "Resolve active-release metadata drift and obtain approved Git-backed or hash-anchored reconstruction provenance for the P1-005A report-only candidate, then capture full serve closure and signed exact host-registration evidence; keep the frozen 26.7.20 package, public routes, and authoritative product credit closed.",
+  "singleNextAction": "Continue the admin-first track with a contract and immutable storage design for credit-ledger current read and operations; keep plan editing, delegated tenant administration, production activation, and attribution promotion closed until their separate migration and receipt gates exist.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -63,10 +63,11 @@
         "revoked_state_explicitly_falls_back_to_free_policy",
         "revoked_entitlement_cannot_be_implicitly_restored",
         "immutable_seven_field_entitlement_receipt_audit_readback",
-        "replayable_w2_w3a_w3b_menu_migration_gate"
+        "replayable_w2_w3a_w3b_menu_migration_gate",
+        "versioned_plan_and_quota_policy_current_read_with_admin_ui_drift_gate"
       ],
       "remaining": [
-        "product_plan_and_quota_policy_governance",
+        "product_plan_and_quota_policy_write_revision_and_receipt_governance",
         "credit_ledger_operations",
         "run_receipt_and_failure_audit",
         "connector_and_device_operations",

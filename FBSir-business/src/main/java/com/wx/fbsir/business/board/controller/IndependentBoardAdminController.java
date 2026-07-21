@@ -54,6 +54,12 @@ public class IndependentBoardAdminController extends BaseController {
         return AjaxResult.success(entitlementService.listEntitlements(tenantId));
     }
 
+    @PreAuthorize("@ss.hasRole('admin') and @ss.hasPermi('board:entitlement:query')")
+    @GetMapping("/plans")
+    public AjaxResult plans() {
+        return AjaxResult.success(entitlementService.listPlans());
+    }
+
     @PreAuthorize("@ss.hasRole('admin') and @ss.hasPermi('board:entitlement:audit')")
     @GetMapping("/entitlement-receipts")
     public AjaxResult entitlementReceipts(@RequestParam @Min(1) Long tenantId) {

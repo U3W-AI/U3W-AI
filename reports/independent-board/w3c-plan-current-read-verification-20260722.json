@@ -1,0 +1,46 @@
+{
+  "schema": "fbsir.independent-board-verification/v1",
+  "slice": "W3c_plan_and_quota_policy_current_read",
+  "verifiedAt": "2026-07-22T05:01:08+08:00",
+  "result": "local_source_http_ui_and_build_verified",
+  "scope": {
+    "endpoint": "GET /business/independent-board/plans",
+    "authorization": "admin_role_and_board_entitlement_query_permission",
+    "writeSurface": "closed",
+    "productionDeployment": false
+  },
+  "contract": {
+    "productCode": "FBSIR_INDEPENDENT_BOARD",
+    "exactPlanCodes": [
+      "BOARD_FREE",
+      "BOARD_VIP"
+    ],
+    "driftPolicy": "fail_closed_without_partial_catalog",
+    "frontEndPolicy": "grant_and_adjust_block_on_catalog_failure_revocation_remains_available_with_code_fallback"
+  },
+  "verification": {
+    "javaAdminSliceTests": {
+      "passed": 89,
+      "failed": 0
+    },
+    "javaAttributionRegressionTests": {
+      "passed": 10,
+      "failed": 0
+    },
+    "adminUiVerifier": "passed",
+    "frontendProductionBuild": "passed",
+    "diffCheck": "passed_with_line_ending_warnings_only",
+    "multiAgentAdversarialReview": "passed_after_all_blocking_findings_fixed"
+  },
+  "mysql": {
+    "schemaMigrationRequired": false,
+    "xmlContractTest": "passed",
+    "realMapperExecutionThisSlice": "not_rerun_local_mysql_client_unavailable",
+    "remainingGate": "add_selectPlansByProduct_real_mapping_order_and_metadata_assertion_to_explicit_mysql_it_before_deployment"
+  },
+  "truthBoundary": {
+    "localVerifiedDoesNotProveProduction": true,
+    "adminDomainReadback": "not_proven",
+    "frozenExpertPackageModified": false
+  }
+}

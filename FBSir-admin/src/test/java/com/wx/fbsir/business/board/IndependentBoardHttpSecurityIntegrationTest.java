@@ -464,6 +464,46 @@ class IndependentBoardHttpSecurityIntegrationTest {
     }
 
     @Test
+    void planCatalogRequiresBothGlobalAdminRoleAndEntitlementQueryPermission() throws Exception {
+        mockMvc.perform(get("/business/independent-board/plans")
+                        .header("Authorization", bearer(loginUser(
+                                USER_ID, "member", Set.of("board:entitlement:query"), "user"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+        mockMvc.perform(get("/business/independent-board/plans")
+                        .header("Authorization", bearer(loginUser(
+                                USER_ID, "operator", Set.of(), "admin"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+
+        verify(mapper, never()).selectPlansByProduct(any());
+    }
+
+    @Test
+    void administratorCanReadTheExactVersionedPlanCatalog() throws Exception {
+        when(mapper.selectPlansByProduct(IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(List.of(freePlan(), vipPlan()));
+
+        mockMvc.perform(get("/business/independent-board/plans")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "operator", Set.of("board:entitlement:query"), "admin"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].productCode").value(
+                        IndependentBoardEntitlementService.PRODUCT_CODE))
+                .andExpect(jsonPath("$.data[0].planCode").value("BOARD_FREE"))
+                .andExpect(jsonPath("$.data[0].planName").value("独董会免费版"))
+                .andExpect(jsonPath("$.data[0].dailyMeetingLimit").value(1))
+                .andExpect(jsonPath("$.data[0].version").value(3L))
+                .andExpect(jsonPath("$.data[0].updatedAt").exists())
+                .andExpect(jsonPath("$.data[1].planCode").value("BOARD_VIP"))
+                .andExpect(jsonPath("$.data[1].seatLimit").value(nullValue()));
+
+        verify(mapper).selectPlansByProduct(IndependentBoardEntitlementService.PRODUCT_CODE);
+    }
+
+    @Test
     void administratorEntitlementQueryReturnsOnlyTheSafeManagementFields() throws Exception {
         BoardProductEntitlement entitlement = entitlement();
         when(mapper.selectEntitlementsByTenant(
@@ -971,6 +1011,7 @@ class IndependentBoardHttpSecurityIntegrationTest {
         BoardProductPlan plan = new BoardProductPlan();
         plan.setProductCode(IndependentBoardEntitlementService.PRODUCT_CODE);
         plan.setPlanCode(IndependentBoardEntitlementService.FREE_PLAN);
+        plan.setPlanName("独董会免费版");
         plan.setVip(false);
         plan.setConnectorRequired(false);
         plan.setDailyMeetingLimit(1);
@@ -978,6 +1019,8 @@ class IndependentBoardHttpSecurityIntegrationTest {
         plan.setSeatLimit(3);
         plan.setSecretaryEnabled(false);
         plan.setStatus("ACTIVE");
+        plan.setVersion(3L);
+        plan.setUpdatedAt(new Date(1_790_000_000_000L));
         return plan;
     }
 
@@ -985,6 +1028,7 @@ class IndependentBoardHttpSecurityIntegrationTest {
         BoardProductPlan plan = new BoardProductPlan();
         plan.setProductCode(IndependentBoardEntitlementService.PRODUCT_CODE);
         plan.setPlanCode(IndependentBoardEntitlementService.VIP_PLAN);
+        plan.setPlanName("独董会 VIP 版");
         plan.setVip(true);
         plan.setConnectorRequired(true);
         plan.setDailyMeetingLimit(5);
@@ -992,6 +1036,8 @@ class IndependentBoardHttpSecurityIntegrationTest {
         plan.setSeatLimit(null);
         plan.setSecretaryEnabled(true);
         plan.setStatus("ACTIVE");
+        plan.setVersion(5L);
+        plan.setUpdatedAt(new Date(1_790_000_100_000L));
         return plan;
     }
 

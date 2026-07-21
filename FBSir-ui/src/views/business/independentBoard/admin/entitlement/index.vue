@@ -70,8 +70,8 @@
       class="page-alert"
     />
     <el-alert
-      v-if="enterpriseError || dataError"
-      :title="enterpriseError || dataError"
+      v-if="enterpriseError || planCatalogError || dataError"
+      :title="enterpriseError || planCatalogError || dataError"
       type="error"
       show-icon
       :closable="false"
@@ -138,7 +138,7 @@
             <el-table-column label="授予套餐" width="110" align="center">
               <template #default="scope">
                 <el-tag :type="scope.row.planCode === 'BOARD_VIP' ? 'primary' : 'info'">
-                  {{ planLabel(scope.row.planCode) }}
+                  {{ currentPlanLabel(scope.row.planCode) }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -242,9 +242,12 @@
           </el-select>
         </el-form-item>
         <el-form-item label="授予套餐" prop="planCode">
-          <el-radio-group v-model="grantForm.planCode" :disabled="submitting">
-            <el-radio-button value="BOARD_FREE">免费版</el-radio-button>
-            <el-radio-button value="BOARD_VIP">VIP版</el-radio-button>
+          <el-radio-group v-model="grantForm.planCode" :disabled="submitting || planCatalogLoading">
+            <el-radio-button
+              v-for="plan in planCatalog"
+              :key="plan.planCode"
+              :value="plan.planCode"
+            >{{ plan.planName }}</el-radio-button>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="截止时间" prop="validUntil">
@@ -280,6 +283,7 @@ import { listEnterpriseMember } from '@/api/business/fbs/enterpriseMember'
 import {
   grantIndependentBoardEntitlement,
   listIndependentBoardEntitlements,
+  listIndependentBoardPlans,
   revokeIndependentBoardEntitlement
 } from '@/api/business/independentBoard/admin'
 import { checkPermi } from '@/utils/permission'
@@ -298,7 +302,7 @@ import {
   parseEntitlement,
   parseEntitlementList,
   parseMemberPage,
-  planLabel,
+  parseProductPlanCatalog,
   toBoardDateTimeInput,
   verifyEntitlementRevokeReadback
 } from '../model.js'
@@ -318,6 +322,9 @@ const selectedTenantId = ref(null)
 const members = ref([])
 const memberTruncated = ref(false)
 const entitlements = ref([])
+const planCatalog = ref([])
+const planCatalogLoading = ref(false)
+const planCatalogError = ref('')
 const dataLoading = ref(false)
 const dataError = ref('')
 const tenantRequests = createLatestRequestGuard()
@@ -332,7 +339,7 @@ const formError = ref('')
 const grantFormRef = ref(null)
 const grantForm = reactive({
   memberId: null,
-  planCode: 'BOARD_FREE',
+  planCode: null,
   validUntil: null
 })
 
@@ -368,6 +375,7 @@ const grantableMembers = computed(() => {
 })
 const canOpenGrant = computed(() =>
   canGrantEntitlements
+  && planCatalog.value.length === 2
   && selectedEnterprise.value?.status === 1
   && !memberTruncated.value
   && unassignedActiveMembers.value.length > 0)
@@ -389,8 +397,28 @@ function canAdjust(entitlement) {
   return canGrantEntitlements
     && entitlement.entitlementStatus === 'ACTIVE'
     && selectedEnterprise.value?.status === 1
+    && planCatalog.value.some(plan => plan.planCode === entitlement.planCode)
     && !memberTruncated.value
     && member?.status === 1
+}
+
+function currentPlanLabel(planCode) {
+  return planCatalog.value.find(plan => plan.planCode === planCode)?.planName || planCode
+}
+
+async function loadPlanCatalog() {
+  if (!canQueryEntitlements) return
+  planCatalogLoading.value = true
+  planCatalogError.value = ''
+  try {
+    const response = await listIndependentBoardPlans()
+    planCatalog.value = [...parseProductPlanCatalog(response.data)]
+  } catch {
+    planCatalog.value = []
+    planCatalogError.value = '套餐与配额策略加载失败或发生契约漂移，已停止授予和调整操作。'
+  } finally {
+    planCatalogLoading.value = false
+  }
 }
 
 function canRevoke(entitlement) {
@@ -469,7 +497,7 @@ function resetDialog() {
   editingEntitlement.value = null
   formError.value = ''
   grantForm.memberId = null
-  grantForm.planCode = 'BOARD_FREE'
+  grantForm.planCode = planCatalog.value.find(plan => plan.planCode === 'BOARD_FREE')?.planCode || null
   grantForm.validUntil = null
   nextTick(() => grantFormRef.value?.clearValidate())
 }
@@ -583,7 +611,8 @@ async function revokeEntitlement(entitlement) {
     confirmation = buildEntitlementRevokeConfirmation({
       enterprise: selectedEnterprise.value,
       member: memberFor(entitlement),
-      entitlement
+      entitlement,
+      planCatalog: planCatalog.value
     })
   } catch (error) {
     revokeGuardMemberId.value = null
@@ -638,7 +667,7 @@ async function revokeEntitlement(entitlement) {
 }
 
 onMounted(async () => {
-  await loadEnterpriseOptions()
+  await Promise.all([loadEnterpriseOptions(), loadPlanCatalog()])
 })
 </script>
 

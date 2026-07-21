@@ -17,11 +17,67 @@ import {
   parseEntitlementReceiptEnvelope,
   parseMemberPage,
   parseOperationEnvelope,
+  parseProductPlanCatalog,
   toBoardDateTimeInput,
   verifyEntitlementRevokeReadback
 } from '../src/views/business/independentBoard/admin/model.js'
 
 const tenantId = 7
+const productPlans = [
+  {
+    productCode: 'FBSIR_INDEPENDENT_BOARD',
+    planCode: 'BOARD_FREE',
+    planName: '独董会免费版',
+    vip: false,
+    connectorRequired: false,
+    dailyMeetingLimit: 1,
+    agendaLimit: 5,
+    seatLimit: 3,
+    secretaryEnabled: false,
+    status: 'ACTIVE',
+    version: 3,
+    updatedAt: '2026-07-20T09:00:00+08:00'
+  },
+  {
+    productCode: 'FBSIR_INDEPENDENT_BOARD',
+    planCode: 'BOARD_VIP',
+    planName: '独董会 VIP 版',
+    vip: true,
+    connectorRequired: true,
+    dailyMeetingLimit: 5,
+    agendaLimit: 30,
+    seatLimit: null,
+    secretaryEnabled: true,
+    status: 'ACTIVE',
+    version: 7,
+    updatedAt: '2026-07-20T10:00:00+08:00'
+  }
+]
+const parsedPlans = parseProductPlanCatalog(productPlans)
+assert.equal(parsedPlans.length, 2)
+assert.equal(parsedPlans[0].planCode, 'BOARD_FREE')
+assert.equal(parsedPlans[1].planName, '独董会 VIP 版')
+assert.equal(Object.isFrozen(parsedPlans), true)
+assert.throws(() => parseProductPlanCatalog([productPlans[0]]), /必须包含且仅包含/)
+assert.throws(() => parseProductPlanCatalog([
+  productPlans[0], { ...productPlans[1], planCode: 'BOARD_FREE' }
+]), /重复套餐|能力与套餐代码不一致/)
+assert.throws(() => parseProductPlanCatalog([
+  productPlans[0], { ...productPlans[1], connectorRequired: false }
+]), /能力与套餐代码不一致/)
+assert.throws(() => parseProductPlanCatalog([
+  { ...productPlans[0], dailyMeetingLimit: 999 }, productPlans[1]
+]), /能力与套餐代码不一致/)
+assert.throws(() => parseProductPlanCatalog([
+  productPlans[0], { ...productPlans[1], agendaLimit: 1 }
+]), /能力与套餐代码不一致/)
+assert.throws(() => parseProductPlanCatalog([
+  { ...productPlans[0], planName: `免费版${String.fromCharCode(0x85)}` }, productPlans[1]
+]), /非法值/)
+assert.throws(() => parseProductPlanCatalog([
+  { ...productPlans[0], internalId: 1 }, productPlans[1]
+]), /安全合同/)
+
 const enterpriseResponse = {
   rows: [
     { id: tenantId, enterpriseName: '福帮手测试企业', status: 1, contactPhone: 'hidden' },
@@ -205,7 +261,8 @@ assert.throws(() => buildEntitlementRevokePayload({
 const revokeConfirmation = buildEntitlementRevokeConfirmation({
   enterprise: enterprisePage.records[0],
   member,
-  entitlement: pendingEntitlement
+  entitlement: pendingEntitlement,
+  planCatalog: productPlans
 })
 assert.deepEqual(Object.keys(revokeConfirmation), ['title', 'message', 'confirmButtonText'])
 assert.equal(revokeConfirmation.title, '确认撤销权益')
@@ -213,7 +270,7 @@ for (const expectedContent of [
   '企业：福帮手测试企业（企业 #7）',
   '成员：测试成员 · 成员 #42',
   '用户 ID：99',
-  '授予计划：VIP版',
+  '授予计划：独董会 VIP 版',
   '当前版本：3'
 ]) {
   assert.match(revokeConfirmation.message, new RegExp(expectedContent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
@@ -228,28 +285,39 @@ const reboundConfirmation = buildEntitlementRevokeConfirmation({
     planCode: 'BOARD_FREE',
     activationState: 'FREE',
     version: 8
-  }
+  },
+  planCatalog: productPlans
 })
 for (const expectedContent of [
   '企业：另一家企业（企业 #7）',
   '成员：另一成员 · 成员 #43',
   '用户 ID：100',
-  '授予计划：免费版',
+  '授予计划：独董会免费版',
   '当前版本：8'
 ]) {
   assert.match(reboundConfirmation.message, new RegExp(expectedContent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 }
 assert.notEqual(reboundConfirmation.message, revokeConfirmation.message,
   'confirmation content must be bound to the exact row being revoked')
+const fallbackRevokeConfirmation = buildEntitlementRevokeConfirmation({
+  enterprise: enterprisePage.records[0],
+  member,
+  entitlement: pendingEntitlement,
+  planCatalog: []
+})
+assert.match(fallbackRevokeConfirmation.message, /授予计划：BOARD_VIP/)
+assert.match(fallbackRevokeConfirmation.message, /按BOARD_FREE运行/)
 assert.throws(() => buildEntitlementRevokeConfirmation({
   enterprise: enterprisePage.records[0],
   member: { ...member, userId: 100 },
-  entitlement: pendingEntitlement
+  entitlement: pendingEntitlement,
+  planCatalog: productPlans
 }), /成员与权益记录不一致/)
 assert.throws(() => buildEntitlementRevokeConfirmation({
   enterprise: { ...enterprisePage.records[0], internalCode: 'unsafe' },
   member,
-  entitlement: pendingEntitlement
+  entitlement: pendingEntitlement,
+  planCatalog: productPlans
 }), /安全合同/)
 
 assert.deepEqual(verifyEntitlementRevokeReadback({
@@ -445,6 +513,12 @@ assert.match(entitlementPageSource, /item\.planCode === 'BOARD_VIP' && item\.ent
 assert.match(entitlementPageSource, /expectedSavedVersion/)
 assert.match(entitlementPageSource, /expectedSavedEntitlementVersion\(original\?\.version \?\? null\)/)
 assert.match(entitlementPageSource, /待连接器认证/)
+assert.match(entitlementPageSource, /listIndependentBoardPlans\(\)/)
+assert.match(entitlementPageSource, /parseProductPlanCatalog\(response\.data\)/)
+assert.match(entitlementPageSource, /v-for="plan in planCatalog"/)
+assert.match(entitlementPageSource, /currentPlanLabel\(scope\.row\.planCode\)/)
+assert.match(entitlementPageSource, /planCatalog: planCatalog\.value/)
+assert.doesNotMatch(entitlementPageSource, /<el-radio-button value="BOARD_(?:FREE|VIP)"/)
 assert.doesNotMatch(entitlementPageSource, /connectorVerifiedAt|OAuth|reasonCode/)
 assert.match(auditPageSource, /operationResponse\.data/)
 assert.match(auditPageSource, /auditEnvelope\.truncated/)
@@ -472,5 +546,6 @@ assert.match(apiSource, /\/business\/independent-board\/entitlements/)
 assert.match(apiSource, /\/business\/independent-board\/entitlements\/revoke/)
 assert.match(apiSource, /\/business\/independent-board\/entitlement-receipts/)
 assert.match(apiSource, /\/business\/independent-board\/operations/)
+assert.match(apiSource, /\/business\/independent-board\/plans/)
 
 console.log('Independent Board admin UI verification passed: strict DTO, CAS, tenant-race, permission and responsive matrices are green.')

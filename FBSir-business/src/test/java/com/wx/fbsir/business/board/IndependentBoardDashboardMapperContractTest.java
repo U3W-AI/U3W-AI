@@ -153,6 +153,20 @@ class IndependentBoardDashboardMapperContractTest {
     }
 
     @Test
+    void adminPlanCatalogIsProductScopedVersionedStableAndBounded() {
+        String sql = sql("selectPlansByProduct", Map.of(
+                "productCode", "FBSIR_INDEPENDENT_BOARD"));
+
+        assertTrue(sql.contains("plan_name"));
+        assertTrue(sql.contains("version"));
+        assertTrue(sql.contains("updated_at"));
+        assertTrue(sql.contains("where product_code = ?"));
+        assertTrue(sql.contains("order by plan_code asc"));
+        assertTrue(sql.endsWith("limit 3"));
+        assertFalse(sql.contains("${"), "plan catalog reads must never use string substitution");
+    }
+
+    @Test
     void entitlementLifecycleLockUsesOnlyTheExactDurableEntitlementScope() {
         String sql = sql("selectEntitlementForUpdate", Map.of(
                 "tenantId", 7L,

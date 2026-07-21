@@ -46,6 +46,8 @@ public interface IndependentBoardMapper {
     BoardProductPlan selectPlanSlotForUpdate(@Param("productCode") String productCode,
                                              @Param("planCode") String planCode);
 
+    List<BoardProductPlan> selectPlansByProduct(@Param("productCode") String productCode);
+
     BoardProductEntitlement selectEntitlement(@Param("tenantId") Long tenantId,
                                               @Param("memberId") Long memberId,
                                               @Param("userId") Long userId,
