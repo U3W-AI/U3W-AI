@@ -1,0 +1,33 @@
+# Preserve byte-locked Independent Board evidence across Windows Git settings.
+/sql/*.sql text eol=lf
+/sql/quartz.sql -text
+/sql/*.json text eol=lf
+/scripts/*.ps1 text eol=lf
+/.fbs-engineering/*.json text eol=lf
+/docs/independent-board/**/*.md text eol=lf
+/docs/independent-board/**/*.json text eol=lf
+/docs/migration/*.md text eol=lf
+/reports/independent-board/**/*.json text eol=lf
+/work/diagnostics/independent-board-mysql-transaction-it/**/*.json text eol=lf
+/FBSir-business/src/main/java/com/wx/fbsir/business/board/**/*.java text eol=lf
+/FBSir-business/src/main/resources/mapper/board/*.xml text eol=lf
+/FBSir-business/src/test/java/com/wx/fbsir/business/board/**/*.java text eol=lf
+
+*.zip binary
+*.jar binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+*.doc binary
+*.docx binary
+*.xls binary
+*.xlsx binary
+*.ppt binary
+*.pptx binary
