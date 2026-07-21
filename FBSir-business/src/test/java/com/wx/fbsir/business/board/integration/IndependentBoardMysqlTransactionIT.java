@@ -13,6 +13,8 @@ import com.wx.fbsir.business.board.dto.BoardEnterpriseContextView;
 import com.wx.fbsir.business.board.dto.BoardMeetingReservationRequest;
 import com.wx.fbsir.business.board.dto.BoardMeetingReservationView;
 import com.wx.fbsir.business.board.dto.BoardMeetingLookupView;
+import com.wx.fbsir.business.board.dto.BoardProductPlanAdminView;
+import com.wx.fbsir.business.board.domain.BoardProductPlan;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
 import com.wx.fbsir.business.board.oauth.BoardOAuthConsentIntent;
 import com.wx.fbsir.business.board.oauth.BoardOAuthCrypto;
@@ -142,6 +144,7 @@ class IndependentBoardMysqlTransactionIT {
             oauthFirstProtectedRequestFacade;
     private static IndependentBoardOAuthMapper oauthMapper;
     private static IndependentBoardPortalReadMapper portalReadMapper;
+    private static IndependentBoardMapper independentBoardMapper;
     private static LegacyConnectorBindingTestAdapter legacyConnectorBindingTestAdapter;
 
     @BeforeAll
@@ -177,6 +180,7 @@ class IndependentBoardMysqlTransactionIT {
                 IndependentBoardOAuthFirstProtectedRequestFacade.class);
         oauthMapper = context.getBean(IndependentBoardOAuthMapper.class);
         portalReadMapper = context.getBean(IndependentBoardPortalReadMapper.class);
+        independentBoardMapper = context.getBean(IndependentBoardMapper.class);
         legacyConnectorBindingTestAdapter = context.getBean(
                 LegacyConnectorBindingTestAdapter.class);
 
@@ -265,6 +269,50 @@ class IndependentBoardMysqlTransactionIT {
                         + "(" + TENANT_ONE_MEMBER_TWO + ", " + TENANT_ONE + ", " + USER_TWO
                         + ", 'MEMBER', 1, '0')"
         );
+    }
+
+    @Test
+    void planCatalogMapperPreservesStableOrderPolicyMetadataAndSafeProjection() {
+        List<BoardProductPlan> rawPlans = independentBoardMapper.selectPlansByProduct(
+                IndependentBoardEntitlementService.PRODUCT_CODE);
+
+        assertEquals(2, rawPlans.size());
+        assertPlan(rawPlans.get(0), "BOARD_FREE", "Independent Board Free",
+                false, false, 1, 5, 3, false);
+        assertPlan(rawPlans.get(1), "BOARD_VIP", "Independent Board VIP",
+                true, true, 5, 30, null, true);
+
+        List<BoardProductPlanAdminView> projectedPlans = entitlementService.listPlans();
+        assertEquals(List.of("BOARD_FREE", "BOARD_VIP"), projectedPlans.stream()
+                .map(BoardProductPlanAdminView::planCode)
+                .toList());
+        assertEquals(rawPlans.get(0).getUpdatedAt(), projectedPlans.get(0).updatedAt());
+        assertEquals(rawPlans.get(1).getUpdatedAt(), projectedPlans.get(1).updatedAt());
+    }
+
+    private static void assertPlan(
+            BoardProductPlan plan,
+            String planCode,
+            String planName,
+            boolean vip,
+            boolean connectorRequired,
+            int dailyMeetingLimit,
+            int agendaLimit,
+            Integer seatLimit,
+            boolean secretaryEnabled) {
+        assertNotNull(plan);
+        assertEquals(IndependentBoardEntitlementService.PRODUCT_CODE, plan.getProductCode());
+        assertEquals(planCode, plan.getPlanCode());
+        assertEquals(planName, plan.getPlanName());
+        assertEquals(vip, plan.getVip());
+        assertEquals(connectorRequired, plan.getConnectorRequired());
+        assertEquals(dailyMeetingLimit, plan.getDailyMeetingLimit());
+        assertEquals(agendaLimit, plan.getAgendaLimit());
+        assertEquals(seatLimit, plan.getSeatLimit());
+        assertEquals(secretaryEnabled, plan.getSecretaryEnabled());
+        assertEquals("ACTIVE", plan.getStatus());
+        assertEquals(1L, plan.getVersion());
+        assertNotNull(plan.getUpdatedAt());
     }
 
     @Test

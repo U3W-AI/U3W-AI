@@ -171,6 +171,7 @@
     "w3b_w2_w3a_w3b_menu_migration_replay_gate_passed",
     "w3b_admin_and_me_pure_model_negative_vectors_and_production_build_passed",
     "w3c_versioned_plan_quota_current_read_admin_http_ui_drift_gate_and_production_build_passed",
+    "w3c_plan_catalog_raw_mapper_order_full_metadata_and_safe_projection_dual_exact_mysql_57_of_57_passed",
     "w4a_authoritative_connector_binding_and_exact_four_scope_current_read_verified_local",
     "w4a_binding_and_immutable_receipt_commit_atomically_with_failure_rollback",
     "w4a_mysql_8_4_first_apply_completed_rerun_partial_state_and_drift_fail_closed",
@@ -342,7 +343,8 @@
         "negative_schema_drift_matrix",
         "authorization_contract_and_support_matrix_revision"
       ],
-      "fullW4bMysqlVerification": "foundation_through_portal_current_read_dual_exact_build_verified_local_direct_56_of_56_refresh_3_of_3_canonical_36_of_36_each"
+      "fullW4bMysqlVerification": "foundation_through_portal_current_read_dual_exact_build_verified_local_direct_56_of_56_refresh_3_of_3_canonical_36_of_36_each",
+      "w3cPlanCatalogMysqlVerification": "raw_mapper_and_safe_projection_dual_exact_build_verified_local_direct_57_of_57_refresh_3_of_3_each"
     },
     "verificationReport": "reports/independent-board/w4b-oauth-refresh-security-verification-20260721.json",
     "frontendCandidateVerificationReport": "reports/independent-board/w4b2-portal-frontend-source-candidate-verification-20260721.json",
@@ -366,5 +368,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-22T05:01:08+08:00"
+  "updatedAt": "2026-07-22T05:35:18+08:00"
 }

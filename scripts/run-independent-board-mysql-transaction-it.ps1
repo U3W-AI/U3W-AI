@@ -25,7 +25,7 @@ $database = 'u3w_independent_board_it'
 $canonicalDatabase = 'u3w_scratch_board_canonical_it'
 $canonicalLoginPath = 'u3w-board-canonical-it'
 $canonicalVerifier = Join-Path $PSScriptRoot 'verify-independent-board-live-database.ps1'
-$expectedDirectTests = 56
+$expectedDirectTests = 57
 $expectedRefreshSecurityTests = 3
 $refreshSecuritySuiteName = 'com.wx.fbsir.business.board.oauth.service.IndependentBoardOAuthRefreshSecurityServiceTest'
 

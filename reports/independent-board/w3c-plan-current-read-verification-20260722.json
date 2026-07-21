@@ -1,8 +1,8 @@
 {
   "schema": "fbsir.independent-board-verification/v1",
   "slice": "W3c_plan_and_quota_policy_current_read",
-  "verifiedAt": "2026-07-22T05:01:08+08:00",
-  "result": "local_source_http_ui_and_build_verified",
+  "verifiedAt": "2026-07-22T05:35:18+08:00",
+  "result": "local_source_http_ui_build_and_dual_exact_mysql_verified",
   "scope": {
     "endpoint": "GET /business/independent-board/plans",
     "authorization": "admin_role_and_board_entitlement_query_permission",
@@ -35,11 +35,40 @@
   "mysql": {
     "schemaMigrationRequired": false,
     "xmlContractTest": "passed",
-    "realMapperExecutionThisSlice": "not_rerun_local_mysql_client_unavailable",
-    "remainingGate": "add_selectPlansByProduct_real_mapping_order_and_metadata_assertion_to_explicit_mysql_it_before_deployment"
+    "realMapperExecutionThisSlice": "passed_on_exact_mysql_8_0_30_and_8_4_8",
+    "assertions": "raw_mapper_exact_two_rows_stable_free_then_vip_order_full_policy_metadata_and_safe_service_projection",
+    "directIntegration": {
+      "tests": 57,
+      "passed": 57,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "refreshSecurityRegression": {
+      "tests": 3,
+      "passed": 3
+    },
+    "exactBuilds": [
+      {
+        "version": "8.0.30",
+        "summary": "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.0.30/summary-mysql-8.0.30-utc-20260721T213332.830Z-local-20260722T053332.830+0800-pid-7352.json",
+        "summarySha256": "5267ac1c8743370c2ac7c0e75b45c21010e57824bb40536915d837e0d24ab516",
+        "mysqldSha256": "8e9c0d7973f25e990421f3387a93f8b32978c2e8c1baf17cd333aae17ba821a4",
+        "mysqlSha256": "5a395caeebc1601d95109519949fb528754fdf2fa2e6ab4c2162eb00e5b65378"
+      },
+      {
+        "version": "8.4.8",
+        "summary": "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.4.8/summary-mysql-8.4.8-utc-20260721T212832.471Z-local-20260722T052832.471+0800-pid-19900.json",
+        "summarySha256": "645632ebff381224db7261cf5276551990c57a19803e7431f8a8c44c11a1157c",
+        "mysqldSha256": "6e652e303210ebb72d6c7ee944d14a780964dab16bb52f7ad693e1b3f166ca34",
+        "mysqlSha256": "0022995ff8b7ef0b213a175fdf12d383667d28e062b1375a0b3cacd0e0f0ed28"
+      }
+    ],
+    "runtime": "InnoDB_REPEATABLE_READ_disposable_loopback_only",
+    "cleanup": "server_port_work_directory_temporary_login_file_and_process_environment_restored"
   },
   "remainingIntegrationGates": [
-    "real_admin_domain_browser_readback_with_reused_login_state",
+    "admin_domain_currently_returns_404_application_mount_deployment_receipt_and_reused_login_state_readback_not_proven",
     "meeting_audit_plan_labels_need_a_separately_authorized_current_read_contract_because_operation_audit_permission_does_not_imply_entitlement_query"
   ],
   "truthBoundary": {
