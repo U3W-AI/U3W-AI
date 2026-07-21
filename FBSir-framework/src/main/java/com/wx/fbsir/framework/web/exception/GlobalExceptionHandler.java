@@ -14,7 +14,6 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import com.wx.fbsir.common.constant.HttpStatus;
 import com.wx.fbsir.common.core.domain.AjaxResult;
@@ -49,13 +48,12 @@ public class GlobalExceptionHandler
      * 请求方式不支持
      */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<AjaxResult> handleHttpRequestMethodNotSupported(HttpRequestMethodNotSupportedException e,
+    public AjaxResult handleHttpRequestMethodNotSupported(HttpRequestMethodNotSupportedException e,
             HttpServletRequest request)
     {
         String requestURI = request.getRequestURI();
         log.error("请求地址'{}',不支持'{}'请求", requestURI, e.getMethod());
-        return ResponseEntity.status(org.springframework.http.HttpStatus.METHOD_NOT_ALLOWED)
-                .body(AjaxResult.error(HttpStatus.BAD_METHOD, e.getMessage()));
+        return AjaxResult.error(e.getMessage());
     }
 
     /**
@@ -129,19 +127,6 @@ public class GlobalExceptionHandler
     {
         String requestURI = request.getRequestURI();
         log.debug("请求资源不存在: '{}'", requestURI);
-        return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND)
-                .body(AjaxResult.error(HttpStatus.NOT_FOUND, "请求资源不存在"));
-    }
-
-    /**
-     * 未启用静态资源处理器的 MVC 配置会用 NoHandlerFoundException 表示未映射地址。
-     * 其传输状态和响应体必须与 NoResourceFoundException 保持一致。
-     */
-    @ExceptionHandler(NoHandlerFoundException.class)
-    public ResponseEntity<AjaxResult> handleNoHandlerFoundException(
-            NoHandlerFoundException e, HttpServletRequest request)
-    {
-        log.debug("请求地址未映射: '{}'", request.getRequestURI());
         return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND)
                 .body(AjaxResult.error(HttpStatus.NOT_FOUND, "请求资源不存在"));
     }

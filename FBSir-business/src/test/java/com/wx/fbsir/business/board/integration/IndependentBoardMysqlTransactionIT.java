@@ -30,6 +30,10 @@ import com.wx.fbsir.business.board.oauth.mapper.IndependentBoardOAuthMapper;
 import com.wx.fbsir.business.board.oauth.service.IndependentBoardOAuthClientRegistrationService;
 import com.wx.fbsir.business.board.oauth.service.IndependentBoardOAuthTokenExchangeFacade;
 import com.wx.fbsir.business.board.oauth.service.IndependentBoardOAuthTokenExchangeMysqlTestConfiguration;
+import com.wx.fbsir.business.board.portal.mapper.IndependentBoardPortalReadMapper;
+import com.wx.fbsir.business.board.portal.persistence.BoardPortalConnectorBindingRow;
+import com.wx.fbsir.business.board.portal.persistence.BoardPortalOAuthClientRow;
+import com.wx.fbsir.business.board.portal.persistence.BoardPortalOAuthFamilyRow;
 import com.wx.fbsir.business.board.service.IndependentBoardEntitlementService;
 import com.wx.fbsir.business.board.service.IndependentBoardConnectorBindingService;
 import com.wx.fbsir.business.board.service.IndependentBoardDashboardService;
@@ -80,6 +84,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -135,6 +140,7 @@ class IndependentBoardMysqlTransactionIT {
     private static IndependentBoardOAuthFirstProtectedRequestFacade
             oauthFirstProtectedRequestFacade;
     private static IndependentBoardOAuthMapper oauthMapper;
+    private static IndependentBoardPortalReadMapper portalReadMapper;
     private static LegacyConnectorBindingTestAdapter legacyConnectorBindingTestAdapter;
 
     @BeforeAll
@@ -169,6 +175,7 @@ class IndependentBoardMysqlTransactionIT {
         oauthFirstProtectedRequestFacade = context.getBean(
                 IndependentBoardOAuthFirstProtectedRequestFacade.class);
         oauthMapper = context.getBean(IndependentBoardOAuthMapper.class);
+        portalReadMapper = context.getBean(IndependentBoardPortalReadMapper.class);
         legacyConnectorBindingTestAdapter = context.getBean(
                 LegacyConnectorBindingTestAdapter.class);
 
@@ -238,6 +245,13 @@ class IndependentBoardMysqlTransactionIT {
                 "DELETE FROM fbs_product_entitlement",
                 "DELETE FROM fbs_enterprise_member",
                 "DELETE FROM fbs_enterprise",
+                "DELETE FROM sys_role_menu WHERE menu_id IN (990001, 990002)",
+                "DELETE FROM sys_menu WHERE menu_id IN (990001, 990002)",
+                "DELETE FROM sys_user_role WHERE role_id = 20 OR user_id = 1",
+                "DELETE FROM sys_role WHERE role_id = 20",
+                "DELETE FROM sys_user WHERE user_id = 1",
+                "UPDATE sys_user SET status = '0', del_flag = '0' "
+                        + "WHERE user_id IN (" + USER_ONE + ", " + USER_TWO + ")",
                 "INSERT INTO fbs_enterprise (id, enterprise_name, status, del_flag) VALUES "
                         + "(" + TENANT_ONE + ", 'Tenant One', 1, '0'), "
                         + "(" + TENANT_TWO + ", 'Tenant Two', 1, '0')",
@@ -760,6 +774,149 @@ class IndependentBoardMysqlTransactionIT {
         assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_connector_binding "
                 + "WHERE binding_id = '" + active.bindingId() + "' "
                 + "AND status = 'REVOKED' AND version = 2"));
+    }
+
+    @Test
+    void portalReadMapperExecutesNormalActivationCurrentFirstAndSubjectDriftOnMysql()
+            throws Exception {
+        grantVip();
+        OAuthClientFixture client = registerOAuthClient(55268, "portal-read-mysql");
+        Date readAt = Date.from(Instant.now().plusSeconds(2));
+
+        List<BoardPortalOAuthClientRow> clients = portalReadMapper.selectOAuthClients(
+                "ACTIVE", readAt, null, null, 101);
+        assertEquals(1, clients.size());
+        assertEquals(client.clientId(), clients.get(0).getClientRef());
+        assertEquals(0, portalReadMapper.selectCurrentAuthority(
+                USER_ONE, null, "my:independent-board:connector:view"));
+        execute("INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, path, "
+                        + "component, query, route_name, is_frame, is_cache, menu_type, "
+                        + "visible, status, perms, icon) VALUES (990001, 'Portal IT Permission', "
+                        + "0, 99, 'portal-it', NULL, NULL, NULL, 1, 0, 'F', '1', '0', "
+                        + "'my:independent-board:connector:view', '#')",
+                "INSERT INTO sys_role_menu (role_id, menu_id) VALUES (10, 990001)");
+        assertEquals(1, portalReadMapper.selectCurrentAuthority(
+                USER_ONE, null, "my:independent-board:connector:view"));
+        execute("UPDATE sys_user SET status = '1' WHERE user_id = " + USER_ONE);
+        assertEquals(0, portalReadMapper.selectCurrentAuthority(
+                USER_ONE, null, "my:independent-board:connector:view"));
+        execute("UPDATE sys_user SET status = '0' WHERE user_id = " + USER_ONE);
+
+        execute(
+                "INSERT INTO sys_role (role_id, role_key, status, del_flag) "
+                        + "VALUES (20, 'admin', '0', '0')",
+                "INSERT INTO sys_user_role (user_id, role_id) VALUES ("
+                        + USER_ONE + ", 20)");
+        assertEquals(0, portalReadMapper.selectCurrentAuthority(
+                USER_ONE, "admin", "board:oauth:client:query"));
+        execute("INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, path, "
+                        + "component, query, route_name, is_frame, is_cache, menu_type, "
+                        + "visible, status, perms, icon) VALUES (990002, 'Portal Admin IT Permission', "
+                        + "0, 100, 'portal-admin-it', NULL, NULL, NULL, 1, 0, 'F', '1', '0', "
+                        + "'board:oauth:client:query', '#')",
+                "INSERT INTO sys_role_menu (role_id, menu_id) VALUES (20, 990002)");
+        assertEquals(1, portalReadMapper.selectCurrentAuthority(
+                USER_ONE, "admin", "board:oauth:client:query"));
+        execute("UPDATE sys_menu SET perms = 'BOARD:OAUTH:CLIENT:QUERY' "
+                + "WHERE menu_id = 990002");
+        assertEquals(0, portalReadMapper.selectCurrentAuthority(
+                USER_ONE, "admin", "board:oauth:client:query"));
+        execute("UPDATE sys_menu SET perms = 'board:oauth:client:query' "
+                + "WHERE menu_id = 990002");
+        execute("UPDATE sys_role SET role_key = 'ADMIN' WHERE role_id = 20");
+        assertEquals(0, portalReadMapper.selectCurrentAuthority(
+                USER_ONE, "admin", "board:oauth:client:query"));
+        execute("UPDATE sys_role SET role_key = 'admin' WHERE role_id = 20");
+        assertEquals(1, portalReadMapper.selectCurrentAuthority(
+                USER_ONE, "admin", "board:oauth:client:query"));
+        execute("DELETE FROM sys_role_menu WHERE role_id = 20 AND menu_id = 990002");
+        assertEquals(0, portalReadMapper.selectCurrentAuthority(
+                USER_ONE, "admin", "board:oauth:client:query"));
+        execute(
+                "INSERT INTO sys_user (user_id, status, del_flag) VALUES (1, '0', '0')",
+                "INSERT INTO sys_user_role (user_id, role_id) VALUES (1, 20)");
+        assertEquals(1, portalReadMapper.selectCurrentAuthority(
+                1L, "admin", "board:oauth:client:query"));
+
+        OAuthLineage firstConnect = createOAuthLineage(
+                client, BoardOAuthConsentIntent.FIRST_CONNECT);
+        BoardOAuthTokenExchangeResult firstTokens = oauthTokenExchangeFacade.exchange(
+                firstConnect.command());
+        readAt = Date.from(Instant.now().plusSeconds(2));
+        List<BoardPortalOAuthFamilyRow> pending = portalReadMapper.selectOAuthFamilies(
+                TENANT_ONE, MEMBER_ONE, USER_ONE, true, null, readAt,
+                null, null, 3);
+        assertEquals(1, pending.size());
+        assertEquals("PENDING_BINDING", pending.get(0).getEffectiveStatus());
+        assertTrue(pending.get(0).getPendingActivationProven());
+
+        BoardConnectorBindingSnapshot active = oauthFirstProtectedRequestFacade.activate(
+                "Bearer " + firstTokens.rawAccessToken(), "initialize");
+        readAt = Date.from(Instant.now().plusSeconds(2));
+        List<BoardPortalConnectorBindingRow> activeBindings =
+                portalReadMapper.selectConnectorBindings(
+                        TENANT_ONE, MEMBER_ONE, USER_ONE, "ACTIVE", readAt,
+                        null, null, 2);
+        assertEquals(1, activeBindings.size());
+        assertEquals(active.bindingId(), activeBindings.get(0).getBindingRef());
+        assertTrue(activeBindings.get(0).getEntitlementActive());
+        assertTrue(activeBindings.get(0).getFamilyActive());
+        assertEquals(BoardOAuthProfile.REQUIRED_SCOPES, activeBindings.get(0).getScopes());
+
+        for (int index = 0; index < 3; index++) {
+            OAuthLineage reauthorization = createOAuthLineage(
+                    client, BoardOAuthConsentIntent.EXPLICIT_REAUTHORIZATION);
+            oauthTokenExchangeFacade.exchange(reauthorization.command());
+        }
+        readAt = Date.from(Instant.now().plusSeconds(2));
+        List<BoardPortalOAuthFamilyRow> currentFirst = portalReadMapper.selectOAuthFamilies(
+                TENANT_ONE, MEMBER_ONE, USER_ONE, true, null, readAt,
+                null, null, 3);
+        assertEquals(3, currentFirst.size());
+        assertTrue(currentFirst.stream().anyMatch(
+                row -> "ACTIVE".equals(row.getEffectiveStatus())));
+        assertTrue(currentFirst.stream().anyMatch(
+                row -> "PENDING_BINDING".equals(row.getEffectiveStatus())));
+
+        execute("UPDATE fbs_connector_binding b "
+                + "INNER JOIN fbs_oauth_token_family f ON f.binding_id = b.binding_id "
+                + "SET b.valid_until = DATE_SUB(f.expires_at, INTERVAL 1 SECOND) "
+                + "WHERE b.binding_id = '" + active.bindingId() + "'");
+        readAt = Date.from(Instant.now().plusSeconds(2));
+        List<BoardPortalConnectorBindingRow> expiryDriftBindings =
+                portalReadMapper.selectConnectorBindings(
+                        TENANT_ONE, MEMBER_ONE, USER_ONE, "ACTIVE", readAt,
+                        null, null, 2);
+        assertEquals(1, expiryDriftBindings.size());
+        assertFalse(expiryDriftBindings.get(0).getFamilyActive());
+        List<BoardPortalOAuthFamilyRow> expiryDriftFamily =
+                portalReadMapper.selectOAuthFamilies(
+                        TENANT_ONE, MEMBER_ONE, USER_ONE, false, "ACTIVE", readAt,
+                        null, null, 3);
+        assertEquals(1, expiryDriftFamily.size());
+        assertNotEquals(expiryDriftFamily.get(0).getExpiresAt(),
+                expiryDriftFamily.get(0).getCurrentBindingValidUntil());
+        execute("UPDATE fbs_connector_binding b "
+                + "INNER JOIN fbs_oauth_token_family f ON f.binding_id = b.binding_id "
+                + "SET b.valid_until = f.expires_at "
+                + "WHERE b.binding_id = '" + active.bindingId() + "'");
+
+        execute("UPDATE fbs_connector_binding SET principal_subject_digest = REPEAT('b', 64) "
+                + "WHERE binding_id = '" + active.bindingId() + "'");
+        readAt = Date.from(Instant.now().plusSeconds(2));
+        List<BoardPortalConnectorBindingRow> driftedBindings =
+                portalReadMapper.selectConnectorBindings(
+                        TENANT_ONE, MEMBER_ONE, USER_ONE, "ACTIVE", readAt,
+                        null, null, 2);
+        assertEquals(1, driftedBindings.size());
+        assertTrue(driftedBindings.get(0).getEntitlementActive());
+        assertFalse(driftedBindings.get(0).getFamilyActive());
+        readAt = Date.from(Instant.now().plusSeconds(2));
+        List<BoardPortalOAuthFamilyRow> driftedFamily = portalReadMapper.selectOAuthFamilies(
+                TENANT_ONE, MEMBER_ONE, USER_ONE, false, "ACTIVE", readAt,
+                null, null, 3);
+        assertEquals(1, driftedFamily.size());
+        assertNull(driftedFamily.get(0).getCurrentBindingUserId());
     }
 
     @Test
@@ -2407,6 +2564,8 @@ class IndependentBoardMysqlTransactionIT {
                 "DROP TABLE IF EXISTS fbs_usage_budget",
                 "DROP TABLE IF EXISTS fbs_entitlement_receipt",
                 "DROP TABLE IF EXISTS fbs_product_plan",
+                "DROP TABLE IF EXISTS sys_user_role",
+                "DROP TABLE IF EXISTS sys_user",
                 "DROP TABLE IF EXISTS sys_role_menu",
                 "DROP TABLE IF EXISTS sys_menu",
                 "DROP TABLE IF EXISTS sys_role",
@@ -2440,8 +2599,18 @@ class IndependentBoardMysqlTransactionIT {
                 "CREATE TABLE sys_role_menu ("
                         + "role_id BIGINT NOT NULL, menu_id BIGINT NOT NULL, "
                         + "PRIMARY KEY (role_id, menu_id)) ENGINE=InnoDB",
+                "CREATE TABLE sys_user ("
+                        + "user_id BIGINT NOT NULL PRIMARY KEY, status CHAR(1) NOT NULL, "
+                        + "del_flag CHAR(1) NOT NULL) ENGINE=InnoDB",
+                "CREATE TABLE sys_user_role ("
+                        + "user_id BIGINT NOT NULL, role_id BIGINT NOT NULL, "
+                        + "PRIMARY KEY (user_id, role_id)) ENGINE=InnoDB",
                 "INSERT INTO sys_role (role_id, role_key, status, del_flag) "
                         + "VALUES (10, 'user', '0', '0')",
+                "INSERT INTO sys_user (user_id, status, del_flag) VALUES ("
+                        + USER_ONE + ", '0', '0'), (" + USER_TWO + ", '0', '0')",
+                "INSERT INTO sys_user_role (user_id, role_id) VALUES ("
+                        + USER_ONE + ", 10), (" + USER_TWO + ", 10)",
                 "CREATE TABLE fbs_enterprise ("
                         + "id BIGINT UNSIGNED NOT NULL PRIMARY KEY, "
                         + "enterprise_name VARCHAR(128) NOT NULL, "
@@ -5642,6 +5811,13 @@ class IndependentBoardMysqlTransactionIT {
                 SqlSessionFactory sqlSessionFactory) {
             return new SqlSessionTemplate(sqlSessionFactory)
                     .getMapper(IndependentBoardOAuthMapper.class);
+        }
+
+        @Bean
+        IndependentBoardPortalReadMapper independentBoardPortalReadMapper(
+                SqlSessionFactory sqlSessionFactory) {
+            return new SqlSessionTemplate(sqlSessionFactory)
+                    .getMapper(IndependentBoardPortalReadMapper.class);
         }
 
         @Bean

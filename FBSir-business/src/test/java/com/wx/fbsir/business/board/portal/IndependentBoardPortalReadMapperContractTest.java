@@ -57,6 +57,24 @@ class IndependentBoardPortalReadMapperContractTest {
     }
 
     @Test
+    void currentAuthorityRechecksTheLiveUserRoleAndPermissionGraph() {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("userId", 7L);
+        parameters.put("requiredRole", "admin");
+        parameters.put("permission", "board:oauth:client:query");
+        String sql = sql("selectCurrentAuthority", parameters);
+
+        assertTrue(sql.contains("from sys_user portal_user"));
+        assertTrue(sql.contains("portal_user.status = '0'"));
+        assertTrue(sql.contains("portal_user.del_flag = '0'"));
+        assertTrue(sql.contains("binary required_role.role_key = binary ?"));
+        assertTrue(sql.contains("portal_user.user_id = 1"));
+        assertFalse(sql.contains("admin_role.role_key = 'admin'"));
+        assertTrue(sql.contains("binary permission_menu.perms = binary ?"));
+        assertTrue(sql.contains("permission_role.status = '0'"));
+    }
+
+    @Test
     void clientPageDerivesNaturalExpiryAndBindsAStableKeysetWindow() {
         String sql = sql("selectOAuthClients", parameters(false));
 
@@ -99,8 +117,11 @@ class IndependentBoardPortalReadMapperContractTest {
         assertTrue(sql.contains("order by f.id desc"));
         assertTrue(sql.endsWith("limit ?"));
         assertFalse(sql.contains("token_digest"));
-        assertFalse(sql.contains("origin_authorization_code_id"));
+        assertFalse(sql.contains("f.origin_authorization_code_id as"));
         assertFalse(sql.contains("f.principal_subject_digest as"));
+        assertTrue(sql.contains(
+                "unhex(b.principal_subject_digest) = f.principal_subject_digest"));
+        assertTrue(sql.contains("b.valid_until as current_binding_valid_until"));
     }
 
     @Test
@@ -119,6 +140,8 @@ class IndependentBoardPortalReadMapperContractTest {
         assertTrue(sql.contains("b.id < ?"));
         assertTrue(sql.contains("exists ( select 1 from fbs_product_entitlement"));
         assertTrue(sql.contains("exists ( select 1 from fbs_oauth_token_family"));
+        assertFalse(sql.contains("ent.connector_binding_id = b.binding_id"));
+        assertFalse(sql.contains("ent.connector_verified_at = b.verified_at"));
         assertTrue(sql.contains("left join fbs_connector_binding_scope s"));
         assertTrue(sql.contains(
                 "case s.scope_code when 'identity.read' then 1"
@@ -141,6 +164,7 @@ class IndependentBoardPortalReadMapperContractTest {
         familyParameters.put("highWaterId", null);
         familyParameters.put("lastId", null);
         familyParameters.put("rowLimit", 3);
+        familyParameters.put("currentFirst", true);
         String family = sql("selectOAuthFamilies", familyParameters);
 
         assertTrue(family.contains("f.enterprise_id = ?"));
@@ -150,6 +174,23 @@ class IndependentBoardPortalReadMapperContractTest {
         assertTrue(family.contains("pending_refresh.token_type = 'refresh'"));
         assertTrue(family.contains("created_receipt.action = 'token_family_created'"));
         assertTrue(family.contains("created_receipt.evidence_level = 'action_completed'"));
+        assertTrue(family.contains("c.registered_at <= f.issued_at"));
+        assertTrue(family.contains("access_token.issued_at = f.issued_at"));
+        assertTrue(family.contains(
+                "access_token.expires_at = timestampadd(minute, 10, f.issued_at)"));
+        assertTrue(family.contains("pending_refresh.issued_at = f.issued_at"));
+        assertTrue(family.contains("pending_refresh.expires_at = f.expires_at"));
+        assertTrue(family.contains("select count(*) from fbs_oauth_token pending_token"));
+        assertTrue(family.contains(
+                "created_receipt.authorization_code_id = f.origin_authorization_code_id"));
+        assertTrue(family.contains("created_receipt.actor_type = 'client'"));
+        assertTrue(family.contains(
+                "created_receipt.actor_subject_digest = unhex(sha2(f.client_id, 256))"));
+        assertTrue(family.contains("created_receipt.created_at = f.issued_at"));
+        assertTrue(family.contains("created_receipt.created_at <= ?"));
+        assertTrue(family.contains(
+                "case when f.status in ('pending_binding', 'active')"
+                        + " and f.expires_at > ? then 0 else 1 end"));
         assertTrue(family.endsWith("limit ?"));
 
         Map<String, Object> bindingParameters = parameters(true);
@@ -164,10 +205,28 @@ class IndependentBoardPortalReadMapperContractTest {
         assertTrue(binding.contains("b.enterprise_id = ?"));
         assertTrue(binding.contains("b.member_id = ?"));
         assertTrue(binding.contains("b.user_id = ?"));
-        assertTrue(binding.contains("activation_receipt.action in"
-                + " ('token_family_activated', 'token_family_reauthorized')"));
+        assertTrue(binding.contains("f.consent_intent = 'first_connect'"));
+        assertTrue(binding.contains(
+                "activation_receipt.action = 'token_family_activated'"));
+        assertTrue(binding.contains("f.consent_intent = 'explicit_reauthorization'"));
+        assertTrue(binding.contains(
+                "activation_receipt.action = 'token_family_reauthorized'"));
+        assertTrue(binding.contains("activation_receipt.actor_type = 'user'"));
+        assertTrue(binding.contains("activation_receipt.actor_user_id = f.user_id"));
+        assertTrue(binding.contains(
+                "activation_receipt.actor_subject_digest = f.principal_subject_digest"));
         assertTrue(binding.contains(
                 "binding_receipt.action = 'connector_binding_verified'"));
+        assertTrue(binding.contains(
+                "unhex(b.principal_subject_digest) = f.principal_subject_digest"));
+        assertTrue(binding.contains("f.issued_at <= ?"));
+        assertTrue(binding.contains("f.activated_at <= ?"));
+        assertTrue(binding.contains("refresh_token.issued_at <= ?"));
+        assertTrue(binding.contains("activation_receipt.created_at = f.activated_at"));
+        assertTrue(binding.contains("f.activated_at = b.verified_at"));
+        assertTrue(binding.contains("f.expires_at = b.valid_until"));
+        assertTrue(binding.contains("binding_receipt.actor_user_id = b.user_id"));
+        assertTrue(binding.contains("binding_receipt.created_at = b.verified_at"));
     }
 
     private static Map<String, Object> parameters(boolean tenantScoped) {
@@ -179,6 +238,7 @@ class IndependentBoardPortalReadMapperContractTest {
         parameters.put("highWaterId", 200L);
         parameters.put("lastId", 123L);
         parameters.put("rowLimit", 101);
+        parameters.put("currentFirst", false);
         if (tenantScoped) {
             parameters.put("tenantId", 7L);
         }

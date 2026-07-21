@@ -36,6 +36,7 @@ public class BoardPortalOAuthFamilyRow {
 
     private String clientDisplayName;
     private String clientStatus;
+    private Date clientRegisteredAt;
     private Date clientExpiresAt;
     private Date clientTerminatedAt;
     private String clientIssuerUri;

@@ -84,6 +84,15 @@ public class IndependentBoardPortalReadExceptionHandler {
                 503, "PORTAL_READ_UNAVAILABLE");
     }
 
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<AjaxResult> unexpected(
+            RuntimeException exception, HttpServletRequest request) {
+        log.error("Portal read failed at {} with {}",
+                request.getRequestURI(), exception.getClass().getSimpleName());
+        return error(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR,
+                HttpStatus.ERROR, "PORTAL_READ_FAILED");
+    }
+
     private static ResponseEntity<AjaxResult> error(
             org.springframework.http.HttpStatus transportStatus,
             int bodyStatus,

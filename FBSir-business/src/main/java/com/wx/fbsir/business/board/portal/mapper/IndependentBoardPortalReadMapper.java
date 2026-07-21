@@ -11,6 +11,11 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface IndependentBoardPortalReadMapper {
 
+    Integer selectCurrentAuthority(
+            @Param("userId") Long userId,
+            @Param("requiredRole") String requiredRole,
+            @Param("permission") String permission);
+
     List<BoardPortalOAuthClientRow> selectOAuthClients(
             @Param("status") String status,
             @Param("now") Date now,
@@ -22,6 +27,7 @@ public interface IndependentBoardPortalReadMapper {
             @Param("tenantId") Long tenantId,
             @Param("memberId") Long memberId,
             @Param("userId") Long userId,
+            @Param("currentFirst") boolean currentFirst,
             @Param("status") String status,
             @Param("now") Date now,
             @Param("highWaterId") Long highWaterId,

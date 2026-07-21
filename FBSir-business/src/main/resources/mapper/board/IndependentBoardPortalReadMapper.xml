@@ -59,6 +59,7 @@
         <result property="pendingActivationProven" column="pending_activation_proven" />
         <result property="clientDisplayName" column="client_display_name" />
         <result property="clientStatus" column="client_status" />
+        <result property="clientRegisteredAt" column="client_registered_at" />
         <result property="clientExpiresAt" column="client_expires_at" />
         <result property="clientTerminatedAt" column="client_terminated_at" />
         <result property="clientIssuerUri" column="client_issuer_uri" />
@@ -111,6 +112,46 @@
             <result column="scope_code" />
         </collection>
     </resultMap>
+
+    <select id="selectCurrentAuthority" resultType="java.lang.Integer">
+        SELECT CASE WHEN EXISTS (
+            SELECT 1
+            FROM sys_user portal_user
+            WHERE portal_user.user_id = #{userId}
+              AND portal_user.status = '0'
+              AND portal_user.del_flag = '0'
+              <if test="requiredRole != null">
+              AND EXISTS (
+                  SELECT 1
+                  FROM sys_user_role required_user_role
+                  INNER JOIN sys_role required_role
+                    ON required_role.role_id = required_user_role.role_id
+                   AND required_role.status = '0'
+                   AND required_role.del_flag = '0'
+                  WHERE required_user_role.user_id = portal_user.user_id
+                    AND BINARY required_role.role_key = BINARY #{requiredRole}
+              )
+              </if>
+              AND (
+                  portal_user.user_id = 1
+                  OR EXISTS (
+                      SELECT 1
+                      FROM sys_user_role permission_user_role
+                      INNER JOIN sys_role permission_role
+                        ON permission_role.role_id = permission_user_role.role_id
+                       AND permission_role.status = '0'
+                       AND permission_role.del_flag = '0'
+                      INNER JOIN sys_role_menu permission_role_menu
+                        ON permission_role_menu.role_id = permission_role.role_id
+                      INNER JOIN sys_menu permission_menu
+                        ON permission_menu.menu_id = permission_role_menu.menu_id
+                       AND permission_menu.status = '0'
+                       AND BINARY permission_menu.perms = BINARY #{permission}
+                      WHERE permission_user_role.user_id = portal_user.user_id
+                  )
+              )
+        ) THEN 1 ELSE 0 END
+    </select>
 
     <select id="selectOAuthClients" resultMap="OAuthClientRow">
         SELECT c.id AS row_id,
@@ -215,11 +256,13 @@
                           AND f.binding_id IS NULL
                           AND f.activated_at IS NULL
                           AND f.terminated_at IS NULL
-                          AND f.current_refresh_generation = 0
-                          AND f.expires_at &gt; #{now}
-                          AND c.status = 'ACTIVE'
-                          AND c.terminated_at IS NULL
-                          AND c.expires_at &gt; #{now}
+                           AND f.current_refresh_generation = 0
+                           AND f.expires_at &gt; #{now}
+                           AND c.status = 'ACTIVE'
+                           AND c.terminated_at IS NULL
+                           AND c.registered_at &lt;= f.issued_at
+                           AND c.registered_at &lt;= #{now}
+                           AND c.expires_at &gt; #{now}
                           AND c.issuer_uri = 'https://api2.u3w.com'
                           AND c.resource_uri = 'https://api2.u3w.com/fbs-mcp/mcp'
                           AND CAST(c.product_code AS BINARY)
@@ -236,10 +279,17 @@
                               FROM fbs_oauth_token access_token
                               WHERE access_token.family_id = f.family_id
                                 AND access_token.token_type = 'ACCESS'
-                                AND access_token.generation = 0
-                                AND access_token.status = 'ACTIVE'
-                                AND access_token.revoked_at IS NULL
-                                AND access_token.expires_at &gt; #{now}
+                                 AND access_token.generation = 0
+                                 AND access_token.status = 'ACTIVE'
+                                 AND access_token.used_at IS NULL
+                                 AND access_token.revoked_at IS NULL
+                                 AND access_token.version = 0
+                                 AND access_token.issued_at = f.issued_at
+                                 AND access_token.issued_at &lt;= #{now}
+                                 AND access_token.expires_at =
+                                     TIMESTAMPADD(MINUTE, 10, f.issued_at)
+                                 AND access_token.expires_at &lt;= f.expires_at
+                                 AND access_token.expires_at &gt; #{now}
                                 AND access_token.resource_uri = f.resource_uri
                                 AND access_token.scope_canonical = f.scope_canonical
                                 AND access_token.scope_digest = f.scope_digest
@@ -250,15 +300,24 @@
                               WHERE pending_refresh.family_id = f.family_id
                                 AND pending_refresh.token_type = 'REFRESH'
                                 AND pending_refresh.generation = 0
-                                AND pending_refresh.status = 'ACTIVE'
-                                AND pending_refresh.used_at IS NULL
-                                AND pending_refresh.revoked_at IS NULL
-                                AND pending_refresh.expires_at &gt; #{now}
+                                 AND pending_refresh.status = 'ACTIVE'
+                                 AND pending_refresh.used_at IS NULL
+                                 AND pending_refresh.revoked_at IS NULL
+                                 AND pending_refresh.version = 0
+                                 AND pending_refresh.issued_at = f.issued_at
+                                 AND pending_refresh.issued_at &lt;= #{now}
+                                 AND pending_refresh.expires_at = f.expires_at
+                                 AND pending_refresh.expires_at &gt; #{now}
                                 AND pending_refresh.resource_uri = f.resource_uri
                                 AND pending_refresh.scope_canonical = f.scope_canonical
-                                AND pending_refresh.scope_digest = f.scope_digest
-                          )
-                          AND EXISTS (
+                                 AND pending_refresh.scope_digest = f.scope_digest
+                           )
+                           AND (
+                               SELECT COUNT(*)
+                               FROM fbs_oauth_token pending_token
+                               WHERE pending_token.family_id = f.family_id
+                           ) = 2
+                           AND EXISTS (
                               SELECT 1
                               FROM fbs_oauth_receipt created_receipt
                               WHERE created_receipt.family_id = f.family_id
@@ -266,15 +325,26 @@
                                 AND created_receipt.enterprise_id = f.enterprise_id
                                 AND created_receipt.member_id = f.member_id
                                 AND created_receipt.user_id = f.user_id
-                                AND created_receipt.principal_subject_digest
-                                       = f.principal_subject_digest
-                                AND created_receipt.binding_id IS NULL
-                                AND created_receipt.action = 'TOKEN_FAMILY_CREATED'
-                                AND created_receipt.evidence_level = 'ACTION_COMPLETED'
-                          )
+                                 AND created_receipt.principal_subject_digest
+                                        = f.principal_subject_digest
+                                 AND created_receipt.authorization_code_id
+                                        = f.origin_authorization_code_id
+                                 AND created_receipt.authorization_request_id IS NULL
+                                 AND created_receipt.token_id IS NULL
+                                 AND created_receipt.binding_id IS NULL
+                                 AND created_receipt.action = 'TOKEN_FAMILY_CREATED'
+                                 AND created_receipt.actor_type = 'CLIENT'
+                                 AND created_receipt.actor_user_id IS NULL
+                                 AND created_receipt.actor_subject_digest =
+                                     UNHEX(SHA2(f.client_id, 256))
+                                 AND created_receipt.evidence_level = 'ACTION_COMPLETED'
+                                 AND created_receipt.created_at = f.issued_at
+                                 AND created_receipt.created_at &lt;= #{now}
+                           )
                     THEN 1 ELSE 0 END AS pending_activation_proven,
                c.client_name AS client_display_name,
                c.status AS client_status,
+               c.registered_at AS client_registered_at,
                c.expires_at AS client_expires_at,
                c.terminated_at AS client_terminated_at,
                c.issuer_uri AS client_issuer_uri,
@@ -298,10 +368,11 @@
         FROM fbs_oauth_token_family f
         LEFT JOIN fbs_enterprise e
           ON e.id = f.enterprise_id
-        LEFT JOIN fbs_oauth_client c
-          ON c.client_id = f.client_id
-        LEFT JOIN fbs_connector_binding b
-          ON b.binding_id = f.binding_id
+         LEFT JOIN fbs_oauth_client c
+           ON c.client_id = f.client_id
+         LEFT JOIN fbs_connector_binding b
+           ON b.binding_id = f.binding_id
+          AND UNHEX(b.principal_subject_digest) = f.principal_subject_digest
         WHERE f.enterprise_id = #{tenantId}
         <if test="memberId != null">
           AND f.member_id = #{memberId}
@@ -333,7 +404,13 @@
         <if test="lastId != null">
           AND f.id &lt; #{lastId}
         </if>
-        ORDER BY f.id DESC
+        ORDER BY
+        <if test="currentFirst">
+                 CASE WHEN f.status IN ('PENDING_BINDING', 'ACTIVE')
+                            AND f.expires_at &gt; #{now}
+                      THEN 0 ELSE 1 END,
+        </if>
+                 f.id DESC
         LIMIT #{rowLimit}
     </select>
 
@@ -418,11 +495,9 @@
                          AND ent.user_id = b.user_id
                          AND CAST(ent.product_code AS BINARY)
                                 = CAST('FBSIR_INDEPENDENT_BOARD' AS BINARY)
-                         AND CAST(ent.plan_code AS BINARY) = CAST('BOARD_VIP' AS BINARY)
-                         AND CAST(ent.status AS BINARY) = CAST('ACTIVE' AS BINARY)
-                         AND ent.connector_binding_id = b.binding_id
-                         AND ent.connector_verified_at = b.verified_at
-                         AND ent.valid_from &lt;= #{now}
+                          AND CAST(ent.plan_code AS BINARY) = CAST('BOARD_VIP' AS BINARY)
+                          AND CAST(ent.status AS BINARY) = CAST('ACTIVE' AS BINARY)
+                          AND ent.valid_from &lt;= #{now}
                          AND (ent.valid_until IS NULL OR ent.valid_until &gt; #{now})
                    ) THEN 1 ELSE 0 END AS entitlement_active,
                    CASE WHEN b.status = 'ACTIVE'
@@ -447,15 +522,23 @@
                              'identity.read entitlement.read board.meeting.reserve board.receipt.write'
                          AND f.scope_digest =
                              UNHEX('351185152796016cff0c4aba15af369a4891a1e484d9a1cb3513b001e5b8e1d1')
-                         AND f.status = 'ACTIVE'
-                         AND f.activated_at IS NOT NULL
-                         AND f.expires_at &gt; #{now}
-                         AND EXISTS (
+                          AND f.status = 'ACTIVE'
+                          AND f.issued_at &lt;= #{now}
+                          AND f.activated_at IS NOT NULL
+                          AND f.activated_at &lt;= #{now}
+                          AND f.activated_at = b.verified_at
+                          AND f.expires_at = b.valid_until
+                          AND f.expires_at &gt; #{now}
+                          AND UNHEX(b.principal_subject_digest)
+                                 = f.principal_subject_digest
+                          AND EXISTS (
                              SELECT 1
                              FROM fbs_oauth_client oc
                              WHERE oc.client_id = f.client_id
-                               AND oc.status = 'ACTIVE'
-                               AND oc.expires_at &gt; #{now}
+                                AND oc.status = 'ACTIVE'
+                                AND oc.registered_at &lt;= f.issued_at
+                                AND oc.registered_at &lt;= #{now}
+                                AND oc.expires_at &gt; #{now}
                                AND CAST(oc.product_code AS BINARY)
                                       = CAST('FBSIR_INDEPENDENT_BOARD' AS BINARY)
                                AND oc.source_code = 'WORKBUDDY'
@@ -472,10 +555,14 @@
                              WHERE refresh_token.family_id = f.family_id
                                AND refresh_token.token_type = 'REFRESH'
                                AND refresh_token.generation = f.current_refresh_generation
-                               AND refresh_token.status = 'ACTIVE'
-                               AND refresh_token.used_at IS NULL
-                               AND refresh_token.revoked_at IS NULL
-                               AND refresh_token.expires_at &gt; #{now}
+                                AND refresh_token.status = 'ACTIVE'
+                                AND refresh_token.used_at IS NULL
+                                AND refresh_token.revoked_at IS NULL
+                                AND refresh_token.version = 0
+                                AND refresh_token.issued_at &gt;= f.issued_at
+                                AND refresh_token.issued_at &lt;= #{now}
+                                AND refresh_token.expires_at = f.expires_at
+                                AND refresh_token.expires_at &gt; #{now}
                                AND refresh_token.resource_uri = f.resource_uri
                                AND refresh_token.scope_canonical = f.scope_canonical
                                AND refresh_token.scope_digest = f.scope_digest
@@ -489,11 +576,27 @@
                                AND activation_receipt.enterprise_id = f.enterprise_id
                                AND activation_receipt.member_id = f.member_id
                                AND activation_receipt.user_id = f.user_id
-                               AND activation_receipt.principal_subject_digest
-                                      = f.principal_subject_digest
-                               AND activation_receipt.action IN
-                                   ('TOKEN_FAMILY_ACTIVATED', 'TOKEN_FAMILY_REAUTHORIZED')
-                               AND activation_receipt.evidence_level = 'ACTION_COMPLETED'
+                                AND activation_receipt.principal_subject_digest
+                                       = f.principal_subject_digest
+                                AND activation_receipt.authorization_request_id IS NULL
+                                AND activation_receipt.authorization_code_id IS NULL
+                                AND activation_receipt.token_id IS NULL
+                                AND (
+                                    (f.consent_intent = 'FIRST_CONNECT'
+                                     AND activation_receipt.action =
+                                         'TOKEN_FAMILY_ACTIVATED')
+                                    OR
+                                    (f.consent_intent = 'EXPLICIT_REAUTHORIZATION'
+                                     AND activation_receipt.action =
+                                         'TOKEN_FAMILY_REAUTHORIZED')
+                                )
+                                AND activation_receipt.actor_type = 'USER'
+                                AND activation_receipt.actor_user_id = f.user_id
+                                AND activation_receipt.actor_subject_digest =
+                                    f.principal_subject_digest
+                                AND activation_receipt.evidence_level = 'ACTION_COMPLETED'
+                                AND activation_receipt.created_at = f.activated_at
+                                AND activation_receipt.created_at &lt;= #{now}
                          )
                    ) AND EXISTS (
                        SELECT 1
@@ -501,9 +604,12 @@
                        WHERE binding_receipt.binding_id = b.binding_id
                          AND binding_receipt.enterprise_id = b.enterprise_id
                          AND binding_receipt.member_id = b.member_id
-                         AND binding_receipt.user_id = b.user_id
-                         AND binding_receipt.action = 'CONNECTOR_BINDING_VERIFIED'
-                         AND binding_receipt.evidence_level = 'ACTION_COMPLETED'
+                          AND binding_receipt.user_id = b.user_id
+                          AND binding_receipt.actor_user_id = b.user_id
+                          AND binding_receipt.action = 'CONNECTOR_BINDING_VERIFIED'
+                          AND binding_receipt.evidence_level = 'ACTION_COMPLETED'
+                          AND binding_receipt.created_at = b.verified_at
+                          AND binding_receipt.created_at &lt;= #{now}
                    ) THEN 1 ELSE 0 END AS family_active
             FROM fbs_connector_binding b
             LEFT JOIN fbs_enterprise e

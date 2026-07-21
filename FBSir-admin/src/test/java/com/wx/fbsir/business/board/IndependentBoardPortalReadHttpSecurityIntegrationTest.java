@@ -5,6 +5,7 @@ import com.wx.fbsir.business.board.portal.BoardPortalDataDriftException;
 import com.wx.fbsir.business.board.portal.BoardPortalForbiddenException;
 import com.wx.fbsir.business.board.portal.IndependentBoardPortalReadService;
 import com.wx.fbsir.business.board.portal.controller.IndependentBoardPortalAdminReadController;
+import com.wx.fbsir.business.board.portal.controller.BoardPortalCandidateBoundaryFilter;
 import com.wx.fbsir.business.board.portal.controller.IndependentBoardPortalMeReadController;
 import com.wx.fbsir.business.board.portal.controller.IndependentBoardPortalReadExceptionHandler;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalConnectorView;
@@ -12,6 +13,7 @@ import com.wx.fbsir.business.board.portal.dto.BoardPortalOAuthFamilyView;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalReadEnvelope;
 import com.wx.fbsir.common.constant.CacheConstants;
 import com.wx.fbsir.common.constant.Constants;
+import com.wx.fbsir.common.core.domain.AjaxResult;
 import com.wx.fbsir.common.core.domain.entity.SysRole;
 import com.wx.fbsir.common.core.domain.entity.SysUser;
 import com.wx.fbsir.common.core.domain.model.LoginUser;
@@ -49,6 +51,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.MethodValidationPostProcessor;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import static org.mockito.Mockito.reset;
@@ -261,6 +265,8 @@ class IndependentBoardPortalReadHttpSecurityIntegrationTest {
                 .thenThrow(new BoardPortalDataDriftException("CLIENT_SCOPE_DRIFT"));
         when(enabled.readService().listConnectorBindings(USER_ID, TENANT_ID, null, null))
                 .thenThrow(new DataAccessResourceFailureException("database detail must not leak"));
+        when(enabled.readService().listOAuthFamilies(USER_ID, TENANT_ID, null, null))
+                .thenThrow(new IllegalStateException("runtime secret must not leak"));
 
         enabled.mockMvc().perform(get("/my/independent-board/connector")
                         .param("tenantId", String.valueOf(TENANT_ID))
@@ -286,6 +292,15 @@ class IndependentBoardPortalReadHttpSecurityIntegrationTest {
                 .andExpect(jsonPath("$.msg").value("PORTAL_READ_UNAVAILABLE"))
                 .andExpect(jsonPath("$.msg").value(
                         org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("database"))));
+        enabled.mockMvc().perform(get("/business/independent-board/oauth/families")
+                        .param("tenantId", String.valueOf(TENANT_ID))
+                        .header("Authorization", bearer(enabled,
+                                admin("board:oauth:family:query"))))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value(500))
+                .andExpect(jsonPath("$.msg").value("PORTAL_READ_FAILED"))
+                .andExpect(jsonPath("$.msg").value(
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("secret"))));
     }
 
     @Test
@@ -309,6 +324,17 @@ class IndependentBoardPortalReadHttpSecurityIntegrationTest {
         verifyNoInteractions(enabled.readService());
     }
 
+    @Test
+    void candidateBoundaryLeavesExistingUnsupportedMethodSemanticsUntouched() throws Exception {
+        disabled.mockMvc().perform(post("/legacy/probe")
+                        .header("Authorization", bearer(disabled,
+                                loginUser(USER_ID, "user", Set.of(), "user"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(500));
+
+        verifyNoInteractions(disabled.readService());
+    }
+
     private static Harness startHarness(boolean candidateEnabled) {
         AnnotationConfigWebApplicationContext context =
                 new AnnotationConfigWebApplicationContext();
@@ -323,11 +349,14 @@ class IndependentBoardPortalReadHttpSecurityIntegrationTest {
                 HttpSecurityTestConfiguration.class,
                 IndependentBoardPortalMeReadController.class,
                 IndependentBoardPortalAdminReadController.class,
-                IndependentBoardPortalReadExceptionHandler.class);
+                IndependentBoardPortalReadExceptionHandler.class,
+                BoardPortalCandidateBoundaryFilter.class,
+                LegacyProbeController.class);
         context.refresh();
         MockMvc mockMvc = MockMvcBuilders.webAppContextSetup(context)
                 .addFilters(context.getBean(
-                        "springSecurityFilterChain", jakarta.servlet.Filter.class))
+                                "springSecurityFilterChain", jakarta.servlet.Filter.class),
+                        context.getBean(BoardPortalCandidateBoundaryFilter.class))
                 .build();
         return new Harness(
                 context,
@@ -376,6 +405,14 @@ class IndependentBoardPortalReadHttpSecurityIntegrationTest {
         SysRole role = new SysRole();
         role.setRoleKey(roleKey);
         return role;
+    }
+
+    @RestController
+    static class LegacyProbeController {
+        @GetMapping("/legacy/probe")
+        AjaxResult get() {
+            return AjaxResult.success();
+        }
     }
 
     private record Harness(

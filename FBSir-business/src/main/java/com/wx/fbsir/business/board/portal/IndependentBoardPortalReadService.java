@@ -49,6 +49,12 @@ public class IndependentBoardPortalReadService {
             "authorization_code refresh_token";
     private static final String RESPONSES_CANONICAL = "code";
     private static final String TOKEN_AUTH_METHOD = "none";
+    private static final String ADMIN_ROLE = "admin";
+    private static final String CLIENT_QUERY_PERMISSION = "board:oauth:client:query";
+    private static final String FAMILY_QUERY_PERMISSION = "board:oauth:family:query";
+    private static final String BINDING_QUERY_PERMISSION = "board:connector:query";
+    private static final String ME_CONNECTOR_PERMISSION =
+            "my:independent-board:connector:view";
     private static final Duration CLIENT_LIFETIME = Duration.ofDays(31);
     private static final Duration MAX_FAMILY_LIFETIME = Duration.ofDays(30);
     private static final long MAX_REFRESH_GENERATION = 0xffff_ffffL;
@@ -97,6 +103,7 @@ public class IndependentBoardPortalReadService {
                 normalizedStatus);
         PagePosition position = decodePosition(context, cursor);
         Instant now = clock.instant();
+        requireCurrentAuthority(principalId, ADMIN_ROLE, CLIENT_QUERY_PERMISSION);
         List<BoardPortalOAuthClientRow> rows = mapper.selectOAuthClients(
                 mapperStatus(normalizedStatus),
                 Date.from(now),
@@ -122,10 +129,12 @@ public class IndependentBoardPortalReadService {
                 normalizedStatus);
         PagePosition position = decodePosition(context, cursor);
         Instant now = clock.instant();
+        requireCurrentAuthority(principalId, ADMIN_ROLE, FAMILY_QUERY_PERMISSION);
         List<BoardPortalOAuthFamilyRow> rows = mapper.selectOAuthFamilies(
                 tenantId,
                 null,
                 null,
+                false,
                 mapperStatus(normalizedStatus),
                 Date.from(now),
                 position.highWaterId(),
@@ -150,6 +159,7 @@ public class IndependentBoardPortalReadService {
                 normalizedStatus);
         PagePosition position = decodePosition(context, cursor);
         Instant now = clock.instant();
+        requireCurrentAuthority(principalId, ADMIN_ROLE, BINDING_QUERY_PERMISSION);
         List<BoardPortalConnectorBindingRow> rows = mapper.selectConnectorBindings(
                 tenantId,
                 null,
@@ -168,6 +178,7 @@ public class IndependentBoardPortalReadService {
     public BoardPortalConnectorView getConnector(long principalId, long tenantId) {
         requirePositive(principalId, "INVALID_PRINCIPAL");
         requirePositive(tenantId, "INVALID_TENANT");
+        requireCurrentAuthority(principalId, null, ME_CONNECTOR_PERMISSION);
         BoardEnterpriseMemberScope context = boardMapper.selectActiveContext(
                 tenantId, principalId);
         if (context == null) {
@@ -184,7 +195,7 @@ public class IndependentBoardPortalReadService {
         long memberId = context.getMemberId();
         Instant now = clock.instant();
         List<BoardPortalOAuthFamilyRow> familyRows = mapper.selectOAuthFamilies(
-                tenantId, memberId, principalId, null, Date.from(now),
+                tenantId, memberId, principalId, true, null, Date.from(now),
                 null, null, 3);
         List<BoardPortalConnectorBindingRow> bindingRows = mapper.selectConnectorBindings(
                 tenantId, memberId, principalId, null, Date.from(now),
@@ -248,18 +259,32 @@ public class IndependentBoardPortalReadService {
             long userId,
             Instant now) {
         List<FamilyCandidate> result = new ArrayList<>(rows.size());
+        int previousBucket = -1;
         long previousId = Long.MAX_VALUE;
         for (BoardPortalOAuthFamilyRow row : rows) {
             long rowId = requireRowId(row == null ? null : row.getRowId());
-            if (rowId >= previousId
+            BoardPortalOAuthFamilyView view = toFamilyView(row, tenantId, now);
+            int bucket = isLiveFamilyStatus(view.status()) ? 0 : 1;
+            if (bucket < previousBucket
+                    || (bucket == previousBucket && rowId >= previousId)
                     || !Objects.equals(row.getMemberId(), memberId)
                     || !Objects.equals(row.getUserId(), userId)) {
                 throw drift("CONNECTOR_FAMILY_SCOPE_DRIFT");
             }
+            previousBucket = bucket;
             previousId = rowId;
-            result.add(new FamilyCandidate(row, toFamilyView(row, tenantId, now)));
+            result.add(new FamilyCandidate(row, view));
         }
         return List.copyOf(result);
+    }
+
+    private void requireCurrentAuthority(
+            long principalId, String requiredRole, String permission) {
+        Integer allowed = mapper.selectCurrentAuthority(
+                principalId, requiredRole, permission);
+        if (!Objects.equals(allowed, 1)) {
+            throw new BoardPortalForbiddenException("PORTAL_AUTHORITY_NOT_CURRENT");
+        }
     }
 
     private List<BoardPortalConnectorBindingView> currentBindings(
@@ -288,10 +313,9 @@ public class IndependentBoardPortalReadService {
             long memberId,
             BoardPortalOAuthFamilyView family,
             BoardPortalConnectorBindingView binding) {
-        Instant expiresAt = family.expiresAt().isBefore(binding.validUntil())
-                ? family.expiresAt() : binding.validUntil();
-        if (family.issuedAt().isAfter(binding.lastSeenAt())
-                || !binding.lastSeenAt().isBefore(expiresAt)) {
+        if (!Objects.equals(family.expiresAt(), binding.validUntil())
+                || family.issuedAt().isAfter(binding.lastSeenAt())
+                || !binding.lastSeenAt().isBefore(family.expiresAt())) {
             return unknownConnector(tenantId, memberId);
         }
         return new BoardPortalConnectorView(
@@ -304,7 +328,7 @@ public class IndependentBoardPortalReadService {
                 binding.bindingRef(),
                 BoardOAuthProfile.REQUIRED_SCOPES,
                 family.issuedAt(),
-                expiresAt,
+                family.expiresAt(),
                 binding.lastSeenAt(),
                 Math.max(family.version(), binding.version()),
                 "ACTION_COMPLETED");
@@ -411,7 +435,9 @@ public class IndependentBoardPortalReadService {
         Instant registeredAt = requireInstant(row.getRegisteredAt(), "CLIENT_TIME_DRIFT");
         Instant expiresAt = requireInstant(row.getExpiresAt(), "CLIENT_TIME_DRIFT");
         Instant terminatedAt = optionalInstant(row.getEffectiveTerminatedAt());
-        if (!registeredAt.isBefore(expiresAt)
+        if (registeredAt.isAfter(now)
+                || (terminatedAt != null && terminatedAt.isAfter(now))
+                || !registeredAt.isBefore(expiresAt)
                 || !registeredAt.plus(CLIENT_LIFETIME).equals(expiresAt)) {
             throw drift("CLIENT_TIME_DRIFT");
         }
@@ -462,9 +488,17 @@ public class IndependentBoardPortalReadService {
         Instant terminatedAt = optionalInstant(row.getEffectiveTerminatedAt());
         Instant clientExpiresAt = requireInstant(
                 row.getClientExpiresAt(), "FAMILY_CLIENT_DRIFT");
-        if (!issuedAt.isBefore(expiresAt)
+        Instant clientRegisteredAt = requireInstant(
+                row.getClientRegisteredAt(), "FAMILY_CLIENT_DRIFT");
+        if (issuedAt.isAfter(now)
+                || (activatedAt != null && activatedAt.isAfter(now))
+                || (terminatedAt != null && terminatedAt.isAfter(now))
+                || !issuedAt.isBefore(expiresAt)
                 || expiresAt.isAfter(issuedAt.plus(MAX_FAMILY_LIFETIME))
-                || expiresAt.isAfter(clientExpiresAt)) {
+                || expiresAt.isAfter(clientExpiresAt)
+                || clientRegisteredAt.isAfter(now)
+                || clientRegisteredAt.isAfter(issuedAt)
+                || !clientRegisteredAt.plus(CLIENT_LIFETIME).equals(clientExpiresAt)) {
             throw drift("FAMILY_TIME_DRIFT");
         }
         String effectiveStatus = effectiveFamilyStatus(
@@ -516,7 +550,11 @@ public class IndependentBoardPortalReadService {
         Instant lastSeenAt = requireInstant(row.getLastSeenAt(), "BINDING_TIME_DRIFT");
         Instant validUntil = requireInstant(row.getValidUntil(), "BINDING_TIME_DRIFT");
         Instant revokedAt = optionalInstant(row.getRevokedAt());
-        if (verifiedAt.isAfter(lastSeenAt) || !lastSeenAt.isBefore(validUntil)) {
+        if (verifiedAt.isAfter(now)
+                || lastSeenAt.isAfter(now)
+                || (revokedAt != null && revokedAt.isAfter(now))
+                || verifiedAt.isAfter(lastSeenAt)
+                || !lastSeenAt.isBefore(validUntil)) {
             throw drift("BINDING_TIME_DRIFT");
         }
         boolean active = "ACTIVE".equals(row.getStatus());
@@ -563,6 +601,10 @@ public class IndependentBoardPortalReadService {
     }
 
     private void validateFamilyClient(BoardPortalOAuthFamilyRow row, Instant now) {
+        Instant clientRegisteredAt = row.getClientRegisteredAt() == null
+                ? null : row.getClientRegisteredAt().toInstant();
+        Instant clientTerminatedAt = row.getClientTerminatedAt() == null
+                ? null : row.getClientTerminatedAt().toInstant();
         if (!IndependentBoardOAuthClientRegistrationService.NEUTRAL_CLIENT_NAME
                     .equals(row.getClientDisplayName())
                 || !contains(CLIENT_STATUSES, row.getClientStatus())
@@ -575,7 +617,12 @@ public class IndependentBoardPortalReadService {
                 || !GRANTS_CANONICAL.equals(row.getClientGrantTypesCanonical())
                 || !RESPONSES_CANONICAL.equals(row.getClientResponseTypesCanonical())
                 || !BoardOAuthProfile.isAllowedLoopbackRedirect(row.getClientRedirectUri())
-                || row.getClientExpiresAt() == null) {
+                || clientRegisteredAt == null
+                || row.getClientExpiresAt() == null
+                || clientRegisteredAt.isAfter(now)
+                || (clientTerminatedAt != null
+                    && (clientTerminatedAt.isAfter(now)
+                        || clientTerminatedAt.isBefore(clientRegisteredAt)))) {
             throw drift("FAMILY_CLIENT_DRIFT");
         }
         if (isLiveFamilyStatus(row.getEffectiveStatus())
@@ -602,6 +649,7 @@ public class IndependentBoardPortalReadService {
         if ("PENDING_BINDING".equals(status)) {
             if (hasBinding || activatedAt != null || terminatedAt != null
                     || row.getCurrentRefreshGeneration() != 0
+                    || row.getVersion() != 0
                     || !now.isBefore(expiresAt)) {
                 throw drift("FAMILY_LIFECYCLE_DRIFT");
             }
@@ -609,6 +657,7 @@ public class IndependentBoardPortalReadService {
         }
         if ("ACTIVE".equals(status)) {
             if (!hasBinding || activatedAt == null || terminatedAt != null
+                    || row.getVersion() <= 0
                     || activatedAt.isBefore(issuedAt) || !activatedAt.isBefore(expiresAt)
                     || !now.isBefore(expiresAt)
                     || !Objects.equals(row.getCurrentBindingTenantId(), row.getTenantId())
@@ -618,12 +667,16 @@ public class IndependentBoardPortalReadService {
                     || !"ACTIVE".equals(row.getCurrentBindingStatus())
                     || !Objects.equals(row.getCurrentBindingVersion(), row.getBindingVersion())
                     || row.getCurrentBindingValidUntil() == null
+                    || !Objects.equals(
+                            row.getCurrentBindingValidUntil().toInstant(), expiresAt)
                     || !now.isBefore(row.getCurrentBindingValidUntil().toInstant())) {
                 throw drift("FAMILY_LIFECYCLE_DRIFT");
             }
             return;
         }
         if (terminatedAt == null
+                || ("PENDING_BINDING".equals(row.getStoredStatus())
+                    ? row.getVersion() != 0 : row.getVersion() <= 0)
                 || (activatedAt == null) != !hasBinding
                 || (activatedAt == null && terminatedAt.isBefore(issuedAt))
                 || (activatedAt != null
