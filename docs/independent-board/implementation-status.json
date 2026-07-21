@@ -102,7 +102,10 @@
     "reports/independent-board/w4b2d-evidence-contract-verification-20260722.json",
     "docs/decisions/ADR-003-independent-board-w4b2d-signed-evidence-boundary.md",
     "reports/independent-board/api2-p1-005-cleanroom-readiness-20260722.json",
+    "reports/independent-board/api2-p1-005-candidate-20260722.json",
     "work/api2-cleanroom/p1-005-active-20260722",
+    "scripts/build-api2-p1-005-candidate.mjs",
+    "tools/independent-board-p1-005-candidate-smoke.mjs",
     "reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json",
     "reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json",
     "docs/independent-board/API2-INDEPENDENT-BOARD-24H-TRAFFIC-ATTRIBUTION-20260721.md",
@@ -212,6 +215,7 @@
     "w4b2d_public_init_037_default_off_append_only_evidence_schema_manifest_verified",
     "w4b2d_live_api2_ack_object_contract_adapter_rejects_boolean_and_unregistered_product"
     ,"w4b2d_api2_active_release_hash_anchored_cleanroom_capture_completed_read_only"
+    ,"w4b2d_p1_005a_candidate_exact_version_gate_and_default_off_smoke_passed"
   ],
   "notProven": [
     "oauth_public_routes",
@@ -224,6 +228,9 @@
     "api2_exact_product_binding_and_immutable_26h_evidence_contract",
     "api2_clean_release_source_provenance",
     "api2_p1_005_package_target_and_module_closure_update",
+    "api2_p1_005_full_serve_dependency_closure",
+    "api2_p1_005_signed_exact_host_registration_receipt",
+    "api2_active_release_metadata_alignment_and_strict_git_provenance",
     "real_official_entry_same_binding_target_candidate",
     "production_database_migration",
     "me_portal_production_runtime",
@@ -319,6 +326,8 @@
     "backendCandidateVerificationReport": "reports/independent-board/w4b2-backend-read-projection-verification-20260721.json",
     "runtimeMountVerificationReport": "reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json",
     "api2TrafficAttributionReport": "reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json",
+    "api2P1005CandidateReport": "reports/independent-board/api2-p1-005-candidate-20260722.json",
+    "api2TrafficAttributionCurrentReport": "reports/independent-board/api2-independent-board-24h-traffic-attribution-20260722.json",
     "internalDcr": "profile_constrained_client_and_action_completed_receipt_verified_by_focused_tests_and_real_mysql_transaction_rollback_retry",
     "tokenTerminationPrimitive": "expired_active_tokens_transition_to_expired_and_live_tokens_revoke_at_per_row_logical_time_floor_verified_real_mysql",
     "authorizationCodeService": "approve_deny_pkce_exact_redirect_resource_scope_consent_lineage_and_post_lock_final_time_verified_local",
@@ -334,5 +343,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-22T00:39:08.6533045+08:00"
+  "updatedAt": "2026-07-22T02:27:00+08:00"
 }

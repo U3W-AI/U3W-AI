@@ -1,0 +1,69 @@
+{
+  "schema": "fbsir.independent-board.api2-p1-005-candidate-verification/v1",
+  "observedAt": "2026-07-22T02:27:00+08:00",
+  "boundary": "local_cleanroom_candidate_only_no_active_release_write",
+  "frozenPackage": {
+    "path": "D:/Spg719/fbsir-eight-seat-board-26.7.20.zip",
+    "sha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "writeBack": false
+  },
+  "base": {
+    "release": "202607152006-p1-004-runtime-state-14e20a6d.staged",
+    "sourceCapture": "work/api2-cleanroom/p1-005-active-20260722/source",
+    "provenance": "hash_anchored_remote_capture_git_provenance_unknown"
+  },
+  "targets": [
+    {
+      "path": "src/fbss-independent-board-product-registration.js",
+      "action": "add",
+      "sha256": "63f659149704fee1697b02f2e7daa63c14aff0bb5f02d674646622445c81d537"
+    },
+    {
+      "path": "src/service-traction-product-signature-normalizer.js",
+      "action": "modify",
+      "baseSha256": "1e05ac0be0eaafd8517f99766cc1a8da2479cc4d17c3238f2d3fa63cff3abbef",
+      "sha256": "b5af8dd45d90e9ce46e219f833b2b6fe8c75adcfebf9830983bcf86ea1910747"
+    },
+    {
+      "path": "src/service-traction-observability.js",
+      "action": "modify",
+      "baseSha256": "f61f6de1b1114dc1143cb191edfb6aa5cbf399a4af146d7acf0e2eec3b9e8786",
+      "sha256": "8c10a610fb039b4f1c489bfa6411a63c113d8a23c5d8d4aab53d4d40ea038aa0"
+    },
+    {
+      "path": "tools/independent-board-p1-005-candidate-smoke.mjs",
+      "action": "add",
+      "sha256": "22e19bd5f4ef50ee585563b7dbf345ba38d810cb9834232a94ecff5d4999bc91"
+    }
+  ],
+  "moduleClosure": {
+    "status": "pass",
+    "scope": "p1-005-normalizer-observability-static-imports",
+    "fileCount": 5,
+    "dynamicSmoke": "pass",
+    "fullServicePackageClosure": "not_proven_missing_serve_dependency_capture"
+  },
+  "defaultOff": {
+    "registrationStatus": "PENDING_HOST_REGISTRATION",
+    "candidateEnabled": false,
+    "publicRouteEnabled": false,
+    "authoritativeCreditEnabled": false,
+    "productNaturalDenominatorWeight": 0
+  },
+  "smokeAssertions": {
+    "exactProductAndVersion": true,
+    "wrongVersionRejected": true,
+    "boardSecretaryIsolated": true,
+    "generalSurfaceIsolated": true,
+    "forgedRegistrationRejected": true
+  },
+  "status": "candidate_built_not_deployable_until_git_backed_or_approved_reconstruction_provenance",
+  "notProven": [
+    "clean_git_head_or_approved_reconstruction_provenance",
+    "full_serve_package_dependency_closure",
+    "signed_exact_host_registration_receipt",
+    "one_real_official_entry_same_binding_chain",
+    "production_health_and_rollback_on_new_release"
+  ],
+  "nextAction": "repair active-release metadata drift, obtain approved source provenance, then run full serve closure and signed host registration gate; keep candidate report-only"
+}

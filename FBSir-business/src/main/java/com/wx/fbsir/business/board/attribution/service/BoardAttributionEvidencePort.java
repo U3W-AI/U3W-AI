@@ -15,7 +15,7 @@ public interface BoardAttributionEvidencePort {
     BoardAttributionSnapshot sealSnapshot(BoardAttributionSnapshot snapshot);
 
     record IssueChallenge(String challengeId, String contractId, String serverBindingId, String nonceHash,
-                          Date issuedAt, Date expiresAt, Date retentionUntil) { }
+                          String tenantSubjectDigest, Date issuedAt, Date expiresAt, Date retentionUntil) { }
 
     record AppendResult(String eventId, String receiptId, String status, long eventWatermark,
                         boolean productCreditEligible, boolean businessClosureEligible) { }

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.util.Set;
+import java.util.Date;
 
 /** Validates the finite, already server-verified envelope; key verification stays at API2. */
 @Component
@@ -19,24 +20,27 @@ public class BoardAttributionEnvelopeVerifier {
                 || !StringUtils.hasText(event.getChallengeId()) || !StringUtils.hasText(event.getContractId())
                 || !binding(event.getServerBindingId()) || !sha256(event.getTenantSubjectDigest())
                 || !STAGES.contains(event.getStage()) || !"success".equals(event.getOutcome())
-                || !"official_entry".equals(event.getEntrySurface()) || !StringUtils.hasText(event.getChannelTrack())
+                || !"official_entry".equals(event.getEntrySurface()) || !safeDimension(event.getChannelTrack(), 64)
                 || event.getObservedAt() == null || event.getSequenceNo() < 1 || event.getSequenceNo() > 4
                 || event.getSampleCount() != 1 || !sha256(event.getCanonicalDigest())
                 || !StringUtils.hasText(event.getSignerKeyId()) || !StringUtils.hasText(event.getIssuer())
                 || !StringUtils.hasText(event.getAudience()) || !sha256(event.getReceiptNonceHash())
                 || !sha256(event.getReceiptSignature()) || event.getIssuedAt() == null || event.getExpiresAt() == null
-                || !"FBSIR_INDEPENDENT_BOARD_W4B2D".equals(event.getContractId())) {
+                || !"FBSIR_INDEPENDENT_BOARD_W4B2D".equals(event.getContractId())
+                || !stageSequence(event.getStage(), event.getSequenceNo())) {
             throw new IllegalArgumentException("Independent Board attribution envelope is invalid");
         }
-        if (!properties.getIssuer().equals(event.getIssuer()) || !properties.getAudience().equals(event.getAudience())
-                || event.getExpiresAt().before(event.getIssuedAt())) {
+        Date now = new Date();
+        if (!StringUtils.hasText(properties.getIssuer()) || !StringUtils.hasText(properties.getAudience())
+                || !properties.getIssuer().equals(event.getIssuer()) || !properties.getAudience().equals(event.getAudience())
+                || event.getExpiresAt().before(event.getIssuedAt()) || event.getIssuedAt().after(now) || event.getExpiresAt().before(now)) {
             throw new IllegalArgumentException("Independent Board attribution authority is invalid");
         }
     }
 
     public void verifySnapshot(com.wx.fbsir.business.board.attribution.domain.BoardAttributionSnapshot snapshot,
                                IndependentBoardAttributionProperties properties) {
-        if (snapshot == null || !StringUtils.hasText(snapshot.getSnapshotId()) || !StringUtils.hasText(snapshot.getContractId())
+        if (snapshot == null || !StringUtils.hasText(snapshot.getSnapshotId()) || !"FBSIR_INDEPENDENT_BOARD_W4B2D".equals(snapshot.getContractId())
                 || snapshot.getWindowStart() == null || snapshot.getWindowEnd() == null || snapshot.getRetentionUntil() == null
                 || snapshot.getWatermarkAt() == null || snapshot.getWindowEnd().getTime() - snapshot.getWindowStart().getTime() != 86_400_000L
                 || snapshot.getRetentionUntil().getTime() < snapshot.getWindowEnd().getTime() + properties.getRetentionHours() * 3_600_000L
@@ -49,11 +53,17 @@ public class BoardAttributionEnvelopeVerifier {
                 || !"SEALED_REPORT_ONLY".equals(snapshot.getStatus())) {
             throw new IllegalArgumentException("Independent Board sealed snapshot is invalid");
         }
-        if (!properties.getIssuer().equals(snapshot.getIssuer()) || !properties.getAudience().equals(snapshot.getAudience())) {
+        if (!StringUtils.hasText(properties.getIssuer()) || !StringUtils.hasText(properties.getAudience())
+                || !properties.getIssuer().equals(snapshot.getIssuer()) || !properties.getAudience().equals(snapshot.getAudience())) {
             throw new IllegalArgumentException("Independent Board snapshot authority is invalid");
         }
     }
 
     private boolean sha256(String value) { return value != null && value.matches("[0-9a-f]{64}"); }
     private boolean binding(String value) { return value != null && (value.matches("[0-9a-f]{64}") || value.matches("srv_[A-Za-z0-9_-]{12}")); }
+    private boolean safeDimension(String value, int max) { return StringUtils.hasText(value) && value.length() <= max && !value.matches("(?i).*(@|bearer\\s|^1[3-9]\\d{9}$).*"); }
+    private boolean stageSequence(String stage, long sequence) {
+        return ("whoami".equals(stage) && sequence == 1) || ("scene_pack".equals(stage) && sequence == 2)
+                || ("consume".equals(stage) && sequence == 3) || ("closure".equals(stage) && sequence == 4);
+    }
 }

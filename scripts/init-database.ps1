@@ -2209,19 +2209,19 @@ SELECT CONCAT_WS('|',
   (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='fbs_attribution_product_contract'
     AND column_name IN ('contract_id','product_id','product_version','host_type','connector_type','entry_surface','package_id','expert_entry_id','registration_status','candidate_enabled','public_route_enabled','authoritative_credit_enabled','created_at')),
   (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='fbs_host_forwarding_challenge'
-    AND column_name IN ('challenge_id','contract_id','server_binding_id','nonce_hash','issued_at','expires_at','retention_until','status','created_at')),
+    AND column_name IN ('challenge_id','contract_id','server_binding_id','nonce_hash','tenant_subject_digest','issued_at','expires_at','retention_until','status','created_at')),
   (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='fbs_attribution_evidence_event'
     AND column_name IN ('event_id','receipt_id','challenge_id','contract_id','server_binding_id','tenant_subject_digest','stage','outcome','entry_surface','channel_track','observed_at','sequence_no','sample_count','canonical_digest','signer_key_id','issuer','audience','receipt_nonce_hash','receipt_signature','issued_at','expires_at','event_watermark','created_at')),
   (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='fbs_attribution_snapshot'
     AND column_name IN ('snapshot_id','contract_id','window_start','window_end','retention_until','watermark_at','event_high_watermark','row_count','parse_error_count','gap_count','invalid_count','canonicalization_version','event_digest','runtime_release','embedded_release','signer_key_id','issuer','audience','snapshot_signature','status','created_at')),
   (SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE() AND trigger_name IN
     ('trg_fbs_attr_product_no_update','trg_fbs_attr_product_no_delete','trg_fbs_attr_challenge_immutable_fields','trg_fbs_attr_event_no_update','trg_fbs_attr_snapshot_no_update','trg_fbs_attr_event_no_delete','trg_fbs_attr_snapshot_no_delete')),
-  (SELECT COUNT(*) FROM fbs_attribution_product_contract WHERE contract_id='FBSIR_INDEPENDENT_BOARD_W4B2D' AND product_id='fbsir-eight-seat-board' AND product_version='26.7.20' AND registration_status='PENDING_HOST_REGISTRATION' AND candidate_enabled=0 AND public_route_enabled=0 AND authoritative_credit_enabled=0),
+  (SELECT COUNT(*) FROM fbs_attribution_product_contract WHERE contract_id='FBSIR_INDEPENDENT_BOARD_W4B2D' AND product_id='fbsir-eight-seat-board' AND product_version='26.7.20' AND package_id='' AND expert_entry_id='' AND registration_status='PENDING_HOST_REGISTRATION' AND candidate_enabled=0 AND public_route_enabled=0 AND authoritative_credit_enabled=0),
   (SELECT COUNT(*) FROM u3w_schema_migration WHERE version='20260722_independent_board_attribution_evidence_contract' AND description='APPLIED:W4b2d independent board exact product receipt and sealed snapshot contract')
 );
 "@
     $parts = @($state.Split('|'))
-    $expected = @(4,13,9,23,21,7,1,1)
+    $expected = @(4,13,10,23,21,7,1,1)
     if ($parts.Count -ne $expected.Count) { throw "Independent Board attribution evidence current-read returned an invalid field count: '$state'." }
     for ($index = 0; $index -lt $expected.Count; $index++) {
         if ($parts[$index] -notmatch '^\d+$' -or [int]$parts[$index] -ne $expected[$index]) {

@@ -10,6 +10,7 @@ public class BoardHostForwardingChallenge {
     private String contractId;
     private String serverBindingId;
     private String nonceHash;
+    private String tenantSubjectDigest;
     private Date issuedAt;
     private Date expiresAt;
     private Date retentionUntil;

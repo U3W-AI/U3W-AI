@@ -33,10 +33,14 @@ public class IndependentBoardAttributionEvidenceService implements BoardAttribut
     @Transactional(rollbackFor = Exception.class)
     public BoardHostForwardingChallenge issueChallenge(IssueChallenge command) {
         requireEnabled();
+        Date now = new Date();
+        long maxExpiry = now.getTime() + Math.max(1, properties.getReceiptTtlSeconds()) * 1_000L;
         if (command == null || !CONTRACT_ID.equals(command.contractId()) || !StringUtilsExt.binding(command.serverBindingId())
                 || !StringUtilsExt.sha256(command.challengeId()) || !StringUtilsExt.sha256(command.nonceHash())
+                || !StringUtilsExt.sha256(command.tenantSubjectDigest())
                 || command.issuedAt() == null || command.expiresAt() == null || command.retentionUntil() == null
-                || command.expiresAt().before(command.issuedAt())
+                || command.issuedAt().after(now) || command.expiresAt().before(now)
+                || command.expiresAt().before(command.issuedAt()) || command.expiresAt().getTime() > maxExpiry
                 || command.retentionUntil().getTime() < command.expiresAt().getTime() + properties.getRetentionHours() * 3_600_000L) {
             throw new IllegalArgumentException("Independent Board challenge is invalid");
         }
@@ -44,6 +48,7 @@ public class IndependentBoardAttributionEvidenceService implements BoardAttribut
         BoardHostForwardingChallenge challenge = new BoardHostForwardingChallenge();
         challenge.setChallengeId(command.challengeId()); challenge.setContractId(command.contractId());
         challenge.setServerBindingId(command.serverBindingId()); challenge.setNonceHash(command.nonceHash());
+        challenge.setTenantSubjectDigest(command.tenantSubjectDigest());
         challenge.setIssuedAt(command.issuedAt()); challenge.setExpiresAt(command.expiresAt());
         challenge.setRetentionUntil(command.retentionUntil()); challenge.setStatus("ISSUED");
         mapper.insertChallenge(challenge);
@@ -55,14 +60,13 @@ public class IndependentBoardAttributionEvidenceService implements BoardAttribut
     public AppendResult appendEvent(BoardAttributionEvidenceEvent event) {
         requireEnabled(); verifier.verify(event, properties); exactPendingContract();
         BoardHostForwardingChallenge challenge = mapper.selectChallengeForUpdate(event.getChallengeId(), event.getServerBindingId(), event.getContractId());
-        if (challenge == null || !"ISSUED".equals(challenge.getStatus()) || challenge.getExpiresAt().before(new Date())) {
+        if (challenge == null || !"ISSUED".equals(challenge.getStatus()) || challenge.getExpiresAt().before(new Date())
+                || !Objects.equals(challenge.getTenantSubjectDigest(), event.getTenantSubjectDigest())) {
             throw new IllegalStateException("Independent Board challenge is not active");
         }
         mapper.insertEventIfAbsent(event);
         BoardAttributionEvidenceEvent persisted = mapper.selectEventByReceiptForUpdate(event.getReceiptId());
-        if (persisted == null || !Objects.equals(persisted.getEventId(), event.getEventId())
-                || !Objects.equals(persisted.getCanonicalDigest(), event.getCanonicalDigest())
-                || !Objects.equals(persisted.getServerBindingId(), event.getServerBindingId())) {
+        if (!sameEvent(persisted, event)) {
             throw new IllegalStateException("Independent Board receipt replay or identity collision");
         }
         if ("closure".equals(event.getStage())) mapper.updateChallengeStatus(event.getChallengeId(), "CONSUMED");
@@ -73,9 +77,12 @@ public class IndependentBoardAttributionEvidenceService implements BoardAttribut
     @Transactional(rollbackFor = Exception.class)
     public BoardAttributionSnapshot sealSnapshot(BoardAttributionSnapshot snapshot) {
         requireEnabled(); verifier.verifySnapshot(snapshot, properties); exactPendingContract();
-        mapper.insertSnapshot(snapshot);
         BoardAttributionSnapshot persisted = mapper.selectSnapshotByWindowForUpdate(snapshot.getContractId(), snapshot.getWindowStart(), snapshot.getWindowEnd());
-        if (persisted == null || !Objects.equals(persisted.getSnapshotId(), snapshot.getSnapshotId())) throw new IllegalStateException("Independent Board snapshot cannot be re-read");
+        if (persisted == null) {
+            mapper.insertSnapshot(snapshot);
+            persisted = mapper.selectSnapshotByWindowForUpdate(snapshot.getContractId(), snapshot.getWindowStart(), snapshot.getWindowEnd());
+        }
+        if (persisted == null || !sameSnapshot(persisted, snapshot)) throw new IllegalStateException("Independent Board snapshot identity collision");
         return persisted;
     }
 
@@ -83,7 +90,8 @@ public class IndependentBoardAttributionEvidenceService implements BoardAttribut
         BoardAttributionProductContract contract = mapper.selectExactProductForUpdate(PRODUCT_ID, PRODUCT_VERSION);
         if (contract == null || !CONTRACT_ID.equals(contract.getContractId()) || !PRODUCT_ID.equals(contract.getProductId())
                 || !PRODUCT_VERSION.equals(contract.getProductVersion()) || !"PENDING_HOST_REGISTRATION".equals(contract.getRegistrationStatus())
-                || contract.isCandidateEnabled() || contract.isPublicRouteEnabled() || contract.isAuthoritativeCreditEnabled()) {
+                || contract.isCandidateEnabled() || contract.isPublicRouteEnabled() || contract.isAuthoritativeCreditEnabled()
+                || !"".equals(contract.getPackageId()) || !"".equals(contract.getExpertEntryId())) {
             throw new IllegalStateException("Independent Board exact product contract is not default-off");
         }
         return contract;
@@ -98,5 +106,33 @@ public class IndependentBoardAttributionEvidenceService implements BoardAttribut
     private static final class StringUtilsExt {
         private static boolean sha256(String value) { return value != null && value.matches("[0-9a-f]{64}"); }
         private static boolean binding(String value) { return value != null && (value.matches("[0-9a-f]{64}") || value.matches("srv_[A-Za-z0-9_-]{12}")); }
+    }
+
+    private boolean sameEvent(BoardAttributionEvidenceEvent left, BoardAttributionEvidenceEvent right) {
+        return left != null && right != null && Objects.equals(left.getEventId(), right.getEventId())
+                && Objects.equals(left.getReceiptId(), right.getReceiptId()) && Objects.equals(left.getChallengeId(), right.getChallengeId())
+                && Objects.equals(left.getContractId(), right.getContractId()) && Objects.equals(left.getServerBindingId(), right.getServerBindingId())
+                && Objects.equals(left.getTenantSubjectDigest(), right.getTenantSubjectDigest()) && Objects.equals(left.getStage(), right.getStage())
+                && Objects.equals(left.getOutcome(), right.getOutcome()) && Objects.equals(left.getEntrySurface(), right.getEntrySurface())
+                && Objects.equals(left.getChannelTrack(), right.getChannelTrack()) && Objects.equals(left.getObservedAt(), right.getObservedAt())
+                && left.getSequenceNo() == right.getSequenceNo() && left.getSampleCount() == right.getSampleCount()
+                && Objects.equals(left.getCanonicalDigest(), right.getCanonicalDigest()) && Objects.equals(left.getSignerKeyId(), right.getSignerKeyId())
+                && Objects.equals(left.getIssuer(), right.getIssuer()) && Objects.equals(left.getAudience(), right.getAudience())
+                && Objects.equals(left.getReceiptNonceHash(), right.getReceiptNonceHash()) && Objects.equals(left.getReceiptSignature(), right.getReceiptSignature())
+                && Objects.equals(left.getIssuedAt(), right.getIssuedAt()) && Objects.equals(left.getExpiresAt(), right.getExpiresAt());
+    }
+
+    private boolean sameSnapshot(BoardAttributionSnapshot left, BoardAttributionSnapshot right) {
+        return left != null && right != null && Objects.equals(left.getSnapshotId(), right.getSnapshotId())
+                && Objects.equals(left.getContractId(), right.getContractId()) && Objects.equals(left.getWindowStart(), right.getWindowStart())
+                && Objects.equals(left.getWindowEnd(), right.getWindowEnd()) && Objects.equals(left.getRetentionUntil(), right.getRetentionUntil())
+                && Objects.equals(left.getWatermarkAt(), right.getWatermarkAt()) && left.getEventHighWatermark() == right.getEventHighWatermark()
+                && left.getRowCount() == right.getRowCount() && left.getParseErrorCount() == right.getParseErrorCount()
+                && left.getGapCount() == right.getGapCount() && left.getInvalidCount() == right.getInvalidCount()
+                && Objects.equals(left.getCanonicalizationVersion(), right.getCanonicalizationVersion()) && Objects.equals(left.getEventDigest(), right.getEventDigest())
+                && Objects.equals(left.getRuntimeRelease(), right.getRuntimeRelease()) && Objects.equals(left.getEmbeddedRelease(), right.getEmbeddedRelease())
+                && Objects.equals(left.getSignerKeyId(), right.getSignerKeyId()) && Objects.equals(left.getIssuer(), right.getIssuer())
+                && Objects.equals(left.getAudience(), right.getAudience()) && Objects.equals(left.getSnapshotSignature(), right.getSnapshotSignature())
+                && Objects.equals(left.getStatus(), right.getStatus());
     }
 }

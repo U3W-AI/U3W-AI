@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the officially listed and post-listing-frozen 26.7.20 expert package.",
-  "singleNextAction": "Locate or create a traceable API2 clean-release source overlay, add the exact fbsir-eight-seat-board@26.7.20 product rule without touching the frozen package, then run a read-only candidate gate for one real official-entry same-binding chain; keep public routes and authoritative product credit closed.",
+  "singleNextAction": "Resolve active-release metadata drift and obtain approved Git-backed or hash-anchored reconstruction provenance for the P1-005A report-only candidate, then capture full serve closure and signed exact host-registration evidence; keep the frozen 26.7.20 package, public routes, and authoritative product credit closed.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -148,7 +148,9 @@
         "migration": "no_production_database_or_frozen_package_write_in_this_slice",
         "scope": [
           "api2_connector_exact_fbsir_eight_seat_board_and_26_7_20_registration_without_package_writeback",
+          "api2_p1_005a_report_only_candidate_built_with_exact_version_gate_and_default_off",
           "api2_p1_005_clean_source_or_approved_hash_anchored_reconstruction_provenance",
+          "api2_active_release_metadata_drift_repaired_or_explicitly_accepted_as_non_production",
           "server_verified_host_forwarding_receipt_and_field_contract_binding",
           "immutable_at_least_26h_structured_snapshot_digest_and_release_identity",
           "one_real_official_entry_same_binding_whoami_scene_pack_consume_report_only_candidate",

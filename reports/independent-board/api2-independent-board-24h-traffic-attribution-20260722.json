@@ -1,0 +1,103 @@
+{
+  "schema": "fbsir.independent-board.api2-24h-traffic-attribution/v2",
+  "observedAt": "2026-07-22T02:25:34+08:00",
+  "window": {
+    "start": "2026-07-20T18:19:54Z",
+    "end": "2026-07-21T18:25:34Z",
+    "shape": "left_closed_right_open",
+    "source": "api2_structured_logs_and_business_ledger"
+  },
+  "boundary": "read_only_remote_log_scan_no_service_write_no_traffic_cutover",
+  "structuredLogs": {
+    "fileCount": 98,
+    "lineCount": 2657326,
+    "malformedCount": 0,
+    "exactIndependentBoardProductIdHits": 0,
+    "exactIndependentBoardVersionHits": 0,
+    "independentBoardAliasHits": 0,
+    "boardSecretaryEntryIntentHits": 797,
+    "boardSecretaryEntryIntentInterpretation": "legacy_board_secretary_signal_not_independent_board_identity",
+    "productIdNonEmpty": {
+      "fbs-bookwriter": 23,
+      "fbsir-board-secretary-assistant": 7,
+      "fbsir-super-partner-group": 2
+    },
+    "productCreditCandidateCount": 0,
+    "productCreditEligibleCount": 0,
+    "hostAckVerifiedCount": 0
+  },
+  "businessLedger": {
+    "rowCount": 460,
+    "malformedCount": 0,
+    "accessPathBreakdown": { "/mcp": 459, "/mcp/": 1 },
+    "connectorContractVersion": { "1.2.9": 460 },
+    "independentBoardExactIdentityHits": 0,
+    "legacyBoardSecretaryRows": 23,
+    "legacyBoardSecretaryStageBreakdown": {
+      "identity_binding": 6,
+      "scene_pack": 7,
+      "first_value_completed": 6,
+      "continued_use_completed": 4
+    },
+    "legacyBoardSecretaryAllWithheld": true,
+    "allRowsHostReceiptVerified": false,
+    "allRowsTrafficAuthority": "unknown",
+    "allRowsNaturalBusinessProductCredit": false,
+    "allRowsCreditWithheld": true
+  },
+  "releaseTruth": {
+    "activeSymlinkRelease": "202607152006-p1-004-runtime-state-14e20a6d.staged",
+    "activeStateRelease": "202607152006-p1-004-runtime-state-14e20a6d",
+    "activeStateStatus": "active",
+    "activeStateSourceGitHead": "c01891a0ca3e11db0a0fe51828276fab33b862b5",
+    "activeStateProductionWriteAuthorized": true,
+    "currentServiceReleaseJsonRelease": "20260711-112155",
+    "candidateMetadataRelease": "202607152006-p1-004-runtime-state-14e20a6d",
+    "candidateMetadataStatus": "candidate_not_active",
+    "metadataDrift": "active_anchor_and_current-service-release-json_disagree; p1-004_manifest_semantics_also_drift",
+    "gitProvenance": "active_anchor_has_sourceGitHead_but_release_tree_is_not_a_git_worktree; strict_clean_source_provenance_unproven"
+  },
+  "liveHealth": {
+    "status": "ok",
+    "serviceRelease": "202607152006-p1-004-runtime-state-14e20a6d",
+    "sourceGitHead": "c01891a0ca3e11db0a0fe51828276fab33b862b5",
+    "hostForwardingAckStatus": "observe_only_not_ready",
+    "enforcementMode": "observe_only",
+    "keyringConfigured": false,
+    "challengeJoinEnabled": false,
+    "productionReadyFlag": false,
+    "publicChallengeRoute": false,
+    "attributionDecisionBoardPolicy": "fail_closed",
+    "interpretation": "service health is proven; independent-board registration and signed host receipt are not proven"
+  },
+  "liveDecisionBoard": {
+    "httpStatus": 200,
+    "status": "decision_withheld_no_trusted_natural_denominator",
+    "sourceRelease": "202607152006-p1-004-runtime-state-14e20a6d",
+    "retentionComplete": false,
+    "transportCoverageHours": 0,
+    "crossLayerJoinRate": 0,
+    "rowCount": 722,
+    "naturalCount": 0,
+    "unknownCount": 446,
+    "syntheticCount": 276,
+    "eligibleNaturalSampleCount": 0,
+    "productCreditAllowed": false,
+    "independentBoardRegistrationRoute": "404_unknown_api_route",
+    "interpretation": "current decision board is fail-closed and has no public registration surface"
+  },
+  "interpretation": {
+    "proven": [
+      "当前 24 小时窗口没有独董会精确身份或版本命中",
+      "旧董事会秘书信号与独董会保持隔离",
+      "当前服务侧没有可用于积分或自然归因的可信宿主回执"
+    ],
+    "notProven": [
+      "真实独董会需求为零",
+      "独董会正式宿主 packageId/expertEntryId 已注册",
+      "完整六维自然流量转化率"
+    ]
+  },
+  "status": "NO_GO_NO_TRUSTED_INDEPENDENT_BOARD_SIGNAL_AND_RELEASE_METADATA_DRIFT",
+  "nextAction": "先修复 active release provenance/current-service-release 元数据一致性，再等待 REGISTERED_EXACT 宿主回执；不得用董事会秘书旧信号代替独董会归因"
+}

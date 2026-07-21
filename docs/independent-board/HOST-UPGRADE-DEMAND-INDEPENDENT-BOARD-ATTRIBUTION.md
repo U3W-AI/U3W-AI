@@ -36,6 +36,13 @@
 
 ## P1-005 服务侧注册与清洁发布补充
 
+### 2026-07-22 当前窗口与候选边界
+
+- API2 固定 24 小时窗口（2026-07-20 18:19:54Z 至 2026-07-21 18:25:34Z）共 2,657,326 条结构化日志，精确 `fbsir-eight-seat-board@26.7.20` 及独董会别名均为 0；旧独董秘书助手 23 条与独董会严格隔离。
+- 当前证据只能说明“没有可信的独董会产品信号”，不能推出实际使用量为 0；旧产品 23 条均 `hostReceiptVerified=false`、`trafficAuthority=unknown`、业务/产品 credit 均 withheld。
+- P1-005A 已在本地 cleanroom 构建 report-only 候选：精确产品/版本门禁、错误版本拒绝、独董秘书隔离、伪造注册拒绝均通过；`PENDING_HOST_REGISTRATION`、`candidateEnabled=0`、`publicRouteEnabled=0`、`authoritativeCreditEnabled=0`，独董会自然分母权重为 0。
+- 当前仍为 `NO_GO`：active-release 元数据存在漂移，候选基础捕获缺少可证明 Git HEAD，尚未取得签名精确宿主注册回执，也未完成完整 serve 依赖闭包、健康切换与回滚证据。P1-005B 只允许复用现有签名 API2 service receipt/replay verifier，禁止以客户端布尔值升权。
+
 本轮只读复查确认 API2 当前 host-forwarding 结果不是 boolean，而是对象：
 
 - `serverVerifiedHostForwardingAck.schemaVersion = fbss.hostForwardingAckVerification.v1`

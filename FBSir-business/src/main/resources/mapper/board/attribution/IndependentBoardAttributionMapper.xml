@@ -12,7 +12,7 @@
   </resultMap>
   <resultMap id="Challenge" type="com.wx.fbsir.business.board.attribution.domain.BoardHostForwardingChallenge">
     <id property="challengeId" column="challenge_id"/><result property="contractId" column="contract_id"/>
-    <result property="serverBindingId" column="server_binding_id"/><result property="nonceHash" column="nonce_hash"/>
+    <result property="serverBindingId" column="server_binding_id"/><result property="nonceHash" column="nonce_hash"/><result property="tenantSubjectDigest" column="tenant_subject_digest"/>
     <result property="issuedAt" column="issued_at"/><result property="expiresAt" column="expires_at"/>
     <result property="retentionUntil" column="retention_until"/><result property="status" column="status"/>
   </resultMap>
@@ -47,15 +47,15 @@
      FOR UPDATE
   </select>
   <select id="selectChallengeForUpdate" resultMap="Challenge">
-    SELECT challenge_id, contract_id, server_binding_id, nonce_hash, issued_at, expires_at, retention_until, status
+    SELECT challenge_id, contract_id, server_binding_id, nonce_hash, tenant_subject_digest, issued_at, expires_at, retention_until, status
       FROM fbs_host_forwarding_challenge
      WHERE challenge_id = #{challengeId} AND server_binding_id = #{serverBindingId} AND contract_id = #{contractId}
      FOR UPDATE
   </select>
   <insert id="insertChallenge">
     INSERT INTO fbs_host_forwarding_challenge
-      (challenge_id, contract_id, server_binding_id, nonce_hash, issued_at, expires_at, retention_until, status)
-    VALUES (#{challengeId}, #{contractId}, #{serverBindingId}, #{nonceHash}, #{issuedAt}, #{expiresAt}, #{retentionUntil}, #{status})
+      (challenge_id, contract_id, server_binding_id, nonce_hash, tenant_subject_digest, issued_at, expires_at, retention_until, status)
+    VALUES (#{challengeId}, #{contractId}, #{serverBindingId}, #{nonceHash}, #{tenantSubjectDigest}, #{issuedAt}, #{expiresAt}, #{retentionUntil}, #{status})
   </insert>
   <update id="updateChallengeStatus">
     UPDATE fbs_host_forwarding_challenge SET status = #{status} WHERE challenge_id = #{challengeId} AND status = 'ISSUED'

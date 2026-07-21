@@ -58,6 +58,11 @@
       "run": "node --test scripts/independent-board-w4b2d-evidence-contract.test.mjs",
       "cwd": ".",
       "timeout_ms": 120000
+    },
+    "api2-p1005-candidate": {
+      "run": "node scripts/build-api2-p1-005-candidate.mjs && node tools/independent-board-p1-005-candidate-smoke.mjs work/api2-cleanroom/p1-005-candidate-20260722/source",
+      "cwd": ".",
+      "timeout_ms": 120000
     }
   },
   "artifacts": {
@@ -93,6 +98,10 @@
     "w4b2dEvidenceMigration": "sql/update_20260722_independent_board_attribution_evidence_contract.sql",
     "w4b2dEvidenceVerificationReport": "reports/independent-board/w4b2d-evidence-contract-verification-20260722.json",
     "api2P1005CleanroomReadiness": "reports/independent-board/api2-p1-005-cleanroom-readiness-20260722.json",
+    "api2P1005CandidateVerification": "reports/independent-board/api2-p1-005-candidate-20260722.json",
+    "api2IndependentBoardTrafficAttributionCurrent": "reports/independent-board/api2-independent-board-24h-traffic-attribution-20260722.json",
+    "api2P1005CandidateBuilder": "scripts/build-api2-p1-005-candidate.mjs",
+    "api2P1005CandidateSmoke": "tools/independent-board-p1-005-candidate-smoke.mjs",
     "w4b2dSignedEvidenceAdr": "docs/decisions/ADR-003-independent-board-w4b2d-signed-evidence-boundary.md",
     "w2VerificationReport": "reports/independent-board/w2-user-portal-verification-20260720.json",
     "w3VerificationReport": "reports/independent-board/w3-admin-portal-verification-20260720.json",
