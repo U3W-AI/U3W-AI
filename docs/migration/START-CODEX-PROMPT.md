@@ -3,7 +3,7 @@
 请从当前仓库继续福帮手（FBSir）独董会控制面开发。先执行只读冷启动，不要从聊天历史猜测当前事实：
 
 1. 确认仓库根、分支、HEAD、远端和干净工作树；
-2. 完整阅读 `.fbs-engineering/contract.json`、`AUTHORITATIVE-ROOT.md`、
+2. 完整阅读 `.fbs-engineering/contract.json`、`docs/independent-board/AUTHORITATIVE-ROOT.md`、
    `docs/independent-board/implementation-status.json`、`docs/independent-board/taskboard.json`、
    `docs/independent-board/W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md` 和
    `reports/independent-board/w4b-oauth-refresh-security-verification-20260721.json`；

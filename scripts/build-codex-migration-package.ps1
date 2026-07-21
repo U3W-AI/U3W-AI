@@ -161,7 +161,7 @@ $manifest = [ordered]@{
     nextSlice = 'W4b.2 default-off me/admin OAuth and Connector candidate on the existing RuoYi shell.'
     requiredRepositoryPaths = @(
         '.fbs-engineering/contract.json',
-        'AUTHORITATIVE-ROOT.md',
+        'docs/independent-board/AUTHORITATIVE-ROOT.md',
         'docs/independent-board/implementation-status.json',
         'docs/independent-board/taskboard.json',
         'docs/independent-board/W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md',
