@@ -5,7 +5,7 @@
     "brandEn": "FBSir",
     "name": "独董会"
   },
-  "platformVersion": "0.4.3-dev",
+  "platformVersion": "0.4.4-dev",
   "expertPackage": {
     "version": "26.7.20",
     "state": "officially_listed_user_confirmed",
@@ -32,12 +32,14 @@
     "currentEvidence": [
       "user_confirmed_official_listing",
       "official_experts_plugin_directory_detected",
-      "official_runtime_payload_matches_final_R_artifact_81_of_81_files"
+      "official_runtime_payload_matches_final_R_artifact_81_of_81_files",
+      "api2_fixed_24h_scanned_available_application_evidence_has_zero_target_signature_with_official_entry_projection_gap"
     ],
     "noPromotionRules": [
       "official_listing_does_not_prove_natural_invocation",
       "official_listing_does_not_prove_business_attribution",
-      "official_listing_does_not_prove_service_side_closure"
+      "official_listing_does_not_prove_service_side_closure",
+      "zero_attributable_target_signal_does_not_prove_zero_actual_usage"
     ]
   },
   "activeWave": "W4_OAUTH_CONNECTOR",
@@ -89,6 +91,15 @@
     "reports/independent-board/w4b2-portal-frontend-source-candidate-verification-20260721.json",
     "reports/independent-board/w4b2-backend-read-projection-verification-20260721.json",
     "docs/decisions/ADR-001-independent-board-default-off-portal-read-boundary.md",
+    "docs/decisions/ADR-002-independent-board-w4b2c-runtime-mount-and-attribution-boundary.md",
+    "sql/update_20260721_independent_board_portal_candidate_menu.sql",
+    "FBSir-ui/scripts/verify-independent-board-w4b2c-runtime-mount.mjs",
+    "scripts/independent-board-traffic-attribution.mjs",
+    "scripts/independent-board-traffic-attribution.test.mjs",
+    "reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json",
+    "reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json",
+    "docs/independent-board/API2-INDEPENDENT-BOARD-24H-TRAFFIC-ATTRIBUTION-20260721.md",
+    "docs/independent-board/HOST-UPGRADE-DEMAND-INDEPENDENT-BOARD-ATTRIBUTION.md",
     "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.0.30/summary-mysql-8.0.30-utc-20260721T061311.131Z-local-20260721T141311.131+0800-pid-21800.json",
     "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.4.8/summary-mysql-8.4.8-utc-20260721T061510.025Z-local-20260721T141510.025+0800-pid-29828.json",
     "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.0.30/summary-mysql-8.0.30-utc-20260721T123307.170Z-local-20260721T203307.170+0800-pid-18500.json",
@@ -183,7 +194,13 @@
     "w4b2b_subject_intent_actor_temporal_scope_and_receipt_lineage_proven",
     "w4b2b_candidate_scoped_404_405_and_existing_global_http_semantics_isolation_passed",
     "w4b2b_dual_mysql_8_0_30_and_8_4_8_direct_56_refresh_3_canonical_36_and_cleanup_passed",
-    "w4b2b_full_repository_877_of_877_frontend_verifiers_and_production_build_passed"
+    "w4b2b_full_repository_877_of_877_frontend_verifiers_and_production_build_passed",
+    "w4b2c_default_off_candidate_menu_runtime_mount_and_tenant_search_verified_local",
+    "w4b2c_existing_ruoyi_jwt_strict_single_bearer_and_real_404_isolation_passed",
+    "w4b2c_dual_mysql_menu_replay_collision_drift_and_cleanup_passed",
+    "w4b2c_browser_enabled_and_default_off_request_responsive_empty_error_matrix_passed",
+    "api2_fixed_24h_independent_board_attributable_traffic_is_zero_with_actual_usage_not_proven",
+    "api2_unsigned_report_only_attribution_42_of_42_adversarial_tests_passed"
   ],
   "notProven": [
     "oauth_public_routes",
@@ -193,7 +210,8 @@
     "listed_runtime_natural_invocation",
     "listed_runtime_same_binding_business_attribution",
     "listed_runtime_service_side_closure",
-    "w4b_2c_candidate_menu_router_runtime_mount_and_browser_interaction",
+    "api2_exact_product_binding_and_immutable_26h_evidence_contract",
+    "real_official_entry_same_binding_target_candidate",
     "production_database_migration",
     "me_portal_production_runtime",
     "admin_portal_production_runtime",
@@ -209,7 +227,7 @@
   ],
   "ui": {
     "base": "existing_u3w_ai_ruoyi_vue3_element_plus",
-    "state": "w4b2a_frontend_source_and_w4b2b_backend_read_candidates_verified_default_off_runtime_unreachable",
+    "state": "w4b2_default_off_runtime_candidate_verified_local_not_deployed",
     "productionImplementationAllowed": true,
     "unlockCondition": "satisfied",
     "confirmation": "recommended_five_points",
@@ -229,7 +247,7 @@
     "w4bDetailedPrototype": "confirmed_for_w4b2_candidate_only",
     "w4bDetailedPrototypeConfirmation": "explicit_user_confirmation_2026_07_20",
     "w4bOauthConnectorProductionImplementationAllowed": true,
-    "w4bOauthConnectorImplementationState": "internal_oauth_chain_verified_public_routes_closed",
+    "w4bOauthConnectorImplementationState": "internal_oauth_chain_and_default_off_portal_runtime_candidate_verified_public_routes_closed",
     "w4bOauthConnectorUnlockCondition": "satisfied_by_explicit_user_confirmation_2026_07_20",
     "watchAndWebhookDeepPages": "deferred_to_W5_delivery_and_watch"
   },
@@ -256,7 +274,7 @@
     ]
   },
   "w4b": {
-    "state": "w4b_1_internal_oauth_chain_and_refresh_security_verified_local_w4b_2a_frontend_and_w4b_2b_backend_candidates_verified_default_off",
+    "state": "w4b_1_internal_oauth_chain_verified_w4b_2_default_off_runtime_candidate_verified_local",
     "contract": "docs/independent-board/W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md",
     "databaseSupportMatrix": "docs/independent-board/W4B-DATABASE-SUPPORT-MATRIX.md",
     "inputEvidence": "docs/independent-board/W4B-INPUT-EVIDENCE.json",
@@ -286,6 +304,8 @@
     "verificationReport": "reports/independent-board/w4b-oauth-refresh-security-verification-20260721.json",
     "frontendCandidateVerificationReport": "reports/independent-board/w4b2-portal-frontend-source-candidate-verification-20260721.json",
     "backendCandidateVerificationReport": "reports/independent-board/w4b2-backend-read-projection-verification-20260721.json",
+    "runtimeMountVerificationReport": "reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json",
+    "api2TrafficAttributionReport": "reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json",
     "internalDcr": "profile_constrained_client_and_action_completed_receipt_verified_by_focused_tests_and_real_mysql_transaction_rollback_retry",
     "tokenTerminationPrimitive": "expired_active_tokens_transition_to_expired_and_live_tokens_revoke_at_per_row_logical_time_floor_verified_real_mysql",
     "authorizationCodeService": "approve_deny_pkce_exact_redirect_resource_scope_consent_lineage_and_post_lock_final_time_verified_local",
@@ -294,12 +314,12 @@
     "refreshSecurityService": "receipt_v2_rotation_and_strict_replay_family_token_binding_containment_verified_local_with_real_mysql_concurrency_and_late_failure_rollback",
     "refreshClientSafetyGate": "workbuddy_single_flight_atomic_token_store_no_ambiguous_old_token_retry_invalid_grant_reauthorize_ux_and_rate_limit_alerting_required_before_public_route",
     "boundedHistoryPolicy": "maximum_10000_family_token_rows_and_6000_family_security_receipts_with_limit_sentinel_and_lock_order_indexes_rolling_accumulator_or_archive_required_before_longer_lifetime_or_higher_cadence",
-    "currentByteVerification": "portal_focused_service_mapper_and_http_jwt_isolation_passed_dual_mysql_direct_56_of_56_refresh_3_of_3_canonical_36_of_36_each_full_repository_877_of_877_frontend_verifiers_and_production_build_passed",
+    "currentByteVerification": "w4b2c_default_off_runtime_mount_tenant_search_strict_bearer_real_404_dual_mysql_menu_browser_and_traffic_attribution_contract_verified_local",
     "publicRoutes": "closed",
     "detailedUiPrototype": "confirmed_for_w4b2_candidate_only",
     "detailedUiPrototypeConfirmation": "explicit_user_confirmation_2026_07_20",
-    "detailedUiProductionImplementation": "frontend_source_and_backend_read_candidates_verified_default_off_without_router_menu_public_routes_or_write_actions",
-    "nextSlice": "w4b2c_default_off_candidate_menu_router_runtime_mount_global_admin_tenant_search_existing_ruoyi_security_chain_isolation_and_browser_gate"
+    "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
+    "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-21T20:47:39.6652053+08:00"
+  "updatedAt": "2026-07-22T00:39:08.6533045+08:00"
 }

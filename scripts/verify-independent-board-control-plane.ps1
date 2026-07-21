@@ -57,6 +57,32 @@ function Invoke-FrontendNpm {
     }
 }
 
+function Resolve-NodeExecutable {
+    if (-not [string]::IsNullOrWhiteSpace($env:U3W_NODE_EXE)) {
+        if (-not (Test-Path -LiteralPath $env:U3W_NODE_EXE -PathType Leaf)) {
+            throw "U3W_NODE_EXE does not exist: $($env:U3W_NODE_EXE)"
+        }
+        return $env:U3W_NODE_EXE
+    }
+    $NodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
+    if ($null -eq $NodeCommand) {
+        $NodeCommand = Get-Command node -ErrorAction SilentlyContinue
+    }
+    if ($null -eq $NodeCommand) {
+        throw 'node is unavailable; set U3W_NODE_EXE to a verified toolchain path'
+    }
+    return $NodeCommand.Source
+}
+
+function Invoke-NodeScript {
+    param([string[]]$Arguments)
+    $NodeExecutable = Resolve-NodeExecutable
+    & $NodeExecutable @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "node command failed with exit code ${LASTEXITCODE}: $($Arguments -join ' ')"
+    }
+}
+
 function Assert-ProductBrand {
     param(
         [object]$Product,
@@ -87,6 +113,9 @@ function Invoke-ContractChecks {
         'docs\independent-board\W4B-DATABASE-SUPPORT-MATRIX.md',
         'docs\independent-board\W4B-INPUT-EVIDENCE.json',
         'docs\decisions\ADR-001-independent-board-default-off-portal-read-boundary.md',
+        'docs\decisions\ADR-002-independent-board-w4b2c-runtime-mount-and-attribution-boundary.md',
+        'docs\independent-board\API2-INDEPENDENT-BOARD-24H-TRAFFIC-ATTRIBUTION-20260721.md',
+        'docs\independent-board\HOST-UPGRADE-DEMAND-INDEPENDENT-BOARD-ATTRIBUTION.md',
         'docs\independent-board\prototypes\portals\index.html',
         'sql\update_20260720_independent_board_control_plane.sql',
         'sql\update_20260720_independent_board_me_menu.sql',
@@ -94,6 +123,7 @@ function Invoke-ContractChecks {
         'sql\update_20260720_independent_board_entitlement_lifecycle_menu.sql',
         'sql\update_20260721_independent_board_connector_binding.sql',
         'sql\update_20260721_independent_board_oauth_foundation.sql',
+        'sql\update_20260721_independent_board_portal_candidate_menu.sql',
         'scripts\verify-database-manifest.ps1',
         'scripts\verify-independent-board-live-database.ps1',
         'scripts\run-independent-board-menu-migration-it.ps1',
@@ -110,6 +140,7 @@ function Invoke-ContractChecks {
         'FBSir-business\src\main\resources\mapper\board\IndependentBoardOAuthMapper.xml',
         'FBSir-business\src\test\java\com\wx\fbsir\business\board\oauth\service\IndependentBoardOAuthClientRegistrationServiceTest.java',
         'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\IndependentBoardPortalReadService.java',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\dto\BoardPortalTenantView.java',
         'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\config\BoardPortalReadConfiguration.java',
         'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\controller\BoardPortalCandidateBoundaryFilter.java',
         'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\controller\IndependentBoardPortalAdminReadController.java',
@@ -143,6 +174,10 @@ function Invoke-ContractChecks {
         'FBSir-ui\src\views\business\independentBoard\admin\connector-binding\index.vue',
         'FBSir-ui\src\views\business\independentBoard\admin\security-event\index.vue',
         'FBSir-ui\scripts\verify-independent-board-w4b2-candidate.mjs',
+        'FBSir-ui\scripts\verify-independent-board-w4b2c-runtime-mount.mjs',
+        'FBSir-ui\src\utils\independentBoardPortalCandidate.js',
+        'scripts\independent-board-traffic-attribution.mjs',
+        'scripts\independent-board-traffic-attribution.test.mjs',
         'reports\independent-board\w1-application-integration-verification-20260720.json',
         'reports\independent-board\w2-user-portal-verification-20260720.json',
         'reports\independent-board\w3-admin-portal-verification-20260720.json',
@@ -150,6 +185,9 @@ function Invoke-ContractChecks {
         'reports\independent-board\w4a-authoritative-connector-binding-verification-20260721.json',
         'reports\independent-board\w4b-oauth-foundation-verification-20260721.json',
         'reports\independent-board\w4b2-backend-read-projection-verification-20260721.json',
+        'reports\independent-board\w4b2c-default-off-runtime-mount-verification-20260721.json',
+        'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.json',
+        'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.md',
         'work\diagnostics\independent-board-mysql-transaction-it\mysql-8.0.30\summary-mysql-8.0.30-utc-20260721T123307.170Z-local-20260721T203307.170+0800-pid-18500.json',
         'work\diagnostics\independent-board-mysql-transaction-it\mysql-8.4.8\summary-mysql-8.4.8-utc-20260721T123903.781Z-local-20260721T203903.781+0800-pid-13908.json'
     )
@@ -280,37 +318,237 @@ function Invoke-ContractChecks {
             throw "W4b.2b MySQL evidence drifted: $($mysqlEvidence.summary)"
         }
     }
-    $portalSourceHashes = @{
-        portalReadServiceSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot 'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\IndependentBoardPortalReadService.java')).Hash.ToLowerInvariant()
-        portalReadMapperSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot 'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\mapper\IndependentBoardPortalReadMapper.java')).Hash.ToLowerInvariant()
-        portalReadMapperXmlSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot 'FBSir-business\src\main\resources\mapper\board\IndependentBoardPortalReadMapper.xml')).Hash.ToLowerInvariant()
+    # W4b.2b remains immutable historical evidence. Current source bytes are
+    # instead bound to the W4b.2c receipt that exercised the runtime mount.
+    $canonicalNextSliceId = 'W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract'
+    $w4b2cReport = Read-Utf8Json -RelativePath 'reports\independent-board\w4b2c-default-off-runtime-mount-verification-20260721.json'
+    Assert-ProductBrand -Product $w4b2cReport.product -Source 'W4b.2c runtime mount verification report'
+    if ($w4b2cReport.schema -cne 'fbsir.independent-board.w4b2c-default-off-runtime-mount-verification/v1' `
+            -or $w4b2cReport.result -cne 'VERIFIED_LOCAL_DEFAULT_OFF_RUNTIME_MOUNT_CANDIDATE' `
+            -or $w4b2cReport.releaseReady -ne $false `
+            -or $w4b2cReport.repository.listedPackageWriteback -ne $false `
+            -or $w4b2cReport.candidate.featureFlagProperty -cne 'fbsir.independent-board.portal-candidate.enabled' `
+            -or $w4b2cReport.candidate.environmentVariable -cne 'FBSIR_INDEPENDENT_BOARD_PORTAL_CANDIDATE_ENABLED' `
+            -or $w4b2cReport.candidate.viteEnvironmentVariable -cne 'VITE_FBSIR_BOARD_PORTAL_CANDIDATE' `
+            -or $w4b2cReport.candidate.defaultEnabled -ne $false `
+            -or $w4b2cReport.candidate.menuCount -ne 5 `
+            -or $w4b2cReport.candidate.defaultDisabledMenuCount -ne 5 `
+            -or $w4b2cReport.candidate.meUserRoleBindingCount -ne 1 `
+            -or $w4b2cReport.candidate.adminRoleBindingCount -ne 0 `
+            -or $w4b2cReport.candidate.allowedRuntimePages -ne 4 `
+            -or $w4b2cReport.candidate.heldRuntimePages -ne 2 `
+            -or @($w4b2cReport.candidate.httpMethodAllowlist).Count -ne 1 `
+            -or $w4b2cReport.candidate.httpMethodAllowlist[0] -cne 'GET' `
+            -or $w4b2cReport.candidate.writeActionsAdded -ne $false `
+            -or $w4b2cReport.candidate.securityEventGetAdded -ne $false `
+            -or $w4b2cReport.candidate.publicOAuthOrMcpRoutesAdded -ne $false `
+            -or $w4b2cReport.verification.backendAll.testcaseNodes -ne 947 `
+            -or $w4b2cReport.verification.backendAll.failures -ne 0 `
+            -or $w4b2cReport.verification.backendAll.errors -ne 0 `
+            -or $w4b2cReport.verification.centralAll.mode -cne 'All' `
+            -or $w4b2cReport.verification.centralAll.state -cne 'PASS' `
+            -or @($w4b2cReport.verification.dualMysql).Count -ne 2 `
+            -or @($w4b2cReport.verification.dualMysql | Where-Object { $_.directTransactionTests -eq 56 -and $_.refreshSecurityTests -eq 3 -and $_.canonicalReceipts -eq 36 -and $_.cleanupGatesPassed -eq 5 -and $_.state -ceq 'PASS' }).Count -ne 2 `
+            -or $w4b2cReport.verification.frontendSourceCandidate.directAssertionCallSites -ne 122 `
+            -or $w4b2cReport.verification.runtimeMountContract.fourPageAllowlist -cne 'PASS' `
+            -or $w4b2cReport.verification.runtimeMountContract.heldPageDenylist -cne 'PASS' `
+            -or $w4b2cReport.verification.runtimeMountContract.preCloneRouteAdmission -cne 'PASS' `
+            -or $w4b2cReport.verification.browser.enabledAllowedPagesAccessible -ne 4 `
+            -or $w4b2cReport.verification.browser.enabledHeldPagesHttp404 -ne 2 `
+            -or $w4b2cReport.verification.browser.defaultOffCandidateRequests -ne 0 `
+            -or $w4b2cReport.verification.browser.physicalTabKeyActuation -cne 'NOT_PROVEN_TOOL_LIMITATION' `
+            -or $w4b2cReport.verification.trafficAttributionContract.tests -ne 42 `
+            -or $w4b2cReport.verification.trafficAttributionContract.failures -ne 0 `
+            -or $w4b2cReport.evidenceBoundaries.candidateRuntimeMountedLocally -ne $true `
+            -or $w4b2cReport.evidenceBoundaries.defaultOffVerified -ne $true `
+            -or $w4b2cReport.evidenceBoundaries.globalAdminTenantSearchVerified -ne $true `
+            -or $w4b2cReport.evidenceBoundaries.existingRuoyiJwtIsolationVerified -ne $true `
+            -or $w4b2cReport.evidenceBoundaries.productionDatabaseMigrated -ne $false `
+            -or $w4b2cReport.evidenceBoundaries.productionDomainsDeployed -ne $false `
+            -or $w4b2cReport.evidenceBoundaries.publicOAuthOrMcpRoutesEnabled -ne $false `
+            -or $w4b2cReport.evidenceBoundaries.listedPackageModified -ne $false `
+            -or $w4b2cReport.nextSlice.id -cne $canonicalNextSliceId) {
+        throw 'W4b.2c runtime mount verification receipt drifted or exceeds its evidence boundary'
     }
-    foreach ($sourceHashName in $portalSourceHashes.Keys) {
-        if ($portalSourceHashes[$sourceHashName] -cne $w4b2BackendReport.verification.sourceBinding.$sourceHashName) {
-            throw "W4b.2b portal source changed after MySQL evidence: $sourceHashName"
+    $w4b2cSourcePaths = @{
+        portalReadServiceSha256 = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\IndependentBoardPortalReadService.java'
+        portalReadMapperSha256 = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\mapper\IndependentBoardPortalReadMapper.java'
+        portalReadMapperXmlSha256 = 'FBSir-business\src\main\resources\mapper\board\IndependentBoardPortalReadMapper.xml'
+        tenantViewSha256 = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\dto\BoardPortalTenantView.java'
+        tokenServiceSha256 = 'FBSir-framework\src\main\java\com\wx\fbsir\framework\web\service\TokenService.java'
+        globalExceptionHandlerSha256 = 'FBSir-framework\src\main\java\com\wx\fbsir\framework\web\exception\GlobalExceptionHandler.java'
+        permissionStoreSha256 = 'FBSir-ui\src\store\modules\permission.js'
+        routeGateSha256 = 'FBSir-ui\src\utils\independentBoardPortalCandidate.js'
+        candidateTableSha256 = 'FBSir-ui\src\views\business\independentBoard\admin\components\CandidateReadTable.vue'
+        trafficAttributionSha256 = 'scripts\independent-board-traffic-attribution.mjs'
+        trafficAttributionTestsSha256 = 'scripts\independent-board-traffic-attribution.test.mjs'
+    }
+    foreach ($sourceHashName in $w4b2cSourcePaths.Keys) {
+        $actualSourceHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot $w4b2cSourcePaths[$sourceHashName])).Hash.ToLowerInvariant()
+        if ($actualSourceHash -cne $w4b2cReport.verification.sourceBinding.$sourceHashName) {
+            throw "W4b.2c source changed after its evidence receipt: $sourceHashName"
         }
+    }
+    $actualCandidateMenuHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot 'sql\update_20260721_independent_board_portal_candidate_menu.sql')).Hash.ToLowerInvariant()
+    if ($actualCandidateMenuHash -cne $w4b2cReport.candidate.dynamicMenuMigrationSha256) {
+        throw 'W4b.2c candidate menu migration changed after its evidence receipt'
+    }
+
+    $trafficReport = Read-Utf8Json -RelativePath 'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.json'
+    $trafficKindTotal = $trafficReport.standardEvidenceLedger.trafficKinds.natural `
+        + $trafficReport.standardEvidenceLedger.trafficKinds.probe `
+        + $trafficReport.standardEvidenceLedger.trafficKinds.diagnostic `
+        + $trafficReport.standardEvidenceLedger.trafficKinds.synthetic `
+        + $trafficReport.standardEvidenceLedger.trafficKinds.unknown
+    $selectedStatusLowerBoundTotal = $trafficReport.officialEntry.selectedStatusLowerBounds.'200' `
+        + $trafficReport.officialEntry.selectedStatusLowerBounds.'499' `
+        + $trafficReport.officialEntry.selectedStatusLowerBounds.'5xx' `
+        + $trafficReport.officialEntry.statusUnclassifiedRemainderWithinLowerBound
+    $selectedMethodLowerBoundTotal = $trafficReport.officialEntry.selectedMethodLowerBounds.GET `
+        + $trafficReport.officialEntry.selectedMethodLowerBounds.POST `
+        + $trafficReport.officialEntry.methodUnclassifiedRemainderWithinLowerBound
+    $expectedNotProven = @(
+        'actual_independent_board_usage_is_zero',
+        'official_entry_target_natural_invocation',
+        'same_binding_target_conversion',
+        'target_conversion_by_version_channel_terminal_or_population'
+    )
+    $expectedCannotProve = @(
+        'strict_24h_official_entry_target_attribution',
+        'target_user_count_or_conversion_rate',
+        'service_side_target_closure'
+    )
+    $notProvenDrift = @(Compare-Object -ReferenceObject $expectedNotProven -DifferenceObject @($trafficReport.evidenceBoundaries.notProven))
+    $cannotProveDrift = @(Compare-Object -ReferenceObject $expectedCannotProve -DifferenceObject @($trafficReport.evidenceBoundaries.cannotProveWithCurrentProjection))
+    if ($trafficReport.schema -cne 'fbsir.independent-board.api2-24h-traffic-attribution/v1' `
+            -or $trafficReport.result -cne 'NO_ATTRIBUTABLE_INDEPENDENT_BOARD_SIGNAL_WITH_CONTRACT_GAPS' `
+            -or $trafficReport.productContract.productId -cne 'fbsir-eight-seat-board' `
+            -or $trafficReport.productContract.listedVersion -cne '26.7.20' `
+            -or $trafficReport.productContract.name -cne (-join @([char]0x72EC, [char]0x8463, [char]0x4F1A)) `
+            -or $trafficReport.productContract.frozenPackageModified -ne $false `
+            -or $trafficReport.window.start -cne '2026-07-20T22:44:00+08:00' `
+            -or $trafficReport.window.end -cne '2026-07-21T22:44:00+08:00' `
+            -or $trafficReport.window.interval -cne '[start,end)' `
+            -or $trafficReport.standardEvidenceLedger.fixedWindowRows -ne 733 `
+            -or $null -ne $trafficReport.standardEvidenceLedger.snapshotDigest `
+            -or $trafficReport.standardEvidenceLedger.snapshotDigestState -cne 'legacy_snapshot_digest_not_captured_before_local_digest_contract' `
+            -or $trafficKindTotal -ne 733 `
+            -or $trafficReport.standardEvidenceLedger.target.exactProductRows -ne 0 `
+            -or $trafficReport.standardEvidenceLedger.target.naturalRows -ne 0 `
+            -or $trafficReport.standardEvidenceLedger.target.distinctBindings -ne 0 `
+            -or $trafficReport.rawApplicationEvidence.mcpEvents.targetDirectSignals -ne 0 `
+            -or $trafficReport.rawApplicationEvidence.mcpAccessTsv.targetDirectSignals -ne 0 `
+            -or $trafficReport.rawApplicationEvidence.businessLedger.targetDirectSignals -ne 0 `
+            -or $trafficReport.rawApplicationEvidence.businessLedger.productCreditEligibleRows -ne 0 `
+            -or $trafficReport.officialEntry.countSemantics -cne 'LOWER_BOUND_NOT_EXACT_FULL_RAW_REPLAY' `
+            -or $trafficReport.officialEntry.requestLowerBound -ne 26344641 `
+            -or $trafficReport.officialEntry.selectedStatusLowerBounds.'200' -ne 26318825 `
+            -or $trafficReport.officialEntry.selectedStatusLowerBounds.'499' -ne 19466 `
+            -or $trafficReport.officialEntry.selectedStatusLowerBounds.'5xx' -ne 6343 `
+            -or $trafficReport.officialEntry.statusUnclassifiedRemainderWithinLowerBound -ne 7 `
+            -or $selectedStatusLowerBoundTotal -ne $trafficReport.officialEntry.requestLowerBound `
+            -or $trafficReport.officialEntry.selectedMethodLowerBounds.GET -ne 18380038 `
+            -or $trafficReport.officialEntry.selectedMethodLowerBounds.POST -ne 7964597 `
+            -or $trafficReport.officialEntry.methodUnclassifiedRemainderWithinLowerBound -ne 6 `
+            -or $selectedMethodLowerBoundTotal -ne $trafficReport.officialEntry.requestLowerBound `
+            -or $trafficReport.liveServiceReadback.releaseIdentityState -cne 'DRIFT' `
+            -or $trafficReport.liveServiceReadback.rollingLedgerState -cne 'MUTABLE_NOT_AN_IMMUTABLE_24H_SNAPSHOT' `
+            -or $trafficReport.attributionDebt.activePhase1TargetRegistrationOccurrences -ne 0 `
+            -or $trafficReport.attributionDebt.structuredRawRetention -cne 'approximately_3h06m_not_24h' `
+            -or $trafficReport.attributionDebt.requiredRetention -cne 'at_least_26h_plus_immutable_fixed_window_snapshot' `
+            -or $trafficReport.decision.attributableTargetTraffic -ne 0 `
+            -or $trafficReport.decision.actualTargetUsageIsZero -cne 'NOT_PROVEN' `
+            -or $trafficReport.decision.reason -cne 'No target identity was present in the scanned currently available application evidence, while the official-entry projection drops authoritative product and binding dimensions.' `
+            -or $trafficReport.decision.privateBoardHandling -cne 'confusion_signal_only_never_merged_into_independent_board' `
+            -or $trafficReport.localAttributionContract.testCount -ne 42 `
+            -or $trafficReport.localAttributionContract.testFailures -ne 0 `
+            -or $trafficReport.localAttributionContract.candidateDefaultEnabled -ne $false `
+            -or $trafficReport.localAttributionContract.authoritativeProductCreditAlwaysZeroForUnsignedInput -ne $true `
+            -or -not (@($trafficReport.evidenceBoundaries.proven) -contains 'scanned_available_application_evidence_has_zero_direct_target_signature') `
+            -or $notProvenDrift.Count -ne 0 `
+            -or $cannotProveDrift.Count -ne 0) {
+        throw 'API2 independent-board fixed-window traffic attribution receipt drifted or overclaims its evidence'
+    }
+
+    $trafficReportMarkdown = Get-Content -LiteralPath (Join-Path $RepoRoot 'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.md') -Raw -Encoding UTF8
+    $trafficConclusionMarkdown = Get-Content -LiteralPath (Join-Path $RepoRoot 'docs\independent-board\API2-INDEPENDENT-BOARD-24H-TRAFFIC-ATTRIBUTION-20260721.md') -Raw -Encoding UTF8
+    $reportRequiredMarkers = @(
+        [regex]::Unescape('\u4e0d\u80fd\u636e\u6b64\u65ad\u8a00\u72ec\u8463\u4f1a\u5b9e\u9645\u4f7f\u7528\u91cf\u4e3a 0'),
+        [regex]::Unescape('\u81f3\u5c11 26,344,641'),
+        [regex]::Unescape('\u79c1\u8463\u4f1a'),
+        [regex]::Unescape('\u7ea6 3 \u5c0f\u65f6 6 \u5206\u949f'),
+        [regex]::Unescape('\u4e0d\u53ef\u53d8'),
+        [regex]::Unescape('\u5f53\u524d\u53ef\u5f97'),
+        [regex]::Unescape('7 \u6b21\u672a\u5206\u7c7b\u4f59\u9879'),
+        [regex]::Unescape('6 \u6b21\u672a\u5206\u7c7b\u4f59\u9879')
+    )
+    $conclusionRequiredMarkers = @(
+        [regex]::Unescape('\u800c\u4e0d\u662f\u201c\u5b9e\u9645\u4f7f\u7528\u4e3a 0\u201d'),
+        [regex]::Unescape('\u81f3\u5c11\u6709 26,344,641'),
+        [regex]::Unescape('\u79c1\u8463\u4f1a'),
+        [regex]::Unescape('\u4e0d\u5c11\u4e8e 26 \u5c0f\u65f6'),
+        [regex]::Unescape('\u5f53\u524d\u53ef\u5f97'),
+        [regex]::Unescape('7 \u6b21\u4f59\u9879'),
+        [regex]::Unescape('6 \u6b21\u4f59\u9879')
+    )
+    foreach ($marker in $reportRequiredMarkers) {
+        if (-not $trafficReportMarkdown.Contains($marker)) {
+            throw "API2 traffic report prose is missing a required evidence-boundary marker: $marker"
+        }
+    }
+    foreach ($marker in $conclusionRequiredMarkers) {
+        if (-not $trafficConclusionMarkdown.Contains($marker)) {
+            throw "API2 traffic conclusion prose is missing a required evidence-boundary marker: $marker"
+        }
+    }
+    $evidenceOverclaimMarkers = @(
+        [regex]::Unescape('\u5b8c\u6574\u91cd\u653e'),
+        [regex]::Unescape('\u5b8c\u6574\u5e94\u7528\u8bc1\u636e'),
+        [regex]::Unescape('\u5b8c\u6574\u8bc1\u636e'),
+        'complete application evidence',
+        'complete raw replay'
+    )
+    foreach ($marker in $evidenceOverclaimMarkers) {
+        if ($trafficReport.decision.reason.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0 `
+                -or $trafficReportMarkdown.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0 `
+                -or $trafficConclusionMarkdown.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+            throw "API2 traffic evidence overclaims complete coverage despite retention debt: $marker"
+        }
+    }
+    Push-Location $RepoRoot
+    try {
+        Invoke-NodeScript -Arguments @('--test', 'scripts\independent-board-traffic-attribution.test.mjs')
+    }
+    finally {
+        Pop-Location
     }
 
     $implementationStatus = Read-Utf8Json -RelativePath 'docs\independent-board\implementation-status.json'
     $taskboard = Read-Utf8Json -RelativePath 'docs\independent-board\taskboard.json'
     $w4Wave = @($taskboard.waves | Where-Object { $_.id -ceq 'W4_OAUTH_CONNECTOR' })
-    if ($implementationStatus.platformVersion -cne '0.4.3-dev' `
-            -or $implementationStatus.w4b.backendCandidateVerificationReport -cne 'reports/independent-board/w4b2-backend-read-projection-verification-20260721.json' `
-            -or $implementationStatus.w4b.nextSlice -cne 'w4b2c_default_off_candidate_menu_router_runtime_mount_global_admin_tenant_search_existing_ruoyi_security_chain_isolation_and_browser_gate' `
+    if ($implementationStatus.platformVersion -cne '0.4.4-dev' `
+            -or $implementationStatus.w4b.runtimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
+            -or $implementationStatus.w4b.api2TrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `
+            -or $implementationStatus.w4b.nextSlice -cne $canonicalNextSliceId `
             -or $w4Wave.Count -ne 1 `
-            -or $w4Wave[0].activeSlice -cne 'W4b_2c_default_off_runtime_mount_and_browser_gate') {
-        throw 'W4b.2b status and taskboard traceability drifted'
+            -or $w4Wave[0].state -cne 'w4a_verified_local_w4b1_internal_oauth_chain_verified_w4b2_default_off_runtime_candidate_verified_local' `
+            -or $w4Wave[0].activeSlice -cne $canonicalNextSliceId `
+            -or $w4Wave[0].nextSlice.id -cne $canonicalNextSliceId) {
+        throw 'W4b.2c status and taskboard traceability drifted'
     }
 
     $engineeringContract = Read-Utf8Json -RelativePath '.fbs-engineering\contract.json'
     $contractW4b = $engineeringContract.contracts.uiPrototypeGate.w4bImplementation
-    if ($engineeringContract.artifacts.w4b2BackendCandidateVerificationReport -cne 'reports/independent-board/w4b2-backend-read-projection-verification-20260721.json' `
-            -or $engineeringContract.artifacts.w4b2PortalReadBoundaryAdr -cne 'docs/decisions/ADR-001-independent-board-default-off-portal-read-boundary.md' `
-            -or $contractW4b.state -cne 'w4b1_internal_oauth_chain_and_refresh_security_verified_local_w4b2a_frontend_and_w4b2b_backend_candidates_verified_default_off' `
-            -or $contractW4b.nextSlice -cne 'w4b2c_default_off_candidate_menu_router_runtime_mount_global_admin_tenant_search_existing_ruoyi_security_chain_isolation_and_browser_gate' `
-            -or $contractW4b.detailedUiPrototype.implementationState -cne 'frontend_source_and_backend_read_candidates_verified_default_off_without_router_menu_public_routes_or_write_actions' `
-            -or $contractW4b.detailedUiPrototype.backendCandidateVerificationReport -cne 'reports/independent-board/w4b2-backend-read-projection-verification-20260721.json') {
-        throw 'FBS engineering contract drifted from the W4b.2b evidence boundary'
+    if ($engineeringContract.artifacts.w4b2cRuntimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
+            -or $engineeringContract.artifacts.w4b2cRuntimeAndAttributionAdr -cne 'docs/decisions/ADR-002-independent-board-w4b2c-runtime-mount-and-attribution-boundary.md' `
+            -or $engineeringContract.artifacts.api2IndependentBoardTrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `
+            -or $engineeringContract.artifacts.hostUpgradeDemandIndependentBoardAttribution -cne 'docs/independent-board/HOST-UPGRADE-DEMAND-INDEPENDENT-BOARD-ATTRIBUTION.md' `
+            -or $contractW4b.state -cne 'w4b1_internal_oauth_chain_verified_w4b2_default_off_runtime_candidate_verified_local' `
+            -or $contractW4b.nextSlice -cne $canonicalNextSliceId `
+            -or $contractW4b.detailedUiPrototype.implementationState -cne 'default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions' `
+            -or $contractW4b.detailedUiPrototype.runtimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
+            -or -not (@($engineeringContract.contracts.postListingObservationGate.noCrossLayerInference) -contains 'zero_attributable_target_signal_to_zero_actual_usage')) {
+        throw 'FBS engineering contract drifted from the W4b.2c evidence boundary'
     }
 
     $w4bContract = Get-Content -LiteralPath (Join-Path $RepoRoot 'docs\independent-board\W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md') -Raw -Encoding UTF8
@@ -385,6 +623,7 @@ function Invoke-FrontendChecks {
         Invoke-FrontendNpm -Arguments @('run', 'verify:independent-board-ui')
         Invoke-FrontendNpm -Arguments @('run', 'verify:independent-board-admin-ui')
         Invoke-FrontendNpm -Arguments @('run', 'verify:independent-board-w4b2-candidate')
+        Invoke-FrontendNpm -Arguments @('run', 'verify:independent-board-w4b2c-runtime-mount')
         Invoke-FrontendNpm -Arguments @('run', 'verify:menu-components')
         Invoke-FrontendNpm -Arguments @('run', 'build:prod')
     }

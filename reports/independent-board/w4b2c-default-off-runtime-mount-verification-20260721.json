@@ -1,0 +1,183 @@
+{
+  "schema": "fbsir.independent-board.w4b2c-default-off-runtime-mount-verification/v1",
+  "result": "VERIFIED_LOCAL_DEFAULT_OFF_RUNTIME_MOUNT_CANDIDATE",
+  "observedAt": "2026-07-22T00:39:08.6533045+08:00",
+  "releaseReady": false,
+  "wave": "W4b.2c_default_off_runtime_mount_and_browser_gate",
+  "product": {
+    "brandZh": "福帮手",
+    "brandEn": "FBSir",
+    "name": "独董会",
+    "productId": "fbsir-eight-seat-board",
+    "listedVersion": "26.7.20"
+  },
+  "repository": {
+    "root": "u3w-independent-board-control-plane",
+    "branch": "codex/w4b2-default-off-candidate",
+    "remote": "https://github.com/U3W-AI/U3W-AI.git",
+    "verificationBaseCommit": "625717c07ba943157abb9aeb5f240f3f9ba5af38",
+    "evidenceBinding": "current_candidate_source_bytes_bound_by_sha256_before_commit",
+    "listedPackageWriteback": false
+  },
+  "candidate": {
+    "featureFlagProperty": "fbsir.independent-board.portal-candidate.enabled",
+    "environmentVariable": "FBSIR_INDEPENDENT_BOARD_PORTAL_CANDIDATE_ENABLED",
+    "viteEnvironmentVariable": "VITE_FBSIR_BOARD_PORTAL_CANDIDATE",
+    "defaultEnabled": false,
+    "dynamicMenuMigration": "sql/update_20260721_independent_board_portal_candidate_menu.sql",
+    "dynamicMenuMigrationSha256": "3c53215020633977eff196cb12025f65f663c90b5e3d5d74239b124f32224459",
+    "menuCount": 5,
+    "defaultDisabledMenuCount": 5,
+    "meUserRoleBindingCount": 1,
+    "adminRoleBindingCount": 0,
+    "allowedRuntimePages": 4,
+    "heldRuntimePages": 2,
+    "httpMethodAllowlist": [
+      "GET"
+    ],
+    "writeActionsAdded": false,
+    "securityEventGetAdded": false,
+    "publicOAuthOrMcpRoutesAdded": false
+  },
+  "scope": {
+    "backend": [
+      "global_system_admin_tenant_search_with_query_status_cursor",
+      "cumulative_page_cap_and_fail_closed_cursor",
+      "live_case_sensitive_role_and_permission_recheck",
+      "single_authorization_header_strict_ruoyi_bearer_parser",
+      "real_dispatcher_and_static_resource_http_404"
+    ],
+    "frontend": [
+      "pre_clone_dynamic_route_admission",
+      "exact_default_off_candidate_menu_gate",
+      "tenant_search_selector_without_manual_tenant_id",
+      "bounded_table_cursor_and_stale_response_suppression",
+      "empty_error_responsive_and_keyboard_model"
+    ],
+    "database": [
+      "manual_manifest_candidate_menu_migration",
+      "named_lock_preflight_transaction_and_exact_drift_detection",
+      "first_apply_rerun_collision_and_no_partial_write",
+      "default_disabled_current_read"
+    ]
+  },
+  "verification": {
+    "backendAll": {
+      "command": "mvn.cmd -q -pl FBSir-admin -am test",
+      "surefireReports": 112,
+      "testcaseNodes": 947,
+      "failures": 0,
+      "errors": 0,
+      "state": "PASS"
+    },
+    "centralAll": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-control-plane.ps1 -Mode All",
+      "observedAt": "2026-07-22T00:39:08.6533045+08:00",
+      "mode": "All",
+      "state": "PASS"
+    },
+    "dualMysql": [
+      {
+        "version": "MySQL Community 8.0.30",
+        "directTransactionTests": 56,
+        "refreshSecurityTests": 3,
+        "canonicalReceipts": 36,
+        "cleanupGatesPassed": 5,
+        "state": "PASS"
+      },
+      {
+        "version": "MySQL Community 8.4.8",
+        "directTransactionTests": 56,
+        "refreshSecurityTests": 3,
+        "canonicalReceipts": 36,
+        "cleanupGatesPassed": 5,
+        "state": "PASS"
+      }
+    ],
+    "menuMigration": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-menu-migration-it.ps1 -AllowDestructiveTest",
+      "mysqlBuilds": [
+        "MySQL Community 8.0.30",
+        "MySQL Community 8.4.8"
+      ],
+      "firstApplyRerunCurrentReadCollisionDriftAndCleanup": "PASS"
+    },
+    "frontendSourceCandidate": {
+      "directAssertionCallSites": 122,
+      "state": "PASS"
+    },
+    "runtimeMountContract": {
+      "exactFlag": "PASS",
+      "fourPageAllowlist": "PASS",
+      "heldPageDenylist": "PASS",
+      "preCloneRouteAdmission": "PASS"
+    },
+    "browser": {
+      "enabledFixturePort": 18082,
+      "defaultOffFixturePort": 18083,
+      "backendFixturePort": 18081,
+      "enabledAllowedPagesAccessible": 4,
+      "enabledHeldPagesHttp404": 2,
+      "defaultOffCandidateRequests": 0,
+      "narrowViewport": "PASS",
+      "emptyAndErrorStates": "PASS",
+      "keyboardModelStaticAndFocusOrder": "PASS",
+      "physicalTabKeyActuation": "NOT_PROVEN_TOOL_LIMITATION",
+      "state": "PASS_WITH_EXPLICIT_TAB_ACTUATION_GAP"
+    },
+    "productionBuild": {
+      "command": "npm run build:prod",
+      "state": "PASS"
+    },
+    "trafficAttributionContract": {
+      "command": "node --test scripts/independent-board-traffic-attribution.test.mjs",
+      "tests": 42,
+      "failures": 0,
+      "state": "PASS",
+      "report": "reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json"
+    },
+    "sourceBinding": {
+      "portalReadServiceSha256": "74a1c0883eb52f7393555e667815be7fc0cd76d507b34bf9fced8b3606e6cb70",
+      "portalReadMapperSha256": "76ebc7000562fb7c37e62e148342b63c041d441e526bd085402949c5a4b8aa7c",
+      "portalReadMapperXmlSha256": "8a29b8fd544ec9b41d4c87405b8517c4571bff737c48da390f91240e44c7876e",
+      "tenantViewSha256": "c419b60b5426aeedc46c918ae51866d0d63eb29a54d0453ccf098a975c09b40e",
+      "tokenServiceSha256": "0483f8ccce8f91b89da158be92deb34bac5f186787e7132fd56b83527156cd3a",
+      "globalExceptionHandlerSha256": "5a4f36382d95a767db9f19bcd4d88455a98ce9d9721c446fcc1539d8d015a048",
+      "permissionStoreSha256": "3d242d63645b823446d4611868b9b1002076b923746e32c267bb128dbfe596d2",
+      "routeGateSha256": "dc0de6b50cd9c30a1df0ce777c598c48d9315313b5cd40ec8e971ce0d6b82622",
+      "candidateTableSha256": "6e638d127ead4ac14b2fb1d79b959e9212c137125141db70dd3edc48659eff75",
+      "trafficAttributionSha256": "e0c02a83acef457db5302e84f75dc46ffa01d331b6705e44c94fea028fb97bab",
+      "trafficAttributionTestsSha256": "a561eb6df1df813e9e23b6385a0696627976193a70fe3c6b7c8cc3cfe6d093d2"
+    }
+  },
+  "evidenceBoundaries": {
+    "candidateRuntimeMountedLocally": true,
+    "defaultOffVerified": true,
+    "globalAdminTenantSearchVerified": true,
+    "existingRuoyiJwtIsolationVerified": true,
+    "browserInteractionVerified": true,
+    "physicalTabKeyActuationVerified": false,
+    "productionDatabaseMigrated": false,
+    "productionDomainsDeployed": false,
+    "publicOAuthOrMcpRoutesEnabled": false,
+    "listedPackageModified": false
+  },
+  "heldClosed": [
+    "security_event_get",
+    "all_portal_write_actions",
+    "all_public_oauth_and_mcp_routes",
+    "production_menu_activation",
+    "production_deployment",
+    "listed_26_7_20_package_writeback"
+  ],
+  "nextSlice": {
+    "id": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract",
+    "reason": "The local default-off portal candidate is complete, while live API2 cannot attribute official-entry traffic to the exact independent-board product.",
+    "requiredProof": [
+      "api2_exact_product_and_26_7_20_registration_without_package_writeback",
+      "immutable_26h_structured_snapshot_with_digest_and_release_identity",
+      "one_real_official_entry_same_binding_whoami_scene_pack_consume_report_only_candidate",
+      "no_public_route_or_product_credit_promotion"
+    ]
+  }
+}

@@ -48,6 +48,11 @@
       "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-menu-migration-it.ps1 -AllowDestructiveTest",
       "cwd": ".",
       "timeout_ms": 900000
+    },
+    "traffic-attribution": {
+      "run": "node --test scripts/independent-board-traffic-attribution.test.mjs",
+      "cwd": ".",
+      "timeout_ms": 120000
     }
   },
   "artifacts": {
@@ -73,6 +78,11 @@
     "w4b2FrontendCandidateVerificationReport": "reports/independent-board/w4b2-portal-frontend-source-candidate-verification-20260721.json",
     "w4b2BackendCandidateVerificationReport": "reports/independent-board/w4b2-backend-read-projection-verification-20260721.json",
     "w4b2PortalReadBoundaryAdr": "docs/decisions/ADR-001-independent-board-default-off-portal-read-boundary.md",
+    "w4b2cPortalCandidateMenuMigration": "sql/update_20260721_independent_board_portal_candidate_menu.sql",
+    "w4b2cRuntimeMountVerificationReport": "reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json",
+    "w4b2cRuntimeAndAttributionAdr": "docs/decisions/ADR-002-independent-board-w4b2c-runtime-mount-and-attribution-boundary.md",
+    "api2IndependentBoardTrafficAttributionReport": "reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json",
+    "hostUpgradeDemandIndependentBoardAttribution": "docs/independent-board/HOST-UPGRADE-DEMAND-INDEPENDENT-BOARD-ATTRIBUTION.md",
     "w2VerificationReport": "reports/independent-board/w2-user-portal-verification-20260720.json",
     "w3VerificationReport": "reports/independent-board/w3-admin-portal-verification-20260720.json",
     "w3bVerificationReport": "reports/independent-board/w3b-entitlement-lifecycle-verification-20260720.json",
@@ -87,7 +97,8 @@
       "frontend",
       "verify",
       "database-transactions",
-      "database-menu-migrations"
+      "database-menu-migrations",
+      "traffic-attribution"
     ],
     "requiredReleaseBlockers": [
       "contract",
@@ -95,22 +106,25 @@
       "frontend",
       "verify",
       "database-transactions",
-      "database-menu-migrations"
+      "database-menu-migrations",
+      "traffic-attribution"
     ],
     "requiredWorkflowCommands": {
       "verify": [
         "contract",
         "backend",
         "frontend",
-        "verify",
-        "database-transactions",
-        "database-menu-migrations"
+          "verify",
+          "database-transactions",
+          "database-menu-migrations",
+          "traffic-attribution"
       ]
     },
     "applicationRuntimeEvidenceCommands": [
       "board-http-security",
       "database-transactions",
-      "database-menu-migrations"
+      "database-menu-migrations",
+      "traffic-attribution"
     ],
     "w1ScratchEvidenceCommands": [
       "database-live",
@@ -134,7 +148,8 @@
       "frontend",
       "verify",
       "database-transactions",
-      "database-menu-migrations"
+      "database-menu-migrations",
+      "traffic-attribution"
     ]
   },
   "contracts": {
@@ -179,12 +194,14 @@
       "currentEvidence": [
         "user_confirmed_official_listing",
         "official_experts_plugin_directory_detected",
-        "official_runtime_payload_matches_final_R_artifact_81_of_81_files"
+        "official_runtime_payload_matches_final_R_artifact_81_of_81_files",
+        "api2_fixed_24h_scanned_available_application_evidence_has_zero_target_signature_with_official_entry_projection_gap"
       ],
       "noCrossLayerInference": [
         "official_listing_to_natural_invocation",
         "official_listing_to_business_attribution",
-        "official_listing_to_service_side_closure"
+        "official_listing_to_service_side_closure",
+        "zero_attributable_target_signal_to_zero_actual_usage"
       ]
     },
     "controlPlane": {
@@ -303,7 +320,7 @@
         ]
       },
       "w4bImplementation": {
-        "state": "w4b1_internal_oauth_chain_and_refresh_security_verified_local_w4b2a_frontend_and_w4b2b_backend_candidates_verified_default_off",
+        "state": "w4b1_internal_oauth_chain_verified_w4b2_default_off_runtime_candidate_verified_local",
         "contract": "docs/independent-board/W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md",
         "inputEvidence": "docs/independent-board/W4B-INPUT-EVIDENCE.json",
         "issuer": "https://api2.u3w.com",
@@ -314,6 +331,8 @@
         "publicRoutes": "closed_until_executable_negative_matrix_passes",
         "verificationReport": "reports/independent-board/w4b-oauth-refresh-security-verification-20260721.json",
         "backendCandidateVerificationReport": "reports/independent-board/w4b2-backend-read-projection-verification-20260721.json",
+        "runtimeMountVerificationReport": "reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json",
+        "api2TrafficAttributionReport": "reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json",
         "verifiedInternalServices": [
           "profile_constrained_dcr",
           "authorization_code_approval_denial_and_pkce_s256",
@@ -322,15 +341,16 @@
           "post_lock_final_time_and_authorization_code_replay_containment",
           "receipt_v2_refresh_rotation_and_refresh_replay_family_binding_containment"
         ],
-        "nextSlice": "w4b2c_default_off_candidate_menu_router_runtime_mount_global_admin_tenant_search_existing_ruoyi_security_chain_isolation_and_browser_gate",
+        "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract",
         "publicRefreshGate": "workbuddy_single_flight_atomic_token_store_no_ambiguous_old_token_retry_and_reauthorize_ux_required",
         "detailedUiPrototype": {
           "state": "confirmed_for_w4b2_candidate_only",
           "confirmation": "explicit_user_confirmation_2026_07_20",
           "productionImplementationAllowed": true,
-          "implementationState": "frontend_source_and_backend_read_candidates_verified_default_off_without_router_menu_public_routes_or_write_actions",
+          "implementationState": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
           "frontendCandidateVerificationReport": "reports/independent-board/w4b2-portal-frontend-source-candidate-verification-20260721.json",
           "backendCandidateVerificationReport": "reports/independent-board/w4b2-backend-read-projection-verification-20260721.json",
+          "runtimeMountVerificationReport": "reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json",
           "unlockCondition": "satisfied_by_explicit_user_confirmation_2026_07_20"
         }
       },
