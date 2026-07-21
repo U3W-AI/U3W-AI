@@ -80,8 +80,10 @@ test('API2 host-forwarding ack must use the live object contract and a registere
     serverBindingId: binding, bindingIdentitySource: 'derived_identity_seed', productSignatureProductId: TARGET.productId, productSignatureStrength: 'strict_listed_product_signature', productSignatureDiagnosticOnly: false, productSignatureProductCreditCandidate: true,
   };
   assert.equal(normalizeApi2HostForwardingAck(row).productId, TARGET.productId);
+  assert.equal(normalizeApi2HostForwardingAck({ ...row, serverBindingId: 'srv_AbC123_xYz90' }).serverBindingId, 'srv_AbC123_xYz90');
   assert.throws(() => normalizeApi2HostForwardingAck({ ...row, serverVerifiedHostForwardingAck: true }), /ack_not_verified/);
   assert.throws(() => normalizeApi2HostForwardingAck({ ...row, productSignatureProductId: 'workbuddy_board_secretary_assistant' }), /target_not_registered/);
   assert.throws(() => normalizeApi2HostForwardingAck({ ...row, trafficClassificationAuthority: 'server_verified' }), /authority_mismatch/);
   assert.throws(() => normalizeApi2HostForwardingAck({ ...row, bindingIdentitySource: 'traceparent' }), /binding_not_server_derived/);
+  assert.throws(() => normalizeApi2HostForwardingAck({ ...row, serverVerifiedHostForwardingAck: { ...row.serverVerifiedHostForwardingAck, serverBindingId: 'srv_other_123456' } }), /binding_ack_mismatch/);
 });

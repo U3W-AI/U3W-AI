@@ -104,7 +104,8 @@ export function normalizeApi2HostForwardingAck(row) {
   const trafficClass = row.trafficClass ?? row.sourceTrafficClass;
   if (authority !== 'server_verified_host_forwarding_ack' || trust !== 'server_dispatch_ack_verified' || group !== 'natural' || trafficClass !== 'host_forwarding_ack_verified') fail('api2_ack_authority_mismatch');
   const serverBindingId = row.serverBindingId;
-  if (typeof serverBindingId !== 'string' || !/^[a-f0-9]{64}$/.test(serverBindingId) || !['derived_identity_seed', 'session_token_seeded', 'continuity_rescued', 'server_continuity_rescued'].includes(row.bindingIdentitySource)) fail('api2_binding_not_server_derived');
+  if (typeof serverBindingId !== 'string' || !(/^[a-f0-9]{64}$/.test(serverBindingId) || /^srv_[A-Za-z0-9_-]{12}$/.test(serverBindingId)) || !['derived_identity_seed', 'session_token_seeded', 'continuity_rescued', 'server_continuity_rescued'].includes(row.bindingIdentitySource)) fail('api2_binding_not_server_derived');
+  if (ack.serverBindingId !== undefined && ack.serverBindingId !== serverBindingId) fail('api2_binding_ack_mismatch');
   if (row.idempotencyKey !== undefined && ack.coveredEventId !== undefined && row.idempotencyKey !== ack.coveredEventId) fail('api2_ack_event_mismatch');
   const productId = row.productSignatureProductId ?? row.productId;
   if (productId !== TARGET.productId || row.productSignatureStrength !== 'strict_listed_product_signature' || row.productSignatureDiagnosticOnly !== false || row.productSignatureProductCreditCandidate !== true) fail('api2_target_not_registered');
