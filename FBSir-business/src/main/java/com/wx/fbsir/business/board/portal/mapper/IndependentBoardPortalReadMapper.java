@@ -20,6 +20,8 @@ public interface IndependentBoardPortalReadMapper {
 
     List<BoardPortalOAuthFamilyRow> selectOAuthFamilies(
             @Param("tenantId") Long tenantId,
+            @Param("memberId") Long memberId,
+            @Param("userId") Long userId,
             @Param("status") String status,
             @Param("now") Date now,
             @Param("highWaterId") Long highWaterId,
@@ -28,6 +30,8 @@ public interface IndependentBoardPortalReadMapper {
 
     List<BoardPortalConnectorBindingRow> selectConnectorBindings(
             @Param("tenantId") Long tenantId,
+            @Param("memberId") Long memberId,
+            @Param("userId") Long userId,
             @Param("status") String status,
             @Param("now") Date now,
             @Param("highWaterId") Long highWaterId,

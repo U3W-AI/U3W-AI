@@ -1,9 +1,12 @@
 package com.wx.fbsir.business.board.portal;
 
+import com.wx.fbsir.business.board.domain.BoardEnterpriseMemberScope;
+import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
 import com.wx.fbsir.business.board.oauth.BoardOAuthCrypto;
 import com.wx.fbsir.business.board.oauth.BoardOAuthProfile;
 import com.wx.fbsir.business.board.oauth.service.IndependentBoardOAuthClientRegistrationService;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalConnectorBindingView;
+import com.wx.fbsir.business.board.portal.dto.BoardPortalConnectorView;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalOAuthClientView;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalOAuthFamilyView;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalReadEnvelope;
@@ -64,16 +67,19 @@ public class IndependentBoardPortalReadService {
             Set.of("MCP_INITIALIZE", "MCP_TOOLS_LIST");
 
     private final IndependentBoardPortalReadMapper mapper;
+    private final IndependentBoardMapper boardMapper;
     private final BoardPortalReadCursor cursorCodec;
     private final BoardPortalDigestRef digestRef;
     private final Clock clock;
 
     public IndependentBoardPortalReadService(
             IndependentBoardPortalReadMapper mapper,
+            IndependentBoardMapper boardMapper,
             BoardPortalReadCursor cursorCodec,
             BoardPortalDigestRef digestRef,
             Clock clock) {
         this.mapper = Objects.requireNonNull(mapper, "mapper");
+        this.boardMapper = Objects.requireNonNull(boardMapper, "boardMapper");
         this.cursorCodec = Objects.requireNonNull(cursorCodec, "cursorCodec");
         this.digestRef = Objects.requireNonNull(digestRef, "digestRef");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -118,6 +124,8 @@ public class IndependentBoardPortalReadService {
         Instant now = clock.instant();
         List<BoardPortalOAuthFamilyRow> rows = mapper.selectOAuthFamilies(
                 tenantId,
+                null,
+                null,
                 mapperStatus(normalizedStatus),
                 Date.from(now),
                 position.highWaterId(),
@@ -144,6 +152,8 @@ public class IndependentBoardPortalReadService {
         Instant now = clock.instant();
         List<BoardPortalConnectorBindingRow> rows = mapper.selectConnectorBindings(
                 tenantId,
+                null,
+                null,
                 mapperStatus(normalizedStatus),
                 Date.from(now),
                 position.highWaterId(),
@@ -153,6 +163,227 @@ public class IndependentBoardPortalReadService {
                 row -> requireRowId(row == null ? null : row.getRowId()),
                 row -> toBindingView(row, tenantId, now),
                 BoardPortalConnectorBindingView::bindingRef);
+    }
+
+    public BoardPortalConnectorView getConnector(long principalId, long tenantId) {
+        requirePositive(principalId, "INVALID_PRINCIPAL");
+        requirePositive(tenantId, "INVALID_TENANT");
+        BoardEnterpriseMemberScope context = boardMapper.selectActiveContext(
+                tenantId, principalId);
+        if (context == null) {
+            throw new BoardPortalForbiddenException("TENANT_MEMBERSHIP_REQUIRED");
+        }
+        if (!Objects.equals(context.getTenantId(), tenantId)
+                || !Objects.equals(context.getUserId(), principalId)
+                || !isPositive(context.getMemberId())
+                || !Objects.equals(context.getStatus(), 1)
+                || !"0".equals(context.getDelFlag())) {
+            throw drift("MEMBERSHIP_SCOPE_DRIFT");
+        }
+
+        long memberId = context.getMemberId();
+        Instant now = clock.instant();
+        List<BoardPortalOAuthFamilyRow> familyRows = mapper.selectOAuthFamilies(
+                tenantId, memberId, principalId, null, Date.from(now),
+                null, null, 3);
+        List<BoardPortalConnectorBindingRow> bindingRows = mapper.selectConnectorBindings(
+                tenantId, memberId, principalId, null, Date.from(now),
+                null, null, 2);
+        if (familyRows == null || familyRows.size() > 3
+                || bindingRows == null || bindingRows.size() > 1) {
+            return unknownConnector(tenantId, memberId);
+        }
+
+        try {
+            List<FamilyCandidate> families = currentFamilies(
+                    familyRows, tenantId, memberId, principalId, now);
+            List<BoardPortalConnectorBindingView> bindings = currentBindings(
+                    bindingRows, tenantId, memberId, principalId, now);
+            List<FamilyCandidate> activeFamilies = families.stream()
+                    .filter(candidate -> "ACTIVE".equals(candidate.view().status()))
+                    .toList();
+            List<FamilyCandidate> pendingFamilies = families.stream()
+                    .filter(candidate -> "PENDING_BINDING".equals(candidate.view().status()))
+                    .toList();
+            if (activeFamilies.size() > 1 || pendingFamilies.size() > 1) {
+                return unknownConnector(tenantId, memberId);
+            }
+            if (activeFamilies.size() == 1) {
+                FamilyCandidate activeFamily = activeFamilies.get(0);
+                BoardPortalConnectorBindingView activeBinding = bindings.stream()
+                        .filter(BoardPortalConnectorBindingView::vipEffective)
+                        .filter(binding -> Objects.equals(
+                                binding.bindingRef(), activeFamily.view().bindingRef()))
+                        .filter(binding -> Objects.equals(
+                                binding.clientRef(), activeFamily.view().clientRef()))
+                        .findFirst()
+                        .orElse(null);
+                return activeBinding == null
+                        ? unknownConnector(tenantId, memberId)
+                        : activeConnector(
+                                tenantId, memberId, activeFamily.view(), activeBinding);
+            }
+            if (pendingFamilies.size() == 1) {
+                FamilyCandidate pending = pendingFamilies.get(0);
+                return Boolean.TRUE.equals(pending.row().getPendingActivationProven())
+                        ? pendingConnector(tenantId, memberId, pending.view())
+                        : reauthConnector(
+                                tenantId, memberId, pending.view(), bindings);
+            }
+            if (families.isEmpty()) {
+                return bindings.isEmpty()
+                        ? notConnected(tenantId, memberId)
+                        : unknownConnector(tenantId, memberId);
+            }
+            return reauthConnector(tenantId, memberId, families.get(0).view(), bindings);
+        } catch (BoardPortalDataDriftException exception) {
+            return unknownConnector(tenantId, memberId);
+        }
+    }
+
+    private List<FamilyCandidate> currentFamilies(
+            List<BoardPortalOAuthFamilyRow> rows,
+            long tenantId,
+            long memberId,
+            long userId,
+            Instant now) {
+        List<FamilyCandidate> result = new ArrayList<>(rows.size());
+        long previousId = Long.MAX_VALUE;
+        for (BoardPortalOAuthFamilyRow row : rows) {
+            long rowId = requireRowId(row == null ? null : row.getRowId());
+            if (rowId >= previousId
+                    || !Objects.equals(row.getMemberId(), memberId)
+                    || !Objects.equals(row.getUserId(), userId)) {
+                throw drift("CONNECTOR_FAMILY_SCOPE_DRIFT");
+            }
+            previousId = rowId;
+            result.add(new FamilyCandidate(row, toFamilyView(row, tenantId, now)));
+        }
+        return List.copyOf(result);
+    }
+
+    private List<BoardPortalConnectorBindingView> currentBindings(
+            List<BoardPortalConnectorBindingRow> rows,
+            long tenantId,
+            long memberId,
+            long userId,
+            Instant now) {
+        List<BoardPortalConnectorBindingView> result = new ArrayList<>(rows.size());
+        long previousId = Long.MAX_VALUE;
+        for (BoardPortalConnectorBindingRow row : rows) {
+            long rowId = requireRowId(row == null ? null : row.getRowId());
+            if (rowId >= previousId
+                    || !Objects.equals(row.getMemberId(), memberId)
+                    || !Objects.equals(row.getUserId(), userId)) {
+                throw drift("CONNECTOR_BINDING_SCOPE_DRIFT");
+            }
+            previousId = rowId;
+            result.add(toBindingView(row, tenantId, now));
+        }
+        return List.copyOf(result);
+    }
+
+    private BoardPortalConnectorView activeConnector(
+            long tenantId,
+            long memberId,
+            BoardPortalOAuthFamilyView family,
+            BoardPortalConnectorBindingView binding) {
+        Instant expiresAt = family.expiresAt().isBefore(binding.validUntil())
+                ? family.expiresAt() : binding.validUntil();
+        if (family.issuedAt().isAfter(binding.lastSeenAt())
+                || !binding.lastSeenAt().isBefore(expiresAt)) {
+            return unknownConnector(tenantId, memberId);
+        }
+        return new BoardPortalConnectorView(
+                tenantId,
+                memberId,
+                "ACTIVE",
+                "BOARD_VIP",
+                family.clientRef(),
+                family.familyRef(),
+                binding.bindingRef(),
+                BoardOAuthProfile.REQUIRED_SCOPES,
+                family.issuedAt(),
+                expiresAt,
+                binding.lastSeenAt(),
+                Math.max(family.version(), binding.version()),
+                "ACTION_COMPLETED");
+    }
+
+    private BoardPortalConnectorView pendingConnector(
+            long tenantId,
+            long memberId,
+            BoardPortalOAuthFamilyView family) {
+        return new BoardPortalConnectorView(
+                tenantId,
+                memberId,
+                "PENDING_ACTIVATION",
+                "BOARD_FREE",
+                family.clientRef(),
+                family.familyRef(),
+                null,
+                BoardOAuthProfile.REQUIRED_SCOPES,
+                family.issuedAt(),
+                family.expiresAt(),
+                null,
+                family.version(),
+                "ACTION_COMPLETED");
+    }
+
+    private BoardPortalConnectorView reauthConnector(
+            long tenantId,
+            long memberId,
+            BoardPortalOAuthFamilyView family,
+            List<BoardPortalConnectorBindingView> bindings) {
+        BoardPortalConnectorBindingView matchingBinding = bindings.stream()
+                .filter(binding -> Objects.equals(binding.bindingRef(), family.bindingRef()))
+                .filter(binding -> Objects.equals(binding.clientRef(), family.clientRef()))
+                .filter(binding -> !family.issuedAt().isAfter(binding.lastSeenAt()))
+                .filter(binding -> binding.lastSeenAt().isBefore(family.expiresAt()))
+                .findFirst()
+                .orElse(null);
+        return new BoardPortalConnectorView(
+                tenantId,
+                memberId,
+                "REAUTH_REQUIRED",
+                "BOARD_FREE",
+                family.clientRef(),
+                family.familyRef(),
+                matchingBinding == null ? null : matchingBinding.bindingRef(),
+                BoardOAuthProfile.REQUIRED_SCOPES,
+                family.issuedAt(),
+                family.expiresAt(),
+                matchingBinding == null ? null : matchingBinding.lastSeenAt(),
+                family.version(),
+                "CURRENT_READ_COMPLETE");
+    }
+
+    private static BoardPortalConnectorView notConnected(long tenantId, long memberId) {
+        return emptyConnector(
+                tenantId, memberId, "NOT_CONNECTED", "CURRENT_READ_COMPLETE");
+    }
+
+    private static BoardPortalConnectorView unknownConnector(long tenantId, long memberId) {
+        return emptyConnector(
+                tenantId, memberId, "UNKNOWN", "CURRENT_READ_INCOMPLETE");
+    }
+
+    private static BoardPortalConnectorView emptyConnector(
+            long tenantId, long memberId, String state, String evidenceLevel) {
+        return new BoardPortalConnectorView(
+                tenantId,
+                memberId,
+                state,
+                "BOARD_FREE",
+                null,
+                null,
+                null,
+                List.of(),
+                null,
+                null,
+                null,
+                0L,
+                evidenceLevel);
     }
 
     private BoardPortalOAuthClientView toClientView(
@@ -603,5 +834,10 @@ public class IndependentBoardPortalReadService {
     }
 
     private record PagePosition(Long highWaterId, Long lastId) {
+    }
+
+    private record FamilyCandidate(
+            BoardPortalOAuthFamilyRow row,
+            BoardPortalOAuthFamilyView view) {
     }
 }

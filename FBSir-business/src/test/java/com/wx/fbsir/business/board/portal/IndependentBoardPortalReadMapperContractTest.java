@@ -100,7 +100,7 @@ class IndependentBoardPortalReadMapperContractTest {
         assertTrue(sql.endsWith("limit ?"));
         assertFalse(sql.contains("token_digest"));
         assertFalse(sql.contains("origin_authorization_code_id"));
-        assertFalse(sql.contains("principal_subject_digest"));
+        assertFalse(sql.contains("f.principal_subject_digest as"));
     }
 
     @Test
@@ -132,9 +132,49 @@ class IndependentBoardPortalReadMapperContractTest {
         assertFalse(sql.contains("token_digest"));
     }
 
+    @Test
+    void meCurrentReadsAppendExactMemberUserAndPendingReceiptProof() {
+        Map<String, Object> familyParameters = parameters(true);
+        familyParameters.put("memberId", 21L);
+        familyParameters.put("userId", 7L);
+        familyParameters.put("status", null);
+        familyParameters.put("highWaterId", null);
+        familyParameters.put("lastId", null);
+        familyParameters.put("rowLimit", 3);
+        String family = sql("selectOAuthFamilies", familyParameters);
+
+        assertTrue(family.contains("f.enterprise_id = ?"));
+        assertTrue(family.contains("f.member_id = ?"));
+        assertTrue(family.contains("f.user_id = ?"));
+        assertTrue(family.contains("access_token.token_type = 'access'"));
+        assertTrue(family.contains("pending_refresh.token_type = 'refresh'"));
+        assertTrue(family.contains("created_receipt.action = 'token_family_created'"));
+        assertTrue(family.contains("created_receipt.evidence_level = 'action_completed'"));
+        assertTrue(family.endsWith("limit ?"));
+
+        Map<String, Object> bindingParameters = parameters(true);
+        bindingParameters.put("memberId", 21L);
+        bindingParameters.put("userId", 7L);
+        bindingParameters.put("status", null);
+        bindingParameters.put("highWaterId", null);
+        bindingParameters.put("lastId", null);
+        bindingParameters.put("rowLimit", 2);
+        String binding = sql("selectConnectorBindings", bindingParameters);
+
+        assertTrue(binding.contains("b.enterprise_id = ?"));
+        assertTrue(binding.contains("b.member_id = ?"));
+        assertTrue(binding.contains("b.user_id = ?"));
+        assertTrue(binding.contains("activation_receipt.action in"
+                + " ('token_family_activated', 'token_family_reauthorized')"));
+        assertTrue(binding.contains(
+                "binding_receipt.action = 'connector_binding_verified'"));
+    }
+
     private static Map<String, Object> parameters(boolean tenantScoped) {
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("status", "ACTIVE");
+        parameters.put("memberId", null);
+        parameters.put("userId", null);
         parameters.put("now", new Date(1_752_000_000_000L));
         parameters.put("highWaterId", 200L);
         parameters.put("lastId", 123L);

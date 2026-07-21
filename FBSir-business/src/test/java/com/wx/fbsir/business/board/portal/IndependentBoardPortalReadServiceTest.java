@@ -3,11 +3,14 @@ package com.wx.fbsir.business.board.portal;
 import com.wx.fbsir.business.board.oauth.BoardOAuthCrypto;
 import com.wx.fbsir.business.board.oauth.BoardOAuthProfile;
 import com.wx.fbsir.business.board.oauth.service.IndependentBoardOAuthClientRegistrationService;
+import com.wx.fbsir.business.board.domain.BoardEnterpriseMemberScope;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalConnectorBindingView;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalOAuthClientView;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalOAuthFamilyView;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalReadEnvelope;
 import com.wx.fbsir.business.board.portal.mapper.IndependentBoardPortalReadMapper;
+import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
+import com.wx.fbsir.business.board.portal.dto.BoardPortalConnectorView;
 import com.wx.fbsir.business.board.portal.persistence.BoardPortalConnectorBindingRow;
 import com.wx.fbsir.business.board.portal.persistence.BoardPortalOAuthClientRow;
 import com.wx.fbsir.business.board.portal.persistence.BoardPortalOAuthFamilyRow;
@@ -47,14 +50,17 @@ class IndependentBoardPortalReadServiceTest {
             "fedcba9876543210fedcba9876543210".getBytes(StandardCharsets.US_ASCII);
 
     private IndependentBoardPortalReadMapper mapper;
+    private IndependentBoardMapper boardMapper;
     private IndependentBoardPortalReadService service;
 
     @BeforeEach
     void setUp() {
         mapper = mock(IndependentBoardPortalReadMapper.class);
+        boardMapper = mock(IndependentBoardMapper.class);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         service = new IndependentBoardPortalReadService(
                 mapper,
+                boardMapper,
                 new BoardPortalReadCursor(CURSOR_KEY, clock, Duration.ofMinutes(15)),
                 new BoardPortalDigestRef(REFERENCE_KEY),
                 clock);
@@ -103,9 +109,9 @@ class IndependentBoardPortalReadServiceTest {
         verify(mapper, never()).selectOAuthClients(
                 any(), any(), any(), any(), anyInt());
         verify(mapper, never()).selectOAuthFamilies(
-                anyLong(), any(), any(), any(), any(), anyInt());
+                anyLong(), any(), any(), any(), any(), any(), any(), anyInt());
         verify(mapper, never()).selectConnectorBindings(
-                anyLong(), any(), any(), any(), any(), anyInt());
+                anyLong(), any(), any(), any(), any(), any(), any(), anyInt());
     }
 
     @Test
@@ -114,7 +120,7 @@ class IndependentBoardPortalReadServiceTest {
         row.setExpiresAt(Date.from(NOW));
         row.setEffectiveStatus("EXPIRED");
         row.setEffectiveTerminatedAt(Date.from(NOW));
-        when(mapper.selectOAuthFamilies(11L, "EXPIRED", Date.from(NOW),
+        when(mapper.selectOAuthFamilies(11L, null, null, "EXPIRED", Date.from(NOW),
                 null, null, 101)).thenReturn(List.of(row));
 
         BoardPortalReadEnvelope<BoardPortalOAuthFamilyView> page =
@@ -133,7 +139,8 @@ class IndependentBoardPortalReadServiceTest {
     void crossTenantOrTemporallyInvalidRowsFailTheWholeFamilyPage() {
         BoardPortalOAuthFamilyRow crossTenant = family(90L, "ACTIVE");
         crossTenant.setTenantId(12L);
-        when(mapper.selectOAuthFamilies(11L, null, Date.from(NOW), null, null, 101))
+        when(mapper.selectOAuthFamilies(11L, null, null, null,
+                Date.from(NOW), null, null, 101))
                 .thenReturn(List.of(family(91L, "ACTIVE"), crossTenant));
 
         assertThrows(BoardPortalDataDriftException.class,
@@ -143,7 +150,7 @@ class IndependentBoardPortalReadServiceTest {
         BoardPortalOAuthFamilyRow tooLong = family(92L, "ACTIVE");
         tooLong.setExpiresAt(Date.from(tooLong.getIssuedAt().toInstant()
                 .plus(Duration.ofDays(30)).plusMillis(1)));
-        when(mapper.selectOAuthFamilies(11L, "ACTIVE", Date.from(NOW),
+        when(mapper.selectOAuthFamilies(11L, null, null, "ACTIVE", Date.from(NOW),
                 null, null, 101)).thenReturn(List.of(tooLong));
         assertThrows(BoardPortalDataDriftException.class,
                 () -> service.listOAuthFamilies(7L, 11L, "ACTIVE", null));
@@ -151,7 +158,7 @@ class IndependentBoardPortalReadServiceTest {
         reset(mapper);
         BoardPortalOAuthFamilyRow missingStatus = family(93L, "ACTIVE");
         missingStatus.setEffectiveStatus(null);
-        when(mapper.selectOAuthFamilies(11L, null, Date.from(NOW),
+        when(mapper.selectOAuthFamilies(11L, null, null, null, Date.from(NOW),
                 null, null, 101)).thenReturn(List.of(missingStatus));
         assertThrows(BoardPortalDataDriftException.class,
                 () -> service.listOAuthFamilies(7L, 11L, null, null));
@@ -165,7 +172,7 @@ class IndependentBoardPortalReadServiceTest {
                 "identity.read",
                 "board.meeting.reserve",
                 "entitlement.read"));
-        when(mapper.selectConnectorBindings(11L, "ACTIVE", Date.from(NOW),
+        when(mapper.selectConnectorBindings(11L, null, null, "ACTIVE", Date.from(NOW),
                 null, null, 101)).thenReturn(List.of(row));
 
         BoardPortalReadEnvelope<BoardPortalConnectorBindingView> page =
@@ -186,7 +193,7 @@ class IndependentBoardPortalReadServiceTest {
         BoardPortalConnectorBindingRow terminal = binding(80L, "REVOKED");
         terminal.setRevokedAt(Date.from(NOW.minus(Duration.ofMinutes(30))));
         terminal.setFamilyActive(false);
-        when(mapper.selectConnectorBindings(11L, "REVOKED", Date.from(NOW),
+        when(mapper.selectConnectorBindings(11L, null, null, "REVOKED", Date.from(NOW),
                 null, null, 101)).thenReturn(List.of(terminal));
 
         BoardPortalConnectorBindingView view = service.listConnectorBindings(
@@ -199,7 +206,7 @@ class IndependentBoardPortalReadServiceTest {
         malformed.setScopes(List.of(
                 "identity.read", "identity.read",
                 "board.meeting.reserve", "board.receipt.write"));
-        when(mapper.selectConnectorBindings(11L, null, Date.from(NOW),
+        when(mapper.selectConnectorBindings(11L, null, null, null, Date.from(NOW),
                 null, null, 101)).thenReturn(List.of(malformed));
         assertThrows(BoardPortalDataDriftException.class,
                 () -> service.listConnectorBindings(7L, 11L, null, null));
@@ -219,6 +226,101 @@ class IndependentBoardPortalReadServiceTest {
                 digestRef.reference("client-metadata", "client-1", digest));
         assertThrows(IllegalArgumentException.class,
                 () -> digestRef.reference("client-metadata", "client-1", new byte[31]));
+    }
+
+    @Test
+    void meConnectorRequiresTheJwtUsersExactActiveMembershipBeforePortalReads() {
+        when(boardMapper.selectActiveContext(11L, 7L)).thenReturn(null);
+
+        assertThrows(BoardPortalForbiddenException.class,
+                () -> service.getConnector(7L, 11L));
+
+        verify(mapper, never()).selectOAuthFamilies(
+                anyLong(), any(), any(), any(), any(), any(), any(), anyInt());
+        verify(mapper, never()).selectConnectorBindings(
+                anyLong(), any(), any(), any(), any(), any(), any(), anyInt());
+    }
+
+    @Test
+    void meConnectorDistinguishesNotConnectedPendingActiveAndReauthStates() {
+        when(boardMapper.selectActiveContext(11L, 7L)).thenReturn(activeContext());
+        when(mapper.selectOAuthFamilies(11L, 21L, 7L, null, Date.from(NOW),
+                null, null, 3)).thenReturn(List.of());
+        when(mapper.selectConnectorBindings(11L, 21L, 7L, null, Date.from(NOW),
+                null, null, 2)).thenReturn(List.of());
+        BoardPortalConnectorView notConnected = service.getConnector(7L, 11L);
+        assertEquals("NOT_CONNECTED", notConnected.uiState());
+        assertEquals("CURRENT_READ_COMPLETE", notConnected.evidenceLevel());
+        assertEquals("BOARD_FREE", notConnected.effectivePlanCode());
+
+        reset(mapper);
+        BoardPortalOAuthFamilyRow pending = family(95L, "PENDING_BINDING");
+        pending.setUserId(7L);
+        pending.setPendingActivationProven(true);
+        when(mapper.selectOAuthFamilies(11L, 21L, 7L, null, Date.from(NOW),
+                null, null, 3)).thenReturn(List.of(pending));
+        when(mapper.selectConnectorBindings(11L, 21L, 7L, null, Date.from(NOW),
+                null, null, 2)).thenReturn(List.of());
+        BoardPortalConnectorView pendingView = service.getConnector(7L, 11L);
+        assertEquals("PENDING_ACTIVATION", pendingView.uiState());
+        assertEquals("ACTION_COMPLETED", pendingView.evidenceLevel());
+        assertNull(pendingView.bindingRef());
+
+        reset(mapper);
+        BoardPortalOAuthFamilyRow active = family(96L, "ACTIVE");
+        active.setUserId(7L);
+        active.setCurrentBindingUserId(7L);
+        BoardPortalConnectorBindingRow activeBinding = binding(86L, "ACTIVE");
+        activeBinding.setUserId(7L);
+        activeBinding.setBindingRef(active.getBindingRef());
+        activeBinding.setClientRef(active.getClientRef());
+        when(mapper.selectOAuthFamilies(11L, 21L, 7L, null, Date.from(NOW),
+                null, null, 3)).thenReturn(List.of(active));
+        when(mapper.selectConnectorBindings(11L, 21L, 7L, null, Date.from(NOW),
+                null, null, 2)).thenReturn(List.of(activeBinding));
+        BoardPortalConnectorView activeView = service.getConnector(7L, 11L);
+        assertEquals("ACTIVE", activeView.uiState());
+        assertEquals("BOARD_VIP", activeView.effectivePlanCode());
+        assertEquals("ACTION_COMPLETED", activeView.evidenceLevel());
+
+        reset(mapper);
+        BoardPortalOAuthFamilyRow expired = family(97L, "ACTIVE");
+        expired.setUserId(7L);
+        expired.setExpiresAt(Date.from(NOW));
+        expired.setEffectiveStatus("EXPIRED");
+        expired.setEffectiveTerminatedAt(Date.from(NOW));
+        when(mapper.selectOAuthFamilies(11L, 21L, 7L, null, Date.from(NOW),
+                null, null, 3)).thenReturn(List.of(expired));
+        when(mapper.selectConnectorBindings(11L, 21L, 7L, null, Date.from(NOW),
+                null, null, 2)).thenReturn(List.of());
+        BoardPortalConnectorView reauth = service.getConnector(7L, 11L);
+        assertEquals("REAUTH_REQUIRED", reauth.uiState());
+        assertEquals("BOARD_FREE", reauth.effectivePlanCode());
+        assertEquals("CURRENT_READ_COMPLETE", reauth.evidenceLevel());
+    }
+
+    @Test
+    void ambiguousMeTopologyFailsClosedAsUnknownWithoutLeakingReferences() {
+        when(boardMapper.selectActiveContext(11L, 7L)).thenReturn(activeContext());
+        BoardPortalOAuthFamilyRow first = family(99L, "ACTIVE");
+        first.setUserId(7L);
+        first.setCurrentBindingUserId(7L);
+        BoardPortalOAuthFamilyRow second = family(98L, "ACTIVE");
+        second.setUserId(7L);
+        second.setCurrentBindingUserId(7L);
+        when(mapper.selectOAuthFamilies(11L, 21L, 7L, null, Date.from(NOW),
+                null, null, 3)).thenReturn(List.of(first, second));
+        when(mapper.selectConnectorBindings(11L, 21L, 7L, null, Date.from(NOW),
+                null, null, 2)).thenReturn(List.of());
+
+        BoardPortalConnectorView view = service.getConnector(7L, 11L);
+
+        assertEquals("UNKNOWN", view.uiState());
+        assertEquals("CURRENT_READ_INCOMPLETE", view.evidenceLevel());
+        assertNull(view.clientRef());
+        assertNull(view.familyRef());
+        assertNull(view.bindingRef());
+        assertEquals(List.of(), view.scopes());
     }
 
     private static BoardPortalOAuthClientRow client(long id, String status) {
@@ -337,5 +439,16 @@ class IndependentBoardPortalReadServiceTest {
         byte[] digest = new byte[32];
         java.util.Arrays.fill(digest, (byte) value);
         return digest;
+    }
+
+    private static BoardEnterpriseMemberScope activeContext() {
+        BoardEnterpriseMemberScope context = new BoardEnterpriseMemberScope();
+        context.setTenantId(11L);
+        context.setMemberId(21L);
+        context.setUserId(7L);
+        context.setStatus(1);
+        context.setDelFlag("0");
+        context.setMemberRole("MEMBER");
+        return context;
     }
 }

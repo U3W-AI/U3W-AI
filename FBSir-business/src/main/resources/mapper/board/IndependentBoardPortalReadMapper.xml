@@ -56,6 +56,7 @@
         <result property="expiresAt" column="expires_at" />
         <result property="effectiveTerminatedAt" column="effective_terminated_at" />
         <result property="version" column="version" />
+        <result property="pendingActivationProven" column="pending_activation_proven" />
         <result property="clientDisplayName" column="client_display_name" />
         <result property="clientStatus" column="client_status" />
         <result property="clientExpiresAt" column="client_expires_at" />
@@ -210,6 +211,68 @@
                    ELSE f.terminated_at
                END AS effective_terminated_at,
                f.version,
+               CASE WHEN f.status = 'PENDING_BINDING'
+                          AND f.binding_id IS NULL
+                          AND f.activated_at IS NULL
+                          AND f.terminated_at IS NULL
+                          AND f.current_refresh_generation = 0
+                          AND f.expires_at &gt; #{now}
+                          AND c.status = 'ACTIVE'
+                          AND c.terminated_at IS NULL
+                          AND c.expires_at &gt; #{now}
+                          AND c.issuer_uri = 'https://api2.u3w.com'
+                          AND c.resource_uri = 'https://api2.u3w.com/fbs-mcp/mcp'
+                          AND CAST(c.product_code AS BINARY)
+                                 = CAST('FBSIR_INDEPENDENT_BOARD' AS BINARY)
+                          AND c.source_code = 'WORKBUDDY'
+                          AND c.connector_code = 'fbs-connector'
+                          AND c.token_endpoint_auth_method = 'none'
+                          AND c.grant_types_canonical = 'authorization_code refresh_token'
+                          AND c.response_types_canonical = 'code'
+                          AND c.scope_canonical = f.scope_canonical
+                          AND c.scope_digest = f.scope_digest
+                          AND EXISTS (
+                              SELECT 1
+                              FROM fbs_oauth_token access_token
+                              WHERE access_token.family_id = f.family_id
+                                AND access_token.token_type = 'ACCESS'
+                                AND access_token.generation = 0
+                                AND access_token.status = 'ACTIVE'
+                                AND access_token.revoked_at IS NULL
+                                AND access_token.expires_at &gt; #{now}
+                                AND access_token.resource_uri = f.resource_uri
+                                AND access_token.scope_canonical = f.scope_canonical
+                                AND access_token.scope_digest = f.scope_digest
+                          )
+                          AND EXISTS (
+                              SELECT 1
+                              FROM fbs_oauth_token pending_refresh
+                              WHERE pending_refresh.family_id = f.family_id
+                                AND pending_refresh.token_type = 'REFRESH'
+                                AND pending_refresh.generation = 0
+                                AND pending_refresh.status = 'ACTIVE'
+                                AND pending_refresh.used_at IS NULL
+                                AND pending_refresh.revoked_at IS NULL
+                                AND pending_refresh.expires_at &gt; #{now}
+                                AND pending_refresh.resource_uri = f.resource_uri
+                                AND pending_refresh.scope_canonical = f.scope_canonical
+                                AND pending_refresh.scope_digest = f.scope_digest
+                          )
+                          AND EXISTS (
+                              SELECT 1
+                              FROM fbs_oauth_receipt created_receipt
+                              WHERE created_receipt.family_id = f.family_id
+                                AND created_receipt.client_id = f.client_id
+                                AND created_receipt.enterprise_id = f.enterprise_id
+                                AND created_receipt.member_id = f.member_id
+                                AND created_receipt.user_id = f.user_id
+                                AND created_receipt.principal_subject_digest
+                                       = f.principal_subject_digest
+                                AND created_receipt.binding_id IS NULL
+                                AND created_receipt.action = 'TOKEN_FAMILY_CREATED'
+                                AND created_receipt.evidence_level = 'ACTION_COMPLETED'
+                          )
+                    THEN 1 ELSE 0 END AS pending_activation_proven,
                c.client_name AS client_display_name,
                c.status AS client_status,
                c.expires_at AS client_expires_at,
@@ -240,6 +303,12 @@
         LEFT JOIN fbs_connector_binding b
           ON b.binding_id = f.binding_id
         WHERE f.enterprise_id = #{tenantId}
+        <if test="memberId != null">
+          AND f.member_id = #{memberId}
+        </if>
+        <if test="userId != null">
+          AND f.user_id = #{userId}
+        </if>
           AND CAST(f.product_code AS BINARY)
                   = CAST('FBSIR_INDEPENDENT_BOARD' AS BINARY)
           AND f.source_code = 'WORKBUDDY'
@@ -440,6 +509,12 @@
             LEFT JOIN fbs_enterprise e
               ON e.id = b.enterprise_id
             WHERE b.enterprise_id = #{tenantId}
+            <if test="memberId != null">
+              AND b.member_id = #{memberId}
+            </if>
+            <if test="userId != null">
+              AND b.user_id = #{userId}
+            </if>
               AND CAST(b.product_code AS BINARY)
                       = CAST('FBSIR_INDEPENDENT_BOARD' AS BINARY)
               AND b.source_code = 'WORKBUDDY'

@@ -32,6 +32,7 @@ public class BoardPortalOAuthFamilyRow {
     private Date expiresAt;
     private Date effectiveTerminatedAt;
     private Long version;
+    private Boolean pendingActivationProven;
 
     private String clientDisplayName;
     private String clientStatus;
