@@ -1,0 +1,70 @@
+{
+  "schema": "fbsir.independent-board.api2-p1-005-closure-verification/v1",
+  "captureSchema": "fbsir.api2.cleanroom.closure-manifest/v1",
+  "parser": "heuristic-literal-import-regex/v1",
+  "observedAt": "2026-07-22T03:11:25+08:00",
+  "boundary": "local_cleanroom_read_only_no_build_no_upload_no_release_write",
+  "sourceRoot": "work/api2-cleanroom/p1-005-active-20260722/source",
+  "roots": [
+    "tools/serve.mjs",
+    "tools/build-api2-package.mjs",
+    "tools/service-traction-strong-signature-normalizer-smoke.mjs"
+  ],
+  "inventory": {
+    "fileCount": 16,
+    "staticClosurePresentFileCount": 11,
+    "staticClosureMissingCount": 45,
+    "dynamicUnresolved": [
+      "runtime fetch/process.env and child-process boundaries are outside literal ESM closure"
+    ],
+    "missingSample": [
+      "tools/serve.mjs -> ./lib/runtime-state-repository.mjs",
+      "tools/serve.mjs -> ./lib/api2-mcp-route-dispatch.mjs",
+      "tools/serve.mjs -> ../src/fbss-domain.js",
+      "tools/serve.mjs -> ../src/fbss-domain-projections.js",
+      "tools/serve.mjs -> ../src/fbss-advisor-self-service.js",
+      "tools/serve.mjs -> ../src/service-traction-action-queue.js",
+      "tools/build-api2-package.mjs -> ./lib/api2-package-freshness.mjs",
+      "tools/build-api2-package.mjs -> ./lib/package-module-closure.mjs",
+      "tools/service-traction-strong-signature-normalizer-smoke.mjs -> ./lib/stable-json.mjs"
+    ]
+  },
+  "powershellClosure": {
+    "rootCount": 2,
+    "missingReferenceCount": 6,
+    "missingReferences": [
+      "tools/long-manuscript-expert-clean-deploy-source-prep.mjs",
+      "tools/service-traction-global-priority-refresh.mjs",
+      "tools/liuxue-yanxue-26710-public-route-remote-gap.mjs",
+      "api2-deploy-manifest.json",
+      "tools/api2-package-freshness-check.mjs",
+      "tools/api2-direct-host-readonly-preflight.mjs"
+    ]
+  },
+  "criticalInventory": {
+    "manifestExpectedCount": 1074,
+    "localPresentCount": 12,
+    "localMissingCount": 1062,
+    "status": "NO_GO_CRITICAL_INVENTORY_INCOMPLETE",
+    "manifestSha256": "655c1f4918cd277421574d898a22508d4411a8c4494ea6fa018e5c6cd3557969",
+    "reason": "candidate cleanroom contains only 12 of the manifest-declared 1074 critical deploy files"
+  },
+  "provenance": {
+    "status": "unknown",
+    "gitHead": null,
+    "tree": null,
+    "cannotProve": "The deployed manifest predates clean Git commit/tree provenance. Content fingerprints are authoritative for this baseline."
+  },
+  "runtimeMutableExcluded": [
+    "data/host-forwarding-ack-challenges.json"
+  ],
+  "fullServicePackageClosure": "not_proven",
+  "deployDecision": "NO_GO_READ_ONLY_CAPTURE_ONLY",
+  "deployDecisionReasons": [
+    "static ESM and PowerShell deploy closure is incomplete",
+    "manifest-declared critical inventory is not materialized locally",
+    "clean Git provenance is unavailable",
+    "no build, upload, release, or production write was attempted"
+  ],
+  "replayCommand": "node scripts/capture-api2-cleanroom-closure.mjs --root work/api2-cleanroom/p1-005-active-20260722/source --manifest root/api2-deploy-manifest.json --provenance root/api2-candidate-provenance.json --output work/api2-cleanroom/closure-test.json"
+}

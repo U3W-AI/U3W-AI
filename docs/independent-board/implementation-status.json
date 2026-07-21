@@ -103,6 +103,8 @@
     "docs/decisions/ADR-003-independent-board-w4b2d-signed-evidence-boundary.md",
     "reports/independent-board/api2-p1-005-cleanroom-readiness-20260722.json",
     "reports/independent-board/api2-p1-005-candidate-20260722.json",
+    "scripts/capture-api2-cleanroom-closure.mjs",
+    "reports/independent-board/api2-p1-005-closure-verification-20260722.json",
     "work/api2-cleanroom/p1-005-active-20260722",
     "scripts/build-api2-p1-005-candidate.mjs",
     "tools/independent-board-p1-005-candidate-smoke.mjs",
@@ -231,6 +233,7 @@
     "api2_clean_release_source_provenance",
     "api2_p1_005_package_target_and_module_closure_update",
     "api2_p1_005_full_serve_dependency_closure",
+    "api2_p1_005_cleanroom_critical_inventory_and_deploy_closure",
     "api2_p1_005_signed_exact_host_registration_receipt",
     "api2_active_release_metadata_alignment_and_strict_git_provenance",
     "api2_schema_constraint_and_trigger_body_current_read",
@@ -346,5 +349,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-22T02:46:33+08:00"
+  "updatedAt": "2026-07-22T03:11:25+08:00"
 }

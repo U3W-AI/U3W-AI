@@ -2529,6 +2529,18 @@ DROP PROCEDURE IF EXISTS u3w_assert_ib_oauth_refresh_security_20260721;
                     continue
                 }
                 catch {
+                    # The migration creates fail-closed helper procedures before
+                    # shape validation. If validation signals, the later DROP is
+                    # unreachable; clean those helpers before recording FAILED.
+                    try {
+                        Invoke-MySqlText -Sql @"
+DROP PROCEDURE IF EXISTS u3w_assert_fbs_attr_existing_shape_20260722;
+DROP PROCEDURE IF EXISTS u3w_assert_fbs_attr_product_seed_20260722;
+"@ | Out-Null
+                    }
+                    catch {
+                        Write-Warning "Could not clean W4b2d evidence-contract helper procedures after bounded replay failure."
+                    }
                     Write-Warning "W4b2d evidence-contract exact bounded replay did not pass; recording FAILED."
                 }
             }

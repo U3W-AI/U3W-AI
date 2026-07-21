@@ -1,6 +1,6 @@
 {
   "schema": "fbsir.independent-board.api2-p1-005-cleanroom-readiness/v1",
-  "observedAt": "2026-07-22T02:27:00+08:00",
+  "observedAt": "2026-07-22T03:11:25+08:00",
   "boundary": "read_only_remote_capture_local_cleanroom_no_active_release_write",
   "activeRelease": {
     "path": "/opt/fbss/phase1/releases/202607152006-p1-004-runtime-state-14e20a6d.staged",
@@ -57,6 +57,18 @@
     "normalizerSha256": "45e4c853d2ce9d46b8dbe69b7e32f824654c7ac7235aeea5ebe687199e09a2d9",
     "observabilitySha256": "fdc0fcdf065ee6c313796f0b226174f8891011770a3c772758a946a3e4637311",
     "smokeSha256": "2d144eb681fa2a733a1abc0c9250625fe80deff04af43855c4e93954fe815433"
+  },
+  "closureVerification": {
+    "report": "reports/independent-board/api2-p1-005-closure-verification-20260722.json",
+    "auditCommand": "node scripts/capture-api2-cleanroom-closure.mjs --root work/api2-cleanroom/p1-005-active-20260722/source --manifest root/api2-deploy-manifest.json --provenance root/api2-candidate-provenance.json --output work/api2-cleanroom/closure-test.json",
+    "staticClosureStatus": "NO_GO_MISSING_LOCAL_IMPORTS_OR_DEPLOY_REFS",
+    "staticClosureMissingCount": 45,
+    "criticalInventoryStatus": "NO_GO_CRITICAL_INVENTORY_INCOMPLETE",
+    "criticalInventoryExpectedCount": 1074,
+    "criticalInventoryPresentCount": 12,
+    "criticalInventoryMissingCount": 1062,
+    "fullServicePackageClosure": "not_proven",
+    "deployDecision": "NO_GO_READ_ONLY_CAPTURE_ONLY"
   },
   "status": "NO_GO_CLEAN_SOURCE_PROVENANCE_AND_EXACT_PRODUCT_REGISTRATION_MISSING",
   "nextAction": "repair active-release metadata drift and obtain a Git-backed or explicitly approved reconstruction source plus full serve closure and signed exact host-registration receipt; keep candidate report-only and do not deploy"
