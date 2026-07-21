@@ -36,6 +36,14 @@ function Resolve-MySqlBinDirectory {
     if (-not [string]::IsNullOrWhiteSpace($Requested)) {
         $candidates.Add($Requested)
     }
+    if (-not [string]::IsNullOrWhiteSpace($env:U3W_MYSQL_BIN)) {
+        $candidates.Add($env:U3W_MYSQL_BIN)
+    }
+    $pathMysql = Get-Command mysql.exe -CommandType Application -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($null -ne $pathMysql) {
+        $candidates.Add((Split-Path -Parent $pathMysql.Source))
+    }
     $candidates.Add('C:\Program Files\MySQL\MySQL Server 8.4\bin')
     $candidates.Add('C:\Program Files\MySQL\MySQL Server 8.0\bin')
 
@@ -50,7 +58,7 @@ function Resolve-MySqlBinDirectory {
             return $full
         }
     }
-    throw 'A local MySQL 8 bin directory containing mysqld.exe, mysql.exe and mysqladmin.exe is required.'
+    throw 'A local MySQL 8 bin directory containing mysqld.exe, mysql.exe and mysqladmin.exe is required. Pass -MySqlBinDirectory, set U3W_MYSQL_BIN, add MySQL to PATH, or install it under Program Files.'
 }
 
 function Get-LoopbackEphemeralPort {

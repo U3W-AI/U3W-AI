@@ -23,6 +23,7 @@ import com.wx.fbsir.business.board.oauth.domain.BoardOAuthReceipt;
 import com.wx.fbsir.business.board.oauth.domain.BoardOAuthToken;
 import com.wx.fbsir.business.board.oauth.domain.BoardOAuthTokenFamily;
 import com.wx.fbsir.business.board.oauth.mapper.IndependentBoardOAuthMapper;
+import com.wx.fbsir.business.board.oauth.service.BoardOAuthRefreshAuthorityPort;
 import com.wx.fbsir.business.board.oauth.service.IndependentBoardOAuthClientRegistrationService;
 import com.wx.fbsir.business.board.oauth.service.BoardOAuthTokenExchangeAuthorityPort;
 import com.wx.fbsir.common.exception.ServiceException;
@@ -32,6 +33,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -60,7 +62,9 @@ import org.springframework.jdbc.datasource.ConnectionHolder;
 
 @Service
 public class IndependentBoardConnectorBindingService
-        implements BoardConnectorBindingPort, BoardOAuthTokenExchangeAuthorityPort {
+        implements BoardConnectorBindingPort,
+                BoardOAuthTokenExchangeAuthorityPort,
+                BoardOAuthRefreshAuthorityPort {
     private enum OAuthActivationTransactionResource {
         KEY
     }
@@ -103,6 +107,7 @@ public class IndependentBoardConnectorBindingService
     private final DataSource boardDataSource;
     private final Clock clock;
     private final Object oauthActivationOwnerToken = new Object();
+    private final Object oauthRefreshOwnerToken = new Object();
 
     @Autowired
     public IndependentBoardConnectorBindingService(
@@ -132,7 +137,7 @@ public class IndependentBoardConnectorBindingService
     }
 
     @Override
-    public LockResult lockForTokenExchange(
+    public BoardOAuthTokenExchangeAuthorityPort.LockResult lockForTokenExchange(
             Long tenantId,
             Long memberId,
             Long userId,
@@ -190,7 +195,7 @@ public class IndependentBoardConnectorBindingService
         // shape/provenance evidence, not a reauthorization cutoff.
         Date entitlementValidUntil =
                 entitlement == null ? null : entitlement.getValidUntil();
-        return new LockResult(
+        return new BoardOAuthTokenExchangeAuthorityPort.LockResult(
                 enterpriseCurrent,
                 memberCurrent,
                 entitlementCurrent,
@@ -203,6 +208,203 @@ public class IndependentBoardConnectorBindingService
                 entitlementValidUntil == null
                         ? null
                         : entitlementValidUntil.toInstant());
+    }
+
+    @Override
+    public BoardOAuthRefreshAuthorityPort.LockResult lockForRefresh(
+            Long tenantId,
+            Long memberId,
+            Long userId,
+            String productCode,
+            String sourceCode,
+            String connectorCode,
+            Instant lockRequestedAt) {
+        Objects.requireNonNull(lockRequestedAt, "lockRequestedAt");
+        BoardTransactionBoundary boundary = captureRefreshBoardTransactionBoundary();
+
+        // This is the shared global lock prefix. No OAuth family/token row may
+        // be locked before these authority slots and the W4a binding scopes.
+        BoardEnterpriseAuthority enterprise = mapper.selectEnterpriseSlotForUpdate(tenantId);
+        BoardEnterpriseMemberScope member = mapper.selectMemberSlotForUpdate(
+                tenantId, memberId);
+        BoardProductEntitlement entitlement = mapper.selectEntitlementForUpdate(
+                tenantId, memberId, productCode);
+        BoardProductPlan plan = mapper.selectPlanSlotForUpdate(
+                productCode, IndependentBoardEntitlementService.VIP_PLAN);
+        BoardConnectorBinding binding = mapper.selectConnectorBindingSlotForUpdate(
+                tenantId, memberId, productCode, sourceCode, connectorCode);
+        List<String> scopes = binding == null || binding.getBindingId() == null
+                ? List.of()
+                : mapper.selectConnectorBindingScopesForUpdate(binding.getBindingId());
+
+        Instant observedAt = Instant.ofEpochMilli(clock.instant().toEpochMilli());
+        if (observedAt.isBefore(lockRequestedAt)) {
+            observedAt = lockRequestedAt;
+        }
+        Date observedDate = Date.from(observedAt);
+        boolean enterpriseCurrent = isTokenExchangeEnterpriseCurrent(enterprise, tenantId);
+        boolean memberCurrent = isTokenExchangeMemberCurrent(
+                member, tenantId, memberId, userId);
+        boolean entitlementCurrent = isTokenExchangeEntitlementCurrent(
+                entitlement, tenantId, memberId, userId, productCode, observedDate);
+        boolean planCurrent = isTokenExchangePlanCurrent(plan, productCode);
+        boolean bindingShapeCurrent = binding != null
+                && isTokenExchangeBindingShapeCurrent(
+                        binding,
+                        scopes,
+                        tenantId,
+                        memberId,
+                        userId,
+                        productCode,
+                        sourceCode,
+                        connectorCode,
+                        observedDate);
+        boolean bindingActive = bindingShapeCurrent
+                && STATUS_ACTIVE.equals(binding.getStatus())
+                && binding.getRevokedAt() == null
+                && binding.getValidUntil() != null
+                && binding.getValidUntil().after(observedDate);
+        Date authorityValidUntil = earlierDate(
+                entitlement == null ? null : entitlement.getValidUntil(),
+                binding == null ? null : binding.getValidUntil());
+
+        BoardOAuthRefreshAuthorityLease lease = new BoardOAuthRefreshAuthorityLease(
+                oauthRefreshOwnerToken,
+                boundary.resource(),
+                boundary.connection(),
+                binding,
+                scopes,
+                observedAt);
+        return new BoardOAuthRefreshAuthorityPort.LockResult(
+                lease,
+                enterpriseCurrent,
+                memberCurrent,
+                entitlementCurrent,
+                planCurrent,
+                bindingShapeCurrent,
+                bindingActive,
+                binding == null ? null : binding.getBindingId(),
+                binding == null ? null : binding.getVersion(),
+                binding == null ? null : binding.getClientId(),
+                binding == null ? null : parseSha256(binding.getPrincipalSubjectDigest()),
+                scopes,
+                observedAt,
+                authorityValidUntil == null ? null : authorityValidUntil.toInstant());
+    }
+
+    @Override
+    public void lockReceiptsForRefresh(
+            BoardOAuthRefreshAuthorityPort.Lease opaqueLease) {
+        if (!(opaqueLease instanceof BoardOAuthRefreshAuthorityLease lease)) {
+            throw new ServiceException("BOARD_OAUTH_REFRESH_AUTHORITY_LEASE_INVALID", 500);
+        }
+        requireRefreshLease(lease);
+        BoardConnectorBinding binding = lease.binding(oauthRefreshOwnerToken);
+        if (binding == null || binding.getBindingId() == null) {
+            throw new ServiceException(
+                    "BOARD_OAUTH_REFRESH_AUTHORITY_RECEIPT_LOCK_FAILED", 500);
+        }
+        // The caller invokes this only after locking the OAuth token set and
+        // before locking W4b receipts. The indexed range lock also protects the
+        // same-binding receipt insertion gap under REPEATABLE_READ.
+        List<BoardConnectorBindingReceipt> bindingReceipts =
+                mapper.selectConnectorBindingReceiptsForUpdate(
+                        binding.getBindingId());
+        if (bindingReceipts == null) {
+            throw new ServiceException(
+                    "BOARD_OAUTH_REFRESH_AUTHORITY_RECEIPT_LOCK_FAILED", 500);
+        }
+        try {
+            lease.markW4aReceiptsLocked(oauthRefreshOwnerToken);
+        } catch (IllegalStateException invalidLease) {
+            throw new ServiceException("BOARD_OAUTH_REFRESH_AUTHORITY_LEASE_INVALID", 500);
+        }
+    }
+
+    @Override
+    public BoardOAuthRefreshAuthorityPort.BindingRevocation revokeForRefreshReplay(
+            BoardOAuthRefreshAuthorityPort.Lease opaqueLease,
+            String expectedBindingId,
+            Long expectedBindingVersion,
+            Instant transitionAt) {
+        if (!(opaqueLease instanceof BoardOAuthRefreshAuthorityLease lease)) {
+            throw new ServiceException("BOARD_OAUTH_REFRESH_AUTHORITY_LEASE_INVALID", 500);
+        }
+        requireRefreshLease(lease);
+        if (!lease.w4aReceiptsLocked(oauthRefreshOwnerToken)) {
+            throw new ServiceException("BOARD_OAUTH_REFRESH_AUTHORITY_LEASE_INVALID", 500);
+        }
+        BoardConnectorBinding binding = lease.binding(oauthRefreshOwnerToken);
+        List<String> scopes = lease.scopes(oauthRefreshOwnerToken);
+        if (binding == null
+                || !Objects.equals(binding.getBindingId(), expectedBindingId)
+                || !Objects.equals(binding.getVersion(), expectedBindingVersion)
+                || !STATUS_ACTIVE.equals(binding.getStatus())
+                || binding.getRevokedAt() != null
+                || binding.getVersion() == null
+                || Objects.equals(binding.getVersion(), Long.MAX_VALUE)
+                || transitionAt == null
+                || transitionAt.isBefore(lease.observedAt(oauthRefreshOwnerToken))) {
+            throw new ServiceException("BOARD_OAUTH_REFRESH_BINDING_CONFLICT", 409);
+        }
+        Date revokedAt = Date.from(transitionAt);
+        requireBindingTransitionTimes(binding, revokedAt);
+        binding.setScopes(scopes);
+        Long previousVersion = binding.getVersion();
+        binding.setStatus(STATUS_REVOKED);
+        binding.setRevokedAt(revokedAt);
+        binding.setVersion(previousVersion + 1L);
+        if (mapper.revokeConnectorBindingIfVersion(binding, previousVersion) != 1) {
+            throw new ServiceException("BOARD_OAUTH_REFRESH_BINDING_CONFLICT", 409);
+        }
+        BoardConnectorBindingReceipt receipt = insertReceipt(
+                binding,
+                binding.getUserId(),
+                "CONNECTOR_BINDING_REVOKED",
+                revokedAt);
+
+        // Raw same-transaction current-read: containment must still succeed
+        // when enterprise/member authority has just become terminal. The row
+        // was already locked through the unique binding slot, so this is a
+        // re-entrant exact-row lock rather than a new lock-order edge.
+        BoardConnectorBinding current = mapper.selectConnectorBindingForUpdate(
+                binding.getTenantId(),
+                binding.getMemberId(),
+                binding.getUserId(),
+                binding.getProductCode(),
+                binding.getSourceCode(),
+                binding.getConnectorCode());
+        List<String> currentScopes = mapper.selectConnectorBindingScopes(binding.getBindingId());
+        BoardConnectorBindingReceipt currentReceipt =
+                mapper.selectConnectorBindingReceiptForUpdate(receipt.getReceiptId());
+        if (current == null
+                || currentScopes == null
+                || !Objects.equals(current.getBindingId(), binding.getBindingId())
+                || !Objects.equals(current.getStatus(), STATUS_REVOKED)
+                || !Objects.equals(current.getVersion(), previousVersion + 1L)
+                || !sameDate(current.getRevokedAt(), revokedAt)
+                || !new HashSet<>(currentScopes).equals(new HashSet<>(scopes))
+                || currentReceipt == null
+                || !Objects.equals(currentReceipt.getReceiptId(), receipt.getReceiptId())
+                || !Objects.equals(currentReceipt.getBindingId(), binding.getBindingId())
+                || !Objects.equals(currentReceipt.getAction(), "CONNECTOR_BINDING_REVOKED")
+                || !Objects.equals(currentReceipt.getPayloadDigest(), receipt.getPayloadDigest())
+                || !Objects.equals(currentReceipt.getEvidenceLevel(), "ACTION_COMPLETED")
+                || !sameDate(currentReceipt.getCreatedAt(), revokedAt)) {
+            throw new ServiceException("BOARD_OAUTH_REFRESH_BINDING_CURRENT_READ_INVALID", 500);
+        }
+        try {
+            lease.markReplayRevoked(oauthRefreshOwnerToken);
+        } catch (IllegalStateException invalidLease) {
+            throw new ServiceException("BOARD_OAUTH_REFRESH_AUTHORITY_LEASE_INVALID", 500);
+        }
+        return new BoardOAuthRefreshAuthorityPort.BindingRevocation(
+                binding.getBindingId(),
+                previousVersion,
+                binding.getVersion(),
+                transitionAt,
+                currentReceipt.getReceiptId(),
+                currentReceipt.getPayloadDigest());
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -2129,6 +2331,16 @@ public class IndependentBoardConnectorBindingService
         return Objects.equals(left, right);
     }
 
+    private Date earlierDate(Date left, Date right) {
+        if (left == null) {
+            return copy(right);
+        }
+        if (right == null) {
+            return copy(left);
+        }
+        return copy(left.before(right) ? left : right);
+    }
+
     private boolean hasTransitionUpdate(
             Date before,
             Date current,
@@ -2190,6 +2402,74 @@ public class IndependentBoardConnectorBindingService
                     "BOARD_CONNECTOR_ACTIVATION_BOARD_TRANSACTION_REQUIRED", 500);
         }
         return new BoardTransactionBoundary(resource, connection);
+    }
+
+    private BoardTransactionBoundary captureRefreshBoardTransactionBoundary() {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || !TransactionSynchronizationManager.isSynchronizationActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+            throw new ServiceException("BOARD_OAUTH_REFRESH_TRANSACTION_REQUIRED", 500);
+        }
+        try {
+            if (TransactionAspectSupport.currentTransactionStatus().hasSavepoint()) {
+                throw new ServiceException("BOARD_OAUTH_REFRESH_ROOT_TRANSACTION_REQUIRED", 500);
+            }
+        } catch (NoTransactionException noProxyTransactionStatus) {
+            // Programmatic transaction owners are covered by synchronization and
+            // the physical connection checks below.
+        }
+        Object resource = boardDataSource == null
+                ? null
+                : TransactionSynchronizationManager.getResource(boardDataSource);
+        if (!(resource instanceof ConnectionHolder holder)
+                || !holder.isSynchronizedWithTransaction()) {
+            throw new ServiceException("BOARD_OAUTH_REFRESH_TRANSACTION_REQUIRED", 500);
+        }
+        try {
+            Connection connection = holder.getConnection();
+            if (connection == null
+                    || connection.isClosed()
+                    || connection.getAutoCommit()
+                    || connection.getTransactionIsolation()
+                            != Connection.TRANSACTION_REPEATABLE_READ) {
+                throw new ServiceException("BOARD_OAUTH_REFRESH_TRANSACTION_REQUIRED", 500);
+            }
+            return new BoardTransactionBoundary(resource, connection);
+        } catch (SQLException | IllegalStateException invalidConnection) {
+            throw new ServiceException("BOARD_OAUTH_REFRESH_TRANSACTION_REQUIRED", 500);
+        }
+    }
+
+    private void requireRefreshLease(BoardOAuthRefreshAuthorityLease lease) {
+        if (lease == null
+                || !lease.isOwnedBy(oauthRefreshOwnerToken)
+                || !lease.isOwnedByCurrentThread()
+                || lease.replayRevoked(oauthRefreshOwnerToken)
+                || !TransactionSynchronizationManager.isActualTransactionActive()
+                || !TransactionSynchronizationManager.isSynchronizationActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || boardDataSource == null
+                || !TransactionSynchronizationManager.hasResource(boardDataSource)) {
+            throw new ServiceException("BOARD_OAUTH_REFRESH_AUTHORITY_LEASE_INVALID", 500);
+        }
+        Object resource = TransactionSynchronizationManager.getResource(boardDataSource);
+        if (resource != lease.boardTransactionResource(oauthRefreshOwnerToken)
+                || !(resource instanceof ConnectionHolder holder)
+                || !holder.isSynchronizedWithTransaction()) {
+            throw new ServiceException("BOARD_OAUTH_REFRESH_AUTHORITY_LEASE_INVALID", 500);
+        }
+        try {
+            Connection connection = holder.getConnection();
+            if (connection != lease.boardPhysicalConnection(oauthRefreshOwnerToken)
+                    || connection.isClosed()
+                    || connection.getAutoCommit()
+                    || connection.getTransactionIsolation()
+                            != Connection.TRANSACTION_REPEATABLE_READ) {
+                throw new ServiceException("BOARD_OAUTH_REFRESH_AUTHORITY_LEASE_INVALID", 500);
+            }
+        } catch (SQLException | IllegalStateException invalidConnection) {
+            throw new ServiceException("BOARD_OAUTH_REFRESH_AUTHORITY_LEASE_INVALID", 500);
+        }
     }
 
     private boolean hasSameBoardTransactionBoundary(

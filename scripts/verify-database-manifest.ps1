@@ -134,6 +134,7 @@ $requiredTail = @{
     public_init_033 = "update_20260721_independent_board_oauth_foundation.sql"
     public_init_034 = "update_20260721_independent_board_oauth_receipt_provenance.sql"
     public_init_035 = "update_20260721_independent_board_oauth_consent_intent_lineage.sql"
+    public_init_036 = "update_20260721_independent_board_oauth_refresh_security.sql"
 }
 foreach ($version in $requiredTail.Keys) {
     $matches = @($manifest.steps | Where-Object { $_.version -eq $version -and $_.file -eq $requiredTail[$version] })
@@ -1410,6 +1411,199 @@ if (-not $oauthConsentIntentOrderingValid) {
     $errors.Add('Independent Board OAuth consent-intent order must be profile/lock, prerequisite+metadata+legacy gates, RUNNING, request/code/family DDL, current-read, migrate cleanup, trigger, finalizer metadata/data/locked receipt, COMMIT/release and helper cleanup')
 }
 
+$oauthRefreshSecuritySqlPath = Join-Path $sqlRoot 'update_20260721_independent_board_oauth_refresh_security.sql'
+$oauthRefreshSecurityManifestSteps = @($declarativeManifest.steps | Where-Object {
+    [string]$_.version -eq 'public_init_036'
+})
+$expectedOauthRefreshSecuritySha256 = if ($oauthRefreshSecurityManifestSteps.Count -eq 1) {
+    [string]$oauthRefreshSecurityManifestSteps[0].sha256
+} else { '' }
+if ($expectedOauthRefreshSecuritySha256 -notmatch '^[0-9a-f]{64}$') {
+    $errors.Add('public_init_036 manifest SHA-256 is missing or invalid')
+}
+$oauthRefreshSecuritySha256 = ''
+if (-not (Test-Path -LiteralPath $oauthRefreshSecuritySqlPath -PathType Leaf)) {
+    $errors.Add('Independent Board OAuth refresh-security migration is missing')
+    $oauthRefreshSecuritySql = ''
+}
+else {
+    $oauthRefreshSecuritySql = Get-Content -LiteralPath $oauthRefreshSecuritySqlPath -Raw -Encoding UTF8
+    $oauthRefreshSecuritySha256 = (Get-FileHash -LiteralPath $oauthRefreshSecuritySqlPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if (-not [string]::Equals(
+            $oauthRefreshSecuritySha256,
+            $expectedOauthRefreshSecuritySha256,
+            [StringComparison]::Ordinal)) {
+        $errors.Add("public_init_036 byte contract drifted: expected SHA-256 $expectedOauthRefreshSecuritySha256, found $oauthRefreshSecuritySha256")
+    }
+}
+$requiredOauthRefreshSecurityNeedles = @(
+    '20260721_independent_board_oauth_refresh_security_v1',
+    'public_init_036',
+    'exact MySQL Community 8.0.30 or 8.4.8 metadata baselines only',
+    '@u3w_ib_oauth_refresh_profile_guard',
+    'EXECUTE u3w_ib_oauth_refresh_profile_guard_stmt',
+    'Independent Board OAuth refresh security supports exact MySQL baselines only',
+    "DATABASE(), ':20260721_independent_board_oauth_refresh_security_v1')",
+    'GET_LOCK(migration_lock_name, 10)',
+    'IS_USED_LOCK(migration_lock_name)',
+    'DO RELEASE_LOCK(migration_lock_name)',
+    'DECLARE EXIT HANDLER FOR SQLEXCEPTION',
+    'RUNNING:Independent Board OAuth refresh security receipt v2',
+    'APPLIED:Independent Board OAuth refresh security receipt v2',
+    'OAuth refresh-security DDL exists without its RUNNING receipt',
+    'OAuth refresh-security APPLIED receipt is ahead of its exact S3 shape',
+    'OAuth request data violates strict consent-intent NULL pairing',
+    'Legacy OAuth rotation or replay receipts cannot be trusted as receipt v2',
+    "SET migration_stage = 's1-strict-consent-null-check'",
+    'consent_intent IS NOT NULL',
+    "SET migration_stage = 's2-refresh-subject-support-half'",
+    'uk_oauth_token_receipt_generation_type_scope',
+    'idx_oauth_token_family_lock_order',
+    "SET migration_stage = 's2-causation-target-support-complete'",
+    'uk_oauth_receipt_causation_scope',
+    'idx_oauth_receipt_family_client_lock_order',
+    "SET migration_stage = 's2-connector-receipt-lock-support-complete'",
+    'idx_connector_binding_receipt_lock_order',
+    'token-only and token+receipt shapes are recoverable internal S2 prefixes',
+    'external S2 exists only after token, receipt and connector groups are all',
+    "SET migration_stage = 's3-receipt-v2-ddl'",
+    'receipt_format_version',
+    'subject_generation',
+    'result_generation',
+    'causation_receipt_id',
+    'before_state_digest',
+    'after_state_digest',
+    'subject_token_type',
+    'security_event_slot',
+    'idx_oauth_receipt_causation_scope',
+    'idx_oauth_receipt_refresh_subject',
+    'uk_oauth_receipt_security_event_slot',
+    'fk_oauth_receipt_refresh_subject',
+    'fk_oauth_receipt_causation_scope',
+    'chk_oauth_receipt_format_version',
+    'chk_oauth_receipt_v2_shape',
+    'before_state_digest <> after_state_digest',
+    'causation_receipt_id <> receipt_id',
+    'subject_generation < 4294967295',
+    'result_generation = subject_generation + 1',
+    "action = 'REFRESH_REPLAY_DETECTED'",
+    "actor_type = 'CLIENT'",
+    'actor_user_id IS NULL',
+    '09ac52b1ef4f2a095507a243d3a7048aa592e7b18b8057a2132d594a9d484197',
+    '51075bde94d5f08b4eeef573f7c7730ba22ec596dc02e0dae929682ce8cd7952',
+    '914545f8794180df710cd05a9ee3430e21a78995bfd4142e4dc3d54e9330780d',
+    'd3b99d9c1923c59729166110ceeddd0c6987ef9806e1d644add9ca018ca8166a',
+    '1e103fc572908bef3353dfdec2a2076a76c68a5ec9dd3f8b5f938a486d431d22',
+    '504a017fe7c4a8ecc4c60619ea8beaf5e7d4aa207fcffe536ff47b8e1d9919b3',
+    'd30ff1730699536a7dcfcc76ac026a2744bc10a07ea028d01cc5cfea5ddd05ad',
+    "SET migration_stage = 'final-current-read'",
+    "SET migration_stage = 'receipt-finalization'",
+    'FOR UPDATE;',
+    'OAuth refresh-security APPLIED receipt is not exact',
+    'Cleanup after the final COMMIT is deliberately non-asserting',
+    'DROP PROCEDURE IF EXISTS `u3w_assert_ib_oauth_refresh_security_20260721`$$'
+)
+foreach ($needle in $requiredOauthRefreshSecurityNeedles) {
+    if (-not $oauthRefreshSecuritySql.Contains($needle)) {
+        $errors.Add("Independent Board OAuth refresh-security SQL is missing required contract: $needle")
+    }
+}
+if ($oauthRefreshSecuritySql -match '__[A-Z0-9_]+__' -or
+    $oauthRefreshSecuritySql -match 'REPLACE_WITH_') {
+    $errors.Add('Independent Board OAuth refresh-security SQL contains an unresolved placeholder')
+}
+if ($oauthRefreshSecuritySql -match '(?im)^\s*(?:CREATE|DROP)\s+TABLE\b' -or
+    $oauthRefreshSecuritySql -match '(?im)^\s*TRUNCATE\s+TABLE\b' -or
+    $oauthRefreshSecuritySql -match '(?im)^\s*(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+`?fbs_oauth_') {
+    $errors.Add('Independent Board OAuth refresh-security migration must not create/drop tables or rewrite OAuth business rows')
+}
+if ($oauthRefreshSecuritySql -match '(?im)^\s*(?:CREATE|DROP)\s+TRIGGER\b') {
+    $errors.Add('Independent Board OAuth refresh-security migration must preserve and audit the exact three predecessor triggers')
+}
+$oauthRefreshAlterMatches = @([regex]::Matches(
+    $oauthRefreshSecuritySql,
+    '(?im)^\s*ALTER\s+TABLE\s+(?:`)?(?<table>fbs_(?:oauth_[a-z_]+|connector_binding_receipt))(?:`)?'))
+$expectedOauthRefreshAlterTables = @(
+    'fbs_oauth_authorization_request',
+    'fbs_oauth_token',
+    'fbs_oauth_receipt',
+    'fbs_connector_binding_receipt',
+    'fbs_oauth_receipt'
+)
+$actualOauthRefreshAlterTables = @($oauthRefreshAlterMatches |
+    ForEach-Object { $_.Groups['table'].Value })
+if (($actualOauthRefreshAlterTables -join '|') -ne ($expectedOauthRefreshAlterTables -join '|')) {
+    $errors.Add("Independent Board OAuth refresh-security migration must contain exactly request, token, causation-support receipt, connector lock support and receipt-v2 DDL in order; found '$($actualOauthRefreshAlterTables -join ',')'")
+}
+if (@([regex]::Matches(
+        $oauthRefreshSecuritySql,
+        [regex]::Escape('before_state_digest <> after_state_digest'))).Count -ne 2 -or
+    @([regex]::Matches(
+        $oauthRefreshSecuritySql,
+        [regex]::Escape('causation_receipt_id <> receipt_id'))).Count -ne 2 -or
+    @([regex]::Matches(
+        $oauthRefreshSecuritySql,
+        [regex]::Escape('subject_generation < 4294967295'))).Count -ne 2) {
+    $errors.Add('Independent Board OAuth receipt-v2 CHECK must reject equal state digests, self-causation and UINT_MAX generations in both security actions')
+}
+$oauthRefreshTopGuardIndex = $oauthRefreshSecuritySql.IndexOf(
+    'EXECUTE u3w_ib_oauth_refresh_profile_guard_stmt', [StringComparison]::Ordinal)
+$oauthRefreshFirstPersistentDdlIndex = $oauthRefreshSecuritySql.IndexOf(
+    'DROP PROCEDURE IF EXISTS `u3w_assert_ib_oauth_refresh_security_20260721`',
+    [StringComparison]::Ordinal)
+$oauthRefreshRunningIndex = $oauthRefreshSecuritySql.IndexOf(
+    "SET migration_stage = 'running-receipt-create'", [StringComparison]::Ordinal)
+$oauthRefreshS1Index = $oauthRefreshSecuritySql.IndexOf(
+    "SET migration_stage = 's1-strict-consent-null-check'", [StringComparison]::Ordinal)
+$oauthRefreshS2HalfIndex = $oauthRefreshSecuritySql.IndexOf(
+    "SET migration_stage = 's2-refresh-subject-support-half'", [StringComparison]::Ordinal)
+$oauthRefreshS2Index = $oauthRefreshSecuritySql.IndexOf(
+    "SET migration_stage = 's2-causation-target-support-complete'", [StringComparison]::Ordinal)
+$oauthRefreshS2ConnectorIndex = $oauthRefreshSecuritySql.IndexOf(
+    "SET migration_stage = 's2-connector-receipt-lock-support-complete'", [StringComparison]::Ordinal)
+$oauthRefreshS3Index = $oauthRefreshSecuritySql.IndexOf(
+    "SET migration_stage = 's3-receipt-v2-ddl'", [StringComparison]::Ordinal)
+$oauthRefreshFinalReadIndex = $oauthRefreshSecuritySql.IndexOf(
+    "SET migration_stage = 'final-current-read'", [StringComparison]::Ordinal)
+$oauthRefreshReceiptIndex = $oauthRefreshSecuritySql.IndexOf(
+    "SET migration_stage = 'receipt-finalization'", [StringComparison]::Ordinal)
+$oauthRefreshCommitIndex = if ($oauthRefreshReceiptIndex -ge 0) {
+    $oauthRefreshSecuritySql.IndexOf('COMMIT;', $oauthRefreshReceiptIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$oauthRefreshReleaseIndex = if ($oauthRefreshCommitIndex -ge 0) {
+    $oauthRefreshSecuritySql.IndexOf('DO RELEASE_LOCK(migration_lock_name)', $oauthRefreshCommitIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$oauthRefreshCallIndex = $oauthRefreshSecuritySql.IndexOf(
+    'CALL u3w_migrate_ib_oauth_refresh_security_20260721()$$', [StringComparison]::Ordinal)
+$oauthRefreshAssertDropIndex = $oauthRefreshSecuritySql.LastIndexOf(
+    'DROP PROCEDURE IF EXISTS `u3w_assert_ib_oauth_refresh_security_20260721`$$',
+    [StringComparison]::Ordinal)
+$oauthRefreshOrderedIndices = @(
+    $oauthRefreshTopGuardIndex, $oauthRefreshFirstPersistentDdlIndex,
+    $oauthRefreshRunningIndex, $oauthRefreshS1Index, $oauthRefreshS2HalfIndex,
+    $oauthRefreshS2Index, $oauthRefreshS2ConnectorIndex, $oauthRefreshS3Index,
+    $oauthRefreshFinalReadIndex,
+    $oauthRefreshReceiptIndex, $oauthRefreshCommitIndex, $oauthRefreshReleaseIndex,
+    $oauthRefreshCallIndex, $oauthRefreshAssertDropIndex
+)
+$oauthRefreshOrderingValid = -not ($oauthRefreshOrderedIndices -contains -1)
+for ($index = 1; $oauthRefreshOrderingValid -and $index -lt $oauthRefreshOrderedIndices.Count; $index++) {
+    if ($oauthRefreshOrderedIndices[$index] -le $oauthRefreshOrderedIndices[$index - 1]) {
+        $oauthRefreshOrderingValid = $false
+    }
+}
+if (-not $oauthRefreshOrderingValid) {
+    $errors.Add('Independent Board OAuth refresh-security order must be top-level profile guard, helpers, RUNNING, S1, token and receipt internal S2 prefixes, complete connector-backed S2, S3, final current-read, locked receipt COMMIT, non-asserting release, CALL and helper cleanup')
+}
+if ($oauthRefreshCommitIndex -ge 0) {
+    $oauthRefreshPostCommitSql = $oauthRefreshSecuritySql.Substring(
+        $oauthRefreshCommitIndex + 'COMMIT;'.Length,
+        $oauthRefreshCallIndex - ($oauthRefreshCommitIndex + 'COMMIT;'.Length))
+    if ($oauthRefreshPostCommitSql -match '(?im)^\s*SIGNAL\b') {
+        $errors.Add('Independent Board OAuth refresh-security migration must not contain a fallible assertion after its final COMMIT')
+    }
+}
+
 $truthSpineSqlPath = Join-Path $sqlRoot 'update_20260712_truth_spine_test_state_receipt.sql'
 $truthSpineSql = Get-Content -LiteralPath $truthSpineSqlPath -Raw -Encoding UTF8
 $requiredTruthSpineLockNeedles = @(
@@ -1477,6 +1671,7 @@ $lastLifecycleMenuCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentB
 $lastConnectorBindingCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardConnectorBindingCurrentState', [StringComparison]::Ordinal)
 $lastOauthFoundationCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardOauthFoundationCurrentState', [StringComparison]::Ordinal)
 $lastOauthConsentIntentCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardOauthConsentIntentCurrentState', [StringComparison]::Ordinal)
+$lastOauthRefreshSecurityCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardOauthRefreshSecurityCurrentState', [StringComparison]::Ordinal)
 $manifestLoopIndex = $initSource.IndexOf('foreach ($step in $steps)', [StringComparison]::Ordinal)
 if ($lastCurrentReadCall -le $manifestLoopIndex) {
     $errors.Add("initializer must run the Independent Board current-read audit after the complete manifest loop")
@@ -1499,9 +1694,14 @@ if ($lastOauthFoundationCurrentReadCall -le $manifestLoopIndex) {
 if ($lastOauthConsentIntentCurrentReadCall -le $manifestLoopIndex) {
     $errors.Add("initializer must run the Independent Board OAuth consent-intent current-read audit after the complete manifest loop")
 }
+if ($lastOauthRefreshSecurityCurrentReadCall -le $manifestLoopIndex) {
+    $errors.Add("initializer must run the Independent Board OAuth refresh-security current-read audit after the complete manifest loop")
+}
 $requiredConnectorCurrentReadNeedles = @(
     '$expectedAppliedState = "APPLIED:$($step.Description)"',
-    '$expectedExactState = @(3, 36, 7, 11, 3, 8, 15, 15, 2, 2)',
+    '$connectorLockOrderExpected = 0',
+    '11 + $connectorLockOrderExpected',
+    'idx_connector_binding_receipt_lock_order',
     "column_type = 'varchar(191)'",
     "CAST(visibility AS BINARY) = CAST('YES' AS BINARY) AND partial_columns = 0",
     "unique_constraint_schema = DATABASE()",
@@ -1521,8 +1721,8 @@ foreach ($needle in $requiredConnectorCurrentReadNeedles) {
 $safeBacktickNormalizerCount = @([regex]::Matches(
         $initSource,
         "(?:cc\.check_clause|action_statement),\s*CHAR\(96\),\s*''")).Count
-if ($safeBacktickNormalizerCount -ne 3) {
-    $errors.Add("initializer must use exactly three SQL CHAR(96) metadata normalizers; found $safeBacktickNormalizerCount")
+if ($safeBacktickNormalizerCount -ne 4) {
+    $errors.Add("initializer must use exactly four SQL CHAR(96) metadata normalizers; found $safeBacktickNormalizerCount")
 }
 $literalBacktickSqlToken = "'" + [char]96 + "'"
 if ($initSource.Contains("cc.check_clause, $literalBacktickSqlToken, ''") -or
@@ -1554,6 +1754,7 @@ $requiredOauthCurrentReadNeedles = @(
     "AND NOT (table_name = 'fbs_oauth_authorization_request' AND column_name = 'consent_intent')",
     "AND NOT (table_name = 'fbs_oauth_authorization_code' AND index_name IN ('idx_oauth_code_request_consent','uk_oauth_code_id_consent'))",
     'Assert-IndependentBoardOauthConsentIntentCurrentState',
+    'Assert-IndependentBoardOauthRefreshSecurityCurrentState',
     'uk_oauth_request_id_consent',
     'fk_oauth_code_request_consent',
     'fk_oauth_family_code_consent',
@@ -1590,8 +1791,9 @@ $requiredOauthInitializerIntegrationNeedles = @(
     "if (`$step.Version -eq 'public_init_033')",
     "if (`$step.Version -eq 'public_init_034')",
     "if (`$step.Version -eq 'public_init_035')",
+    "if (`$step.Version -eq 'public_init_036')",
     '$declaredSha256 = [string]$declared.sha256',
-    'public_init_035 byte contract drifted',
+    '$($executable.Version) byte contract drifted',
     '$null = Assert-IndependentBoardOauthServerProfile',
     'records RUNNING or executes the migration file',
     'W4b creates FKs into the W1 entitlement and W4a binding contracts.',
@@ -1602,6 +1804,7 @@ $requiredOauthInitializerIntegrationNeedles = @(
     'u3w_finalize_independent_board_oauth_foundation_20260721',
     '$resumeRunningOauthProvenance',
     '$resumeRunningOauthConsentIntent',
+    '$resumeRunningOauthRefreshSecurity',
     '$resumeRunningOauthAdditive',
     'one bounded replay',
     'u3w_migrate_independent_board_oauth_receipt_provenance_20260721',
@@ -1611,6 +1814,14 @@ $requiredOauthInitializerIntegrationNeedles = @(
     'u3w_finalize_ib_oauth_consent_intent_20260721',
     'u3w_assert_ib_oauth_consent_intent_20260721',
     'W4b consent-intent exact bounded replay did not pass',
+    'internal S2',
+    'u3w_migrate_ib_oauth_refresh_security_20260721',
+    'u3w_assert_ib_oauth_refresh_security_20260721',
+    'idx_oauth_token_family_lock_order',
+    'idx_oauth_receipt_family_client_lock_order',
+    'idx_connector_binding_receipt_lock_order',
+    '504a017fe7c4a8ecc4c60619ea8beaf5e7d4aa207fcffe536ff47b8e1d9919b3',
+    'W4b refresh-security exact bounded replay did not pass',
     'if ($verification -ne 21)'
 )
 $requiredManifestCurrentReadNeedles = @(
@@ -1806,9 +2017,11 @@ $result = [pscustomobject]@{
     oauthFoundationVersion = "public_init_033"
     oauthProvenanceVersion = "public_init_034"
     oauthConsentIntentVersion = "public_init_035"
+    oauthRefreshSecurityVersion = "public_init_036"
     oauthFoundationSha256 = $oauthFoundationSha256
     oauthProvenanceSha256 = $oauthProvenanceSha256
     oauthConsentIntentSha256 = $oauthConsentIntentSha256
+    oauthRefreshSecuritySha256 = $oauthRefreshSecuritySha256
     oauthSuccessorCheckDigest = $oauthSuccessorCheckDigest
     oauthGenerationExpressionWhitelist = @('_utf8mb4', '_ascii', 'no-prefix')
     menuMigrationReplayGate = "scripts/run-independent-board-menu-migration-it.ps1"

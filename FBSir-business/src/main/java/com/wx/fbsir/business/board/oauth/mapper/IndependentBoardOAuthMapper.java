@@ -224,6 +224,10 @@ public interface IndependentBoardOAuthMapper {
 
     List<BoardOAuthToken> selectFamilyTokensForUpdate(@Param("familyId") String familyId);
 
+    List<BoardOAuthToken> selectRefreshFamilyTokensForUpdate(
+            @Param("familyId") String familyId,
+            @Param("rowLimit") int rowLimit);
+
     List<BoardOAuthToken> selectActiveFamilyTokensForClientForUpdate(
             @Param("familyId") String familyId,
             @Param("clientId") String clientId);
@@ -253,6 +257,11 @@ public interface IndependentBoardOAuthMapper {
 
     BoardOAuthReceipt selectReceiptByReceiptId(@Param("receiptId") String receiptId);
 
+    BoardOAuthReceipt selectReceiptByReceiptIdAndScopeForUpdate(
+            @Param("receiptId") String receiptId,
+            @Param("familyId") String familyId,
+            @Param("clientId") String clientId);
+
     List<BoardOAuthReceipt> selectTokenFamilyCreatedReceiptCandidatesForUpdate(
             @Param("familyId") String familyId,
             @Param("clientId") String clientId,
@@ -270,6 +279,30 @@ public interface IndependentBoardOAuthMapper {
     List<BoardOAuthReceipt> selectTokenFamilyRevokedReceiptCandidatesForUpdate(
             @Param("familyId") String familyId,
             @Param("clientId") String clientId);
+
+    List<BoardOAuthReceipt> selectTokenFamilyRotatedReceiptCandidatesForUpdate(
+            @Param("familyId") String familyId,
+            @Param("clientId") String clientId,
+            @Param("tokenId") Long tokenId,
+            @Param("subjectGeneration") Long subjectGeneration);
+
+    List<BoardOAuthReceipt> selectTokenFamilyRotatedReceiptByResultGenerationCandidatesForUpdate(
+            @Param("familyId") String familyId,
+            @Param("clientId") String clientId,
+            @Param("resultGeneration") Long resultGeneration);
+
+    List<BoardOAuthReceipt> selectRefreshReplayDetectedReceiptCandidatesForUpdate(
+            @Param("familyId") String familyId,
+            @Param("clientId") String clientId);
+
+    List<BoardOAuthReceipt> selectRefreshFamilySecurityReceiptsForUpdate(
+            @Param("familyId") String familyId,
+            @Param("clientId") String clientId);
+
+    List<BoardOAuthReceipt> selectBoundedRefreshFamilySecurityReceiptsForUpdate(
+            @Param("familyId") String familyId,
+            @Param("clientId") String clientId,
+            @Param("rowLimit") int rowLimit);
 
     /**
      * Non-authoritative lookup data used only to discover the canonical lock keys.

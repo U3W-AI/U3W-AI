@@ -92,6 +92,7 @@ $steps = @(
     New-Step "public_init_033" "Independent Board OAuth authorization foundation" (Resolve-SqlFile "update_20260721_independent_board_oauth_foundation.sql")
     New-Step "public_init_034" "Independent Board OAuth TOKEN_FAMILY_CREATED receipt provenance" (Resolve-SqlFile "update_20260721_independent_board_oauth_receipt_provenance.sql")
     New-Step "public_init_035" "Independent Board OAuth consent-intent lineage" (Resolve-SqlFile "update_20260721_independent_board_oauth_consent_intent_lineage.sql")
+    New-Step "public_init_036" "Independent Board OAuth refresh security receipt v2" (Resolve-SqlFile "update_20260721_independent_board_oauth_refresh_security.sql")
 )
 
 if (-not (Test-Path -LiteralPath $DeclarativeManifestPath -PathType Leaf)) {
@@ -118,12 +119,12 @@ for ($index = 0; $index -lt $steps.Count; $index++) {
         [string]$declared.file -ne $executable.File.Name) {
         throw "Declarative manifest drift at position $($index + 1): expected '$($executable.Version)|$($executable.Description)|$($executable.File.Name)'."
     }
-    if ($executable.Version -eq 'public_init_035') {
+    if ($executable.Version -in @('public_init_035', 'public_init_036')) {
         $declaredSha256 = [string]$declared.sha256
         $actualSha256 = (Get-FileHash -LiteralPath $executable.File.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($declaredSha256 -notmatch '^[0-9a-f]{64}$' -or
             -not [string]::Equals($declaredSha256, $actualSha256, [StringComparison]::Ordinal)) {
-            throw "public_init_035 byte contract drifted: expected SHA-256 '$declaredSha256', found '$actualSha256'."
+            throw "$($executable.Version) byte contract drifted: expected SHA-256 '$declaredSha256', found '$actualSha256'."
         }
     }
 }
@@ -683,6 +684,17 @@ SELECT CONCAT_WS('|',
 }
 
 function Assert-IndependentBoardConnectorBindingCurrentState {
+    $refreshSecurityState = Invoke-MySqlText -Sql "SELECT COALESCE((SELECT description FROM u3w_schema_migration WHERE version='20260721_independent_board_oauth_refresh_security_v1'), '');"
+    $connectorLockOrderExpected = 0
+    if ($refreshSecurityState) {
+        if (-not [string]::Equals(
+                $refreshSecurityState,
+                'APPLIED:Independent Board OAuth refresh security receipt v2',
+                [StringComparison]::Ordinal)) {
+            throw "Independent Board Connector binding refresh-security successor is not in its exact completed state: '$refreshSecurityState'."
+        }
+        $connectorLockOrderExpected = 1
+    }
     $stateResponse = Invoke-MySqlText -Sql @"
 SELECT CONCAT_WS('|',
   (SELECT COUNT(*) FROM information_schema.tables
@@ -741,8 +753,9 @@ SELECT CONCAT_WS('|',
       OR (table_name = 'fbs_connector_binding_scope' AND index_name = 'PRIMARY' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('binding_id,scope_code' AS BINARY))
       OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'PRIMARY' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('id' AS BINARY))
       OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'uk_connector_binding_receipt_id' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('receipt_id' AS BINARY))
-      OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'idx_connector_binding_receipt_binding' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('binding_id,enterprise_id,member_id,user_id,created_at' AS BINARY))
-      OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'idx_connector_binding_receipt_scope' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('enterprise_id,member_id,created_at' AS BINARY))),
+       OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'idx_connector_binding_receipt_binding' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('binding_id,enterprise_id,member_id,user_id,created_at' AS BINARY))
+       OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'idx_connector_binding_receipt_scope' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('enterprise_id,member_id,created_at' AS BINARY))
+       OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'idx_connector_binding_receipt_lock_order' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('binding_id,id' AS BINARY))),
   (SELECT COUNT(*) FROM information_schema.referential_constraints
    WHERE constraint_schema = DATABASE()
      AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')),
@@ -782,7 +795,13 @@ SELECT CONCAT_WS('|',
 );
 "@
     $stateParts = @($stateResponse.Split('|'))
-    $expectedState = @(3, 3, 3, 3, 36, 36, 3, 11, 11, 3, 3, 8, 15, 15, 1, 1)
+    $expectedConnectorIndexCount = 11 + $connectorLockOrderExpected
+    $expectedState = @(
+        3, 3, 3, 3, 36, 36, 3,
+        $expectedConnectorIndexCount,
+        $expectedConnectorIndexCount,
+        3, 3, 8, 15, 15, 1, 1
+    )
     if ($stateParts.Count -ne $expectedState.Count) {
         throw "Independent Board Connector binding current-read verifier returned an invalid field count: '$stateResponse'."
     }
@@ -902,8 +921,9 @@ SELECT CONCAT_WS('|',
       OR (table_name = 'fbs_connector_binding_scope' AND index_name = 'PRIMARY' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('binding_id:A,scope_code:A' AS BINARY))
       OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'PRIMARY' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('id:A' AS BINARY))
       OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'uk_connector_binding_receipt_id' AND non_unique = 0 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('receipt_id:A' AS BINARY))
-      OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'idx_connector_binding_receipt_binding' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('binding_id:A,enterprise_id:A,member_id:A,user_id:A,created_at:A' AS BINARY))
-      OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'idx_connector_binding_receipt_scope' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('enterprise_id:A,member_id:A,created_at:A' AS BINARY)))),
+       OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'idx_connector_binding_receipt_binding' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('binding_id:A,enterprise_id:A,member_id:A,user_id:A,created_at:A' AS BINARY))
+       OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'idx_connector_binding_receipt_scope' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('enterprise_id:A,member_id:A,created_at:A' AS BINARY))
+       OR (table_name = 'fbs_connector_binding_receipt' AND index_name = 'idx_connector_binding_receipt_lock_order' AND non_unique = 1 AND index_type = 'BTREE' AND CAST(column_signature AS BINARY) = CAST('binding_id:A,id:A' AS BINARY)))),
   (SELECT COUNT(*) FROM information_schema.referential_constraints
    WHERE constraint_schema = DATABASE() AND unique_constraint_schema = DATABASE()
      AND update_rule = 'RESTRICT' AND delete_rule = 'RESTRICT'
@@ -919,9 +939,9 @@ SELECT CONCAT_WS('|',
      AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt')),
   (SELECT COUNT(*) FROM (
        SELECT tc.table_name, tc.constraint_name,
-              REPLACE(REPLACE(LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-                  cc.check_clause, CHAR(96), ''), ' ', ''), CHAR(9), ''), CHAR(10), ''), CHAR(13), ''), CHAR(92), '')),
-                  '_utf8mb4', ''), '_utf8mb3', '') AS normalized_clause
+               REPLACE(REPLACE(REPLACE(LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                   cc.check_clause, CHAR(96), ''), ' ', ''), CHAR(9), ''), CHAR(10), ''), CHAR(13), ''), CHAR(92), '')),
+                   '_utf8mb4', ''), '_utf8mb3', ''), '_ascii', '') AS normalized_clause
        FROM information_schema.table_constraints tc
        INNER JOIN information_schema.check_constraints cc
          ON cc.constraint_schema = tc.constraint_schema AND cc.constraint_name = tc.constraint_name
@@ -967,7 +987,7 @@ SELECT CONCAT_WS('|',
 );
 "@
     $exactStateParts = @($exactStateResponse.Split('|'))
-    $expectedExactState = @(3, 36, 7, 11, 3, 8, 15, 15, 2, 2)
+    $expectedExactState = @(3, 36, 7, $expectedConnectorIndexCount, 3, 8, 15, 15, 2, 2)
     if ($exactStateParts.Count -ne $expectedExactState.Count) {
         throw "Independent Board Connector exact current-read verifier returned an invalid field count: '$exactStateResponse'."
     }
@@ -1005,6 +1025,17 @@ function Assert-IndependentBoardOauthServerProfile {
 
 function Assert-IndependentBoardOauthFoundationCurrentState {
     $serverProfile = Assert-IndependentBoardOauthServerProfile
+    $refreshSecurityState = Invoke-MySqlText -Sql "SELECT COALESCE((SELECT description FROM u3w_schema_migration WHERE version='20260721_independent_board_oauth_refresh_security_v1'), '');"
+    if ($refreshSecurityState) {
+        if (-not [string]::Equals(
+                $refreshSecurityState,
+                'APPLIED:Independent Board OAuth refresh security receipt v2',
+                [StringComparison]::Ordinal)) {
+            throw "Independent Board OAuth refresh-security successor is not in its exact completed state: '$refreshSecurityState'."
+        }
+        Assert-IndependentBoardOauthRefreshSecurityCurrentState
+        return
+    }
     $serverVersion = $serverProfile.Version
     $neutralClientNameUtf8Hex = 'e69caae9aa8ce8af81e79a84e69cace59cb0e585ace585b1e5aea2e688b7e7abaf'
     $neutralClientNameUtf8Bytes = [byte[]]::new($neutralClientNameUtf8Hex.Length / 2)
@@ -1361,6 +1392,17 @@ SELECT CONCAT_WS('|',
 
 function Assert-IndependentBoardOauthConsentIntentCurrentState {
     $serverProfile = Assert-IndependentBoardOauthServerProfile
+    $refreshSecurityState = Invoke-MySqlText -Sql "SELECT COALESCE((SELECT description FROM u3w_schema_migration WHERE version='20260721_independent_board_oauth_refresh_security_v1'), '');"
+    if ($refreshSecurityState) {
+        if (-not [string]::Equals(
+                $refreshSecurityState,
+                'APPLIED:Independent Board OAuth refresh security receipt v2',
+                [StringComparison]::Ordinal)) {
+            throw "Independent Board OAuth refresh-security successor is not in its exact completed state: '$refreshSecurityState'."
+        }
+        Assert-IndependentBoardOauthRefreshSecurityCurrentState
+        return
+    }
     $stateResponse = Invoke-MySqlText -Sql @"
 SET SESSION group_concat_max_len = 1048576;
 SELECT CONCAT_WS('|',
@@ -1618,6 +1660,466 @@ function Stop-MySqlSession {
     }
 }
 
+function Assert-IndependentBoardOauthRefreshSecurityCurrentState {
+    $serverProfile = Assert-IndependentBoardOauthServerProfile
+    $expectedLegacyForeignKeyDigest = if ($serverProfile.Version -eq '8.0.30') {
+        'd3b99d9c1923c59729166110ceeddd0c6987ef9806e1d644add9ca018ca8166a'
+    }
+    else {
+        '1e103fc572908bef3353dfdec2a2076a76c68a5ec9dd3f8b5f938a486d431d22'
+    }
+    $stateResponse = Invoke-MySqlText -Sql @"
+SET SESSION group_concat_max_len = 1048576;
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = '20260721_independent_board_oauth_foundation_v1'
+     AND description = 'Independent Board OAuth client, authorization, token family and immutable receipt tables'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = '20260721_independent_board_oauth_receipt_provenance_v1'
+     AND description = 'APPLIED:Independent Board OAuth TOKEN_FAMILY_CREATED provenance uniqueness'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = '20260721_independent_board_oauth_consent_intent_lineage_v1'
+     AND description = 'APPLIED:Independent Board OAuth consent intent lineage'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = '20260721_independent_board_oauth_refresh_security_v1'
+     AND description = 'APPLIED:Independent Board OAuth refresh security receipt v2'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = '20260721_independent_board_oauth_refresh_security_v1'),
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema = DATABASE()
+     AND table_name IN ('fbs_oauth_client','fbs_oauth_authorization_request',
+       'fbs_oauth_authorization_code','fbs_oauth_token_family',
+       'fbs_oauth_token','fbs_oauth_receipt')
+     AND table_type = 'BASE TABLE' AND engine = 'InnoDB'
+     AND table_collation = 'utf8mb4_unicode_ci'),
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema = DATABASE()
+     AND table_name IN ('fbs_oauth_client','fbs_oauth_authorization_request',
+       'fbs_oauth_authorization_code','fbs_oauth_token_family',
+       'fbs_oauth_token','fbs_oauth_receipt')),
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema = DATABASE()
+     AND table_name IN ('fbs_oauth_client','fbs_oauth_authorization_request',
+       'fbs_oauth_authorization_code','fbs_oauth_token_family',
+       'fbs_oauth_token','fbs_oauth_receipt')
+     AND extra = 'STORED GENERATED' AND generation_expression <> ''),
+  (SELECT COUNT(*) FROM (
+       SELECT table_name, index_name
+       FROM information_schema.statistics
+       WHERE table_schema = DATABASE()
+         AND table_name IN ('fbs_oauth_client','fbs_oauth_authorization_request',
+           'fbs_oauth_authorization_code','fbs_oauth_token_family',
+           'fbs_oauth_token','fbs_oauth_receipt')
+       GROUP BY table_name, index_name
+   ) exact_indexes),
+  (SELECT COUNT(*) FROM information_schema.referential_constraints
+   WHERE constraint_schema = DATABASE()
+     AND unique_constraint_schema = DATABASE()
+     AND table_name IN ('fbs_oauth_authorization_request',
+       'fbs_oauth_authorization_code','fbs_oauth_token_family',
+       'fbs_oauth_token','fbs_oauth_receipt')),
+  (SELECT COUNT(*) FROM information_schema.key_column_usage
+   WHERE constraint_schema = DATABASE()
+     AND referenced_table_schema = DATABASE()
+     AND referenced_table_name IS NOT NULL
+     AND table_name IN ('fbs_oauth_authorization_request',
+       'fbs_oauth_authorization_code','fbs_oauth_token_family',
+       'fbs_oauth_token','fbs_oauth_receipt')),
+  (SELECT COUNT(*) FROM information_schema.table_constraints
+   WHERE constraint_schema = DATABASE() AND constraint_type = 'CHECK'
+     AND table_name IN ('fbs_oauth_client','fbs_oauth_authorization_request',
+       'fbs_oauth_authorization_code','fbs_oauth_token_family',
+       'fbs_oauth_token','fbs_oauth_receipt')),
+  (SELECT COUNT(*) FROM information_schema.table_constraints
+   WHERE constraint_schema = DATABASE() AND constraint_type = 'CHECK'
+     AND enforced = 'YES'
+     AND table_name IN ('fbs_oauth_client','fbs_oauth_authorization_request',
+       'fbs_oauth_authorization_code','fbs_oauth_token_family',
+       'fbs_oauth_token','fbs_oauth_receipt')),
+  (SELECT COUNT(*) FROM information_schema.triggers
+   WHERE trigger_schema = DATABASE()
+     AND event_object_table IN ('fbs_oauth_client','fbs_oauth_authorization_request',
+       'fbs_oauth_authorization_code','fbs_oauth_token_family',
+       'fbs_oauth_token','fbs_oauth_receipt')),
+  (SELECT COUNT(*) FROM (
+       SELECT tc.enforced,
+              LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                  REPLACE(REPLACE(REPLACE(REPLACE(cc.check_clause,
+                    '_utf8mb4',''),'_utf8mb3',''),'_ascii',''),'_gbk',''),
+                    CHAR(96),''),' ',''),CHAR(9),''),CHAR(10),''),CHAR(13),''),
+                    CHAR(92),''),'(',''),')','')) AS normalized_clause
+       FROM information_schema.table_constraints tc
+       INNER JOIN information_schema.check_constraints cc
+         ON cc.constraint_schema = tc.constraint_schema
+        AND cc.constraint_name = tc.constraint_name
+       WHERE tc.constraint_schema = DATABASE() AND tc.constraint_type = 'CHECK'
+         AND tc.table_name = 'fbs_oauth_authorization_request'
+         AND tc.constraint_name = 'chk_oauth_request_consent_intent'
+   ) request_check
+   WHERE enforced = 'YES'
+     AND CAST(normalized_clause AS BINARY) = CAST(
+       'consent_intentisnullandprincipal_subject_digestisnullorconsent_intentisnotnullandconsent_intentin''first_connect'',''explicit_reauthorization''andprincipal_subject_digestisnotnull'
+       AS BINARY)),
+  (SELECT COUNT(*) FROM (
+       SELECT index_name, non_unique, index_type, MIN(is_visible) AS visibility,
+              COUNT(*) AS key_part_count,
+              SUM(column_name IS NULL OR expression IS NOT NULL) AS non_column_key_parts,
+              SUM(sub_part IS NOT NULL) AS partial_columns,
+              GROUP_CONCAT(CONCAT(column_name, ':', COALESCE(collation, 'NULL'))
+                ORDER BY seq_in_index SEPARATOR ',') AS column_signature
+       FROM information_schema.statistics
+       WHERE table_schema = DATABASE() AND table_name = 'fbs_oauth_token'
+         AND index_name IN ('uk_oauth_token_receipt_generation_type_scope',
+           'idx_oauth_token_family_lock_order')
+       GROUP BY table_name, index_name, non_unique, index_type
+   ) token_support
+   WHERE index_type = 'BTREE' AND visibility = 'YES'
+     AND non_column_key_parts = 0 AND partial_columns = 0
+     AND ((index_name = 'uk_oauth_token_receipt_generation_type_scope'
+           AND non_unique = 0 AND key_part_count = 4
+           AND CAST(column_signature AS BINARY) =
+             CAST('id:A,family_id:A,generation:A,token_type:A' AS BINARY))
+       OR (index_name = 'idx_oauth_token_family_lock_order'
+           AND non_unique = 1 AND key_part_count = 2
+           AND CAST(column_signature AS BINARY) =
+             CAST('family_id:A,id:A' AS BINARY)))),
+  (SELECT COUNT(*) FROM (
+       SELECT index_name, non_unique, index_type, MIN(is_visible) AS visibility,
+              COUNT(*) AS key_part_count,
+              SUM(column_name IS NULL OR expression IS NOT NULL) AS non_column_key_parts,
+              SUM(sub_part IS NOT NULL) AS partial_columns,
+              GROUP_CONCAT(CONCAT(column_name, ':', COALESCE(collation, 'NULL'))
+                ORDER BY seq_in_index SEPARATOR ',') AS column_signature
+       FROM information_schema.statistics
+       WHERE table_schema = DATABASE() AND table_name = 'fbs_oauth_receipt'
+         AND index_name IN ('uk_oauth_receipt_causation_scope',
+           'idx_oauth_receipt_family_client_lock_order')
+       GROUP BY table_name, index_name, non_unique, index_type
+   ) causation_support
+   WHERE index_type = 'BTREE' AND visibility = 'YES'
+     AND non_column_key_parts = 0 AND partial_columns = 0
+     AND ((index_name = 'uk_oauth_receipt_causation_scope'
+           AND non_unique = 0 AND key_part_count = 3
+           AND CAST(column_signature AS BINARY) =
+             CAST('receipt_id:A,family_id:A,client_id:A' AS BINARY))
+       OR (index_name = 'idx_oauth_receipt_family_client_lock_order'
+           AND non_unique = 1 AND key_part_count = 3
+           AND CAST(column_signature AS BINARY) =
+             CAST('family_id:A,client_id:A,id:A' AS BINARY)))),
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema = DATABASE()
+     AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope',
+       'fbs_connector_binding_receipt')
+     AND table_type = 'BASE TABLE' AND engine = 'InnoDB'
+     AND table_collation = 'utf8mb4_unicode_ci'),
+  (SELECT COUNT(*) FROM (
+       SELECT table_name, index_name
+       FROM information_schema.statistics
+       WHERE table_schema = DATABASE()
+         AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope',
+           'fbs_connector_binding_receipt')
+       GROUP BY table_name, index_name
+   ) connector_indexes),
+  (SELECT COUNT(*) FROM (
+       SELECT non_unique, index_type, MIN(is_visible) AS visibility,
+              COUNT(*) AS key_part_count,
+              SUM(column_name IS NULL OR expression IS NOT NULL) AS non_column_key_parts,
+              SUM(sub_part IS NOT NULL) AS partial_columns,
+              GROUP_CONCAT(CONCAT(column_name, ':', COALESCE(collation, 'NULL'))
+                ORDER BY seq_in_index SEPARATOR ',') AS column_signature
+       FROM information_schema.statistics
+       WHERE table_schema = DATABASE()
+         AND table_name = 'fbs_connector_binding_receipt'
+         AND index_name = 'idx_connector_binding_receipt_lock_order'
+       GROUP BY table_name, index_name, non_unique, index_type
+   ) connector_support
+   WHERE non_unique = 1 AND index_type = 'BTREE' AND visibility = 'YES'
+     AND key_part_count = 2 AND non_column_key_parts = 0 AND partial_columns = 0
+     AND CAST(column_signature AS BINARY) = CAST('binding_id:A,id:A' AS BINARY)),
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema = DATABASE() AND table_name = 'fbs_oauth_receipt'
+     AND column_name IN ('receipt_format_version','subject_generation',
+       'result_generation','causation_receipt_id','before_state_digest',
+       'after_state_digest','subject_token_type','security_event_slot')),
+  (SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics
+   WHERE table_schema = DATABASE() AND table_name = 'fbs_oauth_receipt'
+     AND index_name IN ('idx_oauth_receipt_causation_scope',
+       'idx_oauth_receipt_refresh_subject','uk_oauth_receipt_security_event_slot')),
+  (SELECT COUNT(*) FROM information_schema.referential_constraints
+   WHERE constraint_schema = DATABASE() AND table_name = 'fbs_oauth_receipt'
+     AND constraint_name IN ('fk_oauth_receipt_refresh_subject',
+       'fk_oauth_receipt_causation_scope')),
+  (SELECT COUNT(*) FROM information_schema.table_constraints
+   WHERE constraint_schema = DATABASE() AND table_name = 'fbs_oauth_receipt'
+     AND constraint_type = 'CHECK' AND enforced = 'YES'
+     AND constraint_name IN ('chk_oauth_receipt_format_version',
+       'chk_oauth_receipt_v2_shape')),
+  (SELECT COUNT(*) FROM (
+       SELECT trigger_name, event_manipulation, action_timing,
+              action_orientation, action_condition,
+              LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                action_statement,CHAR(96),''),' ',''),CHAR(9),''),CHAR(10),''),
+                CHAR(13),''),CHAR(92),'')) AS normalized_action
+       FROM information_schema.triggers
+       WHERE trigger_schema = DATABASE()
+         AND event_object_table = 'fbs_oauth_receipt'
+   ) receipt_triggers
+   WHERE action_condition IS NULL AND action_timing = 'BEFORE'
+     AND action_orientation = 'ROW'
+     AND CAST(normalized_action AS BINARY) = CAST(
+       'signalsqlstate''45000''setmessage_text=''oauthreceiptsareimmutable''' AS BINARY)
+     AND ((trigger_name = 'trg_oauth_receipt_no_update' AND event_manipulation = 'UPDATE')
+       OR (trigger_name = 'trg_oauth_receipt_no_delete' AND event_manipulation = 'DELETE'))),
+  (SELECT COUNT(*) FROM (
+       SELECT event_manipulation, action_timing, action_orientation, action_condition,
+              LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                REPLACE(REPLACE(REPLACE(action_statement,
+                  '_utf8mb4',''),'_utf8mb3',''),'_ascii',''),CHAR(96),''),' ',''),
+                  CHAR(9),''),CHAR(10),''),CHAR(13),''),CHAR(92),''),'(',''),')',''))
+                AS normalized_action
+       FROM information_schema.triggers
+       WHERE trigger_schema = DATABASE()
+         AND event_object_table = 'fbs_oauth_authorization_request'
+         AND trigger_name = 'trg_oauth_request_consent_intent_once'
+   ) consent_trigger
+   WHERE event_manipulation = 'UPDATE' AND action_timing = 'BEFORE'
+     AND action_orientation = 'ROW' AND action_condition IS NULL
+     AND CAST(normalized_action AS BINARY) = CAST(
+       'beginifold.consent_intentisnotnullandnotnew.consent_intent<=>old.consent_intentthensignalsqlstate''45000''setmessage_text=''oauthconsentintentisimmutable'';endif;ifold.consent_intentisnullandnew.consent_intentisnotnullandnotold.status=''pending''andnew.statusin''approved'',''denied''thensignalsqlstate''45000''setmessage_text=''oauthconsentintentmustbesetbyadecisiontransition'';endif;end'
+       AS BINARY)),
+  (SELECT COUNT(*) FROM information_schema.routines
+   WHERE routine_schema = DATABASE() AND routine_type = 'PROCEDURE'
+     AND routine_name IN ('u3w_assert_ib_oauth_refresh_security_20260721',
+       'u3w_migrate_ib_oauth_refresh_security_20260721')),
+  (SELECT COUNT(*) FROM fbs_oauth_authorization_request
+   WHERE (consent_intent IS NULL AND principal_subject_digest IS NOT NULL)
+      OR (consent_intent IS NOT NULL AND principal_subject_digest IS NULL)
+      OR (consent_intent IS NOT NULL
+          AND consent_intent NOT IN ('FIRST_CONNECT','EXPLICIT_REAUTHORIZATION'))),
+  (SELECT COUNT(*) FROM fbs_oauth_authorization_code c
+   LEFT JOIN fbs_oauth_authorization_request r
+     ON r.id = c.authorization_request_id AND r.consent_intent = c.consent_intent
+   WHERE r.id IS NULL),
+  (SELECT COUNT(*) FROM fbs_oauth_token_family f
+   LEFT JOIN fbs_oauth_authorization_code c
+     ON c.id = f.origin_authorization_code_id AND c.consent_intent = f.consent_intent
+   WHERE c.id IS NULL),
+  (SELECT COUNT(*) FROM fbs_oauth_receipt
+   WHERE COALESCE(
+     (receipt_format_version = 1
+      AND action NOT IN ('TOKEN_FAMILY_ROTATED','REFRESH_REPLAY_DETECTED')
+      AND subject_generation IS NULL AND result_generation IS NULL
+      AND causation_receipt_id IS NULL AND before_state_digest IS NULL
+      AND after_state_digest IS NULL AND subject_token_type IS NULL
+      AND security_event_slot IS NULL)
+     OR
+     (receipt_format_version = 2 AND action = 'TOKEN_FAMILY_ROTATED'
+      AND authorization_request_id IS NULL AND authorization_code_id IS NULL
+      AND family_id IS NOT NULL AND token_id IS NOT NULL AND binding_id IS NOT NULL
+      AND subject_generation IS NOT NULL AND subject_generation < 4294967295
+      AND result_generation IS NOT NULL
+      AND result_generation = subject_generation + 1
+      AND causation_receipt_id IS NOT NULL AND causation_receipt_id <> receipt_id
+      AND before_state_digest IS NOT NULL AND after_state_digest IS NOT NULL
+      AND before_state_digest <> after_state_digest
+      AND subject_token_type = 'REFRESH' AND security_event_slot IS NOT NULL
+      AND actor_type = 'CLIENT' AND actor_user_id IS NULL)
+     OR
+     (receipt_format_version = 2 AND action = 'REFRESH_REPLAY_DETECTED'
+      AND authorization_request_id IS NULL AND authorization_code_id IS NULL
+      AND family_id IS NOT NULL AND token_id IS NOT NULL AND binding_id IS NOT NULL
+      AND subject_generation IS NOT NULL AND subject_generation < 4294967295
+      AND result_generation IS NULL
+      AND causation_receipt_id IS NOT NULL AND causation_receipt_id <> receipt_id
+      AND before_state_digest IS NOT NULL AND after_state_digest IS NOT NULL
+      AND before_state_digest <> after_state_digest
+      AND subject_token_type = 'REFRESH' AND security_event_slot IS NOT NULL
+      AND actor_type = 'CLIENT' AND actor_user_id IS NULL), 0) <> 1),
+  (SELECT COUNT(*) FROM fbs_oauth_receipt r
+   LEFT JOIN fbs_oauth_token t
+     ON t.id = r.token_id AND t.family_id = r.family_id
+    AND t.generation = r.subject_generation
+    AND t.token_type = r.subject_token_type
+   WHERE r.receipt_format_version = 2
+     AND r.action IN ('TOKEN_FAMILY_ROTATED','REFRESH_REPLAY_DETECTED')
+     AND t.id IS NULL),
+  (SELECT COUNT(*) FROM fbs_oauth_receipt r
+   LEFT JOIN fbs_oauth_receipt cause
+     ON cause.receipt_id = r.causation_receipt_id
+    AND cause.family_id = r.family_id AND cause.client_id = r.client_id
+   WHERE r.receipt_format_version = 2
+     AND r.action IN ('TOKEN_FAMILY_ROTATED','REFRESH_REPLAY_DETECTED')
+     AND cause.id IS NULL)
+);
+"@
+    $stateParts = @($stateResponse.Split('|'))
+    $expectedState = @(
+        1, 1, 1, 1, 1, 6, 156, 5, 64, 18, 68, 38, 38, 3,
+        1, 2, 2, 3, 12, 1, 8, 3, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0
+    )
+    if ($stateParts.Count -ne $expectedState.Count) {
+        throw "Independent Board OAuth refresh-security current-read returned an invalid field count: '$stateResponse'."
+    }
+    for ($index = 0; $index -lt $expectedState.Count; $index++) {
+        if ($stateParts[$index] -notmatch '^\d+$' -or
+            [int]$stateParts[$index] -ne $expectedState[$index]) {
+            throw "Independent Board OAuth refresh-security current-read drift detected at field $($index + 1): expected $($expectedState[$index]), found '$($stateParts[$index])'."
+        }
+    }
+
+    $digestResponse = Invoke-MySqlText -Sql @"
+SET SESSION group_concat_max_len = 1048576;
+SELECT CONCAT_WS('|',
+  (SELECT SHA2(GROUP_CONCAT(CONCAT(
+       'T:',HEX(CAST(table_name AS BINARY)),'|O:',LPAD(ordinal_position,3,'0'),
+       '|N:',HEX(CAST(column_name AS BINARY)),'|Y:',HEX(CAST(column_type AS BINARY)),
+       '|U:',HEX(CAST(is_nullable AS BINARY)),'|D:',IF(column_default IS NULL,'N',CONCAT('V:',HEX(CAST(column_default AS BINARY)))),
+       '|C:',IF(character_set_name IS NULL,'N',CONCAT('V:',HEX(CAST(character_set_name AS BINARY)))),
+       '|L:',IF(collation_name IS NULL,'N',CONCAT('V:',HEX(CAST(collation_name AS BINARY)))),
+       '|E:',HEX(CAST(extra AS BINARY)),'|G:',IF(generation_expression IS NULL,'N',CONCAT('V:',HEX(CAST(generation_expression AS BINARY)))))
+       ORDER BY table_name,ordinal_position SEPARATOR 0x0A),256)
+   FROM information_schema.columns WHERE table_schema = DATABASE()
+     AND table_name IN ('fbs_oauth_client','fbs_oauth_authorization_request',
+       'fbs_oauth_authorization_code','fbs_oauth_token_family','fbs_oauth_token','fbs_oauth_receipt')
+     AND NOT (table_name = 'fbs_oauth_receipt' AND column_name IN (
+       'receipt_format_version','subject_generation','result_generation','causation_receipt_id',
+       'before_state_digest','after_state_digest','subject_token_type','security_event_slot'))),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT(
+       'T:',HEX(CAST(table_name AS BINARY)),'|I:',HEX(CAST(index_name AS BINARY)),
+       '|U:',non_unique,'|Y:',HEX(CAST(index_type AS BINARY)),'|V:',HEX(CAST(is_visible AS BINARY)),
+       '|S:',seq_in_index,'|N:',IF(column_name IS NULL,'N',CONCAT('V:',HEX(CAST(column_name AS BINARY)))),
+       '|X:',IF(expression IS NULL,'N',CONCAT('V:',HEX(CAST(expression AS BINARY)))),
+       '|C:',IF(collation IS NULL,'N',CONCAT('V:',HEX(CAST(collation AS BINARY)))),
+       '|P:',IF(sub_part IS NULL,'N',CONCAT('V:',sub_part)),'|Q:',HEX(CAST(nullable AS BINARY)))
+       ORDER BY table_name,index_name,seq_in_index SEPARATOR 0x0A),256)
+   FROM information_schema.statistics WHERE table_schema = DATABASE()
+     AND table_name IN ('fbs_oauth_client','fbs_oauth_authorization_request',
+       'fbs_oauth_authorization_code','fbs_oauth_token_family','fbs_oauth_token','fbs_oauth_receipt')
+      AND NOT (table_name = 'fbs_oauth_token' AND index_name IN (
+        'uk_oauth_token_receipt_generation_type_scope','idx_oauth_token_family_lock_order'))
+      AND NOT (table_name = 'fbs_oauth_receipt' AND index_name IN (
+        'uk_oauth_receipt_causation_scope','idx_oauth_receipt_causation_scope',
+        'idx_oauth_receipt_family_client_lock_order','idx_oauth_receipt_refresh_subject',
+        'uk_oauth_receipt_security_event_slot'))),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT(
+       'T:',HEX(CAST(table_name AS BINARY)),'|I:',HEX(CAST(index_name AS BINARY)),
+       '|U:',non_unique,'|Y:',HEX(CAST(index_type AS BINARY)),'|V:',HEX(CAST(is_visible AS BINARY)),
+       '|S:',seq_in_index,'|N:',IF(column_name IS NULL,'N',CONCAT('V:',HEX(CAST(column_name AS BINARY)))),
+       '|X:',IF(expression IS NULL,'N',CONCAT('V:',HEX(CAST(expression AS BINARY)))),
+       '|C:',IF(collation IS NULL,'N',CONCAT('V:',HEX(CAST(collation AS BINARY)))),
+       '|P:',IF(sub_part IS NULL,'N',CONCAT('V:',sub_part)),'|Q:',HEX(CAST(nullable AS BINARY)))
+       ORDER BY table_name,index_name,seq_in_index SEPARATOR 0x0A),256)
+   FROM information_schema.statistics WHERE table_schema = DATABASE()
+     AND table_name IN ('fbs_connector_binding','fbs_connector_binding_scope',
+       'fbs_connector_binding_receipt')
+     AND NOT (table_name = 'fbs_connector_binding_receipt'
+       AND index_name = 'idx_connector_binding_receipt_lock_order')),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT(
+       'T:',HEX(CAST(rc.table_name AS BINARY)),'|C:',HEX(CAST(rc.constraint_name AS BINARY)),
+       '|S:',IF(rc.unique_constraint_schema=DATABASE(),'SAME','OTHER'),
+       '|K:',HEX(CAST(rc.unique_constraint_name AS BINARY)),'|R:',HEX(CAST(rc.referenced_table_name AS BINARY)),
+       '|U:',HEX(CAST(rc.update_rule AS BINARY)),'|D:',HEX(CAST(rc.delete_rule AS BINARY)),
+       '|M:',HEX(CAST(rc.match_option AS BINARY)),'|O:',kcu.ordinal_position,
+       '|N:',HEX(CAST(kcu.column_name AS BINARY)),'|Q:',IF(kcu.referenced_table_schema=DATABASE(),'SAME','OTHER'),
+       '|P:',HEX(CAST(kcu.referenced_column_name AS BINARY)),'|I:',IF(kcu.position_in_unique_constraint IS NULL,'N',CONCAT('V:',kcu.position_in_unique_constraint)))
+       ORDER BY rc.table_name,rc.constraint_name,kcu.ordinal_position SEPARATOR 0x0A),256)
+   FROM information_schema.referential_constraints rc
+   INNER JOIN information_schema.key_column_usage kcu
+     ON kcu.constraint_schema=rc.constraint_schema AND kcu.table_name=rc.table_name
+    AND kcu.constraint_name=rc.constraint_name
+   WHERE rc.constraint_schema=DATABASE()
+     AND rc.table_name IN ('fbs_oauth_authorization_request','fbs_oauth_authorization_code',
+       'fbs_oauth_token_family','fbs_oauth_token','fbs_oauth_receipt')
+     AND NOT (rc.table_name='fbs_oauth_receipt' AND rc.constraint_name IN (
+       'fk_oauth_receipt_refresh_subject','fk_oauth_receipt_causation_scope'))),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT('T:',HEX(CAST(tc.table_name AS BINARY)),
+       '|C:',HEX(CAST(tc.constraint_name AS BINARY)),'|E:',HEX(CAST(tc.enforced AS BINARY)),
+       '|X:',HEX(CAST(cc.check_clause AS BINARY)))
+       ORDER BY tc.table_name,tc.constraint_name SEPARATOR 0x0A),256)
+   FROM information_schema.table_constraints tc
+   INNER JOIN information_schema.check_constraints cc
+     ON cc.constraint_schema=tc.constraint_schema AND cc.constraint_name=tc.constraint_name
+   WHERE tc.constraint_schema=DATABASE() AND tc.constraint_type='CHECK'
+     AND tc.table_name IN ('fbs_oauth_client','fbs_oauth_authorization_request',
+       'fbs_oauth_authorization_code','fbs_oauth_token_family','fbs_oauth_token','fbs_oauth_receipt')
+     AND NOT (tc.table_name='fbs_oauth_authorization_request' AND tc.constraint_name='chk_oauth_request_consent_intent')
+     AND NOT (tc.table_name='fbs_oauth_receipt' AND tc.constraint_name IN (
+       'chk_oauth_receipt_format_version','chk_oauth_receipt_v2_shape'))),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT(
+       'T:',HEX(CAST(table_name AS BINARY)),'|O:',LPAD(ordinal_position,3,'0'),
+       '|N:',HEX(CAST(column_name AS BINARY)),'|Y:',HEX(CAST(column_type AS BINARY)),
+       '|U:',HEX(CAST(is_nullable AS BINARY)),'|D:',IF(column_default IS NULL,'N',CONCAT('V:',HEX(CAST(column_default AS BINARY)))),
+       '|C:',IF(character_set_name IS NULL,'N',CONCAT('V:',HEX(CAST(character_set_name AS BINARY)))),
+       '|L:',IF(collation_name IS NULL,'N',CONCAT('V:',HEX(CAST(collation_name AS BINARY)))),
+       '|E:',HEX(CAST(extra AS BINARY)),'|G:',IF(generation_expression IS NULL,'N',CONCAT('V:',HEX(CAST(generation_expression AS BINARY)))))
+       ORDER BY ordinal_position SEPARATOR 0x0A),256)
+   FROM information_schema.columns WHERE table_schema=DATABASE()
+     AND table_name='fbs_oauth_receipt' AND column_name IN (
+       'receipt_format_version','subject_generation','result_generation','causation_receipt_id',
+       'before_state_digest','after_state_digest','subject_token_type','security_event_slot')),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT(
+       'T:',HEX(CAST(table_name AS BINARY)),'|I:',HEX(CAST(index_name AS BINARY)),
+       '|U:',non_unique,'|Y:',HEX(CAST(index_type AS BINARY)),'|V:',HEX(CAST(is_visible AS BINARY)),
+       '|S:',seq_in_index,'|N:',IF(column_name IS NULL,'N',CONCAT('V:',HEX(CAST(column_name AS BINARY)))),
+       '|X:',IF(expression IS NULL,'N',CONCAT('V:',HEX(CAST(expression AS BINARY)))),
+       '|C:',IF(collation IS NULL,'N',CONCAT('V:',HEX(CAST(collation AS BINARY)))),
+       '|P:',IF(sub_part IS NULL,'N',CONCAT('V:',sub_part)),'|Q:',HEX(CAST(nullable AS BINARY)))
+       ORDER BY index_name,seq_in_index SEPARATOR 0x0A),256)
+   FROM information_schema.statistics WHERE table_schema=DATABASE()
+     AND table_name='fbs_oauth_receipt' AND index_name IN (
+       'idx_oauth_receipt_causation_scope','idx_oauth_receipt_refresh_subject',
+       'uk_oauth_receipt_security_event_slot')),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT(
+       'T:',HEX(CAST(rc.table_name AS BINARY)),'|C:',HEX(CAST(rc.constraint_name AS BINARY)),
+       '|S:',IF(rc.unique_constraint_schema=DATABASE(),'SAME','OTHER'),
+       '|K:',HEX(CAST(rc.unique_constraint_name AS BINARY)),'|R:',HEX(CAST(rc.referenced_table_name AS BINARY)),
+       '|U:',HEX(CAST(rc.update_rule AS BINARY)),'|D:',HEX(CAST(rc.delete_rule AS BINARY)),
+       '|M:',HEX(CAST(rc.match_option AS BINARY)),'|O:',kcu.ordinal_position,
+       '|N:',HEX(CAST(kcu.column_name AS BINARY)),'|Q:',IF(kcu.referenced_table_schema=DATABASE(),'SAME','OTHER'),
+       '|P:',HEX(CAST(kcu.referenced_column_name AS BINARY)),'|I:',IF(kcu.position_in_unique_constraint IS NULL,'N',CONCAT('V:',kcu.position_in_unique_constraint)))
+       ORDER BY rc.constraint_name,kcu.ordinal_position SEPARATOR 0x0A),256)
+   FROM information_schema.referential_constraints rc
+   INNER JOIN information_schema.key_column_usage kcu
+     ON kcu.constraint_schema=rc.constraint_schema AND kcu.table_name=rc.table_name
+    AND kcu.constraint_name=rc.constraint_name
+   WHERE rc.constraint_schema=DATABASE() AND rc.table_name='fbs_oauth_receipt'
+     AND rc.constraint_name IN ('fk_oauth_receipt_refresh_subject','fk_oauth_receipt_causation_scope')),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT('T:',HEX(CAST(tc.table_name AS BINARY)),
+       '|C:',HEX(CAST(tc.constraint_name AS BINARY)),'|E:',HEX(CAST(tc.enforced AS BINARY)),
+       '|X:',HEX(CAST(cc.check_clause AS BINARY)))
+       ORDER BY tc.constraint_name SEPARATOR 0x0A),256)
+   FROM information_schema.table_constraints tc
+   INNER JOIN information_schema.check_constraints cc
+     ON cc.constraint_schema=tc.constraint_schema AND cc.constraint_name=tc.constraint_name
+   WHERE tc.constraint_schema=DATABASE() AND tc.table_name='fbs_oauth_receipt'
+     AND tc.constraint_name IN ('chk_oauth_receipt_format_version','chk_oauth_receipt_v2_shape'))
+);
+"@
+    $digestParts = @($digestResponse.Split('|'))
+    $expectedDigests = @(
+        '09ac52b1ef4f2a095507a243d3a7048aa592e7b18b8057a2132d594a9d484197',
+        '4d19566ba4b4c3922ee41e1a09b4f8d2f9adb6f57a9788159303a5dcac0d0a00',
+        '504a017fe7c4a8ecc4c60619ea8beaf5e7d4aa207fcffe536ff47b8e1d9919b3',
+        $expectedLegacyForeignKeyDigest,
+        '11daf3aed2f9a13b314ab60fda6b28620d6f04dd3fb3ca992509ee64c7c7e503',
+        'b10e1732683f4590814595d37bbbc6b956d25d7647d9f6e8daf5c62e35898724',
+        '45b458a075c8906b94e09a5b2bf9f9920cd7586e2642d2bb210d817e8ec7e656',
+        '00ea1783aea41e0875c043f00bc85bffa7418f744e12060671baa6ff55150905',
+        'd30ff1730699536a7dcfcc76ac026a2744bc10a07ea028d01cc5cfea5ddd05ad'
+    )
+    if ($digestParts.Count -ne $expectedDigests.Count) {
+        throw "Independent Board OAuth refresh-security digest verifier returned an invalid field count: '$digestResponse'."
+    }
+    for ($index = 0; $index -lt $expectedDigests.Count; $index++) {
+        if (-not [string]::Equals(
+                $digestParts[$index], $expectedDigests[$index],
+                [StringComparison]::Ordinal)) {
+            throw "Independent Board OAuth refresh-security metadata digest drifted at field $($index + 1): '$($digestParts[$index])'."
+        }
+    }
+    Write-Host "PASS Independent Board OAuth refresh-security exact S3 current-read on MySQL Community $($serverProfile.Version) (strict NULL pairing, receipt-v2 columns/generated slots/indexes/FKs/CHECKs, exact lock-order support, immutable triggers, data lineage and helper cleanup)."
+}
+
 function Assert-PublicDatabaseManifestCurrentState {
     $publicReceiptCount = [int](Invoke-MySqlText -Sql "SELECT COUNT(*) FROM u3w_schema_migration WHERE version LIKE 'public_init_%';")
     if ($publicReceiptCount -ne $steps.Count) {
@@ -1664,6 +2166,7 @@ SELECT CONCAT_WS('|', @u3w_manifest_lock_name, CHAR_LENGTH(@u3w_manifest_lock_na
         Assert-IndependentBoardConnectorBindingCurrentState
         Assert-IndependentBoardOauthFoundationCurrentState
         Assert-IndependentBoardOauthConsentIntentCurrentState
+        Assert-IndependentBoardOauthRefreshSecurityCurrentState
         Assert-PublicDatabaseManifestCurrentState
         Write-Host "Independent Board current-read verification complete for '$Database'. No database write was requested."
     }
@@ -1735,8 +2238,13 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
         $resumeRunningOauthConsentIntent =
             $step.Version -eq 'public_init_035' -and
             $state -eq "RUNNING:$($step.Description)"
+        $resumeRunningOauthRefreshSecurity =
+            $step.Version -eq 'public_init_036' -and
+            $state -eq "RUNNING:$($step.Description)"
         $resumeRunningOauthAdditive =
-            $resumeRunningOauthProvenance -or $resumeRunningOauthConsentIntent
+            $resumeRunningOauthProvenance -or
+            $resumeRunningOauthConsentIntent -or
+            $resumeRunningOauthRefreshSecurity
         if ($state -and -not $resumeRunningOauthAdditive) {
             throw "Step $($step.Version) is in state '$state'. Do not retry a partially applied DDL step; use a fresh database or reviewed recovery."
         }
@@ -1766,6 +2274,12 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             # before the public runner creates or changes its receipt.
             $null = Assert-IndependentBoardOauthServerProfile
         }
+        if ($step.Version -eq 'public_init_036') {
+            # Reject an unsupported build before the public RUNNING receipt.
+            # The SQL migration owns exact S0-S3 and the bounded internal S2
+            # token-only and token+receipt support-prefix recovery contract.
+            $null = Assert-IndependentBoardOauthServerProfile
+        }
 
         try {
             if (-not $resumeRunningOauthAdditive) {
@@ -1792,6 +2306,11 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
                 # receipt is promoted only after independent read-only audits.
                 Assert-IndependentBoardOauthFoundationCurrentState
                 Assert-IndependentBoardOauthConsentIntentCurrentState
+            }
+            if ($step.Version -eq 'public_init_036') {
+                # The internal receipt is complete before the public receipt is
+                # promoted, and this independent read proves exact S3 plus data.
+                Assert-IndependentBoardOauthRefreshSecurityCurrentState
             }
             Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
         }
@@ -1871,6 +2390,25 @@ DROP PROCEDURE IF EXISTS u3w_assert_ib_oauth_consent_intent_20260721;
                     Write-Warning "W4b consent-intent exact bounded replay did not pass; recording FAILED."
                 }
             }
+            if ($step.Version -eq 'public_init_036') {
+                try {
+                    # One bounded replay may resume S0, S1, either exact internal
+                    # S2 support prefix, external S2 or complete S3. The migration
+                    # rejects every other partial or drifted shape.
+                    Invoke-MySqlFile -File $step.File
+                    Assert-IndependentBoardOauthRefreshSecurityCurrentState
+                    Invoke-MySqlText -Sql @"
+DROP PROCEDURE IF EXISTS u3w_migrate_ib_oauth_refresh_security_20260721;
+DROP PROCEDURE IF EXISTS u3w_assert_ib_oauth_refresh_security_20260721;
+"@ | Out-Null
+                    Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
+                    Write-Warning "Reconciled $($step.Version) from its exact committed refresh-security S3 state after one bounded replay."
+                    continue
+                }
+                catch {
+                    Write-Warning "W4b refresh-security exact bounded replay did not pass; recording FAILED."
+                }
+            }
             try {
                 Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='FAILED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
             }
@@ -1888,6 +2426,7 @@ DROP PROCEDURE IF EXISTS u3w_assert_ib_oauth_consent_intent_20260721;
     Assert-IndependentBoardConnectorBindingCurrentState
     Assert-IndependentBoardOauthFoundationCurrentState
     Assert-IndependentBoardOauthConsentIntentCurrentState
+    Assert-IndependentBoardOauthRefreshSecurityCurrentState
 
     Assert-PublicDatabaseManifestCurrentState
 

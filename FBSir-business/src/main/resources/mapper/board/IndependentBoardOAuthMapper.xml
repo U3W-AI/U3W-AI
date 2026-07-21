@@ -205,6 +205,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <id property="id" column="id" />
         <result property="receiptId" column="receipt_id" />
         <result property="action" column="action" />
+        <result property="receiptFormatVersion" column="receipt_format_version" />
         <result property="clientId" column="client_id" />
         <result property="authorizationRequestId" column="authorization_request_id" />
         <result property="authorizationCodeId" column="authorization_code_id" />
@@ -221,6 +222,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="correlationId" column="correlation_id" />
         <result property="payloadDigest" column="payload_digest" />
         <result property="evidenceLevel" column="evidence_level" />
+        <result property="subjectGeneration" column="subject_generation" />
+        <result property="resultGeneration" column="result_generation" />
+        <result property="causationReceiptId" column="causation_receipt_id" />
+        <result property="beforeStateDigest" column="before_state_digest" />
+        <result property="afterStateDigest" column="after_state_digest" />
+        <result property="subjectTokenType" column="subject_token_type" />
+        <result property="securityEventSlot" column="security_event_slot" />
         <result property="createdAt" column="created_at" />
     </resultMap>
 
@@ -879,6 +887,16 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         FOR UPDATE
     </select>
 
+    <!-- Bounded sentinel read for the refresh hot path; 036 supplies the lock-order index. -->
+    <select id="selectRefreshFamilyTokensForUpdate" resultMap="OAuthTokenMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_token
+        WHERE family_id = #{familyId}
+        ORDER BY id
+        LIMIT #{rowLimit}
+        FOR UPDATE
+    </select>
+
     <select id="selectActiveFamilyTokensForClientForUpdate" resultMap="OAuthTokenMap" flushCache="true" useCache="false">
         SELECT t.*
         FROM fbs_oauth_token t
@@ -960,14 +978,22 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
              enterprise_id, member_id, user_id, principal_subject_digest,
              actor_type, actor_user_id,
              actor_subject_digest, correlation_id, payload_digest,
-             evidence_level, created_at)
+             evidence_level, created_at
+             <if test="receiptFormatVersion != null and receiptFormatVersion != 1">
+                 , receipt_format_version, subject_generation, result_generation,
+                 causation_receipt_id, before_state_digest, after_state_digest
+             </if>)
         VALUES
             (#{receiptId}, #{action}, #{clientId}, #{authorizationRequestId},
              #{authorizationCodeId}, #{familyId}, #{tokenId}, #{bindingId},
              #{tenantId}, #{memberId}, #{userId}, #{principalSubjectDigest},
              #{actorType}, #{actorUserId},
              #{actorSubjectDigest}, #{correlationId}, #{payloadDigest},
-             #{evidenceLevel}, #{createdAt})
+             #{evidenceLevel}, #{createdAt}
+             <if test="receiptFormatVersion != null and receiptFormatVersion != 1">
+                 , #{receiptFormatVersion}, #{subjectGeneration}, #{resultGeneration},
+                 #{causationReceiptId}, #{beforeStateDigest}, #{afterStateDigest}
+             </if>)
     </insert>
 
     <!-- Same-transaction current read used to prove the immutable W4b receipt exists. -->
@@ -975,6 +1001,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         SELECT *
         FROM fbs_oauth_receipt
         WHERE receipt_id = #{receiptId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <!-- Exact immutable cause lock; the family/client scope prevents cross-lineage use. -->
+    <select id="selectReceiptByReceiptIdAndScopeForUpdate" resultMap="OAuthReceiptMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_receipt
+        WHERE receipt_id = #{receiptId}
+          AND family_id = #{familyId}
+          AND client_id = #{clientId}
         LIMIT 1
         FOR UPDATE
     </select>
@@ -1022,6 +1059,84 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           AND authorization_code_id IS NULL
           AND action = 'TOKEN_FAMILY_REVOKED'
         ORDER BY id
+        FOR UPDATE
+    </select>
+
+    <!-- Exact v2 rotation event for one consumed refresh-token generation. -->
+    <select id="selectTokenFamilyRotatedReceiptCandidatesForUpdate" resultMap="OAuthReceiptMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_receipt
+        WHERE family_id = #{familyId}
+          AND client_id = #{clientId}
+          AND token_id = #{tokenId}
+          AND subject_generation = #{subjectGeneration}
+          AND receipt_format_version = 2
+          AND action = 'TOKEN_FAMILY_ROTATED'
+        ORDER BY id
+        FOR UPDATE
+    </select>
+
+    <!-- Causal predecessor lookup for a later rotation or replay receipt. -->
+    <select id="selectTokenFamilyRotatedReceiptByResultGenerationCandidatesForUpdate" resultMap="OAuthReceiptMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_receipt
+        WHERE family_id = #{familyId}
+          AND client_id = #{clientId}
+          AND result_generation = #{resultGeneration}
+          AND receipt_format_version = 2
+          AND action = 'TOKEN_FAMILY_ROTATED'
+        ORDER BY id
+        FOR UPDATE
+    </select>
+
+    <!-- The generated replay slot permits at most one durable containment event per family. -->
+    <select id="selectRefreshReplayDetectedReceiptCandidatesForUpdate" resultMap="OAuthReceiptMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_receipt
+        WHERE family_id = #{familyId}
+          AND client_id = #{clientId}
+          AND receipt_format_version = 2
+          AND action = 'REFRESH_REPLAY_DETECTED'
+        ORDER BY id
+        FOR UPDATE
+    </select>
+
+    <!--
+      Canonical family-level receipt lock. Refresh services must lock this complete
+      ordered set once and filter it in memory instead of composing fine-grained
+      receipt locks in request-dependent order.
+    -->
+    <select id="selectRefreshFamilySecurityReceiptsForUpdate" resultMap="OAuthReceiptMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_receipt
+        WHERE family_id = #{familyId}
+          AND client_id = #{clientId}
+          AND action IN (
+              'TOKEN_FAMILY_CREATED',
+              'TOKEN_FAMILY_ROTATED',
+              'REFRESH_REPLAY_DETECTED',
+              'TOKEN_FAMILY_REVOKED',
+              'TOKEN_FAMILY_COMPROMISED'
+          )
+        ORDER BY id
+        FOR UPDATE
+    </select>
+
+    <!-- Bounded sentinel read for refresh lineage; 036 supplies the lock-order index. -->
+    <select id="selectBoundedRefreshFamilySecurityReceiptsForUpdate" resultMap="OAuthReceiptMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_receipt
+        WHERE family_id = #{familyId}
+          AND client_id = #{clientId}
+          AND action IN (
+              'TOKEN_FAMILY_CREATED',
+              'TOKEN_FAMILY_ROTATED',
+              'REFRESH_REPLAY_DETECTED',
+              'TOKEN_FAMILY_REVOKED',
+              'TOKEN_FAMILY_COMPROMISED'
+          )
+        ORDER BY id
+        LIMIT #{rowLimit}
         FOR UPDATE
     </select>
 

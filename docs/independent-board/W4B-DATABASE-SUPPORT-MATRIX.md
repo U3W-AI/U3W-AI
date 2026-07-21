@@ -1,103 +1,143 @@
 # 独董会 W4b 数据库支持矩阵
 
-状态：`exact_build_allowlist_and_foundation_verified_local`
+状态：`exact_build_allowlist_refresh_security_verified_local`
 
 品牌：福帮手 / FBSir
-
 产品：独董会 `26.7.20`
 
-## 1. 结论
+## 1. 当前结论
 
-W4b 数据库迁移当前只允许以下两个**精确 MySQL Community Server 构建**：
+W4b 数据库迁移当前只允许两个**精确 MySQL Community Server 构建**：
 
 - `8.0.30`
 - `8.4.8`
 
-两者均已用真实 MySQL Server 完成 W4b foundation 首次执行、重放、raw typed metadata
-基线、负向漂移、命名锁释放和失败恢复验证。这里的“已验证”只指精确构建上的数据库
-foundation；不等于授权码/token-family/受保护 MCP 内部服务、公开 OAuth/MCP 端点、生产
-数据库迁移或端到端业务闭环已经完成。
+两者均已在一次性回环实例上完成 `public_init_001` 至 `public_init_036` 首次执行、完成态
+重跑、只读 current-read，以及内部事务和 refresh-security 真库测试。该结论只证明本地数据库、
+Spring/MyBatis 事务与当前源码字节；不等于生产数据库已经迁移、公共 OAuth/MCP 路由已开启、
+WorkBuddy 已完成 OAuth 联调或 VIP 商业闭环成立。
 
-`8.0.29` 只属于 W4a 迁移的最低语法门槛，不属于 W4b 已验证 allowlist。任何不在 W4b
-allowlist 中的数据库构建，canonical initializer 必须在写入 `public_init_033=RUNNING` 和执行
-迁移文件前 fail closed。直接执行迁移 SQL 时，用于条件控制的 helper procedure DDL 会先发生，
-但首张 W4b 持久化目标表不得创建；失败后 helper procedure 可能需要受控清理。这个拒绝只表示
-“当前没有该精确构建的验证合同”，不得写成该版本天然不兼容，也不得扩展为对整个 MySQL 或
-MariaDB 产品线的兼容性结论。
+`8.0.29` 仍只属于 W4a 的最低语法门槛，不属于 W4b allowlist。其它 MySQL 构建、MariaDB 或
+其它数据库产品均保持 `UNVERIFIED`，不得依据版本高低推断兼容或不兼容。
 
 ## 2. 精确支持矩阵
 
-| 数据库构建 | W4a 含义 | W4b 当前状态 | W4b 行为 | 可宣称内容 |
+| 数据库构建 | W4b 状态 | 允许行为 | 已证明 | 未证明 |
 |---|---|---|---|---|
-| MySQL Community `8.0.30` | 满足 W4a 最低语法门槛 | `ALLOWLISTED_FOUNDATION_VERIFIED_LOCAL` | 允许进入 W4b 迁移的后续前置与 current-read 门禁 | 该精确构建的 W4b foundation 与 raw typed metadata 基线已由真实实例验证 |
-| MySQL Community `8.4.8` | W4a 已有真实集成证据 | `ALLOWLISTED_FOUNDATION_VERIFIED_LOCAL` | 允许进入 W4b 迁移的后续前置与 current-read 门禁 | 该精确构建的 W4b foundation 与 raw typed metadata 基线已由真实实例验证 |
-| MySQL Community `8.0.29` | 仅为 W4a 的最低语法门槛 | `NOT_ALLOWLISTED_FOR_W4B` | initializer 在 RUNNING/文件执行前拒绝；直跑 SQL 在首张持久化目标表前拒绝 | 尚无 W4b 精确构建验证；不得称为不兼容 |
-| 其它 MySQL 构建 | 不从版本号范围推断 | `UNVERIFIED_FOR_W4B` | initializer 在 RUNNING/文件执行前拒绝；直跑 SQL 在首张持久化目标表前拒绝 | 尚无该精确构建的 W4b 验证；不得称为不兼容 |
-| MariaDB 或其它数据库产品 | 不属于 MySQL Community 精确构建 allowlist | `OUTSIDE_CURRENT_W4B_CONTRACT` | initializer 在 RUNNING/文件执行前拒绝；直跑 SQL 在首张持久化目标表前拒绝 | 当前合同未覆盖；不得外推产品级兼容或不兼容结论 |
+| MySQL Community `8.0.30` | `ALLOWLISTED_REFRESH_SECURITY_VERIFIED_LOCAL` | 允许进入 033–036 迁移和 current-read 门禁 | 55 项既有事务测试、3 项 refresh-security、36/36 canonical receipts | 生产迁移、公开路由、宿主联调 |
+| MySQL Community `8.4.8` | `ALLOWLISTED_REFRESH_SECURITY_VERIFIED_LOCAL` | 允许进入 033–036 迁移和 current-read 门禁 | 55 项既有事务测试、3 项 refresh-security、36/36 canonical receipts | 生产迁移、公开路由、宿主联调 |
+| MySQL Community `8.0.29` | `NOT_ALLOWLISTED_FOR_W4B` | initializer 在写 RUNNING 和执行文件前拒绝 | 仅 W4a 最低语法门槛 | 全部 W4b 语义 |
+| 其它 MySQL 构建 | `UNVERIFIED_FOR_W4B` | 失败关闭 | 无 | 兼容性与业务能力 |
+| MariaDB 或其它产品 | `OUTSIDE_CURRENT_W4B_CONTRACT` | 失败关闭 | 无 | 兼容性与业务能力 |
 
-## 3. 元数据基线合同
+## 3. 不可改写基线与后继迁移
 
-W4b current-read 必须使用保留原始类型和值边界的 raw typed metadata digest，而不是只比较
-表数、列数或经过 `LOWER`、空白折叠等有损归一化后的文本。基线至少覆盖：
+033–035 已冻结，036 只能作为只增量后继：
 
-- 列类型、nullable、默认值、字符集/排序规则以及生成列表达式；
-- 索引列/表达式、方向、前缀长度、可见性和索引类型；
-- 同库外键、列链接、唯一约束名以及 `ON UPDATE` / `ON DELETE` 动作；
-- CHECK 原始子句、约束名和 enforced 状态；
-- 六张 W4b 表范围内的不可变 trigger 精确集合；
-- W1 与 W4a 外部依赖表、列、唯一键、外键和完成回执的当前状态。
+| public step | 内部版本 | SHA-256 |
+|---|---|---|
+| `public_init_033` | `20260721_independent_board_oauth_foundation_v1` | `b103ac5936ab1cb4bce865f04256f41826d90693556bc5627c09fc4ffee5de27` |
+| `public_init_034` | `20260721_independent_board_oauth_receipt_provenance_v1` | `2ba6fce7c3161b1647397485c37681974202b3a566ab370cc05587b1cfde7af3` |
+| `public_init_035` | `20260721_independent_board_oauth_consent_intent_lineage_v1` | `55dc772d54a4a457f00711a45266b2d0042522d63ed0d5a8e408d35a8ecaf560` |
+| `public_init_036` | `20260721_independent_board_oauth_refresh_security_v1` | `4d82cb93d7bd15035de882be69ea4bc03c5101e3851ad56083aecdfc93d2b041` |
 
-任何摘要为 `NULL`、字段缺失、同名弱化约束、生成列表达式漂移、索引/FK 语义漂移、trigger
-漂移或外部依赖漂移都必须 fail closed，不能用“迁移回执存在”代替当前结构审计。
+036 在不改写前三个文件的前提下完成：
 
-## 4. 扩展支持门禁
+- 把 035 的 consent/principal nullable 配对升级为严格三值逻辑安全 CHECK；
+- 为 `fbs_oauth_receipt` 增加 8 个 receipt-v2 字段/生成列；
+- 增加 generation、causation、自因果拒绝、before/after 摘要变化与 replay 上界约束；
+- 增加 refresh subject 与 causation 两组外键；
+- 增加每个 security event 的唯一 slot；
+- 增加 `(family_id,id)`、`(family_id,client_id,id)`、`(binding_id,id)` 三个明确锁序索引。
 
-新增任何数据库构建到 W4b allowlist，必须同时完成并留存：
+## 4. 中断恢复状态机
 
-1. 该**精确 MySQL Community 构建**上的真实 MySQL 首次执行、重放和 current-read 基线；
-2. 与该构建对应的 raw typed metadata digest 基线；
-3. 同名弱化 CHECK、生成列表达式、nullable/type/charset、索引、FK、trigger 和外部依赖等
-   负向漂移矩阵，且每次失败均证明首张持久化目标表 DDL 前或完成态写入前 fail closed；
-4. 命名锁释放、失败后可恢复重跑和完成回执不越过结构审计的证据；
-5. 本支持矩阵、W4b 授权合同、状态文件、验证报告和自动化断言的同一轮修订。
+外部状态只暴露 `S0 -> S1 -> S2 -> S3/APPLIED`。MySQL 无法在同一个 ALTER 中同时增加
+被引用唯一键和自引用外键，因此 S2 内部按以下单向前缀恢复：
 
-缺少任一项时，该构建只能保持 `UNVERIFIED_FOR_W4B`，不能因版本号更高、同属 MySQL 8.x、
-一次迁移成功或表数相同而进入 allowlist。
+```text
+request CHECK
+  -> token support
+  -> causation/receipt support
+  -> connector receipt lock-order support
+  -> receipt-v2 columns/FK/CHECK/generated columns
+  -> exact S3 current-read
+  -> APPLIED
+```
 
-## 5. 与公开能力和 UI 的边界
+只接受精确前缀；列、索引、FK、CHECK 或完成回执的任意孤立/部分/漂移组合均 fail closed，
+不得自动删除、改名、补猜或越过 current-read。成功和失败路径都必须清理 helper procedure 并
+释放同一摘要命名锁。
 
-数据库 allowlist 不解锁产品表面。当前仍保持：
+本轮真实实例已覆盖：
 
-- 所有公共 OAuth/MCP 路由关闭；
-- me 的 OAuth 同意、连接、断开页和 admin 的 client、token family、安全事件及 Connector
-  管理页仅进入详细原型规划；
-- 上述详细原型必须取得用户明确确认后才可进入生产实现；
-- 本地数据库验证不得推断 WorkBuddy 已联调、Connector 已上架、真实域名已部署或 VIP 已激活。
+1. 8.0.30 fresh 001–036、完成态重跑与 CurrentReadOnly；
+2. 8.4.8 fresh 001–036、完成态重跑与 CurrentReadOnly；
+3. 8.0.30 内部 S2 token-only 前缀恢复；
+4. 8.4.8 内部 S2 token+receipt 前缀恢复；
+5. 8.4.8 外部完整 S2 到 S3 恢复；
+6. 8.0.30 不完整索引组失败关闭。
 
-## 6. `public_init_034` 后继迁移状态
+## 5. 元数据与应用 current-read
 
-`public_init_034` 为 `public_init_033` 的只增量后继迁移，新增
-`fbs_oauth_receipt.family_created_slot` nullable generated column 及其唯一索引，约束范围仅为
-`action='TOKEN_FAMILY_CREATED'`：该 action 的 slot 取 `family_id`，其它 action 的 slot 必须为
-`NULL`，因此不限制其它回执语义。`public_init_033` 保持字节不变，其固定 SHA-256 为
-`b103ac5936ab1cb4bce865f04256f41826d90693556bc5627c09fc4ffee5de27`。
+完成态不能只读取 migration receipt 或对象数量。校验器继续比较精确构建对应的 raw typed
+metadata：列类型/nullable/default/charset/generated expression、完整索引列序与可见性、外键
+列映射与动作、CHECK 原始子句/enforced、不可变 trigger，以及 W1/W4a 外部依赖。
 
-当前状态为 `DIRECT_SQL_DUAL_BUILD_VERIFIED_CANONICAL_PENDING`。静态合同包括：精确 033 回执与
-shape 前置、缺失 lineage/重复 family 拒绝、摘要命名锁、内部 `RUNNING/APPLIED` 状态、DDL
-中断后的精确恢复分支，以及在完成回执前重新 current-read 表/列/索引/FK/CHECK/trigger 与
-lineage。034 的列/索引元数据采用“033 原始对象子集 raw digest + 新增列和索引逐字段精确合同”
-的分解门禁；生成表达式只接受 `_utf8mb4`、`_ascii` 与无前缀三种等价规范形式。完整 metadata
-摘要计算前必须把 session `group_concat_max_len` 提升到 `1048576`，异常和成功路径均恢复原值。
+应用层在 `REPEATABLE-READ` 根事务内按统一顺序锁定：
 
-在同一当前工作树上，disposable runner 已分别于 MySQL Community `8.0.30` 与 `8.4.8` 完成
-034 direct SQL matrix；两版均为 `BUILD SUCCESS`、`44 tests / 0 failures / 0 errors`。实际覆盖：
+```text
+enterprise/member
+  -> entitlement/plan
+  -> connector binding/scopes
+  -> oauth client
+  -> active slot
+  -> pending slot
+  -> exact family
+  -> bounded family tokens
+  -> W4a binding receipt prefix
+  -> bounded W4b family receipts
+```
 
-- clean first apply、completed replay、`RUNNING+无 DDL` 与 `RUNNING+完整 DDL` 恢复；
-- column-only/孤立 DDL、缺失 lineage、重复历史、不可见索引漂移拒绝；
-- 32 路同 family 并发仅一个 winner、8 路不同 family、其它 action 的 NULL 语义；
-- winner rollback 后重试、receipt UPDATE/DELETE 不可变、命名锁与 helper procedure 清理。
+refresh-family token 查询使用 `LIMIT 10001` sentinel，业务上限为 10,000 行；安全回执使用
+`LIMIT 6001` sentinel，业务上限为 6,000 行。rotation 在写入前为两个后继 token 和一条回执
+预留容量，不能先越界再把 family 永久锁死。
 
-两版完整 successor CHECK digest 均实测为
-`d8878ff64c7e897ddd8d42db6f0afd1a264d2cc8c1794d155051f0cd1638103b`。以上只构成 direct SQL
-证据；canonical public initializer 的三阶段实测仍为 `PENDING`，不得写成 canonical 已通过、
-生产迁移已完成，亦不得据此解锁任何 OAuth/MCP 公共路由或 me/admin 页面。
+## 6. 双版本可重复证据
+
+统一 runner 在每个精确构建上执行：
+
+- `IndependentBoardMysqlTransactionIT`：`55/55`；
+- `IndependentBoardOAuthRefreshSecurityServiceTest`：`3/3`；
+- canonical initializer：首次、重跑、只读三阶段；
+- public manifest：`36/36 APPLIED`；
+- 进程、端口、临时目录、临时 login file 和进程环境清理：全部通过。
+
+refresh-security 三项真库测试证明：同一旧 refresh token 两路并发线性化为一次 rotation 和
+一次 replay containment；rotation 的晚期回执失败整笔回滚；replay 的晚期回执失败使 W4b
+family/token 与 W4a binding/receipt 同时回滚。终态重复旧 token 请求不追加回执、不再变更状态。
+
+详细机器回执见
+`reports/independent-board/w4b-oauth-refresh-security-verification-20260721.json`。
+
+## 7. 公开前仍需保持的门禁
+
+严格 replay 无法仅凭旧 token 区分“凭据被盗”和“rotation 已提交但响应丢失后客户端重试”。
+因此公共 token route 继续关闭，直到 WorkBuddy 实机证明：
+
+- 同一 family 单飞刷新；
+- 新 token 原子持久化；
+- 模糊网络失败不自动重放旧 refresh token；
+- `invalid_grant` 有明确重新授权 UX；
+- 具备限流、告警和可审计恢复路径。
+
+不得为兼容不安全重试而静默放宽 replay containment。若未来缩短刷新间隔、延长 family 生命周期
+或提高请求密度，必须先实现 rolling accumulator 或带维护回执的安全归档，不能仅提高行数上限。
+
+## 8. 产品和迁移边界
+
+- 所有公共 OAuth/MCP 路由仍为 `closed`；
+- me/admin 的 OAuth/Connector 页面下一步只能作为现有若依壳内、默认关闭的 W4b.2 候选；
+- 生产数据库迁移必须使用独立 migration 账户、备份/回滚、同提交部署回执和完成态 current-read；
+- 数据库本地通过不能提升为 WorkBuddy host、自然调用、same-binding、服务侧闭环或
+  `BUSINESS_CONFIRMED`。

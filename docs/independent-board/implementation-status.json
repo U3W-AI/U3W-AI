@@ -67,6 +67,13 @@
     "docs/independent-board/W4B-DATABASE-SUPPORT-MATRIX.md",
     "docs/independent-board/W4B-INPUT-EVIDENCE.json",
     "sql/update_20260721_independent_board_oauth_foundation.sql",
+    "sql/update_20260721_independent_board_oauth_receipt_provenance.sql",
+    "sql/update_20260721_independent_board_oauth_consent_intent_lineage.sql",
+    "sql/update_20260721_independent_board_oauth_refresh_security.sql",
+    "sql/init-manifest.json",
+    "scripts/init-database.ps1",
+    "scripts/verify-database-manifest.ps1",
+    "scripts/run-independent-board-mysql-transaction-it.ps1",
     "docs/independent-board/PORTAL-PROTOTYPE-SPEC.md",
     "docs/independent-board/prototypes/portals/index.html",
     "reports/independent-board/w2-user-portal-verification-20260720.json",
@@ -74,6 +81,9 @@
     "reports/independent-board/w3b-entitlement-lifecycle-verification-20260720.json",
     "reports/independent-board/w4a-authoritative-connector-binding-verification-20260721.json",
     "reports/independent-board/w4b-oauth-foundation-verification-20260721.json",
+    "reports/independent-board/w4b-oauth-refresh-security-verification-20260721.json",
+    "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.0.30/summary-mysql-8.0.30-utc-20260721T061311.131Z-local-20260721T141311.131+0800-pid-21800.json",
+    "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.4.8/summary-mysql-8.4.8-utc-20260721T061510.025Z-local-20260721T141510.025+0800-pid-29828.json",
     "reports/independent-board/host-truth-chain-summary-20260721.json"
   ],
   "proven": [
@@ -149,10 +159,14 @@
     "w4b_final_security_decision_time_is_observed_after_all_authority_locks",
     "w4b_expired_terminal_binding_permits_explicit_reauthorization_without_capping_new_token_issuance",
     "w4b_dual_mysql_8_0_30_and_8_4_8_current_bytes_55_of_55_transaction_matrix_passed",
-    "w4b_current_bytes_full_repository_796_tests_and_frontend_production_build_passed"
+    "w4b_current_bytes_full_repository_838_tests_and_frontend_production_build_passed",
+    "w4b_public_init_036_receipt_v2_strict_null_pairing_and_recovery_state_machine_verified",
+    "w4b_refresh_rotation_uses_digest_only_tokens_causation_and_before_after_state_receipts",
+    "w4b_refresh_replay_compromises_family_revokes_active_tokens_and_binding_atomically",
+    "w4b_refresh_lock_sets_are_bounded_with_explicit_mysql_lock_order_indexes",
+    "w4b_dual_mysql_8_0_30_and_8_4_8_refresh_security_3_of_3_and_canonical_36_of_36_passed"
   ],
   "notProven": [
-    "oauth_refresh_family_rotation_and_replay_containment_service",
     "oauth_public_routes",
     "oauth_end_to_end",
     "workbuddy_host_verifiable_listing_url_or_receipt",
@@ -196,7 +210,7 @@
     "w4bDetailedPrototype": "confirmed_for_w4b2_candidate_only",
     "w4bDetailedPrototypeConfirmation": "explicit_user_confirmation_2026_07_20",
     "w4bOauthConnectorProductionImplementationAllowed": true,
-    "w4bOauthConnectorImplementationState": "not_implemented",
+    "w4bOauthConnectorImplementationState": "internal_oauth_chain_verified_public_routes_closed",
     "w4bOauthConnectorUnlockCondition": "satisfied_by_explicit_user_confirmation_2026_07_20",
     "watchAndWebhookDeepPages": "deferred_to_W5_delivery_and_watch"
   },
@@ -223,7 +237,7 @@
     ]
   },
   "w4b": {
-    "state": "w4b_1_internal_authorization_token_exchange_and_first_protected_request_verified_local",
+    "state": "w4b_1_internal_oauth_chain_and_refresh_security_verified_local",
     "contract": "docs/independent-board/W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md",
     "databaseSupportMatrix": "docs/independent-board/W4B-DATABASE-SUPPORT-MATRIX.md",
     "inputEvidence": "docs/independent-board/W4B-INPUT-EVIDENCE.json",
@@ -234,7 +248,7 @@
     "clientRegistration": "unauthenticated_profile_constrained_dcr_for_workbuddy_compatibility_not_host_identity_proof",
     "tokenProfile": "opaque_digest_only_access_10m_refresh_family_absolute_30d",
     "databaseSupport": {
-      "state": "exact_build_allowlist_and_dual_build_foundation_verified_local",
+      "state": "exact_build_allowlist_and_dual_build_refresh_security_verified_local",
       "exactAllowlist": [
         "MySQL Community 8.0.30",
         "MySQL Community 8.4.8"
@@ -248,20 +262,23 @@
         "negative_schema_drift_matrix",
         "authorization_contract_and_support_matrix_revision"
       ],
-      "fullW4bMysqlVerification": "foundation_provenance_consent_intent_authorization_token_exchange_and_first_protected_request_dual_exact_build_verified_local_55_of_55_each"
+      "fullW4bMysqlVerification": "foundation_through_refresh_security_dual_exact_build_verified_local_direct_55_of_55_refresh_3_of_3_canonical_36_of_36_each"
     },
-    "verificationReport": "reports/independent-board/w4b-oauth-foundation-verification-20260721.json",
+    "verificationReport": "reports/independent-board/w4b-oauth-refresh-security-verification-20260721.json",
     "internalDcr": "profile_constrained_client_and_action_completed_receipt_verified_by_focused_tests_and_real_mysql_transaction_rollback_retry",
     "tokenTerminationPrimitive": "expired_active_tokens_transition_to_expired_and_live_tokens_revoke_at_per_row_logical_time_floor_verified_real_mysql",
     "authorizationCodeService": "approve_deny_pkce_exact_redirect_resource_scope_consent_lineage_and_post_lock_final_time_verified_local",
     "tokenExchangeService": "single_use_code_digest_only_token_family_atomic_receipts_replay_containment_and_explicit_reauthorization_verified_local",
     "firstProtectedRequestService": "validated_initialize_or_tools_list_only_activation_with_token_family_and_receipt_provenance_verified_local",
-    "currentByteVerification": "targeted_133_of_133_full_repository_796_of_796_dual_mysql_55_of_55_each_menu_13_phases",
+    "refreshSecurityService": "receipt_v2_rotation_and_strict_replay_family_token_binding_containment_verified_local_with_real_mysql_concurrency_and_late_failure_rollback",
+    "refreshClientSafetyGate": "workbuddy_single_flight_atomic_token_store_no_ambiguous_old_token_retry_invalid_grant_reauthorize_ux_and_rate_limit_alerting_required_before_public_route",
+    "boundedHistoryPolicy": "maximum_10000_family_token_rows_and_6000_family_security_receipts_with_limit_sentinel_and_lock_order_indexes_rolling_accumulator_or_archive_required_before_longer_lifetime_or_higher_cadence",
+    "currentByteVerification": "targeted_refresh_42_of_42_full_repository_838_of_838_dual_mysql_direct_55_of_55_refresh_3_of_3_canonical_36_of_36_each_frontend_production_build_passed",
     "publicRoutes": "closed",
     "detailedUiPrototype": "confirmed_for_w4b2_candidate_only",
     "detailedUiPrototypeConfirmation": "explicit_user_confirmation_2026_07_20",
     "detailedUiProductionImplementation": "allowed_but_not_implemented",
-    "nextSlice": "public_init_036_receipt_v2_refresh_family_rotation_and_replay_containment_without_public_routes"
+    "nextSlice": "w4b2_default_off_me_admin_oauth_connector_candidate_on_existing_ruoyi_shell_without_public_routes"
   },
-  "updatedAt": "2026-07-21T12:35:51+08:00"
+  "updatedAt": "2026-07-21T14:15:26+08:00"
 }

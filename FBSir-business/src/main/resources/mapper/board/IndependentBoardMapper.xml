@@ -545,6 +545,16 @@
         FOR UPDATE
     </select>
 
+    <!-- Stable W4a receipt prefix lock acquired before any W4b receipt lock. -->
+    <select id="selectConnectorBindingReceiptsForUpdate" resultMap="ConnectorBindingReceipt" flushCache="true" useCache="false">
+        SELECT receipt_id, binding_id, enterprise_id, member_id, user_id,
+               actor_user_id, action, payload_digest, evidence_level, created_at
+        FROM fbs_connector_binding_receipt
+        WHERE binding_id = #{bindingId}
+        ORDER BY id
+        FOR UPDATE
+    </select>
+
     <select id="selectUsageBudget" resultMap="Budget">
         SELECT id, enterprise_id, member_id, product_code, metric_code, bucket_date,
                daily_limit, reserved_count, used_count, version

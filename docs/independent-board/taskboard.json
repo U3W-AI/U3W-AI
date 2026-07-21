@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the officially listed and post-listing-frozen 26.7.20 expert package.",
-  "singleNextAction": "Implement and verify public_init_036 receipt-v2 refresh-family rotation and replay containment on the sealed W4b.1 internal OAuth chain; keep every public OAuth/MCP route and detailed me/admin production page closed.",
+  "singleNextAction": "Build the confirmed W4b.2 me/admin OAuth and Connector candidate on the existing RuoYi shell behind default-off internal feature gates; keep every public OAuth/MCP route closed until the WorkBuddy refresh-client safety contract and HTTP negative matrix pass.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -82,8 +82,8 @@
     },
     {
       "id": "W4_OAUTH_CONNECTOR",
-      "state": "w4a_verified_local_w4b1_internal_oauth_chain_verified_local",
-      "activeSlice": "W4b_1_refresh_security_public_init_036",
+      "state": "w4a_verified_local_w4b1_internal_oauth_chain_and_refresh_security_verified_local",
+      "activeSlice": "W4b_2_default_off_me_admin_oauth_connector_candidate",
       "completedSubset": [
         "repository_first_conflict_resolution",
         "existing_fbs_connector_preserved_as_single_marketplace_entry",
@@ -112,18 +112,27 @@
         "w4b_all_security_decisions_use_post_lock_final_time_and_revalidate_expiry",
         "w4b_explicit_reauthorization_after_expired_terminal_binding_passed",
         "w4b_dual_mysql_current_bytes_55_of_55_each_canonical_35_receipts_and_cleanup_passed",
-        "w4b_current_bytes_targeted_133_of_133_full_repository_796_of_796_menu_13_phases_passed",
+        "w4b_current_bytes_targeted_refresh_42_of_42_full_repository_838_of_838_and_frontend_production_build_passed",
+        "w4b_public_init_036_receipt_v2_strict_null_pairing_recovery_and_three_lock_order_indexes_passed",
+        "w4b_refresh_rotation_digest_only_causation_and_state_digest_chain_passed",
+        "w4b_refresh_replay_family_token_and_binding_containment_is_atomic_and_terminal_retries_are_zero_write",
+        "w4b_dual_mysql_8_0_30_and_8_4_8_direct_55_refresh_3_canonical_36_and_cleanup_passed",
         "w4b_public_routes_and_detailed_ui_remain_closed"
       ],
       "nextSlice": {
-        "id": "W4b_1_refresh_security",
-        "migration": "public_init_036",
+        "id": "W4b_2_default_off_portal_candidate",
+        "migration": null,
         "scope": [
-          "strict_consent_intent_null_semantics",
-          "oauth_security_receipt_v2_generation_causation_and_state_digests",
-          "refresh_family_rotation",
-          "refresh_replay_family_containment",
-          "dual_mysql_success_recovery_drift_and_concurrency_matrix"
+          "me_oauth_connection_consent_disconnect_state_model",
+          "admin_oauth_client_family_security_event_and_connector_read_models",
+          "existing_ruoyi_identity_role_menu_permission_and_component_reuse",
+          "default_off_internal_feature_gates",
+          "no_public_oauth_or_mcp_routes"
+        ],
+        "entryGates": [
+          "explicit_user_confirmation_2026_07_20",
+          "public_init_036_dual_mysql_verified",
+          "workbuddy_refresh_single_flight_and_lost_response_behavior_remains_pre_public_gate"
         ]
       },
       "databaseSupport": {

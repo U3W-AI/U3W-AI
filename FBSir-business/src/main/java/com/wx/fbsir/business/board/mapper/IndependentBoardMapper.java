@@ -118,6 +118,9 @@ public interface IndependentBoardMapper {
     BoardConnectorBindingReceipt selectConnectorBindingReceiptForUpdate(
             @Param("receiptId") String receiptId);
 
+    List<BoardConnectorBindingReceipt> selectConnectorBindingReceiptsForUpdate(
+            @Param("bindingId") String bindingId);
+
     BoardUsageBudget selectUsageBudget(@Param("tenantId") Long tenantId,
                                        @Param("memberId") Long memberId,
                                        @Param("productCode") String productCode,

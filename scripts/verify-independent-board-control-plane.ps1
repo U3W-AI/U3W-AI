@@ -148,7 +148,7 @@ function Invoke-ContractChecks {
 
     $w4bContract = Get-Content -LiteralPath (Join-Path $RepoRoot 'docs\independent-board\W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md') -Raw -Encoding UTF8
     foreach ($marker in @(
-        'contract_locked_with_w4b_1_foundation_verified_local',
+        'contract_locked_with_w4b_1_internal_oauth_chain_and_refresh_security_verified_local',
         'https://api2.u3w.com/fbs-mcp/mcp',
         'https://api2.u3w.com/.well-known/oauth-protected-resource/fbs-mcp/mcp',
         'code_challenge_method=S256',

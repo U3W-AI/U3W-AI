@@ -1,6 +1,6 @@
 # 独董会 W4b OAuth / MCP 授权合同
 
-状态：`contract_locked_with_w4b_1_foundation_verified_local`
+状态：`contract_locked_with_w4b_1_internal_oauth_chain_and_refresh_security_verified_local`
 
 品牌：福帮手 / FBSir
 
@@ -17,10 +17,10 @@ OAuth 授权码、PKCE S256、受保护资源发现、短寿命访问令牌、re
 轮换与 MCP Resource Server 合同。
 
 完整 W4b 仍只锁定协议、威胁模型、状态机和实施门禁；当前已额外证明 W4b.1 的
-`public_init_033` 六表迁移可在 MySQL Community `8.0.30` 与 `8.4.8` 精确构建上首次执行、
-重放并对负向漂移 fail closed，以及内部 profile-constrained DCR 的 client 与
-`ACTION_COMPLETED` 回执真库事务原子性。授权码、token family、受保护 MCP 内部服务及公开
-协议适配器尚未完成。上述局部证据不证明 OAuth 端点已经开放、WorkBuddy 已联调、Connector
+`public_init_033` 至 `public_init_036` 可在 MySQL Community `8.0.30` 与 `8.4.8` 精确构建上首次执行、
+重放、恢复并对负向漂移 fail closed，以及内部 profile-constrained DCR、授权码、token exchange、
+首个受保护 MCP 请求和 refresh rotation/replay containment 的事务原子性。公开 HTTP/协议适配器
+尚未完成。上述局部证据不证明 OAuth 端点已经开放、WorkBuddy 已联调、Connector
 已上架、VIP 已真实连接或生产域名已经部署。在完整 HTTP/协议负向矩阵成为可执行测试并通过以前：
 
 - `/oauth2/register`、`/oauth2/authorize`、`/oauth2/token`、`/oauth2/revoke` 和
@@ -319,8 +319,8 @@ W4b 当前只支持并已用真实 MySQL Server 核对以下两个精确 MySQL C
 - `8.4.8`
 
 `8.0.29` 仅是 W4a 因 `CREATE TRIGGER IF NOT EXISTS` 所需的最低语法门槛，不属于 W4b
-已验证 allowlist。canonical initializer 必须在写入 `public_init_033=RUNNING` 和执行迁移文件
-之前拒绝其它构建；若直接执行迁移 SQL，文件会先创建用于条件控制的 helper procedure，
+已验证 allowlist。canonical initializer 必须在写入 `public_init_033` 至 `public_init_036` 任一步
+`RUNNING` 和执行对应迁移文件之前拒绝其它构建；若直接执行迁移 SQL，文件会先创建用于条件控制的 helper procedure，
 但必须在首张 W4b 持久化目标表 DDL 前 fail closed。直接执行失败时 helper procedure 可能保留，
 必须由受控恢复流程清理。这只表示当前没有该精确构建的 W4b 验证合同，不能表述为其天然
 不兼容。
@@ -332,8 +332,8 @@ W4b current-read 必须使用 raw typed metadata digest 精确覆盖列类型/nu
 CHECK/生成列/type/nullable/charset/索引/FK/trigger/外部依赖负向漂移矩阵，并同步修订本合同。
 
 精确矩阵及声明边界见
-[`W4B-DATABASE-SUPPORT-MATRIX.md`](./W4B-DATABASE-SUPPORT-MATRIX.md)。元数据基线已验证只证明
-该精确构建可进入 W4b 迁移门禁；不能据此提前声明整个 W4b 已 `mysql_verified`，更不能解锁
+[`W4B-DATABASE-SUPPORT-MATRIX.md`](./W4B-DATABASE-SUPPORT-MATRIX.md)。033 至 036 的元数据、恢复和事务矩阵已验证只证明
+W4b.1 内部底座在该精确构建上已 `mysql_verified`；不能据此声明 W4b HTTP 端到端完成，更不能解锁
 公共 OAuth/MCP 路由或 me/admin 的详细 OAuth/Connector 生产页面。
 
 ### 9.2 `TOKEN_FAMILY_CREATED` 来源唯一性
@@ -359,6 +359,38 @@ trigger 元数据及完整 lineage。canonical initializer 的 033 verifier 必�
 零后再插入；读取既有创建回执时必须读取完整候选集合并要求恰为一，不能用 `LIMIT 1` 将
 历史重复静默折叠成确定结果。数据库唯一键是最终并发仲裁者，重复键必须映射为明确的冲突/
 幂等结果，不能回退为另一条来源不明的回执。
+
+### 9.3 `public_init_035` 严格 NULL 语义与 `public_init_036` refresh security
+
+033–035 文件保持字节不变。036 必须先 current-read 033/034/035 的精确 `APPLIED` 回执和完整
+successor shape，再把 035 中可能被 MySQL `CHECK UNKNOWN` 放行的 consent/principal 配对替换为
+显式 `IS NULL/IS NOT NULL` 分支。已有不合法数据必须阻断迁移，不能自动修补。
+
+receipt-v2 只允许 `TOKEN_FAMILY_ROTATED` 和 `REFRESH_REPLAY_DETECTED`，并且必须同时绑定：
+
+- source refresh token、subject generation 与直接 causation receipt；
+- rotation 的 `result_generation=subject_generation+1`，replay 的 result 必须为 `NULL`；
+- `causation_receipt_id <> receipt_id`；
+- before/after state digest 均非空且不相等；
+- rotation/replay 的 subject generation 均小于 unsigned-int 上界；
+- family/client/token/binding/identity 和 `CLIENT` actor 精确范围。
+
+迁移外部只暴露 `S0 -> S1 -> S2 -> S3/APPLIED`，S2 内部允许 token support、causation support、
+connector receipt support 的单向精确前缀恢复。任意孤立列、部分索引、同名弱化约束、错误 FK、
+提前 APPLIED 或无法 current-read 的组合都必须 fail closed。完成和失败路径均清理 helper procedure
+并释放同一摘要命名锁。
+
+refresh 事务只接受 43 字符 URL-safe opaque token 摘要定位；原始 access/refresh token 只能在
+根事务提交后由 facade 返回。rotation 必须先把 source refresh 从 ACTIVE CAS 为 USED，再生成并
+写入下一代 access/refresh、推进 family generation、current-read 最终态并写 receipt-v2。replay
+必须在同一根事务中把 family 置为 COMPROMISED、撤销全部 ACTIVE family token、撤销 W4a binding，
+写入并 current-read W4a/W4b 回执，然后在提交后返回 `invalid_grant`。已完成 containment 的重复
+请求必须稳定拒绝且零写入。
+
+每个 family 最多锁定 10,000 个 token 行和 6,000 个 security receipt 行，查询使用上限加一的
+sentinel，并依赖 `(family_id,id)`、`(family_id,client_id,id)`、`(binding_id,id)` 三个显式锁序
+索引。rotation 必须在写入前为两个 token 和一条 receipt 预留容量。更高频率或更长 family 生命周期
+必须先设计 rolling accumulator/安全归档，不能直接提高上限。
 
 ## 10. 首次受保护请求与显式重授权
 
@@ -443,6 +475,11 @@ binding: absent --first new-family activation--> ACTIVE
          terminal --explicit new-family reauthorization only--> ACTIVE
 ```
 
+公共 refresh route 前还必须实机证明 WorkBuddy 对同一 family 单飞刷新、新 token 原子保存、模糊
+网络失败不重试旧 refresh token，并提供 `invalid_grant -> 重新授权` UX、限流和告警。rotation 已
+提交但响应丢失与凭据窃取在旧 token 层不可区分；在缺少独立幂等恢复协议时，不得为透明重试而
+放宽 replay containment。
+
 ## 12. SecurityFilterChain 与若依隔离
 
 OAuth AS、MCP Resource Server 与现有若依登录使用三种不同信任边界：
@@ -520,10 +557,11 @@ correlation id、固定 reason code、端点、结果、耗时与截断后的非
 
 ## 16. 实施分段与证据边界
 
-1. **W4b.1 合同与内部底座**：本合同、来源摘要、`public_init_033`、内部领域服务和负向
-   单元/真实 MySQL 竞争测试；公共路由关闭。
-2. **W4b.2 页面原型**：me 连接/同意/断开和 admin client/family/安全事件审计原型；取得
-   用户明确确认。
+1. **W4b.1 合同与内部底座**：本合同、来源摘要、`public_init_033` 至 `public_init_036`、
+   DCR、授权码、token exchange、首个受保护 MCP 请求、refresh rotation/replay containment，
+   以及负向单元/真实 MySQL 竞争、回滚、恢复测试；已验证，公共路由保持关闭。
+2. **W4b.2 默认关闭页面候选**：me 连接/同意/断开和 admin client/family/安全事件审计；
+   原型已获用户明确确认，只可复用现有若依壳实现默认关闭候选，不得据此开放公共路由。
 3. **W4b.3 协议端点**：独立 SecurityFilterChain、PRM/metadata、受配置约束 DCR、authorize、
    token、revoke、MCP initialize/tools-list；HTTP 负向矩阵全通过后才允许本地开启。
 4. **W4c 宿主联调**：仓库内自包含 Connector、Marketplace Override、真实 WorkBuddy

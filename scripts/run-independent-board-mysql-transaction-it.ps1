@@ -26,6 +26,8 @@ $canonicalDatabase = 'u3w_scratch_board_canonical_it'
 $canonicalLoginPath = 'u3w-board-canonical-it'
 $canonicalVerifier = Join-Path $PSScriptRoot 'verify-independent-board-live-database.ps1'
 $expectedDirectTests = 55
+$expectedRefreshSecurityTests = 3
+$refreshSecuritySuiteName = 'com.wx.fbsir.business.board.oauth.service.IndependentBoardOAuthRefreshSecurityServiceTest'
 
 function Resolve-MySqlBinDirectory {
     param([string]$Requested)
@@ -33,6 +35,14 @@ function Resolve-MySqlBinDirectory {
     $candidates = New-Object System.Collections.Generic.List[string]
     if (-not [string]::IsNullOrWhiteSpace($Requested)) {
         $candidates.Add($Requested)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:U3W_MYSQL_BIN)) {
+        $candidates.Add($env:U3W_MYSQL_BIN)
+    }
+    $pathMysql = Get-Command mysql.exe -CommandType Application -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($null -ne $pathMysql) {
+        $candidates.Add((Split-Path -Parent $pathMysql.Source))
     }
     $candidates.Add('C:\Program Files\MySQL\MySQL Server 8.4\bin')
     $candidates.Add('C:\Program Files\MySQL\MySQL Server 8.0\bin')
@@ -49,7 +59,7 @@ function Resolve-MySqlBinDirectory {
             return $full
         }
     }
-    throw 'A local MySQL 8 bin directory containing mysqld.exe, mysql.exe, mysqladmin.exe and mysql_config_editor.exe is required.'
+    throw 'A local MySQL 8 bin directory containing mysqld.exe, mysql.exe, mysqladmin.exe and mysql_config_editor.exe is required. Pass -MySqlBinDirectory, set U3W_MYSQL_BIN, add MySQL to PATH, or install it under Program Files.'
 }
 
 function Get-LoopbackEphemeralPort {
@@ -269,7 +279,7 @@ function Read-DirectTestEvidence {
         throw "Independent Board MySQL Surefire report is missing: $ReportPath"
     }
     $reportFile = Get-Item -LiteralPath $ReportPath
-    if ($reportFile.LastWriteTimeUtc -lt $StartedAt.UtcDateTime.AddSeconds(-2)) {
+    if ($reportFile.LastWriteTimeUtc -lt $StartedAt.UtcDateTime) {
         throw "Independent Board MySQL Surefire report is stale: $ReportPath"
     }
     $reportText = Get-Content -LiteralPath $ReportPath -Raw -Encoding UTF8
@@ -327,6 +337,62 @@ function Read-DirectTestEvidence {
         connectorVersion = $connectorVersion
         connectorIdentity = $connectorIdentityMatch.Groups['identity'].Value.Trim()
         report = 'FBSir-business/target/surefire-reports/' + [IO.Path]::GetFileName($ReportPath)
+        reportLastWriteTimeUtc = $reportFile.LastWriteTimeUtc.ToString('o')
+        reportSha256 = (Get-FileHash -LiteralPath $ReportPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+}
+
+function Read-RefreshSecurityTestEvidence {
+    param(
+        [Parameter(Mandatory = $true)][string]$ReportPath,
+        [Parameter(Mandatory = $true)][DateTimeOffset]$StartedAt
+    )
+
+    if (-not (Test-Path -LiteralPath $ReportPath -PathType Leaf)) {
+        throw "Independent Board OAuth refresh-security Surefire report is missing: $ReportPath"
+    }
+    $reportFile = Get-Item -LiteralPath $ReportPath
+    if ($reportFile.LastWriteTimeUtc -lt $StartedAt.UtcDateTime) {
+        throw "Independent Board OAuth refresh-security Surefire report is stale: $ReportPath"
+    }
+    $reportText = Get-Content -LiteralPath $ReportPath -Raw -Encoding UTF8
+    try {
+        [xml]$report = $reportText
+    }
+    catch {
+        throw "Independent Board OAuth refresh-security Surefire report is invalid XML: $($_.Exception.Message)"
+    }
+    $suite = $report.testsuite
+    if ($null -eq $suite -or
+        -not [string]::Equals([string]$suite.name, $refreshSecuritySuiteName, [StringComparison]::Ordinal)) {
+        throw 'Independent Board OAuth refresh-security Surefire report has the wrong suite identity.'
+    }
+    foreach ($attributeName in @('tests', 'failures', 'errors', 'skipped')) {
+        if ([string]$suite.$attributeName -notmatch '^\d+$') {
+            throw "Independent Board OAuth refresh-security Surefire report has an invalid $attributeName count."
+        }
+    }
+    $tests = [int]$suite.tests
+    $failures = [int]$suite.failures
+    $errors = [int]$suite.errors
+    $skipped = [int]$suite.skipped
+    $testCases = @($suite.testcase | Where-Object { $null -ne $_ })
+    if ($tests -ne $expectedRefreshSecurityTests -or
+        $testCases.Count -ne $expectedRefreshSecurityTests -or
+        $failures -ne 0 -or $errors -ne 0 -or $skipped -ne 0) {
+        throw "Independent Board OAuth refresh-security MySQL IT must pass exactly $expectedRefreshSecurityTests/$expectedRefreshSecurityTests; found tests=$tests testcases=$($testCases.Count) failures=$failures errors=$errors skipped=$skipped."
+    }
+
+    return [pscustomobject]@{
+        test = 'IndependentBoardOAuthRefreshSecurityServiceTest'
+        expectedTests = $expectedRefreshSecurityTests
+        tests = $tests
+        passed = $tests - $failures - $errors - $skipped
+        failures = $failures
+        errors = $errors
+        skipped = $skipped
+        report = 'FBSir-business/target/surefire-reports/' + [IO.Path]::GetFileName($ReportPath)
+        reportLastWriteTimeUtc = $reportFile.LastWriteTimeUtc.ToString('o')
         reportSha256 = (Get-FileHash -LiteralPath $ReportPath -Algorithm SHA256).Hash.ToLowerInvariant()
     }
 }
@@ -374,6 +440,76 @@ function Invoke-DisposableMySqlText {
         $process.WaitForExit()
         if ($process.ExitCode -ne 0) {
             throw "Disposable mysql exited with code $($process.ExitCode): $stderr"
+        }
+        return $stdout
+    }
+    finally {
+        $process.Dispose()
+    }
+}
+
+function Invoke-DisposableMySqlFile {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$TargetDatabase,
+        [Parameter(Mandatory = $true)][string]$ExpectedSha256
+    )
+
+    if ($TargetDatabase -notmatch '^[A-Za-z0-9_]{1,64}$') {
+        throw "Unsafe disposable database name: $TargetDatabase"
+    }
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $allowedSqlRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot 'sql')).TrimEnd('\') + '\'
+    if (-not $fullPath.StartsWith($allowedSqlRoot, [StringComparison]::OrdinalIgnoreCase) -or
+        -not [string]::Equals(
+            [System.IO.Path]::GetFileName($fullPath),
+            'update_20260721_independent_board_oauth_refresh_security.sql',
+            [StringComparison]::Ordinal)) {
+        throw "Refusing to execute a SQL file outside the exact refresh-security migration boundary: $fullPath"
+    }
+    if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+        throw "Required refresh-security migration is missing: $fullPath"
+    }
+    if ($ExpectedSha256 -notmatch '^[0-9a-f]{64}$') {
+        throw "Invalid expected refresh-security migration SHA-256: '$ExpectedSha256'."
+    }
+
+    $sqlBytes = [System.IO.File]::ReadAllBytes($fullPath)
+    $algorithm = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $actualSha256 = -join ($algorithm.ComputeHash($sqlBytes) |
+            ForEach-Object { $_.ToString('x2') })
+    }
+    finally {
+        $algorithm.Dispose()
+    }
+    if (-not [string]::Equals($actualSha256, $ExpectedSha256, [StringComparison]::Ordinal)) {
+        throw "Refresh-security migration bytes do not match the public_init_036 manifest: expected $ExpectedSha256, found $actualSha256."
+    }
+
+    $arguments = "--protocol=tcp --host=127.0.0.1 --port=$Port --user=root --default-character-set=utf8mb4 --batch --raw --skip-column-names --database=$TargetDatabase"
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $mysql
+    $startInfo.Arguments = $arguments
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardInput = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    if (-not $process.Start()) {
+        throw 'Unable to start the disposable mysql client for public_init_036.'
+    }
+    try {
+        $process.StandardInput.BaseStream.Write($sqlBytes, 0, $sqlBytes.Length)
+        $process.StandardInput.BaseStream.Flush()
+        $process.StandardInput.Close()
+        $stdout = $process.StandardOutput.ReadToEnd().Trim()
+        $stderr = $process.StandardError.ReadToEnd().Trim()
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0) {
+            throw "Direct public_init_036 migration exited with code $($process.ExitCode): $stderr"
         }
         return $stdout
     }
@@ -478,11 +614,65 @@ SELECT CONCAT_WS('|',
 "@
 }
 
+function Get-OauthRefreshSecurityState {
+    param([Parameter(Mandatory = $true)][string]$TargetDatabase)
+
+    Invoke-DisposableMySqlText -TargetDatabase $TargetDatabase -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = '20260721_independent_board_oauth_refresh_security_v1'
+     AND description = 'APPLIED:Independent Board OAuth refresh security receipt v2'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = '20260721_independent_board_oauth_refresh_security_v1'),
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema = DATABASE() AND table_name = 'fbs_oauth_receipt'
+     AND column_name IN ('receipt_format_version','subject_generation',
+       'result_generation','causation_receipt_id','before_state_digest',
+       'after_state_digest','subject_token_type','security_event_slot')),
+  (SELECT COUNT(DISTINCT CONCAT(table_name, ':', index_name))
+   FROM information_schema.statistics
+   WHERE table_schema = DATABASE()
+     AND ((table_name = 'fbs_oauth_token'
+           AND index_name = 'idx_oauth_token_family_lock_order')
+       OR (table_name = 'fbs_oauth_receipt'
+           AND index_name = 'idx_oauth_receipt_family_client_lock_order')
+       OR (table_name = 'fbs_connector_binding_receipt'
+           AND index_name = 'idx_connector_binding_receipt_lock_order'))),
+  (SELECT COUNT(*) FROM information_schema.referential_constraints
+   WHERE constraint_schema = DATABASE()
+     AND table_name = 'fbs_oauth_receipt'
+     AND constraint_name IN ('fk_oauth_receipt_refresh_subject',
+       'fk_oauth_receipt_causation_scope')),
+  (SELECT COUNT(*) FROM information_schema.table_constraints
+   WHERE constraint_schema = DATABASE()
+     AND table_name = 'fbs_oauth_receipt' AND constraint_type = 'CHECK'
+     AND enforced = 'YES'
+     AND constraint_name IN ('chk_oauth_receipt_format_version',
+       'chk_oauth_receipt_v2_shape')),
+  (SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics
+   WHERE table_schema = DATABASE() AND table_name = 'fbs_oauth_receipt'
+     AND index_name = 'uk_oauth_receipt_security_event_slot'
+     AND non_unique = 0),
+  (SELECT COUNT(*) FROM information_schema.routines
+   WHERE routine_schema = DATABASE() AND routine_type = 'PROCEDURE'
+     AND routine_name IN ('u3w_assert_ib_oauth_refresh_security_20260721',
+       'u3w_migrate_ib_oauth_refresh_security_20260721')),
+  (SELECT COUNT(*) FROM information_schema.triggers
+   WHERE trigger_schema = DATABASE()
+     AND trigger_name IN ('independent_board_refresh_it_delay_rotation',
+       'independent_board_refresh_it_fail_receipt'))
+);
+"@
+}
+
 if ($Port -eq 0) {
     $Port = Get-LoopbackEphemeralPort
 }
 if ($Port -eq 3306) {
     throw 'Port 3306 is forbidden for the destructive integration test.'
+}
+if (Test-LoopbackPortListening -TargetPort $Port) {
+    throw "Refusing to use loopback port $Port because it is already listening."
 }
 
 $runId = 'run-{0}-{1}-{2}' -f (Get-Date -Format 'yyyyMMddTHHmmss'), $PID,
@@ -493,16 +683,20 @@ $errorLog = Join-Path $runDirectory 'mysql-error.log'
 $pidFile = Join-Path $runDirectory 'mysql.pid'
 $temporaryLoginFile = Join-Path $runDirectory 'mysql-login.cnf'
 $surefireReport = Join-Path $repoRoot 'FBSir-business\target\surefire-reports\TEST-com.wx.fbsir.business.board.integration.IndependentBoardMysqlTransactionIT.xml'
+$refreshSecuritySurefireReport = Join-Path $repoRoot 'FBSir-business\target\surefire-reports\TEST-com.wx.fbsir.business.board.oauth.service.IndependentBoardOAuthRefreshSecurityServiceTest.xml'
 $artifactPathMap = [ordered]@{
     oauthFoundationMigration = 'sql\update_20260721_independent_board_oauth_foundation.sql'
     oauthProvenanceMigration = 'sql\update_20260721_independent_board_oauth_receipt_provenance.sql'
     oauthConsentIntentMigration = 'sql\update_20260721_independent_board_oauth_consent_intent_lineage.sql'
+    oauthRefreshSecurityMigration = 'sql\update_20260721_independent_board_oauth_refresh_security.sql'
     manifest = 'sql\init-manifest.json'
     initializer = 'scripts\init-database.ps1'
     canonicalVerifier = 'scripts\verify-independent-board-live-database.ps1'
     manifestVerifier = 'scripts\verify-database-manifest.ps1'
     directIntegrationTest = 'FBSir-business\src\test\java\com\wx\fbsir\business\board\integration\IndependentBoardMysqlTransactionIT.java'
     tokenExchangeMysqlTestConfiguration = 'FBSir-business\src\test\java\com\wx\fbsir\business\board\oauth\service\IndependentBoardOAuthTokenExchangeMysqlTestConfiguration.java'
+    refreshSecurityMysqlTestConfiguration = 'FBSir-business\src\test\java\com\wx\fbsir\business\board\oauth\service\IndependentBoardOAuthRefreshMysqlTestConfiguration.java'
+    refreshSecurityIntegrationTest = 'FBSir-business\src\test\java\com\wx\fbsir\business\board\oauth\service\IndependentBoardOAuthRefreshSecurityServiceTest.java'
     firstProtectedMysqlTestConfiguration = 'FBSir-business\src\test\java\com\wx\fbsir\business\board\service\IndependentBoardOAuthFirstProtectedRequestMysqlTestConfiguration.java'
     independentBoardMapper = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\mapper\IndependentBoardMapper.java'
     independentBoardMapperXml = 'FBSir-business\src\main\resources\mapper\board\IndependentBoardMapper.xml'
@@ -513,6 +707,13 @@ $artifactPathMap = [ordered]@{
     tokenExchangeService = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\oauth\service\IndependentBoardOAuthTokenExchangeService.java'
     tokenExchangeTransactionRunner = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\oauth\service\IndependentBoardOAuthTokenExchangeTransactionRunner.java'
     tokenExchangeFacade = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\oauth\service\IndependentBoardOAuthTokenExchangeFacade.java'
+    refreshReceiptFactory = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\oauth\BoardOAuthRefreshReceiptFactory.java'
+    refreshStateDigest = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\oauth\BoardOAuthRefreshStateDigest.java'
+    refreshAuthorityPort = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\oauth\service\BoardOAuthRefreshAuthorityPort.java'
+    refreshService = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\oauth\service\IndependentBoardOAuthRefreshService.java'
+    refreshTransactionRunner = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\oauth\service\IndependentBoardOAuthRefreshTransactionRunner.java'
+    refreshFacade = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\oauth\service\IndependentBoardOAuthRefreshFacade.java'
+    refreshAuthorityLease = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\service\BoardOAuthRefreshAuthorityLease.java'
     firstProtectedTransactionRunner = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\service\IndependentBoardOAuthFirstProtectedRequestTransactionRunner.java'
     firstProtectedFacade = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\service\IndependentBoardOAuthFirstProtectedRequestFacade.java'
 }
@@ -532,6 +733,33 @@ foreach ($artifactName in $artifactPathMap.Keys) {
         throw "Frozen artifact SHA-256 drifted for $relativePath."
     }
 }
+$manifestContent = Get-Content -LiteralPath (Join-Path $repoRoot $artifactPathMap.manifest) `
+    -Raw -Encoding UTF8
+try {
+    $manifest = $manifestContent | ConvertFrom-Json
+}
+catch {
+    throw "Public database manifest is invalid JSON: $($_.Exception.Message)"
+}
+$refreshSecurityManifestEntries = @($manifest.steps | Where-Object {
+    [string]$_.version -eq 'public_init_036'
+})
+if ($refreshSecurityManifestEntries.Count -ne 1) {
+    throw "Public database manifest must contain exactly one public_init_036 entry; found $($refreshSecurityManifestEntries.Count)."
+}
+$refreshSecurityManifestEntry = $refreshSecurityManifestEntries[0]
+if (-not [string]::Equals(
+        [string]$refreshSecurityManifestEntry.file,
+        'update_20260721_independent_board_oauth_refresh_security.sql',
+        [StringComparison]::Ordinal) -or
+    [string]$refreshSecurityManifestEntry.sha256 -notmatch '^[0-9a-f]{64}$' -or
+    -not [string]::Equals(
+        [string]$refreshSecurityManifestEntry.sha256,
+        [string]$artifactEvidence.oauthRefreshSecurityMigration.sha256,
+        [StringComparison]::Ordinal)) {
+    throw 'public_init_036 manifest file or SHA-256 does not match the captured refresh-security migration bytes.'
+}
+$refreshSecurityMigrationSha256 = [string]$refreshSecurityManifestEntry.sha256
 $managedEnvironmentNames = @(
     'INDEPENDENT_BOARD_MYSQL_IT_ALLOW_DROP',
     'INDEPENDENT_BOARD_MYSQL_IT_URL',
@@ -545,6 +773,7 @@ $ready = $false
 $testPassed = $false
 $runtimeProfile = $null
 $directEvidence = $null
+$refreshSecurityEvidence = $null
 $canonicalEvidence = $null
 $serverProcessStopped = $false
 $workDirectoryCleaned = $false
@@ -597,6 +826,13 @@ try {
     }
     if (-not $ready) {
         throw 'Disposable MySQL did not become ready within 20 seconds.'
+    }
+    # On Windows mysqld may hand off from the launcher process. The server PID
+    # file plus the exact run datadir and port is the authoritative identity.
+    $readyServerPid = Get-VerifiedMySqlProcessId -ExpectedPidFile $pidFile `
+        -ExpectedDataDirectory $dataDirectory -ExpectedPort $Port
+    if ($null -eq $readyServerPid) {
+        throw 'The ready MySQL listener has no PID-file process bound to this run directory and port.'
     }
 
     $runtimeResponse = Invoke-DisposableMySqlText -Sql `
@@ -655,6 +891,46 @@ try {
     $directEvidence | Add-Member -NotePropertyName consentIntentChecks -NotePropertyValue 3
     $directEvidence | Add-Member -NotePropertyName consentIntentTrigger -NotePropertyValue 1
     $directEvidence | Add-Member -NotePropertyName consentIntentHelperProcedures -NotePropertyValue 0
+
+    Write-Host 'Applying manifest-bound public_init_036 bytes directly to the post-035 disposable database'
+    $refreshSecurityMigrationOutput = Invoke-DisposableMySqlFile `
+        -Path (Join-Path $repoRoot $artifactPathMap.oauthRefreshSecurityMigration) `
+        -TargetDatabase $database -ExpectedSha256 $refreshSecurityMigrationSha256
+    $refreshSecurityStateBeforeTest = Get-OauthRefreshSecurityState -TargetDatabase $database
+    if (-not [string]::Equals(
+            $refreshSecurityStateBeforeTest, '1|1|8|3|2|2|1|0|0',
+            [StringComparison]::Ordinal)) {
+        throw "Direct public_init_036 current-read failed before refresh-security tests: '$refreshSecurityStateBeforeTest'."
+    }
+
+    Write-Host "Running three OAuth refresh-security MySQL scenarios on the same loopback database and four-variable test contract"
+    $refreshSecurityMavenStartedAt = [DateTimeOffset]::UtcNow
+    & mvn -pl FBSir-business -am `
+        '-Dtest=IndependentBoardOAuthRefreshSecurityServiceTest' `
+        '-Dsurefire.failIfNoSpecifiedTests=false' test
+    if ($LASTEXITCODE -ne 0) {
+        throw "Independent Board OAuth refresh-security MySQL IT failed with Maven exit code $LASTEXITCODE"
+    }
+    $refreshSecurityEvidence = Read-RefreshSecurityTestEvidence `
+        -ReportPath $refreshSecuritySurefireReport -StartedAt $refreshSecurityMavenStartedAt
+    $refreshSecurityStateAfterTest = Get-OauthRefreshSecurityState -TargetDatabase $database
+    if (-not [string]::Equals(
+            $refreshSecurityStateAfterTest, $refreshSecurityStateBeforeTest,
+            [StringComparison]::Ordinal)) {
+        throw "OAuth refresh-security MySQL tests changed the exact public_init_036 schema/helper state: before='$refreshSecurityStateBeforeTest' after='$refreshSecurityStateAfterTest'."
+    }
+    $refreshSecurityEvidence | Add-Member -NotePropertyName publicInit036BytesAppliedBeforeTest -NotePropertyValue $true
+    $refreshSecurityEvidence | Add-Member -NotePropertyName migrationSha256 -NotePropertyValue $refreshSecurityMigrationSha256
+    $refreshSecurityEvidence | Add-Member -NotePropertyName migrationOutputSha256 `
+        -NotePropertyValue (Get-StringSha256 -Value ([string]$refreshSecurityMigrationOutput))
+    $refreshSecurityEvidence | Add-Member -NotePropertyName oauthRefreshSecurityReceipt -NotePropertyValue 1
+    $refreshSecurityEvidence | Add-Member -NotePropertyName receiptV2Columns -NotePropertyValue 8
+    $refreshSecurityEvidence | Add-Member -NotePropertyName lockOrderIndexes -NotePropertyValue 3
+    $refreshSecurityEvidence | Add-Member -NotePropertyName refreshForeignKeys -NotePropertyValue 2
+    $refreshSecurityEvidence | Add-Member -NotePropertyName refreshChecks -NotePropertyValue 2
+    $refreshSecurityEvidence | Add-Member -NotePropertyName securityEventUniqueIndex -NotePropertyValue 1
+    $refreshSecurityEvidence | Add-Member -NotePropertyName helperProcedures -NotePropertyValue 0
+    $refreshSecurityEvidence | Add-Member -NotePropertyName testTriggers -NotePropertyValue 0
 
     if (-not $DirectOnly) {
     [Environment]::SetEnvironmentVariable('MYSQL_TEST_LOGIN_FILE', $temporaryLoginFile, 'Process')
@@ -743,15 +1019,13 @@ ORDER BY tc.table_name, tc.constraint_name;
             throw "Canonical Independent Board phase drifted at position $($index + 1)."
         }
     }
-    if (-not ([string]$canonicalPhases[0].output).Contains('APPLY public_init_035:') -or
-        -not ([string]$canonicalPhases[1].output).Contains('SKIP public_init_035 (already applied)') -or
+    if (-not ([string]$canonicalPhases[0].output).Contains('APPLY public_init_036:') -or
+        -not ([string]$canonicalPhases[1].output).Contains('SKIP public_init_036 (already applied)') -or
         -not ([string]$canonicalPhases[2].output).Contains(
-            'PASS Independent Board OAuth 033 foundation plus 034 provenance and 035 consent-intent successors exact current-read audit') -or
+            'PASS Independent Board OAuth refresh-security exact S3 current-read') -or
         -not ([string]$canonicalPhases[2].output).Contains(
-            'PASS Independent Board OAuth consent-intent exact current-read audit') -or
-        -not ([string]$canonicalPhases[2].output).Contains(
-            'PASS public database manifest exact current-read (35 APPLIED receipts with exact descriptions).')) {
-        throw 'Canonical Independent Board phases did not prove public_init_035 first apply, completed rerun and exact 35-step read-only current-read.'
+            'PASS public database manifest exact current-read (36 APPLIED receipts with exact descriptions).')) {
+        throw 'Canonical Independent Board phases did not prove public_init_036 first apply, completed rerun and exact 36-step read-only current-read.'
     }
 
     $canonicalReceiptState = Invoke-DisposableMySqlText -TargetDatabase $canonicalDatabase -Sql @"
@@ -766,18 +1040,30 @@ SELECT CONCAT_WS('|',
    WHERE version = 'public_init_035'
      AND description = 'APPLIED:Independent Board OAuth consent-intent lineage'),
   (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = 'public_init_036'
+     AND description = 'APPLIED:Independent Board OAuth refresh security receipt v2'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = '20260721_independent_board_oauth_refresh_security_v1'
+     AND description = 'APPLIED:Independent Board OAuth refresh security receipt v2'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
    WHERE version REGEXP '^public_init_[0-9]{3}$'),
   (SELECT COUNT(*) FROM u3w_schema_migration
    WHERE version REGEXP '^public_init_[0-9]{3}$' AND description LIKE 'APPLIED:%')
 );
 "@
-    if (-not [string]::Equals($canonicalReceiptState, '1|1|1|35|35', [StringComparison]::Ordinal)) {
+    if (-not [string]::Equals($canonicalReceiptState, '1|1|1|1|1|36|36', [StringComparison]::Ordinal)) {
         throw "Canonical Independent Board public_init receipt state drifted: '$canonicalReceiptState'."
     }
     $canonicalSuccessorState = Get-OauthSuccessorState -TargetDatabase $canonicalDatabase
     if (-not [string]::Equals(
             $canonicalSuccessorState, '1|1|1|1|1|3|4|2|3|1|0', [StringComparison]::Ordinal)) {
         throw "Canonical Independent Board 033 -> 034 -> 035 successor state drifted: '$canonicalSuccessorState'."
+    }
+    $canonicalRefreshSecurityState = Get-OauthRefreshSecurityState -TargetDatabase $canonicalDatabase
+    if (-not [string]::Equals(
+            $canonicalRefreshSecurityState, '1|1|8|3|2|2|1|0|0',
+            [StringComparison]::Ordinal)) {
+        throw "Canonical Independent Board public_init_036 successor state drifted: '$canonicalRefreshSecurityState'."
     }
     $canonicalEvidence = [pscustomobject]@{
         database = $canonicalDatabase
@@ -792,11 +1078,12 @@ SELECT CONCAT_WS('|',
                 outputSha256 = Get-StringSha256 -Value ([string]$_.output)
             }
         })
-        publicManifestReceipts = 35
-        publicAppliedReceipts = 35
+        publicManifestReceipts = 36
+        publicAppliedReceipts = 36
         oauthFoundationReceipt = 1
         oauthProvenanceReceipt = 1
         oauthConsentIntentReceipt = 1
+        oauthRefreshSecurityReceipt = 1
         familyCreatedSlot = 1
         familyCreatedUniqueIndex = 1
         consentIntentColumns = 3
@@ -805,6 +1092,13 @@ SELECT CONCAT_WS('|',
         consentIntentChecks = 3
         consentIntentTrigger = 1
         consentIntentHelperProcedures = 0
+        receiptV2Columns = 8
+        refreshLockOrderIndexes = 3
+        refreshForeignKeys = 2
+        refreshChecks = 2
+        securityEventUniqueIndex = 1
+        refreshHelperProcedures = 0
+        refreshTestTriggers = 0
     }
     }
     else {
@@ -872,7 +1166,7 @@ if ($testPassed) {
         throw "Disposable MySQL cleanup did not close every boundary: processStopped=$serverProcessStopped workDirectoryCleaned=$workDirectoryCleaned portClosed=$portClosed environmentRestored=$environmentRestored"
     }
     $summary = [ordered]@{
-        schemaVersion = 2
+        schemaVersion = 3
         test = 'IndependentBoardMysqlTransactionIT'
         result = 'PASS'
         mode = if ($DirectOnly) { 'direct_only' } else { 'direct_and_canonical' }
@@ -887,6 +1181,7 @@ if ($testPassed) {
         }
         artifacts = $artifactEvidence
         directIntegration = $directEvidence
+        refreshSecurityIntegration = $refreshSecurityEvidence
         canonicalInitializer = $canonicalEvidence
         destructiveTestConsent = $true
         productionConnectionUsed = $false

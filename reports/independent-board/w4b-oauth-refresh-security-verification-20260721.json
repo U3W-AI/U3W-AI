@@ -1,0 +1,166 @@
+{
+  "schema": "fbsir.independent-board.w4b1-refresh-security-verification/v1",
+  "result": "VERIFIED_LOCAL_INTERNAL_OAUTH_REFRESH_SECURITY",
+  "observedAt": "2026-07-21T14:15:26+08:00",
+  "product": {
+    "brandZh": "福帮手",
+    "brandEn": "FBSir",
+    "name": "独董会",
+    "listedVersion": "26.7.20"
+  },
+  "repository": {
+    "root": "u3w-independent-board-control-plane",
+    "branch": "codex/independent-board-control-plane",
+    "remote": "https://github.com/U3W-AI/U3W-AI.git",
+    "verificationBaseCommit": "34e296efc10181a59155775c93b6ef7c36ad64b8",
+    "evidenceBinding": "report_and_verified_source_are_committed_together",
+    "listedPackageWriteback": false
+  },
+  "migrations": [
+    {
+      "manifestStep": "public_init_033",
+      "path": "sql/update_20260721_independent_board_oauth_foundation.sql",
+      "sha256": "b103ac5936ab1cb4bce865f04256f41826d90693556bc5627c09fc4ffee5de27"
+    },
+    {
+      "manifestStep": "public_init_034",
+      "path": "sql/update_20260721_independent_board_oauth_receipt_provenance.sql",
+      "sha256": "2ba6fce7c3161b1647397485c37681974202b3a566ab370cc05587b1cfde7af3"
+    },
+    {
+      "manifestStep": "public_init_035",
+      "path": "sql/update_20260721_independent_board_oauth_consent_intent_lineage.sql",
+      "sha256": "55dc772d54a4a457f00711a45266b2d0042522d63ed0d5a8e408d35a8ecaf560"
+    },
+    {
+      "manifestStep": "public_init_036",
+      "path": "sql/update_20260721_independent_board_oauth_refresh_security.sql",
+      "sha256": "4d82cb93d7bd15035de882be69ea4bc03c5101e3851ad56083aecdfc93d2b041"
+    }
+  ],
+  "internalRefreshSecurity": {
+    "state": "verified_local",
+    "properties": [
+      "strict_035_consent_intent_null_pairing",
+      "receipt_v2_generation_causation_and_state_digest_lineage",
+      "digest_only_access_and_refresh_material",
+      "one_rotation_or_strict_replay_containment_under_same_refresh_concurrency",
+      "refresh_replay_compromises_family_and_revokes_live_tokens_and_binding_atomically",
+      "late_rotation_or_replay_receipt_failure_rolls_back_all_w4b_and_w4a_mutation",
+      "terminal_repeat_is_zero_write",
+      "bounded_10000_family_token_rows_and_6000_family_security_receipts",
+      "explicit_family_token_receipt_binding_lock_order_indexes"
+    ]
+  },
+  "sourceSnapshot": {
+    "dualMysqlRecordedArtifactsMatchCurrentWorkingTree": "31_of_31_each",
+    "rawSummariesTrackedWithReport": true,
+    "rawSummaryPathsAreRepositoryRelative": true
+  },
+  "verification": {
+    "targetedRefreshMatrix": {
+      "tests": 42,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "manualMigrationRecoveryMatrix": {
+      "scenarios": 8,
+      "passed": 8,
+      "coverage": [
+        "mysql_8_0_30_fresh_rerun_and_readonly_current_read",
+        "mysql_8_4_8_fresh_rerun_and_readonly_current_read",
+        "internal_and_external_recovery_prefixes",
+        "partial_state_fails_closed"
+      ]
+    },
+    "dualMysql": [
+      {
+        "exactVersion": "8.0.30",
+        "directTransactionTests": 55,
+        "refreshSecurityTests": 3,
+        "canonicalManifestReceipts": 36,
+        "canonicalPhasesPassed": 3,
+        "cleanupGatesPassed": 5,
+        "summary": "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.0.30/summary-mysql-8.0.30-utc-20260721T061311.131Z-local-20260721T141311.131+0800-pid-21800.json",
+        "summarySha256": "054af03dcaf1d8714c7332bbe01d9366fd05d6b8212e8e984159737aa84e173f"
+      },
+      {
+        "exactVersion": "8.4.8",
+        "directTransactionTests": 55,
+        "refreshSecurityTests": 3,
+        "canonicalManifestReceipts": 36,
+        "canonicalPhasesPassed": 3,
+        "cleanupGatesPassed": 5,
+        "summary": "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.4.8/summary-mysql-8.4.8-utc-20260721T061510.025Z-local-20260721T141510.025+0800-pid-29828.json",
+        "summarySha256": "b3a635868cae5cc10dd1b0914cc1d6c2eb87cf730a7ae14ab58818be7b9fb28d"
+      }
+    ],
+    "fullRepositoryAll": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-control-plane.ps1 -Mode All",
+      "finishedAt": "2026-07-21T14:08:31+08:00",
+      "exitCode": 0,
+      "suites": 179,
+      "tests": 838,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "boardHttpSecurityIncluded": true,
+      "frontendProductionBuildIncluded": true
+    },
+    "manifestVerifier": {
+      "steps": 36,
+      "managedUpdateSqlFilesCoveredExactlyOnce": 33,
+      "exitCode": 0
+    },
+    "mapperAppendOnlyContractRegression": {
+      "tests": 17,
+      "failures": 0,
+      "explicitReceiptMethodAllowlist": 12
+    },
+    "menuMigrationReplay": {
+      "exactVersion": "8.4.8",
+      "finishedAt": "2026-07-21T14:15:25+08:00",
+      "exitCode": 0,
+      "phases": 13,
+      "productionConnectionUsed": false,
+      "workDirectoryCleaned": true
+    },
+    "contractAssessor": {
+      "exitCode": 0,
+      "issues": 0
+    },
+    "gitDiffCheck": {
+      "exitCode": 0
+    }
+  },
+  "publicRefreshClientSafetyGate": {
+    "state": "held_closed",
+    "requiredBeforePublicRoute": [
+      "workbuddy_single_flight_refresh",
+      "atomic_token_store_replacement",
+      "no_ambiguous_retry_of_old_refresh_token",
+      "invalid_grant_to_reauthorize_user_experience",
+      "rate_limit_and_replay_alerting"
+    ]
+  },
+  "evidenceBoundaries": {
+    "localInternalRefreshSecurityVerified": true,
+    "publicOAuthOrMcpRoutesEnabled": false,
+    "oauthHttpEndToEndVerified": false,
+    "workBuddyHostIntegrated": false,
+    "sameSessionOfficialRuntimeInvocationVerified": false,
+    "productionDatabaseMigrated": false,
+    "productionDomainsDeployed": false,
+    "businessConfirmed": false
+  },
+  "nextSlice": {
+    "id": "W4b_2_default_off_portal_candidate",
+    "scope": "me_and_admin_oauth_connector_candidate_on_existing_ruoyi_shell",
+    "heldClosed": [
+      "all_public_oauth_and_mcp_routes",
+      "production_database_migration",
+      "production_domain_deployment"
+    ]
+  }
+}

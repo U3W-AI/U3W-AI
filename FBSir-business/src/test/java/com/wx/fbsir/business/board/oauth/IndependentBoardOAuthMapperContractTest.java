@@ -6,6 +6,8 @@ import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ibatis.builder.xml.XMLMapperBuilder;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.session.Configuration;
@@ -458,12 +460,25 @@ class IndependentBoardOAuthMapperContractTest {
 
     @Test
     void receiptMapperIsAppendOnly() {
-        long receiptMethods = java.util.Arrays.stream(IndependentBoardOAuthMapper.class.getDeclaredMethods())
+        Set<String> receiptMethods = java.util.Arrays.stream(IndependentBoardOAuthMapper.class.getDeclaredMethods())
                 .map(Method::getName)
                 .filter(name -> name.toLowerCase().contains("receipt"))
-                .count();
+                .collect(Collectors.toSet());
 
-        assertEquals(6L, receiptMethods);
+        assertEquals(Set.of(
+                "insertReceipt",
+                "selectReceiptByReceiptId",
+                "selectReceiptByReceiptIdAndScopeForUpdate",
+                "selectTokenFamilyCreatedReceiptCandidatesForUpdate",
+                "selectAuthorizationCodeReplayReceiptCandidatesForUpdate",
+                "selectTokenFamilyCompromisedReceiptCandidatesForUpdate",
+                "selectTokenFamilyRevokedReceiptCandidatesForUpdate",
+                "selectTokenFamilyRotatedReceiptCandidatesForUpdate",
+                "selectTokenFamilyRotatedReceiptByResultGenerationCandidatesForUpdate",
+                "selectRefreshReplayDetectedReceiptCandidatesForUpdate",
+                "selectRefreshFamilySecurityReceiptsForUpdate",
+                "selectBoundedRefreshFamilySecurityReceiptsForUpdate"), receiptMethods,
+                "receipt mapper surface must remain append-only and explicitly allowlisted");
         assertTrue(configuration.hasStatement(
                 IndependentBoardOAuthMapper.class.getName() + ".insertReceipt"));
         assertTrue(configuration.hasStatement(

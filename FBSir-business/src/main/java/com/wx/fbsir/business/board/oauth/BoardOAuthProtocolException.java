@@ -51,6 +51,10 @@ public final class BoardOAuthProtocolException extends RuntimeException {
         return new BoardOAuthProtocolException("invalid_target", 400, reasonCode);
     }
 
+    public static BoardOAuthProtocolException invalidScope(String reasonCode) {
+        return new BoardOAuthProtocolException("invalid_scope", 400, reasonCode);
+    }
+
     public static BoardOAuthProtocolException conflict(String reasonCode) {
         return new BoardOAuthProtocolException("invalid_request", 409, reasonCode);
     }
