@@ -24,8 +24,8 @@ WorkBuddy 已完成 OAuth 联调或 VIP 商业闭环成立。
 
 | 数据库构建 | W4b 状态 | 允许行为 | 已证明 | 未证明 |
 |---|---|---|---|---|
-| MySQL Community `8.0.30` | `ALLOWLISTED_REFRESH_SECURITY_VERIFIED_LOCAL` | 允许进入 033–036 迁移和 current-read 门禁 | 55 项既有事务测试、3 项 refresh-security、36/36 canonical receipts | 生产迁移、公开路由、宿主联调 |
-| MySQL Community `8.4.8` | `ALLOWLISTED_REFRESH_SECURITY_VERIFIED_LOCAL` | 允许进入 033–036 迁移和 current-read 门禁 | 55 项既有事务测试、3 项 refresh-security、36/36 canonical receipts | 生产迁移、公开路由、宿主联调 |
+| MySQL Community `8.0.30` | `ALLOWLISTED_PORTAL_READ_VERIFIED_LOCAL` | 允许进入 033–036 迁移和 W4b.2b current-read 门禁 | 56 项事务测试、3 项 refresh-security、36/36 canonical receipts | 生产迁移、公开路由、宿主联调 |
+| MySQL Community `8.4.8` | `ALLOWLISTED_PORTAL_READ_VERIFIED_LOCAL` | 允许进入 033–036 迁移和 W4b.2b current-read 门禁 | 56 项事务测试、3 项 refresh-security、36/36 canonical receipts | 生产迁移、公开路由、宿主联调 |
 | MySQL Community `8.0.29` | `NOT_ALLOWLISTED_FOR_W4B` | initializer 在写 RUNNING 和执行文件前拒绝 | 仅 W4a 最低语法门槛 | 全部 W4b 语义 |
 | 其它 MySQL 构建 | `UNVERIFIED_FOR_W4B` | 失败关闭 | 无 | 兼容性与业务能力 |
 | MariaDB 或其它产品 | `OUTSIDE_CURRENT_W4B_CONTRACT` | 失败关闭 | 无 | 兼容性与业务能力 |
@@ -107,7 +107,7 @@ refresh-family token 查询使用 `LIMIT 10001` sentinel，业务上限为 10,00
 
 统一 runner 在每个精确构建上执行：
 
-- `IndependentBoardMysqlTransactionIT`：`55/55`；
+- `IndependentBoardMysqlTransactionIT`：`56/56`（新增 W4b.2b portal current-read、权限即时失效、重授权 current-first 与 subject 漂移向量）；
 - `IndependentBoardOAuthRefreshSecurityServiceTest`：`3/3`；
 - canonical initializer：首次、重跑、只读三阶段；
 - public manifest：`36/36 APPLIED`；

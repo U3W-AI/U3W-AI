@@ -1,0 +1,302 @@
+{
+    "schemaVersion":  3,
+    "test":  "IndependentBoardMysqlTransactionIT",
+    "result":  "PASS",
+    "mode":  "direct_and_canonical",
+    "host":  "127.0.0.1",
+    "port":  57608,
+    "database":  "u3w_independent_board_it",
+    "canonicalDatabase":  "u3w_scratch_board_canonical_it",
+    "runtime":  {
+                    "version":  "8.4.8",
+                    "versionComment":  "MySQL Community Server - GPL",
+                    "defaultStorageEngine":  "InnoDB",
+                    "transactionIsolation":  "REPEATABLE-READ",
+                    "mysqldSha256":  "6e652e303210ebb72d6c7ee944d14a780964dab16bb52f7ad693e1b3f166ca34",
+                    "mysqlSha256":  "0022995ff8b7ef0b213a175fdf12d383667d28e062b1375a0b3cacd0e0f0ed28"
+                },
+    "connector":  {
+                      "version":  "8.2.0",
+                      "identity":  "MySQL Connector/J mysql-connector-j-8.2.0 (Revision: 06a1f724497fd81c6a659131fda822c9e5085b6c)"
+                  },
+    "artifacts":  {
+                      "oauthFoundationMigration":  {
+                                                       "path":  "sql/update_20260721_independent_board_oauth_foundation.sql",
+                                                       "bytes":  94236,
+                                                       "sha256":  "b103ac5936ab1cb4bce865f04256f41826d90693556bc5627c09fc4ffee5de27"
+                                                   },
+                      "oauthProvenanceMigration":  {
+                                                       "path":  "sql/update_20260721_independent_board_oauth_receipt_provenance.sql",
+                                                       "bytes":  45888,
+                                                       "sha256":  "2ba6fce7c3161b1647397485c37681974202b3a566ab370cc05587b1cfde7af3"
+                                                   },
+                      "oauthConsentIntentMigration":  {
+                                                          "path":  "sql/update_20260721_independent_board_oauth_consent_intent_lineage.sql",
+                                                          "bytes":  70614,
+                                                          "sha256":  "55dc772d54a4a457f00711a45266b2d0042522d63ed0d5a8e408d35a8ecaf560"
+                                                      },
+                      "oauthRefreshSecurityMigration":  {
+                                                            "path":  "sql/update_20260721_independent_board_oauth_refresh_security.sql",
+                                                            "bytes":  57139,
+                                                            "sha256":  "4d82cb93d7bd15035de882be69ea4bc03c5101e3851ad56083aecdfc93d2b041"
+                                                        },
+                      "manifest":  {
+                                       "path":  "sql/init-manifest.json",
+                                       "bytes":  5525,
+                                       "sha256":  "b07f3e00641ae855ab0616adea98d235a539a42dcb16573ef4eeffd0981e9dfc"
+                                   },
+                      "initializer":  {
+                                          "path":  "scripts/init-database.ps1",
+                                          "bytes":  161158,
+                                          "sha256":  "986f8fbfea867756d356a0debe2ac536d629601690d210bdf111d2353dea4a50"
+                                      },
+                      "canonicalVerifier":  {
+                                                "path":  "scripts/verify-independent-board-live-database.ps1",
+                                                "bytes":  5050,
+                                                "sha256":  "177e5ea07915f7dcc984f1e83847ed10ba6301f944f17f2fe15bb1e80f3c91e8"
+                                            },
+                      "manifestVerifier":  {
+                                               "path":  "scripts/verify-database-manifest.ps1",
+                                               "bytes":  116436,
+                                               "sha256":  "d211ec85fc25a9547d1723e29e613f2c813ba7a1de22963b45f8171bb3257c36"
+                                           },
+                      "directIntegrationTest":  {
+                                                    "path":  "FBSir-business/src/test/java/com/wx/fbsir/business/board/integration/IndependentBoardMysqlTransactionIT.java",
+                                                    "bytes":  323948,
+                                                    "sha256":  "5f5a406ead2adbbf92929b41334a74a631b246b5651eb4a6d88a9e6f3c10c570"
+                                                },
+                      "tokenExchangeMysqlTestConfiguration":  {
+                                                                  "path":  "FBSir-business/src/test/java/com/wx/fbsir/business/board/oauth/service/IndependentBoardOAuthTokenExchangeMysqlTestConfiguration.java",
+                                                                  "bytes":  3928,
+                                                                  "sha256":  "7793bd816cd889e9d6051f68bcc72e57a87ffb9bfa62ac030e8ea4a3c8058738"
+                                                              },
+                      "refreshSecurityMysqlTestConfiguration":  {
+                                                                    "path":  "FBSir-business/src/test/java/com/wx/fbsir/business/board/oauth/service/IndependentBoardOAuthRefreshMysqlTestConfiguration.java",
+                                                                    "bytes":  3762,
+                                                                    "sha256":  "926ce4f1e67057ac9a588105c32ac372e0cc61ea5ea989e2c3e1dd6d447bb455"
+                                                                },
+                      "refreshSecurityIntegrationTest":  {
+                                                             "path":  "FBSir-business/src/test/java/com/wx/fbsir/business/board/oauth/service/IndependentBoardOAuthRefreshSecurityServiceTest.java",
+                                                             "bytes":  41337,
+                                                             "sha256":  "25a3cfc34f516469075138baa89d43f5787b35d3e62d8918302f4c87a0ed7b11"
+                                                         },
+                      "firstProtectedMysqlTestConfiguration":  {
+                                                                   "path":  "FBSir-business/src/test/java/com/wx/fbsir/business/board/service/IndependentBoardOAuthFirstProtectedRequestMysqlTestConfiguration.java",
+                                                                   "bytes":  1351,
+                                                                   "sha256":  "0ab51f5697f810346c4de7a1ad0f9a9e41caaa5ca30c5e02efaf27fe4c6a87c2"
+                                                               },
+                      "independentBoardMapper":  {
+                                                     "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/mapper/IndependentBoardMapper.java",
+                                                     "bytes":  8307,
+                                                     "sha256":  "d78681da45c8f2d34fe29f1d2637046f75501b3ad845701b1f1cafbb68a177fb"
+                                                 },
+                      "independentBoardMapperXml":  {
+                                                        "path":  "FBSir-business/src/main/resources/mapper/board/IndependentBoardMapper.xml",
+                                                        "bytes":  30796,
+                                                        "sha256":  "b7da175ba24c6ac92dff1755cf21444324c1ba41ded077fd64f083fef1b7dfd6"
+                                                    },
+                      "independentBoardOAuthMapper":  {
+                                                          "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/oauth/mapper/IndependentBoardOAuthMapper.java",
+                                                          "bytes":  14930,
+                                                          "sha256":  "cf149a8687a67e669a8f584038972696b9e52639e643d0402029c1ca9e95941e"
+                                                      },
+                      "independentBoardOAuthMapperXml":  {
+                                                             "path":  "FBSir-business/src/main/resources/mapper/board/IndependentBoardOAuthMapper.xml",
+                                                             "bytes":  51909,
+                                                             "sha256":  "ea5dd6371495ea920fdf0c2e1bc9af799b67fbf79d1cfce2a4274432f073f311"
+                                                         },
+                      "portalReadService":  {
+                                                "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/portal/IndependentBoardPortalReadService.java",
+                                                "bytes":  41684,
+                                                "sha256":  "f73871c73c9a9ed947aafc960748fe75c608c58628365ed8c4aa48ba02537ed0"
+                                            },
+                      "portalReadMapper":  {
+                                               "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/portal/mapper/IndependentBoardPortalReadMapper.java",
+                                               "bytes":  1853,
+                                               "sha256":  "324f5918c133a1686b14e9a2dab896eecf7135e3320dee59c5c24ca83654b11c"
+                                           },
+                      "portalReadMapperXml":  {
+                                                  "path":  "FBSir-business/src/main/resources/mapper/board/IndependentBoardPortalReadMapper.xml",
+                                                  "bytes":  35416,
+                                                  "sha256":  "b1f9fa4176164c7408534fe5eb71af526c28ad390fe5558da10910e968f61e51"
+                                              },
+                      "connectorBindingService":  {
+                                                      "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/service/IndependentBoardConnectorBindingService.java",
+                                                      "bytes":  180342,
+                                                      "sha256":  "2e62fd01de3ef891fcb7e859eaf87493999fa838c994b196dc8e31212ca10904"
+                                                  },
+                      "tokenExchangeAuthorityPort":  {
+                                                         "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/oauth/service/BoardOAuthTokenExchangeAuthorityPort.java",
+                                                         "bytes":  3647,
+                                                         "sha256":  "9d4506d88fdcbfc807a0fd51deee49045b2ce5ba5f7fb6a52fe3c60f42da4bd1"
+                                                     },
+                      "tokenExchangeService":  {
+                                                   "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/oauth/service/IndependentBoardOAuthTokenExchangeService.java",
+                                                   "bytes":  94293,
+                                                   "sha256":  "56f583dbf904ba7c1081532f4e5a2d3e0191fe44e5cdc2f8ecfe59023c200dc6"
+                                               },
+                      "tokenExchangeTransactionRunner":  {
+                                                             "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/oauth/service/IndependentBoardOAuthTokenExchangeTransactionRunner.java",
+                                                             "bytes":  1254,
+                                                             "sha256":  "e9a223a2f59d793d0fd5c7b4948c4645b0f920b80b33f4c057e39f9057ec7be4"
+                                                         },
+                      "tokenExchangeFacade":  {
+                                                  "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/oauth/service/IndependentBoardOAuthTokenExchangeFacade.java",
+                                                  "bytes":  1847,
+                                                  "sha256":  "34a50cb8362d7e721363072e2db9cedafb27a71f396708cdfa42b148a43a29d5"
+                                              },
+                      "refreshReceiptFactory":  {
+                                                    "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/oauth/BoardOAuthRefreshReceiptFactory.java",
+                                                    "bytes":  22432,
+                                                    "sha256":  "9d1b9a06633572160d6711f23b41b400ee81048094048b03074dfa9fb9ab4d49"
+                                                },
+                      "refreshStateDigest":  {
+                                                 "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/oauth/BoardOAuthRefreshStateDigest.java",
+                                                 "bytes":  11367,
+                                                 "sha256":  "2a10238401d4b53d7aa07ddd6c08a888d2137562545259fbe20e9c2925832060"
+                                             },
+                      "refreshAuthorityPort":  {
+                                                   "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/oauth/service/BoardOAuthRefreshAuthorityPort.java",
+                                                   "bytes":  3392,
+                                                   "sha256":  "ae5095c735ffc1c70ea0915b7e6fffb15f6fa65bcf061af74204eb8a173ef85d"
+                                               },
+                      "refreshService":  {
+                                             "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/oauth/service/IndependentBoardOAuthRefreshService.java",
+                                             "bytes":  57691,
+                                             "sha256":  "864fff6e1c62d67df6427184cf989ef10b1bac1be4b3782e114ed781be3e20d4"
+                                         },
+                      "refreshTransactionRunner":  {
+                                                       "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/oauth/service/IndependentBoardOAuthRefreshTransactionRunner.java",
+                                                       "bytes":  1195,
+                                                       "sha256":  "c6a3c9feb777ecf5f1d5961ca9fc51b5e0586eae16ab61786aaf10866e80ceec"
+                                                   },
+                      "refreshFacade":  {
+                                            "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/oauth/service/IndependentBoardOAuthRefreshFacade.java",
+                                            "bytes":  1754,
+                                            "sha256":  "ee43d679aeb3ccbab85de4455ac47f3ae6d105e565800387ae32bfa0b9102db1"
+                                        },
+                      "refreshAuthorityLease":  {
+                                                    "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/service/BoardOAuthRefreshAuthorityLease.java",
+                                                    "bytes":  3422,
+                                                    "sha256":  "8635cf84c3265d35a7414d4dccefb2a0b0f0d36e96edbd941e9f480bc8e2e1c2"
+                                                },
+                      "firstProtectedTransactionRunner":  {
+                                                              "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/service/IndependentBoardOAuthFirstProtectedRequestTransactionRunner.java",
+                                                              "bytes":  5295,
+                                                              "sha256":  "9657b03df20332373eb036faaf4b03b9cfe183274ceff09df5190ce3b3d9489a"
+                                                          },
+                      "firstProtectedFacade":  {
+                                                   "path":  "FBSir-business/src/main/java/com/wx/fbsir/business/board/service/IndependentBoardOAuthFirstProtectedRequestFacade.java",
+                                                   "bytes":  3228,
+                                                   "sha256":  "d159b1daf5e470b6792ee151c2099da485e4bd43ca2bfedadddbaaaab57c3c71"
+                                               }
+                  },
+    "directIntegration":  {
+                              "test":  "IndependentBoardMysqlTransactionIT",
+                              "expectedTests":  56,
+                              "tests":  56,
+                              "passed":  56,
+                              "failures":  0,
+                              "errors":  0,
+                              "skipped":  0,
+                              "connectorVersion":  "8.2.0",
+                              "connectorIdentity":  "MySQL Connector/J mysql-connector-j-8.2.0 (Revision: 06a1f724497fd81c6a659131fda822c9e5085b6c)",
+                              "report":  "FBSir-business/target/surefire-reports/TEST-com.wx.fbsir.business.board.integration.IndependentBoardMysqlTransactionIT.xml",
+                              "reportLastWriteTimeUtc":  "2026-07-21T12:36:48.0725738Z",
+                              "reportSha256":  "dce7540eba82b7f429ec7c47592cc54d1c5b25d054de5f4d4dffa619455301f3",
+                              "oauthFoundationReceipt":  1,
+                              "oauthProvenanceReceipt":  1,
+                              "oauthConsentIntentReceipt":  1,
+                              "familyCreatedSlot":  1,
+                              "familyCreatedUniqueIndex":  1,
+                              "consentIntentColumns":  3,
+                              "consentIntentIndexes":  4,
+                              "consentIntentForeignKeys":  2,
+                              "consentIntentChecks":  3,
+                              "consentIntentTrigger":  1,
+                              "consentIntentHelperProcedures":  0
+                          },
+    "refreshSecurityIntegration":  {
+                                       "test":  "IndependentBoardOAuthRefreshSecurityServiceTest",
+                                       "expectedTests":  3,
+                                       "tests":  3,
+                                       "passed":  3,
+                                       "failures":  0,
+                                       "errors":  0,
+                                       "skipped":  0,
+                                       "report":  "FBSir-business/target/surefire-reports/TEST-com.wx.fbsir.business.board.oauth.service.IndependentBoardOAuthRefreshSecurityServiceTest.xml",
+                                       "reportLastWriteTimeUtc":  "2026-07-21T12:38:03.3420327Z",
+                                       "reportSha256":  "7c9feb88d97f155ca5250e33dc4e107c52d1bf3940ed3a56a4686636378e94e6",
+                                       "publicInit036BytesAppliedBeforeTest":  true,
+                                       "migrationSha256":  "4d82cb93d7bd15035de882be69ea4bc03c5101e3851ad56083aecdfc93d2b041",
+                                       "migrationOutputSha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                       "oauthRefreshSecurityReceipt":  1,
+                                       "receiptV2Columns":  8,
+                                       "lockOrderIndexes":  3,
+                                       "refreshForeignKeys":  2,
+                                       "refreshChecks":  2,
+                                       "securityEventUniqueIndex":  1,
+                                       "helperProcedures":  0,
+                                       "testTriggers":  0
+                                   },
+    "canonicalInitializer":  {
+                                 "database":  "u3w_scratch_board_canonical_it",
+                                 "preexistingTableCount":  0,
+                                 "phases":  [
+                                                {
+                                                    "name":  "first_apply",
+                                                    "ok":  true,
+                                                    "exitCode":  0,
+                                                    "startedAt":  "2026-07-21T12:38:04.8383311+00:00",
+                                                    "finishedAt":  "2026-07-21T12:38:42.7923580+00:00",
+                                                    "outputSha256":  "caadffcfe8fa92cff8fd59e084f9037ae86c800a93d16991ff3867fce779d1d4"
+                                                },
+                                                {
+                                                    "name":  "completed_rerun",
+                                                    "ok":  true,
+                                                    "exitCode":  0,
+                                                    "startedAt":  "2026-07-21T12:38:42.8204590+00:00",
+                                                    "finishedAt":  "2026-07-21T12:38:54.2221045+00:00",
+                                                    "outputSha256":  "66979990e6d385668b298ebad94d3eb7d5bc78c2442db1216accccfae7163f6c"
+                                                },
+                                                {
+                                                    "name":  "readonly_current_read",
+                                                    "ok":  true,
+                                                    "exitCode":  0,
+                                                    "startedAt":  "2026-07-21T12:38:54.2221045+00:00",
+                                                    "finishedAt":  "2026-07-21T12:39:01.7083320+00:00",
+                                                    "outputSha256":  "443865749a6d917edc610724292f4e8ae553e24707fb91f277b123cd7fd740d2"
+                                                }
+                                            ],
+                                 "publicManifestReceipts":  36,
+                                 "publicAppliedReceipts":  36,
+                                 "oauthFoundationReceipt":  1,
+                                 "oauthProvenanceReceipt":  1,
+                                 "oauthConsentIntentReceipt":  1,
+                                 "oauthRefreshSecurityReceipt":  1,
+                                 "familyCreatedSlot":  1,
+                                 "familyCreatedUniqueIndex":  1,
+                                 "consentIntentColumns":  3,
+                                 "consentIntentIndexes":  4,
+                                 "consentIntentForeignKeys":  2,
+                                 "consentIntentChecks":  3,
+                                 "consentIntentTrigger":  1,
+                                 "consentIntentHelperProcedures":  0,
+                                 "receiptV2Columns":  8,
+                                 "refreshLockOrderIndexes":  3,
+                                 "refreshForeignKeys":  2,
+                                 "refreshChecks":  2,
+                                 "securityEventUniqueIndex":  1,
+                                 "refreshHelperProcedures":  0,
+                                 "refreshTestTriggers":  0
+                             },
+    "destructiveTestConsent":  true,
+    "productionConnectionUsed":  false,
+    "cleanup":  {
+                    "serverProcessStopped":  true,
+                    "portClosed":  true,
+                    "workDirectoryCleaned":  true,
+                    "temporaryLoginFileCleaned":  true,
+                    "processEnvironmentRestored":  true
+                }
+}

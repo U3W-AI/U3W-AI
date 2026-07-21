@@ -1,23 +1,25 @@
 # 福帮手｜独董会 me / admin 详细门户原型设计
 
-> **W4B.2A FRONTEND SOURCE CANDIDATE VERIFIED / DEFAULT OFF / NOT ROUTED**<br>
+> **W4B.2A FRONTEND + W4B.2B BACKEND READ CANDIDATES VERIFIED / DEFAULT OFF / NOT ROUTED**<br>
 > 设计版本：`26.7.20-portals-r1`<br>
 > 审计日期：`2026-07-21`<br>
-> 实施状态：`W4B2A_FRONTEND_SOURCE_CANDIDATE_VERIFIED_LOCAL`<br>
+> 实施状态：`W4B2A_FRONTEND_AND_W4B2B_BACKEND_READ_CANDIDATES_VERIFIED_LOCAL`<br>
 > 确认记录：用户于 `2026-07-21` 以“按建议确认”确认本稿八项决策。<br>
 > 中文品牌：**福帮手**；产品名称：**独董会**；英文品牌：**FBSir**。
 
-本文既保留用户确认的门户原型，也记录 W4b.2a 的当前实现边界。`me.u3w.com` 与
+本文既保留用户确认的门户原型，也记录 W4b.2a / W4b.2b 的当前实现边界。`me.u3w.com` 与
 `admin.u3w.com` 的六个 OAuth / Connector 页面、共享只读表格、严格安全投影模型和 GET-only
-前端 adapter 已形成默认关闭的源码候选；尚无后端 Portal Controller、动态菜单、静态路由或
-可访问运行入口。本轮不授权开放公网 OAuth/MCP 接口，不部署、不写生产数据，也不修改已提交
+前端 adapter 已形成默认关闭的源码候选；四个独立窄 JWT 只读 Controller、精确 current-read
+Mapper 和 fail-closed Service 也已通过 HTTP 与双版本真实 MySQL 门禁。仍无动态菜单、静态路由
+或可访问运行入口。本轮不授权开放公网 OAuth/MCP 接口，不部署、不写生产数据，也不修改已提交
 审核的 WorkBuddy 专家包。
 
 当前必须同时保留两个事实：
 
 1. W2/W3 的基础独董会用户页、权益治理、会议审计和权益回执页已存在于仓库；
-2. W4b.2a 只证明前端源码候选、纯模型门禁和生产构建；连接/同意/断开写路径、后端读模型、
-   菜单/路由、JWT HTTP 安全和公开 OAuth/MCP 路由仍关闭或尚未证明。
+2. W4b.2a 证明前端源码候选、纯模型门禁和生产构建；W4b.2b 证明默认关闭的后端只读模型、
+   当前权限与租户隔离及 JWT HTTP 安全。连接/同意/断开写路径、菜单/路由、运行态浏览器交互和
+   公开 OAuth/MCP 路由仍关闭或尚未证明。
 
 ---
 
@@ -58,7 +60,7 @@
 | admin 权限 | 全局 `admin` 角色且同时具备 `board:*` 细粒度权限；当前没有租户委派角色 | W4 不扩权 |
 | 权益与额度 | `fbs_product_plan`、`fbs_product_entitlement`、`fbs_usage_budget`、`fbs_usage_operation`、`fbs_entitlement_receipt` | 作为用户首页和 admin 基线真源 |
 | Connector | W4a 三张 binding/scope/receipt 表及内部服务存在 | 可供 W4 页面读取，但不能据此宣称公开连接可用 |
-| OAuth | 六张 OAuth 表、内部领域服务和候选测试正在演进；仓库没有 OAuth/Connector 页面 API 或公开 Controller | 只作为待完成底座，不得接 UI 或开放路由 |
+| OAuth | 六张 OAuth 表、内部领域服务及四个默认关闭的 Portal 只读端点已存在；没有公开 OAuth/MCP Controller | 可供后续候选运行页读取；不得据此宣称公开协议或 UI 运行态可用 |
 | 积分 | `sys_user.points`、`wx_points_rule`、`wx_points_record` 和现有积分页存在 | 只复用展示模式；现有写模型不是独董会不可变预占/结算账本 |
 | Webhook | 企微 `wc_webhook_url`、secret ref、`wc_webhook_delivery` 和管理页存在 | 复用安全/投递模式；不能直接冒充 VIP 用户自有通用 Webhook 订阅 |
 | 主机 | Engine 连接、白名单、黑名单和设备指纹页面存在 | 复用运维组件；不能把 Engine deviceId 当作 Apple Watch ChannelBinding |
@@ -66,17 +68,18 @@
 | 域名 | inventory 显示 me/admin 已有 DNS/HTTPS 路由但应用仍为 404 | 本地源码不证明线上已部署 |
 | 静态原型 | `prototypes/portals/index.html` 是不接 API 的粗粒度示意，包含演示数字且侧栏只切换标题 | 保留为视觉参考，不能作为功能或数据证据 |
 
-本轮只读审计发生在 W4 并行开发中的 dirty worktree；OAuth Java/Mapper/SQL 中可见的新增内容
-仍是内部候选。它们只能说明正在开发，不能证明已提交、已构建、已开放或已部署。
+W4b.2b 的内部候选已由 DTO/Mapper/Service、JWT HTTP 和双版本真实 MySQL 三层证据验证；它仍然
+默认关闭且没有菜单/路由。该本地证据不能证明已部署、已开放、真实域名可用或业务闭环。
 
 ### 2.2 必须纠正的旧表述
 
 旧说明把“推荐五项已确认”和“全部门户生产实现”混写。正确分层为：
 
 - **已确认并已存在**：W2/W3 基线页面；
-- **已确认且源码候选已实现**：W4b.2a 的 me 两页、admin 四页、GET-only adapter 和安全投影
-  模型；三个环境均默认关闭，且没有菜单或路由；
-- **尚未实施**：独立窄 JWT Portal Controller、服务端安全投影、候选菜单和写动作；
+- **已确认且源码候选已实现**：W4b.2a 的 me 两页、admin 四页、GET-only adapter 和浏览器安全
+  投影模型，以及 W4b.2b 的独立窄 JWT Portal Controller 和服务端安全投影；三个环境均默认关闭，
+  且没有菜单或路由；
+- **尚未实施**：候选菜单/路由运行态、租户检索分页、浏览器组件门禁和所有写动作；
 - **仍禁止**：将候选页面、菜单或 API 作为生产能力开放，以及任何公开协议路由；
 - **以后规划**：积分、Webhook、Watch、FBSir Hub、委派管理员和生产域名。
 
@@ -660,8 +663,8 @@ board_security_event_viewed
 ## 12. 实施前验收标准
 
 本次确认只解锁依赖 W4b.1 封板的 W4b.2 候选，不等于允许上线。W4b.2a 已通过纯模型负向门禁、
-既有前端回归和生产构建；后端 DTO/current-read、JWT HTTP、菜单迁移与候选组件浏览器交互仍待后续
-子波次验证。完整候选至少满足：
+既有前端回归和生产构建；W4b.2b 已通过后端 DTO/current-read、JWT HTTP 和双版本真实 MySQL。
+菜单迁移、租户检索分页与候选组件浏览器交互仍待 W4b.2c 验证。完整候选至少满足：
 
 ### 12.1 设计一致性
 
@@ -708,8 +711,8 @@ board_security_event_viewed
 | P0 已完成 | 原型审计与用户确认 | 仅本文档 | 用户已于 2026-07-21 明确确认八项决策 |
 | W4b.1 | 完成内部 OAuth/family/refresh/replay/first-protected 底座 | Java/Mapper/SQL/测试；无公开路由 | 双 MySQL、并发、回滚和秘密扫描通过 |
 | W4b.2a 已完成 | 六个前端源码页、共享只读表格、安全投影模型和 GET-only wrapper | 前端源码候选；三个环境默认关闭；无菜单/路由 | verifier 自报 110 个直接断言调用点、既有前端回归、生产构建和登录壳探测通过 |
-| W4b.2b 下一步 | 独立窄 JWT Controller 与 client/family/full binding 服务端安全投影 | 后端只读候选；仍无菜单/写动作 | DTO/current-read/权限/HTTP 负向矩阵通过；security event nullable 合同先显式化 |
-| W4b.2c | 接通默认关闭的候选菜单与运行页 | 菜单迁移候选；仍不开放公网协议面 | feature gate/cursor/DTO 契约与 view/API 解耦；企业检索/分页、累计上限、MySQL 重放、组件交互、键盘/窄屏、JWT 与 OAuth bearer 互斥通过 |
+| W4b.2b 已完成 | 独立窄 JWT Controller 与 client/family/full binding 服务端安全投影 | 后端只读候选；仍无菜单/写动作 | 默认关闭、DTO/current-read/权限/HTTP 负向矩阵及双 MySQL 通过；security event 继续关闭 |
+| W4b.2c | 接通默认关闭的候选菜单与运行页 | 菜单迁移候选；仍不开放公网协议面 | feature gate/cursor/DTO 契约与 view/API 解耦；仅全局系统管理员企业检索/分页、累计上限、MySQL 重放、组件交互、键盘/窄屏，以及现有 RuoYi 链对候选 JWT 路径与 OAuth-bearer-shaped 凭证的隔离通过；不新增 AS/MCP SecurityFilterChain |
 | W4b.3 | 实现独立 AS/MCP SecurityFilterChain 与协议端点 | 公开 adapter 候选；本地配置开启 | N01—N45、metadata 一致性和回滚通过 |
 | W4c | WorkBuddy 真实宿主联调 | 仓库内自包含 Connector/Override/证据 | DCR、PKCE、refresh 串行、首次激活、撤销通过 |
 | W5 | 积分、Webhook、Watch、Hub 深页 | 各自独立合同和迁移 | 不可变账本、投递回读、ChannelBinding/Approval 通过 |
@@ -725,7 +728,7 @@ board_security_event_viewed
 
 用户已明确确认本稿，但本次确认没有扩大到以下事项，必须继续保持：
 
-- W4b.2a 前端源码候选已经存在，但在 W4b.2b/2c 门禁通过前不得添加菜单、路由或运行入口；
+- W4b.2a 前端源码与 W4b.2b 后端只读候选已经存在，但在 W4b.2c 门禁通过前不得添加可达菜单、路由或运行入口；
 - W4b.2 候选页面、`sys_menu` / `sys_role_menu` 和 API adapter 必须默认关闭，不作为生产能力开放；
 - 不新增或开放公网 OAuth/MCP Controller、公开路由和 SecurityFilterChain；
 - 不开放 PRM、AS metadata、DCR、authorize、token、revoke 或受保护 MCP；
@@ -742,10 +745,11 @@ board_security_event_viewed
 
 ## 15. 本稿的单一下一步
 
-实施 W4b.2b：建立独立、默认关闭的窄 JWT 只读 Controller 和精确服务端安全投影，先覆盖
-OAuth client、token family 与完整 Connector binding；security event GET 在 nullable
-`correlation` / `reason` 合同显式化前继续关闭。通过 DTO、current-read、权限和 HTTP 负向矩阵后，
-才进入 W4b.2c 菜单/组件运行态门禁；公开路由、部署、生产写入和冻结专家包仍保持关闭。
+实施 W4b.2c：在仍然默认关闭的前提下，只接通候选菜单/路由和运行页，补齐仅面向全局系统
+管理员的租户检索分页、现有生产 RuoYi `SecurityFilterChain` 对候选 JWT 路径与
+OAuth-bearer-shaped 凭证的隔离，以及组件交互、键盘、窄屏、错误/空态和游标浏览器矩阵。
+本波不新增 W4b.3 的 AS/MCP SecurityFilterChain，不实现委派租户管理员；security event GET、
+全部写动作、公开 OAuth/MCP 路由、生产部署和冻结专家包继续保持关闭。
 
 静态粗粒度参考仍位于
 [`docs/independent-board/prototypes/portals/index.html`](./prototypes/portals/index.html)，其演示

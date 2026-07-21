@@ -25,7 +25,7 @@ $database = 'u3w_independent_board_it'
 $canonicalDatabase = 'u3w_scratch_board_canonical_it'
 $canonicalLoginPath = 'u3w-board-canonical-it'
 $canonicalVerifier = Join-Path $PSScriptRoot 'verify-independent-board-live-database.ps1'
-$expectedDirectTests = 55
+$expectedDirectTests = 56
 $expectedRefreshSecurityTests = 3
 $refreshSecuritySuiteName = 'com.wx.fbsir.business.board.oauth.service.IndependentBoardOAuthRefreshSecurityServiceTest'
 
@@ -172,9 +172,18 @@ function Write-AtomicSummaryEvidence {
     $fileName = 'summary-mysql-{0}-utc-{1}-local-{2}-pid-{3}.json' -f `
         $RuntimeVersion, $utcStamp, $localStamp, $PID
     $destination = Join-Path $runtimeDirectory $fileName
+    # Keep the atomic staging name short. Handoff worktrees can have long roots;
+    # repeating the full evidence filename here can exceed Windows MAX_PATH even
+    # when the final immutable summary path itself is valid.
     $temporary = Join-Path $runtimeDirectory (
-        '.{0}.{1}.tmp' -f $fileName, [Guid]::NewGuid().ToString('N'))
-    $content = $SummaryJson + [Environment]::NewLine
+        '.summary-{0}-{1}.tmp' -f $PID, [Guid]::NewGuid().ToString('N').Substring(0, 8))
+    if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT -and
+        ($destination.Length -ge 260 -or $temporary.Length -ge 260)) {
+        throw "Refusing evidence paths that exceed the Windows legacy path boundary: destination=$($destination.Length), temporary=$($temporary.Length)"
+    }
+    # Git stores this evidence as UTF-8/LF. Write those exact bytes up front so
+    # the reported SHA remains valid after commit, clone and checkout.
+    $content = $SummaryJson.Replace("`r`n", "`n").Replace("`r", "`n").TrimEnd("`n") + "`n"
     $encoding = [System.Text.UTF8Encoding]::new($false)
 
     New-Item -ItemType Directory -Path $runtimeDirectory -Force | Out-Null
@@ -702,6 +711,9 @@ $artifactPathMap = [ordered]@{
     independentBoardMapperXml = 'FBSir-business\src\main\resources\mapper\board\IndependentBoardMapper.xml'
     independentBoardOAuthMapper = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\oauth\mapper\IndependentBoardOAuthMapper.java'
     independentBoardOAuthMapperXml = 'FBSir-business\src\main\resources\mapper\board\IndependentBoardOAuthMapper.xml'
+    portalReadService = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\IndependentBoardPortalReadService.java'
+    portalReadMapper = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\mapper\IndependentBoardPortalReadMapper.java'
+    portalReadMapperXml = 'FBSir-business\src\main\resources\mapper\board\IndependentBoardPortalReadMapper.xml'
     connectorBindingService = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\service\IndependentBoardConnectorBindingService.java'
     tokenExchangeAuthorityPort = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\oauth\service\BoardOAuthTokenExchangeAuthorityPort.java'
     tokenExchangeService = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\oauth\service\IndependentBoardOAuthTokenExchangeService.java'

@@ -5,7 +5,7 @@
     "brandEn": "FBSir",
     "name": "独董会"
   },
-  "platformVersion": "0.4.2-dev",
+  "platformVersion": "0.4.3-dev",
   "expertPackage": {
     "version": "26.7.20",
     "state": "officially_listed_user_confirmed",
@@ -41,7 +41,7 @@
     ]
   },
   "activeWave": "W4_OAUTH_CONNECTOR",
-  "stage": "fix",
+  "stage": "verify",
   "authoritativeRoot": {
     "mode": "standalone_git_repository",
     "externalDirectoryDependency": "forbidden",
@@ -74,6 +74,8 @@
     "scripts/init-database.ps1",
     "scripts/verify-database-manifest.ps1",
     "scripts/run-independent-board-mysql-transaction-it.ps1",
+    "scripts/verify-independent-board-control-plane.ps1",
+    "FBSir-admin/src/main/resources/application.yml",
     "docs/independent-board/PORTAL-PROTOTYPE-SPEC.md",
     "docs/independent-board/prototypes/portals/index.html",
     "FBSir-ui/src/views/business/independentBoard/portalCandidateModel.js",
@@ -85,8 +87,12 @@
     "reports/independent-board/w4b-oauth-foundation-verification-20260721.json",
     "reports/independent-board/w4b-oauth-refresh-security-verification-20260721.json",
     "reports/independent-board/w4b2-portal-frontend-source-candidate-verification-20260721.json",
+    "reports/independent-board/w4b2-backend-read-projection-verification-20260721.json",
+    "docs/decisions/ADR-001-independent-board-default-off-portal-read-boundary.md",
     "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.0.30/summary-mysql-8.0.30-utc-20260721T061311.131Z-local-20260721T141311.131+0800-pid-21800.json",
     "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.4.8/summary-mysql-8.4.8-utc-20260721T061510.025Z-local-20260721T141510.025+0800-pid-29828.json",
+    "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.0.30/summary-mysql-8.0.30-utc-20260721T123307.170Z-local-20260721T203307.170+0800-pid-18500.json",
+    "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.4.8/summary-mysql-8.4.8-utc-20260721T123903.781Z-local-20260721T203903.781+0800-pid-13908.json",
     "reports/independent-board/host-truth-chain-summary-20260721.json"
   ],
   "proven": [
@@ -170,7 +176,14 @@
     "w4b_dual_mysql_8_0_30_and_8_4_8_refresh_security_3_of_3_and_canonical_36_of_36_passed",
     "w4b2a_six_frontend_source_pages_get_only_adapter_and_exact_projection_verified_default_off",
     "w4b2a_action_lineage_actor_temporal_pagination_and_no_secret_negative_gates_passed",
-    "w4b2a_frontend_regression_production_build_and_login_shell_probe_passed"
+    "w4b2a_frontend_regression_production_build_and_login_shell_probe_passed",
+    "w4b2b_four_default_off_narrow_jwt_read_endpoints_verified",
+    "w4b2b_live_user_role_case_sensitive_permission_and_exact_membership_rechecked_before_each_projection",
+    "w4b2b_client_family_binding_and_me_connector_fail_closed_projection_verified",
+    "w4b2b_subject_intent_actor_temporal_scope_and_receipt_lineage_proven",
+    "w4b2b_candidate_scoped_404_405_and_existing_global_http_semantics_isolation_passed",
+    "w4b2b_dual_mysql_8_0_30_and_8_4_8_direct_56_refresh_3_canonical_36_and_cleanup_passed",
+    "w4b2b_full_repository_877_of_877_frontend_verifiers_and_production_build_passed"
   ],
   "notProven": [
     "oauth_public_routes",
@@ -180,7 +193,7 @@
     "listed_runtime_natural_invocation",
     "listed_runtime_same_binding_business_attribution",
     "listed_runtime_service_side_closure",
-    "w4b_2_backend_read_models_and_runtime_mounted_me_admin_pages",
+    "w4b_2c_candidate_menu_router_runtime_mount_and_browser_interaction",
     "production_database_migration",
     "me_portal_production_runtime",
     "admin_portal_production_runtime",
@@ -196,7 +209,7 @@
   ],
   "ui": {
     "base": "existing_u3w_ai_ruoyi_vue3_element_plus",
-    "state": "w4b2a_frontend_source_candidate_verified_default_off_runtime_unreachable",
+    "state": "w4b2a_frontend_source_and_w4b2b_backend_read_candidates_verified_default_off_runtime_unreachable",
     "productionImplementationAllowed": true,
     "unlockCondition": "satisfied",
     "confirmation": "recommended_five_points",
@@ -243,7 +256,7 @@
     ]
   },
   "w4b": {
-    "state": "w4b_1_internal_oauth_chain_and_refresh_security_verified_local_w4b_2a_frontend_source_candidate_verified_default_off",
+    "state": "w4b_1_internal_oauth_chain_and_refresh_security_verified_local_w4b_2a_frontend_and_w4b_2b_backend_candidates_verified_default_off",
     "contract": "docs/independent-board/W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md",
     "databaseSupportMatrix": "docs/independent-board/W4B-DATABASE-SUPPORT-MATRIX.md",
     "inputEvidence": "docs/independent-board/W4B-INPUT-EVIDENCE.json",
@@ -254,7 +267,7 @@
     "clientRegistration": "unauthenticated_profile_constrained_dcr_for_workbuddy_compatibility_not_host_identity_proof",
     "tokenProfile": "opaque_digest_only_access_10m_refresh_family_absolute_30d",
     "databaseSupport": {
-      "state": "exact_build_allowlist_and_dual_build_refresh_security_verified_local",
+      "state": "exact_build_allowlist_and_dual_build_portal_current_read_verified_local",
       "exactAllowlist": [
         "MySQL Community 8.0.30",
         "MySQL Community 8.4.8"
@@ -268,10 +281,11 @@
         "negative_schema_drift_matrix",
         "authorization_contract_and_support_matrix_revision"
       ],
-      "fullW4bMysqlVerification": "foundation_through_refresh_security_dual_exact_build_verified_local_direct_55_of_55_refresh_3_of_3_canonical_36_of_36_each"
+      "fullW4bMysqlVerification": "foundation_through_portal_current_read_dual_exact_build_verified_local_direct_56_of_56_refresh_3_of_3_canonical_36_of_36_each"
     },
     "verificationReport": "reports/independent-board/w4b-oauth-refresh-security-verification-20260721.json",
     "frontendCandidateVerificationReport": "reports/independent-board/w4b2-portal-frontend-source-candidate-verification-20260721.json",
+    "backendCandidateVerificationReport": "reports/independent-board/w4b2-backend-read-projection-verification-20260721.json",
     "internalDcr": "profile_constrained_client_and_action_completed_receipt_verified_by_focused_tests_and_real_mysql_transaction_rollback_retry",
     "tokenTerminationPrimitive": "expired_active_tokens_transition_to_expired_and_live_tokens_revoke_at_per_row_logical_time_floor_verified_real_mysql",
     "authorizationCodeService": "approve_deny_pkce_exact_redirect_resource_scope_consent_lineage_and_post_lock_final_time_verified_local",
@@ -280,12 +294,12 @@
     "refreshSecurityService": "receipt_v2_rotation_and_strict_replay_family_token_binding_containment_verified_local_with_real_mysql_concurrency_and_late_failure_rollback",
     "refreshClientSafetyGate": "workbuddy_single_flight_atomic_token_store_no_ambiguous_old_token_retry_invalid_grant_reauthorize_ux_and_rate_limit_alerting_required_before_public_route",
     "boundedHistoryPolicy": "maximum_10000_family_token_rows_and_6000_family_security_receipts_with_limit_sentinel_and_lock_order_indexes_rolling_accumulator_or_archive_required_before_longer_lifetime_or_higher_cadence",
-    "currentByteVerification": "targeted_refresh_42_of_42_full_repository_838_of_838_dual_mysql_direct_55_of_55_refresh_3_of_3_canonical_36_of_36_each_frontend_production_build_passed",
+    "currentByteVerification": "portal_focused_service_mapper_and_http_jwt_isolation_passed_dual_mysql_direct_56_of_56_refresh_3_of_3_canonical_36_of_36_each_full_repository_877_of_877_frontend_verifiers_and_production_build_passed",
     "publicRoutes": "closed",
     "detailedUiPrototype": "confirmed_for_w4b2_candidate_only",
     "detailedUiPrototypeConfirmation": "explicit_user_confirmation_2026_07_20",
-    "detailedUiProductionImplementation": "frontend_source_candidate_verified_default_off_without_router_menu_backend_adapter_or_public_routes",
-    "nextSlice": "w4b2b_default_off_narrow_jwt_backend_read_projection_for_client_family_and_full_binding_security_event_held_until_nullable_contract_is_explicit"
+    "detailedUiProductionImplementation": "frontend_source_and_backend_read_candidates_verified_default_off_without_router_menu_public_routes_or_write_actions",
+    "nextSlice": "w4b2c_default_off_candidate_menu_router_runtime_mount_global_admin_tenant_search_existing_ruoyi_security_chain_isolation_and_browser_gate"
   },
-  "updatedAt": "2026-07-21T16:32:50.1813654+08:00"
+  "updatedAt": "2026-07-21T20:47:39.6652053+08:00"
 }

@@ -86,6 +86,7 @@ function Invoke-ContractChecks {
         'docs\independent-board\W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md',
         'docs\independent-board\W4B-DATABASE-SUPPORT-MATRIX.md',
         'docs\independent-board\W4B-INPUT-EVIDENCE.json',
+        'docs\decisions\ADR-001-independent-board-default-off-portal-read-boundary.md',
         'docs\independent-board\prototypes\portals\index.html',
         'sql\update_20260720_independent_board_control_plane.sql',
         'sql\update_20260720_independent_board_me_menu.sql',
@@ -98,6 +99,7 @@ function Invoke-ContractChecks {
         'scripts\run-independent-board-menu-migration-it.ps1',
         'scripts\verify-independent-board-mysql-concurrency.ps1',
         'scripts\run-independent-board-mysql-transaction-it.ps1',
+        'FBSir-admin\src\main\resources\application.yml',
         'FBSir-business\src\main\java\com\wx\fbsir\business\board\service\IndependentBoardMeetingTransactionService.java',
         'FBSir-business\src\main\java\com\wx\fbsir\business\board\service\IndependentBoardDashboardService.java',
         'FBSir-business\src\main\java\com\wx\fbsir\business\board\dto\BoardEntitlementRevokeRequest.java',
@@ -107,7 +109,18 @@ function Invoke-ContractChecks {
         'FBSir-business\src\main\java\com\wx\fbsir\business\board\oauth\service\IndependentBoardOAuthClientRegistrationService.java',
         'FBSir-business\src\main\resources\mapper\board\IndependentBoardOAuthMapper.xml',
         'FBSir-business\src\test\java\com\wx\fbsir\business\board\oauth\service\IndependentBoardOAuthClientRegistrationServiceTest.java',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\IndependentBoardPortalReadService.java',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\config\BoardPortalReadConfiguration.java',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\controller\BoardPortalCandidateBoundaryFilter.java',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\controller\IndependentBoardPortalAdminReadController.java',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\controller\IndependentBoardPortalMeReadController.java',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\controller\IndependentBoardPortalReadExceptionHandler.java',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\mapper\IndependentBoardPortalReadMapper.java',
+        'FBSir-business\src\main\resources\mapper\board\IndependentBoardPortalReadMapper.xml',
+        'FBSir-business\src\test\java\com\wx\fbsir\business\board\portal\IndependentBoardPortalReadMapperContractTest.java',
+        'FBSir-business\src\test\java\com\wx\fbsir\business\board\portal\IndependentBoardPortalReadServiceTest.java',
         'FBSir-admin\src\test\java\com\wx\fbsir\business\board\IndependentBoardHttpSecurityIntegrationTest.java',
+        'FBSir-admin\src\test\java\com\wx\fbsir\business\board\IndependentBoardPortalReadHttpSecurityIntegrationTest.java',
         'FBSir-ui\src\api\business\independentBoard\index.js',
         'FBSir-ui\src\views\business\independentBoard\me\index.vue',
         'FBSir-ui\src\views\business\independentBoard\me\reservationSafety.js',
@@ -135,7 +148,10 @@ function Invoke-ContractChecks {
         'reports\independent-board\w3-admin-portal-verification-20260720.json',
         'reports\independent-board\w3b-entitlement-lifecycle-verification-20260720.json',
         'reports\independent-board\w4a-authoritative-connector-binding-verification-20260721.json',
-        'reports\independent-board\w4b-oauth-foundation-verification-20260721.json'
+        'reports\independent-board\w4b-oauth-foundation-verification-20260721.json',
+        'reports\independent-board\w4b2-backend-read-projection-verification-20260721.json',
+        'work\diagnostics\independent-board-mysql-transaction-it\mysql-8.0.30\summary-mysql-8.0.30-utc-20260721T123307.170Z-local-20260721T203307.170+0800-pid-18500.json',
+        'work\diagnostics\independent-board-mysql-transaction-it\mysql-8.4.8\summary-mysql-8.4.8-utc-20260721T123903.781Z-local-20260721T203903.781+0800-pid-13908.json'
     )
     foreach ($path in $required) {
         Assert-PathExists -RelativePath $path
@@ -192,6 +208,109 @@ function Invoke-ContractChecks {
     $actualW4bHashes = @($w4bEvidence.sources | ForEach-Object { $_.sha256 })
     if ((Compare-Object -ReferenceObject $expectedW4bHashes -DifferenceObject $actualW4bHashes).Count -ne 0) {
         throw 'W4b input evidence hash set drifted'
+    }
+
+    $w4b2BackendReport = Read-Utf8Json -RelativePath 'reports\independent-board\w4b2-backend-read-projection-verification-20260721.json'
+    Assert-ProductBrand -Product $w4b2BackendReport.product -Source 'W4b.2b backend verification report'
+    $expectedPortalEndpoints = @(
+        '/business/independent-board/oauth/clients',
+        '/business/independent-board/oauth/families',
+        '/business/independent-board/connector-bindings',
+        '/my/independent-board/connector'
+    )
+    $expectedHeldPortalPaths = @(
+        '/business/independent-board/oauth/security-events',
+        '/my/independent-board/security-receipts'
+    )
+    if ($w4b2BackendReport.schema -cne 'fbsir.independent-board.w4b2-backend-read-projection-verification/v1' `
+            -or $w4b2BackendReport.result -cne 'VERIFIED_LOCAL_DEFAULT_OFF_BACKEND_READ_CANDIDATE' `
+            -or $w4b2BackendReport.releaseReady -ne $false `
+            -or $w4b2BackendReport.repository.listedPackageWriteback -ne $false `
+            -or $w4b2BackendReport.candidate.defaultEnabled -ne $false `
+            -or (Compare-Object -ReferenceObject $expectedPortalEndpoints -DifferenceObject @($w4b2BackendReport.candidate.endpoints)).Count -ne 0 `
+            -or (Compare-Object -ReferenceObject $expectedHeldPortalPaths -DifferenceObject @($w4b2BackendReport.candidate.heldPaths)).Count -ne 0 `
+            -or @($w4b2BackendReport.verification.dualMysql).Count -ne 2 `
+            -or @($w4b2BackendReport.verification.dualMysql | Where-Object { $_.directTransactionTests -eq 56 -and $_.refreshSecurityTests -eq 3 -and $_.canonicalPhasesPassed -eq 3 -and $_.canonicalReceipts -eq 36 -and $_.cleanupGatesPassed -eq 5 -and $_.state -ceq 'PASS' }).Count -ne 2 `
+            -or $w4b2BackendReport.evidenceBoundaries.backendPortalReadModelsImplemented -ne $true `
+            -or $w4b2BackendReport.evidenceBoundaries.jwtPortalHttpSecurityVerified -ne $true `
+            -or $w4b2BackendReport.evidenceBoundaries.realMysqlPortalReadVerified -ne $true `
+            -or $w4b2BackendReport.evidenceBoundaries.candidateMenuOrRouterReachable -ne $false `
+            -or $w4b2BackendReport.evidenceBoundaries.publicOAuthOrMcpRoutesEnabled -ne $false `
+            -or $w4b2BackendReport.evidenceBoundaries.productionDomainsDeployed -ne $false `
+            -or $w4b2BackendReport.evidenceBoundaries.listedPackagePhysicalHashReverifiedThisRound -ne $false `
+            -or $w4b2BackendReport.verification.fullRepositoryAll.tests -ne 877 `
+            -or $w4b2BackendReport.verification.fullRepositoryAll.failures -ne 0 `
+            -or $w4b2BackendReport.verification.fullRepositoryAll.errors -ne 0 `
+            -or $w4b2BackendReport.verification.fullRepositoryAll.skipped -ne 0 `
+            -or $w4b2BackendReport.verification.fullRepositoryAll.state -cne 'PASS' `
+            -or $w4b2BackendReport.verification.centralContract.state -cne 'PASS' `
+            -or $w4b2BackendReport.verification.centralAll.state -cne 'PASS' `
+            -or $w4b2BackendReport.verification.gitDiffCheck -cne 'PASS' `
+            -or $w4b2BackendReport.nextSlice.id -cne 'W4b.2c_default_off_runtime_mount_and_browser_gate') {
+        throw 'W4b.2b backend verification receipt drifted or exceeds its evidence boundary'
+    }
+    foreach ($mysqlEvidence in @($w4b2BackendReport.verification.dualMysql)) {
+        $summaryPath = Join-Path $RepoRoot ([string]$mysqlEvidence.summary).Replace('/', '\')
+        $summaryText = [System.IO.File]::ReadAllText(
+            $summaryPath, [System.Text.UTF8Encoding]::new($false)).Replace("`r`n", "`n").Replace("`r", "`n")
+        $summaryBytes = [System.Text.UTF8Encoding]::new($false).GetBytes($summaryText)
+        $summaryAlgorithm = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $summaryHash = ([BitConverter]::ToString(
+                $summaryAlgorithm.ComputeHash($summaryBytes))).Replace('-', '').ToLowerInvariant()
+        }
+        finally {
+            $summaryAlgorithm.Dispose()
+        }
+        $summary = $summaryText | ConvertFrom-Json
+        if ($summaryHash -cne $mysqlEvidence.summarySha256 `
+                -or $summary.result -cne 'PASS' `
+                -or $summary.directIntegration.tests -ne 56 `
+                -or $summary.refreshSecurityIntegration.tests -ne 3 `
+                -or @($summary.canonicalInitializer.phases | Where-Object { $_.ok -eq $true }).Count -ne 3 `
+                -or $summary.canonicalInitializer.publicManifestReceipts -ne 36 `
+                -or $summary.cleanup.serverProcessStopped -ne $true `
+                -or $summary.cleanup.portClosed -ne $true `
+                -or $summary.cleanup.workDirectoryCleaned -ne $true `
+                -or $summary.cleanup.temporaryLoginFileCleaned -ne $true `
+                -or $summary.cleanup.processEnvironmentRestored -ne $true `
+                -or $summary.artifacts.portalReadService.sha256 -cne $w4b2BackendReport.verification.sourceBinding.portalReadServiceSha256 `
+                -or $summary.artifacts.portalReadMapper.sha256 -cne $w4b2BackendReport.verification.sourceBinding.portalReadMapperSha256 `
+                -or $summary.artifacts.portalReadMapperXml.sha256 -cne $w4b2BackendReport.verification.sourceBinding.portalReadMapperXmlSha256) {
+            throw "W4b.2b MySQL evidence drifted: $($mysqlEvidence.summary)"
+        }
+    }
+    $portalSourceHashes = @{
+        portalReadServiceSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot 'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\IndependentBoardPortalReadService.java')).Hash.ToLowerInvariant()
+        portalReadMapperSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot 'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\mapper\IndependentBoardPortalReadMapper.java')).Hash.ToLowerInvariant()
+        portalReadMapperXmlSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot 'FBSir-business\src\main\resources\mapper\board\IndependentBoardPortalReadMapper.xml')).Hash.ToLowerInvariant()
+    }
+    foreach ($sourceHashName in $portalSourceHashes.Keys) {
+        if ($portalSourceHashes[$sourceHashName] -cne $w4b2BackendReport.verification.sourceBinding.$sourceHashName) {
+            throw "W4b.2b portal source changed after MySQL evidence: $sourceHashName"
+        }
+    }
+
+    $implementationStatus = Read-Utf8Json -RelativePath 'docs\independent-board\implementation-status.json'
+    $taskboard = Read-Utf8Json -RelativePath 'docs\independent-board\taskboard.json'
+    $w4Wave = @($taskboard.waves | Where-Object { $_.id -ceq 'W4_OAUTH_CONNECTOR' })
+    if ($implementationStatus.platformVersion -cne '0.4.3-dev' `
+            -or $implementationStatus.w4b.backendCandidateVerificationReport -cne 'reports/independent-board/w4b2-backend-read-projection-verification-20260721.json' `
+            -or $implementationStatus.w4b.nextSlice -cne 'w4b2c_default_off_candidate_menu_router_runtime_mount_global_admin_tenant_search_existing_ruoyi_security_chain_isolation_and_browser_gate' `
+            -or $w4Wave.Count -ne 1 `
+            -or $w4Wave[0].activeSlice -cne 'W4b_2c_default_off_runtime_mount_and_browser_gate') {
+        throw 'W4b.2b status and taskboard traceability drifted'
+    }
+
+    $engineeringContract = Read-Utf8Json -RelativePath '.fbs-engineering\contract.json'
+    $contractW4b = $engineeringContract.contracts.uiPrototypeGate.w4bImplementation
+    if ($engineeringContract.artifacts.w4b2BackendCandidateVerificationReport -cne 'reports/independent-board/w4b2-backend-read-projection-verification-20260721.json' `
+            -or $engineeringContract.artifacts.w4b2PortalReadBoundaryAdr -cne 'docs/decisions/ADR-001-independent-board-default-off-portal-read-boundary.md' `
+            -or $contractW4b.state -cne 'w4b1_internal_oauth_chain_and_refresh_security_verified_local_w4b2a_frontend_and_w4b2b_backend_candidates_verified_default_off' `
+            -or $contractW4b.nextSlice -cne 'w4b2c_default_off_candidate_menu_router_runtime_mount_global_admin_tenant_search_existing_ruoyi_security_chain_isolation_and_browser_gate' `
+            -or $contractW4b.detailedUiPrototype.implementationState -cne 'frontend_source_and_backend_read_candidates_verified_default_off_without_router_menu_public_routes_or_write_actions' `
+            -or $contractW4b.detailedUiPrototype.backendCandidateVerificationReport -cne 'reports/independent-board/w4b2-backend-read-projection-verification-20260721.json') {
+        throw 'FBS engineering contract drifted from the W4b.2b evidence boundary'
     }
 
     $w4bContract = Get-Content -LiteralPath (Join-Path $RepoRoot 'docs\independent-board\W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md') -Raw -Encoding UTF8

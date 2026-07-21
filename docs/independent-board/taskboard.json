@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the officially listed and post-listing-frozen 26.7.20 expert package.",
-  "singleNextAction": "Implement W4b.2b as independent default-off narrow JWT read controllers and exact safe-projection mappers for OAuth clients, token families and full Connector bindings; keep security-event GET, every menu/router entry, every write action and all public OAuth/MCP routes closed until their DTO, current-read and HTTP negative matrices pass.",
+  "singleNextAction": "Implement W4b.2c as a default-off runtime mount and browser gate: add only candidate menu/router wiring, global-system-admin tenant-search pagination, and prove the existing production RuoYi security chain isolates candidate JWT paths from OAuth-bearer-shaped credentials; keep every write action, security-event GET and all public OAuth/MCP routes closed.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -82,8 +82,8 @@
     },
     {
       "id": "W4_OAUTH_CONNECTOR",
-      "state": "w4a_verified_local_w4b1_internal_oauth_chain_and_refresh_security_verified_local_w4b2a_frontend_source_candidate_verified_default_off",
-      "activeSlice": "W4b_2b_default_off_backend_read_projection",
+      "state": "w4a_verified_local_w4b1_internal_oauth_chain_and_refresh_security_verified_local_w4b2a_frontend_and_w4b2b_backend_candidates_verified_default_off",
+      "activeSlice": "W4b_2c_default_off_runtime_mount_and_browser_gate",
       "completedSubset": [
         "repository_first_conflict_resolution",
         "existing_fbs_connector_preserved_as_single_marketplace_entry",
@@ -123,21 +123,28 @@
         "w4b2a_unknown_missing_duplicate_topology_and_cursor_vectors_fail_closed",
         "w4b2a_security_event_action_lineage_actor_and_server_producer_allowlist_fail_closed",
         "w4b2a_admin_and_me_pagination_error_duplicate_and_browser_limit_fail_closed",
-        "w4b2a_frontend_regression_production_build_and_login_shell_probe_passed"
+        "w4b2a_frontend_regression_production_build_and_login_shell_probe_passed",
+        "w4b2b_four_default_off_narrow_jwt_read_endpoints_verified",
+        "w4b2b_live_user_role_case_sensitive_permission_and_exact_membership_rechecked",
+        "w4b2b_client_family_binding_and_me_connector_fail_closed_projection_verified",
+        "w4b2b_subject_intent_actor_temporal_and_receipt_lineage_proven",
+        "w4b2b_dual_mysql_direct_56_refresh_3_canonical_36_and_cleanup_passed",
+        "w4b2b_candidate_scoped_404_405_and_existing_http_semantics_isolation_passed",
+        "w4b2b_full_repository_877_of_877_frontend_verifiers_and_production_build_passed"
       ],
       "nextSlice": {
-        "id": "W4b_2b_default_off_backend_read_projection",
-        "migration": null,
+        "id": "W4b_2c_default_off_runtime_mount_and_browser_gate",
+        "migration": "candidate_only_default_off_menu_migration_not_applied_to_production",
         "scope": [
-          "independent_narrow_jwt_portal_controllers_not_existing_me_or_admin_controllers",
-          "oauth_client_token_family_and_full_connector_binding_safe_projection_mappers",
-          "exact_dto_current_read_and_http_negative_tests",
-          "security_event_get_held_until_nullable_correlation_and_reason_contract_is_explicit",
+          "default_off_candidate_menu_and_router_runtime_mount",
+          "existing_production_ruoyi_security_chain_candidate_jwt_path_and_oauth_bearer_shaped_credential_isolation_without_new_as_mcp_chain",
+          "global_system_admin_enterprise_search_and_bounded_pagination_without_delegated_tenant_admin",
+          "component_keyboard_narrow_screen_error_empty_and_cursor_browser_matrix",
           "no_menu_router_write_action_or_public_oauth_mcp_routes"
         ],
         "entryGates": [
           "explicit_user_confirmation_2026_07_20",
-          "public_init_036_dual_mysql_verified",
+          "w4b2b_default_off_backend_report_and_dual_mysql_verified",
           "workbuddy_refresh_single_flight_and_lost_response_behavior_remains_pre_public_gate"
         ]
       },
@@ -161,8 +168,8 @@
         "all_me_consent_connect_disconnect_and_admin_revoke_write_actions",
         "security_event_get_until_nullable_correlation_and_reason_contract_is_explicit",
         "admin_tenant_runtime_mount_until_enterprise_search_or_pagination_and_component_behavior_tests_pass",
-        "candidate_runtime_mount_until_feature_gate_cursor_and_projection_contracts_move_out_of_view_layer",
-        "all_candidate_pages_remain_runtime_unreachable_while_source_only"
+        "candidate_runtime_mount_until_w4b2c_feature_gate_security_chain_tenant_search_and_browser_matrices_pass",
+        "all_candidate_pages_remain_runtime_unreachable_until_w4b2c_default_off_mount_is_verified"
       ],
       "exit": [
         "oauth_metadata_and_prm",
