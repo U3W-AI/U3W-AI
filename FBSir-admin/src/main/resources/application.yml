@@ -19,6 +19,12 @@ fbsir:
   # 建议使用环境变量：WXFBSIR_DOMAIN
   domain: ${FBSIR_DOMAIN:${WXFBSIR_DOMAIN:http://localhost:8080}}
   independent-board:
+    portal-candidate:
+      # Default-off read-only candidate surface. Enable only with two independent 32-byte base64url keys.
+      enabled: ${FBSIR_INDEPENDENT_BOARD_PORTAL_CANDIDATE_ENABLED:false}
+      cursor-key-base64: ${FBSIR_INDEPENDENT_BOARD_PORTAL_CURSOR_KEY_BASE64:}
+      reference-key-base64: ${FBSIR_INDEPENDENT_BOARD_PORTAL_REFERENCE_KEY_BASE64:}
+      cursor-ttl: ${FBSIR_INDEPENDENT_BOARD_PORTAL_CURSOR_TTL:PT15M}
     connector:
       # OAuth issuer 必须由部署环境显式绑定；空值保持 VIP fail closed。
       issuer-uri: ${FBSIR_BOARD_OAUTH_ISSUER:}
