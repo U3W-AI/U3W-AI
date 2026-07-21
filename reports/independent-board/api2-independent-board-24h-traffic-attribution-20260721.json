@@ -1,0 +1,268 @@
+{
+  "schema": "fbsir.independent-board.api2-24h-traffic-attribution/v1",
+  "result": "NO_ATTRIBUTABLE_INDEPENDENT_BOARD_SIGNAL_WITH_CONTRACT_GAPS",
+  "generatedAt": "2026-07-22T00:07:25.8281439+08:00",
+  "productContract": {
+    "productId": "fbsir-eight-seat-board",
+    "listedVersion": "26.7.20",
+    "name": "独董会",
+    "frozenPackageModified": false,
+    "writePolicy": "frozen_post_listing_observation_no_writeback"
+  },
+  "window": {
+    "timezone": "Asia/Shanghai",
+    "start": "2026-07-20T22:44:00+08:00",
+    "end": "2026-07-21T22:44:00+08:00",
+    "startUtc": "2026-07-20T14:44:00Z",
+    "endUtc": "2026-07-21T14:44:00Z",
+    "interval": "[start,end)"
+  },
+  "decision": {
+    "attributableTargetTraffic": 0,
+    "actualTargetUsageIsZero": "NOT_PROVEN",
+    "reason": "No target identity was present in the scanned currently available application evidence, while the official-entry projection drops authoritative product and binding dimensions.",
+    "privateBoardHandling": "confusion_signal_only_never_merged_into_independent_board"
+  },
+  "standardEvidenceLedger": {
+    "method": "rolling_standard_projection_plus_read_only_runtime_prefix_backfill",
+    "fixedWindowRows": 733,
+    "snapshotDigest": null,
+    "snapshotDigestState": "legacy_snapshot_digest_not_captured_before_local_digest_contract",
+    "trafficKinds": {
+      "natural": 0,
+      "probe": 306,
+      "diagnostic": 0,
+      "synthetic": 4,
+      "unknown": 423
+    },
+    "target": {
+      "exactProductRows": 0,
+      "independentBoardAliasRows": 0,
+      "privateBoardConfusionRows": 0,
+      "naturalRows": 0,
+      "distinctBindings": 0,
+      "whoami": 0,
+      "scenePack": 0,
+      "consume": 0,
+      "firstValue": 0,
+      "continuedUse": 0,
+      "verifiedHostReceipt": 0,
+      "serviceClosure": 0
+    },
+    "diagnosticContext": {
+      "distinctBindingsAllProducts": 551,
+      "whoamiMetricRows": 595,
+      "scenePackMetricRows": 203,
+      "consumeMetricRows": 144,
+      "firstValueRows": 80,
+      "continuedUseRows": 69,
+      "hostReceiptObservedIndicatorRows": 584
+    },
+    "sixDimensions": {
+      "product": {
+        "general_reference": 601,
+        "bookwriter": 67,
+        "super_partner": 35,
+        "board_secretary": 24,
+        "industry_researcher": 6
+      },
+      "version": {
+        "unknown": 430,
+        "5.2.6": 148,
+        "4.10.4": 67,
+        "5.1.7": 24,
+        "remainder_other": 64
+      },
+      "channel": {
+        "workbuddy_cn": 365,
+        "fbs-live-monitor": 270,
+        "bookwriter_skill": 67,
+        "unknown": 22,
+        "remainder_other": 9
+      },
+      "terminal": {
+        "desktop": 371,
+        "unknown": 291,
+        "node": 71
+      },
+      "intent": {
+        "general": 562,
+        "long_document_production": 67,
+        "company_strategy": 35,
+        "board_secretary_ir_workflow": 24,
+        "remainder_other": 45
+      },
+      "mode": {
+        "whoami": 487,
+        "consume_or_value": 144,
+        "scene_pack": 101,
+        "continued_only": 1
+      }
+    }
+  },
+  "rawApplicationEvidence": {
+    "mcpEvents": {
+      "path": "/var/log/fbs-skill-mcp/events.ndjson*",
+      "files": 37,
+      "rows": 1664314,
+      "parseFailures": 0,
+      "timeCoverageUtc": {
+        "first": "2026-07-20T14:44:00.027Z",
+        "last": "2026-07-21T14:43:59.932Z"
+      },
+      "eventTypes": {
+        "rpc_event": 1109324,
+        "http_request_end": 554754,
+        "tool_call_start": 118,
+        "tool_call_end": 118
+      },
+      "requestStatus": {
+        "200": 554722,
+        "202": 30,
+        "400": 1,
+        "405": 1
+      },
+      "sourceClassRows": {
+        "probe": 822,
+        "natural_untrusted_source_class_only": 52,
+        "unknown": 1663440
+      },
+      "targetDirectSignals": 0,
+      "warning": "The 52 source-class natural rows have no target signature and are not product credit."
+    },
+    "mcpAccessTsv": {
+      "path": "/var/log/fbs-skill-mcp/access.tsv*",
+      "rows": 183,
+      "parseFailures": 0,
+      "targetDirectSignals": 0,
+      "sessionOrCanonicalBindingRows": 0,
+      "failClosedRows": 183
+    },
+    "businessLedger": {
+      "path": "/var/log/fbss/business-ledger/events.ndjson*",
+      "filesScanned": 154,
+      "windowFiles": 22,
+      "rawRows": 473,
+      "deduplicatedRows": 470,
+      "parseFailures": 0,
+      "distinctBindingHmac": 201,
+      "targetDirectSignals": 0,
+      "privateBoardConfusionSignals": 0,
+      "verifiedHostReceiptRows": 0,
+      "naturalCreditEligibleRows": 0,
+      "businessCreditEligibleRows": 0,
+      "productCreditEligibleRows": 0,
+      "creditWithheldRows": 473,
+      "unknownTrafficAuthorityRows": 473,
+      "offTarget": {
+        "boardSecretary": 26,
+        "genericExpertOrTeam": 11,
+        "unclassified": 436
+      }
+    }
+  },
+  "officialEntry": {
+    "route": "/fbs-mcp/mcp",
+    "upstream": "127.0.0.1:4173/api/fbss/mcp",
+    "countSemantics": "LOWER_BOUND_NOT_EXACT_FULL_RAW_REPLAY",
+    "requestLowerBound": 26344641,
+    "selectedStatusLowerBounds": {
+      "200": 26318825,
+      "499": 19466,
+      "5xx": 6343
+    },
+    "statusUnclassifiedRemainderWithinLowerBound": 7,
+    "selectedMethodLowerBounds": {
+      "GET": 18380038,
+      "POST": 7964597
+    },
+    "methodUnclassifiedRemainderWithinLowerBound": 6,
+    "desktop": 25971530,
+    "projectionDebt": {
+      "product": "connector_for_all_rows",
+      "version": "unknown_version_for_all_rows",
+      "channel": "unknown_channel_for_all_rows",
+      "intent": "unknown_intent_for_all_rows",
+      "mode": "natural_or_unknown_for_all_rows",
+      "canonicalBinding": "absent"
+    },
+    "warning": "The minute buckets carry lowerBound=true. The official-entry count cannot be promoted to an exact raw count or target attribution."
+  },
+  "liveServiceReadback": {
+    "observedAt": "2026-07-21T23:46:28+08:00",
+    "services": {
+      "nginx": "active",
+      "fbs-skill-mcp": "active",
+      "fbsir-admin": "active",
+      "fbss-phase1": "active",
+      "mysqld": "active",
+      "redis": "active"
+    },
+    "naturalEvidenceLedgerHttp": 200,
+    "activeReleasePath": "/opt/fbss/phase1/releases/202607152006-p1-004-runtime-state-14e20a6d.staged",
+    "embeddedReleaseIdObservedEarlier": "20260711-112155",
+    "releaseIdentityState": "DRIFT",
+    "rollingLedgerRowCountObservations": [
+      723,
+      719,
+      718,
+      730
+    ],
+    "rollingLedgerState": "MUTABLE_NOT_AN_IMMUTABLE_24H_SNAPSHOT",
+    "residualAnalysisProcessesAfterCleanup": 0
+  },
+  "attributionDebt": {
+    "activePhase1TargetRegistrationOccurrences": 0,
+    "businessTrafficGroupMissingRows": 733,
+    "productIdMissingRows": 601,
+    "versionMissingRows": 430,
+    "hostChannelTerminalMissingRowsEach": 362,
+    "entrySurfaceMissingRows": 542,
+    "trafficAuthorityUntrustedOrUnclassifiedRows": 584,
+    "trafficAuthorityMissingRows": 149,
+    "hostReceiptObservedButBusinessVerifiedSplit": {
+      "observedIndicatorRows": 584,
+      "businessVerifiedRows": 0
+    },
+    "structuredRawRetention": "approximately_3h06m_not_24h",
+    "requiredRetention": "at_least_26h_plus_immutable_fixed_window_snapshot"
+  },
+  "localAttributionContract": {
+    "script": "scripts/independent-board-traffic-attribution.mjs",
+    "tests": "scripts/independent-board-traffic-attribution.test.mjs",
+    "testCount": 42,
+    "testFailures": 0,
+    "candidateDefaultEnabled": false,
+    "authoritativeProductCreditAlwaysZeroForUnsignedInput": true,
+    "requiredCandidateEvidence": [
+      "exact_target_product_and_26_7_20_version",
+      "server_verified_host_forwarding_receipt",
+      "trusted_natural_authority",
+      "field_contract_valid_high_entropy_binding",
+      "whole_binding_no_off_target_or_private_board_conflict",
+      "strictly_ordered_successful_whoami_scene_pack_consume",
+      "same_channel_terminal_host_and_client_version",
+      "aligned_snapshot_digest_runtime_release_embedded_release_and_report_time"
+    ]
+  },
+  "evidenceBoundaries": {
+    "proven": [
+      "scanned_available_application_evidence_has_zero_direct_target_signature",
+      "standard_trusted_natural_target_count_is_zero",
+      "business_product_credit_is_zero_and_withheld",
+      "private_board_signals_are_not_merged_into_independent_board"
+    ],
+    "notProven": [
+      "actual_independent_board_usage_is_zero",
+      "official_entry_target_natural_invocation",
+      "same_binding_target_conversion",
+      "target_conversion_by_version_channel_terminal_or_population"
+    ],
+    "cannotProveWithCurrentProjection": [
+      "strict_24h_official_entry_target_attribution",
+      "target_user_count_or_conversion_rate",
+      "service_side_target_closure"
+    ]
+  },
+  "singleNextAction": "Without modifying the frozen 26.7.20 package, register the exact product/version contract in the API2 connector and host-forwarding path, retain immutable structured evidence for at least 26 hours, then run one real official-entry same-binding whoami-to-scene-pack-to-consume interaction behind report-only gates."
+}
