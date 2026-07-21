@@ -1,5 +1,5 @@
 # 福帮手（FBSir）FBS模块API接口文档
-> 更新日期：2026-07-11
+> 更新日期：2026-07-22
 
 > **文档范围说明**：本文档收录当前仓库已实现的全部API，包括：
 > - Skill API（`/fbs/skill-api/**`）- 面向Skill脚本的API Key认证接口
@@ -17,6 +17,12 @@
 **认证方式**：API Key（通过 `X-FBS-API-Key` 请求头）+ HMAC-SHA256签名（`X-FBS-Signature`）+ 时间戳（`X-FBS-Timestamp`）
 **说明**：面向Skill脚本的REST API，由 `FbsApiKeyAuthFilter` 校验API Key
 
+**用户身份规则**：除纯场景包查询和已退役的积分获取 tombstone 外，用户级接口只信任 API Key 的绑定用户。未绑定 Key 返回 body.code `403/SKILL_API_KEY_USER_BINDING_REQUIRED`；请求如携带 `userId`，它仅用于一致性断言，不一致返回 `403/SKILL_API_KEY_USER_MISMATCH`。运营侧生成但未绑定用户的 Key 不能调用用户级接口。
+
+**场景包范围边界**：`fbs_api_key.pack_code` 的数据模型约定 `NULL=全局 Key`，但当前过滤器和控制器尚未把非空 `pack_code` 强制为请求 `packCode` 白名单。场景包专用 Key 仍可能查询或请求其他场景包；这项最小权限隔离尚未证明，必须在对外激活前补齐，当前不得宣称 Key 已完成包级授权。
+
+**幂等范围规则**：`usageRecordId` 不是独立授权凭证。个人消费重放必须同时匹配 API Key 绑定用户、场景包、技能、规范化宿主类型和 hostSessionId；start 重放匹配用户、场景包、技能和宿主类型。任一维度不一致均失败关闭为 `SKILL_USAGE_RECORD_SCOPE_MISMATCH`，不得读取余额、扣积分或扣企业配额。企业旧记录缺少 enterprise/member 快照，因此一律不提供成功重放。hostSessionId 只是 HMAC 签名调用方声明，不等同于服务端验证过的宿主实例身份。
+
 ### 1.1 权益校验 `POST /fbs/skill-api/rights/check`
 
 校验用户是否有权使用指定场景包。
@@ -24,7 +30,7 @@
 **请求参数**（body）：
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| userId | Long | 是 | 用户ID |
+| userId | Long | 否 | 仅作 API Key 绑定用户的一致性断言 |
 | packCode | String | 是 | 场景包编码 |
 | authCode | String | 否 | 授权码 |
 | hostType | String | 否 | 宿主类型，默认WORKBUDDY |
@@ -43,7 +49,7 @@
 }
 ```
 **失败响应**：返回 `AjaxResult.success(data)` 但 `pass=false`，`failReason` 包含失败原因
-**错误响应**（返回 `AjaxResult.error(...)`，body.code 通常为 500）：参数校验失败（userId/packCode 为空）、场景包不存在等
+**错误响应**：Key 未绑定或身份断言冲突时 body.code 为 403；packCode 为空等参数错误通常为 500。
 
 ---
 
@@ -54,11 +60,12 @@
 **请求参数**（body）：
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| userId | Long | 否 | 用户ID（可空，从API Key反查） |
+| userId | Long | 否 | 仅作 API Key 绑定用户的一致性断言 |
 | packCode | String | 是 | 场景包编码 |
 | skillCode | String | 是 | 技能编码 |
 | usageRecordId | String | 是 | 使用记录ID（幂等键） |
 | hostType | String | 否 | 宿主类型，默认WORKBUDDY |
+| hostSessionId | String | 否 | 宿主会话ID；个人消费重放时属于幂等范围 |
 | authCode | String | 否 | 授权码 |
 
 **响应成功**：
@@ -70,12 +77,17 @@
 **响应失败**（返回 `AjaxResult.error(...)`）：
 | body.code | 场景 |
 |-----------|------|
-| 403 | 无法识别用户（API Key 未绑定且未传 userId） |
+| 403 | API Key 未绑定用户，或请求 userId 与绑定用户不一致 |
+| 500 | usageRecordId 已被其他用户、场景包、技能、宿主类型或宿主会话范围占用（`SKILL_USAGE_RECORD_SCOPE_MISMATCH`） |
+| 500 | 企业旧记录缺少 tenant/member 快照，无法证明重放范围（`SKILL_ENTERPRISE_USAGE_REPLAY_SCOPE_UNVERIFIED`） |
+| 500 | 同一用户存在多个活动企业成员身份（`SKILL_ENTERPRISE_MEMBERSHIP_SCOPE_AMBIGUOUS`） |
 | 500 | 参数不能为空（packCode/usageRecordId/skillCode 任一为空） |
 | 500 | 场景包不存在 |
 | 500 | skillConsumeService.consume 返回业务失败（积分不足、配额已用尽、成员授权已失效等） |
 
 真实 HTTP 状态码通常仍为 200，只有认证过滤器失败时才会产生真实的 HTTP 4xx。
+
+企业路径只在用户恰好有一个活动企业成员身份时允许首次消费；旧 `fbs_skill_usage_record` 未保存 enterprise/member 快照，因此任何既有企业记录都零写失败关闭，不再返回无法证明租户范围的“幂等成功”。
 
 ---
 
@@ -86,7 +98,7 @@
 **请求参数**（body）：
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| userId | Long | 是 | 用户ID |
+| userId | Long | 否 | 仅作 API Key 绑定用户的一致性断言 |
 | packCode | String | 是 | 场景包编码 |
 | skillCode | String | 是 | 技能编码 |
 | usageRecordId | String | 是 | 使用记录ID（幂等键） |
@@ -98,7 +110,9 @@
   "data": { "usageRecordId": "xxx", "status": 0 }
 }
 ```
-**幂等**：记录已存在且status=0时返回已有记录
+**幂等**：记录已存在且 status=0 且用户/场景包/技能/宿主范围完全一致时返回已有记录；范围不一致时 body.code 为 409，消息为 `SKILL_USAGE_RECORD_SCOPE_MISMATCH`。
+
+API Key 必须绑定用户；新记录的 `userId` 始终取自绑定，不信任请求体。
 
 ---
 
@@ -122,8 +136,12 @@
 | 404 | 使用记录不存在 |
 | 409 | 使用记录已成功结束 |
 | 409 | 使用记录已失败结束 |
+| 409 | 并发请求已先完成状态转换（`SKILL_USAGE_RECORD_STATE_CONFLICT`） |
+| 403 | API Key 未绑定，或记录不属于该 Key 的绑定用户 |
 
 > **注意**：控制器层 `AjaxResult.error(404, ...)` / `AjaxResult.error(409, ...)` 仅设置响应体中的 code 字段，真实 HTTP 状态码通常仍为 200。只有认证过滤器（FbsApiKeyAuthFilter）失败时才会产生真实的 HTTP 4xx 状态码。
+
+当前 end 已校验 API Key 绑定用户与记录用户，并通过 `WHERE status=0` 的条件更新阻止终态覆盖；旧表未保存 API Key 实例或宿主会话归属，这两项仍是下一迁移需求，不能宣称已完成 host-instance 级隔离。
 
 ---
 
@@ -158,7 +176,7 @@
 **请求参数**（body）：
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| userId | Long | 否 | 用户ID（可空，从API Key反查） |
+| userId | Long | 否 | 仅作 API Key 绑定用户的一致性断言 |
 
 **响应**：
 ```json
@@ -179,7 +197,7 @@
 
 ### 1.7 积分获取 `POST /fbs/skill-api/points/earn`
 
-行为积分上报。
+> **已关闭（2026-07-22）**：旧接口允许调用方选择 `userId`、`source` 和 `amount`，不再作为可写合同。保留路径仅用于向旧客户端返回明确的退役信号；恢复积分写入前必须接入服务端定价、API Key 用户强绑定、请求摘要幂等与不可变账本。
 
 **请求参数**（body）：
 | 参数 | 类型 | 必填 | 说明 |
@@ -189,22 +207,12 @@
 | amount | Integer | 是 | 积分数量（正整数） |
 | usageRecordId | String | 是 | 事件ID（幂等键） |
 
-**响应成功**：
+**当前响应**：真实 HTTP 状态码为 `410 Gone`，不读取请求身份或金额，也不调用积分服务。
 ```json
-{ "code": 200, "msg": "操作成功",
-  "data": { "success": true, "pointsAmount": 10, "remainPoints": 510, "usageRecordId": "xxx" }
-}
+{ "code": 410, "msg": "SKILL_POINTS_EARN_DISABLED" }
 ```
-**响应失败**（返回 `AjaxResult.error(...)`）：
-| body.code | 场景 |
-|-----------|------|
-| 403 | 无法识别用户（API Key 未绑定且未传 userId） |
-| 500 | source 为空 |
-| 500 | amount 非正整数 |
-| 500 | usageRecordId 为空 |
-| 500 | changePoints(...) 返回业务失败（规则未配置/限频等） |
 
-真实 HTTP 状态码通常仍为 200，只有认证过滤器失败时才会产生真实的 HTTP 4xx。
+调用方不得重试或回退到 `/points/changePoints`。下一版宿主升级需求见 `docs/independent-board/HOST-UPGRADE-DEMAND-CREDIT-LEDGER.md`。
 
 ---
 
@@ -414,15 +422,14 @@
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/consume` | 统一消费入口 |
+| POST | `/consume` | **已退役**：真实 HTTP 410 |
 
-**请求体**：
+旧接口仅受 JWT 登录保护且信任 body.userId，不具备可验证的内部服务身份。当前方法不绑定或读取请求体，也不调用 `SkillConsumeService`：
 ```json
-{ "userId": 1001, "packCode": "pack_bookwriter", "skillCode": "FBS-BookWriter",
-  "usageRecordId": "uuid-xxx", "hostType": "WORKBUDDY", "authCode": null }
+{ "code": 410, "msg": "INTERNAL_SKILL_CONSUME_DISABLED" }
 ```
-**响应成功**：`{ "code": 200, "msg": "消费成功", "data": { "success": true, ... } }`
-**响应失败**：`{ "code": 500, "msg": "积分不足", "data": { "success": false, ... } }`
+
+调用方必须迁移到绑定用户、HMAC 签名的 `/fbs/skill-api/usage/consume`，或未来另行设计可审计的服务到服务身份合同。
 
 ---
 
@@ -500,10 +507,11 @@ Authorization: Bearer {token}
 | #10 | 2026-04-16 | 积分模型适配（wx_points_record + eventId幂等） |
 | #11 | 2026-04-17 | 前端API Key管理（/my/apikey自助 + /fbs/business/api-key运营） |
 | #12 | 2026-04-17 | Skill端API对接（userId参数可选 + API Key反查） |
+| 安全收口 | 2026-07-22 | userId 仅作绑定断言；关闭 points/earn 与 internal consume；幂等范围校验、企业重放失败关闭和终态 CAS |
 | #13 | 2026-04-18 | commercial_hub字段补全（14个空字段写入） |
 | #15 | 2026-04-20 | Skill API安全加固（HMAC-SHA256签名+时间戳防重放） |
 | #16 | 2026-04-21 | FBS-BookWriter产品文档 |
 
 ---
 
-**最后更新**: 2026-07-11
+**最后更新**: 2026-07-22

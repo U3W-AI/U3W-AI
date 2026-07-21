@@ -24,6 +24,9 @@ public class SkillApiConsumeRequest {
     /** 宿主类型（默认 WORKBUDDY） */
     private String hostType;
 
+    /** 宿主会话ID（可空；作为签名调用方声明的幂等范围，不等同于服务端宿主认证） */
+    private String hostSessionId;
+
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
 
@@ -41,4 +44,7 @@ public class SkillApiConsumeRequest {
 
     public String getHostType() { return hostType; }
     public void setHostType(String hostType) { this.hostType = hostType; }
+
+    public String getHostSessionId() { return hostSessionId; }
+    public void setHostSessionId(String hostSessionId) { this.hostSessionId = hostSessionId; }
 }

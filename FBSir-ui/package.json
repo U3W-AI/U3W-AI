@@ -20,7 +20,8 @@
     "verify:independent-board-admin-ui": "node scripts/verify-independent-board-admin-ui.mjs",
     "verify:independent-board-w4b2-candidate": "node scripts/verify-independent-board-w4b2-candidate.mjs",
     "verify:independent-board-w4b2c-runtime-mount": "node scripts/verify-independent-board-w4b2c-runtime-mount.mjs",
-    "verify:websocket-security": "node scripts/verify-websocket-security.mjs"
+    "verify:websocket-security": "node scripts/verify-websocket-security.mjs",
+    "verify:points-security": "node scripts/verify-points-security.mjs"
   },
   "repository": {
     "type": "git",

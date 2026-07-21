@@ -27,21 +27,11 @@
       <div class="simple-task">
         <div class="task-row">
           <div class="task-info">
-            <span class="task-name">观看广告</span>
-            <span class="task-reward">（每次+2分）</span>
-            <span class="task-limit">，每日最多5次</span>
+            <span class="task-name">积分任务维护中</span>
+            <span class="task-limit">，恢复后将展示经过服务端校验的任务</span>
           </div>
           <div class="task-status">
-            <span>已完成：{{ currentTask.completed }}/5</span>
-          </div>
-          <div class="task-action">
-            <el-button
-              v-if="currentTask.completed < currentTask.total"
-              type="primary"
-              @click="handleTask(currentTask)">
-              去完成
-            </el-button>
-            <el-tag v-else type="info">今日任务已完成</el-tag>
+            <el-tag type="warning">已暂停</el-tag>
           </div>
         </div>
       </div>
@@ -56,7 +46,7 @@
 
 <script>
 import PublicDialog from '@/components/PublicDialog/index.vue';
-import { getUserPoints, changePoints } from "@/api/business/points";
+import { getUserPoints } from "@/api/business/points";
 
 export default {
   name: "PointsGetDialog",
@@ -87,14 +77,6 @@ export default {
       userPoints: 0,
       originalRoute: null,
       checkInterval: null,
-      currentTask: {
-        id: 1,
-        name: '观看广告',
-        reward: 2,
-        completed: 0,
-        total: 5,
-        ruleCode: 'WATCH_ADVERTISEMENT'
-      },
       dialogWidth: '500px'
     };
   },
@@ -188,39 +170,6 @@ export default {
       this.checkInterval = setInterval(async () => {
         await this.updateUserPoints();
       }, 5000);
-    },
-
-    // 处理任务
-    async handleTask(task) {
-      if (!task.ruleCode) {
-        this.$message.info('该任务暂未开放');
-        return;
-      }
-      
-      await this.executeTask(task);
-    },
-
-    // 执行具体任务
-    async executeTask(task) {
-      try {
-        const response = await changePoints(task.ruleCode, task.reward);
-        if (response.code === 200) {
-          this.$message.success(`任务完成！获得${task.reward}积分`);
-          
-          // 更新任务进度
-          if (this.currentTask.completed < this.currentTask.total) {
-            this.currentTask.completed += 1;
-            
-            // 刷新积分显示
-            await this.updateUserPoints();
-          }
-        } else {
-          this.$message.error(response.msg || '任务完成失败');
-        }
-      } catch (error) {
-        this.$message.error('任务完成失败，请稍后重试');
-        console.error('积分规则调用失败:', error);
-      }
     },
 
     // 更新用户积分

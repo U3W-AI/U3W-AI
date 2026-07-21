@@ -14,6 +14,11 @@ import com.wx.fbsir.business.board.service.IndependentBoardDashboardService;
 import com.wx.fbsir.business.board.service.IndependentBoardEntitlementService;
 import com.wx.fbsir.business.board.service.IndependentBoardMeetingService;
 import com.wx.fbsir.business.board.service.IndependentBoardMeetingTransactionService;
+import com.wx.fbsir.business.fbs.controller.internal.FbsSkillConsumeController;
+import com.wx.fbsir.business.fbs.service.SkillConsumeService;
+import com.wx.fbsir.business.point.controller.PointsController;
+import com.wx.fbsir.business.point.controller.PointsFansController;
+import com.wx.fbsir.business.point.service.IPointsService;
 import com.wx.fbsir.common.constant.CacheConstants;
 import com.wx.fbsir.common.constant.Constants;
 import com.wx.fbsir.common.core.domain.entity.SysRole;
@@ -25,6 +30,7 @@ import com.wx.fbsir.framework.security.handle.AuthenticationEntryPointImpl;
 import com.wx.fbsir.framework.web.exception.GlobalExceptionHandler;
 import com.wx.fbsir.framework.web.service.PermissionService;
 import com.wx.fbsir.framework.web.service.TokenService;
+import com.wx.fbsir.system.service.ISysUserService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import java.util.Collections;
@@ -62,6 +68,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -87,6 +94,8 @@ class IndependentBoardHttpSecurityIntegrationTest {
     private static MockMvc mockMvc;
     private static IndependentBoardMapper mapper;
     private static BoardConnectorBindingPort connectorBindingPort;
+    private static IPointsService pointsService;
+    private static SkillConsumeService skillConsumeService;
     private static InMemoryRedisCache redisCache;
 
     @BeforeAll
@@ -103,6 +112,8 @@ class IndependentBoardHttpSecurityIntegrationTest {
 
         mapper = context.getBean(IndependentBoardMapper.class);
         connectorBindingPort = context.getBean(BoardConnectorBindingPort.class);
+        pointsService = context.getBean(IPointsService.class);
+        skillConsumeService = context.getBean(SkillConsumeService.class);
         redisCache = context.getBean(InMemoryRedisCache.class);
         mockMvc = MockMvcBuilders.webAppContextSetup(context)
                 .addFilters(context.getBean("springSecurityFilterChain", jakarta.servlet.Filter.class))
@@ -118,7 +129,7 @@ class IndependentBoardHttpSecurityIntegrationTest {
 
     @BeforeEach
     void resetBoundaries() {
-        reset(mapper, connectorBindingPort);
+        reset(mapper, connectorBindingPort, pointsService, skillConsumeService);
         redisCache.clear();
         when(connectorBindingPort.selectAuthoritativeCurrentBindingKeys(any(), any()))
                 .thenReturn(Set.of());
@@ -137,6 +148,103 @@ class IndependentBoardHttpSecurityIntegrationTest {
                 .andExpect(jsonPath("$.code").value(401));
 
         verify(mapper, never()).selectActiveContext(any(), any());
+    }
+
+    @Test
+    void unauthenticatedLegacyPointsMutationIsRejectedBeforeTheController() throws Exception {
+        mockMvc.perform(post("/points/changePoints")
+                        .param("ruleCode", "ADMIN_GRANT")
+                        .param("changeAmount", "1000000"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+
+        verifyNoInteractions(pointsService);
+    }
+
+    @Test
+    void authenticatedLegacyPointsMutationIsGoneWithoutCallingTheService() throws Exception {
+        mockMvc.perform(post("/points/changePoints")
+                        .header("Authorization",
+                                bearer(loginUser(USER_ID, "member", Set.of(), "user")))
+                        .param("ruleCode", "ADMIN_GRANT")
+                        .param("changeAmount", "1000000"))
+                .andExpect(status().isGone())
+                .andExpect(jsonPath("$.code").value(410))
+                .andExpect(jsonPath("$.msg").value("POINTS_DIRECT_MUTATION_DISABLED"));
+
+        verifyNoInteractions(pointsService);
+    }
+
+    @Test
+    void unauthenticatedLegacyInternalConsumeIsRejectedBeforeTheController() throws Exception {
+        mockMvc.perform(post("/fbs/internal/usage/consume")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"userId\":999,\"packCode\":\"pack-board\"," +
+                                "\"skillCode\":\"board-skill\",\"usageRecordId\":\"unsafe-001\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+
+        verifyNoInteractions(skillConsumeService);
+    }
+
+    @Test
+    void authenticatedLegacyInternalConsumeIsGoneWithoutTrustingBodyUserId() throws Exception {
+        mockMvc.perform(post("/fbs/internal/usage/consume")
+                        .header("Authorization",
+                                bearer(loginUser(USER_ID, "member", Set.of(), "user")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"userId\":999,\"packCode\":\"pack-board\"," +
+                                "\"skillCode\":\"board-skill\",\"usageRecordId\":\"unsafe-002\"}"))
+                .andExpect(status().isGone())
+                .andExpect(jsonPath("$.code").value(410))
+                .andExpect(jsonPath("$.msg").value("INTERNAL_SKILL_CONSUME_DISABLED"));
+
+        verifyNoInteractions(skillConsumeService);
+    }
+
+    @Test
+    void authenticatedLegacyInternalConsumeWithMalformedBodyStillReturnsGone() throws Exception {
+        mockMvc.perform(post("/fbs/internal/usage/consume")
+                        .header("Authorization",
+                                bearer(loginUser(USER_ID, "member", Set.of(), "user")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{not-json"))
+                .andExpect(status().isGone())
+                .andExpect(jsonPath("$.code").value(410))
+                .andExpect(jsonPath("$.msg").value("INTERNAL_SKILL_CONSUME_DISABLED"));
+
+        verifyNoInteractions(skillConsumeService);
+    }
+
+    @Test
+    void legacyAdminGrantRequiresTheAdminRoleInAdditionToItsFinePermission() throws Exception {
+        mockMvc.perform(post("/points/fans/grantPoints")
+                        .header("Authorization", bearer(loginUser(
+                                USER_ID, "operator", Set.of("points:fans:grant"), "operator")))
+                        .param("userId", "99")
+                        .param("pointsAmount", "10")
+                        .param("remark", "controlled-test"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+
+        verifyNoInteractions(pointsService);
+    }
+
+    @Test
+    void legacyAdminGrantStillRequiresItsFinePermissionAndCallsTheServiceOnlyForAdmin() throws Exception {
+        when(pointsService.grantPointsByAdmin(99L, 10, "controlled-test"))
+                .thenReturn(com.wx.fbsir.common.core.domain.AjaxResult.success());
+
+        mockMvc.perform(post("/points/fans/grantPoints")
+                        .header("Authorization", bearer(loginUser(
+                                USER_ID, "admin", Set.of("points:fans:grant"), "admin")))
+                        .param("userId", "99")
+                        .param("pointsAmount", "10")
+                        .param("remark", "controlled-test"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(pointsService).grantPointsByAdmin(99L, 10, "controlled-test");
     }
 
     @Test
@@ -1121,6 +1229,21 @@ class IndependentBoardHttpSecurityIntegrationTest {
         }
 
         @Bean
+        IPointsService pointsService() {
+            return Mockito.mock(IPointsService.class);
+        }
+
+        @Bean
+        SkillConsumeService skillConsumeService() {
+            return Mockito.mock(SkillConsumeService.class);
+        }
+
+        @Bean
+        ISysUserService sysUserService() {
+            return Mockito.mock(ISysUserService.class);
+        }
+
+        @Bean
         IndependentBoardEntitlementService entitlementService(
                 IndependentBoardMapper mapper,
                 BoardConnectorBindingPort connectorBindingPort) {
@@ -1162,6 +1285,21 @@ class IndependentBoardHttpSecurityIntegrationTest {
                 IndependentBoardEntitlementService entitlementService,
                 IndependentBoardMeetingService meetingService) {
             return new IndependentBoardAdminController(entitlementService, meetingService);
+        }
+
+        @Bean
+        PointsController pointsController() {
+            return new PointsController();
+        }
+
+        @Bean
+        FbsSkillConsumeController fbsSkillConsumeController() {
+            return new FbsSkillConsumeController();
+        }
+
+        @Bean
+        PointsFansController pointsFansController() {
+            return new PointsFansController();
         }
 
         @Bean

@@ -3,11 +3,12 @@ package com.wx.fbsir.business.point.controller;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import com.wx.fbsir.common.annotation.Log;
 import com.wx.fbsir.common.core.controller.BaseController;
@@ -35,10 +36,10 @@ public class PointsController extends BaseController {
      */
     @Log(title = "积分操作", businessType = BusinessType.OTHER)
     @PostMapping("/changePoints")
-    public AjaxResult changePoints(@RequestParam String ruleCode, 
-                                   @RequestParam(required = false) Integer changeAmount) {
-        Long userId = getUserId();
-        return pointsService.changePoints(userId, ruleCode, changeAmount);
+    public ResponseEntity<AjaxResult> changePoints() {
+        return ResponseEntity.status(HttpStatus.GONE)
+                .body(AjaxResult.error(HttpStatus.GONE.value(),
+                        "POINTS_DIRECT_MUTATION_DISABLED"));
     }
 
     /**

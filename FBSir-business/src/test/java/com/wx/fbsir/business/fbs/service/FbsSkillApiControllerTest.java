@@ -24,6 +24,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -33,6 +38,9 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * FbsSkillApiController 单元测试
@@ -70,6 +78,7 @@ class FbsSkillApiControllerTest {
     private static final String PACK_CODE = "pack_bookwriter_v2";
     private static final String SKILL_CODE = "bookwriter";
     private static final String USAGE_RECORD_ID = "wb-task-uuid-001";
+    private static final String HOST_SESSION_ID = "host-session-001";
     private static final String AUTH_CODE = "ABCD1234EFGH5678";
 
     // ---- Fixture ----
@@ -77,6 +86,7 @@ class FbsSkillApiControllerTest {
         FbsApiKey key = new FbsApiKey();
         key.setId(1L);
         key.setApiKey("fbs_testkey123");
+        key.setUserId(USER_ID);
         key.setName("测试Key");
         key.setPackCode(PACK_CODE);
         key.setRateLimitPerMin(60);
@@ -170,16 +180,35 @@ class FbsSkillApiControllerTest {
         }
 
         @Test
-        @DisplayName("§6.1.2.1.3 参数校验 — userId 为空")
-        void rightsCheckMissingUserId() {
+        @DisplayName("§6.1.2.1.3 userId 为空时使用 API Key 绑定用户")
+        void rightsCheckUsesBoundUserWhenRequestUserIdIsMissing() {
             setupSecurityContext();
+            when(rightsCheckService.comprehensiveCheck(eq(USER_ID), eq(PACK_CODE), isNull(),
+                    eq("WORKBUDDY"), isNull()))
+                    .thenReturn(ComprehensiveRightsResult.pass(1L, "rule_bookwriter", 10));
             SkillApiCheckRequest request = new SkillApiCheckRequest();
             request.setUserId(null);
             request.setPackCode(PACK_CODE);
 
             AjaxResult result = controller.rightsCheck(request);
 
-            assertEquals(500, result.get(AjaxResult.CODE_TAG));
+            assertEquals(200, result.get(AjaxResult.CODE_TAG));
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("§6.1.2.1.5 请求 userId 与 API Key 绑定用户冲突时拒绝")
+        void rightsCheckRejectsUserMismatch() {
+            setupSecurityContext();
+            SkillApiCheckRequest request = new SkillApiCheckRequest();
+            request.setUserId(999L);
+            request.setPackCode(PACK_CODE);
+
+            AjaxResult result = controller.rightsCheck(request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_USER_MISMATCH", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(rightsCheckService);
             clearSecurityContext();
         }
 
@@ -212,7 +241,7 @@ class FbsSkillApiControllerTest {
             setupSecurityContext();
             ConsumeResult mockResult = ConsumeResult.success(USAGE_RECORD_ID, 990);
             when(skillConsumeService.consume(eq(USER_ID), eq(PACK_CODE), eq(SKILL_CODE),
-                    eq(USAGE_RECORD_ID), eq("WORKBUDDY"), isNull(), isNull()))
+                    eq(USAGE_RECORD_ID), eq("WORKBUDDY"), eq(HOST_SESSION_ID), isNull()))
                     .thenReturn(mockResult);
 
             SkillApiConsumeRequest request = new SkillApiConsumeRequest();
@@ -220,6 +249,7 @@ class FbsSkillApiControllerTest {
             request.setPackCode(PACK_CODE);
             request.setSkillCode(SKILL_CODE);
             request.setUsageRecordId(USAGE_RECORD_ID);
+            request.setHostSessionId(HOST_SESSION_ID);
 
             AjaxResult result = controller.usageConsume(request);
 
@@ -298,6 +328,7 @@ class FbsSkillApiControllerTest {
             setupSecurityContext();
             when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID))
                     .thenReturn(buildUsageRecord(UsageStatus.IN_PROGRESS.getCode()));
+            when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(buildScenePack());
 
             SkillApiStartRequest request = new SkillApiStartRequest();
             request.setUserId(USER_ID);
@@ -318,6 +349,7 @@ class FbsSkillApiControllerTest {
             setupSecurityContext();
             when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID))
                     .thenReturn(buildUsageRecord(UsageStatus.SUCCESS.getCode()));
+            when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(buildScenePack());
 
             SkillApiStartRequest request = new SkillApiStartRequest();
             request.setUserId(USER_ID);
@@ -337,6 +369,7 @@ class FbsSkillApiControllerTest {
             setupSecurityContext();
             when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID))
                     .thenReturn(buildUsageRecord(UsageStatus.FAILED.getCode()));
+            when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(buildScenePack());
 
             SkillApiStartRequest request = new SkillApiStartRequest();
             request.setUserId(USER_ID);
@@ -366,6 +399,47 @@ class FbsSkillApiControllerTest {
             AjaxResult result = controller.usageStart(request);
 
             assertEquals(500, result.get(AjaxResult.CODE_TAG));
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("§6.1.2.3.6 请求 userId 与 API Key 绑定用户冲突时零写入")
+        void startRejectsUserMismatchBeforeReadOrWrite() {
+            setupSecurityContext();
+            SkillApiStartRequest request = new SkillApiStartRequest();
+            request.setUserId(999L);
+            request.setPackCode(PACK_CODE);
+            request.setSkillCode(SKILL_CODE);
+            request.setUsageRecordId(USAGE_RECORD_ID);
+
+            AjaxResult result = controller.usageStart(request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_USER_MISMATCH", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(usageRecordMapper, scenePackMapper);
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("P0：已有记录属于其他用户时拒绝幂等重放")
+        void startRejectsExistingRecordOwnedByOtherUser() {
+            setupSecurityContext();
+            FbsSkillUsageRecord otherUserRecord = buildUsageRecord(UsageStatus.IN_PROGRESS.getCode());
+            otherUserRecord.setUserId(USER_ID + 1);
+            when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID)).thenReturn(otherUserRecord);
+
+            SkillApiStartRequest request = new SkillApiStartRequest();
+            request.setUserId(USER_ID);
+            request.setPackCode(PACK_CODE);
+            request.setSkillCode(SKILL_CODE);
+            request.setUsageRecordId(USAGE_RECORD_ID);
+
+            AjaxResult result = controller.usageStart(request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_USER_MISMATCH", result.get(AjaxResult.MSG_TAG));
+            verify(scenePackMapper, never()).selectByPackCode(anyString());
+            verify(usageRecordMapper, never()).insertUsageRecord(any());
             clearSecurityContext();
         }
     }
@@ -412,6 +486,25 @@ class FbsSkillApiControllerTest {
 
             assertEquals(200, result.get(AjaxResult.CODE_TAG));
             verify(usageRecordMapper).updateStatusByRecordId(USAGE_RECORD_ID, 2, "超时");
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("P1：并发 end 已先完成时 CAS 返回 0 并报告 409")
+        void endRejectsConcurrentTerminalTransition() {
+            setupSecurityContext();
+            when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID))
+                    .thenReturn(buildUsageRecord(UsageStatus.IN_PROGRESS.getCode()));
+            when(usageRecordMapper.updateStatusByRecordId(
+                    eq(USAGE_RECORD_ID), eq(1), isNull())).thenReturn(0);
+
+            SkillApiEndRequest request = new SkillApiEndRequest();
+            request.setStatus(1);
+
+            AjaxResult result = controller.usageEnd(USAGE_RECORD_ID, request);
+
+            assertEquals(409, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_USAGE_RECORD_STATE_CONFLICT", result.get(AjaxResult.MSG_TAG));
             clearSecurityContext();
         }
 
@@ -472,6 +565,26 @@ class FbsSkillApiControllerTest {
             AjaxResult result = controller.usageEnd(USAGE_RECORD_ID, request);
 
             assertEquals(500, result.get(AjaxResult.CODE_TAG));
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("§6.1.2.4.7 API Key 不能结束其他用户的记录")
+        void endRejectsRecordOwnedByAnotherUser() {
+            setupSecurityContext();
+            FbsSkillUsageRecord otherUserRecord = buildUsageRecord(
+                    UsageStatus.IN_PROGRESS.getCode());
+            otherUserRecord.setUserId(999L);
+            when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID))
+                    .thenReturn(otherUserRecord);
+            SkillApiEndRequest request = new SkillApiEndRequest();
+            request.setStatus(1);
+
+            AjaxResult result = controller.usageEnd(USAGE_RECORD_ID, request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_USER_MISMATCH", result.get(AjaxResult.MSG_TAG));
+            verify(usageRecordMapper, never()).updateStatusByRecordId(any(), any(), any());
             clearSecurityContext();
         }
     }
@@ -588,16 +701,17 @@ class FbsSkillApiControllerTest {
         }
 
         @Test
-        @DisplayName("§6.1.2.6.3 userId 为空 — 返回错误（旧版测试，已过时）")
-        void queryMissingUserId() {
+        @DisplayName("§6.1.2.6.3 userId 为空时使用 API Key 绑定用户")
+        void queryMissingUserIdUsesBinding() {
             setupSecurityContext();
+            when(pointsService.getUserPoints(USER_ID)).thenReturn(990);
+            when(userPackMapper.selectActiveByUserId(USER_ID)).thenReturn(Collections.emptyList());
             SkillApiUserInfoRequest request = new SkillApiUserInfoRequest();
             request.setUserId(null);
 
             AjaxResult result = controller.userInfo(request);
 
-            // 【OpenSpec #12】改为 403（无法识别用户）
-            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals(200, result.get(AjaxResult.CODE_TAG));
             clearSecurityContext();
         }
         
@@ -617,7 +731,7 @@ class FbsSkillApiControllerTest {
             when(userPackMapper.selectActiveByUserId(USER_ID)).thenReturn(Collections.emptyList());
 
             SkillApiUserInfoRequest request = new SkillApiUserInfoRequest();
-            // 不传 userId
+            // 不传 userId，身份只来自 API Key 绑定
 
             AjaxResult result = controller.userInfo(request);
 
@@ -630,7 +744,7 @@ class FbsSkillApiControllerTest {
         }
         
         @Test
-        @DisplayName("§12.2 user/info：不传 userId，API Key 未绑定用户 → 403")
+        @DisplayName("§12.2 user/info：API Key 未绑定时不能回退信任请求 userId")
         void queryApiKeyNotBound() {
             // 设置 API Key 未绑定用户
             FbsApiKey apiKey = buildApiKey();
@@ -640,7 +754,7 @@ class FbsSkillApiControllerTest {
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             SkillApiUserInfoRequest request = new SkillApiUserInfoRequest();
-            // 不传 userId
+            request.setUserId(USER_ID);
 
             AjaxResult result = controller.userInfo(request);
 
@@ -649,8 +763,8 @@ class FbsSkillApiControllerTest {
         }
         
         @Test
-        @DisplayName("§12.3 user/info：传 userId，向后兼容（优先 API Key）")
-        void queryWithUserIdFallback() {
+        @DisplayName("§12.3 user/info：请求 userId 与 API Key 绑定冲突时拒绝")
+        void queryRejectsUserIdMismatch() {
             // 设置 API Key 绑定用户
             FbsApiKey apiKey = buildApiKey();
             apiKey.setUserId(USER_ID);
@@ -658,19 +772,14 @@ class FbsSkillApiControllerTest {
                     apiKey, null, List.of(new SimpleGrantedAuthority("ROLE_SKILL_API")));
             SecurityContextHolder.getContext().setAuthentication(auth);
             
-            when(pointsService.getUserPoints(USER_ID)).thenReturn(990);
-            when(userPackMapper.selectActiveByUserId(USER_ID)).thenReturn(Collections.emptyList());
-
             SkillApiUserInfoRequest request = new SkillApiUserInfoRequest();
             request.setUserId(999L);  // 传了不同的 userId
 
             AjaxResult result = controller.userInfo(request);
 
-            assertEquals(200, result.get(AjaxResult.CODE_TAG));
-            @SuppressWarnings("unchecked")
-            Map<String, Object> data = (Map<String, Object>) result.get(AjaxResult.DATA_TAG);
-            // 应该使用 API Key 的 userId，而不是 request 的
-            assertEquals(USER_ID, data.get("userId"));
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_USER_MISMATCH", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(pointsService, userPackMapper);
             clearSecurityContext();
         }
     }
@@ -699,7 +808,7 @@ class FbsSkillApiControllerTest {
                     .thenReturn(mockResult);
 
             SkillApiConsumeRequest request = new SkillApiConsumeRequest();
-            // 不传 userId
+            // 不传 userId，身份只来自 API Key 绑定
             request.setPackCode(PACK_CODE);
             request.setSkillCode(SKILL_CODE);
             request.setUsageRecordId(USAGE_RECORD_ID);
@@ -711,7 +820,7 @@ class FbsSkillApiControllerTest {
         }
         
         @Test
-        @DisplayName("§12.5 usage/consume：不传 userId，API Key 未绑定用户 → 403")
+        @DisplayName("§12.5 usage/consume：API Key 未绑定时不能回退信任请求 userId")
         void consumeApiKeyNotBound() {
             // 设置 API Key 未绑定用户
             FbsApiKey apiKey = buildApiKey();
@@ -721,7 +830,7 @@ class FbsSkillApiControllerTest {
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             SkillApiConsumeRequest request = new SkillApiConsumeRequest();
-            // 不传 userId
+            request.setUserId(USER_ID);
             request.setPackCode(PACK_CODE);
             request.setSkillCode(SKILL_CODE);
             request.setUsageRecordId(USAGE_RECORD_ID);
@@ -733,8 +842,8 @@ class FbsSkillApiControllerTest {
         }
         
         @Test
-        @DisplayName("§12.6 usage/consume：传 userId，向后兼容（优先 API Key）")
-        void consumeWithUserIdFallback() {
+        @DisplayName("§12.6 usage/consume：请求 userId 与 API Key 绑定冲突时拒绝")
+        void consumeRejectsUserIdMismatch() {
             // 设置 API Key 绑定用户
             FbsApiKey apiKey = buildApiKey();
             apiKey.setUserId(USER_ID);
@@ -742,11 +851,6 @@ class FbsSkillApiControllerTest {
                     apiKey, null, List.of(new SimpleGrantedAuthority("ROLE_SKILL_API")));
             SecurityContextHolder.getContext().setAuthentication(auth);
             
-            ConsumeResult mockResult = ConsumeResult.success(USAGE_RECORD_ID, 990);
-            when(skillConsumeService.consume(eq(USER_ID), eq(PACK_CODE), eq(SKILL_CODE),
-                    eq(USAGE_RECORD_ID), eq("WORKBUDDY"), isNull(), isNull()))
-                    .thenReturn(mockResult);
-
             SkillApiConsumeRequest request = new SkillApiConsumeRequest();
             request.setUserId(999L);  // 传了不同的 userId
             request.setPackCode(PACK_CODE);
@@ -755,180 +859,39 @@ class FbsSkillApiControllerTest {
 
             AjaxResult result = controller.usageConsume(request);
 
-            assertEquals(200, result.get(AjaxResult.CODE_TAG));
-            // 验证使用的是 API Key 的 userId，而不是 request 的
-            verify(skillConsumeService).consume(eq(USER_ID), eq(PACK_CODE), eq(SKILL_CODE),
-                    eq(USAGE_RECORD_ID), eq("WORKBUDDY"), isNull(), isNull());
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_USER_MISMATCH", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(skillConsumeService);
             clearSecurityContext();
         }
     }
 
     // ========================================================================
-    // OpenSpec #14：points/earn 行为积分上报测试
+    // Security closure: legacy points/earn is no longer a writable contract
     // ========================================================================
 
     @Nested
-    @DisplayName("§14.1 points/earn 行为积分上报")
+    @DisplayName("§14.1 points/earn 已关闭")
     class PointsEarnTests {
 
         @Test
-        @DisplayName("§14.1.1 积分上报成功 — changePoints 返回成功")
-        void earnSuccess() {
-            setupSecurityContext();
-            AjaxResult successResult = AjaxResult.success("积分操作成功", 1010);
-            // changePoints 重载3：(userId, source, amount, scenePackId=null, usageRecordId, eventId=usageRecordId)
-            when(pointsService.changePoints(eq(USER_ID), eq("chapter_done"), eq(10),
-                    isNull(), eq("wb-earn-001"), eq("wb-earn-001")))
-                    .thenReturn(successResult);
-            when(pointsService.getUserPoints(USER_ID)).thenReturn(1010);
+        @DisplayName("§14.1.1 调用方自选身份、来源和金额的旧入口返回 410")
+        void earnIsGoneWithoutCallingPointsService() throws Exception {
+            MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
-            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
-            request.setUserId(USER_ID);
-            request.setSource("chapter_done");
-            request.setAmount(10);
-            request.setUsageRecordId("wb-earn-001");
+            mockMvc.perform(post("/fbs/skill-api/points/earn")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{not-json"))
+                    .andExpect(status().isGone())
+                    .andExpect(jsonPath("$.code").value(410))
+                    .andExpect(jsonPath("$.msg").value("SKILL_POINTS_EARN_DISABLED"));
 
-            AjaxResult result = controller.pointsEarn(request);
-
-            assertEquals(200, result.get(AjaxResult.CODE_TAG));
-            @SuppressWarnings("unchecked")
-            Map<String, Object> data = (Map<String, Object>) result.get(AjaxResult.DATA_TAG);
-            assertEquals(true, data.get("success"));
-            assertEquals(10, data.get("pointsAmount"));
-            assertEquals(1010, data.get("remainPoints"));
-            assertEquals("wb-earn-001", data.get("usageRecordId"));
-
-            // 验证 eventId = usageRecordId
-            verify(pointsService).changePoints(eq(USER_ID), eq("chapter_done"), eq(10),
-                    isNull(), eq("wb-earn-001"), eq("wb-earn-001"));
-            clearSecurityContext();
+            verifyNoInteractions(pointsService);
         }
 
         @Test
-        @DisplayName("§14.1.2 幂等 — changePoints 返回幂等结果（eventId 已存在）")
-        void earnIdempotent() {
-            setupSecurityContext();
-            // changePoints 幂等返回（#10 模型：返回既有余额）
-            AjaxResult idempotentResult = AjaxResult.success("积分操作成功（幂等）", 1000);
-            when(pointsService.changePoints(eq(USER_ID), eq("daily_login"), eq(5),
-                    isNull(), eq("DL_1_2026-04-18"), eq("DL_1_2026-04-18")))
-                    .thenReturn(idempotentResult);
-            when(pointsService.getUserPoints(USER_ID)).thenReturn(1000);
-
-            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
-            request.setUserId(USER_ID);
-            request.setSource("daily_login");
-            request.setAmount(5);
-            request.setUsageRecordId("DL_1_2026-04-18");
-
-            AjaxResult result = controller.pointsEarn(request);
-
-            assertEquals(200, result.get(AjaxResult.CODE_TAG));
-            @SuppressWarnings("unchecked")
-            Map<String, Object> data = (Map<String, Object>) result.get(AjaxResult.DATA_TAG);
-            assertEquals(true, data.get("success"));
-            assertEquals(5, data.get("pointsAmount"));  // 返回请求的 amount（不是实际变动）
-            assertEquals(1000, data.get("remainPoints"));
-            clearSecurityContext();
-        }
-
-        @Test
-        @DisplayName("§14.1.3 参数校验 — source 为空")
-        void earnMissingSource() {
-            setupSecurityContext();
-            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
-            request.setUserId(USER_ID);
-            request.setSource("");
-            request.setAmount(10);
-            request.setUsageRecordId("wb-earn-001");
-
-            AjaxResult result = controller.pointsEarn(request);
-
-            assertEquals(500, result.get(AjaxResult.CODE_TAG));
-            clearSecurityContext();
-        }
-
-        @Test
-        @DisplayName("§14.1.4 参数校验 — amount 为 null")
-        void earnMissingAmount() {
-            setupSecurityContext();
-            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
-            request.setUserId(USER_ID);
-            request.setSource("chapter_done");
-            request.setAmount(null);
-            request.setUsageRecordId("wb-earn-001");
-
-            AjaxResult result = controller.pointsEarn(request);
-
-            assertEquals(500, result.get(AjaxResult.CODE_TAG));
-            clearSecurityContext();
-        }
-
-        @Test
-        @DisplayName("§14.1.5 参数校验 — amount 为负数")
-        void earnNegativeAmount() {
-            setupSecurityContext();
-            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
-            request.setUserId(USER_ID);
-            request.setSource("chapter_done");
-            request.setAmount(-5);
-            request.setUsageRecordId("wb-earn-001");
-
-            AjaxResult result = controller.pointsEarn(request);
-
-            assertEquals(500, result.get(AjaxResult.CODE_TAG));
-            clearSecurityContext();
-        }
-
-        @Test
-        @DisplayName("§14.1.6 参数校验 — usageRecordId 为空")
-        void earnMissingUsageRecordId() {
-            setupSecurityContext();
-            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
-            request.setUserId(USER_ID);
-            request.setSource("chapter_done");
-            request.setAmount(10);
-            request.setUsageRecordId("");
-
-            AjaxResult result = controller.pointsEarn(request);
-
-            assertEquals(500, result.get(AjaxResult.CODE_TAG));
-            clearSecurityContext();
-        }
-
-        @Test
-        @DisplayName("§14.1.7 userId 识别 — 不传 userId，从 API Key 反查成功")
-        void earnFromApiKey() {
-            FbsApiKey apiKey = buildApiKey();
-            apiKey.setUserId(USER_ID);
-            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                    apiKey, null, List.of(new SimpleGrantedAuthority("ROLE_SKILL_API")));
-            SecurityContextHolder.getContext().setAuthentication(auth);
-
-            AjaxResult successResult = AjaxResult.success("积分操作成功", 1010);
-            when(pointsService.changePoints(eq(USER_ID), eq("first_install"), eq(100),
-                    isNull(), eq("FI_1"), eq("FI_1")))
-                    .thenReturn(successResult);
-            when(pointsService.getUserPoints(USER_ID)).thenReturn(1010);
-
-            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
-            // 不传 userId
-            request.setSource("first_install");
-            request.setAmount(100);
-            request.setUsageRecordId("FI_1");
-
-            AjaxResult result = controller.pointsEarn(request);
-
-            assertEquals(200, result.get(AjaxResult.CODE_TAG));
-            @SuppressWarnings("unchecked")
-            Map<String, Object> data = (Map<String, Object>) result.get(AjaxResult.DATA_TAG);
-            assertEquals(true, data.get("success"));
-            clearSecurityContext();
-        }
-
-        @Test
-        @DisplayName("§14.1.8 userId 识别 — 不传 userId，API Key 未绑定 → 403")
-        void earnApiKeyNotBound() {
+        @DisplayName("§14.1.2 未绑定 API Key 也不能回退信任请求 userId")
+        void unboundApiKeyCannotUseRequestIdentity() {
             FbsApiKey apiKey = buildApiKey();
             apiKey.setUserId(null);
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
@@ -936,36 +899,19 @@ class FbsSkillApiControllerTest {
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
-            request.setSource("chapter_done");
-            request.setAmount(10);
-            request.setUsageRecordId("wb-earn-001");
+            request.setUserId(999L);
+            request.setSource("first_install");
+            request.setAmount(100);
+            request.setUsageRecordId("FI-999");
 
-            AjaxResult result = controller.pointsEarn(request);
+            ResponseEntity<AjaxResult> response = controller.pointsEarn();
 
-            assertEquals(403, result.get(AjaxResult.CODE_TAG));
-            clearSecurityContext();
-        }
-
-        @Test
-        @DisplayName("§14.1.9 changePoints 返回业务错误（如规则未配置）")
-        void earnChangePointsError() {
-            setupSecurityContext();
-            AjaxResult errorResult = AjaxResult.error("积分规则未配置或已停用");
-            when(pointsService.changePoints(eq(USER_ID), eq("unknown_source"), eq(10),
-                    isNull(), eq("wb-earn-002"), eq("wb-earn-002")))
-                    .thenReturn(errorResult);
-            when(pointsService.getUserPoints(USER_ID)).thenReturn(1000);
-
-            SkillApiPointsEarnRequest request = new SkillApiPointsEarnRequest();
-            request.setUserId(USER_ID);
-            request.setSource("unknown_source");
-            request.setAmount(10);
-            request.setUsageRecordId("wb-earn-002");
-
-            AjaxResult result = controller.pointsEarn(request);
-
-            // 返回错误（500）
-            assertEquals(500, result.get(AjaxResult.CODE_TAG));
+            assertEquals(HttpStatus.GONE, response.getStatusCode());
+            assertNotNull(response.getBody());
+            assertEquals(410, response.getBody().get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_POINTS_EARN_DISABLED",
+                    response.getBody().get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(pointsService);
             clearSecurityContext();
         }
     }

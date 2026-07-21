@@ -49,7 +49,7 @@ public class PointsFansController extends BaseController {
     /**
      * 给用户发放积分
      */
-    @PreAuthorize("@ss.hasPermi('points:fans:grant')")
+    @PreAuthorize("@ss.hasRole('admin') and @ss.hasPermi('points:fans:grant')")
     @Log(title = "粉丝积分管理", businessType = BusinessType.GRANT)
     @PostMapping("/grantPoints")
     public AjaxResult grantPoints(@RequestParam Long userId, 

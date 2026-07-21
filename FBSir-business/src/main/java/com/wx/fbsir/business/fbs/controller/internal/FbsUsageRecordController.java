@@ -76,14 +76,15 @@ public class FbsUsageRecordController {
             @PathVariable String usageRecordId,
             @RequestBody EndUsageRequest req) {
 
-        if (req.getStatus() == null) {
-            return com.wx.fbsir.common.core.domain.AjaxResult.error("status不能为空（1=成功, 2=失败）");
+        if (req.getStatus() == null || (req.getStatus() != 1 && req.getStatus() != 2)) {
+            return com.wx.fbsir.common.core.domain.AjaxResult.error("status必须为1（成功）或2（失败）");
         }
 
         int updated = usageRecordMapper.updateStatusByRecordId(
                 usageRecordId, req.getStatus(), req.getErrorMessage());
         if (updated == 0) {
-            return com.wx.fbsir.common.core.domain.AjaxResult.error("使用记录不存在");
+            return com.wx.fbsir.common.core.domain.AjaxResult.error(
+                    409, "SKILL_USAGE_RECORD_STATE_CONFLICT");
         }
 
         return com.wx.fbsir.common.core.domain.AjaxResult.success("更新成功");

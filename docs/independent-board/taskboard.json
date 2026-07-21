@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the officially listed and post-listing-frozen 26.7.20 expert package.",
-  "singleNextAction": "Continue the admin-first track with a contract and immutable storage design for credit-ledger current read and operations; keep plan editing, delegated tenant administration, production activation, and attribution promotion closed until their separate migration and receipt gates exist.",
+  "singleNextAction": "Enforce and verify fbs_api_key pack_code least-privilege scope across Skill API routes; keep global keys compatible and all new ledger writes, production activation and attribution promotion closed.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -50,7 +50,7 @@
     },
     {
       "id": "W3_ADMIN_PORTAL",
-      "state": "w3b_local_source_and_integration_verified",
+      "state": "w3d_points_security_closure_verified_local",
       "completedSubset": [
         "global_system_admin_only_access_model",
         "active_enterprise_and_member_locked_entitlement_grant_and_adjustment",
@@ -64,12 +64,22 @@
         "revoked_entitlement_cannot_be_implicitly_restored",
         "immutable_seven_field_entitlement_receipt_audit_readback",
         "replayable_w2_w3a_w3b_menu_migration_gate",
-        "versioned_plan_and_quota_policy_current_read_with_admin_ui_drift_gate"
+        "versioned_plan_and_quota_policy_current_read_with_admin_ui_drift_gate",
+        "legacy_unprivileged_direct_and_skill_earn_points_mutation_routes_fail_closed_with_real_http_410",
+        "legacy_internal_caller_selected_skill_consume_route_fails_closed_with_real_http_410",
+        "legacy_privileged_admin_grant_requires_admin_role_and_fine_permission",
+        "skill_api_user_scoped_routes_require_bound_api_key_identity",
+        "personal_consume_usage_record_replay_is_bound_to_user_pack_skill_host_and_host_session_scope",
+        "enterprise_usage_consume_existing_replay_and_ambiguous_membership_fail_closed",
+        "usage_record_terminal_transition_is_status_zero_compare_and_set"
       ],
       "remaining": [
         "product_plan_and_quota_policy_write_revision_and_receipt_governance",
         "meeting_audit_plan_label_authority_with_operation_audit_permission_boundary",
         "credit_ledger_operations",
+        "skill_api_key_pack_code_scope_enforcement",
+        "usage_record_enterprise_member_snapshot_and_api_key_instance_lineage",
+        "skill_consume_service_final_status_cas_result_and_transaction_integration",
         "run_receipt_and_failure_audit",
         "connector_and_device_operations",
         "separately_reviewed_delegated_tenant_admin_role"

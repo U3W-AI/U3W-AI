@@ -21,6 +21,8 @@ import org.springframework.util.StringUtils;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 
 /**
  * Skill 消费统一入口服务实现
@@ -41,6 +43,11 @@ import java.util.List;
 public class SkillConsumeServiceImpl implements SkillConsumeService {
 
     private static final Logger log = LoggerFactory.getLogger(SkillConsumeServiceImpl.class);
+    private static final String USAGE_SCOPE_MISMATCH = "SKILL_USAGE_RECORD_SCOPE_MISMATCH";
+    private static final String ENTERPRISE_USAGE_SCOPE_UNVERIFIED =
+            "SKILL_ENTERPRISE_USAGE_REPLAY_SCOPE_UNVERIFIED";
+    private static final String ENTERPRISE_MEMBERSHIP_SCOPE_AMBIGUOUS =
+            "SKILL_ENTERPRISE_MEMBERSHIP_SCOPE_AMBIGUOUS";
 
     @Autowired
     private FbsScenePackMapper scenePackMapper;
@@ -132,6 +139,11 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
         //       若 usageRecordId 已存在且 status=1/2 → 直接返回（已处理）
         FbsSkillUsageRecord existingRecord = usageRecordMapper.selectByRecordId(usageRecordId);
         if (existingRecord != null) {
+            if (!isSameUsageScope(existingRecord, userId, packId, skillCode, hostType, hostSessionId)) {
+                log.warn("拒绝跨范围 usageRecordId 重放 usageRecordId={}, requestedUserId={}, existingUserId={}",
+                        usageRecordId, userId, existingRecord.getUserId());
+                return ConsumeResult.fail(usageRecordId, USAGE_SCOPE_MISMATCH);
+            }
             if (existingRecord.getStatus() != null && existingRecord.getStatus() == UsageStatus.SUCCESS.getCode()) {
                 // 已成功，直接返回（幂等）
                 Integer remain = pointsService.getUserPoints(userId);
@@ -244,15 +256,32 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
             return ConsumeResult.fail(usageRecordId, "场景包未发布或已下架: " + packCode);
         }
 
+        // 旧表未持久化 enterprise/member 快照，任何企业旧记录都不能证明原租户范围。
+        // 先在零写状态下拒绝重放，避免先写配额耗尽失败记录或误报幂等成功。
+        FbsSkillUsageRecord existingRecord = usageRecordMapper.selectByRecordId(usageRecordId);
+        if (existingRecord != null) {
+            if (!isSameUsageScope(existingRecord, userId, pack.getId(), skillCode,
+                    hostType, hostSessionId)) {
+                log.warn("拒绝企业路径跨范围 usageRecordId 重放 usageRecordId={}, requestedUserId={}, existingUserId={}",
+                        usageRecordId, userId, existingRecord.getUserId());
+                return ConsumeResult.fail(usageRecordId, USAGE_SCOPE_MISMATCH);
+            }
+            return ConsumeResult.fail(usageRecordId, ENTERPRISE_USAGE_SCOPE_UNVERIFIED);
+        }
+
         // ---- 步骤 2：查企业成员 ----
-        if (enterpriseMemberMapper == null || enterprisePackMapper == null) {
-            return ConsumeResult.fail(usageRecordId, "企业模块未初始化");
+        if (enterpriseMemberMapper == null || enterpriseMapper == null
+                || enterprisePackMapper == null || memberPackMapper == null) {
+            return ConsumeResult.fail(usageRecordId, "企业模块未完整初始化");
         }
         List<FbsEnterpriseMember> members = enterpriseMemberMapper.selectActiveByUserId(userId);
         if (members == null || members.isEmpty()) {
             return ConsumeResult.fail(usageRecordId, "用户不是企业成员");
         }
-        // 取第一个正常企业成员
+        if (members.size() != 1) {
+            return ConsumeResult.fail(usageRecordId, ENTERPRISE_MEMBERSHIP_SCOPE_AMBIGUOUS);
+        }
+        // 只有唯一活动企业成员身份时才允许继续，禁止无序选择任意企业。
         FbsEnterpriseMember member = members.get(0);
 
         // ---- 步骤 3：校验企业状态 ----
@@ -273,19 +302,18 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
         if (enterprisePack.getStatus() == null || enterprisePack.getStatus() != 1) {
             return ConsumeResult.fail(usageRecordId, "企业包状态不可用");
         }
+        Long enterprisePackId = enterprisePack.getId();
 
         // ---- 步骤 4.5：校验成员授权凭证（fbs_member_pack）----
         // 成员授权凭证：用户必须在此场景包上有一个有效的 fbs_member_pack 记录
         // 若企业包被撤销（status=3），memberPack 也应已被级联撤销（status=3）
-        if (memberPackMapper != null) {
-            FbsMemberPack memberPack = memberPackMapper
-                    .selectActiveByMemberIdAndPackId(member.getId(), pack.getId());
-            if (memberPack == null) {
-                return ConsumeResult.fail(usageRecordId, "用户未获此场景包成员授权");
-            }
-            if (memberPack.getStatus() == null || memberPack.getStatus() != 1) {
-                return ConsumeResult.fail(usageRecordId, "成员授权已失效");
-            }
+        FbsMemberPack memberPack = memberPackMapper
+                .selectActiveByMemberIdAndPackId(member.getId(), pack.getId());
+        if (memberPack == null) {
+            return ConsumeResult.fail(usageRecordId, "用户未获此场景包成员授权");
+        }
+        if (memberPack.getStatus() == null || memberPack.getStatus() != 1) {
+            return ConsumeResult.fail(usageRecordId, "成员授权已失效");
         }
 
         // ---- 步骤 5：校验配额 ----
@@ -298,20 +326,7 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
             return ConsumeResult.fail(usageRecordId, reason);
         }
 
-        // ---- 步骤 6：幂等写入 usage_record（status=0）----
-        FbsSkillUsageRecord existingRecord = usageRecordMapper.selectByRecordId(usageRecordId);
-        if (existingRecord != null) {
-            if (existingRecord.getStatus() != null && existingRecord.getStatus() == UsageStatus.SUCCESS.getCode()) {
-                // 已成功，幂等返回
-                int remain = computeRemainQuota(enterprisePack);
-                return ConsumeResult.success(usageRecordId, remain);
-            }
-            if (existingRecord.getStatus() != null && existingRecord.getStatus() == UsageStatus.FAILED.getCode()) {
-                return ConsumeResult.fail(usageRecordId, "该使用记录已失败，不允许重复提交");
-            }
-            return ConsumeResult.fail(usageRecordId, "该使用记录正在处理中，请勿重复提交");
-        }
-
+        // ---- 步骤 6：首次写入 usage_record（status=0）----
         FbsSkillUsageRecord record = new FbsSkillUsageRecord();
         record.setUsageRecordId(usageRecordId);
         record.setUserId(userId);
@@ -326,7 +341,7 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
         usageRecordMapper.insertUsageRecord(record);
 
         // ---- 步骤 7：扣减企业配额（usedQuota++，原子操作）----
-        int updated = enterprisePackMapper.incrementUsedQuota(enterprisePack.getId());
+        int updated = enterprisePackMapper.incrementUsedQuota(enterprisePackId);
         if (updated <= 0) {
             // 并发情况下配额可能刚好用尽，回滚
             usageRecordMapper.updateStatusByRecordId(usageRecordId,
@@ -336,10 +351,10 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
 
         // ---- 步骤 8：重新查询企业包，获取增量后的最新 usedQuota ----
         // P1-1 修复：不能用旧的 enterprisePack 对象计算剩余额度（该对象 usedQuota 未更新）
-        enterprisePack = enterprisePackMapper.selectById(enterprisePack.getId());
+        enterprisePack = enterprisePackMapper.selectById(enterprisePackId);
         if (enterprisePack == null) {
             // 理论上不应该发生，保守处理
-            log.warn("企业配额消费成功但无法重新查询企业包记录 enterprisePackId={}", enterprisePack.getId());
+            log.warn("企业配额消费成功但无法重新查询企业包记录 enterprisePackId={}", enterprisePackId);
             usageRecordMapper.updateStatusByRecordId(usageRecordId,
                     UsageStatus.SUCCESS.getCode(), null);
             return ConsumeResult.success(usageRecordId, 0);
@@ -384,6 +399,21 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
         int packQuota = ep.getPackQuota() != null ? ep.getPackQuota() : 0;
         int usedQuota = ep.getUsedQuota() != null ? ep.getUsedQuota() : 0;
         return Math.max(0, packQuota - usedQuota);
+    }
+
+    private boolean isSameUsageScope(FbsSkillUsageRecord record, Long userId, Long packId,
+                                     String skillCode, String hostType, String hostSessionId) {
+        return Objects.equals(record.getUserId(), userId)
+                && Objects.equals(record.getPackId(), packId)
+                && Objects.equals(record.getSkillCode(), skillCode)
+                && Objects.equals(normalizeHostType(record.getHostType()), normalizeHostType(hostType))
+                && Objects.equals(record.getHostSessionId(), hostSessionId);
+    }
+
+    private String normalizeHostType(String hostType) {
+        return StringUtils.hasText(hostType)
+                ? hostType.trim().toUpperCase(Locale.ROOT)
+                : "WORKBUDDY";
     }
 
     /** 写入失败的使用记录 */

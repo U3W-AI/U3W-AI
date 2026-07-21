@@ -30,12 +30,12 @@ public interface FbsSkillUsageRecordMapper {
     int insertUsageRecord(FbsSkillUsageRecord record);
 
     /**
-     * 更新使用记录状态（成功/失败），同时更新 end_time 和 duration_seconds
+     * 仅将进行中记录更新为成功/失败，同时更新 end_time 和 duration_seconds
      *
      * @param usageRecordId   使用记录幂等键
      * @param status          新状态（1=成功, 2=失败）
      * @param errorMessage    失败原因（成功时传NULL）
-     * @return 影响行数
+     * @return 影响行数（1=完成状态转换，0=记录不存在或已是终态）
      */
     int updateStatusByRecordId(@Param("usageRecordId") String usageRecordId,
                                @Param("status") Integer status,

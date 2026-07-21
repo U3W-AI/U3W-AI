@@ -63,6 +63,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             duration_seconds = TIMESTAMPDIFF(SECOND, start_time, NOW()),
             error_message    = #{errorMessage, jdbcType=VARCHAR}
         WHERE usage_record_id = #{usageRecordId}
+          AND status = 0
     </update>
 
 </mapper>

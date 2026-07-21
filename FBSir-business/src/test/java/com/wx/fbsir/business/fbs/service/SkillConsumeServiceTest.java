@@ -78,10 +78,17 @@ class SkillConsumeServiceTest {
     }
 
     private FbsSkillUsageRecord buildRecord(int status) {
+        return buildRecord(status, HOST_TYPE_WB);
+    }
+
+    private FbsSkillUsageRecord buildRecord(int status, String hostType) {
         FbsSkillUsageRecord rec = new FbsSkillUsageRecord();
         rec.setUsageRecordId(USAGE_RECORD_ID);
         rec.setUserId(USER_ID);
         rec.setPackId(PACK_ID);
+        rec.setSkillCode(SKILL_CODE);
+        rec.setHostType(hostType);
+        rec.setHostSessionId(HOST_SESSION_ID);
         rec.setStatus(status);
         return rec;
     }
@@ -262,6 +269,83 @@ class SkillConsumeServiceTest {
             verify(usageRecordMapper, never())
                     .updateStatusByRecordId(anyString(), anyInt(), any());
         }
+
+        @Test
+        @DisplayName("P0：他人 usageRecordId 不得作为本用户幂等成功重放")
+        void rejectCrossUserUsageRecordReplay() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(RULE_CODE));
+            when(pointsRuleMapper.selectPointsRuleByRuleCode(RULE_CODE))
+                    .thenReturn(buildRule("0", 10));
+            when(rightsCheckService.comprehensiveCheck(eq(USER_ID), eq(PACK_CODE),
+                    isNull(), eq(HOST_TYPE_WB), eq(USAGE_RECORD_ID)))
+                    .thenReturn(ComprehensiveRightsResult.pass(PACK_ID, RULE_CODE, 10));
+            FbsSkillUsageRecord otherUserRecord = buildRecord(UsageStatus.SUCCESS.getCode());
+            otherUserRecord.setUserId(USER_ID + 1);
+            when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID)).thenReturn(otherUserRecord);
+
+            ConsumeResult result = skillConsumeService.consume(
+                    USER_ID, PACK_CODE, SKILL_CODE,
+                    USAGE_RECORD_ID, HOST_TYPE_WB, HOST_SESSION_ID, null);
+
+            assertFalse(result.isSuccess());
+            assertEquals("SKILL_USAGE_RECORD_SCOPE_MISMATCH", result.getFailReason());
+            verify(pointsService, never()).getUserPoints(anyLong());
+            verify(pointsService, never())
+                    .changePoints(anyLong(), anyString(), anyInt(), anyLong(), anyString());
+            verify(usageRecordMapper, never())
+                    .updateStatusByRecordId(anyString(), anyInt(), any());
+        }
+
+        @Test
+        @DisplayName("P0：同用户但不同技能范围不得复用 usageRecordId")
+        void rejectDifferentSkillUsageRecordReplay() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(RULE_CODE));
+            when(pointsRuleMapper.selectPointsRuleByRuleCode(RULE_CODE))
+                    .thenReturn(buildRule("0", 10));
+            when(rightsCheckService.comprehensiveCheck(eq(USER_ID), eq(PACK_CODE),
+                    isNull(), eq(HOST_TYPE_WB), eq(USAGE_RECORD_ID)))
+                    .thenReturn(ComprehensiveRightsResult.pass(PACK_ID, RULE_CODE, 10));
+            FbsSkillUsageRecord otherSkillRecord = buildRecord(UsageStatus.SUCCESS.getCode());
+            otherSkillRecord.setSkillCode("another-skill");
+            when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID)).thenReturn(otherSkillRecord);
+
+            ConsumeResult result = skillConsumeService.consume(
+                    USER_ID, PACK_CODE, SKILL_CODE,
+                    USAGE_RECORD_ID, HOST_TYPE_WB, HOST_SESSION_ID, null);
+
+            assertFalse(result.isSuccess());
+            assertEquals("SKILL_USAGE_RECORD_SCOPE_MISMATCH", result.getFailReason());
+            verify(pointsService, never()).getUserPoints(anyLong());
+            verify(pointsService, never())
+                    .changePoints(anyLong(), anyString(), anyInt(), anyLong(), anyString());
+        }
+
+        @Test
+        @DisplayName("P1：不同宿主会话不得复用 usageRecordId")
+        void rejectDifferentHostSessionUsageRecordReplay() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(RULE_CODE));
+            when(pointsRuleMapper.selectPointsRuleByRuleCode(RULE_CODE))
+                    .thenReturn(buildRule("0", 10));
+            when(rightsCheckService.comprehensiveCheck(eq(USER_ID), eq(PACK_CODE),
+                    isNull(), eq(HOST_TYPE_WB), eq(USAGE_RECORD_ID)))
+                    .thenReturn(ComprehensiveRightsResult.pass(PACK_ID, RULE_CODE, 10));
+            FbsSkillUsageRecord otherSessionRecord = buildRecord(UsageStatus.SUCCESS.getCode());
+            otherSessionRecord.setHostSessionId("another-session");
+            when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID)).thenReturn(otherSessionRecord);
+
+            ConsumeResult result = skillConsumeService.consume(
+                    USER_ID, PACK_CODE, SKILL_CODE,
+                    USAGE_RECORD_ID, HOST_TYPE_WB, HOST_SESSION_ID, null);
+
+            assertFalse(result.isSuccess());
+            assertEquals("SKILL_USAGE_RECORD_SCOPE_MISMATCH", result.getFailReason());
+            verify(pointsService, never()).getUserPoints(anyLong());
+            verify(pointsService, never())
+                    .changePoints(anyLong(), anyString(), anyInt(), anyLong(), anyString());
+        }
     }
 
     // ========================================================================
@@ -412,31 +496,69 @@ class SkillConsumeServiceTest {
         }
 
         @Test
-        @DisplayName("§6.4.6 企业幂等：usageRecordId 已成功 → 直接返回 remainQuota")
-        void enterpriseIdempotentAlreadySuccess() {
+        @DisplayName("§6.4.6 企业旧记录未持久化租户范围 → 重放失败关闭")
+        void enterpriseReplayFailsClosedUntilTenantScopeIsPersisted() {
             when(scenePackMapper.selectByPackCode(PACK_CODE))
                     .thenReturn(buildPack(RULE_CODE));
-            when(enterpriseMemberMapper.selectActiveByUserId(USER_ID))
-                    .thenReturn(Arrays.asList(buildMember(1)));
-            when(enterpriseMapper.selectById(ENT_ID))
-                    .thenReturn(buildEnterprise(1));
-            when(enterprisePackMapper.selectByEnterpriseAndPack(ENT_ID, PACK_ID))
-                    .thenReturn(buildEnterprisePack(1, 100, 9));
-            // P0-1：幂等路径也走成员授权凭证检查
-            when(memberPackMapper.selectActiveByMemberIdAndPackId(MEMBER_ID, PACK_ID))
-                    .thenReturn(buildMemberPack(1));
-            // 幂等：已有成功记录
             when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID))
-                    .thenReturn(buildRecord(UsageStatus.SUCCESS.getCode()));
+                    .thenReturn(buildRecord(UsageStatus.SUCCESS.getCode(), HOST_TYPE_ENT));
 
             ConsumeResult result = skillConsumeService.consume(
                     USER_ID, PACK_CODE, SKILL_CODE,
                     USAGE_RECORD_ID, HOST_TYPE_ENT, HOST_SESSION_ID, null);
 
-            assertTrue(result.isSuccess());
-            assertEquals(91, result.getRemainPoints()); // 100 - 9 = 91（当前状态，不额外扣）
+            assertFalse(result.isSuccess());
+            assertEquals("SKILL_ENTERPRISE_USAGE_REPLAY_SCOPE_UNVERIFIED", result.getFailReason());
 
-            // 不再 incrementUsedQuota（幂等）
+            verifyNoInteractions(enterpriseMemberMapper, enterpriseMapper, memberPackMapper);
+            verify(enterprisePackMapper, never()).incrementUsedQuota(anyLong());
+            verify(usageRecordMapper, never())
+                    .updateStatusByRecordId(anyString(), anyInt(), any());
+        }
+
+        @Test
+        @DisplayName("P1：同用户存在多个企业成员身份时不选择任意第一个企业")
+        void enterpriseMultipleMembershipsFailClosed() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(RULE_CODE));
+            FbsEnterpriseMember first = buildMember(1);
+            FbsEnterpriseMember second = buildMember(1);
+            second.setId(MEMBER_ID + 1);
+            second.setEnterpriseId(ENT_ID + 1);
+            when(enterpriseMemberMapper.selectActiveByUserId(USER_ID))
+                    .thenReturn(Arrays.asList(first, second));
+
+            ConsumeResult result = skillConsumeService.consume(
+                    USER_ID, PACK_CODE, SKILL_CODE,
+                    USAGE_RECORD_ID, HOST_TYPE_ENT, HOST_SESSION_ID, null);
+
+            assertFalse(result.isSuccess());
+            assertEquals("SKILL_ENTERPRISE_MEMBERSHIP_SCOPE_AMBIGUOUS", result.getFailReason());
+            verifyNoInteractions(enterpriseMapper, enterprisePackMapper, memberPackMapper);
+            verify(usageRecordMapper).selectByRecordId(USAGE_RECORD_ID);
+            verify(usageRecordMapper, never()).insertUsageRecord(any());
+            verify(usageRecordMapper, never())
+                    .updateStatusByRecordId(anyString(), anyInt(), any());
+            verifyNoInteractions(pointsService);
+        }
+
+        @Test
+        @DisplayName("P0：企业配额路径拒绝他人 usageRecordId 重放")
+        void enterpriseRejectCrossUserUsageRecordReplay() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(RULE_CODE));
+            FbsSkillUsageRecord otherUserRecord =
+                    buildRecord(UsageStatus.SUCCESS.getCode(), HOST_TYPE_ENT);
+            otherUserRecord.setUserId(USER_ID + 1);
+            when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID)).thenReturn(otherUserRecord);
+
+            ConsumeResult result = skillConsumeService.consume(
+                    USER_ID, PACK_CODE, SKILL_CODE,
+                    USAGE_RECORD_ID, HOST_TYPE_ENT, HOST_SESSION_ID, null);
+
+            assertFalse(result.isSuccess());
+            assertEquals("SKILL_USAGE_RECORD_SCOPE_MISMATCH", result.getFailReason());
+            verifyNoInteractions(enterpriseMemberMapper, enterpriseMapper, memberPackMapper);
             verify(enterprisePackMapper, never()).incrementUsedQuota(anyLong());
             verify(usageRecordMapper, never())
                     .updateStatusByRecordId(anyString(), anyInt(), any());
@@ -559,6 +681,36 @@ class SkillConsumeServiceTest {
             assertTrue(result.isSuccess());
             // remainPoints = 100 - 6 = 94（不是 95！）
             assertEquals(94, result.getRemainPoints());
+        }
+
+        @Test
+        @DisplayName("§E4.1a consume ENTERPRISE — 配额递增后回读缺失时使用已捕获企业包ID并保守返回0")
+        void enterpriseConsumeMissingRefreshRowUsesCapturedPackId() {
+            FbsEnterprisePack enterprisePack = buildEnterprisePack(1, 100, 5);
+
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(RULE_CODE));
+            when(enterpriseMemberMapper.selectActiveByUserId(USER_ID))
+                    .thenReturn(Arrays.asList(buildMember(1)));
+            when(enterpriseMapper.selectById(ENT_ID))
+                    .thenReturn(buildEnterprise(1));
+            when(enterprisePackMapper.selectByEnterpriseAndPack(ENT_ID, PACK_ID))
+                    .thenReturn(enterprisePack);
+            when(memberPackMapper.selectActiveByMemberIdAndPackId(MEMBER_ID, PACK_ID))
+                    .thenReturn(buildMemberPack(1));
+            when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID)).thenReturn(null);
+            when(enterprisePackMapper.incrementUsedQuota(EPACK_ID)).thenReturn(1);
+            when(enterprisePackMapper.selectById(EPACK_ID)).thenReturn(null);
+
+            ConsumeResult result = skillConsumeService.consume(
+                    USER_ID, PACK_CODE, SKILL_CODE,
+                    USAGE_RECORD_ID, HOST_TYPE_ENT, HOST_SESSION_ID, null);
+
+            assertTrue(result.isSuccess());
+            assertEquals(0, result.getRemainPoints());
+            verify(enterprisePackMapper).selectById(EPACK_ID);
+            verify(usageRecordMapper).updateStatusByRecordId(
+                    eq(USAGE_RECORD_ID), eq(UsageStatus.SUCCESS.getCode()), isNull());
         }
 
         @Test

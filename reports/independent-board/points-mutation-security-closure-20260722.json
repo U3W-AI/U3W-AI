@@ -1,0 +1,103 @@
+{
+  "schema": "fbsir.independent-board-verification/v1",
+  "slice": "W3d_legacy_points_mutation_security_closure",
+  "verifiedAt": "2026-07-22T07:44:51+08:00",
+  "result": "local_source_production_security_chains_and_frontend_verified",
+  "closedEndpoints": [
+    {
+      "method": "POST",
+      "path": "/points/changePoints",
+      "authenticatedResponse": {
+        "httpStatus": 410,
+        "bodyCode": 410,
+        "message": "POINTS_DIRECT_MUTATION_DISABLED"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/fbs/skill-api/points/earn",
+      "authenticatedResponse": {
+        "httpStatus": 410,
+        "bodyCode": 410,
+        "message": "SKILL_POINTS_EARN_DISABLED"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/fbs/internal/usage/consume",
+      "authenticatedResponse": {
+        "httpStatus": 410,
+        "bodyCode": 410,
+        "message": "INTERNAL_SKILL_CONSUME_DISABLED"
+      }
+    }
+  ],
+  "securityProperties": [
+    "caller_selected_user_rule_and_amount_are_ignored",
+    "closed_mutation_endpoints_have_zero_points_service_interactions",
+    "anonymous_direct_mutation_is_rejected_by_real_jwt_chain_with_401",
+    "all_user_scoped_skill_routes_require_an_api_key_bound_user",
+    "request_user_id_is_assertion_only_and_identity_mismatch_fails_closed",
+    "personal_consume_usage_record_replay_is_bound_to_user_pack_skill_host_and_host_session_scope",
+    "enterprise_usage_consume_existing_replay_fails_closed_until_tenant_and_member_snapshots_exist",
+    "enterprise_usage_consume_multiple_active_memberships_fail_closed_without_selecting_an_arbitrary_row",
+    "usage_end_terminal_transition_uses_status_zero_compare_and_set",
+    "enterprise_quota_missing_post_increment_refresh_row_uses_captured_pack_id_without_null_dereference",
+    "legacy_internal_consume_cannot_trust_a_jwt_callers_body_user_id",
+    "unbound_skill_api_keys_cannot_fallback_to_request_user_identity",
+    "frontend_has_no_direct_mutation_adapter_or_task_action"
+  ],
+  "verification": {
+    "mavenAggregate": {
+      "testcaseElements": 122,
+      "passed": 122,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "testClasses": {
+      "skillConsumeService": 27,
+      "skillApiController": 39,
+      "skillUsageMapperContract": 1,
+      "pointsController": 2,
+      "skillApiProductionSecurityChain": 12,
+      "independentBoardJwtHttpSecurity": 41
+    },
+    "redGreenEvidence": {
+      "capturedInitialFailures": 8,
+      "postFixFailures": 0,
+      "scope": [
+        "jwt_internal_consume_body_user_bypass",
+        "workbuddy_cross_user_replay",
+        "workbuddy_cross_skill_replay",
+        "enterprise_cross_user_replay",
+        "workbuddy_cross_host_session_replay",
+        "enterprise_unverifiable_existing_record_replay",
+        "enterprise_ambiguous_membership_selection",
+        "enterprise_quota_post_increment_missing_refresh_row_npe"
+      ]
+    },
+    "frontendSecurityVerifier": "passed",
+    "frontendProductionBuild": "passed_3038_modules"
+  },
+  "truthBoundary": {
+    "legacyInternalPointsServiceWritersStillExist": true,
+    "unprivilegedAndSkillFacingCallerSelectedMutationRoutesClosed": true,
+    "privilegedLegacyAdminGrantRouteStillExists": true,
+    "privilegedLegacyAdminGrantRequiresAdminRoleAndFinePermission": true,
+    "privilegedLegacyAdminGrantHasImmutableLedgerIdempotency": false,
+    "enterpriseUsageRecordTenantAndMemberSnapshotsPersisted": false,
+    "enterpriseExistingUsageReplayPolicy": "fail_closed_scope_unverified",
+    "personalHostSessionScopeIsSignedCallerAssertionNotServerVerifiedHostIdentity": true,
+    "apiKeyPackCodeScopeEnforced": false,
+    "usageEndApiKeyInstanceAndHostScopePersisted": false,
+    "usageEndUserOwnershipAndTerminalStateCasVerified": true,
+    "skillConsumeServiceFinalStatusCasResultChecked": false,
+    "immutableCreditLedger": "not_yet_implemented",
+    "productionDeployment": false,
+    "frozenExpertPackageModified": false,
+    "frozenExpertPackageSha256": "D2380072556C0DCF429604AE33713668C509F74A0303F7BCA2BACEEBF32C78CD"
+  },
+  "nextAction": "enforce and verify fbs_api_key pack_code least-privilege scope across Skill API routes, then implement the USER_GLOBAL FBS_POINTS immutable shadow ledger"
+}

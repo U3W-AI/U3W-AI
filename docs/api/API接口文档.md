@@ -1,7 +1,7 @@
 # 福帮手 API 接口文档
-> 更新日期：2026-07-11
+> 更新日期：2026-07-22
 
-> **更新日期**：2026-07-11（源码校准）。本文根据当前 Controller 映射整理；实际参数、权限注解和响应体以对应控制器及运行中的 SpringDoc 为准。
+> **更新日期**：2026-07-22（源码校准）。本文根据当前 Controller 映射整理；实际参数、权限注解和响应体以对应控制器及运行中的 SpringDoc 为准。
 
 ## 基础约定
 
@@ -61,7 +61,7 @@
 | 文档解析 | `/system/document-parse`（`GET /list`、`GET /myList`、`GET /status/{id}`、`GET /{id}`、`POST /uploadAndParse`、`POST /updateParsedContent`、`POST`、`PUT`、`DELETE /{ids}`、`POST /export`） |
 | Gitee 用户资料 | `/business/gitee`（`GET /status`、`/authorize`、`/profile`、`/repos`、`/issues`、`/notifications`，`POST /unbind`） |
 | Gitee 分析与运营 | `/business/gitee/analysis`（`POST /report`、`POST /reevaluate`）与 `/business/gitee/admin` |
-| 积分 | `/points`（`GET /getUserPoints`、`/getPointsSummary`、`/getPointsRecord`、`/getPointTaskList`，`POST /changePoints`） |
+| 积分 | `/points`（现行能力仅 `GET /getUserPoints`、`/getPointsSummary`、`/getPointsRecord`、`/getPointTaskList`；旧 `POST /changePoints` 固定返回 HTTP 410 `POINTS_DIRECT_MUTATION_DISABLED`） |
 | 积分规则与粉丝 | `/points/rule` 与 `/points/fans` |
 
 ### 公众号、机器人和系统提示词
