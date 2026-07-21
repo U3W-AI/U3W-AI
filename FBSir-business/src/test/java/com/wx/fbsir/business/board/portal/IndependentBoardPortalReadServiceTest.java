@@ -8,12 +8,14 @@ import com.wx.fbsir.business.board.portal.dto.BoardPortalConnectorBindingView;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalOAuthClientView;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalOAuthFamilyView;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalReadEnvelope;
+import com.wx.fbsir.business.board.portal.dto.BoardPortalTenantView;
 import com.wx.fbsir.business.board.portal.mapper.IndependentBoardPortalReadMapper;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalConnectorView;
 import com.wx.fbsir.business.board.portal.persistence.BoardPortalConnectorBindingRow;
 import com.wx.fbsir.business.board.portal.persistence.BoardPortalOAuthClientRow;
 import com.wx.fbsir.business.board.portal.persistence.BoardPortalOAuthFamilyRow;
+import com.wx.fbsir.business.board.portal.persistence.BoardPortalTenantRow;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -102,6 +104,63 @@ class IndependentBoardPortalReadServiceTest {
     }
 
     @Test
+    void tenantSearchNormalizesFiltersAndBindsEveryPageToCurrentAuthority() {
+        List<BoardPortalTenantRow> firstPage = new ArrayList<>();
+        for (long id = 200; id >= 100; id--) {
+            firstPage.add(tenant(id, 1));
+        }
+        when(mapper.selectTenants("FBS", 1, null, null, 101))
+                .thenReturn(firstPage);
+
+        BoardPortalReadEnvelope<BoardPortalTenantView> first =
+                service.listTenants(7L, "  ＦＢＳ  ", "ACTIVE", null);
+
+        assertEquals(100, first.records().size());
+        assertTrue(first.truncated());
+        assertNotNull(first.nextCursor());
+        assertEquals(200L, first.records().get(0).tenantId());
+        assertEquals("ACTIVE", first.records().get(0).status());
+        assertEquals("企业 200", first.records().get(0).tenantLabel());
+        verify(mapper).selectCurrentAuthority(7L, "admin", "board:tenant:query");
+
+        resetMapperWithCurrentAuthority();
+        when(mapper.selectTenants("FBS", 1, 200L, 101L, 101))
+                .thenReturn(List.of(tenant(99L, 1)));
+        BoardPortalReadEnvelope<BoardPortalTenantView> second =
+                service.listTenants(7L, "FBS", "ACTIVE", first.nextCursor());
+
+        assertEquals(List.of(99L), second.records().stream()
+                .map(BoardPortalTenantView::tenantId).toList());
+        assertFalse(second.truncated());
+        verify(mapper).selectCurrentAuthority(7L, "admin", "board:tenant:query");
+    }
+
+    @Test
+    void tenantSearchRejectsInvalidOrCursorDriftedFiltersBeforeTheTenantMapper() {
+        assertThrows(BoardPortalBadRequestException.class,
+                () -> service.listTenants(7L, " ", null, null));
+        assertThrows(BoardPortalBadRequestException.class,
+                () -> service.listTenants(7L, "x".repeat(65), null, null));
+        assertThrows(BoardPortalBadRequestException.class,
+                () -> service.listTenants(7L, "unsafe\u0000query", null, null));
+        assertThrows(BoardPortalBadRequestException.class,
+                () -> service.listTenants(7L, null, "active", null));
+
+        List<BoardPortalTenantRow> page = new ArrayList<>();
+        for (long id = 200; id >= 100; id--) {
+            page.add(tenant(id, 2));
+        }
+        when(mapper.selectTenants("first", 2, null, null, 101)).thenReturn(page);
+        String cursor = service.listTenants(
+                7L, "first", "DISABLED", null).nextCursor();
+        resetMapperWithCurrentAuthority();
+        assertThrows(BoardPortalBadRequestException.class,
+                () -> service.listTenants(7L, "second", "DISABLED", cursor));
+
+        verify(mapper, never()).selectTenants(any(), any(), any(), any(), anyInt());
+    }
+
+    @Test
     void invalidStatusOrCursorFailsBeforeAnyMapperRead() {
         assertThrows(BoardPortalBadRequestException.class,
                 () -> service.listOAuthClients(7L, "active", null));
@@ -114,6 +173,7 @@ class IndependentBoardPortalReadServiceTest {
                 anyLong(), any(), any(), anyBoolean(), any(), any(), any(), any(), anyInt());
         verify(mapper, never()).selectConnectorBindings(
                 anyLong(), any(), any(), any(), any(), any(), any(), anyInt());
+        verify(mapper, never()).selectTenants(any(), any(), any(), any(), anyInt());
     }
 
     @Test
@@ -465,6 +525,15 @@ class IndependentBoardPortalReadServiceTest {
         row.setRegisteredAt(Date.from(registeredAt));
         row.setExpiresAt(Date.from(registeredAt.plus(Duration.ofDays(31))));
         row.setVersion(0L);
+        return row;
+    }
+
+    private static BoardPortalTenantRow tenant(long id, int status) {
+        BoardPortalTenantRow row = new BoardPortalTenantRow();
+        row.setRowId(id);
+        row.setTenantId(id);
+        row.setTenantLabel("企业 " + id);
+        row.setStatus(status);
         return row;
     }
 

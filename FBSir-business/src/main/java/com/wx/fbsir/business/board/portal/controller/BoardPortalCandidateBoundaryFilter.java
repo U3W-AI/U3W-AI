@@ -29,6 +29,7 @@ public class BoardPortalCandidateBoundaryFilter extends OncePerRequestFilter {
             "/business/independent-board/oauth/clients",
             "/business/independent-board/oauth/families",
             "/business/independent-board/connector-bindings",
+            "/business/independent-board/tenants",
             "/my/independent-board/connector");
     private static final Set<String> HELD_PATHS = Set.of(
             "/business/independent-board/oauth/security-events",

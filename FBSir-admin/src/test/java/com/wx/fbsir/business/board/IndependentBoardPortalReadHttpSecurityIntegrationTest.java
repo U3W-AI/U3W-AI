@@ -1,5 +1,6 @@
 package com.wx.fbsir.business.board;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wx.fbsir.business.board.portal.BoardPortalBadRequestException;
 import com.wx.fbsir.business.board.portal.BoardPortalDataDriftException;
 import com.wx.fbsir.business.board.portal.BoardPortalForbiddenException;
@@ -11,6 +12,9 @@ import com.wx.fbsir.business.board.portal.controller.IndependentBoardPortalReadE
 import com.wx.fbsir.business.board.portal.dto.BoardPortalConnectorView;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalOAuthFamilyView;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalReadEnvelope;
+import com.wx.fbsir.business.board.portal.dto.BoardPortalTenantView;
+import com.wx.fbsir.business.fbs.mapper.FbsApiKeyMapper;
+import com.wx.fbsir.business.fbs.service.FbsApiKeyAuthService;
 import com.wx.fbsir.common.constant.CacheConstants;
 import com.wx.fbsir.common.constant.Constants;
 import com.wx.fbsir.common.core.domain.AjaxResult;
@@ -18,8 +22,12 @@ import com.wx.fbsir.common.core.domain.entity.SysRole;
 import com.wx.fbsir.common.core.domain.entity.SysUser;
 import com.wx.fbsir.common.core.domain.model.LoginUser;
 import com.wx.fbsir.common.core.redis.RedisCache;
+import com.wx.fbsir.framework.config.SecurityConfig;
+import com.wx.fbsir.framework.config.properties.PermitAllUrlProperties;
+import com.wx.fbsir.framework.security.filter.FbsApiKeyAuthFilter;
 import com.wx.fbsir.framework.security.filter.JwtAuthenticationTokenFilter;
 import com.wx.fbsir.framework.security.handle.AuthenticationEntryPointImpl;
+import com.wx.fbsir.framework.security.handle.LogoutSuccessHandlerImpl;
 import com.wx.fbsir.framework.web.exception.GlobalExceptionHandler;
 import com.wx.fbsir.framework.web.service.PermissionService;
 import com.wx.fbsir.framework.web.service.TokenService;
@@ -40,12 +48,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.mock.web.MockServletContext;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.test.context.support.TestPropertySourceUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -53,6 +57,8 @@ import org.springframework.validation.beanvalidation.MethodValidationPostProcess
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import static org.mockito.Mockito.reset;
@@ -80,6 +86,8 @@ class IndependentBoardPortalReadHttpSecurityIntegrationTest {
     static void startSpringMvcSecurityChains() {
         enabled = startHarness(true);
         disabled = startHarness(false);
+        assertSingleProductionSecurityChain(enabled);
+        assertSingleProductionSecurityChain(disabled);
         org.junit.jupiter.api.Assertions.assertEquals(1,
                 enabled.context().getBeansOfType(
                         IndependentBoardPortalMeReadController.class).size());
@@ -100,13 +108,24 @@ class IndependentBoardPortalReadHttpSecurityIntegrationTest {
 
     @BeforeEach
     void resetBoundaries() {
-        reset(enabled.readService(), disabled.readService());
+        reset(enabled.readService(), disabled.readService(),
+                enabled.apiKeyAuthService(), disabled.apiKeyAuthService());
         enabled.redisCache().clear();
         disabled.redisCache().clear();
     }
 
+    private static void assertSingleProductionSecurityChain(Harness harness) {
+        org.junit.jupiter.api.Assertions.assertEquals(1,
+                harness.context().getBeansOfType(SecurityFilterChain.class).size());
+        org.junit.jupiter.api.Assertions.assertEquals(1,
+                harness.context().getBeansOfType(SecurityConfig.class).size());
+        org.junit.jupiter.api.Assertions.assertSame(
+                harness.context().getBean(SecurityFilterChain.class),
+                harness.context().getBean("filterChain", SecurityFilterChain.class));
+    }
+
     @Test
-    void defaultOffReturns404ToAValidJwtWithoutCallingTheReadService() throws Exception {
+    void defaultOffReturns404ToValidJwtBut401ToOAuthBearer() throws Exception {
         disabled.mockMvc().perform(get("/my/independent-board/connector")
                         .param("tenantId", String.valueOf(TENANT_ID))
                         .header("Authorization", bearer(disabled,
@@ -114,6 +133,15 @@ class IndependentBoardPortalReadHttpSecurityIntegrationTest {
                                         "my:independent-board:connector:view"), "user"))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(404));
+        disabled.mockMvc().perform(get("/business/independent-board/tenants")
+                        .header("Authorization", bearer(disabled,
+                                admin("board:tenant:query"))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(404));
+        disabled.mockMvc().perform(get("/business/independent-board/tenants")
+                        .header("Authorization", oauthBearer()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
 
         verifyNoInteractions(disabled.readService());
     }
@@ -132,6 +160,101 @@ class IndependentBoardPortalReadHttpSecurityIntegrationTest {
                 .andExpect(jsonPath("$.code").value(401));
 
         verifyNoInteractions(enabled.readService());
+    }
+
+    @Test
+    void validRuoyiJwtReadsTenantsThroughTheProductionSecurityChain() throws Exception {
+        BoardPortalReadEnvelope<BoardPortalTenantView> page =
+                new BoardPortalReadEnvelope<>(List.of(
+                        new BoardPortalTenantView(TENANT_ID, "董事会测试企业", "ACTIVE")),
+                        100, false, null);
+        when(enabled.readService().listTenants(
+                USER_ID, "董事会", "ACTIVE", null)).thenReturn(page);
+
+        enabled.mockMvc().perform(get("/business/independent-board/tenants")
+                        .param("query", "董事会")
+                        .param("status", "ACTIVE")
+                        .header("Authorization", bearer(enabled,
+                                admin("board:tenant:query"))))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.records[0].tenantId").value(TENANT_ID))
+                .andExpect(jsonPath("$.data.records[0].tenantLabel")
+                        .value("董事会测试企业"))
+                .andExpect(jsonPath("$.data.records[0].status").value("ACTIVE"));
+
+        verify(enabled.readService()).listTenants(
+                USER_ID, "董事会", "ACTIVE", null);
+        verifyNoInteractions(enabled.apiKeyAuthService());
+    }
+
+    @Test
+    void nonRuoyiAndAmbiguousAuthorizationShapesAreRejectedBeforeTenantReads()
+            throws Exception {
+        String validBearer = bearer(enabled, admin("board:tenant:query"));
+        String rawJwt = validBearer.substring(Constants.TOKEN_PREFIX.length());
+
+        enabled.mockMvc().perform(get("/business/independent-board/tenants"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+        enabled.mockMvc().perform(get("/business/independent-board/tenants")
+                        .header("Authorization", oauthBearer()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+        enabled.mockMvc().perform(get("/business/independent-board/tenants")
+                        .header("Authorization", Constants.TOKEN_PREFIX
+                                + jwtWithSecret("external-login", "external",
+                                        "independent-board-external-jwt-secret-20260721")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+        enabled.mockMvc().perform(get("/business/independent-board/tenants")
+                        .header("Authorization", Constants.TOKEN_PREFIX
+                                + jwtWithUnknownLogin("missing-login")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+        enabled.mockMvc().perform(get("/business/independent-board/tenants")
+                        .header("Authorization", rawJwt))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+        enabled.mockMvc().perform(get("/business/independent-board/tenants")
+                        .header("Authorization", Constants.TOKEN_PREFIX + validBearer))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+        enabled.mockMvc().perform(get("/business/independent-board/tenants")
+                        .header("Authorization", validBearer, oauthBearer()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+        enabled.mockMvc().perform(get("/business/independent-board/tenants")
+                        .header("X-FBS-API-Key", "candidate-skill-key")
+                        .header("X-FBS-Timestamp", "1784610000000")
+                        .header("X-FBS-Signature", "candidate-signature"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+
+        verifyNoInteractions(enabled.readService(), enabled.apiKeyAuthService());
+    }
+
+    @Test
+    void publicOAuthTokenRouteReturns404ToValidRuoyiJwt()
+            throws Exception {
+        enabled.mockMvc().perform(post("/oauth2/token")
+                        .header("Authorization", bearer(enabled, admin())))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(404));
+
+        verifyNoInteractions(enabled.readService(), enabled.apiKeyAuthService());
+    }
+
+    @Test
+    void publicOAuthTokenRouteRejectsOAuthOpaqueBearerBeforeMvc()
+            throws Exception {
+        enabled.mockMvc().perform(post("/oauth2/token")
+                        .header("Authorization", oauthBearer()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+
+        verifyNoInteractions(enabled.readService(), enabled.apiKeyAuthService());
     }
 
     @Test
@@ -347,6 +470,7 @@ class IndependentBoardPortalReadHttpSecurityIntegrationTest {
                 "fbsir.independent-board.portal-candidate.enabled=" + candidateEnabled);
         context.register(
                 HttpSecurityTestConfiguration.class,
+                SecurityConfig.class,
                 IndependentBoardPortalMeReadController.class,
                 IndependentBoardPortalAdminReadController.class,
                 IndependentBoardPortalReadExceptionHandler.class,
@@ -362,7 +486,8 @@ class IndependentBoardPortalReadHttpSecurityIntegrationTest {
                 context,
                 mockMvc,
                 context.getBean(IndependentBoardPortalReadService.class),
-                context.getBean(InMemoryRedisCache.class));
+                context.getBean(InMemoryRedisCache.class),
+                context.getBean(FbsApiKeyAuthService.class));
     }
 
     private static String bearer(Harness harness, LoginUser loginUser) {
@@ -378,11 +503,19 @@ class IndependentBoardPortalReadHttpSecurityIntegrationTest {
         return jwt(tokenId, "unknown");
     }
 
+    private static String oauthBearer() {
+        return Constants.TOKEN_PREFIX + "A".repeat(43);
+    }
+
     private static String jwt(String tokenId, String username) {
+        return jwtWithSecret(tokenId, username, TOKEN_SECRET);
+    }
+
+    private static String jwtWithSecret(String tokenId, String username, String secret) {
         return Jwts.builder()
                 .claim(Constants.LOGIN_USER_KEY, tokenId)
                 .claim(Constants.JWT_USERNAME, username)
-                .signWith(SignatureAlgorithm.HS512, TOKEN_SECRET)
+                .signWith(SignatureAlgorithm.HS512, secret)
                 .compact();
     }
 
@@ -419,13 +552,13 @@ class IndependentBoardPortalReadHttpSecurityIntegrationTest {
             AnnotationConfigWebApplicationContext context,
             MockMvc mockMvc,
             IndependentBoardPortalReadService readService,
-            InMemoryRedisCache redisCache) {
+            InMemoryRedisCache redisCache,
+            FbsApiKeyAuthService apiKeyAuthService) {
     }
 
     @Configuration(proxyBeanMethods = false)
     @EnableWebMvc
     @EnableWebSecurity
-    @EnableMethodSecurity(prePostEnabled = true, securedEnabled = true)
     static class HttpSecurityTestConfiguration {
 
         @Bean
@@ -450,8 +583,45 @@ class IndependentBoardPortalReadHttpSecurityIntegrationTest {
         }
 
         @Bean
+        FbsApiKeyAuthService fbsApiKeyAuthService() {
+            return Mockito.mock(FbsApiKeyAuthService.class);
+        }
+
+        @Bean
+        FbsApiKeyMapper fbsApiKeyMapper() {
+            return Mockito.mock(FbsApiKeyMapper.class);
+        }
+
+        @Bean
+        FbsApiKeyAuthFilter fbsApiKeyAuthFilter() {
+            return new FbsApiKeyAuthFilter();
+        }
+
+        @Bean
+        ObjectMapper objectMapper() {
+            return new ObjectMapper();
+        }
+
+        @Bean
+        CorsFilter corsFilter() {
+            return new CorsFilter(new UrlBasedCorsConfigurationSource());
+        }
+
+        @Bean
+        PermitAllUrlProperties permitAllUrlProperties() {
+            PermitAllUrlProperties properties = Mockito.mock(PermitAllUrlProperties.class);
+            when(properties.getUrls()).thenReturn(List.of());
+            return properties;
+        }
+
+        @Bean
         AuthenticationEntryPointImpl authenticationEntryPoint() {
             return new AuthenticationEntryPointImpl();
+        }
+
+        @Bean
+        LogoutSuccessHandlerImpl logoutSuccessHandler() {
+            return new LogoutSuccessHandlerImpl();
         }
 
         @Bean(name = "ss")
@@ -472,22 +642,6 @@ class IndependentBoardPortalReadHttpSecurityIntegrationTest {
         @Bean
         static MethodValidationPostProcessor methodValidationPostProcessor() {
             return new MethodValidationPostProcessor();
-        }
-
-        @Bean
-        SecurityFilterChain testSecurityFilterChain(
-                HttpSecurity http,
-                JwtAuthenticationTokenFilter jwtFilter,
-                AuthenticationEntryPointImpl entryPoint) throws Exception {
-            return http
-                    .csrf(csrf -> csrf.disable())
-                    .exceptionHandling(exceptions ->
-                            exceptions.authenticationEntryPoint(entryPoint))
-                    .sessionManagement(session -> session.sessionCreationPolicy(
-                            SessionCreationPolicy.STATELESS))
-                    .authorizeHttpRequests(requests -> requests.anyRequest().authenticated())
-                    .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-                    .build();
         }
     }
 

@@ -1,6 +1,7 @@
 package com.wx.fbsir.framework.web.service;
 
 import java.util.HashMap;
+import java.util.Enumeration;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import jakarta.annotation.PostConstruct;
@@ -87,7 +88,10 @@ public class TokenService
             }
             catch (Exception e)
             {
-                log.error("获取用户信息异常'{}'", e.getMessage());
+                // Invalid bearer credentials are an expected authentication
+                // failure. Never reflect or log parser details that could
+                // contain attacker-controlled credential material.
+                log.debug("Rejected invalid login bearer credential");
             }
         }
         return null;
@@ -228,10 +232,24 @@ public class TokenService
      */
     private String getToken(HttpServletRequest request)
     {
-        String token = request.getHeader(header);
-        if (StringUtils.isNotEmpty(token) && token.startsWith(Constants.TOKEN_PREFIX))
+        Enumeration<String> values = request.getHeaders(header);
+        if (values == null || !values.hasMoreElements())
         {
-            token = token.replace(Constants.TOKEN_PREFIX, "");
+            return null;
+        }
+        String authorization = values.nextElement();
+        if (values.hasMoreElements()
+                || StringUtils.isEmpty(authorization)
+                || !authorization.startsWith(Constants.TOKEN_PREFIX))
+        {
+            return null;
+        }
+        String token = authorization.substring(Constants.TOKEN_PREFIX.length());
+        if (StringUtils.isEmpty(token)
+                || token.startsWith(Constants.TOKEN_PREFIX)
+                || token.chars().anyMatch(Character::isWhitespace))
+        {
+            return null;
         }
         return token;
     }

@@ -30,7 +30,7 @@ class IndependentBoardPortalReadControllerAuthorizationTest {
             "com.wx.fbsir.business.board.portal.controller.IndependentBoardPortalAdminReadController";
 
     @Test
-    void candidateControllersAreDefaultOffAndExposeOnlyTheFourApprovedReads() throws Exception {
+    void candidateControllersAreDefaultOffAndExposeOnlyTheFiveApprovedReads() throws Exception {
         Class<?> meController = Class.forName(ME_CONTROLLER);
         Class<?> adminController = Class.forName(ADMIN_CONTROLLER);
 
@@ -45,12 +45,16 @@ class IndependentBoardPortalReadControllerAuthorizationTest {
                 "@ss.hasRole('admin') and @ss.hasPermi('board:oauth:family:query')");
         assertGet(adminController, "connectorBindings", "/connector-bindings",
                 "@ss.hasRole('admin') and @ss.hasPermi('board:connector:query')");
+        assertGet(adminController, "tenants", "/tenants",
+                "@ss.hasRole('admin') and @ss.hasPermi('board:tenant:query')");
 
         Map<Class<?>, Set<String>> paths = Map.of(
                 meController, declaredGetPaths(meController),
                 adminController, declaredGetPaths(adminController));
         assertEquals(Set.of("/connector"), paths.get(meController));
-        assertEquals(Set.of("/oauth/clients", "/oauth/families", "/connector-bindings"),
+        assertEquals(Set.of(
+                        "/oauth/clients", "/oauth/families", "/connector-bindings",
+                        "/tenants"),
                 paths.get(adminController));
         assertFalse(paths.values().stream().flatMap(Set::stream)
                 .anyMatch(path -> path.contains("security-receipt")

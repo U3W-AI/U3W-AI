@@ -169,7 +169,8 @@ public final class BoardPortalReadCursor {
     public enum Kind {
         CLIENT("client"),
         FAMILY("family"),
-        BINDING("binding");
+        BINDING("binding"),
+        TENANT("tenant");
 
         private final String wireValue;
 

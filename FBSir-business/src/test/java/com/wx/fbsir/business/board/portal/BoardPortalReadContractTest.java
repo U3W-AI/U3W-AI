@@ -147,6 +147,11 @@ class BoardPortalReadContractTest {
                 () -> expiredCodec.decode(clientContext, cursor));
     }
 
+    @Test
+    void tenantCursorKindIsIndependentFromOAuthPages() {
+        assertEquals("TENANT", BoardPortalReadCursor.Kind.valueOf("TENANT").name());
+    }
+
     private static void assertComponents(Class<?> recordType, String... expected) {
         assertEquals(Arrays.asList(expected), Arrays.stream(recordType.getRecordComponents())
                 .map(RecordComponent::getName)

@@ -10,10 +10,16 @@ import com.wx.fbsir.business.board.portal.dto.BoardPortalConnectorView;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalOAuthClientView;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalOAuthFamilyView;
 import com.wx.fbsir.business.board.portal.dto.BoardPortalReadEnvelope;
+import com.wx.fbsir.business.board.portal.dto.BoardPortalTenantView;
 import com.wx.fbsir.business.board.portal.mapper.IndependentBoardPortalReadMapper;
 import com.wx.fbsir.business.board.portal.persistence.BoardPortalConnectorBindingRow;
 import com.wx.fbsir.business.board.portal.persistence.BoardPortalOAuthClientRow;
 import com.wx.fbsir.business.board.portal.persistence.BoardPortalOAuthFamilyRow;
+import com.wx.fbsir.business.board.portal.persistence.BoardPortalTenantRow;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.text.Normalizer;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -45,6 +51,8 @@ public class IndependentBoardPortalReadService {
             "/business/independent-board/oauth/families";
     private static final String BINDING_PATH =
             "/business/independent-board/connector-bindings";
+    private static final String TENANT_PATH =
+            "/business/independent-board/tenants";
     private static final String GRANTS_CANONICAL =
             "authorization_code refresh_token";
     private static final String RESPONSES_CANONICAL = "code";
@@ -53,6 +61,7 @@ public class IndependentBoardPortalReadService {
     private static final String CLIENT_QUERY_PERMISSION = "board:oauth:client:query";
     private static final String FAMILY_QUERY_PERMISSION = "board:oauth:family:query";
     private static final String BINDING_QUERY_PERMISSION = "board:connector:query";
+    private static final String TENANT_QUERY_PERMISSION = "board:tenant:query";
     private static final String ME_CONNECTOR_PERMISSION =
             "my:independent-board:connector:view";
     private static final Duration CLIENT_LIFETIME = Duration.ofDays(31);
@@ -67,6 +76,7 @@ public class IndependentBoardPortalReadService {
             "PENDING_BINDING", "ACTIVE", "REVOKED", "COMPROMISED", "EXPIRED");
     private static final Set<String> BINDING_STATUSES =
             Set.of("ACTIVE", "REVOKED", "COMPROMISED");
+    private static final Set<String> TENANT_STATUSES = Set.of("ACTIVE", "DISABLED");
     private static final Set<String> CONSENT_INTENTS =
             Set.of("FIRST_CONNECT", "EXPLICIT_REAUTHORIZATION");
     private static final Set<String> VERIFICATION_METHODS =
@@ -114,6 +124,31 @@ public class IndependentBoardPortalReadService {
                 row -> requireRowId(row == null ? null : row.getRowId()),
                 row -> toClientView(row, now),
                 BoardPortalOAuthClientView::clientRef);
+    }
+
+    public BoardPortalReadEnvelope<BoardPortalTenantView> listTenants(
+            long principalId, String query, String status, String cursor) {
+        requirePositive(principalId, "INVALID_PRINCIPAL");
+        String normalizedQuery = normalizeTenantQuery(query);
+        String normalizedStatus = normalizeStatus(status, TENANT_STATUSES);
+        BoardPortalReadCursor.Context context = new BoardPortalReadCursor.Context(
+                BoardPortalReadCursor.Kind.TENANT,
+                TENANT_PATH,
+                principalId,
+                null,
+                tenantCursorFilter(normalizedQuery, normalizedStatus));
+        PagePosition position = decodePosition(context, cursor);
+        requireCurrentAuthority(principalId, ADMIN_ROLE, TENANT_QUERY_PERMISSION);
+        List<BoardPortalTenantRow> rows = mapper.selectTenants(
+                normalizedQuery,
+                mapperTenantStatus(normalizedStatus),
+                position.highWaterId(),
+                position.lastId(),
+                ROW_LIMIT);
+        return page(rows, position, context,
+                row -> requireRowId(row == null ? null : row.getRowId()),
+                IndependentBoardPortalReadService::toTenantView,
+                view -> Long.toString(view.tenantId()));
     }
 
     public BoardPortalReadEnvelope<BoardPortalOAuthFamilyView> listOAuthFamilies(
@@ -462,6 +497,25 @@ public class IndependentBoardPortalReadService {
                         row.getRegistrationSourceDigest()));
     }
 
+    private static BoardPortalTenantView toTenantView(BoardPortalTenantRow row) {
+        long rowId = requireRowId(row == null ? null : row.getRowId());
+        if (!Objects.equals(row.getTenantId(), rowId)
+                || row.getTenantLabel() == null
+                || row.getTenantLabel().isBlank()) {
+            throw drift("TENANT_PROFILE_DRIFT");
+        }
+        String label = row.getTenantLabel().trim();
+        if (label.length() > 128) {
+            throw drift("TENANT_PROFILE_DRIFT");
+        }
+        String status = switch (row.getStatus() == null ? -1 : row.getStatus()) {
+            case 1 -> "ACTIVE";
+            case 2 -> "DISABLED";
+            default -> throw drift("TENANT_PROFILE_DRIFT");
+        };
+        return new BoardPortalTenantView(rowId, label, status);
+    }
+
     private BoardPortalOAuthFamilyView toFamilyView(
             BoardPortalOAuthFamilyRow row, long expectedTenantId, Instant now) {
         if (row == null
@@ -806,6 +860,51 @@ public class IndependentBoardPortalReadService {
 
     private static String mapperStatus(String normalizedStatus) {
         return "ALL".equals(normalizedStatus) ? null : normalizedStatus;
+    }
+
+    private static Integer mapperTenantStatus(String normalizedStatus) {
+        return switch (normalizedStatus) {
+            case "ALL" -> null;
+            case "ACTIVE" -> 1;
+            case "DISABLED" -> 2;
+            default -> throw new BoardPortalBadRequestException("INVALID_STATUS");
+        };
+    }
+
+    private static String normalizeTenantQuery(String query) {
+        if (query == null) {
+            return null;
+        }
+        String normalized = Normalizer.normalize(query, Normalizer.Form.NFKC).strip();
+        if (normalized.isEmpty()
+                || normalized.codePointCount(0, normalized.length()) > 64
+                || normalized.getBytes(StandardCharsets.UTF_8).length > 256
+                || normalized.codePoints().anyMatch(IndependentBoardPortalReadService::isUnsafeQueryCodePoint)) {
+            throw new BoardPortalBadRequestException("INVALID_QUERY");
+        }
+        return normalized;
+    }
+
+    private static boolean isUnsafeQueryCodePoint(int codePoint) {
+        int type = Character.getType(codePoint);
+        return Character.isISOControl(codePoint)
+                || type == Character.FORMAT
+                || type == Character.SURROGATE
+                || type == Character.PRIVATE_USE
+                || type == Character.UNASSIGNED
+                || type == Character.LINE_SEPARATOR
+                || type == Character.PARAGRAPH_SEPARATOR;
+    }
+
+    private static String tenantCursorFilter(String query, String status) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] canonical = (status + "\n" + (query == null ? "-" : query))
+                    .getBytes(StandardCharsets.UTF_8);
+            return HexFormat.of().withUpperCase().formatHex(digest.digest(canonical));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
     }
 
     private static boolean hasFixedProfile(

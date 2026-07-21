@@ -34,6 +34,7 @@ import com.wx.fbsir.business.board.portal.mapper.IndependentBoardPortalReadMappe
 import com.wx.fbsir.business.board.portal.persistence.BoardPortalConnectorBindingRow;
 import com.wx.fbsir.business.board.portal.persistence.BoardPortalOAuthClientRow;
 import com.wx.fbsir.business.board.portal.persistence.BoardPortalOAuthFamilyRow;
+import com.wx.fbsir.business.board.portal.persistence.BoardPortalTenantRow;
 import com.wx.fbsir.business.board.service.IndependentBoardEntitlementService;
 import com.wx.fbsir.business.board.service.IndependentBoardConnectorBindingService;
 import com.wx.fbsir.business.board.service.IndependentBoardDashboardService;
@@ -780,6 +781,84 @@ class IndependentBoardMysqlTransactionIT {
     void portalReadMapperExecutesNormalActivationCurrentFirstAndSubjectDriftOnMysql()
             throws Exception {
         grantVip();
+        execute(
+                "INSERT INTO fbs_enterprise "
+                        + "(id, enterprise_name, contact_name, contact_phone, contact_email, "
+                        + "remark, status, del_flag) VALUES "
+                        + "(2109, '福帮手国际版企业', 'Portal Fixture Contact', "
+                        + "'+86-000-0000', 'portal-fixture@example.invalid', "
+                        + "'must not reach the portal row', 1, '0'), "
+                        + "(2108, '福帮手百分号%企业', NULL, NULL, NULL, NULL, 1, '0'), "
+                        + "(2107, '福帮手下划线_企业', NULL, NULL, NULL, NULL, 1, '0'), "
+                        + "(2106, CONCAT('福帮手反斜线', CHAR(92), '企业'), "
+                        + "NULL, NULL, NULL, NULL, 1, '0'), "
+                        + "(2105, '福帮手禁用企业', NULL, NULL, NULL, NULL, 2, '0'), "
+                        + "(2104, '福帮手已删除企业', NULL, NULL, NULL, NULL, 1, '1'), "
+                        + "(2205, '稳定窗口企业五', NULL, NULL, NULL, NULL, 1, '0'), "
+                        + "(2204, '稳定窗口企业四', NULL, NULL, NULL, NULL, 1, '0'), "
+                        + "(2203, '稳定窗口企业三', NULL, NULL, NULL, NULL, 2, '0'), "
+                        + "(2202, '稳定窗口企业二', NULL, NULL, NULL, NULL, 1, '0'), "
+                        + "(2201, '稳定窗口企业一', NULL, NULL, NULL, NULL, 1, '0')");
+
+        List<BoardPortalTenantRow> activeTenants = portalReadMapper.selectTenants(
+                "福帮手", 1, null, null, 100);
+        assertEquals(List.of(2109L, 2108L, 2107L, 2106L), activeTenants.stream()
+                .map(BoardPortalTenantRow::getTenantId).toList());
+        List<BoardPortalTenantRow> disabledTenants = portalReadMapper.selectTenants(
+                "福帮手", 2, null, null, 100);
+        assertEquals(List.of(2105L), disabledTenants.stream()
+                .map(BoardPortalTenantRow::getTenantId).toList());
+        assertTrue(portalReadMapper.selectTenants(
+                "已删除", null, null, null, 100).isEmpty());
+
+        List<BoardPortalTenantRow> unicodeMatch = portalReadMapper.selectTenants(
+                "国际版", null, null, null, 100);
+        assertEquals(1, unicodeMatch.size());
+        assertEquals(2109L, unicodeMatch.get(0).getRowId());
+        assertEquals(unicodeMatch.get(0).getRowId(), unicodeMatch.get(0).getTenantId());
+        assertEquals("福帮手国际版企业", unicodeMatch.get(0).getTenantLabel());
+        assertEquals(1, unicodeMatch.get(0).getStatus());
+        assertEquals(List.of(2108L), portalReadMapper.selectTenants(
+                        "%", null, null, null, 100).stream()
+                .map(BoardPortalTenantRow::getTenantId).toList());
+        assertEquals(List.of(2107L), portalReadMapper.selectTenants(
+                        "_", null, null, null, 100).stream()
+                .map(BoardPortalTenantRow::getTenantId).toList());
+        assertEquals(List.of(2106L), portalReadMapper.selectTenants(
+                        "\\", null, null, null, 100).stream()
+                .map(BoardPortalTenantRow::getTenantId).toList());
+
+        Set<String> tenantRowFields = java.util.Arrays.stream(
+                        BoardPortalTenantRow.class.getDeclaredFields())
+                .map(java.lang.reflect.Field::getName)
+                .collect(java.util.stream.Collectors.toSet());
+        assertEquals(Set.of("rowId", "tenantId", "tenantLabel", "status"), tenantRowFields);
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM fbs_enterprise WHERE id = 2109 "
+                + "AND contact_name = 'Portal Fixture Contact' "
+                + "AND contact_phone = '+86-000-0000' "
+                + "AND contact_email = 'portal-fixture@example.invalid' "
+                + "AND remark = 'must not reach the portal row'"));
+
+        List<BoardPortalTenantRow> firstWindow = portalReadMapper.selectTenants(
+                "稳定窗口", null, null, null, 2);
+        assertEquals(List.of(2205L, 2204L), firstWindow.stream()
+                .map(BoardPortalTenantRow::getTenantId).toList());
+        execute("INSERT INTO fbs_enterprise "
+                + "(id, enterprise_name, status, del_flag) VALUES "
+                + "(2206, '稳定窗口后插入企业', 1, '0')");
+        List<BoardPortalTenantRow> stableFirstWindow = portalReadMapper.selectTenants(
+                "稳定窗口", null, 2205L, null, 2);
+        assertEquals(List.of(2205L, 2204L), stableFirstWindow.stream()
+                .map(BoardPortalTenantRow::getTenantId).toList());
+        List<BoardPortalTenantRow> secondWindow = portalReadMapper.selectTenants(
+                "稳定窗口", null, 2205L, 2204L, 2);
+        assertEquals(List.of(2203L, 2202L), secondWindow.stream()
+                .map(BoardPortalTenantRow::getTenantId).toList());
+        List<BoardPortalTenantRow> finalWindow = portalReadMapper.selectTenants(
+                "稳定窗口", null, 2205L, 2202L, 2);
+        assertEquals(List.of(2201L), finalWindow.stream()
+                .map(BoardPortalTenantRow::getTenantId).toList());
+
         OAuthClientFixture client = registerOAuthClient(55268, "portal-read-mysql");
         Date readAt = Date.from(Instant.now().plusSeconds(2));
 
@@ -2614,6 +2693,8 @@ class IndependentBoardMysqlTransactionIT {
                 "CREATE TABLE fbs_enterprise ("
                         + "id BIGINT UNSIGNED NOT NULL PRIMARY KEY, "
                         + "enterprise_name VARCHAR(128) NOT NULL, "
+                        + "contact_name VARCHAR(64), contact_phone VARCHAR(32), "
+                        + "contact_email VARCHAR(128), remark VARCHAR(512), "
                         + "status TINYINT NOT NULL, del_flag CHAR(1) NOT NULL) ENGINE=InnoDB",
                 "CREATE TABLE fbs_enterprise_member ("
                         + "id BIGINT UNSIGNED NOT NULL PRIMARY KEY, "

@@ -14,6 +14,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import com.wx.fbsir.common.constant.HttpStatus;
 import com.wx.fbsir.common.core.domain.AjaxResult;
@@ -124,6 +125,22 @@ public class GlobalExceptionHandler
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<AjaxResult> handleNoResourceFoundException(NoResourceFoundException e,
             HttpServletRequest request)
+    {
+        return notFound(request);
+    }
+
+    /**
+     * DispatcherServlet 未找到 Controller 映射。该分支和静态资源缺失必须共享真实
+     * HTTP 404 语义，避免关闭的协议面被通用异常处理器伪装成成功传输。
+     */
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public ResponseEntity<AjaxResult> handleNoHandlerFoundException(NoHandlerFoundException e,
+            HttpServletRequest request)
+    {
+        return notFound(request);
+    }
+
+    private ResponseEntity<AjaxResult> notFound(HttpServletRequest request)
     {
         String requestURI = request.getRequestURI();
         log.debug("请求资源不存在: '{}'", requestURI);

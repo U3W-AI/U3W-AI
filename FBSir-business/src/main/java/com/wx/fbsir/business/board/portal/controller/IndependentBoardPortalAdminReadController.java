@@ -26,6 +26,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class IndependentBoardPortalAdminReadController extends BaseController {
 
     private static final Set<String> ADMIN_PAGE_OPTIONAL = Set.of("status", "cursor");
+    private static final Set<String> TENANT_PAGE_OPTIONAL =
+            Set.of("query", "status", "cursor");
     private static final Set<String> TENANT_PAGE_REQUIRED = Set.of("tenantId");
 
     private final IndependentBoardPortalReadService readService;
@@ -44,6 +46,19 @@ public class IndependentBoardPortalAdminReadController extends BaseController {
                 request, Set.of(), ADMIN_PAGE_OPTIONAL);
         return BoardPortalHttpResponses.success(
                 readService.listOAuthClients(getUserId(), status, cursor));
+    }
+
+    @GetMapping("/tenants")
+    @PreAuthorize("@ss.hasRole('admin') and @ss.hasPermi('board:tenant:query')")
+    public ResponseEntity<AjaxResult> tenants(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String cursor,
+            HttpServletRequest request) {
+        BoardPortalHttpRequestGuard.requireExactParameters(
+                request, Set.of(), TENANT_PAGE_OPTIONAL);
+        return BoardPortalHttpResponses.success(
+                readService.listTenants(getUserId(), query, status, cursor));
     }
 
     @GetMapping("/oauth/families")

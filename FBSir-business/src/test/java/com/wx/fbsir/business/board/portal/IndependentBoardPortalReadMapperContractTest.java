@@ -75,6 +75,30 @@ class IndependentBoardPortalReadMapperContractTest {
     }
 
     @Test
+    void tenantSearchIsNarrowProjectedAndKeysetBounded() {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("query", "福帮手");
+        parameters.put("status", "ACTIVE");
+        parameters.put("highWaterId", 200L);
+        parameters.put("lastId", 123L);
+        parameters.put("rowLimit", 101);
+        String sql = sql("selectTenants", parameters);
+
+        assertTrue(sql.contains("from fbs_enterprise e"));
+        assertTrue(sql.contains("e.status = ?"));
+        assertTrue(sql.contains("e.del_flag = '0'"));
+        assertTrue(sql.contains("locate(?, e.enterprise_name) > 0"));
+        assertTrue(sql.contains("e.id <= ?"));
+        assertTrue(sql.contains("e.id < ?"));
+        assertTrue(sql.contains("order by e.id desc"));
+        assertTrue(sql.endsWith("limit ?"));
+        assertFalse(sql.contains("contact_name"));
+        assertFalse(sql.contains("contact_phone"));
+        assertFalse(sql.contains("contact_email"));
+        assertFalse(sql.contains("remark"));
+    }
+
+    @Test
     void clientPageDerivesNaturalExpiryAndBindsAStableKeysetWindow() {
         String sql = sql("selectOAuthClients", parameters(false));
 

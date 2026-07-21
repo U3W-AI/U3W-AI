@@ -113,6 +113,14 @@
         </collection>
     </resultMap>
 
+    <resultMap id="TenantRow"
+               type="com.wx.fbsir.business.board.portal.persistence.BoardPortalTenantRow">
+        <id property="rowId" column="row_id" />
+        <result property="tenantId" column="tenant_id" />
+        <result property="tenantLabel" column="tenant_label" />
+        <result property="status" column="tenant_status" />
+    </resultMap>
+
     <select id="selectCurrentAuthority" resultType="java.lang.Integer">
         SELECT CASE WHEN EXISTS (
             SELECT 1
@@ -151,6 +159,29 @@
                   )
               )
         ) THEN 1 ELSE 0 END
+    </select>
+
+    <select id="selectTenants" resultMap="TenantRow">
+        SELECT e.id AS row_id,
+               e.id AS tenant_id,
+               e.enterprise_name AS tenant_label,
+               e.status AS tenant_status
+        FROM fbs_enterprise e
+        WHERE e.del_flag = '0'
+        <if test="status != null">
+          AND e.status = #{status}
+        </if>
+        <if test="query != null">
+          AND LOCATE(#{query}, e.enterprise_name) &gt; 0
+        </if>
+        <if test="highWaterId != null">
+          AND e.id &lt;= #{highWaterId}
+        </if>
+        <if test="lastId != null">
+          AND e.id &lt; #{lastId}
+        </if>
+        ORDER BY e.id DESC
+        LIMIT #{rowLimit}
     </select>
 
     <select id="selectOAuthClients" resultMap="OAuthClientRow">
