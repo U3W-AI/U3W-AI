@@ -1,6 +1,6 @@
 {
   "schema": "fbsir.independent-board.api2-24h-traffic-attribution/v2",
-  "observedAt": "2026-07-22T02:25:34+08:00",
+  "observedAt": "2026-07-22T02:46:33+08:00",
   "window": {
     "start": "2026-07-20T18:19:54Z",
     "end": "2026-07-21T18:25:34Z",
@@ -61,6 +61,9 @@
     "status": "ok",
     "serviceRelease": "202607152006-p1-004-runtime-state-14e20a6d",
     "sourceGitHead": "c01891a0ca3e11db0a0fe51828276fab33b862b5",
+    "eventCount": 49126,
+    "persistenceDurableRevision": 3987,
+    "strictDurabilityConfirmed": true,
     "hostForwardingAckStatus": "observe_only_not_ready",
     "enforcementMode": "observe_only",
     "keyringConfigured": false,
@@ -79,8 +82,8 @@
     "crossLayerJoinRate": 0,
     "rowCount": 722,
     "naturalCount": 0,
-    "unknownCount": 446,
-    "syntheticCount": 276,
+    "unknownCount": 445,
+    "syntheticCount": 277,
     "eligibleNaturalSampleCount": 0,
     "productCreditAllowed": false,
     "independentBoardRegistrationRoute": "404_unknown_api_route",

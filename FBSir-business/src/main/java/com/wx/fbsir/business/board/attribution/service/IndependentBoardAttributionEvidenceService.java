@@ -17,6 +17,7 @@ public class IndependentBoardAttributionEvidenceService implements BoardAttribut
     private static final String PRODUCT_ID = "fbsir-eight-seat-board";
     private static final String PRODUCT_VERSION = "26.7.20";
     private static final String CONTRACT_ID = "FBSIR_INDEPENDENT_BOARD_W4B2D";
+    private static final long CLOCK_SKEW_MILLIS = 30_000L;
     private final IndependentBoardAttributionMapper mapper;
     private final IndependentBoardAttributionProperties properties;
     private final BoardAttributionEnvelopeVerifier verifier;
@@ -34,12 +35,12 @@ public class IndependentBoardAttributionEvidenceService implements BoardAttribut
     public BoardHostForwardingChallenge issueChallenge(IssueChallenge command) {
         requireEnabled();
         Date now = new Date();
-        long maxExpiry = now.getTime() + Math.max(1, properties.getReceiptTtlSeconds()) * 1_000L;
+        long maxExpiry = now.getTime() + Math.max(1, properties.getReceiptTtlSeconds()) * 1_000L + CLOCK_SKEW_MILLIS;
         if (command == null || !CONTRACT_ID.equals(command.contractId()) || !StringUtilsExt.binding(command.serverBindingId())
                 || !StringUtilsExt.sha256(command.challengeId()) || !StringUtilsExt.sha256(command.nonceHash())
                 || !StringUtilsExt.sha256(command.tenantSubjectDigest())
                 || command.issuedAt() == null || command.expiresAt() == null || command.retentionUntil() == null
-                || command.issuedAt().after(now) || command.expiresAt().before(now)
+                || command.issuedAt().getTime() > now.getTime() + CLOCK_SKEW_MILLIS || !command.expiresAt().after(now)
                 || command.expiresAt().before(command.issuedAt()) || command.expiresAt().getTime() > maxExpiry
                 || command.retentionUntil().getTime() < command.expiresAt().getTime() + properties.getRetentionHours() * 3_600_000L) {
             throw new IllegalArgumentException("Independent Board challenge is invalid");
@@ -60,8 +61,10 @@ public class IndependentBoardAttributionEvidenceService implements BoardAttribut
     public AppendResult appendEvent(BoardAttributionEvidenceEvent event) {
         requireEnabled(); verifier.verify(event, properties); exactPendingContract();
         BoardHostForwardingChallenge challenge = mapper.selectChallengeForUpdate(event.getChallengeId(), event.getServerBindingId(), event.getContractId());
-        if (challenge == null || !"ISSUED".equals(challenge.getStatus()) || challenge.getExpiresAt().before(new Date())
-                || !Objects.equals(challenge.getTenantSubjectDigest(), event.getTenantSubjectDigest())) {
+        Date now = new Date();
+        if (challenge == null || !"ISSUED".equals(challenge.getStatus()) || !challenge.getExpiresAt().after(now)
+                || !Objects.equals(challenge.getTenantSubjectDigest(), event.getTenantSubjectDigest())
+                || event.getIssuedAt().before(challenge.getIssuedAt()) || event.getExpiresAt().after(challenge.getExpiresAt())) {
             throw new IllegalStateException("Independent Board challenge is not active");
         }
         mapper.insertEventIfAbsent(event);

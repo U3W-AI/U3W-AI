@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -8,9 +8,13 @@ const repoRoot = path.resolve(__dirname, '..')
 const defaultBaseRoot = path.join(repoRoot, 'work', 'api2-cleanroom', 'p1-005-active-20260722', 'source')
 const defaultOutputRoot = path.join(repoRoot, 'work', 'api2-cleanroom', 'p1-005-candidate-20260722', 'source')
 const EXPECTED_BASE_SHA256 = {
+  'src/fbss-listed-runtime-catalog.js': '8aac0882cfb53de3537d92c28e34e1061d0c0637892cb02a151ccbde372b3c10',
+  'src/service-traction-traffic-classification.js': 'bf71a746f0173a966ac37fd9a21d6b22e9220b3d1d623c0f1659850a9d700b80',
   'src/service-traction-product-signature-normalizer.js': '1e05ac0be0eaafd8517f99766cc1a8da2479cc4d17c3238f2d3fa63cff3abbef',
   'src/service-traction-observability.js': 'f61f6de1b1114dc1143cb191edfb6aa5cbf399a4af146d7acf0e2eec3b9e8786'
 }
+const FROZEN_REVIEW_ZIP = 'D:\\Spg719\\fbsir-eight-seat-board-26.7.20.zip'
+const FROZEN_REVIEW_ZIP_SHA256 = 'd2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd'
 const REQUIRED_RELATIVE_FILES = [
   'src/fbss-listed-runtime-catalog.js',
   'src/service-traction-traffic-classification.js',
@@ -42,7 +46,7 @@ function writeUtf8(file, content) {
 function patchNormalizer(source) {
   source = replaceOnce(source,
     "} from './fbss-listed-runtime-catalog.js'\n",
-    "} from './fbss-listed-runtime-catalog.js'\nimport { isExactIndependentBoardIdentity, registrationGateForRow } from './fbss-independent-board-product-registration.js'\n",
+    "} from './fbss-listed-runtime-catalog.js'\nimport { INDEPENDENT_BOARD_PRODUCT_ID, isExactIndependentBoardIdentity, registrationGateForRow } from './fbss-independent-board-product-registration.js'\n",
     'normalizer_import')
   source = replaceOnce(source,
     "const PRODUCT_RULES = [\n",
@@ -54,8 +58,19 @@ function patchNormalizer(source) {
     'normalizer_exact_gate')
   source = replaceOnce(source,
     "  return {\n    productSignatureProductId: productId,\n",
-    "  const registration = registrationGateForRow({ productSignatureProductId: productId })\n  return {\n    productSignatureProductId: productId,\n",
+    "  const registration = registrationGateForRow({ ...sourceRow, productSignatureProductId: productId })\n  return {\n    productSignatureProductId: productId,\n    productSignatureCanonicalProductId: registration.isIndependentBoard ? INDEPENDENT_BOARD_PRODUCT_ID : undefined,\n",
     'normalizer_result_registration')
+  source = replaceOnce(source,
+    "  productCreditCandidate = false,\n  reason = ''\n} = {}) {\n",
+    "  productCreditCandidate = false,\n  reason = '',\n  sourceRow = {}\n} = {}) {\n",
+    'normalizer_result_source_row')
+  source = replaceOnce(source,
+    "export function normalizeProductSignatureBoundary(row = {}) {\n",
+    "export function normalizeProductSignatureBoundary(row = {}) {\n  const resultForRow = payload => result({ ...payload, sourceRow: row })\n",
+    'normalizer_result_row_wrapper')
+  const resultCallCount = (source.match(/  return result\(\{/g) || []).length
+  if (resultCallCount < 8) throw new Error(`normalizer_result_call_count_unexpected:${resultCallCount}`)
+  source = source.replaceAll('  return result({', '  return resultForRow({')
   source = replaceOnce(source,
     "    productSignatureCannotPromoteProductCreditReason: reason\n",
     "    productSignatureCannotPromoteProductCreditReason: reason,\n    productRegistrationStatus: registration.registrationStatus,\n    productRegistrationAuthority: registration.registrationAuthority,\n    productAttributionMode: registration.attributionMode,\n    productRegistrationGateReason: registration.reason\n",
@@ -82,7 +97,7 @@ function patchObservability(source) {
     'observability_credit_gate')
   source = replaceOnce(source,
     "    productCreditProvenanceState: hostForwardingAck?.state || 'verified_host_ack_missing',\n    productCreditProvenanceReason: hostForwardingAck?.reason || (productCreditCandidate ? 'verified_host_ack_and_server_anchor_required' : ''),\n",
-    "    productCreditProvenanceState: hostForwardingAck?.state || 'verified_host_ack_missing',\n    productCreditProvenanceReason: registrationGate.reason || hostForwardingAck?.reason || (productCreditCandidate ? 'verified_host_ack_and_server_anchor_required' : ''),\n    productRegistrationStatus: registrationGate.registrationStatus,\n    productRegistrationAuthority: registrationGate.registrationAuthority,\n    productAttributionMode: registrationGate.attributionMode,\n    productRegistrationGateReason: registrationGate.reason,\n",
+    "    productCreditProvenanceState: hostForwardingAck?.state || 'verified_host_ack_missing',\n    productCreditProvenanceReason: registrationGate.reason || hostForwardingAck?.reason || (productCreditCandidate ? 'verified_host_ack_and_server_anchor_required' : ''),\n    productRegistrationStatus: registrationGate.registrationStatus,\n    productRegistrationAuthority: registrationGate.registrationAuthority,\n    productAttributionMode: registrationGate.attributionMode,\n    productRegistrationGateReason: registrationGate.reason,\n    productSignatureCanonicalProductId: registrationGate.isIndependentBoard ? 'fbsir-eight-seat-board' : undefined,\n",
     'observability_registration_fields')
   source = replaceOnce(source,
     "  const trace = normalizeTraceCorrelationFields(row)\n\n  return compactObject({\n",
@@ -90,7 +105,7 @@ function patchObservability(source) {
     'observability_sample_weight')
   source = replaceOnce(source,
     "    sampleCount: Math.max(1, numberValue(row.sampleCount || row.rowCount || 1)),\n",
-    "    sampleCount,\n    productNaturalDenominatorWeight: registrationGate.isIndependentBoard ? 0 : sampleCount,\n",
+    "    sampleCount,\n    productNaturalDenominatorWeight: registrationGate.isIndependentBoard ? 0 : undefined,\n",
     'observability_denominator_weight')
   return source
 }
@@ -113,6 +128,17 @@ function importClosure(root, relative, visited = new Set()) {
 function main() {
   const baseRoot = path.resolve(arg('--base-root', defaultBaseRoot))
   const outputRoot = path.resolve(arg('--output-root', defaultOutputRoot))
+  const cleanroomParent = path.resolve(repoRoot, 'work', 'api2-cleanroom')
+  const outputRelative = path.relative(cleanroomParent, outputRoot)
+  if (!outputRelative || outputRelative.startsWith('..') || path.isAbsolute(outputRelative)) {
+    throw new Error(`candidate_output_outside_cleanroom:${outputRoot}`)
+  }
+  if (existsSync(outputRoot)) rmSync(outputRoot, { recursive: true, force: true })
+  const frozenZipPath = path.resolve(arg('--frozen-zip', FROZEN_REVIEW_ZIP))
+  const frozenZipCheck = existsSync(frozenZipPath)
+    ? { path: frozenZipPath, status: sha256(frozenZipPath) === FROZEN_REVIEW_ZIP_SHA256 ? 'pass' : 'fail', sha256: sha256(frozenZipPath) }
+    : { path: frozenZipPath, status: 'skipped_missing_local_reference', sha256: null }
+  if (frozenZipCheck.status === 'fail') throw new Error(`frozen_review_zip_sha256_mismatch:${frozenZipCheck.sha256}`)
   for (const relative of REQUIRED_RELATIVE_FILES) {
     const file = path.join(baseRoot, relative)
     if (!existsSync(file)) throw new Error(`base_file_missing:${relative}`)
@@ -149,6 +175,8 @@ function main() {
     outputRoot,
     baseRelease: '202607152006-p1-004-runtime-state-14e20a6d.staged',
     baseProvenance: 'hash_anchored_remote_capture_git_provenance_unknown',
+    frozenReviewZip: frozenZipCheck,
+    candidateOutputReset: true,
     targetCount: targets.length,
     targets,
     moduleClosure: {
@@ -157,6 +185,7 @@ function main() {
       fileCount: closure.size,
       files: [...closure].sort(),
       dynamicSmokeRoot: 'tools/independent-board-p1-005-candidate-smoke.mjs',
+      dynamicSmoke: 'not_run_by_builder_external_command_required',
       fullServicePackageClosure: 'not_proven_missing_serve_dependency_capture'
     },
     defaultOff: { registrationStatus: 'PENDING_HOST_REGISTRATION', authoritativeCreditEnabled: false, publicRouteEnabled: false, candidateEnabled: false },

@@ -52,10 +52,11 @@
   "candidateReport": "reports/independent-board/api2-p1-005-candidate-20260722.json",
   "candidateSmoke": {
     "status": "pass",
-    "registrationRegistrySha256": "63f659149704fee1697b02f2e7daa63c14aff0bb5f02d674646622445c81d537",
-    "normalizerSha256": "b5af8dd45d90e9ce46e219f833b2b6fe8c75adcfebf9830983bcf86ea1910747",
-    "observabilitySha256": "8c10a610fb039b4f1c489bfa6411a63c113d8a23c5d8d4aab53d4d40ea038aa0",
-    "smokeSha256": "22e19bd5f4ef50ee585563b7dbf345ba38d810cb9834232a94ecff5d4999bc91"
+    "frozenReviewZipSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "registrationRegistrySha256": "1e23193a53626cab4be76cd3cc0fe788019048eb33c03d67f3ba88cc2d4632a5",
+    "normalizerSha256": "45e4c853d2ce9d46b8dbe69b7e32f824654c7ac7235aeea5ebe687199e09a2d9",
+    "observabilitySha256": "fdc0fcdf065ee6c313796f0b226174f8891011770a3c772758a946a3e4637311",
+    "smokeSha256": "2d144eb681fa2a733a1abc0c9250625fe80deff04af43855c4e93954fe815433"
   },
   "status": "NO_GO_CLEAN_SOURCE_PROVENANCE_AND_EXACT_PRODUCT_REGISTRATION_MISSING",
   "nextAction": "repair active-release metadata drift and obtain a Git-backed or explicitly approved reconstruction source plus full serve closure and signed exact host-registration receipt; keep candidate report-only and do not deploy"

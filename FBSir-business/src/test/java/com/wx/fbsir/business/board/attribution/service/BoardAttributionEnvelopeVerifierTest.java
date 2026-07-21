@@ -43,13 +43,14 @@ class BoardAttributionEnvelopeVerifierTest {
     }
 
     private BoardAttributionEvidenceEvent event(String binding) {
+        long now = System.currentTimeMillis();
         BoardAttributionEvidenceEvent event = new BoardAttributionEvidenceEvent();
         event.setEventId("a".repeat(64)); event.setReceiptId("b".repeat(64)); event.setChallengeId("c".repeat(64));
         event.setContractId("FBSIR_INDEPENDENT_BOARD_W4B2D"); event.setServerBindingId(binding); event.setTenantSubjectDigest("d".repeat(64));
         event.setStage("whoami"); event.setOutcome("success"); event.setEntrySurface("official_entry"); event.setChannelTrack("workbuddy_official");
-        event.setObservedAt(new Date(1_750_000_000_000L)); event.setSequenceNo(1); event.setSampleCount(1); event.setCanonicalDigest("e".repeat(64));
+        event.setObservedAt(new Date(now - 1_000L)); event.setSequenceNo(1); event.setSampleCount(1); event.setCanonicalDigest("e".repeat(64));
         event.setSignerKeyId("key-1"); event.setIssuer(properties.getIssuer()); event.setAudience(properties.getAudience()); event.setReceiptNonceHash("f".repeat(64));
-        event.setReceiptSignature("1".repeat(64)); event.setIssuedAt(new Date(1_750_000_000_000L)); event.setExpiresAt(new Date(1_750_000_300_000L));
+        event.setReceiptSignature("1".repeat(64)); event.setIssuedAt(new Date(now - 1_000L)); event.setExpiresAt(new Date(now + 300_000L));
         return event;
     }
 

@@ -40,6 +40,8 @@ function row(overrides = {}) {
 const targetRow = row({
   productId: registration.INDEPENDENT_BOARD_PRODUCT_ID,
   productVersion: registration.INDEPENDENT_BOARD_PRODUCT_VERSION,
+  version: '1.29.0',
+  runtimeProductId: 'api2-runtime-p1-004',
   expertEntryId: registration.INDEPENDENT_BOARD_PRODUCT_ID,
   packCode: 'fbs.independent-board.pending.v1',
   scenePackId: 'independent-board-pending',
@@ -48,9 +50,11 @@ const targetRow = row({
 const targetSignature = normalizer.normalizeProductSignatureBoundary(targetRow)
 const targetObservation = observability.normalizeObservationRow({ ...targetRow, ...targetSignature })
 assert.equal(targetSignature.productSignatureProductId, 'fbsir_eight_seat_board')
+assert.equal(targetSignature.productSignatureCanonicalProductId, registration.INDEPENDENT_BOARD_PRODUCT_ID)
 assert.equal(targetSignature.productRegistrationStatus, 'PENDING_HOST_REGISTRATION')
 assert.equal(targetSignature.productSignatureProductCreditCandidate, false)
 assert.equal(targetSignature.productSignatureReportOnlyCandidate, true)
+assert.equal(targetSignature.productRegistrationGateReason, 'exact_host_registration_required')
 assert.equal(targetObservation.productCreditCandidate, false)
 assert.equal(targetObservation.eligibleForProductCredit, false)
 assert.equal(targetObservation.productNaturalDenominatorWeight, 0)
@@ -67,6 +71,24 @@ const wrongVersion = normalizer.normalizeProductSignatureBoundary(row({
 }))
 assert.notEqual(wrongVersion.productSignatureProductId, 'fbsir_eight_seat_board')
 assert.equal(registration.registrationGateForRow({ productSignatureProductId: 'fbsir_eight_seat_board', productVersion: '26.7.19' }).reason, 'exact_product_version_required')
+
+const conflictingVersion = normalizer.normalizeProductSignatureBoundary(row({
+  productId: registration.INDEPENDENT_BOARD_PRODUCT_ID,
+  productVersion: '26.7.19',
+  packageVersion: registration.INDEPENDENT_BOARD_PRODUCT_VERSION,
+  expertEntryId: registration.INDEPENDENT_BOARD_PRODUCT_ID,
+  entrySurface: 'official_entry'
+}))
+assert.notEqual(conflictingVersion.productSignatureProductId, 'fbsir_eight_seat_board')
+
+const conflictingProductId = normalizer.normalizeProductSignatureBoundary(row({
+  productId: registration.INDEPENDENT_BOARD_PRODUCT_ID,
+  productSignatureProductId: 'workbuddy_board_secretary_assistant',
+  productVersion: registration.INDEPENDENT_BOARD_PRODUCT_VERSION,
+  expertEntryId: registration.INDEPENDENT_BOARD_PRODUCT_ID,
+  entrySurface: 'official_entry'
+}))
+assert.notEqual(conflictingProductId.productSignatureProductId, 'fbsir_eight_seat_board')
 
 const boardSecretary = normalizer.normalizeProductSignatureBoundary(row({
   productId: 'workbuddy_board_secretary_assistant',
@@ -109,8 +131,10 @@ assert.equal(forgedRegistered.authoritativeCreditEnabled, false)
 
 process.stdout.write(`${JSON.stringify({
   status: 'pass',
-  target: { productId: targetSignature.productSignatureProductId, candidate: targetObservation.productCreditCandidate, eligible: targetObservation.eligibleForProductCredit, reason: targetObservation.productRegistrationGateReason },
+  target: { productId: targetSignature.productSignatureProductId, canonicalProductId: targetSignature.productSignatureCanonicalProductId, candidate: targetObservation.productCreditCandidate, eligible: targetObservation.eligibleForProductCredit, reason: targetObservation.productRegistrationGateReason },
   wrongVersionRejected: true,
+  conflictingVersionRejected: true,
+  conflictingProductIdRejected: true,
   boardSecretaryIsolated: true,
   generalSurfaceIsolated: true,
   forgedRegistrationRejected: true

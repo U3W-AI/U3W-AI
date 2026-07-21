@@ -216,6 +216,8 @@
     "w4b2d_live_api2_ack_object_contract_adapter_rejects_boolean_and_unregistered_product"
     ,"w4b2d_api2_active_release_hash_anchored_cleanroom_capture_completed_read_only"
     ,"w4b2d_p1_005a_candidate_exact_version_gate_and_default_off_smoke_passed"
+    ,"w4b2d_p1_005a_transitive_hash_anchors_frozen_zip_check_and_candidate_output_reset_verified"
+    ,"w4b2d_java_evidence_time_identity_and_snapshot_concurrency_hardening_static_verified"
   ],
   "notProven": [
     "oauth_public_routes",
@@ -231,6 +233,7 @@
     "api2_p1_005_full_serve_dependency_closure",
     "api2_p1_005_signed_exact_host_registration_receipt",
     "api2_active_release_metadata_alignment_and_strict_git_provenance",
+    "api2_schema_constraint_and_trigger_body_current_read",
     "real_official_entry_same_binding_target_candidate",
     "production_database_migration",
     "me_portal_production_runtime",
@@ -343,5 +346,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-22T02:27:00+08:00"
+  "updatedAt": "2026-07-22T02:46:33+08:00"
 }

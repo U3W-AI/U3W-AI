@@ -81,6 +81,7 @@
     VALUES (#{snapshotId}, #{contractId}, #{windowStart}, #{windowEnd}, #{retentionUntil}, #{watermarkAt}, #{eventHighWatermark}, #{rowCount},
             #{parseErrorCount}, #{gapCount}, #{invalidCount}, #{canonicalizationVersion}, #{eventDigest}, #{runtimeRelease}, #{embeddedRelease},
             #{signerKeyId}, #{issuer}, #{audience}, #{snapshotSignature}, #{status})
+    ON DUPLICATE KEY UPDATE snapshot_id = VALUES(snapshot_id)
   </insert>
   <select id="selectSnapshotByWindowForUpdate" resultMap="Snapshot">
     SELECT snapshot_id, contract_id, window_start, window_end, retention_until, watermark_at, event_high_watermark, row_count,

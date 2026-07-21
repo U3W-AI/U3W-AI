@@ -19,25 +19,31 @@ const VERSION_FIELDS = [
   'runtimeProductVersion',
   'listedProductVersion',
   'packageVersion',
-  'expertPackageVersion',
-  'version'
+  'expertPackageVersion'
 ]
 
 function text(value = '') {
   return String(value ?? '').trim()
 }
 
+function canonicalProductId(value = '') {
+  const normalized = text(value)
+  if (normalized === INDEPENDENT_BOARD_NORMALIZED_PRODUCT_ID) return INDEPENDENT_BOARD_PRODUCT_ID
+  return normalized
+}
+
 function exactProductId(row = {}) {
-  return [row.productId, row.productSignatureProductId, row.listedProductId, row.runtimeProductId]
-    .map(text)
-    .some(value => value === INDEPENDENT_BOARD_PRODUCT_ID)
+  const values = [row.productId, row.productSignatureProductId, row.listedProductId]
+    .map(canonicalProductId)
+    .filter(Boolean)
+  return values.length > 0 && values.every(value => value === INDEPENDENT_BOARD_PRODUCT_ID)
 }
 
 function exactProductVersion(row = {}) {
-  return VERSION_FIELDS
+  const values = VERSION_FIELDS
     .map(field => text(row[field]))
     .filter(Boolean)
-    .some(value => value === INDEPENDENT_BOARD_PRODUCT_VERSION)
+  return values.length > 0 && values.every(value => value === INDEPENDENT_BOARD_PRODUCT_VERSION)
 }
 
 export function isIndependentBoardProductId(value = '') {

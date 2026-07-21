@@ -12,12 +12,11 @@ import java.util.Date;
 @Component
 public class BoardAttributionEnvelopeVerifier {
     private static final Set<String> STAGES = Set.of("whoami", "scene_pack", "consume", "closure");
-    private static final String PRODUCT_ID = "fbsir-eight-seat-board";
-    private static final String PRODUCT_VERSION = "26.7.20";
+    private static final long CLOCK_SKEW_MILLIS = 30_000L;
 
     public void verify(BoardAttributionEvidenceEvent event, IndependentBoardAttributionProperties properties) {
-        if (event == null || !StringUtils.hasText(event.getEventId()) || !StringUtils.hasText(event.getReceiptId())
-                || !StringUtils.hasText(event.getChallengeId()) || !StringUtils.hasText(event.getContractId())
+        if (event == null || !sha256(event.getEventId()) || !sha256(event.getReceiptId())
+                || !sha256(event.getChallengeId()) || !StringUtils.hasText(event.getContractId())
                 || !binding(event.getServerBindingId()) || !sha256(event.getTenantSubjectDigest())
                 || !STAGES.contains(event.getStage()) || !"success".equals(event.getOutcome())
                 || !"official_entry".equals(event.getEntrySurface()) || !safeDimension(event.getChannelTrack(), 64)
@@ -33,14 +32,15 @@ public class BoardAttributionEnvelopeVerifier {
         Date now = new Date();
         if (!StringUtils.hasText(properties.getIssuer()) || !StringUtils.hasText(properties.getAudience())
                 || !properties.getIssuer().equals(event.getIssuer()) || !properties.getAudience().equals(event.getAudience())
-                || event.getExpiresAt().before(event.getIssuedAt()) || event.getIssuedAt().after(now) || event.getExpiresAt().before(now)) {
+                || event.getExpiresAt().before(event.getIssuedAt()) || event.getIssuedAt().getTime() > now.getTime() + CLOCK_SKEW_MILLIS
+                || !event.getExpiresAt().after(now)) {
             throw new IllegalArgumentException("Independent Board attribution authority is invalid");
         }
     }
 
     public void verifySnapshot(com.wx.fbsir.business.board.attribution.domain.BoardAttributionSnapshot snapshot,
                                IndependentBoardAttributionProperties properties) {
-        if (snapshot == null || !StringUtils.hasText(snapshot.getSnapshotId()) || !"FBSIR_INDEPENDENT_BOARD_W4B2D".equals(snapshot.getContractId())
+        if (snapshot == null || !sha256(snapshot.getSnapshotId()) || !"FBSIR_INDEPENDENT_BOARD_W4B2D".equals(snapshot.getContractId())
                 || snapshot.getWindowStart() == null || snapshot.getWindowEnd() == null || snapshot.getRetentionUntil() == null
                 || snapshot.getWatermarkAt() == null || snapshot.getWindowEnd().getTime() - snapshot.getWindowStart().getTime() != 86_400_000L
                 || snapshot.getRetentionUntil().getTime() < snapshot.getWindowEnd().getTime() + properties.getRetentionHours() * 3_600_000L
