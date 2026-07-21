@@ -96,6 +96,11 @@
     "FBSir-ui/scripts/verify-independent-board-w4b2c-runtime-mount.mjs",
     "scripts/independent-board-traffic-attribution.mjs",
     "scripts/independent-board-traffic-attribution.test.mjs",
+    "scripts/independent-board-w4b2d-evidence-contract.mjs",
+    "scripts/independent-board-w4b2d-evidence-contract.test.mjs",
+    "sql/update_20260722_independent_board_attribution_evidence_contract.sql",
+    "reports/independent-board/w4b2d-evidence-contract-verification-20260722.json",
+    "docs/decisions/ADR-003-independent-board-w4b2d-signed-evidence-boundary.md",
     "reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json",
     "reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json",
     "docs/independent-board/API2-INDEPENDENT-BOARD-24H-TRAFFIC-ATTRIBUTION-20260721.md",
@@ -200,7 +205,10 @@
     "w4b2c_dual_mysql_menu_replay_collision_drift_and_cleanup_passed",
     "w4b2c_browser_enabled_and_default_off_request_responsive_empty_error_matrix_passed",
     "api2_fixed_24h_independent_board_attributable_traffic_is_zero_with_actual_usage_not_proven",
-    "api2_unsigned_report_only_attribution_42_of_42_adversarial_tests_passed"
+    "api2_unsigned_report_only_attribution_42_of_42_adversarial_tests_passed",
+    "w4b2d_signed_receipt_binding_snapshot_contract_7_of_7_adversarial_tests_passed",
+    "w4b2d_public_init_037_default_off_append_only_evidence_schema_manifest_verified",
+    "w4b2d_live_api2_ack_object_contract_adapter_rejects_boolean_and_unregistered_product"
   ],
   "notProven": [
     "oauth_public_routes",
@@ -211,6 +219,7 @@
     "listed_runtime_same_binding_business_attribution",
     "listed_runtime_service_side_closure",
     "api2_exact_product_binding_and_immutable_26h_evidence_contract",
+    "api2_clean_release_source_provenance",
     "real_official_entry_same_binding_target_candidate",
     "production_database_migration",
     "me_portal_production_runtime",

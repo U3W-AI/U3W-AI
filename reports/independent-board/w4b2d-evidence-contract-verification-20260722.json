@@ -1,0 +1,42 @@
+{
+  "schema": "fbsir.independent-board.w4b2d-evidence-contract-verification/v1",
+  "slice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract",
+  "product": "fbsir-eight-seat-board",
+  "productVersion": "26.7.20",
+  "verifiedAt": "2026-07-22T01:30:00+08:00",
+  "boundary": "local_candidate_only_no_frozen_package_write_no_production_database_write_no_public_route",
+  "implemented": [
+    "HMAC signed receipt contract with key id issuer audience created expiry nonce receipt id",
+    "server-derived binding digest and exact whoami scene_pack consume closure ordering",
+    "live API2 host-forwarding object adapter with exact schema/source/state/trust/join values",
+    "strict finite event projection rejecting unknown fields and sensitive/free-text values",
+    "sealed 24-hour snapshot with 26-hour retention proof watermark quality gates release alignment and canonical digest",
+    "public_init_037 default-off append-only product contract challenge event and snapshot tables",
+    "report-only output permanently has canPromote=false productionEligible=false authoritativeProductCredit=0 denominatorWeight=0"
+  ],
+  "validation": {
+    "w4b2dNodeTests": "7/7 passed",
+    "databaseManifest": "37/37 executable and declarative steps; SHA-256 verified",
+    "databaseDryRun": "passed without opening a database connection",
+    "frozenPackageWrite": false,
+    "productionWrite": false
+  },
+  "api2ObservedContract": {
+    "ackSchema": "fbss.hostForwardingAckVerification.v1",
+    "verificationState": "verified",
+    "verificationSource": "server_dispatch_ack_hmac",
+    "challengeJoinState": "finalized",
+    "authority": "server_verified_host_forwarding_ack",
+    "evidenceTrust": "server_dispatch_ack_verified",
+    "productRegistration": "not_proven_for_fbsir-eight-seat-board"
+  },
+  "notProven": [
+    "API2 product registry and exact expertEntryId/packageId for fbsir-eight-seat-board@26.7.20",
+    "clean source provenance for the active API2 release",
+    "real official-entry same-binding whoami-to-scene_pack-to-consume chain",
+    "at-least-26-hour production structured retention and signed snapshot",
+    "production database migration or public menu/route activation"
+  ],
+  "securityDecision": "REQUEST_CHANGES_until_API2_registration_and_server_generated_signed_evidence_are_available",
+  "nextAction": "find_or-create API2 clean release source overlay, add exact product rule without touching the frozen expert package, then run a read-only candidate gate before any deployment request"
+}

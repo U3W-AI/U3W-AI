@@ -188,6 +188,7 @@ $requiredTail = @{
     public_init_034 = "update_20260721_independent_board_oauth_receipt_provenance.sql"
     public_init_035 = "update_20260721_independent_board_oauth_consent_intent_lineage.sql"
     public_init_036 = "update_20260721_independent_board_oauth_refresh_security.sql"
+    public_init_037 = "update_20260722_independent_board_attribution_evidence_contract.sql"
 }
 foreach ($version in $requiredTail.Keys) {
     $matches = @($manifest.steps | Where-Object { $_.version -eq $version -and $_.file -eq $requiredTail[$version] })

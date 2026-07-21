@@ -93,6 +93,7 @@ $steps = @(
     New-Step "public_init_034" "Independent Board OAuth TOKEN_FAMILY_CREATED receipt provenance" (Resolve-SqlFile "update_20260721_independent_board_oauth_receipt_provenance.sql")
     New-Step "public_init_035" "Independent Board OAuth consent-intent lineage" (Resolve-SqlFile "update_20260721_independent_board_oauth_consent_intent_lineage.sql")
     New-Step "public_init_036" "Independent Board OAuth refresh security receipt v2" (Resolve-SqlFile "update_20260721_independent_board_oauth_refresh_security.sql")
+    New-Step "public_init_037" "Independent Board exact product attribution evidence contract" (Resolve-SqlFile "update_20260722_independent_board_attribution_evidence_contract.sql")
 )
 
 if (-not (Test-Path -LiteralPath $DeclarativeManifestPath -PathType Leaf)) {
@@ -119,7 +120,7 @@ for ($index = 0; $index -lt $steps.Count; $index++) {
         [string]$declared.file -ne $executable.File.Name) {
         throw "Declarative manifest drift at position $($index + 1): expected '$($executable.Version)|$($executable.Description)|$($executable.File.Name)'."
     }
-    if ($executable.Version -in @('public_init_035', 'public_init_036')) {
+    if ($executable.Version -in @('public_init_035', 'public_init_036', 'public_init_037')) {
         $declaredSha256 = [string]$declared.sha256
         $actualSha256 = (Get-FileHash -LiteralPath $executable.File.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($declaredSha256 -notmatch '^[0-9a-f]{64}$' -or

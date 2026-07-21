@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the officially listed and post-listing-frozen 26.7.20 expert package.",
-  "singleNextAction": "Implement W4b.2d as an API2 exact-product and immutable-evidence contract: without modifying the frozen 26.7.20 package, register fbsir-eight-seat-board@26.7.20 in the connector and host-forwarding path, retain at least 26 hours of structured evidence, and prove one real official-entry same-binding whoami-to-scene-pack-to-consume report-only candidate while all public routes and authoritative product credit remain closed.",
+  "singleNextAction": "Locate or create a traceable API2 clean-release source overlay, add the exact fbsir-eight-seat-board@26.7.20 product rule without touching the frozen package, then run a read-only candidate gate for one real official-entry same-binding chain; keep public routes and authoritative product credit closed.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -137,7 +137,10 @@
         "w4b2c_pre_clone_dynamic_route_gate_four_page_allowlist_and_two_page_denylist_passed",
         "w4b2c_enabled_and_default_off_browser_fixture_narrow_empty_error_and_request_matrix_passed",
         "api2_fixed_24h_target_attributable_traffic_zero_with_actual_usage_not_proven",
-        "api2_report_only_attribution_contract_42_of_42_adversarial_vectors_passed"
+        "api2_report_only_attribution_contract_42_of_42_adversarial_vectors_passed",
+        "w4b2d_signed_receipt_binding_snapshot_contract_7_of_7_adversarial_tests_passed",
+        "w4b2d_public_init_037_default_off_append_only_evidence_schema_manifest_verified",
+        "w4b2d_live_api2_ack_object_contract_adapter_rejects_boolean_and_unregistered_product"
       ],
       "nextSlice": {
         "id": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract",
