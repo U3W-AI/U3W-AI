@@ -1,0 +1,36 @@
+package com.wx.fbsir.business.board.portal.mapper;
+
+import com.wx.fbsir.business.board.portal.persistence.BoardPortalConnectorBindingRow;
+import com.wx.fbsir.business.board.portal.persistence.BoardPortalOAuthClientRow;
+import com.wx.fbsir.business.board.portal.persistence.BoardPortalOAuthFamilyRow;
+import java.util.Date;
+import java.util.List;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+@Mapper
+public interface IndependentBoardPortalReadMapper {
+
+    List<BoardPortalOAuthClientRow> selectOAuthClients(
+            @Param("status") String status,
+            @Param("now") Date now,
+            @Param("highWaterId") Long highWaterId,
+            @Param("lastId") Long lastId,
+            @Param("rowLimit") int rowLimit);
+
+    List<BoardPortalOAuthFamilyRow> selectOAuthFamilies(
+            @Param("tenantId") Long tenantId,
+            @Param("status") String status,
+            @Param("now") Date now,
+            @Param("highWaterId") Long highWaterId,
+            @Param("lastId") Long lastId,
+            @Param("rowLimit") int rowLimit);
+
+    List<BoardPortalConnectorBindingRow> selectConnectorBindings(
+            @Param("tenantId") Long tenantId,
+            @Param("status") String status,
+            @Param("now") Date now,
+            @Param("highWaterId") Long highWaterId,
+            @Param("lastId") Long lastId,
+            @Param("rowLimit") int rowLimit);
+}

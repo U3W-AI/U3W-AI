@@ -1,0 +1,473 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.board.portal.mapper.IndependentBoardPortalReadMapper">
+
+    <resultMap id="OAuthClientRow"
+               type="com.wx.fbsir.business.board.portal.persistence.BoardPortalOAuthClientRow">
+        <id property="rowId" column="row_id" />
+        <result property="clientRef" column="client_ref" />
+        <result property="displayName" column="display_name" />
+        <result property="issuerUri" column="issuer_uri" />
+        <result property="resourceUri" column="resource_uri" />
+        <result property="productCode" column="product_code" />
+        <result property="sourceCode" column="source_code" />
+        <result property="connectorCode" column="connector_code" />
+        <result property="redirectPort" column="redirect_port" />
+        <result property="redirectUri" column="redirect_uri" />
+        <result property="tokenEndpointAuthMethod" column="token_endpoint_auth_method" />
+        <result property="grantTypesCanonical" column="grant_types_canonical" />
+        <result property="responseTypesCanonical" column="response_types_canonical" />
+        <result property="scopeCanonical" column="scope_canonical" />
+        <result property="scopeDigest" column="scope_digest" />
+        <result property="metadataDigest" column="metadata_digest" />
+        <result property="registrationSourceDigest" column="registration_source_digest" />
+        <result property="storedStatus" column="stored_status" />
+        <result property="effectiveStatus" column="effective_status" />
+        <result property="registeredAt" column="registered_at" />
+        <result property="expiresAt" column="expires_at" />
+        <result property="effectiveTerminatedAt" column="effective_terminated_at" />
+        <result property="version" column="version" />
+    </resultMap>
+
+    <resultMap id="OAuthFamilyRow"
+               type="com.wx.fbsir.business.board.portal.persistence.BoardPortalOAuthFamilyRow">
+        <id property="rowId" column="row_id" />
+        <result property="familyRef" column="family_ref" />
+        <result property="clientRef" column="client_ref" />
+        <result property="tenantId" column="tenant_id" />
+        <result property="tenantName" column="tenant_name" />
+        <result property="memberId" column="member_id" />
+        <result property="userId" column="user_id" />
+        <result property="productCode" column="product_code" />
+        <result property="sourceCode" column="source_code" />
+        <result property="connectorCode" column="connector_code" />
+        <result property="issuerUri" column="issuer_uri" />
+        <result property="resourceUri" column="resource_uri" />
+        <result property="scopeCanonical" column="scope_canonical" />
+        <result property="scopeDigest" column="scope_digest" />
+        <result property="consentIntent" column="consent_intent" />
+        <result property="bindingRef" column="binding_ref" />
+        <result property="bindingVersion" column="binding_version" />
+        <result property="storedStatus" column="stored_status" />
+        <result property="effectiveStatus" column="effective_status" />
+        <result property="currentRefreshGeneration" column="current_refresh_generation" />
+        <result property="issuedAt" column="issued_at" />
+        <result property="activatedAt" column="activated_at" />
+        <result property="expiresAt" column="expires_at" />
+        <result property="effectiveTerminatedAt" column="effective_terminated_at" />
+        <result property="version" column="version" />
+        <result property="clientDisplayName" column="client_display_name" />
+        <result property="clientStatus" column="client_status" />
+        <result property="clientExpiresAt" column="client_expires_at" />
+        <result property="clientTerminatedAt" column="client_terminated_at" />
+        <result property="clientIssuerUri" column="client_issuer_uri" />
+        <result property="clientResourceUri" column="client_resource_uri" />
+        <result property="clientProductCode" column="client_product_code" />
+        <result property="clientSourceCode" column="client_source_code" />
+        <result property="clientConnectorCode" column="client_connector_code" />
+        <result property="clientScopeCanonical" column="client_scope_canonical" />
+        <result property="clientScopeDigest" column="client_scope_digest" />
+        <result property="clientRedirectUri" column="client_redirect_uri" />
+        <result property="clientTokenEndpointAuthMethod"
+                column="client_token_endpoint_auth_method" />
+        <result property="clientGrantTypesCanonical" column="client_grant_types_canonical" />
+        <result property="clientResponseTypesCanonical" column="client_response_types_canonical" />
+        <result property="currentBindingTenantId" column="current_binding_tenant_id" />
+        <result property="currentBindingMemberId" column="current_binding_member_id" />
+        <result property="currentBindingUserId" column="current_binding_user_id" />
+        <result property="currentBindingClientRef" column="current_binding_client_ref" />
+        <result property="currentBindingStatus" column="current_binding_status" />
+        <result property="currentBindingVersion" column="current_binding_version" />
+        <result property="currentBindingValidUntil" column="current_binding_valid_until" />
+    </resultMap>
+
+    <resultMap id="ConnectorBindingRow"
+               type="com.wx.fbsir.business.board.portal.persistence.BoardPortalConnectorBindingRow">
+        <id property="rowId" column="row_id" />
+        <result property="bindingRef" column="binding_ref" />
+        <result property="tenantId" column="tenant_id" />
+        <result property="tenantName" column="tenant_name" />
+        <result property="memberId" column="member_id" />
+        <result property="userId" column="user_id" />
+        <result property="productCode" column="product_code" />
+        <result property="sourceCode" column="source_code" />
+        <result property="connectorCode" column="connector_code" />
+        <result property="issuerUri" column="issuer_uri" />
+        <result property="resourceUri" column="resource_uri" />
+        <result property="clientRef" column="client_ref" />
+        <result property="principalSubjectDigest" column="principal_subject_digest" />
+        <result property="status" column="binding_status" />
+        <result property="verificationMethod" column="verification_method" />
+        <result property="verifiedAt" column="verified_at" />
+        <result property="lastSeenAt" column="last_seen_at" />
+        <result property="validUntil" column="valid_until" />
+        <result property="revokedAt" column="revoked_at" />
+        <result property="version" column="version" />
+        <result property="entitlementActive" column="entitlement_active" />
+        <result property="familyActive" column="family_active" />
+        <collection property="scopes" ofType="java.lang.String"
+                    javaType="java.util.ArrayList">
+            <result column="scope_code" />
+        </collection>
+    </resultMap>
+
+    <select id="selectOAuthClients" resultMap="OAuthClientRow">
+        SELECT c.id AS row_id,
+               c.client_id AS client_ref,
+               c.client_name AS display_name,
+               c.issuer_uri,
+               c.resource_uri,
+               c.product_code,
+               c.source_code,
+               c.connector_code,
+               c.redirect_port,
+               c.redirect_uri,
+               c.token_endpoint_auth_method,
+               c.grant_types_canonical,
+               c.response_types_canonical,
+               c.scope_canonical,
+               c.scope_digest,
+               c.metadata_digest,
+               c.registration_source_digest,
+               c.status AS stored_status,
+               CASE
+                   WHEN c.status = 'ACTIVE' AND c.expires_at &lt;= #{now}
+                       THEN 'EXPIRED'
+                   ELSE c.status
+               END AS effective_status,
+               c.registered_at,
+               c.expires_at,
+               CASE
+                   WHEN c.status = 'ACTIVE' AND c.expires_at &lt;= #{now}
+                       THEN COALESCE(c.terminated_at, c.expires_at)
+                   ELSE c.terminated_at
+               END AS effective_terminated_at,
+               c.version
+        FROM fbs_oauth_client c
+        WHERE CAST(c.product_code AS BINARY)
+                  = CAST('FBSIR_INDEPENDENT_BOARD' AS BINARY)
+          AND c.source_code = 'WORKBUDDY'
+          AND c.connector_code = 'fbs-connector'
+          AND c.issuer_uri = 'https://api2.u3w.com'
+          AND c.resource_uri = 'https://api2.u3w.com/fbs-mcp/mcp'
+          AND c.token_endpoint_auth_method = 'none'
+          AND c.grant_types_canonical = 'authorization_code refresh_token'
+          AND c.response_types_canonical = 'code'
+          AND c.scope_canonical =
+              'identity.read entitlement.read board.meeting.reserve board.receipt.write'
+          AND c.scope_digest =
+              UNHEX('351185152796016cff0c4aba15af369a4891a1e484d9a1cb3513b001e5b8e1d1')
+        <if test="status != null">
+          AND CASE
+                  WHEN c.status = 'ACTIVE' AND c.expires_at &lt;= #{now}
+                      THEN 'EXPIRED'
+                  ELSE c.status
+              END = #{status}
+        </if>
+        <if test="highWaterId != null">
+          AND c.id &lt;= #{highWaterId}
+        </if>
+        <if test="lastId != null">
+          AND c.id &lt; #{lastId}
+        </if>
+        ORDER BY c.id DESC
+        LIMIT #{rowLimit}
+    </select>
+
+    <select id="selectOAuthFamilies" resultMap="OAuthFamilyRow">
+        SELECT f.id AS row_id,
+               f.family_id AS family_ref,
+               f.client_id AS client_ref,
+               f.enterprise_id AS tenant_id,
+               e.enterprise_name AS tenant_name,
+               f.member_id,
+               f.user_id,
+               f.product_code,
+               f.source_code,
+               f.connector_code,
+               f.issuer_uri,
+               f.resource_uri,
+               f.scope_canonical,
+               f.scope_digest,
+               f.consent_intent,
+               f.binding_id AS binding_ref,
+               f.binding_version,
+               f.status AS stored_status,
+               CASE
+                   WHEN f.status IN ('PENDING_BINDING', 'ACTIVE')
+                        AND f.expires_at &lt;= #{now}
+                       THEN 'EXPIRED'
+                   ELSE f.status
+               END AS effective_status,
+               f.current_refresh_generation,
+               f.issued_at,
+               f.activated_at,
+               f.expires_at,
+               CASE
+                   WHEN f.status IN ('PENDING_BINDING', 'ACTIVE')
+                        AND f.expires_at &lt;= #{now}
+                       THEN COALESCE(f.terminated_at, f.expires_at)
+                   ELSE f.terminated_at
+               END AS effective_terminated_at,
+               f.version,
+               c.client_name AS client_display_name,
+               c.status AS client_status,
+               c.expires_at AS client_expires_at,
+               c.terminated_at AS client_terminated_at,
+               c.issuer_uri AS client_issuer_uri,
+               c.resource_uri AS client_resource_uri,
+               c.product_code AS client_product_code,
+               c.source_code AS client_source_code,
+               c.connector_code AS client_connector_code,
+               c.scope_canonical AS client_scope_canonical,
+               c.scope_digest AS client_scope_digest,
+               c.redirect_uri AS client_redirect_uri,
+               c.token_endpoint_auth_method AS client_token_endpoint_auth_method,
+               c.grant_types_canonical AS client_grant_types_canonical,
+               c.response_types_canonical AS client_response_types_canonical,
+               b.enterprise_id AS current_binding_tenant_id,
+               b.member_id AS current_binding_member_id,
+               b.user_id AS current_binding_user_id,
+               b.client_id AS current_binding_client_ref,
+               b.status AS current_binding_status,
+               b.version AS current_binding_version,
+               b.valid_until AS current_binding_valid_until
+        FROM fbs_oauth_token_family f
+        LEFT JOIN fbs_enterprise e
+          ON e.id = f.enterprise_id
+        LEFT JOIN fbs_oauth_client c
+          ON c.client_id = f.client_id
+        LEFT JOIN fbs_connector_binding b
+          ON b.binding_id = f.binding_id
+        WHERE f.enterprise_id = #{tenantId}
+          AND CAST(f.product_code AS BINARY)
+                  = CAST('FBSIR_INDEPENDENT_BOARD' AS BINARY)
+          AND f.source_code = 'WORKBUDDY'
+          AND f.connector_code = 'fbs-connector'
+          AND f.issuer_uri = 'https://api2.u3w.com'
+          AND f.resource_uri = 'https://api2.u3w.com/fbs-mcp/mcp'
+          AND f.scope_canonical =
+              'identity.read entitlement.read board.meeting.reserve board.receipt.write'
+          AND f.scope_digest =
+              UNHEX('351185152796016cff0c4aba15af369a4891a1e484d9a1cb3513b001e5b8e1d1')
+        <if test="status != null">
+          AND CASE
+                  WHEN f.status IN ('PENDING_BINDING', 'ACTIVE')
+                       AND f.expires_at &lt;= #{now}
+                      THEN 'EXPIRED'
+                  ELSE f.status
+              END = #{status}
+        </if>
+        <if test="highWaterId != null">
+          AND f.id &lt;= #{highWaterId}
+        </if>
+        <if test="lastId != null">
+          AND f.id &lt; #{lastId}
+        </if>
+        ORDER BY f.id DESC
+        LIMIT #{rowLimit}
+    </select>
+
+    <select id="selectConnectorBindings" resultMap="ConnectorBindingRow"
+            resultOrdered="true">
+        SELECT candidate.row_id,
+               candidate.binding_ref,
+               candidate.tenant_id,
+               candidate.tenant_name,
+               candidate.member_id,
+               candidate.user_id,
+               candidate.product_code,
+               candidate.source_code,
+               candidate.connector_code,
+               candidate.issuer_uri,
+               candidate.resource_uri,
+               candidate.client_ref,
+               candidate.principal_subject_digest,
+               candidate.binding_status,
+               candidate.verification_method,
+               candidate.verified_at,
+               candidate.last_seen_at,
+               candidate.valid_until,
+               candidate.revoked_at,
+               candidate.version,
+               candidate.entitlement_active,
+               candidate.family_active,
+               s.scope_code
+        FROM (
+            SELECT b.id AS row_id,
+                   b.binding_id AS binding_ref,
+                   b.enterprise_id AS tenant_id,
+                   e.enterprise_name AS tenant_name,
+                   b.member_id,
+                   b.user_id,
+                   b.product_code,
+                   b.source_code,
+                   b.connector_code,
+                   b.issuer_uri,
+                   b.resource_uri,
+                   b.client_id AS client_ref,
+                   b.principal_subject_digest,
+                   b.status AS binding_status,
+                   b.verification_method,
+                   b.verified_at,
+                   b.last_seen_at,
+                   b.valid_until,
+                   b.revoked_at,
+                   b.version,
+                   CASE WHEN EXISTS (
+                       SELECT 1
+                       FROM fbs_product_entitlement ent
+                       INNER JOIN fbs_product_plan plan
+                         ON CAST(plan.product_code AS BINARY)
+                                = CAST(ent.product_code AS BINARY)
+                        AND CAST(plan.plan_code AS BINARY)
+                                = CAST(ent.plan_code AS BINARY)
+                        AND CAST(plan.plan_code AS BINARY) = CAST('BOARD_VIP' AS BINARY)
+                        AND plan.vip = 1
+                        AND plan.connector_required = 1
+                        AND plan.daily_meeting_limit = 5
+                        AND plan.agenda_limit = 30
+                        AND plan.seat_limit IS NULL
+                        AND plan.secretary_enabled = 1
+                        AND CAST(plan.status AS BINARY) = CAST('ACTIVE' AS BINARY)
+                       INNER JOIN fbs_enterprise_member live_member
+                         ON live_member.id = ent.member_id
+                        AND live_member.enterprise_id = ent.enterprise_id
+                        AND live_member.user_id = ent.user_id
+                        AND live_member.status = 1
+                        AND live_member.del_flag = '0'
+                       INNER JOIN fbs_enterprise live_enterprise
+                         ON live_enterprise.id = ent.enterprise_id
+                        AND live_enterprise.status = 1
+                        AND live_enterprise.del_flag = '0'
+                       INNER JOIN sys_user live_user
+                         ON live_user.user_id = ent.user_id
+                        AND live_user.status = '0'
+                        AND live_user.del_flag = '0'
+                       WHERE ent.enterprise_id = b.enterprise_id
+                         AND ent.member_id = b.member_id
+                         AND ent.user_id = b.user_id
+                         AND CAST(ent.product_code AS BINARY)
+                                = CAST('FBSIR_INDEPENDENT_BOARD' AS BINARY)
+                         AND CAST(ent.plan_code AS BINARY) = CAST('BOARD_VIP' AS BINARY)
+                         AND CAST(ent.status AS BINARY) = CAST('ACTIVE' AS BINARY)
+                         AND ent.connector_binding_id = b.binding_id
+                         AND ent.connector_verified_at = b.verified_at
+                         AND ent.valid_from &lt;= #{now}
+                         AND (ent.valid_until IS NULL OR ent.valid_until &gt; #{now})
+                   ) THEN 1 ELSE 0 END AS entitlement_active,
+                   CASE WHEN b.status = 'ACTIVE'
+                             AND b.last_seen_at &lt; b.valid_until
+                             AND b.valid_until &gt; #{now}
+                             AND EXISTS (
+                       SELECT 1
+                       FROM fbs_oauth_token_family f
+                       WHERE f.binding_id = b.binding_id
+                         AND f.binding_version = b.version
+                         AND f.enterprise_id = b.enterprise_id
+                         AND f.member_id = b.member_id
+                         AND f.user_id = b.user_id
+                         AND f.client_id = b.client_id
+                         AND CAST(f.product_code AS BINARY)
+                                = CAST('FBSIR_INDEPENDENT_BOARD' AS BINARY)
+                         AND f.source_code = 'WORKBUDDY'
+                         AND f.connector_code = 'fbs-connector'
+                         AND f.issuer_uri = 'https://api2.u3w.com'
+                         AND f.resource_uri = 'https://api2.u3w.com/fbs-mcp/mcp'
+                         AND f.scope_canonical =
+                             'identity.read entitlement.read board.meeting.reserve board.receipt.write'
+                         AND f.scope_digest =
+                             UNHEX('351185152796016cff0c4aba15af369a4891a1e484d9a1cb3513b001e5b8e1d1')
+                         AND f.status = 'ACTIVE'
+                         AND f.activated_at IS NOT NULL
+                         AND f.expires_at &gt; #{now}
+                         AND EXISTS (
+                             SELECT 1
+                             FROM fbs_oauth_client oc
+                             WHERE oc.client_id = f.client_id
+                               AND oc.status = 'ACTIVE'
+                               AND oc.expires_at &gt; #{now}
+                               AND CAST(oc.product_code AS BINARY)
+                                      = CAST('FBSIR_INDEPENDENT_BOARD' AS BINARY)
+                               AND oc.source_code = 'WORKBUDDY'
+                               AND oc.connector_code = 'fbs-connector'
+                               AND oc.issuer_uri = 'https://api2.u3w.com'
+                               AND oc.resource_uri = 'https://api2.u3w.com/fbs-mcp/mcp'
+                               AND oc.token_endpoint_auth_method = 'none'
+                               AND oc.scope_canonical = f.scope_canonical
+                               AND oc.scope_digest = f.scope_digest
+                         )
+                         AND EXISTS (
+                             SELECT 1
+                             FROM fbs_oauth_token refresh_token
+                             WHERE refresh_token.family_id = f.family_id
+                               AND refresh_token.token_type = 'REFRESH'
+                               AND refresh_token.generation = f.current_refresh_generation
+                               AND refresh_token.status = 'ACTIVE'
+                               AND refresh_token.used_at IS NULL
+                               AND refresh_token.revoked_at IS NULL
+                               AND refresh_token.expires_at &gt; #{now}
+                               AND refresh_token.resource_uri = f.resource_uri
+                               AND refresh_token.scope_canonical = f.scope_canonical
+                               AND refresh_token.scope_digest = f.scope_digest
+                         )
+                         AND EXISTS (
+                             SELECT 1
+                             FROM fbs_oauth_receipt activation_receipt
+                             WHERE activation_receipt.family_id = f.family_id
+                               AND activation_receipt.client_id = f.client_id
+                               AND activation_receipt.binding_id = f.binding_id
+                               AND activation_receipt.enterprise_id = f.enterprise_id
+                               AND activation_receipt.member_id = f.member_id
+                               AND activation_receipt.user_id = f.user_id
+                               AND activation_receipt.principal_subject_digest
+                                      = f.principal_subject_digest
+                               AND activation_receipt.action IN
+                                   ('TOKEN_FAMILY_ACTIVATED', 'TOKEN_FAMILY_REAUTHORIZED')
+                               AND activation_receipt.evidence_level = 'ACTION_COMPLETED'
+                         )
+                   ) AND EXISTS (
+                       SELECT 1
+                       FROM fbs_connector_binding_receipt binding_receipt
+                       WHERE binding_receipt.binding_id = b.binding_id
+                         AND binding_receipt.enterprise_id = b.enterprise_id
+                         AND binding_receipt.member_id = b.member_id
+                         AND binding_receipt.user_id = b.user_id
+                         AND binding_receipt.action = 'CONNECTOR_BINDING_VERIFIED'
+                         AND binding_receipt.evidence_level = 'ACTION_COMPLETED'
+                   ) THEN 1 ELSE 0 END AS family_active
+            FROM fbs_connector_binding b
+            LEFT JOIN fbs_enterprise e
+              ON e.id = b.enterprise_id
+            WHERE b.enterprise_id = #{tenantId}
+              AND CAST(b.product_code AS BINARY)
+                      = CAST('FBSIR_INDEPENDENT_BOARD' AS BINARY)
+              AND b.source_code = 'WORKBUDDY'
+              AND b.connector_code = 'fbs-connector'
+              AND b.issuer_uri = 'https://api2.u3w.com'
+              AND b.resource_uri = 'https://api2.u3w.com/fbs-mcp/mcp'
+            <if test="status != null">
+              AND b.status = #{status}
+            </if>
+            <if test="highWaterId != null">
+              AND b.id &lt;= #{highWaterId}
+            </if>
+            <if test="lastId != null">
+              AND b.id &lt; #{lastId}
+            </if>
+            ORDER BY b.id DESC
+            LIMIT #{rowLimit}
+        ) candidate
+        LEFT JOIN fbs_connector_binding_scope s
+          ON s.binding_id = candidate.binding_ref
+        ORDER BY candidate.row_id DESC,
+                 CASE s.scope_code
+                     WHEN 'identity.read' THEN 1
+                     WHEN 'entitlement.read' THEN 2
+                     WHEN 'board.meeting.reserve' THEN 3
+                     WHEN 'board.receipt.write' THEN 4
+                     ELSE 5
+                 END
+    </select>
+
+</mapper>
