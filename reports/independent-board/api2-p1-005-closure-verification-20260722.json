@@ -2,7 +2,7 @@
   "schema": "fbsir.independent-board.api2-p1-005-closure-verification/v1",
   "captureSchema": "fbsir.api2.cleanroom.closure-manifest/v1",
   "parser": "heuristic-literal-import-regex/v1",
-  "observedAt": "2026-07-22T03:41:30+08:00",
+  "observedAt": "2026-07-22T03:55:14+08:00",
   "boundary": "local_cleanroom_read_only_no_build_no_upload_no_release_write",
   "sourceRoot": "work/api2-cleanroom/p1-005-active-20260722/source",
   "roots": [
@@ -76,12 +76,12 @@
   ],
   "runtimeInputs": {
     "mandatorySpecCount": 5,
-    "optionalSpecCount": 19,
+    "optionalSpecCount": 20,
     "mutableExcludedSpecCount": 5,
     "externalBoundaryCount": 3,
     "specCoverage": {
-      "declaredServePathCount": 24,
-      "capturedSpecCount": 24,
+      "declaredServePathCount": 25,
+      "capturedSpecCount": 25,
       "complete": true
     }
   },

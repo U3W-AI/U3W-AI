@@ -110,6 +110,8 @@
     "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/service/BoardAttributionApi2ReceiptVerifier.java",
     "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/service/IndependentBoardAttributionEvidenceService.java",
     "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/service/BoardAttributionEnvelopeVerifier.java",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/mapper/IndependentBoardAttributionMapper.java",
+    "FBSir-business/src/main/resources/mapper/board/attribution/IndependentBoardAttributionMapper.xml",
     "reports/independent-board/java-api2-boundary-contract-verification-20260722.json",
     "work/api2-cleanroom/p1-005-active-20260722",
     "scripts/build-api2-p1-005-candidate.mjs",
@@ -223,10 +225,12 @@
     "w4b2d_public_init_037_default_off_append_only_evidence_schema_manifest_verified",
     "w4b2d_live_api2_ack_object_contract_adapter_rejects_boolean_and_unregistered_product"
     ,"w4b2d_api2_active_release_hash_anchored_cleanroom_capture_completed_read_only"
+    ,"w4b2d_api2_runtime_input_spec_coverage_25_of_25"
     ,"w4b2d_p1_005a_candidate_exact_version_gate_and_default_off_smoke_passed"
     ,"w4b2d_p1_005a_transitive_hash_anchors_frozen_zip_check_and_candidate_output_reset_verified"
     ,"w4b2d_java_evidence_time_identity_and_snapshot_concurrency_hardening_static_verified"
     ,"w4b2d_java_challenge_nonce_and_strict_expiry_binding_static_contract_verified"
+    ,"w4b2d_java_stage_predecessor_chain_guard_static_contract_verified"
   ],
   "notProven": [
     "oauth_public_routes",
@@ -243,7 +247,6 @@
     "api2_p1_005_cleanroom_critical_inventory_and_deploy_closure",
     "api2_p1_005_signed_exact_host_registration_receipt",
     "api2_java_api2_receipt_verifier_implementation_and_trusted_keyring",
-    "api2_java_stage_predecessor_chain_gate",
     "api2_active_release_metadata_alignment_and_strict_git_provenance",
     "api2_schema_constraint_and_trigger_body_current_read",
     "real_official_entry_same_binding_target_candidate",
@@ -358,5 +361,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-22T03:41:30+08:00"
+  "updatedAt": "2026-07-22T03:55:14+08:00"
 }

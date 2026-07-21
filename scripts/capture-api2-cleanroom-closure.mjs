@@ -71,6 +71,7 @@ const runtimeInputSpecs = [
   { path: 'data/fubangshou-backend-upgrade-contracts-20260617.json', class: 'optional', source: 'tools/serve.mjs:180' },
   { path: 'data/fbs130-test-accounts.local.json', class: 'optional', source: 'tools/serve.mjs:183' },
   { path: 'reports/api2-admin-capability-scan-latest.json', class: 'optional', source: 'tools/serve.mjs:178' },
+  { path: 'reports/api2-admin-test-account-dryrun-latest.json', class: 'optional', source: 'tools/serve.mjs:5157' },
   { path: 'reports/service-traction-hourly-client-analysis-latest.json', class: 'optional', source: 'tools/serve.mjs:1078' },
   { path: 'reports/fbs130-product-intelligence-ops-test-latest.json', class: 'optional', source: 'tools/serve.mjs:167' },
   { path: 'reports/fbs130-independent-client-behavior-tracking-latest.json', class: 'optional', source: 'tools/serve.mjs:169' },

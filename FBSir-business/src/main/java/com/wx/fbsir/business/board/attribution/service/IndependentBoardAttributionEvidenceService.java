@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -66,7 +67,6 @@ public class IndependentBoardAttributionEvidenceService implements BoardAttribut
         BoardAttributionApi2ReceiptVerifier trustedVerifier = requireEnabled();
         verifier.verify(event, properties); exactPendingContract();
         BoardHostForwardingChallenge challenge = mapper.selectChallengeForUpdate(event.getChallengeId(), event.getServerBindingId(), event.getContractId());
-        trustedVerifier.verifyEvent(event, challenge, properties);
         Date now = new Date();
         if (challenge == null || !"ISSUED".equals(challenge.getStatus()) || !challenge.getExpiresAt().after(now)
                 || !Objects.equals(challenge.getTenantSubjectDigest(), event.getTenantSubjectDigest())
@@ -74,6 +74,15 @@ public class IndependentBoardAttributionEvidenceService implements BoardAttribut
                 || event.getIssuedAt().before(challenge.getIssuedAt()) || event.getExpiresAt().after(challenge.getExpiresAt())) {
             throw new IllegalStateException("Independent Board challenge is not active");
         }
+        List<Long> priorSequenceNos = mapper.selectSuccessfulPriorSequenceNosForUpdate(
+                event.getChallengeId(), event.getServerBindingId(), event.getContractId(),
+                event.getTenantSubjectDigest(), event.getSequenceNo());
+        for (long expectedSequence = 1; expectedSequence < event.getSequenceNo(); expectedSequence++) {
+            if (!priorSequenceNos.contains(expectedSequence)) {
+                throw new IllegalStateException("Independent Board attribution stage predecessor is missing");
+            }
+        }
+        trustedVerifier.verifyEvent(event, challenge, properties);
         mapper.insertEventIfAbsent(event);
         BoardAttributionEvidenceEvent persisted = mapper.selectEventByReceiptForUpdate(event.getReceiptId());
         if (!sameEvent(persisted, event)) {

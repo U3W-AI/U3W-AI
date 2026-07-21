@@ -77,3 +77,4 @@ P1-005 不得从 active release 目录直接热补丁。必须以可证明的 cl
 - v2 ack 不携带 U3W `tenantSubjectDigest`。U3W 必须以自己签发并锁定的 challenge/session 期望值注入 verifier，并同时比较 tenant、serverBindingId、challengeId、requestDigest，禁止从 ack 自报租户。
 - Java writer 在 verifier/adapter/keyring 未落地前必须 fail-closed；本轮仅补齐 challenge nonce 绑定与严格 `expiresAt > issuedAt` 静态护栏，不能宣称 API2 加密回执闭环。
 - 下一版宿主升级需求：提供完整 v2 ack DTO、受管 key resolver（最少 32 bytes）、canonical JSON/HMAC 常量时间校验、nonce replay 存储，以及由唯一工厂生成 `VerifiedApi2Receipt` 后才允许写入证据端口。
+- 本轮补充：Java writer 先锁 challenge 并验证独董会前序链，再执行 v2 verifier；verifier 的验签/nonce replay 预留必须保持无副作用，直到 append/seal 事务接受证据，避免乱序或拒绝事件消耗 replay 状态。

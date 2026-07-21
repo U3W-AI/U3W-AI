@@ -1,6 +1,6 @@
 {
   "schema": "fbsir.independent-board.api2-24h-traffic-attribution/v2",
-  "observedAt": "2026-07-22T02:46:33+08:00",
+  "observedAt": "2026-07-22T03:49:14+08:00",
   "window": {
     "start": "2026-07-20T18:19:54Z",
     "end": "2026-07-21T18:25:34Z",
@@ -61,8 +61,10 @@
     "status": "ok",
     "serviceRelease": "202607152006-p1-004-runtime-state-14e20a6d",
     "sourceGitHead": "c01891a0ca3e11db0a0fe51828276fab33b862b5",
-    "eventCount": 49126,
-    "persistenceDurableRevision": 3987,
+    "eventCount": 49138,
+    "persistenceRequestedWrites": 3999,
+    "persistenceCompletedWrites": 3997,
+    "persistenceDurableRevision": 3999,
     "strictDurabilityConfirmed": true,
     "hostForwardingAckStatus": "observe_only_not_ready",
     "enforcementMode": "observe_only",
@@ -72,6 +74,38 @@
     "publicChallengeRoute": false,
     "attributionDecisionBoardPolicy": "fail_closed",
     "interpretation": "service health is proven; independent-board registration and signed host receipt are not proven"
+  },
+  "currentRuntimeSnapshot": {
+    "observedAt": "2026-07-21T19:49:14Z",
+    "source": "/var/lib/fbss-phase1/runtime-state.json",
+    "sourceMtime": "2026-07-21T19:47:03Z",
+    "sourceBytes": 199799793,
+    "retentionWindow": {
+      "start": "2026-07-20T19:49:44.156Z",
+      "end": "2026-07-21T19:47:01.992Z",
+      "complete": false
+    },
+    "inputRows": 722,
+    "allReleaseIds": ["P1-004"],
+    "hostForwardingReceiptObservedCount": 0,
+    "hostForwardingReceiptCreditEligibleCount": 0,
+    "transportCoverageHours": 0,
+    "crossLayerJoinRate": 0,
+    "classificationAuthorityCoverage": 0,
+    "exactIndependentBoardIdentityHits": 0,
+    "products": {
+      "fbs-bookwriter": 72,
+      "fbsir-super-partner-group": 35,
+      "fbsir-board-secretary-assistant": 22,
+      "fbsir-industry-scene-researcher": 6
+    },
+    "eventKinds": {
+      "whoami_emitted": 504,
+      "scene_pack_resolved": 78,
+      "first_value_completed": 74,
+      "continued_use_completed": 66
+    },
+    "interpretation": "runtime snapshot is useful for traffic and release attribution, but does not prove independent-board natural usage or signed host receipt"
   },
   "liveDecisionBoard": {
     "httpStatus": 200,

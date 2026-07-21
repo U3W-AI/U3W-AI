@@ -1,6 +1,6 @@
 {
   "schema": "fbsir.independent-board.api2-p1-005-candidate-verification/v1",
-  "observedAt": "2026-07-22T03:41:30+08:00",
+  "observedAt": "2026-07-22T03:53:57+08:00",
   "boundary": "local_cleanroom_candidate_only_no_active_release_write",
   "frozenPackage": {
     "path": "D:/Spg719/fbsir-eight-seat-board-26.7.20.zip",

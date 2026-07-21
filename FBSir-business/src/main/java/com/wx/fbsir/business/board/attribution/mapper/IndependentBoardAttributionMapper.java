@@ -7,6 +7,8 @@ import com.wx.fbsir.business.board.attribution.domain.BoardHostForwardingChallen
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 @Mapper
 public interface IndependentBoardAttributionMapper {
     BoardAttributionProductContract selectExactProductForUpdate(@Param("productId") String productId,
@@ -22,6 +24,12 @@ public interface IndependentBoardAttributionMapper {
                               @Param("status") String status);
 
     int insertEventIfAbsent(BoardAttributionEvidenceEvent event);
+
+    List<Long> selectSuccessfulPriorSequenceNosForUpdate(@Param("challengeId") String challengeId,
+                                                          @Param("serverBindingId") String serverBindingId,
+                                                          @Param("contractId") String contractId,
+                                                          @Param("tenantSubjectDigest") String tenantSubjectDigest,
+                                                          @Param("beforeSequenceNo") long beforeSequenceNo);
 
     BoardAttributionEvidenceEvent selectEventByReceiptForUpdate(@Param("receiptId") String receiptId);
 

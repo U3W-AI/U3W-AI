@@ -68,6 +68,19 @@
             #{observedAt}, #{sequenceNo}, #{sampleCount}, #{canonicalDigest}, #{signerKeyId}, #{issuer}, #{audience}, #{receiptNonceHash}, #{receiptSignature}, #{issuedAt}, #{expiresAt})
     ON DUPLICATE KEY UPDATE event_id = VALUES(event_id)
   </insert>
+  <select id="selectSuccessfulPriorSequenceNosForUpdate" resultType="long">
+    SELECT sequence_no
+      FROM fbs_attribution_evidence_event
+     WHERE challenge_id = #{challengeId}
+       AND server_binding_id = #{serverBindingId}
+       AND contract_id = #{contractId}
+       AND tenant_subject_digest = #{tenantSubjectDigest}
+       AND outcome = 'success'
+       AND entry_surface = 'official_entry'
+       AND sequence_no &lt; #{beforeSequenceNo}
+     ORDER BY sequence_no
+     FOR UPDATE
+  </select>
   <select id="selectEventByReceiptForUpdate" resultMap="Event">
     SELECT event_id, receipt_id, challenge_id, contract_id, server_binding_id, tenant_subject_digest, stage, outcome, entry_surface, channel_track,
            observed_at, sequence_no, sample_count, canonical_digest, signer_key_id, issuer, audience, receipt_nonce_hash, receipt_signature, issued_at, expires_at, event_watermark

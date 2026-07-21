@@ -143,7 +143,9 @@
         "w4b2d_live_api2_ack_object_contract_adapter_rejects_boolean_and_unregistered_product",
         "w4b2d_api2_active_release_hash_anchored_cleanroom_capture_completed_read_only",
         "w4b2d_api2_cleanroom_manifest_runtime_inputs_and_per_file_hash_audit_passed",
+        "w4b2d_api2_runtime_input_spec_coverage_25_of_25",
         "w4b2d_java_challenge_nonce_and_strict_expiry_guard_static_contract_passed",
+        "w4b2d_java_stage_predecessor_chain_guard_static_contract_passed",
         "w4b2d_java_writer_default_fails_closed_without_api2_verifier_bean"
       ],
       "nextSlice": {

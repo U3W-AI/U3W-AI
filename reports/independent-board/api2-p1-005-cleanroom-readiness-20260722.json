@@ -1,6 +1,6 @@
 {
   "schema": "fbsir.independent-board.api2-p1-005-cleanroom-readiness/v1",
-  "observedAt": "2026-07-22T03:41:30+08:00",
+  "observedAt": "2026-07-22T03:55:14+08:00",
   "boundary": "read_only_remote_capture_local_cleanroom_no_active_release_write",
   "activeRelease": {
     "path": "/opt/fbss/phase1/releases/202607152006-p1-004-runtime-state-14e20a6d.staged",
@@ -74,11 +74,11 @@
     "criticalInventoryMissingCount": 1062,
     "runtimeInputSpecCoverage": {
       "mandatory": 5,
-      "optional": 19,
+      "optional": 20,
       "mutableExcluded": 5,
       "external": 3,
-      "declaredServePathCount": 24,
-      "capturedSpecCount": 24,
+      "declaredServePathCount": 25,
+      "capturedSpecCount": 25,
       "complete": true
     },
     "fullServicePackageClosure": "not_proven",
