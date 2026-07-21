@@ -62,9 +62,13 @@ if (Test-Path -LiteralPath $repoPath) {
     throw "Repository destination already exists; refusing to overwrite: $repoPath"
 }
 
-& git clone --branch $manifest.git.branch --single-branch $bundlePath $repoPath
+& git -c core.longpaths=true clone --branch $manifest.git.branch --single-branch $bundlePath $repoPath
 if ($LASTEXITCODE -ne 0) {
     throw "Git clone failed with exit code $LASTEXITCODE"
+}
+& git -C $repoPath config core.longpaths true
+if ($LASTEXITCODE -ne 0) {
+    throw 'Failed to persist core.longpaths for the restored Windows checkout.'
 }
 & git -C $repoPath remote set-url origin $manifest.git.remote
 if ($LASTEXITCODE -ne 0) {
