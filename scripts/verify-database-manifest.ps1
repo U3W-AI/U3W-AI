@@ -40,6 +40,14 @@ catch {
 }
 
 $errors = [System.Collections.Generic.List[string]]::new()
+$mysqlTransactionItRunnerPath = Join-Path $resolvedRoot 'scripts\run-independent-board-mysql-transaction-it.ps1'
+if (-not (Test-Path -LiteralPath $mysqlTransactionItRunnerPath -PathType Leaf)) {
+    $errors.Add('Independent Board MySQL transaction runner is missing')
+    $mysqlTransactionItRunnerSource = ''
+}
+else {
+    $mysqlTransactionItRunnerSource = Get-Content -LiteralPath $mysqlTransactionItRunnerPath -Raw -Encoding UTF8
+}
 $managedFiles = @(Get-ChildItem -LiteralPath $sqlRoot -Filter "update_*.sql" -File | Sort-Object Name)
 $manifestUpdateSteps = @($manifest.steps | Where-Object { $_.file -like "update_*.sql" })
 try {
@@ -73,6 +81,17 @@ if ($null -ne $declarativeManifest) {
 if ([string]$manifest.manifestFile -ne 'sql/init-manifest.json' -or
     [string]$manifest.manifestSchema -ne 'fbsir.public-database-init-manifest/v1') {
     $errors.Add("initializer DryRun did not bind the declarative manifest identity")
+}
+
+$strictUtf8 = [System.Text.UTF8Encoding]::new($false, $true)
+foreach ($step in @($manifest.steps)) {
+    $managedSqlPath = Join-Path $sqlRoot ([string]$step.file)
+    try {
+        $null = $strictUtf8.GetString([System.IO.File]::ReadAllBytes($managedSqlPath))
+    }
+    catch {
+        $errors.Add("managed SQL is not strict UTF-8: $($step.file)")
+    }
 }
 
 if (-not $manifest.coverageOk) {
@@ -113,6 +132,8 @@ $requiredTail = @{
     public_init_031 = "update_20260720_independent_board_entitlement_lifecycle_menu.sql"
     public_init_032 = "update_20260721_independent_board_connector_binding.sql"
     public_init_033 = "update_20260721_independent_board_oauth_foundation.sql"
+    public_init_034 = "update_20260721_independent_board_oauth_receipt_provenance.sql"
+    public_init_035 = "update_20260721_independent_board_oauth_consent_intent_lineage.sql"
 }
 foreach ($version in $requiredTail.Keys) {
     $matches = @($manifest.steps | Where-Object { $_.version -eq $version -and $_.file -eq $requiredTail[$version] })
@@ -122,6 +143,9 @@ foreach ($version in $requiredTail.Keys) {
 }
 
 $initSource = Get-Content -LiteralPath $initScript -Raw -Encoding UTF8
+if ($initSource -match '[^\x00-\x7F]') {
+    $errors.Add('initializer must remain ASCII-only for Windows PowerShell 5 compatibility')
+}
 if ($initSource -match '\$steps\.Count\s+-ne\s+\d+' -or
     $initSource -match 'Expected\s+\d+\s+applied public initialization receipts' -or
     $initSource -match 'Database initialization complete:\s+\d+/\d+') {
@@ -152,6 +176,7 @@ $requiredInitNeedles = @(
     "[switch]`$CurrentReadOnly",
     "Get-BaseSchemaBytesForTargetDatabase",
     "Base schema target rewrite requires exactly one canonical CREATE DATABASE and one canonical USE statement.",
+    'Managed SQL must be strict UTF-8:',
     "if (`$step.Version -eq 'public_init_001')"
 )
 foreach ($needle in $requiredInitNeedles) {
@@ -658,12 +683,21 @@ foreach ($tableName in $expectedConnectorBindingColumns.Keys) {
 }
 
 $oauthFoundationSqlPath = Join-Path $sqlRoot "update_20260721_independent_board_oauth_foundation.sql"
+$expectedOauthFoundationSha256 = 'b103ac5936ab1cb4bce865f04256f41826d90693556bc5627c09fc4ffee5de27'
+$oauthFoundationSha256 = ''
 if (-not (Test-Path -LiteralPath $oauthFoundationSqlPath -PathType Leaf)) {
     $errors.Add("Independent Board OAuth foundation migration is missing")
     $oauthFoundationSql = ''
 }
 else {
     $oauthFoundationSql = Get-Content -LiteralPath $oauthFoundationSqlPath -Raw -Encoding UTF8
+    $oauthFoundationSha256 = (Get-FileHash -LiteralPath $oauthFoundationSqlPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if (-not [string]::Equals(
+            $oauthFoundationSha256,
+            $expectedOauthFoundationSha256,
+            [StringComparison]::Ordinal)) {
+        $errors.Add("public_init_033 byte contract drifted: expected SHA-256 $expectedOauthFoundationSha256, found $oauthFoundationSha256")
+    }
 }
 $neutralOauthClientName = -join (26410,39564,35777,30340,26412,22320,20844,20849,23458,25143,31471 | ForEach-Object { [char]$_ })
 $requiredOauthFoundationNeedles = @(
@@ -907,6 +941,475 @@ foreach ($tableName in $expectedOauthFoundationColumns.Keys) {
     }
 }
 
+$oauthProvenanceSqlPath = Join-Path $sqlRoot 'update_20260721_independent_board_oauth_receipt_provenance.sql'
+$expectedOauthProvenanceSha256 = '2ba6fce7c3161b1647397485c37681974202b3a566ab370cc05587b1cfde7af3'
+$oauthProvenanceSha256 = ''
+if (-not (Test-Path -LiteralPath $oauthProvenanceSqlPath -PathType Leaf)) {
+    $errors.Add('Independent Board OAuth provenance migration is missing')
+    $oauthProvenanceSql = ''
+}
+else {
+    $oauthProvenanceSql = Get-Content -LiteralPath $oauthProvenanceSqlPath -Raw -Encoding UTF8
+    $oauthProvenanceSha256 = (Get-FileHash -LiteralPath $oauthProvenanceSqlPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if (-not [string]::Equals(
+            $oauthProvenanceSha256,
+            $expectedOauthProvenanceSha256,
+            [StringComparison]::Ordinal)) {
+        $errors.Add("public_init_034 byte contract drifted: expected SHA-256 $expectedOauthProvenanceSha256, found $oauthProvenanceSha256")
+    }
+}
+$oauthSuccessorCheckDigest = 'd8878ff64c7e897ddd8d42db6f0afd1a264d2cc8c1794d155051f0cd1638103b'
+$requiredOauthProvenanceNeedles = @(
+    '20260721_independent_board_oauth_receipt_provenance_v1',
+    'public_init_034',
+    'public_init_033',
+    'exact MySQL 8.0.30 or 8.4.8',
+    'MySQL Community Server - GPL',
+    "INSTR(LOWER(VERSION()), 'mariadb') > 0",
+    'SET migration_lock_name = SHA2(',
+    'CHAR_LENGTH(migration_lock_name) <> 64',
+    'GET_LOCK(migration_lock_name, 30)',
+    'IS_USED_LOCK(migration_lock_name)',
+    'migration_lock_owner <> current_connection',
+    'RELEASE_LOCK(migration_lock_name)',
+    'DECLARE EXIT HANDLER FOR SQLEXCEPTION',
+    'ROLLBACK;',
+    'RUNNING:Independent Board OAuth TOKEN_FAMILY_CREATED provenance uniqueness',
+    'APPLIED:Independent Board OAuth TOKEN_FAMILY_CREATED provenance uniqueness',
+    'TOKEN_FAMILY_CREATED receipt lineage is missing or drifted',
+    'WHERE r.`action` = ''TOKEN_FAMILY_CREATED''',
+    'f.`origin_authorization_code_id` <> r.`authorization_code_id`',
+    'WHERE `action` = ''TOKEN_FAMILY_CREATED''',
+    'HAVING COUNT(*) > 1',
+    'ALTER TABLE `fbs_oauth_receipt`',
+    'ADD COLUMN `family_created_slot`',
+    'WHEN `action` = ''TOKEN_FAMILY_CREATED'' THEN `family_id`',
+    'ELSE NULL',
+    'STORED',
+    'ADD UNIQUE KEY `uk_oauth_receipt_family_created_slot`',
+    '(`family_created_slot`)',
+    'provenance DDL is partial, orphaned or drifted',
+    "SET migration_stage = 'final-metadata-current-read'",
+    "AND NOT (table_name = 'fbs_oauth_receipt'",
+    "AND column_name = 'family_created_slot'",
+    "AND index_name = 'uk_oauth_receipt_family_created_slot'",
+    '89883a39d5aca493a15777ed12fee5a2c478627d7290e02c22ec0d3ffeaf0cf0',
+    '1a3122b7238b444939a7981ccd759322bd168f351131e4d9c0a16346242c3d79',
+    '016bed0a311d4dbd85f1d3c63e1bf46e82b9ce21527ad304b4139482f274f539',
+    '3bc201df5f29e65e40024a6cf95dd2b5d46be928bef422f6934ab7c06a94368f',
+    '51f71711dfc17b5a6741fbbd1bd3d31ae7d4761e9da5722c614eb199a81afb11',
+    "WHEN '8.0.30' THEN '$oauthSuccessorCheckDigest'",
+    "WHEN '8.4.8' THEN '$oauthSuccessorCheckDigest'",
+    'CAST(expected_successor_check_contract_digest AS BINARY)',
+    'DECLARE original_group_concat_max_len BIGINT UNSIGNED DEFAULT 0',
+    'DECLARE group_concat_limit_changed TINYINT DEFAULT 0',
+    'SET original_group_concat_max_len = @@SESSION.group_concat_max_len',
+    'IF original_group_concat_max_len < 1048576 THEN',
+    'SET SESSION group_concat_max_len = 1048576',
+    'SET group_concat_limit_changed = 1',
+    'SET SESSION group_concat_max_len = original_group_concat_max_len',
+    'SET group_concat_limit_changed = 0',
+    'target_column_count <> 145',
+    'target_generated_column_count <> 3',
+    'target_index_count <> 53',
+    'target_foreign_key_count <> 14',
+    'target_check_count <> 33',
+    'target_trigger_count <> 2',
+    'LEFT JOIN `fbs_oauth_token_family`',
+    'f.`family_id` IS NULL',
+    "SET migration_stage = 'receipt-finalization'",
+    'FOR UPDATE;',
+    'provenance APPLIED receipt is not exact'
+)
+foreach ($needle in $requiredOauthProvenanceNeedles) {
+    if (-not $oauthProvenanceSql.Contains($needle)) {
+        $errors.Add("Independent Board OAuth provenance SQL is missing required contract: $needle")
+    }
+}
+$escapedOauthSuccessorCheckDigest = [regex]::Escape($oauthSuccessorCheckDigest)
+$oauthSuccessorCheckMappingPattern =
+    "(?s)SET\s+expected_successor_check_contract_digest\s*=\s*CASE\s+server_version\s+" +
+    "WHEN\s+'8\.0\.30'\s+THEN\s+'$escapedOauthSuccessorCheckDigest'\s+" +
+    "WHEN\s+'8\.4\.8'\s+THEN\s+'$escapedOauthSuccessorCheckDigest'\s+" +
+    "ELSE\s+NULL\s+END;"
+if (-not [regex]::IsMatch($oauthProvenanceSql, $oauthSuccessorCheckMappingPattern)) {
+    $errors.Add("Independent Board OAuth provenance SQL must bind both exact MySQL builds to successor CHECK digest $oauthSuccessorCheckDigest")
+}
+if (@([regex]::Matches(
+        $oauthProvenanceSql,
+        [regex]::Escape($oauthSuccessorCheckDigest))).Count -ne 2) {
+    $errors.Add('Independent Board OAuth provenance successor CHECK digest must occur exactly once for each allowlisted MySQL build')
+}
+
+$groupConcatCaptureNeedle = 'SET original_group_concat_max_len = @@SESSION.group_concat_max_len;'
+$groupConcatRaiseNeedle = 'SET SESSION group_concat_max_len = 1048576;'
+$groupConcatRestoreNeedle = 'SET SESSION group_concat_max_len = original_group_concat_max_len;'
+$groupConcatCaptureIndex = $oauthProvenanceSql.IndexOf($groupConcatCaptureNeedle, [StringComparison]::Ordinal)
+$groupConcatRaiseIndex = $oauthProvenanceSql.IndexOf($groupConcatRaiseNeedle, [StringComparison]::Ordinal)
+$firstGroupConcatIndex = $oauthProvenanceSql.IndexOf('GROUP_CONCAT(', [StringComparison]::Ordinal)
+$lastGroupConcatIndex = $oauthProvenanceSql.LastIndexOf('GROUP_CONCAT(', [StringComparison]::Ordinal)
+$successfulGroupConcatRestoreIndex = $oauthProvenanceSql.LastIndexOf($groupConcatRestoreNeedle, [StringComparison]::Ordinal)
+$oauthProvenanceReleaseIndex = $oauthProvenanceSql.LastIndexOf('SELECT RELEASE_LOCK(migration_lock_name)', [StringComparison]::Ordinal)
+if ($groupConcatCaptureIndex -lt 0 -or
+    $groupConcatRaiseIndex -le $groupConcatCaptureIndex -or
+    $firstGroupConcatIndex -le $groupConcatRaiseIndex -or
+    $lastGroupConcatIndex -lt $firstGroupConcatIndex -or
+    $successfulGroupConcatRestoreIndex -le $lastGroupConcatIndex -or
+    $oauthProvenanceReleaseIndex -le $successfulGroupConcatRestoreIndex) {
+    $errors.Add('Independent Board OAuth provenance must raise the complete GROUP_CONCAT ceiling before every aggregate and restore it after final metadata use but before lock release')
+}
+if (@([regex]::Matches($oauthProvenanceSql, [regex]::Escape($groupConcatRaiseNeedle))).Count -ne 1 -or
+    @([regex]::Matches($oauthProvenanceSql, [regex]::Escape($groupConcatRestoreNeedle))).Count -ne 2 -or
+    @([regex]::Matches($oauthProvenanceSql, [regex]::Escape('SET group_concat_limit_changed = 1;'))).Count -ne 1 -or
+    @([regex]::Matches($oauthProvenanceSql, [regex]::Escape('SET group_concat_limit_changed = 0;'))).Count -ne 2) {
+    $errors.Add('Independent Board OAuth provenance GROUP_CONCAT ceiling must have one raise and exact handler/success restoration branches')
+}
+
+$generationWhitelistStart = $oauthProvenanceSql.IndexOf(
+    'AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(',
+    [StringComparison]::Ordinal)
+$generationWhitelistEnd = if ($generationWhitelistStart -ge 0) {
+    $oauthProvenanceSql.IndexOf('INTO target_generated_column_count', $generationWhitelistStart, [StringComparison]::Ordinal)
+} else { -1 }
+$actualGenerationWhitelist = @()
+if ($generationWhitelistStart -ge 0 -and $generationWhitelistEnd -gt $generationWhitelistStart) {
+    $generationWhitelistBlock = $oauthProvenanceSql.Substring(
+        $generationWhitelistStart,
+        $generationWhitelistEnd - $generationWhitelistStart)
+    $actualGenerationWhitelist = @([regex]::Matches(
+        $generationWhitelistBlock,
+        "(?m)^\s*(?<literal>'casewhenaction=.*')\s*,?\s*$") |
+        ForEach-Object { $_.Groups['literal'].Value })
+}
+$expectedGenerationWhitelist = @(
+    "'casewhenaction=_utf8mb4''token_family_created''thenfamily_idelsenullend'",
+    "'casewhenaction=_ascii''token_family_created''thenfamily_idelsenullend'",
+    "'casewhenaction=''token_family_created''thenfamily_idelsenullend'"
+)
+if (($actualGenerationWhitelist -join '|') -ne ($expectedGenerationWhitelist -join '|')) {
+    $errors.Add('Independent Board OAuth provenance generation expression whitelist must contain exactly _utf8mb4, _ascii and no-prefix forms in canonical order')
+}
+if ($oauthProvenanceSql -match '__[A-Z0-9_]+__') {
+    $errors.Add('Independent Board OAuth provenance SQL contains an unresolved placeholder')
+}
+if ($oauthProvenanceSql.Contains('ON DUPLICATE KEY UPDATE') -or
+    $oauthProvenanceSql.Contains('CREATE TABLE IF NOT EXISTS `u3w_schema_migration`')) {
+    $errors.Add('Independent Board OAuth provenance migration must fail closed and must not bootstrap or repair its migration ledger')
+}
+if ($oauthProvenanceSql -match '(?im)^\s*(?:ALTER|DROP)\s+TABLE\s+`?fbs_oauth_(?!receipt\b)[a-z_]+' -or
+    $oauthProvenanceSql -match '(?im)^\s*(?:UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+`?fbs_oauth_(?:client|authorization_request|authorization_code|token_family|token)\b') {
+    $errors.Add('Independent Board OAuth provenance migration must not mutate foundation tables other than fbs_oauth_receipt metadata')
+}
+$oauthProvenanceAlterMatches = @([regex]::Matches(
+    $oauthProvenanceSql,
+    '(?im)^\s*ALTER\s+TABLE\s+`fbs_oauth_receipt`'))
+if ($oauthProvenanceAlterMatches.Count -ne 1) {
+    $errors.Add("Independent Board OAuth provenance migration must contain exactly one additive receipt ALTER; found $($oauthProvenanceAlterMatches.Count)")
+}
+$oauthProvenanceServerProfileIndex = $oauthProvenanceSql.IndexOf('SET server_version = VERSION();', [StringComparison]::Ordinal)
+$oauthProvenanceSuccessorDigestIndex = $oauthProvenanceSql.IndexOf('SET expected_successor_check_contract_digest = CASE server_version', [StringComparison]::Ordinal)
+$oauthProvenanceLockIndex = $oauthProvenanceSql.IndexOf('SELECT GET_LOCK(migration_lock_name, 30)', [StringComparison]::Ordinal)
+$oauthProvenanceFoundationAuditIndex = $oauthProvenanceSql.IndexOf("SET migration_stage = 'foundation-receipt-audit'", [StringComparison]::Ordinal)
+$oauthProvenanceStateAuditIndex = $oauthProvenanceSql.IndexOf('SELECT COUNT(*), MAX(`description`)', $oauthProvenanceFoundationAuditIndex, [StringComparison]::Ordinal)
+$oauthProvenancePreflightIndex = $oauthProvenanceSql.IndexOf("SET migration_stage = 'lineage-preflight'", [StringComparison]::Ordinal)
+$oauthProvenanceShapeAuditIndex = $oauthProvenanceSql.IndexOf("SET migration_stage = 'shape-state-audit'", [StringComparison]::Ordinal)
+$oauthProvenanceRunningInsertIndex = $oauthProvenanceSql.IndexOf('INSERT INTO `u3w_schema_migration`', [StringComparison]::Ordinal)
+$oauthProvenanceAlterIndex = $oauthProvenanceSql.IndexOf('ALTER TABLE `fbs_oauth_receipt`', [StringComparison]::Ordinal)
+$oauthProvenanceFinalReadIndex = $oauthProvenanceSql.IndexOf("SET migration_stage = 'final-metadata-current-read'", [StringComparison]::Ordinal)
+$oauthProvenanceFinalLineageIndex = $oauthProvenanceSql.IndexOf('SELECT COUNT(*) INTO invalid_lineage_count', $oauthProvenanceFinalReadIndex, [StringComparison]::Ordinal)
+$oauthProvenanceReceiptFinalizationIndex = $oauthProvenanceSql.IndexOf("SET migration_stage = 'receipt-finalization'", [StringComparison]::Ordinal)
+$oauthProvenanceReceiptLockIndex = $oauthProvenanceSql.IndexOf('FOR UPDATE;', $oauthProvenanceReceiptFinalizationIndex, [StringComparison]::Ordinal)
+$oauthProvenancePromotionIndex = $oauthProvenanceSql.IndexOf('SET `description` = ''APPLIED:Independent Board OAuth TOKEN_FAMILY_CREATED provenance uniqueness''', [StringComparison]::Ordinal)
+$oauthProvenanceReceiptCommitIndex = $oauthProvenanceSql.IndexOf('COMMIT;', $oauthProvenancePromotionIndex, [StringComparison]::Ordinal)
+$oauthProvenanceCallIndex = $oauthProvenanceSql.LastIndexOf('CALL `u3w_migrate_independent_board_oauth_receipt_provenance_20260721`()$$', [StringComparison]::Ordinal)
+$oauthProvenanceDropIndex = $oauthProvenanceSql.LastIndexOf('DROP PROCEDURE IF EXISTS `u3w_migrate_independent_board_oauth_receipt_provenance_20260721`$$', [StringComparison]::Ordinal)
+$oauthProvenanceOrderedIndices = @(
+    $oauthProvenanceServerProfileIndex,
+    $oauthProvenanceSuccessorDigestIndex,
+    $groupConcatCaptureIndex,
+    $groupConcatRaiseIndex,
+    $oauthProvenanceLockIndex,
+    $oauthProvenanceFoundationAuditIndex,
+    $oauthProvenanceStateAuditIndex,
+    $oauthProvenancePreflightIndex,
+    $oauthProvenanceShapeAuditIndex,
+    $oauthProvenanceRunningInsertIndex,
+    $oauthProvenanceAlterIndex,
+    $oauthProvenanceFinalReadIndex,
+    $oauthProvenanceFinalLineageIndex,
+    $oauthProvenanceReceiptFinalizationIndex,
+    $oauthProvenanceReceiptLockIndex,
+    $oauthProvenancePromotionIndex,
+    $oauthProvenanceReceiptCommitIndex,
+    $successfulGroupConcatRestoreIndex,
+    $oauthProvenanceReleaseIndex,
+    $oauthProvenanceCallIndex,
+    $oauthProvenanceDropIndex
+)
+$oauthProvenanceOrderingValid = $oauthProvenanceOrderedIndices.Count -gt 0 -and
+    -not ($oauthProvenanceOrderedIndices -contains -1)
+for ($index = 1; $oauthProvenanceOrderingValid -and $index -lt $oauthProvenanceOrderedIndices.Count; $index++) {
+    if ($oauthProvenanceOrderedIndices[$index] -le $oauthProvenanceOrderedIndices[$index - 1]) {
+        $oauthProvenanceOrderingValid = $false
+    }
+}
+if (-not $oauthProvenanceOrderingValid) {
+    $errors.Add('Independent Board OAuth provenance order must be profile/digests, GROUP_CONCAT ceiling, lock, 033/state/lineage/shape audits, RUNNING, DDL, final metadata/lineage, locked receipt promotion, COMMIT, restore, release, CALL and DROP')
+}
+
+$oauthConsentIntentSqlPath = Join-Path $sqlRoot 'update_20260721_independent_board_oauth_consent_intent_lineage.sql'
+$oauthConsentIntentManifestSteps = @($declarativeManifest.steps | Where-Object {
+    [string]$_.version -eq 'public_init_035'
+})
+$expectedOauthConsentIntentSha256 = if ($oauthConsentIntentManifestSteps.Count -eq 1) {
+    [string]$oauthConsentIntentManifestSteps[0].sha256
+} else { '' }
+if ($expectedOauthConsentIntentSha256 -notmatch '^[0-9a-f]{64}$') {
+    $errors.Add('public_init_035 manifest SHA-256 is missing or invalid')
+}
+$requiredOauthTransactionRunnerNeedles = @(
+    '[switch]$DirectOnly',
+    'ordinal_position = 28',
+    "oauthConsentIntentMigration = '$expectedOauthConsentIntentSha256'",
+    "mode = if (`$DirectOnly) { 'direct_only' } else { 'direct_and_canonical' }",
+    'canonicalDatabase = if ($DirectOnly) { $null } else { $canonicalDatabase }',
+    'DirectOnly requested; canonical initializer phase remains intentionally unexecuted.'
+)
+foreach ($needle in $requiredOauthTransactionRunnerNeedles) {
+    if (-not $mysqlTransactionItRunnerSource.Contains($needle)) {
+        $errors.Add("MySQL transaction runner is missing the exact OAuth consent-intent gate: $needle")
+    }
+}
+if ($mysqlTransactionItRunnerSource -match 'ordinal_position\s*=\s*29') {
+    $errors.Add('MySQL transaction runner must require family consent ordinal 28, never 29')
+}
+$oauthConsentIntentSha256 = ''
+if (-not (Test-Path -LiteralPath $oauthConsentIntentSqlPath -PathType Leaf)) {
+    $errors.Add('Independent Board OAuth consent-intent lineage migration is missing')
+    $oauthConsentIntentSql = ''
+}
+else {
+    $oauthConsentIntentSql = Get-Content -LiteralPath $oauthConsentIntentSqlPath -Raw -Encoding UTF8
+    $oauthConsentIntentSha256 = (Get-FileHash -LiteralPath $oauthConsentIntentSqlPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if (-not [string]::Equals(
+            $oauthConsentIntentSha256,
+            $expectedOauthConsentIntentSha256,
+            [StringComparison]::Ordinal)) {
+        $errors.Add("public_init_035 byte contract drifted: expected SHA-256 $expectedOauthConsentIntentSha256, found $oauthConsentIntentSha256")
+    }
+}
+$requiredOauthConsentIntentNeedles = @(
+    '20260721_independent_board_oauth_consent_intent_lineage_v1',
+    'public_init_035',
+    'exact APPLIED public_init_033 and public_init_034 shapes',
+    'exact MySQL 8.0.30 or 8.4.8 metadata baselines only',
+    "INSTR(LOWER(VERSION()), 'mariadb') > 0",
+    "CAST('8.0.30' AS BINARY), CAST('8.4.8' AS BINARY)",
+    'MySQL Community Server - GPL',
+    "WHEN '8.0.30' THEN '016bed0a311d4dbd85f1d3c63e1bf46e82b9ce21527ad304b4139482f274f539'",
+    "WHEN '8.4.8' THEN '3bc201df5f29e65e40024a6cf95dd2b5d46be928bef422f6934ab7c06a94368f'",
+    'DECLARE stage_prefix CHAR(3)',
+    "WHEN '8.0.30:000' THEN '89883a39d5aca493a15777ed12fee5a2c478627d7290e02c22ec0d3ffeaf0cf0'",
+    "WHEN '8.0.30:100' THEN '85ee62cd04574bb7fe27a05c361bb8b7655144e8036b2ddb83a9837c7d88ca49'",
+    "WHEN '8.0.30:110' THEN '300d34a5fcd2f6a55d121bee598edc6e6a509dd4a1c80a04cf0b5b1d788e0574'",
+    "WHEN '8.0.30:111' THEN '0aca71671f1632851a45f57eeacfa18f23529d628ddaa159dc2ca7cb472a0d24'",
+    "WHEN '8.0.30:111' THEN 'e222fafb27746a52bdc6e31c08a9b8cb3e34c2a8eb88bad9345d53b496d0c612'",
+    "WHEN '8.4.8:000' THEN '89883a39d5aca493a15777ed12fee5a2c478627d7290e02c22ec0d3ffeaf0cf0'",
+    "WHEN '8.4.8:000' THEN 'd8878ff64c7e897ddd8d42db6f0afd1a264d2cc8c1794d155051f0cd1638103b'",
+    "WHEN '8.4.8:100' THEN '89883a39d5aca493a15777ed12fee5a2c478627d7290e02c22ec0d3ffeaf0cf0'",
+    "WHEN '8.4.8:100' THEN '85ee62cd04574bb7fe27a05c361bb8b7655144e8036b2ddb83a9837c7d88ca49'",
+    "WHEN '8.4.8:110' THEN '89883a39d5aca493a15777ed12fee5a2c478627d7290e02c22ec0d3ffeaf0cf0'",
+    "WHEN '8.4.8:110' THEN '300d34a5fcd2f6a55d121bee598edc6e6a509dd4a1c80a04cf0b5b1d788e0574'",
+    "WHEN '8.4.8:111' THEN 'e222fafb27746a52bdc6e31c08a9b8cb3e34c2a8eb88bad9345d53b496d0c612'",
+    "WHEN '8.4.8:111' THEN '0aca71671f1632851a45f57eeacfa18f23529d628ddaa159dc2ca7cb472a0d24'",
+    'OAuth consent-intent exact stage baseline is unavailable',
+    'OAuth consent-intent shape must be a 000, 100, 110 or 111 prefix',
+    'ordinal_position = 28',
+    'SET migration_lock_name = SHA2(',
+    "CONCAT(DATABASE(), ':20260721_independent_board_oauth_consent_intent_lineage_v1')",
+    'CHAR_LENGTH(migration_lock_name) <> 64',
+    'GET_LOCK(migration_lock_name, 30)',
+    'IS_USED_LOCK(migration_lock_name)',
+    'RELEASE_LOCK(migration_lock_name)',
+    'migration_lock_owner <> current_connection',
+    'migration_lock_owner <> CONNECTION_ID()',
+    'DECLARE EXIT HANDLER FOR SQLEXCEPTION',
+    'ROLLBACK;',
+    '20260721_independent_board_oauth_foundation_v1',
+    '20260721_independent_board_oauth_receipt_provenance_v1',
+    'APPLIED:Independent Board OAuth TOKEN_FAMILY_CREATED provenance uniqueness',
+    'RUNNING:Independent Board OAuth consent intent lineage',
+    'APPLIED:Independent Board OAuth consent intent lineage',
+    "SET migration_stage = 'legacy-data-fail-closed'",
+    'Legacy OAuth data cannot be assigned a consent intent without reviewed evidence',
+    "SET migration_stage = 'request-consent-intent-ddl'",
+    'ALTER TABLE `fbs_oauth_authorization_request`',
+    'ADD COLUMN `consent_intent`',
+    'chk_oauth_request_consent_intent',
+    'uk_oauth_request_id_consent',
+    "SET migration_stage = 'code-consent-intent-ddl'",
+    'ALTER TABLE `fbs_oauth_authorization_code`',
+    'chk_oauth_code_consent_intent',
+    'uk_oauth_code_id_consent',
+    'idx_oauth_code_request_consent',
+    'fk_oauth_code_request_consent',
+    "SET migration_stage = 'family-consent-intent-ddl'",
+    'ALTER TABLE `fbs_oauth_token_family`',
+    'chk_oauth_family_consent_intent',
+    'idx_oauth_family_code_consent',
+    'fk_oauth_family_code_consent',
+    'FIRST_CONNECT',
+    'EXPLICIT_REAUTHORIZATION',
+    "SET migration_stage = 'post-ddl-current-read'",
+    'request_stage_complete <> 1 OR code_stage_complete <> 1 OR family_stage_complete <> 1',
+    'CREATE TRIGGER IF NOT EXISTS `trg_oauth_request_consent_intent_once`',
+    'OAuth consent intent is immutable',
+    'OAuth consent intent must be set by a decision transition',
+    'u3w_finalize_ib_oauth_consent_intent_20260721',
+    "SET migration_stage = 'final-raw-metadata-current-read'",
+    "SET migration_stage = 'final-data-current-read'",
+    'OAuth APPLIED consent-intent lineage has drifted',
+    "SET migration_stage = 'receipt-finalization'",
+    'FOR UPDATE;',
+    'OAuth consent-intent APPLIED receipt is not exact',
+    'DROP PROCEDURE IF EXISTS `u3w_assert_ib_oauth_consent_intent_20260721`$$'
+)
+foreach ($needle in $requiredOauthConsentIntentNeedles) {
+    if (-not $oauthConsentIntentSql.Contains($needle)) {
+        $errors.Add("Independent Board OAuth consent-intent SQL is missing required contract: $needle")
+    }
+}
+if ($oauthConsentIntentSql -match '__[A-Z0-9_]+__') {
+    $errors.Add('Independent Board OAuth consent-intent SQL contains an unresolved placeholder')
+}
+if ($oauthConsentIntentSql -match 'ordinal_position\s*=\s*29') {
+    $errors.Add('Independent Board OAuth consent-intent SQL must require family consent ordinal 28')
+}
+foreach ($baselineServerVersion in @('8.0.30', '8.4.8')) {
+    foreach ($stagePrefix in @('000', '100', '110', '111')) {
+        $stageNeedle = "WHEN '$baselineServerVersion`:$stagePrefix' THEN"
+        if (@([regex]::Matches(
+                $oauthConsentIntentSql,
+                [regex]::Escape($stageNeedle))).Count -ne 2) {
+            $errors.Add("Independent Board OAuth consent-intent SQL must lock both $baselineServerVersion column and CHECK digests for stage $stagePrefix")
+        }
+    }
+}
+$oauthConsentClassificationIndex = $oauthConsentIntentSql.IndexOf(
+    '-- Classify every successor object before selecting a stage-bound raw baseline.',
+    [StringComparison]::Ordinal)
+$oauthConsentBaselineSelectionIndex = $oauthConsentIntentSql.IndexOf(
+    "SET expected_column_digest = CASE CONCAT(server_version, ':', stage_prefix)",
+    [StringComparison]::Ordinal)
+if ($oauthConsentClassificationIndex -lt 0 -or
+    $oauthConsentBaselineSelectionIndex -le $oauthConsentClassificationIndex) {
+    $errors.Add('Independent Board OAuth consent-intent SQL must classify exact named successor stages before selecting raw metadata baselines')
+}
+if ($oauthConsentIntentSql -match '(?im)^\s*(?:CREATE|DROP)\s+TABLE\b' -or
+    $oauthConsentIntentSql -match '(?im)^\s*TRUNCATE\s+TABLE\b' -or
+    $oauthConsentIntentSql -match '(?im)^\s*(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+`?fbs_oauth_') {
+    $errors.Add('Independent Board OAuth consent-intent migration must remain additive and must not create/drop tables or rewrite OAuth business rows')
+}
+$oauthConsentIntentAlterMatches = @([regex]::Matches(
+    $oauthConsentIntentSql,
+    '(?im)^\s*ALTER\s+TABLE\s+`(?<table>fbs_oauth_[a-z_]+)`'))
+$expectedOauthConsentIntentAlterTables = @(
+    'fbs_oauth_authorization_request',
+    'fbs_oauth_authorization_code',
+    'fbs_oauth_token_family'
+)
+$actualOauthConsentIntentAlterTables = @($oauthConsentIntentAlterMatches |
+    ForEach-Object { $_.Groups['table'].Value })
+if (($actualOauthConsentIntentAlterTables -join '|') -ne ($expectedOauthConsentIntentAlterTables -join '|')) {
+    $errors.Add("Independent Board OAuth consent-intent migration must contain exactly request, code and family additive DDL stages in order; found '$($actualOauthConsentIntentAlterTables -join ',')'")
+}
+if (@([regex]::Matches(
+        $oauthConsentIntentSql,
+        '(?im)^\s*CREATE\s+TRIGGER\s+IF\s+NOT\s+EXISTS\s+`trg_oauth_request_consent_intent_once`')).Count -ne 1) {
+    $errors.Add('Independent Board OAuth consent-intent migration must create exactly one guarded request immutability trigger')
+}
+if (@([regex]::Matches($oauthConsentIntentSql, [regex]::Escape("INSTR(LOWER(VERSION()), 'mariadb') > 0"))).Count -ne 2 -or
+    @([regex]::Matches($oauthConsentIntentSql, [regex]::Escape('CAST(@@version_comment AS BINARY)'))).Count -ne 2) {
+    $errors.Add('Independent Board OAuth consent-intent migration and finalizer must each enforce the exact MySQL Community profile')
+}
+
+$oauthConsentIntentMigrateDefinitionIndex = $oauthConsentIntentSql.IndexOf('CREATE PROCEDURE `u3w_migrate_ib_oauth_consent_intent_20260721`()', [StringComparison]::Ordinal)
+$oauthConsentIntentProfileIndex = if ($oauthConsentIntentMigrateDefinitionIndex -ge 0) {
+    $oauthConsentIntentSql.IndexOf('SET server_version = VERSION();', $oauthConsentIntentMigrateDefinitionIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$oauthConsentIntentLockIndex = $oauthConsentIntentSql.IndexOf('SELECT GET_LOCK(migration_lock_name, 30)', [StringComparison]::Ordinal)
+$oauthConsentIntentReceiptAuditIndex = $oauthConsentIntentSql.IndexOf("SET migration_stage = 'prerequisite-receipt-audit'", [StringComparison]::Ordinal)
+$oauthConsentIntentMetadataPreflightIndex = $oauthConsentIntentSql.IndexOf("SET migration_stage = 'raw-metadata-preflight'", [StringComparison]::Ordinal)
+$oauthConsentIntentLegacyRejectIndex = $oauthConsentIntentSql.IndexOf("SET migration_stage = 'legacy-data-fail-closed'", [StringComparison]::Ordinal)
+$oauthConsentIntentRunningIndex = $oauthConsentIntentSql.IndexOf("SET migration_stage = 'running-receipt-create'", [StringComparison]::Ordinal)
+$oauthConsentIntentRequestDdlIndex = $oauthConsentIntentSql.IndexOf("SET migration_stage = 'request-consent-intent-ddl'", [StringComparison]::Ordinal)
+$oauthConsentIntentCodeDdlIndex = $oauthConsentIntentSql.IndexOf("SET migration_stage = 'code-consent-intent-ddl'", [StringComparison]::Ordinal)
+$oauthConsentIntentFamilyDdlIndex = $oauthConsentIntentSql.IndexOf("SET migration_stage = 'family-consent-intent-ddl'", [StringComparison]::Ordinal)
+$oauthConsentIntentPostDdlReadIndex = $oauthConsentIntentSql.IndexOf("SET migration_stage = 'post-ddl-current-read'", [StringComparison]::Ordinal)
+$oauthConsentIntentMigrateCallIndex = $oauthConsentIntentSql.IndexOf('CALL `u3w_migrate_ib_oauth_consent_intent_20260721`()$$', [StringComparison]::Ordinal)
+$oauthConsentIntentMigrateDropIndex = if ($oauthConsentIntentMigrateCallIndex -ge 0) {
+    $oauthConsentIntentSql.IndexOf('DROP PROCEDURE IF EXISTS `u3w_migrate_ib_oauth_consent_intent_20260721`$$', $oauthConsentIntentMigrateCallIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$oauthConsentIntentTriggerIndex = $oauthConsentIntentSql.IndexOf('CREATE TRIGGER IF NOT EXISTS `trg_oauth_request_consent_intent_once`', [StringComparison]::Ordinal)
+$oauthConsentIntentFinalizerDefinitionIndex = $oauthConsentIntentSql.IndexOf('CREATE PROCEDURE `u3w_finalize_ib_oauth_consent_intent_20260721`()', [StringComparison]::Ordinal)
+$oauthConsentIntentFinalMetadataIndex = $oauthConsentIntentSql.IndexOf("SET migration_stage = 'final-raw-metadata-current-read'", [StringComparison]::Ordinal)
+$oauthConsentIntentFinalDataIndex = $oauthConsentIntentSql.IndexOf("SET migration_stage = 'final-data-current-read'", [StringComparison]::Ordinal)
+$oauthConsentIntentReceiptFinalizationIndex = $oauthConsentIntentSql.IndexOf("SET migration_stage = 'receipt-finalization'", [StringComparison]::Ordinal)
+$oauthConsentIntentReceiptLockIndex = if ($oauthConsentIntentReceiptFinalizationIndex -ge 0) {
+    $oauthConsentIntentSql.IndexOf('FOR UPDATE;', $oauthConsentIntentReceiptFinalizationIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$oauthConsentIntentPromotionIndex = if ($oauthConsentIntentReceiptLockIndex -ge 0) {
+    $oauthConsentIntentSql.IndexOf('SET `description` = ''APPLIED:Independent Board OAuth consent intent lineage''', $oauthConsentIntentReceiptLockIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$oauthConsentIntentCommitIndex = if ($oauthConsentIntentPromotionIndex -ge 0) {
+    $oauthConsentIntentSql.IndexOf('COMMIT;', $oauthConsentIntentPromotionIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$oauthConsentIntentReleaseIndex = if ($oauthConsentIntentCommitIndex -ge 0) {
+    $oauthConsentIntentSql.IndexOf('SELECT RELEASE_LOCK(migration_lock_name)', $oauthConsentIntentCommitIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$oauthConsentIntentFinalizerCallIndex = $oauthConsentIntentSql.IndexOf('CALL `u3w_finalize_ib_oauth_consent_intent_20260721`()$$', [StringComparison]::Ordinal)
+$oauthConsentIntentFinalizerDropIndex = if ($oauthConsentIntentFinalizerCallIndex -ge 0) {
+    $oauthConsentIntentSql.IndexOf('DROP PROCEDURE IF EXISTS `u3w_finalize_ib_oauth_consent_intent_20260721`$$', $oauthConsentIntentFinalizerCallIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$oauthConsentIntentAssertDropIndex = $oauthConsentIntentSql.LastIndexOf('DROP PROCEDURE IF EXISTS `u3w_assert_ib_oauth_consent_intent_20260721`$$', [StringComparison]::Ordinal)
+$oauthConsentIntentOrderedIndices = @(
+    $oauthConsentIntentMigrateDefinitionIndex,
+    $oauthConsentIntentProfileIndex,
+    $oauthConsentIntentLockIndex,
+    $oauthConsentIntentReceiptAuditIndex,
+    $oauthConsentIntentMetadataPreflightIndex,
+    $oauthConsentIntentLegacyRejectIndex,
+    $oauthConsentIntentRunningIndex,
+    $oauthConsentIntentRequestDdlIndex,
+    $oauthConsentIntentCodeDdlIndex,
+    $oauthConsentIntentFamilyDdlIndex,
+    $oauthConsentIntentPostDdlReadIndex,
+    $oauthConsentIntentMigrateCallIndex,
+    $oauthConsentIntentMigrateDropIndex,
+    $oauthConsentIntentTriggerIndex,
+    $oauthConsentIntentFinalizerDefinitionIndex,
+    $oauthConsentIntentFinalMetadataIndex,
+    $oauthConsentIntentFinalDataIndex,
+    $oauthConsentIntentReceiptFinalizationIndex,
+    $oauthConsentIntentReceiptLockIndex,
+    $oauthConsentIntentPromotionIndex,
+    $oauthConsentIntentCommitIndex,
+    $oauthConsentIntentReleaseIndex,
+    $oauthConsentIntentFinalizerCallIndex,
+    $oauthConsentIntentFinalizerDropIndex,
+    $oauthConsentIntentAssertDropIndex
+)
+$oauthConsentIntentOrderingValid = $oauthConsentIntentOrderedIndices.Count -gt 0 -and
+    -not ($oauthConsentIntentOrderedIndices -contains -1)
+for ($index = 1; $oauthConsentIntentOrderingValid -and $index -lt $oauthConsentIntentOrderedIndices.Count; $index++) {
+    if ($oauthConsentIntentOrderedIndices[$index] -le $oauthConsentIntentOrderedIndices[$index - 1]) {
+        $oauthConsentIntentOrderingValid = $false
+    }
+}
+if (-not $oauthConsentIntentOrderingValid) {
+    $errors.Add('Independent Board OAuth consent-intent order must be profile/lock, prerequisite+metadata+legacy gates, RUNNING, request/code/family DDL, current-read, migrate cleanup, trigger, finalizer metadata/data/locked receipt, COMMIT/release and helper cleanup')
+}
+
 $truthSpineSqlPath = Join-Path $sqlRoot 'update_20260712_truth_spine_test_state_receipt.sql'
 $truthSpineSql = Get-Content -LiteralPath $truthSpineSqlPath -Raw -Encoding UTF8
 $requiredTruthSpineLockNeedles = @(
@@ -973,6 +1476,7 @@ $lastAdminMenuCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoard
 $lastLifecycleMenuCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardEntitlementLifecycleMenuCurrentState', [StringComparison]::Ordinal)
 $lastConnectorBindingCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardConnectorBindingCurrentState', [StringComparison]::Ordinal)
 $lastOauthFoundationCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardOauthFoundationCurrentState', [StringComparison]::Ordinal)
+$lastOauthConsentIntentCurrentReadCall = $initSource.LastIndexOf('Assert-IndependentBoardOauthConsentIntentCurrentState', [StringComparison]::Ordinal)
 $manifestLoopIndex = $initSource.IndexOf('foreach ($step in $steps)', [StringComparison]::Ordinal)
 if ($lastCurrentReadCall -le $manifestLoopIndex) {
     $errors.Add("initializer must run the Independent Board current-read audit after the complete manifest loop")
@@ -991,6 +1495,9 @@ if ($lastConnectorBindingCurrentReadCall -le $manifestLoopIndex) {
 }
 if ($lastOauthFoundationCurrentReadCall -le $manifestLoopIndex) {
     $errors.Add("initializer must run the Independent Board OAuth foundation current-read audit after the complete manifest loop")
+}
+if ($lastOauthConsentIntentCurrentReadCall -le $manifestLoopIndex) {
+    $errors.Add("initializer must run the Independent Board OAuth consent-intent current-read audit after the complete manifest loop")
 }
 $requiredConnectorCurrentReadNeedles = @(
     '$expectedAppliedState = "APPLIED:$($step.Description)"',
@@ -1011,6 +1518,17 @@ foreach ($needle in $requiredConnectorCurrentReadNeedles) {
         $errors.Add("initializer is missing exact Connector current-read contract: $needle")
     }
 }
+$safeBacktickNormalizerCount = @([regex]::Matches(
+        $initSource,
+        "(?:cc\.check_clause|action_statement),\s*CHAR\(96\),\s*''")).Count
+if ($safeBacktickNormalizerCount -ne 3) {
+    $errors.Add("initializer must use exactly three SQL CHAR(96) metadata normalizers; found $safeBacktickNormalizerCount")
+}
+$literalBacktickSqlToken = "'" + [char]96 + "'"
+if ($initSource.Contains("cc.check_clause, $literalBacktickSqlToken, ''") -or
+    $initSource.Contains("action_statement, $literalBacktickSqlToken, ''")) {
+    $errors.Add('initializer must not embed a literal backtick in a double-quoted SQL here-string; PowerShell removes it before MySQL execution')
+}
 $requiredOauthCurrentReadNeedles = @(
     'Assert-IndependentBoardOauthServerProfile',
     'Assert-IndependentBoardOauthFoundationCurrentState',
@@ -1018,23 +1536,62 @@ $requiredOauthCurrentReadNeedles = @(
     'MySQL Community Server - GPL',
     "'8.0.30' = '016bed0a311d4dbd85f1d3c63e1bf46e82b9ce21527ad304b4139482f274f539'",
     "'8.4.8' = '3bc201df5f29e65e40024a6cf95dd2b5d46be928bef422f6934ab7c06a94368f'",
-    '$expectedState = @(6, 6, 6, 6, 144, 6, 17, 2, 52, 14, 57, 33, 33, 1, 2, 2, 1, 1)',
+    '$provenanceInternalVersion = ''20260721_independent_board_oauth_receipt_provenance_v1''',
+    '$provenanceAppliedDescription = ''APPLIED:Independent Board OAuth TOKEN_FAMILY_CREATED provenance uniqueness''',
+    '$consentIntentInternalVersion = ''20260721_independent_board_oauth_consent_intent_lineage_v1''',
+    '$consentIntentAppliedDescription = ''APPLIED:Independent Board OAuth consent intent lineage''',
+    '$expectedOauthColumnCount = if ($consentIntentApplied) { 148 } elseif ($provenanceApplied) { 145 } else { 144 }',
+    '$expectedOauthGeneratedColumnCount = if ($provenanceApplied) { 3 } else { 2 }',
+    '$expectedOauthIndexCount = if ($consentIntentApplied) { 57 } elseif ($provenanceApplied) { 53 } else { 52 }',
+    '$expectedOauthForeignKeyCount = if ($consentIntentApplied) { 16 } else { 14 }',
+    '$expectedOauthForeignKeyColumnCount = if ($consentIntentApplied) { 61 } else { 57 }',
+    '$expectedOauthCheckCount = if ($consentIntentApplied) { 36 } else { 33 }',
+    '$expectedOauthTriggerCount = if ($consentIntentApplied) { 3 } else { 2 }',
+    '$expectedProvenanceObjectCount = if ($provenanceApplied) { 1 } else { 0 }',
+    'uk_oauth_receipt_family_created_slot',
+    "AND NOT (table_name = 'fbs_oauth_receipt' AND column_name = 'family_created_slot')",
+    "AND NOT (table_name = 'fbs_oauth_receipt' AND index_name = 'uk_oauth_receipt_family_created_slot')",
+    "AND NOT (table_name = 'fbs_oauth_authorization_request' AND column_name = 'consent_intent')",
+    "AND NOT (table_name = 'fbs_oauth_authorization_code' AND index_name IN ('idx_oauth_code_request_consent','uk_oauth_code_id_consent'))",
+    'Assert-IndependentBoardOauthConsentIntentCurrentState',
+    'uk_oauth_request_id_consent',
+    'fk_oauth_code_request_consent',
+    'fk_oauth_family_code_consent',
+    'chk_oauth_request_consent_intent',
+    'trg_oauth_request_consent_intent_once',
+    '$expectedState = @(1, 1, 1, 1, 6, 148, 57, 16, 61, 36, 36, 3, 1, 1, 1, 4, 2, 3, 1, 0, 0, 0)',
     '$exactDigestParts = @($exactDigestResponse.Split(''|''))',
     '89883a39d5aca493a15777ed12fee5a2c478627d7290e02c22ec0d3ffeaf0cf0',
+    'e222fafb27746a52bdc6e31c08a9b8cb3e34c2a8eb88bad9345d53b496d0c612',
+    '0aca71671f1632851a45f57eeacfa18f23529d628ddaa159dc2ca7cb472a0d24',
+    '$expectedColumnDigest = if ($consentIntentApplied) {',
+    '$expectedCheckDigest = if ($consentIntentApplied) {',
+    'ordinal_position = 28',
     '1a3122b7238b444939a7981ccd759322bd168f351131e4d9c0a16346242c3d79',
     '016bed0a311d4dbd85f1d3c63e1bf46e82b9ce21527ad304b4139482f274f539',
     '3bc201df5f29e65e40024a6cf95dd2b5d46be928bef422f6934ab7c06a94368f',
     '51f71711dfc17b5a6741fbbd1bd3d31ae7d4761e9da5722c614eb199a81afb11',
     'SEPARATOR 0x0A',
-    'LOCATE(CONVERT(0xe69caae9aa8ce8af81e79a84e69cace59cb0e585ace585b1e5aea2e688b7e7abaf USING utf8mb4), cc.check_clause) > 0',
-    "LOCATE('WorkBuddy - ', cc.check_clause) = 0",
+    'SHOW CREATE TABLE fbs_oauth_client;',
+    '$neutralClientNameMetadataProjectionHex',
+    '[regex]::Matches($showCreateHex, $neutralClientNameUtf8Hex).Count -ne 1',
+    '[regex]::Matches($showCreateHex, $neutralClientNameMetadataProjectionHex).Count -ne 0',
+    '[regex]::Matches($showCreateHex, $legacyClientNameHex).Count -ne 0',
+    'fixed-profile SHOW CREATE bytes',
     "WHERE event_object_table = 'fbs_oauth_receipt'",
     '$serverProfile.ForeignKeyDigest',
     'exact current-read audit on MySQL Community $serverVersion',
-    'Independent Board OAuth foundation exact current-read audit'
+    '033 foundation plus 034 provenance successor',
+    '033 foundation plus 034 provenance and 035 consent-intent successors',
+    'binary foundation-subset digests'
 )
 $requiredOauthInitializerIntegrationNeedles = @(
+    'function Invoke-MySqlRawOutputBytes',
     "if (`$step.Version -eq 'public_init_033')",
+    "if (`$step.Version -eq 'public_init_034')",
+    "if (`$step.Version -eq 'public_init_035')",
+    '$declaredSha256 = [string]$declared.sha256',
+    'public_init_035 byte contract drifted',
     '$null = Assert-IndependentBoardOauthServerProfile',
     'records RUNNING or executes the migration file',
     'W4b creates FKs into the W1 entitlement and W4a binding contracts.',
@@ -1043,6 +1600,17 @@ $requiredOauthInitializerIntegrationNeedles = @(
     'W4b exact post-commit reconciliation did not pass',
     'u3w_migrate_independent_board_oauth_foundation_20260721',
     'u3w_finalize_independent_board_oauth_foundation_20260721',
+    '$resumeRunningOauthProvenance',
+    '$resumeRunningOauthConsentIntent',
+    '$resumeRunningOauthAdditive',
+    'one bounded replay',
+    'u3w_migrate_independent_board_oauth_receipt_provenance_20260721',
+    'W4b provenance exact bounded replay did not pass',
+    'request -> code -> family -> trigger prefix',
+    'u3w_migrate_ib_oauth_consent_intent_20260721',
+    'u3w_finalize_ib_oauth_consent_intent_20260721',
+    'u3w_assert_ib_oauth_consent_intent_20260721',
+    'W4b consent-intent exact bounded replay did not pass',
     'if ($verification -ne 21)'
 )
 $requiredManifestCurrentReadNeedles = @(
@@ -1070,10 +1638,20 @@ $oauthCurrentReadSource = if ($oauthCurrentReadStart -ge 0 -and $oauthCurrentRea
 if ([string]::IsNullOrEmpty($oauthCurrentReadSource)) {
     $errors.Add('initializer OAuth current-read function boundary is missing')
 }
+elseif ($oauthCurrentReadSource -match '(?im)^\s*(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM|ALTER\s+TABLE|CREATE\s+(?:TABLE|TRIGGER|PROCEDURE)|DROP\s+(?:TABLE|TRIGGER|PROCEDURE)|TRUNCATE\s+TABLE)\b') {
+    $errors.Add('initializer OAuth current-read functions must remain database read-only')
+}
 foreach ($needle in $requiredOauthCurrentReadNeedles) {
     if (-not $oauthCurrentReadSource.Contains($needle)) {
         $errors.Add("initializer is missing exact OAuth foundation current-read or reconciliation contract: $needle")
     }
+}
+if ($oauthCurrentReadSource -match 'ordinal_position\s*=\s*29') {
+    $errors.Add('initializer OAuth current-read must require family consent ordinal 28, never 29')
+}
+if ($oauthCurrentReadSource -match 'consent successor baseline pending' -or
+    $oauthCurrentReadSource -match '\$consentIntentApplied\s+-and\s+\$serverVersion') {
+    $errors.Add('initializer OAuth current-read must apply the measured consent-successor digests to both locked MySQL profiles')
 }
 foreach ($needle in $requiredOauthInitializerIntegrationNeedles) {
     if (-not $initSource.Contains($needle)) {
@@ -1084,6 +1662,28 @@ foreach ($needle in $requiredManifestCurrentReadNeedles) {
     if (-not $initSource.Contains($needle)) {
         $errors.Add("initializer is missing exact public manifest current-read contract: $needle")
     }
+}
+$currentReadOnlyBlockStart = $initSource.IndexOf('if ($CurrentReadOnly) {', [StringComparison]::Ordinal)
+$currentReadOnlyBlockEnd = if ($currentReadOnlyBlockStart -ge 0) {
+    $initSource.IndexOf('$databaseBootstrap =', $currentReadOnlyBlockStart, [StringComparison]::Ordinal)
+} else { -1 }
+$currentReadOnlyBlock = if ($currentReadOnlyBlockStart -ge 0 -and $currentReadOnlyBlockEnd -gt $currentReadOnlyBlockStart) {
+    $initSource.Substring($currentReadOnlyBlockStart, $currentReadOnlyBlockEnd - $currentReadOnlyBlockStart)
+} else { '' }
+foreach ($needle in @(
+    'Assert-IndependentBoardOauthFoundationCurrentState',
+    'Assert-IndependentBoardOauthConsentIntentCurrentState',
+    'Assert-PublicDatabaseManifestCurrentState',
+    'No database write was requested.',
+    'return'
+)) {
+    if (-not $currentReadOnlyBlock.Contains($needle)) {
+        $errors.Add("initializer CurrentReadOnly block is missing required read-only successor contract: $needle")
+    }
+}
+if ($currentReadOnlyBlock -match 'Invoke-MySql(?:File|Bytes)' -or
+    $currentReadOnlyBlock -match '(?im)^\s*(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM|ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+TABLE|TRUNCATE\s+TABLE)\b') {
+    $errors.Add('initializer CurrentReadOnly block must not execute migration files or persistent database writes')
 }
 
 $liveVerifierPath = Join-Path $resolvedRoot 'scripts\verify-independent-board-live-database.ps1'
@@ -1116,6 +1716,9 @@ if (-not (Test-Path -LiteralPath $menuMigrationItPath -PathType Leaf)) {
 }
 else {
     $menuMigrationItSource = Get-Content -LiteralPath $menuMigrationItPath -Raw -Encoding UTF8
+    if ($menuMigrationItSource -match '[^\x00-\x7F]') {
+        $errors.Add('menu migration runner must remain ASCII-only for Windows PowerShell 5 compatibility')
+    }
     $requiredMenuMigrationItNeedles = @(
         '[switch]$AllowDestructiveTest',
         "throw 'Explicit -AllowDestructiveTest consent is required.'",
@@ -1130,6 +1733,7 @@ else {
         "w3a_rerun_after_w3b",
         "w3b_completed_state_drift_fail_closed",
         "w3b_prewrite_identity_collision_fail_closed",
+        "prewrite-collision",
         "schemaNameLength",
         "Assert-SafeCleanupPath",
         "Get-VerifiedMySqlProcessId"
@@ -1200,6 +1804,13 @@ $result = [pscustomobject]@{
     entitlementLifecycleMenuVersion = "public_init_031"
     connectorBindingVersion = "public_init_032"
     oauthFoundationVersion = "public_init_033"
+    oauthProvenanceVersion = "public_init_034"
+    oauthConsentIntentVersion = "public_init_035"
+    oauthFoundationSha256 = $oauthFoundationSha256
+    oauthProvenanceSha256 = $oauthProvenanceSha256
+    oauthConsentIntentSha256 = $oauthConsentIntentSha256
+    oauthSuccessorCheckDigest = $oauthSuccessorCheckDigest
+    oauthGenerationExpressionWhitelist = @('_utf8mb4', '_ascii', 'no-prefix')
     menuMigrationReplayGate = "scripts/run-independent-board-menu-migration-it.ps1"
     errors = @($errors)
 }

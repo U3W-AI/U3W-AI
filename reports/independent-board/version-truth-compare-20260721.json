@@ -1,0 +1,43 @@
+{
+  "schema": "fbsir.independent-board.version-truth-compare/v1",
+  "observedAt": "2026-07-21T12:20:00+08:00",
+  "productId": "fbsir-eight-seat-board",
+  "result": "WORKBUDDY_VERSION_MATCH_WORKBUDDYAI_OFFICIAL_SURFACE_NOT_CONFIGURED",
+  "finalReviewArtifact": {
+    "path": "E:/ddh/fbsir-eight-seat-board_26.7.20_R.zip",
+    "version": "26.7.20",
+    "bytes": 4083665,
+    "sha256": "0cf445eef323e91e4af8f13788e0dc3c920eb71c859ec1c10808f86e8b394b8f",
+    "fileEntries": 82
+  },
+  "frozenSource": {
+    "path": "E:/ddh/fbsir-eight-seat-board",
+    "branch": "codex/independent-board-26.7.20",
+    "commit": "dcd28a8583e35d6f481695dee612aa4604cd46e2",
+    "clean": true,
+    "version": "26.7.20",
+    "pluginManifestSha256": "2d0c0fc4e5f5e5abee62e2fa1b265af336c99354a2679cec84fc86fbd5ce4c86",
+    "pluginManifestLineEndings": "LF"
+  },
+  "workBuddyOfficialHost": {
+    "officialMarketplaceConfigured": true,
+    "marketplaceId": "experts",
+    "pluginPath": "C:/Users/dhc/.workbuddy/plugins/marketplaces/experts/plugins/fbsir-eight-seat-board",
+    "version": "26.7.20",
+    "downloadedAt": "2026-07-21T03:56:43.024Z",
+    "pluginManifestSha256": "19c7e4357fae3be79dadb508ad184980fb6d5b565afdfcc1b055e2638ed99506",
+    "pluginManifestLineEndings": "CRLF"
+  },
+  "workBuddyAiOfficialHost": {
+    "root": "C:/Users/dhc/.workbuddy-ai",
+    "officialExpertsMarketplaceConfigured": false,
+    "targetOfficialPluginPresent": false,
+    "classification": "not_evaluable_until_official_experts_surface_is_available"
+  },
+  "archivedCandidateNote": {
+    "path": "E:/ddh/fbsir-eight-seat-board/dist/review/fbsir-eight-seat-board_26.7.20.zip",
+    "classification": "historical_candidate_not_final_R_artifact",
+    "reason": "The final R artifact and the installed official WorkBuddy package contain the later self-contained runtime surface."
+  },
+  "evidenceBoundary": "WorkBuddy official-host version equality is proven from local current-read files. WorkBuddyAI has no comparable official experts surface in this profile, and no cross-host equality is inferred."
+}

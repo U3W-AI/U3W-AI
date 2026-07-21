@@ -467,7 +467,7 @@ INSERT INTO sys_menu
     (menu_name, parent_id, order_num, path, component, query, route_name,
      is_frame, is_cache, menu_type, visible, status, perms, icon,
      create_by, create_time, update_by, update_time, remark)
-SELECT '预写冲突', menu_id, 2, '', NULL, NULL, '', 1, 0, 'F', '0', '0',
+SELECT 'prewrite-collision', menu_id, 2, '', NULL, NULL, '', 1, 0, 'F', '0', '0',
        'board:entitlement:revoke', '#', 'gate', CURRENT_TIMESTAMP, '', NULL,
        'disposable collision fixture'
 FROM sys_menu

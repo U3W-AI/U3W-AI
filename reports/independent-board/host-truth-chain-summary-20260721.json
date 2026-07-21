@@ -1,0 +1,27 @@
+{
+  "schema": "fbsir.independent-board.host-truth-chain-summary/v1",
+  "observedAt": "2026-07-21T12:20:00+08:00",
+  "product": {
+    "brandZh": "福帮手",
+    "brandEn": "FBSir",
+    "nameZh": "独董会",
+    "packageId": "fbsir-eight-seat-board",
+    "version": "26.7.20"
+  },
+  "listingState": "officially_listed_user_confirmed",
+  "hostTruthState": "official_entry_detected_runtime_reverify_pending",
+  "layers": {
+    "postListingCleanupGate": "PASS_TARGET_CLEANUP_CURRENT_READ",
+    "versionTruthCompare": "WORKBUDDY_VERSION_MATCH_WORKBUDDYAI_OFFICIAL_SURFACE_NOT_CONFIGURED",
+    "runtimeDriftRootcause": "NO_WORKBUDDY_PACKAGE_CONTENT_DRIFT",
+    "officialEntryReverify": "official_entry_detected_runtime_reverify_pending"
+  },
+  "reports": [
+    "reports/independent-board/post-listing-cleanup-gate-20260721.json",
+    "reports/independent-board/version-truth-compare-20260721.json",
+    "reports/independent-board/runtime-drift-rootcause-20260721.json",
+    "reports/independent-board/official-entry-reverify-20260721.json"
+  ],
+  "decision": "Keep 26.7.20 immutable. Continue control-plane development and post-listing observation as separate lanes. Do not promote listing or installed-package evidence into natural invocation, same-binding attribution, service-side closure or BUSINESS_CONFIRMED.",
+  "singleNextAction": "Perform one bounded same-session official-entry runtime reverify in WorkBuddy."
+}

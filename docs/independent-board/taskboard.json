@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
-  "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the submitted 26.7.20 expert package.",
-  "singleNextAction": "Implement and verify W4b.1 authorization-code, token-family, rotation and protected-MCP internal services on the verified public_init_033 foundation; keep every public OAuth/MCP route and detailed me/admin page closed.",
+  "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the officially listed and post-listing-frozen 26.7.20 expert package.",
+  "singleNextAction": "Implement and verify public_init_036 receipt-v2 refresh-family rotation and replay containment on the sealed W4b.1 internal OAuth chain; keep every public OAuth/MCP route and detailed me/admin production page closed.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -82,8 +82,8 @@
     },
     {
       "id": "W4_OAUTH_CONNECTOR",
-      "state": "w4a_verified_local_w4b_database_and_dcr_foundation_verified_local",
-      "activeSlice": "W4b_1_internal_oauth_foundation",
+      "state": "w4a_verified_local_w4b1_internal_oauth_chain_verified_local",
+      "activeSlice": "W4b_1_refresh_security_public_init_036",
       "completedSubset": [
         "repository_first_conflict_resolution",
         "existing_fbs_connector_preserved_as_single_marketplace_entry",
@@ -106,8 +106,26 @@
         "w4b_full_repository_backend_http_security_frontend_brand_and_prior_menu_regression_passed",
         "w4b_canonical_initializer_rejects_non_allowlisted_builds_before_running_and_file_execution",
         "w4b_direct_sql_rejects_before_first_persistent_target_table_without_incompatibility_claim",
+        "w4b_authorization_code_approval_denial_pkce_and_consent_lineage_internal_chain_passed",
+        "w4b_token_exchange_digest_only_family_creation_single_use_and_replay_containment_passed",
+        "w4b_first_protected_mcp_request_activation_provenance_and_transaction_chain_passed",
+        "w4b_all_security_decisions_use_post_lock_final_time_and_revalidate_expiry",
+        "w4b_explicit_reauthorization_after_expired_terminal_binding_passed",
+        "w4b_dual_mysql_current_bytes_55_of_55_each_canonical_35_receipts_and_cleanup_passed",
+        "w4b_current_bytes_targeted_133_of_133_full_repository_796_of_796_menu_13_phases_passed",
         "w4b_public_routes_and_detailed_ui_remain_closed"
       ],
+      "nextSlice": {
+        "id": "W4b_1_refresh_security",
+        "migration": "public_init_036",
+        "scope": [
+          "strict_consent_intent_null_semantics",
+          "oauth_security_receipt_v2_generation_causation_and_state_digests",
+          "refresh_family_rotation",
+          "refresh_replay_family_containment",
+          "dual_mysql_success_recovery_drift_and_concurrency_matrix"
+        ]
+      },
       "databaseSupport": {
         "w4aMinimumSyntaxGateOnly": "8.0.29",
         "w4bExactAllowlist": [
@@ -125,7 +143,7 @@
       "heldClosed": [
         "all_public_oauth_and_mcp_routes",
         "me_oauth_consent_connect_and_disconnect_production_pages",
-        "admin_oauth_client_family_security_event_and_connector_production_pages_pending_detailed_prototype_confirmation"
+        "admin_oauth_client_family_security_event_and_connector_production_pages_default_off_pending_w4b2_implementation_and_verification"
       ],
       "exit": [
         "oauth_metadata_and_prm",
@@ -133,6 +151,44 @@
         "exact_resource_audience_and_scope",
         "refresh_family_rotation_and_replay_revocation",
         "workbuddy_connector_vip_binding"
+      ]
+    },
+    {
+      "id": "WL_POST_LISTING_OBSERVATION",
+      "state": "active_official_entry_detected_runtime_reverify_pending",
+      "listingFact": {
+        "state": "officially_listed_user_confirmed",
+        "evidence": "user_confirmation",
+        "confirmedOn": "2026-07-21",
+        "hostVerifiableListingUrl": null,
+        "hostVerifiableListingReceipt": null,
+        "hostTruthChainReport": "reports/independent-board/host-truth-chain-summary-20260721.json",
+        "hostVerificationState": "official_entry_detected_runtime_reverify_pending",
+        "rolloutMode": "full_listing_without_publisher_gray_control"
+      },
+      "packagePolicy": "frozen_post_listing_observation_no_writeback",
+      "gates": [
+        "same_session_official_marketplace_entry_readback",
+        "official_plugin_runtime_load_readback",
+        "natural_invocation_separated_from_probe_diagnostic_and_synthetic_traffic",
+        "same_binding_attribution_receipt",
+        "service_side_closure_receipt"
+      ],
+      "currentEvidence": [
+        "user_confirmed_official_listing",
+        "official_experts_plugin_directory_detected",
+        "official_runtime_payload_matches_final_R_artifact_81_of_81_files"
+      ],
+      "nonInference": [
+        "official_listing_is_not_natural_invocation_proof",
+        "official_listing_is_not_business_attribution_proof",
+        "official_listing_is_not_service_side_closure_proof"
+      ],
+      "exit": [
+        "host_verifiable_listing_evidence_recorded",
+        "listed_runtime_identity_recorded",
+        "post_listing_traffic_classification_recorded",
+        "same_binding_and_service_closure_states_reported_without_cross_layer_inference"
       ]
     },
     {
@@ -164,7 +220,8 @@
     "Portal implementation must extend the existing U3W-AI RuoYi shell and may not create a parallel frontend framework.",
     "Each wave must close one runnable vertical slice before opening adjacent features.",
     "Every user-facing state must map to a server-side durable object and authorization rule.",
-    "No expert package change is allowed during the 26.7.20 review freeze.",
+    "No expert package change or writeback is allowed during the 26.7.20 post-listing freeze and observation period.",
+    "User-confirmed official listing remains distinct from host-verifiable listing evidence, natural invocation, business attribution and service-side closure.",
     "No external acceptance or HTTP success may be promoted to business confirmation.",
     "Review suggestions for host-side products go to next-version demand ledgers."
   ]

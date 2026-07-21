@@ -1,5 +1,6 @@
 package com.wx.fbsir.business.board.oauth.domain;
 
+import com.wx.fbsir.business.board.oauth.BoardOAuthConsentIntent;
 import java.util.Date;
 import lombok.Getter;
 import lombok.Setter;
@@ -25,6 +26,7 @@ public class BoardOAuthAuthorizationCode {
     private Long memberId;
     private Long userId;
     private byte[] principalSubjectDigest;
+    private BoardOAuthConsentIntent consentIntent;
     private String status;
     private Date issuedAt;
     private Date expiresAt;

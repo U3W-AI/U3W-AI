@@ -73,3 +73,31 @@ W4b current-read 必须使用保留原始类型和值边界的 raw typed metadat
   管理页仅进入详细原型规划；
 - 上述详细原型必须取得用户明确确认后才可进入生产实现；
 - 本地数据库验证不得推断 WorkBuddy 已联调、Connector 已上架、真实域名已部署或 VIP 已激活。
+
+## 6. `public_init_034` 后继迁移状态
+
+`public_init_034` 为 `public_init_033` 的只增量后继迁移，新增
+`fbs_oauth_receipt.family_created_slot` nullable generated column 及其唯一索引，约束范围仅为
+`action='TOKEN_FAMILY_CREATED'`：该 action 的 slot 取 `family_id`，其它 action 的 slot 必须为
+`NULL`，因此不限制其它回执语义。`public_init_033` 保持字节不变，其固定 SHA-256 为
+`b103ac5936ab1cb4bce865f04256f41826d90693556bc5627c09fc4ffee5de27`。
+
+当前状态为 `DIRECT_SQL_DUAL_BUILD_VERIFIED_CANONICAL_PENDING`。静态合同包括：精确 033 回执与
+shape 前置、缺失 lineage/重复 family 拒绝、摘要命名锁、内部 `RUNNING/APPLIED` 状态、DDL
+中断后的精确恢复分支，以及在完成回执前重新 current-read 表/列/索引/FK/CHECK/trigger 与
+lineage。034 的列/索引元数据采用“033 原始对象子集 raw digest + 新增列和索引逐字段精确合同”
+的分解门禁；生成表达式只接受 `_utf8mb4`、`_ascii` 与无前缀三种等价规范形式。完整 metadata
+摘要计算前必须把 session `group_concat_max_len` 提升到 `1048576`，异常和成功路径均恢复原值。
+
+在同一当前工作树上，disposable runner 已分别于 MySQL Community `8.0.30` 与 `8.4.8` 完成
+034 direct SQL matrix；两版均为 `BUILD SUCCESS`、`44 tests / 0 failures / 0 errors`。实际覆盖：
+
+- clean first apply、completed replay、`RUNNING+无 DDL` 与 `RUNNING+完整 DDL` 恢复；
+- column-only/孤立 DDL、缺失 lineage、重复历史、不可见索引漂移拒绝；
+- 32 路同 family 并发仅一个 winner、8 路不同 family、其它 action 的 NULL 语义；
+- winner rollback 后重试、receipt UPDATE/DELETE 不可变、命名锁与 helper procedure 清理。
+
+两版完整 successor CHECK digest 均实测为
+`d8878ff64c7e897ddd8d42db6f0afd1a264d2cc8c1794d155051f0cd1638103b`。以上只构成 direct SQL
+证据；canonical public initializer 的三阶段实测仍为 `PENDING`，不得写成 canonical 已通过、
+生产迁移已完成，亦不得据此解锁任何 OAuth/MCP 公共路由或 me/admin 页面。

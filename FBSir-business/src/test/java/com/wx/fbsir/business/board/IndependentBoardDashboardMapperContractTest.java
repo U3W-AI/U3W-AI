@@ -111,6 +111,36 @@ class IndependentBoardDashboardMapperContractTest {
     }
 
     @Test
+    void tokenExchangeAuthorityUsesRawEnterpriseMemberAndPlanSlotsBeforeValidation() {
+        String enterprise = sql("selectEnterpriseSlotForUpdate", Map.of(
+                "tenantId", 7L));
+        String member = sql("selectMemberSlotForUpdate", Map.of(
+                "tenantId", 7L, "memberId", 11L));
+        String plan = sql("selectPlanSlotForUpdate", Map.of(
+                "productCode", "FBSIR_INDEPENDENT_BOARD",
+                "planCode", "BOARD_VIP"));
+
+        assertTrue(enterprise.contains("from fbs_enterprise e"));
+        assertTrue(enterprise.contains("where e.id = ?"));
+        assertFalse(enterprise.contains("e.status = 1"));
+        assertFalse(enterprise.contains("e.del_flag = '0'"));
+        assertTrue(enterprise.endsWith("limit 1 for update"));
+
+        assertTrue(member.contains("m.enterprise_id = ?"));
+        assertTrue(member.contains("m.id = ?"));
+        assertFalse(member.contains("m.user_id = ?"));
+        assertFalse(member.contains("m.status = 1"));
+        assertFalse(member.contains("m.del_flag = '0'"));
+        assertFalse(member.contains("join fbs_enterprise"));
+        assertTrue(member.endsWith("limit 1 for update"));
+
+        assertTrue(plan.contains("product_code = ?"));
+        assertTrue(plan.contains("plan_code = ?"));
+        assertFalse(plan.contains("status = 'active'"));
+        assertTrue(plan.endsWith("limit 1 for update"));
+    }
+
+    @Test
     void adminEntitlementReadIsProductScopedAndFetchesAtMostOneOverflowRow() {
         String sql = sql("selectEntitlementsByTenant", Map.of(
                 "tenantId", 7L, "productCode", "FBSIR_INDEPENDENT_BOARD"));
@@ -260,6 +290,57 @@ class IndependentBoardDashboardMapperContractTest {
         assertTrue(sql.contains("order by scope_code asc"));
         assertTrue(sql.endsWith("limit 5 for update"));
         assertFalse(sql.contains("${"), "connector scope locks must never use substitution");
+    }
+
+    @Test
+    void oauthActivationLocksTheUniqueBindingSlotBeforeValidatingUser() {
+        String sql = sql("selectConnectorBindingSlotForUpdate", Map.of(
+                "tenantId", 7L,
+                "memberId", 11L,
+                "productCode", "FBSIR_INDEPENDENT_BOARD",
+                "sourceCode", "WORKBUDDY",
+                "connectorCode", "fbs-connector"));
+
+        assertTrue(sql.contains("b.enterprise_id = ?"));
+        assertTrue(sql.contains("b.member_id = ?"));
+        assertTrue(sql.contains("b.product_code = ?"));
+        assertTrue(sql.contains("b.source_code = ?"));
+        assertTrue(sql.contains("b.connector_code = ?"));
+        assertFalse(sql.contains("and b.user_id ="),
+                "a drifted user must not turn the unique business slot into a false absence");
+        assertTrue(sql.endsWith("limit 1 for update"));
+    }
+
+    @Test
+    void connectorReceiptCompletionProofIsAnExactCurrentRead() {
+        String sql = sql(
+                "selectConnectorBindingReceiptForUpdate",
+                Map.of("receiptId", "receipt-1"));
+
+        assertTrue(sql.contains("where receipt_id = ?"));
+        assertTrue(sql.endsWith("limit 1 for update"));
+        assertFalse(sql.contains("${"));
+    }
+
+    @Test
+    void everyAuthoritativeBoardCurrentReadBypassesMyBatisSessionAndSecondLevelCaches() {
+        java.util.List<String> statements = java.util.List.of(
+                "selectActiveContextForUpdate",
+                "selectExactActiveMemberForUpdate",
+                "selectActivePlanForUpdate",
+                "selectEntitlementForUpdate",
+                "selectConnectorBindingForUpdate",
+                "selectConnectorBindingSlotForUpdate",
+                "selectConnectorBindingScopesForUpdate",
+                "selectConnectorBindingReceiptForUpdate",
+                "selectOperationForUpdate");
+
+        for (String statement : statements) {
+            org.apache.ibatis.mapping.MappedStatement mapped = configuration.getMappedStatement(
+                    IndependentBoardMapper.class.getName() + "." + statement);
+            assertTrue(mapped.isFlushCacheRequired(), statement + " must flush the local cache");
+            assertFalse(mapped.isUseCache(), statement + " must bypass the second-level cache");
+        }
     }
 
     private static String sql(String statement, Map<String, Object> parameters) {

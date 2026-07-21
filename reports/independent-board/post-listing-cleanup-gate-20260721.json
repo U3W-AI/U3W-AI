@@ -1,0 +1,20 @@
+{
+  "schema": "fbsir.independent-board.post-listing-cleanup-gate/v1",
+  "observedAt": "2026-07-21T12:20:00+08:00",
+  "productId": "fbsir-eight-seat-board",
+  "result": "PASS_TARGET_CLEANUP_CURRENT_READ",
+  "host": {
+    "name": "WorkBuddy",
+    "root": "C:/Users/dhc/.workbuddy"
+  },
+  "checks": {
+    "settingsEnabledPluginsField": "absent",
+    "activeMyExpertsTargetDirectories": [],
+    "disabledMyExpertsTargetDirectories": [],
+    "targetBackupOrValidatorShadowDirectoriesUnderActivePlugins": [],
+    "officialExpertsTargetDirectories": [
+      "C:/Users/dhc/.workbuddy/plugins/marketplaces/experts/plugins/fbsir-eight-seat-board"
+    ]
+  },
+  "evidenceBoundary": "Cleanup current-read proves that the listed target is no longer shadowed by an active my-experts copy. It does not prove official runtime loading, a real conversation, natural traffic, business attribution or service-side closure."
+}

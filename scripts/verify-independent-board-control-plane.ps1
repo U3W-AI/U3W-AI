@@ -102,16 +102,30 @@ function Invoke-ContractChecks {
         -Source 'W4a verification report'
     $w4bReport = Read-Utf8Json -RelativePath 'reports\independent-board\w4b-oauth-foundation-verification-20260721.json'
     Assert-ProductBrand -Product $w4bReport.product -Source 'W4b foundation verification report'
-    if ($w4bReport.result -cne 'VERIFIED_LOCAL_INTERNAL_FOUNDATION' `
-            -or $w4bReport.repository.implementationCommit -cne '112b1967cd83f66175e5aa7a98cbc751972e8ea5' `
-            -or $w4bReport.migration.sha256 -cne 'b103ac5936ab1cb4bce865f04256f41826d90693556bc5627c09fc4ffee5de27' `
-            -or @($w4bReport.mysqlRuns).Count -ne 2 `
-            -or @($w4bReport.mysqlRuns | Where-Object { $_.tests -eq 44 -and $_.exitCode -eq 0 }).Count -ne 2 `
+    $expectedW4bMigrationHashes = @(
+        'b103ac5936ab1cb4bce865f04256f41826d90693556bc5627c09fc4ffee5de27',
+        '2ba6fce7c3161b1647397485c37681974202b3a566ab370cc05587b1cfde7af3',
+        '55dc772d54a4a457f00711a45266b2d0042522d63ed0d5a8e408d35a8ecaf560'
+    )
+    $actualW4bMigrationHashes = @($w4bReport.migrations | ForEach-Object { $_.sha256 })
+    if ($w4bReport.schema -cne 'fbsir.independent-board.w4b1-verification/v2' `
+            -or $w4bReport.result -cne 'VERIFIED_LOCAL_INTERNAL_OAUTH_CHAIN' `
+            -or $w4bReport.repository.verificationBaseCommit -cne 'a1298b3194f62dc1708ac684f2fe7337970667c9' `
+            -or (Compare-Object -ReferenceObject $expectedW4bMigrationHashes -DifferenceObject $actualW4bMigrationHashes).Count -ne 0 `
+            -or @($w4bReport.verification.dualMysql).Count -ne 2 `
+            -or @($w4bReport.verification.dualMysql | Where-Object { $_.tests -eq 55 -and $_.failures -eq 0 -and $_.errors -eq 0 -and $_.skipped -eq 0 -and $_.canonicalPhasesPassed -eq 3 -and $_.publicManifestReceipts -eq 35 -and $_.cleanupGatesPassed -eq 5 }).Count -ne 2 `
+            -or $w4bReport.verification.targetedServiceMatrix.tests -ne 133 `
+            -or $w4bReport.verification.fullRepositoryAll.tests -ne 796 `
+            -or $w4bReport.internalServices.authorizationCode.state -cne 'verified_local' `
+            -or $w4bReport.internalServices.tokenExchange.state -cne 'verified_local' `
+            -or $w4bReport.internalServices.firstProtectedMcpRequest.state -cne 'verified_local' `
+            -or $w4bReport.internalServices.refreshRotation.state -cne 'not_implemented' `
             -or $w4bReport.contract.publicRoutesEnabled -ne $false `
             -or $w4bReport.evidenceBoundaries.workBuddyHostIntegrated -ne $false `
+            -or $w4bReport.evidenceBoundaries.sameSessionOfficialRuntimeInvocationVerified -ne $false `
             -or $w4bReport.evidenceBoundaries.productionDatabaseMigrated -ne $false `
             -or $w4bReport.evidenceBoundaries.businessConfirmed -ne $false) {
-        throw 'W4b foundation verification receipt drifted or exceeds its evidence boundary'
+        throw 'W4b.1 verification receipt drifted or exceeds its evidence boundary'
     }
     $w4bEvidence = Read-Utf8Json -RelativePath 'docs\independent-board\W4B-INPUT-EVIDENCE.json'
     Assert-ProductBrand -Product $w4bEvidence.product -Source 'W4b input evidence'

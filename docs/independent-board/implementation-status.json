@@ -5,11 +5,40 @@
     "brandEn": "FBSir",
     "name": "独董会"
   },
-  "platformVersion": "0.4.1-dev",
+  "platformVersion": "0.4.2-dev",
   "expertPackage": {
     "version": "26.7.20",
-    "state": "submitted_for_review",
-    "frozen": true
+    "state": "officially_listed_user_confirmed",
+    "listingEvidence": "user_confirmation",
+    "listingConfirmedOn": "2026-07-21",
+    "hostVerifiableListingUrl": null,
+    "hostVerifiableListingReceipt": null,
+    "hostVerificationState": "official_entry_detected_runtime_reverify_pending",
+    "hostTruthChainReport": "reports/independent-board/host-truth-chain-summary-20260721.json",
+    "rolloutMode": "full_listing_without_publisher_gray_control",
+    "frozen": true,
+    "writePolicy": "frozen_post_listing_observation_no_writeback"
+  },
+  "postListingObservation": {
+    "state": "active_official_entry_detected_runtime_reverify_pending",
+    "wave": "WL_POST_LISTING_OBSERVATION",
+    "requiredGates": [
+      "same_session_official_marketplace_entry_readback",
+      "official_plugin_runtime_load_readback",
+      "natural_invocation_separated_from_probe_diagnostic_and_synthetic_traffic",
+      "same_binding_attribution_receipt",
+      "service_side_closure_receipt"
+    ],
+    "currentEvidence": [
+      "user_confirmed_official_listing",
+      "official_experts_plugin_directory_detected",
+      "official_runtime_payload_matches_final_R_artifact_81_of_81_files"
+    ],
+    "noPromotionRules": [
+      "official_listing_does_not_prove_natural_invocation",
+      "official_listing_does_not_prove_business_attribution",
+      "official_listing_does_not_prove_service_side_closure"
+    ]
   },
   "activeWave": "W4_OAUTH_CONNECTOR",
   "stage": "fix",
@@ -44,14 +73,16 @@
     "reports/independent-board/w3-admin-portal-verification-20260720.json",
     "reports/independent-board/w3b-entitlement-lifecycle-verification-20260720.json",
     "reports/independent-board/w4a-authoritative-connector-binding-verification-20260721.json",
-    "reports/independent-board/w4b-oauth-foundation-verification-20260721.json"
+    "reports/independent-board/w4b-oauth-foundation-verification-20260721.json",
+    "reports/independent-board/host-truth-chain-summary-20260721.json"
   ],
   "proven": [
     "isolated_u3w_branch_created",
     "standalone_repository_matches_migration_source_commit_and_tree",
     "backend_baseline_passed",
     "frontend_baseline_passed",
-    "submitted_expert_package_is_outside_writable_boundary",
+    "official_listing_is_user_confirmed_with_host_verifiable_evidence_pending",
+    "listed_26_7_20_expert_package_is_frozen_outside_writable_boundary",
     "database_manifest_and_dry_run_passed",
     "board_java_branch_tests_passed",
     "full_backend_and_frontend_regression_passed",
@@ -110,13 +141,26 @@
     "w4b_full_repository_backend_http_security_frontend_brand_and_prior_menu_regression_passed",
     "w4b_canonical_initializer_rejects_non_allowlisted_builds_before_running_or_migration_file_execution",
     "w4b_direct_sql_rejects_non_allowlisted_builds_before_first_persistent_target_table_without_incompatibility_claim",
-    "w4b_public_routes_and_detailed_oauth_ui_remain_closed"
+    "w4b_public_routes_and_detailed_oauth_ui_remain_closed",
+    "w4b_detailed_me_admin_prototype_confirmed_for_candidate_implementation_only",
+    "w4b_authorization_code_approval_denial_and_pkce_s256_internal_services_verified_local",
+    "w4b_token_exchange_creates_digest_only_access_refresh_family_and_receipt_atomically",
+    "w4b_first_protected_mcp_request_activates_binding_only_after_token_and_receipt_provenance_validation",
+    "w4b_final_security_decision_time_is_observed_after_all_authority_locks",
+    "w4b_expired_terminal_binding_permits_explicit_reauthorization_without_capping_new_token_issuance",
+    "w4b_dual_mysql_8_0_30_and_8_4_8_current_bytes_55_of_55_transaction_matrix_passed",
+    "w4b_current_bytes_full_repository_796_tests_and_frontend_production_build_passed"
   ],
   "notProven": [
-    "oauth_authorization_code_and_token_family_internal_services",
+    "oauth_refresh_family_rotation_and_replay_containment_service",
     "oauth_public_routes",
     "oauth_end_to_end",
-    "w4b_detailed_me_admin_prototype_confirmation",
+    "workbuddy_host_verifiable_listing_url_or_receipt",
+    "workbuddy_same_session_official_entry_runtime_load",
+    "listed_runtime_natural_invocation",
+    "listed_runtime_same_binding_business_attribution",
+    "listed_runtime_service_side_closure",
+    "w4b_2_detailed_me_admin_implementation",
     "production_database_migration",
     "me_portal_production_runtime",
     "admin_portal_production_runtime",
@@ -149,9 +193,11 @@
     ],
     "adminAccessModel": "global_system_admin_only",
     "connectorAction": "deferred_to_W4_oauth_connector",
-    "w4bDetailedPrototype": "required_not_yet_confirmed",
-    "w4bOauthConnectorProductionImplementationAllowed": false,
-    "w4bOauthConnectorUnlockCondition": "detailed_me_admin_prototype_explicitly_confirmed",
+    "w4bDetailedPrototype": "confirmed_for_w4b2_candidate_only",
+    "w4bDetailedPrototypeConfirmation": "explicit_user_confirmation_2026_07_20",
+    "w4bOauthConnectorProductionImplementationAllowed": true,
+    "w4bOauthConnectorImplementationState": "not_implemented",
+    "w4bOauthConnectorUnlockCondition": "satisfied_by_explicit_user_confirmation_2026_07_20",
     "watchAndWebhookDeepPages": "deferred_to_W5_delivery_and_watch"
   },
   "w4a": {
@@ -177,7 +223,7 @@
     ]
   },
   "w4b": {
-    "state": "w4b_1_database_and_dcr_foundation_verified_local",
+    "state": "w4b_1_internal_authorization_token_exchange_and_first_protected_request_verified_local",
     "contract": "docs/independent-board/W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md",
     "databaseSupportMatrix": "docs/independent-board/W4B-DATABASE-SUPPORT-MATRIX.md",
     "inputEvidence": "docs/independent-board/W4B-INPUT-EVIDENCE.json",
@@ -202,15 +248,20 @@
         "negative_schema_drift_matrix",
         "authorization_contract_and_support_matrix_revision"
       ],
-      "fullW4bMysqlVerification": "foundation_migration_internal_dcr_and_token_termination_primitive_dual_exact_build_verified_local_44_of_44_each"
+      "fullW4bMysqlVerification": "foundation_provenance_consent_intent_authorization_token_exchange_and_first_protected_request_dual_exact_build_verified_local_55_of_55_each"
     },
     "verificationReport": "reports/independent-board/w4b-oauth-foundation-verification-20260721.json",
     "internalDcr": "profile_constrained_client_and_action_completed_receipt_verified_by_focused_tests_and_real_mysql_transaction_rollback_retry",
     "tokenTerminationPrimitive": "expired_active_tokens_transition_to_expired_and_live_tokens_revoke_at_per_row_logical_time_floor_verified_real_mysql",
+    "authorizationCodeService": "approve_deny_pkce_exact_redirect_resource_scope_consent_lineage_and_post_lock_final_time_verified_local",
+    "tokenExchangeService": "single_use_code_digest_only_token_family_atomic_receipts_replay_containment_and_explicit_reauthorization_verified_local",
+    "firstProtectedRequestService": "validated_initialize_or_tools_list_only_activation_with_token_family_and_receipt_provenance_verified_local",
+    "currentByteVerification": "targeted_133_of_133_full_repository_796_of_796_dual_mysql_55_of_55_each_menu_13_phases",
     "publicRoutes": "closed",
-    "detailedUiPrototype": "required_not_yet_confirmed",
-    "detailedUiProductionImplementation": "forbidden_until_explicit_prototype_confirmation",
-    "nextSlice": "authorization_code_token_family_and_mcp_internal_services_without_public_routes"
+    "detailedUiPrototype": "confirmed_for_w4b2_candidate_only",
+    "detailedUiPrototypeConfirmation": "explicit_user_confirmation_2026_07_20",
+    "detailedUiProductionImplementation": "allowed_but_not_implemented",
+    "nextSlice": "public_init_036_receipt_v2_refresh_family_rotation_and_replay_containment_without_public_routes"
   },
-  "updatedAt": "2026-07-21T04:38:30+08:00"
+  "updatedAt": "2026-07-21T12:35:51+08:00"
 }

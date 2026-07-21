@@ -2,6 +2,14 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.wx.fbsir.business.board.mapper.IndependentBoardMapper">
 
+    <resultMap id="EnterpriseAuthority"
+               type="com.wx.fbsir.business.board.domain.BoardEnterpriseAuthority">
+        <id property="tenantId" column="tenant_id" />
+        <result property="tenantName" column="tenant_name" />
+        <result property="status" column="status" />
+        <result property="delFlag" column="del_flag" />
+    </resultMap>
+
     <resultMap id="MemberScope" type="com.wx.fbsir.business.board.domain.BoardEnterpriseMemberScope">
         <id property="memberId" column="member_id" />
         <result property="tenantId" column="tenant_id" />
@@ -84,6 +92,20 @@
         </collection>
     </resultMap>
 
+    <resultMap id="ConnectorBindingReceipt"
+               type="com.wx.fbsir.business.board.domain.BoardConnectorBindingReceipt">
+        <id property="receiptId" column="receipt_id" />
+        <result property="bindingId" column="binding_id" />
+        <result property="tenantId" column="enterprise_id" />
+        <result property="memberId" column="member_id" />
+        <result property="userId" column="user_id" />
+        <result property="actorUserId" column="actor_user_id" />
+        <result property="action" column="action" />
+        <result property="payloadDigest" column="payload_digest" />
+        <result property="evidenceLevel" column="evidence_level" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
     <resultMap id="Budget" type="com.wx.fbsir.business.board.domain.BoardUsageBudget">
         <id property="id" column="id" />
         <result property="tenantId" column="enterprise_id" />
@@ -123,6 +145,17 @@
         m.user_id, m.role AS member_role, m.status, m.del_flag
     </sql>
 
+    <!-- Raw enterprise slot: lock first, then validate status and deletion state in Java. -->
+    <select id="selectEnterpriseSlotForUpdate" resultMap="EnterpriseAuthority"
+            flushCache="true" useCache="false">
+        SELECT e.id AS tenant_id, e.enterprise_name AS tenant_name,
+               e.status, e.del_flag
+        FROM fbs_enterprise e
+        WHERE e.id = #{tenantId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
     <select id="selectActiveContextsByUser" resultMap="MemberScope">
         SELECT <include refid="ActiveContextColumns" />
         FROM fbs_enterprise_member m
@@ -151,7 +184,7 @@
         LIMIT 1
     </select>
 
-    <select id="selectActiveContextForUpdate" resultMap="MemberScope">
+    <select id="selectActiveContextForUpdate" resultMap="MemberScope" flushCache="true" useCache="false">
         SELECT <include refid="ActiveContextColumns" />
         FROM fbs_enterprise_member m
         INNER JOIN fbs_enterprise e
@@ -166,7 +199,7 @@
         FOR UPDATE
     </select>
 
-    <select id="selectExactActiveMemberForUpdate" resultMap="MemberScope">
+    <select id="selectExactActiveMemberForUpdate" resultMap="MemberScope" flushCache="true" useCache="false">
         SELECT <include refid="ActiveContextColumns" />
         FROM fbs_enterprise_member m
         INNER JOIN fbs_enterprise e
@@ -182,6 +215,17 @@
         FOR UPDATE
     </select>
 
+    <!-- Raw unique member slot: status/user drift must not turn the lock into a false absence. -->
+    <select id="selectMemberSlotForUpdate" resultMap="MemberScope" flushCache="true" useCache="false">
+        SELECT m.id AS member_id, m.enterprise_id AS tenant_id, NULL AS tenant_name,
+               m.user_id, m.role AS member_role, m.status, m.del_flag
+        FROM fbs_enterprise_member m
+        WHERE m.enterprise_id = #{tenantId}
+          AND m.id = #{memberId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
     <select id="selectActivePlan" resultMap="Plan">
         SELECT product_code, plan_code, vip, connector_required, daily_meeting_limit,
                agenda_limit, seat_limit, secretary_enabled, status
@@ -190,6 +234,28 @@
           AND plan_code = #{planCode}
           AND status = 'ACTIVE'
         LIMIT 1
+    </select>
+
+    <select id="selectActivePlanForUpdate" resultMap="Plan" flushCache="true" useCache="false">
+        SELECT product_code, plan_code, vip, connector_required, daily_meeting_limit,
+               agenda_limit, seat_limit, secretary_enabled, status
+        FROM fbs_product_plan
+        WHERE product_code = #{productCode}
+          AND plan_code = #{planCode}
+          AND status = 'ACTIVE'
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <!-- Raw plan slot: lock first, then validate status and immutable policy in Java. -->
+    <select id="selectPlanSlotForUpdate" resultMap="Plan" flushCache="true" useCache="false">
+        SELECT product_code, plan_code, vip, connector_required, daily_meeting_limit,
+               agenda_limit, seat_limit, secretary_enabled, status
+        FROM fbs_product_plan
+        WHERE product_code = #{productCode}
+          AND plan_code = #{planCode}
+        LIMIT 1
+        FOR UPDATE
     </select>
 
     <sql id="EntitlementColumns">
@@ -208,7 +274,7 @@
         LIMIT 1
     </select>
 
-    <select id="selectEntitlementForUpdate" resultMap="Entitlement">
+    <select id="selectEntitlementForUpdate" resultMap="Entitlement" flushCache="true" useCache="false">
         SELECT <include refid="EntitlementColumns" />
         FROM fbs_product_entitlement
         WHERE enterprise_id = #{tenantId}
@@ -302,12 +368,29 @@
         LIMIT 1
     </select>
 
-    <select id="selectConnectorBindingForUpdate" resultMap="ConnectorBinding">
+    <select id="selectConnectorBindingForUpdate" resultMap="ConnectorBinding" flushCache="true" useCache="false">
         SELECT <include refid="ConnectorBindingColumns" />
         FROM fbs_connector_binding b
         WHERE b.enterprise_id = #{tenantId}
           AND b.member_id = #{memberId}
           AND b.user_id = #{userId}
+          AND b.product_code = #{productCode}
+          AND b.source_code = #{sourceCode}
+          AND b.connector_code = #{connectorCode}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <!--
+      OAuth activation locks the exact unique business slot before validating user_id.
+      Filtering by user_id here would turn a drifted row into a false absence and would
+      fail to lock the uniqueness/gap that serializes first activation.
+    -->
+    <select id="selectConnectorBindingSlotForUpdate" resultMap="ConnectorBinding" flushCache="true" useCache="false">
+        SELECT <include refid="ConnectorBindingColumns" />
+        FROM fbs_connector_binding b
+        WHERE b.enterprise_id = #{tenantId}
+          AND b.member_id = #{memberId}
           AND b.product_code = #{productCode}
           AND b.source_code = #{sourceCode}
           AND b.connector_code = #{connectorCode}
@@ -370,7 +453,7 @@
         LIMIT 5
     </select>
 
-    <select id="selectConnectorBindingScopesForUpdate" resultType="java.lang.String">
+    <select id="selectConnectorBindingScopesForUpdate" resultType="java.lang.String" flushCache="true" useCache="false">
         SELECT scope_code
         FROM fbs_connector_binding_scope
         WHERE binding_id = #{bindingId}
@@ -416,6 +499,33 @@
           AND version = #{expectedVersion}
     </update>
 
+    <update id="reauthorizeConnectorBindingIfVersion">
+        UPDATE fbs_connector_binding
+        SET issuer_uri = #{binding.issuerUri},
+            resource_uri = #{binding.resourceUri},
+            client_id = #{binding.clientId},
+            principal_subject_digest = #{binding.principalSubjectDigest},
+            status = 'ACTIVE',
+            verification_method = #{binding.verificationMethod},
+            evidence_digest = #{binding.evidenceDigest},
+            verified_at = #{binding.verifiedAt},
+            last_seen_at = #{binding.lastSeenAt},
+            valid_until = #{binding.validUntil},
+            revoked_at = NULL,
+            version = version + 1,
+            updated_at = #{binding.verifiedAt}
+        WHERE id = #{binding.id}
+          AND binding_id = #{binding.bindingId}
+          AND enterprise_id = #{binding.tenantId}
+          AND member_id = #{binding.memberId}
+          AND user_id = #{binding.userId}
+          AND product_code = #{binding.productCode}
+          AND source_code = #{binding.sourceCode}
+          AND connector_code = #{binding.connectorCode}
+          AND status IN ('ACTIVE', 'REVOKED', 'COMPROMISED')
+          AND version = #{expectedVersion}
+    </update>
+
     <insert id="insertConnectorBindingReceipt"
             parameterType="com.wx.fbsir.business.board.domain.BoardConnectorBindingReceipt">
         INSERT INTO fbs_connector_binding_receipt
@@ -425,6 +535,15 @@
             (#{receiptId}, #{bindingId}, #{tenantId}, #{memberId}, #{userId}, #{actorUserId},
              #{action}, #{payloadDigest}, #{evidenceLevel}, #{createdAt})
     </insert>
+
+    <select id="selectConnectorBindingReceiptForUpdate" resultMap="ConnectorBindingReceipt" flushCache="true" useCache="false">
+        SELECT receipt_id, binding_id, enterprise_id, member_id, user_id,
+               actor_user_id, action, payload_digest, evidence_level, created_at
+        FROM fbs_connector_binding_receipt
+        WHERE receipt_id = #{receiptId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
 
     <select id="selectUsageBudget" resultMap="Budget">
         SELECT id, enterprise_id, member_id, product_code, metric_code, bucket_date,
@@ -473,7 +592,7 @@
         LIMIT 1
     </select>
 
-    <select id="selectOperationForUpdate" resultMap="Operation">
+    <select id="selectOperationForUpdate" resultMap="Operation" flushCache="true" useCache="false">
         SELECT id, operation_id, request_digest, enterprise_id, member_id, user_id,
                product_code, metric_code, bucket_date, units, status, effective_plan_code,
                agenda_count, seat_count, remaining_count, created_at, updated_at, completed_at

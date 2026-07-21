@@ -1,5 +1,6 @@
 package com.wx.fbsir.business.board.oauth.domain;
 
+import com.wx.fbsir.business.board.oauth.BoardOAuthConsentIntent;
 import java.util.Date;
 import lombok.Getter;
 import lombok.Setter;
@@ -22,6 +23,7 @@ public class BoardOAuthTokenFamily {
     private String scopeCanonical;
     private byte[] scopeDigest;
     private byte[] principalSubjectDigest;
+    private BoardOAuthConsentIntent consentIntent;
     private String bindingId;
     private Long bindingVersion;
     private String status;

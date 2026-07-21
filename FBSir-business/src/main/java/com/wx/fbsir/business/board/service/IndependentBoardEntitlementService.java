@@ -7,8 +7,6 @@ import com.wx.fbsir.business.board.domain.BoardProductPlan;
 import com.wx.fbsir.business.board.domain.BoardUsageBudget;
 import com.wx.fbsir.business.board.dto.BoardEntitlementAdminView;
 import com.wx.fbsir.business.board.dto.BoardConnectorBindingKey;
-import com.wx.fbsir.business.board.dto.BoardConnectorBindingSnapshot;
-import com.wx.fbsir.business.board.dto.BoardConnectorProtectedRequestAttestation;
 import com.wx.fbsir.business.board.dto.BoardEntitlementGrantRequest;
 import com.wx.fbsir.business.board.dto.BoardEntitlementReceiptAuditEnvelope;
 import com.wx.fbsir.business.board.dto.BoardEntitlementReceiptView;
@@ -44,13 +42,6 @@ public class IndependentBoardEntitlementService {
 
     private static final BoardConnectorBindingPort FAIL_CLOSED_CONNECTOR_PORT =
             new BoardConnectorBindingPort() {
-                @Override
-                public BoardConnectorBindingSnapshot confirmProtectedRequest(
-                        BoardConnectorProtectedRequestAttestation attestation,
-                        Long actorUserId) {
-                    throw new ServiceException("CONNECTOR_BINDING_PORT_UNAVAILABLE", 503);
-                }
-
                 @Override
                 public boolean hasAuthoritativeCurrentBinding(
                         Long tenantId, Long memberId, Long userId,

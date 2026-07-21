@@ -1,0 +1,23 @@
+{
+  "schema": "fbsir.independent-board.official-entry-reverify/v1",
+  "observedAt": "2026-07-21T12:20:00+08:00",
+  "productId": "fbsir-eight-seat-board",
+  "result": "official_entry_detected_runtime_reverify_pending",
+  "proven": [
+    "user_confirmed_official_review_pass_and_listing",
+    "workbuddy_official_experts_marketplace_is_configured",
+    "official_plugin_directory_is_present",
+    "official_plugin_manifest_reports_version_26_7_20",
+    "official_runtime_payload_matches_final_R_artifact_81_of_81_files"
+  ],
+  "notProven": [
+    "same_session_official_marketplace_card_readback",
+    "official_plugin_loaded_as_fbsir_eight_seat_board_at_experts",
+    "real_official_expert_conversation_started",
+    "natural_invocation",
+    "same_binding_business_attribution",
+    "service_side_closure"
+  ],
+  "singleNextAction": "Open the official WorkBuddy marketplace entry for 独董会, start one bounded real conversation, and capture the same-session official-entry and runtime-load readback without enabling connectors or making production writes.",
+  "packagePolicy": "frozen_post_listing_observation_no_writeback"
+}

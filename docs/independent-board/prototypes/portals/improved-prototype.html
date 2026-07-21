@@ -1,0 +1,1118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>独董会门户改善方案 · 交互原型</title>
+  <style>
+    :root {
+      --b-primary: #246BFD;
+      --b-primary-light: #4D86FE;
+      --b-primary-dark: #1A4FCF;
+      --b-navy: #12223D;
+      --b-success: #16A34A;
+      --b-warning: #D97706;
+      --b-danger: #DC2626;
+      --b-info: #0EA5E9;
+      --b-neutral: #6B7280;
+      --b-purple: #9333EA;
+      --surface: #F5F7FB;
+      --card: #FFFFFF;
+      --sunken: #F0F2F6;
+      --border: #E7EBF2;
+      --border-d: #D1D5DB;
+      --text: #12223D;
+      --text-2: #4B5563;
+      --text-muted: #98A2B3;
+      --text-inv: #FFFFFF;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-hero: 24px;
+      --shadow-sm: 0 1px 2px rgba(18,34,61,.05);
+      --shadow-md: 0 4px 12px rgba(18,34,61,.08);
+      --shadow-lg: 0 12px 32px rgba(18,34,61,.12);
+      --shadow-hero: 0 18px 50px rgba(18,34,61,.16);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "PingFang SC", "Microsoft YaHei", Inter, Arial, sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+    .banner {
+      height: 36px;
+      background: linear-gradient(90deg, #EEF2FF, #F0F9FF);
+      color: #1E40AF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      border-bottom: 1px solid #C7D2FE;
+      gap: 8px;
+    }
+    .banner-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--b-primary);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+    .app { display: grid; grid-template-columns: 224px 1fr; min-height: calc(100vh - 36px); }
+    .sidebar {
+      background: #1B283F;
+      color: #98AFC2;
+      position: sticky;
+      top: 0;
+      height: calc(100vh - 36px);
+      overflow-y: auto;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-thumb { background: #2D3D54; border-radius: 2px; }
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 20px 18px;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .sidebar-logo .mark {
+      width: 38px; height: 38px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--b-primary), #22C55E);
+      display: grid; place-items: center;
+      font-size: 20px; font-weight: 800;
+      color: #fff;
+    }
+    .sidebar-logo .text { display: flex; flex-direction: column; }
+    .sidebar-logo .brand { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .03em; }
+    .sidebar-logo .product { font-size: 12px; color: #6B829C; margin-top: 2px; }
+    .sidebar-group { padding: 16px 10px 8px; }
+    .sidebar-title {
+      font-size: 11px;
+      color: #5A7390;
+      padding: 4px 12px;
+      margin-bottom: 6px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .nav-item {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: #98AFC2;
+      text-align: left;
+      padding: 11px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 2px 0;
+      transition: all .15s ease;
+    }
+    .nav-item:hover { background: rgba(255,255,255,.06); color: #D1DCEA; }
+    .nav-item.active {
+      background: rgba(36,107,253,.18);
+      color: #fff;
+      font-weight: 600;
+      box-shadow: inset 3px 0 0 var(--b-primary);
+    }
+    .nav-item .icon { width: 18px; text-align: center; font-size: 15px; }
+    .nav-item .badge-pill {
+      margin-left: auto;
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 99px;
+      font-weight: 600;
+    }
+    .badge-pill.warn { background: rgba(217,119,6,.2); color: #FBBF24; }
+    .badge-pill.info { background: rgba(14,165,233,.2); color: #38BDF8; }
+    .main { min-width: 0; overflow-x: hidden; }
+    .topbar {
+      height: 56px;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .crumb { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+    .crumb .sep { color: #D1D5DB; }
+    .crumb .current { color: var(--text); font-weight: 600; }
+    .topbar-right { display: flex; align-items: center; gap: 16px; }
+    .portal-switch {
+      display: flex;
+      gap: 2px;
+      padding: 3px;
+      background: var(--sunken);
+      border-radius: var(--radius-sm);
+    }
+    .portal-switch button {
+      border: 0;
+      background: transparent;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+      transition: all .15s ease;
+    }
+    .portal-switch button.active {
+      background: #fff;
+      color: var(--text);
+      box-shadow: var(--shadow-sm);
+    }
+    .avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--b-primary), #22C55E);
+      display: grid; place-items: center;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .content { padding: 24px; max-width: 1480px; }
+
+    /* ===== Hero ===== */
+    .hero {
+      display: flex;
+      align-items: stretch;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 28px 32px;
+      border-radius: var(--radius-hero);
+      color: #fff;
+      background: linear-gradient(125deg, #0F1E38 0%, #16335E 55%, #246BFD 135%);
+      box-shadow: var(--shadow-hero);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -30%; right: -10%;
+      width: 60%; height: 160%;
+      background: radial-gradient(circle, rgba(36,107,253,.15), transparent 50%);
+      pointer-events: none;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.2), transparent);
+    }
+    .hero-left { display: flex; align-items: center; gap: 18px; z-index: 1; }
+    .hero-mark {
+      width: 56px; height: 56px;
+      border-radius: 16px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.3);
+      display: grid; place-items: center;
+      font-size: 26px; font-weight: 800;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .hero-brand-line {
+      font-size: 14px;
+      font-weight: 650;
+      letter-spacing: .04em;
+      color: rgba(255,255,255,.85);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .hero-brand-line .divider {
+      width: 1px; height: 14px;
+      background: rgba(255,255,255,.35);
+    }
+    .hero h1 {
+      font-size: 30px;
+      line-height: 1.18;
+      margin: 5px 0 7px;
+      font-weight: 750;
+    }
+    .hero p {
+      font-size: 14px;
+      color: rgba(255,255,255,.68);
+      line-height: 1.55;
+    }
+    .hero-right {
+      display: flex;
+      align-items: center;
+      z-index: 1;
+    }
+    .context-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 16px 18px;
+      border-radius: var(--radius-md);
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.18);
+      backdrop-filter: blur(8px);
+      min-width: 280px;
+    }
+    .context-panel label {
+      font-size: 12px;
+      color: rgba(255,255,255,.65);
+    }
+    .context-panel .select-mock {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: rgba(255,255,255,.08);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .context-panel .select-mock .arrow { color: rgba(255,255,255,.5); }
+    .context-panel .refresh-btn {
+      align-self: flex-end;
+      margin-top: 4px;
+      font-size: 12px;
+      color: rgba(255,255,255,.6);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* ===== Status Bar ===== */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-top: 16px;
+      padding: 14px 20px;
+      border-radius: var(--radius-lg);
+      background: #fff;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+    .status-item {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px;
+      border-right: 1px solid var(--border);
+    }
+    .status-item:last-child { border-right: 0; }
+    .status-item:first-child { padding-left: 0; }
+    .status-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-dot.green { background: var(--b-success); }
+    .status-dot.yellow { background: var(--b-warning); animation: pulse 2s infinite; }
+    .status-dot.gray { background: var(--b-neutral); }
+    .status-item .label { font-size: 12px; color: var(--text-muted); }
+    .status-item .value { font-size: 14px; font-weight: 700; color: var(--text); }
+
+    /* ===== Connector Timeline ===== */
+    .connector-timeline {
+      margin-top: 16px;
+      padding: 20px 24px;
+      border-radius: var(--radius-lg);
+      background: #fff;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+    .connector-timeline-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .connector-timeline-header h3 { font-size: 15px; font-weight: 700; }
+    .connector-timeline-header .next-step { font-size: 13px; color: var(--text-muted); }
+    .connector-timeline-header .next-step strong { color: var(--b-primary); }
+    .timeline-track {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      position: relative;
+    }
+    .timeline-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      position: relative;
+    }
+    .timeline-circle {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 14px;
+      font-weight: 700;
+      z-index: 1;
+    }
+    .timeline-circle.done {
+      background: #ECFDF5;
+      border: 2px solid var(--b-success);
+      color: var(--b-success);
+    }
+    .timeline-circle.current {
+      background: #EFF6FF;
+      border: 2px solid var(--b-primary);
+      color: var(--b-primary);
+      animation: ring-pulse 2s ease-in-out infinite;
+    }
+    .timeline-circle.pending {
+      background: var(--sunken);
+      border: 2px solid var(--border);
+      color: var(--text-muted);
+    }
+    @keyframes ring-pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(36,107,253,.3); }
+      50% { box-shadow: 0 0 0 8px rgba(36,107,253,0); }
+    }
+    .timeline-line {
+      flex: 0 0 auto;
+      width: 60px;
+      height: 2px;
+      margin: 0 -16px;
+      margin-bottom: 28px;
+    }
+    .timeline-line.done { background: var(--b-success); }
+    .timeline-line.pending { background: var(--border); border-top: 2px dashed var(--border-d); height: 0; }
+    .timeline-label { font-size: 12px; font-weight: 600; color: var(--text); }
+    .timeline-sub { font-size: 11px; color: var(--text-muted); }
+    .timeline-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ===== Cards ===== */
+    .card-grid {
+      display: grid;
+      grid-template-columns: 1.2fr .9fr .9fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .b-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow .2s ease;
+    }
+    .b-card:hover { box-shadow: var(--shadow-md); }
+    .card-eyebrow {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+    .plan-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .plan-name { font-size: 27px; font-weight: 750; }
+    .plan-caption { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+    .pending-box {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      background: #FFF8E8;
+      border: 1px solid #F3CB70;
+      color: #9A6700;
+      font-size: 13px;
+    }
+    .pending-box .icon { font-size: 18px; flex-shrink: 0; }
+    .quota-main {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .quota-main strong { font-size: 34px; line-height: 1; font-weight: 800; }
+    .quota-main span { color: var(--text-muted); font-size: 14px; }
+    .progress-bar {
+      height: 8px;
+      background: #EEF2F7;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-bar .fill {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--b-primary), #67C23A);
+      transition: width .4s ease;
+    }
+    .quota-detail {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .meeting-copy { font-size: 14px; color: var(--text-muted); line-height: 1.65; min-height: 47px; }
+    .btn-primary {
+      width: 100%;
+      margin-top: 14px;
+      padding: 10px 16px;
+      background: var(--b-primary);
+      color: #fff;
+      border: 0;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s ease;
+    }
+    .btn-primary:hover { background: var(--b-primary-light); }
+    .btn-primary:disabled { background: #C5CCD8; cursor: not-allowed; }
+
+    /* ===== Content Grid ===== */
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .section-title { font-size: 16px; font-weight: 700; }
+    .section-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+    .btn-link {
+      border: 0;
+      background: transparent;
+      color: var(--b-primary);
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    /* ===== Table ===== */
+    .b-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .b-table th {
+      text-align: left;
+      padding: 10px 12px;
+      background: #FAFAFA;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 12px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .b-table td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .b-table tr { transition: background .1s ease; }
+    .b-table tr:hover { background: #F8FAFF; }
+    .status-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .st-ok { background: #ECFDF5; color: #15803D; border: 1px solid #A7F3D0; }
+    .st-wait { background: #FFF7ED; color: #B45309; border: 1px solid #FED7AA; }
+    .st-off { background: #F3F4F6; color: #6B7280; border: 1px solid #E5E7EB; }
+    .st-danger { background: #FEF2F2; color: #B42318; border: 1px solid #FECACA; }
+
+    /* ===== Capability Cards ===== */
+    .capability-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .capability-card {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      transition: all .15s ease;
+      cursor: pointer;
+    }
+    .capability-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+    .cap-icon {
+      width: 44px; height: 44px;
+      border-radius: var(--radius-md);
+      display: grid; place-items: center;
+      font-size: 20px;
+    }
+    .cap-icon.blue { background: #EEF4FF; color: var(--b-primary); }
+    .cap-icon.green { background: #EEFAF5; color: var(--b-success); }
+    .cap-icon.orange { background: #FFF7ED; color: var(--b-warning); }
+    .cap-title { font-size: 14px; font-weight: 700; }
+    .cap-desc { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+    .cap-tag {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 99px;
+      background: #F0F9FF;
+      color: #0284C7;
+      border: 1px solid #BAE6FD;
+      font-weight: 600;
+    }
+
+    /* ===== Admin Overview ===== */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-top: 16px;
+    }
+    .kpi-card {
+      padding: 20px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+    }
+    .kpi-label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+    .kpi-value {
+      font-size: 32px;
+      font-weight: 800;
+      margin: 8px 0 4px;
+      color: var(--text);
+    }
+    .kpi-sub { font-size: 12px; color: var(--text-muted); }
+    .kpi-trend {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+    .kpi-trend.up { color: var(--b-success); }
+    .kpi-trend.down { color: var(--b-danger); }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .chart-card {
+      padding: 20px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+    }
+    .chart-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    .chart-area {
+      height: 200px;
+      position: relative;
+    }
+    /* SVG chart styles */
+    .chart-svg { width: 100%; height: 100%; }
+    .risk-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .risk-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      border-left: 3px solid;
+    }
+    .risk-item.danger { border-color: var(--b-danger); background: #FEF2F2; color: #B42318; }
+    .risk-item.warning { border-color: var(--b-warning); background: #FFFBEB; color: #92400E; }
+    .risk-item.info { border-color: var(--b-info); background: #F0F9FF; color: #075985; }
+    .risk-item strong { font-size: 16px; }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 1100px) {
+      .card-grid { grid-template-columns: 1fr 1fr; }
+      .card-grid > :first-child { grid-column: 1 / -1; }
+      .content-grid { grid-template-columns: 1fr; }
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .chart-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .hero { flex-direction: column; padding: 20px; }
+      .hero-right { width: 100%; }
+      .context-panel { min-width: 0; }
+      .card-grid { grid-template-columns: 1fr; }
+      .kpi-grid { grid-template-columns: 1fr; }
+      .status-bar { flex-direction: column; gap: 12px; }
+      .status-item { border-right: 0; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+      .status-item:last-child { border-bottom: 0; }
+      .timeline-line { width: 30px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="banner">
+    <span class="banner-dot"></span>
+    改善方案交互原型 · 基于 PORTAL-DESIGN-IMPROVEMENT-PROPOSAL · 仅展示视觉与交互概念
+  </div>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="mark">福</div>
+        <div class="text">
+          <div class="brand">福帮手 FBSir</div>
+          <div class="product">独董会</div>
+        </div>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-title">我的服务</div>
+        <button class="nav-item active"><span class="icon">⌂</span> 独董会首页</button>
+        <button class="nav-item"><span class="icon">◫</span> 会议记录</button>
+        <button class="nav-item"><span class="icon">↔</span> 连接与授权 <span class="badge-pill warn">待处理</span></button>
+        <button class="nav-item"><span class="icon">✓</span> 安全回执</button>
+        <button class="nav-item"><span class="icon">◆</span> 能力与积分</button>
+        <button class="nav-item"><span class="icon">◉</span> 推送订阅</button>
+        <button class="nav-item"><span class="icon">▣</span> 设备与云资产</button>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-title">帮助</div>
+        <button class="nav-item"><span class="icon">?</span> 帮助中心</button>
+        <button class="nav-item"><span class="icon">⚙</span> 设置</button>
+      </div>
+    </aside>
+    <div class="main">
+      <div class="topbar">
+        <div class="crumb">
+          <span>用户后台</span>
+          <span class="sep">/</span>
+          <span class="current">独董会首页</span>
+        </div>
+        <div class="topbar-right">
+          <div class="portal-switch">
+            <button class="active">me 用户后台</button>
+            <button onclick="switchToAdmin()">admin 管理后台</button>
+          </div>
+          <div class="avatar">福</div>
+        </div>
+      </div>
+      <div class="content" id="meContent">
+        <!-- Hero -->
+        <div class="hero">
+          <div class="hero-left">
+            <div class="hero-mark">福</div>
+            <div>
+              <div class="hero-brand-line">
+                福帮手 <span class="divider"></span> FBSir
+              </div>
+              <h1>独董会</h1>
+              <p>把关键议题交给一组独立视角，在有限时间内形成可执行结论。</p>
+            </div>
+          </div>
+          <div class="hero-right">
+            <div class="context-panel">
+              <label>当前企业</label>
+              <div class="select-mock">
+                <span>辰海咨询有限公司</span>
+                <span class="arrow">▾</span>
+              </div>
+              <div class="refresh-btn">↻ 刷新数据</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+          <div class="status-item">
+            <div class="status-dot gray"></div>
+            <div>
+              <div class="label">当前方案</div>
+              <div class="value">免费版</div>
+            </div>
+          </div>
+          <div class="status-item">
+            <div class="status-dot yellow"></div>
+            <div>
+              <div class="label">连接状态</div>
+              <div class="value">待连接 VIP</div>
+            </div>
+          </div>
+          <div class="status-item">
+            <div class="status-dot green"></div>
+            <div>
+              <div class="label">今日额度</div>
+              <div class="value">0 / 1 次</div>
+            </div>
+          </div>
+          <div class="status-item">
+            <div class="status-dot yellow"></div>
+            <div>
+              <div class="label">福帮手积分</div>
+              <div class="value">1,260</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Connector Timeline -->
+        <div class="connector-timeline">
+          <div class="connector-timeline-header">
+            <h3>VIP 激活进度</h3>
+            <div class="next-step">下一步: <strong>在 WorkBuddy 中完成 OAuth 授权</strong></div>
+          </div>
+          <div class="timeline-track">
+            <div class="timeline-node">
+              <div class="timeline-circle done">✓</div>
+              <div class="timeline-label">授予 VIP</div>
+              <div class="timeline-sub">已完成</div>
+            </div>
+            <div class="timeline-line done"></div>
+            <div class="timeline-node">
+              <div class="timeline-circle current">2</div>
+              <div class="timeline-label">连接 WorkBuddy</div>
+              <div class="timeline-sub">当前步骤</div>
+            </div>
+            <div class="timeline-line pending"></div>
+            <div class="timeline-node">
+              <div class="timeline-circle pending">3</div>
+              <div class="timeline-label">激活中</div>
+              <div class="timeline-sub">等待首次请求</div>
+            </div>
+            <div class="timeline-line pending"></div>
+            <div class="timeline-node">
+              <div class="timeline-circle pending">4</div>
+              <div class="timeline-label">VIP 生效</div>
+              <div class="timeline-sub">5 次/日 · 全员</div>
+            </div>
+          </div>
+          <div class="timeline-actions">
+            <button class="btn-link">了解连接流程</button>
+            <button class="btn-link" style="color: var(--b-primary);">返回 WorkBuddy →</button>
+          </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="card-grid">
+          <div class="b-card">
+            <div class="card-eyebrow">当前权益</div>
+            <div class="plan-row">
+              <div>
+                <div class="plan-name">免费版</div>
+                <div class="plan-caption">实际生效方案</div>
+              </div>
+              <div class="status-tag st-wait">⏱ 待连接</div>
+            </div>
+            <div class="pending-box">
+              <span class="icon">⚠</span>
+              <div>
+                <strong>VIP 待连接</strong>
+                <p style="margin: 3px 0 0; font-size: 12px; line-height: 1.55; color: #805C16;">VIP 权益已授予，完成 WorkBuddy Connector 验证后生效；当前继续按免费版额度运行。</p>
+              </div>
+            </div>
+          </div>
+          <div class="b-card">
+            <div class="card-eyebrow">今日会议额度</div>
+            <div class="quota-main">
+              <strong>0</strong>
+              <span>/ 1 次</span>
+            </div>
+            <div class="progress-bar"><div class="fill" style="width: 0%;"></div></div>
+            <div class="quota-detail">
+              <span>已使用 0</span>
+              <span>已预留 0</span>
+            </div>
+          </div>
+          <div class="b-card">
+            <div class="card-eyebrow">开始一次独董会</div>
+            <div class="meeting-copy">每次最多 5 个议题，最多 3 个席位。</div>
+            <button class="btn-primary">预约会议</button>
+          </div>
+        </div>
+
+        <!-- Content Grid -->
+        <div class="content-grid">
+          <div class="b-card">
+            <div class="section-header">
+              <div>
+                <div class="section-title">最近会议</div>
+                <div class="section-sub">仅展示当前企业下由你发起的会议预约</div>
+              </div>
+              <button class="btn-link">刷新</button>
+            </div>
+            <table class="b-table">
+              <thead>
+                <tr><th>预约时间</th><th>会议编号</th><th>议题/席位</th><th>方案</th><th>状态</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>2026-07-21 19:07</td>
+                  <td>board-1721568021-a3f</td>
+                  <td>3 / 3</td>
+                  <td>免费版</td>
+                  <td><span class="status-tag st-ok">✓ 已完成</span></td>
+                </tr>
+                <tr>
+                  <td>2026-07-20 22:14</td>
+                  <td>board-1721481654-b8e</td>
+                  <td>5 / 3</td>
+                  <td>免费版</td>
+                  <td><span class="status-tag st-wait">⏱ 待继续</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="capability-grid">
+            <div class="capability-card">
+              <div class="cap-icon blue">⌚</div>
+              <div>
+                <div class="cap-title">Apple Watch</div>
+                <div class="cap-desc">云上资产的轻量操作入口</div>
+              </div>
+              <span class="cap-tag">后续能力</span>
+            </div>
+            <div class="capability-card">
+              <div class="cap-icon green">🔗</div>
+              <div>
+                <div class="cap-title">Webhook 订阅</div>
+                <div class="cap-desc">会议进展与独董会内参推送</div>
+              </div>
+              <span class="cap-tag">后续能力</span>
+            </div>
+            <div class="capability-card">
+              <div class="cap-icon orange">◆</div>
+              <div>
+                <div class="cap-title">福帮手积分</div>
+                <div class="cap-desc">能力解锁与产品流水</div>
+              </div>
+              <span class="cap-tag">后续能力</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin Content (hidden by default) -->
+      <div class="content" id="adminContent" style="display: none;">
+        <div class="hero" style="background: linear-gradient(125deg, #1A1F2E 0%, #2D1F3D 55%, #6B21A8 135%);">
+          <div class="hero-left">
+            <div class="hero-mark">福</div>
+            <div>
+              <div class="hero-brand-line">福帮手 <span class="divider"></span> FBSir · 系统管理</div>
+              <h1>独董会运营总览</h1>
+              <p>以租户、权益、连接、会议和回执为主线处置运营问题。</p>
+            </div>
+          </div>
+          <div class="hero-right">
+            <div class="context-panel">
+              <label>操作</label>
+              <div class="select-mock">
+                <span>↻ 刷新数据</span>
+                <span class="arrow">▾</span>
+              </div>
+              <div class="refresh-btn">↓ 导出报告</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">有效 VIP</div>
+            <div class="kpi-value">128 <span class="kpi-trend up">↑ 12%</span></div>
+            <div class="kpi-sub">其中 19 个待连接</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">今日会议完成</div>
+            <div class="kpi-value">214 <span class="kpi-trend up">↑ 8%</span></div>
+            <div class="kpi-sub">完成 197 · 未知 3</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">连接器健康</div>
+            <div class="kpi-value">96.8% <span class="kpi-trend down">↓ 1.2%</span></div>
+            <div class="kpi-sub">7 日成功率</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">待处置投递</div>
+            <div class="kpi-value">3</div>
+            <div class="kpi-sub">不得自动重试未知副作用</div>
+          </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="chart-grid">
+          <div class="chart-card">
+            <div class="chart-title">权益趋势（7 日）</div>
+            <div class="chart-area">
+              <svg class="chart-svg" viewBox="0 0 400 200" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="grad1" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#246BFD" stop-opacity="0.3"/>
+                    <stop offset="100%" stop-color="#246BFD" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <!-- Grid lines -->
+                <line x1="0" y1="50" x2="400" y2="50" stroke="#F0F2F6" stroke-width="1"/>
+                <line x1="0" y1="100" x2="400" y2="100" stroke="#F0F2F6" stroke-width="1"/>
+                <line x1="0" y1="150" x2="400" y2="150" stroke="#F0F2F6" stroke-width="1"/>
+                <!-- Area fill -->
+                <path d="M 0,140 L 60,110 L 120,90 L 180,65 L 240,80 L 300,45 L 360,55 L 400,30 L 400,200 L 0,200 Z" fill="url(#grad1)"/>
+                <!-- Line -->
+                <path d="M 0,140 L 60,110 L 120,90 L 180,65 L 240,80 L 300,45 L 360,55 L 400,30" fill="none" stroke="#246BFD" stroke-width="2.5"/>
+                <!-- Dots -->
+                <circle cx="60" cy="110" r="4" fill="#246BFD"/>
+                <circle cx="120" cy="90" r="4" fill="#246BFD"/>
+                <circle cx="180" cy="65" r="4" fill="#246BFD"/>
+                <circle cx="240" cy="80" r="4" fill="#246BFD"/>
+                <circle cx="300" cy="45" r="4" fill="#246BFD"/>
+                <circle cx="360" cy="55" r="4" fill="#246BFD"/>
+                <!-- Second line (revoked) -->
+                <path d="M 0,175 L 60,170 L 120,165 L 180,160 L 240,168 L 300,155 L 360,158 L 400,150" fill="none" stroke="#DC2626" stroke-width="2" stroke-dasharray="4,3"/>
+              </svg>
+            </div>
+            <div style="display: flex; gap: 16px; margin-top: 8px; font-size: 12px;">
+              <span style="display: flex; align-items: center; gap: 5px;"><span style="width:12px;height:2px;background:#246BFD;border-radius:1px;"></span> 授予</span>
+              <span style="display: flex; align-items: center; gap: 5px;"><span style="width:12px;height:2px;background:#DC2626;border-radius:1px;border-style:dashed;"></span> 撤销</span>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">连接状态分布</div>
+            <div class="chart-area" style="display: flex; align-items: center; justify-content: center;">
+              <svg width="160" height="160" viewBox="0 0 160 160">
+                <!-- Donut chart -->
+                <circle cx="80" cy="80" r="55" fill="none" stroke="#F0F2F6" stroke-width="20"/>
+                <!-- ACTIVE 73% -->
+                <circle cx="80" cy="80" r="55" fill="none" stroke="#16A34A" stroke-width="20"
+                  stroke-dasharray="252 103" stroke-dashoffset="0" transform="rotate(-90 80 80)"/>
+                <!-- PENDING 19% -->
+                <circle cx="80" cy="80" r="55" fill="none" stroke="#D97706" stroke-width="20"
+                  stroke-dasharray="66 280" stroke-dashoffset="-252" transform="rotate(-90 80 80)"/>
+                <!-- NOT_CONNECTED 8% -->
+                <circle cx="80" cy="80" r="55" fill="none" stroke="#6B7280" stroke-width="20"
+                  stroke-dasharray="28 318" stroke-dashoffset="-318" transform="rotate(-90 80 80)"/>
+                <text x="80" y="76" text-anchor="middle" font-size="28" font-weight="800" fill="#12223D">128</text>
+                <text x="80" y="94" text-anchor="middle" font-size="11" fill="#98A2B3">有效 VIP</text>
+              </svg>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
+              <div style="display: flex; align-items: center; gap: 8px;"><span style="width:10px;height:10px;border-radius:3px;background:#16A34A;"></span> 已生效 (73%)</div>
+              <div style="display: flex; align-items: center; gap: 8px;"><span style="width:10px;height:10px;border-radius:3px;background:#D97706;"></span> 待连接 (19%)</div>
+              <div style="display: flex; align-items: center; gap: 8px;"><span style="width:10px;height:10px;border-radius:3px;background:#6B7280;"></span> 未连接 (8%)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Risk & Recent -->
+        <div class="chart-grid">
+          <div class="chart-card">
+            <div class="chart-title">风险与待办</div>
+            <div class="risk-list">
+              <div class="risk-item danger">
+                <span>Token family 重放撤销</span>
+                <strong>1</strong>
+              </div>
+              <div class="risk-item warning">
+                <span>UNKNOWN Webhook 投递</span>
+                <strong>2</strong>
+              </div>
+              <div class="risk-item info">
+                <span>离线 FBSir Hub</span>
+                <strong>4</strong>
+              </div>
+              <div class="risk-item info">
+                <span>域名版本待回读</span>
+                <strong>2</strong>
+              </div>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">最近会议与回执</div>
+            <table class="b-table">
+              <thead>
+                <tr><th>Run</th><th>动作</th><th>状态</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="font-size: 11px;">run_b_0214</td>
+                  <td>board.meeting.reserve</td>
+                  <td><span class="status-tag st-ok">✓ 完成</span></td>
+                </tr>
+                <tr>
+                  <td style="font-size: 11px;">run_b_0207</td>
+                  <td>webhook.deliver</td>
+                  <td><span class="status-tag st-wait">⏱ 需回读</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function switchToAdmin() {
+      document.getElementById('meContent').style.display = 'none';
+      document.getElementById('adminContent').style.display = '';
+      document.querySelectorAll('.portal-switch button')[0].classList.remove('active');
+      document.querySelectorAll('.portal-switch button')[1].classList.add('active');
+      document.querySelector('.crumb .current').textContent = '运营总览';
+      // Update sidebar
+      const navHtml = `
+        <div class="sidebar-title">系统运营</div>
+        <button class="nav-item active"><span class="icon">◫</span> 运营总览</button>
+        <button class="nav-item"><span class="icon">◆</span> 产品与权益</button>
+        <button class="nav-item"><span class="icon">↔</span> OAuth 与连接器</button>
+        <button class="nav-item"><span class="icon">✓</span> 权益回执</button>
+        <button class="nav-item"><span class="icon">▣</span> 会议与回执</button>
+        <button class="nav-item"><span class="icon">◉</span> Webhook 与投递</button>
+        <button class="nav-item"><span class="icon">☷</span> 设备与主机</button>
+        <button class="nav-item"><span class="icon">⚙</span> 域名与发布</button>
+      `;
+      document.querySelectorAll('.sidebar-group')[0].innerHTML = navHtml;
+      document.querySelector('.sidebar-group .sidebar-title').textContent = '系统运营';
+    }
+    function switchToMe() {
+      document.getElementById('adminContent').style.display = 'none';
+      document.getElementById('meContent').style.display = '';
+      document.querySelectorAll('.portal-switch button')[0].classList.add('active');
+      document.querySelectorAll('.portal-switch button')[1].classList.remove('active');
+      document.querySelector('.crumb .current').textContent = '独董会首页';
+    }
+    document.querySelectorAll('.portal-switch button')[0].onclick = switchToMe;
+    document.querySelectorAll('.portal-switch button')[1].onclick = switchToAdmin;
+  </script>
+</body>
+</html>

@@ -189,7 +189,11 @@ DCR 成功返回 `201 application/json`、`Cache-Control: no-store`、`Pragma: n
 - me 同意 API 只接受已登录若依用户的服务端主体和显式企业上下文；浏览器不得提交
   tenant/member/user、scope、resource、client 或 redirect 的权威值。
 - 同意时实时锁读 active enterprise/member 和精确 VIP plan/entitlement；非 VIP、
-  `PENDING_CONNECTOR` 以外的不合法状态或身份漂移均拒绝且零授权写入。
+  非法状态或身份漂移均拒绝且零授权写入。服务端必须在已登录 me 流程中推导不可由 authorize
+  query 或浏览器表单提交的 `BoardOAuthConsentIntent`：`FIRST_CONNECT` 要求
+  `PENDING_CONNECTOR` 且无 authoritative ACTIVE binding；`EXPLICIT_REAUTHORIZATION`
+  要求用户从具名连接管理动作进入，并允许既有 ACTIVE/REVOKED/COMPROMISED binding。两种
+  intent 不能相互回退，也不能由“当前查到什么状态”临时猜测。
 - W4b 不实现 OIDC，因此不签发 ID token、不提供 userinfo，也不使用 OIDC nonce。
 - 授权响应带原始 `state` 和 RFC 9207 `iss=https://api2.u3w.com`；WorkBuddy 必须同时
   精确验证 state 与 iss。
@@ -332,6 +336,30 @@ CHECK/生成列/type/nullable/charset/索引/FK/trigger/外部依赖负向漂移
 该精确构建可进入 W4b 迁移门禁；不能据此提前声明整个 W4b 已 `mysql_verified`，更不能解锁
 公共 OAuth/MCP 路由或 me/admin 的详细 OAuth/Connector 生产页面。
 
+### 9.2 `TOKEN_FAMILY_CREATED` 来源唯一性
+
+`public_init_033` 是不可改写基线。其后继 `public_init_034` 只向 `fbs_oauth_receipt` 增加
+`family_created_slot`：该列为 nullable stored generated column，仅当
+`action='TOKEN_FAMILY_CREATED'` 时生成 `family_id`，其它 action 一律生成 `NULL`；唯一索引
+`uk_oauth_receipt_family_created_slot` 因而只约束“每个 token family 最多一条创建回执”，不得
+意外约束激活、重授权、轮换、撤销或重放检测等其它回执。
+
+迁移前必须拒绝以下既有数据：创建回执缺 `family_id/client_id/authorization_code_id/subject/
+enterprise/member/user` 任一关键 lineage；包含不允许的 request/token/binding 引用；不能与
+同 client、subject 与用户范围的 family/code 对齐；family 的 origin code 与回执 code 不同；
+或者同一 family 已存在多条创建回执。不得自动选取、删除或合并冲突回执。
+
+迁移使用摘要命名锁和内部 `RUNNING/APPLIED` 回执。隐式提交 DDL 中断后，只允许从“033 完整
+shape 且新列/索引均不存在”或“新增列/索引均为精确合同”两种状态恢复；部分、孤立或漂移
+shape 必须 fail closed。写入 034 完成回执前，必须重新 current-read 全部表/列/索引/FK/CHECK/
+trigger 元数据及完整 lineage。canonical initializer 的 033 verifier 必须 successor-aware：无
+034 完成回执时只接受 033 shape；有精确 034 `APPLIED` 回执时只接受 034 successor shape。
+
+服务层写 `TOKEN_FAMILY_CREATED` 时必须在同一事务中锁定全部候选回执，并要求候选数恰为
+零后再插入；读取既有创建回执时必须读取完整候选集合并要求恰为一，不能用 `LIMIT 1` 将
+历史重复静默折叠成确定结果。数据库唯一键是最终并发仲裁者，重复键必须映射为明确的冲突/
+幂等结果，不能回退为另一条来源不明的回执。
+
 ## 10. 首次受保护请求与显式重授权
 
 OAuth 同意、code 签发、token 签发、DCR 成功或普通 HTTP 200 均不能激活 VIP。
@@ -343,21 +371,43 @@ family 在 token 兑换后保持 `PENDING_BINDING`。只有 bearer 全部通过�
 1. 锁 active enterprise/member；
 2. 锁精确 entitlement 与 VIP plan；
 3. 锁 W4a binding 与 scope；
-4. 锁旧 active family、新 pending family 及相关 token；
-5. 新建或显式重授权 W4a binding，使 `valid_until` 等于 family 绝对期限；
-6. 终态化旧 active family，激活新 family，并记录绑定版本；
-7. 最后写 W4a 和 W4b 不可变回执；任一失败全部回滚。
+4. 锁 OAuth client、旧 active family、新 pending family 及相关 token；
+5. 在任何 family/token 变更前，把新 pending、旧 active 及其精确 token 集合的 before-image
+   绑定到不可构造、不可跨事务复用的 lease，并由 lease 生成全新 receipt id、correlation id
+   和预期 payload digest；
+6. 新建或显式重授权 W4a binding，使 `valid_until` 等于 family 绝对期限；
+7. 终态化旧 active family，激活新 family，并记录绑定版本；
+8. 真库 current-read 核验 family/token/binding 最终态后写 W4a 回执，再用 lease 生成的精确参数
+   写 W4b 回执；任一失败全部回滚；
+9. `complete` 时以及 `beforeCommit` 普通业务同步之后，再次真库核验 ACTIVE/PENDING slot、
+   family/token、binding、W4a/W4b 回执全字段，封住历史回执重放和 complete 后同事务改写。
 
-W4a 普通 confirm 继续禁止 REVOKED/COMPROMISED 隐式恢复。W4b 必须新增具名的显式
-reauthorize 内部路径：它只接受新的 PENDING family、完整 bearer 验证和首次受保护请求，
-更新同一唯一 binding 行并产生新一代证据。W4a receipt 可继续使用语义准确的
-`CONNECTOR_BINDING_VERIFIED`；W4b receipt 另记 `TOKEN_FAMILY_REAUTHORIZED`，无需修改
-W4a 表合同。
+W4a 普通 confirm 只确认既有、精确兼容且仍为 ACTIVE 的 binding；binding 缺失时不得继续
+直接创建并提前写 W4a receipt。W4b 使用一个 key-only、调用方不可预猜数据库状态的内部
+激活入口：binding 缺失且旧 ACTIVE family 同时缺失时是首次激活；只要 binding 已存在，
+无论其当前为 ACTIVE、REVOKED 或 COMPROMISED，都必须视为具名显式重授权。ACTIVE binding
+加新 PENDING family 是正常换代式重授权，不是 refresh rotation；即使新旧 client/subject
+相同也必须把 binding version 加一。binding 与旧 ACTIVE family 的存在性、binding id/version
+不一致时属于原子性漂移，必须零修复 fail closed。
+
+显式重授权只接受新的 PENDING family、完整 bearer 验证和首次受保护请求，更新同一唯一
+binding 行并产生新一代证据。W4a receipt 可继续使用语义准确的
+`CONNECTOR_BINDING_VERIFIED`；首次激活的 W4b receipt 记 `TOKEN_FAMILY_ACTIVATED`，任何
+既有 binding 的换代或恢复另记 `TOKEN_FAMILY_REAUTHORIZED`，无需修改 W4a 表合同。
 
 公开路由前必须先完成两项 W4a 重构：
 
-- `BoardConnectorBindingPort` 暴露受保护请求确认/显式重授权的正式内部端口；
-- 将 W4a 回执写入推迟到 family/token 变更之后，确保统一锁序和同事务回滚。
+- `BoardConnectorBindingPort` 只暴露 key-only 激活锁、`prepareAndApply`、真库
+  `verifyAndAppend` 和 proof-backed `complete` 内部端口；不得保留由调用方自报
+  `mark state applied` 的阶段推进；调用方不能分别选择“首次”或“重授权”锁入口；
+- lease 必须绑定同一物理事务、当前线程和 Spring transaction synchronization，拒绝
+  REQUIRES_NEW、NESTED/savepoint、跨线程、跨事务、乱序、重复和未完成提交；
+- 对外 first-protected facade 必须在进入事务 runner 前拒绝已有事务，再由隐藏的 REQUIRED
+  runner 创建根事务；不能依赖“lease 注册后才发生的 savepoint callback”判断 NESTED。
+  分阶段端口以显式事务/同步守卫实现 MANDATORY 语义并返回稳定内部错误码，不能让 Spring
+  proxy 在方法体前泄漏 `IllegalTransactionStateException`；
+- 将 W4a 回执写入推迟到 family/token 真库核验之后，且只有 lease 生成的新 W4b receipt 已
+  成功写入并全字段 current-read 通过后才能标记 COMPLETE，确保统一锁序和同事务回滚。
 
 ## 11. 锁序、并发与状态机
 
@@ -387,7 +437,9 @@ request: PENDING -> APPROVED | DENIED | EXPIRED -> CONSUMED
 code: ACTIVE -> USED | REVOKED | EXPIRED
 family: PENDING_BINDING -> ACTIVE -> REVOKED | COMPROMISED | EXPIRED
 token: ACTIVE -> USED(refresh only) | REVOKED | EXPIRED
-binding: absent -> ACTIVE -> REVOKED | COMPROMISED
+binding: absent --first new-family activation--> ACTIVE
+         ACTIVE --explicit new-family reauthorization--> ACTIVE
+         ACTIVE -> REVOKED | COMPROMISED
          terminal --explicit new-family reauthorization only--> ACTIVE
 ```
 

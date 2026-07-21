@@ -53,6 +53,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="memberId" column="member_id" />
         <result property="userId" column="user_id" />
         <result property="principalSubjectDigest" column="principal_subject_digest" />
+        <result property="consentIntent" column="consent_intent"
+                javaType="com.wx.fbsir.business.board.oauth.BoardOAuthConsentIntent"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler" />
         <result property="status" column="status" />
         <result property="requestedAt" column="requested_at" />
         <result property="expiresAt" column="expires_at" />
@@ -83,6 +86,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="memberId" column="member_id" />
         <result property="userId" column="user_id" />
         <result property="principalSubjectDigest" column="principal_subject_digest" />
+        <result property="consentIntent" column="consent_intent"
+                javaType="com.wx.fbsir.business.board.oauth.BoardOAuthConsentIntent"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler" />
         <result property="status" column="status" />
         <result property="issuedAt" column="issued_at" />
         <result property="expiresAt" column="expires_at" />
@@ -91,6 +97,20 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="version" column="version" />
         <result property="createdAt" column="created_at" />
         <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <resultMap id="TokenExchangeLockLocatorMap"
+               type="com.wx.fbsir.business.board.oauth.mapper.IndependentBoardOAuthMapper$TokenExchangeLockLocator">
+        <id property="codeId" column="code_id" />
+        <result property="authorizationRequestId" column="authorization_request_id" />
+        <result property="tenantId" column="enterprise_id" />
+        <result property="memberId" column="member_id" />
+        <result property="userId" column="user_id" />
+        <result property="productCode" column="product_code" />
+        <result property="sourceCode" column="source_code" />
+        <result property="connectorCode" column="connector_code" />
+        <result property="clientId" column="client_id" />
+        <result property="pendingClientId" column="pending_client_id" />
     </resultMap>
 
     <resultMap id="OAuthFamilyMap" type="com.wx.fbsir.business.board.oauth.domain.BoardOAuthTokenFamily">
@@ -109,6 +129,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="scopeCanonical" column="scope_canonical" />
         <result property="scopeDigest" column="scope_digest" />
         <result property="principalSubjectDigest" column="principal_subject_digest" />
+        <result property="consentIntent" column="consent_intent"
+                javaType="com.wx.fbsir.business.board.oauth.BoardOAuthConsentIntent"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler" />
         <result property="bindingId" column="binding_id" />
         <result property="bindingVersion" column="binding_version" />
         <result property="status" column="status" />
@@ -143,6 +166,64 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="updatedAt" column="updated_at" />
     </resultMap>
 
+    <resultMap id="OAuthTokenContextLocatorMap"
+               type="com.wx.fbsir.business.board.oauth.mapper.IndependentBoardOAuthMapper$TokenContextLocator">
+        <id property="tokenId" column="token_id" />
+        <result property="familyId" column="family_id" />
+        <result property="tokenType" column="token_type" />
+        <result property="tokenGeneration" column="token_generation" />
+        <result property="tokenStatus" column="token_status" />
+        <result property="tokenVersion" column="token_version" />
+        <result property="tokenIssuedAt" column="token_issued_at" />
+        <result property="tokenExpiresAt" column="token_expires_at" />
+        <result property="clientId" column="client_id" />
+        <result property="tenantId" column="enterprise_id" />
+        <result property="memberId" column="member_id" />
+        <result property="userId" column="user_id" />
+        <result property="productCode" column="product_code" />
+        <result property="sourceCode" column="source_code" />
+        <result property="connectorCode" column="connector_code" />
+        <result property="issuerUri" column="issuer_uri" />
+        <result property="resourceUri" column="resource_uri" />
+        <result property="scopeCanonical" column="scope_canonical" />
+        <result property="scopeDigest" column="scope_digest" />
+        <result property="principalSubjectDigest" column="principal_subject_digest" />
+        <result property="consentIntent" column="consent_intent"
+                javaType="com.wx.fbsir.business.board.oauth.BoardOAuthConsentIntent"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler" />
+        <result property="bindingId" column="binding_id" />
+        <result property="bindingVersion" column="binding_version" />
+        <result property="familyStatus" column="family_status" />
+        <result property="currentRefreshGeneration" column="current_refresh_generation" />
+        <result property="familyVersion" column="family_version" />
+        <result property="familyIssuedAt" column="family_issued_at" />
+        <result property="familyActivatedAt" column="family_activated_at" />
+        <result property="familyExpiresAt" column="family_expires_at" />
+    </resultMap>
+
+    <resultMap id="OAuthReceiptMap" type="com.wx.fbsir.business.board.oauth.domain.BoardOAuthReceipt">
+        <id property="id" column="id" />
+        <result property="receiptId" column="receipt_id" />
+        <result property="action" column="action" />
+        <result property="clientId" column="client_id" />
+        <result property="authorizationRequestId" column="authorization_request_id" />
+        <result property="authorizationCodeId" column="authorization_code_id" />
+        <result property="familyId" column="family_id" />
+        <result property="tokenId" column="token_id" />
+        <result property="bindingId" column="binding_id" />
+        <result property="tenantId" column="enterprise_id" />
+        <result property="memberId" column="member_id" />
+        <result property="userId" column="user_id" />
+        <result property="principalSubjectDigest" column="principal_subject_digest" />
+        <result property="actorType" column="actor_type" />
+        <result property="actorUserId" column="actor_user_id" />
+        <result property="actorSubjectDigest" column="actor_subject_digest" />
+        <result property="correlationId" column="correlation_id" />
+        <result property="payloadDigest" column="payload_digest" />
+        <result property="evidenceLevel" column="evidence_level" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
     <insert id="insertClient" parameterType="com.wx.fbsir.business.board.oauth.domain.BoardOAuthClient"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO fbs_oauth_client
@@ -161,12 +242,47 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
              #{registeredAt}, #{expiresAt}, #{terminatedAt}, #{version})
     </insert>
 
-    <select id="selectClientForUpdate" resultMap="OAuthClientMap">
+    <select id="selectClientForUpdate" resultMap="OAuthClientMap" flushCache="true" useCache="false">
         SELECT *
         FROM fbs_oauth_client
         WHERE client_id = #{clientId}
         FOR UPDATE
     </select>
+
+    <!-- ASCII client ids are locked in one canonical binary order. -->
+    <select id="selectClientsForUpdate" resultMap="OAuthClientMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_client
+        WHERE client_id IN
+        <foreach collection="clientIds" item="clientId" open="(" separator="," close=")">
+            #{clientId}
+        </foreach>
+        ORDER BY client_id COLLATE ascii_bin
+        FOR UPDATE
+    </select>
+
+    <update id="revokeClientIfVersion">
+        UPDATE fbs_oauth_client
+        SET status = 'REVOKED',
+            terminated_at = #{revokedAt},
+            version = version + 1
+        WHERE client_id = #{clientId}
+          AND version = #{expectedVersion}
+          AND status = 'ACTIVE'
+          AND registered_at &lt;= #{revokedAt}
+          AND expires_at &gt; #{revokedAt}
+    </update>
+
+    <update id="expireClientIfVersion">
+        UPDATE fbs_oauth_client
+        SET status = 'EXPIRED',
+            terminated_at = #{expiredAt},
+            version = version + 1
+        WHERE client_id = #{clientId}
+          AND version = #{expectedVersion}
+          AND status = 'ACTIVE'
+          AND expires_at &lt;= #{expiredAt}
+    </update>
 
     <update id="terminateClientIfVersion">
         UPDATE fbs_oauth_client
@@ -199,7 +315,34 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
              #{consumedAt}, #{version})
     </insert>
 
-    <select id="selectAuthorizationRequestByHandleForUpdate" resultMap="OAuthRequestMap">
+    <!-- Locator only: never use this non-locking read as authorization evidence. -->
+    <select id="selectAuthorizationRequestLocatorByHandle" resultMap="OAuthRequestMap">
+        SELECT *
+        FROM fbs_oauth_authorization_request
+        WHERE request_handle_digest = #{requestHandleDigest}
+        LIMIT 1
+    </select>
+
+    <select id="selectAuthorizationRequestForUpdate" resultMap="OAuthRequestMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_authorization_request
+        WHERE id = #{requestId}
+          AND client_id = #{clientId}
+          AND request_handle_digest = #{requestHandleDigest}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="selectAuthorizationRequestByIdAndClientForUpdate" resultMap="OAuthRequestMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_authorization_request
+        WHERE id = #{requestId}
+          AND client_id = #{clientId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="selectAuthorizationRequestByHandleForUpdate" resultMap="OAuthRequestMap" flushCache="true" useCache="false">
         SELECT *
         FROM fbs_oauth_authorization_request
         WHERE request_handle_digest = #{requestHandleDigest}
@@ -212,6 +355,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             member_id = #{request.memberId},
             user_id = #{request.userId},
             principal_subject_digest = #{request.principalSubjectDigest},
+            consent_intent = #{request.consentIntent,
+                javaType=com.wx.fbsir.business.board.oauth.BoardOAuthConsentIntent,
+                typeHandler=org.apache.ibatis.type.EnumTypeHandler},
             status = 'APPROVED',
             approved_at = #{request.approvedAt},
             version = version + 1
@@ -219,6 +365,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           AND client_id = #{request.clientId}
           AND version = #{expectedVersion}
           AND status = 'PENDING'
+          AND consent_intent IS NULL
+          AND #{request.consentIntent,
+                javaType=com.wx.fbsir.business.board.oauth.BoardOAuthConsentIntent,
+                typeHandler=org.apache.ibatis.type.EnumTypeHandler} IS NOT NULL
+          AND requested_at &lt;= #{request.approvedAt}
           AND expires_at &gt; #{request.approvedAt}
     </update>
 
@@ -228,6 +379,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             member_id = #{request.memberId},
             user_id = #{request.userId},
             principal_subject_digest = #{request.principalSubjectDigest},
+            consent_intent = #{request.consentIntent,
+                javaType=com.wx.fbsir.business.board.oauth.BoardOAuthConsentIntent,
+                typeHandler=org.apache.ibatis.type.EnumTypeHandler},
             status = 'DENIED',
             denied_at = #{request.deniedAt},
             state_key_ref = NULL,
@@ -238,6 +392,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           AND client_id = #{request.clientId}
           AND version = #{expectedVersion}
           AND status = 'PENDING'
+          AND consent_intent IS NULL
+          AND #{request.consentIntent,
+                javaType=com.wx.fbsir.business.board.oauth.BoardOAuthConsentIntent,
+                typeHandler=org.apache.ibatis.type.EnumTypeHandler} IS NOT NULL
+          AND requested_at &lt;= #{request.deniedAt}
           AND expires_at &gt; #{request.deniedAt}
     </update>
 
@@ -253,7 +412,24 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           AND client_id = #{request.clientId}
           AND version = #{expectedVersion}
           AND status = 'APPROVED'
-          AND expires_at &gt;= #{request.consumedAt}
+          AND consent_intent IS NOT NULL
+          AND approved_at &lt;= #{request.consumedAt}
+          AND expires_at &gt; #{request.consumedAt}
+    </update>
+
+    <update id="expireAuthorizationRequestIfVersion">
+        UPDATE fbs_oauth_authorization_request
+        SET status = 'EXPIRED',
+            state_key_ref = NULL,
+            state_nonce = NULL,
+            state_ciphertext = NULL,
+            version = version + 1
+        WHERE id = #{requestId}
+          AND client_id = #{clientId}
+          AND version = #{expectedVersion}
+          AND status IN ('PENDING', 'APPROVED')
+          AND requested_at &lt;= #{expiredAt}
+          AND expires_at &lt;= #{expiredAt}
     </update>
 
     <insert id="insertAuthorizationCode"
@@ -265,17 +441,86 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
              product_code, source_code, connector_code, scope_canonical,
              scope_digest, enterprise_id, member_id, user_id,
              principal_subject_digest, status, issued_at, expires_at,
-             used_at, revoked_at, version)
+             used_at, revoked_at, version, consent_intent)
         VALUES
             (#{codeDigest}, #{authorizationRequestId}, #{clientId}, #{redirectUri},
              #{codeChallenge}, #{codeChallengeMethod}, #{issuerUri}, #{resourceUri},
              #{productCode}, #{sourceCode}, #{connectorCode}, #{scopeCanonical},
              #{scopeDigest}, #{tenantId}, #{memberId}, #{userId},
              #{principalSubjectDigest}, #{status}, #{issuedAt}, #{expiresAt},
-             #{usedAt}, #{revokedAt}, #{version})
+             #{usedAt}, #{revokedAt}, #{version},
+             #{consentIntent,
+                javaType=com.wx.fbsir.business.board.oauth.BoardOAuthConsentIntent,
+                typeHandler=org.apache.ibatis.type.EnumTypeHandler})
     </insert>
 
-    <select id="selectAuthorizationCodeByDigestForUpdate" resultMap="OAuthCodeMap">
+    <!-- Locator only: canonical member/binding/client locks must be taken before the code lock. -->
+    <select id="selectAuthorizationCodeLocatorByDigest" resultMap="OAuthCodeMap">
+        SELECT *
+        FROM fbs_oauth_authorization_code
+        WHERE code_digest = #{codeDigest}
+        LIMIT 1
+    </select>
+
+    <!--
+      Non-locking, key-only locator. The pending client hint is allowed to go stale;
+      every row used for authorization is re-read under the canonical lock order.
+    -->
+    <select id="selectTokenExchangeLockLocatorByDigest" resultMap="TokenExchangeLockLocatorMap">
+        SELECT c.id AS code_id,
+               c.authorization_request_id,
+               c.enterprise_id,
+               c.member_id,
+               c.user_id,
+               c.product_code,
+               c.source_code,
+               c.connector_code,
+               c.client_id,
+               (
+                   SELECT f.client_id
+                   FROM fbs_oauth_token_family f
+                   WHERE f.enterprise_id = c.enterprise_id
+                     AND f.member_id = c.member_id
+                     AND CAST(f.product_code AS BINARY) = CAST(c.product_code AS BINARY)
+                     AND f.source_code = c.source_code
+                     AND f.connector_code = c.connector_code
+                     AND f.lifecycle_slot = 'PENDING_BINDING'
+                     AND f.status = 'PENDING_BINDING'
+                   LIMIT 1
+               ) AS pending_client_id
+        FROM fbs_oauth_authorization_code c
+        WHERE c.code_digest = #{codeDigest}
+        LIMIT 1
+    </select>
+
+    <!-- Locator only: discovers client context; it must never be used as authorization evidence. -->
+    <select id="selectAuthorizationCodeLocatorById" resultMap="OAuthCodeMap">
+        SELECT *
+        FROM fbs_oauth_authorization_code
+        WHERE id = #{codeId}
+        LIMIT 1
+    </select>
+
+    <select id="selectAuthorizationCodeForUpdate" resultMap="OAuthCodeMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_authorization_code
+        WHERE id = #{codeId}
+          AND client_id = #{clientId}
+          AND code_digest = #{codeDigest}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="selectAuthorizationCodeByIdAndClientForUpdate" resultMap="OAuthCodeMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_authorization_code
+        WHERE id = #{codeId}
+          AND client_id = #{clientId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="selectAuthorizationCodeByDigestForUpdate" resultMap="OAuthCodeMap" flushCache="true" useCache="false">
         SELECT *
         FROM fbs_oauth_authorization_code
         WHERE code_digest = #{codeDigest}
@@ -288,6 +533,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         WHERE id = #{codeId}
           AND version = #{expectedVersion}
           AND status = 'ACTIVE'
+          AND consent_intent IS NOT NULL
+          AND issued_at &lt;= #{usedAt}
           AND expires_at &gt; #{usedAt}
     </update>
 
@@ -297,6 +544,41 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         WHERE id = #{codeId}
           AND version = #{expectedVersion}
           AND status = 'ACTIVE'
+          AND issued_at &lt;= #{revokedAt}
+          AND expires_at &gt; #{revokedAt}
+    </update>
+
+    <update id="consumeAuthorizationCodeForClientIfVersion">
+        UPDATE fbs_oauth_authorization_code
+        SET status = 'USED', used_at = #{usedAt}, version = version + 1
+        WHERE id = #{codeId}
+          AND client_id = #{clientId}
+          AND version = #{expectedVersion}
+          AND status = 'ACTIVE'
+          AND consent_intent IS NOT NULL
+          AND issued_at &lt;= #{usedAt}
+          AND expires_at &gt; #{usedAt}
+    </update>
+
+    <update id="revokeAuthorizationCodeForClientIfVersion">
+        UPDATE fbs_oauth_authorization_code
+        SET status = 'REVOKED', revoked_at = #{revokedAt}, version = version + 1
+        WHERE id = #{codeId}
+          AND client_id = #{clientId}
+          AND version = #{expectedVersion}
+          AND status = 'ACTIVE'
+          AND issued_at &lt;= #{revokedAt}
+          AND expires_at &gt; #{revokedAt}
+    </update>
+
+    <update id="expireAuthorizationCodeIfVersion">
+        UPDATE fbs_oauth_authorization_code
+        SET status = 'EXPIRED', version = version + 1
+        WHERE id = #{codeId}
+          AND client_id = #{clientId}
+          AND version = #{expectedVersion}
+          AND status = 'ACTIVE'
+          AND expires_at &lt;= #{expiredAt}
     </update>
 
     <insert id="insertTokenFamily"
@@ -308,17 +590,44 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
              issuer_uri, resource_uri, scope_canonical, scope_digest,
              principal_subject_digest, binding_id, binding_version, status,
              current_refresh_generation, issued_at, activated_at, expires_at,
-             terminated_at, version)
+             terminated_at, version, consent_intent)
         VALUES
             (#{familyId}, #{originAuthorizationCodeId}, #{clientId}, #{tenantId},
              #{memberId}, #{userId}, #{productCode}, #{sourceCode}, #{connectorCode},
              #{issuerUri}, #{resourceUri}, #{scopeCanonical}, #{scopeDigest},
              #{principalSubjectDigest}, #{bindingId}, #{bindingVersion}, #{status},
              #{currentRefreshGeneration}, #{issuedAt}, #{activatedAt}, #{expiresAt},
-             #{terminatedAt}, #{version})
+             #{terminatedAt}, #{version},
+             #{consentIntent,
+                javaType=com.wx.fbsir.business.board.oauth.BoardOAuthConsentIntent,
+                typeHandler=org.apache.ibatis.type.EnumTypeHandler})
     </insert>
 
-    <select id="selectTokenFamilyForUpdate" resultMap="OAuthFamilyMap">
+    <!-- Locator only: it discovers identity and binding lock keys without taking a family lock. -->
+    <select id="selectTokenFamilyLocator" resultMap="OAuthFamilyMap">
+        SELECT *
+        FROM fbs_oauth_token_family
+        WHERE family_id = #{familyId}
+        LIMIT 1
+    </select>
+
+    <select id="selectTokenFamilyByOriginAuthorizationCodeLocator" resultMap="OAuthFamilyMap">
+        SELECT *
+        FROM fbs_oauth_token_family
+        WHERE origin_authorization_code_id = #{authorizationCodeId}
+        LIMIT 1
+    </select>
+
+    <select id="selectTokenFamilyByOriginAuthorizationCodeForUpdate" resultMap="OAuthFamilyMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_token_family
+        WHERE origin_authorization_code_id = #{authorizationCodeId}
+          AND client_id = #{clientId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="selectTokenFamilyForUpdate" resultMap="OAuthFamilyMap" flushCache="true" useCache="false">
         SELECT *
         FROM fbs_oauth_token_family
         WHERE family_id = #{familyId}
@@ -326,7 +635,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         FOR UPDATE
     </select>
 
-    <select id="selectLiveTokenFamiliesForUpdate" resultMap="OAuthFamilyMap">
+    <select id="selectActiveTokenFamilyForUpdate" resultMap="OAuthFamilyMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_token_family
+        WHERE family_id = #{familyId}
+          AND client_id = #{clientId}
+          AND status = 'ACTIVE'
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="selectLiveTokenFamiliesForUpdate" resultMap="OAuthFamilyMap" flushCache="true" useCache="false">
         SELECT *
         FROM fbs_oauth_token_family
         WHERE enterprise_id = #{tenantId}
@@ -337,6 +656,35 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           AND connector_code = #{connectorCode}
           AND status IN ('PENDING_BINDING', 'ACTIVE')
         ORDER BY id
+        FOR UPDATE
+    </select>
+
+    <!-- Call ACTIVE before PENDING_BINDING to make the unique-slot lock order explicit. -->
+    <select id="selectActiveTokenFamilySlotForUpdate" resultMap="OAuthFamilyMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_token_family
+        WHERE enterprise_id = #{tenantId}
+          AND member_id = #{memberId}
+          AND CAST(product_code AS BINARY) = CAST(#{productCode} AS BINARY)
+          AND source_code = #{sourceCode}
+          AND connector_code = #{connectorCode}
+          AND lifecycle_slot = 'ACTIVE'
+          AND status = 'ACTIVE'
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="selectPendingTokenFamilySlotForUpdate" resultMap="OAuthFamilyMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_token_family
+        WHERE enterprise_id = #{tenantId}
+          AND member_id = #{memberId}
+          AND CAST(product_code AS BINARY) = CAST(#{productCode} AS BINARY)
+          AND source_code = #{sourceCode}
+          AND connector_code = #{connectorCode}
+          AND lifecycle_slot = 'PENDING_BINDING'
+          AND status = 'PENDING_BINDING'
+        LIMIT 1
         FOR UPDATE
     </select>
 
@@ -352,9 +700,23 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           AND enterprise_id = #{family.tenantId}
           AND member_id = #{family.memberId}
           AND user_id = #{family.userId}
+          AND CAST(product_code AS BINARY) = CAST(#{family.productCode} AS BINARY)
+          AND source_code = #{family.sourceCode}
+          AND connector_code = #{family.connectorCode}
+          AND issuer_uri = #{family.issuerUri}
           AND resource_uri = #{family.resourceUri}
+          AND scope_canonical = #{family.scopeCanonical}
+          AND scope_digest = #{family.scopeDigest}
+          AND principal_subject_digest = #{family.principalSubjectDigest}
+          AND consent_intent = #{family.consentIntent,
+                javaType=com.wx.fbsir.business.board.oauth.BoardOAuthConsentIntent,
+                typeHandler=org.apache.ibatis.type.EnumTypeHandler}
           AND version = #{expectedVersion}
           AND status = 'PENDING_BINDING'
+          AND current_refresh_generation = 0
+          AND #{family.bindingId} IS NOT NULL
+          AND #{family.bindingVersion} IS NOT NULL
+          AND issued_at &lt;= #{family.activatedAt}
           AND expires_at &gt; #{family.activatedAt}
     </update>
 
@@ -368,6 +730,23 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           AND status = 'ACTIVE'
     </update>
 
+    <update id="advanceTokenFamilyGenerationAtIfVersion">
+        UPDATE fbs_oauth_token_family
+        SET current_refresh_generation = current_refresh_generation + 1,
+            version = version + 1
+        WHERE family_id = #{familyId}
+          AND client_id = #{clientId}
+          AND binding_id = #{bindingId}
+          AND binding_version = #{bindingVersion}
+          AND version = #{expectedVersion}
+          AND current_refresh_generation = #{expectedGeneration}
+          AND current_refresh_generation &lt; 4294967295
+          AND status = 'ACTIVE'
+          AND issued_at &lt;= #{rotatedAt}
+          AND activated_at &lt;= #{rotatedAt}
+          AND expires_at &gt; #{rotatedAt}
+    </update>
+
     <update id="terminateTokenFamilyIfVersion">
         UPDATE fbs_oauth_token_family
         SET status = #{targetStatus},
@@ -376,6 +755,46 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         WHERE family_id = #{familyId}
           AND version = #{expectedVersion}
           AND status IN ('PENDING_BINDING', 'ACTIVE')
+    </update>
+
+    <update id="revokeTokenFamilyIfVersion">
+        UPDATE fbs_oauth_token_family
+        SET status = 'REVOKED',
+            terminated_at = #{revokedAt},
+            version = version + 1
+        WHERE family_id = #{familyId}
+          AND client_id = #{clientId}
+          AND version = #{expectedVersion}
+          AND status IN ('PENDING_BINDING', 'ACTIVE')
+          AND issued_at &lt;= #{revokedAt}
+          AND (status = 'PENDING_BINDING' OR activated_at &lt;= #{revokedAt})
+    </update>
+
+    <update id="compromiseTokenFamilyIfVersion">
+        UPDATE fbs_oauth_token_family
+        SET status = 'COMPROMISED',
+            terminated_at = #{compromisedAt},
+            version = version + 1
+        WHERE family_id = #{familyId}
+          AND client_id = #{clientId}
+          AND version = #{expectedVersion}
+          AND status IN ('PENDING_BINDING', 'ACTIVE')
+          AND issued_at &lt;= #{compromisedAt}
+          AND (status = 'PENDING_BINDING' OR activated_at &lt;= #{compromisedAt})
+    </update>
+
+    <update id="expireTokenFamilyIfVersion">
+        UPDATE fbs_oauth_token_family
+        SET status = 'EXPIRED',
+            terminated_at = #{expiredAt},
+            version = version + 1
+        WHERE family_id = #{familyId}
+          AND client_id = #{clientId}
+          AND version = #{expectedVersion}
+          AND status IN ('PENDING_BINDING', 'ACTIVE')
+          AND issued_at &lt;= #{expiredAt}
+          AND expires_at &lt;= #{expiredAt}
+          AND (status = 'PENDING_BINDING' OR activated_at &lt;= #{expiredAt})
     </update>
 
     <insert id="insertToken"
@@ -397,7 +816,44 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         WHERE token_digest = #{tokenDigest}
     </select>
 
-    <select id="selectTokenForUpdate" resultMap="OAuthTokenMap">
+    <!-- Locator only: no row returned here may authorize a request or mutation. -->
+    <select id="selectTokenContextLocatorByDigest" resultMap="OAuthTokenContextLocatorMap">
+        SELECT t.id AS token_id,
+               t.family_id,
+               t.token_type,
+               t.generation AS token_generation,
+               t.status AS token_status,
+               t.version AS token_version,
+               t.issued_at AS token_issued_at,
+               t.expires_at AS token_expires_at,
+               f.client_id,
+               f.enterprise_id,
+               f.member_id,
+               f.user_id,
+               f.product_code,
+               f.source_code,
+               f.connector_code,
+               f.issuer_uri,
+               f.resource_uri,
+               f.scope_canonical,
+               f.scope_digest,
+               f.principal_subject_digest,
+               f.consent_intent,
+               f.binding_id,
+               f.binding_version,
+               f.status AS family_status,
+               f.current_refresh_generation,
+               f.version AS family_version,
+               f.issued_at AS family_issued_at,
+               f.activated_at AS family_activated_at,
+               f.expires_at AS family_expires_at
+        FROM fbs_oauth_token t
+        INNER JOIN fbs_oauth_token_family f ON f.family_id = t.family_id
+        WHERE t.token_digest = #{tokenDigest}
+        LIMIT 1
+    </select>
+
+    <select id="selectTokenForUpdate" resultMap="OAuthTokenMap" flushCache="true" useCache="false">
         SELECT *
         FROM fbs_oauth_token
         WHERE family_id = #{familyId}
@@ -405,11 +861,33 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         FOR UPDATE
     </select>
 
-    <select id="selectFamilyTokensForUpdate" resultMap="OAuthTokenMap">
+    <select id="selectTokenByIdAndDigestForUpdate" resultMap="OAuthTokenMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_token
+        WHERE id = #{tokenId}
+          AND family_id = #{familyId}
+          AND token_digest = #{tokenDigest}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="selectFamilyTokensForUpdate" resultMap="OAuthTokenMap" flushCache="true" useCache="false">
         SELECT *
         FROM fbs_oauth_token
         WHERE family_id = #{familyId}
         ORDER BY id
+        FOR UPDATE
+    </select>
+
+    <select id="selectActiveFamilyTokensForClientForUpdate" resultMap="OAuthTokenMap" flushCache="true" useCache="false">
+        SELECT t.*
+        FROM fbs_oauth_token t
+        INNER JOIN fbs_oauth_token_family f
+            ON f.family_id = t.family_id
+           AND f.client_id = #{clientId}
+           AND f.status = 'ACTIVE'
+        WHERE t.family_id = #{familyId}
+        ORDER BY t.id
         FOR UPDATE
     </select>
 
@@ -421,6 +899,20 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           AND version = #{expectedVersion}
           AND token_type = 'REFRESH'
           AND status = 'ACTIVE'
+          AND issued_at &lt;= #{usedAt}
+          AND expires_at &gt; #{usedAt}
+    </update>
+
+    <update id="useRefreshTokenForGenerationIfVersion">
+        UPDATE fbs_oauth_token
+        SET status = 'USED', used_at = #{usedAt}, version = version + 1
+        WHERE id = #{tokenId}
+          AND family_id = #{familyId}
+          AND version = #{expectedVersion}
+          AND token_type = 'REFRESH'
+          AND generation = #{expectedGeneration}
+          AND status = 'ACTIVE'
+          AND issued_at &lt;= #{usedAt}
           AND expires_at &gt; #{usedAt}
     </update>
 
@@ -437,6 +929,26 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             version = version + 1
         WHERE family_id = #{familyId}
           AND status = 'ACTIVE'
+    </update>
+
+    <!--
+      Safe successor for new callers. Callers first lock the complete token list and
+      require this method's affected-row count to equal the precomputed ACTIVE count.
+    -->
+    <update id="revokeActiveFamilyTokensAtLogicalTime">
+        UPDATE fbs_oauth_token
+        SET status = CASE
+                WHEN expires_at &lt;= #{revokedAt} THEN 'EXPIRED'
+                ELSE 'REVOKED'
+            END,
+            revoked_at = CASE
+                WHEN expires_at &lt;= #{revokedAt} THEN NULL
+                ELSE #{revokedAt}
+            END,
+            version = version + 1
+        WHERE family_id = #{familyId}
+          AND status = 'ACTIVE'
+          AND issued_at &lt;= #{revokedAt}
     </update>
 
     <insert id="insertReceipt"
@@ -457,5 +969,60 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
              #{actorSubjectDigest}, #{correlationId}, #{payloadDigest},
              #{evidenceLevel}, #{createdAt})
     </insert>
+
+    <!-- Same-transaction current read used to prove the immutable W4b receipt exists. -->
+    <select id="selectReceiptByReceiptId" resultMap="OAuthReceiptMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_receipt
+        WHERE receipt_id = #{receiptId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <!-- Return every exact provenance candidate so callers can fail closed unless size == 1. -->
+    <select id="selectTokenFamilyCreatedReceiptCandidatesForUpdate" resultMap="OAuthReceiptMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_receipt
+        WHERE family_id = #{familyId}
+          AND client_id = #{clientId}
+          AND authorization_code_id = #{authorizationCodeId}
+          AND action = 'TOKEN_FAMILY_CREATED'
+        ORDER BY id
+        FOR UPDATE
+    </select>
+
+    <!-- Exact replay candidates: callers fail closed unless cardinality is zero or one. -->
+    <select id="selectAuthorizationCodeReplayReceiptCandidatesForUpdate" resultMap="OAuthReceiptMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_receipt
+        WHERE family_id = #{familyId}
+          AND client_id = #{clientId}
+          AND authorization_code_id = #{authorizationCodeId}
+          AND action = 'AUTHORIZATION_CODE_REPLAY_DETECTED'
+        ORDER BY id
+        FOR UPDATE
+    </select>
+
+    <select id="selectTokenFamilyCompromisedReceiptCandidatesForUpdate" resultMap="OAuthReceiptMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_receipt
+        WHERE family_id = #{familyId}
+          AND client_id = #{clientId}
+          AND authorization_code_id IS NULL
+          AND action = 'TOKEN_FAMILY_COMPROMISED'
+        ORDER BY id
+        FOR UPDATE
+    </select>
+
+    <select id="selectTokenFamilyRevokedReceiptCandidatesForUpdate" resultMap="OAuthReceiptMap" flushCache="true" useCache="false">
+        SELECT *
+        FROM fbs_oauth_receipt
+        WHERE family_id = #{familyId}
+          AND client_id = #{clientId}
+          AND authorization_code_id IS NULL
+          AND action = 'TOKEN_FAMILY_REVOKED'
+        ORDER BY id
+        FOR UPDATE
+    </select>
 
 </mapper>

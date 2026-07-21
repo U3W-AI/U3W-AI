@@ -33,6 +33,8 @@
     { "version": "public_init_030", "description": "Independent Board administration menu", "file": "update_20260720_independent_board_admin_menu.sql" },
     { "version": "public_init_031", "description": "Independent Board entitlement lifecycle administration menu", "file": "update_20260720_independent_board_entitlement_lifecycle_menu.sql" },
     { "version": "public_init_032", "description": "Independent Board authoritative Connector binding", "file": "update_20260721_independent_board_connector_binding.sql" },
-    { "version": "public_init_033", "description": "Independent Board OAuth authorization foundation", "file": "update_20260721_independent_board_oauth_foundation.sql" }
+    { "version": "public_init_033", "description": "Independent Board OAuth authorization foundation", "file": "update_20260721_independent_board_oauth_foundation.sql" },
+    { "version": "public_init_034", "description": "Independent Board OAuth TOKEN_FAMILY_CREATED receipt provenance", "file": "update_20260721_independent_board_oauth_receipt_provenance.sql" },
+    { "version": "public_init_035", "description": "Independent Board OAuth consent-intent lineage", "file": "update_20260721_independent_board_oauth_consent_intent_lineage.sql", "sha256": "55dc772d54a4a457f00711a45266b2d0042522d63ed0d5a8e408d35a8ecaf560" }
   ]
 }

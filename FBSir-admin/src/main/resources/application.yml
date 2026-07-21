@@ -24,6 +24,10 @@ fbsir:
       issuer-uri: ${FBSIR_BOARD_OAUTH_ISSUER:}
       # 延续现有福帮手 Connector 的唯一 MCP 资源，不另造 Marketplace 入口。
       resource-uri: ${FBSIR_BOARD_OAUTH_RESOURCE:https://api2.u3w.com/fbs-mcp/mcp}
+    oauth:
+      # 仅保存短期 state 密文的仓库外 AES-256-GCM key；空值保持授权请求创建 fail closed。
+      state-key-ref: ${FBSIR_BOARD_OAUTH_STATE_KEY_REF:}
+      state-key-base64: ${FBSIR_BOARD_OAUTH_STATE_KEY_BASE64:}
   websocket: # 是否启用 WebSocket 服务
       enabled: true
       # ⚠️ 【重要】WebSocket 端点路径 - 请勿随意更改

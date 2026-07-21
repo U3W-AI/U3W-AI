@@ -1,0 +1,30 @@
+{
+  "schema": "fbsir.independent-board.runtime-drift-rootcause/v1",
+  "observedAt": "2026-07-21T12:20:00+08:00",
+  "productId": "fbsir-eight-seat-board",
+  "result": "NO_WORKBUDDY_PACKAGE_CONTENT_DRIFT",
+  "finalRArtifactToWorkBuddyOfficial": {
+    "zipFileEntries": 82,
+    "officialRuntimeFilesExcludingDownloadMarker": 81,
+    "byteExactMatches": 81,
+    "missingFromOfficialRuntime": [
+      "settings.json"
+    ],
+    "differentFiles": [],
+    "extraOfficialRuntimeFiles": [],
+    "classification": "exact_runtime_payload_match_with_package_level_settings_intentionally_not_installed"
+  },
+  "frozenSourceToWorkBuddyOfficial": {
+    "officialRuntimeFilesCompared": 81,
+    "physicalByteExactMatches": 10,
+    "newlineNormalizedExactMatches": 71,
+    "missingSourceFiles": [],
+    "contentDifferences": [],
+    "classification": "same_logical_content_packaging_crlf_normalization_only"
+  },
+  "workBuddyAi": {
+    "classification": "comparison_unavailable_not_a_content_drift_claim",
+    "reason": "The local WorkBuddyAI profile does not configure the official experts marketplace."
+  },
+  "evidenceBoundary": "This proves package-content alignment for the installed WorkBuddy official directory. It does not prove that the official entry was opened, loaded into the current process, or used in a real conversation."
+}
