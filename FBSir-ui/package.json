@@ -10,12 +10,16 @@
     "build:prod": "vite build",
     "build:stage": "vite build --mode staging",
     "preview": "vite preview",
+    "fixture:independent-board-w4b2c-backend": "node scripts/independent-board-w4b2c-browser-backend.mjs",
+    "dev:independent-board-w4b2c-fixture": "vite --mode browser-fixture --host 127.0.0.1 --port 18082 --no-open",
+    "dev:independent-board-w4b2c-fixture-off": "vite --mode browser-fixture-off --host 127.0.0.1 --port 18083 --no-open",
     "verify:svg-icons": "node scripts/verify-svg-sprite.mjs",
     "verify:menu-components": "node scripts/verify-menu-components.mjs",
     "verify:portal-entry": "node scripts/verify-portal-entry.mjs",
     "verify:independent-board-ui": "node scripts/verify-independent-board-ui.mjs",
     "verify:independent-board-admin-ui": "node scripts/verify-independent-board-admin-ui.mjs",
     "verify:independent-board-w4b2-candidate": "node scripts/verify-independent-board-w4b2-candidate.mjs",
+    "verify:independent-board-w4b2c-runtime-mount": "node scripts/verify-independent-board-w4b2c-runtime-mount.mjs",
     "verify:websocket-security": "node scripts/verify-websocket-security.mjs"
   },
   "repository": {

@@ -50,6 +50,7 @@ else {
 }
 $managedFiles = @(Get-ChildItem -LiteralPath $sqlRoot -Filter "update_*.sql" -File | Sort-Object Name)
 $manifestUpdateSteps = @($manifest.steps | Where-Object { $_.file -like "update_*.sql" })
+$manifestManualMigrations = @($manifest.manualMigrations)
 try {
     $declarativeManifest = Get-Content -LiteralPath $declarativeManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
 }
@@ -77,6 +78,26 @@ if ($null -ne $declarativeManifest) {
             }
         }
     }
+    $declaredManualMigrations = @($declarativeManifest.manualMigrations)
+    if ($declaredManualMigrations.Count -ne $manifestManualMigrations.Count) {
+        $errors.Add("declarative and executable manual migration counts differ: declared=$($declaredManualMigrations.Count), executable=$($manifestManualMigrations.Count)")
+    }
+    else {
+        for ($index = 0; $index -lt $manifestManualMigrations.Count; $index++) {
+            $declared = $declaredManualMigrations[$index]
+            $executable = $manifestManualMigrations[$index]
+            if ([string]$declared.id -cne [string]$executable.id -or
+                [string]$declared.description -cne [string]$executable.description -or
+                [string]$declared.file -cne [string]$executable.file -or
+                [string]$declared.execution -cne [string]$executable.execution -or
+                [bool]$declared.defaultApplied -ne [bool]$executable.defaultApplied -or
+                [string]$declared.optInSessionVariable -cne [string]$executable.optInSessionVariable -or
+                [int]$declared.requiredValue -ne [int]$executable.requiredValue -or
+                [string]$declared.sha256 -cne [string]$executable.sha256) {
+                $errors.Add("declarative manual migration drift at position $($index + 1)")
+            }
+        }
+    }
 }
 if ([string]$manifest.manifestFile -ne 'sql/init-manifest.json' -or
     [string]$manifest.manifestSchema -ne 'fbsir.public-database-init-manifest/v1') {
@@ -84,7 +105,7 @@ if ([string]$manifest.manifestFile -ne 'sql/init-manifest.json' -or
 }
 
 $strictUtf8 = [System.Text.UTF8Encoding]::new($false, $true)
-foreach ($step in @($manifest.steps)) {
+foreach ($step in @($manifest.steps) + @($manifestManualMigrations)) {
     $managedSqlPath = Join-Path $sqlRoot ([string]$step.file)
     try {
         $null = $strictUtf8.GetString([System.IO.File]::ReadAllBytes($managedSqlPath))
@@ -104,7 +125,8 @@ if ([int]$manifest.managedUpdateSqlCount -ne $managedFiles.Count) {
     $errors.Add("managed update count mismatch: manifest=$($manifest.managedUpdateSqlCount), disk=$($managedFiles.Count)")
 }
 
-$manifestNames = @($manifestUpdateSteps | ForEach-Object { [string]$_.file })
+$managedCatalogEntries = @($manifestUpdateSteps) + @($manifestManualMigrations)
+$manifestNames = @($managedCatalogEntries | ForEach-Object { [string]$_.file })
 foreach ($file in $managedFiles) {
     $occurrences = @($manifestNames | Where-Object { $_ -eq $file.Name }).Count
     if ($occurrences -ne 1) {
@@ -114,6 +136,37 @@ foreach ($file in $managedFiles) {
 foreach ($name in @($manifestNames | Sort-Object -Unique)) {
     if (@($managedFiles | Where-Object Name -eq $name).Count -ne 1) {
         $errors.Add("manifest references unmanaged update SQL: $name")
+    }
+}
+
+$candidateMenuMigrationId = 'candidate_20260721_independent_board_portal_menu_v1'
+$candidateMenuMigrationFile = 'update_20260721_independent_board_portal_candidate_menu.sql'
+$candidateMenuMigrationSha256 = '3c53215020633977eff196cb12025f65f663c90b5e3d5d74239b124f32224459'
+$candidateMenuEntries = @($manifestManualMigrations | Where-Object {
+    [string]$_.id -ceq $candidateMenuMigrationId -and
+    [string]$_.file -ceq $candidateMenuMigrationFile
+})
+if ($candidateMenuEntries.Count -ne 1) {
+    $errors.Add('default-off candidate menu migration must occur exactly once in manualMigrations')
+}
+else {
+    $candidateMenuEntry = $candidateMenuEntries[0]
+    if ([string]$candidateMenuEntry.execution -cne 'manual_opt_in' -or
+        [bool]$candidateMenuEntry.defaultApplied -or
+        [string]$candidateMenuEntry.optInSessionVariable -cne '@u3w_enable_independent_board_w4b2c_candidate' -or
+        [int]$candidateMenuEntry.requiredValue -ne 1 -or
+        [string]$candidateMenuEntry.sha256 -cne $candidateMenuMigrationSha256) {
+        $errors.Add('default-off candidate menu manual migration contract drifted')
+    }
+}
+if (@($manifest.steps | Where-Object { [string]$_.file -ceq $candidateMenuMigrationFile }).Count -ne 0) {
+    $errors.Add('default-off candidate menu migration must not be an executable public_init step')
+}
+$candidateMenuPath = Join-Path $sqlRoot $candidateMenuMigrationFile
+if (Test-Path -LiteralPath $candidateMenuPath -PathType Leaf) {
+    $actualCandidateMenuSha256 = (Get-FileHash -LiteralPath $candidateMenuPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualCandidateMenuSha256 -cne $candidateMenuMigrationSha256) {
+        $errors.Add("default-off candidate menu migration byte contract drifted: expected SHA-256 $candidateMenuMigrationSha256, found $actualCandidateMenuSha256")
     }
 }
 
@@ -2006,6 +2059,7 @@ $result = [pscustomobject]@{
     ok = ($errors.Count -eq 0)
     root = $resolvedRoot
     manifestStepCount = [int]$manifest.manifestStepCount
+    manualMigrationCount = [int]$manifest.manualMigrationCount
     managedUpdateSqlCount = $managedFiles.Count
     dryRunDatabaseIsolation = [bool]($manifest.dryRun -and -not $manifest.databaseConnectionOpened)
     truthSpineVersion = "public_init_027"
@@ -2022,6 +2076,8 @@ $result = [pscustomobject]@{
     oauthProvenanceSha256 = $oauthProvenanceSha256
     oauthConsentIntentSha256 = $oauthConsentIntentSha256
     oauthRefreshSecuritySha256 = $oauthRefreshSecuritySha256
+    candidateMenuMigrationId = $candidateMenuMigrationId
+    candidateMenuMigrationSha256 = $candidateMenuMigrationSha256
     oauthSuccessorCheckDigest = $oauthSuccessorCheckDigest
     oauthGenerationExpressionWhitelist = @('_utf8mb4', '_ascii', 'no-prefix')
     menuMigrationReplayGate = "scripts/run-independent-board-menu-migration-it.ps1"
@@ -2033,7 +2089,7 @@ if ($Json) {
 }
 else {
     if ($result.ok) {
-        Write-Host "PASS database manifest: $($result.manifestStepCount) steps; $($result.managedUpdateSqlCount) managed update SQL files covered exactly once."
+        Write-Host "PASS database manifest: $($result.manifestStepCount) public steps plus $($result.manualMigrationCount) manual migrations; $($result.managedUpdateSqlCount) managed update SQL files covered exactly once."
     }
     else {
         $result.errors | ForEach-Object { Write-Error $_ }

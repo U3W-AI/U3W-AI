@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import { assertBoardPortalCandidateEnabled } from '@/views/business/independentBoard/portalCandidateModel'
+import { assertBoardPortalCandidateEnabled } from '@/utils/independentBoardPortalCandidate'
 
 function assertTenantId(tenantId) {
   if (!Number.isSafeInteger(tenantId) || tenantId <= 0) {
@@ -66,6 +66,19 @@ export function listBoardConnectorBindingsCandidate({ tenantId, status, cursor }
     url: '/business/independent-board/connector-bindings',
     method: 'get',
     params: { tenantId, status: optionalParam(status), cursor: optionalCursor(cursor) }
+  })
+}
+
+export function listBoardTenantsCandidate({ query, status, cursor } = {}) {
+  assertBoardPortalCandidateEnabled()
+  return request({
+    url: '/business/independent-board/tenants',
+    method: 'get',
+    params: {
+      query: optionalParam(query),
+      status: optionalParam(status),
+      cursor: optionalCursor(cursor)
+    }
   })
 }
 

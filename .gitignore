@@ -207,6 +207,8 @@ data/
 .env.*
 !.env.example
 !**/.env.example
+!FBSir-ui/.env.browser-fixture
+!FBSir-ui/.env.browser-fixture-off
 .env.local
 .env.*.local
 .env.development.local

@@ -16,7 +16,7 @@ if (-not $AllowDestructiveTest) {
 }
 
 $repoRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
-$workRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot 'work\independent-board-menu-migration-it'))
+$workRoot = [System.IO.Path]::GetFullPath((Join-Path ([System.IO.Path]::GetTempPath()) 'u3w-menu-migration-it'))
 $primaryDatabase = 'u3w_independent_board_menu_it'
 $collisionPrefix = 'u3w_menu_collision_'
 $collisionDatabase = $collisionPrefix + ('x' * (64 - $collisionPrefix.Length))
@@ -24,10 +24,14 @@ $collisionDatabase = $collisionPrefix + ('x' * (64 - $collisionPrefix.Length))
 $w2MigrationPath = Join-Path $repoRoot 'sql\update_20260720_independent_board_me_menu.sql'
 $w3aMigrationPath = Join-Path $repoRoot 'sql\update_20260720_independent_board_admin_menu.sql'
 $w3bMigrationPath = Join-Path $repoRoot 'sql\update_20260720_independent_board_entitlement_lifecycle_menu.sql'
+$w4b2cMigrationPath = Join-Path $repoRoot 'sql\update_20260721_independent_board_portal_candidate_menu.sql'
 $w2Procedure = 'u3w_migrate_independent_board_me_menu_20260720'
 $w3aProcedure = 'u3w_migrate_independent_board_admin_menu_20260720'
 $w3bProcedure = 'u3w_migrate_board_entitlement_lifecycle_menu_20260720'
 $w3bLockSuffix = '20260720_independent_board_entitlement_lifecycle_menu_v1'
+$w4b2cProcedure = 'u3w_migrate_independent_board_portal_candidate_menu_20260721'
+$w4b2cLockSuffix = '20260721_independent_board_portal_candidate_menu_v1'
+$w4b2cOptIn = "SET @u3w_enable_independent_board_w4b2c_candidate = 1;`n"
 
 function Resolve-MySqlBinDirectory {
     param([string]$Requested)
@@ -125,7 +129,7 @@ function Get-Sha256 {
     }
 }
 
-foreach ($migrationPath in @($w2MigrationPath, $w3aMigrationPath, $w3bMigrationPath)) {
+foreach ($migrationPath in @($w2MigrationPath, $w3aMigrationPath, $w3bMigrationPath, $w4b2cMigrationPath)) {
     if (-not (Test-Path -LiteralPath $migrationPath -PathType Leaf)) {
         throw "Required menu migration is missing: $migrationPath"
     }
@@ -133,9 +137,12 @@ foreach ($migrationPath in @($w2MigrationPath, $w3aMigrationPath, $w3bMigrationP
 $w2Bytes = [System.IO.File]::ReadAllBytes($w2MigrationPath)
 $w3aBytes = [System.IO.File]::ReadAllBytes($w3aMigrationPath)
 $w3bBytes = [System.IO.File]::ReadAllBytes($w3bMigrationPath)
+$w4b2cBytes = [System.IO.File]::ReadAllBytes($w4b2cMigrationPath)
+[byte[]]$w4b2cEnabledBytes = [System.Text.UTF8Encoding]::new($false).GetBytes($w4b2cOptIn) + $w4b2cBytes
 $w2Sha256 = Get-Sha256 -Bytes $w2Bytes
 $w3aSha256 = Get-Sha256 -Bytes $w3aBytes
 $w3bSha256 = Get-Sha256 -Bytes $w3bBytes
+$w4b2cSha256 = Get-Sha256 -Bytes $w4b2cBytes
 
 $mysqlBin = Resolve-MySqlBinDirectory -Requested $MySqlBinDirectory
 $mysqld = Join-Path $mysqlBin 'mysqld.exe'
@@ -163,6 +170,10 @@ $mysqlVersion = $null
 $transactionIsolation = $null
 $primaryCounts = $null
 $collisionCounts = $null
+$w3bCollisionInternalReceipts = $null
+$w3bCollisionPrewrittenIdentities = $null
+$w4b2cCollisionInternalReceipts = $null
+$w4b2cCollisionPrewrittenIdentities = $null
 $phaseResults = [System.Collections.Generic.List[object]]::new()
 
 function Invoke-MySqlBytesResult {
@@ -342,6 +353,14 @@ SELECT IF(IS_USED_LOCK(SHA2(CONCAT(DATABASE(), ':$w3bLockSuffix'), 256)) IS NULL
 "@ | Out-Null
 }
 
+function Assert-W4b2cLockReleased {
+    param([Parameter(Mandatory = $true)][string]$Database)
+
+    Assert-Scalar -Database $Database -Expected '1' -Label 'W4b.2c named lock release' -Sql @"
+SELECT IF(IS_USED_LOCK(SHA2(CONCAT(DATABASE(), ':$w4b2cLockSuffix'), 256)) IS NULL, 1, 0);
+"@ | Out-Null
+}
+
 function Remove-LeftoverProcedure {
     param(
         [Parameter(Mandatory = $true)][string]$Database,
@@ -414,13 +433,36 @@ try {
     Invoke-Migration -Name 'w3a_completed_rerun' -Bytes $w3aBytes -Database $primaryDatabase
     Invoke-Migration -Name 'w3b_first_apply' -Bytes $w3bBytes -Database $primaryDatabase
 
-    Assert-Scalar -Database $primaryDatabase -Expected '7' -Label 'first-apply menu count' -Sql 'SELECT COUNT(*) FROM sys_menu;' | Out-Null
-    Assert-Scalar -Database $primaryDatabase -Expected '3' -Label 'internal receipt count' -Sql @"
+    Invoke-ExpectedMigrationFailure -Name 'w4b2c_requires_explicit_session_opt_in' `
+        -Bytes $w4b2cBytes -Database $primaryDatabase `
+        -ExpectedMessage 'requires explicit session opt-in'
+    Assert-Scalar -Database $primaryDatabase -Expected '0' -Label 'W4b.2c no-opt-in receipt count' -Sql @"
+SELECT COUNT(*) FROM u3w_schema_migration
+WHERE version = '20260721_independent_board_portal_candidate_menu_v1';
+"@ | Out-Null
+    Assert-Scalar -Database $primaryDatabase -Expected '0' -Label 'W4b.2c no-opt-in identity count' -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE component IN (
+  'business/independentBoard/me/connector/index',
+  'business/independentBoard/admin/oauth-client/index',
+  'business/independentBoard/admin/oauth-family/index',
+  'business/independentBoard/admin/connector-binding/index'
+) OR perms = 'board:tenant:query';
+"@ | Out-Null
+    Assert-W4b2cLockReleased -Database $primaryDatabase
+    Remove-LeftoverProcedure -Database $primaryDatabase -Procedure $w4b2cProcedure
+
+    Invoke-Migration -Name 'w4b2c_first_apply' -Bytes $w4b2cEnabledBytes -Database $primaryDatabase
+    Invoke-Migration -Name 'w4b2c_completed_rerun' -Bytes $w4b2cEnabledBytes -Database $primaryDatabase
+
+    Assert-Scalar -Database $primaryDatabase -Expected '12' -Label 'first-apply menu count' -Sql 'SELECT COUNT(*) FROM sys_menu;' | Out-Null
+    Assert-Scalar -Database $primaryDatabase -Expected '4' -Label 'internal receipt count' -Sql @"
 SELECT COUNT(*) FROM u3w_schema_migration
 WHERE version IN (
   '20260720_independent_board_me_menu_v1',
   '20260720_independent_board_admin_menu_v1',
-  '20260720_independent_board_entitlement_lifecycle_menu_v1'
+  '20260720_independent_board_entitlement_lifecycle_menu_v1',
+  '20260721_independent_board_portal_candidate_menu_v1'
 );
 "@ | Out-Null
     Assert-Scalar -Database $primaryDatabase -Expected '2' -Label 'W3b exact identity count' -Sql @"
@@ -428,6 +470,73 @@ SELECT COUNT(*) FROM sys_menu
 WHERE perms = 'board:entitlement:revoke'
    OR component = 'business/independentBoard/admin/entitlementReceipt/index';
 "@ | Out-Null
+    Assert-Scalar -Database $primaryDatabase -Expected '5' -Label 'W4b.2c exact candidate identity count' -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE component IN (
+  'business/independentBoard/me/connector/index',
+  'business/independentBoard/admin/oauth-client/index',
+  'business/independentBoard/admin/oauth-family/index',
+  'business/independentBoard/admin/connector-binding/index'
+) OR perms = 'board:tenant:query';
+"@ | Out-Null
+    Assert-Scalar -Database $primaryDatabase -Expected '5' -Label 'W4b.2c default-disabled candidate count' -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE status = '1'
+  AND (component IN (
+    'business/independentBoard/me/connector/index',
+    'business/independentBoard/admin/oauth-client/index',
+    'business/independentBoard/admin/oauth-family/index',
+    'business/independentBoard/admin/connector-binding/index'
+  ) OR perms = 'board:tenant:query');
+"@ | Out-Null
+    Assert-Scalar -Database $primaryDatabase -Expected '0' -Label 'W4b.2c active candidate count' -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE status = '0'
+  AND (component IN (
+    'business/independentBoard/me/connector/index',
+    'business/independentBoard/admin/oauth-client/index',
+    'business/independentBoard/admin/oauth-family/index',
+    'business/independentBoard/admin/connector-binding/index'
+  ) OR perms = 'board:tenant:query');
+"@ | Out-Null
+    Assert-Scalar -Database $primaryDatabase -Expected '1' -Label 'W4b.2c me connector user-role binding' -Sql @"
+SELECT COUNT(*) FROM sys_role_menu AS role_menu
+INNER JOIN sys_role AS role_row ON role_row.role_id = role_menu.role_id
+INNER JOIN sys_menu AS menu_row ON menu_row.menu_id = role_menu.menu_id
+WHERE role_row.role_key = 'user'
+  AND role_row.status = '0'
+  AND role_row.del_flag = '0'
+  AND menu_row.component = 'business/independentBoard/me/connector/index';
+"@ | Out-Null
+    Assert-Scalar -Database $primaryDatabase -Expected '1' -Label 'W4b.2c me connector total binding count' -Sql @"
+SELECT COUNT(*) FROM sys_role_menu AS role_menu
+INNER JOIN sys_menu AS menu_row ON menu_row.menu_id = role_menu.menu_id
+WHERE menu_row.component = 'business/independentBoard/me/connector/index';
+"@ | Out-Null
+    Assert-Scalar -Database $primaryDatabase -Expected '0' -Label 'W4b.2c admin role binding count' -Sql @"
+SELECT COUNT(*) FROM sys_role_menu AS role_menu
+INNER JOIN sys_menu AS menu_row ON menu_row.menu_id = role_menu.menu_id
+WHERE (menu_row.component IN (
+  'business/independentBoard/admin/oauth-client/index',
+  'business/independentBoard/admin/oauth-family/index',
+  'business/independentBoard/admin/connector-binding/index'
+) OR menu_row.perms = 'board:tenant:query');
+"@ | Out-Null
+    Assert-Scalar -Database $primaryDatabase -Expected '0' -Label 'W4b.2c held security and write identity count' -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE component IN (
+  'business/independentBoard/me/security/index',
+  'business/independentBoard/admin/security-event/index'
+) OR perms IN (
+  'my:independent-board:security:view',
+  'board:oauth:security:audit',
+  'my:independent-board:connector:authorize',
+  'my:independent-board:connector:revoke',
+  'board:oauth:family:revoke',
+  'board:connector:revoke'
+);
+"@ | Out-Null
+    Assert-W4b2cLockReleased -Database $primaryDatabase
 
     Invoke-MySqlText -Database $primaryDatabase -Sql @"
 INSERT INTO sys_role_menu (role_id, menu_id)
@@ -438,6 +547,8 @@ WHERE component = 'business/independentBoard/admin/entitlementReceipt/index'
     Invoke-Migration -Name 'w3b_completed_rerun_preserves_external_binding' -Bytes $w3bBytes -Database $primaryDatabase
     Invoke-Migration -Name 'w2_rerun_after_w3b' -Bytes $w2Bytes -Database $primaryDatabase
     Invoke-Migration -Name 'w3a_rerun_after_w3b' -Bytes $w3aBytes -Database $primaryDatabase
+    Invoke-Migration -Name 'w4b2c_rerun_preserves_external_w3b_binding' `
+        -Bytes $w4b2cEnabledBytes -Database $primaryDatabase
     Assert-Scalar -Database $primaryDatabase -Expected '1' -Label 'externally governed W3b role binding' -Sql @"
 SELECT COUNT(*) FROM sys_role_menu AS role_menu
 INNER JOIN sys_menu AS menu_row ON menu_row.menu_id = role_menu.menu_id
@@ -467,6 +578,88 @@ WHERE component = 'business/independentBoard/admin/entitlementReceipt/index'
 "@ | Out-Null
     Invoke-Migration -Name 'w3b_recovered_current_state_rerun' -Bytes $w3bBytes -Database $primaryDatabase
 
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+UPDATE sys_menu SET status = '0'
+WHERE component = 'business/independentBoard/admin/oauth-family/index'
+  AND route_name = 'IndependentBoardOAuthFamilyCandidate';
+"@ | Out-Null
+    Invoke-ExpectedMigrationFailure -Name 'w4b2c_default_disabled_drift_fail_closed' `
+        -Bytes $w4b2cEnabledBytes -Database $primaryDatabase `
+        -ExpectedMessage 'OAuth family candidate is missing or drifted'
+    Assert-Scalar -Database $primaryDatabase -Expected '1' -Label 'W4b.2c status drift was not silently repaired' -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE component = 'business/independentBoard/admin/oauth-family/index'
+  AND status = '0';
+"@ | Out-Null
+    Assert-W4b2cLockReleased -Database $primaryDatabase
+    Remove-LeftoverProcedure -Database $primaryDatabase -Procedure $w4b2cProcedure
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+UPDATE sys_menu SET status = '1'
+WHERE component = 'business/independentBoard/admin/oauth-family/index'
+  AND route_name = 'IndependentBoardOAuthFamilyCandidate';
+"@ | Out-Null
+    Invoke-Migration -Name 'w4b2c_recovered_default_disabled_rerun' `
+        -Bytes $w4b2cEnabledBytes -Database $primaryDatabase
+
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+INSERT INTO sys_role_menu (role_id, menu_id)
+SELECT 999, menu_id FROM sys_menu
+WHERE component = 'business/independentBoard/me/connector/index'
+  AND route_name = 'IndependentBoardConnectorCandidate';
+"@ | Out-Null
+    Invoke-ExpectedMigrationFailure -Name 'w4b2c_unknown_me_binding_fail_closed' `
+        -Bytes $w4b2cEnabledBytes -Database $primaryDatabase `
+        -ExpectedMessage 'connector candidate role binding is missing or ambiguous'
+    Assert-W4b2cLockReleased -Database $primaryDatabase
+    Remove-LeftoverProcedure -Database $primaryDatabase -Procedure $w4b2cProcedure
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+DELETE role_menu FROM sys_role_menu AS role_menu
+INNER JOIN sys_menu AS menu_row ON menu_row.menu_id = role_menu.menu_id
+WHERE role_menu.role_id = 999
+  AND menu_row.component = 'business/independentBoard/me/connector/index';
+"@ | Out-Null
+    Invoke-Migration -Name 'w4b2c_recovered_me_binding_rerun' `
+        -Bytes $w4b2cEnabledBytes -Database $primaryDatabase
+
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+INSERT INTO sys_role_menu (role_id, menu_id)
+SELECT 999, menu_id FROM sys_menu
+WHERE component = 'business/independentBoard/admin/oauth-client/index'
+  AND route_name = 'IndependentBoardOAuthClientCandidate';
+"@ | Out-Null
+    Invoke-ExpectedMigrationFailure -Name 'w4b2c_admin_binding_fail_closed' `
+        -Bytes $w4b2cEnabledBytes -Database $primaryDatabase `
+        -ExpectedMessage 'admin candidate menus must have zero role bindings'
+    Assert-W4b2cLockReleased -Database $primaryDatabase
+    Remove-LeftoverProcedure -Database $primaryDatabase -Procedure $w4b2cProcedure
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+DELETE role_menu FROM sys_role_menu AS role_menu
+INNER JOIN sys_menu AS menu_row ON menu_row.menu_id = role_menu.menu_id
+WHERE role_menu.role_id = 999
+  AND menu_row.component = 'business/independentBoard/admin/oauth-client/index';
+"@ | Out-Null
+    Invoke-Migration -Name 'w4b2c_recovered_admin_binding_rerun' `
+        -Bytes $w4b2cEnabledBytes -Database $primaryDatabase
+
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+UPDATE u3w_schema_migration
+SET description = 'drifted-by-disposable-gate'
+WHERE version = '20260721_independent_board_portal_candidate_menu_v1';
+"@ | Out-Null
+    Invoke-ExpectedMigrationFailure -Name 'w4b2c_receipt_drift_fail_closed' `
+        -Bytes $w4b2cEnabledBytes -Database $primaryDatabase `
+        -ExpectedMessage 'migration receipt is missing or drifted'
+    Assert-W4b2cLockReleased -Database $primaryDatabase
+    Remove-LeftoverProcedure -Database $primaryDatabase -Procedure $w4b2cProcedure
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+UPDATE u3w_schema_migration
+SET description = 'Independent Board default-off portal candidate menus and tenant-query permission'
+WHERE version = '20260721_independent_board_portal_candidate_menu_v1';
+"@ | Out-Null
+    Invoke-Migration -Name 'w4b2c_recovered_receipt_rerun' `
+        -Bytes $w4b2cEnabledBytes -Database $primaryDatabase
+    Assert-W4b2cLockReleased -Database $primaryDatabase
+
     Initialize-TestDatabase -Database $collisionDatabase
     Invoke-Migration -Name 'collision_w2_prerequisite' -Bytes $w2Bytes -Database $collisionDatabase
     Invoke-Migration -Name 'collision_w3a_prerequisite' -Bytes $w3aBytes -Database $collisionDatabase
@@ -495,34 +688,139 @@ WHERE component = 'business/independentBoard/admin/entitlementReceipt/index';
     Assert-W3bLockReleased -Database $collisionDatabase
     Remove-LeftoverProcedure -Database $collisionDatabase -Procedure $w3bProcedure
 
+    $w3bCollisionInternalReceipts = [int](Invoke-MySqlText -Database $collisionDatabase -Sql @"
+SELECT COUNT(*) FROM u3w_schema_migration
+WHERE version = '20260720_independent_board_entitlement_lifecycle_menu_v1';
+"@)
+    $w3bCollisionPrewrittenIdentities = [int](Invoke-MySqlText -Database $collisionDatabase -Sql @"
+SELECT COUNT(*) FROM sys_menu WHERE perms = 'board:entitlement:revoke';
+"@)
+
+    Invoke-MySqlText -Database $collisionDatabase -Sql @"
+DELETE FROM sys_menu
+WHERE menu_name = 'prewrite-collision'
+  AND perms = 'board:entitlement:revoke';
+"@ | Out-Null
+    Invoke-Migration -Name 'collision_w3b_prerequisite_after_proven_collision' `
+        -Bytes $w3bBytes -Database $collisionDatabase
+    Invoke-MySqlText -Database $collisionDatabase -Sql @"
+INSERT INTO sys_menu
+    (menu_name, parent_id, order_num, path, component, query, route_name,
+     is_frame, is_cache, menu_type, visible, status, perms, icon,
+     create_by, create_time, update_by, update_time, remark)
+VALUES
+    ('prewrite-candidate-collision', 0, 99, 'independent-board-connector',
+     NULL, NULL, '', 1, 0, 'C', '0', '1', '', '#',
+     'gate', CURRENT_TIMESTAMP, '', NULL, 'disposable W4b.2c collision fixture');
+"@ | Out-Null
+    Invoke-ExpectedMigrationFailure -Name 'w4b2c_prewrite_identity_collision_fail_closed' `
+        -Bytes $w4b2cEnabledBytes -Database $collisionDatabase `
+        -ExpectedMessage 'identity exists without its receipt'
+    Assert-Scalar -Database $collisionDatabase -Expected '0' -Label 'W4b.2c collision receipt count' -Sql @"
+SELECT COUNT(*) FROM u3w_schema_migration
+WHERE version = '20260721_independent_board_portal_candidate_menu_v1';
+"@ | Out-Null
+    Assert-Scalar -Database $collisionDatabase -Expected '1' -Label 'W4b.2c prewritten collision identity count' -Sql @"
+SELECT COUNT(*) FROM sys_menu WHERE path = 'independent-board-connector';
+"@ | Out-Null
+    Assert-Scalar -Database $collisionDatabase -Expected '0' -Label 'W4b.2c collision partial-write count' -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE component IN (
+  'business/independentBoard/me/connector/index',
+  'business/independentBoard/admin/oauth-client/index',
+  'business/independentBoard/admin/oauth-family/index',
+  'business/independentBoard/admin/connector-binding/index'
+) OR perms = 'board:tenant:query';
+"@ | Out-Null
+    Assert-W4b2cLockReleased -Database $collisionDatabase
+    Remove-LeftoverProcedure -Database $collisionDatabase -Procedure $w4b2cProcedure
+
+    $w4b2cCollisionInternalReceipts = [int](Invoke-MySqlText -Database $collisionDatabase -Sql @"
+SELECT COUNT(*) FROM u3w_schema_migration
+WHERE version = '20260721_independent_board_portal_candidate_menu_v1';
+"@)
+    $w4b2cCollisionPrewrittenIdentities = [int](Invoke-MySqlText -Database $collisionDatabase -Sql @"
+SELECT COUNT(*) FROM sys_menu WHERE path = 'independent-board-connector';
+"@)
+
     $primaryCounts = [ordered]@{
         menus = [int](Invoke-MySqlText -Database $primaryDatabase -Sql 'SELECT COUNT(*) FROM sys_menu;')
         roleBindings = [int](Invoke-MySqlText -Database $primaryDatabase -Sql 'SELECT COUNT(*) FROM sys_role_menu;')
         internalReceipts = [int](Invoke-MySqlText -Database $primaryDatabase -Sql @"
 SELECT COUNT(*) FROM u3w_schema_migration
-WHERE version LIKE '20260720_independent_board_%_menu_v1';
+WHERE version IN (
+  '20260720_independent_board_me_menu_v1',
+  '20260720_independent_board_admin_menu_v1',
+  '20260720_independent_board_entitlement_lifecycle_menu_v1',
+  '20260721_independent_board_portal_candidate_menu_v1'
+);
 "@)
         w3bIdentities = [int](Invoke-MySqlText -Database $primaryDatabase -Sql @"
 SELECT COUNT(*) FROM sys_menu
 WHERE perms = 'board:entitlement:revoke'
    OR component = 'business/independentBoard/admin/entitlementReceipt/index';
 "@)
+        w4b2cCandidateIdentities = [int](Invoke-MySqlText -Database $primaryDatabase -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE component IN (
+  'business/independentBoard/me/connector/index',
+  'business/independentBoard/admin/oauth-client/index',
+  'business/independentBoard/admin/oauth-family/index',
+  'business/independentBoard/admin/connector-binding/index'
+) OR perms = 'board:tenant:query';
+"@)
+        w4b2cDefaultDisabled = [int](Invoke-MySqlText -Database $primaryDatabase -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE status = '1'
+  AND (component IN (
+    'business/independentBoard/me/connector/index',
+    'business/independentBoard/admin/oauth-client/index',
+    'business/independentBoard/admin/oauth-family/index',
+    'business/independentBoard/admin/connector-binding/index'
+  ) OR perms = 'board:tenant:query');
+"@)
+        w4b2cConnectorBindings = [int](Invoke-MySqlText -Database $primaryDatabase -Sql @"
+SELECT COUNT(*) FROM sys_role_menu AS role_menu
+INNER JOIN sys_menu AS menu_row ON menu_row.menu_id = role_menu.menu_id
+WHERE menu_row.component = 'business/independentBoard/me/connector/index';
+"@)
+        w4b2cAdminBindings = [int](Invoke-MySqlText -Database $primaryDatabase -Sql @"
+SELECT COUNT(*) FROM sys_role_menu AS role_menu
+INNER JOIN sys_menu AS menu_row ON menu_row.menu_id = role_menu.menu_id
+WHERE (menu_row.component IN (
+  'business/independentBoard/admin/oauth-client/index',
+  'business/independentBoard/admin/oauth-family/index',
+  'business/independentBoard/admin/connector-binding/index'
+) OR menu_row.perms = 'board:tenant:query');
+"@)
+        w4b2cForbiddenIdentities = [int](Invoke-MySqlText -Database $primaryDatabase -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE component IN (
+  'business/independentBoard/me/security/index',
+  'business/independentBoard/admin/security-event/index'
+) OR perms IN (
+  'my:independent-board:security:view',
+  'board:oauth:security:audit',
+  'my:independent-board:connector:authorize',
+  'my:independent-board:connector:revoke',
+  'board:oauth:family:revoke',
+  'board:connector:revoke'
+);
+"@)
     }
     $collisionCounts = [ordered]@{
         schemaNameLength = $collisionDatabase.Length
-        w3bInternalReceipts = [int](Invoke-MySqlText -Database $collisionDatabase -Sql @"
-SELECT COUNT(*) FROM u3w_schema_migration
-WHERE version = '20260720_independent_board_entitlement_lifecycle_menu_v1';
-"@)
-        prewrittenIdentities = [int](Invoke-MySqlText -Database $collisionDatabase -Sql @"
-SELECT COUNT(*) FROM sys_menu WHERE perms = 'board:entitlement:revoke';
-"@)
+        w3bInternalReceiptsAfterFailure = $w3bCollisionInternalReceipts
+        w3bPrewrittenIdentitiesAfterFailure = $w3bCollisionPrewrittenIdentities
+        w4b2cInternalReceiptsAfterFailure = $w4b2cCollisionInternalReceipts
+        w4b2cPrewrittenIdentitiesAfterFailure = $w4b2cCollisionPrewrittenIdentities
     }
 
     foreach ($binding in @(
         @{ Path = $w2MigrationPath; Sha = $w2Sha256 },
         @{ Path = $w3aMigrationPath; Sha = $w3aSha256 },
-        @{ Path = $w3bMigrationPath; Sha = $w3bSha256 }
+        @{ Path = $w3bMigrationPath; Sha = $w3bSha256 },
+        @{ Path = $w4b2cMigrationPath; Sha = $w4b2cSha256 }
     )) {
         $latestSha = Get-Sha256 -Bytes ([System.IO.File]::ReadAllBytes($binding.Path))
         if ($latestSha -ne $binding.Sha) {
@@ -579,6 +877,7 @@ if ($testPassed) {
             w2 = [ordered]@{ version = '20260720_independent_board_me_menu_v1'; sha256 = $w2Sha256 }
             w3a = [ordered]@{ version = '20260720_independent_board_admin_menu_v1'; sha256 = $w3aSha256 }
             w3b = [ordered]@{ version = '20260720_independent_board_entitlement_lifecycle_menu_v1'; sha256 = $w3bSha256 }
+            w4b2c = [ordered]@{ version = '20260721_independent_board_portal_candidate_menu_v1'; sha256 = $w4b2cSha256 }
         }
         phases = @($phaseResults)
         primary = $primaryCounts

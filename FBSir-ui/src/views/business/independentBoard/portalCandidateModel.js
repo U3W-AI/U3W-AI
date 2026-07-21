@@ -1,3 +1,13 @@
+import {
+  assertBoardPortalCandidateEnabled,
+  isBoardPortalCandidateEnabled
+} from '../../../utils/independentBoardPortalCandidate.js'
+
+export {
+  assertBoardPortalCandidateEnabled,
+  isBoardPortalCandidateEnabled
+}
+
 export const BOARD_CONNECTOR_SCOPES = Object.freeze([
   'identity.read',
   'entitlement.read',
@@ -14,6 +24,7 @@ const FAMILY_STATUSES = Object.freeze([
   'PENDING_BINDING', 'ACTIVE', 'REVOKED', 'COMPROMISED', 'EXPIRED'
 ])
 const BINDING_STATUSES = Object.freeze(['ACTIVE', 'REVOKED', 'COMPROMISED'])
+const TENANT_STATUSES = Object.freeze(['ACTIVE', 'DISABLED'])
 const CONSENT_INTENTS = Object.freeze(['FIRST_CONNECT', 'EXPLICIT_REAUTHORIZATION'])
 const CONNECTOR_SECURITY_ACTIONS = Object.freeze([
   'CONNECTOR_BINDING_VERIFIED', 'CONNECTOR_BINDING_REVOKED'
@@ -59,6 +70,7 @@ const CONNECTOR_KEYS = Object.freeze([
   'familyRef', 'bindingRef', 'scopes', 'issuedAt', 'expiresAt', 'lastSeenAt',
   'version', 'evidenceLevel'
 ])
+const TENANT_KEYS = Object.freeze(['tenantId', 'tenantLabel', 'status'])
 const CLIENT_KEYS = Object.freeze([
   'clientRef', 'displayName', 'status', 'redirectUri', 'grantTypes', 'responseTypes', 'scopes',
   'registeredAt', 'expiresAt', 'terminatedAt', 'version',
@@ -217,24 +229,12 @@ function assertLoopbackRedirect(value) {
   }
 }
 
-export function isBoardPortalCandidateEnabled(env = {}) {
-  return isPlainObject(env) && env.VITE_FBSIR_BOARD_PORTAL_CANDIDATE === 'true'
-}
-
 export function formatBoardCandidateReference(value) {
   if (!isText(value)) return '未记录'
   const reference = value.trim()
   if (reference.length <= 14) return reference
   const visiblePrefixLength = reference.startsWith('sha256:') ? 15 : 8
   return `${reference.slice(0, visiblePrefixLength)}…${reference.slice(-4)}`
-}
-
-export function assertBoardPortalCandidateEnabled(
-  env = (typeof import.meta.env === 'object' ? import.meta.env : {})
-) {
-  if (!isBoardPortalCandidateEnabled(env)) {
-    fail('独董会门户候选功能默认关闭。')
-  }
 }
 
 export function connectorActionPolicy(state) {
@@ -252,6 +252,18 @@ export function connectorActionPolicy(state) {
     canDisconnect: policy[2],
     canReauthorize: policy[3]
   })
+}
+
+export function parseBoardTenant(value) {
+  assertExactKeys(value, TENANT_KEYS, '企业选项')
+  if (!isPositiveInteger(value.tenantId)
+      || !isText(value.tenantLabel)
+      || value.tenantLabel !== value.tenantLabel.trim()
+      || value.tenantLabel.length > 128
+      || !TENANT_STATUSES.includes(value.status)) {
+    fail('企业选项包含非法值。')
+  }
+  return freezeRecord(value)
 }
 
 export function parseBoardConnectorView(value, expectedTenantId) {
@@ -463,7 +475,8 @@ export function parseBoardCandidateEnvelope(value, parseRecord, expectedTenantId
     const parsed = expectedTenantId === undefined
       ? parseRecord(record)
       : parseRecord(record, expectedTenantId)
-    const identity = parsed.eventRef || parsed.familyRef || parsed.bindingRef || parsed.clientRef
+    const identity = parsed.eventRef || parsed.familyRef || parsed.bindingRef
+      || parsed.clientRef || parsed.tenantId
     if (!identity || seen.has(identity)) fail('候选列表响应包含重复记录。')
     seen.add(identity)
     return parsed

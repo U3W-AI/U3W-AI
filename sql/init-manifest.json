@@ -37,5 +37,17 @@
     { "version": "public_init_034", "description": "Independent Board OAuth TOKEN_FAMILY_CREATED receipt provenance", "file": "update_20260721_independent_board_oauth_receipt_provenance.sql" },
     { "version": "public_init_035", "description": "Independent Board OAuth consent-intent lineage", "file": "update_20260721_independent_board_oauth_consent_intent_lineage.sql", "sha256": "55dc772d54a4a457f00711a45266b2d0042522d63ed0d5a8e408d35a8ecaf560" },
     { "version": "public_init_036", "description": "Independent Board OAuth refresh security receipt v2", "file": "update_20260721_independent_board_oauth_refresh_security.sql", "sha256": "4d82cb93d7bd15035de882be69ea4bc03c5101e3851ad56083aecdfc93d2b041" }
+  ],
+  "manualMigrations": [
+    {
+      "id": "candidate_20260721_independent_board_portal_menu_v1",
+      "description": "Independent Board default-off portal candidate menus and tenant-query permission",
+      "file": "update_20260721_independent_board_portal_candidate_menu.sql",
+      "execution": "manual_opt_in",
+      "defaultApplied": false,
+      "optInSessionVariable": "@u3w_enable_independent_board_w4b2c_candidate",
+      "requiredValue": 1,
+      "sha256": "3c53215020633977eff196cb12025f65f663c90b5e3d5d74239b124f32224459"
+    }
   ]
 }

@@ -10,6 +10,7 @@ import {
   parseBoardCandidateEnvelope,
   parseBoardConnectorBinding,
   parseBoardConnectorView,
+  parseBoardTenant,
   parseBoardOAuthClient,
   parseBoardOAuthFamily,
   parseBoardSecurityEvent
@@ -17,6 +18,21 @@ import {
 
 const tenantId = 7
 const scopes = [...BOARD_CONNECTOR_SCOPES]
+
+const tenant = {
+  tenantId,
+  tenantLabel: '福帮手测试企业',
+  status: 'ACTIVE'
+}
+assert.deepEqual(parseBoardTenant(tenant), tenant)
+assert.throws(() => parseBoardTenant({
+  ...tenant,
+  contactPhone: 'must-never-reach-the-browser'
+}), /安全合同/)
+assert.throws(() => parseBoardTenant({
+  ...tenant,
+  tenantId: 0
+}), /企业/)
 
 assert.equal(isBoardPortalCandidateEnabled({}), false)
 assert.equal(isBoardPortalCandidateEnabled({ VITE_FBSIR_BOARD_PORTAL_CANDIDATE: 'false' }), false)
@@ -436,15 +452,16 @@ for (const internalPath of [
   '/business/independent-board/oauth/clients',
   '/business/independent-board/oauth/families',
   '/business/independent-board/connector-bindings',
+  '/business/independent-board/tenants',
   '/business/independent-board/oauth/security-events'
 ]) {
   assert.ok(apiSource.includes(internalPath), `missing internal candidate API ${internalPath}`)
 }
 assert.doesNotMatch(apiSource, /method:\s*['"](?:post|put|patch|delete)['"]/i)
 assert.doesNotMatch(apiSource, /\/oauth2\/|\/\.well-known\/|\/fbs-mcp\/mcp/)
-assert.equal((apiSource.match(/assertBoardPortalCandidateEnabled\(\)/g) || []).length, 6)
+assert.equal((apiSource.match(/assertBoardPortalCandidateEnabled\(\)/g) || []).length, 7)
 assert.match(apiSource, /function optionalCursor/)
-assert.equal((apiSource.match(/cursor:\s*optionalCursor\(cursor\)/g) || []).length, 5)
+assert.equal((apiSource.match(/cursor:\s*optionalCursor\(cursor\)/g) || []).length, 6)
 
 const candidatePages = [
   ['src/views/business/independentBoard/me/connector/index.vue', 'my:independent-board:connector:view'],
@@ -485,13 +502,20 @@ const adminCandidateShell = read(
 )
 assert.match(adminCandidateShell, /checkRole\(\['admin'\]\)/)
 assert.match(adminCandidateShell, /checkPermi\(\[props\.permission\]\)/)
+assert.match(adminCandidateShell, /checkPermi\(\['board:tenant:query'\]\)/)
+assert.doesNotMatch(adminCandidateShell, /listEnterprise/)
+assert.doesNotMatch(adminCandidateShell, /pageSize:\s*1000/)
+assert.match(adminCandidateShell, /parseBoardTenant/)
+assert.match(adminCandidateShell, /loadTenantNextPage/)
+assert.match(adminCandidateShell, /const MAX_TENANT_OPTIONS = 500/)
 assert.match(adminCandidateShell, /formatBoardCandidateReference\(value\)/)
 assert.match(adminCandidateShell, /:type="resolveTagType\(scope\.row, column\)"/)
 assert.match(adminCandidateShell, /COMPROMISED:\s*'danger'/)
 assert.match(adminCandidateShell, /column\.nullText/)
 assert.match(adminCandidateShell, /const MAX_CANDIDATE_RECORDS = 5000/)
-assert.match(adminCandidateShell, /if \(page\.truncated\) throw new Error/)
 assert.match(adminCandidateShell, /combined\.length > MAX_CANDIDATE_RECORDS/)
+assert.match(adminCandidateShell,
+  /combined\.length === MAX_CANDIDATE_RECORDS && page\.truncated/)
 assert.match(adminCandidateShell, /catch \{[\s\S]*?clearData\(\)[\s\S]*?errorMessage\.value/)
 const adminSecuritySource = read(
   'src/views/business/independentBoard/admin/security-event/index.vue'
@@ -502,13 +526,19 @@ for (const envFile of ['.env.development', '.env.staging', '.env.production']) {
   assert.match(read(envFile), /^VITE_FBSIR_BOARD_PORTAL_CANDIDATE=false$/m)
 }
 
-const sqlRoot = path.resolve(uiRoot, '..', 'sql')
-const sqlSources = fs.readdirSync(sqlRoot, { recursive: true, withFileTypes: true })
-  .filter(entry => entry.isFile() && entry.name.endsWith('.sql'))
-  .map(entry => read(path.relative(uiRoot, path.join(entry.parentPath ?? entry.path, entry.name))))
-  .join('\n')
-assert.doesNotMatch(sqlSources,
-  /independentBoard\/(?:me\/(?:connector|security)|admin\/(?:oauth-client|oauth-family|connector-binding|security-event))/)
+const candidateMenuSql = read('../sql/update_20260721_independent_board_portal_candidate_menu.sql')
+for (const component of [
+  'business/independentBoard/me/connector/index',
+  'business/independentBoard/admin/oauth-client/index',
+  'business/independentBoard/admin/oauth-family/index',
+  'business/independentBoard/admin/connector-binding/index'
+]) {
+  assert.ok(candidateMenuSql.includes(component), `candidate menu missing ${component}`)
+}
+assert.match(candidateMenuSql, /@u3w_enable_independent_board_w4b2c_candidate/)
+assert.match(candidateMenuSql, /board:tenant:query/)
+assert.doesNotMatch(candidateMenuSql,
+  /business\/independentBoard\/(?:me\/security|admin\/security-event)/)
 
 const controllerRoot = path.resolve(
   uiRoot,

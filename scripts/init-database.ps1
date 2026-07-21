@@ -129,6 +129,55 @@ for ($index = 0; $index -lt $steps.Count; $index++) {
     }
 }
 
+$manualMigrations = @()
+foreach ($declared in @($declarativeManifest.manualMigrations)) {
+    $id = [string]$declared.id
+    $description = [string]$declared.description
+    $fileName = [string]$declared.file
+    $execution = [string]$declared.execution
+    $optInSessionVariable = [string]$declared.optInSessionVariable
+    $requiredValue = $declared.requiredValue
+    $sha256 = [string]$declared.sha256
+    $hasDefaultApplied = $declared.PSObject.Properties.Name -contains 'defaultApplied'
+    if ($id -notmatch '^[a-z0-9_]{1,128}$' -or
+        [string]::IsNullOrWhiteSpace($description) -or
+        [System.IO.Path]::GetFileName($fileName) -ne $fileName -or
+        $fileName -notlike 'update_*.sql' -or
+        $execution -cne 'manual_opt_in' -or
+        -not $hasDefaultApplied -or
+        [bool]$declared.defaultApplied -or
+        $optInSessionVariable -notmatch '^@[A-Za-z0-9_]+$' -or
+        $requiredValue -isnot [int] -or
+        [int]$requiredValue -ne 1 -or
+        $sha256 -notmatch '^[0-9a-f]{64}$') {
+        throw "Manual migration contract is invalid: '$id'."
+    }
+    $filePath = Join-Path $SqlRoot $fileName
+    if (-not (Test-Path -LiteralPath $filePath -PathType Leaf)) {
+        throw "Manual migration SQL is missing: $fileName"
+    }
+    $file = Get-Item -LiteralPath $filePath
+    $actualSha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    if (-not [string]::Equals($sha256, $actualSha256, [StringComparison]::Ordinal)) {
+        throw "Manual migration byte contract drifted for '$id': expected SHA-256 '$sha256', found '$actualSha256'."
+    }
+    $manualMigrations += [pscustomobject]@{
+        Id = $id
+        Description = $description
+        File = $file
+        Execution = $execution
+        DefaultApplied = $false
+        OptInSessionVariable = $optInSessionVariable
+        RequiredValue = [int]$requiredValue
+        Sha256 = $sha256
+    }
+}
+$duplicateManualIds = @($manualMigrations | Group-Object Id | Where-Object Count -ne 1)
+$duplicateManualFiles = @($manualMigrations | Group-Object { $_.File.FullName.ToLowerInvariant() } | Where-Object Count -ne 1)
+if ($duplicateManualIds.Count -gt 0 -or $duplicateManualFiles.Count -gt 0) {
+    throw "Manual migration catalog contains duplicate identities or files."
+}
+
 for ($index = 0; $index -lt $steps.Count; $index++) {
     $expectedVersion = "public_init_{0:D3}" -f ($index + 1)
     if ($steps[$index].Version -ne $expectedVersion) {
@@ -137,7 +186,7 @@ for ($index = 0; $index -lt $steps.Count; $index++) {
 }
 
 $strictUtf8 = [System.Text.UTF8Encoding]::new($false, $true)
-foreach ($step in $steps) {
+foreach ($step in @($steps) + @($manualMigrations)) {
     try {
         $null = $strictUtf8.GetString([System.IO.File]::ReadAllBytes($step.File.FullName))
     }
@@ -153,11 +202,12 @@ if ($duplicateVersions.Count -gt 0) {
 
 $managedUpdateFiles = @(Get-ChildItem -LiteralPath $SqlRoot -Filter "update_*.sql" -File)
 $manifestUpdateSteps = @($steps | Where-Object { $_.File.Name -like "update_*.sql" })
-$duplicateManagedFiles = @($manifestUpdateSteps | Group-Object { $_.File.FullName.ToLowerInvariant() } | Where-Object Count -ne 1)
-$manifestManagedPaths = @($manifestUpdateSteps | ForEach-Object { $_.File.FullName.ToLowerInvariant() })
+$managedCatalogEntries = @($manifestUpdateSteps) + @($manualMigrations)
+$duplicateManagedFiles = @($managedCatalogEntries | Group-Object { $_.File.FullName.ToLowerInvariant() } | Where-Object Count -ne 1)
+$manifestManagedPaths = @($managedCatalogEntries | ForEach-Object { $_.File.FullName.ToLowerInvariant() })
 $missingManagedFiles = @($managedUpdateFiles | Where-Object { $manifestManagedPaths -notcontains $_.FullName.ToLowerInvariant() })
 $managedPaths = @($managedUpdateFiles | ForEach-Object { $_.FullName.ToLowerInvariant() })
-$unexpectedManagedSteps = @($manifestUpdateSteps | Where-Object { $managedPaths -notcontains $_.File.FullName.ToLowerInvariant() })
+$unexpectedManagedSteps = @($managedCatalogEntries | Where-Object { $managedPaths -notcontains $_.File.FullName.ToLowerInvariant() })
 if ($duplicateManagedFiles.Count -gt 0 -or $missingManagedFiles.Count -gt 0 -or $unexpectedManagedSteps.Count -gt 0) {
     $details = @()
     if ($duplicateManagedFiles.Count -gt 0) {
@@ -179,6 +229,7 @@ if ($ManifestJson) {
     [pscustomobject]@{
         schemaVersion = 1
         manifestStepCount = $steps.Count
+        manualMigrationCount = $manualMigrations.Count
         managedUpdateSqlCount = $managedUpdateFiles.Count
         coverageOk = $true
         dryRun = [bool]$DryRun
@@ -191,6 +242,18 @@ if ($ManifestJson) {
                 version = $_.Version
                 description = $_.Description
                 file = $_.File.Name
+            }
+        })
+        manualMigrations = @($manualMigrations | ForEach-Object {
+            [pscustomobject]@{
+                id = $_.Id
+                description = $_.Description
+                file = $_.File.Name
+                execution = $_.Execution
+                defaultApplied = $_.DefaultApplied
+                optInSessionVariable = $_.OptInSessionVariable
+                requiredValue = $_.RequiredValue
+                sha256 = $_.Sha256
             }
         })
     } | ConvertTo-Json -Depth 5 -Compress

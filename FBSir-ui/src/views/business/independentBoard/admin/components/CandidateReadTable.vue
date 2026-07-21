@@ -26,22 +26,41 @@
     <template v-else>
       <el-card shadow="never" class="control-card">
         <el-form :inline="true" label-position="top">
-          <el-form-item v-if="requiresTenant" label="当前企业">
-            <el-select
-              v-model="selectedTenantId"
-              filterable
-              :loading="enterpriseLoading"
-              :disabled="enterpriseLoading || enterprises.length === 0"
-              placeholder="从可管理企业中选择"
-              @change="loadFirstPage"
-            >
-              <el-option
-                v-for="enterprise in enterprises"
-                :key="enterprise.id"
-                :label="enterprise.enterpriseName"
-                :value="enterprise.id"
+          <el-form-item v-if="requiresTenant" label="企业检索" class="tenant-search-item">
+            <div class="tenant-controls">
+              <el-input
+                v-model="tenantQuery"
+                maxlength="64"
+                clearable
+                aria-label="企业检索关键词"
+                placeholder="输入企业名称，留空查看首批"
+                @keyup.enter="loadTenantFirstPage"
               />
-            </el-select>
+              <el-button :loading="tenantLoading" @click="loadTenantFirstPage">
+                检索企业
+              </el-button>
+              <el-select
+                v-model="selectedTenantId"
+                filterable
+                :loading="tenantLoading"
+                :disabled="tenantLoading || tenants.length === 0"
+                aria-label="当前企业"
+                placeholder="选择已安全投影的企业"
+                @change="handleTenantChange"
+              >
+                <el-option
+                  v-for="tenant in tenants"
+                  :key="tenant.tenantId"
+                  :label="tenantOptionLabel(tenant)"
+                  :value="tenant.tenantId"
+                />
+              </el-select>
+              <el-button
+                :loading="tenantLoading"
+                :disabled="!tenantTruncated || !tenantNextCursor"
+                @click="loadTenantNextPage"
+              >加载更多企业</el-button>
+            </div>
           </el-form-item>
           <el-form-item label="数据操作">
             <el-button
@@ -53,6 +72,12 @@
         </el-form>
         <p class="boundary-note">本页只有 GET current-read；权限、租户隔离和字段投影最终由服务端执行。</p>
       </el-card>
+
+      <el-empty
+        v-if="requiresTenant && tenantSearchComplete && tenants.length === 0 && !errorMessage"
+        description="未找到匹配企业"
+        class="table-card"
+      />
 
       <el-alert
         v-if="errorMessage"
@@ -116,10 +141,13 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { listEnterprise } from '@/api/business/fbs/enterprise'
+import { listBoardTenantsCandidate } from '@/api/business/independentBoard/portalCandidate'
 import { checkPermi, checkRole } from '@/utils/permission'
-import { parseEnterprisePage } from '../model'
-import { formatBoardCandidateReference } from '../../portalCandidateModel'
+import {
+  formatBoardCandidateReference,
+  parseBoardCandidateEnvelope,
+  parseBoardTenant
+} from '../../portalCandidateModel'
 
 const props = defineProps({
   brand: { type: String, required: true },
@@ -144,55 +172,110 @@ const DEFAULT_TAG_TYPES = Object.freeze({
   COMPROMISED: 'danger'
 })
 const MAX_CANDIDATE_RECORDS = 5000
+const MAX_TENANT_OPTIONS = 500
 
 const hasAdminRole = checkRole(['admin'])
 const hasPagePermission = checkPermi([props.permission])
-const canListEnterprises = !props.requiresTenant
-  || checkPermi(['business:fbs:enterprise:list'])
-const hasAccess = hasAdminRole && hasPagePermission && canListEnterprises
+const hasTenantSearchPermission = !props.requiresTenant
+  || checkPermi(['board:tenant:query'])
+const hasAccess = hasAdminRole && hasPagePermission && hasTenantSearchPermission
 
-const enterprises = ref([])
+const tenants = ref([])
 const selectedTenantId = ref(null)
+const tenantQuery = ref('')
+const tenantNextCursor = ref(null)
+const tenantTruncated = ref(false)
+const tenantSearchComplete = ref(false)
 const records = ref([])
 const nextCursor = ref(null)
 const truncated = ref(false)
-const enterpriseLoading = ref(false)
+const tenantLoading = ref(false)
 const dataLoading = ref(false)
 const errorMessage = ref('')
 let requestSequence = 0
+let tenantRequestSequence = 0
 
-const loading = computed(() => enterpriseLoading.value || dataLoading.value)
-const selectedEnterprise = computed(() =>
-  enterprises.value.find(item => item.id === selectedTenantId.value) || null)
+const loading = computed(() => tenantLoading.value || dataLoading.value)
+const selectedTenant = computed(() =>
+  tenants.value.find(item => item.tenantId === selectedTenantId.value) || null)
 const currentScopeLabel = computed(() => props.requiresTenant
-  ? selectedEnterprise.value?.enterpriseName || '当前企业'
+  ? selectedTenant.value?.tenantLabel || '当前企业'
   : '全部受控客户端')
 const readyForData = computed(() => !props.requiresTenant || selectedTenantId.value !== null)
 
 onMounted(async () => {
   if (!props.candidateEnabled || !hasAccess) return
-  if (props.requiresTenant) await loadEnterprises()
+  if (props.requiresTenant) await loadTenantFirstPage()
   else await loadFirstPage()
 })
 
-async function loadEnterprises() {
-  enterpriseLoading.value = true
+function loadTenantFirstPage() {
+  return loadTenantPage(null, false)
+}
+
+function loadTenantNextPage() {
+  if (!tenantTruncated.value || !tenantNextCursor.value) return Promise.resolve()
+  return loadTenantPage(tenantNextCursor.value, true)
+}
+
+async function loadTenantPage(cursor, append) {
+  const normalizedQuery = tenantQuery.value.trim()
+  const sequence = ++tenantRequestSequence
+  tenantLoading.value = true
   errorMessage.value = ''
-  try {
-    const response = await listEnterprise({ pageNum: 1, pageSize: 1000 })
-    const page = parseEnterprisePage(response)
-    if (page.truncated) throw new Error('企业列表超出候选页的完整读取上限。')
-    enterprises.value = [...page.records]
-    selectedTenantId.value = enterprises.value[0]?.id ?? null
-    if (selectedTenantId.value) await loadFirstPage()
-  } catch {
-    enterprises.value = []
+  if (!append) {
+    requestSequence++
+    tenants.value = []
     selectedTenantId.value = null
+    tenantNextCursor.value = null
+    tenantTruncated.value = false
+    tenantSearchComplete.value = false
     clearData()
-    errorMessage.value = '企业列表加载失败或返回了非安全数据。'
-  } finally {
-    enterpriseLoading.value = false
   }
+  try {
+    const response = await listBoardTenantsCandidate({
+      query: normalizedQuery || undefined,
+      cursor
+    })
+    const page = parseBoardCandidateEnvelope(response?.data, parseBoardTenant)
+    if (sequence !== tenantRequestSequence || tenantQuery.value.trim() !== normalizedQuery) return
+    const combined = append ? [...tenants.value, ...page.records] : [...page.records]
+    if (combined.length > MAX_TENANT_OPTIONS
+        || (combined.length === MAX_TENANT_OPTIONS && page.truncated)) {
+      throw new Error('企业选项超出浏览器安全展示上限。')
+    }
+    const identities = combined.map(item => item.tenantId)
+    if (new Set(identities).size !== identities.length) {
+      throw new Error('企业检索分页包含重复身份。')
+    }
+    tenants.value = combined
+    tenantTruncated.value = page.truncated
+    tenantNextCursor.value = page.nextCursor
+  } catch {
+    if (sequence !== tenantRequestSequence) return
+    tenants.value = []
+    selectedTenantId.value = null
+    tenantTruncated.value = false
+    tenantNextCursor.value = null
+    clearData()
+    errorMessage.value = '企业检索失败或返回了非安全投影，页面已停止展示。'
+  } finally {
+    if (sequence === tenantRequestSequence) {
+      tenantLoading.value = false
+      tenantSearchComplete.value = true
+    }
+  }
+}
+
+function handleTenantChange() {
+  clearData()
+  return loadFirstPage()
+}
+
+function tenantOptionLabel(tenant) {
+  return tenant.status === 'DISABLED'
+    ? `${tenant.tenantLabel}（已停用）`
+    : tenant.tenantLabel
 }
 
 function loadFirstPage() {
@@ -219,7 +302,8 @@ async function loadData(cursor, append) {
     const page = props.parser(response?.data, tenantId)
     if (sequence !== requestSequence || (props.requiresTenant && selectedTenantId.value !== tenantId)) return
     const combined = append ? [...records.value, ...page.records] : [...page.records]
-    if (combined.length > MAX_CANDIDATE_RECORDS) {
+    if (combined.length > MAX_CANDIDATE_RECORDS
+        || (combined.length === MAX_CANDIDATE_RECORDS && page.truncated)) {
       throw new Error('候选记录超出浏览器安全展示上限。')
     }
     const identities = combined.map(item => item[props.identityField])
@@ -277,8 +361,19 @@ function resolveTagType(row, column) {
 .card-heading h2 { margin: 0 0 4px; color: #14233b; }
 .card-heading p { margin: 0; }
 .candidate-table { width: 100%; }
+.tenant-search-item { width: min(100%, 980px); }
+.tenant-search-item :deep(.el-form-item__content) { width: 100%; }
+.tenant-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto minmax(260px, 1fr) auto;
+  gap: 10px;
+  width: 100%;
+}
 @media (max-width: 768px) {
   .card-heading { align-items: flex-start; flex-direction: column; }
   .table-card { overflow-x: auto; }
+  .tenant-controls { grid-template-columns: 1fr; }
+  .tenant-controls :deep(.el-button),
+  .tenant-controls :deep(.el-select) { margin-left: 0; width: 100%; }
 }
 </style>
