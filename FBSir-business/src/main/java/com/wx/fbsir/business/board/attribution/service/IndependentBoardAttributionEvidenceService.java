@@ -6,6 +6,7 @@ import com.wx.fbsir.business.board.attribution.domain.BoardAttributionProductCon
 import com.wx.fbsir.business.board.attribution.domain.BoardAttributionSnapshot;
 import com.wx.fbsir.business.board.attribution.domain.BoardHostForwardingChallenge;
 import com.wx.fbsir.business.board.attribution.mapper.IndependentBoardAttributionMapper;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,13 +22,16 @@ public class IndependentBoardAttributionEvidenceService implements BoardAttribut
     private final IndependentBoardAttributionMapper mapper;
     private final IndependentBoardAttributionProperties properties;
     private final BoardAttributionEnvelopeVerifier verifier;
+    private final ObjectProvider<BoardAttributionApi2ReceiptVerifier> api2ReceiptVerifier;
 
     public IndependentBoardAttributionEvidenceService(IndependentBoardAttributionMapper mapper,
                                                         IndependentBoardAttributionProperties properties,
-                                                        BoardAttributionEnvelopeVerifier verifier) {
+                                                        BoardAttributionEnvelopeVerifier verifier,
+                                                        ObjectProvider<BoardAttributionApi2ReceiptVerifier> api2ReceiptVerifier) {
         this.mapper = mapper;
         this.properties = properties;
         this.verifier = verifier;
+        this.api2ReceiptVerifier = api2ReceiptVerifier;
     }
 
     @Override
@@ -59,11 +63,14 @@ public class IndependentBoardAttributionEvidenceService implements BoardAttribut
     @Override
     @Transactional(rollbackFor = Exception.class)
     public AppendResult appendEvent(BoardAttributionEvidenceEvent event) {
-        requireEnabled(); verifier.verify(event, properties); exactPendingContract();
+        BoardAttributionApi2ReceiptVerifier trustedVerifier = requireEnabled();
+        verifier.verify(event, properties); exactPendingContract();
         BoardHostForwardingChallenge challenge = mapper.selectChallengeForUpdate(event.getChallengeId(), event.getServerBindingId(), event.getContractId());
+        trustedVerifier.verifyEvent(event, challenge, properties);
         Date now = new Date();
         if (challenge == null || !"ISSUED".equals(challenge.getStatus()) || !challenge.getExpiresAt().after(now)
                 || !Objects.equals(challenge.getTenantSubjectDigest(), event.getTenantSubjectDigest())
+                || !Objects.equals(challenge.getNonceHash(), event.getReceiptNonceHash())
                 || event.getIssuedAt().before(challenge.getIssuedAt()) || event.getExpiresAt().after(challenge.getExpiresAt())) {
             throw new IllegalStateException("Independent Board challenge is not active");
         }
@@ -79,7 +86,9 @@ public class IndependentBoardAttributionEvidenceService implements BoardAttribut
     @Override
     @Transactional(rollbackFor = Exception.class)
     public BoardAttributionSnapshot sealSnapshot(BoardAttributionSnapshot snapshot) {
-        requireEnabled(); verifier.verifySnapshot(snapshot, properties); exactPendingContract();
+        BoardAttributionApi2ReceiptVerifier trustedVerifier = requireEnabled();
+        verifier.verifySnapshot(snapshot, properties); exactPendingContract();
+        trustedVerifier.verifySnapshot(snapshot, properties);
         BoardAttributionSnapshot persisted = mapper.selectSnapshotByWindowForUpdate(snapshot.getContractId(), snapshot.getWindowStart(), snapshot.getWindowEnd());
         if (persisted == null) {
             mapper.insertSnapshot(snapshot);
@@ -100,10 +109,15 @@ public class IndependentBoardAttributionEvidenceService implements BoardAttribut
         return contract;
     }
 
-    private void requireEnabled() {
+    private BoardAttributionApi2ReceiptVerifier requireEnabled() {
         if (!properties.isEnabled() || properties.isCandidateEnabled() || properties.isPublicRouteEnabled() || properties.isAuthoritativeCreditEnabled()) {
             throw new IllegalStateException("Independent Board attribution writer is disabled or unsafe");
         }
+        BoardAttributionApi2ReceiptVerifier trustedVerifier = api2ReceiptVerifier.getIfAvailable();
+        if (trustedVerifier == null || !trustedVerifier.isConfigured()) {
+            throw new IllegalStateException("Independent Board API2 receipt verifier is not configured");
+        }
+        return trustedVerifier;
     }
 
     private static final class StringUtilsExt {

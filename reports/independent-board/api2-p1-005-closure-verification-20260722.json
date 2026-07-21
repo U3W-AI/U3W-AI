@@ -2,7 +2,7 @@
   "schema": "fbsir.independent-board.api2-p1-005-closure-verification/v1",
   "captureSchema": "fbsir.api2.cleanroom.closure-manifest/v1",
   "parser": "heuristic-literal-import-regex/v1",
-  "observedAt": "2026-07-22T03:11:25+08:00",
+  "observedAt": "2026-07-22T03:41:30+08:00",
   "boundary": "local_cleanroom_read_only_no_build_no_upload_no_release_write",
   "sourceRoot": "work/api2-cleanroom/p1-005-active-20260722/source",
   "roots": [
@@ -14,6 +14,11 @@
     "fileCount": 16,
     "staticClosurePresentFileCount": 11,
     "staticClosureMissingCount": 45,
+    "missingByKind": {
+      "local-import": 39,
+      "powershell-reference": 3,
+      "package-output-required": 3
+    },
     "dynamicUnresolved": [
       "runtime fetch/process.env and child-process boundaries are outside literal ESM closure"
     ],
@@ -47,7 +52,18 @@
     "localMissingCount": 1062,
     "status": "NO_GO_CRITICAL_INVENTORY_INCOMPLETE",
     "manifestSha256": "655c1f4918cd277421574d898a22508d4411a8c4494ea6fa018e5c6cd3557969",
+    "inventorySource": "manifest.sourceProvenance.criticalDeployFiles",
     "reason": "candidate cleanroom contains only 12 of the manifest-declared 1074 critical deploy files"
+  },
+  "manifestLoad": {
+    "exists": true,
+    "parseable": true,
+    "hasCriticalList": true
+  },
+  "manifestConsistency": {
+    "listPresent": true,
+    "fileCountMatches": true,
+    "snapshotHashMatches": true
   },
   "provenance": {
     "status": "unknown",
@@ -58,6 +74,17 @@
   "runtimeMutableExcluded": [
     "data/host-forwarding-ack-challenges.json"
   ],
+  "runtimeInputs": {
+    "mandatorySpecCount": 5,
+    "optionalSpecCount": 19,
+    "mutableExcludedSpecCount": 5,
+    "externalBoundaryCount": 3,
+    "specCoverage": {
+      "declaredServePathCount": 24,
+      "capturedSpecCount": 24,
+      "complete": true
+    }
+  },
   "fullServicePackageClosure": "not_proven",
   "deployDecision": "NO_GO_READ_ONLY_CAPTURE_ONLY",
   "deployDecisionReasons": [

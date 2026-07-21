@@ -70,3 +70,10 @@ P1-005 不得从 active release 目录直接热补丁。必须以可证明的 cl
 ## 完成定义
 
 完成不等于某个接口 HTTP 200。必须同时取得宿主 receipt、不可变固定窗口、同 binding 链、服务闭环和发布身份对齐证据；否则继续保持 `not_proven`。本需求只进入下一版本宿主/专家包计划，不改变 26.7.20 冻结工件。
+
+## 2026-07-22 增补：v2 回执与 U3W 租户绑定
+
+- API2 cleanroom 的权威输入是 `fbss.hostForwardingAck.v2`（HMAC-SHA256、受管 keyring、nonce replay、`requestDigest`/`actionEnvelopeDigest`/`toolArgumentsDigest`、服务端 binding）；仓内 `fbss.hostForwardingAckVerification.v1` 只是 API2 已验证结果的 wrapper，不能把其中的 boolean 当作 U3W 可信回执。
+- v2 ack 不携带 U3W `tenantSubjectDigest`。U3W 必须以自己签发并锁定的 challenge/session 期望值注入 verifier，并同时比较 tenant、serverBindingId、challengeId、requestDigest，禁止从 ack 自报租户。
+- Java writer 在 verifier/adapter/keyring 未落地前必须 fail-closed；本轮仅补齐 challenge nonce 绑定与严格 `expiresAt > issuedAt` 静态护栏，不能宣称 API2 加密回执闭环。
+- 下一版宿主升级需求：提供完整 v2 ack DTO、受管 key resolver（最少 32 bytes）、canonical JSON/HMAC 常量时间校验、nonce replay 存储，以及由唯一工厂生成 `VerifiedApi2Receipt` 后才允许写入证据端口。

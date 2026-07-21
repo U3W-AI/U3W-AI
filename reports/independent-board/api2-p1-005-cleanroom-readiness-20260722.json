@@ -1,6 +1,6 @@
 {
   "schema": "fbsir.independent-board.api2-p1-005-cleanroom-readiness/v1",
-  "observedAt": "2026-07-22T03:11:25+08:00",
+  "observedAt": "2026-07-22T03:41:30+08:00",
   "boundary": "read_only_remote_capture_local_cleanroom_no_active_release_write",
   "activeRelease": {
     "path": "/opt/fbss/phase1/releases/202607152006-p1-004-runtime-state-14e20a6d.staged",
@@ -63,10 +63,24 @@
     "auditCommand": "node scripts/capture-api2-cleanroom-closure.mjs --root work/api2-cleanroom/p1-005-active-20260722/source --manifest root/api2-deploy-manifest.json --provenance root/api2-candidate-provenance.json --output work/api2-cleanroom/closure-test.json",
     "staticClosureStatus": "NO_GO_MISSING_LOCAL_IMPORTS_OR_DEPLOY_REFS",
     "staticClosureMissingCount": 45,
+    "staticClosureMissingByKind": {
+      "local-import": 39,
+      "powershell-reference": 3,
+      "package-output-required": 3
+    },
     "criticalInventoryStatus": "NO_GO_CRITICAL_INVENTORY_INCOMPLETE",
     "criticalInventoryExpectedCount": 1074,
     "criticalInventoryPresentCount": 12,
     "criticalInventoryMissingCount": 1062,
+    "runtimeInputSpecCoverage": {
+      "mandatory": 5,
+      "optional": 19,
+      "mutableExcluded": 5,
+      "external": 3,
+      "declaredServePathCount": 24,
+      "capturedSpecCount": 24,
+      "complete": true
+    },
     "fullServicePackageClosure": "not_proven",
     "deployDecision": "NO_GO_READ_ONLY_CAPTURE_ONLY"
   },

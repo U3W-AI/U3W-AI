@@ -7,12 +7,18 @@ import org.springframework.util.StringUtils;
 
 import java.util.Set;
 import java.util.Date;
+import java.util.regex.Pattern;
 
 /** Validates the finite, already server-verified envelope; key verification stays at API2. */
 @Component
 public class BoardAttributionEnvelopeVerifier {
     private static final Set<String> STAGES = Set.of("whoami", "scene_pack", "consume", "closure");
     private static final long CLOCK_SKEW_MILLIS = 30_000L;
+    private static final Pattern SUSPICIOUS_DIMENSION = Pattern.compile(
+            "(?i)(authorization|cookie|token|password|secret|prompt|email|phone|mobile|subject|raw|content)");
+    private static final Pattern SENSITIVE_VALUE = Pattern.compile(
+            "(?i)(@|bearer\\s|^1[3-9]\\d{9}$|\\b\\d{7,15}\\b)");
+    private static final Pattern CONTROL_CHARACTER = Pattern.compile("[\\p{Cntrl}]");
 
     public void verify(BoardAttributionEvidenceEvent event, IndependentBoardAttributionProperties properties) {
         if (event == null || !sha256(event.getEventId()) || !sha256(event.getReceiptId())
@@ -32,7 +38,7 @@ public class BoardAttributionEnvelopeVerifier {
         Date now = new Date();
         if (!StringUtils.hasText(properties.getIssuer()) || !StringUtils.hasText(properties.getAudience())
                 || !properties.getIssuer().equals(event.getIssuer()) || !properties.getAudience().equals(event.getAudience())
-                || event.getExpiresAt().before(event.getIssuedAt()) || event.getIssuedAt().getTime() > now.getTime() + CLOCK_SKEW_MILLIS
+                || !event.getExpiresAt().after(event.getIssuedAt()) || event.getIssuedAt().getTime() > now.getTime() + CLOCK_SKEW_MILLIS
                 || !event.getExpiresAt().after(now)) {
             throw new IllegalArgumentException("Independent Board attribution authority is invalid");
         }
@@ -61,7 +67,12 @@ public class BoardAttributionEnvelopeVerifier {
 
     private boolean sha256(String value) { return value != null && value.matches("[0-9a-f]{64}"); }
     private boolean binding(String value) { return value != null && (value.matches("[0-9a-f]{64}") || value.matches("srv_[A-Za-z0-9_-]{12}")); }
-    private boolean safeDimension(String value, int max) { return StringUtils.hasText(value) && value.length() <= max && !value.matches("(?i).*(@|bearer\\s|^1[3-9]\\d{9}$).*"); }
+    private boolean safeDimension(String value, int max) {
+        return StringUtils.hasText(value) && value.length() <= max
+                && !SUSPICIOUS_DIMENSION.matcher(value).find()
+                && !SENSITIVE_VALUE.matcher(value).find()
+                && !CONTROL_CHARACTER.matcher(value).find();
+    }
     private boolean stageSequence(String stage, long sequence) {
         return ("whoami".equals(stage) && sequence == 1) || ("scene_pack".equals(stage) && sequence == 2)
                 || ("consume".equals(stage) && sequence == 3) || ("closure".equals(stage) && sequence == 4);

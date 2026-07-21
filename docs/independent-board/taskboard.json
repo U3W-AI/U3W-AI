@@ -141,7 +141,10 @@
         "w4b2d_signed_receipt_binding_snapshot_contract_7_of_7_adversarial_tests_passed",
         "w4b2d_public_init_037_default_off_append_only_evidence_schema_manifest_verified",
         "w4b2d_live_api2_ack_object_contract_adapter_rejects_boolean_and_unregistered_product",
-        "w4b2d_api2_active_release_hash_anchored_cleanroom_capture_completed_read_only"
+        "w4b2d_api2_active_release_hash_anchored_cleanroom_capture_completed_read_only",
+        "w4b2d_api2_cleanroom_manifest_runtime_inputs_and_per_file_hash_audit_passed",
+        "w4b2d_java_challenge_nonce_and_strict_expiry_guard_static_contract_passed",
+        "w4b2d_java_writer_default_fails_closed_without_api2_verifier_bean"
       ],
       "nextSlice": {
         "id": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract",
@@ -151,8 +154,9 @@
           "api2_p1_005a_report_only_candidate_built_with_exact_version_gate_and_default_off",
           "api2_p1_005_clean_source_or_approved_hash_anchored_reconstruction_provenance",
           "api2_active_release_metadata_drift_repaired_or_explicitly_accepted_as_non_production",
-          "server_verified_host_forwarding_receipt_and_field_contract_binding",
-          "immutable_at_least_26h_structured_snapshot_digest_and_release_identity",
+                                        "server_verified_host_forwarding_receipt_and_field_contract_binding",
+                                        "java_writer_stage_predecessor_chain_gate_before_closure",
+                                        "immutable_at_least_26h_structured_snapshot_digest_and_release_identity",
           "one_real_official_entry_same_binding_whoami_scene_pack_consume_report_only_candidate",
           "no_authoritative_product_credit_public_route_or_production_menu_activation"
         ],

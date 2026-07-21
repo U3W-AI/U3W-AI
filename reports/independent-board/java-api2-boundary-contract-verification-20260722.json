@@ -1,0 +1,21 @@
+{
+  "schema": "fbsir.independent-board.java-api2-boundary-contract-verification/v1",
+  "observedAt": "2026-07-22T03:41:30+08:00",
+  "boundary": "static_source_contract_only_no_jdk_or_maven_available",
+  "testCommand": "node --test scripts/independent-board-java-boundary-contract.test.mjs",
+  "status": "pass",
+  "assertions": [
+    "challenge nonce is compared with receipt nonce",
+    "event expiry is strictly after issued time",
+    "sensitive keyword, sensitive value, and control character dimensions are rejected",
+    "writer requires a configured BoardAttributionApi2ReceiptVerifier bean"
+  ],
+  "notProven": [
+    "Java compilation and runtime tests require JDK/Maven",
+    "API2 v2 HMAC/JCS keyring verifier implementation",
+    "VerifiedApi2Receipt marker and complete v2 ack DTO mapping",
+    "tenant binding injection from U3W challenge/session into the v2 verifier",
+    "stage predecessor chain gate prevents direct closure writes"
+  ],
+  "nextAction": "Implement and CI-compile a single API2 v2 verifier adapter before enabling the writer"
+}

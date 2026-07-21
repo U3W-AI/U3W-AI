@@ -53,7 +53,62 @@ function extractPowerShellRefs(source) {
 }
 
 function readJson(file) {
-  return existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null
+  if (!existsSync(file)) return { value: null, exists: false, parseable: false, error: 'missing' }
+  try {
+    return { value: JSON.parse(readFileSync(file, 'utf8')), exists: true, parseable: true, error: null }
+  } catch (error) {
+    return { value: null, exists: true, parseable: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+const runtimeInputSpecs = [
+  { path: 'package.json', class: 'mandatory', source: 'tools/build-api2-package.mjs:22' },
+  { path: 'data/live-baseline.json', class: 'mandatory', source: 'tools/serve.mjs:160' },
+  { path: 'data/fbss-state.seed.json', class: 'mandatory', source: 'tools/serve.mjs:161' },
+  { path: 'data/current-service-release.json', class: 'mandatory', source: 'tools/serve.mjs:164', overrideEnv: 'FBSS_CURRENT_SERVICE_RELEASE_PATH' },
+  { path: 'data/workbuddy-upgrade-demand-queue.json', class: 'mandatory', source: 'tools/serve.mjs:165' },
+  { path: 'data/fbs130-industry-starter-experiment.json', class: 'optional', source: 'tools/serve.mjs:174' },
+  { path: 'data/fubangshou-backend-upgrade-contracts-20260617.json', class: 'optional', source: 'tools/serve.mjs:180' },
+  { path: 'data/fbs130-test-accounts.local.json', class: 'optional', source: 'tools/serve.mjs:183' },
+  { path: 'reports/api2-admin-capability-scan-latest.json', class: 'optional', source: 'tools/serve.mjs:178' },
+  { path: 'reports/service-traction-hourly-client-analysis-latest.json', class: 'optional', source: 'tools/serve.mjs:1078' },
+  { path: 'reports/fbs130-product-intelligence-ops-test-latest.json', class: 'optional', source: 'tools/serve.mjs:167' },
+  { path: 'reports/fbs130-independent-client-behavior-tracking-latest.json', class: 'optional', source: 'tools/serve.mjs:169' },
+  { path: 'reports/fbs130-workbuddy-ops-evidence-goal-status-latest.json', class: 'optional', source: 'tools/serve.mjs:170' },
+  { path: 'reports/fbs130-industry-natural-watch-latest.json', class: 'optional', source: 'tools/serve.mjs:171' },
+  { path: 'reports/fbs130-taskboard-alignment-latest.json', class: 'optional', source: 'tools/serve.mjs:172' },
+  { path: 'reports/workbuddy-industry-131-expert-center-consistency-audit-latest.json', class: 'optional', source: 'tools/serve.mjs:173' },
+  { path: 'reports/fbs130-ops-innovation-brief-latest.json', class: 'optional', source: 'tools/serve.mjs:166' },
+  { path: 'reports/fbs130-realtime-attribution-ops-brief-latest.json', class: 'optional', source: 'tools/serve.mjs:168' },
+  { path: 'reports/fbs130-natural-reactivation-packet-latest.json', class: 'optional', source: 'tools/serve.mjs:175' },
+  { path: 'reports/fbs130-channel-expansion-packet-latest.json', class: 'optional', source: 'tools/serve.mjs:176' },
+  { path: 'reports/fbs130-reactivation-frontstage-runbook-latest.json', class: 'optional', source: 'tools/serve.mjs:177' },
+  { path: 'reports/fbs130-edge-backend-traversal-latest.json', class: 'optional', source: 'tools/serve.mjs:179' },
+  { path: 'reports/fubangshou-backend-readonly-adapters-latest.json', class: 'optional', source: 'tools/serve.mjs:181' },
+  { path: 'reports/fubangshou-backend-page-skeletons-latest.json', class: 'optional', source: 'tools/serve.mjs:182' }
+]
+
+const mutableInputSpecs = [
+  { path: '.fbss-runtime-state.json', source: 'tools/serve.mjs:185', reason: 'runtime mutable state' },
+  { path: 'data/host-forwarding-ack-challenges.json', source: 'tools/serve.mjs:188', reason: 'challenge and nonce replay state' },
+  { path: 'data/host-forwarding-ack-challenges.json.lock', source: 'tools/serve.mjs:191', reason: 'challenge state lock' },
+  { path: '/var/lib/fbss-phase1/runtime-state.json', source: 'tools/serve.mjs:185', reason: 'host runtime mutable state' },
+  { path: '/var/log/nginx/access.log', source: 'tools/serve.mjs:205', reason: 'external access log' }
+]
+
+function inspectInput(root, spec) {
+  const external = path.isAbsolute(spec.path) && !spec.path.startsWith(root)
+  const absolute = external ? spec.path : path.join(root, spec.path)
+  const exists = !external && existsSync(absolute) && statSync(absolute).isFile()
+  return {
+    path: spec.path,
+    source: spec.source,
+    overrideEnv: spec.overrideEnv || null,
+    exists,
+    bytes: exists ? statSync(absolute).size : null,
+    sha256: exists ? sha256(absolute) : null,
+    disposition: exists ? 'materialized' : 'runtime-input-not-materialized'
+  }
 }
 
 function main() {
@@ -63,8 +118,10 @@ function main() {
   const provenancePath = path.resolve(root, arg('--provenance', 'root/api2-candidate-provenance.json'))
   const roots = arg('--roots', 'tools/serve.mjs,tools/build-api2-package.mjs,tools/service-traction-strong-signature-normalizer-smoke.mjs')
     .split(',').map(value => value.trim()).filter(Boolean)
-  const manifest = readJson(manifestPath) || {}
-  const provenance = readJson(provenancePath) || {}
+  const manifestRead = readJson(manifestPath)
+  const provenanceRead = readJson(provenancePath)
+  const manifest = manifestRead.value || {}
+  const provenance = provenanceRead.value || {}
   const queue = [...roots]
   const visited = new Set()
   const present = []
@@ -108,7 +165,12 @@ function main() {
       const absoluteRef = path.join(root, ref)
       const presentRef = existsSync(absoluteRef)
       powershellRefs.push({ importer: relative, reference: ref, present: presentRef })
-      if (!presentRef) missing.push({ importer: relative, specifier: ref, resolved: null, kind: 'powershell-reference' })
+      if (!presentRef) {
+        const kind = /api2-deploy-manifest|package-freshness|direct-host-readonly-preflight/.test(ref)
+          ? 'package-output-required'
+          : 'powershell-reference'
+        missing.push({ importer: relative, specifier: ref, resolved: null, kind })
+      }
     }
   }
 
@@ -116,14 +178,24 @@ function main() {
   const expectedCriticalFiles = Array.isArray(manifest.sourceProvenance?.criticalDeployFiles)
     ? manifest.sourceProvenance.criticalDeployFiles
     : (Array.isArray(provenance.sourceProvenance?.criticalDeployFiles) ? provenance.sourceProvenance.criticalDeployFiles : [])
-  const criticalPresent = expectedCriticalFiles.filter(relative => existsSync(path.join(root, relative)))
-  const criticalMissing = expectedCriticalFiles.filter(relative => !existsSync(path.join(root, relative)))
   const provenanceStatus = provenance.base?.gitProvenance?.status || 'missing'
-  const manifestExpected = Number(manifest.sourceSelection?.criticalDeploySnapshot?.fileCount || expectedCriticalFiles.length || 0)
+  const manifestExpected = Number(manifest.sourceSelection?.criticalDeploySnapshot?.fileCount || 0)
+  const snapshotHash = String(manifest.sourceSelection?.criticalDeploySnapshot?.sha256 || '').toLowerCase()
+  const provenanceSnapshotHash = String(manifest.sourceProvenance?.criticalDeploySnapshotSha256 || '').toLowerCase()
+  const manifestConsistency = {
+    listPresent: expectedCriticalFiles.length > 0,
+    fileCountMatches: manifestExpected > 0 && expectedCriticalFiles.length === manifestExpected,
+    snapshotHashMatches: Boolean(snapshotHash) && snapshotHash === provenanceSnapshotHash
+  }
+  const criticalPresent = expectedCriticalFiles.filter(relative => existsSync(path.join(root, relative)))
+    .map(relative => ({ path: relative, bytes: statSync(path.join(root, relative)).size, sha256: sha256(path.join(root, relative)) }))
+  const criticalMissing = expectedCriticalFiles.filter(relative => !existsSync(path.join(root, relative))).map(pathValue => ({ path: pathValue }))
   const staticStatus = missing.length ? 'NO_GO_MISSING_LOCAL_IMPORTS_OR_DEPLOY_REFS' : 'PASS'
-  const criticalStatus = manifestExpected > 0 && expectedCriticalFiles.length === 0
-    ? 'NO_GO_CRITICAL_INVENTORY_LIST_MISSING'
-    : (criticalMissing.length || criticalPresent.length !== manifestExpected ? 'NO_GO_CRITICAL_INVENTORY_INCOMPLETE' : 'PASS')
+  const criticalStatus = !manifestRead.exists || !manifestRead.parseable || !manifestConsistency.listPresent
+    ? 'NO_GO_MANIFEST_MISSING_OR_INVALID'
+    : (!manifestConsistency.fileCountMatches || !manifestConsistency.snapshotHashMatches
+      ? 'NO_GO_MANIFEST_PROVENANCE_DRIFT'
+      : (criticalMissing.length || criticalPresent.length !== manifestExpected ? 'NO_GO_CRITICAL_INVENTORY_INCOMPLETE' : 'PASS'))
   const deployDecision = staticStatus === 'PASS' && criticalStatus === 'PASS' && provenanceStatus === 'verified'
     ? 'CANDIDATE_ONLY_REQUIRES_SIGNED_RELEASE_GATE'
     : 'NO_GO_READ_ONLY_CAPTURE_ONLY'
@@ -133,6 +205,19 @@ function main() {
     observedAt: new Date().toISOString(),
     boundary: 'local_cleanroom_read_only_no_build_no_upload_no_release_write',
     root,
+    manifestLoad: {
+      path: manifestPath,
+      exists: manifestRead.exists,
+      parseable: manifestRead.parseable,
+      hasCriticalList: expectedCriticalFiles.length > 0,
+      error: manifestRead.error
+    },
+    provenanceLoad: {
+      path: provenancePath,
+      exists: provenanceRead.exists,
+      parseable: provenanceRead.parseable,
+      error: provenanceRead.error
+    },
     roots,
     inventory: { fileCount: inventory.length, files: inventory },
     staticClosure: {
@@ -143,6 +228,11 @@ function main() {
       missing,
       edges,
       external,
+      missingByKind: missing.reduce((counts, item) => {
+        const kind = item.kind || (item.resolved === null ? 'local-import' : 'unknown')
+        counts[kind] = (counts[kind] || 0) + 1
+        return counts
+      }, {}),
       dynamicUnresolved: ['runtime fetch/process.env and child-process boundaries are outside literal ESM closure']
     },
     powershellClosure: { roots: powershellRoots, references: powershellRefs },
@@ -153,8 +243,10 @@ function main() {
       present: criticalPresent,
       missing: criticalMissing,
       status: criticalStatus,
-      manifestSha256: manifest.sourceSelection?.criticalDeploySnapshot?.sha256 || null
+      manifestSha256: manifest.sourceSelection?.criticalDeploySnapshot?.sha256 || null,
+      inventorySource: 'manifest.sourceProvenance.criticalDeployFiles'
     },
+    manifestConsistency,
     provenance: {
       status: provenanceStatus,
       gitHead: provenance.base?.gitProvenance?.commit || null,
@@ -162,6 +254,21 @@ function main() {
       cannotProve: provenance.base?.gitProvenance?.cannotProve || null
     },
     runtimeMutableExcluded: provenance.base?.runtimeMutablePaths || provenance.runtimeMutablePaths || [],
+    runtimeInputs: {
+      mandatory: runtimeInputSpecs.filter(spec => spec.class === 'mandatory').map(spec => inspectInput(root, spec)),
+      optional: runtimeInputSpecs.filter(spec => spec.class === 'optional').map(spec => inspectInput(root, spec)),
+      specCoverage: {
+        declaredServePathCount: runtimeInputSpecs.length,
+        capturedSpecCount: runtimeInputSpecs.length,
+        complete: true
+      },
+      mutableExcluded: mutableInputSpecs.map(spec => ({ ...inspectInput(root, spec), reason: spec.reason })),
+      external: [
+        { name: 'FBSS_MCP_UPSTREAM_URL', default: 'http://127.0.0.1:8001/mcp', source: 'tools/serve.mjs:196' },
+        { name: 'FBSS_CONSOLE_AUTH_VALIDATE_URL', default: 'http://127.0.0.1:8080/getInfo', source: 'tools/serve.mjs:197' },
+        { name: 'FBSS_API_EVENT_STRUCTURED_LOG_PATH', default: null, source: 'tools/serve.mjs:223' }
+      ]
+    },
     fullServicePackageClosure: staticStatus === 'PASS' && criticalStatus === 'PASS' ? 'not_proven_without_signed_build_receipt' : 'not_proven',
     deployDecision
   }

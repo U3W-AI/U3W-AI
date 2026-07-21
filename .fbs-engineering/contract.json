@@ -68,6 +68,11 @@
       "run": "node scripts/capture-api2-cleanroom-closure.mjs --root work/api2-cleanroom/p1-005-active-20260722/source --output work/api2-cleanroom/p1-005-active-20260722/root/api2-p1-005-closure-manifest.local.json",
       "cwd": ".",
       "timeout_ms": 120000
+    },
+    "java-attribution-boundary-contract": {
+      "run": "node --test scripts/independent-board-java-boundary-contract.test.mjs",
+      "cwd": ".",
+      "timeout_ms": 120000
     }
   },
   "artifacts": {
@@ -109,6 +114,8 @@
     "api2P1005CandidateSmoke": "tools/independent-board-p1-005-candidate-smoke.mjs",
     "api2P1005ClosureAudit": "scripts/capture-api2-cleanroom-closure.mjs",
     "api2P1005ClosureVerification": "reports/independent-board/api2-p1-005-closure-verification-20260722.json",
+    "javaAttributionBoundaryContractTest": "scripts/independent-board-java-boundary-contract.test.mjs",
+    "javaAttributionBoundaryVerification": "reports/independent-board/java-api2-boundary-contract-verification-20260722.json",
     "w4b2dSignedEvidenceAdr": "docs/decisions/ADR-003-independent-board-w4b2d-signed-evidence-boundary.md",
     "w2VerificationReport": "reports/independent-board/w2-user-portal-verification-20260720.json",
     "w3VerificationReport": "reports/independent-board/w3-admin-portal-verification-20260720.json",

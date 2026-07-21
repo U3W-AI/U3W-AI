@@ -35,6 +35,26 @@ class BoardAttributionEnvelopeVerifierTest {
     }
 
     @Test
+    void rejectsEqualIssuedAndExpiryTimes() {
+        BoardAttributionEvidenceEvent equalTimes = event("srv_AbC123_xYz90");
+        long equal = System.currentTimeMillis() + 1_000L;
+        equalTimes.setIssuedAt(new Date(equal));
+        equalTimes.setExpiresAt(new Date(equal));
+        assertThrows(IllegalArgumentException.class, () -> verifier.verify(equalTimes, properties));
+    }
+
+    @Test
+    void rejectsContractSensitiveDimensionKeywordsAndControlCharacters() {
+        for (String value : new String[]{
+                "authorization", "cookie", "token", "password", "secret", "prompt",
+                "email", "phone", "mobile", "subject", "raw", "content", "safe\u0001value"}) {
+            BoardAttributionEvidenceEvent event = event("srv_AbC123_xYz90");
+            event.setChannelTrack(value);
+            assertThrows(IllegalArgumentException.class, () -> verifier.verify(event, properties), value);
+        }
+    }
+
+    @Test
     void requiresExactlyTwentyFourHoursAndAtLeastTwentySixHoursRetention() {
         BoardAttributionSnapshot snapshot = snapshot();
         assertDoesNotThrow(() -> verifier.verifySnapshot(snapshot, properties));
