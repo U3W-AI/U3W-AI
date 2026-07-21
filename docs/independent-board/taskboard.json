@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the officially listed and post-listing-frozen 26.7.20 expert package.",
-  "singleNextAction": "Build the confirmed W4b.2 me/admin OAuth and Connector candidate on the existing RuoYi shell behind default-off internal feature gates; keep every public OAuth/MCP route closed until the WorkBuddy refresh-client safety contract and HTTP negative matrix pass.",
+  "singleNextAction": "Implement W4b.2b as independent default-off narrow JWT read controllers and exact safe-projection mappers for OAuth clients, token families and full Connector bindings; keep security-event GET, every menu/router entry, every write action and all public OAuth/MCP routes closed until their DTO, current-read and HTTP negative matrices pass.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -82,8 +82,8 @@
     },
     {
       "id": "W4_OAUTH_CONNECTOR",
-      "state": "w4a_verified_local_w4b1_internal_oauth_chain_and_refresh_security_verified_local",
-      "activeSlice": "W4b_2_default_off_me_admin_oauth_connector_candidate",
+      "state": "w4a_verified_local_w4b1_internal_oauth_chain_and_refresh_security_verified_local_w4b2a_frontend_source_candidate_verified_default_off",
+      "activeSlice": "W4b_2b_default_off_backend_read_projection",
       "completedSubset": [
         "repository_first_conflict_resolution",
         "existing_fbs_connector_preserved_as_single_marketplace_entry",
@@ -117,17 +117,23 @@
         "w4b_refresh_rotation_digest_only_causation_and_state_digest_chain_passed",
         "w4b_refresh_replay_family_token_and_binding_containment_is_atomic_and_terminal_retries_are_zero_write",
         "w4b_dual_mysql_8_0_30_and_8_4_8_direct_55_refresh_3_canonical_36_and_cleanup_passed",
-        "w4b_public_routes_and_detailed_ui_remain_closed"
+        "w4b_public_routes_menu_router_and_detailed_ui_runtime_remain_closed",
+        "w4b2a_six_frontend_source_pages_and_shared_read_table_verified_default_off",
+        "w4b2a_get_only_adapter_and_exact_safe_projection_model_verified",
+        "w4b2a_unknown_missing_duplicate_topology_and_cursor_vectors_fail_closed",
+        "w4b2a_security_event_action_lineage_actor_and_server_producer_allowlist_fail_closed",
+        "w4b2a_admin_and_me_pagination_error_duplicate_and_browser_limit_fail_closed",
+        "w4b2a_frontend_regression_production_build_and_login_shell_probe_passed"
       ],
       "nextSlice": {
-        "id": "W4b_2_default_off_portal_candidate",
+        "id": "W4b_2b_default_off_backend_read_projection",
         "migration": null,
         "scope": [
-          "me_oauth_connection_consent_disconnect_state_model",
-          "admin_oauth_client_family_security_event_and_connector_read_models",
-          "existing_ruoyi_identity_role_menu_permission_and_component_reuse",
-          "default_off_internal_feature_gates",
-          "no_public_oauth_or_mcp_routes"
+          "independent_narrow_jwt_portal_controllers_not_existing_me_or_admin_controllers",
+          "oauth_client_token_family_and_full_connector_binding_safe_projection_mappers",
+          "exact_dto_current_read_and_http_negative_tests",
+          "security_event_get_held_until_nullable_correlation_and_reason_contract_is_explicit",
+          "no_menu_router_write_action_or_public_oauth_mcp_routes"
         ],
         "entryGates": [
           "explicit_user_confirmation_2026_07_20",
@@ -151,8 +157,12 @@
       },
       "heldClosed": [
         "all_public_oauth_and_mcp_routes",
-        "me_oauth_consent_connect_and_disconnect_production_pages",
-        "admin_oauth_client_family_security_event_and_connector_production_pages_default_off_pending_w4b2_implementation_and_verification"
+        "all_candidate_menu_and_router_entries",
+        "all_me_consent_connect_disconnect_and_admin_revoke_write_actions",
+        "security_event_get_until_nullable_correlation_and_reason_contract_is_explicit",
+        "admin_tenant_runtime_mount_until_enterprise_search_or_pagination_and_component_behavior_tests_pass",
+        "candidate_runtime_mount_until_feature_gate_cursor_and_projection_contracts_move_out_of_view_layer",
+        "all_candidate_pages_remain_runtime_unreachable_while_source_only"
       ],
       "exit": [
         "oauth_metadata_and_prm",

@@ -19,6 +19,44 @@ function Read-Utf8Json {
     return Get-Content -LiteralPath (Join-Path $RepoRoot $RelativePath) -Raw -Encoding UTF8 | ConvertFrom-Json
 }
 
+function Invoke-FrontendNpm {
+    param([string[]]$Arguments)
+
+    $NodeOverride = $env:U3W_NODE_EXE
+    $NpmCliOverride = $env:U3W_NPM_CLI
+    $HasNodeOverride = -not [string]::IsNullOrWhiteSpace($NodeOverride)
+    $HasNpmCliOverride = -not [string]::IsNullOrWhiteSpace($NpmCliOverride)
+    if ($HasNodeOverride -xor $HasNpmCliOverride) {
+        throw 'U3W_NODE_EXE and U3W_NPM_CLI must be provided together'
+    }
+
+    if ($HasNodeOverride) {
+        if (-not (Test-Path -LiteralPath $NodeOverride -PathType Leaf)) {
+            throw "U3W_NODE_EXE does not exist: $NodeOverride"
+        }
+        if (-not (Test-Path -LiteralPath $NpmCliOverride -PathType Leaf)) {
+            throw "U3W_NPM_CLI does not exist: $NpmCliOverride"
+        }
+        $NodeDirectory = Split-Path -Parent $NodeOverride
+        $env:PATH = $NodeDirectory + [System.IO.Path]::PathSeparator + $env:PATH
+        & $NodeOverride $NpmCliOverride @Arguments
+    }
+    else {
+        $NpmCommand = Get-Command npm.cmd -ErrorAction SilentlyContinue
+        if ($null -eq $NpmCommand) {
+            $NpmCommand = Get-Command npm -ErrorAction SilentlyContinue
+        }
+        if ($null -eq $NpmCommand) {
+            throw 'npm is unavailable; set U3W_NODE_EXE and U3W_NPM_CLI to verified portable toolchain paths'
+        }
+        & $NpmCommand.Source @Arguments
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "npm command failed with exit code ${LASTEXITCODE}: $($Arguments -join ' ')"
+    }
+}
+
 function Assert-ProductBrand {
     param(
         [object]$Product,
@@ -82,6 +120,16 @@ function Invoke-ContractChecks {
         'FBSir-ui\scripts\verify-independent-board-admin-ui.mjs',
         'FBSir-ui\src\utils\portalEntry.js',
         'FBSir-ui\scripts\verify-portal-entry.mjs',
+        'FBSir-ui\src\api\business\independentBoard\portalCandidate.js',
+        'FBSir-ui\src\views\business\independentBoard\portalCandidateModel.js',
+        'FBSir-ui\src\views\business\independentBoard\me\connector\index.vue',
+        'FBSir-ui\src\views\business\independentBoard\me\security\index.vue',
+        'FBSir-ui\src\views\business\independentBoard\admin\components\CandidateReadTable.vue',
+        'FBSir-ui\src\views\business\independentBoard\admin\oauth-client\index.vue',
+        'FBSir-ui\src\views\business\independentBoard\admin\oauth-family\index.vue',
+        'FBSir-ui\src\views\business\independentBoard\admin\connector-binding\index.vue',
+        'FBSir-ui\src\views\business\independentBoard\admin\security-event\index.vue',
+        'FBSir-ui\scripts\verify-independent-board-w4b2-candidate.mjs',
         'reports\independent-board\w1-application-integration-verification-20260720.json',
         'reports\independent-board\w2-user-portal-verification-20260720.json',
         'reports\independent-board\w3-admin-portal-verification-20260720.json',
@@ -212,19 +260,14 @@ function Invoke-FrontendChecks {
     Push-Location $UiRoot
     try {
         if (-not (Test-Path -LiteralPath (Join-Path $UiRoot 'node_modules'))) {
-            & npm.cmd ci
-            if ($LASTEXITCODE -ne 0) { throw "npm ci failed with exit code $LASTEXITCODE" }
+            Invoke-FrontendNpm -Arguments @('ci')
         }
-        & npm.cmd run verify:portal-entry
-        if ($LASTEXITCODE -ne 0) { throw "Portal entry verification failed with exit code $LASTEXITCODE" }
-        & npm.cmd run verify:independent-board-ui
-        if ($LASTEXITCODE -ne 0) { throw "Independent Board UI verification failed with exit code $LASTEXITCODE" }
-        & npm.cmd run verify:independent-board-admin-ui
-        if ($LASTEXITCODE -ne 0) { throw "Independent Board admin UI verification failed with exit code $LASTEXITCODE" }
-        & npm.cmd run verify:menu-components
-        if ($LASTEXITCODE -ne 0) { throw "Menu verification failed with exit code $LASTEXITCODE" }
-        & npm.cmd run build:prod
-        if ($LASTEXITCODE -ne 0) { throw "Frontend build failed with exit code $LASTEXITCODE" }
+        Invoke-FrontendNpm -Arguments @('run', 'verify:portal-entry')
+        Invoke-FrontendNpm -Arguments @('run', 'verify:independent-board-ui')
+        Invoke-FrontendNpm -Arguments @('run', 'verify:independent-board-admin-ui')
+        Invoke-FrontendNpm -Arguments @('run', 'verify:independent-board-w4b2-candidate')
+        Invoke-FrontendNpm -Arguments @('run', 'verify:menu-components')
+        Invoke-FrontendNpm -Arguments @('run', 'build:prod')
     }
     finally {
         Pop-Location

@@ -70,6 +70,7 @@
     "w4bOAuthRefreshSecurityMigration": "sql/update_20260721_independent_board_oauth_refresh_security.sql",
     "w4bVerificationReport": "reports/independent-board/w4b-oauth-foundation-verification-20260721.json",
     "w4bRefreshSecurityVerificationReport": "reports/independent-board/w4b-oauth-refresh-security-verification-20260721.json",
+    "w4b2FrontendCandidateVerificationReport": "reports/independent-board/w4b2-portal-frontend-source-candidate-verification-20260721.json",
     "w2VerificationReport": "reports/independent-board/w2-user-portal-verification-20260720.json",
     "w3VerificationReport": "reports/independent-board/w3-admin-portal-verification-20260720.json",
     "w3bVerificationReport": "reports/independent-board/w3b-entitlement-lifecycle-verification-20260720.json",
@@ -300,7 +301,7 @@
         ]
       },
       "w4bImplementation": {
-        "state": "w4b1_internal_oauth_chain_and_refresh_security_verified_local",
+        "state": "w4b1_internal_oauth_chain_and_refresh_security_verified_local_w4b2a_frontend_source_candidate_verified_default_off",
         "contract": "docs/independent-board/W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md",
         "inputEvidence": "docs/independent-board/W4B-INPUT-EVIDENCE.json",
         "issuer": "https://api2.u3w.com",
@@ -318,13 +319,14 @@
           "post_lock_final_time_and_authorization_code_replay_containment",
           "receipt_v2_refresh_rotation_and_refresh_replay_family_binding_containment"
         ],
-        "nextSlice": "w4b2_default_off_me_admin_oauth_connector_candidate_on_existing_ruoyi_shell",
+        "nextSlice": "w4b2b_default_off_narrow_jwt_backend_read_projection_for_client_family_and_full_binding",
         "publicRefreshGate": "workbuddy_single_flight_atomic_token_store_no_ambiguous_old_token_retry_and_reauthorize_ux_required",
         "detailedUiPrototype": {
           "state": "confirmed_for_w4b2_candidate_only",
           "confirmation": "explicit_user_confirmation_2026_07_20",
           "productionImplementationAllowed": true,
-          "implementationState": "not_implemented",
+          "implementationState": "frontend_source_candidate_verified_default_off_without_router_menu_or_backend_adapter",
+          "frontendCandidateVerificationReport": "reports/independent-board/w4b2-portal-frontend-source-candidate-verification-20260721.json",
           "unlockCondition": "satisfied_by_explicit_user_confirmation_2026_07_20"
         }
       },

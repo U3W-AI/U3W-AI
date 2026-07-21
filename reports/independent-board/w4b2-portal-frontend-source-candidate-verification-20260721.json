@@ -1,0 +1,141 @@
+{
+  "schema": "fbsir.independent-board.w4b2-frontend-source-candidate-verification/v1",
+  "result": "VERIFIED_LOCAL_DEFAULT_OFF_FRONTEND_SOURCE_CANDIDATE",
+  "observedAt": "2026-07-21T16:32:50.1813654+08:00",
+  "releaseReady": false,
+  "wave": "W4b.2a_frontend_source_candidate",
+  "product": {
+    "brandZh": "福帮手",
+    "brandEn": "FBSir",
+    "name": "独董会",
+    "listedVersion": "26.7.20"
+  },
+  "repository": {
+    "root": "u3w-independent-board-control-plane",
+    "branch": "codex/w4b2-default-off-candidate",
+    "remote": "https://github.com/U3W-AI/U3W-AI.git",
+    "evidenceBinding": "report_and_verified_source_are_committed_together",
+    "listedPackageWriteback": false
+  },
+  "candidate": {
+    "featureFlag": "VITE_FBSIR_BOARD_PORTAL_CANDIDATE",
+    "enabledValue": "exact_string_true_only",
+    "developmentDefault": false,
+    "stagingDefault": false,
+    "productionDefault": false,
+    "apiMethodAllowlist": [
+      "GET"
+    ],
+    "sourcePages": {
+      "me": [
+        "connector",
+        "security_receipts"
+      ],
+      "admin": [
+        "oauth_clients",
+        "oauth_families",
+        "connector_bindings",
+        "security_events"
+      ]
+    },
+    "dynamicMenuMigration": null,
+    "staticRouterRegistration": false,
+    "publicOAuthOrMcpRoutesAdded": false
+  },
+  "safetyProperties": [
+    "strict_response_envelope_and_exact_field_allowlists",
+    "unknown_missing_duplicate_or_inconsistent_topology_fails_closed",
+    "canonical_product_source_connector_scope_and_lifecycle_values",
+    "canonical_exact_loopback_redirect_and_temporal_ordering_are_enforced",
+    "security_event_action_lineage_and_actor_must_match_canonical_server_receipt_producers",
+    "unproduced_security_actions_and_uncontracted_reason_codes_are_rejected",
+    "opaque_cursor_character_and_length_contract_shared_by_model_and_adapter",
+    "admin_and_me_paginated_views_fail_closed_on_error_duplicate_or_browser_record_limit",
+    "full_object_references_are_shortened_before_rendering",
+    "token_code_state_verifier_secret_and_authorization_handle_are_absent_from_browser_models",
+    "connector_active_requires_current_vip_family_binding_scope_and_first_protected_request_evidence",
+    "authorization_pending_is_not_attributed_without_a_server_bound_request_handle",
+    "no_connect_disconnect_revoke_or_consent_action_is_exposed"
+  ],
+  "verification": {
+    "candidateContract": {
+      "command": "node FBSir-ui/scripts/verify-independent-board-w4b2-candidate.mjs",
+      "directAssertionCallSites": 110,
+      "countSource": "self_reported_by_verifier",
+      "state": "PASS"
+    },
+    "frontendRegression": {
+      "commands": [
+        "node FBSir-ui/scripts/verify-portal-entry.mjs",
+        "node FBSir-ui/scripts/verify-independent-board-ui.mjs",
+        "node FBSir-ui/scripts/verify-independent-board-admin-ui.mjs",
+        "node FBSir-ui/scripts/verify-menu-components.mjs",
+        "vite build"
+      ],
+      "state": "PASS",
+      "menuComponents": 58,
+      "menuSqlFiles": 36,
+      "productionBuild": "PASS",
+      "modulesTransformed": 3037,
+      "nonBlockingWarnings": [
+        "rollup_removed_unpositioned_vueuse_pure_annotations",
+        "existing_chunks_over_1000_kb"
+      ]
+    },
+    "centralGate": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-control-plane.ps1 -Mode Frontend",
+      "portableToolchainInputs": [
+        "U3W_NODE_EXE",
+        "U3W_NPM_CLI"
+      ],
+      "observedAt": "2026-07-21T16:27:52.2252774+08:00",
+      "state": "PASS"
+    },
+    "traceabilityGate": {
+      "centralContractObservedAt": "2026-07-21T16:30:52.5016236+08:00",
+      "centralContract": "PASS",
+      "fbsContractAssessment": "PASS",
+      "docConsistencyFindings": 0,
+      "trackedJsonParse": "PASS"
+    },
+    "browserShellProbe": {
+      "url": "http://127.0.0.1:4173/",
+      "observedAt": "2026-07-21T16:29:28.6502663+08:00",
+      "observedRedirect": "/login?redirect=/portal-entry",
+      "shellTitle": "福帮手后台系统",
+      "candidateTextVisible": false,
+      "backendAvailable": false,
+      "mountedCandidateComponentInteraction": "NOT_EXECUTED_NO_ROUTE_MENU_OR_BACKEND_ADAPTER"
+    },
+    "gitDiffCheck": "PASS"
+  },
+  "evidenceBoundaries": {
+    "frontendSourceCandidateVerified": true,
+    "defaultOffVerifiedFromTrackedEnvironmentFiles": true,
+    "candidateMenuOrRouterReachable": false,
+    "backendPortalReadModelsImplemented": false,
+    "jwtPortalHttpSecurityVerified": false,
+    "candidateMountedBrowserInteractionVerified": false,
+    "publicOAuthOrMcpRoutesEnabled": false,
+    "oauthHttpEndToEndVerified": false,
+    "workBuddyHostIntegrated": false,
+    "productionDatabaseMigrated": false,
+    "productionDomainsDeployed": false,
+    "listedPackageModified": false
+  },
+  "nextSlice": {
+    "id": "W4b.2b_default_off_backend_read_projection",
+    "scope": [
+      "independent_narrow_jwt_portal_controllers",
+      "client_family_and_full_connector_binding_safe_projection_mappers",
+      "exact_dto_schema_and_current_read_negative_tests"
+    ],
+    "heldClosed": [
+      "security_event_get_until_nullable_correlation_and_reason_contract_is_explicit",
+      "all_candidate_menu_and_router_entries",
+      "all_public_oauth_and_mcp_routes",
+      "all_portal_write_actions",
+      "production_deployment"
+    ]
+  }
+}
