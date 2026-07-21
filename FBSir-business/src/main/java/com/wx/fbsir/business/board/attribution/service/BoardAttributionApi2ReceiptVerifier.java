@@ -11,6 +11,9 @@ import com.wx.fbsir.business.board.attribution.domain.BoardHostForwardingChallen
  * No default bean is supplied: until an implementation validates the complete
  * v2 ack against the U3W challenge/session context, the evidence writer stays
  * fail-closed. The v1 verification wrapper is not sufficient authority.
+ * The pure receipt package verifier is deliberately not registered here yet:
+ * this legacy seam receives an already-lossy evidence event rather than the
+ * raw signed v2 acknowledgement and its server-authoritative expected context.
  * Implementations must keep verification side-effect free until the surrounding
  * append/seal transaction accepts the evidence; rejected or out-of-order events
  * must not consume nonce or replay reservations.

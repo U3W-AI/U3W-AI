@@ -43,7 +43,7 @@ fbsir:
       issuer: ${FBSIR_BOARD_ATTRIBUTION_ISSUER:api2.u3w.com}
       audience: ${FBSIR_BOARD_ATTRIBUTION_AUDIENCE:independent-board-attribution}
       key-ref: ${FBSIR_BOARD_ATTRIBUTION_KEY_REF:fbs.w4b2d.api2.keyring}
-      receipt-ttl-seconds: ${FBSIR_BOARD_ATTRIBUTION_RECEIPT_TTL_SECONDS:300}
+      receipt-ttl-seconds: ${FBSIR_BOARD_ATTRIBUTION_RECEIPT_TTL_SECONDS:120}
       retention-hours: ${FBSIR_BOARD_ATTRIBUTION_RETENTION_HOURS:26}
   websocket: # 是否启用 WebSocket 服务
       enabled: true

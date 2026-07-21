@@ -16,6 +16,6 @@ public class IndependentBoardAttributionProperties {
     private String issuer = "api2.u3w.com";
     private String audience = "independent-board-attribution";
     private String keyRef = "fbs.w4b2d.api2.keyring";
-    private int receiptTtlSeconds = 300;
+    private int receiptTtlSeconds = 120;
     private int retentionHours = 26;
 }
