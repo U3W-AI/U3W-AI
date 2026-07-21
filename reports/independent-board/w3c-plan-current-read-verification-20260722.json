@@ -38,6 +38,10 @@
     "realMapperExecutionThisSlice": "not_rerun_local_mysql_client_unavailable",
     "remainingGate": "add_selectPlansByProduct_real_mapping_order_and_metadata_assertion_to_explicit_mysql_it_before_deployment"
   },
+  "remainingIntegrationGates": [
+    "real_admin_domain_browser_readback_with_reused_login_state",
+    "meeting_audit_plan_labels_need_a_separately_authorized_current_read_contract_because_operation_audit_permission_does_not_imply_entitlement_query"
+  ],
   "truthBoundary": {
     "localVerifiedDoesNotProveProduction": true,
     "adminDomainReadback": "not_proven",

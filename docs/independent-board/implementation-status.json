@@ -260,6 +260,7 @@
     "entitlement_revoke_reason_readback",
     "entitlement_reinstatement_action",
     "product_plan_policy_write_revision_and_receipt_governance",
+    "meeting_audit_plan_label_authority_with_operation_audit_permission_boundary",
     "credit_ledger_admin_operations",
     "connector_vip_binding",
     "webhook_delivery",

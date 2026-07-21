@@ -68,6 +68,7 @@
       ],
       "remaining": [
         "product_plan_and_quota_policy_write_revision_and_receipt_governance",
+        "meeting_audit_plan_label_authority_with_operation_audit_permission_boundary",
         "credit_ledger_operations",
         "run_receipt_and_failure_audit",
         "connector_and_device_operations",
