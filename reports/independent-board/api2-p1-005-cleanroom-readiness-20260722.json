@@ -1,0 +1,50 @@
+{
+  "schema": "fbsir.independent-board.api2-p1-005-cleanroom-readiness/v1",
+  "observedAt": "2026-07-22T02:00:00+08:00",
+  "boundary": "read_only_remote_capture_local_cleanroom_no_active_release_write",
+  "activeRelease": {
+    "path": "/opt/fbss/phase1/releases/202607152006-p1-004-runtime-state-14e20a6d.staged",
+    "currentSymlink": "/opt/fbss/phase1/current",
+    "releaseId": "202607152006-p1-004-runtime-state-14e20a6d.staged",
+    "gitProvenance": "unknown",
+    "materializingMarkerObserved": true
+  },
+  "sourceProvenance": {
+    "candidateManifestGitHead": "0eb2dd5f1f18581084fec6a6b0f4f2120f01705b",
+    "candidateManifestGitHeadAvailableInControlPlaneRepo": false,
+    "deployedOverlayContentCommit": "c01891a0ca3e11db0a0fe51828276fab33b862b5",
+    "deployedOverlayContentCommitAvailableInControlPlaneRepo": false,
+    "activeManifestSha256": "0ec2fb4333a4a0855dec2d1c4810d564e3dd33c12b161bfb8165b7859dcbef04",
+    "candidateProvenanceSha256": "42868b1fc1ba1ef721467163d23097e0c364e8e72db275e8ad7e418ecaa9fb7a"
+  },
+  "capturedFiles": [
+    { "path": "src/service-traction-product-signature-normalizer.js", "sha256": "1e05ac0be0eaafd8517f99766cc1a8da2479cc4d17c3238f2d3fa63cff3abbef", "role": "missing-independent-board-product-rule" },
+    { "path": "src/fbss-server-verified-product-route-receipt.js", "sha256": "cde0ef048057a0414e3f81d4d68d515b63cd085fef9ed5b687e6a234ea3cadd2", "role": "current-route-receipt-only-liuxue" },
+    { "path": "src/fbss-host-forwarding-ack-verifier.js", "sha256": "4db4869b87c62e6d4c335f42056adee906b94e517e1f16e04f2f7a3832b013a8", "role": "host-ack-verifier" },
+    { "path": "src/fbss-host-forwarding-ack-challenge-repository.js", "sha256": "883e1316d3af0b75512e0c8f11f6ee88cf469cb8301335142d27ff962d485eef", "role": "challenge-repository" },
+    { "path": "src/service-traction-attribution-decision-board.js", "sha256": "fbf2670e423e85b951a7de05670b3513944723f307771aa7e94ee17715a68ff8", "role": "product-decision-board" },
+    { "path": "src/service-traction-traffic-classification.js", "sha256": "bf71a746f0173a966ac37fd9a21d6b22e9220b3d1d623c0f1659850a9d700b80", "role": "traffic-classifier" },
+    { "path": "tools/serve.mjs", "sha256": "14e20a6dea85db3a55ade924c4943ee29d19e8a038cf72d9c1a0efa7d99ec9fd", "role": "service-entrypoint" },
+    { "path": "tools/build-api2-package.mjs", "sha256": "ba309a28148faf4ca07eec172cbb8c31593b0cfccdf5cc5671a40137c7432da8", "role": "package-builder" },
+    { "path": "tools/deploy-api2-sidecar-clean-source.ps1", "sha256": "285fd6688878443827a87a67857d8fdc2472bc2787808d9feb43f5547401a85c", "role": "clean-source-guard" },
+    { "path": "tools/deploy-api2-sidecar-release.ps1", "sha256": "ea3e10fb1ade79b398fdf91c84ffad4300b8fd496090a17f48d22768cba15728", "role": "release-and-rollback" }
+  ],
+  "cleanroom": {
+    "localPath": "work/api2-cleanroom/p1-005-active-20260722",
+    "captureMode": "remote_read_only_scp_hash_anchored",
+    "activeOverlayTargetCount": 7,
+    "independentBoardRuleIncludedInActiveRelease": false,
+    "sourceGitCleanroomReady": false,
+    "reason": "active release has no .git and required product normalizer is outside P1-004 overlay target list"
+  },
+  "requiredP1005Overlay": [
+    "product registration contract and exact fbsir-eight-seat-board@26.7.20 rule",
+    "server-verified route receipt extension without reusing liuxue-only guard",
+    "host-forwarding ack and challenge repository transitive closure",
+    "product normalizer, traffic classifier and attribution decision-board integration",
+    "package builder target list and module-closure update",
+    "clean-source provenance, artifact hash, health probe and rollback receipt"
+  ],
+  "status": "NO_GO_CLEAN_SOURCE_PROVENANCE_AND_EXACT_PRODUCT_REGISTRATION_MISSING",
+  "nextAction": "construct a local hash-anchored P1-005 overlay candidate and validate its module closure; do not deploy until a Git-backed or explicitly approved reconstruction source is available"
+}

@@ -2200,6 +2200,37 @@ function Assert-PublicDatabaseManifestCurrentState {
     Write-Host "PASS public database manifest exact current-read ($($steps.Count) APPLIED receipts with exact descriptions)."
 }
 
+function Assert-IndependentBoardAttributionEvidenceCurrentState {
+    $state = Invoke-MySqlText -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN
+    ('fbs_attribution_product_contract','fbs_host_forwarding_challenge','fbs_attribution_evidence_event','fbs_attribution_snapshot')
+    AND table_type='BASE TABLE' AND engine='InnoDB'),
+  (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='fbs_attribution_product_contract'
+    AND column_name IN ('contract_id','product_id','product_version','host_type','connector_type','entry_surface','package_id','expert_entry_id','registration_status','candidate_enabled','public_route_enabled','authoritative_credit_enabled','created_at')),
+  (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='fbs_host_forwarding_challenge'
+    AND column_name IN ('challenge_id','contract_id','server_binding_id','nonce_hash','issued_at','expires_at','retention_until','status','created_at')),
+  (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='fbs_attribution_evidence_event'
+    AND column_name IN ('event_id','receipt_id','challenge_id','contract_id','server_binding_id','tenant_subject_digest','stage','outcome','entry_surface','channel_track','observed_at','sequence_no','sample_count','canonical_digest','signer_key_id','issuer','audience','receipt_nonce_hash','receipt_signature','issued_at','expires_at','event_watermark','created_at')),
+  (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='fbs_attribution_snapshot'
+    AND column_name IN ('snapshot_id','contract_id','window_start','window_end','retention_until','watermark_at','event_high_watermark','row_count','parse_error_count','gap_count','invalid_count','canonicalization_version','event_digest','runtime_release','embedded_release','signer_key_id','issuer','audience','snapshot_signature','status','created_at')),
+  (SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE() AND trigger_name IN
+    ('trg_fbs_attr_product_no_update','trg_fbs_attr_product_no_delete','trg_fbs_attr_challenge_immutable_fields','trg_fbs_attr_event_no_update','trg_fbs_attr_snapshot_no_update','trg_fbs_attr_event_no_delete','trg_fbs_attr_snapshot_no_delete')),
+  (SELECT COUNT(*) FROM fbs_attribution_product_contract WHERE contract_id='FBSIR_INDEPENDENT_BOARD_W4B2D' AND product_id='fbsir-eight-seat-board' AND product_version='26.7.20' AND registration_status='PENDING_HOST_REGISTRATION' AND candidate_enabled=0 AND public_route_enabled=0 AND authoritative_credit_enabled=0),
+  (SELECT COUNT(*) FROM u3w_schema_migration WHERE version='20260722_independent_board_attribution_evidence_contract' AND description='APPLIED:W4b2d independent board exact product receipt and sealed snapshot contract')
+);
+"@
+    $parts = @($state.Split('|'))
+    $expected = @(4,13,9,23,21,7,1,1)
+    if ($parts.Count -ne $expected.Count) { throw "Independent Board attribution evidence current-read returned an invalid field count: '$state'." }
+    for ($index = 0; $index -lt $expected.Count; $index++) {
+        if ($parts[$index] -notmatch '^\d+$' -or [int]$parts[$index] -ne $expected[$index]) {
+            throw "Independent Board attribution evidence current-read drift at field $($index + 1): expected $($expected[$index]), found '$($parts[$index])'."
+        }
+    }
+    Write-Host "PASS Independent Board attribution evidence exact current-read (four tables, immutable triggers, default-off product seed and internal receipt)."
+}
+
 if ($CurrentReadOnly) {
     $currentReadLockSession = $null
     $currentReadLockAcquired = $false
@@ -2231,6 +2262,7 @@ SELECT CONCAT_WS('|', @u3w_manifest_lock_name, CHAR_LENGTH(@u3w_manifest_lock_na
         Assert-IndependentBoardOauthFoundationCurrentState
         Assert-IndependentBoardOauthConsentIntentCurrentState
         Assert-IndependentBoardOauthRefreshSecurityCurrentState
+        Assert-IndependentBoardAttributionEvidenceCurrentState
         Assert-PublicDatabaseManifestCurrentState
         Write-Host "Independent Board current-read verification complete for '$Database'. No database write was requested."
     }
@@ -2305,11 +2337,15 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
         $resumeRunningOauthRefreshSecurity =
             $step.Version -eq 'public_init_036' -and
             $state -eq "RUNNING:$($step.Description)"
+        $resumeRunningAttributionEvidence =
+            $step.Version -eq 'public_init_037' -and
+            $state -eq "RUNNING:$($step.Description)"
         $resumeRunningOauthAdditive =
             $resumeRunningOauthProvenance -or
             $resumeRunningOauthConsentIntent -or
             $resumeRunningOauthRefreshSecurity
-        if ($state -and -not $resumeRunningOauthAdditive) {
+        $resumeRunningAdditive = $resumeRunningOauthAdditive -or $resumeRunningAttributionEvidence
+        if ($state -and -not $resumeRunningAdditive) {
             throw "Step $($step.Version) is in state '$state'. Do not retry a partially applied DDL step; use a fresh database or reviewed recovery."
         }
 
@@ -2344,9 +2380,15 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             # token-only and token+receipt support-prefix recovery contract.
             $null = Assert-IndependentBoardOauthServerProfile
         }
+        if ($step.Version -eq 'public_init_037') {
+            # The W4b2d evidence contract is additive but must not start on an
+            # unsupported MySQL profile. Its SQL owns exact shape and trigger
+            # recovery; this preflight prevents a RUNNING receipt on bad builds.
+            $null = Assert-IndependentBoardOauthServerProfile
+        }
 
         try {
-            if (-not $resumeRunningOauthAdditive) {
+            if (-not $resumeRunningAdditive) {
                 Invoke-MySqlText -Sql "INSERT INTO u3w_schema_migration(version, description) VALUES ('$($step.Version)', 'RUNNING:$($step.Description)');" | Out-Null
             }
             else {
@@ -2375,6 +2417,9 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
                 # The internal receipt is complete before the public receipt is
                 # promoted, and this independent read proves exact S3 plus data.
                 Assert-IndependentBoardOauthRefreshSecurityCurrentState
+            }
+            if ($step.Version -eq 'public_init_037') {
+                Assert-IndependentBoardAttributionEvidenceCurrentState
             }
             Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
         }
@@ -2473,6 +2518,20 @@ DROP PROCEDURE IF EXISTS u3w_assert_ib_oauth_refresh_security_20260721;
                     Write-Warning "W4b refresh-security exact bounded replay did not pass; recording FAILED."
                 }
             }
+            if ($step.Version -eq 'public_init_037') {
+                try {
+                    # One bounded replay may reconcile only a complete exact
+                    # W4b2d shape plus internal receipt; drift remains FAILED.
+                    Invoke-MySqlFile -File $step.File
+                    Assert-IndependentBoardAttributionEvidenceCurrentState
+                    Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
+                    Write-Warning "Reconciled $($step.Version) from its exact completed evidence-contract state after one bounded replay."
+                    continue
+                }
+                catch {
+                    Write-Warning "W4b2d evidence-contract exact bounded replay did not pass; recording FAILED."
+                }
+            }
             try {
                 Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='FAILED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
             }
@@ -2491,6 +2550,7 @@ DROP PROCEDURE IF EXISTS u3w_assert_ib_oauth_refresh_security_20260721;
     Assert-IndependentBoardOauthFoundationCurrentState
     Assert-IndependentBoardOauthConsentIntentCurrentState
     Assert-IndependentBoardOauthRefreshSecurityCurrentState
+    Assert-IndependentBoardAttributionEvidenceCurrentState
 
     Assert-PublicDatabaseManifestCurrentState
 

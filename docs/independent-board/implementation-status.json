@@ -101,6 +101,8 @@
     "sql/update_20260722_independent_board_attribution_evidence_contract.sql",
     "reports/independent-board/w4b2d-evidence-contract-verification-20260722.json",
     "docs/decisions/ADR-003-independent-board-w4b2d-signed-evidence-boundary.md",
+    "reports/independent-board/api2-p1-005-cleanroom-readiness-20260722.json",
+    "work/api2-cleanroom/p1-005-active-20260722",
     "reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json",
     "reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json",
     "docs/independent-board/API2-INDEPENDENT-BOARD-24H-TRAFFIC-ATTRIBUTION-20260721.md",
@@ -209,6 +211,7 @@
     "w4b2d_signed_receipt_binding_snapshot_contract_7_of_7_adversarial_tests_passed",
     "w4b2d_public_init_037_default_off_append_only_evidence_schema_manifest_verified",
     "w4b2d_live_api2_ack_object_contract_adapter_rejects_boolean_and_unregistered_product"
+    ,"w4b2d_api2_active_release_hash_anchored_cleanroom_capture_completed_read_only"
   ],
   "notProven": [
     "oauth_public_routes",
@@ -220,6 +223,7 @@
     "listed_runtime_service_side_closure",
     "api2_exact_product_binding_and_immutable_26h_evidence_contract",
     "api2_clean_release_source_provenance",
+    "api2_p1_005_package_target_and_module_closure_update",
     "real_official_entry_same_binding_target_candidate",
     "production_database_migration",
     "me_portal_production_runtime",

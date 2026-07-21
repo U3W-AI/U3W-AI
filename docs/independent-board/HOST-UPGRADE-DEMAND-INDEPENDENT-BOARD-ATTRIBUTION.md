@@ -34,6 +34,24 @@
 4. 分离 `observed`、`server_verified`、`product_credit_candidate` 与 `authoritative_product_credit`；客户端声明永不直接晋级。
 5. 运行 release 与内嵌 release 不一致时，候选归因失败关闭并告警。
 
+## P1-005 服务侧注册与清洁发布补充
+
+本轮只读复查确认 API2 当前 host-forwarding 结果不是 boolean，而是对象：
+
+- `serverVerifiedHostForwardingAck.schemaVersion = fbss.hostForwardingAckVerification.v1`
+- `verified = true`、`cryptographicallyVerified = true`
+- `serverVerificationState = verified`
+- `serverVerificationSource = server_dispatch_ack_hmac`
+- `challengeJoinState = finalized`
+- `trafficClassificationAuthority = server_verified_host_forwarding_ack`
+- `serverObservedHostForwardingEvidenceTrust = server_dispatch_ack_verified`
+
+服务端 binding 当前默认形态为 `srv_<12-char stableHash>`；校验必须同时检查 `bindingIdentitySource` 为服务端派生来源，不能把 trace/anonymous hash 当作 binding。若 ack 携带 binding，必须与 row 的 `serverBindingId` 完全一致。
+
+独董会还需要一个独立的 API2 签名注册回执，覆盖精确 `productId`、`productVersion`、`expertEntryId`、`packageId`、`entrySurface`、issuer、有效期和 key id；注册成功也必须保持 `candidateEnabled=0`、`publicRouteEnabled=0`、`authoritativeCreditEnabled=0`。当前 `expertEntryId/packageId` 尚未取得权威值，状态保持 `PENDING_HOST_REGISTRATION`。
+
+P1-005 不得从 active release 目录直接热补丁。必须以可证明的 clean Git HEAD 或明确的 hash-anchored reconstruction cleanroom 构建，显式扩大 package target/module-closure 清单，并在新 release 上完成健康探针、产物 hash、symlink 切换和失败回滚证据；当前 active P1-004 overlay 不包含产品签名归因器，不能复用为独董会候选发布源。
+
 ## 验收矩阵
 
 - 正向：一次真实官方入口、同 server binding、同 channel/terminal/host/version，严格 `whoami < scene_pack < consume < closure`，所有成功阶段有受信 natural authority 和 server-verified receipt。

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.board.attribution.mapper.IndependentBoardAttributionMapper">
+  <resultMap id="ProductContract" type="com.wx.fbsir.business.board.attribution.domain.BoardAttributionProductContract">
+    <id property="contractId" column="contract_id"/>
+    <result property="productId" column="product_id"/><result property="productVersion" column="product_version"/>
+    <result property="hostType" column="host_type"/><result property="connectorType" column="connector_type"/>
+    <result property="entrySurface" column="entry_surface"/><result property="packageId" column="package_id"/>
+    <result property="expertEntryId" column="expert_entry_id"/><result property="registrationStatus" column="registration_status"/>
+    <result property="candidateEnabled" column="candidate_enabled"/><result property="publicRouteEnabled" column="public_route_enabled"/>
+    <result property="authoritativeCreditEnabled" column="authoritative_credit_enabled"/>
+  </resultMap>
+  <resultMap id="Challenge" type="com.wx.fbsir.business.board.attribution.domain.BoardHostForwardingChallenge">
+    <id property="challengeId" column="challenge_id"/><result property="contractId" column="contract_id"/>
+    <result property="serverBindingId" column="server_binding_id"/><result property="nonceHash" column="nonce_hash"/>
+    <result property="issuedAt" column="issued_at"/><result property="expiresAt" column="expires_at"/>
+    <result property="retentionUntil" column="retention_until"/><result property="status" column="status"/>
+  </resultMap>
+  <resultMap id="Event" type="com.wx.fbsir.business.board.attribution.domain.BoardAttributionEvidenceEvent">
+    <id property="eventId" column="event_id"/><result property="receiptId" column="receipt_id"/>
+    <result property="challengeId" column="challenge_id"/><result property="contractId" column="contract_id"/>
+    <result property="serverBindingId" column="server_binding_id"/><result property="tenantSubjectDigest" column="tenant_subject_digest"/>
+    <result property="stage" column="stage"/><result property="outcome" column="outcome"/>
+    <result property="entrySurface" column="entry_surface"/><result property="channelTrack" column="channel_track"/>
+    <result property="observedAt" column="observed_at"/><result property="sequenceNo" column="sequence_no"/>
+    <result property="sampleCount" column="sample_count"/><result property="canonicalDigest" column="canonical_digest"/>
+    <result property="signerKeyId" column="signer_key_id"/><result property="issuer" column="issuer"/><result property="audience" column="audience"/>
+    <result property="receiptNonceHash" column="receipt_nonce_hash"/><result property="receiptSignature" column="receipt_signature"/>
+    <result property="issuedAt" column="issued_at"/><result property="expiresAt" column="expires_at"/><result property="eventWatermark" column="event_watermark"/>
+  </resultMap>
+  <resultMap id="Snapshot" type="com.wx.fbsir.business.board.attribution.domain.BoardAttributionSnapshot">
+    <id property="snapshotId" column="snapshot_id"/><result property="contractId" column="contract_id"/>
+    <result property="windowStart" column="window_start"/><result property="windowEnd" column="window_end"/>
+    <result property="retentionUntil" column="retention_until"/><result property="watermarkAt" column="watermark_at"/>
+    <result property="eventHighWatermark" column="event_high_watermark"/><result property="rowCount" column="row_count"/>
+    <result property="parseErrorCount" column="parse_error_count"/><result property="gapCount" column="gap_count"/><result property="invalidCount" column="invalid_count"/>
+    <result property="canonicalizationVersion" column="canonicalization_version"/><result property="eventDigest" column="event_digest"/>
+    <result property="runtimeRelease" column="runtime_release"/><result property="embeddedRelease" column="embedded_release"/>
+    <result property="signerKeyId" column="signer_key_id"/><result property="issuer" column="issuer"/><result property="audience" column="audience"/>
+    <result property="snapshotSignature" column="snapshot_signature"/><result property="status" column="status"/>
+  </resultMap>
+  <select id="selectExactProductForUpdate" resultMap="ProductContract">
+    SELECT contract_id, product_id, product_version, host_type, connector_type, entry_surface, package_id, expert_entry_id,
+           registration_status, candidate_enabled, public_route_enabled, authoritative_credit_enabled
+      FROM fbs_attribution_product_contract
+     WHERE product_id = #{productId} AND product_version = #{productVersion}
+     FOR UPDATE
+  </select>
+  <select id="selectChallengeForUpdate" resultMap="Challenge">
+    SELECT challenge_id, contract_id, server_binding_id, nonce_hash, issued_at, expires_at, retention_until, status
+      FROM fbs_host_forwarding_challenge
+     WHERE challenge_id = #{challengeId} AND server_binding_id = #{serverBindingId} AND contract_id = #{contractId}
+     FOR UPDATE
+  </select>
+  <insert id="insertChallenge">
+    INSERT INTO fbs_host_forwarding_challenge
+      (challenge_id, contract_id, server_binding_id, nonce_hash, issued_at, expires_at, retention_until, status)
+    VALUES (#{challengeId}, #{contractId}, #{serverBindingId}, #{nonceHash}, #{issuedAt}, #{expiresAt}, #{retentionUntil}, #{status})
+  </insert>
+  <update id="updateChallengeStatus">
+    UPDATE fbs_host_forwarding_challenge SET status = #{status} WHERE challenge_id = #{challengeId} AND status = 'ISSUED'
+  </update>
+  <insert id="insertEventIfAbsent">
+    INSERT INTO fbs_attribution_evidence_event
+      (event_id, receipt_id, challenge_id, contract_id, server_binding_id, tenant_subject_digest, stage, outcome, entry_surface, channel_track,
+       observed_at, sequence_no, sample_count, canonical_digest, signer_key_id, issuer, audience, receipt_nonce_hash, receipt_signature, issued_at, expires_at)
+    VALUES (#{eventId}, #{receiptId}, #{challengeId}, #{contractId}, #{serverBindingId}, #{tenantSubjectDigest}, #{stage}, #{outcome}, #{entrySurface}, #{channelTrack},
+            #{observedAt}, #{sequenceNo}, #{sampleCount}, #{canonicalDigest}, #{signerKeyId}, #{issuer}, #{audience}, #{receiptNonceHash}, #{receiptSignature}, #{issuedAt}, #{expiresAt})
+    ON DUPLICATE KEY UPDATE event_id = VALUES(event_id)
+  </insert>
+  <select id="selectEventByReceiptForUpdate" resultMap="Event">
+    SELECT event_id, receipt_id, challenge_id, contract_id, server_binding_id, tenant_subject_digest, stage, outcome, entry_surface, channel_track,
+           observed_at, sequence_no, sample_count, canonical_digest, signer_key_id, issuer, audience, receipt_nonce_hash, receipt_signature, issued_at, expires_at, event_watermark
+      FROM fbs_attribution_evidence_event WHERE receipt_id = #{receiptId} FOR UPDATE
+  </select>
+  <insert id="insertSnapshot">
+    INSERT INTO fbs_attribution_snapshot
+      (snapshot_id, contract_id, window_start, window_end, retention_until, watermark_at, event_high_watermark, row_count,
+       parse_error_count, gap_count, invalid_count, canonicalization_version, event_digest, runtime_release, embedded_release,
+       signer_key_id, issuer, audience, snapshot_signature, status)
+    VALUES (#{snapshotId}, #{contractId}, #{windowStart}, #{windowEnd}, #{retentionUntil}, #{watermarkAt}, #{eventHighWatermark}, #{rowCount},
+            #{parseErrorCount}, #{gapCount}, #{invalidCount}, #{canonicalizationVersion}, #{eventDigest}, #{runtimeRelease}, #{embeddedRelease},
+            #{signerKeyId}, #{issuer}, #{audience}, #{snapshotSignature}, #{status})
+  </insert>
+  <select id="selectSnapshotByWindowForUpdate" resultMap="Snapshot">
+    SELECT snapshot_id, contract_id, window_start, window_end, retention_until, watermark_at, event_high_watermark, row_count,
+           parse_error_count, gap_count, invalid_count, canonicalization_version, event_digest, runtime_release, embedded_release,
+           signer_key_id, issuer, audience, snapshot_signature, status
+      FROM fbs_attribution_snapshot WHERE contract_id = #{contractId} AND window_start = #{windowStart} AND window_end = #{windowEnd} FOR UPDATE
+  </select>
+</mapper>

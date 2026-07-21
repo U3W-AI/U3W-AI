@@ -1031,13 +1031,15 @@ ORDER BY tc.table_name, tc.constraint_name;
             throw "Canonical Independent Board phase drifted at position $($index + 1)."
         }
     }
-    if (-not ([string]$canonicalPhases[0].output).Contains('APPLY public_init_036:') -or
-        -not ([string]$canonicalPhases[1].output).Contains('SKIP public_init_036 (already applied)') -or
+    if (-not ([string]$canonicalPhases[0].output).Contains('APPLY public_init_037:') -or
+        -not ([string]$canonicalPhases[1].output).Contains('SKIP public_init_037 (already applied)') -or
         -not ([string]$canonicalPhases[2].output).Contains(
             'PASS Independent Board OAuth refresh-security exact S3 current-read') -or
         -not ([string]$canonicalPhases[2].output).Contains(
-            'PASS public database manifest exact current-read (36 APPLIED receipts with exact descriptions).')) {
-        throw 'Canonical Independent Board phases did not prove public_init_036 first apply, completed rerun and exact 36-step read-only current-read.'
+            'PASS Independent Board attribution evidence exact current-read') -or
+        -not ([string]$canonicalPhases[2].output).Contains(
+            'PASS public database manifest exact current-read (37 APPLIED receipts with exact descriptions).')) {
+        throw 'Canonical Independent Board phases did not prove public_init_037 first apply, completed rerun, exact W4b2d current-read and exact 37-step read-only current-read.'
     }
 
     $canonicalReceiptState = Invoke-DisposableMySqlText -TargetDatabase $canonicalDatabase -Sql @"
@@ -1058,12 +1060,18 @@ SELECT CONCAT_WS('|',
    WHERE version = '20260721_independent_board_oauth_refresh_security_v1'
      AND description = 'APPLIED:Independent Board OAuth refresh security receipt v2'),
   (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = 'public_init_037'
+     AND description = 'APPLIED:Independent Board exact product attribution evidence contract'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version = '20260722_independent_board_attribution_evidence_contract'
+     AND description = 'APPLIED:W4b2d independent board exact product receipt and sealed snapshot contract'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
    WHERE version REGEXP '^public_init_[0-9]{3}$'),
   (SELECT COUNT(*) FROM u3w_schema_migration
    WHERE version REGEXP '^public_init_[0-9]{3}$' AND description LIKE 'APPLIED:%')
 );
 "@
-    if (-not [string]::Equals($canonicalReceiptState, '1|1|1|1|1|36|36', [StringComparison]::Ordinal)) {
+    if (-not [string]::Equals($canonicalReceiptState, '1|1|1|1|1|1|1|37|37', [StringComparison]::Ordinal)) {
         throw "Canonical Independent Board public_init receipt state drifted: '$canonicalReceiptState'."
     }
     $canonicalSuccessorState = Get-OauthSuccessorState -TargetDatabase $canonicalDatabase
@@ -1090,8 +1098,8 @@ SELECT CONCAT_WS('|',
                 outputSha256 = Get-StringSha256 -Value ([string]$_.output)
             }
         })
-        publicManifestReceipts = 36
-        publicAppliedReceipts = 36
+        publicManifestReceipts = 37
+        publicAppliedReceipts = 37
         oauthFoundationReceipt = 1
         oauthProvenanceReceipt = 1
         oauthConsentIntentReceipt = 1
