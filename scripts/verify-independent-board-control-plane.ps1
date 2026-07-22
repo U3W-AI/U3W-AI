@@ -599,9 +599,97 @@ function Invoke-ContractChecks {
         throw 'W3k controlled-authority dual-MySQL successor evidence is incomplete or drifted'
     }
     # The predecessor report hash binds its full source-hash map as one
-    # immutable receipt; source-file binding resumes at the successor.
+    # immutable receipt; source-file binding resumes at the successor.  W3l
+    # is the next, independent ledger-schema successor.  It may supersede
+    # shared initializer/manifest verifier bytes, but it must never rewrite
+    # the historical W3k authority receipt.
+    $w3lCreditLedgerReport = Read-Utf8Json -RelativePath 'reports\independent-board\w3l-skill-consume-credit-ledger-v2-migration-verification-20260723.json'
+    $w3lPredecessorPath = 'reports/independent-board/w3k-plan-policy-authority-mysql-verification-20260723.json'
+    $w3lPredecessorHash = (Get-FileHash -LiteralPath (Join-Path $RepoRoot $w3lPredecessorPath) -Algorithm SHA256).Hash.ToLowerInvariant()
+    $w3lRequiredArtifacts = @(
+        'docs/independent-board/W3L-SKILL-CONSUME-CREDIT-WRITER-CONTRACT.md',
+        'sql/update_20260723_skill_consume_credit_ledger_v2.sql',
+        'sql/init-manifest.json',
+        'scripts/init-database.ps1',
+        'scripts/verify-database-manifest.ps1',
+        'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/SkillConsumeCreditLedgerV2MigrationContractTest.java'
+    )
+    $w3lSourceArtifacts = @($w3lCreditLedgerReport.sourceSha256.PSObject.Properties | ForEach-Object { [string]$_.Name })
+    $w3lFrozenSurfacePath = 'D:/Spg719/fbsir-eight-seat-board-26.7.20.zip'
+    if (-not (Test-Path -LiteralPath $w3lFrozenSurfacePath -PathType Leaf)) {
+        throw "W3l frozen package evidence is missing: $w3lFrozenSurfacePath"
+    }
+    $w3lFrozenSurfaceHash = (Get-FileHash -LiteralPath $w3lFrozenSurfacePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $w3lAllowedAuthoritySupersession = @(
+        'sql/init-manifest.json',
+        'scripts/verify-independent-board-control-plane.ps1'
+    )
+    $w3lAuthorityOverlaps = @($w3lSourceArtifacts | Where-Object {
+            $null -ne $w3kAuthoritySuccessorReport.sourceSha256.PSObject.Properties[$_]
+        })
+    if ($w3lCreditLedgerReport.schemaVersion -ne 1 `
+            -or $w3lCreditLedgerReport.result -cne 'PASS_LOCAL_DUAL_MYSQL_MIGRATION_SMOKE' `
+            -or $w3lCreditLedgerReport.candidateReadyForCommit -ne $true `
+            -or $w3lCreditLedgerReport.releaseReady -ne $false `
+            -or $w3lCreditLedgerReport.productionChanged -ne $false `
+            -or $w3lCreditLedgerReport.historicalReceiptMutated -ne $false `
+            -or $w3lCreditLedgerReport.predecessorReceipt -cne $w3lPredecessorPath `
+            -or $w3lCreditLedgerReport.predecessorReceiptSha256 -cne $w3lPredecessorHash `
+            -or $w3lCreditLedgerReport.frozenSurface.unchanged -ne $true `
+            -or $w3lCreditLedgerReport.frozenSurface.path -cne $w3lFrozenSurfacePath `
+            -or $w3lCreditLedgerReport.frozenSurface.observedSha256 -cne $w3lCreditLedgerReport.frozenSurface.requiredSha256 `
+            -or $w3lCreditLedgerReport.frozenSurface.observedSha256 -cne $w3lFrozenSurfaceHash `
+            -or $w3lCreditLedgerReport.migration.publicReceipt -cne 'public_init_042' `
+            -or $w3lCreditLedgerReport.migration.version -cne '20260723_skill_consume_credit_ledger_v2_042' `
+            -or $w3lCreditLedgerReport.verification.canonicalCurrentRead -cne 'the default-off 042 current-read passed after first apply on isolated MySQL 8.0.30, including exact column/index/FK/CHECK digests and eight trigger-body hashes' `
+            -or @($w3lCreditLedgerReport.mysql.versions).Count -ne 2 `
+            -or @($w3lCreditLedgerReport.mysql.versions | Where-Object { $_.version -ceq '8.0.30' }).Count -ne 1 `
+            -or @($w3lCreditLedgerReport.mysql.versions | Where-Object { $_.version -ceq '8.4.8' }).Count -ne 1 `
+            -or @($w3lCreditLedgerReport.mysql.versions | Where-Object {
+                ($_.version -cne '8.0.30' -and $_.version -cne '8.4.8') `
+                    -or $_.tableCount -ne 4 -or $_.triggerCount -ne 8 `
+                    -or $_.internalReceiptCount -ne 1 -or $_.productionConnectionUsed -ne $false `
+                    -or $_.firstApplyAndReplay -cne 'PASS' -or $_.rawMetadataDigests -cne 'PASS' `
+                    -or $_.workDirectoryCleaned -ne $true
+            }).Count -ne 0) {
+        throw 'W3l default-off skill-consume credit-ledger migration successor evidence is incomplete or drifted'
+    }
+    foreach ($w3lRequiredArtifact in $w3lRequiredArtifacts) {
+        if ($w3lRequiredArtifact -notin $w3lSourceArtifacts) {
+            throw "W3l migration successor does not bind required artifact: $w3lRequiredArtifact"
+        }
+    }
+    if (@($w3lAuthorityOverlaps | Where-Object { $_ -notin $w3lAllowedAuthoritySupersession }).Count -ne 0 `
+            -or $w3lAuthorityOverlaps.Count -ne $w3lAllowedAuthoritySupersession.Count `
+            -or @($w3lCreditLedgerReport.predecessorSourceSha256.PSObject.Properties).Count -ne $w3lAllowedAuthoritySupersession.Count) {
+        throw 'W3l successor attempts an unapproved W3k authority artifact supersession'
+    }
+    foreach ($w3lSupersededAuthorityArtifact in $w3lAllowedAuthoritySupersession) {
+        if ($w3lSupersededAuthorityArtifact -notin $w3lAuthorityOverlaps) {
+            throw "W3l successor is missing required W3k authority supersession binding: $w3lSupersededAuthorityArtifact"
+        }
+        $w3lPredecessorArtifactHash = $w3lCreditLedgerReport.predecessorSourceSha256.PSObject.Properties[$w3lSupersededAuthorityArtifact].Value
+        $w3kAuthorityArtifactHash = $w3kAuthoritySuccessorReport.sourceSha256.PSObject.Properties[$w3lSupersededAuthorityArtifact].Value
+        if ([string]::IsNullOrWhiteSpace($w3lPredecessorArtifactHash) -or $w3lPredecessorArtifactHash -cne $w3kAuthorityArtifactHash) {
+            throw "W3l successor predecessor binding drifted: $w3lSupersededAuthorityArtifact"
+        }
+    }
+    foreach ($w3lArtifact in @($w3lCreditLedgerReport.sourceSha256.PSObject.Properties)) {
+        $w3lPath = [string]$w3lArtifact.Name
+        $w3lFile = Join-Path $RepoRoot $w3lPath
+        if (-not (Test-Path -LiteralPath $w3lFile -PathType Leaf)) {
+            throw "W3l migration successor artifact is missing: $w3lPath"
+        }
+        $w3lCurrentHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $w3lFile).Hash.ToLowerInvariant()
+        if ($w3lArtifact.Value -cne $w3lCurrentHash) {
+            throw "W3l migration successor artifact binding drifted: $w3lPath"
+        }
+    }
     foreach ($authorityArtifact in @($w3kAuthoritySuccessorReport.sourceSha256.PSObject.Properties)) {
         $authorityPath = [string]$authorityArtifact.Name
+        if ($authorityPath -in $w3lAuthorityOverlaps) {
+            continue
+        }
         $authorityFile = Join-Path $RepoRoot $authorityPath
         if (-not (Test-Path -LiteralPath $authorityFile -PathType Leaf)) {
             throw "W3k controlled-authority successor artifact is missing: $authorityPath"

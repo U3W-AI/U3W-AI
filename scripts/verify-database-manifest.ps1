@@ -363,6 +363,9 @@ $requiredTail = @{
     public_init_037 = "update_20260722_independent_board_attribution_evidence_contract.sql"
     public_init_038 = "update_20260722_independent_board_credit_ledger.sql"
     public_init_039 = "update_20260722_independent_board_plan_policy.sql"
+    public_init_040 = "update_20260723_independent_board_plan_policy_monotonic_chain.sql"
+    public_init_041 = "update_20260723_independent_board_plan_policy_authority.sql"
+    public_init_042 = "update_20260723_skill_consume_credit_ledger_v2.sql"
 }
 foreach ($version in $requiredTail.Keys) {
     $matches = @($manifest.steps | Where-Object { $_.version -eq $version -and $_.file -eq $requiredTail[$version] })
@@ -2028,6 +2031,115 @@ if (-not $creditLedgerOrderingValid) {
     $errors.Add('Independent Board credit-ledger order must be trigger helper, migration+lock, partial-state gate, three-table DDL, exact audits, finalizer, migration call, guarded triggers, locked receipt finalization and helper cleanup')
 }
 
+$skillConsumeCreditLedgerV2SqlPath = Join-Path $sqlRoot 'update_20260723_skill_consume_credit_ledger_v2.sql'
+$skillConsumeCreditLedgerV2ManifestSteps = @($declarativeManifest.steps | Where-Object {
+    [string]$_.version -eq 'public_init_042'
+})
+if ($skillConsumeCreditLedgerV2ManifestSteps.Count -ne 1) {
+    $errors.Add('public_init_042 manifest entry must exist exactly once')
+}
+$skillConsumeCreditLedgerV2Sql = ''
+$skillConsumeCreditLedgerV2Sha256 = ''
+if (-not (Test-Path -LiteralPath $skillConsumeCreditLedgerV2SqlPath -PathType Leaf)) {
+    $errors.Add('Skill consume v2 credit-ledger migration is missing')
+}
+else {
+    $skillConsumeCreditLedgerV2Sql = Get-Content -LiteralPath $skillConsumeCreditLedgerV2SqlPath -Raw -Encoding UTF8
+    $skillConsumeCreditLedgerV2Sha256 = (Get-FileHash -LiteralPath $skillConsumeCreditLedgerV2SqlPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($skillConsumeCreditLedgerV2ManifestSteps.Count -eq 1) {
+        $step = $skillConsumeCreditLedgerV2ManifestSteps[0]
+        if ([string]$step.description -cne 'Independent Board default-off skill-consume v2 credit ledger' -or
+            [string]$step.file -cne 'update_20260723_skill_consume_credit_ledger_v2.sql' -or
+            [string]$step.sha256 -cnotmatch '^[0-9a-f]{64}$' -or
+            -not [string]::Equals([string]$step.sha256, $skillConsumeCreditLedgerV2Sha256, [StringComparison]::Ordinal)) {
+            $errors.Add('public_init_042 manifest description, file or exact SHA-256 has drifted')
+        }
+    }
+}
+$requiredSkillConsumeCreditLedgerV2Needles = @(
+    'Migration: 20260723_skill_consume_credit_ledger_v2_042',
+    'Public manifest step: public_init_042',
+    'Target: exact MySQL Community 8.0.30 or 8.4.8 raw-metadata profiles',
+    "VERSION() NOT IN ('8.0.30', '8.4.8')",
+    "@@version_comment <> 'MySQL Community Server - GPL'",
+    'GET_LOCK(migration_lock_name, 30)',
+    'IS_USED_LOCK(migration_lock_name)',
+    'RELEASE_LOCK(migration_lock_name)',
+    "SET migration_stage = 'running'",
+    "SET migration_stage = 'preflight'",
+    "SET migration_stage = 'table-audit'",
+    "SET migration_stage = 'receipt'",
+    'CREATE TABLE IF NOT EXISTS `fbs_skill_credit_account_v2`',
+    'CREATE TABLE IF NOT EXISTS `fbs_skill_credit_operation_v2`',
+    'CREATE TABLE IF NOT EXISTS `fbs_skill_credit_entry_v2`',
+    'CREATE TABLE IF NOT EXISTS `fbs_skill_credit_projection_bridge_v2`',
+    'UNIQUE KEY `uk_skill_credit_operation_usage` (`usage_record_id`)',
+    'UNIQUE KEY `uk_skill_credit_operation_idempotency` (`idempotency_key`)',
+    'CONSTRAINT `chk_skill_credit_operation_issuer`',
+    '`issuer_type` = ''SERVICE''',
+    '`issuer_id` = ''FBS_SKILL_CONSUME_V1''',
+    'Skill consume v2 ledger partial or receipt-drifted state is not recoverable',
+    'Skill consume v2 ledger exact current-read contract has drifted',
+    'b90f2665d993943fd6df22bcd88f8c1fe89594a1f73be985bcf1b4caba45f4e0',
+    '72adb6082d425d913a1a235ccdc398ed5fc40a0fe7ba1aa0122bdc2f6a3a8d32',
+    'de942cb491f1b4dfc74035c5db0e6c515c184074e4b691ce6ec5c59b14d41c1d',
+    '525f785bcfc3e65823498cc1333331c6d48eb5f023803d360f1895b54463d22c',
+    'Skill consume v2 ledger internal receipt has drifted',
+    'u3w_assert_skill_consume_credit_ledger_v2_triggers_20260723',
+    'Skill consume v2 ledger trigger body contract has drifted',
+    '0cee59ea32e300fb668eae3ab4f7d26053b0d61d96a6e024bc583d487a656d00',
+    'b3b22a50327eef51eae218ef63a88393ac4ec135a8fb697d94bc954b979b91da',
+    '34b5934eedb28e7193d3baece34efe3c2f2b0b6adec4ab751c1e40bcf3b2aa87',
+    '085e2bda7bd883b653f89d645718babe93cec6dca81ad6352aafe9deb6200654',
+    '88f1e0ce3746408140785ce97a97451095c43e229ef57e2c0de81f45b18a2cca',
+    '0f49dad15d89d2d1687de51f60dd6f41b096705e78b321892c02f81e4d131040',
+    'dd4eebc8ae154cebb5a2235cf35a076c86b1e3ba644c7177b9feea2faa0843b4',
+    '058f1aafa0b4e28ccb1ea3eae24f2319f1c63d877fc4aa3816f6b405b743fa1d',
+    'trg_skill_credit_projection_bridge_v2_transition',
+    'trg_skill_credit_projection_bridge_v2_no_delete'
+)
+foreach ($needle in $requiredSkillConsumeCreditLedgerV2Needles) {
+    if (-not $skillConsumeCreditLedgerV2Sql.Contains($needle)) {
+        $errors.Add("Skill consume v2 credit-ledger SQL is missing required contract: $needle")
+    }
+}
+$skillConsumeCreditLedgerV2Tables = @([regex]::Matches(
+    $skillConsumeCreditLedgerV2Sql,
+    '(?im)^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`(?<name>fbs_skill_credit_[a-z0-9_]+)`') |
+    ForEach-Object { $_.Groups['name'].Value })
+$expectedSkillConsumeCreditLedgerV2Tables = @(
+    'fbs_skill_credit_account_v2', 'fbs_skill_credit_operation_v2',
+    'fbs_skill_credit_entry_v2', 'fbs_skill_credit_projection_bridge_v2'
+)
+if (($skillConsumeCreditLedgerV2Tables -join '|') -cne ($expectedSkillConsumeCreditLedgerV2Tables -join '|')) {
+    $errors.Add("Skill consume v2 credit-ledger migration must create exactly four v2 tables in order; found '$($skillConsumeCreditLedgerV2Tables -join ',')'")
+}
+if (@([regex]::Matches($skillConsumeCreditLedgerV2Sql, '(?im)^\s*CONSTRAINT\s+`chk_skill_credit_[^`]+`\s*$')).Count -ne 16 -or
+    @([regex]::Matches($skillConsumeCreditLedgerV2Sql, '(?im)^\s*CONSTRAINT\s+`fk_skill_credit_[^`]+`\s*$')).Count -ne 4 -or
+    @([regex]::Matches($skillConsumeCreditLedgerV2Sql, '(?im)^\s*CREATE\s+TRIGGER\s+(?:IF\s+NOT\s+EXISTS\s+)?`trg_skill_credit_[a-z0-9_]+`')).Count -ne 8) {
+    $errors.Add('Skill consume v2 credit-ledger migration must define exactly sixteen named checks, four restricted foreign keys and eight guarded triggers')
+}
+if ($skillConsumeCreditLedgerV2Sql -match '(?im)^\s*(?:DROP\s+TABLE|ALTER\s+TABLE\s+`?(?:fbs_credit_|fbs_skill_usage_record)|TRUNCATE\s+TABLE)\b' -or
+    $skillConsumeCreditLedgerV2Sql -match '(?i)FOREIGN\s+KEY\s*\(\s*`?usage_record_id`?\s*\)') {
+    $errors.Add('Skill consume v2 credit-ledger migration must remain additive and never couple the legacy usage row by foreign key')
+}
+$skillConsumeCreditLedgerV2Ordering = @(
+    $skillConsumeCreditLedgerV2Sql.IndexOf('SELECT GET_LOCK(migration_lock_name, 30)', [StringComparison]::Ordinal),
+    $skillConsumeCreditLedgerV2Sql.IndexOf('CREATE TABLE IF NOT EXISTS `fbs_skill_credit_account_v2`', [StringComparison]::Ordinal),
+    $skillConsumeCreditLedgerV2Sql.IndexOf("SET migration_stage = 'table-audit'", [StringComparison]::Ordinal),
+    $skillConsumeCreditLedgerV2Sql.IndexOf('CALL `u3w_migrate_skill_consume_credit_ledger_v2_20260723`()$$', [StringComparison]::Ordinal),
+    $skillConsumeCreditLedgerV2Sql.IndexOf('CREATE TRIGGER IF NOT EXISTS `trg_skill_credit_account_v2_transition`', [StringComparison]::Ordinal),
+    $skillConsumeCreditLedgerV2Sql.IndexOf('CALL `u3w_finalize_skill_consume_credit_ledger_v2_20260723`()$$', [StringComparison]::Ordinal)
+)
+if (($skillConsumeCreditLedgerV2Ordering -contains -1) -or
+    $skillConsumeCreditLedgerV2Ordering[1] -le $skillConsumeCreditLedgerV2Ordering[0] -or
+    $skillConsumeCreditLedgerV2Ordering[2] -le $skillConsumeCreditLedgerV2Ordering[1] -or
+    $skillConsumeCreditLedgerV2Ordering[3] -le $skillConsumeCreditLedgerV2Ordering[2] -or
+    $skillConsumeCreditLedgerV2Ordering[4] -le $skillConsumeCreditLedgerV2Ordering[3] -or
+    $skillConsumeCreditLedgerV2Ordering[5] -le $skillConsumeCreditLedgerV2Ordering[4]) {
+    $errors.Add('Skill consume v2 credit-ledger ordering must be lock, four-table DDL, exact audit, migration call, guarded triggers and final receipt call')
+}
+
 $planPolicySqlPath = Join-Path $sqlRoot 'update_20260722_independent_board_plan_policy.sql'
 $planPolicyManifestSteps = @($declarativeManifest.steps | Where-Object {
     [string]$_.version -eq 'public_init_039'
@@ -2631,11 +2743,11 @@ $requiredOauthInitializerIntegrationNeedles = @(
     'idx_connector_binding_receipt_lock_order',
     '504a017fe7c4a8ecc4c60619ea8beaf5e7d4aa207fcffe536ff47b8e1d9919b3',
     'W4b refresh-security exact bounded replay did not pass',
-    'if ($verification -ne 27)'
+    'if ($verification -ne 31)'
 )
 $requiredCreditLedgerInitializerNeedles = @(
     'New-Step "public_init_038" "Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger" (Resolve-SqlFile "update_20260722_independent_board_credit_ledger.sql")',
-    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041')",
+    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041', 'public_init_042')",
     'function Assert-IndependentBoardCreditLedgerCurrentState',
     '$serverProfile = Assert-IndependentBoardOauthServerProfile',
     '$expected = @(3,3,45,45,45,20,20,4,4,9,9,22,22,6,6,1,1,5,0)',
@@ -2651,8 +2763,8 @@ $requiredCreditLedgerInitializerNeedles = @(
     'u3w_assert_independent_board_credit_triggers_20260722',
     'credit-ledger exact bounded replay did not pass',
     "'fbs_credit_account','fbs_credit_operation','fbs_credit_entry'",
-    'if ($verification -ne 27)',
-    'expected twenty-seven representative current tables'
+    'if ($verification -ne 31)',
+    'expected thirty-one representative current tables'
 )
 $requiredManifestCurrentReadNeedles = @(
     'function Assert-PublicDatabaseManifestCurrentState',
@@ -2704,9 +2816,34 @@ foreach ($needle in $requiredCreditLedgerInitializerNeedles) {
         $errors.Add("initializer is missing public_init_038 credit-ledger manifest, recovery or verification contract: $needle")
     }
 }
+$requiredSkillConsumeCreditLedgerV2InitializerNeedles = @(
+    'New-Step "public_init_042" "Independent Board default-off skill-consume v2 credit ledger" (Resolve-SqlFile "update_20260723_skill_consume_credit_ledger_v2.sql")',
+    '[switch]$SkillConsumeCreditLedgerV2CurrentReadOnly',
+    'function Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState',
+    '$resumeRunningSkillConsumeCreditLedgerV2',
+    "`$step.Version -eq 'public_init_042'",
+    'Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState',
+    'eight exact immutable trigger bodies',
+    '0cee59ea32e300fb668eae3ab4f7d26053b0d61d96a6e024bc583d487a656d00',
+    '058f1aafa0b4e28ccb1ea3eae24f2319f1c63d877fc4aa3816f6b405b743fa1d',
+    'b90f2665d993943fd6df22bcd88f8c1fe89594a1f73be985bcf1b4caba45f4e0',
+    '72adb6082d425d913a1a235ccdc398ed5fc40a0fe7ba1aa0122bdc2f6a3a8d32',
+    'de942cb491f1b4dfc74035c5db0e6c515c184074e4b691ce6ec5c59b14d41c1d',
+    '525f785bcfc3e65823498cc1333331c6d48eb5f023803d360f1895b54463d22c',
+    'Independent Board skill-consume v2 ledger exact bounded replay did not pass',
+    "'fbs_skill_credit_account_v2','fbs_skill_credit_operation_v2'",
+    "'fbs_skill_credit_entry_v2','fbs_skill_credit_projection_bridge_v2'",
+    'if ($verification -ne 31)',
+    'expected thirty-one representative current tables'
+)
+foreach ($needle in $requiredSkillConsumeCreditLedgerV2InitializerNeedles) {
+    if (-not $initSource.Contains($needle)) {
+        $errors.Add("initializer is missing public_init_042 skill-consume v2 ledger contract: $needle")
+    }
+}
 $requiredPlanPolicyInitializerNeedles = @(
     'New-Step "public_init_039" "Independent Board immutable plan policy revisions and operation lineage" (Resolve-SqlFile "update_20260722_independent_board_plan_policy.sql")',
-    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041')",
+    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041', 'public_init_042')",
     '[switch]$PlanPolicyCurrentReadOnly',
     'function Assert-IndependentBoardPlanPolicyCurrentState',
     '$resumeRunningPlanPolicy',
@@ -2726,8 +2863,8 @@ $requiredPlanPolicyInitializerNeedles = @(
     'b97cf71e29e1bfbbb58bd9ef58ed8f9334c586de102e43b6bb231e392ac84fad',
     '$expectedTriggerCount = if ($AllowMonotonicChain)',
     '$expectedMonotonicReceiptCount = if ($AllowMonotonicChain)',
-    'if ($verification -ne 27)',
-    'expected twenty-seven representative current tables'
+    'if ($verification -ne 31)',
+    'expected thirty-one representative current tables'
 )
 foreach ($needle in $requiredPlanPolicyInitializerNeedles) {
     if (-not $initSource.Contains($needle)) {
@@ -2768,7 +2905,7 @@ $creditLedgerCurrentReadStart = $initSource.IndexOf(
     'function Assert-IndependentBoardCreditLedgerCurrentState',
     [StringComparison]::Ordinal)
 $creditLedgerCurrentReadEnd = if ($creditLedgerCurrentReadStart -ge 0) {
-    $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly -or $PlanPolicyMonotonicChainCurrentReadOnly) {', $creditLedgerCurrentReadStart, [StringComparison]::Ordinal)
+    $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $SkillConsumeCreditLedgerV2CurrentReadOnly -or $PlanPolicyCurrentReadOnly -or $PlanPolicyMonotonicChainCurrentReadOnly) {', $creditLedgerCurrentReadStart, [StringComparison]::Ordinal)
 } else { -1 }
 $creditLedgerCurrentReadSource = if ($creditLedgerCurrentReadStart -ge 0 -and $creditLedgerCurrentReadEnd -gt $creditLedgerCurrentReadStart) {
     $initSource.Substring($creditLedgerCurrentReadStart, $creditLedgerCurrentReadEnd - $creditLedgerCurrentReadStart)
@@ -2812,7 +2949,7 @@ $planPolicyCurrentReadStart = $initSource.IndexOf(
     'function Assert-IndependentBoardPlanPolicyCurrentState',
     [StringComparison]::Ordinal)
 $planPolicyCurrentReadEnd = if ($planPolicyCurrentReadStart -ge 0) {
-    $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly -or $PlanPolicyMonotonicChainCurrentReadOnly) {', $planPolicyCurrentReadStart, [StringComparison]::Ordinal)
+    $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $SkillConsumeCreditLedgerV2CurrentReadOnly -or $PlanPolicyCurrentReadOnly -or $PlanPolicyMonotonicChainCurrentReadOnly) {', $planPolicyCurrentReadStart, [StringComparison]::Ordinal)
 } else { -1 }
 $planPolicyCurrentReadSource = if ($planPolicyCurrentReadStart -ge 0 -and $planPolicyCurrentReadEnd -gt $planPolicyCurrentReadStart) {
     $initSource.Substring($planPolicyCurrentReadStart, $planPolicyCurrentReadEnd - $planPolicyCurrentReadStart)
@@ -2857,7 +2994,7 @@ foreach ($needle in @(
         $errors.Add("initializer plan-policy current-read is missing exact metadata or lineage contract: $needle")
     }
 }
-$currentReadOnlyBlockStart = $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly -or $PlanPolicyMonotonicChainCurrentReadOnly) {', [StringComparison]::Ordinal)
+$currentReadOnlyBlockStart = $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $SkillConsumeCreditLedgerV2CurrentReadOnly -or $PlanPolicyCurrentReadOnly -or $PlanPolicyMonotonicChainCurrentReadOnly) {', [StringComparison]::Ordinal)
 $currentReadOnlyBlockEnd = if ($currentReadOnlyBlockStart -ge 0) {
     $initSource.IndexOf('$databaseBootstrap =', $currentReadOnlyBlockStart, [StringComparison]::Ordinal)
 } else { -1 }
@@ -3023,11 +3160,13 @@ $result = [pscustomobject]@{
     creditLedgerVersion = "public_init_038"
     planPolicyVersion = "public_init_039"
     planPolicyMonotonicChainVersion = "public_init_040"
+    skillConsumeCreditLedgerV2Version = "public_init_042"
     oauthFoundationSha256 = $oauthFoundationSha256
     oauthProvenanceSha256 = $oauthProvenanceSha256
     oauthConsentIntentSha256 = $oauthConsentIntentSha256
     oauthRefreshSecuritySha256 = $oauthRefreshSecuritySha256
     creditLedgerSha256 = $creditLedgerSha256
+    skillConsumeCreditLedgerV2Sha256 = $skillConsumeCreditLedgerV2Sha256
     planPolicySha256 = $planPolicySha256
     planPolicyMonotonicChainSha256 = $planPolicyMonotonicChainSha256
     candidateMenuMigrationId = $candidateMenuMigrationId

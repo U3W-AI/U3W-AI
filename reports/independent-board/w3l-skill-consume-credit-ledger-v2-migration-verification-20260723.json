@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "result": "PASS_LOCAL_DUAL_MYSQL_MIGRATION_SMOKE",
+  "candidateReadyForCommit": true,
+  "releaseReady": false,
+  "productionChanged": false,
+  "historicalReceiptMutated": false,
+  "predecessorReceipt": "reports/independent-board/w3k-plan-policy-authority-mysql-verification-20260723.json",
+  "predecessorReceiptSha256": "9ebe369e7f0300a2d471f8e4b17f9e08e1e07f94084ec731cf7320cb56cdab42",
+  "predecessorSourceSha256": {
+    "sql/init-manifest.json": "96191eb5bc8268e618a0183e73d999fe786a49cd98b28d6af4f85391caa2d4ac",
+    "scripts/verify-independent-board-control-plane.ps1": "faeb715688262fe526971eaa2dfc3bcae29bcdae3348a595bffc661137b3ceec"
+  },
+  "frozenSurface": {
+    "path": "D:/Spg719/fbsir-eight-seat-board-26.7.20.zip",
+    "requiredSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "observedSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "unchanged": true
+  },
+  "migration": {
+    "publicReceipt": "public_init_042",
+    "version": "20260723_skill_consume_credit_ledger_v2_042",
+    "mode": "default_off_schema_only",
+    "v1Boundary": "fbs_skill_credit_* remains untouched; v1 and v2 are mutually exclusive at writer activation",
+    "receiptStateMachine": "RUNNING public receipt, preflight, table-audit, top-level trigger creation, finalized internal receipt, then APPLIED by the canonical initializer",
+    "rollbackBoundary": "no destructive rollback or historical table rewrite is included"
+  },
+  "verification": {
+    "javaMigrationContract": {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "command": "mvn -o -pl FBSir-business -Dtest=SkillConsumeCreditLedgerV2MigrationContractTest test"
+    },
+    "manifestContract": "scripts/verify-database-manifest.ps1 passed with 42 automatic public migration steps and 3 manual steps",
+    "dualMysqlExecution": "isolated local loopback MySQL only; each version passed first apply and bounded replay with the exact four v2 tables, eight trigger bodies, four raw metadata digests, one internal receipt, no retained helper routines, and a released migration lock before cleanup",
+    "canonicalCurrentRead": "the default-off 042 current-read passed after first apply on isolated MySQL 8.0.30, including exact column/index/FK/CHECK digests and eight trigger-body hashes"
+  },
+  "mysql": {
+    "versions": [
+      {
+        "version": "8.0.30",
+        "tableCount": 4,
+        "triggerCount": 8,
+        "internalReceiptCount": 1,
+        "firstApplyAndReplay": "PASS",
+        "rawMetadataDigests": "PASS",
+        "productionConnectionUsed": false,
+        "workDirectoryCleaned": true
+      },
+      {
+        "version": "8.4.8",
+        "tableCount": 4,
+        "triggerCount": 8,
+        "internalReceiptCount": 1,
+        "firstApplyAndReplay": "PASS",
+        "rawMetadataDigests": "PASS",
+        "productionConnectionUsed": false,
+        "workDirectoryCleaned": true
+      }
+    ]
+  },
+  "notProven": [
+    "v2 credit writer implementation, transaction integration, replay compensation, and v1 reciprocal fencing",
+    "all legacy points writers are conditional or fenced against a concurrent v2 authority transition",
+    "real project database rehearsal, production migration, deployment, approval, rollback, or cutover",
+    "me.u3w.com and admin.u3w.com production runtime, API2 binding, WorkBuddy official-entry same-binding, or natural traffic attribution"
+  ],
+  "sourceSha256": {
+    "docs/independent-board/W3L-SKILL-CONSUME-CREDIT-WRITER-CONTRACT.md": "b447347f20eca2da30a1e909141d2a6e15e38367ca5c7bfdcaf600043b33a3d6",
+    "sql/update_20260723_skill_consume_credit_ledger_v2.sql": "573289edce85f41c5ef0a5bba9c1775c7c378d21c39bdb06121b8fcf7b7fa9e0",
+    "sql/init-manifest.json": "4e9716d8b50df8cfefc5fb05b684867ec21abdaf245f5bba849e162fa07bd3e9",
+    "scripts/init-database.ps1": "35d03cc75f36aed0ba92d8e65688d111913824f43884dd26ff9e29340ea443e8",
+    "scripts/verify-database-manifest.ps1": "238b1af61e6af9125bf3d3a66ce9c9f62346b7c5162091e8396a9d314b960fc7",
+    "scripts/verify-independent-board-control-plane.ps1": "a6500662d317d99d0a649df6eff0cd2155d08b302ad3ff45dcce382d4300883a",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/SkillConsumeCreditLedgerV2MigrationContractTest.java": "150fb82e53c0cdc8ca12d7b5db04b8157a3e1ae2c41d7eacc81c6610a5f84c69"
+  }
+}

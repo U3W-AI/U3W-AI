@@ -41,7 +41,8 @@
     { "version": "public_init_038", "description": "Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger", "file": "update_20260722_independent_board_credit_ledger.sql", "sha256": "8d0b2ee9ae6c31f75d8a0339a486c19b2864e200dc76f2abd54f229f727b7c18" },
     { "version": "public_init_039", "description": "Independent Board immutable plan policy revisions and operation lineage", "file": "update_20260722_independent_board_plan_policy.sql", "sha256": "907ae8dd61cff476a68c07ce9fc0647f269ccb8422e0ffc851fbb91dc39eb8e6" },
     { "version": "public_init_040", "description": "Independent Board plan policy database monotonic-chain guards", "file": "update_20260723_independent_board_plan_policy_monotonic_chain.sql", "sha256": "a5d79ab2e33a390528cd12fa0705d3d3f991e93dca79d43f2fffdf0700d903b3" },
-    { "version": "public_init_041", "description": "Independent Board plan policy controlled procedure authority", "file": "update_20260723_independent_board_plan_policy_authority.sql", "sha256": "e7daa08d8d87b81479520b5689192f8275828d5112b097797b927b06fb858b4b" }
+    { "version": "public_init_041", "description": "Independent Board plan policy controlled procedure authority", "file": "update_20260723_independent_board_plan_policy_authority.sql", "sha256": "e7daa08d8d87b81479520b5689192f8275828d5112b097797b927b06fb858b4b" },
+    { "version": "public_init_042", "description": "Independent Board default-off skill-consume v2 credit ledger", "file": "update_20260723_skill_consume_credit_ledger_v2.sql", "sha256": "573289edce85f41c5ef0a5bba9c1775c7c378d21c39bdb06121b8fcf7b7fa9e0" }
   ],
   "manualMigrations": [
     {

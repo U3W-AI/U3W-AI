@@ -7,6 +7,7 @@ param(
     [switch]$ManifestJson,
     [switch]$CurrentReadOnly,
     [switch]$CreditLedgerCurrentReadOnly,
+    [switch]$SkillConsumeCreditLedgerV2CurrentReadOnly,
     [switch]$PlanPolicyCurrentReadOnly,
     [switch]$PlanPolicyMonotonicChainCurrentReadOnly
 )
@@ -24,11 +25,11 @@ if ($LoginPath -notmatch '^[A-Za-z0-9_.-]+$') {
 if ($Database -notmatch '^[A-Za-z0-9_]+$' -or $Database.Length -gt 64) {
     throw "Database must be 1-64 characters and contain only letters, numbers, and underscore."
 }
-if (($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly -or $PlanPolicyMonotonicChainCurrentReadOnly) -and ($DryRun -or $ManifestJson)) {
+if (($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $SkillConsumeCreditLedgerV2CurrentReadOnly -or $PlanPolicyCurrentReadOnly -or $PlanPolicyMonotonicChainCurrentReadOnly) -and ($DryRun -or $ManifestJson)) {
     throw "Current-read modes cannot be combined with DryRun or ManifestJson."
 }
-if (@($CurrentReadOnly, $CreditLedgerCurrentReadOnly, $PlanPolicyCurrentReadOnly, $PlanPolicyMonotonicChainCurrentReadOnly | Where-Object { $_ }).Count -gt 1) {
-    throw "CurrentReadOnly, CreditLedgerCurrentReadOnly, PlanPolicyCurrentReadOnly, and PlanPolicyMonotonicChainCurrentReadOnly are mutually exclusive."
+if (@($CurrentReadOnly, $CreditLedgerCurrentReadOnly, $SkillConsumeCreditLedgerV2CurrentReadOnly, $PlanPolicyCurrentReadOnly, $PlanPolicyMonotonicChainCurrentReadOnly | Where-Object { $_ }).Count -gt 1) {
+    throw "CurrentReadOnly, CreditLedgerCurrentReadOnly, SkillConsumeCreditLedgerV2CurrentReadOnly, PlanPolicyCurrentReadOnly, and PlanPolicyMonotonicChainCurrentReadOnly are mutually exclusive."
 }
 
 function Resolve-SqlFile {
@@ -104,6 +105,7 @@ $steps = @(
     New-Step "public_init_039" "Independent Board immutable plan policy revisions and operation lineage" (Resolve-SqlFile "update_20260722_independent_board_plan_policy.sql")
     New-Step "public_init_040" "Independent Board plan policy database monotonic-chain guards" (Resolve-SqlFile "update_20260723_independent_board_plan_policy_monotonic_chain.sql")
     New-Step "public_init_041" "Independent Board plan policy controlled procedure authority" (Resolve-SqlFile "update_20260723_independent_board_plan_policy_authority.sql")
+    New-Step "public_init_042" "Independent Board default-off skill-consume v2 credit ledger" (Resolve-SqlFile "update_20260723_skill_consume_credit_ledger_v2.sql")
 )
 
 if (-not (Test-Path -LiteralPath $DeclarativeManifestPath -PathType Leaf)) {
@@ -130,7 +132,7 @@ for ($index = 0; $index -lt $steps.Count; $index++) {
         [string]$declared.file -ne $executable.File.Name) {
         throw "Declarative manifest drift at position $($index + 1): expected '$($executable.Version)|$($executable.Description)|$($executable.File.Name)'."
     }
-    if ($executable.Version -in @('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041')) {
+    if ($executable.Version -in @('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041', 'public_init_042')) {
         $declaredSha256 = [string]$declared.sha256
         $actualSha256 = (Get-FileHash -LiteralPath $executable.File.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($declaredSha256 -notmatch '^[0-9a-f]{64}$' -or
@@ -2511,6 +2513,118 @@ SELECT CONCAT_WS('|',
     Write-Host "PASS Independent Board credit ledger exact raw current-read on MySQL $($serverProfile.Version) (five-column sys_user dependency, zero projection mismatch, three tables, 45 typed columns, 20 full visible indexes, four RESTRICT foreign keys, 22 enforced CHECK clauses, six immutable trigger bodies and internal receipt)."
 }
 
+function Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState {
+    $serverProfile = Assert-IndependentBoardOauthServerProfile
+    $state = Invoke-MySqlText -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema=DATABASE() AND table_type='BASE TABLE'
+     AND engine='InnoDB' AND table_collation='utf8mb4_unicode_ci'
+     AND table_name IN ('fbs_skill_credit_account_v2','fbs_skill_credit_operation_v2',
+                        'fbs_skill_credit_entry_v2','fbs_skill_credit_projection_bridge_v2')),
+  (SELECT COUNT(*) FROM information_schema.referential_constraints
+   WHERE constraint_schema=DATABASE()
+     AND table_name IN ('fbs_skill_credit_account_v2','fbs_skill_credit_operation_v2',
+                        'fbs_skill_credit_entry_v2','fbs_skill_credit_projection_bridge_v2')
+     AND update_rule='RESTRICT' AND delete_rule='RESTRICT'),
+  (SELECT COUNT(*) FROM information_schema.table_constraints tc
+   INNER JOIN information_schema.check_constraints cc
+     ON cc.constraint_schema=tc.constraint_schema AND cc.constraint_name=tc.constraint_name
+   WHERE tc.constraint_schema=DATABASE() AND tc.constraint_type='CHECK' AND tc.enforced='YES'
+     AND tc.table_name IN ('fbs_skill_credit_account_v2','fbs_skill_credit_operation_v2',
+                           'fbs_skill_credit_entry_v2','fbs_skill_credit_projection_bridge_v2')),
+  (SELECT COUNT(*) FROM information_schema.triggers
+   WHERE trigger_schema=DATABASE()
+     AND event_object_table IN ('fbs_skill_credit_account_v2','fbs_skill_credit_operation_v2',
+                                'fbs_skill_credit_entry_v2','fbs_skill_credit_projection_bridge_v2')),
+  (SELECT COUNT(*) FROM information_schema.triggers
+   WHERE trigger_schema=DATABASE() AND action_timing='BEFORE' AND action_orientation='ROW'
+     AND trigger_name IN ('trg_skill_credit_account_v2_transition','trg_skill_credit_account_v2_no_delete',
+                          'trg_skill_credit_operation_v2_no_update','trg_skill_credit_operation_v2_no_delete',
+                          'trg_skill_credit_entry_v2_no_update','trg_skill_credit_entry_v2_no_delete',
+                          'trg_skill_credit_projection_bridge_v2_transition',
+                          'trg_skill_credit_projection_bridge_v2_no_delete')),
+  (SELECT COUNT(*) FROM (
+     SELECT trigger_name, event_object_table, event_manipulation, action_timing,
+            action_orientation, action_condition, action_order,
+            SHA2(CAST(action_statement AS BINARY), 256) AS action_sha256
+     FROM information_schema.triggers
+     WHERE trigger_schema=DATABASE()
+       AND event_object_table IN ('fbs_skill_credit_account_v2','fbs_skill_credit_operation_v2',
+                                  'fbs_skill_credit_entry_v2','fbs_skill_credit_projection_bridge_v2')
+   ) AS v2_triggers
+   WHERE action_timing='BEFORE' AND action_orientation='ROW'
+     AND action_condition IS NULL AND action_order=1
+     AND ((trigger_name='trg_skill_credit_account_v2_transition'
+           AND event_object_table='fbs_skill_credit_account_v2' AND event_manipulation='UPDATE'
+           AND CAST(action_sha256 AS BINARY)=CAST('0cee59ea32e300fb668eae3ab4f7d26053b0d61d96a6e024bc583d487a656d00' AS BINARY))
+       OR (trigger_name='trg_skill_credit_account_v2_no_delete'
+           AND event_object_table='fbs_skill_credit_account_v2' AND event_manipulation='DELETE'
+           AND CAST(action_sha256 AS BINARY)=CAST('b3b22a50327eef51eae218ef63a88393ac4ec135a8fb697d94bc954b979b91da' AS BINARY))
+       OR (trigger_name='trg_skill_credit_operation_v2_no_update'
+           AND event_object_table='fbs_skill_credit_operation_v2' AND event_manipulation='UPDATE'
+           AND CAST(action_sha256 AS BINARY)=CAST('34b5934eedb28e7193d3baece34efe3c2f2b0b6adec4ab751c1e40bcf3b2aa87' AS BINARY))
+       OR (trigger_name='trg_skill_credit_operation_v2_no_delete'
+           AND event_object_table='fbs_skill_credit_operation_v2' AND event_manipulation='DELETE'
+           AND CAST(action_sha256 AS BINARY)=CAST('085e2bda7bd883b653f89d645718babe93cec6dca81ad6352aafe9deb6200654' AS BINARY))
+       OR (trigger_name='trg_skill_credit_entry_v2_no_update'
+           AND event_object_table='fbs_skill_credit_entry_v2' AND event_manipulation='UPDATE'
+           AND CAST(action_sha256 AS BINARY)=CAST('88f1e0ce3746408140785ce97a97451095c43e229ef57e2c0de81f45b18a2cca' AS BINARY))
+       OR (trigger_name='trg_skill_credit_entry_v2_no_delete'
+           AND event_object_table='fbs_skill_credit_entry_v2' AND event_manipulation='DELETE'
+           AND CAST(action_sha256 AS BINARY)=CAST('0f49dad15d89d2d1687de51f60dd6f41b096705e78b321892c02f81e4d131040' AS BINARY))
+       OR (trigger_name='trg_skill_credit_projection_bridge_v2_transition'
+           AND event_object_table='fbs_skill_credit_projection_bridge_v2' AND event_manipulation='UPDATE'
+           AND CAST(action_sha256 AS BINARY)=CAST('dd4eebc8ae154cebb5a2235cf35a076c86b1e3ba644c7177b9feea2faa0843b4' AS BINARY))
+       OR (trigger_name='trg_skill_credit_projection_bridge_v2_no_delete'
+           AND event_object_table='fbs_skill_credit_projection_bridge_v2' AND event_manipulation='DELETE'
+           AND CAST(action_sha256 AS BINARY)=CAST('058f1aafa0b4e28ccb1ea3eae24f2319f1c63d877fc4aa3816f6b405b743fa1d' AS BINARY)))),
+  (SELECT COUNT(*) FROM information_schema.key_column_usage
+   WHERE constraint_schema=DATABASE() AND table_name='fbs_skill_credit_operation_v2'
+     AND referenced_table_name='fbs_skill_usage_record'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='public_init_042'
+     AND description='APPLIED:Independent Board default-off skill-consume v2 credit ledger'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='20260723_skill_consume_credit_ledger_v2_042'
+     AND description='Independent Board default-off skill-consume v2 credit ledger'));
+"@
+    $parts = @($state.Split('|'))
+    $expected = @(4,4,16,8,8,8,0,1,1)
+    if ($parts.Count -ne $expected.Count) {
+        throw "Skill consume v2 ledger current-read returned an invalid field count: '$state'."
+    }
+    for ($index = 0; $index -lt $expected.Count; $index++) {
+        if ($parts[$index] -notmatch '^\d+$' -or [int]$parts[$index] -ne $expected[$index]) {
+            throw "Skill consume v2 ledger current-read drift at field $($index + 1): expected $($expected[$index]), found '$($parts[$index])'."
+        }
+    }
+    $metadataState = Invoke-MySqlText -Sql @"
+SET SESSION group_concat_max_len=1048576;
+SELECT CONCAT_WS('|',
+ (SELECT SHA2(GROUP_CONCAT(CONCAT('T:',HEX(CAST(table_name AS BINARY)),'|O:',LPAD(ordinal_position,3,'0'),'|N:',HEX(CAST(column_name AS BINARY)),'|Y:',HEX(CAST(column_type AS BINARY)),'|U:',HEX(CAST(is_nullable AS BINARY)),'|D:',IF(column_default IS NULL,'N',CONCAT('V:',HEX(CAST(column_default AS BINARY)))),'|C:',IF(character_set_name IS NULL,'N',CONCAT('V:',HEX(CAST(character_set_name AS BINARY)))),'|L:',IF(collation_name IS NULL,'N',CONCAT('V:',HEX(CAST(collation_name AS BINARY)))),'|E:',HEX(CAST(extra AS BINARY)),'|G:',IF(generation_expression IS NULL,'N',CONCAT('V:',HEX(CAST(generation_expression AS BINARY))))) ORDER BY table_name,ordinal_position SEPARATOR 0x0A),256) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name IN ('fbs_skill_credit_account_v2','fbs_skill_credit_operation_v2','fbs_skill_credit_entry_v2','fbs_skill_credit_projection_bridge_v2')),
+ (SELECT SHA2(GROUP_CONCAT(CONCAT('T:',HEX(CAST(table_name AS BINARY)),'|I:',HEX(CAST(index_name AS BINARY)),'|U:',non_unique,'|Y:',HEX(CAST(index_type AS BINARY)),'|V:',HEX(CAST(is_visible AS BINARY)),'|S:',seq_in_index,'|N:',IF(column_name IS NULL,'N',CONCAT('V:',HEX(CAST(column_name AS BINARY)))),'|X:',IF(expression IS NULL,'N',CONCAT('V:',HEX(CAST(expression AS BINARY)))),'|C:',IF(collation IS NULL,'N',CONCAT('V:',HEX(CAST(collation AS BINARY)))),'|P:',IF(sub_part IS NULL,'N',CONCAT('V:',sub_part)),'|Q:',HEX(CAST(nullable AS BINARY))) ORDER BY table_name,index_name,seq_in_index SEPARATOR 0x0A),256) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name IN ('fbs_skill_credit_account_v2','fbs_skill_credit_operation_v2','fbs_skill_credit_entry_v2','fbs_skill_credit_projection_bridge_v2')),
+ (SELECT SHA2(GROUP_CONCAT(CONCAT('T:',HEX(CAST(rc.table_name AS BINARY)),'|C:',HEX(CAST(rc.constraint_name AS BINARY)),'|S:',IF(rc.unique_constraint_schema=DATABASE(),'SAME','OTHER'),'|K:',HEX(CAST(rc.unique_constraint_name AS BINARY)),'|R:',HEX(CAST(rc.referenced_table_name AS BINARY)),'|U:',HEX(CAST(rc.update_rule AS BINARY)),'|D:',HEX(CAST(rc.delete_rule AS BINARY)),'|M:',HEX(CAST(rc.match_option AS BINARY)),'|O:',kcu.ordinal_position,'|N:',HEX(CAST(kcu.column_name AS BINARY)),'|Q:',IF(kcu.referenced_table_schema=DATABASE(),'SAME','OTHER'),'|P:',HEX(CAST(kcu.referenced_column_name AS BINARY)),'|I:',IF(kcu.position_in_unique_constraint IS NULL,'N',CONCAT('V:',kcu.position_in_unique_constraint))) ORDER BY rc.table_name,rc.constraint_name,kcu.ordinal_position SEPARATOR 0x0A),256) FROM information_schema.referential_constraints rc INNER JOIN information_schema.key_column_usage kcu ON kcu.constraint_schema=rc.constraint_schema AND kcu.table_name=rc.table_name AND kcu.constraint_name=rc.constraint_name WHERE rc.constraint_schema=DATABASE() AND rc.unique_constraint_schema=DATABASE() AND kcu.referenced_table_schema=DATABASE() AND rc.table_name IN ('fbs_skill_credit_account_v2','fbs_skill_credit_operation_v2','fbs_skill_credit_entry_v2','fbs_skill_credit_projection_bridge_v2')),
+ (SELECT SHA2(GROUP_CONCAT(CONCAT('T:',HEX(CAST(tc.table_name AS BINARY)),'|C:',HEX(CAST(tc.constraint_name AS BINARY)),'|E:',HEX(CAST(tc.enforced AS BINARY)),'|X:',HEX(CAST(cc.check_clause AS BINARY))) ORDER BY tc.table_name,tc.constraint_name SEPARATOR 0x0A),256) FROM information_schema.table_constraints tc INNER JOIN information_schema.check_constraints cc ON cc.constraint_schema=tc.constraint_schema AND cc.constraint_name=tc.constraint_name WHERE tc.constraint_schema=DATABASE() AND tc.constraint_type='CHECK' AND tc.table_name IN ('fbs_skill_credit_account_v2','fbs_skill_credit_operation_v2','fbs_skill_credit_entry_v2','fbs_skill_credit_projection_bridge_v2')));
+"@
+    $expectedMetadata = @(
+        'b90f2665d993943fd6df22bcd88f8c1fe89594a1f73be985bcf1b4caba45f4e0',
+        '72adb6082d425d913a1a235ccdc398ed5fc40a0fe7ba1aa0122bdc2f6a3a8d32',
+        'de942cb491f1b4dfc74035c5db0e6c515c184074e4b691ce6ec5c59b14d41c1d',
+        '525f785bcfc3e65823498cc1333331c6d48eb5f023803d360f1895b54463d22c'
+    )
+    $metadataParts = @($metadataState.Split('|'))
+    if ($metadataParts.Count -ne $expectedMetadata.Count) {
+        throw "Skill consume v2 ledger raw metadata current-read returned an invalid field count: '$metadataState'."
+    }
+    for ($index = 0; $index -lt $expectedMetadata.Count; $index++) {
+        if ($metadataParts[$index] -cne $expectedMetadata[$index]) {
+            throw "Skill consume v2 ledger raw metadata drift at field $($index + 1): expected $($expectedMetadata[$index]), found '$($metadataParts[$index])'."
+        }
+    }
+    Write-Host "PASS Independent Board skill-consume v2 ledger current-read on MySQL $($serverProfile.Version) (four additive tables, exact column/index/FK/CHECK metadata, eight exact immutable trigger bodies, zero legacy usage FK, public and internal receipts)."
+}
+
 function Assert-IndependentBoardPlanPolicyCurrentState {
     param(
         [switch]$AllowMonotonicChain,
@@ -2790,7 +2904,7 @@ SELECT CONCAT_WS('|',
     Write-Host "PASS Independent Board plan-policy controlled procedure authority current-read on MySQL $($serverProfile.Version)."
 }
 
-if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly -or $PlanPolicyMonotonicChainCurrentReadOnly) {
+if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $SkillConsumeCreditLedgerV2CurrentReadOnly -or $PlanPolicyCurrentReadOnly -or $PlanPolicyMonotonicChainCurrentReadOnly) {
     $currentReadLockSession = $null
     $currentReadLockAcquired = $false
     try {
@@ -2821,6 +2935,10 @@ SELECT CONCAT_WS('|', @u3w_manifest_lock_name, CHAR_LENGTH(@u3w_manifest_lock_na
             Assert-IndependentBoardPlanPolicyCurrentState
             Write-Host "Independent Board plan-policy current-read verification complete for '$Database'. No database write was requested."
         }
+        elseif ($SkillConsumeCreditLedgerV2CurrentReadOnly) {
+            Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState
+            Write-Host "Independent Board skill-consume v2 ledger current-read verification complete for '$Database'. No database write was requested."
+        }
         elseif ($CreditLedgerCurrentReadOnly) {
             Assert-IndependentBoardCreditLedgerCurrentState
             Write-Host "Independent Board credit-ledger current-read verification complete for '$Database'. No database write was requested."
@@ -2836,6 +2954,7 @@ SELECT CONCAT_WS('|', @u3w_manifest_lock_name, CHAR_LENGTH(@u3w_manifest_lock_na
             Assert-IndependentBoardOauthRefreshSecurityCurrentState
             Assert-IndependentBoardAttributionEvidenceCurrentState
             Assert-IndependentBoardCreditLedgerCurrentState
+            Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState
             Assert-IndependentBoardPlanPolicyCurrentState
             Assert-PublicDatabaseManifestCurrentState
             Write-Host "Independent Board current-read verification complete for '$Database'. No database write was requested."
@@ -2927,6 +3046,9 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
         $resumeRunningPlanPolicyAuthority =
             $step.Version -eq 'public_init_041' -and
             $state -eq "RUNNING:$($step.Description)"
+        $resumeRunningSkillConsumeCreditLedgerV2 =
+            $step.Version -eq 'public_init_042' -and
+            $state -eq "RUNNING:$($step.Description)"
         $resumeRunningOauthAdditive =
             $resumeRunningOauthProvenance -or
             $resumeRunningOauthConsentIntent -or
@@ -2937,7 +3059,8 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             $resumeRunningCreditLedger -or
             $resumeRunningPlanPolicy -or
             $resumeRunningPlanPolicyMonotonicChain -or
-            $resumeRunningPlanPolicyAuthority
+            $resumeRunningPlanPolicyAuthority -or
+            $resumeRunningSkillConsumeCreditLedgerV2
         if ($state -and -not $resumeRunningAdditive) {
             throw "Step $($step.Version) is in state '$state'. Do not retry a partially applied DDL step; use a fresh database or reviewed recovery."
         }
@@ -3002,6 +3125,9 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             $null = Assert-IndependentBoardOauthServerProfile
             Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChain
         }
+        if ($step.Version -eq 'public_init_042') {
+            $null = Assert-IndependentBoardOauthServerProfile
+        }
 
         try {
             if (-not $resumeRunningAdditive) {
@@ -3048,6 +3174,9 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             }
             if ($step.Version -eq 'public_init_041') {
                 Assert-IndependentBoardPlanPolicyAuthorityCurrentState
+            }
+            if ($step.Version -eq 'public_init_042') {
+                Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState
             }
             Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
         }
@@ -3260,6 +3389,21 @@ DROP PROCEDURE IF EXISTS u3w_finalize_ib_plan_policy_authority_20260723;
                     Write-Warning "Independent Board plan-policy controlled-procedure authority exact bounded replay did not pass; recording FAILED."
                 }
             }
+            if ($step.Version -eq 'public_init_042') {
+                try {
+                    # The 042 SQL accepts only an empty v2 namespace or a complete
+                    # exact four-table state with no/one internal receipt. A retry
+                    # therefore cannot repair partial DDL by deleting or rebuilding.
+                    Invoke-MySqlFile -File $step.File
+                    Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState
+                    Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
+                    Write-Warning "Reconciled $($step.Version) from its exact completed v2 ledger state after one bounded replay."
+                    continue
+                }
+                catch {
+                    Write-Warning "Independent Board skill-consume v2 ledger exact bounded replay did not pass; recording FAILED."
+                }
+            }
             try {
                 Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='FAILED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
             }
@@ -3280,6 +3424,7 @@ DROP PROCEDURE IF EXISTS u3w_finalize_ib_plan_policy_authority_20260723;
     Assert-IndependentBoardOauthRefreshSecurityCurrentState
     Assert-IndependentBoardAttributionEvidenceCurrentState
     Assert-IndependentBoardCreditLedgerCurrentState
+    Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState
     Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChain
     Assert-IndependentBoardPlanPolicyAuthorityCurrentState
 
@@ -3294,10 +3439,12 @@ WHERE table_schema='$Database'
                       'fbs_oauth_client','fbs_oauth_authorization_request','fbs_oauth_authorization_code',
                       'fbs_oauth_token_family','fbs_oauth_token','fbs_oauth_receipt',
                       'fbs_credit_account','fbs_credit_operation','fbs_credit_entry',
+                      'fbs_skill_credit_account_v2','fbs_skill_credit_operation_v2',
+                      'fbs_skill_credit_entry_v2','fbs_skill_credit_projection_bridge_v2',
                       'fbs_plan_policy_revision_receipt','fbs_plan_policy_head','fbs_usage_operation_policy_receipt');
 "@)
-    if ($verification -ne 27) {
-        throw "Database verification failed: expected twenty-seven representative current tables; found $verification."
+    if ($verification -ne 31) {
+        throw "Database verification failed: expected thirty-one representative current tables; found $verification."
     }
 
     $hostTypeColumn = [int](Invoke-MySqlText -Sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$Database' AND table_name='ws_host_whitelist' AND column_name='host_type';")
