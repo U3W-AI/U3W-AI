@@ -9,6 +9,7 @@ import com.wx.fbsir.business.board.domain.BoardProductEntitlement;
 import com.wx.fbsir.business.board.domain.BoardProductPlan;
 import com.wx.fbsir.business.board.domain.BoardUsageBudget;
 import com.wx.fbsir.business.board.domain.BoardUsageOperation;
+import com.wx.fbsir.business.board.domain.BoardOperationAuditRow;
 import com.wx.fbsir.business.board.domain.BoardUsageOperationPolicyReceipt;
 import com.wx.fbsir.business.board.plan.domain.BoardPlanPolicySnapshot;
 import java.time.LocalDate;
@@ -167,9 +168,9 @@ public interface IndependentBoardMapper {
                               @Param("operationId") String operationId,
                               @Param("remainingCount") Integer remainingCount);
 
-    List<BoardUsageOperation> selectOperationsByTenant(@Param("tenantId") Long tenantId,
-                                                      @Param("productCode") String productCode,
-                                                      @Param("metricCode") String metricCode);
+    List<BoardOperationAuditRow> selectOperationsByTenant(@Param("tenantId") Long tenantId,
+                                                           @Param("productCode") String productCode,
+                                                           @Param("metricCode") String metricCode);
 
     List<BoardUsageOperation> selectRecentOperationsByTenantAndUser(
             @Param("tenantId") Long tenantId,

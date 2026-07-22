@@ -15,7 +15,8 @@ const ENTITLEMENT_KEYS = Object.freeze([
 ])
 const OPERATION_KEYS = Object.freeze([
   'operationId', 'tenantId', 'memberId', 'userId', 'status',
-  'effectivePlanCode', 'bucketDate', 'agendaCount', 'seatCount',
+  'effectivePlanCode', 'policyReceiptId', 'policyVersion', 'policyDigest', 'policyPlanName',
+  'bucketDate', 'agendaCount', 'seatCount',
   'remainingCount', 'createdAt', 'updatedAt', 'completedAt'
 ])
 const ENTITLEMENT_RECEIPT_KEYS = Object.freeze([
@@ -275,6 +276,16 @@ export function parseEntitlementList(value, expectedTenantId) {
   }))
 }
 
+function isValidPolicyPlanName(value) {
+  const codePoints = typeof value === 'string' ? [...value] : []
+  if (codePoints.length === 0 || codePoints.length > 128) {
+    return false
+  }
+  return !/[\p{Z}\s]/u.test(codePoints[0])
+    && !/[\p{Z}\s]/u.test(codePoints.at(-1))
+    && !FORBIDDEN_PLAN_NAME_TEXT.test(value)
+}
+
 export function parseProductPlanCatalog(value) {
   if (!Array.isArray(value) || value.length !== BOARD_PLAN_CODES.length) {
     fail('套餐目录必须包含且仅包含当前受支持的独董会套餐')
@@ -331,6 +342,10 @@ export function parseOperationEnvelope(value, expectedTenantId) {
         || !isPositiveSafeInteger(item.userId)
         || !OPERATION_STATUSES.includes(item.status)
         || !BOARD_PLAN_CODES.includes(item.effectivePlanCode)
+        || !/^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/.test(item.policyReceiptId)
+        || !isPositiveSafeInteger(item.policyVersion)
+        || !/^[0-9a-f]{64}$/.test(item.policyDigest)
+        || !isValidPolicyPlanName(item.policyPlanName)
         || !isPositiveSafeInteger(item.agendaCount)
         || !isPositiveSafeInteger(item.seatCount)
         || !isNonNegativeSafeInteger(item.remainingCount)) {

@@ -6,6 +6,7 @@ import com.wx.fbsir.business.board.domain.BoardEnterpriseMemberScope;
 import com.wx.fbsir.business.board.domain.BoardEntitlementReceipt;
 import com.wx.fbsir.business.board.domain.BoardProductEntitlement;
 import com.wx.fbsir.business.board.domain.BoardProductPlan;
+import com.wx.fbsir.business.board.domain.BoardOperationAuditRow;
 import com.wx.fbsir.business.board.domain.BoardUsageOperation;
 import com.wx.fbsir.business.board.dto.BoardConnectorBindingKey;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
@@ -1130,24 +1131,30 @@ class IndependentBoardHttpSecurityIntegrationTest {
     @Test
     void operationAuditRequiresBothGlobalAdminRoleAndFinePermission() throws Exception {
         mockMvc.perform(get("/business/independent-board/operations")
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, containsString("no-store")));
+        mockMvc.perform(get("/business/independent-board/operations")
                         .header("Authorization", bearer(loginUser(
                                 900L, "member", Set.of("board:operation:audit"), "user")))
                         .param("tenantId", String.valueOf(TENANT_ID)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(403));
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, containsString("no-store")));
         mockMvc.perform(get("/business/independent-board/operations")
                         .header("Authorization", bearer(loginUser(
                                 900L, "operator", Set.of(), "admin")))
                         .param("tenantId", String.valueOf(TENANT_ID)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(403));
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, containsString("no-store")));
 
         verify(mapper, never()).selectOperationsByTenant(any(), any(), any());
     }
 
     @Test
     void globalAdminOperationAuditReturnsTheBoundedSafeEnvelope() throws Exception {
-        BoardUsageOperation operation = operation(TENANT_ID, USER_ID, "audit-001");
+        BoardOperationAuditRow operation = auditOperation(TENANT_ID, USER_ID, "audit-001");
         operation.setUpdateTime(new Date(1_790_000_001_000L));
         operation.setCompletedAt(new Date(1_790_000_002_000L));
         when(mapper.selectOperationsByTenant(
@@ -1161,6 +1168,7 @@ class IndependentBoardHttpSecurityIntegrationTest {
                                 900L, "operator", Set.of("board:operation:audit"), "admin")))
                         .param("tenantId", String.valueOf(TENANT_ID)))
                 .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, containsString("no-store")))
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.limit").value(500))
                 .andExpect(jsonPath("$.data.truncated").value(false))
@@ -1171,6 +1179,12 @@ class IndependentBoardHttpSecurityIntegrationTest {
                 .andExpect(jsonPath("$.data.records[0].userId").value(USER_ID))
                 .andExpect(jsonPath("$.data.records[0].status").value("RESERVED"))
                 .andExpect(jsonPath("$.data.records[0].effectivePlanCode").value("BOARD_FREE"))
+                .andExpect(jsonPath("$.data.records[0].policyReceiptId")
+                        .value("plan-policy-baseline-board-free-v1"))
+                .andExpect(jsonPath("$.data.records[0].policyVersion").value(1L))
+                .andExpect(jsonPath("$.data.records[0].policyDigest").value("a".repeat(64)))
+                .andExpect(jsonPath("$.data.records[0].policyPlanName")
+                        .value("Independent Board Free v1"))
                 .andExpect(jsonPath("$.data.records[0].bucketDate").value("2026-07-20"))
                 .andExpect(jsonPath("$.data.records[0].agendaCount").value(3))
                 .andExpect(jsonPath("$.data.records[0].seatCount").value(2))
@@ -1188,6 +1202,41 @@ class IndependentBoardHttpSecurityIntegrationTest {
                 TENANT_ID,
                 IndependentBoardEntitlementService.PRODUCT_CODE,
                 IndependentBoardEntitlementService.MEETING_METRIC);
+    }
+
+    @Test
+    void operationAuditInvalidPolicyLineageFailsClosedAndIsNeverCacheable() throws Exception {
+        BoardOperationAuditRow invalid = auditOperation(TENANT_ID, USER_ID, "audit-invalid-lineage");
+        invalid.setPolicyReceiptPolicyDigest("b".repeat(64));
+        when(mapper.selectOperationsByTenant(
+                TENANT_ID,
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.MEETING_METRIC)).thenReturn(List.of(invalid));
+
+        mockMvc.perform(get("/business/independent-board/operations")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "operator", Set.of("board:operation:audit"), "admin")))
+                        .param("tenantId", String.valueOf(TENANT_ID)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, containsString("no-store")))
+                .andExpect(jsonPath("$.code").value(500))
+                .andExpect(jsonPath("$.msg").value("BOARD_OPERATION_AUDIT_POLICY_LINEAGE_INVALID"));
+    }
+
+    @Test
+    void operationAuditInvalidTenantReturnsAjax400WithCompleteNoStoreHeaders() throws Exception {
+        mockMvc.perform(get("/business/independent-board/operations")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "operator", Set.of("board:operation:audit"), "admin")))
+                        .param("tenantId", "0"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL,
+                        "no-store, no-cache, must-revalidate, max-age=0"))
+                .andExpect(header().string(HttpHeaders.PRAGMA, "no-cache"))
+                .andExpect(header().string(HttpHeaders.EXPIRES, containsString("1970")))
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.msg").value("TENANT_REQUIRED"));
+        verify(mapper, never()).selectOperationsByTenant(any(), any(), any());
     }
 
     private static String bearer(LoginUser loginUser) {
@@ -1256,6 +1305,39 @@ class IndependentBoardHttpSecurityIntegrationTest {
         operation.setBucketDate(LocalDate.of(2026, 7, 20));
         operation.setCreateTime(new Date(1_790_000_000_000L));
         operation.setRequestDigest("a".repeat(64));
+        return operation;
+    }
+
+    private static BoardOperationAuditRow auditOperation(long tenantId, long userId, String operationId) {
+        BoardOperationAuditRow operation = new BoardOperationAuditRow();
+        operation.setOperationId(operationId);
+        operation.setTenantId(tenantId);
+        operation.setMemberId(11L);
+        operation.setUserId(userId);
+        operation.setProductCode(IndependentBoardEntitlementService.PRODUCT_CODE);
+        operation.setMetricCode(IndependentBoardEntitlementService.MEETING_METRIC);
+        operation.setStatus("RESERVED");
+        operation.setEffectivePlanCode("BOARD_FREE");
+        operation.setBucketDate(LocalDate.of(2026, 7, 20));
+        operation.setAgendaCount(3);
+        operation.setSeatCount(2);
+        operation.setRemainingCount(0);
+        operation.setCreateTime(new Date(1_790_000_000_000L));
+        operation.setUpdateTime(new Date(1_790_000_001_000L));
+        operation.setCompletedAt(new Date(1_790_000_002_000L));
+        operation.setLineageTenantId(tenantId);
+        operation.setLineageOperationId(operationId);
+        operation.setLineageProductCode(IndependentBoardEntitlementService.PRODUCT_CODE);
+        operation.setLineagePlanCode("BOARD_FREE");
+        operation.setPolicyReceiptId("plan-policy-baseline-board-free-v1");
+        operation.setPolicyVersion(1L);
+        operation.setPolicyDigest("a".repeat(64));
+        operation.setPolicyReceiptReceiptId("plan-policy-baseline-board-free-v1");
+        operation.setPolicyReceiptProductCode(IndependentBoardEntitlementService.PRODUCT_CODE);
+        operation.setPolicyReceiptPlanCode("BOARD_FREE");
+        operation.setPolicyReceiptPolicyVersion(1L);
+        operation.setPolicyReceiptPolicyDigest("a".repeat(64));
+        operation.setPolicyPlanName("Independent Board Free v1");
         return operation;
     }
 

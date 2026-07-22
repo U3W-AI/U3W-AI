@@ -374,6 +374,10 @@ const reservedOperation = Object.freeze({
   userId: member.userId,
   status: 'RESERVED',
   effectivePlanCode: 'BOARD_VIP',
+  policyReceiptId: 'plan-policy-board-vip-v1',
+  policyVersion: 1,
+  policyDigest: 'a'.repeat(64),
+  policyPlanName: '独董会 VIP 历史策略 v1',
   bucketDate: '2026-07-20',
   agendaCount: 47,
   seatCount: 3,
@@ -388,8 +392,23 @@ const envelope = parseOperationEnvelope({
   truncated: false
 }, tenantId)
 assert.deepEqual(envelope.records[0], reservedOperation)
+assert.equal(parseOperationEnvelope({
+  records: [{ ...reservedOperation, policyPlanName: 'Independent Board \u{1F4CB}' }],
+  limit: 500,
+  truncated: false
+}, tenantId).records[0].policyPlanName, 'Independent Board \u{1F4CB}')
 assert.equal(operationStatusMeta('RESERVED').label, '额度已预留')
 assert.notEqual(operationStatusMeta('RESERVED').label, '会议已完成')
+assert.throws(() => parseOperationEnvelope({
+  records: [{ ...reservedOperation, policyPlanName: '\u200B非法历史名称' }],
+  limit: 500,
+  truncated: false
+}, tenantId), /非法值/)
+assert.throws(() => parseOperationEnvelope({
+  records: [{ ...reservedOperation, policyDigest: 'A'.repeat(64) }],
+  limit: 500,
+  truncated: false
+}, tenantId), /非法值/)
 assert.throws(() => parseOperationEnvelope({
   records: [{ ...reservedOperation, requestDigest: 'unsafe' }],
   limit: 500,
@@ -538,6 +557,9 @@ assert.doesNotMatch(entitlementPageSource, /connectorVerifiedAt|OAuth|reasonCode
 assert.match(auditPageSource, /operationResponse\.data/)
 assert.match(auditPageSource, /auditEnvelope\.truncated/)
 assert.match(auditPageSource, /最多返回 \$\{auditEnvelope\.limit\} 条/)
+assert.match(auditPageSource, /scope\.row\.policyPlanName/)
+assert.match(auditPageSource, /scope\.row\.effectivePlanCode.*scope\.row\.policyVersion/s)
+assert.doesNotMatch(auditPageSource, /planLabel\(scope\.row\.effectivePlanCode\)/)
 assert.doesNotMatch(auditPageSource, /<el-table-column\s+label="操作"(?:\s|>)/)
 assert.doesNotMatch(auditPageSource, /requestDigest|productCode|metricCode|\bunits\b/)
 assert.match(receiptPageSource, /checkPermi\(\['board:entitlement:audit'\]\)/)
@@ -555,7 +577,7 @@ assert.match(receiptPageSource, /最多返回 \$\{receiptEnvelope\.limit\} 条/)
 assert.match(receiptPageSource, /只读审计/)
 assert.doesNotMatch(receiptPageSource, /<el-table-column\s+label="操作"(?:\s|>)/)
 assert.doesNotMatch(receiptPageSource, /payloadDigest|grantIndependentBoardEntitlement|revokeIndependentBoardEntitlement/)
-assert.match(modelSource, /'updatedAt', 'completedAt'/)
+assert.match(modelSource, /'policyReceiptId', 'policyVersion', 'policyDigest', 'policyPlanName'/)
 assert.match(modelSource, /字段集合不符合安全合同/)
 assert.match(apiSource, /\/business\/independent-board\/entitlements/)
 assert.match(apiSource, /\/business\/independent-board\/entitlements\/revoke/)

@@ -19,4 +19,16 @@ class IndependentBoardPlanPolicyNoStoreFilterTest {
 
         assertTrue(response.getHeader("Cache-Control").contains("no-store"));
     }
+
+    @Test
+    void writesNoStoreForOperationAuditRead() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "GET", "/business/independent-board/operations/");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new IndependentBoardPlanPolicyNoStoreFilter().doFilter(
+                request, response, new MockFilterChain());
+
+        assertTrue(response.getHeader("Cache-Control").contains("no-store"));
+    }
 }

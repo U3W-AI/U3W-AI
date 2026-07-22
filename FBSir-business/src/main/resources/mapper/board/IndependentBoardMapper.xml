@@ -145,6 +145,38 @@
         <result property="completedAt" column="completed_at" />
     </resultMap>
 
+    <resultMap id="OperationAuditRow"
+               type="com.wx.fbsir.business.board.domain.BoardOperationAuditRow">
+        <result property="operationId" column="operation_id" />
+        <result property="tenantId" column="enterprise_id" />
+        <result property="memberId" column="member_id" />
+        <result property="userId" column="user_id" />
+        <result property="productCode" column="product_code" />
+        <result property="metricCode" column="metric_code" />
+        <result property="status" column="status" />
+        <result property="effectivePlanCode" column="effective_plan_code" />
+        <result property="bucketDate" column="bucket_date" />
+        <result property="agendaCount" column="agenda_count" />
+        <result property="seatCount" column="seat_count" />
+        <result property="remainingCount" column="remaining_count" />
+        <result property="createTime" column="created_at" />
+        <result property="updateTime" column="updated_at" />
+        <result property="completedAt" column="completed_at" />
+        <result property="lineageTenantId" column="lineage_enterprise_id" />
+        <result property="lineageOperationId" column="lineage_operation_id" />
+        <result property="lineageProductCode" column="lineage_product_code" />
+        <result property="lineagePlanCode" column="lineage_plan_code" />
+        <result property="policyReceiptId" column="policy_receipt_id" />
+        <result property="policyVersion" column="policy_version" />
+        <result property="policyDigest" column="policy_digest" />
+        <result property="policyReceiptReceiptId" column="receipt_policy_receipt_id" />
+        <result property="policyReceiptProductCode" column="receipt_product_code" />
+        <result property="policyReceiptPlanCode" column="receipt_plan_code" />
+        <result property="policyReceiptPolicyVersion" column="receipt_policy_version" />
+        <result property="policyReceiptPolicyDigest" column="receipt_policy_digest" />
+        <result property="policyPlanName" column="policy_plan_name" />
+    </resultMap>
+
     <resultMap id="UsageOperationPolicyReceipt"
                type="com.wx.fbsir.business.board.domain.BoardUsageOperationPolicyReceipt">
         <id property="id" column="id" />
@@ -789,15 +821,38 @@
           AND status = 'PENDING'
     </update>
 
-    <select id="selectOperationsByTenant" resultMap="Operation">
-        SELECT id, operation_id, request_digest, enterprise_id, member_id, user_id,
-               product_code, metric_code, bucket_date, units, status, effective_plan_code,
-               agenda_count, seat_count, remaining_count, created_at, updated_at, completed_at
-        FROM fbs_usage_operation
-        WHERE enterprise_id = #{tenantId}
-          AND product_code = #{productCode}
-          AND metric_code = #{metricCode}
-        ORDER BY created_at DESC, id DESC
+    <select id="selectOperationsByTenant" resultMap="OperationAuditRow">
+        SELECT o.operation_id, o.enterprise_id, o.member_id, o.user_id,
+               o.product_code, o.metric_code, o.status, o.effective_plan_code,
+               o.bucket_date, o.agenda_count, o.seat_count, o.remaining_count,
+               o.created_at, o.updated_at, o.completed_at,
+               l.enterprise_id AS lineage_enterprise_id,
+               l.operation_id AS lineage_operation_id,
+               l.product_code AS lineage_product_code,
+               l.plan_code AS lineage_plan_code,
+               l.policy_receipt_id, l.policy_version, l.policy_digest,
+               r.receipt_id AS receipt_policy_receipt_id,
+               r.product_code AS receipt_product_code,
+               r.plan_code AS receipt_plan_code,
+               r.policy_version AS receipt_policy_version,
+               r.policy_digest AS receipt_policy_digest,
+               r.plan_name AS policy_plan_name
+        FROM fbs_usage_operation o
+        LEFT JOIN fbs_usage_operation_policy_receipt l
+          ON l.enterprise_id = o.enterprise_id
+         AND BINARY l.operation_id = BINARY o.operation_id
+         AND BINARY l.product_code = BINARY o.product_code
+         AND BINARY l.plan_code = BINARY o.effective_plan_code
+        LEFT JOIN fbs_plan_policy_revision_receipt r
+          ON BINARY r.receipt_id = BINARY l.policy_receipt_id
+         AND BINARY r.product_code = BINARY o.product_code
+         AND BINARY r.plan_code = BINARY o.effective_plan_code
+         AND r.policy_version = l.policy_version
+         AND BINARY r.policy_digest = BINARY l.policy_digest
+        WHERE o.enterprise_id = #{tenantId}
+          AND o.product_code = #{productCode}
+          AND o.metric_code = #{metricCode}
+        ORDER BY o.created_at DESC, o.id DESC
         LIMIT 501
     </select>
 

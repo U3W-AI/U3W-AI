@@ -516,6 +516,32 @@ FROM fbs_plan_policy_head WHERE plan_code='BOARD_VIP';
             -Expected 'plan-policy-board-vip-v2-it|2|3|2' `
             -Stage 'N greater than one completed replay'
 
+        $historicalAuditLineage = (Invoke-MySqlText -Profile $profile -Port $port `
+            -Database 'w3h_policy_ok' -Sql @"
+SELECT CONCAT_WS('|', o.operation_id, l.policy_receipt_id, l.policy_version,
+                 r.policy_version, h.policy_version, r.plan_name)
+FROM fbs_usage_operation o
+LEFT JOIN fbs_usage_operation_policy_receipt l
+  ON l.enterprise_id = o.enterprise_id
+ AND BINARY l.operation_id = BINARY o.operation_id
+ AND BINARY l.product_code = BINARY o.product_code
+ AND BINARY l.plan_code = BINARY o.effective_plan_code
+LEFT JOIN fbs_plan_policy_revision_receipt r
+  ON BINARY r.receipt_id = BINARY l.policy_receipt_id
+ AND BINARY r.product_code = BINARY o.product_code
+ AND BINARY r.plan_code = BINARY o.effective_plan_code
+ AND r.policy_version = l.policy_version
+ AND BINARY r.policy_digest = BINARY l.policy_digest
+INNER JOIN fbs_plan_policy_head h
+  ON BINARY h.product_code = BINARY o.product_code
+ AND BINARY h.plan_code = BINARY o.effective_plan_code
+WHERE o.operation_id = 'w3h-historical-vip';
+"@).output
+        if ($historicalAuditLineage -notmatch `
+                '^w3h-historical-vip\|plan-policy-baseline-board-vip-v1\|1\|1\|2\|.+$') {
+            throw "Historical operation audit lineage drifted after the current VIP head advanced: $historicalAuditLineage"
+        }
+
         $currentReadOutput = (& powershell.exe -NoProfile -ExecutionPolicy Bypass `
             -File $initializerPath -LoginPath $loginPath -MySqlExe $profile.mysql `
             -Database 'w3h_policy_ok' -PlanPolicyCurrentReadOnly 2>&1 | Out-String).Trim()
@@ -730,6 +756,7 @@ LIMIT 101;
             version = $profile.version
             firstApply = $firstApply
             completedRerunPreserved = $preserved
+            historicalAuditLineage = $historicalAuditLineage
             historicalBackfillCount = 2
             invalidPlanNamesRejected = 6
             unknownPlanRejected = $true

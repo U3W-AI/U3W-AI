@@ -208,17 +208,29 @@ class IndependentBoardDashboardMapperContractTest {
     }
 
     @Test
-    void adminOperationReadIsFixedToProductAndMetricAndHasBoundedOverflowFetch() {
+    void adminOperationReadUsesImmutablePolicyLineageWithoutCurrentHeadAndHasBoundedOverflowFetch() {
         String sql = sql("selectOperationsByTenant", Map.of(
                 "tenantId", 7L,
                 "productCode", "FBSIR_INDEPENDENT_BOARD",
                 "metricCode", "DAILY_MEETING"));
 
-        assertTrue(sql.contains("where enterprise_id = ?"));
-        assertTrue(sql.contains("and product_code = ?"));
-        assertTrue(sql.contains("and metric_code = ?"));
-        assertTrue(sql.contains("order by created_at desc, id desc"));
+        assertTrue(sql.contains("from fbs_usage_operation o"));
+        assertTrue(sql.contains("left join fbs_usage_operation_policy_receipt l"));
+        assertTrue(sql.contains("l.enterprise_id = o.enterprise_id"));
+        assertTrue(sql.contains("binary l.operation_id = binary o.operation_id"));
+        assertTrue(sql.contains("binary l.plan_code = binary o.effective_plan_code"));
+        assertTrue(sql.contains("left join fbs_plan_policy_revision_receipt r"));
+        assertTrue(sql.contains("binary r.receipt_id = binary l.policy_receipt_id"));
+        assertTrue(sql.contains("r.policy_version = l.policy_version"));
+        assertTrue(sql.contains("binary r.policy_digest = binary l.policy_digest"));
+        assertTrue(sql.contains("where o.enterprise_id = ?"));
+        assertTrue(sql.contains("and o.product_code = ?"));
+        assertTrue(sql.contains("and o.metric_code = ?"));
+        assertTrue(sql.contains("order by o.created_at desc, o.id desc"));
         assertTrue(sql.endsWith("limit 501"));
+        assertFalse(sql.contains("fbs_plan_policy_head"));
+        assertFalse(sql.contains("fbs_product_entitlement"));
+        assertFalse(sql.contains("for update"));
         assertFalse(sql.contains("${"), "operation reads must never use string substitution");
     }
 

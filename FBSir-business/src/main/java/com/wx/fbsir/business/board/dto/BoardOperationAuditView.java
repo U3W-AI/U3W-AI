@@ -12,6 +12,10 @@ public record BoardOperationAuditView(
         Long userId,
         String status,
         String effectivePlanCode,
+        String policyReceiptId,
+        Long policyVersion,
+        String policyDigest,
+        String policyPlanName,
         @JsonFormat(pattern = "yyyy-MM-dd")
         LocalDate bucketDate,
         Integer agendaCount,

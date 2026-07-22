@@ -203,8 +203,13 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="有效套餐" width="100" align="center">
-              <template #default="scope">{{ planLabel(scope.row.effectivePlanCode) }}</template>
+            <el-table-column label="历史策略" min-width="220" show-overflow-tooltip>
+              <template #default="scope">
+                <div class="policy-cell">
+                  <strong>{{ scope.row.policyPlanName }}</strong>
+                  <span>{{ scope.row.effectivePlanCode }} / v{{ scope.row.policyVersion }}</span>
+                </div>
+              </template>
             </el-table-column>
             <el-table-column label="议题数" prop="agendaCount" width="80" align="center" />
             <el-table-column label="席位数" prop="seatCount" width="80" align="center" />
@@ -248,8 +253,7 @@ import {
   operationStatusMeta,
   parseEnterprisePage,
   parseMemberPage,
-  parseOperationEnvelope,
-  planLabel
+  parseOperationEnvelope
 } from '../model.js'
 
 const canListEnterprises = checkPermi(['business:fbs:enterprise:list'])
@@ -534,6 +538,17 @@ onMounted(async () => {
     color: var(--board-muted);
     font-size: 12px;
   }
+}
+
+.policy-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.policy-cell span {
+  color: #7a8494;
+  font-size: 12px;
 }
 
 @media (max-width: 1100px) {

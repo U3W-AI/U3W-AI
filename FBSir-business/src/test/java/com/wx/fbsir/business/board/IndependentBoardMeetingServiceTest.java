@@ -1,6 +1,7 @@
 package com.wx.fbsir.business.board.service;
 
 import com.wx.fbsir.business.board.domain.BoardUsageBudget;
+import com.wx.fbsir.business.board.domain.BoardOperationAuditRow;
 import com.wx.fbsir.business.board.domain.BoardUsageOperation;
 import com.wx.fbsir.business.board.domain.BoardUsageOperationPolicyReceipt;
 import com.wx.fbsir.business.board.dto.BoardEntitlementSnapshot;
@@ -509,8 +510,8 @@ class IndependentBoardMeetingServiceTest {
     }
 
     @Test
-    void adminOperationAuditUsesFixedScopeAndReturnsA500RowSafeEnvelope() {
-        List<BoardUsageOperation> rows = IntStream.rangeClosed(1, 501)
+    void adminOperationAuditUsesCommittedPolicyLineageAndReturnsA500RowSafeEnvelope() {
+        List<BoardOperationAuditRow> rows = IntStream.rangeClosed(1, 501)
                 .mapToObj(index -> auditOperation(String.format("audit-%03d", index)))
                 .toList();
         when(mapper.selectOperationsByTenant(
@@ -531,13 +532,18 @@ class IndependentBoardMeetingServiceTest {
         assertEquals(42L, first.userId());
         assertEquals("RESERVED", first.status());
         assertEquals("BOARD_FREE", first.effectivePlanCode());
+        assertEquals("plan-policy-baseline-board-free-v1", first.policyReceiptId());
+        assertEquals(1L, first.policyVersion());
+        assertEquals(FREE_POLICY_DIGEST, first.policyDigest());
+        assertEquals("Independent Board Free v1", first.policyPlanName());
         assertEquals(LocalDate.of(2026, 7, 20), first.bucketDate());
         assertEquals(3, first.agendaCount());
         assertEquals(2, first.seatCount());
         assertEquals(0, first.remainingCount());
         assertEquals(List.of(
                         "operationId", "tenantId", "memberId", "userId", "status",
-                        "effectivePlanCode", "bucketDate", "agendaCount", "seatCount",
+                        "effectivePlanCode", "policyReceiptId", "policyVersion", "policyDigest",
+                        "policyPlanName", "bucketDate", "agendaCount", "seatCount",
                         "remainingCount", "createdAt", "updatedAt", "completedAt"),
                 Arrays.stream(BoardOperationAuditView.class.getRecordComponents())
                         .map(component -> component.getName()).toList());
@@ -549,11 +555,11 @@ class IndependentBoardMeetingServiceTest {
 
     @Test
     void adminOperationAuditRejectsRowsOutsideTheFixedScope() {
-        BoardUsageOperation wrongTenant = auditOperation("audit-tenant");
+        BoardOperationAuditRow wrongTenant = auditOperation("audit-tenant");
         wrongTenant.setTenantId(99L);
-        BoardUsageOperation wrongProduct = auditOperation("audit-product");
+        BoardOperationAuditRow wrongProduct = auditOperation("audit-product");
         wrongProduct.setProductCode("ANOTHER_PRODUCT");
-        BoardUsageOperation wrongMetric = auditOperation("audit-metric");
+        BoardOperationAuditRow wrongMetric = auditOperation("audit-metric");
         wrongMetric.setMetricCode("ANOTHER_METRIC");
         when(mapper.selectOperationsByTenant(
                 7L,
@@ -599,6 +605,80 @@ class IndependentBoardMeetingServiceTest {
         assertEquals(1, result.records().size());
     }
 
+    @Test
+    void adminOperationAuditPreservesHistoricalV1WhenTheCurrentPolicyWouldBeV2() {
+        BoardOperationAuditRow historical = auditOperation("audit-historical-v1");
+        historical.setPolicyPlanName("Independent Board Free v1");
+        historical.setPolicyVersion(1L);
+        historical.setPolicyDigest(FREE_POLICY_DIGEST);
+        when(mapper.selectOperationsByTenant(
+                7L,
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.MEETING_METRIC))
+                .thenReturn(List.of(historical));
+
+        BoardOperationAuditView result = service.listOperations(7L).records().get(0);
+
+        assertEquals(1L, result.policyVersion());
+        assertEquals(FREE_POLICY_DIGEST, result.policyDigest());
+        assertEquals("Independent Board Free v1", result.policyPlanName());
+    }
+
+    @Test
+    void adminOperationAuditFailsClosedForMissingOrMismatchedCommittedPolicyLineage() {
+        BoardOperationAuditRow missingReceipt = auditOperation("audit-missing-receipt");
+        missingReceipt.setPolicyReceiptId(null);
+        BoardOperationAuditRow crossTenant = auditOperation("audit-cross-tenant");
+        crossTenant.setLineageTenantId(99L);
+        BoardOperationAuditRow mismatchedDigest = auditOperation("audit-digest-mismatch");
+        mismatchedDigest.setPolicyReceiptPolicyDigest("b".repeat(64));
+
+        when(mapper.selectOperationsByTenant(
+                7L,
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.MEETING_METRIC))
+                .thenReturn(List.of(missingReceipt), List.of(crossTenant), List.of(mismatchedDigest));
+
+        for (int attempt = 0; attempt < 3; attempt++) {
+            ServiceException error = assertThrows(
+                    ServiceException.class, () -> service.listOperations(7L));
+            assertEquals(500, error.getCode());
+            assertEquals("BOARD_OPERATION_AUDIT_POLICY_LINEAGE_INVALID", error.getMessage());
+        }
+    }
+
+    @Test
+    void adminOperationAuditFailsClosedWhenTheReadModelContainsDuplicateOperationRows() {
+        BoardOperationAuditRow duplicate = auditOperation("audit-duplicate-lineage");
+        when(mapper.selectOperationsByTenant(
+                7L,
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.MEETING_METRIC))
+                .thenReturn(List.of(duplicate, duplicate));
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.listOperations(7L));
+
+        assertEquals(500, error.getCode());
+        assertEquals("BOARD_OPERATION_AUDIT_POLICY_LINEAGE_INVALID", error.getMessage());
+    }
+
+    @Test
+    void adminOperationAuditValidatesThe501stTruncationSentinelBeforeReturningAnyRows() {
+        List<BoardOperationAuditRow> rows = IntStream.rangeClosed(1, 501)
+                .mapToObj(index -> auditOperation(String.format("audit-sentinel-%03d", index)))
+                .toList();
+        rows.get(500).setPolicyPlanName("\u200Binvalid historical name");
+        when(mapper.selectOperationsByTenant(
+                7L,
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.MEETING_METRIC)).thenReturn(rows);
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.listOperations(7L));
+
+        assertEquals(500, error.getCode());
+        assertEquals("BOARD_OPERATION_AUDIT_POLICY_LINEAGE_INVALID", error.getMessage());
+    }
+
     private BoardMeetingReservationRequest request(String operationId, int agendas, int seats) {
         return new BoardMeetingReservationRequest(7L, operationId, agendas, seats);
     }
@@ -624,9 +704,16 @@ class IndependentBoardMeetingServiceTest {
         return operation;
     }
 
-    private BoardUsageOperation auditOperation(String operationId) {
-        BoardUsageOperation operation = operation(operationId, "a".repeat(64));
+    private BoardOperationAuditRow auditOperation(String operationId) {
+        BoardOperationAuditRow operation = new BoardOperationAuditRow();
+        operation.setOperationId(operationId);
+        operation.setTenantId(7L);
+        operation.setMemberId(11L);
+        operation.setUserId(42L);
+        operation.setProductCode(IndependentBoardEntitlementService.PRODUCT_CODE);
+        operation.setMetricCode(IndependentBoardEntitlementService.MEETING_METRIC);
         operation.setStatus("RESERVED");
+        operation.setEffectivePlanCode("BOARD_FREE");
         operation.setBucketDate(LocalDate.of(2026, 7, 20));
         operation.setAgendaCount(3);
         operation.setSeatCount(2);
@@ -634,6 +721,19 @@ class IndependentBoardMeetingServiceTest {
         operation.setCreateTime(new Date(1_790_000_000_000L));
         operation.setUpdateTime(new Date(1_790_000_001_000L));
         operation.setCompletedAt(new Date(1_790_000_002_000L));
+        operation.setLineageTenantId(7L);
+        operation.setLineageOperationId(operationId);
+        operation.setLineageProductCode(IndependentBoardEntitlementService.PRODUCT_CODE);
+        operation.setLineagePlanCode("BOARD_FREE");
+        operation.setPolicyReceiptId("plan-policy-baseline-board-free-v1");
+        operation.setPolicyVersion(1L);
+        operation.setPolicyDigest(FREE_POLICY_DIGEST);
+        operation.setPolicyReceiptReceiptId("plan-policy-baseline-board-free-v1");
+        operation.setPolicyReceiptProductCode(IndependentBoardEntitlementService.PRODUCT_CODE);
+        operation.setPolicyReceiptPlanCode("BOARD_FREE");
+        operation.setPolicyReceiptPolicyVersion(1L);
+        operation.setPolicyReceiptPolicyDigest(FREE_POLICY_DIGEST);
+        operation.setPolicyPlanName("Independent Board Free v1");
         return operation;
     }
 

@@ -17,6 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class IndependentBoardPlanPolicyNoStoreFilter extends OncePerRequestFilter {
     private static final Set<String> PATHS = Set.of(
             "/business/independent-board/plans",
+            "/business/independent-board/operations",
             "/business/independent-board/plan-policy-revisions",
             "/business/independent-board/plan-policy-receipts");
 
