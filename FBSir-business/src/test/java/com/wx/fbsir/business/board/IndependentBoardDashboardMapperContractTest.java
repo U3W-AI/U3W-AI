@@ -158,12 +158,35 @@ class IndependentBoardDashboardMapperContractTest {
                 "productCode", "FBSIR_INDEPENDENT_BOARD"));
 
         assertTrue(sql.contains("plan_name"));
-        assertTrue(sql.contains("version"));
-        assertTrue(sql.contains("updated_at"));
-        assertTrue(sql.contains("where product_code = ?"));
-        assertTrue(sql.contains("order by plan_code asc"));
+        assertTrue(sql.contains("r.policy_version as version"));
+        assertTrue(sql.contains("r.created_at as updated_at"));
+        assertTrue(sql.contains("r.receipt_id as policy_receipt_id"));
+        assertTrue(sql.contains("r.policy_digest"));
+        assertTrue(sql.contains("from fbs_product_plan p"));
+        assertTrue(sql.contains("left join fbs_plan_policy_head h"));
+        assertTrue(sql.contains("left join fbs_plan_policy_revision_receipt r"));
+        assertTrue(sql.contains("binary r.receipt_id = binary h.active_receipt_id"));
+        assertTrue(sql.contains("r.policy_version = h.policy_version"));
+        assertTrue(sql.contains("where binary p.product_code = binary ?"));
+        assertTrue(sql.contains("order by case p.plan_code"));
         assertTrue(sql.endsWith("limit 3"));
         assertFalse(sql.contains("${"), "plan catalog reads must never use string substitution");
+    }
+
+    @Test
+    void activePlanConsumesOnlyTheExactCommittedHeadReceipt() {
+        String sql = sql("selectActivePlan", Map.of(
+                "productCode", "FBSIR_INDEPENDENT_BOARD",
+                "planCode", "BOARD_VIP"));
+
+        assertTrue(sql.contains("inner join fbs_plan_policy_head h"));
+        assertTrue(sql.contains("inner join fbs_plan_policy_revision_receipt r"));
+        assertTrue(sql.contains("binary r.receipt_id = binary h.active_receipt_id"));
+        assertTrue(sql.contains("r.policy_version = h.policy_version"));
+        assertTrue(sql.contains("r.vip = p.vip"));
+        assertTrue(sql.contains("r.connector_required = p.connector_required"));
+        assertTrue(sql.contains("binary r.status = binary p.status"));
+        assertTrue(sql.contains("r.policy_digest"));
     }
 
     @Test
@@ -278,8 +301,10 @@ class IndependentBoardDashboardMapperContractTest {
         assertTrue(sql.contains("cast(entitlement.status as binary) = cast('active' as binary)"));
         assertTrue(sql.contains("cast(plan.status as binary) = cast('active' as binary)"));
         assertTrue(sql.contains("plan.connector_required = 1"));
-        assertTrue(sql.contains("plan.daily_meeting_limit = 5"));
-        assertTrue(sql.contains("plan.seat_limit is null"));
+        assertFalse(sql.contains("plan.daily_meeting_limit"));
+        assertFalse(sql.contains("plan.agenda_limit"));
+        assertFalse(sql.contains("plan.seat_limit"));
+        assertFalse(sql.contains("plan.secretary_enabled"));
         assertTrue(sql.contains("limit 101"));
         assertTrue(sql.contains("left join fbs_connector_binding_scope s"));
         assertTrue(sql.endsWith("order by b.id asc, s.scope_code asc"));
@@ -347,7 +372,9 @@ class IndependentBoardDashboardMapperContractTest {
                 "selectConnectorBindingSlotForUpdate",
                 "selectConnectorBindingScopesForUpdate",
                 "selectConnectorBindingReceiptForUpdate",
-                "selectOperationForUpdate");
+                "selectOperationForUpdate",
+                "selectCurrentPlanPolicy",
+                "selectOperationPolicyReceipt");
 
         for (String statement : statements) {
             org.apache.ibatis.mapping.MappedStatement mapped = configuration.getMappedStatement(

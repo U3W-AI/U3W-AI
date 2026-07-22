@@ -428,7 +428,7 @@ class IndependentBoardConnectorBindingServiceTest {
     }
 
     @Test
-    void authoritativeReadFailsClosedWhenVipPlanIsDisabledOrDrifted() {
+    void authoritativeReadAcceptsDynamicPolicyValuesButFailsClosedOnVipIdentityDrift() {
         when(mapper.selectActiveContext(7L, 42L)).thenReturn(member());
         when(mapper.selectEntitlement(
                 7L, 11L, 42L, IndependentBoardEntitlementService.PRODUCT_CODE))
@@ -449,8 +449,20 @@ class IndependentBoardConnectorBindingServiceTest {
         assertEquals(500, missing.getCode());
         assertEquals("BOARD_PLAN_CONTRACT_DRIFT", missing.getMessage());
 
+        BoardProductPlan dynamic = vipPlan();
+        dynamic.setDailyMeetingLimit(9);
+        dynamic.setAgendaLimit(47);
+        dynamic.setSeatLimit(12);
+        dynamic.setSecretaryEnabled(false);
+        when(mapper.selectActivePlan(
+                IndependentBoardEntitlementService.PRODUCT_CODE,
+                IndependentBoardEntitlementService.VIP_PLAN)).thenReturn(dynamic);
+        assertTrue(service.hasAuthoritativeCurrentBinding(
+                7L, 11L, 42L,
+                IndependentBoardEntitlementService.PRODUCT_CODE, false));
+
         BoardProductPlan drifted = vipPlan();
-        drifted.setAgendaLimit(29);
+        drifted.setConnectorRequired(false);
         when(mapper.selectActivePlan(
                 IndependentBoardEntitlementService.PRODUCT_CODE,
                 IndependentBoardEntitlementService.VIP_PLAN)).thenReturn(drifted);
@@ -822,6 +834,28 @@ class IndependentBoardConnectorBindingServiceTest {
                 }));
 
         assertEquals("BOARD_OAUTH_ACTIVATION_AUTHORITY_DRIFT", error.getMessage());
+    }
+
+    @Test
+    void dynamicPlanChangeAfterCompleteDoesNotInvalidateFixedPlanIdentity() {
+        ActivationScenario scenario = stubFirstActivation();
+
+        inActivationTransaction(() -> {
+            BoardConnectorBindingActivationLease lease =
+                    service.lockOAuthFamilyActivation(activationKey(), 42L);
+            BoardOAuthFamilyActivationContext context =
+                    service.prepareAndApplyLockedOAuthFamilyActivation(
+                            lease, attestation(), scenario.pendingFamilyId);
+            scenario.transitionToFinal(context);
+            service.verifyAndAppendLockedOAuthFamilyBindingReceipt(lease);
+            scenario.publishW4bReceipt(validW4bReceipt(context));
+            service.completeLockedOAuthFamilyActivation(lease);
+            scenario.currentPlan.setDailyMeetingLimit(9);
+            scenario.currentPlan.setAgendaLimit(47);
+            scenario.currentPlan.setSeatLimit(12);
+            scenario.currentPlan.setSecretaryEnabled(false);
+            return null;
+        });
     }
 
     @Test

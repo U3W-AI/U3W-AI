@@ -1673,10 +1673,6 @@ public class IndependentBoardConnectorBindingService
                 || !Objects.equals(currentPlan.getPlanCode(), plan.planCode)
                 || !Objects.equals(currentPlan.getVip(), plan.vip)
                 || !Objects.equals(currentPlan.getConnectorRequired(), plan.connectorRequired)
-                || !Objects.equals(currentPlan.getDailyMeetingLimit(), plan.dailyMeetingLimit)
-                || !Objects.equals(currentPlan.getAgendaLimit(), plan.agendaLimit)
-                || !Objects.equals(currentPlan.getSeatLimit(), plan.seatLimit)
-                || !Objects.equals(currentPlan.getSecretaryEnabled(), plan.secretaryEnabled)
                 || !Objects.equals(currentPlan.getStatus(), plan.status)) {
             throw new ServiceException("BOARD_OAUTH_ACTIVATION_AUTHORITY_DRIFT", 409);
         }
@@ -3168,10 +3164,6 @@ public class IndependentBoardConnectorBindingService
                 || !Objects.equals(plan.getPlanCode(), IndependentBoardEntitlementService.VIP_PLAN)
                 || !Boolean.TRUE.equals(plan.getVip())
                 || !Boolean.TRUE.equals(plan.getConnectorRequired())
-                || !Objects.equals(plan.getDailyMeetingLimit(), 5)
-                || !Objects.equals(plan.getAgendaLimit(), 30)
-                || plan.getSeatLimit() != null
-                || !Boolean.TRUE.equals(plan.getSecretaryEnabled())
                 || !Objects.equals(plan.getStatus(), STATUS_ACTIVE)) {
             throw new ServiceException("BOARD_PLAN_CONTRACT_DRIFT", 500);
         }
@@ -3439,10 +3431,6 @@ public class IndependentBoardConnectorBindingService
                         IndependentBoardEntitlementService.VIP_PLAN)
                 && Boolean.TRUE.equals(plan.getVip())
                 && Boolean.TRUE.equals(plan.getConnectorRequired())
-                && Objects.equals(plan.getDailyMeetingLimit(), 5)
-                && Objects.equals(plan.getAgendaLimit(), 30)
-                && plan.getSeatLimit() == null
-                && Boolean.TRUE.equals(plan.getSecretaryEnabled())
                 && Objects.equals(plan.getStatus(), STATUS_ACTIVE);
     }
 

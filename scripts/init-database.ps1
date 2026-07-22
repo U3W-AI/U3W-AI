@@ -6,7 +6,8 @@ param(
     [switch]$DryRun,
     [switch]$ManifestJson,
     [switch]$CurrentReadOnly,
-    [switch]$CreditLedgerCurrentReadOnly
+    [switch]$CreditLedgerCurrentReadOnly,
+    [switch]$PlanPolicyCurrentReadOnly
 )
 
 Set-StrictMode -Version Latest
@@ -22,11 +23,11 @@ if ($LoginPath -notmatch '^[A-Za-z0-9_.-]+$') {
 if ($Database -notmatch '^[A-Za-z0-9_]+$' -or $Database.Length -gt 64) {
     throw "Database must be 1-64 characters and contain only letters, numbers, and underscore."
 }
-if (($CurrentReadOnly -or $CreditLedgerCurrentReadOnly) -and ($DryRun -or $ManifestJson)) {
+if (($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly) -and ($DryRun -or $ManifestJson)) {
     throw "Current-read modes cannot be combined with DryRun or ManifestJson."
 }
-if ($CurrentReadOnly -and $CreditLedgerCurrentReadOnly) {
-    throw "CurrentReadOnly and CreditLedgerCurrentReadOnly are mutually exclusive."
+if (@($CurrentReadOnly, $CreditLedgerCurrentReadOnly, $PlanPolicyCurrentReadOnly | Where-Object { $_ }).Count -gt 1) {
+    throw "CurrentReadOnly, CreditLedgerCurrentReadOnly, and PlanPolicyCurrentReadOnly are mutually exclusive."
 }
 
 function Resolve-SqlFile {
@@ -99,6 +100,7 @@ $steps = @(
     New-Step "public_init_036" "Independent Board OAuth refresh security receipt v2" (Resolve-SqlFile "update_20260721_independent_board_oauth_refresh_security.sql")
     New-Step "public_init_037" "Independent Board exact product attribution evidence contract" (Resolve-SqlFile "update_20260722_independent_board_attribution_evidence_contract.sql")
     New-Step "public_init_038" "Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger" (Resolve-SqlFile "update_20260722_independent_board_credit_ledger.sql")
+    New-Step "public_init_039" "Independent Board immutable plan policy revisions and operation lineage" (Resolve-SqlFile "update_20260722_independent_board_plan_policy.sql")
 )
 
 if (-not (Test-Path -LiteralPath $DeclarativeManifestPath -PathType Leaf)) {
@@ -125,7 +127,7 @@ for ($index = 0; $index -lt $steps.Count; $index++) {
         [string]$declared.file -ne $executable.File.Name) {
         throw "Declarative manifest drift at position $($index + 1): expected '$($executable.Version)|$($executable.Description)|$($executable.File.Name)'."
     }
-    if ($executable.Version -in @('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038')) {
+    if ($executable.Version -in @('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039')) {
         $declaredSha256 = [string]$declared.sha256
         $actualSha256 = (Get-FileHash -LiteralPath $executable.File.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($declaredSha256 -notmatch '^[0-9a-f]{64}$' -or
@@ -2506,7 +2508,215 @@ SELECT CONCAT_WS('|',
     Write-Host "PASS Independent Board credit ledger exact raw current-read on MySQL $($serverProfile.Version) (five-column sys_user dependency, zero projection mismatch, three tables, 45 typed columns, 20 full visible indexes, four RESTRICT foreign keys, 22 enforced CHECK clauses, six immutable trigger bodies and internal receipt)."
 }
 
-if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly) {
+function Assert-IndependentBoardPlanPolicyCurrentState {
+    $serverProfile = Assert-IndependentBoardOauthServerProfile
+    $state = Invoke-MySqlText -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema=DATABASE() AND table_type='BASE TABLE' AND engine='InnoDB'
+     AND table_collation='utf8mb4_unicode_ci'
+     AND table_name IN ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head','fbs_usage_operation_policy_receipt')),
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema=DATABASE()
+     AND table_name IN ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head','fbs_usage_operation_policy_receipt')),
+  (SELECT COUNT(*) FROM (
+     SELECT table_name,index_name FROM information_schema.statistics
+     WHERE table_schema=DATABASE()
+       AND table_name IN ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head','fbs_usage_operation_policy_receipt')
+     GROUP BY table_name,index_name
+   ) policy_indexes),
+  (SELECT COUNT(*) FROM information_schema.referential_constraints
+   WHERE constraint_schema=DATABASE() AND unique_constraint_schema=DATABASE()
+     AND update_rule='RESTRICT' AND delete_rule='RESTRICT'
+     AND ((table_name='fbs_plan_policy_revision_receipt' AND constraint_name IN
+            ('fk_plan_policy_receipt_plan','fk_plan_policy_receipt_previous','fk_plan_policy_receipt_rollback'))
+       OR (table_name='fbs_plan_policy_head' AND constraint_name IN
+            ('fk_plan_policy_head_plan','fk_plan_policy_head_active'))
+       OR (table_name='fbs_usage_operation_policy_receipt' AND constraint_name IN
+            ('fk_usage_operation_policy_operation','fk_usage_operation_policy_receipt')))),
+  (SELECT COUNT(*) FROM information_schema.key_column_usage
+   WHERE constraint_schema=DATABASE() AND referenced_table_schema=DATABASE()
+     AND referenced_table_name IS NOT NULL
+     AND table_name IN ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head','fbs_usage_operation_policy_receipt')),
+  (SELECT COUNT(*) FROM information_schema.table_constraints
+   WHERE constraint_schema=DATABASE() AND constraint_type='CHECK' AND enforced='YES'
+     AND ((table_name='fbs_plan_policy_revision_receipt' AND constraint_name IN
+            ('chk_plan_policy_receipt_scope','chk_plan_policy_receipt_version',
+             'chk_plan_policy_receipt_action_actor','chk_plan_policy_receipt_chain',
+             'chk_plan_policy_receipt_digests','chk_plan_policy_receipt_identity',
+             'chk_plan_policy_receipt_quotas','chk_plan_policy_receipt_status_evidence'))
+       OR (table_name='fbs_plan_policy_head' AND constraint_name='chk_plan_policy_head_scope')
+       OR (table_name='fbs_usage_operation_policy_receipt' AND constraint_name='chk_usage_operation_policy_scope'))),
+  (SELECT COUNT(*) FROM (
+     SELECT trigger_name,event_object_table,event_manipulation,action_timing,
+            action_orientation,action_condition,action_order,
+            SHA2(CAST(action_statement AS BINARY),256) AS action_sha256
+     FROM information_schema.triggers
+     WHERE trigger_schema=DATABASE()
+       AND event_object_table IN
+         ('fbs_plan_policy_revision_receipt','fbs_usage_operation_policy_receipt','fbs_entitlement_receipt')
+   ) policy_triggers
+   WHERE action_timing='BEFORE' AND action_orientation='ROW'
+     AND action_condition IS NULL AND action_order=1 AND (
+       (trigger_name IN ('trg_plan_policy_receipt_no_update','trg_plan_policy_receipt_no_delete')
+        AND event_object_table='fbs_plan_policy_revision_receipt'
+        AND action_sha256='59d2d90cab68d42f6655f1fb176eb83d098c3c29a25c7242ccab4273e558170a')
+    OR (trigger_name='trg_usage_operation_policy_guard_insert'
+        AND event_object_table='fbs_usage_operation_policy_receipt' AND event_manipulation='INSERT'
+        AND action_sha256='c9409524d7203b611129b9704cdc9752ffcdecdcb2b29b97a21cb3ef08b675f9')
+    OR (trigger_name IN ('trg_usage_operation_policy_no_update','trg_usage_operation_policy_no_delete')
+        AND event_object_table='fbs_usage_operation_policy_receipt'
+        AND action_sha256='be062b76a71de8c859ea35de136217a34f5a900e454a19e4284c691deb4134a3')
+    OR (trigger_name IN ('trg_entitlement_receipt_no_update','trg_entitlement_receipt_no_delete')
+        AND event_object_table='fbs_entitlement_receipt'
+        AND action_sha256='5c40f4bae16986eae2b1cbbef38994a93263c870a0940432902dd5d6b9cc151e'))),
+  (SELECT COUNT(*) FROM information_schema.triggers
+   WHERE trigger_schema=DATABASE() AND event_object_table IN
+     ('fbs_plan_policy_revision_receipt','fbs_usage_operation_policy_receipt','fbs_entitlement_receipt')),
+  (SELECT COUNT(*) FROM fbs_plan_policy_revision_receipt
+   WHERE policy_version=1 AND action='PLAN_POLICY_BASELINED'
+     AND actor_type='SYSTEM_MIGRATION' AND actor_user_id IS NULL
+     AND previous_receipt_id IS NULL AND previous_policy_digest IS NULL
+     AND ((CAST(plan_code AS BINARY)=CAST('BOARD_FREE' AS BINARY)
+           AND CAST(receipt_id AS BINARY)=CAST('plan-policy-baseline-board-free-v1' AS BINARY)
+           AND policy_digest='8ae3df83c9f56974261d1e471eb19034b2b782f793f74333c64a13c61dae8982')
+       OR (CAST(plan_code AS BINARY)=CAST('BOARD_VIP' AS BINARY)
+           AND CAST(receipt_id AS BINARY)=CAST('plan-policy-baseline-board-vip-v1' AS BINARY)
+           AND policy_digest='02e90096b76d25b69c938fa65cfc3931207ac0a2648447bf613dca591619da51'))),
+  (SELECT COUNT(*) FROM fbs_plan_policy_head),
+  (SELECT COUNT(*) FROM fbs_plan_policy_head h
+   INNER JOIN fbs_plan_policy_revision_receipt r
+     ON r.product_code=h.product_code AND r.plan_code=h.plan_code
+    AND r.receipt_id=h.active_receipt_id AND r.policy_version=h.policy_version
+   INNER JOIN (
+     SELECT product_code,plan_code,MAX(policy_version) AS max_version
+     FROM fbs_plan_policy_revision_receipt GROUP BY product_code,plan_code
+   ) latest ON latest.product_code=h.product_code AND latest.plan_code=h.plan_code
+    AND latest.max_version=h.policy_version),
+  (SELECT COUNT(*) FROM fbs_plan_policy_revision_receipt r
+   LEFT JOIN fbs_plan_policy_revision_receipt p
+     ON p.product_code=r.product_code AND p.plan_code=r.plan_code
+    AND p.receipt_id=r.previous_receipt_id
+   WHERE r.policy_version>1 AND
+     (p.id IS NULL OR p.policy_version+1<>r.policy_version OR p.policy_digest<>r.previous_policy_digest)),
+  (SELECT COUNT(*) FROM fbs_plan_policy_revision_receipt r
+   INNER JOIN fbs_plan_policy_revision_receipt target
+     ON target.product_code=r.product_code AND target.plan_code=r.plan_code
+    AND target.receipt_id=r.rollback_of_receipt_id
+   WHERE r.action='PLAN_POLICY_ROLLED_BACK' AND NOT
+     (CAST(r.plan_name AS BINARY)<=>CAST(target.plan_name AS BINARY) AND r.vip<=>target.vip
+      AND r.connector_required<=>target.connector_required
+      AND r.daily_meeting_limit<=>target.daily_meeting_limit
+      AND r.agenda_limit<=>target.agenda_limit AND r.seat_limit<=>target.seat_limit
+      AND r.secretary_enabled<=>target.secretary_enabled AND r.status<=>target.status
+      AND r.policy_digest<=>target.policy_digest)),
+  (SELECT COUNT(*) FROM fbs_plan_policy_head free_head
+   INNER JOIN fbs_plan_policy_revision_receipt free_policy
+     ON free_policy.product_code=free_head.product_code AND free_policy.plan_code=free_head.plan_code
+    AND free_policy.receipt_id=free_head.active_receipt_id AND free_policy.policy_version=free_head.policy_version
+   INNER JOIN fbs_plan_policy_head vip_head ON vip_head.product_code=free_head.product_code
+   INNER JOIN fbs_plan_policy_revision_receipt vip_policy
+     ON vip_policy.product_code=vip_head.product_code AND vip_policy.plan_code=vip_head.plan_code
+    AND vip_policy.receipt_id=vip_head.active_receipt_id AND vip_policy.policy_version=vip_head.policy_version
+   WHERE CAST(free_head.plan_code AS BINARY)=CAST('BOARD_FREE' AS BINARY)
+     AND CAST(vip_head.plan_code AS BINARY)=CAST('BOARD_VIP' AS BINARY)
+     AND vip_policy.daily_meeting_limit>=free_policy.daily_meeting_limit
+     AND vip_policy.agenda_limit>=free_policy.agenda_limit
+     AND (vip_policy.seat_limit IS NULL OR vip_policy.seat_limit>=free_policy.seat_limit)
+     AND (free_policy.secretary_enabled=0 OR vip_policy.secretary_enabled=1)),
+  (SELECT COUNT(*) FROM fbs_usage_operation o
+    LEFT JOIN fbs_usage_operation_policy_receipt l
+      ON l.enterprise_id=o.enterprise_id AND l.operation_id=o.operation_id
+     AND CAST(l.operation_id AS BINARY)=CAST(o.operation_id AS BINARY)
+   LEFT JOIN fbs_plan_policy_revision_receipt r
+     ON r.product_code=l.product_code AND r.plan_code=l.plan_code
+    AND r.receipt_id=l.policy_receipt_id AND r.policy_version=l.policy_version
+    WHERE CAST(o.product_code AS BINARY)=CAST('FBSIR_INDEPENDENT_BOARD' AS BINARY) AND
+     (l.id IS NULL OR r.id IS NULL OR CAST(l.product_code AS BINARY)<>CAST(o.product_code AS BINARY)
+      OR CAST(l.plan_code AS BINARY)<>CAST(o.effective_plan_code AS BINARY)
+      OR l.policy_digest<>r.policy_digest)),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='20260722_independent_board_plan_policy_v1'
+     AND description='Independent Board immutable plan policy revisions and operation lineage'));
+"@
+    $parts = @($state.Split('|'))
+    $expected = @('3','39','15','7','20','10','7','7','2','2','2','0','0','1','0','1')
+    if ($parts.Count -ne $expected.Count) {
+        throw "Independent Board plan-policy current-read field count drifted: '$state'."
+    }
+    for ($index = 0; $index -lt $expected.Count; $index++) {
+        if ($parts[$index] -ne $expected[$index]) {
+            throw "Independent Board plan-policy current-read drift at field $($index + 1): expected $($expected[$index]), found '$($parts[$index])'."
+        }
+    }
+    $metadataState = Invoke-MySqlText -Sql @"
+SET SESSION group_concat_max_len=1048576;
+SELECT CONCAT_WS('|',
+ (SELECT SHA2(GROUP_CONCAT(CONCAT(
+   'T:',HEX(CAST(table_name AS BINARY)),'|O:',LPAD(ordinal_position,3,'0'),
+   '|N:',HEX(CAST(column_name AS BINARY)),'|Y:',HEX(CAST(column_type AS BINARY)),
+   '|U:',HEX(CAST(is_nullable AS BINARY)),
+   '|D:',IF(column_default IS NULL,'N',CONCAT('V:',HEX(CAST(column_default AS BINARY)))),
+   '|C:',IF(character_set_name IS NULL,'N',CONCAT('V:',HEX(CAST(character_set_name AS BINARY)))),
+   '|L:',IF(collation_name IS NULL,'N',CONCAT('V:',HEX(CAST(collation_name AS BINARY)))),
+   '|E:',HEX(CAST(extra AS BINARY)),
+   '|G:',IF(generation_expression IS NULL,'N',CONCAT('V:',HEX(CAST(generation_expression AS BINARY)))))
+   ORDER BY table_name,ordinal_position SEPARATOR 0x0A),256)
+  FROM information_schema.columns WHERE table_schema=DATABASE()
+   AND table_name IN ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head','fbs_usage_operation_policy_receipt')),
+ (SELECT SHA2(GROUP_CONCAT(CONCAT(
+   'T:',HEX(CAST(table_name AS BINARY)),'|I:',HEX(CAST(index_name AS BINARY)),
+   '|U:',non_unique,'|Y:',HEX(CAST(index_type AS BINARY)),'|V:',HEX(CAST(is_visible AS BINARY)),
+   '|S:',seq_in_index,'|N:',IF(column_name IS NULL,'N',CONCAT('V:',HEX(CAST(column_name AS BINARY)))),
+   '|X:',IF(expression IS NULL,'N',CONCAT('V:',HEX(CAST(expression AS BINARY)))),
+   '|C:',IF(collation IS NULL,'N',CONCAT('V:',HEX(CAST(collation AS BINARY)))),
+   '|P:',IF(sub_part IS NULL,'N',CONCAT('V:',sub_part)),'|Q:',HEX(CAST(nullable AS BINARY)))
+   ORDER BY table_name,index_name,seq_in_index SEPARATOR 0x0A),256)
+  FROM information_schema.statistics WHERE table_schema=DATABASE()
+   AND table_name IN ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head','fbs_usage_operation_policy_receipt')),
+ (SELECT SHA2(GROUP_CONCAT(CONCAT(
+   'T:',HEX(CAST(rc.table_name AS BINARY)),'|C:',HEX(CAST(rc.constraint_name AS BINARY)),
+   '|K:',HEX(CAST(rc.unique_constraint_name AS BINARY)),'|R:',HEX(CAST(rc.referenced_table_name AS BINARY)),
+   '|U:',HEX(CAST(rc.update_rule AS BINARY)),'|D:',HEX(CAST(rc.delete_rule AS BINARY)),
+   '|O:',kcu.ordinal_position,'|N:',HEX(CAST(kcu.column_name AS BINARY)),
+   '|P:',HEX(CAST(kcu.referenced_column_name AS BINARY)),
+   '|I:',IF(kcu.position_in_unique_constraint IS NULL,'N',CONCAT('V:',kcu.position_in_unique_constraint)))
+   ORDER BY rc.table_name,rc.constraint_name,kcu.ordinal_position SEPARATOR 0x0A),256)
+  FROM information_schema.referential_constraints rc
+  INNER JOIN information_schema.key_column_usage kcu
+   ON kcu.constraint_schema=rc.constraint_schema AND kcu.table_name=rc.table_name
+  AND kcu.constraint_name=rc.constraint_name
+  WHERE rc.constraint_schema=DATABASE() AND kcu.referenced_table_schema=DATABASE()
+   AND rc.table_name IN ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head','fbs_usage_operation_policy_receipt')),
+ (SELECT SHA2(GROUP_CONCAT(CONCAT(
+   'T:',HEX(CAST(tc.table_name AS BINARY)),'|C:',HEX(CAST(tc.constraint_name AS BINARY)),
+   '|E:',HEX(CAST(tc.enforced AS BINARY)),'|Q:',HEX(CAST(cc.check_clause AS BINARY)))
+   ORDER BY tc.table_name,tc.constraint_name SEPARATOR 0x0A),256)
+  FROM information_schema.table_constraints tc
+  INNER JOIN information_schema.check_constraints cc
+   ON cc.constraint_schema=tc.constraint_schema AND cc.constraint_name=tc.constraint_name
+  WHERE tc.constraint_schema=DATABASE() AND tc.constraint_type='CHECK'
+   AND tc.table_name IN ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head','fbs_usage_operation_policy_receipt')));
+"@
+    $metadataParts = @($metadataState.Split('|'))
+    $expectedMetadata = @(
+        '3861fa022a759a9f9a5f773da995273b5259e361be7a931a9ad761eca02473d7',
+        '2d21d400829820467a0915c202fbdd5343e5d9417fe1ac062a48742ec0a6541b',
+        '03dfe7bb006d20b768840f71a435d0233355001dc35d6c7cffda5c68ef6151de',
+        'b97cf71e29e1bfbbb58bd9ef58ed8f9334c586de102e43b6bb231e392ac84fad'
+    )
+    if ($metadataParts.Count -ne $expectedMetadata.Count) {
+        throw "Independent Board plan-policy raw metadata field count drifted: '$metadataState'."
+    }
+    for ($index = 0; $index -lt $expectedMetadata.Count; $index++) {
+        if (-not [string]::Equals($metadataParts[$index], $expectedMetadata[$index], [StringComparison]::Ordinal)) {
+            throw "Independent Board plan-policy raw metadata digest drifted at field $($index + 1): '$($metadataParts[$index])'."
+        }
+    }
+    Write-Host "PASS Independent Board plan-policy exact current-read on MySQL $($serverProfile.Version) (three tables, 39 columns, 15 indexes, seven RESTRICT foreign keys, ten checks, seven exact trigger bodies, two latest committed heads and complete operation lineage)."
+}
+
+if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly) {
     $currentReadLockSession = $null
     $currentReadLockAcquired = $false
     try {
@@ -2529,7 +2739,11 @@ SELECT CONCAT_WS('|', @u3w_manifest_lock_name, CHAR_LENGTH(@u3w_manifest_lock_na
             throw "Public database manifest current-read lock owner verification failed: '$($currentReadLockResponse[1])'."
         }
 
-        if ($CreditLedgerCurrentReadOnly) {
+        if ($PlanPolicyCurrentReadOnly) {
+            Assert-IndependentBoardPlanPolicyCurrentState
+            Write-Host "Independent Board plan-policy current-read verification complete for '$Database'. No database write was requested."
+        }
+        elseif ($CreditLedgerCurrentReadOnly) {
             Assert-IndependentBoardCreditLedgerCurrentState
             Write-Host "Independent Board credit-ledger current-read verification complete for '$Database'. No database write was requested."
         }
@@ -2544,6 +2758,7 @@ SELECT CONCAT_WS('|', @u3w_manifest_lock_name, CHAR_LENGTH(@u3w_manifest_lock_na
             Assert-IndependentBoardOauthRefreshSecurityCurrentState
             Assert-IndependentBoardAttributionEvidenceCurrentState
             Assert-IndependentBoardCreditLedgerCurrentState
+            Assert-IndependentBoardPlanPolicyCurrentState
             Assert-PublicDatabaseManifestCurrentState
             Write-Host "Independent Board current-read verification complete for '$Database'. No database write was requested."
         }
@@ -2625,6 +2840,9 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
         $resumeRunningCreditLedger =
             $step.Version -eq 'public_init_038' -and
             $state -eq "RUNNING:$($step.Description)"
+        $resumeRunningPlanPolicy =
+            $step.Version -eq 'public_init_039' -and
+            $state -eq "RUNNING:$($step.Description)"
         $resumeRunningOauthAdditive =
             $resumeRunningOauthProvenance -or
             $resumeRunningOauthConsentIntent -or
@@ -2632,7 +2850,8 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
         $resumeRunningAdditive =
             $resumeRunningOauthAdditive -or
             $resumeRunningAttributionEvidence -or
-            $resumeRunningCreditLedger
+            $resumeRunningCreditLedger -or
+            $resumeRunningPlanPolicy
         if ($state -and -not $resumeRunningAdditive) {
             throw "Step $($step.Version) is in state '$state'. Do not retry a partially applied DDL step; use a fresh database or reviewed recovery."
         }
@@ -2680,6 +2899,12 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             # MySQL profiles before it can create a public RUNNING receipt.
             $null = Assert-IndependentBoardOauthServerProfile
         }
+        if ($step.Version -eq 'public_init_039') {
+            # 039 owns additive interrupted-DDL recovery and must preserve N>1 heads.
+            # Preflight the reviewed server and the exact immutable 028 identity surface.
+            $null = Assert-IndependentBoardOauthServerProfile
+            Assert-IndependentBoardControlPlaneCurrentState
+        }
 
         try {
             if (-not $resumeRunningAdditive) {
@@ -2717,6 +2942,9 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             }
             if ($step.Version -eq 'public_init_038') {
                 Assert-IndependentBoardCreditLedgerCurrentState
+            }
+            if ($step.Version -eq 'public_init_039') {
+                Assert-IndependentBoardPlanPolicyCurrentState
             }
             Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
         }
@@ -2866,6 +3094,25 @@ DROP PROCEDURE IF EXISTS u3w_assert_independent_board_credit_triggers_20260722;
                     Write-Warning "Independent Board credit-ledger exact bounded replay did not pass; recording FAILED."
                 }
             }
+            if ($step.Version -eq 'public_init_039') {
+                try {
+                    # One bounded replay may complete only a recoverable additive
+                    # prefix or an exact completed state. Missing lineage, trigger
+                    # drift and an N>1 head reset remain fail closed.
+                    Invoke-MySqlFile -File $step.File
+                    Assert-IndependentBoardPlanPolicyCurrentState
+                    Invoke-MySqlText -Sql @"
+DROP PROCEDURE IF EXISTS u3w_migrate_independent_board_plan_policy_20260722;
+DROP PROCEDURE IF EXISTS u3w_finalize_independent_board_plan_policy_20260722;
+"@ | Out-Null
+                    Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
+                    Write-Warning "Reconciled $($step.Version) from its exact completed plan-policy state after one bounded replay."
+                    continue
+                }
+                catch {
+                    Write-Warning "Independent Board plan-policy exact bounded replay did not pass; recording FAILED."
+                }
+            }
             try {
                 Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='FAILED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
             }
@@ -2886,6 +3133,7 @@ DROP PROCEDURE IF EXISTS u3w_assert_independent_board_credit_triggers_20260722;
     Assert-IndependentBoardOauthRefreshSecurityCurrentState
     Assert-IndependentBoardAttributionEvidenceCurrentState
     Assert-IndependentBoardCreditLedgerCurrentState
+    Assert-IndependentBoardPlanPolicyCurrentState
 
     Assert-PublicDatabaseManifestCurrentState
 
@@ -2897,10 +3145,11 @@ WHERE table_schema='$Database'
                       'fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt',
                       'fbs_oauth_client','fbs_oauth_authorization_request','fbs_oauth_authorization_code',
                       'fbs_oauth_token_family','fbs_oauth_token','fbs_oauth_receipt',
-                      'fbs_credit_account','fbs_credit_operation','fbs_credit_entry');
+                      'fbs_credit_account','fbs_credit_operation','fbs_credit_entry',
+                      'fbs_plan_policy_revision_receipt','fbs_plan_policy_head','fbs_usage_operation_policy_receipt');
 "@)
-    if ($verification -ne 24) {
-        throw "Database verification failed: expected twenty-four representative current tables; found $verification."
+    if ($verification -ne 27) {
+        throw "Database verification failed: expected twenty-seven representative current tables; found $verification."
     }
 
     $hostTypeColumn = [int](Invoke-MySqlText -Sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$Database' AND table_name='ws_host_whitelist' AND column_name='host_type';")

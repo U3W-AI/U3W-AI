@@ -33,6 +33,8 @@
         <result property="status" column="status" />
         <result property="version" column="version" />
         <result property="updatedAt" column="updated_at" />
+        <result property="policyReceiptId" column="policy_receipt_id" />
+        <result property="policyDigest" column="policy_digest" />
     </resultMap>
 
     <resultMap id="Entitlement" type="com.wx.fbsir.business.board.domain.BoardProductEntitlement">
@@ -143,6 +145,42 @@
         <result property="completedAt" column="completed_at" />
     </resultMap>
 
+    <resultMap id="UsageOperationPolicyReceipt"
+               type="com.wx.fbsir.business.board.domain.BoardUsageOperationPolicyReceipt">
+        <id property="id" column="id" />
+        <result property="tenantId" column="enterprise_id" />
+        <result property="operationId" column="operation_id" />
+        <result property="productCode" column="product_code" />
+        <result property="planCode" column="plan_code" />
+        <result property="policyReceiptId" column="policy_receipt_id" />
+        <result property="policyVersion" column="policy_version" />
+        <result property="policyDigest" column="policy_digest" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <resultMap id="PlanPolicySnapshot"
+               type="com.wx.fbsir.business.board.plan.domain.BoardPlanPolicySnapshot">
+        <id property="id" column="id" />
+        <result property="receiptId" column="receipt_id" />
+        <result property="productCode" column="product_code" />
+        <result property="planCode" column="plan_code" />
+        <result property="policyVersion" column="policy_version" />
+        <result property="policyDigest" column="policy_digest" />
+        <result property="planName" column="plan_name" />
+        <result property="vip" column="vip" />
+        <result property="connectorRequired" column="connector_required" />
+        <result property="dailyMeetingLimit" column="daily_meeting_limit" />
+        <result property="agendaLimit" column="agenda_limit" />
+        <result property="seatLimit" column="seat_limit" />
+        <result property="secretaryEnabled" column="secretary_enabled" />
+        <result property="status" column="status" />
+        <result property="identityProductCode" column="identity_product_code" />
+        <result property="identityPlanCode" column="identity_plan_code" />
+        <result property="identityVip" column="identity_vip" />
+        <result property="identityConnectorRequired" column="identity_connector_required" />
+        <result property="identityStatus" column="identity_status" />
+    </resultMap>
+
     <sql id="ActiveContextColumns">
         m.id AS member_id, m.enterprise_id AS tenant_id, e.enterprise_name AS tenant_name,
         m.user_id, m.role AS member_role, m.status, m.del_flag
@@ -230,13 +268,26 @@
     </select>
 
     <select id="selectActivePlan" resultMap="Plan">
-        SELECT product_code, plan_code, plan_name, vip, connector_required, daily_meeting_limit,
-               agenda_limit, seat_limit, secretary_enabled, status, version, updated_at
-        FROM fbs_product_plan
-        WHERE product_code = #{productCode}
-          AND plan_code = #{planCode}
-          AND status = 'ACTIVE'
-        LIMIT 1
+        SELECT p.product_code, p.plan_code, r.plan_name, p.vip, p.connector_required,
+               r.daily_meeting_limit, r.agenda_limit, r.seat_limit,
+               r.secretary_enabled, p.status, r.policy_version AS version,
+               r.created_at AS updated_at, r.receipt_id AS policy_receipt_id,
+               r.policy_digest
+        FROM fbs_product_plan p
+        INNER JOIN fbs_plan_policy_head h
+            ON BINARY h.product_code = BINARY p.product_code
+           AND BINARY h.plan_code = BINARY p.plan_code
+        INNER JOIN fbs_plan_policy_revision_receipt r
+            ON BINARY r.product_code = BINARY h.product_code
+           AND BINARY r.plan_code = BINARY h.plan_code
+           AND BINARY r.receipt_id = BINARY h.active_receipt_id
+           AND r.policy_version = h.policy_version
+           AND r.vip = p.vip
+           AND r.connector_required = p.connector_required
+           AND BINARY r.status = BINARY p.status
+        WHERE BINARY p.product_code = BINARY #{productCode}
+          AND BINARY p.plan_code = BINARY #{planCode}
+          AND BINARY p.status = BINARY 'ACTIVE'
     </select>
 
     <select id="selectActivePlanForUpdate" resultMap="Plan" flushCache="true" useCache="false">
@@ -261,13 +312,31 @@
         FOR UPDATE
     </select>
 
-    <!-- Read the raw bounded catalog so disabled, duplicate, or drifted policies fail closed in Java. -->
+    <!-- LEFT JOIN preserves missing/drifted/extra identities so Java fails closed. -->
     <select id="selectPlansByProduct" resultMap="Plan">
-        SELECT product_code, plan_code, plan_name, vip, connector_required, daily_meeting_limit,
-               agenda_limit, seat_limit, secretary_enabled, status, version, updated_at
-        FROM fbs_product_plan
-        WHERE product_code = #{productCode}
-        ORDER BY plan_code ASC
+        SELECT p.product_code, p.plan_code, r.plan_name, p.vip, p.connector_required,
+               r.daily_meeting_limit, r.agenda_limit, r.seat_limit,
+               r.secretary_enabled, p.status, r.policy_version AS version,
+               r.created_at AS updated_at, r.receipt_id AS policy_receipt_id,
+               r.policy_digest
+        FROM fbs_product_plan p
+        LEFT JOIN fbs_plan_policy_head h
+            ON BINARY h.product_code = BINARY p.product_code
+           AND BINARY h.plan_code = BINARY p.plan_code
+        LEFT JOIN fbs_plan_policy_revision_receipt r
+            ON BINARY r.product_code = BINARY h.product_code
+           AND BINARY r.plan_code = BINARY h.plan_code
+           AND BINARY r.receipt_id = BINARY h.active_receipt_id
+           AND r.policy_version = h.policy_version
+           AND r.vip = p.vip
+           AND r.connector_required = p.connector_required
+           AND BINARY r.status = BINARY p.status
+        WHERE BINARY p.product_code = BINARY #{productCode}
+        ORDER BY CASE p.plan_code
+            WHEN 'BOARD_FREE' THEN 1
+            WHEN 'BOARD_VIP' THEN 2
+            ELSE 3
+        END
         LIMIT 3
     </select>
 
@@ -439,14 +508,10 @@
                 ON CAST(plan.product_code AS BINARY) = CAST(entitlement.product_code AS BINARY)
                AND CAST(plan.plan_code AS BINARY) = CAST(entitlement.plan_code AS BINARY)
                AND CAST(plan.product_code AS BINARY) = CAST('FBSIR_INDEPENDENT_BOARD' AS BINARY)
-               AND CAST(plan.plan_code AS BINARY) = CAST('BOARD_VIP' AS BINARY)
-               AND plan.vip = 1
-               AND plan.connector_required = 1
-               AND plan.daily_meeting_limit = 5
-               AND plan.agenda_limit = 30
-               AND plan.seat_limit IS NULL
-               AND plan.secretary_enabled = 1
-               AND CAST(plan.status AS BINARY) = CAST('ACTIVE' AS BINARY)
+                AND CAST(plan.plan_code AS BINARY) = CAST('BOARD_VIP' AS BINARY)
+                AND plan.vip = 1
+                AND plan.connector_required = 1
+                AND CAST(plan.status AS BINARY) = CAST('ACTIVE' AS BINARY)
             WHERE candidate.enterprise_id = #{tenantId}
               AND candidate.product_code = #{productCode}
               AND candidate.source_code = #{sourceCode}
@@ -605,6 +670,41 @@
           AND used_count + reserved_count &lt; #{dailyLimit}
     </update>
 
+    <!-- One statement-level committed snapshot; immutable receipts need no global plan lock. -->
+    <select id="selectCurrentPlanPolicy" resultMap="PlanPolicySnapshot"
+            flushCache="true" useCache="false">
+        SELECT r.id, r.receipt_id, r.product_code, r.plan_code, r.policy_version,
+               r.policy_digest, r.plan_name, r.vip, r.connector_required,
+               r.daily_meeting_limit, r.agenda_limit, r.seat_limit,
+               r.secretary_enabled, r.status,
+               p.product_code AS identity_product_code,
+               p.plan_code AS identity_plan_code,
+               p.vip AS identity_vip,
+               p.connector_required AS identity_connector_required,
+               p.status AS identity_status
+        FROM fbs_product_plan p
+        INNER JOIN fbs_plan_policy_head h
+            ON h.product_code = p.product_code
+           AND BINARY h.product_code = BINARY p.product_code
+           AND h.plan_code = p.plan_code
+           AND BINARY h.plan_code = BINARY p.plan_code
+        INNER JOIN fbs_plan_policy_revision_receipt r
+            ON r.product_code = h.product_code
+           AND BINARY r.product_code = BINARY h.product_code
+           AND r.plan_code = h.plan_code
+           AND BINARY r.plan_code = BINARY h.plan_code
+           AND BINARY r.receipt_id = BINARY h.active_receipt_id
+           AND r.policy_version = h.policy_version
+           AND r.vip = p.vip
+           AND r.connector_required = p.connector_required
+           AND BINARY r.status = BINARY p.status
+        WHERE p.product_code = #{productCode}
+          AND BINARY p.product_code = BINARY #{productCode}
+          AND p.plan_code = #{planCode}
+          AND BINARY p.plan_code = BINARY #{planCode}
+        LIMIT 1
+    </select>
+
     <select id="selectOperation" resultMap="Operation">
         SELECT id, operation_id, request_digest, enterprise_id, member_id, user_id,
                product_code, metric_code, bucket_date, units, status, effective_plan_code,
@@ -626,6 +726,35 @@
         FOR UPDATE
     </select>
 
+    <!-- Historical replay deliberately joins the committed receipt, never the mutable head. -->
+    <select id="selectOperationPolicyReceipt" resultMap="UsageOperationPolicyReceipt"
+            flushCache="true" useCache="false">
+        SELECT l.id, l.enterprise_id, l.operation_id, l.product_code, l.plan_code,
+               l.policy_receipt_id, l.policy_version, l.policy_digest, l.created_at
+        FROM fbs_usage_operation o
+        INNER JOIN fbs_usage_operation_policy_receipt l
+            ON l.enterprise_id = o.enterprise_id
+           AND l.operation_id = o.operation_id
+           AND BINARY l.operation_id = BINARY o.operation_id
+           AND l.product_code = o.product_code
+           AND BINARY l.product_code = BINARY o.product_code
+           AND l.plan_code = o.effective_plan_code
+           AND BINARY l.plan_code = BINARY o.effective_plan_code
+        INNER JOIN fbs_plan_policy_revision_receipt r
+            ON r.product_code = l.product_code
+           AND BINARY r.product_code = BINARY l.product_code
+           AND r.plan_code = l.plan_code
+           AND BINARY r.plan_code = BINARY l.plan_code
+           AND r.receipt_id = l.policy_receipt_id
+           AND BINARY r.receipt_id = BINARY l.policy_receipt_id
+           AND r.policy_version = l.policy_version
+           AND BINARY r.policy_digest = BINARY l.policy_digest
+        WHERE o.enterprise_id = #{tenantId}
+          AND o.operation_id = #{operationId}
+          AND BINARY o.operation_id = BINARY #{operationId}
+        LIMIT 1
+    </select>
+
     <insert id="insertOperation" parameterType="com.wx.fbsir.business.board.domain.BoardUsageOperation"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO fbs_usage_operation
@@ -636,6 +765,17 @@
             (#{operationId}, #{requestDigest}, #{tenantId}, #{memberId}, #{userId}, #{productCode},
              #{metricCode}, #{bucketDate}, #{units}, #{status}, #{effectivePlanCode}, #{agendaCount},
              #{seatCount}, #{remainingCount}, NOW(), NOW())
+    </insert>
+
+    <insert id="insertUsageOperationPolicyReceipt"
+            parameterType="com.wx.fbsir.business.board.domain.BoardUsageOperationPolicyReceipt"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_usage_operation_policy_receipt
+            (enterprise_id, operation_id, product_code, plan_code,
+             policy_receipt_id, policy_version, policy_digest)
+        VALUES
+            (#{tenantId}, #{operationId}, #{productCode}, #{planCode},
+             #{policyReceiptId}, #{policyVersion}, #{policyDigest})
     </insert>
 
     <update id="markOperationReserved">

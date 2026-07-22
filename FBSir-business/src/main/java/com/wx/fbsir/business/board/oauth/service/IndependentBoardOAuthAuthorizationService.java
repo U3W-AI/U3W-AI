@@ -547,10 +547,6 @@ class IndependentBoardOAuthAuthorizationService {
                 || !Objects.equals(plan.getPlanCode(), VIP_PLAN)
                 || !Boolean.TRUE.equals(plan.getVip())
                 || !Boolean.TRUE.equals(plan.getConnectorRequired())
-                || !Objects.equals(plan.getDailyMeetingLimit(), 5)
-                || !Objects.equals(plan.getAgendaLimit(), 30)
-                || plan.getSeatLimit() != null
-                || !Boolean.TRUE.equals(plan.getSecretaryEnabled())
                 || !Objects.equals(plan.getStatus(), STATUS_ACTIVE)) {
             throw BoardOAuthProtocolException.serverError(CONSENT_PLAN_DRIFT);
         }

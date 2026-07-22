@@ -9,6 +9,8 @@ import com.wx.fbsir.business.board.domain.BoardProductEntitlement;
 import com.wx.fbsir.business.board.domain.BoardProductPlan;
 import com.wx.fbsir.business.board.domain.BoardUsageBudget;
 import com.wx.fbsir.business.board.domain.BoardUsageOperation;
+import com.wx.fbsir.business.board.domain.BoardUsageOperationPolicyReceipt;
+import com.wx.fbsir.business.board.plan.domain.BoardPlanPolicySnapshot;
 import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
@@ -143,13 +145,23 @@ public interface IndependentBoardMapper {
                           @Param("bucketDate") LocalDate bucketDate,
                           @Param("dailyLimit") Integer dailyLimit);
 
+    BoardPlanPolicySnapshot selectCurrentPlanPolicy(
+            @Param("productCode") String productCode,
+            @Param("planCode") String planCode);
+
     BoardUsageOperation selectOperation(@Param("tenantId") Long tenantId,
                                         @Param("operationId") String operationId);
 
     BoardUsageOperation selectOperationForUpdate(@Param("tenantId") Long tenantId,
                                                  @Param("operationId") String operationId);
 
+    BoardUsageOperationPolicyReceipt selectOperationPolicyReceipt(
+            @Param("tenantId") Long tenantId,
+            @Param("operationId") String operationId);
+
     int insertOperation(BoardUsageOperation operation);
+
+    int insertUsageOperationPolicyReceipt(BoardUsageOperationPolicyReceipt receipt);
 
     int markOperationReserved(@Param("tenantId") Long tenantId,
                               @Param("operationId") String operationId,

@@ -9,6 +9,8 @@ import com.wx.fbsir.business.board.domain.BoardProductPlan;
 import com.wx.fbsir.business.board.domain.BoardUsageOperation;
 import com.wx.fbsir.business.board.dto.BoardConnectorBindingKey;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
+import com.wx.fbsir.business.board.plan.controller.IndependentBoardPlanPolicyNoStoreFilter;
+import com.wx.fbsir.business.board.plan.service.BoardPlanPolicyDigest;
 import com.wx.fbsir.business.board.service.BoardConnectorBindingPort;
 import com.wx.fbsir.business.board.service.IndependentBoardDashboardService;
 import com.wx.fbsir.business.board.service.IndependentBoardEntitlementService;
@@ -52,6 +54,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockServletContext;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -70,6 +74,7 @@ import org.springframework.web.context.support.AnnotationConfigWebApplicationCon
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.never;
@@ -82,6 +87,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -124,7 +130,9 @@ class IndependentBoardHttpSecurityIntegrationTest {
         skillConsumeService = context.getBean(SkillConsumeService.class);
         redisCache = context.getBean(InMemoryRedisCache.class);
         mockMvc = MockMvcBuilders.webAppContextSetup(context)
-                .addFilters(context.getBean("springSecurityFilterChain", jakarta.servlet.Filter.class))
+                .addFilters(
+                        new IndependentBoardPlanPolicyNoStoreFilter(),
+                        context.getBean("springSecurityFilterChain", jakarta.servlet.Filter.class))
                 .build();
     }
 
@@ -691,11 +699,15 @@ class IndependentBoardHttpSecurityIntegrationTest {
                         .header("Authorization", bearer(loginUser(
                                 USER_ID, "member", Set.of("board:entitlement:query"), "user"))))
                 .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL,
+                        containsString("no-store")))
                 .andExpect(jsonPath("$.code").value(403));
         mockMvc.perform(get("/business/independent-board/plans")
                         .header("Authorization", bearer(loginUser(
                                 USER_ID, "operator", Set.of(), "admin"))))
                 .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL,
+                        containsString("no-store")))
                 .andExpect(jsonPath("$.code").value(403));
 
         verify(mapper, never()).selectPlansByProduct(any());
@@ -710,6 +722,8 @@ class IndependentBoardHttpSecurityIntegrationTest {
                         .header("Authorization", bearer(loginUser(
                                 900L, "operator", Set.of("board:entitlement:query"), "admin"))))
                 .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL,
+                        containsString("no-store")))
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.length()").value(2))
                 .andExpect(jsonPath("$.data[0].productCode").value(
@@ -723,6 +737,22 @@ class IndependentBoardHttpSecurityIntegrationTest {
                 .andExpect(jsonPath("$.data[1].seatLimit").value(nullValue()));
 
         verify(mapper).selectPlansByProduct(IndependentBoardEntitlementService.PRODUCT_CODE);
+    }
+
+    @Test
+    void planCatalogDatabaseFailureIsStableAndNoStore() throws Exception {
+        when(mapper.selectPlansByProduct(IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenThrow(new DataAccessResourceFailureException(
+                        "secret plan catalog SQL and connection detail"));
+
+        mockMvc.perform(get("/business/independent-board/plans")
+                        .header("Authorization", bearer(loginUser(
+                                900L, "operator", Set.of("board:entitlement:query"), "admin"))))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL,
+                        containsString("no-store")))
+                .andExpect(jsonPath("$.code").value(503))
+                .andExpect(jsonPath("$.msg").value("BOARD_PLAN_CURRENT_READ_UNAVAILABLE"));
     }
 
     @Test
@@ -1243,6 +1273,12 @@ class IndependentBoardHttpSecurityIntegrationTest {
         plan.setStatus("ACTIVE");
         plan.setVersion(3L);
         plan.setUpdatedAt(new Date(1_790_000_000_000L));
+        plan.setPolicyReceiptId("plan-policy-http-free-v3");
+        plan.setPolicyDigest(BoardPlanPolicyDigest.policyDigest(
+                plan.getProductCode(), plan.getPlanCode(), plan.getPlanName(),
+                plan.getVip(), plan.getConnectorRequired(), plan.getDailyMeetingLimit(),
+                plan.getAgendaLimit(), plan.getSeatLimit(), plan.getSecretaryEnabled(),
+                plan.getStatus()));
         return plan;
     }
 
@@ -1260,6 +1296,12 @@ class IndependentBoardHttpSecurityIntegrationTest {
         plan.setStatus("ACTIVE");
         plan.setVersion(5L);
         plan.setUpdatedAt(new Date(1_790_000_100_000L));
+        plan.setPolicyReceiptId("plan-policy-http-vip-v5");
+        plan.setPolicyDigest(BoardPlanPolicyDigest.policyDigest(
+                plan.getProductCode(), plan.getPlanCode(), plan.getPlanName(),
+                plan.getVip(), plan.getConnectorRequired(), plan.getDailyMeetingLimit(),
+                plan.getAgendaLimit(), plan.getSeatLimit(), plan.getSecretaryEnabled(),
+                plan.getStatus()));
         return plan;
     }
 

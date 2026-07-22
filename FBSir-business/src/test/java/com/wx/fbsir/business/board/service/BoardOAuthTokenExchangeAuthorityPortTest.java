@@ -79,6 +79,37 @@ class BoardOAuthTokenExchangeAuthorityPortTest {
     }
 
     @Test
+    void tokenExchangeUsesFixedPlanIdentityAndPassesDynamicPolicyValues() {
+        IndependentBoardMapper mapper = mock(IndependentBoardMapper.class);
+        IndependentBoardConnectorBindingService service = service(mapper);
+        when(mapper.selectEnterpriseSlotForUpdate(7L)).thenReturn(enterprise(1));
+        when(mapper.selectMemberSlotForUpdate(7L, 8L)).thenReturn(member(1));
+        when(mapper.selectEntitlementForUpdate(7L, 8L, PRODUCT))
+                .thenReturn(entitlement("ACTIVE"));
+        BoardProductPlan dynamic = plan("ACTIVE");
+        dynamic.setDailyMeetingLimit(9);
+        dynamic.setAgendaLimit(47);
+        dynamic.setSeatLimit(12);
+        dynamic.setSecretaryEnabled(false);
+        when(mapper.selectPlanSlotForUpdate(PRODUCT, "BOARD_VIP"))
+                .thenReturn(dynamic);
+
+        BoardOAuthTokenExchangeAuthorityPort.LockResult accepted =
+                service.lockForTokenExchange(
+                        7L, 8L, 9L, PRODUCT, "WORKBUDDY", "fbs-connector", NOW);
+
+        assertTrue(accepted.planCurrent());
+        assertTrue(accepted.issuanceAuthorityCurrent());
+
+        dynamic.setConnectorRequired(false);
+        BoardOAuthTokenExchangeAuthorityPort.LockResult rejected =
+                service.lockForTokenExchange(
+                        7L, 8L, 9L, PRODUCT, "WORKBUDDY", "fbs-connector", NOW);
+        assertFalse(rejected.planCurrent());
+        assertFalse(rejected.issuanceAuthorityCurrent());
+    }
+
+    @Test
     void inactiveEnterpriseIsReportedOnlyAfterEveryAuthoritySlotWasLocked() {
         IndependentBoardMapper mapper = mock(IndependentBoardMapper.class);
         IndependentBoardConnectorBindingService service = service(mapper);

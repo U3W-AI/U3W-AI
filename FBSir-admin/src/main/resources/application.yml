@@ -19,6 +19,9 @@ fbsir:
   # 建议使用环境变量：WXFBSIR_DOMAIN
   domain: ${FBSIR_DOMAIN:${WXFBSIR_DOMAIN:http://localhost:8080}}
   independent-board:
+    plan-policy-candidate:
+      # Default-off plan-policy administration surface. Activate only after menu and migration gates pass.
+      enabled: ${FBSIR_INDEPENDENT_BOARD_PLAN_POLICY_CANDIDATE_ENABLED:false}
     credit-candidate:
       # Default-off credit shadow-ledger HTTP surface. Keep false until permission, UI and deployment gates pass.
       enabled: ${FBSIR_INDEPENDENT_BOARD_CREDIT_CANDIDATE_ENABLED:false}

@@ -1,11 +1,14 @@
 package com.wx.fbsir.business.board.plan.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+import com.wx.fbsir.business.board.plan.domain.BoardPlanPolicyName;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -21,8 +24,9 @@ import java.util.Set;
 public record BoardPlanPolicyRevisionRequest(
         @NotBlank @Pattern(regexp = "BOARD_FREE|BOARD_VIP") String planCode,
         @NotNull @Min(1) @Max(9_223_372_036_854_775_806L) Long expectedVersion,
-        @NotBlank @Size(max = 128)
-        @Pattern(regexp = "[^\\p{Cc}\\p{Cf}]{1,128}") String planName,
+        @NotBlank
+        @Pattern(regexp = "(?!\\p{Z})(?!.*\\p{Z}$)[^\\p{Cc}\\p{Cf}\\p{Cs}]+")
+        String planName,
         @NotNull @Min(1) @Max(10_000) Integer dailyMeetingLimit,
         @NotNull @Min(1) @Max(30) Integer agendaLimit,
         @Min(1) @Max(100) Integer seatLimit,
@@ -31,6 +35,12 @@ public record BoardPlanPolicyRevisionRequest(
         @Pattern(regexp = "[A-Za-z0-9][A-Za-z0-9._:-]{15,127}") String rollbackOfReceiptId,
         @NotBlank @Size(min = 16, max = 128)
         @Pattern(regexp = "[A-Za-z0-9][A-Za-z0-9._:-]{15,127}") String idempotencyKey) {
+
+    @AssertTrue(message = "planName violates the exact Unicode contract")
+    @JsonIgnore
+    public boolean isPlanNameContractValid() {
+        return BoardPlanPolicyName.isValid(planName);
+    }
 
     private static final Set<String> FIELDS = Set.of(
             "planCode", "expectedVersion", "planName", "dailyMeetingLimit",

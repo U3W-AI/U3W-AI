@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.board.plan.mapper.IndependentBoardPlanPolicyMapper">
+
+    <resultMap id="PlanPolicyReceipt"
+            type="com.wx.fbsir.business.board.plan.domain.BoardPlanPolicyReceipt">
+        <id property="id" column="receipt_db_id" />
+        <result property="receiptId" column="receipt_id" />
+        <result property="productCode" column="product_code" />
+        <result property="planCode" column="plan_code" />
+        <result property="policyVersion" column="policy_version" />
+        <result property="previousReceiptId" column="previous_receipt_id" />
+        <result property="rollbackOfReceiptId" column="rollback_of_receipt_id" />
+        <result property="action" column="action" />
+        <result property="actorType" column="actor_type" />
+        <result property="actorUserId" column="actor_user_id" />
+        <result property="idempotencyKeyDigest" column="idempotency_key_digest" />
+        <result property="commandDigest" column="command_digest" />
+        <result property="previousPolicyDigest" column="previous_policy_digest" />
+        <result property="policyDigest" column="policy_digest" />
+        <result property="planName" column="plan_name" />
+        <result property="vip" column="vip" />
+        <result property="connectorRequired" column="connector_required" />
+        <result property="dailyMeetingLimit" column="daily_meeting_limit" />
+        <result property="agendaLimit" column="agenda_limit" />
+        <result property="seatLimit" column="seat_limit" />
+        <result property="secretaryEnabled" column="secretary_enabled" />
+        <result property="status" column="status" />
+        <result property="evidenceLevel" column="evidence_level" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <resultMap id="PlanPolicySnapshot"
+            type="com.wx.fbsir.business.board.plan.domain.BoardPlanPolicySnapshot"
+            extends="PlanPolicyReceipt">
+        <result property="identityProductCode" column="identity_product_code" />
+        <result property="identityPlanCode" column="identity_plan_code" />
+        <result property="identityVip" column="identity_vip" />
+        <result property="identityConnectorRequired" column="identity_connector_required" />
+        <result property="identityStatus" column="identity_status" />
+    </resultMap>
+
+    <sql id="ReceiptColumns">
+        r.id AS receipt_db_id,
+        r.receipt_id,
+        r.product_code,
+        r.plan_code,
+        r.policy_version,
+        r.previous_receipt_id,
+        r.rollback_of_receipt_id,
+        r.action,
+        r.actor_type,
+        r.actor_user_id,
+        r.idempotency_key_digest,
+        r.command_digest,
+        r.previous_policy_digest,
+        r.policy_digest,
+        r.plan_name,
+        r.vip,
+        r.connector_required,
+        r.daily_meeting_limit,
+        r.agenda_limit,
+        r.seat_limit,
+        r.secretary_enabled,
+        r.status,
+        r.evidence_level,
+        r.created_at
+    </sql>
+
+    <sql id="CurrentPolicyColumns">
+        <include refid="ReceiptColumns" />,
+        p.product_code AS identity_product_code,
+        p.plan_code AS identity_plan_code,
+        p.vip AS identity_vip,
+        p.connector_required AS identity_connector_required,
+        p.status AS identity_status
+    </sql>
+
+    <select id="selectCurrentPolicies" resultMap="PlanPolicySnapshot">
+        SELECT <include refid="CurrentPolicyColumns" />
+        FROM fbs_product_plan p
+        INNER JOIN fbs_plan_policy_head h
+            ON BINARY h.product_code = BINARY p.product_code
+           AND BINARY h.plan_code = BINARY p.plan_code
+        INNER JOIN fbs_plan_policy_revision_receipt r
+            ON BINARY h.product_code = BINARY r.product_code
+           AND BINARY h.plan_code = BINARY r.plan_code
+           AND BINARY h.active_receipt_id = BINARY r.receipt_id
+           AND h.policy_version = r.policy_version
+           AND BINARY p.product_code = BINARY r.product_code
+           AND BINARY p.plan_code = BINARY r.plan_code
+        WHERE BINARY p.product_code = BINARY #{productCode}
+        ORDER BY CASE p.plan_code
+            WHEN 'BOARD_FREE' THEN 1
+            WHEN 'BOARD_VIP' THEN 2
+            ELSE 3
+        END
+    </select>
+
+    <select id="selectPolicyHeadCodesForUpdate" resultType="java.lang.String"
+            flushCache="true" useCache="false">
+        SELECT h.plan_code
+        FROM fbs_plan_policy_head h
+        WHERE h.product_code = #{productCode}
+          AND BINARY h.product_code = BINARY #{productCode}
+        ORDER BY CASE h.plan_code
+            WHEN 'BOARD_FREE' THEN 1
+            WHEN 'BOARD_VIP' THEN 2
+            ELSE 3
+        END
+        FOR UPDATE
+    </select>
+
+    <select id="selectCurrentPolicy" resultMap="PlanPolicySnapshot">
+        SELECT <include refid="CurrentPolicyColumns" />
+        FROM fbs_product_plan p
+        INNER JOIN fbs_plan_policy_head h
+            ON BINARY h.product_code = BINARY p.product_code
+           AND BINARY h.plan_code = BINARY p.plan_code
+        INNER JOIN fbs_plan_policy_revision_receipt r
+            ON BINARY h.product_code = BINARY r.product_code
+           AND BINARY h.plan_code = BINARY r.plan_code
+           AND BINARY h.active_receipt_id = BINARY r.receipt_id
+           AND h.policy_version = r.policy_version
+           AND BINARY p.product_code = BINARY r.product_code
+           AND BINARY p.plan_code = BINARY r.plan_code
+        WHERE BINARY p.product_code = BINARY #{productCode}
+          AND BINARY p.plan_code = BINARY #{planCode}
+    </select>
+
+    <select id="selectReceiptByActorAndIdempotencyDigest" resultMap="PlanPolicyReceipt">
+        SELECT <include refid="ReceiptColumns" />
+        FROM fbs_plan_policy_revision_receipt r
+        WHERE BINARY r.product_code = BINARY #{productCode}
+          AND BINARY r.actor_type = BINARY #{actorType}
+          AND r.actor_user_id = #{actorUserId}
+          AND BINARY r.idempotency_key_digest = BINARY #{idempotencyKeyDigest}
+    </select>
+
+    <select id="selectReceiptByReceiptId" resultMap="PlanPolicyReceipt">
+        SELECT <include refid="ReceiptColumns" />
+        FROM fbs_plan_policy_revision_receipt r
+        WHERE BINARY r.product_code = BINARY #{productCode}
+          AND BINARY r.receipt_id = BINARY #{receiptId}
+    </select>
+
+    <insert id="insertReceipt"
+            parameterType="com.wx.fbsir.business.board.plan.domain.BoardPlanPolicyReceipt">
+        INSERT INTO fbs_plan_policy_revision_receipt
+            (receipt_id, product_code, plan_code, policy_version,
+             previous_receipt_id, rollback_of_receipt_id, action,
+             actor_type, actor_user_id, idempotency_key_digest, command_digest,
+             previous_policy_digest, policy_digest, plan_name, vip,
+             connector_required, daily_meeting_limit, agenda_limit, seat_limit,
+             secretary_enabled, status, evidence_level, created_at)
+        VALUES
+            (#{receiptId}, #{productCode}, #{planCode}, #{policyVersion},
+             #{previousReceiptId}, #{rollbackOfReceiptId}, #{action},
+             #{actorType}, #{actorUserId}, #{idempotencyKeyDigest}, #{commandDigest},
+             #{previousPolicyDigest}, #{policyDigest}, #{planName}, #{vip},
+             #{connectorRequired}, #{dailyMeetingLimit}, #{agendaLimit}, #{seatLimit},
+             #{secretaryEnabled}, #{status}, #{evidenceLevel}, #{createdAt})
+    </insert>
+
+    <update id="updateHeadIfCurrent">
+        UPDATE fbs_plan_policy_head
+        SET active_receipt_id = #{nextReceiptId},
+            policy_version = #{nextVersion},
+            updated_at = GREATEST(updated_at, #{updatedAt})
+        WHERE BINARY product_code = BINARY #{productCode}
+          AND BINARY plan_code = BINARY #{planCode}
+          AND BINARY active_receipt_id = BINARY #{expectedReceiptId}
+          AND policy_version = #{expectedVersion}
+    </update>
+
+    <select id="selectPolicyReceipts" resultMap="PlanPolicyReceipt">
+        SELECT <include refid="ReceiptColumns" />
+        FROM fbs_plan_policy_revision_receipt r
+        WHERE BINARY r.product_code = BINARY #{productCode}
+        ORDER BY r.created_at DESC, r.id DESC
+        LIMIT #{limit}
+    </select>
+</mapper>

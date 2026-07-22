@@ -30,6 +30,7 @@ const PLAN_KEYS = Object.freeze([
   'dailyMeetingLimit', 'agendaLimit', 'seatLimit', 'secretaryEnabled',
   'status', 'version', 'updatedAt'
 ])
+const FORBIDDEN_PLAN_NAME_TEXT = /[\p{Cc}\p{Cf}\p{Cs}]/u
 
 function fail(message) {
   throw new Error(message)
@@ -284,8 +285,9 @@ export function parseProductPlanCatalog(value) {
     if (item.productCode !== 'FBSIR_INDEPENDENT_BOARD'
         || !BOARD_PLAN_CODES.includes(item.planCode)
         || !isNonBlankString(item.planName)
-        || item.planName.length > 128
-        || /[\u0000-\u001f\u007f-\u009f]/.test(item.planName)
+        || [...item.planName].length > 128
+        || item.planName.trim() !== item.planName
+        || FORBIDDEN_PLAN_NAME_TEXT.test(item.planName)
         || typeof item.vip !== 'boolean'
         || typeof item.connectorRequired !== 'boolean'
         || !isPositiveSafeInteger(item.dailyMeetingLimit)
@@ -301,14 +303,10 @@ export function parseProductPlanCatalog(value) {
     seen.add(item.planCode)
     const isVip = item.planCode === 'BOARD_VIP'
     if (item.vip !== isVip
-        || item.connectorRequired !== isVip
-        || item.secretaryEnabled !== isVip
-        || item.dailyMeetingLimit !== (isVip ? 5 : 1)
-        || item.agendaLimit !== (isVip ? 30 : 5)
-        || (isVip ? item.seatLimit !== null : item.seatLimit !== 3)) {
+        || item.connectorRequired !== isVip) {
       fail('套餐策略能力与套餐代码不一致')
     }
-    return Object.freeze({ ...item, planName: item.planName.trim() })
+    return Object.freeze({ ...item })
   })
   if (BOARD_PLAN_CODES.some(code => !seen.has(code))) {
     fail('套餐目录缺少受支持的独董会套餐')
@@ -333,7 +331,7 @@ export function parseOperationEnvelope(value, expectedTenantId) {
         || !isPositiveSafeInteger(item.userId)
         || !OPERATION_STATUSES.includes(item.status)
         || !BOARD_PLAN_CODES.includes(item.effectivePlanCode)
-        || !isPositiveSafeInteger(item.agendaCount) || item.agendaCount > 30
+        || !isPositiveSafeInteger(item.agendaCount)
         || !isPositiveSafeInteger(item.seatCount)
         || !isNonNegativeSafeInteger(item.remainingCount)) {
       fail(`第${index + 1}条额度操作包含非法值或跨企业数据`)

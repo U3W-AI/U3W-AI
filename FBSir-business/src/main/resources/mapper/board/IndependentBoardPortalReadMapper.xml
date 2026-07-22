@@ -502,10 +502,6 @@
                         AND CAST(plan.plan_code AS BINARY) = CAST('BOARD_VIP' AS BINARY)
                         AND plan.vip = 1
                         AND plan.connector_required = 1
-                        AND plan.daily_meeting_limit = 5
-                        AND plan.agenda_limit = 30
-                        AND plan.seat_limit IS NULL
-                        AND plan.secretary_enabled = 1
                         AND CAST(plan.status AS BINARY) = CAST('ACTIVE' AS BINARY)
                        INNER JOIN fbs_enterprise_member live_member
                          ON live_member.id = ent.member_id

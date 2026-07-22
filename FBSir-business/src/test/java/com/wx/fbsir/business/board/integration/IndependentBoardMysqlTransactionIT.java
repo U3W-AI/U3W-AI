@@ -119,6 +119,8 @@ class IndependentBoardMysqlTransactionIT {
             "RUNNING:Independent Board OAuth consent intent lineage";
     private static final String OAUTH_CONSENT_APPLIED =
             "APPLIED:Independent Board OAuth consent intent lineage";
+    private static final String PLAN_POLICY_MIGRATION_VERSION =
+            "20260722_independent_board_plan_policy_v1";
     private static final String CONNECTOR_ISSUER = "https://api2.u3w.com";
     private static final String CONNECTOR_RESOURCE = "https://api2.u3w.com/fbs-mcp/mcp";
     private static final long TENANT_ONE = 1001L;
@@ -241,12 +243,13 @@ class IndependentBoardMysqlTransactionIT {
                 "DELETE FROM fbs_oauth_authorization_code",
                 "DELETE FROM fbs_oauth_authorization_request",
                 "DELETE FROM fbs_oauth_client",
+                "TRUNCATE TABLE fbs_usage_operation_policy_receipt",
                 "DELETE FROM fbs_usage_operation",
                 "DELETE FROM fbs_usage_budget",
                 "TRUNCATE TABLE fbs_connector_binding_receipt",
                 "DELETE FROM fbs_connector_binding_scope",
                 "DELETE FROM fbs_connector_binding",
-                "DELETE FROM fbs_entitlement_receipt",
+                "TRUNCATE TABLE fbs_entitlement_receipt",
                 "DELETE FROM fbs_product_entitlement",
                 "DELETE FROM fbs_enterprise_member",
                 "DELETE FROM fbs_enterprise",
@@ -313,6 +316,10 @@ class IndependentBoardMysqlTransactionIT {
         assertEquals("ACTIVE", plan.getStatus());
         assertEquals(1L, plan.getVersion());
         assertNotNull(plan.getUpdatedAt());
+        assertNotNull(plan.getPolicyReceiptId());
+        assertTrue(plan.getPolicyReceiptId().startsWith("plan-policy-baseline-"));
+        assertNotNull(plan.getPolicyDigest());
+        assertTrue(plan.getPolicyDigest().matches("[0-9a-f]{64}"));
     }
 
     @Test
@@ -2677,6 +2684,9 @@ class IndependentBoardMysqlTransactionIT {
                 "DROP TRIGGER IF EXISTS independent_board_it_fail_finalize",
                 "DROP TRIGGER IF EXISTS independent_board_it_fail_receipt",
                 "DROP TRIGGER IF EXISTS independent_board_it_fail_binding_receipt",
+                "DROP TABLE IF EXISTS fbs_usage_operation_policy_receipt",
+                "DROP TABLE IF EXISTS fbs_plan_policy_head",
+                "DROP TABLE IF EXISTS fbs_plan_policy_revision_receipt",
                 "DROP TABLE IF EXISTS fbs_oauth_receipt",
                 "DROP TABLE IF EXISTS fbs_oauth_token",
                 "DROP TABLE IF EXISTS fbs_oauth_token_family",
@@ -2710,6 +2720,8 @@ class IndependentBoardMysqlTransactionIT {
                         + OAUTH_PROVENANCE_MIGRATION_VERSION + "'",
                 "DELETE FROM u3w_schema_migration WHERE version = '"
                         + OAUTH_CONSENT_MIGRATION_VERSION + "'",
+                "DELETE FROM u3w_schema_migration WHERE version = '"
+                        + PLAN_POLICY_MIGRATION_VERSION + "'",
                 "CREATE TABLE sys_menu ("
                         + "menu_id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
                         + "menu_name VARCHAR(64) NOT NULL, parent_id BIGINT NOT NULL, "
@@ -2797,6 +2809,10 @@ class IndependentBoardMysqlTransactionIT {
         Path menuMigration = locateMigration("update_20260720_independent_board_me_menu.sql");
         executeMigration(menuMigration);
         executeMigration(menuMigration);
+        Path planPolicyMigration = locateMigration(
+                "update_20260722_independent_board_plan_policy.sql");
+        executeMigration(planPolicyMigration);
+        executeMigration(planPolicyMigration);
         assertEquals(1, scalarInt("SELECT COUNT(*) FROM u3w_schema_migration "
                 + "WHERE version = '" + MIGRATION_VERSION + "'"));
         assertEquals(1, scalarInt("SELECT COUNT(*) FROM u3w_schema_migration "
@@ -2811,6 +2827,10 @@ class IndependentBoardMysqlTransactionIT {
         assertEquals(1, scalarInt("SELECT COUNT(*) FROM u3w_schema_migration "
                 + "WHERE version = '" + OAUTH_CONSENT_MIGRATION_VERSION + "' "
                 + "AND description = '" + OAUTH_CONSENT_APPLIED + "'"));
+        assertEquals(1, scalarInt("SELECT COUNT(*) FROM u3w_schema_migration "
+                + "WHERE version = '" + PLAN_POLICY_MIGRATION_VERSION + "' "
+                + "AND description = 'Independent Board immutable plan policy revisions "
+                + "and operation lineage'"));
         assertEquals(5, scalarInt("SELECT COUNT(*) FROM information_schema.tables "
                 + "WHERE table_schema = DATABASE() AND table_name IN "
                 + "('fbs_product_plan','fbs_product_entitlement','fbs_usage_budget',"
@@ -2830,6 +2850,14 @@ class IndependentBoardMysqlTransactionIT {
         assertEquals(2, scalarInt("SELECT COUNT(*) FROM information_schema.triggers "
                 + "WHERE trigger_schema = DATABASE() "
                 + "AND event_object_table = 'fbs_oauth_receipt'"));
+        assertEquals(3, scalarInt("SELECT COUNT(*) FROM information_schema.tables "
+                + "WHERE table_schema = DATABASE() AND table_name IN "
+                + "('fbs_plan_policy_revision_receipt','fbs_plan_policy_head',"
+                + "'fbs_usage_operation_policy_receipt') AND engine = 'InnoDB'"));
+        assertEquals(7, scalarInt("SELECT COUNT(*) FROM information_schema.triggers "
+                + "WHERE trigger_schema = DATABASE() AND event_object_table IN "
+                + "('fbs_plan_policy_revision_receipt',"
+                + "'fbs_usage_operation_policy_receipt','fbs_entitlement_receipt')"));
         assertEquals(148, scalarInt("SELECT COUNT(*) FROM information_schema.columns "
                 + "WHERE table_schema = DATABASE() AND table_name IN "
                 + "('fbs_oauth_client','fbs_oauth_authorization_request',"

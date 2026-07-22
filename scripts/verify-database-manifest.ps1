@@ -254,6 +254,94 @@ else {
     }
 }
 
+$planPolicyMenuMigrationId = 'candidate_20260722_independent_board_plan_policy_menu_v1'
+$planPolicyMenuMigrationFile = 'update_20260722_independent_board_plan_policy_candidate_menu.sql'
+$planPolicyMenuMigrationSha256 = '218443b734f0cb57f10d37b6b3a01a8759a8bdda8c76f179d4a00195c0b899b9'
+$planPolicyMenuEntries = @($manifestManualMigrations | Where-Object {
+    [string]$_.id -ceq $planPolicyMenuMigrationId -and
+    [string]$_.file -ceq $planPolicyMenuMigrationFile
+})
+if ($planPolicyMenuEntries.Count -ne 1) {
+    $errors.Add('default-off Independent Board plan-policy menu migration must occur exactly once in manualMigrations')
+}
+else {
+    $planPolicyMenuEntry = $planPolicyMenuEntries[0]
+    if ([string]$planPolicyMenuEntry.description -cne 'Independent Board default-off plan-policy revision and audit permissions' -or
+        [string]$planPolicyMenuEntry.execution -cne 'manual_opt_in' -or
+        [bool]$planPolicyMenuEntry.defaultApplied -or
+        [string]$planPolicyMenuEntry.optInSessionVariable -cne '@u3w_enable_independent_board_w3h_plan_policy_candidate' -or
+        [int]$planPolicyMenuEntry.requiredValue -ne 1 -or
+        [string]$planPolicyMenuEntry.sha256 -cne $planPolicyMenuMigrationSha256) {
+        $errors.Add('default-off Independent Board plan-policy menu manual migration contract drifted')
+    }
+}
+if (@($manifest.steps | Where-Object { [string]$_.file -ceq $planPolicyMenuMigrationFile }).Count -ne 0) {
+    $errors.Add('default-off Independent Board plan-policy menu migration must not be an executable public_init step')
+}
+$planPolicyMenuPath = Join-Path $sqlRoot $planPolicyMenuMigrationFile
+if (-not (Test-Path -LiteralPath $planPolicyMenuPath -PathType Leaf)) {
+    $errors.Add('default-off Independent Board plan-policy menu SQL is missing')
+}
+else {
+    $actualPlanPolicyMenuSha256 = (Get-FileHash -LiteralPath $planPolicyMenuPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualPlanPolicyMenuSha256 -cne $planPolicyMenuMigrationSha256) {
+        $errors.Add("default-off Independent Board plan-policy menu byte contract drifted: expected SHA-256 $planPolicyMenuMigrationSha256, found $actualPlanPolicyMenuSha256")
+    }
+    $planPolicyMenuSql = Get-Content -LiteralPath $planPolicyMenuPath -Raw -Encoding UTF8
+    $requiredPlanPolicyMenuNeedles = @(
+        '20260722_independent_board_plan_policy_candidate_menu_v1',
+        '@u3w_enable_independent_board_w3h_plan_policy_candidate',
+        'u3w_migrate_board_plan_policy_menu_20260722',
+        "DATABASE(), ':public-database-manifest:v1'",
+        "DATABASE(), ':20260722_independent_board_plan_policy_candidate_menu_v1'",
+        'GET_LOCK(public_lock_name, 30)',
+        'GET_LOCK(candidate_lock_name, 30)',
+        'IS_USED_LOCK(candidate_lock_name)',
+        'RELEASE_LOCK(candidate_lock_name)',
+        'IS_USED_LOCK(public_lock_name)',
+        'RELEASE_LOCK(public_lock_name)',
+        'DECLARE EXIT HANDLER FOR SQLEXCEPTION',
+        'APPLIED:Independent Board administration menu',
+        '20260720_independent_board_admin_menu_v1',
+        'APPLIED:Independent Board immutable plan policy revisions and operation lineage',
+        '20260722_independent_board_plan_policy_v1',
+        'IndependentBoardEntitlementGovernance',
+        'business/independentBoard/admin/entitlement/index',
+        'board:plan:revise',
+        'board:plan:audit',
+        'W3h plan-policy candidate permissions must have zero role bindings',
+        'BINARY `menu_type` = BINARY ''F''',
+        'BINARY `status` = BINARY ''1''',
+        'BINARY `path` = BINARY ''''',
+        '`component` IS NULL',
+        'BINARY `route_name` = BINARY ''''',
+        'target_child_count <> 2'
+    )
+    foreach ($needle in $requiredPlanPolicyMenuNeedles) {
+        if (-not $planPolicyMenuSql.Contains($needle)) {
+            $errors.Add("default-off Independent Board plan-policy menu SQL is missing required contract: $needle")
+        }
+    }
+    if (@([regex]::Matches($planPolicyMenuSql, '(?im)^\s*INSERT\s+INTO\s+`sys_menu`')).Count -ne 2) {
+        $errors.Add('default-off Independent Board plan-policy menu must insert exactly two menu identities')
+    }
+    if ($planPolicyMenuSql -match '(?im)^\s*(?:INSERT\s+INTO|UPDATE|DELETE(?:\s+\w+)?\s+FROM)\s+`sys_role_menu`' -or
+        $planPolicyMenuSql -match '(?im)^\s*(?:UPDATE|DELETE\s+FROM)\s+`sys_menu`') {
+        $errors.Add('default-off Independent Board plan-policy menu must not grant roles, add routes, or repair menu rows')
+    }
+    $planPolicyPublicLockIndex = $planPolicyMenuSql.IndexOf('GET_LOCK(public_lock_name, 30)', [StringComparison]::Ordinal)
+    $planPolicyCandidateLockIndex = $planPolicyMenuSql.IndexOf('GET_LOCK(candidate_lock_name, 30)', [StringComparison]::Ordinal)
+    $planPolicyStartTransactionIndex = $planPolicyMenuSql.IndexOf('START TRANSACTION;', [StringComparison]::Ordinal)
+    $planPolicyCommitIndex = $planPolicyMenuSql.IndexOf('COMMIT;', [StringComparison]::Ordinal)
+    $planPolicyCandidateReleaseIndex = $planPolicyMenuSql.LastIndexOf('RELEASE_LOCK(candidate_lock_name)', [StringComparison]::Ordinal)
+    $planPolicyPublicReleaseIndex = $planPolicyMenuSql.LastIndexOf('RELEASE_LOCK(public_lock_name)', [StringComparison]::Ordinal)
+    if ($planPolicyPublicLockIndex -lt 0 -or $planPolicyCandidateLockIndex -le $planPolicyPublicLockIndex -or
+        $planPolicyStartTransactionIndex -le $planPolicyCandidateLockIndex -or $planPolicyCommitIndex -le $planPolicyStartTransactionIndex -or
+        $planPolicyCandidateReleaseIndex -le $planPolicyCommitIndex -or $planPolicyPublicReleaseIndex -le $planPolicyCandidateReleaseIndex) {
+        $errors.Add('default-off Independent Board plan-policy menu lock, transaction and reverse-release order drifted')
+    }
+}
+
 for ($index = 0; $index -lt $manifest.steps.Count; $index++) {
     $expectedVersion = "public_init_{0:D3}" -f ($index + 1)
     if ([string]$manifest.steps[$index].version -ne $expectedVersion) {
@@ -274,6 +362,7 @@ $requiredTail = @{
     public_init_036 = "update_20260721_independent_board_oauth_refresh_security.sql"
     public_init_037 = "update_20260722_independent_board_attribution_evidence_contract.sql"
     public_init_038 = "update_20260722_independent_board_credit_ledger.sql"
+    public_init_039 = "update_20260722_independent_board_plan_policy.sql"
 }
 foreach ($version in $requiredTail.Keys) {
     $matches = @($manifest.steps | Where-Object { $_.version -eq $version -and $_.file -eq $requiredTail[$version] })
@@ -304,6 +393,7 @@ $requiredInitNeedles = @(
     "Assert-IndependentBoardAdminMenuCurrentState",
     "Assert-IndependentBoardEntitlementLifecycleMenuCurrentState",
     "Assert-IndependentBoardCreditLedgerCurrentState",
+    "Assert-IndependentBoardPlanPolicyCurrentState",
     '$expectedState = @(5, 5, 67, 67, 13, 13, 2, 2, 2, 1, 1)',
     '$expectedState = @(1, 1, 1, 1, 1, 1, 1)',
     '# The four W3a identities are asserted individually above.',
@@ -815,7 +905,8 @@ foreach ($tableName in $expectedConnectorBindingColumns.Keys) {
         $errors.Add("Connector binding SQL table body is missing: $tableName")
         continue
     }
-    $actualColumns = @([regex]::Matches($tableMatch.Groups['body'].Value, '(?m)^\s*`(?<name>[^`]+)`\s+') |
+    $actualColumns = @([regex]::Matches(
+        $tableMatch.Groups['body'].Value, '(?m)^\s*`(?<name>[^`]+)`\s+') |
         ForEach-Object { $_.Groups['name'].Value })
     $expectedColumns = @($expectedConnectorBindingColumns[$tableName])
     if (($actualColumns -join '|') -ne ($expectedColumns -join '|')) {
@@ -1074,7 +1165,8 @@ foreach ($tableName in $expectedOauthFoundationColumns.Keys) {
         $errors.Add("OAuth foundation SQL table body is missing: $tableName")
         continue
     }
-    $actualColumns = @([regex]::Matches($tableMatch.Groups['body'].Value, '(?m)^\s*`(?<name>[^`]+)`\s+') |
+    $actualColumns = @([regex]::Matches(
+        $tableMatch.Groups['body'].Value, '(?m)^\s*`(?<name>[^`]+)`\s+') |
         ForEach-Object { $_.Groups['name'].Value })
     $expectedColumns = @($expectedOauthFoundationColumns[$tableName])
     if (($actualColumns -join '|') -ne ($expectedColumns -join '|')) {
@@ -1936,6 +2028,265 @@ if (-not $creditLedgerOrderingValid) {
     $errors.Add('Independent Board credit-ledger order must be trigger helper, migration+lock, partial-state gate, three-table DDL, exact audits, finalizer, migration call, guarded triggers, locked receipt finalization and helper cleanup')
 }
 
+$planPolicySqlPath = Join-Path $sqlRoot 'update_20260722_independent_board_plan_policy.sql'
+$planPolicyManifestSteps = @($declarativeManifest.steps | Where-Object {
+    [string]$_.version -eq 'public_init_039'
+})
+$expectedPlanPolicySha256 = '907ae8dd61cff476a68c07ce9fc0647f269ccb8422e0ffc851fbb91dc39eb8e6'
+if ($planPolicyManifestSteps.Count -ne 1) {
+    $errors.Add('public_init_039 manifest entry must exist exactly once')
+}
+else {
+    $planPolicyManifestStep = $planPolicyManifestSteps[0]
+    if ([string]$planPolicyManifestStep.description -cne 'Independent Board immutable plan policy revisions and operation lineage' -or
+        [string]$planPolicyManifestStep.file -cne 'update_20260722_independent_board_plan_policy.sql' -or
+        [string]$planPolicyManifestStep.sha256 -cne $expectedPlanPolicySha256) {
+        $errors.Add('public_init_039 manifest description, file or exact SHA-256 has drifted')
+    }
+}
+$planPolicySha256 = ''
+if (-not (Test-Path -LiteralPath $planPolicySqlPath -PathType Leaf)) {
+    $errors.Add('Independent Board plan-policy migration is missing')
+    $planPolicySql = ''
+}
+else {
+    $planPolicySql = Get-Content -LiteralPath $planPolicySqlPath -Raw -Encoding UTF8
+    $planPolicySha256 = (Get-FileHash -LiteralPath $planPolicySqlPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if (-not [string]::Equals(
+            $planPolicySha256,
+            $expectedPlanPolicySha256,
+            [StringComparison]::Ordinal)) {
+        $errors.Add("public_init_039 byte contract drifted: expected SHA-256 $expectedPlanPolicySha256, found $planPolicySha256")
+    }
+}
+$requiredPlanPolicyNeedles = @(
+    'FBSir Independent Board immutable plan-policy governance',
+    'Migration: 20260722_independent_board_plan_policy_v1',
+    'Public manifest step: public_init_039',
+    'Target: MySQL Community 8.0.30 and 8.4.8',
+    "VERSION() NOT LIKE '8.0.30%' AND VERSION() NOT LIKE '8.4.8%'",
+    "DATABASE(), ':20260722_independent_board_plan_policy_v1'",
+    'GET_LOCK(migration_lock_name, 30)',
+    'IS_USED_LOCK(migration_lock_name)',
+    'RELEASE_LOCK(migration_lock_name)',
+    'Plan policy migration requires the exact public_init_028 internal receipt',
+    'Plan policy migration requires the exact FREE/VIP baseline catalog',
+    'Unknown Independent Board operation plan prevents deterministic policy backfill',
+    'CREATE TABLE IF NOT EXISTS `fbs_plan_policy_revision_receipt`',
+    'CREATE TABLE IF NOT EXISTS `fbs_plan_policy_head`',
+    'CREATE TABLE IF NOT EXISTS `fbs_usage_operation_policy_receipt`',
+    '`actor_type` VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL',
+    '`actor_user_id` BIGINT UNSIGNED DEFAULT NULL',
+    'CHAR_LENGTH(`plan_name`) BETWEEN 1 AND 128',
+    'CAST(`plan_name` AS BINARY) = CAST(TRIM(`plan_name`) AS BINARY)',
+    '`plan_name` NOT REGEXP ''[\\p{Cc}\\p{Cf}]''',
+    '`plan_name` NOT REGEXP ''(^[\\p{Z}])|([\\p{Z}]$)''',
+    "'PLAN_POLICY_BASELINED', 'SYSTEM_MIGRATION', NULL",
+    'plan-policy-baseline-board-free-v1',
+    'plan-policy-baseline-board-vip-v1',
+    '8ae3df83c9f56974261d1e471eb19034b2b782f793f74333c64a13c61dae8982',
+    '02e90096b76d25b69c938fa65cfc3931207ac0a2648447bf613dca591619da51',
+    '3861fa022a759a9f9a5f773da995273b5259e361be7a931a9ad761eca02473d7',
+    '2d21d400829820467a0915c202fbdd5343e5d9417fe1ac062a48742ec0a6541b',
+    '03dfe7bb006d20b768840f71a435d0233355001dc35d6c7cffda5c68ef6151de',
+    'b97cf71e29e1bfbbb58bd9ef58ed8f9334c586de102e43b6bb231e392ac84fad',
+    'INSERT INTO `fbs_usage_operation_policy_receipt`',
+    'AND NOT EXISTS (',
+    'IF migration_exists = 0 THEN',
+    'Plan policy heads must point to both latest committed receipts',
+    'Plan policy current FREE/VIP monotonicity has drifted',
+    'Independent Board operation policy lineage is incomplete or drifted',
+    'CAST(r.`plan_name` AS BINARY) <=> CAST(target.`plan_name` AS BINARY)',
+    'Completed plan policy migration trigger set has drifted',
+    'CREATE TRIGGER IF NOT EXISTS `trg_usage_operation_policy_guard_insert`',
+    'CAST(o.`product_code` AS BINARY) = CAST(NEW.`product_code` AS BINARY)',
+    'CAST(o.`operation_id` AS BINARY) = CAST(NEW.`operation_id` AS BINARY)',
+    'CAST(o.`effective_plan_code` AS BINARY) = CAST(NEW.`plan_code` AS BINARY)',
+    'r.`policy_digest` = NEW.`policy_digest`',
+    'Operation policy lineage must match the exact operation and receipt',
+    '59d2d90cab68d42f6655f1fb176eb83d098c3c29a25c7242ccab4273e558170a',
+    'c9409524d7203b611129b9704cdc9752ffcdecdcb2b29b97a21cb3ef08b675f9',
+    '3861fa022a759a9f9a5f773da995273b5259e361be7a931a9ad761eca02473d7',
+    '2d21d400829820467a0915c202fbdd5343e5d9417fe1ac062a48742ec0a6541b',
+    '03dfe7bb006d20b768840f71a435d0233355001dc35d6c7cffda5c68ef6151de',
+    'b97cf71e29e1bfbbb58bd9ef58ed8f9334c586de102e43b6bb231e392ac84fad',
+    'be062b76a71de8c859ea35de136217a34f5a900e454a19e4284c691deb4134a3',
+    '5c40f4bae16986eae2b1cbbef38994a93263c870a0940432902dd5d6b9cc151e',
+    'Independent Board immutable plan policy revisions and operation lineage'
+)
+foreach ($needle in $requiredPlanPolicyNeedles) {
+    if (-not $planPolicySql.Contains($needle)) {
+        $errors.Add("Independent Board plan-policy SQL is missing required contract: $needle")
+    }
+}
+if ($planPolicySql -match '__[A-Z0-9_]+__' -or
+    $planPolicySql -match 'REPLACE_WITH_' -or
+    $planPolicySql -match '(?im)^\s*(?:ALTER\s+TABLE|DROP\s+(?:TABLE|TRIGGER)|TRUNCATE\s+TABLE)\b' -or
+    $planPolicySql -match '(?im)^\s*UPDATE\s+`?fbs_product_plan\b' -or
+    $planPolicySql.Contains('ON DUPLICATE KEY UPDATE') -or
+    $planPolicySql -match '(?i)ON\s+(?:UPDATE|DELETE)\s+(?:CASCADE|SET\s+NULL)') {
+    $errors.Add('Independent Board plan-policy migration must be additive, contain no placeholders, preserve 028 metadata and use only RESTRICT referential actions')
+}
+$planPolicyCreatedTables = @([regex]::Matches(
+    $planPolicySql,
+    '(?im)^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`(?<name>fbs_[a-z_]+)`') |
+    ForEach-Object { $_.Groups['name'].Value })
+$expectedPlanPolicyTables = @(
+    'fbs_plan_policy_revision_receipt',
+    'fbs_plan_policy_head',
+    'fbs_usage_operation_policy_receipt'
+)
+if (($planPolicyCreatedTables -join '|') -cne ($expectedPlanPolicyTables -join '|')) {
+    $errors.Add("Independent Board plan-policy migration must create exactly three tables in contract order; found '$($planPolicyCreatedTables -join ',')'")
+}
+$planPolicyIndexDefinitions = @([regex]::Matches(
+    $planPolicySql,
+    '(?im)^\s*(?:PRIMARY\s+KEY\s*\(|(?:UNIQUE\s+)?KEY\s+`[^`]+`\s*\()'))
+if ($planPolicyIndexDefinitions.Count -ne 15) {
+    $errors.Add("Independent Board plan-policy migration must define exactly 15 indexes; found $($planPolicyIndexDefinitions.Count)")
+}
+$planPolicyForeignKeys = @([regex]::Matches(
+    $planPolicySql,
+    '(?im)^\s*CONSTRAINT\s+`(?<name>fk_(?:plan_policy|usage_operation_policy)_[^`]+)`\s*$') |
+    ForEach-Object { $_.Groups['name'].Value })
+$expectedPlanPolicyForeignKeys = @(
+    'fk_plan_policy_receipt_plan','fk_plan_policy_receipt_previous',
+    'fk_plan_policy_receipt_rollback','fk_plan_policy_head_plan',
+    'fk_plan_policy_head_active','fk_usage_operation_policy_operation',
+    'fk_usage_operation_policy_receipt'
+)
+if (($planPolicyForeignKeys -join '|') -cne ($expectedPlanPolicyForeignKeys -join '|') -or
+    @([regex]::Matches($planPolicySql, 'ON UPDATE RESTRICT ON DELETE RESTRICT')).Count -ne 7) {
+    $errors.Add('Independent Board plan-policy migration must define exactly seven named RESTRICT foreign keys')
+}
+$planPolicyChecks = @([regex]::Matches(
+    $planPolicySql,
+    '(?im)^\s*CONSTRAINT\s+`chk_(?:plan_policy|usage_operation_policy)_[^`]+`\s+CHECK\s*\('))
+if ($planPolicyChecks.Count -ne 10) {
+    $errors.Add("Independent Board plan-policy migration must define exactly ten named CHECK constraints; found $($planPolicyChecks.Count)")
+}
+$planPolicyCreatedTriggers = @([regex]::Matches(
+    $planPolicySql,
+    '(?im)^\s*CREATE\s+TRIGGER\s+IF\s+NOT\s+EXISTS\s+`(?<name>trg_(?:plan_policy|usage_operation_policy|entitlement_receipt)_[a-z_]+)`') |
+    ForEach-Object { $_.Groups['name'].Value })
+$expectedPlanPolicyTriggers = @(
+    'trg_plan_policy_receipt_no_update','trg_plan_policy_receipt_no_delete',
+    'trg_usage_operation_policy_guard_insert','trg_usage_operation_policy_no_update',
+    'trg_usage_operation_policy_no_delete','trg_entitlement_receipt_no_update',
+    'trg_entitlement_receipt_no_delete'
+)
+if (($planPolicyCreatedTriggers -join '|') -cne ($expectedPlanPolicyTriggers -join '|')) {
+    $errors.Add("Independent Board plan-policy migration must create exactly seven guarded triggers in order; found '$($planPolicyCreatedTriggers -join ',')'")
+}
+$planPolicyExpectedColumns = [ordered]@{
+    fbs_plan_policy_revision_receipt = @(
+        'id','receipt_id','product_code','plan_code','policy_version','previous_receipt_id',
+        'rollback_of_receipt_id','action','actor_type','actor_user_id','idempotency_key_digest',
+        'command_digest','previous_policy_digest','policy_digest','plan_name','vip',
+        'connector_required','daily_meeting_limit','agenda_limit','seat_limit','secretary_enabled',
+        'status','evidence_level','created_at'
+    )
+    fbs_plan_policy_head = @(
+        'product_code','plan_code','active_receipt_id','policy_version','created_at','updated_at'
+    )
+    fbs_usage_operation_policy_receipt = @(
+        'id','enterprise_id','operation_id','product_code','plan_code','policy_receipt_id',
+        'policy_version','policy_digest','created_at'
+    )
+}
+foreach ($tableName in $planPolicyExpectedColumns.Keys) {
+    $tableMatch = [regex]::Match(
+        $planPolicySql,
+        "CREATE TABLE IF NOT EXISTS ``$([regex]::Escape($tableName))``\s*\((?<body>[\s\S]*?)\) ENGINE=InnoDB",
+        [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if (-not $tableMatch.Success) {
+        $errors.Add("plan-policy SQL table body is missing: $tableName")
+        continue
+    }
+    $actualColumns = @([regex]::Matches(
+        $tableMatch.Groups['body'].Value,
+        '(?im)^\s*`(?<name>[^`]+)`\s+(?:BIGINT|VARCHAR|CHAR|TINYINT|INT|DATETIME)\b') |
+        ForEach-Object { $_.Groups['name'].Value })
+    $expectedColumns = @($planPolicyExpectedColumns[$tableName])
+    if (($actualColumns -join '|') -cne ($expectedColumns -join '|')) {
+        $errors.Add("plan-policy column contract mismatch for $tableName")
+    }
+}
+$planPolicyOrderedIndices = @(
+    $planPolicySql.IndexOf('CREATE PROCEDURE `u3w_migrate_independent_board_plan_policy_20260722`()', [StringComparison]::Ordinal),
+    $planPolicySql.IndexOf('SELECT GET_LOCK(migration_lock_name, 30)', [StringComparison]::Ordinal),
+    $planPolicySql.IndexOf('CREATE TABLE IF NOT EXISTS `fbs_plan_policy_revision_receipt`', [StringComparison]::Ordinal),
+    $planPolicySql.IndexOf('START TRANSACTION;', [StringComparison]::Ordinal),
+    $planPolicySql.IndexOf('INSERT INTO `fbs_plan_policy_revision_receipt`', [StringComparison]::Ordinal),
+    $planPolicySql.IndexOf('INSERT INTO `fbs_usage_operation_policy_receipt`', [StringComparison]::Ordinal),
+    $planPolicySql.IndexOf('CREATE PROCEDURE `u3w_finalize_independent_board_plan_policy_20260722`()', [StringComparison]::Ordinal),
+    $planPolicySql.IndexOf('CALL `u3w_migrate_independent_board_plan_policy_20260722`()$$', [StringComparison]::Ordinal),
+    $planPolicySql.IndexOf('CREATE TRIGGER IF NOT EXISTS `trg_plan_policy_receipt_no_update`', [StringComparison]::Ordinal),
+    $planPolicySql.IndexOf('CREATE TRIGGER IF NOT EXISTS `trg_usage_operation_policy_guard_insert`', [StringComparison]::Ordinal),
+    $planPolicySql.IndexOf('CALL `u3w_finalize_independent_board_plan_policy_20260722`()$$', [StringComparison]::Ordinal)
+)
+$planPolicyOrderingValid = -not ($planPolicyOrderedIndices -contains -1)
+for ($index = 1; $planPolicyOrderingValid -and $index -lt $planPolicyOrderedIndices.Count; $index++) {
+    if ($planPolicyOrderedIndices[$index] -le $planPolicyOrderedIndices[$index - 1]) {
+        $planPolicyOrderingValid = $false
+    }
+}
+if (-not $planPolicyOrderingValid) {
+    $errors.Add('Independent Board plan-policy migration order must be lock, three-table DDL, guarded seed/backfill, audits, finalizer, trigger creation and locked receipt finalization')
+}
+
+$planPolicyItPath = Join-Path $resolvedRoot 'scripts\run-independent-board-plan-policy-mysql-it.ps1'
+if (-not (Test-Path -LiteralPath $planPolicyItPath -PathType Leaf)) {
+    $errors.Add('Independent Board plan-policy dual MySQL replay gate is missing')
+}
+else {
+    $planPolicyItSource = Get-Content -LiteralPath $planPolicyItPath -Raw -Encoding UTF8
+    if ($planPolicyItSource -match '[^\x00-\x7F]') {
+        $errors.Add('plan-policy MySQL runner must remain ASCII-only for Windows PowerShell 5 compatibility')
+    }
+    foreach ($needle in @(
+        '[switch]$AllowDestructiveTest',
+        "throw 'Explicit -AllowDestructiveTest consent is required.'",
+        "[ValidateSet('8.0.30', '8.4.8')]",
+        "[string[]]`$Versions = @('8.0.30', '8.4.8')",
+        "`$supportedVersions = @('8.0.30', '8.4.8')",
+        "throw 'Versions must contain unique supported MySQL versions.'",
+        '$expectedConcurrencyTests = 6',
+        '$expectedConcurrencyIterations = 20',
+        'IndependentBoardPlanPolicyMysqlConcurrencyIT',
+        'Invoke-PlanPolicyConcurrencyIt',
+        'bind-address=127.0.0.1',
+        'productionConnectionUsed = $false',
+        'workDirectoryCleaned = $true',
+        "-Expected '2|2|2|7|1'",
+        'N greater than one completed replay',
+        'Unknown plan migration did not fail closed',
+        'Raw metadata drift did not fail closed',
+        'Negative immutability probe unexpectedly passed',
+        'Invalid plan-name probe unexpectedly passed',
+        'invalidPlanNamesRejected = 6',
+        'Lineage insert guard unexpectedly passed',
+        'Case-variant lineage guard unexpectedly passed',
+        'lineageCaseVariantRejected = $true',
+        'initializerCurrentReadOnly = $true',
+        'metadataSnapshot',
+        '$manifestPath',
+        '$runnerPath',
+        '$concurrencyTestPath',
+        'schemaVersion = 2',
+        'sourceSha256',
+        'publicInit039',
+        'concurrencyTest',
+        '3861fa022a759a9f9a5f773da995273b5259e361be7a931a9ad761eca02473d7',
+        'sourcePath',
+        'Assert-SafeRunDirectory'
+    )) {
+        if (-not $planPolicyItSource.Contains($needle)) {
+            $errors.Add("plan-policy dual MySQL replay gate is missing required contract: $needle")
+        }
+    }
+}
+
 $truthSpineSqlPath = Join-Path $sqlRoot 'update_20260712_truth_spine_test_state_receipt.sql'
 $truthSpineSql = Get-Content -LiteralPath $truthSpineSqlPath -Raw -Encoding UTF8
 $requiredTruthSpineLockNeedles = @(
@@ -2154,11 +2505,11 @@ $requiredOauthInitializerIntegrationNeedles = @(
     'idx_connector_binding_receipt_lock_order',
     '504a017fe7c4a8ecc4c60619ea8beaf5e7d4aa207fcffe536ff47b8e1d9919b3',
     'W4b refresh-security exact bounded replay did not pass',
-    'if ($verification -ne 24)'
+    'if ($verification -ne 27)'
 )
 $requiredCreditLedgerInitializerNeedles = @(
     'New-Step "public_init_038" "Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger" (Resolve-SqlFile "update_20260722_independent_board_credit_ledger.sql")',
-    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038')",
+    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039')",
     'function Assert-IndependentBoardCreditLedgerCurrentState',
     '$serverProfile = Assert-IndependentBoardOauthServerProfile',
     '$expected = @(3,3,45,45,45,20,20,4,4,9,9,22,22,6,6,1,1,5,0)',
@@ -2174,8 +2525,8 @@ $requiredCreditLedgerInitializerNeedles = @(
     'u3w_assert_independent_board_credit_triggers_20260722',
     'credit-ledger exact bounded replay did not pass',
     "'fbs_credit_account','fbs_credit_operation','fbs_credit_entry'",
-    'if ($verification -ne 24)',
-    'expected twenty-four representative current tables'
+    'if ($verification -ne 27)',
+    'expected twenty-seven representative current tables'
 )
 $requiredManifestCurrentReadNeedles = @(
     'function Assert-PublicDatabaseManifestCurrentState',
@@ -2227,6 +2578,35 @@ foreach ($needle in $requiredCreditLedgerInitializerNeedles) {
         $errors.Add("initializer is missing public_init_038 credit-ledger manifest, recovery or verification contract: $needle")
     }
 }
+$requiredPlanPolicyInitializerNeedles = @(
+    'New-Step "public_init_039" "Independent Board immutable plan policy revisions and operation lineage" (Resolve-SqlFile "update_20260722_independent_board_plan_policy.sql")',
+    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039')",
+    '[switch]$PlanPolicyCurrentReadOnly',
+    'function Assert-IndependentBoardPlanPolicyCurrentState',
+    '$resumeRunningPlanPolicy',
+    "`$step.Version -eq 'public_init_039'",
+    'Assert-IndependentBoardControlPlaneCurrentState',
+    'Assert-IndependentBoardPlanPolicyCurrentState',
+    'u3w_migrate_independent_board_plan_policy_20260722',
+    'u3w_finalize_independent_board_plan_policy_20260722',
+    'plan-policy exact bounded replay did not pass',
+    'three tables, 39 columns, 15 indexes, seven RESTRICT foreign keys, ten checks, seven exact trigger bodies',
+    '8ae3df83c9f56974261d1e471eb19034b2b782f793f74333c64a13c61dae8982',
+    '02e90096b76d25b69c938fa65cfc3931207ac0a2648447bf613dca591619da51',
+    'c9409524d7203b611129b9704cdc9752ffcdecdcb2b29b97a21cb3ef08b675f9',
+    '3861fa022a759a9f9a5f773da995273b5259e361be7a931a9ad761eca02473d7',
+    '2d21d400829820467a0915c202fbdd5343e5d9417fe1ac062a48742ec0a6541b',
+    '03dfe7bb006d20b768840f71a435d0233355001dc35d6c7cffda5c68ef6151de',
+    'b97cf71e29e1bfbbb58bd9ef58ed8f9334c586de102e43b6bb231e392ac84fad',
+    "`$expected = @('3','39','15','7','20','10','7','7','2','2','2','0','0','1','0','1')",
+    'if ($verification -ne 27)',
+    'expected twenty-seven representative current tables'
+)
+foreach ($needle in $requiredPlanPolicyInitializerNeedles) {
+    if (-not $initSource.Contains($needle)) {
+        $errors.Add("initializer is missing public_init_039 plan-policy manifest, recovery or verification contract: $needle")
+    }
+}
 foreach ($needle in $requiredManifestCurrentReadNeedles) {
     if (-not $initSource.Contains($needle)) {
         $errors.Add("initializer is missing exact public manifest current-read contract: $needle")
@@ -2236,7 +2616,7 @@ $creditLedgerCurrentReadStart = $initSource.IndexOf(
     'function Assert-IndependentBoardCreditLedgerCurrentState',
     [StringComparison]::Ordinal)
 $creditLedgerCurrentReadEnd = if ($creditLedgerCurrentReadStart -ge 0) {
-    $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly) {', $creditLedgerCurrentReadStart, [StringComparison]::Ordinal)
+    $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly) {', $creditLedgerCurrentReadStart, [StringComparison]::Ordinal)
 } else { -1 }
 $creditLedgerCurrentReadSource = if ($creditLedgerCurrentReadStart -ge 0 -and $creditLedgerCurrentReadEnd -gt $creditLedgerCurrentReadStart) {
     $initSource.Substring($creditLedgerCurrentReadStart, $creditLedgerCurrentReadEnd - $creditLedgerCurrentReadStart)
@@ -2276,7 +2656,51 @@ foreach ($needle in @(
         $errors.Add("initializer credit-ledger current-read is missing exact metadata contract: $needle")
     }
 }
-$currentReadOnlyBlockStart = $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly) {', [StringComparison]::Ordinal)
+$planPolicyCurrentReadStart = $initSource.IndexOf(
+    'function Assert-IndependentBoardPlanPolicyCurrentState',
+    [StringComparison]::Ordinal)
+$planPolicyCurrentReadEnd = if ($planPolicyCurrentReadStart -ge 0) {
+    $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly) {', $planPolicyCurrentReadStart, [StringComparison]::Ordinal)
+} else { -1 }
+$planPolicyCurrentReadSource = if ($planPolicyCurrentReadStart -ge 0 -and $planPolicyCurrentReadEnd -gt $planPolicyCurrentReadStart) {
+    $initSource.Substring($planPolicyCurrentReadStart, $planPolicyCurrentReadEnd - $planPolicyCurrentReadStart)
+} else { '' }
+if ([string]::IsNullOrEmpty($planPolicyCurrentReadSource)) {
+    $errors.Add('initializer plan-policy current-read function boundary is missing')
+}
+elseif ($planPolicyCurrentReadSource -match 'Invoke-MySql(?:File|Bytes)' -or
+        $planPolicyCurrentReadSource -match '(?im)^\s*(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM|ALTER\s+TABLE|CREATE\s+(?:TABLE|TRIGGER|PROCEDURE)|DROP\s+(?:TABLE|TRIGGER|PROCEDURE)|TRUNCATE\s+TABLE)\b') {
+    $errors.Add('initializer plan-policy current-read function must remain database read-only')
+}
+foreach ($needle in @(
+    'information_schema.tables',
+    'information_schema.columns',
+    'information_schema.statistics',
+    'information_schema.referential_constraints',
+    'information_schema.key_column_usage',
+    'information_schema.table_constraints',
+    'information_schema.triggers',
+    'fbs_plan_policy_revision_receipt',
+    'fbs_plan_policy_head',
+    'fbs_usage_operation_policy_receipt',
+    'LEFT JOIN fbs_usage_operation_policy_receipt',
+    'CAST(l.operation_id AS BINARY)=CAST(o.operation_id AS BINARY)',
+    'MAX(policy_version)',
+    'plan-policy-baseline-board-free-v1',
+    'plan-policy-baseline-board-vip-v1',
+    '59d2d90cab68d42f6655f1fb176eb83d098c3c29a25c7242ccab4273e558170a',
+    'c9409524d7203b611129b9704cdc9752ffcdecdcb2b29b97a21cb3ef08b675f9',
+    '3861fa022a759a9f9a5f773da995273b5259e361be7a931a9ad761eca02473d7',
+    '2d21d400829820467a0915c202fbdd5343e5d9417fe1ac062a48742ec0a6541b',
+    '03dfe7bb006d20b768840f71a435d0233355001dc35d6c7cffda5c68ef6151de',
+    'b97cf71e29e1bfbbb58bd9ef58ed8f9334c586de102e43b6bb231e392ac84fad',
+    "`$expected = @('3','39','15','7','20','10','7','7','2','2','2','0','0','1','0','1')"
+)) {
+    if (-not $planPolicyCurrentReadSource.Contains($needle)) {
+        $errors.Add("initializer plan-policy current-read is missing exact metadata or lineage contract: $needle")
+    }
+}
+$currentReadOnlyBlockStart = $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly) {', [StringComparison]::Ordinal)
 $currentReadOnlyBlockEnd = if ($currentReadOnlyBlockStart -ge 0) {
     $initSource.IndexOf('$databaseBootstrap =', $currentReadOnlyBlockStart, [StringComparison]::Ordinal)
 } else { -1 }
@@ -2284,10 +2708,12 @@ $currentReadOnlyBlock = if ($currentReadOnlyBlockStart -ge 0 -and $currentReadOn
     $initSource.Substring($currentReadOnlyBlockStart, $currentReadOnlyBlockEnd - $currentReadOnlyBlockStart)
 } else { '' }
 foreach ($needle in @(
-    'if ($CreditLedgerCurrentReadOnly)',
+    'if ($PlanPolicyCurrentReadOnly)',
+    'elseif ($CreditLedgerCurrentReadOnly)',
     'Assert-IndependentBoardOauthFoundationCurrentState',
     'Assert-IndependentBoardOauthConsentIntentCurrentState',
     'Assert-IndependentBoardCreditLedgerCurrentState',
+    'Assert-IndependentBoardPlanPolicyCurrentState',
     'Assert-PublicDatabaseManifestCurrentState',
     'No database write was requested.',
     'return'
@@ -2348,6 +2774,19 @@ else {
         "w3a_rerun_after_w3b",
         "w3b_completed_state_drift_fail_closed",
         "w3b_prewrite_identity_collision_fail_closed",
+        "w3h_requires_explicit_session_opt_in",
+        "w3h_missing_039_receipts_fail_closed",
+        "w3h_missing_internal_039_receipt_fail_closed",
+        "w3h_drifted_internal_039_receipt_fail_closed",
+        "w3h_first_apply",
+        "W3h exact identity N=2",
+        "w3h_completed_rerun",
+        "w3h_default_disabled_drift_fail_closed",
+        "w3h_unknown_child_fail_closed",
+        "w3h_role_binding_fail_closed",
+        "w3h_receipt_drift_fail_closed",
+        "w3h_prewrite_identity_collision_fail_closed",
+        "Assert-W3hLocksReleased",
         "prewrite-collision",
         "schemaNameLength",
         "Assert-SafeCleanupPath",
@@ -2424,18 +2863,23 @@ $result = [pscustomobject]@{
     oauthConsentIntentVersion = "public_init_035"
     oauthRefreshSecurityVersion = "public_init_036"
     creditLedgerVersion = "public_init_038"
+    planPolicyVersion = "public_init_039"
     oauthFoundationSha256 = $oauthFoundationSha256
     oauthProvenanceSha256 = $oauthProvenanceSha256
     oauthConsentIntentSha256 = $oauthConsentIntentSha256
     oauthRefreshSecuritySha256 = $oauthRefreshSecuritySha256
     creditLedgerSha256 = $creditLedgerSha256
+    planPolicySha256 = $planPolicySha256
     candidateMenuMigrationId = $candidateMenuMigrationId
     candidateMenuMigrationSha256 = $candidateMenuMigrationSha256
     creditMenuMigrationId = $creditMenuMigrationId
     creditMenuMigrationSha256 = $creditMenuMigrationSha256
+    planPolicyMenuMigrationId = $planPolicyMenuMigrationId
+    planPolicyMenuMigrationSha256 = $planPolicyMenuMigrationSha256
     oauthSuccessorCheckDigest = $oauthSuccessorCheckDigest
     oauthGenerationExpressionWhitelist = @('_utf8mb4', '_ascii', 'no-prefix')
     menuMigrationReplayGate = "scripts/run-independent-board-menu-migration-it.ps1"
+    planPolicyReplayGate = "scripts/run-independent-board-plan-policy-mysql-it.ps1"
     errors = @($errors)
 }
 

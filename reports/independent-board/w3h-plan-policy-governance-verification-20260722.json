@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 1,
+  "reportId": "w3h-plan-policy-governance-verification-20260722",
+  "generatedAt": "2026-07-22T23:44:00+08:00",
+  "result": "PASS_LOCAL_CANDIDATE",
+  "candidateReadyForCommit": true,
+  "releaseReady": false,
+  "productionChanged": false,
+  "scope": "admin.u3w.com 独董会套餐策略修订、不可变回执、operation 策略血缘与默认关闭治理",
+  "priority": {
+    "adminControlPlane": "primary",
+    "api2Attribution": "secondary_and_not_modified_in_this_slice"
+  },
+  "truthBoundary": {
+    "proven": [
+      "current repository bytes pass static, unit, HTTP, real MySQL, browser-fixture and production-build gates",
+      "public_init_039 is deterministic and passes the exact MySQL Community 8.0.30 and 8.4.8 matrix",
+      "candidate permissions remain manual opt-in, disabled and unbound to roles",
+      "the frozen 26.7.20 expert package hash is unchanged"
+    ],
+    "notProven": [
+      "production database migration",
+      "production menu installation or role authorization",
+      "production backend or frontend flag activation",
+      "admin.u3w.com real-domain readback",
+      "natural traffic or business conversion",
+      "production database DML-principal and emergency-access audit for the policy/head tables"
+    ]
+  },
+  "successorEvidence": {
+    "predecessorReport": "reports/independent-board/w3h-plan-policy-database-verification-20260722.json",
+    "predecessorReportSha256": "d8d3c579f645568147ea43ab2d9057d1470dddfb624917a467282e43effa1b67",
+    "predecessorReportedPublicInit039Sha256": "94c17ae3afabdde338bfe1910737d336c7d65c8fbd5ea8e8ed50f44edd03a99a",
+    "currentPublicInit039Sha256": "907ae8dd61cff476a68c07ce9fc0647f269ccb8422e0ffc851fbb91dc39eb8e6",
+    "policy": "the predecessor is retained as historical evidence and is not used to prove current bytes"
+  },
+  "sharedEvidenceSuccession": {
+    "sharedSource": "FBSir-business/src/main/resources/mapper/board/IndependentBoardPortalReadMapper.xml",
+    "predecessorReceipt": "reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json",
+    "predecessorSourceSha256": "8a29b8fd544ec9b41d4c87405b8517c4571bff737c48da390f91240e44c7876e",
+    "successorSourceSha256": "bdc6bbd47b5922f0d624555ad55143c526f87e28454a6dcc9bc2133b2a973e47",
+    "predecessorRegressionVerifier": "FBSir-ui/scripts/verify-independent-board-w4b2c-runtime-mount.mjs",
+    "predecessorRegressionState": "PASS",
+    "historicalReceiptMutated": false
+  },
+  "git": {
+    "branch": "codex/w4b2-default-off-candidate",
+    "baseCommit": "8fa119ad618239afab9b698b8c39a4cf2aa7ef20",
+    "implementationCommit": "PENDING_FIRST_COMMIT",
+    "remote": "git@github.com:U3W-AI/U3W-AI.git",
+    "finalCleanAndRemoteAlignment": "verified_after_the_successor_report_commit_outside_this_self_referential_payload"
+  },
+  "databaseManifest": {
+    "ok": true,
+    "manifestStepCount": 39,
+    "manualMigrationCount": 3,
+    "dryRunDatabaseIsolation": true,
+    "planPolicyVersion": "public_init_039",
+    "planPolicySha256": "907ae8dd61cff476a68c07ce9fc0647f269ccb8422e0ffc851fbb91dc39eb8e6",
+    "errors": []
+  },
+  "dualMysqlPlanPolicyMatrix": {
+    "runnerSchemaVersion": 2,
+    "ok": true,
+    "productionConnectionUsed": false,
+    "workDirectoriesCleaned": true,
+    "common": {
+      "firstApply": "2|2|2|7|1",
+      "completedRerunPreserved": "plan-policy-board-vip-v2-it|2|3|2",
+      "historicalBackfillCount": 2,
+      "invalidPlanNamesRejected": 6,
+      "unknownPlanRejected": true,
+      "metadataDriftRejected": true,
+      "updateDeleteRejected": 6,
+      "lineageGuardRejected": true,
+      "lineageCaseVariantRejected": true,
+      "metadataSnapshot": "3861fa022a759a9f9a5f773da995273b5259e361be7a931a9ad761eca02473d7|2d21d400829820467a0915c202fbdd5343e5d9417fe1ac062a48742ec0a6541b|03dfe7bb006d20b768840f71a435d0233355001dc35d6c7cffda5c68ef6151de|b97cf71e29e1bfbbb58bd9ef58ed8f9334c586de102e43b6bb231e392ac84fad",
+      "triggerActionStatementSha256": {
+        "entitlementReceiptNoUpdateDelete": "5c40f4bae16986eae2b1cbbef38994a93263c870a0940432902dd5d6b9cc151e",
+        "planPolicyReceiptNoUpdateDelete": "59d2d90cab68d42f6655f1fb176eb83d098c3c29a25c7242ccab4273e558170a",
+        "usageOperationPolicyInsertGuard": "c9409524d7203b611129b9704cdc9752ffcdecdcb2b29b97a21cb3ef08b675f9",
+        "usageOperationPolicyNoUpdateDelete": "be062b76a71de8c859ea35de136217a34f5a900e454a19e4284c691deb4134a3"
+      }
+    },
+    "versions": [
+      {
+        "version": "8.0.30",
+        "concurrencyTests": 6,
+        "iterationsPerCase": 20,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "durationSeconds": 13.14,
+        "auditReceiptRows": 122
+      },
+      {
+        "version": "8.4.8",
+        "concurrencyTests": 6,
+        "iterationsPerCase": 20,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "durationSeconds": 13.913,
+        "auditReceiptRows": 122
+      }
+    ],
+    "concurrencyCases": [
+      "differentKeysSameExpectedVersionHaveOneWinnerAndNoOrphan",
+      "freeAndVipConcurrentRevisionsDoNotDeadlockAndPreserveInvariant",
+      "insertThenForcedCasFailurePhysicallyRollsBack",
+      "meetingReadsAreAllOldOrAllNewAndIgnoreImmutableReceiptLocks",
+      "sameActorSameKeyDifferentPayloadHasOneWinnerAndOneIdempotencyConflict",
+      "sameActorSameKeySamePayloadReturnsSameReceipt"
+    ]
+  },
+  "dualMysqlCandidateMenuMatrix": {
+    "result": "PASS",
+    "versions": [
+      "8.0.30",
+      "8.4.8"
+    ],
+    "w3hMigrationSha256": "218443b734f0cb57f10d37b6b3a01a8759a8bdda8c76f179d4a00195c0b899b9",
+    "w3hCandidateIdentities": 2,
+    "w3hDefaultDisabled": 2,
+    "w3hRoleBindings": 0,
+    "verifiedFailClosedScenarios": [
+      "explicit_session_opt_in_missing",
+      "public_or_internal_039_receipt_missing_or_drifted",
+      "default_disabled_state_drift",
+      "unknown_child",
+      "role_binding",
+      "receipt_drift",
+      "prewritten_identity_collision"
+    ],
+    "productionConnectionUsed": false,
+    "workDirectoriesCleaned": true
+  },
+  "backend": {
+    "command": "mvn -q -pl FBSir-admin -am test",
+    "jdk": "Eclipse Temurin 17.0.19+10",
+    "result": "PASS",
+    "suites": 131,
+    "tests": 726,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "stableFailureContracts": [
+      "BOARD_PLAN_CURRENT_READ_UNAVAILABLE:503",
+      "MEETING_RESERVATION_CONCURRENT_CONFLICT:409",
+      "MEETING_RESERVATION_PERSISTENCE_FAILED:503"
+    ],
+    "noStoreCoverage": "representative 401, 403, 400, 409, 500/503 and success paths"
+  },
+  "frontend": {
+    "productionBuild": {
+      "result": "PASS",
+      "viteVersion": "6.4.3",
+      "modulesTransformed": 3052,
+      "durationSeconds": 54.63,
+      "warnings": [
+        "existing pure annotation placement warning in element-plus dependency",
+        "existing chunks larger than 1000 kB warning"
+      ]
+    },
+    "staticVerifiers": {
+      "result": "PASS",
+      "count": 7,
+      "names": [
+        "independent-board-ui",
+        "independent-board-admin-ui",
+        "independent-board-plan-policy-admin-ui",
+        "independent-board-credit-admin-ui",
+        "independent-board-w4b2-candidate",
+        "independent-board-w4b2c-runtime-mount",
+        "portal-entry"
+      ]
+    },
+    "browserFixture": {
+      "result": "PASS",
+      "enabledScenarios": [
+        "revision v1 to v2",
+        "stale 409 preserves original intent and key",
+        "503 ambiguous result exact replay",
+        "compensating rollback creates a new version"
+      ],
+      "defaultOff": "authenticated 404 with no-store",
+      "consoleErrors": 0,
+      "productionDomainClaim": false
+    }
+  },
+  "adversarialReview": {
+    "agents": [
+      "schema_contract",
+      "backend_concurrency_security",
+      "ui_contract"
+    ],
+    "p0": 0,
+    "p1": 0,
+    "resolvedFindings": [
+      "Unicode code-point and exact-name drift across JS Java and MySQL",
+      "case-insensitive operation lineage comparison",
+      "immutable receipt rows unnecessarily locked by governance writes",
+      "database exception detail leakage and missing no-store coverage",
+      "stale evidence report not bound to current source bytes",
+      "candidate endpoint trailing-slash responses bypassing the no-store filter"
+    ],
+    "remainingP2": [
+      "add Vue mount-level DOM state-machine tests",
+      "consider frontend bundle splitting outside this correctness slice"
+    ]
+  },
+  "frozenSurface": {
+    "path": "D:/Spg719/fbsir-eight-seat-board-26.7.20.zip",
+    "requiredSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "observedSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "unchanged": true
+  },
+  "sourceSha256": {
+    "sql/update_20260722_independent_board_plan_policy.sql": "907ae8dd61cff476a68c07ce9fc0647f269ccb8422e0ffc851fbb91dc39eb8e6",
+    "sql/init-manifest.json": "add79170d5e1634e2f76f227ad02c45aa624fe2d53af1392c6c1fb0c35c11b32",
+    "scripts/init-database.ps1": "3b2f29ec9cb057222fb4127b323880578ecacabf7dc0af0a54ec7cfaf3c48cef",
+    "scripts/verify-database-manifest.ps1": "5abc7085c3926e4249dbd06b297918198b85aac3f14962848d600f5e51345b7c",
+    "scripts/run-independent-board-plan-policy-mysql-it.ps1": "5f43c2750edb9a429e645008145363c0379a404075199011c29f3fa66c006fba",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/plan/integration/IndependentBoardPlanPolicyMysqlConcurrencyIT.java": "39dba22df562c4f04f66b87535c1a511675b9f962f82191f8255e3f76710cf47",
+    "sql/update_20260722_independent_board_plan_policy_candidate_menu.sql": "218443b734f0cb57f10d37b6b3a01a8759a8bdda8c76f179d4a00195c0b899b9",
+    "scripts/run-independent-board-menu-migration-it.ps1": "ddd100b22a7d7d13d4d2c95548968ada97ec1d343a5edc40521ff91f5bc34a6f",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/plan/domain/BoardPlanPolicyName.java": "29840470618a7e7c2e71721d697afb6cd2a127cf568692a5de411009b3773fef",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/plan/service/IndependentBoardPlanPolicyTransactionService.java": "605b099d9089d1a289a44712cc9b1a5066d9480bba547b3c69f38cae67ef0115",
+    "FBSir-business/src/main/resources/mapper/board/IndependentBoardPlanPolicyMapper.xml": "31123fbc77c81f8fcfe88b949c603ab52ccba26ac2e897095eca9cbb80ca20a4",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/plan/controller/IndependentBoardPlanPolicyNoStoreFilter.java": "8dd1c41364d9f2be80848577b410b119769c7cf9860ff2e4e8dfbf4151979399",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/plan/controller/IndependentBoardPlanPolicyNoStoreFilterTest.java": "726f9fe4277727bbb770ad35c3a2fbf0a4454df777f7fd260d46891ed8a74ab7",
+    "FBSir-admin/src/test/java/com/wx/fbsir/business/board/plan/IndependentBoardPlanPolicyHttpSecurityIntegrationTest.java": "2f081b1a2b1eac050af2fb333b040f533b28375de542e9f0073620d3ccf83948",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/service/IndependentBoardMeetingTransactionService.java": "6958c3308a7d161c3ddbc81e5b906cdb77fb9b9b3ab6ed29838ae81ecfbec4fa",
+    "FBSir-business/src/main/resources/mapper/board/IndependentBoardMapper.xml": "1390b5e1189b54f389f6d56f455c829e22882b3d8dd47c4db4ae35ac33d3a56f",
+    "FBSir-business/src/main/resources/mapper/board/IndependentBoardPortalReadMapper.xml": "bdc6bbd47b5922f0d624555ad55143c526f87e28454a6dcc9bc2133b2a973e47",
+    "FBSir-ui/src/views/business/independentBoard/admin/entitlement/PlanPolicyGovernancePanel.vue": "a7017efad627125382f0ad76249401fb7c81a0a463d5bc80843c3041a6889c1f",
+    "FBSir-ui/src/views/business/independentBoard/admin/entitlement/PlanPolicyRevisionDialog.vue": "ee0df303b70ef1bc4f2144004cd9d28404ffad7746a1f876fa3c16f335d53ef0",
+    "FBSir-ui/src/views/business/independentBoard/admin/entitlement/planPolicyModel.js": "5ac4b28bb1479ee56d07b0ab669e7a5015b4f1239a90ef2a447d159de61a23b4",
+    "FBSir-ui/src/views/business/independentBoard/admin/model.js": "68395b4135b91e345aa95767258de5747645bcbc019e2956972ae54469636f75",
+    "FBSir-ui/scripts/verify-independent-board-plan-policy-admin-ui.mjs": "d33453a88ed19bcb50630f0900847c192b535d9b693000764ec38911457ad72d",
+    "docs/independent-board/W3H-PLAN-POLICY-REVISION-CONTRACT.md": "d8f443cccba3e08f67bcebd6d8c4d907806d315498562ed168cea6f649878c0e",
+    "docs/decisions/ADR-004-independent-board-versioned-plan-policy-head.md": "f84b302561709dce857df93c4359fe1efd8514c98aecc9f7cda296df9b177b87",
+    "docs/independent-board/W3H-PLAN-POLICY-DEPLOYMENT-RUNBOOK.md": "f9236f61c4f3382ff037e77e6ac5f51e45e4cc895fa045f31ace582111c7f132",
+    ".fbs-engineering/contract.json": "4cdb4d5f98e0be6ee443e6ed78a4bcd1e589ef1e0d0da8db4f27becb4b3ea475",
+    "docs/independent-board/implementation-status.json": "f7d98edfea6aa5e12bc4a11ba9873e63aa3a01f2deb30d9389f8576ad95e539a",
+    "docs/independent-board/taskboard.json": "1530b2b23c2824e84691ef00f5f04609e2efa196a1e12a3726219c7fe0732e6d"
+  },
+  "references": [
+    "https://dev.mysql.com/doc/refman/8.4/en/innodb-transaction-isolation-levels.html",
+    "https://dev.mysql.com/doc/refman/8.4/en/innodb-locks-set.html",
+    "https://dev.mysql.com/doc/refman/8.2/en/innodb-consistent-read.html",
+    "https://dev.mysql.com/doc/refman/8.4/en/regexp.html",
+    "https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header",
+    "https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html"
+  ],
+  "remainingReleaseGates": [
+    "commit and push the implementation bytes and this successor report, then verify clean local and remote alignment",
+    "record the production DML principal, its least-privilege grants and emergency-access audit process for immutable policy/head tables",
+    "obtain production backup and maintenance-window receipts",
+    "run public_init_039 current-read verification on the exact target database",
+    "switch all write-capable backend instances as one drained set before restoring writes",
+    "install candidate permissions manually and keep them disabled with zero role bindings until reviewed activation",
+    "perform isolated and then real-domain admin readback before any wider rollout"
+  ],
+  "nextSlice": "W3i_meeting_audit_policy_lineage_and_label_authority"
+}

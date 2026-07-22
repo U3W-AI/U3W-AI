@@ -12,6 +12,8 @@ import com.wx.fbsir.business.board.dto.BoardEntitlementReceiptView;
 import com.wx.fbsir.business.board.dto.BoardEntitlementRevokeRequest;
 import com.wx.fbsir.business.board.dto.BoardEntitlementSnapshot;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
+import com.wx.fbsir.business.board.plan.domain.BoardPlanPolicyReceipt;
+import com.wx.fbsir.business.board.plan.service.BoardPlanPolicyDigest;
 import com.wx.fbsir.common.exception.ServiceException;
 import java.time.Clock;
 import java.time.Instant;
@@ -25,6 +27,7 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.PessimisticLockingFailureException;
 
@@ -85,6 +88,50 @@ class IndependentBoardEntitlementServiceTest {
         Date returnedUpdatedAt = plans.get(0).updatedAt();
         returnedUpdatedAt.setTime(0L);
         assertEquals(Date.from(NOW), plans.get(0).updatedAt());
+    }
+
+    @Test
+    void committedCatalogAcceptsRevisedQuotasWithoutTreatingBaselinesAsIdentity() {
+        BoardProductPlan free = versionedPlan(
+                plan("BOARD_FREE", false, false, 2, 10, 4, false),
+                "Independent Board Free Plus", 2L);
+        BoardProductPlan vip = versionedPlan(
+                plan("BOARD_VIP", true, true, 9, 30, 20, true),
+                "Independent Board VIP Plus", 4L);
+        when(mapper.selectPlansByProduct(IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(List.of(free, vip));
+
+        List<BoardProductPlanAdminView> plans = service.listPlans();
+
+        assertEquals(2, plans.get(0).dailyMeetingLimit());
+        assertEquals(10, plans.get(0).agendaLimit());
+        assertEquals(9, plans.get(1).dailyMeetingLimit());
+        assertEquals(20, plans.get(1).seatLimit());
+    }
+
+    @Test
+    void committedCatalogRejectsPolicyDigestDrift() {
+        BoardProductPlan free = versionedPlan(freePlan(), "Independent Board Free", 1L);
+        BoardProductPlan vip = versionedPlan(vipPlan(), "Independent Board VIP", 1L);
+        vip.setPolicyDigest("f".repeat(64));
+        when(mapper.selectPlansByProduct(IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenReturn(List.of(free, vip));
+
+        ServiceException error = assertThrows(ServiceException.class, service::listPlans);
+
+        assertEquals("BOARD_PLAN_CONTRACT_DRIFT", error.getMessage());
+    }
+
+    @Test
+    void planCatalogDatabaseFailureReturnsOnlyAStableError() {
+        when(mapper.selectPlansByProduct(IndependentBoardEntitlementService.PRODUCT_CODE))
+                .thenThrow(new DataAccessResourceFailureException(
+                        "secret select and connection detail"));
+
+        ServiceException error = assertThrows(ServiceException.class, service::listPlans);
+
+        assertEquals(503, error.getCode());
+        assertEquals("BOARD_PLAN_CURRENT_READ_UNAVAILABLE", error.getMessage());
     }
 
     @Test
@@ -808,6 +855,13 @@ class IndependentBoardEntitlementServiceTest {
         plan.setSeatLimit(seats);
         plan.setSecretaryEnabled(secretary);
         plan.setStatus("ACTIVE");
+        plan.setPlanName("BOARD_FREE".equals(code)
+                ? "Independent Board Free" : "Independent Board VIP");
+        plan.setVersion(1L);
+        plan.setUpdatedAt(Date.from(NOW));
+        plan.setPolicyReceiptId("plan-policy-baseline-"
+                + code.toLowerCase().replace('_', '-') + "-v1");
+        plan.setPolicyDigest(policyDigest(plan));
         return plan;
     }
 
@@ -815,6 +869,23 @@ class IndependentBoardEntitlementServiceTest {
         plan.setPlanName(planName);
         plan.setVersion(version);
         plan.setUpdatedAt(Date.from(NOW));
+        plan.setPolicyReceiptId("123e4567-e89b-12d3-a456-426614174000");
+        plan.setPolicyDigest(policyDigest(plan));
         return plan;
+    }
+
+    private String policyDigest(BoardProductPlan plan) {
+        BoardPlanPolicyReceipt receipt = new BoardPlanPolicyReceipt();
+        receipt.setProductCode(plan.getProductCode());
+        receipt.setPlanCode(plan.getPlanCode());
+        receipt.setPlanName(plan.getPlanName());
+        receipt.setVip(plan.getVip());
+        receipt.setConnectorRequired(plan.getConnectorRequired());
+        receipt.setDailyMeetingLimit(plan.getDailyMeetingLimit());
+        receipt.setAgendaLimit(plan.getAgendaLimit());
+        receipt.setSeatLimit(plan.getSeatLimit());
+        receipt.setSecretaryEnabled(plan.getSecretaryEnabled());
+        receipt.setStatus(plan.getStatus());
+        return BoardPlanPolicyDigest.policyDigest(receipt);
     }
 }

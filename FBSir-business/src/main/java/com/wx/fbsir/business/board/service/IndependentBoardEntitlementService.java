@@ -14,6 +14,8 @@ import com.wx.fbsir.business.board.dto.BoardEntitlementRevokeRequest;
 import com.wx.fbsir.business.board.dto.BoardEntitlementSnapshot;
 import com.wx.fbsir.business.board.dto.BoardProductPlanAdminView;
 import com.wx.fbsir.business.board.mapper.IndependentBoardMapper;
+import com.wx.fbsir.business.board.plan.domain.BoardPlanPolicyName;
+import com.wx.fbsir.business.board.plan.service.BoardPlanPolicyDigest;
 import com.wx.fbsir.common.exception.ServiceException;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -26,6 +28,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -129,9 +132,13 @@ public class IndependentBoardEntitlementService {
      * The entitlement-query permission is intentionally reused because the
      * catalog is a prerequisite to the existing entitlement grant form.
      */
-    @Transactional(readOnly = true)
     public List<BoardProductPlanAdminView> listPlans() {
-        List<BoardProductPlan> plans = mapper.selectPlansByProduct(PRODUCT_CODE);
+        List<BoardProductPlan> plans;
+        try {
+            plans = mapper.selectPlansByProduct(PRODUCT_CODE);
+        } catch (DataAccessException persistence) {
+            throw new ServiceException("BOARD_PLAN_CURRENT_READ_UNAVAILABLE", 503);
+        }
         if (plans == null || plans.size() != 2) {
             throw new ServiceException("BOARD_PLAN_CURRENT_READ_FAILED", 500);
         }
@@ -142,7 +149,6 @@ public class IndependentBoardEntitlementService {
                 throw new ServiceException("BOARD_PLAN_CONTRACT_DRIFT", 500);
             }
             validatePlanContract(plan);
-            validatePlanReadMetadata(plan);
             if (!planCodes.add(plan.getPlanCode())) {
                 throw new ServiceException("BOARD_PLAN_CONTRACT_DRIFT", 500);
             }
@@ -151,6 +157,7 @@ public class IndependentBoardEntitlementService {
         if (!planCodes.equals(Set.of(FREE_PLAN, VIP_PLAN))) {
             throw new ServiceException("BOARD_PLAN_CONTRACT_DRIFT", 500);
         }
+        validateCatalogInvariant(plans);
         result.sort(java.util.Comparator.comparing(BoardProductPlanAdminView::planCode));
         return List.copyOf(result);
     }
@@ -492,37 +499,71 @@ public class IndependentBoardEntitlementService {
     private void validatePlanContract(BoardProductPlan plan) {
         boolean freeValid = FREE_PLAN.equals(plan.getPlanCode())
                 && Boolean.FALSE.equals(plan.getVip())
-                && Boolean.FALSE.equals(plan.getConnectorRequired())
-                && Objects.equals(plan.getDailyMeetingLimit(), 1)
-                && Objects.equals(plan.getAgendaLimit(), 5)
-                && Objects.equals(plan.getSeatLimit(), 3)
-                && Boolean.FALSE.equals(plan.getSecretaryEnabled());
+                && Boolean.FALSE.equals(plan.getConnectorRequired());
         boolean vipValid = VIP_PLAN.equals(plan.getPlanCode())
                 && Boolean.TRUE.equals(plan.getVip())
-                && Boolean.TRUE.equals(plan.getConnectorRequired())
-                && Objects.equals(plan.getDailyMeetingLimit(), 5)
-                && Objects.equals(plan.getAgendaLimit(), 30)
-                && plan.getSeatLimit() == null
-                && Boolean.TRUE.equals(plan.getSecretaryEnabled());
+                && Boolean.TRUE.equals(plan.getConnectorRequired());
         if (!Objects.equals(plan.getProductCode(), PRODUCT_CODE)
-                || !Objects.equals(plan.getStatus(), "ACTIVE") || (!freeValid && !vipValid)) {
+                || !Objects.equals(plan.getStatus(), "ACTIVE")
+                || (!freeValid && !vipValid)
+                || plan.getDailyMeetingLimit() == null
+                || plan.getDailyMeetingLimit() < 1
+                || plan.getDailyMeetingLimit() > 10_000
+                || plan.getAgendaLimit() == null
+                || plan.getAgendaLimit() < 1
+                || plan.getAgendaLimit() > 30
+                || (plan.getSeatLimit() != null
+                    && (plan.getSeatLimit() < 1 || plan.getSeatLimit() > 100))
+                || (freeValid && plan.getSeatLimit() == null)
+                || plan.getSecretaryEnabled() == null) {
             throw new ServiceException("BOARD_PLAN_CONTRACT_DRIFT", 500);
         }
+        validatePlanReadMetadata(plan);
     }
 
     private void validatePlanReadMetadata(BoardProductPlan plan) {
         String name = plan.getPlanName();
-        if (name == null || name.isBlank() || name.length() > 128
-                || name.chars().anyMatch(Character::isISOControl)
-                || plan.getVersion() == null || plan.getVersion() < 0L
-                || plan.getUpdatedAt() == null) {
+        if (!BoardPlanPolicyName.isValid(name)
+                || plan.getVersion() == null || plan.getVersion() < 1L
+                || plan.getUpdatedAt() == null
+                || plan.getPolicyReceiptId() == null
+                || !plan.getPolicyReceiptId().matches(
+                        "[A-Za-z0-9][A-Za-z0-9._:-]{15,127}")
+                || plan.getPolicyDigest() == null
+                || !plan.getPolicyDigest().matches("[0-9a-f]{64}")
+                || !BoardPlanPolicyDigest.equal(
+                        plan.getPolicyDigest(), BoardPlanPolicyDigest.policyDigest(
+                                plan.getProductCode(), plan.getPlanCode(), plan.getPlanName(),
+                                plan.getVip(), plan.getConnectorRequired(),
+                                plan.getDailyMeetingLimit(), plan.getAgendaLimit(),
+                                plan.getSeatLimit(), plan.getSecretaryEnabled(),
+                                plan.getStatus()))) {
+            throw new ServiceException("BOARD_PLAN_CONTRACT_DRIFT", 500);
+        }
+    }
+
+    private void validateCatalogInvariant(List<BoardProductPlan> plans) {
+        BoardProductPlan free = plans.stream()
+                .filter(plan -> FREE_PLAN.equals(plan.getPlanCode()))
+                .findFirst()
+                .orElseThrow(() -> new ServiceException("BOARD_PLAN_CONTRACT_DRIFT", 500));
+        BoardProductPlan vip = plans.stream()
+                .filter(plan -> VIP_PLAN.equals(plan.getPlanCode()))
+                .findFirst()
+                .orElseThrow(() -> new ServiceException("BOARD_PLAN_CONTRACT_DRIFT", 500));
+        if (vip.getDailyMeetingLimit() < free.getDailyMeetingLimit()
+                || vip.getAgendaLimit() < free.getAgendaLimit()
+                || (vip.getSeatLimit() != null
+                    && vip.getSeatLimit() < free.getSeatLimit())
+                || (Boolean.TRUE.equals(free.getSecretaryEnabled())
+                    && !Boolean.TRUE.equals(vip.getSecretaryEnabled()))) {
             throw new ServiceException("BOARD_PLAN_CONTRACT_DRIFT", 500);
         }
     }
 
     private BoardProductPlanAdminView toPlanAdminView(BoardProductPlan plan) {
         return new BoardProductPlanAdminView(
-                plan.getProductCode(), plan.getPlanCode(), plan.getPlanName().trim(),
+                plan.getProductCode(), plan.getPlanCode(), plan.getPlanName(),
                 Boolean.TRUE.equals(plan.getVip()), Boolean.TRUE.equals(plan.getConnectorRequired()),
                 plan.getDailyMeetingLimit(), plan.getAgendaLimit(), plan.getSeatLimit(),
                 Boolean.TRUE.equals(plan.getSecretaryEnabled()), plan.getStatus(),

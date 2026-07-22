@@ -1,0 +1,199 @@
+{
+  "schema": "fbsir.independent-board.w3h-plan-policy-database-verification/v1",
+  "generatedAt": "2026-07-22T19:07:20.8461037+08:00",
+  "status": "PASS_LOCAL_CANDIDATE",
+  "scope": {
+    "publicManifestStep": "public_init_039",
+    "internalMigrationVersion": "20260722_independent_board_plan_policy_v1",
+    "productionConnectionUsed": false,
+    "productionMigrationApplied": false,
+    "frozenPackageModified": false
+  },
+  "redGreen": {
+    "red": {
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/init-database.ps1 -DryRun -ManifestJson",
+      "expectedFailure": "Expected one SQL file for pattern 'update_20260722_independent_board_plan_policy.sql' and marker ''; found 0.",
+      "meaning": "The manifest and executable initializer required public_init_039 before its SQL implementation existed."
+    },
+    "concurrencyRed": {
+      "command": "Test-Path FBSir-business/src/test/java/com/wx/fbsir/business/board/plan/integration/IndependentBoardPlanPolicyMysqlConcurrencyIT.java",
+      "expectedFailure": "RED: required real-MySQL concurrency harness is missing",
+      "meaning": "The original dual-version migration runner had no real Spring/MyBatis concurrency proof."
+    },
+    "green": [
+      {
+        "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-plan-policy-mysql-it.ps1 -AllowDestructiveTest",
+        "executedCommands": [
+          "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-plan-policy-mysql-it.ps1 -AllowDestructiveTest -Versions 8.0.30",
+          "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-plan-policy-mysql-it.ps1 -AllowDestructiveTest -Versions 8.4.8"
+        ],
+        "result": "PASS",
+        "profiles": ["8.0.30", "8.4.8"],
+        "firstApply": "2|2|2|7|1",
+        "completedRerunPreserved": "plan-policy-board-vip-v2-it|2|3|2",
+        "historicalBackfillCountPerProfile": 2,
+        "unknownPlanRejected": true,
+        "rawMetadataDriftRejected": true,
+        "immutableUpdateDeleteRejectionsPerProfile": 6,
+        "lineageInsertGuardRejectedMismatch": true,
+        "initializerCurrentReadOnly": true,
+        "workDirectoryCleaned": true,
+        "concurrencyMatrix": {
+          "iterationsPerScenarioPerProfile": 20,
+          "lockWaitTimeoutSeconds": 2,
+          "springTransactionProxy": true,
+          "myBatisMapperXml": true,
+          "hikariConnectionPool": true,
+          "scenarios": [
+            "same actor + same key + same payload returns one exact receipt",
+            "same actor + same key + different payload yields one success and one idempotency conflict",
+            "different keys + same expectedVersion yields one head winner and no orphan receipt",
+            "real receipt INSERT followed by injected zero-row head CAS physically rolls back",
+            "FREE and VIP concurrent revisions complete without deadlock and preserve catalog invariants",
+            "meeting reads see all-old/all-new policy and historical replay ignores an immutable receipt row lock"
+          ],
+          "profiles": {
+            "8.0.30": {
+              "tests": 6,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0,
+              "durationSeconds": 19.18,
+              "maxScenarioSeconds": 3.454,
+              "caseDurationsSeconds": {
+                "sameActorSameKeySamePayloadReturnsSameReceipt": 1.469,
+                "sameActorSameKeyDifferentPayloadHasOneWinnerAndOneIdempotencyConflict": 1.670,
+                "differentKeysSameExpectedVersionHaveOneWinnerAndNoOrphan": 3.454,
+                "insertThenForcedCasFailurePhysicallyRollsBack": 1.048,
+                "freeAndVipConcurrentRevisionsDoNotDeadlockAndPreserveInvariant": 2.623,
+                "meetingReadsAreAllOldOrAllNewAndIgnoreImmutableReceiptLocks": 1.478
+              },
+              "auditReceiptRows": 122,
+              "auditPlan": "table scan + filter + filesort + limit 101",
+              "auditActualMilliseconds": "6.562..6.669"
+            },
+            "8.4.8": {
+              "tests": 6,
+              "failures": 0,
+              "errors": 0,
+              "skipped": 0,
+              "durationSeconds": 19.265,
+              "maxScenarioSeconds": 3.871,
+              "caseDurationsSeconds": {
+                "sameActorSameKeySamePayloadReturnsSameReceipt": 1.479,
+                "sameActorSameKeyDifferentPayloadHasOneWinnerAndOneIdempotencyConflict": 1.479,
+                "differentKeysSameExpectedVersionHaveOneWinnerAndNoOrphan": 3.871,
+                "insertThenForcedCasFailurePhysicallyRollsBack": 1.064,
+                "freeAndVipConcurrentRevisionsDoNotDeadlockAndPreserveInvariant": 2.893,
+                "meetingReadsAreAllOldOrAllNewAndIgnoreImmutableReceiptLocks": 1.388
+              },
+              "auditReceiptRows": 122,
+              "auditPlan": "table scan + filter + filesort + limit 101",
+              "auditActualMilliseconds": "4.260..4.390"
+            }
+          },
+          "lockWaitOrDeadlockAnomalies": 0,
+          "surefireReport": "FBSir-business/target/surefire-reports/TEST-com.wx.fbsir.business.board.plan.integration.IndependentBoardPlanPolicyMysqlConcurrencyIT.xml"
+        }
+      },
+      {
+        "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verify-database-manifest.ps1 -Root . -Json",
+        "result": "PASS",
+        "manifestStepCount": 39,
+        "manualMigrationCount": 2,
+        "managedUpdateSqlCount": 38,
+        "dryRunDatabaseIsolation": true
+      },
+      {
+        "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/init-database.ps1 -DryRun -ManifestJson",
+        "result": "PASS",
+        "manifestStepCount": 39,
+        "coverageOk": true,
+        "databaseConnectionOpened": false
+      },
+      {
+        "command": "git diff --check",
+        "result": "PASS"
+      }
+    ]
+  },
+  "contract": {
+    "tables": {
+      "fbs_plan_policy_revision_receipt": 24,
+      "fbs_plan_policy_head": 6,
+      "fbs_usage_operation_policy_receipt": 9,
+      "totalColumns": 39
+    },
+    "indexes": 15,
+    "restrictForeignKeys": 7,
+    "foreignKeyColumns": 20,
+    "enforcedChecks": 10,
+    "exactTriggers": 7,
+    "rawMetadataDigests": {
+      "columns": "3861fa022a759a9f9a5f773da995273b5259e361be7a931a9ad761eca02473d7",
+      "indexes": "2d21d400829820467a0915c202fbdd5343e5d9417fe1ac062a48742ec0a6541b",
+      "foreignKeys": "03dfe7bb006d20b768840f71a435d0233355001dc35d6c7cffda5c68ef6151de",
+      "checks": "c2e21ad3fd0d681f35a62b5cfdbba84a4a1c93ca6efffd5c49812016e94b67a3"
+    },
+    "triggerBodyDigests": {
+      "planPolicyReceiptImmutable": "59d2d90cab68d42f6655f1fb176eb83d098c3c29a25c7242ccab4273e558170a",
+      "usagePolicyInsertGuard": "a67e1dfa584876a8a1b994fb362b175db3eecf080845ed6a9ab242c48a3e075d",
+      "usagePolicyImmutable": "be062b76a71de8c859ea35de136217a34f5a900e454a19e4284c691deb4134a3",
+      "entitlementReceiptImmutable": "5c40f4bae16986eae2b1cbbef38994a93263c870a0940432902dd5d6b9cc151e"
+    },
+    "baseline": {
+      "actorType": "SYSTEM_MIGRATION",
+      "actorUserId": null,
+      "free": {
+        "receiptId": "plan-policy-baseline-board-free-v1",
+        "policyDigest": "8ae3df83c9f56974261d1e471eb19034b2b782f793f74333c64a13c61dae8982"
+      },
+      "vip": {
+        "receiptId": "plan-policy-baseline-board-vip-v1",
+        "policyDigest": "02e90096b76d25b69c938fa65cfc3931207ac0a2648447bf613dca591619da51"
+      }
+    }
+  },
+  "safetyEvidence": {
+    "unknownHistoricalPlanFailsBeforeTargetDdl": true,
+    "knownHistoricalOperationsBindToDeterministicV1": true,
+    "completedRerunDoesNotResetNGreaterThanOneHead": true,
+    "lineageGuardMatchesOperationProductAndEffectivePlan": true,
+    "lineageGuardMatchesReceiptVersionAndDigest": true,
+    "receiptUpdateDeleteRejected": true,
+    "existingEntitlementReceiptUpdateDeleteRejected": true,
+    "oldPublicInit028MetadataChanged": false,
+    "frozenPackageSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd"
+  },
+  "performanceEvidence": {
+    "auditQueryExactShapeAnalyzed": true,
+    "profilesAgree": true,
+    "finding": "BINARY(product_code) prevents indexed filtering and the existing (product_code,plan_code,created_at,id) index cannot satisfy product-only created_at/id ordering; both exact MySQL versions scanned and sorted 122 rows.",
+    "recommendation": "Before material history growth, remove unnecessary column-side BINARY casts where binary collations already enforce exactness and verify an index beginning (product_code,created_at,id) with EXPLAIN ANALYZE."
+  },
+  "reviewRecommendations": {
+    "planNameTrimConstraintRecommendedBeforeActivation": true,
+    "literalEqualityCaveat": "Do not rely on plan_name = TRIM(plan_name) under a nonbinary collation because trailing-space comparison can be non-strict.",
+    "recommendedConstraintShape": "CAST(plan_name AS BINARY) = CAST(TRIM(plan_name) AS BINARY), plus an independently reviewed control/format-character rule if direct SQL writers remain in scope.",
+    "implementedByThisLane": false
+  },
+  "cannotProve": [
+    "These are disposable loopback MySQL results, not production traffic or production schema evidence.",
+    "The different-key scenario proves one committed head winner and no orphan through the real service, but the service serializes on the catalog lock, so it does not prove two head UPDATE statements reach CAS simultaneously.",
+    "The forced CAS=0 and pre-commit pause are injected by a test-only mapper decorator after real MyBatis writes; production business source was not modified.",
+    "The 122-row EXPLAIN result demonstrates the access path, not production-scale latency."
+  ],
+  "artifacts": {
+    "sql/update_20260722_independent_board_plan_policy.sql": "94c17ae3afabdde338bfe1910737d336c7d65c8fbd5ea8e8ed50f44edd03a99a",
+    "sql/init-manifest.json": "3d92ea7f64aca820e55d49a5ac4837c7e89c307f91b6b9bd0fab44e7f4d772dd",
+    "scripts/init-database.ps1": "ce71b9d362bcf60f003151570967fac5bf6fd613c194b0097ce0f19073c80797",
+    "scripts/verify-database-manifest.ps1": "0e8bac3933e160bf6d5dd367e44ef80d14eb487801afa65e5d89e96e2280a47f",
+    "scripts/run-independent-board-plan-policy-mysql-it.ps1": "c18542b347864dc37dcef53f8048413b23e60216d0547614802a199da461b153",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/plan/integration/IndependentBoardPlanPolicyMysqlConcurrencyIT.java": "f80dcc12bb5883082097f17a11bc9f7f1eaa74e04cd713abc00e0aaa1467d092"
+  },
+  "parallelArtifactNote": "init-manifest.json and verify-database-manifest.ps1 changed in another owned lane after the original W3h manifest verification; their current hashes are recorded here but that parallel change was not reverified by this concurrency lane.",
+  "knownIntegrationImpact": [
+    "Tests that delete from fbs_entitlement_receipt for cleanup must move to disposable-schema cleanup; the database intentionally rejects row UPDATE and DELETE.",
+    "Production application writes to fbs_usage_operation must be drained during public_init_039; the migration deterministically binds the preexisting operation set, while the successor service writes operation lineage in the same transaction."
+  ]
+}

@@ -12,9 +12,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.TransactionException;
 
 /**
  * Non-transactional reservation coordinator.
@@ -48,21 +50,46 @@ public class IndependentBoardMeetingService {
     public BoardMeetingReservationView reserve(
             BoardMeetingReservationRequest request, Long authenticatedUserId) {
         try {
+            BoardMeetingReservationView committed = transactionService.replayCommittedIfPresent(
+                    request, authenticatedUserId);
+            if (committed != null) {
+                return committed;
+            }
+        } catch (PessimisticLockingFailureException conflict) {
+            throw stableConcurrencyConflict();
+        } catch (DataAccessException persistence) {
+            throw stablePersistenceFailure();
+        } catch (TransactionException transactionFailure) {
+            throw stablePersistenceFailure();
+        }
+        try {
             return transactionService.reserveFresh(request, authenticatedUserId);
         } catch (DuplicateKeyException duplicate) {
-            return transactionService.replayCommitted(request, authenticatedUserId);
+            return replayCommittedAfterDuplicate(request, authenticatedUserId);
+        } catch (PessimisticLockingFailureException conflict) {
+            throw stableConcurrencyConflict();
+        } catch (DataAccessException persistence) {
+            throw stablePersistenceFailure();
+        } catch (TransactionException transactionFailure) {
+            throw stablePersistenceFailure();
         }
     }
 
-    @Transactional(readOnly = true)
     public BoardOperationAuditEnvelope listOperations(Long tenantId) {
         if (tenantId == null || tenantId <= 0L) {
             throw new ServiceException("TENANT_REQUIRED", 400);
         }
-        List<BoardUsageOperation> rows = mapper.selectOperationsByTenant(
-                tenantId,
-                IndependentBoardEntitlementService.PRODUCT_CODE,
-                IndependentBoardEntitlementService.MEETING_METRIC);
+        List<BoardUsageOperation> rows;
+        try {
+            rows = mapper.selectOperationsByTenant(
+                    tenantId,
+                    IndependentBoardEntitlementService.PRODUCT_CODE,
+                    IndependentBoardEntitlementService.MEETING_METRIC);
+        } catch (PessimisticLockingFailureException conflict) {
+            throw stableConcurrencyConflict();
+        } catch (DataAccessException persistence) {
+            throw stablePersistenceFailure();
+        }
         if (rows == null || rows.size() > ADMIN_OPERATION_FETCH_LIMIT) {
             throw new ServiceException("BOARD_OPERATION_AUDIT_CURRENT_READ_FAILED", 500);
         }
@@ -73,6 +100,27 @@ public class IndependentBoardMeetingService {
             records.add(toAuditView(rows.get(index), tenantId));
         }
         return new BoardOperationAuditEnvelope(records, ADMIN_OPERATION_LIMIT, truncated);
+    }
+
+    private BoardMeetingReservationView replayCommittedAfterDuplicate(
+            BoardMeetingReservationRequest request, Long authenticatedUserId) {
+        try {
+            return transactionService.replayCommitted(request, authenticatedUserId);
+        } catch (PessimisticLockingFailureException conflict) {
+            throw stableConcurrencyConflict();
+        } catch (DataAccessException persistence) {
+            throw stablePersistenceFailure();
+        } catch (TransactionException transactionFailure) {
+            throw stablePersistenceFailure();
+        }
+    }
+
+    private static ServiceException stableConcurrencyConflict() {
+        return new ServiceException("MEETING_RESERVATION_CONCURRENT_CONFLICT", 409);
+    }
+
+    private static ServiceException stablePersistenceFailure() {
+        return new ServiceException("MEETING_RESERVATION_PERSISTENCE_FAILED", 503);
     }
 
     private BoardOperationAuditView toAuditView(

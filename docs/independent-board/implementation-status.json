@@ -5,7 +5,7 @@
     "brandEn": "FBSir",
     "name": "独董会"
   },
-  "platformVersion": "0.4.6-dev",
+  "platformVersion": "0.4.7-dev",
   "expertPackage": {
     "version": "26.7.20",
     "state": "officially_listed_user_confirmed",
@@ -282,7 +282,15 @@
     "w3g_credit_query_first_grant_reversal_audit_and_ambiguous_exact_replay_verified_in_real_browser_fixture",
     "w3g_expected_account_version_and_same_key_post_rollback_replay_close_cross_device_and_waiter_races",
     "w3g_actor_global_pending_slot_and_Web_Lock_close_cross_tab_different_user_snapshot_overwrite",
-    "w3g_backend_663_of_663_five_frontend_verifiers_production_build_and_independent_p0_p1_review_passed"
+    "w3g_backend_663_of_663_five_frontend_verifiers_production_build_and_independent_p0_p1_review_passed",
+    "w3h_public_init_039_versioned_policy_head_immutable_revision_receipt_and_operation_lineage_verified",
+    "w3h_exact_original_unicode_plan_name_contract_aligned_browser_java_mysql",
+    "w3h_global_admin_fine_permission_default_off_http_ui_and_candidate_menu_governance_verified",
+    "w3h_idempotent_exact_replay_stale_conflict_compensating_rollback_and_no_store_http_contract_verified",
+    "w3h_mutable_head_only_locking_and_nonlocking_immutable_receipt_read_contract_verified",
+    "w3h_dual_mysql_first_apply_replay_metadata_negative_and_six_case_twenty_iteration_concurrency_passed",
+    "w3h_dual_mysql_candidate_menu_default_disabled_zero_role_binding_drift_and_collision_matrix_passed",
+    "w3h_real_browser_revision_replay_conflict_rollback_default_off_and_zero_console_error_verified"
   ],
   "notProven": [
     "oauth_public_routes",
@@ -309,7 +317,6 @@
     "delegated_tenant_admin_role_and_data_scope",
     "entitlement_revoke_reason_readback",
     "entitlement_reinstatement_action",
-    "product_plan_policy_write_revision_and_receipt_governance",
     "meeting_audit_plan_label_authority_with_operation_audit_permission_boundary",
     "credit_ledger_candidate_http_activation",
     "credit_ledger_internal_writer_migration_and_authoritative_promotion",
@@ -364,6 +371,27 @@
     "productionAuthority": false,
     "nextSlice": "W3h_plan_quota_policy_revision_and_immutable_receipts"
   },
+  "w3h": {
+    "state": "local_default_off_plan_policy_admin_governance_verified",
+    "contract": "docs/independent-board/W3H-PLAN-POLICY-REVISION-CONTRACT.md",
+    "adr": "docs/decisions/ADR-004-independent-board-versioned-plan-policy-head.md",
+    "runbook": "docs/independent-board/W3H-PLAN-POLICY-DEPLOYMENT-RUNBOOK.md",
+    "governanceVerificationReport": "reports/independent-board/w3h-plan-policy-governance-verification-20260722.json",
+    "databaseMigration": "public_init_039_manifested_not_applied_to_production",
+    "menuMigration": "candidate_20260722_independent_board_plan_policy_menu_v1_manual_opt_in_not_applied_to_production",
+    "backendHttpDefault": "disabled_controller_and_advice_absent_authenticated_404",
+    "frontendDefault": "disabled_panel_absent",
+    "authorization": "global_admin_role_plus_board_plan_revise_or_board_plan_audit",
+    "writeConcurrency": "two_mutable_heads_ordered_lock_exact_idempotency_and_compare_and_set",
+    "immutableReadConcurrency": "historical_receipts_and_operation_lineage_remain_nonlocking",
+    "verifiedMysql": [
+      "MySQL Community 8.0.30",
+      "MySQL Community 8.4.8"
+    ],
+    "browser": "enabled_and_default_off_revision_exact_replay_stale_conflict_rollback_and_zero_console_error_verified_local",
+    "productionAuthority": false,
+    "nextSlice": "W3i_meeting_audit_policy_lineage_and_label_authority"
+  },
   "ui": {
     "base": "existing_u3w_ai_ruoyi_vue3_element_plus",
     "state": "w4b2_default_off_runtime_candidate_verified_local_not_deployed",
@@ -372,7 +400,7 @@
     "confirmation": "recommended_five_points",
     "confirmedAt": "2026-07-20T21:03:00+08:00",
     "w2Surface": "FBSir-ui/src/views/business/independentBoard/me/index.vue",
-    "adminPlanCatalog": "versioned_read_only_fail_closed_and_entitlement_ui_consumed_local_not_deployed",
+    "adminPlanCatalog": "versioned_read_and_default_off_governed_revision_ui_verified_local_not_deployed",
     "w3aSurfaces": [
       "FBSir-ui/src/views/business/independentBoard/admin/entitlement/index.vue",
       "FBSir-ui/src/views/business/independentBoard/admin/meetingAudit/index.vue"
@@ -465,5 +493,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-22T15:42:57+08:00"
+  "updatedAt": "2026-07-22T21:22:00+08:00"
 }

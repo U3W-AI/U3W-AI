@@ -44,6 +44,16 @@
       "cwd": ".",
       "timeout_ms": 900000
     },
+    "database-plan-policy": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-plan-policy-mysql-it.ps1 -AllowDestructiveTest -EmitMetadataSnapshot",
+      "cwd": ".",
+      "timeout_ms": 900000
+    },
+    "plan-policy-admin-ui": {
+      "run": "node FBSir-ui/scripts/verify-independent-board-plan-policy-admin-ui.mjs",
+      "cwd": ".",
+      "timeout_ms": 120000
+    },
     "database-menu-migrations": {
       "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-menu-migration-it.ps1 -AllowDestructiveTest",
       "cwd": ".",
@@ -125,6 +135,14 @@
     "w3fCreditLedgerMysqlRunner": "scripts/run-independent-board-credit-ledger-mysql-it.ps1",
     "w3fCreditLedgerVerificationReport": "reports/independent-board/w3f-credit-ledger-verification-20260722.json",
     "w3fCreditLedgerMysqlEvidence": "reports/independent-board/w3f-credit-ledger-mysql-evidence-20260722.json",
+    "w3hPlanPolicyContract": "docs/independent-board/W3H-PLAN-POLICY-REVISION-CONTRACT.md",
+    "w3hPlanPolicyAdr": "docs/decisions/ADR-004-independent-board-versioned-plan-policy-head.md",
+    "w3hPlanPolicyRunbook": "docs/independent-board/W3H-PLAN-POLICY-DEPLOYMENT-RUNBOOK.md",
+    "w3hPlanPolicyMigration": "sql/update_20260722_independent_board_plan_policy.sql",
+    "w3hPlanPolicyMenuMigration": "sql/update_20260722_independent_board_plan_policy_candidate_menu.sql",
+    "w3hPlanPolicyMysqlRunner": "scripts/run-independent-board-plan-policy-mysql-it.ps1",
+    "w3hPlanPolicyHistoricalVerificationReport": "reports/independent-board/w3h-plan-policy-database-verification-20260722.json",
+    "w3hPlanPolicyGovernanceVerificationReport": "reports/independent-board/w3h-plan-policy-governance-verification-20260722.json",
     "postListingHostTruthReport": "reports/independent-board/host-truth-chain-summary-20260721.json",
     "verificationReports": "reports/independent-board/*.json"
   },
@@ -136,7 +154,9 @@
       "frontend",
       "verify",
       "database-transactions",
+      "database-plan-policy",
       "database-menu-migrations",
+      "plan-policy-admin-ui",
       "traffic-attribution"
     ],
     "requiredReleaseBlockers": [
@@ -145,7 +165,9 @@
       "frontend",
       "verify",
       "database-transactions",
+      "database-plan-policy",
       "database-menu-migrations",
+      "plan-policy-admin-ui",
       "traffic-attribution"
     ],
     "requiredWorkflowCommands": {
@@ -153,16 +175,20 @@
         "contract",
         "backend",
         "frontend",
-          "verify",
-          "database-transactions",
-          "database-menu-migrations",
-          "traffic-attribution"
+        "verify",
+        "database-transactions",
+        "database-plan-policy",
+        "database-menu-migrations",
+        "plan-policy-admin-ui",
+        "traffic-attribution"
       ]
     },
     "applicationRuntimeEvidenceCommands": [
       "board-http-security",
       "database-transactions",
+      "database-plan-policy",
       "database-menu-migrations",
+      "plan-policy-admin-ui",
       "traffic-attribution"
     ],
     "w1ScratchEvidenceCommands": [
@@ -187,7 +213,9 @@
       "frontend",
       "verify",
       "database-transactions",
+      "database-plan-policy",
       "database-menu-migrations",
+      "plan-policy-admin-ui",
       "traffic-attribution"
     ]
   },
@@ -362,6 +390,26 @@
           "internal_legacy_writer_migration",
           "production_database_migration_and_authoritative_promotion"
         ]
+      },
+      "w3hImplementation": {
+        "state": "local_default_off_admin_candidate_dual_mysql_and_browser_verified",
+        "contract": "docs/independent-board/W3H-PLAN-POLICY-REVISION-CONTRACT.md",
+        "adr": "docs/decisions/ADR-004-independent-board-versioned-plan-policy-head.md",
+        "runbook": "docs/independent-board/W3H-PLAN-POLICY-DEPLOYMENT-RUNBOOK.md",
+        "httpFlag": "fbsir.independent-board.plan-policy-candidate.enabled",
+        "frontendFlag": "VITE_FBSIR_BOARD_PLAN_POLICY_CANDIDATE",
+        "defaultState": "controller_advice_ui_and_permissions_closed_or_disabled",
+        "migration": "public_init_039_manifested_not_applied_to_production",
+        "lockContract": "lock_only_two_mutable_heads_and_use_nonlocking_immutable_receipt_reads",
+        "nameContract": "exact_original_unicode_codepoints_without_trim_casefold_or_normalization",
+        "operationLineage": "binary_exact_operation_id_and_same_transaction_policy_receipt_binding",
+        "verifiedMysql": [
+          "MySQL Community 8.0.30",
+          "MySQL Community 8.4.8"
+        ],
+        "concurrencyMatrix": "six_cases_twenty_iterations_each_zero_failures_zero_errors_on_both_versions",
+        "productionAuthority": false,
+        "nextSlice": "W3i_meeting_audit_policy_lineage_and_label_authority"
       },
       "w4aImplementation": {
         "state": "local_source_and_mysql_verified",

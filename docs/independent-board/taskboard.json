@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the officially listed and post-listing-frozen 26.7.20 expert package.",
-  "singleNextAction": "Implement W3h plan/quota policy revision and immutable receipt governance behind reviewed global-admin and fine-permission boundaries; preserve the verified current-read contract, keep production activation closed, and leave API2 attribution secondary.",
+  "singleNextAction": "Implement W3i meeting-audit policy-lineage and plan-label authority on top of the verified W3h committed-policy spine; keep W3h production activation closed and API2 attribution secondary.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -50,8 +50,8 @@
     },
     {
       "id": "W3_ADMIN_PORTAL",
-      "state": "w3g_credit_admin_governance_verified_local_default_off",
-      "activeSlice": "W3h_plan_quota_policy_revision_and_immutable_receipts",
+      "state": "w3h_plan_policy_admin_governance_verified_local_default_off",
+      "activeSlice": "W3i_meeting_audit_policy_lineage_and_label_authority",
       "completedSubset": [
         "global_system_admin_only_access_model",
         "active_enterprise_and_member_locked_entitlement_grant_and_adjustment",
@@ -94,10 +94,17 @@
         "strict_expected_account_version_precondition_and_stable_409_prevent_cross_device_lost_updates",
         "same_key_waiter_version_conflict_rolls_back_then_replays_only_the_exact_committed_winner",
         "actor_global_pending_slot_and_Web_Lock_prevent_cross_tab_different_user_snapshot_overwrite",
-        "w3g_current_backend_663_of_663_five_frontend_verifiers_production_build_and_multi_agent_p0_p1_review_passed"
+        "w3g_current_backend_663_of_663_five_frontend_verifiers_production_build_and_multi_agent_p0_p1_review_passed",
+        "public_init_039_versioned_plan_policy_head_immutable_revision_receipt_and_operation_lineage_contract",
+        "strict_original_unicode_plan_name_contract_aligned_across_browser_java_and_mysql",
+        "global_admin_plus_board_plan_revise_or_audit_permission_with_default_off_backend_frontend_and_menu_gates",
+        "idempotent_exact_replay_stale_version_conflict_compensating_rollback_and_no_store_http_contract",
+        "mutable_head_only_lock_order_with_nonlocking_immutable_receipt_and_operation_lineage_reads",
+        "dual_mysql_8_0_30_and_8_4_8_first_apply_replay_metadata_negative_and_six_case_twenty_iteration_concurrency_matrix_passed",
+        "dual_mysql_candidate_menu_opt_in_default_disabled_zero_role_binding_drift_and_collision_matrix_passed",
+        "real_browser_revision_replay_stale_conflict_rollback_default_off_and_zero_console_error_verified"
       ],
       "remaining": [
-        "product_plan_and_quota_policy_write_revision_and_receipt_governance",
         "meeting_audit_plan_label_authority_with_operation_audit_permission_boundary",
         "credit_ledger_candidate_http_activation",
         "credit_ledger_internal_writer_migration_and_authoritative_promotion",

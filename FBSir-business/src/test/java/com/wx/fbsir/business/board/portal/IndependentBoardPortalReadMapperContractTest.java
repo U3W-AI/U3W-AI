@@ -180,6 +180,23 @@ class IndependentBoardPortalReadMapperContractTest {
     }
 
     @Test
+    void bindingCurrentEntitlementUsesFixedPlanIdentityWithoutLegacyDynamicQuotaPredicates() {
+        String sql = sql("selectConnectorBindings", parameters(true));
+
+        assertTrue(sql.contains("inner join fbs_product_plan plan"));
+        assertTrue(sql.contains(
+                "cast(plan.plan_code as binary) = cast('board_vip' as binary)"));
+        assertTrue(sql.contains("plan.vip = 1"));
+        assertTrue(sql.contains("plan.connector_required = 1"));
+        assertTrue(sql.contains(
+                "cast(plan.status as binary) = cast('active' as binary)"));
+        assertFalse(sql.contains("plan.daily_meeting_limit"));
+        assertFalse(sql.contains("plan.agenda_limit"));
+        assertFalse(sql.contains("plan.seat_limit"));
+        assertFalse(sql.contains("plan.secretary_enabled"));
+    }
+
+    @Test
     void meCurrentReadsAppendExactMemberUserAndPendingReceiptProof() {
         Map<String, Object> familyParameters = parameters(true);
         familyParameters.put("memberId", 21L);

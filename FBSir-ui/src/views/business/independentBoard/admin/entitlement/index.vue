@@ -8,6 +8,19 @@
       </div>
     </div>
 
+    <PlanPolicyGovernancePanel
+      v-if="showPlanPolicyCandidate"
+      :plans="planCatalog"
+      :plans-loading="planCatalogLoading"
+      :plans-error="planCatalogError"
+      :can-revise="canRevisePlanPolicy"
+      :can-audit="canAuditPlanPolicy"
+      :actor-user-id="actorUserId"
+      :external-busy="entitlementMutating"
+      @catalog-updated="handlePlanPolicyCatalogUpdated"
+      @mutating-change="planPolicyMutating = $event"
+    />
+
     <el-alert
       v-if="!canListEnterprises || !canListMembers || !canQueryEntitlements"
       title="当前账号缺少运营台所需权限"
@@ -286,7 +299,9 @@ import {
   listIndependentBoardPlans,
   revokeIndependentBoardEntitlement
 } from '@/api/business/independentBoard/admin'
-import { checkPermi } from '@/utils/permission'
+import { checkPermi, checkRole } from '@/utils/permission'
+import useUserStore from '@/store/modules/user'
+import PlanPolicyGovernancePanel from './PlanPolicyGovernancePanel.vue'
 import {
   activationMeta,
   buildEntitlementGrantPayload,
@@ -312,6 +327,15 @@ const canListMembers = checkPermi(['business:fbs:enterpriseMember:list'])
 const canQueryEntitlements = checkPermi(['board:entitlement:query'])
 const canGrantEntitlements = checkPermi(['board:entitlement:grant'])
 const canRevokeEntitlements = checkPermi(['board:entitlement:revoke'])
+const planPolicyCandidateEnabled =
+  import.meta.env.VITE_FBSIR_BOARD_PLAN_POLICY_CANDIDATE === 'true'
+const isGlobalAdmin = checkRole(['admin'])
+const canRevisePlanPolicy = checkPermi(['board:plan:revise'])
+const canAuditPlanPolicy = checkPermi(['board:plan:audit'])
+const showPlanPolicyCandidate = planPolicyCandidateEnabled
+  && isGlobalAdmin
+  && (canRevisePlanPolicy || canAuditPlanPolicy)
+const actorUserId = Number(useUserStore().id)
 const canOperatePage = canListEnterprises && canListMembers && canQueryEntitlements
 
 const enterpriseOptions = ref([])
@@ -335,6 +359,7 @@ const editingEntitlement = ref(null)
 const submitting = ref(false)
 const revokeGuardMemberId = ref(null)
 const revokingMemberId = ref(null)
+const planPolicyMutating = ref(false)
 const formError = ref('')
 const grantFormRef = ref(null)
 const grantForm = reactive({
@@ -351,9 +376,10 @@ const grantRules = {
 
 const selectedEnterprise = computed(() =>
   enterpriseOptions.value.find(item => item.id === selectedTenantId.value) || null)
-const isMutating = computed(() => submitting.value
+const entitlementMutating = computed(() => submitting.value
   || revokeGuardMemberId.value !== null
   || revokingMemberId.value !== null)
+const isMutating = computed(() => entitlementMutating.value || planPolicyMutating.value)
 const memberMap = computed(() => new Map(members.value.map(item => [item.id, item])))
 const grantedVipCount = computed(() =>
   entitlements.value.filter(item =>
@@ -418,6 +444,16 @@ async function loadPlanCatalog() {
     planCatalogError.value = '套餐与配额策略加载失败或发生契约漂移，已停止授予和调整操作。'
   } finally {
     planCatalogLoading.value = false
+  }
+}
+
+function handlePlanPolicyCatalogUpdated(catalog) {
+  try {
+    planCatalog.value = [...parseProductPlanCatalog(catalog)]
+    planCatalogError.value = ''
+  } catch {
+    planCatalog.value = []
+    planCatalogError.value = '套餐策略写入后的目录回读不符合安全合同，已停止后续操作。'
   }
 }
 

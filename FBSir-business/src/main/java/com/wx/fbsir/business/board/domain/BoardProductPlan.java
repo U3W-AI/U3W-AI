@@ -16,6 +16,8 @@ public class BoardProductPlan {
     private String status;
     private Long version;
     private Date updatedAt;
+    private String policyReceiptId;
+    private String policyDigest;
 
     public String getProductCode() { return productCode; }
     public void setProductCode(String productCode) { this.productCode = productCode; }
@@ -41,4 +43,8 @@ public class BoardProductPlan {
     public void setVersion(Long version) { this.version = version; }
     public Date getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Date updatedAt) { this.updatedAt = updatedAt; }
+    public String getPolicyReceiptId() { return policyReceiptId; }
+    public void setPolicyReceiptId(String policyReceiptId) { this.policyReceiptId = policyReceiptId; }
+    public String getPolicyDigest() { return policyDigest; }
+    public void setPolicyDigest(String policyDigest) { this.policyDigest = policyDigest; }
 }

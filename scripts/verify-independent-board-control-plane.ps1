@@ -322,6 +322,7 @@ function Invoke-ContractChecks {
     # W4b.2b remains immutable historical evidence. Current source bytes are
     # instead bound to the W4b.2c receipt that exercised the runtime mount.
     $canonicalNextSliceId = 'W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract'
+    $canonicalW3NextSliceId = 'W3i_meeting_audit_policy_lineage_and_label_authority'
     $w4b2cReport = Read-Utf8Json -RelativePath 'reports\independent-board\w4b2c-default-off-runtime-mount-verification-20260721.json'
     Assert-ProductBrand -Product $w4b2cReport.product -Source 'W4b.2c runtime mount verification report'
     if ($w4b2cReport.schema -cne 'fbsir.independent-board.w4b2c-default-off-runtime-mount-verification/v1' `
@@ -401,6 +402,28 @@ function Invoke-ContractChecks {
         throw 'W3g shared route-gate evidence succession is incomplete or drifted'
     }
 
+    # W3h changes the connector-eligibility read from mutable quota values to
+    # immutable plan identity.  The historical W4b.2c receipt stays intact;
+    # W3h owns the successor bytes and proves the W4b.2c runtime regression.
+    $w3hGovernanceReport = Read-Utf8Json -RelativePath 'reports\independent-board\w3h-plan-policy-governance-verification-20260722.json'
+    $predecessorPortalReadMapperHash = $w4b2cReport.verification.sourceBinding.portalReadMapperXmlSha256
+    $currentPortalReadMapperHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot 'FBSir-business\src\main\resources\mapper\board\IndependentBoardPortalReadMapper.xml')).Hash.ToLowerInvariant()
+    if ($w3hGovernanceReport.schemaVersion -ne 1 `
+            -or $w3hGovernanceReport.result -cne 'PASS_LOCAL_CANDIDATE' `
+            -or $w3hGovernanceReport.candidateReadyForCommit -ne $true `
+            -or $w3hGovernanceReport.releaseReady -ne $false `
+            -or $w3hGovernanceReport.productionChanged -ne $false `
+            -or $w3hGovernanceReport.sharedEvidenceSuccession.sharedSource -cne 'FBSir-business/src/main/resources/mapper/board/IndependentBoardPortalReadMapper.xml' `
+            -or $w3hGovernanceReport.sharedEvidenceSuccession.predecessorReceipt -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
+            -or $w3hGovernanceReport.sharedEvidenceSuccession.predecessorRegressionVerifier -cne 'FBSir-ui/scripts/verify-independent-board-w4b2c-runtime-mount.mjs' `
+            -or $w3hGovernanceReport.sharedEvidenceSuccession.predecessorRegressionState -cne 'PASS' `
+            -or $w3hGovernanceReport.sharedEvidenceSuccession.historicalReceiptMutated -ne $false `
+            -or $w3hGovernanceReport.sharedEvidenceSuccession.predecessorSourceSha256 -cne $predecessorPortalReadMapperHash `
+            -or $w3hGovernanceReport.sharedEvidenceSuccession.successorSourceSha256 -cne $currentPortalReadMapperHash `
+            -or $w3hGovernanceReport.sourceSha256.'FBSir-business/src/main/resources/mapper/board/IndependentBoardPortalReadMapper.xml' -cne $currentPortalReadMapperHash) {
+        throw 'W3h shared portal-read mapper evidence succession is incomplete or drifted'
+    }
+
     $w4b2cSourcePaths = @{
         portalReadServiceSha256 = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\IndependentBoardPortalReadService.java'
         portalReadMapperSha256 = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\mapper\IndependentBoardPortalReadMapper.java'
@@ -414,6 +437,9 @@ function Invoke-ContractChecks {
         trafficAttributionTestsSha256 = 'scripts\independent-board-traffic-attribution.test.mjs'
     }
     foreach ($sourceHashName in $w4b2cSourcePaths.Keys) {
+        if ($sourceHashName -ceq 'portalReadMapperXmlSha256') {
+            continue
+        }
         $actualSourceHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot $w4b2cSourcePaths[$sourceHashName])).Hash.ToLowerInvariant()
         if ($actualSourceHash -cne $w4b2cReport.verification.sourceBinding.$sourceHashName) {
             throw "W4b.2c source changed after its evidence receipt: $sourceHashName"
@@ -555,8 +581,15 @@ function Invoke-ContractChecks {
 
     $implementationStatus = Read-Utf8Json -RelativePath 'docs\independent-board\implementation-status.json'
     $taskboard = Read-Utf8Json -RelativePath 'docs\independent-board\taskboard.json'
+    $w3Wave = @($taskboard.waves | Where-Object { $_.id -ceq 'W3_ADMIN_PORTAL' })
     $w4Wave = @($taskboard.waves | Where-Object { $_.id -ceq 'W4_OAUTH_CONNECTOR' })
-    if ($implementationStatus.platformVersion -cne '0.4.6-dev' `
+    if ($implementationStatus.platformVersion -cne '0.4.7-dev' `
+            -or $implementationStatus.w3h.state -cne 'local_default_off_plan_policy_admin_governance_verified' `
+            -or $implementationStatus.w3h.databaseMigration -cne 'public_init_039_manifested_not_applied_to_production' `
+            -or $implementationStatus.w3h.nextSlice -cne $canonicalW3NextSliceId `
+            -or $w3Wave.Count -ne 1 `
+            -or $w3Wave[0].state -cne 'w3h_plan_policy_admin_governance_verified_local_default_off' `
+            -or $w3Wave[0].activeSlice -cne $canonicalW3NextSliceId `
             -or $implementationStatus.w4b.runtimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or $implementationStatus.w4b.api2TrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `
             -or $implementationStatus.w4b.nextSlice -cne $canonicalNextSliceId `
@@ -564,12 +597,19 @@ function Invoke-ContractChecks {
             -or $w4Wave[0].state -cne 'w4a_verified_local_w4b1_internal_oauth_chain_verified_w4b2_default_off_runtime_candidate_verified_local' `
             -or $w4Wave[0].activeSlice -cne $canonicalNextSliceId `
             -or $w4Wave[0].nextSlice.id -cne $canonicalNextSliceId) {
-        throw 'W4b.2c status and taskboard traceability drifted'
+        throw 'W3h or W4b.2c status and taskboard traceability drifted'
     }
 
     $engineeringContract = Read-Utf8Json -RelativePath '.fbs-engineering\contract.json'
     $contractW4b = $engineeringContract.contracts.uiPrototypeGate.w4bImplementation
-    if ($engineeringContract.artifacts.w4b2cRuntimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
+    $contractW3h = $engineeringContract.contracts.uiPrototypeGate.w3hImplementation
+    if ($engineeringContract.artifacts.w3hPlanPolicyContract -cne 'docs/independent-board/W3H-PLAN-POLICY-REVISION-CONTRACT.md' `
+            -or $engineeringContract.artifacts.w3hPlanPolicyMigration -cne 'sql/update_20260722_independent_board_plan_policy.sql' `
+            -or $engineeringContract.artifacts.w3hPlanPolicyGovernanceVerificationReport -cne 'reports/independent-board/w3h-plan-policy-governance-verification-20260722.json' `
+            -or $contractW3h.state -cne 'local_default_off_admin_candidate_dual_mysql_and_browser_verified' `
+            -or $contractW3h.nextSlice -cne $canonicalW3NextSliceId `
+            -or $contractW3h.productionAuthority -ne $false `
+            -or $engineeringContract.artifacts.w4b2cRuntimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or $engineeringContract.artifacts.w4b2cRuntimeAndAttributionAdr -cne 'docs/decisions/ADR-002-independent-board-w4b2c-runtime-mount-and-attribution-boundary.md' `
             -or $engineeringContract.artifacts.api2IndependentBoardTrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `
             -or $engineeringContract.artifacts.hostUpgradeDemandIndependentBoardAttribution -cne 'docs/independent-board/HOST-UPGRADE-DEMAND-INDEPENDENT-BOARD-ATTRIBUTION.md' `
@@ -578,7 +618,7 @@ function Invoke-ContractChecks {
             -or $contractW4b.detailedUiPrototype.implementationState -cne 'default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions' `
             -or $contractW4b.detailedUiPrototype.runtimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or -not (@($engineeringContract.contracts.postListingObservationGate.noCrossLayerInference) -contains 'zero_attributable_target_signal_to_zero_actual_usage')) {
-        throw 'FBS engineering contract drifted from the W4b.2c evidence boundary'
+        throw 'FBS engineering contract drifted from the W3h or W4b.2c evidence boundary'
     }
 
     $w4bContract = Get-Content -LiteralPath (Join-Path $RepoRoot 'docs\independent-board\W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md') -Raw -Encoding UTF8

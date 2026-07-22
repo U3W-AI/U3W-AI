@@ -30,10 +30,10 @@ const productPlans = [
     planName: '独董会免费版',
     vip: false,
     connectorRequired: false,
-    dailyMeetingLimit: 1,
-    agendaLimit: 5,
-    seatLimit: 3,
-    secretaryEnabled: false,
+    dailyMeetingLimit: 2,
+    agendaLimit: 8,
+    seatLimit: 4,
+    secretaryEnabled: true,
     status: 'ACTIVE',
     version: 3,
     updatedAt: '2026-07-20T09:00:00+08:00'
@@ -44,10 +44,10 @@ const productPlans = [
     planName: '独董会 VIP 版',
     vip: true,
     connectorRequired: true,
-    dailyMeetingLimit: 5,
-    agendaLimit: 30,
-    seatLimit: null,
-    secretaryEnabled: true,
+    dailyMeetingLimit: 9,
+    agendaLimit: 47,
+    seatLimit: 12,
+    secretaryEnabled: false,
     status: 'ACTIVE',
     version: 7,
     updatedAt: '2026-07-20T10:00:00+08:00'
@@ -57,6 +57,10 @@ const parsedPlans = parseProductPlanCatalog(productPlans)
 assert.equal(parsedPlans.length, 2)
 assert.equal(parsedPlans[0].planCode, 'BOARD_FREE')
 assert.equal(parsedPlans[1].planName, '独董会 VIP 版')
+assert.equal(parsedPlans[0].dailyMeetingLimit, 2)
+assert.equal(parsedPlans[0].secretaryEnabled, true)
+assert.equal(parsedPlans[1].agendaLimit, 47)
+assert.equal(parsedPlans[1].seatLimit, 12)
 assert.equal(Object.isFrozen(parsedPlans), true)
 assert.throws(() => parseProductPlanCatalog([productPlans[0]]), /必须包含且仅包含/)
 assert.throws(() => parseProductPlanCatalog([
@@ -66,13 +70,24 @@ assert.throws(() => parseProductPlanCatalog([
   productPlans[0], { ...productPlans[1], connectorRequired: false }
 ]), /能力与套餐代码不一致/)
 assert.throws(() => parseProductPlanCatalog([
-  { ...productPlans[0], dailyMeetingLimit: 999 }, productPlans[1]
-]), /能力与套餐代码不一致/)
-assert.throws(() => parseProductPlanCatalog([
-  productPlans[0], { ...productPlans[1], agendaLimit: 1 }
-]), /能力与套餐代码不一致/)
+  { ...productPlans[0], dailyMeetingLimit: 0 }, productPlans[1]
+]), /非法值/)
 assert.throws(() => parseProductPlanCatalog([
   { ...productPlans[0], planName: `免费版${String.fromCharCode(0x85)}` }, productPlans[1]
+]), /非法值/)
+for (const planName of [
+  '\u00A0免费版', '免费版\u202F', `免费版${String.fromCodePoint(0x200B)}`, '\uD800'
+]) {
+  assert.throws(() => parseProductPlanCatalog([
+    { ...productPlans[0], planName }, productPlans[1]
+  ]), /非法值/)
+}
+const maxCodePointPlanName = '😀'.repeat(128)
+assert.equal(parseProductPlanCatalog([
+  { ...productPlans[0], planName: maxCodePointPlanName }, productPlans[1]
+])[0].planName, maxCodePointPlanName)
+assert.throws(() => parseProductPlanCatalog([
+  { ...productPlans[0], planName: '😀'.repeat(129) }, productPlans[1]
 ]), /非法值/)
 assert.throws(() => parseProductPlanCatalog([
   { ...productPlans[0], internalId: 1 }, productPlans[1]
@@ -360,7 +375,7 @@ const reservedOperation = Object.freeze({
   status: 'RESERVED',
   effectivePlanCode: 'BOARD_VIP',
   bucketDate: '2026-07-20',
-  agendaCount: 5,
+  agendaCount: 47,
   seatCount: 3,
   remainingCount: 2,
   createdAt: '2026-07-20T08:00:00+08:00',

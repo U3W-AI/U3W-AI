@@ -212,6 +212,32 @@ class IndependentBoardOAuthAuthorizationDecisionServiceTest {
     }
 
     @Test
+    void approvalAcceptsDynamicVipPolicyValues() {
+        plan.setDailyMeetingLimit(9);
+        plan.setAgendaLimit(47);
+        plan.setSeatLimit(12);
+        plan.setSecretaryEnabled(false);
+
+        BoardOAuthAuthorizationApprovedResult result = service.approve(firstApproval());
+
+        assertEquals(RAW_STATE, result.rawState());
+        verify(mapper).insertAuthorizationCode(any());
+    }
+
+    @Test
+    void approvalStillFailsClosedOnVipPlanIdentityDrift() {
+        plan.setConnectorRequired(false);
+
+        assertProtocol(
+                () -> service.approve(firstApproval()),
+                "server_error",
+                500,
+                IndependentBoardOAuthAuthorizationService.CONSENT_PLAN_DRIFT);
+        verify(mapper, never()).selectClientForUpdate(any());
+        verify(mapper, never()).insertAuthorizationCode(any());
+    }
+
+    @Test
     void explicitReauthorizationRequiresAndLocksNamedExistingBinding() {
         BoardConnectorBinding binding = terminalBinding();
         when(boardMapper.selectConnectorBindingSlotForUpdate(
