@@ -14,7 +14,7 @@ ADR-004/005 已建立不可变 receipt、head CAS 与单步链触发器，但应
 
 ## 决策
 
-添加 `public_init_041`，持久化一个 `SQL SECURITY DEFINER` 的受控过程。运行时事务经过既有输入、回放、目录和锁序验证后，只调用该过程推进完整 receipt/head 转换；HTTP 管理面改为候选开关和过程授权开关同时为真才注册。
+添加 `public_init_041`，持久化一个 `SQL SECURITY DEFINER` 的受控过程。运行时事务经过既有输入、回放、目录和锁序验证后，只调用该过程推进完整 receipt/head 转换；过程只对 mutable head 使用锁定读，对当前不可变 receipt 使用非锁定摘要读取，以免阻塞引用该 receipt 的独立操作谱系；HTTP 管理面改为候选开关和过程授权开关同时为真才注册。
 
 过程显式使用 `DEFINER = CURRENT_USER`，使部署审批窗口能将其绑定至经核准的专用 owner，而不在仓库中猜测或固化生产账户。首次迁移拒绝没有 041 回执的同名既存过程，并核对过程安全模式和参数数量；生产 `GRANT/REVOKE` 不随迁移自动执行。
 

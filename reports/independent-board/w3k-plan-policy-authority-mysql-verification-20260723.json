@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "result": "PASS_LOCAL_DUAL_MYSQL_AUTHORITY_MATRIX",
+  "candidateReadyForCommit": true,
+  "releaseReady": false,
+  "productionChanged": false,
+  "predecessorReceipt": "reports/independent-board/w3k-plan-policy-controlled-authority-verification-20260723.json",
+  "predecessorReceiptSha256": "5a9eab9e65366aa9fb15c482da392219b158b6cf68526ea773fef22158648b54",
+  "historicalReceiptMutated": false,
+  "frozenSurface": {
+    "path": "D:/Spg719/fbsir-eight-seat-board-26.7.20.zip",
+    "requiredSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "observedSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "unchanged": true
+  },
+  "mysql": {
+    "runnerReceipt": {
+      "kind": "fbsir.independent-board.plan-policy.mysql-it-receipt/v1",
+      "status": "COMPLETED",
+      "sha256": "d22c7aeba9e04764982474607346d9e1c3d2fe6707a8e779a7998586e2a76775",
+      "executionBoundary": "isolated loopback MySQL only; no production connection"
+    },
+    "versions": [
+      {
+        "version": "8.0.30",
+        "concurrency": {
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "iterationsPerCase": 20
+        },
+        "accountMatrix": {
+          "executors": 2,
+          "grant": "EXECUTE on the controlled procedure only",
+          "successfulCalls": 2,
+          "denialsPerExecutor": 5,
+          "denialOperations": [
+            "direct receipt INSERT",
+            "direct head UPDATE",
+            "direct product-plan DELETE",
+            "table DDL",
+            "trigger DDL"
+          ]
+        },
+        "productionConnectionUsed": false,
+        "workDirectoryCleaned": true
+      },
+      {
+        "version": "8.4.8",
+        "concurrency": {
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "iterationsPerCase": 20
+        },
+        "accountMatrix": {
+          "executors": 2,
+          "grant": "EXECUTE on the controlled procedure only",
+          "successfulCalls": 2,
+          "denialsPerExecutor": 5,
+          "denialOperations": [
+            "direct receipt INSERT",
+            "direct head UPDATE",
+            "direct product-plan DELETE",
+            "table DDL",
+            "trigger DDL"
+          ]
+        },
+        "productionConnectionUsed": false,
+        "workDirectoryCleaned": true
+      }
+    ]
+  },
+  "validated": {
+    "immutableReceiptLockRegression": "fixed by locking only mutable head and reading immutable receipt digest without a locking join",
+    "controlledProcedure": "two independent EXECUTE-only accounts each advanced the BOARD_VIP head through the procedure",
+    "directPrivilegeContainment": "each account was denied all five direct DML or DDL attempts",
+    "serviceConcurrency": "six Spring/MyBatis/Hikari integration cases with 20 iterations each passed on both versions",
+    "cleanup": "current isolated run directories were removed; a separately validated historical forensic directory was retained without masking this run"
+  },
+  "notProven": [
+    "production definer identity, default role, grants, revokes or target-database readback",
+    "production migration, health, rollback, human approval or candidate activation",
+    "me/admin portal deployment, API2 exact release binding, official-entry same-binding proof or natural traffic"
+  ],
+  "sourceSha256": {
+    ".fbs-engineering/contract.json": "000ce3301c9f03e508bbecfdd2a343c2c08880c9c8891baf968d6f00a601525a",
+    "docs/decisions/ADR-006-independent-board-plan-policy-controlled-procedure-authority.md": "411ffc72df5545afffab31785f540c9f9bde44ad0d800b579dccede77ff026b3",
+    "docs/independent-board/W3K-PLAN-POLICY-CONTROLLED-AUTHORITY-CONTRACT.md": "d469f25a869c9d8d90b54ac7d53fb658945f9a4c1687fc225496b970379c6109",
+    "docs/independent-board/implementation-status.json": "9878566d3c8061ccdb456d5960ad760708d93242c31bc36a88b1e101a59664de",
+    "docs/independent-board/taskboard.json": "109390e2f11925d5adcad70998183a630ba8bb787dba9f3c5b4e8aa7f256c7e3",
+    "scripts/run-independent-board-plan-policy-mysql-it.ps1": "ab4f79874b825c92fc3200e29abdf4a098a384e73e64eba3b5451b546d11e0d5",
+    "scripts/verify-independent-board-control-plane.ps1": "faeb715688262fe526971eaa2dfc3bcae29bcdae3348a595bffc661137b3ceec",
+    "sql/init-manifest.json": "96191eb5bc8268e618a0183e73d999fe786a49cd98b28d6af4f85391caa2d4ac",
+    "sql/update_20260723_independent_board_plan_policy_authority.sql": "e7daa08d8d87b81479520b5689192f8275828d5112b097797b927b06fb858b4b",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/plan/integration/IndependentBoardPlanPolicyMysqlConcurrencyIT.java": "8448d5ddcd5493d3c0c9a80c27760689f403926cae1814f1867488536598395c"
+  }
+}

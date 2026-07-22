@@ -4,7 +4,8 @@ param(
     [string[]]$MySqlBinDirectories = @(),
     [ValidateSet('8.0.30', '8.4.8')]
     [string[]]$Versions = @('8.0.30', '8.4.8'),
-    [switch]$EmitMetadataSnapshot
+    [switch]$EmitMetadataSnapshot,
+    [string]$ReceiptDirectory
 )
 
 Set-StrictMode -Version Latest
@@ -17,6 +18,17 @@ if (-not $AllowDestructiveTest) {
 $repoRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $workRoot = [System.IO.Path]::GetFullPath(
     (Join-Path $repoRoot 'work\independent-board-plan-policy-mysql-it'))
+$defaultReceiptDirectory = Join-Path $repoRoot 'work\independent-board-plan-policy-mysql-it-receipts'
+if ([string]::IsNullOrWhiteSpace($ReceiptDirectory)) {
+    $ReceiptDirectory = $defaultReceiptDirectory
+}
+$receiptDirectoryPath = [System.IO.Path]::GetFullPath($ReceiptDirectory)
+$allowedReceiptDirectory = [System.IO.Path]::GetFullPath($defaultReceiptDirectory)
+if (-not [string]::Equals($receiptDirectoryPath, $allowedReceiptDirectory,
+        [StringComparison]::OrdinalIgnoreCase)) {
+    throw "ReceiptDirectory must be the dedicated plan-policy IT receipt directory: $allowedReceiptDirectory"
+}
+$null = New-Item -ItemType Directory -Path $receiptDirectoryPath -Force
 $controlPlanePath = Join-Path $repoRoot 'sql\update_20260720_independent_board_control_plane.sql'
 $policyPath = Join-Path $repoRoot 'sql\update_20260722_independent_board_plan_policy.sql'
 $monotonicChainPath = Join-Path $repoRoot 'sql\update_20260723_independent_board_plan_policy_monotonic_chain.sql'
@@ -78,6 +90,24 @@ function Resolve-MavenExecutable {
         }
     }
     throw 'Maven 3.9.16 mvn.cmd is required on PATH, MAVEN_HOME, M2_HOME, or the bundled U3W toolchain path.'
+}
+
+function Resolve-JavaHome {
+    $candidates = [System.Collections.Generic.List[string]]::new()
+    if (-not [string]::IsNullOrWhiteSpace($env:JAVA_HOME)) {
+        $candidates.Add($env:JAVA_HOME)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:USERPROFILE)) {
+        $candidates.Add((Join-Path $env:USERPROFILE '.cache\u3w-java-toolchain\jdk-17.0.19+10'))
+        $candidates.Add((Join-Path $env:USERPROFILE '.codex\cache\toolchains\jdk-17.0.19+10'))
+    }
+    foreach ($candidate in $candidates) {
+        if (-not [string]::IsNullOrWhiteSpace($candidate) -and
+                (Test-Path -LiteralPath (Join-Path $candidate 'bin\java.exe') -PathType Leaf)) {
+            return [System.IO.Path]::GetFullPath($candidate)
+        }
+    }
+    throw 'JDK 17.0.19 JAVA_HOME is required in the process or bundled U3W toolchain path.'
 }
 
 function Resolve-MySqlProfiles {
@@ -161,11 +191,13 @@ function Invoke-MySqlText {
         [Parameter(Mandatory = $true)][int]$Port,
         [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Database,
         [Parameter(Mandatory = $true)][string]$Sql,
+        [string]$User = 'root',
+        [AllowEmptyString()][string]$Password,
         [switch]$AllowFailure
     )
 
     $arguments = @(
-        '--no-defaults', '--protocol=TCP', '-h127.0.0.1', "-P$Port", '-uroot',
+        '--no-defaults', '--protocol=TCP', '-h127.0.0.1', "-P$Port", "-u$User",
         '--default-character-set=utf8mb4', '--batch', '--skip-column-names'
     )
     if (-not [string]::IsNullOrWhiteSpace($Database)) {
@@ -173,10 +205,25 @@ function Invoke-MySqlText {
     }
     $arguments += @('--execute', $Sql)
     $priorPreference = $ErrorActionPreference
+    $priorMySqlPassword = $env:MYSQL_PWD
+    $hasPassword = $PSBoundParameters.ContainsKey('Password')
     $ErrorActionPreference = 'Continue'
-    $output = (& $Profile.mysql @arguments 2>&1 | Out-String).Trim()
-    $exitCode = $LASTEXITCODE
-    $ErrorActionPreference = $priorPreference
+    try {
+        if ($hasPassword) {
+            $env:MYSQL_PWD = $Password
+        }
+        $output = (& $Profile.mysql @arguments 2>&1 | Out-String).Trim()
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        if ($null -eq $priorMySqlPassword) {
+            Remove-Item Env:MYSQL_PWD -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:MYSQL_PWD = $priorMySqlPassword
+        }
+        $ErrorActionPreference = $priorPreference
+    }
     if ($exitCode -ne 0 -and -not $AllowFailure) {
         throw "mysql command failed with exit code ${exitCode}: $output"
     }
@@ -197,6 +244,137 @@ function Invoke-MySqlFile {
         -Sql "source $sourcePath" -AllowFailure:$AllowFailure
 }
 
+function Invoke-PlanPolicyAuthorityPrivilegeMatrix {
+    param(
+        [Parameter(Mandatory = $true)]$Profile,
+        [Parameter(Mandatory = $true)][int]$Port,
+        [Parameter(Mandatory = $true)][string]$Database,
+        [Parameter(Mandatory = $true)][string]$Suffix
+    )
+
+    $procedureName = 'fbsir_independent_board_plan_policy_transition_v1'
+    $accounts = @(
+        [pscustomobject]@{
+            alias = 'executor_a'
+            user = "u3w_pp_exec_a_$Suffix"
+            password = [Guid]::NewGuid().ToString('N')
+        },
+        [pscustomobject]@{
+            alias = 'executor_b'
+            user = "u3w_pp_exec_b_$Suffix"
+            password = [Guid]::NewGuid().ToString('N')
+        }
+    )
+    $accountResults = [System.Collections.Generic.List[object]]::new()
+
+    try {
+        foreach ($account in $accounts) {
+            $bootstrap = @"
+CREATE USER '$($account.user)'@'127.0.0.1' IDENTIFIED BY '$($account.password)';
+GRANT EXECUTE ON PROCEDURE $Database.$procedureName TO '$($account.user)'@'127.0.0.1';
+"@
+            $null = Invoke-MySqlText -Profile $Profile -Port $Port -Database '' -Sql $bootstrap
+        }
+
+        foreach ($account in $accounts) {
+            $grantReadback = (Invoke-MySqlText -Profile $Profile -Port $Port -Database '' -Sql (
+                "SHOW GRANTS FOR '$($account.user)'@'127.0.0.1';")).output
+            if ($grantReadback -notmatch 'EXECUTE ON PROCEDURE' -or
+                    $grantReadback -notmatch [regex]::Escape($procedureName)) {
+                throw "Authority test account $($account.alias) does not have the exact procedure EXECUTE grant."
+            }
+            if ($grantReadback -match '(?i)INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|TRIGGER') {
+                throw "Authority test account $($account.alias) received an unsafe direct-write or DDL grant."
+            }
+
+            $head = (Invoke-MySqlText -Profile $Profile -Port $Port -Database $Database -Sql @"
+SELECT CONCAT_WS('|',h.active_receipt_id,h.policy_version,r.policy_digest)
+FROM fbs_plan_policy_head h
+INNER JOIN fbs_plan_policy_revision_receipt r
+  ON BINARY r.product_code=BINARY h.product_code
+ AND BINARY r.plan_code=BINARY h.plan_code
+ AND BINARY r.receipt_id=BINARY h.active_receipt_id
+ AND r.policy_version=h.policy_version
+WHERE BINARY h.product_code=BINARY 'FBSIR_INDEPENDENT_BOARD'
+  AND BINARY h.plan_code=BINARY 'BOARD_VIP';
+"@).output
+            $headParts = @($head -split '\|', 3)
+            if ($headParts.Count -ne 3 -or $headParts[1] -notmatch '^[0-9]+$' -or
+                    $headParts[2] -notmatch '^[0-9a-f]{64}$') {
+                throw "Could not derive the current VIP head for $($account.alias): $head"
+            }
+            $nextVersion = [int64]$headParts[1] + 1
+            $receiptId = "plan-policy-authority-$($account.alias)-$Suffix-v$nextVersion"
+            $callSql = @"
+CALL $procedureName(
+ '$receiptId','FBSIR_INDEPENDENT_BOARD','BOARD_VIP',$nextVersion,
+ '$($headParts[0])',NULL,'PLAN_POLICY_REVISED','ADMIN_USER',42,
+ SHA2('${receiptId}:idempotency',256),SHA2('${receiptId}:command',256),
+ '$($headParts[2])',SHA2('${receiptId}:policy',256),
+ 'Independent Board VIP',1,1,5,30,NULL,1,'ACTIVE','ACTION_COMPLETED',CURRENT_TIMESTAMP(3)
+);
+"@
+            $call = Invoke-MySqlText -Profile $Profile -Port $Port -Database $Database `
+                -User $account.user -Password $account.password -Sql $callSql -AllowFailure
+            if ($call.exitCode -ne 0) {
+                throw "Authority EXECUTE call failed for $($account.alias): $($call.output)"
+            }
+            $currentHead = (Invoke-MySqlText -Profile $Profile -Port $Port -Database $Database -Sql @"
+SELECT CONCAT(active_receipt_id,'|',policy_version)
+FROM fbs_plan_policy_head
+WHERE BINARY product_code=BINARY 'FBSIR_INDEPENDENT_BOARD'
+  AND BINARY plan_code=BINARY 'BOARD_VIP';
+"@).output
+            Assert-ExactOutput -Actual $currentHead -Expected "$receiptId|$nextVersion" `
+                -Stage "authority EXECUTE head advance $($account.alias)"
+
+            $denialStatements = [ordered]@{
+                directReceiptInsert = "INSERT INTO fbs_plan_policy_revision_receipt (receipt_id) VALUES ('authority-forbidden');"
+                directHeadUpdate = "UPDATE fbs_plan_policy_head SET policy_version=policy_version WHERE 1=0;"
+                directPlanDelete = "DELETE FROM fbs_product_plan WHERE 1=0;"
+                tableDdl = "ALTER TABLE fbs_plan_policy_head COMMENT='authority-forbidden';"
+                triggerDdl = "CREATE TRIGGER w3k_authority_forbidden BEFORE INSERT ON fbs_plan_policy_head FOR EACH ROW SET NEW.policy_version=NEW.policy_version;"
+            }
+            $denials = [ordered]@{}
+            foreach ($statementId in $denialStatements.Keys) {
+                $denial = Invoke-MySqlText -Profile $Profile -Port $Port -Database $Database `
+                    -User $account.user -Password $account.password `
+                    -Sql $denialStatements[$statementId] -AllowFailure
+                # MySQL may reject trigger DDL through the binary-log SUPER
+                # privilege gate before it reaches the ordinary command/access
+                # denied path. Every accepted form still proves that the
+                # executor cannot perform the attempted operation.
+                if ($denial.exitCode -eq 0 -or $denial.output -notmatch '(?i)(command denied|access denied|do not have (the )?.*privilege|requires .*privilege)') {
+                    throw "Authority $statementId unexpectedly escaped privilege denial for $($account.alias): $($denial.output)"
+                }
+                $denials[$statementId] = [ordered]@{
+                    exitCode = $denial.exitCode
+                    outputSha256 = Get-Sha256Hex -Value $denial.output
+                }
+            }
+            $accountResults.Add([pscustomobject]@{
+                alias = $account.alias
+                grantReadbackSha256 = Get-Sha256Hex -Value $grantReadback
+                call = [ordered]@{
+                    receiptId = $receiptId
+                    policyVersion = $nextVersion
+                    outputSha256 = Get-Sha256Hex -Value $call.output
+                }
+                denialMatrix = $denials
+            })
+        }
+        return @($accountResults)
+    }
+    finally {
+        foreach ($account in $accounts) {
+            $drop = "DROP USER IF EXISTS '$($account.user)'@'127.0.0.1';"
+            $null = Invoke-MySqlText -Profile $Profile -Port $Port -Database '' `
+                -Sql $drop -AllowFailure
+            $account.password = ''
+        }
+    }
+}
+
 function Assert-ExactOutput {
     param(
         [Parameter(Mandatory = $true)][string]$Actual,
@@ -206,6 +384,63 @@ function Assert-ExactOutput {
     if (-not [string]::Equals($Actual, $Expected, [StringComparison]::Ordinal)) {
         throw "$Stage drifted: expected '$Expected', found '$Actual'."
     }
+}
+
+function Get-Sha256Hex {
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Value)
+
+    $bytes = [Text.Encoding]::UTF8.GetBytes($Value)
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    try {
+        return (([BitConverter]::ToString($algorithm.ComputeHash($bytes))).Replace('-', '')).ToLowerInvariant()
+    }
+    finally {
+        $algorithm.Dispose()
+        [Array]::Clear($bytes, 0, $bytes.Length)
+    }
+}
+
+function Write-PlanPolicyItReceipt {
+    param([Parameter(Mandatory = $true)]$State)
+
+    $temporaryPath = Join-Path $receiptDirectoryPath (
+        '.' + [System.IO.Path]::GetFileName($receiptPath) + '.' +
+        [Guid]::NewGuid().ToString('N') + '.tmp')
+    $backupPath = $temporaryPath + '.bak'
+    $json = $State | ConvertTo-Json -Depth 8
+    [System.IO.File]::WriteAllText(
+        $temporaryPath, $json, [Text.UTF8Encoding]::new($false))
+    try {
+        if (Test-Path -LiteralPath $receiptPath -PathType Leaf) {
+            [System.IO.File]::Replace($temporaryPath, $receiptPath, $backupPath)
+        }
+        else {
+            [System.IO.File]::Move($temporaryPath, $receiptPath)
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporaryPath -PathType Leaf) {
+            Remove-Item -LiteralPath $temporaryPath -Force
+        }
+        if (Test-Path -LiteralPath $backupPath -PathType Leaf) {
+            Remove-Item -LiteralPath $backupPath -Force
+        }
+    }
+}
+
+function Update-PlanPolicyItReceipt {
+    param(
+        [Parameter(Mandatory = $true)][string]$Stage,
+        [string]$CurrentVersion
+    )
+
+    $receiptState.currentStage = $Stage
+    if (-not [string]::IsNullOrWhiteSpace($CurrentVersion)) {
+        $receiptState.currentVersion = $CurrentVersion
+    }
+    $receiptState.lastHeartbeatAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+    $receiptState.matrix = @($results)
+    Write-PlanPolicyItReceipt -State $receiptState
 }
 
 function Invoke-PlanPolicyConcurrencyIt {
@@ -312,14 +547,64 @@ if (-not (Test-Path -LiteralPath $controlPlanePath -PathType Leaf) -or
     -not (Test-Path -LiteralPath $authorityPath -PathType Leaf)) {
     throw 'Required Independent Board migration SQL is missing.'
 }
+$receiptStamp = [DateTime]::UtcNow.ToString('yyyyMMddTHHmmss')
+$receiptPath = Join-Path $receiptDirectoryPath (
+    "w3k-plan-policy-mysql-$receiptStamp-$PID-$([Guid]::NewGuid().ToString('N').Substring(0, 8)).json")
+$results = [System.Collections.Generic.List[object]]::new()
+$receiptState = [ordered]@{
+    schemaVersion = 1
+    kind = 'fbsir.independent-board.plan-policy.mysql-it-receipt/v1'
+    status = 'RUNNING'
+    startedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+    lastHeartbeatAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+    pid = $PID
+    requestedVersions = @($requiredVersions)
+    currentVersion = $null
+    currentStage = 'preflight'
+    completedVersions = @()
+    matrix = @()
+    sourceSha256 = [ordered]@{
+        publicInit030 = (Get-FileHash -LiteralPath $controlPlanePath -Algorithm SHA256).Hash.ToLowerInvariant()
+        publicInit039 = (Get-FileHash -LiteralPath $policyPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        publicInit040 = (Get-FileHash -LiteralPath $monotonicChainPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        publicInit041 = (Get-FileHash -LiteralPath $authorityPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        manifest = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        initializer = (Get-FileHash -LiteralPath $initializerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        runner = (Get-FileHash -LiteralPath $runnerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        concurrencyTest = (Get-FileHash -LiteralPath $concurrencyTestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+    failure = $null
+}
+Write-PlanPolicyItReceipt -State $receiptState
+trap {
+    $trappedError = $_
+    $receiptState.status = 'FAILED'
+    $receiptState.failure = [ordered]@{
+        type = $_.Exception.GetType().FullName
+        messageSha256 = Get-Sha256Hex -Value $_.Exception.Message
+        observedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+    }
+    try {
+        Update-PlanPolicyItReceipt -Stage 'failed'
+    }
+    catch {
+        # The original failure remains authoritative when persistence is also unavailable.
+    }
+    throw $trappedError
+}
 if (-not (Test-Path -LiteralPath $workRoot -PathType Container)) {
     New-Item -ItemType Directory -Path $workRoot | Out-Null
 }
 
+$javaHome = Resolve-JavaHome
+$env:JAVA_HOME = $javaHome
+$env:Path = (Join-Path $javaHome 'bin') + [IO.Path]::PathSeparator + $env:Path
 $mavenExecutable = Resolve-MavenExecutable
+Update-PlanPolicyItReceipt -Stage 'test_compile'
 Invoke-PlanPolicyConcurrencyTestCompile
+Update-PlanPolicyItReceipt -Stage 'test_compile_completed'
 $profiles = Resolve-MySqlProfiles -Requested $MySqlBinDirectories
-$results = [System.Collections.Generic.List[object]]::new()
+Update-PlanPolicyItReceipt -Stage 'profiles_resolved'
 
 foreach ($profile in $profiles) {
     $stamp = [DateTime]::UtcNow.ToString('yyyyMMddTHHmmss')
@@ -335,6 +620,7 @@ foreach ($profile in $profiles) {
     $server = $null
     $cleaned = $false
     $originalMySqlTestLoginFile = $env:MYSQL_TEST_LOGIN_FILE
+    Update-PlanPolicyItReceipt -Stage 'version_started' -CurrentVersion $profile.version
 
     try {
         $initializeOutput = (& $profile.mysqld '--no-defaults' '--initialize-insecure' `
@@ -1073,8 +1359,13 @@ SELECT CONCAT_WS('|',
             'b97cf71e29e1bfbbb58bd9ef58ed8f9334c586de102e43b6bb231e392ac84fad'
         ) -Stage 'raw metadata matrix'
 
+        Update-PlanPolicyItReceipt -Stage 'spring_root_concurrency_matrix' -CurrentVersion $profile.version
         $concurrencyEvidence = Invoke-PlanPolicyConcurrencyIt `
             -Port $port -Version $profile.version -RunRoot $runRoot
+        Update-PlanPolicyItReceipt -Stage 'two_account_authority_matrix' -CurrentVersion $profile.version
+        $authorityAccountSuffix = ([Guid]::NewGuid().ToString('N')).Substring(0, 8)
+        $authorityPrivilegeMatrix = Invoke-PlanPolicyAuthorityPrivilegeMatrix `
+            -Profile $profile -Port $port -Database 'w3h_policy_concurrency' -Suffix $authorityAccountSuffix
         $auditReceiptRows = [int](Invoke-MySqlText -Profile $profile -Port $port `
             -Database 'w3h_policy_concurrency' -Sql @"
 SELECT COUNT(*) FROM fbs_plan_policy_revision_receipt
@@ -1118,11 +1409,14 @@ LIMIT 101;
             metadataSnapshot = if ($EmitMetadataSnapshot) { $metadataSnapshot } else { $null }
             initializerCurrentReadOnly = $true
             concurrency = $concurrencyEvidence
+            authorityPrivilegeMatrix = @($authorityPrivilegeMatrix)
             auditReceiptRows = $auditReceiptRows
             auditExplainAnalyze = $auditExplain
             productionConnectionUsed = $false
             workDirectoryCleaned = $true
         })
+        $receiptState.completedVersions = @($results | ForEach-Object { $_.version })
+        Update-PlanPolicyItReceipt -Stage 'version_completed' -CurrentVersion $profile.version
     }
     finally {
         $env:MYSQL_TEST_LOGIN_FILE = $originalMySqlTestLoginFile
@@ -1153,20 +1447,40 @@ if ($results.Count -ne $requiredVersions.Count -or
         (($requiredVersions | Sort-Object) -join ',')) {
     throw 'The requested exact MySQL plan-policy matrix did not complete.'
 }
+$retainedHistoricalWorkDirectories = @()
 if (Test-Path -LiteralPath $workRoot -PathType Container) {
     $remainingWork = @(Get-ChildItem -LiteralPath $workRoot -Force)
     $expectedWorkRoot = [System.IO.Path]::GetFullPath(
         (Join-Path $repoRoot 'work\independent-board-plan-policy-mysql-it'))
-    if ($remainingWork.Count -ne 0 -or
-        -not [string]::Equals($workRoot, $expectedWorkRoot, [StringComparison]::OrdinalIgnoreCase)) {
-        throw 'Refusing to remove a non-empty or unexpected plan-policy IT root.'
+    if (-not [string]::Equals($workRoot, $expectedWorkRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Refusing to inspect an unexpected plan-policy IT root.'
     }
-    Remove-Item -LiteralPath $workRoot -Force
+    if ($remainingWork.Count -eq 0) {
+        Remove-Item -LiteralPath $workRoot -Force
+    }
+    else {
+        foreach ($remainingPath in $remainingWork) {
+            if (-not $remainingPath.PSIsContainer) {
+                throw 'Refusing to retain an unexpected file in the plan-policy IT root.'
+            }
+            Assert-SafeRunDirectory -Path $remainingPath.FullName
+        }
+        # Other completed or failed run receipts may retain their own forensic
+        # workspace. They are outside this run's cleanup boundary and must not
+        # turn a clean current run into a false failure.
+        $retainedHistoricalWorkDirectories = @($remainingWork | ForEach-Object { $_.Name } | Sort-Object)
+    }
 }
+
+$receiptState.status = 'COMPLETED'
+$receiptState.completedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+Update-PlanPolicyItReceipt -Stage 'completed'
 
 [pscustomobject]@{
     schemaVersion = 2
     ok = $true
+    receiptPath = $receiptPath
+    retainedHistoricalWorkDirectories = @($retainedHistoricalWorkDirectories)
     sourceSha256 = [ordered]@{
         publicInit030 = (Get-FileHash -LiteralPath $controlPlanePath -Algorithm SHA256).Hash.ToLowerInvariant()
         publicInit039 = (Get-FileHash -LiteralPath $policyPath -Algorithm SHA256).Hash.ToLowerInvariant()

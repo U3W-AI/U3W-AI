@@ -534,6 +534,7 @@ function Invoke-ContractChecks {
     )
     $w3kSupersededAuthorityArtifacts = @(
         'docs/independent-board/taskboard.json',
+        'docs/independent-board/implementation-status.json',
         '.fbs-engineering/contract.json',
         'sql/init-manifest.json',
         'scripts/init-database.ps1',
@@ -572,18 +573,45 @@ function Invoke-ContractChecks {
             -or $w3kAuthorityReport.frozenSurface.observedSha256 -cne $w3kAuthorityReport.frozenSurface.requiredSha256) {
         throw 'W3k controlled-authority report boundary is incomplete or drifted'
     }
-    foreach ($authorityArtifact in @($w3kAuthorityReport.sourceSha256.PSObject.Properties)) {
+    # The pending authority receipt is historical. The local dual-MySQL run is
+    # a successor record, so do not rewrite its source hashes after the runner
+    # and SQL fixes that it motivated.
+    $w3kAuthoritySuccessorReport = Read-Utf8Json -RelativePath 'reports\independent-board\w3k-plan-policy-authority-mysql-verification-20260723.json'
+    $authorityPendingReportPath = Join-Path $RepoRoot 'reports\independent-board\w3k-plan-policy-controlled-authority-verification-20260723.json'
+    $authorityPendingReportHash = (Get-FileHash -LiteralPath $authorityPendingReportPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($w3kAuthoritySuccessorReport.schemaVersion -ne 1 `
+            -or $w3kAuthoritySuccessorReport.result -cne 'PASS_LOCAL_DUAL_MYSQL_AUTHORITY_MATRIX' `
+            -or $w3kAuthoritySuccessorReport.candidateReadyForCommit -ne $true `
+            -or $w3kAuthoritySuccessorReport.releaseReady -ne $false `
+            -or $w3kAuthoritySuccessorReport.productionChanged -ne $false `
+            -or $w3kAuthoritySuccessorReport.predecessorReceipt -cne 'reports/independent-board/w3k-plan-policy-controlled-authority-verification-20260723.json' `
+            -or $w3kAuthoritySuccessorReport.predecessorReceiptSha256 -cne $authorityPendingReportHash `
+            -or $w3kAuthoritySuccessorReport.historicalReceiptMutated -ne $false `
+            -or $w3kAuthoritySuccessorReport.frozenSurface.unchanged -ne $true `
+            -or $w3kAuthoritySuccessorReport.frozenSurface.observedSha256 -cne $w3kAuthoritySuccessorReport.frozenSurface.requiredSha256 `
+            -or @($w3kAuthoritySuccessorReport.mysql.versions).Count -ne 2 `
+            -or @($w3kAuthoritySuccessorReport.mysql.versions | Where-Object {
+                $_.concurrency.tests -ne 6 -or $_.concurrency.failures -ne 0 -or $_.concurrency.errors -ne 0 `
+                    -or $_.concurrency.iterationsPerCase -ne 20 -or $_.accountMatrix.executors -ne 2 `
+                    -or $_.accountMatrix.denialsPerExecutor -ne 5 -or $_.productionConnectionUsed -ne $false `
+                    -or $_.workDirectoryCleaned -ne $true
+            }).Count -ne 0) {
+        throw 'W3k controlled-authority dual-MySQL successor evidence is incomplete or drifted'
+    }
+    # The predecessor report hash binds its full source-hash map as one
+    # immutable receipt; source-file binding resumes at the successor.
+    foreach ($authorityArtifact in @($w3kAuthoritySuccessorReport.sourceSha256.PSObject.Properties)) {
         $authorityPath = [string]$authorityArtifact.Name
         $authorityFile = Join-Path $RepoRoot $authorityPath
         if (-not (Test-Path -LiteralPath $authorityFile -PathType Leaf)) {
-            throw "W3k controlled-authority artifact is missing: $authorityPath"
+            throw "W3k controlled-authority successor artifact is missing: $authorityPath"
         }
         $authorityCurrentHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $authorityFile).Hash.ToLowerInvariant()
         if ($authorityArtifact.Value -cne $authorityCurrentHash) {
-            throw "W3k controlled-authority artifact binding drifted: $authorityPath"
+            throw "W3k controlled-authority successor artifact binding drifted: $authorityPath"
         }
     }
-    foreach ($supersededArtifact in $w3kSupersededAuthorityArtifacts) {
+    foreach ($supersededArtifact in @($w3kAuthorityReport.predecessorSourceSha256.PSObject.Properties | ForEach-Object { [string]$_.Name })) {
         $priorHash = $w3kMonotonicReport.sourceSha256.PSObject.Properties[$supersededArtifact].Value
         $successorPriorHash = $w3kAuthorityReport.predecessorSourceSha256.PSObject.Properties[$supersededArtifact].Value
         if ([string]::IsNullOrWhiteSpace($priorHash) -or $successorPriorHash -cne $priorHash) {
@@ -835,8 +863,13 @@ function Invoke-ContractChecks {
             -or $implementationStatus.w3k.databaseMigration -cne 'public_init_040_manifested_not_applied_to_production' `
             -or $implementationStatus.w3k.productionAuthority -ne $false `
             -or $implementationStatus.w3k.nextSlice -cne $canonicalW3NextSliceId `
+            -or $implementationStatus.w3k.controlledAuthority.state -cne 'local_default_off_dual_mysql_procedure_execution_and_two_account_rejection_matrix_verified' `
+            -or $implementationStatus.w3k.controlledAuthority.verificationReport -cne 'reports/independent-board/w3k-plan-policy-authority-mysql-verification-20260723.json' `
+            -or $implementationStatus.w3k.controlledAuthority.databaseMigration -cne 'public_init_041_manifested_not_applied_to_production' `
+            -or $implementationStatus.w3k.controlledAuthority.productionAuthority -ne $false `
+            -or $implementationStatus.w3k.controlledAuthority.nextSlice -cne $canonicalW3NextSliceId `
             -or $w3Wave.Count -ne 1 `
-            -or $w3Wave[0].state -cne 'w3h_plan_policy_w3i_meeting_audit_w3j_credit_activation_readiness_w3k_monotonic_chain_verified_and_controlled_authority_candidate_in_progress_default_off' `
+            -or $w3Wave[0].state -cne 'w3h_plan_policy_w3i_meeting_audit_w3j_credit_activation_readiness_w3k_monotonic_chain_and_controlled_authority_dual_mysql_verified_default_off' `
             -or $w3Wave[0].activeSlice -cne $canonicalW3NextSliceId `
             -or $implementationStatus.w4b.runtimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or $implementationStatus.w4b.api2TrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `
@@ -854,6 +887,7 @@ function Invoke-ContractChecks {
     $contractW3i = $engineeringContract.contracts.uiPrototypeGate.w3iImplementation
     $contractW3j = $engineeringContract.contracts.uiPrototypeGate.w3jImplementation
     $contractW3k = $engineeringContract.contracts.uiPrototypeGate.w3kImplementation
+    $contractW3kAuthority = $engineeringContract.contracts.uiPrototypeGate.w3kAuthorityImplementation
     if ($engineeringContract.artifacts.w3hPlanPolicyContract -cne 'docs/independent-board/W3H-PLAN-POLICY-REVISION-CONTRACT.md' `
             -or $engineeringContract.artifacts.w3hPlanPolicyMigration -cne 'sql/update_20260722_independent_board_plan_policy.sql' `
             -or $engineeringContract.artifacts.w3hPlanPolicyGovernanceVerificationReport -cne 'reports/independent-board/w3h-plan-policy-governance-verification-20260722.json' `
@@ -879,6 +913,15 @@ function Invoke-ContractChecks {
             -or $contractW3k.migration -cne 'public_init_040_manifested_not_applied_to_production' `
             -or $contractW3k.productionAuthority -ne $false `
             -or $contractW3k.nextSlice -cne $canonicalW3NextSliceId `
+            -or $engineeringContract.artifacts.w3kPlanPolicyAuthorityContract -cne 'docs/independent-board/W3K-PLAN-POLICY-CONTROLLED-AUTHORITY-CONTRACT.md' `
+            -or $engineeringContract.artifacts.w3kPlanPolicyAuthorityAdr -cne 'docs/decisions/ADR-006-independent-board-plan-policy-controlled-procedure-authority.md' `
+            -or $engineeringContract.artifacts.w3kPlanPolicyAuthorityMigration -cne 'sql/update_20260723_independent_board_plan_policy_authority.sql' `
+            -or $engineeringContract.artifacts.w3kPlanPolicyAuthorityVerificationReport -cne 'reports/independent-board/w3k-plan-policy-authority-mysql-verification-20260723.json' `
+            -or $contractW3kAuthority.state -cne 'local_default_off_dual_mysql_procedure_execution_and_two_account_rejection_matrix_verified' `
+            -or $contractW3kAuthority.migration -cne 'public_init_041_manifested_not_applied_to_production' `
+            -or $contractW3kAuthority.verificationReport -cne 'reports/independent-board/w3k-plan-policy-authority-mysql-verification-20260723.json' `
+            -or $contractW3kAuthority.productionAuthority -ne $false `
+            -or $contractW3kAuthority.nextSlice -cne $canonicalW3NextSliceId `
             -or $engineeringContract.artifacts.w4b2cRuntimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or $engineeringContract.artifacts.w4b2cRuntimeAndAttributionAdr -cne 'docs/decisions/ADR-002-independent-board-w4b2c-runtime-mount-and-attribution-boundary.md' `
             -or $engineeringContract.artifacts.api2IndependentBoardTrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `

@@ -9,7 +9,7 @@
 ## 写入合同
 
 1. Java 事务服务仍在固定顺序锁定两个 mutable head、验证目录/回放/回滚语义并生成完整 receipt；实际持久化只能调用 `fbsir_independent_board_plan_policy_transition_v1`。
-2. 041 过程以 `SQL SECURITY DEFINER` 执行，并在同一事务内重复校验当前 head、直接后继的版本和摘要，然后插入 receipt 并 CAS 推进 head；首次迁移拒绝没有 041 回执的同名既存过程，最终校验安全模式与 23 个入参，避免静默复用漂移定义。
+2. 041 过程以 `SQL SECURITY DEFINER` 执行，并在同一事务内只锁定 mutable head；当前不可变 receipt 的摘要必须以非锁定读取校验。随后它插入直接后继 receipt 并 CAS 推进 head，不能阻塞引用旧 receipt 的独立操作谱系插入；首次迁移拒绝没有 041 回执的同名既存过程，最终校验安全模式与 23 个入参，避免静默复用漂移定义。
 3. 041 不自动执行任何 `GRANT`、`REVOKE`、用户创建或生产切流。它只提供可审计的受控写入原语，避免把未知生产账户、host 或密钥写入源码。
 4. 遗留 MyBatis 直表绑定只保留给离线迁移/故障夹具，并标注待删除；主事务路径不得调用它们。真实生产应用账户在批准窗口必须撤销对 `fbs_plan_policy_revision_receipt`、`fbs_plan_policy_head` 和 `fbs_product_plan` 的直写及 DDL/trigger 权限，仅保留必要 `SELECT` 与该过程的 `EXECUTE`。
 

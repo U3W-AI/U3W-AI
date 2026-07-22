@@ -154,6 +154,7 @@
     "w3kPlanPolicyAuthorityContract": "docs/independent-board/W3K-PLAN-POLICY-CONTROLLED-AUTHORITY-CONTRACT.md",
     "w3kPlanPolicyAuthorityAdr": "docs/decisions/ADR-006-independent-board-plan-policy-controlled-procedure-authority.md",
     "w3kPlanPolicyAuthorityMigration": "sql/update_20260723_independent_board_plan_policy_authority.sql",
+    "w3kPlanPolicyAuthorityVerificationReport": "reports/independent-board/w3k-plan-policy-authority-mysql-verification-20260723.json",
     "postListingHostTruthReport": "reports/independent-board/host-truth-chain-summary-20260721.json",
     "verificationReports": "reports/independent-board/*.json"
   },
@@ -452,6 +453,20 @@
         ],
         "productionAuthority": false,
         "remainingBoundary": "database_writer_privilege_containment_and_controlled_procedure_required_before_production_activation",
+        "nextSlice": "W3j_activation_release_receipt_collection_and_human_approval"
+      },
+      "w3kAuthorityImplementation": {
+        "state": "local_default_off_dual_mysql_procedure_execution_and_two_account_rejection_matrix_verified",
+        "contract": "docs/independent-board/W3K-PLAN-POLICY-CONTROLLED-AUTHORITY-CONTRACT.md",
+        "adr": "docs/decisions/ADR-006-independent-board-plan-policy-controlled-procedure-authority.md",
+        "migration": "public_init_041_manifested_not_applied_to_production",
+        "verificationReport": "reports/independent-board/w3k-plan-policy-authority-mysql-verification-20260723.json",
+        "verifiedMysql": [
+          "MySQL Community 8.0.30",
+          "MySQL Community 8.4.8"
+        ],
+        "productionAuthority": false,
+        "remainingBoundary": "production_definer_grant_revoke_target_readback_human_approval_and_rollback_evidence",
         "nextSlice": "W3j_activation_release_receipt_collection_and_human_approval"
       },
       "w4aImplementation": {

@@ -429,7 +429,21 @@
     ],
     "productionAuthority": false,
     "remainingBoundary": "direct_database_writer_privilege_containment_and_controlled_procedure_required_before_production_activation",
-    "nextSlice": "W3j_activation_release_receipt_collection_and_human_approval"
+    "nextSlice": "W3j_activation_release_receipt_collection_and_human_approval",
+    "controlledAuthority": {
+      "state": "local_default_off_dual_mysql_procedure_execution_and_two_account_rejection_matrix_verified",
+      "contract": "docs/independent-board/W3K-PLAN-POLICY-CONTROLLED-AUTHORITY-CONTRACT.md",
+      "adr": "docs/decisions/ADR-006-independent-board-plan-policy-controlled-procedure-authority.md",
+      "verificationReport": "reports/independent-board/w3k-plan-policy-authority-mysql-verification-20260723.json",
+      "databaseMigration": "public_init_041_manifested_not_applied_to_production",
+      "verifiedMysql": [
+        "MySQL Community 8.0.30",
+        "MySQL Community 8.4.8"
+      ],
+      "productionAuthority": false,
+      "remainingBoundary": "production_definer_grant_revoke_target_readback_human_approval_and_rollback_evidence",
+      "nextSlice": "W3j_activation_release_receipt_collection_and_human_approval"
+    }
   },
   "ui": {
     "base": "existing_u3w_ai_ruoyi_vue3_element_plus",

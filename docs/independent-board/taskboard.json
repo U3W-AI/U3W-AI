@@ -50,7 +50,7 @@
     },
     {
       "id": "W3_ADMIN_PORTAL",
-      "state": "w3h_plan_policy_w3i_meeting_audit_w3j_credit_activation_readiness_w3k_monotonic_chain_verified_and_controlled_authority_candidate_in_progress_default_off",
+      "state": "w3h_plan_policy_w3i_meeting_audit_w3j_credit_activation_readiness_w3k_monotonic_chain_and_controlled_authority_dual_mysql_verified_default_off",
       "activeSlice": "W3j_activation_release_receipt_collection_and_human_approval",
       "completedSubset": [
         "global_system_admin_only_access_model",
@@ -106,12 +106,12 @@
         "meeting_audit_historical_policy_lineage_label_authority_global_admin_operation_audit_no_store_dual_mysql_verified_local",
         "credit_candidate_activation_fail_closed_preproduction_release_readiness_gate_verified_local",
         "public_init_040_plan_policy_database_monotonic_chain_guards_preserve_039_bytes_and_default_off_state",
-        "dual_mysql_8_0_30_and_8_4_8_monotonic_direct_dml_negative_matrix_and_existing_six_case_twenty_iteration_service_concurrency_verified"
+        "dual_mysql_8_0_30_and_8_4_8_monotonic_direct_dml_negative_matrix_and_existing_six_case_twenty_iteration_service_concurrency_verified",
+        "dual_mysql_8_0_30_and_8_4_8_controlled_procedure_execution_two_account_execute_and_five_direct_dml_ddl_rejection_matrix_verified"
       ],
       "remaining": [
         "credit_ledger_candidate_activation_release_receipt_and_human_approval",
         "credit_ledger_internal_writer_migration_and_authoritative_promotion",
-        "plan_policy_controlled_procedure_dual_mysql_execution_and_two_account_rejection_matrix",
         "plan_policy_production_writer_privilege_containment_approval_grant_revoke_and_readback",
         "credit_ledger_production_database_migration",
         "legacy_credit_rule_and_menu_seed_retirement_migration",

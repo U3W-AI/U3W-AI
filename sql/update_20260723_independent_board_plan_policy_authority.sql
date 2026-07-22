@@ -126,17 +126,27 @@ BEGIN
             SET MESSAGE_TEXT = 'Plan policy authority rejected an incomplete or out-of-scope transition';
     END IF;
 
-    SELECT h.`active_receipt_id`, h.`policy_version`, r.`policy_digest`
-      INTO v_active_receipt_id, v_policy_version, v_policy_digest
+    /*
+       Lock only the mutable directory row. A joining locking read would also
+       lock the immutable parent receipt, which in turn blocks unrelated FK
+       lineage inserts that reference that receipt while a revision is open.
+    */
+    SELECT h.`active_receipt_id`, h.`policy_version`
+      INTO v_active_receipt_id, v_policy_version
     FROM `fbs_plan_policy_head` h
-    INNER JOIN `fbs_plan_policy_revision_receipt` r
-      ON CAST(r.`product_code` AS BINARY) = CAST(h.`product_code` AS BINARY)
-     AND CAST(r.`plan_code` AS BINARY) = CAST(h.`plan_code` AS BINARY)
-     AND CAST(r.`receipt_id` AS BINARY) = CAST(h.`active_receipt_id` AS BINARY)
-     AND r.`policy_version` = h.`policy_version`
     WHERE CAST(h.`product_code` AS BINARY) = CAST(p_product_code AS BINARY)
       AND CAST(h.`plan_code` AS BINARY) = CAST(p_plan_code AS BINARY)
     FOR UPDATE;
+
+    /* Immutable receipt lookup deliberately remains a non-locking read. */
+    SELECT r.`policy_digest`
+      INTO v_policy_digest
+    FROM `fbs_plan_policy_revision_receipt` r
+    WHERE CAST(r.`product_code` AS BINARY) = CAST(p_product_code AS BINARY)
+      AND CAST(r.`plan_code` AS BINARY) = CAST(p_plan_code AS BINARY)
+      AND CAST(r.`receipt_id` AS BINARY) = CAST(v_active_receipt_id AS BINARY)
+      AND r.`policy_version` = v_policy_version
+    LIMIT 1;
 
     IF v_active_receipt_id IS NULL OR v_policy_version IS NULL OR v_policy_digest IS NULL
        OR p_policy_version <> v_policy_version + 1
