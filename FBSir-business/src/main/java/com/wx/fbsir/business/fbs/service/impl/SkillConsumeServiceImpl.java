@@ -12,6 +12,7 @@ import com.wx.fbsir.business.fbs.service.WecomBusinessSyncService;
 import com.wx.fbsir.business.point.domain.PointsRule;
 import com.wx.fbsir.business.point.mapper.PointsRuleMapper;
 import com.wx.fbsir.business.point.service.IPointsService;
+import com.wx.fbsir.common.exception.ServiceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +49,8 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
             "SKILL_ENTERPRISE_USAGE_REPLAY_SCOPE_UNVERIFIED";
     private static final String ENTERPRISE_MEMBERSHIP_SCOPE_AMBIGUOUS =
             "SKILL_ENTERPRISE_MEMBERSHIP_SCOPE_AMBIGUOUS";
+    private static final String USAGE_RECORD_TERMINAL_CAS_CONFLICT =
+            "SKILL_USAGE_RECORD_TERMINAL_CAS_CONFLICT";
 
     @Autowired
     private FbsScenePackMapper scenePackMapper;
@@ -194,8 +197,7 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
         }
 
         // ---- 步骤 6：更新 fbs_skill_usage_record（status=1）----
-        usageRecordMapper.updateStatusByRecordId(usageRecordId,
-                UsageStatus.SUCCESS.getCode(), null);
+        markUsageSucceededOrThrow(usageRecordId);
 
         log.info("Skill消费成功 userId={}, packCode={}, usageRecordId={}, pointsAmount={}, remainPoints={}",
                 userId, packCode, usageRecordId, pointsAmount, remainPoints);
@@ -223,6 +225,22 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
         }
 
         return ConsumeResult.success(usageRecordId, remainPoints);
+    }
+
+    /**
+     * 将使用记录从处理中原子推进到成功。
+     *
+     * <p>成功消费的业务写入与 usage 终态必须同属 {@link #consume(Long, String, String,
+     * String, String, String, String)} 的事务；若 CAS 未命中，抛出运行时异常以回滚扣积分或配额增量，
+     * 绝不能把未完成的终态伪装为成功。</p>
+     */
+    private void markUsageSucceededOrThrow(String usageRecordId) {
+        int affected = usageRecordMapper.updateStatusByRecordId(usageRecordId,
+                UsageStatus.SUCCESS.getCode(), null);
+        if (affected != 1) {
+            log.error("Skill消费终态CAS失败 usageRecordId={}, affected={}", usageRecordId, affected);
+            throw new ServiceException(USAGE_RECORD_TERMINAL_CAS_CONFLICT, 409);
+        }
     }
 
     // =====================================================================
@@ -355,14 +373,12 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
         if (enterprisePack == null) {
             // 理论上不应该发生，保守处理
             log.warn("企业配额消费成功但无法重新查询企业包记录 enterprisePackId={}", enterprisePackId);
-            usageRecordMapper.updateStatusByRecordId(usageRecordId,
-                    UsageStatus.SUCCESS.getCode(), null);
+            markUsageSucceededOrThrow(usageRecordId);
             return ConsumeResult.success(usageRecordId, 0);
         }
 
         // ---- 步骤 9：更新 usage_record（status=1）----
-        usageRecordMapper.updateStatusByRecordId(usageRecordId,
-                UsageStatus.SUCCESS.getCode(), null);
+        markUsageSucceededOrThrow(usageRecordId);
 
         int remain = computeRemainQuota(enterprisePack);
         log.info("企业配额消费成功 userId={}, enterpriseId={}, packCode={}, usageRecordId={}, remainQuota={}",

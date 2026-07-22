@@ -11,6 +11,8 @@ import com.wx.fbsir.business.point.domain.PointsRule;
 import com.wx.fbsir.business.point.mapper.PointsRuleMapper;
 import com.wx.fbsir.business.point.service.IPointsService;
 import com.wx.fbsir.common.core.domain.AjaxResult;
+import com.wx.fbsir.common.exception.ServiceException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -65,6 +67,12 @@ class SkillConsumeServiceTest {
     private static final String HOST_TYPE_ENT = "ENTERPRISE";
     private static final String HOST_SESSION_ID = "session-001";
     private static final String RULE_CODE = "rule_pack_vip";
+
+    @BeforeEach
+    void defaultUsageTerminalCompareAndSetSucceeds() {
+        lenient().when(usageRecordMapper.updateStatusByRecordId(anyString(), anyInt(), nullable(String.class)))
+                .thenReturn(1);
+    }
 
     // ---- Fixture ----
     private FbsScenePack buildPack(String pointsRuleCode) {
@@ -195,6 +203,57 @@ class SkillConsumeServiceTest {
                     .changePoints(anyLong(), anyString(), anyInt(), anyLong(), anyString());
             verify(usageRecordMapper).updateStatusByRecordId(
                     eq(USAGE_RECORD_ID), eq(UsageStatus.SUCCESS.getCode()), isNull());
+        }
+
+        @Test
+        @DisplayName("personal paid terminal CAS conflict rejects success")
+        void paidConsumeRejectsSuccessWhenUsageTerminalCompareAndSetLost() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(RULE_CODE));
+            when(pointsRuleMapper.selectPointsRuleByRuleCode(RULE_CODE))
+                    .thenReturn(buildRule("0", 10));
+            when(rightsCheckService.comprehensiveCheck(eq(USER_ID), eq(PACK_CODE),
+                    isNull(), eq(HOST_TYPE_WB), eq(USAGE_RECORD_ID)))
+                    .thenReturn(ComprehensiveRightsResult.pass(PACK_ID, RULE_CODE, 10));
+            when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID)).thenReturn(null);
+            when(pointsService.changePoints(eq(USER_ID), eq(RULE_CODE), eq(-10),
+                    eq(PACK_ID), eq(USAGE_RECORD_ID)))
+                    .thenReturn(AjaxResult.success("points deducted"));
+            when(pointsService.getUserPoints(USER_ID)).thenReturn(990);
+            when(usageRecordMapper.updateStatusByRecordId(
+                    eq(USAGE_RECORD_ID), eq(UsageStatus.SUCCESS.getCode()), isNull()))
+                    .thenReturn(0);
+
+            ServiceException exception = assertThrows(ServiceException.class, () ->
+                    skillConsumeService.consume(USER_ID, PACK_CODE, SKILL_CODE,
+                            USAGE_RECORD_ID, HOST_TYPE_WB, HOST_SESSION_ID, null));
+
+            assertEquals("SKILL_USAGE_RECORD_TERMINAL_CAS_CONFLICT", exception.getMessage());
+            assertEquals(409, exception.getCode());
+            verify(pointsService).changePoints(USER_ID, RULE_CODE, -10, PACK_ID, USAGE_RECORD_ID);
+        }
+
+        @Test
+        @DisplayName("free personal terminal CAS conflict rejects success")
+        void freeConsumeRejectsSuccessWhenUsageTerminalCompareAndSetLost() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(buildPack(null));
+            when(rightsCheckService.comprehensiveCheck(eq(USER_ID), eq(PACK_CODE),
+                    isNull(), eq(HOST_TYPE_WB), eq(USAGE_RECORD_ID)))
+                    .thenReturn(ComprehensiveRightsResult.pass(PACK_ID, null, 0));
+            when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID)).thenReturn(null);
+            when(pointsService.getUserPoints(USER_ID)).thenReturn(1000);
+            when(usageRecordMapper.updateStatusByRecordId(
+                    eq(USAGE_RECORD_ID), eq(UsageStatus.SUCCESS.getCode()), isNull()))
+                    .thenReturn(0);
+
+            ServiceException exception = assertThrows(ServiceException.class, () ->
+                    skillConsumeService.consume(USER_ID, PACK_CODE, SKILL_CODE,
+                            USAGE_RECORD_ID, HOST_TYPE_WB, HOST_SESSION_ID, null));
+
+            assertEquals("SKILL_USAGE_RECORD_TERMINAL_CAS_CONFLICT", exception.getMessage());
+            assertEquals(409, exception.getCode());
+            verify(pointsService, never())
+                    .changePoints(anyLong(), anyString(), anyInt(), anyLong(), anyString());
         }
 
         @Test
@@ -684,6 +743,36 @@ class SkillConsumeServiceTest {
         }
 
         @Test
+        @DisplayName("enterprise terminal CAS conflict rejects success")
+        void enterpriseConsumeRejectsSuccessWhenUsageTerminalCompareAndSetLost() {
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(RULE_CODE));
+            when(enterpriseMemberMapper.selectActiveByUserId(USER_ID))
+                    .thenReturn(Arrays.asList(buildMember(1)));
+            when(enterpriseMapper.selectById(ENT_ID))
+                    .thenReturn(buildEnterprise(1));
+            when(enterprisePackMapper.selectByEnterpriseAndPack(ENT_ID, PACK_ID))
+                    .thenReturn(buildEnterprisePack(1, 100, 5));
+            when(memberPackMapper.selectActiveByMemberIdAndPackId(MEMBER_ID, PACK_ID))
+                    .thenReturn(buildMemberPack(1));
+            when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID)).thenReturn(null);
+            when(enterprisePackMapper.incrementUsedQuota(EPACK_ID)).thenReturn(1);
+            when(enterprisePackMapper.selectById(EPACK_ID))
+                    .thenReturn(buildEnterprisePack(1, 100, 6));
+            when(usageRecordMapper.updateStatusByRecordId(
+                    eq(USAGE_RECORD_ID), eq(UsageStatus.SUCCESS.getCode()), isNull()))
+                    .thenReturn(0);
+
+            ServiceException exception = assertThrows(ServiceException.class, () ->
+                    skillConsumeService.consume(USER_ID, PACK_CODE, SKILL_CODE,
+                            USAGE_RECORD_ID, HOST_TYPE_ENT, HOST_SESSION_ID, null));
+
+            assertEquals("SKILL_USAGE_RECORD_TERMINAL_CAS_CONFLICT", exception.getMessage());
+            assertEquals(409, exception.getCode());
+            verify(enterprisePackMapper).incrementUsedQuota(EPACK_ID);
+        }
+
+        @Test
         @DisplayName("§E4.1a consume ENTERPRISE — 配额递增后回读缺失时使用已捕获企业包ID并保守返回0")
         void enterpriseConsumeMissingRefreshRowUsesCapturedPackId() {
             FbsEnterprisePack enterprisePack = buildEnterprisePack(1, 100, 5);
@@ -711,6 +800,35 @@ class SkillConsumeServiceTest {
             verify(enterprisePackMapper).selectById(EPACK_ID);
             verify(usageRecordMapper).updateStatusByRecordId(
                     eq(USAGE_RECORD_ID), eq(UsageStatus.SUCCESS.getCode()), isNull());
+        }
+
+        @Test
+        @DisplayName("enterprise missing refresh row terminal CAS conflict rejects success")
+        void enterpriseMissingRefreshRowRejectsSuccessWhenUsageTerminalCompareAndSetLost() {
+            FbsEnterprisePack enterprisePack = buildEnterprisePack(1, 100, 5);
+            when(scenePackMapper.selectByPackCode(PACK_CODE))
+                    .thenReturn(buildPack(RULE_CODE));
+            when(enterpriseMemberMapper.selectActiveByUserId(USER_ID))
+                    .thenReturn(Arrays.asList(buildMember(1)));
+            when(enterpriseMapper.selectById(ENT_ID)).thenReturn(buildEnterprise(1));
+            when(enterprisePackMapper.selectByEnterpriseAndPack(ENT_ID, PACK_ID))
+                    .thenReturn(enterprisePack);
+            when(memberPackMapper.selectActiveByMemberIdAndPackId(MEMBER_ID, PACK_ID))
+                    .thenReturn(buildMemberPack(1));
+            when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID)).thenReturn(null);
+            when(enterprisePackMapper.incrementUsedQuota(EPACK_ID)).thenReturn(1);
+            when(enterprisePackMapper.selectById(EPACK_ID)).thenReturn(null);
+            when(usageRecordMapper.updateStatusByRecordId(
+                    eq(USAGE_RECORD_ID), eq(UsageStatus.SUCCESS.getCode()), isNull()))
+                    .thenReturn(0);
+
+            ServiceException exception = assertThrows(ServiceException.class, () ->
+                    skillConsumeService.consume(USER_ID, PACK_CODE, SKILL_CODE,
+                            USAGE_RECORD_ID, HOST_TYPE_ENT, HOST_SESSION_ID, null));
+
+            assertEquals("SKILL_USAGE_RECORD_TERMINAL_CAS_CONFLICT", exception.getMessage());
+            assertEquals(409, exception.getCode());
+            verify(enterprisePackMapper).incrementUsedQuota(EPACK_ID);
         }
 
         @Test

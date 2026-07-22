@@ -15,6 +15,7 @@ import com.wx.fbsir.business.fbs.service.FbsApiKeyAuthService;
 import com.wx.fbsir.business.fbs.service.RightsCheckService;
 import com.wx.fbsir.business.fbs.service.SkillConsumeService;
 import com.wx.fbsir.business.point.service.IPointsService;
+import com.wx.fbsir.common.exception.ServiceException;
 import com.wx.fbsir.common.core.redis.RedisCache;
 import com.wx.fbsir.framework.config.SecurityConfig;
 import com.wx.fbsir.framework.config.properties.PermitAllUrlProperties;
@@ -179,6 +180,30 @@ class FbsSkillApiHttpSecurityIntegrationTest {
         verify(skillConsumeService).consume(
                 eq(42L), eq("pack-board"), eq("board-skill"), eq("usage-001"),
                 eq("WORKBUDDY"), eq("host-session-001"), isNull());
+    }
+
+    @Test
+    void terminalCasConflictKeepsTheLegacyHttp200ButReturnsBusiness409() throws Exception {
+        FbsApiKey key = activeKey(API_KEY);
+        when(apiKeyMapper.selectActiveByKey(API_KEY)).thenReturn(key);
+        when(skillConsumeService.consume(
+                eq(42L), eq("pack-board"), eq("board-skill"), eq("usage-cas-001"),
+                eq("WORKBUDDY"), eq("host-session-001"), isNull()))
+                .thenThrow(new ServiceException("SKILL_USAGE_RECORD_TERMINAL_CAS_CONFLICT", 409));
+        String body = "{\"userId\":42,\"packCode\":\"pack-board\","
+                + "\"skillCode\":\"board-skill\",\"usageRecordId\":\"usage-cas-001\","
+                + "\"hostSessionId\":\"host-session-001\"}";
+        String timestamp = String.valueOf(System.currentTimeMillis());
+
+        mockMvc.perform(post("/fbs/skill-api/usage/consume")
+                        .header("X-FBS-API-Key", API_KEY)
+                        .header("X-FBS-Timestamp", timestamp)
+                        .header("X-FBS-Signature", hmac(API_KEY, timestamp, body))
+                        .contentType("application/json")
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(409))
+                .andExpect(jsonPath("$.msg").value("SKILL_USAGE_RECORD_TERMINAL_CAS_CONFLICT"));
     }
 
     @Test
