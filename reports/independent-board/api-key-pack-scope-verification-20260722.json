@@ -1,0 +1,170 @@
+{
+  "schema": "fbsir.independent-board-verification/v1",
+  "slice": "W3e_skill_api_key_pack_scope_least_privilege",
+  "verifiedAt": "2026-07-22T08:49:53+08:00",
+  "result": "local_source_and_production_hmac_security_chain_verified",
+  "contract": {
+    "globalKey": "fbs_api_key.pack_code_is_database_null",
+    "scopedKey": "non_null_pack_code_exact_case_sensitive_match_without_trimming",
+    "blankStoredScope": "fail_closed_as_SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE",
+    "exactIdentityResolution": "index_eligible_by_leading_equality_then_binary_exact_id_and_pack_code_only_limit_2_and_require_exactly_one",
+    "mismatch": "body_403_SKILL_API_KEY_PACK_SCOPE_MISMATCH",
+    "unverifiable": "body_403_SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE",
+    "httpSemantics": "authenticated_controller_rejections_keep_existing_http_200_ajax_body_code_contract"
+  },
+  "routeEnforcement": [
+    {
+      "method": "POST",
+      "path": "/fbs/skill-api/rights/check",
+      "policy": "requested_pack_must_match_key_scope_before_rights_service_read"
+    },
+    {
+      "method": "POST",
+      "path": "/fbs/skill-api/usage/consume",
+      "policy": "requested_pack_must_match_key_scope_before_consume_service_read_or_write"
+    },
+    {
+      "method": "POST",
+      "path": "/fbs/skill-api/usage/start",
+      "policy": "requested_pack_must_match_key_scope_before_usage_record_read_or_write"
+    },
+    {
+      "method": "PUT",
+      "path": "/fbs/skill-api/usage/end/{usageRecordId}",
+      "policy": "key_scope_is_exactly_preflighted_before_record_read_then_owner_and_record_pack_are_verified_before_terminal_state_cas"
+    },
+    {
+      "method": "POST",
+      "path": "/fbs/skill-api/scene-pack/query",
+      "policy": "requested_pack_must_match_key_scope_before_snapshot_read"
+    },
+    {
+      "method": "POST",
+      "path": "/fbs/skill-api/user/info",
+      "policy": "retain_user_global_points_balance_but_project_only_the_bound_activated_pack"
+    }
+  ],
+  "securityProperties": [
+    "only_database_null_is_a_global_key",
+    "blank_or_whitespace_stored_scope_never_expands_to_global",
+    "scoped_pack_comparison_does_not_trim_or_case_fold",
+    "case_insensitive_database_collation_cannot_expand_a_scoped_key",
+    "scope_preflight_reads_only_id_and_pack_code_before_protected_object_reads",
+    "zero_or_multiple_exact_pack_identities_fail_closed_without_arbitrary_selection",
+    "invalid_scoped_keys_cannot_probe_usage_record_existence",
+    "identity_errors_precede_pack_scope_errors_on_user_scoped_routes",
+    "pack_mismatch_errors_do_not_echo_pack_codes",
+    "usage_end_fails_closed_when_record_pack_id_or_live_pack_code_is_unresolvable",
+    "global_keys_can_consume_and_end_records_across_resolvable_packs",
+    "retired_points_earn_tombstone_remains_http_410_independent_of_pack_scope"
+  ],
+  "verification": {
+    "mavenAggregate": {
+      "testcaseElements": 146,
+      "passed": 146,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "testClasses": {
+      "skillConsumeService": 27,
+      "skillApiController": 56,
+      "scenePackMapperContract": 1,
+      "skillUsageMapperContract": 1,
+      "pointsController": 2,
+      "skillApiProductionSecurityChain": 18,
+      "independentBoardJwtHttpSecurity": 41
+    },
+    "redGreenEvidence": {
+      "capturedInitialFailures": 7,
+      "postFixFailures": 0,
+      "initialFailureScope": [
+        "rights_check_cross_pack",
+        "usage_consume_cross_pack",
+        "usage_start_cross_pack",
+        "usage_end_cross_pack",
+        "scene_pack_snapshot_cross_pack",
+        "user_info_cross_pack_projection",
+        "production_hmac_cross_pack_consume"
+      ]
+    },
+    "adversarialAuditClosure": [
+      "mysql_case_insensitive_collation_bypass_closed",
+      "pre_authorization_content_snapshot_read_removed",
+      "usage_start_and_end_invalid_scope_record_enumeration_closed",
+      "duplicate_exact_pack_identity_fails_closed_with_bounded_limit_2_read"
+    ],
+    "productionHmacPackScopeTests": 6,
+    "command": "mvn -pl FBSir-admin -am -Dtest=SkillConsumeServiceTest,FbsSkillApiControllerTest,FbsScenePackMapperContractTest,FbsSkillUsageRecordMapperContractTest,PointsControllerTest,FbsSkillApiHttpSecurityIntegrationTest,IndependentBoardHttpSecurityIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false test",
+    "sourceBinding": {
+      "verificationBaseGitHead": "6676dca53cee98f49100c5bfd3a8fceffdfa42b0",
+      "codeManifestSha256": "23B7C6134A459128C4D82B63CA81711BC154059485D592F6484089BE9966BBFD",
+      "files": {
+        "FBSir-business/src/main/java/com/wx/fbsir/business/fbs/controller/skillapi/FbsSkillApiController.java": "D110159FCAA7EB83EE7C16D83AA1592A95488136CF64137ED37851EBF4292EF2",
+        "FBSir-business/src/main/java/com/wx/fbsir/business/fbs/mapper/FbsScenePackMapper.java": "D6DB1C739CD8DD889858C35596CA2C18130C3FFDAA7458558FEAF2A39F0FF41F",
+        "FBSir-business/src/main/resources/mapper/fbs/FbsScenePackMapper.xml": "ADB3DDDA6921FFDB11594FE42DAC86958C9402805D91DE9E5661487A9DF3C767",
+        "FBSir-business/src/test/java/com/wx/fbsir/business/fbs/service/FbsSkillApiControllerTest.java": "5EB7447013DE6C00DA0B90AE567514D51CAB624FD02BF96CA5EBEA496DA2D98A",
+        "FBSir-business/src/test/java/com/wx/fbsir/business/fbs/service/FbsScenePackMapperContractTest.java": "0D9D7AC6067A4D3DBD2293653CA49ABAC918A047559B07B25B647AC5F6F57704",
+        "FBSir-admin/src/test/java/com/wx/fbsir/business/fbs/FbsSkillApiHttpSecurityIntegrationTest.java": "C888ADCBF4F0804BE9D0E7C866C616B3282AF91316E7F56A89D125813D413B38"
+      }
+    },
+    "surefireEvidence": [
+      {
+        "path": "FBSir-business/target/surefire-reports/TEST-com.wx.fbsir.business.fbs.service.FbsSkillApiControllerTest.xml",
+        "testcases": 56,
+        "sha256": "F0867AACF2A9989254135798D4B2E537775BE79D7B8D5771C525D2CF841A1A27"
+      },
+      {
+        "path": "FBSir-business/target/surefire-reports/TEST-com.wx.fbsir.business.fbs.service.FbsScenePackMapperContractTest.xml",
+        "testcases": 1,
+        "sha256": "A8FC9F74EB81D3A99A752C4918D97B6C29B9A9B9106EB369483F8379D30D8D80"
+      },
+      {
+        "path": "FBSir-business/target/surefire-reports/TEST-com.wx.fbsir.business.fbs.service.FbsSkillUsageRecordMapperContractTest.xml",
+        "testcases": 1,
+        "sha256": "1AAC0B88E142B6931A74777B3AFB35165413C0E4683A261057E865F2BA8E7854"
+      },
+      {
+        "path": "FBSir-business/target/surefire-reports/TEST-com.wx.fbsir.business.fbs.service.SkillConsumeServiceTest.xml",
+        "testcases": 27,
+        "sha256": "19509C02821FF041554E82CBD4554D7BA88AF0B321F259725DD360A0DC469A5C"
+      },
+      {
+        "path": "FBSir-business/target/surefire-reports/TEST-com.wx.fbsir.business.point.controller.PointsControllerTest.xml",
+        "testcases": 2,
+        "sha256": "170AECAB7E2299DB8D29DB5EA7D665C860381E88173D3D9B18CE2FBB626ADEA1"
+      },
+      {
+        "path": "FBSir-admin/target/surefire-reports/TEST-com.wx.fbsir.business.fbs.FbsSkillApiHttpSecurityIntegrationTest.xml",
+        "testcases": 18,
+        "sha256": "8D6F1A8E4970C9E80710620F4DED6665B0AFDE8E197966961AD12DD44F8D8240"
+      },
+      {
+        "path": "FBSir-admin/target/surefire-reports/TEST-com.wx.fbsir.business.board.IndependentBoardHttpSecurityIntegrationTest.xml",
+        "testcases": 41,
+        "sha256": "0DBC499FB99F3A7BEF47D389FF2D6F8BE001EBBCD199374BEA49DE1EA9796D8A"
+      }
+    ]
+  },
+  "truthBoundary": {
+    "applicationRoutePackScopeEnforced": true,
+    "databasePackCodeImmutabilityTriggerVerified": false,
+    "scenePackCodeApplicationUpdatePathMutatesPackCode": false,
+    "scenePackCodeUniqueIndexDeclaredInMigration": true,
+    "scenePackCodeUniqueIndexLiveDatabaseVerified": false,
+    "simultaneouslyUserAndPackBoundKeyLifecycleApi": false,
+    "currentAdminKeyCreation": "pack_scoped_or_global_but_unbound_user",
+    "currentUserKeyCreation": "user_bound_but_global_pack_scope",
+    "usageEndApiKeyInstanceAndHostScopePersisted": false,
+    "personalHostSessionScopeIsSignedCallerAssertionNotServerVerifiedHostIdentity": true,
+    "immutableCreditLedger": "not_yet_implemented",
+    "productionDeployment": false,
+    "frozenExpertPackageModified": false,
+    "frozenExpertPackageSha256": "D2380072556C0DCF429604AE33713668C509F74A0303F7BCA2BACEEBF32C78CD"
+  },
+  "nextAction": "implement_the_USER_GLOBAL_FBS_POINTS_immutable_shadow_ledger_before_reopening_any_new_points_write_contract",
+  "secondaryBacklog": [
+    "design_and_verify_a_user_bound_pack_scoped_api_key_lifecycle_without_allowing_self_service_entitlement_bypass"
+  ]
+}

@@ -39,6 +39,11 @@ import java.util.stream.Collectors;
 @RequestMapping("/fbs/skill-api")
 public class FbsSkillApiController {
 
+    private static final String PACK_SCOPE_MISMATCH =
+            "SKILL_API_KEY_PACK_SCOPE_MISMATCH";
+    private static final String PACK_SCOPE_UNVERIFIABLE =
+            "SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE";
+
     @Autowired
     private RightsCheckService rightsCheckService;
 
@@ -70,6 +75,10 @@ public class FbsSkillApiController {
         }
         if (!StringUtils.hasText(request.getPackCode())) {
             return AjaxResult.error("参数不能为空");
+        }
+        AjaxResult packScopeError = validateRequestedPackScope(apiKey, request.getPackCode());
+        if (packScopeError != null) {
+            return packScopeError;
         }
 
         String hostType = StringUtils.hasText(request.getHostType()) ? request.getHostType() : "WORKBUDDY";
@@ -108,6 +117,10 @@ public class FbsSkillApiController {
                 || !StringUtils.hasText(request.getSkillCode())) {
             return AjaxResult.error("参数不能为空");
         }
+        AjaxResult packScopeError = validateRequestedPackScope(apiKey, request.getPackCode());
+        if (packScopeError != null) {
+            return packScopeError;
+        }
 
         String hostType = StringUtils.hasText(request.getHostType()) ? request.getHostType() : "WORKBUDDY";
         ConsumeResult result = skillConsumeService.consume(
@@ -143,6 +156,10 @@ public class FbsSkillApiController {
         if (!StringUtils.hasText(request.getPackCode())
                 || !StringUtils.hasText(request.getUsageRecordId()) || !StringUtils.hasText(request.getSkillCode())) {
             return AjaxResult.error("参数不能为空");
+        }
+        AjaxResult packScopeError = validateRequestedPackScope(apiKey, request.getPackCode());
+        if (packScopeError != null) {
+            return packScopeError;
         }
 
         String hostType = StringUtils.hasText(request.getHostType()) ? request.getHostType() : "WORKBUDDY";
@@ -219,6 +236,10 @@ public class FbsSkillApiController {
         if (request.getStatus() == null || (request.getStatus() != 1 && request.getStatus() != 2)) {
             return AjaxResult.error("status 必须为 1（成功）或 2（失败）");
         }
+        AjaxResult packScopeError = validateApiKeyPackScope(apiKey);
+        if (packScopeError != null) {
+            return packScopeError;
+        }
 
         // 查记录
         FbsSkillUsageRecord existing = usageRecordMapper.selectByRecordId(usageRecordId);
@@ -228,6 +249,10 @@ public class FbsSkillApiController {
         bindingError = validateBoundUser(apiKey, existing.getUserId());
         if (bindingError != null) {
             return bindingError;
+        }
+        packScopeError = validateUsageRecordPackScope(apiKey, existing);
+        if (packScopeError != null) {
+            return packScopeError;
         }
 
         // 幂等语义
@@ -260,6 +285,11 @@ public class FbsSkillApiController {
     public AjaxResult scenePackQuery(@RequestBody SkillApiScenePackQueryRequest request) {
         if (!StringUtils.hasText(request.getPackCode())) {
             return AjaxResult.error("场景包编码不能为空");
+        }
+        FbsApiKey apiKey = getCurrentApiKey();
+        AjaxResult packScopeError = validateRequestedPackScope(apiKey, request.getPackCode());
+        if (packScopeError != null) {
+            return packScopeError;
         }
 
         FbsScenePack pack = scenePackMapper.selectByPackCode(request.getPackCode());
@@ -294,6 +324,23 @@ public class FbsSkillApiController {
         }
         Long userId = apiKey.getUserId();
 
+        FbsScenePack scopedPack = null;
+        AjaxResult storedScopeError = validateStoredPackScope(apiKey);
+        if (storedScopeError != null) {
+            return storedScopeError;
+        }
+        if (apiKey.getPackCode() != null) {
+            FbsScenePack scopedIdentity = resolveExactPackIdentity(apiKey.getPackCode());
+            if (scopedIdentity == null) {
+                return packScopeUnverifiable();
+            }
+            scopedPack = scenePackMapper.selectById(scopedIdentity.getId());
+            if (scopedPack == null
+                    || !apiKey.getPackCode().equals(scopedPack.getPackCode())) {
+                return packScopeUnverifiable();
+            }
+        }
+
         // 2. 积分余额
         Integer pointsBalance = pointsService.getUserPoints(userId);
         if (pointsBalance == null) {
@@ -305,8 +352,13 @@ public class FbsSkillApiController {
         List<Map<String, Object>> activatedPacks = new ArrayList<>();
         if (activePacks != null) {
             for (FbsUserPack up : activePacks) {
+                if (scopedPack != null && !Objects.equals(up.getPackId(), scopedPack.getId())) {
+                    continue;
+                }
                 // 查场景包编码和名称
-                FbsScenePack pack = scenePackMapper.selectById(up.getPackId());
+                FbsScenePack pack = scopedPack != null
+                        ? scopedPack
+                        : scenePackMapper.selectById(up.getPackId());
                 Map<String, Object> packInfo = new HashMap<>();
                 packInfo.put("packId", up.getPackId());
                 // null 占位：scenePackMapper.selectById() 返回 null 时补 null，避免 Skill 端 key 不存在
@@ -361,6 +413,95 @@ public class FbsSkillApiController {
             return AjaxResult.error(403, "SKILL_API_KEY_USER_MISMATCH");
         }
         return null;
+    }
+
+    /** Only a database NULL denotes a global key. Blank scope is invalid, never global. */
+    private AjaxResult validateStoredPackScope(FbsApiKey apiKey) {
+        if (apiKey == null) {
+            return packScopeUnverifiable();
+        }
+        if (apiKey.getPackCode() != null && !StringUtils.hasText(apiKey.getPackCode())) {
+            return packScopeUnverifiable();
+        }
+        return null;
+    }
+
+    private AjaxResult validateRequestedPackScope(FbsApiKey apiKey, String requestedPackCode) {
+        AjaxResult valueError = validateRequestedPackScopeValue(apiKey, requestedPackCode);
+        if (valueError != null) {
+            return valueError;
+        }
+        return validateResolvedRequestedPackScope(apiKey, requestedPackCode);
+    }
+
+    private AjaxResult validateApiKeyPackScope(FbsApiKey apiKey) {
+        AjaxResult storedScopeError = validateStoredPackScope(apiKey);
+        if (storedScopeError != null || apiKey.getPackCode() == null) {
+            return storedScopeError;
+        }
+        return validateResolvedRequestedPackScope(apiKey, apiKey.getPackCode());
+    }
+
+    private AjaxResult validateRequestedPackScopeValue(
+            FbsApiKey apiKey, String requestedPackCode) {
+        AjaxResult storedScopeError = validateStoredPackScope(apiKey);
+        if (storedScopeError != null) {
+            return storedScopeError;
+        }
+        if (apiKey.getPackCode() != null
+                && !apiKey.getPackCode().equals(requestedPackCode)) {
+            return AjaxResult.error(403, PACK_SCOPE_MISMATCH);
+        }
+        return null;
+    }
+
+    private AjaxResult validateResolvedRequestedPackScope(
+            FbsApiKey apiKey, String requestedPackCode) {
+        if (apiKey.getPackCode() != null) {
+            FbsScenePack resolvedPack = resolveExactPackIdentity(requestedPackCode);
+            if (resolvedPack == null
+                    || !apiKey.getPackCode().equals(resolvedPack.getPackCode())) {
+                return packScopeUnverifiable();
+            }
+        }
+        return null;
+    }
+
+    private FbsScenePack resolveExactPackIdentity(String packCode) {
+        List<FbsScenePack> identities = scenePackMapper.selectIdentitiesByPackCodeExact(packCode);
+        if (identities == null || identities.size() != 1) {
+            return null;
+        }
+        FbsScenePack identity = identities.get(0);
+        if (identity == null || identity.getId() == null
+                || !packCode.equals(identity.getPackCode())) {
+            return null;
+        }
+        return identity;
+    }
+
+    private AjaxResult validateUsageRecordPackScope(
+            FbsApiKey apiKey, FbsSkillUsageRecord record) {
+        AjaxResult storedScopeError = validateStoredPackScope(apiKey);
+        if (storedScopeError != null) {
+            return storedScopeError;
+        }
+        if (record.getPackId() == null) {
+            return packScopeUnverifiable();
+        }
+        FbsScenePack recordPack = scenePackMapper.selectById(record.getPackId());
+        if (recordPack == null || !StringUtils.hasText(recordPack.getPackCode())) {
+            return packScopeUnverifiable();
+        }
+        if (apiKey.getPackCode() != null
+                && !apiKey.getPackCode().equals(recordPack.getPackCode())) {
+            return AjaxResult.error(403, PACK_SCOPE_MISMATCH);
+        }
+        return null;
+    }
+
+    private AjaxResult packScopeUnverifiable() {
+        return AjaxResult.error(403, PACK_SCOPE_UNVERIFIABLE);
     }
 
     private boolean isSameUsageScope(FbsSkillUsageRecord record, Long userId, Long packId,

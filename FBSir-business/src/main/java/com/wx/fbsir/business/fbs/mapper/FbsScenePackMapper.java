@@ -36,6 +36,16 @@ public interface FbsScenePackMapper {
     FbsScenePack selectByPackCode(@Param("packCode") String packCode);
 
     /**
+     * Resolve only the immutable identity needed for API-key scope authorization.
+     * The SQL uses a binary comparison so a case-insensitive database collation
+     * cannot expand a scoped key to a differently cased pack code.
+     *
+     * @param packCode exact scene-pack code
+     * @return zero to two id/packCode-only rows; callers require exactly one
+     */
+    List<FbsScenePack> selectIdentitiesByPackCodeExact(@Param("packCode") String packCode);
+
+    /**
      * 列表查询（支持按status/packType筛选，Mapper不带Page参数）
      * 分页由Controller层startPage()触发，PageHelper通过ThreadLocal拦截SQL
      *

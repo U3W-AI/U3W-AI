@@ -42,6 +42,16 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         WHERE pack_code = #{packCode} AND del_flag = '0'
     </select>
 
+    <!-- Narrow authorization read: exact bytes and no content snapshot/properties. -->
+    <select id="selectIdentitiesByPackCodeExact" parameterType="String" resultMap="FbsScenePackResult">
+        SELECT id, pack_code
+        FROM fbs_scene_pack
+        WHERE pack_code = #{packCode}
+          AND BINARY pack_code = BINARY #{packCode}
+          AND del_flag = '0'
+        LIMIT 2
+    </select>
+
     <!-- 列表查询（运营后台分页） -->
     <select id="selectScenePackList" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsScenePack" resultMap="FbsScenePackResult">
         <include refid="selectFbsScenePackVo"/>

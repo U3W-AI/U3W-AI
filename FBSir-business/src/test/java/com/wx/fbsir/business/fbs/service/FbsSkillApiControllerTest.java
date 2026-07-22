@@ -14,6 +14,8 @@ import com.wx.fbsir.business.fbs.mapper.FbsUserPackMapper;
 import com.wx.fbsir.business.fbs.controller.skillapi.FbsSkillApiController;
 import com.wx.fbsir.business.point.service.IPointsService;
 import com.wx.fbsir.common.core.domain.AjaxResult;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -117,8 +119,30 @@ class FbsSkillApiControllerTest {
         return record;
     }
 
+    @BeforeEach
+    void stubCurrentPackMappings() {
+        lenient().when(scenePackMapper.selectIdentitiesByPackCodeExact(PACK_CODE))
+                .thenReturn(Collections.singletonList(buildScenePack()));
+        lenient().when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(buildScenePack());
+        lenient().when(scenePackMapper.selectById(1L)).thenReturn(buildScenePack());
+    }
+
+    @AfterEach
+    void clearAuthentication() {
+        clearSecurityContext();
+    }
+
     private void setupSecurityContext() {
+        setupSecurityContext(buildApiKey());
+    }
+
+    private void setupGlobalSecurityContext() {
         FbsApiKey apiKey = buildApiKey();
+        apiKey.setPackCode(null);
+        setupSecurityContext(apiKey);
+    }
+
+    private void setupSecurityContext(FbsApiKey apiKey) {
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                 apiKey, null, List.of(new SimpleGrantedAuthority("ROLE_SKILL_API")));
         SecurityContextHolder.getContext().setAuthentication(auth);
@@ -213,6 +237,82 @@ class FbsSkillApiControllerTest {
         }
 
         @Test
+        @DisplayName("W3e：场景包专用 Key 不能校验其他场景包权益")
+        void rightsCheckRejectsPackScopeMismatch() {
+            setupSecurityContext();
+            String otherPackCode = "pack_other";
+            SkillApiCheckRequest request = new SkillApiCheckRequest();
+            request.setUserId(USER_ID);
+            request.setPackCode(otherPackCode);
+
+            AjaxResult result = controller.rightsCheck(request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_PACK_SCOPE_MISMATCH", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(rightsCheckService);
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("W3e：空白 pack scope 不是全局 Key，必须失败关闭")
+        void rightsCheckRejectsBlankPackScopeAsUnverifiable() {
+            FbsApiKey apiKey = buildApiKey();
+            apiKey.setPackCode(" ");
+            setupSecurityContext(apiKey);
+            SkillApiCheckRequest request = new SkillApiCheckRequest();
+            request.setUserId(USER_ID);
+            request.setPackCode(PACK_CODE);
+
+            AjaxResult result = controller.rightsCheck(request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(rightsCheckService);
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("W3e：数据库大小写不敏感命中不能放宽 Key 的精确包范围")
+        void rightsCheckRejectsCaseVariantResolvedByCaseInsensitiveDatabase() {
+            String caseVariant = "PACK_BOOKWRITER_V2";
+            FbsApiKey apiKey = buildApiKey();
+            apiKey.setPackCode(caseVariant);
+            setupSecurityContext(apiKey);
+            SkillApiCheckRequest request = new SkillApiCheckRequest();
+            request.setUserId(USER_ID);
+            request.setPackCode(caseVariant);
+
+            AjaxResult result = controller.rightsCheck(request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(rightsCheckService);
+            verify(scenePackMapper).selectIdentitiesByPackCodeExact(caseVariant);
+            verify(scenePackMapper, never()).selectByPackCode(caseVariant);
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("W3e：重复精确包身份不能被静默任选为授权对象")
+        void rightsCheckRejectsAmbiguousExactPackIdentity() {
+            setupSecurityContext();
+            FbsScenePack duplicate = buildScenePack();
+            duplicate.setId(2L);
+            when(scenePackMapper.selectIdentitiesByPackCodeExact(PACK_CODE))
+                    .thenReturn(Arrays.asList(buildScenePack(), duplicate));
+            SkillApiCheckRequest request = new SkillApiCheckRequest();
+            request.setUserId(USER_ID);
+            request.setPackCode(PACK_CODE);
+
+            AjaxResult result = controller.rightsCheck(request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(rightsCheckService);
+            clearSecurityContext();
+        }
+
+        @Test
         @DisplayName("§6.1.2.1.4 参数校验 — packCode 为空")
         void rightsCheckMissingPackCode() {
             setupSecurityContext();
@@ -289,6 +389,25 @@ class FbsSkillApiControllerTest {
             AjaxResult result = controller.usageConsume(request);
 
             assertEquals(500, result.get(AjaxResult.CODE_TAG));
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("W3e：场景包专用 Key 不能消费其他场景包")
+        void consumeRejectsPackScopeMismatch() {
+            setupSecurityContext();
+            String otherPackCode = "pack_other";
+            SkillApiConsumeRequest request = new SkillApiConsumeRequest();
+            request.setUserId(USER_ID);
+            request.setPackCode(otherPackCode);
+            request.setSkillCode(SKILL_CODE);
+            request.setUsageRecordId(USAGE_RECORD_ID);
+
+            AjaxResult result = controller.usageConsume(request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_PACK_SCOPE_MISMATCH", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(skillConsumeService);
             clearSecurityContext();
         }
     }
@@ -386,7 +505,7 @@ class FbsSkillApiControllerTest {
         @Test
         @DisplayName("§6.1.2.3.5 场景包不存在 — 返回错误")
         void startPackNotFound() {
-            setupSecurityContext();
+            setupGlobalSecurityContext();
             when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID)).thenReturn(null);
             when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(null);
 
@@ -438,8 +557,51 @@ class FbsSkillApiControllerTest {
 
             assertEquals(403, result.get(AjaxResult.CODE_TAG));
             assertEquals("SKILL_API_KEY_USER_MISMATCH", result.get(AjaxResult.MSG_TAG));
+            verify(scenePackMapper).selectIdentitiesByPackCodeExact(PACK_CODE);
             verify(scenePackMapper, never()).selectByPackCode(anyString());
             verify(usageRecordMapper, never()).insertUsageRecord(any());
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("W3e：场景包专用 Key 不能为其他场景包开始使用记录")
+        void startRejectsPackScopeMismatchBeforeReadOrWrite() {
+            setupSecurityContext();
+            String otherPackCode = "pack_other";
+            SkillApiStartRequest request = new SkillApiStartRequest();
+            request.setUserId(USER_ID);
+            request.setPackCode(otherPackCode);
+            request.setSkillCode(SKILL_CODE);
+            request.setUsageRecordId(USAGE_RECORD_ID);
+
+            AjaxResult result = controller.usageStart(request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_PACK_SCOPE_MISMATCH", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(usageRecordMapper, scenePackMapper);
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("W3e：无效大小写包范围不能探测 usageRecordId 是否存在")
+        void startRejectsCaseVariantBeforeUsageRecordRead() {
+            String caseVariant = "PACK_BOOKWRITER_V2";
+            FbsApiKey apiKey = buildApiKey();
+            apiKey.setPackCode(caseVariant);
+            setupSecurityContext(apiKey);
+            SkillApiStartRequest request = new SkillApiStartRequest();
+            request.setUserId(USER_ID);
+            request.setPackCode(caseVariant);
+            request.setSkillCode(SKILL_CODE);
+            request.setUsageRecordId(USAGE_RECORD_ID);
+
+            AjaxResult result = controller.usageStart(request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(usageRecordMapper);
+            verify(scenePackMapper).selectIdentitiesByPackCodeExact(caseVariant);
+            verify(scenePackMapper, never()).selectByPackCode(caseVariant);
             clearSecurityContext();
         }
     }
@@ -569,6 +731,60 @@ class FbsSkillApiControllerTest {
         }
 
         @Test
+        @DisplayName("W3e：无效大小写包范围不能探测 usage/end 记录是否存在")
+        void endRejectsCaseVariantBeforeUsageRecordRead() {
+            String caseVariant = "PACK_BOOKWRITER_V2";
+            FbsApiKey apiKey = buildApiKey();
+            apiKey.setPackCode(caseVariant);
+            setupSecurityContext(apiKey);
+            SkillApiEndRequest request = new SkillApiEndRequest();
+            request.setStatus(1);
+
+            AjaxResult result = controller.usageEnd(USAGE_RECORD_ID, request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(usageRecordMapper);
+            verify(scenePackMapper).selectIdentitiesByPackCodeExact(caseVariant);
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("W3e：空白 Key 包范围不能探测 usage/end 记录是否存在")
+        void endRejectsBlankPackScopeBeforeUsageRecordRead() {
+            FbsApiKey apiKey = buildApiKey();
+            apiKey.setPackCode(" ");
+            setupSecurityContext(apiKey);
+            SkillApiEndRequest request = new SkillApiEndRequest();
+            request.setStatus(1);
+
+            AjaxResult result = controller.usageEnd(USAGE_RECORD_ID, request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(usageRecordMapper, scenePackMapper);
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("W3e：不存在的 Key 包范围不能探测 usage/end 记录是否存在")
+        void endRejectsMissingPackScopeBeforeUsageRecordRead() {
+            FbsApiKey apiKey = buildApiKey();
+            apiKey.setPackCode("pack_missing");
+            setupSecurityContext(apiKey);
+            SkillApiEndRequest request = new SkillApiEndRequest();
+            request.setStatus(1);
+
+            AjaxResult result = controller.usageEnd(USAGE_RECORD_ID, request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(usageRecordMapper);
+            verify(scenePackMapper).selectIdentitiesByPackCodeExact("pack_missing");
+            clearSecurityContext();
+        }
+
+        @Test
         @DisplayName("§6.1.2.4.7 API Key 不能结束其他用户的记录")
         void endRejectsRecordOwnedByAnotherUser() {
             setupSecurityContext();
@@ -585,6 +801,67 @@ class FbsSkillApiControllerTest {
             assertEquals(403, result.get(AjaxResult.CODE_TAG));
             assertEquals("SKILL_API_KEY_USER_MISMATCH", result.get(AjaxResult.MSG_TAG));
             verify(usageRecordMapper, never()).updateStatusByRecordId(any(), any(), any());
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("W3e：场景包专用 Key 不能结束其他场景包的使用记录")
+        void endRejectsRecordOutsidePackScope() {
+            setupSecurityContext();
+            FbsSkillUsageRecord otherPackRecord = buildUsageRecord(
+                    UsageStatus.IN_PROGRESS.getCode());
+            otherPackRecord.setPackId(2L);
+            when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID)).thenReturn(otherPackRecord);
+            FbsScenePack otherPack = buildScenePack();
+            otherPack.setId(2L);
+            otherPack.setPackCode("pack_other");
+            when(scenePackMapper.selectById(2L)).thenReturn(otherPack);
+            SkillApiEndRequest request = new SkillApiEndRequest();
+            request.setStatus(1);
+
+            AjaxResult result = controller.usageEnd(USAGE_RECORD_ID, request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_PACK_SCOPE_MISMATCH", result.get(AjaxResult.MSG_TAG));
+            verify(usageRecordMapper, never()).updateStatusByRecordId(any(), any(), any());
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("W3e：缺少 packId 的旧使用记录不能被任何 Key 结束")
+        void endRejectsUnverifiableRecordWithoutPackId() {
+            setupGlobalSecurityContext();
+            FbsSkillUsageRecord packlessRecord = buildUsageRecord(UsageStatus.IN_PROGRESS.getCode());
+            packlessRecord.setPackId(null);
+            when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID)).thenReturn(packlessRecord);
+            SkillApiEndRequest request = new SkillApiEndRequest();
+            request.setStatus(1);
+
+            AjaxResult result = controller.usageEnd(USAGE_RECORD_ID, request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE", result.get(AjaxResult.MSG_TAG));
+            verify(scenePackMapper, never()).selectById(anyLong());
+            verify(usageRecordMapper, never()).updateStatusByRecordId(any(), any(), any());
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("W3e：全局 Key 可结束可解析场景包的本人记录")
+        void globalKeyCanEndAResolvedPackRecord() {
+            setupGlobalSecurityContext();
+            when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID))
+                    .thenReturn(buildUsageRecord(UsageStatus.IN_PROGRESS.getCode()));
+            when(usageRecordMapper.updateStatusByRecordId(eq(USAGE_RECORD_ID), eq(1), isNull()))
+                    .thenReturn(1);
+            SkillApiEndRequest request = new SkillApiEndRequest();
+            request.setStatus(1);
+
+            AjaxResult result = controller.usageEnd(USAGE_RECORD_ID, request);
+
+            assertEquals(200, result.get(AjaxResult.CODE_TAG));
+            verify(scenePackMapper).selectById(1L);
+            verify(usageRecordMapper).updateStatusByRecordId(USAGE_RECORD_ID, 1, null);
             clearSecurityContext();
         }
     }
@@ -620,7 +897,7 @@ class FbsSkillApiControllerTest {
         @Test
         @DisplayName("§6.1.2.5.2 场景包不存在 — 返回错误")
         void queryPackNotFound() {
-            setupSecurityContext();
+            setupGlobalSecurityContext();
             when(scenePackMapper.selectByPackCode("nonexistent")).thenReturn(null);
 
             SkillApiScenePackQueryRequest request = new SkillApiScenePackQueryRequest();
@@ -644,6 +921,22 @@ class FbsSkillApiControllerTest {
             assertEquals(500, result.get(AjaxResult.CODE_TAG));
             clearSecurityContext();
         }
+
+        @Test
+        @DisplayName("W3e：场景包专用 Key 不能读取其他包的内容快照")
+        void queryRejectsPackScopeMismatchBeforeSnapshotRead() {
+            setupSecurityContext();
+            String otherPackCode = "pack_other";
+            SkillApiScenePackQueryRequest request = new SkillApiScenePackQueryRequest();
+            request.setPackCode(otherPackCode);
+
+            AjaxResult result = controller.scenePackQuery(request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_PACK_SCOPE_MISMATCH", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(scenePackMapper);
+            clearSecurityContext();
+        }
     }
 
     // ========================================================================
@@ -665,7 +958,6 @@ class FbsSkillApiControllerTest {
             userPack.setPackId(1L);
             userPack.setStatus(1);
             when(userPackMapper.selectActiveByUserId(USER_ID)).thenReturn(Collections.singletonList(userPack));
-            when(scenePackMapper.selectById(1L)).thenReturn(buildScenePack());
 
             SkillApiUserInfoRequest request = new SkillApiUserInfoRequest();
             request.setUserId(USER_ID);
@@ -678,6 +970,71 @@ class FbsSkillApiControllerTest {
             assertEquals(USER_ID, data.get("userId"));
             assertEquals(990, data.get("pointsBalance"));
             assertNotNull(data.get("activatedPacks"));
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("W3e：场景包专用 Key 的 user/info 只投影绑定包")
+        void queryFiltersActivatedPacksToApiKeyPackScope() {
+            setupSecurityContext();
+            when(pointsService.getUserPoints(USER_ID)).thenReturn(990);
+            FbsUserPack boundUserPack = new FbsUserPack();
+            boundUserPack.setPackId(1L);
+            boundUserPack.setStatus(1);
+            FbsUserPack otherUserPack = new FbsUserPack();
+            otherUserPack.setPackId(2L);
+            otherUserPack.setStatus(1);
+            when(userPackMapper.selectActiveByUserId(USER_ID))
+                    .thenReturn(Arrays.asList(boundUserPack, otherUserPack));
+            SkillApiUserInfoRequest request = new SkillApiUserInfoRequest();
+            request.setUserId(USER_ID);
+
+            AjaxResult result = controller.userInfo(request);
+
+            assertEquals(200, result.get(AjaxResult.CODE_TAG));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) result.get(AjaxResult.DATA_TAG);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> packs = (List<Map<String, Object>>) data.get("activatedPacks");
+            assertEquals(1, packs.size());
+            assertEquals(PACK_CODE, packs.get(0).get("packCode"));
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("W3e：无法解析的场景包 scope 在读取用户信息前失败关闭")
+        void queryRejectsUnresolvablePackScopeBeforeUserReads() {
+            FbsApiKey apiKey = buildApiKey();
+            apiKey.setPackCode("pack_missing");
+            setupSecurityContext(apiKey);
+            SkillApiUserInfoRequest request = new SkillApiUserInfoRequest();
+            request.setUserId(USER_ID);
+
+            AjaxResult result = controller.userInfo(request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(pointsService, userPackMapper);
+            clearSecurityContext();
+        }
+
+        @Test
+        @DisplayName("W3e：user/info 拒绝数据库大小写不敏感命中的包范围")
+        void queryRejectsCaseVariantResolvedByCaseInsensitiveDatabase() {
+            String caseVariant = "PACK_BOOKWRITER_V2";
+            FbsApiKey apiKey = buildApiKey();
+            apiKey.setPackCode(caseVariant);
+            setupSecurityContext(apiKey);
+            SkillApiUserInfoRequest request = new SkillApiUserInfoRequest();
+            request.setUserId(USER_ID);
+
+            AjaxResult result = controller.userInfo(request);
+
+            assertEquals(403, result.get(AjaxResult.CODE_TAG));
+            assertEquals("SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE", result.get(AjaxResult.MSG_TAG));
+            verifyNoInteractions(pointsService, userPackMapper);
+            verify(scenePackMapper).selectIdentitiesByPackCodeExact(caseVariant);
+            verify(scenePackMapper, never()).selectById(anyLong());
             clearSecurityContext();
         }
 
@@ -927,7 +1284,7 @@ class FbsSkillApiControllerTest {
         @Test
         @DisplayName("§14.2.1 scenePackMapper.selectById 返回 null → packCode/packName/packStatus 为 null")
         void userInfoPackNull() {
-            setupSecurityContext();
+            setupGlobalSecurityContext();
             when(pointsService.getUserPoints(USER_ID)).thenReturn(100);
 
             FbsUserPack userPack = new FbsUserPack();
@@ -968,7 +1325,6 @@ class FbsSkillApiControllerTest {
             userPack.setPackId(1L);
             userPack.setStatus(1);
             when(userPackMapper.selectActiveByUserId(USER_ID)).thenReturn(Collections.singletonList(userPack));
-            when(scenePackMapper.selectById(1L)).thenReturn(buildScenePack());
 
             SkillApiUserInfoRequest request = new SkillApiUserInfoRequest();
             request.setUserId(USER_ID);

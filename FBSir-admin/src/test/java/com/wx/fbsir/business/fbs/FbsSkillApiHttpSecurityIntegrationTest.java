@@ -3,7 +3,9 @@ package com.wx.fbsir.business.fbs;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wx.fbsir.business.fbs.controller.skillapi.FbsSkillApiController;
 import com.wx.fbsir.business.fbs.domain.entity.FbsApiKey;
+import com.wx.fbsir.business.fbs.domain.entity.FbsScenePack;
 import com.wx.fbsir.business.fbs.domain.entity.FbsSkillUsageRecord;
+import com.wx.fbsir.business.fbs.domain.entity.FbsUserPack;
 import com.wx.fbsir.business.fbs.dto.ConsumeResult;
 import com.wx.fbsir.business.fbs.mapper.FbsApiKeyMapper;
 import com.wx.fbsir.business.fbs.mapper.FbsScenePackMapper;
@@ -44,6 +46,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -68,6 +71,8 @@ class FbsSkillApiHttpSecurityIntegrationTest {
     private static SkillConsumeService skillConsumeService;
     private static RightsCheckService rightsCheckService;
     private static FbsSkillUsageRecordMapper usageRecordMapper;
+    private static FbsScenePackMapper scenePackMapper;
+    private static FbsUserPackMapper userPackMapper;
 
     @BeforeAll
     static void startProductionSecurityChain() {
@@ -89,6 +94,8 @@ class FbsSkillApiHttpSecurityIntegrationTest {
         skillConsumeService = context.getBean(SkillConsumeService.class);
         rightsCheckService = context.getBean(RightsCheckService.class);
         usageRecordMapper = context.getBean(FbsSkillUsageRecordMapper.class);
+        scenePackMapper = context.getBean(FbsScenePackMapper.class);
+        userPackMapper = context.getBean(FbsUserPackMapper.class);
         mockMvc = MockMvcBuilders.webAppContextSetup(context)
                 .addFilters(context.getBean(
                         "springSecurityFilterChain", jakarta.servlet.Filter.class))
@@ -105,7 +112,7 @@ class FbsSkillApiHttpSecurityIntegrationTest {
     @BeforeEach
     void resetBoundaries() {
         reset(apiKeyMapper, pointsService, skillConsumeService,
-                rightsCheckService, usageRecordMapper);
+                rightsCheckService, usageRecordMapper, scenePackMapper, userPackMapper);
     }
 
     @Test
@@ -172,6 +179,174 @@ class FbsSkillApiHttpSecurityIntegrationTest {
         verify(skillConsumeService).consume(
                 eq(42L), eq("pack-board"), eq("board-skill"), eq("usage-001"),
                 eq("WORKBUDDY"), eq("host-session-001"), isNull());
+    }
+
+    @Test
+    void packScopedKeyCannotConsumeAnotherPackThroughTheProductionHmacChain() throws Exception {
+        FbsApiKey key = activeKey(API_KEY);
+        key.setPackCode("pack-board");
+        when(apiKeyMapper.selectActiveByKey(API_KEY)).thenReturn(key);
+        String body = "{\"userId\":42,\"packCode\":\"pack-other\"," +
+                "\"skillCode\":\"board-skill\",\"usageRecordId\":\"usage-pack-scope-001\"}";
+        String timestamp = String.valueOf(System.currentTimeMillis());
+
+        mockMvc.perform(post("/fbs/skill-api/usage/consume")
+                        .header("X-FBS-API-Key", API_KEY)
+                        .header("X-FBS-Timestamp", timestamp)
+                        .header("X-FBS-Signature", hmac(API_KEY, timestamp, body))
+                        .contentType("application/json")
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.msg").value("SKILL_API_KEY_PACK_SCOPE_MISMATCH"));
+
+        verifyNoInteractions(skillConsumeService);
+    }
+
+    @Test
+    void packScopedKeyCannotReadAnotherPackSnapshotThroughTheProductionHmacChain()
+            throws Exception {
+        FbsApiKey key = activeKey(API_KEY);
+        key.setPackCode("pack-board");
+        when(apiKeyMapper.selectActiveByKey(API_KEY)).thenReturn(key);
+        String body = "{\"packCode\":\"pack-other\"}";
+        String timestamp = String.valueOf(System.currentTimeMillis());
+
+        mockMvc.perform(post("/fbs/skill-api/scene-pack/query")
+                        .header("X-FBS-API-Key", API_KEY)
+                        .header("X-FBS-Timestamp", timestamp)
+                        .header("X-FBS-Signature", hmac(API_KEY, timestamp, body))
+                        .contentType("application/json")
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.msg").value("SKILL_API_KEY_PACK_SCOPE_MISMATCH"));
+
+        verifyNoInteractions(scenePackMapper);
+    }
+
+    @Test
+    void caseInsensitiveDatabaseResolutionCannotExpandTheProductionPackScope()
+            throws Exception {
+        FbsApiKey key = activeKey(API_KEY);
+        key.setPackCode("PACK-BOARD");
+        when(apiKeyMapper.selectActiveByKey(API_KEY)).thenReturn(key);
+        String body = "{\"packCode\":\"PACK-BOARD\"}";
+        String timestamp = String.valueOf(System.currentTimeMillis());
+
+        mockMvc.perform(post("/fbs/skill-api/scene-pack/query")
+                        .header("X-FBS-API-Key", API_KEY)
+                        .header("X-FBS-Timestamp", timestamp)
+                        .header("X-FBS-Signature", hmac(API_KEY, timestamp, body))
+                        .contentType("application/json")
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.msg").value("SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE"));
+
+        verify(scenePackMapper).selectIdentitiesByPackCodeExact("PACK-BOARD");
+        verify(scenePackMapper, never()).selectByPackCode("PACK-BOARD");
+    }
+
+    @Test
+    void invalidPackScopeCannotProbeUsageEndRecordsThroughTheProductionHmacChain()
+            throws Exception {
+        FbsApiKey key = activeKey(API_KEY);
+        key.setPackCode("PACK-BOARD");
+        when(apiKeyMapper.selectActiveByKey(API_KEY)).thenReturn(key);
+        String body = "{\"status\":1}";
+        String timestamp = String.valueOf(System.currentTimeMillis());
+
+        mockMvc.perform(put("/fbs/skill-api/usage/end/probe-record-001")
+                        .header("X-FBS-API-Key", API_KEY)
+                        .header("X-FBS-Timestamp", timestamp)
+                        .header("X-FBS-Signature", hmac(API_KEY, timestamp, body))
+                        .contentType("application/json")
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.msg").value("SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE"));
+
+        verify(scenePackMapper).selectIdentitiesByPackCodeExact("PACK-BOARD");
+        verifyNoInteractions(usageRecordMapper);
+    }
+
+    @Test
+    void packScopedKeyCannotEndAnotherPackRecordThroughTheProductionHmacChain()
+            throws Exception {
+        FbsApiKey key = activeKey(API_KEY);
+        key.setPackCode("pack-board");
+        when(apiKeyMapper.selectActiveByKey(API_KEY)).thenReturn(key);
+        FbsScenePack boundIdentity = new FbsScenePack();
+        boundIdentity.setId(1L);
+        boundIdentity.setPackCode("pack-board");
+        when(scenePackMapper.selectIdentitiesByPackCodeExact("pack-board"))
+                .thenReturn(List.of(boundIdentity));
+        FbsSkillUsageRecord record = new FbsSkillUsageRecord();
+        record.setUsageRecordId("usage-end-pack-scope-001");
+        record.setUserId(42L);
+        record.setPackId(2L);
+        record.setStatus(0);
+        when(usageRecordMapper.selectByRecordId("usage-end-pack-scope-001"))
+                .thenReturn(record);
+        FbsScenePack otherPack = new FbsScenePack();
+        otherPack.setId(2L);
+        otherPack.setPackCode("pack-other");
+        when(scenePackMapper.selectById(2L)).thenReturn(otherPack);
+        String body = "{\"status\":1}";
+        String timestamp = String.valueOf(System.currentTimeMillis());
+
+        mockMvc.perform(put("/fbs/skill-api/usage/end/usage-end-pack-scope-001")
+                        .header("X-FBS-API-Key", API_KEY)
+                        .header("X-FBS-Timestamp", timestamp)
+                        .header("X-FBS-Signature", hmac(API_KEY, timestamp, body))
+                        .contentType("application/json")
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.msg").value("SKILL_API_KEY_PACK_SCOPE_MISMATCH"));
+
+        verify(usageRecordMapper, never()).updateStatusByRecordId(
+                eq("usage-end-pack-scope-001"), eq(1), isNull());
+    }
+
+    @Test
+    void packScopedKeyUserInfoProjectsOnlyItsBoundPackThroughTheProductionHmacChain()
+            throws Exception {
+        FbsApiKey key = activeKey(API_KEY);
+        key.setPackCode("pack-board");
+        when(apiKeyMapper.selectActiveByKey(API_KEY)).thenReturn(key);
+        FbsScenePack boundPack = new FbsScenePack();
+        boundPack.setId(1L);
+        boundPack.setPackCode("pack-board");
+        boundPack.setPackName("Independent Board");
+        boundPack.setStatus(1);
+        when(scenePackMapper.selectIdentitiesByPackCodeExact("pack-board"))
+                .thenReturn(List.of(boundPack));
+        when(scenePackMapper.selectById(1L)).thenReturn(boundPack);
+        when(pointsService.getUserPoints(42L)).thenReturn(90);
+        FbsUserPack boundUserPack = new FbsUserPack();
+        boundUserPack.setPackId(1L);
+        boundUserPack.setStatus(1);
+        FbsUserPack otherUserPack = new FbsUserPack();
+        otherUserPack.setPackId(2L);
+        otherUserPack.setStatus(1);
+        when(userPackMapper.selectActiveByUserId(42L))
+                .thenReturn(List.of(boundUserPack, otherUserPack));
+        String body = "{\"userId\":42}";
+        String timestamp = String.valueOf(System.currentTimeMillis());
+
+        mockMvc.perform(post("/fbs/skill-api/user/info")
+                        .header("X-FBS-API-Key", API_KEY)
+                        .header("X-FBS-Timestamp", timestamp)
+                        .header("X-FBS-Signature", hmac(API_KEY, timestamp, body))
+                        .contentType("application/json")
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.pointsBalance").value(90))
+                .andExpect(jsonPath("$.data.activatedPacks.length()").value(1))
+                .andExpect(jsonPath("$.data.activatedPacks[0].packCode").value("pack-board"));
     }
 
     @Test

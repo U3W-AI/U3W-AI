@@ -19,7 +19,7 @@
 
 **用户身份规则**：除纯场景包查询和已退役的积分获取 tombstone 外，用户级接口只信任 API Key 的绑定用户。未绑定 Key 返回 body.code `403/SKILL_API_KEY_USER_BINDING_REQUIRED`；请求如携带 `userId`，它仅用于一致性断言，不一致返回 `403/SKILL_API_KEY_USER_MISMATCH`。运营侧生成但未绑定用户的 Key 不能调用用户级接口。
 
-**场景包范围边界**：`fbs_api_key.pack_code` 的数据模型约定 `NULL=全局 Key`，但当前过滤器和控制器尚未把非空 `pack_code` 强制为请求 `packCode` 白名单。场景包专用 Key 仍可能查询或请求其他场景包；这项最小权限隔离尚未证明，必须在对外激活前补齐，当前不得宣称 Key 已完成包级授权。
+**场景包范围边界**：只有数据库 `fbs_api_key.pack_code IS NULL` 表示全局 Key；空串或纯空白是无效范围并失败关闭。非空 `pack_code` 是场景包专用 Key，按原始字符串精确匹配（不 trim、不忽略大小写），适用于 `rights/check`、`usage/consume`、`usage/start`、`scene-pack/query`。授权预检只读取候选场景包的 `id + pack_code`，保留普通等值前导谓词作为可索引候选，并追加二进制精确比较；结果为零条或多条均失败关闭，不能在授权前读取完整场景包快照。请求其他包返回 body.code `403/SKILL_API_KEY_PACK_SCOPE_MISMATCH`；Key 或记录的包范围无法解析时返回 `403/SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE`。`usage/end` 先完成 Key 自身范围预检，再读取既有记录、校验记录用户，随后以记录的 `packId` 反查并校验记录包范围，最后才执行终态 CAS；`user/info` 保留用户全局积分余额，但 `activatedPacks` 只投影专用 Key 绑定的包。全局 Key 保持跨包兼容。
 
 **幂等范围规则**：`usageRecordId` 不是独立授权凭证。个人消费重放必须同时匹配 API Key 绑定用户、场景包、技能、规范化宿主类型和 hostSessionId；start 重放匹配用户、场景包、技能和宿主类型。任一维度不一致均失败关闭为 `SKILL_USAGE_RECORD_SCOPE_MISMATCH`，不得读取余额、扣积分或扣企业配额。企业旧记录缺少 enterprise/member 快照，因此一律不提供成功重放。hostSessionId 只是 HMAC 签名调用方声明，不等同于服务端验证过的宿主实例身份。
 
@@ -49,7 +49,7 @@
 }
 ```
 **失败响应**：返回 `AjaxResult.success(data)` 但 `pass=false`，`failReason` 包含失败原因
-**错误响应**：Key 未绑定或身份断言冲突时 body.code 为 403；packCode 为空等参数错误通常为 500。
+**错误响应**：Key 未绑定、身份断言冲突、专用 Key 跨包或包范围不可解析时 body.code 为 403；packCode 为空等参数错误通常为 500。
 
 ---
 
@@ -78,6 +78,8 @@
 | body.code | 场景 |
 |-----------|------|
 | 403 | API Key 未绑定用户，或请求 userId 与绑定用户不一致 |
+| 403 | 场景包专用 Key 请求其他包（`SKILL_API_KEY_PACK_SCOPE_MISMATCH`） |
+| 403 | Key 的 pack_code 为空白或无法证明（`SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE`） |
 | 500 | usageRecordId 已被其他用户、场景包、技能、宿主类型或宿主会话范围占用（`SKILL_USAGE_RECORD_SCOPE_MISMATCH`） |
 | 500 | 企业旧记录缺少 tenant/member 快照，无法证明重放范围（`SKILL_ENTERPRISE_USAGE_REPLAY_SCOPE_UNVERIFIED`） |
 | 500 | 同一用户存在多个活动企业成员身份（`SKILL_ENTERPRISE_MEMBERSHIP_SCOPE_AMBIGUOUS`） |
@@ -112,7 +114,7 @@
 ```
 **幂等**：记录已存在且 status=0 且用户/场景包/技能/宿主范围完全一致时返回已有记录；范围不一致时 body.code 为 409，消息为 `SKILL_USAGE_RECORD_SCOPE_MISMATCH`。
 
-API Key 必须绑定用户；新记录的 `userId` 始终取自绑定，不信任请求体。
+API Key 必须绑定用户；新记录的 `userId` 始终取自绑定，不信任请求体。场景包专用 Key 只允许为其精确绑定的 `packCode` 开始记录，且在任何记录读取或写入前完成范围校验。
 
 ---
 
@@ -138,10 +140,12 @@ API Key 必须绑定用户；新记录的 `userId` 始终取自绑定，不信�
 | 409 | 使用记录已失败结束 |
 | 409 | 并发请求已先完成状态转换（`SKILL_USAGE_RECORD_STATE_CONFLICT`） |
 | 403 | API Key 未绑定，或记录不属于该 Key 的绑定用户 |
+| 403 | 记录所属场景包与专用 Key 不一致（`SKILL_API_KEY_PACK_SCOPE_MISMATCH`） |
+| 403 | 记录缺少 packId、场景包已不可解析，或 Key 范围无效（`SKILL_API_KEY_PACK_SCOPE_UNVERIFIABLE`） |
 
 > **注意**：控制器层 `AjaxResult.error(404, ...)` / `AjaxResult.error(409, ...)` 仅设置响应体中的 code 字段，真实 HTTP 状态码通常仍为 200。只有认证过滤器（FbsApiKeyAuthFilter）失败时才会产生真实的 HTTP 4xx 状态码。
 
-当前 end 已校验 API Key 绑定用户与记录用户，并通过 `WHERE status=0` 的条件更新阻止终态覆盖；旧表未保存 API Key 实例或宿主会话归属，这两项仍是下一迁移需求，不能宣称已完成 host-instance 级隔离。
+当前 end 已校验 API Key 绑定用户、记录用户和记录所属场景包，并通过 `WHERE status=0` 的条件更新阻止终态覆盖；旧表未保存 API Key 实例或宿主会话归属，这两项仍是下一迁移需求，不能宣称已完成 host-instance 级隔离。
 
 ---
 
@@ -166,6 +170,8 @@ API Key 必须绑定用户；新记录的 `userId` 始终取自绑定，不信�
   }
 }
 ```
+
+场景包专用 Key 只能查询与 `fbs_api_key.pack_code` 精确相等的场景包；全局 Key 可查询任意存在的包。
 
 ---
 
@@ -192,6 +198,8 @@ API Key 必须绑定用户；新记录的 `userId` 始终取自绑定，不信�
   }
 }
 ```
+
+场景包专用 Key 的响应仍包含绑定用户的全局积分余额，但 `activatedPacks` 只包含该 Key 绑定且用户已激活的包；绑定包已无法解析时失败关闭，不读取积分或用户包列表。全局 Key 返回用户全部已激活包。
 
 ---
 
@@ -328,6 +336,8 @@ API Key 必须绑定用户；新记录的 `userId` 始终取自绑定，不信�
 | DELETE | `/{id}` | 删除 | `business:fbs:apikey:remove` |
 
 **generate请求体**：`{ "name": "我的Key", "packCode": "pack_xxx", "rateLimitPerMin": 60 }`
+
+> **当前签发边界（2026-07-22）**：运营端 `/generate` 可写 `packCode`，但不会绑定 `userId`；用户自助创建链路会绑定 `userId`，但不会写 `packCode`。因此仓内正常 API 尚不能签发同时“用户绑定 + 场景包专用”的 Key。前者不能调用用户级 Skill API，后者仍是全局包范围；在补齐经单独授权审查的签发生命周期前，不得用手工数据库写入作为已运营闭环的证据。
 
 **响应**（创建时返回完整Key，仅此一次）：
 ```json

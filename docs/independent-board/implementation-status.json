@@ -5,7 +5,7 @@
     "brandEn": "FBSir",
     "name": "独董会"
   },
-  "platformVersion": "0.4.4-dev",
+  "platformVersion": "0.4.5-dev",
   "expertPackage": {
     "version": "26.7.20",
     "state": "officially_listed_user_confirmed",
@@ -123,6 +123,7 @@
     "docs/independent-board/HOST-UPGRADE-DEMAND-INDEPENDENT-BOARD-ATTRIBUTION.md",
     "docs/independent-board/HOST-UPGRADE-DEMAND-CREDIT-LEDGER.md",
     "reports/independent-board/points-mutation-security-closure-20260722.json",
+    "reports/independent-board/api-key-pack-scope-verification-20260722.json",
     "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.0.30/summary-mysql-8.0.30-utc-20260721T061311.131Z-local-20260721T141311.131+0800-pid-21800.json",
     "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.4.8/summary-mysql-8.4.8-utc-20260721T061510.025Z-local-20260721T141510.025+0800-pid-29828.json",
     "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.0.30/summary-mysql-8.0.30-utc-20260721T123307.170Z-local-20260721T203307.170+0800-pid-18500.json",
@@ -184,6 +185,12 @@
     "w3d_enterprise_usage_consume_existing_replay_and_ambiguous_membership_fail_closed_without_quota_write",
     "w3d_usage_record_terminal_transition_uses_status_zero_compare_and_set",
     "w3d_production_api_key_hmac_filter_chain_and_jwt_chain_122_of_122_focused_tests_passed",
+    "w3e_only_database_null_api_key_pack_scope_is_global_and_blank_scope_fails_closed",
+    "w3e_key_pack_scope_exact_preflight_precedes_protected_service_and_usage_record_reads",
+    "w3e_usage_end_record_owner_and_record_pack_verified_after_record_read_before_terminal_cas",
+    "w3e_binary_exact_narrow_bounded_ambiguity_failing_pack_identity_lookup_verified",
+    "w3e_scoped_user_info_preserves_global_points_balance_and_projects_only_the_bound_activated_pack",
+    "w3e_production_api_key_hmac_chain_and_prior_security_aggregate_146_of_146_passed",
     "w4a_authoritative_connector_binding_and_exact_four_scope_current_read_verified_local",
     "w4a_binding_and_immutable_receipt_commit_atomically_with_failure_rollback",
     "w4a_mysql_8_4_first_apply_completed_rerun_partial_state_and_drift_fail_closed",
@@ -276,7 +283,8 @@
     "meeting_audit_plan_label_authority_with_operation_audit_permission_boundary",
     "credit_ledger_admin_operations",
     "legacy_privileged_admin_grant_idempotency_and_immutable_receipt",
-    "skill_api_key_pack_code_scope_enforcement",
+    "api_key_pack_code_database_immutability_trigger",
+    "api_key_user_and_pack_bound_lifecycle",
     "skill_usage_enterprise_tenant_and_member_snapshot",
     "skill_usage_end_api_key_instance_and_host_scope_binding",
     "skill_usage_server_verified_host_instance_identity",
@@ -386,5 +394,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-22T07:44:51+08:00"
+  "updatedAt": "2026-07-22T08:49:53+08:00"
 }

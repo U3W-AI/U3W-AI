@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the officially listed and post-listing-frozen 26.7.20 expert package.",
-  "singleNextAction": "Enforce and verify fbs_api_key pack_code least-privilege scope across Skill API routes; keep global keys compatible and all new ledger writes, production activation and attribution promotion closed.",
+  "singleNextAction": "Implement and verify the USER_GLOBAL/FBS_POINTS immutable shadow ledger with server-derived pricing, request-digest idempotency and zero reopening of retired caller-selected mutation routes; keep production activation and attribution promotion closed.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -50,7 +50,7 @@
     },
     {
       "id": "W3_ADMIN_PORTAL",
-      "state": "w3d_points_security_closure_verified_local",
+      "state": "w3e_api_key_pack_scope_verified_local",
       "completedSubset": [
         "global_system_admin_only_access_model",
         "active_enterprise_and_member_locked_entitlement_grant_and_adjustment",
@@ -71,13 +71,20 @@
         "skill_api_user_scoped_routes_require_bound_api_key_identity",
         "personal_consume_usage_record_replay_is_bound_to_user_pack_skill_host_and_host_session_scope",
         "enterprise_usage_consume_existing_replay_and_ambiguous_membership_fail_closed",
-        "usage_record_terminal_transition_is_status_zero_compare_and_set"
+        "usage_record_terminal_transition_is_status_zero_compare_and_set",
+        "only_database_null_api_key_pack_scope_is_global_and_blank_scope_fails_closed",
+        "skill_api_key_pack_scope_exact_preflight_precedes_protected_service_and_usage_record_reads",
+        "skill_api_usage_end_record_owner_and_record_pack_are_verified_before_terminal_compare_and_set",
+        "skill_api_pack_identity_lookup_is_narrow_binary_exact_bounded_and_ambiguity_failing",
+        "skill_api_scoped_user_info_projects_only_the_bound_pack_while_retaining_global_points_balance",
+        "skill_api_pack_scope_production_hmac_and_prior_security_aggregate_146_of_146_passed"
       ],
       "remaining": [
         "product_plan_and_quota_policy_write_revision_and_receipt_governance",
         "meeting_audit_plan_label_authority_with_operation_audit_permission_boundary",
         "credit_ledger_operations",
-        "skill_api_key_pack_code_scope_enforcement",
+        "api_key_pack_code_database_immutability_trigger",
+        "api_key_user_and_pack_bound_lifecycle",
         "usage_record_enterprise_member_snapshot_and_api_key_instance_lineage",
         "skill_consume_service_final_status_cas_result_and_transaction_integration",
         "run_receipt_and_failure_audit",
