@@ -19,6 +19,34 @@ function Read-Utf8Json {
     return Get-Content -LiteralPath (Join-Path $RepoRoot $RelativePath) -Raw -Encoding UTF8 | ConvertFrom-Json
 }
 
+function Invoke-FrontendPortableTask {
+    param(
+        [string]$NodeExecutable,
+        [string[]]$Arguments
+    )
+
+    if ($Arguments.Count -ne 2 -or $Arguments[0] -cne 'run') {
+        throw 'portable frontend execution only supports an allowlisted npm run task'
+    }
+    $tasks = @{
+        'verify:portal-entry' = @('scripts\verify-portal-entry.mjs')
+        'verify:independent-board-ui' = @('scripts\verify-independent-board-ui.mjs')
+        'verify:independent-board-admin-ui' = @('scripts\verify-independent-board-admin-ui.mjs')
+        'verify:independent-board-w4b2-candidate' = @('scripts\verify-independent-board-w4b2-candidate.mjs')
+        'verify:independent-board-w4b2c-runtime-mount' = @('scripts\verify-independent-board-w4b2c-runtime-mount.mjs')
+        'verify:menu-components' = @('scripts\verify-menu-components.mjs')
+        'build:prod' = @('node_modules\vite\bin\vite.js', 'build')
+    }
+    if (-not $tasks.ContainsKey($Arguments[1])) {
+        throw "portable frontend execution rejects unallowlisted task: $($Arguments[1])"
+    }
+    $taskArguments = $tasks[$Arguments[1]]
+    & $NodeExecutable @taskArguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "portable frontend task failed with exit code ${LASTEXITCODE}: $($Arguments -join ' ')"
+    }
+}
+
 function Invoke-FrontendNpm {
     param([string[]]$Arguments)
 
@@ -26,6 +54,16 @@ function Invoke-FrontendNpm {
     $NpmCliOverride = $env:U3W_NPM_CLI
     $HasNodeOverride = -not [string]::IsNullOrWhiteSpace($NodeOverride)
     $HasNpmCliOverride = -not [string]::IsNullOrWhiteSpace($NpmCliOverride)
+    if ($HasNodeOverride -and -not $HasNpmCliOverride) {
+        if (-not (Test-Path -LiteralPath $NodeOverride -PathType Leaf)) {
+            throw "U3W_NODE_EXE does not exist: $NodeOverride"
+        }
+        if (-not (Test-Path -LiteralPath 'node_modules' -PathType Container)) {
+            throw 'portable frontend execution requires preinstalled node_modules; npm CLI is required for dependency installation'
+        }
+        Invoke-FrontendPortableTask -NodeExecutable $NodeOverride -Arguments $Arguments
+        return
+    }
     if ($HasNodeOverride -xor $HasNpmCliOverride) {
         throw 'U3W_NODE_EXE and U3W_NPM_CLI must be provided together'
     }
@@ -322,7 +360,8 @@ function Invoke-ContractChecks {
     # W4b.2b remains immutable historical evidence. Current source bytes are
     # instead bound to the W4b.2c receipt that exercised the runtime mount.
     $canonicalNextSliceId = 'W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract'
-    $canonicalW3NextSliceId = 'W3i_meeting_audit_policy_lineage_and_label_authority'
+    $canonicalW3hSuccessorSliceId = 'W3i_meeting_audit_policy_lineage_and_label_authority'
+    $canonicalW3NextSliceId = 'W3f_credit_ledger_candidate_http_activation'
     $w4b2cReport = Read-Utf8Json -RelativePath 'reports\independent-board\w4b2c-default-off-runtime-mount-verification-20260721.json'
     Assert-ProductBrand -Product $w4b2cReport.product -Source 'W4b.2c runtime mount verification report'
     if ($w4b2cReport.schema -cne 'fbsir.independent-board.w4b2c-default-off-runtime-mount-verification/v1' `
@@ -422,6 +461,45 @@ function Invoke-ContractChecks {
             -or $w3hGovernanceReport.sharedEvidenceSuccession.successorSourceSha256 -cne $currentPortalReadMapperHash `
             -or $w3hGovernanceReport.sourceSha256.'FBSir-business/src/main/resources/mapper/board/IndependentBoardPortalReadMapper.xml' -cne $currentPortalReadMapperHash) {
         throw 'W3h shared portal-read mapper evidence succession is incomplete or drifted'
+    }
+
+    # W3i consumes W3h immutable receipts and changes several sources that W3h
+    # pinned. The W3h historical receipt must remain immutable while this
+    # successor receipt binds every changed shared byte to a current verifier.
+    $w3iLineageReport = Read-Utf8Json -RelativePath 'reports\independent-board\w3i-meeting-audit-policy-lineage-verification-20260723.json'
+    if ($w3iLineageReport.schemaVersion -ne 1 `
+            -or $w3iLineageReport.result -cne 'PASS_LOCAL_CANDIDATE' `
+            -or $w3iLineageReport.candidateReadyForCommit -ne $true `
+            -or $w3iLineageReport.releaseReady -ne $false `
+            -or $w3iLineageReport.productionChanged -ne $false `
+            -or $w3iLineageReport.sharedEvidenceSuccession.predecessorReceipt -cne 'reports/independent-board/w3h-plan-policy-governance-verification-20260722.json' `
+            -or $w3iLineageReport.sharedEvidenceSuccession.historicalReceiptMutated -ne $false `
+            -or $w3iLineageReport.git.implementationCommit -cne '9998b8c1b168a56437aceb99901195f561458586' `
+            -or $w3iLineageReport.frozenSurface.unchanged -ne $true `
+            -or $w3iLineageReport.frozenSurface.observedSha256 -cne $w3iLineageReport.frozenSurface.requiredSha256) {
+        throw 'W3i meeting-audit lineage report boundary is incomplete or drifted'
+    }
+    $w3iSharedSources = @(
+        @{ path = 'FBSir-business/src/main/resources/mapper/board/IndependentBoardMapper.xml'; predecessor = '1390b5e1189b54f389f6d56f455c829e22882b3d8dd47c4db4ae35ac33d3a56f' },
+        @{ path = 'FBSir-business/src/main/java/com/wx/fbsir/business/board/plan/controller/IndependentBoardPlanPolicyNoStoreFilter.java'; predecessor = '8dd1c41364d9f2be80848577b410b119769c7cf9860ff2e4e8dfbf4151979399' },
+        @{ path = 'FBSir-business/src/test/java/com/wx/fbsir/business/board/plan/controller/IndependentBoardPlanPolicyNoStoreFilterTest.java'; predecessor = '726f9fe4277727bbb770ad35c3a2fbf0a4454df777f7fd260d46891ed8a74ab7' },
+        @{ path = 'FBSir-ui/src/views/business/independentBoard/admin/model.js'; predecessor = '68395b4135b91e345aa95767258de5747645bcbc019e2956972ae54469636f75' },
+        @{ path = 'scripts/run-independent-board-plan-policy-mysql-it.ps1'; predecessor = '5f43c2750edb9a429e645008145363c0379a404075199011c29f3fa66c006fba' }
+    )
+    foreach ($expectedSharedSource in $w3iSharedSources) {
+        $lineageReceipts = @($w3iLineageReport.sharedEvidenceSuccession.sources | Where-Object {
+                $_.sharedSource -ceq $expectedSharedSource.path
+            })
+        $currentSharedSourceHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot $expectedSharedSource.path)).Hash.ToLowerInvariant()
+        $boundSourceHash = $w3iLineageReport.sourceSha256.PSObject.Properties[$expectedSharedSource.path].Value
+        if ($lineageReceipts.Count -ne 1 `
+                -or $lineageReceipts[0].predecessorSourceSha256 -cne $expectedSharedSource.predecessor `
+                -or $lineageReceipts[0].successorSourceSha256 -cne $currentSharedSourceHash `
+                -or [string]::IsNullOrWhiteSpace($lineageReceipts[0].predecessorRegressionVerifier) `
+                -or $lineageReceipts[0].predecessorRegressionState -cne 'PASS' `
+                -or $boundSourceHash -cne $currentSharedSourceHash) {
+            throw "W3i shared-source evidence succession is incomplete or drifted: $($expectedSharedSource.path)"
+        }
     }
 
     $w4b2cSourcePaths = @{
@@ -586,9 +664,13 @@ function Invoke-ContractChecks {
     if ($implementationStatus.platformVersion -cne '0.4.7-dev' `
             -or $implementationStatus.w3h.state -cne 'local_default_off_plan_policy_admin_governance_verified' `
             -or $implementationStatus.w3h.databaseMigration -cne 'public_init_039_manifested_not_applied_to_production' `
-            -or $implementationStatus.w3h.nextSlice -cne $canonicalW3NextSliceId `
+            -or $implementationStatus.w3h.nextSlice -cne $canonicalW3hSuccessorSliceId `
+            -or $implementationStatus.w3i.state -cne 'local_default_off_meeting_audit_policy_lineage_verified' `
+            -or $implementationStatus.w3i.verificationReport -cne 'reports/independent-board/w3i-meeting-audit-policy-lineage-verification-20260723.json' `
+            -or $implementationStatus.w3i.nextSlice -cne $canonicalW3NextSliceId `
+            -or $implementationStatus.w3i.productionAuthority -ne $false `
             -or $w3Wave.Count -ne 1 `
-            -or $w3Wave[0].state -cne 'w3h_plan_policy_admin_governance_verified_local_default_off' `
+            -or $w3Wave[0].state -cne 'w3h_plan_policy_admin_governance_and_w3i_meeting_audit_lineage_verified_local_default_off' `
             -or $w3Wave[0].activeSlice -cne $canonicalW3NextSliceId `
             -or $implementationStatus.w4b.runtimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or $implementationStatus.w4b.api2TrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `
@@ -597,18 +679,24 @@ function Invoke-ContractChecks {
             -or $w4Wave[0].state -cne 'w4a_verified_local_w4b1_internal_oauth_chain_verified_w4b2_default_off_runtime_candidate_verified_local' `
             -or $w4Wave[0].activeSlice -cne $canonicalNextSliceId `
             -or $w4Wave[0].nextSlice.id -cne $canonicalNextSliceId) {
-        throw 'W3h or W4b.2c status and taskboard traceability drifted'
+        throw 'W3h/W3i or W4b.2c status and taskboard traceability drifted'
     }
 
     $engineeringContract = Read-Utf8Json -RelativePath '.fbs-engineering\contract.json'
     $contractW4b = $engineeringContract.contracts.uiPrototypeGate.w4bImplementation
     $contractW3h = $engineeringContract.contracts.uiPrototypeGate.w3hImplementation
+    $contractW3i = $engineeringContract.contracts.uiPrototypeGate.w3iImplementation
     if ($engineeringContract.artifacts.w3hPlanPolicyContract -cne 'docs/independent-board/W3H-PLAN-POLICY-REVISION-CONTRACT.md' `
             -or $engineeringContract.artifacts.w3hPlanPolicyMigration -cne 'sql/update_20260722_independent_board_plan_policy.sql' `
             -or $engineeringContract.artifacts.w3hPlanPolicyGovernanceVerificationReport -cne 'reports/independent-board/w3h-plan-policy-governance-verification-20260722.json' `
             -or $contractW3h.state -cne 'local_default_off_admin_candidate_dual_mysql_and_browser_verified' `
-            -or $contractW3h.nextSlice -cne $canonicalW3NextSliceId `
+            -or $contractW3h.nextSlice -cne $canonicalW3hSuccessorSliceId `
             -or $contractW3h.productionAuthority -ne $false `
+            -or $engineeringContract.artifacts.w3iMeetingAuditPolicyLineageContract -cne 'docs/independent-board/W3I-MEETING-AUDIT-POLICY-LINEAGE-CONTRACT.md' `
+            -or $engineeringContract.artifacts.w3iMeetingAuditPolicyLineageVerificationReport -cne 'reports/independent-board/w3i-meeting-audit-policy-lineage-verification-20260723.json' `
+            -or $contractW3i.state -cne 'local_default_off_meeting_audit_policy_lineage_verified' `
+            -or $contractW3i.nextSlice -cne $canonicalW3NextSliceId `
+            -or $contractW3i.productionAuthority -ne $false `
             -or $engineeringContract.artifacts.w4b2cRuntimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or $engineeringContract.artifacts.w4b2cRuntimeAndAttributionAdr -cne 'docs/decisions/ADR-002-independent-board-w4b2c-runtime-mount-and-attribution-boundary.md' `
             -or $engineeringContract.artifacts.api2IndependentBoardTrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `
@@ -618,7 +706,7 @@ function Invoke-ContractChecks {
             -or $contractW4b.detailedUiPrototype.implementationState -cne 'default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions' `
             -or $contractW4b.detailedUiPrototype.runtimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or -not (@($engineeringContract.contracts.postListingObservationGate.noCrossLayerInference) -contains 'zero_attributable_target_signal_to_zero_actual_usage')) {
-        throw 'FBS engineering contract drifted from the W3h or W4b.2c evidence boundary'
+        throw 'FBS engineering contract drifted from the W3h/W3i or W4b.2c evidence boundary'
     }
 
     $w4bContract = Get-Content -LiteralPath (Join-Path $RepoRoot 'docs\independent-board\W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md') -Raw -Encoding UTF8

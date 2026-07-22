@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the officially listed and post-listing-frozen 26.7.20 expert package.",
-  "singleNextAction": "Implement W3i meeting-audit policy-lineage and plan-label authority on top of the verified W3h committed-policy spine; keep W3h production activation closed and API2 attribution secondary.",
+  "singleNextAction": "Assess and implement W3f credit-ledger candidate HTTP activation on top of the verified W3i historical meeting-audit policy-lineage read; retain W3h/W3i production activation closed and API2 attribution secondary.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -50,8 +50,8 @@
     },
     {
       "id": "W3_ADMIN_PORTAL",
-      "state": "w3h_plan_policy_admin_governance_verified_local_default_off",
-      "activeSlice": "W3i_meeting_audit_policy_lineage_and_label_authority",
+      "state": "w3h_plan_policy_admin_governance_and_w3i_meeting_audit_lineage_verified_local_default_off",
+      "activeSlice": "W3f_credit_ledger_candidate_http_activation",
       "completedSubset": [
         "global_system_admin_only_access_model",
         "active_enterprise_and_member_locked_entitlement_grant_and_adjustment",
@@ -102,10 +102,10 @@
         "mutable_head_only_lock_order_with_nonlocking_immutable_receipt_and_operation_lineage_reads",
         "dual_mysql_8_0_30_and_8_4_8_first_apply_replay_metadata_negative_and_six_case_twenty_iteration_concurrency_matrix_passed",
         "dual_mysql_candidate_menu_opt_in_default_disabled_zero_role_binding_drift_and_collision_matrix_passed",
-        "real_browser_revision_replay_stale_conflict_rollback_default_off_and_zero_console_error_verified"
+        "real_browser_revision_replay_stale_conflict_rollback_default_off_and_zero_console_error_verified",
+        "meeting_audit_historical_policy_lineage_label_authority_global_admin_operation_audit_no_store_dual_mysql_verified_local"
       ],
       "remaining": [
-        "meeting_audit_plan_label_authority_with_operation_audit_permission_boundary",
         "credit_ledger_candidate_http_activation",
         "credit_ledger_internal_writer_migration_and_authoritative_promotion",
         "credit_ledger_production_database_migration",

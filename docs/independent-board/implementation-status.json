@@ -392,6 +392,21 @@
     "productionAuthority": false,
     "nextSlice": "W3i_meeting_audit_policy_lineage_and_label_authority"
   },
+  "w3i": {
+    "state": "local_default_off_meeting_audit_policy_lineage_verified",
+    "contract": "docs/independent-board/W3I-MEETING-AUDIT-POLICY-LINEAGE-CONTRACT.md",
+    "verificationReport": "reports/independent-board/w3i-meeting-audit-policy-lineage-verification-20260723.json",
+    "readBoundary": "operation_bound_immutable_policy_receipt_only_no_current_head_entitlement_or_membership_read",
+    "authorization": "global_admin_role_plus_board_operation_audit",
+    "noStore": "success_401_403_ajax_400_and_ajax_500",
+    "verifiedMysql": [
+      "MySQL Community 8.0.30",
+      "MySQL Community 8.4.8"
+    ],
+    "browser": "not_proven_in_this_environment_without_chrome_devtools_mcp",
+    "productionAuthority": false,
+    "nextSlice": "W3f_credit_ledger_candidate_http_activation"
+  },
   "ui": {
     "base": "existing_u3w_ai_ruoyi_vue3_element_plus",
     "state": "w4b2_default_off_runtime_candidate_verified_local_not_deployed",
@@ -493,5 +508,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-22T21:22:00+08:00"
+  "updatedAt": "2026-07-23T01:00:00+08:00"
 }

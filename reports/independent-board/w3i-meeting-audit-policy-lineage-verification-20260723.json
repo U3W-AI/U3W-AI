@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "reportId": "w3i-meeting-audit-policy-lineage-verification-20260723",
+  "generatedAt": "2026-07-23T00:53:00+08:00",
+  "result": "PASS_LOCAL_CANDIDATE",
+  "candidateReadyForCommit": true,
+  "releaseReady": false,
+  "productionChanged": false,
+  "scope": "admin.u3w.com 独董会会议审计只读策略血缘与历史套餐名称权威投影",
+  "priority": {
+    "adminControlPlane": "primary",
+    "api2Attribution": "secondary_and_not_modified_in_this_slice"
+  },
+  "truthBoundary": {
+    "proven": [
+      "bounded operation-audit reads join only the operation-bound immutable policy receipt and validate all 501 fetched rows before truncation",
+      "historical policy name, version and digest are projected without reading mutable policy heads, entitlement state or membership tables",
+      "global admin plus board:operation:audit remains the sole endpoint authorization boundary",
+      "success, authentication, authorization, Ajax 400 and Ajax 500 responses are non-cacheable",
+      "the frozen 26.7.20 expert package hash is unchanged"
+    ],
+    "notProven": [
+      "production database migration or candidate endpoint activation",
+      "production admin.u3w.com browser DOM, network, console and accessibility readback",
+      "production DML-principal and emergency-access audit for the immutable policy and head tables",
+      "natural traffic, business conversion or API2 attribution"
+    ]
+  },
+  "sharedEvidenceSuccession": {
+    "predecessorReceipt": "reports/independent-board/w3h-plan-policy-governance-verification-20260722.json",
+    "historicalReceiptMutated": false,
+    "sources": [
+      {
+        "sharedSource": "FBSir-business/src/main/resources/mapper/board/IndependentBoardMapper.xml",
+        "predecessorSourceSha256": "1390b5e1189b54f389f6d56f455c829e22882b3d8dd47c4db4ae35ac33d3a56f",
+        "successorSourceSha256": "7ab58c5f88be9d46f1e005171d2109538d29b3abd6d86381ed43483688e2080a",
+        "predecessorRegressionVerifier": "mvn -q -pl FBSir-admin -am test",
+        "predecessorRegressionState": "PASS"
+      },
+      {
+        "sharedSource": "FBSir-business/src/main/java/com/wx/fbsir/business/board/plan/controller/IndependentBoardPlanPolicyNoStoreFilter.java",
+        "predecessorSourceSha256": "8dd1c41364d9f2be80848577b410b119769c7cf9860ff2e4e8dfbf4151979399",
+        "successorSourceSha256": "fe366eb246e7be09c4f7cdf9b32ed889d376186647001cd89bb19ca162809622",
+        "predecessorRegressionVerifier": "mvn -q -pl FBSir-admin -am test",
+        "predecessorRegressionState": "PASS"
+      },
+      {
+        "sharedSource": "FBSir-business/src/test/java/com/wx/fbsir/business/board/plan/controller/IndependentBoardPlanPolicyNoStoreFilterTest.java",
+        "predecessorSourceSha256": "726f9fe4277727bbb770ad35c3a2fbf0a4454df777f7fd260d46891ed8a74ab7",
+        "successorSourceSha256": "045d9cf13b2ab48eb3852c8cfc5b70c39b71ced4cb78ccf5c6f591ca9189bfa0",
+        "predecessorRegressionVerifier": "mvn -q -pl FBSir-admin -am test",
+        "predecessorRegressionState": "PASS"
+      },
+      {
+        "sharedSource": "FBSir-ui/src/views/business/independentBoard/admin/model.js",
+        "predecessorSourceSha256": "68395b4135b91e345aa95767258de5747645bcbc019e2956972ae54469636f75",
+        "successorSourceSha256": "f6f21a5a5bddfec4ea932474bc18aebf34bc90f19d544786879e4c12eef08fb9",
+        "predecessorRegressionVerifier": "node FBSir-ui/scripts/verify-independent-board-plan-policy-admin-ui.mjs",
+        "predecessorRegressionState": "PASS"
+      },
+      {
+        "sharedSource": "scripts/run-independent-board-plan-policy-mysql-it.ps1",
+        "predecessorSourceSha256": "5f43c2750edb9a429e645008145363c0379a404075199011c29f3fa66c006fba",
+        "successorSourceSha256": "906defb4f9e35e28003b6d22c09151cd374b636824a1b6648c99aaf4981f161b",
+        "predecessorRegressionVerifier": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-plan-policy-mysql-it.ps1 -AllowDestructiveTest",
+        "predecessorRegressionState": "PASS"
+      }
+    ]
+  },
+  "git": {
+    "branch": "codex/w4b2-default-off-candidate",
+    "implementationCommit": "9998b8c1b168a56437aceb99901195f561458586",
+    "remote": "git@github.com:U3W-AI/U3W-AI.git",
+    "finalCleanAndRemoteAlignment": "verified_after_the_successor_report_commit_outside_this_self_referential_payload"
+  },
+  "backend": {
+    "command": "mvn -q -pl FBSir-admin -am test",
+    "jdk": "Eclipse Temurin 17.0.19+10",
+    "result": "PASS",
+    "suites": 132,
+    "tests": 735,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "focusedHttp": "49 tests including complete no-store headers on Ajax 400",
+    "stableFailureContracts": [
+      "BOARD_OPERATION_AUDIT_POLICY_LINEAGE_INVALID:500",
+      "TENANT_REQUIRED:400",
+      "BOARD_OPERATION_AUDIT_CURRENT_READ_FAILED:500"
+    ]
+  },
+  "frontend": {
+    "centralFrontendGate": "PASS with verified portable Node fallback and preinstalled node_modules",
+    "w3iAdminStaticVerifier": "PASS",
+    "productionBuild": {
+      "result": "PASS",
+      "viteVersion": "6.4.3",
+      "warnings": [
+        "existing element-plus pure annotation placement warning",
+        "existing chunks larger than 1000 kB warning"
+      ]
+    },
+    "browser": {
+      "result": "NOT_PROVEN",
+      "reason": "Chrome DevTools MCP is not configured in this execution environment"
+    }
+  },
+  "dualMysqlPolicyLineage": {
+    "result": "PASS",
+    "versions": ["8.0.30", "8.4.8"],
+    "historicalAuditLineage": "w3h-historical-vip|plan-policy-baseline-board-vip-v1|1|1|2|Independent Board VIP",
+    "concurrencyCases": 6,
+    "iterationsPerCase": 20,
+    "productionConnectionUsed": false,
+    "workDirectoriesCleaned": true
+  },
+  "adversarialReview": {
+    "reviewer": "w3i_review",
+    "p0": 0,
+    "p1Resolved": [
+      "recorded successor evidence for all five W3h-pinned shared sources and require central verification",
+      "added Ajax 400 complete no-store header regression coverage"
+    ],
+    "remainingP2": [
+      "share Unicode policy-name boundary corpus across Java, JavaScript and MySQL",
+      "perform real-browser DOM, network, console and accessibility verification before release"
+    ]
+  },
+  "frozenSurface": {
+    "path": "D:/Spg719/fbsir-eight-seat-board-26.7.20.zip",
+    "requiredSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "observedSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "unchanged": true
+  },
+  "sourceSha256": {
+    "FBSir-admin/src/test/java/com/wx/fbsir/business/board/IndependentBoardHttpSecurityIntegrationTest.java": "819679308582b798c0afeacb51199fc8a3305f4e1e9dadc85116fa4faa3da58c",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/domain/BoardOperationAuditRow.java": "5e2e50a70563361d2cd05e3cc089f7fd27fb9c716300a79f43c59827d5af09cb",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/dto/BoardOperationAuditView.java": "e0a3e730556dc30baad654f6166ff39dd4dddc957629e0a02a31aa6cab51fee6",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/mapper/IndependentBoardMapper.java": "c43fdebb7ed9c44fe21a48c36d015e96b4d76e0632fd2f33ace4eea52675eecd",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/plan/controller/IndependentBoardPlanPolicyNoStoreFilter.java": "fe366eb246e7be09c4f7cdf9b32ed889d376186647001cd89bb19ca162809622",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/service/IndependentBoardMeetingService.java": "cc757670f11e513e65df5ea5034c72dfab31df16ca87abb1df12c860f15d85ce",
+    "FBSir-business/src/main/resources/mapper/board/IndependentBoardMapper.xml": "7ab58c5f88be9d46f1e005171d2109538d29b3abd6d86381ed43483688e2080a",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/IndependentBoardDashboardMapperContractTest.java": "7f6a23b1c6eb6a3586995c37de061e80d7bb23bd7af5ddc67e40069f11d2640f",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/IndependentBoardMeetingServiceTest.java": "3d365a67bde8913224eee9f5de0daaecddfa00cf7c6dcd88b6b168bc3029bb5e",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/plan/controller/IndependentBoardPlanPolicyNoStoreFilterTest.java": "045d9cf13b2ab48eb3852c8cfc5b70c39b71ced4cb78ccf5c6f591ca9189bfa0",
+    "FBSir-ui/scripts/verify-independent-board-admin-ui.mjs": "63145e1b20e1ae1a154748a4dda2a4e3eb32133f82d009f7c59cdbec7cf78cc9",
+    "FBSir-ui/src/views/business/independentBoard/admin/meetingAudit/index.vue": "611bbd8b3158f05bc8cba36581bcf6bfbb44ed0f2c3b52897ceb09e1de926169",
+    "FBSir-ui/src/views/business/independentBoard/admin/model.js": "f6f21a5a5bddfec4ea932474bc18aebf34bc90f19d544786879e4c12eef08fb9",
+    "docs/independent-board/W3I-MEETING-AUDIT-POLICY-LINEAGE-CONTRACT.md": "316904ed7e7dd6d5af08e59ad8cf5548990919477fffec1727f3c435abbb487f",
+    "scripts/run-independent-board-plan-policy-mysql-it.ps1": "906defb4f9e35e28003b6d22c09151cd374b636824a1b6648c99aaf4981f161b"
+  },
+  "remainingReleaseGates": [
+    "commit and push this successor report, then verify clean local and remote alignment",
+    "complete real-browser verification on a default-off candidate environment",
+    "record production DML principal, least-privilege grants and emergency-access audit for immutable policy and head tables",
+    "obtain production backup and maintenance-window receipts before any migration or flag activation"
+  ],
+  "nextSlice": "W3f_credit_ledger_candidate_http_activation"
+}

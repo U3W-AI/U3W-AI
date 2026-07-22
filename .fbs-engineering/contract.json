@@ -143,6 +143,8 @@
     "w3hPlanPolicyMysqlRunner": "scripts/run-independent-board-plan-policy-mysql-it.ps1",
     "w3hPlanPolicyHistoricalVerificationReport": "reports/independent-board/w3h-plan-policy-database-verification-20260722.json",
     "w3hPlanPolicyGovernanceVerificationReport": "reports/independent-board/w3h-plan-policy-governance-verification-20260722.json",
+    "w3iMeetingAuditPolicyLineageContract": "docs/independent-board/W3I-MEETING-AUDIT-POLICY-LINEAGE-CONTRACT.md",
+    "w3iMeetingAuditPolicyLineageVerificationReport": "reports/independent-board/w3i-meeting-audit-policy-lineage-verification-20260723.json",
     "postListingHostTruthReport": "reports/independent-board/host-truth-chain-summary-20260721.json",
     "verificationReports": "reports/independent-board/*.json"
   },
@@ -410,6 +412,15 @@
         "concurrencyMatrix": "six_cases_twenty_iterations_each_zero_failures_zero_errors_on_both_versions",
         "productionAuthority": false,
         "nextSlice": "W3i_meeting_audit_policy_lineage_and_label_authority"
+      },
+      "w3iImplementation": {
+        "state": "local_default_off_meeting_audit_policy_lineage_verified",
+        "contract": "docs/independent-board/W3I-MEETING-AUDIT-POLICY-LINEAGE-CONTRACT.md",
+        "verificationReport": "reports/independent-board/w3i-meeting-audit-policy-lineage-verification-20260723.json",
+        "readBoundary": "operation_bound_immutable_policy_receipt_only_no_current_head_entitlement_or_membership_read",
+        "authorization": "global_admin_role_plus_board_operation_audit",
+        "productionAuthority": false,
+        "nextSlice": "W3f_credit_ledger_candidate_http_activation"
       },
       "w4aImplementation": {
         "state": "local_source_and_mysql_verified",
