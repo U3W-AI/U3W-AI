@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/business/independent-board")
 @ConditionalOnProperty(
         prefix = "fbsir.independent-board.plan-policy-candidate",
-        name = "enabled",
+        name = {"enabled", "procedure-authority.enabled"},
         havingValue = "true",
         matchIfMissing = false)
 public class IndependentBoardPlanPolicyAdminController extends BaseController {

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "result": "LOCAL_CANDIDATE_MYSQL_MATRIX_PENDING",
+  "candidateReadyForCommit": false,
+  "releaseReady": false,
+  "productionChanged": false,
+  "predecessorReceipt": "reports/independent-board/w3k-plan-policy-monotonic-chain-verification-20260723.json",
+  "historicalReceiptMutated": false,
+  "frozenSurface": {
+    "path": "D:/Spg719/fbsir-eight-seat-board-26.7.20.zip",
+    "requiredSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "observedSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "unchanged": true
+  },
+  "validated": {
+    "planPolicyUnitTests": "21_of_21_passed",
+    "databaseManifest": "41_public_steps_plus_3_manual_migrations_passed",
+    "httpDualGate": "red_test_confirmed_then_12_of_12_admin_http_security_regression_passed",
+    "mysql": "runner_completed_without_recoverable_final_receipt_after_outer_execution_timeout; dual_matrix_pending",
+    "production": "not_touched"
+  },
+  "notProven": [
+    "durable MySQL 8.0.30 and 8.4.8 procedure execution receipt",
+    "two-account EXECUTE-versus-direct-DML/DDL denial matrix",
+    "production definer, grants, revoke readback, migration, health or rollback",
+    "me/admin portal deployment, API2 exact release binding, official entry or natural traffic"
+  ],
+  "predecessorSourceSha256": {
+    "docs/independent-board/taskboard.json": "6c73b325566368da833713a54dacef4382b12846e12b764b5ebc9ced5632154c",
+    ".fbs-engineering/contract.json": "118444e46c631a65d794548a940fbf78287c56d64137bb1a09a09ae8589c3b1a",
+    "sql/init-manifest.json": "058c0dd8b25959a036b5f7e9c033a77dfdcbd9b7cf6aba64fef8b6b68ad9b434",
+    "scripts/init-database.ps1": "6b22db3fc698570c63f25221cc568bd268578aec1d5b903b78738949f2a0d431",
+    "scripts/verify-database-manifest.ps1": "eef300fd2cb1eb1408922cd918cb6f19901eb5b2a45d6f759441b884de732a25",
+    "scripts/run-independent-board-plan-policy-mysql-it.ps1": "c07cb4892490906d643d9cc27545f329659b0eab3b191d36c7920a6d4161201f"
+  },
+  "sourceSha256": {
+    ".fbs-engineering/contract.json": "8471dd8306a56e90aa3cea00718dca1e0d00c307503daa0ff92da906ed416974",
+    "FBSir-admin/src/test/java/com/wx/fbsir/business/board/plan/IndependentBoardPlanPolicyHttpSecurityIntegrationTest.java": "2564bab226210ee1f9ded40a561f994ca3f9a276fd5295e760e41b51b86f456b",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/plan/controller/IndependentBoardPlanPolicyAdminController.java": "52b27541b898f8c9608d15e683671c53753ceba71354223ea11e5f4dc35902f7",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/plan/mapper/IndependentBoardPlanPolicyMapper.java": "c1117b6936bffbd7e1ac2353e8c871b0dbdcd5afeb45f7fa1f292a532ca2c1ee",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/plan/service/IndependentBoardPlanPolicyService.java": "58653962ba09c121a3847e44793a3c0f978b1989c51dc13f6689eef26019b696",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/plan/service/IndependentBoardPlanPolicyTransactionService.java": "010f45cfc19d59d681a2536a405a85322764e7076d32aa32f8ba5e9168845758",
+    "FBSir-business/src/main/resources/mapper/board/IndependentBoardPlanPolicyMapper.xml": "222536f0a5eb25f1b69df1c9064d7cb28acd9be7c065be31f6645fee28be5e30",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/plan/IndependentBoardPlanPolicyMapperContractTest.java": "dc70578dfc389576524d5ab6e8228648644b19ce8396fa8002747df69608b3ec",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/plan/integration/IndependentBoardPlanPolicyMysqlConcurrencyIT.java": "8448d5ddcd5493d3c0c9a80c27760689f403926cae1814f1867488536598395c",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/plan/service/IndependentBoardPlanPolicyServiceTest.java": "d9db884dee4d997bce0154c22715104eb68116b56b9f78cf12376118d7dccab7",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/plan/service/IndependentBoardPlanPolicyTransactionBoundaryTest.java": "726f705f038afca7391f65602fbe0c790ed26c8938feb0141b5ac7dcdc0794ea",
+    "docs/decisions/ADR-006-independent-board-plan-policy-controlled-procedure-authority.md": "e6ec3515538ee6a402546b1508bf6cbfc1c4039695ed6e2448578aaa847871d2",
+    "docs/independent-board/W3K-PLAN-POLICY-CONTROLLED-AUTHORITY-CONTRACT.md": "bc759b80dbd40b22dd6fe1af0d1d9575895bc6d3316269e0679e3b4710fe8aeb",
+    "docs/independent-board/taskboard.json": "9cf56b2ef79c15ceb49ce444811ca8cb9cbf6cf8c0c04ddb833c05cf50e83eaa",
+    "scripts/init-database.ps1": "768d0d7fc1bc2623c6092f26d653cf1af46cb1ca7e94ca0654c72803768abf2e",
+    "scripts/run-independent-board-plan-policy-mysql-it.ps1": "7dcb071ff83be2f56b6fe35945e7ca9b980ae9b25983774682fd96b1043edc6e",
+    "scripts/verify-database-manifest.ps1": "352dd3bcdc1ac22555df3bea0325e1591f8035e6463d73b6589ea0969b47b1f6",
+    "scripts/verify-independent-board-control-plane.ps1": "8c4398117508dc46f6ab751b9e20b5feb4cd7c7567faf05b8964f0c9700bdebb",
+    "sql/init-manifest.json": "6a7db493992ffaabc0fed0f68d1d025127a9d5df0c229aa4feba9aae174b5012",
+    "sql/update_20260723_independent_board_plan_policy_authority.sql": "0cfd20fd91385fa48d865b6e17e60bec60cf40af48be1fe1fbc88d3c8273082b"
+  }
+}

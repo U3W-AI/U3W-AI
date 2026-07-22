@@ -293,7 +293,7 @@ class IndependentBoardPlanPolicyHttpSecurityIntegrationTest {
 
     @Test
     void surfaceAndLocalAdviceAreAbsentWhenCandidateFlagIsMissing() throws Exception {
-        try (AnnotationConfigWebApplicationContext disabled = context(false)) {
+        try (AnnotationConfigWebApplicationContext disabled = context(false, false)) {
             InMemoryRedisCache cache = disabled.getBean(InMemoryRedisCache.class);
             IndependentBoardPlanPolicyService disabledService =
                     disabled.getBean(IndependentBoardPlanPolicyService.class);
@@ -320,6 +320,27 @@ class IndependentBoardPlanPolicyHttpSecurityIntegrationTest {
         }
     }
 
+    @Test
+    void candidateSurfaceRemainsAbsentUntilProcedureAuthorityIsExplicitlyEnabled()
+            throws Exception {
+        try (AnnotationConfigWebApplicationContext disabled = context(true, false)) {
+            InMemoryRedisCache cache = disabled.getBean(InMemoryRedisCache.class);
+            IndependentBoardPlanPolicyService disabledService =
+                    disabled.getBean(IndependentBoardPlanPolicyService.class);
+            mvc(disabled).perform(post("/business/independent-board/plan-policy-revisions")
+                            .header(HttpHeaders.AUTHORIZATION, bearer(loginUser(
+                                    ACTOR_USER_ID, "admin", Set.of("board:plan:revise"),
+                                    "admin"), cache))
+                            .contentType(MediaType.APPLICATION_JSON).content(BODY))
+                    .andExpect(status().isNotFound())
+                    .andExpect(header().string(HttpHeaders.CACHE_CONTROL,
+                            containsString("no-store")));
+            assertTrue(disabled.getBeansOfType(
+                    IndependentBoardPlanPolicyAdminController.class).isEmpty());
+            verifyNoInteractions(disabledService);
+        }
+    }
+
     private static BoardPlanPolicyRevisionView view() {
         return new BoardPlanPolicyRevisionView(
                 "123e4567-e89b-12d3-a456-426614174000", "BOARD_VIP", 2L,
@@ -330,6 +351,11 @@ class IndependentBoardPlanPolicyHttpSecurityIntegrationTest {
     }
 
     private static AnnotationConfigWebApplicationContext context(boolean enabled) {
+        return context(enabled, enabled);
+    }
+
+    private static AnnotationConfigWebApplicationContext context(
+            boolean candidateEnabled, boolean procedureAuthorityEnabled) {
         AnnotationConfigWebApplicationContext value = new AnnotationConfigWebApplicationContext();
         value.setServletContext(new MockServletContext());
         TestPropertySourceUtils.addInlinedPropertiesToEnvironment(
@@ -337,7 +363,9 @@ class IndependentBoardPlanPolicyHttpSecurityIntegrationTest {
                 "token.header=Authorization",
                 "token.secret=" + TOKEN_SECRET,
                 "token.expireTime=30",
-                "fbsir.independent-board.plan-policy-candidate.enabled=" + enabled);
+                "fbsir.independent-board.plan-policy-candidate.enabled=" + candidateEnabled,
+                "fbsir.independent-board.plan-policy-candidate.procedure-authority.enabled="
+                        + procedureAuthorityEnabled);
         value.register(HttpSecurityTestConfiguration.class);
         value.refresh();
         return value;

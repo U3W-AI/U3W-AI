@@ -103,6 +103,7 @@ $steps = @(
     New-Step "public_init_038" "Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger" (Resolve-SqlFile "update_20260722_independent_board_credit_ledger.sql")
     New-Step "public_init_039" "Independent Board immutable plan policy revisions and operation lineage" (Resolve-SqlFile "update_20260722_independent_board_plan_policy.sql")
     New-Step "public_init_040" "Independent Board plan policy database monotonic-chain guards" (Resolve-SqlFile "update_20260723_independent_board_plan_policy_monotonic_chain.sql")
+    New-Step "public_init_041" "Independent Board plan policy controlled procedure authority" (Resolve-SqlFile "update_20260723_independent_board_plan_policy_authority.sql")
 )
 
 if (-not (Test-Path -LiteralPath $DeclarativeManifestPath -PathType Leaf)) {
@@ -129,7 +130,7 @@ for ($index = 0; $index -lt $steps.Count; $index++) {
         [string]$declared.file -ne $executable.File.Name) {
         throw "Declarative manifest drift at position $($index + 1): expected '$($executable.Version)|$($executable.Description)|$($executable.File.Name)'."
     }
-    if ($executable.Version -in @('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040')) {
+    if ($executable.Version -in @('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041')) {
         $declaredSha256 = [string]$declared.sha256
         $actualSha256 = (Get-FileHash -LiteralPath $executable.File.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($declaredSha256 -notmatch '^[0-9a-f]{64}$' -or
@@ -2768,6 +2769,27 @@ SELECT CONCAT_WS('|',
     Write-Host "PASS Independent Board plan-policy exact current-read on MySQL $($serverProfile.Version) (three tables, 39 columns, 15 indexes, seven RESTRICT foreign keys, ten checks, $triggerDescription, two latest committed heads and complete operation lineage)."
 }
 
+function Assert-IndependentBoardPlanPolicyAuthorityCurrentState {
+    $serverProfile = Assert-IndependentBoardOauthServerProfile
+    $state = Invoke-MySqlText -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM information_schema.routines
+   WHERE routine_schema=DATABASE()
+     AND routine_name='fbsir_independent_board_plan_policy_transition_v1'
+     AND routine_type='PROCEDURE' AND security_type='DEFINER'),
+  (SELECT COUNT(*) FROM information_schema.parameters
+   WHERE specific_schema=DATABASE()
+     AND specific_name='fbsir_independent_board_plan_policy_transition_v1'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='20260723_independent_board_plan_policy_authority_v1'
+     AND description='Independent Board plan policy controlled procedure authority'));
+"@
+    if ($state -ne '1|23|1') {
+        throw "Independent Board plan-policy authority current-read drifted: '$state'."
+    }
+    Write-Host "PASS Independent Board plan-policy controlled procedure authority current-read on MySQL $($serverProfile.Version)."
+}
+
 if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly -or $PlanPolicyMonotonicChainCurrentReadOnly) {
     $currentReadLockSession = $null
     $currentReadLockAcquired = $false
@@ -2902,6 +2924,9 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
         $resumeRunningPlanPolicyMonotonicChain =
             $step.Version -eq 'public_init_040' -and
             $state -eq "RUNNING:$($step.Description)"
+        $resumeRunningPlanPolicyAuthority =
+            $step.Version -eq 'public_init_041' -and
+            $state -eq "RUNNING:$($step.Description)"
         $resumeRunningOauthAdditive =
             $resumeRunningOauthProvenance -or
             $resumeRunningOauthConsentIntent -or
@@ -2911,7 +2936,8 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             $resumeRunningAttributionEvidence -or
             $resumeRunningCreditLedger -or
             $resumeRunningPlanPolicy -or
-            $resumeRunningPlanPolicyMonotonicChain
+            $resumeRunningPlanPolicyMonotonicChain -or
+            $resumeRunningPlanPolicyAuthority
         if ($state -and -not $resumeRunningAdditive) {
             throw "Step $($step.Version) is in state '$state'. Do not retry a partially applied DDL step; use a fresh database or reviewed recovery."
         }
@@ -2972,6 +2998,10 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             $null = Assert-IndependentBoardOauthServerProfile
             Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChainPrefix
         }
+        if ($step.Version -eq 'public_init_041') {
+            $null = Assert-IndependentBoardOauthServerProfile
+            Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChain
+        }
 
         try {
             if (-not $resumeRunningAdditive) {
@@ -3015,6 +3045,9 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             }
             if ($step.Version -eq 'public_init_040') {
                 Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChain
+            }
+            if ($step.Version -eq 'public_init_041') {
+                Assert-IndependentBoardPlanPolicyAuthorityCurrentState
             }
             Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
         }
@@ -3211,6 +3244,22 @@ DROP PROCEDURE IF EXISTS u3w_finalize_ib_plan_policy_monotonic_20260723;
                     Write-Warning "Independent Board plan-policy monotonic-chain exact bounded replay did not pass; recording FAILED."
                 }
             }
+            if ($step.Version -eq 'public_init_041') {
+                try {
+                    Invoke-MySqlFile -File $step.File
+                    Assert-IndependentBoardPlanPolicyAuthorityCurrentState
+                    Invoke-MySqlText -Sql @"
+DROP PROCEDURE IF EXISTS u3w_migrate_ib_plan_policy_authority_20260723;
+DROP PROCEDURE IF EXISTS u3w_finalize_ib_plan_policy_authority_20260723;
+"@ | Out-Null
+                    Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
+                    Write-Warning "Reconciled $($step.Version) from its exact completed controlled-procedure authority state after one bounded replay."
+                    continue
+                }
+                catch {
+                    Write-Warning "Independent Board plan-policy controlled-procedure authority exact bounded replay did not pass; recording FAILED."
+                }
+            }
             try {
                 Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='FAILED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
             }
@@ -3232,6 +3281,7 @@ DROP PROCEDURE IF EXISTS u3w_finalize_ib_plan_policy_monotonic_20260723;
     Assert-IndependentBoardAttributionEvidenceCurrentState
     Assert-IndependentBoardCreditLedgerCurrentState
     Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChain
+    Assert-IndependentBoardPlanPolicyAuthorityCurrentState
 
     Assert-PublicDatabaseManifestCurrentState
 

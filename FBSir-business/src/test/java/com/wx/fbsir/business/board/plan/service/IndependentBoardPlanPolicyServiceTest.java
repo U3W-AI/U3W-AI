@@ -11,12 +11,14 @@ import com.wx.fbsir.common.exception.ServiceException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.sql.SQLException;
 import java.util.Date;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -67,7 +69,7 @@ class IndependentBoardPlanPolicyServiceTest {
         assertEquals(NEXT_RECEIPT, result.receiptId());
         assertEquals(2L, result.policyVersion());
         verify(mapper, never()).selectPolicyHeadCodesForUpdate(anyString());
-        verify(mapper, never()).insertReceipt(any());
+        verify(mapper, never()).transitionReceiptThroughControlledProcedure(any());
     }
 
     @Test
@@ -88,7 +90,7 @@ class IndependentBoardPlanPolicyServiceTest {
         assertEquals(409, error.getCode());
         assertEquals("BOARD_PLAN_POLICY_IDEMPOTENCY_CONFLICT", error.getMessage());
         verify(mapper, never()).selectPolicyHeadCodesForUpdate(anyString());
-        verify(mapper, never()).insertReceipt(any());
+        verify(mapper, never()).transitionReceiptThroughControlledProcedure(any());
     }
 
     @Test
@@ -114,7 +116,28 @@ class IndependentBoardPlanPolicyServiceTest {
     }
 
     @Test
-    void freshRevisionAppendsOneReceiptAndAdvancesHeadByCas() {
+    void controlledProcedureVersionConflictPreservesTheStable409Contract() {
+        IndependentBoardPlanPolicyTransactionService failing =
+                mock(IndependentBoardPlanPolicyTransactionService.class);
+        IndependentBoardPlanPolicyService subject =
+                new IndependentBoardPlanPolicyService(failing);
+        BoardPlanPolicyRevisionRequest request = revision(
+                "BOARD_VIP", 1L, "Independent Board VIP Plus",
+                8, 30, null, true, null, "plan:20260723:procedure-conflict");
+        when(failing.replayIfPresent(request, 900L)).thenReturn(null);
+        when(failing.reviseFresh(request, 900L)).thenThrow(
+                new DataIntegrityViolationException("stored procedure failed",
+                        new SQLException("BOARD_PLAN_POLICY_VERSION_CONFLICT", "45000", 1644)));
+
+        ServiceException error = assertThrows(
+                ServiceException.class, () -> subject.revise(request, 900L));
+
+        assertEquals(409, error.getCode());
+        assertEquals("BOARD_PLAN_POLICY_VERSION_CONFLICT", error.getMessage());
+    }
+
+    @Test
+    void freshRevisionUsesControlledProcedureForOneVerifiedSuccessor() {
         BoardPlanPolicyRevisionRequest request = revision(
                 "BOARD_VIP", 1L, "独董会 VIP 增强版", 8, 30, null, true,
                 null, "plan:20260722:0001");
@@ -122,10 +145,6 @@ class IndependentBoardPlanPolicyServiceTest {
         BoardPlanPolicySnapshot committed = snapshotFromReceipt(
                 revisedReceipt(normalized(request), 900L, 2L, NEXT_RECEIPT));
         stubLockedCatalog(current);
-        when(mapper.insertReceipt(any())).thenReturn(1);
-        when(mapper.updateHeadIfCurrent(
-                anyString(), anyString(), anyString(), anyLong(), anyString(), anyLong(), any()))
-                .thenReturn(1);
         when(mapper.selectCurrentPolicy(
                 IndependentBoardPlanPolicyService.PRODUCT_CODE, "BOARD_VIP"))
                 .thenReturn(committed);
@@ -138,17 +157,13 @@ class IndependentBoardPlanPolicyServiceTest {
         assertEquals(2L, result.policyVersion());
         ArgumentCaptor<BoardPlanPolicyReceipt> receipt =
                 ArgumentCaptor.forClass(BoardPlanPolicyReceipt.class);
-        verify(mapper).insertReceipt(receipt.capture());
+        verify(mapper).transitionReceiptThroughControlledProcedure(receipt.capture());
         assertEquals("plan-policy-baseline-board-vip-v1",
                 receipt.getValue().getPreviousReceiptId());
         assertEquals(current.get(1).getPolicyDigest(),
                 receipt.getValue().getPreviousPolicyDigest());
         assertEquals(900L, receipt.getValue().getActorUserId());
         assertNull(receipt.getValue().getRollbackOfReceiptId());
-        verify(mapper).updateHeadIfCurrent(
-                IndependentBoardPlanPolicyService.PRODUCT_CODE, "BOARD_VIP",
-                "plan-policy-baseline-board-vip-v1", 1L, NEXT_RECEIPT, 2L,
-                Date.from(NOW));
     }
 
     @Test
@@ -189,7 +204,7 @@ class IndependentBoardPlanPolicyServiceTest {
 
         assertEquals("BOARD_PLAN_POLICY_HEAD_LOCK_DRIFT", error.getMessage());
         verify(mapper, never()).selectCurrentPolicies(anyString());
-        verify(mapper, never()).insertReceipt(any());
+        verify(mapper, never()).transitionReceiptThroughControlledProcedure(any());
     }
 
     @Test
@@ -207,10 +222,7 @@ class IndependentBoardPlanPolicyServiceTest {
                         "BOARD_FREE", 1L, "Independent Board Free", 1, 5, 3, false,
                         null, "plan:20260722:no-op"), 900L));
         assertEquals("BOARD_PLAN_POLICY_NO_CHANGE", noOp.getMessage());
-        verify(mapper, never()).insertReceipt(any());
-        verify(mapper, never()).updateHeadIfCurrent(
-                anyString(), anyString(), anyString(), anyLong(),
-                anyString(), anyLong(), any());
+        verify(mapper, never()).transitionReceiptThroughControlledProcedure(any());
     }
 
     @Test
@@ -234,10 +246,6 @@ class IndependentBoardPlanPolicyServiceTest {
         stubLockedCatalog(List.of(free, currentVip));
         when(mapper.selectReceiptByReceiptId(
                 IndependentBoardPlanPolicyService.PRODUCT_CODE, targetId)).thenReturn(target);
-        when(mapper.insertReceipt(any())).thenReturn(1);
-        when(mapper.updateHeadIfCurrent(
-                anyString(), anyString(), anyString(), anyLong(), anyString(), anyLong(), any()))
-                .thenReturn(1);
         when(mapper.selectCurrentPolicy(anyString(), anyString())).thenReturn(committed);
 
         BoardPlanPolicyRevisionView result = service.revise(request, 900L);
@@ -247,25 +255,27 @@ class IndependentBoardPlanPolicyServiceTest {
         assertEquals(3L, result.policyVersion());
         ArgumentCaptor<BoardPlanPolicyReceipt> inserted =
                 ArgumentCaptor.forClass(BoardPlanPolicyReceipt.class);
-        verify(mapper).insertReceipt(inserted.capture());
+        verify(mapper).transitionReceiptThroughControlledProcedure(inserted.capture());
         assertEquals("PLAN_POLICY_ROLLED_BACK", inserted.getValue().getAction());
         assertEquals(targetId, inserted.getValue().getRollbackOfReceiptId());
     }
 
     @Test
-    void crossPlanMonotonicityAndCasFailureFailClosed() {
+    void crossPlanMonotonicityAndAuthorityConflictFailClosed() {
         stubLockedCatalog(baselineCatalog());
         ServiceException invariant = assertThrows(ServiceException.class,
                 () -> service.revise(revision(
                         "BOARD_FREE", 1L, "独董会免费增强版", 6, 5, 3, false,
                         null, "plan:20260722:invariant"), 900L));
         assertEquals("BOARD_PLAN_POLICY_CATALOG_INVARIANT", invariant.getMessage());
-        verify(mapper, never()).insertReceipt(any());
+        verify(mapper, never()).transitionReceiptThroughControlledProcedure(any());
 
         when(mapper.insertReceipt(any())).thenReturn(1);
         when(mapper.updateHeadIfCurrent(
                 anyString(), anyString(), anyString(), anyLong(), anyString(), anyLong(), any()))
                 .thenReturn(0);
+        when(mapper.selectCurrentPolicy(anyString(), anyString())).thenThrow(
+                new ServiceException("BOARD_PLAN_POLICY_VERSION_CONFLICT", 409));
         ServiceException cas = assertThrows(ServiceException.class,
                 () -> service.revise(revision(
                         "BOARD_VIP", 1L, "独董会 VIP 增强版", 8, 30, null, true,

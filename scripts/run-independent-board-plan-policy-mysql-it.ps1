@@ -20,6 +20,7 @@ $workRoot = [System.IO.Path]::GetFullPath(
 $controlPlanePath = Join-Path $repoRoot 'sql\update_20260720_independent_board_control_plane.sql'
 $policyPath = Join-Path $repoRoot 'sql\update_20260722_independent_board_plan_policy.sql'
 $monotonicChainPath = Join-Path $repoRoot 'sql\update_20260723_independent_board_plan_policy_monotonic_chain.sql'
+$authorityPath = Join-Path $repoRoot 'sql\update_20260723_independent_board_plan_policy_authority.sql'
 $initializerPath = Join-Path $repoRoot 'scripts\init-database.ps1'
 $manifestPath = Join-Path $repoRoot 'sql\init-manifest.json'
 $runnerPath = [System.IO.Path]::GetFullPath($MyInvocation.MyCommand.Path)
@@ -307,7 +308,8 @@ function Invoke-PlanPolicyConcurrencyTestCompile {
 
 if (-not (Test-Path -LiteralPath $controlPlanePath -PathType Leaf) -or
     -not (Test-Path -LiteralPath $policyPath -PathType Leaf) -or
-    -not (Test-Path -LiteralPath $monotonicChainPath -PathType Leaf)) {
+    -not (Test-Path -LiteralPath $monotonicChainPath -PathType Leaf) -or
+    -not (Test-Path -LiteralPath $authorityPath -PathType Leaf)) {
     throw 'Required Independent Board migration SQL is missing.'
 }
 if (-not (Test-Path -LiteralPath $workRoot -PathType Container)) {
@@ -535,6 +537,8 @@ FROM fbs_plan_policy_head WHERE plan_code='BOARD_VIP';
             -Database 'w3h_policy_concurrency' -Path $monotonicChainPath
         $null = Invoke-MySqlFile -Profile $profile -Port $port `
             -Database 'w3k_policy_prefix' -Path $monotonicChainPath
+        $null = Invoke-MySqlFile -Profile $profile -Port $port `
+            -Database 'w3h_policy_concurrency' -Path $authorityPath
         $monotonicFirstApply = (Invoke-MySqlText -Profile $profile -Port $port `
             -Database 'w3h_policy_ok' -Sql @"
 SELECT CONCAT_WS('|',
@@ -1167,6 +1171,7 @@ if (Test-Path -LiteralPath $workRoot -PathType Container) {
         publicInit030 = (Get-FileHash -LiteralPath $controlPlanePath -Algorithm SHA256).Hash.ToLowerInvariant()
         publicInit039 = (Get-FileHash -LiteralPath $policyPath -Algorithm SHA256).Hash.ToLowerInvariant()
         publicInit040 = (Get-FileHash -LiteralPath $monotonicChainPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        publicInit041 = (Get-FileHash -LiteralPath $authorityPath -Algorithm SHA256).Hash.ToLowerInvariant()
         manifest = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
         initializer = (Get-FileHash -LiteralPath $initializerPath -Algorithm SHA256).Hash.ToLowerInvariant()
         runner = (Get-FileHash -LiteralPath $runnerPath -Algorithm SHA256).Hash.ToLowerInvariant()

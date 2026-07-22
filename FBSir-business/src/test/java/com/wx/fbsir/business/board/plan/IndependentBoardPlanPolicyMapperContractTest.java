@@ -50,7 +50,7 @@ class IndependentBoardPlanPolicyMapperContractTest {
         assertFalse(mapperXml.contains("${"));
         assertFalse(mapperXml.matches("(?is).*update\\s+fbs_product_plan.*"));
         assertFalse(mapperXml.matches(
-                "(?is).*<(update|delete)[^>]*id=\"[^\"]*receipt[^\"]*\".*"));
+                "(?is).*<delete[^>]*id=\"[^\"]*receipt[^\"]*\".*"));
     }
 
     @Test
@@ -132,6 +132,30 @@ class IndependentBoardPlanPolicyMapperContractTest {
                 "productCode", "FBSIR_INDEPENDENT_BOARD", "limit", 101));
         assertTrue(audit.contains("order by r.created_at desc, r.id desc"));
         assertTrue(audit.endsWith("limit ?"));
+    }
+
+    @Test
+    void runtimeTransitionUsesOnlyTheControlledDatabaseProcedure() {
+        BoardPlanPolicyReceipt receipt = new BoardPlanPolicyReceipt();
+        receipt.setReceiptId("123e4567-e89b-12d3-a456-426614174000");
+        String transition = sql("transitionReceiptThroughControlledProcedure", receipt);
+
+        assertTrue(transition.startsWith("{ call "));
+        assertTrue(transition.contains(
+                "fbsir_independent_board_plan_policy_transition_v1"));
+        assertFalse(transition.contains("insert into fbs_plan_policy_revision_receipt"));
+        assertFalse(transition.contains("update fbs_plan_policy_head"));
+        try {
+            assertTrue(IndependentBoardPlanPolicyMapper.class
+                    .getMethod("insertReceipt", BoardPlanPolicyReceipt.class)
+                    .isAnnotationPresent(Deprecated.class));
+            assertTrue(IndependentBoardPlanPolicyMapper.class
+                    .getMethod("updateHeadIfCurrent", String.class, String.class,
+                            String.class, long.class, String.class, long.class, Date.class)
+                    .isAnnotationPresent(Deprecated.class));
+        } catch (NoSuchMethodException missingLegacyBinding) {
+            throw new AssertionError(missingLegacyBinding);
+        }
     }
 
     private static String sql(String statement, Object parameters) {

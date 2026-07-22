@@ -50,7 +50,7 @@
     },
     {
       "id": "W3_ADMIN_PORTAL",
-      "state": "w3h_plan_policy_w3i_meeting_audit_w3j_credit_activation_readiness_and_w3k_database_monotonic_chain_verified_local_default_off",
+      "state": "w3h_plan_policy_w3i_meeting_audit_w3j_credit_activation_readiness_w3k_monotonic_chain_verified_and_controlled_authority_candidate_in_progress_default_off",
       "activeSlice": "W3j_activation_release_receipt_collection_and_human_approval",
       "completedSubset": [
         "global_system_admin_only_access_model",
@@ -111,7 +111,8 @@
       "remaining": [
         "credit_ledger_candidate_activation_release_receipt_and_human_approval",
         "credit_ledger_internal_writer_migration_and_authoritative_promotion",
-        "plan_policy_database_writer_privilege_containment_and_controlled_procedure_before_production_activation",
+        "plan_policy_controlled_procedure_dual_mysql_execution_and_two_account_rejection_matrix",
+        "plan_policy_production_writer_privilege_containment_approval_grant_revoke_and_readback",
         "credit_ledger_production_database_migration",
         "legacy_credit_rule_and_menu_seed_retirement_migration",
         "credit_audit_cursor_pagination_beyond_latest_100",

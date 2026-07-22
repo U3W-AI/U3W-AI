@@ -29,8 +29,18 @@ public interface IndependentBoardPlanPolicyMapper {
             @Param("productCode") String productCode,
             @Param("receiptId") String receiptId);
 
+    /** Writes one verified successor receipt and advances its head inside the DB authority. */
+    void transitionReceiptThroughControlledProcedure(BoardPlanPolicyReceipt receipt);
+
+    /**
+     * Legacy direct DML binding retained only for offline migration/recovery fixtures.
+     * Runtime policy revision must use {@link #transitionReceiptThroughControlledProcedure}.
+     */
+    @Deprecated(forRemoval = true)
     int insertReceipt(BoardPlanPolicyReceipt receipt);
 
+    /** @deprecated Runtime policy revision must use the controlled procedure. */
+    @Deprecated(forRemoval = true)
     int updateHeadIfCurrent(
             @Param("productCode") String productCode,
             @Param("planCode") String planCode,

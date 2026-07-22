@@ -732,6 +732,21 @@ class IndependentBoardPlanPolicyMysqlConcurrencyIT {
         }
 
         @Override
+        public void transitionReceiptThroughControlledProcedure(
+                BoardPlanPolicyReceipt receipt) {
+            delegate.transitionReceiptThroughControlledProcedure(receipt);
+            if (failNextHeadCas.compareAndSet(true, false)) {
+                insertedBeforeFailedCas.set(receipt.getReceiptId());
+                throw new ServiceException("BOARD_PLAN_POLICY_VERSION_CONFLICT", 409);
+            }
+            PauseGate gate = pauseAfterHeadUpdate.get();
+            if (gate != null) {
+                gate.headUpdated().countDown();
+                gate.awaitRelease();
+            }
+        }
+
+        @Override
         public int insertReceipt(BoardPlanPolicyReceipt receipt) {
             int inserted = delegate.insertReceipt(receipt);
             if (inserted == 1 && failNextHeadCas.get()) {

@@ -133,14 +133,7 @@ public class IndependentBoardPlanPolicyTransactionService {
         BoardPlanPolicyReceipt next = nextReceipt(
                 current, normalized, rollbackTarget, actorUserId,
                 idempotencyDigest, nextVersion, now);
-        if (mapper.insertReceipt(next) != 1) {
-            throw new ServiceException("BOARD_PLAN_POLICY_RECEIPT_WRITE_FAILED", 500);
-        }
-        if (mapper.updateHeadIfCurrent(
-                next.getProductCode(), next.getPlanCode(), current.getReceiptId(),
-                current.getPolicyVersion(), next.getReceiptId(), nextVersion, now) != 1) {
-            throw new ServiceException("BOARD_PLAN_POLICY_VERSION_CONFLICT", 409);
-        }
+        mapper.transitionReceiptThroughControlledProcedure(next);
         BoardPlanPolicySnapshot committed = mapper.selectCurrentPolicy(
                 next.getProductCode(), next.getPlanCode());
         verifyCommittedRead(committed, next);

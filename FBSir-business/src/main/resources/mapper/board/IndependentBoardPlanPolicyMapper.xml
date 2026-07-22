@@ -146,6 +146,19 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           AND BINARY r.receipt_id = BINARY #{receiptId}
     </select>
 
+    <update id="transitionReceiptThroughControlledProcedure"
+            statementType="CALLABLE"
+            parameterType="com.wx.fbsir.business.board.plan.domain.BoardPlanPolicyReceipt">
+        { CALL fbsir_independent_board_plan_policy_transition_v1(
+            #{receiptId}, #{productCode}, #{planCode}, #{policyVersion},
+            #{previousReceiptId}, #{rollbackOfReceiptId}, #{action},
+            #{actorType}, #{actorUserId}, #{idempotencyKeyDigest}, #{commandDigest},
+            #{previousPolicyDigest}, #{policyDigest}, #{planName}, #{vip},
+            #{connectorRequired}, #{dailyMeetingLimit}, #{agendaLimit}, #{seatLimit},
+            #{secretaryEnabled}, #{status}, #{evidenceLevel}, #{createdAt}
+        ) }
+    </update>
+
     <insert id="insertReceipt"
             parameterType="com.wx.fbsir.business.board.plan.domain.BoardPlanPolicyReceipt">
         INSERT INTO fbs_plan_policy_revision_receipt

@@ -151,6 +151,9 @@
     "w3kPlanPolicyMonotonicChainAdr": "docs/decisions/ADR-005-independent-board-plan-policy-database-monotonic-chain.md",
     "w3kPlanPolicyMonotonicChainMigration": "sql/update_20260723_independent_board_plan_policy_monotonic_chain.sql",
     "w3kPlanPolicyMonotonicChainVerificationReport": "reports/independent-board/w3k-plan-policy-monotonic-chain-verification-20260723.json",
+    "w3kPlanPolicyAuthorityContract": "docs/independent-board/W3K-PLAN-POLICY-CONTROLLED-AUTHORITY-CONTRACT.md",
+    "w3kPlanPolicyAuthorityAdr": "docs/decisions/ADR-006-independent-board-plan-policy-controlled-procedure-authority.md",
+    "w3kPlanPolicyAuthorityMigration": "sql/update_20260723_independent_board_plan_policy_authority.sql",
     "postListingHostTruthReport": "reports/independent-board/host-truth-chain-summary-20260721.json",
     "verificationReports": "reports/independent-board/*.json"
   },

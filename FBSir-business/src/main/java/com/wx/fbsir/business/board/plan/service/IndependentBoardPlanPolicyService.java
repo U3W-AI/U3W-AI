@@ -4,6 +4,7 @@ import com.wx.fbsir.business.board.plan.dto.BoardPlanPolicyAuditEnvelope;
 import com.wx.fbsir.business.board.plan.dto.BoardPlanPolicyRevisionRequest;
 import com.wx.fbsir.business.board.plan.dto.BoardPlanPolicyRevisionView;
 import com.wx.fbsir.common.exception.ServiceException;
+import java.sql.SQLException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
@@ -32,6 +33,9 @@ public class IndependentBoardPlanPolicyService {
         } catch (PessimisticLockingFailureException conflict) {
             throw new ServiceException("BOARD_PLAN_POLICY_CONCURRENT_CONFLICT", 409);
         } catch (DataAccessException persistence) {
+            if (isControlledProcedureVersionConflict(persistence)) {
+                throw new ServiceException("BOARD_PLAN_POLICY_VERSION_CONFLICT", 409);
+            }
             throw new ServiceException("BOARD_PLAN_POLICY_PERSISTENCE_FAILED", 500);
         }
     }
@@ -83,5 +87,23 @@ public class IndependentBoardPlanPolicyService {
     private static boolean isVersionConflict(ServiceException failure) {
         return Integer.valueOf(409).equals(failure.getCode())
                 && "BOARD_PLAN_POLICY_VERSION_CONFLICT".equals(failure.getMessage());
+    }
+
+    /**
+     * MySQL SIGNAL SQLSTATE '45000' is translated by the JDBC/Spring stack into a
+     * {@link DataAccessException}; preserve the public optimistic-concurrency contract.
+     */
+    private static boolean isControlledProcedureVersionConflict(Throwable failure) {
+        Throwable current = failure;
+        while (current != null) {
+            if (current instanceof SQLException sqlException
+                    && sqlException.getErrorCode() == 1644
+                    && sqlException.getMessage() != null
+                    && sqlException.getMessage().contains("BOARD_PLAN_POLICY_VERSION_CONFLICT")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

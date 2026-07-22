@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -64,11 +65,8 @@ class IndependentBoardPlanPolicyTransactionBoundaryTest {
                         IndependentBoardPlanPolicyService.FREE_PLAN,
                         IndependentBoardPlanPolicyService.VIP_PLAN));
         when(mapper.selectCurrentPolicies(anyString())).thenReturn(baselineCatalog());
-        when(mapper.insertReceipt(any())).thenReturn(1);
-        when(mapper.updateHeadIfCurrent(
-                anyString(), anyString(), anyString(), anyLong(),
-                anyString(), anyLong(), any()))
-                .thenReturn(0);
+        doThrow(new ServiceException("BOARD_PLAN_POLICY_VERSION_CONFLICT", 409))
+                .when(mapper).transitionReceiptThroughControlledProcedure(any());
 
         IndependentBoardPlanPolicyTransactionService transactionService =
                 context.getBean(IndependentBoardPlanPolicyTransactionService.class);
@@ -82,6 +80,7 @@ class IndependentBoardPlanPolicyTransactionBoundaryTest {
                         900L));
 
         assertEquals("BOARD_PLAN_POLICY_VERSION_CONFLICT", failure.getMessage());
+        verify(mapper).transitionReceiptThroughControlledProcedure(any());
         InOrder order = inOrder(transactionManager);
         order.verify(transactionManager).getTransaction(any());
         order.verify(transactionManager).commit(preflight);

@@ -532,7 +532,18 @@ function Invoke-ContractChecks {
         'scripts/verify-database-manifest.ps1',
         'scripts/run-independent-board-plan-policy-mysql-it.ps1'
     )
+    $w3kSupersededAuthorityArtifacts = @(
+        'docs/independent-board/taskboard.json',
+        '.fbs-engineering/contract.json',
+        'sql/init-manifest.json',
+        'scripts/init-database.ps1',
+        'scripts/verify-database-manifest.ps1',
+        'scripts/run-independent-board-plan-policy-mysql-it.ps1'
+    )
     foreach ($w3kExpectedArtifact in $w3kExpectedArtifacts) {
+        if ($w3kExpectedArtifact -in $w3kSupersededAuthorityArtifacts) {
+            continue
+        }
         $currentW3kArtifactHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot $w3kExpectedArtifact)).Hash.ToLowerInvariant()
         $boundW3kArtifactHash = $w3kMonotonicReport.sourceSha256.PSObject.Properties[$w3kExpectedArtifact].Value
         if ($boundW3kArtifactHash -cne $currentW3kArtifactHash) {
@@ -542,13 +553,42 @@ function Invoke-ContractChecks {
     $w3kRunnerSuccession = @($w3kMonotonicReport.sharedEvidenceSuccession.sources | Where-Object {
             $_.sharedSource -ceq 'scripts/run-independent-board-plan-policy-mysql-it.ps1'
         })
-    $currentW3kRunnerHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot 'scripts/run-independent-board-plan-policy-mysql-it.ps1')).Hash.ToLowerInvariant()
     if ($w3kRunnerSuccession.Count -ne 1 `
             -or $w3kRunnerSuccession[0].predecessorSourceSha256 -cne '906defb4f9e35e28003b6d22c09151cd374b636824a1b6648c99aaf4981f161b' `
-            -or $w3kRunnerSuccession[0].successorSourceSha256 -cne $currentW3kRunnerHash `
             -or $w3kRunnerSuccession[0].predecessorRegressionState -cne 'PASS' `
             -or [string]::IsNullOrWhiteSpace($w3kRunnerSuccession[0].predecessorRegressionVerifier)) {
         throw 'W3k shared dual-MySQL runner evidence succession is incomplete or drifted'
+    }
+
+    $w3kAuthorityReport = Read-Utf8Json -RelativePath 'reports\independent-board\w3k-plan-policy-controlled-authority-verification-20260723.json'
+    if ($w3kAuthorityReport.schemaVersion -ne 1 `
+            -or $w3kAuthorityReport.result -cne 'LOCAL_CANDIDATE_MYSQL_MATRIX_PENDING' `
+            -or $w3kAuthorityReport.candidateReadyForCommit -ne $false `
+            -or $w3kAuthorityReport.releaseReady -ne $false `
+            -or $w3kAuthorityReport.productionChanged -ne $false `
+            -or $w3kAuthorityReport.predecessorReceipt -cne 'reports/independent-board/w3k-plan-policy-monotonic-chain-verification-20260723.json' `
+            -or $w3kAuthorityReport.historicalReceiptMutated -ne $false `
+            -or $w3kAuthorityReport.frozenSurface.unchanged -ne $true `
+            -or $w3kAuthorityReport.frozenSurface.observedSha256 -cne $w3kAuthorityReport.frozenSurface.requiredSha256) {
+        throw 'W3k controlled-authority report boundary is incomplete or drifted'
+    }
+    foreach ($authorityArtifact in @($w3kAuthorityReport.sourceSha256.PSObject.Properties)) {
+        $authorityPath = [string]$authorityArtifact.Name
+        $authorityFile = Join-Path $RepoRoot $authorityPath
+        if (-not (Test-Path -LiteralPath $authorityFile -PathType Leaf)) {
+            throw "W3k controlled-authority artifact is missing: $authorityPath"
+        }
+        $authorityCurrentHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $authorityFile).Hash.ToLowerInvariant()
+        if ($authorityArtifact.Value -cne $authorityCurrentHash) {
+            throw "W3k controlled-authority artifact binding drifted: $authorityPath"
+        }
+    }
+    foreach ($supersededArtifact in $w3kSupersededAuthorityArtifacts) {
+        $priorHash = $w3kMonotonicReport.sourceSha256.PSObject.Properties[$supersededArtifact].Value
+        $successorPriorHash = $w3kAuthorityReport.predecessorSourceSha256.PSObject.Properties[$supersededArtifact].Value
+        if ([string]::IsNullOrWhiteSpace($priorHash) -or $successorPriorHash -cne $priorHash) {
+            throw "W3k controlled-authority predecessor binding drifted: $supersededArtifact"
+        }
     }
 
     # W3j is deliberately a read-only release-receipt gate. It does not claim
@@ -796,7 +836,7 @@ function Invoke-ContractChecks {
             -or $implementationStatus.w3k.productionAuthority -ne $false `
             -or $implementationStatus.w3k.nextSlice -cne $canonicalW3NextSliceId `
             -or $w3Wave.Count -ne 1 `
-            -or $w3Wave[0].state -cne 'w3h_plan_policy_w3i_meeting_audit_w3j_credit_activation_readiness_and_w3k_database_monotonic_chain_verified_local_default_off' `
+            -or $w3Wave[0].state -cne 'w3h_plan_policy_w3i_meeting_audit_w3j_credit_activation_readiness_w3k_monotonic_chain_verified_and_controlled_authority_candidate_in_progress_default_off' `
             -or $w3Wave[0].activeSlice -cne $canonicalW3NextSliceId `
             -or $implementationStatus.w4b.runtimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or $implementationStatus.w4b.api2TrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `

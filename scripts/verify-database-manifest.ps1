@@ -2635,7 +2635,7 @@ $requiredOauthInitializerIntegrationNeedles = @(
 )
 $requiredCreditLedgerInitializerNeedles = @(
     'New-Step "public_init_038" "Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger" (Resolve-SqlFile "update_20260722_independent_board_credit_ledger.sql")',
-    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040')",
+    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041')",
     'function Assert-IndependentBoardCreditLedgerCurrentState',
     '$serverProfile = Assert-IndependentBoardOauthServerProfile',
     '$expected = @(3,3,45,45,45,20,20,4,4,9,9,22,22,6,6,1,1,5,0)',
@@ -2706,7 +2706,7 @@ foreach ($needle in $requiredCreditLedgerInitializerNeedles) {
 }
 $requiredPlanPolicyInitializerNeedles = @(
     'New-Step "public_init_039" "Independent Board immutable plan policy revisions and operation lineage" (Resolve-SqlFile "update_20260722_independent_board_plan_policy.sql")',
-    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040')",
+    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041')",
     '[switch]$PlanPolicyCurrentReadOnly',
     'function Assert-IndependentBoardPlanPolicyCurrentState',
     '$resumeRunningPlanPolicy',
