@@ -120,6 +120,11 @@
     "w2VerificationReport": "reports/independent-board/w2-user-portal-verification-20260720.json",
     "w3VerificationReport": "reports/independent-board/w3-admin-portal-verification-20260720.json",
     "w3bVerificationReport": "reports/independent-board/w3b-entitlement-lifecycle-verification-20260720.json",
+    "w3fCreditLedgerContract": "docs/independent-board/W3F-CREDIT-LEDGER-CONTRACT.md",
+    "w3fCreditLedgerMigration": "sql/update_20260722_independent_board_credit_ledger.sql",
+    "w3fCreditLedgerMysqlRunner": "scripts/run-independent-board-credit-ledger-mysql-it.ps1",
+    "w3fCreditLedgerVerificationReport": "reports/independent-board/w3f-credit-ledger-verification-20260722.json",
+    "w3fCreditLedgerMysqlEvidence": "reports/independent-board/w3f-credit-ledger-mysql-evidence-20260722.json",
     "postListingHostTruthReport": "reports/independent-board/host-truth-chain-summary-20260721.json",
     "verificationReports": "reports/independent-board/*.json"
   },
@@ -331,6 +336,31 @@
           "credit_ledger_operations",
           "connector_oauth_binding",
           "webhook_and_device_operations"
+        ]
+      },
+      "w3fImplementation": {
+        "state": "local_default_off_backend_candidate_dual_mysql_verified",
+        "contract": "docs/independent-board/W3F-CREDIT-LEDGER-CONTRACT.md",
+        "accountScope": "USER_GLOBAL",
+        "currencyCode": "FBS_POINTS",
+        "httpFlag": "fbsir.independent-board.credit-candidate.enabled",
+        "httpDefault": "disabled_controller_and_advice_absent_authenticated_404",
+        "legacyAdminGrant": "authenticated_410_anonymous_401_service_and_ui_write_adapter_removed",
+        "migration": "public_init_038_manifested_not_applied_to_production",
+        "migrationContract": "exact_mysql_community_8_0_30_or_8_4_8_raw_typed_metadata_and_fresh_database_negative_vectors",
+        "authorizationSemantics": "ruoyi_admin_role_plus_fine_permission_with_builtin_superadmin_wildcard_override",
+        "canonicalCurrentRead": "exact_profile_five_column_sys_user_dependency_and_zero_projection_mismatch",
+        "backendAggregate": "206_of_206_current_byte_testcases_passed",
+        "verifiedMysql": [
+          "MySQL Community 8.0.30",
+          "MySQL Community 8.4.8"
+        ],
+        "productionAuthority": false,
+        "deferred": [
+          "credit_permission_menu_and_admin_ui",
+          "candidate_http_activation",
+          "internal_legacy_writer_migration",
+          "production_database_migration_and_authoritative_promotion"
         ]
       },
       "w4aImplementation": {

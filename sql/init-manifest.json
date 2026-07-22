@@ -37,7 +37,8 @@
     { "version": "public_init_034", "description": "Independent Board OAuth TOKEN_FAMILY_CREATED receipt provenance", "file": "update_20260721_independent_board_oauth_receipt_provenance.sql" },
     { "version": "public_init_035", "description": "Independent Board OAuth consent-intent lineage", "file": "update_20260721_independent_board_oauth_consent_intent_lineage.sql", "sha256": "55dc772d54a4a457f00711a45266b2d0042522d63ed0d5a8e408d35a8ecaf560" },
     { "version": "public_init_036", "description": "Independent Board OAuth refresh security receipt v2", "file": "update_20260721_independent_board_oauth_refresh_security.sql", "sha256": "4d82cb93d7bd15035de882be69ea4bc03c5101e3851ad56083aecdfc93d2b041" },
-    { "version": "public_init_037", "description": "Independent Board exact product attribution evidence contract", "file": "update_20260722_independent_board_attribution_evidence_contract.sql", "sha256": "59e3696ff3f8d4a16b4659c94a108f35fb1badf2f4de16079229c031a0b44cce" }
+    { "version": "public_init_037", "description": "Independent Board exact product attribution evidence contract", "file": "update_20260722_independent_board_attribution_evidence_contract.sql", "sha256": "59e3696ff3f8d4a16b4659c94a108f35fb1badf2f4de16079229c031a0b44cce" },
+    { "version": "public_init_038", "description": "Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger", "file": "update_20260722_independent_board_credit_ledger.sql", "sha256": "8d0b2ee9ae6c31f75d8a0339a486c19b2864e200dc76f2abd54f229f727b7c18" }
   ],
   "manualMigrations": [
     {

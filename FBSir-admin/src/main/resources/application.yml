@@ -19,6 +19,9 @@ fbsir:
   # 建议使用环境变量：WXFBSIR_DOMAIN
   domain: ${FBSIR_DOMAIN:${WXFBSIR_DOMAIN:http://localhost:8080}}
   independent-board:
+    credit-candidate:
+      # Default-off credit shadow-ledger HTTP surface. Keep false until permission, UI and deployment gates pass.
+      enabled: ${FBSIR_INDEPENDENT_BOARD_CREDIT_CANDIDATE_ENABLED:false}
     portal-candidate:
       # Default-off read-only candidate surface. Enable only with two independent 32-byte base64url keys.
       enabled: ${FBSIR_INDEPENDENT_BOARD_PORTAL_CANDIDATE_ENABLED:false}

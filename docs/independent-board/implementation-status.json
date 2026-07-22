@@ -5,7 +5,7 @@
     "brandEn": "FBSir",
     "name": "独董会"
   },
-  "platformVersion": "0.4.5-dev",
+  "platformVersion": "0.4.6-dev",
   "expertPackage": {
     "version": "26.7.20",
     "state": "officially_listed_user_confirmed",
@@ -124,6 +124,15 @@
     "docs/independent-board/HOST-UPGRADE-DEMAND-CREDIT-LEDGER.md",
     "reports/independent-board/points-mutation-security-closure-20260722.json",
     "reports/independent-board/api-key-pack-scope-verification-20260722.json",
+    "docs/independent-board/W3F-CREDIT-LEDGER-CONTRACT.md",
+    "sql/update_20260722_independent_board_credit_ledger.sql",
+    "scripts/run-independent-board-credit-ledger-mysql-it.ps1",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/",
+    "FBSir-business/src/main/resources/mapper/board/IndependentBoardCreditMapper.xml",
+    "reports/independent-board/w3f-credit-ledger-verification-20260722.json",
+    "reports/independent-board/w3f-credit-ledger-mysql-evidence-20260722.json",
+    "work/diagnostics/independent-board-credit-ledger-mysql-it/mysql-8.0.30/summary-mysql-8.0.30-20260722T050624.015Z-pid-25464.json",
+    "work/diagnostics/independent-board-credit-ledger-mysql-it/mysql-8.4.8/summary-mysql-8.4.8-20260722T050816.125Z-pid-25464.json",
     "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.0.30/summary-mysql-8.0.30-utc-20260721T061311.131Z-local-20260721T141311.131+0800-pid-21800.json",
     "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.4.8/summary-mysql-8.4.8-utc-20260721T061510.025Z-local-20260721T141510.025+0800-pid-29828.json",
     "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.0.30/summary-mysql-8.0.30-utc-20260721T123307.170Z-local-20260721T203307.170+0800-pid-18500.json",
@@ -245,14 +254,23 @@
     "api2_unsigned_report_only_attribution_42_of_42_adversarial_tests_passed",
     "w4b2d_signed_receipt_binding_snapshot_contract_7_of_7_adversarial_tests_passed",
     "w4b2d_public_init_037_default_off_append_only_evidence_schema_manifest_verified",
-    "w4b2d_live_api2_ack_object_contract_adapter_rejects_boolean_and_unregistered_product"
-    ,"w4b2d_api2_active_release_hash_anchored_cleanroom_capture_completed_read_only"
-    ,"w4b2d_api2_runtime_input_spec_coverage_25_of_25"
-    ,"w4b2d_p1_005a_candidate_exact_version_gate_and_default_off_smoke_passed"
-    ,"w4b2d_p1_005a_transitive_hash_anchors_frozen_zip_check_and_candidate_output_reset_verified"
-    ,"w4b2d_java_evidence_time_identity_and_snapshot_concurrency_hardening_static_verified"
-    ,"w4b2d_java_challenge_nonce_and_strict_expiry_binding_static_contract_verified"
-    ,"w4b2d_java_stage_predecessor_chain_guard_static_contract_verified"
+    "w4b2d_live_api2_ack_object_contract_adapter_rejects_boolean_and_unregistered_product",
+    "w4b2d_api2_active_release_hash_anchored_cleanroom_capture_completed_read_only",
+    "w4b2d_api2_runtime_input_spec_coverage_25_of_25",
+    "w4b2d_p1_005a_candidate_exact_version_gate_and_default_off_smoke_passed",
+    "w4b2d_p1_005a_transitive_hash_anchors_frozen_zip_check_and_candidate_output_reset_verified",
+    "w4b2d_java_evidence_time_identity_and_snapshot_concurrency_hardening_static_verified",
+    "w4b2d_java_challenge_nonce_and_strict_expiry_binding_static_contract_verified",
+    "w4b2d_java_stage_predecessor_chain_guard_static_contract_verified",
+    "w3f_default_off_credit_http_surface_strict_dto_global_admin_and_fine_permission_matrix_passed",
+    "w3f_immutable_user_global_fbs_points_shadow_ledger_idempotency_reversal_chain_and_safe_projection_verified_local",
+    "w3f_dual_mysql_8_0_30_and_8_4_8_first_apply_replay_drift_and_5_of_5_each_passed",
+    "w3f_concurrent_distinct_key_single_reversal_returns_stable_409_after_locking_current_read",
+    "w3f_legacy_admin_grant_http_410_ui_adapter_and_service_removed",
+    "w3f_points_fan_reads_preserve_manager_and_block_non_global_roles_with_datascope_sanitization",
+    "w3f_exact_raw_metadata_and_fresh_database_negative_drift_matrix_passed_dual_mysql",
+    "w3f_canonical_current_read_rejects_post_apply_sys_user_dependency_and_projection_drift",
+    "w3f_focused_backend_current_byte_aggregate_206_of_206_and_frontend_production_build_passed"
   ],
   "notProven": [
     "oauth_public_routes",
@@ -281,8 +299,11 @@
     "entitlement_reinstatement_action",
     "product_plan_policy_write_revision_and_receipt_governance",
     "meeting_audit_plan_label_authority_with_operation_audit_permission_boundary",
-    "credit_ledger_admin_operations",
-    "legacy_privileged_admin_grant_idempotency_and_immutable_receipt",
+    "credit_ledger_permission_menu_and_admin_ui",
+    "credit_ledger_candidate_http_activation",
+    "credit_ledger_internal_writer_migration_and_authoritative_promotion",
+    "credit_ledger_production_database_migration",
+    "legacy_credit_rule_and_menu_seed_retirement_migration",
     "api_key_pack_code_database_immutability_trigger",
     "api_key_user_and_pack_bound_lifecycle",
     "skill_usage_enterprise_tenant_and_member_snapshot",
@@ -294,6 +315,31 @@
     "watch_device_control",
     "production_deployment"
   ],
+  "w3f": {
+    "state": "local_default_off_backend_candidate_dual_mysql_verified",
+    "contract": "docs/independent-board/W3F-CREDIT-LEDGER-CONTRACT.md",
+    "verificationReport": "reports/independent-board/w3f-credit-ledger-verification-20260722.json",
+    "accountScope": "USER_GLOBAL",
+    "currencyCode": "FBS_POINTS",
+    "httpFlag": "fbsir.independent-board.credit-candidate.enabled",
+    "httpDefault": "disabled_controller_and_advice_absent_authenticated_404",
+    "legacyAdminGrant": "authenticated_410_anonymous_401_service_and_ui_write_adapter_removed",
+    "databaseMigration": "public_init_038_manifested_not_applied_to_production",
+    "migrationContract": "exact_mysql_community_8_0_30_or_8_4_8_raw_typed_metadata_and_fresh_database_negative_vectors",
+    "authorizationSemantics": "ruoyi_admin_role_plus_fine_permission_with_builtin_superadmin_wildcard_override",
+    "canonicalCurrentRead": "exact_profile_five_column_sys_user_dependency_and_zero_projection_mismatch",
+    "backendAggregate": "206_of_206_current_byte_testcases_passed",
+    "mysqlEvidence": "reports/independent-board/w3f-credit-ledger-mysql-evidence-20260722.json",
+    "verifiedMysql": [
+      "MySQL Community 8.0.30",
+      "MySQL Community 8.4.8"
+    ],
+    "productionAuthority": false,
+    "adminUi": "not_implemented",
+    "permissionMenuMigration": "not_implemented",
+    "internalLegacyWriterMigration": "not_implemented",
+    "nextSlice": "W3g_default_off_credit_permission_menu_and_admin_ui"
+  },
   "ui": {
     "base": "existing_u3w_ai_ruoyi_vue3_element_plus",
     "state": "w4b2_default_off_runtime_candidate_verified_local_not_deployed",
@@ -319,6 +365,7 @@
     "w4bOauthConnectorProductionImplementationAllowed": true,
     "w4bOauthConnectorImplementationState": "internal_oauth_chain_and_default_off_portal_runtime_candidate_verified_public_routes_closed",
     "w4bOauthConnectorUnlockCondition": "satisfied_by_explicit_user_confirmation_2026_07_20",
+    "creditLedgerAdminUi": "not_implemented_default_off_backend_candidate_only",
     "watchAndWebhookDeepPages": "deferred_to_W5_delivery_and_watch"
   },
   "w4a": {
@@ -394,5 +441,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-22T08:49:53+08:00"
+  "updatedAt": "2026-07-22T11:24:02+08:00"
 }

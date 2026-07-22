@@ -5,7 +5,8 @@ param(
     [string]$Database = "wxfbsir",
     [switch]$DryRun,
     [switch]$ManifestJson,
-    [switch]$CurrentReadOnly
+    [switch]$CurrentReadOnly,
+    [switch]$CreditLedgerCurrentReadOnly
 )
 
 Set-StrictMode -Version Latest
@@ -21,8 +22,11 @@ if ($LoginPath -notmatch '^[A-Za-z0-9_.-]+$') {
 if ($Database -notmatch '^[A-Za-z0-9_]+$' -or $Database.Length -gt 64) {
     throw "Database must be 1-64 characters and contain only letters, numbers, and underscore."
 }
-if ($CurrentReadOnly -and ($DryRun -or $ManifestJson)) {
-    throw "CurrentReadOnly cannot be combined with DryRun or ManifestJson."
+if (($CurrentReadOnly -or $CreditLedgerCurrentReadOnly) -and ($DryRun -or $ManifestJson)) {
+    throw "Current-read modes cannot be combined with DryRun or ManifestJson."
+}
+if ($CurrentReadOnly -and $CreditLedgerCurrentReadOnly) {
+    throw "CurrentReadOnly and CreditLedgerCurrentReadOnly are mutually exclusive."
 }
 
 function Resolve-SqlFile {
@@ -94,6 +98,7 @@ $steps = @(
     New-Step "public_init_035" "Independent Board OAuth consent-intent lineage" (Resolve-SqlFile "update_20260721_independent_board_oauth_consent_intent_lineage.sql")
     New-Step "public_init_036" "Independent Board OAuth refresh security receipt v2" (Resolve-SqlFile "update_20260721_independent_board_oauth_refresh_security.sql")
     New-Step "public_init_037" "Independent Board exact product attribution evidence contract" (Resolve-SqlFile "update_20260722_independent_board_attribution_evidence_contract.sql")
+    New-Step "public_init_038" "Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger" (Resolve-SqlFile "update_20260722_independent_board_credit_ledger.sql")
 )
 
 if (-not (Test-Path -LiteralPath $DeclarativeManifestPath -PathType Leaf)) {
@@ -120,7 +125,7 @@ for ($index = 0; $index -lt $steps.Count; $index++) {
         [string]$declared.file -ne $executable.File.Name) {
         throw "Declarative manifest drift at position $($index + 1): expected '$($executable.Version)|$($executable.Description)|$($executable.File.Name)'."
     }
-    if ($executable.Version -in @('public_init_035', 'public_init_036', 'public_init_037')) {
+    if ($executable.Version -in @('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038')) {
         $declaredSha256 = [string]$declared.sha256
         $actualSha256 = (Get-FileHash -LiteralPath $executable.File.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($declaredSha256 -notmatch '^[0-9a-f]{64}$' -or
@@ -2231,7 +2236,277 @@ SELECT CONCAT_WS('|',
     Write-Host "PASS Independent Board attribution evidence exact current-read (four tables, immutable triggers, default-off product seed and internal receipt)."
 }
 
-if ($CurrentReadOnly) {
+function Assert-IndependentBoardCreditLedgerCurrentState {
+    $serverProfile = Assert-IndependentBoardOauthServerProfile
+    $state = Invoke-MySqlText -Sql @"
+SET SESSION group_concat_max_len=1048576;
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema=DATABASE()
+     AND table_name IN ('fbs_credit_account','fbs_credit_operation','fbs_credit_entry')),
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema=DATABASE() AND table_type='BASE TABLE' AND engine='InnoDB'
+     AND table_collation='utf8mb4_unicode_ci'
+     AND table_name IN ('fbs_credit_account','fbs_credit_operation','fbs_credit_entry')),
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema=DATABASE()
+     AND table_name IN ('fbs_credit_account','fbs_credit_operation','fbs_credit_entry')),
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema=DATABASE()
+     AND ((table_name='fbs_credit_account' AND column_name IN
+            ('id','account_id','subject_type','user_id','account_scope','currency_code','opening_balance','balance','version','last_entry_sequence','last_entry_hash','status','created_at','updated_at'))
+       OR (table_name='fbs_credit_operation' AND column_name IN
+            ('id','operation_id','idempotency_key','request_digest','account_id','user_id','account_scope','currency_code','operation_type','delta_amount','reason_code','reason_note','actor_user_id','reversal_of_operation_id','balance_before','balance_after','status','created_at'))
+       OR (table_name='fbs_credit_entry' AND column_name IN
+            ('id','entry_id','operation_id','request_digest','account_id','sequence_no','delta_amount','balance_before','balance_after','previous_entry_hash','entry_hash','canonicalization_version','created_at')))),
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema=DATABASE()
+     AND ((table_name='fbs_credit_account' AND (
+            (column_name='id' AND column_type='bigint unsigned' AND is_nullable='NO' AND extra LIKE '%auto_increment%')
+         OR (column_name='account_id' AND column_type='varchar(36)' AND is_nullable='NO' AND character_set_name='ascii' AND collation_name='ascii_bin')
+         OR (column_name='subject_type' AND column_type='varchar(16)' AND is_nullable='NO' AND character_set_name='ascii' AND collation_name='ascii_bin' AND CAST(column_default AS BINARY)=CAST('USER' AS BINARY))
+         OR (column_name='user_id' AND column_type='bigint' AND is_nullable='NO')
+         OR (column_name IN ('account_scope','currency_code') AND column_type='varchar(32)' AND is_nullable='NO' AND character_set_name='ascii' AND collation_name='ascii_bin')
+         OR (column_name IN ('opening_balance','balance') AND column_type='bigint' AND is_nullable='NO')
+         OR (column_name IN ('version','last_entry_sequence') AND column_type='bigint unsigned' AND is_nullable='NO' AND column_default='0')
+         OR (column_name='last_entry_hash' AND column_type='char(64)' AND is_nullable='NO' AND character_set_name='ascii' AND collation_name='ascii_bin' AND column_default=REPEAT('0',64))
+         OR (column_name='status' AND column_type='varchar(16)' AND is_nullable='NO' AND character_set_name='ascii' AND collation_name='ascii_bin' AND CAST(column_default AS BINARY)=CAST('ACTIVE' AS BINARY))
+         OR (column_name IN ('created_at','updated_at') AND data_type='datetime' AND datetime_precision=3 AND is_nullable='NO')))
+       OR (table_name='fbs_credit_operation' AND (
+            (column_name='id' AND column_type='bigint unsigned' AND is_nullable='NO' AND extra LIKE '%auto_increment%')
+         OR (column_name IN ('operation_id','account_id') AND column_type='varchar(36)' AND is_nullable='NO' AND character_set_name='ascii' AND collation_name='ascii_bin')
+         OR (column_name='idempotency_key' AND column_type='varchar(128)' AND is_nullable='NO' AND character_set_name='ascii' AND collation_name='ascii_bin')
+         OR (column_name='request_digest' AND column_type='char(64)' AND is_nullable='NO' AND character_set_name='ascii' AND collation_name='ascii_bin')
+         OR (column_name IN ('user_id','delta_amount','actor_user_id','balance_before','balance_after') AND column_type='bigint' AND is_nullable='NO')
+         OR (column_name IN ('account_scope','currency_code','reason_code') AND column_type='varchar(32)' AND is_nullable='NO' AND character_set_name='ascii' AND collation_name='ascii_bin')
+         OR (column_name='operation_type' AND column_type='varchar(16)' AND is_nullable='NO' AND character_set_name='ascii' AND collation_name='ascii_bin')
+         OR (column_name='reason_note' AND column_type='varchar(128)' AND is_nullable='NO' AND character_set_name='utf8mb4' AND collation_name='utf8mb4_unicode_ci')
+         OR (column_name='reversal_of_operation_id' AND column_type='varchar(36)' AND is_nullable='YES' AND character_set_name='ascii' AND collation_name='ascii_bin')
+         OR (column_name='status' AND column_type='varchar(16)' AND is_nullable='NO' AND character_set_name='ascii' AND collation_name='ascii_bin' AND CAST(column_default AS BINARY)=CAST('COMMITTED' AS BINARY))
+         OR (column_name='created_at' AND data_type='datetime' AND datetime_precision=3 AND is_nullable='NO')))
+       OR (table_name='fbs_credit_entry' AND (
+            (column_name='id' AND column_type='bigint unsigned' AND is_nullable='NO' AND extra LIKE '%auto_increment%')
+         OR (column_name IN ('entry_id','operation_id','account_id') AND column_type='varchar(36)' AND is_nullable='NO' AND character_set_name='ascii' AND collation_name='ascii_bin')
+         OR (column_name IN ('request_digest','previous_entry_hash','entry_hash') AND column_type='char(64)' AND is_nullable='NO' AND character_set_name='ascii' AND collation_name='ascii_bin')
+         OR (column_name='sequence_no' AND column_type='bigint unsigned' AND is_nullable='NO')
+         OR (column_name IN ('delta_amount','balance_before','balance_after') AND column_type='bigint' AND is_nullable='NO')
+         OR (column_name='canonicalization_version' AND column_type='varchar(32)' AND is_nullable='NO' AND character_set_name='ascii' AND collation_name='ascii_bin' AND CAST(column_default AS BINARY)=CAST('credit-entry-v1' AS BINARY))
+         OR (column_name='created_at' AND data_type='datetime' AND datetime_precision=3 AND is_nullable='NO'))))),
+  (SELECT COUNT(*) FROM (
+     SELECT table_name,index_name FROM information_schema.statistics
+     WHERE table_schema=DATABASE()
+       AND table_name IN ('fbs_credit_account','fbs_credit_operation','fbs_credit_entry')
+     GROUP BY table_name,index_name
+   ) credit_indexes),
+  (SELECT COUNT(*) FROM (
+     SELECT table_name,index_name,MIN(non_unique) AS non_unique,MIN(index_type) AS index_type,
+            COUNT(DISTINCT index_type) AS index_type_count,
+            SUM(CASE WHEN sub_part IS NOT NULL THEN 1 ELSE 0 END) AS prefix_part_count,
+            SUM(CASE WHEN expression IS NOT NULL THEN 1 ELSE 0 END) AS expression_part_count,
+            SUM(CASE WHEN is_visible<>'YES' THEN 1 ELSE 0 END) AS invisible_part_count,
+            SUM(CASE WHEN collation IS NULL OR collation<>'A' THEN 1 ELSE 0 END) AS non_ascending_part_count,
+            GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',') AS column_signature
+     FROM information_schema.statistics
+     WHERE table_schema=DATABASE()
+       AND table_name IN ('fbs_credit_account','fbs_credit_operation','fbs_credit_entry')
+     GROUP BY table_name,index_name
+   ) credit_indexes
+   WHERE index_type='BTREE' AND index_type_count=1
+     AND prefix_part_count=0 AND expression_part_count=0
+     AND invisible_part_count=0 AND non_ascending_part_count=0 AND (
+        (table_name='fbs_credit_account' AND index_name='PRIMARY' AND non_unique=0 AND column_signature='id')
+     OR (table_name='fbs_credit_account' AND index_name='uk_credit_account_id' AND non_unique=0 AND column_signature='account_id')
+     OR (table_name='fbs_credit_account' AND index_name='uk_credit_account_scope' AND non_unique=0 AND column_signature='subject_type,user_id,account_scope,currency_code')
+     OR (table_name='fbs_credit_account' AND index_name='uk_credit_account_snapshot' AND non_unique=0 AND column_signature='account_id,user_id,account_scope,currency_code')
+     OR (table_name='fbs_credit_account' AND index_name='idx_credit_account_user' AND non_unique=1 AND column_signature='user_id,account_scope,currency_code')
+     OR (table_name='fbs_credit_operation' AND index_name='PRIMARY' AND non_unique=0 AND column_signature='id')
+     OR (table_name='fbs_credit_operation' AND index_name='uk_credit_operation_id' AND non_unique=0 AND column_signature='operation_id')
+     OR (table_name='fbs_credit_operation' AND index_name='uk_credit_operation_idempotency' AND non_unique=0 AND column_signature='idempotency_key')
+     OR (table_name='fbs_credit_operation' AND index_name='uk_credit_operation_reversal' AND non_unique=0 AND column_signature='reversal_of_operation_id')
+     OR (table_name='fbs_credit_operation' AND index_name='uk_credit_operation_account' AND non_unique=0 AND column_signature='operation_id,account_id')
+     OR (table_name='fbs_credit_operation' AND index_name='idx_credit_operation_account_snapshot' AND non_unique=1 AND column_signature='account_id,user_id,account_scope,currency_code')
+     OR (table_name='fbs_credit_operation' AND index_name='idx_credit_operation_reversal_account' AND non_unique=1 AND column_signature='reversal_of_operation_id,account_id')
+     OR (table_name='fbs_credit_operation' AND index_name='idx_credit_operation_account_history' AND non_unique=1 AND column_signature='account_id,created_at,id')
+     OR (table_name='fbs_credit_operation' AND index_name='idx_credit_operation_user_history' AND non_unique=1 AND column_signature='user_id,created_at,id')
+     OR (table_name='fbs_credit_entry' AND index_name='PRIMARY' AND non_unique=0 AND column_signature='id')
+     OR (table_name='fbs_credit_entry' AND index_name='uk_credit_entry_id' AND non_unique=0 AND column_signature='entry_id')
+     OR (table_name='fbs_credit_entry' AND index_name='uk_credit_entry_operation' AND non_unique=0 AND column_signature='operation_id')
+     OR (table_name='fbs_credit_entry' AND index_name='uk_credit_entry_account_sequence' AND non_unique=0 AND column_signature='account_id,sequence_no')
+     OR (table_name='fbs_credit_entry' AND index_name='idx_credit_entry_operation_account' AND non_unique=1 AND column_signature='operation_id,account_id')
+     OR (table_name='fbs_credit_entry' AND index_name='idx_credit_entry_account_history' AND non_unique=1 AND column_signature='account_id,created_at,id'))),
+  (SELECT COUNT(*) FROM information_schema.referential_constraints
+   WHERE constraint_schema=DATABASE()
+     AND table_name IN ('fbs_credit_account','fbs_credit_operation','fbs_credit_entry')),
+  (SELECT COUNT(*) FROM information_schema.referential_constraints
+   WHERE constraint_schema=DATABASE() AND unique_constraint_schema=DATABASE()
+     AND update_rule='RESTRICT' AND delete_rule='RESTRICT'
+     AND ((table_name='fbs_credit_account' AND constraint_name='fk_credit_account_user' AND referenced_table_name='sys_user')
+       OR (table_name='fbs_credit_operation' AND constraint_name='fk_credit_operation_account' AND referenced_table_name='fbs_credit_account')
+       OR (table_name='fbs_credit_operation' AND constraint_name='fk_credit_operation_reversal' AND referenced_table_name='fbs_credit_operation')
+       OR (table_name='fbs_credit_entry' AND constraint_name='fk_credit_entry_operation' AND referenced_table_name='fbs_credit_operation'))),
+  (SELECT COUNT(*) FROM information_schema.key_column_usage
+   WHERE constraint_schema=DATABASE() AND referenced_table_schema=DATABASE()
+     AND referenced_table_name IS NOT NULL
+     AND table_name IN ('fbs_credit_account','fbs_credit_operation','fbs_credit_entry')),
+  (SELECT COUNT(*) FROM information_schema.key_column_usage
+   WHERE constraint_schema=DATABASE() AND referenced_table_schema=DATABASE()
+     AND referenced_table_name IS NOT NULL
+     AND ((table_name='fbs_credit_account' AND constraint_name='fk_credit_account_user' AND ordinal_position=1 AND column_name='user_id' AND referenced_table_name='sys_user' AND referenced_column_name='user_id')
+       OR (table_name='fbs_credit_operation' AND constraint_name='fk_credit_operation_account' AND referenced_table_name='fbs_credit_account' AND ((ordinal_position=1 AND column_name='account_id' AND referenced_column_name='account_id') OR (ordinal_position=2 AND column_name='user_id' AND referenced_column_name='user_id') OR (ordinal_position=3 AND column_name='account_scope' AND referenced_column_name='account_scope') OR (ordinal_position=4 AND column_name='currency_code' AND referenced_column_name='currency_code')))
+       OR (table_name='fbs_credit_operation' AND constraint_name='fk_credit_operation_reversal' AND referenced_table_name='fbs_credit_operation' AND ((ordinal_position=1 AND column_name='reversal_of_operation_id' AND referenced_column_name='operation_id') OR (ordinal_position=2 AND column_name='account_id' AND referenced_column_name='account_id')))
+       OR (table_name='fbs_credit_entry' AND constraint_name='fk_credit_entry_operation' AND referenced_table_name='fbs_credit_operation' AND ((ordinal_position=1 AND column_name='operation_id' AND referenced_column_name='operation_id') OR (ordinal_position=2 AND column_name='account_id' AND referenced_column_name='account_id'))))),
+  (SELECT COUNT(*) FROM information_schema.table_constraints
+   WHERE constraint_schema=DATABASE() AND constraint_type='CHECK'
+     AND table_name IN ('fbs_credit_account','fbs_credit_operation','fbs_credit_entry')),
+  (SELECT COUNT(*) FROM information_schema.table_constraints
+   WHERE constraint_schema=DATABASE() AND constraint_type='CHECK' AND enforced='YES'
+     AND ((table_name='fbs_credit_account' AND constraint_name IN ('chk_credit_account_identifier','chk_credit_account_subject','chk_credit_account_scope','chk_credit_account_currency','chk_credit_account_balance','chk_credit_account_version_chain','chk_credit_account_genesis','chk_credit_account_status'))
+       OR (table_name='fbs_credit_operation' AND constraint_name IN ('chk_credit_operation_identifiers','chk_credit_operation_scope','chk_credit_operation_type','chk_credit_operation_reason','chk_credit_operation_delta_reversal','chk_credit_operation_balance','chk_credit_operation_actor','chk_credit_operation_status'))
+       OR (table_name='fbs_credit_entry' AND constraint_name IN ('chk_credit_entry_identifiers','chk_credit_entry_sequence','chk_credit_entry_delta','chk_credit_entry_balance','chk_credit_entry_hashes','chk_credit_entry_canonicalization')))),
+  (SELECT COUNT(*) FROM information_schema.triggers
+   WHERE trigger_schema=DATABASE()
+     AND event_object_table IN ('fbs_credit_account','fbs_credit_operation','fbs_credit_entry')),
+  (SELECT COUNT(*) FROM (
+     SELECT trigger_name,event_object_table,event_manipulation,action_timing,
+            action_orientation,action_condition,action_order,
+            SHA2(CAST(action_statement AS BINARY),256) AS action_sha256
+     FROM information_schema.triggers
+     WHERE trigger_schema=DATABASE()
+       AND event_object_table IN ('fbs_credit_account','fbs_credit_operation','fbs_credit_entry')
+   ) credit_triggers
+   WHERE action_timing='BEFORE' AND action_orientation='ROW'
+     AND action_condition IS NULL AND action_order=1 AND (
+        (trigger_name='trg_credit_account_transition' AND event_object_table='fbs_credit_account' AND event_manipulation='UPDATE'
+         AND CAST(action_sha256 AS BINARY)=CAST('fe61351bc245be129eedf83daa790444022925b660ed3f2c0241f9ec15917fc4' AS BINARY))
+     OR (trigger_name='trg_credit_account_no_delete' AND event_object_table='fbs_credit_account' AND event_manipulation='DELETE' AND CAST(action_sha256 AS BINARY)=CAST('48497a4b694103753c63b9ab29337376bb2068c3e211c7e8c39fb28650381369' AS BINARY))
+     OR (trigger_name='trg_credit_operation_no_update' AND event_object_table='fbs_credit_operation' AND event_manipulation='UPDATE' AND CAST(action_sha256 AS BINARY)=CAST('4dc21272fe82c7e48cc4fbb2dabb0913903148af12c5661e63082952797bb1d0' AS BINARY))
+     OR (trigger_name='trg_credit_operation_no_delete' AND event_object_table='fbs_credit_operation' AND event_manipulation='DELETE' AND CAST(action_sha256 AS BINARY)=CAST('4dc21272fe82c7e48cc4fbb2dabb0913903148af12c5661e63082952797bb1d0' AS BINARY))
+     OR (trigger_name='trg_credit_entry_no_update' AND event_object_table='fbs_credit_entry' AND event_manipulation='UPDATE' AND CAST(action_sha256 AS BINARY)=CAST('29f2ebca36c354a73509468e251b4edb61f096056d3ded28d21d16b76e7b34dc' AS BINARY))
+     OR (trigger_name='trg_credit_entry_no_delete' AND event_object_table='fbs_credit_entry' AND event_manipulation='DELETE' AND CAST(action_sha256 AS BINARY)=CAST('29f2ebca36c354a73509468e251b4edb61f096056d3ded28d21d16b76e7b34dc' AS BINARY)))),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='20260722_independent_board_credit_ledger_v1'
+     AND description='Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='20260722_independent_board_credit_ledger_v1'),
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema=DATABASE() AND table_name='sys_user'
+     AND ((column_name='user_id' AND data_type='bigint'
+           AND column_type NOT LIKE '%unsigned%' AND is_nullable='NO'
+           AND column_key='PRI')
+       OR (column_name='points' AND data_type='int'
+           AND column_type NOT LIKE '%unsigned%' AND extra NOT LIKE '%GENERATED%')
+       OR (column_name='status' AND column_type='char(1)')
+       OR (column_name='del_flag' AND column_type='char(1)')
+       OR (column_name='update_time' AND data_type='datetime'
+           AND extra NOT LIKE '%GENERATED%'))),
+  (SELECT COUNT(*) FROM fbs_credit_account a
+   LEFT JOIN sys_user u ON u.user_id=a.user_id
+   WHERE u.user_id IS NULL OR a.balance<>COALESCE(u.points,0)),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT(
+      'T:',HEX(CAST(table_name AS BINARY)),
+      '|O:',LPAD(ordinal_position,3,'0'),
+      '|N:',HEX(CAST(column_name AS BINARY)),
+      '|Y:',HEX(CAST(column_type AS BINARY)),
+      '|U:',HEX(CAST(is_nullable AS BINARY)),
+      '|D:',IF(column_default IS NULL,'N',CONCAT('V:',HEX(CAST(column_default AS BINARY)))),
+      '|C:',IF(character_set_name IS NULL,'N',CONCAT('V:',HEX(CAST(character_set_name AS BINARY)))),
+      '|L:',IF(collation_name IS NULL,'N',CONCAT('V:',HEX(CAST(collation_name AS BINARY)))),
+      '|E:',HEX(CAST(extra AS BINARY)),
+      '|G:',IF(generation_expression IS NULL,'N',CONCAT('V:',HEX(CAST(generation_expression AS BINARY)))))
+      ORDER BY table_name,ordinal_position SEPARATOR 0x0A),256)
+   FROM information_schema.columns
+   WHERE table_schema=DATABASE()
+     AND table_name IN ('fbs_credit_account','fbs_credit_operation','fbs_credit_entry')),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT(
+      'T:',HEX(CAST(table_name AS BINARY)),
+      '|I:',HEX(CAST(index_name AS BINARY)),
+      '|U:',non_unique,
+      '|Y:',HEX(CAST(index_type AS BINARY)),
+      '|V:',HEX(CAST(is_visible AS BINARY)),
+      '|S:',seq_in_index,
+      '|N:',IF(column_name IS NULL,'N',CONCAT('V:',HEX(CAST(column_name AS BINARY)))),
+      '|X:',IF(expression IS NULL,'N',CONCAT('V:',HEX(CAST(expression AS BINARY)))),
+      '|C:',IF(collation IS NULL,'N',CONCAT('V:',HEX(CAST(collation AS BINARY)))),
+      '|P:',IF(sub_part IS NULL,'N',CONCAT('V:',sub_part)),
+      '|Q:',HEX(CAST(nullable AS BINARY)))
+      ORDER BY table_name,index_name,seq_in_index SEPARATOR 0x0A),256)
+   FROM information_schema.statistics
+   WHERE table_schema=DATABASE()
+     AND table_name IN ('fbs_credit_account','fbs_credit_operation','fbs_credit_entry')),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT(
+      'T:',HEX(CAST(rc.table_name AS BINARY)),
+      '|C:',HEX(CAST(rc.constraint_name AS BINARY)),
+      '|S:',IF(rc.unique_constraint_schema=DATABASE(),'SAME','OTHER'),
+      '|K:',HEX(CAST(rc.unique_constraint_name AS BINARY)),
+      '|R:',HEX(CAST(rc.referenced_table_name AS BINARY)),
+      '|U:',HEX(CAST(rc.update_rule AS BINARY)),
+      '|D:',HEX(CAST(rc.delete_rule AS BINARY)),
+      '|M:',HEX(CAST(rc.match_option AS BINARY)),
+      '|O:',kcu.ordinal_position,
+      '|N:',HEX(CAST(kcu.column_name AS BINARY)),
+      '|Q:',IF(kcu.referenced_table_schema=DATABASE(),'SAME','OTHER'),
+      '|P:',HEX(CAST(kcu.referenced_column_name AS BINARY)),
+      '|I:',IF(kcu.position_in_unique_constraint IS NULL,'N',CONCAT('V:',kcu.position_in_unique_constraint)))
+      ORDER BY rc.table_name,rc.constraint_name,kcu.ordinal_position SEPARATOR 0x0A),256)
+   FROM information_schema.referential_constraints rc
+   INNER JOIN information_schema.key_column_usage kcu
+     ON kcu.constraint_schema=rc.constraint_schema
+    AND kcu.table_name=rc.table_name
+    AND kcu.constraint_name=rc.constraint_name
+   WHERE rc.constraint_schema=DATABASE()
+     AND rc.unique_constraint_schema=DATABASE()
+     AND kcu.referenced_table_schema=DATABASE()
+     AND rc.table_name IN ('fbs_credit_account','fbs_credit_operation','fbs_credit_entry')),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT(
+      'T:',HEX(CAST(tc.table_name AS BINARY)),
+      '|C:',HEX(CAST(tc.constraint_name AS BINARY)),
+      '|E:',HEX(CAST(tc.enforced AS BINARY)),
+      '|X:',HEX(CAST(cc.check_clause AS BINARY)))
+      ORDER BY tc.table_name,tc.constraint_name SEPARATOR 0x0A),256)
+   FROM information_schema.table_constraints tc
+   INNER JOIN information_schema.check_constraints cc
+     ON cc.constraint_schema=tc.constraint_schema AND cc.constraint_name=tc.constraint_name
+   WHERE tc.constraint_schema=DATABASE() AND tc.constraint_type='CHECK'
+     AND tc.table_name IN ('fbs_credit_account','fbs_credit_operation','fbs_credit_entry')),
+  (SELECT SHA2(GROUP_CONCAT(CONCAT(
+      'N:',HEX(CAST(trigger_name AS BINARY)),
+      '|T:',HEX(CAST(event_object_table AS BINARY)),
+      '|E:',HEX(CAST(event_manipulation AS BINARY)),
+      '|M:',HEX(CAST(action_timing AS BINARY)),
+      '|O:',HEX(CAST(action_orientation AS BINARY)),
+      '|C:',IF(action_condition IS NULL,'N',CONCAT('V:',HEX(CAST(action_condition AS BINARY)))),
+      '|A:',HEX(CAST(action_statement AS BINARY)))
+      ORDER BY trigger_name SEPARATOR 0x0A),256)
+   FROM information_schema.triggers
+   WHERE trigger_schema=DATABASE()
+     AND event_object_table IN ('fbs_credit_account','fbs_credit_operation','fbs_credit_entry'))
+);
+"@
+    $parts = @($state.Split('|'))
+    $expected = @(3,3,45,45,45,20,20,4,4,9,9,22,22,6,6,1,1,5,0)
+    if ($parts.Count -ne ($expected.Count + 5)) { throw "Independent Board credit ledger current-read returned an invalid field count: '$state'." }
+    for ($index = 0; $index -lt $expected.Count; $index++) {
+        if ($parts[$index] -notmatch '^\d+$' -or [int]$parts[$index] -ne $expected[$index]) {
+            throw "Independent Board credit ledger current-read drift at field $($index + 1): expected $($expected[$index]), found '$($parts[$index])'."
+        }
+    }
+    $expectedDigests = @(
+        '4717b6466040c2b33513ef1fb92ccb9044e08a00fea41edd7ba617192c9c8d00',
+        '3975985e059c133c0e91ef274702e5d270e4392b7b55b724b1d0d031b76f23cf',
+        '412a5276aca76d608111eecf0f2297dce0ebe299a35c6d106a4aa09da004ea67',
+        '3826d266d39d91f3faada93659bff5bf347c5f4a3c05a73ad96d70a88d7d2e92',
+        'f1e99b6123b4ef1ce51b1153d506a2d983877c7b59257febb7873feb6fc764da'
+    )
+    for ($index = 0; $index -lt $expectedDigests.Count; $index++) {
+        $actual = $parts[$expected.Count + $index]
+        if (-not [string]::Equals($actual, $expectedDigests[$index], [StringComparison]::Ordinal)) {
+            throw "Independent Board credit ledger exact raw metadata digest drifted at field $($index + 1): '$actual'."
+        }
+    }
+    Write-Host "PASS Independent Board credit ledger exact raw current-read on MySQL $($serverProfile.Version) (five-column sys_user dependency, zero projection mismatch, three tables, 45 typed columns, 20 full visible indexes, four RESTRICT foreign keys, 22 enforced CHECK clauses, six immutable trigger bodies and internal receipt)."
+}
+
+if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly) {
     $currentReadLockSession = $null
     $currentReadLockAcquired = $false
     try {
@@ -2254,17 +2529,24 @@ SELECT CONCAT_WS('|', @u3w_manifest_lock_name, CHAR_LENGTH(@u3w_manifest_lock_na
             throw "Public database manifest current-read lock owner verification failed: '$($currentReadLockResponse[1])'."
         }
 
-        Assert-IndependentBoardControlPlaneCurrentState
-        Assert-IndependentBoardMeMenuCurrentState
-        Assert-IndependentBoardAdminMenuCurrentState
-        Assert-IndependentBoardEntitlementLifecycleMenuCurrentState
-        Assert-IndependentBoardConnectorBindingCurrentState
-        Assert-IndependentBoardOauthFoundationCurrentState
-        Assert-IndependentBoardOauthConsentIntentCurrentState
-        Assert-IndependentBoardOauthRefreshSecurityCurrentState
-        Assert-IndependentBoardAttributionEvidenceCurrentState
-        Assert-PublicDatabaseManifestCurrentState
-        Write-Host "Independent Board current-read verification complete for '$Database'. No database write was requested."
+        if ($CreditLedgerCurrentReadOnly) {
+            Assert-IndependentBoardCreditLedgerCurrentState
+            Write-Host "Independent Board credit-ledger current-read verification complete for '$Database'. No database write was requested."
+        }
+        else {
+            Assert-IndependentBoardControlPlaneCurrentState
+            Assert-IndependentBoardMeMenuCurrentState
+            Assert-IndependentBoardAdminMenuCurrentState
+            Assert-IndependentBoardEntitlementLifecycleMenuCurrentState
+            Assert-IndependentBoardConnectorBindingCurrentState
+            Assert-IndependentBoardOauthFoundationCurrentState
+            Assert-IndependentBoardOauthConsentIntentCurrentState
+            Assert-IndependentBoardOauthRefreshSecurityCurrentState
+            Assert-IndependentBoardAttributionEvidenceCurrentState
+            Assert-IndependentBoardCreditLedgerCurrentState
+            Assert-PublicDatabaseManifestCurrentState
+            Write-Host "Independent Board current-read verification complete for '$Database'. No database write was requested."
+        }
     }
     finally {
         if ($null -ne $currentReadLockSession) {
@@ -2340,11 +2622,17 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
         $resumeRunningAttributionEvidence =
             $step.Version -eq 'public_init_037' -and
             $state -eq "RUNNING:$($step.Description)"
+        $resumeRunningCreditLedger =
+            $step.Version -eq 'public_init_038' -and
+            $state -eq "RUNNING:$($step.Description)"
         $resumeRunningOauthAdditive =
             $resumeRunningOauthProvenance -or
             $resumeRunningOauthConsentIntent -or
             $resumeRunningOauthRefreshSecurity
-        $resumeRunningAdditive = $resumeRunningOauthAdditive -or $resumeRunningAttributionEvidence
+        $resumeRunningAdditive =
+            $resumeRunningOauthAdditive -or
+            $resumeRunningAttributionEvidence -or
+            $resumeRunningCreditLedger
         if ($state -and -not $resumeRunningAdditive) {
             throw "Step $($step.Version) is in state '$state'. Do not retry a partially applied DDL step; use a fresh database or reviewed recovery."
         }
@@ -2386,6 +2674,12 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             # recovery; this preflight prevents a RUNNING receipt on bad builds.
             $null = Assert-IndependentBoardOauthServerProfile
         }
+        if ($step.Version -eq 'public_init_038') {
+            # The credit-ledger SQL accepts a fresh start or a complete exact
+            # internal receipt only. Lock the canonical runner to the measured
+            # MySQL profiles before it can create a public RUNNING receipt.
+            $null = Assert-IndependentBoardOauthServerProfile
+        }
 
         try {
             if (-not $resumeRunningAdditive) {
@@ -2420,6 +2714,9 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             }
             if ($step.Version -eq 'public_init_037') {
                 Assert-IndependentBoardAttributionEvidenceCurrentState
+            }
+            if ($step.Version -eq 'public_init_038') {
+                Assert-IndependentBoardCreditLedgerCurrentState
             }
             Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
         }
@@ -2544,6 +2841,31 @@ DROP PROCEDURE IF EXISTS u3w_assert_fbs_attr_product_seed_20260722;
                     Write-Warning "W4b2d evidence-contract exact bounded replay did not pass; recording FAILED."
                 }
             }
+            if ($step.Version -eq 'public_init_038') {
+                try {
+                    # One bounded replay may reconcile only a complete exact
+                    # three-table ledger plus its internal receipt. Every
+                    # partial or drifted metadata shape remains fail closed.
+                    Invoke-MySqlFile -File $step.File
+                    Assert-IndependentBoardCreditLedgerCurrentState
+                    Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
+                    Write-Warning "Reconciled $($step.Version) from its exact completed credit-ledger state after one bounded replay."
+                    continue
+                }
+                catch {
+                    try {
+                        Invoke-MySqlText -Sql @"
+DROP PROCEDURE IF EXISTS u3w_migrate_independent_board_credit_ledger_20260722;
+DROP PROCEDURE IF EXISTS u3w_finalize_independent_board_credit_ledger_20260722;
+DROP PROCEDURE IF EXISTS u3w_assert_independent_board_credit_triggers_20260722;
+"@ | Out-Null
+                    }
+                    catch {
+                        Write-Warning "Could not clean Independent Board credit-ledger helper procedures after bounded replay failure."
+                    }
+                    Write-Warning "Independent Board credit-ledger exact bounded replay did not pass; recording FAILED."
+                }
+            }
             try {
                 Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='FAILED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
             }
@@ -2563,6 +2885,7 @@ DROP PROCEDURE IF EXISTS u3w_assert_fbs_attr_product_seed_20260722;
     Assert-IndependentBoardOauthConsentIntentCurrentState
     Assert-IndependentBoardOauthRefreshSecurityCurrentState
     Assert-IndependentBoardAttributionEvidenceCurrentState
+    Assert-IndependentBoardCreditLedgerCurrentState
 
     Assert-PublicDatabaseManifestCurrentState
 
@@ -2573,10 +2896,11 @@ WHERE table_schema='$Database'
                      'fbs_truth_spine_receipt_batch','fbs_product_plan','fbs_product_entitlement','fbs_usage_budget','fbs_usage_operation','fbs_entitlement_receipt',
                       'fbs_connector_binding','fbs_connector_binding_scope','fbs_connector_binding_receipt',
                       'fbs_oauth_client','fbs_oauth_authorization_request','fbs_oauth_authorization_code',
-                      'fbs_oauth_token_family','fbs_oauth_token','fbs_oauth_receipt');
+                      'fbs_oauth_token_family','fbs_oauth_token','fbs_oauth_receipt',
+                      'fbs_credit_account','fbs_credit_operation','fbs_credit_entry');
 "@)
-    if ($verification -ne 21) {
-        throw "Database verification failed: expected twenty-one representative current tables; found $verification."
+    if ($verification -ne 24) {
+        throw "Database verification failed: expected twenty-four representative current tables; found $verification."
     }
 
     $hostTypeColumn = [int](Invoke-MySqlText -Sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$Database' AND table_name='ws_host_whitelist' AND column_name='host_type';")

@@ -22,7 +22,6 @@ import com.wx.fbsir.business.point.mapper.PointsRuleMapper;
 import com.wx.fbsir.business.point.service.IPointsRuleService;
 import com.wx.fbsir.business.point.service.IPointsService;
 import com.wx.fbsir.common.core.domain.entity.SysUser;
-import com.wx.fbsir.system.mapper.SysUserMapper;
 import com.wx.fbsir.system.service.ISysUserService;
 
 /**
@@ -48,9 +47,6 @@ public class PointsServiceImpl implements IPointsService {
     
     @Autowired
     private ISysUserService userService;
-    
-    @Autowired
-    private SysUserMapper sysUserMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -351,55 +347,9 @@ public class PointsServiceImpl implements IPointsService {
     }
     
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public AjaxResult grantPointsByAdmin(Long userId, Integer pointsAmount, String remark) {
-        // 1. 参数校验
-        if (userId == null) {
-            return AjaxResult.error("用户ID不能为空");
-        }
-        if (pointsAmount == null || pointsAmount <= 0) {
-            return AjaxResult.error("积分数量必须大于0");
-        }
-        if (StringUtils.isEmpty(remark)) {
-            return AjaxResult.error("备注不能为空");
-        }
-        
-        // 2. 查询用户是否存在
-        SysUser user = userService.selectUserById(userId);
-        if (user == null) {
-            return AjaxResult.error("用户不存在");
-        }
-        
-        // 3. 查询当前积分余额
-        Integer currentPoints = getUserPoints(userId);
-        if (currentPoints == null) {
-            currentPoints = 0;
-        }
-        
-        // 4. 计算新的积分余额
-        Integer newPoints = currentPoints + pointsAmount;
-        
-        // 5. 更新积分余额
-        pointsMapper.updateUserPoints(userId, newPoints);
-        
-        // 6. 插入积分记录
-        PointsRecord record = new PointsRecord();
-        record.setUserId(userId);
-        record.setRuleCode("ADMIN_GRANT"); // 使用管理员发放积分的特殊规则编码
-        record.setChangeAmount(pointsAmount);
-        record.setBalanceBefore(currentPoints);
-        record.setBalanceAfter(newPoints);
-        record.setRemark(remark);
-        record.setCreateTime(DateUtils.getNowDate());
-        pointsRecordMapper.insertPointsRecord(record);
-        
-        return AjaxResult.success("积分发放成功");
-    }
-    
-    @Override
     public List<SysUser> getPointsFansList(SysUser user) {
-        // 直接调用SysUserMapper查询用户列表，绕过@DataScope注解的限制
-        return sysUserMapper.selectUserList(user);
+        // 必须经用户服务代理进入@DataScope，清除客户端dataScope并应用可信角色范围。
+        return userService.selectUserList(user);
     }
 
     /**

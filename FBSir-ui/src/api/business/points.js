@@ -43,19 +43,6 @@ export function getPointsFansList(query) {
   })
 }
 
-// 给用户发放积分
-export function grantPointsToUser(userId, pointsAmount, remark) {
-  return request({
-    url: '/points/fans/grantPoints',
-    method: 'post',
-    params: {
-      userId,
-      pointsAmount,
-      remark
-    }
-  })
-}
-
 // 查询用户积分明细
 export function getPointsFansRecord(query) {
   return request({

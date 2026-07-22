@@ -18,6 +18,7 @@ import com.wx.fbsir.business.fbs.controller.internal.FbsSkillConsumeController;
 import com.wx.fbsir.business.fbs.service.SkillConsumeService;
 import com.wx.fbsir.business.point.controller.PointsController;
 import com.wx.fbsir.business.point.controller.PointsFansController;
+import com.wx.fbsir.business.point.domain.PointsRecord;
 import com.wx.fbsir.business.point.service.IPointsService;
 import com.wx.fbsir.common.constant.CacheConstants;
 import com.wx.fbsir.common.constant.Constants;
@@ -27,12 +28,15 @@ import com.wx.fbsir.common.core.domain.model.LoginUser;
 import com.wx.fbsir.common.core.redis.RedisCache;
 import com.wx.fbsir.framework.security.filter.JwtAuthenticationTokenFilter;
 import com.wx.fbsir.framework.security.handle.AuthenticationEntryPointImpl;
+import com.wx.fbsir.framework.aspectj.DataScopeAspect;
 import com.wx.fbsir.framework.web.exception.GlobalExceptionHandler;
 import com.wx.fbsir.framework.web.service.PermissionService;
 import com.wx.fbsir.framework.web.service.TokenService;
 import com.wx.fbsir.system.service.ISysUserService;
+import com.wx.fbsir.system.service.impl.SysUserServiceImpl;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import org.aspectj.lang.JoinPoint;
 import java.util.Collections;
 import java.time.LocalDate;
 import java.util.Date;
@@ -54,6 +58,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -64,6 +70,8 @@ import org.springframework.web.context.support.AnnotationConfigWebApplicationCon
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -217,13 +225,87 @@ class IndependentBoardHttpSecurityIntegrationTest {
     }
 
     @Test
-    void legacyAdminGrantRequiresTheAdminRoleInAdditionToItsFinePermission() throws Exception {
+    void retiredAdminGrantReturnsGoneToEveryAuthenticatedRole() throws Exception {
         mockMvc.perform(post("/points/fans/grantPoints")
                         .header("Authorization", bearer(loginUser(
                                 USER_ID, "operator", Set.of("points:fans:grant"), "operator")))
                         .param("userId", "99")
                         .param("pointsAmount", "10")
                         .param("remark", "controlled-test"))
+                .andExpect(status().isGone())
+                .andExpect(jsonPath("$.code").value(410))
+                .andExpect(jsonPath("$.msg").value(
+                        "POINTS_ADMIN_GRANT_RETIRED_USE_CREDIT_LEDGER"));
+
+        verifyNoInteractions(pointsService);
+    }
+
+    @Test
+    void retiredAdminGrantStillRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/points/fans/grantPoints")
+                        .param("userId", "99")
+                        .param("pointsAmount", "10")
+                        .param("remark", "controlled-test"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+
+        verifyNoInteractions(pointsService);
+    }
+
+    @Test
+    void legacyAdminGrantIsGoneEvenForAnAuthorizedAdministrator() throws Exception {
+        mockMvc.perform(post("/points/fans/grantPoints")
+                        .header("Authorization", bearer(loginUser(
+                                USER_ID, "admin", Set.of("points:fans:grant"), "admin")))
+                        .param("userId", "99")
+                        .param("pointsAmount", "10")
+                        .param("remark", "controlled-test"))
+                .andExpect(status().isGone())
+                .andExpect(jsonPath("$.code").value(410))
+                .andExpect(jsonPath("$.msg").value(
+                        "POINTS_ADMIN_GRANT_RETIRED_USE_CREDIT_LEDGER"));
+
+        verifyNoInteractions(pointsService);
+    }
+
+    @Test
+    void managerCanReadPointsFanPiiWithTheOriginalFinePermissions() throws Exception {
+        when(pointsService.getPointsFansList(any(SysUser.class)))
+                .thenReturn(Collections.emptyList());
+        when(pointsService.getPointsRecord(any(PointsRecord.class)))
+                .thenReturn(Collections.emptyList());
+        String authorization = bearer(loginUser(
+                USER_ID,
+                "manager",
+                Set.of("points:fans:list", "points:fans:detail"),
+                "manager"));
+
+        mockMvc.perform(get("/points/fans/list")
+                        .header("Authorization", authorization))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+        mockMvc.perform(get("/points/fans/getPointsRecord")
+                        .header("Authorization", authorization)
+                        .param("userId", "99"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(pointsService).getPointsFansList(any(SysUser.class));
+        verify(pointsService).getPointsRecord(any(PointsRecord.class));
+    }
+
+    @Test
+    void managerStillNeedsTheOriginalFinePermissionsToReadPointsFanPii() throws Exception {
+        String authorization = bearer(loginUser(
+                USER_ID, "manager", Set.of(), "manager"));
+
+        mockMvc.perform(get("/points/fans/list")
+                        .header("Authorization", authorization))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+        mockMvc.perform(get("/points/fans/getPointsRecord")
+                        .header("Authorization", authorization)
+                        .param("userId", "99"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(403));
 
@@ -231,20 +313,52 @@ class IndependentBoardHttpSecurityIntegrationTest {
     }
 
     @Test
-    void legacyAdminGrantStillRequiresItsFinePermissionAndCallsTheServiceOnlyForAdmin() throws Exception {
-        when(pointsService.grantPointsByAdmin(99L, 10, "controlled-test"))
-                .thenReturn(com.wx.fbsir.common.core.domain.AjaxResult.success());
+    void operatorAndReadonlyCannotReadPointsFanPiiEvenWithFinePermissions() throws Exception {
+        for (String roleKey : List.of("operator", "readonly")) {
+            mockMvc.perform(get("/points/fans/list")
+                            .header("Authorization", bearer(loginUser(
+                                    USER_ID,
+                                    roleKey,
+                                    Set.of("points:fans:list"),
+                                    roleKey))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(403));
 
-        mockMvc.perform(post("/points/fans/grantPoints")
-                        .header("Authorization", bearer(loginUser(
-                                USER_ID, "admin", Set.of("points:fans:grant"), "admin")))
-                        .param("userId", "99")
-                        .param("pointsAmount", "10")
-                        .param("remark", "controlled-test"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200));
+            mockMvc.perform(get("/points/fans/getPointsRecord")
+                            .header("Authorization", bearer(loginUser(
+                                    USER_ID,
+                                    roleKey,
+                                    Set.of("points:fans:detail"),
+                                    roleKey)))
+                            .param("userId", "99"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(403));
+        }
 
-        verify(pointsService).grantPointsByAdmin(99L, 10, "controlled-test");
+        verifyNoInteractions(pointsService);
+    }
+
+    @Test
+    void dataScopeAspectClearsClientSuppliedSqlBeforeApplyingTrustedScope() throws Throwable {
+        SysUser request = new SysUser();
+        request.getParams().put(DataScopeAspect.DATA_SCOPE, " OR 1 = 1 -- client supplied");
+        JoinPoint joinPoint = Mockito.mock(JoinPoint.class);
+        when(joinPoint.getArgs()).thenReturn(new Object[]{request});
+        com.wx.fbsir.common.annotation.DataScope dataScope = SysUserServiceImpl.class
+                .getMethod("selectUserList", SysUser.class)
+                .getAnnotation(com.wx.fbsir.common.annotation.DataScope.class);
+        assertNotNull(dataScope);
+
+        LoginUser administrator = loginUser(1L, "admin", Set.of(), "admin");
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(
+                        administrator, null, Collections.emptyList()));
+        try {
+            new DataScopeAspect().doBefore(joinPoint, dataScope);
+            assertEquals("", request.getParams().get(DataScopeAspect.DATA_SCOPE));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     @Test

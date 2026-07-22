@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the officially listed and post-listing-frozen 26.7.20 expert package.",
-  "singleNextAction": "Implement and verify the USER_GLOBAL/FBS_POINTS immutable shadow ledger with server-derived pricing, request-digest idempotency and zero reopening of retired caller-selected mutation routes; keep production activation and attribution promotion closed.",
+  "singleNextAction": "Implement the default-off Independent Board credit permission/menu/admin UI slice for reviewed global administrators, with browser/JWT/source tests; keep the candidate flag false and production database activation closed until deployment review.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -50,7 +50,8 @@
     },
     {
       "id": "W3_ADMIN_PORTAL",
-      "state": "w3e_api_key_pack_scope_verified_local",
+      "state": "w3f_credit_shadow_ledger_verified_local_default_off",
+      "activeSlice": "W3g_default_off_credit_permission_menu_and_admin_ui",
       "completedSubset": [
         "global_system_admin_only_access_model",
         "active_enterprise_and_member_locked_entitlement_grant_and_adjustment",
@@ -67,7 +68,7 @@
         "versioned_plan_and_quota_policy_current_read_with_admin_ui_drift_gate",
         "legacy_unprivileged_direct_and_skill_earn_points_mutation_routes_fail_closed_with_real_http_410",
         "legacy_internal_caller_selected_skill_consume_route_fails_closed_with_real_http_410",
-        "legacy_privileged_admin_grant_requires_admin_role_and_fine_permission",
+        "legacy_privileged_admin_grant_is_retired_with_authenticated_http_410_anonymous_401_and_zero_service_interactions",
         "skill_api_user_scoped_routes_require_bound_api_key_identity",
         "personal_consume_usage_record_replay_is_bound_to_user_pack_skill_host_and_host_session_scope",
         "enterprise_usage_consume_existing_replay_and_ambiguous_membership_fail_closed",
@@ -77,13 +78,30 @@
         "skill_api_usage_end_record_owner_and_record_pack_are_verified_before_terminal_compare_and_set",
         "skill_api_pack_identity_lookup_is_narrow_binary_exact_bounded_and_ambiguity_failing",
         "skill_api_scoped_user_info_projects_only_the_bound_pack_while_retaining_global_points_balance",
-        "skill_api_pack_scope_production_hmac_and_prior_security_aggregate_146_of_146_passed"
+        "skill_api_pack_scope_production_hmac_and_prior_security_aggregate_146_of_146_passed",
+        "user_global_fbs_points_immutable_shadow_ledger_default_off_backend_candidate",
+        "strict_grant_reversal_and_safe_audit_http_contract_with_global_admin_and_fine_permissions",
+        "ruoyi_superadmin_wildcard_and_regular_admin_fine_permission_semantics_verified",
+        "public_init_038_exact_profile_three_table_45_typed_column_20_full_visible_index_4_fk_22_check_6_trigger_raw_contract",
+        "dual_mysql_8_0_30_and_8_4_8_first_apply_replay_fresh_drift_and_5_of_5_each_passed",
+        "canonical_current_read_rejects_post_apply_sys_user_dependency_and_projection_mismatch",
+        "repeatable_read_mixed_snapshot_concurrent_reversal_false_500_fixed_with_for_share_current_read",
+        "legacy_admin_grant_service_frontend_adapter_dialog_and_write_action_removed",
+        "points_fan_manager_compatibility_and_datascope_client_sql_sanitization_verified",
+        "current_focused_backend_aggregate_206_of_206_and_frontend_production_build_passed"
       ],
       "remaining": [
         "product_plan_and_quota_policy_write_revision_and_receipt_governance",
         "meeting_audit_plan_label_authority_with_operation_audit_permission_boundary",
-        "credit_ledger_operations",
-        "api_key_pack_code_database_immutability_trigger",
+        "credit_ledger_permission_menu_and_admin_ui",
+                          "credit_ledger_candidate_http_activation",
+                          "credit_ledger_internal_writer_migration_and_authoritative_promotion",
+                          "credit_ledger_production_database_migration",
+                          "legacy_credit_rule_and_menu_seed_retirement_migration",
+                          "credit_audit_cursor_pagination_beyond_latest_100",
+                          "credit_reversal_chain_checkpoint_or_archive_for_long_history",
+                          "credit_detail_datascope_before_delegated_department_admin",
+                          "api_key_pack_code_database_immutability_trigger",
         "api_key_user_and_pack_bound_lifecycle",
         "usage_record_enterprise_member_snapshot_and_api_key_instance_lineage",
         "skill_consume_service_final_status_cas_result_and_transaction_integration",

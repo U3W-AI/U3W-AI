@@ -7,14 +7,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.wx.fbsir.common.annotation.Log;
 import com.wx.fbsir.common.core.controller.BaseController;
 import com.wx.fbsir.common.core.domain.AjaxResult;
 import com.wx.fbsir.common.core.page.TableDataInfo;
-import com.wx.fbsir.common.enums.BusinessType;
 import com.wx.fbsir.business.point.domain.PointsRecord;
 import com.wx.fbsir.business.point.service.IPointsService;
 
@@ -34,7 +31,6 @@ public class PointsController extends BaseController {
     /**
      * 积分发放/扣减
      */
-    @Log(title = "积分操作", businessType = BusinessType.OTHER)
     @PostMapping("/changePoints")
     public ResponseEntity<AjaxResult> changePoints() {
         return ResponseEntity.status(HttpStatus.GONE)

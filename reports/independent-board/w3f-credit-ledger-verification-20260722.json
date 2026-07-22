@@ -1,0 +1,203 @@
+{
+  "schema": "fbsir.independent-board-verification/v1",
+  "slice": "W3f_default_off_credit_shadow_ledger_backend_candidate",
+  "verifiedAt": "2026-07-22T13:16:00+08:00",
+  "result": "local_default_off_backend_candidate_dual_mysql_and_security_regression_verified",
+  "scope": {
+    "accountScope": "USER_GLOBAL",
+    "currencyCode": "FBS_POINTS",
+    "httpFlag": "fbsir.independent-board.credit-candidate.enabled",
+    "defaultState": "false_controller_and_endpoint_advice_absent",
+    "adminUi": "not_implemented",
+    "permissionMenuMigration": "not_implemented",
+    "productionDatabaseMigration": false,
+    "productionActivation": false,
+    "productionAuthority": false
+  },
+  "contract": {
+    "document": "docs/independent-board/W3F-CREDIT-LEDGER-CONTRACT.md",
+    "grant": "strict_five_field_global_admin_adjustment_1_to_100000_with_allowlisted_reason_and_jwt_actor",
+    "reversal": "strict_four_field_single_reversal_with_target_user_and_amount_derived_from_original_grant",
+    "idempotency": "requires_new_committed_replay_preflight_before_mutable_reads_then_fresh_claim_and_duplicate_race_rollback_requires_new_replay",
+    "lockOrder": "sys_user_then_credit_account_then_original_operation",
+    "chainProof": "locking_FOR_SHARE_current_read_after_latest_account_head_lock",
+    "projection": "credit_account_and_sys_user_points_updated_atomically_with_full_state_compare_and_set",
+    "audit": "repeatable_read_hard_limit_101_verify_then_safe_http_projection_max_100",
+    "migration": "public_init_038"
+  },
+  "databaseSchema": {
+    "migration": "sql/update_20260722_independent_board_credit_ledger.sql",
+    "migrationVersion": "20260722_independent_board_credit_ledger_v1",
+    "sha256": "8d0b2ee9ae6c31f75d8a0339a486c19b2864e200dc76f2abd54f229f727b7c18",
+    "tables": 3,
+    "columns": 45,
+    "indexes": 20,
+    "foreignKeys": 4,
+    "checks": 22,
+    "immutableAndTransitionTriggers": 6,
+    "exactProfileGate": "MySQL_Community_8_0_30_or_8_4_8_only",
+    "canonicalExactBuilds": [
+      "MySQL Community 8.0.30",
+      "MySQL Community 8.4.8"
+    ],
+    "exactRawMetadataDigests": {
+      "columns": "4717b6466040c2b33513ef1fb92ccb9044e08a00fea41edd7ba617192c9c8d00",
+      "indexes": "3975985e059c133c0e91ef274702e5d270e4392b7b55b724b1d0d031b76f23cf",
+      "foreignKeys": "412a5276aca76d608111eecf0f2297dce0ebe299a35c6d106a4aa09da004ea67",
+      "checks": "3826d266d39d91f3faada93659bff5bf347c5f4a3c05a73ad96d70a88d7d2e92",
+      "triggers": "f1e99b6123b4ef1ce51b1153d506a2d983877c7b59257febb7873feb6fc764da"
+    }
+  },
+  "securityProperties": [
+    "candidate_http_surface_is_absent_by_default_and_authenticated_requests_receive_404",
+    "grant_reverse_and_query_each_require_global_admin_role_and_independent_fine_permission_under_existing_ruoyi_superadmin_wildcard_semantics",
+    "actor_identity_comes_only_from_the_authenticated_jwt_principal",
+    "unknown_duplicate_missing_null_wrong_type_and_trailing_json_fail_closed",
+    "caller_cannot_select_actor_account_scope_currency_reversal_user_or_reversal_amount",
+    "operation_and_entry_history_are_database_immutable",
+    "http_responses_exclude_account_ids_idempotency_keys_digests_hashes_and_free_form_notes",
+    "database_and_sql_exception_details_are_not_reflected_to_clients",
+    "concurrent_distinct_key_reversal_has_one_winner_and_one_stable_http_409_semantic",
+    "legacy_admin_grant_is_http_410_for_every_authenticated_role_and_anonymous_is_401",
+    "legacy_admin_grant_service_method_frontend_adapter_button_dialog_and_action_are_removed",
+    "points_fan_pii_reads_require_admin_or_manager_plus_the_original_fine_permission",
+    "operator_and_readonly_cannot_read_points_fan_pii_even_when_fine_permissions_are_misassigned",
+    "points_fan_list_uses_the_datascope_service_proxy_and_client_supplied_datascope_sql_is_cleared"
+  ],
+  "verification": {
+    "priorCleanAggregate": {
+      "scope": "clean_snapshot_before_final_test_class_inclusion",
+      "currentByteSet": false,
+      "testcaseElements": 205,
+      "passed": 205,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "reactorModules": 8,
+      "exitCode": 0
+    },
+    "mavenCurrentByteAggregate": {
+      "testcaseElements": 206,
+      "passed": 206,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "reactorModules": 8,
+      "exitCode": 0,
+      "countingMethod": "surefire_testcase_elements_across_14_reports"
+    },
+    "testClasses": {
+      "boardCreditRequestContract": 4,
+      "creditLedgerMigrationContract": 9,
+      "creditMapperContract": 6,
+      "creditService": 17,
+      "creditSpringProxy": 1,
+      "creditHttpSecurity": 12,
+      "pointsService": 6,
+      "pointsController": 2,
+      "independentBoardJwtHttpSecurity": 46,
+      "skillConsumeServiceRegression": 27,
+      "skillApiControllerRegression": 56,
+      "skillScenePackMapperRegression": 1,
+      "skillUsageMapperRegression": 1,
+      "skillApiProductionSecurityRegression": 18
+    },
+    "legacyPiiRedGreen": {
+      "red": {
+        "pointsService": "5_of_6_passed_raw_mapper_test_failed",
+        "httpSecurity": "45_of_46_passed_manager_compatibility_test_failed"
+      },
+      "green": "52_of_52_passed"
+    },
+    "frontendSecurityVerifier": "passed_recursive_src_scan",
+    "frontendProductionBuild": "passed_exit_0",
+    "manifestVerifier": "passed_38_steps_36_managed_update_sql",
+    "initializerDryRun": "passed_no_database_connection_opened",
+    "canonicalCreditCurrentRead": "exact_profile_five_column_sys_user_dependency_and_zero_projection_mismatch_passed",
+    "multiAgentReview": "schema_contract_java_mysql_security_and_post_apply_current_read_findings_fixed_no_open_p0_p1"
+  },
+  "mysql": {
+    "runtime": "disposable_loopback_InnoDB_REPEATABLE_READ",
+    "testsPerBuild": 5,
+    "assertions": [
+      "migration_first_install",
+      "exact_replay",
+      "exact_mysql_community_profile_gate",
+      "exact_raw_typed_column_index_foreign_key_check_and_trigger_metadata",
+      "pre_apply_sys_user_prerequisite_drift_rejected_without_target_or_receipt_write",
+      "post_apply_sys_user_dependency_drift_rejected_by_canonical_current_read",
+      "post_apply_account_projection_mismatch_rejected_by_canonical_current_read",
+      "each_destructive_drift_vector_uses_a_fresh_database",
+      "group_concat_session_value_restored_on_success_and_failure",
+      "current_schema_drift_fail_closed",
+      "grant_and_exact_idempotent_replay",
+      "distinct_key_single_reversal_with_stable_409_loser",
+      "late_failure_rolls_back_account_operation_entry_and_projection",
+      "immutable_triggers_and_account_chain_constraints"
+    ],
+    "exactBuilds": [
+      {
+        "version": "8.0.30",
+        "tests": 5,
+        "passed": 5,
+        "summary": "work/diagnostics/independent-board-credit-ledger-mysql-it/mysql-8.0.30/summary-mysql-8.0.30-20260722T050624.015Z-pid-25464.json",
+        "summarySha256": "2672e9f2997978bbd303c50913640bd426a73e2d629dd3a5945add0a8cf6eeea",
+        "mysqldSha256": "8e9c0d7973f25e990421f3387a93f8b32978c2e8c1baf17cd333aae17ba821a4",
+        "mysqlSha256": "5a395caeebc1601d95109519949fb528754fdf2fa2e6ab4c2162eb00e5b65378"
+      },
+      {
+        "version": "8.4.8",
+        "tests": 5,
+        "passed": 5,
+        "summary": "work/diagnostics/independent-board-credit-ledger-mysql-it/mysql-8.4.8/summary-mysql-8.4.8-20260722T050816.125Z-pid-25464.json",
+        "summarySha256": "afebe5d69a07196f57acb1c4b9493f0690a99c9f21ce96c71f8cfaf020a4acab",
+        "mysqldSha256": "6e652e303210ebb72d6c7ee944d14a780964dab16bb52f7ad693e1b3f166ca34",
+        "mysqlSha256": "0022995ff8b7ef0b213a175fdf12d383667d28e062b1375a0b3cacd0e0f0ed28"
+      }
+    ],
+    "trackedEvidence": "reports/independent-board/w3f-credit-ledger-mysql-evidence-20260722.json",
+    "trackedEvidenceSha256": "521b03e4fdc389d68569b7bfe3efd49bd45266c8159bcf2d791acc2c911af4a3",
+    "cleanup": "no_mysqld_java_or_credit_it_process_remaining"
+  },
+  "sourceBinding": {
+    "verificationBaseGitHead": "3dd4bbf8cfdb8cc75072770e37d98873b0f6cd4f",
+    "migrationSha256": "8d0b2ee9ae6c31f75d8a0339a486c19b2864e200dc76f2abd54f229f727b7c18",
+    "canonicalInitializerSha256": "32f9b55d90e3902eb6c4099497be546646ac6feb0d66a383230bf459bfaed799",
+    "mysqlRunnerSha256": "a10b754bcc1110bbcf5a9403b83c126dadcc4567f740543d98d77bbb1e10b8bf",
+    "manifestVerifierSha256": "cf659aeedc31d5319189db408b77163c2cb7b17959e827e2a2f905a42d60da39",
+    "creditServiceSha256": "c7c8832db712a165f636ec94dc5b1bce0ee634db7adf17d2003a6780e793cde6",
+    "creditTransactionServiceSha256": "f689198208acb2da397556610cbdd7232364b0f244221d995e4ec0e84fb975ec",
+    "creditMapperXmlSha256": "fccf4a93a87fe1adc5834c22bdfaac581d86e8d944333c75adb8032ad46bdb10"
+  },
+  "truthBoundary": {
+    "localVerifiedDoesNotProveProduction": true,
+    "candidateHttpActivated": false,
+    "permissionMenuAndAdminUiImplemented": false,
+    "productionDatabaseMigrated": false,
+    "allInternalPointsWritersMigrated": false,
+    "canonicalCurrentReadDetectsLegacyWriterProjectionMismatch": true,
+    "authoritativeCreditSystemPromoted": false,
+    "api2TrafficAttributionPriority": "secondary_deferred",
+    "frozenExpertPackageModified": false,
+    "frozenExpertPackageSha256": "D2380072556C0DCF429604AE33713668C509F74A0303F7BCA2BACEEBF32C78CD"
+  },
+  "remainingInternalWriterInventory": [
+    "PointsPrecheckService",
+    "DailyArticleController",
+    "GiteeAnalysisController",
+    "AigcController",
+    "ApplicationReviewServiceImpl",
+    "CertificatePointsServiceImpl",
+    "SkillConsumeServiceImpl"
+  ],
+  "nextAction": "implement_default_off_credit_permission_menu_and_admin_ui_for_reviewed_global_administrators_with_browser_jwt_and_source_tests_keep_flag_false",
+  "secondaryBacklog": [
+    "migrate_or_close_every_internal_points_writer_before_authoritative_promotion",
+    "retire_legacy_ADMIN_GRANT_rule_and_points_fans_grant_menu_seed_with_a_separate_replayable_migration",
+    "add_cursor_pagination_for_credit_audit_history_beyond_the_latest_100_rows",
+    "add_credit_chain_checkpoints_or_archive_strategy_before_long_history_scale",
+    "enforce_credit_detail_datascope_before_any_delegated_department_admin_role",
+    "add_a_static_architecture_gate_that_forbids_business_services_from_directly_calling_SysUserMapper_selectUserList",
+    "return_to_api2_attribution_only_after_the_admin_backend_slice_is_runnable"
+  ]
+}

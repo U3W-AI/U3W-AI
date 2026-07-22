@@ -189,6 +189,7 @@ $requiredTail = @{
     public_init_035 = "update_20260721_independent_board_oauth_consent_intent_lineage.sql"
     public_init_036 = "update_20260721_independent_board_oauth_refresh_security.sql"
     public_init_037 = "update_20260722_independent_board_attribution_evidence_contract.sql"
+    public_init_038 = "update_20260722_independent_board_credit_ledger.sql"
 }
 foreach ($version in $requiredTail.Keys) {
     $matches = @($manifest.steps | Where-Object { $_.version -eq $version -and $_.file -eq $requiredTail[$version] })
@@ -218,6 +219,7 @@ $requiredInitNeedles = @(
     "Assert-IndependentBoardMeMenuCurrentState",
     "Assert-IndependentBoardAdminMenuCurrentState",
     "Assert-IndependentBoardEntitlementLifecycleMenuCurrentState",
+    "Assert-IndependentBoardCreditLedgerCurrentState",
     '$expectedState = @(5, 5, 67, 67, 13, 13, 2, 2, 2, 1, 1)',
     '$expectedState = @(1, 1, 1, 1, 1, 1, 1)',
     '# The four W3a identities are asserted individually above.',
@@ -1658,6 +1660,198 @@ if ($oauthRefreshCommitIndex -ge 0) {
     }
 }
 
+$creditLedgerSqlPath = Join-Path $sqlRoot 'update_20260722_independent_board_credit_ledger.sql'
+$creditLedgerManifestSteps = @($declarativeManifest.steps | Where-Object {
+    [string]$_.version -eq 'public_init_038'
+})
+$expectedCreditLedgerSha256 = '8d0b2ee9ae6c31f75d8a0339a486c19b2864e200dc76f2abd54f229f727b7c18'
+if ($creditLedgerManifestSteps.Count -ne 1) {
+    $errors.Add('public_init_038 manifest entry must exist exactly once')
+}
+else {
+    $creditLedgerManifestStep = $creditLedgerManifestSteps[0]
+    if ([string]$creditLedgerManifestStep.description -cne 'Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger' -or
+        [string]$creditLedgerManifestStep.file -cne 'update_20260722_independent_board_credit_ledger.sql' -or
+        [string]$creditLedgerManifestStep.sha256 -cne $expectedCreditLedgerSha256) {
+        $errors.Add('public_init_038 manifest description, file or exact SHA-256 has drifted')
+    }
+}
+$creditLedgerSha256 = ''
+if (-not (Test-Path -LiteralPath $creditLedgerSqlPath -PathType Leaf)) {
+    $errors.Add('Independent Board credit-ledger migration is missing')
+    $creditLedgerSql = ''
+}
+else {
+    $creditLedgerSql = Get-Content -LiteralPath $creditLedgerSqlPath -Raw -Encoding UTF8
+    $creditLedgerSha256 = (Get-FileHash -LiteralPath $creditLedgerSqlPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if (-not [string]::Equals(
+            $creditLedgerSha256,
+            $expectedCreditLedgerSha256,
+            [StringComparison]::Ordinal)) {
+        $errors.Add("public_init_038 byte contract drifted: expected SHA-256 $expectedCreditLedgerSha256, found $creditLedgerSha256")
+    }
+}
+$requiredCreditLedgerNeedles = @(
+    'FBSir Independent Board USER_GLOBAL/FBS_POINTS shadow ledger',
+    '20260722_independent_board_credit_ledger_v1',
+    'Public manifest step: public_init_038',
+    'Target: exact MySQL Community 8.0.30 or 8.4.8 raw-metadata profiles',
+    "VERSION() NOT IN ('8.0.30', '8.4.8')",
+    "@@version_comment <> 'MySQL Community Server - GPL'",
+    'Credit ledger migration requires exact MySQL Community 8.0.30 or 8.4.8',
+    'SET previous_group_concat_max_len = @@SESSION.group_concat_max_len',
+    'SET SESSION group_concat_max_len = 1048576',
+    'SET SESSION group_concat_max_len = previous_group_concat_max_len',
+    "DATABASE(), ':20260722_independent_board_credit_ledger_v1'",
+    'CHAR_LENGTH(migration_lock_name) <> 64',
+    'GET_LOCK(migration_lock_name, 30)',
+    'IS_USED_LOCK(migration_lock_name)',
+    'RELEASE_LOCK(migration_lock_name)',
+    'DECLARE EXIT HANDLER FOR SQLEXCEPTION',
+    "SET migration_stage = 'prerequisite-audit'",
+    "table_name IN ('u3w_schema_migration', 'sys_user')",
+    "column_name = 'status'",
+    "column_name = 'del_flag'",
+    "column_name = 'update_time'",
+    "extra NOT LIKE '%GENERATED%'",
+    'Credit ledger requires the five-column sys_user runtime projection',
+    "SET migration_stage = 'partial-state-audit'",
+    'Credit ledger objects exist without the exact migration receipt',
+    'Credit ledger receipt exists but its three-table set is incomplete',
+    'CREATE TABLE IF NOT EXISTS `fbs_credit_account`',
+    'CREATE TABLE IF NOT EXISTS `fbs_credit_operation`',
+    'CREATE TABLE IF NOT EXISTS `fbs_credit_entry`',
+    "DEFAULT 'USER'",
+    "DEFAULT 'USER_GLOBAL'",
+    "DEFAULT 'FBS_POINTS'",
+    '`opening_balance` BIGINT NOT NULL',
+    '`version` BIGINT UNSIGNED NOT NULL DEFAULT 0',
+    '`last_entry_sequence` BIGINT UNSIGNED NOT NULL DEFAULT 0',
+    "DEFAULT '0000000000000000000000000000000000000000000000000000000000000000'",
+    '`idempotency_key` VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL',
+    '`request_digest` CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL',
+    "'CUSTOMER_SUPPORT','SERVICE_RECOVERY','MIGRATION_CORRECTION'",
+    "'DUPLICATE_GRANT','OPERATOR_ERROR','POLICY_VIOLATION'",
+    '`actor_user_id` BIGINT NOT NULL',
+    "DEFAULT 'COMMITTED'",
+    "DEFAULT 'credit-entry-v1'",
+    'Credit ledger exact 45-column contract has drifted',
+    'Credit ledger exact 20-index contract has drifted',
+    'Credit ledger exact foreign-key contract has drifted',
+    'Credit ledger exact 22-check clause contract has drifted',
+    '4717b6466040c2b33513ef1fb92ccb9044e08a00fea41edd7ba617192c9c8d00',
+    '3975985e059c133c0e91ef274702e5d270e4392b7b55b724b1d0d031b76f23cf',
+    '412a5276aca76d608111eecf0f2297dce0ebe299a35c6d106a4aa09da004ea67',
+    '98ec9d2165952222da7c44b8cf63dfe361856aeedecb68a44a137d09c66cb1e2',
+    'd04d7ef95cac75a2205dde9ffd89cdf23f5c387c3ece90a10926bb4feab62557',
+    'fe61351bc245be129eedf83daa790444022925b660ed3f2c0241f9ec15917fc4',
+    '29f2ebca36c354a73509468e251b4edb61f096056d3ded28d21d16b76e7b34dc',
+    'CREATE TRIGGER IF NOT EXISTS `trg_credit_account_transition`',
+    'CREATE TRIGGER IF NOT EXISTS `trg_credit_account_no_delete`',
+    'CREATE TRIGGER IF NOT EXISTS `trg_credit_operation_no_update`',
+    'CREATE TRIGGER IF NOT EXISTS `trg_credit_operation_no_delete`',
+    'CREATE TRIGGER IF NOT EXISTS `trg_credit_entry_no_update`',
+    'CREATE TRIGGER IF NOT EXISTS `trg_credit_entry_no_delete`',
+    'NEW.version = OLD.version + 1',
+    'NEW.last_entry_sequence = OLD.last_entry_sequence + 1',
+    'e.sequence_no = NEW.last_entry_sequence',
+    'e.balance_before = OLD.balance',
+    'e.balance_after = NEW.balance',
+    'e.previous_entry_hash = OLD.last_entry_hash',
+    'e.entry_hash = NEW.last_entry_hash',
+    'Credit ledger exact six-trigger contract has drifted',
+    'u3w_migrate_independent_board_credit_ledger_20260722',
+    'u3w_finalize_independent_board_credit_ledger_20260722',
+    'u3w_assert_independent_board_credit_triggers_20260722',
+    'Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger'
+)
+foreach ($needle in $requiredCreditLedgerNeedles) {
+    if (-not $creditLedgerSql.Contains($needle)) {
+        $errors.Add("Independent Board credit-ledger SQL is missing required contract: $needle")
+    }
+}
+if ($creditLedgerSql -match '__[A-Z0-9_]+__' -or
+    $creditLedgerSql -match 'REPLACE_WITH_') {
+    $errors.Add('Independent Board credit-ledger SQL contains an unresolved placeholder')
+}
+$creditLedgerCreatedTables = @([regex]::Matches(
+    $creditLedgerSql,
+    '(?im)^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`(?<name>fbs_credit_[a-z_]+)`') |
+    ForEach-Object { $_.Groups['name'].Value })
+$expectedCreditLedgerTables = @('fbs_credit_account','fbs_credit_operation','fbs_credit_entry')
+if (($creditLedgerCreatedTables -join '|') -cne ($expectedCreditLedgerTables -join '|')) {
+    $errors.Add("Independent Board credit-ledger migration must create exactly account, operation and entry tables in order; found '$($creditLedgerCreatedTables -join ',')'")
+}
+$creditLedgerIndexDefinitions = @([regex]::Matches(
+    $creditLedgerSql,
+    '(?im)^\s*(?:PRIMARY\s+KEY\s*\(|(?:UNIQUE\s+)?KEY\s+`[^`]+`\s*\()'))
+if ($creditLedgerIndexDefinitions.Count -ne 20) {
+    $errors.Add("Independent Board credit-ledger migration must define exactly 20 indexes; found $($creditLedgerIndexDefinitions.Count)")
+}
+$creditLedgerForeignKeyDefinitions = @([regex]::Matches(
+    $creditLedgerSql,
+    '(?im)^\s*CONSTRAINT\s+`(?<name>fk_credit_[^`]+)`\s*$') |
+    ForEach-Object { $_.Groups['name'].Value })
+$expectedCreditLedgerForeignKeys = @(
+    'fk_credit_account_user',
+    'fk_credit_operation_account',
+    'fk_credit_operation_reversal',
+    'fk_credit_entry_operation'
+)
+if (($creditLedgerForeignKeyDefinitions -join '|') -cne ($expectedCreditLedgerForeignKeys -join '|') -or
+    @([regex]::Matches($creditLedgerSql, 'ON UPDATE RESTRICT ON DELETE RESTRICT')).Count -ne 4) {
+    $errors.Add('Independent Board credit-ledger migration must define exactly four named RESTRICT/RESTRICT foreign keys')
+}
+$creditLedgerCheckDefinitions = @([regex]::Matches(
+    $creditLedgerSql,
+    '(?im)^\s*CONSTRAINT\s+`chk_credit_[^`]+`\s*$'))
+if ($creditLedgerCheckDefinitions.Count -ne 22) {
+    $errors.Add("Independent Board credit-ledger migration must define exactly 22 named CHECK constraints; found $($creditLedgerCheckDefinitions.Count)")
+}
+$creditLedgerCreatedTriggers = @([regex]::Matches(
+    $creditLedgerSql,
+    '(?im)^\s*CREATE\s+TRIGGER\s+IF\s+NOT\s+EXISTS\s+`(?<name>trg_credit_[a-z_]+)`') |
+    ForEach-Object { $_.Groups['name'].Value })
+$expectedCreditLedgerTriggers = @(
+    'trg_credit_account_transition',
+    'trg_credit_account_no_delete',
+    'trg_credit_operation_no_update',
+    'trg_credit_operation_no_delete',
+    'trg_credit_entry_no_update',
+    'trg_credit_entry_no_delete'
+)
+if (($creditLedgerCreatedTriggers -join '|') -cne ($expectedCreditLedgerTriggers -join '|')) {
+    $errors.Add("Independent Board credit-ledger migration must create exactly six guarded immutable triggers in order; found '$($creditLedgerCreatedTriggers -join ',')'")
+}
+if ($creditLedgerSql -match '(?im)^\s*(?:DROP\s+(?:TABLE|TRIGGER)|ALTER\s+TABLE|TRUNCATE\s+TABLE)\b' -or
+    $creditLedgerSql -match '(?im)^\s*(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+`?fbs_credit_' -or
+    $creditLedgerSql -match '(?i)FOREIGN\s+KEY\s*\(\s*`?actor_user_id`?\s*\)' -or
+    $creditLedgerSql -match '(?i)ON\s+(?:UPDATE|DELETE)\s+(?:CASCADE|SET\s+NULL)') {
+    $errors.Add('Independent Board credit-ledger migration must remain additive, preserve business rows, avoid actor_user_id FK coupling and use only RESTRICT referential actions')
+}
+$creditLedgerOrderedIndices = @(
+    $creditLedgerSql.IndexOf('CREATE PROCEDURE `u3w_assert_independent_board_credit_triggers_20260722`()', [StringComparison]::Ordinal),
+    $creditLedgerSql.IndexOf('CREATE PROCEDURE `u3w_migrate_independent_board_credit_ledger_20260722`()', [StringComparison]::Ordinal),
+    $creditLedgerSql.IndexOf('SELECT GET_LOCK(migration_lock_name, 30)', [StringComparison]::Ordinal),
+    $creditLedgerSql.IndexOf("SET migration_stage = 'partial-state-audit'", [StringComparison]::Ordinal),
+    $creditLedgerSql.IndexOf('CREATE TABLE IF NOT EXISTS `fbs_credit_account`', [StringComparison]::Ordinal),
+    $creditLedgerSql.IndexOf("SET migration_stage = 'table-audit'", [StringComparison]::Ordinal),
+    $creditLedgerSql.IndexOf('CREATE PROCEDURE `u3w_finalize_independent_board_credit_ledger_20260722`()', [StringComparison]::Ordinal),
+    $creditLedgerSql.IndexOf('CALL `u3w_migrate_independent_board_credit_ledger_20260722`()$$', [StringComparison]::Ordinal),
+    $creditLedgerSql.IndexOf('CREATE TRIGGER IF NOT EXISTS `trg_credit_account_transition`', [StringComparison]::Ordinal),
+    $creditLedgerSql.IndexOf('CALL `u3w_finalize_independent_board_credit_ledger_20260722`()$$', [StringComparison]::Ordinal),
+    $creditLedgerSql.LastIndexOf('DROP PROCEDURE IF EXISTS `u3w_assert_independent_board_credit_triggers_20260722`$$', [StringComparison]::Ordinal)
+)
+$creditLedgerOrderingValid = -not ($creditLedgerOrderedIndices -contains -1)
+for ($index = 1; $creditLedgerOrderingValid -and $index -lt $creditLedgerOrderedIndices.Count; $index++) {
+    if ($creditLedgerOrderedIndices[$index] -le $creditLedgerOrderedIndices[$index - 1]) {
+        $creditLedgerOrderingValid = $false
+    }
+}
+if (-not $creditLedgerOrderingValid) {
+    $errors.Add('Independent Board credit-ledger order must be trigger helper, migration+lock, partial-state gate, three-table DDL, exact audits, finalizer, migration call, guarded triggers, locked receipt finalization and helper cleanup')
+}
+
 $truthSpineSqlPath = Join-Path $sqlRoot 'update_20260712_truth_spine_test_state_receipt.sql'
 $truthSpineSql = Get-Content -LiteralPath $truthSpineSqlPath -Raw -Encoding UTF8
 $requiredTruthSpineLockNeedles = @(
@@ -1876,7 +2070,28 @@ $requiredOauthInitializerIntegrationNeedles = @(
     'idx_connector_binding_receipt_lock_order',
     '504a017fe7c4a8ecc4c60619ea8beaf5e7d4aa207fcffe536ff47b8e1d9919b3',
     'W4b refresh-security exact bounded replay did not pass',
-    'if ($verification -ne 21)'
+    'if ($verification -ne 24)'
+)
+$requiredCreditLedgerInitializerNeedles = @(
+    'New-Step "public_init_038" "Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger" (Resolve-SqlFile "update_20260722_independent_board_credit_ledger.sql")',
+    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038')",
+    'function Assert-IndependentBoardCreditLedgerCurrentState',
+    '$serverProfile = Assert-IndependentBoardOauthServerProfile',
+    '$expected = @(3,3,45,45,45,20,20,4,4,9,9,22,22,6,6,1,1,5,0)',
+    'CreditLedgerCurrentReadOnly',
+    'five-column sys_user dependency, zero projection mismatch',
+    'PASS Independent Board credit ledger exact raw current-read on MySQL',
+    '$resumeRunningCreditLedger',
+    "`$step.Version -eq 'public_init_038'",
+    'Assert-IndependentBoardCreditLedgerCurrentState',
+    'three-table ledger plus its internal receipt',
+    'u3w_migrate_independent_board_credit_ledger_20260722',
+    'u3w_finalize_independent_board_credit_ledger_20260722',
+    'u3w_assert_independent_board_credit_triggers_20260722',
+    'credit-ledger exact bounded replay did not pass',
+    "'fbs_credit_account','fbs_credit_operation','fbs_credit_entry'",
+    'if ($verification -ne 24)',
+    'expected twenty-four representative current tables'
 )
 $requiredManifestCurrentReadNeedles = @(
     'function Assert-PublicDatabaseManifestCurrentState',
@@ -1923,12 +2138,61 @@ foreach ($needle in $requiredOauthInitializerIntegrationNeedles) {
         $errors.Add("initializer is missing W4b manifest or reconciliation contract: $needle")
     }
 }
+foreach ($needle in $requiredCreditLedgerInitializerNeedles) {
+    if (-not $initSource.Contains($needle)) {
+        $errors.Add("initializer is missing public_init_038 credit-ledger manifest, recovery or verification contract: $needle")
+    }
+}
 foreach ($needle in $requiredManifestCurrentReadNeedles) {
     if (-not $initSource.Contains($needle)) {
         $errors.Add("initializer is missing exact public manifest current-read contract: $needle")
     }
 }
-$currentReadOnlyBlockStart = $initSource.IndexOf('if ($CurrentReadOnly) {', [StringComparison]::Ordinal)
+$creditLedgerCurrentReadStart = $initSource.IndexOf(
+    'function Assert-IndependentBoardCreditLedgerCurrentState',
+    [StringComparison]::Ordinal)
+$creditLedgerCurrentReadEnd = if ($creditLedgerCurrentReadStart -ge 0) {
+    $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly) {', $creditLedgerCurrentReadStart, [StringComparison]::Ordinal)
+} else { -1 }
+$creditLedgerCurrentReadSource = if ($creditLedgerCurrentReadStart -ge 0 -and $creditLedgerCurrentReadEnd -gt $creditLedgerCurrentReadStart) {
+    $initSource.Substring($creditLedgerCurrentReadStart, $creditLedgerCurrentReadEnd - $creditLedgerCurrentReadStart)
+} else { '' }
+if ([string]::IsNullOrEmpty($creditLedgerCurrentReadSource)) {
+    $errors.Add('initializer credit-ledger current-read function boundary is missing')
+}
+elseif ($creditLedgerCurrentReadSource -match 'Invoke-MySql(?:File|Bytes)' -or
+        $creditLedgerCurrentReadSource -match '(?im)^\s*(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM|ALTER\s+TABLE|CREATE\s+(?:TABLE|TRIGGER|PROCEDURE)|DROP\s+(?:TABLE|TRIGGER|PROCEDURE)|TRUNCATE\s+TABLE)\b') {
+    $errors.Add('initializer credit-ledger current-read function must remain database read-only')
+}
+foreach ($needle in @(
+    'information_schema.tables',
+    'information_schema.columns',
+    'information_schema.statistics',
+    'information_schema.referential_constraints',
+    'information_schema.key_column_usage',
+    'information_schema.table_constraints',
+    'information_schema.triggers',
+    '$serverProfile = Assert-IndependentBoardOauthServerProfile',
+    "table_name='sys_user'",
+    "column_name='status'",
+    "column_name='del_flag'",
+    "column_name='update_time'",
+    "extra NOT LIKE '%GENERATED%'",
+    'LEFT JOIN sys_user u ON u.user_id=a.user_id',
+    'u.user_id IS NULL OR a.balance<>COALESCE(u.points,0)',
+    'fe61351bc245be129eedf83daa790444022925b660ed3f2c0241f9ec15917fc4',
+    '29f2ebca36c354a73509468e251b4edb61f096056d3ded28d21d16b76e7b34dc',
+    '3826d266d39d91f3faada93659bff5bf347c5f4a3c05a73ad96d70a88d7d2e92',
+    'f1e99b6123b4ef1ce51b1153d506a2d983877c7b59257febb7873feb6fc764da',
+    "version='20260722_independent_board_credit_ledger_v1'",
+    "description='Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger'",
+    '$expected = @(3,3,45,45,45,20,20,4,4,9,9,22,22,6,6,1,1,5,0)'
+)) {
+    if (-not $creditLedgerCurrentReadSource.Contains($needle)) {
+        $errors.Add("initializer credit-ledger current-read is missing exact metadata contract: $needle")
+    }
+}
+$currentReadOnlyBlockStart = $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly) {', [StringComparison]::Ordinal)
 $currentReadOnlyBlockEnd = if ($currentReadOnlyBlockStart -ge 0) {
     $initSource.IndexOf('$databaseBootstrap =', $currentReadOnlyBlockStart, [StringComparison]::Ordinal)
 } else { -1 }
@@ -1936,8 +2200,10 @@ $currentReadOnlyBlock = if ($currentReadOnlyBlockStart -ge 0 -and $currentReadOn
     $initSource.Substring($currentReadOnlyBlockStart, $currentReadOnlyBlockEnd - $currentReadOnlyBlockStart)
 } else { '' }
 foreach ($needle in @(
+    'if ($CreditLedgerCurrentReadOnly)',
     'Assert-IndependentBoardOauthFoundationCurrentState',
     'Assert-IndependentBoardOauthConsentIntentCurrentState',
+    'Assert-IndependentBoardCreditLedgerCurrentState',
     'Assert-PublicDatabaseManifestCurrentState',
     'No database write was requested.',
     'return'
@@ -2073,10 +2339,12 @@ $result = [pscustomobject]@{
     oauthProvenanceVersion = "public_init_034"
     oauthConsentIntentVersion = "public_init_035"
     oauthRefreshSecurityVersion = "public_init_036"
+    creditLedgerVersion = "public_init_038"
     oauthFoundationSha256 = $oauthFoundationSha256
     oauthProvenanceSha256 = $oauthProvenanceSha256
     oauthConsentIntentSha256 = $oauthConsentIntentSha256
     oauthRefreshSecuritySha256 = $oauthRefreshSecuritySha256
+    creditLedgerSha256 = $creditLedgerSha256
     candidateMenuMigrationId = $candidateMenuMigrationId
     candidateMenuMigrationSha256 = $candidateMenuMigrationSha256
     oauthSuccessorCheckDigest = $oauthSuccessorCheckDigest

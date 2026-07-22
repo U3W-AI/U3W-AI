@@ -75,14 +75,6 @@
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="scope">
               <el-button
-                type="primary"
-                size="small"
-                @click="handleGrantPoints(scope.row)"
-                v-hasPermi="['points:fans:grant']"
-              >
-                <el-icon><Plus /></el-icon>设置积分
-              </el-button>
-              <el-button
                 type="info"
                 size="small"
                 @click="handleViewPointsRecord(scope.row)" v-hasPermi="['points:fans:detail']"
@@ -102,45 +94,6 @@
         />
       </div>
     </el-card>
-    
-    <!-- 发放积分对话框 -->
-    <el-dialog
-      v-model="grantPointsVisible"
-      title="设置积分"
-      width="400px"
-      center
-    >
-      <el-form :model="grantPointsForm" :rules="grantPointsRules" ref="grantPointsRef" label-position="top">
-        <el-form-item label="用户信息" prop="userInfo">
-          <div class="user-info">
-            <div>用户名: {{ selectedUser.userName }}</div>
-            <div>当前积分: {{ selectedUser.points || 0 }}</div>
-          </div>
-        </el-form-item>
-        <el-form-item label="积分数量" prop="pointsAmount">
-          <el-input
-            v-model.number="grantPointsForm.pointsAmount"
-            type="number"
-            placeholder="请输入要发放的积分数量"
-            min="1"
-          />
-        </el-form-item>
-        <el-form-item label="备注" prop="remark">
-          <el-input
-            v-model="grantPointsForm.remark"
-            type="textarea"
-            placeholder="请输入发放备注"
-            :rows="3"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="grantPointsVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSubmitGrantPoints" :loading="grantPointsLoading">确认发放</el-button>
-        </span>
-      </template>
-    </el-dialog>
     
     <!-- 积分明细对话框 -->
     <el-dialog
@@ -195,15 +148,14 @@
 </template>
 
 <script>
-import { getPointsFansList, grantPointsToUser, getPointsFansRecord } from '@/api/business/points'
-import { Plus, Document, Refresh } from '@element-plus/icons-vue'
+import { getPointsFansList, getPointsFansRecord } from '@/api/business/points'
+import { Document, Refresh } from '@element-plus/icons-vue'
 import Pagination from '@/components/Pagination'
 
 export default {
   name: 'PointsFans',
   components: {
     Pagination,
-    Plus,
     Document,
     Refresh
   },
@@ -223,25 +175,6 @@ export default {
         phonenumber: null,
         email: null
       },
-      // 发放积分对话框显示控制
-      grantPointsVisible: false,
-      // 发放积分表单
-      grantPointsForm: {
-        pointsAmount: null,
-        remark: null
-      },
-      // 发放积分表单验证规则
-      grantPointsRules: {
-        pointsAmount: [
-          { required: true, message: '请输入积分数量', trigger: 'blur' },
-          { type: 'number', min: 1, message: '积分数量必须大于0', trigger: 'blur' }
-        ],
-        remark: [
-          { required: true, message: '请输入备注', trigger: 'blur' }
-        ]
-      },
-      // 发放积分加载状态
-      grantPointsLoading: false,
       // 选中的用户
       selectedUser: {},
       // 积分明细对话框显示控制
@@ -282,34 +215,6 @@ export default {
     // 刷新数据
     refreshData() {
       this.handleQuery()
-    },
-    // 发放积分
-    handleGrantPoints(row) {
-      this.selectedUser = row
-      this.grantPointsForm = {
-        pointsAmount: null,
-        remark: null
-      }
-      this.grantPointsVisible = true
-    },
-    // 提交发放积分
-    handleSubmitGrantPoints() {
-      this.$refs.grantPointsRef.validate(valid => {
-        if (valid) {
-          this.grantPointsLoading = true
-          grantPointsToUser(
-            this.selectedUser.userId,
-            this.grantPointsForm.pointsAmount,
-            this.grantPointsForm.remark
-          ).then(response => {
-            this.$modal.msgSuccess('积分发放成功')
-            this.grantPointsVisible = false
-            this.handleQuery()
-          }).finally(() => {
-            this.grantPointsLoading = false
-          })
-        }
-      })
     },
     // 查看积分明细
     handleViewPointsRecord(row) {

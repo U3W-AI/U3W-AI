@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.board.credit.mapper.IndependentBoardCreditMapper">
+
+    <resultMap id="CreditUserProjection" type="com.wx.fbsir.business.board.credit.domain.BoardCreditUserProjection">
+        <id property="userId" column="user_id" />
+        <result property="points" column="points" />
+        <result property="status" column="status" />
+        <result property="delFlag" column="del_flag" />
+    </resultMap>
+
+    <resultMap id="CreditAccount" type="com.wx.fbsir.business.board.credit.domain.BoardCreditAccount">
+        <id property="id" column="id" />
+        <result property="accountId" column="account_id" />
+        <result property="userId" column="user_id" />
+        <result property="accountScope" column="account_scope" />
+        <result property="currencyCode" column="currency_code" />
+        <result property="openingBalance" column="opening_balance" />
+        <result property="balance" column="balance" />
+        <result property="version" column="version" />
+        <result property="lastEntrySequence" column="last_entry_sequence" />
+        <result property="lastEntryHash" column="last_entry_hash" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <resultMap id="CreditOperation" type="com.wx.fbsir.business.board.credit.domain.BoardCreditOperation">
+        <id property="id" column="id" />
+        <result property="operationId" column="operation_id" />
+        <result property="idempotencyKey" column="idempotency_key" />
+        <result property="requestDigest" column="request_digest" />
+        <result property="accountId" column="account_id" />
+        <result property="userId" column="user_id" />
+        <result property="accountScope" column="account_scope" />
+        <result property="currencyCode" column="currency_code" />
+        <result property="operationType" column="operation_type" />
+        <result property="delta" column="delta_amount" />
+        <result property="reasonCode" column="reason_code" />
+        <result property="reasonNote" column="reason_note" />
+        <result property="actorUserId" column="actor_user_id" />
+        <result property="reversalOfOperationId" column="reversal_of_operation_id" />
+        <result property="balanceBefore" column="balance_before" />
+        <result property="balanceAfter" column="balance_after" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <resultMap id="CreditEntry" type="com.wx.fbsir.business.board.credit.domain.BoardCreditEntry">
+        <id property="id" column="id" />
+        <result property="entryId" column="entry_id" />
+        <result property="operationId" column="operation_id" />
+        <result property="requestDigest" column="request_digest" />
+        <result property="accountId" column="account_id" />
+        <result property="sequenceNo" column="sequence_no" />
+        <result property="delta" column="delta_amount" />
+        <result property="balanceBefore" column="balance_before" />
+        <result property="balanceAfter" column="balance_after" />
+        <result property="previousEntryHash" column="previous_entry_hash" />
+        <result property="entryHash" column="entry_hash" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <resultMap id="CreditAuditRow" type="com.wx.fbsir.business.board.credit.domain.BoardCreditAuditRow">
+        <id property="operationId" column="operation_id" />
+        <result property="entryId" column="entry_id" />
+        <result property="idempotencyKey" column="idempotency_key" />
+        <result property="requestDigest" column="request_digest" />
+        <result property="accountId" column="account_id" />
+        <result property="userId" column="user_id" />
+        <result property="accountScope" column="account_scope" />
+        <result property="currencyCode" column="currency_code" />
+        <result property="operationType" column="operation_type" />
+        <result property="delta" column="delta_amount" />
+        <result property="reasonCode" column="reason_code" />
+        <result property="reasonNote" column="reason_note" />
+        <result property="actorUserId" column="actor_user_id" />
+        <result property="reversalOfOperationId" column="reversal_of_operation_id" />
+        <result property="balanceBefore" column="balance_before" />
+        <result property="balanceAfter" column="balance_after" />
+        <result property="sequenceNo" column="sequence_no" />
+        <result property="previousEntryHash" column="previous_entry_hash" />
+        <result property="entryHash" column="entry_hash" />
+        <result property="createdAt" column="created_at" />
+        <result property="entryRequestDigest" column="entry_request_digest" />
+        <result property="entryAccountId" column="entry_account_id" />
+        <result property="entryDelta" column="entry_delta_amount" />
+        <result property="entryBalanceBefore" column="entry_balance_before" />
+        <result property="entryBalanceAfter" column="entry_balance_after" />
+        <result property="entryCreatedAt" column="entry_created_at" />
+        <result property="originalOperationType" column="original_operation_type" />
+        <result property="originalAccountId" column="original_account_id" />
+        <result property="originalUserId" column="original_user_id" />
+        <result property="originalDelta" column="original_delta_amount" />
+    </resultMap>
+
+    <resultMap id="CreditChainProof" type="com.wx.fbsir.business.board.credit.domain.BoardCreditChainProof">
+        <result property="entryCount" column="entry_count" />
+        <result property="validTransitionCount" column="valid_transition_count" />
+        <result property="minSequence" column="min_sequence" />
+        <result property="maxSequence" column="max_sequence" />
+        <result property="headHash" column="head_hash" />
+        <result property="headBalance" column="head_balance" />
+    </resultMap>
+
+    <sql id="CreditOperationColumns">
+        id, operation_id, idempotency_key, request_digest, account_id, user_id,
+        account_scope, currency_code, operation_type, delta_amount, reason_code,
+        reason_note, actor_user_id, reversal_of_operation_id, balance_before,
+        balance_after, created_at
+    </sql>
+
+    <select id="selectUserProjectionForUpdate" resultMap="CreditUserProjection"
+            flushCache="true" useCache="false">
+        SELECT user_id, points, status, del_flag
+        FROM sys_user
+        WHERE user_id = #{userId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="selectAccount" resultMap="CreditAccount">
+        SELECT id, account_id, user_id, account_scope, currency_code, opening_balance,
+               balance, version, last_entry_sequence, last_entry_hash, created_at, updated_at
+        FROM fbs_credit_account
+        WHERE user_id = #{userId}
+          AND account_scope = #{accountScope}
+          AND BINARY account_scope = BINARY #{accountScope}
+          AND currency_code = #{currencyCode}
+          AND BINARY currency_code = BINARY #{currencyCode}
+        LIMIT 1
+    </select>
+
+    <select id="selectAccountForUpdate" resultMap="CreditAccount"
+            flushCache="true" useCache="false">
+        SELECT id, account_id, user_id, account_scope, currency_code, opening_balance,
+               balance, version, last_entry_sequence, last_entry_hash, created_at, updated_at
+        FROM fbs_credit_account
+        WHERE user_id = #{userId}
+          AND account_scope = #{accountScope}
+          AND BINARY account_scope = BINARY #{accountScope}
+          AND currency_code = #{currencyCode}
+          AND BINARY currency_code = BINARY #{currencyCode}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <insert id="insertAccount" parameterType="com.wx.fbsir.business.board.credit.domain.BoardCreditAccount"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_credit_account
+            (account_id, user_id, account_scope, currency_code, opening_balance,
+             balance, version, last_entry_sequence, last_entry_hash, created_at, updated_at)
+        VALUES
+            (#{accountId}, #{userId}, #{accountScope}, #{currencyCode}, #{openingBalance},
+             #{balance}, #{version}, #{lastEntrySequence}, #{lastEntryHash},
+             #{createdAt}, #{updatedAt})
+    </insert>
+
+    <insert id="insertOperation"
+            parameterType="com.wx.fbsir.business.board.credit.domain.BoardCreditOperation"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_credit_operation
+            (operation_id, idempotency_key, request_digest, account_id, user_id,
+             account_scope, currency_code, operation_type, delta_amount, reason_code,
+             reason_note, actor_user_id, reversal_of_operation_id, balance_before,
+             balance_after, created_at)
+        VALUES
+            (#{operationId}, #{idempotencyKey}, #{requestDigest}, #{accountId}, #{userId},
+             #{accountScope}, #{currencyCode}, #{operationType}, #{delta}, #{reasonCode},
+             #{reasonNote}, #{actorUserId}, #{reversalOfOperationId}, #{balanceBefore},
+             #{balanceAfter}, #{createdAt})
+    </insert>
+
+    <select id="selectOperationByIdempotencyKey" resultMap="CreditOperation"
+            useCache="false">
+        SELECT <include refid="CreditOperationColumns" />
+        FROM fbs_credit_operation
+        WHERE idempotency_key = #{idempotencyKey}
+          AND BINARY idempotency_key = BINARY #{idempotencyKey}
+        LIMIT 1
+    </select>
+
+    <select id="selectOperationByOperationId" resultMap="CreditOperation">
+        SELECT <include refid="CreditOperationColumns" />
+        FROM fbs_credit_operation
+        WHERE operation_id = #{operationId}
+        LIMIT 1
+    </select>
+
+    <select id="selectOperationByOperationIdForUpdate" resultMap="CreditOperation"
+            flushCache="true" useCache="false">
+        SELECT <include refid="CreditOperationColumns" />
+        FROM fbs_credit_operation
+        WHERE operation_id = #{operationId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="selectReversalByOriginalOperationId" resultMap="CreditOperation"
+            useCache="false">
+        SELECT <include refid="CreditOperationColumns" />
+        FROM fbs_credit_operation
+        WHERE reversal_of_operation_id = #{operationId}
+        LIMIT 1
+    </select>
+
+    <select id="selectEntryByOperationId" resultMap="CreditEntry">
+        SELECT id, entry_id, operation_id, request_digest, account_id, sequence_no,
+               delta_amount, balance_before, balance_after, previous_entry_hash,
+               entry_hash, created_at
+        FROM fbs_credit_entry
+        WHERE operation_id = #{operationId}
+        LIMIT 1
+    </select>
+
+    <select id="selectCommittedChainProof" resultMap="CreditChainProof"
+            useCache="false">
+        SELECT COUNT(*) AS entry_count,
+               COALESCE(SUM(CASE
+                   WHEN e.sequence_no = #{fromSequence} THEN 1
+                   WHEN p.sequence_no = e.sequence_no - 1
+                    AND BINARY e.previous_entry_hash = BINARY p.entry_hash
+                    AND e.balance_before = p.balance_after THEN 1
+                   ELSE 0
+               END), 0) AS valid_transition_count,
+               MIN(e.sequence_no) AS min_sequence,
+               MAX(e.sequence_no) AS max_sequence,
+               MAX(CASE WHEN e.sequence_no = #{toSequence}
+                   THEN e.entry_hash ELSE NULL END) AS head_hash,
+               MAX(CASE WHEN e.sequence_no = #{toSequence}
+                   THEN e.balance_after ELSE NULL END) AS head_balance
+        FROM fbs_credit_entry e
+        LEFT JOIN fbs_credit_entry p
+          ON p.account_id = e.account_id
+         AND p.sequence_no = e.sequence_no - 1
+        WHERE e.account_id = #{accountId}
+          AND BINARY e.account_id = BINARY #{accountId}
+          AND e.sequence_no BETWEEN #{fromSequence} AND #{toSequence}
+        FOR SHARE
+    </select>
+
+    <insert id="insertEntry"
+            parameterType="com.wx.fbsir.business.board.credit.domain.BoardCreditEntry"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_credit_entry
+            (entry_id, operation_id, request_digest, account_id, sequence_no,
+             delta_amount, balance_before, balance_after, previous_entry_hash,
+             entry_hash, created_at)
+        VALUES
+            (#{entryId}, #{operationId}, #{requestDigest}, #{accountId}, #{sequenceNo},
+             #{delta}, #{balanceBefore}, #{balanceAfter}, #{previousEntryHash},
+             #{entryHash}, #{createdAt})
+    </insert>
+
+    <update id="updateAccountIfVersion">
+        UPDATE fbs_credit_account
+        SET balance = #{account.balance},
+            version = #{account.version},
+            last_entry_sequence = #{account.lastEntrySequence},
+            last_entry_hash = #{account.lastEntryHash},
+            updated_at = GREATEST(updated_at, CURRENT_TIMESTAMP(3))
+        WHERE account_id = #{account.accountId}
+          AND user_id = #{account.userId}
+          AND BINARY account_scope = BINARY #{account.accountScope}
+          AND BINARY currency_code = BINARY #{account.currencyCode}
+          AND version = #{expectedVersion}
+          AND last_entry_sequence = #{expectedLastEntrySequence}
+          AND balance = #{expectedBalance}
+          AND last_entry_hash = #{expectedLastEntryHash}
+    </update>
+
+    <update id="updateUserProjectionIfBalance">
+        UPDATE sys_user
+        SET points = #{nextBalance},
+            update_time = NOW(3)
+        WHERE user_id = #{userId}
+          AND del_flag = '0'
+          AND COALESCE(points, 0) = #{expectedBalance}
+    </update>
+
+    <select id="selectAuditRowsByAccountId" resultMap="CreditAuditRow">
+        SELECT o.operation_id, e.entry_id, o.idempotency_key, o.request_digest, o.account_id,
+               o.user_id, o.account_scope, o.currency_code, o.operation_type,
+               o.delta_amount, o.reason_code, o.reason_note, o.actor_user_id,
+               o.reversal_of_operation_id, o.balance_before, o.balance_after,
+               e.sequence_no, e.previous_entry_hash, e.entry_hash, o.created_at,
+               e.request_digest AS entry_request_digest,
+               e.account_id AS entry_account_id,
+               e.delta_amount AS entry_delta_amount,
+               e.balance_before AS entry_balance_before,
+               e.balance_after AS entry_balance_after,
+               e.created_at AS entry_created_at,
+               original.operation_type AS original_operation_type,
+               original.account_id AS original_account_id,
+               original.user_id AS original_user_id,
+               original.delta_amount AS original_delta_amount
+        FROM fbs_credit_operation o
+        INNER JOIN fbs_credit_entry e ON e.operation_id = o.operation_id
+        LEFT JOIN fbs_credit_operation original
+          ON original.operation_id = o.reversal_of_operation_id
+        WHERE o.account_id = #{accountId}
+        ORDER BY e.sequence_no DESC
+        LIMIT 101
+    </select>
+</mapper>

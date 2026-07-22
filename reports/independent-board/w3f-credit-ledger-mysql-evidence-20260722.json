@@ -1,0 +1,76 @@
+{
+  "schema": "fbsir.independent-board-mysql-evidence/v1",
+  "generatedAt": "2026-07-22T13:08:16+08:00",
+  "scope": "local_disposable_mysql_credit_shadow_ledger",
+  "result": "passed_dual_exact_builds",
+  "canPromoteProductionAuthority": false,
+  "migration": {
+    "version": "20260722_independent_board_credit_ledger_v1",
+    "sha256": "8d0b2ee9ae6c31f75d8a0339a486c19b2864e200dc76f2abd54f229f727b7c18",
+    "firstInstallState": "1|3|45|22|6|0",
+    "replayState": "1|3|45|22|6|0",
+    "exactMetadataDigests": {
+      "columns": "4717b6466040c2b33513ef1fb92ccb9044e08a00fea41edd7ba617192c9c8d00",
+      "indexes": "3975985e059c133c0e91ef274702e5d270e4392b7b55b724b1d0d031b76f23cf",
+      "foreignKeys": "412a5276aca76d608111eecf0f2297dce0ebe299a35c6d106a4aa09da004ea67",
+      "checks": "3826d266d39d91f3faada93659bff5bf347c5f4a3c05a73ad96d70a88d7d2e92",
+      "triggers": "f1e99b6123b4ef1ce51b1153d506a2d983877c7b59257febb7873feb6fc764da"
+    },
+    "freshDatabaseNegativeVectors": [
+      "sys_user_prerequisite_projection_drift",
+      "post_apply_sys_user_dependency_drift",
+      "post_apply_account_projection_mismatch",
+      "typed_column_drift",
+      "check_clause_drift",
+      "prefix_index_drift",
+      "invisible_index_drift",
+      "trigger_body_drift"
+    ],
+    "rejectedRunStateProof": "migration_failures_check_receipt_lock_target_and_helpers_then_clean_helpers",
+    "canonicalCurrentReadFailureState": "manifest_lock_free_1_helpers_0_receipt_1_target_tables_3"
+  },
+  "builds": [
+    {
+      "version": "8.0.30",
+      "versionComment": "MySQL Community Server - GPL",
+      "defaultStorageEngine": "InnoDB",
+      "transactionIsolation": "REPEATABLE-READ",
+      "tests": 5,
+      "passed": 5,
+      "sourceSummary": "work/diagnostics/independent-board-credit-ledger-mysql-it/mysql-8.0.30/summary-mysql-8.0.30-20260722T050624.015Z-pid-25464.json",
+      "sourceSummarySha256": "2672e9f2997978bbd303c50913640bd426a73e2d629dd3a5945add0a8cf6eeea",
+      "surefireReportSha256": "2478d6a9c706b145d742e41fb309ac415d86fc3cdd63fc5433ccae776bbca371",
+      "mysqldSha256": "8e9c0d7973f25e990421f3387a93f8b32978c2e8c1baf17cd333aae17ba821a4",
+      "mysqlSha256": "5a395caeebc1601d95109519949fb528754fdf2fa2e6ab4c2162eb00e5b65378"
+    },
+    {
+      "version": "8.4.8",
+      "versionComment": "MySQL Community Server - GPL",
+      "defaultStorageEngine": "InnoDB",
+      "transactionIsolation": "REPEATABLE-READ",
+      "tests": 5,
+      "passed": 5,
+      "sourceSummary": "work/diagnostics/independent-board-credit-ledger-mysql-it/mysql-8.4.8/summary-mysql-8.4.8-20260722T050816.125Z-pid-25464.json",
+      "sourceSummarySha256": "afebe5d69a07196f57acb1c4b9493f0690a99c9f21ce96c71f8cfaf020a4acab",
+      "surefireReportSha256": "011852c581b2f83d4d65c802c4d0f527b3f516a247b4e1aa913e6557d4713db4",
+      "mysqldSha256": "6e652e303210ebb72d6c7ee944d14a780964dab16bb52f7ad693e1b3f166ca34",
+      "mysqlSha256": "0022995ff8b7ef0b213a175fdf12d383667d28e062b1375a0b3cacd0e0f0ed28"
+    }
+  ],
+  "javaIntegration": {
+    "testsPerBuild": 5,
+    "finalRuntimeState": "6|5|7|7|7|5|0",
+    "canonicalInitializerCreditCurrentReadPassed": true,
+    "postApplyDependencyDriftRejected": true,
+    "projectionMismatchRejected": true,
+    "artifactSha256": {
+      "canonicalInitializer": "32f9b55d90e3902eb6c4099497be546646ac6feb0d66a383230bf459bfaed799",
+      "javaIntegrationTest": "0042dc40fb3d66111214744bdaaf1af361838abaa93c257dde683abf06b02069",
+      "creditService": "c7c8832db712a165f636ec94dc5b1bce0ee634db7adf17d2003a6780e793cde6",
+      "creditTransactionService": "f689198208acb2da397556610cbdd7232364b0f244221d995e4ec0e84fb975ec",
+      "creditMapper": "f956467183abf6c47ea04d762dad3fc51844f8480f3f4973fded9084153a796c",
+      "creditMapperXml": "fccf4a93a87fe1adc5834c22bdfaac581d86e8d944333c75adb8032ad46bdb10",
+      "runner": "a10b754bcc1110bbcf5a9403b83c126dadcc4567f740543d98d77bbb1e10b8bf"
+    }
+  }
+}

@@ -6,6 +6,10 @@ import com.wx.fbsir.business.point.mapper.PointsMapper;
 import com.wx.fbsir.business.point.mapper.PointsRecordMapper;
 import com.wx.fbsir.business.point.service.IPointsRuleService;
 import com.wx.fbsir.common.core.domain.AjaxResult;
+import com.wx.fbsir.common.core.domain.entity.SysUser;
+import com.wx.fbsir.system.mapper.SysUserMapper;
+import com.wx.fbsir.system.service.ISysUserService;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -40,8 +44,28 @@ class PointsServiceImplTest {
     @Mock
     private IPointsRuleService pointsRuleService;
 
+    @Mock
+    private ISysUserService userService;
+
+    @Mock
+    private SysUserMapper sysUserMapper;
+
     @InjectMocks
     private PointsServiceImpl pointsService;
+
+    @Test
+    @DisplayName("P0: 粉丝查询经数据权限服务，客户端 dataScope 不得触达原始 Mapper")
+    void getPointsFansListDelegatesToDataScopedUserServiceInsteadOfRawMapper() {
+        SysUser query = new SysUser();
+        query.getParams().put("dataScope", " OR 1 = 1 -- client supplied");
+        List<SysUser> expected = List.of(new SysUser(7L));
+        when(userService.selectUserList(query)).thenReturn(expected);
+
+        assertSame(expected, pointsService.getPointsFansList(query));
+
+        verify(userService).selectUserList(query);
+        verifyNoInteractions(sysUserMapper);
+    }
 
     @Nested
     @DisplayName("changePoints(eventId) 幂等测试")
