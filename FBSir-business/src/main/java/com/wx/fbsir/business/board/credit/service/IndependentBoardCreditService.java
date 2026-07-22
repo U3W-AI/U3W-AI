@@ -48,6 +48,8 @@ public class IndependentBoardCreditService {
             return transactionService.grantFresh(request, actorUserId);
         } catch (DuplicateKeyException duplicate) {
             return replayGrant(request, actorUserId);
+        } catch (ServiceException failure) {
+            return recoverGrantAfterVersionConflict(request, actorUserId, failure);
         } catch (PessimisticLockingFailureException conflict) {
             throw stableConcurrencyConflict();
         } catch (DataAccessException persistence) {
@@ -66,6 +68,8 @@ public class IndependentBoardCreditService {
             return transactionService.reverseFresh(request, actorUserId);
         } catch (DuplicateKeyException duplicate) {
             return replayReversal(request, actorUserId);
+        } catch (ServiceException failure) {
+            return recoverReversalAfterVersionConflict(request, actorUserId, failure);
         } catch (PessimisticLockingFailureException conflict) {
             throw stableConcurrencyConflict();
         } catch (DataAccessException persistence) {
@@ -103,6 +107,54 @@ public class IndependentBoardCreditService {
         } catch (DataAccessException persistence) {
             throw stablePersistenceFailure();
         }
+    }
+
+    /**
+     * A same-key contender can wait behind the winner's user/account locks and
+     * observe the advanced version before it reaches the unique operation claim.
+     * Recheck only the exact committed key after the fresh transaction rolled back.
+     */
+    private BoardCreditCommandResult recoverGrantAfterVersionConflict(
+            BoardCreditGrantRequest request, Long actorUserId, ServiceException failure) {
+        if (!isAccountVersionConflict(failure)) {
+            throw failure;
+        }
+        try {
+            BoardCreditCommandResult committed = transactionService.replayGrantIfPresent(
+                    request, actorUserId);
+            if (committed != null) {
+                return committed;
+            }
+            throw failure;
+        } catch (PessimisticLockingFailureException conflict) {
+            throw stableConcurrencyConflict();
+        } catch (DataAccessException persistence) {
+            throw stablePersistenceFailure();
+        }
+    }
+
+    private BoardCreditCommandResult recoverReversalAfterVersionConflict(
+            BoardCreditReversalRequest request, Long actorUserId, ServiceException failure) {
+        if (!isAccountVersionConflict(failure)) {
+            throw failure;
+        }
+        try {
+            BoardCreditCommandResult committed = transactionService.replayReversalIfPresent(
+                    request, actorUserId);
+            if (committed != null) {
+                return committed;
+            }
+            throw failure;
+        } catch (PessimisticLockingFailureException conflict) {
+            throw stableConcurrencyConflict();
+        } catch (DataAccessException persistence) {
+            throw stablePersistenceFailure();
+        }
+    }
+
+    private boolean isAccountVersionConflict(ServiceException failure) {
+        return Integer.valueOf(409).equals(failure.getCode())
+                && "CREDIT_ACCOUNT_VERSION_CONFLICT".equals(failure.getMessage());
     }
 
     private ServiceException stableConcurrencyConflict() {

@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -68,7 +69,7 @@ class IndependentBoardCreditServiceTest {
         when(mapper.updateUserProjectionIfBalance(42L, 500L, 600L)).thenReturn(1);
         when(mapper.insertEntry(any())).thenReturn(1);
 
-        BoardCreditCommandResult result = service.grant(grant(42L, 100), 900L);
+        BoardCreditCommandResult result = service.grant(grant(42L, 0L, 100), 900L);
 
         assertEquals(OPERATION_ID, result.operationId());
         assertEquals("GRANT", result.operationType());
@@ -121,6 +122,46 @@ class IndependentBoardCreditServiceTest {
     }
 
     @Test
+    void staleGrantAccountVersionFailsBeforeAnyFinancialWrite() {
+        when(mapper.selectUserProjectionForUpdate(42L)).thenReturn(activeUser(42L, 500));
+        when(mapper.selectAccountForUpdate(anyLong(), anyString(), anyString()))
+                .thenReturn(account(42L, 500L, 3L, "a".repeat(64)));
+
+        ServiceException error = assertThrows(
+                ServiceException.class,
+                () -> service.grant(grant(42L, 2L, 100), 900L));
+
+        assertEquals(409, error.getCode());
+        assertEquals("CREDIT_ACCOUNT_VERSION_CONFLICT", error.getMessage());
+        verify(mapper, never()).insertOperation(any());
+        verify(mapper, never()).insertEntry(any());
+        verify(mapper, never()).updateAccountIfVersion(
+                any(), anyLong(), anyLong(), anyLong(), anyString());
+        verify(mapper, never()).updateUserProjectionIfBalance(anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void staleGrantPreconditionReplaysAnExactWinnerAfterFreshTransactionRollback() {
+        IndependentBoardCreditTransactionService transaction =
+                mock(IndependentBoardCreditTransactionService.class);
+        IndependentBoardCreditService coordinator = new IndependentBoardCreditService(transaction);
+        BoardCreditGrantRequest request = grant(42L, 0L, 100);
+        BoardCreditCommandResult committed = new BoardCreditCommandResult(
+                OPERATION_ID, "GRANT", 42L, 100L, 600L, null, Date.from(NOW));
+        when(transaction.replayGrantIfPresent(request, 900L))
+                .thenReturn(null)
+                .thenReturn(committed);
+        when(transaction.grantFresh(request, 900L))
+                .thenThrow(new ServiceException("CREDIT_ACCOUNT_VERSION_CONFLICT", 409));
+
+        BoardCreditCommandResult result = coordinator.grant(request, 900L);
+
+        assertEquals(committed, result);
+        verify(transaction, times(2)).replayGrantIfPresent(request, 900L);
+        verify(transaction).grantFresh(request, 900L);
+    }
+
+    @Test
     void accountCasConflictCannotReachLegacyProjectionOrEntryWrite() {
         when(mapper.selectUserProjectionForUpdate(42L)).thenReturn(activeUser(42L, 500));
         when(mapper.selectAccountForUpdate(anyLong(), anyString(), anyString()))
@@ -151,7 +192,7 @@ class IndependentBoardCreditServiceTest {
                 .thenReturn(stored);
         when(mapper.selectEntryByOperationId(OPERATION_ID)).thenReturn(storedEntry);
 
-        BoardCreditCommandResult result = service.grant(grant(42L, 100), 900L);
+        BoardCreditCommandResult result = service.grant(grant(42L, 4L, 100), 900L);
 
         assertEquals(OPERATION_ID, result.operationId());
         assertEquals(600L, result.balanceAfter());
@@ -255,6 +296,52 @@ class IndependentBoardCreditServiceTest {
     }
 
     @Test
+    void staleReversalAccountVersionFailsBeforeAnyFinancialWrite() {
+        BoardCreditOperation original = grantOperation();
+        BoardCreditAccount current = account(42L, 600L, 4L, "b".repeat(64));
+        when(mapper.selectOperationByOperationId(OPERATION_ID)).thenReturn(original);
+        when(mapper.selectUserProjectionForUpdate(42L)).thenReturn(activeUser(42L, 600));
+        when(mapper.selectAccountForUpdate(anyLong(), anyString(), anyString()))
+                .thenReturn(current);
+
+        BoardCreditReversalRequest stale = new BoardCreditReversalRequest(
+                OPERATION_ID, 3L, "OPERATOR_ERROR", "operator correction",
+                "reverse:20260722:stale");
+        ServiceException error = assertThrows(
+                ServiceException.class, () -> service.reverse(stale, 901L));
+
+        assertEquals(409, error.getCode());
+        assertEquals("CREDIT_ACCOUNT_VERSION_CONFLICT", error.getMessage());
+        verify(mapper, never()).selectOperationByOperationIdForUpdate(anyString());
+        verify(mapper, never()).insertOperation(any());
+        verify(mapper, never()).insertEntry(any());
+        verify(mapper, never()).updateAccountIfVersion(
+                any(), anyLong(), anyLong(), anyLong(), anyString());
+        verify(mapper, never()).updateUserProjectionIfBalance(anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void staleReversalPreconditionReplaysAnExactWinnerAfterFreshTransactionRollback() {
+        IndependentBoardCreditTransactionService transaction =
+                mock(IndependentBoardCreditTransactionService.class);
+        IndependentBoardCreditService coordinator = new IndependentBoardCreditService(transaction);
+        BoardCreditReversalRequest request = reversal();
+        BoardCreditCommandResult committed = new BoardCreditCommandResult(
+                REVERSAL_ID, "REVERSAL", 42L, -100L, 500L, OPERATION_ID, Date.from(NOW));
+        when(transaction.replayReversalIfPresent(request, 901L))
+                .thenReturn(null)
+                .thenReturn(committed);
+        when(transaction.reverseFresh(request, 901L))
+                .thenThrow(new ServiceException("CREDIT_ACCOUNT_VERSION_CONFLICT", 409));
+
+        BoardCreditCommandResult result = coordinator.reverse(request, 901L);
+
+        assertEquals(committed, result);
+        verify(transaction, times(2)).replayReversalIfPresent(request, 901L);
+        verify(transaction).reverseFresh(request, 901L);
+    }
+
+    @Test
     void reversalCannotOverdrawTheCurrentAccount() {
         BoardCreditOperation original = grantOperation();
         BoardCreditEntry originalEntry = entryFor(original, 4L, "a".repeat(64));
@@ -268,7 +355,7 @@ class IndependentBoardCreditServiceTest {
                 .thenReturn(chainProof(4L, 5L, 2L, "c".repeat(64), 50L));
 
         ServiceException error = assertThrows(
-                ServiceException.class, () -> service.reverse(reversal(), 901L));
+                ServiceException.class, () -> service.reverse(reversal(5L), 901L));
 
         assertEquals(409, error.getCode());
         assertEquals("CREDIT_REVERSAL_INSUFFICIENT_BALANCE", error.getMessage());
@@ -318,7 +405,7 @@ class IndependentBoardCreditServiceTest {
                 new IndependentBoardCreditTransactionService(
                         mapper, Clock.fixed(NOW, ZoneOffset.UTC), () -> REVERSAL_ID);
         BoardCreditReversalRequest conflicting = new BoardCreditReversalRequest(
-                differentOriginal, "OPERATOR_ERROR", "operator correction",
+                differentOriginal, 4L, "OPERATOR_ERROR", "operator correction",
                 "reverse:20260722:0001");
 
         ServiceException error = assertThrows(
@@ -438,14 +525,22 @@ class IndependentBoardCreditServiceTest {
     }
 
     private BoardCreditGrantRequest grant(Long userId, int amount) {
+        return grant(userId, 3L, amount);
+    }
+
+    private BoardCreditGrantRequest grant(Long userId, Long expectedVersion, int amount) {
         return new BoardCreditGrantRequest(
-                userId, amount, "CUSTOMER_SUPPORT", "approved support grant",
+                userId, expectedVersion, amount, "CUSTOMER_SUPPORT", "approved support grant",
                 "grant:20260722:0001");
     }
 
     private BoardCreditReversalRequest reversal() {
+        return reversal(4L);
+    }
+
+    private BoardCreditReversalRequest reversal(Long expectedVersion) {
         return new BoardCreditReversalRequest(
-                OPERATION_ID, "OPERATOR_ERROR", "operator correction",
+                OPERATION_ID, expectedVersion, "OPERATOR_ERROR", "operator correction",
                 "reverse:20260722:0001");
     }
 
@@ -561,7 +656,7 @@ class IndependentBoardCreditServiceTest {
         row.setCreatedAt(Date.from(NOW.plusSeconds(sequence)));
         row.setRequestDigest(BoardCreditDigest.grantDigest(
                 new BoardCreditGrantRequest(
-                        42L, (int) (balanceAfter - balanceBefore),
+                        42L, sequence - 1L, (int) (balanceAfter - balanceBefore),
                         row.getReasonCode(), row.getReasonNote(), idempotencyKey),
                 row.getActorUserId()));
         row.setEntryRequestDigest(row.getRequestDigest());

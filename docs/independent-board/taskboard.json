@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the officially listed and post-listing-frozen 26.7.20 expert package.",
-  "singleNextAction": "Implement the default-off Independent Board credit permission/menu/admin UI slice for reviewed global administrators, with browser/JWT/source tests; keep the candidate flag false and production database activation closed until deployment review.",
+  "singleNextAction": "Implement W3h plan/quota policy revision and immutable receipt governance behind reviewed global-admin and fine-permission boundaries; preserve the verified current-read contract, keep production activation closed, and leave API2 attribution secondary.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -50,8 +50,8 @@
     },
     {
       "id": "W3_ADMIN_PORTAL",
-      "state": "w3f_credit_shadow_ledger_verified_local_default_off",
-      "activeSlice": "W3g_default_off_credit_permission_menu_and_admin_ui",
+      "state": "w3g_credit_admin_governance_verified_local_default_off",
+      "activeSlice": "W3h_plan_quota_policy_revision_and_immutable_receipts",
       "completedSubset": [
         "global_system_admin_only_access_model",
         "active_enterprise_and_member_locked_entitlement_grant_and_adjustment",
@@ -88,20 +88,25 @@
         "repeatable_read_mixed_snapshot_concurrent_reversal_false_500_fixed_with_for_share_current_read",
         "legacy_admin_grant_service_frontend_adapter_dialog_and_write_action_removed",
         "points_fan_manager_compatibility_and_datascope_client_sql_sanitization_verified",
-        "current_focused_backend_aggregate_206_of_206_and_frontend_production_build_passed"
+        "current_focused_backend_aggregate_206_of_206_and_frontend_production_build_passed",
+        "default_off_credit_governance_menu_and_three_fine_permissions_verified_dual_mysql_with_zero_role_bindings",
+        "credit_admin_query_first_grant_reversal_audit_and_ambiguous_exact_replay_ui_verified_in_real_browser_fixture",
+        "strict_expected_account_version_precondition_and_stable_409_prevent_cross_device_lost_updates",
+        "same_key_waiter_version_conflict_rolls_back_then_replays_only_the_exact_committed_winner",
+        "actor_global_pending_slot_and_Web_Lock_prevent_cross_tab_different_user_snapshot_overwrite",
+        "w3g_current_backend_663_of_663_five_frontend_verifiers_production_build_and_multi_agent_p0_p1_review_passed"
       ],
       "remaining": [
         "product_plan_and_quota_policy_write_revision_and_receipt_governance",
         "meeting_audit_plan_label_authority_with_operation_audit_permission_boundary",
-        "credit_ledger_permission_menu_and_admin_ui",
-                          "credit_ledger_candidate_http_activation",
-                          "credit_ledger_internal_writer_migration_and_authoritative_promotion",
-                          "credit_ledger_production_database_migration",
-                          "legacy_credit_rule_and_menu_seed_retirement_migration",
-                          "credit_audit_cursor_pagination_beyond_latest_100",
-                          "credit_reversal_chain_checkpoint_or_archive_for_long_history",
-                          "credit_detail_datascope_before_delegated_department_admin",
-                          "api_key_pack_code_database_immutability_trigger",
+        "credit_ledger_candidate_http_activation",
+        "credit_ledger_internal_writer_migration_and_authoritative_promotion",
+        "credit_ledger_production_database_migration",
+        "legacy_credit_rule_and_menu_seed_retirement_migration",
+        "credit_audit_cursor_pagination_beyond_latest_100",
+        "credit_reversal_chain_checkpoint_or_archive_for_long_history",
+        "credit_detail_datascope_before_delegated_department_admin",
+        "api_key_pack_code_database_immutability_trigger",
         "api_key_user_and_pack_bound_lifecycle",
         "usage_record_enterprise_member_snapshot_and_api_key_instance_lineage",
         "skill_consume_service_final_status_cas_result_and_transaction_integration",

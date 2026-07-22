@@ -50,6 +50,16 @@
       "optInSessionVariable": "@u3w_enable_independent_board_w4b2c_candidate",
       "requiredValue": 1,
       "sha256": "3c53215020633977eff196cb12025f65f663c90b5e3d5d74239b124f32224459"
+    },
+    {
+      "id": "candidate_20260722_independent_board_credit_menu_v1",
+      "description": "Independent Board default-off credit governance menu and fine-grained permissions",
+      "file": "update_20260722_independent_board_credit_candidate_menu.sql",
+      "execution": "manual_opt_in",
+      "defaultApplied": false,
+      "optInSessionVariable": "@u3w_enable_independent_board_w3g_credit_candidate",
+      "requiredValue": 1,
+      "sha256": "0866be83c6d534d9376c53ca0cd038f01e6c48d8005bbbc0b47235417d93f942"
     }
   ]
 }

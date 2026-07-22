@@ -64,7 +64,7 @@ class IndependentBoardCreditSpringProxyContractTest {
         IndependentBoardCreditService service = context.getBean(IndependentBoardCreditService.class);
         RecordingManager manager = context.getBean(RecordingManager.class);
         BoardCreditGrantRequest request = new BoardCreditGrantRequest(
-                42L, 100, "CUSTOMER_SUPPORT", "approved support grant",
+                42L, 1L, 100, "CUSTOMER_SUPPORT", "approved support grant",
                 "grant:20260722:0001");
         BoardCreditOperation stored = storedGrant(request);
         BoardCreditEntry entry = storedEntry(stored);

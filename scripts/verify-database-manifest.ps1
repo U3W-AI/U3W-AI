@@ -170,6 +170,90 @@ if (Test-Path -LiteralPath $candidateMenuPath -PathType Leaf) {
     }
 }
 
+$creditMenuMigrationId = 'candidate_20260722_independent_board_credit_menu_v1'
+$creditMenuMigrationFile = 'update_20260722_independent_board_credit_candidate_menu.sql'
+$creditMenuMigrationSha256 = '0866be83c6d534d9376c53ca0cd038f01e6c48d8005bbbc0b47235417d93f942'
+$creditMenuEntries = @($manifestManualMigrations | Where-Object {
+    [string]$_.id -ceq $creditMenuMigrationId -and
+    [string]$_.file -ceq $creditMenuMigrationFile
+})
+if ($creditMenuEntries.Count -ne 1) {
+    $errors.Add('default-off Independent Board credit menu migration must occur exactly once in manualMigrations')
+}
+else {
+    $creditMenuEntry = $creditMenuEntries[0]
+    if ([string]$creditMenuEntry.description -cne 'Independent Board default-off credit governance menu and fine-grained permissions' -or
+        [string]$creditMenuEntry.execution -cne 'manual_opt_in' -or
+        [bool]$creditMenuEntry.defaultApplied -or
+        [string]$creditMenuEntry.optInSessionVariable -cne '@u3w_enable_independent_board_w3g_credit_candidate' -or
+        [int]$creditMenuEntry.requiredValue -ne 1 -or
+        [string]$creditMenuEntry.sha256 -cne $creditMenuMigrationSha256) {
+        $errors.Add('default-off Independent Board credit menu manual migration contract drifted')
+    }
+}
+if (@($manifest.steps | Where-Object { [string]$_.file -ceq $creditMenuMigrationFile }).Count -ne 0) {
+    $errors.Add('default-off Independent Board credit menu migration must not be an executable public_init step')
+}
+$creditMenuPath = Join-Path $sqlRoot $creditMenuMigrationFile
+if (-not (Test-Path -LiteralPath $creditMenuPath -PathType Leaf)) {
+    $errors.Add('default-off Independent Board credit menu SQL is missing')
+}
+else {
+    $actualCreditMenuSha256 = (Get-FileHash -LiteralPath $creditMenuPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualCreditMenuSha256 -cne $creditMenuMigrationSha256) {
+        $errors.Add("default-off Independent Board credit menu byte contract drifted: expected SHA-256 $creditMenuMigrationSha256, found $actualCreditMenuSha256")
+    }
+    $creditMenuSql = Get-Content -LiteralPath $creditMenuPath -Raw -Encoding UTF8
+    $requiredCreditMenuNeedles = @(
+        '20260722_independent_board_credit_candidate_menu_v1',
+        '@u3w_enable_independent_board_w3g_credit_candidate',
+        "DATABASE(), ':public-database-manifest:v1'",
+        "DATABASE(), ':20260722_independent_board_credit_candidate_menu_v1'",
+        'GET_LOCK(public_lock_name, 30)',
+        'GET_LOCK(candidate_lock_name, 30)',
+        'IS_USED_LOCK(candidate_lock_name)',
+        'RELEASE_LOCK(candidate_lock_name)',
+        'IS_USED_LOCK(public_lock_name)',
+        'RELEASE_LOCK(public_lock_name)',
+        'DECLARE EXIT HANDLER FOR SQLEXCEPTION',
+        'APPLIED:Independent Board administration menu',
+        '20260720_independent_board_admin_menu_v1',
+        'APPLIED:Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger',
+        '20260722_independent_board_credit_ledger_v1',
+        'IndependentBoardCreditGovernance',
+        'business/independentBoard/admin/credit/index',
+        'board:credit:query',
+        'board:credit:grant',
+        'board:credit:reverse',
+        'W3g credit candidate menu must have zero role bindings',
+        'BINARY `status` = BINARY ''1''',
+        'target_child_count <> 2'
+    )
+    foreach ($needle in $requiredCreditMenuNeedles) {
+        if (-not $creditMenuSql.Contains($needle)) {
+            $errors.Add("default-off Independent Board credit menu SQL is missing required contract: $needle")
+        }
+    }
+    if (@([regex]::Matches($creditMenuSql, '(?im)^\s*INSERT\s+INTO\s+`sys_menu`')).Count -ne 3) {
+        $errors.Add('default-off Independent Board credit menu must insert exactly three menu identities')
+    }
+    if ($creditMenuSql -match '(?im)^\s*(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+`sys_role_menu`' -or
+        $creditMenuSql -match '(?im)^\s*UPDATE\s+`sys_menu`') {
+        $errors.Add('default-off Independent Board credit menu must not grant roles or repair menu rows')
+    }
+    $publicLockIndex = $creditMenuSql.IndexOf('GET_LOCK(public_lock_name, 30)', [StringComparison]::Ordinal)
+    $candidateLockIndex = $creditMenuSql.IndexOf('GET_LOCK(candidate_lock_name, 30)', [StringComparison]::Ordinal)
+    $startTransactionIndex = $creditMenuSql.IndexOf('START TRANSACTION;', [StringComparison]::Ordinal)
+    $commitIndex = $creditMenuSql.IndexOf('COMMIT;', [StringComparison]::Ordinal)
+    $candidateReleaseIndex = $creditMenuSql.LastIndexOf('RELEASE_LOCK(candidate_lock_name)', [StringComparison]::Ordinal)
+    $publicReleaseIndex = $creditMenuSql.LastIndexOf('RELEASE_LOCK(public_lock_name)', [StringComparison]::Ordinal)
+    if ($publicLockIndex -lt 0 -or $candidateLockIndex -le $publicLockIndex -or
+        $startTransactionIndex -le $candidateLockIndex -or $commitIndex -le $startTransactionIndex -or
+        $candidateReleaseIndex -le $commitIndex -or $publicReleaseIndex -le $candidateReleaseIndex) {
+        $errors.Add('default-off Independent Board credit menu lock, transaction and reverse-release order drifted')
+    }
+}
+
 for ($index = 0; $index -lt $manifest.steps.Count; $index++) {
     $expectedVersion = "public_init_{0:D3}" -f ($index + 1)
     if ([string]$manifest.steps[$index].version -ne $expectedVersion) {
@@ -2347,6 +2431,8 @@ $result = [pscustomobject]@{
     creditLedgerSha256 = $creditLedgerSha256
     candidateMenuMigrationId = $candidateMenuMigrationId
     candidateMenuMigrationSha256 = $candidateMenuMigrationSha256
+    creditMenuMigrationId = $creditMenuMigrationId
+    creditMenuMigrationSha256 = $creditMenuMigrationSha256
     oauthSuccessorCheckDigest = $oauthSuccessorCheckDigest
     oauthGenerationExpressionWhitelist = @('_utf8mb4', '_ascii', 'no-prefix')
     menuMigrationReplayGate = "scripts/run-independent-board-menu-migration-it.ps1"

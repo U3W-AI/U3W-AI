@@ -43,7 +43,7 @@
     ]
   },
   "activeWave": "W3_ADMIN_PORTAL",
-  "stage": "verify",
+  "stage": "fix",
   "authoritativeRoot": {
     "mode": "standalone_git_repository",
     "externalDirectoryDependency": "forbidden",
@@ -131,6 +131,13 @@
     "FBSir-business/src/main/resources/mapper/board/IndependentBoardCreditMapper.xml",
     "reports/independent-board/w3f-credit-ledger-verification-20260722.json",
     "reports/independent-board/w3f-credit-ledger-mysql-evidence-20260722.json",
+    "sql/update_20260722_independent_board_credit_candidate_menu.sql",
+    "FBSir-ui/src/views/business/independentBoard/admin/credit/",
+    "FBSir-ui/scripts/verify-independent-board-credit-admin-ui.mjs",
+    "FBSir-ui/scripts/independent-board-credit-browser-backend.mjs",
+    "FBSir-ui/.env.credit-browser-fixture",
+    "FBSir-ui/.env.credit-browser-fixture-off",
+    "reports/independent-board/w3g-credit-admin-ui-verification-20260722.json",
     "work/diagnostics/independent-board-credit-ledger-mysql-it/mysql-8.0.30/summary-mysql-8.0.30-20260722T050624.015Z-pid-25464.json",
     "work/diagnostics/independent-board-credit-ledger-mysql-it/mysql-8.4.8/summary-mysql-8.4.8-20260722T050816.125Z-pid-25464.json",
     "work/diagnostics/independent-board-mysql-transaction-it/mysql-8.0.30/summary-mysql-8.0.30-utc-20260721T061311.131Z-local-20260721T141311.131+0800-pid-21800.json",
@@ -270,7 +277,12 @@
     "w3f_points_fan_reads_preserve_manager_and_block_non_global_roles_with_datascope_sanitization",
     "w3f_exact_raw_metadata_and_fresh_database_negative_drift_matrix_passed_dual_mysql",
     "w3f_canonical_current_read_rejects_post_apply_sys_user_dependency_and_projection_drift",
-    "w3f_focused_backend_current_byte_aggregate_206_of_206_and_frontend_production_build_passed"
+    "w3f_focused_backend_current_byte_aggregate_206_of_206_and_frontend_production_build_passed",
+    "w3g_default_off_credit_governance_menu_and_fine_permissions_verified_dual_mysql_with_zero_role_bindings",
+    "w3g_credit_query_first_grant_reversal_audit_and_ambiguous_exact_replay_verified_in_real_browser_fixture",
+    "w3g_expected_account_version_and_same_key_post_rollback_replay_close_cross_device_and_waiter_races",
+    "w3g_actor_global_pending_slot_and_Web_Lock_close_cross_tab_different_user_snapshot_overwrite",
+    "w3g_backend_663_of_663_five_frontend_verifiers_production_build_and_independent_p0_p1_review_passed"
   ],
   "notProven": [
     "oauth_public_routes",
@@ -299,7 +311,6 @@
     "entitlement_reinstatement_action",
     "product_plan_policy_write_revision_and_receipt_governance",
     "meeting_audit_plan_label_authority_with_operation_audit_permission_boundary",
-    "credit_ledger_permission_menu_and_admin_ui",
     "credit_ledger_candidate_http_activation",
     "credit_ledger_internal_writer_migration_and_authoritative_promotion",
     "credit_ledger_production_database_migration",
@@ -340,6 +351,19 @@
     "internalLegacyWriterMigration": "not_implemented",
     "nextSlice": "W3g_default_off_credit_permission_menu_and_admin_ui"
   },
+  "w3g": {
+    "state": "local_default_off_credit_admin_governance_verified",
+    "verificationReport": "reports/independent-board/w3g-credit-admin-ui-verification-20260722.json",
+    "menuMigration": "candidate_20260722_independent_board_credit_menu_v1",
+    "menuDefault": "disabled_with_zero_role_bindings",
+    "backendHttpDefault": "disabled_authenticated_404",
+    "frontendRouteDefault": "removed_before_dynamic_route_clone",
+    "writeConcurrency": "actor_global_browser_lock_plus_expected_account_version_database_lock_and_compare_and_set",
+    "ambiguousReplay": "actor_scoped_no_ttl_pending_exact_payload_and_idempotency_key",
+    "browser": "enabled_and_default_off_query_grant_reversal_ambiguous_replay_and_version_conflict_verified_local",
+    "productionAuthority": false,
+    "nextSlice": "W3h_plan_quota_policy_revision_and_immutable_receipts"
+  },
   "ui": {
     "base": "existing_u3w_ai_ruoyi_vue3_element_plus",
     "state": "w4b2_default_off_runtime_candidate_verified_local_not_deployed",
@@ -365,7 +389,7 @@
     "w4bOauthConnectorProductionImplementationAllowed": true,
     "w4bOauthConnectorImplementationState": "internal_oauth_chain_and_default_off_portal_runtime_candidate_verified_public_routes_closed",
     "w4bOauthConnectorUnlockCondition": "satisfied_by_explicit_user_confirmation_2026_07_20",
-    "creditLedgerAdminUi": "not_implemented_default_off_backend_candidate_only",
+    "creditLedgerAdminUi": "implemented_and_verified_local_default_off_with_manual_menu_opt_in_not_deployed",
     "watchAndWebhookDeepPages": "deferred_to_W5_delivery_and_watch"
   },
   "w4a": {
@@ -441,5 +465,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-22T11:24:02+08:00"
+  "updatedAt": "2026-07-22T15:42:57+08:00"
 }

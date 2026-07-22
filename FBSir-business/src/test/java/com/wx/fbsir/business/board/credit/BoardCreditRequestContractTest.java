@@ -16,19 +16,23 @@ class BoardCreditRequestContractTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    void grantAcceptsExactlyFiveFieldsAndNeverCarriesActorOrAccountScope() throws Exception {
+    void grantRequiresExpectedAccountVersionAndNeverCarriesActorOrAccountScope() throws Exception {
         BoardCreditGrantRequest request = objectMapper.readValue(
-                "{\"userId\":42,\"amount\":100,\"reasonCode\":\"CUSTOMER_SUPPORT\","
+                "{\"userId\":42,\"expectedAccountVersion\":3,\"amount\":100,"
+                        + "\"reasonCode\":\"CUSTOMER_SUPPORT\","
                         + "\"note\":\"approved support grant\","
                         + "\"idempotencyKey\":\"grant:20260722:0001\"}",
                 BoardCreditGrantRequest.class);
 
         assertEquals(42L, request.userId());
+        assertEquals(3L, request.expectedAccountVersion());
         assertEquals(100, request.amount());
         assertEquals("CUSTOMER_SUPPORT", request.reasonCode());
         assertEquals("approved support grant", request.note());
         assertEquals("grant:20260722:0001", request.idempotencyKey());
-        assertEquals(List.of("userId", "amount", "reasonCode", "note", "idempotencyKey"),
+        assertEquals(List.of(
+                        "userId", "expectedAccountVersion", "amount", "reasonCode", "note",
+                        "idempotencyKey"),
                 Arrays.stream(BoardCreditGrantRequest.class.getRecordComponents())
                         .map(component -> component.getName()).toList());
         assertFalse(Arrays.stream(BoardCreditGrantRequest.class.getRecordComponents())
@@ -38,16 +42,21 @@ class BoardCreditRequestContractTest {
     }
 
     @Test
-    void reversalCarriesNoTargetIdentityScopeCurrencyOrAmount() throws Exception {
+    void reversalRequiresExpectedAccountVersionButCarriesNoTargetIdentityScopeCurrencyOrAmount()
+            throws Exception {
         BoardCreditReversalRequest request = objectMapper.readValue(
                 "{\"originalOperationId\":\"123e4567-e89b-12d3-a456-426614174000\","
+                        + "\"expectedAccountVersion\":4,"
                         + "\"reasonCode\":\"OPERATOR_ERROR\","
                         + "\"note\":\"operator correction\","
                         + "\"idempotencyKey\":\"reverse:20260722:0001\"}",
                 BoardCreditReversalRequest.class);
 
         assertEquals("123e4567-e89b-12d3-a456-426614174000", request.originalOperationId());
-        assertEquals(List.of("originalOperationId", "reasonCode", "note", "idempotencyKey"),
+        assertEquals(4L, request.expectedAccountVersion());
+        assertEquals(List.of(
+                        "originalOperationId", "expectedAccountVersion", "reasonCode", "note",
+                        "idempotencyKey"),
                 Arrays.stream(BoardCreditReversalRequest.class.getRecordComponents())
                         .map(component -> component.getName()).toList());
         assertFalse(Arrays.stream(BoardCreditReversalRequest.class.getRecordComponents())
@@ -59,22 +68,27 @@ class BoardCreditRequestContractTest {
 
     @Test
     void grantRejectsUnknownDuplicateMissingNullWrongTypesAndTrailingJson() {
-        String valid = "{\"userId\":42,\"amount\":100,"
+        String valid = "{\"userId\":42,\"expectedAccountVersion\":3,\"amount\":100,"
                 + "\"reasonCode\":\"CUSTOMER_SUPPORT\",\"note\":\"approved support grant\","
                 + "\"idempotencyKey\":\"grant:20260722:0001\"}";
         for (String body : List.of(
                 "{\"userId\":42,\"amount\":100,\"reasonCode\":\"CUSTOMER_SUPPORT\","
                         + "\"note\":\"approved support grant\","
                         + "\"idempotencyKey\":\"grant:20260722:0001\",\"actorUserId\":9}",
-                "{\"userId\":42,\"userId\":43,\"amount\":100,"
+                "{\"userId\":42,\"userId\":43,\"expectedAccountVersion\":3,\"amount\":100,"
                         + "\"reasonCode\":\"CUSTOMER_SUPPORT\",\"note\":\"approved support grant\","
                         + "\"idempotencyKey\":\"grant:20260722:0001\"}",
-                "{\"userId\":42,\"amount\":100,\"reasonCode\":\"CUSTOMER_SUPPORT\","
+                "{\"userId\":42,\"expectedAccountVersion\":3,\"amount\":100,"
+                        + "\"reasonCode\":\"CUSTOMER_SUPPORT\","
                         + "\"note\":\"approved support grant\"}",
-                "{\"userId\":42,\"amount\":null,\"reasonCode\":\"CUSTOMER_SUPPORT\","
+                "{\"userId\":42,\"expectedAccountVersion\":3,\"amount\":null,"
+                        + "\"reasonCode\":\"CUSTOMER_SUPPORT\","
                         + "\"note\":\"approved support grant\","
                         + "\"idempotencyKey\":\"grant:20260722:0001\"}",
-                "{\"userId\":42,\"amount\":\"100\","
+                "{\"userId\":42,\"expectedAccountVersion\":3,\"amount\":\"100\","
+                        + "\"reasonCode\":\"CUSTOMER_SUPPORT\",\"note\":\"approved support grant\","
+                        + "\"idempotencyKey\":\"grant:20260722:0001\"}",
+                "{\"userId\":42,\"expectedAccountVersion\":\"3\",\"amount\":100,"
                         + "\"reasonCode\":\"CUSTOMER_SUPPORT\",\"note\":\"approved support grant\","
                         + "\"idempotencyKey\":\"grant:20260722:0001\"}",
                 valid + "{}", valid + "null", valid + "123")) {
@@ -86,17 +100,21 @@ class BoardCreditRequestContractTest {
     @Test
     void reversalRejectsCallerSelectedAmountIdentityAndDuplicateOrTrailingFields() {
         String valid = "{\"originalOperationId\":\"123e4567-e89b-12d3-a456-426614174000\","
+                + "\"expectedAccountVersion\":4,"
                 + "\"reasonCode\":\"OPERATOR_ERROR\",\"note\":\"operator correction\","
                 + "\"idempotencyKey\":\"reverse:20260722:0001\"}";
         for (String body : List.of(
                 "{\"originalOperationId\":\"123e4567-e89b-12d3-a456-426614174000\","
+                        + "\"expectedAccountVersion\":4,"
                         + "\"reasonCode\":\"OPERATOR_ERROR\",\"note\":\"operator correction\","
                         + "\"idempotencyKey\":\"reverse:20260722:0001\",\"amount\":-100}",
                 "{\"originalOperationId\":\"123e4567-e89b-12d3-a456-426614174000\","
+                        + "\"expectedAccountVersion\":4,"
                         + "\"reasonCode\":\"OPERATOR_ERROR\",\"note\":\"operator correction\","
                         + "\"idempotencyKey\":\"reverse:20260722:0001\",\"userId\":42}",
                 "{\"originalOperationId\":\"123e4567-e89b-12d3-a456-426614174000\","
                         + "\"originalOperationId\":\"223e4567-e89b-12d3-a456-426614174000\","
+                        + "\"expectedAccountVersion\":4,"
                         + "\"reasonCode\":\"OPERATOR_ERROR\",\"note\":\"operator correction\","
                         + "\"idempotencyKey\":\"reverse:20260722:0001\"}",
                 valid + "{}")) {

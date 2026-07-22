@@ -25,6 +25,7 @@ $w2MigrationPath = Join-Path $repoRoot 'sql\update_20260720_independent_board_me
 $w3aMigrationPath = Join-Path $repoRoot 'sql\update_20260720_independent_board_admin_menu.sql'
 $w3bMigrationPath = Join-Path $repoRoot 'sql\update_20260720_independent_board_entitlement_lifecycle_menu.sql'
 $w4b2cMigrationPath = Join-Path $repoRoot 'sql\update_20260721_independent_board_portal_candidate_menu.sql'
+$w3gMigrationPath = Join-Path $repoRoot 'sql\update_20260722_independent_board_credit_candidate_menu.sql'
 $w2Procedure = 'u3w_migrate_independent_board_me_menu_20260720'
 $w3aProcedure = 'u3w_migrate_independent_board_admin_menu_20260720'
 $w3bProcedure = 'u3w_migrate_board_entitlement_lifecycle_menu_20260720'
@@ -32,6 +33,10 @@ $w3bLockSuffix = '20260720_independent_board_entitlement_lifecycle_menu_v1'
 $w4b2cProcedure = 'u3w_migrate_independent_board_portal_candidate_menu_20260721'
 $w4b2cLockSuffix = '20260721_independent_board_portal_candidate_menu_v1'
 $w4b2cOptIn = "SET @u3w_enable_independent_board_w4b2c_candidate = 1;`n"
+$w3gProcedure = 'u3w_migrate_independent_board_credit_candidate_menu_20260722'
+$w3gLockSuffix = '20260722_independent_board_credit_candidate_menu_v1'
+$publicManifestLockSuffix = 'public-database-manifest:v1'
+$w3gOptIn = "SET @u3w_enable_independent_board_w3g_credit_candidate = 1;`n"
 
 function Resolve-MySqlBinDirectory {
     param([string]$Requested)
@@ -129,7 +134,7 @@ function Get-Sha256 {
     }
 }
 
-foreach ($migrationPath in @($w2MigrationPath, $w3aMigrationPath, $w3bMigrationPath, $w4b2cMigrationPath)) {
+foreach ($migrationPath in @($w2MigrationPath, $w3aMigrationPath, $w3bMigrationPath, $w4b2cMigrationPath, $w3gMigrationPath)) {
     if (-not (Test-Path -LiteralPath $migrationPath -PathType Leaf)) {
         throw "Required menu migration is missing: $migrationPath"
     }
@@ -139,10 +144,13 @@ $w3aBytes = [System.IO.File]::ReadAllBytes($w3aMigrationPath)
 $w3bBytes = [System.IO.File]::ReadAllBytes($w3bMigrationPath)
 $w4b2cBytes = [System.IO.File]::ReadAllBytes($w4b2cMigrationPath)
 [byte[]]$w4b2cEnabledBytes = [System.Text.UTF8Encoding]::new($false).GetBytes($w4b2cOptIn) + $w4b2cBytes
+$w3gBytes = [System.IO.File]::ReadAllBytes($w3gMigrationPath)
+[byte[]]$w3gEnabledBytes = [System.Text.UTF8Encoding]::new($false).GetBytes($w3gOptIn) + $w3gBytes
 $w2Sha256 = Get-Sha256 -Bytes $w2Bytes
 $w3aSha256 = Get-Sha256 -Bytes $w3aBytes
 $w3bSha256 = Get-Sha256 -Bytes $w3bBytes
 $w4b2cSha256 = Get-Sha256 -Bytes $w4b2cBytes
+$w3gSha256 = Get-Sha256 -Bytes $w3gBytes
 
 $mysqlBin = Resolve-MySqlBinDirectory -Requested $MySqlBinDirectory
 $mysqld = Join-Path $mysqlBin 'mysqld.exe'
@@ -174,6 +182,8 @@ $w3bCollisionInternalReceipts = $null
 $w3bCollisionPrewrittenIdentities = $null
 $w4b2cCollisionInternalReceipts = $null
 $w4b2cCollisionPrewrittenIdentities = $null
+$w3gCollisionInternalReceipts = $null
+$w3gCollisionPrewrittenIdentities = $null
 $phaseResults = [System.Collections.Generic.List[object]]::new()
 
 function Invoke-MySqlBytesResult {
@@ -361,6 +371,17 @@ SELECT IF(IS_USED_LOCK(SHA2(CONCAT(DATABASE(), ':$w4b2cLockSuffix'), 256)) IS NU
 "@ | Out-Null
 }
 
+function Assert-W3gLocksReleased {
+    param([Parameter(Mandatory = $true)][string]$Database)
+
+    Assert-Scalar -Database $Database -Expected '1' -Label 'W3g candidate named lock release' -Sql @"
+SELECT IF(IS_USED_LOCK(SHA2(CONCAT(DATABASE(), ':$w3gLockSuffix'), 256)) IS NULL, 1, 0);
+"@ | Out-Null
+    Assert-Scalar -Database $Database -Expected '1' -Label 'W3g public manifest lock release' -Sql @"
+SELECT IF(IS_USED_LOCK(SHA2(CONCAT(DATABASE(), ':$publicManifestLockSuffix'), 256)) IS NULL, 1, 0);
+"@ | Out-Null
+}
+
 function Remove-LeftoverProcedure {
     param(
         [Parameter(Mandatory = $true)][string]$Database,
@@ -538,6 +559,80 @@ WHERE component IN (
 "@ | Out-Null
     Assert-W4b2cLockReleased -Database $primaryDatabase
 
+    Invoke-ExpectedMigrationFailure -Name 'w3g_requires_explicit_session_opt_in' `
+        -Bytes $w3gBytes -Database $primaryDatabase `
+        -ExpectedMessage 'requires explicit session opt-in'
+    Assert-Scalar -Database $primaryDatabase -Expected '0' -Label 'W3g no-opt-in receipt count' -Sql @"
+SELECT COUNT(*) FROM u3w_schema_migration
+WHERE version = '20260722_independent_board_credit_candidate_menu_v1';
+"@ | Out-Null
+    Assert-Scalar -Database $primaryDatabase -Expected '0' -Label 'W3g no-opt-in identity count' -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE component = 'business/independentBoard/admin/credit/index'
+   OR perms IN ('board:credit:query', 'board:credit:grant', 'board:credit:reverse');
+"@ | Out-Null
+    Assert-W3gLocksReleased -Database $primaryDatabase
+    Remove-LeftoverProcedure -Database $primaryDatabase -Procedure $w3gProcedure
+
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+INSERT INTO u3w_schema_migration (version, description) VALUES
+  ('public_init_030', 'APPLIED:Independent Board administration menu'),
+  ('public_init_038', 'APPLIED:Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger'),
+  ('20260722_independent_board_credit_ledger_v1', 'Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger');
+"@ | Out-Null
+
+    Invoke-Migration -Name 'w3g_first_apply' -Bytes $w3gEnabledBytes -Database $primaryDatabase
+    $w3gReplaySnapshot = Invoke-MySqlText -Database $primaryDatabase -Sql @"
+SELECT CONCAT(
+  GROUP_CONCAT(CONCAT(menu_id, '|', DATE_FORMAT(create_time, '%Y%m%d%H%i%s')) ORDER BY menu_id SEPARATOR ';'),
+  '#',
+  (SELECT DATE_FORMAT(applied_at, '%Y%m%d%H%i%s') FROM u3w_schema_migration
+   WHERE version = '20260722_independent_board_credit_candidate_menu_v1')
+)
+FROM sys_menu
+WHERE component = 'business/independentBoard/admin/credit/index'
+   OR perms IN ('board:credit:grant', 'board:credit:reverse');
+"@
+    Invoke-Migration -Name 'w3g_completed_rerun' -Bytes $w3gEnabledBytes -Database $primaryDatabase
+    Assert-Scalar -Database $primaryDatabase -Expected $w3gReplaySnapshot `
+        -Label 'W3g replay immutable identity and timestamp snapshot' -Sql @"
+SELECT CONCAT(
+  GROUP_CONCAT(CONCAT(menu_id, '|', DATE_FORMAT(create_time, '%Y%m%d%H%i%s')) ORDER BY menu_id SEPARATOR ';'),
+  '#',
+  (SELECT DATE_FORMAT(applied_at, '%Y%m%d%H%i%s') FROM u3w_schema_migration
+   WHERE version = '20260722_independent_board_credit_candidate_menu_v1')
+)
+FROM sys_menu
+WHERE component = 'business/independentBoard/admin/credit/index'
+   OR perms IN ('board:credit:grant', 'board:credit:reverse');
+"@ | Out-Null
+    Assert-Scalar -Database $primaryDatabase -Expected '15' -Label 'W3g first-apply total menu count' `
+        -Sql 'SELECT COUNT(*) FROM sys_menu;' | Out-Null
+    Assert-Scalar -Database $primaryDatabase -Expected '3' -Label 'W3g exact identity count' -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE component = 'business/independentBoard/admin/credit/index'
+   OR perms IN ('board:credit:grant', 'board:credit:reverse');
+"@ | Out-Null
+    Assert-Scalar -Database $primaryDatabase -Expected '3' -Label 'W3g default-disabled count' -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE status = '1'
+  AND (component = 'business/independentBoard/admin/credit/index'
+       OR perms IN ('board:credit:grant', 'board:credit:reverse'));
+"@ | Out-Null
+    Assert-Scalar -Database $primaryDatabase -Expected '0' -Label 'W3g active identity count' -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE status = '0'
+  AND (component = 'business/independentBoard/admin/credit/index'
+       OR perms IN ('board:credit:grant', 'board:credit:reverse'));
+"@ | Out-Null
+    Assert-Scalar -Database $primaryDatabase -Expected '0' -Label 'W3g role binding count' -Sql @"
+SELECT COUNT(*) FROM sys_role_menu AS role_menu
+INNER JOIN sys_menu AS menu_row ON menu_row.menu_id = role_menu.menu_id
+WHERE menu_row.component = 'business/independentBoard/admin/credit/index'
+   OR menu_row.perms IN ('board:credit:grant', 'board:credit:reverse');
+"@ | Out-Null
+    Assert-W3gLocksReleased -Database $primaryDatabase
+
     Invoke-MySqlText -Database $primaryDatabase -Sql @"
 INSERT INTO sys_role_menu (role_id, menu_id)
 SELECT 999, menu_id FROM sys_menu
@@ -549,6 +644,8 @@ WHERE component = 'business/independentBoard/admin/entitlementReceipt/index'
     Invoke-Migration -Name 'w3a_rerun_after_w3b' -Bytes $w3aBytes -Database $primaryDatabase
     Invoke-Migration -Name 'w4b2c_rerun_preserves_external_w3b_binding' `
         -Bytes $w4b2cEnabledBytes -Database $primaryDatabase
+    Invoke-Migration -Name 'w3g_rerun_preserves_external_w3b_binding' `
+        -Bytes $w3gEnabledBytes -Database $primaryDatabase
     Assert-Scalar -Database $primaryDatabase -Expected '1' -Label 'externally governed W3b role binding' -Sql @"
 SELECT COUNT(*) FROM sys_role_menu AS role_menu
 INNER JOIN sys_menu AS menu_row ON menu_row.menu_id = role_menu.menu_id
@@ -660,6 +757,110 @@ WHERE version = '20260721_independent_board_portal_candidate_menu_v1';
         -Bytes $w4b2cEnabledBytes -Database $primaryDatabase
     Assert-W4b2cLockReleased -Database $primaryDatabase
 
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+UPDATE sys_menu SET status = '0'
+WHERE component = 'business/independentBoard/admin/credit/index'
+  AND route_name = 'IndependentBoardCreditGovernance';
+"@ | Out-Null
+    Invoke-ExpectedMigrationFailure -Name 'w3g_default_disabled_drift_fail_closed' `
+        -Bytes $w3gEnabledBytes -Database $primaryDatabase `
+        -ExpectedMessage 'credit governance page is missing or drifted'
+    Assert-Scalar -Database $primaryDatabase -Expected '1' -Label 'W3g status drift was not silently repaired' -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE component = 'business/independentBoard/admin/credit/index' AND status = '0';
+"@ | Out-Null
+    Assert-W3gLocksReleased -Database $primaryDatabase
+    Remove-LeftoverProcedure -Database $primaryDatabase -Procedure $w3gProcedure
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+UPDATE sys_menu SET status = '1'
+WHERE component = 'business/independentBoard/admin/credit/index'
+  AND route_name = 'IndependentBoardCreditGovernance';
+"@ | Out-Null
+    Invoke-Migration -Name 'w3g_recovered_default_disabled_rerun' `
+        -Bytes $w3gEnabledBytes -Database $primaryDatabase
+
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+UPDATE sys_menu SET route_name = 'independentboardcreditgovernance'
+WHERE component = 'business/independentBoard/admin/credit/index';
+"@ | Out-Null
+    Invoke-ExpectedMigrationFailure -Name 'w3g_route_case_drift_fail_closed' `
+        -Bytes $w3gEnabledBytes -Database $primaryDatabase `
+        -ExpectedMessage 'credit governance page is missing or drifted'
+    Assert-W3gLocksReleased -Database $primaryDatabase
+    Remove-LeftoverProcedure -Database $primaryDatabase -Procedure $w3gProcedure
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+UPDATE sys_menu SET route_name = 'IndependentBoardCreditGovernance'
+WHERE component = 'business/independentBoard/admin/credit/index';
+"@ | Out-Null
+    Invoke-Migration -Name 'w3g_recovered_route_case_rerun' `
+        -Bytes $w3gEnabledBytes -Database $primaryDatabase
+
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+INSERT INTO sys_menu
+    (menu_name, parent_id, order_num, path, component, query, route_name,
+     is_frame, is_cache, menu_type, visible, status, perms, icon,
+     create_by, create_time, update_by, update_time, remark)
+SELECT 'unknown-credit-child', menu_id, 99, '', NULL, NULL, '',
+       1, 0, 'F', '0', '1', 'disposable:unknown', '#',
+       'gate', CURRENT_TIMESTAMP, '', NULL, 'disposable unknown child fixture'
+FROM sys_menu
+WHERE component = 'business/independentBoard/admin/credit/index';
+"@ | Out-Null
+    Invoke-ExpectedMigrationFailure -Name 'w3g_unknown_child_fail_closed' `
+        -Bytes $w3gEnabledBytes -Database $primaryDatabase `
+        -ExpectedMessage 'child set contains an unknown or missing identity'
+    Assert-W3gLocksReleased -Database $primaryDatabase
+    Remove-LeftoverProcedure -Database $primaryDatabase -Procedure $w3gProcedure
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+DELETE FROM sys_menu WHERE menu_name = 'unknown-credit-child' AND perms = 'disposable:unknown';
+"@ | Out-Null
+    Invoke-Migration -Name 'w3g_recovered_unknown_child_rerun' `
+        -Bytes $w3gEnabledBytes -Database $primaryDatabase
+
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+INSERT INTO sys_role_menu (role_id, menu_id)
+SELECT 999, menu_id FROM sys_menu
+WHERE component = 'business/independentBoard/admin/credit/index';
+"@ | Out-Null
+    Invoke-ExpectedMigrationFailure -Name 'w3g_role_binding_fail_closed' `
+        -Bytes $w3gEnabledBytes -Database $primaryDatabase `
+        -ExpectedMessage 'must have zero role bindings'
+    Assert-Scalar -Database $primaryDatabase -Expected '1' -Label 'W3g binding was not silently deleted' -Sql @"
+SELECT COUNT(*) FROM sys_role_menu AS role_menu
+INNER JOIN sys_menu AS menu_row ON menu_row.menu_id = role_menu.menu_id
+WHERE role_menu.role_id = 999
+  AND menu_row.component = 'business/independentBoard/admin/credit/index';
+"@ | Out-Null
+    Assert-W3gLocksReleased -Database $primaryDatabase
+    Remove-LeftoverProcedure -Database $primaryDatabase -Procedure $w3gProcedure
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+DELETE role_menu FROM sys_role_menu AS role_menu
+INNER JOIN sys_menu AS menu_row ON menu_row.menu_id = role_menu.menu_id
+WHERE role_menu.role_id = 999
+  AND menu_row.component = 'business/independentBoard/admin/credit/index';
+"@ | Out-Null
+    Invoke-Migration -Name 'w3g_recovered_role_binding_rerun' `
+        -Bytes $w3gEnabledBytes -Database $primaryDatabase
+
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+UPDATE u3w_schema_migration
+SET description = 'drifted-by-disposable-gate'
+WHERE version = '20260722_independent_board_credit_candidate_menu_v1';
+"@ | Out-Null
+    Invoke-ExpectedMigrationFailure -Name 'w3g_receipt_drift_fail_closed' `
+        -Bytes $w3gEnabledBytes -Database $primaryDatabase `
+        -ExpectedMessage 'receipt is missing or drifted'
+    Assert-W3gLocksReleased -Database $primaryDatabase
+    Remove-LeftoverProcedure -Database $primaryDatabase -Procedure $w3gProcedure
+    Invoke-MySqlText -Database $primaryDatabase -Sql @"
+UPDATE u3w_schema_migration
+SET description = 'Independent Board default-off credit governance menu and fine-grained permissions'
+WHERE version = '20260722_independent_board_credit_candidate_menu_v1';
+"@ | Out-Null
+    Invoke-Migration -Name 'w3g_recovered_receipt_rerun' `
+        -Bytes $w3gEnabledBytes -Database $primaryDatabase
+    Assert-W3gLocksReleased -Database $primaryDatabase
+
     Initialize-TestDatabase -Database $collisionDatabase
     Invoke-Migration -Name 'collision_w2_prerequisite' -Bytes $w2Bytes -Database $collisionDatabase
     Invoke-Migration -Name 'collision_w3a_prerequisite' -Bytes $w3aBytes -Database $collisionDatabase
@@ -743,6 +944,46 @@ WHERE version = '20260721_independent_board_portal_candidate_menu_v1';
 SELECT COUNT(*) FROM sys_menu WHERE path = 'independent-board-connector';
 "@)
 
+    Invoke-MySqlText -Database $collisionDatabase -Sql @"
+INSERT INTO u3w_schema_migration (version, description) VALUES
+  ('public_init_030', 'APPLIED:Independent Board administration menu'),
+  ('public_init_038', 'APPLIED:Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger'),
+  ('20260722_independent_board_credit_ledger_v1', 'Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger');
+INSERT INTO sys_menu
+    (menu_name, parent_id, order_num, path, component, query, route_name,
+     is_frame, is_cache, menu_type, visible, status, perms, icon,
+     create_by, create_time, update_by, update_time, remark)
+VALUES
+    ('prewrite-credit-collision', 0, 99, 'credit-ledger', NULL, NULL, '',
+     1, 0, 'C', '0', '1', '', '#', 'gate', CURRENT_TIMESTAMP, '', NULL,
+     'disposable W3g collision fixture');
+"@ | Out-Null
+    Invoke-ExpectedMigrationFailure -Name 'w3g_prewrite_identity_collision_fail_closed' `
+        -Bytes $w3gEnabledBytes -Database $collisionDatabase `
+        -ExpectedMessage 'identity exists without its receipt'
+    Assert-Scalar -Database $collisionDatabase -Expected '0' -Label 'W3g collision receipt count' -Sql @"
+SELECT COUNT(*) FROM u3w_schema_migration
+WHERE version = '20260722_independent_board_credit_candidate_menu_v1';
+"@ | Out-Null
+    Assert-Scalar -Database $collisionDatabase -Expected '1' -Label 'W3g prewritten collision identity count' -Sql @"
+SELECT COUNT(*) FROM sys_menu WHERE path = 'credit-ledger';
+"@ | Out-Null
+    Assert-Scalar -Database $collisionDatabase -Expected '0' -Label 'W3g collision partial-write count' -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE component = 'business/independentBoard/admin/credit/index'
+   OR perms IN ('board:credit:query', 'board:credit:grant', 'board:credit:reverse');
+"@ | Out-Null
+    Assert-W3gLocksReleased -Database $collisionDatabase
+    Remove-LeftoverProcedure -Database $collisionDatabase -Procedure $w3gProcedure
+
+    $w3gCollisionInternalReceipts = [int](Invoke-MySqlText -Database $collisionDatabase -Sql @"
+SELECT COUNT(*) FROM u3w_schema_migration
+WHERE version = '20260722_independent_board_credit_candidate_menu_v1';
+"@)
+    $w3gCollisionPrewrittenIdentities = [int](Invoke-MySqlText -Database $collisionDatabase -Sql @"
+SELECT COUNT(*) FROM sys_menu WHERE path = 'credit-ledger';
+"@)
+
     $primaryCounts = [ordered]@{
         menus = [int](Invoke-MySqlText -Database $primaryDatabase -Sql 'SELECT COUNT(*) FROM sys_menu;')
         roleBindings = [int](Invoke-MySqlText -Database $primaryDatabase -Sql 'SELECT COUNT(*) FROM sys_role_menu;')
@@ -752,7 +993,8 @@ WHERE version IN (
   '20260720_independent_board_me_menu_v1',
   '20260720_independent_board_admin_menu_v1',
   '20260720_independent_board_entitlement_lifecycle_menu_v1',
-  '20260721_independent_board_portal_candidate_menu_v1'
+  '20260721_independent_board_portal_candidate_menu_v1',
+  '20260722_independent_board_credit_candidate_menu_v1'
 );
 "@)
         w3bIdentities = [int](Invoke-MySqlText -Database $primaryDatabase -Sql @"
@@ -807,6 +1049,23 @@ WHERE component IN (
   'board:connector:revoke'
 );
 "@)
+        w3gCandidateIdentities = [int](Invoke-MySqlText -Database $primaryDatabase -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE component = 'business/independentBoard/admin/credit/index'
+   OR perms IN ('board:credit:grant', 'board:credit:reverse');
+"@)
+        w3gDefaultDisabled = [int](Invoke-MySqlText -Database $primaryDatabase -Sql @"
+SELECT COUNT(*) FROM sys_menu
+WHERE status = '1'
+  AND (component = 'business/independentBoard/admin/credit/index'
+       OR perms IN ('board:credit:grant', 'board:credit:reverse'));
+"@)
+        w3gRoleBindings = [int](Invoke-MySqlText -Database $primaryDatabase -Sql @"
+SELECT COUNT(*) FROM sys_role_menu AS role_menu
+INNER JOIN sys_menu AS menu_row ON menu_row.menu_id = role_menu.menu_id
+WHERE menu_row.component = 'business/independentBoard/admin/credit/index'
+   OR menu_row.perms IN ('board:credit:grant', 'board:credit:reverse');
+"@)
     }
     $collisionCounts = [ordered]@{
         schemaNameLength = $collisionDatabase.Length
@@ -814,13 +1073,16 @@ WHERE component IN (
         w3bPrewrittenIdentitiesAfterFailure = $w3bCollisionPrewrittenIdentities
         w4b2cInternalReceiptsAfterFailure = $w4b2cCollisionInternalReceipts
         w4b2cPrewrittenIdentitiesAfterFailure = $w4b2cCollisionPrewrittenIdentities
+        w3gInternalReceiptsAfterFailure = $w3gCollisionInternalReceipts
+        w3gPrewrittenIdentitiesAfterFailure = $w3gCollisionPrewrittenIdentities
     }
 
     foreach ($binding in @(
         @{ Path = $w2MigrationPath; Sha = $w2Sha256 },
         @{ Path = $w3aMigrationPath; Sha = $w3aSha256 },
         @{ Path = $w3bMigrationPath; Sha = $w3bSha256 },
-        @{ Path = $w4b2cMigrationPath; Sha = $w4b2cSha256 }
+        @{ Path = $w4b2cMigrationPath; Sha = $w4b2cSha256 },
+        @{ Path = $w3gMigrationPath; Sha = $w3gSha256 }
     )) {
         $latestSha = Get-Sha256 -Bytes ([System.IO.File]::ReadAllBytes($binding.Path))
         if ($latestSha -ne $binding.Sha) {
@@ -878,6 +1140,7 @@ if ($testPassed) {
             w3a = [ordered]@{ version = '20260720_independent_board_admin_menu_v1'; sha256 = $w3aSha256 }
             w3b = [ordered]@{ version = '20260720_independent_board_entitlement_lifecycle_menu_v1'; sha256 = $w3bSha256 }
             w4b2c = [ordered]@{ version = '20260721_independent_board_portal_candidate_menu_v1'; sha256 = $w4b2cSha256 }
+            w3g = [ordered]@{ version = '20260722_independent_board_credit_candidate_menu_v1'; sha256 = $w3gSha256 }
         }
         phases = @($phaseResults)
         primary = $primaryCounts

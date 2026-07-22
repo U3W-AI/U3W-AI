@@ -70,6 +70,7 @@ public class IndependentBoardCreditTransactionService {
         long projectedBalance = projectionBalance(user);
         Date now = Date.from(clock.instant());
         BoardCreditAccount account = lockOrOpenAccount(user.getUserId(), projectedBalance, now);
+        requireExpectedAccountVersion(account, request.expectedAccountVersion());
         requireProjectionMatch(account, projectedBalance);
 
         long nextBalance = safeBalanceAdd(account.getBalance(), request.amount().longValue());
@@ -127,6 +128,7 @@ public class IndependentBoardCreditTransactionService {
         BoardCreditUserProjection user = lockUser(observed.getUserId(), false);
         long projectedBalance = projectionBalance(user);
         BoardCreditAccount account = lockExistingAccount(user.getUserId());
+        requireExpectedAccountVersion(account, request.expectedAccountVersion());
         requireProjectionMatch(account, projectedBalance);
         BoardCreditOperation original = requireReversibleGrant(
                 mapper.selectOperationByOperationIdForUpdate(request.originalOperationId()));
@@ -491,7 +493,7 @@ public class IndependentBoardCreditTransactionService {
         }
         validateOperationBalance(operation);
         BoardCreditGrantRequest snapshot = new BoardCreditGrantRequest(
-                operation.getUserId(), operation.getDelta().intValue(),
+                operation.getUserId(), 0L, operation.getDelta().intValue(),
                 operation.getReasonCode(), operation.getReasonNote(),
                 operation.getIdempotencyKey());
         if (!BoardCreditDigest.equal(
@@ -657,7 +659,7 @@ public class IndependentBoardCreditTransactionService {
                 return false;
             }
             BoardCreditGrantRequest snapshot = new BoardCreditGrantRequest(
-                    row.getUserId(), row.getDelta().intValue(), row.getReasonCode(),
+                    row.getUserId(), 0L, row.getDelta().intValue(), row.getReasonCode(),
                     row.getReasonNote(), row.getIdempotencyKey());
             return BoardCreditDigest.equal(
                     row.getRequestDigest(),
@@ -678,7 +680,7 @@ public class IndependentBoardCreditTransactionService {
             return false;
         }
         BoardCreditReversalRequest snapshot = new BoardCreditReversalRequest(
-                row.getReversalOfOperationId(), row.getReasonCode(), row.getReasonNote(),
+                row.getReversalOfOperationId(), 0L, row.getReasonCode(), row.getReasonNote(),
                 row.getIdempotencyKey());
         return BoardCreditDigest.equal(
                 row.getRequestDigest(),
@@ -743,6 +745,8 @@ public class IndependentBoardCreditTransactionService {
     private void validateGrant(BoardCreditGrantRequest request, Long actorUserId) {
         requirePositive(actorUserId, "AUTHENTICATED_PRINCIPAL_REQUIRED");
         if (request == null || request.userId() == null || request.userId() <= 0L
+                || request.expectedAccountVersion() == null
+                || request.expectedAccountVersion() < 0L
                 || request.amount() == null || request.amount() <= 0
                 || request.amount() > 100_000
                 || !GRANT_REASON_PATTERN.matcher(String.valueOf(request.reasonCode())).matches()
@@ -756,6 +760,8 @@ public class IndependentBoardCreditTransactionService {
         requirePositive(actorUserId, "AUTHENTICATED_PRINCIPAL_REQUIRED");
         if (request == null
                 || !UUID_PATTERN.matcher(String.valueOf(request.originalOperationId())).matches()
+                || request.expectedAccountVersion() == null
+                || request.expectedAccountVersion() < 0L
                 || !REVERSAL_REASON_PATTERN.matcher(String.valueOf(request.reasonCode())).matches()
                 || !validNote(request.note())
                 || !validIdempotencyKey(request.idempotencyKey())) {
@@ -795,6 +801,13 @@ public class IndependentBoardCreditTransactionService {
             throw new ServiceException("CREDIT_BALANCE_OUT_OF_RANGE", 409);
         }
         return next;
+    }
+
+    private void requireExpectedAccountVersion(
+            BoardCreditAccount account, Long expectedAccountVersion) {
+        if (account == null || !Objects.equals(account.getVersion(), expectedAccountVersion)) {
+            throw new ServiceException("CREDIT_ACCOUNT_VERSION_CONFLICT", 409);
+        }
     }
 
     private long safeNextVersion(Long current) {

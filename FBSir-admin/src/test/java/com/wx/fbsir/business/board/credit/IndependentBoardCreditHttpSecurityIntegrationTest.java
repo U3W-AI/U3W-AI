@@ -77,12 +77,14 @@ class IndependentBoardCreditHttpSecurityIntegrationTest {
     private static final String ORIGINAL_OPERATION_ID =
             "11111111-1111-1111-1111-111111111111";
     private static final String GRANT_BODY = """
-            {"userId":99,"amount":10,"reasonCode":"CUSTOMER_SUPPORT",
+            {"userId":99,"expectedAccountVersion":0,"amount":10,
+             "reasonCode":"CUSTOMER_SUPPORT",
              "note":"controlled support adjustment","idempotencyKey":"grant-test-key-0001"}
             """;
     private static final String REVERSAL_BODY = """
             {"originalOperationId":"11111111-1111-1111-1111-111111111111",
-             "reasonCode":"OPERATOR_ERROR","note":"controlled reversal note",
+             "expectedAccountVersion":1,"reasonCode":"OPERATOR_ERROR",
+             "note":"controlled reversal note",
              "idempotencyKey":"reverse-test-key-001"}
             """;
 
@@ -177,6 +179,7 @@ class IndependentBoardCreditHttpSecurityIntegrationTest {
 
         verify(creditService).grant(eq(new BoardCreditGrantRequest(
                 TARGET_USER_ID,
+                0L,
                 10,
                 "CUSTOMER_SUPPORT",
                 "controlled support adjustment",
@@ -230,6 +233,7 @@ class IndependentBoardCreditHttpSecurityIntegrationTest {
 
         verify(creditService).reverse(eq(new BoardCreditReversalRequest(
                 ORIGINAL_OPERATION_ID,
+                1L,
                 "OPERATOR_ERROR",
                 "controlled reversal note",
                 "reverse-test-key-001")), eq(ACTOR_USER_ID));

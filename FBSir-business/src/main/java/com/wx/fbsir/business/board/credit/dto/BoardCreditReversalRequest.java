@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.io.IOException;
@@ -19,6 +21,7 @@ public record BoardCreditReversalRequest(
         @NotBlank
         @Pattern(regexp = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
         String originalOperationId,
+        @NotNull @Min(0) Long expectedAccountVersion,
         @NotBlank @Pattern(regexp = "DUPLICATE_GRANT|OPERATOR_ERROR|POLICY_VIOLATION")
         String reasonCode,
         @NotBlank @Size(min = 8, max = 128)
@@ -27,7 +30,8 @@ public record BoardCreditReversalRequest(
         @Pattern(regexp = "[A-Za-z0-9][A-Za-z0-9._:-]{15,127}") String idempotencyKey) {
 
     private static final Set<String> FIELDS =
-            Set.of("originalOperationId", "reasonCode", "note", "idempotencyKey");
+            Set.of("originalOperationId", "expectedAccountVersion", "reasonCode", "note",
+                    "idempotencyKey");
 
     /** Endpoint-local parser: no caller-selected financial or identity fields can slip through. */
     public static final class StrictDeserializer extends StdDeserializer<BoardCreditReversalRequest> {
@@ -43,6 +47,7 @@ public record BoardCreditReversalRequest(
             }
             Set<String> seen = new HashSet<>();
             String originalOperationId = null;
+            Long expectedAccountVersion = null;
             String reasonCode = null;
             String note = null;
             String idempotencyKey = null;
@@ -60,7 +65,16 @@ public record BoardCreditReversalRequest(
                     throw JsonMappingException.from(
                             parser, "CREDIT_REVERSAL_DUPLICATE_FIELD:" + field);
                 }
-                if (parser.nextToken() != JsonToken.VALUE_STRING) {
+                JsonToken valueToken = parser.nextToken();
+                if ("expectedAccountVersion".equals(field)) {
+                    if (valueToken != JsonToken.VALUE_NUMBER_INT) {
+                        throw JsonMappingException.from(
+                                parser, "CREDIT_REVERSAL_FIELD_MUST_BE_INTEGER:" + field);
+                    }
+                    expectedAccountVersion = parser.getLongValue();
+                    continue;
+                }
+                if (valueToken != JsonToken.VALUE_STRING) {
                     throw JsonMappingException.from(
                             parser, "CREDIT_REVERSAL_FIELD_MUST_BE_STRING:" + field);
                 }
@@ -84,7 +98,7 @@ public record BoardCreditReversalRequest(
                 throw JsonMappingException.from(parser, "CREDIT_REVERSAL_TRAILING_TOKEN");
             }
             return new BoardCreditReversalRequest(
-                    originalOperationId, reasonCode, note, idempotencyKey);
+                    originalOperationId, expectedAccountVersion, reasonCode, note, idempotencyKey);
         }
     }
 }

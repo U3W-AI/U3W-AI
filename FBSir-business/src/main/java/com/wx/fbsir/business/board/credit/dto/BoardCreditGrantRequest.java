@@ -20,6 +20,7 @@ import java.util.Set;
 @JsonDeserialize(using = BoardCreditGrantRequest.StrictDeserializer.class)
 public record BoardCreditGrantRequest(
         @NotNull @Min(1) Long userId,
+        @NotNull @Min(0) Long expectedAccountVersion,
         @NotNull @Min(1) @Max(100_000) Integer amount,
         @NotBlank @Pattern(regexp = "CUSTOMER_SUPPORT|SERVICE_RECOVERY|MIGRATION_CORRECTION")
         String reasonCode,
@@ -29,7 +30,8 @@ public record BoardCreditGrantRequest(
         @Pattern(regexp = "[A-Za-z0-9][A-Za-z0-9._:-]{15,127}") String idempotencyKey) {
 
     private static final Set<String> FIELDS =
-            Set.of("userId", "amount", "reasonCode", "note", "idempotencyKey");
+            Set.of("userId", "expectedAccountVersion", "amount", "reasonCode", "note",
+                    "idempotencyKey");
 
     /** Endpoint-local parser: unknown, duplicate, missing and trailing JSON fail closed. */
     public static final class StrictDeserializer extends StdDeserializer<BoardCreditGrantRequest> {
@@ -43,6 +45,7 @@ public record BoardCreditGrantRequest(
             requireObject(parser, "CREDIT_GRANT_BODY_MUST_BE_OBJECT");
             Set<String> seen = new HashSet<>();
             Long userId = null;
+            Long expectedAccountVersion = null;
             Integer amount = null;
             String reasonCode = null;
             String note = null;
@@ -57,6 +60,8 @@ public record BoardCreditGrantRequest(
                 JsonToken valueToken = parser.nextToken();
                 switch (field) {
                     case "userId" -> userId = readLong(parser, valueToken, field);
+                    case "expectedAccountVersion" ->
+                            expectedAccountVersion = readLong(parser, valueToken, field);
                     case "amount" -> amount = readInt(parser, valueToken, field);
                     case "reasonCode" -> reasonCode = readString(parser, valueToken, field);
                     case "note" -> note = readString(parser, valueToken, field);
@@ -66,7 +71,8 @@ public record BoardCreditGrantRequest(
                 }
             }
             requireAllAndEnd(parser, seen, "CREDIT_GRANT");
-            return new BoardCreditGrantRequest(userId, amount, reasonCode, note, idempotencyKey);
+            return new BoardCreditGrantRequest(
+                    userId, expectedAccountVersion, amount, reasonCode, note, idempotencyKey);
         }
 
         private static void requireKnownOnce(

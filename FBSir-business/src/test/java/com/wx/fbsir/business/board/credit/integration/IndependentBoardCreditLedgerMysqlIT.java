@@ -194,7 +194,7 @@ class IndependentBoardCreditLedgerMysqlIT {
         assertEquals(1L, attempts.stream().filter(attempt -> !attempt.succeeded()).count());
         Attempt rejected = attempts.stream().filter(attempt -> !attempt.succeeded())
                 .findFirst().orElseThrow();
-        assertEquals("CREDIT_OPERATION_ALREADY_REVERSED", rejected.errorCode());
+        assertEquals("CREDIT_ACCOUNT_VERSION_CONFLICT", rejected.errorCode());
         assertEquals(409, rejected.statusCode());
         assertEquals(100L, userPoints(userId));
         assertEquals(2L, rowsForUser("fbs_credit_operation", userId));
@@ -293,6 +293,7 @@ class IndependentBoardCreditLedgerMysqlIT {
             long userId, int amount, String idempotencyKey) {
         return new BoardCreditGrantRequest(
                 userId,
+                0L,
                 amount,
                 "CUSTOMER_SUPPORT",
                 "controlled mysql integration grant",
@@ -303,6 +304,7 @@ class IndependentBoardCreditLedgerMysqlIT {
             String originalOperationId, String idempotencyKey) {
         return new BoardCreditReversalRequest(
                 originalOperationId,
+                1L,
                 "OPERATOR_ERROR",
                 "controlled mysql integration reversal",
                 idempotencyKey);

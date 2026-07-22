@@ -46,3 +46,26 @@ export function listIndependentBoardOperations(tenantId) {
     params: { tenantId }
   })
 }
+
+export function getIndependentBoardCreditAccount(userId) {
+  return request({
+    url: `/business/independent-board/credit-accounts/${userId}`,
+    method: 'get'
+  })
+}
+
+export function grantIndependentBoardCredit(data) {
+  return request({
+    url: '/business/independent-board/credit-operations/grants',
+    method: 'post',
+    data
+  })
+}
+
+export function reverseIndependentBoardCredit(data) {
+  return request({
+    url: '/business/independent-board/credit-operations/reversals',
+    method: 'post',
+    data
+  })
+}

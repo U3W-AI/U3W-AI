@@ -1,0 +1,237 @@
+{
+  "schema": "fbsir.independent-board.w3g-credit-admin-ui-verification/v1",
+  "result": "VERIFIED_LOCAL_DEFAULT_OFF_CREDIT_ADMIN_CANDIDATE",
+  "observedAt": "2026-07-22T15:42:57+08:00",
+  "releaseReady": false,
+  "slice": "W3g_default_off_credit_permission_menu_and_admin_ui",
+  "priority": {
+    "primary": "admin_backend_and_governance_surface",
+    "secondary": "api2_traffic_attribution"
+  },
+  "product": {
+    "brandZh": "福帮手",
+    "brandEn": "FBSir",
+    "name": "独董会",
+    "productId": "fbsir-eight-seat-board",
+    "listedVersion": "26.7.20"
+  },
+  "repository": {
+    "root": "u3w-independent-board-control-plane",
+    "branch": "codex/w4b2-default-off-candidate",
+    "remote": "https://github.com/U3W-AI/U3W-AI.git",
+    "verificationBaseCommit": "d06b29b60ebb917f32b913ea97e08a1be0124651",
+    "listedPackageWriteback": false
+  },
+  "candidate": {
+    "backendFlagProperty": "fbsir.independent-board.credit-candidate.enabled",
+    "frontendFlag": "VITE_FBSIR_BOARD_CREDIT_CANDIDATE",
+    "menuOptInVariable": "@u3w_enable_independent_board_w3g_credit_candidate",
+    "defaultEnabled": false,
+    "productionDatabaseMigrated": false,
+    "productionMenuActivated": false,
+    "productionHttpActivated": false,
+    "productionAuthorityPromoted": false
+  },
+  "menu": {
+    "migration": "sql/update_20260722_independent_board_credit_candidate_menu.sql",
+    "migrationId": "candidate_20260722_independent_board_credit_menu_v1",
+    "migrationSha256": "0866be83c6d534d9376c53ca0cd038f01e6c48d8005bbbc0b47235417d93f942",
+    "internalReceipt": "20260722_independent_board_credit_candidate_menu_v1",
+    "routeName": "IndependentBoardCreditGovernance",
+    "component": "business/independentBoard/admin/credit/index",
+    "permissions": [
+      "board:credit:query",
+      "board:credit:grant",
+      "board:credit:reverse"
+    ],
+    "candidateIdentities": 3,
+    "defaultDisabledIdentities": 3,
+    "candidateRoleBindings": 0,
+    "manualManifestOnly": true
+  },
+  "backendConcurrencyContract": {
+    "grantBody": "strict_six_fields_including_nonnegative_expectedAccountVersion",
+    "reversalBody": "strict_five_fields_including_nonnegative_expectedAccountVersion",
+    "freshMutation": "locking_current_account_read_then_exact_expected_version_precondition_before_ledger_writes",
+    "versionConflict": "stable_http_409_CREDIT_ACCOUNT_VERSION_CONFLICT",
+    "idempotencyDigest": "expectedAccountVersion_is_a_fresh_write_precondition_not_part_of_the_immutable_command_digest",
+    "exactReplay": "an_exact_committed_idempotency_key_replays_even_after_account_version_advances",
+    "sameKeyWaiterRepair": "fresh_version_conflict_rolls_back_then_REQUIRES_NEW_exact_key_replay_returns_only_the_committed_winner",
+    "differentKeyBehavior": "no_matching_committed_operation_preserves_the_original_version_conflict",
+    "crossDeviceSafety": "database_row_lock_expected_version_and_projection_compare_and_set"
+  },
+  "frontendSafetyContract": {
+    "routeAdmission": "exact_name_component_and_explicit_true_credit_flag_before_dynamic_route_clone",
+    "access": "global_admin_role_plus_board_credit_query_and_per_action_fine_permissions",
+    "pendingStorage": "single_actor_scoped_slot_without_time_based_expiry",
+    "crossTabLock": "actor_global_Web_Locks_exclusive_until_strict_receipt_readback_and_cleanup",
+    "unsupportedWebLocks": "fail_closed_before_http_send",
+    "ambiguousResult": "retain_exact_payload_expected_version_and_idempotency_key_until_exact_replay_or_manual_resolution",
+    "fixtureReproducibility": "enabled_and_default_off_loopback_only_environment_files_are_explicitly_versioned_without_credentials",
+    "projection": "account_operation_and_command_results_are_strictly_allowlisted_and_sensitive_internal_fields_rejected",
+    "responsiveAndAccessible": "responsive_cards_and_table_scroll_keyboard_reachable_controls_aria_live_errors_and_explicit_empty_states"
+  },
+  "verification": {
+    "tdd": {
+      "dtoRed": "compile_failed_before_expectedAccountVersion_was_added",
+      "frontendLockRed": "verifier_rejected_the_previous_actor_plus_user_lock_contract",
+      "mysqlRaceRed": "same_key_waiter_committed_winner_was_rejected_by_version_precondition_before_coordinator_replay",
+      "green": "request_service_proxy_mysql_frontend_source_and_build_gates_passed_after_targeted_fixes"
+    },
+    "backendFull": {
+      "command": "mvn -q -pl FBSir-admin -am test",
+      "surefireReports": 124,
+      "testcases": 663,
+      "passed": 663,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "state": "PASS"
+    },
+    "focusedCreditTests": {
+      "BoardCreditRequestContractTest": 4,
+      "IndependentBoardCreditServiceTest": 21,
+      "IndependentBoardCreditSpringProxyContractTest": 1,
+      "IndependentBoardCreditHttpSecurityIntegrationTest": 12,
+      "state": "PASS"
+    },
+    "frontendVerifiers": {
+      "creditAdminUi": "PASS",
+      "existingAdminUi": "PASS",
+      "w4b2FrontendCandidate": "PASS_122_assertion_call_sites",
+      "w4b2cRuntimeMount": "PASS",
+      "pointsDirectMutationSecurity": "PASS"
+    },
+    "productionBuild": {
+      "command": "vite build",
+      "viteVersion": "6.4.3",
+      "modulesTransformed": 3047,
+      "duration": "1m17s",
+      "state": "PASS",
+      "nonBlockingWarnings": [
+        "existing_third_party_PURE_annotation_position",
+        "existing_chunks_over_1000_kB"
+      ]
+    },
+    "manifest": {
+      "command": "scripts/verify-database-manifest.ps1 -Root . -Json",
+      "publicSteps": 38,
+      "manualMigrations": 2,
+      "managedUpdateSql": 37,
+      "dryRunDatabaseIsolation": true,
+      "creditMenuMigrationIdAndShaExposed": true,
+      "state": "PASS"
+    },
+    "menuMigrationDualMysql": [
+      {
+        "version": "MySQL Community 8.0.30",
+        "firstApplyRerunCurrentReadCollisionPrewrittenReceiptAndCleanup": "PASS"
+      },
+      {
+        "version": "MySQL Community 8.4.8",
+        "firstApplyRerunCurrentReadCollisionPrewrittenReceiptAndCleanup": "PASS"
+      }
+    ],
+    "creditLedgerDualMysql": [
+      {
+        "version": "MySQL Community 8.0.30",
+        "tests": 5,
+        "passed": 5,
+        "summary": "work/diagnostics/independent-board-credit-ledger-mysql-it/mysql-8.0.30/summary-mysql-8.0.30-20260722T072835.225Z-pid-20320.json",
+        "summarySha256": "904c0fad9c2b93425b8360c7b1278685a37cc3b52dea91ceacaa0abd38d8cd16"
+      },
+      {
+        "version": "MySQL Community 8.4.8",
+        "tests": 5,
+        "passed": 5,
+        "summary": "work/diagnostics/independent-board-credit-ledger-mysql-it/mysql-8.4.8/summary-mysql-8.4.8-20260722T073046.284Z-pid-20320.json",
+        "summarySha256": "a630cb610398a9cc23ba107ad549044484c9fd44d5d65045e395f70cf1cd0883"
+      }
+    ],
+    "browser": {
+      "backendFixturePort": 18086,
+      "enabledFixturePort": 18087,
+      "defaultOffFixturePort": 18088,
+      "enabledDirectRouteMounted": true,
+      "defaultOffDirectRouteHttp404": true,
+      "unknownUserFailClosed": true,
+      "firstGrantReadback": "user_77_balance_125_version_1",
+      "reversalReadback": "user_77_balance_100_version_2_two_records",
+      "ambiguousAfterCommitExactReplay": "user_78_balance_130_version_1_one_record",
+      "staleDifferentKeyVersionConflict": "user_42_second_expected_version_1_rejected_409_after_winner_advanced_to_version_2",
+      "consoleWarningsOrErrors": 0,
+      "state": "PASS"
+    },
+    "multiAgentAdversarialReview": {
+      "firstPass": "found_actor_scoped_pending_but_actor_plus_user_lock_scope_mismatch",
+      "fix": "actor_global_lock_matches_the_single_pending_slot",
+      "finalP0": 0,
+      "finalP1": 0,
+      "state": "PASS"
+    }
+  },
+  "orchestratorImprovement": {
+    "issue": "a_generic_migration_keyword_overrode_the_lifecycle_delivery_route_for_a_full_platform_objective",
+    "boundedFix": "workspace_migration_now_requires_workspace_specific_wording_or_independent_path_drift_signals",
+    "before": "original_equivalent_intent_routed_to_workspace-migration",
+    "after": "original_equivalent_intent_routes_to_lifecycle-delivery",
+    "trueMigrationRegression": "another_computer_migration_with_old_drive_letter_still_routes_to_workspace-migration",
+    "fullBundleValidation": "PASS",
+    "routeManifestSha256": "8b32b5cad1440c656091a59dd4c9b33238429d722c48292f1c78fe50123e44cc",
+    "validatorSha256": "1cec9c590a10e7390700c7900e3ee7babfef4cf3ef564014bd42422914e65967"
+  },
+  "cleanup": {
+    "stoppedFixturePids": [14164, 20900, 25196],
+    "closedLoopbackPorts": [18086, 18087, 18088],
+    "temporaryBrowserLogsRemoved": true,
+    "staleUnownedMysqlRunDirectoryRemoved": true,
+    "trackedDualMysqlDiagnosticSummariesRetained": true
+  },
+  "sourceBinding": {
+    "grantRequestSha256": "e92e8c8b49f96876b3d1e1474f7f65415295f883453834c9420d1c4b0182f089",
+    "reversalRequestSha256": "c29d43600809f9aaaea4d1dc2fd4e540c9cb485c556f0e4e3643324a79b49566",
+    "creditServiceSha256": "6e3100ab2894abe034202f8e8d0bcd5ff147b129c1ddf22f74be24aa34c11a56",
+    "creditTransactionServiceSha256": "897b2d94c2e73c3e9752bd77bc70d316edbd592209e22cce1a5aefccf4165d70",
+    "creditModelSha256": "4d97943f5878f57aba9d386ab4d025beb882e30e7c33827a856c5ccaa4b83b99",
+    "creditPageSha256": "4caa5226e8393abe99f5ad9b08438fc96fa3fec1da4b6d2f566561bd872db261",
+    "creditUiVerifierSha256": "01f4b97872b7243ad43c5df6b389d0960c3feeeeb61848bb9e2e3146a634fa5c",
+    "browserFixtureSha256": "b0cd38088937d9b5b80321b8b0cfa96e06354efe64d041b9262c8f330c53473c",
+    "enabledFixtureEnvironmentSha256": "bede0a3a0efe11e44cd3848df8014a3bc6a217a30066eebdbf0dfce570c1f7ea",
+    "defaultOffFixtureEnvironmentSha256": "f650bbe7ca9897023f72bceadd529a3ffcfbaa3500a4cc91f4181f334d163d90",
+    "gitignoreSha256": "610fee26cec81f23b46f7d7a82ad80ab968c1054460a889edb5cb56a4449a872",
+    "menuRunnerSha256": "f747b39795d6c732edf67eb2765ddecf67a54807258cc2e8359d90ea59bb8a6c",
+    "manifestVerifierSha256": "0da02e0ba15671edf1044c46eebb72dcd68c1f01481c7dbe243cb5bb03be22d3"
+  },
+  "truthBoundary": {
+    "localVerifiedDoesNotProveProduction": true,
+    "candidateHttpActivatedInProduction": false,
+    "candidateMenuActivatedInProduction": false,
+    "productionDatabaseMigrated": false,
+    "allInternalPointsWritersMigrated": false,
+    "authoritativeCreditSystemPromoted": false,
+    "realDifferentUserDualTabBarrierE2eProven": false,
+    "webLocksHostCompatibilityProven": false,
+    "frozenExpertPackageModified": false,
+    "frozenExpertPackageSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd"
+  },
+  "nextSlice": {
+    "id": "W3h_plan_quota_policy_revision_and_immutable_receipts",
+    "reason": "W3g closes the runnable default-off credit governance surface; the highest-leverage backend-only gap is to turn the already verified plan/quota current-read into versioned reviewed writes with immutable receipts without activating production credit or returning to attribution.",
+    "requiredProof": [
+      "global_admin_and_fine_permission_write_boundary",
+      "strict_revision_command_and_compare_and_set",
+      "immutable_policy_revision_receipt",
+      "entitlement_and_me_current_read_consume_only_committed_active_revision",
+      "dual_mysql_first_apply_replay_concurrency_and_drift_gates",
+      "default_off_no_production_activation"
+    ]
+  },
+  "secondaryBacklog": [
+    "real_different_user_dual_tab_barrier_e2e",
+    "workbuddy_webview_Web_Locks_compatibility_or_reviewed_fallback",
+    "audited_manual_resolution_for_long_lived_ambiguous_pending_mutations",
+    "credit_candidate_http_and_menu_production_activation_review",
+    "credit_internal_writer_migration_and_authoritative_promotion",
+    "return_to_api2_attribution_after_the_admin_backend_mainline"
+  ]
+}
