@@ -1,0 +1,47 @@
+{
+  "schema": "fbsir.independent-board.credit-candidate-release-readiness/v1",
+  "phase": "CANDIDATE_ACTIVATION",
+  "sourceCommit": "5b534016071461c2866cb5bca441fc93b7dab316",
+  "frozenPackage": {
+    "sha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd"
+  },
+  "target": {
+    "backendHost": "api2.u3w.com",
+    "adminHost": "admin.u3w.com",
+    "backendBuildSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "frontendBuildSha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "domainInventorySha256": "895922a9c0a1f6314b7ff84180640de08a4d9b7ff250131c5a7911c11db1a34b"
+  },
+  "database": {
+    "migrationId": "public_init_038",
+    "profiles": ["MySQL Community 8.0.30", "MySQL Community 8.4.8"],
+    "firstApply": "PASS",
+    "replay": "PASS",
+    "currentRead": "PASS",
+    "sysUserPointsProjection": "ZERO_DRIFT"
+  },
+  "access": {
+    "menuMigrationId": "candidate_20260722_independent_board_credit_menu_v1",
+    "menuEnabled": true,
+    "authorizedRoleBindingCount": 1,
+    "roleBindingSha256": "3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "flags": {
+    "backendCandidateEnabled": true,
+    "frontendCandidateEnabled": true
+  },
+  "readback": {
+    "jwt401": "PASS",
+    "jwt403": "PASS",
+    "admin200": "PASS",
+    "conflict409": "PASS",
+    "legacyGrant410": "PASS",
+    "rollback404": "PASS"
+  },
+  "rollback": {
+    "backendFlagCanDisable": true,
+    "frontendFlagCanDisable": true,
+    "menuCanDisable": true,
+    "rolesCanUnbind": true
+  }
+}
