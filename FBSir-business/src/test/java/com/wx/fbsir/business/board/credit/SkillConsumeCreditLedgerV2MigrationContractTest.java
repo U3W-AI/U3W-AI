@@ -103,7 +103,7 @@ class SkillConsumeCreditLedgerV2MigrationContractTest {
         assertContains("b90f2665d993943fd6df22bcd88f8c1fe89594a1f73be985bcf1b4caba45f4e0");
         assertContains("72adb6082d425d913a1a235ccdc398ed5fc40a0fe7ba1aa0122bdc2f6a3a8d32");
         assertContains("de942cb491f1b4dfc74035c5db0e6c515c184074e4b691ce6ec5c59b14d41c1d");
-        assertContains("525f785bcfc3e65823498cc1333331c6d48eb5f023803d360f1895b54463d22c");
+        assertContains("8e8eea4f21f1a262acc9384015e3be5a73dfd29abb175fa9c4686dfffb33ead8");
 
         String manifest = Files.readString(locateSql("init-manifest.json"), StandardCharsets.UTF_8);
         assertTrue(manifest.contains("\"version\": \"public_init_042\""));

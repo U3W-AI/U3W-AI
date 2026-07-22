@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "result": "PASS_LOCAL_DUAL_MYSQL_MIGRATION_SMOKE",
+  "candidateReadyForCommit": true,
+  "releaseReady": false,
+  "productionChanged": false,
+  "historicalReceiptMutated": false,
+  "predecessorReceipt": "reports/independent-board/w3l-skill-consume-credit-ledger-v2-migration-verification-20260723.json",
+  "predecessorReceiptSha256": "b837c94d004ddabbbf99df94adcf3c7b7c4af773f089a433017c33d4eaf94513",
+  "predecessorSourceSha256": {
+    "docs/independent-board/W3L-SKILL-CONSUME-CREDIT-WRITER-CONTRACT.md": "b447347f20eca2da30a1e909141d2a6e15e38367ca5c7bfdcaf600043b33a3d6",
+    "sql/update_20260723_skill_consume_credit_ledger_v2.sql": "573289edce85f41c5ef0a5bba9c1775c7c378d21c39bdb06121b8fcf7b7fa9e0",
+    "sql/init-manifest.json": "4e9716d8b50df8cfefc5fb05b684867ec21abdaf245f5bba849e162fa07bd3e9",
+    "scripts/init-database.ps1": "35d03cc75f36aed0ba92d8e65688d111913824f43884dd26ff9e29340ea443e8",
+    "scripts/verify-database-manifest.ps1": "238b1af61e6af9125bf3d3a66ce9c9f62346b7c5162091e8396a9d314b960fc7",
+    "scripts/verify-independent-board-control-plane.ps1": "a6500662d317d99d0a649df6eff0cd2155d08b302ad3ff45dcce382d4300883a",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/SkillConsumeCreditLedgerV2MigrationContractTest.java": "150fb82e53c0cdc8ca12d7b5db04b8157a3e1ae2c41d7eacc81c6610a5f84c69"
+  },
+  "frozenSurface": {
+    "path": "D:/Spg719/fbsir-eight-seat-board-26.7.20.zip",
+    "requiredSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "observedSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "unchanged": true
+  },
+  "correction": {
+    "scope": "default-off 042 CHECK metadata contract and reproducible isolated runner only",
+    "previousCheckMetadataDigest": "525f785bcfc3e65823498cc1333331c6d48eb5f023803d360f1895b54463d22c",
+    "observedCheckMetadataDigest": "8e8eea4f21f1a262acc9384015e3be5a73dfd29abb175fa9c4686dfffb33ead8",
+    "evidence": "The same actual digest was observed on isolated loopback MySQL Community 8.0.30 and 8.4.8; columns, indexes and foreign keys remained exact.",
+    "releaseImpact": "No production database, deployed host, listed package, or candidate authority flag was changed."
+  },
+  "verification": {
+    "executionScope": "local disposable MySQL bound to 127.0.0.1 on ephemeral ports only",
+    "runnerSafety": "short external root; exact run identity; reparse-point rejection; pid-file/datadir/port binding; listener-owner verification; cleanup confirmation",
+    "negativeVectors": [
+      "missing_public_running_receipt",
+      "partial_target_state",
+      "post_apply_raw_metadata_drift",
+      "post_apply_trigger_body_drift"
+    ]
+  },
+  "mysql": {
+    "versions": [
+      {
+        "version": "8.0.30",
+        "firstApply": "1|1|4|8|4|16|0|0",
+        "boundedReplay": "1|1|4|8|4|16|0|0",
+        "canonicalCurrentRead": "1|1|4|8",
+        "negativeMatrix": {
+          "missingPublicReceipt": "PASS:0|0|0|0|3|1",
+          "partialTargetState": "PASS:1|0|1|0|3|1",
+          "postApplyMetadataDrift": "PASS:1|1|4|8|3|1",
+          "postApplyTriggerBodyDrift": "PASS:1|1|4|8|3|1"
+        },
+        "productionConnectionUsed": false,
+        "workDirectoryCleaned": true
+      },
+      {
+        "version": "8.4.8",
+        "firstApply": "1|1|4|8|4|16|0|0",
+        "boundedReplay": "1|1|4|8|4|16|0|0",
+        "canonicalCurrentRead": "1|1|4|8",
+        "negativeMatrix": {
+          "missingPublicReceipt": "PASS:0|0|0|0|3|1",
+          "partialTargetState": "PASS:1|0|1|0|3|1",
+          "postApplyMetadataDrift": "PASS:1|1|4|8|3|1",
+          "postApplyTriggerBodyDrift": "PASS:1|1|4|8|3|1"
+        },
+        "productionConnectionUsed": false,
+        "workDirectoryCleaned": true
+      }
+    ]
+  },
+  "notProven": [
+    "v2 credit writer implementation, transaction integration, replay compensation, and v1 reciprocal fencing",
+    "all legacy points writers use a CAS guard against a concurrent v2 authority transition",
+    "real project database rehearsal, production migration, deployment, approval, rollback, or cutover",
+    "me.u3w.com and admin.u3w.com production runtime, API2 binding, WorkBuddy official-entry same-binding, or natural traffic attribution"
+  ],
+  "sourceSha256": {
+    "docs/independent-board/W3L-SKILL-CONSUME-CREDIT-WRITER-CONTRACT.md": "e2f4fd38751f680a0318b4683ac1a45ccf929141864d53bb9fc0d0a3b3f5ef7e",
+    "sql/update_20260723_skill_consume_credit_ledger_v2.sql": "097b7fbc59db7f5af309bbe5664b86ac91631fe6d5e691ce7231a7ac5a8e7ff4",
+    "sql/init-manifest.json": "7ca5c4ec7410a1461048e544b79829af81efc85e9d9e4e4a8c256bd65171f86d",
+    "scripts/init-database.ps1": "14f2c61b5c7f79bc44a817d6b5975eb94bd19fc61efa2204f50250094992dce0",
+    "scripts/verify-database-manifest.ps1": "cb68245ea66c07f84b8f87d235a188a99bc04b1ab6098aea507f2c6e1a18c50a",
+    "scripts/verify-independent-board-control-plane.ps1": "7f780c47144adef25e9e31a63782a318bff07bf13978a8d28a2d50b72bf07c8b",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/SkillConsumeCreditLedgerV2MigrationContractTest.java": "8a2ee4dfe1efb40c2bb9fa06e3f4c0ca2a73cff601c6621c79d3f644e4e74b7b",
+    "scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1": "c81f6d728f3cfd0f237832fff0e825cec6bcce98b8dcae5fa5332cfbfb6d9ab6"
+  }
+}

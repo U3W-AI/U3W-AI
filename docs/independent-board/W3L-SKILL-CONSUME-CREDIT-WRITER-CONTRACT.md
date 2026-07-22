@@ -136,7 +136,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\verify-independe
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\verify-database-manifest.ps1
 
 # 042 双 MySQL runner（仅在实现后新增，必须显式允许可销毁数据库）
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\run-independent-board-credit-ledger-mysql-it.ps1 -AllowDestructiveTest
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1 -AllowDestructiveTest -IsolatedWorkRoot C:\u3w-w3l-it
 ```
 
 测试必须覆盖：双开关关闭、042 未就绪、精确/异摘要重放、跨用户/包/技能/主机攻击、余额

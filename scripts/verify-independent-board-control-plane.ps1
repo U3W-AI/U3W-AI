@@ -659,6 +659,73 @@ function Invoke-ContractChecks {
             throw "W3l migration successor does not bind required artifact: $w3lRequiredArtifact"
         }
     }
+    # The original W3l record is immutable.  A later real dual-MySQL run found
+    # its CHECK-metadata hash was not executable on either declared runtime.
+    # Bind the corrected bytes and runner in a dedicated successor instead of
+    # rewriting that historical receipt.
+    $w3lRepairSuccessorPath = 'reports/independent-board/w3l-skill-consume-credit-ledger-v2-mysql-verification-20260723.json'
+    $w3lRepairSuccessorReport = Read-Utf8Json -RelativePath $w3lRepairSuccessorPath.Replace('/', '\')
+    $w3lRepairPredecessorHash = (Get-FileHash -LiteralPath (Join-Path $RepoRoot 'reports\independent-board\w3l-skill-consume-credit-ledger-v2-migration-verification-20260723.json') -Algorithm SHA256).Hash.ToLowerInvariant()
+    $w3lRepairSupersededArtifacts = @(
+        'docs/independent-board/W3L-SKILL-CONSUME-CREDIT-WRITER-CONTRACT.md',
+        'sql/update_20260723_skill_consume_credit_ledger_v2.sql',
+        'sql/init-manifest.json',
+        'scripts/init-database.ps1',
+        'scripts/verify-database-manifest.ps1',
+        'scripts/verify-independent-board-control-plane.ps1',
+        'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/SkillConsumeCreditLedgerV2MigrationContractTest.java'
+    )
+    $w3lRepairRequiredArtifacts = @($w3lRepairSupersededArtifacts) + @(
+        'scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1'
+    )
+    $w3lRepairSourceArtifacts = @($w3lRepairSuccessorReport.sourceSha256.PSObject.Properties | ForEach-Object { [string]$_.Name })
+    if ($w3lRepairSuccessorReport.schemaVersion -ne 1 `
+            -or $w3lRepairSuccessorReport.result -cne 'PASS_LOCAL_DUAL_MYSQL_MIGRATION_SMOKE' `
+            -or $w3lRepairSuccessorReport.candidateReadyForCommit -ne $true `
+            -or $w3lRepairSuccessorReport.releaseReady -ne $false `
+            -or $w3lRepairSuccessorReport.productionChanged -ne $false `
+            -or $w3lRepairSuccessorReport.historicalReceiptMutated -ne $false `
+            -or $w3lRepairSuccessorReport.predecessorReceipt -cne 'reports/independent-board/w3l-skill-consume-credit-ledger-v2-migration-verification-20260723.json' `
+            -or $w3lRepairSuccessorReport.predecessorReceiptSha256 -cne $w3lRepairPredecessorHash `
+            -or $w3lRepairSuccessorReport.frozenSurface.path -cne $w3lFrozenSurfacePath `
+            -or $w3lRepairSuccessorReport.frozenSurface.unchanged -ne $true `
+            -or $w3lRepairSuccessorReport.frozenSurface.observedSha256 -cne $w3lRepairSuccessorReport.frozenSurface.requiredSha256 `
+            -or $w3lRepairSuccessorReport.frozenSurface.observedSha256 -cne $w3lFrozenSurfaceHash `
+            -or $w3lRepairSuccessorReport.correction.previousCheckMetadataDigest -cne '525f785bcfc3e65823498cc1333331c6d48eb5f023803d360f1895b54463d22c' `
+            -or $w3lRepairSuccessorReport.correction.observedCheckMetadataDigest -cne '8e8eea4f21f1a262acc9384015e3be5a73dfd29abb175fa9c4686dfffb33ead8' `
+            -or @($w3lRepairSuccessorReport.mysql.versions).Count -ne 2 `
+            -or @($w3lRepairSuccessorReport.mysql.versions | Where-Object { $_.version -ceq '8.0.30' }).Count -ne 1 `
+            -or @($w3lRepairSuccessorReport.mysql.versions | Where-Object { $_.version -ceq '8.4.8' }).Count -ne 1 `
+            -or @($w3lRepairSuccessorReport.mysql.versions | Where-Object {
+                $_.firstApply -cne '1|1|4|8|4|16|0|0' `
+                    -or $_.boundedReplay -cne '1|1|4|8|4|16|0|0' `
+                    -or $_.canonicalCurrentRead -cne '1|1|4|8' `
+                    -or $_.negativeMatrix.missingPublicReceipt -cne 'PASS:0|0|0|0|3|1' `
+                    -or $_.negativeMatrix.partialTargetState -cne 'PASS:1|0|1|0|3|1' `
+                    -or $_.negativeMatrix.postApplyMetadataDrift -cne 'PASS:1|1|4|8|3|1' `
+                    -or $_.negativeMatrix.postApplyTriggerBodyDrift -cne 'PASS:1|1|4|8|3|1' `
+                    -or $_.productionConnectionUsed -ne $false -or $_.workDirectoryCleaned -ne $true
+            }).Count -ne 0) {
+        throw 'W3l corrected dual-MySQL successor evidence is incomplete or drifted'
+    }
+    if ((Compare-Object -ReferenceObject ($w3lRepairRequiredArtifacts | Sort-Object) -DifferenceObject ($w3lRepairSourceArtifacts | Sort-Object)).Count -ne 0 `
+            -or @($w3lRepairSuccessorReport.predecessorSourceSha256.PSObject.Properties).Count -ne $w3lRepairSupersededArtifacts.Count) {
+        throw 'W3l corrected successor artifact or predecessor-source set drifted'
+    }
+    foreach ($w3lRepairArtifact in $w3lRepairRequiredArtifacts) {
+        $currentPath = Join-Path $RepoRoot $w3lRepairArtifact
+        $currentHash = (Get-FileHash -LiteralPath $currentPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($w3lRepairSuccessorReport.sourceSha256.PSObject.Properties[$w3lRepairArtifact].Value -cne $currentHash) {
+            throw "W3l corrected successor artifact binding drifted: $w3lRepairArtifact"
+        }
+    }
+    foreach ($w3lRepairSupersededArtifact in $w3lRepairSupersededArtifacts) {
+        $predecessorHash = $w3lCreditLedgerReport.sourceSha256.PSObject.Properties[$w3lRepairSupersededArtifact].Value
+        $boundHash = $w3lRepairSuccessorReport.predecessorSourceSha256.PSObject.Properties[$w3lRepairSupersededArtifact].Value
+        if ([string]::IsNullOrWhiteSpace($predecessorHash) -or $boundHash -cne $predecessorHash) {
+            throw "W3l corrected successor predecessor binding drifted: $w3lRepairSupersededArtifact"
+        }
+    }
     if (@($w3lAuthorityOverlaps | Where-Object { $_ -notin $w3lAllowedAuthoritySupersession }).Count -ne 0 `
             -or $w3lAuthorityOverlaps.Count -ne $w3lAllowedAuthoritySupersession.Count `
             -or @($w3lCreditLedgerReport.predecessorSourceSha256.PSObject.Properties).Count -ne $w3lAllowedAuthoritySupersession.Count) {
@@ -676,6 +743,9 @@ function Invoke-ContractChecks {
     }
     foreach ($w3lArtifact in @($w3lCreditLedgerReport.sourceSha256.PSObject.Properties)) {
         $w3lPath = [string]$w3lArtifact.Name
+        if ($w3lPath -in $w3lRepairSupersededArtifacts) {
+            continue
+        }
         $w3lFile = Join-Path $RepoRoot $w3lPath
         if (-not (Test-Path -LiteralPath $w3lFile -PathType Leaf)) {
             throw "W3l migration successor artifact is missing: $w3lPath"
