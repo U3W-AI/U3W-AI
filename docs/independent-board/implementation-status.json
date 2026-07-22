@@ -405,7 +405,16 @@
     ],
     "browser": "not_proven_in_this_environment_without_chrome_devtools_mcp",
     "productionAuthority": false,
-    "nextSlice": "W3f_credit_ledger_candidate_http_activation"
+    "nextSlice": "W3j_credit_candidate_release_readiness_gate"
+  },
+  "w3j": {
+    "state": "local_read_only_credit_candidate_release_readiness_gate_verified",
+    "contract": "docs/independent-board/W3J-CREDIT-CANDIDATE-RELEASE-READINESS-CONTRACT.md",
+    "verificationReport": "reports/independent-board/w3j-credit-candidate-release-readiness-verification-20260722.json",
+    "readBoundary": "canonical_inventory_frozen_hash_exact_checked_out_commit_and_sanitized_receipt_only",
+    "activationBoundary": "ready_for_human_activation_review_only_not_deployed_or_activated",
+    "productionAuthority": false,
+    "nextSlice": "W3j_activation_release_receipt_collection_and_human_approval"
   },
   "ui": {
     "base": "existing_u3w_ai_ruoyi_vue3_element_plus",

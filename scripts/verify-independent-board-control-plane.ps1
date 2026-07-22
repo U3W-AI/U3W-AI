@@ -146,6 +146,8 @@ function Invoke-ContractChecks {
         'docs\independent-board\AUTHORITATIVE-ROOT.md',
         'docs\independent-board\PORTAL-PROTOTYPE-SPEC.md',
         'docs\independent-board\W3B-ENTITLEMENT-LIFECYCLE-CONTRACT.md',
+        'docs\independent-board\W3J-CREDIT-CANDIDATE-RELEASE-READINESS-CONTRACT.md',
+        'docs\independent-board\W3J-CREDIT-CANDIDATE-RELEASE-RECEIPT.example.json',
         'docs\independent-board\W4A-AUTHORITATIVE-CONNECTOR-BINDING-CONTRACT.md',
         'docs\independent-board\W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md',
         'docs\independent-board\W4B-DATABASE-SUPPORT-MATRIX.md',
@@ -225,6 +227,7 @@ function Invoke-ContractChecks {
         'reports\independent-board\w4b2-backend-read-projection-verification-20260721.json',
         'reports\independent-board\w4b2c-default-off-runtime-mount-verification-20260721.json',
         'reports\independent-board\w3g-credit-admin-ui-verification-20260722.json',
+        'reports\independent-board\w3j-credit-candidate-release-readiness-verification-20260722.json',
         'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.json',
         'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.md',
         'work\diagnostics\independent-board-mysql-transaction-it\mysql-8.0.30\summary-mysql-8.0.30-utc-20260721T123307.170Z-local-20260721T203307.170+0800-pid-18500.json',
@@ -361,7 +364,8 @@ function Invoke-ContractChecks {
     # instead bound to the W4b.2c receipt that exercised the runtime mount.
     $canonicalNextSliceId = 'W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract'
     $canonicalW3hSuccessorSliceId = 'W3i_meeting_audit_policy_lineage_and_label_authority'
-    $canonicalW3NextSliceId = 'W3f_credit_ledger_candidate_http_activation'
+    $canonicalW3iSuccessorSliceId = 'W3j_credit_candidate_release_readiness_gate'
+    $canonicalW3NextSliceId = 'W3j_activation_release_receipt_collection_and_human_approval'
     $w4b2cReport = Read-Utf8Json -RelativePath 'reports\independent-board\w4b2c-default-off-runtime-mount-verification-20260721.json'
     Assert-ProductBrand -Product $w4b2cReport.product -Source 'W4b.2c runtime mount verification report'
     if ($w4b2cReport.schema -cne 'fbsir.independent-board.w4b2c-default-off-runtime-mount-verification/v1' `
@@ -500,6 +504,71 @@ function Invoke-ContractChecks {
                 -or $boundSourceHash -cne $currentSharedSourceHash) {
             throw "W3i shared-source evidence succession is incomplete or drifted: $($expectedSharedSource.path)"
         }
+    }
+
+    # W3j is deliberately a read-only release-receipt gate. It does not claim
+    # that a target is deployed; it keeps release activation closed until a
+    # separately captured, exact-target receipt satisfies the verifier.
+    $w3jReadinessReport = Read-Utf8Json -RelativePath 'reports\independent-board\w3j-credit-candidate-release-readiness-verification-20260722.json'
+    $w3jExpectedArtifacts = @(
+        @{ path = 'docs\independent-board\W3J-CREDIT-CANDIDATE-RELEASE-READINESS-CONTRACT.md'; reportName = 'contract'; hash = '67ff86cf7fabc4da95ab8639810cf77235b42c226caad9246590e469eb5e180f' },
+        @{ path = 'docs\independent-board\W3J-CREDIT-CANDIDATE-RELEASE-RECEIPT.example.json'; reportName = 'receiptTemplate'; hash = '3dff4b733fa97bb146d65c800c6930a933b1a74e4a714cf7947e7c470d932c23' },
+        @{ path = 'scripts\verify-independent-board-credit-candidate-release-readiness.ps1'; reportName = 'verifier'; hash = '1426882620f60f9a69d6333874c695942c3fd26d0e624644e47e8161631c0c6c' }
+    )
+    foreach ($expectedW3jArtifact in $w3jExpectedArtifacts) {
+        $actualW3jArtifactHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot $expectedW3jArtifact.path)).Hash.ToLowerInvariant()
+        if ($actualW3jArtifactHash -cne $expectedW3jArtifact.hash `
+                -or $w3jReadinessReport.artifacts.$($expectedW3jArtifact.reportName).path -cne $expectedW3jArtifact.path.Replace('\', '/') `
+                -or $w3jReadinessReport.artifacts.$($expectedW3jArtifact.reportName).sha256 -cne $actualW3jArtifactHash) {
+            throw "W3j release-readiness artifact binding drifted: $($expectedW3jArtifact.path)"
+        }
+    }
+    if ($w3jReadinessReport.schemaVersion -ne 1 `
+            -or $w3jReadinessReport.result -cne 'PASS_LOCAL_PREPRODUCTION_RELEASE_READINESS_GATE' `
+            -or $w3jReadinessReport.candidateReadyForCommit -ne $true `
+            -or $w3jReadinessReport.releaseReady -ne $false `
+            -or $w3jReadinessReport.productionChanged -ne $false `
+            -or $w3jReadinessReport.candidateActivationPerformed -ne $false `
+            -or $w3jReadinessReport.repository.implementationCommit -cne '7cad96df5f41fe61da17f2659dee27e8d72489c0' `
+            -or $w3jReadinessReport.repository.listedPackageWriteback -ne $false `
+            -or $w3jReadinessReport.frozenSurface.unchanged -ne $true `
+            -or $w3jReadinessReport.frozenSurface.observedSha256 -cne $w3jReadinessReport.frozenSurface.requiredSha256 `
+            -or $w3jReadinessReport.artifacts.receiptTemplate.isActivationEvidence -ne $false `
+            -or $w3jReadinessReport.gate.executionClass -cne 'local_read_only_preflight' `
+            -or $w3jReadinessReport.gate.canonicalDomainInventory -cne 'config/deployment/u3w-domain-inventory.json' `
+            -or $w3jReadinessReport.gate.successMeaning -cne 'readyForHumanActivationReview_only_not_deployed_or_activated' `
+            -or $w3jReadinessReport.verification.powershell51Parser -cne 'PASS' `
+            -or $w3jReadinessReport.verification.selfTest.state -cne 'PASS' `
+            -or $w3jReadinessReport.verification.normalModeDirtyWorktree -cne 'PASS_FAIL_CLOSED' `
+            -or $w3jReadinessReport.verification.independentReview.finalP0 -ne 0 `
+            -or $w3jReadinessReport.verification.independentReview.finalP1 -ne 0 `
+            -or $w3jReadinessReport.evidenceBoundary.productionTargetVersionBound -ne $false `
+            -or $w3jReadinessReport.evidenceBoundary.productionDatabaseMigrated -ne $false `
+            -or $w3jReadinessReport.evidenceBoundary.productionCandidateFlagEnabled -ne $false `
+            -or $w3jReadinessReport.nextSlice.id -cne $canonicalW3NextSliceId) {
+        throw 'W3j release-readiness receipt drifted or exceeds its evidence boundary'
+    }
+    $expectedW3jNegativeVectors = @(
+        'unknown_top_level', 'wrong_backend_host', 'missing_database_proof', 'rollback_not_proven', 'duplicate_json_key', 'non_head_expected_commit'
+    )
+    if ((Compare-Object -ReferenceObject $expectedW3jNegativeVectors -DifferenceObject @($w3jReadinessReport.verification.selfTest.negativeVectors)).Count -ne 0) {
+        throw 'W3j release-readiness negative vector set drifted'
+    }
+    $windowsPowerShell = Get-Command powershell.exe -ErrorAction SilentlyContinue
+    if ($null -eq $windowsPowerShell) {
+        throw 'W3j release-readiness self-test requires Windows PowerShell 5.1'
+    }
+    $w3jSelfTestOutput = & $windowsPowerShell.Source -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\verify-independent-board-credit-candidate-release-readiness.ps1') -SelfTest
+    if ($LASTEXITCODE -ne 0) {
+        throw 'W3j release-readiness self-test failed'
+    }
+    $w3jSelfTest = (($w3jSelfTestOutput -join "`n") | ConvertFrom-Json)
+    if ($w3jSelfTest.schema -cne 'fbsir.independent-board.credit-candidate-release-readiness-self-test/v1' `
+            -or $w3jSelfTest.ok -ne $true `
+            -or $w3jSelfTest.positive -cne 'PASS' `
+            -or $w3jSelfTest.productionChanged -ne $false `
+            -or (Compare-Object -ReferenceObject $expectedW3jNegativeVectors -DifferenceObject @($w3jSelfTest.negativeVectors)).Count -ne 0) {
+        throw 'W3j release-readiness self-test receipt drifted'
     }
 
     $w4b2cSourcePaths = @{
@@ -667,10 +736,15 @@ function Invoke-ContractChecks {
             -or $implementationStatus.w3h.nextSlice -cne $canonicalW3hSuccessorSliceId `
             -or $implementationStatus.w3i.state -cne 'local_default_off_meeting_audit_policy_lineage_verified' `
             -or $implementationStatus.w3i.verificationReport -cne 'reports/independent-board/w3i-meeting-audit-policy-lineage-verification-20260723.json' `
-            -or $implementationStatus.w3i.nextSlice -cne $canonicalW3NextSliceId `
+            -or $implementationStatus.w3i.nextSlice -cne $canonicalW3iSuccessorSliceId `
             -or $implementationStatus.w3i.productionAuthority -ne $false `
+            -or $implementationStatus.w3j.state -cne 'local_read_only_credit_candidate_release_readiness_gate_verified' `
+            -or $implementationStatus.w3j.verificationReport -cne 'reports/independent-board/w3j-credit-candidate-release-readiness-verification-20260722.json' `
+            -or $implementationStatus.w3j.activationBoundary -cne 'ready_for_human_activation_review_only_not_deployed_or_activated' `
+            -or $implementationStatus.w3j.productionAuthority -ne $false `
+            -or $implementationStatus.w3j.nextSlice -cne $canonicalW3NextSliceId `
             -or $w3Wave.Count -ne 1 `
-            -or $w3Wave[0].state -cne 'w3h_plan_policy_admin_governance_and_w3i_meeting_audit_lineage_verified_local_default_off' `
+            -or $w3Wave[0].state -cne 'w3h_plan_policy_w3i_meeting_audit_and_w3j_credit_activation_readiness_verified_local_default_off' `
             -or $w3Wave[0].activeSlice -cne $canonicalW3NextSliceId `
             -or $implementationStatus.w4b.runtimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or $implementationStatus.w4b.api2TrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `
@@ -679,13 +753,14 @@ function Invoke-ContractChecks {
             -or $w4Wave[0].state -cne 'w4a_verified_local_w4b1_internal_oauth_chain_verified_w4b2_default_off_runtime_candidate_verified_local' `
             -or $w4Wave[0].activeSlice -cne $canonicalNextSliceId `
             -or $w4Wave[0].nextSlice.id -cne $canonicalNextSliceId) {
-        throw 'W3h/W3i or W4b.2c status and taskboard traceability drifted'
+        throw 'W3h/W3i/W3j or W4b.2c status and taskboard traceability drifted'
     }
 
     $engineeringContract = Read-Utf8Json -RelativePath '.fbs-engineering\contract.json'
     $contractW4b = $engineeringContract.contracts.uiPrototypeGate.w4bImplementation
     $contractW3h = $engineeringContract.contracts.uiPrototypeGate.w3hImplementation
     $contractW3i = $engineeringContract.contracts.uiPrototypeGate.w3iImplementation
+    $contractW3j = $engineeringContract.contracts.uiPrototypeGate.w3jImplementation
     if ($engineeringContract.artifacts.w3hPlanPolicyContract -cne 'docs/independent-board/W3H-PLAN-POLICY-REVISION-CONTRACT.md' `
             -or $engineeringContract.artifacts.w3hPlanPolicyMigration -cne 'sql/update_20260722_independent_board_plan_policy.sql' `
             -or $engineeringContract.artifacts.w3hPlanPolicyGovernanceVerificationReport -cne 'reports/independent-board/w3h-plan-policy-governance-verification-20260722.json' `
@@ -695,8 +770,14 @@ function Invoke-ContractChecks {
             -or $engineeringContract.artifacts.w3iMeetingAuditPolicyLineageContract -cne 'docs/independent-board/W3I-MEETING-AUDIT-POLICY-LINEAGE-CONTRACT.md' `
             -or $engineeringContract.artifacts.w3iMeetingAuditPolicyLineageVerificationReport -cne 'reports/independent-board/w3i-meeting-audit-policy-lineage-verification-20260723.json' `
             -or $contractW3i.state -cne 'local_default_off_meeting_audit_policy_lineage_verified' `
-            -or $contractW3i.nextSlice -cne $canonicalW3NextSliceId `
+            -or $contractW3i.nextSlice -cne $canonicalW3iSuccessorSliceId `
             -or $contractW3i.productionAuthority -ne $false `
+            -or $engineeringContract.artifacts.w3jCreditCandidateReleaseReadinessContract -cne 'docs/independent-board/W3J-CREDIT-CANDIDATE-RELEASE-READINESS-CONTRACT.md' `
+            -or $engineeringContract.artifacts.w3jCreditCandidateReleaseReadinessVerificationReport -cne 'reports/independent-board/w3j-credit-candidate-release-readiness-verification-20260722.json' `
+            -or $contractW3j.state -cne 'local_read_only_credit_candidate_release_readiness_gate_verified' `
+            -or $contractW3j.activationBoundary -cne 'ready_for_human_activation_review_only_not_deployed_or_activated' `
+            -or $contractW3j.nextSlice -cne $canonicalW3NextSliceId `
+            -or $contractW3j.productionAuthority -ne $false `
             -or $engineeringContract.artifacts.w4b2cRuntimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or $engineeringContract.artifacts.w4b2cRuntimeAndAttributionAdr -cne 'docs/decisions/ADR-002-independent-board-w4b2c-runtime-mount-and-attribution-boundary.md' `
             -or $engineeringContract.artifacts.api2IndependentBoardTrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `
@@ -706,7 +787,7 @@ function Invoke-ContractChecks {
             -or $contractW4b.detailedUiPrototype.implementationState -cne 'default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions' `
             -or $contractW4b.detailedUiPrototype.runtimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or -not (@($engineeringContract.contracts.postListingObservationGate.noCrossLayerInference) -contains 'zero_attributable_target_signal_to_zero_actual_usage')) {
-        throw 'FBS engineering contract drifted from the W3h/W3i or W4b.2c evidence boundary'
+        throw 'FBS engineering contract drifted from the W3h/W3i/W3j or W4b.2c evidence boundary'
     }
 
     $w4bContract = Get-Content -LiteralPath (Join-Path $RepoRoot 'docs\independent-board\W4B-OAUTH-MCP-AUTHORIZATION-CONTRACT.md') -Raw -Encoding UTF8

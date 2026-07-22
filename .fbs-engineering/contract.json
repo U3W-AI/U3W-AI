@@ -145,6 +145,8 @@
     "w3hPlanPolicyGovernanceVerificationReport": "reports/independent-board/w3h-plan-policy-governance-verification-20260722.json",
     "w3iMeetingAuditPolicyLineageContract": "docs/independent-board/W3I-MEETING-AUDIT-POLICY-LINEAGE-CONTRACT.md",
     "w3iMeetingAuditPolicyLineageVerificationReport": "reports/independent-board/w3i-meeting-audit-policy-lineage-verification-20260723.json",
+    "w3jCreditCandidateReleaseReadinessContract": "docs/independent-board/W3J-CREDIT-CANDIDATE-RELEASE-READINESS-CONTRACT.md",
+    "w3jCreditCandidateReleaseReadinessVerificationReport": "reports/independent-board/w3j-credit-candidate-release-readiness-verification-20260722.json",
     "postListingHostTruthReport": "reports/independent-board/host-truth-chain-summary-20260721.json",
     "verificationReports": "reports/independent-board/*.json"
   },
@@ -420,7 +422,16 @@
         "readBoundary": "operation_bound_immutable_policy_receipt_only_no_current_head_entitlement_or_membership_read",
         "authorization": "global_admin_role_plus_board_operation_audit",
         "productionAuthority": false,
-        "nextSlice": "W3f_credit_ledger_candidate_http_activation"
+        "nextSlice": "W3j_credit_candidate_release_readiness_gate"
+      },
+      "w3jImplementation": {
+        "state": "local_read_only_credit_candidate_release_readiness_gate_verified",
+        "contract": "docs/independent-board/W3J-CREDIT-CANDIDATE-RELEASE-READINESS-CONTRACT.md",
+        "verificationReport": "reports/independent-board/w3j-credit-candidate-release-readiness-verification-20260722.json",
+        "releaseReceipt": "strict_json_canonical_inventory_digest_exact_checked_out_head_and_frozen_package_hash",
+        "activationBoundary": "ready_for_human_activation_review_only_not_deployed_or_activated",
+        "productionAuthority": false,
+        "nextSlice": "W3j_activation_release_receipt_collection_and_human_approval"
       },
       "w4aImplementation": {
         "state": "local_source_and_mysql_verified",

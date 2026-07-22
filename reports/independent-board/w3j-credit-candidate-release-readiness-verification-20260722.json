@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "product": "U3W Independent Board",
+  "slice": "W3j_credit_candidate_release_readiness_gate",
+  "result": "PASS_LOCAL_PREPRODUCTION_RELEASE_READINESS_GATE",
+  "candidateReadyForCommit": true,
+  "releaseReady": false,
+  "productionChanged": false,
+  "candidateActivationPerformed": false,
+  "repository": {
+    "implementationCommit": "7cad96df5f41fe61da17f2659dee27e8d72489c0",
+    "listedPackageWriteback": false,
+    "worktreeRequired": "clean_and_checked_out_at_exact_receipt_source_commit"
+  },
+  "frozenSurface": {
+    "path": "D:\\Spg719\\fbsir-eight-seat-board-26.7.20.zip",
+    "requiredSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "observedSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "unchanged": true
+  },
+  "artifacts": {
+    "contract": {
+      "path": "docs/independent-board/W3J-CREDIT-CANDIDATE-RELEASE-READINESS-CONTRACT.md",
+      "sha256": "67ff86cf7fabc4da95ab8639810cf77235b42c226caad9246590e469eb5e180f"
+    },
+    "receiptTemplate": {
+      "path": "docs/independent-board/W3J-CREDIT-CANDIDATE-RELEASE-RECEIPT.example.json",
+      "sha256": "3dff4b733fa97bb146d65c800c6930a933b1a74e4a714cf7947e7c470d932c23",
+      "isActivationEvidence": false
+    },
+    "verifier": {
+      "path": "scripts/verify-independent-board-credit-candidate-release-readiness.ps1",
+      "sha256": "1426882620f60f9a69d6333874c695942c3fd26d0e624644e47e8161631c0c6c",
+      "schema": "fbsir.independent-board.credit-candidate-release-readiness/v1"
+    }
+  },
+  "gate": {
+    "executionClass": "local_read_only_preflight",
+    "canonicalDomainInventory": "config/deployment/u3w-domain-inventory.json",
+    "receiptBinding": [
+      "exact_checked_out_git_commit",
+      "frozen_package_sha256",
+      "canonical_domain_inventory_sha256",
+      "backend_and_frontend_build_sha256",
+      "public_init_038_first_apply_replay_current_read_zero_drift",
+      "menu_role_flag_readback",
+      "jwt_401_403_200_409_legacy_410_rollback_404",
+      "flag_menu_role_rollback_readiness"
+    ],
+    "forbiddenOperations": [
+      "database_connection_or_write",
+      "service_flag_change",
+      "menu_or_role_change",
+      "http_mutation_or_deploy",
+      "artifact_upload",
+      "frozen_package_write"
+    ],
+    "successMeaning": "readyForHumanActivationReview_only_not_deployed_or_activated"
+  },
+  "verification": {
+    "powershell51Parser": "PASS",
+    "selfTest": {
+      "state": "PASS",
+      "positive": "PASS",
+      "negativeVectors": [
+        "unknown_top_level",
+        "wrong_backend_host",
+        "missing_database_proof",
+        "rollback_not_proven",
+        "duplicate_json_key",
+        "non_head_expected_commit"
+      ],
+      "productionChanged": false
+    },
+    "normalModeDirtyWorktree": "PASS_FAIL_CLOSED",
+    "gitDiffCheck": "PASS",
+    "secretValueScan": "PASS",
+    "independentReview": {
+      "initialFindings": [
+        "duplicate_json_key_accepted_by_powershell_convertfrom_json",
+        "expected_commit_not_bound_to_checked_out_head",
+        "domain_inventory_path_replaceable",
+        "absolute_receipt_path_in_success_output",
+        "powershell_automatic_variable_name_collision"
+      ],
+      "remediation": "all_p1_findings_fixed_fail_closed_and_p2_output_hardening_applied",
+      "finalP0": 0,
+      "finalP1": 0
+    }
+  },
+  "evidenceBoundary": {
+    "syntheticReceiptOnly": true,
+    "productionTargetVersionBound": false,
+    "productionDatabaseMigrated": false,
+    "productionAdminPortalDeployed": false,
+    "productionCandidateFlagEnabled": false,
+    "realJwtReadbackCaptured": false,
+    "legacyInternalCreditWritersMigrated": false,
+    "realBrowserDevtoolsVerified": false
+  },
+  "nextSlice": {
+    "id": "W3j_activation_release_receipt_collection_and_human_approval",
+    "state": "held_closed_pending_external_target_evidence",
+    "requiredBeforeAnyActivation": [
+      "exact_target_release_commit_and_build_digest_binding",
+      "public_init_038_first_apply_replay_current_read_and_zero_drift_receipt",
+      "minimum_admin_role_menu_and_default_off_flag_readback",
+      "real_jwt_matrix_and_rollback_404_receipt",
+      "manual_human_activation_review"
+    ]
+  }
+}
