@@ -494,16 +494,61 @@ function Invoke-ContractChecks {
         $lineageReceipts = @($w3iLineageReport.sharedEvidenceSuccession.sources | Where-Object {
                 $_.sharedSource -ceq $expectedSharedSource.path
             })
-        $currentSharedSourceHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot $expectedSharedSource.path)).Hash.ToLowerInvariant()
         $boundSourceHash = $w3iLineageReport.sourceSha256.PSObject.Properties[$expectedSharedSource.path].Value
         if ($lineageReceipts.Count -ne 1 `
                 -or $lineageReceipts[0].predecessorSourceSha256 -cne $expectedSharedSource.predecessor `
-                -or $lineageReceipts[0].successorSourceSha256 -cne $currentSharedSourceHash `
+                -or $lineageReceipts[0].successorSourceSha256 -cne $boundSourceHash `
                 -or [string]::IsNullOrWhiteSpace($lineageReceipts[0].predecessorRegressionVerifier) `
                 -or $lineageReceipts[0].predecessorRegressionState -cne 'PASS' `
-                -or $boundSourceHash -cne $currentSharedSourceHash) {
+                -or [string]::IsNullOrWhiteSpace($boundSourceHash)) {
             throw "W3i shared-source evidence succession is incomplete or drifted: $($expectedSharedSource.path)"
         }
+    }
+
+    # W3k is the successor receipt for the shared dual-MySQL runner changed
+    # after W3i.  Do not rewrite W3i's historical receipt: bind its old byte
+    # to W3k's explicit predecessor and validate the new source separately.
+    $w3kMonotonicReport = Read-Utf8Json -RelativePath 'reports\independent-board\w3k-plan-policy-monotonic-chain-verification-20260723.json'
+    if ($w3kMonotonicReport.schemaVersion -ne 1 `
+            -or $w3kMonotonicReport.result -cne 'PASS_LOCAL_CANDIDATE' `
+            -or $w3kMonotonicReport.candidateReadyForCommit -ne $true `
+            -or $w3kMonotonicReport.releaseReady -ne $false `
+            -or $w3kMonotonicReport.productionChanged -ne $false `
+            -or $w3kMonotonicReport.predecessorReceipt -cne 'reports/independent-board/w3i-meeting-audit-policy-lineage-verification-20260723.json' `
+            -or $w3kMonotonicReport.historicalReceiptMutated -ne $false `
+            -or $w3kMonotonicReport.frozenSurface.unchanged -ne $true `
+            -or $w3kMonotonicReport.frozenSurface.observedSha256 -cne $w3kMonotonicReport.frozenSurface.requiredSha256) {
+        throw 'W3k plan-policy monotonic-chain report boundary is incomplete or drifted'
+    }
+    $w3kExpectedArtifacts = @(
+        'docs/decisions/ADR-005-independent-board-plan-policy-database-monotonic-chain.md',
+        'docs/independent-board/W3K-PLAN-POLICY-MONOTONIC-CHAIN-CONTRACT.md',
+        'docs/independent-board/taskboard.json',
+        'docs/independent-board/implementation-status.json',
+        '.fbs-engineering/contract.json',
+        'sql/update_20260723_independent_board_plan_policy_monotonic_chain.sql',
+        'sql/init-manifest.json',
+        'scripts/init-database.ps1',
+        'scripts/verify-database-manifest.ps1',
+        'scripts/run-independent-board-plan-policy-mysql-it.ps1'
+    )
+    foreach ($w3kExpectedArtifact in $w3kExpectedArtifacts) {
+        $currentW3kArtifactHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot $w3kExpectedArtifact)).Hash.ToLowerInvariant()
+        $boundW3kArtifactHash = $w3kMonotonicReport.sourceSha256.PSObject.Properties[$w3kExpectedArtifact].Value
+        if ($boundW3kArtifactHash -cne $currentW3kArtifactHash) {
+            throw "W3k artifact binding drifted: $w3kExpectedArtifact"
+        }
+    }
+    $w3kRunnerSuccession = @($w3kMonotonicReport.sharedEvidenceSuccession.sources | Where-Object {
+            $_.sharedSource -ceq 'scripts/run-independent-board-plan-policy-mysql-it.ps1'
+        })
+    $currentW3kRunnerHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot 'scripts/run-independent-board-plan-policy-mysql-it.ps1')).Hash.ToLowerInvariant()
+    if ($w3kRunnerSuccession.Count -ne 1 `
+            -or $w3kRunnerSuccession[0].predecessorSourceSha256 -cne '906defb4f9e35e28003b6d22c09151cd374b636824a1b6648c99aaf4981f161b' `
+            -or $w3kRunnerSuccession[0].successorSourceSha256 -cne $currentW3kRunnerHash `
+            -or $w3kRunnerSuccession[0].predecessorRegressionState -cne 'PASS' `
+            -or [string]::IsNullOrWhiteSpace($w3kRunnerSuccession[0].predecessorRegressionVerifier)) {
+        throw 'W3k shared dual-MySQL runner evidence succession is incomplete or drifted'
     }
 
     # W3j is deliberately a read-only release-receipt gate. It does not claim
@@ -743,8 +788,15 @@ function Invoke-ContractChecks {
             -or $implementationStatus.w3j.activationBoundary -cne 'ready_for_human_activation_review_only_not_deployed_or_activated' `
             -or $implementationStatus.w3j.productionAuthority -ne $false `
             -or $implementationStatus.w3j.nextSlice -cne $canonicalW3NextSliceId `
+            -or $implementationStatus.w3k.state -cne 'local_default_off_plan_policy_database_monotonic_chain_verified' `
+            -or $implementationStatus.w3k.contract -cne 'docs/independent-board/W3K-PLAN-POLICY-MONOTONIC-CHAIN-CONTRACT.md' `
+            -or $implementationStatus.w3k.adr -cne 'docs/decisions/ADR-005-independent-board-plan-policy-database-monotonic-chain.md' `
+            -or $implementationStatus.w3k.verificationReport -cne 'reports/independent-board/w3k-plan-policy-monotonic-chain-verification-20260723.json' `
+            -or $implementationStatus.w3k.databaseMigration -cne 'public_init_040_manifested_not_applied_to_production' `
+            -or $implementationStatus.w3k.productionAuthority -ne $false `
+            -or $implementationStatus.w3k.nextSlice -cne $canonicalW3NextSliceId `
             -or $w3Wave.Count -ne 1 `
-            -or $w3Wave[0].state -cne 'w3h_plan_policy_w3i_meeting_audit_and_w3j_credit_activation_readiness_verified_local_default_off' `
+            -or $w3Wave[0].state -cne 'w3h_plan_policy_w3i_meeting_audit_w3j_credit_activation_readiness_and_w3k_database_monotonic_chain_verified_local_default_off' `
             -or $w3Wave[0].activeSlice -cne $canonicalW3NextSliceId `
             -or $implementationStatus.w4b.runtimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or $implementationStatus.w4b.api2TrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `
@@ -761,6 +813,7 @@ function Invoke-ContractChecks {
     $contractW3h = $engineeringContract.contracts.uiPrototypeGate.w3hImplementation
     $contractW3i = $engineeringContract.contracts.uiPrototypeGate.w3iImplementation
     $contractW3j = $engineeringContract.contracts.uiPrototypeGate.w3jImplementation
+    $contractW3k = $engineeringContract.contracts.uiPrototypeGate.w3kImplementation
     if ($engineeringContract.artifacts.w3hPlanPolicyContract -cne 'docs/independent-board/W3H-PLAN-POLICY-REVISION-CONTRACT.md' `
             -or $engineeringContract.artifacts.w3hPlanPolicyMigration -cne 'sql/update_20260722_independent_board_plan_policy.sql' `
             -or $engineeringContract.artifacts.w3hPlanPolicyGovernanceVerificationReport -cne 'reports/independent-board/w3h-plan-policy-governance-verification-20260722.json' `
@@ -778,6 +831,14 @@ function Invoke-ContractChecks {
             -or $contractW3j.activationBoundary -cne 'ready_for_human_activation_review_only_not_deployed_or_activated' `
             -or $contractW3j.nextSlice -cne $canonicalW3NextSliceId `
             -or $contractW3j.productionAuthority -ne $false `
+            -or $engineeringContract.artifacts.w3kPlanPolicyMonotonicChainContract -cne 'docs/independent-board/W3K-PLAN-POLICY-MONOTONIC-CHAIN-CONTRACT.md' `
+            -or $engineeringContract.artifacts.w3kPlanPolicyMonotonicChainAdr -cne 'docs/decisions/ADR-005-independent-board-plan-policy-database-monotonic-chain.md' `
+            -or $engineeringContract.artifacts.w3kPlanPolicyMonotonicChainMigration -cne 'sql/update_20260723_independent_board_plan_policy_monotonic_chain.sql' `
+            -or $engineeringContract.artifacts.w3kPlanPolicyMonotonicChainVerificationReport -cne 'reports/independent-board/w3k-plan-policy-monotonic-chain-verification-20260723.json' `
+            -or $contractW3k.state -cne 'local_default_off_plan_policy_database_monotonic_chain_verified' `
+            -or $contractW3k.migration -cne 'public_init_040_manifested_not_applied_to_production' `
+            -or $contractW3k.productionAuthority -ne $false `
+            -or $contractW3k.nextSlice -cne $canonicalW3NextSliceId `
             -or $engineeringContract.artifacts.w4b2cRuntimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or $engineeringContract.artifacts.w4b2cRuntimeAndAttributionAdr -cne 'docs/decisions/ADR-002-independent-board-w4b2c-runtime-mount-and-attribution-boundary.md' `
             -or $engineeringContract.artifacts.api2IndependentBoardTrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `

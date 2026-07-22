@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "result": "PASS_LOCAL_CANDIDATE",
+  "generatedAt": "2026-07-23T03:02:49+08:00",
+  "candidateReadyForCommit": true,
+  "releaseReady": false,
+  "productionChanged": false,
+  "predecessorReceipt": "reports/independent-board/w3i-meeting-audit-policy-lineage-verification-20260723.json",
+  "historicalReceiptMutated": false,
+  "scope": {
+    "publicManifestStep": "public_init_040",
+    "internalMigrationVersion": "20260723_independent_board_plan_policy_monotonic_chain_v1",
+    "migrationClass": "additive_trigger_only_successor",
+    "frozenPackageModified": false,
+    "productionConnectionUsed": false,
+    "productionMigrationApplied": false,
+    "productionActivationPerformed": false
+  },
+  "frozenSurface": {
+    "path": "D:/Spg719/fbsir-eight-seat-board-26.7.20.zip",
+    "requiredSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "observedSha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+    "unchanged": true
+  },
+  "sharedEvidenceSuccession": {
+    "sources": [
+      {
+        "sharedSource": "scripts/run-independent-board-plan-policy-mysql-it.ps1",
+        "predecessorSourceSha256": "906defb4f9e35e28003b6d22c09151cd374b636824a1b6648c99aaf4981f161b",
+        "successorSourceSha256": "c07cb4892490906d643d9cc27545f329659b0eab3b191d36c7920a6d4161201f",
+        "predecessorRegressionVerifier": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-plan-policy-mysql-it.ps1 -AllowDestructiveTest",
+        "predecessorRegressionState": "PASS"
+      }
+    ]
+  },
+  "redGreen": {
+    "red": {
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-plan-policy-mysql-it.ps1 -AllowDestructiveTest -Versions 8.0.30",
+      "expectedFailure": "Required Independent Board migration SQL is missing.",
+      "meaning": "The W3k dual-MySQL runner required public_init_040 before its successor SQL existed."
+    },
+    "recoveredImplementationFailure": {
+      "failure": "MySQL ERROR 1059: initial procedure identifier exceeded the 64-character limit.",
+      "rootCause": "The descriptive W3k stored-procedure name exceeded MySQL's identifier limit before any target business data change.",
+      "fix": "Shortened the procedures to u3w_migrate_ib_plan_policy_monotonic_20260723 and u3w_finalize_ib_plan_policy_monotonic_20260723, then reran the full matrix."
+    },
+    "recoveredTestFixtureFailure": {
+      "failure": "A predecessor-drift fixture used a BEGIN/END trigger body through mysql --execute and MySQL rejected the client-side statement split.",
+      "rootCause": "The fixture transport, not public_init_040, required a single SQL statement.",
+      "fix": "Used an equivalent single-statement SIGNAL trigger and reran both exact MySQL profiles."
+    },
+    "green": {
+      "databaseManifest": {
+        "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verify-database-manifest.ps1 -Root . -Json",
+        "result": "PASS",
+        "manifestStepCount": 40,
+        "managedUpdateSqlCount": 40,
+        "dryRunDatabaseIsolation": true
+      },
+      "initializerDryRun": {
+        "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/init-database.ps1 -DryRun -ManifestJson",
+        "result": "PASS",
+        "manifestStepCount": 40,
+        "databaseConnectionOpened": false
+      },
+      "dualMySql": {
+        "commands": [
+          "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-plan-policy-mysql-it.ps1 -AllowDestructiveTest -Versions 8.0.30",
+          "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-plan-policy-mysql-it.ps1 -AllowDestructiveTest -Versions 8.4.8"
+        ],
+        "profiles": ["8.0.30", "8.4.8"],
+        "firstApply039": "2|2|2|7|1",
+        "completed039ReplayPreserved": "plan-policy-board-vip-v2-it|2|3|2",
+        "monotonic040FirstApplyAndReplay": "11|1|1|1|1|1",
+        "recoverableTriggerPrefixes": [8, 9, 10],
+        "initializerRecoverableTriggerPrefixes": [8, 9, 10],
+        "predecessorTriggerDrift": "039 exact seven-trigger body contract rejected",
+        "directDmlNegativeVectorsPerProfile": 10,
+        "directSuccessorAdvance": "plan-policy-monotonic-valid-v3|3",
+        "historicalOperationLineage": "w3h-historical-vip|plan-policy-baseline-board-vip-v1|1|1|3|Independent Board VIP",
+        "initializerMonotonicCurrentReadOnly": true,
+        "triggerBodySha256": {
+          "receiptGuardInsert": "800164bb628bf25e15b736152d0879f862ca174eadd470d46ac368c817fa5c5e",
+          "headGuardUpdate": "e80f9ee7c66392747f96a911ca5ae9cbe090dfcbbf58e67e6ad2b3947f49efb3",
+          "headNoInsert": "3781ce8eff52c52614c2876b8e8a4a63501b29f1cfcf6c363dc9199df5e6e9ae",
+          "headNoDelete": "8f0befc9a585fa853465adcea60a0e98457ca64f873d611e75536bc7c17d184f"
+        },
+        "serviceConcurrency": {
+          "testsPerProfile": 6,
+          "iterationsPerScenario": 20,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "scenarios": [
+            "same key same payload exact replay",
+            "same key different payload idempotency conflict",
+            "different keys same expected version one winner no orphan",
+            "receipt INSERT followed by forced head CAS rollback",
+            "FREE and VIP concurrent revisions preserve invariant",
+            "meeting reads all-old or all-new and historical lineage ignores receipt-row lock"
+          ],
+          "durationSeconds": {
+            "8.0.30": 13.147,
+            "8.4.8": 13.529
+          }
+        },
+        "workDirectoryCleaned": true
+      },
+      "frozenPackage": {
+        "sha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd",
+        "result": "UNCHANGED"
+      }
+    }
+  },
+  "securityBoundary": {
+    "closedBy040": [
+      "direct receipt INSERT must be exactly current head plus one with matching predecessor receipt and digest",
+      "direct head UPDATE cannot jump, roll back, repoint or mutate product, plan or creation identity",
+      "direct head INSERT and DELETE fail closed after the 039 baseline"
+    ],
+    "notProven": [
+      "A database principal with DDL or direct table-write privileges could remove guards or construct a syntactically valid successor and intentionally leave an orphan receipt.",
+      "Production writer privilege revocation, SQL SECURITY DEFINER controlled procedure, target migration receipt, rollback evidence and human activation approval remain required.",
+      "Local loopback results do not prove production deployment, domain availability or natural business traffic."
+    ]
+  },
+  "sourceSha256": {
+    "docs/decisions/ADR-005-independent-board-plan-policy-database-monotonic-chain.md": "135d3e8c9e9d98c39a6dfc75e1c8ee434db1944994b30819a54b47f81afa8317",
+    "docs/independent-board/W3K-PLAN-POLICY-MONOTONIC-CHAIN-CONTRACT.md": "99ca0233e2a80cc501a2c9a5209ce196bb5000abdf308f45cfb785ff74e8e429",
+    "docs/independent-board/taskboard.json": "6c73b325566368da833713a54dacef4382b12846e12b764b5ebc9ced5632154c",
+    "docs/independent-board/implementation-status.json": "b299dc306a61dbd28b2646133525132c4c72cf76a870dcff8c36839c73f67d6f",
+    ".fbs-engineering/contract.json": "118444e46c631a65d794548a940fbf78287c56d64137bb1a09a09ae8589c3b1a",
+    "sql/update_20260723_independent_board_plan_policy_monotonic_chain.sql": "a5d79ab2e33a390528cd12fa0705d3d3f991e93dca79d43f2fffdf0700d903b3",
+    "sql/init-manifest.json": "058c0dd8b25959a036b5f7e9c033a77dfdcbd9b7cf6aba64fef8b6b68ad9b434",
+    "scripts/init-database.ps1": "6b22db3fc698570c63f25221cc568bd268578aec1d5b903b78738949f2a0d431",
+    "scripts/verify-database-manifest.ps1": "eef300fd2cb1eb1408922cd918cb6f19901eb5b2a45d6f759441b884de732a25",
+    "scripts/run-independent-board-plan-policy-mysql-it.ps1": "c07cb4892490906d643d9cc27545f329659b0eab3b191d36c7920a6d4161201f"
+  }
+}

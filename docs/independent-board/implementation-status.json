@@ -416,6 +416,21 @@
     "productionAuthority": false,
     "nextSlice": "W3j_activation_release_receipt_collection_and_human_approval"
   },
+  "w3k": {
+    "state": "local_default_off_plan_policy_database_monotonic_chain_verified",
+    "contract": "docs/independent-board/W3K-PLAN-POLICY-MONOTONIC-CHAIN-CONTRACT.md",
+    "adr": "docs/decisions/ADR-005-independent-board-plan-policy-database-monotonic-chain.md",
+    "verificationReport": "reports/independent-board/w3k-plan-policy-monotonic-chain-verification-20260723.json",
+    "databaseMigration": "public_init_040_manifested_not_applied_to_production",
+    "databaseGuards": "exact_head_plus_one_receipt_predecessor_digest_head_forward_only_and_head_insert_delete_closed",
+    "verifiedMysql": [
+      "MySQL Community 8.0.30",
+      "MySQL Community 8.4.8"
+    ],
+    "productionAuthority": false,
+    "remainingBoundary": "direct_database_writer_privilege_containment_and_controlled_procedure_required_before_production_activation",
+    "nextSlice": "W3j_activation_release_receipt_collection_and_human_approval"
+  },
   "ui": {
     "base": "existing_u3w_ai_ruoyi_vue3_element_plus",
     "state": "w4b2_default_off_runtime_candidate_verified_local_not_deployed",

@@ -2235,6 +2235,113 @@ if (-not $planPolicyOrderingValid) {
     $errors.Add('Independent Board plan-policy migration order must be lock, three-table DDL, guarded seed/backfill, audits, finalizer, trigger creation and locked receipt finalization')
 }
 
+$planPolicyMonotonicChainSqlPath = Join-Path $sqlRoot 'update_20260723_independent_board_plan_policy_monotonic_chain.sql'
+$planPolicyMonotonicChainManifestSteps = @($declarativeManifest.steps | Where-Object {
+    [string]$_.version -eq 'public_init_040'
+})
+$expectedPlanPolicyMonotonicChainSha256 = 'a5d79ab2e33a390528cd12fa0705d3d3f991e93dca79d43f2fffdf0700d903b3'
+if ($planPolicyMonotonicChainManifestSteps.Count -ne 1) {
+    $errors.Add('public_init_040 manifest entry must exist exactly once')
+}
+else {
+    $planPolicyMonotonicChainManifestStep = $planPolicyMonotonicChainManifestSteps[0]
+    if ([string]$planPolicyMonotonicChainManifestStep.description -cne 'Independent Board plan policy database monotonic-chain guards' -or
+        [string]$planPolicyMonotonicChainManifestStep.file -cne 'update_20260723_independent_board_plan_policy_monotonic_chain.sql' -or
+        [string]$planPolicyMonotonicChainManifestStep.sha256 -cne $expectedPlanPolicyMonotonicChainSha256) {
+        $errors.Add('public_init_040 manifest description, file or exact SHA-256 has drifted')
+    }
+}
+$planPolicyMonotonicChainSha256 = ''
+if (-not (Test-Path -LiteralPath $planPolicyMonotonicChainSqlPath -PathType Leaf)) {
+    $errors.Add('Independent Board plan-policy monotonic-chain migration is missing')
+    $planPolicyMonotonicChainSql = ''
+}
+else {
+    $planPolicyMonotonicChainSql = Get-Content -LiteralPath $planPolicyMonotonicChainSqlPath -Raw -Encoding UTF8
+    $planPolicyMonotonicChainSha256 = (Get-FileHash -LiteralPath $planPolicyMonotonicChainSqlPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if (-not [string]::Equals(
+            $planPolicyMonotonicChainSha256,
+            $expectedPlanPolicyMonotonicChainSha256,
+            [StringComparison]::Ordinal)) {
+        $errors.Add("public_init_040 byte contract drifted: expected SHA-256 $expectedPlanPolicyMonotonicChainSha256, found $planPolicyMonotonicChainSha256")
+    }
+}
+$requiredPlanPolicyMonotonicChainNeedles = @(
+    'FBSir Independent Board plan-policy database monotonic chain',
+    'Migration: 20260723_independent_board_plan_policy_monotonic_chain_v1',
+    'Public manifest step: public_init_040',
+    'Target: MySQL Community 8.0.30 and 8.4.8',
+    'u3w_migrate_ib_plan_policy_monotonic_20260723',
+    'u3w_finalize_ib_plan_policy_monotonic_20260723',
+    'Plan policy monotonic-chain migration requires the exact public_init_039 internal receipt',
+    'Plan policy monotonic-chain migration requires the exact public_init_039 seven-trigger contract',
+    'Plan policy monotonic-chain migration requires exact public_init_039 SYSTEM_MIGRATION baselines',
+    'Plan policy monotonic-chain migration requires exactly two public_init_039 baseline revisions',
+    'Plan policy monotonic-chain migration requires the exact two-row public_init_039 head catalog',
+    '59d2d90cab68d42f6655f1fb176eb83d098c3c29a25c7242ccab4273e558170a',
+    'c9409524d7203b611129b9704cdc9752ffcdecdcb2b29b97a21cb3ef08b675f9',
+    'be062b76a71de8c859ea35de136217a34f5a900e454a19e4284c691deb4134a3',
+    '5c40f4bae16986eae2b1cbbef38994a93263c870a0940432902dd5d6b9cc151e',
+    'Plan policy monotonic-chain migration requires both heads to point to latest committed receipts',
+    'Plan policy monotonic-chain migration requires an exact contiguous predecessor chain',
+    'Plan policy receipt must be the exact direct successor of the current head',
+    'Plan policy head may only advance one immutable version in place',
+    'Plan policy head must point to its exact direct successor receipt',
+    'Plan policy heads are initialized only by public_init_039',
+    'Plan policy heads are immutable routing pointers',
+    '800164bb628bf25e15b736152d0879f862ca174eadd470d46ac368c817fa5c5e',
+    'e80f9ee7c66392747f96a911ca5ae9cbe090dfcbbf58e67e6ad2b3947f49efb3',
+    '3781ce8eff52c52614c2876b8e8a4a63501b29f1cfcf6c363dc9199df5e6e9ae',
+    '8f0befc9a585fa853465adcea60a0e98457ca64f873d611e75536bc7c17d184f',
+    'CREATE TRIGGER IF NOT EXISTS `trg_plan_policy_receipt_guard_insert`',
+    'CREATE TRIGGER IF NOT EXISTS `trg_plan_policy_head_guard_update`',
+    'CREATE TRIGGER IF NOT EXISTS `trg_plan_policy_head_no_insert`',
+    'CREATE TRIGGER IF NOT EXISTS `trg_plan_policy_head_no_delete`'
+)
+foreach ($needle in $requiredPlanPolicyMonotonicChainNeedles) {
+    if (-not $planPolicyMonotonicChainSql.Contains($needle)) {
+        $errors.Add("Independent Board plan-policy monotonic-chain SQL is missing required contract: $needle")
+    }
+}
+if ($planPolicyMonotonicChainSql -match '__[A-Z0-9_]+__' -or
+    $planPolicyMonotonicChainSql -match 'REPLACE_WITH_' -or
+    $planPolicyMonotonicChainSql -match '(?im)^\s*(?:ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+(?:TABLE|TRIGGER)|TRUNCATE\s+TABLE|UPDATE\s+(?!`?u3w_schema_migration\b)|DELETE\s+FROM)\b' -or
+    $planPolicyMonotonicChainSql -match '(?im)^\s*INSERT\s+INTO\s+(?!`?u3w_schema_migration\b)' -or
+    $planPolicyMonotonicChainSql.Contains('ON DUPLICATE KEY UPDATE')) {
+    $errors.Add('Independent Board plan-policy monotonic-chain migration must remain trigger-only, additive and free of placeholder or business-row mutation')
+}
+$planPolicyMonotonicChainCreatedTriggers = @([regex]::Matches(
+    $planPolicyMonotonicChainSql,
+    '(?im)^\s*CREATE\s+TRIGGER\s+IF\s+NOT\s+EXISTS\s+`(?<name>trg_plan_policy_(?:receipt_guard_insert|head_guard_update|head_no_insert|head_no_delete))`') |
+    ForEach-Object { $_.Groups['name'].Value })
+$expectedPlanPolicyMonotonicChainTriggers = @(
+    'trg_plan_policy_receipt_guard_insert',
+    'trg_plan_policy_head_guard_update',
+    'trg_plan_policy_head_no_insert',
+    'trg_plan_policy_head_no_delete'
+)
+if (($planPolicyMonotonicChainCreatedTriggers -join '|') -cne ($expectedPlanPolicyMonotonicChainTriggers -join '|')) {
+    $errors.Add("Independent Board plan-policy monotonic-chain migration must create exactly four guarded triggers in order; found '$($planPolicyMonotonicChainCreatedTriggers -join ',')'")
+}
+$planPolicyMonotonicChainOrderedIndices = @(
+    $planPolicyMonotonicChainSql.IndexOf('CREATE PROCEDURE `u3w_migrate_ib_plan_policy_monotonic_20260723`()', [StringComparison]::Ordinal),
+    $planPolicyMonotonicChainSql.IndexOf('SELECT GET_LOCK(migration_lock_name, 30)', [StringComparison]::Ordinal),
+    $planPolicyMonotonicChainSql.IndexOf('CREATE PROCEDURE `u3w_finalize_ib_plan_policy_monotonic_20260723`()', [StringComparison]::Ordinal),
+    $planPolicyMonotonicChainSql.IndexOf('CALL `u3w_migrate_ib_plan_policy_monotonic_20260723`()$$', [StringComparison]::Ordinal),
+    $planPolicyMonotonicChainSql.IndexOf('CREATE TRIGGER IF NOT EXISTS `trg_plan_policy_receipt_guard_insert`', [StringComparison]::Ordinal),
+    $planPolicyMonotonicChainSql.IndexOf('CREATE TRIGGER IF NOT EXISTS `trg_plan_policy_head_no_delete`', [StringComparison]::Ordinal),
+    $planPolicyMonotonicChainSql.IndexOf('CALL `u3w_finalize_ib_plan_policy_monotonic_20260723`()$$', [StringComparison]::Ordinal)
+)
+$planPolicyMonotonicChainOrderingValid = -not ($planPolicyMonotonicChainOrderedIndices -contains -1)
+for ($index = 1; $planPolicyMonotonicChainOrderingValid -and $index -lt $planPolicyMonotonicChainOrderedIndices.Count; $index++) {
+    if ($planPolicyMonotonicChainOrderedIndices[$index] -le $planPolicyMonotonicChainOrderedIndices[$index - 1]) {
+        $planPolicyMonotonicChainOrderingValid = $false
+    }
+}
+if (-not $planPolicyMonotonicChainOrderingValid) {
+    $errors.Add('Independent Board plan-policy monotonic-chain order must be lock, finalizer, migration call, four trigger guards and locked receipt finalization')
+}
+
 $planPolicyItPath = Join-Path $resolvedRoot 'scripts\run-independent-board-plan-policy-mysql-it.ps1'
 if (-not (Test-Path -LiteralPath $planPolicyItPath -PathType Leaf)) {
     $errors.Add('Independent Board plan-policy dual MySQL replay gate is missing')
@@ -2273,10 +2380,29 @@ else {
         '$manifestPath',
         '$runnerPath',
         '$concurrencyTestPath',
-        'schemaVersion = 2',
-        'sourceSha256',
-        'publicInit039',
-        'concurrencyTest',
+         'schemaVersion = 2',
+         'sourceSha256',
+         'publicInit039',
+         'publicInit040',
+         '$monotonicChainPath',
+         'monotonicChainFirstApply = $monotonicFirstApply',
+         'w3k_policy_prefix',
+         'w3k_policy_predecessor_drift',
+         'w3k_policy_initializer',
+         'monotonicPartialPrefixesRecovered',
+         'monotonicInitializerPrefixesRecovered',
+         'monotonicPredecessorDriftRejected = $true',
+         'monotonicDirectDmlRejected = 10',
+         'monotonicDirectSuccessorAdvance = $true',
+         "-Expected '11|1|1|1|1|1'",
+         'monotonic-chain $remainingTriggerCount-trigger prefix replay',
+         'initializer monotonic-chain $remainingTriggerCount-trigger prefix replay',
+         'monotonic-chain predecessor drift fail closed',
+         'Monotonic-chain predecessor trigger drift did not fail closed',
+         'Plan policy monotonic-chain negative probe unexpectedly passed',
+         'monotonic-chain direct successor advance',
+         '-PlanPolicyMonotonicChainCurrentReadOnly',
+         'concurrencyTest',
         '3861fa022a759a9f9a5f773da995273b5259e361be7a931a9ad761eca02473d7',
         'sourcePath',
         'Assert-SafeRunDirectory'
@@ -2509,7 +2635,7 @@ $requiredOauthInitializerIntegrationNeedles = @(
 )
 $requiredCreditLedgerInitializerNeedles = @(
     'New-Step "public_init_038" "Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger" (Resolve-SqlFile "update_20260722_independent_board_credit_ledger.sql")',
-    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039')",
+    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040')",
     'function Assert-IndependentBoardCreditLedgerCurrentState',
     '$serverProfile = Assert-IndependentBoardOauthServerProfile',
     '$expected = @(3,3,45,45,45,20,20,4,4,9,9,22,22,6,6,1,1,5,0)',
@@ -2580,7 +2706,7 @@ foreach ($needle in $requiredCreditLedgerInitializerNeedles) {
 }
 $requiredPlanPolicyInitializerNeedles = @(
     'New-Step "public_init_039" "Independent Board immutable plan policy revisions and operation lineage" (Resolve-SqlFile "update_20260722_independent_board_plan_policy.sql")',
-    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039')",
+    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040')",
     '[switch]$PlanPolicyCurrentReadOnly',
     'function Assert-IndependentBoardPlanPolicyCurrentState',
     '$resumeRunningPlanPolicy',
@@ -2590,7 +2716,7 @@ $requiredPlanPolicyInitializerNeedles = @(
     'u3w_migrate_independent_board_plan_policy_20260722',
     'u3w_finalize_independent_board_plan_policy_20260722',
     'plan-policy exact bounded replay did not pass',
-    'three tables, 39 columns, 15 indexes, seven RESTRICT foreign keys, ten checks, seven exact trigger bodies',
+    'eleven exact trigger bodies including the W3k monotonic-chain guards',
     '8ae3df83c9f56974261d1e471eb19034b2b782f793f74333c64a13c61dae8982',
     '02e90096b76d25b69c938fa65cfc3931207ac0a2648447bf613dca591619da51',
     'c9409524d7203b611129b9704cdc9752ffcdecdcb2b29b97a21cb3ef08b675f9',
@@ -2598,13 +2724,39 @@ $requiredPlanPolicyInitializerNeedles = @(
     '2d21d400829820467a0915c202fbdd5343e5d9417fe1ac062a48742ec0a6541b',
     '03dfe7bb006d20b768840f71a435d0233355001dc35d6c7cffda5c68ef6151de',
     'b97cf71e29e1bfbbb58bd9ef58ed8f9334c586de102e43b6bb231e392ac84fad',
-    "`$expected = @('3','39','15','7','20','10','7','7','2','2','2','0','0','1','0','1')",
+    '$expectedTriggerCount = if ($AllowMonotonicChain)',
+    '$expectedMonotonicReceiptCount = if ($AllowMonotonicChain)',
     'if ($verification -ne 27)',
     'expected twenty-seven representative current tables'
 )
 foreach ($needle in $requiredPlanPolicyInitializerNeedles) {
     if (-not $initSource.Contains($needle)) {
         $errors.Add("initializer is missing public_init_039 plan-policy manifest, recovery or verification contract: $needle")
+    }
+}
+$requiredPlanPolicyMonotonicChainInitializerNeedles = @(
+    'New-Step "public_init_040" "Independent Board plan policy database monotonic-chain guards" (Resolve-SqlFile "update_20260723_independent_board_plan_policy_monotonic_chain.sql")',
+    '[switch]$PlanPolicyMonotonicChainCurrentReadOnly',
+    '[switch]$AllowMonotonicChainPrefix',
+    '$expectedTriggerCount = if ($AllowMonotonicChain)',
+    'recoverable monotonic-chain trigger set drifted',
+    'resumeRunningPlanPolicyMonotonicChain',
+    '$expectedMonotonicReceiptCount = if ($AllowMonotonicChain)',
+    'trg_plan_policy_receipt_guard_insert',
+    'trg_plan_policy_head_guard_update',
+    'trg_plan_policy_head_no_insert',
+    'trg_plan_policy_head_no_delete',
+    "`$step.Version -eq 'public_init_040'",
+    'Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChainPrefix',
+    'Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChain',
+    'u3w_migrate_ib_plan_policy_monotonic_20260723',
+    'u3w_finalize_ib_plan_policy_monotonic_20260723',
+    'Could not clean Independent Board monotonic-chain helper procedures after bounded replay failure.',
+    'monotonic-chain exact bounded replay did not pass'
+)
+foreach ($needle in $requiredPlanPolicyMonotonicChainInitializerNeedles) {
+    if (-not $initSource.Contains($needle)) {
+        $errors.Add("initializer is missing public_init_040 monotonic-chain manifest, recovery or verification contract: $needle")
     }
 }
 foreach ($needle in $requiredManifestCurrentReadNeedles) {
@@ -2616,7 +2768,7 @@ $creditLedgerCurrentReadStart = $initSource.IndexOf(
     'function Assert-IndependentBoardCreditLedgerCurrentState',
     [StringComparison]::Ordinal)
 $creditLedgerCurrentReadEnd = if ($creditLedgerCurrentReadStart -ge 0) {
-    $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly) {', $creditLedgerCurrentReadStart, [StringComparison]::Ordinal)
+    $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly -or $PlanPolicyMonotonicChainCurrentReadOnly) {', $creditLedgerCurrentReadStart, [StringComparison]::Ordinal)
 } else { -1 }
 $creditLedgerCurrentReadSource = if ($creditLedgerCurrentReadStart -ge 0 -and $creditLedgerCurrentReadEnd -gt $creditLedgerCurrentReadStart) {
     $initSource.Substring($creditLedgerCurrentReadStart, $creditLedgerCurrentReadEnd - $creditLedgerCurrentReadStart)
@@ -2660,7 +2812,7 @@ $planPolicyCurrentReadStart = $initSource.IndexOf(
     'function Assert-IndependentBoardPlanPolicyCurrentState',
     [StringComparison]::Ordinal)
 $planPolicyCurrentReadEnd = if ($planPolicyCurrentReadStart -ge 0) {
-    $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly) {', $planPolicyCurrentReadStart, [StringComparison]::Ordinal)
+    $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly -or $PlanPolicyMonotonicChainCurrentReadOnly) {', $planPolicyCurrentReadStart, [StringComparison]::Ordinal)
 } else { -1 }
 $planPolicyCurrentReadSource = if ($planPolicyCurrentReadStart -ge 0 -and $planPolicyCurrentReadEnd -gt $planPolicyCurrentReadStart) {
     $initSource.Substring($planPolicyCurrentReadStart, $planPolicyCurrentReadEnd - $planPolicyCurrentReadStart)
@@ -2694,13 +2846,18 @@ foreach ($needle in @(
     '2d21d400829820467a0915c202fbdd5343e5d9417fe1ac062a48742ec0a6541b',
     '03dfe7bb006d20b768840f71a435d0233355001dc35d6c7cffda5c68ef6151de',
     'b97cf71e29e1bfbbb58bd9ef58ed8f9334c586de102e43b6bb231e392ac84fad',
-    "`$expected = @('3','39','15','7','20','10','7','7','2','2','2','0','0','1','0','1')"
+    '$expectedTriggerCount = if ($AllowMonotonicChain)',
+    '$expectedMonotonicReceiptCount = if ($AllowMonotonicChain)',
+    '800164bb628bf25e15b736152d0879f862ca174eadd470d46ac368c817fa5c5e',
+    'e80f9ee7c66392747f96a911ca5ae9cbe090dfcbbf58e67e6ad2b3947f49efb3',
+    '3781ce8eff52c52614c2876b8e8a4a63501b29f1cfcf6c363dc9199df5e6e9ae',
+    '8f0befc9a585fa853465adcea60a0e98457ca64f873d611e75536bc7c17d184f'
 )) {
     if (-not $planPolicyCurrentReadSource.Contains($needle)) {
         $errors.Add("initializer plan-policy current-read is missing exact metadata or lineage contract: $needle")
     }
 }
-$currentReadOnlyBlockStart = $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly) {', [StringComparison]::Ordinal)
+$currentReadOnlyBlockStart = $initSource.IndexOf('if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly -or $PlanPolicyMonotonicChainCurrentReadOnly) {', [StringComparison]::Ordinal)
 $currentReadOnlyBlockEnd = if ($currentReadOnlyBlockStart -ge 0) {
     $initSource.IndexOf('$databaseBootstrap =', $currentReadOnlyBlockStart, [StringComparison]::Ordinal)
 } else { -1 }
@@ -2708,7 +2865,8 @@ $currentReadOnlyBlock = if ($currentReadOnlyBlockStart -ge 0 -and $currentReadOn
     $initSource.Substring($currentReadOnlyBlockStart, $currentReadOnlyBlockEnd - $currentReadOnlyBlockStart)
 } else { '' }
 foreach ($needle in @(
-    'if ($PlanPolicyCurrentReadOnly)',
+    'if ($PlanPolicyMonotonicChainCurrentReadOnly)',
+    'elseif ($PlanPolicyCurrentReadOnly)',
     'elseif ($CreditLedgerCurrentReadOnly)',
     'Assert-IndependentBoardOauthFoundationCurrentState',
     'Assert-IndependentBoardOauthConsentIntentCurrentState',
@@ -2864,12 +3022,14 @@ $result = [pscustomobject]@{
     oauthRefreshSecurityVersion = "public_init_036"
     creditLedgerVersion = "public_init_038"
     planPolicyVersion = "public_init_039"
+    planPolicyMonotonicChainVersion = "public_init_040"
     oauthFoundationSha256 = $oauthFoundationSha256
     oauthProvenanceSha256 = $oauthProvenanceSha256
     oauthConsentIntentSha256 = $oauthConsentIntentSha256
     oauthRefreshSecuritySha256 = $oauthRefreshSecuritySha256
     creditLedgerSha256 = $creditLedgerSha256
     planPolicySha256 = $planPolicySha256
+    planPolicyMonotonicChainSha256 = $planPolicyMonotonicChainSha256
     candidateMenuMigrationId = $candidateMenuMigrationId
     candidateMenuMigrationSha256 = $candidateMenuMigrationSha256
     creditMenuMigrationId = $creditMenuMigrationId

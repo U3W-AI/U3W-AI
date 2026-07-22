@@ -147,6 +147,10 @@
     "w3iMeetingAuditPolicyLineageVerificationReport": "reports/independent-board/w3i-meeting-audit-policy-lineage-verification-20260723.json",
     "w3jCreditCandidateReleaseReadinessContract": "docs/independent-board/W3J-CREDIT-CANDIDATE-RELEASE-READINESS-CONTRACT.md",
     "w3jCreditCandidateReleaseReadinessVerificationReport": "reports/independent-board/w3j-credit-candidate-release-readiness-verification-20260722.json",
+    "w3kPlanPolicyMonotonicChainContract": "docs/independent-board/W3K-PLAN-POLICY-MONOTONIC-CHAIN-CONTRACT.md",
+    "w3kPlanPolicyMonotonicChainAdr": "docs/decisions/ADR-005-independent-board-plan-policy-database-monotonic-chain.md",
+    "w3kPlanPolicyMonotonicChainMigration": "sql/update_20260723_independent_board_plan_policy_monotonic_chain.sql",
+    "w3kPlanPolicyMonotonicChainVerificationReport": "reports/independent-board/w3k-plan-policy-monotonic-chain-verification-20260723.json",
     "postListingHostTruthReport": "reports/independent-board/host-truth-chain-summary-20260721.json",
     "verificationReports": "reports/independent-board/*.json"
   },
@@ -431,6 +435,20 @@
         "releaseReceipt": "strict_json_canonical_inventory_digest_exact_checked_out_head_and_frozen_package_hash",
         "activationBoundary": "ready_for_human_activation_review_only_not_deployed_or_activated",
         "productionAuthority": false,
+        "nextSlice": "W3j_activation_release_receipt_collection_and_human_approval"
+      },
+      "w3kImplementation": {
+        "state": "local_default_off_plan_policy_database_monotonic_chain_verified",
+        "contract": "docs/independent-board/W3K-PLAN-POLICY-MONOTONIC-CHAIN-CONTRACT.md",
+        "adr": "docs/decisions/ADR-005-independent-board-plan-policy-database-monotonic-chain.md",
+        "migration": "public_init_040_manifested_not_applied_to_production",
+        "databaseGuards": "exact_current_head_successor_and_digest_head_forward_only_no_head_insert_or_delete",
+        "verifiedMysql": [
+          "MySQL Community 8.0.30",
+          "MySQL Community 8.4.8"
+        ],
+        "productionAuthority": false,
+        "remainingBoundary": "database_writer_privilege_containment_and_controlled_procedure_required_before_production_activation",
         "nextSlice": "W3j_activation_release_receipt_collection_and_human_approval"
       },
       "w4aImplementation": {

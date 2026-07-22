@@ -39,7 +39,8 @@
     { "version": "public_init_036", "description": "Independent Board OAuth refresh security receipt v2", "file": "update_20260721_independent_board_oauth_refresh_security.sql", "sha256": "4d82cb93d7bd15035de882be69ea4bc03c5101e3851ad56083aecdfc93d2b041" },
     { "version": "public_init_037", "description": "Independent Board exact product attribution evidence contract", "file": "update_20260722_independent_board_attribution_evidence_contract.sql", "sha256": "59e3696ff3f8d4a16b4659c94a108f35fb1badf2f4de16079229c031a0b44cce" },
     { "version": "public_init_038", "description": "Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger", "file": "update_20260722_independent_board_credit_ledger.sql", "sha256": "8d0b2ee9ae6c31f75d8a0339a486c19b2864e200dc76f2abd54f229f727b7c18" },
-    { "version": "public_init_039", "description": "Independent Board immutable plan policy revisions and operation lineage", "file": "update_20260722_independent_board_plan_policy.sql", "sha256": "907ae8dd61cff476a68c07ce9fc0647f269ccb8422e0ffc851fbb91dc39eb8e6" }
+    { "version": "public_init_039", "description": "Independent Board immutable plan policy revisions and operation lineage", "file": "update_20260722_independent_board_plan_policy.sql", "sha256": "907ae8dd61cff476a68c07ce9fc0647f269ccb8422e0ffc851fbb91dc39eb8e6" },
+    { "version": "public_init_040", "description": "Independent Board plan policy database monotonic-chain guards", "file": "update_20260723_independent_board_plan_policy_monotonic_chain.sql", "sha256": "a5d79ab2e33a390528cd12fa0705d3d3f991e93dca79d43f2fffdf0700d903b3" }
   ],
   "manualMigrations": [
     {

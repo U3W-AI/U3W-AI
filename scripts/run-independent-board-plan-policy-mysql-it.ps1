@@ -19,6 +19,7 @@ $workRoot = [System.IO.Path]::GetFullPath(
     (Join-Path $repoRoot 'work\independent-board-plan-policy-mysql-it'))
 $controlPlanePath = Join-Path $repoRoot 'sql\update_20260720_independent_board_control_plane.sql'
 $policyPath = Join-Path $repoRoot 'sql\update_20260722_independent_board_plan_policy.sql'
+$monotonicChainPath = Join-Path $repoRoot 'sql\update_20260723_independent_board_plan_policy_monotonic_chain.sql'
 $initializerPath = Join-Path $repoRoot 'scripts\init-database.ps1'
 $manifestPath = Join-Path $repoRoot 'sql\init-manifest.json'
 $runnerPath = [System.IO.Path]::GetFullPath($MyInvocation.MyCommand.Path)
@@ -305,7 +306,8 @@ function Invoke-PlanPolicyConcurrencyTestCompile {
 }
 
 if (-not (Test-Path -LiteralPath $controlPlanePath -PathType Leaf) -or
-    -not (Test-Path -LiteralPath $policyPath -PathType Leaf)) {
+    -not (Test-Path -LiteralPath $policyPath -PathType Leaf) -or
+    -not (Test-Path -LiteralPath $monotonicChainPath -PathType Leaf)) {
     throw 'Required Independent Board migration SQL is missing.'
 }
 if (-not (Test-Path -LiteralPath $workRoot -PathType Container)) {
@@ -388,7 +390,10 @@ foreach ($profile in $profiles) {
             'w3h_policy_ok',
             'w3h_policy_unknown',
             'w3h_policy_drift',
-            'w3h_policy_concurrency')) {
+            'w3h_policy_concurrency',
+            'w3k_policy_prefix',
+            'w3k_policy_predecessor_drift',
+            'w3k_policy_initializer')) {
             $bootstrap = @"
 CREATE DATABASE $database CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE TABLE $database.u3w_schema_migration (
@@ -399,8 +404,10 @@ CREATE TABLE $database.u3w_schema_migration (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 "@
             $null = Invoke-MySqlText -Profile $profile -Port $port -Database '' -Sql $bootstrap
-            $null = Invoke-MySqlFile -Profile $profile -Port $port -Database $database `
-                -Path $controlPlanePath
+            if ($database -ne 'w3k_policy_initializer') {
+                $null = Invoke-MySqlFile -Profile $profile -Port $port -Database $database `
+                    -Path $controlPlanePath
+            }
         }
 
         $historicalSql = @"
@@ -420,6 +427,10 @@ INSERT INTO fbs_usage_operation (
             -Database 'w3h_policy_ok' -Path $policyPath
         $null = Invoke-MySqlFile -Profile $profile -Port $port `
             -Database 'w3h_policy_concurrency' -Path $policyPath
+        $null = Invoke-MySqlFile -Profile $profile -Port $port `
+            -Database 'w3k_policy_prefix' -Path $policyPath
+        $null = Invoke-MySqlFile -Profile $profile -Port $port `
+            -Database 'w3k_policy_predecessor_drift' -Path $policyPath
 
         $firstApply = (Invoke-MySqlText -Profile $profile -Port $port `
             -Database 'w3h_policy_ok' -Sql @"
@@ -516,6 +527,334 @@ FROM fbs_plan_policy_head WHERE plan_code='BOARD_VIP';
             -Expected 'plan-policy-board-vip-v2-it|2|3|2' `
             -Stage 'N greater than one completed replay'
 
+        $null = Invoke-MySqlFile -Profile $profile -Port $port `
+            -Database 'w3h_policy_ok' -Path $monotonicChainPath
+        $null = Invoke-MySqlFile -Profile $profile -Port $port `
+            -Database 'w3h_policy_ok' -Path $monotonicChainPath
+        $null = Invoke-MySqlFile -Profile $profile -Port $port `
+            -Database 'w3h_policy_concurrency' -Path $monotonicChainPath
+        $null = Invoke-MySqlFile -Profile $profile -Port $port `
+            -Database 'w3k_policy_prefix' -Path $monotonicChainPath
+        $monotonicFirstApply = (Invoke-MySqlText -Profile $profile -Port $port `
+            -Database 'w3h_policy_ok' -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE()
+   AND event_object_table IN
+     ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head',
+      'fbs_usage_operation_policy_receipt','fbs_entitlement_receipt')),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='20260723_independent_board_plan_policy_monotonic_chain_v1'
+     AND description='Independent Board plan policy database monotonic-chain trigger guards'),
+  (SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE()
+   AND trigger_name='trg_plan_policy_receipt_guard_insert'),
+  (SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE()
+   AND trigger_name='trg_plan_policy_head_guard_update'),
+  (SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE()
+   AND trigger_name='trg_plan_policy_head_no_insert'),
+  (SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE()
+   AND trigger_name='trg_plan_policy_head_no_delete'));
+"@).output
+        Assert-ExactOutput -Actual $monotonicFirstApply -Expected '11|1|1|1|1|1' `
+            -Stage 'monotonic-chain first apply and replay'
+
+        # A prior failed 040 application can leave only an additive 8/9/10
+        # trigger prefix and no internal receipt.  Exercise every declared
+        # prefix directly, instead of inferring recoverability from fresh
+        # application and completed replay alone.
+        $monotonicPartialPrefixesRecovered = [System.Collections.Generic.List[int]]::new()
+        foreach ($remainingTriggerCount in @(10, 9, 8)) {
+            $dropPrefixSql = switch ($remainingTriggerCount) {
+                10 { @"
+DROP TRIGGER IF EXISTS trg_plan_policy_head_no_delete;
+DELETE FROM u3w_schema_migration
+WHERE version='20260723_independent_board_plan_policy_monotonic_chain_v1';
+"@ }
+                9 { @"
+DROP TRIGGER IF EXISTS trg_plan_policy_head_no_delete;
+DROP TRIGGER IF EXISTS trg_plan_policy_head_no_insert;
+DELETE FROM u3w_schema_migration
+WHERE version='20260723_independent_board_plan_policy_monotonic_chain_v1';
+"@ }
+                8 { @"
+DROP TRIGGER IF EXISTS trg_plan_policy_head_no_delete;
+DROP TRIGGER IF EXISTS trg_plan_policy_head_no_insert;
+DROP TRIGGER IF EXISTS trg_plan_policy_head_guard_update;
+DELETE FROM u3w_schema_migration
+WHERE version='20260723_independent_board_plan_policy_monotonic_chain_v1';
+"@ }
+                default { throw "Unsupported monotonic-chain partial prefix: $remainingTriggerCount" }
+            }
+            $null = Invoke-MySqlText -Profile $profile -Port $port `
+                -Database 'w3k_policy_prefix' -Sql $dropPrefixSql
+            $partialPrefixState = (Invoke-MySqlText -Profile $profile -Port $port `
+                -Database 'w3k_policy_prefix' -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE()
+   AND event_object_table IN
+     ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head',
+      'fbs_usage_operation_policy_receipt','fbs_entitlement_receipt')),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='20260723_independent_board_plan_policy_monotonic_chain_v1'));
+"@).output
+            Assert-ExactOutput -Actual $partialPrefixState -Expected "$remainingTriggerCount|0" `
+                -Stage "monotonic-chain $remainingTriggerCount-trigger recoverable prefix"
+            $null = Invoke-MySqlFile -Profile $profile -Port $port `
+                -Database 'w3k_policy_prefix' -Path $monotonicChainPath
+            $partialPrefixRecovered = (Invoke-MySqlText -Profile $profile -Port $port `
+                -Database 'w3k_policy_prefix' -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE()
+   AND event_object_table IN
+     ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head',
+      'fbs_usage_operation_policy_receipt','fbs_entitlement_receipt')),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='20260723_independent_board_plan_policy_monotonic_chain_v1'));
+"@).output
+            Assert-ExactOutput -Actual $partialPrefixRecovered -Expected '11|1' `
+                -Stage "monotonic-chain $remainingTriggerCount-trigger prefix replay"
+            $monotonicPartialPrefixesRecovered.Add($remainingTriggerCount)
+        }
+
+        $null = Invoke-MySqlText -Profile $profile -Port $port `
+            -Database 'w3k_policy_predecessor_drift' -Sql @"
+DROP TRIGGER IF EXISTS trg_plan_policy_receipt_no_update;
+CREATE TRIGGER trg_plan_policy_receipt_no_update
+    BEFORE UPDATE ON fbs_plan_policy_revision_receipt
+    FOR EACH ROW SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'drift fixture only';
+"@
+        $predecessorDrift = Invoke-MySqlFile -Profile $profile -Port $port `
+            -Database 'w3k_policy_predecessor_drift' -Path $monotonicChainPath -AllowFailure
+        if ($predecessorDrift.exitCode -eq 0 -or
+            $predecessorDrift.output -notmatch 'exact public_init_039 seven-trigger') {
+            throw "Monotonic-chain predecessor trigger drift did not fail closed: $($predecessorDrift.output)"
+        }
+        $predecessorDriftState = (Invoke-MySqlText -Profile $profile -Port $port `
+            -Database 'w3k_policy_predecessor_drift' -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE()
+   AND event_object_table IN
+     ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head',
+      'fbs_usage_operation_policy_receipt','fbs_entitlement_receipt')),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='20260723_independent_board_plan_policy_monotonic_chain_v1'));
+"@).output
+        Assert-ExactOutput -Actual $predecessorDriftState -Expected '7|0' `
+            -Stage 'monotonic-chain predecessor drift fail closed'
+
+        # Verify the canonical initializer, not merely raw SQL sourcing, can
+        # resume a public_init_040 RUNNING receipt from every documented
+        # additive guard subset.  The fresh initializer establishes the full
+        # predecessor manifest, then each local fixture removes only W3k guards
+        # and its internal receipt before the canonical runner resumes it.
+        $initializerFullApply = (& powershell.exe -NoProfile -ExecutionPolicy Bypass `
+            -File $initializerPath -LoginPath $loginPath -MySqlExe $profile.mysql `
+            -Database 'w3k_policy_initializer' 2>&1 | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0 -or
+            $initializerFullApply -notmatch 'PASS public database manifest exact current-read') {
+            throw "Fresh initializer did not establish the W3k recovery fixture: $initializerFullApply"
+        }
+        $monotonicInitializerPrefixesRecovered = [System.Collections.Generic.List[int]]::new()
+        foreach ($remainingTriggerCount in @(10, 9, 8)) {
+            $dropInitializerPrefixSql = switch ($remainingTriggerCount) {
+                10 { @"
+DROP TRIGGER IF EXISTS trg_plan_policy_head_no_delete;
+"@ }
+                9 { @"
+DROP TRIGGER IF EXISTS trg_plan_policy_head_no_delete;
+DROP TRIGGER IF EXISTS trg_plan_policy_head_no_insert;
+"@ }
+                8 { @"
+DROP TRIGGER IF EXISTS trg_plan_policy_head_no_delete;
+DROP TRIGGER IF EXISTS trg_plan_policy_head_no_insert;
+DROP TRIGGER IF EXISTS trg_plan_policy_head_guard_update;
+"@ }
+                default { throw "Unsupported initializer monotonic-chain partial prefix: $remainingTriggerCount" }
+            }
+            $null = Invoke-MySqlText -Profile $profile -Port $port `
+                -Database 'w3k_policy_initializer' -Sql @"
+$dropInitializerPrefixSql
+DELETE FROM u3w_schema_migration
+WHERE version='20260723_independent_board_plan_policy_monotonic_chain_v1';
+UPDATE u3w_schema_migration
+SET description='RUNNING:Independent Board plan policy database monotonic-chain guards'
+WHERE version='public_init_040';
+"@
+            $initializerPrefixState = (Invoke-MySqlText -Profile $profile -Port $port `
+                -Database 'w3k_policy_initializer' -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE()
+   AND event_object_table IN
+     ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head',
+      'fbs_usage_operation_policy_receipt','fbs_entitlement_receipt')),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='20260723_independent_board_plan_policy_monotonic_chain_v1'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='public_init_040'
+     AND description='RUNNING:Independent Board plan policy database monotonic-chain guards'));
+"@).output
+            Assert-ExactOutput -Actual $initializerPrefixState -Expected "$remainingTriggerCount|0|1" `
+                -Stage "initializer monotonic-chain $remainingTriggerCount-trigger running prefix"
+            $initializerReplay = (& powershell.exe -NoProfile -ExecutionPolicy Bypass `
+                -File $initializerPath -LoginPath $loginPath -MySqlExe $profile.mysql `
+                -Database 'w3k_policy_initializer' 2>&1 | Out-String).Trim()
+            if ($LASTEXITCODE -ne 0 -or
+                $initializerReplay -notmatch 'Resuming public_init_040 from its exact public RUNNING receipt' -or
+                $initializerReplay -notmatch 'PASS public database manifest exact current-read') {
+                throw "Initializer monotonic-chain $remainingTriggerCount-trigger prefix did not recover: $initializerReplay"
+            }
+            $initializerRecoveredState = (Invoke-MySqlText -Profile $profile -Port $port `
+                -Database 'w3k_policy_initializer' -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE()
+   AND event_object_table IN
+     ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head',
+      'fbs_usage_operation_policy_receipt','fbs_entitlement_receipt')),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='20260723_independent_board_plan_policy_monotonic_chain_v1'
+     AND description='Independent Board plan policy database monotonic-chain trigger guards'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='public_init_040'
+     AND description='APPLIED:Independent Board plan policy database monotonic-chain guards'));
+"@).output
+            Assert-ExactOutput -Actual $initializerRecoveredState -Expected '11|1|1' `
+                -Stage "initializer monotonic-chain $remainingTriggerCount-trigger prefix replay"
+            $monotonicInitializerPrefixesRecovered.Add($remainingTriggerCount)
+        }
+
+        $monotonicNegativeSql = [ordered]@{
+            jumpVersion = @"
+INSERT INTO fbs_plan_policy_revision_receipt (
+ receipt_id,product_code,plan_code,policy_version,previous_receipt_id,
+ rollback_of_receipt_id,action,actor_type,actor_user_id,idempotency_key_digest,
+ command_digest,previous_policy_digest,policy_digest,plan_name,vip,
+ connector_required,daily_meeting_limit,agenda_limit,seat_limit,
+ secretary_enabled,status,evidence_level
+)
+SELECT 'plan-policy-monotonic-jump-v4',r.product_code,r.plan_code,4,r.receipt_id,
+ NULL,'PLAN_POLICY_REVISED','ADMIN_USER',42,SHA2('w3k-jump-idempotency',256),
+ SHA2('w3k-jump-command',256),r.policy_digest,SHA2('w3k-jump-policy',256),
+ r.plan_name,r.vip,r.connector_required,r.daily_meeting_limit,r.agenda_limit,
+ r.seat_limit,r.secretary_enabled,r.status,'ACTION_COMPLETED'
+FROM fbs_plan_policy_revision_receipt r
+WHERE r.receipt_id='plan-policy-board-vip-v2-it';
+"@
+            wrongPreviousReceipt = @"
+INSERT INTO fbs_plan_policy_revision_receipt (
+ receipt_id,product_code,plan_code,policy_version,previous_receipt_id,
+ rollback_of_receipt_id,action,actor_type,actor_user_id,idempotency_key_digest,
+ command_digest,previous_policy_digest,policy_digest,plan_name,vip,
+ connector_required,daily_meeting_limit,agenda_limit,seat_limit,
+ secretary_enabled,status,evidence_level
+)
+SELECT 'plan-policy-monotonic-wrong-receipt-v3',r.product_code,r.plan_code,3,
+ 'plan-policy-baseline-board-vip-v1',NULL,'PLAN_POLICY_REVISED','ADMIN_USER',42,
+ SHA2('w3k-wrong-receipt-idempotency',256),SHA2('w3k-wrong-receipt-command',256),
+ r.policy_digest,SHA2('w3k-wrong-receipt-policy',256),r.plan_name,r.vip,
+ r.connector_required,r.daily_meeting_limit,r.agenda_limit,r.seat_limit,
+ r.secretary_enabled,r.status,'ACTION_COMPLETED'
+FROM fbs_plan_policy_revision_receipt r
+WHERE r.receipt_id='plan-policy-board-vip-v2-it';
+"@
+            wrongPreviousDigest = @"
+INSERT INTO fbs_plan_policy_revision_receipt (
+ receipt_id,product_code,plan_code,policy_version,previous_receipt_id,
+ rollback_of_receipt_id,action,actor_type,actor_user_id,idempotency_key_digest,
+ command_digest,previous_policy_digest,policy_digest,plan_name,vip,
+ connector_required,daily_meeting_limit,agenda_limit,seat_limit,
+ secretary_enabled,status,evidence_level
+)
+SELECT 'plan-policy-monotonic-wrong-digest-v3',r.product_code,r.plan_code,3,
+ r.receipt_id,NULL,'PLAN_POLICY_REVISED','ADMIN_USER',42,
+ SHA2('w3k-wrong-digest-idempotency',256),SHA2('w3k-wrong-digest-command',256),
+ REPEAT('f',64),SHA2('w3k-wrong-digest-policy',256),r.plan_name,r.vip,
+ r.connector_required,r.daily_meeting_limit,r.agenda_limit,r.seat_limit,
+ r.secretary_enabled,r.status,'ACTION_COMPLETED'
+FROM fbs_plan_policy_revision_receipt r
+WHERE r.receipt_id='plan-policy-board-vip-v2-it';
+"@
+            headRollback = @"
+UPDATE fbs_plan_policy_head
+SET active_receipt_id='plan-policy-baseline-board-vip-v1',policy_version=1
+WHERE product_code='FBSIR_INDEPENDENT_BOARD' AND plan_code='BOARD_VIP';
+"@
+            headJumpVersion = @"
+UPDATE fbs_plan_policy_head
+SET policy_version=4
+WHERE product_code='FBSIR_INDEPENDENT_BOARD' AND plan_code='BOARD_VIP';
+"@
+            headWrongReceipt = @"
+UPDATE fbs_plan_policy_head
+SET active_receipt_id='plan-policy-baseline-board-vip-v1',policy_version=3
+WHERE product_code='FBSIR_INDEPENDENT_BOARD' AND plan_code='BOARD_VIP';
+"@
+            headCrossPlanRepoint = @"
+UPDATE fbs_plan_policy_head
+SET plan_code='BOARD_FREE',active_receipt_id='plan-policy-baseline-board-free-v1',policy_version=1
+WHERE product_code='FBSIR_INDEPENDENT_BOARD' AND plan_code='BOARD_VIP';
+"@
+            headCreatedAtMutation = @"
+UPDATE fbs_plan_policy_head
+SET created_at=DATE_ADD(created_at, INTERVAL 1 MICROSECOND)
+WHERE product_code='FBSIR_INDEPENDENT_BOARD' AND plan_code='BOARD_VIP';
+"@
+            headDelete = @"
+DELETE FROM fbs_plan_policy_head
+WHERE product_code='FBSIR_INDEPENDENT_BOARD' AND plan_code='BOARD_VIP';
+"@
+            headInsert = @"
+INSERT INTO fbs_plan_policy_head(product_code,plan_code,active_receipt_id,policy_version)
+VALUES ('FBSIR_INDEPENDENT_BOARD','BOARD_VIP','plan-policy-board-vip-v2-it',2);
+"@
+        }
+        foreach ($probeName in $monotonicNegativeSql.Keys) {
+            $probe = Invoke-MySqlText -Profile $profile -Port $port -Database 'w3h_policy_ok' `
+                -Sql $monotonicNegativeSql[$probeName] -AllowFailure
+            if ($probe.exitCode -eq 0 -or
+                $probe.output -notmatch 'Plan policy (receipt|head|heads)') {
+                throw "Plan policy monotonic-chain negative probe unexpectedly passed: $probeName / $($probe.output)"
+            }
+        }
+        $monotonicFailureResidue = (Invoke-MySqlText -Profile $profile -Port $port `
+            -Database 'w3h_policy_ok' -Sql @"
+SELECT CONCAT_WS('|',
+ (SELECT COUNT(*) FROM fbs_plan_policy_revision_receipt
+  WHERE receipt_id LIKE 'plan-policy-monotonic-%'),
+ (SELECT CONCAT(active_receipt_id,'|',policy_version) FROM fbs_plan_policy_head
+  WHERE product_code='FBSIR_INDEPENDENT_BOARD' AND plan_code='BOARD_VIP'));
+"@).output
+        Assert-ExactOutput -Actual $monotonicFailureResidue `
+            -Expected '0|plan-policy-board-vip-v2-it|2' `
+            -Stage 'monotonic-chain negative probe rollback'
+
+        $monotonicAdvance = Invoke-MySqlText -Profile $profile -Port $port `
+            -Database 'w3h_policy_ok' -Sql @"
+INSERT INTO fbs_plan_policy_revision_receipt (
+ receipt_id,product_code,plan_code,policy_version,previous_receipt_id,
+ rollback_of_receipt_id,action,actor_type,actor_user_id,idempotency_key_digest,
+ command_digest,previous_policy_digest,policy_digest,plan_name,vip,
+ connector_required,daily_meeting_limit,agenda_limit,seat_limit,
+ secretary_enabled,status,evidence_level
+)
+SELECT 'plan-policy-monotonic-valid-v3',r.product_code,r.plan_code,3,r.receipt_id,
+ NULL,'PLAN_POLICY_REVISED','ADMIN_USER',42,SHA2('w3k-valid-idempotency',256),
+ SHA2('w3k-valid-command',256),r.policy_digest,SHA2('w3k-valid-policy',256),
+ r.plan_name,r.vip,r.connector_required,r.daily_meeting_limit,r.agenda_limit,
+ r.seat_limit,r.secretary_enabled,r.status,'ACTION_COMPLETED'
+FROM fbs_plan_policy_revision_receipt r
+WHERE r.receipt_id='plan-policy-board-vip-v2-it';
+UPDATE fbs_plan_policy_head
+SET active_receipt_id='plan-policy-monotonic-valid-v3',policy_version=3
+WHERE product_code='FBSIR_INDEPENDENT_BOARD' AND plan_code='BOARD_VIP'
+  AND active_receipt_id='plan-policy-board-vip-v2-it' AND policy_version=2;
+SELECT CONCAT(active_receipt_id,'|',policy_version)
+FROM fbs_plan_policy_head
+WHERE product_code='FBSIR_INDEPENDENT_BOARD' AND plan_code='BOARD_VIP';
+"@
+        Assert-ExactOutput -Actual $monotonicAdvance.output `
+            -Expected 'plan-policy-monotonic-valid-v3|3' `
+            -Stage 'monotonic-chain direct successor advance'
+
         $historicalAuditLineage = (Invoke-MySqlText -Profile $profile -Port $port `
             -Database 'w3h_policy_ok' -Sql @"
 SELECT CONCAT_WS('|', o.operation_id, l.policy_receipt_id, l.policy_version,
@@ -538,13 +877,13 @@ INNER JOIN fbs_plan_policy_head h
 WHERE o.operation_id = 'w3h-historical-vip';
 "@).output
         if ($historicalAuditLineage -notmatch `
-                '^w3h-historical-vip\|plan-policy-baseline-board-vip-v1\|1\|1\|2\|.+$') {
+                '^w3h-historical-vip\|plan-policy-baseline-board-vip-v1\|1\|1\|3\|.+$') {
             throw "Historical operation audit lineage drifted after the current VIP head advanced: $historicalAuditLineage"
         }
 
         $currentReadOutput = (& powershell.exe -NoProfile -ExecutionPolicy Bypass `
             -File $initializerPath -LoginPath $loginPath -MySqlExe $profile.mysql `
-            -Database 'w3h_policy_ok' -PlanPolicyCurrentReadOnly 2>&1 | Out-String).Trim()
+            -Database 'w3h_policy_ok' -PlanPolicyMonotonicChainCurrentReadOnly 2>&1 | Out-String).Trim()
         if ($LASTEXITCODE -ne 0 -or
             $currentReadOutput -notmatch 'PASS Independent Board plan-policy exact current-read' -or
             $currentReadOutput -notmatch 'No database write was requested') {
@@ -662,14 +1001,15 @@ ALTER TABLE fbs_plan_policy_head
             throw "Raw metadata drift did not fail closed: $($driftResult.output)"
         }
 
-        $triggerSnapshot = (Invoke-MySqlText -Profile $profile -Port $port `
+         $triggerSnapshot = (Invoke-MySqlText -Profile $profile -Port $port `
             -Database 'w3h_policy_ok' -Sql @"
 SELECT CONCAT(trigger_name,'|',event_object_table,'|',event_manipulation,'|',
  action_timing,'|',SHA2(CAST(action_statement AS BINARY),256))
 FROM information_schema.triggers
 WHERE trigger_schema=DATABASE()
-  AND event_object_table IN
-    ('fbs_plan_policy_revision_receipt','fbs_usage_operation_policy_receipt','fbs_entitlement_receipt')
+   AND event_object_table IN
+    ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head',
+     'fbs_usage_operation_policy_receipt','fbs_entitlement_receipt')
 ORDER BY trigger_name;
 "@).output
         $metadataSnapshot = (Invoke-MySqlText -Profile $profile -Port $port `
@@ -764,6 +1104,12 @@ LIMIT 101;
             updateDeleteRejected = 6
             lineageGuardRejected = $true
             lineageCaseVariantRejected = $true
+            monotonicChainFirstApply = $monotonicFirstApply
+            monotonicPartialPrefixesRecovered = @($monotonicPartialPrefixesRecovered)
+            monotonicInitializerPrefixesRecovered = @($monotonicInitializerPrefixesRecovered)
+            monotonicPredecessorDriftRejected = $true
+            monotonicDirectDmlRejected = 10
+            monotonicDirectSuccessorAdvance = $true
             triggerSnapshot = if ($EmitMetadataSnapshot) { $triggerSnapshot } else { $null }
             metadataSnapshot = if ($EmitMetadataSnapshot) { $metadataSnapshot } else { $null }
             initializerCurrentReadOnly = $true
@@ -820,6 +1166,7 @@ if (Test-Path -LiteralPath $workRoot -PathType Container) {
     sourceSha256 = [ordered]@{
         publicInit030 = (Get-FileHash -LiteralPath $controlPlanePath -Algorithm SHA256).Hash.ToLowerInvariant()
         publicInit039 = (Get-FileHash -LiteralPath $policyPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        publicInit040 = (Get-FileHash -LiteralPath $monotonicChainPath -Algorithm SHA256).Hash.ToLowerInvariant()
         manifest = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
         initializer = (Get-FileHash -LiteralPath $initializerPath -Algorithm SHA256).Hash.ToLowerInvariant()
         runner = (Get-FileHash -LiteralPath $runnerPath -Algorithm SHA256).Hash.ToLowerInvariant()

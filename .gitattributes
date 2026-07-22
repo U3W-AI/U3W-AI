@@ -1,4 +1,5 @@
 # Preserve byte-locked Independent Board evidence across Windows Git settings.
+/.gitattributes text eol=lf
 /sql/*.sql text eol=lf
 /sql/quartz.sql -text
 /sql/*.json text eol=lf
@@ -6,6 +7,7 @@
 /.fbs-engineering/*.json text eol=lf
 /docs/independent-board/**/*.md text eol=lf
 /docs/independent-board/**/*.json text eol=lf
+/docs/decisions/**/*.md text eol=lf
 /docs/migration/*.md text eol=lf
 /reports/independent-board/**/*.json text eol=lf
 /work/diagnostics/independent-board-mysql-transaction-it/**/*.json text eol=lf

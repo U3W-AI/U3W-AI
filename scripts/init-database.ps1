@@ -7,7 +7,8 @@ param(
     [switch]$ManifestJson,
     [switch]$CurrentReadOnly,
     [switch]$CreditLedgerCurrentReadOnly,
-    [switch]$PlanPolicyCurrentReadOnly
+    [switch]$PlanPolicyCurrentReadOnly,
+    [switch]$PlanPolicyMonotonicChainCurrentReadOnly
 )
 
 Set-StrictMode -Version Latest
@@ -23,11 +24,11 @@ if ($LoginPath -notmatch '^[A-Za-z0-9_.-]+$') {
 if ($Database -notmatch '^[A-Za-z0-9_]+$' -or $Database.Length -gt 64) {
     throw "Database must be 1-64 characters and contain only letters, numbers, and underscore."
 }
-if (($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly) -and ($DryRun -or $ManifestJson)) {
+if (($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly -or $PlanPolicyMonotonicChainCurrentReadOnly) -and ($DryRun -or $ManifestJson)) {
     throw "Current-read modes cannot be combined with DryRun or ManifestJson."
 }
-if (@($CurrentReadOnly, $CreditLedgerCurrentReadOnly, $PlanPolicyCurrentReadOnly | Where-Object { $_ }).Count -gt 1) {
-    throw "CurrentReadOnly, CreditLedgerCurrentReadOnly, and PlanPolicyCurrentReadOnly are mutually exclusive."
+if (@($CurrentReadOnly, $CreditLedgerCurrentReadOnly, $PlanPolicyCurrentReadOnly, $PlanPolicyMonotonicChainCurrentReadOnly | Where-Object { $_ }).Count -gt 1) {
+    throw "CurrentReadOnly, CreditLedgerCurrentReadOnly, PlanPolicyCurrentReadOnly, and PlanPolicyMonotonicChainCurrentReadOnly are mutually exclusive."
 }
 
 function Resolve-SqlFile {
@@ -101,6 +102,7 @@ $steps = @(
     New-Step "public_init_037" "Independent Board exact product attribution evidence contract" (Resolve-SqlFile "update_20260722_independent_board_attribution_evidence_contract.sql")
     New-Step "public_init_038" "Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger" (Resolve-SqlFile "update_20260722_independent_board_credit_ledger.sql")
     New-Step "public_init_039" "Independent Board immutable plan policy revisions and operation lineage" (Resolve-SqlFile "update_20260722_independent_board_plan_policy.sql")
+    New-Step "public_init_040" "Independent Board plan policy database monotonic-chain guards" (Resolve-SqlFile "update_20260723_independent_board_plan_policy_monotonic_chain.sql")
 )
 
 if (-not (Test-Path -LiteralPath $DeclarativeManifestPath -PathType Leaf)) {
@@ -127,7 +129,7 @@ for ($index = 0; $index -lt $steps.Count; $index++) {
         [string]$declared.file -ne $executable.File.Name) {
         throw "Declarative manifest drift at position $($index + 1): expected '$($executable.Version)|$($executable.Description)|$($executable.File.Name)'."
     }
-    if ($executable.Version -in @('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039')) {
+    if ($executable.Version -in @('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040')) {
         $declaredSha256 = [string]$declared.sha256
         $actualSha256 = (Get-FileHash -LiteralPath $executable.File.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($declaredSha256 -notmatch '^[0-9a-f]{64}$' -or
@@ -2509,6 +2511,15 @@ SELECT CONCAT_WS('|',
 }
 
 function Assert-IndependentBoardPlanPolicyCurrentState {
+    param(
+        [switch]$AllowMonotonicChain,
+        [switch]$AllowMonotonicChainPrefix
+    )
+
+    if ($AllowMonotonicChain -and $AllowMonotonicChainPrefix) {
+        throw 'Plan-policy current-read cannot require both the completed monotonic chain and a recoverable monotonic-chain prefix.'
+    }
+
     $serverProfile = Assert-IndependentBoardOauthServerProfile
     $state = Invoke-MySqlText -Sql @"
 SELECT CONCAT_WS('|',
@@ -2551,10 +2562,11 @@ SELECT CONCAT_WS('|',
      SELECT trigger_name,event_object_table,event_manipulation,action_timing,
             action_orientation,action_condition,action_order,
             SHA2(CAST(action_statement AS BINARY),256) AS action_sha256
-     FROM information_schema.triggers
-     WHERE trigger_schema=DATABASE()
-       AND event_object_table IN
-         ('fbs_plan_policy_revision_receipt','fbs_usage_operation_policy_receipt','fbs_entitlement_receipt')
+      FROM information_schema.triggers
+      WHERE trigger_schema=DATABASE()
+        AND event_object_table IN
+          ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head',
+           'fbs_usage_operation_policy_receipt','fbs_entitlement_receipt')
    ) policy_triggers
    WHERE action_timing='BEFORE' AND action_orientation='ROW'
      AND action_condition IS NULL AND action_order=1 AND (
@@ -2567,12 +2579,25 @@ SELECT CONCAT_WS('|',
     OR (trigger_name IN ('trg_usage_operation_policy_no_update','trg_usage_operation_policy_no_delete')
         AND event_object_table='fbs_usage_operation_policy_receipt'
         AND action_sha256='be062b76a71de8c859ea35de136217a34f5a900e454a19e4284c691deb4134a3')
-    OR (trigger_name IN ('trg_entitlement_receipt_no_update','trg_entitlement_receipt_no_delete')
-        AND event_object_table='fbs_entitlement_receipt'
-        AND action_sha256='5c40f4bae16986eae2b1cbbef38994a93263c870a0940432902dd5d6b9cc151e'))),
+     OR (trigger_name IN ('trg_entitlement_receipt_no_update','trg_entitlement_receipt_no_delete')
+         AND event_object_table='fbs_entitlement_receipt'
+         AND action_sha256='5c40f4bae16986eae2b1cbbef38994a93263c870a0940432902dd5d6b9cc151e')
+     OR (trigger_name='trg_plan_policy_receipt_guard_insert'
+         AND event_object_table='fbs_plan_policy_revision_receipt' AND event_manipulation='INSERT'
+         AND action_sha256='800164bb628bf25e15b736152d0879f862ca174eadd470d46ac368c817fa5c5e')
+     OR (trigger_name='trg_plan_policy_head_guard_update'
+         AND event_object_table='fbs_plan_policy_head' AND event_manipulation='UPDATE'
+         AND action_sha256='e80f9ee7c66392747f96a911ca5ae9cbe090dfcbbf58e67e6ad2b3947f49efb3')
+     OR (trigger_name='trg_plan_policy_head_no_insert'
+         AND event_object_table='fbs_plan_policy_head' AND event_manipulation='INSERT'
+         AND action_sha256='3781ce8eff52c52614c2876b8e8a4a63501b29f1cfcf6c363dc9199df5e6e9ae')
+     OR (trigger_name='trg_plan_policy_head_no_delete'
+         AND event_object_table='fbs_plan_policy_head' AND event_manipulation='DELETE'
+         AND action_sha256='8f0befc9a585fa853465adcea60a0e98457ca64f873d611e75536bc7c17d184f'))),
   (SELECT COUNT(*) FROM information_schema.triggers
    WHERE trigger_schema=DATABASE() AND event_object_table IN
-     ('fbs_plan_policy_revision_receipt','fbs_usage_operation_policy_receipt','fbs_entitlement_receipt')),
+      ('fbs_plan_policy_revision_receipt','fbs_plan_policy_head',
+       'fbs_usage_operation_policy_receipt','fbs_entitlement_receipt')),
   (SELECT COUNT(*) FROM fbs_plan_policy_revision_receipt
    WHERE policy_version=1 AND action='PLAN_POLICY_BASELINED'
      AND actor_type='SYSTEM_MIGRATION' AND actor_user_id IS NULL
@@ -2637,16 +2662,34 @@ SELECT CONCAT_WS('|',
       OR l.policy_digest<>r.policy_digest)),
   (SELECT COUNT(*) FROM u3w_schema_migration
    WHERE version='20260722_independent_board_plan_policy_v1'
-     AND description='Independent Board immutable plan policy revisions and operation lineage'));
+     AND description='Independent Board immutable plan policy revisions and operation lineage'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='20260723_independent_board_plan_policy_monotonic_chain_v1'
+     AND description='Independent Board plan policy database monotonic-chain trigger guards'));
 "@
     $parts = @($state.Split('|'))
-    $expected = @('3','39','15','7','20','10','7','7','2','2','2','0','0','1','0','1')
+    $expectedTriggerCount = if ($AllowMonotonicChain) { '11' } else { '7' }
+    $expectedMonotonicReceiptCount = if ($AllowMonotonicChain) { '1' } else { '0' }
+    $expected = @('3','39','15','7','20','10',$expectedTriggerCount,$expectedTriggerCount,'2','2','2','0','0','1','0','1',$expectedMonotonicReceiptCount)
     if ($parts.Count -ne $expected.Count) {
         throw "Independent Board plan-policy current-read field count drifted: '$state'."
     }
     for ($index = 0; $index -lt $expected.Count; $index++) {
+        if ($AllowMonotonicChainPrefix -and $index -in @(6, 7, 16)) {
+            continue
+        }
         if ($parts[$index] -ne $expected[$index]) {
             throw "Independent Board plan-policy current-read drift at field $($index + 1): expected $($expected[$index]), found '$($parts[$index])'."
+        }
+    }
+    if ($AllowMonotonicChainPrefix) {
+        if ($parts[6] -notmatch '^(7|8|9|10|11)$' -or
+            $parts[7] -ne $parts[6]) {
+            throw "Independent Board plan-policy recoverable monotonic-chain trigger set drifted: '$($parts[6])|$($parts[7])'."
+        }
+        if ($parts[16] -notmatch '^(0|1)$' -or
+            ($parts[16] -eq '1' -and $parts[6] -ne '11')) {
+            throw "Independent Board plan-policy recoverable monotonic-chain receipt state drifted: '$($parts[6])|$($parts[16])'."
         }
     }
     $metadataState = Invoke-MySqlText -Sql @"
@@ -2713,10 +2756,19 @@ SELECT CONCAT_WS('|',
             throw "Independent Board plan-policy raw metadata digest drifted at field $($index + 1): '$($metadataParts[$index])'."
         }
     }
-    Write-Host "PASS Independent Board plan-policy exact current-read on MySQL $($serverProfile.Version) (three tables, 39 columns, 15 indexes, seven RESTRICT foreign keys, ten checks, seven exact trigger bodies, two latest committed heads and complete operation lineage)."
+    $triggerDescription = if ($AllowMonotonicChain) {
+        'eleven exact trigger bodies including the W3k monotonic-chain guards'
+    }
+    elseif ($AllowMonotonicChainPrefix) {
+        'seven-to-eleven exact trigger bodies from the known W3k recoverable monotonic-chain set'
+    }
+    else {
+        'seven exact trigger bodies'
+    }
+    Write-Host "PASS Independent Board plan-policy exact current-read on MySQL $($serverProfile.Version) (three tables, 39 columns, 15 indexes, seven RESTRICT foreign keys, ten checks, $triggerDescription, two latest committed heads and complete operation lineage)."
 }
 
-if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly) {
+if ($CurrentReadOnly -or $CreditLedgerCurrentReadOnly -or $PlanPolicyCurrentReadOnly -or $PlanPolicyMonotonicChainCurrentReadOnly) {
     $currentReadLockSession = $null
     $currentReadLockAcquired = $false
     try {
@@ -2739,7 +2791,11 @@ SELECT CONCAT_WS('|', @u3w_manifest_lock_name, CHAR_LENGTH(@u3w_manifest_lock_na
             throw "Public database manifest current-read lock owner verification failed: '$($currentReadLockResponse[1])'."
         }
 
-        if ($PlanPolicyCurrentReadOnly) {
+        if ($PlanPolicyMonotonicChainCurrentReadOnly) {
+            Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChain
+            Write-Host "Independent Board plan-policy monotonic-chain current-read verification complete for '$Database'. No database write was requested."
+        }
+        elseif ($PlanPolicyCurrentReadOnly) {
             Assert-IndependentBoardPlanPolicyCurrentState
             Write-Host "Independent Board plan-policy current-read verification complete for '$Database'. No database write was requested."
         }
@@ -2843,6 +2899,9 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
         $resumeRunningPlanPolicy =
             $step.Version -eq 'public_init_039' -and
             $state -eq "RUNNING:$($step.Description)"
+        $resumeRunningPlanPolicyMonotonicChain =
+            $step.Version -eq 'public_init_040' -and
+            $state -eq "RUNNING:$($step.Description)"
         $resumeRunningOauthAdditive =
             $resumeRunningOauthProvenance -or
             $resumeRunningOauthConsentIntent -or
@@ -2851,7 +2910,8 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             $resumeRunningOauthAdditive -or
             $resumeRunningAttributionEvidence -or
             $resumeRunningCreditLedger -or
-            $resumeRunningPlanPolicy
+            $resumeRunningPlanPolicy -or
+            $resumeRunningPlanPolicyMonotonicChain
         if ($state -and -not $resumeRunningAdditive) {
             throw "Step $($step.Version) is in state '$state'. Do not retry a partially applied DDL step; use a fresh database or reviewed recovery."
         }
@@ -2905,6 +2965,13 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             $null = Assert-IndependentBoardOauthServerProfile
             Assert-IndependentBoardControlPlaneCurrentState
         }
+        if ($step.Version -eq 'public_init_040') {
+            # 040 is a trigger-only successor. It may only begin from the exact
+            # 039 state or a known 040 additive guard subset; the SQL file owns
+            # bounded recovery and fail-closed finalization.
+            $null = Assert-IndependentBoardOauthServerProfile
+            Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChainPrefix
+        }
 
         try {
             if (-not $resumeRunningAdditive) {
@@ -2945,6 +3012,9 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             }
             if ($step.Version -eq 'public_init_039') {
                 Assert-IndependentBoardPlanPolicyCurrentState
+            }
+            if ($step.Version -eq 'public_init_040') {
+                Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChain
             }
             Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
         }
@@ -3113,6 +3183,34 @@ DROP PROCEDURE IF EXISTS u3w_finalize_independent_board_plan_policy_20260722;
                     Write-Warning "Independent Board plan-policy exact bounded replay did not pass; recording FAILED."
                 }
             }
+            if ($step.Version -eq 'public_init_040') {
+                try {
+                    # One bounded replay may complete only the exact 039 state
+                    # plus a known subset of the four exact W3k guards; all other trigger drift
+                    # remains fail closed.
+                    Invoke-MySqlFile -File $step.File
+                    Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChain
+                    Invoke-MySqlText -Sql @"
+DROP PROCEDURE IF EXISTS u3w_migrate_ib_plan_policy_monotonic_20260723;
+DROP PROCEDURE IF EXISTS u3w_finalize_ib_plan_policy_monotonic_20260723;
+"@ | Out-Null
+                    Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
+                    Write-Warning "Reconciled $($step.Version) from its exact completed monotonic-chain state after one bounded replay."
+                    continue
+                }
+                catch {
+                    try {
+                        Invoke-MySqlText -Sql @"
+DROP PROCEDURE IF EXISTS u3w_migrate_ib_plan_policy_monotonic_20260723;
+DROP PROCEDURE IF EXISTS u3w_finalize_ib_plan_policy_monotonic_20260723;
+"@ | Out-Null
+                    }
+                    catch {
+                        Write-Warning "Could not clean Independent Board monotonic-chain helper procedures after bounded replay failure."
+                    }
+                    Write-Warning "Independent Board plan-policy monotonic-chain exact bounded replay did not pass; recording FAILED."
+                }
+            }
             try {
                 Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='FAILED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
             }
@@ -3133,7 +3231,7 @@ DROP PROCEDURE IF EXISTS u3w_finalize_independent_board_plan_policy_20260722;
     Assert-IndependentBoardOauthRefreshSecurityCurrentState
     Assert-IndependentBoardAttributionEvidenceCurrentState
     Assert-IndependentBoardCreditLedgerCurrentState
-    Assert-IndependentBoardPlanPolicyCurrentState
+    Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChain
 
     Assert-PublicDatabaseManifestCurrentState
 
