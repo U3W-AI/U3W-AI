@@ -170,6 +170,15 @@
       "state": "PASS"
     }
   },
+  "evidenceSuccession": {
+    "sharedSource": "FBSir-ui/src/utils/independentBoardPortalCandidate.js",
+    "predecessorReceipt": "reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json",
+    "predecessorSourceSha256": "dc0de6b50cd9c30a1df0ce777c598c48d9315313b5cd40ec8e971ce0d6b82622",
+    "successorSourceSha256": "029285e7d3ba751c409d3b334484b74734528089593fa5d6ae9c85a87fe5831b",
+    "predecessorRegressionVerifier": "FBSir-ui/scripts/verify-independent-board-w4b2c-runtime-mount.mjs",
+    "predecessorRegressionState": "PASS",
+    "historicalReceiptMutated": false
+  },
   "orchestratorImprovement": {
     "issue": "a_generic_migration_keyword_overrode_the_lifecycle_delivery_route_for_a_full_platform_objective",
     "boundedFix": "workspace_migration_now_requires_workspace_specific_wording_or_independent_path_drift_signals",
@@ -199,6 +208,7 @@
     "enabledFixtureEnvironmentSha256": "bede0a3a0efe11e44cd3848df8014a3bc6a217a30066eebdbf0dfce570c1f7ea",
     "defaultOffFixtureEnvironmentSha256": "f650bbe7ca9897023f72bceadd529a3ffcfbaa3500a4cc91f4181f334d163d90",
     "gitignoreSha256": "610fee26cec81f23b46f7d7a82ad80ab968c1054460a889edb5cb56a4449a872",
+    "routeGateSha256": "029285e7d3ba751c409d3b334484b74734528089593fa5d6ae9c85a87fe5831b",
     "menuRunnerSha256": "f747b39795d6c732edf67eb2765ddecf67a54807258cc2e8359d90ea59bb8a6c",
     "manifestVerifierSha256": "0da02e0ba15671edf1044c46eebb72dcd68c1f01481c7dbe243cb5bb03be22d3"
   },

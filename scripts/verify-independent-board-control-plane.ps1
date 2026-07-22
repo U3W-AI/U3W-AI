@@ -186,6 +186,7 @@ function Invoke-ContractChecks {
         'reports\independent-board\w4b-oauth-foundation-verification-20260721.json',
         'reports\independent-board\w4b2-backend-read-projection-verification-20260721.json',
         'reports\independent-board\w4b2c-default-off-runtime-mount-verification-20260721.json',
+        'reports\independent-board\w3g-credit-admin-ui-verification-20260722.json',
         'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.json',
         'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.md',
         'work\diagnostics\independent-board-mysql-transaction-it\mysql-8.0.30\summary-mysql-8.0.30-utc-20260721T123307.170Z-local-20260721T203307.170+0800-pid-18500.json',
@@ -370,6 +371,36 @@ function Invoke-ContractChecks {
             -or $w4b2cReport.nextSlice.id -cne $canonicalNextSliceId) {
         throw 'W4b.2c runtime mount verification receipt drifted or exceeds its evidence boundary'
     }
+    # W4b.2c remains immutable historical evidence. W3g intentionally extends
+    # the shared dynamic-route gate and owns the successor bytes, so the
+    # current route-gate binding must come from the W3g receipt together with
+    # an explicit W4b.2c regression result. All other W4b.2c sources remain
+    # pinned to the historical receipt.
+    $w3gReport = Read-Utf8Json -RelativePath 'reports\independent-board\w3g-credit-admin-ui-verification-20260722.json'
+    Assert-ProductBrand -Product $w3gReport.product -Source 'W3g credit admin UI verification report'
+    if ($w3gReport.schema -cne 'fbsir.independent-board.w3g-credit-admin-ui-verification/v1' `
+            -or $w3gReport.result -cne 'VERIFIED_LOCAL_DEFAULT_OFF_CREDIT_ADMIN_CANDIDATE' `
+            -or $w3gReport.releaseReady -ne $false `
+            -or $w3gReport.repository.listedPackageWriteback -ne $false `
+            -or $w3gReport.candidate.defaultEnabled -ne $false `
+            -or $w3gReport.verification.frontendVerifiers.w4b2cRuntimeMount -cne 'PASS' `
+            -or $w3gReport.evidenceSuccession.sharedSource -cne 'FBSir-ui/src/utils/independentBoardPortalCandidate.js' `
+            -or $w3gReport.evidenceSuccession.predecessorReceipt -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
+            -or $w3gReport.evidenceSuccession.predecessorRegressionVerifier -cne 'FBSir-ui/scripts/verify-independent-board-w4b2c-runtime-mount.mjs' `
+            -or $w3gReport.evidenceSuccession.predecessorRegressionState -cne 'PASS' `
+            -or $w3gReport.evidenceSuccession.historicalReceiptMutated -ne $false `
+            -or $w3gReport.truthBoundary.localVerifiedDoesNotProveProduction -ne $true `
+            -or $w3gReport.truthBoundary.frozenExpertPackageModified -ne $false) {
+        throw 'W3g successor evidence receipt drifted or exceeds its evidence boundary'
+    }
+    $predecessorRouteGateHash = $w4b2cReport.verification.sourceBinding.routeGateSha256
+    $currentRouteGateHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $RepoRoot 'FBSir-ui\src\utils\independentBoardPortalCandidate.js')).Hash.ToLowerInvariant()
+    if ($w3gReport.evidenceSuccession.predecessorSourceSha256 -cne $predecessorRouteGateHash `
+            -or $w3gReport.evidenceSuccession.successorSourceSha256 -cne $currentRouteGateHash `
+            -or $w3gReport.sourceBinding.routeGateSha256 -cne $currentRouteGateHash) {
+        throw 'W3g shared route-gate evidence succession is incomplete or drifted'
+    }
+
     $w4b2cSourcePaths = @{
         portalReadServiceSha256 = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\IndependentBoardPortalReadService.java'
         portalReadMapperSha256 = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\portal\mapper\IndependentBoardPortalReadMapper.java'
@@ -378,7 +409,6 @@ function Invoke-ContractChecks {
         tokenServiceSha256 = 'FBSir-framework\src\main\java\com\wx\fbsir\framework\web\service\TokenService.java'
         globalExceptionHandlerSha256 = 'FBSir-framework\src\main\java\com\wx\fbsir\framework\web\exception\GlobalExceptionHandler.java'
         permissionStoreSha256 = 'FBSir-ui\src\store\modules\permission.js'
-        routeGateSha256 = 'FBSir-ui\src\utils\independentBoardPortalCandidate.js'
         candidateTableSha256 = 'FBSir-ui\src\views\business\independentBoard\admin\components\CandidateReadTable.vue'
         trafficAttributionSha256 = 'scripts\independent-board-traffic-attribution.mjs'
         trafficAttributionTestsSha256 = 'scripts\independent-board-traffic-attribution.test.mjs'
@@ -526,7 +556,7 @@ function Invoke-ContractChecks {
     $implementationStatus = Read-Utf8Json -RelativePath 'docs\independent-board\implementation-status.json'
     $taskboard = Read-Utf8Json -RelativePath 'docs\independent-board\taskboard.json'
     $w4Wave = @($taskboard.waves | Where-Object { $_.id -ceq 'W4_OAUTH_CONNECTOR' })
-    if ($implementationStatus.platformVersion -cne '0.4.4-dev' `
+    if ($implementationStatus.platformVersion -cne '0.4.6-dev' `
             -or $implementationStatus.w4b.runtimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or $implementationStatus.w4b.api2TrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `
             -or $implementationStatus.w4b.nextSlice -cne $canonicalNextSliceId `
