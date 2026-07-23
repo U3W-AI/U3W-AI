@@ -2244,6 +2244,47 @@ SELECT CONCAT_WS('|',
     Write-Host "PASS Independent Board attribution evidence exact current-read (four tables, immutable triggers, default-off product seed and internal receipt)."
 }
 
+function Assert-IndependentBoardAttributionV1CurrentState {
+    param([switch]$AllowPublicRunning)
+
+    $null = Assert-IndependentBoardOauthServerProfile
+    $publicDescription = if ($AllowPublicRunning) {
+        'RUNNING:Independent Board exact official experts attribution v1'
+    }
+    else {
+        'APPLIED:Independent Board exact official experts attribution v1'
+    }
+    $state = Invoke-MySqlText -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema=DATABASE() AND table_type='BASE TABLE'
+     AND engine='InnoDB' AND table_collation='utf8mb4_unicode_ci'
+     AND table_name IN ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')),
+  (SELECT COUNT(*) FROM information_schema.triggers
+   WHERE trigger_schema=DATABASE() AND action_timing='BEFORE'
+     AND action_orientation='ROW'
+     AND trigger_name IN ('trg_board_attr_event_v1_no_update',
+                          'trg_board_attr_event_v1_no_delete')),
+  (SELECT COUNT(*) FROM sys_menu permission
+   INNER JOIN sys_menu root ON root.menu_id=permission.parent_id
+   WHERE BINARY permission.perms=BINARY 'board:attribution:query'
+     AND root.parent_id=0
+     AND BINARY root.path=BINARY 'independent-board-admin'
+     AND BINARY root.route_name=BINARY 'IndependentBoardAdmin'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='public_init_043'
+     AND BINARY description=BINARY '$publicDescription'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='20260723_independent_board_attribution_v1_043'
+     AND BINARY description=BINARY
+       'APPLIED:exact WorkBuddy experts 26.7.21 attribution journey and append-only event ledger'));
+"@
+    if ($state -ne '2|2|1|1|1') {
+        throw "Independent Board attribution v1 current-read drifted: '$state'."
+    }
+    Write-Host "PASS Independent Board official experts attribution v1 current-read (two ledger tables, two immutable triggers, exact admin permission and public/internal receipts)."
+}
+
 function Assert-IndependentBoardCreditLedgerCurrentState {
     $serverProfile = Assert-IndependentBoardOauthServerProfile
     $state = Invoke-MySqlText -Sql @"
@@ -2515,7 +2556,15 @@ SELECT CONCAT_WS('|',
 }
 
 function Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState {
+    param([switch]$AllowPublicRunning)
+
     $serverProfile = Assert-IndependentBoardOauthServerProfile
+    $publicDescription = if ($AllowPublicRunning) {
+        'RUNNING:Independent Board default-off skill-consume v2 credit ledger'
+    }
+    else {
+        'APPLIED:Independent Board default-off skill-consume v2 credit ledger'
+    }
     $state = Invoke-MySqlText -Sql @"
 SELECT CONCAT_WS('|',
   (SELECT COUNT(*) FROM information_schema.tables
@@ -2585,7 +2634,7 @@ SELECT CONCAT_WS('|',
      AND referenced_table_name='fbs_skill_usage_record'),
   (SELECT COUNT(*) FROM u3w_schema_migration
    WHERE version='public_init_042'
-     AND description='APPLIED:Independent Board default-off skill-consume v2 credit ledger'),
+     AND BINARY description=BINARY '$publicDescription'),
   (SELECT COUNT(*) FROM u3w_schema_migration
    WHERE version='20260723_skill_consume_credit_ledger_v2_042'
      AND description='Independent Board default-off skill-consume v2 credit ledger'));
@@ -2956,7 +3005,9 @@ SELECT CONCAT_WS('|', @u3w_manifest_lock_name, CHAR_LENGTH(@u3w_manifest_lock_na
             Assert-IndependentBoardAttributionEvidenceCurrentState
             Assert-IndependentBoardCreditLedgerCurrentState
             Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState
-            Assert-IndependentBoardPlanPolicyCurrentState
+            Assert-IndependentBoardAttributionV1CurrentState
+            Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChain
+            Assert-IndependentBoardPlanPolicyAuthorityCurrentState
             Assert-PublicDatabaseManifestCurrentState
             Write-Host "Independent Board current-read verification complete for '$Database'. No database write was requested."
         }
@@ -3184,7 +3235,12 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
                 Assert-IndependentBoardPlanPolicyAuthorityCurrentState
             }
             if ($step.Version -eq 'public_init_042') {
-                Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState
+                Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState `
+                    -AllowPublicRunning
+            }
+            if ($step.Version -eq 'public_init_043') {
+                Assert-IndependentBoardAttributionV1CurrentState `
+                    -AllowPublicRunning
             }
             Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
         }
@@ -3403,13 +3459,27 @@ DROP PROCEDURE IF EXISTS u3w_finalize_ib_plan_policy_authority_20260723;
                     # exact four-table state with no/one internal receipt. A retry
                     # therefore cannot repair partial DDL by deleting or rebuilding.
                     Invoke-MySqlFile -File $step.File
-                    Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState
+                    Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState `
+                        -AllowPublicRunning
                     Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
                     Write-Warning "Reconciled $($step.Version) from its exact completed v2 ledger state after one bounded replay."
                     continue
                 }
                 catch {
                     Write-Warning "Independent Board skill-consume v2 ledger exact bounded replay did not pass; recording FAILED."
+                }
+            }
+            if ($step.Version -eq 'public_init_043') {
+                try {
+                    Invoke-MySqlFile -File $step.File
+                    Assert-IndependentBoardAttributionV1CurrentState `
+                        -AllowPublicRunning
+                    Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
+                    Write-Warning "Reconciled $($step.Version) from its exact completed attribution v1 state after one bounded replay."
+                    continue
+                }
+                catch {
+                    Write-Warning "Independent Board attribution v1 exact bounded replay did not pass; recording FAILED."
                 }
             }
             try {
@@ -3433,6 +3503,7 @@ DROP PROCEDURE IF EXISTS u3w_finalize_ib_plan_policy_authority_20260723;
     Assert-IndependentBoardAttributionEvidenceCurrentState
     Assert-IndependentBoardCreditLedgerCurrentState
     Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState
+    Assert-IndependentBoardAttributionV1CurrentState
     Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChain
     Assert-IndependentBoardPlanPolicyAuthorityCurrentState
 
