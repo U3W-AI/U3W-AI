@@ -167,6 +167,48 @@ BEGIN
 END$$
 DELIMITER ;
 
+INSERT INTO `sys_menu`
+  (`menu_name`,`parent_id`,`order_num`,`path`,`component`,`query`,`route_name`,
+   `is_frame`,`is_cache`,`menu_type`,`visible`,`status`,`perms`,`icon`,
+   `create_by`,`create_time`,`update_by`,`update_time`,`remark`)
+SELECT
+  'Attribution summary', root.`menu_id`, 99, '', NULL, NULL, '',
+  1, 0, 'F', '0', '0', 'board:attribution:query', '#',
+  'admin', CURRENT_TIMESTAMP, '', NULL,
+  'Bounded read-only Wave 1 attribution aggregate permission'
+FROM `sys_menu` root
+WHERE root.`parent_id` = 0
+  AND root.`path` = 'independent-board-admin'
+  AND root.`route_name` = 'IndependentBoardAdmin'
+  AND NOT EXISTS (
+    SELECT 1 FROM `sys_menu`
+    WHERE BINARY `perms` = BINARY 'board:attribution:query'
+  );
+
+DELIMITER $$
+DROP PROCEDURE IF EXISTS `u3w_assert_board_attr_v1_permission_20260723`$$
+CREATE PROCEDURE `u3w_assert_board_attr_v1_permission_20260723`()
+BEGIN
+  IF (SELECT COUNT(*) FROM `sys_menu`
+      WHERE BINARY `perms` = BINARY 'board:attribution:query') <> 1
+     OR (SELECT COUNT(*)
+         FROM `sys_menu` permission
+         INNER JOIN `sys_menu` root
+           ON root.`menu_id` = permission.`parent_id`
+         WHERE BINARY permission.`perms`
+                 = BINARY 'board:attribution:query'
+           AND root.`parent_id` = 0
+           AND root.`path` = 'independent-board-admin'
+           AND root.`route_name` = 'IndependentBoardAdmin') <> 1 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT =
+        'Wave 1 attribution read permission is missing or ambiguous';
+  END IF;
+END$$
+CALL `u3w_assert_board_attr_v1_permission_20260723`()$$
+DROP PROCEDURE `u3w_assert_board_attr_v1_permission_20260723`$$
+DELIMITER ;
+
 INSERT INTO `u3w_schema_migration` (`version`,`description`)
 VALUES (
   '20260723_independent_board_attribution_v1_043',

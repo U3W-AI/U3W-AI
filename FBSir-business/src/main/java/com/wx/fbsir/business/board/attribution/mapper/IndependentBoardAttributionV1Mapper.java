@@ -2,8 +2,12 @@ package com.wx.fbsir.business.board.attribution.mapper;
 
 import com.wx.fbsir.business.board.attribution.domain.BoardAttributionJourneyHead;
 import com.wx.fbsir.business.board.attribution.domain.BoardAttributionLedgerEvent;
+import com.wx.fbsir.business.board.attribution.domain.BoardAttributionSummaryRow;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+
+import java.util.Date;
+import java.util.List;
 
 @Mapper
 public interface IndependentBoardAttributionV1Mapper {
@@ -27,4 +31,9 @@ public interface IndependentBoardAttributionV1Mapper {
             @Param("nextSequenceNo") long nextSequenceNo,
             @Param("nextEventDigest") String nextEventDigest,
             @Param("intentFamily") String intentFamily);
+
+    List<BoardAttributionSummaryRow> selectAttributionSummary(
+            @Param("windowStart") Date windowStart,
+            @Param("windowEnd") Date windowEnd,
+            @Param("mode") String mode);
 }

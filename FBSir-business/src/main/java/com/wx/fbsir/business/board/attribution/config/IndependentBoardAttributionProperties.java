@@ -20,6 +20,8 @@ public class IndependentBoardAttributionProperties {
     private boolean observationWriterEnabled = false;
     /** Finite server-side intent classifier. */
     private boolean intentClassifierEnabled = false;
+    /** Bounded admin-only aggregate readback. */
+    private boolean observationAdminReadEnabled = false;
     /** Remains off until natural-traffic evidence is independently approved. */
     private boolean productCreditEnabled = false;
     /** API2 event signing keys by key id. Values use utf8:/hex:/base64:. */

@@ -47,6 +47,7 @@ class IndependentBoardAttributionV1PersistenceContractTest {
                 "create trigger `trg_board_attr_event_v1_no_update`"));
         assertTrue(sql.contains(
                 "create trigger `trg_board_attr_event_v1_no_delete`"));
+        assertTrue(sql.contains("board:attribution:query"));
         assertFalse(sql.contains(
                 "alter table `fbs_attribution_product_contract`"));
         assertFalse(sql.contains("connector_required"));

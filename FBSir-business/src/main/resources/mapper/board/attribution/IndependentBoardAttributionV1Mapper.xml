@@ -165,4 +165,50 @@
       AND head_version = #{expectedHeadVersion}
       AND last_sequence_no = #{expectedLastSequenceNo}
   </update>
+
+  <resultMap id="SummaryRow"
+      type="com.wx.fbsir.business.board.attribution.domain.BoardAttributionSummaryRow">
+    <result property="productId" column="product_id"/>
+    <result property="listedManifestVersion" column="listed_manifest_version"/>
+    <result property="channel" column="channel"/>
+    <result property="terminal" column="terminal"/>
+    <result property="intentFamily" column="intent_family"/>
+    <result property="reviewMode" column="review_mode"/>
+    <result property="trafficClass" column="traffic_class"/>
+    <result property="entryCount" column="entry_count"/>
+    <result property="classifiedCount" column="classified_count"/>
+    <result property="firstValueCount" column="first_value_count"/>
+    <result property="distinctBindingCount" column="distinct_binding_count"/>
+    <result property="unknownDebtCount" column="unknown_debt_count"/>
+    <result property="eventHighWatermark" column="event_high_watermark"/>
+  </resultMap>
+
+  <select id="selectAttributionSummary" resultMap="SummaryRow"
+      useCache="false">
+    SELECT product_id,
+           listed_manifest_version,
+           channel,
+           terminal,
+           intent_family,
+           review_mode,
+           traffic_class,
+           SUM(CASE WHEN event_type = 'ENTRY_OBSERVED'
+                    THEN 1 ELSE 0 END) AS entry_count,
+           SUM(CASE WHEN event_type = 'INTENT_CLASSIFIED'
+                    THEN 1 ELSE 0 END) AS classified_count,
+           SUM(CASE WHEN event_type = 'FIRST_VALUE_COMPLETED'
+                    THEN 1 ELSE 0 END) AS first_value_count,
+           COUNT(DISTINCT same_binding_key) AS distinct_binding_count,
+           SUM(CASE WHEN intent_family = 'UNKNOWN'
+                    THEN 1 ELSE 0 END) AS unknown_debt_count,
+           MAX(MAX(event_watermark)) OVER () AS event_high_watermark
+    FROM fbs_board_attr_event_v1
+    WHERE occurred_at &gt;= #{windowStart}
+      AND occurred_at &lt; #{windowEnd}
+      AND (#{mode} = 'ALL' OR traffic_class = #{mode})
+    GROUP BY product_id, listed_manifest_version, channel, terminal,
+             intent_family, review_mode, traffic_class
+    ORDER BY traffic_class, channel, terminal, intent_family, review_mode
+    LIMIT 500
+  </select>
 </mapper>
