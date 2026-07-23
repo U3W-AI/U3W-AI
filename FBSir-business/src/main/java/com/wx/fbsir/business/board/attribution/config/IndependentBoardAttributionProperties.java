@@ -13,6 +13,12 @@ public class IndependentBoardAttributionProperties {
     private boolean candidateEnabled = false;
     private boolean publicRouteEnabled = false;
     private boolean authoritativeCreditEnabled = false;
+    /** Wave 1 append-only observation writer. */
+    private boolean observationWriterEnabled = false;
+    /** Finite server-side intent classifier. */
+    private boolean intentClassifierEnabled = false;
+    /** Remains off until natural-traffic evidence is independently approved. */
+    private boolean productCreditEnabled = false;
     private String issuer = "api2.u3w.com";
     private String audience = "independent-board-attribution";
     private String keyRef = "fbs.w4b2d.api2.keyring";

@@ -25,7 +25,8 @@ import java.util.regex.Pattern;
  * Side-effect-free verifier for the exact currently listed WorkBuddy package.
  * There is no compatibility branch for an older listed version.
  */
-public final class BoardAttributionEventV1Verifier {
+public final class BoardAttributionEventV1Verifier
+        implements BoardAttributionEventVerifier {
     public static final String SCHEMA_VERSION =
             "fbsir.independentBoardAttributionEvent.v1";
     public static final String CONTRACT_ID =
@@ -82,10 +83,12 @@ public final class BoardAttributionEventV1Verifier {
                 ? new BoardIntentClassifier() : intentClassifier;
     }
 
+    @Override
     public boolean isConfigured() {
         return !keyring.isEmpty();
     }
 
+    @Override
     public VerifiedBoardAttributionEvent verify(
             BoardAttributionEventV1 event,
             IndependentBoardAttributionProperties properties) {
