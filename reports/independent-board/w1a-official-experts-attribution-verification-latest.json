@@ -19,7 +19,7 @@
   "u3w": {
     "repository": "https://github.com/U3W-AI/U3W-AI.git",
     "branch": "codex/w1-official-attribution-closure",
-    "commit": "5d912fc1e5e5b1ec73658288cd8416e1d25e07df",
+    "commit": "51dba9ef842f5fe62198a31cbfb7b237ecffd89b",
     "migration": "public_init_043",
     "dualMysql": [
       "MySQL Community 8.0.30",
@@ -36,11 +36,10 @@
       "productionChanged": false,
       "failedGates": [
         "versioned_schema_baseline",
-        "w1a_schema_state",
         "backup_restore_anchor",
         "default_off_configuration",
         "cryptographic_material_custody",
-        "release_switch_and_rollback_channel"
+        "release_plan_and_rollback_contract"
       ]
     }
   },

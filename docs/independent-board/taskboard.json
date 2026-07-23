@@ -40,7 +40,7 @@
         "listedManifestVersion": "26.7.21",
         "embeddedContractVersion": "26.7.20"
       },
-      "u3wCandidateCommit": "5d912fc1e5e5b1ec73658288cd8416e1d25e07df",
+      "u3wCandidateCommit": "51dba9ef842f5fe62198a31cbfb7b237ecffd89b",
       "naturalChain": [
         "ENTRY_OBSERVED",
         "INTENT_CLASSIFIED",

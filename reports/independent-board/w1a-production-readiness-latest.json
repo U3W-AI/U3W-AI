@@ -1,6 +1,6 @@
 {
   "schema": "fbsir.independentBoardProductionReadiness.v1",
-  "observedAt": "2026-07-23T14:31:39.510882+00:00",
+  "observedAt": "2026-07-23T15:42:38.511985+00:00",
   "status": "NOT_READY_FOR_PRODUCTION_RELEASE",
   "productionChanged": false,
   "readyForDefaultOffRelease": false,
@@ -23,12 +23,17 @@
     {
       "id": "versioned_schema_baseline",
       "pass": false,
-      "detail": "unverified MySQL version: 8.0.45"
+      "detail": "canonical baseline is unverified on MySQL 8.0.45 and no verified legacy baseline exists"
+    },
+    {
+      "id": "w1a_043_mysql_compatibility",
+      "pass": true,
+      "detail": "the exact public_init_043 migration and fingerprint passed on this MySQL build"
     },
     {
       "id": "w1a_schema_state",
-      "pass": false,
-      "detail": "public_init_043 must be explicitly absent or backed by the exact W1A table/trigger fingerprint"
+      "pass": true,
+      "detail": "public_init_043 must be fully absent or backed by the exact public/internal receipts, tables, triggers, permission and fingerprint"
     },
     {
       "id": "backup_restore_anchor",
@@ -43,24 +48,65 @@
     {
       "id": "cryptographic_material_custody",
       "pass": false,
-      "detail": "event verification key material and same-binding secret must be present without disclosure"
+      "detail": "the explicit active event key pair and independent same-binding secret must be held in a root-owned 0600 env file without disclosure"
     },
     {
-      "id": "release_switch_and_rollback_channel",
+      "id": "release_plan_and_rollback_contract",
       "pass": false,
-      "detail": "strict-HEAD build/upload/switch plus application-and-database rollback receipts are required"
+      "detail": "a locally verified strict-HEAD stage/switch/rollback plan bound to this source commit is required"
     }
   ],
   "failedGateIds": [
     "versioned_schema_baseline",
-    "w1a_schema_state",
     "backup_restore_anchor",
     "default_off_configuration",
     "cryptographic_material_custody",
-    "release_switch_and_rollback_channel"
+    "release_plan_and_rollback_contract"
+  ],
+  "postDeploymentGates": [
+    {
+      "id": "staged_release_receipt",
+      "pass": false,
+      "detail": "a target-rehashed, externally anchored staged release receipt is required before switching"
+    },
+    {
+      "id": "deployed_default_off_receipt",
+      "pass": false,
+      "detail": "a deployed default-off receipt with jointly anchored application and database rollback proofs is required"
+    }
+  ],
+  "postDeployFailedGateIds": [
+    "staged_release_receipt",
+    "deployed_default_off_receipt"
   ],
   "evidence": {
-    "localSourceCommit": "5d912fc1e5e5b1ec73658288cd8416e1d25e07df",
+    "localSourceCommit": "51dba9ef842f5fe62198a31cbfb7b237ecffd89b",
+    "releasePlan": {
+      "verified": false,
+      "sourceCommit": null,
+      "runnerContractVersion": null,
+      "receiptPath": null,
+      "receiptSha256": null
+    },
+    "w1a043CompatibilityVersions": [
+      "8.0.30",
+      "8.0.45",
+      "8.4.8"
+    ],
+    "w1a043CompatibilityReceipts": [
+      {
+        "path": "reports/independent-board/w1a-attribution-v1-dual-mysql-latest.json",
+        "sha256": "89b6173a9815d14f1845efbde0f94f7c3711bfde25017da5ccb945d17d4a03c1"
+      },
+      {
+        "path": "reports/independent-board/w1a-attribution-v1-mysql-8.0.45-latest.json",
+        "sha256": "b4b0fb5adae629fddf62101be4de4a31c37b5f41ee97bab8b9cf47167dd3ceb3"
+      }
+    ],
+    "canonicalBaselineCompatibilityVersions": [
+      "8.0.30",
+      "8.4.8"
+    ],
     "target": {
       "host": "api2.u3w.com",
       "authorityObserved": "root",
@@ -77,7 +123,17 @@
       "database": "fbsir",
       "totalTableCount": 99,
       "migrationTableCount": 0,
+      "schemaBaselineMode": null,
+      "legacyBaselineReceiptValid": false,
+      "legacyBaselineReceiptAnchorMatched": false,
+      "legacyBaselineLiveFactsMatched": false,
+      "legacyBaselineReceiptDigest": null,
+      "legacyBaselineSourceCommit": null,
       "publicInit043Applied": null,
+      "boardAttributionTableCount": 0,
+      "boardAttributionTriggerCount": 0,
+      "boardAttributionPermissionCount": 0,
+      "boardAttributionInternalReceiptCount": 0,
       "w1aSchemaFingerprintVerified": false,
       "w1aSchemaFingerprintSha256": null,
       "missingPredecessorMigrations": [
@@ -128,7 +184,12 @@
         "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PRODUCT_CREDIT_ENABLED"
       ],
       "eventKeyEntryCount": 0,
-      "sameBindingSecretPresent": false
+      "activeEventKeyPairPresent": false,
+      "activeEventKeyId": null,
+      "previousEventKeyPairComplete": true,
+      "sameBindingSecretPresent": false,
+      "environmentFileCustodySecure": true,
+      "cryptographicConfigurationShapeValid": false
     },
     "backup": {
       "receiptPath": "/opt/fbsir/admin/backups/latest/receipt.json",
@@ -136,17 +197,20 @@
       "receiptAnchorMatched": false,
       "sha256": null,
       "sizeBytes": null,
-      "restoreProcedureVerified": false
+      "restoreProcedureVerified": false,
+      "restoreLiveFactsMatched": false
     },
     "deploymentChannel": {
+      "state": null,
       "receiptPath": "/opt/fbsir/admin/releases/latest-receipt.json",
       "receiptValidated": false,
       "receiptAnchorMatched": false,
       "sourceCommit": null,
       "strictHeadBuildUploadSwitchReceiptScriptPresent": false,
       "applicationRollbackProven": false,
-      "databaseRollbackProven": false
+      "databaseRollbackProven": false,
+      "actualActiveArtifactsMatched": false
     }
   },
-  "nextAction": "Close failed gates before any upload, migration, Nginx change, restart or cutover: versioned_schema_baseline,w1a_schema_state,backup_restore_anchor,default_off_configuration,cryptographic_material_custody,release_switch_and_rollback_channel"
+  "nextAction": "Close preparation gates before any upload, migration, Nginx change, restart or cutover: versioned_schema_baseline,backup_restore_anchor,default_off_configuration,cryptographic_material_custody,release_plan_and_rollback_contract"
 }
