@@ -10,6 +10,7 @@ import com.wx.fbsir.common.core.domain.entity.SysUser;
 import com.wx.fbsir.system.mapper.SysUserMapper;
 import com.wx.fbsir.system.service.ISysUserService;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,11 @@ class PointsServiceImplTest {
     @InjectMocks
     private PointsServiceImpl pointsService;
 
+    @BeforeEach
+    void allowConditionalBalanceUpdateByDefault() {
+        lenient().when(pointsMapper.updateUserPointsIfBalance(anyLong(), anyInt(), anyInt())).thenReturn(1);
+    }
+
     @Test
     @DisplayName("P0: 粉丝查询经数据权限服务，客户端 dataScope 不得触达原始 Mapper")
     void getPointsFansListDelegatesToDataScopedUserServiceInsteadOfRawMapper() {
@@ -91,6 +97,7 @@ class PointsServiceImplTest {
 
             // Then: 不调用 updatePoints 和 insertPointsRecord
             verify(pointsMapper, never()).updateUserPoints(anyLong(), anyInt());
+            verify(pointsMapper, never()).updateUserPointsIfBalance(anyLong(), anyInt(), anyInt());
             verify(pointsRecordMapper, never()).insertPointsRecord(any());
         }
 
@@ -123,7 +130,8 @@ class PointsServiceImplTest {
             assertEquals(110, result.get("data")); // 新余额
 
             // Then: 调用 updatePoints 和 insertPointsRecord
-            verify(pointsMapper).updateUserPoints(1L, 110);
+            verify(pointsMapper).updateUserPointsIfBalance(1L, 100, 110);
+            verify(pointsMapper, never()).updateUserPoints(anyLong(), anyInt());
             verify(pointsRecordMapper).insertPointsRecord(argThat(record ->
                 record.getEventId().equals(eventId) &&
                 record.getChangeAmount() == 10 &&
@@ -185,6 +193,48 @@ class PointsServiceImplTest {
             // Then: 不调用 selectByEventId
             verify(pointsRecordMapper, never()).selectByEventId(any());
         }
+
+        @Test
+        @DisplayName("P0: event entry returns a stable conflict without ledger or limit writes when CAS misses")
+        void changePointsWithEventIdStopsBeforeSideEffectsWhenBalanceCasMisses() {
+            String eventId = "cas_conflict_event";
+            PointsRule rule = activeRule("DAILY_LOGIN", 10);
+            when(pointsRecordMapper.selectByEventId(eventId)).thenReturn(null);
+            when(pointsRuleService.getRuleByCode("DAILY_LOGIN")).thenReturn(rule);
+            when(pointsRuleService.checkLimit(1L, "DAILY_LOGIN", rule)).thenReturn(true);
+            when(pointsRuleService.checkMaxAmount(1L, "DAILY_LOGIN", 10, rule)).thenReturn(true);
+            when(pointsMapper.getUserPoints(1L)).thenReturn(100);
+            when(pointsMapper.updateUserPointsIfBalance(1L, 100, 110)).thenReturn(0);
+
+            AjaxResult result = pointsService.changePoints(1L, "DAILY_LOGIN", 10, null, null, eventId);
+
+            assertFalse(result.isSuccess());
+            assertEquals("POINTS_BALANCE_CONCURRENT_CONFLICT", result.get("msg"));
+            verify(pointsMapper).updateUserPointsIfBalance(1L, 100, 110);
+            verify(pointsMapper, never()).updateUserPoints(anyLong(), anyInt());
+            verify(pointsRecordMapper, never()).insertPointsRecord(any());
+            verify(pointsRuleService, never()).markLimit(anyLong(), anyString(), any());
+        }
+
+        @Test
+        @DisplayName("P0: event entry rejects an out-of-range balance before conditional update or side effects")
+        void changePointsWithEventIdStopsBeforeSideEffectsWhenBalanceWouldOverflow() {
+            String eventId = "event_overflow";
+            PointsRule rule = activeRule("EVENT_OVERFLOW", 1);
+            when(pointsRecordMapper.selectByEventId(eventId)).thenReturn(null);
+            when(pointsRuleService.getRuleByCode("EVENT_OVERFLOW")).thenReturn(rule);
+            when(pointsRuleService.checkLimit(1L, "EVENT_OVERFLOW", rule)).thenReturn(true);
+            when(pointsRuleService.checkMaxAmount(1L, "EVENT_OVERFLOW", 1, rule)).thenReturn(true);
+            when(pointsMapper.getUserPoints(1L)).thenReturn(Integer.MAX_VALUE);
+
+            AjaxResult result = pointsService.changePoints(1L, "EVENT_OVERFLOW", 1, null, null, eventId);
+
+            assertFalse(result.isSuccess());
+            assertEquals("POINTS_BALANCE_OUT_OF_RANGE", result.get("msg"));
+            verify(pointsMapper, never()).updateUserPointsIfBalance(anyLong(), anyInt(), anyInt());
+            verify(pointsRecordMapper, never()).insertPointsRecord(any());
+            verify(pointsRuleService, never()).markLimit(anyLong(), anyString(), any());
+        }
     }
 
     @Nested
@@ -205,7 +255,129 @@ class PointsServiceImplTest {
             // Then: 不调用任何 Mapper
             verify(pointsRecordMapper, never()).selectByEventId(any());
             verify(pointsMapper, never()).updateUserPoints(anyLong(), anyInt());
+            verify(pointsMapper, never()).updateUserPointsIfBalance(anyLong(), anyInt(), anyInt());
             verify(pointsRecordMapper, never()).insertPointsRecord(any());
         }
+    }
+
+    @Test
+    @DisplayName("P0: basic entry returns a stable conflict without ledger or limit writes when CAS misses")
+    void changePointsStopsBeforeSideEffectsWhenBalanceCasMisses() {
+        PointsRule rule = activeRule("BASIC_CAS", 10);
+        when(pointsRuleService.getRuleByCode("BASIC_CAS")).thenReturn(rule);
+        when(pointsRuleService.checkLimit(1L, "BASIC_CAS", rule)).thenReturn(true);
+        when(pointsRuleService.checkMaxAmount(1L, "BASIC_CAS", 10, rule)).thenReturn(true);
+        when(pointsMapper.getUserPoints(1L)).thenReturn(100);
+        when(pointsMapper.updateUserPointsIfBalance(1L, 100, 110)).thenReturn(0);
+
+        AjaxResult result = pointsService.changePoints(1L, "BASIC_CAS", 10);
+
+        assertFalse(result.isSuccess());
+        assertEquals("POINTS_BALANCE_CONCURRENT_CONFLICT", result.get("msg"));
+        verify(pointsMapper).updateUserPointsIfBalance(1L, 100, 110);
+        verify(pointsMapper, never()).updateUserPoints(anyLong(), anyInt());
+        verify(pointsRecordMapper, never()).insertPointsRecord(any());
+        verify(pointsRuleService, never()).markLimit(anyLong(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("P0: basic entry returns the committed balance after a successful conditional update")
+    void changePointsReturnsCommittedBalanceAfterSuccessfulConditionalUpdate() {
+        PointsRule rule = activeRule("BASIC_SUCCESS", 10);
+        when(pointsRuleService.getRuleByCode("BASIC_SUCCESS")).thenReturn(rule);
+        when(pointsRuleService.checkLimit(1L, "BASIC_SUCCESS", rule)).thenReturn(true);
+        when(pointsRuleService.checkMaxAmount(1L, "BASIC_SUCCESS", 10, rule)).thenReturn(true);
+        when(pointsMapper.getUserPoints(1L)).thenReturn(100);
+
+        AjaxResult result = pointsService.changePoints(1L, "BASIC_SUCCESS", 10);
+
+        assertTrue(result.isSuccess());
+        assertEquals(110, result.get("data"));
+        verify(pointsMapper).updateUserPointsIfBalance(1L, 100, 110);
+        verify(pointsRecordMapper).insertPointsRecord(any());
+        verify(pointsRuleService).markLimit(1L, "BASIC_SUCCESS", rule);
+    }
+
+    @Test
+    @DisplayName("P0: basic entry rejects balance overflow before conditional update or side effects")
+    void changePointsStopsBeforeSideEffectsWhenBalanceWouldOverflow() {
+        PointsRule rule = activeRule("BASIC_OVERFLOW", 1);
+        when(pointsRuleService.getRuleByCode("BASIC_OVERFLOW")).thenReturn(rule);
+        when(pointsRuleService.checkLimit(1L, "BASIC_OVERFLOW", rule)).thenReturn(true);
+        when(pointsRuleService.checkMaxAmount(1L, "BASIC_OVERFLOW", 1, rule)).thenReturn(true);
+        when(pointsMapper.getUserPoints(1L)).thenReturn(Integer.MAX_VALUE);
+
+        AjaxResult result = pointsService.changePoints(1L, "BASIC_OVERFLOW", 1);
+
+        assertFalse(result.isSuccess());
+        assertEquals("POINTS_BALANCE_OUT_OF_RANGE", result.get("msg"));
+        verify(pointsMapper, never()).updateUserPointsIfBalance(anyLong(), anyInt(), anyInt());
+        verify(pointsMapper, never()).updateUserPoints(anyLong(), anyInt());
+        verify(pointsRecordMapper, never()).insertPointsRecord(any());
+        verify(pointsRuleService, never()).markLimit(anyLong(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("P0: scene entry returns a stable conflict without ledger or limit writes when CAS misses")
+    void changePointsWithSceneStopsBeforeSideEffectsWhenBalanceCasMisses() {
+        PointsRule rule = activeRule("SCENE_CAS", 10);
+        when(pointsRuleService.getRuleByCode("SCENE_CAS")).thenReturn(rule);
+        when(pointsRuleService.checkLimit(1L, "SCENE_CAS", rule)).thenReturn(true);
+        when(pointsRuleService.checkMaxAmount(1L, "SCENE_CAS", 10, rule)).thenReturn(true);
+        when(pointsMapper.getUserPoints(1L)).thenReturn(100);
+        when(pointsMapper.updateUserPointsIfBalance(1L, 100, 110)).thenReturn(0);
+
+        AjaxResult result = pointsService.changePoints(1L, "SCENE_CAS", 10, 6L, "usage-cas");
+
+        assertFalse(result.isSuccess());
+        assertEquals("POINTS_BALANCE_CONCURRENT_CONFLICT", result.get("msg"));
+        verify(pointsMapper).updateUserPointsIfBalance(1L, 100, 110);
+        verify(pointsMapper, never()).updateUserPoints(anyLong(), anyInt());
+        verify(pointsRecordMapper, never()).insertPointsRecord(any());
+        verify(pointsRuleService, never()).markLimit(anyLong(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("P0: scene entry returns the committed balance after a successful conditional update")
+    void changePointsWithSceneReturnsCommittedBalanceAfterSuccessfulConditionalUpdate() {
+        PointsRule rule = activeRule("SCENE_SUCCESS", 10);
+        when(pointsRuleService.getRuleByCode("SCENE_SUCCESS")).thenReturn(rule);
+        when(pointsRuleService.checkLimit(1L, "SCENE_SUCCESS", rule)).thenReturn(true);
+        when(pointsRuleService.checkMaxAmount(1L, "SCENE_SUCCESS", 10, rule)).thenReturn(true);
+        when(pointsMapper.getUserPoints(1L)).thenReturn(100);
+
+        AjaxResult result = pointsService.changePoints(1L, "SCENE_SUCCESS", 10, 6L, "usage-success");
+
+        assertTrue(result.isSuccess());
+        assertEquals(110, result.get("data"));
+        verify(pointsMapper).updateUserPointsIfBalance(1L, 100, 110);
+        verify(pointsRecordMapper).insertPointsRecord(any());
+        verify(pointsRuleService).markLimit(1L, "SCENE_SUCCESS", rule);
+    }
+
+    @Test
+    @DisplayName("P0: scene entry rejects an out-of-range balance before conditional update or side effects")
+    void changePointsWithSceneStopsBeforeSideEffectsWhenBalanceWouldOverflow() {
+        PointsRule rule = activeRule("SCENE_OVERFLOW", 1);
+        when(pointsRuleService.getRuleByCode("SCENE_OVERFLOW")).thenReturn(rule);
+        when(pointsRuleService.checkLimit(1L, "SCENE_OVERFLOW", rule)).thenReturn(true);
+        when(pointsRuleService.checkMaxAmount(1L, "SCENE_OVERFLOW", 1, rule)).thenReturn(true);
+        when(pointsMapper.getUserPoints(1L)).thenReturn(Integer.MAX_VALUE);
+
+        AjaxResult result = pointsService.changePoints(1L, "SCENE_OVERFLOW", 1, 6L, "usage-overflow");
+
+        assertFalse(result.isSuccess());
+        assertEquals("POINTS_BALANCE_OUT_OF_RANGE", result.get("msg"));
+        verify(pointsMapper, never()).updateUserPointsIfBalance(anyLong(), anyInt(), anyInt());
+        verify(pointsRecordMapper, never()).insertPointsRecord(any());
+        verify(pointsRuleService, never()).markLimit(anyLong(), anyString(), any());
+    }
+
+    private PointsRule activeRule(String ruleCode, int pointsValue) {
+        PointsRule rule = new PointsRule();
+        rule.setRuleCode(ruleCode);
+        rule.setPointsValue(pointsValue);
+        rule.setStatus("0");
+        return rule;
     }
 }

@@ -16,5 +16,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         WHERE user_id = #{userId}
     </update>
 
+    <update id="updateUserPointsIfBalance">
+        UPDATE sys_user
+        SET points = #{points}
+        WHERE user_id = #{userId}
+          AND (points = #{expectedPoints} OR (points IS NULL AND #{expectedPoints} = 0))
+    </update>
+
 </mapper>
 

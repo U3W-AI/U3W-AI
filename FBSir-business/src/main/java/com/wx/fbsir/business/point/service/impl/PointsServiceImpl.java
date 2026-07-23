@@ -32,6 +32,9 @@ import com.wx.fbsir.system.service.ISysUserService;
  */
 @Service
 public class PointsServiceImpl implements IPointsService {
+
+    private static final String POINTS_BALANCE_CONCURRENT_CONFLICT = "POINTS_BALANCE_CONCURRENT_CONFLICT";
+    private static final String POINTS_BALANCE_OUT_OF_RANGE = "POINTS_BALANCE_OUT_OF_RANGE";
     
     @Autowired
     private PointsMapper pointsMapper;
@@ -88,13 +91,18 @@ public class PointsServiceImpl implements IPointsService {
         }
         
         // 7. 余额校验（扣减场景）
-        if (actualChange < 0 && (currentPoints + actualChange) < 0) {
+        Integer newPoints = calculateNewPoints(currentPoints, actualChange);
+        if (newPoints == null) {
+            return balanceOutOfRange();
+        }
+        if (newPoints < 0) {
             return AjaxResult.error("积分余额不足，扣减失败");
         }
         
         // 8. 更新积分余额
-        Integer newPoints = currentPoints + actualChange;
-        pointsMapper.updateUserPoints(userId, newPoints);
+        if (pointsMapper.updateUserPointsIfBalance(userId, currentPoints, newPoints) != 1) {
+            return balanceConcurrentConflict();
+        }
         
         // 9. 插入积分记录（使用规则编码）
         PointsRecord record = new PointsRecord();
@@ -109,7 +117,7 @@ public class PointsServiceImpl implements IPointsService {
         // 10. 成功后记录一次限频（避免失败情况下占用额度）
         pointsRuleService.markLimit(userId, ruleCode, rule);
         
-        return AjaxResult.success("积分操作成功");
+        return AjaxResult.success("积分操作成功", newPoints);
     }
 
     @Override
@@ -154,13 +162,18 @@ public class PointsServiceImpl implements IPointsService {
         }
 
         // 7. 余额校验（扣减场景）
-        if (actualChange < 0 && (currentPoints + actualChange) < 0) {
+        Integer newPoints = calculateNewPoints(currentPoints, actualChange);
+        if (newPoints == null) {
+            return balanceOutOfRange();
+        }
+        if (newPoints < 0) {
             return AjaxResult.error("积分余额不足，扣减失败");
         }
 
         // 8. 更新积分余额
-        Integer newPoints = currentPoints + actualChange;
-        pointsMapper.updateUserPoints(userId, newPoints);
+        if (pointsMapper.updateUserPointsIfBalance(userId, currentPoints, newPoints) != 1) {
+            return balanceConcurrentConflict();
+        }
 
         // 9. 插入积分记录（使用规则编码，并写入FBS关联字段）
         PointsRecord record = new PointsRecord();
@@ -177,7 +190,7 @@ public class PointsServiceImpl implements IPointsService {
         // 10. 成功后记录一次限频（避免失败情况下占用额度）
         pointsRuleService.markLimit(userId, ruleCode, rule);
 
-        return AjaxResult.success("积分操作成功");
+        return AjaxResult.success("积分操作成功", newPoints);
     }
 
     @Override
@@ -235,13 +248,18 @@ public class PointsServiceImpl implements IPointsService {
         }
 
         // 余额校验（扣减场景）
-        if (actualChange < 0 && (currentPoints + actualChange) < 0) {
+        Integer newPoints = calculateNewPoints(currentPoints, actualChange);
+        if (newPoints == null) {
+            return balanceOutOfRange();
+        }
+        if (newPoints < 0) {
             return AjaxResult.error("积分余额不足，扣减失败");
         }
 
         // 更新积分余额
-        Integer newPoints = currentPoints + actualChange;
-        pointsMapper.updateUserPoints(userId, newPoints);
+        if (pointsMapper.updateUserPointsIfBalance(userId, currentPoints, newPoints) != 1) {
+            return balanceConcurrentConflict();
+        }
 
         // 插入积分记录（包含 event_id）
         PointsRecord record = new PointsRecord();
@@ -361,6 +379,22 @@ public class PointsServiceImpl implements IPointsService {
         }
         Integer sum = pointsRecordMapper.sumUserPointsChangeSince(userId, startTime);
         return sum == null ? 0 : sum;
+    }
+
+    private AjaxResult balanceConcurrentConflict() {
+        return AjaxResult.error(POINTS_BALANCE_CONCURRENT_CONFLICT);
+    }
+
+    private AjaxResult balanceOutOfRange() {
+        return AjaxResult.error(POINTS_BALANCE_OUT_OF_RANGE);
+    }
+
+    private Integer calculateNewPoints(Integer currentPoints, Integer actualChange) {
+        long newPoints = (long) currentPoints + actualChange;
+        if (newPoints < Integer.MIN_VALUE || newPoints > Integer.MAX_VALUE) {
+            return null;
+        }
+        return (int) newPoints;
     }
 
     /**

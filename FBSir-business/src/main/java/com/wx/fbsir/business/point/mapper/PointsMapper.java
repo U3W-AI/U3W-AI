@@ -27,5 +27,17 @@ public interface PointsMapper {
      * @return 结果
      */
     public int updateUserPoints(@Param("userId") Long userId, @Param("points") Integer points);
+
+    /**
+     * Updates a balance only when it still equals the value read by the caller.
+     *
+     * @param userId user ID
+     * @param expectedPoints balance observed by the caller
+     * @param points replacement balance
+     * @return affected rows; zero means a concurrent balance change won
+     */
+    public int updateUserPointsIfBalance(@Param("userId") Long userId,
+                                         @Param("expectedPoints") Integer expectedPoints,
+                                         @Param("points") Integer points);
 }
 

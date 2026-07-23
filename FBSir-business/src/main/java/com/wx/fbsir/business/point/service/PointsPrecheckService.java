@@ -92,7 +92,11 @@ public class PointsPrecheckService {
         if (current == null) {
             current = 0;
         }
-        if (actualChange < 0 && current + actualChange < 0) {
+        long projectedBalance = (long) current + actualChange;
+        if (projectedBalance > Integer.MAX_VALUE || projectedBalance < Integer.MIN_VALUE) {
+            return PointsResult.fail("POINTS_BALANCE_OUT_OF_RANGE", "积分余额超出可表示范围");
+        }
+        if (projectedBalance < 0) {
             return PointsResult.fail("INSUFFICIENT_BALANCE", "积分余额不足");
         }
 
@@ -100,7 +104,11 @@ public class PointsPrecheckService {
         try {
             com.wx.fbsir.common.core.domain.AjaxResult result = pointsService.changePoints(userId, ruleCode, actualChange);
             if (result.isSuccess()) {
-                return PointsResult.ok(actualChange, current + actualChange);
+                Object balanceAfter = result.get("data");
+                if (!(balanceAfter instanceof Integer)) {
+                    return PointsResult.fail("POINTS_ERROR", "POINTS_COMMITTED_BALANCE_MISSING");
+                }
+                return PointsResult.ok(actualChange, (Integer) balanceAfter);
             } else {
                 return PointsResult.fail("POINTS_ERROR", (String) result.get("msg"));
             }

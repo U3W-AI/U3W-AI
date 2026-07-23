@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "kind": "fbsir.points-balance-cas.verification/v1",
+  "result": "PASS_LOCAL_DUAL_MYSQL_CAS",
+  "verifiedAt": "2026-07-23T08:46:51+08:00",
+  "scope": "legacy points balance conditional update hardening",
+  "candidateReadyForCommit": true,
+  "releaseReady": false,
+  "productionChanged": false,
+  "frozenListedPackageModified": false,
+  "productionConnectionUsed": false,
+  "predecessorSourceSha256": {
+    "scripts/verify-independent-board-control-plane.ps1": "7f780c47144adef25e9e31a63782a318bff07bf13978a8d28a2d50b72bf07c8b"
+  },
+  "serviceContract": {
+    "stableConflictMessage": "POINTS_BALANCE_CONCURRENT_CONFLICT",
+    "outOfRangeMessage": "POINTS_BALANCE_OUT_OF_RANGE",
+    "conflictWritesLedger": false,
+    "conflictMarksLimit": false,
+    "eventIdempotentReplayPrecedesBalanceUpdate": true,
+    "precheckUsesCommittedBalance": true
+  },
+  "maven": {
+    "command": "mvn -o -pl FBSir-business -Dtest=PointsServiceImplTest,PointsMapperSqlContractTest,PointsPrecheckServiceTest -DforkCount=0 test",
+    "testsRun": 17,
+    "failures": 0,
+    "errors": 0,
+    "result": "BUILD_SUCCESS"
+  },
+  "mysql": {
+    "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/run-points-balance-cas-mysql-it.ps1 -AllowDestructiveTest",
+    "result": "PASS_LOCAL_DUAL_MYSQL_CAS",
+    "versions": [
+      {
+        "version": "8.0.30",
+        "concurrentAffectedRows": "0|1",
+        "finalBalance": "90",
+        "nullNormalizedCompareAndSet": "1|7",
+        "missingUserCompareAndSet": "0",
+        "productionConnectionUsed": false,
+        "workDirectoryCleaned": true
+      },
+      {
+        "version": "8.4.8",
+        "concurrentAffectedRows": "0|1",
+        "finalBalance": "90",
+        "nullNormalizedCompareAndSet": "1|7",
+        "missingUserCompareAndSet": "0",
+        "productionConnectionUsed": false,
+        "workDirectoryCleaned": true
+      }
+    ]
+  },
+  "sourceSha256": {
+    "FBSir-business/src/main/java/com/wx/fbsir/business/point/service/impl/PointsServiceImpl.java": "ea7333cd169365c4922cfedd02ab67cfd7f8f9a11f3521fe84edde1feeff5329",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/point/service/PointsPrecheckService.java": "33eaaa25937c43275319bbb75a6978ccf499e4202fa50127a6bf8922fb9fe1dc",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/point/mapper/PointsMapper.java": "2bd0c617d143e3ca4e651f3f2ab44d1f11297f2205e793173da619b2d65a5bd9",
+    "FBSir-business/src/main/resources/mapper/point/PointsMapper.xml": "5022723848508ed8577a00bc9369d5014c9d24ac55c3c2ea3536750f8a6723a4",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/point/service/impl/PointsServiceImplTest.java": "177c2cf8c6859cf8e8d6606b32f7c0b92934956cf283766fd726e5c41fd81872",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/point/service/PointsPrecheckServiceTest.java": "c348af6abc5f661cc28bb23cfb1443a236d64ae36362c899898d551f852fd12e",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/point/mapper/PointsMapperSqlContractTest.java": "65900dfa046f5b7b05b4f4aaba280c74276cd9eb8e0de447cacbed48fe9ffdf7",
+    "scripts/run-points-balance-cas-mysql-it.ps1": "7cf270ba26668673803604d5210792374cabc751937019a8976ef35f69c4dd2b",
+    "docs/independent-board/W4B3-POINTS-BALANCE-CAS-CONTRACT.md": "0715929d0b9fca6920b576a780646edf7839d6c256d122059bb19d134dc6dd35",
+    "scripts/verify-independent-board-control-plane.ps1": "3a849d3c17dc8d112023ee1efa70502949e44cf320afd295a51fc9f78994b8e4"
+  }
+}

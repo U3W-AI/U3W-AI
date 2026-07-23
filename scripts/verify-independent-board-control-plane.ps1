@@ -228,6 +228,7 @@ function Invoke-ContractChecks {
         'reports\independent-board\w4b2c-default-off-runtime-mount-verification-20260721.json',
         'reports\independent-board\w3g-credit-admin-ui-verification-20260722.json',
         'reports\independent-board\w3j-credit-candidate-release-readiness-verification-20260722.json',
+        'reports\independent-board\points-balance-cas-mysql-verification-20260723.json',
         'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.json',
         'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.md',
         'work\diagnostics\independent-board-mysql-transaction-it\mysql-8.0.30\summary-mysql-8.0.30-utc-20260721T123307.170Z-local-20260721T203307.170+0800-pid-18500.json',
@@ -713,6 +714,12 @@ function Invoke-ContractChecks {
         throw 'W3l corrected successor artifact or predecessor-source set drifted'
     }
     foreach ($w3lRepairArtifact in $w3lRepairRequiredArtifacts) {
+        # W4B3 succeeds this verifier explicitly below.  The historical W3l
+        # receipt must retain its original byte binding, not this newer one.
+        if ($w3lRepairArtifact -eq 'scripts/verify-independent-board-control-plane.ps1') {
+            continue
+        }
+
         $currentPath = Join-Path $RepoRoot $w3lRepairArtifact
         $currentHash = (Get-FileHash -LiteralPath $currentPath -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($w3lRepairSuccessorReport.sourceSha256.PSObject.Properties[$w3lRepairArtifact].Value -cne $currentHash) {
@@ -774,6 +781,65 @@ function Invoke-ContractChecks {
         $successorPriorHash = $w3kAuthorityReport.predecessorSourceSha256.PSObject.Properties[$supersededArtifact].Value
         if ([string]::IsNullOrWhiteSpace($priorHash) -or $successorPriorHash -cne $priorHash) {
             throw "W3k controlled-authority predecessor binding drifted: $supersededArtifact"
+        }
+    }
+
+    # W4B3 hardens the legacy points writer before the default-off v2 writer
+    # can be introduced.  Its central-verifier byte is a constrained successor
+    # to the W3l repair receipt, rather than a rewrite of that historical run.
+    $pointsCasReportPath = 'reports/independent-board/points-balance-cas-mysql-verification-20260723.json'
+    $pointsCasReport = Read-Utf8Json -RelativePath $pointsCasReportPath.Replace('/', '\')
+    $pointsCasArtifacts = @(
+        'FBSir-business/src/main/java/com/wx/fbsir/business/point/service/impl/PointsServiceImpl.java',
+        'FBSir-business/src/main/java/com/wx/fbsir/business/point/service/PointsPrecheckService.java',
+        'FBSir-business/src/main/java/com/wx/fbsir/business/point/mapper/PointsMapper.java',
+        'FBSir-business/src/main/resources/mapper/point/PointsMapper.xml',
+        'FBSir-business/src/test/java/com/wx/fbsir/business/point/service/impl/PointsServiceImplTest.java',
+        'FBSir-business/src/test/java/com/wx/fbsir/business/point/service/PointsPrecheckServiceTest.java',
+        'FBSir-business/src/test/java/com/wx/fbsir/business/point/mapper/PointsMapperSqlContractTest.java',
+        'scripts/run-points-balance-cas-mysql-it.ps1',
+        'docs/independent-board/W4B3-POINTS-BALANCE-CAS-CONTRACT.md',
+        'scripts/verify-independent-board-control-plane.ps1'
+    )
+    $pointsCasSourceArtifacts = @($pointsCasReport.sourceSha256.PSObject.Properties | ForEach-Object { [string]$_.Name })
+    $priorCentralVerifierHash = $w3lRepairSuccessorReport.sourceSha256.PSObject.Properties['scripts/verify-independent-board-control-plane.ps1'].Value
+    if ($pointsCasReport.schemaVersion -ne 1 `
+            -or $pointsCasReport.result -cne 'PASS_LOCAL_DUAL_MYSQL_CAS' `
+            -or $pointsCasReport.candidateReadyForCommit -ne $true `
+            -or $pointsCasReport.releaseReady -ne $false `
+            -or $pointsCasReport.productionChanged -ne $false `
+            -or $pointsCasReport.frozenListedPackageModified -ne $false `
+            -or $pointsCasReport.productionConnectionUsed -ne $false `
+            -or $pointsCasReport.serviceContract.stableConflictMessage -cne 'POINTS_BALANCE_CONCURRENT_CONFLICT' `
+            -or $pointsCasReport.serviceContract.outOfRangeMessage -cne 'POINTS_BALANCE_OUT_OF_RANGE' `
+            -or $pointsCasReport.serviceContract.conflictWritesLedger -ne $false `
+            -or $pointsCasReport.serviceContract.conflictMarksLimit -ne $false `
+            -or $pointsCasReport.serviceContract.eventIdempotentReplayPrecedesBalanceUpdate -ne $true `
+            -or $pointsCasReport.serviceContract.precheckUsesCommittedBalance -ne $true `
+            -or $pointsCasReport.maven.testsRun -ne 17 `
+            -or $pointsCasReport.maven.failures -ne 0 `
+            -or $pointsCasReport.maven.errors -ne 0 `
+            -or $pointsCasReport.maven.result -cne 'BUILD_SUCCESS' `
+            -or @($pointsCasReport.mysql.versions).Count -ne 2 `
+            -or @($pointsCasReport.mysql.versions | Where-Object { $_.version -ceq '8.0.30' }).Count -ne 1 `
+            -or @($pointsCasReport.mysql.versions | Where-Object { $_.version -ceq '8.4.8' }).Count -ne 1 `
+            -or @($pointsCasReport.mysql.versions | Where-Object {
+                $_.concurrentAffectedRows -cne '0|1' `
+                    -or $_.finalBalance -notin @('90', '110') `
+                    -or $_.nullNormalizedCompareAndSet -cne '1|7' `
+                    -or $_.missingUserCompareAndSet -cne '0' `
+                    -or $_.productionConnectionUsed -ne $false `
+                    -or $_.workDirectoryCleaned -ne $true
+            }).Count -ne 0 `
+            -or (Compare-Object -ReferenceObject ($pointsCasArtifacts | Sort-Object) -DifferenceObject ($pointsCasSourceArtifacts | Sort-Object)).Count -ne 0 `
+            -or @($pointsCasReport.predecessorSourceSha256.PSObject.Properties).Count -ne 1 `
+            -or $pointsCasReport.predecessorSourceSha256.PSObject.Properties['scripts/verify-independent-board-control-plane.ps1'].Value -cne $priorCentralVerifierHash) {
+        throw 'W4B3 points balance CAS verification receipt is incomplete, overclaims evidence, or lacks verifier succession'
+    }
+    foreach ($pointsCasArtifact in $pointsCasArtifacts) {
+        $pointsCasCurrentHash = (Get-FileHash -LiteralPath (Join-Path $RepoRoot $pointsCasArtifact) -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($pointsCasReport.sourceSha256.PSObject.Properties[$pointsCasArtifact].Value -cne $pointsCasCurrentHash) {
+            throw "W4B3 points balance CAS artifact binding drifted: $pointsCasArtifact"
         }
     }
 
