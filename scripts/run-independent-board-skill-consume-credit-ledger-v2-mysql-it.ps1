@@ -2,6 +2,8 @@
 param(
     [switch]$AllowDestructiveTest,
     [string[]]$MySqlBinDirectories = @(),
+    [string]$MavenCommand = '',
+    [string]$JavaHome = '',
     [ValidateSet('8.0.30', '8.4.8')]
     [string[]]$Versions = @('8.0.30', '8.4.8'),
     # v2's longest table name exceeds MySQL for Windows' practical path budget
@@ -33,8 +35,16 @@ if ($workRoot -match '^[A-Za-z]:$' -or $workRoot.Length -gt 48 -or
     throw 'IsolatedWorkRoot must be a short, dedicated u3w-w3l-it directory and not a drive root.'
 }
 $migrationPath = Join-Path $repoRoot 'sql\update_20260723_skill_consume_credit_ledger_v2.sql'
+$legacyMigrationPath = Join-Path $repoRoot 'sql\update_20260722_independent_board_credit_ledger.sql'
 $initializerPath = Join-Path $repoRoot 'scripts\init-database.ps1'
 $runnerPath = [System.IO.Path]::GetFullPath($MyInvocation.MyCommand.Path)
+$javaItPath = Join-Path $repoRoot (
+    'FBSir-business\src\test\java\com\wx\fbsir\business\board\credit\service\' +
+    'SkillConsumeCreditLedgerV2MysqlIT.java')
+$surefireReport = Join-Path $repoRoot (
+    'FBSir-business\target\surefire-reports\TEST-com.wx.fbsir.business.board.credit.service.' +
+    'SkillConsumeCreditLedgerV2MysqlIT.xml')
+$expectedTests = 4
 $requiredVersions = @('8.0.30', '8.4.8')
 $requestedVersions = @($Versions | Sort-Object -Unique)
 
@@ -43,8 +53,10 @@ if ($requestedVersions.Count -ne $Versions.Count -or
     throw 'Versions must contain unique supported MySQL versions.'
 }
 if (-not (Test-Path -LiteralPath $migrationPath -PathType Leaf) -or
-    -not (Test-Path -LiteralPath $initializerPath -PathType Leaf)) {
-    throw 'Required 042 migration or canonical initializer is missing.'
+    -not (Test-Path -LiteralPath $legacyMigrationPath -PathType Leaf) -or
+    -not (Test-Path -LiteralPath $initializerPath -PathType Leaf) -or
+    -not (Test-Path -LiteralPath $javaItPath -PathType Leaf)) {
+    throw 'Required 038/042 migration, canonical initializer or Java IT is missing.'
 }
 
 function Get-LoopbackEphemeralPort {
@@ -107,6 +119,59 @@ function Get-Sha256 {
         throw "Required artifact is missing: $Path"
     }
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+function Resolve-JavaHome {
+    param([string]$Requested)
+
+    $candidates = [System.Collections.Generic.List[string]]::new()
+    if (-not [string]::IsNullOrWhiteSpace($Requested)) {
+        $candidates.Add($Requested)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:JAVA_HOME)) {
+        $candidates.Add($env:JAVA_HOME)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:USERPROFILE)) {
+        $candidates.Add((Join-Path $env:USERPROFILE '.codex\cache\toolchains\jdk-17.0.19+10'))
+    }
+    foreach ($candidate in $candidates) {
+        if ([string]::IsNullOrWhiteSpace($candidate)) {
+            continue
+        }
+        $full = [System.IO.Path]::GetFullPath($candidate)
+        if (Test-Path -LiteralPath (Join-Path $full 'bin\java.exe') -PathType Leaf) {
+            return $full
+        }
+    }
+    throw 'A Java 17 home is required. Pass -JavaHome or set JAVA_HOME.'
+}
+
+function Resolve-MavenCommand {
+    param([string]$Requested)
+
+    $candidates = [System.Collections.Generic.List[string]]::new()
+    if (-not [string]::IsNullOrWhiteSpace($Requested)) {
+        $candidates.Add($Requested)
+    }
+    $pathMaven = Get-Command mvn.cmd -CommandType Application -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($null -ne $pathMaven) {
+        $candidates.Add($pathMaven.Source)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:USERPROFILE)) {
+        $candidates.Add((Join-Path $env:USERPROFILE (
+            '.codex\cache\toolchains\apache-maven-3.9.16\bin\mvn.cmd')))
+    }
+    foreach ($candidate in $candidates) {
+        if ([string]::IsNullOrWhiteSpace($candidate)) {
+            continue
+        }
+        $full = [System.IO.Path]::GetFullPath($candidate)
+        if (Test-Path -LiteralPath $full -PathType Leaf) {
+            return $full
+        }
+    }
+    throw 'A Maven command is required. Pass -MavenCommand or add mvn.cmd to PATH.'
 }
 
 function Resolve-MySqlProfiles {
@@ -377,9 +442,75 @@ CREATE TABLE $Database.sys_user (
   update_time DATETIME(3) NULL,
   PRIMARY KEY (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE $Database.fbs_skill_usage_record (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  usage_record_id VARCHAR(64) NOT NULL,
+  user_id BIGINT NOT NULL,
+  host_type VARCHAR(32) NOT NULL,
+  host_session_id VARCHAR(128) DEFAULT NULL,
+  skill_code VARCHAR(64) NOT NULL,
+  pack_id BIGINT DEFAULT NULL,
+  pack_version VARCHAR(32) DEFAULT NULL,
+  points_amount INT NOT NULL DEFAULT 0,
+  status TINYINT NOT NULL DEFAULT 0,
+  start_time DATETIME NOT NULL,
+  end_time DATETIME DEFAULT NULL,
+  duration_seconds INT DEFAULT NULL,
+  error_message TEXT DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_usage_record_id (usage_record_id),
+  KEY idx_user (user_id),
+  KEY idx_status (status),
+  KEY idx_pack (pack_id),
+  KEY idx_created (created_at),
+  KEY idx_host_type (host_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 $publicReceipt
 "@
     Invoke-MySqlText -Profile $Profile -Port $Port -Sql $sql | Out-Null
+    if ((Get-Sha256 -Path $legacyMigrationPath) -cne $legacyMigrationSha256) {
+        throw '038 migration bytes changed during the 042 application matrix.'
+    }
+    Invoke-MySqlBytes -Profile $Profile -Port $Port -Database $Database `
+        -Bytes ([System.IO.File]::ReadAllBytes($legacyMigrationPath)) | Out-Null
+}
+
+function Read-SurefireEvidence {
+    param(
+        [Parameter(Mandatory = $true)][string]$ReportPath,
+        [Parameter(Mandatory = $true)][DateTimeOffset]$StartedAt
+    )
+
+    if (-not (Test-Path -LiteralPath $ReportPath -PathType Leaf)) {
+        throw "042 writer Surefire report is missing: $ReportPath"
+    }
+    $reportFile = Get-Item -LiteralPath $ReportPath
+    if ($reportFile.LastWriteTimeUtc -lt $StartedAt.UtcDateTime) {
+        throw "042 writer Surefire report is stale: $ReportPath"
+    }
+    [xml]$report = Get-Content -Raw -Encoding UTF8 -LiteralPath $ReportPath
+    $suite = $report.testsuite
+    $tests = [int]$suite.tests
+    $failures = [int]$suite.failures
+    $errors = [int]$suite.errors
+    $skipped = [int]$suite.skipped
+    if ($tests -ne $expectedTests -or $failures -ne 0 -or
+        $errors -ne 0 -or $skipped -ne 0) {
+        throw "042 writer MySQL IT must pass exactly $expectedTests/$expectedTests; " +
+            "found tests=$tests failures=$failures errors=$errors skipped=$skipped."
+    }
+    return [ordered]@{
+        tests = $tests
+        passed = $tests - $failures - $errors - $skipped
+        failures = $failures
+        errors = $errors
+        skipped = $skipped
+        report = 'FBSir-business/target/surefire-reports/' +
+            [System.IO.Path]::GetFileName($ReportPath)
+        reportSha256 = Get-Sha256 -Path $ReportPath
+        reportLastWriteTimeUtc = $reportFile.LastWriteTimeUtc.ToString('o')
+    }
 }
 
 function Invoke-ExpectedMigrationFailure {
@@ -443,10 +574,28 @@ SELECT CONCAT_WS('|',
 }
 
 $migrationSha256 = Get-Sha256 -Path $migrationPath
+$legacyMigrationSha256 = Get-Sha256 -Path $legacyMigrationPath
+$resolvedJavaHome = Resolve-JavaHome -Requested $JavaHome
+$resolvedMavenCommand = Resolve-MavenCommand -Requested $MavenCommand
 $profiles = Resolve-MySqlProfiles -Requested $MySqlBinDirectories
 $sourceSha256 = [ordered]@{
     migration = $migrationSha256
+    legacyMigration038 = $legacyMigrationSha256
     initializer = Get-Sha256 -Path $initializerPath
+    javaIntegrationTest = Get-Sha256 -Path $javaItPath
+    writer = Get-Sha256 -Path (Join-Path $repoRoot (
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\credit\service\' +
+        'SkillConsumeCreditWriter.java'))
+    transactionService = Get-Sha256 -Path (Join-Path $repoRoot (
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\credit\service\' +
+        'SkillConsumeCreditTransactionService.java'))
+    ledgerMapperXml = Get-Sha256 -Path (Join-Path $repoRoot (
+        'FBSir-business\src\main\resources\mapper\board\SkillConsumeCreditLedgerMapper.xml'))
+    usageMapperXml = Get-Sha256 -Path (Join-Path $repoRoot (
+        'FBSir-business\src\main\resources\mapper\fbs\FbsSkillUsageRecordMapper.xml'))
+    legacyAuthorityFence = Get-Sha256 -Path (Join-Path $repoRoot (
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\credit\service\' +
+        'IndependentBoardCreditService.java'))
     runner = Get-Sha256 -Path $runnerPath
 }
 $results = [System.Collections.Generic.List[object]]::new()
@@ -474,6 +623,8 @@ foreach ($profile in $profiles) {
     $ownedServerProcessId = $null
     $cleaned = $false
     $priorLoginFile = $env:MYSQL_TEST_LOGIN_FILE
+    $priorJavaHome = $env:JAVA_HOME
+    $priorPath = $env:PATH
     $stage = 'server-initialize'
 
     try {
@@ -685,6 +836,34 @@ SELECT CONCAT_WS('|',
 "@).stdout
         Assert-ExactOutput -Actual $canonicalState -Expected '1|1|4|8' -Stage 'canonical current-read'
 
+        $stage = 'application-transaction-matrix'
+        if (Test-Path -LiteralPath $surefireReport -PathType Leaf) {
+            Remove-Item -LiteralPath $surefireReport -Force
+        }
+        $env:JAVA_HOME = $resolvedJavaHome
+        $env:PATH = (Join-Path $resolvedJavaHome 'bin') + ';' + $priorPath
+        $jdbcUrl = "jdbc:mysql://127.0.0.1:$port/$database" +
+            '?useAffectedRows=false&connectionTimeZone=Asia%2FShanghai&useSSL=false&allowPublicKeyRetrieval=true'
+        $quotedJdbcProperty = '"-Dindependent.board.skill.consume.credit.mysql.it.url=' +
+            $jdbcUrl + '"'
+        $mavenArguments = @(
+            '-o', '-pl', 'FBSir-business', '-am',
+            '-Dtest=SkillConsumeCreditLedgerV2MysqlIT',
+            '-Dsurefire.failIfNoSpecifiedTests=false',
+            '-Dindependent.board.skill.consume.credit.mysql.it.allowDestructive=true',
+            $quotedJdbcProperty,
+            '-Dindependent.board.skill.consume.credit.mysql.it.username=root',
+            '-Dindependent.board.skill.consume.credit.mysql.it.password=',
+            'test'
+        )
+        $testStartedAt = [DateTimeOffset]::UtcNow
+        & $resolvedMavenCommand @mavenArguments
+        if ($LASTEXITCODE -ne 0) {
+            throw "042 writer MySQL IT failed with Maven exit code $LASTEXITCODE"
+        }
+        $testEvidence = Read-SurefireEvidence -ReportPath $surefireReport `
+            -StartedAt $testStartedAt
+
         $results.Add([pscustomobject]@{
             version = $profile.version
             firstApply = $firstState
@@ -696,6 +875,7 @@ SELECT CONCAT_WS('|',
                 postApplyMetadataDrift = 'PASS:1|1|4|8|3|1'
                 postApplyTriggerBodyDrift = 'PASS:1|1|4|8|3|1'
             }
+            applicationTransactionMatrix = $testEvidence
             productionConnectionUsed = $false
         })
     }
@@ -768,6 +948,13 @@ SELECT CONCAT_WS('|',
         else {
             $env:MYSQL_TEST_LOGIN_FILE = $priorLoginFile
         }
+        if ($null -eq $priorJavaHome) {
+            [Environment]::SetEnvironmentVariable('JAVA_HOME', $null, 'Process')
+        }
+        else {
+            $env:JAVA_HOME = $priorJavaHome
+        }
+        $env:PATH = $priorPath
         if (Test-Path -LiteralPath $runRoot -PathType Container) {
             Remove-SafeRunDirectory -Path $runRoot
             $cleaned = $true
@@ -785,9 +972,9 @@ if ($results.Count -ne $requestedVersions.Count -or
 }
 
 $result = if ($requestedVersions.Count -eq 2) {
-    'PASS_LOCAL_DUAL_MYSQL_MIGRATION_SMOKE'
+    'PASS_LOCAL_DUAL_MYSQL_APPLICATION_TRANSACTION_MATRIX'
 } else {
-    'PASS_LOCAL_MYSQL_MIGRATION_MATRIX'
+    'PASS_LOCAL_MYSQL_APPLICATION_TRANSACTION_MATRIX'
 }
 [pscustomobject]@{
     kind = 'fbsir.independent-board.skill-consume-credit-ledger-v2.mysql-it/v1'

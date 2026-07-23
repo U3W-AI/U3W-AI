@@ -717,9 +717,11 @@ function Invoke-ContractChecks {
         throw 'W3l corrected successor artifact or predecessor-source set drifted'
     }
     foreach ($w3lRepairArtifact in $w3lRepairRequiredArtifacts) {
-        # W4B3 succeeds this verifier explicitly below.  The historical W3l
-        # receipt must retain its original byte binding, not this newer one.
-        if ($w3lRepairArtifact -eq 'scripts/verify-independent-board-control-plane.ps1') {
+        # Later successors bind the current verifier and application-aware
+        # runner explicitly below. The historical W3l receipt retains its
+        # original byte bindings.
+        if ($w3lRepairArtifact -eq 'scripts/verify-independent-board-control-plane.ps1' `
+                -or $w3lRepairArtifact -eq 'scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1') {
             continue
         }
 
@@ -1012,9 +1014,92 @@ function Invoke-ContractChecks {
         throw 'W4B5B skill-consume writer receipt is incomplete, overclaims evidence, or lacks verifier succession'
     }
     foreach ($skillConsumeWriterArtifact in $skillConsumeWriterArtifacts) {
+        # W4B5C succeeds the central-verifier byte while retaining W4B5B as
+        # immutable historical evidence.
+        if ($skillConsumeWriterArtifact -eq 'scripts/verify-independent-board-control-plane.ps1') {
+            continue
+        }
+
         $skillConsumeWriterCurrentHash = (Get-FileHash -LiteralPath (Join-Path $RepoRoot $skillConsumeWriterArtifact) -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($skillConsumeWriterReport.sourceSha256.PSObject.Properties[$skillConsumeWriterArtifact].Value -cne $skillConsumeWriterCurrentHash) {
             throw "W4B5B skill-consume writer artifact binding drifted: $skillConsumeWriterArtifact"
+        }
+    }
+
+    # W4B5C succeeds the W3l migration-only runner with a real Spring/MyBatis
+    # application transaction matrix, and adds the reciprocal 038 authority
+    # fence. It remains default-off and explicitly does not authorize release.
+    $skillConsumeDualMysqlReportPath = 'reports/independent-board/skill-consume-dual-mysql-transaction-verification-20260723.json'
+    $skillConsumeDualMysqlReport = Read-Utf8Json -RelativePath $skillConsumeDualMysqlReportPath.Replace('/', '\')
+    $skillConsumeDualMysqlArtifacts = @(
+        'sql/update_20260723_skill_consume_credit_ledger_v2.sql',
+        'sql/update_20260722_independent_board_credit_ledger.sql',
+        'scripts/init-database.ps1',
+        'FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditWriter.java',
+        'FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditTransactionService.java',
+        'FBSir-business/src/main/resources/mapper/board/SkillConsumeCreditLedgerMapper.xml',
+        'FBSir-business/src/main/resources/mapper/fbs/FbsSkillUsageRecordMapper.xml',
+        'FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/IndependentBoardCreditService.java',
+        'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/SkillConsumeCreditLedgerV2RunnerContractTest.java',
+        'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditLedgerV2MysqlIT.java',
+        'docs/independent-board/W4B5C-SKILL-CONSUME-DUAL-MYSQL-TRANSACTION-CONTRACT.md',
+        'scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1',
+        'scripts/verify-independent-board-control-plane.ps1'
+    )
+    $skillConsumeDualMysqlSourceArtifacts = @($skillConsumeDualMysqlReport.sourceSha256.PSObject.Properties | ForEach-Object { [string]$_.Name })
+    $w4b5cPriorCentralVerifierHash = $skillConsumeWriterReport.sourceSha256.PSObject.Properties['scripts/verify-independent-board-control-plane.ps1'].Value
+    $w4b5cPriorRunnerHash = $w3lRepairSuccessorReport.sourceSha256.PSObject.Properties['scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1'].Value
+    $w4b5cWriterReceiptHash = (Get-FileHash -LiteralPath (Join-Path $RepoRoot $skillConsumeWriterReportPath) -Algorithm SHA256).Hash.ToLowerInvariant()
+    $w4b5cMigrationReceiptHash = (Get-FileHash -LiteralPath (Join-Path $RepoRoot $w3lRepairSuccessorPath) -Algorithm SHA256).Hash.ToLowerInvariant()
+    $skillConsumeDualMysqlVersions = @($skillConsumeDualMysqlReport.versions)
+    if ($skillConsumeDualMysqlReport.schemaVersion -ne 1 `
+            -or $skillConsumeDualMysqlReport.result -cne 'PASS_LOCAL_DUAL_MYSQL_APPLICATION_TRANSACTION_MATRIX' `
+            -or $skillConsumeDualMysqlReport.candidateReadyForCommit -ne $true `
+            -or $skillConsumeDualMysqlReport.releaseReady -ne $false `
+            -or $skillConsumeDualMysqlReport.productionChanged -ne $false `
+            -or $skillConsumeDualMysqlReport.productionConnectionUsed -ne $false `
+            -or $skillConsumeDualMysqlReport.frozenListedPackageModified -ne $false `
+            -or $skillConsumeDualMysqlReport.writerWiredIntoLegacyConsume -ne $false `
+            -or $skillConsumeDualMysqlReport.historicalReceiptMutated -ne $false `
+            -or $skillConsumeDualMysqlReport.frozenPackage.sha256 -cne 'd2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd' `
+            -or $skillConsumeDualMysqlReport.matrixContract.springTransactionProxyVerified -ne $true `
+            -or $skillConsumeDualMysqlReport.matrixContract.realConnectorJAndMyBatisVerified -ne $true `
+            -or $skillConsumeDualMysqlReport.matrixContract.firstConsumeAndExactReplay -ne $true `
+            -or $skillConsumeDualMysqlReport.matrixContract.sameCommandConcurrency -ne 32 `
+            -or $skillConsumeDualMysqlReport.matrixContract.digestConflictRejected -ne $true `
+            -or $skillConsumeDualMysqlReport.matrixContract.balanceRaceSingleWinner -ne $true `
+            -or $skillConsumeDualMysqlReport.matrixContract.terminalUsageCasRollback -ne $true `
+            -or $skillConsumeDualMysqlReport.matrixContract.legacyBlocksV2 -ne $true `
+            -or $skillConsumeDualMysqlReport.matrixContract.v2BlocksLegacyGrantReverseAudit -ne $true `
+            -or $skillConsumeDualMysqlReport.targetedRegression.testsRun -ne 36 `
+            -or $skillConsumeDualMysqlReport.targetedRegression.failures -ne 0 `
+            -or $skillConsumeDualMysqlReport.targetedRegression.errors -ne 0 `
+            -or $skillConsumeDualMysqlReport.targetedRegression.skipped -ne 0 `
+            -or $skillConsumeDualMysqlReport.targetedRegression.result -cne 'BUILD_SUCCESS' `
+            -or $skillConsumeDualMysqlVersions.Count -ne 2 `
+            -or @($skillConsumeDualMysqlVersions | Where-Object { $_.version -ceq '8.0.30' }).Count -ne 1 `
+            -or @($skillConsumeDualMysqlVersions | Where-Object { $_.version -ceq '8.4.8' }).Count -ne 1 `
+            -or @($skillConsumeDualMysqlVersions | Where-Object {
+                $_.testsRun -ne 4 -or $_.passed -ne 4 -or $_.failures -ne 0 `
+                    -or $_.errors -ne 0 -or $_.skipped -ne 0 `
+                    -or $_.surefireReportSha256 -notmatch '^[0-9a-f]{64}$' `
+                    -or $_.productionConnectionUsed -ne $false `
+                    -or $_.workDirectoryCleaned -ne $true
+            }).Count -ne 0 `
+            -or $skillConsumeDualMysqlReport.predecessorReceipts.writer.path -cne $skillConsumeWriterReportPath `
+            -or $skillConsumeDualMysqlReport.predecessorReceipts.writer.sha256 -cne $w4b5cWriterReceiptHash `
+            -or $skillConsumeDualMysqlReport.predecessorReceipts.migrationRunner.path -cne $w3lRepairSuccessorPath `
+            -or $skillConsumeDualMysqlReport.predecessorReceipts.migrationRunner.sha256 -cne $w4b5cMigrationReceiptHash `
+            -or @($skillConsumeDualMysqlReport.predecessorSourceSha256.PSObject.Properties).Count -ne 2 `
+            -or $skillConsumeDualMysqlReport.predecessorSourceSha256.PSObject.Properties['scripts/verify-independent-board-control-plane.ps1'].Value -cne $w4b5cPriorCentralVerifierHash `
+            -or $skillConsumeDualMysqlReport.predecessorSourceSha256.PSObject.Properties['scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1'].Value -cne $w4b5cPriorRunnerHash `
+            -or (Compare-Object -ReferenceObject ($skillConsumeDualMysqlArtifacts | Sort-Object) -DifferenceObject ($skillConsumeDualMysqlSourceArtifacts | Sort-Object)).Count -ne 0) {
+        throw 'W4B5C dual-MySQL application transaction receipt is incomplete, overclaims evidence, or lacks predecessor succession'
+    }
+    foreach ($skillConsumeDualMysqlArtifact in $skillConsumeDualMysqlArtifacts) {
+        $skillConsumeDualMysqlCurrentHash = (Get-FileHash -LiteralPath (Join-Path $RepoRoot $skillConsumeDualMysqlArtifact) -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($skillConsumeDualMysqlReport.sourceSha256.PSObject.Properties[$skillConsumeDualMysqlArtifact].Value -cne $skillConsumeDualMysqlCurrentHash) {
+            throw "W4B5C dual-MySQL application transaction artifact binding drifted: $skillConsumeDualMysqlArtifact"
         }
     }
 
