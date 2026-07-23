@@ -26,8 +26,9 @@
 | 仓库 | `D:\ddh\DDH-Codex-Handoff-20260721-f28f8ad1\workspace\u3w-independent-board-control-plane` |
 | Git 远端 | `git@github.com:U3W-AI/U3W-AI.git` |
 | 当前分支 | `codex/w4b2-default-off-candidate` |
-| 已提交 HEAD | `53c8e690cc408a9b428100733f7a0e37b267cfa1` |
-| 远端分支 | 与上述 HEAD 对齐 |
+| 最后功能代码基线 | `53c8e690cc408a9b428100733f7a0e37b267cfa1` |
+| 备忘录提交 | 作为代码基线之后的独立文档提交推送；以 `git log -1` 为当前提交真值，避免在文档中自引用易漂移 HEAD |
+| 远端分支 | 停止收口时已与本地分支对齐 |
 | 工作树 | 编写本备忘录前已清洁；本备忘录是停止决定后的唯一新增文件 |
 | 平台状态版本 | `0.4.9-dev` |
 | 总体状态 | 本地工程候选持续完善，生产 `releaseReady=false` |
@@ -736,7 +737,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 - 已形成较完整的合同、身份、权益、积分、策略、OAuth、连接器和 Skill 消费本地工程底座；
 - 已建立真实双 MySQL、HTTP/JWT、前端生产构建、浏览器夹具、证据 succession 和默认关闭机制；
 - 已上架专家包保持冻结且未被平台开发回写；
-- 主分支与远端在 `53c8e690` 对齐；
+- 最后功能代码基线固定为 `53c8e690`；本备忘录作为后继文档提交，已单独推送并保持本地/远端对齐；
 - W4B5F 未完成草案已可恢复封存，不再污染工作树；
 - 生产部署、Commercial Hub 可靠交付、Webhook、Watch/Hub、真实域名和自然 same-binding 闭环仍明确未完成；
 - 当前状态应被描述为：**本地默认关闭候选体系较成熟，生产仍 No-Go**。
