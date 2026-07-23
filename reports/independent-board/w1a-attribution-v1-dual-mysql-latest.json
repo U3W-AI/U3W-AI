@@ -1,0 +1,38 @@
+{
+    "schema":  "fbsir.independent-board.attribution-v1-dual-mysql-it/v1",
+    "generatedAt":  "2026-07-23T11:14:45.6099527Z",
+    "migration":  "public_init_043",
+    "migrationSha256":  "287a8b141abc80b2d95ff6a0cd97e8dbc4fa38845ae7b96c7bd8522e8f5b49b7",
+    "historicalPublicInit037Sha256":  "59e3696ff3f8d4a16b4659c94a108f35fb1badf2f4de16079229c031a0b44cce",
+    "officialIdentity":  {
+                             "productId":  "fbsir-eight-seat-board",
+                             "packageId":  "fbsir-eight-seat-board",
+                             "agentName":  "board-convener",
+                             "marketplace":  "experts",
+                             "listedManifestVersion":  "26.7.21",
+                             "embeddedContractVersion":  "26.7.20"
+                         },
+    "results":  [
+                    {
+                        "version":  "8.0.30",
+                        "exactShape":  "8.0.30|2|2|1|1",
+                        "migrationRerun":  "PASS",
+                        "append":  "PASS",
+                        "aggregate":  "1|1|1|0",
+                        "updateRejected":  "PASS",
+                        "deleteRejected":  "PASS",
+                        "authoritativeProductCredit":  0
+                    },
+                    {
+                        "version":  "8.4.8",
+                        "exactShape":  "8.4.8|2|2|1|1",
+                        "migrationRerun":  "PASS",
+                        "append":  "PASS",
+                        "aggregate":  "1|1|1|0",
+                        "updateRejected":  "PASS",
+                        "deleteRejected":  "PASS",
+                        "authoritativeProductCredit":  0
+                    }
+                ],
+    "status":  "PASS"
+}
