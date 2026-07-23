@@ -230,6 +230,7 @@ function Invoke-ContractChecks {
         'reports\independent-board\w3j-credit-candidate-release-readiness-verification-20260722.json',
         'reports\independent-board\points-balance-cas-mysql-verification-20260723.json',
         'reports\independent-board\skill-consume-candidate-fence-verification-20260723.json',
+        'reports\independent-board\skill-consume-command-verification-20260723.json',
         'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.json',
         'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.md',
         'work\diagnostics\independent-board-mysql-transaction-it\mysql-8.0.30\summary-mysql-8.0.30-utc-20260721T123307.170Z-local-20260721T203307.170+0800-pid-18500.json',
@@ -890,9 +891,62 @@ function Invoke-ContractChecks {
         throw 'W4B4 skill-consume default-off fence receipt is incomplete, overclaims evidence, or lacks verifier succession'
     }
     foreach ($skillConsumeFenceArtifact in $skillConsumeFenceArtifacts) {
+        # W4B5A succeeds this central-verifier byte while retaining the W4B4
+        # receipt as an immutable historical fact.
+        if ($skillConsumeFenceArtifact -eq 'scripts/verify-independent-board-control-plane.ps1') {
+            continue
+        }
+
         $skillConsumeFenceCurrentHash = (Get-FileHash -LiteralPath (Join-Path $RepoRoot $skillConsumeFenceArtifact) -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($skillConsumeFenceReport.sourceSha256.PSObject.Properties[$skillConsumeFenceArtifact].Value -cne $skillConsumeFenceCurrentHash) {
             throw "W4B4 skill-consume fence artifact binding drifted: $skillConsumeFenceArtifact"
+        }
+    }
+
+    # W4B5A binds the pure internal command contract before any mapper or
+    # transaction writer can be introduced.  It deliberately proves no write
+    # capability and cannot open the W4B4 runtime fence.
+    $skillConsumeCommandReportPath = 'reports/independent-board/skill-consume-command-verification-20260723.json'
+    $skillConsumeCommandReport = Read-Utf8Json -RelativePath $skillConsumeCommandReportPath.Replace('/', '\')
+    $skillConsumeCommandArtifacts = @(
+        'FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditCommand.java',
+        'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditCommandTest.java',
+        'docs/independent-board/W4B5A-SKILL-CONSUME-COMMAND-CONTRACT.md',
+        'scripts/verify-independent-board-control-plane.ps1'
+    )
+    $skillConsumeCommandSourceArtifacts = @($skillConsumeCommandReport.sourceSha256.PSObject.Properties | ForEach-Object { [string]$_.Name })
+    $w4b5aPriorCentralVerifierHash = $skillConsumeFenceReport.sourceSha256.PSObject.Properties['scripts/verify-independent-board-control-plane.ps1'].Value
+    if ($skillConsumeCommandReport.schemaVersion -ne 1 `
+            -or $skillConsumeCommandReport.result -cne 'PASS_LOCAL_SKILL_CONSUME_COMMAND_CONTRACT' `
+            -or $skillConsumeCommandReport.candidateReadyForCommit -ne $true `
+            -or $skillConsumeCommandReport.releaseReady -ne $false `
+            -or $skillConsumeCommandReport.productionChanged -ne $false `
+            -or $skillConsumeCommandReport.databaseTouched -ne $false `
+            -or $skillConsumeCommandReport.frozenListedPackageModified -ne $false `
+            -or $skillConsumeCommandReport.productionConnectionUsed -ne $false `
+            -or $skillConsumeCommandReport.commandContract.protocolVersion -cne 'skill-consume-credit-v1' `
+            -or $skillConsumeCommandReport.commandContract.writerAttached -ne $false `
+            -or $skillConsumeCommandReport.commandContract.databaseSideEffects -ne $false `
+            -or $skillConsumeCommandReport.commandContract.retainsRawHostSession -ne $false `
+            -or $skillConsumeCommandReport.commandContract.enterpriseInputRejected -ne $true `
+            -or $skillConsumeCommandReport.commandContract.strictPersonalHostTypeAllowlist -ne $true `
+            -or $skillConsumeCommandReport.commandContract.rejectsInvalidUtf16BeforeDigest -ne $true `
+            -or $skillConsumeCommandReport.commandContract.requestDigestBindsAllCommandFields -ne $true `
+            -or $skillConsumeCommandReport.commandContract.sameUsageDifferentDigestSharesReplayAnchor -ne $true `
+            -or $skillConsumeCommandReport.maven.testsRun -ne 2 `
+            -or $skillConsumeCommandReport.maven.failures -ne 0 `
+            -or $skillConsumeCommandReport.maven.errors -ne 0 `
+            -or $skillConsumeCommandReport.maven.result -cne 'BUILD_SUCCESS' `
+            -or $skillConsumeCommandReport.frozenPackage.sha256 -cne 'd2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd' `
+            -or (Compare-Object -ReferenceObject ($skillConsumeCommandArtifacts | Sort-Object) -DifferenceObject ($skillConsumeCommandSourceArtifacts | Sort-Object)).Count -ne 0 `
+            -or @($skillConsumeCommandReport.predecessorSourceSha256.PSObject.Properties).Count -ne 1 `
+            -or $skillConsumeCommandReport.predecessorSourceSha256.PSObject.Properties['scripts/verify-independent-board-control-plane.ps1'].Value -cne $w4b5aPriorCentralVerifierHash) {
+        throw 'W4B5A skill-consume command receipt is incomplete, overclaims evidence, or lacks verifier succession'
+    }
+    foreach ($skillConsumeCommandArtifact in $skillConsumeCommandArtifacts) {
+        $skillConsumeCommandCurrentHash = (Get-FileHash -LiteralPath (Join-Path $RepoRoot $skillConsumeCommandArtifact) -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($skillConsumeCommandReport.sourceSha256.PSObject.Properties[$skillConsumeCommandArtifact].Value -cne $skillConsumeCommandCurrentHash) {
+            throw "W4B5A skill-consume command artifact binding drifted: $skillConsumeCommandArtifact"
         }
     }
 

@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "kind": "fbsir.skill-consume-command.verification/v1",
+  "result": "PASS_LOCAL_SKILL_CONSUME_COMMAND_CONTRACT",
+  "verifiedAt": "2026-07-23T09:34:44+08:00",
+  "scope": "pure internal normalization contract for the future 042 v2 skill-consume writer",
+  "candidateReadyForCommit": true,
+  "releaseReady": false,
+  "productionChanged": false,
+  "databaseTouched": false,
+  "frozenListedPackageModified": false,
+  "productionConnectionUsed": false,
+  "frozenPackage": {
+    "path": "D:/Spg719/fbsir-eight-seat-board-26.7.20.zip",
+    "sha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd"
+  },
+  "predecessorSourceSha256": {
+    "scripts/verify-independent-board-control-plane.ps1": "a88205eebfc763aef08baac40296e2acb7406a04a06221685a23079149a630c8"
+  },
+  "commandContract": {
+    "protocolVersion": "skill-consume-credit-v1",
+    "writerAttached": false,
+    "databaseSideEffects": false,
+    "retainsRawHostSession": false,
+    "enterpriseInputRejected": true,
+    "strictPersonalHostTypeAllowlist": true,
+    "rejectsInvalidUtf16BeforeDigest": true,
+    "requestDigestBindsAllCommandFields": true,
+    "sameUsageDifferentDigestSharesReplayAnchor": true
+  },
+  "red": {
+    "command": "mvn -o -pl FBSir-business -Dtest=SkillConsumeCreditCommandTest -DforkCount=0 test",
+    "result": "EXPECTED_TEST_COMPILE_FAILURE_MISSING_COMMAND_TYPE",
+    "reason": "SkillConsumeCreditCommand was absent before this slice"
+  },
+  "maven": {
+    "command": "mvn -o -pl FBSir-business -Dtest=SkillConsumeCreditCommandTest -DforkCount=0 test",
+    "testsRun": 2,
+    "failures": 0,
+    "errors": 0,
+    "result": "BUILD_SUCCESS"
+  },
+  "sourceSha256": {
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditCommand.java": "1068678d60c9b912139343da428ef8b3073267cb4aea1c6e415e5ccfab3cf97a",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditCommandTest.java": "0d9b1314e37c771f9ed70acdfaf7a7c84c4468d09d070065364d4eb10189437b",
+    "docs/independent-board/W4B5A-SKILL-CONSUME-COMMAND-CONTRACT.md": "2cd032b9ff98c6d2917fea59a2483756d60733323b7e30b3b9f51e53c83e50c5",
+    "scripts/verify-independent-board-control-plane.ps1": "82e14038ada5fe2a67a95c91b519488ab8ba066469bf3c03f3396eda629cc1dd"
+  }
+}
