@@ -123,7 +123,18 @@ function Ensure-KnownHosts {
     }
     $scanPath = "$KnownHostsPath.scan-$PID"
     try {
-        $scan = @(& ssh-keyscan.exe -T 10 -t ed25519 (($SshTarget -split '@', 2)[1]) 2>$null)
+        $priorErrorPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $scan = @(
+                & ssh-keyscan.exe -T 10 -t ed25519 (
+                    ($SshTarget -split '@', 2)[1]
+                ) 2>$null
+            )
+        }
+        finally {
+            $ErrorActionPreference = $priorErrorPreference
+        }
         if ($LASTEXITCODE -ne 0 -or $scan.Count -eq 0) {
             throw 'ssh-keyscan failed'
         }
