@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.board.credit.mapper.SkillConsumeCreditLedgerMapper">
+
+    <resultMap id="UserProjection" type="com.wx.fbsir.business.board.credit.domain.BoardCreditUserProjection">
+        <id property="userId" column="user_id" />
+        <result property="points" column="points" />
+        <result property="status" column="status" />
+        <result property="delFlag" column="del_flag" />
+    </resultMap>
+
+    <resultMap id="Account" type="com.wx.fbsir.business.board.credit.domain.BoardCreditAccount">
+        <id property="id" column="id" />
+        <result property="accountId" column="account_id" />
+        <result property="userId" column="user_id" />
+        <result property="accountScope" column="account_scope" />
+        <result property="currencyCode" column="currency_code" />
+        <result property="openingBalance" column="opening_balance" />
+        <result property="balance" column="balance" />
+        <result property="version" column="version" />
+        <result property="lastEntrySequence" column="last_entry_sequence" />
+        <result property="lastEntryHash" column="last_entry_hash" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <resultMap id="Bridge" type="com.wx.fbsir.business.board.credit.domain.SkillCreditProjectionBridge">
+        <id property="id" column="id" />
+        <result property="accountId" column="account_id" />
+        <result property="userId" column="user_id" />
+        <result property="accountScope" column="account_scope" />
+        <result property="currencyCode" column="currency_code" />
+        <result property="projectedBalance" column="projected_balance" />
+        <result property="projectionVersion" column="projection_version" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <resultMap id="Operation" type="com.wx.fbsir.business.board.credit.domain.SkillCreditOperation">
+        <id property="id" column="id" />
+        <result property="operationId" column="operation_id" />
+        <result property="usageRecordId" column="usage_record_id" />
+        <result property="idempotencyKey" column="idempotency_key" />
+        <result property="requestDigest" column="request_digest" />
+        <result property="accountId" column="account_id" />
+        <result property="userId" column="user_id" />
+        <result property="accountScope" column="account_scope" />
+        <result property="currencyCode" column="currency_code" />
+        <result property="operationType" column="operation_type" />
+        <result property="reasonCode" column="reason_code" />
+        <result property="delta" column="delta_amount" />
+        <result property="balanceBefore" column="balance_before" />
+        <result property="balanceAfter" column="balance_after" />
+        <result property="issuerType" column="issuer_type" />
+        <result property="issuerId" column="issuer_id" />
+        <result property="packId" column="pack_id" />
+        <result property="packVersion" column="pack_version" />
+        <result property="skillCode" column="skill_code" />
+        <result property="hostType" column="host_type" />
+        <result property="hostSessionDigest" column="host_session_digest" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <resultMap id="Entry" type="com.wx.fbsir.business.board.credit.domain.BoardCreditEntry">
+        <id property="id" column="id" />
+        <result property="entryId" column="entry_id" />
+        <result property="operationId" column="operation_id" />
+        <result property="requestDigest" column="request_digest" />
+        <result property="accountId" column="account_id" />
+        <result property="sequenceNo" column="sequence_no" />
+        <result property="delta" column="delta_amount" />
+        <result property="balanceBefore" column="balance_before" />
+        <result property="balanceAfter" column="balance_after" />
+        <result property="previousEntryHash" column="previous_entry_hash" />
+        <result property="entryHash" column="entry_hash" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <sql id="AccountColumns">
+        id, account_id, user_id, account_scope, currency_code, opening_balance,
+        balance, version, last_entry_sequence, last_entry_hash, created_at, updated_at
+    </sql>
+    <sql id="OperationColumns">
+        id, operation_id, usage_record_id, idempotency_key, request_digest, account_id,
+        user_id, account_scope, currency_code, operation_type, reason_code, delta_amount,
+        balance_before, balance_after, issuer_type, issuer_id, pack_id, pack_version,
+        skill_code, host_type, host_session_digest, created_at
+    </sql>
+
+    <select id="selectUserProjection" resultMap="UserProjection" useCache="false">
+        SELECT user_id, points, status, del_flag FROM sys_user
+        WHERE user_id = #{userId} LIMIT 1
+    </select>
+
+    <select id="selectUserProjectionForUpdate" resultMap="UserProjection" flushCache="true" useCache="false">
+        SELECT user_id, points, status, del_flag FROM sys_user
+        WHERE user_id = #{userId} LIMIT 1 FOR UPDATE
+    </select>
+
+    <select id="countLegacyCreditAccounts" resultType="int" useCache="false">
+        SELECT COUNT(*) FROM fbs_credit_account WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectAccount" resultMap="Account" useCache="false">
+        SELECT <include refid="AccountColumns"/> FROM fbs_skill_credit_account_v2
+        WHERE user_id = #{userId} AND subject_type = 'USER'
+          AND account_scope = #{accountScope}
+          AND BINARY account_scope = BINARY #{accountScope}
+          AND currency_code = #{currencyCode}
+          AND BINARY currency_code = BINARY #{currencyCode} LIMIT 1
+    </select>
+
+    <select id="selectAccountForUpdate" resultMap="Account" flushCache="true" useCache="false">
+        SELECT <include refid="AccountColumns"/> FROM fbs_skill_credit_account_v2
+        WHERE user_id = #{userId} AND subject_type = 'USER'
+          AND account_scope = #{accountScope}
+          AND BINARY account_scope = BINARY #{accountScope}
+          AND currency_code = #{currencyCode}
+          AND BINARY currency_code = BINARY #{currencyCode} LIMIT 1 FOR UPDATE
+    </select>
+
+    <insert id="insertAccount" parameterType="com.wx.fbsir.business.board.credit.domain.BoardCreditAccount"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_skill_credit_account_v2
+            (account_id, subject_type, user_id, account_scope, currency_code, opening_balance,
+             balance, version, last_entry_sequence, last_entry_hash, status, created_at, updated_at)
+        VALUES
+            (#{accountId}, 'USER', #{userId}, #{accountScope}, #{currencyCode}, #{openingBalance},
+             #{balance}, #{version}, #{lastEntrySequence}, #{lastEntryHash}, 'ACTIVE',
+             #{createdAt}, #{updatedAt})
+    </insert>
+
+    <select id="selectBridge" resultMap="Bridge" useCache="false">
+        SELECT id, account_id, user_id, account_scope, currency_code, projected_balance,
+               projection_version, created_at, updated_at
+        FROM fbs_skill_credit_projection_bridge_v2
+        WHERE account_id = #{accountId} AND user_id = #{userId}
+          AND account_scope = #{accountScope}
+          AND BINARY account_scope = BINARY #{accountScope}
+          AND currency_code = #{currencyCode}
+          AND BINARY currency_code = BINARY #{currencyCode} LIMIT 1
+    </select>
+
+    <select id="selectBridgeForUpdate" resultMap="Bridge" flushCache="true" useCache="false">
+        SELECT id, account_id, user_id, account_scope, currency_code, projected_balance,
+               projection_version, created_at, updated_at
+        FROM fbs_skill_credit_projection_bridge_v2
+        WHERE account_id = #{accountId} AND user_id = #{userId}
+          AND account_scope = #{accountScope}
+          AND BINARY account_scope = BINARY #{accountScope}
+          AND currency_code = #{currencyCode}
+          AND BINARY currency_code = BINARY #{currencyCode} LIMIT 1 FOR UPDATE
+    </select>
+
+    <insert id="insertBridge" parameterType="com.wx.fbsir.business.board.credit.domain.SkillCreditProjectionBridge"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_skill_credit_projection_bridge_v2
+            (account_id, user_id, account_scope, currency_code, projected_balance,
+             projection_version, created_at, updated_at)
+        VALUES
+            (#{accountId}, #{userId}, #{accountScope}, #{currencyCode}, #{projectedBalance},
+             #{projectionVersion}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <select id="selectOperationByIdempotencyKey" resultMap="Operation" useCache="false">
+        SELECT <include refid="OperationColumns"/> FROM fbs_skill_credit_operation_v2
+        WHERE idempotency_key = #{idempotencyKey} LIMIT 1
+    </select>
+
+    <select id="selectOperationByUsageRecordId" resultMap="Operation" useCache="false">
+        SELECT <include refid="OperationColumns"/> FROM fbs_skill_credit_operation_v2
+        WHERE usage_record_id = #{usageRecordId} LIMIT 1
+    </select>
+
+    <select id="selectEntryByOperationId" resultMap="Entry" useCache="false">
+        SELECT id, entry_id, operation_id, request_digest, account_id, sequence_no,
+               delta_amount, balance_before, balance_after, previous_entry_hash, entry_hash,
+               created_at FROM fbs_skill_credit_entry_v2
+        WHERE operation_id = #{operationId} LIMIT 1
+    </select>
+
+    <insert id="insertOperation" parameterType="com.wx.fbsir.business.board.credit.domain.SkillCreditOperation"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_skill_credit_operation_v2
+            (operation_id, usage_record_id, idempotency_key, request_digest, account_id,
+             user_id, account_scope, currency_code, operation_type, reason_code, delta_amount,
+             balance_before, balance_after, issuer_type, issuer_id, pack_id, pack_version,
+             skill_code, host_type, host_session_digest, created_at)
+        VALUES
+            (#{operationId}, #{usageRecordId}, #{idempotencyKey}, #{requestDigest}, #{accountId},
+             #{userId}, #{accountScope}, #{currencyCode}, #{operationType}, #{reasonCode}, #{delta},
+             #{balanceBefore}, #{balanceAfter}, #{issuerType}, #{issuerId}, #{packId}, #{packVersion},
+             #{skillCode}, #{hostType}, #{hostSessionDigest}, #{createdAt})
+    </insert>
+
+    <insert id="insertEntry" parameterType="com.wx.fbsir.business.board.credit.domain.BoardCreditEntry"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fbs_skill_credit_entry_v2
+            (entry_id, operation_id, account_id, sequence_no, request_digest, delta_amount,
+             balance_before, balance_after, previous_entry_hash, entry_hash,
+             canonicalization_version, created_at)
+        VALUES
+            (#{entryId}, #{operationId}, #{accountId}, #{sequenceNo}, #{requestDigest}, #{delta},
+             #{balanceBefore}, #{balanceAfter}, #{previousEntryHash}, #{entryHash},
+             'skill-credit-entry-v1', #{createdAt})
+    </insert>
+
+    <update id="updateAccountIfVersion">
+        UPDATE fbs_skill_credit_account_v2
+        SET balance = #{account.balance}, version = #{account.version},
+            last_entry_sequence = #{account.lastEntrySequence},
+            last_entry_hash = #{account.lastEntryHash},
+            updated_at = GREATEST(updated_at, CURRENT_TIMESTAMP(3))
+        WHERE account_id = #{account.accountId} AND user_id = #{account.userId}
+          AND BINARY account_scope = BINARY #{account.accountScope}
+          AND BINARY currency_code = BINARY #{account.currencyCode}
+          AND version = #{expectedVersion} AND last_entry_sequence = #{expectedLastEntrySequence}
+          AND balance = #{expectedBalance} AND last_entry_hash = #{expectedLastEntryHash}
+    </update>
+
+    <update id="updateBridgeIfVersion">
+        UPDATE fbs_skill_credit_projection_bridge_v2
+        SET projected_balance = #{bridge.projectedBalance},
+            projection_version = #{bridge.projectionVersion},
+            updated_at = GREATEST(updated_at, CURRENT_TIMESTAMP(3))
+        WHERE account_id = #{bridge.accountId} AND user_id = #{bridge.userId}
+          AND BINARY account_scope = BINARY #{bridge.accountScope}
+          AND BINARY currency_code = BINARY #{bridge.currencyCode}
+          AND projection_version = #{expectedProjectionVersion}
+          AND projected_balance = #{expectedProjectedBalance}
+    </update>
+
+    <update id="updateUserProjectionIfBalance">
+        UPDATE sys_user SET points = #{nextBalance}, update_time = NOW(3)
+        WHERE user_id = #{userId} AND del_flag = '0'
+          AND COALESCE(points, 0) = #{expectedBalance}
+    </update>
+</mapper>

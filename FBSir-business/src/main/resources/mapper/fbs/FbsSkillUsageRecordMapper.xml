@@ -34,6 +34,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         WHERE usage_record_id = #{usageRecordId}
     </select>
 
+    <select id="selectByRecordIdForUpdate" parameterType="String" resultMap="FbsSkillUsageRecordResult"
+            flushCache="true" useCache="false">
+        <include refid="selectFbsSkillUsageRecordVo"/>
+        WHERE usage_record_id = #{usageRecordId}
+        FOR UPDATE
+    </select>
+
     <insert id="insertUsageRecord" parameterType="com.wx.fbsir.business.fbs.domain.entity.FbsSkillUsageRecord"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO fbs_skill_usage_record

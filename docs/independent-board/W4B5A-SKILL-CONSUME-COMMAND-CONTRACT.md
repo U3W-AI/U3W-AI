@@ -13,7 +13,8 @@
 - `SKILL_CONSUME/SKILL_USE`
 - `SERVICE/FBS_SKILL_CONSUME_V1`
 
-所有落库机器标识遵循 042 的 ASCII 有界正则；个人宿主严格只允许既有的
+所有落库机器标识同时遵循 042 与不可 ALTER 的旧 `fbs_skill_usage_record` 的较窄 ASCII
+边界：usage record/pack version/skill/host session 分别最多为 64/32/64/128 字符；个人宿主严格只允许既有的
 `WORKBUDDY|STANDALONE|API`（大小写精确）。范围外主机、空/控制字符/格式字符/未配对
 surrogate/超长主机会话、非正用户/包/金额和范围外标识立即以稳定
 `SKILL_CREDIT_COMMAND_INVALID_*` 拒绝。命令不保留原始 `hostSessionId`，只保存其 SHA-256 摘要。

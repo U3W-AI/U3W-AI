@@ -25,11 +25,11 @@ final class SkillConsumeCreditCommand {
     static final String ISSUER_ID = "FBS_SKILL_CONSUME_V1";
 
     private static final Pattern USAGE_RECORD_ID =
-            Pattern.compile("[A-Za-z0-9._:-]{1,128}");
-    private static final Pattern PACK_VERSION =
             Pattern.compile("[A-Za-z0-9._:-]{1,64}");
+    private static final Pattern PACK_VERSION =
+            Pattern.compile("[A-Za-z0-9._:-]{1,32}");
     private static final Pattern SKILL_CODE =
-            Pattern.compile("[A-Za-z0-9._:-]{1,128}");
+            Pattern.compile("[A-Za-z0-9._:-]{1,64}");
     private static final Pattern RULE_CODE =
             Pattern.compile("[A-Za-z0-9._:-]{1,64}");
     private static final Pattern HOST_TYPE =
@@ -192,7 +192,7 @@ final class SkillConsumeCreditCommand {
     }
 
     private static void requireHostSession(String value) {
-        if (value == null || value.isEmpty() || value.length() > 512
+        if (value == null || value.isEmpty() || value.length() > 128
                 || value.codePoints().anyMatch(codePoint -> Character.isISOControl(codePoint)
                 || Character.getType(codePoint) == Character.FORMAT
                 || Character.getType(codePoint) == Character.SURROGATE)) {

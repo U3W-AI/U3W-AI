@@ -21,6 +21,9 @@ public interface FbsSkillUsageRecordMapper {
      */
     FbsSkillUsageRecord selectByRecordId(@Param("usageRecordId") String usageRecordId);
 
+    /** Locked only by the default-off 042 writer after it has locked sys_user. */
+    FbsSkillUsageRecord selectByRecordIdForUpdate(@Param("usageRecordId") String usageRecordId);
+
     /**
      * 新增使用记录
      *

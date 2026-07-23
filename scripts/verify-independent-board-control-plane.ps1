@@ -231,6 +231,7 @@ function Invoke-ContractChecks {
         'reports\independent-board\points-balance-cas-mysql-verification-20260723.json',
         'reports\independent-board\skill-consume-candidate-fence-verification-20260723.json',
         'reports\independent-board\skill-consume-command-verification-20260723.json',
+        'reports\independent-board\skill-consume-writer-verification-20260723.json',
         'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.json',
         'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.md',
         'work\diagnostics\independent-board-mysql-transaction-it\mysql-8.0.30\summary-mysql-8.0.30-utc-20260721T123307.170Z-local-20260721T203307.170+0800-pid-18500.json',
@@ -944,9 +945,76 @@ function Invoke-ContractChecks {
         throw 'W4B5A skill-consume command receipt is incomplete, overclaims evidence, or lacks verifier succession'
     }
     foreach ($skillConsumeCommandArtifact in $skillConsumeCommandArtifacts) {
+        # W4B5B succeeds every W4B5A command artifact after it narrowed the
+        # legacy-usage compatibility boundary and attached the internal writer.
+        # The W4B5A receipt remains immutable historical evidence; W4B5B binds
+        # the current bytes below.
+        continue
+
         $skillConsumeCommandCurrentHash = (Get-FileHash -LiteralPath (Join-Path $RepoRoot $skillConsumeCommandArtifact) -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($skillConsumeCommandReport.sourceSha256.PSObject.Properties[$skillConsumeCommandArtifact].Value -cne $skillConsumeCommandCurrentHash) {
             throw "W4B5A skill-consume command artifact binding drifted: $skillConsumeCommandArtifact"
+        }
+    }
+
+    # W4B5B adds an internal-only 042 writer and REQUIRES_NEW transaction
+    # boundary. It remains unreachable from the legacy consume service until
+    # separate real-MySQL and 038-mutual-exclusion evidence is accepted.
+    $skillConsumeWriterReportPath = 'reports/independent-board/skill-consume-writer-verification-20260723.json'
+    $skillConsumeWriterReport = Read-Utf8Json -RelativePath $skillConsumeWriterReportPath.Replace('/', '\')
+    $skillConsumeWriterArtifacts = @(
+        'FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/domain/SkillCreditOperation.java',
+        'FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/domain/SkillCreditProjectionBridge.java',
+        'FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/mapper/SkillConsumeCreditLedgerMapper.java',
+        'FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditCommand.java',
+        'FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditDigest.java',
+        'FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditTransactionService.java',
+        'FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditWriter.java',
+        'FBSir-business/src/main/java/com/wx/fbsir/business/fbs/mapper/FbsSkillUsageRecordMapper.java',
+        'FBSir-business/src/main/resources/mapper/board/SkillConsumeCreditLedgerMapper.xml',
+        'FBSir-business/src/main/resources/mapper/fbs/FbsSkillUsageRecordMapper.xml',
+        'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/SkillConsumeCreditLedgerMapperContractTest.java',
+        'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditCommandTest.java',
+        'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditTransactionServiceTest.java',
+        'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditWriterTest.java',
+        'docs/independent-board/W4B5A-SKILL-CONSUME-COMMAND-CONTRACT.md',
+        'docs/independent-board/W4B5B-SKILL-CONSUME-TRANSACTION-WRITER-CONTRACT.md',
+        'scripts/verify-independent-board-control-plane.ps1'
+    )
+    $skillConsumeWriterSourceArtifacts = @($skillConsumeWriterReport.sourceSha256.PSObject.Properties | ForEach-Object { [string]$_.Name })
+    $w4b5bPriorCentralVerifierHash = $skillConsumeCommandReport.sourceSha256.PSObject.Properties['scripts/verify-independent-board-control-plane.ps1'].Value
+    if ($skillConsumeWriterReport.schemaVersion -ne 1 `
+            -or $skillConsumeWriterReport.result -cne 'PASS_LOCAL_SKILL_CONSUME_WRITER_CONTRACT' `
+            -or $skillConsumeWriterReport.candidateReadyForCommit -ne $true `
+            -or $skillConsumeWriterReport.releaseReady -ne $false `
+            -or $skillConsumeWriterReport.productionChanged -ne $false `
+            -or $skillConsumeWriterReport.databaseTouched -ne $false `
+            -or $skillConsumeWriterReport.frozenListedPackageModified -ne $false `
+            -or $skillConsumeWriterReport.productionConnectionUsed -ne $false `
+            -or $skillConsumeWriterReport.writerContract.writerPresent -ne $true `
+            -or $skillConsumeWriterReport.writerContract.wiredIntoLegacyConsume -ne $false `
+            -or $skillConsumeWriterReport.writerContract.newHttpOrMcpSurface -ne $false `
+            -or $skillConsumeWriterReport.writerContract.freshTransactionPropagation -cne 'REQUIRES_NEW' `
+            -or $skillConsumeWriterReport.writerContract.freshTransactionIsolation -cne 'REPEATABLE_READ' `
+            -or $skillConsumeWriterReport.writerContract.replayUsesCommittedWinner -ne $true `
+            -or $skillConsumeWriterReport.writerContract.legacyUsageColumnCompatible -ne $true `
+            -or $skillConsumeWriterReport.writerContract.usesLegacyPointsWriter -ne $false `
+            -or $skillConsumeWriterReport.writerContract.realMysqlMatrixVerified -ne $false `
+            -or $skillConsumeWriterReport.writerContract.requires038MutualExclusionBeforeEnablement -ne $true `
+            -or $skillConsumeWriterReport.maven.testsRun -ne 11 `
+            -or $skillConsumeWriterReport.maven.failures -ne 0 `
+            -or $skillConsumeWriterReport.maven.errors -ne 0 `
+            -or $skillConsumeWriterReport.maven.result -cne 'BUILD_SUCCESS' `
+            -or $skillConsumeWriterReport.frozenPackage.sha256 -cne 'd2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd' `
+            -or (Compare-Object -ReferenceObject ($skillConsumeWriterArtifacts | Sort-Object) -DifferenceObject ($skillConsumeWriterSourceArtifacts | Sort-Object)).Count -ne 0 `
+            -or @($skillConsumeWriterReport.predecessorSourceSha256.PSObject.Properties).Count -ne 1 `
+            -or $skillConsumeWriterReport.predecessorSourceSha256.PSObject.Properties['scripts/verify-independent-board-control-plane.ps1'].Value -cne $w4b5bPriorCentralVerifierHash) {
+        throw 'W4B5B skill-consume writer receipt is incomplete, overclaims evidence, or lacks verifier succession'
+    }
+    foreach ($skillConsumeWriterArtifact in $skillConsumeWriterArtifacts) {
+        $skillConsumeWriterCurrentHash = (Get-FileHash -LiteralPath (Join-Path $RepoRoot $skillConsumeWriterArtifact) -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($skillConsumeWriterReport.sourceSha256.PSObject.Properties[$skillConsumeWriterArtifact].Value -cne $skillConsumeWriterCurrentHash) {
+            throw "W4B5B skill-consume writer artifact binding drifted: $skillConsumeWriterArtifact"
         }
     }
 

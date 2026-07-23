@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "kind": "fbsir.skill-consume-writer.verification/v1",
+  "result": "PASS_LOCAL_SKILL_CONSUME_WRITER_CONTRACT",
+  "verifiedAt": "2026-07-23T10:14:10+08:00",
+  "scope": "default-off internal 042 skill-consume writer and transaction contract only",
+  "candidateReadyForCommit": true,
+  "releaseReady": false,
+  "productionChanged": false,
+  "databaseTouched": false,
+  "frozenListedPackageModified": false,
+  "productionConnectionUsed": false,
+  "frozenPackage": {
+    "path": "D:/Spg719/fbsir-eight-seat-board-26.7.20.zip",
+    "sha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd"
+  },
+  "predecessorSourceSha256": {
+    "scripts/verify-independent-board-control-plane.ps1": "82e14038ada5fe2a67a95c91b519488ab8ba066469bf3c03f3396eda629cc1dd"
+  },
+  "writerContract": {
+    "writerPresent": true,
+    "wiredIntoLegacyConsume": false,
+    "newHttpOrMcpSurface": false,
+    "freshTransactionPropagation": "REQUIRES_NEW",
+    "freshTransactionIsolation": "REPEATABLE_READ",
+    "replayUsesCommittedWinner": true,
+    "legacyUsageColumnCompatible": true,
+    "usesLegacyPointsWriter": false,
+    "realMysqlMatrixVerified": false,
+    "requires038MutualExclusionBeforeEnablement": true
+  },
+  "red": {
+    "command": "mvn -o -pl FBSir-business -Dtest=SkillConsumeCreditWriterTest -DforkCount=0 test",
+    "result": "EXPECTED_TEST_COMPILE_FAILURE_MISSING_WRITER_TYPES",
+    "reason": "SkillConsumeCreditWriter and SkillConsumeCreditTransactionService were absent before this slice"
+  },
+  "maven": {
+    "command": "mvn -o -pl FBSir-business -Dtest=SkillConsumeCreditCommandTest,SkillConsumeCreditWriterTest,SkillConsumeCreditTransactionServiceTest,SkillConsumeCreditLedgerMapperContractTest -DforkCount=0 test",
+    "testsRun": 11,
+    "failures": 0,
+    "errors": 0,
+    "result": "BUILD_SUCCESS"
+  },
+  "sourceSha256": {
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/domain/SkillCreditOperation.java": "d7f02475b918f6c0a0f8e136796b336e2a974936b56285c8f2ba888775869923",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/domain/SkillCreditProjectionBridge.java": "ddbb866073590e450f21e239c54c270015496992d1d566149136778584eeebc3",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/mapper/SkillConsumeCreditLedgerMapper.java": "061ee69e24a145a054e6d1c5255dc7e6659a31bd82ed55775743f2752f8e10d2",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditCommand.java": "ac7d12633a30e4f349e86da8a49bd09908e35032a84e8c513ee6e6759d4894b5",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditDigest.java": "30e72f6a1384c97e6300ddf1429f9af21d5e37829462ea0b8b5b49cdb2d06253",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditTransactionService.java": "8840b255f9859dd7e3ef8b64e26755f7f164e67f49c2e2a63632ac0800cdf9b4",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditWriter.java": "30b30a219d22edf635a70ea47ff019ec3282d692f33af053712c3c2716e681df",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/fbs/mapper/FbsSkillUsageRecordMapper.java": "374a8175af12954cb876e326a08b0bc2bf218e7848c537c39e07c7b88a07e8e7",
+    "FBSir-business/src/main/resources/mapper/board/SkillConsumeCreditLedgerMapper.xml": "4b96034e4242baa549d1bbc8d25c20a2e2aa1a597e03e515ee6baa3c4df7e0dd",
+    "FBSir-business/src/main/resources/mapper/fbs/FbsSkillUsageRecordMapper.xml": "116208656e11cf303e83d69421fcc657ed1cdd68d7795416a15715512d77a39c",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/SkillConsumeCreditLedgerMapperContractTest.java": "6ef1edc7eca74b29cc9025a2ebc5d444425fb379a184bdaf3e7171b53c8362af",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditCommandTest.java": "0caad388fa4c739ab41f970a7c7aa9dfcdbee49014ede722c1c99c85ad8f37eb",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditTransactionServiceTest.java": "148cc40d277831eba906ffd7ea98bf6eb21c865d7bcd78f053b503fa346b58bc",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditWriterTest.java": "4e8dd3f4a244e8bfe39ff24a55bcc938643344496354bd2760ae44031a858432",
+    "docs/independent-board/W4B5A-SKILL-CONSUME-COMMAND-CONTRACT.md": "8f3c753e1f473f0f1c1982ef7dfd3745de3ba773aaaf3ccd9b1852b1c2f026ce",
+    "docs/independent-board/W4B5B-SKILL-CONSUME-TRANSACTION-WRITER-CONTRACT.md": "c653fe469c541ce67b3df144149dc33cf86b2aae5cece56e4837681099fdc237",
+    "scripts/verify-independent-board-control-plane.ps1": "e470dc3de60e5e03ebbf986d0f0a0afaca0e4748a8843740a322ee2a5a3346cd"
+  }
+}

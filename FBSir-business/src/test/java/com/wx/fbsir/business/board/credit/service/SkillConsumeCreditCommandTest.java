@@ -87,7 +87,16 @@ class SkillConsumeCreditCommandTest {
                 "WORKBUDDY", "session\u2060"));
         assertThrows(IllegalArgumentException.class, () -> SkillConsumeCreditCommand.create(
                 7L, "usage-001", 9L, "1.2.3", "skill-code", "rule-code", 25,
-                "WORKBUDDY", "x".repeat(513)));
+                "WORKBUDDY", "x".repeat(129)));
+        assertThrows(IllegalArgumentException.class, () -> SkillConsumeCreditCommand.create(
+                7L, "u".repeat(65), 9L, "1.2.3", "skill-code", "rule-code", 25,
+                "WORKBUDDY", "session"));
+        assertThrows(IllegalArgumentException.class, () -> SkillConsumeCreditCommand.create(
+                7L, "usage-001", 9L, "v".repeat(33), "skill-code", "rule-code", 25,
+                "WORKBUDDY", "session"));
+        assertThrows(IllegalArgumentException.class, () -> SkillConsumeCreditCommand.create(
+                7L, "usage-001", 9L, "1.2.3", "s".repeat(65), "rule-code", 25,
+                "WORKBUDDY", "session"));
         assertThrows(IllegalArgumentException.class, () -> SkillConsumeCreditCommand.create(
                 7L, "usage-001", null, "1.2.3", "skill-code", "rule-code", 25,
                 "WORKBUDDY", "session"));
