@@ -9,6 +9,7 @@ import com.wx.fbsir.common.exception.ServiceException;
 import java.time.Clock;
 import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.PessimisticLockingFailureException;
@@ -24,21 +25,33 @@ public class IndependentBoardCreditService {
     public static final String CURRENCY_CODE = "FBS_POINTS";
 
     private final IndependentBoardCreditTransactionService transactionService;
+    private final boolean v2AuthorityCandidateActive;
 
-    @Autowired
     public IndependentBoardCreditService(
             IndependentBoardCreditTransactionService transactionService) {
+        this(transactionService, false, false);
+    }
+
+    @Autowired
+    IndependentBoardCreditService(
+            IndependentBoardCreditTransactionService transactionService,
+            @Value("${fbsir.independent-board.credit-ledger-candidate.enabled:false}")
+                    boolean creditLedgerCandidateEnabled,
+            @Value("${fbsir.independent-board.skill-consume-credit-writer.enabled:false}")
+                    boolean skillConsumeCreditWriterEnabled) {
         this.transactionService = transactionService;
+        this.v2AuthorityCandidateActive =
+                creditLedgerCandidateEnabled && skillConsumeCreditWriterEnabled;
     }
 
     IndependentBoardCreditService(
             IndependentBoardCreditMapper mapper, Clock clock, Supplier<String> idGenerator) {
-        this.transactionService = new IndependentBoardCreditTransactionService(
-                mapper, clock, idGenerator);
+        this(new IndependentBoardCreditTransactionService(mapper, clock, idGenerator));
     }
 
     public BoardCreditCommandResult grant(
             BoardCreditGrantRequest request, Long actorUserId) {
+        require038AuthorityAllowed();
         try {
             BoardCreditCommandResult committed = transactionService.replayGrantIfPresent(
                     request, actorUserId);
@@ -59,6 +72,7 @@ public class IndependentBoardCreditService {
 
     public BoardCreditCommandResult reverse(
             BoardCreditReversalRequest request, Long actorUserId) {
+        require038AuthorityAllowed();
         try {
             BoardCreditCommandResult committed = transactionService.replayReversalIfPresent(
                     request, actorUserId);
@@ -78,6 +92,7 @@ public class IndependentBoardCreditService {
     }
 
     public BoardCreditAuditEnvelope audit(Long userId) {
+        require038AuthorityAllowed();
         try {
             return transactionService.audit(userId);
         } catch (PessimisticLockingFailureException conflict) {
@@ -155,6 +170,12 @@ public class IndependentBoardCreditService {
     private boolean isAccountVersionConflict(ServiceException failure) {
         return Integer.valueOf(409).equals(failure.getCode())
                 && "CREDIT_ACCOUNT_VERSION_CONFLICT".equals(failure.getMessage());
+    }
+
+    private void require038AuthorityAllowed() {
+        if (v2AuthorityCandidateActive) {
+            throw new ServiceException("CREDIT_LEDGER_V2_AUTHORITY_CANDIDATE_ACTIVE", 409);
+        }
     }
 
     private ServiceException stableConcurrencyConflict() {

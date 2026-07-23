@@ -38,6 +38,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class IndependentBoardCreditServiceTest {
@@ -54,6 +55,29 @@ class IndependentBoardCreditServiceTest {
     void setUp() {
         mapper = mock(IndependentBoardCreditMapper.class);
         service = serviceWithIds(ACCOUNT_ID, OPERATION_ID, ENTRY_ID, REVERSAL_ID, REVERSAL_ENTRY_ID);
+    }
+
+    @Test
+    void activeV2AuthorityCandidateFencesGrantReversalAndAuditBeforeAny038Transaction() {
+        IndependentBoardCreditTransactionService transaction =
+                mock(IndependentBoardCreditTransactionService.class);
+        IndependentBoardCreditService fenced =
+                new IndependentBoardCreditService(transaction, true, true);
+
+        ServiceException grantFailure = assertThrows(
+                ServiceException.class, () -> fenced.grant(grant(42L, 100), 900L));
+        ServiceException reversalFailure = assertThrows(
+                ServiceException.class, () -> fenced.reverse(reversal(), 900L));
+        ServiceException auditFailure = assertThrows(
+                ServiceException.class, () -> fenced.audit(42L));
+
+        assertEquals("CREDIT_LEDGER_V2_AUTHORITY_CANDIDATE_ACTIVE", grantFailure.getMessage());
+        assertEquals(409, grantFailure.getCode());
+        assertEquals(grantFailure.getMessage(), reversalFailure.getMessage());
+        assertEquals(grantFailure.getCode(), reversalFailure.getCode());
+        assertEquals(grantFailure.getMessage(), auditFailure.getMessage());
+        assertEquals(grantFailure.getCode(), auditFailure.getCode());
+        verifyNoInteractions(transaction);
     }
 
     @Test
