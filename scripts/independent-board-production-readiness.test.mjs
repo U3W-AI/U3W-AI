@@ -22,20 +22,22 @@ const flags = [
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PRODUCT_CREDIT_ENABLED",
 ];
 const migrationDescriptions = {
-  public_init_035: "Independent Board OAuth consent-intent lineage",
-  public_init_036: "Independent Board OAuth refresh security receipt v2",
+  public_init_035:
+    "APPLIED:Independent Board OAuth consent-intent lineage",
+  public_init_036:
+    "APPLIED:Independent Board OAuth refresh security receipt v2",
   public_init_037:
-    "Independent Board exact product attribution evidence contract",
+    "APPLIED:Independent Board exact product attribution evidence contract",
   public_init_038:
-    "Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger",
+    "APPLIED:Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger",
   public_init_039:
-    "Independent Board immutable plan policy revisions and operation lineage",
+    "APPLIED:Independent Board immutable plan policy revisions and operation lineage",
   public_init_040:
-    "Independent Board plan policy database monotonic-chain guards",
+    "APPLIED:Independent Board plan policy database monotonic-chain guards",
   public_init_041:
-    "Independent Board plan policy controlled procedure authority",
+    "APPLIED:Independent Board plan policy controlled procedure authority",
   public_init_042:
-    "Independent Board default-off skill-consume v2 credit ledger",
+    "APPLIED:Independent Board default-off skill-consume v2 credit ledger",
 };
 
 function readySnapshot() {
@@ -45,6 +47,21 @@ function readySnapshot() {
       clean: true,
       sourceCommit: commit,
       expectedSourceCommit: commit,
+      w1a043CompatibilityVersions: ["8.0.30", "8.0.45", "8.4.8"],
+      w1a043CompatibilityReceipts: [
+        {
+          path: "reports/independent-board/w1a-attribution-v1-dual-mysql-latest.json",
+          sha256: digest,
+        },
+      ],
+      canonicalBaselineCompatibilityVersions: ["8.0.30", "8.4.8"],
+      releasePlanVerified: true,
+      releasePlanSourceCommit: commit,
+      releaseRunnerContractVersion:
+        "fbsir.u3wDefaultOffReleaseRunner.v1",
+      releasePlanReceiptPath:
+        "reports/independent-board/w1a-default-off-release-plan-latest.json",
+      releasePlanReceiptSha256: digest,
     },
     target: {
       host: "api2.u3w.com",
@@ -65,6 +82,10 @@ function readySnapshot() {
       migrationVersions: migrations,
       migrationDescriptions: { ...migrationDescriptions },
       publicInit043Applied: false,
+      boardAttributionTableCount: 0,
+      boardAttributionTriggerCount: 0,
+      boardAttributionPermissionCount: 0,
+      boardAttributionInternalReceiptCount: 0,
     },
     portals: {
       meHttpStatus: 404,
@@ -75,7 +96,12 @@ function readySnapshot() {
       environmentKeyNames: [...flags],
       explicitFalseKeyNames: [...flags],
       eventKeyEntryCount: 1,
+      activeEventKeyPairPresent: true,
+      activeEventKeyId: "wave1-k1",
+      previousEventKeyPairComplete: true,
       sameBindingSecretPresent: true,
+      environmentFileCustodySecure: true,
+      cryptographicConfigurationShapeValid: true,
     },
     backup: {
       receiptPath: "/opt/fbsir/admin/backups/latest/receipt.json",
@@ -84,24 +110,31 @@ function readySnapshot() {
       sha256: digest,
       sizeBytes: 10,
       restoreProcedureVerified: true,
+      restoreLiveFactsMatched: true,
     },
     deploymentChannel: {
-      receiptValidated: true,
-      receiptAnchorMatched: true,
-      sourceCommit: commit,
-      strictHeadBuildUploadSwitchReceiptScriptPresent: true,
-      applicationRollbackProven: true,
-      databaseRollbackProven: true,
+      state: null,
+      receiptValidated: false,
+      receiptAnchorMatched: false,
+      sourceCommit: null,
+      strictHeadBuildUploadSwitchReceiptScriptPresent: false,
+      applicationRollbackProven: false,
+      databaseRollbackProven: false,
+      actualActiveArtifactsMatched: false,
     },
   };
 }
 
-test("passes only when every release proof is present", () => {
+test("preparation can pass before any production upload or switch", () => {
   const result = evaluateProductionReadiness(readySnapshot());
-  assert.equal(result.status, "READY_FOR_DEFAULT_OFF_RELEASE");
+  assert.equal(result.status, "PREPARED_FOR_STAGE");
   assert.equal(result.readyForDefaultOffRelease, true);
   assert.deepEqual(result.failedGateIds, []);
   assert.equal(result.productionChanged, false);
+  assert.deepEqual(result.postDeployFailedGateIds, [
+    "staged_release_receipt",
+    "deployed_default_off_receipt",
+  ]);
 });
 
 test("fails closed for a dirty or non-exact source tree", () => {
@@ -124,15 +157,54 @@ test("fails closed for an unversioned legacy schema", () => {
   );
 });
 
-test("fails closed for an unverified MySQL patch version", () => {
+test("separates 043 compatibility from full canonical baseline support", () => {
   const snapshot = readySnapshot();
   snapshot.database.serverVersion = "8.0.45";
+  const verified043Only = evaluateProductionReadiness(snapshot);
+  assert.equal(
+    verified043Only.failedGateIds.includes("w1a_043_mysql_compatibility"),
+    false,
+  );
+  assert.ok(
+    verified043Only.failedGateIds.includes("versioned_schema_baseline"),
+  );
+  snapshot.local.w1a043CompatibilityVersions =
+    snapshot.local.w1a043CompatibilityVersions.filter(
+      (version) => version !== "8.0.45",
+    );
   const result = evaluateProductionReadiness(snapshot);
-  assert.ok(result.failedGateIds.includes("versioned_schema_baseline"));
+  assert.ok(result.failedGateIds.includes("w1a_043_mysql_compatibility"));
   assert.match(
-    result.gates.find((item) => item.id === "versioned_schema_baseline")
+    result.gates.find((item) => item.id === "w1a_043_mysql_compatibility")
       .detail,
-    /unverified MySQL version/,
+    /public_init_043 is unverified/,
+  );
+});
+
+test("accepts only an anchored and verified legacy baseline alternative", () => {
+  const snapshot = readySnapshot();
+  snapshot.database.serverVersion = "8.0.45";
+  snapshot.database.migrationVersions = [];
+  snapshot.database.migrationDescriptions = {};
+  snapshot.database.schemaBaselineMode = "LEGACY_ADOPTED_W1A_V1";
+  snapshot.database.legacyBaselineReceiptValid = true;
+  snapshot.database.legacyBaselineReceiptAnchorMatched = true;
+  snapshot.database.legacyBaselineLiveFactsMatched = true;
+  snapshot.database.legacyBaselineReceiptDigest = digest;
+  snapshot.database.legacyBaselineSourceCommit = commit;
+  const accepted = evaluateProductionReadiness(snapshot);
+  assert.equal(
+    accepted.failedGateIds.includes("versioned_schema_baseline"),
+    false,
+  );
+  snapshot.database.legacyBaselineReceiptAnchorMatched = false;
+  const rejected = evaluateProductionReadiness(snapshot);
+  assert.ok(rejected.failedGateIds.includes("versioned_schema_baseline"));
+  snapshot.database.legacyBaselineReceiptAnchorMatched = true;
+  snapshot.database.legacyBaselineLiveFactsMatched = false;
+  const selfAttestedOnly = evaluateProductionReadiness(snapshot);
+  assert.ok(
+    selfAttestedOnly.failedGateIds.includes("versioned_schema_baseline"),
   );
 });
 
@@ -147,10 +219,26 @@ test("fails closed when a migration receipt description drifts", () => {
   );
 });
 
+test("rejects pre-apply migration descriptions as incomplete receipts", () => {
+  const snapshot = readySnapshot();
+  snapshot.database.migrationDescriptions.public_init_035 =
+    "Independent Board OAuth consent-intent lineage";
+  const result = evaluateProductionReadiness(snapshot);
+  assert.ok(result.failedGateIds.includes("versioned_schema_baseline"));
+  assert.deepEqual(
+    result.evidence.database.driftedPredecessorDescriptions,
+    ["public_init_035"],
+  );
+});
+
 test("requires the exact 043 schema and trigger fingerprint when applied", () => {
   const snapshot = readySnapshot();
   snapshot.database.publicInit043Applied = true;
   snapshot.database.migrationVersions.push("public_init_043");
+  snapshot.database.boardAttributionTableCount = 2;
+  snapshot.database.boardAttributionTriggerCount = 2;
+  snapshot.database.boardAttributionPermissionCount = 1;
+  snapshot.database.boardAttributionInternalReceiptCount = 1;
   snapshot.database.w1aSchemaFingerprintSha256 = digest;
   const failed = evaluateProductionReadiness(snapshot);
   assert.ok(failed.failedGateIds.includes("w1a_schema_state"));
@@ -159,9 +247,33 @@ test("requires the exact 043 schema and trigger fingerprint when applied", () =>
   assert.equal(passed.failedGateIds.includes("w1a_schema_state"), false);
 });
 
+test("rejects partial W1A objects without the public 043 receipt", () => {
+  for (const field of [
+    "boardAttributionTableCount",
+    "boardAttributionTriggerCount",
+    "boardAttributionPermissionCount",
+    "boardAttributionInternalReceiptCount",
+  ]) {
+    const snapshot = readySnapshot();
+    snapshot.database[field] = 1;
+    const result = evaluateProductionReadiness(snapshot);
+    assert.ok(
+      result.failedGateIds.includes("w1a_schema_state"),
+      `${field} must fail closed`,
+    );
+  }
+});
+
 test("fails closed when the database backup cannot be restored", () => {
   const snapshot = readySnapshot();
   snapshot.backup.restoreProcedureVerified = false;
+  const result = evaluateProductionReadiness(snapshot);
+  assert.ok(result.failedGateIds.includes("backup_restore_anchor"));
+});
+
+test("rejects a restore receipt that only self-attests success", () => {
+  const snapshot = readySnapshot();
+  snapshot.backup.restoreLiveFactsMatched = false;
   const result = evaluateProductionReadiness(snapshot);
   assert.ok(result.failedGateIds.includes("backup_restore_anchor"));
 });
@@ -204,32 +316,106 @@ test("never emits secret values", () => {
   assert.equal(serialized.includes("sentinel-deployment-secret"), false);
 });
 
-test("requires out-of-band anchors for backup and deployment receipts", () => {
+test("requires secure and structurally valid key custody", () => {
+  const snapshot = readySnapshot();
+  snapshot.configuration.environmentFileCustodySecure = false;
+  const insecure = evaluateProductionReadiness(snapshot);
+  assert.ok(
+    insecure.failedGateIds.includes("cryptographic_material_custody"),
+  );
+
+  snapshot.configuration.environmentFileCustodySecure = true;
+  snapshot.configuration.previousEventKeyPairComplete = false;
+  const incompleteRotation = evaluateProductionReadiness(snapshot);
+  assert.ok(
+    incompleteRotation.failedGateIds.includes(
+      "cryptographic_material_custody",
+    ),
+  );
+});
+
+test("requires an out-of-band anchor for the backup receipt", () => {
   const snapshot = readySnapshot();
   snapshot.backup.receiptAnchorMatched = false;
-  snapshot.deploymentChannel.receiptAnchorMatched = false;
   const result = evaluateProductionReadiness(snapshot);
   assert.ok(result.failedGateIds.includes("backup_restore_anchor"));
+});
+
+test("keeps deployment evidence separate from preparation", () => {
+  const snapshot = readySnapshot();
+  snapshot.deploymentChannel = {
+    state: "STAGED_FOR_SWITCH",
+    receiptValidated: true,
+    receiptAnchorMatched: true,
+    sourceCommit: commit,
+    strictHeadBuildUploadSwitchReceiptScriptPresent: true,
+    applicationRollbackProven: false,
+    databaseRollbackProven: false,
+    actualActiveArtifactsMatched: false,
+  };
+  const result = evaluateProductionReadiness(snapshot);
+  assert.equal(result.status, "STAGED_FOR_SWITCH");
+  assert.equal(result.readyForDefaultOffRelease, true);
+  assert.deepEqual(result.failedGateIds, []);
+  assert.deepEqual(result.postDeployFailedGateIds, [
+    "deployed_default_off_receipt",
+  ]);
+});
+
+test("requires jointly proven rollback evidence after deployment", () => {
+  const snapshot = readySnapshot();
+  snapshot.deploymentChannel = {
+    state: "DEPLOYED_DEFAULT_OFF",
+    receiptValidated: true,
+    receiptAnchorMatched: true,
+    sourceCommit: commit,
+    strictHeadBuildUploadSwitchReceiptScriptPresent: true,
+    applicationRollbackProven: true,
+    databaseRollbackProven: false,
+    actualActiveArtifactsMatched: false,
+  };
+  const result = evaluateProductionReadiness(snapshot);
+  assert.equal(result.status, "PREPARED_FOR_STAGE");
   assert.ok(
-    result.failedGateIds.includes("release_switch_and_rollback_channel"),
+    result.postDeployFailedGateIds.includes(
+      "deployed_default_off_receipt",
+    ),
+  );
+  snapshot.deploymentChannel.databaseRollbackProven = true;
+  const selfReportedOnly = evaluateProductionReadiness(snapshot);
+  assert.equal(selfReportedOnly.status, "PREPARED_FOR_STAGE");
+  snapshot.deploymentChannel.actualActiveArtifactsMatched = true;
+  const deployed = evaluateProductionReadiness(snapshot);
+  assert.equal(deployed.status, "DEPLOYED_DEFAULT_OFF");
+  assert.equal(deployed.productionChanged, true);
+  assert.deepEqual(deployed.postDeployFailedGateIds, []);
+});
+
+test("rejects a staged receipt from a different source commit", () => {
+  const snapshot = readySnapshot();
+  snapshot.deploymentChannel = {
+    state: "STAGED_FOR_SWITCH",
+    receiptValidated: true,
+    receiptAnchorMatched: true,
+    sourceCommit: "d".repeat(40),
+    strictHeadBuildUploadSwitchReceiptScriptPresent: true,
+    applicationRollbackProven: false,
+    databaseRollbackProven: false,
+    actualActiveArtifactsMatched: false,
+  };
+  const result = evaluateProductionReadiness(snapshot);
+  assert.equal(result.status, "PREPARED_FOR_STAGE");
+  assert.ok(
+    result.postDeployFailedGateIds.includes("staged_release_receipt"),
   );
 });
 
-test("requires both application and database rollback proofs", () => {
+test("requires a locally verified release plan bound to strict HEAD", () => {
   const snapshot = readySnapshot();
-  snapshot.deploymentChannel.databaseRollbackProven = false;
+  snapshot.local.releasePlanSourceCommit = "d".repeat(40);
   const result = evaluateProductionReadiness(snapshot);
   assert.ok(
-    result.failedGateIds.includes("release_switch_and_rollback_channel"),
-  );
-});
-
-test("rejects a release receipt from a different source commit", () => {
-  const snapshot = readySnapshot();
-  snapshot.deploymentChannel.sourceCommit = "d".repeat(40);
-  const result = evaluateProductionReadiness(snapshot);
-  assert.ok(
-    result.failedGateIds.includes("release_switch_and_rollback_channel"),
+    result.failedGateIds.includes("release_plan_and_rollback_contract"),
   );
 });
 
@@ -260,8 +446,43 @@ test("live collector is pinned, online-only, and verifies actual artifacts", () 
     assert.ok(collector.includes(`"${name}"`));
     assert.ok(application.includes(`\${${name}:false}`));
   }
+  for (const name of flags.slice(4)) {
+    assert.ok(collector.includes(`"${name}"`));
+    assert.ok(application.includes(`\${${name}:false}`));
+  }
+  assert.ok(
+    application.includes(
+      "${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_EVENT_KEY_ID:}",
+    ),
+  );
+  assert.ok(
+    application.includes(
+      "${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_EVENT_KEY:}",
+    ),
+  );
+  assert.ok(
+    application.includes(
+      "${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET:}",
+    ),
+  );
   assert.ok(collector.includes("information_schema.check_constraints"));
   assert.ok(collector.includes("HEX(action_statement)"));
   assert.ok(collector.includes("verified_release_file("));
   assert.ok(collector.includes("sha256_file(candidate) == expected_digest"));
+  assert.ok(
+    collector.includes(
+      'padded_base64 = raw_base64 + ("=" * (-len(raw_base64) % 4))',
+    ),
+  );
+  assert.ok(
+    collector.includes(
+      're.fullmatch(r"[0-9a-fA-F]+", raw_hex) is None',
+    ),
+  );
+  assert.ok(collector.includes("return bytes.fromhex(raw_hex)"));
+  assert.ok(
+    collector.includes(
+      "not hmac.compare_digest(material, same_binding_material)",
+    ),
+  );
 });

@@ -4,6 +4,7 @@ param(
     [string]$KnownHostsPath = $(Join-Path $env:TEMP 'u3w-production-readiness-known-hosts'),
     [string]$ExpectedBackupReceiptSha256,
     [string]$ExpectedDeploymentReceiptSha256,
+    [string]$ExpectedLegacyBaselineReceiptDigest,
     [string]$ExpectedCommit,
     [string]$OutputPath,
     [switch]$RequireReady
@@ -40,15 +41,19 @@ function Resolve-NodeExecutable {
 }
 
 function Assert-SafeRemoteParameters {
-    foreach ($anchor in @($ExpectedBackupReceiptSha256, $ExpectedDeploymentReceiptSha256)) {
+    foreach ($anchor in @(
+            $ExpectedBackupReceiptSha256,
+            $ExpectedDeploymentReceiptSha256,
+            $ExpectedLegacyBaselineReceiptDigest)) {
         if ($anchor -and $anchor -notmatch '^[0-9a-fA-F]{64}$') {
             throw 'receipt anchors must be 64-hex SHA-256 values'
         }
     }
     if ($RequireReady -and (
             -not $ExpectedBackupReceiptSha256 -or
-            -not $ExpectedDeploymentReceiptSha256)) {
-        throw 'RequireReady requires both out-of-band receipt SHA-256 anchors'
+            -not $ExpectedDeploymentReceiptSha256 -or
+            -not $ExpectedLegacyBaselineReceiptDigest)) {
+        throw 'RequireReady requires backup, deployment and legacy-baseline out-of-band SHA-256 anchors'
     }
 }
 
@@ -128,10 +133,104 @@ function Get-GitState {
     if ($LASTEXITCODE -ne 0) {
         throw 'git status failed'
     }
+    $migrationPath = Join-Path $RepoRoot 'sql\update_20260723_independent_board_attribution_v1.sql'
+    $migrationSha256 = (
+        Get-FileHash -LiteralPath $migrationPath -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+    $compatibilityReceiptPaths = @(
+        'reports\independent-board\w1a-attribution-v1-dual-mysql-latest.json',
+        'reports\independent-board\w1a-attribution-v1-mysql-8.0.45-latest.json'
+    )
+    $verifiedVersions = [System.Collections.Generic.HashSet[string]]::new(
+        [StringComparer]::Ordinal)
+    $compatibilityReceipts = [System.Collections.Generic.List[object]]::new()
+    foreach ($relativePath in $compatibilityReceiptPaths) {
+        $receiptPath = Join-Path $RepoRoot $relativePath
+        if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
+            continue
+        }
+        $receipt = Get-Content -LiteralPath $receiptPath -Raw -Encoding UTF8 |
+            ConvertFrom-Json
+        if ($receipt.schema -cne 'fbsir.independent-board.attribution-v1-dual-mysql-it/v1' -or
+            $receipt.status -cne 'PASS' -or
+            $receipt.migration -cne 'public_init_043' -or
+            $receipt.migrationSha256 -cne $migrationSha256 -or
+            $receipt.officialIdentity.productId -cne 'fbsir-eight-seat-board' -or
+            $receipt.officialIdentity.listedManifestVersion -cne '26.7.21') {
+            throw "MySQL compatibility receipt is invalid: $relativePath"
+        }
+        foreach ($result in @($receipt.results)) {
+            if ($result.version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$' -or
+                $result.exactShape -cne "$($result.version)|2|2|1|1" -or
+                $result.migrationRerun -cne 'PASS' -or
+                $result.append -cne 'PASS' -or
+                $result.aggregate -cne '1|1|1|0' -or
+                $result.updateRejected -cne 'PASS' -or
+                $result.deleteRejected -cne 'PASS' -or
+                [int]$result.authoritativeProductCredit -ne 0 -or
+                $result.schemaFingerprintSha256 -cne 'a0507f51960622d49b66c4d8b1b7382dc8bc16a904d577bac1ca942bb8748b28') {
+                throw "MySQL compatibility result is invalid: $relativePath"
+            }
+            $null = $verifiedVersions.Add([string]$result.version)
+        }
+        $compatibilityReceipts.Add([ordered]@{
+                path = $relativePath.Replace('\', '/')
+                sha256 = (
+                    Get-FileHash -LiteralPath $receiptPath -Algorithm SHA256
+                ).Hash.ToLowerInvariant()
+            })
+    }
+    $releasePlanRelativePath =
+        'reports\independent-board\w1a-default-off-release-plan-latest.json'
+    $releasePlanPath = Join-Path $RepoRoot $releasePlanRelativePath
+    $releasePlanVerified = $false
+    $releasePlanSourceCommit = $null
+    $releaseRunnerContractVersion = $null
+    $releasePlanReceiptSha256 = $null
+    if (Test-Path -LiteralPath $releasePlanPath -PathType Leaf) {
+        $releasePlan = Get-Content -LiteralPath $releasePlanPath -Raw -Encoding UTF8 |
+            ConvertFrom-Json
+        $runnerPath = Join-Path $RepoRoot 'scripts\deploy-independent-board-default-off.ps1'
+        $runnerSha256 = if (Test-Path -LiteralPath $runnerPath -PathType Leaf) {
+            (Get-FileHash -LiteralPath $runnerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        } else { $null }
+        $requiredModes = @($releasePlan.requiredModes)
+        $releasePlanVerified = (
+            $releasePlan.schema -ceq 'fbsir.u3wDefaultOffReleasePlan.v1' -and
+            $releasePlan.runnerContractVersion -ceq 'fbsir.u3wDefaultOffReleaseRunner.v1' -and
+            $releasePlan.mode -ceq 'Plan' -and
+            $releasePlan.productionChanged -eq $false -and
+            $releasePlan.strictHeadClean -eq $true -and
+            $releasePlan.sourceCommit -ceq $head -and
+            $releasePlan.expectedSourceCommit -ceq $expected -and
+            $releasePlan.runnerSha256 -ceq $runnerSha256 -and
+            ($requiredModes -join ',') -ceq 'Build,Plan,Stage,Apply,Rollback,Verify'
+        )
+        if (-not $releasePlanVerified) {
+            throw "default-off release plan receipt is invalid: $releasePlanRelativePath"
+        }
+        $releasePlanSourceCommit = [string]$releasePlan.sourceCommit
+        $releaseRunnerContractVersion = [string]$releasePlan.runnerContractVersion
+        $releasePlanReceiptSha256 = (
+            Get-FileHash -LiteralPath $releasePlanPath -Algorithm SHA256
+        ).Hash.ToLowerInvariant()
+    }
     return [ordered]@{
         clean = [string]::IsNullOrWhiteSpace(($status -join "`n"))
         sourceCommit = $head
         expectedSourceCommit = $expected
+        w1a043CompatibilityVersions = @($verifiedVersions | Sort-Object)
+        w1a043CompatibilityReceipts = @($compatibilityReceipts)
+        # Full 035-042 canonical-chain compatibility is intentionally distinct
+        # from the standalone 043 compatibility receipts above.
+        canonicalBaselineCompatibilityVersions = @('8.0.30', '8.4.8')
+        releasePlanVerified = $releasePlanVerified
+        releasePlanSourceCommit = $releasePlanSourceCommit
+        releaseRunnerContractVersion = $releaseRunnerContractVersion
+        releasePlanReceiptPath = if ($releasePlanVerified) {
+            $releasePlanRelativePath.Replace('\', '/')
+        } else { $null }
+        releasePlanReceiptSha256 = $releasePlanReceiptSha256
     }
 }
 
@@ -142,6 +241,8 @@ function Invoke-RemoteSnapshot {
 
     $remotePython = @'
 import hashlib
+import hmac
+import base64
 import json
 import os
 import pathlib
@@ -158,6 +259,7 @@ BACKUP_RECEIPT_PATH = __BACKUP_RECEIPT_PATH__
 DEPLOYMENT_RECEIPT_PATH = __DEPLOYMENT_RECEIPT_PATH__
 EXPECTED_BACKUP_RECEIPT_SHA256 = __EXPECTED_BACKUP_RECEIPT_SHA256__
 EXPECTED_DEPLOYMENT_RECEIPT_SHA256 = __EXPECTED_DEPLOYMENT_RECEIPT_SHA256__
+EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST = __EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST__
 FLAG_NAMES = [
     "FBSIR_BOARD_ATTRIBUTION_ENABLED",
     "FBSIR_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
@@ -180,6 +282,32 @@ def sha256_file(filename):
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+def decode_secret_material(encoded):
+    value = str(encoded or "").strip()
+    if not value:
+        return None
+    try:
+        if value.startswith("base64:"):
+            raw_base64 = value[7:]
+            if len(raw_base64) % 4 == 1:
+                return None
+            padded_base64 = raw_base64 + ("=" * (-len(raw_base64) % 4))
+            return base64.b64decode(padded_base64, validate=True)
+        if value.startswith("hex:"):
+            raw_hex = value[4:]
+            if (
+                not raw_hex
+                or len(raw_hex) % 2 != 0
+                or re.fullmatch(r"[0-9a-fA-F]+", raw_hex) is None
+            ):
+                return None
+            return bytes.fromhex(raw_hex)
+        if value.startswith("utf8:"):
+            value = value[5:]
+        return value.encode("utf-8")
+    except (ValueError, UnicodeError):
+        return None
 
 def parse_env_file(filename):
     values = {}
@@ -248,8 +376,19 @@ database = {
     "migrationVersions": [],
     "migrationDescriptions": {},
     "boardAttributionTableCount": None,
+    "boardAttributionTriggerCount": None,
+    "boardAttributionPermissionCount": None,
+    "boardAttributionInternalReceiptCount": None,
     "publicInit043Applied": None,
     "w1aSchemaFingerprintSha256": None,
+    "schemaBaselineMode": None,
+    "legacyBaselineReceiptValid": False,
+    "legacyBaselineReceiptAnchorMatched": False,
+    # Intentionally false until a controlled runner and this collector
+    # independently recompute every receipt field from live artifacts.
+    "legacyBaselineLiveFactsMatched": False,
+    "legacyBaselineReceiptDigest": None,
+    "legacyBaselineSourceCommit": None,
 }
 jdbc_url = environment.get("FBSIR_MYSQL_URL") or environment.get("WXFBSIR_MYSQL_URL")
 mysql_user = environment.get("FBSIR_MYSQL_USERNAME") or environment.get("WXFBSIR_MYSQL_USERNAME")
@@ -275,6 +414,10 @@ if jdbc_url and mysql_user is not None and mysql_password is not None:
         ], env=mysql_env)
 
     identity = query("SELECT @@version, DATABASE(), CURRENT_USER()").split("\t")
+    sys_menu_table_count = int(query(
+        "SELECT COUNT(*) FROM information_schema.tables "
+        "WHERE table_schema=DATABASE() AND table_name='sys_menu'"
+    ))
     database.update({
         "serverVersion": identity[0],
         "database": identity[1],
@@ -293,8 +436,27 @@ if jdbc_url and mysql_user is not None and mysql_password is not None:
             "WHERE table_schema = DATABASE() AND table_name IN "
             "('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')"
         )),
+        "boardAttributionTriggerCount": int(query(
+            "SELECT COUNT(*) FROM information_schema.triggers "
+            "WHERE trigger_schema = DATABASE() AND trigger_name IN "
+            "('trg_board_attr_event_v1_no_update',"
+            "'trg_board_attr_event_v1_no_delete')"
+        )),
+        "boardAttributionPermissionCount": (
+            int(query(
+                "SELECT COUNT(*) FROM sys_menu "
+                "WHERE BINARY perms=BINARY 'board:attribution:query'"
+            )) if sys_menu_table_count == 1 else 0
+        ),
+        "boardAttributionInternalReceiptCount": 0,
     })
     if database["migrationTableCount"] == 1:
+        database["boardAttributionInternalReceiptCount"] = int(query(
+            "SELECT COUNT(*) FROM u3w_schema_migration WHERE version="
+            "'20260723_independent_board_attribution_v1_043' AND description="
+            "'APPLIED:exact WorkBuddy experts 26.7.21 attribution journey "
+            "and append-only event ledger'"
+        ))
         migration_rows = query(
             "SELECT version, description FROM u3w_schema_migration "
             "WHERE version LIKE 'public_init_0%' ORDER BY version"
@@ -371,21 +533,143 @@ ORDER BY BINARY row_value
             database["w1aSchemaFingerprintSha256"] = hashlib.sha256(
                 (fingerprint_rows + "\n").encode("utf-8")
             ).hexdigest()
+        legacy_table_count = int(query(
+            "SELECT COUNT(*) FROM information_schema.tables "
+            "WHERE table_schema=DATABASE() "
+            "AND table_name='u3w_legacy_schema_baseline_receipt_v1'"
+        ))
+        if legacy_table_count == 1:
+            legacy_rows = query("""
+SELECT CONCAT_WS('\t',
+  baseline_id,baseline_mode,mysql_version,mysql_version_comment,
+  fingerprint_algorithm,source_schema_fingerprint,base_table_count,
+  view_count,trigger_count,routine_count,event_count,
+  prerequisite_shape_sha256,source_jar_sha256,backup_sha256,
+  backup_size_bytes,backup_receipt_sha256,restore_receipt_sha256,
+  runner_sha256,source_commit,
+  DATE_FORMAT(observed_at,'%Y-%m-%dT%H:%i:%s.%fZ'),
+  receipt_digest)
+FROM u3w_legacy_schema_baseline_receipt_v1
+ORDER BY baseline_id
+""")
+            rows = [row for row in legacy_rows.splitlines() if row]
+            if len(rows) == 1:
+                parts = rows[0].split("\t")
+                if len(parts) == 21:
+                    actual_digest = hashlib.sha256(
+                        "|".join(parts[:-1]).encode("utf-8")
+                    ).hexdigest()
+                    migration_receipt_count = int(query(
+                        "SELECT COUNT(*) FROM u3w_schema_migration "
+                        "WHERE version='legacy_w1a_baseline_20260723_001' "
+                        "AND description='APPLIED:Legacy production schema "
+                        "adopted for Independent Board W1A v1 only'"
+                    ))
+                    valid = bool(
+                        parts[1] == "LEGACY_ADOPTED_W1A_V1"
+                        and parts[2] == database["serverVersion"]
+                        and parts[4] == "u3w.mysql-schema-metadata.v1"
+                        and all(re.fullmatch(r"[0-9a-f]{64}", value)
+                                for value in (
+                                    parts[0], parts[5], parts[11], parts[12],
+                                    parts[13], parts[15], parts[16], parts[17],
+                                    parts[20]))
+                        and re.fullmatch(r"[0-9a-f]{40}", parts[18])
+                        and actual_digest == parts[20]
+                        and migration_receipt_count == 1
+                    )
+                    database.update({
+                        "schemaBaselineMode": (
+                            "LEGACY_ADOPTED_W1A_V1" if valid else None
+                        ),
+                        "legacyBaselineReceiptValid": valid,
+                        "legacyBaselineReceiptAnchorMatched": bool(
+                            EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST
+                            and parts[20]
+                                == EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST
+                        ),
+                        "legacyBaselineReceiptDigest": parts[20],
+                        "legacyBaselineSourceCommit": parts[18],
+                    })
 
 key_names = sorted(environment.keys())
 explicit_false = sorted(
     name for name in FLAG_NAMES
     if environment.get(name, "").strip().lower() == "false"
 )
-event_key_prefix = "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_EVENT_KEYS_"
-event_key_count = sum(
-    1 for name, value in environment.items()
-    if name.startswith(event_key_prefix) and bool(value.strip())
+active_event_key_id = environment.get(
+    "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_EVENT_KEY_ID", ""
+).strip()
+active_event_key = environment.get(
+    "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_EVENT_KEY", ""
+).strip()
+previous_event_key_id = environment.get(
+    "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY_ID", ""
+).strip()
+previous_event_key = environment.get(
+    "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY", ""
+).strip()
+active_event_key_pair_present = bool(active_event_key_id and active_event_key)
+previous_event_key_pair_complete = bool(
+    (not previous_event_key_id and not previous_event_key)
+    or (previous_event_key_id and previous_event_key)
 )
-same_binding_present = bool(
-    environment.get(
-        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET", ""
-    ).strip()
+event_key_count = (
+    (1 if active_event_key_pair_present else 0)
+    + (1 if previous_event_key_id and previous_event_key else 0)
+)
+same_binding_value = environment.get(
+    "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET", ""
+).strip()
+same_binding_present = bool(same_binding_value)
+environment_file_custody_secure = bool(environment_files) and all(
+    pathlib.Path(filename).is_file()
+    and not pathlib.Path(filename).is_symlink()
+    and pathlib.Path(filename).stat().st_uid == 0
+    and pathlib.Path(filename).stat().st_gid == 0
+    and (pathlib.Path(filename).stat().st_mode & 0o777) == 0o600
+    for filename in environment_files
+)
+active_event_material = decode_secret_material(active_event_key)
+previous_event_material = decode_secret_material(previous_event_key)
+same_binding_material = decode_secret_material(same_binding_value)
+key_id_pattern = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,95}")
+resolved_event_material = {}
+for key_id, material in (
+    (active_event_key_id, active_event_material),
+    (previous_event_key_id, previous_event_material),
+):
+    if key_id and material is not None:
+        existing = resolved_event_material.get(key_id)
+        if existing is not None and existing != material:
+            resolved_event_material = {}
+            break
+        resolved_event_material[key_id] = material
+cryptographic_shape_valid = bool(
+    active_event_key_pair_present
+    and previous_event_key_pair_complete
+    and same_binding_present
+    and key_id_pattern.fullmatch(active_event_key_id)
+    and (
+        not previous_event_key_id
+        or key_id_pattern.fullmatch(previous_event_key_id)
+    )
+    and active_event_material is not None
+    and len(active_event_material) >= 32
+    and (
+        not previous_event_key_id
+        or (
+            previous_event_material is not None
+            and len(previous_event_material) >= 32
+        )
+    )
+    and same_binding_material is not None
+    and len(same_binding_material) >= 32
+    and resolved_event_material
+    and all(
+        not hmac.compare_digest(material, same_binding_material)
+        for material in resolved_event_material.values()
+    )
 )
 
 backup = {
@@ -395,6 +679,9 @@ backup = {
     "sha256": None,
     "sizeBytes": None,
     "restoreProcedureVerified": False,
+    # A future verifier must reconnect to the isolated restored instance and
+    # independently recompute version, schema and object facts.
+    "restoreLiveFactsMatched": False,
 }
 backup_receipt = pathlib.Path(BACKUP_RECEIPT_PATH)
 if backup_receipt.is_file():
@@ -442,6 +729,7 @@ if backup_receipt.is_file():
             "sha256": actual_digest,
             "sizeBytes": actual_size,
             "restoreProcedureVerified": restore_verified,
+            "restoreLiveFactsMatched": False,
             "receiptAnchorMatched": (
                 bool(EXPECTED_BACKUP_RECEIPT_SHA256)
                 and backup_receipt_sha256 == EXPECTED_BACKUP_RECEIPT_SHA256
@@ -449,18 +737,23 @@ if backup_receipt.is_file():
         })
 
 deployment = {
+    "state": None,
     "receiptValidated": False,
     "receiptAnchorMatched": False,
     "sourceCommit": None,
     "strictHeadBuildUploadSwitchReceiptScriptPresent": False,
     "applicationRollbackProven": False,
     "databaseRollbackProven": False,
+    # Set only after current symlink/ExecStart/JAR and frontend tree are
+    # independently read back against the deployed release identity.
+    "actualActiveArtifactsMatched": False,
     "receiptPath": DEPLOYMENT_RECEIPT_PATH,
 }
 deployment_receipt = pathlib.Path(DEPLOYMENT_RECEIPT_PATH)
 if deployment_receipt.is_file():
     deployment_receipt_sha256 = sha256_file(deployment_receipt)
     receipt = json.loads(deployment_receipt.read_text(encoding="utf-8"))
+    deployment_state = receipt.get("state")
     source_commit = receipt.get("sourceCommit")
     backend_digest = receipt.get("backendBuildSha256")
     frontend_digest = receipt.get("frontendBuildSha256")
@@ -538,8 +831,25 @@ if deployment_receipt.is_file():
         receipt_is_fresh = 0 <= receipt_age_seconds <= 86400
     except Exception:
         receipt_is_fresh = False
+    rollback_shape_valid = (
+        deployment_state == "STAGED_FOR_SWITCH"
+        or (
+            deployment_state == "DEPLOYED_DEFAULT_OFF"
+            and re.fullmatch(
+                r"[0-9a-f]{64}", str(application_rollback_digest or "")
+            ) is not None
+            and re.fullmatch(
+                r"[0-9a-f]{64}", str(database_rollback_digest or "")
+            ) is not None
+            and application_rollback_verified
+            and database_rollback_verified
+        )
+    )
     receipt_validated = (
         receipt.get("schema") == "fbsir.u3wW1aDeploymentReadinessReceipt.v1"
+        and deployment_state in {
+            "STAGED_FOR_SWITCH", "DEPLOYED_DEFAULT_OFF"
+        }
         and receipt.get("targetHost") == TARGET_HOST
         and receipt.get("serviceUnit") == SERVICE_UNIT
         and receipt.get("database") == "fbsir"
@@ -547,20 +857,14 @@ if deployment_receipt.is_file():
         and re.fullmatch(r"[0-9a-f]{64}", str(backend_digest or "")) is not None
         and re.fullmatch(r"[0-9a-f]{64}", str(frontend_digest or "")) is not None
         and re.fullmatch(r"[0-9a-f]{64}", str(runner_digest or "")) is not None
-        and re.fullmatch(
-            r"[0-9a-f]{64}", str(application_rollback_digest or "")
-        ) is not None
-        and re.fullmatch(
-            r"[0-9a-f]{64}", str(database_rollback_digest or "")
-        ) is not None
         and backend_verified
         and frontend_verified
         and runner_verified
-        and application_rollback_verified
-        and database_rollback_verified
+        and rollback_shape_valid
         and receipt_is_fresh
     )
     deployment.update({
+        "state": deployment_state if receipt_validated else None,
         "receiptValidated": receipt_validated,
         "receiptAnchorMatched": (
             bool(EXPECTED_DEPLOYMENT_RECEIPT_SHA256)
@@ -580,6 +884,7 @@ if deployment_receipt.is_file():
             receipt.get("databaseRollbackProven") is True
             and database_rollback_verified
         ),
+        "actualActiveArtifactsMatched": False,
     })
 
 print(json.dumps({
@@ -607,7 +912,12 @@ print(json.dumps({
         "environmentKeyNames": key_names,
         "explicitFalseKeyNames": explicit_false,
         "eventKeyEntryCount": event_key_count,
+        "activeEventKeyPairPresent": active_event_key_pair_present,
+        "activeEventKeyId": active_event_key_id or None,
+        "previousEventKeyPairComplete": previous_event_key_pair_complete,
         "sameBindingSecretPresent": same_binding_present,
+        "environmentFileCustodySecure": environment_file_custody_secure,
+        "cryptographicConfigurationShapeValid": cryptographic_shape_valid,
     },
     "backup": backup,
     "deploymentChannel": deployment,
@@ -619,13 +929,17 @@ print(json.dumps({
     $deploymentAnchor = if ($ExpectedDeploymentReceiptSha256) {
         $ExpectedDeploymentReceiptSha256.ToLowerInvariant()
     } else { '' }
+    $legacyBaselineAnchor = if ($ExpectedLegacyBaselineReceiptDigest) {
+        $ExpectedLegacyBaselineReceiptDigest.ToLowerInvariant()
+    } else { '' }
     $remotePython = $remotePython.
         Replace('__SERVICE_UNIT__', ($ServiceUnit | ConvertTo-Json -Compress)).
         Replace('__TARGET_HOST__', ((($SshTarget -split '@', 2)[1]) | ConvertTo-Json -Compress)).
         Replace('__BACKUP_RECEIPT_PATH__', ($DatabaseBackupReceiptPath | ConvertTo-Json -Compress)).
         Replace('__DEPLOYMENT_RECEIPT_PATH__', ($DeploymentReceiptPath | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_BACKUP_RECEIPT_SHA256__', ($backupAnchor | ConvertTo-Json -Compress)).
-        Replace('__EXPECTED_DEPLOYMENT_RECEIPT_SHA256__', ($deploymentAnchor | ConvertTo-Json -Compress))
+        Replace('__EXPECTED_DEPLOYMENT_RECEIPT_SHA256__', ($deploymentAnchor | ConvertTo-Json -Compress)).
+        Replace('__EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST__', ($legacyBaselineAnchor | ConvertTo-Json -Compress))
     $output = $remotePython | & ssh.exe `
         -i $SshKeyPath `
         -o BatchMode=yes `

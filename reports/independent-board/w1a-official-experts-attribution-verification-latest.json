@@ -23,7 +23,8 @@
     "migration": "public_init_043",
     "dualMysql": [
       "MySQL Community 8.0.30",
-      "MySQL Community 8.4.8"
+      "MySQL Community 8.4.8",
+      "MySQL Community 8.0.45"
     ],
     "writerEnabled": false,
     "adminReadEnabled": false,
@@ -82,10 +83,10 @@
     "u3w_live_read_only_fail_closed_production_readiness_gate"
   ],
   "notProven": [
-    "u3w_versioned_schema_baseline_public_init_035_through_042",
-    "u3w_database_backup_and_verified_restore_receipt",
+    "u3w_interruption_safe_legacy_baseline_runner_and_independent_live_fact_cross_validation",
+    "u3w_database_backup_and_independently_recomputed_restore_receipt",
     "u3w_explicit_default_off_configuration_and_cryptographic_material_custody",
-    "u3w_strict_head_build_upload_switch_and_joint_application_database_rollback_receipt",
+    "u3w_strict_head_plan_stage_atomic_switch_and_joint_application_database_rollback_runner",
     "api2_candidate_active_release_byte_identity",
     "u3w_production_database_migration",
     "api2_to_u3w_production_receipt",
@@ -93,5 +94,5 @@
     "real_intent_distribution",
     "production_admin_six_dimension_readback"
   ],
-  "singleNextAction": "Close the executable U3W production-readiness gates by creating a verified database backup/restore anchor, establishing an explicit versioned legacy-schema baseline, provisioning explicit default-off W1A configuration and cryptographic custody, and completing the strict-HEAD application-plus-database rollback runner; only then deploy U3W and the already dry-run API2 candidate."
+  "singleNextAction": "Implement one interruption-safe strict-HEAD production backup and isolated-restore runner that independently recomputes restore facts and the legacy baseline candidate; keep all feature flags false and perform no upload, migration or switch until the new receipts close their preparation gates."
 }

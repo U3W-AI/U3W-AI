@@ -22,7 +22,7 @@ public class IndependentBoardAttributionV1Configuration {
             IndependentBoardAttributionProperties properties) {
         BoardAttributionEventV1Verifier verifier =
                 new BoardAttributionEventV1Verifier(
-                        properties.getEventKeys(), Clock.systemUTC());
+                        properties.getResolvedEventKeys(), Clock.systemUTC());
         if (!verifier.isConfigured()) {
             throw new IllegalStateException(
                     "attribution_event_keyring_unconfigured");

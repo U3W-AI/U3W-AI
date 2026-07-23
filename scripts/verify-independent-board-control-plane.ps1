@@ -919,9 +919,11 @@ function Invoke-ContractChecks {
         throw 'W4B4 skill-consume default-off fence receipt is incomplete, overclaims evidence, or lacks verifier succession'
     }
     foreach ($skillConsumeFenceArtifact in $skillConsumeFenceArtifacts) {
-        # W4B5A succeeds this central-verifier byte while retaining the W4B4
-        # receipt as an immutable historical fact.
+        # Later W4B5A and W1A contracts succeed these bytes while retaining the
+        # W4B4 receipt as an immutable historical fact. W1A re-attests the
+        # application defaults in its live readiness collector and rule tests.
         if ($skillConsumeFenceArtifact -in @(
+                'FBSir-admin/src/main/resources/application.yml',
                 'FBSir-business/src/main/java/com/wx/fbsir/business/fbs/service/impl/SkillConsumeServiceImpl.java',
                 'FBSir-business/src/test/java/com/wx/fbsir/business/fbs/service/SkillConsumeServiceTest.java',
                 'scripts/verify-independent-board-control-plane.ps1')) {
@@ -1821,7 +1823,7 @@ function Invoke-ContractChecks {
             -or $implementationStatus.w4b5e.productionAuthority -ne $false `
             -or $implementationStatus.w4b5e.historicalNextSlice -cne $canonicalCurrentW3SliceId `
             -or $taskboard.singleNextAction -cne $implementationStatus.singleNextAction `
-            -or $taskboard.singleNextAction -notlike 'Close the executable U3W production-readiness gates*' `
+            -or $taskboard.singleNextAction -notlike 'Implement one interruption-safe strict-HEAD production backup and isolated-restore runner*' `
             -or -not (@($w3Wave[0].completedSubset) -ccontains 'skill_consume_v2_default_off_host_service_wiring_dual_mysql_5_of_5_each_and_zero_legacy_fallback_verified') `
             -or -not (@($w3Wave[0].completedSubset) -ccontains 'skill_consume_v2_nontransactional_dispatcher_required_legacy_transaction_and_ambient_transaction_fail_closed_verified') `
             -or -not (@($w3Wave[0].completedSubset) -ccontains 'skill_consume_v2_nullable_host_session_domain_digest_and_dual_mysql_6_of_6_each_verified') `

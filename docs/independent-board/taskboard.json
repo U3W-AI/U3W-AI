@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Close service attribution, finite intent classification and first-value readback for the exact WorkBuddy listed fbsir-eight-seat-board@26.7.21 identity without modifying the official experts content tree.",
-  "singleNextAction": "Close the executable U3W production-readiness gates by creating a verified database backup/restore anchor, establishing an explicit versioned legacy-schema baseline, provisioning explicit default-off W1A configuration and cryptographic custody, and completing the strict-HEAD application-plus-database rollback runner; only then deploy U3W and the already dry-run API2 candidate.",
+  "singleNextAction": "Implement one interruption-safe strict-HEAD production backup and isolated-restore runner that independently recomputes restore facts and the legacy baseline candidate; keep all feature flags false and perform no upload, migration or switch until the new receipts close their preparation gates.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -52,6 +52,7 @@
         "u3w_independent_same_binding_recomputation",
         "transactional_mutable_head_and_append_only_event_ledger",
         "public_init_043_dual_mysql_8_0_30_and_8_4_8_verified",
+        "public_init_043_exact_production_mysql_8_0_45_compatibility_verified",
         "default_off_internal_signed_ingress",
         "bounded_admin_six_dimension_readback_with_no_store",
         "authoritative_product_credit_forced_zero",
@@ -61,14 +62,15 @@
         "shared_node_to_java_signature_and_digest_golden_vector",
         "api2_candidate_7b84d472_committed_pushed_and_clean_strict_head_package_verified",
         "api2_strict_head_production_release_dry_run_verified_without_state_change",
-        "u3w_live_read_only_production_readiness_gate_implemented_and_fifteen_rule_vectors_verified",
+        "u3w_live_read_only_production_readiness_three_stage_gate_and_twenty_two_rule_vectors_verified",
+        "unsafe_self_attested_legacy_baseline_runner_removed_after_independent_review",
         "u3w_live_no_go_reproduced_without_secret_disclosure_or_production_change"
       ],
       "remaining": [
-        "u3w_versioned_schema_baseline_public_init_035_through_042",
-        "u3w_database_backup_and_verified_restore_receipt",
+        "u3w_interruption_safe_legacy_baseline_runner_with_independent_live_fact_cross_validation",
+        "u3w_database_backup_and_independently_recomputed_restore_receipt",
         "u3w_explicit_default_off_configuration_and_cryptographic_material_custody",
-        "u3w_strict_head_build_upload_switch_and_joint_application_database_rollback_receipt",
+        "u3w_strict_head_plan_stage_atomic_switch_and_joint_application_database_rollback_runner",
         "api2_active_release_file_hash_readback",
         "production_database_migration_and_default_off_deployment",
         "one_real_official_experts_same_binding_three_event_receipt",

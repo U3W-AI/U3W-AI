@@ -26,6 +26,12 @@ public class IndependentBoardAttributionProperties {
     private boolean productCreditEnabled = false;
     /** API2 event signing keys by key id. Values use utf8:/hex:/base64:. */
     private Map<String, String> eventKeys = new LinkedHashMap<>();
+    /** Explicit active key pair used by the production env-file contract. */
+    private String activeEventKeyId = "";
+    private String activeEventKey = "";
+    /** Optional verify-only predecessor retained during bounded rotation. */
+    private String previousEventKeyId = "";
+    private String previousEventKey = "";
     /** Independent U3W-only HMAC secret for recomputing sameBindingKey. */
     private String sameBindingSecret = "";
     private String issuer = "api2.u3w.com";
@@ -33,4 +39,39 @@ public class IndependentBoardAttributionProperties {
     private String keyRef = "fbs.w4b2d.api2.keyring";
     private int receiptTtlSeconds = 120;
     private int retentionHours = 26;
+
+    /**
+     * Resolves the map-bound compatibility surface plus the two explicit
+     * production key slots. Duplicate ids fail closed instead of silently
+     * overriding an existing key.
+     */
+    public Map<String, String> getResolvedEventKeys() {
+        Map<String, String> resolved = new LinkedHashMap<>(eventKeys);
+        addExplicitKey(
+                resolved, activeEventKeyId, activeEventKey, "active");
+        addExplicitKey(
+                resolved, previousEventKeyId, previousEventKey, "previous");
+        return Map.copyOf(resolved);
+    }
+
+    private static void addExplicitKey(
+            Map<String, String> target,
+            String rawKeyId,
+            String rawSecret,
+            String slot) {
+        String keyId = rawKeyId == null ? "" : rawKeyId.trim();
+        String secret = rawSecret == null ? "" : rawSecret.trim();
+        if (keyId.isEmpty() && secret.isEmpty()) {
+            return;
+        }
+        if (keyId.isEmpty() || secret.isEmpty()) {
+            throw new IllegalStateException(
+                    "attribution_" + slot + "_event_key_pair_incomplete");
+        }
+        String previous = target.putIfAbsent(keyId, secret);
+        if (previous != null && !previous.equals(secret)) {
+            throw new IllegalStateException(
+                    "attribution_event_key_id_conflict");
+        }
+    }
 }

@@ -57,6 +57,17 @@ fbsir:
       key-ref: ${FBSIR_BOARD_ATTRIBUTION_KEY_REF:fbs.w4b2d.api2.keyring}
       receipt-ttl-seconds: ${FBSIR_BOARD_ATTRIBUTION_RECEIPT_TTL_SECONDS:120}
       retention-hours: ${FBSIR_BOARD_ATTRIBUTION_RETENTION_HOURS:26}
+      # W1A listed experts attribution remains independently default-off.
+      observation-writer-enabled: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_WRITER_ENABLED:false}
+      intent-classifier-enabled: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_INTENT_CLASSIFIER_ENABLED:false}
+      observation-admin-read-enabled: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_ADMIN_READ_ENABLED:false}
+      product-credit-enabled: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PRODUCT_CREDIT_ENABLED:false}
+      # Active and previous keys allow bounded rotation without dynamic env-map ambiguity.
+      active-event-key-id: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_EVENT_KEY_ID:}
+      active-event-key: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_EVENT_KEY:}
+      previous-event-key-id: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY_ID:}
+      previous-event-key: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY:}
+      same-binding-secret: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET:}
   websocket: # 是否启用 WebSocket 服务
       enabled: true
       # ⚠️ 【重要】WebSocket 端点路径 - 请勿随意更改

@@ -17,26 +17,23 @@ const REQUIRED_PREDECESSOR_MIGRATIONS = Object.freeze([
 ]);
 
 const REQUIRED_MIGRATION_DESCRIPTIONS = Object.freeze({
-  public_init_035: "Independent Board OAuth consent-intent lineage",
-  public_init_036: "Independent Board OAuth refresh security receipt v2",
+  public_init_035:
+    "APPLIED:Independent Board OAuth consent-intent lineage",
+  public_init_036:
+    "APPLIED:Independent Board OAuth refresh security receipt v2",
   public_init_037:
-    "Independent Board exact product attribution evidence contract",
+    "APPLIED:Independent Board exact product attribution evidence contract",
   public_init_038:
-    "Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger",
+    "APPLIED:Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger",
   public_init_039:
-    "Independent Board immutable plan policy revisions and operation lineage",
+    "APPLIED:Independent Board immutable plan policy revisions and operation lineage",
   public_init_040:
-    "Independent Board plan policy database monotonic-chain guards",
+    "APPLIED:Independent Board plan policy database monotonic-chain guards",
   public_init_041:
-    "Independent Board plan policy controlled procedure authority",
+    "APPLIED:Independent Board plan policy controlled procedure authority",
   public_init_042:
-    "Independent Board default-off skill-consume v2 credit ledger",
+    "APPLIED:Independent Board default-off skill-consume v2 credit ledger",
 });
-
-const SUPPORTED_MYSQL_VERSIONS = Object.freeze([
-  "8.0.30",
-  "8.4.8",
-]);
 
 const W1A_SCHEMA_FINGERPRINT_SHA256 =
   "a0507f51960622d49b66c4d8b1b7382dc8bc16a904d577bac1ca942bb8748b28";
@@ -75,6 +72,12 @@ export function evaluateProductionReadiness(snapshot) {
   const database = snapshot.database ?? {};
   const configuration = snapshot.configuration ?? {};
   const backup = snapshot.backup ?? {};
+  const w1a043CompatibilityVersions = asSet(
+    local.w1a043CompatibilityVersions,
+  );
+  const canonicalBaselineCompatibilityVersions = asSet(
+    local.canonicalBaselineCompatibilityVersions,
+  );
   const migrationVersions = asSet(database.migrationVersions);
   const migrationDescriptions =
     database.migrationDescriptions &&
@@ -84,7 +87,20 @@ export function evaluateProductionReadiness(snapshot) {
       : {};
   const configuredNames = asSet(configuration.environmentKeyNames);
   const explicitFalseNames = asSet(configuration.explicitFalseKeyNames);
-
+  const w1aSchemaAbsent =
+    database.publicInit043Applied !== true &&
+    database.boardAttributionTableCount === 0 &&
+    database.boardAttributionTriggerCount === 0 &&
+    database.boardAttributionPermissionCount === 0 &&
+    database.boardAttributionInternalReceiptCount === 0;
+  const w1aSchemaApplied =
+    database.publicInit043Applied === true &&
+    database.boardAttributionTableCount === 2 &&
+    database.boardAttributionTriggerCount === 2 &&
+    database.boardAttributionPermissionCount === 1 &&
+    database.boardAttributionInternalReceiptCount === 1 &&
+    database.w1aSchemaFingerprintSha256 ===
+      W1A_SCHEMA_FINGERPRINT_SHA256;
   const missingPredecessors = REQUIRED_PREDECESSOR_MIGRATIONS.filter(
     (version) => !migrationVersions.has(version),
   );
@@ -94,6 +110,18 @@ export function evaluateProductionReadiness(snapshot) {
         migrationDescriptions[version] !==
         REQUIRED_MIGRATION_DESCRIPTIONS[version],
     );
+  const canonicalSchemaBaseline =
+    database.migrationTableCount === 1 &&
+    canonicalBaselineCompatibilityVersions.has(database.serverVersion) &&
+    missingPredecessors.length === 0 &&
+    driftedPredecessorDescriptions.length === 0;
+  const legacySchemaBaseline =
+    database.migrationTableCount === 1 &&
+    database.schemaBaselineMode === "LEGACY_ADOPTED_W1A_V1" &&
+    database.legacyBaselineReceiptValid === true &&
+    database.legacyBaselineReceiptAnchorMatched === true &&
+    database.legacyBaselineLiveFactsMatched === true &&
+    database.legacyBaselineSourceCommit === local.sourceCommit;
   const missingFlags = REQUIRED_DEFAULT_OFF_FLAGS.filter(
     (name) => !configuredNames.has(name),
   );
@@ -101,7 +129,7 @@ export function evaluateProductionReadiness(snapshot) {
     (name) => !explicitFalseNames.has(name),
   );
 
-  const gates = [
+  const preparationGates = [
     gate(
       "strict_head",
       local.clean === true &&
@@ -126,25 +154,28 @@ export function evaluateProductionReadiness(snapshot) {
     ),
     gate(
       "versioned_schema_baseline",
-      database.migrationTableCount === 1 &&
-        SUPPORTED_MYSQL_VERSIONS.includes(database.serverVersion) &&
-        missingPredecessors.length === 0 &&
-        driftedPredecessorDescriptions.length === 0,
-      !SUPPORTED_MYSQL_VERSIONS.includes(database.serverVersion)
-        ? `unverified MySQL version: ${database.serverVersion ?? "missing"}`
-        : missingPredecessors.length > 0
+      canonicalSchemaBaseline || legacySchemaBaseline,
+      legacySchemaBaseline
+        ? "a verified and externally anchored legacy W1A baseline receipt is present"
+        : !canonicalBaselineCompatibilityVersions.has(database.serverVersion)
+          ? `canonical baseline is unverified on MySQL ${database.serverVersion ?? "missing"} and no verified legacy baseline exists`
+          : missingPredecessors.length > 0
           ? `missing migration predecessors: ${missingPredecessors.join(",")}`
           : driftedPredecessorDescriptions.length > 0
             ? `migration description drift: ${driftedPredecessorDescriptions.join(",")}`
             : "exact public_init_035 through public_init_042 receipts are present on a verified MySQL version",
     ),
     gate(
+      "w1a_043_mysql_compatibility",
+      w1a043CompatibilityVersions.has(database.serverVersion),
+      w1a043CompatibilityVersions.has(database.serverVersion)
+        ? "the exact public_init_043 migration and fingerprint passed on this MySQL build"
+        : `public_init_043 is unverified on MySQL ${database.serverVersion ?? "missing"}`,
+    ),
+    gate(
       "w1a_schema_state",
-      database.publicInit043Applied === false ||
-        (database.publicInit043Applied === true &&
-          database.w1aSchemaFingerprintSha256 ===
-            W1A_SCHEMA_FINGERPRINT_SHA256),
-      "public_init_043 must be explicitly absent or backed by the exact W1A table/trigger fingerprint",
+      w1aSchemaAbsent || w1aSchemaApplied,
+      "public_init_043 must be fully absent or backed by the exact public/internal receipts, tables, triggers, permission and fingerprint",
     ),
     gate(
       "backup_restore_anchor",
@@ -153,7 +184,8 @@ export function evaluateProductionReadiness(snapshot) {
         hasExactString(backup.sha256, /^[0-9a-f]{64}$/) &&
         Number.isSafeInteger(backup.sizeBytes) &&
         backup.sizeBytes > 0 &&
-        backup.restoreProcedureVerified === true,
+        backup.restoreProcedureVerified === true &&
+        backup.restoreLiveFactsMatched === true,
       "a non-empty database backup digest and verified restore procedure receipt are required",
     ),
     gate(
@@ -168,39 +200,97 @@ export function evaluateProductionReadiness(snapshot) {
     gate(
       "cryptographic_material_custody",
       configuration.eventKeyEntryCount > 0 &&
-        configuration.sameBindingSecretPresent === true,
-      "event verification key material and same-binding secret must be present without disclosure",
+        configuration.activeEventKeyPairPresent === true &&
+        configuration.previousEventKeyPairComplete === true &&
+        configuration.sameBindingSecretPresent === true &&
+        configuration.environmentFileCustodySecure === true &&
+        configuration.cryptographicConfigurationShapeValid === true,
+      "the explicit active event key pair and independent same-binding secret must be held in a root-owned 0600 env file without disclosure",
     ),
     gate(
-      "release_switch_and_rollback_channel",
-      snapshot.deploymentChannel?.receiptValidated === true &&
-        snapshot.deploymentChannel?.receiptAnchorMatched === true &&
-        snapshot.deploymentChannel?.sourceCommit === local.sourceCommit &&
-        snapshot.deploymentChannel?.strictHeadBuildUploadSwitchReceiptScriptPresent ===
-          true &&
-        snapshot.deploymentChannel?.applicationRollbackProven === true &&
-        snapshot.deploymentChannel?.databaseRollbackProven === true,
-      "strict-HEAD build/upload/switch plus application-and-database rollback receipts are required",
+      "release_plan_and_rollback_contract",
+      local.releasePlanVerified === true &&
+        local.releasePlanSourceCommit === local.sourceCommit &&
+        local.releaseRunnerContractVersion ===
+          "fbsir.u3wDefaultOffReleaseRunner.v1",
+      "a locally verified strict-HEAD stage/switch/rollback plan bound to this source commit is required",
+    ),
+  ];
+  const stagedChannelValid =
+    snapshot.deploymentChannel?.state === "STAGED_FOR_SWITCH" &&
+    snapshot.deploymentChannel?.receiptValidated === true &&
+    snapshot.deploymentChannel?.receiptAnchorMatched === true &&
+    snapshot.deploymentChannel?.sourceCommit === local.sourceCommit &&
+    snapshot.deploymentChannel
+      ?.strictHeadBuildUploadSwitchReceiptScriptPresent === true;
+  const deployedChannelValid =
+    snapshot.deploymentChannel?.state === "DEPLOYED_DEFAULT_OFF" &&
+    snapshot.deploymentChannel?.receiptValidated === true &&
+    snapshot.deploymentChannel?.receiptAnchorMatched === true &&
+    snapshot.deploymentChannel?.sourceCommit === local.sourceCommit &&
+    snapshot.deploymentChannel
+      ?.strictHeadBuildUploadSwitchReceiptScriptPresent === true &&
+    snapshot.deploymentChannel?.actualActiveArtifactsMatched === true &&
+    snapshot.deploymentChannel?.applicationRollbackProven === true &&
+    snapshot.deploymentChannel?.databaseRollbackProven === true;
+  const postDeploymentGates = [
+    gate(
+      "staged_release_receipt",
+      stagedChannelValid || deployedChannelValid,
+      "a target-rehashed, externally anchored staged release receipt is required before switching",
+    ),
+    gate(
+      "deployed_default_off_receipt",
+      deployedChannelValid,
+      "a deployed default-off receipt with jointly anchored application and database rollback proofs is required",
     ),
   ];
 
-  const failedGateIds = gates
+  const failedGateIds = preparationGates
     .filter((item) => !item.pass)
     .map((item) => item.id);
-  const ready = failedGateIds.length === 0;
+  const postDeployFailedGateIds = postDeploymentGates
+    .filter((item) => !item.pass)
+    .map((item) => item.id);
+  const prepared = failedGateIds.length === 0;
+  const status = !prepared
+    ? "NOT_READY_FOR_PRODUCTION_RELEASE"
+    : deployedChannelValid
+      ? "DEPLOYED_DEFAULT_OFF"
+      : stagedChannelValid
+        ? "STAGED_FOR_SWITCH"
+        : "PREPARED_FOR_STAGE";
 
   return {
     schema: SCHEMA,
     observedAt: snapshot.observedAt ?? null,
-    status: ready
-      ? "READY_FOR_DEFAULT_OFF_RELEASE"
-      : "NOT_READY_FOR_PRODUCTION_RELEASE",
-    productionChanged: false,
-    readyForDefaultOffRelease: ready,
-    gates,
+    status,
+    productionChanged: deployedChannelValid,
+    readyForDefaultOffRelease: prepared,
+    gates: preparationGates,
     failedGateIds,
+    postDeploymentGates,
+    postDeployFailedGateIds,
     evidence: {
       localSourceCommit: local.sourceCommit ?? null,
+      releasePlan: {
+        verified: local.releasePlanVerified === true,
+        sourceCommit: local.releasePlanSourceCommit ?? null,
+        runnerContractVersion: local.releaseRunnerContractVersion ?? null,
+        receiptPath: local.releasePlanReceiptPath ?? null,
+        receiptSha256: local.releasePlanReceiptSha256 ?? null,
+      },
+      w1a043CompatibilityVersions: Array.from(
+        w1a043CompatibilityVersions,
+      ).sort(),
+      w1a043CompatibilityReceipts: Array.isArray(
+        local.w1a043CompatibilityReceipts,
+      )
+        ? local.w1a043CompatibilityReceipts
+        : [],
+      canonicalBaselineCompatibilityVersions: Array.from(
+        canonicalBaselineCompatibilityVersions,
+      ).sort(),
       target: {
         host: target.host ?? null,
         authorityObserved: target.authorityObserved ?? null,
@@ -217,7 +307,26 @@ export function evaluateProductionReadiness(snapshot) {
         database: database.database ?? null,
         totalTableCount: database.totalTableCount ?? null,
         migrationTableCount: database.migrationTableCount ?? null,
+        schemaBaselineMode: database.schemaBaselineMode ?? null,
+        legacyBaselineReceiptValid:
+          database.legacyBaselineReceiptValid === true,
+        legacyBaselineReceiptAnchorMatched:
+          database.legacyBaselineReceiptAnchorMatched === true,
+        legacyBaselineLiveFactsMatched:
+          database.legacyBaselineLiveFactsMatched === true,
+        legacyBaselineReceiptDigest:
+          database.legacyBaselineReceiptDigest ?? null,
+        legacyBaselineSourceCommit:
+          database.legacyBaselineSourceCommit ?? null,
         publicInit043Applied: database.publicInit043Applied ?? null,
+        boardAttributionTableCount:
+          database.boardAttributionTableCount ?? null,
+        boardAttributionTriggerCount:
+          database.boardAttributionTriggerCount ?? null,
+        boardAttributionPermissionCount:
+          database.boardAttributionPermissionCount ?? null,
+        boardAttributionInternalReceiptCount:
+          database.boardAttributionInternalReceiptCount ?? null,
         w1aSchemaFingerprintVerified:
           database.w1aSchemaFingerprintSha256 ===
           W1A_SCHEMA_FINGERPRINT_SHA256,
@@ -236,8 +345,17 @@ export function evaluateProductionReadiness(snapshot) {
         missingExplicitFlags: missingFlags,
         flagsNotExplicitlyFalse: nonFalseFlags,
         eventKeyEntryCount: configuration.eventKeyEntryCount ?? 0,
+        activeEventKeyPairPresent:
+          configuration.activeEventKeyPairPresent === true,
+        activeEventKeyId: configuration.activeEventKeyId ?? null,
+        previousEventKeyPairComplete:
+          configuration.previousEventKeyPairComplete === true,
         sameBindingSecretPresent:
           configuration.sameBindingSecretPresent === true,
+        environmentFileCustodySecure:
+          configuration.environmentFileCustodySecure === true,
+        cryptographicConfigurationShapeValid:
+          configuration.cryptographicConfigurationShapeValid === true,
       },
       backup: {
         receiptPath: backup.receiptPath ?? null,
@@ -247,8 +365,11 @@ export function evaluateProductionReadiness(snapshot) {
         sizeBytes: backup.sizeBytes ?? null,
         restoreProcedureVerified:
           backup.restoreProcedureVerified === true,
+        restoreLiveFactsMatched:
+          backup.restoreLiveFactsMatched === true,
       },
       deploymentChannel: {
+        state: snapshot.deploymentChannel?.state ?? null,
         receiptPath: snapshot.deploymentChannel?.receiptPath ?? null,
         receiptValidated:
           snapshot.deploymentChannel?.receiptValidated === true,
@@ -262,11 +383,17 @@ export function evaluateProductionReadiness(snapshot) {
           snapshot.deploymentChannel?.applicationRollbackProven === true,
         databaseRollbackProven:
           snapshot.deploymentChannel?.databaseRollbackProven === true,
+        actualActiveArtifactsMatched:
+          snapshot.deploymentChannel?.actualActiveArtifactsMatched === true,
       },
     },
-    nextAction: ready
-      ? "Run the separate default-off release command with an explicit approval receipt."
-      : `Close failed gates before any upload, migration, Nginx change, restart or cutover: ${failedGateIds.join(",")}`,
+    nextAction: !prepared
+      ? `Close preparation gates before any upload, migration, Nginx change, restart or cutover: ${failedGateIds.join(",")}`
+      : deployedChannelValid
+        ? "Observe default-off health and retain the jointly anchored rollback bundle."
+        : stagedChannelValid
+          ? "Run the separately approved default-off switch and verify active artifacts."
+          : "Run the separate stage command; it must not switch current, restart services or mutate the database.",
   };
 }
 

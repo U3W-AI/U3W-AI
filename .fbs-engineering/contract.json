@@ -118,6 +118,7 @@
     "w1aMigration": "sql/update_20260723_independent_board_attribution_v1.sql",
     "w1aDualMysqlRunner": "scripts/run-independent-board-attribution-v1-mysql-it.ps1",
     "w1aDualMysqlReport": "reports/independent-board/w1a-attribution-v1-dual-mysql-latest.json",
+    "w1aMysql8045CompatibilityReport": "reports/independent-board/w1a-attribution-v1-mysql-8.0.45-latest.json",
     "w1aVerificationReport": "reports/independent-board/w1a-official-experts-attribution-verification-latest.json",
     "w1aProductionReadonlyAudit": "reports/independent-board/w1a-production-readonly-audit-latest.json",
     "w1aProductionReadinessContract": "docs/independent-board/W1A-PRODUCTION-READINESS-GATE.md",

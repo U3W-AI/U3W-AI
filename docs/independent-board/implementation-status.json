@@ -50,7 +50,7 @@
   },
   "activeWave": "W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE",
   "activeSlice": "W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF",
-  "singleNextAction": "Close the executable U3W production-readiness gates by creating a verified database backup/restore anchor, establishing an explicit versioned legacy-schema baseline, provisioning explicit default-off W1A configuration and cryptographic custody, and completing the strict-HEAD application-plus-database rollback runner; only then deploy U3W and the already dry-run API2 candidate.",
+  "singleNextAction": "Implement one interruption-safe strict-HEAD production backup and isolated-restore runner that independently recomputes restore facts and the legacy baseline candidate; keep all feature flags false and perform no upload, migration or switch until the new receipts close their preparation gates.",
   "stage": "fix",
   "phase": "W1D_API2_CLEANROOM_PUBLISHER",
   "authoritativeRoot": {
@@ -527,6 +527,7 @@
     "adr": "docs/decisions/ADR-007-independent-board-official-experts-attribution-spine.md",
     "verificationReport": "reports/independent-board/w1a-official-experts-attribution-verification-latest.json",
     "dualMysqlReport": "reports/independent-board/w1a-attribution-v1-dual-mysql-latest.json",
+    "productionMysqlCompatibilityReport": "reports/independent-board/w1a-attribution-v1-mysql-8.0.45-latest.json",
     "productionReadbackReport": "reports/independent-board/w1a-production-readonly-audit-latest.json",
     "productionReadinessContract": "docs/independent-board/W1A-PRODUCTION-READINESS-GATE.md",
     "productionReadinessReport": "reports/independent-board/w1a-production-readiness-latest.json",
@@ -575,15 +576,21 @@
     },
     "verifiedMysql": [
       "MySQL Community 8.0.30",
+      "MySQL Community 8.0.45",
       "MySQL Community 8.4.8"
     ],
+    "schemaBaselineModes": [
+      "CANONICAL_MANIFEST",
+      "LEGACY_ADOPTED_W1A_V1"
+    ],
+    "legacyBaselineState": "design_only_fail_closed_unsafe_self_attested_runner_removed_after_independent_review",
     "releaseReady": false,
     "productionAuthority": false,
     "notProven": [
-      "versioned_production_schema_baseline_public_init_035_through_042",
-      "production_database_backup_and_verified_restore_receipt",
+      "interruption_safe_legacy_baseline_runner_and_independent_live_fact_cross_validation",
+      "production_database_backup_and_independently_recomputed_restore_receipt",
       "explicit_default_off_w1a_configuration_and_cryptographic_material_custody",
-      "strict_head_u3w_build_upload_switch_and_joint_application_database_rollback_receipt",
+      "strict_head_plan_stage_atomic_switch_and_joint_application_database_rollback_runner",
       "api2_active_release_file_byte_identity",
       "api2_to_u3w_production_receipt",
       "real_official_experts_same_binding_chain",

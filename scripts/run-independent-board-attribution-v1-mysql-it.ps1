@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [switch]$AllowDestructiveTest,
-    [ValidateSet('8.0.30', '8.4.8')]
+    [ValidateSet('8.0.30', '8.0.45', '8.4.8')]
     [string[]]$Versions = @('8.0.30', '8.4.8'),
     [string]$ReceiptPath = ''
 )
