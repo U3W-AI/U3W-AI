@@ -1687,8 +1687,16 @@ function Invoke-ContractChecks {
             -or $implementationStatus.w1a.productionAuthority -ne $false `
             -or $implementationStatus.w1a.api2SourceTruth.repository -cne 'https://github.com/fubangshou/FBSAI.git' `
             -or $implementationStatus.w1a.api2SourceTruth.baselineCommit -cne 'a0834ea5d4c1c3f95be9d25d26913c2d973e09d0' `
+            -or $implementationStatus.w1a.api2SourceTruth.candidateState -cne 'committed_pushed_clean_strict_head_package_verified_default_off' `
+            -or $implementationStatus.w1a.api2SourceTruth.candidateCommit -cne '7b84d4721217cc4d98426b68d7efa31bc62ef5bb' `
+            -or $implementationStatus.w1a.api2SourceTruth.candidateCriticalDeploySnapshotSha256 -cne '230E5C448CDADC786ADA2022EEC5CB8D36159A08560BAB0F8F2E0A877AA6AE98' `
             -or $implementationStatus.w1a.api2SourceTruth.productionDeclaredCommit -cne 'c01891a0ca3e11db0a0fe51828276fab33b862b5' `
             -or $engineeringContract.contracts.currentMainline.api2SourceTruth.baselineCommit -cne 'a0834ea5d4c1c3f95be9d25d26913c2d973e09d0' `
+            -or $engineeringContract.contracts.currentMainline.api2SourceTruth.candidateState -cne 'committed_pushed_clean_strict_head_package_verified_default_off' `
+            -or $engineeringContract.contracts.currentMainline.api2SourceTruth.candidateCommit -cne '7b84d4721217cc4d98426b68d7efa31bc62ef5bb' `
+            -or $engineeringContract.contracts.currentMainline.api2SourceTruth.candidateCriticalDeploySnapshotSha256 -cne '230E5C448CDADC786ADA2022EEC5CB8D36159A08560BAB0F8F2E0A877AA6AE98' `
+            -or @($w1Wave[0].completedSubset) -notcontains 'api2_candidate_7b84d472_committed_pushed_and_clean_strict_head_package_verified' `
+            -or @($w1Wave[0].remaining) -contains 'api2_candidate_commit_push_and_strict_head_package' `
             -or $w1GoldenVector.schemaVersion -cne 'fbsir.independentBoardAttributionGoldenVector.v1' `
             -or $w1GoldenVector.testOnly -ne $true `
             -or $w1GoldenVector.event.sameBindingKey -cne '' `
@@ -1745,7 +1753,7 @@ function Invoke-ContractChecks {
             -or $implementationStatus.w4b5e.releaseReady -ne $false `
             -or $implementationStatus.w4b5e.productionAuthority -ne $false `
             -or $implementationStatus.w4b5e.historicalNextSlice -cne $canonicalCurrentW3SliceId `
-            -or $taskboard.singleNextAction -notlike 'Freeze the default-off publisher*' `
+            -or $taskboard.singleNextAction -notlike 'Deploy public_init_043 and the default-off U3W attribution ingress/readback*' `
             -or -not (@($w3Wave[0].completedSubset) -ccontains 'skill_consume_v2_default_off_host_service_wiring_dual_mysql_5_of_5_each_and_zero_legacy_fallback_verified') `
             -or -not (@($w3Wave[0].completedSubset) -ccontains 'skill_consume_v2_nontransactional_dispatcher_required_legacy_transaction_and_ambient_transaction_fail_closed_verified') `
             -or -not (@($w3Wave[0].completedSubset) -ccontains 'skill_consume_v2_nullable_host_session_domain_digest_and_dual_mysql_6_of_6_each_verified') `

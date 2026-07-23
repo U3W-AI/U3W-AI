@@ -343,7 +343,9 @@
         "baselineRef": "agent/board-no-package-same-binding-v1-20260719",
         "baselineCommit": "a0834ea5d4c1c3f95be9d25d26913c2d973e09d0",
         "candidateBranch": "codex/w1-official-experts-publisher",
-        "candidateState": "local_uncommitted_default_off_publisher_verified",
+        "candidateState": "committed_pushed_clean_strict_head_package_verified_default_off",
+        "candidateCommit": "7b84d4721217cc4d98426b68d7efa31bc62ef5bb",
+        "candidateCriticalDeploySnapshotSha256": "230E5C448CDADC786ADA2022EEC5CB8D36159A08560BAB0F8F2E0A877AA6AE98",
         "productionDeclaredCommit": "c01891a0ca3e11db0a0fe51828276fab33b862b5",
         "productionByteIdentity": "not_proven"
       }

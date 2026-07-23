@@ -1,0 +1,75 @@
+{
+  "schema": "fbsir.independentBoardW1aVerification.v1",
+  "generatedAt": "2026-07-23T13:26:17.7987660Z",
+  "status": "LOCAL_RELEASE_CANDIDATE_VERIFIED_PRODUCTION_CLOSURE_PENDING",
+  "officialIdentity": {
+    "productId": "fbsir-eight-seat-board",
+    "packageId": "fbsir-eight-seat-board",
+    "agentName": "board-convener",
+    "marketplace": "experts",
+    "listedManifestVersion": "26.7.21",
+    "embeddedContractVersion": "26.7.20"
+  },
+  "officialExpertsBaseline": {
+    "contentWriteAllowed": false,
+    "fileCount": 81,
+    "changedContentCount": 0,
+    "zipSha256": "57443e8fbcbcd2620736bce35edccc8001e578918e13ee6521f618d983348510"
+  },
+  "u3w": {
+    "repository": "https://github.com/U3W-AI/U3W-AI.git",
+    "branch": "codex/w1-official-attribution-closure",
+    "commit": "459763a757de2e1854b15bbdad3d7f4ab39b459a",
+    "migration": "public_init_043",
+    "dualMysql": [
+      "MySQL Community 8.0.30",
+      "MySQL Community 8.4.8"
+    ],
+    "writerEnabled": false,
+    "adminReadEnabled": false,
+    "productCreditEnabled": false
+  },
+  "api2": {
+    "repository": "https://github.com/fubangshou/FBSAI.git",
+    "branch": "codex/w1-official-experts-publisher",
+    "commit": "7b84d4721217cc4d98426b68d7efa31bc62ef5bb",
+    "criticalDeploySnapshotSha256": "230E5C448CDADC786ADA2022EEC5CB8D36159A08560BAB0F8F2E0A877AA6AE98",
+    "publisherEnabled": false,
+    "focusedTestCount": 25,
+    "listedTrustAssertionCount": 49,
+    "packageFreshness": "pass",
+    "moduleClosure": "pass"
+  },
+  "liveReadback": {
+    "observedAt": "2026-07-23T13:24:07Z",
+    "api2HealthStatus": 200,
+    "api2DeclaredCommit": "c01891a0ca3e11db0a0fe51828276fab33b862b5",
+    "api2CandidateDeployed": false,
+    "mePortalStatus": 404,
+    "adminPortalStatus": 404,
+    "u3wAttributionIngressDeployed": false,
+    "productionDatabaseMigrationProven": false
+  },
+  "trafficBoundary": {
+    "naturalSameBindingThreeEventReceiptCount": 0,
+    "syntheticOrProbeMayPromoteProductCredit": false,
+    "productCreditPromoted": false
+  },
+  "proves": [
+    "exact_official_identity_contract",
+    "finite_intent_and_traffic_classification_contract",
+    "signed_stage_true_api2_publisher_local_verification",
+    "u3w_append_only_ledger_and_admin_readback_local_verification",
+    "dual_mysql_migration_compatibility",
+    "clean_committed_pushed_api2_strict_head_package"
+  ],
+  "notProven": [
+    "api2_candidate_active_release_byte_identity",
+    "u3w_production_database_migration",
+    "api2_to_u3w_production_receipt",
+    "real_official_experts_same_binding_chain",
+    "real_intent_distribution",
+    "production_admin_six_dimension_readback"
+  ],
+  "singleNextAction": "Deploy public_init_043 and the default-off U3W attribution ingress/readback to a version-bound verifiable environment, then deploy API2 commit 7b84d472 with its publisher still disabled."
+}

@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Close service attribution, finite intent classification and first-value readback for the exact WorkBuddy listed fbsir-eight-seat-board@26.7.21 identity without modifying the official experts content tree.",
-  "singleNextAction": "Freeze the default-off publisher as a clean strict-HEAD FBSAI candidate, verify package and active-release byte provenance, then obtain one real official experts same-binding readback; do not extend the historical P1-005 or Connector chain.",
+  "singleNextAction": "Deploy public_init_043 and the default-off U3W attribution ingress/readback to a version-bound verifiable environment, then deploy the clean strict-HEAD API2 candidate with its publisher still disabled; do not extend the historical P1-005 or Connector chain.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -57,10 +57,10 @@
         "api2_git_source_truth_located_at_fubangshou_FBSAI_a0834ea5",
         "exact_official_identity_and_stage_true_funnel_adapter",
         "durable_default_off_outbox_with_retry_and_restart_recovery",
-        "shared_node_to_java_signature_and_digest_golden_vector"
+        "shared_node_to_java_signature_and_digest_golden_vector",
+        "api2_candidate_7b84d472_committed_pushed_and_clean_strict_head_package_verified"
       ],
       "remaining": [
-        "api2_candidate_commit_push_and_strict_head_package",
         "api2_active_release_file_hash_readback",
         "production_database_migration_and_default_off_deployment",
         "one_real_official_experts_same_binding_three_event_receipt",

@@ -50,7 +50,7 @@
   },
   "activeWave": "W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE",
   "activeSlice": "W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF",
-  "singleNextAction": "Freeze the default-off publisher as a clean strict-HEAD FBSAI candidate, verify package and active-release byte provenance, then obtain one real official experts same-binding three-event admin readback.",
+  "singleNextAction": "Deploy public_init_043 and the default-off U3W attribution ingress/readback to a version-bound verifiable environment, then deploy API2 commit 7b84d472 with its publisher still disabled before obtaining one real official experts same-binding three-event admin readback.",
   "stage": "fix",
   "phase": "W1D_API2_CLEANROOM_PUBLISHER",
   "authoritativeRoot": {
@@ -534,7 +534,9 @@
       "baselineRef": "agent/board-no-package-same-binding-v1-20260719",
       "baselineCommit": "a0834ea5d4c1c3f95be9d25d26913c2d973e09d0",
       "candidateBranch": "codex/w1-official-experts-publisher",
-      "candidateState": "local_uncommitted_default_off_publisher_verified",
+      "candidateState": "committed_pushed_clean_strict_head_package_verified_default_off",
+      "candidateCommit": "7b84d4721217cc4d98426b68d7efa31bc62ef5bb",
+      "candidateCriticalDeploySnapshotSha256": "230E5C448CDADC786ADA2022EEC5CB8D36159A08560BAB0F8F2E0A877AA6AE98",
       "productionDeclaredCommit": "c01891a0ca3e11db0a0fe51828276fab33b862b5",
       "productionByteIdentity": "not_proven"
     },
@@ -566,7 +568,6 @@
     "releaseReady": false,
     "productionAuthority": false,
     "notProven": [
-      "api2_candidate_strict_head_and_package",
       "api2_active_release_file_byte_identity",
       "api2_to_u3w_production_receipt",
       "real_official_experts_same_binding_chain",
