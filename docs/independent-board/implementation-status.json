@@ -527,6 +527,7 @@
     "adr": "docs/decisions/ADR-007-independent-board-official-experts-attribution-spine.md",
     "verificationReport": "reports/independent-board/w1a-official-experts-attribution-verification-latest.json",
     "dualMysqlReport": "reports/independent-board/w1a-attribution-v1-dual-mysql-latest.json",
+    "productionReadbackReport": "reports/independent-board/w1a-production-readonly-audit-latest.json",
     "migration": "public_init_043",
     "eventSchemaVersion": "fbsir.independentBoardAttributionEvent.v1",
     "api2SourceTruth": {

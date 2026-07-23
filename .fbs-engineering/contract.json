@@ -109,6 +109,7 @@
     "w1aDualMysqlRunner": "scripts/run-independent-board-attribution-v1-mysql-it.ps1",
     "w1aDualMysqlReport": "reports/independent-board/w1a-attribution-v1-dual-mysql-latest.json",
     "w1aVerificationReport": "reports/independent-board/w1a-official-experts-attribution-verification-latest.json",
+    "w1aProductionReadonlyAudit": "reports/independent-board/w1a-production-readonly-audit-latest.json",
     "domainInventory": "config/deployment/u3w-domain-inventory.json",
     "migrations": "sql/update_20260720_independent_board_control_plane.sql",
     "portalMenuMigration": "sql/update_20260720_independent_board_me_menu.sql",

@@ -1,0 +1,56 @@
+{
+  "schema": "fbsir.independentBoardW1aProductionReadonlyAudit.v1",
+  "observedAt": "2026-07-23T13:34:00Z",
+  "status": "BLOCKED_PRODUCTION_SCHEMA_BASELINE_AND_DEPLOYMENT_CHANNEL_NOT_READY",
+  "productionChanged": false,
+  "target": {
+    "sshAlias": "api2",
+    "host": "api2.u3w.com",
+    "authorityObserved": "root",
+    "serviceUnit": "fbsir-admin.service",
+    "serviceState": "active"
+  },
+  "runtime": {
+    "jarPath": "/opt/fbsir/admin/Fbsir-admin/target/fbsir-admin.jar",
+    "jarSha256": "92e93328af7fdccfbe3a89bbbfd89d46947dfa00794ccfd5aae48116d1ac817b",
+    "jarModifiedAt": "2026-05-29T09:14:29.186692408+08:00",
+    "attributionClassCount": 0,
+    "frontendIndexSha256": "113a335e1375daf62626c382b527df5b5464ef61263ec4387c0695382a3cb5b0",
+    "nginxPlaceholderSha256": "c68c21f318c31a87e36aa6f9b13296829b6f7242c2becdc9771eeee2930b595a"
+  },
+  "database": {
+    "serverVersion": "8.0.45",
+    "database": "fbsir",
+    "currentUser": "fbsir@localhost",
+    "totalTableCount": 99,
+    "migrationTableCount": 0,
+    "boardAttributionTableCount": 0,
+    "sysMenuTableCount": 1,
+    "publicInit043Applied": false
+  },
+  "portals": {
+    "meHttpStatus": 404,
+    "adminHttpStatus": 404,
+    "api2FbssHealthHttpStatus": 200
+  },
+  "deploymentChannel": {
+    "strictHeadBuildUploadSwitchReceiptScriptPresent": false,
+    "productionDatabaseBackupRestorePointProven": false,
+    "candidateConfigurationPresent": false,
+    "safeToDeploy": false
+  },
+  "proves": [
+    "production_service_and_database_are_reachable_read_only",
+    "active_runtime_does_not_contain_independent_board_attribution_classes",
+    "production_database_has_no_migration_ledger_or_w1a_attribution_tables",
+    "me_and_admin_hosts_are_still_placeholder_404"
+  ],
+  "notProven": [
+    "production_database_backup_and_restore_point",
+    "safe_bootstrap_from_legacy_unversioned_schema_to_public_init_043",
+    "strict_head_u3w_build_upload_atomic_switch_and_rollback_receipt",
+    "candidate_configuration_and_secret_custody",
+    "production_api2_to_u3w_receipt"
+  ],
+  "singleNextAction": "Create and verify a backup-first strict-HEAD U3W release runner with a read-only legacy-schema preflight before any migration, upload, Nginx change or restart."
+}

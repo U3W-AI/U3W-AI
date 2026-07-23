@@ -1641,6 +1641,7 @@ function Invoke-ContractChecks {
         })
     $w1NaturalChain = 'ENTRY_OBSERVED,INTENT_CLASSIFIED,FIRST_VALUE_COMPLETED'
     $w1DualMysql = Read-Utf8Json -RelativePath 'reports\independent-board\w1a-attribution-v1-dual-mysql-latest.json'
+    $w1ProductionReadback = Read-Utf8Json -RelativePath 'reports\independent-board\w1a-production-readonly-audit-latest.json'
     $w1GoldenVector = Read-Utf8Json -RelativePath 'FBSir-business\src\test\resources\independent-board-attribution-v1-golden-vector.json'
     $w1MysqlVersions = @($w1DualMysql.results | ForEach-Object { $_.version })
     $w1MysqlInvalid = @($w1DualMysql.results | Where-Object {
@@ -1679,6 +1680,18 @@ function Invoke-ContractChecks {
             -or (@($w1Wave[0].naturalChain) -join ',') -cne $w1NaturalChain `
             -or (@($engineeringContract.contracts.firstVerticalSlice.flow) -join ',') -cne $w1NaturalChain `
             -or $implementationStatus.w1a.migration -cne 'public_init_043' `
+            -or $implementationStatus.w1a.productionReadbackReport -cne 'reports/independent-board/w1a-production-readonly-audit-latest.json' `
+            -or $engineeringContract.artifacts.w1aProductionReadonlyAudit -cne 'reports/independent-board/w1a-production-readonly-audit-latest.json' `
+            -or $w1ProductionReadback.status -cne 'BLOCKED_PRODUCTION_SCHEMA_BASELINE_AND_DEPLOYMENT_CHANNEL_NOT_READY' `
+            -or $w1ProductionReadback.productionChanged -ne $false `
+            -or $w1ProductionReadback.database.database -cne 'fbsir' `
+            -or $w1ProductionReadback.database.serverVersion -cne '8.0.45' `
+            -or $w1ProductionReadback.database.totalTableCount -ne 99 `
+            -or $w1ProductionReadback.database.migrationTableCount -ne 0 `
+            -or $w1ProductionReadback.database.boardAttributionTableCount -ne 0 `
+            -or $w1ProductionReadback.runtime.attributionClassCount -ne 0 `
+            -or $w1ProductionReadback.portals.meHttpStatus -ne 404 `
+            -or $w1ProductionReadback.portals.adminHttpStatus -ne 404 `
             -or $implementationStatus.w1a.featureFlags.observationWriterEnabled -ne $false `
             -or $implementationStatus.w1a.featureFlags.intentClassifierEnabled -ne $false `
             -or $implementationStatus.w1a.featureFlags.observationAdminReadEnabled -ne $false `
