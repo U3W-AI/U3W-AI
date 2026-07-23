@@ -1715,7 +1715,7 @@ function Invoke-ContractChecks {
             -or $implementationStatus.w1a.productionReadinessReport -cne 'reports/independent-board/w1a-production-readiness-latest.json' `
             -or $implementationStatus.w1a.productionReadinessState -cne $w1ProductionReadiness.status `
             -or $w1U3wCandidateStateAllowed -notcontains $implementationStatus.w1a.u3wSourceTruth.candidateState `
-            -or $implementationStatus.w1a.u3wSourceTruth.candidateCommit -cne '38eb13444723c6d9a8418487ec9cb7a0a7b349fb' `
+            -or $implementationStatus.w1a.u3wSourceTruth.candidateCommit -cne '5d912fc1e5e5b1ec73658288cd8416e1d25e07df' `
             -or $implementationStatus.w1a.u3wSourceTruth.candidateCommit -cne $w1ProductionReadiness.evidence.localSourceCommit `
             -or $engineeringContract.contracts.currentMainline.u3wSourceTruth.candidateState -cne $implementationStatus.w1a.u3wSourceTruth.candidateState `
             -or $engineeringContract.contracts.currentMainline.u3wSourceTruth.candidateCommit -cne $implementationStatus.w1a.u3wSourceTruth.candidateCommit `

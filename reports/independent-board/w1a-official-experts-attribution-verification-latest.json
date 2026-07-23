@@ -1,6 +1,6 @@
 {
   "schema": "fbsir.independentBoardW1aVerification.v1",
-  "generatedAt": "2026-07-23T14:22:01Z",
+  "generatedAt": "2026-07-23T14:31:40Z",
   "status": "LOCAL_RELEASE_CANDIDATE_AND_LIVE_FAIL_CLOSED_GATE_VERIFIED_PRODUCTION_CLOSURE_PENDING",
   "officialIdentity": {
     "productId": "fbsir-eight-seat-board",
@@ -19,7 +19,7 @@
   "u3w": {
     "repository": "https://github.com/U3W-AI/U3W-AI.git",
     "branch": "codex/w1-official-attribution-closure",
-    "commit": "38eb13444723c6d9a8418487ec9cb7a0a7b349fb",
+    "commit": "5d912fc1e5e5b1ec73658288cd8416e1d25e07df",
     "migration": "public_init_043",
     "dualMysql": [
       "MySQL Community 8.0.30",
@@ -55,7 +55,7 @@
     "moduleClosure": "pass"
   },
   "liveReadback": {
-    "observedAt": "2026-07-23T14:22:00Z",
+    "observedAt": "2026-07-23T14:31:39Z",
     "api2HealthStatus": 200,
     "api2DeclaredCommit": "c01891a0ca3e11db0a0fe51828276fab33b862b5",
     "api2CandidateDeployed": false,

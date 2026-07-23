@@ -1,13 +1,13 @@
 {
   "schema": "fbsir.independentBoardProductionReadiness.v1",
-  "observedAt": "2026-07-23T14:30:39.340462+00:00",
+  "observedAt": "2026-07-23T14:31:39.510882+00:00",
   "status": "NOT_READY_FOR_PRODUCTION_RELEASE",
   "productionChanged": false,
   "readyForDefaultOffRelease": false,
   "gates": [
     {
       "id": "strict_head",
-      "pass": false,
+      "pass": true,
       "detail": "checked-out source must be the expected clean 40-hex commit"
     },
     {
@@ -52,7 +52,6 @@
     }
   ],
   "failedGateIds": [
-    "strict_head",
     "versioned_schema_baseline",
     "w1a_schema_state",
     "backup_restore_anchor",
@@ -61,7 +60,7 @@
     "release_switch_and_rollback_channel"
   ],
   "evidence": {
-    "localSourceCommit": "c6e99e0aa2e0b2ff74cc4544b558f5ab3e977a8b",
+    "localSourceCommit": "5d912fc1e5e5b1ec73658288cd8416e1d25e07df",
     "target": {
       "host": "api2.u3w.com",
       "authorityObserved": "root",
@@ -149,5 +148,5 @@
       "databaseRollbackProven": false
     }
   },
-  "nextAction": "Close failed gates before any upload, migration, Nginx change, restart or cutover: strict_head,versioned_schema_baseline,w1a_schema_state,backup_restore_anchor,default_off_configuration,cryptographic_material_custody,release_switch_and_rollback_channel"
+  "nextAction": "Close failed gates before any upload, migration, Nginx change, restart or cutover: versioned_schema_baseline,w1a_schema_state,backup_restore_anchor,default_off_configuration,cryptographic_material_custody,release_switch_and_rollback_channel"
 }
