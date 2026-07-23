@@ -926,6 +926,9 @@ def validate_existing_bundle(
         or evidence.get("sourceCommit") != args.source_commit
         or evidence.get("productionMysqldPidBefore")
         != evidence.get("productionMysqldPidAfter")
+        or evidence.get("mysqlcheckExitCode") != 0
+        or not isinstance(evidence.get("mysqlcheckOkObjectCount"), int)
+        or evidence.get("mysqlcheckOkObjectCount") < 1
         or any(
             evidence.get(field) is not True
             for field in (
@@ -1017,6 +1020,8 @@ def run_verification(args):
     restored_facts = None
     restored_manifest = None
     mysqlcheck_payload = b""
+    mysqlcheck_exit_code = None
+    mysqlcheck_ok_object_count = 0
     try:
         initialize = subprocess.run(
             [
@@ -1132,7 +1137,14 @@ def run_verification(args):
             check=False,
         )
         mysqlcheck_payload = mysqlcheck.stdout + mysqlcheck.stderr
-        if mysqlcheck.returncode != 0 or b"\tOK" not in mysqlcheck.stdout:
+        mysqlcheck_exit_code = mysqlcheck.returncode
+        mysqlcheck_ok_object_count = len(
+            re.findall(rb"(?m)(?:^|\s)OK\s*$", mysqlcheck.stdout)
+        )
+        if (
+            mysqlcheck_exit_code != 0
+            or mysqlcheck_ok_object_count < 1
+        ):
             raise RuntimeError("mysqlcheck did not prove restored tables healthy")
         shutdown = subprocess.run(
             [
@@ -1188,6 +1200,8 @@ def run_verification(args):
         "runtime": isolation_observation,
         "restoreStdoutSha256": restore_result["restoreStdoutSha256"],
         "restoreStderrSha256": restore_result["restoreStderrSha256"],
+        "mysqlcheckExitCode": mysqlcheck_exit_code,
+        "mysqlcheckOkObjectCount": mysqlcheck_ok_object_count,
         "isolatedProcessExited": True,
         "isolatedSocketRemoved": True,
         "isolatedPidFileRemoved": True,

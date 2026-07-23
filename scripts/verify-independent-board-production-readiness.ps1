@@ -979,13 +979,16 @@ if backup_receipt.is_file():
             and mysqlcheck_log
             and restore_receipt.get("mysqlcheckSha256")
                 == sha256_file(mysqlcheck_log)
-            and b"\tOK" in mysqlcheck_payload
+            and b"OK" in mysqlcheck_payload
             and evidence.get("schema")
                 == "fbsir.u3wIsolatedMysqlEvidence.v1"
             and evidence.get("runId") == run_id
             and evidence.get("sourceCommit") == EXPECTED_SOURCE_COMMIT
             and evidence.get("productionMysqldPidBefore")
                 == evidence.get("productionMysqldPidAfter")
+            and evidence.get("mysqlcheckExitCode") == 0
+            and isinstance(evidence.get("mysqlcheckOkObjectCount"), int)
+            and evidence.get("mysqlcheckOkObjectCount") > 0
             and all(
                 evidence.get(field) is True
                 for field in (
