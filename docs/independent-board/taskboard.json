@@ -61,7 +61,7 @@
         "shared_node_to_java_signature_and_digest_golden_vector",
         "api2_candidate_7b84d472_committed_pushed_and_clean_strict_head_package_verified",
         "api2_strict_head_production_release_dry_run_verified_without_state_change",
-        "u3w_live_read_only_production_readiness_gate_implemented_and_thirteen_rule_vectors_verified",
+        "u3w_live_read_only_production_readiness_gate_implemented_and_fifteen_rule_vectors_verified",
         "u3w_live_no_go_reproduced_without_secret_disclosure_or_production_change"
       ],
       "remaining": [

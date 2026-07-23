@@ -38,11 +38,14 @@ const SUPPORTED_MYSQL_VERSIONS = Object.freeze([
   "8.4.8",
 ]);
 
+const W1A_SCHEMA_FINGERPRINT_SHA256 =
+  "a0507f51960622d49b66c4d8b1b7382dc8bc16a904d577bac1ca942bb8748b28";
+
 const REQUIRED_DEFAULT_OFF_FLAGS = Object.freeze([
-  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_ENABLED",
-  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
-  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED",
-  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_CREDIT_ENABLED",
+  "FBSIR_BOARD_ATTRIBUTION_ENABLED",
+  "FBSIR_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
+  "FBSIR_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED",
+  "FBSIR_BOARD_ATTRIBUTION_CREDIT_ENABLED",
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_WRITER_ENABLED",
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_INTENT_CLASSIFIER_ENABLED",
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_ADMIN_READ_ENABLED",
@@ -139,7 +142,8 @@ export function evaluateProductionReadiness(snapshot) {
       "w1a_schema_state",
       database.publicInit043Applied === false ||
         (database.publicInit043Applied === true &&
-          database.w1aSchemaFingerprintVerified === true),
+          database.w1aSchemaFingerprintSha256 ===
+            W1A_SCHEMA_FINGERPRINT_SHA256),
       "public_init_043 must be explicitly absent or backed by the exact W1A table/trigger fingerprint",
     ),
     gate(
@@ -215,7 +219,10 @@ export function evaluateProductionReadiness(snapshot) {
         migrationTableCount: database.migrationTableCount ?? null,
         publicInit043Applied: database.publicInit043Applied ?? null,
         w1aSchemaFingerprintVerified:
-          database.w1aSchemaFingerprintVerified === true,
+          database.w1aSchemaFingerprintSha256 ===
+          W1A_SCHEMA_FINGERPRINT_SHA256,
+        w1aSchemaFingerprintSha256:
+          database.w1aSchemaFingerprintSha256 ?? null,
         missingPredecessorMigrations: missingPredecessors,
         driftedPredecessorDescriptions,
       },

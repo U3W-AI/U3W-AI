@@ -1676,7 +1676,8 @@ function Invoke-ContractChecks {
                 -or $_.updateRejected -cne 'PASS' `
                 -or $_.deleteRejected -cne 'PASS' `
                 -or $_.aggregate -cne '1|1|1|0' `
-                -or $_.authoritativeProductCredit -ne 0
+                -or $_.authoritativeProductCredit -ne 0 `
+                -or $_.schemaFingerprintSha256 -cne 'a0507f51960622d49b66c4d8b1b7382dc8bc16a904d577bac1ca942bb8748b28'
         })
     if ($w1Wave.Count -ne 1 `
             -or $implementationStatus.activeWave -cne 'W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE' `

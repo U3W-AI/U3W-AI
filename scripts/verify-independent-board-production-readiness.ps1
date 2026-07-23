@@ -159,10 +159,10 @@ DEPLOYMENT_RECEIPT_PATH = __DEPLOYMENT_RECEIPT_PATH__
 EXPECTED_BACKUP_RECEIPT_SHA256 = __EXPECTED_BACKUP_RECEIPT_SHA256__
 EXPECTED_DEPLOYMENT_RECEIPT_SHA256 = __EXPECTED_DEPLOYMENT_RECEIPT_SHA256__
 FLAG_NAMES = [
-    "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_ENABLED",
-    "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
-    "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED",
-    "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_CREDIT_ENABLED",
+    "FBSIR_BOARD_ATTRIBUTION_ENABLED",
+    "FBSIR_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
+    "FBSIR_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED",
+    "FBSIR_BOARD_ATTRIBUTION_CREDIT_ENABLED",
     "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_WRITER_ENABLED",
     "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_INTENT_CLASSIFIER_ENABLED",
     "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_ADMIN_READ_ENABLED",
@@ -249,7 +249,7 @@ database = {
     "migrationDescriptions": {},
     "boardAttributionTableCount": None,
     "publicInit043Applied": None,
-    "w1aSchemaFingerprintVerified": False,
+    "w1aSchemaFingerprintSha256": None,
 }
 jdbc_url = environment.get("FBSIR_MYSQL_URL") or environment.get("WXFBSIR_MYSQL_URL")
 mysql_user = environment.get("FBSIR_MYSQL_USERNAME") or environment.get("WXFBSIR_MYSQL_USERNAME")
@@ -309,28 +309,68 @@ if jdbc_url and mysql_user is not None and mysql_password is not None:
             "public_init_043" in database["migrationVersions"]
         )
         if database["publicInit043Applied"]:
-            trigger_count = int(query(
-                "SELECT COUNT(*) FROM information_schema.triggers "
-                "WHERE trigger_schema = DATABASE() AND trigger_name IN "
-                "('trg_board_attr_event_v1_no_update',"
-                "'trg_board_attr_event_v1_no_delete')"
-            ))
-            required_unique_index_count = int(query(
-                "SELECT COUNT(DISTINCT index_name) "
-                "FROM information_schema.statistics "
-                "WHERE table_schema = DATABASE() "
-                "AND table_name = 'fbs_board_attr_event_v1' "
-                "AND index_name IN "
-                "('uk_board_attr_event_receipt','uk_board_attr_event_nonce',"
-                "'uk_board_attr_event_digest','uk_board_attr_event_watermark',"
-                "'uk_board_attr_event_binding_sequence') "
-                "AND non_unique = 0"
-            ))
-            database["w1aSchemaFingerprintVerified"] = (
-                database["boardAttributionTableCount"] == 2
-                and trigger_count == 2
-                and required_unique_index_count == 5
-            )
+            fingerprint_rows = query("""
+SELECT row_value FROM (
+  SELECT CONCAT_WS('|','C',HEX(table_name),LPAD(ordinal_position,3,'0'),
+    HEX(column_name),HEX(column_type),is_nullable,
+    HEX(COALESCE(column_default,'<NULL>')),HEX(extra),
+    HEX(COALESCE(character_set_name,'')),HEX(COALESCE(collation_name,'')),
+    HEX(COALESCE(generation_expression,''))) AS row_value
+  FROM information_schema.columns
+  WHERE table_schema=DATABASE()
+    AND table_name IN
+      ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+  UNION ALL
+  SELECT CONCAT_WS('|','I',HEX(table_name),HEX(index_name),non_unique,
+    LPAD(seq_in_index,3,'0'),HEX(column_name),
+    COALESCE(sub_part,''),HEX(COALESCE(collation,'')),HEX(index_type),
+    HEX(nullable))
+  FROM information_schema.statistics
+  WHERE table_schema=DATABASE()
+    AND table_name IN
+      ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+  UNION ALL
+  SELECT CONCAT_WS('|','T',HEX(table_name),HEX(constraint_name),
+    HEX(constraint_type))
+  FROM information_schema.table_constraints
+  WHERE table_schema=DATABASE()
+    AND table_name IN
+      ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+  UNION ALL
+  SELECT CONCAT_WS('|','K',HEX(table_name),HEX(constraint_name),
+    HEX(column_name),LPAD(ordinal_position,3,'0'),
+    HEX(COALESCE(referenced_table_name,'')),
+    HEX(COALESCE(referenced_column_name,'')))
+  FROM information_schema.key_column_usage
+  WHERE table_schema=DATABASE()
+    AND table_name IN
+      ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+  UNION ALL
+  SELECT CONCAT_WS('|','H',HEX(tc.table_name),HEX(cc.constraint_name),
+    HEX(cc.check_clause))
+  FROM information_schema.check_constraints cc
+  JOIN information_schema.table_constraints tc
+    ON tc.constraint_schema=cc.constraint_schema
+   AND tc.constraint_name=cc.constraint_name
+   AND tc.constraint_type='CHECK'
+  WHERE tc.table_schema=DATABASE()
+    AND tc.table_name IN
+      ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+  UNION ALL
+  SELECT CONCAT_WS('|','R',HEX(trigger_name),HEX(event_manipulation),
+    HEX(event_object_table),HEX(action_timing),HEX(action_orientation),
+    HEX(action_statement))
+  FROM information_schema.triggers
+  WHERE trigger_schema=DATABASE()
+    AND trigger_name IN
+      ('trg_board_attr_event_v1_no_update',
+       'trg_board_attr_event_v1_no_delete')
+) AS fingerprint_rows
+ORDER BY BINARY row_value
+""")
+            database["w1aSchemaFingerprintSha256"] = hashlib.sha256(
+                (fingerprint_rows + "\n").encode("utf-8")
+            ).hexdigest()
 
 key_names = sorted(environment.keys())
 explicit_false = sorted(
@@ -431,6 +471,63 @@ if deployment_receipt.is_file():
     database_rollback_digest = receipt.get(
         "databaseRollbackReceiptSha256"
     )
+    release_root = pathlib.Path("/opt/fbsir/admin/releases").resolve()
+
+    def verified_release_file(path_value, expected_digest):
+        if not isinstance(path_value, str):
+            return False
+        candidate = pathlib.Path(path_value).resolve()
+        try:
+            candidate.relative_to(release_root)
+        except ValueError:
+            return False
+        return (
+            candidate.is_file()
+            and re.fullmatch(
+                r"[0-9a-f]{64}", str(expected_digest or "")
+            ) is not None
+            and sha256_file(candidate) == expected_digest
+        )
+
+    backend_verified = verified_release_file(
+        receipt.get("backendBuildPath"), backend_digest
+    )
+    frontend_verified = verified_release_file(
+        receipt.get("frontendBuildPath"), frontend_digest
+    )
+    runner_verified = verified_release_file(
+        receipt.get("runnerPath"), runner_digest
+    )
+    application_rollback_verified = verified_release_file(
+        receipt.get("applicationRollbackReceiptPath"),
+        application_rollback_digest,
+    )
+    database_rollback_verified = verified_release_file(
+        receipt.get("databaseRollbackReceiptPath"),
+        database_rollback_digest,
+    )
+    if application_rollback_verified:
+        application_rollback = json.loads(pathlib.Path(
+            receipt["applicationRollbackReceiptPath"]
+        ).read_text(encoding="utf-8"))
+        application_rollback_verified = (
+            application_rollback.get("schema")
+                == "fbsir.u3wApplicationRollbackRehearsalReceipt.v1"
+            and application_rollback.get("sourceCommit") == source_commit
+            and application_rollback.get("verified") is True
+            and application_rollback.get("isolatedTarget") is True
+        )
+    if database_rollback_verified:
+        database_rollback = json.loads(pathlib.Path(
+            receipt["databaseRollbackReceiptPath"]
+        ).read_text(encoding="utf-8"))
+        database_rollback_verified = (
+            database_rollback.get("schema")
+                == "fbsir.u3wDatabaseRollbackRehearsalReceipt.v1"
+            and database_rollback.get("sourceCommit") == source_commit
+            and database_rollback.get("verified") is True
+            and database_rollback.get("isolatedTarget") is True
+        )
     try:
         generated_at = datetime.fromisoformat(
             str(receipt.get("generatedAt", "")).replace("Z", "+00:00")
@@ -456,6 +553,11 @@ if deployment_receipt.is_file():
         and re.fullmatch(
             r"[0-9a-f]{64}", str(database_rollback_digest or "")
         ) is not None
+        and backend_verified
+        and frontend_verified
+        and runner_verified
+        and application_rollback_verified
+        and database_rollback_verified
         and receipt_is_fresh
     )
     deployment.update({
@@ -468,12 +570,15 @@ if deployment_receipt.is_file():
         "sourceCommit": source_commit if receipt_validated else None,
         "strictHeadBuildUploadSwitchReceiptScriptPresent": (
             receipt.get("strictHeadBuildUploadSwitchReceiptScriptPresent") is True
+            and runner_verified
         ),
         "applicationRollbackProven": (
             receipt.get("applicationRollbackProven") is True
+            and application_rollback_verified
         ),
         "databaseRollbackProven": (
             receipt.get("databaseRollbackProven") is True
+            and database_rollback_verified
         ),
     })
 

@@ -1,18 +1,21 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 import { evaluateProductionReadiness } from "./independent-board-production-readiness.mjs";
 
 const commit = "a".repeat(40);
 const digest = "b".repeat(64);
+const schemaFingerprint =
+  "a0507f51960622d49b66c4d8b1b7382dc8bc16a904d577bac1ca942bb8748b28";
 const migrations = Array.from(
   { length: 8 },
   (_, index) => `public_init_0${35 + index}`,
 );
 const flags = [
-  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_ENABLED",
-  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
-  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED",
-  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_CREDIT_ENABLED",
+  "FBSIR_BOARD_ATTRIBUTION_ENABLED",
+  "FBSIR_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
+  "FBSIR_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED",
+  "FBSIR_BOARD_ATTRIBUTION_CREDIT_ENABLED",
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_WRITER_ENABLED",
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_INTENT_CLASSIFIER_ENABLED",
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_ADMIN_READ_ENABLED",
@@ -144,6 +147,18 @@ test("fails closed when a migration receipt description drifts", () => {
   );
 });
 
+test("requires the exact 043 schema and trigger fingerprint when applied", () => {
+  const snapshot = readySnapshot();
+  snapshot.database.publicInit043Applied = true;
+  snapshot.database.migrationVersions.push("public_init_043");
+  snapshot.database.w1aSchemaFingerprintSha256 = digest;
+  const failed = evaluateProductionReadiness(snapshot);
+  assert.ok(failed.failedGateIds.includes("w1a_schema_state"));
+  snapshot.database.w1aSchemaFingerprintSha256 = schemaFingerprint;
+  const passed = evaluateProductionReadiness(snapshot);
+  assert.equal(passed.failedGateIds.includes("w1a_schema_state"), false);
+});
+
 test("fails closed when the database backup cannot be restored", () => {
   const snapshot = readySnapshot();
   snapshot.backup.restoreProcedureVerified = false;
@@ -169,7 +184,7 @@ test("requires legacy attribution master flags to be explicitly false", () => {
   const snapshot = readySnapshot();
   snapshot.configuration.explicitFalseKeyNames =
     snapshot.configuration.explicitFalseKeyNames.filter(
-      (name) => name !== "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_ENABLED",
+      (name) => name !== "FBSIR_BOARD_ATTRIBUTION_ENABLED",
     );
   const result = evaluateProductionReadiness(snapshot);
   assert.ok(result.failedGateIds.includes("default_off_configuration"));
@@ -221,4 +236,32 @@ test("rejects a release receipt from a different source commit", () => {
 test("rejects invalid snapshots", () => {
   assert.throws(() => evaluateProductionReadiness(null), /snapshot/);
   assert.throws(() => evaluateProductionReadiness([]), /snapshot/);
+});
+
+test("live collector is pinned, online-only, and verifies actual artifacts", () => {
+  const collector = fs.readFileSync(
+    new URL("./verify-independent-board-production-readiness.ps1", import.meta.url),
+    "utf8",
+  );
+  const application = fs.readFileSync(
+    new URL(
+      "../FBSir-admin/src/main/resources/application.yml",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.equal(collector.includes("[string]$SnapshotPath"), false);
+  assert.equal(collector.includes("[string]$SshTarget"), false);
+  assert.equal(
+    collector.includes("[string]$ExpectedRemoteHostKeyFingerprint"),
+    false,
+  );
+  for (const name of flags.slice(0, 4)) {
+    assert.ok(collector.includes(`"${name}"`));
+    assert.ok(application.includes(`\${${name}:false}`));
+  }
+  assert.ok(collector.includes("information_schema.check_constraints"));
+  assert.ok(collector.includes("HEX(action_statement)"));
+  assert.ok(collector.includes("verified_release_file("));
+  assert.ok(collector.includes("sha256_file(candidate) == expected_digest"));
 });

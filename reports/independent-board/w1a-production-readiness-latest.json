@@ -1,13 +1,13 @@
 {
   "schema": "fbsir.independentBoardProductionReadiness.v1",
-  "observedAt": "2026-07-23T14:22:00.807494+00:00",
+  "observedAt": "2026-07-23T14:30:39.340462+00:00",
   "status": "NOT_READY_FOR_PRODUCTION_RELEASE",
   "productionChanged": false,
   "readyForDefaultOffRelease": false,
   "gates": [
     {
       "id": "strict_head",
-      "pass": true,
+      "pass": false,
       "detail": "checked-out source must be the expected clean 40-hex commit"
     },
     {
@@ -38,7 +38,7 @@
     {
       "id": "default_off_configuration",
       "pass": false,
-      "detail": "missing explicit flags: FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_CANDIDATE_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_CREDIT_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_WRITER_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_INTENT_CLASSIFIER_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_ADMIN_READ_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PRODUCT_CREDIT_ENABLED"
+      "detail": "missing explicit flags: FBSIR_BOARD_ATTRIBUTION_ENABLED,FBSIR_BOARD_ATTRIBUTION_CANDIDATE_ENABLED,FBSIR_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED,FBSIR_BOARD_ATTRIBUTION_CREDIT_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_WRITER_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_INTENT_CLASSIFIER_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_ADMIN_READ_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PRODUCT_CREDIT_ENABLED"
     },
     {
       "id": "cryptographic_material_custody",
@@ -52,6 +52,7 @@
     }
   ],
   "failedGateIds": [
+    "strict_head",
     "versioned_schema_baseline",
     "w1a_schema_state",
     "backup_restore_anchor",
@@ -60,7 +61,7 @@
     "release_switch_and_rollback_channel"
   ],
   "evidence": {
-    "localSourceCommit": "38eb13444723c6d9a8418487ec9cb7a0a7b349fb",
+    "localSourceCommit": "c6e99e0aa2e0b2ff74cc4544b558f5ab3e977a8b",
     "target": {
       "host": "api2.u3w.com",
       "authorityObserved": "root",
@@ -79,6 +80,7 @@
       "migrationTableCount": 0,
       "publicInit043Applied": null,
       "w1aSchemaFingerprintVerified": false,
+      "w1aSchemaFingerprintSha256": null,
       "missingPredecessorMigrations": [
         "public_init_035",
         "public_init_036",
@@ -107,20 +109,20 @@
     },
     "configuration": {
       "missingExplicitFlags": [
-        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_ENABLED",
-        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
-        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED",
-        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_CREDIT_ENABLED",
+        "FBSIR_BOARD_ATTRIBUTION_ENABLED",
+        "FBSIR_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
+        "FBSIR_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED",
+        "FBSIR_BOARD_ATTRIBUTION_CREDIT_ENABLED",
         "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_WRITER_ENABLED",
         "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_INTENT_CLASSIFIER_ENABLED",
         "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_ADMIN_READ_ENABLED",
         "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PRODUCT_CREDIT_ENABLED"
       ],
       "flagsNotExplicitlyFalse": [
-        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_ENABLED",
-        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
-        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED",
-        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_CREDIT_ENABLED",
+        "FBSIR_BOARD_ATTRIBUTION_ENABLED",
+        "FBSIR_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
+        "FBSIR_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED",
+        "FBSIR_BOARD_ATTRIBUTION_CREDIT_ENABLED",
         "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_WRITER_ENABLED",
         "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_INTENT_CLASSIFIER_ENABLED",
         "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_ADMIN_READ_ENABLED",
@@ -147,5 +149,5 @@
       "databaseRollbackProven": false
     }
   },
-  "nextAction": "Close failed gates before any upload, migration, Nginx change, restart or cutover: versioned_schema_baseline,w1a_schema_state,backup_restore_anchor,default_off_configuration,cryptographic_material_custody,release_switch_and_rollback_channel"
+  "nextAction": "Close failed gates before any upload, migration, Nginx change, restart or cutover: strict_head,versioned_schema_baseline,w1a_schema_state,backup_restore_anchor,default_off_configuration,cryptographic_material_custody,release_switch_and_rollback_channel"
 }

@@ -98,6 +98,79 @@ function Invoke-Migration {
         -Sql "source $source;"
 }
 
+function Get-Sha256Text {
+    param([Parameter(Mandatory = $true)][string]$Value)
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Value)
+    $hasher = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([BitConverter]::ToString(
+                $hasher.ComputeHash($bytes))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $hasher.Dispose()
+    }
+}
+
+$schemaFingerprintSql = @"
+SELECT row_value FROM (
+  SELECT CONCAT_WS('|','C',HEX(table_name),LPAD(ordinal_position,3,'0'),
+    HEX(column_name),HEX(column_type),is_nullable,
+    HEX(COALESCE(column_default,'<NULL>')),HEX(extra),
+    HEX(COALESCE(character_set_name,'')),HEX(COALESCE(collation_name,'')),
+    HEX(COALESCE(generation_expression,''))) AS row_value
+  FROM information_schema.columns
+  WHERE table_schema=DATABASE()
+    AND table_name IN
+      ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+  UNION ALL
+  SELECT CONCAT_WS('|','I',HEX(table_name),HEX(index_name),non_unique,
+    LPAD(seq_in_index,3,'0'),HEX(column_name),
+    COALESCE(sub_part,''),HEX(COALESCE(collation,'')),HEX(index_type),
+    HEX(nullable))
+  FROM information_schema.statistics
+  WHERE table_schema=DATABASE()
+    AND table_name IN
+      ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+  UNION ALL
+  SELECT CONCAT_WS('|','T',HEX(table_name),HEX(constraint_name),
+    HEX(constraint_type))
+  FROM information_schema.table_constraints
+  WHERE table_schema=DATABASE()
+    AND table_name IN
+      ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+  UNION ALL
+  SELECT CONCAT_WS('|','K',HEX(table_name),HEX(constraint_name),
+    HEX(column_name),LPAD(ordinal_position,3,'0'),
+    HEX(COALESCE(referenced_table_name,'')),
+    HEX(COALESCE(referenced_column_name,'')))
+  FROM information_schema.key_column_usage
+  WHERE table_schema=DATABASE()
+    AND table_name IN
+      ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+  UNION ALL
+  SELECT CONCAT_WS('|','H',HEX(tc.table_name),HEX(cc.constraint_name),
+    HEX(cc.check_clause))
+  FROM information_schema.check_constraints cc
+  JOIN information_schema.table_constraints tc
+    ON tc.constraint_schema=cc.constraint_schema
+   AND tc.constraint_name=cc.constraint_name
+   AND tc.constraint_type='CHECK'
+  WHERE tc.table_schema=DATABASE()
+    AND tc.table_name IN
+      ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+  UNION ALL
+  SELECT CONCAT_WS('|','R',HEX(trigger_name),HEX(event_manipulation),
+    HEX(event_object_table),HEX(action_timing),HEX(action_orientation),
+    HEX(action_statement))
+  FROM information_schema.triggers
+  WHERE trigger_schema=DATABASE()
+    AND trigger_name IN
+      ('trg_board_attr_event_v1_no_update',
+       'trg_board_attr_event_v1_no_delete')
+) AS fingerprint_rows
+ORDER BY BINARY row_value;
+"@
+
 $migrationSha = (
     Get-FileHash -LiteralPath $migrationPath -Algorithm SHA256
 ).Hash.ToLowerInvariant()
@@ -252,6 +325,10 @@ SELECT CONCAT_WS('|',
             $shapeParts[4] -ne '1') {
             throw "MySQL $version exact shape proof failed: $shape"
         }
+        $schemaFingerprintRows = Invoke-Client -Profile $profile `
+            -Database $database -Sql $schemaFingerprintSql
+        $schemaFingerprintSha256 = Get-Sha256Text (
+            $schemaFingerprintRows + "`n")
 
         $binding = ''.PadLeft(64, 'b')
         $event = ''.PadLeft(64, '1')
@@ -336,6 +413,7 @@ WHERE occurred_at >= '2026-07-23 00:00:00'
             updateRejected = 'PASS'
             deleteRejected = 'PASS'
             authoritativeProductCredit = 0
+            schemaFingerprintSha256 = $schemaFingerprintSha256
         })
     }
     finally {
