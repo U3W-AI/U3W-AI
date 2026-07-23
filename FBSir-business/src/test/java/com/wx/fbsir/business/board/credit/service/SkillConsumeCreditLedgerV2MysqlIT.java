@@ -12,6 +12,7 @@ import com.wx.fbsir.business.fbs.mapper.FbsScenePackMapper;
 import com.wx.fbsir.business.fbs.mapper.FbsSkillUsageRecordMapper;
 import com.wx.fbsir.business.fbs.service.RightsCheckService;
 import com.wx.fbsir.business.fbs.service.impl.SkillConsumeServiceImpl;
+import com.wx.fbsir.business.fbs.service.impl.SkillConsumeLegacyTransactionExecutor;
 import com.wx.fbsir.business.point.domain.PointsRule;
 import com.wx.fbsir.business.point.mapper.PointsRuleMapper;
 import com.wx.fbsir.business.point.service.IPointsService;
@@ -51,6 +52,7 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -95,6 +97,9 @@ class SkillConsumeCreditLedgerV2MysqlIT {
 
     @org.springframework.beans.factory.annotation.Autowired
     private SkillConsumeServiceImpl hostSkillConsumeService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private SkillConsumeLegacyTransactionExecutor legacyTransactionExecutor;
 
     @org.springframework.beans.factory.annotation.Autowired
     private FbsScenePackMapper scenePackMapper;
@@ -276,8 +281,10 @@ class SkillConsumeCreditLedgerV2MysqlIT {
 
     @Test
     void dualFlagHostConsumeUsesV2AndNeverCallsLegacyWriters() throws SQLException {
-        assertTrue(AopUtils.isAopProxy(hostSkillConsumeService),
-                "host consume service must execute through its Spring transaction proxy");
+        assertFalse(AopUtils.isAopProxy(hostSkillConsumeService),
+                "host dispatcher must not retain a connection before invoking v2");
+        assertTrue(AopUtils.isAopProxy(legacyTransactionExecutor),
+                "legacy mutations must execute through their dedicated transaction proxy");
         assertEquals(0L, legacyUsageGuard.invocationCount());
 
         long userId = insertUser(100);
@@ -303,10 +310,10 @@ class SkillConsumeCreditLedgerV2MysqlIT {
 
         ConsumeResult first = hostSkillConsumeService.consume(
                 userId, packCode, "board.review", usageId,
-                " workbuddy ", "session-host", null);
+                " workbuddy ", null, null);
         ConsumeResult replay = hostSkillConsumeService.consume(
                 userId, packCode, "board.review", usageId,
-                " workbuddy ", "session-host", null);
+                " workbuddy ", null, null);
 
         assertTrue(first.isSuccess());
         assertTrue(replay.isSuccess());
@@ -319,6 +326,9 @@ class SkillConsumeCreditLedgerV2MysqlIT {
         assertEquals(1L, rows("fbs_skill_credit_operation_v2", userId));
         assertEquals(1L, entryRows(userId));
         assertEquals(1L, rows("fbs_skill_credit_projection_bridge_v2", userId));
+        assertEquals(1L, scalarLong(
+                "SELECT COUNT(*) FROM fbs_skill_usage_record "
+                        + "WHERE usage_record_id=? AND host_session_id IS NULL", usageId));
         assertEquals("7001|26.7.20|board.review|25|WORKBUDDY|1", scalarString(
                 "SELECT CONCAT_WS('|',pack_id,pack_version,skill_code,points_amount,"
                         + "host_type,status) FROM fbs_skill_usage_record "
@@ -327,6 +337,41 @@ class SkillConsumeCreditLedgerV2MysqlIT {
                 "SELECT CONCAT_WS('|',pack_id,pack_version,skill_code,delta_amount,host_type) "
                         + "FROM fbs_skill_credit_operation_v2 "
                         + "WHERE usage_record_id=? AND user_id=?", usageId, userId));
+    }
+
+    @Test
+    void ambientCallerTransactionFailsClosedBeforeTheV2Writer() throws SQLException {
+        long userId = insertUser(100);
+        String packCode = "board-host-ambient";
+        String usageId = "usage.mysql.ambient." + userId;
+        FbsScenePack pack = new FbsScenePack();
+        pack.setId(7_002L);
+        pack.setPackCode(packCode);
+        pack.setStatus(1);
+        pack.setCurrentVersion("26.7.20");
+        pack.setPointsRuleCode("SKILL_USE");
+        PointsRule rule = new PointsRule();
+        rule.setRuleCode("SKILL_USE");
+        rule.setStatus("0");
+        rule.setPointsValue(25);
+        when(scenePackMapper.selectByPackCode(packCode)).thenReturn(pack);
+        when(pointsRuleMapper.selectPointsRuleByRuleCode("SKILL_USE")).thenReturn(rule);
+        when(rightsCheckService.comprehensiveCheck(
+                userId, packCode, null, "WORKBUDDY", usageId))
+                .thenReturn(ComprehensiveRightsResult.pass(7_002L, "SKILL_USE", 25));
+
+        ConsumeResult result = new TransactionTemplate(
+                new DataSourceTransactionManager(dataSource)).execute(status ->
+                hostSkillConsumeService.consume(
+                        userId, packCode, "board.review", usageId,
+                        "WORKBUDDY", null, null));
+
+        assertFalse(result.isSuccess());
+        assertEquals("SKILL_CONSUME_V2_AMBIENT_TRANSACTION_FORBIDDEN", result.getFailReason());
+        assertEquals(100L, userPoints(userId));
+        assertEquals(0L, rows("fbs_skill_credit_operation_v2", userId));
+        assertEquals(0L, scalarLong(
+                "SELECT COUNT(*) FROM fbs_skill_usage_record WHERE usage_record_id=?", usageId));
     }
 
     private ConsumeResult consume(long userId, String usageId, int amount, String sessionId) {
@@ -619,6 +664,11 @@ class SkillConsumeCreditLedgerV2MysqlIT {
         @Bean
         SkillConsumeServiceImpl hostSkillConsumeService() {
             return new SkillConsumeServiceImpl();
+        }
+
+        @Bean
+        SkillConsumeLegacyTransactionExecutor legacyTransactionExecutor() {
+            return new SkillConsumeLegacyTransactionExecutor();
         }
     }
 }

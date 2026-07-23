@@ -44,8 +44,9 @@ $javaItPath = Join-Path $repoRoot (
 $surefireReport = Join-Path $repoRoot (
     'FBSir-business\target\surefire-reports\TEST-com.wx.fbsir.business.board.credit.service.' +
     'SkillConsumeCreditLedgerV2MysqlIT.xml')
-$expectedTests = 5
+$expectedTests = 6
 $expectedTestNames = @(
+    'ambientCallerTransactionFailsClosedBeforeTheV2Writer',
     'concurrencyDigestConflictAndBalanceRaceCommitOnlyValidWinners',
     'dualFlagHostConsumeUsesV2AndNeverCallsLegacyWriters',
     'firstConsumeAndExactReplayCommitOneImmutableResult',

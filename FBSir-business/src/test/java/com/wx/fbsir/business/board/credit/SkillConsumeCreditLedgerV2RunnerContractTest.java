@@ -34,7 +34,8 @@ class SkillConsumeCreditLedgerV2RunnerContractTest {
         assertContains("-dtest=skillconsumecreditledgerv2mysqlit");
         assertContains("independent.board.skill.consume.credit.mysql.it.allowdestructive=true");
         assertContains("read-surefireevidence");
-        assertContains("$expectedtests = 5");
+        assertContains("$expectedtests = 6");
+        assertContains("ambientcallertransactionfailsclosedbeforethev2writer");
         assertContains("dualflaghostconsumeusesv2andnevercallslegacywriters");
         assertContains("hostconsumeservice");
         assertContains("applicationtransactionmatrix");
@@ -71,6 +72,16 @@ class SkillConsumeCreditLedgerV2RunnerContractTest {
         assertVerifierContains("exacttargetactivationreceiptopen");
         assertVerifierContains("fbsir_independent_board_credit_ledger_candidate_enabled:false");
         assertVerifierContains("fbsir_independent_board_skill_consume_credit_writer_enabled:false");
+    }
+
+    @Test
+    void centralVerifierRequiresTheW4b5eActivationSafetySuccessorReceipt() {
+        assertVerifierContains("skill-consume-activation-safety-verification-20260723.json");
+        assertVerifierContains("pass_local_default_off_skill_consume_activation_safety");
+        assertVerifierContains("ambientv2failsclosed");
+        assertVerifierContains("absentdigesthexlength");
+        assertVerifierContains("externaldeliveryexactlyonce");
+        assertVerifierContains("w4b5f_skill_consume_commercial_hub_outbox_and_gateway");
     }
 
     private static void assertContains(String expected) {

@@ -7,6 +7,7 @@ import com.wx.fbsir.business.fbs.dto.ComprehensiveRightsResult;
 import com.wx.fbsir.business.fbs.dto.ConsumeResult;
 import com.wx.fbsir.business.fbs.mapper.*;
 import com.wx.fbsir.business.fbs.service.impl.SkillConsumeServiceImpl;
+import com.wx.fbsir.business.fbs.service.impl.SkillConsumeLegacyTransactionExecutor;
 import com.wx.fbsir.business.fbs.service.RightsCheckService;
 import com.wx.fbsir.business.point.domain.PointsRule;
 import com.wx.fbsir.business.point.mapper.PointsRuleMapper;
@@ -22,8 +23,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -48,6 +51,7 @@ class SkillConsumeServiceTest {
     @Mock private IPointsService pointsService;
     @Mock private SkillConsumeCreditWriter skillConsumeCreditWriter;
     @Mock private WecomBusinessSyncService wecomBusinessSyncService;
+    @Mock private SkillConsumeLegacyTransactionExecutor legacyTransactionExecutor;
     // 企业 Mapper（required=false，无表时为 null）
     @Mock private FbsEnterpriseMapper enterpriseMapper;
     @Mock private FbsEnterpriseMemberMapper enterpriseMemberMapper;
@@ -74,10 +78,44 @@ class SkillConsumeServiceTest {
 
     @BeforeEach
     void defaultUsageTerminalCompareAndSetSucceeds() {
+        lenient().when(legacyTransactionExecutor.execute(any())).thenAnswer(invocation ->
+                ((Supplier<ConsumeResult>) invocation.getArgument(0)).get());
         lenient().when(usageRecordMapper.updateStatusByRecordId(anyString(), anyInt(), nullable(String.class)))
                 .thenReturn(1);
         ReflectionTestUtils.setField(skillConsumeService, "creditLedgerCandidateEnabled", false);
         ReflectionTestUtils.setField(skillConsumeService, "skillConsumeCreditWriterEnabled", false);
+    }
+
+    @Test
+    void w4b5eKeepsTheDispatcherNonTransactionalAndTheLegacyExecutorTransactional()
+            throws NoSuchMethodException {
+        assertNull(SkillConsumeServiceImpl.class.getMethod(
+                "consume", Long.class, String.class, String.class, String.class,
+                String.class, String.class, String.class).getAnnotation(Transactional.class));
+        assertNotNull(SkillConsumeLegacyTransactionExecutor.class.getMethod(
+                "execute", Supplier.class).getAnnotation(Transactional.class));
+    }
+
+    @Test
+    void w4b5eLegacyRouteDriftFailsClosedInsideTheTransactionBeforeWrites() {
+        FbsScenePack prepared = buildPack(RULE_CODE);
+        FbsScenePack revoked = buildPack(RULE_CODE);
+        revoked.setStatus(0);
+        when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(prepared, revoked);
+        when(pointsRuleMapper.selectPointsRuleByRuleCode(RULE_CODE))
+                .thenReturn(buildRule("0", 10));
+        when(rightsCheckService.comprehensiveCheck(
+                USER_ID, PACK_CODE, null, HOST_TYPE_WB, USAGE_RECORD_ID))
+                .thenReturn(ComprehensiveRightsResult.pass(PACK_ID, RULE_CODE, 10));
+
+        ConsumeResult result = skillConsumeService.consume(
+                USER_ID, PACK_CODE, SKILL_CODE, USAGE_RECORD_ID,
+                HOST_TYPE_WB, HOST_SESSION_ID, null);
+
+        assertFalse(result.isSuccess());
+        assertEquals("SKILL_CONSUME_LEGACY_ROUTE_DRIFT", result.getFailReason());
+        verify(usageRecordMapper, never()).insertUsageRecord(any());
+        verifyNoInteractions(pointsService);
     }
 
     // ---- Fixture ----

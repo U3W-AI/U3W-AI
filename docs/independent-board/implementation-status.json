@@ -5,7 +5,7 @@
     "brandEn": "FBSir",
     "name": "独董会"
   },
-  "platformVersion": "0.4.8-dev",
+  "platformVersion": "0.4.9-dev",
   "expertPackage": {
     "version": "26.7.20",
     "state": "officially_listed_user_confirmed",
@@ -302,7 +302,8 @@
     "w4b5a_skill_consume_v2_normalized_command_and_digest_contract_verified",
     "w4b5b_skill_consume_v2_internal_writer_and_requires_new_transaction_contract_verified",
     "w4b5c_skill_consume_v2_dual_mysql_application_transaction_and_038_042_mutual_exclusion_verified",
-    "w4b5d_default_off_host_consume_delegation_zero_legacy_fallback_and_dual_mysql_5_of_5_each_verified"
+    "w4b5d_default_off_host_consume_delegation_zero_legacy_fallback_and_dual_mysql_5_of_5_each_verified",
+    "w4b5e_nontransactional_dispatcher_ambient_transaction_guard_nullable_host_session_and_dual_mysql_6_of_6_each_verified"
   ],
   "notProven": [
     "oauth_public_routes",
@@ -339,8 +340,6 @@
     "skill_usage_enterprise_tenant_and_member_snapshot",
     "skill_usage_end_api_key_instance_and_host_scope_binding",
     "skill_usage_server_verified_host_instance_identity",
-    "skill_consume_v2_outer_transaction_connection_pool_capacity_or_dispatcher_separation",
-    "skill_consume_v2_nullable_host_session_compatibility_and_real_traffic_proof",
     "skill_consume_v2_operation_idempotent_commercial_hub_outbox_or_approved_exclusion",
     "skill_consume_v2_exact_target_activation_rollback_and_human_approval_receipt_refresh",
     "connector_vip_binding",
@@ -481,6 +480,24 @@
     "productionAuthority": false,
     "remainingBoundary": "nontransactional_dispatch_or_connection_pool_capacity_proof_plus_nullable_host_session_compatibility_and_real_traffic_proof_plus_operation_idempotent_commercial_hub_outbox_and_exact_target_activation_receipt",
     "nextSlice": "W4B5E_skill_consume_activation_safety_and_release_receipt_refresh"
+  },
+  "w4b5e": {
+    "state": "local_default_off_skill_consume_activation_safety_dual_mysql_verified",
+    "contract": "docs/independent-board/W4B5E-SKILL-CONSUME-ACTIVATION-SAFETY-CONTRACT.md",
+    "verificationReport": "reports/independent-board/skill-consume-activation-safety-verification-20260723.json",
+    "transactionBoundary": "nontransactional_host_dispatcher_plus_required_legacy_transaction_executor_plus_v2_ambient_transaction_fail_closed",
+    "legacyDriftBoundary": "pack_version_rule_and_amount_revalidated_inside_legacy_transaction_before_any_write",
+    "hostSessionCompatibility": "public_nullable_contract_reconciled_by_domain_separated_absent_digest_blank_values_still_rejected",
+    "verifiedMysql": [
+      "MySQL Community 8.0.30",
+      "MySQL Community 8.4.8"
+    ],
+    "testsPerMysqlVersion": 6,
+    "commercialHubOutbox": "not_implemented_external_delivery_exactly_once_false",
+    "releaseReady": false,
+    "productionAuthority": false,
+    "remainingBoundary": "operation_idempotent_commercial_hub_043_outbox_exact_target_gateway_readback_reconciliation_and_activation_receipt",
+    "nextSlice": "W4B5F_skill_consume_commercial_hub_outbox_and_gateway"
   },
   "ui": {
     "base": "existing_u3w_ai_ruoyi_vue3_element_plus",

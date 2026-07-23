@@ -103,7 +103,7 @@ final class SkillConsumeCreditCommand {
         }
         requireHostSession(hostSessionId);
 
-        String hostSessionDigest = sha256(hostSessionId);
+        String hostSessionDigest = digestHostSession(hostSessionId);
         String idempotencyKey = "scv1:" + sha256(canonical("skill-consume-usage-anchor-v1", usageRecordId));
         String requestDigest = sha256(canonical(
                 PROTOCOL_VERSION,
@@ -192,12 +192,21 @@ final class SkillConsumeCreditCommand {
     }
 
     private static void requireHostSession(String value) {
-        if (value == null || value.isEmpty() || value.length() > 128
+        if (value == null) {
+            return;
+        }
+        if (value.isBlank() || value.length() > 128
                 || value.codePoints().anyMatch(codePoint -> Character.isISOControl(codePoint)
                 || Character.getType(codePoint) == Character.FORMAT
                 || Character.getType(codePoint) == Character.SURROGATE)) {
             throw invalid("HOST_SESSION_ID");
         }
+    }
+
+    static String digestHostSession(String value) {
+        return value == null
+                ? sha256(canonical("skill-consume-host-session-v1", "ABSENT"))
+                : sha256(value);
     }
 
     private static IllegalArgumentException invalid(String field) {

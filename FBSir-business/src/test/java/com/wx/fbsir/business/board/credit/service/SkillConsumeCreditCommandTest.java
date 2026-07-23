@@ -105,6 +105,20 @@ class SkillConsumeCreditCommandTest {
                 "WORKBUDDY", "session"));
     }
 
+    @Test
+    void nullablePublicHostSessionHasAStableTypedReplayDigestButBlankRemainsInvalid() {
+        SkillConsumeCreditCommand first = command(null);
+        SkillConsumeCreditCommand replay = command(null);
+        SkillConsumeCreditCommand present = command("host-session-secret");
+
+        assertEquals(first.hostSessionDigest(), replay.hostSessionDigest());
+        assertEquals(first.requestDigest(), replay.requestDigest());
+        assertNotEquals(first.hostSessionDigest(), present.hostSessionDigest());
+        assertNotEquals(first.requestDigest(), present.requestDigest());
+        assertThrows(IllegalArgumentException.class, () -> command(""));
+        assertThrows(IllegalArgumentException.class, () -> command(" "));
+    }
+
     private SkillConsumeCreditCommand command(String hostSessionId) {
         return command(7L, "usage-001", 9L, "1.2.3", "skill-code", "rule-code", 25,
                 "WORKBUDDY", hostSessionId);

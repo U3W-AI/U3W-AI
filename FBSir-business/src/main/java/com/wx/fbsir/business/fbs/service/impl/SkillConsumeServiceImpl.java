@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.util.Date;
@@ -90,6 +90,9 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
     @Autowired(required = false)
     private WecomBusinessSyncService wecomBusinessSyncService;
 
+    @Autowired
+    private SkillConsumeLegacyTransactionExecutor legacyTransactionExecutor;
+
     /**
      * The two flags deliberately form an AND gate.  The existing credit-candidate
      * admin/read surface can be enabled alone without activating a different
@@ -106,7 +109,6 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
     // =====================================================================
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public ConsumeResult consume(Long userId, String packCode, String skillCode,
                                  String usageRecordId, String hostType,
                                  String hostSessionId, String authCode) {
@@ -117,7 +119,8 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
 
         // ---- hostType=ENTERPRISE：走企业配额路径 ----
         if ("ENTERPRISE".equalsIgnoreCase(hostType)) {
-            return consumeEnterprise(userId, packCode, skillCode, usageRecordId, hostType, hostSessionId);
+            return executeLegacy(() -> consumeEnterprise(
+                    userId, packCode, skillCode, usageRecordId, hostType, hostSessionId));
         }
 
         // ---- WORKBUDDY 路径（原 OpenSpec #1 个人授权路径）----
@@ -166,6 +169,10 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
         // status in one isolated transaction.  Never fall back to the legacy
         // writer after this branch has been selected.
         if (pointsAmount > 0 && creditLedgerCandidateEnabled && skillConsumeCreditWriterEnabled) {
+            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                return ConsumeResult.fail(
+                        usageRecordId, "SKILL_CONSUME_V2_AMBIENT_TRANSACTION_FORBIDDEN");
+            }
             if (skillConsumeCreditWriter == null) {
                 return ConsumeResult.fail(usageRecordId, SKILL_CONSUME_CREDIT_WRITER_NOT_READY);
             }
@@ -174,6 +181,23 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
                     pointsRuleCode, pointsAmount, normalizeHostType(hostType), hostSessionId);
         }
 
+        int legacyPointsAmount = pointsAmount;
+        return executeLegacy(() -> consumePersonalLegacy(
+                userId, packCode, skillCode, usageRecordId, hostType, hostSessionId,
+                authCode, pack, pointsRuleCode, legacyPointsAmount));
+    }
+
+    private ConsumeResult consumePersonalLegacy(
+            Long userId, String packCode, String skillCode, String usageRecordId,
+            String hostType, String hostSessionId, String authCode, FbsScenePack pack,
+            String pointsRuleCode, int pointsAmount) {
+        ConsumeResult drift = revalidateLegacyPersonalRoute(
+                userId, packCode, usageRecordId, hostType, authCode,
+                pack, pointsRuleCode, pointsAmount);
+        if (drift != null) {
+            return drift;
+        }
+        Long packId = pack.getId();
         // ---- 步骤 4：幂等写入 fbs_skill_usage_record（status=0）----
         // 幂等：若 usageRecordId 已存在且 status=0 → 继续（视为重试）
         //       若 usageRecordId 已存在且 status=1/2 → 直接返回（已处理）
@@ -245,6 +269,49 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
                 usageRecordId, pack, authCode, pointsRuleCode);
 
         return ConsumeResult.success(usageRecordId, remainPoints);
+    }
+
+    private ConsumeResult executeLegacy(java.util.function.Supplier<ConsumeResult> work) {
+        if (legacyTransactionExecutor == null) {
+            throw new IllegalStateException("SKILL_CONSUME_LEGACY_TRANSACTION_EXECUTOR_REQUIRED");
+        }
+        return legacyTransactionExecutor.execute(work);
+    }
+
+    private ConsumeResult revalidateLegacyPersonalRoute(
+            Long userId, String packCode, String usageRecordId, String hostType,
+            String authCode, FbsScenePack preparedPack, String preparedRuleCode,
+            int preparedPointsAmount) {
+        FbsScenePack currentPack = scenePackMapper.selectByPackCode(packCode);
+        if (currentPack == null
+                || !Objects.equals(currentPack.getId(), preparedPack.getId())
+                || !Objects.equals(currentPack.getCurrentVersion(), preparedPack.getCurrentVersion())
+                || !Objects.equals(currentPack.getPointsRuleCode(), preparedRuleCode)
+                || !Objects.equals(currentPack.getStatus(), 1)) {
+            return ConsumeResult.fail(usageRecordId, "SKILL_CONSUME_LEGACY_ROUTE_DRIFT");
+        }
+        int currentPointsAmount = 0;
+        if (StringUtils.hasText(preparedRuleCode)) {
+            PointsRule currentRule = pointsRuleMapper.selectPointsRuleByRuleCode(preparedRuleCode);
+            if (currentRule == null || !"0".equals(currentRule.getStatus())) {
+                return ConsumeResult.fail(usageRecordId, "SKILL_CONSUME_LEGACY_ROUTE_DRIFT");
+            }
+            long absoluteAmount = currentRule.getPointsValue() == null
+                    ? 0L : Math.abs(currentRule.getPointsValue().longValue());
+            if (absoluteAmount > Integer.MAX_VALUE) {
+                return ConsumeResult.fail(usageRecordId, SKILL_POINTS_RULE_AMOUNT_INVALID);
+            }
+            currentPointsAmount = Math.toIntExact(absoluteAmount);
+        }
+        if (currentPointsAmount != preparedPointsAmount) {
+            return ConsumeResult.fail(usageRecordId, "SKILL_CONSUME_LEGACY_ROUTE_DRIFT");
+        }
+        ComprehensiveRightsResult currentRights = rightsCheckService.comprehensiveCheck(
+                userId, packCode, authCode, hostType, usageRecordId);
+        if (!currentRights.isPass()) {
+            return ConsumeResult.fail(usageRecordId, currentRights.getFailReason());
+        }
+        return null;
     }
 
     private void syncPersonalConsumptionBestEffort(

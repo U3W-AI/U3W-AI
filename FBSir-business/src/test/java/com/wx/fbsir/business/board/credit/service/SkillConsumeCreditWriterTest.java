@@ -5,6 +5,7 @@ import com.wx.fbsir.common.exception.ServiceException;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -99,5 +100,26 @@ class SkillConsumeCreditWriterTest {
 
         assertTrue(result.isSuccess());
         verify(transaction).requireReplay(any());
+    }
+
+    @Test
+    void ambientTransactionFailsClosedBeforeAnyLedgerTransactionIsOpened() {
+        SkillConsumeCreditTransactionService transaction =
+                mock(SkillConsumeCreditTransactionService.class);
+        SkillConsumeCreditWriter writer = new SkillConsumeCreditWriter(transaction);
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            ConsumeResult result = writer.consume(
+                    7L, "usage-001", 9L, "1.2.3", "skill-code", "rule-code", 25,
+                    "WORKBUDDY", null);
+
+            assertFalse(result.isSuccess());
+            assertEquals("SKILL_CONSUME_V2_AMBIENT_TRANSACTION_FORBIDDEN",
+                    result.getFailReason());
+            verify(transaction, never()).replayIfPresent(any());
+            verify(transaction, never()).consumeFresh(any(), any());
+        } finally {
+            TransactionSynchronizationManager.clear();
+        }
     }
 }

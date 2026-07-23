@@ -11,12 +11,8 @@ import com.wx.fbsir.business.fbs.domain.enums.UsageStatus;
 import com.wx.fbsir.business.fbs.dto.ConsumeResult;
 import com.wx.fbsir.business.fbs.mapper.FbsSkillUsageRecordMapper;
 import com.wx.fbsir.common.exception.ServiceException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.util.Date;
-import java.util.HexFormat;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -222,7 +218,8 @@ class SkillConsumeCreditTransactionService {
                 || !Objects.equals(usage.getSkillCode(), command.skillCode())
                 || !Objects.equals(usage.getHostType(), command.hostType())
                 || !Objects.equals(usage.getPointsAmount(), command.amount())
-                || !SkillConsumeCreditDigest.equal(sha256(usage.getHostSessionId()),
+                || !SkillConsumeCreditDigest.equal(
+                        SkillConsumeCreditCommand.digestHostSession(usage.getHostSessionId()),
                         command.hostSessionDigest())) {
             throw failure("SKILL_USAGE_RECORD_SCOPE_MISMATCH", 409);
         }
@@ -411,18 +408,6 @@ class SkillConsumeCreditTransactionService {
             throw failure("SKILL_CREDIT_LEDGER_ID_GENERATION_FAILED", 500);
         }
         return value;
-    }
-
-    private static String sha256(String value) {
-        if (value == null) {
-            return "";
-        }
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
     }
 
     private static ServiceException failure(String code, int status) {

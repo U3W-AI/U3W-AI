@@ -7,6 +7,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Internal-only default-off 042 writer facade. The host consume service may
@@ -26,6 +27,10 @@ public class SkillConsumeCreditWriter {
             Long userId, String usageRecordId, Long packId, String packVersion,
             String skillCode, String ruleCode, Integer amount, String hostType,
             String rawHostSessionId) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            return ConsumeResult.fail(
+                    usageRecordId, "SKILL_CONSUME_V2_AMBIENT_TRANSACTION_FORBIDDEN");
+        }
         final SkillConsumeCreditCommand command;
         try {
             command = SkillConsumeCreditCommand.create(
