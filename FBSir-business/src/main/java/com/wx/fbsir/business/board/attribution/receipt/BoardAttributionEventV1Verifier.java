@@ -1,0 +1,391 @@
+package com.wx.fbsir.business.board.attribution.receipt;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.wx.fbsir.business.board.attribution.config.IndependentBoardAttributionProperties;
+import com.wx.fbsir.business.board.attribution.intent.BoardIntentClassifier;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.time.Clock;
+import java.time.DateTimeException;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.regex.Pattern;
+
+/**
+ * Side-effect-free verifier for the exact currently listed WorkBuddy package.
+ * There is no compatibility branch for an older listed version.
+ */
+public final class BoardAttributionEventV1Verifier {
+    public static final String SCHEMA_VERSION =
+            "fbsir.independentBoardAttributionEvent.v1";
+    public static final String CONTRACT_ID =
+            "FBSIR_INDEPENDENT_BOARD_W1A_V1";
+    public static final String SIGNATURE_ALGORITHM = "hmac-sha256-v1";
+    private static final int MIN_SECRET_BYTES = 32;
+    private static final int MAX_TTL_SECONDS = 120;
+    private static final int MAX_FIELD_CHARS = 256;
+    private static final int MAX_CANONICAL_CHARS = 32_768;
+    private static final long CLOCK_SKEW_SECONDS = 30;
+    private static final Pattern HEX_64 = Pattern.compile("[0-9a-f]{64}");
+    private static final Pattern BINDING = Pattern.compile(
+            "(?:[0-9a-f]{64}|srv_[A-Za-z0-9_-]{12,80})");
+    private static final Pattern HOST_VERSION = Pattern.compile(
+            "(?:[0-9]+(?:\\.[0-9]+){1,3}|UNKNOWN)");
+    private static final Pattern SAFE_TOKEN = Pattern.compile(
+            "[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}");
+    private static final Pattern TRACEPARENT = Pattern.compile(
+            "00-(?!0{32})[0-9a-f]{32}-(?!0{16})[0-9a-f]{16}-[0-9a-f]{2}");
+    private static final Set<String> TERMINALS = Set.of(
+            "WORKBUDDY_WINDOWS", "WORKBUDDY_MACOS", "WORKBUDDYAI", "UNKNOWN");
+    private static final Set<String> CHANNELS =
+            Set.of("OFFICIAL_EXPERTS", "UNKNOWN");
+    private static final Set<String> REQUEST_SOURCES =
+            Set.of("WORKBUDDY_OFFICIAL_ENTRY", "HOST_FORWARDING", "UNKNOWN");
+    private static final Set<String> CLASSIFICATION_SOURCES =
+            Set.of("PACKAGE_SCENE_ROUTER", "SERVER_CLASSIFIER", "UNKNOWN");
+    private static final Set<String> CONFIDENCE_BUCKETS =
+            Set.of("HIGH", "MEDIUM", "LOW", "UNKNOWN");
+    private static final Set<String> REVIEW_MODES =
+            Set.of("QUICK_REVIEW", "STANDARD_REVIEW", "DEEP_REVIEW", "UNKNOWN");
+    private static final Set<String> TRAFFIC_CLASSES =
+            Set.of("NATURAL", "PROBE", "DIAGNOSTIC", "SYNTHETIC", "UNKNOWN");
+    private static final Set<String> OUTCOMES =
+            Set.of("SUCCESS", "FAILED", "WITHHELD");
+    private static final ObjectMapper JSON = new ObjectMapper();
+
+    private final Map<String, byte[]> keyring;
+    private final Clock clock;
+    private final BoardIntentClassifier intentClassifier;
+
+    public BoardAttributionEventV1Verifier(
+            Map<String, String> encodedKeys, Clock clock) {
+        this(encodedKeys, clock, new BoardIntentClassifier());
+    }
+
+    public BoardAttributionEventV1Verifier(
+            Map<String, String> encodedKeys,
+            Clock clock,
+            BoardIntentClassifier intentClassifier) {
+        this.keyring = decodeKeyring(encodedKeys);
+        this.clock = clock == null ? Clock.systemUTC() : clock;
+        this.intentClassifier = intentClassifier == null
+                ? new BoardIntentClassifier() : intentClassifier;
+    }
+
+    public boolean isConfigured() {
+        return !keyring.isEmpty();
+    }
+
+    public VerifiedBoardAttributionEvent verify(
+            BoardAttributionEventV1 event,
+            IndependentBoardAttributionProperties properties) {
+        if (event == null) {
+            reject("event_required");
+        }
+        if (properties == null) {
+            reject("properties_required");
+        }
+        verifyIdentity(event);
+        verifyFiniteDimensions(event);
+        verifySequence(event);
+        verifyPrivacy(event);
+
+        Instant issuedAt = parseInstant(event.getIssuedAt());
+        Instant expiresAt = parseInstant(event.getExpiresAt());
+        Instant occurredAt = parseInstant(event.getOccurredAt());
+        Instant now = clock.instant();
+        long configuredTtl = Math.max(1,
+                Math.min(properties.getReceiptTtlSeconds(), MAX_TTL_SECONDS));
+        long ttl;
+        try {
+            ttl = expiresAt.getEpochSecond() - issuedAt.getEpochSecond();
+        } catch (ArithmeticException error) {
+            throw new IllegalArgumentException(
+                    "event_expired_or_ttl_invalid", error);
+        }
+        if (ttl <= 0 || ttl > configuredTtl
+                || now.isBefore(issuedAt.minusSeconds(CLOCK_SKEW_SECONDS))
+                || now.isAfter(expiresAt)
+                || occurredAt.isBefore(issuedAt.minusSeconds(CLOCK_SKEW_SECONDS))
+                || occurredAt.isAfter(expiresAt)) {
+            reject("event_expired_or_ttl_invalid");
+        }
+
+        if (!isConfigured()) {
+            reject("event_signature_keyring_unconfigured");
+        }
+        String keyId = text(event.getKeyId());
+        byte[] secret = keyring.get(keyId);
+        if (secret == null) {
+            reject("event_signature_key_unknown");
+        }
+        if (!SIGNATURE_ALGORITHM.equals(text(event.getSignatureAlgorithm()))) {
+            reject("signature_algorithm_unsupported");
+        }
+        String supplied = signatureHex(event.getSignature());
+        if (supplied.isEmpty()) {
+            reject("signature_malformed");
+        }
+        String canonical = canonicalJson(signedFields(event));
+        if (canonical.length() > MAX_CANONICAL_CHARS) {
+            reject("event_too_large");
+        }
+        byte[] computed = hmacSha256(
+                secret, canonical.getBytes(StandardCharsets.UTF_8));
+        if (!MessageDigest.isEqual(computed, HexFormat.of().parseHex(supplied))) {
+            reject("signature_mismatch");
+        }
+
+        String canonicalDigest = sha256Hex(
+                canonical.getBytes(StandardCharsets.UTF_8));
+        String nonceHash = sha256Hex(
+                text(event.getNonce()).getBytes(StandardCharsets.UTF_8));
+        String eventDigest = sha256Hex(
+                (canonical + "\n" + supplied).getBytes(StandardCharsets.UTF_8));
+        return new VerifiedBoardAttributionEvent(
+                event, issuedAt, expiresAt, canonicalDigest, supplied,
+                nonceHash, eventDigest,
+                intentClassifier.classify(event.getIntentSignal()));
+    }
+
+    private void verifyIdentity(BoardAttributionEventV1 event) {
+        if (!SCHEMA_VERSION.equals(text(event.getSchemaVersion()))
+                || !CONTRACT_ID.equals(text(event.getContractId()))
+                || !"fbsir-eight-seat-board".equals(text(event.getProductId()))
+                || !"fbsir-eight-seat-board".equals(text(event.getPackageId()))
+                || !"board-convener".equals(text(event.getAgentName()))
+                || !"experts".equals(text(event.getMarketplace()))
+                || !"listed_runtime_state".equals(text(event.getListedSurface()))
+                || !"WORKBUDDY".equals(text(event.getHostClientFamily()))) {
+            reject("official_identity_mismatch");
+        }
+        if (!"26.7.21".equals(text(event.getListedManifestVersion()))
+                || !"26.7.20".equals(text(event.getEmbeddedContractVersion()))) {
+            reject("listed_identity_mismatch");
+        }
+        if (!sha256(event.getEventId()) || !sha256(event.getReceiptId())
+                || !sha256(event.getJourneyId())
+                || !BINDING.matcher(text(event.getServerBindingId())).matches()
+                || !sha256(event.getSameBindingKey())
+                || !sha256(event.getTenantSubjectDigest())) {
+            reject("identity_digest_invalid");
+        }
+    }
+
+    private void verifyFiniteDimensions(BoardAttributionEventV1 event) {
+        if (!HOST_VERSION.matcher(text(event.getHostVersion())).matches()
+                || !TERMINALS.contains(text(event.getTerminal()))
+                || !CHANNELS.contains(text(event.getChannel()))
+                || !REQUEST_SOURCES.contains(text(event.getRequestSource()))
+                || !CLASSIFICATION_SOURCES.contains(
+                        text(event.getClassificationSource()))
+                || !CONFIDENCE_BUCKETS.contains(
+                        text(event.getConfidenceBucket()))
+                || !REVIEW_MODES.contains(text(event.getReviewMode()))
+                || !TRAFFIC_CLASSES.contains(text(event.getTrafficClass()))
+                || !OUTCOMES.contains(text(event.getOutcome()))
+                || !safeToken(event.getIntentSignal())
+                || !safeToken(event.getClassifierVersion())
+                || !safeToken(event.getNonce())
+                || !safeToken(event.getKeyId())) {
+            reject("finite_dimension_invalid");
+        }
+        if ("NATURAL".equals(text(event.getTrafficClass()))
+                && !"API2_SERVER_CLASSIFIER_V1".equals(
+                text(event.getTrafficAuthority()))) {
+            reject("traffic_authority_invalid");
+        }
+        if (!"API2_SERVER_CLASSIFIER_V1".equals(
+                text(event.getTrafficAuthority()))) {
+            reject("traffic_authority_invalid");
+        }
+    }
+
+    private void verifySequence(BoardAttributionEventV1 event) {
+        long sequence = event.getSequenceNo();
+        String type = text(event.getEventType());
+        boolean valid = ("ENTRY_OBSERVED".equals(type) && sequence == 1)
+                || ("INTENT_CLASSIFIED".equals(type) && sequence == 2)
+                || ("FIRST_VALUE_COMPLETED".equals(type) && sequence == 3);
+        if (!valid) {
+            reject("event_sequence_invalid");
+        }
+        String previous = text(event.getPreviousEventDigest());
+        if ((sequence == 1 && !previous.isEmpty())
+                || (sequence > 1 && !sha256(previous))) {
+            reject("previous_event_digest_invalid");
+        }
+    }
+
+    private void verifyPrivacy(BoardAttributionEventV1 event) {
+        if (event.isRawContentStored()) {
+            reject("raw_content_forbidden");
+        }
+        String traceparent = text(event.getTraceparent());
+        if (!traceparent.isEmpty()
+                && !TRACEPARENT.matcher(traceparent).matches()) {
+            reject("traceparent_invalid");
+        }
+    }
+
+    private Map<String, String> signedFields(BoardAttributionEventV1 event) {
+        Map<String, String> values = new TreeMap<>();
+        values.put("agentName", text(event.getAgentName()));
+        values.put("channel", text(event.getChannel()));
+        values.put("classificationSource", text(event.getClassificationSource()));
+        values.put("classifierVersion", text(event.getClassifierVersion()));
+        values.put("confidenceBucket", text(event.getConfidenceBucket()));
+        values.put("contractId", text(event.getContractId()));
+        values.put("embeddedContractVersion",
+                text(event.getEmbeddedContractVersion()));
+        values.put("eventId", text(event.getEventId()));
+        values.put("eventType", text(event.getEventType()));
+        values.put("expiresAt", text(event.getExpiresAt()));
+        values.put("hostClientFamily", text(event.getHostClientFamily()));
+        values.put("hostVersion", text(event.getHostVersion()));
+        values.put("intentSignal", text(event.getIntentSignal()));
+        values.put("issuedAt", text(event.getIssuedAt()));
+        values.put("journeyId", text(event.getJourneyId()));
+        values.put("keyId", text(event.getKeyId()));
+        values.put("listedManifestVersion",
+                text(event.getListedManifestVersion()));
+        values.put("listedSurface", text(event.getListedSurface()));
+        values.put("marketplace", text(event.getMarketplace()));
+        values.put("nonce", text(event.getNonce()));
+        values.put("occurredAt", text(event.getOccurredAt()));
+        values.put("outcome", text(event.getOutcome()));
+        values.put("packageId", text(event.getPackageId()));
+        values.put("previousEventDigest", text(event.getPreviousEventDigest()));
+        values.put("productId", text(event.getProductId()));
+        values.put("rawContentStored",
+                Boolean.toString(event.isRawContentStored()));
+        values.put("receiptId", text(event.getReceiptId()));
+        values.put("requestSource", text(event.getRequestSource()));
+        values.put("reviewMode", text(event.getReviewMode()));
+        values.put("sameBindingKey", text(event.getSameBindingKey()));
+        values.put("schemaVersion", text(event.getSchemaVersion()));
+        values.put("sequenceNo", Long.toString(event.getSequenceNo()));
+        values.put("serverBindingId", text(event.getServerBindingId()));
+        values.put("signatureAlgorithm", text(event.getSignatureAlgorithm()));
+        values.put("tenantSubjectDigest", text(event.getTenantSubjectDigest()));
+        values.put("terminal", text(event.getTerminal()));
+        values.put("traceparent", text(event.getTraceparent()));
+        values.put("trafficAuthority", text(event.getTrafficAuthority()));
+        values.put("trafficClass", text(event.getTrafficClass()));
+        return values;
+    }
+
+    private static Map<String, byte[]> decodeKeyring(
+            Map<String, String> encodedKeys) {
+        if (encodedKeys == null) {
+            return Map.of();
+        }
+        Map<String, byte[]> decoded = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : encodedKeys.entrySet()) {
+            String keyId = text(entry.getKey());
+            byte[] secret = decodeSecret(entry.getValue());
+            if (!keyId.isEmpty() && secret != null
+                    && secret.length >= MIN_SECRET_BYTES) {
+                decoded.put(keyId, secret.clone());
+            }
+        }
+        return Map.copyOf(decoded);
+    }
+
+    private static byte[] decodeSecret(String encoded) {
+        String value = text(encoded);
+        if (value.isEmpty()) {
+            return null;
+        }
+        try {
+            if (value.startsWith("base64:")) {
+                return Base64.getDecoder().decode(value.substring(7));
+            }
+            if (value.startsWith("hex:")) {
+                String hex = value.substring(4);
+                if (hex.length() % 2 != 0
+                        || !hex.matches("[0-9a-fA-F]+")) {
+                    return null;
+                }
+                return HexFormat.of().parseHex(hex);
+            }
+            String raw = value.startsWith("utf8:")
+                    ? value.substring(5) : value;
+            return raw.getBytes(StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException error) {
+            return null;
+        }
+    }
+
+    private static Instant parseInstant(String value) {
+        try {
+            return Instant.parse(text(value));
+        } catch (DateTimeException error) {
+            throw new IllegalArgumentException("timestamp_malformed", error);
+        }
+    }
+
+    private static String canonicalJson(Map<String, String> values) {
+        try {
+            return JSON.writeValueAsString(new TreeMap<>(values));
+        } catch (JsonProcessingException error) {
+            throw new IllegalStateException(
+                    "Unable to canonicalize attribution event", error);
+        }
+    }
+
+    private static byte[] hmacSha256(byte[] secret, byte[] message) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(secret, "HmacSHA256"));
+            return mac.doFinal(message);
+        } catch (GeneralSecurityException error) {
+            throw new IllegalStateException("HmacSHA256 unavailable", error);
+        }
+    }
+
+    private static String sha256Hex(byte[] input) {
+        try {
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(input));
+        } catch (GeneralSecurityException error) {
+            throw new IllegalStateException("SHA-256 unavailable", error);
+        }
+    }
+
+    private static String signatureHex(String signature) {
+        String value = text(signature).toLowerCase(java.util.Locale.ROOT);
+        if (value.startsWith("v1=")) {
+            value = value.substring(3);
+        }
+        return HEX_64.matcher(value).matches() ? value : "";
+    }
+
+    private static boolean sha256(String value) {
+        return HEX_64.matcher(text(value)).matches();
+    }
+
+    private static boolean safeToken(String value) {
+        String normalized = text(value);
+        return normalized.length() <= MAX_FIELD_CHARS
+                && SAFE_TOKEN.matcher(normalized).matches();
+    }
+
+    private static String text(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
+    }
+
+    private static void reject(String reason) {
+        throw new IllegalArgumentException(reason);
+    }
+}
