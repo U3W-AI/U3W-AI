@@ -15,6 +15,7 @@ import com.wx.fbsir.business.point.service.IPointsService;
 import com.wx.fbsir.common.exception.ServiceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,6 +52,8 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
             "SKILL_ENTERPRISE_MEMBERSHIP_SCOPE_AMBIGUOUS";
     private static final String USAGE_RECORD_TERMINAL_CAS_CONFLICT =
             "SKILL_USAGE_RECORD_TERMINAL_CAS_CONFLICT";
+    private static final String SKILL_CONSUME_CREDIT_WRITER_NOT_READY =
+            "SKILL_CONSUME_CREDIT_WRITER_NOT_READY";
 
     @Autowired
     private FbsScenePackMapper scenePackMapper;
@@ -81,6 +84,17 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
 
     @Autowired(required = false)
     private WecomBusinessSyncService wecomBusinessSyncService;
+
+    /**
+     * The two flags deliberately form an AND gate.  The existing credit-candidate
+     * admin/read surface can be enabled alone without activating a different
+     * personal-consume writer.
+     */
+    @Value("${fbsir.independent-board.credit-ledger-candidate.enabled:false}")
+    private boolean creditLedgerCandidateEnabled;
+
+    @Value("${fbsir.independent-board.skill-consume-credit-writer.enabled:false}")
+    private boolean skillConsumeCreditWriterEnabled;
 
     // =====================================================================
     // consume
@@ -135,6 +149,15 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
                 userId, packCode, authCode, hostType, usageRecordId);
         if (!checkResult.isPass()) {
             return ConsumeResult.fail(usageRecordId, checkResult.getFailReason());
+        }
+
+        // The v2 schema exists only as a default-off candidate.  Until its
+        // internal transaction writer is implemented and separately verified,
+        // a deliberate two-flag activation must fail before creating a legacy
+        // usage row or calling the legacy points writer.  One flag alone keeps
+        // the proven legacy path intact (the gate is an AND, not an override).
+        if (pointsAmount > 0 && creditLedgerCandidateEnabled && skillConsumeCreditWriterEnabled) {
+            return ConsumeResult.fail(usageRecordId, SKILL_CONSUME_CREDIT_WRITER_NOT_READY);
         }
 
         // ---- 步骤 4：幂等写入 fbs_skill_usage_record（status=0）----

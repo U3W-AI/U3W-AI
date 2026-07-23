@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "kind": "fbsir.skill-consume-candidate-fence.verification/v1",
+  "result": "PASS_LOCAL_DEFAULT_OFF_SKILL_CONSUME_FENCE",
+  "verifiedAt": "2026-07-23T09:01:34+08:00",
+  "scope": "default-off guard for the future 042 v2 personal paid skill-consume writer",
+  "candidateReadyForCommit": true,
+  "releaseReady": false,
+  "productionChanged": false,
+  "databaseTouched": false,
+  "frozenListedPackageModified": false,
+  "productionConnectionUsed": false,
+  "frozenPackage": {
+    "path": "D:/Spg719/fbsir-eight-seat-board-26.7.20.zip",
+    "sha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd"
+  },
+  "predecessorSourceSha256": {
+    "scripts/verify-independent-board-control-plane.ps1": "3a849d3c17dc8d112023ee1efa70502949e44cf320afd295a51fc9f78994b8e4"
+  },
+  "serviceContract": {
+    "requiresBothFlags": true,
+    "pairError": "SKILL_CONSUME_CREDIT_WRITER_NOT_READY",
+    "pairRejectsBeforeUsageOrLegacyPointsWrite": true,
+    "singleFlagRetainsLegacyPath": true,
+    "freeAndEnterpriseNotGated": true,
+    "addsHttpOrMcpWriteSurface": false
+  },
+  "red": {
+    "command": "mvn -o -pl FBSir-business -Dtest=SkillConsumeServiceTest -DforkCount=0 test",
+    "result": "EXPECTED_FAILURE_MISSING_FENCE_FIELDS",
+    "errors": 34,
+    "reason": "creditLedgerCandidateEnabled was absent before the fence implementation"
+  },
+  "maven": {
+    "command": "mvn -o -pl FBSir-business -Dtest=SkillConsumeServiceTest -DforkCount=0 test",
+    "testsRun": 35,
+    "failures": 0,
+    "errors": 0,
+    "result": "BUILD_SUCCESS"
+  },
+  "sourceSha256": {
+    "FBSir-admin/src/main/resources/application.yml": "62e0cde1b3124233863cbbc30db1268c3491dbcb5817216507330896f2505bf2",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/fbs/service/impl/SkillConsumeServiceImpl.java": "17b70fb14863aef98842b8e77445a4c8dde54a673463e408182cffa3a55254d3",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/fbs/service/SkillConsumeServiceTest.java": "5c5faf61531182c088cf08be23b2b98808d216d4eafc85393b3dbc1353240553",
+    "docs/independent-board/W4B4-SKILL-CONSUME-CANDIDATE-FENCE-CONTRACT.md": "540ab93ef853c8871d27000f3fdfaede9f32b847a3a82f013566442fbf50dd08",
+    "scripts/verify-independent-board-control-plane.ps1": "a88205eebfc763aef08baac40296e2acb7406a04a06221685a23079149a630c8"
+  }
+}

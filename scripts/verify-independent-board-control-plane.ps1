@@ -229,6 +229,7 @@ function Invoke-ContractChecks {
         'reports\independent-board\w3g-credit-admin-ui-verification-20260722.json',
         'reports\independent-board\w3j-credit-candidate-release-readiness-verification-20260722.json',
         'reports\independent-board\points-balance-cas-mysql-verification-20260723.json',
+        'reports\independent-board\skill-consume-candidate-fence-verification-20260723.json',
         'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.json',
         'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.md',
         'work\diagnostics\independent-board-mysql-transaction-it\mysql-8.0.30\summary-mysql-8.0.30-utc-20260721T123307.170Z-local-20260721T203307.170+0800-pid-18500.json',
@@ -837,9 +838,61 @@ function Invoke-ContractChecks {
         throw 'W4B3 points balance CAS verification receipt is incomplete, overclaims evidence, or lacks verifier succession'
     }
     foreach ($pointsCasArtifact in $pointsCasArtifacts) {
+        # W4B4 is the only successor permitted to advance this central verifier
+        # byte.  Keep the W4B3 receipt historically exact and verify that
+        # predecessor relationship explicitly below.
+        if ($pointsCasArtifact -eq 'scripts/verify-independent-board-control-plane.ps1') {
+            continue
+        }
+
         $pointsCasCurrentHash = (Get-FileHash -LiteralPath (Join-Path $RepoRoot $pointsCasArtifact) -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($pointsCasReport.sourceSha256.PSObject.Properties[$pointsCasArtifact].Value -cne $pointsCasCurrentHash) {
             throw "W4B3 points balance CAS artifact binding drifted: $pointsCasArtifact"
+        }
+    }
+
+    # W4B4 closes the accidental-activation gap before an actual v2 consume
+    # transaction writer exists.  It is a default-off fence, not a claim that
+    # the 042 candidate is deployable or authoritative.
+    $skillConsumeFenceReportPath = 'reports/independent-board/skill-consume-candidate-fence-verification-20260723.json'
+    $skillConsumeFenceReport = Read-Utf8Json -RelativePath $skillConsumeFenceReportPath.Replace('/', '\')
+    $skillConsumeFenceArtifacts = @(
+        'FBSir-admin/src/main/resources/application.yml',
+        'FBSir-business/src/main/java/com/wx/fbsir/business/fbs/service/impl/SkillConsumeServiceImpl.java',
+        'FBSir-business/src/test/java/com/wx/fbsir/business/fbs/service/SkillConsumeServiceTest.java',
+        'docs/independent-board/W4B4-SKILL-CONSUME-CANDIDATE-FENCE-CONTRACT.md',
+        'scripts/verify-independent-board-control-plane.ps1'
+    )
+    $skillConsumeFenceSourceArtifacts = @($skillConsumeFenceReport.sourceSha256.PSObject.Properties | ForEach-Object { [string]$_.Name })
+    $w4b4PriorCentralVerifierHash = $pointsCasReport.sourceSha256.PSObject.Properties['scripts/verify-independent-board-control-plane.ps1'].Value
+    if ($skillConsumeFenceReport.schemaVersion -ne 1 `
+            -or $skillConsumeFenceReport.result -cne 'PASS_LOCAL_DEFAULT_OFF_SKILL_CONSUME_FENCE' `
+            -or $skillConsumeFenceReport.candidateReadyForCommit -ne $true `
+            -or $skillConsumeFenceReport.releaseReady -ne $false `
+            -or $skillConsumeFenceReport.productionChanged -ne $false `
+            -or $skillConsumeFenceReport.databaseTouched -ne $false `
+            -or $skillConsumeFenceReport.frozenListedPackageModified -ne $false `
+            -or $skillConsumeFenceReport.productionConnectionUsed -ne $false `
+            -or $skillConsumeFenceReport.serviceContract.requiresBothFlags -ne $true `
+            -or $skillConsumeFenceReport.serviceContract.pairError -cne 'SKILL_CONSUME_CREDIT_WRITER_NOT_READY' `
+            -or $skillConsumeFenceReport.serviceContract.pairRejectsBeforeUsageOrLegacyPointsWrite -ne $true `
+            -or $skillConsumeFenceReport.serviceContract.singleFlagRetainsLegacyPath -ne $true `
+            -or $skillConsumeFenceReport.serviceContract.freeAndEnterpriseNotGated -ne $true `
+            -or $skillConsumeFenceReport.serviceContract.addsHttpOrMcpWriteSurface -ne $false `
+            -or $skillConsumeFenceReport.maven.testsRun -ne 35 `
+            -or $skillConsumeFenceReport.maven.failures -ne 0 `
+            -or $skillConsumeFenceReport.maven.errors -ne 0 `
+            -or $skillConsumeFenceReport.maven.result -cne 'BUILD_SUCCESS' `
+            -or $skillConsumeFenceReport.frozenPackage.sha256 -cne 'd2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd' `
+            -or (Compare-Object -ReferenceObject ($skillConsumeFenceArtifacts | Sort-Object) -DifferenceObject ($skillConsumeFenceSourceArtifacts | Sort-Object)).Count -ne 0 `
+            -or @($skillConsumeFenceReport.predecessorSourceSha256.PSObject.Properties).Count -ne 1 `
+            -or $skillConsumeFenceReport.predecessorSourceSha256.PSObject.Properties['scripts/verify-independent-board-control-plane.ps1'].Value -cne $w4b4PriorCentralVerifierHash) {
+        throw 'W4B4 skill-consume default-off fence receipt is incomplete, overclaims evidence, or lacks verifier succession'
+    }
+    foreach ($skillConsumeFenceArtifact in $skillConsumeFenceArtifacts) {
+        $skillConsumeFenceCurrentHash = (Get-FileHash -LiteralPath (Join-Path $RepoRoot $skillConsumeFenceArtifact) -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($skillConsumeFenceReport.sourceSha256.PSObject.Properties[$skillConsumeFenceArtifact].Value -cne $skillConsumeFenceCurrentHash) {
+            throw "W4B4 skill-consume fence artifact binding drifted: $skillConsumeFenceArtifact"
         }
     }
 

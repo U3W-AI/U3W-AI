@@ -20,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Arrays;
 
@@ -72,6 +73,8 @@ class SkillConsumeServiceTest {
     void defaultUsageTerminalCompareAndSetSucceeds() {
         lenient().when(usageRecordMapper.updateStatusByRecordId(anyString(), anyInt(), nullable(String.class)))
                 .thenReturn(1);
+        ReflectionTestUtils.setField(skillConsumeService, "creditLedgerCandidateEnabled", false);
+        ReflectionTestUtils.setField(skillConsumeService, "skillConsumeCreditWriterEnabled", false);
     }
 
     // ---- Fixture ----
@@ -107,6 +110,93 @@ class SkillConsumeServiceTest {
         rule.setStatus(status);
         rule.setPointsValue(pointsValue);
         return rule;
+    }
+
+    private void arrangeAuthorizedPaidPersonalConsumption() {
+        when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(buildPack(RULE_CODE));
+        when(pointsRuleMapper.selectPointsRuleByRuleCode(RULE_CODE)).thenReturn(buildRule("0", 10));
+        when(rightsCheckService.comprehensiveCheck(eq(USER_ID), eq(PACK_CODE), isNull(),
+                eq(HOST_TYPE_WB), eq(USAGE_RECORD_ID)))
+                .thenReturn(ComprehensiveRightsResult.pass(PACK_ID, RULE_CODE, 10));
+    }
+
+    private void arrangePaidPersonalConsumption() {
+        arrangeAuthorizedPaidPersonalConsumption();
+        when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID)).thenReturn(null);
+        when(pointsService.changePoints(USER_ID, RULE_CODE, -10, PACK_ID, USAGE_RECORD_ID))
+                .thenReturn(AjaxResult.success("积分扣减成功", 90));
+        when(pointsService.getUserPoints(USER_ID)).thenReturn(90);
+    }
+
+    @Test
+    @DisplayName("W4B4: two candidate flags reject paid personal consumption before any legacy writer runs")
+    void candidateWriterPairFailsClosedBeforeLegacyPointsOrUsageWrites() {
+        ReflectionTestUtils.setField(skillConsumeService, "creditLedgerCandidateEnabled", true);
+        ReflectionTestUtils.setField(skillConsumeService, "skillConsumeCreditWriterEnabled", true);
+        arrangeAuthorizedPaidPersonalConsumption();
+
+        ConsumeResult result = skillConsumeService.consume(USER_ID, PACK_CODE, SKILL_CODE,
+                USAGE_RECORD_ID, HOST_TYPE_WB, HOST_SESSION_ID, null);
+
+        assertFalse(result.isSuccess());
+        assertEquals("SKILL_CONSUME_CREDIT_WRITER_NOT_READY", result.getFailReason());
+        verify(scenePackMapper).selectByPackCode(PACK_CODE);
+        verify(pointsRuleMapper).selectPointsRuleByRuleCode(RULE_CODE);
+        verify(rightsCheckService).comprehensiveCheck(USER_ID, PACK_CODE, null,
+                HOST_TYPE_WB, USAGE_RECORD_ID);
+        verify(usageRecordMapper, never()).selectByRecordId(anyString());
+        verify(usageRecordMapper, never()).insertUsageRecord(any());
+        verifyNoInteractions(pointsService);
+    }
+
+    @Test
+    @DisplayName("W4B4: either candidate flag alone preserves the legacy paid-consumption path")
+    void oneCandidateFlagAloneDoesNotActivateOrBlockTheLegacyWriter() {
+        ReflectionTestUtils.setField(skillConsumeService, "creditLedgerCandidateEnabled", true);
+        ReflectionTestUtils.setField(skillConsumeService, "skillConsumeCreditWriterEnabled", false);
+        arrangePaidPersonalConsumption();
+
+        ConsumeResult result = skillConsumeService.consume(USER_ID, PACK_CODE, SKILL_CODE,
+                USAGE_RECORD_ID, HOST_TYPE_WB, HOST_SESSION_ID, null);
+
+        assertTrue(result.isSuccess());
+        assertEquals(90, result.getRemainPoints());
+        verify(pointsService).changePoints(USER_ID, RULE_CODE, -10, PACK_ID, USAGE_RECORD_ID);
+    }
+
+    @Test
+    @DisplayName("W4B4: writer flag alone does not activate or block the legacy paid-consumption path")
+    void writerFlagAloneDoesNotActivateOrBlockTheLegacyWriter() {
+        ReflectionTestUtils.setField(skillConsumeService, "creditLedgerCandidateEnabled", false);
+        ReflectionTestUtils.setField(skillConsumeService, "skillConsumeCreditWriterEnabled", true);
+        arrangePaidPersonalConsumption();
+
+        ConsumeResult result = skillConsumeService.consume(USER_ID, PACK_CODE, SKILL_CODE,
+                USAGE_RECORD_ID, HOST_TYPE_WB, HOST_SESSION_ID, null);
+
+        assertTrue(result.isSuccess());
+        assertEquals(90, result.getRemainPoints());
+        verify(pointsService).changePoints(USER_ID, RULE_CODE, -10, PACK_ID, USAGE_RECORD_ID);
+    }
+
+    @Test
+    @DisplayName("W4B4: two candidate flags do not block a free personal consumption")
+    void candidateWriterPairDoesNotBlockFreePersonalConsumption() {
+        ReflectionTestUtils.setField(skillConsumeService, "creditLedgerCandidateEnabled", true);
+        ReflectionTestUtils.setField(skillConsumeService, "skillConsumeCreditWriterEnabled", true);
+        when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(buildPack(null));
+        when(rightsCheckService.comprehensiveCheck(USER_ID, PACK_CODE, null,
+                HOST_TYPE_WB, USAGE_RECORD_ID))
+                .thenReturn(ComprehensiveRightsResult.pass(PACK_ID, null, 0));
+        when(usageRecordMapper.selectByRecordId(USAGE_RECORD_ID)).thenReturn(null);
+        when(pointsService.getUserPoints(USER_ID)).thenReturn(100);
+
+        ConsumeResult result = skillConsumeService.consume(USER_ID, PACK_CODE, SKILL_CODE,
+                USAGE_RECORD_ID, HOST_TYPE_WB, HOST_SESSION_ID, null);
+
+        assertTrue(result.isSuccess());
+        assertEquals(100, result.getRemainPoints());
+        verify(pointsService, never()).changePoints(anyLong(), anyString(), anyInt(), anyLong(), anyString());
     }
 
     private FbsEnterprise buildEnterprise(int status) {
@@ -416,8 +506,10 @@ class SkillConsumeServiceTest {
     class ConsumeEnterpriseTests {
 
         @Test
-        @DisplayName("§6.4.1 企业配额充足 → usedQuota++，remainQuota = packQuota - usedQuota - 1")
+        @DisplayName("§6.4.1 企业配额不受双开关候选围栏影响 → usedQuota++，remainQuota = packQuota - usedQuota - 1")
         void enterpriseQuotaSufficient() {
+            ReflectionTestUtils.setField(skillConsumeService, "creditLedgerCandidateEnabled", true);
+            ReflectionTestUtils.setField(skillConsumeService, "skillConsumeCreditWriterEnabled", true);
             // 构建企业包实体（用于验证 incrementUsedQuota 后实体同步更新）
             FbsEnterprisePack ep = buildEnterprisePack(1, 100, 5);
             // P1-1 修复：增量后重新查询的实体（usedQuota 已被 DB 更新为 6）

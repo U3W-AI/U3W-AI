@@ -25,6 +25,12 @@ fbsir:
     credit-candidate:
       # Default-off credit shadow-ledger HTTP surface. Keep false until permission, UI and deployment gates pass.
       enabled: ${FBSIR_INDEPENDENT_BOARD_CREDIT_CANDIDATE_ENABLED:false}
+    credit-ledger-candidate:
+      # Independent default-off v2 ledger candidate gate; it must not reuse the W3F admin/read surface switch.
+      enabled: ${FBSIR_INDEPENDENT_BOARD_CREDIT_LEDGER_CANDIDATE_ENABLED:false}
+    skill-consume-credit-writer:
+      # A second explicit gate for the future internal v2 consume writer; false keeps legacy personal consume unchanged.
+      enabled: ${FBSIR_INDEPENDENT_BOARD_SKILL_CONSUME_CREDIT_WRITER_ENABLED:false}
     portal-candidate:
       # Default-off read-only candidate surface. Enable only with two independent 32-byte base64url keys.
       enabled: ${FBSIR_INDEPENDENT_BOARD_PORTAL_CANDIDATE_ENABLED:false}
