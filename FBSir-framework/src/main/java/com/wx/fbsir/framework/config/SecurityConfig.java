@@ -122,6 +122,9 @@ public class SecurityConfig
                     .requestMatchers("/engine/**").permitAll()
                     // Skill API 网关（API Key 认证，不要求 JWT，由 FbsApiKeyAuthFilter 校验）
                     .requestMatchers("/fbs/skill-api/**").permitAll()
+                    // Exact API2 HMAC ingress; application verification is the
+                    // authentication boundary and the route is default-off.
+                    .requestMatchers("/internal/independent-board/attribution/events").permitAll()
                     // 除上面外的所有请求全部需要鉴权认证
                     .anyRequest().authenticated();
             })

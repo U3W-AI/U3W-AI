@@ -4,6 +4,9 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 /** W4b.2d internal evidence writer settings. Public routes are intentionally absent. */
 @Data
 @Component
@@ -19,6 +22,10 @@ public class IndependentBoardAttributionProperties {
     private boolean intentClassifierEnabled = false;
     /** Remains off until natural-traffic evidence is independently approved. */
     private boolean productCreditEnabled = false;
+    /** API2 event signing keys by key id. Values use utf8:/hex:/base64:. */
+    private Map<String, String> eventKeys = new LinkedHashMap<>();
+    /** Independent U3W-only HMAC secret for recomputing sameBindingKey. */
+    private String sameBindingSecret = "";
     private String issuer = "api2.u3w.com";
     private String audience = "independent-board-attribution";
     private String keyRef = "fbs.w4b2d.api2.keyring";

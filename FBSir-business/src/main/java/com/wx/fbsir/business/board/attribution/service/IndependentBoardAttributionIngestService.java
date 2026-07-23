@@ -11,6 +11,7 @@ import com.wx.fbsir.business.board.attribution.receipt.VerifiedBoardAttributionE
 import com.wx.fbsir.business.board.attribution.traffic.BoardTrafficClassificationResolver;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import java.time.Instant;
 import java.util.Date;
@@ -21,6 +22,11 @@ import java.util.Objects;
  * depends on this service; API2 can buffer and retry observations independently.
  */
 @Service
+@ConditionalOnProperty(
+        prefix = "fbsir.independent-board.attribution",
+        name = "observation-writer-enabled",
+        havingValue = "true",
+        matchIfMissing = false)
 public class IndependentBoardAttributionIngestService {
     private final IndependentBoardAttributionV1Mapper mapper;
     private final IndependentBoardAttributionProperties properties;
