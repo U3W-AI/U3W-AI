@@ -1,5 +1,6 @@
 package com.wx.fbsir.business.fbs.service.impl;
 
+import com.wx.fbsir.business.board.credit.service.SkillConsumeCreditWriter;
 import com.wx.fbsir.business.fbs.domain.entity.*;
 import com.wx.fbsir.business.fbs.domain.enums.UsageStatus;
 import com.wx.fbsir.business.fbs.dto.ComprehensiveRightsResult;
@@ -33,8 +34,8 @@ import java.util.Objects;
  *  1. 查 fbs_scene_pack（packCode → packId, points_rule_code）
  *  2. 从 wx_points_rule 读取 amount（points_rule_code=NULL 则 免费包）
  *  3. comprehensiveCheck（全部 Fail-Closed）
- *  4. 幂等写入 fbs_skill_usage_record（status=0）
- *  5. 调用 IPointsService.changePoints 轻量重载（非免费包）
+ *  4. 双候选开关均开启时调用 042 v2 writer；否则幂等写入 legacy usage（status=0）
+ *  5. legacy 路径调用 IPointsService.changePoints 轻量重载（非免费包）
  *  6. 更新 fbs_skill_usage_record（status=1）
  *  7. 失败时更新 status=2，返回 failReason
  *
@@ -54,7 +55,8 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
             "SKILL_USAGE_RECORD_TERMINAL_CAS_CONFLICT";
     private static final String SKILL_CONSUME_CREDIT_WRITER_NOT_READY =
             "SKILL_CONSUME_CREDIT_WRITER_NOT_READY";
-
+    private static final String SKILL_POINTS_RULE_AMOUNT_INVALID =
+            "SKILL_POINTS_RULE_AMOUNT_INVALID";
     @Autowired
     private FbsScenePackMapper scenePackMapper;
 
@@ -69,6 +71,9 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
 
     @Autowired
     private IPointsService pointsService;
+
+    @Autowired(required = false)
+    private SkillConsumeCreditWriter skillConsumeCreditWriter;
 
     @Autowired(required = false)
     private FbsEnterpriseMapper enterpriseMapper;
@@ -140,7 +145,12 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
             if (!"0".equals(rule.getStatus())) {
                 return ConsumeResult.fail(usageRecordId, "积分规则已停用: " + pointsRuleCode);
             }
-            pointsAmount = rule.getPointsValue() == null ? 0 : Math.abs(rule.getPointsValue());
+            long absoluteAmount = rule.getPointsValue() == null
+                    ? 0L : Math.abs(rule.getPointsValue().longValue());
+            if (absoluteAmount > Integer.MAX_VALUE) {
+                return ConsumeResult.fail(usageRecordId, SKILL_POINTS_RULE_AMOUNT_INVALID);
+            }
+            pointsAmount = Math.toIntExact(absoluteAmount);
         }
         // pointsRuleCode = NULL → 免费包，pointsAmount = 0
 
@@ -151,13 +161,17 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
             return ConsumeResult.fail(usageRecordId, checkResult.getFailReason());
         }
 
-        // The v2 schema exists only as a default-off candidate.  Until its
-        // internal transaction writer is implemented and separately verified,
-        // a deliberate two-flag activation must fail before creating a legacy
-        // usage row or calling the legacy points writer.  One flag alone keeps
-        // the proven legacy path intact (the gate is an AND, not an override).
+        // The v2 writer is reachable only through the explicit two-flag AND
+        // gate.  It owns usage idempotency, projection mutation and terminal
+        // status in one isolated transaction.  Never fall back to the legacy
+        // writer after this branch has been selected.
         if (pointsAmount > 0 && creditLedgerCandidateEnabled && skillConsumeCreditWriterEnabled) {
-            return ConsumeResult.fail(usageRecordId, SKILL_CONSUME_CREDIT_WRITER_NOT_READY);
+            if (skillConsumeCreditWriter == null) {
+                return ConsumeResult.fail(usageRecordId, SKILL_CONSUME_CREDIT_WRITER_NOT_READY);
+            }
+            return skillConsumeCreditWriter.consume(
+                    userId, usageRecordId, packId, pack.getCurrentVersion(), skillCode,
+                    pointsRuleCode, pointsAmount, normalizeHostType(hostType), hostSessionId);
         }
 
         // ---- 步骤 4：幂等写入 fbs_skill_usage_record（status=0）----
@@ -226,6 +240,17 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
                 userId, packCode, usageRecordId, pointsAmount, remainPoints);
 
         // ---- 步骤 7：同步到企微智能表格（commercial_hub）----
+        syncPersonalConsumptionBestEffort(
+                userId, packCode, pointsAmount, remainPoints, hostType,
+                usageRecordId, pack, authCode, pointsRuleCode);
+
+        return ConsumeResult.success(usageRecordId, remainPoints);
+    }
+
+    private void syncPersonalConsumptionBestEffort(
+            Long userId, String packCode, int pointsAmount, Integer remainPoints,
+            String hostType, String usageRecordId, FbsScenePack pack,
+            String authCode, String pointsRuleCode) {
         try {
             if (wecomBusinessSyncService != null) {
                 CommercialHubSyncContext syncCtx = CommercialHubSyncContext.builder()
@@ -235,7 +260,7 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
                         .remainPoints(remainPoints)
                         .hostType(hostType != null ? hostType : "WORKBUDDY")
                         .usageRecordId(usageRecordId)
-                        .packId(packId)
+                        .packId(pack.getId())
                         .authCode(authCode)
                         .pointsRuleCode(pointsRuleCode)
                         .packType(pack.getPackType() != null ? pack.getPackType() : 0)
@@ -246,8 +271,6 @@ public class SkillConsumeServiceImpl implements SkillConsumeService {
             // 同步失败不影响业务
             log.warn("同步积分消费到企微失败 userId={}, packCode={}", userId, packCode, e);
         }
-
-        return ConsumeResult.success(usageRecordId, remainPoints);
     }
 
     /**

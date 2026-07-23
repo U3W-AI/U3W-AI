@@ -44,7 +44,14 @@ $javaItPath = Join-Path $repoRoot (
 $surefireReport = Join-Path $repoRoot (
     'FBSir-business\target\surefire-reports\TEST-com.wx.fbsir.business.board.credit.service.' +
     'SkillConsumeCreditLedgerV2MysqlIT.xml')
-$expectedTests = 4
+$expectedTests = 5
+$expectedTestNames = @(
+    'concurrencyDigestConflictAndBalanceRaceCommitOnlyValidWinners',
+    'dualFlagHostConsumeUsesV2AndNeverCallsLegacyWriters',
+    'firstConsumeAndExactReplayCommitOneImmutableResult',
+    'legacyAndV2AuthorityAreMutuallyExclusiveInBothDirections',
+    'terminalUsageCasZeroRollsBackEveryFinancialAndReceiptWrite'
+)
 $requiredVersions = @('8.0.30', '8.4.8')
 $requestedVersions = @($Versions | Sort-Object -Unique)
 
@@ -495,10 +502,15 @@ function Read-SurefireEvidence {
     $failures = [int]$suite.failures
     $errors = [int]$suite.errors
     $skipped = [int]$suite.skipped
+    $testNames = @($suite.testcase | ForEach-Object { [string]$_.name } | Sort-Object)
+    $testNameDrift = @(Compare-Object `
+        -ReferenceObject @($expectedTestNames | Sort-Object) `
+        -DifferenceObject $testNames)
     if ($tests -ne $expectedTests -or $failures -ne 0 -or
-        $errors -ne 0 -or $skipped -ne 0) {
+        $errors -ne 0 -or $skipped -ne 0 -or $testNameDrift.Count -ne 0) {
         throw "042 writer MySQL IT must pass exactly $expectedTests/$expectedTests; " +
-            "found tests=$tests failures=$failures errors=$errors skipped=$skipped."
+            "found tests=$tests failures=$failures errors=$errors skipped=$skipped " +
+            "testNames=$($testNames -join ',')."
     }
     return [ordered]@{
         tests = $tests
@@ -506,6 +518,7 @@ function Read-SurefireEvidence {
         failures = $failures
         errors = $errors
         skipped = $skipped
+        testNames = $testNames
         report = 'FBSir-business/target/surefire-reports/' +
             [System.IO.Path]::GetFileName($ReportPath)
         reportSha256 = Get-Sha256 -Path $ReportPath
@@ -589,6 +602,9 @@ $sourceSha256 = [ordered]@{
     transactionService = Get-Sha256 -Path (Join-Path $repoRoot (
         'FBSir-business\src\main\java\com\wx\fbsir\business\board\credit\service\' +
         'SkillConsumeCreditTransactionService.java'))
+    hostConsumeService = Get-Sha256 -Path (Join-Path $repoRoot (
+        'FBSir-business\src\main\java\com\wx\fbsir\business\fbs\service\impl\' +
+        'SkillConsumeServiceImpl.java'))
     ledgerMapperXml = Get-Sha256 -Path (Join-Path $repoRoot (
         'FBSir-business\src\main\resources\mapper\board\SkillConsumeCreditLedgerMapper.xml'))
     usageMapperXml = Get-Sha256 -Path (Join-Path $repoRoot (
@@ -972,12 +988,12 @@ if ($results.Count -ne $requestedVersions.Count -or
 }
 
 $result = if ($requestedVersions.Count -eq 2) {
-    'PASS_LOCAL_DUAL_MYSQL_APPLICATION_TRANSACTION_MATRIX'
+    'PASS_LOCAL_DUAL_MYSQL_HOST_PATH_MATRIX'
 } else {
-    'PASS_LOCAL_MYSQL_APPLICATION_TRANSACTION_MATRIX'
+    'PASS_LOCAL_MYSQL_HOST_PATH_MATRIX'
 }
 [pscustomobject]@{
-    kind = 'fbsir.independent-board.skill-consume-credit-ledger-v2.mysql-it/v1'
+    kind = 'fbsir.independent-board.skill-consume-credit-ledger-v2.host-path.mysql-it/v1'
     result = $result
     versions = @($results)
     sourceSha256 = $sourceSha256

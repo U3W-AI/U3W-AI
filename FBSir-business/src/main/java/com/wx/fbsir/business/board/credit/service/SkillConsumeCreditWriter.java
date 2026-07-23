@@ -9,8 +9,9 @@ import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 /**
- * Internal-only default-off 042 writer facade. It is deliberately not injected
- * into the legacy consume path until the dual-MySQL writer matrix is complete.
+ * Internal-only default-off 042 writer facade. The host consume service may
+ * delegate to it only when both candidate flags are enabled; the legacy
+ * points writer is never a fallback after this facade has been selected.
  */
 @Service
 public class SkillConsumeCreditWriter {

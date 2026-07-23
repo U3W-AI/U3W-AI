@@ -1,5 +1,6 @@
 package com.wx.fbsir.business.fbs.service;
 
+import com.wx.fbsir.business.board.credit.service.SkillConsumeCreditWriter;
 import com.wx.fbsir.business.fbs.domain.entity.*;
 import com.wx.fbsir.business.fbs.domain.enums.UsageStatus;
 import com.wx.fbsir.business.fbs.dto.ComprehensiveRightsResult;
@@ -45,6 +46,8 @@ class SkillConsumeServiceTest {
     @Mock private PointsRuleMapper pointsRuleMapper;
     @Mock private RightsCheckService rightsCheckService;
     @Mock private IPointsService pointsService;
+    @Mock private SkillConsumeCreditWriter skillConsumeCreditWriter;
+    @Mock private WecomBusinessSyncService wecomBusinessSyncService;
     // 企业 Mapper（required=false，无表时为 null）
     @Mock private FbsEnterpriseMapper enterpriseMapper;
     @Mock private FbsEnterpriseMemberMapper enterpriseMemberMapper;
@@ -129,10 +132,68 @@ class SkillConsumeServiceTest {
     }
 
     @Test
-    @DisplayName("W4B4: two candidate flags reject paid personal consumption before any legacy writer runs")
-    void candidateWriterPairFailsClosedBeforeLegacyPointsOrUsageWrites() {
+    @DisplayName("W4B5D: two candidate flags route paid personal consumption to v2 without legacy writes")
+    void candidateWriterPairRoutesPaidPersonalConsumptionToV2WithoutLegacyWrites() {
         ReflectionTestUtils.setField(skillConsumeService, "creditLedgerCandidateEnabled", true);
         ReflectionTestUtils.setField(skillConsumeService, "skillConsumeCreditWriterEnabled", true);
+        arrangeAuthorizedPaidPersonalConsumption();
+        when(skillConsumeCreditWriter.consume(
+                USER_ID, USAGE_RECORD_ID, PACK_ID, PACK_VERSION, SKILL_CODE, RULE_CODE,
+                10, HOST_TYPE_WB, HOST_SESSION_ID))
+                .thenReturn(ConsumeResult.success(USAGE_RECORD_ID, 90));
+
+        ConsumeResult result = skillConsumeService.consume(USER_ID, PACK_CODE, SKILL_CODE,
+                USAGE_RECORD_ID, HOST_TYPE_WB, HOST_SESSION_ID, null);
+
+        assertTrue(result.isSuccess());
+        assertEquals(90, result.getRemainPoints());
+        verify(scenePackMapper).selectByPackCode(PACK_CODE);
+        verify(pointsRuleMapper).selectPointsRuleByRuleCode(RULE_CODE);
+        verify(rightsCheckService).comprehensiveCheck(USER_ID, PACK_CODE, null,
+                HOST_TYPE_WB, USAGE_RECORD_ID);
+        verify(skillConsumeCreditWriter).consume(
+                USER_ID, USAGE_RECORD_ID, PACK_ID, PACK_VERSION, SKILL_CODE, RULE_CODE,
+                10, HOST_TYPE_WB, HOST_SESSION_ID);
+        verify(usageRecordMapper, never()).selectByRecordId(anyString());
+        verify(usageRecordMapper, never()).insertUsageRecord(any());
+        verify(usageRecordMapper, never()).updateStatusByRecordId(anyString(), anyInt(), nullable(String.class));
+        verifyNoInteractions(pointsService);
+        verifyNoInteractions(wecomBusinessSyncService);
+    }
+
+    @Test
+    @DisplayName("W4B5D: v2 writer failure is returned without falling back to legacy writes")
+    void candidateWriterFailureDoesNotFallBackToLegacyWrites() {
+        ReflectionTestUtils.setField(skillConsumeService, "creditLedgerCandidateEnabled", true);
+        ReflectionTestUtils.setField(skillConsumeService, "skillConsumeCreditWriterEnabled", true);
+        arrangeAuthorizedPaidPersonalConsumption();
+        when(skillConsumeCreditWriter.consume(
+                USER_ID, USAGE_RECORD_ID, PACK_ID, PACK_VERSION, SKILL_CODE, RULE_CODE,
+                10, HOST_TYPE_WB, HOST_SESSION_ID))
+                .thenReturn(ConsumeResult.fail(
+                        USAGE_RECORD_ID, "SKILL_CREDIT_LEDGER_INSUFFICIENT_BALANCE"));
+
+        ConsumeResult result = skillConsumeService.consume(USER_ID, PACK_CODE, SKILL_CODE,
+                USAGE_RECORD_ID, HOST_TYPE_WB, HOST_SESSION_ID, null);
+
+        assertFalse(result.isSuccess());
+        assertEquals("SKILL_CREDIT_LEDGER_INSUFFICIENT_BALANCE", result.getFailReason());
+        verify(skillConsumeCreditWriter).consume(
+                USER_ID, USAGE_RECORD_ID, PACK_ID, PACK_VERSION, SKILL_CODE, RULE_CODE,
+                10, HOST_TYPE_WB, HOST_SESSION_ID);
+        verify(usageRecordMapper, never()).selectByRecordId(anyString());
+        verify(usageRecordMapper, never()).insertUsageRecord(any());
+        verify(usageRecordMapper, never()).updateStatusByRecordId(anyString(), anyInt(), nullable(String.class));
+        verifyNoInteractions(pointsService);
+        verifyNoInteractions(wecomBusinessSyncService);
+    }
+
+    @Test
+    @DisplayName("W4B5D: two flags fail closed when the optional v2 writer bean is unavailable")
+    void candidateWriterPairWithoutWriterBeanFailsClosedWithoutLegacyFallback() {
+        ReflectionTestUtils.setField(skillConsumeService, "creditLedgerCandidateEnabled", true);
+        ReflectionTestUtils.setField(skillConsumeService, "skillConsumeCreditWriterEnabled", true);
+        ReflectionTestUtils.setField(skillConsumeService, "skillConsumeCreditWriter", null);
         arrangeAuthorizedPaidPersonalConsumption();
 
         ConsumeResult result = skillConsumeService.consume(USER_ID, PACK_CODE, SKILL_CODE,
@@ -140,13 +201,54 @@ class SkillConsumeServiceTest {
 
         assertFalse(result.isSuccess());
         assertEquals("SKILL_CONSUME_CREDIT_WRITER_NOT_READY", result.getFailReason());
-        verify(scenePackMapper).selectByPackCode(PACK_CODE);
-        verify(pointsRuleMapper).selectPointsRuleByRuleCode(RULE_CODE);
-        verify(rightsCheckService).comprehensiveCheck(USER_ID, PACK_CODE, null,
-                HOST_TYPE_WB, USAGE_RECORD_ID);
         verify(usageRecordMapper, never()).selectByRecordId(anyString());
         verify(usageRecordMapper, never()).insertUsageRecord(any());
         verifyNoInteractions(pointsService);
+        verifyNoInteractions(wecomBusinessSyncService);
+    }
+
+    @Test
+    @DisplayName("W4B5D: paid candidate normalizes the legacy-compatible host type before v2")
+    void candidateWriterPairNormalizesPersonalHostTypeBeforeV2Delegation() {
+        ReflectionTestUtils.setField(skillConsumeService, "creditLedgerCandidateEnabled", true);
+        ReflectionTestUtils.setField(skillConsumeService, "skillConsumeCreditWriterEnabled", true);
+        when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(buildPack(RULE_CODE));
+        when(pointsRuleMapper.selectPointsRuleByRuleCode(RULE_CODE)).thenReturn(buildRule("0", 10));
+        when(rightsCheckService.comprehensiveCheck(
+                USER_ID, PACK_CODE, null, " workbuddy ", USAGE_RECORD_ID))
+                .thenReturn(ComprehensiveRightsResult.pass(PACK_ID, RULE_CODE, 10));
+        when(skillConsumeCreditWriter.consume(
+                USER_ID, USAGE_RECORD_ID, PACK_ID, PACK_VERSION, SKILL_CODE, RULE_CODE,
+                10, HOST_TYPE_WB, HOST_SESSION_ID))
+                .thenReturn(ConsumeResult.success(USAGE_RECORD_ID, 90));
+
+        ConsumeResult result = skillConsumeService.consume(USER_ID, PACK_CODE, SKILL_CODE,
+                USAGE_RECORD_ID, " workbuddy ", HOST_SESSION_ID, null);
+
+        assertTrue(result.isSuccess());
+        verify(skillConsumeCreditWriter).consume(
+                USER_ID, USAGE_RECORD_ID, PACK_ID, PACK_VERSION, SKILL_CODE, RULE_CODE,
+                10, HOST_TYPE_WB, HOST_SESSION_ID);
+        verifyNoInteractions(pointsService);
+        verifyNoInteractions(wecomBusinessSyncService);
+    }
+
+    @Test
+    @DisplayName("W4B5D: Integer.MIN_VALUE points rule fails closed instead of becoming free")
+    void minimumIntegerPointsRuleFailsClosedBeforeRightsOrWriters() {
+        when(scenePackMapper.selectByPackCode(PACK_CODE)).thenReturn(buildPack(RULE_CODE));
+        when(pointsRuleMapper.selectPointsRuleByRuleCode(RULE_CODE))
+                .thenReturn(buildRule("0", Integer.MIN_VALUE));
+
+        ConsumeResult result = skillConsumeService.consume(USER_ID, PACK_CODE, SKILL_CODE,
+                USAGE_RECORD_ID, HOST_TYPE_WB, HOST_SESSION_ID, null);
+
+        assertFalse(result.isSuccess());
+        assertEquals("SKILL_POINTS_RULE_AMOUNT_INVALID", result.getFailReason());
+        verifyNoInteractions(rightsCheckService);
+        verifyNoInteractions(skillConsumeCreditWriter);
+        verifyNoInteractions(pointsService);
+        verifyNoInteractions(wecomBusinessSyncService);
     }
 
     @Test
@@ -162,6 +264,7 @@ class SkillConsumeServiceTest {
         assertTrue(result.isSuccess());
         assertEquals(90, result.getRemainPoints());
         verify(pointsService).changePoints(USER_ID, RULE_CODE, -10, PACK_ID, USAGE_RECORD_ID);
+        verifyNoInteractions(skillConsumeCreditWriter);
     }
 
     @Test
@@ -177,6 +280,7 @@ class SkillConsumeServiceTest {
         assertTrue(result.isSuccess());
         assertEquals(90, result.getRemainPoints());
         verify(pointsService).changePoints(USER_ID, RULE_CODE, -10, PACK_ID, USAGE_RECORD_ID);
+        verifyNoInteractions(skillConsumeCreditWriter);
     }
 
     @Test
@@ -197,6 +301,7 @@ class SkillConsumeServiceTest {
         assertTrue(result.isSuccess());
         assertEquals(100, result.getRemainPoints());
         verify(pointsService, never()).changePoints(anyLong(), anyString(), anyInt(), anyLong(), anyString());
+        verifyNoInteractions(skillConsumeCreditWriter);
     }
 
     private FbsEnterprise buildEnterprise(int status) {
@@ -344,6 +449,7 @@ class SkillConsumeServiceTest {
             assertEquals(409, exception.getCode());
             verify(pointsService, never())
                     .changePoints(anyLong(), anyString(), anyInt(), anyLong(), anyString());
+            verifyNoInteractions(skillConsumeCreditWriter);
         }
 
         @Test
@@ -553,6 +659,7 @@ class SkillConsumeServiceTest {
             // 验证不扣个人积分
             verify(pointsService, never())
                     .changePoints(anyLong(), anyString(), anyInt(), anyLong(), anyString());
+            verifyNoInteractions(skillConsumeCreditWriter);
         }
 
         @Test

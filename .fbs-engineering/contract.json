@@ -49,6 +49,11 @@
       "cwd": ".",
       "timeout_ms": 900000
     },
+    "database-skill-consume-credit-v2": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1 -AllowDestructiveTest",
+      "cwd": ".",
+      "timeout_ms": 900000
+    },
     "plan-policy-admin-ui": {
       "run": "node FBSir-ui/scripts/verify-independent-board-plan-policy-admin-ui.mjs",
       "cwd": ".",
@@ -155,6 +160,21 @@
     "w3kPlanPolicyAuthorityAdr": "docs/decisions/ADR-006-independent-board-plan-policy-controlled-procedure-authority.md",
     "w3kPlanPolicyAuthorityMigration": "sql/update_20260723_independent_board_plan_policy_authority.sql",
     "w3kPlanPolicyAuthorityVerificationReport": "reports/independent-board/w3k-plan-policy-authority-mysql-verification-20260723.json",
+    "w3lSkillConsumeCreditWriterContract": "docs/independent-board/W3L-SKILL-CONSUME-CREDIT-WRITER-CONTRACT.md",
+    "w3lSkillConsumeCreditLedgerV2Migration": "sql/update_20260723_skill_consume_credit_ledger_v2.sql",
+    "w3lSkillConsumeCreditLedgerV2MigrationVerificationReport": "reports/independent-board/w3l-skill-consume-credit-ledger-v2-migration-verification-20260723.json",
+    "w3lSkillConsumeCreditLedgerV2MysqlVerificationReport": "reports/independent-board/w3l-skill-consume-credit-ledger-v2-mysql-verification-20260723.json",
+    "w4b4SkillConsumeCandidateFenceContract": "docs/independent-board/W4B4-SKILL-CONSUME-CANDIDATE-FENCE-CONTRACT.md",
+    "w4b4SkillConsumeCandidateFenceVerificationReport": "reports/independent-board/skill-consume-candidate-fence-verification-20260723.json",
+    "w4b5aSkillConsumeCommandContract": "docs/independent-board/W4B5A-SKILL-CONSUME-COMMAND-CONTRACT.md",
+    "w4b5aSkillConsumeCommandVerificationReport": "reports/independent-board/skill-consume-command-verification-20260723.json",
+    "w4b5bSkillConsumeWriterContract": "docs/independent-board/W4B5B-SKILL-CONSUME-TRANSACTION-WRITER-CONTRACT.md",
+    "w4b5bSkillConsumeWriterVerificationReport": "reports/independent-board/skill-consume-writer-verification-20260723.json",
+    "w4b5cSkillConsumeDualMysqlContract": "docs/independent-board/W4B5C-SKILL-CONSUME-DUAL-MYSQL-TRANSACTION-CONTRACT.md",
+    "w4b5cSkillConsumeDualMysqlVerificationReport": "reports/independent-board/skill-consume-dual-mysql-transaction-verification-20260723.json",
+    "w4b5dSkillConsumeHostWiringContract": "docs/independent-board/W4B5D-SKILL-CONSUME-HOST-WIRING-CONTRACT.md",
+    "w4b5dSkillConsumeHostWiringVerificationReport": "reports/independent-board/skill-consume-host-wiring-verification-20260723.json",
+    "skillConsumeCreditV2MysqlRunner": "scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1",
     "postListingHostTruthReport": "reports/independent-board/host-truth-chain-summary-20260721.json",
     "verificationReports": "reports/independent-board/*.json"
   },
@@ -167,6 +187,7 @@
       "verify",
       "database-transactions",
       "database-plan-policy",
+      "database-skill-consume-credit-v2",
       "database-menu-migrations",
       "plan-policy-admin-ui",
       "traffic-attribution"
@@ -178,6 +199,7 @@
       "verify",
       "database-transactions",
       "database-plan-policy",
+      "database-skill-consume-credit-v2",
       "database-menu-migrations",
       "plan-policy-admin-ui",
       "traffic-attribution"
@@ -190,6 +212,7 @@
         "verify",
         "database-transactions",
         "database-plan-policy",
+        "database-skill-consume-credit-v2",
         "database-menu-migrations",
         "plan-policy-admin-ui",
         "traffic-attribution"
@@ -199,6 +222,7 @@
       "board-http-security",
       "database-transactions",
       "database-plan-policy",
+      "database-skill-consume-credit-v2",
       "database-menu-migrations",
       "plan-policy-admin-ui",
       "traffic-attribution"
@@ -226,6 +250,7 @@
       "verify",
       "database-transactions",
       "database-plan-policy",
+      "database-skill-consume-credit-v2",
       "database-menu-migrations",
       "plan-policy-admin-ui",
       "traffic-attribution"

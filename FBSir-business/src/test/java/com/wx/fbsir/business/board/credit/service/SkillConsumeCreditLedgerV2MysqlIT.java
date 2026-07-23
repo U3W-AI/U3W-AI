@@ -4,9 +4,17 @@ import com.wx.fbsir.business.board.credit.mapper.IndependentBoardCreditMapper;
 import com.wx.fbsir.business.board.credit.mapper.SkillConsumeCreditLedgerMapper;
 import com.wx.fbsir.business.board.credit.dto.BoardCreditGrantRequest;
 import com.wx.fbsir.business.board.credit.dto.BoardCreditReversalRequest;
+import com.wx.fbsir.business.fbs.domain.entity.FbsScenePack;
 import com.wx.fbsir.business.fbs.domain.entity.FbsSkillUsageRecord;
 import com.wx.fbsir.business.fbs.dto.ConsumeResult;
+import com.wx.fbsir.business.fbs.dto.ComprehensiveRightsResult;
+import com.wx.fbsir.business.fbs.mapper.FbsScenePackMapper;
 import com.wx.fbsir.business.fbs.mapper.FbsSkillUsageRecordMapper;
+import com.wx.fbsir.business.fbs.service.RightsCheckService;
+import com.wx.fbsir.business.fbs.service.impl.SkillConsumeServiceImpl;
+import com.wx.fbsir.business.point.domain.PointsRule;
+import com.wx.fbsir.business.point.mapper.PointsRuleMapper;
+import com.wx.fbsir.business.point.service.IPointsService;
 import com.wx.fbsir.common.exception.ServiceException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -35,10 +43,12 @@ import org.mybatis.spring.SqlSessionTemplate;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
@@ -46,9 +56,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 /** Real Connector/J and InnoDB coverage for the default-off 042 writer. */
 @SpringJUnitConfig(SkillConsumeCreditLedgerV2MysqlIT.TestConfiguration.class)
+@TestPropertySource(properties = {
+        "fbsir.independent-board.credit-ledger-candidate.enabled=true",
+        "fbsir.independent-board.skill-consume-credit-writer.enabled=true"
+})
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SkillConsumeCreditLedgerV2MysqlIT {
     private static final String ALLOW_PROPERTY =
@@ -75,6 +92,24 @@ class SkillConsumeCreditLedgerV2MysqlIT {
 
     @org.springframework.beans.factory.annotation.Autowired
     private IndependentBoardCreditService legacyCreditService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private SkillConsumeServiceImpl hostSkillConsumeService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private FbsScenePackMapper scenePackMapper;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private PointsRuleMapper pointsRuleMapper;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private RightsCheckService rightsCheckService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private IPointsService legacyPointsService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private ForbiddenLegacyUsageMapper legacyUsageGuard;
 
     @BeforeAll
     void verifyDisposableRuntimeAndSchemaContract() throws SQLException {
@@ -239,6 +274,61 @@ class SkillConsumeCreditLedgerV2MysqlIT {
         assertEquals(90L, userPoints(v2User));
     }
 
+    @Test
+    void dualFlagHostConsumeUsesV2AndNeverCallsLegacyWriters() throws SQLException {
+        assertTrue(AopUtils.isAopProxy(hostSkillConsumeService),
+                "host consume service must execute through its Spring transaction proxy");
+        assertEquals(0L, legacyUsageGuard.invocationCount());
+
+        long userId = insertUser(100);
+        String packCode = "board-host-mysql";
+        String usageId = "usage.mysql.host." + userId;
+
+        FbsScenePack pack = new FbsScenePack();
+        pack.setId(7_001L);
+        pack.setPackCode(packCode);
+        pack.setStatus(1);
+        pack.setCurrentVersion("26.7.20");
+        pack.setPointsRuleCode("SKILL_USE");
+        PointsRule rule = new PointsRule();
+        rule.setRuleCode("SKILL_USE");
+        rule.setStatus("0");
+        rule.setPointsValue(25);
+
+        when(scenePackMapper.selectByPackCode(packCode)).thenReturn(pack);
+        when(pointsRuleMapper.selectPointsRuleByRuleCode("SKILL_USE")).thenReturn(rule);
+        when(rightsCheckService.comprehensiveCheck(
+                userId, packCode, null, " workbuddy ", usageId))
+                .thenReturn(ComprehensiveRightsResult.pass(7_001L, "SKILL_USE", 25));
+
+        ConsumeResult first = hostSkillConsumeService.consume(
+                userId, packCode, "board.review", usageId,
+                " workbuddy ", "session-host", null);
+        ConsumeResult replay = hostSkillConsumeService.consume(
+                userId, packCode, "board.review", usageId,
+                " workbuddy ", "session-host", null);
+
+        assertTrue(first.isSuccess());
+        assertTrue(replay.isSuccess());
+        assertEquals(75, first.getRemainPoints());
+        assertEquals(first.getRemainPoints(), replay.getRemainPoints());
+        assertEquals(0L, legacyUsageGuard.invocationCount());
+        verifyNoInteractions(legacyPointsService);
+        assertEquals(75L, userPoints(userId));
+        assertEquals(1L, rows("fbs_skill_credit_account_v2", userId));
+        assertEquals(1L, rows("fbs_skill_credit_operation_v2", userId));
+        assertEquals(1L, entryRows(userId));
+        assertEquals(1L, rows("fbs_skill_credit_projection_bridge_v2", userId));
+        assertEquals("7001|26.7.20|board.review|25|WORKBUDDY|1", scalarString(
+                "SELECT CONCAT_WS('|',pack_id,pack_version,skill_code,points_amount,"
+                        + "host_type,status) FROM fbs_skill_usage_record "
+                        + "WHERE usage_record_id=? AND user_id=?", usageId, userId));
+        assertEquals("7001|26.7.20|board.review|-25|WORKBUDDY", scalarString(
+                "SELECT CONCAT_WS('|',pack_id,pack_version,skill_code,delta_amount,host_type) "
+                        + "FROM fbs_skill_credit_operation_v2 "
+                        + "WHERE usage_record_id=? AND user_id=?", usageId, userId));
+    }
+
     private ConsumeResult consume(long userId, String usageId, int amount, String sessionId) {
         return writer.consume(userId, usageId, 7_001L, "26.7.20", "board.review",
                 "SKILL_USE", amount, "WORKBUDDY", sessionId);
@@ -396,6 +486,40 @@ class SkillConsumeCreditLedgerV2MysqlIT {
         }
     }
 
+    static final class ForbiddenLegacyUsageMapper implements FbsSkillUsageRecordMapper {
+        private final AtomicLong invocations = new AtomicLong();
+
+        long invocationCount() {
+            return invocations.get();
+        }
+
+        @Override
+        public FbsSkillUsageRecord selectByRecordId(String usageRecordId) {
+            return forbidden();
+        }
+
+        @Override
+        public FbsSkillUsageRecord selectByRecordIdForUpdate(String usageRecordId) {
+            return forbidden();
+        }
+
+        @Override
+        public int insertUsageRecord(FbsSkillUsageRecord record) {
+            return forbidden();
+        }
+
+        @Override
+        public int updateStatusByRecordId(
+                String usageRecordId, Integer status, String errorMessage) {
+            return forbidden();
+        }
+
+        private <T> T forbidden() {
+            invocations.incrementAndGet();
+            throw new AssertionError("host v2 path invoked the legacy usage mapper");
+        }
+    }
+
     @Configuration(proxyBeanMethods = false)
     @EnableTransactionManagement(proxyTargetClass = true)
     static class TestConfiguration {
@@ -437,14 +561,21 @@ class SkillConsumeCreditLedgerV2MysqlIT {
         }
 
         @Bean
+        @Primary
+        ForbiddenLegacyUsageMapper legacyUsageGuard() {
+            return new ForbiddenLegacyUsageMapper();
+        }
+
+        @Bean
         IndependentBoardCreditMapper legacyCreditMapper(SqlSessionFactory factory) {
             return new SqlSessionTemplate(factory).getMapper(IndependentBoardCreditMapper.class);
         }
 
         @Bean
         SkillConsumeCreditTransactionService skillCreditTransactionService(
-                SkillConsumeCreditLedgerMapper mapper, FbsSkillUsageRecordMapper usageMapper) {
-            return new SkillConsumeCreditTransactionService(mapper, usageMapper);
+                SkillConsumeCreditLedgerMapper mapper,
+                CasControllableUsageMapper writerUsageMapper) {
+            return new SkillConsumeCreditTransactionService(mapper, writerUsageMapper);
         }
 
         @Bean
@@ -463,6 +594,31 @@ class SkillConsumeCreditLedgerV2MysqlIT {
         IndependentBoardCreditService legacyCreditService(
                 IndependentBoardCreditTransactionService transactionService) {
             return new IndependentBoardCreditService(transactionService, true, true);
+        }
+
+        @Bean
+        FbsScenePackMapper scenePackMapper() {
+            return mock(FbsScenePackMapper.class);
+        }
+
+        @Bean
+        PointsRuleMapper pointsRuleMapper() {
+            return mock(PointsRuleMapper.class);
+        }
+
+        @Bean
+        RightsCheckService rightsCheckService() {
+            return mock(RightsCheckService.class);
+        }
+
+        @Bean
+        IPointsService legacyPointsService() {
+            return mock(IPointsService.class);
+        }
+
+        @Bean
+        SkillConsumeServiceImpl hostSkillConsumeService() {
+            return new SkillConsumeServiceImpl();
         }
     }
 }

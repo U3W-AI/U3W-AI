@@ -5,7 +5,7 @@
     "brandEn": "FBSir",
     "name": "独董会"
   },
-  "platformVersion": "0.4.7-dev",
+  "platformVersion": "0.4.8-dev",
   "expertPackage": {
     "version": "26.7.20",
     "state": "officially_listed_user_confirmed",
@@ -131,6 +131,14 @@
     "FBSir-business/src/main/resources/mapper/board/IndependentBoardCreditMapper.xml",
     "reports/independent-board/w3f-credit-ledger-verification-20260722.json",
     "reports/independent-board/w3f-credit-ledger-mysql-evidence-20260722.json",
+    "docs/independent-board/W3L-SKILL-CONSUME-CREDIT-WRITER-CONTRACT.md",
+    "sql/update_20260723_skill_consume_credit_ledger_v2.sql",
+    "scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1",
+    "docs/independent-board/W4B5A-SKILL-CONSUME-COMMAND-CONTRACT.md",
+    "docs/independent-board/W4B5B-SKILL-CONSUME-TRANSACTION-WRITER-CONTRACT.md",
+    "docs/independent-board/W4B5C-SKILL-CONSUME-DUAL-MYSQL-TRANSACTION-CONTRACT.md",
+    "docs/independent-board/W4B5D-SKILL-CONSUME-HOST-WIRING-CONTRACT.md",
+    "reports/independent-board/skill-consume-host-wiring-verification-20260723.json",
     "sql/update_20260722_independent_board_credit_candidate_menu.sql",
     "FBSir-ui/src/views/business/independentBoard/admin/credit/",
     "FBSir-ui/scripts/verify-independent-board-credit-admin-ui.mjs",
@@ -290,7 +298,11 @@
     "w3h_mutable_head_only_locking_and_nonlocking_immutable_receipt_read_contract_verified",
     "w3h_dual_mysql_first_apply_replay_metadata_negative_and_six_case_twenty_iteration_concurrency_passed",
     "w3h_dual_mysql_candidate_menu_default_disabled_zero_role_binding_drift_and_collision_matrix_passed",
-    "w3h_real_browser_revision_replay_conflict_rollback_default_off_and_zero_console_error_verified"
+    "w3h_real_browser_revision_replay_conflict_rollback_default_off_and_zero_console_error_verified",
+    "w4b5a_skill_consume_v2_normalized_command_and_digest_contract_verified",
+    "w4b5b_skill_consume_v2_internal_writer_and_requires_new_transaction_contract_verified",
+    "w4b5c_skill_consume_v2_dual_mysql_application_transaction_and_038_042_mutual_exclusion_verified",
+    "w4b5d_default_off_host_consume_delegation_zero_legacy_fallback_and_dual_mysql_5_of_5_each_verified"
   ],
   "notProven": [
     "oauth_public_routes",
@@ -327,7 +339,10 @@
     "skill_usage_enterprise_tenant_and_member_snapshot",
     "skill_usage_end_api_key_instance_and_host_scope_binding",
     "skill_usage_server_verified_host_instance_identity",
-    "skill_consume_service_final_status_cas_result_and_transaction_integration",
+    "skill_consume_v2_outer_transaction_connection_pool_capacity_or_dispatcher_separation",
+    "skill_consume_v2_nullable_host_session_compatibility_and_real_traffic_proof",
+    "skill_consume_v2_operation_idempotent_commercial_hub_outbox_or_approved_exclusion",
+    "skill_consume_v2_exact_target_activation_rollback_and_human_approval_receipt_refresh",
     "connector_vip_binding",
     "webhook_delivery",
     "watch_device_control",
@@ -445,6 +460,28 @@
       "nextSlice": "W3j_activation_release_receipt_collection_and_human_approval"
     }
   },
+  "w4b5d": {
+    "state": "local_default_off_skill_consume_host_wiring_dual_mysql_verified",
+    "contract": "docs/independent-board/W4B5D-SKILL-CONSUME-HOST-WIRING-CONTRACT.md",
+    "verificationReport": "reports/independent-board/skill-consume-host-wiring-verification-20260723.json",
+    "flags": {
+      "creditLedgerCandidateEnabledByDefault": false,
+      "skillConsumeCreditWriterEnabledByDefault": false,
+      "activationRequiresBoth": true
+    },
+    "hostBoundary": "authorized_paid_personal_consumption_delegates_once_to_v2_writer_before_any_host_legacy_usage_or_points_write",
+    "legacyFallback": false,
+    "hostTypeNormalization": "trim_and_uppercase_before_internal_command",
+    "hostSessionCompatibility": "public_contract_nullable_but_v2_command_requires_non_empty_activation_blocked_pending_real_traffic_proof",
+    "verifiedMysql": [
+      "MySQL Community 8.0.30",
+      "MySQL Community 8.4.8"
+    ],
+    "releaseReady": false,
+    "productionAuthority": false,
+    "remainingBoundary": "nontransactional_dispatch_or_connection_pool_capacity_proof_plus_nullable_host_session_compatibility_and_real_traffic_proof_plus_operation_idempotent_commercial_hub_outbox_and_exact_target_activation_receipt",
+    "nextSlice": "W4B5E_skill_consume_activation_safety_and_release_receipt_refresh"
+  },
   "ui": {
     "base": "existing_u3w_ai_ruoyi_vue3_element_plus",
     "state": "w4b2_default_off_runtime_candidate_verified_local_not_deployed",
@@ -546,5 +583,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-23T01:00:00+08:00"
+  "updatedAt": "2026-07-23T12:10:00+08:00"
 }

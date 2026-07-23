@@ -34,7 +34,11 @@ class SkillConsumeCreditLedgerV2RunnerContractTest {
         assertContains("-dtest=skillconsumecreditledgerv2mysqlit");
         assertContains("independent.board.skill.consume.credit.mysql.it.allowdestructive=true");
         assertContains("read-surefireevidence");
+        assertContains("$expectedtests = 5");
+        assertContains("dualflaghostconsumeusesv2andnevercallslegacywriters");
+        assertContains("hostconsumeservice");
         assertContains("applicationtransactionmatrix");
+        assertContains("pass_local_dual_mysql_host_path_matrix");
         assertContains("productionconnectionused = $false");
     }
 
@@ -57,13 +61,25 @@ class SkillConsumeCreditLedgerV2RunnerContractTest {
         assertVerifierContains("predecessorsourcesha256");
     }
 
+    @Test
+    void centralVerifierRequiresTheW4b5dHostWiringSuccessorReceipt() {
+        assertVerifierContains("skill-consume-host-wiring-verification-20260723.json");
+        assertVerifierContains("pass_local_default_off_skill_consume_host_wiring");
+        assertVerifierContains("outertransactionpoolstarvationriskopen");
+        assertVerifierContains("hostsessioncompatibilityopen");
+        assertVerifierContains("commercialhuboutboxopen");
+        assertVerifierContains("exacttargetactivationreceiptopen");
+        assertVerifierContains("fbsir_independent_board_credit_ledger_candidate_enabled:false");
+        assertVerifierContains("fbsir_independent_board_skill_consume_credit_writer_enabled:false");
+    }
+
     private static void assertContains(String expected) {
         assertTrue(runner.contains(expected), "missing 042 runner contract: " + expected);
     }
 
     private static void assertVerifierContains(String expected) {
         assertTrue(centralVerifier.contains(expected),
-                "missing W4B5C central-verifier contract: " + expected);
+                "missing skill-consume central-verifier contract: " + expected);
     }
 
     private static Path locateRunner() {

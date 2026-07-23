@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "kind": "fbsir.skill-consume-host-wiring.verification/v1",
+  "result": "PASS_LOCAL_DEFAULT_OFF_SKILL_CONSUME_HOST_WIRING",
+  "verifiedAt": "2026-07-23T12:46:46+08:00",
+  "scope": "default-off paid-personal host consume delegation through the v2 writer on isolated MySQL 8.0/8.4",
+  "candidateReadyForCommit": true,
+  "releaseReady": false,
+  "productionChanged": false,
+  "productionConnectionUsed": false,
+  "frozenListedPackageModified": false,
+  "historicalReceiptMutated": false,
+  "writerWiredIntoLegacyConsume": true,
+  "predecessorReceipts": {
+    "fence": {
+      "path": "reports/independent-board/skill-consume-candidate-fence-verification-20260723.json",
+      "sha256": "dcea3d4f6bf9392fb22f1f95800f630a697b4fa5eb08e68ef7cbe488657a0741"
+    },
+    "dualMysql": {
+      "path": "reports/independent-board/skill-consume-dual-mysql-transaction-verification-20260723.json",
+      "sha256": "14af9bca13a2e955c28d50c1b8f0eaed97438b7ed878aa0e05aa60f88f1e210d"
+    },
+    "truthSources": {
+      "path": "reports/independent-board/w3k-plan-policy-authority-mysql-verification-20260723.json",
+      "sha256": "9ebe369e7f0300a2d471f8e4b17f9e08e1e07f94084ec731cf7320cb56cdab42"
+    }
+  },
+  "predecessorSourceSha256": {
+    "FBSir-business/src/main/java/com/wx/fbsir/business/fbs/service/impl/SkillConsumeServiceImpl.java": "17b70fb14863aef98842b8e77445a4c8dde54a673463e408182cffa3a55254d3",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/fbs/service/SkillConsumeServiceTest.java": "5c5faf61531182c088cf08be23b2b98808d216d4eafc85393b3dbc1353240553",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditWriter.java": "30b30a219d22edf635a70ea47ff019ec3282d692f33af053712c3c2716e681df",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/SkillConsumeCreditLedgerV2RunnerContractTest.java": "c6de5233ed40cecaa7f8834dcd09ac9408105876268d8e427b86a198d530734e",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditLedgerV2MysqlIT.java": "c1aa7884273be6dfec84e590a42b68909e457a610b3438d901486ca2deb8e0e8",
+    "scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1": "2555f6de37a71ebd529e3c47ae924688936ca877f12b8223c3d2707d7e0426bc",
+    "scripts/verify-independent-board-control-plane.ps1": "89721b6a3e993e4996e60c69c2d26f2a6d295f8c3f7347194d0c771abc9a1f35",
+    ".fbs-engineering/contract.json": "000ce3301c9f03e508bbecfdd2a343c2c08880c9c8891baf968d6f00a601525a",
+    "docs/independent-board/taskboard.json": "109390e2f11925d5adcad70998183a630ba8bb787dba9f3c5b4e8aa7f256c7e3",
+    "docs/independent-board/implementation-status.json": "9878566d3c8061ccdb456d5960ad760708d93242c31bc36a88b1e101a59664de"
+  },
+  "frozenPackage": {
+    "path": "D:/Spg719/fbsir-eight-seat-board-26.7.20.zip",
+    "sha256": "d2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd"
+  },
+  "hostContract": {
+    "writerEnabledByDefault": false,
+    "creditLedgerCandidateEnabledByDefault": false,
+    "requiresBothFlags": true,
+    "writerBeanMissingFailsClosed": true,
+    "paidPersonalDelegatesExactlyOnce": true,
+    "writerFailureFallsBackToLegacy": false,
+    "hostTypeTrimmedAndUppercased": true,
+    "minimumIntegerRuleFailsClosed": true,
+    "hostLegacyUsageCallsOnV2": 0,
+    "legacyPointsCallsOnV2": 0,
+    "commercialHubSyncCallsOnV2": 0,
+    "singleFlagRetainsLegacyPath": true,
+    "freeAndEnterpriseRemainLegacy": true,
+    "addsHttpOrMcpWriteSurface": false
+  },
+  "remainingReleaseBlockers": {
+    "outerTransactionPoolStarvationRiskOpen": true,
+    "hostSessionCompatibilityOpen": true,
+    "commercialHubOutboxOpen": true,
+    "exactTargetActivationReceiptOpen": true
+  },
+  "versions": [
+    {
+      "version": "8.0.30",
+      "testsRun": 5,
+      "passed": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "testNames": [
+        "concurrencyDigestConflictAndBalanceRaceCommitOnlyValidWinners",
+        "dualFlagHostConsumeUsesV2AndNeverCallsLegacyWriters",
+        "firstConsumeAndExactReplayCommitOneImmutableResult",
+        "legacyAndV2AuthorityAreMutuallyExclusiveInBothDirections",
+        "terminalUsageCasZeroRollsBackEveryFinancialAndReceiptWrite"
+      ],
+      "surefireReportSha256": "17dd3127114deec97c12b1098fb3f2eca0725bc5a74d7de38076c2ec2b50b2e7",
+      "productionConnectionUsed": false,
+      "workDirectoryCleaned": true
+    },
+    {
+      "version": "8.4.8",
+      "testsRun": 5,
+      "passed": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "testNames": [
+        "concurrencyDigestConflictAndBalanceRaceCommitOnlyValidWinners",
+        "dualFlagHostConsumeUsesV2AndNeverCallsLegacyWriters",
+        "firstConsumeAndExactReplayCommitOneImmutableResult",
+        "legacyAndV2AuthorityAreMutuallyExclusiveInBothDirections",
+        "terminalUsageCasZeroRollsBackEveryFinancialAndReceiptWrite"
+      ],
+      "surefireReportSha256": "d5582878f0933a6990ebf0f4529b4e2b73665b4cf4db10f7a1173affe207d78d",
+      "productionConnectionUsed": false,
+      "workDirectoryCleaned": true
+    }
+  ],
+  "targetedRegression": {
+    "verifiedAt": "2026-07-23T12:49:57+08:00",
+    "command": "mvn -o -pl FBSir-business -am -Dtest=SkillConsumeCreditLedgerV2RunnerContractTest,IndependentBoardCreditServiceTest,SkillConsumeCreditCommandTest,SkillConsumeCreditWriterTest,SkillConsumeCreditTransactionServiceTest,SkillConsumeCreditLedgerMapperContractTest,SkillConsumeServiceTest -Dsurefire.failIfNoSpecifiedTests=false -DforkCount=0 test",
+    "testsRun": 76,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "exitCode": 0,
+    "result": "BUILD_SUCCESS"
+  },
+  "sourceSha256": {
+    ".gitattributes": "0ec7b554219c6e40c0072a9caf6b7d91759ae2cb47edb6c0d858f3473262c9a2",
+    ".fbs-engineering/contract.json": "c1133b7071781e9dd83b3b6568f65f8113c430b1b8ed43fb59a7c3a25414b37b",
+    "FBSir-admin/src/main/resources/application.yml": "62e0cde1b3124233863cbbc30db1268c3491dbcb5817216507330896f2505bf2",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditWriter.java": "6a2c8ccf793acb591b754dcc08ab9e305e9ebe4e3a4ce131c9f6612442a9359a",
+    "FBSir-business/src/main/java/com/wx/fbsir/business/fbs/service/impl/SkillConsumeServiceImpl.java": "26b09e98830a79a5cc56972f884a4075145178c3606158e5955cf0ab26825c60",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/SkillConsumeCreditLedgerV2RunnerContractTest.java": "f087ad023760c572db80587cb38641d5cbe47a01bd455195854045ac46e0e768",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditLedgerV2MysqlIT.java": "bffae695f2313ff2236356050b6c2aa96ea69c850691eaac83e13e9759124846",
+    "FBSir-business/src/test/java/com/wx/fbsir/business/fbs/service/SkillConsumeServiceTest.java": "b835c31666937172c7560b076430b65d3ed7ecb6c676d8243a80127789b7f24d",
+    "docs/independent-board/W4B5D-SKILL-CONSUME-HOST-WIRING-CONTRACT.md": "0ad320b4fb4f491efa6b5e86033389a1a5133a1f37da1273b1bf8bbd4713c831",
+    "docs/independent-board/implementation-status.json": "c56cf73540c3f699eeb83c676407e5aa684392175334873dd5ff2d37304006fc",
+    "docs/independent-board/taskboard.json": "ffab83909884387812ad7ea60081e664e86cd9d6740b26f559d46bb46293504b",
+    "scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1": "bf41e630a5c2109a2032168821ba3ae0c7dcdb2e4d4599c15092056eb078d021",
+    "scripts/verify-independent-board-control-plane.ps1": "ce1349510220a08ae94a3a3e68294502cba519b6f5d31bd858edae9443138222"
+  }
+}

@@ -232,6 +232,8 @@ function Invoke-ContractChecks {
         'reports\independent-board\skill-consume-candidate-fence-verification-20260723.json',
         'reports\independent-board\skill-consume-command-verification-20260723.json',
         'reports\independent-board\skill-consume-writer-verification-20260723.json',
+        'reports\independent-board\skill-consume-dual-mysql-transaction-verification-20260723.json',
+        'reports\independent-board\skill-consume-host-wiring-verification-20260723.json',
         'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.json',
         'reports\independent-board\api2-independent-board-24h-traffic-attribution-20260721.md',
         'work\diagnostics\independent-board-mysql-transaction-it\mysql-8.0.30\summary-mysql-8.0.30-utc-20260721T123307.170Z-local-20260721T203307.170+0800-pid-18500.json',
@@ -370,6 +372,7 @@ function Invoke-ContractChecks {
     $canonicalW3hSuccessorSliceId = 'W3i_meeting_audit_policy_lineage_and_label_authority'
     $canonicalW3iSuccessorSliceId = 'W3j_credit_candidate_release_readiness_gate'
     $canonicalW3NextSliceId = 'W3j_activation_release_receipt_collection_and_human_approval'
+    $canonicalCurrentW3SliceId = 'W4B5E_skill_consume_activation_safety_and_release_receipt_refresh'
     $w4b2cReport = Read-Utf8Json -RelativePath 'reports\independent-board\w4b2c-default-off-runtime-mount-verification-20260721.json'
     Assert-ProductBrand -Product $w4b2cReport.product -Source 'W4b.2c runtime mount verification report'
     if ($w4b2cReport.schema -cne 'fbsir.independent-board.w4b2c-default-off-runtime-mount-verification/v1' `
@@ -767,9 +770,15 @@ function Invoke-ContractChecks {
             throw "W3l migration successor artifact binding drifted: $w3lPath"
         }
     }
+    $w4b5dAuthoritySuccessorArtifacts = @(
+        '.fbs-engineering/contract.json',
+        'docs/independent-board/taskboard.json',
+        'docs/independent-board/implementation-status.json'
+    )
     foreach ($authorityArtifact in @($w3kAuthoritySuccessorReport.sourceSha256.PSObject.Properties)) {
         $authorityPath = [string]$authorityArtifact.Name
-        if ($authorityPath -in $w3lAuthorityOverlaps) {
+        if ($authorityPath -in $w3lAuthorityOverlaps `
+                -or $authorityPath -in $w4b5dAuthoritySuccessorArtifacts) {
             continue
         }
         $authorityFile = Join-Path $RepoRoot $authorityPath
@@ -896,7 +905,10 @@ function Invoke-ContractChecks {
     foreach ($skillConsumeFenceArtifact in $skillConsumeFenceArtifacts) {
         # W4B5A succeeds this central-verifier byte while retaining the W4B4
         # receipt as an immutable historical fact.
-        if ($skillConsumeFenceArtifact -eq 'scripts/verify-independent-board-control-plane.ps1') {
+        if ($skillConsumeFenceArtifact -in @(
+                'FBSir-business/src/main/java/com/wx/fbsir/business/fbs/service/impl/SkillConsumeServiceImpl.java',
+                'FBSir-business/src/test/java/com/wx/fbsir/business/fbs/service/SkillConsumeServiceTest.java',
+                'scripts/verify-independent-board-control-plane.ps1')) {
             continue
         }
 
@@ -1016,7 +1028,9 @@ function Invoke-ContractChecks {
     foreach ($skillConsumeWriterArtifact in $skillConsumeWriterArtifacts) {
         # W4B5C succeeds the central-verifier byte while retaining W4B5B as
         # immutable historical evidence.
-        if ($skillConsumeWriterArtifact -eq 'scripts/verify-independent-board-control-plane.ps1') {
+        if ($skillConsumeWriterArtifact -in @(
+                'FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditWriter.java',
+                'scripts/verify-independent-board-control-plane.ps1')) {
             continue
         }
 
@@ -1097,9 +1111,162 @@ function Invoke-ContractChecks {
         throw 'W4B5C dual-MySQL application transaction receipt is incomplete, overclaims evidence, or lacks predecessor succession'
     }
     foreach ($skillConsumeDualMysqlArtifact in $skillConsumeDualMysqlArtifacts) {
+        if ($skillConsumeDualMysqlArtifact -in @(
+                'FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditWriter.java',
+                'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/SkillConsumeCreditLedgerV2RunnerContractTest.java',
+                'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditLedgerV2MysqlIT.java',
+                'scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1',
+                'scripts/verify-independent-board-control-plane.ps1')) {
+            continue
+        }
         $skillConsumeDualMysqlCurrentHash = (Get-FileHash -LiteralPath (Join-Path $RepoRoot $skillConsumeDualMysqlArtifact) -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($skillConsumeDualMysqlReport.sourceSha256.PSObject.Properties[$skillConsumeDualMysqlArtifact].Value -cne $skillConsumeDualMysqlCurrentHash) {
             throw "W4B5C dual-MySQL application transaction artifact binding drifted: $skillConsumeDualMysqlArtifact"
+        }
+    }
+
+    # W4B5D is the immutable successor that wires the already-proven writer
+    # into the host consume service behind the existing default-off AND gate.
+    # It owns the changed host/runner/truth-source bytes without rewriting any
+    # W4B4 or W4B5C historical receipt and still does not authorize release.
+    $skillConsumeHostReportPath = 'reports/independent-board/skill-consume-host-wiring-verification-20260723.json'
+    $skillConsumeHostReport = Read-Utf8Json -RelativePath $skillConsumeHostReportPath.Replace('/', '\')
+    $skillConsumeHostArtifacts = @(
+        '.gitattributes',
+        '.fbs-engineering/contract.json',
+        'FBSir-admin/src/main/resources/application.yml',
+        'FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditWriter.java',
+        'FBSir-business/src/main/java/com/wx/fbsir/business/fbs/service/impl/SkillConsumeServiceImpl.java',
+        'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/SkillConsumeCreditLedgerV2RunnerContractTest.java',
+        'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditLedgerV2MysqlIT.java',
+        'FBSir-business/src/test/java/com/wx/fbsir/business/fbs/service/SkillConsumeServiceTest.java',
+        'docs/independent-board/W4B5D-SKILL-CONSUME-HOST-WIRING-CONTRACT.md',
+        'docs/independent-board/implementation-status.json',
+        'docs/independent-board/taskboard.json',
+        'scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1',
+        'scripts/verify-independent-board-control-plane.ps1'
+    )
+    $skillConsumeHostSourceArtifacts = @(
+        $skillConsumeHostReport.sourceSha256.PSObject.Properties |
+            ForEach-Object { [string]$_.Name })
+    $skillConsumeHostPredecessorSourceArtifacts = @(
+        $skillConsumeHostReport.predecessorSourceSha256.PSObject.Properties |
+            ForEach-Object { [string]$_.Name })
+    $skillConsumeHostExpectedPredecessorSources = [ordered]@{
+        'FBSir-business/src/main/java/com/wx/fbsir/business/fbs/service/impl/SkillConsumeServiceImpl.java' =
+            $skillConsumeFenceReport.sourceSha256.PSObject.Properties['FBSir-business/src/main/java/com/wx/fbsir/business/fbs/service/impl/SkillConsumeServiceImpl.java'].Value
+        'FBSir-business/src/test/java/com/wx/fbsir/business/fbs/service/SkillConsumeServiceTest.java' =
+            $skillConsumeFenceReport.sourceSha256.PSObject.Properties['FBSir-business/src/test/java/com/wx/fbsir/business/fbs/service/SkillConsumeServiceTest.java'].Value
+        'FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditWriter.java' =
+            $skillConsumeDualMysqlReport.sourceSha256.PSObject.Properties['FBSir-business/src/main/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditWriter.java'].Value
+        'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/SkillConsumeCreditLedgerV2RunnerContractTest.java' =
+            $skillConsumeDualMysqlReport.sourceSha256.PSObject.Properties['FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/SkillConsumeCreditLedgerV2RunnerContractTest.java'].Value
+        'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditLedgerV2MysqlIT.java' =
+            $skillConsumeDualMysqlReport.sourceSha256.PSObject.Properties['FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditLedgerV2MysqlIT.java'].Value
+        'scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1' =
+            $skillConsumeDualMysqlReport.sourceSha256.PSObject.Properties['scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1'].Value
+        'scripts/verify-independent-board-control-plane.ps1' =
+            $skillConsumeDualMysqlReport.sourceSha256.PSObject.Properties['scripts/verify-independent-board-control-plane.ps1'].Value
+        '.fbs-engineering/contract.json' =
+            $w3kAuthoritySuccessorReport.sourceSha256.PSObject.Properties['.fbs-engineering/contract.json'].Value
+        'docs/independent-board/taskboard.json' =
+            $w3kAuthoritySuccessorReport.sourceSha256.PSObject.Properties['docs/independent-board/taskboard.json'].Value
+        'docs/independent-board/implementation-status.json' =
+            $w3kAuthoritySuccessorReport.sourceSha256.PSObject.Properties['docs/independent-board/implementation-status.json'].Value
+    }
+    $skillConsumeHostExpectedPredecessorPaths = @(
+        $skillConsumeHostExpectedPredecessorSources.Keys)
+    $skillConsumeHostExpectedTestNames = @(
+        'concurrencyDigestConflictAndBalanceRaceCommitOnlyValidWinners',
+        'dualFlagHostConsumeUsesV2AndNeverCallsLegacyWriters',
+        'firstConsumeAndExactReplayCommitOneImmutableResult',
+        'legacyAndV2AuthorityAreMutuallyExclusiveInBothDirections',
+        'terminalUsageCasZeroRollsBackEveryFinancialAndReceiptWrite'
+    )
+    $skillConsumeFenceReceiptHash = (Get-FileHash -LiteralPath (
+        Join-Path $RepoRoot $skillConsumeFenceReportPath) -Algorithm SHA256).Hash.ToLowerInvariant()
+    $skillConsumeDualMysqlReceiptHash = (Get-FileHash -LiteralPath (
+        Join-Path $RepoRoot $skillConsumeDualMysqlReportPath) -Algorithm SHA256).Hash.ToLowerInvariant()
+    $w3kAuthoritySuccessorReceiptHash = (Get-FileHash -LiteralPath (
+        Join-Path $RepoRoot 'reports/independent-board/w3k-plan-policy-authority-mysql-verification-20260723.json'
+    ) -Algorithm SHA256).Hash.ToLowerInvariant()
+    $skillConsumeHostVersions = @($skillConsumeHostReport.versions)
+    $skillConsumeHostApplicationConfig = Get-Content -LiteralPath (
+        Join-Path $RepoRoot 'FBSir-admin/src/main/resources/application.yml') -Raw
+    if ($skillConsumeHostReport.schemaVersion -ne 1 `
+            -or $skillConsumeHostReport.result -cne 'PASS_LOCAL_DEFAULT_OFF_SKILL_CONSUME_HOST_WIRING' `
+            -or $skillConsumeHostReport.candidateReadyForCommit -ne $true `
+            -or $skillConsumeHostReport.releaseReady -ne $false `
+            -or $skillConsumeHostReport.productionChanged -ne $false `
+            -or $skillConsumeHostReport.productionConnectionUsed -ne $false `
+            -or $skillConsumeHostReport.frozenListedPackageModified -ne $false `
+            -or $skillConsumeHostReport.historicalReceiptMutated -ne $false `
+            -or $skillConsumeHostReport.writerWiredIntoLegacyConsume -ne $true `
+            -or $skillConsumeHostReport.hostContract.writerEnabledByDefault -ne $false `
+            -or $skillConsumeHostReport.hostContract.creditLedgerCandidateEnabledByDefault -ne $false `
+            -or $skillConsumeHostReport.hostContract.requiresBothFlags -ne $true `
+            -or $skillConsumeHostReport.hostContract.writerBeanMissingFailsClosed -ne $true `
+            -or $skillConsumeHostReport.hostContract.paidPersonalDelegatesExactlyOnce -ne $true `
+            -or $skillConsumeHostReport.hostContract.writerFailureFallsBackToLegacy -ne $false `
+            -or $skillConsumeHostReport.hostContract.hostTypeTrimmedAndUppercased -ne $true `
+            -or $skillConsumeHostReport.hostContract.minimumIntegerRuleFailsClosed -ne $true `
+            -or $skillConsumeHostReport.hostContract.hostLegacyUsageCallsOnV2 -ne 0 `
+            -or $skillConsumeHostReport.hostContract.legacyPointsCallsOnV2 -ne 0 `
+            -or $skillConsumeHostReport.hostContract.commercialHubSyncCallsOnV2 -ne 0 `
+            -or $skillConsumeHostReport.hostContract.singleFlagRetainsLegacyPath -ne $true `
+            -or $skillConsumeHostReport.hostContract.freeAndEnterpriseRemainLegacy -ne $true `
+            -or $skillConsumeHostReport.hostContract.addsHttpOrMcpWriteSurface -ne $false `
+            -or $skillConsumeHostApplicationConfig -notmatch [regex]::Escape(
+                'FBSIR_INDEPENDENT_BOARD_CREDIT_LEDGER_CANDIDATE_ENABLED:false') `
+            -or $skillConsumeHostApplicationConfig -notmatch [regex]::Escape(
+                'FBSIR_INDEPENDENT_BOARD_SKILL_CONSUME_CREDIT_WRITER_ENABLED:false') `
+            -or $skillConsumeHostReport.remainingReleaseBlockers.outerTransactionPoolStarvationRiskOpen -ne $true `
+            -or $skillConsumeHostReport.remainingReleaseBlockers.hostSessionCompatibilityOpen -ne $true `
+            -or $skillConsumeHostReport.remainingReleaseBlockers.commercialHubOutboxOpen -ne $true `
+            -or $skillConsumeHostReport.remainingReleaseBlockers.exactTargetActivationReceiptOpen -ne $true `
+            -or $skillConsumeHostReport.targetedRegression.testsRun -ne 76 `
+            -or $skillConsumeHostReport.targetedRegression.failures -ne 0 `
+            -or $skillConsumeHostReport.targetedRegression.errors -ne 0 `
+            -or $skillConsumeHostReport.targetedRegression.skipped -ne 0 `
+            -or $skillConsumeHostReport.targetedRegression.result -cne 'BUILD_SUCCESS' `
+            -or $skillConsumeHostVersions.Count -ne 2 `
+            -or @($skillConsumeHostVersions | Where-Object { $_.version -ceq '8.0.30' }).Count -ne 1 `
+            -or @($skillConsumeHostVersions | Where-Object { $_.version -ceq '8.4.8' }).Count -ne 1 `
+            -or @($skillConsumeHostVersions | Where-Object {
+                $_.testsRun -ne 5 -or $_.passed -ne 5 -or $_.failures -ne 0 `
+                    -or $_.errors -ne 0 -or $_.skipped -ne 0 `
+                    -or (Compare-Object -ReferenceObject ($skillConsumeHostExpectedTestNames | Sort-Object) `
+                        -DifferenceObject (@($_.testNames) | Sort-Object)).Count -ne 0 `
+                    -or $_.surefireReportSha256 -notmatch '^[0-9a-f]{64}$' `
+                    -or $_.productionConnectionUsed -ne $false `
+                    -or $_.workDirectoryCleaned -ne $true
+            }).Count -ne 0 `
+            -or $skillConsumeHostReport.predecessorReceipts.fence.path -cne $skillConsumeFenceReportPath `
+            -or $skillConsumeHostReport.predecessorReceipts.fence.sha256 -cne $skillConsumeFenceReceiptHash `
+            -or $skillConsumeHostReport.predecessorReceipts.dualMysql.path -cne $skillConsumeDualMysqlReportPath `
+            -or $skillConsumeHostReport.predecessorReceipts.dualMysql.sha256 -cne $skillConsumeDualMysqlReceiptHash `
+            -or $skillConsumeHostReport.predecessorReceipts.truthSources.path -cne 'reports/independent-board/w3k-plan-policy-authority-mysql-verification-20260723.json' `
+            -or $skillConsumeHostReport.predecessorReceipts.truthSources.sha256 -cne $w3kAuthoritySuccessorReceiptHash `
+            -or (Compare-Object -ReferenceObject ($skillConsumeHostExpectedPredecessorPaths | Sort-Object) `
+                -DifferenceObject ($skillConsumeHostPredecessorSourceArtifacts | Sort-Object)).Count -ne 0 `
+            -or (Compare-Object -ReferenceObject ($skillConsumeHostArtifacts | Sort-Object) `
+                -DifferenceObject ($skillConsumeHostSourceArtifacts | Sort-Object)).Count -ne 0 `
+            -or $skillConsumeHostReport.frozenPackage.sha256 -cne 'd2380072556c0dcf429604ae33713668c509f74a0303f7bca2baceebf32c78cd') {
+        throw 'W4B5D host-wiring receipt is incomplete, overclaims evidence, or lacks predecessor succession'
+    }
+    foreach ($skillConsumeHostPredecessorPath in $skillConsumeHostExpectedPredecessorPaths) {
+        if ($skillConsumeHostReport.predecessorSourceSha256.PSObject.Properties[
+                $skillConsumeHostPredecessorPath].Value -cne
+                $skillConsumeHostExpectedPredecessorSources[$skillConsumeHostPredecessorPath]) {
+            throw "W4B5D predecessor source binding drifted: $skillConsumeHostPredecessorPath"
+        }
+    }
+    foreach ($skillConsumeHostArtifact in $skillConsumeHostArtifacts) {
+        $skillConsumeHostCurrentHash = (Get-FileHash -LiteralPath (
+            Join-Path $RepoRoot $skillConsumeHostArtifact) -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($skillConsumeHostReport.sourceSha256.PSObject.Properties[
+                $skillConsumeHostArtifact].Value -cne $skillConsumeHostCurrentHash) {
+            throw "W4B5D host-wiring artifact binding drifted: $skillConsumeHostArtifact"
         }
     }
 
@@ -1327,7 +1494,7 @@ function Invoke-ContractChecks {
     $taskboard = Read-Utf8Json -RelativePath 'docs\independent-board\taskboard.json'
     $w3Wave = @($taskboard.waves | Where-Object { $_.id -ceq 'W3_ADMIN_PORTAL' })
     $w4Wave = @($taskboard.waves | Where-Object { $_.id -ceq 'W4_OAUTH_CONNECTOR' })
-    if ($implementationStatus.platformVersion -cne '0.4.7-dev' `
+    if ($implementationStatus.platformVersion -cne '0.4.8-dev' `
             -or $implementationStatus.w3h.state -cne 'local_default_off_plan_policy_admin_governance_verified' `
             -or $implementationStatus.w3h.databaseMigration -cne 'public_init_039_manifested_not_applied_to_production' `
             -or $implementationStatus.w3h.nextSlice -cne $canonicalW3hSuccessorSliceId `
@@ -1352,9 +1519,25 @@ function Invoke-ContractChecks {
             -or $implementationStatus.w3k.controlledAuthority.databaseMigration -cne 'public_init_041_manifested_not_applied_to_production' `
             -or $implementationStatus.w3k.controlledAuthority.productionAuthority -ne $false `
             -or $implementationStatus.w3k.controlledAuthority.nextSlice -cne $canonicalW3NextSliceId `
+            -or $implementationStatus.w4b5d.state -cne 'local_default_off_skill_consume_host_wiring_dual_mysql_verified' `
+            -or $implementationStatus.w4b5d.contract -cne 'docs/independent-board/W4B5D-SKILL-CONSUME-HOST-WIRING-CONTRACT.md' `
+            -or $implementationStatus.w4b5d.verificationReport -cne $skillConsumeHostReportPath `
+            -or $implementationStatus.w4b5d.flags.creditLedgerCandidateEnabledByDefault -ne $false `
+            -or $implementationStatus.w4b5d.flags.skillConsumeCreditWriterEnabledByDefault -ne $false `
+            -or $implementationStatus.w4b5d.flags.activationRequiresBoth -ne $true `
+            -or $implementationStatus.w4b5d.hostSessionCompatibility -cne 'public_contract_nullable_but_v2_command_requires_non_empty_activation_blocked_pending_real_traffic_proof' `
+            -or $implementationStatus.w4b5d.releaseReady -ne $false `
+            -or $implementationStatus.w4b5d.productionAuthority -ne $false `
+            -or $implementationStatus.w4b5d.nextSlice -cne $canonicalCurrentW3SliceId `
+            -or $taskboard.singleNextAction -notlike '*outer-transaction plus REQUIRES_NEW connection-pool starvation risk*' `
+            -or -not (@($w3Wave[0].completedSubset) -ccontains 'skill_consume_v2_default_off_host_service_wiring_dual_mysql_5_of_5_each_and_zero_legacy_fallback_verified') `
+            -or @($w3Wave[0].remaining) -ccontains 'skill_consume_service_final_status_cas_result_and_transaction_integration' `
+            -or -not (@($w3Wave[0].remaining) -ccontains 'skill_consume_v2_outer_transaction_connection_pool_capacity_or_dispatcher_separation') `
+            -or -not (@($w3Wave[0].remaining) -ccontains 'skill_consume_v2_nullable_host_session_compatibility_and_real_traffic_proof') `
+            -or -not (@($w3Wave[0].remaining) -ccontains 'skill_consume_v2_operation_idempotent_commercial_hub_outbox_or_approved_exclusion') `
             -or $w3Wave.Count -ne 1 `
-            -or $w3Wave[0].state -cne 'w3h_plan_policy_w3i_meeting_audit_w3j_credit_activation_readiness_w3k_monotonic_chain_and_controlled_authority_dual_mysql_verified_default_off' `
-            -or $w3Wave[0].activeSlice -cne $canonicalW3NextSliceId `
+            -or $w3Wave[0].state -cne 'w3h_w3i_w3j_w3k_and_w4b5d_skill_consume_host_wiring_verified_local_default_off' `
+            -or $w3Wave[0].activeSlice -cne $canonicalCurrentW3SliceId `
             -or $implementationStatus.w4b.runtimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or $implementationStatus.w4b.api2TrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `
             -or $implementationStatus.w4b.nextSlice -cne $canonicalNextSliceId `
@@ -1372,7 +1555,22 @@ function Invoke-ContractChecks {
     $contractW3j = $engineeringContract.contracts.uiPrototypeGate.w3jImplementation
     $contractW3k = $engineeringContract.contracts.uiPrototypeGate.w3kImplementation
     $contractW3kAuthority = $engineeringContract.contracts.uiPrototypeGate.w3kAuthorityImplementation
-    if ($engineeringContract.artifacts.w3hPlanPolicyContract -cne 'docs/independent-board/W3H-PLAN-POLICY-REVISION-CONTRACT.md' `
+    $skillConsumeReleaseCommand = 'database-skill-consume-credit-v2'
+    if ($engineeringContract.commands.$skillConsumeReleaseCommand.run -cne 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1 -AllowDestructiveTest' `
+            -or $engineeringContract.commands.$skillConsumeReleaseCommand.timeout_ms -ne 900000 `
+            -or -not (@($engineeringContract.policy.releaseBlockers) -ccontains $skillConsumeReleaseCommand) `
+            -or -not (@($engineeringContract.policy.requiredReleaseBlockers) -ccontains $skillConsumeReleaseCommand) `
+            -or -not (@($engineeringContract.policy.requiredWorkflowCommands.verify) -ccontains $skillConsumeReleaseCommand) `
+            -or -not (@($engineeringContract.policy.applicationRuntimeEvidenceCommands) -ccontains $skillConsumeReleaseCommand) `
+            -or -not (@($engineeringContract.workflows.verify) -ccontains $skillConsumeReleaseCommand) `
+            -or $engineeringContract.artifacts.w3lSkillConsumeCreditWriterContract -cne 'docs/independent-board/W3L-SKILL-CONSUME-CREDIT-WRITER-CONTRACT.md' `
+            -or $engineeringContract.artifacts.w3lSkillConsumeCreditLedgerV2Migration -cne 'sql/update_20260723_skill_consume_credit_ledger_v2.sql' `
+            -or $engineeringContract.artifacts.w4b5cSkillConsumeDualMysqlContract -cne 'docs/independent-board/W4B5C-SKILL-CONSUME-DUAL-MYSQL-TRANSACTION-CONTRACT.md' `
+            -or $engineeringContract.artifacts.w4b5cSkillConsumeDualMysqlVerificationReport -cne $skillConsumeDualMysqlReportPath `
+            -or $engineeringContract.artifacts.w4b5dSkillConsumeHostWiringContract -cne 'docs/independent-board/W4B5D-SKILL-CONSUME-HOST-WIRING-CONTRACT.md' `
+            -or $engineeringContract.artifacts.w4b5dSkillConsumeHostWiringVerificationReport -cne $skillConsumeHostReportPath `
+            -or $engineeringContract.artifacts.skillConsumeCreditV2MysqlRunner -cne 'scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1' `
+            -or $engineeringContract.artifacts.w3hPlanPolicyContract -cne 'docs/independent-board/W3H-PLAN-POLICY-REVISION-CONTRACT.md' `
             -or $engineeringContract.artifacts.w3hPlanPolicyMigration -cne 'sql/update_20260722_independent_board_plan_policy.sql' `
             -or $engineeringContract.artifacts.w3hPlanPolicyGovernanceVerificationReport -cne 'reports/independent-board/w3h-plan-policy-governance-verification-20260722.json' `
             -or $contractW3h.state -cne 'local_default_off_admin_candidate_dual_mysql_and_browser_verified' `
@@ -1520,8 +1718,11 @@ if ($Mode -in @('Frontend', 'All')) {
     boardHttpSecurityIncluded = ($Mode -in @('Backend', 'All'))
     databaseTransactionsVerified = $false
     releaseReady = $false
-    releaseBlocker = 'DATABASE_TRANSACTIONS_AND_MENU_MIGRATIONS_ARE_SEPARATE_REQUIRED_COMMANDS'
-    requiredReleaseCompanionCommands = @('database-transactions', 'database-menu-migrations')
+    releaseBlocker = 'DATABASE_TRANSACTIONS_SKILL_CONSUME_V2_AND_MENU_MIGRATIONS_ARE_SEPARATE_REQUIRED_COMMANDS'
+    requiredReleaseCompanionCommands = @(
+        'database-transactions',
+        'database-skill-consume-credit-v2',
+        'database-menu-migrations')
     scratchEvidenceCommands = @('database-live', 'database-concurrency')
     menuMigrationsVerified = $false
 } | ConvertTo-Json -Depth 4 -Compress

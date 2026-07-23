@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the officially listed and post-listing-frozen 26.7.20 expert package.",
-  "singleNextAction": "Collect the W3j exact-target release receipt and obtain human activation approval; retain the credit candidate, W3h/W3i production activation, and API2 attribution authority closed until target version, migration, JWT and rollback evidence are independently read back.",
+  "singleNextAction": "Complete W4B5E activation safety before any release receipt: remove the outer-transaction plus REQUIRES_NEW connection-pool starvation risk, prove or reconcile the public nullable hostSessionId contract with the v2 non-empty requirement using real host traffic, define an operation-idempotent Commercial Hub outbox or an explicitly approved exclusion, then refresh the exact-target migration, rollback and human-approval receipt; keep both candidate flags disabled.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -50,8 +50,8 @@
     },
     {
       "id": "W3_ADMIN_PORTAL",
-      "state": "w3h_plan_policy_w3i_meeting_audit_w3j_credit_activation_readiness_w3k_monotonic_chain_and_controlled_authority_dual_mysql_verified_default_off",
-      "activeSlice": "W3j_activation_release_receipt_collection_and_human_approval",
+      "state": "w3h_w3i_w3j_w3k_and_w4b5d_skill_consume_host_wiring_verified_local_default_off",
+      "activeSlice": "W4B5E_skill_consume_activation_safety_and_release_receipt_refresh",
       "completedSubset": [
         "global_system_admin_only_access_model",
         "active_enterprise_and_member_locked_entitlement_grant_and_adjustment",
@@ -107,7 +107,11 @@
         "credit_candidate_activation_fail_closed_preproduction_release_readiness_gate_verified_local",
         "public_init_040_plan_policy_database_monotonic_chain_guards_preserve_039_bytes_and_default_off_state",
         "dual_mysql_8_0_30_and_8_4_8_monotonic_direct_dml_negative_matrix_and_existing_six_case_twenty_iteration_service_concurrency_verified",
-        "dual_mysql_8_0_30_and_8_4_8_controlled_procedure_execution_two_account_execute_and_five_direct_dml_ddl_rejection_matrix_verified"
+        "dual_mysql_8_0_30_and_8_4_8_controlled_procedure_execution_two_account_execute_and_five_direct_dml_ddl_rejection_matrix_verified",
+        "public_init_042_default_off_skill_consume_v2_migration_and_current_read_contract_verified",
+        "skill_consume_v2_command_writer_and_requires_new_transaction_contract_verified",
+        "skill_consume_v2_dual_mysql_8_0_30_and_8_4_8_application_transaction_matrix_4_of_4_each_verified",
+        "skill_consume_v2_default_off_host_service_wiring_dual_mysql_5_of_5_each_and_zero_legacy_fallback_verified"
       ],
       "remaining": [
         "credit_ledger_candidate_activation_release_receipt_and_human_approval",
@@ -121,7 +125,10 @@
         "api_key_pack_code_database_immutability_trigger",
         "api_key_user_and_pack_bound_lifecycle",
         "usage_record_enterprise_member_snapshot_and_api_key_instance_lineage",
-        "skill_consume_service_final_status_cas_result_and_transaction_integration",
+        "skill_consume_v2_outer_transaction_connection_pool_capacity_or_dispatcher_separation",
+        "skill_consume_v2_nullable_host_session_compatibility_and_real_traffic_proof",
+        "skill_consume_v2_operation_idempotent_commercial_hub_outbox_or_approved_exclusion",
+        "skill_consume_v2_exact_target_activation_rollback_and_human_approval_receipt_refresh",
         "run_receipt_and_failure_audit",
         "connector_and_device_operations",
         "separately_reviewed_delegated_tenant_admin_role"

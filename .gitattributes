@@ -12,8 +12,10 @@
 /reports/independent-board/**/*.json text eol=lf
 /work/diagnostics/independent-board-mysql-transaction-it/**/*.json text eol=lf
 /FBSir-business/src/main/java/com/wx/fbsir/business/board/**/*.java text eol=lf
+/FBSir-business/src/main/java/com/wx/fbsir/business/fbs/**/*.java text eol=lf
 /FBSir-business/src/main/resources/mapper/board/*.xml text eol=lf
 /FBSir-business/src/test/java/com/wx/fbsir/business/board/**/*.java text eol=lf
+/FBSir-business/src/test/java/com/wx/fbsir/business/fbs/**/*.java text eol=lf
 
 *.zip binary
 *.jar binary
