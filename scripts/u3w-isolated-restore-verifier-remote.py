@@ -375,7 +375,6 @@ def ensure_root_directory(path):
             or not path.is_dir()
             or status.st_uid != 0
             or status.st_gid != 0
-            or status.st_nlink != 1
             or path.resolve() != path
         ):
             raise RuntimeError("restore root custody is invalid: " + str(path))
