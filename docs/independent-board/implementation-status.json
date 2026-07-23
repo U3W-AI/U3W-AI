@@ -537,7 +537,7 @@
       "repository": "https://github.com/U3W-AI/U3W-AI.git",
       "candidateBranch": "codex/w1-official-attribution-closure",
       "candidateState": "committed_clean_live_readonly_gate_strict_head_verified_no_go",
-      "candidateCommit": "ed233825213dd4198905829f23fa8df6505c1fcb",
+      "candidateCommit": "38eb13444723c6d9a8418487ec9cb7a0a7b349fb",
       "productionJarSha256": "92e93328af7fdccfbe3a89bbbfd89d46947dfa00794ccfd5aae48116d1ac817b",
       "productionByteIdentity": "legacy_active_jar_readback_only_candidate_not_deployed"
     },
