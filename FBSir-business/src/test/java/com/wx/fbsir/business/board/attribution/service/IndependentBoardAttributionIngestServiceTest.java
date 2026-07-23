@@ -49,13 +49,14 @@ class IndependentBoardAttributionIngestServiceTest {
     @Test
     void appendsTheFirstOfficialEntryWithoutConnectorOrProductCredit() {
         BoardAttributionEventV1 event = event(1, "ENTRY_OBSERVED", "", "unknown");
+        String sameBindingKey = serverKey(event);
         when(verifier.verify(event, properties)).thenReturn(verified(event, "UNKNOWN"));
         when(mapper.insertJourneyHeadIfAbsent(any())).thenReturn(1);
-        when(mapper.selectJourneyHeadForUpdate(event.getSameBindingKey()))
+        when(mapper.selectJourneyHeadForUpdate(sameBindingKey))
                 .thenReturn(head(0, "", "UNKNOWN", 0));
         when(mapper.insertLedgerEvent(any())).thenReturn(1);
         when(mapper.advanceJourneyHead(
-                eq(event.getSameBindingKey()), eq(0L), eq(0L), eq(1L),
+                eq(sameBindingKey), eq(0L), eq(0L), eq(1L),
                 eq("a".repeat(64)), eq("UNKNOWN"))).thenReturn(1);
 
         IndependentBoardAttributionIngestService.IngestResult result =
@@ -72,6 +73,7 @@ class IndependentBoardAttributionIngestServiceTest {
         verify(mapper).insertLedgerEvent(inserted.capture());
         assertEquals("26.7.21", inserted.getValue().getListedManifestVersion());
         assertEquals("26.7.20", inserted.getValue().getEmbeddedContractVersion());
+        assertEquals(sameBindingKey, inserted.getValue().getSameBindingKey());
         assertFalse(inserted.getValue().isProductCreditEligible());
     }
 
@@ -93,14 +95,23 @@ class IndependentBoardAttributionIngestServiceTest {
     }
 
     @Test
-    void rejectsAClientChosenBindingAndOutOfOrderStageWithZeroWrites() {
+    void derivesBindingInternallyAndRejectsOutOfOrderStageWithZeroWrites() {
         BoardAttributionEventV1 chosen = event(
                 1, "ENTRY_OBSERVED", "", "unknown");
         chosen.setSameBindingKey("0".repeat(64));
         when(verifier.verify(chosen, properties)).thenReturn(verified(chosen, "UNKNOWN"));
-
-        assertThrows(IllegalArgumentException.class, () -> service.ingest(chosen));
-        verify(mapper, never()).insertJourneyHeadIfAbsent(any());
+        when(mapper.insertJourneyHeadIfAbsent(any())).thenReturn(1);
+        when(mapper.selectJourneyHeadForUpdate(serverKey(chosen)))
+                .thenReturn(head(0, "", "UNKNOWN", 0));
+        when(mapper.insertLedgerEvent(any())).thenReturn(1);
+        when(mapper.advanceJourneyHead(
+                eq(serverKey(chosen)), eq(0L), eq(0L), eq(1L),
+                eq("a".repeat(64)), eq("UNKNOWN"))).thenReturn(1);
+        service.ingest(chosen);
+        ArgumentCaptor<BoardAttributionLedgerEvent> inserted =
+                ArgumentCaptor.forClass(BoardAttributionLedgerEvent.class);
+        verify(mapper).insertLedgerEvent(inserted.capture());
+        assertEquals(serverKey(chosen), inserted.getValue().getSameBindingKey());
 
         reset(mapper, verifier);
         BoardAttributionEventV1 second = event(
@@ -116,13 +127,14 @@ class IndependentBoardAttributionIngestServiceTest {
     void advancesIntentAtStageTwoAndClosesNaturalValueWithoutCreditAtStageThree() {
         BoardAttributionEventV1 second = event(
                 2, "INTENT_CLASSIFIED", "b".repeat(64), "operating_diagnosis");
+        String secondBindingKey = serverKey(second);
         when(verifier.verify(second, properties))
                 .thenReturn(verified(second, "OPERATING_DIAGNOSIS"));
-        when(mapper.selectJourneyHeadForUpdate(second.getSameBindingKey()))
+        when(mapper.selectJourneyHeadForUpdate(secondBindingKey))
                 .thenReturn(head(1, "b".repeat(64), "UNKNOWN", 1));
         when(mapper.insertLedgerEvent(any())).thenReturn(1);
         when(mapper.advanceJourneyHead(
-                eq(second.getSameBindingKey()), eq(1L), eq(1L), eq(2L),
+                eq(secondBindingKey), eq(1L), eq(1L), eq(2L),
                 eq("a".repeat(64)), eq("OPERATING_DIAGNOSIS"))).thenReturn(1);
 
         IndependentBoardAttributionIngestService.IngestResult classified =
@@ -134,13 +146,14 @@ class IndependentBoardAttributionIngestServiceTest {
         BoardAttributionEventV1 third = event(
                 3, "FIRST_VALUE_COMPLETED", "b".repeat(64),
                 "operating_diagnosis");
+        String thirdBindingKey = serverKey(third);
         when(verifier.verify(third, properties))
                 .thenReturn(verified(third, "OPERATING_DIAGNOSIS"));
-        when(mapper.selectJourneyHeadForUpdate(third.getSameBindingKey()))
+        when(mapper.selectJourneyHeadForUpdate(thirdBindingKey))
                 .thenReturn(head(2, "b".repeat(64), "OPERATING_DIAGNOSIS", 2));
         when(mapper.insertLedgerEvent(any())).thenReturn(1);
         when(mapper.advanceJourneyHead(
-                eq(third.getSameBindingKey()), eq(2L), eq(2L), eq(3L),
+                eq(thirdBindingKey), eq(2L), eq(2L), eq(3L),
                 eq("a".repeat(64)), eq("OPERATING_DIAGNOSIS"))).thenReturn(1);
 
         IndependentBoardAttributionIngestService.IngestResult closed =
@@ -190,10 +203,7 @@ class IndependentBoardAttributionIngestServiceTest {
         event.setJourneyId("3".repeat(64));
         event.setServerBindingId("srv_wave1Binding01");
         event.setTenantSubjectDigest("5".repeat(64));
-        event.setSameBindingKey(binding.derive(
-                event.getContractId(), event.getTenantSubjectDigest(),
-                event.getServerBindingId(), event.getJourneyId(),
-                event.getProductId(), event.getListedManifestVersion()));
+        event.setSameBindingKey("");
         event.setTrafficClass("NATURAL");
         event.setTrafficAuthority("API2_SERVER_CLASSIFIER_V1");
         event.setOutcome("SUCCESS");
@@ -227,7 +237,7 @@ class IndependentBoardAttributionIngestServiceTest {
         BoardAttributionJourneyHead head = new BoardAttributionJourneyHead();
         BoardAttributionEventV1 event = event(
                 Math.max(1, sequence), "ENTRY_OBSERVED", "", "unknown");
-        head.setSameBindingKey(event.getSameBindingKey());
+        head.setSameBindingKey(serverKey(event));
         head.setContractId(event.getContractId());
         head.setTenantSubjectDigest(event.getTenantSubjectDigest());
         head.setServerBindingId(event.getServerBindingId());
@@ -254,12 +264,19 @@ class IndependentBoardAttributionIngestServiceTest {
         persisted.setReceiptId(event.getReceiptId());
         persisted.setCanonicalDigest("c".repeat(64));
         persisted.setEventDigest(eventDigest);
-        persisted.setSameBindingKey(event.getSameBindingKey());
+        persisted.setSameBindingKey(serverKey(event));
         persisted.setSequenceNo(event.getSequenceNo());
         persisted.setTrafficClass(event.getTrafficClass());
         persisted.setIntentFamily(intent);
         persisted.setOutcome(event.getOutcome());
         persisted.setProductCreditEligible(false);
         return persisted;
+    }
+
+    private String serverKey(BoardAttributionEventV1 event) {
+        return binding.derive(
+                event.getContractId(), event.getTenantSubjectDigest(),
+                event.getServerBindingId(), event.getJourneyId(),
+                event.getProductId(), event.getListedManifestVersion());
     }
 }

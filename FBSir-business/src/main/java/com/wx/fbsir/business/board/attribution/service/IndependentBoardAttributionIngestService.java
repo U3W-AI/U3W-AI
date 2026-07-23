@@ -55,16 +55,13 @@ public class IndependentBoardAttributionIngestService {
         }
         VerifiedBoardAttributionEvent verified =
                 verifier.verify(event, properties);
-        if (!bindingKeyDeriver.matches(
-                event.getSameBindingKey(),
+        String sameBindingKey = bindingKeyDeriver.derive(
                 event.getContractId(),
                 event.getTenantSubjectDigest(),
                 event.getServerBindingId(),
                 event.getJourneyId(),
                 event.getProductId(),
-                event.getListedManifestVersion())) {
-            throw new IllegalArgumentException("same_binding_key_mismatch");
-        }
+                event.getListedManifestVersion());
 
         String trafficClass = trafficResolver.resolve(event.getTrafficClass());
         BoardAttributionLedgerEvent existing =
@@ -73,18 +70,19 @@ public class IndependentBoardAttributionIngestService {
             existing = mapper.selectEventByReceiptId(event.getReceiptId());
         }
         if (existing != null) {
-            return replayOrReject(existing, verified);
+            return replayOrReject(existing, verified, sameBindingKey);
         }
 
         if (event.getSequenceNo() == 1) {
-            mapper.insertJourneyHeadIfAbsent(newHead(event, trafficClass));
+            mapper.insertJourneyHeadIfAbsent(
+                    newHead(event, trafficClass, sameBindingKey));
         }
         BoardAttributionJourneyHead head =
-                mapper.selectJourneyHeadForUpdate(event.getSameBindingKey());
+                mapper.selectJourneyHeadForUpdate(sameBindingKey);
         if (head == null) {
             throw new IllegalStateException("journey_head_missing");
         }
-        verifyHead(head, verified, trafficClass);
+        verifyHead(head, verified, trafficClass, sameBindingKey);
 
         String intentFamily = nextIntent(head, verified);
         boolean naturalClosure = event.getSequenceNo() == 3
@@ -93,12 +91,13 @@ public class IndependentBoardAttributionIngestService {
         boolean productCredit = properties.isProductCreditEnabled()
                 && naturalClosure;
         BoardAttributionLedgerEvent row = ledgerRow(
-                verified, trafficClass, intentFamily, productCredit);
+                verified, trafficClass, intentFamily, productCredit,
+                sameBindingKey);
         if (mapper.insertLedgerEvent(row) != 1) {
             throw new IllegalStateException("ledger_insert_failed");
         }
         if (mapper.advanceJourneyHead(
-                event.getSameBindingKey(),
+                sameBindingKey,
                 head.getHeadVersion(),
                 head.getLastSequenceNo(),
                 event.getSequenceNo(),
@@ -120,14 +119,15 @@ public class IndependentBoardAttributionIngestService {
 
     private IngestResult replayOrReject(
             BoardAttributionLedgerEvent existing,
-            VerifiedBoardAttributionEvent verified) {
+            VerifiedBoardAttributionEvent verified,
+            String sameBindingKey) {
         BoardAttributionEventV1 event = verified.rawEvent();
         boolean exact = Objects.equals(existing.getEventId(), event.getEventId())
                 && Objects.equals(existing.getReceiptId(), event.getReceiptId())
                 && Objects.equals(existing.getCanonicalDigest(),
                 verified.canonicalDigest())
                 && Objects.equals(existing.getSameBindingKey(),
-                event.getSameBindingKey())
+                sameBindingKey)
                 && existing.getSequenceNo() == event.getSequenceNo();
         if (!exact) {
             throw new IllegalStateException("event_or_receipt_collision");
@@ -148,9 +148,11 @@ public class IndependentBoardAttributionIngestService {
     }
 
     private BoardAttributionJourneyHead newHead(
-            BoardAttributionEventV1 event, String trafficClass) {
+            BoardAttributionEventV1 event,
+            String trafficClass,
+            String sameBindingKey) {
         BoardAttributionJourneyHead head = new BoardAttributionJourneyHead();
-        head.setSameBindingKey(event.getSameBindingKey());
+        head.setSameBindingKey(sameBindingKey);
         head.setContractId(event.getContractId());
         head.setTenantSubjectDigest(event.getTenantSubjectDigest());
         head.setServerBindingId(event.getServerBindingId());
@@ -172,10 +174,11 @@ public class IndependentBoardAttributionIngestService {
     private void verifyHead(
             BoardAttributionJourneyHead head,
             VerifiedBoardAttributionEvent verified,
-            String trafficClass) {
+            String trafficClass,
+            String sameBindingKey) {
         BoardAttributionEventV1 event = verified.rawEvent();
         boolean identityMatches =
-                Objects.equals(head.getSameBindingKey(), event.getSameBindingKey())
+                Objects.equals(head.getSameBindingKey(), sameBindingKey)
                 && Objects.equals(head.getContractId(), event.getContractId())
                 && Objects.equals(head.getTenantSubjectDigest(),
                 event.getTenantSubjectDigest())
@@ -222,12 +225,13 @@ public class IndependentBoardAttributionIngestService {
             VerifiedBoardAttributionEvent verified,
             String trafficClass,
             String intentFamily,
-            boolean productCredit) {
+            boolean productCredit,
+            String sameBindingKey) {
         BoardAttributionEventV1 event = verified.rawEvent();
         BoardAttributionLedgerEvent row = new BoardAttributionLedgerEvent();
         row.setEventId(event.getEventId());
         row.setReceiptId(event.getReceiptId());
-        row.setSameBindingKey(event.getSameBindingKey());
+        row.setSameBindingKey(sameBindingKey);
         row.setContractId(event.getContractId());
         row.setJourneyId(event.getJourneyId());
         row.setServerBindingId(event.getServerBindingId());

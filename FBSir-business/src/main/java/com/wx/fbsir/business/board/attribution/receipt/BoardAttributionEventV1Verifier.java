@@ -118,10 +118,14 @@ public final class BoardAttributionEventV1Verifier
         }
         if (ttl <= 0 || ttl > configuredTtl
                 || now.isBefore(issuedAt.minusSeconds(CLOCK_SKEW_SECONDS))
-                || now.isAfter(expiresAt)
-                || occurredAt.isBefore(issuedAt.minusSeconds(CLOCK_SKEW_SECONDS))
-                || occurredAt.isAfter(expiresAt)) {
+                || now.isAfter(expiresAt)) {
             reject("event_expired_or_ttl_invalid");
+        }
+        long retentionSeconds = Math.max(1L, properties.getRetentionHours())
+                * 60L * 60L;
+        if (occurredAt.isBefore(now.minusSeconds(retentionSeconds))
+                || occurredAt.isAfter(now.plusSeconds(CLOCK_SKEW_SECONDS))) {
+            reject("event_occurred_at_outside_retention");
         }
 
         if (!isConfigured()) {
@@ -149,12 +153,14 @@ public final class BoardAttributionEventV1Verifier
             reject("signature_mismatch");
         }
 
+        String businessCanonical = canonicalJson(businessFields(event));
         String canonicalDigest = sha256Hex(
-                canonical.getBytes(StandardCharsets.UTF_8));
+                businessCanonical.getBytes(StandardCharsets.UTF_8));
         String nonceHash = sha256Hex(
                 text(event.getNonce()).getBytes(StandardCharsets.UTF_8));
         String eventDigest = sha256Hex(
-                (canonical + "\n" + supplied).getBytes(StandardCharsets.UTF_8));
+                ("FBSIR_INDEPENDENT_BOARD_EVENT_DIGEST_V1\n"
+                        + businessCanonical).getBytes(StandardCharsets.UTF_8));
         return new VerifiedBoardAttributionEvent(
                 event, issuedAt, expiresAt, canonicalDigest, supplied,
                 nonceHash, eventDigest,
@@ -179,9 +185,11 @@ public final class BoardAttributionEventV1Verifier
         if (!sha256(event.getEventId()) || !sha256(event.getReceiptId())
                 || !sha256(event.getJourneyId())
                 || !BINDING.matcher(text(event.getServerBindingId())).matches()
-                || !sha256(event.getSameBindingKey())
                 || !sha256(event.getTenantSubjectDigest())) {
             reject("identity_digest_invalid");
+        }
+        if (!text(event.getSameBindingKey()).isEmpty()) {
+            reject("upstream_same_binding_key_forbidden");
         }
     }
 
@@ -285,6 +293,23 @@ public final class BoardAttributionEventV1Verifier
         values.put("traceparent", text(event.getTraceparent()));
         values.put("trafficAuthority", text(event.getTrafficAuthority()));
         values.put("trafficClass", text(event.getTrafficClass()));
+        return values;
+    }
+
+    /**
+     * Stable business identity used for idempotency and chain linkage.
+     *
+     * Short-lived authentication fields are deliberately excluded so a
+     * durable outbox can re-sign the same event after a transport outage
+     * without creating a second business event or breaking the chain.
+     */
+    private Map<String, String> businessFields(
+            BoardAttributionEventV1 event) {
+        Map<String, String> values = new TreeMap<>(signedFields(event));
+        values.remove("issuedAt");
+        values.remove("expiresAt");
+        values.remove("nonce");
+        values.remove("keyId");
         return values;
     }
 

@@ -1,5 +1,6 @@
 package com.wx.fbsir.business.board.attribution.receipt;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wx.fbsir.business.board.attribution.config.IndependentBoardAttributionProperties;
 import org.junit.jupiter.api.Test;
@@ -61,6 +62,11 @@ class BoardAttributionEventV1VerifierTest {
         untrustedNatural.setTrafficAuthority("CLIENT_CLAIM");
         assertReason("traffic_authority_invalid",
                 () -> verifier.verify(signed(untrustedNatural), properties));
+
+        BoardAttributionEventV1 clientBinding = validEvent();
+        clientBinding.setSameBindingKey("4".repeat(64));
+        assertReason("upstream_same_binding_key_forbidden",
+                () -> verifier.verify(signed(clientBinding), properties));
     }
 
     @Test
@@ -98,10 +104,77 @@ class BoardAttributionEventV1VerifierTest {
                 () -> verifier.verify(signed(missingPrevious), properties));
     }
 
+    @Test
+    void keepsBusinessAndChainDigestsStableAcrossFreshTransportResigning() {
+        BoardAttributionEventV1 first = signed(validEvent());
+        VerifiedBoardAttributionEvent firstVerified =
+                verifier.verify(first, properties);
+
+        BoardAttributionEventV1 resigned = validEvent();
+        resigned.setIssuedAt("2026-07-23T10:00:10Z");
+        resigned.setExpiresAt("2026-07-23T10:01:10Z");
+        resigned.setNonce("wave1-nonce-resigned");
+        VerifiedBoardAttributionEvent resignedVerified =
+                verifier.verify(signed(resigned), properties);
+
+        assertFalse(firstVerified.signatureHex().equals(
+                resignedVerified.signatureHex()));
+        assertEquals(firstVerified.canonicalDigest(),
+                resignedVerified.canonicalDigest());
+        assertEquals(firstVerified.eventDigest(),
+                resignedVerified.eventDigest());
+    }
+
+    @Test
+    void acceptsDelayedOutboxResigningWithinRetentionAndRejectsTooOldEvents() {
+        BoardAttributionEventV1 delayed = validEvent();
+        delayed.setOccurredAt("2026-07-22T09:00:31Z");
+        verifier.verify(signed(delayed), properties);
+
+        BoardAttributionEventV1 tooOld = validEvent();
+        tooOld.setOccurredAt("2026-07-22T08:00:29Z");
+        assertReason("event_occurred_at_outside_retention",
+                () -> verifier.verify(signed(tooOld), properties));
+    }
+
+    @Test
+    void verifiesTheSharedNodeToJavaGoldenVector() throws Exception {
+        JsonNode vector;
+        try (var input = getClass().getClassLoader().getResourceAsStream(
+                "independent-board-attribution-v1-golden-vector.json")) {
+            if (input == null) {
+                throw new IllegalStateException("golden vector missing");
+            }
+            vector = JSON.readTree(input);
+        }
+        BoardAttributionEventV1 event = JSON.treeToValue(
+                vector.get("event"), BoardAttributionEventV1.class);
+        Clock vectorClock = Clock.fixed(
+                Instant.parse(vector.get("verificationClock").asText()),
+                ZoneOffset.UTC);
+        BoardAttributionEventV1Verifier vectorVerifier =
+                new BoardAttributionEventV1Verifier(
+                        Map.of(
+                                vector.get("keyId").asText(),
+                                vector.get("encodedSecret").asText()),
+                        vectorClock);
+
+        VerifiedBoardAttributionEvent verified =
+                vectorVerifier.verify(event, properties());
+
+        assertEquals(
+                vector.path("expected").path("canonicalDigest").asText(),
+                verified.canonicalDigest());
+        assertEquals(
+                vector.path("expected").path("eventDigest").asText(),
+                verified.eventDigest());
+    }
+
     private IndependentBoardAttributionProperties properties() {
         IndependentBoardAttributionProperties value =
                 new IndependentBoardAttributionProperties();
         value.setReceiptTtlSeconds(120);
+        value.setRetentionHours(26);
         return value;
     }
 
@@ -133,7 +206,7 @@ class BoardAttributionEventV1VerifierTest {
         event.setReviewMode("UNKNOWN");
         event.setJourneyId("3".repeat(64));
         event.setServerBindingId("srv_wave1Binding01");
-        event.setSameBindingKey("4".repeat(64));
+        event.setSameBindingKey("");
         event.setTenantSubjectDigest("5".repeat(64));
         event.setTrafficClass("NATURAL");
         event.setTrafficAuthority("API2_SERVER_CLASSIFIER_V1");

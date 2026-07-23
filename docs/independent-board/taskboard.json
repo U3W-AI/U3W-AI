@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
-  "objective": "Deliver a testable and evolvable U3W control plane for the Independent Review Board without modifying the officially listed and post-listing-frozen 26.7.20 expert package.",
-  "singleNextAction": "Complete W4B5F before any activation receipt: add the 043 operation-bound Commercial Hub outbox and dedicated delivery gateway, freeze deterministic provider record identity and payload digest inside the v2 transaction, prove lease-token fencing plus uncertain-result read-back on the exact target CLI, then refresh rollback and human-approval evidence; keep both candidate flags disabled.",
+  "objective": "Close service attribution, finite intent classification and first-value readback for the exact WorkBuddy listed fbsir-eight-seat-board@26.7.21 identity without modifying the official experts content tree.",
+  "singleNextAction": "Freeze the default-off publisher as a clean strict-HEAD FBSAI candidate, verify package and active-release byte provenance, then obtain one real official experts same-binding readback; do not extend the historical P1-005 or Connector chain.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -28,6 +28,48 @@
       ]
     },
     {
+      "id": "W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE",
+      "state": "u3w_dual_mysql_and_api2_default_off_publisher_local_verified_real_same_binding_proof_pending",
+      "activeSlice": "W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF",
+      "officialIdentity": {
+        "productId": "fbsir-eight-seat-board",
+        "packageId": "fbsir-eight-seat-board",
+        "agentName": "board-convener",
+        "marketplace": "experts",
+        "surface": "listed_runtime_state",
+        "listedManifestVersion": "26.7.21",
+        "embeddedContractVersion": "26.7.20"
+      },
+      "naturalChain": [
+        "ENTRY_OBSERVED",
+        "INTENT_CLASSIFIED",
+        "FIRST_VALUE_COMPLETED"
+      ],
+      "completedSubset": [
+        "exact_official_identity_and_dual_version_hmac_event_contract",
+        "finite_intent_classifier_and_fail_closed_traffic_precedence",
+        "u3w_independent_same_binding_recomputation",
+        "transactional_mutable_head_and_append_only_event_ledger",
+        "public_init_043_dual_mysql_8_0_30_and_8_4_8_verified",
+        "default_off_internal_signed_ingress",
+        "bounded_admin_six_dimension_readback_with_no_store",
+        "authoritative_product_credit_forced_zero",
+        "api2_git_source_truth_located_at_fubangshou_FBSAI_a0834ea5",
+        "exact_official_identity_and_stage_true_funnel_adapter",
+        "durable_default_off_outbox_with_retry_and_restart_recovery",
+        "shared_node_to_java_signature_and_digest_golden_vector"
+      ],
+      "remaining": [
+        "api2_candidate_commit_push_and_strict_head_package",
+        "api2_active_release_file_hash_readback",
+        "production_database_migration_and_default_off_deployment",
+        "one_real_official_experts_same_binding_three_event_receipt",
+        "admin_real_traffic_six_dimension_readback"
+      ],
+      "connectorRequiredForFirstValue": false,
+      "officialExpertsContentWriteAllowed": false
+    },
+    {
       "id": "W2_USER_PORTAL",
       "state": "local_source_and_integration_verified",
       "exit": [
@@ -51,7 +93,8 @@
     {
       "id": "W3_ADMIN_PORTAL",
       "state": "w3h_w3i_w3j_w3k_and_w4b5e_skill_consume_activation_safety_verified_local_default_off",
-      "activeSlice": "W4B5F_skill_consume_commercial_hub_outbox_and_gateway",
+      "pausedHistoricalSlice": "W4B5F_skill_consume_commercial_hub_outbox_and_gateway",
+      "decisionRole": "watch_only",
       "completedSubset": [
         "global_system_admin_only_access_model",
         "active_enterprise_and_member_locked_entitlement_grant_and_adjustment",
@@ -144,7 +187,8 @@
     {
       "id": "W4_OAUTH_CONNECTOR",
       "state": "w4a_verified_local_w4b1_internal_oauth_chain_verified_w4b2_default_off_runtime_candidate_verified_local",
-      "activeSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract",
+      "historicalPredecessorSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract",
+      "decisionRole": "historical_reuse_only",
       "completedSubset": [
         "repository_first_conflict_resolution",
         "existing_fbs_connector_preserved_as_single_marketplace_entry",
@@ -264,6 +308,13 @@
       "state": "active_official_entry_detected_runtime_reverify_pending",
       "listingFact": {
         "state": "officially_listed_user_confirmed",
+        "productId": "fbsir-eight-seat-board",
+        "packageId": "fbsir-eight-seat-board",
+        "agentName": "board-convener",
+        "marketplace": "experts",
+        "surface": "listed_runtime_state",
+        "listedManifestVersion": "26.7.21",
+        "embeddedContractVersion": "26.7.20",
         "evidence": "user_confirmation",
         "confirmedOn": "2026-07-21",
         "hostVerifiableListingUrl": null,
@@ -326,7 +377,11 @@
     "Portal implementation must extend the existing U3W-AI RuoYi shell and may not create a parallel frontend framework.",
     "Each wave must close one runnable vertical slice before opening adjacent features.",
     "Every user-facing state must map to a server-side durable object and authorization rule.",
-    "No expert package change or writeback is allowed during the 26.7.20 post-listing freeze and observation period.",
+    "The WorkBuddy listed fbsir-eight-seat-board@26.7.21 experts content tree is the only current package baseline and remains read-only.",
+    "The embedded 26.7.20 contract metadata is not an accepted listed-version compatibility branch.",
+    "UI names and historical packages may not infer current product identity.",
+    "Connector and MCP stages may not be prerequisites for ENTRY_OBSERVED through FIRST_VALUE_COMPLETED.",
+    "Natural, probe, diagnostic, synthetic and unknown traffic denominators must remain separate.",
     "User-confirmed official listing remains distinct from host-verifiable listing evidence, natural invocation, business attribution and service-side closure.",
     "No external acceptance or HTTP success may be promoted to business confirmation.",
     "Review suggestions for host-side products go to next-version demand ledgers."

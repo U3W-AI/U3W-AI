@@ -143,6 +143,8 @@ function Invoke-ContractChecks {
         'config\deployment\u3w-domain-inventory.json',
         'docs\independent-board\implementation-status.json',
         'docs\independent-board\taskboard.json',
+        'docs\independent-board\W1A-OFFICIAL-EXPERTS-ATTRIBUTION-CONTRACT.md',
+        'docs\decisions\ADR-007-independent-board-official-experts-attribution-spine.md',
         'docs\independent-board\AUTHORITATIVE-ROOT.md',
         'docs\independent-board\PORTAL-PROTOTYPE-SPEC.md',
         'docs\independent-board\W3B-ENTITLEMENT-LIFECYCLE-CONTRACT.md',
@@ -169,6 +171,16 @@ function Invoke-ContractChecks {
         'scripts\run-independent-board-menu-migration-it.ps1',
         'scripts\verify-independent-board-mysql-concurrency.ps1',
         'scripts\run-independent-board-mysql-transaction-it.ps1',
+        'scripts\run-independent-board-attribution-v1-mysql-it.ps1',
+        'reports\independent-board\w1a-attribution-v1-dual-mysql-latest.json',
+        'sql\update_20260723_independent_board_attribution_v1.sql',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\attribution\receipt\BoardAttributionEventV1.java',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\attribution\receipt\BoardAttributionEventV1Verifier.java',
+        'FBSir-business\src\test\resources\independent-board-attribution-v1-golden-vector.json',
+        'FBSir-business\src\test\java\com\wx\fbsir\business\board\attribution\receipt\BoardAttributionEventV1VerifierTest.java',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\attribution\service\IndependentBoardAttributionIngestService.java',
+        'FBSir-business\src\main\java\com\wx\fbsir\business\board\attribution\service\IndependentBoardAttributionAdminReadService.java',
+        'FBSir-business\src\main\resources\mapper\board\attribution\IndependentBoardAttributionV1Mapper.xml',
         'FBSir-admin\src\main\resources\application.yml',
         'FBSir-business\src\main\java\com\wx\fbsir\business\board\service\IndependentBoardMeetingTransactionService.java',
         'FBSir-business\src\main\java\com\wx\fbsir\business\board\service\IndependentBoardDashboardService.java',
@@ -725,7 +737,10 @@ function Invoke-ContractChecks {
         # runner explicitly below. The historical W3l receipt retains its
         # original byte bindings.
         if ($w3lRepairArtifact -eq 'scripts/verify-independent-board-control-plane.ps1' `
-                -or $w3lRepairArtifact -eq 'scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1') {
+                -or $w3lRepairArtifact -eq 'scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1' `
+                -or $w3lRepairArtifact -eq 'sql/init-manifest.json' `
+                -or $w3lRepairArtifact -eq 'scripts/init-database.ps1' `
+                -or $w3lRepairArtifact -eq 'scripts/verify-database-manifest.ps1') {
             continue
         }
 
@@ -1124,6 +1139,7 @@ function Invoke-ContractChecks {
                 'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/SkillConsumeCreditLedgerV2RunnerContractTest.java',
                 'FBSir-business/src/test/java/com/wx/fbsir/business/board/credit/service/SkillConsumeCreditLedgerV2MysqlIT.java',
                 'scripts/run-independent-board-skill-consume-credit-ledger-v2-mysql-it.ps1',
+                'scripts/init-database.ps1',
                 'scripts/verify-independent-board-control-plane.ps1')) {
             continue
         }
@@ -1382,6 +1398,13 @@ function Invoke-ContractChecks {
         }
     }
     foreach ($skillConsumeActivationArtifact in $skillConsumeActivationArtifacts) {
+        if ($skillConsumeActivationArtifact -in @(
+                '.fbs-engineering/contract.json',
+                'docs/independent-board/implementation-status.json',
+                'docs/independent-board/taskboard.json',
+                'scripts/verify-independent-board-control-plane.ps1')) {
+            continue
+        }
         $skillConsumeActivationCurrentHash = (Get-FileHash -LiteralPath (
             Join-Path $RepoRoot $skillConsumeActivationArtifact) -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($skillConsumeActivationReport.sourceSha256.PSObject.Properties[
@@ -1612,6 +1635,73 @@ function Invoke-ContractChecks {
 
     $implementationStatus = Read-Utf8Json -RelativePath 'docs\independent-board\implementation-status.json'
     $taskboard = Read-Utf8Json -RelativePath 'docs\independent-board\taskboard.json'
+    $engineeringContract = Read-Utf8Json -RelativePath '.fbs-engineering\contract.json'
+    $w1Wave = @($taskboard.waves | Where-Object {
+            $_.id -ceq 'W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE'
+        })
+    $w1NaturalChain = 'ENTRY_OBSERVED,INTENT_CLASSIFIED,FIRST_VALUE_COMPLETED'
+    $w1DualMysql = Read-Utf8Json -RelativePath 'reports\independent-board\w1a-attribution-v1-dual-mysql-latest.json'
+    $w1GoldenVector = Read-Utf8Json -RelativePath 'FBSir-business\src\test\resources\independent-board-attribution-v1-golden-vector.json'
+    $w1MysqlVersions = @($w1DualMysql.results | ForEach-Object { $_.version })
+    $w1MysqlInvalid = @($w1DualMysql.results | Where-Object {
+            $_.migrationRerun -cne 'PASS' `
+                -or $_.append -cne 'PASS' `
+                -or $_.updateRejected -cne 'PASS' `
+                -or $_.deleteRejected -cne 'PASS' `
+                -or $_.aggregate -cne '1|1|1|0' `
+                -or $_.authoritativeProductCredit -ne 0
+        })
+    if ($w1Wave.Count -ne 1 `
+            -or $implementationStatus.activeWave -cne 'W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE' `
+            -or $implementationStatus.activeSlice -cne 'W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF' `
+            -or $w1Wave[0].activeSlice -cne 'W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF' `
+            -or $engineeringContract.contracts.currentMainline.activeSlice -cne 'W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF' `
+            -or $implementationStatus.expertPackage.productId -cne 'fbsir-eight-seat-board' `
+            -or $implementationStatus.expertPackage.packageId -cne 'fbsir-eight-seat-board' `
+            -or $implementationStatus.expertPackage.agentName -cne 'board-convener' `
+            -or $implementationStatus.expertPackage.marketplace -cne 'experts' `
+            -or $implementationStatus.expertPackage.surface -cne 'listed_runtime_state' `
+            -or $implementationStatus.expertPackage.listedManifestVersion -cne '26.7.21' `
+            -or $implementationStatus.expertPackage.embeddedContractVersion -cne '26.7.20' `
+            -or $w1Wave[0].officialIdentity.listedManifestVersion -cne '26.7.21' `
+            -or $w1Wave[0].officialIdentity.embeddedContractVersion -cne '26.7.20' `
+            -or $w1Wave[0].officialExpertsContentWriteAllowed -ne $false `
+            -or $w1Wave[0].connectorRequiredForFirstValue -ne $false `
+            -or $engineeringContract.contracts.currentMainline.wave -cne 'W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE' `
+            -or $engineeringContract.contracts.currentMainline.officialExpertsContentWriteAllowed -ne $false `
+            -or $engineeringContract.contracts.currentMainline.connectorRequiredForFirstValue -ne $false `
+            -or $engineeringContract.contracts.frozenSurface.listedManifestVersion -cne '26.7.21' `
+            -or $engineeringContract.contracts.frozenSurface.embeddedContractVersion -cne '26.7.20' `
+            -or $engineeringContract.contracts.firstVerticalSlice.rawPromptStored -ne $false `
+            -or $engineeringContract.contracts.firstVerticalSlice.productionCreditFailClosed -ne $true `
+            -or $engineeringContract.contracts.firstVerticalSlice.conversationFailOpenOnObservabilityFailure -ne $true `
+            -or (@($implementationStatus.w1a.naturalChain) -join ',') -cne $w1NaturalChain `
+            -or (@($w1Wave[0].naturalChain) -join ',') -cne $w1NaturalChain `
+            -or (@($engineeringContract.contracts.firstVerticalSlice.flow) -join ',') -cne $w1NaturalChain `
+            -or $implementationStatus.w1a.migration -cne 'public_init_043' `
+            -or $implementationStatus.w1a.featureFlags.observationWriterEnabled -ne $false `
+            -or $implementationStatus.w1a.featureFlags.intentClassifierEnabled -ne $false `
+            -or $implementationStatus.w1a.featureFlags.observationAdminReadEnabled -ne $false `
+            -or $implementationStatus.w1a.featureFlags.productCreditEnabled -ne $false `
+            -or $implementationStatus.w1a.releaseReady -ne $false `
+            -or $implementationStatus.w1a.productionAuthority -ne $false `
+            -or $implementationStatus.w1a.api2SourceTruth.repository -cne 'https://github.com/fubangshou/FBSAI.git' `
+            -or $implementationStatus.w1a.api2SourceTruth.baselineCommit -cne 'a0834ea5d4c1c3f95be9d25d26913c2d973e09d0' `
+            -or $implementationStatus.w1a.api2SourceTruth.productionDeclaredCommit -cne 'c01891a0ca3e11db0a0fe51828276fab33b862b5' `
+            -or $engineeringContract.contracts.currentMainline.api2SourceTruth.baselineCommit -cne 'a0834ea5d4c1c3f95be9d25d26913c2d973e09d0' `
+            -or $w1GoldenVector.schemaVersion -cne 'fbsir.independentBoardAttributionGoldenVector.v1' `
+            -or $w1GoldenVector.testOnly -ne $true `
+            -or $w1GoldenVector.event.sameBindingKey -cne '' `
+            -or $w1GoldenVector.event.listedManifestVersion -cne '26.7.21' `
+            -or $w1GoldenVector.expected.eventDigest -cne '2d60f3fdc6a8db56ae3f9614812bedbc38b6fc8644c8ccab01004344925b9d35' `
+            -or $w1DualMysql.status -cne 'PASS' `
+            -or $w1DualMysql.migration -cne 'public_init_043' `
+            -or $w1DualMysql.migrationSha256 -cne '287a8b141abc80b2d95ff6a0cd97e8dbc4fa38845ae7b96c7bd8522e8f5b49b7' `
+            -or $w1DualMysql.historicalPublicInit037Sha256 -cne '59e3696ff3f8d4a16b4659c94a108f35fb1badf2f4de16079229c031a0b44cce' `
+            -or (@($w1MysqlVersions) -join ',') -cne '8.0.30,8.4.8' `
+            -or $w1MysqlInvalid.Count -ne 0) {
+        throw 'W1A official experts attribution contract, control truth or dual-MySQL evidence drifted'
+    }
     $w3Wave = @($taskboard.waves | Where-Object { $_.id -ceq 'W3_ADMIN_PORTAL' })
     $w4Wave = @($taskboard.waves | Where-Object { $_.id -ceq 'W4_OAUTH_CONNECTOR' })
     if ($implementationStatus.platformVersion -cne '0.4.9-dev' `
@@ -1654,8 +1744,8 @@ function Invoke-ContractChecks {
             -or $implementationStatus.w4b5e.testsPerMysqlVersion -ne 6 `
             -or $implementationStatus.w4b5e.releaseReady -ne $false `
             -or $implementationStatus.w4b5e.productionAuthority -ne $false `
-            -or $implementationStatus.w4b5e.nextSlice -cne $canonicalCurrentW3SliceId `
-            -or $taskboard.singleNextAction -notlike '*043 operation-bound Commercial Hub outbox*' `
+            -or $implementationStatus.w4b5e.historicalNextSlice -cne $canonicalCurrentW3SliceId `
+            -or $taskboard.singleNextAction -notlike 'Freeze the default-off publisher*' `
             -or -not (@($w3Wave[0].completedSubset) -ccontains 'skill_consume_v2_default_off_host_service_wiring_dual_mysql_5_of_5_each_and_zero_legacy_fallback_verified') `
             -or -not (@($w3Wave[0].completedSubset) -ccontains 'skill_consume_v2_nontransactional_dispatcher_required_legacy_transaction_and_ambient_transaction_fail_closed_verified') `
             -or -not (@($w3Wave[0].completedSubset) -ccontains 'skill_consume_v2_nullable_host_session_domain_digest_and_dual_mysql_6_of_6_each_verified') `
@@ -1665,18 +1755,17 @@ function Invoke-ContractChecks {
             -or -not (@($w3Wave[0].remaining) -ccontains 'skill_consume_v2_operation_idempotent_commercial_hub_outbox_or_approved_exclusion') `
             -or $w3Wave.Count -ne 1 `
             -or $w3Wave[0].state -cne 'w3h_w3i_w3j_w3k_and_w4b5e_skill_consume_activation_safety_verified_local_default_off' `
-            -or $w3Wave[0].activeSlice -cne $canonicalCurrentW3SliceId `
+            -or $w3Wave[0].pausedHistoricalSlice -cne $canonicalCurrentW3SliceId `
             -or $implementationStatus.w4b.runtimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or $implementationStatus.w4b.api2TrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `
             -or $implementationStatus.w4b.nextSlice -cne $canonicalNextSliceId `
             -or $w4Wave.Count -ne 1 `
             -or $w4Wave[0].state -cne 'w4a_verified_local_w4b1_internal_oauth_chain_verified_w4b2_default_off_runtime_candidate_verified_local' `
-            -or $w4Wave[0].activeSlice -cne $canonicalNextSliceId `
+            -or $w4Wave[0].historicalPredecessorSlice -cne $canonicalNextSliceId `
             -or $w4Wave[0].nextSlice.id -cne $canonicalNextSliceId) {
         throw 'W3h/W3i/W3j or W4b.2c status and taskboard traceability drifted'
     }
 
-    $engineeringContract = Read-Utf8Json -RelativePath '.fbs-engineering\contract.json'
     $contractW4b = $engineeringContract.contracts.uiPrototypeGate.w4bImplementation
     $contractW3h = $engineeringContract.contracts.uiPrototypeGate.w3hImplementation
     $contractW3i = $engineeringContract.contracts.uiPrototypeGate.w3iImplementation

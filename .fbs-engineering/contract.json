@@ -88,11 +88,27 @@
       "run": "node --test scripts/independent-board-java-boundary-contract.test.mjs",
       "cwd": ".",
       "timeout_ms": 120000
+    },
+    "w1a-official-attribution": {
+      "run": "mvn -o -pl FBSir-business \"-Dtest=BoardAttributionEventV1VerifierTest,BoardIntentClassifierTest,BoardSameBindingKeyDeriverTest,BoardTrafficClassificationResolverTest,IndependentBoardAttribution*Test\" \"-DforkCount=0\" test",
+      "cwd": ".",
+      "timeout_ms": 300000
+    },
+    "w1a-dual-mysql": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-attribution-v1-mysql-it.ps1 -AllowDestructiveTest",
+      "cwd": ".",
+      "timeout_ms": 600000
     }
   },
   "artifacts": {
     "taskboard": "docs/independent-board/taskboard.json",
     "status": "docs/independent-board/implementation-status.json",
+    "w1aContract": "docs/independent-board/W1A-OFFICIAL-EXPERTS-ATTRIBUTION-CONTRACT.md",
+    "w1aAdr": "docs/decisions/ADR-007-independent-board-official-experts-attribution-spine.md",
+    "w1aMigration": "sql/update_20260723_independent_board_attribution_v1.sql",
+    "w1aDualMysqlRunner": "scripts/run-independent-board-attribution-v1-mysql-it.ps1",
+    "w1aDualMysqlReport": "reports/independent-board/w1a-attribution-v1-dual-mysql-latest.json",
+    "w1aVerificationReport": "reports/independent-board/w1a-official-experts-attribution-verification-latest.json",
     "domainInventory": "config/deployment/u3w-domain-inventory.json",
     "migrations": "sql/update_20260720_independent_board_control_plane.sql",
     "portalMenuMigration": "sql/update_20260720_independent_board_me_menu.sql",
@@ -275,7 +291,12 @@
     },
     "frozenSurface": {
       "productId": "fbsir-eight-seat-board",
-      "version": "26.7.20",
+      "packageId": "fbsir-eight-seat-board",
+      "agentName": "board-convener",
+      "marketplace": "experts",
+      "surface": "listed_runtime_state",
+      "listedManifestVersion": "26.7.21",
+      "embeddedContractVersion": "26.7.20",
       "state": "officially_listed_user_confirmed",
       "listingEvidence": "user_confirmation",
       "listingConfirmedOn": "2026-07-21",
@@ -309,6 +330,23 @@
         "official_listing_to_service_side_closure",
         "zero_attributable_target_signal_to_zero_actual_usage"
       ]
+    },
+    "currentMainline": {
+      "wave": "W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE",
+      "activeSlice": "W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF",
+      "officialExpertsContentWriteAllowed": false,
+      "connectorRequiredForFirstValue": false,
+      "api2SourceTruthRequiredBeforeRelease": true
+      ,
+      "api2SourceTruth": {
+        "repository": "https://github.com/fubangshou/FBSAI.git",
+        "baselineRef": "agent/board-no-package-same-binding-v1-20260719",
+        "baselineCommit": "a0834ea5d4c1c3f95be9d25d26913c2d973e09d0",
+        "candidateBranch": "codex/w1-official-experts-publisher",
+        "candidateState": "local_uncommitted_default_off_publisher_verified",
+        "productionDeclaredCommit": "c01891a0ca3e11db0a0fe51828276fab33b862b5",
+        "productionByteIdentity": "not_proven"
+      }
     },
     "controlPlane": {
       "userPortal": "https://me.u3w.com",
@@ -578,16 +616,18 @@
     },
     "firstVerticalSlice": {
       "flow": [
-        "authenticated_principal",
-        "vip_entitlement_snapshot",
-        "meeting_quota_reservation",
-        "user_portal_readback",
-        "admin_portal_audit_readback"
+        "ENTRY_OBSERVED",
+        "INTENT_CLASSIFIED",
+        "FIRST_VALUE_COMPLETED"
       ],
       "requiresIdempotencyDigest": true,
       "requiresTenantIsolation": true,
       "requiresImmutableAudit": true,
-      "externalSideEffects": false
+      "externalSideEffects": false,
+      "connectorRequiredForFirstValue": false,
+      "rawPromptStored": false,
+      "productionCreditFailClosed": true,
+      "conversationFailOpenOnObservabilityFailure": true
     },
     "receiptBoundary": {
       "levels": [

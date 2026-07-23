@@ -7,7 +7,13 @@
   },
   "platformVersion": "0.4.9-dev",
   "expertPackage": {
-    "version": "26.7.20",
+    "productId": "fbsir-eight-seat-board",
+    "packageId": "fbsir-eight-seat-board",
+    "agentName": "board-convener",
+    "marketplace": "experts",
+    "surface": "listed_runtime_state",
+    "listedManifestVersion": "26.7.21",
+    "embeddedContractVersion": "26.7.20",
     "state": "officially_listed_user_confirmed",
     "listingEvidence": "user_confirmation",
     "listingConfirmedOn": "2026-07-21",
@@ -42,8 +48,11 @@
       "zero_attributable_target_signal_does_not_prove_zero_actual_usage"
     ]
   },
-  "activeWave": "W3_ADMIN_PORTAL",
+  "activeWave": "W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE",
+  "activeSlice": "W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF",
+  "singleNextAction": "Freeze the default-off publisher as a clean strict-HEAD FBSAI candidate, verify package and active-release byte provenance, then obtain one real official experts same-binding three-event admin readback.",
   "stage": "fix",
+  "phase": "W1D_API2_CLEANROOM_PUBLISHER",
   "authoritativeRoot": {
     "mode": "standalone_git_repository",
     "externalDirectoryDependency": "forbidden",
@@ -52,6 +61,10 @@
   "truthSources": [
     ".fbs-engineering/contract.json",
     "docs/independent-board/taskboard.json",
+    "docs/independent-board/W1A-OFFICIAL-EXPERTS-ATTRIBUTION-CONTRACT.md",
+    "docs/decisions/ADR-007-independent-board-official-experts-attribution-spine.md",
+    "sql/update_20260723_independent_board_attribution_v1.sql",
+    "reports/independent-board/w1a-attribution-v1-dual-mysql-latest.json",
     "config/deployment/u3w-domain-inventory.json",
     "sql/update_20260720_independent_board_control_plane.sql",
     "sql/update_20260720_independent_board_me_menu.sql",
@@ -155,6 +168,10 @@
     "reports/independent-board/host-truth-chain-summary-20260721.json"
   ],
   "proven": [
+    "workbuddy_listed_experts_exact_identity_is_fbsir_eight_seat_board_26_7_21",
+    "embedded_26_7_20_is_metadata_not_listed_version_compatibility",
+    "w1a_u3w_event_ingress_ledger_intent_and_admin_readback_verified_local",
+    "w1a_public_init_043_dual_mysql_8_0_30_and_8_4_8_verified",
     "isolated_u3w_branch_created",
     "standalone_repository_matches_migration_source_commit_and_tree",
     "backend_baseline_passed",
@@ -306,6 +323,10 @@
     "w4b5e_nontransactional_dispatcher_ambient_transaction_guard_nullable_host_session_and_dual_mysql_6_of_6_each_verified"
   ],
   "notProven": [
+    "w1a_api2_git_backed_source_truth",
+    "w1a_api2_to_u3w_signed_production_receipt",
+    "w1a_real_official_experts_same_binding_three_event_chain",
+    "w1a_real_intent_distribution_and_admin_six_dimension_readback",
     "oauth_public_routes",
     "oauth_end_to_end",
     "workbuddy_host_verifiable_listing_url_or_receipt",
@@ -497,7 +518,61 @@
     "releaseReady": false,
     "productionAuthority": false,
     "remainingBoundary": "operation_idempotent_commercial_hub_043_outbox_exact_target_gateway_readback_reconciliation_and_activation_receipt",
-    "nextSlice": "W4B5F_skill_consume_commercial_hub_outbox_and_gateway"
+    "historicalNextSlice": "W4B5F_skill_consume_commercial_hub_outbox_and_gateway",
+    "decisionRole": "watch_only"
+  },
+  "w1a": {
+    "state": "u3w_dual_mysql_and_api2_default_off_publisher_local_verified_real_same_binding_proof_pending",
+    "contract": "docs/independent-board/W1A-OFFICIAL-EXPERTS-ATTRIBUTION-CONTRACT.md",
+    "adr": "docs/decisions/ADR-007-independent-board-official-experts-attribution-spine.md",
+    "verificationReport": "reports/independent-board/w1a-official-experts-attribution-verification-latest.json",
+    "dualMysqlReport": "reports/independent-board/w1a-attribution-v1-dual-mysql-latest.json",
+    "migration": "public_init_043",
+    "eventSchemaVersion": "fbsir.independentBoardAttributionEvent.v1",
+    "api2SourceTruth": {
+      "repository": "https://github.com/fubangshou/FBSAI.git",
+      "baselineRef": "agent/board-no-package-same-binding-v1-20260719",
+      "baselineCommit": "a0834ea5d4c1c3f95be9d25d26913c2d973e09d0",
+      "candidateBranch": "codex/w1-official-experts-publisher",
+      "candidateState": "local_uncommitted_default_off_publisher_verified",
+      "productionDeclaredCommit": "c01891a0ca3e11db0a0fe51828276fab33b862b5",
+      "productionByteIdentity": "not_proven"
+    },
+    "identityContract": {
+      "productId": "fbsir-eight-seat-board",
+      "packageId": "fbsir-eight-seat-board",
+      "agentName": "board-convener",
+      "marketplace": "experts",
+      "listedSurface": "listed_runtime_state",
+      "listedManifestVersion": "26.7.21",
+      "embeddedContractVersion": "26.7.20"
+    },
+    "naturalChain": [
+      "ENTRY_OBSERVED",
+      "INTENT_CLASSIFIED",
+      "FIRST_VALUE_COMPLETED"
+    ],
+    "optionalConnectorChain": "historical_reuse_only_not_first_value_prerequisite",
+    "featureFlags": {
+      "observationWriterEnabled": false,
+      "intentClassifierEnabled": false,
+      "observationAdminReadEnabled": false,
+      "productCreditEnabled": false
+    },
+    "verifiedMysql": [
+      "MySQL Community 8.0.30",
+      "MySQL Community 8.4.8"
+    ],
+    "releaseReady": false,
+    "productionAuthority": false,
+    "notProven": [
+      "api2_candidate_strict_head_and_package",
+      "api2_active_release_file_byte_identity",
+      "api2_to_u3w_production_receipt",
+      "real_official_experts_same_binding_chain",
+      "real_intent_distribution",
+      "production_admin_six_dimension_readback"
+    ]
   },
   "ui": {
     "base": "existing_u3w_ai_ruoyi_vue3_element_plus",
@@ -600,5 +675,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-23T12:10:00+08:00"
+  "updatedAt": "2026-07-23T19:20:00+08:00"
 }

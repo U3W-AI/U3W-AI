@@ -1,8 +1,13 @@
 # 宿主升级需求：独董会官方入口归因闭环
 
-- 状态：Backlog for next submitted package / host release
-- 当前冻结包：`fbsir-eight-seat-board@26.7.20`，禁止修改或写回
+- 状态：宿主升级需求已确认；官方 experts 内容包继续只读
+- 当前唯一官方基线：WorkBuddy listed
+  `fbsir-eight-seat-board@26.7.21`；包内 `26.7.20` 仅为嵌入合同元数据，
+  不是兼容目标，禁止修改或写回
 - 触发证据：API2 固定 24 小时审计无法从官方入口总量还原独董会产品、同 binding 与闭环
+
+> 本文中 P1-005、`26.7.20` 上架身份和 Connector 四阶段链描述属于
+> 2026-07-22 历史调查记录，已被 W1A/ADR-007 的当前合同取代，不进入支持矩阵。
 
 ## 问题
 
@@ -13,7 +18,8 @@
 | 字段 | 约束 | 用途 |
 |---|---|---|
 | `productId` | 精确 `fbsir-eight-seat-board` | 唯一产品身份 |
-| `expertVersion` | 精确 `26.7.20` 或下一提审版本 | 上架版本连续性 |
+| `listedManifestVersion` | 精确 `26.7.21` | 当前唯一上架版本 |
+| `embeddedContractVersion` | 精确 `26.7.20` | 仅用于当前包内合同元数据 |
 | `expertEntryId` / `packageId` | 与产品映射唯一且无冲突 | official entry 证明 |
 | `entrySurface` / `hostRoute` | 有限枚举 | 区分官方入口、插件目录和探针 |
 | `channel` / `terminal` | 有限枚举 | 六维分析与同路线校验 |
@@ -33,6 +39,31 @@
 3. 结构化原始证据保留至少 26 小时；固定窗口生成不可变快照、SHA-256、row count、`asOf`、runtime release 和 embedded release。
 4. 分离 `observed`、`server_verified`、`product_credit_candidate` 与 `authoritative_product_credit`；客户端声明永不直接晋级。
 5. 运行 release 与内嵌 release 不一致时，候选归因失败关闭并告警。
+
+## 2026-07-23 当前宿主闭环缺口
+
+当前官方包 `contracts/runtime-capabilities.json` 明确
+`connectorRequired=false`、`contentTelemetry=false`，且包本身没有 API2/U3W
+网络写入能力。这是正确的内容隐私边界，但也意味着不能靠修改已上架专家包补齐
+服务归因。
+
+下一版 WorkBuddy 宿主需要在不向专家脚本开放密钥的前提下，由宿主服务层完成：
+
+1. 官方入口首次进入时生成服务器签名的
+   `serverVerifiedHostListingReceipt + listedProductTrustContext`，精确覆盖
+   `fbsir-eight-seat-board / board-convener / experts / 26.7.21 / WorkBuddy`；
+2. 把可信回执绑定到服务器 `serverBindingId`，并保证回执 context 中的 binding
+   与运行事件 binding 完全一致；
+3. 分别在真实持久化阶段形成 `whoami_emitted`、`scene_pack_resolved`、
+   `first_value_completed`，保留各自时间，禁止首值后补写入口和意图；
+4. 将上述有限字段送达 API2；不得转发 prompt、对话、企业材料、邮箱、手机号、
+   token 或 cookie；
+5. 对自然、探针、诊断、合成和未知流量提供服务器权威分类，优先级固定为
+   `SYNTHETIC > PROBE > DIAGNOSTIC > UNKNOWN > NATURAL`；
+6. 支持回执丢失后的同业务事件重签重放，不把 120 秒运输 TTL 当成旅程时限。
+
+若现有 WorkBuddy 5.3.3.0 已能提供上述宿主事件，只需配置和真机回读，不需要
+升级专家包；若不能，则将本节纳入下一版 WorkBuddy 宿主提审需求。
 
 ## P1-005 服务侧注册与清洁发布补充
 
@@ -69,7 +100,7 @@ P1-005 不得从 active release 目录直接热补丁。必须以可证明的 cl
 
 ## 完成定义
 
-完成不等于某个接口 HTTP 200。必须同时取得宿主 receipt、不可变固定窗口、同 binding 链、服务闭环和发布身份对齐证据；否则继续保持 `not_proven`。本需求只进入下一版本宿主/专家包计划，不改变 26.7.20 冻结工件。
+完成不等于某个接口 HTTP 200。必须同时取得宿主 receipt、不可变固定窗口、同 binding 链、服务闭环和发布身份对齐证据；否则继续保持 `not_proven`。本需求只进入下一版本 WorkBuddy 宿主计划；除非宿主接口规范要求新增声明字段，否则不升级专家内容包。无论如何不改变当前 listed 26.7.21 官方工件。
 
 ## 2026-07-22 增补：v2 回执与 U3W 租户绑定
 
