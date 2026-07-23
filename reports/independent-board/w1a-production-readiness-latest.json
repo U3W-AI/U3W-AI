@@ -1,0 +1,152 @@
+{
+  "schema": "fbsir.independentBoardProductionReadiness.v1",
+  "observedAt": "2026-07-23T14:19:45.585982+00:00",
+  "status": "NOT_READY_FOR_PRODUCTION_RELEASE",
+  "productionChanged": false,
+  "readyForDefaultOffRelease": false,
+  "gates": [
+    {
+      "id": "strict_head",
+      "pass": false,
+      "detail": "checked-out source must be the expected clean 40-hex commit"
+    },
+    {
+      "id": "scoped_authority",
+      "pass": true,
+      "detail": "production authority must be root on api2.u3w.com and scoped to fbsir-admin.service"
+    },
+    {
+      "id": "active_runtime_anchor",
+      "pass": true,
+      "detail": "the active service and exact current JAR digest must be readable"
+    },
+    {
+      "id": "versioned_schema_baseline",
+      "pass": false,
+      "detail": "unverified MySQL version: 8.0.45"
+    },
+    {
+      "id": "w1a_schema_state",
+      "pass": false,
+      "detail": "public_init_043 must be explicitly absent or backed by the exact W1A table/trigger fingerprint"
+    },
+    {
+      "id": "backup_restore_anchor",
+      "pass": false,
+      "detail": "a non-empty database backup digest and verified restore procedure receipt are required"
+    },
+    {
+      "id": "default_off_configuration",
+      "pass": false,
+      "detail": "missing explicit flags: FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_CANDIDATE_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_CREDIT_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_WRITER_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_INTENT_CLASSIFIER_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_ADMIN_READ_ENABLED,FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PRODUCT_CREDIT_ENABLED"
+    },
+    {
+      "id": "cryptographic_material_custody",
+      "pass": false,
+      "detail": "event verification key material and same-binding secret must be present without disclosure"
+    },
+    {
+      "id": "release_switch_and_rollback_channel",
+      "pass": false,
+      "detail": "strict-HEAD build/upload/switch plus application-and-database rollback receipts are required"
+    }
+  ],
+  "failedGateIds": [
+    "strict_head",
+    "versioned_schema_baseline",
+    "w1a_schema_state",
+    "backup_restore_anchor",
+    "default_off_configuration",
+    "cryptographic_material_custody",
+    "release_switch_and_rollback_channel"
+  ],
+  "evidence": {
+    "localSourceCommit": "ed233825213dd4198905829f23fa8df6505c1fcb",
+    "target": {
+      "host": "api2.u3w.com",
+      "authorityObserved": "root",
+      "serviceUnit": "fbsir-admin.service",
+      "serviceState": "active"
+    },
+    "runtime": {
+      "jarPath": "/opt/fbsir/admin/Fbsir-admin/target/fbsir-admin.jar",
+      "jarSha256": "92e93328af7fdccfbe3a89bbbfd89d46947dfa00794ccfd5aae48116d1ac817b",
+      "attributionClassCount": 0
+    },
+    "database": {
+      "serverVersion": "8.0.45",
+      "database": "fbsir",
+      "totalTableCount": 99,
+      "migrationTableCount": 0,
+      "publicInit043Applied": null,
+      "w1aSchemaFingerprintVerified": false,
+      "missingPredecessorMigrations": [
+        "public_init_035",
+        "public_init_036",
+        "public_init_037",
+        "public_init_038",
+        "public_init_039",
+        "public_init_040",
+        "public_init_041",
+        "public_init_042"
+      ],
+      "driftedPredecessorDescriptions": [
+        "public_init_035",
+        "public_init_036",
+        "public_init_037",
+        "public_init_038",
+        "public_init_039",
+        "public_init_040",
+        "public_init_041",
+        "public_init_042"
+      ]
+    },
+    "portals": {
+      "meHttpStatus": 404,
+      "adminHttpStatus": 404,
+      "api2FbssHealthHttpStatus": 200
+    },
+    "configuration": {
+      "missingExplicitFlags": [
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_ENABLED",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_CREDIT_ENABLED",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_WRITER_ENABLED",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_INTENT_CLASSIFIER_ENABLED",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_ADMIN_READ_ENABLED",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PRODUCT_CREDIT_ENABLED"
+      ],
+      "flagsNotExplicitlyFalse": [
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_ENABLED",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_CREDIT_ENABLED",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_WRITER_ENABLED",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_INTENT_CLASSIFIER_ENABLED",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_ADMIN_READ_ENABLED",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PRODUCT_CREDIT_ENABLED"
+      ],
+      "eventKeyEntryCount": 0,
+      "sameBindingSecretPresent": false
+    },
+    "backup": {
+      "receiptPath": "/opt/fbsir/admin/backups/latest/receipt.json",
+      "proven": false,
+      "receiptAnchorMatched": false,
+      "sha256": null,
+      "sizeBytes": null,
+      "restoreProcedureVerified": false
+    },
+    "deploymentChannel": {
+      "receiptPath": "/opt/fbsir/admin/releases/latest-receipt.json",
+      "receiptValidated": false,
+      "receiptAnchorMatched": false,
+      "sourceCommit": null,
+      "strictHeadBuildUploadSwitchReceiptScriptPresent": false,
+      "applicationRollbackProven": false,
+      "databaseRollbackProven": false
+    }
+  },
+  "nextAction": "Close failed gates before any upload, migration, Nginx change, restart or cutover: strict_head,versioned_schema_baseline,w1a_schema_state,backup_restore_anchor,default_off_configuration,cryptographic_material_custody,release_switch_and_rollback_channel"
+}

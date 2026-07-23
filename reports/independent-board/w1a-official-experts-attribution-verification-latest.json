@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independentBoardW1aVerification.v1",
-  "generatedAt": "2026-07-23T13:26:17.7987660Z",
-  "status": "LOCAL_RELEASE_CANDIDATE_VERIFIED_PRODUCTION_CLOSURE_PENDING",
+  "generatedAt": "2026-07-23T14:12:00Z",
+  "status": "LOCAL_RELEASE_CANDIDATE_AND_LIVE_FAIL_CLOSED_GATE_VERIFIED_PRODUCTION_CLOSURE_PENDING",
   "officialIdentity": {
     "productId": "fbsir-eight-seat-board",
     "packageId": "fbsir-eight-seat-board",
@@ -19,7 +19,7 @@
   "u3w": {
     "repository": "https://github.com/U3W-AI/U3W-AI.git",
     "branch": "codex/w1-official-attribution-closure",
-    "commit": "459763a757de2e1854b15bbdad3d7f4ab39b459a",
+    "commit": "ed233825213dd4198905829f23fa8df6505c1fcb",
     "migration": "public_init_043",
     "dualMysql": [
       "MySQL Community 8.0.30",
@@ -27,7 +27,21 @@
     ],
     "writerEnabled": false,
     "adminReadEnabled": false,
-    "productCreditEnabled": false
+    "productCreditEnabled": false,
+    "productionReadiness": {
+      "report": "reports/independent-board/w1a-production-readiness-latest.json",
+      "status": "NOT_READY_FOR_PRODUCTION_RELEASE",
+      "strictHeadPass": true,
+      "productionChanged": false,
+      "failedGates": [
+        "versioned_schema_baseline",
+        "w1a_schema_state",
+        "backup_restore_anchor",
+        "default_off_configuration",
+        "cryptographic_material_custody",
+        "release_switch_and_rollback_channel"
+      ]
+    }
   },
   "api2": {
     "repository": "https://github.com/fubangshou/FBSAI.git",
@@ -41,14 +55,17 @@
     "moduleClosure": "pass"
   },
   "liveReadback": {
-    "observedAt": "2026-07-23T13:24:07Z",
+    "observedAt": "2026-07-23T14:10:55Z",
     "api2HealthStatus": 200,
     "api2DeclaredCommit": "c01891a0ca3e11db0a0fe51828276fab33b862b5",
     "api2CandidateDeployed": false,
     "mePortalStatus": 404,
     "adminPortalStatus": 404,
     "u3wAttributionIngressDeployed": false,
-    "productionDatabaseMigrationProven": false
+    "productionDatabaseMigrationProven": false,
+    "productionDatabaseMigrationLedgerPresent": false,
+    "productionDatabaseTableCount": 99,
+    "productionChangedByReadinessGate": false
   },
   "trafficBoundary": {
     "naturalSameBindingThreeEventReceiptCount": 0,
@@ -61,9 +78,14 @@
     "signed_stage_true_api2_publisher_local_verification",
     "u3w_append_only_ledger_and_admin_readback_local_verification",
     "dual_mysql_migration_compatibility",
-    "clean_committed_pushed_api2_strict_head_package"
+    "clean_committed_pushed_api2_strict_head_package",
+    "u3w_live_read_only_fail_closed_production_readiness_gate"
   ],
   "notProven": [
+    "u3w_versioned_schema_baseline_public_init_035_through_042",
+    "u3w_database_backup_and_verified_restore_receipt",
+    "u3w_explicit_default_off_configuration_and_cryptographic_material_custody",
+    "u3w_strict_head_build_upload_switch_and_joint_application_database_rollback_receipt",
     "api2_candidate_active_release_byte_identity",
     "u3w_production_database_migration",
     "api2_to_u3w_production_receipt",
@@ -71,5 +93,5 @@
     "real_intent_distribution",
     "production_admin_six_dimension_readback"
   ],
-  "singleNextAction": "Deploy public_init_043 and the default-off U3W attribution ingress/readback to a version-bound verifiable environment, then deploy API2 commit 7b84d472 with its publisher still disabled."
+  "singleNextAction": "Close the executable U3W production-readiness gates by creating a verified database backup/restore anchor, establishing an explicit versioned legacy-schema baseline, provisioning explicit default-off W1A configuration and cryptographic custody, and completing the strict-HEAD application-plus-database rollback runner; only then deploy U3W and the already dry-run API2 candidate."
 }

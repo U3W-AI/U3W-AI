@@ -98,6 +98,16 @@
       "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-attribution-v1-mysql-it.ps1 -AllowDestructiveTest",
       "cwd": ".",
       "timeout_ms": 600000
+    },
+    "w1a-production-readiness-rules": {
+      "run": "node --test scripts/independent-board-production-readiness.test.mjs",
+      "cwd": ".",
+      "timeout_ms": 120000
+    },
+    "w1a-production-readiness-live": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-production-readiness.ps1",
+      "cwd": ".",
+      "timeout_ms": 120000
     }
   },
   "artifacts": {
@@ -110,6 +120,10 @@
     "w1aDualMysqlReport": "reports/independent-board/w1a-attribution-v1-dual-mysql-latest.json",
     "w1aVerificationReport": "reports/independent-board/w1a-official-experts-attribution-verification-latest.json",
     "w1aProductionReadonlyAudit": "reports/independent-board/w1a-production-readonly-audit-latest.json",
+    "w1aProductionReadinessContract": "docs/independent-board/W1A-PRODUCTION-READINESS-GATE.md",
+    "w1aProductionReadinessEvaluator": "scripts/independent-board-production-readiness.mjs",
+    "w1aProductionReadinessRunner": "scripts/verify-independent-board-production-readiness.ps1",
+    "w1aProductionReadinessReport": "reports/independent-board/w1a-production-readiness-latest.json",
     "domainInventory": "config/deployment/u3w-domain-inventory.json",
     "migrations": "sql/update_20260720_independent_board_control_plane.sql",
     "portalMenuMigration": "sql/update_20260720_independent_board_me_menu.sql",
@@ -349,6 +363,14 @@
         "candidateCriticalDeploySnapshotSha256": "230E5C448CDADC786ADA2022EEC5CB8D36159A08560BAB0F8F2E0A877AA6AE98",
         "productionDeclaredCommit": "c01891a0ca3e11db0a0fe51828276fab33b862b5",
         "productionByteIdentity": "not_proven"
+      },
+      "u3wSourceTruth": {
+        "repository": "https://github.com/U3W-AI/U3W-AI.git",
+        "candidateBranch": "codex/w1-official-attribution-closure",
+        "candidateState": "committed_clean_live_readonly_gate_strict_head_verified_no_go",
+        "candidateCommit": "ed233825213dd4198905829f23fa8df6505c1fcb",
+        "productionJarSha256": "92e93328af7fdccfbe3a89bbbfd89d46947dfa00794ccfd5aae48116d1ac817b",
+        "productionByteIdentity": "legacy_active_jar_readback_only_candidate_not_deployed"
       }
     },
     "controlPlane": {

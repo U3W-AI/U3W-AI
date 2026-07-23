@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Close service attribution, finite intent classification and first-value readback for the exact WorkBuddy listed fbsir-eight-seat-board@26.7.21 identity without modifying the official experts content tree.",
-  "singleNextAction": "Deploy public_init_043 and the default-off U3W attribution ingress/readback to a version-bound verifiable environment, then deploy the clean strict-HEAD API2 candidate with its publisher still disabled; do not extend the historical P1-005 or Connector chain.",
+  "singleNextAction": "Close the executable U3W production-readiness gates by creating a verified database backup/restore anchor, establishing an explicit versioned legacy-schema baseline, provisioning explicit default-off W1A configuration and cryptographic custody, and completing the strict-HEAD application-plus-database rollback runner; only then deploy U3W and the already dry-run API2 candidate.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -29,7 +29,7 @@
     },
     {
       "id": "W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE",
-      "state": "u3w_dual_mysql_and_api2_default_off_publisher_local_verified_real_same_binding_proof_pending",
+      "state": "u3w_production_readiness_gate_executable_no_go_api2_default_off_dry_run_verified_real_same_binding_proof_pending",
       "activeSlice": "W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF",
       "officialIdentity": {
         "productId": "fbsir-eight-seat-board",
@@ -40,6 +40,7 @@
         "listedManifestVersion": "26.7.21",
         "embeddedContractVersion": "26.7.20"
       },
+      "u3wCandidateCommit": "ed233825213dd4198905829f23fa8df6505c1fcb",
       "naturalChain": [
         "ENTRY_OBSERVED",
         "INTENT_CLASSIFIED",
@@ -58,9 +59,16 @@
         "exact_official_identity_and_stage_true_funnel_adapter",
         "durable_default_off_outbox_with_retry_and_restart_recovery",
         "shared_node_to_java_signature_and_digest_golden_vector",
-        "api2_candidate_7b84d472_committed_pushed_and_clean_strict_head_package_verified"
+        "api2_candidate_7b84d472_committed_pushed_and_clean_strict_head_package_verified",
+        "api2_strict_head_production_release_dry_run_verified_without_state_change",
+        "u3w_live_read_only_production_readiness_gate_implemented_and_thirteen_rule_vectors_verified",
+        "u3w_live_no_go_reproduced_without_secret_disclosure_or_production_change"
       ],
       "remaining": [
+        "u3w_versioned_schema_baseline_public_init_035_through_042",
+        "u3w_database_backup_and_verified_restore_receipt",
+        "u3w_explicit_default_off_configuration_and_cryptographic_material_custody",
+        "u3w_strict_head_build_upload_switch_and_joint_application_database_rollback_receipt",
         "api2_active_release_file_hash_readback",
         "production_database_migration_and_default_off_deployment",
         "one_real_official_experts_same_binding_three_event_receipt",

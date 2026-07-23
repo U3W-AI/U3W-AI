@@ -1641,8 +1641,34 @@ function Invoke-ContractChecks {
         })
     $w1NaturalChain = 'ENTRY_OBSERVED,INTENT_CLASSIFIED,FIRST_VALUE_COMPLETED'
     $w1DualMysql = Read-Utf8Json -RelativePath 'reports\independent-board\w1a-attribution-v1-dual-mysql-latest.json'
+    $w1Verification = Read-Utf8Json -RelativePath 'reports\independent-board\w1a-official-experts-attribution-verification-latest.json'
     $w1ProductionReadback = Read-Utf8Json -RelativePath 'reports\independent-board\w1a-production-readonly-audit-latest.json'
+    $w1ProductionReadiness = Read-Utf8Json -RelativePath 'reports\independent-board\w1a-production-readiness-latest.json'
     $w1GoldenVector = Read-Utf8Json -RelativePath 'FBSir-business\src\test\resources\independent-board-attribution-v1-golden-vector.json'
+    $w1ProductionReadinessFailedGates = @($w1ProductionReadiness.failedGateIds)
+    $w1ProductionReadinessStrictHead = @($w1ProductionReadiness.gates | Where-Object {
+            $_.id -ceq 'strict_head'
+        })
+    $w1ProductionReadinessStateValid = (
+        $w1ProductionReadiness.status -ceq 'NOT_READY_FOR_PRODUCTION_RELEASE' `
+            -and $w1ProductionReadiness.readyForDefaultOffRelease -eq $false `
+            -and $w1ProductionReadinessFailedGates.Count -gt 0
+    ) -or (
+        $w1ProductionReadiness.status -ceq 'READY_FOR_DEFAULT_OFF_RELEASE' `
+            -and $w1ProductionReadiness.readyForDefaultOffRelease -eq $true `
+            -and $w1ProductionReadinessFailedGates.Count -eq 0
+    )
+    $w1U3wCandidateStateAllowed = @(
+        'committed_clean_live_readonly_gate_strict_head_verified_no_go',
+        'committed_clean_live_readonly_gate_strict_head_verified_ready'
+    )
+    Push-Location $RepoRoot
+    try {
+        Invoke-NodeScript -Arguments @('--test', 'scripts\independent-board-production-readiness.test.mjs')
+    }
+    finally {
+        Pop-Location
+    }
     $w1MysqlVersions = @($w1DualMysql.results | ForEach-Object { $_.version })
     $w1MysqlInvalid = @($w1DualMysql.results | Where-Object {
             $_.migrationRerun -cne 'PASS' `
@@ -1655,6 +1681,8 @@ function Invoke-ContractChecks {
     if ($w1Wave.Count -ne 1 `
             -or $implementationStatus.activeWave -cne 'W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE' `
             -or $implementationStatus.activeSlice -cne 'W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF' `
+            -or $implementationStatus.w1a.state -cne $w1Wave[0].state `
+            -or $implementationStatus.w1a.state -notlike '*real_same_binding_proof_pending' `
             -or $w1Wave[0].activeSlice -cne 'W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF' `
             -or $engineeringContract.contracts.currentMainline.activeSlice -cne 'W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF' `
             -or $implementationStatus.expertPackage.productId -cne 'fbsir-eight-seat-board' `
@@ -1682,6 +1710,31 @@ function Invoke-ContractChecks {
             -or $implementationStatus.w1a.migration -cne 'public_init_043' `
             -or $implementationStatus.w1a.productionReadbackReport -cne 'reports/independent-board/w1a-production-readonly-audit-latest.json' `
             -or $engineeringContract.artifacts.w1aProductionReadonlyAudit -cne 'reports/independent-board/w1a-production-readonly-audit-latest.json' `
+            -or $implementationStatus.w1a.productionReadinessContract -cne 'docs/independent-board/W1A-PRODUCTION-READINESS-GATE.md' `
+            -or $implementationStatus.w1a.productionReadinessReport -cne 'reports/independent-board/w1a-production-readiness-latest.json' `
+            -or $implementationStatus.w1a.productionReadinessState -cne $w1ProductionReadiness.status `
+            -or $w1U3wCandidateStateAllowed -notcontains $implementationStatus.w1a.u3wSourceTruth.candidateState `
+            -or $implementationStatus.w1a.u3wSourceTruth.candidateCommit -cne 'ed233825213dd4198905829f23fa8df6505c1fcb' `
+            -or $implementationStatus.w1a.u3wSourceTruth.candidateCommit -cne $w1ProductionReadiness.evidence.localSourceCommit `
+            -or $engineeringContract.contracts.currentMainline.u3wSourceTruth.candidateState -cne $implementationStatus.w1a.u3wSourceTruth.candidateState `
+            -or $engineeringContract.contracts.currentMainline.u3wSourceTruth.candidateCommit -cne $implementationStatus.w1a.u3wSourceTruth.candidateCommit `
+            -or $w1Wave[0].u3wCandidateCommit -cne $implementationStatus.w1a.u3wSourceTruth.candidateCommit `
+            -or $engineeringContract.artifacts.w1aProductionReadinessContract -cne 'docs/independent-board/W1A-PRODUCTION-READINESS-GATE.md' `
+            -or $engineeringContract.artifacts.w1aProductionReadinessEvaluator -cne 'scripts/independent-board-production-readiness.mjs' `
+            -or $engineeringContract.artifacts.w1aProductionReadinessRunner -cne 'scripts/verify-independent-board-production-readiness.ps1' `
+            -or $engineeringContract.artifacts.w1aProductionReadinessReport -cne 'reports/independent-board/w1a-production-readiness-latest.json' `
+            -or $w1ProductionReadiness.schema -cne 'fbsir.independentBoardProductionReadiness.v1' `
+            -or -not $w1ProductionReadinessStateValid `
+            -or $w1ProductionReadiness.productionChanged -ne $false `
+            -or $w1ProductionReadinessStrictHead.Count -ne 1 `
+            -or $w1ProductionReadinessStrictHead[0].pass -ne $true `
+            -or $w1Verification.status -notlike 'LOCAL_RELEASE_CANDIDATE*PRODUCTION_CLOSURE_PENDING' `
+            -or $w1Verification.u3w.commit -cne $implementationStatus.w1a.u3wSourceTruth.candidateCommit `
+            -or $w1Verification.u3w.productionReadiness.status -cne $w1ProductionReadiness.status `
+            -or $w1Verification.u3w.productionReadiness.strictHeadPass -ne $true `
+            -or $w1Verification.u3w.productionReadiness.productionChanged -ne $false `
+            -or (@($w1Verification.u3w.productionReadiness.failedGates) -join ',') -cne (@($w1ProductionReadiness.failedGateIds) -join ',') `
+            -or $w1Verification.singleNextAction -cne $implementationStatus.singleNextAction `
             -or $w1ProductionReadback.status -cne 'BLOCKED_PRODUCTION_SCHEMA_BASELINE_AND_DEPLOYMENT_CHANNEL_NOT_READY' `
             -or $w1ProductionReadback.productionChanged -ne $false `
             -or $w1ProductionReadback.database.database -cne 'fbsir' `
@@ -1766,7 +1819,8 @@ function Invoke-ContractChecks {
             -or $implementationStatus.w4b5e.releaseReady -ne $false `
             -or $implementationStatus.w4b5e.productionAuthority -ne $false `
             -or $implementationStatus.w4b5e.historicalNextSlice -cne $canonicalCurrentW3SliceId `
-            -or $taskboard.singleNextAction -notlike 'Deploy public_init_043 and the default-off U3W attribution ingress/readback*' `
+            -or $taskboard.singleNextAction -cne $implementationStatus.singleNextAction `
+            -or $taskboard.singleNextAction -notlike 'Close the executable U3W production-readiness gates*' `
             -or -not (@($w3Wave[0].completedSubset) -ccontains 'skill_consume_v2_default_off_host_service_wiring_dual_mysql_5_of_5_each_and_zero_legacy_fallback_verified') `
             -or -not (@($w3Wave[0].completedSubset) -ccontains 'skill_consume_v2_nontransactional_dispatcher_required_legacy_transaction_and_ambient_transaction_fail_closed_verified') `
             -or -not (@($w3Wave[0].completedSubset) -ccontains 'skill_consume_v2_nullable_host_session_domain_digest_and_dual_mysql_6_of_6_each_verified') `
