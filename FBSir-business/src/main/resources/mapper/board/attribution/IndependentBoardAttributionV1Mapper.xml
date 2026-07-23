@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wx.fbsir.business.board.attribution.mapper.IndependentBoardAttributionV1Mapper">
+  <resultMap id="JourneyHead"
+      type="com.wx.fbsir.business.board.attribution.domain.BoardAttributionJourneyHead">
+    <id property="sameBindingKey" column="same_binding_key"/>
+    <result property="contractId" column="contract_id"/>
+    <result property="tenantSubjectDigest" column="tenant_subject_digest"/>
+    <result property="serverBindingId" column="server_binding_id"/>
+    <result property="journeyId" column="journey_id"/>
+    <result property="productId" column="product_id"/>
+    <result property="listedManifestVersion" column="listed_manifest_version"/>
+    <result property="embeddedContractVersion" column="embedded_contract_version"/>
+    <result property="channel" column="channel"/>
+    <result property="terminal" column="terminal"/>
+    <result property="hostVersion" column="host_version"/>
+    <result property="trafficClass" column="traffic_class"/>
+    <result property="intentFamily" column="intent_family"/>
+    <result property="lastSequenceNo" column="last_sequence_no"/>
+    <result property="lastEventDigest" column="last_event_digest"/>
+    <result property="headVersion" column="head_version"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+  </resultMap>
+
+  <resultMap id="LedgerEvent"
+      type="com.wx.fbsir.business.board.attribution.domain.BoardAttributionLedgerEvent">
+    <id property="eventId" column="event_id"/>
+    <result property="receiptId" column="receipt_id"/>
+    <result property="sameBindingKey" column="same_binding_key"/>
+    <result property="contractId" column="contract_id"/>
+    <result property="journeyId" column="journey_id"/>
+    <result property="serverBindingId" column="server_binding_id"/>
+    <result property="tenantSubjectDigest" column="tenant_subject_digest"/>
+    <result property="eventType" column="event_type"/>
+    <result property="sequenceNo" column="sequence_no"/>
+    <result property="occurredAt" column="occurred_at"/>
+    <result property="productId" column="product_id"/>
+    <result property="packageId" column="package_id"/>
+    <result property="agentName" column="agent_name"/>
+    <result property="marketplace" column="marketplace"/>
+    <result property="listedSurface" column="listed_surface"/>
+    <result property="listedManifestVersion" column="listed_manifest_version"/>
+    <result property="embeddedContractVersion" column="embedded_contract_version"/>
+    <result property="hostClientFamily" column="host_client_family"/>
+    <result property="hostVersion" column="host_version"/>
+    <result property="terminal" column="terminal"/>
+    <result property="channel" column="channel"/>
+    <result property="requestSource" column="request_source"/>
+    <result property="intentSignal" column="intent_signal"/>
+    <result property="intentFamily" column="intent_family"/>
+    <result property="classificationSource" column="classification_source"/>
+    <result property="classifierVersion" column="classifier_version"/>
+    <result property="confidenceBucket" column="confidence_bucket"/>
+    <result property="reviewMode" column="review_mode"/>
+    <result property="trafficClass" column="traffic_class"/>
+    <result property="trafficAuthority" column="traffic_authority"/>
+    <result property="outcome" column="outcome"/>
+    <result property="previousEventDigest" column="previous_event_digest"/>
+    <result property="traceparent" column="traceparent"/>
+    <result property="canonicalDigest" column="canonical_digest"/>
+    <result property="eventDigest" column="event_digest"/>
+    <result property="signerKeyId" column="signer_key_id"/>
+    <result property="signatureHex" column="signature_hex"/>
+    <result property="nonceHash" column="nonce_hash"/>
+    <result property="issuedAt" column="issued_at"/>
+    <result property="expiresAt" column="expires_at"/>
+    <result property="productCreditEligible" column="authoritative_product_credit"/>
+    <result property="eventWatermark" column="event_watermark"/>
+    <result property="createdAt" column="created_at"/>
+  </resultMap>
+
+  <sql id="LedgerColumns">
+    event_id, receipt_id, same_binding_key, contract_id, journey_id,
+    server_binding_id, tenant_subject_digest, event_type, sequence_no,
+    occurred_at, product_id, package_id, agent_name, marketplace,
+    listed_surface, listed_manifest_version, embedded_contract_version,
+    host_client_family, host_version, terminal, channel, request_source,
+    intent_signal, intent_family, classification_source, classifier_version,
+    confidence_bucket, review_mode, traffic_class, traffic_authority, outcome,
+    previous_event_digest, traceparent, canonical_digest, event_digest,
+    signer_key_id, signature_hex, nonce_hash, issued_at, expires_at,
+    authoritative_product_credit, event_watermark, created_at
+  </sql>
+
+  <select id="selectEventByEventId" resultMap="LedgerEvent"
+      useCache="false">
+    SELECT <include refid="LedgerColumns"/>
+    FROM fbs_board_attr_event_v1
+    WHERE event_id = #{eventId}
+  </select>
+
+  <select id="selectEventByReceiptId" resultMap="LedgerEvent"
+      useCache="false">
+    SELECT <include refid="LedgerColumns"/>
+    FROM fbs_board_attr_event_v1
+    WHERE receipt_id = #{receiptId}
+  </select>
+
+  <insert id="insertJourneyHeadIfAbsent"
+      parameterType="com.wx.fbsir.business.board.attribution.domain.BoardAttributionJourneyHead">
+    INSERT IGNORE INTO fbs_board_attr_journey_v1
+      (same_binding_key, contract_id, tenant_subject_digest, server_binding_id,
+       journey_id, product_id, listed_manifest_version,
+       embedded_contract_version, channel, terminal, host_version,
+       traffic_class, intent_family, last_sequence_no, last_event_digest,
+       head_version)
+    VALUES
+      (#{sameBindingKey}, #{contractId}, #{tenantSubjectDigest},
+       #{serverBindingId}, #{journeyId}, #{productId},
+       #{listedManifestVersion}, #{embeddedContractVersion}, #{channel},
+       #{terminal}, #{hostVersion}, #{trafficClass}, #{intentFamily},
+       #{lastSequenceNo}, #{lastEventDigest}, #{headVersion})
+  </insert>
+
+  <select id="selectJourneyHeadForUpdate" resultMap="JourneyHead"
+      flushCache="true" useCache="false">
+    SELECT same_binding_key, contract_id, tenant_subject_digest,
+           server_binding_id, journey_id, product_id,
+           listed_manifest_version, embedded_contract_version, channel,
+           terminal, host_version, traffic_class, intent_family,
+           last_sequence_no, last_event_digest, head_version,
+           created_at, updated_at
+    FROM fbs_board_attr_journey_v1
+    WHERE same_binding_key = #{sameBindingKey}
+    FOR UPDATE
+  </select>
+
+  <insert id="insertLedgerEvent"
+      parameterType="com.wx.fbsir.business.board.attribution.domain.BoardAttributionLedgerEvent">
+    INSERT INTO fbs_board_attr_event_v1
+      (event_id, receipt_id, same_binding_key, contract_id, journey_id,
+       server_binding_id, tenant_subject_digest, event_type, sequence_no,
+       occurred_at, product_id, package_id, agent_name, marketplace,
+       listed_surface, listed_manifest_version, embedded_contract_version,
+       host_client_family, host_version, terminal, channel, request_source,
+       intent_signal, intent_family, classification_source, classifier_version,
+       confidence_bucket, review_mode, traffic_class, traffic_authority,
+       outcome, previous_event_digest, traceparent, canonical_digest,
+       event_digest, signer_key_id, signature_hex, nonce_hash, issued_at,
+       expires_at, authoritative_product_credit)
+    VALUES
+      (#{eventId}, #{receiptId}, #{sameBindingKey}, #{contractId}, #{journeyId},
+       #{serverBindingId}, #{tenantSubjectDigest}, #{eventType}, #{sequenceNo},
+       #{occurredAt}, #{productId}, #{packageId}, #{agentName}, #{marketplace},
+       #{listedSurface}, #{listedManifestVersion}, #{embeddedContractVersion},
+       #{hostClientFamily}, #{hostVersion}, #{terminal}, #{channel},
+       #{requestSource}, #{intentSignal}, #{intentFamily},
+       #{classificationSource}, #{classifierVersion}, #{confidenceBucket},
+       #{reviewMode}, #{trafficClass}, #{trafficAuthority}, #{outcome},
+       #{previousEventDigest}, #{traceparent}, #{canonicalDigest},
+       #{eventDigest}, #{signerKeyId}, #{signatureHex}, #{nonceHash},
+       #{issuedAt}, #{expiresAt}, #{productCreditEligible})
+  </insert>
+
+  <update id="advanceJourneyHead">
+    UPDATE fbs_board_attr_journey_v1
+    SET last_sequence_no = #{nextSequenceNo},
+        last_event_digest = #{nextEventDigest},
+        intent_family = #{intentFamily},
+        head_version = head_version + 1,
+        updated_at = CURRENT_TIMESTAMP(3)
+    WHERE same_binding_key = #{sameBindingKey}
+      AND head_version = #{expectedHeadVersion}
+      AND last_sequence_no = #{expectedLastSequenceNo}
+  </update>
+</mapper>

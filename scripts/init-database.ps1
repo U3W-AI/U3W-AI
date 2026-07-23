@@ -106,6 +106,7 @@ $steps = @(
     New-Step "public_init_040" "Independent Board plan policy database monotonic-chain guards" (Resolve-SqlFile "update_20260723_independent_board_plan_policy_monotonic_chain.sql")
     New-Step "public_init_041" "Independent Board plan policy controlled procedure authority" (Resolve-SqlFile "update_20260723_independent_board_plan_policy_authority.sql")
     New-Step "public_init_042" "Independent Board default-off skill-consume v2 credit ledger" (Resolve-SqlFile "update_20260723_skill_consume_credit_ledger_v2.sql")
+    New-Step "public_init_043" "Independent Board exact official experts attribution v1" (Resolve-SqlFile "update_20260723_independent_board_attribution_v1.sql")
 )
 
 if (-not (Test-Path -LiteralPath $DeclarativeManifestPath -PathType Leaf)) {
@@ -132,7 +133,7 @@ for ($index = 0; $index -lt $steps.Count; $index++) {
         [string]$declared.file -ne $executable.File.Name) {
         throw "Declarative manifest drift at position $($index + 1): expected '$($executable.Version)|$($executable.Description)|$($executable.File.Name)'."
     }
-    if ($executable.Version -in @('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041', 'public_init_042')) {
+    if ($executable.Version -in @('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041', 'public_init_042', 'public_init_043')) {
         $declaredSha256 = [string]$declared.sha256
         $actualSha256 = (Get-FileHash -LiteralPath $executable.File.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($declaredSha256 -notmatch '^[0-9a-f]{64}$' -or
@@ -3049,6 +3050,9 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
         $resumeRunningSkillConsumeCreditLedgerV2 =
             $step.Version -eq 'public_init_042' -and
             $state -eq "RUNNING:$($step.Description)"
+        $resumeRunningBoardAttributionV1 =
+            $step.Version -eq 'public_init_043' -and
+            $state -eq "RUNNING:$($step.Description)"
         $resumeRunningOauthAdditive =
             $resumeRunningOauthProvenance -or
             $resumeRunningOauthConsentIntent -or
@@ -3060,7 +3064,8 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             $resumeRunningPlanPolicy -or
             $resumeRunningPlanPolicyMonotonicChain -or
             $resumeRunningPlanPolicyAuthority -or
-            $resumeRunningSkillConsumeCreditLedgerV2
+            $resumeRunningSkillConsumeCreditLedgerV2 -or
+            $resumeRunningBoardAttributionV1
         if ($state -and -not $resumeRunningAdditive) {
             throw "Step $($step.Version) is in state '$state'. Do not retry a partially applied DDL step; use a fresh database or reviewed recovery."
         }
@@ -3126,6 +3131,9 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChain
         }
         if ($step.Version -eq 'public_init_042') {
+            $null = Assert-IndependentBoardOauthServerProfile
+        }
+        if ($step.Version -eq 'public_init_043') {
             $null = Assert-IndependentBoardOauthServerProfile
         }
 
@@ -3441,10 +3449,11 @@ WHERE table_schema='$Database'
                       'fbs_credit_account','fbs_credit_operation','fbs_credit_entry',
                       'fbs_skill_credit_account_v2','fbs_skill_credit_operation_v2',
                       'fbs_skill_credit_entry_v2','fbs_skill_credit_projection_bridge_v2',
-                      'fbs_plan_policy_revision_receipt','fbs_plan_policy_head','fbs_usage_operation_policy_receipt');
+                      'fbs_plan_policy_revision_receipt','fbs_plan_policy_head','fbs_usage_operation_policy_receipt',
+                      'fbs_board_attr_journey_v1','fbs_board_attr_event_v1');
 "@)
-    if ($verification -ne 31) {
-        throw "Database verification failed: expected thirty-one representative current tables; found $verification."
+    if ($verification -ne 33) {
+        throw "Database verification failed: expected thirty-three representative current tables; found $verification."
     }
 
     $hostTypeColumn = [int](Invoke-MySqlText -Sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$Database' AND table_name='ws_host_whitelist' AND column_name='host_type';")

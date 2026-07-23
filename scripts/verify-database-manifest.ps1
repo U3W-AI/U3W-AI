@@ -366,6 +366,7 @@ $requiredTail = @{
     public_init_040 = "update_20260723_independent_board_plan_policy_monotonic_chain.sql"
     public_init_041 = "update_20260723_independent_board_plan_policy_authority.sql"
     public_init_042 = "update_20260723_skill_consume_credit_ledger_v2.sql"
+    public_init_043 = "update_20260723_independent_board_attribution_v1.sql"
 }
 foreach ($version in $requiredTail.Keys) {
     $matches = @($manifest.steps | Where-Object { $_.version -eq $version -and $_.file -eq $requiredTail[$version] })
@@ -2743,11 +2744,11 @@ $requiredOauthInitializerIntegrationNeedles = @(
     'idx_connector_binding_receipt_lock_order',
     '504a017fe7c4a8ecc4c60619ea8beaf5e7d4aa207fcffe536ff47b8e1d9919b3',
     'W4b refresh-security exact bounded replay did not pass',
-    'if ($verification -ne 31)'
+    'if ($verification -ne 33)'
 )
 $requiredCreditLedgerInitializerNeedles = @(
     'New-Step "public_init_038" "Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger" (Resolve-SqlFile "update_20260722_independent_board_credit_ledger.sql")',
-    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041', 'public_init_042')",
+    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041', 'public_init_042', 'public_init_043')",
     'function Assert-IndependentBoardCreditLedgerCurrentState',
     '$serverProfile = Assert-IndependentBoardOauthServerProfile',
     '$expected = @(3,3,45,45,45,20,20,4,4,9,9,22,22,6,6,1,1,5,0)',
@@ -2763,8 +2764,8 @@ $requiredCreditLedgerInitializerNeedles = @(
     'u3w_assert_independent_board_credit_triggers_20260722',
     'credit-ledger exact bounded replay did not pass',
     "'fbs_credit_account','fbs_credit_operation','fbs_credit_entry'",
-    'if ($verification -ne 31)',
-    'expected thirty-one representative current tables'
+    'if ($verification -ne 33)',
+    'expected thirty-three representative current tables'
 )
 $requiredManifestCurrentReadNeedles = @(
     'function Assert-PublicDatabaseManifestCurrentState',
@@ -2833,8 +2834,8 @@ $requiredSkillConsumeCreditLedgerV2InitializerNeedles = @(
     'Independent Board skill-consume v2 ledger exact bounded replay did not pass',
     "'fbs_skill_credit_account_v2','fbs_skill_credit_operation_v2'",
     "'fbs_skill_credit_entry_v2','fbs_skill_credit_projection_bridge_v2'",
-    'if ($verification -ne 31)',
-    'expected thirty-one representative current tables'
+    'if ($verification -ne 33)',
+    'expected thirty-three representative current tables'
 )
 foreach ($needle in $requiredSkillConsumeCreditLedgerV2InitializerNeedles) {
     if (-not $initSource.Contains($needle)) {
@@ -2843,7 +2844,7 @@ foreach ($needle in $requiredSkillConsumeCreditLedgerV2InitializerNeedles) {
 }
 $requiredPlanPolicyInitializerNeedles = @(
     'New-Step "public_init_039" "Independent Board immutable plan policy revisions and operation lineage" (Resolve-SqlFile "update_20260722_independent_board_plan_policy.sql")',
-    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041', 'public_init_042')",
+    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041', 'public_init_042', 'public_init_043')",
     '[switch]$PlanPolicyCurrentReadOnly',
     'function Assert-IndependentBoardPlanPolicyCurrentState',
     '$resumeRunningPlanPolicy',
@@ -2863,8 +2864,8 @@ $requiredPlanPolicyInitializerNeedles = @(
     'b97cf71e29e1bfbbb58bd9ef58ed8f9334c586de102e43b6bb231e392ac84fad',
     '$expectedTriggerCount = if ($AllowMonotonicChain)',
     '$expectedMonotonicReceiptCount = if ($AllowMonotonicChain)',
-    'if ($verification -ne 31)',
-    'expected thirty-one representative current tables'
+    'if ($verification -ne 33)',
+    'expected thirty-three representative current tables'
 )
 foreach ($needle in $requiredPlanPolicyInitializerNeedles) {
     if (-not $initSource.Contains($needle)) {
