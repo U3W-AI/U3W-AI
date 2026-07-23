@@ -265,3 +265,5 @@ docs/workflows/export-简历解析工作流.zip
 *.pid
 *.seed
 *.pid.lock
+__pycache__/
+*.py[cod]

@@ -7,6 +7,8 @@ param(
     [string]$ExpectedLegacyBaselineReceiptDigest,
     [string]$ExpectedCommit,
     [string]$OutputPath,
+    [ValidateSet('PREPARED_FOR_STAGE', 'STAGED_FOR_SWITCH', 'DEPLOYED_DEFAULT_OFF')]
+    [string]$RequiredStage,
     [switch]$RequireReady
 )
 
@@ -49,11 +51,22 @@ function Assert-SafeRemoteParameters {
             throw 'receipt anchors must be 64-hex SHA-256 values'
         }
     }
-    if ($RequireReady -and (
-            -not $ExpectedBackupReceiptSha256 -or
-            -not $ExpectedDeploymentReceiptSha256 -or
-            -not $ExpectedLegacyBaselineReceiptDigest)) {
-        throw 'RequireReady requires backup, deployment and legacy-baseline out-of-band SHA-256 anchors'
+    $effectiveStage = if ($RequiredStage) {
+        $RequiredStage
+    } elseif ($RequireReady) {
+        'PREPARED_FOR_STAGE'
+    } else {
+        $null
+    }
+    if ($effectiveStage -and -not $ExpectedBackupReceiptSha256) {
+        throw 'PREPARED_FOR_STAGE requires the backup out-of-band SHA-256 anchor'
+    }
+    if ($effectiveStage -and -not $ExpectedCommit) {
+        throw "$effectiveStage requires an explicit 40-hex ExpectedCommit"
+    }
+    if ($effectiveStage -in @('STAGED_FOR_SWITCH', 'DEPLOYED_DEFAULT_OFF') -and
+        -not $ExpectedDeploymentReceiptSha256) {
+        throw "$effectiveStage requires the deployment out-of-band SHA-256 anchor"
     }
 }
 
@@ -260,6 +273,10 @@ DEPLOYMENT_RECEIPT_PATH = __DEPLOYMENT_RECEIPT_PATH__
 EXPECTED_BACKUP_RECEIPT_SHA256 = __EXPECTED_BACKUP_RECEIPT_SHA256__
 EXPECTED_DEPLOYMENT_RECEIPT_SHA256 = __EXPECTED_DEPLOYMENT_RECEIPT_SHA256__
 EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST = __EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST__
+EXPECTED_SOURCE_COMMIT = __EXPECTED_SOURCE_COMMIT__
+EXPECTED_BACKUP_RUNNER_SHA256 = __EXPECTED_BACKUP_RUNNER_SHA256__
+EXPECTED_BACKUP_WORKER_SHA256 = __EXPECTED_BACKUP_WORKER_SHA256__
+EXPECTED_RESTORE_VERIFIER_SHA256 = __EXPECTED_RESTORE_VERIFIER_SHA256__
 FLAG_NAMES = [
     "FBSIR_BOARD_ATTRIBUTION_ENABLED",
     "FBSIR_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
@@ -672,6 +689,134 @@ cryptographic_shape_valid = bool(
     )
 )
 
+def current_backup_schema_facts():
+    if "query" not in globals():
+        return None
+    metadata_queries = [
+        """SELECT CONCAT_WS('|','T',HEX(table_name),HEX(table_type),
+        HEX(COALESCE(engine,'')),HEX(COALESCE(table_collation,'')))
+        FROM information_schema.tables WHERE table_schema=DATABASE()""",
+        """SELECT CONCAT_WS('|','C',HEX(table_name),LPAD(ordinal_position,6,'0'),
+        HEX(column_name),HEX(column_type),HEX(is_nullable),
+        HEX(COALESCE(column_default,'<NULL>')),HEX(extra),
+        HEX(COALESCE(character_set_name,'')),HEX(COALESCE(collation_name,'')),
+        HEX(COALESCE(generation_expression,'')))
+        FROM information_schema.columns WHERE table_schema=DATABASE()""",
+        """SELECT CONCAT_WS('|','I',HEX(table_name),HEX(index_name),
+        LPAD(seq_in_index,6,'0'),non_unique,HEX(COALESCE(column_name,'')),
+        HEX(COALESCE(collation,'')),COALESCE(sub_part,-1),
+        HEX(COALESCE(index_type,'')),HEX(COALESCE(expression,'')))
+        FROM information_schema.statistics WHERE table_schema=DATABASE()""",
+        """SELECT CONCAT_WS('|','K',HEX(table_name),HEX(constraint_name),
+        HEX(constraint_type)) FROM information_schema.table_constraints
+        WHERE table_schema=DATABASE()""",
+        """SELECT CONCAT_WS('|','U',HEX(table_name),HEX(constraint_name),
+        LPAD(ordinal_position,6,'0'),HEX(COALESCE(column_name,'')),
+        HEX(COALESCE(referenced_table_name,'')),
+        HEX(COALESCE(referenced_column_name,'')))
+        FROM information_schema.key_column_usage
+        WHERE table_schema=DATABASE()""",
+        """SELECT CONCAT_WS('|','F',HEX(constraint_name),HEX(table_name),
+        HEX(referenced_table_name),HEX(update_rule),HEX(delete_rule),
+        HEX(match_option)) FROM information_schema.referential_constraints
+        WHERE constraint_schema=DATABASE()""",
+        """SELECT CONCAT_WS('|','H',HEX(tc.table_name),HEX(cc.constraint_name),
+        HEX(cc.check_clause)) FROM information_schema.check_constraints cc
+        JOIN information_schema.table_constraints tc
+          ON tc.constraint_schema=cc.constraint_schema
+         AND tc.constraint_name=cc.constraint_name
+         AND tc.constraint_type='CHECK'
+        WHERE tc.table_schema=DATABASE()""",
+        """SELECT CONCAT_WS('|','V',HEX(table_name),HEX(view_definition),
+        HEX(check_option),HEX(is_updatable),HEX(definer),HEX(security_type),
+        HEX(character_set_client),HEX(collation_connection))
+        FROM information_schema.views WHERE table_schema=DATABASE()""",
+        """SELECT CONCAT_WS('|','G',HEX(trigger_name),HEX(event_manipulation),
+        HEX(event_object_table),HEX(action_timing),HEX(action_orientation),
+        HEX(action_statement),HEX(definer))
+        FROM information_schema.triggers WHERE trigger_schema=DATABASE()""",
+        """SELECT CONCAT_WS('|','R',HEX(routine_name),HEX(routine_type),
+        HEX(COALESCE(data_type,'')),HEX(COALESCE(routine_definition,'')),
+        HEX(is_deterministic),HEX(sql_data_access),HEX(security_type),HEX(definer))
+        FROM information_schema.routines WHERE routine_schema=DATABASE()""",
+        """SELECT CONCAT_WS('|','E',HEX(event_name),HEX(event_definition),
+        HEX(event_type),HEX(COALESCE(execute_at,'')),
+        HEX(COALESCE(interval_value,'')),HEX(COALESCE(interval_field,'')),
+        HEX(status),HEX(definer))
+        FROM information_schema.events WHERE event_schema=DATABASE()""",
+        """SELECT CONCAT_WS('|','P',HEX(table_name),
+        IF(partition_name IS NULL,'N',CONCAT('V',HEX(partition_name))),
+        IF(subpartition_name IS NULL,'N',CONCAT('V',HEX(subpartition_name))),
+        LPAD(partition_ordinal_position,6,'0'),
+        IF(subpartition_ordinal_position IS NULL,'N',
+          CONCAT('V',LPAD(subpartition_ordinal_position,6,'0'))),
+        IF(partition_method IS NULL,'N',CONCAT('V',HEX(partition_method))),
+        IF(subpartition_method IS NULL,'N',CONCAT('V',HEX(subpartition_method))),
+        IF(partition_expression IS NULL,'N',CONCAT('V',HEX(partition_expression))),
+        IF(subpartition_expression IS NULL,'N',
+          CONCAT('V',HEX(subpartition_expression))),
+        IF(partition_description IS NULL,'N',
+          CONCAT('V',HEX(partition_description))))
+        FROM information_schema.partitions WHERE table_schema=DATABASE()""",
+        """SELECT CONCAT_WS('|','A',
+        IF(specific_name IS NULL,'N',CONCAT('V',HEX(specific_name))),
+        LPAD(ordinal_position,6,'0'),
+        IF(parameter_mode IS NULL,'N',CONCAT('V',HEX(parameter_mode))),
+        IF(parameter_name IS NULL,'N',CONCAT('V',HEX(parameter_name))),
+        HEX(data_type),HEX(dtd_identifier))
+        FROM information_schema.parameters WHERE specific_schema=DATABASE()""",
+    ]
+    metadata_rows = []
+    for sql in metadata_queries:
+        metadata_rows.extend(row for row in query(sql).splitlines() if row)
+    counts = query(
+        """SELECT SUM(table_type='BASE TABLE'),SUM(table_type='VIEW'),
+        SUM(table_type='BASE TABLE' AND engine<>'InnoDB')
+        FROM information_schema.tables WHERE table_schema=DATABASE()"""
+    ).split("\t")
+    object_counts = query(
+        """SELECT
+        (SELECT COUNT(*) FROM information_schema.triggers
+          WHERE trigger_schema=DATABASE()),
+        (SELECT COUNT(*) FROM information_schema.routines
+          WHERE routine_schema=DATABASE()),
+        (SELECT COUNT(*) FROM information_schema.events
+          WHERE event_schema=DATABASE())"""
+    ).split("\t")
+    root_rows = query(
+        """SELECT CONCAT_WS('|',HEX(menu_name),parent_id,HEX(COALESCE(path,'')),
+        HEX(COALESCE(component,'')),HEX(COALESCE(perms,'')))
+        FROM sys_menu WHERE parent_id=0 AND HEX(menu_name) IN (
+          'E78BACE891A3E4BC9A',
+          '496E646570656E64656E7420426F617264')
+        ORDER BY BINARY menu_name,BINARY path"""
+    )
+    sys_menu_shape = query(
+        """SELECT CONCAT_WS('|',LPAD(ordinal_position,6,'0'),HEX(column_name),
+        HEX(column_type),HEX(is_nullable),HEX(COALESCE(column_default,'<NULL>')),
+        HEX(extra)) FROM information_schema.columns
+        WHERE table_schema=DATABASE() AND table_name='sys_menu'
+        ORDER BY ordinal_position"""
+    )
+    return {
+        "fingerprintAlgorithm": "u3w.mysql-schema-metadata.v2",
+        "schemaFingerprintSha256": hashlib.sha256(
+            ("\n".join(sorted(metadata_rows)) + "\n").encode()
+        ).hexdigest(),
+        "prerequisiteShapeSha256": hashlib.sha256(
+            (sys_menu_shape + "\n--ROOTS--\n" + root_rows + "\n").encode()
+        ).hexdigest(),
+        "baseTableCount": int(counts[0]),
+        "viewCount": int(counts[1]),
+        "triggerCount": int(object_counts[0]),
+        "routineCount": int(object_counts[1]),
+        "eventCount": int(object_counts[2]),
+        "independentBoardAdminRootCount": len(
+            [row for row in root_rows.splitlines() if row]
+        ),
+        "allBaseTablesInnoDB": int(counts[2]) == 0,
+    }
+
 backup = {
     "receiptPath": BACKUP_RECEIPT_PATH,
     "proven": False,
@@ -679,62 +824,205 @@ backup = {
     "sha256": None,
     "sizeBytes": None,
     "restoreProcedureVerified": False,
-    # A future verifier must reconnect to the isolated restored instance and
-    # independently recompute version, schema and object facts.
     "restoreLiveFactsMatched": False,
 }
 backup_receipt = pathlib.Path(BACKUP_RECEIPT_PATH)
 if backup_receipt.is_file():
     backup_receipt_sha256 = sha256_file(backup_receipt)
-    receipt = json.loads(backup_receipt.read_text(encoding="utf-8"))
-    artifact_path = receipt.get("backupPath")
-    artifact = pathlib.Path(artifact_path) if isinstance(artifact_path, str) else None
-    expected_digest = receipt.get("sha256")
-    expected_size = receipt.get("sizeBytes")
-    restore_receipt_path = receipt.get("restoreReceiptPath")
-    restore_receipt_digest = receipt.get("restoreReceiptSha256")
-    restore_receipt_file = (
-        pathlib.Path(restore_receipt_path)
-        if isinstance(restore_receipt_path, str) else None
+    bundle = json.loads(backup_receipt.read_text(encoding="utf-8"))
+    run_id = bundle.get("runId")
+    run_root = pathlib.Path("/opt/fbsir/admin/backups/w1a")
+    run_directory = run_root / str(run_id or "")
+
+    def run_artifact(path_value, filename):
+        if not isinstance(path_value, str):
+            return None
+        candidate = pathlib.Path(path_value)
+        try:
+            resolved = candidate.resolve(strict=True)
+            resolved.relative_to(run_root.resolve(strict=True))
+        except (FileNotFoundError, RuntimeError, ValueError):
+            return None
+        status = resolved.stat()
+        if (
+            resolved != (run_directory / filename).resolve()
+            or not resolved.is_file()
+            or resolved.is_symlink()
+            or status.st_uid != 0
+            or status.st_gid != 0
+            or status.st_mode & 0o777 != 0o600
+            or status.st_nlink != 1
+        ):
+            return None
+        return resolved
+
+    backup_receipt_file = run_artifact(
+        bundle.get("backupReceiptPath"), "backup-receipt.json"
     )
+    restore_receipt_file = run_artifact(
+        bundle.get("restoreReceiptPath"), "restore-receipt.json"
+    )
+    artifact = run_artifact(bundle.get("backupPath"), "fbsir.sql.gpg")
     restore_verified = False
-    if restore_receipt_file and restore_receipt_file.is_file():
-        actual_restore_digest = sha256_file(restore_receipt_file)
+    actual_digest = None
+    actual_size = None
+    if backup_receipt_file and restore_receipt_file and artifact:
+        source_receipt = json.loads(
+            backup_receipt_file.read_text(encoding="utf-8")
+        )
         restore_receipt = json.loads(
             restore_receipt_file.read_text(encoding="utf-8")
         )
-        restore_verified = (
-            receipt.get("schema") == "fbsir.u3wDatabaseBackupReceipt.v1"
-            and restore_receipt.get("schema")
-                == "fbsir.u3wDatabaseRestoreRehearsalReceipt.v1"
-            and re.fullmatch(
-                r"[0-9a-f]{64}", str(restore_receipt_digest or "")
-            ) is not None
-            and restore_receipt_digest == actual_restore_digest
-            and restore_receipt.get("sourceBackupSha256") == expected_digest
-            and restore_receipt.get("verified") is True
-            and restore_receipt.get("isolatedTarget") is True
+        evidence_file = run_artifact(
+            restore_receipt.get("isolationEvidencePath"),
+            "isolation-evidence.json",
         )
-    if artifact and artifact.is_file():
-        actual_size = artifact.stat().st_size
+        restore_log = run_artifact(
+            restore_receipt.get("restoreLogPath"), "restore.log"
+        )
+        mysqlcheck_log = run_artifact(
+            restore_receipt.get("mysqlcheckPath"), "mysqlcheck.log"
+        )
+        evidence = (
+            json.loads(evidence_file.read_text(encoding="utf-8"))
+            if evidence_file else {}
+        )
+        runtime_evidence = evidence.get("runtime") or {}
         actual_digest = sha256_file(artifact)
-        backup.update({
-            "proven": (
-                re.fullmatch(r"[0-9a-f]{64}", str(expected_digest or "")) is not None
-                and expected_digest == actual_digest
-                and expected_size == actual_size
-                and actual_size > 0
-                and restore_verified
-            ),
-            "sha256": actual_digest,
-            "sizeBytes": actual_size,
-            "restoreProcedureVerified": restore_verified,
-            "restoreLiveFactsMatched": False,
-            "receiptAnchorMatched": (
-                bool(EXPECTED_BACKUP_RECEIPT_SHA256)
-                and backup_receipt_sha256 == EXPECTED_BACKUP_RECEIPT_SHA256
-            ),
-        })
+        actual_size = artifact.stat().st_size
+        try:
+            generated_at = datetime.fromisoformat(
+                str(bundle.get("generatedAt", "")).replace("Z", "+00:00")
+            )
+            age_seconds = (
+                datetime.now(timezone.utc)
+                - generated_at.astimezone(timezone.utc)
+            ).total_seconds()
+            receipt_fresh = 0 <= age_seconds <= 86400
+        except Exception:
+            receipt_fresh = False
+        mysqlcheck_payload = (
+            mysqlcheck_log.read_bytes() if mysqlcheck_log else b""
+        )
+        live_backup_facts = current_backup_schema_facts()
+        restore_verified = bool(
+            bundle.get("schema")
+                == "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v1"
+            and re.fullmatch(
+                r"w1a-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}",
+                str(run_id or ""),
+            )
+            and bundle.get("sourceCommit") == EXPECTED_SOURCE_COMMIT
+            and bundle.get("targetHost") == TARGET_HOST
+            and bundle.get("database") == "fbsir"
+            and bundle.get("runnerSha256")
+                == EXPECTED_BACKUP_RUNNER_SHA256
+            and bundle.get("backupWorkerSha256")
+                == EXPECTED_BACKUP_WORKER_SHA256
+            and bundle.get("verifierSha256")
+                == EXPECTED_RESTORE_VERIFIER_SHA256
+            and bundle.get("productionBusinessStateChanged") is False
+            and bundle.get("backupReceiptSha256")
+                == sha256_file(backup_receipt_file)
+            and bundle.get("restoreReceiptSha256")
+                == sha256_file(restore_receipt_file)
+            and bundle.get("backupSha256") == actual_digest
+            and bundle.get("backupSizeBytes") == actual_size
+            and actual_size > 0
+            and source_receipt.get("schema")
+                == "fbsir.u3wDatabaseBackupReceipt.v2"
+            and source_receipt.get("runId") == run_id
+            and source_receipt.get("sourceCommit") == EXPECTED_SOURCE_COMMIT
+            and source_receipt.get("runnerSha256")
+                == EXPECTED_BACKUP_RUNNER_SHA256
+            and source_receipt.get("backupWorkerSha256")
+                == EXPECTED_BACKUP_WORKER_SHA256
+            and source_receipt.get("sourceJarSha256") == jar_digest
+            and source_receipt.get("backupSha256") == actual_digest
+            and source_receipt.get("backupSizeBytes") == actual_size
+            and source_receipt.get("encryptionContract")
+                == "u3w.gnupg-aes256-symmetric.v1"
+            and source_receipt.get("ddlProtectionMode")
+                == "PRE_POST_SCHEMA_STABILITY_APPROVED_NO_DDL_WINDOW"
+            and restore_receipt.get("schema")
+                == "fbsir.u3wDatabaseRestoreRehearsalReceipt.v2"
+            and restore_receipt.get("runId") == run_id
+            and restore_receipt.get("sourceCommit") == EXPECTED_SOURCE_COMMIT
+            and restore_receipt.get("sourceBackupSha256") == actual_digest
+            and restore_receipt.get("sourceBackupReceiptSha256")
+                == sha256_file(backup_receipt_file)
+            and restore_receipt.get("restoredFacts")
+                == source_receipt.get("sourceFacts")
+            and live_backup_facts == restore_receipt.get("restoredFacts")
+            and source_receipt.get("sourceSnapshotExactlyMatched") is False
+            and isinstance(restore_receipt.get("restoredTotalRows"), int)
+            and restore_receipt.get("restoredTotalRows") > 0
+            and re.fullmatch(
+                r"[0-9a-f]{64}",
+                str(
+                    restore_receipt.get(
+                        "restoredTableRowCountsSha256"
+                    ) or ""
+                ),
+            ) is not None
+            and restore_receipt.get("isolatedTarget") is True
+            and restore_receipt.get("isolatedNetworkingDisabled") is True
+            and restore_receipt.get("isolatedDataRemoved") is True
+            and restore_receipt.get("verifierSha256")
+                == EXPECTED_RESTORE_VERIFIER_SHA256
+            and evidence_file
+            and restore_receipt.get("isolationEvidenceSha256")
+                == sha256_file(evidence_file)
+            and restore_log
+            and restore_receipt.get("restoreLogSha256")
+                == sha256_file(restore_log)
+            and mysqlcheck_log
+            and restore_receipt.get("mysqlcheckSha256")
+                == sha256_file(mysqlcheck_log)
+            and b"\tOK" in mysqlcheck_payload
+            and evidence.get("schema")
+                == "fbsir.u3wIsolatedMysqlEvidence.v1"
+            and evidence.get("runId") == run_id
+            and evidence.get("sourceCommit") == EXPECTED_SOURCE_COMMIT
+            and evidence.get("productionMysqldPidBefore")
+                == evidence.get("productionMysqldPidAfter")
+            and all(
+                evidence.get(field) is True
+                for field in (
+                    "isolatedProcessExited",
+                    "isolatedSocketRemoved",
+                    "isolatedPidFileRemoved",
+                    "isolatedDatadirRemoved",
+                    "isolatedRuntimeDirectoryRemoved",
+                )
+            )
+            and runtime_evidence.get("skipNetworking") is True
+            and runtime_evidence.get("tcpListenerAbsent") is True
+            and runtime_evidence.get("logBin") is False
+            and runtime_evidence.get("eventScheduler") == "OFF"
+            and runtime_evidence.get("version")
+                == source_receipt.get("serverVersion")
+            and runtime_evidence.get("versionComment")
+                == source_receipt.get("serverVersionComment")
+            and not pathlib.Path(
+                "/var/lib/fbsir-w1a-restore", str(run_id)
+            ).exists()
+            and not pathlib.Path(
+                "/run/fbsir-w1a-restore", str(run_id)
+            ).exists()
+            and receipt_fresh
+        )
+    backup.update({
+        "proven": restore_verified,
+        "sha256": actual_digest,
+        "sizeBytes": actual_size,
+        "restoreProcedureVerified": restore_verified,
+        "restoreLiveFactsMatched": restore_verified,
+        "receiptAnchorMatched": (
+            bool(EXPECTED_BACKUP_RECEIPT_SHA256)
+            and backup_receipt_sha256 == EXPECTED_BACKUP_RECEIPT_SHA256
+        ),
+    })
 
 deployment = {
     "state": None,
@@ -932,6 +1220,21 @@ print(json.dumps({
     $legacyBaselineAnchor = if ($ExpectedLegacyBaselineReceiptDigest) {
         $ExpectedLegacyBaselineReceiptDigest.ToLowerInvariant()
     } else { '' }
+    $backupRunnerSha256 = (
+        Get-FileHash -LiteralPath (
+            Join-Path $PSScriptRoot 'run-u3w-production-backup-restore.ps1'
+        ) -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+    $backupWorkerSha256 = (
+        Get-FileHash -LiteralPath (
+            Join-Path $PSScriptRoot 'u3w-production-backup-remote.py'
+        ) -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+    $restoreVerifierSha256 = (
+        Get-FileHash -LiteralPath (
+            Join-Path $PSScriptRoot 'u3w-isolated-restore-verifier-remote.py'
+        ) -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
     $remotePython = $remotePython.
         Replace('__SERVICE_UNIT__', ($ServiceUnit | ConvertTo-Json -Compress)).
         Replace('__TARGET_HOST__', ((($SshTarget -split '@', 2)[1]) | ConvertTo-Json -Compress)).
@@ -939,7 +1242,11 @@ print(json.dumps({
         Replace('__DEPLOYMENT_RECEIPT_PATH__', ($DeploymentReceiptPath | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_BACKUP_RECEIPT_SHA256__', ($backupAnchor | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_DEPLOYMENT_RECEIPT_SHA256__', ($deploymentAnchor | ConvertTo-Json -Compress)).
-        Replace('__EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST__', ($legacyBaselineAnchor | ConvertTo-Json -Compress))
+        Replace('__EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST__', ($legacyBaselineAnchor | ConvertTo-Json -Compress)).
+        Replace('__EXPECTED_SOURCE_COMMIT__', ($ExpectedCommit.ToLowerInvariant() | ConvertTo-Json -Compress)).
+        Replace('__EXPECTED_BACKUP_RUNNER_SHA256__', ($backupRunnerSha256 | ConvertTo-Json -Compress)).
+        Replace('__EXPECTED_BACKUP_WORKER_SHA256__', ($backupWorkerSha256 | ConvertTo-Json -Compress)).
+        Replace('__EXPECTED_RESTORE_VERIFIER_SHA256__', ($restoreVerifierSha256 | ConvertTo-Json -Compress))
     $output = $remotePython | & ssh.exe `
         -i $SshKeyPath `
         -o BatchMode=yes `
@@ -974,8 +1281,33 @@ try {
         throw 'production-readiness evaluator failed'
     }
     $result = ($resultJson -join "`n") | ConvertFrom-Json
-    if ($RequireReady -and -not $result.readyForDefaultOffRelease) {
-        throw "U3W_PRODUCTION_NOT_READY: $(@($result.failedGateIds) -join ',')"
+    $effectiveStage = if ($RequiredStage) {
+        $RequiredStage
+    } elseif ($RequireReady) {
+        'PREPARED_FOR_STAGE'
+    } else {
+        $null
+    }
+    if ($effectiveStage) {
+        $stageSatisfied = switch ($effectiveStage) {
+            'PREPARED_FOR_STAGE' {
+                $result.status -in @(
+                    'PREPARED_FOR_STAGE',
+                    'STAGED_FOR_SWITCH',
+                    'DEPLOYED_DEFAULT_OFF'
+                )
+            }
+            'STAGED_FOR_SWITCH' {
+                $result.status -in @('STAGED_FOR_SWITCH', 'DEPLOYED_DEFAULT_OFF')
+            }
+            'DEPLOYED_DEFAULT_OFF' {
+                $result.status -eq 'DEPLOYED_DEFAULT_OFF'
+            }
+        }
+        if (-not $stageSatisfied) {
+            $failed = @($result.failedGateIds) + @($result.postDeployFailedGateIds)
+            throw "U3W_PRODUCTION_STAGE_NOT_REACHED[$effectiveStage]: $($failed -join ',')"
+        }
     }
     $result | ConvertTo-Json -Depth 10
 }
