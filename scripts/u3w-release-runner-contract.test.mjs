@@ -692,7 +692,7 @@ test("plan target captures the full immutable live identity contract", () => {
   }
 });
 
-test("plan accepts only untouched legacy or an exactly anchored prior rollback", () => {
+test("plan accepts only exact untouched, rollback or interrupted recovery predecessors", () => {
   const collector = sectionBetween(
     runner,
     "function Invoke-ReadOnlyRemotePlanSnapshot {",
@@ -703,13 +703,58 @@ test("plan accepts only untouched legacy or an exactly anchored prior rollback",
     "function Invoke-Plan {",
     "function Get-ApprovalDigest {",
   );
+  const topology = sectionBetween(
+    collector,
+    "dropin_exists = RELEASE_DROPIN.exists() or RELEASE_DROPIN.is_symlink()",
+    "\nsnapshot = {",
+  );
   assert.ok(collector.includes('"state": "UNTOUCHED_LEGACY"'));
   assert.ok(
     collector.includes(
       '"state": "EXACT_PRIOR_ROLLBACK_PREDECESSOR"',
     ),
   );
+  assert.ok(
+    collector.includes(
+      '"state": "EXACT_PRIOR_INTERRUPTED_APPLY_RECOVERY_PREDECESSOR"',
+    ),
+  );
+  assert.ok(
+    collector.includes(
+      '"fbsir.u3wDefaultOffInterruptedApplyRecoveryReceipt.v1"',
+    ),
+  );
+  assert.ok(
+    collector.includes(
+      '"INTERRUPTED_APPLY_RECOVERED_APPLICATION_DATABASE_043_RETAINED_DORMANT"',
+    ),
+  );
+  assert.ok(collector.includes("prior_rollback_anchor = None"));
+  assert.ok(collector.includes("prior_recovery_anchor = None"));
   assert.ok(collector.includes('"state": "INVALID_STAGE_ENTRY"'));
+  assert.ok(
+    collector.includes("or release_status.st_mode & 0o022"),
+    "recovery release custody must accept Stage-owned 0755 directories",
+  );
+  assert.equal(
+    collector.includes(
+      "release_status.st_mode & 0o777 != 0o700",
+    ),
+    false,
+    "recovery release custody must not contradict make_frontend_public",
+  );
+  assert.equal(
+    (topology.match(/"priorRollbackAnchor":/g) ?? []).length,
+    4,
+  );
+  assert.equal(
+    (topology.match(/"priorRecoveryAnchor":/g) ?? []).length,
+    4,
+  );
+  assert.match(
+    topology,
+    /"state": "EXACT_PRIOR_INTERRUPTED_APPLY_RECOVERY_PREDECESSOR",\s+"priorRollbackAnchor": None,\s+"priorRecoveryAnchor": prior_recovery_anchor/,
+  );
   for (const anchorField of [
     "releaseId",
     "sourceCommit",
@@ -720,13 +765,43 @@ test("plan accepts only untouched legacy or an exactly anchored prior rollback",
   ]) {
     assert.ok(
       collector.includes(`"${anchorField}"`),
-      `prior rollback anchor field ${anchorField} is missing`,
+      `predecessor anchor field ${anchorField} is missing`,
     );
   }
   assert.ok(plan.includes("'UNTOUCHED_LEGACY'"));
   assert.ok(plan.includes("'EXACT_PRIOR_ROLLBACK_PREDECESSOR'"));
+  assert.ok(
+    plan.includes(
+      "'EXACT_PRIOR_INTERRUPTED_APPLY_RECOVERY_PREDECESSOR'",
+    ),
+  );
   assert.ok(plan.includes("$remote.productionChanged -ne $false"));
   assert.ok(plan.includes("$remote.productionChanged -ne $true"));
+  const recoveryValidationStart = plan.lastIndexOf(
+    "'EXACT_PRIOR_INTERRUPTED_APPLY_RECOVERY_PREDECESSOR'",
+  );
+  const recoveryValidationEnd = plan.indexOf(
+    "throw 'remote plan snapshot identity is invalid'",
+    recoveryValidationStart,
+  );
+  assert.notEqual(recoveryValidationStart, -1);
+  assert.notEqual(recoveryValidationEnd, -1);
+  const recoveryValidation = plan.slice(
+    recoveryValidationStart,
+    recoveryValidationEnd,
+  );
+  for (const assertion of [
+    "$remote.productionChanged -ne $true",
+    "$remote.releaseRootExists -ne $true",
+    "$remote.processConfiguredEnvironmentLoadState -ceq",
+    "$null -eq $remote.stageEntryTopology.priorRecoveryAnchor",
+    "$null -ne $remote.stageEntryTopology.priorRollbackAnchor",
+  ]) {
+    assert.ok(
+      recoveryValidation.includes(assertion),
+      `interrupted recovery Plan validation is missing ${assertion}`,
+    );
+  }
 });
 
 test("collector digest is top-level receipt evidence and never target data", () => {
@@ -940,6 +1015,41 @@ test("latest lifecycle receipt advances with bounded predecessors only", () => {
     /atomic_symlink\([^)]*LATEST_RECEIPT[^)]*\)/g,
   ) ?? [];
   assert.equal(directLatestWrites.length, 1);
+});
+
+test("stage-only interrupted Apply recovery has a dedicated immutable CAS receipt", () => {
+  for (const value of [
+    "CanonicalizeInterruptedApplyRecovery",
+    "CANONICALIZE_W1A_INTERRUPTED_APPLY_RECOVERY",
+    "fbsir.u3wDefaultOffInterruptedApplyRecoveryReceipt.v1",
+    "INTERRUPTED_APPLY_RECOVERED_APPLICATION_DATABASE_043_RETAINED_DORMANT",
+    "interrupted-apply-recovery-receipt.json",
+    "APPLICATION_RESTORED_DATABASE_043_RETAINED_OR_FAIL_CLOSED",
+    "applicationRestored",
+    "topologyRestored",
+    "deploymentCommitOutcome",
+    "deploymentReceiptAbsent",
+    "rollbackReceiptAbsent",
+    "currentLinkAbsent",
+    "releaseDropInMatched",
+    "retainedMigrationFacts",
+    "allW1aFlagsExplicitFalse",
+  ]) {
+    assert.ok(
+      worker.includes(value),
+      `missing interrupted recovery contract ${value}`,
+    );
+  }
+  assert.ok(
+    worker.includes(
+      "advance_latest_receipt(path, [stage_path])",
+    ),
+  );
+  assert.ok(
+    worker.includes(
+      "EXACT_PRIOR_INTERRUPTED_APPLY_RECOVERY_PREDECESSOR",
+    ),
+  );
 });
 
 test("readiness rejects stale plans and target drift", () => {

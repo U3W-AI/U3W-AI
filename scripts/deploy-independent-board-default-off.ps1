@@ -691,6 +691,7 @@ function Invoke-ReadOnlyRemotePlanSnapshot {
     Ensure-KnownHosts
     $collector = @'
 import base64
+import datetime as dt
 import fcntl
 import hashlib
 import hmac
@@ -713,6 +714,9 @@ CURRENT_LINK = pathlib.Path("/opt/fbsir/admin/current")
 RELEASE_DROPIN = pathlib.Path(
     "/etc/systemd/system/fbsir-admin.service.d/"
     "20-u3w-default-off-release.conf"
+)
+NGINX_PATH = pathlib.Path(
+    "/etc/nginx/conf.d/u3w-placeholder-sites.conf"
 )
 LATEST_RECEIPT = RELEASE_ROOT / "latest-receipt.json"
 FLAGS = (
@@ -782,6 +786,163 @@ FORBIDDEN_OVERRIDES = {
     "_JAVA_OPTIONS",
     "JDK_JAVA_OPTIONS",
 }
+LEGACY_DEPLOYMENT_RECEIPT_SCHEMA = (
+    "fbsir.u3wW1aDeploymentReadinessReceipt.v2"
+)
+LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA = (
+    "fbsir.u3wDefaultOffReleaseFailureReceipt.v1"
+)
+APPLY_FAILURE_RECEIPT_SCHEMA = (
+    "fbsir.u3wDefaultOffReleaseFailureReceipt.v2"
+)
+APPLY_FAILURE_STATES = {
+    "FAIL_CLOSED_BEFORE_APPLICATION_SWITCH",
+    "PRE_APPLY_RECOVERY_FAILED_TOPOLOGY_UNCERTAIN",
+    "APPLICATION_RESTORED_DATABASE_043_RETAINED_OR_FAIL_CLOSED",
+    "APPLICATION_RESTORE_FAILED_TOPOLOGY_UNCERTAIN",
+    "DEPLOYMENT_COMMIT_AMBIGUOUS_NO_AUTOMATIC_RESTORE",
+    "POST_COMMIT_VALIDATION_FAILED_NO_TOPOLOGY_CHANGE",
+}
+INTERRUPTED_APPLY_RECOVERY_RECEIPT_SCHEMA = (
+    "fbsir.u3wDefaultOffInterruptedApplyRecoveryReceipt.v1"
+)
+INTERRUPTED_APPLY_RECOVERY_STATE = "INTERRUPTED_APPLY_RECOVERED_APPLICATION_DATABASE_043_RETAINED_DORMANT"
+INTERRUPTED_APPLY_RECOVERY_TOPOLOGY_STATE = (
+    "EXACT_PRIOR_INTERRUPTED_APPLY_RECOVERY_PREDECESSOR"
+)
+INTERRUPTED_APPLY_RECOVERY_PLAN_SCHEMA = (
+    "fbsir.u3wInterruptedApplyRecoveryPlan.v1"
+)
+INTERRUPTED_APPLY_RECOVERY_PLAN_STATE = (
+    "INTERRUPTED_APPLY_RECOVERY_CANONICALIZATION_PLANNED"
+)
+INTERRUPTED_APPLY_RECOVERY_APPROVAL_NAME = (
+    "interrupted-apply-recovery-approval.json"
+)
+INTERRUPTED_APPLY_RECOVERY_PLAN_NAME = (
+    "interrupted-apply-recovery-plan.json"
+)
+INTERRUPTED_APPLY_RECOVERY_RECEIPT_FIELDS = {
+    "schema",
+    "state",
+    "releaseId",
+    "sourceCommit",
+    "recoveryRunId",
+    "executorSourceCommit",
+    "approvalReceiptSha256",
+    "approvalNonce",
+    "runnerSha256",
+    "workerSha256",
+    "recoveryPlanReceiptSha256",
+    "stageReceiptPath",
+    "stageReceiptSha256",
+    "applyFailureReceiptPath",
+    "applyFailureReceiptSha256",
+    "applyFailureReceiptSchema",
+    "applyFailureReceiptState",
+    "applyFailureReceiptManifest",
+    "applyFailureReceiptManifestSha256",
+    "applicationRestored",
+    "topologyRestored",
+    "deploymentCommitOutcome",
+    "deploymentReceiptAbsent",
+    "rollbackReceiptAbsent",
+    "currentLinkAbsent",
+    "releaseDropInMatched",
+    "retainedMigrationFacts",
+    "allW1aFlagsExplicitFalse",
+    "databaseDownClaimed",
+    "productionFilesystemChanged",
+    "productionDatabaseChanged",
+    "productionDatabaseChangedThisRecoveryRun",
+    "productionDatabaseChangedSinceStage",
+    "productionServiceChanged",
+    "productionServiceChangedThisRecoveryRun",
+    "productionServiceChangedSinceStage",
+    "officialExpertsPackageChanged",
+    "observedAt",
+}
+INTERRUPTED_APPLY_RECOVERY_APPROVAL_FIELDS = {
+    "schema",
+    "action",
+    "targetHost",
+    "runId",
+    "executorSourceCommit",
+    "targetReleaseId",
+    "targetSourceCommit",
+    "approvedAt",
+    "expiresAt",
+    "authorizedBy",
+    "concurrentDdlProhibited",
+    "productionFilesystemWrite",
+    "productionDatabaseWrite",
+    "productionServiceChange",
+    "officialExpertsPackageChange",
+    "expectedStageReceiptSha256",
+    "expectedApplyFailureReceiptSha256",
+    "expectedApplyFailureManifestSha256",
+    "requestDigest",
+    "approvalNonce",
+    "runnerSha256",
+    "workerSha256",
+}
+INTERRUPTED_APPLY_RECOVERY_PLAN_FIELDS = {
+    "schema",
+    "mode",
+    "state",
+    "targetHost",
+    "serviceUnit",
+    "recoveryRunId",
+    "executorSourceCommit",
+    "targetReleaseId",
+    "targetSourceCommit",
+    "stageReceiptSha256",
+    "applyFailureReceiptSha256",
+    "applyFailureManifestSha256",
+    "runnerSha256",
+    "workerSha256",
+    "productionFilesystemWrite",
+    "productionDatabaseWrite",
+    "productionServiceChange",
+    "officialExpertsPackageChange",
+    "generatedAt",
+    "expiresAt",
+}
+RUN_PATTERN = re.compile(
+    r"w1a-release-[0-9a-f]{12}-[0-9]{8}T[0-9]{6}Z"
+)
+COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
+SHA_PATTERN = re.compile(r"[0-9a-f]{64}")
+APPLY_FAILURE_NAME_PATTERN = re.compile(
+    r"apply-failure-[0-9]{8}T[0-9]{12}Z-[0-9a-f]{12}\.json"
+)
+EXPECTED_W1A_SCHEMA_FINGERPRINT = (
+    "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d"
+)
+MIGRATION_DORMANT_DATA_FIELDS = {
+    "eventCount",
+    "probeEventCount",
+    "naturalEventCount",
+    "nonProbeEventCount",
+    "authoritativeProductCreditCount",
+    "journeyCount",
+    "probeJourneyCount",
+    "naturalJourneyCount",
+    "nonProbeJourneyCount",
+}
+LEGACY_MIGRATION_FACT_FIELDS = {
+    "publicReceiptCount",
+    "internalReceiptCount",
+    "tableCount",
+    "triggerCount",
+    "permissionCount",
+    "eventCount",
+    "journeyCount",
+    "schemaFingerprintSha256",
+}
+MIGRATION_FACT_FIELDS = (
+    LEGACY_MIGRATION_FACT_FIELDS | MIGRATION_DORMANT_DATA_FIELDS
+)
 
 def canonical_json(value):
     return json.dumps(
@@ -1325,6 +1486,485 @@ if (
     raise RuntimeError("production lock custody is invalid")
 fcntl.flock(lock_descriptor, fcntl.LOCK_SH)
 
+def bound_json(path, allowed_modes=(0o600,)):
+    candidate = pathlib.Path(path)
+    manifest = stable_regular_manifest(candidate, allowed_modes)
+    payload = candidate.read_bytes()
+    if not hmac.compare_digest(
+        hashlib.sha256(payload).hexdigest(), manifest["sha256"]
+    ):
+        raise RuntimeError("JSON evidence changed while reading")
+    document = json.loads(payload.decode("utf-8-sig"))
+    if not isinstance(document, dict):
+        raise RuntimeError("JSON evidence is not an object")
+    return manifest, document
+
+def aware_timestamp(value):
+    if not isinstance(value, str):
+        raise RuntimeError("evidence timestamp is invalid")
+    parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise RuntimeError("evidence timestamp has no timezone")
+    return parsed
+
+def migration_structure_matches(facts):
+    return bool(
+        isinstance(facts, dict)
+        and set(facts) == MIGRATION_FACT_FIELDS
+        and facts.get("publicReceiptCount") == 1
+        and facts.get("internalReceiptCount") == 1
+        and facts.get("tableCount") == 2
+        and facts.get("triggerCount") == 2
+        and facts.get("permissionCount") == 1
+        and all(
+            type(facts.get(field)) is int and facts[field] >= 0
+            for field in MIGRATION_DORMANT_DATA_FIELDS
+        )
+        and facts.get("probeEventCount") == facts.get("eventCount")
+        and facts.get("naturalEventCount") == 0
+        and facts.get("nonProbeEventCount") == 0
+        and facts.get("authoritativeProductCreditCount") == 0
+        and facts.get("probeJourneyCount") == facts.get("journeyCount")
+        and facts.get("naturalJourneyCount") == 0
+        and facts.get("nonProbeJourneyCount") == 0
+        and facts.get("schemaFingerprintSha256")
+            == EXPECTED_W1A_SCHEMA_FINGERPRINT
+    )
+
+def legacy_migration_structure_matches(facts):
+    return bool(
+        isinstance(facts, dict)
+        and set(facts) == LEGACY_MIGRATION_FACT_FIELDS
+        and facts.get("publicReceiptCount") == 1
+        and facts.get("internalReceiptCount") == 1
+        and facts.get("tableCount") == 2
+        and facts.get("triggerCount") == 2
+        and facts.get("permissionCount") == 1
+        and type(facts.get("eventCount")) is int
+        and facts["eventCount"] >= 0
+        and type(facts.get("journeyCount")) is int
+        and facts["journeyCount"] >= 0
+        and facts.get("schemaFingerprintSha256")
+            == EXPECTED_W1A_SCHEMA_FINGERPRINT
+    )
+
+def interrupted_recovery_historic_anchors_valid(release, recovery):
+    approval_path = release / INTERRUPTED_APPLY_RECOVERY_APPROVAL_NAME
+    plan_path = release / INTERRUPTED_APPLY_RECOVERY_PLAN_NAME
+    approval_manifest, approval = bound_json(
+        approval_path, (0o600,)
+    )
+    plan_manifest, plan = bound_json(plan_path, (0o600,))
+    approved = aware_timestamp(approval.get("approvedAt"))
+    approval_expires = aware_timestamp(approval.get("expiresAt"))
+    generated = aware_timestamp(plan.get("generatedAt"))
+    plan_expires = aware_timestamp(plan.get("expiresAt"))
+    observed = aware_timestamp(recovery.get("observedAt"))
+    return bool(
+        approval_manifest["sha256"]
+            == recovery.get("approvalReceiptSha256")
+        and plan_manifest["sha256"]
+            == recovery.get("recoveryPlanReceiptSha256")
+        and set(approval)
+            == INTERRUPTED_APPLY_RECOVERY_APPROVAL_FIELDS
+        and set(plan) == INTERRUPTED_APPLY_RECOVERY_PLAN_FIELDS
+        and approval.get("schema")
+            == "fbsir.u3wProductionChangeApprovalReceipt.v2"
+        and approval.get("action")
+            == "CANONICALIZE_W1A_INTERRUPTED_APPLY_RECOVERY"
+        and approval.get("targetHost") == "api2.u3w.com"
+        and approval.get("runId") == recovery.get("recoveryRunId")
+        and approval.get("executorSourceCommit")
+            == recovery.get("executorSourceCommit")
+        and approval.get("targetReleaseId")
+            == recovery.get("releaseId")
+        and approval.get("targetSourceCommit")
+            == recovery.get("sourceCommit")
+        and approval.get("authorizedBy") == "workspace-user"
+        and approval.get("concurrentDdlProhibited") is True
+        and approval.get("productionFilesystemWrite") is True
+        and approval.get("productionDatabaseWrite") is False
+        and approval.get("productionServiceChange") is False
+        and approval.get("officialExpertsPackageChange") is False
+        and approval.get("expectedStageReceiptSha256")
+            == recovery.get("stageReceiptSha256")
+        and approval.get("expectedApplyFailureReceiptSha256")
+            == recovery.get("applyFailureReceiptSha256")
+        and approval.get("expectedApplyFailureManifestSha256")
+            == recovery.get("applyFailureReceiptManifestSha256")
+        and approval.get("requestDigest")
+            == recovery.get("recoveryPlanReceiptSha256")
+        and approval.get("approvalNonce")
+            == recovery.get("approvalNonce")
+        and approval.get("runnerSha256")
+            == recovery.get("runnerSha256")
+        and approval.get("workerSha256")
+            == recovery.get("workerSha256")
+        and plan.get("schema")
+            == INTERRUPTED_APPLY_RECOVERY_PLAN_SCHEMA
+        and plan.get("mode") == "RecoveryPlan"
+        and plan.get("state")
+            == INTERRUPTED_APPLY_RECOVERY_PLAN_STATE
+        and plan.get("targetHost") == "api2.u3w.com"
+        and plan.get("serviceUnit") == "fbsir-admin.service"
+        and plan.get("recoveryRunId")
+            == recovery.get("recoveryRunId")
+        and plan.get("executorSourceCommit")
+            == recovery.get("executorSourceCommit")
+        and plan.get("targetReleaseId")
+            == recovery.get("releaseId")
+        and plan.get("targetSourceCommit")
+            == recovery.get("sourceCommit")
+        and plan.get("stageReceiptSha256")
+            == recovery.get("stageReceiptSha256")
+        and plan.get("applyFailureReceiptSha256")
+            == recovery.get("applyFailureReceiptSha256")
+        and plan.get("applyFailureManifestSha256")
+            == recovery.get("applyFailureReceiptManifestSha256")
+        and plan.get("runnerSha256")
+            == recovery.get("runnerSha256")
+        and plan.get("workerSha256")
+            == recovery.get("workerSha256")
+        and plan.get("productionFilesystemWrite") is True
+        and plan.get("productionDatabaseWrite") is False
+        and plan.get("productionServiceChange") is False
+        and plan.get("officialExpertsPackageChange") is False
+        and generated <= approved
+        and approval_expires > approved
+        and approval_expires - approved <= dt.timedelta(hours=24)
+        and plan_expires > generated
+        and plan_expires - generated <= dt.timedelta(hours=24)
+        and observed >= approved
+        and observed >= generated
+        and observed < approval_expires
+        and observed < plan_expires
+    )
+
+def interrupted_recovery_predecessor_valid(
+    latest_resolved,
+    latest_manifest,
+    recovery,
+    service,
+    process_jar,
+    configured_jar,
+    process_arguments,
+    nginx_manifest,
+):
+    try:
+        release_root = RELEASE_ROOT.resolve(strict=True)
+        release = latest_resolved.parent
+        release_status = release.lstat()
+        if (
+            latest_resolved
+                != release / "interrupted-apply-recovery-receipt.json"
+            or release.parent != release_root
+            or RUN_PATTERN.fullmatch(release.name) is None
+            or not stat.S_ISDIR(release_status.st_mode)
+            or stat.S_ISLNK(release_status.st_mode)
+            or release_status.st_uid != 0
+            or release_status.st_gid != 0
+            or release_status.st_nlink < 2
+            or release_status.st_mode & 0o022
+            or latest_manifest["mode"] != 0o600
+            or set(recovery)
+                != INTERRUPTED_APPLY_RECOVERY_RECEIPT_FIELDS
+            or recovery.get("schema")
+                != INTERRUPTED_APPLY_RECOVERY_RECEIPT_SCHEMA
+            or recovery.get("state") != INTERRUPTED_APPLY_RECOVERY_STATE
+            or recovery.get("releaseId") != release.name
+            or COMMIT_PATTERN.fullmatch(
+                str(recovery.get("sourceCommit") or "")
+            ) is None
+            or RUN_PATTERN.fullmatch(
+                str(recovery.get("recoveryRunId") or "")
+            ) is None
+            or COMMIT_PATTERN.fullmatch(
+                str(recovery.get("executorSourceCommit") or "")
+            ) is None
+            or recovery.get("releaseId")
+                == recovery.get("recoveryRunId")
+            or recovery.get("sourceCommit")
+                == recovery.get("executorSourceCommit")
+            or any(
+                SHA_PATTERN.fullmatch(
+                    str(recovery.get(field) or "")
+                ) is None
+                for field in (
+                    "approvalReceiptSha256",
+                    "runnerSha256",
+                    "workerSha256",
+                    "recoveryPlanReceiptSha256",
+                    "stageReceiptSha256",
+                    "applyFailureReceiptSha256",
+                    "applyFailureReceiptManifestSha256",
+                )
+            )
+            or re.fullmatch(
+                r"[0-9a-f]{32}",
+                str(recovery.get("approvalNonce") or ""),
+            ) is None
+            or not migration_structure_matches(
+                recovery.get("retainedMigrationFacts")
+            )
+        ):
+            return False
+
+        stage_path = pathlib.Path(
+            str(recovery.get("stageReceiptPath") or "")
+        )
+        failure_path = pathlib.Path(
+            str(recovery.get("applyFailureReceiptPath") or "")
+        )
+        stage_manifest, stage = bound_json(stage_path, (0o600,))
+        failure_manifest, terminal_failure = bound_json(
+            failure_path, (0o600,)
+        )
+        actual_failure_manifest = []
+        terminal_matches = 0
+        for candidate in sorted(release.glob("apply-failure-*.json")):
+            if APPLY_FAILURE_NAME_PATTERN.fullmatch(candidate.name) is None:
+                return False
+            candidate_manifest, candidate_receipt = bound_json(
+                candidate, (0o600,)
+            )
+            if (
+                candidate_receipt.get("schema") not in {
+                    LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA,
+                    APPLY_FAILURE_RECEIPT_SCHEMA,
+                }
+                or candidate_receipt.get("state")
+                    not in APPLY_FAILURE_STATES
+                or candidate_receipt.get("releaseId") != release.name
+                or candidate_receipt.get("sourceCommit")
+                    != recovery.get("sourceCommit")
+                or candidate_receipt.get(
+                    "officialExpertsPackageChanged"
+                ) is not False
+                or SHA_PATTERN.fullmatch(str(
+                    candidate_receipt.get(
+                        "applyApprovalReceiptSha256"
+                    ) or ""
+                )) is None
+            ):
+                return False
+            actual_failure_manifest.append({
+                "name": candidate.name,
+                "sha256": candidate_manifest["sha256"],
+                "schema": candidate_receipt["schema"],
+                "state": candidate_receipt["state"],
+            })
+            if hmac.compare_digest(
+                candidate_manifest["sha256"],
+                recovery["applyFailureReceiptSha256"],
+            ):
+                terminal_matches += 1
+        actual_failure_manifest_sha = hashlib.sha256(
+            canonical_json(actual_failure_manifest).encode("utf-8")
+        ).hexdigest()
+        terminal_facts = terminal_failure.get("migrationFacts")
+        if (
+            not actual_failure_manifest
+            or terminal_matches != 1
+            or actual_failure_manifest
+                != recovery.get("applyFailureReceiptManifest")
+            or actual_failure_manifest_sha
+                != recovery.get("applyFailureReceiptManifestSha256")
+            or failure_path.parent != release
+            or APPLY_FAILURE_NAME_PATTERN.fullmatch(
+                failure_path.name
+            ) is None
+            or failure_manifest["sha256"]
+                != recovery.get("applyFailureReceiptSha256")
+            or recovery.get("applyFailureReceiptSchema")
+                != terminal_failure.get("schema")
+            or recovery.get("applyFailureReceiptState")
+                != terminal_failure.get("state")
+            or terminal_failure.get("schema")
+                != LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA
+            or terminal_failure.get("state") != (
+                "APPLICATION_RESTORED_DATABASE_043_"
+                "RETAINED_OR_FAIL_CLOSED"
+            )
+            or terminal_failure.get("releaseId") != release.name
+            or terminal_failure.get("sourceCommit")
+                != recovery.get("sourceCommit")
+            or terminal_failure.get("applicationStarted") is not True
+            or terminal_failure.get(
+                "applicationAlreadyCommitted"
+            ) is not False
+            or terminal_failure.get("applicationRestored") is not True
+            or terminal_failure.get("topologyRestored") is not True
+            or terminal_failure.get("deploymentCommitOutcome")
+                != "NOT_COMMITTED"
+            or terminal_failure.get("deploymentReceiptPath") is not None
+            or terminal_failure.get("deploymentReceiptSha256") is not None
+            or terminal_failure.get("databaseRollbackStrategy")
+                != "RETAIN_ADDITIVE_043_DORMANT_NO_DOWN"
+            or terminal_failure.get("databaseDownClaimed") is not False
+            or not legacy_migration_structure_matches(terminal_facts)
+            or terminal_facts.get("eventCount") != 0
+            or terminal_facts.get("journeyCount") != 0
+            or terminal_failure.get(
+                "officialExpertsPackageChanged"
+            ) is not False
+        ):
+            return False
+
+        application_assembly_path = pathlib.Path(str(
+            stage.get("applicationRollbackAssemblyReceiptPath") or ""
+        ))
+        application_assembly_manifest, application_assembly = (
+            bound_json(application_assembly_path, (0o600,))
+        )
+        predecessor_jar = release / "rollback/previous-admin.jar"
+        predecessor_jar_manifest = stable_regular_manifest(
+            predecessor_jar, (0o600,)
+        )
+        rollback_dropin = (
+            release / "evidence/rollback-systemd-dropin.conf"
+        )
+        rollback_dropin_manifest = stable_regular_manifest(
+            rollback_dropin, (0o600,)
+        )
+        active_dropin_manifest = stable_regular_manifest(
+            RELEASE_DROPIN, (0o644,)
+        )
+        active_nginx = [
+            item for item in nginx_manifest
+            if item.get("path") == str(NGINX_PATH)
+        ]
+        committed_receipts_absent = all(
+            not candidate.exists() and not candidate.is_symlink()
+            for candidate in (
+                release / "deployment-receipt.json",
+                release / "rollback-receipt.json",
+                release / "rollback-verification-receipt.json",
+            )
+        )
+        expected_arguments = [
+            "/usr/bin/java",
+            (
+                "-Dspring.config.additional-location=file:"
+                "/opt/fbsir/admin/application-connector.yml"
+            ),
+            "-jar",
+            str(predecessor_jar),
+        ]
+        recovery_observed = aware_timestamp(recovery.get("observedAt"))
+        terminal_observed = aware_timestamp(
+            terminal_failure.get("observedAt")
+        )
+        return bool(
+            stage_path
+                == release / "deployment-readiness-receipt.json"
+            and stage_manifest["sha256"]
+                == recovery.get("stageReceiptSha256")
+            and stage.get("schema")
+                == LEGACY_DEPLOYMENT_RECEIPT_SCHEMA
+            and stage.get("state") == "STAGED_FOR_SWITCH"
+            and stage.get("releaseId") == release.name
+            and stage.get("sourceCommit")
+                == recovery.get("sourceCommit")
+            and SHA_PATTERN.fullmatch(str(
+                stage.get("stageApprovalReceiptSha256") or ""
+            )) is not None
+            and stage.get("databaseDownClaimed") is False
+            and stage.get("productionDatabaseChanged") is False
+            and stage.get("productionServiceChanged") is False
+            and stage.get("officialExpertsPackageChanged") is False
+            and application_assembly_path
+                == release / "evidence/application-rollback-assembly.json"
+            and application_assembly_manifest["sha256"]
+                == stage.get(
+                    "applicationRollbackAssemblyReceiptSha256"
+                )
+            and application_assembly.get("schema")
+                == "fbsir.u3wApplicationRollbackAssemblyReceipt.v1"
+            and application_assembly.get("releaseId") == release.name
+            and application_assembly.get("sourceCommit")
+                == recovery.get("sourceCommit")
+            and application_assembly.get("assemblyVerified") is True
+            and application_assembly.get(
+                "applicationRollbackProven"
+            ) is False
+            and application_assembly.get("strategy") == (
+                "IMMUTABLE_PREDECESSOR_DROPIN_RESTORE_NGINX_"
+                "AND_RESTART"
+            )
+            and application_assembly.get("immutablePreviousJarPath")
+                == str(predecessor_jar)
+            and predecessor_jar_manifest["sha256"]
+                == application_assembly.get("previousJarSha256")
+            and application_assembly.get("previousNginxPath")
+                == str(NGINX_PATH)
+            and len(active_nginx) == 1
+            and active_nginx[0]["sha256"]
+                == application_assembly.get("previousNginxSha256")
+            and application_assembly.get(
+                "symlinkForwardAndReverseVerified"
+            ) is True
+            and application_assembly.get(
+                "productionServiceChanged"
+            ) is False
+            and application_assembly.get(
+                "productionDatabaseChanged"
+            ) is False
+            and active_dropin_manifest["sha256"]
+                == rollback_dropin_manifest["sha256"]
+            and process_jar == str(predecessor_jar)
+            and configured_jar == str(predecessor_jar)
+            and sha(process_jar) == predecessor_jar_manifest["sha256"]
+            and sha(configured_jar) == predecessor_jar_manifest["sha256"]
+            and process_arguments == expected_arguments
+            and service.get("ActiveState") == "active"
+            and service.get("WorkingDirectory") == "/opt/fbsir/admin"
+            and committed_receipts_absent
+            and not CURRENT_LINK.exists()
+            and not CURRENT_LINK.is_symlink()
+            and interrupted_recovery_historic_anchors_valid(
+                release, recovery
+            )
+            and recovery.get("applicationRestored") is True
+            and recovery.get("topologyRestored") is True
+            and recovery.get("deploymentCommitOutcome")
+                == "NOT_COMMITTED"
+            and recovery.get("deploymentReceiptAbsent") is True
+            and recovery.get("rollbackReceiptAbsent") is True
+            and recovery.get("currentLinkAbsent") is True
+            and recovery.get("releaseDropInMatched") is True
+            and recovery.get("allW1aFlagsExplicitFalse") is True
+            and recovery.get("databaseDownClaimed") is False
+            and recovery.get("productionFilesystemChanged") is True
+            and recovery.get("productionDatabaseChanged") is True
+            and recovery.get(
+                "productionDatabaseChangedThisRecoveryRun"
+            ) is False
+            and recovery.get(
+                "productionDatabaseChangedSinceStage"
+            ) is True
+            and recovery.get("productionServiceChanged") is True
+            and recovery.get(
+                "productionServiceChangedThisRecoveryRun"
+            ) is False
+            and recovery.get(
+                "productionServiceChangedSinceStage"
+            ) is True
+            and recovery.get(
+                "officialExpertsPackageChanged"
+            ) is False
+            and recovery_observed > terminal_observed
+        )
+    except (
+        OSError,
+        RuntimeError,
+        ValueError,
+        TypeError,
+        KeyError,
+        UnicodeError,
+        json.JSONDecodeError,
+    ):
+        return False
+
 show = subprocess.run([
     "systemctl", "show", "fbsir-admin.service",
     (
@@ -1447,7 +2087,8 @@ current_exists = CURRENT_LINK.exists() or CURRENT_LINK.is_symlink()
 current_resolved = None
 if CURRENT_LINK.is_symlink():
     current_resolved = str(CURRENT_LINK.resolve(strict=True))
-prior_anchor = None
+prior_rollback_anchor = None
+prior_recovery_anchor = None
 latest_document = None
 if LATEST_RECEIPT.exists() or LATEST_RECEIPT.is_symlink():
     if not LATEST_RECEIPT.is_symlink():
@@ -1458,9 +2099,8 @@ if LATEST_RECEIPT.exists() or LATEST_RECEIPT.is_symlink():
         not in latest_resolved.parents
     ):
         raise RuntimeError("latest release receipt escaped release root")
-    latest_manifest = regular_manifest(latest_resolved, (0o600,))
-    latest_document = json.loads(
-        latest_resolved.read_text(encoding="utf-8")
+    latest_manifest, latest_document = bound_json(
+        latest_resolved, (0o600,)
     )
     if (
         latest_document.get("schema") in {
@@ -1482,7 +2122,29 @@ if LATEST_RECEIPT.exists() or LATEST_RECEIPT.is_symlink():
             str(latest_document.get("sourceCommit") or ""),
         )
     ):
-        prior_anchor = {
+        prior_rollback_anchor = {
+            "releaseId": latest_document["releaseId"],
+            "sourceCommit": latest_document["sourceCommit"],
+            "receiptPath": str(latest_resolved),
+            "receiptSha256": latest_manifest["sha256"],
+            "receiptSchema": latest_document["schema"],
+            "state": latest_document["state"],
+        }
+    elif (
+        latest_document.get("schema")
+            == INTERRUPTED_APPLY_RECOVERY_RECEIPT_SCHEMA
+        and interrupted_recovery_predecessor_valid(
+            latest_resolved,
+            latest_manifest,
+            latest_document,
+            service,
+            process_jar,
+            configured_jar,
+            process_arguments,
+            nginx_manifest,
+        )
+    ):
+        prior_recovery_anchor = {
             "releaseId": latest_document["releaseId"],
             "sourceCommit": latest_document["sourceCommit"],
             "receiptPath": str(latest_resolved),
@@ -1502,22 +2164,39 @@ if (
     stage_entry_topology = {
         "state": "UNTOUCHED_LEGACY",
         "priorRollbackAnchor": None,
+        "priorRecoveryAnchor": None,
     }
 elif (
     RELEASE_ROOT.is_dir()
     and not RELEASE_ROOT.is_symlink()
     and not current_exists
     and dropin_exists
-    and prior_anchor is not None
+    and prior_rollback_anchor is not None
+    and prior_recovery_anchor is None
 ):
     stage_entry_topology = {
         "state": "EXACT_PRIOR_ROLLBACK_PREDECESSOR",
-        "priorRollbackAnchor": prior_anchor,
+        "priorRollbackAnchor": prior_rollback_anchor,
+        "priorRecoveryAnchor": None,
+    }
+elif (
+    RELEASE_ROOT.is_dir()
+    and not RELEASE_ROOT.is_symlink()
+    and not current_exists
+    and dropin_exists
+    and prior_rollback_anchor is None
+    and prior_recovery_anchor is not None
+):
+    stage_entry_topology = {
+        "state": "EXACT_PRIOR_INTERRUPTED_APPLY_RECOVERY_PREDECESSOR",
+        "priorRollbackAnchor": None,
+        "priorRecoveryAnchor": prior_recovery_anchor,
     }
 else:
     stage_entry_topology = {
         "state": "INVALID_STAGE_ENTRY",
-        "priorRollbackAnchor": prior_anchor,
+        "priorRollbackAnchor": prior_rollback_anchor,
+        "priorRecoveryAnchor": prior_recovery_anchor,
     }
 
 snapshot = {
@@ -1558,12 +2237,19 @@ snapshot = {
     "currentLinkExists": current_exists,
     "currentLinkResolved": current_resolved,
     "currentLifecycleState": (
-        prior_anchor["state"]
-        if prior_anchor is not None
-        else stage_entry_topology["state"]
+        prior_recovery_anchor["state"]
+        if prior_recovery_anchor is not None
+        else (
+            prior_rollback_anchor["state"]
+            if prior_rollback_anchor is not None
+            else stage_entry_topology["state"]
+        )
     ),
     "stageEntryTopology": stage_entry_topology,
-    "productionChanged": prior_anchor is not None,
+    "productionChanged": (
+        prior_rollback_anchor is not None
+        or prior_recovery_anchor is not None
+    ),
     "productionChangedByPlan": False,
 }
 snapshot.update(security)
@@ -1628,7 +2314,8 @@ function Invoke-Plan {
         ).Count -ne 0 -or
         $remote.stageEntryTopology.state -notin @(
             'UNTOUCHED_LEGACY',
-            'EXACT_PRIOR_ROLLBACK_PREDECESSOR'
+            'EXACT_PRIOR_ROLLBACK_PREDECESSOR',
+            'EXACT_PRIOR_INTERRUPTED_APPLY_RECOVERY_PREDECESSOR'
         ) -or
         (
             $remote.stageEntryTopology.state -ceq
@@ -1647,7 +2334,8 @@ function Invoke-Plan {
                     Where-Object {
                         $_ -ceq 'FBSIR_ENGINE_TOKEN'
                     }).Count -ne 1 -or
-                $null -ne $remote.stageEntryTopology.priorRollbackAnchor
+                $null -ne $remote.stageEntryTopology.priorRollbackAnchor -or
+                $null -ne $remote.stageEntryTopology.priorRecoveryAnchor
             )
         ) -or
         (
@@ -1679,7 +2367,41 @@ function Invoke-Plan {
                         )[0] -ceq 'FBSIR_ENGINE_TOKEN'
                     )
                 ) -or
-                $null -eq $remote.stageEntryTopology.priorRollbackAnchor
+                $null -eq $remote.stageEntryTopology.priorRollbackAnchor -or
+                $null -ne $remote.stageEntryTopology.priorRecoveryAnchor
+            )
+        ) -or
+        (
+            $remote.stageEntryTopology.state -ceq
+                'EXACT_PRIOR_INTERRUPTED_APPLY_RECOVERY_PREDECESSOR' -and
+            (
+                $remote.productionChanged -ne $true -or
+                $remote.releaseRootExists -ne $true -or
+                -not (
+                    (
+                        $remote.processConfiguredEnvironmentLoadState -ceq
+                            'EXACT_CONFIGURED' -and
+                        $remote.processConfiguredEnvironmentMatched -eq
+                            $true -and
+                        @(
+                            $remote.processPendingRestartEnvironmentNames
+                        ).Count -eq 0
+                    ) -or
+                    (
+                        $remote.processConfiguredEnvironmentLoadState -ceq
+                            'ENGINE_CREDENTIAL_PENDING_RESTART' -and
+                        $remote.processConfiguredEnvironmentMatched -eq
+                            $false -and
+                        @(
+                            $remote.processPendingRestartEnvironmentNames
+                        ).Count -eq 1 -and
+                        @(
+                            $remote.processPendingRestartEnvironmentNames
+                        )[0] -ceq 'FBSIR_ENGINE_TOKEN'
+                    )
+                ) -or
+                $null -eq $remote.stageEntryTopology.priorRecoveryAnchor -or
+                $null -ne $remote.stageEntryTopology.priorRollbackAnchor
             )
         )
     ) {

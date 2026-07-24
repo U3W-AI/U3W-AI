@@ -58,6 +58,7 @@ try {
     & $node --test `
         scripts/independent-board-production-readiness.test.mjs `
         scripts/u3w-backup-restore-contract.test.mjs `
+        scripts/u3w-interrupted-apply-recovery-runner-contract.test.mjs `
         scripts/u3w-release-runner-contract.test.mjs
     if ($LASTEXITCODE -ne 0) {
         throw 'W1A preparation Node contract tests failed'
@@ -73,6 +74,7 @@ try {
 
     Assert-PowerShellSyntax -Paths @(
         'scripts/deploy-independent-board-default-off.ps1',
+        'scripts/reconcile-u3w-interrupted-apply.ps1',
         'scripts/run-u3w-admin-root-dependency.ps1',
         'scripts/run-u3w-default-off-configuration.ps1',
         'scripts/run-u3w-legacy-baseline-control-shape-mysql-it.ps1',
@@ -91,9 +93,9 @@ finally {
     status = 'PASS'
     productionChanged = $false
     tests = [ordered]@{
-        nodeFiles = 3
+        nodeFiles = 4
         pythonFiles = 3
-        powershellFiles = 8
+        powershellFiles = 9
     }
     observedAt = [DateTime]::UtcNow.ToString('o')
 } | ConvertTo-Json -Depth 5

@@ -1,4 +1,5 @@
 import base64
+import contextlib
 import datetime as dt
 import hashlib
 import hmac
@@ -107,6 +108,105 @@ def release_args(mode="FinalizeStage"):
     args.approval_sha = release.sha256_bytes(raw)
     args.approval_json_base64 = base64.b64encode(raw).decode()
     return args, payload
+
+
+def interrupted_apply_recovery_args():
+    args, original = release_args("Rollback")
+    args.mode = "CanonicalizeInterruptedApplyRecovery"
+    args.target_release_id = (
+        "w1a-release-b58fd2f22d40-20260724T072400Z"
+    )
+    args.target_source_commit = (
+        "b58fd2f22d40b4e54ca9c728736a51983b5dffe9"
+    )
+    args.apply_failure_receipt_sha = "8" * 64
+    args.apply_failure_manifest_sha = "b" * 64
+    args.recovery_plan_receipt_sha = "a" * 64
+    payload = {
+        "schema": "fbsir.u3wProductionChangeApprovalReceipt.v2",
+        "action": "CANONICALIZE_W1A_INTERRUPTED_APPLY_RECOVERY",
+        "targetHost": "api2.u3w.com",
+        "runId": args.release_id,
+        "executorSourceCommit": args.source_commit,
+        "approvedAt": original["approvedAt"],
+        "expiresAt": original["expiresAt"],
+        "authorizedBy": "workspace-user",
+        "concurrentDdlProhibited": True,
+        "productionFilesystemWrite": True,
+        "productionDatabaseWrite": False,
+        "productionServiceChange": False,
+        "officialExpertsPackageChange": False,
+        "targetReleaseId": args.target_release_id,
+        "targetSourceCommit": args.target_source_commit,
+        "expectedStageReceiptSha256": args.stage_receipt_sha,
+        "expectedApplyFailureReceiptSha256":
+            args.apply_failure_receipt_sha,
+        "expectedApplyFailureManifestSha256":
+            args.apply_failure_manifest_sha,
+        "approvalNonce": "9" * 32,
+        "requestDigest": args.recovery_plan_receipt_sha,
+        "runnerSha256": args.runner_sha,
+        "workerSha256": args.worker_sha,
+    }
+    return bind_interrupted_recovery_authorization(args, payload)
+
+
+def bind_interrupted_recovery_authorization(args, approval):
+    plan = {
+        "schema": release.INTERRUPTED_APPLY_RECOVERY_PLAN_SCHEMA,
+        "mode": "RecoveryPlan",
+        "state": release.INTERRUPTED_APPLY_RECOVERY_PLAN_STATE,
+        "targetHost": release.TARGET_HOST,
+        "serviceUnit": release.SERVICE_UNIT,
+        "recoveryRunId": args.release_id,
+        "executorSourceCommit": args.source_commit,
+        "targetReleaseId": args.target_release_id,
+        "targetSourceCommit": args.target_source_commit,
+        "stageReceiptSha256": args.stage_receipt_sha,
+        "applyFailureReceiptSha256":
+            args.apply_failure_receipt_sha,
+        "applyFailureManifestSha256":
+            args.apply_failure_manifest_sha,
+        "runnerSha256": args.runner_sha,
+        "workerSha256": args.worker_sha,
+        "productionFilesystemWrite": True,
+        "productionDatabaseWrite": False,
+        "productionServiceChange": False,
+        "officialExpertsPackageChange": False,
+        "generatedAt": approval["approvedAt"],
+        "expiresAt": approval["expiresAt"],
+    }
+    plan_raw = (
+        release.canonical_json(plan) + "\n"
+    ).encode("utf-8")
+    args.recovery_plan_receipt_sha = release.sha256_bytes(plan_raw)
+    args.recovery_plan_json_base64 = base64.b64encode(
+        plan_raw
+    ).decode()
+    args.recovery_plan_document = plan
+    args.recovery_plan_raw = plan_raw
+    approval["expectedStageReceiptSha256"] = args.stage_receipt_sha
+    approval["expectedApplyFailureReceiptSha256"] = (
+        args.apply_failure_receipt_sha
+    )
+    approval["expectedApplyFailureManifestSha256"] = (
+        args.apply_failure_manifest_sha
+    )
+    approval["requestDigest"] = args.recovery_plan_receipt_sha
+    raw = json.dumps(approval, separators=(",", ":")).encode()
+    args.approval_sha = release.sha256_bytes(raw)
+    args.approval_json_base64 = base64.b64encode(raw).decode()
+    args.approval_raw = raw
+    return args, approval
+
+
+def shifted_iso(value, seconds):
+    parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return (
+        (parsed + dt.timedelta(seconds=seconds))
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def exact_migration_facts(event_count=0, journey_count=0):
@@ -223,6 +323,313 @@ def runtime_identity(state="ABSENT", event_count=0, journey_count=0):
             release.EXPECTED_W1A_SCHEMA_FINGERPRINT if retained else None
         ),
     }
+
+
+def interrupted_apply_recovery_fixture(
+    root,
+    event_count=7,
+    journey_count=4,
+):
+    args, approval = interrupted_apply_recovery_args()
+    retained_facts = exact_migration_facts(
+        event_count=event_count,
+        journey_count=journey_count,
+    )
+    failure_facts = {
+        key: value
+        for key, value in exact_migration_facts().items()
+        if key in release.LEGACY_MIGRATION_FACT_FIELDS
+    }
+    staged = {
+        "schema": release.LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+        "state": "STAGED_FOR_SWITCH",
+        "releaseId": args.target_release_id,
+        "sourceCommit": args.target_source_commit,
+        "stageApprovalReceiptSha256": "7" * 64,
+        "migrationSha256": args.migration_sha,
+        "preStageRuntimeIdentity": runtime_identity("ABSENT"),
+        "databaseDownClaimed": False,
+        "productionDatabaseChanged": False,
+        "productionServiceChanged": False,
+        "officialExpertsPackageChanged": False,
+    }
+    apply_failure = {
+        "schema": release.LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA,
+        "state": (
+            "APPLICATION_RESTORED_DATABASE_043_"
+            "RETAINED_OR_FAIL_CLOSED"
+        ),
+        "releaseId": args.target_release_id,
+        "sourceCommit": args.target_source_commit,
+        "applyApprovalReceiptSha256": "8" * 64,
+        "migrationFacts": failure_facts,
+        "applicationStarted": True,
+        "applicationAlreadyCommitted": False,
+        "applicationRestored": True,
+        "topologyRestored": True,
+        "deploymentCommitOutcome": "NOT_COMMITTED",
+        "deploymentReceiptPath": None,
+        "deploymentReceiptSha256": None,
+        "productionFilesystemChanged": True,
+        "productionServiceChangedThisRun": True,
+        "productionDatabaseChangedThisRun": True,
+        "databaseRollbackStrategy":
+            "RETAIN_ADDITIVE_043_DORMANT_NO_DOWN",
+        "databaseDownClaimed": False,
+        "officialExpertsPackageChanged": False,
+        "observedAt": shifted_iso(approval["approvedAt"], -1),
+    }
+    current = {
+        "activeState": "active",
+        "jarSha256": "9" * 64,
+        "configuredJarSha256": "9" * 64,
+        "configuredFlagValues": {
+            name: "false" for name in release.FALSE_FLAGS
+        },
+        "processFlagValues": {
+            name: "false" for name in release.FALSE_FLAGS
+        },
+        "processForbiddenOverrideNames": [],
+    }
+    release_dir = pathlib.Path(root) / args.target_release_id
+    release_dir.mkdir()
+    stage_path = release_dir / "deployment-readiness-receipt.json"
+    failure_path = (
+        release_dir
+        / "apply-failure-20260725T000000000000Z-0123456789ab.json"
+    )
+    stage_path.write_text(
+        release.canonical_json(staged) + "\n",
+        encoding="utf-8",
+    )
+    failure_path.write_text(
+        release.canonical_json(apply_failure) + "\n",
+        encoding="utf-8",
+    )
+    args.stage_receipt_sha = release.sha256_file(stage_path)
+    args.apply_failure_receipt_sha = release.sha256_file(failure_path)
+    failure_manifest = [{
+        "name": failure_path.name,
+        "sha256": args.apply_failure_receipt_sha,
+        "schema": apply_failure["schema"],
+        "state": apply_failure["state"],
+    }]
+    args.apply_failure_manifest_sha = release.sha256_bytes(
+        release.canonical_json(failure_manifest).encode("utf-8")
+    )
+    bind_interrupted_recovery_authorization(args, approval)
+    (
+        release_dir / release.INTERRUPTED_APPLY_RECOVERY_APPROVAL_NAME
+    ).write_bytes(args.approval_raw)
+    (
+        release_dir / release.INTERRUPTED_APPLY_RECOVERY_PLAN_NAME
+    ).write_bytes(args.recovery_plan_raw)
+    return types.SimpleNamespace(
+        args=args,
+        approval=approval,
+        retained_facts=retained_facts,
+        failure_facts=failure_facts,
+        staged=staged,
+        apply_failure=apply_failure,
+        current=current,
+        release_dir=release_dir,
+        stage_path=stage_path,
+        failure_path=failure_path,
+        failure_manifest=failure_manifest,
+        recovery_path=(
+            release_dir / "interrupted-apply-recovery-receipt.json"
+        ),
+    )
+
+
+def interrupted_apply_recovery_receipt(fixture, retained_facts=None):
+    args = fixture.args
+    return {
+        "schema": release.INTERRUPTED_APPLY_RECOVERY_RECEIPT_SCHEMA,
+        "state": release.INTERRUPTED_APPLY_RECOVERY_STATE,
+        "releaseId": args.target_release_id,
+        "sourceCommit": args.target_source_commit,
+        "recoveryRunId": args.release_id,
+        "executorSourceCommit": args.source_commit,
+        "approvalReceiptSha256": args.approval_sha,
+        "approvalNonce": fixture.approval["approvalNonce"],
+        "runnerSha256": args.runner_sha,
+        "workerSha256": args.worker_sha,
+        "recoveryPlanReceiptSha256":
+            args.recovery_plan_receipt_sha,
+        "stageReceiptPath": str(fixture.stage_path),
+        "stageReceiptSha256": args.stage_receipt_sha,
+        "applyFailureReceiptPath": str(fixture.failure_path),
+        "applyFailureReceiptSha256":
+            args.apply_failure_receipt_sha,
+        "applyFailureReceiptSchema":
+            fixture.apply_failure["schema"],
+        "applyFailureReceiptState":
+            fixture.apply_failure["state"],
+        "applyFailureReceiptManifest": fixture.failure_manifest,
+        "applyFailureReceiptManifestSha256":
+            args.apply_failure_manifest_sha,
+        "applicationRestored": True,
+        "topologyRestored": True,
+        "deploymentCommitOutcome": "NOT_COMMITTED",
+        "deploymentReceiptAbsent": True,
+        "rollbackReceiptAbsent": True,
+        "currentLinkAbsent": True,
+        "releaseDropInMatched": True,
+        "retainedMigrationFacts": (
+            retained_facts
+            if retained_facts is not None
+            else fixture.retained_facts
+        ),
+        "allW1aFlagsExplicitFalse": True,
+        "databaseDownClaimed": False,
+        "productionFilesystemChanged": True,
+        "productionDatabaseChanged": True,
+        "productionDatabaseChangedThisRecoveryRun": False,
+        "productionDatabaseChangedSinceStage": True,
+        "productionServiceChanged": True,
+        "productionServiceChangedThisRecoveryRun": False,
+        "productionServiceChangedSinceStage": True,
+        "officialExpertsPackageChanged": False,
+        "observedAt": shifted_iso(
+            fixture.approval["approvedAt"], 1
+        ),
+    }
+
+
+def stage_recovery_predecessor_fixture(
+    root,
+    receipt_event_count=7,
+    receipt_journey_count=4,
+    current_event_count=9,
+    current_journey_count=5,
+):
+    fixture = interrupted_apply_recovery_fixture(
+        root,
+        event_count=receipt_event_count,
+        journey_count=receipt_journey_count,
+    )
+    receipt = interrupted_apply_recovery_receipt(fixture)
+    fixture.recovery_path.write_text(
+        release.canonical_json(receipt) + "\n",
+        encoding="utf-8",
+    )
+    (
+        fixture.release_dir
+        / release.INTERRUPTED_APPLY_RECOVERY_APPROVAL_NAME
+    ).write_bytes(fixture.args.approval_raw)
+    (
+        fixture.release_dir
+        / release.INTERRUPTED_APPLY_RECOVERY_PLAN_NAME
+    ).write_bytes(fixture.args.recovery_plan_raw)
+    receipt_sha256 = release.sha256_file(fixture.recovery_path)
+    evidence = fixture.release_dir / "evidence"
+    evidence.mkdir()
+    rollback_dropin = evidence / "rollback-systemd-dropin.conf"
+    rollback_dropin.write_bytes(b"[Service]\nExecStart=predecessor\n")
+    dropin = pathlib.Path(root) / "live-rollback-systemd-dropin.conf"
+    dropin.write_bytes(rollback_dropin.read_bytes())
+    nginx = pathlib.Path(root) / "live-nginx.conf"
+    nginx.write_bytes(b"server { listen 443 ssl; }\n")
+    current_facts = exact_migration_facts(
+        event_count=current_event_count,
+        journey_count=current_journey_count,
+    )
+    previous = {
+        "previousJarSha256": fixture.current["jarSha256"],
+        "previousNginxSha256": release.sha256_file(nginx),
+    }
+    lease = mock.MagicMock()
+    lease.mysql = object()
+    lease.facts = current_facts
+    return types.SimpleNamespace(
+        fixture=fixture,
+        receipt=receipt,
+        receipt_sha256=receipt_sha256,
+        current=json.loads(json.dumps(fixture.current)),
+        current_facts=current_facts,
+        previous=previous,
+        rollback_dropin=rollback_dropin,
+        dropin=dropin,
+        nginx=nginx,
+        current_link=pathlib.Path(root) / "current",
+        lease=lease,
+    )
+
+
+def validate_stage_recovery_predecessor(
+    context,
+    *,
+    latest_path=None,
+    current=None,
+    current_facts=None,
+):
+    latest_path = latest_path or context.fixture.recovery_path
+    current = (
+        json.loads(json.dumps(context.current))
+        if current is None
+        else current
+    )
+    current_facts = (
+        json.loads(json.dumps(context.current_facts))
+        if current_facts is None
+        else current_facts
+    )
+    with contextlib.ExitStack() as stack:
+        for patcher in (
+            mock.patch.object(
+                release,
+                "validated_latest_receipt_target",
+                return_value=pathlib.Path(latest_path),
+            ),
+            mock.patch.object(
+                release,
+                "interrupted_apply_target_release",
+                return_value=context.fixture.release_dir,
+            ),
+            mock.patch.object(
+                release,
+                "validate_regular_file",
+                side_effect=lambda path, *_args, **_kwargs:
+                    pathlib.Path(path),
+            ),
+            mock.patch.object(
+                release,
+                "predecessor_facts",
+                return_value=context.previous,
+            ),
+            mock.patch.object(
+                release,
+                "assert_restored_predecessor_runtime_contract",
+            ),
+            mock.patch.object(
+                release,
+                "interrupted_apply_recovery_lease",
+                return_value=context.lease,
+            ),
+            mock.patch.object(
+                release,
+                "exact_migration_facts",
+                return_value=current_facts,
+            ),
+            mock.patch.object(
+                release,
+                "environment_flags_explicit_false",
+                return_value=True,
+            ),
+            mock.patch.object(release, "wait_for_u3w_health"),
+            mock.patch.object(release, "DROPIN_PATH", context.dropin),
+            mock.patch.object(release, "NGINX_PATH", context.nginx),
+            mock.patch.object(
+                release,
+                "CURRENT_LINK",
+                context.current_link,
+            ),
+        ):
+            stack.enter_context(patcher)
+        return release.validate_prior_interrupted_recovery_stage_entry(
+            current
+        )
 
 
 def configured_environment_values():
@@ -2697,6 +3104,1006 @@ class ReleaseWorkerContractTest(unittest.TestCase):
         self.assertIn("environment_flags_explicit_false()", source)
         self.assertIn("processFlagValues", source)
 
+    def test_interrupted_apply_recovery_canonicalizes_stage_only_topology(self):
+        args, approval = interrupted_apply_recovery_args()
+        retained_facts = exact_migration_facts(event_count=7, journey_count=4)
+        failure_facts = {
+            key: value
+            for key, value in exact_migration_facts().items()
+            if key in release.LEGACY_MIGRATION_FACT_FIELDS
+        }
+        staged = {
+            "schema": release.LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+            "state": "STAGED_FOR_SWITCH",
+            "releaseId": args.target_release_id,
+            "sourceCommit": args.target_source_commit,
+            "stageApprovalReceiptSha256": "7" * 64,
+            "migrationSha256": args.migration_sha,
+            "preStageRuntimeIdentity": runtime_identity("ABSENT"),
+            "databaseDownClaimed": False,
+            "productionDatabaseChanged": False,
+            "productionServiceChanged": False,
+            "officialExpertsPackageChanged": False,
+        }
+        apply_failure = {
+            "schema": "fbsir.u3wDefaultOffReleaseFailureReceipt.v1",
+            "state": (
+                "APPLICATION_RESTORED_DATABASE_043_"
+                "RETAINED_OR_FAIL_CLOSED"
+            ),
+            "releaseId": args.target_release_id,
+            "sourceCommit": args.target_source_commit,
+            "applyApprovalReceiptSha256": "8" * 64,
+            "migrationFacts": failure_facts,
+            "applicationStarted": True,
+            "applicationAlreadyCommitted": False,
+            "applicationRestored": True,
+            "topologyRestored": True,
+            "deploymentCommitOutcome": "NOT_COMMITTED",
+            "deploymentReceiptPath": None,
+            "deploymentReceiptSha256": None,
+            "productionFilesystemChanged": True,
+            "productionServiceChangedThisRun": True,
+            "productionDatabaseChangedThisRun": True,
+            "databaseRollbackStrategy":
+                "RETAIN_ADDITIVE_043_DORMANT_NO_DOWN",
+            "databaseDownClaimed": False,
+            "officialExpertsPackageChanged": False,
+            "observedAt": shifted_iso(approval["approvedAt"], -1),
+        }
+        current = {
+            "activeState": "active",
+            "jarSha256": "9" * 64,
+            "configuredJarSha256": "9" * 64,
+            "configuredFlagValues": {
+                name: "false" for name in release.FALSE_FLAGS
+            },
+            "processFlagValues": {
+                name: "false" for name in release.FALSE_FLAGS
+            },
+            "processForbiddenOverrideNames": [],
+        }
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            release_dir = root / args.target_release_id
+            release_dir.mkdir()
+            stage_path = (
+                release_dir / "deployment-readiness-receipt.json"
+            )
+            failure_path = (
+                release_dir
+                / "apply-failure-20260725T000000000000Z-0123456789ab.json"
+            )
+            stage_path.write_text(
+                release.canonical_json(staged) + "\n",
+                encoding="utf-8",
+            )
+            failure_path.write_text(
+                release.canonical_json(apply_failure) + "\n",
+                encoding="utf-8",
+            )
+            args.stage_receipt_sha = release.sha256_file(stage_path)
+            args.apply_failure_receipt_sha = release.sha256_file(
+                failure_path
+            )
+            failure_manifest = [{
+                "name": failure_path.name,
+                "sha256": args.apply_failure_receipt_sha,
+                "schema": apply_failure["schema"],
+                "state": apply_failure["state"],
+            }]
+            args.apply_failure_manifest_sha = release.sha256_bytes(
+                release.canonical_json(failure_manifest).encode("utf-8")
+            )
+            bind_interrupted_recovery_authorization(args, approval)
+
+            def write_json(path, value):
+                pathlib.Path(path).write_text(
+                    release.canonical_json(value) + "\n",
+                    encoding="utf-8",
+                )
+
+            migration_lease = mock.MagicMock()
+            migration_lease.mysql = object()
+            migration_lease.facts = retained_facts
+            with (
+                mock.patch.object(
+                    release, "release_directory", return_value=release_dir
+                ),
+                mock.patch.object(
+                    release,
+                    "interrupted_apply_target_release",
+                    return_value=release_dir,
+                ),
+                mock.patch.object(
+                    release,
+                    "validate_regular_file",
+                    side_effect=lambda path, *_args, **_kwargs:
+                        pathlib.Path(path),
+                ),
+                mock.patch.object(
+                    release,
+                    "validated_latest_receipt_target",
+                    return_value=stage_path.resolve(),
+                ),
+                mock.patch.object(
+                    release,
+                    "validate_stage_receipt",
+                    return_value=(stage_path, staged),
+                ),
+                mock.patch.object(
+                    release, "service_snapshot", return_value=current
+                ),
+                mock.patch.object(
+                    release,
+                    "assert_predecessor_active",
+                    return_value=current,
+                ),
+                mock.patch.object(
+                    release,
+                    "read_exact_migration_facts",
+                    return_value=retained_facts,
+                ),
+                mock.patch.object(
+                    release,
+                    "interrupted_apply_recovery_lease",
+                    return_value=migration_lease,
+                ),
+                mock.patch.object(
+                    release,
+                    "exact_migration_facts",
+                    return_value=retained_facts,
+                ),
+                mock.patch.object(
+                    release,
+                    "environment_flags_explicit_false",
+                    return_value=True,
+                ),
+                mock.patch.object(
+                    release,
+                    "atomic_json_create_new",
+                    side_effect=write_json,
+                ),
+                mock.patch.object(
+                    release,
+                    "create_or_validate_interrupted_recovery_anchor",
+                    return_value=True,
+                ),
+                mock.patch.object(
+                    release, "advance_latest_receipt", return_value=True
+                ) as advance_latest,
+            ):
+                canonicalize = getattr(
+                    release,
+                    "canonicalize_interrupted_apply_recovery",
+                    None,
+                )
+                self.assertIsNotNone(
+                    canonicalize,
+                    "missing interrupted Apply recovery canonicalizer",
+                )
+                result = canonicalize(args)
+
+            receipt_path = pathlib.Path(result["receiptPath"])
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                receipt["schema"],
+                "fbsir.u3wDefaultOffInterruptedApplyRecoveryReceipt.v1",
+            )
+            self.assertEqual(
+                receipt["state"],
+                (
+                    "INTERRUPTED_APPLY_RECOVERED_APPLICATION_"
+                    "DATABASE_043_RETAINED_DORMANT"
+                ),
+            )
+            self.assertEqual(
+                receipt["stageReceiptSha256"],
+                release.sha256_file(stage_path),
+            )
+            self.assertEqual(
+                receipt["applyFailureReceiptSha256"],
+                release.sha256_file(failure_path),
+            )
+            self.assertIs(receipt["applicationRestored"], True)
+            self.assertIs(receipt["topologyRestored"], True)
+            self.assertIs(receipt["deploymentReceiptAbsent"], True)
+            self.assertIs(receipt["rollbackReceiptAbsent"], True)
+            self.assertIs(receipt["currentLinkAbsent"], True)
+            self.assertIs(receipt["releaseDropInMatched"], True)
+            self.assertEqual(
+                receipt["retainedMigrationFacts"], retained_facts
+            )
+            self.assertEqual(receipt["retainedMigrationFacts"]["eventCount"], 7)
+            self.assertEqual(
+                receipt["retainedMigrationFacts"]["probeEventCount"], 7
+            )
+            self.assertEqual(
+                receipt["retainedMigrationFacts"]["naturalEventCount"], 0
+            )
+            self.assertEqual(
+                receipt["retainedMigrationFacts"][
+                    "authoritativeProductCreditCount"
+                ],
+                0,
+            )
+            self.assertIs(receipt["allW1aFlagsExplicitFalse"], True)
+            self.assertIs(receipt["productionDatabaseChanged"], True)
+            self.assertIs(
+                receipt["productionDatabaseChangedThisRecoveryRun"],
+                False,
+            )
+            self.assertIs(
+                receipt["productionDatabaseChangedSinceStage"],
+                True,
+            )
+            self.assertIs(receipt["productionServiceChanged"], True)
+            self.assertIs(
+                receipt["productionServiceChangedThisRecoveryRun"],
+                False,
+            )
+            self.assertIs(
+                receipt["productionServiceChangedSinceStage"],
+                True,
+            )
+            advance_latest.assert_called_once_with(
+                receipt_path,
+                [stage_path],
+            )
+
+    def test_interrupted_apply_recovery_receipt_creation_is_no_clobber(self):
+        source = inspect.getsource(
+            release.canonicalize_interrupted_apply_recovery
+        )
+        failures = []
+        if "atomic_json(recovery_path, receipt)" in source:
+            failures.append("canonicalizer still uses overwrite-capable atomic_json")
+        if "atomic_json_create_new(recovery_path, receipt)" not in source:
+            failures.append("canonicalizer does not use create-new JSON")
+        create_new = getattr(release, "atomic_json_create_new", None)
+        if create_new is None:
+            failures.append("atomic_json_create_new is absent")
+        else:
+            with tempfile.TemporaryDirectory() as temporary:
+                path = pathlib.Path(temporary) / "recovery.json"
+                racer_bytes = b'{"winner":"racer"}\n'
+                path.write_bytes(racer_bytes)
+                try:
+                    create_new(path, {"winner": "canonicalizer"})
+                except (FileExistsError, RuntimeError):
+                    pass
+                else:
+                    failures.append("create-new accepted an occupied path")
+                if path.read_bytes() != racer_bytes:
+                    failures.append("create-new clobbered the race winner")
+        self.assertEqual(failures, [])
+
+    def test_existing_interrupted_recovery_rejects_every_field_drift(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = interrupted_apply_recovery_fixture(temporary)
+            baseline = interrupted_apply_recovery_receipt(fixture)
+            fixture.recovery_path.write_text(
+                release.canonical_json(baseline) + "\n",
+                encoding="utf-8",
+            )
+            lease = mock.MagicMock()
+            lease.mysql = object()
+            lease.facts = fixture.retained_facts
+            accepted_drift = []
+
+            def drifted(value):
+                if isinstance(value, bool):
+                    return not value
+                if isinstance(value, str):
+                    if not value:
+                        return "drift"
+                    replacement = "0" if value[0] != "0" else "1"
+                    return replacement + value[1:]
+                if isinstance(value, list):
+                    return value + [{"unexpected": True}]
+                if isinstance(value, dict):
+                    changed = json.loads(json.dumps(value))
+                    changed["unexpected"] = True
+                    return changed
+                return "unexpected"
+
+            def invoke(receipt, label):
+                fixture.recovery_path.write_text(
+                    release.canonical_json(receipt) + "\n",
+                    encoding="utf-8",
+                )
+                try:
+                    release.canonicalize_interrupted_apply_recovery(
+                        fixture.args
+                    )
+                except RuntimeError:
+                    return
+                accepted_drift.append(label)
+
+            with (
+                mock.patch.object(
+                    release,
+                    "interrupted_apply_target_release",
+                    return_value=fixture.release_dir,
+                ),
+                mock.patch.object(
+                    release,
+                    "validate_regular_file",
+                    side_effect=lambda path, *_args, **_kwargs:
+                        pathlib.Path(path),
+                ),
+                mock.patch.object(
+                    release,
+                    "assert_predecessor_active",
+                    return_value=fixture.current,
+                ),
+                mock.patch.object(
+                    release,
+                    "read_exact_migration_facts",
+                    return_value=fixture.retained_facts,
+                ),
+                mock.patch.object(
+                    release,
+                    "exact_migration_facts",
+                    return_value=fixture.retained_facts,
+                ),
+                mock.patch.object(
+                    release,
+                    "environment_flags_explicit_false",
+                    return_value=True,
+                ),
+                mock.patch.object(
+                    release,
+                    "validated_latest_receipt_target",
+                    return_value=fixture.recovery_path.resolve(),
+                ),
+                mock.patch.object(
+                    release,
+                    "advance_latest_receipt",
+                    return_value=False,
+                ),
+                mock.patch.object(
+                    release,
+                    "interrupted_apply_recovery_lease",
+                    create=True,
+                    return_value=lease,
+                ),
+            ):
+                for field, value in baseline.items():
+                    changed = json.loads(json.dumps(baseline))
+                    changed[field] = drifted(value)
+                    invoke(changed, f"value:{field}")
+
+                    missing = json.loads(json.dumps(baseline))
+                    del missing[field]
+                    invoke(missing, f"missing:{field}")
+
+                unknown = json.loads(json.dumps(baseline))
+                unknown["unexpected"] = True
+                invoke(unknown, "unknown:unexpected")
+
+            self.assertEqual(
+                accepted_drift,
+                [],
+                "existing recovery replay accepted receipt drift",
+            )
+
+    def test_existing_interrupted_recovery_accepts_monotonic_probe_growth(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = interrupted_apply_recovery_fixture(
+                temporary,
+                event_count=9,
+                journey_count=5,
+            )
+            baseline_facts = exact_migration_facts(
+                event_count=7,
+                journey_count=4,
+            )
+            receipt = interrupted_apply_recovery_receipt(
+                fixture,
+                retained_facts=baseline_facts,
+            )
+            fixture.recovery_path.write_text(
+                release.canonical_json(receipt) + "\n",
+                encoding="utf-8",
+            )
+            before = fixture.recovery_path.read_bytes()
+            lease = mock.MagicMock()
+            lease.mysql = object()
+            lease.facts = fixture.retained_facts
+            with (
+                mock.patch.object(
+                    release,
+                    "interrupted_apply_target_release",
+                    return_value=fixture.release_dir,
+                ),
+                mock.patch.object(
+                    release,
+                    "validate_regular_file",
+                    side_effect=lambda path, *_args, **_kwargs:
+                        pathlib.Path(path),
+                ),
+                mock.patch.object(
+                    release,
+                    "assert_predecessor_active",
+                    return_value=fixture.current,
+                ),
+                mock.patch.object(
+                    release,
+                    "read_exact_migration_facts",
+                    return_value=fixture.retained_facts,
+                ),
+                mock.patch.object(
+                    release,
+                    "exact_migration_facts",
+                    return_value=fixture.retained_facts,
+                ),
+                mock.patch.object(
+                    release,
+                    "environment_flags_explicit_false",
+                    return_value=True,
+                ),
+                mock.patch.object(
+                    release,
+                    "validated_latest_receipt_target",
+                    return_value=fixture.recovery_path.resolve(),
+                ),
+                mock.patch.object(
+                    release,
+                    "advance_latest_receipt",
+                    return_value=False,
+                ),
+                mock.patch.object(
+                    release,
+                    "interrupted_apply_recovery_lease",
+                    create=True,
+                    return_value=lease,
+                ),
+            ):
+                result = (
+                    release.canonicalize_interrupted_apply_recovery(
+                        fixture.args
+                    )
+                )
+            self.assertEqual(
+                fixture.recovery_path.read_bytes(),
+                before,
+            )
+            self.assertIs(
+                result["productionFilesystemChanged"],
+                False,
+            )
+
+    def test_expired_exact_recovery_repairs_missing_latest_link(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = interrupted_apply_recovery_fixture(temporary)
+            approved = dt.datetime.now(dt.timezone.utc) - dt.timedelta(
+                days=2
+            )
+            expires = approved + dt.timedelta(hours=12)
+            fixture.approval["approvedAt"] = (
+                approved.isoformat().replace("+00:00", "Z")
+            )
+            fixture.approval["expiresAt"] = (
+                expires.isoformat().replace("+00:00", "Z")
+            )
+            fixture.apply_failure["observedAt"] = shifted_iso(
+                fixture.approval["approvedAt"], -1
+            )
+            fixture.failure_path.write_text(
+                release.canonical_json(fixture.apply_failure) + "\n",
+                encoding="utf-8",
+            )
+            fixture.args.apply_failure_receipt_sha = (
+                release.sha256_file(fixture.failure_path)
+            )
+            fixture.failure_manifest = [{
+                "name": fixture.failure_path.name,
+                "sha256":
+                    fixture.args.apply_failure_receipt_sha,
+                "schema": fixture.apply_failure["schema"],
+                "state": fixture.apply_failure["state"],
+            }]
+            fixture.args.apply_failure_manifest_sha = (
+                release.sha256_bytes(
+                    release.canonical_json(
+                        fixture.failure_manifest
+                    ).encode("utf-8")
+                )
+            )
+            bind_interrupted_recovery_authorization(
+                fixture.args, fixture.approval
+            )
+            (
+                fixture.release_dir
+                / release.INTERRUPTED_APPLY_RECOVERY_APPROVAL_NAME
+            ).write_bytes(fixture.args.approval_raw)
+            (
+                fixture.release_dir
+                / release.INTERRUPTED_APPLY_RECOVERY_PLAN_NAME
+            ).write_bytes(fixture.args.recovery_plan_raw)
+            receipt = interrupted_apply_recovery_receipt(fixture)
+            fixture.recovery_path.write_text(
+                release.canonical_json(receipt) + "\n",
+                encoding="utf-8",
+            )
+            lease = mock.MagicMock()
+            lease.mysql = object()
+            lease.facts = fixture.retained_facts
+            with (
+                mock.patch.object(
+                    release,
+                    "interrupted_apply_target_release",
+                    return_value=fixture.release_dir,
+                ),
+                mock.patch.object(
+                    release,
+                    "validate_regular_file",
+                    side_effect=lambda path, *_args, **_kwargs:
+                        pathlib.Path(path),
+                ),
+                mock.patch.object(
+                    release,
+                    "assert_predecessor_active",
+                    return_value=fixture.current,
+                ),
+                mock.patch.object(
+                    release,
+                    "exact_migration_facts",
+                    return_value=fixture.retained_facts,
+                ),
+                mock.patch.object(
+                    release,
+                    "environment_flags_explicit_false",
+                    return_value=True,
+                ),
+                mock.patch.object(
+                    release,
+                    "validated_latest_receipt_target",
+                    return_value=None,
+                ),
+                mock.patch.object(
+                    release,
+                    "advance_latest_receipt",
+                    return_value=True,
+                ) as advance_latest,
+                mock.patch.object(
+                    release,
+                    "interrupted_apply_recovery_lease",
+                    create=True,
+                    return_value=lease,
+                ),
+                mock.patch.object(
+                    release,
+                    "interrupted_recovery_authorized_commit_time",
+                    side_effect=AssertionError(
+                        "historic replay requested a fresh time window"
+                    ),
+                ),
+            ):
+                result = (
+                    release.canonicalize_interrupted_apply_recovery(
+                        fixture.args
+                    )
+                )
+
+            self.assertEqual(
+                result["recoveryDisposition"],
+                "RECEIPT_LINK_REPAIRED",
+            )
+            self.assertIs(
+                result["productionFilesystemChanged"],
+                True,
+            )
+            advance_latest.assert_called_once_with(
+                fixture.recovery_path,
+                [fixture.stage_path],
+            )
+
+    def test_interrupted_apply_approval_binds_failure_manifest_digest(self):
+        args, _ = interrupted_apply_recovery_args()
+        release.validate_interrupted_apply_recovery_approval(args)
+        for field, value in (
+            ("apply_failure_manifest_sha", "c" * 64),
+            ("recovery_plan_receipt_sha", "d" * 64),
+        ):
+            with self.subTest(field=field):
+                original = getattr(args, field)
+                setattr(args, field, value)
+                with self.assertRaisesRegex(RuntimeError, "approval"):
+                    release.validate_interrupted_apply_recovery_approval(
+                        args
+                    )
+                setattr(args, field, original)
+
+    def test_expired_recovery_authorization_is_replay_only(self):
+        args, approval = interrupted_apply_recovery_args()
+        approved = dt.datetime.now(dt.timezone.utc) - dt.timedelta(
+            days=2
+        )
+        approval["approvedAt"] = (
+            approved.isoformat().replace("+00:00", "Z")
+        )
+        approval["expiresAt"] = (
+            (approved + dt.timedelta(hours=12))
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
+        bind_interrupted_recovery_authorization(args, approval)
+
+        release.validate_interrupted_apply_recovery_approval(
+            args, require_current=False
+        )
+        release.validate_interrupted_apply_recovery_plan(
+            args, require_current=False
+        )
+        with self.assertRaisesRegex(RuntimeError, "approval"):
+            release.validate_interrupted_apply_recovery_approval(args)
+        with self.assertRaisesRegex(RuntimeError, "Plan"):
+            release.validate_interrupted_apply_recovery_plan(args)
+
+    def test_interrupted_apply_recomputes_approved_failure_manifest(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = interrupted_apply_recovery_fixture(temporary)
+            fixture.args.apply_failure_manifest_sha = "c" * 64
+            bind_interrupted_recovery_authorization(
+                fixture.args,
+                fixture.approval,
+            )
+            with (
+                mock.patch.object(
+                    release,
+                    "interrupted_apply_target_release",
+                    return_value=fixture.release_dir,
+                ),
+                mock.patch.object(
+                    release,
+                    "validate_regular_file",
+                    side_effect=lambda path, *_args, **_kwargs:
+                        pathlib.Path(path),
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "failure manifest anchor drifted",
+                ):
+                    release.canonicalize_interrupted_apply_recovery(
+                        fixture.args
+                    )
+
+    def test_interrupted_recovery_lock_spans_double_read_and_latest_cas(self):
+        canonicalizer = inspect.getsource(
+            release.canonicalize_interrupted_apply_recovery
+        )
+        failures = []
+        lease_factory = getattr(
+            release,
+            "interrupted_apply_recovery_lease",
+            None,
+        )
+        if lease_factory is None:
+            failures.append("interrupted recovery named-lock lease is absent")
+        else:
+            lease_source = inspect.getsource(lease_factory)
+            for statement in (
+                "GET_LOCK('u3w:w1a:public_init_043',0)",
+                "RELEASE_LOCK('u3w:w1a:public_init_043')",
+            ):
+                if statement not in lease_source:
+                    failures.append(
+                        f"recovery lease missing {statement}"
+                    )
+
+        database_reads = list(release.re.finditer(
+            r"exact_migration_facts\(\s*"
+            r"([A-Za-z_][A-Za-z0-9_]*)\.mysql\s*\)",
+            canonicalizer,
+        ))
+        service_reads = list(release.re.finditer(
+            r"assert_predecessor_active\(",
+            canonicalizer,
+        ))
+        writer_position = canonicalizer.find(
+            "atomic_json_create_new(recovery_path, receipt)"
+        )
+        latest_position = (
+            canonicalizer.find(
+                "advance_latest_receipt",
+                writer_position,
+            )
+            if writer_position >= 0
+            else -1
+        )
+        if len(database_reads) < 2:
+            failures.append("recovery does not double-read DB under one lease")
+        elif len({match.group(1) for match in database_reads}) != 1:
+            failures.append("recovery DB rereads use different leases")
+        if len(service_reads) < 2:
+            failures.append("recovery does not double-read service topology")
+        if writer_position < 0:
+            failures.append("recovery create-new receipt write is absent")
+        if latest_position < 0:
+            failures.append("recovery receipt-to-latest CAS is absent")
+        if (
+            len(database_reads) >= 2
+            and len(service_reads) >= 2
+            and writer_position >= 0
+            and latest_position >= 0
+        ):
+            first_read = max(
+                database_reads[0].start(),
+                service_reads[0].start(),
+            )
+            second_read = min(
+                database_reads[-1].start(),
+                service_reads[-1].start(),
+            )
+            if not (
+                first_read < second_read
+                < writer_position < latest_position
+            ):
+                failures.append(
+                    "receipt write does not follow double current-read"
+                )
+            lease_name = database_reads[0].group(1)
+            close_position = canonicalizer.find(
+                f"{lease_name}.close()",
+                latest_position,
+            )
+            if close_position < latest_position:
+                failures.append("named lock is released before latest CAS")
+        self.assertEqual(failures, [])
+
+    def test_interrupted_apply_target_requires_root_owned_real_directory(self):
+        args, _ = interrupted_apply_recovery_args()
+        accepted = []
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            target = root / args.target_release_id
+            target.mkdir()
+            real_lstat = pathlib.Path.lstat
+            unsafe = {
+                "symlink": types.SimpleNamespace(
+                    st_mode=release.stat.S_IFLNK | 0o700,
+                    st_uid=0,
+                    st_gid=0,
+                    st_nlink=1,
+                ),
+                "non-root": types.SimpleNamespace(
+                    st_mode=release.stat.S_IFDIR | 0o700,
+                    st_uid=1000,
+                    st_gid=0,
+                    st_nlink=2,
+                ),
+                "group-writable": types.SimpleNamespace(
+                    st_mode=release.stat.S_IFDIR | 0o775,
+                    st_uid=0,
+                    st_gid=0,
+                    st_nlink=2,
+                ),
+            }
+            with mock.patch.object(release, "RELEASE_ROOT", root):
+                for label, status in unsafe.items():
+                    def fake_lstat(path, *call_args, **call_kwargs):
+                        if path == target:
+                            return status
+                        return real_lstat(
+                            path,
+                            *call_args,
+                            **call_kwargs,
+                        )
+
+                    with mock.patch.object(
+                        pathlib.Path,
+                        "lstat",
+                        autospec=True,
+                        side_effect=fake_lstat,
+                    ):
+                        try:
+                            release.interrupted_apply_target_release(args)
+                        except RuntimeError:
+                            pass
+                        else:
+                            accepted.append(label)
+
+                stage_public_status = types.SimpleNamespace(
+                    st_mode=release.stat.S_IFDIR | 0o755,
+                    st_uid=0,
+                    st_gid=0,
+                    st_nlink=2,
+                )
+
+                def stage_public_lstat(
+                    path, *call_args, **call_kwargs
+                ):
+                    if path == target:
+                        return stage_public_status
+                    return real_lstat(
+                        path,
+                        *call_args,
+                        **call_kwargs,
+                    )
+
+                with mock.patch.object(
+                    pathlib.Path,
+                    "lstat",
+                    autospec=True,
+                    side_effect=stage_public_lstat,
+                ):
+                    resolved = release.interrupted_apply_target_release(
+                        args
+                    )
+                    self.assertEqual(resolved, target)
+
+                target.rmdir()
+                target.write_bytes(b"not-a-directory")
+                try:
+                    release.interrupted_apply_target_release(args)
+                except RuntimeError:
+                    pass
+                else:
+                    accepted.append("regular-file")
+
+        self.assertEqual(
+            accepted,
+            [],
+            "unsafe target release roots were accepted",
+        )
+
+    def test_stage_accepts_exact_interrupted_recovery_predecessor(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            context = stage_recovery_predecessor_fixture(temporary)
+            anchor = validate_stage_recovery_predecessor(context)
+
+        self.assertEqual(
+            anchor["schema"],
+            "fbsir.u3wPriorInterruptedApplyRecoveryStageAnchor.v1",
+        )
+        self.assertEqual(
+            anchor["releaseId"],
+            context.fixture.args.target_release_id,
+        )
+        self.assertEqual(
+            anchor["sourceCommit"],
+            context.fixture.args.target_source_commit,
+        )
+        self.assertEqual(
+            anchor["receiptPath"],
+            str(context.fixture.recovery_path),
+        )
+        self.assertEqual(
+            anchor["receiptSha256"],
+            context.receipt_sha256,
+        )
+        self.assertEqual(
+            anchor["receiptSchema"],
+            release.INTERRUPTED_APPLY_RECOVERY_RECEIPT_SCHEMA,
+        )
+        self.assertEqual(
+            anchor["state"],
+            release.INTERRUPTED_APPLY_RECOVERY_STATE,
+        )
+        context.lease.close.assert_called_once_with()
+
+    def test_stage_interrupted_recovery_rejects_latest_service_and_043_drift(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as temporary:
+            context = stage_recovery_predecessor_fixture(temporary)
+
+            with self.assertRaisesRegex(RuntimeError, "latest topology"):
+                validate_stage_recovery_predecessor(
+                    context,
+                    latest_path=context.fixture.stage_path,
+                )
+
+            service_drift = json.loads(json.dumps(context.current))
+            service_drift["jarSha256"] = "0" * 64
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "predecessor topology",
+            ):
+                validate_stage_recovery_predecessor(
+                    context,
+                    current=service_drift,
+                )
+
+            regressed = exact_migration_facts(
+                event_count=6,
+                journey_count=3,
+            )
+            with self.assertRaisesRegex(RuntimeError, "retained 043"):
+                validate_stage_recovery_predecessor(
+                    context,
+                    current_facts=regressed,
+                )
+
+            for field in (
+                "naturalEventCount",
+                "nonProbeEventCount",
+                "authoritativeProductCreditCount",
+                "naturalJourneyCount",
+                "nonProbeJourneyCount",
+            ):
+                with self.subTest(field=field):
+                    non_probe = json.loads(
+                        json.dumps(context.current_facts)
+                    )
+                    non_probe[field] = 1
+                    with self.assertRaisesRegex(
+                        RuntimeError,
+                        "retained 043",
+                    ):
+                        validate_stage_recovery_predecessor(
+                            context,
+                            current_facts=non_probe,
+                        )
+
+    def test_stage_interrupted_recovery_rejects_bound_field_drift(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            context = stage_recovery_predecessor_fixture(temporary)
+            baseline = context.receipt
+            accepted_drift = []
+            drift_cases = {
+                "recoveryRunId":
+                    "w1a-release-deadbeefcafe-20260725T010101Z",
+                "executorSourceCommit": "d" * 40,
+                "approvalReceiptSha256": "d" * 64,
+                "approvalNonce": "a" * 32,
+                "runnerSha256": "d" * 64,
+                "workerSha256": "e" * 64,
+                "recoveryPlanReceiptSha256": "f" * 64,
+                "stageReceiptSha256": "0" * 64,
+                "applyFailureReceiptSha256": "1" * 64,
+                "applyFailureReceiptManifestSha256": "2" * 64,
+            }
+            for field, value in drift_cases.items():
+                with self.subTest(field=field):
+                    drifted = json.loads(json.dumps(baseline))
+                    drifted[field] = value
+                    context.fixture.recovery_path.write_text(
+                        release.canonical_json(drifted) + "\n",
+                        encoding="utf-8",
+                    )
+                    try:
+                        validate_stage_recovery_predecessor(context)
+                    except RuntimeError:
+                        continue
+                    accepted_drift.append(field)
+
+            self.assertEqual(
+                accepted_drift,
+                [],
+                "Stage accepted drift in a canonical recovery receipt",
+            )
+
+    def test_finalize_stage_keeps_recovery_anchor_independent_for_latest_cas(
+        self,
+    ):
+        finalize_source = inspect.getsource(release.finalize_stage)
+        plan_source = inspect.getsource(release.stage_live_plan_target)
+        self.assertIn(
+            "validate_prior_interrupted_recovery_stage_entry",
+            finalize_source,
+        )
+        self.assertIn(
+            '"priorRecoveryAnchor": prior_recovery_anchor',
+            finalize_source,
+        )
+        self.assertIn(
+            '[prior_recovery_anchor["receiptPath"]]',
+            finalize_source,
+        )
+        self.assertIn(
+            '"priorRollbackAnchor": rollback_plan_anchor',
+            plan_source,
+        )
+        self.assertIn(
+            '"priorRecoveryAnchor": recovery_plan_anchor',
+            plan_source,
+        )
+
     def test_stage_reentry_repairs_latest_after_commit_point_crash(self):
         args, _ = release_args("FinalizeStage")
         staged = {
@@ -2751,12 +4158,20 @@ class ReleaseWorkerContractTest(unittest.TestCase):
                 ),
                 mock.patch.object(
                     release,
+                    "predecessor_facts",
+                    return_value={
+                        "priorRollbackAnchor": None,
+                        "priorRecoveryAnchor": None,
+                    },
+                ),
+                mock.patch.object(
+                    release,
                     "advance_latest_receipt",
                     return_value=True,
                 ) as repair,
             ):
                 result = release.finalize_stage(args)
-            repair.assert_called_once_with(receipt)
+            repair.assert_called_once_with(receipt, [])
             self.assertTrue(result["productionFilesystemChanged"])
 
     def test_rollback_catches_timeout_and_writes_failure_receipt(self):

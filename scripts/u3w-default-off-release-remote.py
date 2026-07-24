@@ -140,6 +140,120 @@ LEGACY_ROLLBACK_VERIFICATION_SCHEMA = (
 APPLY_FAILURE_RECEIPT_SCHEMA = (
     "fbsir.u3wDefaultOffReleaseFailureReceipt.v2"
 )
+LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA = (
+    "fbsir.u3wDefaultOffReleaseFailureReceipt.v1"
+)
+INTERRUPTED_APPLY_RECOVERY_RECEIPT_SCHEMA = (
+    "fbsir.u3wDefaultOffInterruptedApplyRecoveryReceipt.v1"
+)
+INTERRUPTED_APPLY_RECOVERY_STATE = "INTERRUPTED_APPLY_RECOVERED_APPLICATION_DATABASE_043_RETAINED_DORMANT"
+INTERRUPTED_APPLY_RECOVERY_TOPOLOGY_STATE = (
+    "EXACT_PRIOR_INTERRUPTED_APPLY_RECOVERY_PREDECESSOR"
+)
+INTERRUPTED_APPLY_RECOVERY_PLAN_SCHEMA = (
+    "fbsir.u3wInterruptedApplyRecoveryPlan.v1"
+)
+INTERRUPTED_APPLY_RECOVERY_PLAN_STATE = (
+    "INTERRUPTED_APPLY_RECOVERY_CANONICALIZATION_PLANNED"
+)
+INTERRUPTED_APPLY_RECOVERY_APPROVAL_NAME = (
+    "interrupted-apply-recovery-approval.json"
+)
+INTERRUPTED_APPLY_RECOVERY_PLAN_NAME = (
+    "interrupted-apply-recovery-plan.json"
+)
+INTERRUPTED_APPLY_RECOVERY_RECEIPT_FIELDS = frozenset(
+    (
+        "schema",
+        "state",
+        "releaseId",
+        "sourceCommit",
+        "recoveryRunId",
+        "executorSourceCommit",
+        "approvalReceiptSha256",
+        "approvalNonce",
+        "runnerSha256",
+        "workerSha256",
+        "recoveryPlanReceiptSha256",
+        "stageReceiptPath",
+        "stageReceiptSha256",
+        "applyFailureReceiptPath",
+        "applyFailureReceiptSha256",
+        "applyFailureReceiptSchema",
+        "applyFailureReceiptState",
+        "applyFailureReceiptManifest",
+        "applyFailureReceiptManifestSha256",
+        "applicationRestored",
+        "topologyRestored",
+        "deploymentCommitOutcome",
+        "deploymentReceiptAbsent",
+        "rollbackReceiptAbsent",
+        "currentLinkAbsent",
+        "releaseDropInMatched",
+        "retainedMigrationFacts",
+        "allW1aFlagsExplicitFalse",
+        "databaseDownClaimed",
+        "productionFilesystemChanged",
+        "productionDatabaseChanged",
+        "productionDatabaseChangedThisRecoveryRun",
+        "productionDatabaseChangedSinceStage",
+        "productionServiceChanged",
+        "productionServiceChangedThisRecoveryRun",
+        "productionServiceChangedSinceStage",
+        "officialExpertsPackageChanged",
+        "observedAt",
+    )
+)
+INTERRUPTED_APPLY_RECOVERY_APPROVAL_FIELDS = frozenset(
+    (
+        "schema",
+        "action",
+        "targetHost",
+        "runId",
+        "executorSourceCommit",
+        "targetReleaseId",
+        "targetSourceCommit",
+        "approvedAt",
+        "expiresAt",
+        "authorizedBy",
+        "concurrentDdlProhibited",
+        "productionFilesystemWrite",
+        "productionDatabaseWrite",
+        "productionServiceChange",
+        "officialExpertsPackageChange",
+        "expectedStageReceiptSha256",
+        "expectedApplyFailureReceiptSha256",
+        "expectedApplyFailureManifestSha256",
+        "requestDigest",
+        "approvalNonce",
+        "runnerSha256",
+        "workerSha256",
+    )
+)
+INTERRUPTED_APPLY_RECOVERY_PLAN_FIELDS = frozenset(
+    (
+        "schema",
+        "mode",
+        "state",
+        "targetHost",
+        "serviceUnit",
+        "recoveryRunId",
+        "executorSourceCommit",
+        "targetReleaseId",
+        "targetSourceCommit",
+        "stageReceiptSha256",
+        "applyFailureReceiptSha256",
+        "applyFailureManifestSha256",
+        "runnerSha256",
+        "workerSha256",
+        "productionFilesystemWrite",
+        "productionDatabaseWrite",
+        "productionServiceChange",
+        "officialExpertsPackageChange",
+        "generatedAt",
+        "expiresAt",
+    )
+)
 WORKER_RESULT_SCHEMA = "fbsir.u3wDefaultOffReleaseWorkerResult.v2"
 FALSE_FLAGS = (
     "FBSIR_BOARD_ATTRIBUTION_ENABLED",
@@ -547,6 +661,58 @@ def atomic_json(path, value):
     )
 
 
+def atomic_bytes_create_new(path, payload, mode=0o600):
+    """Create one immutable file without replacing a race winner."""
+    path = pathlib.Path(path)
+    ensure_parent_directory(path.parent)
+    descriptor = os.open(
+        path,
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_EXCL
+        | getattr(os, "O_NOFOLLOW", 0),
+        mode,
+    )
+    created_identity = os.fstat(descriptor)
+    try:
+        with os.fdopen(descriptor, "wb", closefd=False) as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if hasattr(os, "fchown"):
+            os.fchown(descriptor, 0, 0)
+        if hasattr(os, "fchmod"):
+            os.fchmod(descriptor, mode)
+        os.fsync(descriptor)
+    except Exception:
+        try:
+            current = path.lstat()
+            if (
+                current.st_dev == created_identity.st_dev
+                and current.st_ino == created_identity.st_ino
+                and current.st_nlink == 1
+            ):
+                path.unlink()
+                if os.name == "posix":
+                    fsync_directory(path.parent)
+        except OSError:
+            pass
+        raise
+    finally:
+        os.close(descriptor)
+    if os.name == "posix":
+        fsync_directory(path.parent)
+
+
+def atomic_json_create_new(path, value):
+    """Create one immutable JSON receipt without replacing a race winner."""
+    atomic_bytes_create_new(
+        path,
+        (canonical_json(value) + "\n").encode("utf-8"),
+        0o600,
+    )
+
+
 def atomic_symlink(target, link):
     link = pathlib.Path(link)
     ensure_parent_directory(link.parent)
@@ -585,6 +751,7 @@ def validated_latest_receipt_target():
             "deployment-receipt.json",
             "rollback-receipt.json",
             "rollback-verification-receipt.json",
+            "interrupted-apply-recovery-receipt.json",
         }
     ):
         raise RuntimeError("latest receipt target escaped its lifecycle")
@@ -1751,8 +1918,8 @@ def service_snapshot(require_active=True):
     return snapshot
 
 
-def stage_plan_anchor(prior_rollback_anchor):
-    if prior_rollback_anchor is None:
+def stage_plan_anchor(prior_anchor):
+    if prior_anchor is None:
         return None
     fields = (
         "releaseId",
@@ -1763,17 +1930,21 @@ def stage_plan_anchor(prior_rollback_anchor):
         "state",
     )
     if (
-        not isinstance(prior_rollback_anchor, dict)
-        or any(field not in prior_rollback_anchor for field in fields)
+        not isinstance(prior_anchor, dict)
+        or any(field not in prior_anchor for field in fields)
     ):
-        raise RuntimeError("prior rollback Plan anchor is invalid")
+        raise RuntimeError("prior lifecycle Plan anchor is invalid")
     return {
-        field: prior_rollback_anchor[field]
+        field: prior_anchor[field]
         for field in fields
     }
 
 
-def stage_live_plan_target(before_service, prior_rollback_anchor):
+def stage_live_plan_target(
+    before_service,
+    prior_rollback_anchor,
+    prior_recovery_anchor=None,
+):
     nginx_manifest, nginx_dump_sha256 = active_nginx_manifest()
     dropins = plan_dropin_manifest(before_service.get("dropInPaths"))
     fragment = before_service["fragmentFileManifest"]
@@ -1784,14 +1955,24 @@ def stage_live_plan_target(before_service, prior_rollback_anchor):
         ],
         key=lambda item: item["path"],
     )
-    plan_anchor = stage_plan_anchor(prior_rollback_anchor)
+    rollback_plan_anchor = stage_plan_anchor(prior_rollback_anchor)
+    recovery_plan_anchor = stage_plan_anchor(prior_recovery_anchor)
+    if (
+        rollback_plan_anchor is not None
+        and recovery_plan_anchor is not None
+    ):
+        raise RuntimeError("Stage predecessor anchors are ambiguous")
+    topology_state = (
+        "EXACT_PRIOR_ROLLBACK_PREDECESSOR"
+        if rollback_plan_anchor is not None
+        else INTERRUPTED_APPLY_RECOVERY_TOPOLOGY_STATE
+        if recovery_plan_anchor is not None
+        else "UNTOUCHED_LEGACY"
+    )
     topology = {
-        "state": (
-            "EXACT_PRIOR_ROLLBACK_PREDECESSOR"
-            if plan_anchor is not None
-            else "UNTOUCHED_LEGACY"
-        ),
-        "priorRollbackAnchor": plan_anchor,
+        "state": topology_state,
+        "priorRollbackAnchor": rollback_plan_anchor,
+        "priorRecoveryAnchor": recovery_plan_anchor,
     }
     current_exists = CURRENT_LINK.exists() or CURRENT_LINK.is_symlink()
     current_resolved = None
@@ -1902,12 +2083,16 @@ def stage_live_plan_target(before_service, prior_rollback_anchor):
         "currentLinkExists": current_exists,
         "currentLinkResolved": current_resolved,
         "currentLifecycleState": (
-            plan_anchor["state"]
-            if plan_anchor is not None
+            rollback_plan_anchor["state"]
+            if rollback_plan_anchor is not None
+            else recovery_plan_anchor["state"]
+            if recovery_plan_anchor is not None
             else "UNTOUCHED_LEGACY"
         ),
         "stageEntryTopology": topology,
-        "productionChanged": plan_anchor is not None,
+        "productionChanged":
+            rollback_plan_anchor is not None
+            or recovery_plan_anchor is not None,
         "productionChangedByPlan": False,
     }
     if set(target) != PLAN_TARGET_FIELDS:
@@ -1957,11 +2142,17 @@ def stage_owned_release_root_delta_verified(
         if item.get("name") != incoming.name
     ]
     if planned_exists:
+        planned_state = planned_target.get(
+            "stageEntryTopology", {}
+        ).get("state")
         return bool(
-            planned_target.get("stageEntryTopology", {}).get("state")
-            == "EXACT_PRIOR_ROLLBACK_PREDECESSOR"
-            and live_target.get("stageEntryTopology", {}).get("state")
-            == "EXACT_PRIOR_ROLLBACK_PREDECESSOR"
+            planned_state in {
+                "EXACT_PRIOR_ROLLBACK_PREDECESSOR",
+                INTERRUPTED_APPLY_RECOVERY_TOPOLOGY_STATE,
+            }
+            and live_target.get(
+                "stageEntryTopology", {}
+            ).get("state") == planned_state
             and retained_entries == planned_entries
         )
     return planned_entries == [] and retained_entries == []
@@ -1985,7 +2176,37 @@ def assert_stage_plan_target_matches(
                 ADMIN_ENGINE_TOKEN_NAME
             ],
         },
+        INTERRUPTED_APPLY_RECOVERY_TOPOLOGY_STATE: {
+            "EXACT_CONFIGURED": [],
+            "ENGINE_CREDENTIAL_PENDING_RESTART": [
+                ADMIN_ENGINE_TOKEN_NAME
+            ],
+        },
     }.get(topology_state)
+    planned_topology = (
+        planned_target.get("stageEntryTopology", {})
+        if isinstance(planned_target, dict) else {}
+    )
+    rollback_anchor = planned_topology.get("priorRollbackAnchor")
+    recovery_anchor = planned_topology.get("priorRecoveryAnchor")
+    topology_anchor_valid = bool(
+        (
+            topology_state == "UNTOUCHED_LEGACY"
+            and rollback_anchor is None
+            and recovery_anchor is None
+        )
+        or (
+            topology_state == "EXACT_PRIOR_ROLLBACK_PREDECESSOR"
+            and isinstance(rollback_anchor, dict)
+            and recovery_anchor is None
+        )
+        or (
+            topology_state
+                == INTERRUPTED_APPLY_RECOVERY_TOPOLOGY_STATE
+            and rollback_anchor is None
+            and isinstance(recovery_anchor, dict)
+        )
+    )
     planned_load_state = (
         planned_target.get("processConfiguredEnvironmentLoadState")
         if isinstance(planned_target, dict) else None
@@ -1999,6 +2220,7 @@ def assert_stage_plan_target_matches(
         or not isinstance(live_target, dict)
         or set(planned_target) != PLAN_TARGET_FIELDS
         or set(live_target) != PLAN_TARGET_FIELDS
+        or not topology_anchor_valid
         or planned_target.get("schema")
             != "fbsir.u3wDefaultOffRemotePlanSnapshot.v1"
         or planned_target.get("targetHost") != TARGET_HOST
@@ -2733,11 +2955,226 @@ def validate_approval(args):
     return approval
 
 
+def validate_interrupted_apply_recovery_approval(
+    args,
+    require_current=True,
+):
+    if args.approval_sha == "0" * 64 or not args.approval_json_base64:
+        raise RuntimeError("interrupted Apply recovery requires approval")
+    try:
+        raw = base64.b64decode(
+            args.approval_json_base64, validate=True
+        )
+        approval = json.loads(raw.decode("utf-8-sig"))
+    except (ValueError, UnicodeError, json.JSONDecodeError) as error:
+        raise RuntimeError(
+            "interrupted Apply recovery approval cannot be decoded"
+        ) from error
+    if set(approval) != INTERRUPTED_APPLY_RECOVERY_APPROVAL_FIELDS:
+        raise RuntimeError(
+            "interrupted Apply recovery approval fields are invalid"
+        )
+    try:
+        approved = dt.datetime.fromisoformat(
+            approval["approvedAt"].replace("Z", "+00:00")
+        )
+        expires = dt.datetime.fromisoformat(
+            approval["expiresAt"].replace("Z", "+00:00")
+        )
+    except (AttributeError, TypeError, ValueError) as error:
+        raise RuntimeError(
+            "interrupted Apply recovery approval time is invalid"
+        ) from error
+    current = dt.datetime.now(dt.timezone.utc)
+    invalid = (
+        sha256_bytes(raw) != args.approval_sha
+        or approval["schema"]
+            != "fbsir.u3wProductionChangeApprovalReceipt.v2"
+        or approval["action"]
+            != "CANONICALIZE_W1A_INTERRUPTED_APPLY_RECOVERY"
+        or approval["targetHost"] != TARGET_HOST
+        or approval["runId"] != args.release_id
+        or approval["executorSourceCommit"] != args.source_commit
+        or approval["targetReleaseId"] != args.target_release_id
+        or approval["targetSourceCommit"]
+            != args.target_source_commit
+        or approval["authorizedBy"] != "workspace-user"
+        or approval["concurrentDdlProhibited"] is not True
+        or approval["productionFilesystemWrite"] is not True
+        or approval["productionDatabaseWrite"] is not False
+        or approval["productionServiceChange"] is not False
+        or approval["officialExpertsPackageChange"] is not False
+        or approval["expectedStageReceiptSha256"]
+            != args.stage_receipt_sha
+        or approval["expectedApplyFailureReceiptSha256"]
+            != args.apply_failure_receipt_sha
+        or approval["expectedApplyFailureManifestSha256"]
+            != args.apply_failure_manifest_sha
+        or approval["requestDigest"]
+            != args.recovery_plan_receipt_sha
+        or approval["runnerSha256"] != args.runner_sha
+        or approval["workerSha256"] != args.worker_sha
+        or not re.fullmatch(
+            r"[0-9a-f]{32}", str(approval["approvalNonce"])
+        )
+        or approved.tzinfo is None
+        or expires.tzinfo is None
+        or approved > current
+        or expires <= approved
+        or (require_current and expires <= current)
+        or expires - approved > dt.timedelta(hours=24)
+    )
+    if invalid:
+        raise RuntimeError(
+            "interrupted Apply recovery approval is invalid"
+        )
+    return approval
+
+
+def validate_interrupted_apply_recovery_plan(
+    args,
+    require_current=True,
+):
+    if not getattr(args, "recovery_plan_json_base64", ""):
+        raise RuntimeError("interrupted Apply recovery Plan is absent")
+    try:
+        raw = base64.b64decode(
+            args.recovery_plan_json_base64, validate=True
+        )
+        plan = json.loads(raw.decode("utf-8-sig"))
+    except (ValueError, UnicodeError, json.JSONDecodeError) as error:
+        raise RuntimeError(
+            "interrupted Apply recovery Plan cannot be decoded"
+        ) from error
+    try:
+        generated = dt.datetime.fromisoformat(
+            plan["generatedAt"].replace("Z", "+00:00")
+        )
+        expires = dt.datetime.fromisoformat(
+            plan["expiresAt"].replace("Z", "+00:00")
+        )
+    except (KeyError, AttributeError, TypeError, ValueError) as error:
+        raise RuntimeError(
+            "interrupted Apply recovery Plan time is invalid"
+        ) from error
+    current = dt.datetime.now(dt.timezone.utc)
+    invalid = (
+        set(plan) != INTERRUPTED_APPLY_RECOVERY_PLAN_FIELDS
+        or sha256_bytes(raw) != args.recovery_plan_receipt_sha
+        or plan.get("schema")
+            != INTERRUPTED_APPLY_RECOVERY_PLAN_SCHEMA
+        or plan.get("mode") != "RecoveryPlan"
+        or plan.get("state")
+            != INTERRUPTED_APPLY_RECOVERY_PLAN_STATE
+        or plan.get("targetHost") != TARGET_HOST
+        or plan.get("serviceUnit") != SERVICE_UNIT
+        or plan.get("recoveryRunId") != args.release_id
+        or plan.get("executorSourceCommit") != args.source_commit
+        or plan.get("targetReleaseId") != args.target_release_id
+        or plan.get("targetSourceCommit")
+            != args.target_source_commit
+        or plan.get("stageReceiptSha256")
+            != args.stage_receipt_sha
+        or plan.get("applyFailureReceiptSha256")
+            != args.apply_failure_receipt_sha
+        or plan.get("applyFailureManifestSha256")
+            != args.apply_failure_manifest_sha
+        or plan.get("runnerSha256") != args.runner_sha
+        or plan.get("workerSha256") != args.worker_sha
+        or plan.get("productionFilesystemWrite") is not True
+        or plan.get("productionDatabaseWrite") is not False
+        or plan.get("productionServiceChange") is not False
+        or plan.get("officialExpertsPackageChange") is not False
+        or generated.tzinfo is None
+        or expires.tzinfo is None
+        or generated > current
+        or expires <= generated
+        or (require_current and expires <= current)
+        or expires - generated > dt.timedelta(hours=24)
+    )
+    if invalid:
+        raise RuntimeError(
+            "interrupted Apply recovery Plan is invalid"
+        )
+    return plan, raw
+
+
+def interrupted_recovery_authorized_commit_time(approval, plan):
+    try:
+        approved = dt.datetime.fromisoformat(
+            approval["approvedAt"].replace("Z", "+00:00")
+        )
+        approval_expires = dt.datetime.fromisoformat(
+            approval["expiresAt"].replace("Z", "+00:00")
+        )
+        generated = dt.datetime.fromisoformat(
+            plan["generatedAt"].replace("Z", "+00:00")
+        )
+        plan_expires = dt.datetime.fromisoformat(
+            plan["expiresAt"].replace("Z", "+00:00")
+        )
+    except (KeyError, AttributeError, ValueError) as error:
+        raise RuntimeError(
+            "interrupted recovery authorization time is invalid"
+        ) from error
+    current = dt.datetime.now(dt.timezone.utc)
+    if (
+        generated > approved
+        or current < approved
+        or current < generated
+        or current >= approval_expires
+        or current >= plan_expires
+        or min(approval_expires, plan_expires) - current
+            <= dt.timedelta(minutes=1)
+    ):
+        raise RuntimeError(
+            "interrupted recovery authorization expired before commit"
+        )
+    return (
+        current.isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )
+
+
 def validate_arguments(args):
     if not RUN_PATTERN.fullmatch(args.release_id):
         raise RuntimeError("release id is invalid")
     if not COMMIT_PATTERN.fullmatch(args.source_commit):
         raise RuntimeError("source commit is invalid")
+    if args.mode == "InspectInterruptedApplyRecovery":
+        interrupted_apply_target_release(args)
+        for name in (
+            "runner_sha",
+            "worker_sha",
+            "stage_receipt_sha",
+            "apply_failure_receipt_sha",
+        ):
+            validate_sha(getattr(args, name), name)
+        validate_sha(
+            args.apply_failure_manifest_sha,
+            "apply_failure_manifest_sha",
+            allow_zero=True,
+        )
+        return
+    if args.mode == "CanonicalizeInterruptedApplyRecovery":
+        interrupted_apply_target_release(args)
+        for name in (
+            "approval_sha",
+            "runner_sha",
+            "worker_sha",
+            "stage_receipt_sha",
+            "apply_failure_receipt_sha",
+            "apply_failure_manifest_sha",
+            "recovery_plan_receipt_sha",
+        ):
+            validate_sha(getattr(args, name), name)
+        validate_interrupted_apply_recovery_approval(
+            args, require_current=False
+        )
+        validate_interrupted_apply_recovery_plan(
+            args, require_current=False
+        )
+        return
     for name in (
         "approval_sha",
         "runner_sha",
@@ -3589,7 +4026,18 @@ def finalize_stage(args):
         ):
             raise RuntimeError("release was staged with a different identity")
         result = staged_worker_result(args, receipt, False)
-        latest_changed = advance_latest_receipt(receipt)
+        assembly = predecessor_facts(final)
+        allowed_latest_predecessors = [
+            anchor["receiptPath"]
+            for anchor in (
+                assembly.get("priorRollbackAnchor"),
+                assembly.get("priorRecoveryAnchor"),
+            )
+            if isinstance(anchor, dict)
+        ]
+        latest_changed = advance_latest_receipt(
+            receipt, allowed_latest_predecessors
+        )
         if latest_changed:
             result["productionFilesystemChanged"] = True
         return result
@@ -3676,16 +4124,30 @@ def finalize_stage(args):
     )
     before_service = service_snapshot()
     prior_rollback_anchor = None
+    prior_recovery_anchor = None
     if DROPIN_PATH.exists() or DROPIN_PATH.is_symlink():
-        prior_rollback_anchor = validate_prior_rollback_stage_entry(
-            before_service
-        )
+        latest_stage_entry = validated_latest_receipt_target()
+        if (
+            latest_stage_entry is not None
+            and latest_stage_entry.name
+                == "interrupted-apply-recovery-receipt.json"
+        ):
+            prior_recovery_anchor = (
+                validate_prior_interrupted_recovery_stage_entry(
+                    before_service
+                )
+            )
+        else:
+            prior_rollback_anchor = validate_prior_rollback_stage_entry(
+                before_service
+            )
     if (
         CURRENT_LINK.exists()
         or CURRENT_LINK.is_symlink()
         or (
             (DROPIN_PATH.exists() or DROPIN_PATH.is_symlink())
             and prior_rollback_anchor is None
+            and prior_recovery_anchor is None
         )
         or before_service.get("processForbiddenOverrideNames") != []
         or before_service.get("processDatabaseBindingMatched") is not True
@@ -3708,11 +4170,13 @@ def finalize_stage(args):
         or environment_flags_explicit_false() is not True
     ):
         raise RuntimeError(
-            "Stage requires an untouched or exactly anchored rollback "
-            "predecessor topology"
+            "Stage requires an untouched, rollback or interrupted "
+            "recovery predecessor topology"
         )
     live_plan_target = stage_live_plan_target(
-        before_service, prior_rollback_anchor
+        before_service,
+        prior_rollback_anchor,
+        prior_recovery_anchor,
     )
     plan_target_binding = assert_stage_plan_target_matches(
         args, plan["target"], live_plan_target
@@ -3771,9 +4235,12 @@ def finalize_stage(args):
         "preStageApplicationState": (
             "EXACT_PRIOR_ROLLBACK_PREDECESSOR"
             if prior_rollback_anchor is not None
+            else INTERRUPTED_APPLY_RECOVERY_TOPOLOGY_STATE
+            if prior_recovery_anchor is not None
             else "UNTOUCHED_LEGACY"
         ),
         "priorRollbackAnchor": prior_rollback_anchor,
+        "priorRecoveryAnchor": prior_recovery_anchor,
         **plan_target_binding,
         "previousNginxPath": str(NGINX_PATH),
         "previousNginxSha256": sha256_file(NGINX_PATH),
@@ -3924,19 +4391,86 @@ def finalize_stage(args):
         "generatedAt": utc_now(),
     }
     receipt_path = incoming / "deployment-readiness-receipt.json"
-    atomic_json(receipt_path, receipt)
-    make_frontend_public(incoming)
-    os.replace(incoming, final)
-    fsync_directory(RELEASE_ROOT)
-    allowed_latest_predecessors = (
-        [prior_rollback_anchor["receiptPath"]]
-        if prior_rollback_anchor is not None
-        else []
-    )
-    advance_latest_receipt(
-        final / "deployment-readiness-receipt.json",
-        allowed_latest_predecessors,
-    )
+    commit_migration_lease = None
+    recovery_baseline = None
+    recovery_facts_before_commit = None
+    recovery_release = None
+    try:
+        if prior_recovery_anchor is not None:
+            refreshed_anchor = (
+                validate_prior_interrupted_recovery_stage_entry(
+                    service_snapshot()
+                )
+            )
+            if refreshed_anchor != prior_recovery_anchor:
+                raise RuntimeError(
+                    "interrupted recovery Stage anchor changed "
+                    "before commit"
+                )
+            recovery_release = pathlib.Path(
+                prior_recovery_anchor["receiptPath"]
+            ).parent
+            recovery_document = read_json(
+                pathlib.Path(
+                    prior_recovery_anchor["receiptPath"]
+                )
+            )
+            recovery_baseline = recovery_document.get(
+                "retainedMigrationFacts"
+            )
+            commit_migration_lease = (
+                interrupted_apply_recovery_lease()
+            )
+            recovery_facts_before_commit = exact_migration_facts(
+                commit_migration_lease.mysql
+            )
+            if not recorded_migration_counts_are_monotonic(
+                recovery_facts_before_commit,
+                recovery_baseline,
+                DEPLOYMENT_RECEIPT_SCHEMA,
+            ):
+                raise RuntimeError(
+                    "interrupted recovery 043 drifted before "
+                    "Stage commit"
+                )
+        atomic_json(receipt_path, receipt)
+        make_frontend_public(incoming)
+        os.replace(incoming, final)
+        fsync_directory(RELEASE_ROOT)
+        if prior_recovery_anchor is not None:
+            assert_predecessor_active(recovery_release)
+            recovery_facts_at_commit = exact_migration_facts(
+                commit_migration_lease.mysql
+            )
+            if (
+                not recorded_migration_counts_are_monotonic(
+                    recovery_facts_at_commit,
+                    recovery_baseline,
+                    DEPLOYMENT_RECEIPT_SCHEMA,
+                )
+                or not recorded_migration_counts_are_monotonic(
+                    recovery_facts_at_commit,
+                    recovery_facts_before_commit,
+                    DEPLOYMENT_RECEIPT_SCHEMA,
+                )
+            ):
+                raise RuntimeError(
+                    "interrupted recovery 043 drifted at Stage CAS"
+                )
+        allowed_latest_predecessors = (
+            [prior_rollback_anchor["receiptPath"]]
+            if prior_rollback_anchor is not None
+            else [prior_recovery_anchor["receiptPath"]]
+            if prior_recovery_anchor is not None
+            else []
+        )
+        advance_latest_receipt(
+            final / "deployment-readiness-receipt.json",
+            allowed_latest_predecessors,
+        )
+    finally:
+        if commit_migration_lease is not None:
+            commit_migration_lease.close()
     return staged_worker_result(
         args, final / "deployment-readiness-receipt.json", True
     )
@@ -5904,11 +6438,15 @@ def validate_release_evidence(
         or assembly.get("preStageApplicationState") not in {
             "UNTOUCHED_LEGACY",
             "EXACT_PRIOR_ROLLBACK_PREDECESSOR",
+            INTERRUPTED_APPLY_RECOVERY_TOPOLOGY_STATE,
         }
         or (
             assembly.get("preStageApplicationState")
                 == "UNTOUCHED_LEGACY"
-            and assembly.get("priorRollbackAnchor") is not None
+            and (
+                assembly.get("priorRollbackAnchor") is not None
+                or assembly.get("priorRecoveryAnchor") is not None
+            )
         )
         or (
             assembly.get("preStageApplicationState")
@@ -5924,6 +6462,27 @@ def validate_release_evidence(
                         "ROLLED_BACK_APPLICATION_DATABASE_043_"
                         "RETAINED_DORMANT"
                     )
+                or assembly.get("priorRecoveryAnchor") is not None
+            )
+        )
+        or (
+            assembly.get("preStageApplicationState")
+                == INTERRUPTED_APPLY_RECOVERY_TOPOLOGY_STATE
+            and (
+                assembly.get("priorRollbackAnchor") is not None
+                or not isinstance(
+                    assembly.get("priorRecoveryAnchor"), dict
+                )
+                or assembly["priorRecoveryAnchor"].get("schema")
+                    != (
+                        "fbsir.u3wPriorInterruptedApplyRecovery"
+                        "StageAnchor.v1"
+                    )
+                or assembly["priorRecoveryAnchor"].get(
+                    "receiptSchema"
+                ) != INTERRUPTED_APPLY_RECOVERY_RECEIPT_SCHEMA
+                or assembly["priorRecoveryAnchor"].get("state")
+                    != INTERRUPTED_APPLY_RECOVERY_STATE
             )
         )
     ):
@@ -6201,6 +6760,146 @@ def read_exact_migration_facts():
     return facts
 
 
+def interrupted_apply_target_release(args):
+    target_release_id = getattr(args, "target_release_id", "")
+    target_source_commit = getattr(args, "target_source_commit", "")
+    if (
+        not RUN_PATTERN.fullmatch(target_release_id)
+        or not COMMIT_PATTERN.fullmatch(target_source_commit)
+        or target_release_id == args.release_id
+        or target_source_commit == args.source_commit
+    ):
+        raise RuntimeError("interrupted Apply target identity is invalid")
+    release = RELEASE_ROOT / target_release_id
+    try:
+        status = release.lstat()
+        root = RELEASE_ROOT.resolve(strict=True)
+        resolved = release.resolve(strict=True)
+    except OSError as error:
+        raise RuntimeError(
+            "interrupted Apply target release is absent"
+        ) from error
+    if (
+        not stat.S_ISDIR(status.st_mode)
+        or stat.S_ISLNK(status.st_mode)
+        or status.st_uid != 0
+        or status.st_gid != 0
+        or status.st_nlink < 2
+        or status.st_mode & 0o022
+        or resolved.parent != root
+    ):
+        raise RuntimeError(
+            "interrupted Apply target release custody is invalid"
+        )
+    return release
+
+
+def interrupted_apply_failure_manifest(args, release):
+    expected_digest = getattr(
+        args, "apply_failure_receipt_sha", ""
+    )
+    if not SHA_PATTERN.fullmatch(expected_digest):
+        raise RuntimeError("interrupted Apply failure anchor is invalid")
+    manifest = []
+    terminal_path = None
+    terminal = None
+    for path in sorted(release.glob("apply-failure-*.json")):
+        if not APPLY_FAILURE_NAME_PATTERN.fullmatch(path.name):
+            raise RuntimeError("interrupted Apply failure name is invalid")
+        validate_regular_file(path, release, modes=(0o600,))
+        digest = sha256_file(path)
+        receipt = read_json(path)
+        if (
+            receipt.get("schema")
+            not in {
+                LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA,
+                APPLY_FAILURE_RECEIPT_SCHEMA,
+            }
+            or receipt.get("state") not in APPLY_FAILURE_STATES
+            or receipt.get("releaseId") != release.name
+            or receipt.get("sourceCommit")
+                != args.target_source_commit
+            or receipt.get("officialExpertsPackageChanged") is not False
+            or not SHA_PATTERN.fullmatch(
+                str(
+                    receipt.get(
+                        "applyApprovalReceiptSha256"
+                    ) or ""
+                )
+            )
+        ):
+            raise RuntimeError(
+                "interrupted Apply failure manifest is invalid"
+            )
+        manifest.append({
+            "name": path.name,
+            "sha256": digest,
+            "schema": receipt["schema"],
+            "state": receipt["state"],
+        })
+        if hmac.compare_digest(digest, expected_digest):
+            if terminal_path is not None:
+                raise RuntimeError(
+                    "interrupted Apply terminal failure is ambiguous"
+                )
+            terminal_path = path
+            terminal = receipt
+    if terminal_path is None or terminal is None:
+        raise RuntimeError(
+            "interrupted Apply terminal failure is absent"
+        )
+    facts = terminal.get("migrationFacts")
+    if (
+        terminal.get("schema")
+            != LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA
+        or terminal.get("state")
+            != (
+                "APPLICATION_RESTORED_DATABASE_043_"
+                "RETAINED_OR_FAIL_CLOSED"
+            )
+        or terminal.get("applicationStarted") is not True
+        or terminal.get("applicationAlreadyCommitted") is not False
+        or terminal.get("applicationRestored") is not True
+        or terminal.get("topologyRestored") is not True
+        or terminal.get("deploymentCommitOutcome") != "NOT_COMMITTED"
+        or terminal.get("deploymentReceiptPath") is not None
+        or terminal.get("deploymentReceiptSha256") is not None
+        or terminal.get("databaseRollbackStrategy")
+            != "RETAIN_ADDITIVE_043_DORMANT_NO_DOWN"
+        or terminal.get("databaseDownClaimed") is not False
+        or not legacy_migration_structure_matches(facts)
+        or facts.get("eventCount") != 0
+        or facts.get("journeyCount") != 0
+    ):
+        raise RuntimeError(
+            "interrupted Apply terminal failure is not recoverable"
+        )
+    return terminal_path, terminal, manifest
+
+
+def validate_interrupted_apply_stage(args, release):
+    stage_path = release / "deployment-readiness-receipt.json"
+    validate_regular_file(stage_path, release, modes=(0o600,))
+    if sha256_file(stage_path) != args.stage_receipt_sha:
+        raise RuntimeError("interrupted Apply Stage anchor drifted")
+    stage = read_json(stage_path)
+    if (
+        stage.get("schema") != LEGACY_DEPLOYMENT_RECEIPT_SCHEMA
+        or stage.get("state") != "STAGED_FOR_SWITCH"
+        or stage.get("releaseId") != args.target_release_id
+        or stage.get("sourceCommit") != args.target_source_commit
+        or not SHA_PATTERN.fullmatch(
+            str(stage.get("stageApprovalReceiptSha256") or "")
+        )
+        or stage.get("databaseDownClaimed") is not False
+        or stage.get("productionDatabaseChanged") is not False
+        or stage.get("productionServiceChanged") is not False
+        or stage.get("officialExpertsPackageChanged") is not False
+    ):
+        raise RuntimeError("interrupted Apply Stage identity is invalid")
+    return stage_path, stage
+
+
 def assert_predecessor_owned_topology(release):
     previous = predecessor_facts(release)
     after = service_snapshot(require_active=False)
@@ -6227,6 +6926,518 @@ def assert_predecessor_active(release):
     assert_restored_predecessor_runtime_contract(release, after)
     wait_for_u3w_health()
     return after
+
+
+def interrupted_apply_recovery_lease():
+    """Hold the 043 named lock until the recovery receipt CAS commits."""
+    _, connection = parse_environment()
+    mysql = Mysql(connection)
+    lock_acquired = False
+    try:
+        if int(mysql.scalar(
+            "SELECT GET_LOCK('u3w:w1a:public_init_043',0)"
+        )) != 1:
+            raise RuntimeError(
+                "interrupted recovery migration lock is unavailable"
+            )
+        lock_acquired = True
+        facts = exact_migration_facts(mysql)
+        if not migration_structure_matches(facts):
+            raise RuntimeError(
+                "interrupted recovery retained 043 is not dormant"
+            )
+        return MigrationLease(mysql, connection, facts)
+    except Exception:
+        if lock_acquired:
+            try:
+                mysql.scalar(
+                    "SELECT RELEASE_LOCK('u3w:w1a:public_init_043')"
+                )
+            except Exception:
+                pass
+        mysql.close()
+        raise
+
+
+def interrupted_recovery_runtime_matches(
+    service,
+    facts,
+    terminal_facts,
+):
+    return bool(
+        migration_structure_matches(facts)
+        and recorded_migration_counts_are_monotonic(
+            facts,
+            terminal_facts,
+            LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+        )
+        and service.get("activeState") == "active"
+        and service.get("processForbiddenOverrideNames") == []
+        and all(
+            service.get("configuredFlagValues", {}).get(name)
+                == "false"
+            and service.get("processFlagValues", {}).get(name)
+                == "false"
+            for name in FALSE_FLAGS
+        )
+        and environment_flags_explicit_false() is True
+    )
+
+
+def interrupted_recovery_observed_at_valid(receipt, terminal):
+    try:
+        observed = dt.datetime.fromisoformat(
+            str(receipt.get("observedAt") or "").replace(
+                "Z", "+00:00"
+            )
+        )
+        failed = dt.datetime.fromisoformat(
+            str(terminal.get("observedAt") or "").replace(
+                "Z", "+00:00"
+            )
+        )
+    except ValueError:
+        return False
+    return bool(
+        observed.tzinfo is not None
+        and failed.tzinfo is not None
+        and observed > failed
+    )
+
+
+def interrupted_recovery_receipt(
+    args,
+    approval,
+    release,
+    stage_path,
+    terminal_path,
+    terminal,
+    failure_manifest,
+    failure_manifest_sha256,
+    facts,
+    observed_at,
+):
+    return {
+        "schema": INTERRUPTED_APPLY_RECOVERY_RECEIPT_SCHEMA,
+        "state": INTERRUPTED_APPLY_RECOVERY_STATE,
+        "releaseId": release.name,
+        "sourceCommit": args.target_source_commit,
+        "recoveryRunId": args.release_id,
+        "executorSourceCommit": args.source_commit,
+        "approvalReceiptSha256": args.approval_sha,
+        "approvalNonce": approval["approvalNonce"],
+        "runnerSha256": args.runner_sha,
+        "workerSha256": args.worker_sha,
+        "recoveryPlanReceiptSha256":
+            args.recovery_plan_receipt_sha,
+        "stageReceiptPath": str(stage_path),
+        "stageReceiptSha256": args.stage_receipt_sha,
+        "applyFailureReceiptPath": str(terminal_path),
+        "applyFailureReceiptSha256":
+            args.apply_failure_receipt_sha,
+        "applyFailureReceiptSchema": terminal["schema"],
+        "applyFailureReceiptState": terminal["state"],
+        "applyFailureReceiptManifest": failure_manifest,
+        "applyFailureReceiptManifestSha256":
+            failure_manifest_sha256,
+        "applicationRestored": True,
+        "topologyRestored": True,
+        "deploymentCommitOutcome": "NOT_COMMITTED",
+        "deploymentReceiptAbsent": True,
+        "rollbackReceiptAbsent": True,
+        "currentLinkAbsent": True,
+        "releaseDropInMatched": True,
+        "retainedMigrationFacts": facts,
+        "allW1aFlagsExplicitFalse": True,
+        "databaseDownClaimed": False,
+        "productionFilesystemChanged": True,
+        "productionDatabaseChanged": True,
+        "productionDatabaseChangedThisRecoveryRun": False,
+        "productionDatabaseChangedSinceStage": True,
+        "productionServiceChanged": True,
+        "productionServiceChangedThisRecoveryRun": False,
+        "productionServiceChangedSinceStage": True,
+        "officialExpertsPackageChanged": False,
+        "observedAt": observed_at,
+    }
+
+
+def existing_interrupted_recovery_matches(
+    existing,
+    expected,
+    current_facts,
+    terminal,
+):
+    recorded = existing.get("retainedMigrationFacts")
+    replay_expected = dict(expected)
+    replay_expected["retainedMigrationFacts"] = recorded
+    replay_expected["observedAt"] = existing.get("observedAt")
+    return bool(
+        set(expected) == INTERRUPTED_APPLY_RECOVERY_RECEIPT_FIELDS
+        and set(existing) == INTERRUPTED_APPLY_RECOVERY_RECEIPT_FIELDS
+        and existing == replay_expected
+        and migration_structure_matches(recorded)
+        and recorded_migration_counts_are_monotonic(
+            current_facts,
+            recorded,
+            DEPLOYMENT_RECEIPT_SCHEMA,
+        )
+        and interrupted_recovery_observed_at_valid(
+            existing, terminal
+        )
+    )
+
+
+def create_or_validate_interrupted_recovery_anchor(
+    path,
+    raw,
+    expected_sha256,
+    allow_create=True,
+):
+    path = pathlib.Path(path)
+    if path.exists() or path.is_symlink():
+        validate_regular_file(path, path.parent, modes=(0o600,))
+        if (
+            sha256_file(path) != expected_sha256
+            or path.read_bytes() != raw
+        ):
+            raise RuntimeError(
+                "interrupted recovery immutable anchor drifted"
+            )
+        return False
+    if not allow_create:
+        raise RuntimeError(
+            "interrupted recovery immutable anchor is absent"
+        )
+    atomic_bytes_create_new(path, raw, 0o600)
+    return True
+
+
+def inspect_interrupted_apply_recovery(args):
+    release = interrupted_apply_target_release(args)
+    stage_path, _ = validate_interrupted_apply_stage(args, release)
+    recovery_path = (
+        release / "interrupted-apply-recovery-receipt.json"
+    )
+    if any(
+        path.exists() or path.is_symlink()
+        for path in (
+            release / "deployment-receipt.json",
+            release / "rollback-receipt.json",
+            release / "rollback-verification-receipt.json",
+            recovery_path,
+        )
+    ):
+        raise RuntimeError(
+            "interrupted Apply inspection requires Stage-only lifecycle"
+        )
+    terminal_path, terminal, failure_manifest = (
+        interrupted_apply_failure_manifest(args, release)
+    )
+    failure_manifest_sha256 = sha256_bytes(
+        canonical_json(failure_manifest).encode("utf-8")
+    )
+    if (
+        args.apply_failure_manifest_sha != "0" * 64
+        and args.apply_failure_manifest_sha
+            != failure_manifest_sha256
+    ):
+        raise RuntimeError(
+            "interrupted Apply inspection manifest drifted"
+        )
+    if validated_latest_receipt_target() != stage_path.resolve():
+        raise RuntimeError(
+            "interrupted Apply inspection latest Stage drifted"
+        )
+    migration_lease = interrupted_apply_recovery_lease()
+    try:
+        service_before = assert_predecessor_active(release)
+        facts = exact_migration_facts(migration_lease.mysql)
+        service_after = assert_predecessor_active(release)
+        final_facts = exact_migration_facts(migration_lease.mysql)
+        if (
+            not interrupted_recovery_runtime_matches(
+                service_before,
+                facts,
+                terminal["migrationFacts"],
+            )
+            or not interrupted_recovery_runtime_matches(
+                service_after,
+                final_facts,
+                terminal["migrationFacts"],
+            )
+            or not recorded_migration_counts_are_monotonic(
+                final_facts,
+                facts,
+                DEPLOYMENT_RECEIPT_SCHEMA,
+            )
+        ):
+            raise RuntimeError(
+                "interrupted Apply inspection current-read drifted"
+            )
+        _, _, final_manifest = interrupted_apply_failure_manifest(
+            args, release
+        )
+        if final_manifest != failure_manifest:
+            raise RuntimeError(
+                "interrupted Apply inspection manifest changed"
+            )
+        return {
+            "schema": WORKER_RESULT_SCHEMA,
+            "mode": "InspectInterruptedApplyRecovery",
+            "state": "INTERRUPTED_APPLY_RECOVERY_PLAN_READY",
+            "releaseId": args.release_id,
+            "sourceCommit": args.source_commit,
+            "targetReleaseId": release.name,
+            "targetSourceCommit": args.target_source_commit,
+            "stageReceiptPath": str(stage_path),
+            "stageReceiptSha256": args.stage_receipt_sha,
+            "applyFailureReceiptPath": str(terminal_path),
+            "applyFailureReceiptSha256":
+                args.apply_failure_receipt_sha,
+            "applyFailureManifest": failure_manifest,
+            "applyFailureManifestSha256":
+                failure_manifest_sha256,
+            "retainedMigrationFacts": final_facts,
+            "serviceJarSha256": service_after["jarSha256"],
+            "serviceInvocationId":
+                service_after.get("invocationId"),
+            "allW1aFlagsExplicitFalse": True,
+            "productionFilesystemChanged": False,
+            "productionDatabaseChanged": False,
+            "productionServiceChanged": False,
+            "officialExpertsPackageChanged": False,
+        }
+    finally:
+        migration_lease.close()
+
+
+def canonicalize_interrupted_apply_recovery(args):
+    approval = validate_interrupted_apply_recovery_approval(
+        args, require_current=False
+    )
+    recovery_plan, recovery_plan_raw = (
+        validate_interrupted_apply_recovery_plan(
+            args, require_current=False
+        )
+    )
+    approval_raw = base64.b64decode(
+        args.approval_json_base64, validate=True
+    )
+    release = interrupted_apply_target_release(args)
+    stage_path, _ = validate_interrupted_apply_stage(args, release)
+    recovery_path = (
+        release / "interrupted-apply-recovery-receipt.json"
+    )
+    approval_path = (
+        release / INTERRUPTED_APPLY_RECOVERY_APPROVAL_NAME
+    )
+    recovery_plan_path = (
+        release / INTERRUPTED_APPLY_RECOVERY_PLAN_NAME
+    )
+    committed_paths = (
+        release / "deployment-receipt.json",
+        release / "rollback-receipt.json",
+        release / "rollback-verification-receipt.json",
+    )
+    if any(path.exists() or path.is_symlink() for path in committed_paths):
+        raise RuntimeError(
+            "interrupted Apply recovery cannot follow a committed lifecycle"
+        )
+    terminal_path, terminal, failure_manifest = (
+        interrupted_apply_failure_manifest(args, release)
+    )
+    failure_manifest_sha256 = sha256_bytes(
+        canonical_json(failure_manifest).encode("utf-8")
+    )
+    if failure_manifest_sha256 != args.apply_failure_manifest_sha:
+        raise RuntimeError(
+            "interrupted Apply failure manifest anchor drifted"
+        )
+    migration_lease = interrupted_apply_recovery_lease()
+    try:
+        service_before = assert_predecessor_active(release)
+        facts_before = exact_migration_facts(migration_lease.mysql)
+        if not interrupted_recovery_runtime_matches(
+            service_before,
+            facts_before,
+            terminal["migrationFacts"],
+        ):
+            raise RuntimeError(
+                "interrupted Apply recovered predecessor drifted"
+            )
+        current_latest = validated_latest_receipt_target()
+        receipt_exists = (
+            recovery_path.exists() or recovery_path.is_symlink()
+        )
+        preflight_receipt = interrupted_recovery_receipt(
+            args,
+            approval,
+            release,
+            stage_path,
+            terminal_path,
+            terminal,
+            failure_manifest,
+            failure_manifest_sha256,
+            facts_before,
+            utc_now(),
+        )
+        existing = None
+        if receipt_exists:
+            validate_regular_file(
+                recovery_path, release, modes=(0o600,)
+            )
+            existing = read_json(recovery_path)
+            if (
+                current_latest
+                    not in {
+                        None,
+                        stage_path.resolve(),
+                        recovery_path.resolve(),
+                    }
+                or not existing_interrupted_recovery_matches(
+                    existing,
+                    preflight_receipt,
+                    facts_before,
+                    terminal,
+                )
+            ):
+                raise RuntimeError(
+                    "interrupted Apply recovery receipt drifted"
+                )
+            validate_interrupted_recovery_historic_anchors(
+                release, existing
+            )
+        elif current_latest != stage_path.resolve():
+            raise RuntimeError(
+                "interrupted Apply latest Stage CAS predecessor drifted"
+            )
+        else:
+            approval = validate_interrupted_apply_recovery_approval(
+                args, require_current=True
+            )
+            recovery_plan, recovery_plan_raw = (
+                validate_interrupted_apply_recovery_plan(
+                    args, require_current=True
+                )
+            )
+
+        service_after = assert_predecessor_active(release)
+        facts_after = exact_migration_facts(migration_lease.mysql)
+        if (
+            not interrupted_recovery_runtime_matches(
+                service_after,
+                facts_after,
+                terminal["migrationFacts"],
+            )
+            or not recorded_migration_counts_are_monotonic(
+                facts_after,
+                facts_before,
+                DEPLOYMENT_RECEIPT_SCHEMA,
+            )
+        ):
+            raise RuntimeError(
+                "interrupted Apply recovery commit current-read drifted"
+            )
+        _, _, final_failure_manifest = (
+            interrupted_apply_failure_manifest(args, release)
+        )
+        if (
+            final_failure_manifest != failure_manifest
+            or sha256_bytes(
+                canonical_json(final_failure_manifest).encode("utf-8")
+            )
+            != args.apply_failure_manifest_sha
+            or any(
+                path.exists() or path.is_symlink()
+                for path in committed_paths
+            )
+        ):
+            raise RuntimeError(
+                "interrupted Apply recovery anchors changed before CAS"
+            )
+        validate_interrupted_apply_stage(args, release)
+        if existing is None:
+            commit_observed_at = (
+                interrupted_recovery_authorized_commit_time(
+                    approval, recovery_plan
+                )
+            )
+        else:
+            validate_interrupted_recovery_historic_anchors(
+                release, existing
+            )
+            commit_observed_at = existing["observedAt"]
+        receipt = interrupted_recovery_receipt(
+            args,
+            approval,
+            release,
+            stage_path,
+            terminal_path,
+            terminal,
+            failure_manifest,
+            failure_manifest_sha256,
+            facts_after,
+            commit_observed_at,
+        )
+        if existing is not None and not (
+            existing_interrupted_recovery_matches(
+                existing,
+                receipt,
+                facts_after,
+                terminal,
+            )
+        ):
+            raise RuntimeError(
+                "interrupted Apply recovery receipt changed at commit"
+            )
+        anchors_created = any((
+            create_or_validate_interrupted_recovery_anchor(
+                approval_path,
+                approval_raw,
+                args.approval_sha,
+                allow_create=existing is None,
+            ),
+            create_or_validate_interrupted_recovery_anchor(
+                recovery_plan_path,
+                recovery_plan_raw,
+                args.recovery_plan_receipt_sha,
+                allow_create=existing is None,
+            ),
+        ))
+        receipt_created = False
+        if existing is None:
+            atomic_json_create_new(recovery_path, receipt)
+            receipt_created = True
+        path = recovery_path
+        changed = advance_latest_receipt(path, [stage_path])
+        return {
+            "schema": WORKER_RESULT_SCHEMA,
+            "mode": "CanonicalizeInterruptedApplyRecovery",
+            "state": INTERRUPTED_APPLY_RECOVERY_STATE,
+            "recoveryDisposition": (
+                "CANONICALIZED"
+                if receipt_created
+                else (
+                    "RECEIPT_LINK_REPAIRED"
+                    if changed
+                    else "ALREADY_EXACT"
+                )
+            ),
+            "releaseId": args.release_id,
+            "sourceCommit": args.source_commit,
+            "targetReleaseId": release.name,
+            "targetSourceCommit": args.target_source_commit,
+            "receiptPath": str(recovery_path),
+            "receiptSha256": sha256_file(recovery_path),
+            "productionFilesystemChanged":
+                anchors_created or receipt_created or changed,
+            "productionDatabaseChanged": False,
+            "productionServiceChanged": False,
+            "officialExpertsPackageChanged": False,
+        }
+    finally:
+        migration_lease.close()
 
 
 def validate_rollback_receipt_base(original, release):
@@ -6441,6 +7652,341 @@ def validate_prior_rollback_stage_entry(current):
         "receiptSha256": chain["receiptSha256"],
         "receiptSchema": chain["receiptSchema"],
         "state": chain["state"],
+    }
+
+
+def validate_interrupted_recovery_historic_anchors(
+    release,
+    recovery,
+):
+    approval_path = (
+        release / INTERRUPTED_APPLY_RECOVERY_APPROVAL_NAME
+    )
+    plan_path = release / INTERRUPTED_APPLY_RECOVERY_PLAN_NAME
+    validate_regular_file(approval_path, release, modes=(0o600,))
+    validate_regular_file(plan_path, release, modes=(0o600,))
+    if (
+        sha256_file(approval_path)
+            != recovery.get("approvalReceiptSha256")
+        or sha256_file(plan_path)
+            != recovery.get("recoveryPlanReceiptSha256")
+    ):
+        raise RuntimeError(
+            "prior interrupted recovery approval or Plan drifted"
+        )
+    approval = read_json(approval_path)
+    plan = read_json(plan_path)
+    if (
+        set(approval) != INTERRUPTED_APPLY_RECOVERY_APPROVAL_FIELDS
+        or set(plan) != INTERRUPTED_APPLY_RECOVERY_PLAN_FIELDS
+        or approval.get("schema")
+            != "fbsir.u3wProductionChangeApprovalReceipt.v2"
+        or approval.get("action")
+            != "CANONICALIZE_W1A_INTERRUPTED_APPLY_RECOVERY"
+        or approval.get("targetHost") != TARGET_HOST
+        or approval.get("runId") != recovery.get("recoveryRunId")
+        or approval.get("executorSourceCommit")
+            != recovery.get("executorSourceCommit")
+        or approval.get("targetReleaseId")
+            != recovery.get("releaseId")
+        or approval.get("targetSourceCommit")
+            != recovery.get("sourceCommit")
+        or approval.get("authorizedBy") != "workspace-user"
+        or approval.get("concurrentDdlProhibited") is not True
+        or approval.get("productionFilesystemWrite") is not True
+        or approval.get("productionDatabaseWrite") is not False
+        or approval.get("productionServiceChange") is not False
+        or approval.get("officialExpertsPackageChange") is not False
+        or approval.get("expectedStageReceiptSha256")
+            != recovery.get("stageReceiptSha256")
+        or approval.get("expectedApplyFailureReceiptSha256")
+            != recovery.get("applyFailureReceiptSha256")
+        or approval.get("expectedApplyFailureManifestSha256")
+            != recovery.get(
+                "applyFailureReceiptManifestSha256"
+            )
+        or approval.get("requestDigest")
+            != recovery.get("recoveryPlanReceiptSha256")
+        or approval.get("approvalNonce")
+            != recovery.get("approvalNonce")
+        or approval.get("runnerSha256")
+            != recovery.get("runnerSha256")
+        or approval.get("workerSha256")
+            != recovery.get("workerSha256")
+        or plan.get("schema")
+            != INTERRUPTED_APPLY_RECOVERY_PLAN_SCHEMA
+        or plan.get("mode") != "RecoveryPlan"
+        or plan.get("state")
+            != INTERRUPTED_APPLY_RECOVERY_PLAN_STATE
+        or plan.get("targetHost") != TARGET_HOST
+        or plan.get("serviceUnit") != SERVICE_UNIT
+        or plan.get("recoveryRunId")
+            != recovery.get("recoveryRunId")
+        or plan.get("executorSourceCommit")
+            != recovery.get("executorSourceCommit")
+        or plan.get("targetReleaseId")
+            != recovery.get("releaseId")
+        or plan.get("targetSourceCommit")
+            != recovery.get("sourceCommit")
+        or plan.get("stageReceiptSha256")
+            != recovery.get("stageReceiptSha256")
+        or plan.get("applyFailureReceiptSha256")
+            != recovery.get("applyFailureReceiptSha256")
+        or plan.get("applyFailureManifestSha256")
+            != recovery.get(
+                "applyFailureReceiptManifestSha256"
+            )
+        or plan.get("runnerSha256")
+            != recovery.get("runnerSha256")
+        or plan.get("workerSha256")
+            != recovery.get("workerSha256")
+        or plan.get("productionFilesystemWrite") is not True
+        or plan.get("productionDatabaseWrite") is not False
+        or plan.get("productionServiceChange") is not False
+        or plan.get("officialExpertsPackageChange") is not False
+    ):
+        raise RuntimeError(
+            "prior interrupted recovery approval or Plan is invalid"
+        )
+    try:
+        approved = dt.datetime.fromisoformat(
+            approval["approvedAt"].replace("Z", "+00:00")
+        )
+        approval_expires = dt.datetime.fromisoformat(
+            approval["expiresAt"].replace("Z", "+00:00")
+        )
+        generated = dt.datetime.fromisoformat(
+            plan["generatedAt"].replace("Z", "+00:00")
+        )
+        plan_expires = dt.datetime.fromisoformat(
+            plan["expiresAt"].replace("Z", "+00:00")
+        )
+        observed = dt.datetime.fromisoformat(
+            recovery["observedAt"].replace("Z", "+00:00")
+        )
+    except (KeyError, AttributeError, ValueError) as error:
+        raise RuntimeError(
+            "prior interrupted recovery anchor time is invalid"
+        ) from error
+    if (
+        any(
+            value.tzinfo is None
+            for value in (
+                approved,
+                approval_expires,
+                generated,
+                plan_expires,
+                observed,
+            )
+        )
+        or generated > approved
+        or approval_expires <= approved
+        or approval_expires - approved > dt.timedelta(hours=24)
+        or plan_expires <= generated
+        or plan_expires - generated > dt.timedelta(hours=24)
+        or observed < approved
+        or observed < generated
+        or observed >= approval_expires
+        or observed >= plan_expires
+    ):
+        raise RuntimeError(
+            "prior interrupted recovery anchor time drifted"
+        )
+    return approval, plan
+
+
+def validate_prior_interrupted_recovery_stage_entry(current):
+    latest = validated_latest_receipt_target()
+    if (
+        latest is None
+        or latest.name != "interrupted-apply-recovery-receipt.json"
+        or CURRENT_LINK.exists()
+        or CURRENT_LINK.is_symlink()
+    ):
+        raise RuntimeError(
+            "prior interrupted recovery latest topology is invalid"
+        )
+    recovery = read_json(latest)
+    if (
+        set(recovery)
+            != INTERRUPTED_APPLY_RECOVERY_RECEIPT_FIELDS
+        or recovery.get("schema")
+            != INTERRUPTED_APPLY_RECOVERY_RECEIPT_SCHEMA
+        or recovery.get("state") != INTERRUPTED_APPLY_RECOVERY_STATE
+        or not RUN_PATTERN.fullmatch(
+            str(recovery.get("releaseId") or "")
+        )
+        or not COMMIT_PATTERN.fullmatch(
+            str(recovery.get("sourceCommit") or "")
+        )
+        or not RUN_PATTERN.fullmatch(
+            str(recovery.get("recoveryRunId") or "")
+        )
+        or not COMMIT_PATTERN.fullmatch(
+            str(recovery.get("executorSourceCommit") or "")
+        )
+        or recovery.get("releaseId")
+            == recovery.get("recoveryRunId")
+        or recovery.get("sourceCommit")
+            == recovery.get("executorSourceCommit")
+        or any(
+            not SHA_PATTERN.fullmatch(
+                str(recovery.get(field) or "")
+            )
+            for field in (
+                "approvalReceiptSha256",
+                "runnerSha256",
+                "workerSha256",
+                "recoveryPlanReceiptSha256",
+                "stageReceiptSha256",
+                "applyFailureReceiptSha256",
+                "applyFailureReceiptManifestSha256",
+            )
+        )
+        or not re.fullmatch(
+            r"[0-9a-f]{32}",
+            str(recovery.get("approvalNonce") or ""),
+        )
+        or recovery.get("applicationRestored") is not True
+        or recovery.get("topologyRestored") is not True
+        or recovery.get("deploymentCommitOutcome") != "NOT_COMMITTED"
+        or recovery.get("deploymentReceiptAbsent") is not True
+        or recovery.get("rollbackReceiptAbsent") is not True
+        or recovery.get("currentLinkAbsent") is not True
+        or recovery.get("releaseDropInMatched") is not True
+        or recovery.get("allW1aFlagsExplicitFalse") is not True
+        or recovery.get("databaseDownClaimed") is not False
+        or recovery.get("productionFilesystemChanged") is not True
+        or recovery.get("productionDatabaseChanged") is not True
+        or recovery.get(
+            "productionDatabaseChangedThisRecoveryRun"
+        ) is not False
+        or recovery.get(
+            "productionDatabaseChangedSinceStage"
+        ) is not True
+        or recovery.get("productionServiceChanged") is not True
+        or recovery.get(
+            "productionServiceChangedThisRecoveryRun"
+        ) is not False
+        or recovery.get(
+            "productionServiceChangedSinceStage"
+        ) is not True
+        or recovery.get("officialExpertsPackageChanged") is not False
+        or not migration_structure_matches(
+            recovery.get("retainedMigrationFacts")
+        )
+    ):
+        raise RuntimeError(
+            "prior interrupted recovery receipt is invalid"
+        )
+    anchor_args = argparse.Namespace(
+        release_id=recovery["recoveryRunId"],
+        source_commit=recovery["executorSourceCommit"],
+        target_release_id=recovery["releaseId"],
+        target_source_commit=recovery["sourceCommit"],
+        stage_receipt_sha=recovery["stageReceiptSha256"],
+        apply_failure_receipt_sha=
+            recovery["applyFailureReceiptSha256"],
+    )
+    release = interrupted_apply_target_release(anchor_args)
+    if latest.parent != release:
+        raise RuntimeError(
+            "prior interrupted recovery receipt escaped release"
+        )
+    stage_path, _ = validate_interrupted_apply_stage(
+        anchor_args, release
+    )
+    terminal_path, terminal, failure_manifest = (
+        interrupted_apply_failure_manifest(anchor_args, release)
+    )
+    manifest_sha256 = sha256_bytes(
+        canonical_json(failure_manifest).encode("utf-8")
+    )
+    if (
+        recovery.get("stageReceiptPath") != str(stage_path)
+        or recovery.get("applyFailureReceiptPath")
+            != str(terminal_path)
+        or recovery.get("applyFailureReceiptSchema")
+            != terminal.get("schema")
+        or recovery.get("applyFailureReceiptState")
+            != terminal.get("state")
+        or recovery.get("applyFailureReceiptManifest")
+            != failure_manifest
+        or recovery.get("applyFailureReceiptManifestSha256")
+            != manifest_sha256
+        or not interrupted_recovery_observed_at_valid(
+            recovery, terminal
+        )
+        or any(
+            path.exists() or path.is_symlink()
+            for path in (
+                release / "deployment-receipt.json",
+                release / "rollback-receipt.json",
+                release / "rollback-verification-receipt.json",
+            )
+        )
+    ):
+        raise RuntimeError(
+            "prior interrupted recovery evidence chain drifted"
+        )
+    validate_interrupted_recovery_historic_anchors(
+        release, recovery
+    )
+    previous = predecessor_facts(release)
+    rollback_dropin = (
+        release / "evidence/rollback-systemd-dropin.conf"
+    )
+    if (
+        not DROPIN_PATH.is_file()
+        or DROPIN_PATH.is_symlink()
+        or sha256_file(DROPIN_PATH) != sha256_file(rollback_dropin)
+        or not NGINX_PATH.is_file()
+        or NGINX_PATH.is_symlink()
+        or sha256_file(NGINX_PATH) != previous["previousNginxSha256"]
+        or current.get("activeState") != "active"
+        or current.get("jarSha256")
+            != previous["previousJarSha256"]
+        or current.get("configuredJarSha256")
+            != previous["previousJarSha256"]
+        or current.get("processForbiddenOverrideNames") != []
+        or any(
+            current.get("configuredFlagValues", {}).get(name)
+                != "false"
+            or current.get("processFlagValues", {}).get(name)
+                != "false"
+            for name in FALSE_FLAGS
+        )
+        or environment_flags_explicit_false() is not True
+    ):
+        raise RuntimeError(
+            "prior interrupted recovery predecessor topology drifted"
+        )
+    assert_restored_predecessor_runtime_contract(release, current)
+    migration_lease = interrupted_apply_recovery_lease()
+    try:
+        current_facts = exact_migration_facts(
+            migration_lease.mysql
+        )
+        if not recorded_migration_counts_are_monotonic(
+            current_facts,
+            recovery["retainedMigrationFacts"],
+            DEPLOYMENT_RECEIPT_SCHEMA,
+        ):
+            raise RuntimeError(
+                "prior interrupted recovery retained 043 drifted"
+            )
+    finally:
+        migration_lease.close()
+    wait_for_u3w_health()
+    return {
+        "schema":
+            "fbsir.u3wPriorInterruptedApplyRecoveryStageAnchor.v1",
+        "releaseId": release.name,
+        "sourceCommit": recovery["sourceCommit"],
+        "receiptPath": str(latest),
+        "receiptSha256": sha256_file(latest),
+        "receiptSchema": recovery["schema"],
+        "state": recovery["state"],
     }
 
 
@@ -7014,6 +8560,10 @@ def rollback_release(args):
 
 
 def execute(args):
+    if args.mode == "InspectInterruptedApplyRecovery":
+        return inspect_interrupted_apply_recovery(args)
+    if args.mode == "CanonicalizeInterruptedApplyRecovery":
+        return canonicalize_interrupted_apply_recovery(args)
     if args.mode == "PrepareStage":
         return prepare_stage(args)
     if args.mode == "FinalizeStage":
@@ -7112,6 +8662,8 @@ def main():
             "Apply",
             "Rollback",
             "Verify",
+            "InspectInterruptedApplyRecovery",
+            "CanonicalizeInterruptedApplyRecovery",
         ),
     )
     parser.add_argument("--release-id", required=True)
@@ -7134,10 +8686,22 @@ def main():
     parser.add_argument("--backend-sha", required=True)
     parser.add_argument("--frontend-tree-sha", required=True)
     parser.add_argument("--migration-sha", required=True)
+    parser.add_argument("--target-release-id", default="")
+    parser.add_argument("--target-source-commit", default="")
+    parser.add_argument(
+        "--apply-failure-receipt-sha", default="0" * 64
+    )
+    parser.add_argument(
+        "--apply-failure-manifest-sha", default="0" * 64
+    )
+    parser.add_argument(
+        "--recovery-plan-receipt-sha", default="0" * 64
+    )
+    parser.add_argument("--recovery-plan-json-base64", default="")
     args = parser.parse_args()
     try:
         validate_arguments(args)
-        if args.mode == "Verify":
+        if args.mode in {"Verify", "InspectInterruptedApplyRecovery"}:
             ensure_parent_directory(ADMIN_ROOT)
             descriptor = os.open(
                 LOCK_PATH,
@@ -7163,7 +8727,10 @@ def main():
                 or status.st_nlink != 1
             ):
                 raise RuntimeError("global release lock custody is invalid")
-            if args.mode != "Verify":
+            if args.mode not in {
+                "Verify",
+                "InspectInterruptedApplyRecovery",
+            }:
                 os.fchmod(descriptor, 0o600)
             elif status.st_mode & 0o777 != 0o600:
                 raise RuntimeError("global release lock mode is invalid")

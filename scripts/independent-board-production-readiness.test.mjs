@@ -1497,6 +1497,194 @@ test("live collector independently rehashes the fixed staged release Plan", () =
   );
 });
 
+test("readiness independently accepts only an exact interrupted Apply recovery predecessor", () => {
+  const collector = embeddedCollectorSource();
+  for (const value of [
+    "fbsir.u3wDefaultOffInterruptedApplyRecoveryReceipt.v1",
+    "INTERRUPTED_APPLY_RECOVERED_APPLICATION_DATABASE_043_RETAINED_DORMANT",
+    "EXACT_PRIOR_INTERRUPTED_APPLY_RECOVERY_PREDECESSOR",
+    "fbsir.u3wPriorInterruptedApplyRecoveryStageAnchor.v1",
+    "interrupted-apply-recovery-receipt.json",
+    "priorRecoveryAnchor",
+    "INTERRUPTED_APPLY_RECOVERY_RECEIPT_FIELDS",
+    "INTERRUPTED_APPLY_RECOVERY_APPROVAL_FIELDS",
+    "INTERRUPTED_APPLY_RECOVERY_PLAN_FIELDS",
+    "recovery_latest",
+    "recovery_valid",
+    "recovery_live_state_matched",
+    "recorded_recovery_migration_matches_live",
+    "interrupted_recovery_historic_anchors_valid",
+    "fbsir.u3wProductionChangeApprovalReceipt.v2",
+    "fbsir.u3wInterruptedApplyRecoveryPlan.v1",
+    "INTERRUPTED_APPLY_RECOVERY_CANONICALIZATION_PLANNED",
+    "interrupted-apply-recovery-approval.json",
+    "interrupted-apply-recovery-plan.json",
+  ]) {
+    assert.ok(
+      readinessRunner.includes(value),
+      `readiness must include recovery contract ${value}`,
+    );
+  }
+  for (const field of [
+    "applicationRestored",
+    "topologyRestored",
+    "deploymentReceiptAbsent",
+    "rollbackReceiptAbsent",
+    "currentLinkAbsent",
+    "releaseDropInMatched",
+    "allW1aFlagsExplicitFalse",
+    "databaseDownClaimed",
+    "productionDatabaseChangedThisRecoveryRun",
+    "productionServiceChangedThisRecoveryRun",
+    "officialExpertsPackageChanged",
+    "retainedMigrationFacts",
+  ]) {
+    assert.ok(
+      new RegExp(
+        `recovery\\.get\\(\\s*"${field}"\\s*\\)`,
+      ).test(collector),
+      `recovery validation must independently check ${field}`,
+    );
+  }
+  assert.ok(
+    collector.includes(
+      'live.get("boardAttributionEventCount")'
+        + ' >= recorded.get("eventCount")',
+    ),
+  );
+  assert.ok(
+    collector.includes(
+      'live.get("boardAttributionJourneyCount")'
+        + ' >= recorded.get("journeyCount")',
+    ),
+  );
+  for (const field of [
+    "boardAttributionNaturalEventCount",
+    "boardAttributionNonProbeEventCount",
+    "boardAttributionAuthoritativeProductCreditCount",
+    "boardAttributionNaturalJourneyCount",
+    "boardAttributionNonProbeJourneyCount",
+  ]) {
+    assert.ok(
+      new RegExp(
+        `live\\.get\\(\\s*"${field}"\\s*\\)\\s*==\\s*0`,
+      ).test(collector),
+    );
+  }
+  for (const value of [
+    "anchored_actual_failure_manifest = []",
+    "anchored_failure_manifest_current = bool(",
+    'anchored_recovery_release.glob(\n'
+      + '                        "apply-failure-*.json"',
+    "anchored_actual_failure_manifest\n"
+      + "                        == anchored_failure_receipt_manifest",
+    "and anchored_failure_manifest_current",
+  ]) {
+    assert.ok(
+      collector.includes(value),
+      `historical recovery must re-enumerate ${value}`,
+    );
+  }
+  assert.ok(
+    /"state"\s*:\s*"EXACT_PRIOR_INTERRUPTED_APPLY_RECOVERY_PREDECESSOR"/
+      .test(collector),
+  );
+  assert.ok(
+    collector.includes('"priorRollbackAnchor": None'),
+  );
+  assert.ok(
+    collector.includes('"priorRecoveryAnchor": prior_recovery_anchor'),
+  );
+  assert.ok(
+    readinessRunner.includes(
+      "$plannedTarget.stageEntryTopology.priorRecoveryAnchor",
+    ),
+  );
+  assert.ok(
+    readinessRunner.includes(
+      "$snapshot.deploymentChannel.recoveryLiveStateMatched",
+    ),
+  );
+  assert.ok(
+    /application_rollback_assembly\.get\(\s*"priorRecoveryAnchor"\s*\)/
+      .test(collector),
+  );
+  assert.ok(
+    /pre_application_state\s*==\s*"EXACT_PRIOR_INTERRUPTED_APPLY_RECOVERY_PREDECESSOR"/
+      .test(collector),
+  );
+  assert.ok(
+    /prior_recovery_anchor\.get\("schema"\)\s*==\s*"fbsir\.u3wPriorInterruptedApplyRecoveryStageAnchor\.v1"/
+      .test(collector),
+  );
+  assert.ok(
+    collector.includes(
+      "and not release_status.st_mode & 0o022",
+    ),
+    "recovery readiness must accept Stage-owned 0755 directories",
+  );
+  assert.ok(
+    collector.includes(
+      "and not anchored_recovery_release_status.st_mode\n"
+        + "                        & 0o022",
+    ),
+    "anchored recovery readiness must use the worker custody rule",
+  );
+  assert.equal(
+    collector.includes(
+      "release_status.st_mode & 0o777 == 0o700",
+    ),
+    false,
+    "recovery readiness must not contradict make_frontend_public",
+  );
+  assert.equal(
+    collector.includes(
+      "anchored_recovery_release_status.st_mode\n"
+        + "                        & 0o777 == 0o700",
+    ),
+    false,
+  );
+  for (const binding of [
+    'approval_manifest["sha256"]\n'
+      + '            == recovery.get("approvalReceiptSha256")',
+    'plan_manifest["sha256"]\n'
+      + '            == recovery.get("recoveryPlanReceiptSha256")',
+    'approval.get("requestDigest")\n'
+      + '            == recovery.get("recoveryPlanReceiptSha256")',
+    'approval.get("approvalNonce")\n'
+      + '            == recovery.get("approvalNonce")',
+    'plan.get("stageReceiptSha256")\n'
+      + '            == recovery.get("stageReceiptSha256")',
+    'plan.get("applyFailureReceiptSha256")\n'
+      + '            == recovery.get("applyFailureReceiptSha256")',
+    'plan.get("applyFailureManifestSha256")\n'
+      + '            == recovery.get("applyFailureReceiptManifestSha256")',
+  ]) {
+    assert.ok(
+      collector.includes(binding),
+      `historic recovery evidence must bind ${binding}`,
+    );
+  }
+  for (const timeRule of [
+    "approval_expires > approved",
+    "approval_expires - approved <= timedelta(hours=24)",
+    "plan_expires > generated",
+    "plan_expires - generated <= timedelta(hours=24)",
+    "observed >= approved",
+    "observed >= generated",
+    "observed < approval_expires",
+    "observed < plan_expires",
+  ]) {
+    assert.ok(collector.includes(timeRule));
+  }
+  for (const compatible of [
+    "UNTOUCHED_LEGACY",
+    "EXACT_PRIOR_ROLLBACK_PREDECESSOR",
+  ]) {
+    assert.ok(collector.includes(compatible));
+  }
+});
+
 test("live signed probe shares the exact 39-field Java verifier contract", () => {
   const collector = embeddedCollectorSource();
   const readinessFields = pythonStringTuple(
