@@ -10,6 +10,18 @@ const readiness = fs.readFileSync(
   new URL("./verify-independent-board-production-readiness.ps1", import.meta.url),
   "utf8",
 );
+const configurationRunner = fs.readFileSync(
+  new URL("./run-u3w-default-off-configuration.ps1", import.meta.url),
+  "utf8",
+);
+const baselineRunner = fs.readFileSync(
+  new URL("./run-u3w-legacy-baseline.ps1", import.meta.url),
+  "utf8",
+);
+const backupRunner = fs.readFileSync(
+  new URL("./run-u3w-production-backup-restore.ps1", import.meta.url),
+  "utf8",
+);
 const worker = fs.readFileSync(
   new URL("./u3w-default-off-release-remote.py", import.meta.url),
   "utf8",
@@ -102,6 +114,28 @@ test("SSH is pinned to the derived private key and exact collector bytes", () =>
   assert.ok(runner.includes("[Convert]::ToBase64String($collectorBytes)"));
   assert.ok(runner.includes("$payload | & ssh.exe @sshArguments"));
   assert.equal(runner.includes("$collector | & ssh.exe @sshArguments"), false);
+});
+
+test("Windows OpenSSH preserves Python bootstrap string literals", () => {
+  for (const [name, source, expectedCount] of [
+    ["release runner", runner, 3],
+    ["readiness runner", readiness, 1],
+    ["configuration runner", configurationRunner, 1],
+    ["baseline runner", baselineRunner, 1],
+    ["backup runner", backupRunner, 1],
+  ]) {
+    assert.equal(
+      source.match(/\$escapedBootstrap = \$bootstrap\.Replace\('"', '\\"'\)/g)
+        ?.length ?? 0,
+      expectedCount,
+      `${name} does not escape every bootstrap for Windows OpenSSH`,
+    );
+    assert.equal(
+      source.includes(`python3 -c '$bootstrap'`),
+      false,
+      `${name} still passes an unescaped bootstrap to ssh.exe`,
+    );
+  }
 });
 
 test("stage, apply, rollback and verify execute the committed remote worker", () => {

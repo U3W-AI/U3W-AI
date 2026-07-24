@@ -4920,7 +4920,8 @@ print(json.dumps({
         'a==e or sys.exit("collector sha256 mismatch");' +
         'exec(compile(b,"<u3w-readiness-collector>","exec"),' +
         '{"__name__":"__main__"})'
-    $remoteCommand = "python3 -c '$bootstrap' $remoteSha256"
+    $escapedBootstrap = $bootstrap.Replace('"', '\"')
+    $remoteCommand = "python3 -c '$escapedBootstrap' $remoteSha256"
     $output = $payload | & ssh.exe `
         -i $SshKeyPath `
         -o BatchMode=yes `

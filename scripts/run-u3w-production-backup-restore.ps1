@@ -363,7 +363,8 @@ function Invoke-RemotePython {
         'a==e or sys.exit("worker payload SHA-256 mismatch");' +
         'exec(compile(b,"<u3w-worker>","exec"),' +
         '{"__name__":"__main__","__file__":"<u3w-worker>"})'
-    $remoteCommand = "python3 -c '$bootstrap' $WorkerSha256 " +
+    $escapedBootstrap = $bootstrap.Replace('"', '\"')
+    $remoteCommand = "python3 -c '$escapedBootstrap' $WorkerSha256 " +
         ($Arguments -join ' ')
     $sshArguments = @(
         '-i', $SshKeyPath,

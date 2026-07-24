@@ -38,6 +38,7 @@
 5. approval JSON 是本次操作范围和锚点的审计回执，不是可脱离当前会话使用的密码学授权。实际授权边界是用户的明确指令，加上固定 Git 提交、固定 SSH 密钥和固定主机指纹的共同保管；不得把 JSON SHA-256 描述成数字签名或可转授权凭据。
 6. 每个 mutating runner 的输出和外部锚点都保存到
    `deliverables/production-evidence`，禁止写入官方 Experts 包。
+7. Windows PowerShell 调用 `ssh.exe` 时，所有 Python bootstrap 必须先转义双引号，并由合同测试逐处计数；未经真实远端只读启动验证，不得只凭本地静态语法通过进入生产变更。
 
 准备合同：
 
