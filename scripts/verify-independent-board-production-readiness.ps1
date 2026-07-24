@@ -8944,9 +8944,8 @@ $gitState.preparationCommitAncestorOfSourceCommit =
     $preparationCommitAncestor
 $gitState.preparationSourceCommitsConsistent =
     $preparationSourcesConsistent
-$gitState | Add-Member `
-    -NotePropertyName legacyBaselineCommitAncestorOfPreparationSourceCommit `
-    -NotePropertyValue $legacyBaselineCommitAncestor -Force
+$gitState['legacyBaselineCommitAncestorOfPreparationSourceCommit'] =
+    $legacyBaselineCommitAncestor
 $plannedTarget = $gitState.releasePlanTarget
 $liveTarget = $snapshot.releaseTargetFacts
 $releaseTargetMatched = $false

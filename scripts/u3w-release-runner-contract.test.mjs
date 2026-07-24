@@ -1063,6 +1063,18 @@ test("readiness rejects stale plans and target drift", () => {
   assert.ok(readiness.includes("currentLinkResolved"));
 });
 
+test("readiness serializes the legacy baseline ancestry as a dictionary key", () => {
+  assert.ok(
+    readiness.includes(
+      "$gitState['legacyBaselineCommitAncestorOfPreparationSourceCommit']",
+    ),
+  );
+  assert.doesNotMatch(
+    readiness,
+    /Add-Member\s+`\s*\n\s*-NotePropertyName legacyBaselineCommitAncestorOfPreparationSourceCommit/,
+  );
+});
+
 test("readiness compares JSON-shaped target facts without object key-order coupling", () => {
   assert.ok(readiness.includes("function Test-JsonStructuralEquality"));
   const structuralEquality = sectionBetween(
