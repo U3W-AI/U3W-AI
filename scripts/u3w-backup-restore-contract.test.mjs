@@ -349,6 +349,15 @@ test("production runner exposes a pinned plan-backup-verify state machine", () =
   assert.ok(runner.includes("ApprovalReceiptPath"));
   assert.ok(runner.includes("git status --porcelain=v1"));
   assert.ok(runner.includes("git ls-remote"));
+  assert.ok(runner.includes("Get-CommittedBlobBytes"));
+  assert.ok(runner.includes("[Convert]::ToBase64String($WorkerBytes)"));
+  assert.ok(runner.includes("worker payload SHA-256 mismatch"));
+  assert.ok(runner.includes("'IdentitiesOnly=yes'"));
+  assert.ok(runner.includes("'IdentityAgent=none'"));
+  assert.ok(
+    runner.match(/Assert-StrictHead/g)?.length >= 3,
+    "strict HEAD must be checked before and after the remote operation",
+  );
   assert.ok(backupWorker.includes('"--single-transaction"'));
   assert.ok(backupWorker.includes('"--quick"'));
   assert.ok(backupWorker.includes('"--routines"'));

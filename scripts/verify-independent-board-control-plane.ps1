@@ -112,6 +112,43 @@ function Resolve-NodeExecutable {
     return $NodeCommand.Source
 }
 
+function Resolve-JavaHome {
+    $candidates = @(
+        $env:U3W_JAVA_HOME,
+        $env:JAVA_HOME,
+        (Join-Path $env:USERPROFILE (
+            '.cache\u3w-java-toolchain\jdk-17.0.19+10'))
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath (
+                Join-Path $candidate 'bin\java.exe') -PathType Leaf) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+    throw 'JDK is unavailable; set U3W_JAVA_HOME to a verified JDK 17 path'
+}
+
+function Resolve-MavenExecutable {
+    $candidates = @(
+        $env:U3W_MAVEN_EXE,
+        (Join-Path $env:USERPROFILE (
+            '.cache\u3w-java-toolchain\apache-maven-3.9.16\bin\mvn.cmd'))
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+    $command = Get-Command mvn.cmd -ErrorAction SilentlyContinue
+    if ($null -eq $command) {
+        $command = Get-Command mvn -ErrorAction SilentlyContinue
+    }
+    if ($null -eq $command) {
+        throw 'Maven is unavailable; set U3W_MAVEN_EXE'
+    }
+    return $command.Source
+}
+
 function Invoke-NodeScript {
     param([string[]]$Arguments)
     $NodeExecutable = Resolve-NodeExecutable
@@ -1671,15 +1708,61 @@ function Invoke-ContractChecks {
     finally {
         Pop-Location
     }
+    function Test-W1WorkerPyMySqlProof {
+        param([Parameter(Mandatory = $true)]$Result)
+        $proof = $Result.workerPyMySqlOrchestration
+        if (
+            $null -eq $proof -or
+            $proof.status -cne 'PASS' -or
+            [string]::IsNullOrWhiteSpace([string]$proof.pymysqlVersion) -or
+            $proof.pymysqlDistributionVersion -cne '1.1.2'
+        ) {
+            return $false
+        }
+        $cases = @(
+            @{Value = $proof.firstApply; ThisRun = $true; SinceStage = $true},
+            @{Value = $proof.exactAppliedRecovery; ThisRun = $false; SinceStage = $true},
+            @{Value = $proof.runningRecovery; ThisRun = $true; SinceStage = $true}
+        )
+        foreach ($case in $cases) {
+            $value = $case.Value
+            $facts = $value.facts
+            if (
+                $value.databaseChangedThisRun -isnot [bool] -or
+                $value.databaseChangedThisRun -ne $case.ThisRun -or
+                $value.databaseChangedSinceStage -isnot [bool] -or
+                $value.databaseChangedSinceStage -ne $case.SinceStage -or
+                [int]$value.lock.blockedWhileLeaseOpen -ne 0 -or
+                [int]$value.lock.acquiredAfterClose -ne 1 -or
+                [int]$facts.publicReceiptCount -ne 1 -or
+                [int]$facts.internalReceiptCount -ne 1 -or
+                [int]$facts.tableCount -ne 2 -or
+                [int]$facts.triggerCount -ne 2 -or
+                [int]$facts.permissionCount -ne 1 -or
+                [int]$facts.eventCount -ne 0 -or
+                [int]$facts.journeyCount -ne 0 -or
+                $facts.schemaFingerprintSha256 -cne
+                    'fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d'
+            ) {
+                return $false
+            }
+        }
+        return $true
+    }
     $w1MysqlVersions = @($w1DualMysql.results | ForEach-Object { $_.version })
     $w1MysqlInvalid = @($w1DualMysql.results | Where-Object {
-            $_.migrationRerun -cne 'PASS' `
+            $_.exactShape -cne "$($_.version)|2|2|1|1|1" `
+                -or $_.migrationRerun -cne 'PASS' `
                 -or $_.append -cne 'PASS' `
                 -or $_.updateRejected -cne 'PASS' `
                 -or $_.deleteRejected -cne 'PASS' `
+                -or $_.extraTriggerFingerprintRejected -cne 'PASS' `
+                -or $_.cascadingFkFingerprintRejected -cne 'PASS' `
+                -or $_.permissionSemanticFingerprintRejected -cne 'PASS' `
+                -or -not (Test-W1WorkerPyMySqlProof $_) `
                 -or $_.aggregate -cne '1|1|1|0' `
                 -or $_.authoritativeProductCredit -ne 0 `
-                -or $_.schemaFingerprintSha256 -cne 'a0507f51960622d49b66c4d8b1b7382dc8bc16a904d577bac1ca942bb8748b28'
+                -or $_.schemaFingerprintSha256 -cne 'fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d'
         })
     if ($w1Wave.Count -ne 1 `
             -or $implementationStatus.activeWave -cne 'W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE' `
@@ -1773,7 +1856,7 @@ function Invoke-ContractChecks {
             -or $w1GoldenVector.expected.eventDigest -cne '2d60f3fdc6a8db56ae3f9614812bedbc38b6fc8644c8ccab01004344925b9d35' `
             -or $w1DualMysql.status -cne 'PASS' `
             -or $w1DualMysql.migration -cne 'public_init_043' `
-            -or $w1DualMysql.migrationSha256 -cne '287a8b141abc80b2d95ff6a0cd97e8dbc4fa38845ae7b96c7bd8522e8f5b49b7' `
+            -or $w1DualMysql.migrationSha256 -cne 'ca9c86c79617543c19bc9a6141afef18918320c65091b418f761ece19b5c6055' `
             -or $w1DualMysql.historicalPublicInit037Sha256 -cne '59e3696ff3f8d4a16b4659c94a108f35fb1badf2f4de16079229c031a0b44cce' `
             -or (@($w1MysqlVersions) -join ',') -cne '8.0.30,8.4.8' `
             -or $w1MysqlInvalid.Count -ne 0) {
@@ -1823,7 +1906,7 @@ function Invoke-ContractChecks {
             -or $implementationStatus.w4b5e.productionAuthority -ne $false `
             -or $implementationStatus.w4b5e.historicalNextSlice -cne $canonicalCurrentW3SliceId `
             -or $taskboard.singleNextAction -cne $implementationStatus.singleNextAction `
-            -or $taskboard.singleNextAction -notlike 'Implement one interruption-safe strict-HEAD production backup and isolated-restore runner*' `
+            -or $taskboard.singleNextAction -notlike 'Apply the explicit default-off configuration and verified V2 legacy baseline*' `
             -or -not (@($w3Wave[0].completedSubset) -ccontains 'skill_consume_v2_default_off_host_service_wiring_dual_mysql_5_of_5_each_and_zero_legacy_fallback_verified') `
             -or -not (@($w3Wave[0].completedSubset) -ccontains 'skill_consume_v2_nontransactional_dispatcher_required_legacy_transaction_and_ambient_transaction_fail_closed_verified') `
             -or -not (@($w3Wave[0].completedSubset) -ccontains 'skill_consume_v2_nullable_host_session_domain_digest_and_dual_mysql_6_of_6_each_verified') `
@@ -1963,11 +2046,20 @@ function Invoke-ContractChecks {
 
 function Invoke-BackendChecks {
     Push-Location $RepoRoot
+    $priorJavaHome = $env:JAVA_HOME
     try {
-        & mvn.cmd -q -pl FBSir-admin -am test
+        $env:JAVA_HOME = Resolve-JavaHome
+        $maven = Resolve-MavenExecutable
+        & $maven -q -pl FBSir-admin -am test
         if ($LASTEXITCODE -ne 0) { throw "Backend verification failed with exit code $LASTEXITCODE" }
     }
     finally {
+        if ($null -eq $priorJavaHome) {
+            Remove-Item Env:JAVA_HOME -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:JAVA_HOME = $priorJavaHome
+        }
         Pop-Location
     }
 }

@@ -47,6 +47,55 @@ function Get-Sha256 {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
+function Get-BytesSha256 {
+    param([Parameter(Mandatory = $true)][byte[]]$Bytes)
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    try {
+        return -join (
+            $algorithm.ComputeHash($Bytes) |
+                ForEach-Object { $_.ToString('x2') })
+    }
+    finally {
+        $algorithm.Dispose()
+    }
+}
+
+function Get-CommittedBlobBytes {
+    param([Parameter(Mandatory = $true)][string]$GitPath)
+    $objectId = (& git -C $RepoRoot rev-parse (
+        "$ExpectedCommit`:$GitPath")).Trim()
+    if ($LASTEXITCODE -ne 0 -or
+        $objectId -notmatch '^[0-9a-f]{40,64}$') {
+        throw "cannot resolve committed blob: $GitPath"
+    }
+    $start = [Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = (Get-Command git.exe).Source
+    $start.Arguments = "-C `"$RepoRoot`" cat-file blob $objectId"
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    $process = [Diagnostics.Process]::new()
+    $process.StartInfo = $start
+    $memory = [IO.MemoryStream]::new()
+    try {
+        if (-not $process.Start()) {
+            throw 'failed to start git cat-file'
+        }
+        $process.StandardOutput.BaseStream.CopyTo($memory)
+        $errorText = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0) {
+            throw "git cat-file failed: $errorText"
+        }
+        return ,$memory.ToArray()
+    }
+    finally {
+        $memory.Dispose()
+        $process.Dispose()
+    }
+}
+
 function Assert-StrictHead {
     Push-Location $RepoRoot
     try {
@@ -84,12 +133,14 @@ function Assert-PrivateKey {
     if (-not (Test-Path -LiteralPath $SshKeyPath -PathType Leaf)) {
         throw "SSH private key missing: $SshKeyPath"
     }
-    $publicKeyPath = "$SshKeyPath.pub"
-    if (-not (Test-Path -LiteralPath $publicKeyPath -PathType Leaf)) {
-        throw "SSH public key missing: $publicKeyPath"
+    $derived = @(& ssh-keygen.exe -y -f $SshKeyPath 2>$null)
+    if ($LASTEXITCODE -ne 0 -or $derived.Count -ne 1) {
+        throw 'cannot derive public key from SSH private key'
     }
-    $fingerprint = & ssh-keygen.exe -lf $publicKeyPath -E sha256 2>$null
-    if ($LASTEXITCODE -ne 0 -or $fingerprint -notlike "*$ExpectedPublicKeyFingerprint*") {
+    $fingerprint = $derived |
+        & ssh-keygen.exe -lf - -E sha256 2>$null
+    if ($LASTEXITCODE -ne 0 -or
+        $fingerprint -notlike "*$ExpectedPublicKeyFingerprint*") {
         throw "SSH public key fingerprint mismatch; expected $ExpectedPublicKeyFingerprint"
     }
 }
@@ -211,6 +262,8 @@ function Save-OutOfBandBundleAnchor {
         $scpArguments = @(
             '-i', $SshKeyPath,
             '-o', 'BatchMode=yes',
+            '-o', 'IdentitiesOnly=yes',
+            '-o', 'IdentityAgent=none',
             '-o', 'ConnectTimeout=10',
             '-o', 'StrictHostKeyChecking=yes',
             '-o', "UserKnownHostsFile=$KnownHostsPath",
@@ -295,27 +348,42 @@ function Save-OutOfBandBundleAnchor {
 
 function Invoke-RemotePython {
     param(
-        [Parameter(Mandatory = $true)][string]$ScriptPath,
+        [Parameter(Mandatory = $true)][string]$WorkerName,
+        [Parameter(Mandatory = $true)][byte[]]$WorkerBytes,
+        [Parameter(Mandatory = $true)][string]$WorkerSha256,
         [Parameter(Mandatory = $true)][string[]]$Arguments
     )
-    $payload = Get-Content -Raw -LiteralPath $ScriptPath
+    if ((Get-BytesSha256 $WorkerBytes) -ne $WorkerSha256) {
+        throw "in-memory worker digest mismatch: $WorkerName"
+    }
+    $payload = [Convert]::ToBase64String($WorkerBytes)
+    $bootstrap = 'import base64,hashlib,sys;' +
+        'b=base64.b64decode(sys.stdin.buffer.read());' +
+        'e=sys.argv.pop(1);a=hashlib.sha256(b).hexdigest();' +
+        'a==e or sys.exit("worker payload SHA-256 mismatch");' +
+        'exec(compile(b,"<u3w-worker>","exec"),' +
+        '{"__name__":"__main__","__file__":"<u3w-worker>"})'
+    $remoteCommand = "python3 -c '$bootstrap' $WorkerSha256 " +
+        ($Arguments -join ' ')
     $sshArguments = @(
         '-i', $SshKeyPath,
         '-o', 'BatchMode=yes',
+        '-o', 'IdentitiesOnly=yes',
+        '-o', 'IdentityAgent=none',
         '-o', 'ConnectTimeout=10',
         '-o', 'ConnectionAttempts=1',
         '-o', 'StrictHostKeyChecking=yes',
         '-o', "UserKnownHostsFile=$KnownHostsPath",
         $SshTarget,
-        'python3', '-'
-    ) + $Arguments
+        $remoteCommand
+    )
     $output = @($payload | & ssh.exe @sshArguments)
     if ($LASTEXITCODE -ne 0) {
-        throw "remote worker failed: $ScriptPath"
+        throw "remote worker failed: $WorkerName"
     }
     $json = ($output -join "`n")
     if (-not $json.Trim()) {
-        throw "remote worker returned no receipt: $ScriptPath"
+        throw "remote worker returned no receipt: $WorkerName"
     }
     return $json | ConvertFrom-Json
 }
@@ -327,9 +395,15 @@ Assert-StrictHead
 Assert-PrivateKey
 Ensure-KnownHosts
 $approvalSha = Get-ApprovalDigest
-$runnerSha = Get-Sha256 $PSCommandPath
-$workerSha = Get-Sha256 $BackupWorkerPath
-$verifierSha = Get-Sha256 $VerifierPath
+$runnerBytes = Get-CommittedBlobBytes (
+    'scripts/run-u3w-production-backup-restore.ps1')
+$runnerSha = Get-BytesSha256 $runnerBytes
+$workerBytes = Get-CommittedBlobBytes (
+    'scripts/u3w-production-backup-remote.py')
+$workerSha = Get-BytesSha256 $workerBytes
+$verifierBytes = Get-CommittedBlobBytes (
+    'scripts/u3w-isolated-restore-verifier-remote.py')
+$verifierSha = Get-BytesSha256 $verifierBytes
 $common = @(
     '--run-id', $RunId,
     '--source-commit', $ExpectedCommit,
@@ -342,33 +416,34 @@ $common = @(
 $backup = $null
 $restore = $null
 if ($Mode -eq 'Plan') {
-    $backup = Invoke-RemotePython -ScriptPath $BackupWorkerPath -Arguments (
-        @('--mode', 'Plan') + $common
-    )
+    $backup = Invoke-RemotePython -WorkerName 'production-backup' `
+        -WorkerBytes $workerBytes -WorkerSha256 $workerSha `
+        -Arguments (@('--mode', 'Plan') + $common)
 }
 elseif ($Mode -eq 'ProvisionKey') {
-    $backup = Invoke-RemotePython -ScriptPath $BackupWorkerPath -Arguments (
-        @('--mode', 'ProvisionKey') + $common
-    )
+    $backup = Invoke-RemotePython -WorkerName 'production-backup' `
+        -WorkerBytes $workerBytes -WorkerSha256 $workerSha `
+        -Arguments (@('--mode', 'ProvisionKey') + $common)
 }
 elseif ($Mode -eq 'Backup') {
-    $backup = Invoke-RemotePython -ScriptPath $BackupWorkerPath -Arguments (
-        @('--mode', 'Backup') + $common
-    )
+    $backup = Invoke-RemotePython -WorkerName 'production-backup' `
+        -WorkerBytes $workerBytes -WorkerSha256 $workerSha `
+        -Arguments (@('--mode', 'Backup') + $common)
 }
 elseif ($Mode -eq 'Verify') {
-    $restore = Invoke-RemotePython -ScriptPath $VerifierPath -Arguments (
-        $common + @('--verifier-sha', $verifierSha)
-    )
+    $restore = Invoke-RemotePython -WorkerName 'isolated-restore-verifier' `
+        -WorkerBytes $verifierBytes -WorkerSha256 $verifierSha `
+        -Arguments ($common + @('--verifier-sha', $verifierSha))
 }
 elseif ($Mode -eq 'All') {
-    $backup = Invoke-RemotePython -ScriptPath $BackupWorkerPath -Arguments (
-        @('--mode', 'Backup') + $common
-    )
-    $restore = Invoke-RemotePython -ScriptPath $VerifierPath -Arguments (
-        $common + @('--verifier-sha', $verifierSha)
-    )
+    $backup = Invoke-RemotePython -WorkerName 'production-backup' `
+        -WorkerBytes $workerBytes -WorkerSha256 $workerSha `
+        -Arguments (@('--mode', 'Backup') + $common)
+    $restore = Invoke-RemotePython -WorkerName 'isolated-restore-verifier' `
+        -WorkerBytes $verifierBytes -WorkerSha256 $verifierSha `
+        -Arguments ($common + @('--verifier-sha', $verifierSha))
 }
+Assert-StrictHead
 
 $externalAnchor = if ($Mode -in @('Verify', 'All')) {
     Save-OutOfBandBundleAnchor

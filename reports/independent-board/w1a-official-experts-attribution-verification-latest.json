@@ -93,5 +93,5 @@
     "real_intent_distribution",
     "production_admin_six_dimension_readback"
   ],
-  "singleNextAction": "Implement one interruption-safe strict-HEAD production backup and isolated-restore runner that independently recomputes restore facts and the legacy baseline candidate; keep all feature flags false and perform no upload, migration or switch until the new receipts close their preparation gates."
+  "singleNextAction": "Apply the explicit default-off configuration and verified V2 legacy baseline under production approvals, take the final restore-proven backup, then build, plan, stage, apply and verify the strict-HEAD release before API2 byte readback and one real official experts same-binding chain."
 }

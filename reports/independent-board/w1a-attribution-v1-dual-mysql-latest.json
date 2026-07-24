@@ -1,8 +1,8 @@
 {
     "schema":  "fbsir.independent-board.attribution-v1-dual-mysql-it/v1",
-    "generatedAt":  "2026-07-23T15:36:26.1922681Z",
+    "generatedAt":  "2026-07-24T02:46:00.3176860Z",
     "migration":  "public_init_043",
-    "migrationSha256":  "287a8b141abc80b2d95ff6a0cd97e8dbc4fa38845ae7b96c7bd8522e8f5b49b7",
+    "migrationSha256":  "ca9c86c79617543c19bc9a6141afef18918320c65091b418f761ece19b5c6055",
     "historicalPublicInit037Sha256":  "59e3696ff3f8d4a16b4659c94a108f35fb1badf2f4de16079229c031a0b44cce",
     "officialIdentity":  {
                              "productId":  "fbsir-eight-seat-board",
@@ -15,25 +15,149 @@
     "results":  [
                     {
                         "version":  "8.0.30",
-                        "exactShape":  "8.0.30|2|2|1|1",
+                        "exactShape":  "8.0.30|2|2|1|1|1",
                         "migrationRerun":  "PASS",
                         "append":  "PASS",
                         "aggregate":  "1|1|1|0",
                         "updateRejected":  "PASS",
                         "deleteRejected":  "PASS",
+                        "extraTriggerFingerprintRejected":  "PASS",
+                        "cascadingFkFingerprintRejected":  "PASS",
+                        "permissionSemanticFingerprintRejected":  "PASS",
+                        "workerPyMySqlOrchestration":  {
+                                                           "exactAppliedRecovery":  {
+                                                                                        "databaseChangedSinceStage":  true,
+                                                                                        "databaseChangedThisRun":  false,
+                                                                                        "facts":  {
+                                                                                                      "eventCount":  0,
+                                                                                                      "internalReceiptCount":  1,
+                                                                                                      "journeyCount":  0,
+                                                                                                      "permissionCount":  1,
+                                                                                                      "publicReceiptCount":  1,
+                                                                                                      "schemaFingerprintSha256":  "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d",
+                                                                                                      "tableCount":  2,
+                                                                                                      "triggerCount":  2
+                                                                                                  },
+                                                                                        "lock":  {
+                                                                                                     "acquiredAfterClose":  1,
+                                                                                                     "blockedWhileLeaseOpen":  0
+                                                                                                 }
+                                                                                    },
+                                                           "firstApply":  {
+                                                                              "databaseChangedSinceStage":  true,
+                                                                              "databaseChangedThisRun":  true,
+                                                                              "facts":  {
+                                                                                            "eventCount":  0,
+                                                                                            "internalReceiptCount":  1,
+                                                                                            "journeyCount":  0,
+                                                                                            "permissionCount":  1,
+                                                                                            "publicReceiptCount":  1,
+                                                                                            "schemaFingerprintSha256":  "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d",
+                                                                                            "tableCount":  2,
+                                                                                            "triggerCount":  2
+                                                                                        },
+                                                                              "lock":  {
+                                                                                           "acquiredAfterClose":  1,
+                                                                                           "blockedWhileLeaseOpen":  0
+                                                                                       }
+                                                                          },
+                                                           "pymysqlDistributionVersion":  "1.1.2",
+                                                           "pymysqlVersion":  "1.4.6",
+                                                           "runningRecovery":  {
+                                                                                   "databaseChangedSinceStage":  true,
+                                                                                   "databaseChangedThisRun":  true,
+                                                                                   "facts":  {
+                                                                                                 "eventCount":  0,
+                                                                                                 "internalReceiptCount":  1,
+                                                                                                 "journeyCount":  0,
+                                                                                                 "permissionCount":  1,
+                                                                                                 "publicReceiptCount":  1,
+                                                                                                 "schemaFingerprintSha256":  "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d",
+                                                                                                 "tableCount":  2,
+                                                                                                 "triggerCount":  2
+                                                                                             },
+                                                                                   "lock":  {
+                                                                                                "acquiredAfterClose":  1,
+                                                                                                "blockedWhileLeaseOpen":  0
+                                                                                            }
+                                                                               },
+                                                           "status":  "PASS"
+                                                       },
                         "authoritativeProductCredit":  0,
-                        "schemaFingerprintSha256":  "a0507f51960622d49b66c4d8b1b7382dc8bc16a904d577bac1ca942bb8748b28"
+                        "schemaFingerprintSha256":  "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d"
                     },
                     {
                         "version":  "8.4.8",
-                        "exactShape":  "8.4.8|2|2|1|1",
+                        "exactShape":  "8.4.8|2|2|1|1|1",
                         "migrationRerun":  "PASS",
                         "append":  "PASS",
                         "aggregate":  "1|1|1|0",
                         "updateRejected":  "PASS",
                         "deleteRejected":  "PASS",
+                        "extraTriggerFingerprintRejected":  "PASS",
+                        "cascadingFkFingerprintRejected":  "PASS",
+                        "permissionSemanticFingerprintRejected":  "PASS",
+                        "workerPyMySqlOrchestration":  {
+                                                           "exactAppliedRecovery":  {
+                                                                                        "databaseChangedSinceStage":  true,
+                                                                                        "databaseChangedThisRun":  false,
+                                                                                        "facts":  {
+                                                                                                      "eventCount":  0,
+                                                                                                      "internalReceiptCount":  1,
+                                                                                                      "journeyCount":  0,
+                                                                                                      "permissionCount":  1,
+                                                                                                      "publicReceiptCount":  1,
+                                                                                                      "schemaFingerprintSha256":  "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d",
+                                                                                                      "tableCount":  2,
+                                                                                                      "triggerCount":  2
+                                                                                                  },
+                                                                                        "lock":  {
+                                                                                                     "acquiredAfterClose":  1,
+                                                                                                     "blockedWhileLeaseOpen":  0
+                                                                                                 }
+                                                                                    },
+                                                           "firstApply":  {
+                                                                              "databaseChangedSinceStage":  true,
+                                                                              "databaseChangedThisRun":  true,
+                                                                              "facts":  {
+                                                                                            "eventCount":  0,
+                                                                                            "internalReceiptCount":  1,
+                                                                                            "journeyCount":  0,
+                                                                                            "permissionCount":  1,
+                                                                                            "publicReceiptCount":  1,
+                                                                                            "schemaFingerprintSha256":  "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d",
+                                                                                            "tableCount":  2,
+                                                                                            "triggerCount":  2
+                                                                                        },
+                                                                              "lock":  {
+                                                                                           "acquiredAfterClose":  1,
+                                                                                           "blockedWhileLeaseOpen":  0
+                                                                                       }
+                                                                          },
+                                                           "pymysqlDistributionVersion":  "1.1.2",
+                                                           "pymysqlVersion":  "1.4.6",
+                                                           "runningRecovery":  {
+                                                                                   "databaseChangedSinceStage":  true,
+                                                                                   "databaseChangedThisRun":  true,
+                                                                                   "facts":  {
+                                                                                                 "eventCount":  0,
+                                                                                                 "internalReceiptCount":  1,
+                                                                                                 "journeyCount":  0,
+                                                                                                 "permissionCount":  1,
+                                                                                                 "publicReceiptCount":  1,
+                                                                                                 "schemaFingerprintSha256":  "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d",
+                                                                                                 "tableCount":  2,
+                                                                                                 "triggerCount":  2
+                                                                                             },
+                                                                                   "lock":  {
+                                                                                                "acquiredAfterClose":  1,
+                                                                                                "blockedWhileLeaseOpen":  0
+                                                                                            }
+                                                                               },
+                                                           "status":  "PASS"
+                                                       },
                         "authoritativeProductCredit":  0,
-                        "schemaFingerprintSha256":  "a0507f51960622d49b66c4d8b1b7382dc8bc16a904d577bac1ca942bb8748b28"
+                        "schemaFingerprintSha256":  "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d"
                     }
                 ],
     "status":  "PASS"

@@ -104,6 +104,36 @@
       "cwd": ".",
       "timeout_ms": 120000
     },
+    "w1a-preparation-contract": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-u3w-preparation-contract.ps1",
+      "cwd": ".",
+      "timeout_ms": 300000
+    },
+    "w1a-legacy-control-shape-mysql": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-u3w-legacy-baseline-control-shape-mysql-it.ps1 -AllowDestructiveTest",
+      "cwd": ".",
+      "timeout_ms": 300000
+    },
+    "w1a-production-backup-restore": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-u3w-production-backup-restore.ps1 -Mode $env:U3W_BACKUP_MODE -ExpectedCommit $env:U3W_EXPECTED_COMMIT -RunId $env:U3W_RUN_ID -ApprovalReceiptPath $env:U3W_APPROVAL_RECEIPT",
+      "cwd": ".",
+      "timeout_ms": 1800000
+    },
+    "w1a-default-off-configuration": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-u3w-default-off-configuration.ps1 -Mode $env:U3W_CONFIGURATION_MODE -ExpectedCommit $env:U3W_EXPECTED_COMMIT -ExpectedEnvironmentSha256 $env:U3W_EXPECTED_ENVIRONMENT_SHA256 -ExpectedConfiguredEnvironmentSha256 $env:U3W_EXPECTED_CONFIGURED_ENVIRONMENT_SHA256 -OriginalApprovalReceiptSha256 $env:U3W_ORIGINAL_APPROVAL_RECEIPT_SHA256 -RunId $env:U3W_RUN_ID -ApprovalReceiptPath $env:U3W_APPROVAL_RECEIPT -AnchorOutputDirectory $env:U3W_ANCHOR_OUTPUT_DIRECTORY",
+      "cwd": ".",
+      "timeout_ms": 300000
+    },
+    "w1a-legacy-baseline": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-u3w-legacy-baseline.ps1 -Mode $env:U3W_BASELINE_MODE -ExpectedCommit $env:U3W_EXPECTED_COMMIT -ExpectedBackupBundleReceiptSha256 $env:U3W_BACKUP_RECEIPT_SHA256 -ExpectedAdoptionReceiptSha256 $env:U3W_EXPECTED_ADOPTION_RECEIPT_SHA256 -OriginalApprovalReceiptSha256 $env:U3W_ORIGINAL_APPROVAL_RECEIPT_SHA256 -RunId $env:U3W_RUN_ID -ApprovalReceiptPath $env:U3W_APPROVAL_RECEIPT -AnchorOutputDirectory $env:U3W_ANCHOR_OUTPUT_DIRECTORY",
+      "cwd": ".",
+      "timeout_ms": 300000
+    },
+    "w1a-default-off-release": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-independent-board-default-off.ps1 -Mode $env:U3W_RELEASE_MODE -ExpectedCommit $env:U3W_EXPECTED_COMMIT -ReleaseId $env:U3W_RELEASE_ID -BuildReceiptPath $env:U3W_BUILD_RECEIPT -ExpectedBuildReceiptSha256 $env:U3W_BUILD_RECEIPT_SHA256 -PlanReceiptPath $env:U3W_RELEASE_PLAN_RECEIPT -ExpectedReleasePlanReceiptSha256 $env:U3W_RELEASE_PLAN_RECEIPT_SHA256 -ExpectedBackupReceiptSha256 $env:U3W_BACKUP_RECEIPT_SHA256 -ExpectedLegacyBaselineReceiptDigest $env:U3W_LEGACY_BASELINE_RECEIPT_SHA256 -ExpectedConfigurationReceiptSha256 $env:U3W_CONFIGURATION_RECEIPT_SHA256 -ExpectedStageReceiptSha256 $env:U3W_STAGE_RECEIPT_SHA256 -ExpectedDeploymentReceiptSha256 $env:U3W_DEPLOYMENT_RECEIPT_SHA256 -ApprovalReceiptPath $env:U3W_APPROVAL_RECEIPT -PlanOutputPath $env:U3W_PLAN_OUTPUT_PATH -ExternalEvidenceDirectory $env:U3W_EXTERNAL_EVIDENCE_DIRECTORY",
+      "cwd": ".",
+      "timeout_ms": 900000
+    },
     "w1a-production-readiness-live": {
       "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-production-readiness.ps1",
       "cwd": ".",
@@ -125,6 +155,17 @@
     "w1aProductionReadinessEvaluator": "scripts/independent-board-production-readiness.mjs",
     "w1aProductionReadinessRunner": "scripts/verify-independent-board-production-readiness.ps1",
     "w1aProductionReadinessReport": "reports/independent-board/w1a-production-readiness-latest.json",
+    "w1aPreparationRunbook": "docs/independent-board/W1A-PREPARATION-RUNBOOK.md",
+    "w1aPreparationContractRunner": "scripts/verify-u3w-preparation-contract.ps1",
+    "w1aProductionBackupRunner": "scripts/run-u3w-production-backup-restore.ps1",
+    "w1aLegacyBaselineRunner": "scripts/run-u3w-legacy-baseline.ps1",
+    "w1aLegacyBaselineWorker": "scripts/u3w-legacy-baseline-remote.py",
+    "w1aLegacyControlShapeMysqlRunner": "scripts/run-u3w-legacy-baseline-control-shape-mysql-it.ps1",
+    "w1aDefaultOffConfigurationRunner": "scripts/run-u3w-default-off-configuration.ps1",
+    "w1aDefaultOffConfigurationWorker": "scripts/u3w-default-off-configuration-remote.py",
+    "w1aDefaultOffReleaseRunner": "scripts/deploy-independent-board-default-off.ps1",
+    "w1aDefaultOffReleaseWorker": "scripts/u3w-default-off-release-remote.py",
+    "w1aProductionReadinessOutputRoot": "work/production-readiness/",
     "domainInventory": "config/deployment/u3w-domain-inventory.json",
     "migrations": "sql/update_20260720_independent_board_control_plane.sql",
     "portalMenuMigration": "sql/update_20260720_independent_board_me_menu.sql",
@@ -352,8 +393,29 @@
       "activeSlice": "W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF",
       "officialExpertsContentWriteAllowed": false,
       "connectorRequiredForFirstValue": false,
-      "api2SourceTruthRequiredBeforeRelease": true
-      ,
+      "api2SourceTruthRequiredBeforeRelease": true,
+      "releaseOrchestrationGuardrails": {
+        "preparationOrder": [
+          "explicit_default_off_configuration",
+          "verified_v2_legacy_baseline",
+          "final_restore_proven_backup",
+          "strict_head_build_and_fixed_plan",
+          "prepared_gate",
+          "stage",
+          "apply_with_real_application_rollback_rehearsal",
+          "verify"
+        ],
+        "acceptedPreStageRuntimeStates": [
+          "LEGACY_W1A_PENDING_RESTART",
+          "EXACT_CONFIGURED"
+        ],
+        "fixedPlanPolicy": "rehash_fixed_release_plan_and_exact_target_field_set_before_each_mutating_transition",
+        "approvalPolicy": "persist_current_and_transition_approval_bytes_before_remote_mutation",
+        "failureEvidencePolicy": "persist_sanitized_envelope_and_failure_receipt_before_post_mutation_readiness",
+        "latestReceiptPolicy": "bounded_compare_and_swap_per_release",
+        "rollbackPolicy": "real_application_rollback_with_additive_database_043_retained_dormant_no_down",
+        "officialExpertsPackageChangeAllowed": false
+      },
       "api2SourceTruth": {
         "repository": "https://github.com/fubangshou/FBSAI.git",
         "baselineRef": "agent/board-no-package-same-binding-v1-20260719",

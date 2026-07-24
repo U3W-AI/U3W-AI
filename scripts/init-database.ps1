@@ -2261,16 +2261,46 @@ SELECT CONCAT_WS('|',
      AND engine='InnoDB' AND table_collation='utf8mb4_unicode_ci'
      AND table_name IN ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')),
   (SELECT COUNT(*) FROM information_schema.triggers
-   WHERE trigger_schema=DATABASE() AND action_timing='BEFORE'
-     AND action_orientation='ROW'
-     AND trigger_name IN ('trg_board_attr_event_v1_no_update',
-                          'trg_board_attr_event_v1_no_delete')),
+    WHERE trigger_schema=DATABASE() AND action_timing='BEFORE'
+      AND action_orientation='ROW'
+      AND event_object_table IN
+        ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')),
+  (SELECT COUNT(*) FROM information_schema.referential_constraints
+    WHERE constraint_schema=DATABASE()
+      AND table_name IN
+        ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+      AND update_rule IN ('RESTRICT','NO ACTION')
+      AND delete_rule IN ('RESTRICT','NO ACTION')),
   (SELECT COUNT(*) FROM sys_menu permission
    INNER JOIN sys_menu root ON root.menu_id=permission.parent_id
    WHERE BINARY permission.perms=BINARY 'board:attribution:query'
+     AND BINARY permission.menu_name=BINARY 'Attribution summary'
+     AND permission.order_num=99
+     AND BINARY permission.path=BINARY ''
+     AND permission.component IS NULL
+     AND permission.query IS NULL
+     AND BINARY permission.route_name=BINARY ''
+     AND permission.is_frame=1
+     AND permission.is_cache=0
+     AND BINARY permission.menu_type=BINARY 'F'
+     AND BINARY permission.visible=BINARY '0'
+     AND BINARY permission.status=BINARY '0'
+     AND BINARY permission.icon=BINARY '#'
      AND root.parent_id=0
+     AND HEX(CAST(root.menu_name AS BINARY))=
+       'E78BACE891A3E4BC9AE7AEA1E79086'
+     AND root.order_num=5
      AND BINARY root.path=BINARY 'independent-board-admin'
-     AND BINARY root.route_name=BINARY 'IndependentBoardAdmin'),
+     AND root.component IS NULL
+     AND root.query IS NULL
+     AND BINARY root.route_name=BINARY 'IndependentBoardAdmin'
+     AND root.is_frame=1
+     AND root.is_cache=0
+     AND BINARY root.menu_type=BINARY 'M'
+     AND BINARY root.visible=BINARY '0'
+     AND BINARY root.status=BINARY '0'
+     AND BINARY COALESCE(root.perms,'')=BINARY ''
+     AND BINARY root.icon=BINARY 'peoples'),
   (SELECT COUNT(*) FROM u3w_schema_migration
    WHERE version='public_init_043'
      AND BINARY description=BINARY '$publicDescription'),
@@ -2279,10 +2309,10 @@ SELECT CONCAT_WS('|',
      AND BINARY description=BINARY
        'APPLIED:exact WorkBuddy experts 26.7.21 attribution journey and append-only event ledger'));
 "@
-    if ($state -ne '2|2|1|1|1') {
+    if ($state -ne '2|2|1|1|1|1') {
         throw "Independent Board attribution v1 current-read drifted: '$state'."
     }
-    Write-Host "PASS Independent Board official experts attribution v1 current-read (two ledger tables, two immutable triggers, exact admin permission and public/internal receipts)."
+    Write-Host "PASS Independent Board official experts attribution v1 current-read (two ledger tables, exactly two immutable triggers, restrictive FK, exact admin permission and public/internal receipts)."
 }
 
 function Assert-IndependentBoardCreditLedgerCurrentState {

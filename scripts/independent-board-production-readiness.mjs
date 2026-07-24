@@ -36,18 +36,31 @@ const REQUIRED_MIGRATION_DESCRIPTIONS = Object.freeze({
 });
 
 const W1A_SCHEMA_FINGERPRINT_SHA256 =
-  "a0507f51960622d49b66c4d8b1b7382dc8bc16a904d577bac1ca942bb8748b28";
+  "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d";
 
 const REQUIRED_DEFAULT_OFF_FLAGS = Object.freeze([
   "FBSIR_BOARD_ATTRIBUTION_ENABLED",
   "FBSIR_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
   "FBSIR_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED",
   "FBSIR_BOARD_ATTRIBUTION_CREDIT_ENABLED",
+  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_ENABLED",
+  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
+  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED",
+  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_CREDIT_ENABLED",
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_WRITER_ENABLED",
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_INTENT_CLASSIFIER_ENABLED",
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_ADMIN_READ_ENABLED",
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PRODUCT_CREDIT_ENABLED",
 ]);
+
+const MANAGED_W1A_ENVIRONMENT_NAMES = Object.freeze([
+  ...REQUIRED_DEFAULT_OFF_FLAGS,
+  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_EVENT_KEY_ID",
+  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_EVENT_KEY",
+  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY_ID",
+  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY",
+  "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET",
+].sort());
 
 function hasExactString(value, pattern) {
   return typeof value === "string" && pattern.test(value);
@@ -72,6 +85,7 @@ export function evaluateProductionReadiness(snapshot) {
   const database = snapshot.database ?? {};
   const configuration = snapshot.configuration ?? {};
   const backup = snapshot.backup ?? {};
+  const portals = snapshot.portals ?? {};
   const w1a043CompatibilityVersions = asSet(
     local.w1a043CompatibilityVersions,
   );
@@ -87,6 +101,33 @@ export function evaluateProductionReadiness(snapshot) {
       : {};
   const configuredNames = asSet(configuration.environmentKeyNames);
   const explicitFalseNames = asSet(configuration.explicitFalseKeyNames);
+  const runtimeMismatchNames = Array.isArray(
+    runtime.processConfiguredEnvironmentMismatchNames,
+  )
+    ? runtime.processConfiguredEnvironmentMismatchNames
+    : [];
+  const runtimePendingNames = Array.isArray(
+    runtime.processPendingRestartEnvironmentNames,
+  )
+    ? runtime.processPendingRestartEnvironmentNames
+    : [];
+  const exactRuntimeConfiguration =
+    runtime.processConfiguredEnvironmentLoadState ===
+      "EXACT_CONFIGURED" &&
+    runtime.processConfiguredEnvironmentMatched === true &&
+    runtime.processConfiguredEnvironmentPreStageCompatible === true &&
+    runtimeMismatchNames.length === 0 &&
+    runtimePendingNames.length === 0;
+  const legacyPendingRuntimeConfiguration =
+    runtime.processConfiguredEnvironmentLoadState ===
+      "LEGACY_W1A_PENDING_RESTART" &&
+    runtime.processConfiguredEnvironmentMatched === false &&
+    runtime.processConfiguredEnvironmentPreStageCompatible === true &&
+    runtimeMismatchNames.length === 0 &&
+    JSON.stringify(runtimePendingNames) ===
+      JSON.stringify(MANAGED_W1A_ENVIRONMENT_NAMES);
+  const runtimeConfigurationValid =
+    exactRuntimeConfiguration || legacyPendingRuntimeConfiguration;
   const w1aSchemaAbsent =
     database.publicInit043Applied !== true &&
     database.boardAttributionTableCount === 0 &&
@@ -117,7 +158,7 @@ export function evaluateProductionReadiness(snapshot) {
     driftedPredecessorDescriptions.length === 0;
   const legacySchemaBaseline =
     database.migrationTableCount === 1 &&
-    database.schemaBaselineMode === "LEGACY_ADOPTED_W1A_V1" &&
+    database.schemaBaselineMode === "LEGACY_ADOPTED_W1A_V2" &&
     database.legacyBaselineReceiptValid === true &&
     database.legacyBaselineReceiptAnchorMatched === true &&
     database.legacyBaselineLiveFactsMatched === true &&
@@ -148,6 +189,16 @@ export function evaluateProductionReadiness(snapshot) {
       "active_runtime_anchor",
       target.serviceState === "active" &&
         hasExactString(runtime.jarSha256, /^[0-9a-f]{64}$/) &&
+        runtime.processDatabaseBindingMatched === true &&
+        runtimeConfigurationValid &&
+        hasExactString(
+          runtime.processSecurityConfigurationHmacSha256,
+          /^[0-9a-f]{64}$/,
+        ) &&
+        hasExactString(
+          runtime.configuredEnvironmentHmacSha256,
+          /^[0-9a-f]{64}$/,
+        ) &&
         typeof runtime.jarPath === "string" &&
         runtime.jarPath.startsWith("/opt/fbsir/admin/"),
       "the active service and exact current JAR digest must be readable",
@@ -203,13 +254,21 @@ export function evaluateProductionReadiness(snapshot) {
         configuration.activeEventKeyPairPresent === true &&
         configuration.previousEventKeyPairComplete === true &&
         configuration.sameBindingSecretPresent === true &&
+        configuration.stagedApi2EventKeyMaterialMatched === true &&
+        configuration.api2EventKeyFileCustodySecure === true &&
+        configuration.environmentFilePathExact === true &&
         configuration.environmentFileCustodySecure === true &&
-        configuration.cryptographicConfigurationShapeValid === true,
+        configuration.cryptographicConfigurationShapeValid === true &&
+        configuration.configurationReceiptValid === true &&
+        configuration.configurationReceiptAnchorMatched === true &&
+        configuration.configurationReceiptSourceCommit ===
+          local.sourceCommit,
       "the explicit active event key pair and independent same-binding secret must be held in a root-owned 0600 env file without disclosure",
     ),
     gate(
       "release_plan_and_rollback_contract",
       local.releasePlanVerified === true &&
+        local.releasePlanTargetMatchedLive === true &&
         local.releasePlanSourceCommit === local.sourceCommit &&
         local.releaseRunnerContractVersion ===
           "fbsir.u3wDefaultOffReleaseRunner.v1",
@@ -220,19 +279,48 @@ export function evaluateProductionReadiness(snapshot) {
     snapshot.deploymentChannel?.state === "STAGED_FOR_SWITCH" &&
     snapshot.deploymentChannel?.receiptValidated === true &&
     snapshot.deploymentChannel?.receiptAnchorMatched === true &&
+    snapshot.deploymentChannel?.releasePlanTargetBindingVerified === true &&
     snapshot.deploymentChannel?.sourceCommit === local.sourceCommit &&
     snapshot.deploymentChannel
-      ?.strictHeadBuildUploadSwitchReceiptScriptPresent === true;
+      ?.strictHeadBuildUploadSwitchReceiptScriptPresent === true &&
+    snapshot.deploymentChannel?.applicationRollbackAssemblyVerified ===
+      true &&
+    snapshot.deploymentChannel?.applicationRollbackProven === false &&
+    snapshot.deploymentChannel?.databaseRollbackSafetyProven === true &&
+    snapshot.deploymentChannel?.stableDatabaseIdentityMatched === true &&
+    snapshot.deploymentChannel?.stagedLiveStateMatched === true &&
+    snapshot.deploymentChannel?.databaseDownClaimed === false;
   const deployedChannelValid =
     snapshot.deploymentChannel?.state === "DEPLOYED_DEFAULT_OFF" &&
     snapshot.deploymentChannel?.receiptValidated === true &&
     snapshot.deploymentChannel?.receiptAnchorMatched === true &&
+    snapshot.deploymentChannel?.releasePlanTargetBindingVerified === true &&
     snapshot.deploymentChannel?.sourceCommit === local.sourceCommit &&
     snapshot.deploymentChannel
       ?.strictHeadBuildUploadSwitchReceiptScriptPresent === true &&
     snapshot.deploymentChannel?.actualActiveArtifactsMatched === true &&
+    snapshot.deploymentChannel?.applicationRollbackAssemblyVerified ===
+      true &&
     snapshot.deploymentChannel?.applicationRollbackProven === true &&
-    snapshot.deploymentChannel?.databaseRollbackProven === true;
+    snapshot.deploymentChannel?.databaseRollbackSafetyProven === true &&
+    snapshot.deploymentChannel?.stableDatabaseIdentityMatched === true &&
+    snapshot.deploymentChannel?.databaseDownClaimed === false &&
+    snapshot.deploymentChannel?.u3wDirectCaptchaHealthy === true &&
+    snapshot.deploymentChannel?.mePortalApiHealthy === true &&
+    snapshot.deploymentChannel?.adminPortalApiHealthy === true &&
+    snapshot.deploymentChannel?.mePortalReleaseMarkerMatched === true &&
+    snapshot.deploymentChannel?.adminPortalReleaseMarkerMatched === true;
+  const rolledBackChannelValid =
+    snapshot.deploymentChannel?.state ===
+      "ROLLED_BACK_APPLICATION_DATABASE_043_RETAINED_DORMANT" &&
+    snapshot.deploymentChannel?.receiptValidated === true &&
+    snapshot.deploymentChannel?.receiptAnchorMatched === true &&
+    snapshot.deploymentChannel?.sourceCommit === local.sourceCommit &&
+    snapshot.deploymentChannel?.applicationRollbackProven === true &&
+    snapshot.deploymentChannel?.databaseRollbackSafetyProven === true &&
+    snapshot.deploymentChannel?.stableDatabaseIdentityMatched === true &&
+    snapshot.deploymentChannel?.rollbackLiveStateMatched === true &&
+    snapshot.deploymentChannel?.databaseDownClaimed === false;
   const postDeploymentGates = [
     gate(
       "staged_release_receipt",
@@ -242,7 +330,7 @@ export function evaluateProductionReadiness(snapshot) {
     gate(
       "deployed_default_off_receipt",
       deployedChannelValid,
-      "a deployed default-off receipt with jointly anchored application and database rollback proofs is required",
+      "a deployed default-off receipt with active U3W artifacts, portal health, application rollback proof and forward-only database rollback safety is required",
     ),
   ];
 
@@ -253,7 +341,9 @@ export function evaluateProductionReadiness(snapshot) {
     .filter((item) => !item.pass)
     .map((item) => item.id);
   const prepared = failedGateIds.length === 0;
-  const status = !prepared
+  const status = rolledBackChannelValid
+    ? "ROLLED_BACK_APPLICATION_DB_043_RETAINED"
+    : !prepared
     ? "NOT_READY_FOR_PRODUCTION_RELEASE"
     : deployedChannelValid
       ? "DEPLOYED_DEFAULT_OFF"
@@ -265,7 +355,7 @@ export function evaluateProductionReadiness(snapshot) {
     schema: SCHEMA,
     observedAt: snapshot.observedAt ?? null,
     status,
-    productionChanged: deployedChannelValid,
+    productionChanged: deployedChannelValid || rolledBackChannelValid,
     readyForDefaultOffRelease: prepared,
     gates: preparationGates,
     failedGateIds,
@@ -275,6 +365,7 @@ export function evaluateProductionReadiness(snapshot) {
       localSourceCommit: local.sourceCommit ?? null,
       releasePlan: {
         verified: local.releasePlanVerified === true,
+        targetMatchedLive: local.releasePlanTargetMatchedLive === true,
         sourceCommit: local.releasePlanSourceCommit ?? null,
         runnerContractVersion: local.releaseRunnerContractVersion ?? null,
         receiptPath: local.releasePlanReceiptPath ?? null,
@@ -300,6 +391,10 @@ export function evaluateProductionReadiness(snapshot) {
       runtime: {
         jarPath: runtime.jarPath ?? null,
         jarSha256: runtime.jarSha256 ?? null,
+        configuredJarPath: runtime.configuredJarPath ?? null,
+        configuredJarSha256: runtime.configuredJarSha256 ?? null,
+        processJarPath: runtime.processJarPath ?? null,
+        processJarSha256: runtime.processJarSha256 ?? null,
         attributionClassCount: runtime.attributionClassCount ?? null,
       },
       database: {
@@ -336,10 +431,11 @@ export function evaluateProductionReadiness(snapshot) {
         driftedPredecessorDescriptions,
       },
       portals: {
-        meHttpStatus: snapshot.portals?.meHttpStatus ?? null,
-        adminHttpStatus: snapshot.portals?.adminHttpStatus ?? null,
-        api2FbssHealthHttpStatus:
-          snapshot.portals?.api2FbssHealthHttpStatus ?? null,
+        meHttpStatus: portals.meHttpStatus ?? null,
+        adminHttpStatus: portals.adminHttpStatus ?? null,
+        u3wDirectCaptcha: portals.u3wDirectCaptcha ?? null,
+        meApiCaptcha: portals.meApiCaptcha ?? null,
+        adminApiCaptcha: portals.adminApiCaptcha ?? null,
       },
       configuration: {
         missingExplicitFlags: missingFlags,
@@ -352,10 +448,24 @@ export function evaluateProductionReadiness(snapshot) {
           configuration.previousEventKeyPairComplete === true,
         sameBindingSecretPresent:
           configuration.sameBindingSecretPresent === true,
+        stagedApi2EventKeyMaterialMatched:
+          configuration.stagedApi2EventKeyMaterialMatched === true,
+        api2EventKeyFileCustodySecure:
+          configuration.api2EventKeyFileCustodySecure === true,
+        environmentFilePathExact:
+          configuration.environmentFilePathExact === true,
         environmentFileCustodySecure:
           configuration.environmentFileCustodySecure === true,
         cryptographicConfigurationShapeValid:
           configuration.cryptographicConfigurationShapeValid === true,
+        configurationReceiptValid:
+          configuration.configurationReceiptValid === true,
+        configurationReceiptAnchorMatched:
+          configuration.configurationReceiptAnchorMatched === true,
+        configurationReceiptSourceCommit:
+          configuration.configurationReceiptSourceCommit ?? null,
+        configurationReceiptSha256:
+          configuration.configurationReceiptSha256 ?? null,
       },
       backup: {
         receiptPath: backup.receiptPath ?? null,
@@ -381,16 +491,37 @@ export function evaluateProductionReadiness(snapshot) {
             ?.strictHeadBuildUploadSwitchReceiptScriptPresent === true,
         applicationRollbackProven:
           snapshot.deploymentChannel?.applicationRollbackProven === true,
-        databaseRollbackProven:
-          snapshot.deploymentChannel?.databaseRollbackProven === true,
+        applicationRollbackAssemblyVerified:
+          snapshot.deploymentChannel
+            ?.applicationRollbackAssemblyVerified === true,
+        databaseRollbackSafetyProven:
+          snapshot.deploymentChannel
+            ?.databaseRollbackSafetyProven === true,
+        databaseDownClaimed:
+          snapshot.deploymentChannel?.databaseDownClaimed ?? null,
         actualActiveArtifactsMatched:
           snapshot.deploymentChannel?.actualActiveArtifactsMatched === true,
+        currentLinkResolved:
+          snapshot.deploymentChannel?.currentLinkResolved ?? null,
+        u3wDirectCaptchaHealthy:
+          snapshot.deploymentChannel?.u3wDirectCaptchaHealthy === true,
+        mePortalApiHealthy:
+          snapshot.deploymentChannel?.mePortalApiHealthy === true,
+        adminPortalApiHealthy:
+          snapshot.deploymentChannel?.adminPortalApiHealthy === true,
+        mePortalReleaseMarkerMatched:
+          snapshot.deploymentChannel?.mePortalReleaseMarkerMatched === true,
+        adminPortalReleaseMarkerMatched:
+          snapshot.deploymentChannel
+            ?.adminPortalReleaseMarkerMatched === true,
       },
     },
-    nextAction: !prepared
+    nextAction: rolledBackChannelValid
+      ? "The application is on the immutable predecessor while 043 is retained; inspect database safety, issue a fresh plan and do not claim database rollback."
+      : !prepared
       ? `Close preparation gates before any upload, migration, Nginx change, restart or cutover: ${failedGateIds.join(",")}`
       : deployedChannelValid
-        ? "Observe default-off health and retain the jointly anchored rollback bundle."
+        ? "Observe default-off U3W and portal health while retaining the forward-only 043 safety and application rollback evidence."
         : stagedChannelValid
           ? "Run the separately approved default-off switch and verify active artifacts."
           : "Run the separate stage command; it must not switch current, restart services or mutate the database.",

@@ -43,7 +43,7 @@
     { "version": "public_init_040", "description": "Independent Board plan policy database monotonic-chain guards", "file": "update_20260723_independent_board_plan_policy_monotonic_chain.sql", "sha256": "a5d79ab2e33a390528cd12fa0705d3d3f991e93dca79d43f2fffdf0700d903b3" },
     { "version": "public_init_041", "description": "Independent Board plan policy controlled procedure authority", "file": "update_20260723_independent_board_plan_policy_authority.sql", "sha256": "e7daa08d8d87b81479520b5689192f8275828d5112b097797b927b06fb858b4b" },
     { "version": "public_init_042", "description": "Independent Board default-off skill-consume v2 credit ledger", "file": "update_20260723_skill_consume_credit_ledger_v2.sql", "sha256": "097b7fbc59db7f5af309bbe5664b86ac91631fe6d5e691ce7231a7ac5a8e7ff4" },
-    { "version": "public_init_043", "description": "Independent Board exact official experts attribution v1", "file": "update_20260723_independent_board_attribution_v1.sql", "sha256": "287a8b141abc80b2d95ff6a0cd97e8dbc4fa38845ae7b96c7bd8522e8f5b49b7" }
+    { "version": "public_init_043", "description": "Independent Board exact official experts attribution v1", "file": "update_20260723_independent_board_attribution_v1.sql", "sha256": "ca9c86c79617543c19bc9a6141afef18918320c65091b418f761ece19b5c6055" }
   ],
   "manualMigrations": [
     {

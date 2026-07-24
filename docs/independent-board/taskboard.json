@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Close service attribution, finite intent classification and first-value readback for the exact WorkBuddy listed fbsir-eight-seat-board@26.7.21 identity without modifying the official experts content tree.",
-  "singleNextAction": "Implement one interruption-safe strict-HEAD production backup and isolated-restore runner that independently recomputes restore facts and the legacy baseline candidate; keep all feature flags false and perform no upload, migration or switch until the new receipts close their preparation gates.",
+  "singleNextAction": "Apply the explicit default-off configuration and verified V2 legacy baseline under production approvals, take the final restore-proven backup, then build, plan, stage, apply and verify the strict-HEAD release before API2 byte readback and one real official experts same-binding chain.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -29,7 +29,7 @@
     },
     {
       "id": "W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE",
-      "state": "u3w_production_readiness_gate_executable_no_go_api2_default_off_dry_run_verified_real_same_binding_proof_pending",
+      "state": "u3w_release_state_machine_and_initial_restore_backup_verified_local_production_apply_and_real_same_binding_proof_pending",
       "activeSlice": "W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF",
       "officialIdentity": {
         "productId": "fbsir-eight-seat-board",
@@ -64,15 +64,22 @@
         "api2_strict_head_production_release_dry_run_verified_without_state_change",
         "u3w_live_read_only_production_readiness_three_stage_gate_and_twenty_two_rule_vectors_verified",
         "unsafe_self_attested_legacy_baseline_runner_removed_after_independent_review",
-        "u3w_live_no_go_reproduced_without_secret_disclosure_or_production_change"
+        "u3w_live_no_go_reproduced_without_secret_disclosure_or_production_change",
+        "u3w_initial_production_backup_encrypted_and_isolated_restore_independently_recomputed",
+        "u3w_interruption_safe_legacy_baseline_v2_runner_and_exact_mysql_control_shape_verified_local",
+        "u3w_explicit_default_off_configuration_crypto_custody_and_recovery_runner_verified_local",
+        "u3w_strict_head_build_plan_stage_apply_rollback_verify_state_machine_verified_local",
+        "u3w_stage_rollback_assembly_distinguished_from_live_apply_rollback_execution",
+        "u3w_actual_process_argv_environ_dropin_additional_config_and_portal_release_marker_gate_verified_local",
+        "u3w_remote_worker_result_and_target_receipt_bytes_independently_downloaded_and_sha_anchored"
       ],
       "remaining": [
-        "u3w_interruption_safe_legacy_baseline_runner_with_independent_live_fact_cross_validation",
-        "u3w_database_backup_and_independently_recomputed_restore_receipt",
-        "u3w_explicit_default_off_configuration_and_cryptographic_material_custody",
-        "u3w_strict_head_plan_stage_atomic_switch_and_joint_application_database_rollback_runner",
+        "u3w_legacy_baseline_v2_production_apply_and_live_readback",
+        "u3w_default_off_configuration_and_crypto_custody_production_apply",
+        "u3w_final_post_adoption_backup_and_isolated_restore",
+        "u3w_strict_head_build_plan_prepared_stage_apply_live_rollback_rehearsal_and_verify",
         "api2_active_release_file_hash_readback",
-        "production_database_migration_and_default_off_deployment",
+        "api2_strict_head_default_off_production_deployment",
         "one_real_official_experts_same_binding_three_event_receipt",
         "admin_real_traffic_six_dimension_readback"
       ],

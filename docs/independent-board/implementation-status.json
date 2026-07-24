@@ -50,7 +50,7 @@
   },
   "activeWave": "W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE",
   "activeSlice": "W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF",
-  "singleNextAction": "Implement one interruption-safe strict-HEAD production backup and isolated-restore runner that independently recomputes restore facts and the legacy baseline candidate; keep all feature flags false and perform no upload, migration or switch until the new receipts close their preparation gates.",
+  "singleNextAction": "Apply the explicit default-off configuration and verified V2 legacy baseline under production approvals, take the final restore-proven backup, then build, plan, stage, apply and verify the strict-HEAD release before API2 byte readback and one real official experts same-binding chain.",
   "stage": "fix",
   "phase": "W1D_API2_CLEANROOM_PUBLISHER",
   "authoritativeRoot": {
@@ -522,7 +522,7 @@
     "decisionRole": "watch_only"
   },
   "w1a": {
-    "state": "u3w_production_readiness_gate_executable_no_go_api2_default_off_dry_run_verified_real_same_binding_proof_pending",
+    "state": "u3w_release_state_machine_and_initial_restore_backup_verified_local_production_apply_and_real_same_binding_proof_pending",
     "contract": "docs/independent-board/W1A-OFFICIAL-EXPERTS-ATTRIBUTION-CONTRACT.md",
     "adr": "docs/decisions/ADR-007-independent-board-official-experts-attribution-spine.md",
     "verificationReport": "reports/independent-board/w1a-official-experts-attribution-verification-latest.json",
@@ -581,17 +581,31 @@
     ],
     "schemaBaselineModes": [
       "CANONICAL_MANIFEST",
-      "LEGACY_ADOPTED_W1A_V1"
+      "LEGACY_ADOPTED_W1A_V2"
     ],
-    "legacyBaselineState": "design_only_fail_closed_unsafe_self_attested_runner_removed_after_independent_review",
+    "legacyBaselineState": "interruption_safe_v2_runner_and_exact_mysql_control_shape_verified_local_production_apply_pending",
+    "initialProductionBackup": {
+      "runId": "w1a-20260723T171002Z-1b39c60f77cc",
+      "bundleReceiptSha256": "28ec6019a402e195a86bd67db1c5717367212957c63b9ea9c78f9643f043a733",
+      "encryptedBackupSha256": "5e1f6028c98eace401c6703391e049a56cd5e5258c3701af2b49eb5e867defcd",
+      "restoreFactsIndependentlyRecomputed": true,
+      "productionChanged": true
+    },
+    "releaseEngineeringState": "strict_head_build_plan_stage_apply_rollback_verify_contract_passed_local_with_live_application_rollback_execution_and_forward_only_043_safety",
+    "releaseRollbackModel": {
+      "stage": "assembly_only_applicationRollbackProven_false",
+      "apply": "live_candidate_to_immutable_predecessor_to_candidate_rehearsal",
+      "database": "retain_additive_043_dormant_no_down"
+    },
     "releaseReady": false,
     "productionAuthority": false,
     "notProven": [
-      "interruption_safe_legacy_baseline_runner_and_independent_live_fact_cross_validation",
-      "production_database_backup_and_independently_recomputed_restore_receipt",
-      "explicit_default_off_w1a_configuration_and_cryptographic_material_custody",
-      "strict_head_plan_stage_atomic_switch_and_joint_application_database_rollback_runner",
+      "legacy_baseline_v2_production_apply_and_live_readback",
+      "default_off_configuration_and_crypto_custody_production_apply",
+      "final_post_adoption_backup_and_isolated_restore",
+      "strict_head_build_plan_prepared_stage_apply_live_rollback_rehearsal_and_verify",
       "api2_active_release_file_byte_identity",
+      "api2_default_off_production_deployment",
       "api2_to_u3w_production_receipt",
       "real_official_experts_same_binding_chain",
       "real_intent_distribution",

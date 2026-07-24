@@ -197,9 +197,33 @@ BEGIN
            ON root.`menu_id` = permission.`parent_id`
          WHERE BINARY permission.`perms`
                  = BINARY 'board:attribution:query'
+           AND BINARY permission.`menu_name`
+                 = BINARY 'Attribution summary'
+           AND permission.`order_num` = 99
+           AND BINARY permission.`path` = BINARY ''
+           AND permission.`component` IS NULL
+           AND permission.`query` IS NULL
+           AND BINARY permission.`route_name` = BINARY ''
+           AND permission.`is_frame` = 1
+           AND permission.`is_cache` = 0
+           AND BINARY permission.`menu_type` = BINARY 'F'
+           AND BINARY permission.`visible` = BINARY '0'
+           AND BINARY permission.`status` = BINARY '0'
+           AND BINARY permission.`icon` = BINARY '#'
            AND root.`parent_id` = 0
-           AND root.`path` = 'independent-board-admin'
-           AND root.`route_name` = 'IndependentBoardAdmin') <> 1 THEN
+           AND BINARY root.`menu_name` = BINARY '独董会管理'
+           AND root.`order_num` = 5
+           AND BINARY root.`path` = BINARY 'independent-board-admin'
+           AND root.`component` IS NULL
+           AND root.`query` IS NULL
+           AND BINARY root.`route_name` = BINARY 'IndependentBoardAdmin'
+           AND root.`is_frame` = 1
+           AND root.`is_cache` = 0
+           AND BINARY root.`menu_type` = BINARY 'M'
+           AND BINARY root.`visible` = BINARY '0'
+           AND BINARY root.`status` = BINARY '0'
+           AND BINARY COALESCE(root.`perms`,'') = BINARY ''
+           AND BINARY root.`icon` = BINARY 'peoples') <> 1 THEN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT =
         'Wave 1 attribution read permission is missing or ambiguous';
