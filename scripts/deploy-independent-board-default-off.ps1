@@ -373,18 +373,72 @@ function Write-Utf8NoBomAtomic {
     }
 }
 
+function Write-ContentAddressedPlanReceipt {
+    param([Parameter(Mandatory = $true)][byte[]]$Bytes)
+    $digest = Get-BytesSha256 $Bytes
+    $directory = Join-Path $RepoRoot (
+        'work\release-plans\by-sha256')
+    if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    }
+    $path = Join-Path $directory "$digest.json"
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        $stream = $null
+        try {
+            $stream = [IO.File]::Open(
+                $path,
+                [IO.FileMode]::CreateNew,
+                [IO.FileAccess]::Write,
+                [IO.FileShare]::None)
+            $stream.Write($Bytes, 0, $Bytes.Length)
+            $stream.Flush($true)
+        }
+        catch [IO.IOException] {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+                throw
+            }
+        }
+        finally {
+            if ($null -ne $stream) {
+                $stream.Dispose()
+            }
+        }
+    }
+    $item = Get-Item -LiteralPath $path -Force
+    if (
+        ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+        $item.Length -ne $Bytes.Length -or
+        (Get-Sha256 $path) -cne $digest
+    ) {
+        throw 'content-addressed release Plan receipt is invalid'
+    }
+    if (-not $item.IsReadOnly) {
+        $item.IsReadOnly = $true
+        $item = Get-Item -LiteralPath $path -Force
+    }
+    if (-not $item.IsReadOnly) {
+        throw 'content-addressed release Plan receipt is mutable'
+    }
+    return [ordered]@{
+        path = $item.FullName
+        sha256 = $digest
+    }
+}
+
 function Resolve-BuildReceipt {
     if (-not $BuildReceiptPath -or
         -not (Test-Path -LiteralPath $BuildReceiptPath -PathType Leaf)) {
         throw "$Mode requires BuildReceiptPath"
     }
     $resolved = (Resolve-Path -LiteralPath $BuildReceiptPath).Path
-    $digest = Get-Sha256 $resolved
+    $receiptBytes = [IO.File]::ReadAllBytes($resolved)
+    $digest = Get-BytesSha256 $receiptBytes
     if (-not $ExpectedBuildReceiptSha256 -or
         $digest -ne $ExpectedBuildReceiptSha256) {
         throw 'Build receipt anchor mismatch'
     }
-    $receipt = Get-Content -Raw -LiteralPath $resolved | ConvertFrom-Json
+    $receipt = [Text.UTF8Encoding]::new(
+        $false, $true).GetString($receiptBytes) | ConvertFrom-Json
     if (
         $receipt.schema -ne 'fbsir.u3wDefaultOffBuildReceipt.v1' -or
         $receipt.sourceCommit -ne $ExpectedCommit -or
@@ -423,6 +477,7 @@ function Resolve-BuildReceipt {
         path = $resolved
         sha256 = $digest
         receipt = $receipt
+        bytes = $receiptBytes
     }
 }
 
@@ -433,12 +488,28 @@ function Resolve-PlanReceipt {
         throw "$Mode requires PlanReceiptPath"
     }
     $resolved = (Resolve-Path -LiteralPath $PlanReceiptPath).Path
-    $digest = Get-Sha256 $resolved
+    $expectedPlanPath = Join-Path $RepoRoot (
+        'work\release-plans\by-sha256\{0}.json' -f
+            $ExpectedReleasePlanReceiptSha256.ToLowerInvariant())
+    if (-not (Test-Path -LiteralPath $expectedPlanPath -PathType Leaf) -or
+        $resolved -cne (Resolve-Path -LiteralPath $expectedPlanPath).Path) {
+        throw 'release plan receipt is not the immutable content-addressed copy'
+    }
+    $item = Get-Item -LiteralPath $resolved -Force
+    if (
+        ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+        -not $item.IsReadOnly
+    ) {
+        throw 'release plan receipt custody is invalid'
+    }
+    $receiptBytes = [IO.File]::ReadAllBytes($resolved)
+    $digest = Get-BytesSha256 $receiptBytes
     if (-not $ExpectedReleasePlanReceiptSha256 -or
         $digest -ne $ExpectedReleasePlanReceiptSha256) {
         throw 'release plan receipt anchor mismatch'
     }
-    $receipt = Get-Content -Raw -LiteralPath $resolved | ConvertFrom-Json
+    $receipt = [Text.UTF8Encoding]::new(
+        $false, $true).GetString($receiptBytes) | ConvertFrom-Json
     $generated = [DateTimeOffset]::Parse($receipt.generatedAt)
     $expires = [DateTimeOffset]::Parse($receipt.expiresAt)
     if (
@@ -463,6 +534,7 @@ function Resolve-PlanReceipt {
         path = $resolved
         sha256 = $digest
         receipt = $receipt
+        bytes = $receiptBytes
     }
 }
 
@@ -1524,6 +1596,7 @@ function Invoke-Plan {
     }
     $null = Assert-StrictHead
     $runnerSha = Get-RunnerSha256
+    $planGeneratedAt = [DateTime]::UtcNow
     $receipt = [ordered]@{
         schema = 'fbsir.u3wDefaultOffReleasePlan.v1'
         runnerContractVersion = $RunnerContractVersion
@@ -1567,20 +1640,34 @@ function Invoke-Plan {
         exactDatabaseDownContractPresent = $false
         applicationRollbackRehearsal =
             'REQUIRED_BEFORE_DEPLOYED_DEFAULT_OFF'
-        generatedAt = [DateTime]::UtcNow.ToString('o')
-        expiresAt = [DateTime]::UtcNow.AddHours(24).ToString('o')
+        generatedAt = $planGeneratedAt.ToString('o')
+        expiresAt = $planGeneratedAt.AddHours(24).ToString('o')
         productionChanged = $false
     }
-    Write-Utf8NoBomAtomic -Path $PlanOutputPath -Content (
-        ($receipt | ConvertTo-Json -Depth 20) + "`n")
+    $planContent = ($receipt | ConvertTo-Json -Depth 20) + "`n"
+    $planEncoding = [Text.UTF8Encoding]::new($false)
+    $immutablePlan = Write-ContentAddressedPlanReceipt -Bytes (
+        $planEncoding.GetBytes($planContent))
+    $latestPlanOutputPath = Join-Path $RepoRoot (
+        'work\release-plans\w1a-default-off-release-plan-latest.json')
+    Write-Utf8NoBomAtomic -Path $latestPlanOutputPath -Content $planContent
+    $resolvedPlanOutputPath = [IO.Path]::GetFullPath($PlanOutputPath)
+    $resolvedLatestPlanOutputPath =
+        [IO.Path]::GetFullPath($latestPlanOutputPath)
+    if (
+        $resolvedPlanOutputPath -cne $resolvedLatestPlanOutputPath -and
+        $resolvedPlanOutputPath -cne $immutablePlan.path
+    ) {
+        Write-Utf8NoBomAtomic -Path $PlanOutputPath -Content $planContent
+    }
     return [ordered]@{
         schema = 'fbsir.u3wDefaultOffReleaseRunnerResult.v1'
         mode = 'Plan'
         state = $receipt.state
         releaseId = $ReleaseId
         sourceCommit = $ExpectedCommit
-        planReceiptPath = (Resolve-Path $PlanOutputPath).Path
-        planReceiptSha256 = Get-Sha256 $PlanOutputPath
+        planReceiptPath = $immutablePlan.path
+        planReceiptSha256 = $immutablePlan.sha256
         buildReceiptSha256 = $build.sha256
         productionChanged = $false
     }
@@ -2764,6 +2851,126 @@ function Save-ExternalReleaseAnchor {
     }
 }
 
+function New-StageArtifactSnapshot {
+    param(
+        [Parameter(Mandatory = $true)]$Context,
+        [Parameter(Mandatory = $true)][string]$Root
+    )
+    $backendPath = Join-Path $Root 'backend/fbsir-admin.jar'
+    $migrationPath = Join-Path $Root 'sql/public_init_043.sql'
+    $runnerPath = Join-Path $Root 'release-runner.ps1'
+    $workerPath = Join-Path $Root 'release-worker.py'
+    $buildReceiptPath = Join-Path $Root 'evidence/build-receipt.json'
+    $planReceiptPath = Join-Path $Root 'evidence/release-plan.json'
+    $frontendArchive = Join-Path $Root 'frontend.tar'
+    $frontendVerification = Join-Path $Root 'frontend-verification'
+    foreach ($directory in @(
+            (Split-Path -Parent $backendPath),
+            (Split-Path -Parent $migrationPath),
+            (Split-Path -Parent $buildReceiptPath),
+            $frontendVerification)) {
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    }
+
+    $backendSource = Join-Path $RepoRoot (
+        [string]$Context.build.receipt.backend.relativePath)
+    [IO.File]::Copy($backendSource, $backendPath, $false)
+    [IO.File]::WriteAllBytes(
+        $migrationPath,
+        (Get-CommittedBlobBytes (
+            'sql/update_20260723_independent_board_attribution_v1.sql')))
+    [IO.File]::WriteAllBytes(
+        $runnerPath,
+        (Get-CommittedBlobBytes (
+            'scripts/deploy-independent-board-default-off.ps1')))
+    [IO.File]::WriteAllBytes(
+        $workerPath,
+        (Get-CommittedBlobBytes (
+            'scripts/u3w-default-off-release-remote.py')))
+    [IO.File]::WriteAllBytes(
+        $buildReceiptPath,
+        $Context.build.bytes)
+    [IO.File]::WriteAllBytes(
+        $planReceiptPath,
+        $Context.plan.bytes)
+
+    $frontendSource = Join-Path $RepoRoot (
+        [string]$Context.build.receipt.frontend.relativePath)
+    & tar.exe -C $frontendSource -cf $frontendArchive .
+    if ($LASTEXITCODE -ne 0) {
+        throw 'frontend release snapshot creation failed'
+    }
+    $lockedStreams = [Collections.Generic.List[IO.FileStream]]::new()
+    try {
+        foreach ($path in @(
+                $backendPath,
+                $migrationPath,
+                $runnerPath,
+                $workerPath,
+                $buildReceiptPath,
+                $planReceiptPath,
+                $frontendArchive)) {
+            $lockedStreams.Add([IO.File]::Open(
+                    $path,
+                    [IO.FileMode]::Open,
+                    [IO.FileAccess]::Read,
+                    [IO.FileShare]::Read))
+        }
+        & tar.exe -C $frontendVerification -xf $frontendArchive
+        if ($LASTEXITCODE -ne 0) {
+            throw 'frontend release snapshot verification extraction failed'
+        }
+        $frontendReparsePoint = Get-ChildItem `
+            -LiteralPath $frontendVerification -Force -Recurse |
+            Where-Object {
+                ($_.Attributes -band
+                    [IO.FileAttributes]::ReparsePoint) -ne 0
+            } | Select-Object -First 1
+        if ($null -ne $frontendReparsePoint) {
+            throw 'frontend release snapshot contains a reparse point'
+        }
+        $frontendFacts = Get-TreeManifest $frontendVerification
+        if (
+            (Get-Sha256 $backendPath) -cne
+                $Context.build.receipt.backend.sha256 -or
+            (Get-Item -LiteralPath $backendPath).Length -ne
+                [long]$Context.build.receipt.backend.sizeBytes -or
+            (Get-Sha256 $migrationPath) -cne
+                $Context.build.receipt.migrationSha256 -or
+            (Get-Sha256 $runnerPath) -cne
+                $Context.plan.receipt.runnerSha256 -or
+            (Get-Sha256 $workerPath) -cne
+                $Context.plan.receipt.workerSha256 -or
+            (Get-Sha256 $buildReceiptPath) -cne $Context.build.sha256 -or
+            (Get-Sha256 $planReceiptPath) -cne $Context.plan.sha256 -or
+            $frontendFacts.sha256 -cne
+                $Context.build.receipt.frontend.treeSha256 -or
+            $frontendFacts.fileCount -ne
+                [int]$Context.build.receipt.frontend.fileCount -or
+            $frontendFacts.totalBytes -ne
+                [long]$Context.build.receipt.frontend.totalBytes
+        ) {
+            throw 'stage artifact snapshot drifted from the anchored Build or Plan'
+        }
+        return [ordered]@{
+            backendPath = $backendPath
+            migrationPath = $migrationPath
+            runnerPath = $runnerPath
+            workerPath = $workerPath
+            buildReceiptPath = $buildReceiptPath
+            planReceiptPath = $planReceiptPath
+            frontendArchive = $frontendArchive
+            locks = @($lockedStreams)
+        }
+    }
+    catch {
+        foreach ($stream in $lockedStreams) {
+            $stream.Dispose()
+        }
+        throw
+    }
+}
+
 function Copy-ReleaseArtifact {
     param(
         [Parameter(Mandatory = $true)][string]$LocalPath,
@@ -2856,75 +3063,61 @@ function Invoke-Stage {
     $context = Assert-ReceiptAnchorsForMutatingMode
     $approvalAnchor = Save-ExternalApprovalAnchor `
         -ApprovalMode Stage -Approval $context.approval
-    $prepared = Invoke-PreparedGate
-    $prepare = Invoke-CommittedRemoteWorker `
-        -WorkerMode PrepareStage -Context $context
-    $prepareAnchor = Save-ExternalReleaseAnchor `
-        -Name 'stage-prepare' -WorkerResult $prepare
-    if ($prepare.result.state -eq 'READY_FOR_UPLOAD') {
-        $temporary = Join-Path $env:TEMP (
-            "u3w-release-$ReleaseId-$PID")
-        if (Test-Path -LiteralPath $temporary) {
-            throw "temporary release directory already exists: $temporary"
-        }
-        New-Item -ItemType Directory -Path $temporary | Out-Null
-        try {
-            $runnerPath = Join-Path $temporary 'release-runner.ps1'
-            $workerPath = Join-Path $temporary 'release-worker.py'
-            $frontendArchive = Join-Path $temporary 'frontend.tar'
-            [IO.File]::WriteAllBytes(
-                $runnerPath,
-                (Get-CommittedBlobBytes (
-                    'scripts/deploy-independent-board-default-off.ps1')))
-            [IO.File]::WriteAllBytes(
-                $workerPath,
-                (Get-CommittedBlobBytes (
-                    'scripts/u3w-default-off-release-remote.py')))
-            $frontendPath = Join-Path $RepoRoot (
-                $context.build.receipt.frontend.relativePath)
-            & tar.exe -C $frontendPath -cf $frontendArchive .
-            if ($LASTEXITCODE -ne 0) {
-                throw 'frontend release archive creation failed'
-            }
+    $temporary = Join-Path $env:TEMP (
+        "u3w-release-$ReleaseId-$PID")
+    if (Test-Path -LiteralPath $temporary) {
+        throw "temporary release directory already exists: $temporary"
+    }
+    New-Item -ItemType Directory -Path $temporary | Out-Null
+    try {
+        $snapshot = New-StageArtifactSnapshot `
+            -Context $context -Root $temporary
+        $prepared = Invoke-PreparedGate
+        $prepare = Invoke-CommittedRemoteWorker `
+            -WorkerMode PrepareStage -Context $context
+        $prepareAnchor = Save-ExternalReleaseAnchor `
+            -Name 'stage-prepare' -WorkerResult $prepare
+        if ($prepare.result.state -eq 'READY_FOR_UPLOAD') {
             $incoming = "/opt/fbsir/admin/releases/.incoming-$ReleaseId"
             Copy-ReleaseArtifact `
-                -LocalPath (
-                    Join-Path $RepoRoot (
-                        $context.build.receipt.backend.relativePath)) `
+                -LocalPath $snapshot.backendPath `
                 -RemotePath "$incoming/backend/fbsir-admin.jar"
             Copy-ReleaseArtifact `
-                -LocalPath (
-                    Join-Path $RepoRoot (
-                        'sql\update_20260723_independent_board_attribution_v1.sql')) `
+                -LocalPath $snapshot.migrationPath `
                 -RemotePath "$incoming/sql/public_init_043.sql"
-            Copy-ReleaseArtifact -LocalPath $runnerPath `
+            Copy-ReleaseArtifact -LocalPath $snapshot.runnerPath `
                 -RemotePath "$incoming/release-runner.ps1"
-            Copy-ReleaseArtifact -LocalPath $workerPath `
+            Copy-ReleaseArtifact -LocalPath $snapshot.workerPath `
                 -RemotePath "$incoming/release-worker.py"
-            Copy-ReleaseArtifact -LocalPath $context.build.path `
+            Copy-ReleaseArtifact -LocalPath $snapshot.buildReceiptPath `
                 -RemotePath "$incoming/evidence/build-receipt.json"
-            Copy-ReleaseArtifact -LocalPath $context.plan.path `
+            Copy-ReleaseArtifact -LocalPath $snapshot.planReceiptPath `
                 -RemotePath "$incoming/evidence/release-plan.json"
-            Copy-ReleaseArtifact -LocalPath $frontendArchive `
+            Copy-ReleaseArtifact -LocalPath $snapshot.frontendArchive `
                 -RemotePath "$incoming/evidence/frontend.tar"
         }
-        finally {
-            if (Test-Path -LiteralPath $temporary) {
-                $resolvedTemporary = (
-                    Resolve-Path -LiteralPath $temporary).Path
-                $resolvedTempRoot = (
-                    Resolve-Path -LiteralPath $env:TEMP).Path.TrimEnd('\') + '\'
-                if (($resolvedTemporary.TrimEnd('\') + '\').StartsWith(
-                        $resolvedTempRoot,
-                        [StringComparison]::OrdinalIgnoreCase)) {
-                    Remove-Item -LiteralPath $resolvedTemporary `
-                        -Recurse -Force
-                }
-            }
+        elseif ($prepare.result.state -ne 'ALREADY_STAGED') {
+            throw 'PrepareStage returned an invalid state'
         }
     }
-    elseif ($prepare.result.state -ne 'ALREADY_STAGED') {
-        throw 'PrepareStage returned an invalid state'
+    finally {
+        if ($null -ne $snapshot) {
+            foreach ($stream in @($snapshot.locks)) {
+                $stream.Dispose()
+            }
+        }
+        if (Test-Path -LiteralPath $temporary) {
+            $resolvedTemporary = (
+                Resolve-Path -LiteralPath $temporary).Path
+            $resolvedTempRoot = (
+                Resolve-Path -LiteralPath $env:TEMP).Path.TrimEnd('\') + '\'
+            if (($resolvedTemporary.TrimEnd('\') + '\').StartsWith(
+                    $resolvedTempRoot,
+                    [StringComparison]::OrdinalIgnoreCase)) {
+                Remove-Item -LiteralPath $resolvedTemporary `
+                    -Recurse -Force
+            }
+        }
     }
     $finalize = Invoke-CommittedRemoteWorker `
         -WorkerMode FinalizeStage -Context $context

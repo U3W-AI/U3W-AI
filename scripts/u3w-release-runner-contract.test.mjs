@@ -30,6 +30,13 @@ const controlPlane = fs.readFileSync(
   new URL("./verify-independent-board-control-plane.ps1", import.meta.url),
   "utf8",
 );
+const preparationRunbook = fs.readFileSync(
+  new URL(
+    "../docs/independent-board/W1A-PREPARATION-RUNBOOK.md",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const orchestrationContract = JSON.parse(
   fs.readFileSync(
     new URL("../.fbs-engineering/contract.json", import.meta.url),
@@ -70,6 +77,146 @@ test("plan is local-only and every mutating mode needs an approval receipt", () 
   assert.ok(runner.includes("Get-ApprovalDigest"));
   assert.ok(runner.includes("officialExpertsPackageChange"));
   assert.ok(runner.includes("productionServiceChange"));
+});
+
+test("plan validity uses one clock instant for an exact 24 hour window", () => {
+  assert.ok(runner.includes("$planGeneratedAt = [DateTime]::UtcNow"));
+  assert.ok(
+    runner.includes("generatedAt = $planGeneratedAt.ToString('o')"),
+  );
+  assert.ok(
+    runner.includes("expiresAt = $planGeneratedAt.AddHours(24).ToString('o')"),
+  );
+  assert.equal(
+    runner.includes("[DateTime]::UtcNow.AddHours(24).ToString('o')"),
+    false,
+  );
+});
+
+test("plan publishes one immutable content-addressed readiness receipt", () => {
+  const plan = sectionBetween(
+    runner,
+    "function Invoke-Plan {",
+    "function Get-ApprovalDigest {",
+  );
+  assert.ok(plan.includes("Write-ContentAddressedPlanReceipt"));
+  assert.ok(runner.includes(
+    "work\\release-plans\\by-sha256",
+  ));
+  assert.ok(plan.includes(
+    "planReceiptPath = $immutablePlan.path",
+  ));
+  assert.ok(runner.includes("[IO.FileMode]::CreateNew"));
+  assert.ok(readiness.includes(
+    "'work\\release-plans\\by-sha256'",
+  ));
+  assert.ok(readiness.includes(
+    "\"$($ExpectedReleasePlanReceiptSha256.ToLowerInvariant()).json\"",
+  ));
+});
+
+test("stage uploads only receipt bytes captured before its readiness gate", () => {
+  const resolveBuild = sectionBetween(
+    runner,
+    "function Resolve-BuildReceipt {",
+    "function Resolve-PlanReceipt {",
+  );
+  const resolvePlan = sectionBetween(
+    runner,
+    "function Resolve-PlanReceipt {",
+    "function Invoke-Build {",
+  );
+  const stage = sectionBetween(
+    runner,
+    "function Invoke-Stage {",
+    "function Invoke-Apply {",
+  );
+  const snapshot = sectionBetween(
+    runner,
+    "function New-StageArtifactSnapshot {",
+    "function Copy-ReleaseArtifact {",
+  );
+  assert.ok(resolveBuild.includes("[IO.File]::ReadAllBytes($resolved)"));
+  assert.ok(resolveBuild.includes("bytes = $receiptBytes"));
+  assert.ok(resolvePlan.includes("[IO.File]::ReadAllBytes($resolved)"));
+  assert.ok(resolvePlan.includes("bytes = $receiptBytes"));
+  assert.ok(snapshot.includes("$Context.plan.bytes"));
+  assert.ok(snapshot.includes("$Context.build.bytes"));
+  assert.ok(snapshot.includes("Get-CommittedBlobBytes"));
+  assert.ok(snapshot.includes("Get-TreeManifest"));
+  assert.ok(snapshot.includes("[IO.FileShare]::Read"));
+  assert.ok(snapshot.includes("$lockedStreams"));
+  assert.ok(snapshot.includes("$Context.plan.receipt.runnerSha256"));
+  assert.ok(snapshot.includes("$Context.plan.receipt.workerSha256"));
+  assert.ok(snapshot.includes("backend/fbsir-admin.jar"));
+  assert.ok(snapshot.includes("frontend.tar"));
+  assert.ok(snapshot.includes("sql/public_init_043.sql"));
+  const snapshotCall = stage.indexOf("New-StageArtifactSnapshot");
+  const preparedGate = stage.indexOf("Invoke-PreparedGate");
+  const remoteWorker = stage.indexOf("Invoke-CommittedRemoteWorker");
+  assert.ok(snapshotCall >= 0);
+  assert.ok(snapshotCall < preparedGate);
+  assert.ok(preparedGate < remoteWorker);
+  assert.ok(stage.includes(
+    "Copy-ReleaseArtifact -LocalPath $snapshot.planReceiptPath",
+  ));
+  assert.equal(
+    stage.includes("Copy-ReleaseArtifact -LocalPath $context.plan.path"),
+    false,
+  );
+  assert.equal(
+    stage.includes("Copy-ReleaseArtifact -LocalPath $context.build.path"),
+    false,
+  );
+  assert.ok(stage.includes("$stream.Dispose()"));
+});
+
+test("readiness parses and hashes the same immutable Plan bytes", () => {
+  assert.ok(readiness.includes(
+    "$releasePlanBytes = [IO.File]::ReadAllBytes($releasePlanPath)",
+  ));
+  assert.match(
+    readiness,
+    /\$releasePlanReceiptSha256\s*=\s*Get-BytesSha256 \$releasePlanBytes/,
+  );
+  assert.ok(readiness.includes(
+    ").GetString($releasePlanBytes) | ConvertFrom-Json",
+  ));
+  assert.equal(
+    readiness.includes(
+      "Get-Content -LiteralPath $releasePlanPath -Raw -Encoding UTF8",
+    ),
+    false,
+  );
+  assert.match(
+    readiness,
+    /\$buildReceiptBytes\s*=\s*\[IO\.File\]::ReadAllBytes\(\$buildReceiptPath\)/,
+  );
+  assert.match(
+    readiness,
+    /\$buildReceiptSha256\s*=\s*Get-BytesSha256 \$buildReceiptBytes/,
+  );
+  assert.match(
+    readiness,
+    /\)\.GetString\(\s*\$buildReceiptBytes\) \| ConvertFrom-Json/,
+  );
+});
+
+test("preparation runbook names the exact backup and plan anchors", () => {
+  assert.ok(preparationRunbook.includes(
+    "<final-backup-receipt-file-sha256>",
+  ));
+  assert.equal(
+    preparationRunbook.includes("<final-backup-bundle-sha256>"),
+    false,
+  );
+  assert.ok(preparationRunbook.includes(
+    "work/release-plans/by-sha256/<release-plan-sha256>.json",
+  ));
+  assert.match(
+    preparationRunbook,
+    /`latest`\s*仅用于展示，不作为 Stage、Apply 或\s*readiness 的权威输入/,
+  );
 });
 
 test("recovery rehearsal is never misrepresented as database rollback", () => {

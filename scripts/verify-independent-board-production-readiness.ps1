@@ -371,8 +371,12 @@ function Get-GitState {
                 ).Hash.ToLowerInvariant()
             })
     }
-    $releasePlanRelativePath =
+    $releasePlanRelativePath = if ($ExpectedReleasePlanReceiptSha256) {
+        Join-Path 'work\release-plans\by-sha256' (
+            "$($ExpectedReleasePlanReceiptSha256.ToLowerInvariant()).json")
+    } else {
         'work\release-plans\w1a-default-off-release-plan-latest.json'
+    }
     $releasePlanPath = Join-Path $RepoRoot $releasePlanRelativePath
     $releasePlanVerified = $false
     $releasePlanSourceCommit = $null
@@ -380,25 +384,38 @@ function Get-GitState {
     $releasePlanReceiptSha256 = $null
     $releasePlanTarget = $null
     if (Test-Path -LiteralPath $releasePlanPath -PathType Leaf) {
-        $releasePlan = Get-Content -LiteralPath $releasePlanPath -Raw -Encoding UTF8 |
-            ConvertFrom-Json
+        $releasePlanItem = Get-Item -LiteralPath $releasePlanPath -Force
+        if (
+            $ExpectedReleasePlanReceiptSha256 -and
+            (
+                ($releasePlanItem.Attributes -band
+                    [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+                -not $releasePlanItem.IsReadOnly
+            )
+        ) {
+            throw "content-addressed release plan receipt custody is invalid: $releasePlanRelativePath"
+        }
+        $releasePlanBytes = [IO.File]::ReadAllBytes($releasePlanPath)
+        $releasePlanReceiptSha256 =
+            Get-BytesSha256 $releasePlanBytes
+        $releasePlan = [Text.UTF8Encoding]::new(
+            $false, $true).GetString($releasePlanBytes) | ConvertFrom-Json
         $runnerSha256 = Get-CommittedFileSha256 (
             'scripts/deploy-independent-board-default-off.ps1')
         $workerSha256 = Get-CommittedFileSha256 (
             'scripts/u3w-default-off-release-remote.py')
         $requiredModes = @($releasePlan.requiredModes)
-        $releasePlanReceiptSha256 = (
-            Get-FileHash -LiteralPath $releasePlanPath -Algorithm SHA256
-        ).Hash.ToLowerInvariant()
         $buildReceiptPath = [string]$releasePlan.buildReceiptPath
         $buildReceiptValid = $false
         if ($buildReceiptPath -and
             (Test-Path -LiteralPath $buildReceiptPath -PathType Leaf)) {
-            $buildReceiptSha256 = (
-                Get-FileHash -LiteralPath $buildReceiptPath -Algorithm SHA256
-            ).Hash.ToLowerInvariant()
-            $buildReceipt = Get-Content -LiteralPath $buildReceiptPath `
-                -Raw -Encoding UTF8 | ConvertFrom-Json
+            $buildReceiptBytes =
+                [IO.File]::ReadAllBytes($buildReceiptPath)
+            $buildReceiptSha256 =
+                Get-BytesSha256 $buildReceiptBytes
+            $buildReceipt = [Text.UTF8Encoding]::new(
+                $false, $true).GetString(
+                    $buildReceiptBytes) | ConvertFrom-Json
             $backendPath = Join-Path $RepoRoot (
                 [string]$buildReceipt.backend.relativePath)
             $frontendPath = Join-Path $RepoRoot (

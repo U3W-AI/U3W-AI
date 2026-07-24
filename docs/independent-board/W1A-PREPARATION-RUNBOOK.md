@@ -145,8 +145,9 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -ApprovalReceiptPath <approval-json>
 ```
 
-最终外部 bundle SHA 是发布就绪门禁的
-`ExpectedBackupReceiptSha256`；不得继续使用采用前 bundle SHA 代替。
+最终备份回执文件 `/opt/fbsir/admin/backups/latest/receipt.json` 本身的
+SHA-256 是发布就绪门禁的 `ExpectedBackupReceiptSha256`；它不是备份数据文件
+或仓外证据 bundle 的摘要，也不得继续使用采用前回执摘要代替。
 
 ## 顺序四：Build 与只读发布 Plan
 
@@ -167,7 +168,10 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 
 Build 回执必须绑定后端 JAR、前端树、验证日志、打包日志和当前 committed runner。
 Plan 必须绑定活动 JAR、systemd unit、env 托管、Nginx、release/current 拓扑与生成后
-24 小时有效期。
+24 小时有效期。Plan 返回的权威路径是只读内容寻址副本
+`work/release-plans/by-sha256/<release-plan-sha256>.json`；readiness 会从预期
+SHA-256 推导并只读取该副本。`latest` 仅用于展示，不作为 Stage、Apply 或
+readiness 的权威输入；仓外副本与内容寻址副本必须保持逐字节一致。
 
 `Stage/Apply/Rollback/Verify` 均执行当前 committed worker，并绑定同一 Build、
 Plan、最终备份、遗留基线和配置回执。未取得 `PREPARED_FOR_STAGE` 前，
@@ -181,7 +185,7 @@ Plan、最终备份、遗留基线和配置回执。未取得 `PREPARED_FOR_STAG
 powershell -NoProfile -ExecutionPolicy Bypass `
   -File scripts/verify-independent-board-production-readiness.ps1 `
   -ExpectedCommit $commit `
-  -ExpectedBackupReceiptSha256 <final-backup-bundle-sha256> `
+  -ExpectedBackupReceiptSha256 <final-backup-receipt-file-sha256> `
   -ExpectedLegacyBaselineReceiptDigest <legacy-adoption-receipt-sha256> `
   -ExpectedConfigurationReceiptSha256 <configuration-receipt-sha256> `
   -ExpectedReleasePlanReceiptSha256 <release-plan-receipt-sha256> `
@@ -214,7 +218,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -ExpectedBuildReceiptSha256 <build-receipt-sha256> `
   -PlanReceiptPath <plan-receipt-json> `
   -ExpectedReleasePlanReceiptSha256 <release-plan-receipt-sha256> `
-  -ExpectedBackupReceiptSha256 <final-backup-bundle-sha256> `
+  -ExpectedBackupReceiptSha256 <final-backup-receipt-file-sha256> `
   -ExpectedLegacyBaselineReceiptDigest <legacy-adoption-receipt-sha256> `
   -ExpectedConfigurationReceiptSha256 <configuration-receipt-sha256> `
   -ApprovalReceiptPath <stage-approval-json>
@@ -238,7 +242,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -ExpectedBuildReceiptSha256 <build-receipt-sha256> `
   -PlanReceiptPath <plan-receipt-json> `
   -ExpectedReleasePlanReceiptSha256 <release-plan-receipt-sha256> `
-  -ExpectedBackupReceiptSha256 <final-backup-bundle-sha256> `
+  -ExpectedBackupReceiptSha256 <final-backup-receipt-file-sha256> `
   -ExpectedLegacyBaselineReceiptDigest <legacy-adoption-receipt-sha256> `
   -ExpectedConfigurationReceiptSha256 <configuration-receipt-sha256> `
   -ExpectedStageReceiptSha256 <stage-receipt-sha256> `
@@ -277,7 +281,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 powershell -NoProfile -ExecutionPolicy Bypass `
   -File scripts/verify-independent-board-production-readiness.ps1 `
   -ExpectedCommit $commit `
-  -ExpectedBackupReceiptSha256 <final-backup-bundle-sha256> `
+  -ExpectedBackupReceiptSha256 <final-backup-receipt-file-sha256> `
   -ExpectedDeploymentReceiptSha256 <deployment-receipt-sha256> `
   -ExpectedLegacyBaselineReceiptDigest <legacy-adoption-receipt-sha256> `
   -ExpectedConfigurationReceiptSha256 <configuration-receipt-sha256> `
