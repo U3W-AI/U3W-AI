@@ -61,9 +61,11 @@ function Test-JsonStructuralEquality {
     $rightIsDictionary =
         $Right -is [System.Collections.IDictionary]
     $leftIsObject =
-        $leftIsDictionary -or $Left -is [pscustomobject]
+        $leftIsDictionary -or
+        $Left.psobject.BaseObject -is [System.Management.Automation.PSCustomObject]
     $rightIsObject =
-        $rightIsDictionary -or $Right -is [pscustomobject]
+        $rightIsDictionary -or
+        $Right.psobject.BaseObject -is [System.Management.Automation.PSCustomObject]
     if ($leftIsObject -or $rightIsObject) {
         if (-not ($leftIsObject -and $rightIsObject)) {
             return $false
@@ -123,7 +125,8 @@ function Test-JsonStructuralEquality {
         }
         for ($index = 0; $index -lt $leftItems.Count; $index++) {
             if (-not (Test-JsonStructuralEquality `
-                    -Left $leftItems[$index] -Right $rightItems[$index])) {
+                    -Left ($leftItems[$index]) `
+                    -Right ($rightItems[$index]))) {
                 return $false
             }
         }

@@ -837,6 +837,33 @@ test("readiness rejects stale plans and target drift", () => {
 
 test("readiness compares JSON-shaped target facts without object key-order coupling", () => {
   assert.ok(readiness.includes("function Test-JsonStructuralEquality"));
+  const structuralEquality = sectionBetween(
+    readiness,
+    "function Test-JsonStructuralEquality",
+    "function Get-CommittedFileSha256",
+  );
+  assert.ok(
+    structuralEquality.includes(
+      "-Left ($leftItems[$index]) `\n" +
+        "                    -Right ($rightItems[$index])",
+    ),
+  );
+  assert.ok(
+    structuralEquality.includes(
+      "$Left.psobject.BaseObject -is " +
+        "[System.Management.Automation.PSCustomObject]",
+    ),
+  );
+  assert.ok(
+    structuralEquality.includes(
+      "$Right.psobject.BaseObject -is " +
+        "[System.Management.Automation.PSCustomObject]",
+    ),
+  );
+  assert.equal(
+    structuralEquality.includes("BaseObject -is [pscustomobject]"),
+    false,
+  );
   const targetMatch = sectionBetween(
     readiness,
     "$plannedTarget = $gitState.releasePlanTarget",
