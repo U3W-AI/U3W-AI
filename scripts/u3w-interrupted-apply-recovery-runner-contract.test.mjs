@@ -69,6 +69,29 @@ test("worker invocation accepts empty Plan inputs and preserves failures", () =>
     2,
     "Plan must be able to bind two explicit empty byte arrays",
   );
+  for (const binding of [
+    "$approvalBase64 = if ($ApprovalBytes.Count -gt 0)",
+    "$planBase64 = if ($PlanBytes.Count -gt 0)",
+    "'--approval-json-base64', $approvalBase64",
+    "'--recovery-plan-json-base64', $planBase64",
+  ]) {
+    assert.ok(
+      invocation.includes(binding),
+      `PowerShell 5.1-safe argv binding is missing ${binding}`,
+    );
+  }
+  assert.equal(
+    invocation.includes(
+      "'--approval-json-base64', (\n            if ",
+    ),
+    false,
+  );
+  assert.equal(
+    invocation.includes(
+      "'--recovery-plan-json-base64', (\n            if ",
+    ),
+    false,
+  );
   for (const value of [
     "fbsir.u3wDefaultOffReleaseWorkerError.v2",
     "worker-failure-$failureSha.json",

@@ -362,6 +362,16 @@ function Invoke-RecoveryWorker {
     } else {
         $ZeroSha256
     }
+    $approvalBase64 = if ($ApprovalBytes.Count -gt 0) {
+        [Convert]::ToBase64String($ApprovalBytes)
+    } else {
+        ''
+    }
+    $planBase64 = if ($PlanBytes.Count -gt 0) {
+        [Convert]::ToBase64String($PlanBytes)
+    } else {
+        ''
+    }
     $manifestSha = if ($ExpectedApplyFailureManifestSha256) {
         $ExpectedApplyFailureManifestSha256
     } else {
@@ -373,10 +383,7 @@ function Invoke-RecoveryWorker {
         '--release-id', $RecoveryRunId,
         '--source-commit', $ExpectedCommit,
         '--approval-sha', $approvalSha,
-        '--approval-json-base64', (
-            if ($ApprovalBytes.Count -gt 0) {
-                [Convert]::ToBase64String($ApprovalBytes)
-            } else { '' }),
+        '--approval-json-base64', $approvalBase64,
         '--runner-sha', (Get-RunnerSha256),
         '--worker-sha', $workerSha,
         '--build-receipt-sha', $ZeroSha256,
@@ -397,10 +404,7 @@ function Invoke-RecoveryWorker {
             $ExpectedApplyFailureReceiptSha256,
         '--apply-failure-manifest-sha', $manifestSha,
         '--recovery-plan-receipt-sha', $planSha,
-        '--recovery-plan-json-base64', (
-            if ($PlanBytes.Count -gt 0) {
-                [Convert]::ToBase64String($PlanBytes)
-            } else { '' })
+        '--recovery-plan-json-base64', $planBase64
     )
     $payloadObject = [ordered]@{
         workerBase64 = [Convert]::ToBase64String($workerBytes)
