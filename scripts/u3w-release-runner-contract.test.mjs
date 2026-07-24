@@ -253,6 +253,16 @@ test("build returns one result and binds logs plus the committed runner", () => 
   assert.ok(runner.includes("jdk-17.0.19+10"));
 });
 
+test("frontend tree hashing uses cross-platform ordinal relative-path order", () => {
+  const treeManifest = sectionBetween(
+    runner,
+    "function Get-TreeManifest {",
+    "function Write-Utf8NoBomAtomic {",
+  );
+  assert.ok(treeManifest.includes("[StringComparer]::Ordinal.Compare"));
+  assert.equal(treeManifest.includes("Sort-Object FullName"), false);
+});
+
 test("SSH is pinned to the derived private key and exact collector bytes", () => {
   assert.ok(runner.includes("ssh-keygen.exe -y -f $SshKeyPath"));
   assert.ok(runner.includes("IdentitiesOnly=yes"));
