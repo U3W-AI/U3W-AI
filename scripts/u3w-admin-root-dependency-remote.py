@@ -44,8 +44,18 @@ DEPENDENCY_MIGRATION_DESCRIPTION = (
     "APPLIED:W1A_043_LEGACY_ADMIN_ROOT_DEPENDENCY_V1"
 )
 PUBLIC_INIT_043_VERSION = "public_init_043"
+PUBLIC_INIT_043_DESCRIPTION = (
+    "APPLIED:Independent Board exact official experts attribution v1"
+)
 ATTRIBUTION_INTERNAL_043_VERSION = (
     "20260723_independent_board_attribution_v1_043"
+)
+ATTRIBUTION_INTERNAL_043_DESCRIPTION = (
+    "APPLIED:exact WorkBuddy experts 26.7.21 attribution journey "
+    "and append-only event ledger"
+)
+EXPECTED_W1A_SCHEMA_FINGERPRINT = (
+    "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d"
 )
 ATTRIBUTION_TABLES = frozenset(
     {
@@ -60,9 +70,9 @@ DATABASE_PROTECTION_MODE = (
     "AND_APPROVED_NO_DDL_WINDOW"
 )
 RECEIPT_SCHEMA = (
-    "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2"
+    "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v3"
 )
-PLAN_SCHEMA = "fbsir.u3wAdminRootDependencyPlan.v1"
+PLAN_SCHEMA = "fbsir.u3wAdminRootDependencyPlan.v2"
 ADOPTION_CLAIM = "CURRENT_STATE_ONLY_NOT_ORIGINAL_EXECUTION"
 
 RUN_PATTERN = re.compile(
@@ -133,6 +143,17 @@ LIVE_FACT_FIELDS = frozenset(
         "attributionTableCount",
         "attributionTriggerCount",
         "attributionPermissionCount",
+        "attributionEventCount",
+        "attributionProbeEventCount",
+        "attributionNaturalEventCount",
+        "attributionNonProbeEventCount",
+        "attributionAuthoritativeProductCreditCount",
+        "attributionJourneyCount",
+        "attributionProbeJourneyCount",
+        "attributionNaturalJourneyCount",
+        "attributionNonProbeJourneyCount",
+        "w1aSchemaFingerprintSha256",
+        "w1a043State",
     }
 )
 ROOT_PROJECTION_FIELDS = frozenset(
@@ -533,6 +554,96 @@ def dependency_rows_fingerprint(exact_roots, dependency_receipts):
     return sha256_bytes(("\n".join(rows) + "\n").encode("utf-8"))
 
 
+def w1a_schema_fingerprint_rows(mysql):
+    statement = """SELECT row_value FROM (
+      SELECT CONCAT_WS('|','C',HEX(table_name),LPAD(ordinal_position,3,'0'),
+        HEX(column_name),HEX(column_type),is_nullable,
+        HEX(COALESCE(column_default,'<NULL>')),HEX(extra),
+        HEX(COALESCE(character_set_name,'')),HEX(COALESCE(collation_name,'')),
+        HEX(COALESCE(generation_expression,''))) AS row_value
+      FROM information_schema.columns
+      WHERE table_schema=DATABASE() AND table_name IN
+        ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+      UNION ALL
+      SELECT CONCAT_WS('|','I',HEX(table_name),HEX(index_name),non_unique,
+        LPAD(seq_in_index,3,'0'),HEX(column_name),COALESCE(sub_part,''),
+        HEX(COALESCE(collation,'')),HEX(index_type),HEX(nullable))
+      FROM information_schema.statistics
+      WHERE table_schema=DATABASE() AND table_name IN
+        ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+      UNION ALL
+      SELECT CONCAT_WS('|','T',HEX(table_name),HEX(constraint_name),
+        HEX(constraint_type))
+      FROM information_schema.table_constraints
+      WHERE table_schema=DATABASE() AND table_name IN
+        ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+      UNION ALL
+      SELECT CONCAT_WS('|','K',HEX(table_name),HEX(constraint_name),
+        HEX(column_name),LPAD(ordinal_position,3,'0'),
+        HEX(COALESCE(referenced_table_name,'')),
+        HEX(COALESCE(referenced_column_name,'')))
+      FROM information_schema.key_column_usage
+      WHERE table_schema=DATABASE() AND table_name IN
+        ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+      UNION ALL
+      SELECT CONCAT_WS('|','F',HEX(constraint_name),HEX(table_name),
+        HEX(referenced_table_name),HEX(update_rule),HEX(delete_rule),
+        HEX(match_option))
+      FROM information_schema.referential_constraints
+      WHERE constraint_schema=DATABASE() AND table_name IN
+        ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+      UNION ALL
+      SELECT CONCAT_WS('|','H',HEX(tc.table_name),HEX(cc.constraint_name),
+        HEX(cc.check_clause))
+      FROM information_schema.check_constraints cc
+      JOIN information_schema.table_constraints tc
+        ON tc.constraint_schema=cc.constraint_schema
+       AND tc.constraint_name=cc.constraint_name
+       AND tc.constraint_type='CHECK'
+      WHERE tc.table_schema=DATABASE() AND tc.table_name IN
+        ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+      UNION ALL
+      SELECT CONCAT_WS('|','R',HEX(trigger_name),HEX(event_manipulation),
+        HEX(event_object_table),HEX(action_timing),HEX(action_orientation),
+        HEX(REGEXP_REPLACE(TRIM(action_statement),'[[:space:]]+',' ')))
+      FROM information_schema.triggers
+      WHERE trigger_schema=DATABASE() AND event_object_table IN
+        ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+      UNION ALL
+      SELECT CONCAT_WS('|','M',HEX(permission.menu_name),
+        LPAD(permission.order_num,6,'0'),HEX(COALESCE(permission.path,'')),
+        HEX(COALESCE(permission.component,'<NULL>')),
+        HEX(COALESCE(permission.query,'<NULL>')),
+        HEX(COALESCE(permission.route_name,'')),permission.is_frame,
+        permission.is_cache,HEX(permission.menu_type),HEX(permission.visible),
+        HEX(permission.status),HEX(permission.perms),HEX(permission.icon),
+        HEX(COALESCE(root.menu_name,'<NULL>')),
+        LPAD(COALESCE(root.order_num,-1),6,'0'),
+        HEX(COALESCE(root.path,'<NULL>')),
+        HEX(COALESCE(root.component,'<NULL>')),
+        HEX(COALESCE(root.query,'<NULL>')),
+        HEX(COALESCE(root.route_name,'<NULL>')),
+        COALESCE(root.is_frame,-1),COALESCE(root.is_cache,-1),
+        HEX(COALESCE(root.menu_type,'<NULL>')),
+        HEX(COALESCE(root.visible,'<NULL>')),
+        HEX(COALESCE(root.status,'<NULL>')),
+        HEX(COALESCE(root.perms,'<NULL>')),
+        HEX(COALESCE(root.icon,'<NULL>')),
+        IF(root.parent_id=0,'ROOT','NONROOT'))
+      FROM sys_menu permission
+      LEFT JOIN sys_menu root ON root.menu_id=permission.parent_id
+      WHERE BINARY permission.perms=BINARY 'board:attribution:query'
+    ) AS fingerprint_rows
+    ORDER BY BINARY row_value"""
+    return [str(row[0]) for row in mysql.rows(statement)]
+
+
+def w1a_schema_fingerprint(rows):
+    return sha256_bytes(
+        ("\n".join(rows) + "\n").encode("utf-8")
+    )
+
+
 def facts_from_locked_rows(
     server_uuid,
     server_version,
@@ -542,6 +653,16 @@ def facts_from_locked_rows(
     attribution_table_count=0,
     attribution_trigger_count=0,
     attribution_permission_count=0,
+    attribution_event_count=0,
+    attribution_probe_event_count=0,
+    attribution_natural_event_count=0,
+    attribution_non_probe_event_count=0,
+    attribution_authoritative_product_credit_count=0,
+    attribution_journey_count=0,
+    attribution_probe_journey_count=0,
+    attribution_natural_journey_count=0,
+    attribution_non_probe_journey_count=0,
+    w1a_schema_fingerprint_sha256=None,
 ):
     menu_rows = list(menu_rows)
     role_menu_rows = list(role_menu_rows)
@@ -575,6 +696,54 @@ def facts_from_locked_rows(
         if len(row) == 15
         and int(row[2]) in root_ids
         and row[10] in {"M", "C"}
+    )
+    public_043_rows = [
+        row for row in migration_rows
+        if row[0] == PUBLIC_INIT_043_VERSION
+    ]
+    internal_043_rows = [
+        row for row in migration_rows
+        if row[0] == ATTRIBUTION_INTERNAL_043_VERSION
+    ]
+    public_043_count = len(public_043_rows)
+    internal_043_count = len(internal_043_rows)
+    retained_043 = (
+        public_043_count == 1
+        and public_043_rows[0][1] == PUBLIC_INIT_043_DESCRIPTION
+        and internal_043_count == 1
+        and internal_043_rows[0][1]
+            == ATTRIBUTION_INTERNAL_043_DESCRIPTION
+        and int(attribution_table_count) == 2
+        and int(attribution_trigger_count) == 2
+        and int(attribution_permission_count) == 1
+        and int(attribution_event_count)
+            == int(attribution_probe_event_count)
+        and int(attribution_natural_event_count) == 0
+        and int(attribution_non_probe_event_count) == 0
+        and int(attribution_authoritative_product_credit_count) == 0
+        and int(attribution_journey_count)
+            == int(attribution_probe_journey_count)
+        and int(attribution_natural_journey_count) == 0
+        and int(attribution_non_probe_journey_count) == 0
+        and w1a_schema_fingerprint_sha256
+            == EXPECTED_W1A_SCHEMA_FINGERPRINT
+    )
+    absent_043 = (
+        public_043_count == 0
+        and internal_043_count == 0
+        and int(attribution_table_count) == 0
+        and int(attribution_trigger_count) == 0
+        and int(attribution_permission_count) == 0
+        and int(attribution_event_count) == 0
+        and int(attribution_probe_event_count) == 0
+        and int(attribution_natural_event_count) == 0
+        and int(attribution_non_probe_event_count) == 0
+        and int(attribution_authoritative_product_credit_count) == 0
+        and int(attribution_journey_count) == 0
+        and int(attribution_probe_journey_count) == 0
+        and int(attribution_natural_journey_count) == 0
+        and int(attribution_non_probe_journey_count) == 0
+        and w1a_schema_fingerprint_sha256 is None
     )
     root_projection = (
         {
@@ -613,21 +782,81 @@ def facts_from_locked_rows(
                 dependency_receipts,
             ),
         "forbiddenPublicInit001Through042ReceiptCount": forbidden_public,
-        "publicInit043ReceiptCount": sum(
-            1 for row in migration_rows
-            if row[0] == PUBLIC_INIT_043_VERSION
-        ),
-        "attributionInternalReceiptCount": sum(
-            1 for row in migration_rows
-            if row[0] == ATTRIBUTION_INTERNAL_043_VERSION
-        ),
+        "publicInit043ReceiptCount": public_043_count,
+        "attributionInternalReceiptCount": internal_043_count,
         "attributionTableCount": int(attribution_table_count),
         "attributionTriggerCount": int(attribution_trigger_count),
         "attributionPermissionCount": int(attribution_permission_count),
+        "attributionEventCount": int(attribution_event_count),
+        "attributionProbeEventCount":
+            int(attribution_probe_event_count),
+        "attributionNaturalEventCount":
+            int(attribution_natural_event_count),
+        "attributionNonProbeEventCount":
+            int(attribution_non_probe_event_count),
+        "attributionAuthoritativeProductCreditCount":
+            int(attribution_authoritative_product_credit_count),
+        "attributionJourneyCount": int(attribution_journey_count),
+        "attributionProbeJourneyCount":
+            int(attribution_probe_journey_count),
+        "attributionNaturalJourneyCount":
+            int(attribution_natural_journey_count),
+        "attributionNonProbeJourneyCount":
+            int(attribution_non_probe_journey_count),
+        "w1aSchemaFingerprintSha256":
+            w1a_schema_fingerprint_sha256,
+        "w1a043State": (
+            "EXACT_043_RETAINED_DORMANT"
+            if retained_043
+            else "ABSENT" if absent_043 else "INVALID"
+        ),
     }
 
 
 def assert_exact_live_facts(facts):
+    exact_043_state = (
+        isinstance(facts, dict)
+        and facts.get("w1a043State") == "ABSENT"
+        and facts.get("publicInit043ReceiptCount") == 0
+        and facts.get("attributionInternalReceiptCount") == 0
+        and facts.get("attributionTableCount") == 0
+        and facts.get("attributionTriggerCount") == 0
+        and facts.get("attributionPermissionCount") == 0
+        and facts.get("attributionEventCount") == 0
+        and facts.get("attributionProbeEventCount") == 0
+        and facts.get("attributionNaturalEventCount") == 0
+        and facts.get("attributionNonProbeEventCount") == 0
+        and facts.get(
+            "attributionAuthoritativeProductCreditCount"
+        ) == 0
+        and facts.get("attributionJourneyCount") == 0
+        and facts.get("attributionProbeJourneyCount") == 0
+        and facts.get("attributionNaturalJourneyCount") == 0
+        and facts.get("attributionNonProbeJourneyCount") == 0
+        and facts.get("w1aSchemaFingerprintSha256") is None
+    ) or (
+        isinstance(facts, dict)
+        and facts.get("w1a043State")
+        == "EXACT_043_RETAINED_DORMANT"
+        and facts.get("publicInit043ReceiptCount") == 1
+        and facts.get("attributionInternalReceiptCount") == 1
+        and facts.get("attributionTableCount") == 2
+        and facts.get("attributionTriggerCount") == 2
+        and facts.get("attributionPermissionCount") == 1
+        and facts.get("attributionEventCount")
+            == facts.get("attributionProbeEventCount")
+        and facts.get("attributionNaturalEventCount") == 0
+        and facts.get("attributionNonProbeEventCount") == 0
+        and facts.get(
+            "attributionAuthoritativeProductCreditCount"
+        ) == 0
+        and facts.get("attributionJourneyCount")
+            == facts.get("attributionProbeJourneyCount")
+        and facts.get("attributionNaturalJourneyCount") == 0
+        and facts.get("attributionNonProbeJourneyCount") == 0
+        and facts.get("w1aSchemaFingerprintSha256")
+            == EXPECTED_W1A_SCHEMA_FINGERPRINT
+    )
     if (
         not isinstance(facts, dict)
         or set(facts) != LIVE_FACT_FIELDS
@@ -654,11 +883,7 @@ def assert_exact_live_facts(facts):
             "forbiddenPublicInit001Through042ReceiptCount"
         )
         != 0
-        or facts.get("publicInit043ReceiptCount") != 0
-        or facts.get("attributionInternalReceiptCount") != 0
-        or facts.get("attributionTableCount") != 0
-        or facts.get("attributionTriggerCount") != 0
-        or facts.get("attributionPermissionCount") != 0
+        or not exact_043_state
     ):
         raise RuntimeError(
             "legacy admin-root dependency state is not adoptable"
@@ -709,6 +934,34 @@ def collect_locked_live_facts(mysql):
         or len(attribution_counts[0]) != 3
     ):
         raise RuntimeError("attribution object counts are invalid")
+    ledger_counts = (0,) * 9
+    w1a_fingerprint = None
+    if int(attribution_counts[0][0]) == 2:
+        ledger_rows = mysql.rows(
+            "SELECT "
+            "(SELECT COUNT(*) FROM fbs_board_attr_event_v1),"
+            "(SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+            "WHERE BINARY traffic_class=BINARY 'PROBE'),"
+            "(SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+            "WHERE BINARY traffic_class=BINARY 'NATURAL'),"
+            "(SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+            "WHERE BINARY traffic_class<>BINARY 'PROBE'),"
+            "(SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+            "WHERE authoritative_product_credit<>0),"
+            "(SELECT COUNT(*) FROM fbs_board_attr_journey_v1),"
+            "(SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+            "WHERE BINARY traffic_class=BINARY 'PROBE'),"
+            "(SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+            "WHERE BINARY traffic_class=BINARY 'NATURAL'),"
+            "(SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+            "WHERE BINARY traffic_class<>BINARY 'PROBE')"
+        )
+        if len(ledger_rows) != 1 or len(ledger_rows[0]) != 9:
+            raise RuntimeError("attribution ledger counts are invalid")
+        ledger_counts = ledger_rows[0]
+        w1a_fingerprint = w1a_schema_fingerprint(
+            w1a_schema_fingerprint_rows(mysql)
+        )
     return facts_from_locked_rows(
         identity[0][0],
         identity[0][2],
@@ -716,6 +969,8 @@ def collect_locked_live_facts(mysql):
         role_menu_rows,
         migration_rows,
         *attribution_counts[0],
+        *ledger_counts,
+        w1a_fingerprint,
     )
 
 
@@ -1453,7 +1708,7 @@ def adopt(args):
         named_lock = False
         return {
             "schema":
-                "fbsir.u3wAdminRootDependencyWorkerResult.v2",
+                "fbsir.u3wAdminRootDependencyWorkerResult.v3",
             "adoptionState": payload["adoptionState"],
             "runId": args.run_id,
             "sourceCommit": args.source_commit,

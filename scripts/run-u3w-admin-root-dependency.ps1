@@ -339,7 +339,7 @@ function Get-PlanDigest {
     $plan = Get-Content -Raw -LiteralPath $PlanReceiptPath |
         ConvertFrom-Json
     if (
-        $plan.schema -ne 'fbsir.u3wAdminRootDependencyPlan.v1' -or
+        $plan.schema -ne 'fbsir.u3wAdminRootDependencyPlan.v2' -or
         $plan.mode -ne 'Plan' -or
         $plan.runId -ne $RunId -or
         $plan.sourceCommit -ne $ExpectedCommit -or
@@ -467,7 +467,7 @@ function Save-ExternalAnchor {
             ConvertFrom-Json
         if (
             $receipt.schema -ne
-                'fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2' -or
+                'fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v3' -or
             $receipt.adoptionState -ne
                 'ADOPTED_EXISTING_EXACT_DEPENDENCY' -or
             $receipt.runId -ne $RunId -or
@@ -520,7 +520,7 @@ function Save-ExternalAnchor {
         )
         $anchor = [ordered]@{
             schema =
-                'fbsir.u3wAdminRootDependencyExternalAnchor.v2'
+                'fbsir.u3wAdminRootDependencyExternalAnchor.v3'
             runId = $RunId
             sourceCommit = $ExpectedCommit
             targetHost = 'api2.u3w.com'
@@ -559,7 +559,7 @@ function Save-ExternalAnchor {
                 ($existingFields -join "`n") -cne
                     ($expectedFields -join "`n") -or
                 $existing.schema -cne
-                    'fbsir.u3wAdminRootDependencyExternalAnchor.v2' -or
+                    'fbsir.u3wAdminRootDependencyExternalAnchor.v3' -or
                 $existing.runId -cne $RunId -or
                 $existing.targetHost -cne 'api2.u3w.com' -or
                 $existing.adoptionReceiptPath -cne $receiptPath -or
@@ -657,7 +657,7 @@ Assert-StrictHead
 if ($Mode -eq 'Plan') {
     if (
         $result.schema -ne
-            'fbsir.u3wAdminRootDependencyPlan.v1' -or
+            'fbsir.u3wAdminRootDependencyPlan.v2' -or
         $result.mode -ne 'Plan' -or
         $result.runId -ne $RunId -or
         $result.sourceCommit -ne $ExpectedCommit -or
@@ -719,7 +719,7 @@ if ($Mode -eq 'Plan') {
 else {
     if (
         $result.schema -ne
-            'fbsir.u3wAdminRootDependencyWorkerResult.v2' -or
+            'fbsir.u3wAdminRootDependencyWorkerResult.v3' -or
         $result.runId -ne $RunId -or
         $result.sourceCommit -ne $ExpectedCommit -or
         $result.productionDatabaseChanged -ne $false -or
@@ -734,7 +734,7 @@ else {
 }
 
 [ordered]@{
-    schema = 'fbsir.u3wAdminRootDependencyRunnerResult.v3'
+    schema = 'fbsir.u3wAdminRootDependencyRunnerResult.v4'
     mode = $Mode
     runId = $RunId
     sourceCommit = $ExpectedCommit

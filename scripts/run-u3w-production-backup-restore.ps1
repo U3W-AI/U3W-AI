@@ -11,6 +11,9 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^[0-9a-f]{64}$')]
     [string]$ExpectedAdminRootDependencyAdoptionReceiptSha256,
+    [string]$PlanReceiptPath,
+    [ValidatePattern('^[0-9a-f]{64}$')]
+    [string]$ExpectedPlanReceiptSha256,
     [string]$ApprovalReceiptPath,
     [string]$AnchorOutputDirectory,
     [string]$SshKeyPath = $(if ($env:U3W_SSH_KEY_PATH) { $env:U3W_SSH_KEY_PATH } else { Join-Path $env:USERPROFILE '.ssh\id_ed25519_api2' }),
@@ -203,6 +206,51 @@ function Ensure-KnownHosts {
     }
 }
 
+function Get-PlanReceiptDigest {
+    if ($Mode -eq 'Plan') {
+        $script:PlanReceiptBase64 = 'e30='
+        return '0' * 64
+    }
+    if (
+        -not $PlanReceiptPath -or
+        -not $ExpectedPlanReceiptSha256 -or
+        -not (Test-Path -LiteralPath $PlanReceiptPath -PathType Leaf)
+    ) {
+        throw 'mutating and verification modes require PlanReceiptPath and ExpectedPlanReceiptSha256'
+    }
+    $resolved = (Resolve-Path -LiteralPath $PlanReceiptPath).Path
+    $bytes = [IO.File]::ReadAllBytes($resolved)
+    $digest = Get-BytesSha256 $bytes
+    if ($digest -cne $ExpectedPlanReceiptSha256) {
+        throw 'backup Plan receipt digest drifted'
+    }
+    $plan = [Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json
+    $generatedAt = [DateTimeOffset]::Parse($plan.generatedAt)
+    $expiresAt = [DateTimeOffset]::Parse($plan.expiresAt)
+    if (
+        $plan.schema -cne 'fbsir.u3wDatabaseBackupPlan.v3' -or
+        $plan.runId -cne $RunId -or
+        $plan.sourceCommit -cne $ExpectedCommit -or
+        $plan.targetHost -cne 'api2.u3w.com' -or
+        $plan.database -cne 'fbsir' -or
+        $plan.adminRootDependencyAdoptionReceiptSha256 -cne
+            $ExpectedAdminRootDependencyAdoptionReceiptSha256 -or
+        $plan.runnerSha256 -notmatch '^[0-9a-f]{64}$' -or
+        $plan.backupWorkerSha256 -notmatch '^[0-9a-f]{64}$' -or
+        $plan.verifierSha256 -notmatch '^[0-9a-f]{64}$' -or
+        $generatedAt -gt [DateTimeOffset]::UtcNow -or
+        $expiresAt -le [DateTimeOffset]::UtcNow -or
+        ($expiresAt - $generatedAt).TotalHours -gt 24 -or
+        $plan.businessDatabaseWouldChange -ne $false -or
+        $plan.serviceWouldChange -ne $false -or
+        $plan.officialExpertsPackageWouldChange -ne $false
+    ) {
+        throw 'backup Plan receipt identity, scope or validity is invalid'
+    }
+    $script:PlanReceiptBase64 = [Convert]::ToBase64String($bytes)
+    return $digest
+}
+
 function Get-ApprovalDigest {
     if ($Mode -eq 'Plan') {
         $script:ApprovalBase64 = 'e30='
@@ -219,7 +267,8 @@ function Get-ApprovalDigest {
         'concurrentDdlProhibited',
         'productionFilesystemWrite', 'productionDatabaseWrite',
         'productionServiceChange', 'officialExpertsPackageChange',
-        'expectedAdminRootDependencyAdoptionReceiptSha256'
+        'expectedAdminRootDependencyAdoptionReceiptSha256',
+        'expectedBackupPlanReceiptSha256'
     ) | Sort-Object
     $actualFields = @($approval.PSObject.Properties.Name | Sort-Object)
     if (($actualFields -join "`n") -ne ($expectedFields -join "`n")) {
@@ -243,7 +292,9 @@ function Get-ApprovalDigest {
         $approval.productionServiceChange -ne $false -or
         $approval.officialExpertsPackageChange -ne $false -or
         $approval.expectedAdminRootDependencyAdoptionReceiptSha256 -ne
-            $ExpectedAdminRootDependencyAdoptionReceiptSha256
+            $ExpectedAdminRootDependencyAdoptionReceiptSha256 -or
+        $approval.expectedBackupPlanReceiptSha256 -ne
+            $ExpectedPlanReceiptSha256
     ) {
         throw 'approval receipt scope, identity or validity window is invalid'
     }
@@ -261,6 +312,13 @@ function Save-OutOfBandBundleAnchor {
     }
     $resolvedOutput = (Resolve-Path -LiteralPath $AnchorOutputDirectory).Path
     $bundlePath = Join-Path $resolvedOutput "$RunId-receipt.json"
+    $planPath = Join-Path $resolvedOutput "$RunId-plan.json"
+    if (
+        -not (Test-Path -LiteralPath $planPath -PathType Leaf) -or
+        (Get-Sha256 $planPath) -cne $ExpectedPlanReceiptSha256
+    ) {
+        throw 'immutable out-of-band backup Plan evidence is missing or drifted'
+    }
     $temporaryPath = Join-Path $resolvedOutput (
         ".$RunId-receipt-$([Guid]::NewGuid().ToString('N')).partial"
     )
@@ -282,9 +340,26 @@ function Save-OutOfBandBundleAnchor {
             throw 'failed to download the immutable bundle receipt'
         }
         $bundle = Get-Content -Raw -LiteralPath $temporaryPath | ConvertFrom-Json
-        if ($bundle.schema -ne 'fbsir.u3wDatabaseBackupRestoreBundleReceipt.v2' -or
+        $bundleFields = @(
+            $bundle.psobject.Properties.Name | Sort-Object
+        )
+        $expectedBundleFields = @(
+            'schema', 'runId', 'sourceCommit', 'planReceiptSha256',
+            'targetHost', 'database', 'sourceDatabaseServerUuid',
+            'generatedAt', 'backupReceiptPath', 'backupReceiptSha256',
+            'restoreReceiptPath', 'restoreReceiptSha256', 'backupPath',
+            'backupSha256', 'backupSizeBytes', 'approvalReceiptSha256',
+            'runnerSha256', 'backupWorkerSha256', 'verifierSha256',
+            'adminRootDependencyAdoptionReceiptSha256',
+            'productionBusinessStateChanged'
+        ) | Sort-Object
+        if (($bundleFields -join "`n") -cne
+                ($expectedBundleFields -join "`n") -or
+            $bundle.schema -ne 'fbsir.u3wDatabaseBackupRestoreBundleReceipt.v3' -or
             $bundle.runId -ne $RunId -or
             $bundle.sourceCommit -ne $ExpectedCommit -or
+            $bundle.planReceiptSha256 -ne
+                $ExpectedPlanReceiptSha256 -or
             $bundle.adminRootDependencyAdoptionReceiptSha256 -ne
                 $ExpectedAdminRootDependencyAdoptionReceiptSha256 -or
             $bundle.sourceDatabaseServerUuid -notmatch
@@ -307,27 +382,53 @@ function Save-OutOfBandBundleAnchor {
         if (Test-Path -LiteralPath $anchorPath -PathType Leaf) {
             $existingAnchor = Get-Content -Raw -LiteralPath $anchorPath |
                 ConvertFrom-Json
+            $anchorFields = @(
+                $existingAnchor.psobject.Properties.Name | Sort-Object
+            )
+            $expectedAnchorFields = @(
+                'schema', 'runId', 'sourceCommit', 'planReceiptSha256',
+                'planReceiptPath',
+                'targetHost', 'bundleReceiptPath', 'bundleReceiptSha256',
+                'adminRootDependencyAdoptionReceiptSha256',
+                'sourceDatabaseServerUuid', 'capturedAt'
+            ) | Sort-Object
+            try {
+                $capturedAt = [DateTimeOffset]::Parse(
+                    [string]$existingAnchor.capturedAt)
+            }
+            catch {
+                throw 'CORRUPT_STATE: external anchor timestamp is invalid'
+            }
             if (
+                ($anchorFields -join "`n") -cne
+                    ($expectedAnchorFields -join "`n") -or
                 $existingAnchor.schema -ne
-                    'fbsir.u3wDatabaseBackupRestoreExternalAnchor.v2' -or
+                    'fbsir.u3wDatabaseBackupRestoreExternalAnchor.v3' -or
                 $existingAnchor.runId -ne $RunId -or
                 $existingAnchor.sourceCommit -ne $ExpectedCommit -or
+                $existingAnchor.planReceiptSha256 -ne
+                    $ExpectedPlanReceiptSha256 -or
+                $existingAnchor.planReceiptPath -ne $planPath -or
                 $existingAnchor.targetHost -ne 'api2.u3w.com' -or
                 $existingAnchor.bundleReceiptPath -ne $bundlePath -or
                 $existingAnchor.bundleReceiptSha256 -ne $digest -or
                 $existingAnchor.adminRootDependencyAdoptionReceiptSha256 -ne
                     $ExpectedAdminRootDependencyAdoptionReceiptSha256 -or
                 $existingAnchor.sourceDatabaseServerUuid -ne
-                    $bundle.sourceDatabaseServerUuid
+                    $bundle.sourceDatabaseServerUuid -or
+                $capturedAt.Offset -ne [TimeSpan]::Zero -or
+                $capturedAt -gt [DateTimeOffset]::UtcNow
             ) {
                 throw 'CORRUPT_STATE: immutable external anchor changed'
             }
         }
         else {
             $anchorJson = [ordered]@{
-            schema = 'fbsir.u3wDatabaseBackupRestoreExternalAnchor.v2'
+            schema = 'fbsir.u3wDatabaseBackupRestoreExternalAnchor.v3'
             runId = $RunId
             sourceCommit = $ExpectedCommit
+            planReceiptSha256 = $ExpectedPlanReceiptSha256
+            planReceiptPath = $planPath
             targetHost = 'api2.u3w.com'
             bundleReceiptPath = $bundlePath
             bundleReceiptSha256 = $digest
@@ -403,7 +504,47 @@ function Invoke-RemotePython {
     if (-not $json.Trim()) {
         throw "remote worker returned no receipt: $WorkerName"
     }
+    $script:LastRemoteJson = $json.Trim()
     return $json | ConvertFrom-Json
+}
+
+function Save-OutOfBandPlanReceipt {
+    if (-not $script:LastRemoteJson) {
+        throw 'remote backup Plan bytes are unavailable'
+    }
+    if (-not (Test-Path -LiteralPath $AnchorOutputDirectory)) {
+        New-Item -ItemType Directory -Path $AnchorOutputDirectory -Force |
+            Out-Null
+    }
+    $resolvedOutput = (Resolve-Path -LiteralPath $AnchorOutputDirectory).Path
+    $path = Join-Path $resolvedOutput "$RunId-plan.json"
+    $encoding = [Text.UTF8Encoding]::new($false)
+    $bytes = $encoding.GetBytes($script:LastRemoteJson + "`n")
+    $digest = Get-BytesSha256 $bytes
+    if (Test-Path -LiteralPath $path -PathType Leaf) {
+        if ((Get-Sha256 $path) -cne $digest) {
+            throw 'CORRUPT_STATE: immutable backup Plan receipt changed'
+        }
+    }
+    else {
+        $stream = [IO.File]::Open(
+            $path,
+            [IO.FileMode]::CreateNew,
+            [IO.FileAccess]::Write,
+            [IO.FileShare]::None
+        )
+        try {
+            $stream.Write($bytes, 0, $bytes.Length)
+            $stream.Flush($true)
+        }
+        finally {
+            $stream.Dispose()
+        }
+    }
+    return [ordered]@{
+        path = $path
+        sha256 = $digest
+    }
 }
 
 if (-not $RunId) {
@@ -412,6 +553,7 @@ if (-not $RunId) {
 Assert-StrictHead
 Assert-PrivateKey
 Ensure-KnownHosts
+$planReceiptSha = Get-PlanReceiptDigest
 $approvalSha = Get-ApprovalDigest
 $runnerBytes = Get-CommittedBlobBytes (
     'scripts/run-u3w-production-backup-restore.ps1')
@@ -427,18 +569,23 @@ $common = @(
     '--source-commit', $ExpectedCommit,
     '--approval-sha', $approvalSha,
     '--approval-json-base64', $script:ApprovalBase64,
+    '--plan-receipt-sha', $planReceiptSha,
+    '--plan-json-base64', $script:PlanReceiptBase64,
     '--runner-sha', $runnerSha,
     '--worker-sha', $workerSha,
+    '--verifier-sha', $verifierSha,
     '--admin-root-dependency-adoption-receipt-sha',
         $ExpectedAdminRootDependencyAdoptionReceiptSha256
 )
 
 $backup = $null
 $restore = $null
+$planEvidence = $null
 if ($Mode -eq 'Plan') {
     $backup = Invoke-RemotePython -WorkerName 'production-backup' `
         -WorkerBytes $workerBytes -WorkerSha256 $workerSha `
         -Arguments (@('--mode', 'Plan') + $common)
+    $planEvidence = Save-OutOfBandPlanReceipt
 }
 elseif ($Mode -eq 'ProvisionKey') {
     $backup = Invoke-RemotePython -WorkerName 'production-backup' `
@@ -453,7 +600,7 @@ elseif ($Mode -eq 'Backup') {
 elseif ($Mode -eq 'Verify') {
     $restore = Invoke-RemotePython -WorkerName 'isolated-restore-verifier' `
         -WorkerBytes $verifierBytes -WorkerSha256 $verifierSha `
-        -Arguments ($common + @('--verifier-sha', $verifierSha))
+        -Arguments $common
 }
 elseif ($Mode -eq 'All') {
     $backup = Invoke-RemotePython -WorkerName 'production-backup' `
@@ -461,7 +608,7 @@ elseif ($Mode -eq 'All') {
         -Arguments (@('--mode', 'Backup') + $common)
     $restore = Invoke-RemotePython -WorkerName 'isolated-restore-verifier' `
         -WorkerBytes $verifierBytes -WorkerSha256 $verifierSha `
-        -Arguments ($common + @('--verifier-sha', $verifierSha))
+        -Arguments $common
 }
 Assert-StrictHead
 
@@ -477,6 +624,12 @@ $externalAnchor = if ($Mode -in @('Verify', 'All')) {
     runId = $RunId
     sourceCommit = $ExpectedCommit
     approvalReceiptSha256 = $approvalSha
+    planReceiptSha256 = if ($Mode -eq 'Plan') {
+        $planEvidence.sha256
+    } else {
+        $planReceiptSha
+    }
+    planEvidence = $planEvidence
     runnerSha256 = $runnerSha
     backupWorkerSha256 = $workerSha
     verifierSha256 = $verifierSha

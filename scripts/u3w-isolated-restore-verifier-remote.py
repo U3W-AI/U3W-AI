@@ -36,20 +36,31 @@ DATA_ROOT = pathlib.Path("/var/lib/fbsir-w1a-restore")
 RUNTIME_ROOT = pathlib.Path("/run/fbsir-w1a-restore")
 BACKUP_KEY_PATH = pathlib.Path("/etc/u3w/fbsir-backup.key")
 MYSQLD = pathlib.Path("/usr/libexec/mysqld")
-BACKUP_SCHEMA = "fbsir.u3wDatabaseBackupReceipt.v3"
-RESTORE_SCHEMA = "fbsir.u3wDatabaseRestoreRehearsalReceipt.v3"
-BUNDLE_SCHEMA = "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v2"
+BACKUP_SCHEMA = "fbsir.u3wDatabaseBackupReceipt.v4"
+RESTORE_SCHEMA = "fbsir.u3wDatabaseRestoreRehearsalReceipt.v4"
+BUNDLE_SCHEMA = "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v3"
+PLAN_SCHEMA = "fbsir.u3wDatabaseBackupPlan.v3"
 ADMIN_ROOT_DEPENDENCY_RECEIPT = pathlib.Path(
     "/opt/fbsir/admin/dependencies/latest/adoption-receipt.json"
 )
 ADMIN_ROOT_DEPENDENCY_SCHEMA = (
-    "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2"
+    "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v3"
 )
 DEPENDENCY_VERSION = (
     "w1a_043_legacy_admin_root_dependency_20260724_001"
 )
 DEPENDENCY_DESCRIPTION = (
     "APPLIED:W1A_043_LEGACY_ADMIN_ROOT_DEPENDENCY_V1"
+)
+PUBLIC_043_DESCRIPTION = (
+    "APPLIED:Independent Board exact official experts attribution v1"
+)
+INTERNAL_043_DESCRIPTION = (
+    "APPLIED:exact WorkBuddy experts 26.7.21 attribution journey "
+    "and append-only event ledger"
+)
+EXPECTED_W1A_SCHEMA_FINGERPRINT = (
+    "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d"
 )
 RUN_PATTERN = re.compile(r"w1a-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}")
 COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
@@ -59,6 +70,215 @@ UUID_PATTERN = re.compile(
     r"[0-9a-f]{4}-[0-9a-f]{12}"
 )
 LOCK_TIMEOUT_SECONDS = 30
+ATTRIBUTION_DATA_FACT_FIELDS = (
+    "attributionEventCount",
+    "attributionProbeEventCount",
+    "attributionNaturalEventCount",
+    "attributionNonProbeEventCount",
+    "attributionAuthoritativeProductCreditCount",
+    "attributionJourneyCount",
+    "attributionProbeJourneyCount",
+    "attributionNaturalJourneyCount",
+    "attributionNonProbeJourneyCount",
+)
+PLAN_FIELDS = frozenset(
+    {
+        "schema",
+        "runId",
+        "sourceCommit",
+        "targetHost",
+        "database",
+        "sourceDatabaseServerUuid",
+        "serverVersion",
+        "serverVersionComment",
+        "sourceControlFacts",
+        "sourceJarSha256",
+        "encryptionContract",
+        "encryptionKeyFingerprintSha256",
+        "encryptionKeyReady",
+        "plannedDdlProtectionMode",
+        "databaseProtectionActive",
+        "sourceSnapshotExactlyMatched",
+        "dumpToolVersion",
+        "freeBytes",
+        "availableMemoryBytes",
+        "wouldWritePath",
+        "businessDatabaseWouldChange",
+        "serviceWouldChange",
+        "officialExpertsPackageWouldChange",
+        "runnerSha256",
+        "backupWorkerSha256",
+        "verifierSha256",
+        "adminRootDependencyAdoptionReceiptSha256",
+        "generatedAt",
+        "expiresAt",
+    }
+)
+FACT_FIELDS = frozenset(
+    {
+        "fingerprintAlgorithm",
+        "schemaFingerprintSha256",
+        "prerequisiteShapeSha256",
+        "baseTableCount",
+        "viewCount",
+        "triggerCount",
+        "routineCount",
+        "eventCount",
+        "independentBoardAdminRootCount",
+        "legacyAdminRootDependencyState",
+        "legacyAdminRootDependencyFactsSha256",
+        "legacyAdminRootDependencyVersionCount",
+        "legacyAdminRootDependencyReceiptCount",
+        "legacyAdminRootIdentityCount",
+        "legacyAdminRootExactCount",
+        "legacyAdminRootRoleBindingCount",
+        "legacyAdminRootPageChildCount",
+        "legacyForbiddenPublicInit001Through042ReceiptCount",
+        "publicInit043AnyReceiptCount",
+        "attributionInternalReceiptCount",
+        "attributionTableCount",
+        "attributionTriggerCount",
+        "attributionPermissionCount",
+        *ATTRIBUTION_DATA_FACT_FIELDS,
+        "w1aSchemaFingerprintSha256",
+        "w1a043State",
+        "allBaseTablesInnoDB",
+    }
+)
+BACKUP_RECEIPT_FIELDS = frozenset(
+    {
+        "schema",
+        "runId",
+        "sourceCommit",
+        "planReceiptSha256",
+        "targetHost",
+        "database",
+        "sourceDatabaseServerUuid",
+        "serverVersion",
+        "serverVersionComment",
+        "generatedAt",
+        "backupPath",
+        "backupSha256",
+        "backupSizeBytes",
+        "backupPlaintextSha256",
+        "encryptionContract",
+        "encryptionKeyFingerprintSha256",
+        "dumpToolVersion",
+        "dumpOptionsContract",
+        "ddlProtectionMode",
+        "sourceFacts",
+        "sourceTotalRows",
+        "sourceTableRowCountsSha256",
+        "sourceSnapshotExactlyMatched",
+        "sourceJarSha256",
+        "adminRootDependencyAdoptionReceiptSha256",
+        "approvalReceiptSha256",
+        "runnerSha256",
+        "backupWorkerSha256",
+        "businessDatabaseChanged",
+        "serviceChanged",
+        "officialExpertsPackageChanged",
+    }
+)
+RESTORE_RECEIPT_FIELDS = frozenset(
+    {
+        "schema",
+        "runId",
+        "sourceCommit",
+        "planReceiptSha256",
+        "targetHost",
+        "database",
+        "sourceDatabaseServerUuid",
+        "sourceBackupPath",
+        "sourceBackupSha256",
+        "sourceBackupPlaintextSha256",
+        "sourceBackupReceiptSha256",
+        "startedAt",
+        "completedAt",
+        "isolatedTarget",
+        "isolatedNetworkingDisabled",
+        "isolatedDataRemoved",
+        "serverVersion",
+        "serverVersionComment",
+        "restoredFacts",
+        "restoredTotalRows",
+        "restoredTableRowCountsSha256",
+        "restoreLogPath",
+        "restoreLogSha256",
+        "isolationEvidencePath",
+        "isolationEvidenceSha256",
+        "mysqlcheckPath",
+        "mysqlcheckSha256",
+        "adminRootDependencyAdoptionReceiptSha256",
+        "approvalReceiptSha256",
+        "backupWorkerSha256",
+        "verifierSha256",
+        "businessDatabaseChanged",
+        "serviceChanged",
+        "officialExpertsPackageChanged",
+    }
+)
+BUNDLE_FIELDS = frozenset(
+    {
+        "schema",
+        "runId",
+        "sourceCommit",
+        "planReceiptSha256",
+        "targetHost",
+        "database",
+        "sourceDatabaseServerUuid",
+        "generatedAt",
+        "backupReceiptPath",
+        "backupReceiptSha256",
+        "restoreReceiptPath",
+        "restoreReceiptSha256",
+        "backupPath",
+        "backupSha256",
+        "backupSizeBytes",
+        "approvalReceiptSha256",
+        "runnerSha256",
+        "backupWorkerSha256",
+        "verifierSha256",
+        "adminRootDependencyAdoptionReceiptSha256",
+        "productionBusinessStateChanged",
+    }
+)
+ISOLATION_EVIDENCE_FIELDS = frozenset(
+    {
+        "schema",
+        "runId",
+        "sourceCommit",
+        "observedAt",
+        "productionMysqldPidBefore",
+        "productionMysqldPidAfter",
+        "runtime",
+        "restoreStdoutSha256",
+        "restoreStderrSha256",
+        "mysqlcheckExitCode",
+        "mysqlcheckOkObjectCount",
+        "isolatedProcessExited",
+        "isolatedSocketRemoved",
+        "isolatedPidFileRemoved",
+        "isolatedDatadirRemoved",
+        "isolatedRuntimeDirectoryRemoved",
+    }
+)
+ISOLATION_RUNTIME_FIELDS = frozenset(
+    {
+        "pid",
+        "binarySha256",
+        "commandLineSha256",
+        "datadir",
+        "socket",
+        "serverUuid",
+        "skipNetworking",
+        "version",
+        "versionComment",
+        "logBin",
+        "eventScheduler",
+        "tcpListenerAbsent",
+    }
+)
 
 
 def canonical_json(value):
@@ -73,6 +293,53 @@ def utc_now():
 
 def sha256_bytes(value):
     return hashlib.sha256(value).hexdigest()
+
+
+def static_control_facts(facts):
+    return {
+        field: value
+        for field, value in facts.items()
+        if field not in ATTRIBUTION_DATA_FACT_FIELDS
+    }
+
+
+def attribution_observations_compatible(recorded_facts, current_facts):
+    if not isinstance(recorded_facts, dict) or not isinstance(
+        current_facts, dict
+    ):
+        return False
+    if recorded_facts.get("w1a043State") != current_facts.get(
+        "w1a043State"
+    ):
+        return False
+    state = current_facts.get("w1a043State")
+    if any(
+        type(recorded_facts.get(field)) is not int
+        or recorded_facts[field] < 0
+        or type(current_facts.get(field)) is not int
+        or current_facts[field] < recorded_facts[field]
+        for field in ATTRIBUTION_DATA_FACT_FIELDS
+    ):
+        return False
+    if state == "ABSENT":
+        return all(
+            recorded_facts[field] == 0 and current_facts[field] == 0
+            for field in ATTRIBUTION_DATA_FACT_FIELDS
+        )
+    if state != "EXACT_043_RETAINED_DORMANT":
+        return False
+    return all(
+        facts["attributionEventCount"]
+        == facts["attributionProbeEventCount"]
+        and facts["attributionNaturalEventCount"] == 0
+        and facts["attributionNonProbeEventCount"] == 0
+        and facts["attributionAuthoritativeProductCreditCount"] == 0
+        and facts["attributionJourneyCount"]
+        == facts["attributionProbeJourneyCount"]
+        and facts["attributionNaturalJourneyCount"] == 0
+        and facts["attributionNonProbeJourneyCount"] == 0
+        for facts in (recorded_facts, current_facts)
+    )
 
 
 def sha256_file(path):
@@ -362,6 +629,91 @@ def row_manifest(mysql, names):
     }
 
 
+def w1a_schema_fingerprint(mysql):
+    statement = """SELECT row_value FROM (
+      SELECT CONCAT_WS('|','C',HEX(table_name),LPAD(ordinal_position,3,'0'),
+        HEX(column_name),HEX(column_type),is_nullable,
+        HEX(COALESCE(column_default,'<NULL>')),HEX(extra),
+        HEX(COALESCE(character_set_name,'')),HEX(COALESCE(collation_name,'')),
+        HEX(COALESCE(generation_expression,''))) AS row_value
+      FROM information_schema.columns
+      WHERE table_schema=DATABASE() AND table_name IN
+        ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+      UNION ALL
+      SELECT CONCAT_WS('|','I',HEX(table_name),HEX(index_name),non_unique,
+        LPAD(seq_in_index,3,'0'),HEX(column_name),COALESCE(sub_part,''),
+        HEX(COALESCE(collation,'')),HEX(index_type),HEX(nullable))
+      FROM information_schema.statistics
+      WHERE table_schema=DATABASE() AND table_name IN
+        ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+      UNION ALL
+      SELECT CONCAT_WS('|','T',HEX(table_name),HEX(constraint_name),
+        HEX(constraint_type))
+      FROM information_schema.table_constraints
+      WHERE table_schema=DATABASE() AND table_name IN
+        ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+      UNION ALL
+      SELECT CONCAT_WS('|','K',HEX(table_name),HEX(constraint_name),
+        HEX(column_name),LPAD(ordinal_position,3,'0'),
+        HEX(COALESCE(referenced_table_name,'')),
+        HEX(COALESCE(referenced_column_name,'')))
+      FROM information_schema.key_column_usage
+      WHERE table_schema=DATABASE() AND table_name IN
+        ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+      UNION ALL
+      SELECT CONCAT_WS('|','F',HEX(constraint_name),HEX(table_name),
+        HEX(referenced_table_name),HEX(update_rule),HEX(delete_rule),
+        HEX(match_option))
+      FROM information_schema.referential_constraints
+      WHERE constraint_schema=DATABASE() AND table_name IN
+        ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+      UNION ALL
+      SELECT CONCAT_WS('|','H',HEX(tc.table_name),HEX(cc.constraint_name),
+        HEX(cc.check_clause))
+      FROM information_schema.check_constraints cc
+      JOIN information_schema.table_constraints tc
+        ON tc.constraint_schema=cc.constraint_schema
+       AND tc.constraint_name=cc.constraint_name
+       AND tc.constraint_type='CHECK'
+      WHERE tc.table_schema=DATABASE() AND tc.table_name IN
+        ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+      UNION ALL
+      SELECT CONCAT_WS('|','R',HEX(trigger_name),HEX(event_manipulation),
+        HEX(event_object_table),HEX(action_timing),HEX(action_orientation),
+        HEX(REGEXP_REPLACE(TRIM(action_statement),'[[:space:]]+',' ')))
+      FROM information_schema.triggers
+      WHERE trigger_schema=DATABASE() AND event_object_table IN
+        ('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')
+      UNION ALL
+      SELECT CONCAT_WS('|','M',HEX(permission.menu_name),
+        LPAD(permission.order_num,6,'0'),HEX(COALESCE(permission.path,'')),
+        HEX(COALESCE(permission.component,'<NULL>')),
+        HEX(COALESCE(permission.query,'<NULL>')),
+        HEX(COALESCE(permission.route_name,'')),permission.is_frame,
+        permission.is_cache,HEX(permission.menu_type),HEX(permission.visible),
+        HEX(permission.status),HEX(permission.perms),HEX(permission.icon),
+        HEX(COALESCE(root.menu_name,'<NULL>')),
+        LPAD(COALESCE(root.order_num,-1),6,'0'),
+        HEX(COALESCE(root.path,'<NULL>')),
+        HEX(COALESCE(root.component,'<NULL>')),
+        HEX(COALESCE(root.query,'<NULL>')),
+        HEX(COALESCE(root.route_name,'<NULL>')),
+        COALESCE(root.is_frame,-1),COALESCE(root.is_cache,-1),
+        HEX(COALESCE(root.menu_type,'<NULL>')),
+        HEX(COALESCE(root.visible,'<NULL>')),
+        HEX(COALESCE(root.status,'<NULL>')),
+        HEX(COALESCE(root.perms,'<NULL>')),
+        HEX(COALESCE(root.icon,'<NULL>')),
+        IF(root.parent_id=0,'ROOT','NONROOT'))
+      FROM sys_menu permission
+      LEFT JOIN sys_menu root ON root.menu_id=permission.parent_id
+      WHERE BINARY permission.perms=BINARY 'board:attribution:query'
+    ) AS fingerprint_rows
+    ORDER BY BINARY row_value"""
+    rows = mysql.query(statement)
+    return sha256_bytes((rows + "\n").encode("utf-8"))
+
+
 def admin_root_dependency_facts(mysql):
     forbidden_versions = ",".join(
         "'public_init_{:03d}'".format(index)
@@ -418,9 +770,19 @@ def admin_root_dependency_facts(mysql):
         "SELECT COUNT(*) FROM u3w_schema_migration "
         "WHERE version='public_init_043'"
     )
+    public_043_exact_count = scalar(
+        "SELECT COUNT(*) FROM u3w_schema_migration "
+        "WHERE version='public_init_043' AND description='"
+        + PUBLIC_043_DESCRIPTION + "'"
+    )
     internal_043_count = scalar(
         "SELECT COUNT(*) FROM u3w_schema_migration WHERE version="
         "'20260723_independent_board_attribution_v1_043'"
+    )
+    internal_043_exact_count = scalar(
+        "SELECT COUNT(*) FROM u3w_schema_migration WHERE version="
+        "'20260723_independent_board_attribution_v1_043' "
+        "AND description='" + INTERNAL_043_DESCRIPTION + "'"
     )
     table_count = scalar(
         "SELECT COUNT(*) FROM information_schema.tables "
@@ -436,6 +798,48 @@ def admin_root_dependency_facts(mysql):
         "SELECT COUNT(*) FROM sys_menu WHERE "
         "BINARY perms=BINARY 'board:attribution:query'"
     )
+    ledger_facts = {
+        field: 0 for field in ATTRIBUTION_DATA_FACT_FIELDS
+    }
+    w1a_fingerprint = None
+    if table_count == 2:
+        ledger_facts = {
+            "attributionEventCount": scalar(
+                "SELECT COUNT(*) FROM fbs_board_attr_event_v1"
+            ),
+            "attributionProbeEventCount": scalar(
+                "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+                "WHERE BINARY traffic_class=BINARY 'PROBE'"
+            ),
+            "attributionNaturalEventCount": scalar(
+                "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+                "WHERE BINARY traffic_class=BINARY 'NATURAL'"
+            ),
+            "attributionNonProbeEventCount": scalar(
+                "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+                "WHERE BINARY traffic_class<>BINARY 'PROBE'"
+            ),
+            "attributionAuthoritativeProductCreditCount": scalar(
+                "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+                "WHERE authoritative_product_credit<>0"
+            ),
+            "attributionJourneyCount": scalar(
+                "SELECT COUNT(*) FROM fbs_board_attr_journey_v1"
+            ),
+            "attributionProbeJourneyCount": scalar(
+                "SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+                "WHERE BINARY traffic_class=BINARY 'PROBE'"
+            ),
+            "attributionNaturalJourneyCount": scalar(
+                "SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+                "WHERE BINARY traffic_class=BINARY 'NATURAL'"
+            ),
+            "attributionNonProbeJourneyCount": scalar(
+                "SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+                "WHERE BINARY traffic_class<>BINARY 'PROBE'"
+            ),
+        }
+        w1a_fingerprint = w1a_schema_fingerprint(mysql)
     fingerprint_rows = mysql.query(
         "SELECT row_value FROM ("
         "SELECT CONCAT_WS('|','D',HEX(version),HEX(description)) row_value "
@@ -469,10 +873,33 @@ def admin_root_dependency_facts(mysql):
         and table_count == 0
         and trigger_count == 0
         and permission_count == 0
+        and all(value == 0 for value in ledger_facts.values())
+        and w1a_fingerprint is None
     )
-    if not exact_dependency or not absent_043:
+    retained_043 = bool(
+        public_043_count == 1
+        and public_043_exact_count == 1
+        and internal_043_count == 1
+        and internal_043_exact_count == 1
+        and table_count == 2
+        and trigger_count == 2
+        and permission_count == 1
+        and ledger_facts["attributionEventCount"]
+            == ledger_facts["attributionProbeEventCount"]
+        and ledger_facts["attributionNaturalEventCount"] == 0
+        and ledger_facts["attributionNonProbeEventCount"] == 0
+        and ledger_facts[
+            "attributionAuthoritativeProductCreditCount"
+        ] == 0
+        and ledger_facts["attributionJourneyCount"]
+            == ledger_facts["attributionProbeJourneyCount"]
+        and ledger_facts["attributionNaturalJourneyCount"] == 0
+        and ledger_facts["attributionNonProbeJourneyCount"] == 0
+        and w1a_fingerprint == EXPECTED_W1A_SCHEMA_FINGERPRINT
+    )
+    if not exact_dependency or not (absent_043 or retained_043):
         raise RuntimeError(
-            "restored admin root dependency or W1A 043 pre-state is not exact"
+            "restored admin root dependency or W1A 043 dormant state is not exact"
         )
     return {
         "legacyAdminRootDependencyState":
@@ -491,7 +918,13 @@ def admin_root_dependency_facts(mysql):
         "attributionTableCount": table_count,
         "attributionTriggerCount": trigger_count,
         "attributionPermissionCount": permission_count,
-        "w1a043State": "ABSENT",
+        **ledger_facts,
+        "w1aSchemaFingerprintSha256": w1a_fingerprint,
+        "w1a043State": (
+            "ABSENT"
+            if absent_043
+            else "EXACT_043_RETAINED_DORMANT"
+        ),
     }
 
 
@@ -563,6 +996,13 @@ def validate_admin_root_dependency_adoption(
             != dependency_facts["attributionTriggerCount"]
         or live_facts.get("attributionPermissionCount")
             != dependency_facts["attributionPermissionCount"]
+        or live_facts.get("w1aSchemaFingerprintSha256")
+            != dependency_facts["w1aSchemaFingerprintSha256"]
+        or live_facts.get("w1a043State")
+            != dependency_facts["w1a043State"]
+        or not attribution_observations_compatible(
+            live_facts, dependency_facts
+        )
     ):
         raise RuntimeError(
             "admin root dependency adoption receipt facts drifted"
@@ -761,9 +1201,23 @@ def quarantine_unbundled_restore(run_directory, args):
     validate_regular_file(receipt_path, run_directory)
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     if (
+        set(receipt) != RESTORE_RECEIPT_FIELDS
+        or not isinstance(receipt.get("restoredFacts"), dict)
+        or set(receipt["restoredFacts"]) != FACT_FIELDS
+        or not isinstance(receipt.get("restoredTotalRows"), int)
+        or receipt["restoredTotalRows"] < 0
+        or not SHA_PATTERN.fullmatch(
+            str(receipt.get("restoredTableRowCountsSha256") or "")
+        )
+    ):
+        raise RuntimeError(
+            "unbundled restore receipt has missing or unknown fields"
+        )
+    if (
         receipt.get("schema") != RESTORE_SCHEMA
         or receipt.get("runId") != args.run_id
         or receipt.get("sourceCommit") != args.source_commit
+        or receipt.get("planReceiptSha256") != args.plan_receipt_sha
         or receipt.get("approvalReceiptSha256") != args.approval_sha
         or receipt.get("backupWorkerSha256") != args.worker_sha
         or receipt.get("verifierSha256") != args.verifier_sha
@@ -943,6 +1397,70 @@ def assert_no_tcp_listener(pid):
         raise RuntimeError("isolated mysqld has a TCP listener")
 
 
+def validate_plan_receipt(args, backup_receipt=None):
+    try:
+        payload = base64.b64decode(
+            args.plan_json_base64,
+            validate=True,
+        )
+        plan = json.loads(payload.decode("utf-8"))
+    except Exception as error:
+        raise RuntimeError("backup Plan receipt cannot be decoded") from error
+    if (
+        sha256_bytes(payload) != args.plan_receipt_sha
+        or payload != (canonical_json(plan) + "\n").encode("utf-8")
+        or not isinstance(plan, dict)
+        or set(plan) != PLAN_FIELDS
+        or not isinstance(plan.get("sourceControlFacts"), dict)
+        or set(plan["sourceControlFacts"])
+            != FACT_FIELDS.difference(ATTRIBUTION_DATA_FACT_FIELDS)
+        or plan.get("schema") != PLAN_SCHEMA
+        or plan.get("runId") != args.run_id
+        or plan.get("sourceCommit") != args.source_commit
+        or plan.get("targetHost") != TARGET_HOST
+        or plan.get("database") != DATABASE
+        or plan.get("runnerSha256") != args.runner_sha
+        or plan.get("backupWorkerSha256") != args.worker_sha
+        or plan.get("verifierSha256") != args.verifier_sha
+        or plan.get(
+            "adminRootDependencyAdoptionReceiptSha256"
+        ) != args.admin_root_dependency_adoption_receipt_sha
+        or plan.get("businessDatabaseWouldChange") is not False
+        or plan.get("serviceWouldChange") is not False
+        or plan.get("officialExpertsPackageWouldChange") is not False
+    ):
+        raise RuntimeError("backup Plan identity or immutable bytes drifted")
+    if backup_receipt is not None:
+        expected = {
+            "sourceDatabaseServerUuid":
+                backup_receipt.get("sourceDatabaseServerUuid"),
+            "serverVersion": backup_receipt.get("serverVersion"),
+            "serverVersionComment":
+                backup_receipt.get("serverVersionComment"),
+            "sourceControlFacts": static_control_facts(
+                backup_receipt.get("sourceFacts")
+            ),
+            "sourceJarSha256": backup_receipt.get("sourceJarSha256"),
+            "encryptionContract":
+                backup_receipt.get("encryptionContract"),
+            "encryptionKeyFingerprintSha256":
+                backup_receipt.get(
+                    "encryptionKeyFingerprintSha256"
+                ),
+            "encryptionKeyReady": True,
+            "plannedDdlProtectionMode":
+                backup_receipt.get("ddlProtectionMode"),
+            "databaseProtectionActive": False,
+            "sourceSnapshotExactlyMatched":
+                backup_receipt.get("sourceSnapshotExactlyMatched"),
+            "dumpToolVersion": backup_receipt.get("dumpToolVersion"),
+            "wouldWritePath": str(BACKUP_ROOT / args.run_id),
+        }
+        if any(plan.get(key) != value for key, value in expected.items()):
+            raise RuntimeError("backup receipt drifted from approved Plan")
+    return plan
+
+
 def validate_backup_receipt(args, run_directory):
     key_status = BACKUP_KEY_PATH.stat()
     if (
@@ -957,10 +1475,19 @@ def validate_backup_receipt(args, run_directory):
     receipt_path = run_directory / "backup-receipt.json"
     validate_regular_file(receipt_path, run_directory)
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    if (
+        set(receipt) != BACKUP_RECEIPT_FIELDS
+        or not isinstance(receipt.get("sourceFacts"), dict)
+        or set(receipt["sourceFacts"]) != FACT_FIELDS
+        or not isinstance(receipt.get("sourceTotalRows"), int)
+        or receipt["sourceTotalRows"] < 0
+    ):
+        raise RuntimeError("backup receipt has missing or unknown fields")
     expected = {
         "schema": BACKUP_SCHEMA,
         "runId": args.run_id,
         "sourceCommit": args.source_commit,
+        "planReceiptSha256": args.plan_receipt_sha,
         "targetHost": TARGET_HOST,
         "database": DATABASE,
         "adminRootDependencyAdoptionReceiptSha256":
@@ -973,6 +1500,9 @@ def validate_backup_receipt(args, run_directory):
             "HOST_FLOCK_NAMED_LOCK_READ_ONLY_SNAPSHOT_FULL_OBJECT_MDL_"
             "PRE_POST_STABILITY_AND_APPROVED_NO_DDL_WINDOW",
         "sourceSnapshotExactlyMatched": False,
+        "businessDatabaseChanged": False,
+        "serviceChanged": False,
+        "officialExpertsPackageChanged": False,
     }
     if any(receipt.get(key) != value for key, value in expected.items()):
         raise RuntimeError("backup receipt identity/provenance is invalid")
@@ -1004,6 +1534,7 @@ def validate_backup_receipt(args, run_directory):
         receipt["serverVersion"],
         receipt["sourceFacts"],
     )
+    validate_plan_receipt(args, receipt)
     return receipt_path, receipt, backup_path
 
 
@@ -1014,6 +1545,7 @@ def validate_arguments(args):
         raise RuntimeError("invalid source commit")
     for value in (
         args.approval_sha,
+        args.plan_receipt_sha,
         args.runner_sha,
         args.worker_sha,
         args.verifier_sha,
@@ -1050,6 +1582,7 @@ def validate_approval(args):
         "productionServiceChange",
         "officialExpertsPackageChange",
         "expectedAdminRootDependencyAdoptionReceiptSha256",
+        "expectedBackupPlanReceiptSha256",
     }
     if set(approval) != expected_fields:
         raise RuntimeError("approval receipt has missing or unknown fields")
@@ -1081,6 +1614,8 @@ def validate_approval(args):
         or approval[
             "expectedAdminRootDependencyAdoptionReceiptSha256"
         ] != args.admin_root_dependency_adoption_receipt_sha
+        or approval["expectedBackupPlanReceiptSha256"]
+            != args.plan_receipt_sha
         or approved_at > now
         or expires_at <= now
         or expires_at - approved_at > dt.timedelta(hours=24)
@@ -1095,9 +1630,11 @@ def existing_bundle(run_directory, args):
     validate_regular_file(bundle_path, run_directory)
     bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
     if (
-        bundle.get("schema") != BUNDLE_SCHEMA
+        set(bundle) != BUNDLE_FIELDS
+        or bundle.get("schema") != BUNDLE_SCHEMA
         or bundle.get("runId") != args.run_id
         or bundle.get("sourceCommit") != args.source_commit
+        or bundle.get("planReceiptSha256") != args.plan_receipt_sha
         or bundle.get("verifierSha256") != args.verifier_sha
         or bundle.get(
             "adminRootDependencyAdoptionReceiptSha256"
@@ -1157,6 +1694,7 @@ def validate_existing_bundle(
         "schema": BUNDLE_SCHEMA,
         "runId": args.run_id,
         "sourceCommit": args.source_commit,
+        "planReceiptSha256": args.plan_receipt_sha,
         "targetHost": TARGET_HOST,
         "database": DATABASE,
         "sourceDatabaseServerUuid":
@@ -1184,10 +1722,19 @@ def validate_existing_bundle(
     ):
         raise RuntimeError("existing restore receipt digest is invalid")
     restore = json.loads(restore_receipt_path.read_text(encoding="utf-8"))
+    if (
+        set(restore) != RESTORE_RECEIPT_FIELDS
+        or not isinstance(restore.get("restoredFacts"), dict)
+        or set(restore["restoredFacts"]) != FACT_FIELDS
+    ):
+        raise RuntimeError(
+            "existing restore receipt has missing or unknown fields"
+        )
     restore_expected = {
         "schema": RESTORE_SCHEMA,
         "runId": args.run_id,
         "sourceCommit": args.source_commit,
+        "planReceiptSha256": args.plan_receipt_sha,
         "targetHost": TARGET_HOST,
         "database": DATABASE,
         "sourceDatabaseServerUuid":
@@ -1198,7 +1745,6 @@ def validate_existing_bundle(
             "backupPlaintextSha256"
         ],
         "sourceBackupReceiptSha256": sha256_file(backup_receipt_path),
-        "restoredFacts": backup_receipt["sourceFacts"],
         "approvalReceiptSha256": args.approval_sha,
         "backupWorkerSha256": args.worker_sha,
         "verifierSha256": args.verifier_sha,
@@ -1214,13 +1760,26 @@ def validate_existing_bundle(
     if any(restore.get(field) != value for field, value in restore_expected.items()):
         raise RuntimeError("existing restore receipt evidence is invalid")
     if (
+        static_control_facts(restore["restoredFacts"])
+            != static_control_facts(backup_receipt["sourceFacts"])
+        or not attribution_observations_compatible(
+            backup_receipt["sourceFacts"], restore["restoredFacts"]
+        )
+    ):
+        raise RuntimeError(
+            "existing restore control facts or attribution observations "
+            "are invalid"
+        )
+    if (
         not isinstance(restore.get("restoredTotalRows"), int)
-        or restore["restoredTotalRows"] < 1
+        or restore["restoredTotalRows"] < 0
         or not SHA_PATTERN.fullmatch(
             str(restore.get("restoredTableRowCountsSha256") or "")
         )
     ):
-        raise RuntimeError("existing restored row manifest is invalid")
+        raise RuntimeError(
+            "existing restored row manifest is invalid"
+        )
     for field, filename, digest_field in (
         ("restoreLogPath", "restore.log", "restoreLogSha256"),
         (
@@ -1242,7 +1801,10 @@ def validate_existing_bundle(
     )
     runtime = evidence.get("runtime") or {}
     if (
-        evidence.get("schema") != "fbsir.u3wIsolatedMysqlEvidence.v1"
+        set(evidence) != ISOLATION_EVIDENCE_FIELDS
+        or not isinstance(runtime, dict)
+        or set(runtime) != ISOLATION_RUNTIME_FIELDS
+        or evidence.get("schema") != "fbsir.u3wIsolatedMysqlEvidence.v1"
         or evidence.get("runId") != args.run_id
         or evidence.get("sourceCommit") != args.source_commit
         or evidence.get("productionMysqldPidBefore")
@@ -1436,7 +1998,13 @@ def run_verification(args):
             backup_receipt["serverVersionComment"],
         ]:
             raise RuntimeError("restored server identity mismatch")
-        if restored_facts != backup_receipt["sourceFacts"]:
+        if (
+            static_control_facts(restored_facts)
+                != static_control_facts(backup_receipt["sourceFacts"])
+            or not attribution_observations_compatible(
+                backup_receipt["sourceFacts"], restored_facts
+            )
+        ):
             raise RuntimeError("restored schema facts do not match source facts")
         validate_admin_root_dependency_adoption(
             args,
@@ -1444,8 +2012,13 @@ def run_verification(args):
             backup_receipt["serverVersion"],
             restored_facts,
         )
-        if restored_manifest["totalRows"] < 1:
-            raise RuntimeError("restored database unexpectedly contains no rows")
+        if (
+            restored_manifest["totalRows"] < 0
+            or not SHA_PATTERN.fullmatch(
+                restored_manifest["tableRowCountsSha256"]
+            )
+        ):
+            raise RuntimeError("restored row manifest is invalid")
         mysqlcheck = subprocess.run(
             [
                 "/usr/bin/mysqlcheck",
@@ -1535,12 +2108,18 @@ def run_verification(args):
         "isolatedDatadirRemoved": True,
         "isolatedRuntimeDirectoryRemoved": True,
     }
+    if (
+        set(evidence) != ISOLATION_EVIDENCE_FIELDS
+        or set(evidence["runtime"]) != ISOLATION_RUNTIME_FIELDS
+    ):
+        raise RuntimeError("isolation evidence field contract drifted")
     atomic_json(evidence_path, evidence)
     backup_receipt_sha = sha256_file(receipt_path)
     restore_receipt = {
         "schema": RESTORE_SCHEMA,
         "runId": args.run_id,
         "sourceCommit": args.source_commit,
+        "planReceiptSha256": args.plan_receipt_sha,
         "targetHost": TARGET_HOST,
         "database": DATABASE,
         "sourceDatabaseServerUuid":
@@ -1576,11 +2155,17 @@ def run_verification(args):
         "serviceChanged": False,
         "officialExpertsPackageChanged": False,
     }
+    if (
+        set(restore_receipt) != RESTORE_RECEIPT_FIELDS
+        or set(restore_receipt["restoredFacts"]) != FACT_FIELDS
+    ):
+        raise RuntimeError("restore receipt field contract drifted")
     atomic_json(restore_receipt_path, restore_receipt)
     bundle = {
         "schema": BUNDLE_SCHEMA,
         "runId": args.run_id,
         "sourceCommit": args.source_commit,
+        "planReceiptSha256": args.plan_receipt_sha,
         "targetHost": TARGET_HOST,
         "database": DATABASE,
         "sourceDatabaseServerUuid":
@@ -1601,6 +2186,8 @@ def run_verification(args):
             args.admin_root_dependency_adoption_receipt_sha,
         "productionBusinessStateChanged": False,
     }
+    if set(bundle) != BUNDLE_FIELDS:
+        raise RuntimeError("backup bundle field contract drifted")
     bundle_path = run_directory / "receipt.json"
     atomic_json(bundle_path, bundle)
     latest_link = BACKUP_ROOT.parent / "latest"
@@ -1619,6 +2206,8 @@ def main():
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--approval-sha", required=True)
     parser.add_argument("--approval-json-base64", required=True)
+    parser.add_argument("--plan-receipt-sha", required=True)
+    parser.add_argument("--plan-json-base64", required=True)
     parser.add_argument("--runner-sha", required=True)
     parser.add_argument("--worker-sha", required=True)
     parser.add_argument("--verifier-sha", required=True)

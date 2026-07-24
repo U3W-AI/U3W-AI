@@ -11,7 +11,13 @@
    - `CANONICAL_MANIFEST`：具备描述精确匹配且以 `APPLIED:` 开头的 `public_init_035` 至 `public_init_042`；
    - `LEGACY_ADOPTED_W1A_V2`：不伪造历史回执；受控 runner 只创建规范迁移账本、V2 采纳回执表和一条 `legacy_w1a_baseline_20260724_001` 记录。collector 必须独立重算并逐项匹配实时 Schema、JAR、采用前备份、最终备份、恢复、审批、runner、worker 与源码提交；
    若已应用 043，还必须精确匹配双版本验证共同产出的列、索引、约束、CHECK 和触发器正文指纹；
-5. 数据库备份非空、摘要一致，且恢复步骤已有独立验证回执；
+5. 数据库备份非空、摘要一致，批准的 Plan v3 已贯穿 backup v4、restore v4、
+   bundle v3 与仓外 anchor v3；Plan 只绑定静态 `sourceControlFacts`，不绑定会
+   随追加流量变化的归因事件/旅程计数。加密 dump 必须可在禁网隔离 MySQL 中恢复，
+   静态控制事实一致、动态归因观测保持 PROBE-only 休眠安全且单调、恢复行清单
+   可观测并且 `mysqlcheck` 通过。门禁显式保持
+   `sourceSnapshotExactlyMatched=false`，不把不同连接的源端 `COUNT` 误称为
+   dump 的逐行同一快照证明；
 6. W1A 四个兼容主开关、四个 Spring relaxed-binding 规范主开关和四个纵向切片开关，共十二项均显式为 `false`；
 7. 事件验签密钥和 same-binding 密钥已经托管，但门禁不输出密钥值或摘要；
 8. 本地 strict-HEAD Build 和 24 小时内有效的只读发布 Plan 已独立验证，并与实时 unit、活动 JAR、env、Nginx 和 release/current 拓扑一致；
@@ -40,6 +46,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -File scripts/verify-independent-board-production-readiness.ps1 `
   -ExpectedCommit <clean-pushed-40-hex-head> `
   -ExpectedBackupReceiptSha256 <out-of-band-sha256> `
+  -ExpectedBackupPlanReceiptSha256 <approved-backup-plan-sha256> `
   -ExpectedLegacyBaselineReceiptDigest <out-of-band-sha256> `
   -ExpectedConfigurationReceiptSha256 <out-of-band-sha256> `
   -ExpectedReleasePlanReceiptSha256 <out-of-band-sha256> `

@@ -35,9 +35,173 @@ backup = load("u3w_backup_remote", "u3w-production-backup-remote.py")
 restore = load(
     "u3w_restore_remote", "u3w-isolated-restore-verifier-remote.py"
 )
+release = load(
+    "u3w_release_remote_contract", "u3w-default-off-release-remote.py"
+)
 
 
 class RemoteSafetyTest(unittest.TestCase):
+    def test_backup_and_restore_share_exact_receipt_field_contracts(self):
+        self.assertEqual(
+            backup.BACKUP_RECEIPT_FIELDS,
+            restore.BACKUP_RECEIPT_FIELDS,
+        )
+        self.assertEqual(backup.FACT_FIELDS, restore.FACT_FIELDS)
+        self.assertIn("planReceiptSha256", backup.BACKUP_RECEIPT_FIELDS)
+        self.assertIn("planReceiptSha256", restore.RESTORE_RECEIPT_FIELDS)
+        self.assertIn("planReceiptSha256", restore.BUNDLE_FIELDS)
+        for field in (
+            "sourceTotalRows",
+            "sourceTableRowCountsSha256",
+            *backup.ATTRIBUTION_DATA_FACT_FIELDS,
+        ):
+            self.assertNotIn(field, backup.PLAN_FIELDS)
+            self.assertNotIn(field, restore.PLAN_FIELDS)
+        self.assertIn("sourceControlFacts", backup.PLAN_FIELDS)
+        self.assertIn("sourceControlFacts", restore.PLAN_FIELDS)
+        for function in (
+            backup.existing_receipt,
+            restore.validate_backup_receipt,
+        ):
+            source = inspect.getsource(function)
+            for field in (
+                "businessDatabaseChanged",
+                "serviceChanged",
+                "officialExpertsPackageChanged",
+            ):
+                self.assertIn(field, source)
+
+    def test_approved_plan_is_revalidated_against_locked_live_target(self):
+        target = {
+            "sourceDatabaseServerUuid":
+                "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+            "serverVersion": "8.0.45",
+            "serverVersionComment": "Source distribution",
+            "sourceFacts": {
+                "exact": True,
+                **{
+                    field: 0
+                    for field in backup.ATTRIBUTION_DATA_FACT_FIELDS
+                },
+            },
+            "sourceTotalRows": 12,
+            "sourceTableRowCountsSha256": "1" * 64,
+            "sourceJarSha256": "2" * 64,
+            "encryptionContract": "u3w.gnupg-aes256-symmetric.v1",
+            "encryptionKeyFingerprintSha256": "3" * 64,
+            "encryptionKeyReady": True,
+            "plannedDdlProtectionMode": backup.DDL_PROTECTION_MODE,
+            "databaseProtectionActive": False,
+            "sourceSnapshotExactlyMatched": False,
+            "dumpToolVersion": "mysqldump exact",
+            "wouldWritePath": "/opt/fbsir/admin/backups/w1a/exact",
+        }
+        plan = {
+            key: value
+            for key, value in target.items()
+            if key not in (
+                "sourceFacts",
+                "sourceTotalRows",
+                "sourceTableRowCountsSha256",
+            )
+        }
+        plan["sourceControlFacts"] = {"exact": True}
+        with (
+            mock.patch.object(
+                backup,
+                "decode_plan_receipt",
+                return_value=plan,
+            ),
+            mock.patch.object(backup, "assert_root_and_capacity"),
+            mock.patch.object(
+                backup,
+                "current_plan_target",
+                return_value=target,
+            ),
+        ):
+            self.assertEqual(
+                backup.validate_plan_against_live(
+                    object(), object(), object()
+                ),
+                (plan, target),
+            )
+            target["sourceTableRowCountsSha256"] = "4" * 64
+            target["sourceFacts"]["attributionEventCount"] = 1
+            self.assertEqual(
+                backup.validate_plan_against_live(
+                    object(), object(), object()
+                ),
+                (plan, target),
+            )
+            target["sourceFacts"]["exact"] = False
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "target drifted",
+            ):
+                backup.validate_plan_against_live(
+                    object(), object(), object()
+                )
+            target["sourceFacts"]["exact"] = True
+            plan["sourceJarSha256"] = "4" * 64
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "target drifted",
+            ):
+                backup.validate_plan_against_live(
+                    object(), object(), object()
+                )
+
+    def test_backup_plan_binds_only_static_control_facts(self):
+        facts = {
+            "staticShape": "exact",
+            **{
+                field: 0
+                for field in backup.ATTRIBUTION_DATA_FACT_FIELDS
+            },
+        }
+        target = {
+            "sourceDatabaseServerUuid":
+                "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+            "serverVersion": "8.0.45",
+            "serverVersionComment": "Source distribution",
+            "sourceFacts": facts,
+            "sourceJarSha256": "2" * 64,
+            "encryptionContract": "u3w.gnupg-aes256-symmetric.v1",
+            "encryptionKeyFingerprintSha256": "3" * 64,
+            "encryptionKeyReady": True,
+            "plannedDdlProtectionMode": backup.DDL_PROTECTION_MODE,
+            "databaseProtectionActive": False,
+            "sourceSnapshotExactlyMatched": False,
+            "dumpToolVersion": "mysqldump exact",
+            "wouldWritePath": "/opt/fbsir/admin/backups/w1a/exact",
+        }
+        args = types.SimpleNamespace(
+            run_id="w1a-20260724T000000Z-aaaaaaaaaaaa",
+            source_commit="a" * 40,
+            runner_sha="b" * 64,
+            worker_sha="c" * 64,
+            verifier_sha="d" * 64,
+            admin_root_dependency_adoption_receipt_sha="e" * 64,
+        )
+        with (
+            mock.patch.object(
+                backup,
+                "assert_root_and_capacity",
+                return_value=(10_000_000_000, 10_000_000_000),
+            ),
+            mock.patch.object(
+                backup,
+                "current_plan_target",
+                return_value=target,
+            ),
+        ):
+            plan = backup.run_plan(args, object(), object())
+        self.assertEqual(set(plan), backup.PLAN_FIELDS)
+        self.assertEqual(
+            plan["sourceControlFacts"],
+            {"staticShape": "exact"},
+        )
+
     def test_workers_harden_shared_lock_and_backup_database_lease(self):
         backup_lock = inspect.getsource(backup.open_host_change_lock)
         restore_lock = inspect.getsource(restore.open_host_change_lock)
@@ -49,22 +213,51 @@ class RemoteSafetyTest(unittest.TestCase):
             self.assertNotIn("os.fchmod", source)
         backup_flow = inspect.getsource(backup.run_backup)
         plan_flow = inspect.getsource(backup.run_plan)
-        self.assertIn(
-            '"schema": "fbsir.u3wDatabaseBackupPlan.v2"',
-            plan_flow,
+        plan_target_flow = inspect.getsource(backup.current_plan_target)
+        self.assertEqual(
+            backup.PLAN_SCHEMA,
+            "fbsir.u3wDatabaseBackupPlan.v3",
         )
-        self.assertIn('"plannedDdlProtectionMode"', plan_flow)
-        self.assertIn('"databaseProtectionActive": False', plan_flow)
-        self.assertIn('"sourceSnapshotExactlyMatched": False', plan_flow)
-        self.assertNotIn('"ddlProtectionMode": DDL_PROTECTION_MODE', plan_flow)
+        self.assertIn('"schema": PLAN_SCHEMA', plan_flow)
+        self.assertIn('"plannedDdlProtectionMode"', plan_target_flow)
+        self.assertIn(
+            '"databaseProtectionActive": False',
+            plan_target_flow,
+        )
+        self.assertIn(
+            '"sourceSnapshotExactlyMatched": False',
+            plan_target_flow,
+        )
+        self.assertNotIn(
+            '"ddlProtectionMode": DDL_PROTECTION_MODE',
+            plan_target_flow,
+        )
         self.assertLess(
             backup_flow.index("database_lease.acquire()"),
-            backup_flow.index("identity_before, facts_before"),
+            backup_flow.index("locked_identity, locked_facts"),
         )
         self.assertLess(
             backup_flow.index("database_lease.acquire()"),
             backup_flow.index("safe_run_directory(args.run_id)"),
         )
+        self.assertLess(
+            backup_flow.index("validate_plan_against_live("),
+            backup_flow.index("safe_run_directory(args.run_id)"),
+        )
+        self.assertNotIn("manifest_after", backup_flow)
+        self.assertIn(
+            "static_control_facts(facts_before)",
+            backup_flow,
+        )
+        restore_flow = inspect.getsource(restore.run_verification)
+        existing_bundle_flow = inspect.getsource(
+            restore.validate_existing_bundle
+        )
+        for source in (restore_flow, existing_bundle_flow):
+            self.assertIn(
+                "attribution_observations_compatible(",
+                source,
+            )
         self.assertIn(
             "START TRANSACTION WITH CONSISTENT SNAPSHOT",
             inspect.getsource(backup.DatabaseProtectionLease.acquire),
@@ -98,6 +291,42 @@ class RemoteSafetyTest(unittest.TestCase):
             "HOST_FLOCK_NAMED_LOCK_READ_ONLY_SNAPSHOT_FULL_OBJECT_MDL_"
             "PRE_POST_STABILITY_AND_APPROVED_NO_DDL_WINDOW",
         )
+
+    def test_attribution_observations_are_dormant_safe_and_monotonic(self):
+        recorded = {
+            "w1a043State": "EXACT_043_RETAINED_DORMANT",
+            **{
+                field: 0
+                for field in backup.ATTRIBUTION_DATA_FACT_FIELDS
+            },
+        }
+        recorded["attributionEventCount"] = 3
+        recorded["attributionProbeEventCount"] = 3
+        recorded["attributionJourneyCount"] = 1
+        recorded["attributionProbeJourneyCount"] = 1
+        current = dict(recorded)
+        current["attributionEventCount"] = 5
+        current["attributionProbeEventCount"] = 5
+        current["attributionJourneyCount"] = 2
+        current["attributionProbeJourneyCount"] = 2
+        for worker in (backup, restore):
+            self.assertTrue(
+                worker.attribution_observations_compatible(
+                    recorded, current
+                )
+            )
+            self.assertFalse(
+                worker.attribution_observations_compatible(
+                    current, recorded
+                )
+            )
+            unsafe = dict(current)
+            unsafe["attributionNaturalEventCount"] = 1
+            self.assertFalse(
+                worker.attribution_observations_compatible(
+                    recorded, unsafe
+                )
+            )
 
     def test_database_lease_holds_every_existing_object_mdl_until_rollback(
         self,
@@ -214,6 +443,16 @@ class RemoteSafetyTest(unittest.TestCase):
             "attributionTableCount": 0,
             "attributionTriggerCount": 0,
             "attributionPermissionCount": 0,
+            "attributionEventCount": 0,
+            "attributionProbeEventCount": 0,
+            "attributionNaturalEventCount": 0,
+            "attributionNonProbeEventCount": 0,
+            "attributionAuthoritativeProductCreditCount": 0,
+            "attributionJourneyCount": 0,
+            "attributionProbeJourneyCount": 0,
+            "attributionNaturalJourneyCount": 0,
+            "attributionNonProbeJourneyCount": 0,
+            "w1aSchemaFingerprintSha256": None,
             "w1a043State": "ABSENT",
         }
         live_facts = {
@@ -235,10 +474,21 @@ class RemoteSafetyTest(unittest.TestCase):
             "attributionTableCount": 0,
             "attributionTriggerCount": 0,
             "attributionPermissionCount": 0,
+            "attributionEventCount": 0,
+            "attributionProbeEventCount": 0,
+            "attributionNaturalEventCount": 0,
+            "attributionNonProbeEventCount": 0,
+            "attributionAuthoritativeProductCreditCount": 0,
+            "attributionJourneyCount": 0,
+            "attributionProbeJourneyCount": 0,
+            "attributionNaturalJourneyCount": 0,
+            "attributionNonProbeJourneyCount": 0,
+            "w1aSchemaFingerprintSha256": None,
+            "w1a043State": "ABSENT",
         }
         receipt = {
             "schema":
-                "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2",
+                "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v3",
             "sourceCommit": source_commit,
             "databaseServerUuid": source_uuid,
             "serverVersion": source_version,
@@ -311,6 +561,198 @@ class RemoteSafetyTest(unittest.TestCase):
                     source_version,
                     dependency_facts,
                 )
+            dependency_facts["attributionTableCount"] = 0
+            dependency_facts["w1aSchemaFingerprintSha256"] = "9" * 64
+            for worker, identity in (
+                (
+                    backup,
+                    [source_version, "Source distribution", source_uuid],
+                ),
+                (restore, source_uuid),
+            ):
+                with self.subTest(
+                    worker=worker.__name__,
+                    drift="w1a-schema-fingerprint",
+                ):
+                    with self.assertRaisesRegex(
+                        RuntimeError, "facts drifted"
+                    ):
+                        if worker is backup:
+                            worker.validate_admin_root_dependency_adoption(
+                                args,
+                                identity,
+                                dependency_facts,
+                            )
+                        else:
+                            worker.validate_admin_root_dependency_adoption(
+                                args,
+                                identity,
+                                source_version,
+                                dependency_facts,
+                            )
+
+    def test_backup_and_restore_accept_only_exact_absent_or_retained_043(self):
+        class FakeMysql:
+            def __init__(self, state, unsafe_natural=False):
+                self.state = state
+                self.unsafe_natural = unsafe_natural
+
+            def query(self, sql):
+                if "SELECT row_value FROM (" in sql:
+                    return "D|dependency\nR|root"
+                if "FROM fbs_board_attr_event_v1" in sql:
+                    if "authoritative_product_credit<>0" in sql:
+                        return 0
+                    if "traffic_class=BINARY 'NATURAL'" in sql:
+                        return 1 if self.unsafe_natural else 0
+                    if "traffic_class<>BINARY 'PROBE'" in sql:
+                        return 1 if self.unsafe_natural else 0
+                    if "traffic_class=BINARY 'PROBE'" in sql:
+                        return 2 if self.unsafe_natural else 3
+                    return 3
+                if "FROM fbs_board_attr_journey_v1" in sql:
+                    if "traffic_class=BINARY 'NATURAL'" in sql:
+                        return 1 if self.unsafe_natural else 0
+                    if "traffic_class<>BINARY 'PROBE'" in sql:
+                        return 1 if self.unsafe_natural else 0
+                    if "traffic_class=BINARY 'PROBE'" in sql:
+                        return 0 if self.unsafe_natural else 1
+                    return 1
+                if "sys_role_menu" in sql:
+                    return 0
+                if "menu_type IN ('M','C')" in sql:
+                    return 0
+                if "version IN (" in sql:
+                    return 0
+                if "version='public_init_043'" in sql:
+                    return self.state[0]
+                if (
+                    "20260723_independent_board_attribution_v1_043"
+                    in sql
+                ):
+                    return self.state[1]
+                if "information_schema.tables" in sql:
+                    return self.state[2]
+                if "information_schema.triggers" in sql:
+                    return self.state[3]
+                if "board:attribution:query" in sql:
+                    return self.state[4]
+                if (
+                    "version='" + backup.DEPENDENCY_VERSION + "'"
+                    in sql
+                ):
+                    return 1
+                if "FROM sys_menu WHERE" in sql:
+                    return 1
+                raise AssertionError(sql)
+
+        for worker in (backup, restore):
+            with self.subTest(worker=worker.__name__, state="absent"):
+                facts = worker.admin_root_dependency_facts(
+                    FakeMysql((0, 0, 0, 0, 0))
+                )
+                self.assertEqual(facts["w1a043State"], "ABSENT")
+                self.assertIsNone(
+                    facts["w1aSchemaFingerprintSha256"]
+                )
+            with self.subTest(worker=worker.__name__, state="retained"):
+                with mock.patch.object(
+                    worker,
+                    "w1a_schema_fingerprint",
+                    return_value=worker.EXPECTED_W1A_SCHEMA_FINGERPRINT,
+                ):
+                    facts = worker.admin_root_dependency_facts(
+                        FakeMysql((1, 1, 2, 2, 1))
+                    )
+                self.assertEqual(
+                    facts["w1a043State"],
+                    "EXACT_043_RETAINED_DORMANT",
+                )
+                self.assertEqual(
+                    facts["w1aSchemaFingerprintSha256"],
+                    worker.EXPECTED_W1A_SCHEMA_FINGERPRINT,
+                )
+                self.assertEqual(facts["attributionEventCount"], 3)
+                self.assertEqual(facts["attributionProbeEventCount"], 3)
+                self.assertEqual(facts["attributionNaturalEventCount"], 0)
+                self.assertEqual(
+                    facts[
+                        "attributionAuthoritativeProductCreditCount"
+                    ],
+                    0,
+                )
+            with self.subTest(worker=worker.__name__, state="partial"):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "dormant state is not exact",
+                ):
+                    worker.admin_root_dependency_facts(
+                        FakeMysql((1, 1, 2, 1, 1))
+                    )
+            with self.subTest(worker=worker.__name__, state="natural"):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "dormant state is not exact",
+                ):
+                    worker.admin_root_dependency_facts(
+                        FakeMysql(
+                            (1, 1, 2, 2, 1),
+                            unsafe_natural=True,
+                        )
+                    )
+            with self.subTest(
+                worker=worker.__name__,
+                state="schema-fingerprint-drift",
+            ):
+                with (
+                    mock.patch.object(
+                        worker,
+                        "w1a_schema_fingerprint",
+                        return_value="9" * 64,
+                    ),
+                    self.assertRaisesRegex(
+                        RuntimeError,
+                        "dormant state is not exact",
+                    ),
+                ):
+                    worker.admin_root_dependency_facts(
+                        FakeMysql((1, 1, 2, 2, 1))
+                    )
+
+    def test_backup_restore_w1a_fingerprint_matches_release_contract(self):
+        class QueryMysql:
+            def __init__(self):
+                self.statement = None
+
+            def query(self, sql):
+                self.statement = sql
+                return "A|first\nB|second"
+
+        class RowsMysql:
+            def __init__(self):
+                self.statement = None
+
+            def rows(self, sql):
+                self.statement = sql
+                return [("A|first",), ("B|second",)]
+
+        release_mysql = RowsMysql()
+        release_digest = release.migration_fingerprint(release_mysql)
+        for worker in (backup, restore):
+            with self.subTest(worker=worker.__name__):
+                mysql = QueryMysql()
+                self.assertEqual(
+                    worker.w1a_schema_fingerprint(mysql),
+                    release_digest,
+                )
+                self.assertEqual(
+                    mysql.statement,
+                    release_mysql.statement,
+                )
+                self.assertEqual(
+                    worker.EXPECTED_W1A_SCHEMA_FINGERPRINT,
+                    release.EXPECTED_W1A_SCHEMA_FINGERPRINT,
+                )
 
     def test_atomic_writers_reject_a_stale_hardlink(self):
         for writer in (
@@ -352,6 +794,7 @@ class RemoteSafetyTest(unittest.TestCase):
             "officialExpertsPackageChange": False,
             "expectedAdminRootDependencyAdoptionReceiptSha256":
                 "e" * 64,
+            "expectedBackupPlanReceiptSha256": "f" * 64,
         }
         payload = (
             json.dumps(approval, separators=(",", ":")) + "\n"
@@ -362,8 +805,11 @@ class RemoteSafetyTest(unittest.TestCase):
             source_commit=approval["sourceCommit"],
             approval_sha=hashlib.sha256(payload).hexdigest(),
             approval_json_base64=base64.b64encode(payload).decode(),
+            plan_receipt_sha="f" * 64,
+            plan_json_base64="e30=",
             runner_sha="c" * 64,
             worker_sha="d" * 64,
+            verifier_sha="1" * 64,
             admin_root_dependency_adoption_receipt_sha="e" * 64,
         )
         backup.validate_arguments(args)

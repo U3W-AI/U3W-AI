@@ -16,23 +16,33 @@
 ## 2026-07-24 当前执行序列（覆盖下文历史首次配置顺序）
 
 当前生产库已经存在精确的“独董会管理”根菜单与受控依赖记录，配置 v2、遗留
-baseline v2 和采用前 backup/restore v1 也已经完成。本轮不得重做首次配置或声称
-重新执行了历史数据库变更；严格顺序为：
+baseline v2 和采用前 backup/restore v1 也已经完成；W1A 043 当前为
+`EXACT_043_RETAINED_DORMANT`：public/internal 迁移回执各 1 条、归因表与触发器
+各 2 个、只读权限 1 个。现有归因数据是 `PROBE`，必须保持
+`naturalClosureEligible=false`、`productCreditEligible=false` 和产品信用为零。
+本轮不得重做首次配置、删除 043，或声称重新执行了历史数据库变更；严格顺序为：
 
 1. 用独立 runner 先以只读 `Plan` 复算“现存且精确”的管理根依赖，再根据
    Plan 的数据库身份、实时事实和代码摘要创建审批并以同一 RunId 执行 `Adopt`，生成
-   `fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2`。回执必须绑定数据库
+   `fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v3`。回执必须绑定数据库
    server UUID、遗留 baseline SHA、采用前 backup SHA，并证明
-   `public_init_001..042`、`public_init_043`、内部 043、归因表、触发器和归因权限
-   均未出现。
+   `public_init_001..042` 均未出现，且 043 精确等于当前
+   `EXACT_043_RETAINED_DORMANT` 事实。该回执只采纳执行时的当前状态，不构成
+   “本提交曾执行 043”或“043 尚未部署”的历史声明。
 2. 配置 Reconcile 只允许采纳已经存在且相对 v2 唯一新增的
    `FBSIR_ENGINE_TOKEN`。本轮没有 Engine/Hub 对端，因此禁止新建 token，并在 v3
    回执中固定 `engineCounterpartClosureClaimed=false`；不得宣称 Engine 闭环。
-3. 在上述采纳完成后生成新的 backup v3、restore v3 和 bundle v2，并由隔离恢复
-   独立复算同一根依赖与 043 缺席事实。采用前备份不能充当本轮最终备份。
+3. 在上述采纳完成后生成新的 backup v4、restore v4 和 bundle v3，并由隔离恢复
+   独立复算同一根依赖与完全相同的 043 当前状态；只接受全缺席或精确
+   `EXACT_043_RETAINED_DORMANT`，任何部分状态均失败。当前生产应走后者。
+   采用前备份不能充当本轮最终备份。
 4. Build 与固定 Plan 绑定同一 strict HEAD；从 PREPARED 门禁开始，PREPARED、
    Stage、Apply、Verify 全部绑定同一个根依赖采纳回执 SHA。官方 Experts 包始终
    只读。
+5. 含 PROBE/NATURAL/产品归因分布的新发布链使用 ReleaseRunner/Plan/RunnerResult/
+   WorkerResult v2、DeploymentReadiness v3 及其 v2 嵌套回执。历史 deployment v2
+   和 rollback/verification v1 回执只按原始八字段事实验证，再与新的线上读数按
+   总数和 W1A 指纹关联；禁止改写旧回执或为其补造分布字段。
 
 根依赖采纳命令：
 
@@ -235,12 +245,17 @@ runner 在首个 DDL 前验证 `BACKUP_ADMIN`，使用 `LOCK INSTANCE FOR BACKUP
 不得手工改写回执。
 
 生产备份使用共享主机锁、迁移命名锁、只读一致性快照，以及对 Plan 时全部现存
-BASE TABLE/VIEW 持有到事务结束的元数据锁；同时在 dump 前后复算身份、对象、行数
-摘要和活动 JAR，并要求 approval 的 `concurrentDdlProhibited=true`。这不是
+BASE TABLE/VIEW 持有到事务结束的元数据锁；同时在 dump 前后复算身份、静态控制
+事实和活动 JAR，并要求 approval 的 `concurrentDdlProhibited=true`。这不是
 `LOCK INSTANCE FOR BACKUP` 的替代性宣称；它是当前最小权限下经线上能力探针验证
 可执行的保护合同。备份 Plan 只输出 `plannedDdlProtectionMode`，同时明确
 `databaseProtectionActive=false` 和 `sourceSnapshotExactlyMatched=false`；只有
-实际 Backup 回执可以使用 `ddlProtectionMode`。
+实际 Backup 回执可以使用 `ddlProtectionMode`。Plan v3 不绑定会随正常业务写流量
+变化的全库总行数、逐表行数摘要或归因事件/旅程计数，只绑定移除这些动态观测量后的
+`sourceControlFacts`；否则只读审批与真正备份之间的正常 DML 会把 Plan 变成
+不可执行的伪快照锁。归因计数仍必须满足 `ABSENT` 全零或
+`EXACT_043_RETAINED_DORMANT` 的 PROBE-only 安全约束，并且相对已采纳回执只允许
+单调增加；source→隔离恢复→当前线上态均不得回退。
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass `
@@ -249,18 +264,34 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -ExpectedAdminRootDependencyAdoptionReceiptSha256 `
     <admin-root-dependency-adoption-receipt-sha256>
 
+$backupPlanPath =
+  "<production-evidence>/<final-backup-run-id>-plan.json"
+$backupPlanSha = (
+  Get-FileHash -LiteralPath $backupPlanPath -Algorithm SHA256
+).Hash.ToLowerInvariant()
+
+# approval 的 expectedBackupPlanReceiptSha256 必须等于 $backupPlanSha；
 # 创建 DATABASE_BACKUP_AND_ISOLATED_RESTORE approval 后：
 powershell -NoProfile -ExecutionPolicy Bypass `
   -File scripts/run-u3w-production-backup-restore.ps1 `
   -Mode All -ExpectedCommit $commit -RunId <final-backup-run-id> `
   -ExpectedAdminRootDependencyAdoptionReceiptSha256 `
     <admin-root-dependency-adoption-receipt-sha256> `
+  -PlanReceiptPath $backupPlanPath `
+  -ExpectedPlanReceiptSha256 $backupPlanSha `
   -ApprovalReceiptPath <approval-json>
 ```
 
 最终备份回执文件 `/opt/fbsir/admin/backups/latest/receipt.json` 本身的
 SHA-256 是发布就绪门禁的 `ExpectedBackupReceiptSha256`；它不是备份数据文件
-或仓外证据 bundle 的摘要，也不得继续使用采用前回执摘要代替。
+或仓外证据 bundle 的摘要，也不得继续使用采用前回执摘要代替。Plan v3、
+backup v4、restore v4、bundle v3 与仓外 external anchor v3 必须共同绑定
+`$backupPlanSha`。恢复门禁证明的是：`mysqldump --single-transaction` 输出的
+明文摘要与加密工件一致、该工件可在禁网隔离 MySQL 中完整导入、静态控制事实一致、
+恢复后行清单可观测且 `mysqlcheck` 通过。源端独立 `COUNT` 与 dump 属于不同连接，
+归因计数和逐表行清单因此只作为满足休眠安全/单调约束的非授权诊断，不得宣称逐行
+同一源快照；门禁必须显式保持
+`sourceSnapshotExactlyMatched=false`。
 
 ## 顺序四：Build 与只读发布 Plan
 
@@ -292,13 +323,14 @@ Plan、最终备份、遗留基线和配置回执。未取得 `PREPARED_FOR_STAG
 
 ## 顺序五：只读 PREPARED 门禁
 
-准备好四个仓外 SHA-256 锚点后执行：
+准备好六个仓外 SHA-256 锚点后执行：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass `
   -File scripts/verify-independent-board-production-readiness.ps1 `
   -ExpectedCommit $commit `
   -ExpectedBackupReceiptSha256 <final-backup-receipt-file-sha256> `
+  -ExpectedBackupPlanReceiptSha256 <final-backup-plan-receipt-sha256> `
   -ExpectedLegacyBaselineReceiptDigest <legacy-adoption-receipt-sha256> `
   -ExpectedAdminRootDependencyAdoptionReceiptSha256 `
     <admin-root-dependency-adoption-receipt-sha256> `
@@ -334,6 +366,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -PlanReceiptPath <plan-receipt-json> `
   -ExpectedReleasePlanReceiptSha256 <release-plan-receipt-sha256> `
   -ExpectedBackupReceiptSha256 <final-backup-receipt-file-sha256> `
+  -ExpectedBackupPlanReceiptSha256 <final-backup-plan-receipt-sha256> `
   -ExpectedLegacyBaselineReceiptDigest <legacy-adoption-receipt-sha256> `
   -ExpectedAdminRootDependencyAdoptionReceiptSha256 `
     <admin-root-dependency-adoption-receipt-sha256> `
@@ -360,6 +393,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -PlanReceiptPath <plan-receipt-json> `
   -ExpectedReleasePlanReceiptSha256 <release-plan-receipt-sha256> `
   -ExpectedBackupReceiptSha256 <final-backup-receipt-file-sha256> `
+  -ExpectedBackupPlanReceiptSha256 <final-backup-plan-receipt-sha256> `
   -ExpectedLegacyBaselineReceiptDigest <legacy-adoption-receipt-sha256> `
   -ExpectedAdminRootDependencyAdoptionReceiptSha256 `
     <admin-root-dependency-adoption-receipt-sha256> `
@@ -395,12 +429,14 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -File scripts/deploy-independent-board-default-off.ps1 `
   -Mode Verify -ExpectedCommit $commit -ReleaseId <release-id> `
   -ExpectedDeploymentReceiptSha256 <deployment-receipt-sha256> `
+  -ExpectedBackupPlanReceiptSha256 <final-backup-plan-receipt-sha256> `
   -ApprovalReceiptPath <verify-approval-json>
 
 powershell -NoProfile -ExecutionPolicy Bypass `
   -File scripts/verify-independent-board-production-readiness.ps1 `
   -ExpectedCommit $commit `
   -ExpectedBackupReceiptSha256 <final-backup-receipt-file-sha256> `
+  -ExpectedBackupPlanReceiptSha256 <final-backup-plan-receipt-sha256> `
   -ExpectedDeploymentReceiptSha256 <deployment-receipt-sha256> `
   -ExpectedLegacyBaselineReceiptDigest <legacy-adoption-receipt-sha256> `
   -ExpectedAdminRootDependencyAdoptionReceiptSha256 `

@@ -141,16 +141,41 @@ export function evaluateProductionReadiness(snapshot) {
     engineCredentialPendingRuntimeConfiguration;
   const w1aSchemaAbsent =
     database.publicInit043Applied !== true &&
+    database.w1a043State === "ABSENT" &&
+    database.publicInit043AnyReceiptCount === 0 &&
+    database.w1aSchemaFingerprintSha256 === null &&
     database.boardAttributionTableCount === 0 &&
     database.boardAttributionTriggerCount === 0 &&
     database.boardAttributionPermissionCount === 0 &&
-    database.boardAttributionInternalReceiptCount === 0;
+    database.boardAttributionInternalReceiptCount === 0 &&
+    database.boardAttributionEventCount === 0 &&
+    database.boardAttributionProbeEventCount === 0 &&
+    database.boardAttributionNaturalEventCount === 0 &&
+    database.boardAttributionNonProbeEventCount === 0 &&
+    database.boardAttributionAuthoritativeProductCreditCount === 0 &&
+    database.boardAttributionJourneyCount === 0 &&
+    database.boardAttributionProbeJourneyCount === 0 &&
+    database.boardAttributionNaturalJourneyCount === 0 &&
+    database.boardAttributionNonProbeJourneyCount === 0;
   const w1aSchemaApplied =
     database.publicInit043Applied === true &&
     database.boardAttributionTableCount === 2 &&
     database.boardAttributionTriggerCount === 2 &&
     database.boardAttributionPermissionCount === 1 &&
     database.boardAttributionInternalReceiptCount === 1 &&
+    Number.isInteger(database.boardAttributionEventCount) &&
+    database.boardAttributionEventCount >= 0 &&
+    database.boardAttributionEventCount ===
+      database.boardAttributionProbeEventCount &&
+    database.boardAttributionNaturalEventCount === 0 &&
+    database.boardAttributionNonProbeEventCount === 0 &&
+    database.boardAttributionAuthoritativeProductCreditCount === 0 &&
+    Number.isInteger(database.boardAttributionJourneyCount) &&
+    database.boardAttributionJourneyCount >= 0 &&
+    database.boardAttributionJourneyCount ===
+      database.boardAttributionProbeJourneyCount &&
+    database.boardAttributionNaturalJourneyCount === 0 &&
+    database.boardAttributionNonProbeJourneyCount === 0 &&
     database.w1aSchemaFingerprintSha256 ===
       W1A_SCHEMA_FINGERPRINT_SHA256;
   const missingPredecessors = REQUIRED_PREDECESSOR_MIGRATIONS.filter(
@@ -197,7 +222,7 @@ export function evaluateProductionReadiness(snapshot) {
     local.legacyBaselineCommitAncestorOfPreparationSourceCommit === true;
   const adminRootDependencyAdoptionValid =
     database.adminRootDependencyAdoptionReceiptSchema ===
-      "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2" &&
+      "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v3" &&
     database.adminRootDependencyAdoptionReceiptValid === true &&
     database.adminRootDependencyAdoptionReceiptAnchorMatched === true &&
     database.adminRootDependencyAdoptionLiveFactsMatched === true &&
@@ -216,25 +241,63 @@ export function evaluateProductionReadiness(snapshot) {
     ) &&
     database.adminRootDependencyAdoptionDependencyRowsFingerprintSha256 ===
       database.legacyAdminRootDependencyFactsSha256 &&
-    database.publicInit043AnyReceiptCount === 0 &&
-    database.boardAttributionInternalReceiptCount === 0 &&
-    database.boardAttributionTableCount === 0 &&
-    database.boardAttributionTriggerCount === 0 &&
-    database.boardAttributionPermissionCount === 0 &&
-    database.w1a043State === "ABSENT";
+    database.adminRootDependencyAdoptionW1a043State ===
+      database.w1a043State &&
+    (
+      (
+        database.w1a043State === "ABSENT" &&
+        database.publicInit043AnyReceiptCount === 0 &&
+        database.boardAttributionInternalReceiptCount === 0 &&
+        database.boardAttributionTableCount === 0 &&
+        database.boardAttributionTriggerCount === 0 &&
+        database.boardAttributionPermissionCount === 0 &&
+        database.boardAttributionEventCount === 0 &&
+        database.boardAttributionProbeEventCount === 0 &&
+        database.boardAttributionNaturalEventCount === 0 &&
+        database.boardAttributionNonProbeEventCount === 0 &&
+        database.boardAttributionAuthoritativeProductCreditCount === 0 &&
+        database.boardAttributionJourneyCount === 0 &&
+        database.boardAttributionProbeJourneyCount === 0 &&
+        database.boardAttributionNaturalJourneyCount === 0 &&
+        database.boardAttributionNonProbeJourneyCount === 0 &&
+        database.w1aSchemaFingerprintSha256 === null
+      ) ||
+      (
+        database.w1a043State === "EXACT_043_RETAINED_DORMANT" &&
+        database.publicInit043AnyReceiptCount === 1 &&
+        database.boardAttributionInternalReceiptCount === 1 &&
+        database.boardAttributionTableCount === 2 &&
+        database.boardAttributionTriggerCount === 2 &&
+        database.boardAttributionPermissionCount === 1 &&
+        database.boardAttributionEventCount ===
+          database.boardAttributionProbeEventCount &&
+        database.boardAttributionNaturalEventCount === 0 &&
+        database.boardAttributionNonProbeEventCount === 0 &&
+        database.boardAttributionAuthoritativeProductCreditCount === 0 &&
+        database.boardAttributionJourneyCount ===
+          database.boardAttributionProbeJourneyCount &&
+        database.boardAttributionNaturalJourneyCount === 0 &&
+        database.boardAttributionNonProbeJourneyCount === 0 &&
+        database.w1aSchemaFingerprintSha256 ===
+          W1A_SCHEMA_FINGERPRINT_SHA256
+      )
+    );
   const finalBackupChainValid =
     backup.bundleSchema ===
-      "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v2" &&
+      "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v3" &&
     backup.backupReceiptSchema ===
-      "fbsir.u3wDatabaseBackupReceipt.v3" &&
+      "fbsir.u3wDatabaseBackupReceipt.v4" &&
     backup.restoreReceiptSchema ===
-      "fbsir.u3wDatabaseRestoreRehearsalReceipt.v3" &&
+      "fbsir.u3wDatabaseRestoreRehearsalReceipt.v4" &&
     backup.externalAnchorSchema ===
-      "fbsir.u3wDatabaseBackupRestoreExternalAnchor.v2" &&
+      "fbsir.u3wDatabaseBackupRestoreExternalAnchor.v3" &&
+    hasExactString(backup.planReceiptSha256, /^[0-9a-f]{64}$/) &&
     backup.externalAnchorVerified === true &&
     backup.adoptionReceiptBindingMatched === true &&
     backup.sourceDatabaseServerUuidMatched === true &&
-    backup.sourceRestoredFactsExactlyMatched === true &&
+    backup.backupRestoreSchemaFactsMatched === true &&
+    backup.restoredManifestObserved === true &&
+    backup.sourceSnapshotExactlyMatched === false &&
     backup.adminRootDependencyAdoptionReceiptSha256 ===
       database.adminRootDependencyAdoptionReceiptSha256 &&
     backup.sourceDatabaseServerUuid === database.databaseServerUuid;
@@ -369,7 +432,7 @@ export function evaluateProductionReadiness(snapshot) {
         local.releasePlanTargetMatchedLive === true &&
         local.releasePlanSourceCommit === local.sourceCommit &&
         local.releaseRunnerContractVersion ===
-          "fbsir.u3wDefaultOffReleaseRunner.v1",
+          "fbsir.u3wDefaultOffReleaseRunner.v2",
       "a locally verified strict-HEAD stage/switch/rollback plan bound to this source commit is required",
     ),
   ];
@@ -408,7 +471,9 @@ export function evaluateProductionReadiness(snapshot) {
     snapshot.deploymentChannel?.adminPortalApiHealthy === true &&
     snapshot.deploymentChannel?.mePortalReleaseMarkerMatched === true &&
     snapshot.deploymentChannel?.adminPortalReleaseMarkerMatched === true &&
-    snapshot.deploymentChannel?.defaultOffIngressProbeVerified === true;
+    snapshot.deploymentChannel?.defaultOffIngressProbeVerified === true &&
+    database.w1a043State === "EXACT_043_RETAINED_DORMANT" &&
+    w1aSchemaApplied;
   const rolledBackChannelValid =
     snapshot.deploymentChannel?.state ===
       "ROLLED_BACK_APPLICATION_DATABASE_043_RETAINED_DORMANT" &&
@@ -419,7 +484,9 @@ export function evaluateProductionReadiness(snapshot) {
     snapshot.deploymentChannel?.databaseRollbackSafetyProven === true &&
     snapshot.deploymentChannel?.stableDatabaseIdentityMatched === true &&
     snapshot.deploymentChannel?.rollbackLiveStateMatched === true &&
-    snapshot.deploymentChannel?.databaseDownClaimed === false;
+    snapshot.deploymentChannel?.databaseDownClaimed === false &&
+    database.w1a043State === "EXACT_043_RETAINED_DORMANT" &&
+    w1aSchemaApplied;
   const postDeploymentGates = [
     gate(
       "staged_release_receipt",
@@ -562,6 +629,8 @@ export function evaluateProductionReadiness(snapshot) {
           database
             .adminRootDependencyAdoptionDependencyRowsFingerprintSha256 ??
           null,
+        adminRootDependencyAdoptionW1a043State:
+          database.adminRootDependencyAdoptionW1a043State ?? null,
         adminRootDependencyAdoptionHistoricalBindingsMatched:
           database.adminRootDependencyAdoptionHistoricalBindingsMatched ===
           true,
@@ -578,6 +647,24 @@ export function evaluateProductionReadiness(snapshot) {
           database.boardAttributionPermissionCount ?? null,
         boardAttributionInternalReceiptCount:
           database.boardAttributionInternalReceiptCount ?? null,
+        boardAttributionEventCount:
+          database.boardAttributionEventCount ?? null,
+        boardAttributionProbeEventCount:
+          database.boardAttributionProbeEventCount ?? null,
+        boardAttributionNaturalEventCount:
+          database.boardAttributionNaturalEventCount ?? null,
+        boardAttributionNonProbeEventCount:
+          database.boardAttributionNonProbeEventCount ?? null,
+        boardAttributionAuthoritativeProductCreditCount:
+          database.boardAttributionAuthoritativeProductCreditCount ?? null,
+        boardAttributionJourneyCount:
+          database.boardAttributionJourneyCount ?? null,
+        boardAttributionProbeJourneyCount:
+          database.boardAttributionProbeJourneyCount ?? null,
+        boardAttributionNaturalJourneyCount:
+          database.boardAttributionNaturalJourneyCount ?? null,
+        boardAttributionNonProbeJourneyCount:
+          database.boardAttributionNonProbeJourneyCount ?? null,
         w1aSchemaFingerprintVerified:
           database.w1aSchemaFingerprintSha256 ===
           W1A_SCHEMA_FINGERPRINT_SHA256,
@@ -646,13 +733,20 @@ export function evaluateProductionReadiness(snapshot) {
         backupReceiptSchema: backup.backupReceiptSchema ?? null,
         restoreReceiptSchema: backup.restoreReceiptSchema ?? null,
         externalAnchorSchema: backup.externalAnchorSchema ?? null,
+        planReceiptSha256: backup.planReceiptSha256 ?? null,
         externalAnchorVerified: backup.externalAnchorVerified === true,
         adoptionReceiptBindingMatched:
           backup.adoptionReceiptBindingMatched === true,
         sourceDatabaseServerUuidMatched:
           backup.sourceDatabaseServerUuidMatched === true,
-        sourceRestoredFactsExactlyMatched:
-          backup.sourceRestoredFactsExactlyMatched === true,
+        backupRestoreSchemaFactsMatched:
+          backup.backupRestoreSchemaFactsMatched === true,
+        sourceRestoreObservationManifestMatched:
+          backup.sourceRestoreObservationManifestMatched === true,
+        restoredManifestObserved:
+          backup.restoredManifestObserved === true,
+        sourceSnapshotExactlyMatched:
+          backup.sourceSnapshotExactlyMatched ?? null,
       },
       deploymentChannel: {
         state: snapshot.deploymentChannel?.state ?? null,

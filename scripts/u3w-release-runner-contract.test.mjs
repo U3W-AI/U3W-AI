@@ -71,6 +71,47 @@ test("release runner exposes one explicit fail-closed state machine", () => {
   assert.ok(runner.includes("DEPLOYED_DEFAULT_OFF"));
 });
 
+test("distribution-bearing release receipts use the v2/v3 contract line", () => {
+  for (const value of [
+    "fbsir.u3wDefaultOffReleaseRunner.v2",
+    "fbsir.u3wDefaultOffReleasePlan.v2",
+    "fbsir.u3wDefaultOffReleaseRunnerResult.v2",
+    "fbsir.u3wDefaultOffReleaseWorkerResult.v2",
+    "fbsir.u3wW1aDeploymentReadinessReceipt.v3",
+    "fbsir.u3wDatabaseRollbackSafetyReceipt.v2",
+    "fbsir.u3wApplicationRollbackExecutionReceipt.v2",
+    "fbsir.u3wDefaultOffReleaseRollbackReceipt.v2",
+    "fbsir.u3wDefaultOffRollbackVerificationReceipt.v2",
+  ]) {
+    assert.ok(
+      runner.includes(value) || worker.includes(value),
+      `missing current release contract ${value}`,
+    );
+  }
+  for (const value of [
+    "fbsir.u3wW1aDeploymentReadinessReceipt.v2",
+    "fbsir.u3wDatabaseRollbackSafetyReceipt.v1",
+    "fbsir.u3wDefaultOffFinalCurrentRead.v1",
+    "fbsir.u3wApplicationRollbackExecutionReceipt.v1",
+    "fbsir.u3wDefaultOffReleaseRollbackReceipt.v1",
+    "fbsir.u3wDefaultOffRollbackVerificationReceipt.v1",
+  ]) {
+    assert.ok(
+      runner.includes(value) || worker.includes(value),
+      `missing immutable legacy release contract ${value}`,
+    );
+  }
+  for (const helper of [
+    "legacy_migration_structure_matches",
+    "recorded_migration_facts_match_current",
+    "recorded_migration_counts_are_monotonic",
+    "deployment_contract_schemas",
+  ]) {
+    assert.ok(worker.includes(helper));
+  }
+  assert.ok(runner.includes("deploymentReceiptSchema"));
+});
+
 test("plan is local-only and every mutating mode needs an approval receipt", () => {
   assert.ok(runner.includes("productionChanged = $false"));
   assert.ok(runner.includes("ApprovalReceiptPath"));
@@ -232,9 +273,34 @@ test("recovery rehearsal is never misrepresented as database rollback", () => {
 
 test("apply and rollback cannot run without independently anchored receipts", () => {
   assert.ok(runner.includes("ExpectedBackupReceiptSha256"));
+  assert.ok(runner.includes("ExpectedBackupPlanReceiptSha256"));
+  assert.ok(readiness.includes("ExpectedBackupPlanReceiptSha256"));
   assert.ok(runner.includes("ExpectedLegacyBaselineReceiptDigest"));
   assert.ok(runner.includes("ExpectedDeploymentReceiptSha256"));
   assert.ok(runner.includes("receipt anchor"));
+});
+
+test("backup evidence binds the approved Plan across bundle and external anchor", () => {
+  for (const value of [
+    "PlanReceiptPath",
+    "ExpectedPlanReceiptSha256",
+    "expectedBackupPlanReceiptSha256",
+    "planReceiptSha256",
+    "fbsir.u3wDatabaseBackupRestoreExternalAnchor.v3",
+  ]) {
+    assert.ok(backupRunner.includes(value), `missing backup Plan binding ${value}`);
+  }
+  assert.ok(backupRunner.includes("$expectedBundleFields"));
+  assert.ok(backupRunner.includes("$expectedAnchorFields"));
+  assert.ok(backupRunner.includes("planReceiptPath = $planPath"));
+  assert.ok(
+    backupRunner.includes(
+      "immutable out-of-band backup Plan evidence is missing or drifted",
+    ),
+  );
+  assert.ok(readiness.includes("EXPECTED_BACKUP_PLAN_RECEIPT_SHA256"));
+  assert.ok(readiness.includes("plan_receipt_binding_matched"));
+  assert.ok(readiness.includes("$localBackupPlanSha256"));
 });
 
 test("build returns one result and binds logs plus the committed runner", () => {
@@ -716,15 +782,20 @@ test("FBS orchestration entries expose every mutating anchor", () => {
   ]) {
     assert.ok(dependency.includes(token), `${token} is missing`);
   }
-  assert.ok(
-    commands["w1a-production-backup-restore"].run.includes(
-      "U3W_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256",
-    ),
-  );
+  const backupCommand = commands["w1a-production-backup-restore"].run;
+  for (const token of [
+    "U3W_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256",
+    "U3W_BACKUP_PLAN_RECEIPT",
+    "U3W_BACKUP_PLAN_RECEIPT_SHA256",
+    "U3W_ANCHOR_OUTPUT_DIRECTORY",
+  ]) {
+    assert.ok(backupCommand.includes(token), `${token} is missing`);
+  }
   const releaseCommand = commands["w1a-default-off-release"].run;
   for (const token of [
     "U3W_RELEASE_PLAN_RECEIPT_SHA256",
     "U3W_BACKUP_RECEIPT_SHA256",
+    "U3W_BACKUP_PLAN_RECEIPT_SHA256",
     "U3W_LEGACY_BASELINE_RECEIPT_SHA256",
     "U3W_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256",
     "U3W_CONFIGURATION_RECEIPT_SHA256",
@@ -996,11 +1067,11 @@ test("readiness consumes exact schema adversarial proofs and monotonic ledgers",
 test("rollback database-unavailable state has an immutable verification chain", () => {
   assert.ok(runner.includes("rollback-verification-receipt.json"));
   assert.ok(runner.includes(
-    "fbsir.u3wDefaultOffRollbackVerificationReceipt.v1",
+    "fbsir.u3wDefaultOffRollbackVerificationReceipt.v2",
   ));
   assert.ok(runner.includes("rollback-original"));
   assert.ok(readiness.includes(
-    "fbsir.u3wDefaultOffRollbackVerificationReceipt.v1",
+    "fbsir.u3wDefaultOffRollbackVerificationReceipt.v2",
   ));
   assert.ok(readiness.includes("rollbackReceiptSha256"));
   assert.ok(readiness.includes("retainedMigrationFacts"));

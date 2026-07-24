@@ -3,6 +3,7 @@ param(
     [string]$SshKeyPath = $(if ($env:U3W_SSH_KEY_PATH) { $env:U3W_SSH_KEY_PATH } else { Join-Path $env:USERPROFILE '.ssh\id_ed25519_api2' }),
     [string]$KnownHostsPath = $(Join-Path $env:TEMP 'u3w-production-readiness-known-hosts'),
     [string]$ExpectedBackupReceiptSha256,
+    [string]$ExpectedBackupPlanReceiptSha256,
     [string]$ExpectedDeploymentReceiptSha256,
     [string]$ExpectedLegacyBaselineReceiptDigest,
     [string]$ExpectedAdminRootDependencyAdoptionReceiptSha256,
@@ -203,6 +204,7 @@ function Resolve-NodeExecutable {
 function Assert-SafeRemoteParameters {
     foreach ($anchor in @(
             $ExpectedBackupReceiptSha256,
+            $ExpectedBackupPlanReceiptSha256,
             $ExpectedDeploymentReceiptSha256,
             $ExpectedLegacyBaselineReceiptDigest,
             $ExpectedAdminRootDependencyAdoptionReceiptSha256,
@@ -221,6 +223,9 @@ function Assert-SafeRemoteParameters {
     }
     if ($effectiveStage -and -not $ExpectedBackupReceiptSha256) {
         throw 'PREPARED_FOR_STAGE requires the backup out-of-band SHA-256 anchor'
+    }
+    if ($effectiveStage -and -not $ExpectedBackupPlanReceiptSha256) {
+        throw 'PREPARED_FOR_STAGE requires the approved backup Plan SHA-256 anchor'
     }
     if ($effectiveStage -and -not $ExpectedLegacyBaselineReceiptDigest) {
         throw 'PREPARED_FOR_STAGE requires the legacy baseline out-of-band SHA-256 anchor'
@@ -635,8 +640,8 @@ function Get-GitState {
             ($expiresAt - $generatedAt).TotalHours -le 24
         )
         $releasePlanVerified = (
-            $releasePlan.schema -ceq 'fbsir.u3wDefaultOffReleasePlan.v1' -and
-            $releasePlan.runnerContractVersion -ceq 'fbsir.u3wDefaultOffReleaseRunner.v1' -and
+            $releasePlan.schema -ceq 'fbsir.u3wDefaultOffReleasePlan.v2' -and
+            $releasePlan.runnerContractVersion -ceq 'fbsir.u3wDefaultOffReleaseRunner.v2' -and
             $releasePlan.mode -ceq 'Plan' -and
             $releasePlan.productionChanged -eq $false -and
             $releasePlan.strictHeadClean -eq $true -and
@@ -720,6 +725,9 @@ ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_PATH = (
 CONFIGURATION_RECEIPT_PATH = __CONFIGURATION_RECEIPT_PATH__
 API2_EVENT_KEY_PATH = __API2_EVENT_KEY_PATH__
 EXPECTED_BACKUP_RECEIPT_SHA256 = __EXPECTED_BACKUP_RECEIPT_SHA256__
+EXPECTED_BACKUP_PLAN_RECEIPT_SHA256 = (
+    __EXPECTED_BACKUP_PLAN_RECEIPT_SHA256__
+)
 EXPECTED_DEPLOYMENT_RECEIPT_SHA256 = __EXPECTED_DEPLOYMENT_RECEIPT_SHA256__
 EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST = __EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST__
 EXPECTED_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256 = (
@@ -745,6 +753,43 @@ EXPECTED_RELEASE_RUNNER_SHA256 = __EXPECTED_RELEASE_RUNNER_SHA256__
 EXPECTED_RELEASE_WORKER_SHA256 = __EXPECTED_RELEASE_WORKER_SHA256__
 EXPECTED_W1A_SCHEMA_FINGERPRINT = (
     "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d"
+)
+LEGACY_MIGRATION_FACT_FIELDS = {
+    "publicReceiptCount",
+    "internalReceiptCount",
+    "tableCount",
+    "triggerCount",
+    "permissionCount",
+    "eventCount",
+    "journeyCount",
+    "schemaFingerprintSha256",
+}
+MIGRATION_FACT_FIELDS = LEGACY_MIGRATION_FACT_FIELDS | {
+    "probeEventCount",
+    "naturalEventCount",
+    "nonProbeEventCount",
+    "authoritativeProductCreditCount",
+    "probeJourneyCount",
+    "naturalJourneyCount",
+    "nonProbeJourneyCount",
+}
+LEGACY_DEPLOYMENT_RECEIPT_SCHEMA = (
+    "fbsir.u3wW1aDeploymentReadinessReceipt.v2"
+)
+DEPLOYMENT_RECEIPT_SCHEMA = (
+    "fbsir.u3wW1aDeploymentReadinessReceipt.v3"
+)
+LEGACY_ROLLBACK_RECEIPT_SCHEMA = (
+    "fbsir.u3wDefaultOffReleaseRollbackReceipt.v1"
+)
+ROLLBACK_RECEIPT_SCHEMA = (
+    "fbsir.u3wDefaultOffReleaseRollbackReceipt.v2"
+)
+LEGACY_ROLLBACK_VERIFICATION_SCHEMA = (
+    "fbsir.u3wDefaultOffRollbackVerificationReceipt.v1"
+)
+ROLLBACK_VERIFICATION_SCHEMA = (
+    "fbsir.u3wDefaultOffRollbackVerificationReceipt.v2"
 )
 FLAG_NAMES = [
     "FBSIR_BOARD_ATTRIBUTION_ENABLED",
@@ -918,20 +963,105 @@ def sha256_file(filename):
 def exact_w1a_migration_facts(facts):
     return bool(
         isinstance(facts, dict)
+        and set(facts) == MIGRATION_FACT_FIELDS
+        and facts.get("publicReceiptCount") == 1
+        and facts.get("internalReceiptCount") == 1
+        and facts.get("tableCount") == 2
+        and facts.get("triggerCount") == 2
+        and facts.get("permissionCount") == 1
+        and all(
+            type(facts.get(field)) is int and facts[field] >= 0
+            for field in (
+                "eventCount",
+                "probeEventCount",
+                "naturalEventCount",
+                "nonProbeEventCount",
+                "authoritativeProductCreditCount",
+                "journeyCount",
+                "probeJourneyCount",
+                "naturalJourneyCount",
+                "nonProbeJourneyCount",
+            )
+        )
+        and facts.get("probeEventCount") == facts.get("eventCount")
+        and facts.get("naturalEventCount") == 0
+        and facts.get("nonProbeEventCount") == 0
+        and facts.get("authoritativeProductCreditCount") == 0
+        and facts.get("probeJourneyCount") == facts.get("journeyCount")
+        and facts.get("naturalJourneyCount") == 0
+        and facts.get("nonProbeJourneyCount") == 0
+        and facts.get("schemaFingerprintSha256")
+            == EXPECTED_W1A_SCHEMA_FINGERPRINT
+    )
+
+
+def legacy_w1a_migration_facts(facts):
+    return bool(
+        isinstance(facts, dict)
+        and set(facts) == LEGACY_MIGRATION_FACT_FIELDS
         and facts.get("publicReceiptCount") == 1
         and facts.get("internalReceiptCount") == 1
         and facts.get("tableCount") == 2
         and facts.get("triggerCount") == 2
         and facts.get("permissionCount") == 1
         and type(facts.get("eventCount")) is int
-        and facts.get("eventCount") >= 0
+        and facts["eventCount"] >= 0
         and type(facts.get("journeyCount")) is int
-        and facts.get("journeyCount") >= 0
+        and facts["journeyCount"] >= 0
         and facts.get("schemaFingerprintSha256")
             == EXPECTED_W1A_SCHEMA_FINGERPRINT
     )
 
+
+def recorded_w1a_migration_facts_valid(facts, receipt_schema):
+    if receipt_schema in {
+        LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+        LEGACY_ROLLBACK_RECEIPT_SCHEMA,
+        LEGACY_ROLLBACK_VERIFICATION_SCHEMA,
+    }:
+        return legacy_w1a_migration_facts(facts)
+    if receipt_schema in {
+        DEPLOYMENT_RECEIPT_SCHEMA,
+        ROLLBACK_RECEIPT_SCHEMA,
+        ROLLBACK_VERIFICATION_SCHEMA,
+    }:
+        return exact_w1a_migration_facts(facts)
+    return False
+
+
+def recorded_w1a_migration_matches_live(facts, receipt_schema, live):
+    return bool(
+        recorded_w1a_migration_facts_valid(facts, receipt_schema)
+        and live.get("w1a043State") == "EXACT_043_RETAINED_DORMANT"
+        and live.get("publicInit043Applied") is True
+        and live.get("publicInit043AnyReceiptCount") == 1
+        and live.get("boardAttributionInternalReceiptCount") == 1
+        and live.get("boardAttributionTableCount") == 2
+        and live.get("boardAttributionTriggerCount") == 2
+        and live.get("boardAttributionPermissionCount") == 1
+        and live.get("boardAttributionEventCount")
+            == live.get("boardAttributionProbeEventCount")
+        and live.get("boardAttributionNaturalEventCount") == 0
+        and live.get("boardAttributionNonProbeEventCount") == 0
+        and live.get(
+            "boardAttributionAuthoritativeProductCreditCount"
+        ) == 0
+        and live.get("boardAttributionJourneyCount")
+            == live.get("boardAttributionProbeJourneyCount")
+        and live.get("boardAttributionNaturalJourneyCount") == 0
+        and live.get("boardAttributionNonProbeJourneyCount") == 0
+        and live.get("boardAttributionEventCount")
+            == facts.get("eventCount")
+        and live.get("boardAttributionJourneyCount")
+            == facts.get("journeyCount")
+        and live.get("w1aSchemaFingerprintSha256")
+            == facts.get("schemaFingerprintSha256")
+            == EXPECTED_W1A_SCHEMA_FINGERPRINT
+    )
+
+
 def recorded_final_default_off_current_read_valid(receipt):
+    receipt_schema = receipt.get("schema")
     evidence = receipt.get("finalDefaultOffCurrentRead")
     service_after = receipt.get("serviceAfter")
     migration = receipt.get("migrationFacts")
@@ -960,12 +1090,21 @@ def recorded_final_default_off_current_read_valid(receipt):
         "eventCount": migration.get("eventCount"),
         "journeyCount": migration.get("journeyCount"),
     } if isinstance(migration, dict) else None
+    expected_evidence_schema = (
+        "fbsir.u3wDefaultOffFinalCurrentRead.v1"
+        if receipt_schema == LEGACY_DEPLOYMENT_RECEIPT_SCHEMA
+        else "fbsir.u3wDefaultOffFinalCurrentRead.v2"
+        if receipt_schema == DEPLOYMENT_RECEIPT_SCHEMA
+        else None
+    )
     return bool(
         isinstance(evidence, dict)
         and isinstance(service_after, dict)
-        and exact_w1a_migration_facts(migration)
+        and recorded_w1a_migration_facts_valid(
+            migration, receipt_schema
+        )
         and evidence.get("schema")
-            == "fbsir.u3wDefaultOffFinalCurrentRead.v1"
+            == expected_evidence_schema
         and evidence.get("verified") is True
         and evidence.get("serviceStableDuringProbe") is True
         and evidence.get("serviceInvocationId")
@@ -1051,19 +1190,51 @@ def stable_database_identity_matches(pre_stage, live):
         and live.get("legacyBaselineMigrationCount") == 1
     )
 
-def live_w1a_prestate_matches(pre_stage, live):
+def live_w1a_prestate_matches(pre_stage, live, receipt_schema):
     if not stable_database_identity_matches(pre_stage, live):
         return False
+    if receipt_schema not in {
+        LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+        DEPLOYMENT_RECEIPT_SCHEMA,
+    }:
+        return False
+    legacy_receipt = receipt_schema == LEGACY_DEPLOYMENT_RECEIPT_SCHEMA
     state = pre_stage.get("w1aDatabaseState")
     if state == "ABSENT":
         return bool(
+            pre_stage.get("attributionEventCount") == 0
+            and pre_stage.get("attributionJourneyCount") == 0
+            and (
+                legacy_receipt
+                or (
+                    pre_stage.get("attributionProbeEventCount") == 0
+                    and pre_stage.get("attributionNaturalEventCount") == 0
+                    and pre_stage.get("attributionNonProbeEventCount") == 0
+                    and pre_stage.get(
+                        "attributionAuthoritativeProductCreditCount"
+                    ) == 0
+                    and pre_stage.get("attributionProbeJourneyCount") == 0
+                    and pre_stage.get("attributionNaturalJourneyCount") == 0
+                    and pre_stage.get("attributionNonProbeJourneyCount") == 0
+                )
+            )
+            and
             live.get("publicInit043Applied") is not True
             and live.get("boardAttributionTableCount") == 0
             and live.get("boardAttributionTriggerCount") == 0
             and live.get("boardAttributionPermissionCount") == 0
             and live.get("boardAttributionInternalReceiptCount") == 0
             and live.get("boardAttributionEventCount") == 0
+            and live.get("boardAttributionProbeEventCount") == 0
+            and live.get("boardAttributionNaturalEventCount") == 0
+            and live.get("boardAttributionNonProbeEventCount") == 0
+            and live.get(
+                "boardAttributionAuthoritativeProductCreditCount"
+            ) == 0
             and live.get("boardAttributionJourneyCount") == 0
+            and live.get("boardAttributionProbeJourneyCount") == 0
+            and live.get("boardAttributionNaturalJourneyCount") == 0
+            and live.get("boardAttributionNonProbeJourneyCount") == 0
             and live.get("w1aSchemaFingerprintSha256") is None
         )
     if state == "EXACT_043_RETAINED_DORMANT":
@@ -1077,6 +1248,39 @@ def live_w1a_prestate_matches(pre_stage, live):
                 == pre_stage.get("attributionEventCount")
             and live.get("boardAttributionJourneyCount")
                 == pre_stage.get("attributionJourneyCount")
+            and (
+                legacy_receipt
+                or (
+                    live.get("boardAttributionProbeEventCount")
+                        == pre_stage.get("attributionProbeEventCount")
+                    and live.get("boardAttributionNaturalEventCount")
+                        == pre_stage.get("attributionNaturalEventCount")
+                    and live.get("boardAttributionNonProbeEventCount")
+                        == pre_stage.get("attributionNonProbeEventCount")
+                    and live.get(
+                        "boardAttributionAuthoritativeProductCreditCount"
+                    ) == pre_stage.get(
+                        "attributionAuthoritativeProductCreditCount"
+                    )
+                    and live.get("boardAttributionProbeJourneyCount")
+                        == pre_stage.get("attributionProbeJourneyCount")
+                    and live.get("boardAttributionNaturalJourneyCount")
+                        == pre_stage.get("attributionNaturalJourneyCount")
+                    and live.get("boardAttributionNonProbeJourneyCount")
+                        == pre_stage.get("attributionNonProbeJourneyCount")
+                )
+            )
+            and live.get("boardAttributionEventCount")
+                == live.get("boardAttributionProbeEventCount")
+            and live.get("boardAttributionNaturalEventCount") == 0
+            and live.get("boardAttributionNonProbeEventCount") == 0
+            and live.get(
+                "boardAttributionAuthoritativeProductCreditCount"
+            ) == 0
+            and live.get("boardAttributionJourneyCount")
+                == live.get("boardAttributionProbeJourneyCount")
+            and live.get("boardAttributionNaturalJourneyCount") == 0
+            and live.get("boardAttributionNonProbeJourneyCount") == 0
             and live.get("w1aSchemaFingerprintSha256")
                 == EXPECTED_W1A_SCHEMA_FINGERPRINT
             and pre_stage.get("w1aSchemaFingerprintSha256")
@@ -1865,7 +2069,7 @@ def validate_release_plan_target_binding(release_directory, receipt):
     target = plan.get("target") if isinstance(plan, dict) else None
     if (
         not isinstance(plan, dict)
-        or plan.get("schema") != "fbsir.u3wDefaultOffReleasePlan.v1"
+        or plan.get("schema") != "fbsir.u3wDefaultOffReleasePlan.v2"
         or plan.get("mode") != "Plan"
         or plan.get("productionChanged") is not False
         or plan.get("strictHeadClean") is not True
@@ -2787,7 +2991,14 @@ database = {
     "boardAttributionPermissionCount": None,
     "boardAttributionInternalReceiptCount": None,
     "boardAttributionEventCount": None,
+    "boardAttributionProbeEventCount": None,
+    "boardAttributionNaturalEventCount": None,
+    "boardAttributionNonProbeEventCount": None,
+    "boardAttributionAuthoritativeProductCreditCount": None,
     "boardAttributionJourneyCount": None,
+    "boardAttributionProbeJourneyCount": None,
+    "boardAttributionNaturalJourneyCount": None,
+    "boardAttributionNonProbeJourneyCount": None,
     "publicInit043Applied": None,
     "publicInit043AnyReceiptCount": None,
     "w1a043State": None,
@@ -2824,6 +3035,7 @@ database = {
     "adminRootDependencyAdoptionDatabaseServerUuid": None,
     "adminRootDependencyAdoptionLiveFactsSha256": None,
     "adminRootDependencyAdoptionDependencyRowsFingerprintSha256": None,
+    "adminRootDependencyAdoptionW1a043State": None,
     "adminRootDependencyAdoptionPlanReceiptSha256": None,
     "adminRootDependencyAdoptionApprovalReceiptSha256": None,
     "adminRootDependencyAdoptionRunnerSha256": None,
@@ -2907,7 +3119,14 @@ if jdbc_url and mysql_user is not None and mysql_password is not None:
         ),
         "boardAttributionInternalReceiptCount": 0,
         "boardAttributionEventCount": 0,
+        "boardAttributionProbeEventCount": 0,
+        "boardAttributionNaturalEventCount": 0,
+        "boardAttributionNonProbeEventCount": 0,
+        "boardAttributionAuthoritativeProductCreditCount": 0,
         "boardAttributionJourneyCount": 0,
+        "boardAttributionProbeJourneyCount": 0,
+        "boardAttributionNaturalJourneyCount": 0,
+        "boardAttributionNonProbeJourneyCount": 0,
     })
     if database["migrationTableCount"] == 1:
         database["boardAttributionInternalReceiptCount"] = int(query(
@@ -2938,8 +3157,38 @@ if jdbc_url and mysql_user is not None and mysql_password is not None:
             database["boardAttributionEventCount"] = int(query(
                 "SELECT COUNT(*) FROM fbs_board_attr_event_v1"
             ))
+            database["boardAttributionProbeEventCount"] = int(query(
+                "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+                "WHERE BINARY traffic_class=BINARY 'PROBE'"
+            ))
+            database["boardAttributionNaturalEventCount"] = int(query(
+                "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+                "WHERE BINARY traffic_class=BINARY 'NATURAL'"
+            ))
+            database["boardAttributionNonProbeEventCount"] = int(query(
+                "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+                "WHERE BINARY traffic_class<>BINARY 'PROBE'"
+            ))
+            database[
+                "boardAttributionAuthoritativeProductCreditCount"
+            ] = int(query(
+                "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+                "WHERE authoritative_product_credit<>0"
+            ))
             database["boardAttributionJourneyCount"] = int(query(
                 "SELECT COUNT(*) FROM fbs_board_attr_journey_v1"
+            ))
+            database["boardAttributionProbeJourneyCount"] = int(query(
+                "SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+                "WHERE BINARY traffic_class=BINARY 'PROBE'"
+            ))
+            database["boardAttributionNaturalJourneyCount"] = int(query(
+                "SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+                "WHERE BINARY traffic_class=BINARY 'NATURAL'"
+            ))
+            database["boardAttributionNonProbeJourneyCount"] = int(query(
+                "SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+                "WHERE BINARY traffic_class<>BINARY 'PROBE'"
             ))
             fingerprint_rows = query("""
 SELECT row_value FROM (
@@ -3167,6 +3416,17 @@ ORDER BY BINARY row_value
                 and database["boardAttributionTableCount"] == 0
                 and database["boardAttributionTriggerCount"] == 0
                 and database["boardAttributionPermissionCount"] == 0
+                and database["boardAttributionEventCount"] == 0
+                and database["boardAttributionProbeEventCount"] == 0
+                and database["boardAttributionNaturalEventCount"] == 0
+                and database["boardAttributionNonProbeEventCount"] == 0
+                and database[
+                    "boardAttributionAuthoritativeProductCreditCount"
+                ] == 0
+                and database["boardAttributionJourneyCount"] == 0
+                and database["boardAttributionProbeJourneyCount"] == 0
+                and database["boardAttributionNaturalJourneyCount"] == 0
+                and database["boardAttributionNonProbeJourneyCount"] == 0
                 else "EXACT_043_RETAINED_DORMANT"
                 if database["publicInit043Applied"] is True
                 and database["publicInit043AnyReceiptCount"] == 1
@@ -3174,6 +3434,17 @@ ORDER BY BINARY row_value
                 and database["boardAttributionTableCount"] == 2
                 and database["boardAttributionTriggerCount"] == 2
                 and database["boardAttributionPermissionCount"] == 1
+                and database["boardAttributionEventCount"]
+                    == database["boardAttributionProbeEventCount"]
+                and database["boardAttributionNaturalEventCount"] == 0
+                and database["boardAttributionNonProbeEventCount"] == 0
+                and database[
+                    "boardAttributionAuthoritativeProductCreditCount"
+                ] == 0
+                and database["boardAttributionJourneyCount"]
+                    == database["boardAttributionProbeJourneyCount"]
+                and database["boardAttributionNaturalJourneyCount"] == 0
+                and database["boardAttributionNonProbeJourneyCount"] == 0
                 else "INVALID"
             ),
         })
@@ -3490,6 +3761,17 @@ ORDER BY baseline_id
         "attributionTableCount",
         "attributionTriggerCount",
         "attributionPermissionCount",
+        "attributionEventCount",
+        "attributionProbeEventCount",
+        "attributionNaturalEventCount",
+        "attributionNonProbeEventCount",
+        "attributionAuthoritativeProductCreditCount",
+        "attributionJourneyCount",
+        "attributionProbeJourneyCount",
+        "attributionNaturalJourneyCount",
+        "attributionNonProbeJourneyCount",
+        "w1aSchemaFingerprintSha256",
+        "w1a043State",
     }
     adoption_root_projection_fields = {
         "menuId",
@@ -3515,6 +3797,87 @@ ORDER BY baseline_id
         ).hexdigest()
         if isinstance(adoption_live_facts, dict) else None
     )
+    adoption_attribution_observation_fields = (
+        "attributionEventCount",
+        "attributionProbeEventCount",
+        "attributionNaturalEventCount",
+        "attributionNonProbeEventCount",
+        "attributionAuthoritativeProductCreditCount",
+        "attributionJourneyCount",
+        "attributionProbeJourneyCount",
+        "attributionNaturalJourneyCount",
+        "attributionNonProbeJourneyCount",
+    )
+    current_adoption_attribution_observations = {
+        "w1a043State": database.get("w1a043State"),
+        "attributionEventCount":
+            database.get("boardAttributionEventCount"),
+        "attributionProbeEventCount":
+            database.get("boardAttributionProbeEventCount"),
+        "attributionNaturalEventCount":
+            database.get("boardAttributionNaturalEventCount"),
+        "attributionNonProbeEventCount":
+            database.get("boardAttributionNonProbeEventCount"),
+        "attributionAuthoritativeProductCreditCount":
+            database.get(
+                "boardAttributionAuthoritativeProductCreditCount"
+            ),
+        "attributionJourneyCount":
+            database.get("boardAttributionJourneyCount"),
+        "attributionProbeJourneyCount":
+            database.get("boardAttributionProbeJourneyCount"),
+        "attributionNaturalJourneyCount":
+            database.get("boardAttributionNaturalJourneyCount"),
+        "attributionNonProbeJourneyCount":
+            database.get("boardAttributionNonProbeJourneyCount"),
+    }
+
+    def adoption_attribution_observations_dormant_safe(facts):
+        if not isinstance(facts, dict):
+            return False
+        if any(
+            type(facts.get(field)) is not int or facts[field] < 0
+            for field in adoption_attribution_observation_fields
+        ):
+            return False
+        if facts.get("w1a043State") == "ABSENT":
+            return all(
+                facts[field] == 0
+                for field in adoption_attribution_observation_fields
+            )
+        return bool(
+            facts.get("w1a043State")
+                == "EXACT_043_RETAINED_DORMANT"
+            and facts["attributionEventCount"]
+                == facts["attributionProbeEventCount"]
+            and facts["attributionNaturalEventCount"] == 0
+            and facts["attributionNonProbeEventCount"] == 0
+            and facts[
+                "attributionAuthoritativeProductCreditCount"
+            ] == 0
+            and facts["attributionJourneyCount"]
+                == facts["attributionProbeJourneyCount"]
+            and facts["attributionNaturalJourneyCount"] == 0
+            and facts["attributionNonProbeJourneyCount"] == 0
+        )
+
+    def adoption_attribution_observations_monotonic(
+        recorded_facts, current_facts
+    ):
+        return bool(
+            adoption_attribution_observations_dormant_safe(
+                recorded_facts
+            )
+            and adoption_attribution_observations_dormant_safe(
+                current_facts
+            )
+            and recorded_facts.get("w1a043State")
+                == current_facts.get("w1a043State")
+            and all(
+                current_facts[field] >= recorded_facts[field]
+                for field in adoption_attribution_observation_fields
+            )
+        )
 
     def historical_receipt_matches(
         path_value,
@@ -3618,13 +3981,22 @@ ORDER BY baseline_id
             == database.get("boardAttributionTriggerCount")
         and adoption_live_facts.get("attributionPermissionCount")
             == database.get("boardAttributionPermissionCount")
-        and database.get("w1a043State") == "ABSENT"
+        and adoption_attribution_observations_monotonic(
+            adoption_live_facts,
+            current_adoption_attribution_observations,
+        )
+        and adoption_live_facts.get("w1aSchemaFingerprintSha256")
+            == database.get("w1aSchemaFingerprintSha256")
+        and adoption_live_facts.get("w1a043State")
+            == database.get("w1a043State")
+        and database.get("w1a043State")
+            in ("ABSENT", "EXACT_043_RETAINED_DORMANT")
     )
     adoption_receipt_valid = bool(
         adoption_receipt_file_valid
         and set(adoption_receipt) == adoption_receipt_fields
         and adoption_receipt.get("schema")
-            == "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2"
+            == "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v3"
         and adoption_receipt.get("adoptionState")
             == "ADOPTED_EXISTING_EXACT_DEPENDENCY"
         and adoption_receipt.get("adoptionClaim")
@@ -3707,6 +4079,9 @@ ORDER BY baseline_id
             )
             if isinstance(adoption_live_facts, dict) else None
         ),
+        "adminRootDependencyAdoptionW1a043State":
+            adoption_live_facts.get("w1a043State")
+            if isinstance(adoption_live_facts, dict) else None,
         "adminRootDependencyAdoptionPlanReceiptSha256":
             adoption_receipt.get("planReceiptSha256"),
         "adminRootDependencyAdoptionApprovalReceiptSha256":
@@ -4377,6 +4752,50 @@ def current_backup_schema_facts():
         "SELECT COUNT(*) FROM sys_menu WHERE "
         "BINARY perms=BINARY 'board:attribution:query'"
     ))
+    attribution_event_count = 0
+    attribution_probe_event_count = 0
+    attribution_natural_event_count = 0
+    attribution_non_probe_event_count = 0
+    attribution_authoritative_product_credit_count = 0
+    attribution_journey_count = 0
+    attribution_probe_journey_count = 0
+    attribution_natural_journey_count = 0
+    attribution_non_probe_journey_count = 0
+    if attribution_table_count == 2:
+        attribution_event_count = int(query(
+            "SELECT COUNT(*) FROM fbs_board_attr_event_v1"
+        ))
+        attribution_probe_event_count = int(query(
+            "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+            "WHERE BINARY traffic_class=BINARY 'PROBE'"
+        ))
+        attribution_natural_event_count = int(query(
+            "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+            "WHERE BINARY traffic_class=BINARY 'NATURAL'"
+        ))
+        attribution_non_probe_event_count = int(query(
+            "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+            "WHERE BINARY traffic_class<>BINARY 'PROBE'"
+        ))
+        attribution_authoritative_product_credit_count = int(query(
+            "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+            "WHERE authoritative_product_credit<>0"
+        ))
+        attribution_journey_count = int(query(
+            "SELECT COUNT(*) FROM fbs_board_attr_journey_v1"
+        ))
+        attribution_probe_journey_count = int(query(
+            "SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+            "WHERE BINARY traffic_class=BINARY 'PROBE'"
+        ))
+        attribution_natural_journey_count = int(query(
+            "SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+            "WHERE BINARY traffic_class=BINARY 'NATURAL'"
+        ))
+        attribution_non_probe_journey_count = int(query(
+            "SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+            "WHERE BINARY traffic_class<>BINARY 'PROBE'"
+        ))
     exact_dependency = bool(
         dependency_version_count == 1
         and dependency_receipt_count == 1
@@ -4396,6 +4815,35 @@ def current_backup_schema_facts():
         and attribution_table_count == 0
         and attribution_trigger_count == 0
         and attribution_permission_count == 0
+        and attribution_event_count == 0
+        and attribution_probe_event_count == 0
+        and attribution_natural_event_count == 0
+        and attribution_non_probe_event_count == 0
+        and attribution_authoritative_product_credit_count == 0
+        and attribution_journey_count == 0
+        and attribution_probe_journey_count == 0
+        and attribution_natural_journey_count == 0
+        and attribution_non_probe_journey_count == 0
+        and database.get("w1a043State") == "ABSENT"
+        and database.get("w1aSchemaFingerprintSha256") is None
+    )
+    retained_043 = bool(
+        public_043_count == 1
+        and internal_043_count == 1
+        and attribution_table_count == 2
+        and attribution_trigger_count == 2
+        and attribution_permission_count == 1
+        and attribution_event_count == attribution_probe_event_count
+        and attribution_natural_event_count == 0
+        and attribution_non_probe_event_count == 0
+        and attribution_authoritative_product_credit_count == 0
+        and attribution_journey_count == attribution_probe_journey_count
+        and attribution_natural_journey_count == 0
+        and attribution_non_probe_journey_count == 0
+        and database.get("w1a043State")
+            == "EXACT_043_RETAINED_DORMANT"
+        and database.get("w1aSchemaFingerprintSha256")
+            == EXPECTED_W1A_SCHEMA_FINGERPRINT
     )
     return {
         "fingerprintAlgorithm": "u3w.mysql-schema-metadata.v2",
@@ -4433,11 +4881,164 @@ def current_backup_schema_facts():
         "attributionTableCount": attribution_table_count,
         "attributionTriggerCount": attribution_trigger_count,
         "attributionPermissionCount": attribution_permission_count,
+        "attributionEventCount": attribution_event_count,
+        "attributionProbeEventCount": attribution_probe_event_count,
+        "attributionNaturalEventCount": attribution_natural_event_count,
+        "attributionNonProbeEventCount":
+            attribution_non_probe_event_count,
+        "attributionAuthoritativeProductCreditCount":
+            attribution_authoritative_product_credit_count,
+        "attributionJourneyCount": attribution_journey_count,
+        "attributionProbeJourneyCount":
+            attribution_probe_journey_count,
+        "attributionNaturalJourneyCount":
+            attribution_natural_journey_count,
+        "attributionNonProbeJourneyCount":
+            attribution_non_probe_journey_count,
+        "w1aSchemaFingerprintSha256":
+            database.get("w1aSchemaFingerprintSha256"),
         "w1a043State": (
-            "ABSENT" if absent_043 else "EXACT_043_RETAINED_DORMANT"
+            "ABSENT"
+            if absent_043
+            else "EXACT_043_RETAINED_DORMANT"
+            if retained_043
+            else "INVALID"
         ),
         "allBaseTablesInnoDB": int(counts[2]) == 0,
     }
+
+backup_fact_fields = {
+    "fingerprintAlgorithm", "schemaFingerprintSha256",
+    "prerequisiteShapeSha256", "baseTableCount", "viewCount",
+    "triggerCount", "routineCount", "eventCount",
+    "independentBoardAdminRootCount",
+    "legacyAdminRootDependencyState",
+    "legacyAdminRootDependencyFactsSha256",
+    "legacyAdminRootDependencyVersionCount",
+    "legacyAdminRootDependencyReceiptCount",
+    "legacyAdminRootIdentityCount", "legacyAdminRootExactCount",
+    "legacyAdminRootRoleBindingCount",
+    "legacyAdminRootPageChildCount",
+    "legacyForbiddenPublicInit001Through042ReceiptCount",
+    "publicInit043AnyReceiptCount", "attributionInternalReceiptCount",
+    "attributionTableCount", "attributionTriggerCount",
+    "attributionPermissionCount", "attributionEventCount",
+    "attributionProbeEventCount", "attributionNaturalEventCount",
+    "attributionNonProbeEventCount",
+    "attributionAuthoritativeProductCreditCount",
+    "attributionJourneyCount", "attributionProbeJourneyCount",
+    "attributionNaturalJourneyCount",
+    "attributionNonProbeJourneyCount", "w1aSchemaFingerprintSha256",
+    "w1a043State", "allBaseTablesInnoDB",
+}
+backup_attribution_observation_fields = {
+    "attributionEventCount", "attributionProbeEventCount",
+    "attributionNaturalEventCount", "attributionNonProbeEventCount",
+    "attributionAuthoritativeProductCreditCount",
+    "attributionJourneyCount", "attributionProbeJourneyCount",
+    "attributionNaturalJourneyCount",
+    "attributionNonProbeJourneyCount",
+}
+
+def backup_static_control_facts(facts):
+    return {
+        field: value
+        for field, value in facts.items()
+        if field not in backup_attribution_observation_fields
+    }
+
+def backup_attribution_observations_dormant_safe(facts):
+    if not isinstance(facts, dict):
+        return False
+    if any(
+        type(facts.get(field)) is not int or facts[field] < 0
+        for field in backup_attribution_observation_fields
+    ):
+        return False
+    if facts.get("w1a043State") == "ABSENT":
+        return all(
+            facts[field] == 0
+            for field in backup_attribution_observation_fields
+        )
+    return bool(
+        facts.get("w1a043State") == "EXACT_043_RETAINED_DORMANT"
+        and facts["attributionEventCount"]
+            == facts["attributionProbeEventCount"]
+        and facts["attributionNaturalEventCount"] == 0
+        and facts["attributionNonProbeEventCount"] == 0
+        and facts["attributionAuthoritativeProductCreditCount"] == 0
+        and facts["attributionJourneyCount"]
+            == facts["attributionProbeJourneyCount"]
+        and facts["attributionNaturalJourneyCount"] == 0
+        and facts["attributionNonProbeJourneyCount"] == 0
+    )
+
+def backup_attribution_observations_monotonic(
+    recorded_facts, current_facts
+):
+    return bool(
+        recorded_facts.get("w1a043State")
+            == current_facts.get("w1a043State")
+        and all(
+            current_facts[field] >= recorded_facts[field]
+            for field in backup_attribution_observation_fields
+        )
+    )
+
+backup_receipt_fields = {
+    "schema", "runId", "sourceCommit", "planReceiptSha256",
+    "targetHost", "database", "sourceDatabaseServerUuid",
+    "serverVersion", "serverVersionComment", "generatedAt",
+    "backupPath", "backupSha256", "backupSizeBytes",
+    "backupPlaintextSha256", "encryptionContract",
+    "encryptionKeyFingerprintSha256", "dumpToolVersion",
+    "dumpOptionsContract", "ddlProtectionMode", "sourceFacts",
+    "sourceTotalRows", "sourceTableRowCountsSha256",
+    "sourceSnapshotExactlyMatched", "sourceJarSha256",
+    "adminRootDependencyAdoptionReceiptSha256",
+    "approvalReceiptSha256", "runnerSha256", "backupWorkerSha256",
+    "businessDatabaseChanged", "serviceChanged",
+    "officialExpertsPackageChanged",
+}
+restore_receipt_fields = {
+    "schema", "runId", "sourceCommit", "planReceiptSha256",
+    "targetHost", "database", "sourceDatabaseServerUuid",
+    "sourceBackupPath", "sourceBackupSha256",
+    "sourceBackupPlaintextSha256", "sourceBackupReceiptSha256",
+    "startedAt", "completedAt", "isolatedTarget",
+    "isolatedNetworkingDisabled", "isolatedDataRemoved",
+    "serverVersion", "serverVersionComment", "restoredFacts",
+    "restoredTotalRows", "restoredTableRowCountsSha256",
+    "restoreLogPath", "restoreLogSha256", "isolationEvidencePath",
+    "isolationEvidenceSha256", "mysqlcheckPath", "mysqlcheckSha256",
+    "adminRootDependencyAdoptionReceiptSha256",
+    "approvalReceiptSha256", "backupWorkerSha256", "verifierSha256",
+    "businessDatabaseChanged", "serviceChanged",
+    "officialExpertsPackageChanged",
+}
+bundle_receipt_fields = {
+    "schema", "runId", "sourceCommit", "planReceiptSha256",
+    "targetHost", "database", "sourceDatabaseServerUuid",
+    "generatedAt", "backupReceiptPath", "backupReceiptSha256",
+    "restoreReceiptPath", "restoreReceiptSha256", "backupPath",
+    "backupSha256", "backupSizeBytes", "approvalReceiptSha256",
+    "runnerSha256", "backupWorkerSha256", "verifierSha256",
+    "adminRootDependencyAdoptionReceiptSha256",
+    "productionBusinessStateChanged",
+}
+isolation_evidence_fields = {
+    "schema", "runId", "sourceCommit", "observedAt",
+    "productionMysqldPidBefore", "productionMysqldPidAfter", "runtime",
+    "restoreStdoutSha256", "restoreStderrSha256", "mysqlcheckExitCode",
+    "mysqlcheckOkObjectCount", "isolatedProcessExited",
+    "isolatedSocketRemoved", "isolatedPidFileRemoved",
+    "isolatedDatadirRemoved", "isolatedRuntimeDirectoryRemoved",
+}
+isolation_runtime_fields = {
+    "pid", "binarySha256", "commandLineSha256", "datadir", "socket",
+    "serverUuid", "skipNetworking", "version", "versionComment",
+    "logBin", "eventScheduler", "tcpListenerAbsent",
+}
 
 backup = {
     "receiptPath": BACKUP_RECEIPT_PATH,
@@ -4446,6 +5047,7 @@ backup = {
     "backupReceiptSchema": None,
     "restoreReceiptSchema": None,
     "externalAnchorSchema": None,
+    "planReceiptSha256": None,
     "sourceCommit": None,
     "sourceDatabaseServerUuid": None,
     "adminRootDependencyAdoptionReceiptSha256": None,
@@ -4454,7 +5056,10 @@ backup = {
     "externalAnchorVerified": False,
     "adoptionReceiptBindingMatched": False,
     "sourceDatabaseServerUuidMatched": False,
-    "sourceRestoredFactsExactlyMatched": False,
+    "backupRestoreSchemaFactsMatched": False,
+    "sourceRestoreObservationManifestMatched": False,
+    "restoredManifestObserved": False,
+    "sourceSnapshotExactlyMatched": None,
     "sha256": None,
     "sizeBytes": None,
     "restoreProcedureVerified": False,
@@ -4524,6 +5129,30 @@ if backup_receipt.is_file():
         runtime_evidence = evidence.get("runtime") or {}
         actual_digest = sha256_file(artifact)
         actual_size = artifact.stat().st_size
+        receipt_fields_exact = bool(
+            set(bundle) == bundle_receipt_fields
+            and set(source_receipt) == backup_receipt_fields
+            and set(restore_receipt) == restore_receipt_fields
+            and set(evidence) == isolation_evidence_fields
+            and isinstance(runtime_evidence, dict)
+            and set(runtime_evidence) == isolation_runtime_fields
+            and isinstance(source_receipt.get("sourceFacts"), dict)
+            and set(source_receipt["sourceFacts"]) == backup_fact_fields
+            and isinstance(restore_receipt.get("restoredFacts"), dict)
+            and set(restore_receipt["restoredFacts"]) == backup_fact_fields
+        )
+        plan_receipt_binding_matched = bool(
+            re.fullmatch(
+                r"[0-9a-f]{64}",
+                str(bundle.get("planReceiptSha256") or ""),
+            ) is not None
+            and bundle.get("planReceiptSha256")
+                == EXPECTED_BACKUP_PLAN_RECEIPT_SHA256
+            and source_receipt.get("planReceiptSha256")
+                == EXPECTED_BACKUP_PLAN_RECEIPT_SHA256
+            and restore_receipt.get("planReceiptSha256")
+                == EXPECTED_BACKUP_PLAN_RECEIPT_SHA256
+        )
         try:
             generated_at = datetime.fromisoformat(
                 str(bundle.get("generatedAt", "")).replace("Z", "+00:00")
@@ -4540,39 +5169,20 @@ if backup_receipt.is_file():
         )
         live_backup_facts = current_backup_schema_facts()
         live_backup_facts_compatible = bool(
-            live_backup_facts == restore_receipt.get("restoredFacts")
-            or (
-                database.get("legacyBaselineLiveFactsMatched") is True
-                and (
-                    (
-                        database.get("publicInit043Applied") is not True
-                        and database.get(
-                            "boardAttributionTableCount"
-                        ) == 0
-                        and database.get(
-                            "boardAttributionTriggerCount"
-                        ) == 0
-                    )
-                    or (
-                        database.get("publicInit043Applied") is True
-                        and database.get(
-                            "boardAttributionTableCount"
-                        ) == 2
-                        and database.get(
-                            "boardAttributionTriggerCount"
-                        ) == 2
-                        and database.get(
-                            "boardAttributionPermissionCount"
-                        ) == 1
-                        and database.get(
-                            "boardAttributionInternalReceiptCount"
-                        ) == 1
-                        and database.get(
-                            "w1aSchemaFingerprintSha256"
-                        )
-                            == EXPECTED_W1A_SCHEMA_FINGERPRINT
-                    )
+            isinstance(restore_receipt.get("restoredFacts"), dict)
+            and backup_static_control_facts(live_backup_facts)
+                == backup_static_control_facts(
+                    restore_receipt["restoredFacts"]
                 )
+            and backup_attribution_observations_dormant_safe(
+                live_backup_facts
+            )
+            and backup_attribution_observations_dormant_safe(
+                restore_receipt["restoredFacts"]
+            )
+            and backup_attribution_observations_monotonic(
+                restore_receipt["restoredFacts"],
+                live_backup_facts,
             )
         )
         backup_source_commit = bundle.get("sourceCommit")
@@ -4601,14 +5211,70 @@ if backup_receipt.is_file():
             and bundle.get("sourceDatabaseServerUuid")
                 == database.get("databaseServerUuid")
         )
-        source_restored_facts_exactly_matched = bool(
+        backup_restore_schema_facts_matched = bool(
             isinstance(source_receipt.get("sourceFacts"), dict)
-            and source_receipt.get("sourceFacts")
-                == restore_receipt.get("restoredFacts")
+            and isinstance(restore_receipt.get("restoredFacts"), dict)
+            and backup_static_control_facts(
+                source_receipt["sourceFacts"]
+            ) == backup_static_control_facts(
+                restore_receipt["restoredFacts"]
+            )
+            and backup_attribution_observations_dormant_safe(
+                source_receipt["sourceFacts"]
+            )
+            and backup_attribution_observations_dormant_safe(
+                restore_receipt["restoredFacts"]
+            )
+            and backup_attribution_observations_monotonic(
+                source_receipt["sourceFacts"],
+                restore_receipt["restoredFacts"],
+            )
+        )
+        source_restore_observation_manifest_matched = bool(
+            isinstance(source_receipt.get("sourceTotalRows"), int)
+            and source_receipt.get("sourceTotalRows") >= 0
+            and restore_receipt.get("restoredTotalRows")
+                == source_receipt.get("sourceTotalRows")
+            and re.fullmatch(
+                r"[0-9a-f]{64}",
+                str(
+                    source_receipt.get(
+                        "sourceTableRowCountsSha256"
+                    ) or ""
+                ),
+            ) is not None
+            and restore_receipt.get("restoredTableRowCountsSha256")
+                == source_receipt.get("sourceTableRowCountsSha256")
+        )
+        source_observation_manifest_valid = bool(
+            isinstance(source_receipt.get("sourceTotalRows"), int)
+            and source_receipt.get("sourceTotalRows") >= 0
+            and re.fullmatch(
+                r"[0-9a-f]{64}",
+                str(
+                    source_receipt.get(
+                        "sourceTableRowCountsSha256"
+                    ) or ""
+                ),
+            ) is not None
+        )
+        restored_manifest_observed = bool(
+            isinstance(restore_receipt.get("restoredTotalRows"), int)
+            and restore_receipt.get("restoredTotalRows") >= 0
+            and re.fullmatch(
+                r"[0-9a-f]{64}",
+                str(
+                    restore_receipt.get(
+                        "restoredTableRowCountsSha256"
+                    ) or ""
+                ),
+            ) is not None
         )
         restore_verified = bool(
-            bundle.get("schema")
-                == "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v2"
+            receipt_fields_exact
+            and plan_receipt_binding_matched
+            and bundle.get("schema")
+                == "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v3"
             and re.fullmatch(
                 r"w1a-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}",
                 str(run_id or ""),
@@ -4636,7 +5302,7 @@ if backup_receipt.is_file():
             and bundle.get("backupSizeBytes") == actual_size
             and actual_size > 0
             and source_receipt.get("schema")
-                == "fbsir.u3wDatabaseBackupReceipt.v3"
+                == "fbsir.u3wDatabaseBackupReceipt.v4"
             and source_receipt.get("runId") == run_id
             and source_receipt.get("sourceCommit")
                 == backup_source_commit
@@ -4659,31 +5325,28 @@ if backup_receipt.is_file():
                     "AND_APPROVED_NO_DDL_WINDOW"
                 )
             and restore_receipt.get("schema")
-                == "fbsir.u3wDatabaseRestoreRehearsalReceipt.v3"
+                == "fbsir.u3wDatabaseRestoreRehearsalReceipt.v4"
             and restore_receipt.get("runId") == run_id
             and restore_receipt.get("sourceCommit")
                 == backup_source_commit
             and restore_receipt.get("sourceBackupSha256") == actual_digest
             and restore_receipt.get("sourceBackupReceiptSha256")
                 == sha256_file(backup_receipt_file)
-            and restore_receipt.get("restoredFacts")
-                == source_receipt.get("sourceFacts")
-            and source_restored_facts_exactly_matched
+            and backup_restore_schema_facts_matched
             and live_backup_facts_compatible
             and source_receipt.get("sourceSnapshotExactlyMatched") is False
+            and source_receipt.get("businessDatabaseChanged") is False
+            and source_receipt.get("serviceChanged") is False
+            and source_receipt.get("officialExpertsPackageChanged") is False
+            and source_observation_manifest_valid
             and isinstance(restore_receipt.get("restoredTotalRows"), int)
-            and restore_receipt.get("restoredTotalRows") > 0
-            and re.fullmatch(
-                r"[0-9a-f]{64}",
-                str(
-                    restore_receipt.get(
-                        "restoredTableRowCountsSha256"
-                    ) or ""
-                ),
-            ) is not None
+            and restored_manifest_observed
             and restore_receipt.get("isolatedTarget") is True
             and restore_receipt.get("isolatedNetworkingDisabled") is True
             and restore_receipt.get("isolatedDataRemoved") is True
+            and restore_receipt.get("businessDatabaseChanged") is False
+            and restore_receipt.get("serviceChanged") is False
+            and restore_receipt.get("officialExpertsPackageChanged") is False
             and restore_receipt.get("verifierSha256")
                 == EXPECTED_RESTORE_VERIFIER_SHA256
             and evidence_file
@@ -4742,6 +5405,7 @@ if backup_receipt.is_file():
             restore_receipt.get("schema")
             if "restore_receipt" in locals() else None
         ),
+        "planReceiptSha256": bundle.get("planReceiptSha256"),
         "proven": restore_verified,
         "sourceCommit": (
             bundle.get("sourceCommit")
@@ -4769,10 +5433,24 @@ if backup_receipt.is_file():
             if "source_database_uuid_matched" in locals()
             else False
         ),
-        "sourceRestoredFactsExactlyMatched": (
-            source_restored_facts_exactly_matched
-            if "source_restored_facts_exactly_matched" in locals()
+        "backupRestoreSchemaFactsMatched": (
+            backup_restore_schema_facts_matched
+            if "backup_restore_schema_facts_matched" in locals()
             else False
+        ),
+        "sourceRestoreObservationManifestMatched": (
+            source_restore_observation_manifest_matched
+            if "source_restore_observation_manifest_matched" in locals()
+            else False
+        ),
+        "restoredManifestObserved": (
+            restored_manifest_observed
+            if "restored_manifest_observed" in locals()
+            else False
+        ),
+        "sourceSnapshotExactlyMatched": (
+            source_receipt.get("sourceSnapshotExactlyMatched")
+            if "source_receipt" in locals() else None
         ),
         "restoreProcedureVerified": restore_verified,
         "restoreLiveFactsMatched": restore_verified,
@@ -4839,15 +5517,19 @@ if deployment_receipt.is_file():
     )
     latest = dict(latest_document)
     if latest.get("schema") in {
-        "fbsir.u3wDefaultOffReleaseRollbackReceipt.v1",
-        "fbsir.u3wDefaultOffRollbackVerificationReceipt.v1",
+        LEGACY_ROLLBACK_RECEIPT_SCHEMA,
+        ROLLBACK_RECEIPT_SCHEMA,
+        LEGACY_ROLLBACK_VERIFICATION_SCHEMA,
+        ROLLBACK_VERIFICATION_SCHEMA,
     }:
         rollback_latest = True
         release_directory = resolved_latest.parent
         rollback_chain_valid = True
         if (
-            latest.get("schema")
-            == "fbsir.u3wDefaultOffRollbackVerificationReceipt.v1"
+            latest.get("schema") in {
+                LEGACY_ROLLBACK_VERIFICATION_SCHEMA,
+                ROLLBACK_VERIFICATION_SCHEMA,
+            }
         ):
             verification = latest
             original_path = (
@@ -4891,18 +5573,18 @@ if deployment_receipt.is_file():
                     and verification.get(
                         "officialExpertsPackageChanged"
                     ) is False
-                    and exact_w1a_migration_facts(
-                        verification.get("retainedMigrationFacts")
+                    and recorded_w1a_migration_facts_valid(
+                        verification.get("retainedMigrationFacts"),
+                        verification.get("schema"),
                     )
                     and original_status.st_uid == 0
                     and original_status.st_gid == 0
                     and original_status.st_nlink == 1
                     and original_status.st_mode & 0o777 == 0o600
-                    and original.get("schema")
-                        == (
-                            "fbsir.u3wDefaultOffReleaseRollbackReceipt."
-                            "v1"
-                        )
+                    and original.get("schema") in {
+                        LEGACY_ROLLBACK_RECEIPT_SCHEMA,
+                        ROLLBACK_RECEIPT_SCHEMA,
+                    }
                     and original.get("state")
                         == (
                             "ROLLED_BACK_APPLICATION_DATABASE_CURRENT_"
@@ -4950,6 +5632,9 @@ if deployment_receipt.is_file():
                 effective["databaseSafetyCurrentRead"] = "VERIFIED"
                 effective["retainedMigrationFacts"] = verification[
                     "retainedMigrationFacts"
+                ]
+                effective["retainedMigrationFactsSchema"] = verification[
+                    "schema"
                 ]
                 latest = effective
             except (
@@ -5052,23 +5737,16 @@ if deployment_receipt.is_file():
                 )
             )
             retained_migration = latest.get("retainedMigrationFacts")
+            retained_migration_schema = latest.get(
+                "retainedMigrationFactsSchema",
+                latest.get("schema"),
+            )
             retained_database_current_read = bool(
-                exact_w1a_migration_facts(retained_migration)
-                and database.get("publicInit043Applied") is True
-                and database.get("boardAttributionTableCount") == 2
-                and database.get("boardAttributionTriggerCount") == 2
-                and database.get(
-                    "boardAttributionPermissionCount"
-                ) == 1
-                and database.get(
-                    "boardAttributionInternalReceiptCount"
-                ) == 1
-                and database.get("boardAttributionEventCount")
-                    == retained_migration.get("eventCount")
-                and database.get("boardAttributionJourneyCount")
-                    == retained_migration.get("journeyCount")
-                and database.get("w1aSchemaFingerprintSha256")
-                    == EXPECTED_W1A_SCHEMA_FINGERPRINT
+                recorded_w1a_migration_matches_live(
+                    retained_migration,
+                    retained_migration_schema,
+                    database,
+                )
             )
             rollback_valid = bool(
                 rollback_chain_valid
@@ -5090,7 +5768,9 @@ if deployment_receipt.is_file():
                     == "RETAIN_ADDITIVE_043_DORMANT_NO_DOWN"
                 and latest.get("databaseDownClaimed") is False
                 and latest.get("databaseSafetyCurrentRead") == "VERIFIED"
-                and exact_w1a_migration_facts(retained_migration)
+                and recorded_w1a_migration_facts_valid(
+                    retained_migration, retained_migration_schema
+                )
                 and latest.get("allW1aFlagsExplicitFalse") is True
                 and latest.get("productionFilesystemChanged") is True
                 and latest.get("productionDatabaseChanged") is False
@@ -5107,8 +5787,10 @@ if deployment_receipt.is_file():
                 and not deployment_path.is_symlink()
                 and sha256_file(deployment_path)
                     == latest.get("deploymentReceiptSha256")
-                and deployment_source.get("schema")
-                    == "fbsir.u3wW1aDeploymentReadinessReceipt.v2"
+                and deployment_source.get("schema") in {
+                    LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+                    DEPLOYMENT_RECEIPT_SCHEMA,
+                }
                 and deployment_source.get("state")
                     == "DEPLOYED_DEFAULT_OFF"
                 and application_assembly_path.is_file()
@@ -5190,6 +5872,24 @@ if deployment_receipt.is_file() and not rollback_latest:
     deployment_receipt_sha256 = sha256_file(resolved_deployment_receipt)
     receipt = json.loads(
         resolved_deployment_receipt.read_text(encoding="utf-8")
+    )
+    deployment_receipt_schema = receipt.get("schema")
+    legacy_deployment_receipt = (
+        deployment_receipt_schema == LEGACY_DEPLOYMENT_RECEIPT_SCHEMA
+    )
+    expected_database_safety_schema = (
+        "fbsir.u3wDatabaseRollbackSafetyReceipt.v1"
+        if legacy_deployment_receipt
+        else "fbsir.u3wDatabaseRollbackSafetyReceipt.v2"
+        if deployment_receipt_schema == DEPLOYMENT_RECEIPT_SCHEMA
+        else None
+    )
+    expected_rollback_execution_schema = (
+        "fbsir.u3wApplicationRollbackExecutionReceipt.v1"
+        if legacy_deployment_receipt
+        else "fbsir.u3wApplicationRollbackExecutionReceipt.v2"
+        if deployment_receipt_schema == DEPLOYMENT_RECEIPT_SCHEMA
+        else None
     )
     deployment_state = receipt.get("state")
     source_commit = receipt.get("sourceCommit")
@@ -5597,7 +6297,7 @@ if deployment_receipt.is_file() and not rollback_latest:
         )
         application_rollback_execution_verified = (
             application_rollback_execution.get("schema")
-                == "fbsir.u3wApplicationRollbackExecutionReceipt.v1"
+                == expected_rollback_execution_schema
             and application_rollback_execution.get("sourceCommit")
                 == source_commit
             and application_rollback_execution.get("releaseId")
@@ -5616,10 +6316,11 @@ if deployment_receipt.is_file() and not rollback_latest:
             and application_rollback_execution.get(
                 "productionDatabaseChanged"
             ) is False
-            and exact_w1a_migration_facts(
+            and recorded_w1a_migration_facts_valid(
                 application_rollback_execution.get(
                     "retainedMigrationFacts"
-                )
+                ),
+                deployment_receipt_schema,
             )
             and application_rollback_execution.get(
                 "retainedMigrationFacts"
@@ -5674,6 +6375,32 @@ if deployment_receipt.is_file() and not rollback_latest:
                 and pre_stage_runtime.get(
                     "attributionJourneyCount"
                 ) == 0
+                and (
+                    legacy_deployment_receipt
+                    or (
+                        pre_stage_runtime.get(
+                            "attributionProbeEventCount"
+                        ) == 0
+                        and pre_stage_runtime.get(
+                            "attributionNaturalEventCount"
+                        ) == 0
+                        and pre_stage_runtime.get(
+                            "attributionNonProbeEventCount"
+                        ) == 0
+                        and pre_stage_runtime.get(
+                            "attributionAuthoritativeProductCreditCount"
+                        ) == 0
+                        and pre_stage_runtime.get(
+                            "attributionProbeJourneyCount"
+                        ) == 0
+                        and pre_stage_runtime.get(
+                            "attributionNaturalJourneyCount"
+                        ) == 0
+                        and pre_stage_runtime.get(
+                            "attributionNonProbeJourneyCount"
+                        ) == 0
+                    )
+                )
                 and pre_stage_runtime.get(
                     "w1aSchemaFingerprintSha256"
                 ) is None
@@ -5687,7 +6414,9 @@ if deployment_receipt.is_file() and not rollback_latest:
                 and database_safety.get(
                     "preDeploymentAttributionTablesAbsent"
                 ) is False
-                and exact_w1a_migration_facts(retained_prestate)
+                and recorded_w1a_migration_facts_valid(
+                    retained_prestate, deployment_receipt_schema
+                )
                 and pre_stage_runtime.get("w1aDatabaseState")
                     == database_prestate
                 and retained_prestate.get("eventCount")
@@ -5698,6 +6427,40 @@ if deployment_receipt.is_file() and not rollback_latest:
                     == pre_stage_runtime.get(
                         "attributionJourneyCount"
                     )
+                and (
+                    legacy_deployment_receipt
+                    or (
+                        retained_prestate.get("probeEventCount")
+                            == pre_stage_runtime.get(
+                                "attributionProbeEventCount"
+                            )
+                        and retained_prestate.get("naturalEventCount")
+                            == pre_stage_runtime.get(
+                                "attributionNaturalEventCount"
+                            )
+                        and retained_prestate.get("nonProbeEventCount")
+                            == pre_stage_runtime.get(
+                                "attributionNonProbeEventCount"
+                            )
+                        and retained_prestate.get(
+                            "authoritativeProductCreditCount"
+                        ) == pre_stage_runtime.get(
+                            "attributionAuthoritativeProductCreditCount"
+                        )
+                        and retained_prestate.get("probeJourneyCount")
+                            == pre_stage_runtime.get(
+                                "attributionProbeJourneyCount"
+                            )
+                        and retained_prestate.get("naturalJourneyCount")
+                            == pre_stage_runtime.get(
+                                "attributionNaturalJourneyCount"
+                            )
+                        and retained_prestate.get("nonProbeJourneyCount")
+                            == pre_stage_runtime.get(
+                                "attributionNonProbeJourneyCount"
+                            )
+                    )
+                )
                 and retained_prestate.get(
                     "schemaFingerprintSha256"
                 ) == pre_stage_runtime.get(
@@ -5707,7 +6470,7 @@ if deployment_receipt.is_file() and not rollback_latest:
         )
         database_safety_verified = (
             database_safety.get("schema")
-                == "fbsir.u3wDatabaseRollbackSafetyReceipt.v1"
+                == expected_database_safety_schema
             and database_safety.get("sourceCommit") == source_commit
             and database_safety.get("releaseId")
                 == receipt.get("releaseId")
@@ -5790,8 +6553,10 @@ if deployment_receipt.is_file() and not rollback_latest:
         and deployment_receipt_status.st_gid == 0
         and deployment_receipt_status.st_nlink == 1
         and deployment_receipt_status.st_mode & 0o777 == 0o600
-        and receipt.get("schema")
-            == "fbsir.u3wW1aDeploymentReadinessReceipt.v2"
+        and deployment_receipt_schema in {
+            LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+            DEPLOYMENT_RECEIPT_SCHEMA,
+        }
         and deployment_state in {
             "STAGED_FOR_SWITCH", "DEPLOYED_DEFAULT_OFF"
         }
@@ -5890,7 +6655,9 @@ if deployment_receipt.is_file() and not rollback_latest:
         and not predecessor_nginx_path.is_symlink()
         and sha256_file(predecessor_nginx_path)
             == application_rollback_assembly.get("previousNginxSha256")
-        and live_w1a_prestate_matches(pre_stage_runtime, database)
+        and live_w1a_prestate_matches(
+            pre_stage_runtime, database, receipt.get("schema")
+        )
     )
     direct_captcha = http_json_status(
         "http://127.0.0.1:8080/captchaImage"
@@ -6071,8 +6838,8 @@ if deployment_receipt.is_file() and not rollback_latest:
             "/opt/fbsir/admin/application-connector.yml"
         )
         migration_baseline = receipt.get("migrationFacts", {})
-        migration_baseline_valid = exact_w1a_migration_facts(
-            migration_baseline
+        migration_baseline_valid = recorded_w1a_migration_facts_valid(
+            migration_baseline, deployment_receipt_schema
         )
         active_artifacts_matched = bool(
             current_link_resolved == str(release_directory)
@@ -6145,6 +6912,19 @@ if deployment_receipt.is_file() and not rollback_latest:
             and database.get("boardAttributionTriggerCount") == 2
             and database.get("boardAttributionPermissionCount") == 1
             and database.get("boardAttributionInternalReceiptCount") == 1
+            and database.get("w1a043State")
+                == "EXACT_043_RETAINED_DORMANT"
+            and database.get("boardAttributionEventCount")
+                == database.get("boardAttributionProbeEventCount")
+            and database.get("boardAttributionNaturalEventCount") == 0
+            and database.get("boardAttributionNonProbeEventCount") == 0
+            and database.get(
+                "boardAttributionAuthoritativeProductCreditCount"
+            ) == 0
+            and database.get("boardAttributionJourneyCount")
+                == database.get("boardAttributionProbeJourneyCount")
+            and database.get("boardAttributionNaturalJourneyCount") == 0
+            and database.get("boardAttributionNonProbeJourneyCount") == 0
             and isinstance(
                 database.get("boardAttributionEventCount"), int
             )
@@ -6584,6 +7364,9 @@ print(json.dumps({
     $backupAnchor = if ($ExpectedBackupReceiptSha256) {
         $ExpectedBackupReceiptSha256.ToLowerInvariant()
     } else { '' }
+    $backupPlanAnchor = if ($ExpectedBackupPlanReceiptSha256) {
+        $ExpectedBackupPlanReceiptSha256.ToLowerInvariant()
+    } else { '' }
     $deploymentAnchor = if ($ExpectedDeploymentReceiptSha256) {
         $ExpectedDeploymentReceiptSha256.ToLowerInvariant()
     } else { '' }
@@ -6633,6 +7416,7 @@ print(json.dumps({
         Replace('__CONFIGURATION_RECEIPT_PATH__', ($ConfigurationReceiptPath | ConvertTo-Json -Compress)).
         Replace('__API2_EVENT_KEY_PATH__', ($Api2EventKeyPath | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_BACKUP_RECEIPT_SHA256__', ($backupAnchor | ConvertTo-Json -Compress)).
+        Replace('__EXPECTED_BACKUP_PLAN_RECEIPT_SHA256__', ($backupPlanAnchor | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_DEPLOYMENT_RECEIPT_SHA256__', ($deploymentAnchor | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST__', ($legacyBaselineAnchor | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256__', ($adminRootDependencyAdoptionAnchor | ConvertTo-Json -Compress)).
@@ -6703,11 +7487,15 @@ if (
         "$backupRunId-anchor.json")
     $backupReceiptPath = Join-Path $productionEvidenceDirectory (
         "$backupRunId-receipt.json")
+    $backupPlanPath = Join-Path $productionEvidenceDirectory (
+        "$backupRunId-plan.json")
     if (
         $ExpectedBackupReceiptSha256 -and
+        $ExpectedBackupPlanReceiptSha256 -and
         $ExpectedAdminRootDependencyAdoptionReceiptSha256 -and
         (Test-Path -LiteralPath $backupAnchorPath -PathType Leaf) -and
-        (Test-Path -LiteralPath $backupReceiptPath -PathType Leaf)
+        (Test-Path -LiteralPath $backupReceiptPath -PathType Leaf) -and
+        (Test-Path -LiteralPath $backupPlanPath -PathType Leaf)
     ) {
         $backupAnchor = Get-Content -Raw -LiteralPath $backupAnchorPath |
             ConvertFrom-Json
@@ -6716,6 +7504,7 @@ if (
         )
         $expectedBackupAnchorFields = @(
             'schema', 'runId', 'sourceCommit', 'targetHost',
+            'planReceiptSha256', 'planReceiptPath',
             'bundleReceiptPath', 'bundleReceiptSha256',
             'adminRootDependencyAdoptionReceiptSha256',
             'sourceDatabaseServerUuid', 'capturedAt'
@@ -6723,15 +7512,36 @@ if (
         $localBackupReceiptSha256 = (
             Get-FileHash -LiteralPath $backupReceiptPath -Algorithm SHA256
         ).Hash.ToLowerInvariant()
+        $localBackupPlanSha256 = (
+            Get-FileHash -LiteralPath $backupPlanPath -Algorithm SHA256
+        ).Hash.ToLowerInvariant()
+        try {
+            $backupAnchorCapturedAt =
+                [DateTimeOffset]::Parse([string]$backupAnchor.capturedAt)
+            $backupAnchorCapturedAtValid = (
+                $backupAnchorCapturedAt.Offset -eq [TimeSpan]::Zero -and
+                $backupAnchorCapturedAt -le [DateTimeOffset]::UtcNow
+            )
+        }
+        catch {
+            $backupAnchorCapturedAtValid = $false
+        }
         $backupExternalAnchorSchema = [string]$backupAnchor.schema
         $backupExternalAnchorVerified = (
             ($backupAnchorFields -join "`n") -ceq
                 ($expectedBackupAnchorFields -join "`n") -and
             $backupAnchor.schema -ceq
-                'fbsir.u3wDatabaseBackupRestoreExternalAnchor.v2' -and
+                'fbsir.u3wDatabaseBackupRestoreExternalAnchor.v3' -and
             $backupAnchor.runId -ceq $backupRunId -and
             $backupAnchor.sourceCommit -ceq
                 [string]$snapshot.backup.sourceCommit -and
+            $backupAnchor.planReceiptSha256 -ceq
+                $ExpectedBackupPlanReceiptSha256.ToLowerInvariant() -and
+            $backupAnchor.planReceiptSha256 -ceq
+                [string]$snapshot.backup.planReceiptSha256 -and
+            $backupAnchor.planReceiptPath -ceq $backupPlanPath -and
+            $localBackupPlanSha256 -ceq
+                $ExpectedBackupPlanReceiptSha256.ToLowerInvariant() -and
             $backupAnchor.targetHost -ceq 'api2.u3w.com' -and
             $backupAnchor.bundleReceiptPath -ceq $backupReceiptPath -and
             $backupAnchor.bundleReceiptSha256 -ceq
@@ -6742,7 +7552,8 @@ if (
                 $ExpectedAdminRootDependencyAdoptionReceiptSha256.
                     ToLowerInvariant() -and
             $backupAnchor.sourceDatabaseServerUuid -ceq
-                [string]$snapshot.backup.sourceDatabaseServerUuid
+                [string]$snapshot.backup.sourceDatabaseServerUuid -and
+            $backupAnchorCapturedAtValid
         )
     }
 }
@@ -6800,7 +7611,7 @@ if (
             ($adoptionAnchorFields -join "`n") -ceq
                 ($expectedAdoptionAnchorFields -join "`n") -and
             $adoptionAnchor.schema -ceq
-                'fbsir.u3wAdminRootDependencyExternalAnchor.v2' -and
+                'fbsir.u3wAdminRootDependencyExternalAnchor.v3' -and
             $adoptionAnchor.runId -ceq $adoptionRunId -and
             $adoptionAnchor.sourceCommit -ceq
                 [string]$snapshot.database.

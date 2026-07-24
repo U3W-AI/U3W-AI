@@ -74,6 +74,73 @@ MIGRATION_INTERNAL_DESCRIPTION = (
 EXPECTED_W1A_SCHEMA_FINGERPRINT = (
     "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d"
 )
+MIGRATION_DORMANT_DATA_FIELDS = (
+    "eventCount",
+    "probeEventCount",
+    "naturalEventCount",
+    "nonProbeEventCount",
+    "authoritativeProductCreditCount",
+    "journeyCount",
+    "probeJourneyCount",
+    "naturalJourneyCount",
+    "nonProbeJourneyCount",
+)
+LEGACY_MIGRATION_FACT_FIELDS = frozenset(
+    {
+        "publicReceiptCount",
+        "internalReceiptCount",
+        "tableCount",
+        "triggerCount",
+        "permissionCount",
+        "eventCount",
+        "journeyCount",
+        "schemaFingerprintSha256",
+    }
+)
+MIGRATION_FACT_FIELDS = (
+    LEGACY_MIGRATION_FACT_FIELDS
+    | frozenset(MIGRATION_DORMANT_DATA_FIELDS)
+)
+DEPLOYMENT_RECEIPT_SCHEMA = (
+    "fbsir.u3wW1aDeploymentReadinessReceipt.v3"
+)
+LEGACY_DEPLOYMENT_RECEIPT_SCHEMA = (
+    "fbsir.u3wW1aDeploymentReadinessReceipt.v2"
+)
+DATABASE_ROLLBACK_SAFETY_SCHEMA = (
+    "fbsir.u3wDatabaseRollbackSafetyReceipt.v2"
+)
+LEGACY_DATABASE_ROLLBACK_SAFETY_SCHEMA = (
+    "fbsir.u3wDatabaseRollbackSafetyReceipt.v1"
+)
+FINAL_CURRENT_READ_SCHEMA = (
+    "fbsir.u3wDefaultOffFinalCurrentRead.v2"
+)
+LEGACY_FINAL_CURRENT_READ_SCHEMA = (
+    "fbsir.u3wDefaultOffFinalCurrentRead.v1"
+)
+APPLICATION_ROLLBACK_EXECUTION_SCHEMA = (
+    "fbsir.u3wApplicationRollbackExecutionReceipt.v2"
+)
+LEGACY_APPLICATION_ROLLBACK_EXECUTION_SCHEMA = (
+    "fbsir.u3wApplicationRollbackExecutionReceipt.v1"
+)
+ROLLBACK_RECEIPT_SCHEMA = (
+    "fbsir.u3wDefaultOffReleaseRollbackReceipt.v2"
+)
+LEGACY_ROLLBACK_RECEIPT_SCHEMA = (
+    "fbsir.u3wDefaultOffReleaseRollbackReceipt.v1"
+)
+ROLLBACK_VERIFICATION_SCHEMA = (
+    "fbsir.u3wDefaultOffRollbackVerificationReceipt.v2"
+)
+LEGACY_ROLLBACK_VERIFICATION_SCHEMA = (
+    "fbsir.u3wDefaultOffRollbackVerificationReceipt.v1"
+)
+APPLY_FAILURE_RECEIPT_SCHEMA = (
+    "fbsir.u3wDefaultOffReleaseFailureReceipt.v2"
+)
+WORKER_RESULT_SCHEMA = "fbsir.u3wDefaultOffReleaseWorkerResult.v2"
 FALSE_FLAGS = (
     "FBSIR_BOARD_ATTRIBUTION_ENABLED",
     "FBSIR_BOARD_ATTRIBUTION_CANDIDATE_ENABLED",
@@ -2712,7 +2779,7 @@ def validate_target_plan_time(args, now=None):
         raise RuntimeError("target release Plan digest drifted")
     plan = read_json(path)
     if (
-        plan.get("schema") != "fbsir.u3wDefaultOffReleasePlan.v1"
+        plan.get("schema") != "fbsir.u3wDefaultOffReleasePlan.v2"
         or plan.get("releaseId") != args.release_id
         or plan.get("sourceCommit") != args.source_commit
     ):
@@ -2785,7 +2852,7 @@ def prepare_stage(args):
             and not (final / "rollback-receipt.json").exists()
         ):
             return {
-                "schema": "fbsir.u3wDefaultOffReleaseWorkerResult.v1",
+                "schema": WORKER_RESULT_SCHEMA,
                 "mode": "PrepareStage",
                 "state": "ALREADY_STAGED",
                 "releaseId": args.release_id,
@@ -2818,7 +2885,7 @@ def prepare_stage(args):
     for relative in ("backend", "frontend", "sql", "evidence", "rollback"):
         safe_directory(incoming / relative, 0o700)
     return {
-        "schema": "fbsir.u3wDefaultOffReleaseWorkerResult.v1",
+        "schema": WORKER_RESULT_SCHEMA,
         "mode": "PrepareStage",
         "state": "READY_FOR_UPLOAD",
         "releaseId": args.release_id,
@@ -2851,27 +2918,153 @@ def jar_attribution_class_count(path):
 def migration_structure_matches(facts, public_receipt_count=1):
     return bool(
         isinstance(facts, dict)
+        and set(facts) == MIGRATION_FACT_FIELDS
+        and facts.get("publicReceiptCount") == public_receipt_count
+        and facts.get("internalReceiptCount") == 1
+        and facts.get("tableCount") == 2
+        and facts.get("triggerCount") == 2
+        and facts.get("permissionCount") == 1
+        and all(
+            type(facts.get(field)) is int and facts[field] >= 0
+            for field in MIGRATION_DORMANT_DATA_FIELDS
+        )
+        and facts.get("probeEventCount") == facts.get("eventCount")
+        and facts.get("naturalEventCount") == 0
+        and facts.get("nonProbeEventCount") == 0
+        and facts.get("authoritativeProductCreditCount") == 0
+        and facts.get("probeJourneyCount") == facts.get("journeyCount")
+        and facts.get("naturalJourneyCount") == 0
+        and facts.get("nonProbeJourneyCount") == 0
+        and facts.get("schemaFingerprintSha256")
+            == EXPECTED_W1A_SCHEMA_FINGERPRINT
+    )
+
+
+def legacy_migration_structure_matches(facts, public_receipt_count=1):
+    return bool(
+        isinstance(facts, dict)
+        and set(facts) == LEGACY_MIGRATION_FACT_FIELDS
         and facts.get("publicReceiptCount") == public_receipt_count
         and facts.get("internalReceiptCount") == 1
         and facts.get("tableCount") == 2
         and facts.get("triggerCount") == 2
         and facts.get("permissionCount") == 1
         and type(facts.get("eventCount")) is int
-        and facts.get("eventCount") >= 0
+        and facts["eventCount"] >= 0
         and type(facts.get("journeyCount")) is int
-        and facts.get("journeyCount") >= 0
+        and facts["journeyCount"] >= 0
         and facts.get("schemaFingerprintSha256")
             == EXPECTED_W1A_SCHEMA_FINGERPRINT
     )
 
 
-def migration_counts_are_monotonic(current, baseline):
+def recorded_migration_facts_match_current(recorded, current, schema):
+    if not migration_structure_matches(current):
+        return False
+    if not recorded_migration_facts_valid(recorded, schema):
+        return False
+    return all(
+        recorded.get(field) == current.get(field)
+        for field in LEGACY_MIGRATION_FACT_FIELDS
+    )
+
+
+def recorded_migration_facts_valid(recorded, schema):
+    if schema in {
+        LEGACY_ROLLBACK_RECEIPT_SCHEMA,
+        LEGACY_ROLLBACK_VERIFICATION_SCHEMA,
+        LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+    }:
+        return legacy_migration_structure_matches(recorded)
+    if schema in {
+        ROLLBACK_RECEIPT_SCHEMA,
+        ROLLBACK_VERIFICATION_SCHEMA,
+        DEPLOYMENT_RECEIPT_SCHEMA,
+    }:
+        return migration_structure_matches(recorded)
+    return False
+
+
+def recorded_migration_counts_are_monotonic(current, baseline, schema):
     return bool(
         migration_structure_matches(current)
-        and migration_structure_matches(baseline)
+        and recorded_migration_facts_valid(baseline, schema)
+        and all(
+            baseline.get(field) == current.get(field)
+            for field in (
+                "publicReceiptCount",
+                "internalReceiptCount",
+                "tableCount",
+                "triggerCount",
+                "permissionCount",
+                "schemaFingerprintSha256",
+            )
+        )
         and current["eventCount"] >= baseline["eventCount"]
         and current["journeyCount"] >= baseline["journeyCount"]
     )
+
+
+def migration_counts_are_monotonic(current, baseline):
+    return recorded_migration_counts_are_monotonic(
+        current,
+        baseline,
+        DEPLOYMENT_RECEIPT_SCHEMA,
+    )
+
+
+def recorded_migration_facts_match_runtime_identity(
+    recorded,
+    identity,
+    schema,
+):
+    if (
+        not recorded_migration_facts_valid(recorded, schema)
+        or not isinstance(identity, dict)
+    ):
+        return False
+    runtime_legacy = {
+        "publicReceiptCount": identity.get("public043ReceiptCount"),
+        "internalReceiptCount":
+            identity.get("attributionInternalReceiptCount"),
+        "tableCount": identity.get("attributionTableCount"),
+        "triggerCount": identity.get("attributionTriggerCount"),
+        "permissionCount": identity.get("attributionPermissionCount"),
+        "eventCount": identity.get("attributionEventCount"),
+        "journeyCount": identity.get("attributionJourneyCount"),
+        "schemaFingerprintSha256":
+            identity.get("w1aSchemaFingerprintSha256"),
+    }
+    if any(
+        recorded.get(field) != runtime_legacy.get(field)
+        for field in LEGACY_MIGRATION_FACT_FIELDS
+    ):
+        return False
+    if schema == LEGACY_DEPLOYMENT_RECEIPT_SCHEMA:
+        return True
+    try:
+        return recorded == migration_facts_from_runtime_identity(identity)
+    except RuntimeError:
+        return False
+
+
+def deployment_contract_schemas(deployment_schema):
+    if deployment_schema == LEGACY_DEPLOYMENT_RECEIPT_SCHEMA:
+        return {
+            "finalCurrentRead": LEGACY_FINAL_CURRENT_READ_SCHEMA,
+            "databaseRollbackSafety":
+                LEGACY_DATABASE_ROLLBACK_SAFETY_SCHEMA,
+            "applicationRollbackExecution":
+                LEGACY_APPLICATION_ROLLBACK_EXECUTION_SCHEMA,
+        }
+    if deployment_schema == DEPLOYMENT_RECEIPT_SCHEMA:
+        return {
+            "finalCurrentRead": FINAL_CURRENT_READ_SCHEMA,
+            "databaseRollbackSafety": DATABASE_ROLLBACK_SAFETY_SCHEMA,
+            "applicationRollbackExecution":
+                APPLICATION_ROLLBACK_EXECUTION_SCHEMA,
+        }
+    raise RuntimeError("deployment receipt schema is unsupported")
 
 
 def migration_facts_from_runtime_identity(identity):
@@ -2885,7 +3078,21 @@ def migration_facts_from_runtime_identity(identity):
         "triggerCount": identity.get("attributionTriggerCount"),
         "permissionCount": identity.get("attributionPermissionCount"),
         "eventCount": identity.get("attributionEventCount"),
+        "probeEventCount": identity.get("attributionProbeEventCount"),
+        "naturalEventCount":
+            identity.get("attributionNaturalEventCount"),
+        "nonProbeEventCount":
+            identity.get("attributionNonProbeEventCount"),
+        "authoritativeProductCreditCount": identity.get(
+            "attributionAuthoritativeProductCreditCount"
+        ),
         "journeyCount": identity.get("attributionJourneyCount"),
+        "probeJourneyCount":
+            identity.get("attributionProbeJourneyCount"),
+        "naturalJourneyCount":
+            identity.get("attributionNaturalJourneyCount"),
+        "nonProbeJourneyCount":
+            identity.get("attributionNonProbeJourneyCount"),
         "schemaFingerprintSha256":
             identity.get("w1aSchemaFingerprintSha256"),
     }
@@ -2944,7 +3151,14 @@ def w1a_database_state(mysql):
             "attributionTriggerCount": 0,
             "attributionPermissionCount": 0,
             "attributionEventCount": 0,
+            "attributionProbeEventCount": 0,
+            "attributionNaturalEventCount": 0,
+            "attributionNonProbeEventCount": 0,
+            "attributionAuthoritativeProductCreditCount": 0,
             "attributionJourneyCount": 0,
+            "attributionProbeJourneyCount": 0,
+            "attributionNaturalJourneyCount": 0,
+            "attributionNonProbeJourneyCount": 0,
             "w1aSchemaFingerprintSha256": None,
         }
     if table_count == 2:
@@ -2963,7 +3177,21 @@ def w1a_database_state(mysql):
                 "attributionTriggerCount": exact["triggerCount"],
                 "attributionPermissionCount": exact["permissionCount"],
                 "attributionEventCount": exact["eventCount"],
+                "attributionProbeEventCount":
+                    exact["probeEventCount"],
+                "attributionNaturalEventCount":
+                    exact["naturalEventCount"],
+                "attributionNonProbeEventCount":
+                    exact["nonProbeEventCount"],
+                "attributionAuthoritativeProductCreditCount":
+                    exact["authoritativeProductCreditCount"],
                 "attributionJourneyCount": exact["journeyCount"],
+                "attributionProbeJourneyCount":
+                    exact["probeJourneyCount"],
+                "attributionNaturalJourneyCount":
+                    exact["naturalJourneyCount"],
+                "attributionNonProbeJourneyCount":
+                    exact["nonProbeJourneyCount"],
                 "w1aSchemaFingerprintSha256":
                     exact["schemaFingerprintSha256"],
             }
@@ -3190,10 +3418,8 @@ def validate_stage_runtime_identity(args, stage):
     elif expected_state == "EXACT_043_RETAINED_DORMANT":
         if (
             current_state != expected_state
-            or current.get("attributionEventCount")
-                != expected.get("attributionEventCount")
-            or current.get("attributionJourneyCount")
-                != expected.get("attributionJourneyCount")
+            or migration_facts_from_runtime_identity(current)
+                != migration_facts_from_runtime_identity(expected)
         ):
             raise RuntimeError(
                 "retained 043 ledger counts drifted after Stage"
@@ -3237,7 +3463,7 @@ def read_staged_release_plan(args, release):
     plan = read_json(plan_path)
     target = plan.get("target")
     if (
-        plan.get("schema") != "fbsir.u3wDefaultOffReleasePlan.v1"
+        plan.get("schema") != "fbsir.u3wDefaultOffReleasePlan.v2"
         or plan.get("sourceCommit") != args.source_commit
         or plan.get("releaseId") != args.release_id
         or plan.get("runnerSha256") != args.runner_sha
@@ -3302,7 +3528,7 @@ def staged_worker_result(args, receipt_path, changed):
         args, receipt_path.parent, receipt
     )
     return {
-        "schema": "fbsir.u3wDefaultOffReleaseWorkerResult.v1",
+        "schema": WORKER_RESULT_SCHEMA,
         "mode": "FinalizeStage",
         "state": "STAGED_FOR_SWITCH",
         "releaseId": args.release_id,
@@ -3342,7 +3568,7 @@ def finalize_stage(args):
         expected_stage = args.stage_receipt_sha
         if (
             staged.get("schema")
-            != "fbsir.u3wW1aDeploymentReadinessReceipt.v2"
+            != DEPLOYMENT_RECEIPT_SCHEMA
             or staged.get("state") != "STAGED_FOR_SWITCH"
             or staged.get("releaseId") != args.release_id
             or staged.get("sourceCommit") != args.source_commit
@@ -3430,7 +3656,7 @@ def finalize_stage(args):
         or build.get("frontend", {}).get("treeSha256")
         != args.frontend_tree_sha
         or build.get("migrationSha256") != args.migration_sha
-        or plan.get("schema") != "fbsir.u3wDefaultOffReleasePlan.v1"
+        or plan.get("schema") != "fbsir.u3wDefaultOffReleasePlan.v2"
         or plan.get("sourceCommit") != args.source_commit
         or plan.get("releaseId") != args.release_id
         or plan.get("buildReceiptSha256") != args.build_receipt_sha
@@ -3564,7 +3790,7 @@ def finalize_stage(args):
     )
     atomic_json(application_path, application_rollback)
     database_safety = {
-        "schema": "fbsir.u3wDatabaseRollbackSafetyReceipt.v1",
+        "schema": DATABASE_ROLLBACK_SAFETY_SCHEMA,
         "releaseId": args.release_id,
         "sourceCommit": args.source_commit,
         "stageApprovalReceiptSha256": args.approval_sha,
@@ -3590,7 +3816,23 @@ def finalize_stage(args):
                 "permissionCount":
                     pre_database["attributionPermissionCount"],
                 "eventCount": pre_database["attributionEventCount"],
+                "probeEventCount":
+                    pre_database["attributionProbeEventCount"],
+                "naturalEventCount":
+                    pre_database["attributionNaturalEventCount"],
+                "nonProbeEventCount":
+                    pre_database["attributionNonProbeEventCount"],
+                "authoritativeProductCreditCount":
+                    pre_database[
+                        "attributionAuthoritativeProductCreditCount"
+                    ],
                 "journeyCount": pre_database["attributionJourneyCount"],
+                "probeJourneyCount":
+                    pre_database["attributionProbeJourneyCount"],
+                "naturalJourneyCount":
+                    pre_database["attributionNaturalJourneyCount"],
+                "nonProbeJourneyCount":
+                    pre_database["attributionNonProbeJourneyCount"],
                 "schemaFingerprintSha256":
                     pre_database["w1aSchemaFingerprintSha256"],
             }
@@ -3634,7 +3876,7 @@ def finalize_stage(args):
     frontend_tree_receipt = frontend_tree_evidence(incoming)
     artifact_manifest = release_artifact_manifest(incoming)
     receipt = {
-        "schema": "fbsir.u3wW1aDeploymentReadinessReceipt.v2",
+        "schema": DEPLOYMENT_RECEIPT_SCHEMA,
         "state": "STAGED_FOR_SWITCH",
         "releaseId": args.release_id,
         "sourceCommit": args.source_commit,
@@ -3828,8 +4070,50 @@ def exact_migration_facts(mysql):
         "eventCount": int(
             mysql.scalar("SELECT COUNT(*) FROM fbs_board_attr_event_v1")
         ),
+        "probeEventCount": int(
+            mysql.scalar(
+                "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+                "WHERE BINARY traffic_class=BINARY 'PROBE'"
+            )
+        ),
+        "naturalEventCount": int(
+            mysql.scalar(
+                "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+                "WHERE BINARY traffic_class=BINARY 'NATURAL'"
+            )
+        ),
+        "nonProbeEventCount": int(
+            mysql.scalar(
+                "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+                "WHERE BINARY traffic_class<>BINARY 'PROBE'"
+            )
+        ),
+        "authoritativeProductCreditCount": int(
+            mysql.scalar(
+                "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+                "WHERE authoritative_product_credit<>0"
+            )
+        ),
         "journeyCount": int(
             mysql.scalar("SELECT COUNT(*) FROM fbs_board_attr_journey_v1")
+        ),
+        "probeJourneyCount": int(
+            mysql.scalar(
+                "SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+                "WHERE BINARY traffic_class=BINARY 'PROBE'"
+            )
+        ),
+        "naturalJourneyCount": int(
+            mysql.scalar(
+                "SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+                "WHERE BINARY traffic_class=BINARY 'NATURAL'"
+            )
+        ),
+        "nonProbeJourneyCount": int(
+            mysql.scalar(
+                "SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+                "WHERE BINARY traffic_class<>BINARY 'PROBE'"
+            )
         ),
         "schemaFingerprintSha256": migration_fingerprint(mysql),
     }
@@ -4001,9 +4285,12 @@ def apply_migration(args, release, expected_runtime_identity):
 def deployed_migration_lease(args, release, deployment):
     expected_runtime_identity = deployment.get("preStageRuntimeIdentity")
     baseline = deployment.get("migrationFacts")
+    deployment_schema = deployment.get("schema")
     if (
         not isinstance(expected_runtime_identity, dict)
-        or not migration_structure_matches(baseline)
+        or not recorded_migration_facts_valid(
+            baseline, deployment_schema
+        )
     ):
         raise RuntimeError("deployment migration baseline is invalid")
     migration = release / "sql/public_init_043.sql"
@@ -4023,7 +4310,9 @@ def deployed_migration_lease(args, release, deployment):
             mysql, connection, expected_runtime_identity
         )
         facts = exact_migration_facts(mysql)
-        if not migration_counts_are_monotonic(facts, baseline):
+        if not recorded_migration_counts_are_monotonic(
+            facts, baseline, deployment_schema
+        ):
             raise RuntimeError(
                 "deployed W1A ledger structure or monotonic counts drifted"
             )
@@ -4108,7 +4397,7 @@ def validate_stage_receipt(args, release):
         raise RuntimeError("staged receipt anchor drifted")
     receipt = read_json(path)
     if (
-        receipt.get("schema") != "fbsir.u3wW1aDeploymentReadinessReceipt.v2"
+        receipt.get("schema") != DEPLOYMENT_RECEIPT_SCHEMA
         or receipt.get("state") != "STAGED_FOR_SWITCH"
         or receipt.get("releaseId") != args.release_id
         or receipt.get("sourceCommit") != args.source_commit
@@ -4620,7 +4909,7 @@ def final_default_off_current_read(
             "attribution counts changed during final default-off probe"
         )
     return final_service, {
-        "schema": "fbsir.u3wDefaultOffFinalCurrentRead.v1",
+        "schema": FINAL_CURRENT_READ_SCHEMA,
         "verified": True,
         "serviceStableDuringProbe": True,
         "serviceInvocationId": final_service.get("invocationId"),
@@ -4637,7 +4926,9 @@ def validate_final_default_off_current_read(
     evidence,
     service,
     migration_facts,
+    deployment_schema,
 ):
+    contract_schemas = deployment_contract_schemas(deployment_schema)
     probe = (
         evidence.get("disabledAttributionIngressProbe")
         if isinstance(evidence, dict) else None
@@ -4685,8 +4976,11 @@ def validate_final_default_off_current_read(
     if (
         not isinstance(evidence, dict)
         or not isinstance(service, dict)
+        or not recorded_migration_facts_valid(
+            migration_facts, deployment_schema
+        )
         or evidence.get("schema")
-            != "fbsir.u3wDefaultOffFinalCurrentRead.v1"
+            != contract_schemas["finalCurrentRead"]
         or evidence.get("verified") is not True
         or evidence.get("serviceStableDuringProbe") is not True
         or evidence.get("serviceInvocationId")
@@ -4752,6 +5046,7 @@ def deployment_receipt(
         final_current_read,
         after,
         migration_facts,
+        DEPLOYMENT_RECEIPT_SCHEMA,
     )
     active_nginx, nginx_dump_sha256 = active_nginx_manifest()
     receipt = dict(stage)
@@ -4833,7 +5128,7 @@ def application_rollback_execution_receipt(
     ):
         raise RuntimeError("application rollback execution proof is invalid")
     receipt = {
-        "schema": "fbsir.u3wApplicationRollbackExecutionReceipt.v1",
+        "schema": APPLICATION_ROLLBACK_EXECUTION_SCHEMA,
         "releaseId": args.release_id,
         "sourceCommit": args.source_commit,
         "applyApprovalReceiptSha256": args.approval_sha,
@@ -4869,7 +5164,7 @@ def apply_worker_result(
 ):
     receipt = read_json(deployment_path)
     return {
-        "schema": "fbsir.u3wDefaultOffReleaseWorkerResult.v1",
+        "schema": WORKER_RESULT_SCHEMA,
         "mode": "Apply",
         "state": "DEPLOYED_DEFAULT_OFF",
         "releaseId": args.release_id,
@@ -4962,7 +5257,7 @@ def write_apply_failure_receipt(
         )
         deployment_receipt_sha256 = sha256_file(deployment_path)
     receipt = {
-        "schema": "fbsir.u3wDefaultOffReleaseFailureReceipt.v1",
+        "schema": APPLY_FAILURE_RECEIPT_SCHEMA,
         "state": state,
         "releaseId": args.release_id,
         "sourceCommit": args.source_commit,
@@ -5148,7 +5443,7 @@ def apply_release(args):
         existing = read_json(deployment_path)
         if (
             existing.get("schema")
-            != "fbsir.u3wW1aDeploymentReadinessReceipt.v2"
+            != DEPLOYMENT_RECEIPT_SCHEMA
             or existing.get("state") != "DEPLOYED_DEFAULT_OFF"
             or existing.get("releaseId") != args.release_id
             or existing.get("sourceCommit") != args.source_commit
@@ -5176,6 +5471,7 @@ def apply_release(args):
             existing.get("finalDefaultOffCurrentRead"),
             existing.get("serviceAfter"),
             existing.get("migrationFacts"),
+            existing.get("schema"),
         )
         migration_lease = None
         try:
@@ -5557,6 +5853,8 @@ def assert_candidate_snapshot_evidence(args, release, snapshot):
 def validate_release_evidence(
     args, release, receipt, require_execution
 ):
+    deployment_schema = receipt.get("schema")
+    contract_schemas = deployment_contract_schemas(deployment_schema)
     assembly_path, assembly = anchored_evidence_json(
         release,
         receipt,
@@ -5657,18 +5955,16 @@ def validate_release_evidence(
             and database.get(
                 "preDeploymentAttributionTablesAbsent"
             ) is False
-            and migration_structure_matches(retained_prestate)
-            and retained_prestate.get("eventCount")
-                == staged_runtime.get("attributionEventCount")
-            and retained_prestate.get("journeyCount")
-                == staged_runtime.get("attributionJourneyCount")
-            and retained_prestate.get("schemaFingerprintSha256")
-                == staged_runtime.get("w1aSchemaFingerprintSha256")
+            and recorded_migration_facts_match_runtime_identity(
+                retained_prestate,
+                staged_runtime,
+                deployment_schema,
+            )
         )
     )
     if (
         database.get("schema")
-            != "fbsir.u3wDatabaseRollbackSafetyReceipt.v1"
+            != contract_schemas["databaseRollbackSafety"]
         or database.get("releaseId") != args.release_id
         or database.get("sourceCommit") != args.source_commit
         or database.get("stageApprovalReceiptSha256")
@@ -5736,7 +6032,7 @@ def validate_release_evidence(
     }
     if (
         execution.get("schema")
-            != "fbsir.u3wApplicationRollbackExecutionReceipt.v1"
+            != contract_schemas["applicationRollbackExecution"]
         or execution.get("releaseId") != args.release_id
         or execution.get("sourceCommit") != args.source_commit
         or execution.get("applyApprovalReceiptSha256")
@@ -5776,8 +6072,12 @@ def validate_deployment_receipt(args, release):
     if sha256_file(path) != args.deployment_receipt_sha:
         raise RuntimeError("deployment receipt anchor drifted")
     receipt = read_json(path)
+    receipt_schema = receipt.get("schema")
     if (
-        receipt.get("schema") != "fbsir.u3wW1aDeploymentReadinessReceipt.v2"
+        receipt_schema not in {
+            LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+            DEPLOYMENT_RECEIPT_SCHEMA,
+        }
         or receipt.get("state") != "DEPLOYED_DEFAULT_OFF"
         or receipt.get("releaseId") != args.release_id
         or receipt.get("sourceCommit") != args.source_commit
@@ -5797,12 +6097,16 @@ def validate_deployment_receipt(args, release):
         ) is not bool
         or receipt.get("productionDatabaseChanged")
             != receipt.get("productionDatabaseChangedSinceStage")
+        or not recorded_migration_facts_valid(
+            receipt.get("migrationFacts"), receipt_schema
+        )
     ):
         raise RuntimeError("deployment receipt identity is invalid")
     validate_final_default_off_current_read(
         receipt.get("finalDefaultOffCurrentRead"),
         receipt.get("serviceAfter"),
         receipt.get("migrationFacts"),
+        receipt.get("schema"),
     )
     validate_staged_release_artifacts(args, release, receipt)
     validate_release_evidence(
@@ -5832,8 +6136,10 @@ def verify_release(args):
             CURRENT_LINK.resolve() == release.resolve()
             and current["jarSha256"] == args.backend_sha
             and frontend["sha256"] == args.frontend_tree_sha
-            and migration_counts_are_monotonic(
-                migration, deployment.get("migrationFacts")
+            and recorded_migration_counts_are_monotonic(
+                migration,
+                deployment.get("migrationFacts"),
+                deployment.get("schema"),
             )
             and sha256_file(
                 release / "evidence/frontend-manifest.txt"
@@ -5846,7 +6152,7 @@ def verify_release(args):
                 "deployed default-off release verification failed"
             )
         return {
-            "schema": "fbsir.u3wDefaultOffReleaseWorkerResult.v1",
+            "schema": WORKER_RESULT_SCHEMA,
             "mode": "Verify",
             "state": "DEPLOYED_DEFAULT_OFF",
             "releaseId": args.release_id,
@@ -5926,12 +6232,20 @@ def assert_predecessor_active(release):
 def validate_rollback_receipt_base(original, release):
     deployment_path = release / "deployment-receipt.json"
     validate_regular_file(deployment_path, release, modes=(0o600,))
+    receipt_schema = original.get("schema")
     state = original.get("state")
     retained = original.get("retainedMigrationFacts")
     if state == "ROLLED_BACK_APPLICATION_DATABASE_043_RETAINED_DORMANT":
+        retained_valid = (
+            legacy_migration_structure_matches(retained)
+            if receipt_schema == LEGACY_ROLLBACK_RECEIPT_SCHEMA
+            else migration_structure_matches(retained)
+            if receipt_schema == ROLLBACK_RECEIPT_SCHEMA
+            else False
+        )
         database_evidence_valid = bool(
             original.get("databaseSafetyCurrentRead") == "VERIFIED"
-            and migration_structure_matches(retained)
+            and retained_valid
         )
     elif (
         state
@@ -5947,8 +6261,10 @@ def validate_rollback_receipt_base(original, release):
     else:
         database_evidence_valid = False
     if (
-        original.get("schema")
-            != "fbsir.u3wDefaultOffReleaseRollbackReceipt.v1"
+        receipt_schema not in {
+            LEGACY_ROLLBACK_RECEIPT_SCHEMA,
+            ROLLBACK_RECEIPT_SCHEMA,
+        }
         or original.get("releaseId") != release.name
         or not COMMIT_PATTERN.fullmatch(
             str(original.get("sourceCommit") or "")
@@ -5992,10 +6308,10 @@ def validated_rollback_receipt_chain(receipt_path):
         raise RuntimeError("rollback receipt escaped the release root")
     latest = read_json(receipt_path)
     verification = None
-    if (
-        latest.get("schema")
-        == "fbsir.u3wDefaultOffRollbackVerificationReceipt.v1"
-    ):
+    if latest.get("schema") in {
+        LEGACY_ROLLBACK_VERIFICATION_SCHEMA,
+        ROLLBACK_VERIFICATION_SCHEMA,
+    }:
         if receipt_path.name != "rollback-verification-receipt.json":
             raise RuntimeError("rollback verification path is invalid")
         original_path = release / "rollback-receipt.json"
@@ -6020,6 +6336,7 @@ def validated_rollback_receipt_chain(receipt_path):
     deployment_path = validate_rollback_receipt_base(original, release)
     effective_state = original.get("state")
     retained_facts = original.get("retainedMigrationFacts")
+    retained_facts_schema = original.get("schema")
     if verification is not None:
         if (
             original.get("state")
@@ -6053,10 +6370,20 @@ def validated_rollback_receipt_chain(receipt_path):
             raise RuntimeError("rollback verification receipt drifted")
         effective_state = verification["state"]
         retained_facts = verification.get("retainedMigrationFacts")
+        retained_facts_schema = verification.get("schema")
+    retained_facts_valid = (
+        legacy_migration_structure_matches(retained_facts)
+        if retained_facts_schema == LEGACY_ROLLBACK_VERIFICATION_SCHEMA
+        or retained_facts_schema == LEGACY_ROLLBACK_RECEIPT_SCHEMA
+        else migration_structure_matches(retained_facts)
+        if retained_facts_schema == ROLLBACK_VERIFICATION_SCHEMA
+        or retained_facts_schema == ROLLBACK_RECEIPT_SCHEMA
+        else False
+    )
     if (
         effective_state
         != "ROLLED_BACK_APPLICATION_DATABASE_043_RETAINED_DORMANT"
-        or not migration_structure_matches(retained_facts)
+        or not retained_facts_valid
     ):
         raise RuntimeError("rollback chain does not prove retained 043")
     return {
@@ -6067,6 +6394,7 @@ def validated_rollback_receipt_chain(receipt_path):
         "sourceCommit": original["sourceCommit"],
         "state": effective_state,
         "retainedMigrationFacts": retained_facts,
+        "retainedMigrationFactsSchema": retained_facts_schema,
         "originalReceiptPath": original_path,
         "originalReceiptSha256": sha256_file(original_path),
     }
@@ -6098,7 +6426,11 @@ def validate_prior_rollback_stage_entry(current):
         raise RuntimeError("prior rollback predecessor topology drifted")
     assert_restored_predecessor_runtime_contract(release, current)
     migration = read_exact_migration_facts()
-    if migration != chain["retainedMigrationFacts"]:
+    if not recorded_migration_facts_match_current(
+        chain["retainedMigrationFacts"],
+        migration,
+        chain["retainedMigrationFactsSchema"],
+    ):
         raise RuntimeError("prior rollback retained 043 facts drifted")
     wait_for_u3w_health()
     return {
@@ -6379,7 +6711,7 @@ def ensure_rollback_verification_receipt(
         raise RuntimeError("rollback verification migration facts drifted")
     path = release / "rollback-verification-receipt.json"
     expected = {
-        "schema": "fbsir.u3wDefaultOffRollbackVerificationReceipt.v1",
+        "schema": ROLLBACK_VERIFICATION_SCHEMA,
         "state": (
             "ROLLED_BACK_APPLICATION_DATABASE_043_RETAINED_DORMANT"
         ),
@@ -6430,9 +6762,12 @@ def _rollback_release(args):
     if path.exists():
         validate_regular_file(path, release, modes=(0o600,))
         receipt = read_json(path)
+        receipt_schema = receipt.get("schema")
         if (
-            receipt.get("schema")
-            != "fbsir.u3wDefaultOffReleaseRollbackReceipt.v1"
+            receipt_schema not in {
+                LEGACY_ROLLBACK_RECEIPT_SCHEMA,
+                ROLLBACK_RECEIPT_SCHEMA,
+            }
             or receipt.get("releaseId") != args.release_id
             or receipt.get("sourceCommit") != args.source_commit
             or receipt.get("deploymentReceiptSha256")
@@ -6458,8 +6793,11 @@ def _rollback_release(args):
             if (
                 current_state
                 == "ROLLED_BACK_APPLICATION_DATABASE_043_RETAINED_DORMANT"
-                and migration_facts
-                    != receipt.get("retainedMigrationFacts")
+                and not recorded_migration_facts_match_current(
+                    receipt.get("retainedMigrationFacts"),
+                    migration_facts,
+                    receipt_schema,
+                )
             ):
                 raise RuntimeError(
                     "existing rollback retained ledger facts drifted"
@@ -6503,7 +6841,7 @@ def _rollback_release(args):
             ],
         )
         return {
-            "schema": "fbsir.u3wDefaultOffReleaseWorkerResult.v1",
+            "schema": WORKER_RESULT_SCHEMA,
             "mode": "Rollback",
             "state": result_receipt["state"],
             "releaseId": args.release_id,
@@ -6583,7 +6921,7 @@ def _rollback_release(args):
         else "ROLLED_BACK_APPLICATION_DATABASE_CURRENT_READ_UNAVAILABLE"
     )
     receipt = {
-        "schema": "fbsir.u3wDefaultOffReleaseRollbackReceipt.v1",
+        "schema": ROLLBACK_RECEIPT_SCHEMA,
         "state": rollback_state,
         "releaseId": args.release_id,
         "sourceCommit": args.source_commit,
@@ -6614,7 +6952,7 @@ def _rollback_release(args):
     atomic_json(path, receipt)
     advance_latest_receipt(path, [deployment_path])
     return {
-        "schema": "fbsir.u3wDefaultOffReleaseWorkerResult.v1",
+        "schema": WORKER_RESULT_SCHEMA,
         "mode": "Rollback",
         "state": receipt["state"],
         "releaseId": args.release_id,
@@ -6698,7 +7036,7 @@ def validated_failure_receipt_evidence(args, error):
         raise RuntimeError("failure receipt escaped the exact release root")
     if args.mode == "Apply":
         name_matches = APPLY_FAILURE_NAME_PATTERN.fullmatch(path.name)
-        expected_schema = "fbsir.u3wDefaultOffReleaseFailureReceipt.v1"
+        expected_schema = APPLY_FAILURE_RECEIPT_SCHEMA
         approval_field = "applyApprovalReceiptSha256"
         allowed_states = APPLY_FAILURE_STATES
     elif args.mode == "Rollback":

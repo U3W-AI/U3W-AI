@@ -17,6 +17,8 @@ param(
     [ValidatePattern('^[0-9a-f]{64}$')]
     [string]$ExpectedBackupReceiptSha256,
     [ValidatePattern('^[0-9a-f]{64}$')]
+    [string]$ExpectedBackupPlanReceiptSha256,
+    [ValidatePattern('^[0-9a-f]{64}$')]
     [string]$ExpectedLegacyBaselineReceiptDigest,
     [ValidatePattern('^[0-9a-f]{64}$')]
     [string]$ExpectedAdminRootDependencyAdoptionReceiptSha256,
@@ -40,7 +42,7 @@ $ExpectedPublicKeyFingerprint =
     'SHA256:oCIzbO9W94qDBeS9MtetLCW0CjYMkyZqT6QkgcLkXk0'
 $ExpectedRemoteHostKeyFingerprint =
     'SHA256:GkS/HJpLm48N+KaMV/WEVSBHnI8PKJsU+6ycAsn+mBA'
-$RunnerContractVersion = 'fbsir.u3wDefaultOffReleaseRunner.v1'
+$RunnerContractVersion = 'fbsir.u3wDefaultOffReleaseRunner.v2'
 $RequiredModes = @('Build', 'Plan', 'Stage', 'Apply', 'Rollback', 'Verify')
 if (-not $ReleaseId) {
     $ReleaseId = 'w1a-release-{0}-{1}' -f $ExpectedCommit.Substring(0, 12),
@@ -530,7 +532,7 @@ function Resolve-PlanReceipt {
     $generated = [DateTimeOffset]::Parse($receipt.generatedAt)
     $expires = [DateTimeOffset]::Parse($receipt.expiresAt)
     if (
-        $receipt.schema -ne 'fbsir.u3wDefaultOffReleasePlan.v1' -or
+        $receipt.schema -ne 'fbsir.u3wDefaultOffReleasePlan.v2' -or
         $receipt.runnerContractVersion -ne $RunnerContractVersion -or
         $receipt.mode -ne 'Plan' -or
         $receipt.releaseId -ne $ReleaseId -or
@@ -1464,6 +1466,8 @@ if LATEST_RECEIPT.exists() or LATEST_RECEIPT.is_symlink():
         latest_document.get("schema") in {
             "fbsir.u3wDefaultOffReleaseRollbackReceipt.v1",
             "fbsir.u3wDefaultOffRollbackVerificationReceipt.v1",
+            "fbsir.u3wDefaultOffReleaseRollbackReceipt.v2",
+            "fbsir.u3wDefaultOffRollbackVerificationReceipt.v2",
         }
         and latest_document.get("state") in {
             "ROLLED_BACK_APPLICATION_DATABASE_043_RETAINED_DORMANT",
@@ -1685,7 +1689,7 @@ function Invoke-Plan {
     $runnerSha = Get-RunnerSha256
     $planGeneratedAt = [DateTime]::UtcNow
     $receipt = [ordered]@{
-        schema = 'fbsir.u3wDefaultOffReleasePlan.v1'
+        schema = 'fbsir.u3wDefaultOffReleasePlan.v2'
         runnerContractVersion = $RunnerContractVersion
         mode = 'Plan'
         state = 'PLAN_VERIFIED_NOT_STAGE_ELIGIBLE'
@@ -1748,7 +1752,7 @@ function Invoke-Plan {
         Write-Utf8NoBomAtomic -Path $PlanOutputPath -Content $planContent
     }
     return [ordered]@{
-        schema = 'fbsir.u3wDefaultOffReleaseRunnerResult.v1'
+        schema = 'fbsir.u3wDefaultOffReleaseRunnerResult.v2'
         mode = 'Plan'
         state = $receipt.state
         releaseId = $ReleaseId
@@ -1885,8 +1889,10 @@ required=(
 )
 if (
   actual != expected_sha
-  or receipt.get("schema")
-    != "fbsir.u3wW1aDeploymentReadinessReceipt.v2"
+  or receipt.get("schema") not in (
+    "fbsir.u3wW1aDeploymentReadinessReceipt.v2",
+    "fbsir.u3wW1aDeploymentReadinessReceipt.v3",
+  )
   or receipt.get("state") != "DEPLOYED_DEFAULT_OFF"
   or receipt.get("releaseId") != release_id
   or receipt.get("sourceCommit") != source_commit
@@ -1907,6 +1913,7 @@ print(json.dumps({
   "schema":"fbsir.u3wRemoteDeploymentRecoveryContext.v1",
   "releaseId":release_id,
   "sourceCommit":source_commit,
+  "deploymentReceiptSchema":receipt["schema"],
   "deploymentReceiptPath":str(path),
   "deploymentReceiptSha256":actual,
   **{key:receipt[key] for key in required}
@@ -1947,6 +1954,10 @@ print(json.dumps({
             'fbsir.u3wRemoteDeploymentRecoveryContext.v1' -or
         $context.releaseId -ne $ReleaseId -or
         $context.sourceCommit -ne $ExpectedCommit -or
+        [string]$context.deploymentReceiptSchema -notin @(
+            'fbsir.u3wW1aDeploymentReadinessReceipt.v2',
+            'fbsir.u3wW1aDeploymentReadinessReceipt.v3'
+        ) -or
         $context.deploymentReceiptSha256 -ne
             $ExpectedDeploymentReceiptSha256
     ) {
@@ -2019,6 +2030,9 @@ function Resolve-RecoveryContext {
 }
 
 function Assert-ReceiptAnchorsForMutatingMode {
+    if (-not $ExpectedBackupPlanReceiptSha256) {
+        throw "$Mode requires the approved backup Plan receipt anchor"
+    }
     if (
         $Mode -in @('Rollback', 'Verify') -or
         (
@@ -2032,6 +2046,7 @@ function Assert-ReceiptAnchorsForMutatingMode {
         -not $ExpectedBuildReceiptSha256 -or
         -not $ExpectedReleasePlanReceiptSha256 -or
         -not $ExpectedBackupReceiptSha256 -or
+        -not $ExpectedBackupPlanReceiptSha256 -or
         -not $ExpectedLegacyBaselineReceiptDigest -or
         -not $ExpectedAdminRootDependencyAdoptionReceiptSha256 -or
         -not $ExpectedConfigurationReceiptSha256
@@ -2238,7 +2253,7 @@ function Invoke-CommittedRemoteWorker {
             $failureReceipt = [Text.Encoding]::UTF8.GetString(
                 $failureReceiptBytes) | ConvertFrom-Json
             $expectedFailureSchema = if ($WorkerMode -eq 'Apply') {
-                'fbsir.u3wDefaultOffReleaseFailureReceipt.v1'
+                'fbsir.u3wDefaultOffReleaseFailureReceipt.v2'
             } else {
                 'fbsir.u3wDefaultOffRollbackFailureReceipt.v1'
             }
@@ -2383,7 +2398,7 @@ function Invoke-CommittedRemoteWorker {
     }
     if (
         $result.schema -ne
-            'fbsir.u3wDefaultOffReleaseWorkerResult.v1' -or
+            'fbsir.u3wDefaultOffReleaseWorkerResult.v2' -or
         $result.mode -ne $WorkerMode -or
         $result.releaseId -ne $ReleaseId -or
         $result.sourceCommit -ne $ExpectedCommit -or
@@ -2439,18 +2454,31 @@ function Invoke-CommittedRemoteWorker {
             -RemotePath $receiptPath -ExpectedSha256 $receiptSha256
         $receipt = [Text.Encoding]::UTF8.GetString(
             $receiptBytes) | ConvertFrom-Json
-        $expectedReceiptSchema = if (
+        $expectedReceiptSchemas = if (
             $WorkerMode -eq 'Rollback' -and
             $receiptPath.EndsWith(
                 '/rollback-verification-receipt.json',
                 [StringComparison]::Ordinal)
         ) {
-            'fbsir.u3wDefaultOffRollbackVerificationReceipt.v1'
+            @(
+                'fbsir.u3wDefaultOffRollbackVerificationReceipt.v1',
+                'fbsir.u3wDefaultOffRollbackVerificationReceipt.v2'
+            )
         }
         elseif ($WorkerMode -eq 'Rollback') {
-            'fbsir.u3wDefaultOffReleaseRollbackReceipt.v1'
-        } else {
-            'fbsir.u3wW1aDeploymentReadinessReceipt.v2'
+            @(
+                'fbsir.u3wDefaultOffReleaseRollbackReceipt.v1',
+                'fbsir.u3wDefaultOffReleaseRollbackReceipt.v2'
+            )
+        }
+        elseif ($WorkerMode -eq 'Verify') {
+            @(
+                'fbsir.u3wW1aDeploymentReadinessReceipt.v2',
+                'fbsir.u3wW1aDeploymentReadinessReceipt.v3'
+            )
+        }
+        else {
+            @('fbsir.u3wW1aDeploymentReadinessReceipt.v3')
         }
         $receiptApprovalField = @{
             FinalizeStage = 'stageApprovalReceiptSha256'
@@ -2463,7 +2491,8 @@ function Invoke-CommittedRemoteWorker {
                 [string]$result.transitionApprovalReceiptSha256
         )
         if (
-            $receipt.schema -ne $expectedReceiptSchema -or
+            $expectedReceiptSchemas -cnotcontains
+                [string]$receipt.schema -or
             $receipt.releaseId -ne $ReleaseId -or
             $receipt.sourceCommit -ne $ExpectedCommit -or
             $receipt.adminRootDependencyAdoptionReceiptSha256 -ne
@@ -2507,9 +2536,43 @@ function Invoke-CommittedRemoteWorker {
         }
         if (
             $WorkerMode -eq 'Rollback' -and
-            $receipt.schema -ceq
-                'fbsir.u3wDefaultOffRollbackVerificationReceipt.v1'
+            [string]$receipt.schema -cin @(
+                'fbsir.u3wDefaultOffRollbackVerificationReceipt.v1',
+                'fbsir.u3wDefaultOffRollbackVerificationReceipt.v2'
+            )
         ) {
+            $legacyRollbackVerification = (
+                [string]$receipt.schema -ceq
+                    'fbsir.u3wDefaultOffRollbackVerificationReceipt.v1'
+            )
+            $retained = $receipt.retainedMigrationFacts
+            $retainedSharedFactsValid = (
+                $retained.publicReceiptCount -eq 1 -and
+                $retained.internalReceiptCount -eq 1 -and
+                $retained.tableCount -eq 2 -and
+                $retained.triggerCount -eq 2 -and
+                $retained.permissionCount -eq 1 -and
+                $retained.eventCount -is [long] -and
+                $retained.eventCount -ge 0 -and
+                $retained.journeyCount -is [long] -and
+                $retained.journeyCount -ge 0 -and
+                $retained.schemaFingerprintSha256 -ceq
+                    'fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d'
+            )
+            $retainedDistributionFactsValid = (
+                $legacyRollbackVerification -or
+                (
+                    $retained.probeEventCount -eq
+                        $retained.eventCount -and
+                    $retained.naturalEventCount -eq 0 -and
+                    $retained.nonProbeEventCount -eq 0 -and
+                    $retained.authoritativeProductCreditCount -eq 0 -and
+                    $retained.probeJourneyCount -eq
+                        $retained.journeyCount -and
+                    $retained.naturalJourneyCount -eq 0 -and
+                    $retained.nonProbeJourneyCount -eq 0
+                )
+            )
             $originalPath = [string]$receipt.rollbackReceiptPath
             $originalSha = [string]$receipt.rollbackReceiptSha256
             if (
@@ -2525,17 +2588,8 @@ function Invoke-CommittedRemoteWorker {
                 $receipt.productionDatabaseChanged -ne $false -or
                 $receipt.productionServiceChanged -ne $false -or
                 $receipt.officialExpertsPackageChanged -ne $false -or
-                $receipt.retainedMigrationFacts.publicReceiptCount -ne 1 -or
-                $receipt.retainedMigrationFacts.internalReceiptCount -ne 1 -or
-                $receipt.retainedMigrationFacts.tableCount -ne 2 -or
-                $receipt.retainedMigrationFacts.triggerCount -ne 2 -or
-                $receipt.retainedMigrationFacts.permissionCount -ne 1 -or
-                $receipt.retainedMigrationFacts.eventCount -isnot [long] -or
-                $receipt.retainedMigrationFacts.eventCount -lt 0 -or
-                $receipt.retainedMigrationFacts.journeyCount -isnot [long] -or
-                $receipt.retainedMigrationFacts.journeyCount -lt 0 -or
-                $receipt.retainedMigrationFacts.schemaFingerprintSha256 -cne
-                    'fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d'
+                -not $retainedSharedFactsValid -or
+                -not $retainedDistributionFactsValid
             ) {
                 throw 'rollback verification original anchor is invalid'
             }
@@ -2543,9 +2597,20 @@ function Invoke-CommittedRemoteWorker {
                 -RemotePath $originalPath -ExpectedSha256 $originalSha
             $original = [Text.Encoding]::UTF8.GetString(
                 $originalBytes) | ConvertFrom-Json
+            $allowedOriginalRollbackSchemas = if (
+                $legacyRollbackVerification
+            ) {
+                @('fbsir.u3wDefaultOffReleaseRollbackReceipt.v1')
+            }
+            else {
+                @(
+                    'fbsir.u3wDefaultOffReleaseRollbackReceipt.v1',
+                    'fbsir.u3wDefaultOffReleaseRollbackReceipt.v2'
+                )
+            }
             if (
-                $original.schema -cne
-                    'fbsir.u3wDefaultOffReleaseRollbackReceipt.v1' -or
+                $allowedOriginalRollbackSchemas -cnotcontains
+                    [string]$original.schema -or
                 $original.state -cne
                     'ROLLED_BACK_APPLICATION_DATABASE_CURRENT_READ_UNAVAILABLE' -or
                 $original.releaseId -cne $ReleaseId -or
@@ -2603,13 +2668,48 @@ function Invoke-CommittedRemoteWorker {
             'application-rollback-execution'
         )
     }
+    $deploymentContractSchema = if (
+        $receipt -and
+        [string]$receipt.schema -cin @(
+            'fbsir.u3wW1aDeploymentReadinessReceipt.v2',
+            'fbsir.u3wW1aDeploymentReadinessReceipt.v3'
+        )
+    ) {
+        [string]$receipt.schema
+    }
+    elseif (
+        $Context.remoteDeployment -and
+        [string]$Context.remoteDeployment.deploymentReceiptSchema -cin @(
+            'fbsir.u3wW1aDeploymentReadinessReceipt.v2',
+            'fbsir.u3wW1aDeploymentReadinessReceipt.v3'
+        )
+    ) {
+        [string]$Context.remoteDeployment.deploymentReceiptSchema
+    }
+    else {
+        'fbsir.u3wW1aDeploymentReadinessReceipt.v3'
+    }
+    $legacyDeploymentContract = (
+        $deploymentContractSchema -ceq
+            'fbsir.u3wW1aDeploymentReadinessReceipt.v2'
+    )
     $schemaByEvidenceName = @{
         'application-rollback-assembly' =
             'fbsir.u3wApplicationRollbackAssemblyReceipt.v1'
-        'database-rollback-safety' =
+        'database-rollback-safety' = if (
+            $legacyDeploymentContract
+        ) {
             'fbsir.u3wDatabaseRollbackSafetyReceipt.v1'
-        'application-rollback-execution' =
+        } else {
+            'fbsir.u3wDatabaseRollbackSafetyReceipt.v2'
+        }
+        'application-rollback-execution' = if (
+            $legacyDeploymentContract
+        ) {
             'fbsir.u3wApplicationRollbackExecutionReceipt.v1'
+        } else {
+            'fbsir.u3wApplicationRollbackExecutionReceipt.v2'
+        }
     }
     $remoteEvidenceReceipts = @()
     $declaredEvidence = @($result.evidenceReceipts)
@@ -3110,6 +3210,8 @@ function Invoke-ReadinessGate {
         '-SshKeyPath', $SshKeyPath,
         '-KnownHostsPath', $KnownHostsPath,
         '-ExpectedBackupReceiptSha256', $ExpectedBackupReceiptSha256,
+        '-ExpectedBackupPlanReceiptSha256',
+            $ExpectedBackupPlanReceiptSha256,
         '-ExpectedLegacyBaselineReceiptDigest',
             $ExpectedLegacyBaselineReceiptDigest,
         '-ExpectedAdminRootDependencyAdoptionReceiptSha256',
@@ -3230,7 +3332,7 @@ function Invoke-Stage {
         -OutputLabel 'post-stage'
     $null = Assert-StrictHead
     return [ordered]@{
-        schema = 'fbsir.u3wDefaultOffReleaseRunnerResult.v1'
+        schema = 'fbsir.u3wDefaultOffReleaseRunnerResult.v2'
         mode = 'Stage'
         state = $finalize.result.state
         releaseId = $ReleaseId
@@ -3266,7 +3368,7 @@ function Invoke-Apply {
         -OutputLabel 'post-apply'
     $null = Assert-StrictHead
     return [ordered]@{
-        schema = 'fbsir.u3wDefaultOffReleaseRunnerResult.v1'
+        schema = 'fbsir.u3wDefaultOffReleaseRunnerResult.v2'
         mode = 'Apply'
         state = $worker.result.state
         releaseId = $ReleaseId
@@ -3298,7 +3400,7 @@ function Invoke-Rollback {
     $anchor = Save-ExternalReleaseAnchor `
         -Name 'rollback' -WorkerResult $worker
     return [ordered]@{
-        schema = 'fbsir.u3wDefaultOffReleaseRunnerResult.v1'
+        schema = 'fbsir.u3wDefaultOffReleaseRunnerResult.v2'
         mode = 'Rollback'
         state = $worker.result.state
         releaseId = $ReleaseId
@@ -3331,7 +3433,7 @@ function Invoke-Verify {
         -Name 'verify' -WorkerResult $worker
     $null = Assert-RecoveryRunnerExact
     return [ordered]@{
-        schema = 'fbsir.u3wDefaultOffReleaseRunnerResult.v1'
+        schema = 'fbsir.u3wDefaultOffReleaseRunnerResult.v2'
         mode = 'Verify'
         state = $worker.result.state
         releaseId = $ReleaseId

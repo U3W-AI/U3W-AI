@@ -1,10 +1,12 @@
 import path from "node:path";
 
-export const BACKUP_SCHEMA = "fbsir.u3wDatabaseBackupReceipt.v3";
+export const BACKUP_SCHEMA = "fbsir.u3wDatabaseBackupReceipt.v4";
 export const RESTORE_SCHEMA =
-  "fbsir.u3wDatabaseRestoreRehearsalReceipt.v3";
+  "fbsir.u3wDatabaseRestoreRehearsalReceipt.v4";
 export const BUNDLE_SCHEMA =
-  "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v2";
+  "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v3";
+export const W1A_SCHEMA_FINGERPRINT_SHA256 =
+  "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d";
 
 const TARGET_HOST = "api2.u3w.com";
 const DATABASE = "fbsir";
@@ -47,14 +49,36 @@ const FACT_FIELDS = Object.freeze([
   "attributionTableCount",
   "attributionTriggerCount",
   "attributionPermissionCount",
+  "attributionEventCount",
+  "attributionProbeEventCount",
+  "attributionNaturalEventCount",
+  "attributionNonProbeEventCount",
+  "attributionAuthoritativeProductCreditCount",
+  "attributionJourneyCount",
+  "attributionProbeJourneyCount",
+  "attributionNaturalJourneyCount",
+  "attributionNonProbeJourneyCount",
+  "w1aSchemaFingerprintSha256",
   "w1a043State",
   "allBaseTablesInnoDB",
+]);
+const ATTRIBUTION_DATA_FACT_FIELDS = new Set([
+  "attributionEventCount",
+  "attributionProbeEventCount",
+  "attributionNaturalEventCount",
+  "attributionNonProbeEventCount",
+  "attributionAuthoritativeProductCreditCount",
+  "attributionJourneyCount",
+  "attributionProbeJourneyCount",
+  "attributionNaturalJourneyCount",
+  "attributionNonProbeJourneyCount",
 ]);
 
 const BACKUP_FIELDS = Object.freeze([
   "schema",
   "runId",
   "sourceCommit",
+  "planReceiptSha256",
   "targetHost",
   "database",
   "sourceDatabaseServerUuid",
@@ -88,6 +112,7 @@ const RESTORE_FIELDS = Object.freeze([
   "schema",
   "runId",
   "sourceCommit",
+  "planReceiptSha256",
   "targetHost",
   "database",
   "sourceDatabaseServerUuid",
@@ -124,6 +149,7 @@ const BUNDLE_FIELDS = Object.freeze([
   "schema",
   "runId",
   "sourceCommit",
+  "planReceiptSha256",
   "targetHost",
   "database",
   "sourceDatabaseServerUuid",
@@ -167,6 +193,23 @@ function sortForCanonicalJson(value) {
 
 export function canonicalJson(value) {
   return JSON.stringify(sortForCanonicalJson(value));
+}
+
+function staticControlFacts(value) {
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      ([field]) => !ATTRIBUTION_DATA_FACT_FIELDS.has(field),
+    ),
+  );
+}
+
+function attributionObservationsMonotonic(recordedFacts, currentFacts) {
+  return (
+    recordedFacts.w1a043State === currentFacts.w1a043State &&
+    [...ATTRIBUTION_DATA_FACT_FIELDS].every(
+      (field) => currentFacts[field] >= recordedFacts[field],
+    )
+  );
 }
 
 function exactFields(value, expected) {
@@ -232,6 +275,15 @@ function validateFacts(value, prefix, errors) {
     "attributionTableCount",
     "attributionTriggerCount",
     "attributionPermissionCount",
+    "attributionEventCount",
+    "attributionProbeEventCount",
+    "attributionNaturalEventCount",
+    "attributionNonProbeEventCount",
+    "attributionAuthoritativeProductCreditCount",
+    "attributionJourneyCount",
+    "attributionProbeJourneyCount",
+    "attributionNaturalJourneyCount",
+    "attributionNonProbeJourneyCount",
   ]) {
     if (!safeIntegerAtLeast(value[field], 0)) {
       errors.push(`${prefix}_${field}_invalid`);
@@ -255,14 +307,44 @@ function validateFacts(value, prefix, errors) {
   ) {
     errors.push(`${prefix}_admin_root_dependency_invalid`);
   }
-  if (
-    value.w1a043State !== "ABSENT" ||
-    value.publicInit043AnyReceiptCount !== 0 ||
-    value.attributionInternalReceiptCount !== 0 ||
-    value.attributionTableCount !== 0 ||
-    value.attributionTriggerCount !== 0 ||
-    value.attributionPermissionCount !== 0
-  ) {
+  const exact043State =
+    (
+      value.w1a043State === "ABSENT" &&
+      value.publicInit043AnyReceiptCount === 0 &&
+      value.attributionInternalReceiptCount === 0 &&
+      value.attributionTableCount === 0 &&
+      value.attributionTriggerCount === 0 &&
+      value.attributionPermissionCount === 0 &&
+      value.attributionEventCount === 0 &&
+      value.attributionProbeEventCount === 0 &&
+      value.attributionNaturalEventCount === 0 &&
+      value.attributionNonProbeEventCount === 0 &&
+      value.attributionAuthoritativeProductCreditCount === 0 &&
+      value.attributionJourneyCount === 0 &&
+      value.attributionProbeJourneyCount === 0 &&
+      value.attributionNaturalJourneyCount === 0 &&
+      value.attributionNonProbeJourneyCount === 0 &&
+      value.w1aSchemaFingerprintSha256 === null
+    ) ||
+    (
+      value.w1a043State === "EXACT_043_RETAINED_DORMANT" &&
+      value.publicInit043AnyReceiptCount === 1 &&
+      value.attributionInternalReceiptCount === 1 &&
+      value.attributionTableCount === 2 &&
+      value.attributionTriggerCount === 2 &&
+      value.attributionPermissionCount === 1 &&
+      value.attributionEventCount === value.attributionProbeEventCount &&
+      value.attributionNaturalEventCount === 0 &&
+      value.attributionNonProbeEventCount === 0 &&
+      value.attributionAuthoritativeProductCreditCount === 0 &&
+      value.attributionJourneyCount ===
+        value.attributionProbeJourneyCount &&
+      value.attributionNaturalJourneyCount === 0 &&
+      value.attributionNonProbeJourneyCount === 0 &&
+      value.w1aSchemaFingerprintSha256 ===
+        W1A_SCHEMA_FINGERPRINT_SHA256
+    );
+  if (!exact043State) {
     errors.push(`${prefix}_w1a_043_prestate_invalid`);
   }
   if (value.allBaseTablesInnoDB !== true) {
@@ -332,6 +414,7 @@ export function validateBackupReceipt(receipt) {
     !SHA256.test(receipt.sourceTableRowCountsSha256 ?? "") ||
     receipt.sourceSnapshotExactlyMatched !== false ||
     !SHA256.test(receipt.sourceJarSha256 ?? "") ||
+    !SHA256.test(receipt.planReceiptSha256 ?? "") ||
     !SHA256.test(
       receipt.adminRootDependencyAdoptionReceiptSha256 ?? "",
     ) ||
@@ -424,14 +507,22 @@ export function validateRestoreReceipt(
       errors.push("restored_prerequisite_shape_mismatch");
     }
     if (
-      canonicalJson(receipt.restoredFacts) !==
-      canonicalJson(backupReceipt.sourceFacts)
+      canonicalJson(staticControlFacts(receipt.restoredFacts)) !==
+      canonicalJson(staticControlFacts(backupReceipt.sourceFacts))
     ) {
       errors.push("restored_facts_mismatch");
     }
+    if (
+      !attributionObservationsMonotonic(
+        backupReceipt.sourceFacts,
+        receipt.restoredFacts,
+      )
+    ) {
+      errors.push("restored_attribution_observations_regressed");
+    }
   }
   if (
-    !safeIntegerAtLeast(receipt.restoredTotalRows, 1) ||
+    !safeIntegerAtLeast(receipt.restoredTotalRows, 0) ||
     !SHA256.test(receipt.restoredTableRowCountsSha256 ?? "")
   ) {
     errors.push("restored_data_manifest_invalid");
@@ -449,6 +540,7 @@ export function validateRestoreReceipt(
     !SHA256.test(receipt.mysqlcheckSha256 ?? "") ||
     receipt.approvalReceiptSha256 !==
       backupReceipt?.approvalReceiptSha256 ||
+    receipt.planReceiptSha256 !== backupReceipt?.planReceiptSha256 ||
     receipt.backupWorkerSha256 !== backupReceipt?.backupWorkerSha256 ||
     receipt.adminRootDependencyAdoptionReceiptSha256 !==
       backupReceipt?.adminRootDependencyAdoptionReceiptSha256 ||
@@ -501,6 +593,7 @@ function validateBundle(bundle) {
     "backupReceiptSha256",
     "restoreReceiptSha256",
     "backupSha256",
+    "planReceiptSha256",
     "approvalReceiptSha256",
     "runnerSha256",
     "backupWorkerSha256",
@@ -525,13 +618,19 @@ function liveFactsMatch(liveFacts, restoreReceipt) {
     return false;
   }
   const restoredFacts = restoreReceipt.restoredFacts;
+  const currentFacts = Object.fromEntries(
+    FACT_FIELDS.map((field) => [field, liveFacts[field]]),
+  );
+  const liveFactErrors = [];
+  validateFacts(currentFacts, "live", liveFactErrors);
   return (
+    liveFactErrors.length === 0 &&
     liveFacts.serverVersion === restoreReceipt.serverVersion &&
     liveFacts.serverVersionComment ===
       restoreReceipt.serverVersionComment &&
-    FACT_FIELDS.every(
-      (field) => liveFacts[field] === restoredFacts?.[field],
-    )
+    canonicalJson(staticControlFacts(currentFacts)) ===
+      canonicalJson(staticControlFacts(restoredFacts)) &&
+    attributionObservationsMonotonic(restoredFacts, currentFacts)
   );
 }
 
@@ -574,6 +673,11 @@ export function evaluateBackupRestoreBundle(input) {
       input.expectedApprovalReceiptSha256 &&
     restore.approvalReceiptSha256 ===
       input.expectedApprovalReceiptSha256;
+  const planReceiptMatched =
+    SHA256.test(input?.expectedPlanReceiptSha256 ?? "") &&
+    bundle.planReceiptSha256 === input.expectedPlanReceiptSha256 &&
+    backup.planReceiptSha256 === input.expectedPlanReceiptSha256 &&
+    restore.planReceiptSha256 === input.expectedPlanReceiptSha256;
   const adminRootDependencyAdoptionMatched =
     SHA256.test(
       input?.expectedAdminRootDependencyAdoptionReceiptSha256 ?? "",
@@ -618,6 +722,7 @@ export function evaluateBackupRestoreBundle(input) {
     receiptAnchorMatched &&
     sourceCommitMatched &&
     approvalReceiptMatched &&
+    planReceiptMatched &&
     adminRootDependencyAdoptionMatched &&
     runnerMatched &&
     backupWorkerMatched &&
@@ -631,6 +736,7 @@ export function evaluateBackupRestoreBundle(input) {
     receiptAnchorMatched,
     sourceCommitMatched,
     approvalReceiptMatched,
+    planReceiptMatched,
     adminRootDependencyAdoptionMatched,
     runnerMatched,
     backupWorkerMatched,

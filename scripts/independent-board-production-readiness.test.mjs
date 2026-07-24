@@ -133,7 +133,7 @@ function readySnapshot() {
       releasePlanTargetMatchedLive: true,
       releasePlanSourceCommit: commit,
       releaseRunnerContractVersion:
-        "fbsir.u3wDefaultOffReleaseRunner.v1",
+        "fbsir.u3wDefaultOffReleaseRunner.v2",
       releasePlanReceiptPath:
         "reports/independent-board/w1a-default-off-release-plan-latest.json",
       releasePlanReceiptSha256: digest,
@@ -174,6 +174,15 @@ function readySnapshot() {
       boardAttributionTriggerCount: 0,
       boardAttributionPermissionCount: 0,
       boardAttributionInternalReceiptCount: 0,
+      boardAttributionEventCount: 0,
+      boardAttributionProbeEventCount: 0,
+      boardAttributionNaturalEventCount: 0,
+      boardAttributionNonProbeEventCount: 0,
+      boardAttributionAuthoritativeProductCreditCount: 0,
+      boardAttributionJourneyCount: 0,
+      boardAttributionProbeJourneyCount: 0,
+      boardAttributionNaturalJourneyCount: 0,
+      boardAttributionNonProbeJourneyCount: 0,
       publicInit043AnyReceiptCount: 0,
       legacyAdminRootDependencyState: "EXACT_CONTROLLED_DEPENDENCY",
       legacyAdminRootDependencyStateVerified: true,
@@ -186,12 +195,14 @@ function readySnapshot() {
       legacyAdminRootPageChildCount: 0,
       legacyForbiddenPublicInit001Through042ReceiptCount: 0,
       w1a043State: "ABSENT",
+      w1aSchemaFingerprintSha256: null,
+      adminRootDependencyAdoptionW1a043State: "ABSENT",
       legacyBaselineReceiptSha256: digest,
       legacyBaselineBackupBundleReceiptSha256: digest,
       adminRootDependencyAdoptionReceiptPath:
         "/opt/fbsir/admin/dependencies/latest/adoption-receipt.json",
       adminRootDependencyAdoptionReceiptSchema:
-        "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2",
+        "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v3",
       adminRootDependencyAdoptionReceiptSha256: digest,
       adminRootDependencyAdoptionReceiptValid: true,
       adminRootDependencyAdoptionReceiptAnchorMatched: true,
@@ -238,12 +249,13 @@ function readySnapshot() {
     backup: {
       receiptPath: "/opt/fbsir/admin/backups/latest/receipt.json",
       runId: "w1a-20260724T120000Z-0123456789ab",
-      bundleSchema: "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v2",
-      backupReceiptSchema: "fbsir.u3wDatabaseBackupReceipt.v3",
+      bundleSchema: "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v3",
+      backupReceiptSchema: "fbsir.u3wDatabaseBackupReceipt.v4",
       restoreReceiptSchema:
-        "fbsir.u3wDatabaseRestoreRehearsalReceipt.v3",
+        "fbsir.u3wDatabaseRestoreRehearsalReceipt.v4",
       externalAnchorSchema:
-        "fbsir.u3wDatabaseBackupRestoreExternalAnchor.v2",
+        "fbsir.u3wDatabaseBackupRestoreExternalAnchor.v3",
+      planReceiptSha256: digest,
       sourceCommit: commit,
       sourceDatabaseServerUuid: databaseServerUuid,
       adminRootDependencyAdoptionReceiptSha256: digest,
@@ -252,7 +264,10 @@ function readySnapshot() {
       externalAnchorVerified: true,
       adoptionReceiptBindingMatched: true,
       sourceDatabaseServerUuidMatched: true,
-      sourceRestoredFactsExactlyMatched: true,
+      backupRestoreSchemaFactsMatched: true,
+      sourceRestoreObservationManifestMatched: true,
+      restoredManifestObserved: true,
+      sourceSnapshotExactlyMatched: false,
       sha256: digest,
       sizeBytes: 10,
       restoreProcedureVerified: true,
@@ -277,6 +292,36 @@ function readySnapshot() {
       adminPortalReleaseMarkerMatched: false,
     },
   };
+}
+
+function setExactRetained043(snapshot) {
+  Object.assign(snapshot.database, {
+    publicInit043Applied: true,
+    w1a043State: "EXACT_043_RETAINED_DORMANT",
+    adminRootDependencyAdoptionW1a043State:
+      "EXACT_043_RETAINED_DORMANT",
+    publicInit043AnyReceiptCount: 1,
+    boardAttributionInternalReceiptCount: 1,
+    boardAttributionTableCount: 2,
+    boardAttributionTriggerCount: 2,
+    boardAttributionPermissionCount: 1,
+    boardAttributionEventCount: 3,
+    boardAttributionProbeEventCount: 3,
+    boardAttributionNaturalEventCount: 0,
+    boardAttributionNonProbeEventCount: 0,
+    boardAttributionAuthoritativeProductCreditCount: 0,
+    boardAttributionJourneyCount: 1,
+    boardAttributionProbeJourneyCount: 1,
+    boardAttributionNaturalJourneyCount: 0,
+    boardAttributionNonProbeJourneyCount: 0,
+    w1aSchemaFingerprintSha256: schemaFingerprint,
+  });
+  if (!snapshot.database.migrationVersions.includes("public_init_043")) {
+    snapshot.database.migrationVersions.push("public_init_043");
+  }
+  snapshot.database.migrationDescriptions.public_init_043 =
+    "APPLIED:Independent Board exact official experts attribution v1";
+  return snapshot;
 }
 
 test("preparation can pass before any production upload or switch", () => {
@@ -315,7 +360,7 @@ test("rejects a preparation commit without proven ancestry", () => {
   assert.ok(result.failedGateIds.includes("preparation_source_provenance"));
 });
 
-test("requires config v3, backup v3, and adoption to share one preparation source", () => {
+test("requires config v3, backup v4, and adoption to share one preparation source", () => {
   for (const mutate of [
     (snapshot) => {
       snapshot.configuration.configurationReceiptSchema =
@@ -543,6 +588,16 @@ test("requires the exact 043 schema and trigger fingerprint when applied", () =>
   assert.equal(passed.failedGateIds.includes("w1a_schema_state"), false);
 });
 
+test("requires the 043 fingerprint to be absent when the schema is absent", () => {
+  const snapshot = readySnapshot();
+  snapshot.database.w1aSchemaFingerprintSha256 = schemaFingerprint;
+  const result = evaluateProductionReadiness(snapshot);
+  assert.ok(result.failedGateIds.includes("w1a_schema_state"));
+  assert.ok(
+    result.failedGateIds.includes("admin_root_dependency_adoption_anchor"),
+  );
+});
+
 test("rejects partial W1A objects without the public 043 receipt", () => {
   for (const field of [
     "boardAttributionTableCount",
@@ -574,7 +629,7 @@ test("rejects a restore receipt that only self-attests success", () => {
   assert.ok(result.failedGateIds.includes("backup_restore_anchor"));
 });
 
-test("accepts only the final v3/v3/v2 backup chain and v2 external anchor", () => {
+test("accepts only the final v4/v4/v3 backup chain and v3 external anchor", () => {
   for (const [field, staleSchema] of [
     ["backupReceiptSchema", "fbsir.u3wDatabaseBackupReceipt.v2"],
     [
@@ -603,7 +658,8 @@ test("rejects a final backup chain when adoption, UUID, facts, or anchor unbind"
     "externalAnchorVerified",
     "adoptionReceiptBindingMatched",
     "sourceDatabaseServerUuidMatched",
-    "sourceRestoredFactsExactlyMatched",
+    "backupRestoreSchemaFactsMatched",
+    "restoredManifestObserved",
   ]) {
     const snapshot = readySnapshot();
     snapshot.backup[field] = false;
@@ -614,6 +670,29 @@ test("rejects a final backup chain when adoption, UUID, facts, or anchor unbind"
       `${field} must fail closed`,
     );
   }
+  const planDigestDrift = readySnapshot();
+  planDigestDrift.backup.planReceiptSha256 = "not-a-sha256";
+  assert.ok(
+    evaluateProductionReadiness(planDigestDrift).failedGateIds.includes(
+      "backup_restore_anchor",
+    ),
+  );
+  const snapshotOverclaim = readySnapshot();
+  snapshotOverclaim.backup.sourceSnapshotExactlyMatched = true;
+  assert.ok(
+    evaluateProductionReadiness(snapshotOverclaim).failedGateIds.includes(
+      "backup_restore_anchor",
+    ),
+  );
+  const observationDifference = readySnapshot();
+  observationDifference.backup.sourceRestoreObservationManifestMatched =
+    false;
+  assert.equal(
+    evaluateProductionReadiness(observationDifference).failedGateIds.includes(
+      "backup_restore_anchor",
+    ),
+    false,
+  );
   const adoptionDigestDrift = readySnapshot();
   adoptionDigestDrift.backup.adminRootDependencyAdoptionReceiptSha256 =
     "c".repeat(64);
@@ -632,7 +711,7 @@ test("rejects a final backup chain when adoption, UUID, facts, or anchor unbind"
   );
 });
 
-test("requires an externally anchored adoption receipt and exact absent 043 state", () => {
+test("requires an externally anchored adoption receipt and exact dormant 043 state", () => {
   const exactSnapshot = readySnapshot();
   const exactResult = evaluateProductionReadiness(exactSnapshot);
   assert.equal(exactResult.status, "PREPARED_FOR_STAGE");
@@ -650,6 +729,36 @@ test("requires an externally anchored adoption receipt and exact absent 043 stat
     exactResult.evidence.database
       .adminRootDependencyAdoptionPlanReceiptSha256,
     digest,
+  );
+  const retainedSnapshot = setExactRetained043(readySnapshot());
+  assert.equal(
+    evaluateProductionReadiness(retainedSnapshot).status,
+    "PREPARED_FOR_STAGE",
+  );
+  const retainedAdoptionStateDrift = structuredClone(retainedSnapshot);
+  retainedAdoptionStateDrift.database
+    .adminRootDependencyAdoptionW1a043State = "ABSENT";
+  assert.ok(
+    evaluateProductionReadiness(
+      retainedAdoptionStateDrift,
+    ).failedGateIds.includes("admin_root_dependency_adoption_anchor"),
+  );
+  const retainedNaturalDrift = setExactRetained043(readySnapshot());
+  retainedNaturalDrift.database.boardAttributionProbeEventCount = 2;
+  retainedNaturalDrift.database.boardAttributionNaturalEventCount = 1;
+  retainedNaturalDrift.database.boardAttributionNonProbeEventCount = 1;
+  assert.ok(
+    evaluateProductionReadiness(
+      retainedNaturalDrift,
+    ).failedGateIds.includes("w1a_schema_state"),
+  );
+  const retainedNegativeLedger = setExactRetained043(readySnapshot());
+  retainedNegativeLedger.database.boardAttributionEventCount = -1;
+  retainedNegativeLedger.database.boardAttributionProbeEventCount = -1;
+  assert.ok(
+    evaluateProductionReadiness(
+      retainedNegativeLedger,
+    ).failedGateIds.includes("w1a_schema_state"),
   );
   for (const field of [
     "adminRootDependencyAdoptionReceiptValid",
@@ -881,7 +990,7 @@ test("accepts exact-loaded or fully managed pending-restart runtime configuratio
 });
 
 test("requires application rollback and forward-only database safety after deployment", () => {
-  const snapshot = readySnapshot();
+  const snapshot = setExactRetained043(readySnapshot());
   snapshot.deploymentChannel = {
     state: "DEPLOYED_DEFAULT_OFF",
     receiptValidated: true,
@@ -926,7 +1035,7 @@ test("requires application rollback and forward-only database safety after deplo
 });
 
 test("deployed state rejects a database down claim or wrong portal health", () => {
-  const snapshot = readySnapshot();
+  const snapshot = setExactRetained043(readySnapshot());
   snapshot.deploymentChannel = {
     state: "DEPLOYED_DEFAULT_OFF",
     receiptValidated: true,
@@ -972,7 +1081,7 @@ test("deployed state rejects a database down claim or wrong portal health", () =
 });
 
 test("reports an anchored application rollback without claiming database down", () => {
-  const snapshot = readySnapshot();
+  const snapshot = setExactRetained043(readySnapshot());
   snapshot.local.releasePlanTargetMatchedLive = false;
   snapshot.deploymentChannel = {
     state: "ROLLED_BACK_APPLICATION_DATABASE_043_RETAINED_DORMANT",
@@ -1241,14 +1350,87 @@ test("live collector is pinned, online-only, and verifies actual artifacts", () 
     ),
   );
   for (const schema of [
-    "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2",
-    "fbsir.u3wDatabaseBackupReceipt.v3",
-    "fbsir.u3wDatabaseRestoreRehearsalReceipt.v3",
-    "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v2",
-    "fbsir.u3wDatabaseBackupRestoreExternalAnchor.v2",
+    "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v3",
+    "fbsir.u3wDatabaseBackupReceipt.v4",
+    "fbsir.u3wDatabaseRestoreRehearsalReceipt.v4",
+    "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v3",
+    "fbsir.u3wDatabaseBackupRestoreExternalAnchor.v3",
+    "fbsir.u3wW1aDeploymentReadinessReceipt.v2",
+    "fbsir.u3wW1aDeploymentReadinessReceipt.v3",
+    "fbsir.u3wDefaultOffReleaseRollbackReceipt.v1",
+    "fbsir.u3wDefaultOffReleaseRollbackReceipt.v2",
+    "fbsir.u3wDefaultOffRollbackVerificationReceipt.v1",
+    "fbsir.u3wDefaultOffRollbackVerificationReceipt.v2",
   ]) {
     assert.ok(collector.includes(schema));
   }
+  assert.ok(
+    collector.includes(
+      "[string]$ExpectedBackupPlanReceiptSha256",
+    ),
+  );
+  assert.ok(collector.includes("bundle_receipt_fields = {"));
+  assert.ok(collector.includes("backup_receipt_fields = {"));
+  assert.ok(collector.includes("restore_receipt_fields = {"));
+  assert.ok(collector.includes("isolation_evidence_fields = {"));
+  assert.ok(
+    collector.includes("def backup_static_control_facts(facts):"),
+  );
+  assert.ok(
+    collector.includes(
+      "def backup_attribution_observations_monotonic(",
+    ),
+  );
+  assert.ok(
+    collector.includes(
+      "def adoption_attribution_observations_monotonic(",
+    ),
+  );
+  assert.ok(
+    collector.includes(
+      "current_adoption_attribution_observations",
+    ),
+  );
+  assert.ok(
+    !collector.includes(
+      'adoption_live_facts.get("attributionEventCount")\n'
+        + '            == database.get("boardAttributionEventCount")',
+    ),
+  );
+  assert.ok(
+    collector.includes(
+      "backup_static_control_facts(live_backup_facts)",
+    ),
+  );
+  assert.ok(
+    collector.includes(
+      'source_receipt["sourceFacts"],\n'
+        + '                restore_receipt["restoredFacts"],',
+    ),
+  );
+  assert.ok(
+    !collector.includes(
+      'restore_receipt.get("restoredFacts")\n'
+        + '                == source_receipt.get("sourceFacts")',
+    ),
+  );
+  for (const field of [
+    "businessDatabaseChanged",
+    "serviceChanged",
+    "officialExpertsPackageChanged",
+  ]) {
+    assert.ok(collector.includes(`source_receipt.get("${field}") is False`));
+    assert.ok(collector.includes(`restore_receipt.get("${field}") is False`));
+  }
+  assert.ok(
+    collector.includes(
+      "source_receipt.get(\"sourceSnapshotExactlyMatched\") is False",
+    ),
+  );
+  assert.ok(collector.includes("def legacy_w1a_migration_facts("));
+  assert.ok(
+    collector.includes("def recorded_w1a_migration_matches_live("),
+  );
   for (const field of [
     "publicInit043ReceiptCount",
     "attributionInternalReceiptCount",
@@ -1258,6 +1440,17 @@ test("live collector is pinned, online-only, and verifies actual artifacts", () 
   ]) {
     assert.ok(collector.includes(field));
   }
+  assert.match(
+    collector,
+    /adoption_live_fact_fields = \{[\s\S]*?"w1aSchemaFingerprintSha256",[\s\S]*?"w1a043State",\n    \}/,
+  );
+  assert.ok(
+    collector.includes(
+      '"w1aSchemaFingerprintSha256":\n'
+        + '            database.get("w1aSchemaFingerprintSha256"),\n'
+        + '        "w1a043State":',
+    ),
+  );
   assert.ok(
     collector.includes(
       '"legacyAdminRootDependencyStateVerified":\n'

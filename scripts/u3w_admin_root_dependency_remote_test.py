@@ -21,10 +21,10 @@ if "fcntl" not in sys.modules:
     )
 
 
-def load_worker():
-    path = ROOT / "u3w-admin-root-dependency-remote.py"
+def load_module(name, filename):
+    path = ROOT / filename
     spec = importlib.util.spec_from_file_location(
-        "u3w_admin_root_dependency_remote",
+        name,
         path,
     )
     module = importlib.util.module_from_spec(spec)
@@ -32,7 +32,14 @@ def load_worker():
     return module
 
 
-worker = load_worker()
+worker = load_module(
+    "u3w_admin_root_dependency_remote",
+    "u3w-admin-root-dependency-remote.py",
+)
+release_worker = load_module(
+    "u3w_default_off_release_remote_for_dependency_test",
+    "u3w-default-off-release-remote.py",
+)
 
 
 class Args:
@@ -207,8 +214,166 @@ class FactsContractTest(unittest.TestCase):
         self.assertEqual(facts["attributionTableCount"], 0)
         self.assertEqual(facts["attributionTriggerCount"], 0)
         self.assertEqual(facts["attributionPermissionCount"], 0)
+        self.assertEqual(facts["attributionEventCount"], 0)
+        self.assertEqual(facts["attributionNaturalEventCount"], 0)
+        self.assertEqual(
+            facts["attributionAuthoritativeProductCreditCount"],
+            0,
+        )
+        self.assertEqual(facts["w1a043State"], "ABSENT")
+        self.assertIsNone(facts["w1aSchemaFingerprintSha256"])
         self.assertEqual(facts["rootRoleBindingCount"], 0)
         self.assertEqual(facts["rootPageChildCount"], 0)
+
+    def test_exact_retained_dormant_043_state_is_adoptable(self):
+        menus, role_menus, migrations = exact_rows()
+        migrations.extend(
+            [
+                (
+                    worker.PUBLIC_INIT_043_VERSION,
+                    worker.PUBLIC_INIT_043_DESCRIPTION,
+                ),
+                (
+                    worker.ATTRIBUTION_INTERNAL_043_VERSION,
+                    worker.ATTRIBUTION_INTERNAL_043_DESCRIPTION,
+                ),
+            ]
+        )
+        facts = worker.facts_from_locked_rows(
+            "01234567-89ab-cdef-0123-456789abcdef",
+            "8.0.45",
+            menus,
+            role_menus,
+            migrations,
+            2,
+            2,
+            1,
+            3,
+            3,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            worker.EXPECTED_W1A_SCHEMA_FINGERPRINT,
+        )
+        worker.assert_exact_live_facts(facts)
+        self.assertEqual(
+            facts["w1a043State"],
+            "EXACT_043_RETAINED_DORMANT",
+        )
+        self.assertEqual(
+            facts["w1aSchemaFingerprintSha256"],
+            worker.EXPECTED_W1A_SCHEMA_FINGERPRINT,
+        )
+        drifted_fingerprint = worker.facts_from_locked_rows(
+            "01234567-89ab-cdef-0123-456789abcdef",
+            "8.0.45",
+            menus,
+            role_menus,
+            migrations,
+            2,
+            2,
+            1,
+            3,
+            3,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            "9" * 64,
+        )
+        with self.assertRaisesRegex(RuntimeError, "not adoptable"):
+            worker.assert_exact_live_facts(drifted_fingerprint)
+        migrations[-1] = (
+            worker.ATTRIBUTION_INTERNAL_043_VERSION,
+            "wrong-description",
+        )
+        invalid = worker.facts_from_locked_rows(
+            "01234567-89ab-cdef-0123-456789abcdef",
+            "8.0.45",
+            menus,
+            role_menus,
+            migrations,
+            2,
+            2,
+            1,
+            3,
+            3,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            worker.EXPECTED_W1A_SCHEMA_FINGERPRINT,
+        )
+        with self.assertRaisesRegex(RuntimeError, "not adoptable"):
+            worker.assert_exact_live_facts(invalid)
+        unsafe_natural = worker.facts_from_locked_rows(
+            "01234567-89ab-cdef-0123-456789abcdef",
+            "8.0.45",
+            menus,
+            role_menus,
+            migrations[:-1] + [
+                (
+                    worker.ATTRIBUTION_INTERNAL_043_VERSION,
+                    worker.ATTRIBUTION_INTERNAL_043_DESCRIPTION,
+                )
+            ],
+            2,
+            2,
+            1,
+            3,
+            2,
+            1,
+            1,
+            0,
+            1,
+            0,
+            1,
+            1,
+            worker.EXPECTED_W1A_SCHEMA_FINGERPRINT,
+        )
+        with self.assertRaisesRegex(RuntimeError, "not adoptable"):
+            worker.assert_exact_live_facts(unsafe_natural)
+
+    def test_w1a_schema_fingerprint_matches_release_worker_contract(self):
+        rows = [("A|first",), ("B|second",)]
+
+        class FakeMysql:
+            def __init__(self):
+                self.statements = []
+
+            def rows(self, statement):
+                self.statements.append(statement)
+                return rows
+
+        adoption_mysql = FakeMysql()
+        release_mysql = FakeMysql()
+        adoption_rows = worker.w1a_schema_fingerprint_rows(adoption_mysql)
+        release_rows = release_worker.migration_fingerprint_rows(
+            release_mysql
+        )
+        self.assertEqual(adoption_rows, release_rows)
+        self.assertEqual(
+            adoption_mysql.statements,
+            release_mysql.statements,
+        )
+        self.assertEqual(
+            worker.w1a_schema_fingerprint(adoption_rows),
+            release_worker.migration_fingerprint(release_mysql),
+        )
+        self.assertEqual(
+            worker.EXPECTED_W1A_SCHEMA_FINGERPRINT,
+            release_worker.EXPECTED_W1A_SCHEMA_FINGERPRINT,
+        )
 
     def test_rejects_absent_ambiguous_bound_or_post_043_states(self):
         menus, role_menus, migrations = exact_rows()
@@ -461,7 +626,7 @@ class LockAndReceiptContractTest(unittest.TestCase):
         worker.validate_plan(result)
         self.assertEqual(
             result["schema"],
-            "fbsir.u3wAdminRootDependencyPlan.v1",
+            "fbsir.u3wAdminRootDependencyPlan.v2",
         )
         self.assertEqual(result["mode"], "Plan")
         self.assertEqual(
@@ -616,7 +781,7 @@ class LockAndReceiptContractTest(unittest.TestCase):
         serialized = worker.canonical_json(receipt)
         self.assertEqual(
             receipt["schema"],
-            "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2",
+            "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v3",
         )
         self.assertEqual(
             receipt["adoptionState"],
@@ -657,8 +822,8 @@ class RunnerContractTest(unittest.TestCase):
             "expected-backup-receipt-sha",
             "[ValidateSet('Plan', 'Adopt')]",
             "'--mode', $Mode",
-            "fbsir.u3wAdminRootDependencyPlan.v1",
-            "fbsir.u3wAdminRootDependencyRunnerResult.v3",
+            "fbsir.u3wAdminRootDependencyPlan.v2",
+            "fbsir.u3wAdminRootDependencyRunnerResult.v4",
             "if ($Mode -eq 'Plan')",
             "expectedLiveFactsSha256",
             "expectedDatabaseProtectionMode",

@@ -117,13 +117,24 @@ def exact_migration_facts(event_count=0, journey_count=0):
         "triggerCount": 2,
         "permissionCount": 1,
         "eventCount": event_count,
+        "probeEventCount": event_count,
+        "naturalEventCount": 0,
+        "nonProbeEventCount": 0,
+        "authoritativeProductCreditCount": 0,
         "journeyCount": journey_count,
+        "probeJourneyCount": journey_count,
+        "naturalJourneyCount": 0,
+        "nonProbeJourneyCount": 0,
         "schemaFingerprintSha256":
             release.EXPECTED_W1A_SCHEMA_FINGERPRINT,
     }
 
 
-def final_current_read_evidence(facts, service=None):
+def final_current_read_evidence(
+    facts,
+    service=None,
+    schema="fbsir.u3wDefaultOffFinalCurrentRead.v2",
+):
     service = service or {
         "invocationId": "a" * 32,
         "jarSha256": "3" * 64,
@@ -145,7 +156,7 @@ def final_current_read_evidence(facts, service=None):
         "serviceAfter": service,
         "migrationFacts": facts,
         "finalDefaultOffCurrentRead": {
-            "schema": "fbsir.u3wDefaultOffFinalCurrentRead.v1",
+            "schema": schema,
             "verified": True,
             "serviceStableDuringProbe": True,
             "serviceInvocationId": service["invocationId"],
@@ -200,7 +211,14 @@ def runtime_identity(state="ABSENT", event_count=0, journey_count=0):
         "attributionTriggerCount": 2 if retained else 0,
         "attributionPermissionCount": 1 if retained else 0,
         "attributionEventCount": event_count if retained else 0,
+        "attributionProbeEventCount": event_count if retained else 0,
+        "attributionNaturalEventCount": 0,
+        "attributionNonProbeEventCount": 0,
+        "attributionAuthoritativeProductCreditCount": 0,
         "attributionJourneyCount": journey_count if retained else 0,
+        "attributionProbeJourneyCount": journey_count if retained else 0,
+        "attributionNaturalJourneyCount": 0,
+        "attributionNonProbeJourneyCount": 0,
         "w1aSchemaFingerprintSha256": (
             release.EXPECTED_W1A_SCHEMA_FINGERPRINT if retained else None
         ),
@@ -350,7 +368,7 @@ class ReleaseWorkerContractTest(unittest.TestCase):
             )
             plan_path.parent.mkdir(parents=True)
             plan = {
-                "schema": "fbsir.u3wDefaultOffReleasePlan.v1",
+                "schema": "fbsir.u3wDefaultOffReleasePlan.v2",
                 "releaseId": args.release_id,
                 "sourceCommit": args.source_commit,
                 "generatedAt": "2026-07-24T17:00:00Z",
@@ -720,6 +738,127 @@ class ReleaseWorkerContractTest(unittest.TestCase):
         self.assertFalse(
             release.migration_structure_matches(boolean_count)
         )
+        unsafe_natural = dict(baseline)
+        unsafe_natural["probeEventCount"] = 3
+        unsafe_natural["naturalEventCount"] = 1
+        unsafe_natural["nonProbeEventCount"] = 1
+        self.assertFalse(
+            release.migration_structure_matches(unsafe_natural)
+        )
+
+    def test_legacy_recorded_facts_bind_only_to_safe_current_read(self):
+        current = exact_migration_facts(4, 2)
+        legacy = {
+            field: current[field]
+            for field in release.LEGACY_MIGRATION_FACT_FIELDS
+        }
+        self.assertTrue(
+            release.legacy_migration_structure_matches(legacy)
+        )
+        self.assertFalse(release.migration_structure_matches(legacy))
+        self.assertTrue(
+            release.recorded_migration_facts_match_current(
+                legacy,
+                current,
+                release.LEGACY_ROLLBACK_RECEIPT_SCHEMA,
+            )
+        )
+        self.assertFalse(
+            release.recorded_migration_facts_match_current(
+                legacy,
+                current,
+                release.ROLLBACK_RECEIPT_SCHEMA,
+            )
+        )
+        unsafe_live = dict(current)
+        unsafe_live["probeEventCount"] = 3
+        unsafe_live["naturalEventCount"] = 1
+        unsafe_live["nonProbeEventCount"] = 1
+        self.assertFalse(
+            release.recorded_migration_facts_match_current(
+                legacy,
+                unsafe_live,
+                release.LEGACY_ROLLBACK_RECEIPT_SCHEMA,
+            )
+        )
+        grown = exact_migration_facts(5, 3)
+        self.assertTrue(
+            release.recorded_migration_counts_are_monotonic(
+                grown,
+                legacy,
+                release.LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+            )
+        )
+        self.assertFalse(
+            release.recorded_migration_counts_are_monotonic(
+                current,
+                {
+                    **legacy,
+                    "eventCount": 5,
+                },
+                release.LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+            )
+        )
+
+    def test_legacy_deployment_contract_is_read_only_compatible(self):
+        current = exact_migration_facts(4, 2)
+        legacy = {
+            field: current[field]
+            for field in release.LEGACY_MIGRATION_FACT_FIELDS
+        }
+        identity = runtime_identity(
+            "EXACT_043_RETAINED_DORMANT",
+            event_count=4,
+            journey_count=2,
+        )
+        for field in (
+            "attributionProbeEventCount",
+            "attributionNaturalEventCount",
+            "attributionNonProbeEventCount",
+            "attributionAuthoritativeProductCreditCount",
+            "attributionProbeJourneyCount",
+            "attributionNaturalJourneyCount",
+            "attributionNonProbeJourneyCount",
+        ):
+            identity.pop(field)
+        self.assertTrue(
+            release.recorded_migration_facts_match_runtime_identity(
+                legacy,
+                identity,
+                release.LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+            )
+        )
+        schemas = release.deployment_contract_schemas(
+            release.LEGACY_DEPLOYMENT_RECEIPT_SCHEMA
+        )
+        self.assertEqual(
+            schemas,
+            {
+                "finalCurrentRead":
+                    release.LEGACY_FINAL_CURRENT_READ_SCHEMA,
+                "databaseRollbackSafety":
+                    release.LEGACY_DATABASE_ROLLBACK_SAFETY_SCHEMA,
+                "applicationRollbackExecution":
+                    release.LEGACY_APPLICATION_ROLLBACK_EXECUTION_SCHEMA,
+            },
+        )
+        evidence = final_current_read_evidence(
+            legacy,
+            schema=release.LEGACY_FINAL_CURRENT_READ_SCHEMA,
+        )
+        release.validate_final_default_off_current_read(
+            evidence["finalDefaultOffCurrentRead"],
+            evidence["serviceAfter"],
+            legacy,
+            release.LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+        )
+        with self.assertRaisesRegex(RuntimeError, "current-read evidence"):
+            release.validate_final_default_off_current_read(
+                evidence["finalDefaultOffCurrentRead"],
+                evidence["serviceAfter"],
+                legacy,
+                release.DEPLOYMENT_RECEIPT_SCHEMA,
+            )
 
     def test_exact_schema_enumerates_all_w1a_triggers_and_fk_rules(self):
         fingerprint = inspect.getsource(
@@ -772,7 +911,7 @@ class ReleaseWorkerContractTest(unittest.TestCase):
             stage_path.write_text("{}\n", encoding="utf-8")
             deployment_path.write_text("{}\n", encoding="utf-8")
             existing = {
-                "schema": "fbsir.u3wW1aDeploymentReadinessReceipt.v2",
+                "schema": "fbsir.u3wW1aDeploymentReadinessReceipt.v3",
                 "state": "DEPLOYED_DEFAULT_OFF",
                 "releaseId": args.release_id,
                 "sourceCommit": args.source_commit,
@@ -855,7 +994,7 @@ class ReleaseWorkerContractTest(unittest.TestCase):
                     deployment_path.write_text("{}\n", encoding="utf-8")
                     existing = {
                         "schema":
-                            "fbsir.u3wW1aDeploymentReadinessReceipt.v2",
+                            "fbsir.u3wW1aDeploymentReadinessReceipt.v3",
                         "state": "DEPLOYED_DEFAULT_OFF",
                         "releaseId": args.release_id,
                         "sourceCommit": args.source_commit,
@@ -1283,7 +1422,7 @@ class ReleaseWorkerContractTest(unittest.TestCase):
         args, _ = release_args("Apply")
         args.stage_receipt_sha = "9" * 64
         receipt = {
-            "schema": "fbsir.u3wW1aDeploymentReadinessReceipt.v2",
+            "schema": "fbsir.u3wW1aDeploymentReadinessReceipt.v3",
             "state": "STAGED_FOR_SWITCH",
             "releaseId": args.release_id,
             "sourceCommit": args.source_commit,
@@ -1775,27 +1914,7 @@ class ReleaseWorkerContractTest(unittest.TestCase):
 
     def test_apply_runtime_identity_fails_closed_on_environment_drift(self):
         args = types.SimpleNamespace(baseline_receipt_sha="a" * 64)
-        identity = {
-            "environmentSha256": "b" * 64,
-            "api2EventKeySha256": "c" * 64,
-            "additionalConfigSha256": "e" * 64,
-            "databaseEndpoint": "127.0.0.1:3306",
-            "database": "fbsir",
-            "databaseServerUuid": "uuid",
-            "databaseServerVersion": "8.0.45",
-            "legacyBaselineReceiptSha256": "a" * 64,
-            "legacyBaselineMigrationCount": 1,
-            "w1aDatabaseState": "ABSENT",
-            "public043AnyReceiptCount": 0,
-            "public043ReceiptCount": 0,
-            "attributionInternalReceiptCount": 0,
-            "attributionTableCount": 0,
-            "attributionTriggerCount": 0,
-            "attributionPermissionCount": 0,
-            "attributionEventCount": 0,
-            "attributionJourneyCount": 0,
-            "w1aSchemaFingerprintSha256": None,
-        }
+        identity = runtime_identity()
         stage = {"preStageRuntimeIdentity": dict(identity)}
         with mock.patch.object(
             release,
@@ -1861,6 +1980,20 @@ class ReleaseWorkerContractTest(unittest.TestCase):
             release, "database_pre_stage_facts", return_value=grown
         ):
             with self.assertRaisesRegex(RuntimeError, "counts drifted"):
+                release.validate_stage_runtime_identity(
+                    args, {"preStageRuntimeIdentity": retained}
+                )
+        natural = dict(retained)
+        natural["attributionProbeEventCount"] = 4
+        natural["attributionNaturalEventCount"] = 1
+        natural["attributionNonProbeEventCount"] = 1
+        with mock.patch.object(
+            release, "database_pre_stage_facts", return_value=natural
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "partial or drifted|structure is not exact",
+            ):
                 release.validate_stage_runtime_identity(
                     args, {"preStageRuntimeIdentity": retained}
                 )
@@ -2425,7 +2558,7 @@ class ReleaseWorkerContractTest(unittest.TestCase):
                 "0123456789ab.json"
             )
             receipt = {
-                "schema": "fbsir.u3wDefaultOffReleaseFailureReceipt.v1",
+                "schema": "fbsir.u3wDefaultOffReleaseFailureReceipt.v2",
                 "state": "FAIL_CLOSED_BEFORE_APPLICATION_SWITCH",
                 "releaseId": args.release_id,
                 "sourceCommit": args.source_commit,
@@ -2468,7 +2601,7 @@ class ReleaseWorkerContractTest(unittest.TestCase):
         facts = exact_migration_facts()
         receipt = {
             "schema":
-                "fbsir.u3wDefaultOffReleaseRollbackReceipt.v1",
+                "fbsir.u3wDefaultOffReleaseRollbackReceipt.v2",
             "state":
                 "ROLLED_BACK_APPLICATION_DATABASE_043_RETAINED_DORMANT",
             "releaseId": args.release_id,
@@ -2567,7 +2700,7 @@ class ReleaseWorkerContractTest(unittest.TestCase):
     def test_stage_reentry_repairs_latest_after_commit_point_crash(self):
         args, _ = release_args("FinalizeStage")
         staged = {
-            "schema": "fbsir.u3wW1aDeploymentReadinessReceipt.v2",
+            "schema": "fbsir.u3wW1aDeploymentReadinessReceipt.v3",
             "state": "STAGED_FOR_SWITCH",
             "releaseId": args.release_id,
             "sourceCommit": args.source_commit,

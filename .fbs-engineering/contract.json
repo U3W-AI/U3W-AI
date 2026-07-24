@@ -115,7 +115,7 @@
       "timeout_ms": 300000
     },
     "w1a-production-backup-restore": {
-      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-u3w-production-backup-restore.ps1 -Mode $env:U3W_BACKUP_MODE -ExpectedCommit $env:U3W_EXPECTED_COMMIT -ExpectedAdminRootDependencyAdoptionReceiptSha256 $env:U3W_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256 -RunId $env:U3W_RUN_ID -ApprovalReceiptPath $env:U3W_APPROVAL_RECEIPT",
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-u3w-production-backup-restore.ps1 -Mode $env:U3W_BACKUP_MODE -ExpectedCommit $env:U3W_EXPECTED_COMMIT -ExpectedAdminRootDependencyAdoptionReceiptSha256 $env:U3W_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256 -RunId $env:U3W_RUN_ID -PlanReceiptPath $env:U3W_BACKUP_PLAN_RECEIPT -ExpectedPlanReceiptSha256 $env:U3W_BACKUP_PLAN_RECEIPT_SHA256 -ApprovalReceiptPath $env:U3W_APPROVAL_RECEIPT -AnchorOutputDirectory $env:U3W_ANCHOR_OUTPUT_DIRECTORY",
       "cwd": ".",
       "timeout_ms": 1800000
     },
@@ -135,12 +135,12 @@
       "timeout_ms": 300000
     },
     "w1a-default-off-release": {
-      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-independent-board-default-off.ps1 -Mode $env:U3W_RELEASE_MODE -ExpectedCommit $env:U3W_EXPECTED_COMMIT -ReleaseId $env:U3W_RELEASE_ID -BuildReceiptPath $env:U3W_BUILD_RECEIPT -ExpectedBuildReceiptSha256 $env:U3W_BUILD_RECEIPT_SHA256 -PlanReceiptPath $env:U3W_RELEASE_PLAN_RECEIPT -ExpectedReleasePlanReceiptSha256 $env:U3W_RELEASE_PLAN_RECEIPT_SHA256 -ExpectedBackupReceiptSha256 $env:U3W_BACKUP_RECEIPT_SHA256 -ExpectedLegacyBaselineReceiptDigest $env:U3W_LEGACY_BASELINE_RECEIPT_SHA256 -ExpectedAdminRootDependencyAdoptionReceiptSha256 $env:U3W_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256 -ExpectedConfigurationReceiptSha256 $env:U3W_CONFIGURATION_RECEIPT_SHA256 -ExpectedStageReceiptSha256 $env:U3W_STAGE_RECEIPT_SHA256 -ExpectedDeploymentReceiptSha256 $env:U3W_DEPLOYMENT_RECEIPT_SHA256 -ApprovalReceiptPath $env:U3W_APPROVAL_RECEIPT -PlanOutputPath $env:U3W_PLAN_OUTPUT_PATH -ExternalEvidenceDirectory $env:U3W_EXTERNAL_EVIDENCE_DIRECTORY",
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-independent-board-default-off.ps1 -Mode $env:U3W_RELEASE_MODE -ExpectedCommit $env:U3W_EXPECTED_COMMIT -ReleaseId $env:U3W_RELEASE_ID -BuildReceiptPath $env:U3W_BUILD_RECEIPT -ExpectedBuildReceiptSha256 $env:U3W_BUILD_RECEIPT_SHA256 -PlanReceiptPath $env:U3W_RELEASE_PLAN_RECEIPT -ExpectedReleasePlanReceiptSha256 $env:U3W_RELEASE_PLAN_RECEIPT_SHA256 -ExpectedBackupReceiptSha256 $env:U3W_BACKUP_RECEIPT_SHA256 -ExpectedBackupPlanReceiptSha256 $env:U3W_BACKUP_PLAN_RECEIPT_SHA256 -ExpectedLegacyBaselineReceiptDigest $env:U3W_LEGACY_BASELINE_RECEIPT_SHA256 -ExpectedAdminRootDependencyAdoptionReceiptSha256 $env:U3W_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256 -ExpectedConfigurationReceiptSha256 $env:U3W_CONFIGURATION_RECEIPT_SHA256 -ExpectedStageReceiptSha256 $env:U3W_STAGE_RECEIPT_SHA256 -ExpectedDeploymentReceiptSha256 $env:U3W_DEPLOYMENT_RECEIPT_SHA256 -ApprovalReceiptPath $env:U3W_APPROVAL_RECEIPT -PlanOutputPath $env:U3W_PLAN_OUTPUT_PATH -ExternalEvidenceDirectory $env:U3W_EXTERNAL_EVIDENCE_DIRECTORY",
       "cwd": ".",
       "timeout_ms": 900000
     },
     "w1a-production-readiness-live": {
-      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-production-readiness.ps1",
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-production-readiness.ps1 -ExpectedCommit $env:U3W_EXPECTED_COMMIT -ExpectedBackupReceiptSha256 $env:U3W_BACKUP_RECEIPT_SHA256 -ExpectedBackupPlanReceiptSha256 $env:U3W_BACKUP_PLAN_RECEIPT_SHA256 -ExpectedDeploymentReceiptSha256 $env:U3W_DEPLOYMENT_RECEIPT_SHA256 -ExpectedLegacyBaselineReceiptDigest $env:U3W_LEGACY_BASELINE_RECEIPT_SHA256 -ExpectedAdminRootDependencyAdoptionReceiptSha256 $env:U3W_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256 -ExpectedConfigurationReceiptSha256 $env:U3W_CONFIGURATION_RECEIPT_SHA256 -ExpectedReleasePlanReceiptSha256 $env:U3W_RELEASE_PLAN_RECEIPT_SHA256 -RequiredStage $env:U3W_REQUIRED_STAGE -OutputPath $env:U3W_READINESS_OUTPUT_PATH -RequireReady",
       "cwd": ".",
       "timeout_ms": 120000
     }
