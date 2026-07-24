@@ -46,6 +46,95 @@ function Get-BytesSha256 {
     }
 }
 
+function Test-JsonStructuralEquality {
+    param(
+        [Parameter()][AllowNull()][object]$Left,
+        [Parameter()][AllowNull()][object]$Right
+    )
+
+    if ($null -eq $Left -or $null -eq $Right) {
+        return $null -eq $Left -and $null -eq $Right
+    }
+
+    $leftIsDictionary =
+        $Left -is [System.Collections.IDictionary]
+    $rightIsDictionary =
+        $Right -is [System.Collections.IDictionary]
+    $leftIsObject =
+        $leftIsDictionary -or $Left -is [pscustomobject]
+    $rightIsObject =
+        $rightIsDictionary -or $Right -is [pscustomobject]
+    if ($leftIsObject -or $rightIsObject) {
+        if (-not ($leftIsObject -and $rightIsObject)) {
+            return $false
+        }
+        [string[]]$leftNames = if ($leftIsDictionary) {
+            @($Left.Keys | ForEach-Object { [string]$_ })
+        } else {
+            @($Left.psobject.Properties.Name)
+        }
+        [string[]]$rightNames = if ($rightIsDictionary) {
+            @($Right.Keys | ForEach-Object { [string]$_ })
+        } else {
+            @($Right.psobject.Properties.Name)
+        }
+        [Array]::Sort($leftNames, [StringComparer]::Ordinal)
+        [Array]::Sort($rightNames, [StringComparer]::Ordinal)
+        if ($leftNames.Count -ne $rightNames.Count) {
+            return $false
+        }
+        for ($index = 0; $index -lt $leftNames.Count; $index++) {
+            $name = $leftNames[$index]
+            if ($name -cne $rightNames[$index]) {
+                return $false
+            }
+            $leftValue = if ($leftIsDictionary) {
+                $Left[$name]
+            } else {
+                $Left.psobject.Properties[$name].Value
+            }
+            $rightValue = if ($rightIsDictionary) {
+                $Right[$name]
+            } else {
+                $Right.psobject.Properties[$name].Value
+            }
+            if (-not (Test-JsonStructuralEquality `
+                    -Left $leftValue -Right $rightValue)) {
+                return $false
+            }
+        }
+        return $true
+    }
+
+    $leftIsArray =
+        $Left -is [System.Collections.IEnumerable] -and
+        $Left -isnot [string]
+    $rightIsArray =
+        $Right -is [System.Collections.IEnumerable] -and
+        $Right -isnot [string]
+    if ($leftIsArray -or $rightIsArray) {
+        if (-not ($leftIsArray -and $rightIsArray)) {
+            return $false
+        }
+        $leftItems = @($Left)
+        $rightItems = @($Right)
+        if ($leftItems.Count -ne $rightItems.Count) {
+            return $false
+        }
+        for ($index = 0; $index -lt $leftItems.Count; $index++) {
+            if (-not (Test-JsonStructuralEquality `
+                    -Left $leftItems[$index] -Right $rightItems[$index])) {
+                return $false
+            }
+        }
+        return $true
+    }
+
+    return (
+        ($Left | ConvertTo-Json -Compress) -ceq
+        ($Right | ConvertTo-Json -Compress))
+}
+
 function Get-CommittedFileSha256 {
     param([Parameter(Mandatory = $true)][string]$GitPath)
     $commit = if ($ExpectedCommit) {
@@ -5043,77 +5132,47 @@ if ($plannedTarget -and $liveTarget) {
             [string]$plannedTarget.service.$_ -cne
                 [string]$liveTarget.service.$_
         }).Count -eq 0
-    $plannedNginx = @($plannedTarget.nginxConfigs) |
-        ConvertTo-Json -Depth 8 -Compress
-    $liveNginx = @($liveTarget.nginxConfigs) |
-        ConvertTo-Json -Depth 8 -Compress
-    $plannedActiveNginx = @($plannedTarget.activeNginxManifest) |
-        ConvertTo-Json -Depth 8 -Compress
-    $liveActiveNginx = @($liveTarget.activeNginxManifest) |
-        ConvertTo-Json -Depth 8 -Compress
-    $plannedDropIns = @($plannedTarget.dropInManifest) |
-        ConvertTo-Json -Depth 8 -Compress
-    $liveDropIns = @($liveTarget.dropInManifest) |
-        ConvertTo-Json -Depth 8 -Compress
+    $plannedNginx = @($plannedTarget.nginxConfigs)
+    $liveNginx = @($liveTarget.nginxConfigs)
+    $plannedActiveNginx = @($plannedTarget.activeNginxManifest)
+    $liveActiveNginx = @($liveTarget.activeNginxManifest)
+    $plannedDropIns = @($plannedTarget.dropInManifest)
+    $liveDropIns = @($liveTarget.dropInManifest)
     $plannedEnvironmentPaths =
-        @($plannedTarget.environmentFilePaths) |
-            ConvertTo-Json -Depth 8 -Compress
-    $liveEnvironmentPaths = @($liveTarget.environmentFilePaths) |
-        ConvertTo-Json -Depth 8 -Compress
+        @($plannedTarget.environmentFilePaths)
+    $liveEnvironmentPaths = @($liveTarget.environmentFilePaths)
     $plannedEnvironmentManifest =
-        @($plannedTarget.environmentFileManifest) |
-            ConvertTo-Json -Depth 8 -Compress
+        @($plannedTarget.environmentFileManifest)
     $liveEnvironmentManifest =
-        @($liveTarget.environmentFileManifest) |
-            ConvertTo-Json -Depth 8 -Compress
-    $plannedCustody = $plannedTarget.environmentCustody |
-        ConvertTo-Json -Depth 8 -Compress
-    $liveCustody = $liveTarget.environmentCustody |
-        ConvertTo-Json -Depth 8 -Compress
+        @($liveTarget.environmentFileManifest)
+    $plannedCustody = $plannedTarget.environmentCustody
+    $liveCustody = $liveTarget.environmentCustody
     $plannedAdditionalConfigCustody =
-        $plannedTarget.additionalConfigCustody |
-            ConvertTo-Json -Depth 8 -Compress
+        $plannedTarget.additionalConfigCustody
     $liveAdditionalConfigCustody =
-        $liveTarget.additionalConfigCustody |
-            ConvertTo-Json -Depth 8 -Compress
+        $liveTarget.additionalConfigCustody
     $plannedExternalConfigManifest =
-        @($plannedTarget.externalConfigManifest) |
-            ConvertTo-Json -Depth 8 -Compress
+        @($plannedTarget.externalConfigManifest)
     $liveExternalConfigManifest =
-        @($liveTarget.externalConfigManifest) |
-            ConvertTo-Json -Depth 8 -Compress
-    $plannedUnits = @($plannedTarget.unitFiles) |
-        ConvertTo-Json -Depth 8 -Compress
-    $liveUnits = @($liveTarget.unitFiles) |
-        ConvertTo-Json -Depth 8 -Compress
-    $plannedStageEntry = $plannedTarget.stageEntryTopology |
-        ConvertTo-Json -Depth 8 -Compress
-    $liveStageEntry = $liveTarget.stageEntryTopology |
-        ConvertTo-Json -Depth 8 -Compress
-    $plannedApi2EventKey = $plannedTarget.api2EventKeyManifest |
-        ConvertTo-Json -Depth 8 -Compress
-    $liveApi2EventKey = $liveTarget.api2EventKeyManifest |
-        ConvertTo-Json -Depth 8 -Compress
-    $plannedConfiguredFlags = $plannedTarget.configuredFlagValues |
-        ConvertTo-Json -Depth 8 -Compress
-    $liveConfiguredFlags = $liveTarget.configuredFlagValues |
-        ConvertTo-Json -Depth 8 -Compress
-    $plannedProcessFlags = $plannedTarget.processFlagValues |
-        ConvertTo-Json -Depth 8 -Compress
-    $liveProcessFlags = $liveTarget.processFlagValues |
-        ConvertTo-Json -Depth 8 -Compress
+        @($liveTarget.externalConfigManifest)
+    $plannedUnits = @($plannedTarget.unitFiles)
+    $liveUnits = @($liveTarget.unitFiles)
+    $plannedStageEntry = $plannedTarget.stageEntryTopology
+    $liveStageEntry = $liveTarget.stageEntryTopology
+    $plannedApi2EventKey = $plannedTarget.api2EventKeyManifest
+    $liveApi2EventKey = $liveTarget.api2EventKeyManifest
+    $plannedConfiguredFlags = $plannedTarget.configuredFlagValues
+    $liveConfiguredFlags = $liveTarget.configuredFlagValues
+    $plannedProcessFlags = $plannedTarget.processFlagValues
+    $liveProcessFlags = $liveTarget.processFlagValues
     $plannedMismatchNames =
-        @($plannedTarget.processConfiguredEnvironmentMismatchNames) |
-            ConvertTo-Json -Compress
+        @($plannedTarget.processConfiguredEnvironmentMismatchNames)
     $liveMismatchNames =
-        @($liveTarget.processConfiguredEnvironmentMismatchNames) |
-            ConvertTo-Json -Compress
+        @($liveTarget.processConfiguredEnvironmentMismatchNames)
     $plannedPendingNames =
-        @($plannedTarget.processPendingRestartEnvironmentNames) |
-            ConvertTo-Json -Compress
+        @($plannedTarget.processPendingRestartEnvironmentNames)
     $livePendingNames =
-        @($liveTarget.processPendingRestartEnvironmentNames) |
-            ConvertTo-Json -Compress
+        @($liveTarget.processPendingRestartEnvironmentNames)
     $managedW1aNames = @(
         'FBSIR_BOARD_ATTRIBUTION_ENABLED',
         'FBSIR_BOARD_ATTRIBUTION_CANDIDATE_ENABLED',
@@ -5133,8 +5192,6 @@ if ($plannedTarget -and $liveTarget) {
         'FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY',
         'FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET'
     ) | Sort-Object
-    $managedW1aNamesJson = @($managedW1aNames) |
-        ConvertTo-Json -Compress
     $liveProcessFlagValues =
         @($liveTarget.processFlagValues.psobject.Properties.Value)
     $liveLoadState = [string](
@@ -5150,7 +5207,8 @@ if ($plannedTarget -and $liveTarget) {
         ) -or (
             $liveLoadState -ceq 'LEGACY_W1A_PENDING_RESTART' -and
             $liveTarget.processConfiguredEnvironmentMatched -eq $false -and
-            $livePendingNames -ceq $managedW1aNamesJson -and
+            (Test-JsonStructuralEquality `
+                -Left $livePendingNames -Right $managedW1aNames) -and
             @($liveProcessFlagValues |
                 Where-Object { $null -ne $_ }).Count -eq 0
         )
@@ -5162,55 +5220,62 @@ if ($plannedTarget -and $liveTarget) {
         $plannedTarget.targetHost -ceq $liveTarget.targetHost -and
         $plannedTarget.serviceUnit -ceq $liveTarget.serviceUnit -and
         $plannedTarget.unitSha256 -ceq $liveTarget.unitSha256 -and
-        ($plannedTarget.fragmentFileManifest |
-            ConvertTo-Json -Depth 8 -Compress) -ceq
-            ($liveTarget.fragmentFileManifest |
-                ConvertTo-Json -Depth 8 -Compress) -and
-        $plannedCustody -ceq $liveCustody -and
+        (Test-JsonStructuralEquality `
+            -Left $plannedTarget.fragmentFileManifest `
+            -Right $liveTarget.fragmentFileManifest) -and
+        (Test-JsonStructuralEquality `
+            -Left $plannedCustody -Right $liveCustody) -and
         $plannedTarget.environmentSha256 -ceq
             $liveTarget.environmentSha256 -and
-        $plannedEnvironmentPaths -ceq $liveEnvironmentPaths -and
-        $plannedEnvironmentManifest -ceq
-            $liveEnvironmentManifest -and
-        $plannedAdditionalConfigCustody -ceq
-            $liveAdditionalConfigCustody -and
+        (Test-JsonStructuralEquality `
+            -Left $plannedEnvironmentPaths `
+            -Right $liveEnvironmentPaths) -and
+        (Test-JsonStructuralEquality `
+            -Left $plannedEnvironmentManifest `
+            -Right $liveEnvironmentManifest) -and
+        (Test-JsonStructuralEquality `
+            -Left $plannedAdditionalConfigCustody `
+            -Right $liveAdditionalConfigCustody) -and
         $plannedTarget.additionalConfigSha256 -ceq
             $liveTarget.additionalConfigSha256 -and
-        $plannedExternalConfigManifest -ceq
-            $liveExternalConfigManifest -and
-        (@($plannedTarget.expectedSecurityConfigurationNames) |
-            ConvertTo-Json -Compress) -ceq
-            (@($liveTarget.expectedSecurityConfigurationNames) |
-                ConvertTo-Json -Compress) -and
+        (Test-JsonStructuralEquality `
+            -Left $plannedExternalConfigManifest `
+            -Right $liveExternalConfigManifest) -and
+        (Test-JsonStructuralEquality `
+            -Left @($plannedTarget.expectedSecurityConfigurationNames) `
+            -Right @($liveTarget.expectedSecurityConfigurationNames)) -and
         $plannedTarget.expectedSecurityConfigurationHmacSha256 -ceq
             $liveTarget.expectedSecurityConfigurationHmacSha256 -and
         $plannedTarget.configuredEnvironmentSha256 -ceq
             $liveTarget.configuredEnvironmentSha256 -and
-        (@($plannedTarget.configuredEnvironmentNames) |
-            ConvertTo-Json -Compress) -ceq
-            (@($liveTarget.configuredEnvironmentNames) |
-                ConvertTo-Json -Compress) -and
+        (Test-JsonStructuralEquality `
+            -Left @($plannedTarget.configuredEnvironmentNames) `
+            -Right @($liveTarget.configuredEnvironmentNames)) -and
         $plannedTarget.configuredEnvironmentHmacSha256 -ceq
             $liveTarget.configuredEnvironmentHmacSha256 -and
-        $plannedConfiguredFlags -ceq $liveConfiguredFlags -and
+        (Test-JsonStructuralEquality `
+            -Left $plannedConfiguredFlags `
+            -Right $liveConfiguredFlags) -and
         @($liveTarget.configuredFlagValues.psobject.Properties.Value |
             Where-Object { $_ -cne 'false' }).Count -eq 0 -and
-        $plannedApi2EventKey -ceq $liveApi2EventKey
+        (Test-JsonStructuralEquality `
+            -Left $plannedApi2EventKey `
+            -Right $liveApi2EventKey)
     )
     $statefulProcessIdentityMatched = (
         $plannedTarget.processEnvironmentNamesSha256 -ceq
             $liveTarget.processEnvironmentNamesSha256 -and
-        (@($plannedTarget.processSecurityConfigurationNames) |
-            ConvertTo-Json -Compress) -ceq
-            (@($liveTarget.processSecurityConfigurationNames) |
-                ConvertTo-Json -Compress) -and
+        (Test-JsonStructuralEquality `
+            -Left @($plannedTarget.processSecurityConfigurationNames) `
+            -Right @($liveTarget.processSecurityConfigurationNames)) -and
         $plannedTarget.processSecurityConfigurationHmacSha256 -ceq
             $liveTarget.processSecurityConfigurationHmacSha256 -and
-        $plannedProcessFlags -ceq $liveProcessFlags -and
-        (@($plannedTarget.processForbiddenOverrideNames) |
-            ConvertTo-Json -Compress) -ceq
-            (@($liveTarget.processForbiddenOverrideNames) |
-                ConvertTo-Json -Compress) -and
+        (Test-JsonStructuralEquality `
+            -Left $plannedProcessFlags `
+            -Right $liveProcessFlags) -and
+        (Test-JsonStructuralEquality `
+            -Left @($plannedTarget.processForbiddenOverrideNames) `
+            -Right @($liveTarget.processForbiddenOverrideNames)) -and
         @($liveTarget.processForbiddenOverrideNames).Count -eq 0 -and
         $plannedTarget.processDatabaseBindingMatched -eq $true -and
         $liveTarget.processDatabaseBindingMatched -eq $true -and
@@ -5218,10 +5283,12 @@ if ($plannedTarget -and $liveTarget) {
             $liveTarget.processConfiguredEnvironmentHmacSha256 -and
         $plannedTarget.processConfiguredEnvironmentMatched -eq
             $liveTarget.processConfiguredEnvironmentMatched -and
-        $plannedMismatchNames -ceq $liveMismatchNames -and
+        (Test-JsonStructuralEquality `
+            -Left $plannedMismatchNames -Right $liveMismatchNames) -and
         @($liveTarget.processConfiguredEnvironmentMismatchNames).Count -eq
             0 -and
-        $plannedPendingNames -ceq $livePendingNames -and
+        (Test-JsonStructuralEquality `
+            -Left $plannedPendingNames -Right $livePendingNames) -and
         $plannedTarget.processConfiguredEnvironmentLoadState -ceq
             $liveTarget.processConfiguredEnvironmentLoadState -and
         $plannedTarget.processConfiguredEnvironmentPreStageCompatible -eq
@@ -5262,7 +5329,8 @@ if ($plannedTarget -and $liveTarget) {
                 $true -and
             $snapshot.deploymentChannel.stagedLiveStateMatched -eq $true -and
             $serviceMatched -and
-            $plannedUnits -ceq $liveUnits -and
+            (Test-JsonStructuralEquality `
+                -Left $plannedUnits -Right $liveUnits) -and
             $plannedTarget.activeJarPath -ceq
                 $liveTarget.activeJarPath -and
             $plannedTarget.activeJarSha256 -ceq
@@ -5273,9 +5341,12 @@ if ($plannedTarget -and $liveTarget) {
                 $liveTarget.processJarSha256 -and
             $plannedTarget.processArgvSha256 -ceq
                 $liveTarget.processArgvSha256 -and
-            $plannedDropIns -ceq $liveDropIns -and
-            $plannedNginx -ceq $liveNginx -and
-            $plannedActiveNginx -ceq $liveActiveNginx -and
+            (Test-JsonStructuralEquality `
+                -Left $plannedDropIns -Right $liveDropIns) -and
+            (Test-JsonStructuralEquality `
+                -Left $plannedNginx -Right $liveNginx) -and
+            (Test-JsonStructuralEquality `
+                -Left $plannedActiveNginx -Right $liveActiveNginx) -and
             $plannedTarget.nginxDumpSha256 -ceq
                 $liveTarget.nginxDumpSha256 -and
             $liveTarget.releaseRootExists -eq $true -and
@@ -5290,8 +5361,10 @@ if ($plannedTarget -and $liveTarget) {
         $releaseTargetMatched = (
             $identityMatched -and
             $serviceMatched -and
-            $plannedUnits -ceq $liveUnits -and
-            $plannedDropIns -ceq $liveDropIns -and
+            (Test-JsonStructuralEquality `
+                -Left $plannedUnits -Right $liveUnits) -and
+            (Test-JsonStructuralEquality `
+                -Left $plannedDropIns -Right $liveDropIns) -and
             $plannedTarget.activeJarPath -ceq
                 $liveTarget.activeJarPath -and
             $plannedTarget.activeJarSha256 -ceq
@@ -5306,11 +5379,14 @@ if ($plannedTarget -and $liveTarget) {
                 $liveTarget.processJarSha256 -and
             $plannedTarget.processArgvSha256 -ceq
                 $liveTarget.processArgvSha256 -and
-            $plannedNginx -ceq $liveNginx -and
-            $plannedActiveNginx -ceq $liveActiveNginx -and
+            (Test-JsonStructuralEquality `
+                -Left $plannedNginx -Right $liveNginx) -and
+            (Test-JsonStructuralEquality `
+                -Left $plannedActiveNginx -Right $liveActiveNginx) -and
             $plannedTarget.nginxDumpSha256 -ceq
                 $liveTarget.nginxDumpSha256 -and
-            $plannedStageEntry -ceq $liveStageEntry -and
+            (Test-JsonStructuralEquality `
+                -Left $plannedStageEntry -Right $liveStageEntry) -and
             $plannedTarget.stageEntryTopology.state -ceq
                 'EXACT_PRIOR_ROLLBACK_PREDECESSOR' -and
             $plannedTarget.currentLifecycleState -ceq
@@ -5333,8 +5409,10 @@ if ($plannedTarget -and $liveTarget) {
             $identityMatched -and
             [string]::IsNullOrEmpty($deploymentState) -and
             $serviceMatched -and
-            $plannedUnits -ceq $liveUnits -and
-            $plannedDropIns -ceq $liveDropIns -and
+            (Test-JsonStructuralEquality `
+                -Left $plannedUnits -Right $liveUnits) -and
+            (Test-JsonStructuralEquality `
+                -Left $plannedDropIns -Right $liveDropIns) -and
             $plannedTarget.activeJarPath -ceq
                 $liveTarget.activeJarPath -and
             $plannedTarget.activeJarSha256 -ceq
@@ -5345,11 +5423,14 @@ if ($plannedTarget -and $liveTarget) {
                 $liveTarget.processJarSha256 -and
             $plannedTarget.processArgvSha256 -ceq
                 $liveTarget.processArgvSha256 -and
-            $plannedNginx -ceq $liveNginx -and
-            $plannedActiveNginx -ceq $liveActiveNginx -and
+            (Test-JsonStructuralEquality `
+                -Left $plannedNginx -Right $liveNginx) -and
+            (Test-JsonStructuralEquality `
+                -Left $plannedActiveNginx -Right $liveActiveNginx) -and
             $plannedTarget.nginxDumpSha256 -ceq
                 $liveTarget.nginxDumpSha256 -and
-            $plannedStageEntry -ceq $liveStageEntry -and
+            (Test-JsonStructuralEquality `
+                -Left $plannedStageEntry -Right $liveStageEntry) -and
             $plannedTarget.currentLifecycleState -ceq
                 $liveTarget.currentLifecycleState -and
             $plannedTarget.stageEntryTopology.state -ceq

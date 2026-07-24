@@ -835,6 +835,17 @@ test("readiness rejects stale plans and target drift", () => {
   assert.ok(readiness.includes("currentLinkResolved"));
 });
 
+test("readiness compares JSON-shaped target facts without object key-order coupling", () => {
+  assert.ok(readiness.includes("function Test-JsonStructuralEquality"));
+  const targetMatch = sectionBetween(
+    readiness,
+    "$plannedTarget = $gitState.releasePlanTarget",
+    "$gitState.releasePlanTargetMatchedLive = $releaseTargetMatched",
+  );
+  assert.ok(targetMatch.includes("Test-JsonStructuralEquality"));
+  assert.equal(targetMatch.includes("ConvertTo-Json"), false);
+});
+
 test("plan, readiness and worker use the one real release drop-in", () => {
   const dropin = "20-u3w-default-off-release.conf";
   for (const [name, source] of [
