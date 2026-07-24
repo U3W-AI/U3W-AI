@@ -73,6 +73,7 @@ try {
 
     Assert-PowerShellSyntax -Paths @(
         'scripts/deploy-independent-board-default-off.ps1',
+        'scripts/run-u3w-admin-root-dependency.ps1',
         'scripts/run-u3w-default-off-configuration.ps1',
         'scripts/run-u3w-legacy-baseline-control-shape-mysql-it.ps1',
         'scripts/run-u3w-legacy-baseline.ps1',
@@ -92,7 +93,7 @@ finally {
     tests = [ordered]@{
         nodeFiles = 3
         pythonFiles = 3
-        powershellFiles = 7
+        powershellFiles = 8
     }
     observedAt = [DateTime]::UtcNow.ToString('o')
 } | ConvertTo-Json -Depth 5

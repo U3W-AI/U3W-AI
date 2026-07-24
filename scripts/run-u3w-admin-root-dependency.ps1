@@ -231,7 +231,8 @@ function Get-ApprovalDigest {
     if (-not (Test-Path -LiteralPath $ApprovalReceiptPath -PathType Leaf)) {
         throw 'adoption requires ApprovalReceiptPath'
     }
-    $approval = Get-Content -Raw -LiteralPath $ApprovalReceiptPath |
+    $approval = Get-Content -Raw -Encoding UTF8 `
+        -LiteralPath $ApprovalReceiptPath |
         ConvertFrom-Json
     $expectedFields = @(
         'schema', 'action', 'targetHost', 'runId', 'sourceCommit',
@@ -336,7 +337,8 @@ function Get-PlanDigest {
     if ($digest -ne $ExpectedPlanReceiptSha256) {
         throw 'admin-root dependency Plan receipt digest mismatch'
     }
-    $plan = Get-Content -Raw -LiteralPath $PlanReceiptPath |
+    $plan = Get-Content -Raw -Encoding UTF8 `
+        -LiteralPath $PlanReceiptPath |
         ConvertFrom-Json
     if (
         $plan.schema -ne 'fbsir.u3wAdminRootDependencyPlan.v2' -or
@@ -463,7 +465,8 @@ function Save-ExternalAnchor {
             throw 'failed to download admin-root adoption receipt'
         }
         $digest = Get-Sha256 $temporaryPath
-        $receipt = Get-Content -Raw -LiteralPath $temporaryPath |
+        $receipt = Get-Content -Raw -Encoding UTF8 `
+            -LiteralPath $temporaryPath |
             ConvertFrom-Json
         if (
             $receipt.schema -ne
@@ -541,7 +544,8 @@ function Save-ExternalAnchor {
             capturedAt = [DateTime]::UtcNow.ToString('o')
         }
         if (Test-Path -LiteralPath $anchorPath -PathType Leaf) {
-            $existing = Get-Content -Raw -LiteralPath $anchorPath |
+            $existing = Get-Content -Raw -Encoding UTF8 `
+                -LiteralPath $anchorPath |
                 ConvertFrom-Json
             $existingFields = @(
                 $existing.psobject.Properties.Name | Sort-Object

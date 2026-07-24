@@ -836,6 +836,14 @@ class RunnerContractTest(unittest.TestCase):
         for needle in required:
             with self.subTest(needle=needle):
                 self.assertIn(needle, runner)
+        self.assertEqual(
+            runner.count("Get-Content -Raw -Encoding UTF8 `"),
+            4,
+        )
+        self.assertNotIn(
+            "Get-Content -Raw -LiteralPath",
+            runner,
+        )
 
 
 if __name__ == "__main__":

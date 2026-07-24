@@ -150,6 +150,7 @@ token，runner 必须失败，不得降级为生成新 token。
    `deliverables/production-evidence`，禁止写入官方 Experts 包。
 7. Windows PowerShell 调用 `ssh.exe` 时，所有 Python bootstrap 必须先转义双引号，并由合同测试逐处计数；未经真实远端只读启动验证，不得只凭本地静态语法通过进入生产变更。
 8. 若准备完成后仅修复发布门禁自身，配置、基线、最终备份回执可以共同绑定同一个祖先准备提交，但必须同时证明：该提交是当前 strict HEAD 的 Git 祖先；三类回执的 source commit 完全一致；配置、基线、备份 runner/worker/restore verifier 与当前提交逐字节 SHA-256 一致。任一条件不满足即拒绝，不以“仅文档变化”或人工说明代替。
+9. Windows PowerShell 5 读取无 BOM JSON 时必须显式使用 `-Encoding UTF8`，尤其是包含中文菜单投影的 Plan、采用回执和仓外锚点；默认系统代码页读取可破坏合法 JSON。准备合同必须语法检查管理根 runner，并由回归测试拒绝省略 UTF-8 编码的文件读取。
 
 准备合同：
 
