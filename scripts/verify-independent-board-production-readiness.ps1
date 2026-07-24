@@ -303,20 +303,35 @@ function Get-LocalTreeFacts {
     $rootUri = [Uri]::new($resolved.TrimEnd('\') + '\')
     $files = @(
         Get-ChildItem -LiteralPath $resolved -Recurse -File |
-            Sort-Object FullName
+            ForEach-Object {
+                [pscustomobject]@{
+                    file = $_
+                    relative = [Uri]::UnescapeDataString(
+                        $rootUri.MakeRelativeUri(
+                            [Uri]::new($_.FullName)).ToString()
+                    ).Replace('\', '/')
+                }
+            }
     )
     if ($files.Count -eq 0) {
         throw "release tree is empty: $Root"
     }
+    [Array]::Sort(
+        $files,
+        [Comparison[object]]{
+            param($left, $right)
+            return [StringComparer]::Ordinal.Compare(
+                [string]$left.relative,
+                [string]$right.relative)
+        })
     $lines = [Collections.Generic.List[string]]::new()
     [long]$bytes = 0
-    foreach ($file in $files) {
+    foreach ($entry in $files) {
+        $file = $entry.file
         if (($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
             throw "release tree contains a reparse point: $($file.FullName)"
         }
-        $relative = [Uri]::UnescapeDataString(
-            $rootUri.MakeRelativeUri([Uri]::new($file.FullName)).ToString()
-        ).Replace('\', '/')
+        $relative = [string]$entry.relative
         if ($relative.StartsWith('../') -or $relative.Contains("`n")) {
             throw 'release tree contains an unsafe relative path'
         }

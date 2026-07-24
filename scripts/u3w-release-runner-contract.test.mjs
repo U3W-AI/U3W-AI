@@ -259,8 +259,15 @@ test("frontend tree hashing uses cross-platform ordinal relative-path order", ()
     "function Get-TreeManifest {",
     "function Write-Utf8NoBomAtomic {",
   );
+  const readinessTreeFacts = sectionBetween(
+    readiness,
+    "function Get-LocalTreeFacts {",
+    "function Test-WorkerPyMySqlOrchestrationProof {",
+  );
   assert.ok(treeManifest.includes("[StringComparer]::Ordinal.Compare"));
   assert.equal(treeManifest.includes("Sort-Object FullName"), false);
+  assert.ok(readinessTreeFacts.includes("[StringComparer]::Ordinal.Compare"));
+  assert.equal(readinessTreeFacts.includes("Sort-Object FullName"), false);
 });
 
 test("SSH is pinned to the derived private key and exact collector bytes", () => {
