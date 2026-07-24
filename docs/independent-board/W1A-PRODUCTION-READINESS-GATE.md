@@ -72,6 +72,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   relaxed-binding 重名环境变量、任意 `SPRING_*` 和 Java options 覆盖均阻断。
 - 生产目标、服务单元、SSH 公钥和主机指纹在脚本内固定；不能用调用参数降级。
 - 不提供离线快照放行入口；`-RequireReady` 必须执行实时 SSH 采集并提供相应的外部回执摘要锚点。
+- 配置、遗留基线与最终备份必须共享同一准备提交。若它与当前 strict HEAD 不同，只允许经本地 Git 证明为祖先，且对应 runner、worker 与恢复 verifier 的提交字节 SHA-256 全部仍与当前 HEAD 相同；否则门禁拒绝。
 - MySQL 版本不是手写白名单；门禁只接受仓内真实隔离集成回执中、与当前 `public_init_043` SHA 和精确 Schema 指纹绑定的版本。
 - standalone `public_init_043` 兼容回执只关闭 `w1a_043_mysql_compatibility`，不能替代完整 canonical 基线，也不能替代旧库 adoption 回执。
 - V2 旧库接管采用固定 canonical 控制覆盖，首次 DDL 前验证 `BACKUP_ADMIN`，显式使用 `REPEATABLE READ`，在事务内和提交后重复验形；中断后只能通过新的、绑定原审批与既有回执摘要的 `Recover` 审批补证。任何路径都不得补写 `public_init_001` 至 `public_init_042`。

@@ -39,6 +39,7 @@
 6. 每个 mutating runner 的输出和外部锚点都保存到
    `deliverables/production-evidence`，禁止写入官方 Experts 包。
 7. Windows PowerShell 调用 `ssh.exe` 时，所有 Python bootstrap 必须先转义双引号，并由合同测试逐处计数；未经真实远端只读启动验证，不得只凭本地静态语法通过进入生产变更。
+8. 若准备完成后仅修复发布门禁自身，配置、基线、最终备份回执可以共同绑定同一个祖先准备提交，但必须同时证明：该提交是当前 strict HEAD 的 Git 祖先；三类回执的 source commit 完全一致；配置、基线、备份 runner/worker/restore verifier 与当前提交逐字节 SHA-256 一致。任一条件不满足即拒绝，不以“仅文档变化”或人工说明代替。
 
 准备合同：
 

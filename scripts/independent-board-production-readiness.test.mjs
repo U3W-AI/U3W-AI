@@ -8,6 +8,10 @@ import { evaluateProductionReadiness } from "./independent-board-production-read
 
 const commit = "a".repeat(40);
 const digest = "b".repeat(64);
+const readinessRunner = fs.readFileSync(
+  new URL("./verify-independent-board-production-readiness.ps1", import.meta.url),
+  "utf8",
+);
 const schemaFingerprint =
   "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d";
 const migrations = Array.from(
@@ -78,6 +82,9 @@ function readySnapshot() {
       releasePlanReceiptPath:
         "reports/independent-board/w1a-default-off-release-plan-latest.json",
       releasePlanReceiptSha256: digest,
+      preparationSourceCommit: commit,
+      preparationCommitAncestorOfSourceCommit: true,
+      preparationSourceCommitsConsistent: true,
     },
     target: {
       host: "api2.u3w.com",
@@ -138,6 +145,7 @@ function readySnapshot() {
     },
     backup: {
       receiptPath: "/opt/fbsir/admin/backups/latest/receipt.json",
+      sourceCommit: commit,
       proven: true,
       receiptAnchorMatched: true,
       sha256: digest,
@@ -176,6 +184,33 @@ test("preparation can pass before any production upload or switch", () => {
     "staged_release_receipt",
     "deployed_default_off_receipt",
   ]);
+});
+
+test("accepts one byte-identical ancestor preparation commit", () => {
+  const snapshot = readySnapshot();
+  const releaseCommit = "c".repeat(40);
+  snapshot.local.sourceCommit = releaseCommit;
+  snapshot.local.expectedSourceCommit = releaseCommit;
+  snapshot.local.releasePlanSourceCommit = releaseCommit;
+  snapshot.local.preparationSourceCommit = commit;
+  snapshot.local.preparationCommitAncestorOfSourceCommit = true;
+  snapshot.configuration.configurationReceiptSourceCommit = commit;
+  snapshot.backup.sourceCommit = commit;
+  const result = evaluateProductionReadiness(snapshot);
+  assert.equal(result.status, "PREPARED_FOR_STAGE");
+  assert.deepEqual(result.failedGateIds, []);
+});
+
+test("rejects a preparation commit without proven ancestry", () => {
+  const snapshot = readySnapshot();
+  snapshot.local.preparationCommitAncestorOfSourceCommit = false;
+  const result = evaluateProductionReadiness(snapshot);
+  assert.ok(result.failedGateIds.includes("preparation_source_provenance"));
+});
+
+test("embedded collector has no stale environment_files alias", () => {
+  assert.equal(/\benvironment_files\b/.test(readinessRunner), false);
+  assert.ok(readinessRunner.includes("environment_file_paths"));
 });
 
 test("fails closed for a dirty or non-exact source tree", () => {

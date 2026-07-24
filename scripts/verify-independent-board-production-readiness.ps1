@@ -518,6 +518,9 @@ function Get-GitState {
         releasePlanReceiptSha256 = $releasePlanReceiptSha256
         releasePlanTarget = $releasePlanTarget
         releasePlanTargetMatchedLive = $false
+        preparationSourceCommit = $null
+        preparationCommitAncestorOfSourceCommit = $false
+        preparationSourceCommitsConsistent = $false
     }
 }
 
@@ -2441,8 +2444,10 @@ ORDER BY baseline_id
                             == database["serverVersion"]
                         and payload.get("fingerprintAlgorithm")
                             == "u3w.mysql-schema-metadata.v2"
-                        and payload.get("sourceCommit")
-                            == EXPECTED_SOURCE_COMMIT
+                        and re.fullmatch(
+                            r"[0-9a-f]{40}",
+                            str(payload.get("sourceCommit") or ""),
+                        ) is not None
                         and re.fullmatch(
                             r"[0-9a-f]{64}",
                             str(payload.get("sourceJarSha256") or ""),
@@ -2541,17 +2546,17 @@ same_binding_value = environment.get(
     "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET", ""
 ).strip()
 same_binding_present = bool(same_binding_value)
-environment_file_custody_secure = bool(environment_files) and all(
+environment_file_custody_secure = bool(environment_file_paths) and all(
     pathlib.Path(filename).is_file()
     and not pathlib.Path(filename).is_symlink()
     and pathlib.Path(filename).stat().st_uid == 0
     and pathlib.Path(filename).stat().st_gid == 0
     and (pathlib.Path(filename).stat().st_mode & 0o777) == 0o600
     and pathlib.Path(filename).stat().st_nlink == 1
-    for filename in environment_files
+    for filename in environment_file_paths
 )
 environment_file_path_exact = (
-    environment_files == ["/etc/u3w/fbsir-admin.env"]
+    environment_file_paths == ["/etc/u3w/fbsir-admin.env"]
 )
 active_event_material = decode_secret_material(active_event_key)
 previous_event_material = decode_secret_material(previous_event_key)
@@ -2723,8 +2728,10 @@ if configuration_receipt_path.exists():
             and configuration_receipt.get(
                 "stagedKeyMaterialMatched"
             ) is True
-            and configuration_receipt_source_commit
-                == EXPECTED_SOURCE_COMMIT
+            and re.fullmatch(
+                r"[0-9a-f]{40}",
+                str(configuration_receipt_source_commit or ""),
+            ) is not None
             and configuration_receipt.get("runnerSha256")
                 == EXPECTED_CONFIGURATION_RUNNER_SHA256
             and configuration_receipt.get("workerSha256")
@@ -2930,6 +2937,7 @@ def current_backup_schema_facts():
 
 backup = {
     "receiptPath": BACKUP_RECEIPT_PATH,
+    "sourceCommit": None,
     "proven": False,
     "receiptAnchorMatched": False,
     "sha256": None,
@@ -3052,6 +3060,7 @@ if backup_receipt.is_file():
                 )
             )
         )
+        backup_source_commit = bundle.get("sourceCommit")
         restore_verified = bool(
             bundle.get("schema")
                 == "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v1"
@@ -3059,7 +3068,10 @@ if backup_receipt.is_file():
                 r"w1a-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}",
                 str(run_id or ""),
             )
-            and bundle.get("sourceCommit") == EXPECTED_SOURCE_COMMIT
+            and re.fullmatch(
+                r"[0-9a-f]{40}",
+                str(backup_source_commit or ""),
+            ) is not None
             and bundle.get("targetHost") == TARGET_HOST
             and bundle.get("database") == "fbsir"
             and bundle.get("runnerSha256")
@@ -3079,7 +3091,8 @@ if backup_receipt.is_file():
             and source_receipt.get("schema")
                 == "fbsir.u3wDatabaseBackupReceipt.v2"
             and source_receipt.get("runId") == run_id
-            and source_receipt.get("sourceCommit") == EXPECTED_SOURCE_COMMIT
+            and source_receipt.get("sourceCommit")
+                == backup_source_commit
             and source_receipt.get("runnerSha256")
                 == EXPECTED_BACKUP_RUNNER_SHA256
             and source_receipt.get("backupWorkerSha256")
@@ -3097,7 +3110,8 @@ if backup_receipt.is_file():
             and restore_receipt.get("schema")
                 == "fbsir.u3wDatabaseRestoreRehearsalReceipt.v2"
             and restore_receipt.get("runId") == run_id
-            and restore_receipt.get("sourceCommit") == EXPECTED_SOURCE_COMMIT
+            and restore_receipt.get("sourceCommit")
+                == backup_source_commit
             and restore_receipt.get("sourceBackupSha256") == actual_digest
             and restore_receipt.get("sourceBackupReceiptSha256")
                 == sha256_file(backup_receipt_file)
@@ -3133,7 +3147,7 @@ if backup_receipt.is_file():
             and evidence.get("schema")
                 == "fbsir.u3wIsolatedMysqlEvidence.v1"
             and evidence.get("runId") == run_id
-            and evidence.get("sourceCommit") == EXPECTED_SOURCE_COMMIT
+            and evidence.get("sourceCommit") == backup_source_commit
             and evidence.get("productionMysqldPidBefore")
                 == evidence.get("productionMysqldPidAfter")
             and evidence.get("mysqlcheckExitCode") == 0
@@ -3167,6 +3181,14 @@ if backup_receipt.is_file():
         )
     backup.update({
         "proven": restore_verified,
+        "sourceCommit": (
+            bundle.get("sourceCommit")
+            if re.fullmatch(
+                r"[0-9a-f]{40}",
+                str(bundle.get("sourceCommit") or ""),
+            ) is not None
+            else None
+        ),
         "sha256": actual_digest,
         "sizeBytes": actual_size,
         "restoreProcedureVerified": restore_verified,
@@ -4950,6 +4972,46 @@ if (
 ) {
     throw 'local Git or release-plan state drifted during remote collection'
 }
+$preparationSourceCommits = @(
+    [string]$snapshot.configuration.configurationReceiptSourceCommit,
+    [string]$snapshot.backup.sourceCommit
+)
+$expectedPreparationReceiptCount = 2
+if (
+    [string]$snapshot.database.schemaBaselineMode -ceq
+        'LEGACY_ADOPTED_W1A_V2'
+) {
+    $preparationSourceCommits +=
+        [string]$snapshot.database.legacyBaselineSourceCommit
+    $expectedPreparationReceiptCount = 3
+}
+$preparationSourceCommits = @(
+    $preparationSourceCommits |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+)
+$uniquePreparationSourceCommits = @(
+    $preparationSourceCommits | Sort-Object -Unique
+)
+$preparationSourcesConsistent = (
+    $preparationSourceCommits.Count -eq
+        $expectedPreparationReceiptCount -and
+    $uniquePreparationSourceCommits.Count -eq 1 -and
+    $uniquePreparationSourceCommits[0] -cmatch '^[0-9a-f]{40}$'
+)
+$preparationSourceCommit = if ($preparationSourcesConsistent) {
+    [string]$uniquePreparationSourceCommits[0]
+} else { $null }
+$preparationCommitAncestor = $false
+if ($preparationSourceCommit) {
+    & git -C $RepoRoot merge-base --is-ancestor `
+        $preparationSourceCommit $gitState.sourceCommit 2>$null
+    $preparationCommitAncestor = $LASTEXITCODE -eq 0
+}
+$gitState.preparationSourceCommit = $preparationSourceCommit
+$gitState.preparationCommitAncestorOfSourceCommit =
+    $preparationCommitAncestor
+$gitState.preparationSourceCommitsConsistent =
+    $preparationSourcesConsistent
 $plannedTarget = $gitState.releasePlanTarget
 $liveTarget = $snapshot.releaseTargetFacts
 $releaseTargetMatched = $false

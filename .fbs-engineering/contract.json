@@ -413,6 +413,7 @@
         "approvalPolicy": "persist_current_and_transition_approval_bytes_before_remote_mutation",
         "failureEvidencePolicy": "persist_sanitized_envelope_and_failure_receipt_before_post_mutation_readiness",
         "latestReceiptPolicy": "bounded_compare_and_swap_per_release",
+        "preparationReceiptEvolutionPolicy": "accept_one_shared_ancestor_preparation_commit_only_when_git_ancestry_is_proven_and_every_preparation_runner_worker_verifier_digest_is_byte_identical_to_strict_head",
         "windowsOpenSshPythonPolicy": "escape_python_bootstrap_double_quotes_before_passing_the_single_quoted_remote_command_to_ssh_exe_and_cover_every_bootstrap_with_a_contract_test",
         "rollbackPolicy": "real_application_rollback_with_additive_database_043_retained_dormant_no_down",
         "officialExpertsPackageChangeAllowed": false

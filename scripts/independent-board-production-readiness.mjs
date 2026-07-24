@@ -156,13 +156,21 @@ export function evaluateProductionReadiness(snapshot) {
     canonicalBaselineCompatibilityVersions.has(database.serverVersion) &&
     missingPredecessors.length === 0 &&
     driftedPredecessorDescriptions.length === 0;
+  const preparationSourceProvenanceValid =
+    hasExactString(local.preparationSourceCommit, /^[0-9a-f]{40}$/) &&
+    local.preparationCommitAncestorOfSourceCommit === true &&
+    local.preparationSourceCommitsConsistent === true &&
+    configuration.configurationReceiptSourceCommit ===
+      local.preparationSourceCommit &&
+    backup.sourceCommit === local.preparationSourceCommit;
   const legacySchemaBaseline =
     database.migrationTableCount === 1 &&
     database.schemaBaselineMode === "LEGACY_ADOPTED_W1A_V2" &&
     database.legacyBaselineReceiptValid === true &&
     database.legacyBaselineReceiptAnchorMatched === true &&
     database.legacyBaselineLiveFactsMatched === true &&
-    database.legacyBaselineSourceCommit === local.sourceCommit;
+    database.legacyBaselineSourceCommit ===
+      local.preparationSourceCommit;
   const missingFlags = REQUIRED_DEFAULT_OFF_FLAGS.filter(
     (name) => !configuredNames.has(name),
   );
@@ -184,6 +192,14 @@ export function evaluateProductionReadiness(snapshot) {
         target.authorityObserved === "root" &&
         target.serviceUnit === "fbsir-admin.service",
       "production authority must be root on api2.u3w.com and scoped to fbsir-admin.service",
+    ),
+    gate(
+      "preparation_source_provenance",
+      preparationSourceProvenanceValid &&
+        (canonicalSchemaBaseline ||
+          database.legacyBaselineSourceCommit ===
+            local.preparationSourceCommit),
+      "configuration, baseline and backup receipts must share one byte-identical ancestor preparation commit",
     ),
     gate(
       "active_runtime_anchor",
@@ -262,7 +278,7 @@ export function evaluateProductionReadiness(snapshot) {
         configuration.configurationReceiptValid === true &&
         configuration.configurationReceiptAnchorMatched === true &&
         configuration.configurationReceiptSourceCommit ===
-          local.sourceCommit,
+          local.preparationSourceCommit,
       "the explicit active event key pair and independent same-binding secret must be held in a root-owned 0600 env file without disclosure",
     ),
     gate(
@@ -363,6 +379,13 @@ export function evaluateProductionReadiness(snapshot) {
     postDeployFailedGateIds,
     evidence: {
       localSourceCommit: local.sourceCommit ?? null,
+      preparationSource: {
+        commit: local.preparationSourceCommit ?? null,
+        ancestorOfSourceCommit:
+          local.preparationCommitAncestorOfSourceCommit === true,
+        receiptsConsistent:
+          local.preparationSourceCommitsConsistent === true,
+      },
       releasePlan: {
         verified: local.releasePlanVerified === true,
         targetMatchedLive: local.releasePlanTargetMatchedLive === true,
@@ -469,6 +492,7 @@ export function evaluateProductionReadiness(snapshot) {
       },
       backup: {
         receiptPath: backup.receiptPath ?? null,
+        sourceCommit: backup.sourceCommit ?? null,
         proven: backup.proven === true,
         receiptAnchorMatched: backup.receiptAnchorMatched === true,
         sha256: backup.sha256 ?? null,
