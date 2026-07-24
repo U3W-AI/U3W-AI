@@ -811,6 +811,94 @@ class ReleaseWorkerContractTest(unittest.TestCase):
                 args, unexpected, live
             )
 
+    def test_staged_receipt_declares_both_database_change_dimensions(self):
+        source = inspect.getsource(release.finalize_stage)
+        self.assertIn(
+            '"productionDatabaseChangedThisRun": False',
+            source,
+        )
+        self.assertIn(
+            '"productionDatabaseChangedSinceStage": False',
+            source,
+        )
+
+    def test_apply_rejects_missing_or_true_staged_change_invariants(self):
+        args, _ = release_args("Apply")
+        args.stage_receipt_sha = "9" * 64
+        receipt = {
+            "schema": "fbsir.u3wW1aDeploymentReadinessReceipt.v2",
+            "state": "STAGED_FOR_SWITCH",
+            "releaseId": args.release_id,
+            "sourceCommit": args.source_commit,
+            "backendBuildSha256": args.backend_sha,
+            "frontendBuildSha256": args.frontend_tree_sha,
+            "runnerSha256": args.runner_sha,
+            "workerSha256": args.worker_sha,
+            "stageApprovalReceiptSha256": "8" * 64,
+            "databaseDownClaimed": False,
+            "databaseRollbackSafetyProven": True,
+            "productionDatabaseChanged": False,
+            "productionDatabaseChangedThisRun": False,
+            "productionDatabaseChangedSinceStage": False,
+            "productionServiceChanged": False,
+            "officialExpertsPackageChanged": False,
+            "actualActiveArtifactsMatched": False,
+        }
+        invariant_fields = (
+            "productionDatabaseChanged",
+            "productionDatabaseChangedThisRun",
+            "productionDatabaseChangedSinceStage",
+            "productionServiceChanged",
+            "officialExpertsPackageChanged",
+            "actualActiveArtifactsMatched",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            release_dir = pathlib.Path(temporary)
+            stage_path = (
+                release_dir / "deployment-readiness-receipt.json"
+            )
+            stage_path.write_text("{}\n", encoding="utf-8")
+            with (
+                mock.patch.object(release, "validate_regular_file"),
+                mock.patch.object(
+                    release,
+                    "sha256_file",
+                    return_value=args.stage_receipt_sha,
+                ),
+                mock.patch.object(release, "read_json") as read_json,
+                mock.patch.object(
+                    release, "validate_staged_plan_target_binding"
+                ),
+                mock.patch.object(
+                    release, "validate_staged_release_artifacts"
+                ),
+                mock.patch.object(release, "validate_release_evidence"),
+            ):
+                read_json.return_value = receipt
+                _, accepted = release.validate_stage_receipt(
+                    args, release_dir
+                )
+                self.assertIs(accepted, receipt)
+                for field in invariant_fields:
+                    for invalid_value in ("missing", True):
+                        with self.subTest(
+                            field=field,
+                            invalid_value=invalid_value,
+                        ):
+                            invalid = dict(receipt)
+                            if invalid_value == "missing":
+                                invalid.pop(field)
+                            else:
+                                invalid[field] = invalid_value
+                            read_json.return_value = invalid
+                            with self.assertRaisesRegex(
+                                RuntimeError,
+                                "staged receipt identity is invalid",
+                            ):
+                                release.validate_stage_receipt(
+                                    args, release_dir
+                                )
+
     def test_stage_artifact_failure_precedes_every_apply_mutation(self):
         args, _ = release_args("Apply")
         with (

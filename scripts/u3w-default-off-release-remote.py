@@ -3102,6 +3102,8 @@ def finalize_stage(args):
         "actualActiveArtifactsMatched": False,
         "productionFilesystemChanged": True,
         "productionDatabaseChanged": False,
+        "productionDatabaseChangedThisRun": False,
+        "productionDatabaseChangedSinceStage": False,
         "productionServiceChanged": False,
         "officialExpertsPackageChanged": False,
         "generatedAt": utc_now(),
@@ -3546,6 +3548,12 @@ def validate_stage_receipt(args, release):
         )
         or receipt.get("databaseDownClaimed") is not False
         or receipt.get("databaseRollbackSafetyProven") is not True
+        or receipt.get("productionDatabaseChanged") is not False
+        or receipt.get("productionDatabaseChangedThisRun") is not False
+        or receipt.get("productionDatabaseChangedSinceStage") is not False
+        or receipt.get("productionServiceChanged") is not False
+        or receipt.get("officialExpertsPackageChanged") is not False
+        or receipt.get("actualActiveArtifactsMatched") is not False
     ):
         raise RuntimeError("staged receipt identity is invalid")
     validate_staged_plan_target_binding(args, release, receipt)
