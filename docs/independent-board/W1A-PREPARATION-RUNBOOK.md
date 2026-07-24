@@ -13,6 +13,106 @@
 `false`。门禁管理十二项：四个兼容主开关、四个 Spring relaxed-binding
 规范主开关和四个纵向切片开关。
 
+## 2026-07-24 当前执行序列（覆盖下文历史首次配置顺序）
+
+当前生产库已经存在精确的“独董会管理”根菜单与受控依赖记录，配置 v2、遗留
+baseline v2 和采用前 backup/restore v1 也已经完成。本轮不得重做首次配置或声称
+重新执行了历史数据库变更；严格顺序为：
+
+1. 用独立 runner 先以只读 `Plan` 复算“现存且精确”的管理根依赖，再根据
+   Plan 的数据库身份、实时事实和代码摘要创建审批并以同一 RunId 执行 `Adopt`，生成
+   `fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2`。回执必须绑定数据库
+   server UUID、遗留 baseline SHA、采用前 backup SHA，并证明
+   `public_init_001..042`、`public_init_043`、内部 043、归因表、触发器和归因权限
+   均未出现。
+2. 配置 Reconcile 只允许采纳已经存在且相对 v2 唯一新增的
+   `FBSIR_ENGINE_TOKEN`。本轮没有 Engine/Hub 对端，因此禁止新建 token，并在 v3
+   回执中固定 `engineCounterpartClosureClaimed=false`；不得宣称 Engine 闭环。
+3. 在上述采纳完成后生成新的 backup v3、restore v3 和 bundle v2，并由隔离恢复
+   独立复算同一根依赖与 043 缺席事实。采用前备份不能充当本轮最终备份。
+4. Build 与固定 Plan 绑定同一 strict HEAD；从 PREPARED 门禁开始，PREPARED、
+   Stage、Apply、Verify 全部绑定同一个根依赖采纳回执 SHA。官方 Experts 包始终
+   只读。
+
+根依赖采纳命令：
+
+```powershell
+$commit = (git rev-parse HEAD).Trim()
+$dependencyRunId = '<admin-root-dependency-run-id>'
+
+# 零生产落库、零生产持久化文件写入的实时 Plan；runner 会把本地证据
+# 不可变保存到仓外 evidence 目录。
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File scripts/run-u3w-admin-root-dependency.ps1 `
+  -Mode Plan `
+  -ExpectedCommit $commit `
+  -ExpectedBaselineReceiptSha256 <legacy-adoption-receipt-sha256> `
+  -ExpectedBackupReceiptSha256 <predecessor-backup-bundle-receipt-sha256> `
+  -RunId $dependencyRunId
+
+$dependencyPlanPath =
+  "<production-evidence>/$dependencyRunId-admin-root-dependency-plan.json"
+$dependencyPlanSha = (
+  Get-FileHash -LiteralPath $dependencyPlanPath -Algorithm SHA256
+).Hash.ToLowerInvariant()
+
+# approval 必须逐项绑定上述 Plan 的原始字节 SHA；然后以同一 RunId 执行 Adopt。
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File scripts/run-u3w-admin-root-dependency.ps1 `
+  -Mode Adopt `
+  -ExpectedCommit $commit `
+  -ExpectedBaselineReceiptSha256 <legacy-adoption-receipt-sha256> `
+  -ExpectedBackupReceiptSha256 <predecessor-backup-bundle-receipt-sha256> `
+  -RunId $dependencyRunId `
+  -PlanReceiptPath $dependencyPlanPath `
+  -ExpectedPlanReceiptSha256 $dependencyPlanSha `
+  -ApprovalReceiptPath <approval-json>
+```
+
+其 approval action 必须是
+`ADOPT_W1A_043_LEGACY_ADMIN_ROOT_DEPENDENCY`，只允许生产文件系统写入回执，不
+允许数据库、服务或官方包变化。`Plan` 和 `Adopt` 都在共享主机锁、迁移命名锁、
+`REPEATABLE READ` 一致性快照及控制表全范围行锁/元数据锁窗口内复算事实；
+审批同时显式禁止并发 DDL。Plan 不创建生产目录、生产锁文件、生产回执或业务
+仓外锚点；允许 runner 在本地仓外 evidence 目录保存不可变 Plan 证据。当前环境
+账号没有全局 `BACKUP_ADMIN`，因此不得伪称使用实例级 backup lock。
+approval 还必须把 Plan 返回的 `liveFactsSha256` 写入
+`expectedLiveFactsSha256`，并将 `expectedDatabaseProtectionMode` 精确设为 Plan
+返回值，同时把本地 Plan 文件的 SHA-256 写入 `expectedPlanReceiptSha256`；
+Adopt 必须验证并传入同一份 Plan 原始字节，在持锁窗口内重算后不一致即拒绝，
+不允许把“两次都满足 exact”误当成同一组已审批事实。
+
+配置采纳使用新的 RunId，并同时绑定当前环境 SHA 与 v2 前序回执 SHA：
+
+```powershell
+$configurationRunId = '<configuration-v3-run-id>'
+
+# 先只读证明当前环境相对 v2 只有一个规范追加的既有 Engine 凭据差量。
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File scripts/run-u3w-default-off-configuration.ps1 `
+  -Mode Plan -ExpectedCommit $commit `
+  -ExpectedPredecessorConfigurationReceiptSha256 `
+    <configuration-v2-receipt-sha256> `
+  -RunId $configurationRunId
+
+# 根据 Plan 创建 Reconcile approval 后执行：
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File scripts/run-u3w-default-off-configuration.ps1 `
+  -Mode Reconcile -ExpectedCommit $commit `
+  -ExpectedEnvironmentSha256 <current-environment-sha256> `
+  -ExpectedPredecessorConfigurationReceiptSha256 `
+    <configuration-v2-receipt-sha256> `
+  -RunId $configurationRunId `
+  -ApprovalReceiptPath <approval-json>
+```
+
+Reconcile Plan 必须返回 `adminEngineCredentialPresent=true`、
+`exactExistingAdminEngineDeltaValid=true`、精确的 v2 前序回执 SHA，并固定
+`engineCounterpartClosureClaimed=false`；否则不得创建 approval 或生产 run
+directory。其 approval action 必须是
+`ADOPT_EXISTING_ADMIN_ENGINE_CREDENTIAL_DELTA`；如果当前环境没有精确的既存
+token，runner 必须失败，不得降级为生成新 token。
+
 ## 已冻结的采用前备份
 
 遗留库采用只允许使用以下已经独立恢复验证的采用前锚点：
@@ -130,18 +230,31 @@ runner 在首个 DDL 前验证 `BACKUP_ADMIN`，使用 `LOCK INSTANCE FOR BACKUP
 ## 顺序三：采用后的最终备份与隔离恢复
 
 基线采用完成后，使用当前同一 clean/pushed HEAD 和新的 `w1a-<UTC>-<12hex>` RunId
-重新执行生产备份与隔离恢复。此时预期 BASE TABLE 数为 85；以实时 Plan 为准，
+重新执行生产备份与隔离恢复。旧的 85 张静态推算已经过时；2026-07-24 只读能力
+探针观察到 87 张 BASE TABLE 和 16 个 VIEW，但仍必须以执行时实时 Plan 为准，
 不得手工改写回执。
+
+生产备份使用共享主机锁、迁移命名锁、只读一致性快照，以及对 Plan 时全部现存
+BASE TABLE/VIEW 持有到事务结束的元数据锁；同时在 dump 前后复算身份、对象、行数
+摘要和活动 JAR，并要求 approval 的 `concurrentDdlProhibited=true`。这不是
+`LOCK INSTANCE FOR BACKUP` 的替代性宣称；它是当前最小权限下经线上能力探针验证
+可执行的保护合同。备份 Plan 只输出 `plannedDdlProtectionMode`，同时明确
+`databaseProtectionActive=false` 和 `sourceSnapshotExactlyMatched=false`；只有
+实际 Backup 回执可以使用 `ddlProtectionMode`。
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass `
   -File scripts/run-u3w-production-backup-restore.ps1 `
-  -Mode Plan -ExpectedCommit $commit -RunId <final-backup-run-id>
+  -Mode Plan -ExpectedCommit $commit -RunId <final-backup-run-id> `
+  -ExpectedAdminRootDependencyAdoptionReceiptSha256 `
+    <admin-root-dependency-adoption-receipt-sha256>
 
 # 创建 DATABASE_BACKUP_AND_ISOLATED_RESTORE approval 后：
 powershell -NoProfile -ExecutionPolicy Bypass `
   -File scripts/run-u3w-production-backup-restore.ps1 `
   -Mode All -ExpectedCommit $commit -RunId <final-backup-run-id> `
+  -ExpectedAdminRootDependencyAdoptionReceiptSha256 `
+    <admin-root-dependency-adoption-receipt-sha256> `
   -ApprovalReceiptPath <approval-json>
 ```
 
@@ -187,6 +300,8 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -ExpectedCommit $commit `
   -ExpectedBackupReceiptSha256 <final-backup-receipt-file-sha256> `
   -ExpectedLegacyBaselineReceiptDigest <legacy-adoption-receipt-sha256> `
+  -ExpectedAdminRootDependencyAdoptionReceiptSha256 `
+    <admin-root-dependency-adoption-receipt-sha256> `
   -ExpectedConfigurationReceiptSha256 <configuration-receipt-sha256> `
   -ExpectedReleasePlanReceiptSha256 <release-plan-receipt-sha256> `
   -RequiredStage PREPARED_FOR_STAGE `
@@ -220,6 +335,8 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -ExpectedReleasePlanReceiptSha256 <release-plan-receipt-sha256> `
   -ExpectedBackupReceiptSha256 <final-backup-receipt-file-sha256> `
   -ExpectedLegacyBaselineReceiptDigest <legacy-adoption-receipt-sha256> `
+  -ExpectedAdminRootDependencyAdoptionReceiptSha256 `
+    <admin-root-dependency-adoption-receipt-sha256> `
   -ExpectedConfigurationReceiptSha256 <configuration-receipt-sha256> `
   -ApprovalReceiptPath <stage-approval-json>
 ```
@@ -244,6 +361,8 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -ExpectedReleasePlanReceiptSha256 <release-plan-receipt-sha256> `
   -ExpectedBackupReceiptSha256 <final-backup-receipt-file-sha256> `
   -ExpectedLegacyBaselineReceiptDigest <legacy-adoption-receipt-sha256> `
+  -ExpectedAdminRootDependencyAdoptionReceiptSha256 `
+    <admin-root-dependency-adoption-receipt-sha256> `
   -ExpectedConfigurationReceiptSha256 <configuration-receipt-sha256> `
   -ExpectedStageReceiptSha256 <stage-receipt-sha256> `
   -ApprovalReceiptPath <apply-approval-json>
@@ -284,6 +403,8 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -ExpectedBackupReceiptSha256 <final-backup-receipt-file-sha256> `
   -ExpectedDeploymentReceiptSha256 <deployment-receipt-sha256> `
   -ExpectedLegacyBaselineReceiptDigest <legacy-adoption-receipt-sha256> `
+  -ExpectedAdminRootDependencyAdoptionReceiptSha256 `
+    <admin-root-dependency-adoption-receipt-sha256> `
   -ExpectedConfigurationReceiptSha256 <configuration-receipt-sha256> `
   -ExpectedReleasePlanReceiptSha256 <release-plan-receipt-sha256> `
   -RequiredStage DEPLOYED_DEFAULT_OFF -RequireReady

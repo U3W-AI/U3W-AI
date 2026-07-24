@@ -8,17 +8,21 @@ It never accepts credentials on argv and never changes the business database.
 import argparse
 import base64
 import datetime as dt
+import errno
 import fcntl
 import hashlib
 import json
+import math
 import os
 import pathlib
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
 import threading
+import time
 
 
 TARGET_HOST = "api2.u3w.com"
@@ -28,13 +32,35 @@ HOST_CHANGE_LOCK = pathlib.Path("/opt/fbsir/admin/.u3w-production-change.lock")
 ENV_PATH = pathlib.Path("/etc/u3w/fbsir-admin.env")
 BACKUP_KEY_PATH = pathlib.Path("/etc/u3w/fbsir-backup.key")
 JAR_PATH = pathlib.Path("/opt/fbsir/admin/Fbsir-admin/target/fbsir-admin.jar")
-BACKUP_SCHEMA = "fbsir.u3wDatabaseBackupReceipt.v2"
+BACKUP_SCHEMA = "fbsir.u3wDatabaseBackupReceipt.v3"
+ADMIN_ROOT_DEPENDENCY_RECEIPT = pathlib.Path(
+    "/opt/fbsir/admin/dependencies/latest/adoption-receipt.json"
+)
+ADMIN_ROOT_DEPENDENCY_SCHEMA = (
+    "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2"
+)
+DEPENDENCY_VERSION = (
+    "w1a_043_legacy_admin_root_dependency_20260724_001"
+)
+DEPENDENCY_DESCRIPTION = (
+    "APPLIED:W1A_043_LEGACY_ADMIN_ROOT_DEPENDENCY_V1"
+)
 RUN_PATTERN = re.compile(r"w1a-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}")
 COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
 SHA_PATTERN = re.compile(r"[0-9a-f]{64}")
+UUID_PATTERN = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+    r"[0-9a-f]{4}-[0-9a-f]{12}"
+)
 MYSQL_VERSION_PATTERN = re.compile(r"([0-9]+\.[0-9]+\.[0-9]+)")
 MIN_FREE_BYTES = 25 * 1024**3
 MIN_AVAILABLE_MEMORY_BYTES = 2 * 1024**3
+LOCK_TIMEOUT_SECONDS = 30
+MIGRATION_LOCK_NAME = "u3w:w1a:public_init_043"
+DDL_PROTECTION_MODE = (
+    "HOST_FLOCK_NAMED_LOCK_READ_ONLY_SNAPSHOT_FULL_OBJECT_MDL_"
+    "PRE_POST_STABILITY_AND_APPROVED_NO_DDL_WINDOW"
+)
 
 
 def utc_now():
@@ -65,6 +91,177 @@ def fsync_directory(path):
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
+
+
+def open_host_change_lock():
+    current = pathlib.Path(HOST_CHANGE_LOCK.anchor)
+    for part in HOST_CHANGE_LOCK.parent.parts[1:]:
+        current = current / part
+        status = current.lstat()
+        if (
+            stat.S_ISLNK(status.st_mode)
+            or not stat.S_ISDIR(status.st_mode)
+            or status.st_uid != 0
+            or status.st_gid != 0
+            or status.st_mode & 0o022
+        ):
+            raise RuntimeError("production lock ancestry is untrusted")
+    descriptor = os.open(
+        HOST_CHANGE_LOCK,
+        os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
+        0o600,
+    )
+    status = os.fstat(descriptor)
+    if (
+        not stat.S_ISREG(status.st_mode)
+        or status.st_uid != 0
+        or status.st_gid != 0
+        or status.st_mode & 0o777 != 0o600
+        or status.st_nlink != 1
+    ):
+        os.close(descriptor)
+        raise RuntimeError("production lock custody is invalid")
+    return descriptor
+
+
+def acquire_bounded_flock(
+    descriptor,
+    timeout_seconds=LOCK_TIMEOUT_SECONDS,
+    monotonic=time.monotonic,
+    sleeper=time.sleep,
+):
+    deadline = monotonic() + timeout_seconds
+    while True:
+        try:
+            fcntl.flock(
+                descriptor,
+                fcntl.LOCK_EX | fcntl.LOCK_NB,
+            )
+            return
+        except OSError as error:
+            if error.errno not in (errno.EACCES, errno.EAGAIN):
+                raise
+            if monotonic() >= deadline:
+                raise RuntimeError(
+                    "production change lock acquisition timed out"
+                ) from error
+            sleeper(0.05)
+
+
+class DatabaseProtectionLease:
+    def __init__(self, connection):
+        try:
+            import pymysql
+        except ImportError as error:
+            raise RuntimeError(
+                "PyMySQL is required for the database protection lease"
+            ) from error
+        self.connection = pymysql.connect(
+            host=connection["host"],
+            port=int(connection["port"]),
+            user=connection["user"],
+            password=connection["password"],
+            database=DATABASE,
+            charset="utf8mb4",
+            autocommit=False,
+            connect_timeout=10,
+            read_timeout=120,
+            write_timeout=120,
+        )
+        self.named_lock = False
+        self.metadata_transaction = False
+        self.protected_objects = ()
+
+    def acquire(self, monotonic=time.monotonic):
+        deadline = monotonic() + LOCK_TIMEOUT_SECONDS
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                "SET SESSION lock_wait_timeout=%s",
+                (LOCK_TIMEOUT_SECONDS,),
+            )
+            cursor.execute(
+                "SELECT GET_LOCK(%s,%s)",
+                (MIGRATION_LOCK_NAME, LOCK_TIMEOUT_SECONDS),
+            )
+            row = cursor.fetchone()
+            if not row or int(row[0] or 0) != 1:
+                raise RuntimeError(
+                    "W1A migration named lock is unavailable"
+                )
+            self.named_lock = True
+            cursor.execute(
+                "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"
+            )
+            cursor.execute("SET TRANSACTION READ ONLY")
+            cursor.execute(
+                "START TRANSACTION WITH CONSISTENT SNAPSHOT"
+            )
+            self.metadata_transaction = True
+            cursor.execute(
+                "SELECT table_name,table_type "
+                "FROM information_schema.tables "
+                "WHERE table_schema=DATABASE() "
+                "ORDER BY BINARY table_name"
+            )
+            objects = tuple(cursor.fetchall())
+            if not objects:
+                raise RuntimeError(
+                    "database metadata protection found no objects"
+                )
+            for name, table_type in objects:
+                remaining = deadline - monotonic()
+                if remaining <= 0:
+                    raise RuntimeError(
+                        "database metadata protection acquisition timed out"
+                    )
+                if (
+                    not isinstance(name, str)
+                    or table_type not in ("BASE TABLE", "VIEW")
+                ):
+                    raise RuntimeError(
+                        "database metadata protection object is invalid"
+                    )
+                quoted = "`{}`".format(name.replace("`", "``"))
+                cursor.execute(
+                    "SET SESSION lock_wait_timeout=%s",
+                    (max(1, math.ceil(remaining)),),
+                )
+                cursor.execute(
+                    "SELECT 1 FROM {} LIMIT 0".format(quoted)
+                )
+            self.protected_objects = objects
+
+    def close(self):
+        pending_error = None
+        try:
+            if self.metadata_transaction:
+                try:
+                    self.connection.rollback()
+                except Exception as error:
+                    pending_error = error
+                finally:
+                    self.metadata_transaction = False
+            if self.named_lock:
+                try:
+                    with self.connection.cursor() as cursor:
+                        cursor.execute(
+                            "SELECT RELEASE_LOCK(%s)",
+                            (MIGRATION_LOCK_NAME,),
+                        )
+                        row = cursor.fetchone()
+                        if not row or int(row[0] or 0) != 1:
+                            raise RuntimeError(
+                                "W1A migration named lock release failed"
+                            )
+                except Exception as error:
+                    if pending_error is None:
+                        pending_error = error
+                finally:
+                    self.named_lock = False
+        finally:
+            self.connection.close()
+        if pending_error is not None:
+            raise pending_error
 
 
 def atomic_json(path, value):
@@ -299,9 +496,230 @@ def row_manifest(mysql, names):
     }
 
 
+def admin_root_dependency_facts(mysql):
+    forbidden_versions = ",".join(
+        "'public_init_{:03d}'".format(index)
+        for index in range(1, 43)
+    )
+    root_identity = (
+        "(HEX(menu_name)='E78BACE891A3E4BC9AE7AEA1E79086' "
+        "OR BINARY path=BINARY 'independent-board-admin' "
+        "OR BINARY route_name=BINARY 'IndependentBoardAdmin')"
+    )
+    exact_root = (
+        "HEX(menu_name)='E78BACE891A3E4BC9AE7AEA1E79086' "
+        "AND parent_id=0 AND order_num=5 "
+        "AND BINARY path=BINARY 'independent-board-admin' "
+        "AND component IS NULL AND query IS NULL "
+        "AND BINARY route_name=BINARY 'IndependentBoardAdmin' "
+        "AND is_frame=1 AND is_cache=0 "
+        "AND BINARY menu_type=BINARY 'M' "
+        "AND BINARY visible=BINARY '0' "
+        "AND BINARY status=BINARY '0' "
+        "AND BINARY COALESCE(perms,'')=BINARY '' "
+        "AND BINARY icon=BINARY 'peoples'"
+    )
+    scalar = lambda sql: int(mysql.query(sql))
+    version_count = scalar(
+        "SELECT COUNT(*) FROM u3w_schema_migration WHERE version='"
+        + DEPENDENCY_VERSION + "'"
+    )
+    receipt_count = scalar(
+        "SELECT COUNT(*) FROM u3w_schema_migration WHERE version='"
+        + DEPENDENCY_VERSION + "' AND description='"
+        + DEPENDENCY_DESCRIPTION + "'"
+    )
+    identity_count = scalar(
+        "SELECT COUNT(*) FROM sys_menu WHERE " + root_identity
+    )
+    exact_count = scalar(
+        "SELECT COUNT(*) FROM sys_menu WHERE " + exact_root
+    )
+    role_count = scalar(
+        "SELECT COUNT(*) FROM sys_role_menu WHERE menu_id IN "
+        "(SELECT menu_id FROM sys_menu WHERE " + exact_root + ")"
+    )
+    child_count = scalar(
+        "SELECT COUNT(*) FROM sys_menu WHERE menu_type IN ('M','C') "
+        "AND parent_id IN (SELECT menu_id FROM sys_menu WHERE "
+        + exact_root + ")"
+    )
+    forbidden_count = scalar(
+        "SELECT COUNT(*) FROM u3w_schema_migration WHERE version IN ("
+        + forbidden_versions + ")"
+    )
+    public_043_count = scalar(
+        "SELECT COUNT(*) FROM u3w_schema_migration "
+        "WHERE version='public_init_043'"
+    )
+    internal_043_count = scalar(
+        "SELECT COUNT(*) FROM u3w_schema_migration WHERE version="
+        "'20260723_independent_board_attribution_v1_043'"
+    )
+    table_count = scalar(
+        "SELECT COUNT(*) FROM information_schema.tables "
+        "WHERE table_schema=DATABASE() AND table_name IN "
+        "('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')"
+    )
+    trigger_count = scalar(
+        "SELECT COUNT(*) FROM information_schema.triggers "
+        "WHERE trigger_schema=DATABASE() AND event_object_table IN "
+        "('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')"
+    )
+    permission_count = scalar(
+        "SELECT COUNT(*) FROM sys_menu WHERE "
+        "BINARY perms=BINARY 'board:attribution:query'"
+    )
+    fingerprint_rows = mysql.query(
+        "SELECT row_value FROM ("
+        "SELECT CONCAT_WS('|','D',HEX(version),HEX(description)) row_value "
+        "FROM u3w_schema_migration WHERE version='"
+        + DEPENDENCY_VERSION
+        + "' UNION ALL SELECT CONCAT_WS('|','R',menu_id,HEX(menu_name),"
+        "parent_id,order_num,HEX(COALESCE(path,'')),"
+        "HEX(COALESCE(component,'<NULL>')),"
+        "HEX(COALESCE(query,'<NULL>')),"
+        "HEX(COALESCE(route_name,'')),is_frame,is_cache,HEX(menu_type),"
+        "HEX(visible),HEX(status),HEX(COALESCE(perms,'')),HEX(icon)) "
+        "FROM sys_menu WHERE " + exact_root + ") rows_ "
+        "ORDER BY BINARY row_value"
+    )
+    facts_sha = sha256_bytes(
+        (fingerprint_rows + "\n").encode("utf-8")
+    )
+    exact_dependency = bool(
+        version_count == 1
+        and receipt_count == 1
+        and identity_count == 1
+        and exact_count == 1
+        and role_count == 0
+        and child_count == 0
+        and forbidden_count == 0
+        and len([row for row in fingerprint_rows.splitlines() if row]) == 2
+    )
+    absent_043 = bool(
+        public_043_count == 0
+        and internal_043_count == 0
+        and table_count == 0
+        and trigger_count == 0
+        and permission_count == 0
+    )
+    if not exact_dependency or not absent_043:
+        raise RuntimeError(
+            "admin root dependency or W1A 043 pre-state is not exact"
+        )
+    return {
+        "legacyAdminRootDependencyState":
+            "EXACT_CONTROLLED_DEPENDENCY",
+        "legacyAdminRootDependencyFactsSha256": facts_sha,
+        "legacyAdminRootDependencyVersionCount": version_count,
+        "legacyAdminRootDependencyReceiptCount": receipt_count,
+        "legacyAdminRootIdentityCount": identity_count,
+        "legacyAdminRootExactCount": exact_count,
+        "legacyAdminRootRoleBindingCount": role_count,
+        "legacyAdminRootPageChildCount": child_count,
+        "legacyForbiddenPublicInit001Through042ReceiptCount":
+            forbidden_count,
+        "publicInit043AnyReceiptCount": public_043_count,
+        "attributionInternalReceiptCount": internal_043_count,
+        "attributionTableCount": table_count,
+        "attributionTriggerCount": trigger_count,
+        "attributionPermissionCount": permission_count,
+        "w1a043State": "ABSENT",
+    }
+
+
+def validate_admin_root_dependency_adoption(
+    args, source_identity, dependency_facts
+):
+    resolved = ADMIN_ROOT_DEPENDENCY_RECEIPT.resolve(strict=True)
+    status = resolved.stat()
+    if (
+        resolved.is_symlink()
+        or not resolved.is_file()
+        or status.st_uid != 0
+        or status.st_gid != 0
+        or status.st_mode & 0o777 != 0o600
+        or status.st_nlink != 1
+        or sha256_file(resolved)
+            != args.admin_root_dependency_adoption_receipt_sha
+    ):
+        raise RuntimeError(
+            "admin root dependency adoption receipt custody drifted"
+        )
+    receipt = json.loads(resolved.read_text(encoding="utf-8"))
+    if (
+        receipt.get("schema") != ADMIN_ROOT_DEPENDENCY_SCHEMA
+        or receipt.get("sourceCommit") != args.source_commit
+        or receipt.get("databaseServerUuid") != source_identity[2]
+        or receipt.get("serverVersion") != source_identity[0]
+        or receipt.get("adoptionState")
+            != "ADOPTED_EXISTING_EXACT_DEPENDENCY"
+        or receipt.get("liveFactsSha256")
+            != sha256_bytes(
+                canonical_json(receipt.get("liveFacts")).encode("utf-8")
+            )
+    ):
+        raise RuntimeError(
+            "admin root dependency adoption receipt identity drifted"
+        )
+    live_facts = receipt.get("liveFacts")
+    if (
+        not isinstance(live_facts, dict)
+        or live_facts.get("databaseServerUuid") != source_identity[2]
+        or live_facts.get("serverVersion") != source_identity[0]
+        or live_facts.get("rootIdentityCount")
+            != dependency_facts["legacyAdminRootIdentityCount"]
+        or live_facts.get("exactRootCount")
+            != dependency_facts["legacyAdminRootExactCount"]
+        or live_facts.get("rootRoleBindingCount")
+            != dependency_facts["legacyAdminRootRoleBindingCount"]
+        or live_facts.get("rootPageChildCount")
+            != dependency_facts["legacyAdminRootPageChildCount"]
+        or live_facts.get("dependencyVersionCount")
+            != dependency_facts[
+                "legacyAdminRootDependencyVersionCount"
+            ]
+        or live_facts.get("dependencyReceiptCount")
+            != dependency_facts[
+                "legacyAdminRootDependencyReceiptCount"
+            ]
+        or live_facts.get("dependencyRowsFingerprintSha256")
+            != dependency_facts[
+                "legacyAdminRootDependencyFactsSha256"
+            ]
+        or live_facts.get(
+            "forbiddenPublicInit001Through042ReceiptCount"
+        )
+            != dependency_facts[
+                "legacyForbiddenPublicInit001Through042ReceiptCount"
+            ]
+        or live_facts.get("publicInit043ReceiptCount")
+            != dependency_facts["publicInit043AnyReceiptCount"]
+        or live_facts.get("attributionInternalReceiptCount")
+            != dependency_facts["attributionInternalReceiptCount"]
+        or live_facts.get("attributionTableCount")
+            != dependency_facts["attributionTableCount"]
+        or live_facts.get("attributionTriggerCount")
+            != dependency_facts["attributionTriggerCount"]
+        or live_facts.get("attributionPermissionCount")
+            != dependency_facts["attributionPermissionCount"]
+    ):
+        raise RuntimeError(
+            "admin root dependency adoption live facts drifted"
+        )
+    return receipt
+
+
 def collect_facts(mysql):
-    identity = mysql.query("SELECT @@version,@@version_comment").split("\t")
-    if len(identity) != 2 or not MYSQL_VERSION_PATTERN.fullmatch(identity[0]):
+    identity = mysql.query(
+        "SELECT @@version,@@version_comment,@@server_uuid"
+    ).split("\t")
+    if (
+        len(identity) != 3
+        or not MYSQL_VERSION_PATTERN.fullmatch(identity[0])
+        or not UUID_PATTERN.fullmatch(identity[2])
+    ):
         raise RuntimeError("unexpected MySQL identity")
     counts = mysql.query(
         """SELECT
@@ -322,9 +740,9 @@ def collect_facts(mysql):
         """SELECT CONCAT_WS('|',HEX(menu_name),parent_id,HEX(COALESCE(path,'')),
         HEX(COALESCE(component,'')),HEX(COALESCE(perms,'')))
         FROM sys_menu
-        WHERE parent_id=0 AND HEX(menu_name) IN (
-          'E78BACE891A3E4BC9A',
-          '496E646570656E64656E7420426F617264')
+        WHERE HEX(menu_name)='E78BACE891A3E4BC9AE7AEA1E79086'
+           OR BINARY path=BINARY 'independent-board-admin'
+           OR BINARY route_name=BINARY 'IndependentBoardAdmin'
         ORDER BY BINARY menu_name,BINARY path"""
     )
     sys_menu_shape = mysql.query(
@@ -334,6 +752,7 @@ def collect_facts(mysql):
         WHERE table_schema=DATABASE() AND table_name='sys_menu'
         ORDER BY ordinal_position"""
     )
+    dependency_facts = admin_root_dependency_facts(mysql)
     facts = {
         "fingerprintAlgorithm": "u3w.mysql-schema-metadata.v2",
         "schemaFingerprintSha256": sha256_bytes(
@@ -352,6 +771,7 @@ def collect_facts(mysql):
         ),
         "allBaseTablesInnoDB": int(counts[2]) == 0,
     }
+    facts.update(dependency_facts)
     if facts["baseTableCount"] < 1 or not facts["allBaseTablesInnoDB"]:
         raise RuntimeError("logical backup requires a non-empty all-InnoDB schema")
     return identity, facts
@@ -449,9 +869,14 @@ def validate_arguments(args):
         args.approval_sha,
         args.runner_sha,
         args.worker_sha,
+        args.admin_root_dependency_adoption_receipt_sha,
     ):
         if not SHA_PATTERN.fullmatch(value):
             raise RuntimeError("invalid provenance digest")
+    if args.admin_root_dependency_adoption_receipt_sha == "0" * 64:
+        raise RuntimeError(
+            "admin root dependency adoption receipt is required"
+        )
     if args.mode in ("ProvisionKey", "Backup"):
         validate_approval(args)
 
@@ -478,6 +903,7 @@ def validate_approval(args):
         "productionDatabaseWrite",
         "productionServiceChange",
         "officialExpertsPackageChange",
+        "expectedAdminRootDependencyAdoptionReceiptSha256",
     }
     if set(approval) != expected_fields:
         raise RuntimeError("approval receipt has missing or unknown fields")
@@ -506,6 +932,9 @@ def validate_approval(args):
         or approval["productionDatabaseWrite"] is not False
         or approval["productionServiceChange"] is not False
         or approval["officialExpertsPackageChange"] is not False
+        or approval[
+            "expectedAdminRootDependencyAdoptionReceiptSha256"
+        ] != args.admin_root_dependency_adoption_receipt_sha
         or approved_at > now
         or expires_at <= now
         or expires_at - approved_at > dt.timedelta(hours=24)
@@ -516,6 +945,7 @@ def validate_approval(args):
 def run_plan(args, mysql, connection):
     free_bytes, memory_bytes = assert_root_and_capacity()
     identity, facts = collect_facts(mysql)
+    validate_admin_root_dependency_adoption(args, identity, facts)
     names = table_names(mysql)
     manifest = row_manifest(mysql, names)
     jar_sha = sha256_file(JAR_PATH)
@@ -532,11 +962,12 @@ def run_plan(args, mysql, connection):
         stdout=subprocess.PIPE,
     ).stdout.strip()
     return {
-        "schema": "fbsir.u3wDatabaseBackupPlan.v1",
+        "schema": "fbsir.u3wDatabaseBackupPlan.v2",
         "runId": args.run_id,
         "sourceCommit": args.source_commit,
         "targetHost": TARGET_HOST,
         "database": DATABASE,
+        "sourceDatabaseServerUuid": identity[2],
         "serverVersion": identity[0],
         "serverVersionComment": identity[1],
         "sourceFacts": facts,
@@ -546,7 +977,9 @@ def run_plan(args, mysql, connection):
         "encryptionContract": "u3w.gnupg-aes256-symmetric.v1",
         "encryptionKeyFingerprintSha256": key_fingerprint,
         "encryptionKeyReady": key_ready,
-        "ddlProtectionMode": "PRE_POST_SCHEMA_STABILITY_APPROVED_NO_DDL_WINDOW",
+        "plannedDdlProtectionMode": DDL_PROTECTION_MODE,
+        "databaseProtectionActive": False,
+        "sourceSnapshotExactlyMatched": False,
         "dumpToolVersion": dump_version,
         "freeBytes": free_bytes,
         "availableMemoryBytes": memory_bytes,
@@ -600,9 +1033,11 @@ def existing_receipt(receipt_path, args):
         "approvalReceiptSha256": args.approval_sha,
         "runnerSha256": args.runner_sha,
         "backupWorkerSha256": args.worker_sha,
+        "adminRootDependencyAdoptionReceiptSha256":
+            args.admin_root_dependency_adoption_receipt_sha,
         "encryptionContract": "u3w.gnupg-aes256-symmetric.v1",
         "encryptionKeyFingerprintSha256": backup_key_fingerprint(),
-        "ddlProtectionMode": "PRE_POST_SCHEMA_STABILITY_APPROVED_NO_DDL_WINDOW",
+        "ddlProtectionMode": DDL_PROTECTION_MODE,
         "sourceSnapshotExactlyMatched": False,
     }
     if any(receipt.get(name) != value for name, value in required.items()):
@@ -655,15 +1090,21 @@ def quarantine_unreceipted_backup(backup_path):
 
 def run_backup(args, mysql, connection):
     assert_root_and_capacity()
-    run_directory = safe_run_directory(args.run_id)
-    receipt_path = run_directory / "backup-receipt.json"
-    prior = existing_receipt(receipt_path, args)
-    if prior is not None:
-        return prior
-    lock_path = HOST_CHANGE_LOCK
-    lock_descriptor = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+    lock_descriptor = open_host_change_lock()
+    database_lease = None
     try:
-        fcntl.flock(lock_descriptor, fcntl.LOCK_EX)
+        acquire_bounded_flock(lock_descriptor)
+        validate_approval(args)
+        database_lease = DatabaseProtectionLease(connection)
+        database_lease.acquire()
+        validate_approval(args)
+        locked_identity, locked_facts = collect_facts(mysql)
+        validate_admin_root_dependency_adoption(
+            args, locked_identity, locked_facts
+        )
+        validate_approval(args)
+        run_directory = safe_run_directory(args.run_id)
+        receipt_path = run_directory / "backup-receipt.json"
         prior = existing_receipt(receipt_path, args)
         if prior is not None:
             return prior
@@ -682,6 +1123,9 @@ def run_backup(args, mysql, connection):
                 raise RuntimeError("partial backup custody is invalid")
             partial_path.unlink()
         identity_before, facts_before = collect_facts(mysql)
+        validate_admin_root_dependency_adoption(
+            args, identity_before, facts_before
+        )
         jar_sha_before = sha256_file(JAR_PATH)
         names = table_names(mysql)
         manifest_before = row_manifest(mysql, names)
@@ -811,6 +1255,9 @@ def run_backup(args, mysql, connection):
                 )
             )
         identity_after, facts_after = collect_facts(mysql)
+        validate_admin_root_dependency_adoption(
+            args, identity_after, facts_after
+        )
         jar_sha_after = sha256_file(JAR_PATH)
         if (
             identity_before != identity_after
@@ -829,6 +1276,7 @@ def run_backup(args, mysql, connection):
             "sourceCommit": args.source_commit,
             "targetHost": TARGET_HOST,
             "database": DATABASE,
+            "sourceDatabaseServerUuid": identity_before[2],
             "serverVersion": identity_before[0],
             "serverVersionComment": identity_before[1],
             "generatedAt": utc_now(),
@@ -840,7 +1288,7 @@ def run_backup(args, mysql, connection):
             "encryptionKeyFingerprintSha256": backup_key_fingerprint(),
             "dumpToolVersion": dump_version,
             "dumpOptionsContract": "u3w.mysqldump.innodb-consistent.v1",
-            "ddlProtectionMode": "PRE_POST_SCHEMA_STABILITY_APPROVED_NO_DDL_WINDOW",
+            "ddlProtectionMode": DDL_PROTECTION_MODE,
             "sourceFacts": facts_before,
             "sourceTotalRows": manifest_before["totalRows"],
             "sourceTableRowCountsSha256": manifest_before[
@@ -851,6 +1299,8 @@ def run_backup(args, mysql, connection):
             "approvalReceiptSha256": args.approval_sha,
             "runnerSha256": args.runner_sha,
             "backupWorkerSha256": args.worker_sha,
+            "adminRootDependencyAdoptionReceiptSha256":
+                args.admin_root_dependency_adoption_receipt_sha,
             "businessDatabaseChanged": False,
             "serviceChanged": False,
             "officialExpertsPackageChanged": False,
@@ -859,9 +1309,13 @@ def run_backup(args, mysql, connection):
         return receipt
     finally:
         try:
-            fcntl.flock(lock_descriptor, fcntl.LOCK_UN)
+            if database_lease is not None:
+                database_lease.close()
         finally:
-            os.close(lock_descriptor)
+            try:
+                fcntl.flock(lock_descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(lock_descriptor)
 
 
 def main():
@@ -875,6 +1329,10 @@ def main():
     parser.add_argument("--approval-json-base64", default="")
     parser.add_argument("--runner-sha", required=True)
     parser.add_argument("--worker-sha", required=True)
+    parser.add_argument(
+        "--admin-root-dependency-adoption-receipt-sha",
+        required=True,
+    )
     args = parser.parse_args()
     validate_arguments(args)
     connection = load_environment()
@@ -882,15 +1340,20 @@ def main():
     if args.mode == "Plan":
         result = run_plan(args, mysql, connection)
     elif args.mode == "ProvisionKey":
-        lock_descriptor = os.open(
-            HOST_CHANGE_LOCK, os.O_RDWR | os.O_CREAT, 0o600
-        )
+        lock_descriptor = open_host_change_lock()
         try:
-            fcntl.flock(lock_descriptor, fcntl.LOCK_EX)
+            acquire_bounded_flock(lock_descriptor)
+            validate_approval(args)
+            identity, facts = collect_facts(mysql)
+            validate_admin_root_dependency_adoption(
+                args, identity, facts
+            )
             result = provision_backup_key(args)
         finally:
-            fcntl.flock(lock_descriptor, fcntl.LOCK_UN)
-            os.close(lock_descriptor)
+            try:
+                fcntl.flock(lock_descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(lock_descriptor)
     else:
         result = run_backup(args, mysql, connection)
     print(canonical_json(result))

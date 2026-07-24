@@ -698,6 +698,7 @@ test("FBS orchestration entries expose every mutating anchor", () => {
   for (const token of [
     "U3W_EXPECTED_ENVIRONMENT_SHA256",
     "U3W_EXPECTED_CONFIGURED_ENVIRONMENT_SHA256",
+    "U3W_PREDECESSOR_CONFIGURATION_RECEIPT_SHA256",
     "U3W_ORIGINAL_APPROVAL_RECEIPT_SHA256",
   ]) {
     assert.ok(configuration.includes(token), `${token} is missing`);
@@ -705,11 +706,27 @@ test("FBS orchestration entries expose every mutating anchor", () => {
   const baseline = commands["w1a-legacy-baseline"].run;
   assert.ok(baseline.includes("U3W_EXPECTED_ADOPTION_RECEIPT_SHA256"));
   assert.ok(baseline.includes("U3W_ORIGINAL_APPROVAL_RECEIPT_SHA256"));
+  const dependency =
+    commands["w1a-admin-root-dependency-adoption"].run;
+  for (const token of [
+    "U3W_ADMIN_ROOT_DEPENDENCY_MODE",
+    "U3W_LEGACY_BASELINE_RECEIPT_SHA256",
+    "U3W_PREDECESSOR_BACKUP_RECEIPT_SHA256",
+    "U3W_APPROVAL_RECEIPT",
+  ]) {
+    assert.ok(dependency.includes(token), `${token} is missing`);
+  }
+  assert.ok(
+    commands["w1a-production-backup-restore"].run.includes(
+      "U3W_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256",
+    ),
+  );
   const releaseCommand = commands["w1a-default-off-release"].run;
   for (const token of [
     "U3W_RELEASE_PLAN_RECEIPT_SHA256",
     "U3W_BACKUP_RECEIPT_SHA256",
     "U3W_LEGACY_BASELINE_RECEIPT_SHA256",
+    "U3W_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256",
     "U3W_CONFIGURATION_RECEIPT_SHA256",
     "U3W_STAGE_RECEIPT_SHA256",
     "U3W_DEPLOYMENT_RECEIPT_SHA256",
@@ -725,6 +742,7 @@ test("release approvals bind every preparation and predecessor anchor", () => {
     "expectedReleasePlanReceiptSha256",
     "expectedBackupReceiptSha256",
     "expectedLegacyBaselineReceiptSha256",
+    "expectedAdminRootDependencyAdoptionReceiptSha256",
     "expectedConfigurationReceiptSha256",
     "expectedStageReceiptSha256",
     "expectedDeploymentReceiptSha256",

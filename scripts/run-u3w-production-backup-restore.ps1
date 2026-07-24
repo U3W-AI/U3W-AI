@@ -8,6 +8,9 @@ param(
     [string]$ExpectedCommit,
     [ValidatePattern('^w1a-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$')]
     [string]$RunId,
+    [Parameter(Mandatory = $true)]
+    [ValidatePattern('^[0-9a-f]{64}$')]
+    [string]$ExpectedAdminRootDependencyAdoptionReceiptSha256,
     [string]$ApprovalReceiptPath,
     [string]$AnchorOutputDirectory,
     [string]$SshKeyPath = $(if ($env:U3W_SSH_KEY_PATH) { $env:U3W_SSH_KEY_PATH } else { Join-Path $env:USERPROFILE '.ssh\id_ed25519_api2' }),
@@ -215,7 +218,8 @@ function Get-ApprovalDigest {
         'approvedAt', 'expiresAt', 'authorizedBy',
         'concurrentDdlProhibited',
         'productionFilesystemWrite', 'productionDatabaseWrite',
-        'productionServiceChange', 'officialExpertsPackageChange'
+        'productionServiceChange', 'officialExpertsPackageChange',
+        'expectedAdminRootDependencyAdoptionReceiptSha256'
     ) | Sort-Object
     $actualFields = @($approval.PSObject.Properties.Name | Sort-Object)
     if (($actualFields -join "`n") -ne ($expectedFields -join "`n")) {
@@ -237,7 +241,9 @@ function Get-ApprovalDigest {
         $approval.productionFilesystemWrite -ne $true -or
         $approval.productionDatabaseWrite -ne $false -or
         $approval.productionServiceChange -ne $false -or
-        $approval.officialExpertsPackageChange -ne $false
+        $approval.officialExpertsPackageChange -ne $false -or
+        $approval.expectedAdminRootDependencyAdoptionReceiptSha256 -ne
+            $ExpectedAdminRootDependencyAdoptionReceiptSha256
     ) {
         throw 'approval receipt scope, identity or validity window is invalid'
     }
@@ -276,9 +282,13 @@ function Save-OutOfBandBundleAnchor {
             throw 'failed to download the immutable bundle receipt'
         }
         $bundle = Get-Content -Raw -LiteralPath $temporaryPath | ConvertFrom-Json
-        if ($bundle.schema -ne 'fbsir.u3wDatabaseBackupRestoreBundleReceipt.v1' -or
+        if ($bundle.schema -ne 'fbsir.u3wDatabaseBackupRestoreBundleReceipt.v2' -or
             $bundle.runId -ne $RunId -or
-            $bundle.sourceCommit -ne $ExpectedCommit) {
+            $bundle.sourceCommit -ne $ExpectedCommit -or
+            $bundle.adminRootDependencyAdoptionReceiptSha256 -ne
+                $ExpectedAdminRootDependencyAdoptionReceiptSha256 -or
+            $bundle.sourceDatabaseServerUuid -notmatch
+                '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') {
             throw 'downloaded bundle identity is invalid'
         }
         $downloadedDigest = Get-Sha256 $temporaryPath
@@ -299,24 +309,31 @@ function Save-OutOfBandBundleAnchor {
                 ConvertFrom-Json
             if (
                 $existingAnchor.schema -ne
-                    'fbsir.u3wDatabaseBackupRestoreExternalAnchor.v1' -or
+                    'fbsir.u3wDatabaseBackupRestoreExternalAnchor.v2' -or
                 $existingAnchor.runId -ne $RunId -or
                 $existingAnchor.sourceCommit -ne $ExpectedCommit -or
                 $existingAnchor.targetHost -ne 'api2.u3w.com' -or
                 $existingAnchor.bundleReceiptPath -ne $bundlePath -or
-                $existingAnchor.bundleReceiptSha256 -ne $digest
+                $existingAnchor.bundleReceiptSha256 -ne $digest -or
+                $existingAnchor.adminRootDependencyAdoptionReceiptSha256 -ne
+                    $ExpectedAdminRootDependencyAdoptionReceiptSha256 -or
+                $existingAnchor.sourceDatabaseServerUuid -ne
+                    $bundle.sourceDatabaseServerUuid
             ) {
                 throw 'CORRUPT_STATE: immutable external anchor changed'
             }
         }
         else {
             $anchorJson = [ordered]@{
-            schema = 'fbsir.u3wDatabaseBackupRestoreExternalAnchor.v1'
+            schema = 'fbsir.u3wDatabaseBackupRestoreExternalAnchor.v2'
             runId = $RunId
             sourceCommit = $ExpectedCommit
             targetHost = 'api2.u3w.com'
             bundleReceiptPath = $bundlePath
             bundleReceiptSha256 = $digest
+            adminRootDependencyAdoptionReceiptSha256 =
+                $ExpectedAdminRootDependencyAdoptionReceiptSha256
+            sourceDatabaseServerUuid = $bundle.sourceDatabaseServerUuid
             capturedAt = [DateTime]::UtcNow.ToString('o')
             } | ConvertTo-Json
             $encoding = [Text.UTF8Encoding]::new($false)
@@ -411,7 +428,9 @@ $common = @(
     '--approval-sha', $approvalSha,
     '--approval-json-base64', $script:ApprovalBase64,
     '--runner-sha', $runnerSha,
-    '--worker-sha', $workerSha
+    '--worker-sha', $workerSha,
+    '--admin-root-dependency-adoption-receipt-sha',
+        $ExpectedAdminRootDependencyAdoptionReceiptSha256
 )
 
 $backup = $null
@@ -453,7 +472,7 @@ $externalAnchor = if ($Mode -in @('Verify', 'All')) {
 }
 
 [ordered]@{
-    schema = 'fbsir.u3wProductionBackupRestoreRunnerResult.v1'
+    schema = 'fbsir.u3wProductionBackupRestoreRunnerResult.v2'
     mode = $Mode
     runId = $RunId
     sourceCommit = $ExpectedCommit
@@ -461,6 +480,8 @@ $externalAnchor = if ($Mode -in @('Verify', 'All')) {
     runnerSha256 = $runnerSha
     backupWorkerSha256 = $workerSha
     verifierSha256 = $verifierSha
+    adminRootDependencyAdoptionReceiptSha256 =
+        $ExpectedAdminRootDependencyAdoptionReceiptSha256
     backup = $backup
     restore = $restore
     externalAnchor = $externalAnchor

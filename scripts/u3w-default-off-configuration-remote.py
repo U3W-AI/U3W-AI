@@ -19,6 +19,7 @@ import secrets
 import stat
 import subprocess
 import sys
+import time
 
 
 TARGET_HOST = "api2.u3w.com"
@@ -29,6 +30,7 @@ API2_EVENT_KEY_PATH = pathlib.Path(
 )
 CONFIG_ROOT = pathlib.Path("/opt/fbsir/admin/configuration/w1a")
 CONFIG_LATEST = pathlib.Path("/opt/fbsir/admin/configuration/latest")
+ENV_BACKUP_ROOT = pathlib.Path("/etc/u3w/backups/fbsir-admin-env")
 HOST_CHANGE_LOCK = pathlib.Path(
     "/opt/fbsir/admin/.u3w-production-change.lock"
 )
@@ -38,6 +40,7 @@ RUN_PATTERN = re.compile(
 COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
 SHA_PATTERN = re.compile(r"[0-9a-f]{64}")
 KEY_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,95}")
+ENGINE_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_-]{43,128}")
 
 REQUIRED_FALSE_FLAGS = (
     "FBSIR_BOARD_ATTRIBUTION_ENABLED",
@@ -66,6 +69,7 @@ PREVIOUS_EVENT_KEY_NAME = (
 SAME_BINDING_KEY_NAME = (
     "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET"
 )
+ADMIN_ENGINE_TOKEN_NAME = "FBSIR_ENGINE_TOKEN"
 MANAGED_KEYS = REQUIRED_FALSE_FLAGS + (
     EVENT_KEY_ID_NAME,
     EVENT_KEY_NAME,
@@ -279,6 +283,134 @@ def assert_configuration_evidence(evidence):
         raise RuntimeError("default-off configuration shape is invalid")
 
 
+def configuration_v3_evidence(values, api2_event_material=None):
+    evidence = configuration_evidence(values, api2_event_material)
+    credential = str(values.get(ADMIN_ENGINE_TOKEN_NAME, "")).strip()
+    credential_bytes = credential.encode("utf-8")
+    comparison_material = [
+        decode_material(values.get(EVENT_KEY_NAME, "")),
+        decode_material(values.get(PREVIOUS_EVENT_KEY_NAME, "")),
+        decode_material(values.get(SAME_BINDING_KEY_NAME, "")),
+        decode_material(values.get("FBSIR_TOKEN_SECRET", "")),
+        decode_material(values.get("WXFBSIR_TOKEN_SECRET", "")),
+    ]
+    independent = bool(
+        credential_bytes
+        and all(
+            material is None
+            or not hmac.compare_digest(credential_bytes, material)
+            for material in comparison_material
+        )
+    )
+    credential_valid = bool(ENGINE_TOKEN_PATTERN.fullmatch(credential))
+    evidence.update(
+        {
+            "adminEngineCredentialValid": credential_valid,
+            "adminEngineCredentialIndependent": independent,
+            "adminEngineCredentialMinimumCharacters": (
+                len(credential) if credential_valid else 0
+            ),
+        }
+    )
+    return evidence
+
+
+def assert_configuration_v3_evidence(evidence):
+    assert_configuration_evidence(evidence)
+    if (
+        evidence.get("adminEngineCredentialValid") is not True
+        or evidence.get("adminEngineCredentialIndependent") is not True
+        or int(evidence.get("adminEngineCredentialMinimumCharacters") or 0)
+        < 43
+        or evidence.get("secretsDisclosed") is not False
+    ):
+        raise RuntimeError(
+            "default-off configuration engine credential shape is invalid"
+        )
+
+
+def reconcile_admin_engine_credential(
+    original,
+    credential,
+    api2_event_material,
+):
+    values = parse_environment(original)
+    assert_configuration_evidence(
+        configuration_evidence(values, api2_event_material)
+    )
+    existing = str(values.get(ADMIN_ENGINE_TOKEN_NAME, "")).strip()
+    if existing:
+        evidence = configuration_v3_evidence(
+            values, api2_event_material
+        )
+        assert_configuration_v3_evidence(evidence)
+        return original, "PRESERVED_EXISTING"
+    if (
+        not isinstance(credential, str)
+        or not ENGINE_TOKEN_PATTERN.fullmatch(credential)
+    ):
+        raise RuntimeError("generated admin Engine credential shape is invalid")
+    prefix = original
+    if prefix and not prefix.endswith("\n"):
+        prefix += "\n"
+    rendered = prefix + "{}={}\n".format(
+        ADMIN_ENGINE_TOKEN_NAME, credential
+    )
+    reconciled = parse_environment(rendered)
+    for name in MANAGED_KEYS:
+        if reconciled.get(name) != values.get(name):
+            raise RuntimeError(
+                "default-off configuration changed during reconciliation"
+            )
+    assert_configuration_v3_evidence(
+        configuration_v3_evidence(
+            reconciled, api2_event_material
+        )
+    )
+    return rendered, "CREATED_BY_RUN"
+
+
+def validate_exact_existing_admin_engine_delta(
+    current,
+    predecessor_environment_sha,
+    api2_event_material,
+):
+    values = parse_environment(current)
+    credential = str(values.get(ADMIN_ENGINE_TOKEN_NAME, "")).strip()
+    evidence = configuration_v3_evidence(values, api2_event_material)
+    assert_configuration_v3_evidence(evidence)
+    suffix = "{}={}\n".format(
+        ADMIN_ENGINE_TOKEN_NAME,
+        credential,
+    )
+    if not current.endswith(suffix):
+        raise RuntimeError(
+            "existing admin Engine credential is not one canonical "
+            "append-only environment delta"
+        )
+    predecessor = current[: -len(suffix)]
+    if sha256_bytes(predecessor.encode("utf-8")) != predecessor_environment_sha:
+        raise RuntimeError(
+            "existing admin Engine credential predecessor anchor drifted"
+        )
+    predecessor_values = parse_environment(predecessor)
+    predecessor_evidence = configuration_evidence(
+        predecessor_values,
+        api2_event_material,
+    )
+    assert_configuration_evidence(predecessor_evidence)
+    expected, state = reconcile_admin_engine_credential(
+        predecessor,
+        credential,
+        api2_event_material,
+    )
+    if state != "CREATED_BY_RUN" or expected != current:
+        raise RuntimeError(
+            "existing admin Engine credential delta is not reproducible"
+        )
+    return predecessor, predecessor_evidence
+
+
 def render_configuration(
     original,
     event_key_id,
@@ -331,13 +463,18 @@ def render_configuration(
 
 def validate_regular_file(path, mode=0o600):
     path = pathlib.Path(path)
+    allowed_modes = (
+        (mode,)
+        if isinstance(mode, int)
+        else tuple(mode)
+    )
     if path.is_symlink() or not path.is_file():
         raise RuntimeError("configuration artifact type is invalid")
     status = path.stat()
     if (
         status.st_uid != 0
         or status.st_gid != 0
-        or status.st_mode & 0o777 != mode
+        or status.st_mode & 0o777 not in allowed_modes
         or status.st_nlink != 1
     ):
         raise RuntimeError("configuration artifact custody is invalid")
@@ -370,6 +507,22 @@ def open_host_change_lock():
         raise RuntimeError("production change lock custody is invalid")
     os.fchmod(descriptor, 0o600)
     return descriptor
+
+
+def acquire_host_change_lock(descriptor, timeout_seconds=30):
+    deadline = time.monotonic() + timeout_seconds
+    operation = fcntl.LOCK_EX | getattr(fcntl, "LOCK_NB", 4)
+    while True:
+        try:
+            fcntl.flock(descriptor, operation)
+            return
+        except BlockingIOError as error:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RuntimeError(
+                    "production change lock acquisition timed out"
+                ) from error
+            time.sleep(min(0.1, remaining))
 
 
 def fsync_directory(path):
@@ -443,7 +596,10 @@ def service_snapshot():
         or not values.get("NRestarts", "").isdigit()
     ):
         raise RuntimeError("active fbsir service identity is invalid")
-    jar = validate_regular_file(jar_match.group(1), mode=0o644)
+    jar = validate_regular_file(
+        jar_match.group(1),
+        mode=(0o600, 0o640, 0o644),
+    )
     return {
         "activeState": values["ActiveState"],
         "mainPid": int(values["MainPID"]),
@@ -457,7 +613,7 @@ def service_snapshot():
     }
 
 
-def validate_approval(args, now=None):
+def validate_approval(args, now=None, allow_expired=False):
     if args.approval_sha == "0" * 64 or not args.approval_json_base64:
         raise RuntimeError("mutating configuration requires approval")
     try:
@@ -485,12 +641,17 @@ def validate_approval(args, now=None):
         "workerSha256",
     }
     recovery = args.mode == "Recover"
+    reconcile = args.mode == "Reconcile"
     if recovery:
         expected_fields.update(
             {
                 "expectedConfiguredEnvironmentSha256",
                 "originalApprovalReceiptSha256",
             }
+        )
+    if reconcile:
+        expected_fields.add(
+            "expectedPredecessorConfigurationReceiptSha256"
         )
     if set(approval) != expected_fields:
         raise RuntimeError("approval receipt has missing or unknown fields")
@@ -512,14 +673,19 @@ def validate_approval(args, now=None):
         != (
             "RECOVER_W1A_DEFAULT_OFF_CONFIGURATION_ANCHOR"
             if recovery
-            else "CONFIGURE_W1A_DEFAULT_OFF_CRYPTO_CUSTODY"
+            else (
+                "ADOPT_EXISTING_ADMIN_ENGINE_CREDENTIAL_DELTA"
+                if reconcile
+                else "CONFIGURE_W1A_DEFAULT_OFF_CRYPTO_CUSTODY"
+            )
         )
         or approval["targetHost"] != TARGET_HOST
         or approval["runId"] != args.run_id
         or approval["sourceCommit"] != args.source_commit
         or approval["expectedEnvironmentSha256"]
         != args.expected_environment_sha
-        or approval["expectedApi2EventKeyState"] != "ABSENT"
+        or approval["expectedApi2EventKeyState"]
+        != ("PRESENT_ANCHORED" if reconcile else "ABSENT")
         or approval["runnerSha256"] != args.runner_sha
         or approval["workerSha256"] != args.worker_sha
         or approval["authorizedBy"] != "workspace-user"
@@ -531,7 +697,8 @@ def validate_approval(args, now=None):
         or approved_at.tzinfo is None
         or expires_at.tzinfo is None
         or approved_at > current
-        or expires_at <= current
+        or expires_at <= approved_at
+        or (not allow_expired and expires_at <= current)
         or expires_at - approved_at > dt.timedelta(hours=24)
         or (
             recovery
@@ -542,9 +709,75 @@ def validate_approval(args, now=None):
                 != args.original_approval_sha
             )
         )
+        or (
+            reconcile
+            and (
+                args.expected_predecessor_configuration_receipt_sha
+                == "0" * 64
+                or approval[
+                    "expectedPredecessorConfigurationReceiptSha256"
+                ]
+                != args.expected_predecessor_configuration_receipt_sha
+            )
+        )
     ):
         raise RuntimeError("approval receipt identity or scope is invalid")
     return approval
+
+
+def approval_is_current(approval, now=None):
+    try:
+        approved_at = dt.datetime.fromisoformat(
+            approval["approvedAt"].replace("Z", "+00:00")
+        )
+        expires_at = dt.datetime.fromisoformat(
+            approval["expiresAt"].replace("Z", "+00:00")
+        )
+    except (KeyError, TypeError, ValueError) as error:
+        raise RuntimeError("approval receipt time is invalid") from error
+    current = now or dt.datetime.now(dt.timezone.utc)
+    return bool(
+        approved_at.tzinfo is not None
+        and expires_at.tzinfo is not None
+        and current.tzinfo is not None
+        and approved_at <= current < expires_at
+    )
+
+
+def expired_reconciliation_finalization_authorized(
+    approval,
+    journal,
+    current_environment_sha,
+):
+    if approval_is_current(approval):
+        return True
+    try:
+        approved_at = dt.datetime.fromisoformat(
+            approval["approvedAt"].replace("Z", "+00:00")
+        )
+        expires_at = dt.datetime.fromisoformat(
+            approval["expiresAt"].replace("Z", "+00:00")
+        )
+        observed_at = dt.datetime.fromisoformat(
+            journal["receiptObservedAt"].replace("Z", "+00:00")
+        )
+    except (KeyError, TypeError, ValueError) as error:
+        raise RuntimeError(
+            "expired reconciliation recovery time is invalid"
+        ) from error
+    credential_existed = journal.get(
+        "adminEngineCredentialExistedBefore"
+    )
+    before_sha = journal.get("environmentBeforeSha256")
+    return bool(
+        approved_at <= observed_at < expires_at
+        and isinstance(credential_existed, bool)
+        and (
+            current_environment_sha == before_sha
+            if credential_existed
+            else current_environment_sha != before_sha
+        )
+    )
 
 
 def safe_directory(path, mode=0o700):
@@ -633,7 +866,7 @@ def publish_latest(run_directory):
 
 
 def validate_receipt(payload):
-    expected_fields = {
+    base_fields = {
         "schema",
         "mode",
         "state",
@@ -668,17 +901,46 @@ def validate_receipt(payload):
         "secretsDisclosed",
         "observedAt",
     }
-    if not isinstance(payload, dict) or set(payload) != expected_fields:
+    if not isinstance(payload, dict):
         raise RuntimeError("configuration receipt fields are invalid")
+    schema = payload.get("schema")
+    expected_fields = set(base_fields)
+    if schema == "fbsir.u3wDefaultOffConfigurationReceipt.v3":
+        expected_fields.update(
+            {
+                "predecessorConfigurationReceiptSha256",
+                "adminEngineCredentialProvisioningState",
+                "engineCounterpartClosureClaimed",
+            }
+        )
+    if set(payload) != expected_fields:
+        raise RuntimeError("configuration receipt fields are invalid")
+    api2_state = (
+        "REUSED_FROM_PREDECESSOR_RECEIPT"
+        if schema == "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+        else "CREATED_BY_RUN"
+    )
+    credential_state = payload.get(
+        "adminEngineCredentialProvisioningState"
+    )
+    configuration_changed = (
+        credential_state == "CREATED_BY_RUN"
+        if schema == "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+        else True
+    )
     if (
-        payload["schema"] != "fbsir.u3wDefaultOffConfigurationReceipt.v2"
+        schema
+        not in {
+            "fbsir.u3wDefaultOffConfigurationReceipt.v2",
+            "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+        }
         or payload["mode"] != "Apply"
         or payload["state"] != "CONFIGURED_NOT_LOADED"
         or payload["targetHost"] != TARGET_HOST
         or payload["serviceUnit"] != SERVICE_UNIT
         or payload["environmentPath"] != str(ENV_PATH)
         or payload["api2EventKeyPath"] != str(API2_EVENT_KEY_PATH)
-        or payload["api2EventKeyProvisioningState"] != "CREATED_BY_RUN"
+        or payload["api2EventKeyProvisioningState"] != api2_state
         or payload["environmentBackupSha256"]
         != payload["environmentBeforeSha256"]
         or not RUN_PATTERN.fullmatch(str(payload["runId"]))
@@ -699,14 +961,36 @@ def validate_receipt(payload):
         or payload["environmentBackupCustodySecure"] is not True
         or payload["productionDatabaseChanged"] is not False
         or payload["productionFilesystemChanged"] is not True
-        or payload["productionConfigurationChanged"] is not True
+        or payload["productionConfigurationChanged"]
+        is not configuration_changed
         or payload["productionServiceChanged"] is not False
         or payload["configurationLoaded"] is not False
         or payload["officialExpertsPackageChanged"] is not False
         or payload["secretsDisclosed"] is not False
     ):
         raise RuntimeError("configuration receipt identity is invalid")
-    assert_configuration_evidence(payload["configurationEvidence"])
+    if schema == "fbsir.u3wDefaultOffConfigurationReceipt.v3":
+        if (
+            not SHA_PATTERN.fullmatch(
+                str(
+                    payload.get(
+                        "predecessorConfigurationReceiptSha256", ""
+                    )
+                )
+            )
+            or payload["predecessorConfigurationReceiptSha256"]
+            == "0" * 64
+            or credential_state != "ADOPTED_EXISTING_EXACT_DELTA"
+            or payload.get("engineCounterpartClosureClaimed") is not False
+        ):
+            raise RuntimeError(
+                "configuration reconciliation receipt identity is invalid"
+            )
+        assert_configuration_v3_evidence(
+            payload["configurationEvidence"]
+        )
+    else:
+        assert_configuration_evidence(payload["configurationEvidence"])
     if payload["serviceSnapshotBefore"] != payload["serviceSnapshotAfter"]:
         raise RuntimeError("service changed while preparing configuration")
     try:
@@ -719,7 +1003,7 @@ def validate_receipt(payload):
         raise RuntimeError("configuration receipt time is naive")
     backup_path = pathlib.Path(payload["environmentBackupPath"])
     expected_backup_path = pathlib.Path(
-        "/etc/u3w/backups/fbsir-admin-env",
+        ENV_BACKUP_ROOT,
         "{}-{}.env".format(
             payload["runId"], payload["environmentBeforeSha256"][:16]
         ),
@@ -758,15 +1042,219 @@ def existing_receipt(
     ):
         raise RuntimeError("existing configuration backup anchor changed")
     event_material = validate_regular_file(API2_EVENT_KEY_PATH).read_bytes()
-    evidence = configuration_evidence(
-        parse_environment(ENV_PATH.read_text(encoding="utf-8")),
-        event_material,
+    values = parse_environment(ENV_PATH.read_text(encoding="utf-8"))
+    evidence = (
+        configuration_v3_evidence(values, event_material)
+        if payload["schema"]
+        == "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+        else configuration_evidence(values, event_material)
     )
-    assert_configuration_evidence(evidence)
+    if payload["schema"] == "fbsir.u3wDefaultOffConfigurationReceipt.v3":
+        assert_configuration_v3_evidence(evidence)
+    else:
+        assert_configuration_evidence(evidence)
     if evidence != payload["configurationEvidence"]:
         raise RuntimeError("existing configuration live readback changed")
     publish_latest(run_directory)
     return payload, path
+
+
+def predecessor_configuration_receipt(args, require_live_environment=True):
+    if not CONFIG_LATEST.is_symlink():
+        raise RuntimeError(
+            "predecessor configuration latest pointer is invalid"
+        )
+    pointer_status = CONFIG_LATEST.lstat()
+    if (
+        pointer_status.st_uid != 0
+        or pointer_status.st_gid != 0
+    ):
+        raise RuntimeError(
+            "predecessor configuration latest pointer custody is invalid"
+        )
+    target = CONFIG_LATEST.resolve(strict=True)
+    expected_root = CONFIG_ROOT.resolve(strict=True)
+    if (
+        target.parent != expected_root
+        or not RUN_PATTERN.fullmatch(target.name)
+        or target.is_symlink()
+        or not target.is_dir()
+    ):
+        raise RuntimeError(
+            "predecessor configuration latest target is invalid"
+        )
+    target_status = target.stat()
+    if (
+        target_status.st_uid != 0
+        or target_status.st_gid != 0
+        or target_status.st_mode & 0o022
+    ):
+        raise RuntimeError(
+            "predecessor configuration latest target custody is invalid"
+        )
+    receipt_path = validate_regular_file(
+        target / "configuration-receipt.json"
+    )
+    if (
+        sha256_file(receipt_path)
+        != args.expected_predecessor_configuration_receipt_sha
+    ):
+        raise RuntimeError(
+            "predecessor configuration receipt digest drifted"
+        )
+    payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+    validate_receipt(payload)
+    if payload["schema"] != "fbsir.u3wDefaultOffConfigurationReceipt.v2":
+        raise RuntimeError(
+            "predecessor configuration is not eligible for reconciliation"
+        )
+    event_material = validate_regular_file(
+        API2_EVENT_KEY_PATH
+    ).read_bytes()
+    if require_live_environment:
+        if sha256_file(ENV_PATH) != payload["environmentAfterSha256"]:
+            raise RuntimeError(
+                "predecessor configuration live environment drifted"
+            )
+        evidence = configuration_evidence(
+            parse_environment(ENV_PATH.read_text(encoding="utf-8")),
+            event_material,
+        )
+        assert_configuration_evidence(evidence)
+        if evidence != payload["configurationEvidence"]:
+            raise RuntimeError(
+                "predecessor configuration live evidence drifted"
+            )
+    return payload, receipt_path, event_material
+
+
+def load_or_create_reconciliation_journal(
+    run_directory,
+    args,
+    environment_before_sha,
+    service_before=None,
+    admin_engine_credential_existed_before=False,
+):
+    journal_path = run_directory / "configuration-journal.json"
+    backup_path = pathlib.Path(
+        ENV_BACKUP_ROOT,
+        "{}-{}.env".format(
+            args.run_id, args.expected_environment_sha[:16]
+        ),
+    )
+    expected_fields = {
+        "schema",
+        "runId",
+        "sourceCommit",
+        "targetHost",
+        "serviceUnit",
+        "environmentPath",
+        "environmentBeforeSha256",
+        "environmentBackupPath",
+        "api2EventKeyPath",
+        "api2EventKeyExistedBefore",
+        "predecessorConfigurationReceiptSha256",
+        "adminEngineCredentialExistedBefore",
+        "receiptObservedAt",
+        "approvalReceiptSha256",
+        "runnerSha256",
+        "workerSha256",
+        "serviceSnapshotBefore",
+        "serviceRestartAuthorized",
+        "productionDatabaseWriteAuthorized",
+        "officialExpertsPackageChangeAuthorized",
+    }
+    if journal_path.exists() or journal_path.is_symlink():
+        validate_regular_file(journal_path)
+        journal = json.loads(journal_path.read_text(encoding="utf-8"))
+        if (
+            set(journal) != expected_fields
+            or journal["schema"]
+            != "fbsir.u3wDefaultOffConfigurationReconciliationJournal.v1"
+            or journal["runId"] != args.run_id
+            or journal["sourceCommit"] != args.source_commit
+            or journal["targetHost"] != TARGET_HOST
+            or journal["serviceUnit"] != SERVICE_UNIT
+            or journal["environmentPath"] != str(ENV_PATH)
+            or journal["environmentBeforeSha256"]
+            != args.expected_environment_sha
+            or journal["environmentBackupPath"] != str(backup_path)
+            or journal["api2EventKeyPath"] != str(API2_EVENT_KEY_PATH)
+            or journal["api2EventKeyExistedBefore"] is not True
+            or journal[
+                "predecessorConfigurationReceiptSha256"
+            ]
+            != args.expected_predecessor_configuration_receipt_sha
+            or not isinstance(
+                journal["adminEngineCredentialExistedBefore"],
+                bool,
+            )
+            or journal["approvalReceiptSha256"] != args.approval_sha
+            or journal["runnerSha256"] != args.runner_sha
+            or journal["workerSha256"] != args.worker_sha
+            or journal["serviceRestartAuthorized"] is not False
+            or journal["productionDatabaseWriteAuthorized"] is not False
+            or journal[
+                "officialExpertsPackageChangeAuthorized"
+            ] is not False
+        ):
+            raise RuntimeError(
+                "configuration reconciliation journal changed"
+            )
+        try:
+            observed_at = dt.datetime.fromisoformat(
+                journal["receiptObservedAt"].replace("Z", "+00:00")
+            )
+        except (AttributeError, ValueError) as error:
+            raise RuntimeError(
+                "configuration reconciliation journal time is invalid"
+            ) from error
+        if observed_at.tzinfo is None:
+            raise RuntimeError(
+                "configuration reconciliation journal time is naive"
+            )
+        return journal, journal_path
+    if environment_before_sha != args.expected_environment_sha:
+        raise RuntimeError(
+            "environment changed without a reconciliation journal"
+        )
+    if not isinstance(admin_engine_credential_existed_before, bool):
+        raise RuntimeError(
+            "admin Engine credential predecessor state is invalid"
+        )
+    if service_before is None:
+        raise RuntimeError(
+            "service snapshot is required for reconciliation"
+        )
+    journal = {
+        "schema":
+            "fbsir.u3wDefaultOffConfigurationReconciliationJournal.v1",
+        "runId": args.run_id,
+        "sourceCommit": args.source_commit,
+        "targetHost": TARGET_HOST,
+        "serviceUnit": SERVICE_UNIT,
+        "environmentPath": str(ENV_PATH),
+        "environmentBeforeSha256": environment_before_sha,
+        "environmentBackupPath": str(backup_path),
+        "api2EventKeyPath": str(API2_EVENT_KEY_PATH),
+        "api2EventKeyExistedBefore": True,
+        "predecessorConfigurationReceiptSha256":
+            args.expected_predecessor_configuration_receipt_sha,
+        "adminEngineCredentialExistedBefore":
+            admin_engine_credential_existed_before,
+        "receiptObservedAt": utc_now(),
+        "approvalReceiptSha256": args.approval_sha,
+        "runnerSha256": args.runner_sha,
+        "workerSha256": args.worker_sha,
+        "serviceSnapshotBefore": service_before,
+        "serviceRestartAuthorized": False,
+        "productionDatabaseWriteAuthorized": False,
+        "officialExpertsPackageChangeAuthorized": False,
+    }
+    atomic_bytes(
+        journal_path, canonical_json(journal).encode("utf-8")
+    )
+    return journal, journal_path
 
 
 def load_or_create_journal(
@@ -778,7 +1266,7 @@ def load_or_create_journal(
 ):
     journal_path = run_directory / "configuration-journal.json"
     expected_backup_path = pathlib.Path(
-        "/etc/u3w/backups/fbsir-admin-env",
+        ENV_BACKUP_ROOT,
         "{}-{}.env".format(
             args.run_id, args.expected_environment_sha[:16]
         ),
@@ -878,7 +1366,8 @@ def load_or_create_journal(
 def plan(args):
     validate_regular_file(ENV_PATH)
     original = ENV_PATH.read_bytes()
-    values = parse_environment(original.decode("utf-8"))
+    original_text = original.decode("utf-8")
+    values = parse_environment(original_text)
     present = [name for name in MANAGED_KEYS if name in values]
     key_exists = API2_EVENT_KEY_PATH.exists()
     key_custody = False
@@ -907,8 +1396,47 @@ def plan(args):
             "serviceSnapshotBefore": journal.get("serviceSnapshotBefore"),
             "secretsDisclosed": False,
         }
-    return {
-        "schema": "fbsir.u3wDefaultOffConfigurationPlan.v1",
+    reconciliation_plan = (
+        args.expected_predecessor_configuration_receipt_sha
+        != "0" * 64
+    )
+    reconciliation_evidence = None
+    if reconciliation_plan:
+        predecessor, predecessor_path, event_material = (
+            predecessor_configuration_receipt(
+                args,
+                require_live_environment=False,
+            )
+        )
+        _, predecessor_evidence = (
+            validate_exact_existing_admin_engine_delta(
+                original_text,
+                predecessor["environmentAfterSha256"],
+                event_material,
+            )
+        )
+        if predecessor_evidence != predecessor["configurationEvidence"]:
+            raise RuntimeError(
+                "existing admin Engine credential predecessor evidence "
+                "changed"
+            )
+        reconciliation_evidence = {
+            "planPurpose":
+                "RECONCILE_EXISTING_ADMIN_ENGINE_CREDENTIAL_DELTA",
+            "adminEngineCredentialPresent": True,
+            "exactExistingAdminEngineDeltaValid": True,
+            "predecessorConfigurationReceiptPath":
+                str(predecessor_path),
+            "predecessorConfigurationReceiptSha256":
+                args.expected_predecessor_configuration_receipt_sha,
+            "engineCounterpartClosureClaimed": False,
+        }
+    result = {
+        "schema": (
+            "fbsir.u3wDefaultOffConfigurationPlan.v2"
+            if reconciliation_plan
+            else "fbsir.u3wDefaultOffConfigurationPlan.v1"
+        ),
         "mode": "Plan",
         "state": "PLANNED",
         "runId": args.run_id,
@@ -931,18 +1459,33 @@ def plan(args):
         "productionBusinessStateChanged": False,
         "secretsDisclosed": False,
     }
+    if reconciliation_evidence is not None:
+        result.update(reconciliation_evidence)
+    return result
 
 
 def verify(args):
     validate_regular_file(ENV_PATH)
     event_material = validate_regular_file(API2_EVENT_KEY_PATH).read_bytes()
-    evidence = configuration_evidence(
-        parse_environment(ENV_PATH.read_text(encoding="utf-8")),
-        event_material,
+    values = parse_environment(ENV_PATH.read_text(encoding="utf-8"))
+    engine_credential_present = bool(
+        str(values.get(ADMIN_ENGINE_TOKEN_NAME, "")).strip()
     )
-    assert_configuration_evidence(evidence)
+    evidence = (
+        configuration_v3_evidence(values, event_material)
+        if engine_credential_present
+        else configuration_evidence(values, event_material)
+    )
+    if engine_credential_present:
+        assert_configuration_v3_evidence(evidence)
+    else:
+        assert_configuration_evidence(evidence)
     return {
-        "schema": "fbsir.u3wDefaultOffConfigurationVerify.v1",
+        "schema": (
+            "fbsir.u3wDefaultOffConfigurationVerify.v2"
+            if engine_credential_present
+            else "fbsir.u3wDefaultOffConfigurationVerify.v1"
+        ),
         "mode": "Verify",
         "state": "CONFIGURED_NOT_LOADED",
         "runId": args.run_id,
@@ -1007,13 +1550,463 @@ def build_configuration_receipt(
     return payload
 
 
+def build_reconciliation_receipt(
+    args,
+    journal,
+    backup_path,
+    after_sha,
+    evidence,
+    after_service,
+    credential_state,
+):
+    configuration_changed = credential_state == "CREATED_BY_RUN"
+    payload = {
+        "schema": "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+        "mode": "Apply",
+        "state": "CONFIGURED_NOT_LOADED",
+        "runId": args.run_id,
+        "sourceCommit": args.source_commit,
+        "targetHost": TARGET_HOST,
+        "serviceUnit": SERVICE_UNIT,
+        "environmentPath": str(ENV_PATH),
+        "environmentBackupPath": str(backup_path),
+        "environmentBackupSha256": sha256_file(backup_path),
+        "environmentBeforeSha256": journal["environmentBeforeSha256"],
+        "environmentAfterSha256": after_sha,
+        "api2EventKeyPath": str(API2_EVENT_KEY_PATH),
+        "api2EventKeyProvisioningState":
+            "REUSED_FROM_PREDECESSOR_RECEIPT",
+        "stagedKeyMaterialMatched": True,
+        "configurationEvidence": evidence,
+        "environmentCustodySecure": True,
+        "api2EventKeyCustodySecure": True,
+        "environmentBackupCustodySecure": True,
+        "serviceSnapshotBefore": journal["serviceSnapshotBefore"],
+        "serviceSnapshotAfter": after_service,
+        "approvalReceiptSha256": journal["approvalReceiptSha256"],
+        "runnerSha256": args.runner_sha,
+        "workerSha256": args.worker_sha,
+        "serviceRestarted": False,
+        "productionDatabaseChanged": False,
+        "productionFilesystemChanged": True,
+        "productionConfigurationChanged": configuration_changed,
+        "productionServiceChanged": False,
+        "configurationLoaded": False,
+        "officialExpertsPackageChanged": False,
+        "secretsDisclosed": False,
+        "observedAt": journal["receiptObservedAt"],
+        "predecessorConfigurationReceiptSha256":
+            journal["predecessorConfigurationReceiptSha256"],
+        "adminEngineCredentialProvisioningState": credential_state,
+        "engineCounterpartClosureClaimed": False,
+    }
+    validate_receipt(payload)
+    return payload
+
+
+def reconcile(args):
+    approval = validate_approval(args, allow_expired=True)
+    if os.geteuid() != 0:
+        raise RuntimeError(
+            "configuration reconciliation requires root"
+        )
+    lock_descriptor = open_host_change_lock()
+    try:
+        acquire_host_change_lock(lock_descriptor)
+        approval = validate_approval(args, allow_expired=True)
+        approval_current = approval_is_current(approval)
+        if approval_current:
+            validate_regular_file(ENV_PATH)
+            preflight_bytes = ENV_PATH.read_bytes()
+            preflight_text = preflight_bytes.decode("utf-8")
+            preflight_sha = sha256_bytes(preflight_bytes)
+            if preflight_sha != args.expected_environment_sha:
+                raise RuntimeError(
+                    "approved reconciliation environment anchor drifted"
+                )
+            preflight_values = parse_environment(preflight_text)
+            if not str(
+                preflight_values.get(ADMIN_ENGINE_TOKEN_NAME, "")
+            ).strip():
+                raise RuntimeError(
+                    "unpaired admin Engine credential creation is "
+                    "prohibited; this wave can only adopt the exact "
+                    "pre-existing delta"
+                )
+            predecessor, _, event_material = (
+                predecessor_configuration_receipt(
+                    args,
+                    require_live_environment=False,
+                )
+            )
+            _, predecessor_evidence = (
+                validate_exact_existing_admin_engine_delta(
+                    preflight_text,
+                    predecessor["environmentAfterSha256"],
+                    event_material,
+                )
+            )
+            if predecessor_evidence != predecessor[
+                "configurationEvidence"
+            ]:
+                raise RuntimeError(
+                    "preflight admin Engine credential predecessor "
+                    "evidence changed"
+                )
+            run_directory = safe_run_directory(args.run_id)
+        else:
+            run_directory = CONFIG_ROOT / args.run_id
+            if (
+                run_directory.is_symlink()
+                or not run_directory.is_dir()
+                or run_directory.resolve().parent
+                    != CONFIG_ROOT.resolve(strict=True)
+            ):
+                raise RuntimeError(
+                    "expired reconciliation approval has no existing "
+                    "recovery journal directory"
+                )
+            run_status = run_directory.stat()
+            if (
+                run_status.st_uid != 0
+                or run_status.st_gid != 0
+                or run_status.st_mode & 0o022
+            ):
+                raise RuntimeError(
+                    "expired reconciliation recovery directory custody "
+                    "is invalid"
+                )
+        receipt_path = run_directory / "configuration-receipt.json"
+        if (
+            not approval_current
+            and (receipt_path.exists() or receipt_path.is_symlink())
+        ):
+            raise RuntimeError(
+                "expired reconciliation approval cannot replay a "
+                "completed receipt"
+            )
+        prior = existing_receipt(run_directory, args)
+        if prior is not None:
+            payload, path = prior
+            if (
+                payload["schema"]
+                != "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+                or payload["predecessorConfigurationReceiptSha256"]
+                != args.expected_predecessor_configuration_receipt_sha
+            ):
+                raise RuntimeError(
+                    "reconciliation replay receipt identity changed"
+                )
+            return {
+                "schema":
+                    "fbsir.u3wDefaultOffConfigurationWorkerResult.v3",
+                "mode": "Reconcile",
+                "state": payload["state"],
+                "runId": args.run_id,
+                "sourceCommit": args.source_commit,
+                "configurationReceiptPath": str(path),
+                "configurationReceiptSha256": sha256_file(path),
+                "productionFilesystemChanged": False,
+                "productionConfigurationChanged": False,
+                "productionBusinessStateChanged": False,
+                "configurationLoaded": False,
+                "serviceRestarted": False,
+                "secretsDisclosed": False,
+                "idempotentReplay": True,
+            }
+        validate_regular_file(ENV_PATH)
+        current = ENV_PATH.read_bytes()
+        current_text = current.decode("utf-8")
+        current_sha = sha256_bytes(current)
+        current_values = parse_environment(current_text)
+        current_credential_present = bool(
+            str(
+                current_values.get(ADMIN_ENGINE_TOKEN_NAME, "")
+            ).strip()
+        )
+        if not current_credential_present:
+            raise RuntimeError(
+                "unpaired admin Engine credential creation is prohibited; "
+                "this wave can only adopt the exact pre-existing delta"
+            )
+        journal_path = run_directory / "configuration-journal.json"
+        journal_preexisting = (
+            journal_path.exists() or journal_path.is_symlink()
+        )
+        if not approval_current and not journal_preexisting:
+            raise RuntimeError(
+                "expired reconciliation approval has no existing journal"
+            )
+        predecessor, _, event_material = (
+            predecessor_configuration_receipt(
+                args,
+                require_live_environment=(
+                    not journal_preexisting
+                    and not current_credential_present
+                ),
+            )
+        )
+        initial_service = (
+            service_snapshot()
+            if current_sha == args.expected_environment_sha
+            else None
+        )
+        credential_existed_before = False
+        if not journal_preexisting:
+            if current_sha != args.expected_environment_sha:
+                raise RuntimeError(
+                    "approved reconciliation environment anchor drifted"
+                )
+            if current_credential_present:
+                (
+                    _,
+                    evidence_before,
+                ) = validate_exact_existing_admin_engine_delta(
+                    current_text,
+                    predecessor["environmentAfterSha256"],
+                    event_material,
+                )
+                credential_existed_before = True
+            else:
+                if (
+                    predecessor["environmentAfterSha256"]
+                    != current_sha
+                ):
+                    raise RuntimeError(
+                        "predecessor configuration environment anchor "
+                        "drifted"
+                    )
+                evidence_before = configuration_evidence(
+                    current_values,
+                    event_material,
+                )
+                assert_configuration_evidence(evidence_before)
+            if evidence_before != predecessor["configurationEvidence"]:
+                raise RuntimeError(
+                    "predecessor configuration evidence changed"
+                )
+        journal, _ = load_or_create_reconciliation_journal(
+            run_directory,
+            args,
+            current_sha,
+            service_before=initial_service,
+            admin_engine_credential_existed_before=
+                credential_existed_before,
+        )
+        if (
+            not approval_current
+            and (
+                not journal_preexisting
+                or not expired_reconciliation_finalization_authorized(
+                    approval,
+                    journal,
+                    current_sha,
+                )
+            )
+        ):
+            raise RuntimeError(
+                "expired reconciliation approval cannot authorize a new "
+                "configuration mutation"
+            )
+        before_sha = journal["environmentBeforeSha256"]
+        before_service = journal["serviceSnapshotBefore"]
+        credential_state = (
+            "ADOPTED_EXISTING_EXACT_DELTA"
+            if journal["adminEngineCredentialExistedBefore"]
+            else "CREATED_BY_RUN"
+        )
+        if credential_state != "ADOPTED_EXISTING_EXACT_DELTA":
+            raise RuntimeError(
+                "reconciliation cannot create an unpaired Engine token"
+            )
+        if credential_state == "CREATED_BY_RUN":
+            if predecessor["environmentAfterSha256"] != before_sha:
+                raise RuntimeError(
+                    "predecessor configuration environment anchor drifted"
+                )
+        else:
+            if current_sha != before_sha:
+                raise RuntimeError(
+                    "adopted admin Engine credential environment changed"
+                )
+            _, predecessor_evidence = (
+                validate_exact_existing_admin_engine_delta(
+                    current_text,
+                    predecessor["environmentAfterSha256"],
+                    event_material,
+                )
+            )
+            if predecessor_evidence != predecessor["configurationEvidence"]:
+                raise RuntimeError(
+                    "adopted admin Engine credential predecessor "
+                    "evidence changed"
+                )
+        backup_directory = safe_directory(ENV_BACKUP_ROOT)
+        backup_path = pathlib.Path(journal["environmentBackupPath"])
+        if current_sha == before_sha:
+            original = current
+            if backup_path.exists() or backup_path.is_symlink():
+                validate_regular_file(backup_path)
+                if (
+                    sha256_file(backup_path) != before_sha
+                    or backup_path.read_bytes() != original
+                ):
+                    raise RuntimeError(
+                        "immutable reconciliation backup changed"
+                    )
+            else:
+                descriptor = os.open(
+                    backup_path,
+                    os.O_WRONLY
+                    | os.O_CREAT
+                    | os.O_EXCL
+                    | getattr(os, "O_NOFOLLOW", 0),
+                    0o600,
+                )
+                try:
+                    with os.fdopen(
+                        descriptor, "wb", closefd=False
+                    ) as handle:
+                        handle.write(original)
+                        handle.flush()
+                        os.fsync(handle.fileno())
+                finally:
+                    os.close(descriptor)
+                os.chmod(backup_path, 0o600)
+                fsync_directory(backup_directory)
+            validate_regular_file(backup_path)
+            if sha256_file(backup_path) != before_sha:
+                raise RuntimeError(
+                    "reconciliation backup writeback mismatch"
+                )
+            if credential_state == "CREATED_BY_RUN":
+                credential = secrets.token_urlsafe(48)
+                rendered, generated_state = (
+                    reconcile_admin_engine_credential(
+                        original.decode("utf-8"),
+                        credential,
+                        api2_event_material=event_material,
+                    )
+                )
+                if generated_state != "CREATED_BY_RUN":
+                    raise RuntimeError(
+                        "admin Engine credential reconciliation state "
+                        "drifted"
+                    )
+                atomic_bytes(ENV_PATH, rendered.encode("utf-8"))
+                MUTATION_STATE["productionConfigurationChanged"] = True
+        else:
+            if credential_state != "CREATED_BY_RUN":
+                raise RuntimeError(
+                    "adopted admin Engine credential changed during "
+                    "reconciliation"
+                )
+            validate_regular_file(backup_path)
+            if sha256_file(backup_path) != before_sha:
+                raise RuntimeError(
+                    "reconciliation recovery backup anchor mismatch"
+                )
+        after_bytes = validate_regular_file(ENV_PATH).read_bytes()
+        after_values = parse_environment(after_bytes.decode("utf-8"))
+        after_evidence = configuration_v3_evidence(
+            after_values,
+            validate_regular_file(API2_EVENT_KEY_PATH).read_bytes(),
+        )
+        assert_configuration_v3_evidence(after_evidence)
+        backup_text = backup_path.read_text(encoding="utf-8")
+        if credential_state == "CREATED_BY_RUN":
+            predecessor_text = backup_text
+            expected_after, expected_credential_state = (
+                reconcile_admin_engine_credential(
+                    backup_text,
+                    str(
+                        after_values.get(ADMIN_ENGINE_TOKEN_NAME, "")
+                    ).strip(),
+                    api2_event_material=event_material,
+                )
+            )
+            if (
+                expected_credential_state != "CREATED_BY_RUN"
+                or expected_after.encode("utf-8") != after_bytes
+            ):
+                raise RuntimeError(
+                    "reconciliation recovery contains an unauthorized "
+                    "environment delta"
+                )
+        else:
+            if backup_text.encode("utf-8") != after_bytes:
+                raise RuntimeError(
+                    "adopted admin Engine credential environment drifted"
+                )
+            (
+                predecessor_text,
+                predecessor_evidence,
+            ) = validate_exact_existing_admin_engine_delta(
+                backup_text,
+                predecessor["environmentAfterSha256"],
+                event_material,
+            )
+            if predecessor_evidence != predecessor["configurationEvidence"]:
+                raise RuntimeError(
+                    "adopted admin Engine credential predecessor "
+                    "evidence changed"
+                )
+        predecessor_values = parse_environment(predecessor_text)
+        for name in MANAGED_KEYS:
+            if after_values.get(name) != predecessor_values.get(name):
+                raise RuntimeError(
+                    "managed W1A configuration changed during reconciliation"
+                )
+        after_service = service_snapshot()
+        if before_service != after_service:
+            raise RuntimeError(
+                "service changed during zero-restart reconciliation"
+            )
+        after_sha = sha256_file(ENV_PATH)
+        payload = build_reconciliation_receipt(
+            args,
+            journal,
+            backup_path,
+            after_sha,
+            after_evidence,
+            after_service,
+            credential_state,
+        )
+        receipt_path = run_directory / "configuration-receipt.json"
+        atomic_bytes(
+            receipt_path, canonical_json(payload).encode("utf-8")
+        )
+        publish_latest(run_directory)
+        return {
+            "schema":
+                "fbsir.u3wDefaultOffConfigurationWorkerResult.v3",
+            "mode": "Reconcile",
+            "state": "CONFIGURED_NOT_LOADED",
+            "runId": args.run_id,
+            "sourceCommit": args.source_commit,
+            "configurationReceiptPath": str(receipt_path),
+            "configurationReceiptSha256": sha256_file(receipt_path),
+            "productionFilesystemChanged": True,
+            "productionConfigurationChanged":
+                credential_state == "CREATED_BY_RUN",
+            "productionBusinessStateChanged": False,
+            "configurationLoaded": False,
+            "serviceRestarted": False,
+            "secretsDisclosed": False,
+            "idempotentReplay": False,
+        }
+    finally:
+        os.close(lock_descriptor)
+
+
 def apply(args):
     validate_approval(args)
     if os.geteuid() != 0:
         raise RuntimeError("configuration provisioning requires root")
     lock_descriptor = open_host_change_lock()
     try:
-        fcntl.flock(lock_descriptor, fcntl.LOCK_EX)
+        acquire_host_change_lock(lock_descriptor)
+        validate_approval(args)
         run_directory = safe_run_directory(args.run_id)
         prior = existing_receipt(run_directory, args)
         if prior is not None:
@@ -1065,9 +2058,7 @@ def apply(args):
         )
         before_sha = journal["environmentBeforeSha256"]
         before_service = journal["serviceSnapshotBefore"]
-        backup_directory = safe_directory(
-            pathlib.Path("/etc/u3w/backups/fbsir-admin-env")
-        )
+        backup_directory = safe_directory(ENV_BACKUP_ROOT)
         backup_path = pathlib.Path(journal["environmentBackupPath"])
         event_material, event_key_created_now = (
             read_or_create_api2_event_key()
@@ -1202,7 +2193,8 @@ def recover(args):
         raise RuntimeError("configuration anchor recovery requires root")
     lock_descriptor = open_host_change_lock()
     try:
-        fcntl.flock(lock_descriptor, fcntl.LOCK_EX)
+        acquire_host_change_lock(lock_descriptor)
+        validate_approval(args)
         run_directory = CONFIG_ROOT / args.run_id
         if not run_directory.is_dir() or run_directory.is_symlink():
             raise RuntimeError("configuration recovery journal directory is absent")
@@ -1289,7 +2281,7 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--mode",
-        choices=("Plan", "Apply", "Verify", "Recover"),
+        choices=("Plan", "Apply", "Verify", "Recover", "Reconcile"),
         required=True,
     )
     parser.add_argument("--run-id", required=True)
@@ -1303,6 +2295,10 @@ def parse_args(argv=None):
         "--expected-configured-environment-sha", default="0" * 64
     )
     parser.add_argument("--original-approval-sha", default="0" * 64)
+    parser.add_argument(
+        "--expected-predecessor-configuration-receipt-sha",
+        default="0" * 64,
+    )
     args = parser.parse_args(argv)
     if (
         not RUN_PATTERN.fullmatch(args.run_id)
@@ -1315,12 +2311,20 @@ def parse_args(argv=None):
             args.expected_configured_environment_sha
         )
         or not SHA_PATTERN.fullmatch(args.original_approval_sha)
+        or not SHA_PATTERN.fullmatch(
+            args.expected_predecessor_configuration_receipt_sha
+        )
         or (
             args.mode == "Recover"
             and (
                 args.expected_configured_environment_sha == "0" * 64
                 or args.original_approval_sha == "0" * 64
             )
+        )
+        or (
+            args.mode == "Reconcile"
+            and args.expected_predecessor_configuration_receipt_sha
+            == "0" * 64
         )
     ):
         parser.error("run, source or digest argument shape is invalid")
@@ -1335,6 +2339,8 @@ def main(argv=None):
         result = verify(args)
     elif args.mode == "Recover":
         result = recover(args)
+    elif args.mode == "Reconcile":
+        result = reconcile(args)
     else:
         result = apply(args)
     print(canonical_json(result))

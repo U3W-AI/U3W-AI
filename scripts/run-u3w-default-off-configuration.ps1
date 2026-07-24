@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('Plan', 'Apply', 'Verify', 'Recover')]
+    [ValidateSet('Plan', 'Apply', 'Verify', 'Recover', 'Reconcile')]
     [string]$Mode,
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^[0-9a-f]{40}$')]
@@ -12,6 +12,8 @@ param(
     [string]$ExpectedConfiguredEnvironmentSha256 = $('0' * 64),
     [ValidatePattern('^[0-9a-f]{64}$')]
     [string]$OriginalApprovalReceiptSha256 = $('0' * 64),
+    [ValidatePattern('^[0-9a-f]{64}$')]
+    [string]$ExpectedPredecessorConfigurationReceiptSha256 = $('0' * 64),
     [ValidatePattern('^w1a-config-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$')]
     [string]$RunId,
     [string]$ApprovalReceiptPath,
@@ -235,6 +237,10 @@ function Get-ApprovalDigest {
             'expectedConfiguredEnvironmentSha256',
             'originalApprovalReceiptSha256')
     }
+    if ($Mode -eq 'Reconcile') {
+        $expectedFields +=
+            'expectedPredecessorConfigurationReceiptSha256'
+    }
     $expectedFields = $expectedFields | Sort-Object
     $actualFields = @($approval.PSObject.Properties.Name | Sort-Object)
     if (($expectedFields -join "`n") -ne ($actualFields -join "`n")) {
@@ -248,6 +254,8 @@ function Get-ApprovalDigest {
         $approval.action -ne
             $(if ($Mode -eq 'Recover') {
                     'RECOVER_W1A_DEFAULT_OFF_CONFIGURATION_ANCHOR'
+                } elseif ($Mode -eq 'Reconcile') {
+                    'ADOPT_EXISTING_ADMIN_ENGINE_CREDENTIAL_DELTA'
                 } else {
                     'CONFIGURE_W1A_DEFAULT_OFF_CRYPTO_CUSTODY'
                 }) -or
@@ -256,7 +264,12 @@ function Get-ApprovalDigest {
         $approval.sourceCommit -ne $ExpectedCommit -or
         $approval.expectedEnvironmentSha256 -ne
             $ExpectedEnvironmentSha256 -or
-        $approval.expectedApi2EventKeyState -ne 'ABSENT' -or
+        $approval.expectedApi2EventKeyState -ne
+            $(if ($Mode -eq 'Reconcile') {
+                    'PRESENT_ANCHORED'
+                } else {
+                    'ABSENT'
+                }) -or
         $approval.runnerSha256 -ne $script:RunnerSha256 -or
         $approval.workerSha256 -ne $script:WorkerSha256 -or
         $approval.authorizedBy -ne 'workspace-user' -or
@@ -279,6 +292,13 @@ function Get-ApprovalDigest {
             $approval.originalApprovalReceiptSha256 -ne
                 $OriginalApprovalReceiptSha256)) {
         throw 'configuration recovery approval anchors are invalid'
+    }
+    if ($Mode -eq 'Reconcile' -and (
+            $ExpectedPredecessorConfigurationReceiptSha256 -eq
+                ('0' * 64) -or
+            $approval.expectedPredecessorConfigurationReceiptSha256 -ne
+                $ExpectedPredecessorConfigurationReceiptSha256)) {
+        throw 'configuration reconciliation approval anchor is invalid'
     }
     $script:ApprovalBase64 = [Convert]::ToBase64String(
         [IO.File]::ReadAllBytes(
@@ -354,8 +374,9 @@ function Save-ExternalAnchor {
         $receipt = Get-Content -Raw -LiteralPath $temporaryPath |
             ConvertFrom-Json
         if (
-            $receipt.schema -ne
-                'fbsir.u3wDefaultOffConfigurationReceipt.v2' -or
+            $receipt.schema -notin @(
+                'fbsir.u3wDefaultOffConfigurationReceipt.v2',
+                'fbsir.u3wDefaultOffConfigurationReceipt.v3') -or
             $receipt.runId -ne $RunId -or
             $receipt.sourceCommit -ne $ExpectedCommit -or
             $digest -ne $WorkerResult.configurationReceiptSha256 -or
@@ -450,10 +471,50 @@ $result = Invoke-RemoteWorker -Arguments @(
     '--expected-environment-sha', $ExpectedEnvironmentSha256,
     '--expected-configured-environment-sha',
     $ExpectedConfiguredEnvironmentSha256,
-    '--original-approval-sha', $OriginalApprovalReceiptSha256
+    '--original-approval-sha', $OriginalApprovalReceiptSha256,
+    '--expected-predecessor-configuration-receipt-sha',
+    $ExpectedPredecessorConfigurationReceiptSha256
 ) -WorkerBytes $workerBytes -WorkerSha256 $workerSha
 Assert-StrictHead
-$anchor = if ($Mode -in @('Apply', 'Recover')) {
+if ($Mode -eq 'Plan') {
+    $isReconciliationPlan = (
+        $ExpectedPredecessorConfigurationReceiptSha256 -ne ('0' * 64)
+    )
+    if (
+        $result.schema -ne $(if ($isReconciliationPlan) {
+                'fbsir.u3wDefaultOffConfigurationPlan.v2'
+            } else {
+                'fbsir.u3wDefaultOffConfigurationPlan.v1'
+            }) -or
+        $result.mode -ne 'Plan' -or
+        $result.runId -ne $RunId -or
+        $result.sourceCommit -ne $ExpectedCommit -or
+        $result.targetHost -ne 'api2.u3w.com' -or
+        $result.environmentSha256 -notmatch '^[0-9a-f]{64}$' -or
+        $result.productionFilesystemChanged -ne $false -or
+        $result.productionConfigurationChanged -ne $false -or
+        $result.productionBusinessStateChanged -ne $false -or
+        $result.secretsDisclosed -ne $false
+    ) {
+        throw 'remote configuration Plan identity or safety is invalid'
+    }
+    if (
+        $isReconciliationPlan -and (
+            $result.planPurpose -ne
+                'RECONCILE_EXISTING_ADMIN_ENGINE_CREDENTIAL_DELTA' -or
+            $result.adminEngineCredentialPresent -ne $true -or
+            $result.exactExistingAdminEngineDeltaValid -ne $true -or
+            $result.predecessorConfigurationReceiptSha256 -ne
+                $ExpectedPredecessorConfigurationReceiptSha256 -or
+            $result.engineCounterpartClosureClaimed -ne $false -or
+            $result.api2EventKeyAlreadyProvisioned -ne $true -or
+            $result.api2EventKeyCustodySecure -ne $true
+        )
+    ) {
+        throw 'configuration Reconcile Plan prerequisite proof is invalid'
+    }
+}
+$anchor = if ($Mode -in @('Apply', 'Recover', 'Reconcile')) {
     Save-ExternalAnchor -WorkerResult $result
 } else { $null }
 

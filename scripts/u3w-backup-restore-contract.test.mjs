@@ -19,8 +19,10 @@ const runnerSha = "e".repeat(64);
 const backupWorkerSha = "0".repeat(64);
 const verifierSha = "f".repeat(64);
 const approvalReceiptSha = "6".repeat(64);
+const adminRootDependencyAdoptionReceiptSha = "a".repeat(64);
 const schemaSha = "1".repeat(64);
 const prerequisiteSha = "2".repeat(64);
+const dependencyFactsSha = "4".repeat(64);
 const runId = "w1a-20260723T160000Z-aaaaaaaaaaaa";
 const backupPath =
   `/opt/fbsir/admin/backups/w1a/${runId}/fbsir.sql.gpg`;
@@ -35,7 +37,22 @@ function facts() {
     triggerCount: 0,
     routineCount: 0,
     eventCount: 0,
-    independentBoardAdminRootCount: 0,
+    independentBoardAdminRootCount: 1,
+    legacyAdminRootDependencyState: "EXACT_CONTROLLED_DEPENDENCY",
+    legacyAdminRootDependencyFactsSha256: dependencyFactsSha,
+    legacyAdminRootDependencyVersionCount: 1,
+    legacyAdminRootDependencyReceiptCount: 1,
+    legacyAdminRootIdentityCount: 1,
+    legacyAdminRootExactCount: 1,
+    legacyAdminRootRoleBindingCount: 0,
+    legacyAdminRootPageChildCount: 0,
+    legacyForbiddenPublicInit001Through042ReceiptCount: 0,
+    publicInit043AnyReceiptCount: 0,
+    attributionInternalReceiptCount: 0,
+    attributionTableCount: 0,
+    attributionTriggerCount: 0,
+    attributionPermissionCount: 0,
+    w1a043State: "ABSENT",
     allBaseTablesInnoDB: true,
   };
 }
@@ -47,6 +64,7 @@ function backupReceipt() {
     sourceCommit: commit,
     targetHost: "api2.u3w.com",
     database: "fbsir",
+    sourceDatabaseServerUuid: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
     serverVersion: "8.0.45",
     serverVersionComment: "Source distribution",
     generatedAt: "2026-07-23T16:00:00.000Z",
@@ -60,12 +78,15 @@ function backupReceipt() {
       "mysqldump  Ver 8.0.45 for Linux on x86_64 (Source distribution)",
     dumpOptionsContract: "u3w.mysqldump.innodb-consistent.v1",
     ddlProtectionMode:
-      "PRE_POST_SCHEMA_STABILITY_APPROVED_NO_DDL_WINDOW",
+      "HOST_FLOCK_NAMED_LOCK_READ_ONLY_SNAPSHOT_FULL_OBJECT_MDL_"
+        + "PRE_POST_STABILITY_AND_APPROVED_NO_DDL_WINDOW",
     sourceFacts: facts(),
     sourceTotalRows: 1234,
     sourceTableRowCountsSha256: "7".repeat(64),
     sourceSnapshotExactlyMatched: false,
     sourceJarSha256: "3".repeat(64),
+    adminRootDependencyAdoptionReceiptSha256:
+      adminRootDependencyAdoptionReceiptSha,
     approvalReceiptSha256: approvalReceiptSha,
     runnerSha256: runnerSha,
     backupWorkerSha256: backupWorkerSha,
@@ -82,6 +103,7 @@ function restoreReceipt() {
     sourceCommit: commit,
     targetHost: "api2.u3w.com",
     database: "fbsir",
+    sourceDatabaseServerUuid: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
     sourceBackupPath: backupPath,
     sourceBackupSha256: backupSha,
     sourceBackupPlaintextSha256: "9".repeat(64),
@@ -105,6 +127,8 @@ function restoreReceipt() {
     mysqlcheckPath:
       `/opt/fbsir/admin/backups/w1a/${runId}/mysqlcheck.log`,
     mysqlcheckSha256: "6".repeat(64),
+    adminRootDependencyAdoptionReceiptSha256:
+      adminRootDependencyAdoptionReceiptSha,
     approvalReceiptSha256: approvalReceiptSha,
     backupWorkerSha256: backupWorkerSha,
     verifierSha256: verifierSha,
@@ -121,6 +145,7 @@ function bundle() {
     sourceCommit: commit,
     targetHost: "api2.u3w.com",
     database: "fbsir",
+    sourceDatabaseServerUuid: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
     generatedAt: "2026-07-23T16:04:01.000Z",
     backupReceiptPath:
       `/opt/fbsir/admin/backups/w1a/${runId}/backup-receipt.json`,
@@ -135,6 +160,8 @@ function bundle() {
     runnerSha256: runnerSha,
     backupWorkerSha256: backupWorkerSha,
     verifierSha256: verifierSha,
+    adminRootDependencyAdoptionReceiptSha256:
+      adminRootDependencyAdoptionReceiptSha,
     productionBusinessStateChanged: false,
   };
 }
@@ -161,6 +188,27 @@ test("rejects a backup when any source table is non-InnoDB", () => {
   const result = validateBackupReceipt(receipt);
   assert.equal(result.ok, false);
   assert.ok(result.errors.includes("source_tables_not_all_innodb"));
+});
+
+test("requires an adopted exact admin root and an absent 043 pre-state", () => {
+  const missingDependency = backupReceipt();
+  missingDependency.sourceFacts.legacyAdminRootDependencyState = "ABSENT";
+  missingDependency.sourceFacts.legacyAdminRootDependencyVersionCount = 0;
+  missingDependency.sourceFacts.legacyAdminRootDependencyReceiptCount = 0;
+  missingDependency.sourceFacts.legacyAdminRootIdentityCount = 0;
+  missingDependency.sourceFacts.legacyAdminRootExactCount = 0;
+  missingDependency.sourceFacts.independentBoardAdminRootCount = 0;
+  const missing = validateBackupReceipt(missingDependency);
+  assert.equal(missing.ok, false);
+  assert.ok(missing.errors.includes("source_admin_root_dependency_invalid"));
+
+  const applied043 = backupReceipt();
+  applied043.sourceFacts.w1a043State =
+    "EXACT_043_RETAINED_DORMANT";
+  applied043.sourceFacts.publicInit043AnyReceiptCount = 1;
+  const applied = validateBackupReceipt(applied043);
+  assert.equal(applied.ok, false);
+  assert.ok(applied.errors.includes("source_w1a_043_prestate_invalid"));
 });
 
 test("rejects unknown receipt fields to prevent secret passthrough", () => {
@@ -222,6 +270,8 @@ test("self-reported success cannot replace independently matched live facts", ()
     expectedBackupWorkerSha256: backupWorkerSha,
     expectedVerifierSha256: verifierSha,
     expectedApprovalReceiptSha256: approvalReceiptSha,
+    expectedAdminRootDependencyAdoptionReceiptSha256:
+      adminRootDependencyAdoptionReceiptSha,
     liveFacts: {
       serverVersion: "8.0.45",
       serverVersionComment: "Source distribution",
@@ -254,6 +304,8 @@ test("self-reported success cannot replace independently matched live facts", ()
     expectedBackupWorkerSha256: backupWorkerSha,
     expectedVerifierSha256: verifierSha,
     expectedApprovalReceiptSha256: approvalReceiptSha,
+    expectedAdminRootDependencyAdoptionReceiptSha256:
+      adminRootDependencyAdoptionReceiptSha,
     liveFacts: staleLive,
   });
   assert.equal(failed.restoreLiveFactsMatched, false);
@@ -276,6 +328,7 @@ test("bundle anchor, runner and verifier digests are all mandatory", () => {
     expectedBackupWorkerSha256: "9".repeat(64),
     expectedVerifierSha256: "8".repeat(64),
     expectedApprovalReceiptSha256: "a".repeat(64),
+    expectedAdminRootDependencyAdoptionReceiptSha256: "b".repeat(64),
     liveFacts: {
       serverVersion: "8.0.45",
       serverVersionComment: "Source distribution",
@@ -315,6 +368,8 @@ test("a bundle cannot cross-bind receipts from another run", () => {
     expectedBackupWorkerSha256: backupWorkerSha,
     expectedVerifierSha256: verifierSha,
     expectedApprovalReceiptSha256: approvalReceiptSha,
+    expectedAdminRootDependencyAdoptionReceiptSha256:
+      adminRootDependencyAdoptionReceiptSha,
     liveFacts: {
       serverVersion: "8.0.45",
       serverVersionComment: "Source distribution",
@@ -347,6 +402,11 @@ test("production runner exposes a pinned plan-backup-verify state machine", () =
   assert.ok(runner.includes("ExpectedRemoteHostKeyFingerprint"));
   assert.ok(runner.includes("ExpectedPublicKeyFingerprint"));
   assert.ok(runner.includes("ApprovalReceiptPath"));
+  assert.ok(
+    runner.includes(
+      "ExpectedAdminRootDependencyAdoptionReceiptSha256",
+    ),
+  );
   assert.ok(runner.includes("git status --porcelain=v1"));
   assert.ok(runner.includes("git ls-remote"));
   assert.ok(runner.includes("Get-CommittedBlobBytes"));
@@ -366,9 +426,23 @@ test("production runner exposes a pinned plan-backup-verify state machine", () =
   assert.ok(backupWorker.includes("os.replace(partial_path, backup_path)"));
   assert.ok(backupWorker.includes('"u3w.gnupg-aes256-symmetric.v1"'));
   assert.ok(backupWorker.includes("fcntl.flock"));
+  assert.ok(backupWorker.includes("u3wDatabaseBackupReceipt.v3"));
+  assert.ok(
+    backupWorker.includes(
+      "adminRootDependencyAdoptionReceiptSha256",
+    ),
+  );
   assert.ok(restoreVerifier.includes('"--skip-networking=ON"'));
   assert.ok(restoreVerifier.includes('"--mysqlx=OFF"'));
   assert.ok(restoreVerifier.includes("isolatedDataRemoved"));
+  assert.ok(
+    restoreVerifier.includes("u3wDatabaseRestoreRehearsalReceipt.v3"),
+  );
+  assert.ok(
+    restoreVerifier.includes(
+      "u3wDatabaseBackupRestoreBundleReceipt.v2",
+    ),
+  );
   assert.ok(restoreVerifier.includes("os.replace(next_link, latest_link)"));
 });
 

@@ -19,6 +19,8 @@ param(
     [ValidatePattern('^[0-9a-f]{64}$')]
     [string]$ExpectedLegacyBaselineReceiptDigest,
     [ValidatePattern('^[0-9a-f]{64}$')]
+    [string]$ExpectedAdminRootDependencyAdoptionReceiptSha256,
+    [ValidatePattern('^[0-9a-f]{64}$')]
     [string]$ExpectedConfigurationReceiptSha256,
     [ValidatePattern('^[0-9a-f]{64}$')]
     [string]$ExpectedStageReceiptSha256,
@@ -738,12 +740,16 @@ PREVIOUS_EVENT_KEY_NAME = (
 SAME_BINDING_KEY_NAME = (
     "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET"
 )
+ADMIN_ENGINE_TOKEN_NAME = "FBSIR_ENGINE_TOKEN"
 MANAGED_W1A_NAMES = FLAGS + (
     EVENT_KEY_ID_NAME,
     EVENT_KEY_NAME,
     PREVIOUS_EVENT_KEY_ID_NAME,
     PREVIOUS_EVENT_KEY_NAME,
     SAME_BINDING_KEY_NAME,
+)
+MANAGED_RESTART_NAMES = MANAGED_W1A_NAMES + (
+    ADMIN_ENGINE_TOKEN_NAME,
 )
 DATABASE_NAMES = (
     "WXFBSIR_MYSQL_URL",
@@ -755,7 +761,12 @@ DATABASE_ALIASES = (
     "FBSIR_MYSQL_USERNAME",
     "FBSIR_MYSQL_PASSWORD",
 )
-SECURITY_NAMES = DATABASE_NAMES + DATABASE_ALIASES + FLAGS
+SECURITY_NAMES = (
+    DATABASE_NAMES
+    + DATABASE_ALIASES
+    + FLAGS
+    + (ADMIN_ENGINE_TOKEN_NAME,)
+)
 FORBIDDEN_OVERRIDES = {
     "SPRING_APPLICATION_JSON",
     "SPRING_CONFIG_IMPORT",
@@ -899,6 +910,31 @@ def parse_environment_file(path):
         values[name] = value
     if any(values.get(name) != "false" for name in FLAGS):
         raise RuntimeError("W1A flags are not explicitly false")
+    engine_credential = str(
+        values.get(ADMIN_ENGINE_TOKEN_NAME, "")
+    ).strip()
+    if re.fullmatch(
+        r"[A-Za-z0-9_-]{43,128}", engine_credential
+    ) is None:
+        raise RuntimeError(
+            "admin Engine credential shape is invalid"
+        )
+    engine_material = engine_credential.encode("utf-8")
+    for name in (
+        EVENT_KEY_NAME,
+        PREVIOUS_EVENT_KEY_NAME,
+        SAME_BINDING_KEY_NAME,
+        "FBSIR_TOKEN_SECRET",
+        "WXFBSIR_TOKEN_SECRET",
+    ):
+        comparison = decode_secret_material(values.get(name))
+        if (
+            comparison is not None
+            and hmac.compare_digest(engine_material, comparison)
+        ):
+            raise RuntimeError(
+                "admin Engine credential is not independent"
+            )
     if any(not values.get(name) for name in DATABASE_NAMES):
         raise RuntimeError("database credentials are absent")
     aliases = tuple(values.get(name) for name in DATABASE_ALIASES)
@@ -1082,13 +1118,25 @@ def security_evidence(process_values, configured_values):
     if configured_matched and not pending_names and not mismatch_names:
         load_state = "EXACT_CONFIGURED"
     elif (
-        pending_names == sorted(MANAGED_W1A_NAMES)
+        pending_names == sorted(MANAGED_RESTART_NAMES)
         and not mismatch_names
-        and all(name in configured_values for name in MANAGED_W1A_NAMES)
+        and all(
+            name in configured_values for name in MANAGED_RESTART_NAMES
+        )
         and all(configured_flags[name] == "false" for name in FLAGS)
         and database_matched
     ):
-        load_state = "LEGACY_W1A_PENDING_RESTART"
+        load_state = "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART"
+    elif (
+        pending_names == [ADMIN_ENGINE_TOKEN_NAME]
+        and not mismatch_names
+        and all(
+            name in configured_values for name in MANAGED_RESTART_NAMES
+        )
+        and all(configured_flags[name] == "false" for name in FLAGS)
+        and database_matched
+    ):
+        load_state = "ENGINE_CREDENTIAL_PENDING_RESTART"
     else:
         load_state = "INVALID_PARTIAL_OR_DRIFTED"
     return {
@@ -1111,7 +1159,8 @@ def security_evidence(process_values, configured_values):
         "processConfiguredEnvironmentPreStageCompatible":
             load_state in {
                 "EXACT_CONFIGURED",
-                "LEGACY_W1A_PENDING_RESTART",
+                "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART",
+                "ENGINE_CREDENTIAL_PENDING_RESTART",
             },
     }
 
@@ -1585,9 +1634,15 @@ function Invoke-Plan {
                 $remote.releaseRootExists -ne $false -or
                 @($remote.releaseRootEntryManifest).Count -ne 0 -or
                 $remote.processConfiguredEnvironmentLoadState -cne
-                    'LEGACY_W1A_PENDING_RESTART' -or
+                    'LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART' -or
                 $remote.processConfiguredEnvironmentMatched -ne
                     $false -or
+                @($remote.processPendingRestartEnvironmentNames).Count -ne
+                    18 -or
+                @($remote.processPendingRestartEnvironmentNames |
+                    Where-Object {
+                        $_ -ceq 'FBSIR_ENGINE_TOKEN'
+                    }).Count -ne 1 -or
                 $null -ne $remote.stageEntryTopology.priorRollbackAnchor
             )
         ) -or
@@ -1597,12 +1652,29 @@ function Invoke-Plan {
             (
                 $remote.productionChanged -ne $true -or
                 $remote.releaseRootExists -ne $true -or
-                $remote.processConfiguredEnvironmentLoadState -cne
-                    'EXACT_CONFIGURED' -or
-                $remote.processConfiguredEnvironmentMatched -ne
-                    $true -or
-                @($remote.processPendingRestartEnvironmentNames).Count -ne
-                    0 -or
+                -not (
+                    (
+                        $remote.processConfiguredEnvironmentLoadState -ceq
+                            'EXACT_CONFIGURED' -and
+                        $remote.processConfiguredEnvironmentMatched -eq
+                            $true -and
+                        @(
+                            $remote.processPendingRestartEnvironmentNames
+                        ).Count -eq 0
+                    ) -or
+                    (
+                        $remote.processConfiguredEnvironmentLoadState -ceq
+                            'ENGINE_CREDENTIAL_PENDING_RESTART' -and
+                        $remote.processConfiguredEnvironmentMatched -eq
+                            $false -and
+                        @(
+                            $remote.processPendingRestartEnvironmentNames
+                        ).Count -eq 1 -and
+                        @(
+                            $remote.processPendingRestartEnvironmentNames
+                        )[0] -ceq 'FBSIR_ENGINE_TOKEN'
+                    )
+                ) -or
                 $null -eq $remote.stageEntryTopology.priorRollbackAnchor
             )
         )
@@ -1707,6 +1779,7 @@ function Get-ApprovalDigest {
         'expectedReleasePlanReceiptSha256',
         'expectedBackupReceiptSha256',
         'expectedLegacyBaselineReceiptSha256',
+        'expectedAdminRootDependencyAdoptionReceiptSha256',
         'expectedConfigurationReceiptSha256',
         'expectedStageReceiptSha256',
         'expectedDeploymentReceiptSha256',
@@ -1757,6 +1830,8 @@ function Get-ApprovalDigest {
             $ExpectedBackupReceiptSha256 -or
         $approval.expectedLegacyBaselineReceiptSha256 -ne
             $ExpectedLegacyBaselineReceiptDigest -or
+        $approval.expectedAdminRootDependencyAdoptionReceiptSha256 -ne
+            $ExpectedAdminRootDependencyAdoptionReceiptSha256 -or
         $approval.expectedConfigurationReceiptSha256 -ne
             $ExpectedConfigurationReceiptSha256 -or
         $approval.expectedStageReceiptSha256 -ne $stageAnchor -or
@@ -1804,6 +1879,7 @@ receipt=json.loads(raw.decode("utf-8"))
 required=(
   "buildReceiptSha256","releasePlanReceiptSha256","backupReceiptSha256",
   "legacyBaselineReceiptSha256","configurationReceiptSha256",
+  "adminRootDependencyAdoptionReceiptSha256",
   "stageReceiptSha256","backendBuildSha256","frontendBuildSha256",
   "migrationSha256","runnerSha256","workerSha256"
 )
@@ -1908,6 +1984,9 @@ function Resolve-RecoveryContext {
         'ExpectedLegacyBaselineReceiptDigest') `
         -Value $remote.legacyBaselineReceiptSha256
     Set-OrAssertRecoveryAnchor -VariableName (
+        'ExpectedAdminRootDependencyAdoptionReceiptSha256') `
+        -Value $remote.adminRootDependencyAdoptionReceiptSha256
+    Set-OrAssertRecoveryAnchor -VariableName (
         'ExpectedConfigurationReceiptSha256') `
         -Value $remote.configurationReceiptSha256
     Set-OrAssertRecoveryAnchor -VariableName (
@@ -1954,6 +2033,7 @@ function Assert-ReceiptAnchorsForMutatingMode {
         -not $ExpectedReleasePlanReceiptSha256 -or
         -not $ExpectedBackupReceiptSha256 -or
         -not $ExpectedLegacyBaselineReceiptDigest -or
+        -not $ExpectedAdminRootDependencyAdoptionReceiptSha256 -or
         -not $ExpectedConfigurationReceiptSha256
     ) {
         throw "$Mode requires build, plan, backup, baseline and configuration receipt anchors"
@@ -2069,6 +2149,8 @@ function Invoke-CommittedRemoteWorker {
         '--backup-receipt-sha', $ExpectedBackupReceiptSha256,
         '--baseline-receipt-sha',
             $ExpectedLegacyBaselineReceiptDigest,
+        '--admin-root-dependency-adoption-receipt-sha',
+            $ExpectedAdminRootDependencyAdoptionReceiptSha256,
         '--configuration-receipt-sha',
             $ExpectedConfigurationReceiptSha256,
         '--stage-receipt-sha', $stageAnchor,
@@ -2384,6 +2466,8 @@ function Invoke-CommittedRemoteWorker {
             $receipt.schema -ne $expectedReceiptSchema -or
             $receipt.releaseId -ne $ReleaseId -or
             $receipt.sourceCommit -ne $ExpectedCommit -or
+            $receipt.adminRootDependencyAdoptionReceiptSha256 -ne
+                $ExpectedAdminRootDependencyAdoptionReceiptSha256 -or
             -not $receiptApprovalValid -or
             (
                 $WorkerMode -eq 'FinalizeStage' -and
@@ -3028,6 +3112,8 @@ function Invoke-ReadinessGate {
         '-ExpectedBackupReceiptSha256', $ExpectedBackupReceiptSha256,
         '-ExpectedLegacyBaselineReceiptDigest',
             $ExpectedLegacyBaselineReceiptDigest,
+        '-ExpectedAdminRootDependencyAdoptionReceiptSha256',
+            $ExpectedAdminRootDependencyAdoptionReceiptSha256,
         '-ExpectedConfigurationReceiptSha256',
             $ExpectedConfigurationReceiptSha256,
         '-ExpectedReleasePlanReceiptSha256',

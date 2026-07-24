@@ -1,10 +1,10 @@
 import path from "node:path";
 
-export const BACKUP_SCHEMA = "fbsir.u3wDatabaseBackupReceipt.v2";
+export const BACKUP_SCHEMA = "fbsir.u3wDatabaseBackupReceipt.v3";
 export const RESTORE_SCHEMA =
-  "fbsir.u3wDatabaseRestoreRehearsalReceipt.v2";
+  "fbsir.u3wDatabaseRestoreRehearsalReceipt.v3";
 export const BUNDLE_SCHEMA =
-  "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v1";
+  "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v2";
 
 const TARGET_HOST = "api2.u3w.com";
 const DATABASE = "fbsir";
@@ -14,6 +14,8 @@ const RUN_ID = /^w1a-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 const COMMIT = /^[0-9a-f]{40}$/;
 const MYSQL_VERSION = /^[0-9]+\.[0-9]+\.[0-9]+$/;
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const ISO_INSTANT =
   /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?Z$/;
 
@@ -31,6 +33,21 @@ const FACT_FIELDS = Object.freeze([
   "routineCount",
   "eventCount",
   "independentBoardAdminRootCount",
+  "legacyAdminRootDependencyState",
+  "legacyAdminRootDependencyFactsSha256",
+  "legacyAdminRootDependencyVersionCount",
+  "legacyAdminRootDependencyReceiptCount",
+  "legacyAdminRootIdentityCount",
+  "legacyAdminRootExactCount",
+  "legacyAdminRootRoleBindingCount",
+  "legacyAdminRootPageChildCount",
+  "legacyForbiddenPublicInit001Through042ReceiptCount",
+  "publicInit043AnyReceiptCount",
+  "attributionInternalReceiptCount",
+  "attributionTableCount",
+  "attributionTriggerCount",
+  "attributionPermissionCount",
+  "w1a043State",
   "allBaseTablesInnoDB",
 ]);
 
@@ -40,6 +57,7 @@ const BACKUP_FIELDS = Object.freeze([
   "sourceCommit",
   "targetHost",
   "database",
+  "sourceDatabaseServerUuid",
   "serverVersion",
   "serverVersionComment",
   "generatedAt",
@@ -57,6 +75,7 @@ const BACKUP_FIELDS = Object.freeze([
   "sourceTableRowCountsSha256",
   "sourceSnapshotExactlyMatched",
   "sourceJarSha256",
+  "adminRootDependencyAdoptionReceiptSha256",
   "approvalReceiptSha256",
   "runnerSha256",
   "backupWorkerSha256",
@@ -71,6 +90,7 @@ const RESTORE_FIELDS = Object.freeze([
   "sourceCommit",
   "targetHost",
   "database",
+  "sourceDatabaseServerUuid",
   "sourceBackupPath",
   "sourceBackupSha256",
   "sourceBackupPlaintextSha256",
@@ -91,6 +111,7 @@ const RESTORE_FIELDS = Object.freeze([
   "isolationEvidenceSha256",
   "mysqlcheckPath",
   "mysqlcheckSha256",
+  "adminRootDependencyAdoptionReceiptSha256",
   "approvalReceiptSha256",
   "backupWorkerSha256",
   "verifierSha256",
@@ -105,6 +126,7 @@ const BUNDLE_FIELDS = Object.freeze([
   "sourceCommit",
   "targetHost",
   "database",
+  "sourceDatabaseServerUuid",
   "generatedAt",
   "backupReceiptPath",
   "backupReceiptSha256",
@@ -117,6 +139,7 @@ const BUNDLE_FIELDS = Object.freeze([
   "runnerSha256",
   "backupWorkerSha256",
   "verifierSha256",
+  "adminRootDependencyAdoptionReceiptSha256",
   "productionBusinessStateChanged",
 ]);
 
@@ -197,6 +220,18 @@ function validateFacts(value, prefix, errors) {
     "routineCount",
     "eventCount",
     "independentBoardAdminRootCount",
+    "legacyAdminRootDependencyVersionCount",
+    "legacyAdminRootDependencyReceiptCount",
+    "legacyAdminRootIdentityCount",
+    "legacyAdminRootExactCount",
+    "legacyAdminRootRoleBindingCount",
+    "legacyAdminRootPageChildCount",
+    "legacyForbiddenPublicInit001Through042ReceiptCount",
+    "publicInit043AnyReceiptCount",
+    "attributionInternalReceiptCount",
+    "attributionTableCount",
+    "attributionTriggerCount",
+    "attributionPermissionCount",
   ]) {
     if (!safeIntegerAtLeast(value[field], 0)) {
       errors.push(`${prefix}_${field}_invalid`);
@@ -204,6 +239,31 @@ function validateFacts(value, prefix, errors) {
   }
   if (value.baseTableCount < 1) {
     errors.push(`${prefix}_base_tables_empty`);
+  }
+  if (
+    !SHA256.test(value.legacyAdminRootDependencyFactsSha256 ?? "") ||
+    value.legacyAdminRootDependencyState !==
+      "EXACT_CONTROLLED_DEPENDENCY" ||
+    value.independentBoardAdminRootCount !== 1 ||
+    value.legacyAdminRootDependencyVersionCount !== 1 ||
+    value.legacyAdminRootDependencyReceiptCount !== 1 ||
+    value.legacyAdminRootIdentityCount !== 1 ||
+    value.legacyAdminRootExactCount !== 1 ||
+    value.legacyAdminRootRoleBindingCount !== 0 ||
+    value.legacyAdminRootPageChildCount !== 0 ||
+    value.legacyForbiddenPublicInit001Through042ReceiptCount !== 0
+  ) {
+    errors.push(`${prefix}_admin_root_dependency_invalid`);
+  }
+  if (
+    value.w1a043State !== "ABSENT" ||
+    value.publicInit043AnyReceiptCount !== 0 ||
+    value.attributionInternalReceiptCount !== 0 ||
+    value.attributionTableCount !== 0 ||
+    value.attributionTriggerCount !== 0 ||
+    value.attributionPermissionCount !== 0
+  ) {
+    errors.push(`${prefix}_w1a_043_prestate_invalid`);
   }
   if (value.allBaseTablesInnoDB !== true) {
     errors.push(
@@ -232,6 +292,7 @@ export function validateBackupReceipt(receipt) {
     errors.push("backup_target_invalid");
   }
   if (
+    !UUID.test(receipt.sourceDatabaseServerUuid ?? "") ||
     !MYSQL_VERSION.test(receipt.serverVersion ?? "") ||
     typeof receipt.serverVersionComment !== "string" ||
     receipt.serverVersionComment.length < 1 ||
@@ -260,7 +321,8 @@ export function validateBackupReceipt(receipt) {
     receipt.dumpOptionsContract !==
       "u3w.mysqldump.innodb-consistent.v1" ||
     receipt.ddlProtectionMode !==
-      "PRE_POST_SCHEMA_STABILITY_APPROVED_NO_DDL_WINDOW"
+      "HOST_FLOCK_NAMED_LOCK_READ_ONLY_SNAPSHOT_FULL_OBJECT_MDL_"
+        + "PRE_POST_STABILITY_AND_APPROVED_NO_DDL_WINDOW"
   ) {
     errors.push("backup_dump_contract_invalid");
   }
@@ -270,6 +332,9 @@ export function validateBackupReceipt(receipt) {
     !SHA256.test(receipt.sourceTableRowCountsSha256 ?? "") ||
     receipt.sourceSnapshotExactlyMatched !== false ||
     !SHA256.test(receipt.sourceJarSha256 ?? "") ||
+    !SHA256.test(
+      receipt.adminRootDependencyAdoptionReceiptSha256 ?? "",
+    ) ||
     !SHA256.test(receipt.approvalReceiptSha256 ?? "") ||
     !SHA256.test(receipt.runnerSha256 ?? "") ||
     !SHA256.test(receipt.backupWorkerSha256 ?? "")
@@ -303,7 +368,8 @@ export function validateRestoreReceipt(
     receipt.runId !== backupReceipt?.runId ||
     receipt.sourceCommit !== backupReceipt?.sourceCommit ||
     receipt.targetHost !== TARGET_HOST ||
-    receipt.database !== DATABASE
+    receipt.database !== DATABASE ||
+    !UUID.test(receipt.sourceDatabaseServerUuid ?? "")
   ) {
     errors.push("restore_identity_mismatch");
   }
@@ -334,7 +400,9 @@ export function validateRestoreReceipt(
   if (
     receipt.serverVersion !== backupReceipt?.serverVersion ||
     receipt.serverVersionComment !==
-      backupReceipt?.serverVersionComment
+      backupReceipt?.serverVersionComment ||
+    receipt.sourceDatabaseServerUuid !==
+      backupReceipt?.sourceDatabaseServerUuid
   ) {
     errors.push("restored_mysql_identity_mismatch");
   }
@@ -382,6 +450,8 @@ export function validateRestoreReceipt(
     receipt.approvalReceiptSha256 !==
       backupReceipt?.approvalReceiptSha256 ||
     receipt.backupWorkerSha256 !== backupReceipt?.backupWorkerSha256 ||
+    receipt.adminRootDependencyAdoptionReceiptSha256 !==
+      backupReceipt?.adminRootDependencyAdoptionReceiptSha256 ||
     !SHA256.test(receipt.verifierSha256 ?? "")
   ) {
     errors.push("restore_evidence_invalid");
@@ -407,6 +477,7 @@ function validateBundle(bundle) {
     !COMMIT.test(bundle.sourceCommit ?? "") ||
     bundle.targetHost !== TARGET_HOST ||
     bundle.database !== DATABASE ||
+    !UUID.test(bundle.sourceDatabaseServerUuid ?? "") ||
     !validInstant(bundle.generatedAt)
   ) {
     errors.push("bundle_identity_invalid");
@@ -434,6 +505,7 @@ function validateBundle(bundle) {
     "runnerSha256",
     "backupWorkerSha256",
     "verifierSha256",
+    "adminRootDependencyAdoptionReceiptSha256",
   ]) {
     if (!SHA256.test(bundle[field] ?? "")) {
       errors.push(`bundle_${field}_invalid`);
@@ -502,6 +574,16 @@ export function evaluateBackupRestoreBundle(input) {
       input.expectedApprovalReceiptSha256 &&
     restore.approvalReceiptSha256 ===
       input.expectedApprovalReceiptSha256;
+  const adminRootDependencyAdoptionMatched =
+    SHA256.test(
+      input?.expectedAdminRootDependencyAdoptionReceiptSha256 ?? "",
+    ) &&
+    bundle.adminRootDependencyAdoptionReceiptSha256 ===
+      input.expectedAdminRootDependencyAdoptionReceiptSha256 &&
+    backup.adminRootDependencyAdoptionReceiptSha256 ===
+      input.expectedAdminRootDependencyAdoptionReceiptSha256 &&
+    restore.adminRootDependencyAdoptionReceiptSha256 ===
+      input.expectedAdminRootDependencyAdoptionReceiptSha256;
   const artifactMatched =
     bundle.backupSha256 === input?.actualBackupSha256 &&
     backup.backupSha256 === input?.actualBackupSha256 &&
@@ -520,6 +602,9 @@ export function evaluateBackupRestoreBundle(input) {
     bundle.targetHost === restore.targetHost &&
     bundle.database === backup.database &&
     bundle.database === restore.database &&
+    bundle.sourceDatabaseServerUuid === backup.sourceDatabaseServerUuid &&
+    bundle.sourceDatabaseServerUuid ===
+      restore.sourceDatabaseServerUuid &&
     bundle.backupPath === backup.backupPath &&
     bundle.backupPath === restore.sourceBackupPath;
   const restoreLiveFactsMatched =
@@ -533,6 +618,7 @@ export function evaluateBackupRestoreBundle(input) {
     receiptAnchorMatched &&
     sourceCommitMatched &&
     approvalReceiptMatched &&
+    adminRootDependencyAdoptionMatched &&
     runnerMatched &&
     backupWorkerMatched &&
     verifierMatched &&
@@ -545,6 +631,7 @@ export function evaluateBackupRestoreBundle(input) {
     receiptAnchorMatched,
     sourceCommitMatched,
     approvalReceiptMatched,
+    adminRootDependencyAdoptionMatched,
     runnerMatched,
     backupWorkerMatched,
     verifierMatched,

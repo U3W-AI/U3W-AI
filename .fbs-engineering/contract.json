@@ -115,12 +115,12 @@
       "timeout_ms": 300000
     },
     "w1a-production-backup-restore": {
-      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-u3w-production-backup-restore.ps1 -Mode $env:U3W_BACKUP_MODE -ExpectedCommit $env:U3W_EXPECTED_COMMIT -RunId $env:U3W_RUN_ID -ApprovalReceiptPath $env:U3W_APPROVAL_RECEIPT",
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-u3w-production-backup-restore.ps1 -Mode $env:U3W_BACKUP_MODE -ExpectedCommit $env:U3W_EXPECTED_COMMIT -ExpectedAdminRootDependencyAdoptionReceiptSha256 $env:U3W_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256 -RunId $env:U3W_RUN_ID -ApprovalReceiptPath $env:U3W_APPROVAL_RECEIPT",
       "cwd": ".",
       "timeout_ms": 1800000
     },
     "w1a-default-off-configuration": {
-      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-u3w-default-off-configuration.ps1 -Mode $env:U3W_CONFIGURATION_MODE -ExpectedCommit $env:U3W_EXPECTED_COMMIT -ExpectedEnvironmentSha256 $env:U3W_EXPECTED_ENVIRONMENT_SHA256 -ExpectedConfiguredEnvironmentSha256 $env:U3W_EXPECTED_CONFIGURED_ENVIRONMENT_SHA256 -OriginalApprovalReceiptSha256 $env:U3W_ORIGINAL_APPROVAL_RECEIPT_SHA256 -RunId $env:U3W_RUN_ID -ApprovalReceiptPath $env:U3W_APPROVAL_RECEIPT -AnchorOutputDirectory $env:U3W_ANCHOR_OUTPUT_DIRECTORY",
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-u3w-default-off-configuration.ps1 -Mode $env:U3W_CONFIGURATION_MODE -ExpectedCommit $env:U3W_EXPECTED_COMMIT -ExpectedEnvironmentSha256 $env:U3W_EXPECTED_ENVIRONMENT_SHA256 -ExpectedConfiguredEnvironmentSha256 $env:U3W_EXPECTED_CONFIGURED_ENVIRONMENT_SHA256 -ExpectedPredecessorConfigurationReceiptSha256 $env:U3W_PREDECESSOR_CONFIGURATION_RECEIPT_SHA256 -OriginalApprovalReceiptSha256 $env:U3W_ORIGINAL_APPROVAL_RECEIPT_SHA256 -RunId $env:U3W_RUN_ID -ApprovalReceiptPath $env:U3W_APPROVAL_RECEIPT -AnchorOutputDirectory $env:U3W_ANCHOR_OUTPUT_DIRECTORY",
       "cwd": ".",
       "timeout_ms": 300000
     },
@@ -129,8 +129,13 @@
       "cwd": ".",
       "timeout_ms": 300000
     },
+    "w1a-admin-root-dependency-adoption": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-u3w-admin-root-dependency.ps1 -Mode $env:U3W_ADMIN_ROOT_DEPENDENCY_MODE -ExpectedCommit $env:U3W_EXPECTED_COMMIT -ExpectedBaselineReceiptSha256 $env:U3W_LEGACY_BASELINE_RECEIPT_SHA256 -ExpectedBackupReceiptSha256 $env:U3W_PREDECESSOR_BACKUP_RECEIPT_SHA256 -RunId $env:U3W_RUN_ID -PlanReceiptPath $env:U3W_ADMIN_ROOT_DEPENDENCY_PLAN_RECEIPT -ExpectedPlanReceiptSha256 $env:U3W_ADMIN_ROOT_DEPENDENCY_PLAN_RECEIPT_SHA256 -ApprovalReceiptPath $env:U3W_APPROVAL_RECEIPT -AnchorOutputDirectory $env:U3W_ANCHOR_OUTPUT_DIRECTORY",
+      "cwd": ".",
+      "timeout_ms": 300000
+    },
     "w1a-default-off-release": {
-      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-independent-board-default-off.ps1 -Mode $env:U3W_RELEASE_MODE -ExpectedCommit $env:U3W_EXPECTED_COMMIT -ReleaseId $env:U3W_RELEASE_ID -BuildReceiptPath $env:U3W_BUILD_RECEIPT -ExpectedBuildReceiptSha256 $env:U3W_BUILD_RECEIPT_SHA256 -PlanReceiptPath $env:U3W_RELEASE_PLAN_RECEIPT -ExpectedReleasePlanReceiptSha256 $env:U3W_RELEASE_PLAN_RECEIPT_SHA256 -ExpectedBackupReceiptSha256 $env:U3W_BACKUP_RECEIPT_SHA256 -ExpectedLegacyBaselineReceiptDigest $env:U3W_LEGACY_BASELINE_RECEIPT_SHA256 -ExpectedConfigurationReceiptSha256 $env:U3W_CONFIGURATION_RECEIPT_SHA256 -ExpectedStageReceiptSha256 $env:U3W_STAGE_RECEIPT_SHA256 -ExpectedDeploymentReceiptSha256 $env:U3W_DEPLOYMENT_RECEIPT_SHA256 -ApprovalReceiptPath $env:U3W_APPROVAL_RECEIPT -PlanOutputPath $env:U3W_PLAN_OUTPUT_PATH -ExternalEvidenceDirectory $env:U3W_EXTERNAL_EVIDENCE_DIRECTORY",
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-independent-board-default-off.ps1 -Mode $env:U3W_RELEASE_MODE -ExpectedCommit $env:U3W_EXPECTED_COMMIT -ReleaseId $env:U3W_RELEASE_ID -BuildReceiptPath $env:U3W_BUILD_RECEIPT -ExpectedBuildReceiptSha256 $env:U3W_BUILD_RECEIPT_SHA256 -PlanReceiptPath $env:U3W_RELEASE_PLAN_RECEIPT -ExpectedReleasePlanReceiptSha256 $env:U3W_RELEASE_PLAN_RECEIPT_SHA256 -ExpectedBackupReceiptSha256 $env:U3W_BACKUP_RECEIPT_SHA256 -ExpectedLegacyBaselineReceiptDigest $env:U3W_LEGACY_BASELINE_RECEIPT_SHA256 -ExpectedAdminRootDependencyAdoptionReceiptSha256 $env:U3W_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256 -ExpectedConfigurationReceiptSha256 $env:U3W_CONFIGURATION_RECEIPT_SHA256 -ExpectedStageReceiptSha256 $env:U3W_STAGE_RECEIPT_SHA256 -ExpectedDeploymentReceiptSha256 $env:U3W_DEPLOYMENT_RECEIPT_SHA256 -ApprovalReceiptPath $env:U3W_APPROVAL_RECEIPT -PlanOutputPath $env:U3W_PLAN_OUTPUT_PATH -ExternalEvidenceDirectory $env:U3W_EXTERNAL_EVIDENCE_DIRECTORY",
       "cwd": ".",
       "timeout_ms": 900000
     },
@@ -160,6 +165,8 @@
     "w1aProductionBackupRunner": "scripts/run-u3w-production-backup-restore.ps1",
     "w1aLegacyBaselineRunner": "scripts/run-u3w-legacy-baseline.ps1",
     "w1aLegacyBaselineWorker": "scripts/u3w-legacy-baseline-remote.py",
+    "w1aAdminRootDependencyRunner": "scripts/run-u3w-admin-root-dependency.ps1",
+    "w1aAdminRootDependencyWorker": "scripts/u3w-admin-root-dependency-remote.py",
     "w1aLegacyControlShapeMysqlRunner": "scripts/run-u3w-legacy-baseline-control-shape-mysql-it.ps1",
     "w1aDefaultOffConfigurationRunner": "scripts/run-u3w-default-off-configuration.ps1",
     "w1aDefaultOffConfigurationWorker": "scripts/u3w-default-off-configuration-remote.py",
@@ -396,8 +403,9 @@
       "api2SourceTruthRequiredBeforeRelease": true,
       "releaseOrchestrationGuardrails": {
         "preparationOrder": [
-          "explicit_default_off_configuration",
           "verified_v2_legacy_baseline",
+          "adopted_existing_exact_legacy_admin_root_dependency",
+          "reconciled_existing_admin_engine_credential_delta_without_engine_closure_claim",
           "final_restore_proven_backup",
           "strict_head_build_and_fixed_plan",
           "prepared_gate",
@@ -406,11 +414,15 @@
           "verify"
         ],
         "acceptedPreStageRuntimeStates": [
-          "LEGACY_W1A_PENDING_RESTART",
+          "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART",
+          "ENGINE_CREDENTIAL_PENDING_RESTART",
           "EXACT_CONFIGURED"
         ],
         "fixedPlanPolicy": "rehash_fixed_release_plan_and_exact_target_field_set_before_each_mutating_transition",
         "approvalPolicy": "persist_current_and_transition_approval_bytes_before_remote_mutation",
+        "adminRootDependencyPlanAdoptPolicy": "same_run_id_exact_plan_bytes_sha_live_facts_database_uuid_historical_receipts_and_committed_runner_worker_must_be_bound_by_approval_and_revalidated_under_locks",
+        "adminRootDependencyPlanWriteBoundary": "zero_production_database_write_zero_production_persistent_filesystem_write_zero_business_external_anchor_write_local_immutable_plan_evidence_allowed",
+        "adminRootDependencyLatestPolicy": "root_owned_single_link_monotonic_compare_and_swap",
         "failureEvidencePolicy": "persist_sanitized_envelope_and_failure_receipt_before_post_mutation_readiness",
         "latestReceiptPolicy": "bounded_compare_and_swap_per_release",
         "preparationReceiptEvolutionPolicy": "accept_one_shared_ancestor_preparation_commit_only_when_git_ancestry_is_proven_and_every_preparation_runner_worker_verifier_digest_is_byte_identical_to_strict_head",

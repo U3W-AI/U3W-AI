@@ -60,6 +60,7 @@ const MANAGED_W1A_ENVIRONMENT_NAMES = Object.freeze([
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY_ID",
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY",
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET",
+  "FBSIR_ENGINE_TOKEN",
 ].sort());
 
 function hasExactString(value, pattern) {
@@ -120,14 +121,24 @@ export function evaluateProductionReadiness(snapshot) {
     runtimePendingNames.length === 0;
   const legacyPendingRuntimeConfiguration =
     runtime.processConfiguredEnvironmentLoadState ===
-      "LEGACY_W1A_PENDING_RESTART" &&
+      "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART" &&
     runtime.processConfiguredEnvironmentMatched === false &&
     runtime.processConfiguredEnvironmentPreStageCompatible === true &&
     runtimeMismatchNames.length === 0 &&
     JSON.stringify(runtimePendingNames) ===
       JSON.stringify(MANAGED_W1A_ENVIRONMENT_NAMES);
+  const engineCredentialPendingRuntimeConfiguration =
+    runtime.processConfiguredEnvironmentLoadState ===
+      "ENGINE_CREDENTIAL_PENDING_RESTART" &&
+    runtime.processConfiguredEnvironmentMatched === false &&
+    runtime.processConfiguredEnvironmentPreStageCompatible === true &&
+    runtimeMismatchNames.length === 0 &&
+    JSON.stringify(runtimePendingNames) ===
+      JSON.stringify(["FBSIR_ENGINE_TOKEN"]);
   const runtimeConfigurationValid =
-    exactRuntimeConfiguration || legacyPendingRuntimeConfiguration;
+    exactRuntimeConfiguration ||
+    legacyPendingRuntimeConfiguration ||
+    engineCredentialPendingRuntimeConfiguration;
   const w1aSchemaAbsent =
     database.publicInit043Applied !== true &&
     database.boardAttributionTableCount === 0 &&
@@ -160,17 +171,73 @@ export function evaluateProductionReadiness(snapshot) {
     hasExactString(local.preparationSourceCommit, /^[0-9a-f]{40}$/) &&
     local.preparationCommitAncestorOfSourceCommit === true &&
     local.preparationSourceCommitsConsistent === true &&
+    configuration.configurationReceiptSchema ===
+      "fbsir.u3wDefaultOffConfigurationReceipt.v3" &&
     configuration.configurationReceiptSourceCommit ===
       local.preparationSourceCommit &&
-    backup.sourceCommit === local.preparationSourceCommit;
+    backup.sourceCommit === local.preparationSourceCommit &&
+    database.adminRootDependencyAdoptionSourceCommit ===
+      local.preparationSourceCommit;
   const legacySchemaBaseline =
     database.migrationTableCount === 1 &&
     database.schemaBaselineMode === "LEGACY_ADOPTED_W1A_V2" &&
     database.legacyBaselineReceiptValid === true &&
     database.legacyBaselineReceiptAnchorMatched === true &&
     database.legacyBaselineLiveFactsMatched === true &&
-    database.legacyBaselineSourceCommit ===
-      local.preparationSourceCommit;
+    database.legacyAdminRootDependencyState ===
+      "EXACT_CONTROLLED_DEPENDENCY" &&
+    database.legacyAdminRootDependencyStateVerified === true &&
+    database.legacyAdminRootDependencyReceiptCount === 1 &&
+    database.legacyAdminRootDependencyVersionCount === 1 &&
+    database.legacyAdminRootIdentityCount === 1 &&
+    database.legacyAdminRootExactCount === 1 &&
+    database.legacyAdminRootRoleBindingCount === 0 &&
+    database.legacyAdminRootPageChildCount === 0 &&
+    database.legacyForbiddenPublicInit001Through042ReceiptCount === 0 &&
+    local.legacyBaselineCommitAncestorOfPreparationSourceCommit === true;
+  const adminRootDependencyAdoptionValid =
+    database.adminRootDependencyAdoptionReceiptSchema ===
+      "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2" &&
+    database.adminRootDependencyAdoptionReceiptValid === true &&
+    database.adminRootDependencyAdoptionReceiptAnchorMatched === true &&
+    database.adminRootDependencyAdoptionLiveFactsMatched === true &&
+    database.adminRootDependencyAdoptionHistoricalBindingsMatched === true &&
+    database.adminRootDependencyAdoptionSourceCommit ===
+      local.preparationSourceCommit &&
+    database.adminRootDependencyAdoptionDatabaseServerUuid ===
+      database.databaseServerUuid &&
+    hasExactString(
+      database.adminRootDependencyAdoptionLiveFactsSha256,
+      /^[0-9a-f]{64}$/,
+    ) &&
+    hasExactString(
+      database.adminRootDependencyAdoptionPlanReceiptSha256,
+      /^[0-9a-f]{64}$/,
+    ) &&
+    database.adminRootDependencyAdoptionDependencyRowsFingerprintSha256 ===
+      database.legacyAdminRootDependencyFactsSha256 &&
+    database.publicInit043AnyReceiptCount === 0 &&
+    database.boardAttributionInternalReceiptCount === 0 &&
+    database.boardAttributionTableCount === 0 &&
+    database.boardAttributionTriggerCount === 0 &&
+    database.boardAttributionPermissionCount === 0 &&
+    database.w1a043State === "ABSENT";
+  const finalBackupChainValid =
+    backup.bundleSchema ===
+      "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v2" &&
+    backup.backupReceiptSchema ===
+      "fbsir.u3wDatabaseBackupReceipt.v3" &&
+    backup.restoreReceiptSchema ===
+      "fbsir.u3wDatabaseRestoreRehearsalReceipt.v3" &&
+    backup.externalAnchorSchema ===
+      "fbsir.u3wDatabaseBackupRestoreExternalAnchor.v2" &&
+    backup.externalAnchorVerified === true &&
+    backup.adoptionReceiptBindingMatched === true &&
+    backup.sourceDatabaseServerUuidMatched === true &&
+    backup.sourceRestoredFactsExactlyMatched === true &&
+    backup.adminRootDependencyAdoptionReceiptSha256 ===
+      database.adminRootDependencyAdoptionReceiptSha256 &&
+    backup.sourceDatabaseServerUuid === database.databaseServerUuid;
   const missingFlags = REQUIRED_DEFAULT_OFF_FLAGS.filter(
     (name) => !configuredNames.has(name),
   );
@@ -183,8 +250,12 @@ export function evaluateProductionReadiness(snapshot) {
       "strict_head",
       local.clean === true &&
         hasExactString(local.sourceCommit, /^[0-9a-f]{40}$/) &&
-        local.sourceCommit === local.expectedSourceCommit,
-      "checked-out source must be the expected clean 40-hex commit",
+        local.sourceCommit === local.expectedSourceCommit &&
+        hasExactString(local.branch, /^[A-Za-z0-9][A-Za-z0-9._/-]*$/) &&
+        local.upstreamCommit === local.sourceCommit &&
+        local.originHead === local.sourceCommit &&
+        local.upstreamOriginAligned === true,
+      "checked-out source must be the expected clean named branch aligned to upstream and origin",
     ),
     gate(
       "scoped_authority",
@@ -197,9 +268,9 @@ export function evaluateProductionReadiness(snapshot) {
       "preparation_source_provenance",
       preparationSourceProvenanceValid &&
         (canonicalSchemaBaseline ||
-          database.legacyBaselineSourceCommit ===
-            local.preparationSourceCommit),
-      "configuration, baseline and backup receipts must share one byte-identical ancestor preparation commit",
+          local.legacyBaselineCommitAncestorOfPreparationSourceCommit ===
+            true),
+      "configuration, dependency adoption and backup receipts must share one preparation commit; a historical baseline must be its proven ancestor",
     ),
     gate(
       "active_runtime_anchor",
@@ -245,9 +316,15 @@ export function evaluateProductionReadiness(snapshot) {
       "public_init_043 must be fully absent or backed by the exact public/internal receipts, tables, triggers, permission and fingerprint",
     ),
     gate(
+      "admin_root_dependency_adoption_anchor",
+      adminRootDependencyAdoptionValid,
+      "the exact legacy admin-root dependency must be independently recomputed and bound to an externally anchored current-state adoption receipt while 043 remains absent",
+    ),
+    gate(
       "backup_restore_anchor",
       backup.proven === true &&
         backup.receiptAnchorMatched === true &&
+        finalBackupChainValid &&
         hasExactString(backup.sha256, /^[0-9a-f]{64}$/) &&
         Number.isSafeInteger(backup.sizeBytes) &&
         backup.sizeBytes > 0 &&
@@ -275,8 +352,13 @@ export function evaluateProductionReadiness(snapshot) {
         configuration.environmentFilePathExact === true &&
         configuration.environmentFileCustodySecure === true &&
         configuration.cryptographicConfigurationShapeValid === true &&
+        configuration.adminEngineCredentialValid === true &&
+        configuration.adminEngineCredentialIndependent === true &&
         configuration.configurationReceiptValid === true &&
         configuration.configurationReceiptAnchorMatched === true &&
+        configuration.configurationReceiptSchema ===
+          "fbsir.u3wDefaultOffConfigurationReceipt.v3" &&
+        configuration.engineCounterpartClosureClaimed === false &&
         configuration.configurationReceiptSourceCommit ===
           local.preparationSourceCommit,
       "the explicit active event key pair and independent same-binding secret must be held in a root-owned 0600 env file without disclosure",
@@ -325,7 +407,8 @@ export function evaluateProductionReadiness(snapshot) {
     snapshot.deploymentChannel?.mePortalApiHealthy === true &&
     snapshot.deploymentChannel?.adminPortalApiHealthy === true &&
     snapshot.deploymentChannel?.mePortalReleaseMarkerMatched === true &&
-    snapshot.deploymentChannel?.adminPortalReleaseMarkerMatched === true;
+    snapshot.deploymentChannel?.adminPortalReleaseMarkerMatched === true &&
+    snapshot.deploymentChannel?.defaultOffIngressProbeVerified === true;
   const rolledBackChannelValid =
     snapshot.deploymentChannel?.state ===
       "ROLLED_BACK_APPLICATION_DATABASE_043_RETAINED_DORMANT" &&
@@ -379,12 +462,21 @@ export function evaluateProductionReadiness(snapshot) {
     postDeployFailedGateIds,
     evidence: {
       localSourceCommit: local.sourceCommit ?? null,
+      sourceControl: {
+        branch: local.branch ?? null,
+        upstreamCommit: local.upstreamCommit ?? null,
+        originHead: local.originHead ?? null,
+        upstreamOriginAligned: local.upstreamOriginAligned === true,
+      },
       preparationSource: {
         commit: local.preparationSourceCommit ?? null,
         ancestorOfSourceCommit:
           local.preparationCommitAncestorOfSourceCommit === true,
         receiptsConsistent:
           local.preparationSourceCommitsConsistent === true,
+        legacyBaselineAncestor:
+          local.legacyBaselineCommitAncestorOfPreparationSourceCommit ===
+          true,
       },
       releasePlan: {
         verified: local.releasePlanVerified === true,
@@ -432,6 +524,47 @@ export function evaluateProductionReadiness(snapshot) {
           database.legacyBaselineReceiptAnchorMatched === true,
         legacyBaselineLiveFactsMatched:
           database.legacyBaselineLiveFactsMatched === true,
+        legacyAdminRootDependencyState:
+          database.legacyAdminRootDependencyState ?? null,
+        legacyAdminRootDependencyStateVerified:
+          database.legacyAdminRootDependencyStateVerified === true,
+        legacyAdminRootDependencyReceiptCount:
+          database.legacyAdminRootDependencyReceiptCount ?? null,
+        legacyAdminRootDependencyVersionCount:
+          database.legacyAdminRootDependencyVersionCount ?? null,
+        legacyAdminRootIdentityCount:
+          database.legacyAdminRootIdentityCount ?? null,
+        legacyAdminRootExactCount:
+          database.legacyAdminRootExactCount ?? null,
+        legacyAdminRootRoleBindingCount:
+          database.legacyAdminRootRoleBindingCount ?? null,
+        legacyAdminRootPageChildCount:
+          database.legacyAdminRootPageChildCount ?? null,
+        legacyForbiddenPublicInit001Through042ReceiptCount:
+          database.legacyForbiddenPublicInit001Through042ReceiptCount ?? null,
+        legacyAdminRootDependencyFactsSha256:
+          database.legacyAdminRootDependencyFactsSha256 ?? null,
+        adminRootDependencyAdoptionReceiptPath:
+          database.adminRootDependencyAdoptionReceiptPath ?? null,
+        adminRootDependencyAdoptionReceiptSha256:
+          database.adminRootDependencyAdoptionReceiptSha256 ?? null,
+        adminRootDependencyAdoptionReceiptValid:
+          database.adminRootDependencyAdoptionReceiptValid === true,
+        adminRootDependencyAdoptionReceiptAnchorMatched:
+          database.adminRootDependencyAdoptionReceiptAnchorMatched === true,
+        adminRootDependencyAdoptionLiveFactsMatched:
+          database.adminRootDependencyAdoptionLiveFactsMatched === true,
+        adminRootDependencyAdoptionLiveFactsSha256:
+          database.adminRootDependencyAdoptionLiveFactsSha256 ?? null,
+        adminRootDependencyAdoptionPlanReceiptSha256:
+          database.adminRootDependencyAdoptionPlanReceiptSha256 ?? null,
+        adminRootDependencyAdoptionDependencyRowsFingerprintSha256:
+          database
+            .adminRootDependencyAdoptionDependencyRowsFingerprintSha256 ??
+          null,
+        adminRootDependencyAdoptionHistoricalBindingsMatched:
+          database.adminRootDependencyAdoptionHistoricalBindingsMatched ===
+          true,
         legacyBaselineReceiptDigest:
           database.legacyBaselineReceiptDigest ?? null,
         legacyBaselineSourceCommit:
@@ -481,6 +614,10 @@ export function evaluateProductionReadiness(snapshot) {
           configuration.environmentFileCustodySecure === true,
         cryptographicConfigurationShapeValid:
           configuration.cryptographicConfigurationShapeValid === true,
+        adminEngineCredentialValid:
+          configuration.adminEngineCredentialValid === true,
+        adminEngineCredentialIndependent:
+          configuration.adminEngineCredentialIndependent === true,
         configurationReceiptValid:
           configuration.configurationReceiptValid === true,
         configurationReceiptAnchorMatched:
@@ -489,6 +626,10 @@ export function evaluateProductionReadiness(snapshot) {
           configuration.configurationReceiptSourceCommit ?? null,
         configurationReceiptSha256:
           configuration.configurationReceiptSha256 ?? null,
+        configurationReceiptSchema:
+          configuration.configurationReceiptSchema ?? null,
+        engineCounterpartClosureClaimed:
+          configuration.engineCounterpartClosureClaimed ?? null,
       },
       backup: {
         receiptPath: backup.receiptPath ?? null,
@@ -501,6 +642,17 @@ export function evaluateProductionReadiness(snapshot) {
           backup.restoreProcedureVerified === true,
         restoreLiveFactsMatched:
           backup.restoreLiveFactsMatched === true,
+        bundleSchema: backup.bundleSchema ?? null,
+        backupReceiptSchema: backup.backupReceiptSchema ?? null,
+        restoreReceiptSchema: backup.restoreReceiptSchema ?? null,
+        externalAnchorSchema: backup.externalAnchorSchema ?? null,
+        externalAnchorVerified: backup.externalAnchorVerified === true,
+        adoptionReceiptBindingMatched:
+          backup.adoptionReceiptBindingMatched === true,
+        sourceDatabaseServerUuidMatched:
+          backup.sourceDatabaseServerUuidMatched === true,
+        sourceRestoredFactsExactlyMatched:
+          backup.sourceRestoredFactsExactlyMatched === true,
       },
       deploymentChannel: {
         state: snapshot.deploymentChannel?.state ?? null,

@@ -1,9 +1,12 @@
 import base64
 import datetime as dt
+import hashlib
+import hmac
 import importlib.util
 import inspect
 import io
 import json
+import os
 import pathlib
 import sys
 import tarfile
@@ -47,6 +50,7 @@ def release_args(mode="FinalizeStage"):
         plan_receipt_sha="e" * 64,
         backup_receipt_sha="f" * 64,
         baseline_receipt_sha="1" * 64,
+        admin_root_dependency_adoption_receipt_sha="6" * 64,
         configuration_receipt_sha="2" * 64,
         stage_receipt_sha="0" * 64,
         deployment_receipt_sha="0" * 64,
@@ -89,6 +93,8 @@ def release_args(mode="FinalizeStage"):
         "expectedReleasePlanReceiptSha256": args.plan_receipt_sha,
         "expectedBackupReceiptSha256": args.backup_receipt_sha,
         "expectedLegacyBaselineReceiptSha256": args.baseline_receipt_sha,
+        "expectedAdminRootDependencyAdoptionReceiptSha256":
+            args.admin_root_dependency_adoption_receipt_sha,
         "expectedConfigurationReceiptSha256":
             args.configuration_receipt_sha,
         "expectedStageReceiptSha256": args.stage_receipt_sha,
@@ -114,6 +120,63 @@ def exact_migration_facts(event_count=0, journey_count=0):
         "journeyCount": journey_count,
         "schemaFingerprintSha256":
             release.EXPECTED_W1A_SCHEMA_FINGERPRINT,
+    }
+
+
+def final_current_read_evidence(facts, service=None):
+    service = service or {
+        "invocationId": "a" * 32,
+        "jarSha256": "3" * 64,
+    }
+    probe_identity = {
+        "eventId": "4" * 64,
+        "receiptId": "5" * 64,
+        "nonceHash": "6" * 64,
+        "journeyId": "7" * 64,
+    }
+    zero_identity_counts = {
+        name: 0 for name in probe_identity
+    }
+    global_counts = {
+        "eventCount": facts["eventCount"],
+        "journeyCount": facts["journeyCount"],
+    }
+    return {
+        "serviceAfter": service,
+        "migrationFacts": facts,
+        "finalDefaultOffCurrentRead": {
+            "schema": "fbsir.u3wDefaultOffFinalCurrentRead.v1",
+            "verified": True,
+            "serviceStableDuringProbe": True,
+            "serviceInvocationId": service["invocationId"],
+            "serviceJarSha256": service["jarSha256"],
+            "disabledAttributionIngressProbe": {
+                "schema":
+                    "fbsir.u3wSignedDisabledAttributionIngressProbe.v1",
+                "path": release.ATTRIBUTION_INGRESS_PATH,
+                "method": "POST",
+                "httpStatus": 404,
+                "responseDisposition": "ROUTE_NOT_FOUND",
+                "verifiedDisabled": True,
+                "acceptedDisabledHttpStatuses": [404],
+                "trafficClass": "PROBE",
+                "signingKeyId": "w1a-active-key",
+                "signatureAlgorithm": "hmac-sha256-v1",
+                "probeIdentity": probe_identity,
+                "identityCountsBefore": zero_identity_counts,
+                "identityCountsAfter": dict(zero_identity_counts),
+                "globalCountsBefore": global_counts,
+                "globalCountsAfter": dict(global_counts),
+                "rawNonceDisclosed": False,
+                "rawSignatureDisclosed": False,
+                "signingKeyMaterialDisclosed": False,
+                "secretsDisclosed": False,
+                "observedAt": "2026-07-24T00:00:00.000Z",
+            },
+            "migrationFactsBeforeProbe": facts,
+            "migrationFactsAfterProbe": facts,
+            "eventAndJourneyCountsUnchanged": True,
+        },
     }
 
 
@@ -145,7 +208,7 @@ def runtime_identity(state="ABSENT", event_count=0, journey_count=0):
 
 
 def configured_environment_values():
-    event_material = b"independent-secret-hmac-key"
+    event_material = b"independent-secret-hmac-key-material"
     binding_material = b"independent-same-binding-key"
     values = {
         name: "false" for name in release.FALSE_FLAGS
@@ -166,6 +229,8 @@ def configured_environment_values():
         "FBSIR_MYSQL_URL": "jdbc:mysql://db/fbsir",
         "FBSIR_MYSQL_USERNAME": "sensitive-user",
         "FBSIR_MYSQL_PASSWORD": "sensitive-password",
+        release.ADMIN_ENGINE_TOKEN_NAME:
+            "engine-credential-" + ("z" * 40),
     })
     return values, event_material
 
@@ -220,9 +285,9 @@ def plan_target_fixture():
         "processConfiguredEnvironmentMatched": False,
         "processConfiguredEnvironmentMismatchNames": [],
         "processPendingRestartEnvironmentNames":
-            sorted(release.MANAGED_W1A_ENVIRONMENT_NAMES),
+            sorted(release.MANAGED_RESTART_ENVIRONMENT_NAMES),
         "processConfiguredEnvironmentLoadState":
-            "LEGACY_W1A_PENDING_RESTART",
+            "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART",
         "processConfiguredEnvironmentPreStageCompatible": True,
         "nginxConfigs": [{"path": "/etc/nginx/nginx.conf"}],
         "activeNginxManifest": [{
@@ -245,6 +310,361 @@ def plan_target_fixture():
 
 
 class ReleaseWorkerContractTest(unittest.TestCase):
+    def test_global_release_lock_is_bounded(self):
+        with (
+            mock.patch.object(
+                release.fcntl,
+                "flock",
+                side_effect=BlockingIOError(),
+            ),
+            mock.patch.object(
+                release.time,
+                "monotonic",
+                side_effect=[0.0, 31.0],
+            ),
+            mock.patch.object(release.time, "sleep"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "timed out"):
+                release.acquire_release_lock(
+                    123,
+                    release.fcntl.LOCK_EX,
+                    timeout_seconds=30,
+                )
+
+    def test_target_revalidates_plan_time_after_lock(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary).resolve()
+            args = types.SimpleNamespace(
+                mode="Apply",
+                release_id=(
+                    "w1a-release-aaaaaaaaaaaa-20260724T180000Z"
+                ),
+                source_commit="a" * 40,
+                plan_receipt_sha="",
+            )
+            plan_path = (
+                root
+                / args.release_id
+                / "evidence"
+                / "release-plan.json"
+            )
+            plan_path.parent.mkdir(parents=True)
+            plan = {
+                "schema": "fbsir.u3wDefaultOffReleasePlan.v1",
+                "releaseId": args.release_id,
+                "sourceCommit": args.source_commit,
+                "generatedAt": "2026-07-24T17:00:00Z",
+                "expiresAt": "2026-07-24T18:00:00Z",
+            }
+            plan_path.write_bytes(
+                release.canonical_json(plan).encode("utf-8")
+            )
+            args.plan_receipt_sha = release.sha256_file(plan_path)
+            with (
+                mock.patch.object(release, "RELEASE_ROOT", root),
+                mock.patch.object(
+                    release,
+                    "validate_regular_file",
+                    side_effect=lambda path, *_args, **_kwargs:
+                        pathlib.Path(path),
+                ),
+            ):
+                release.validate_target_plan_time(
+                    args,
+                    now=dt.datetime(
+                        2026,
+                        7,
+                        24,
+                        17,
+                        30,
+                        tzinfo=dt.timezone.utc,
+                    ),
+                )
+                with self.assertRaisesRegex(RuntimeError, "expired"):
+                    release.validate_target_plan_time(
+                        args,
+                        now=dt.datetime(
+                            2026,
+                            7,
+                            24,
+                            18,
+                            0,
+                            tzinfo=dt.timezone.utc,
+                        ),
+                    )
+                args.mode = "Rollback"
+                release.validate_target_plan_time(
+                    args,
+                    now=dt.datetime(
+                        2026,
+                        7,
+                        25,
+                        tzinfo=dt.timezone.utc,
+                    ),
+                )
+
+    def test_environment_requires_url_safe_independent_engine_credential(self):
+        values, _ = configured_environment_values()
+        with tempfile.TemporaryDirectory() as temporary:
+            environment_path = pathlib.Path(temporary) / "fbsir-admin.env"
+
+            def parse(candidate):
+                environment_path.write_text(
+                    "\n".join(
+                        "{}={}".format(name, value)
+                        for name, value in candidate.items()
+                    ) + "\n",
+                    encoding="utf-8",
+                )
+                with (
+                    mock.patch.object(release, "ENV_PATH", environment_path),
+                    mock.patch.object(
+                        release,
+                        "validate_regular_file",
+                        return_value=environment_path,
+                    ),
+                ):
+                    return release.parse_environment()
+
+            parsed, _ = parse(values)
+            self.assertEqual(
+                parsed[release.ADMIN_ENGINE_TOKEN_NAME],
+                values[release.ADMIN_ENGINE_TOKEN_NAME],
+            )
+
+            short = dict(values)
+            short[release.ADMIN_ENGINE_TOKEN_NAME] = "short"
+            with self.assertRaisesRegex(RuntimeError, "shape"):
+                parse(short)
+
+            invalid = dict(values)
+            invalid[release.ADMIN_ENGINE_TOKEN_NAME] = "!" * 64
+            with self.assertRaisesRegex(RuntimeError, "shape"):
+                parse(invalid)
+
+            reused = dict(values)
+            credential = "engine-credential-" + ("x" * 40)
+            reused[release.ADMIN_ENGINE_TOKEN_NAME] = credential
+            reused[release.EVENT_KEY_NAME] = "utf8:" + credential
+            with self.assertRaisesRegex(RuntimeError, "independent"):
+                parse(reused)
+
+    def test_runtime_anchor_accepts_only_exact_adopted_engine_delta(self):
+        credential = "engine-credential-" + ("a" * 40)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary).resolve()
+            environment_path = root / "etc" / "fbsir-admin.env"
+            event_key_path = root / "etc" / "event-key"
+            run_directory = (
+                root
+                / "configuration"
+                / "w1a"
+                / "w1a-config-20260724T180000Z-0123456789ab"
+            )
+            run_directory.mkdir(parents=True)
+            environment_path.parent.mkdir(parents=True, exist_ok=True)
+            event_key_path.parent.mkdir(parents=True, exist_ok=True)
+            predecessor_environment = (
+                "FBSIR_BOARD_ATTRIBUTION_ENABLED=false\n"
+            )
+            current_environment = predecessor_environment + (
+                "{}={}\n".format(
+                    release.ADMIN_ENGINE_TOKEN_NAME,
+                    credential,
+                )
+            )
+            environment_path.write_bytes(
+                current_environment.encode("utf-8")
+            )
+            event_key_path.write_bytes(b"event-material-" + (b"e" * 40))
+            predecessor = {
+                "schema":
+                    "fbsir.u3wDefaultOffConfigurationReceipt.v2",
+                "environmentAfterSha256": hashlib.sha256(
+                    predecessor_environment.encode("utf-8")
+                ).hexdigest(),
+                "api2EventKeyPath": str(event_key_path),
+                "stagedKeyMaterialMatched": True,
+                "officialExpertsPackageChanged": False,
+                "secretsDisclosed": False,
+            }
+            predecessor_path = (
+                run_directory / "configuration-receipt.json"
+            )
+            predecessor_path.write_text(
+                json.dumps(predecessor, separators=(",", ":")),
+                encoding="utf-8",
+            )
+            os.chmod(predecessor_path, 0o600)
+            predecessor_sha = release.sha256_file(predecessor_path)
+            evidence = {
+                "allManagedKeysPresent": True,
+                "allDefaultOffFlagsExplicitFalse": True,
+                "activeEventKeyPairValid": True,
+                "previousEventKeyPairCompleteAndValid": True,
+                "sameBindingSecretValidAndIndependent": True,
+                "api2RawEventKeyMatchesU3wActiveMaterial": True,
+                "adminEngineCredentialValid": True,
+                "adminEngineCredentialIndependent": True,
+                "adminEngineCredentialMinimumCharacters": len(credential),
+                "secretsDisclosed": False,
+            }
+            receipt = {
+                "schema":
+                    "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+                "environmentBeforeSha256": hashlib.sha256(
+                    current_environment.encode("utf-8")
+                ).hexdigest(),
+                "environmentAfterSha256": hashlib.sha256(
+                    current_environment.encode("utf-8")
+                ).hexdigest(),
+                "api2EventKeyPath": str(event_key_path),
+                "stagedKeyMaterialMatched": True,
+                "serviceRestarted": False,
+                "productionConfigurationChanged": False,
+                "productionServiceChanged": False,
+                "officialExpertsPackageChanged": False,
+                "secretsDisclosed": False,
+                "configurationEvidence": evidence,
+                "predecessorConfigurationReceiptSha256":
+                    predecessor_sha,
+                "adminEngineCredentialProvisioningState":
+                    "ADOPTED_EXISTING_EXACT_DELTA",
+                "engineCounterpartClosureClaimed": False,
+                "api2EventKeyProvisioningState":
+                    "REUSED_FROM_PREDECESSOR_RECEIPT",
+            }
+            with (
+                mock.patch.object(release, "ADMIN_ROOT", root),
+                mock.patch.object(
+                    release,
+                    "ENV_PATH",
+                    environment_path,
+                ),
+                mock.patch.object(
+                    release,
+                    "API2_EVENT_KEY_PATH",
+                    event_key_path,
+                ),
+                mock.patch.object(
+                    release,
+                    "validate_regular_file",
+                    side_effect=lambda path, *_args, **_kwargs:
+                        pathlib.Path(path),
+                ),
+            ):
+                accepted = release.validate_configuration_runtime_anchor(
+                    receipt
+                )
+                self.assertIs(accepted, receipt)
+
+                environment_path.write_bytes(
+                    (
+                        "UNRELATED=drift\n" + current_environment
+                    ).encode("utf-8")
+                )
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "configuration",
+                ):
+                    release.validate_configuration_runtime_anchor(receipt)
+
+    def test_prior_rollback_accepts_only_receipt_bound_engine_evolution(self):
+        predecessor_sha = "1" * 64
+        current_sha = "2" * 64
+        receipt = {
+            "schema": "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+            "environmentAfterSha256": current_sha,
+            "predecessorConfigurationReceiptSha256": "3" * 64,
+            "adminEngineCredentialProvisioningState":
+                "ADOPTED_EXISTING_EXACT_DELTA",
+            "engineCounterpartClosureClaimed": False,
+        }
+        predecessor_receipt = {
+            "environmentAfterSha256": predecessor_sha,
+        }
+        previous = {
+            "configuredEnvironmentSha256": predecessor_sha,
+            "environmentFilePaths": [str(release.ENV_PATH)],
+            "environmentFileManifest": [{
+                "path": str(release.ENV_PATH),
+                "sha256": predecessor_sha,
+                "mode": 0o600,
+                "uid": 0,
+                "gid": 0,
+                "nlink": 1,
+            }],
+            "configuredEnvironmentNames": ["BASE"],
+            "expectedSecurityConfigurationNames": ["BASE"],
+            "api2EventKeyManifest": {"sha256": "4" * 64},
+            "configuredFlagValues": {
+                name: "false" for name in release.FALSE_FLAGS
+            },
+        }
+        current = {
+            **previous,
+            "configuredEnvironmentSha256": current_sha,
+            "environmentFileManifest": [{
+                **previous["environmentFileManifest"][0],
+                "sha256": current_sha,
+            }],
+            "configuredEnvironmentNames": sorted([
+                "BASE",
+                release.ADMIN_ENGINE_TOKEN_NAME,
+            ]),
+            "expectedSecurityConfigurationNames": sorted([
+                "BASE",
+                release.ADMIN_ENGINE_TOKEN_NAME,
+            ]),
+            "processSecurityConfigurationNames": sorted([
+                "BASE",
+                release.ADMIN_ENGINE_TOKEN_NAME,
+            ]),
+            "processSecurityConfigurationHmacSha256": "5" * 64,
+            "expectedSecurityConfigurationHmacSha256": "5" * 64,
+            "processDatabaseBindingMatched": True,
+            "processConfiguredEnvironmentMatched": True,
+            "processConfiguredEnvironmentPreStageCompatible": True,
+            "processConfiguredEnvironmentMismatchNames": [],
+            "processPendingRestartEnvironmentNames": [],
+            "processConfiguredEnvironmentLoadState": "EXACT_CONFIGURED",
+            "processForbiddenOverrideNames": [],
+            "processFlagValues": {
+                name: "false" for name in release.FALSE_FLAGS
+            },
+        }
+        with (
+            mock.patch.object(release, "read_json", return_value=receipt),
+            mock.patch.object(
+                release,
+                "validate_configuration_runtime_anchor",
+                return_value=receipt,
+            ),
+            mock.patch.object(
+                release,
+                "configuration_predecessor_receipt",
+                return_value=predecessor_receipt,
+            ),
+        ):
+            self.assertTrue(
+                release
+                .authorized_admin_engine_configuration_evolution_matches(
+                    current,
+                    previous,
+                )
+            )
+            drifted = dict(current)
+            drifted["configuredEnvironmentNames"] = sorted(
+                current["configuredEnvironmentNames"] + ["UNRELATED"]
+            )
+            self.assertFalse(
+                release
+                .authorized_admin_engine_configuration_evolution_matches(
+                    drifted,
+                    previous,
+                )
+            )
+
     def test_migration_parser_preserves_routines_on_one_locked_session(self):
         migration = (
             ROOT.parent
@@ -356,11 +776,14 @@ class ReleaseWorkerContractTest(unittest.TestCase):
                 "state": "DEPLOYED_DEFAULT_OFF",
                 "releaseId": args.release_id,
                 "sourceCommit": args.source_commit,
+                "adminRootDependencyAdoptionReceiptSha256":
+                    args.admin_root_dependency_adoption_receipt_sha,
                 "stageReceiptSha256": "f" * 64,
                 "applyApprovalReceiptSha256": "a" * 64,
                 "productionDatabaseChanged": True,
                 "productionDatabaseChangedThisRun": True,
                 "productionDatabaseChangedSinceStage": True,
+                **final_current_read_evidence(exact_migration_facts()),
             }
             with (
                 mock.patch.object(
@@ -436,11 +859,14 @@ class ReleaseWorkerContractTest(unittest.TestCase):
                         "state": "DEPLOYED_DEFAULT_OFF",
                         "releaseId": args.release_id,
                         "sourceCommit": args.source_commit,
+                        "adminRootDependencyAdoptionReceiptSha256":
+                            args.admin_root_dependency_adoption_receipt_sha,
                         "stageReceiptSha256": "f" * 64,
                         "applyApprovalReceiptSha256": "a" * 64,
                         "productionDatabaseChanged": False,
                         "productionDatabaseChangedThisRun": False,
                         "productionDatabaseChangedSinceStage": False,
+                        **final_current_read_evidence(facts),
                     }
                     lease = types.SimpleNamespace(
                         mysql=object(),
@@ -507,6 +933,16 @@ class ReleaseWorkerContractTest(unittest.TestCase):
                             release,
                             "migration_counts_are_monotonic",
                             return_value=True,
+                        ),
+                        mock.patch.object(
+                            release,
+                            "final_default_off_current_read",
+                            return_value=(
+                                existing["serviceAfter"],
+                                existing[
+                                    "finalDefaultOffCurrentRead"
+                                ],
+                            ),
                         ),
                         mock.patch.object(
                             release,
@@ -609,7 +1045,12 @@ class ReleaseWorkerContractTest(unittest.TestCase):
         legacy_process = {
             name: value
             for name, value in expected.items()
-            if name not in release.MANAGED_W1A_ENVIRONMENT_NAMES
+            if name not in release.MANAGED_RESTART_ENVIRONMENT_NAMES
+        }
+        engine_pending_process = {
+            name: value
+            for name, value in expected.items()
+            if name != release.ADMIN_ENGINE_TOKEN_NAME
         }
         partial_process = dict(legacy_process)
         partial_process[release.FALSE_FLAGS[0]] = "false"
@@ -638,13 +1079,16 @@ class ReleaseWorkerContractTest(unittest.TestCase):
             exact = release.security_configuration_evidence(
                 dict(expected), expected
             )
+            engine_pending = release.security_configuration_evidence(
+                engine_pending_process, expected
+            )
         self.assertEqual(
             legacy["processConfiguredEnvironmentLoadState"],
-            "LEGACY_W1A_PENDING_RESTART",
+            "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART",
         )
         self.assertEqual(
             legacy["processPendingRestartEnvironmentNames"],
-            sorted(release.MANAGED_W1A_ENVIRONMENT_NAMES),
+            sorted(release.MANAGED_RESTART_ENVIRONMENT_NAMES),
         )
         self.assertTrue(
             legacy["processConfiguredEnvironmentPreStageCompatible"]
@@ -662,6 +1106,19 @@ class ReleaseWorkerContractTest(unittest.TestCase):
         )
         self.assertEqual(
             exact["processPendingRestartEnvironmentNames"], []
+        )
+        self.assertEqual(
+            engine_pending["processConfiguredEnvironmentLoadState"],
+            "ENGINE_CREDENTIAL_PENDING_RESTART",
+        )
+        self.assertEqual(
+            engine_pending["processPendingRestartEnvironmentNames"],
+            [release.ADMIN_ENGINE_TOKEN_NAME],
+        )
+        self.assertTrue(
+            engine_pending[
+                "processConfiguredEnvironmentPreStageCompatible"
+            ]
         )
 
     def test_candidate_runtime_rejects_base_unit_content_drift(self):
@@ -834,6 +1291,8 @@ class ReleaseWorkerContractTest(unittest.TestCase):
             "frontendBuildSha256": args.frontend_tree_sha,
             "runnerSha256": args.runner_sha,
             "workerSha256": args.worker_sha,
+            "adminRootDependencyAdoptionReceiptSha256":
+                args.admin_root_dependency_adoption_receipt_sha,
             "stageApprovalReceiptSha256": "8" * 64,
             "databaseDownClaimed": False,
             "databaseRollbackSafetyProven": True,
@@ -1469,6 +1928,394 @@ class ReleaseWorkerContractTest(unittest.TestCase):
             source,
         )
 
+    def test_signed_probe_matches_java_verifier_contract_without_receipt_secrets(
+            self):
+        values, event_material = configured_environment_values()
+        now = dt.datetime(
+            2026, 7, 24, 18, 0, 30, tzinfo=dt.timezone.utc
+        )
+
+        event, identity = release.build_signed_attribution_probe_event(
+            values,
+            now=now,
+            entropy=b"u3w-default-off-probe-test-seed!",
+        )
+
+        string_fields = (
+            "agentName",
+            "channel",
+            "classificationSource",
+            "classifierVersion",
+            "confidenceBucket",
+            "contractId",
+            "embeddedContractVersion",
+            "eventId",
+            "eventType",
+            "expiresAt",
+            "hostClientFamily",
+            "hostVersion",
+            "intentSignal",
+            "issuedAt",
+            "journeyId",
+            "keyId",
+            "listedManifestVersion",
+            "listedSurface",
+            "marketplace",
+            "nonce",
+            "occurredAt",
+            "outcome",
+            "packageId",
+            "previousEventDigest",
+            "productId",
+            "receiptId",
+            "requestSource",
+            "reviewMode",
+            "sameBindingKey",
+            "schemaVersion",
+            "serverBindingId",
+            "signatureAlgorithm",
+            "tenantSubjectDigest",
+            "terminal",
+            "traceparent",
+            "trafficAuthority",
+            "trafficClass",
+        )
+        signed_fields = {
+            name: str(event[name]).strip() for name in string_fields
+        }
+        signed_fields["rawContentStored"] = "false"
+        signed_fields["sequenceNo"] = "1"
+        expected_signature = hmac.new(
+            event_material,
+            json.dumps(
+                signed_fields,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+
+        self.assertEqual(event["trafficClass"], "PROBE")
+        self.assertEqual(event["eventType"], "ENTRY_OBSERVED")
+        self.assertEqual(event["sequenceNo"], 1)
+        self.assertEqual(
+            event["signature"], "v1=" + expected_signature
+        )
+        self.assertEqual(
+            identity,
+            {
+                "eventId": event["eventId"],
+                "receiptId": event["receiptId"],
+                "nonceHash": hashlib.sha256(
+                    event["nonce"].encode("utf-8")
+                ).hexdigest(),
+                "journeyId": event["journeyId"],
+            },
+        )
+        serialized_identity = release.canonical_json(identity)
+        self.assertNotIn(event["nonce"], serialized_identity)
+        self.assertNotIn(event["signature"], serialized_identity)
+        self.assertNotIn(event_material.decode("ascii"), serialized_identity)
+
+    def test_signed_disabled_probe_accepts_only_404_and_zero_rows(self):
+        values, _ = configured_environment_values()
+        facts = exact_migration_facts(event_count=7, journey_count=3)
+        zero_counts = {
+            "eventId": 0,
+            "receiptId": 0,
+            "nonceHash": 0,
+            "journeyId": 0,
+        }
+        captured = {}
+
+        def post_probe(event, timeout=10):
+            captured["event"] = event
+            return 404
+
+        with (
+            mock.patch.object(
+                release,
+                "parse_environment",
+                return_value=(values, {}),
+            ),
+            mock.patch.object(
+                release,
+                "attribution_probe_identity_counts",
+                side_effect=[zero_counts, dict(zero_counts)],
+            ),
+            mock.patch.object(
+                release,
+                "post_signed_attribution_probe",
+                side_effect=post_probe,
+            ),
+            mock.patch.object(
+                release,
+                "exact_migration_facts",
+                return_value=dict(facts),
+            ),
+        ):
+            evidence, after = release.disabled_attribution_ingress_probe(
+                mock.Mock(),
+                facts,
+                now=dt.datetime(
+                    2026, 7, 24, 18, 0, tzinfo=dt.timezone.utc
+                ),
+                entropy=b"u3w-default-off-probe-test-seed!",
+            )
+
+        self.assertEqual(after, facts)
+        self.assertEqual(evidence["method"], "POST")
+        self.assertEqual(evidence["httpStatus"], 404)
+        self.assertEqual(
+            evidence["acceptedDisabledHttpStatuses"], [404]
+        )
+        self.assertEqual(evidence["trafficClass"], "PROBE")
+        self.assertEqual(evidence["identityCountsBefore"], zero_counts)
+        self.assertEqual(evidence["identityCountsAfter"], zero_counts)
+        self.assertEqual(
+            evidence["globalCountsBefore"],
+            {"eventCount": 7, "journeyCount": 3},
+        )
+        self.assertEqual(
+            evidence["globalCountsAfter"],
+            {"eventCount": 7, "journeyCount": 3},
+        )
+        self.assertEqual(captured["event"]["trafficClass"], "PROBE")
+        serialized = release.canonical_json(evidence)
+        self.assertNotIn(captured["event"]["nonce"], serialized)
+        self.assertNotIn(captured["event"]["signature"], serialized)
+        self.assertFalse(evidence["rawNonceDisclosed"])
+        self.assertFalse(evidence["rawSignatureDisclosed"])
+        self.assertFalse(evidence["signingKeyMaterialDisclosed"])
+
+    def test_signed_disabled_probe_rejects_auth_and_enabled_responses(self):
+        values, _ = configured_environment_values()
+        facts = exact_migration_facts()
+        zero_counts = {
+            "eventId": 0,
+            "receiptId": 0,
+            "nonceHash": 0,
+            "journeyId": 0,
+        }
+        for status in (200, 202, 400, 401, 403, 405):
+            with (
+                self.subTest(status=status),
+                mock.patch.object(
+                    release,
+                    "parse_environment",
+                    return_value=(values, {}),
+                ),
+                mock.patch.object(
+                    release,
+                    "attribution_probe_identity_counts",
+                    side_effect=[zero_counts, dict(zero_counts)],
+                ),
+                mock.patch.object(
+                    release,
+                    "post_signed_attribution_probe",
+                    return_value=status,
+                ),
+                mock.patch.object(
+                    release,
+                    "exact_migration_facts",
+                    return_value=dict(facts),
+                ),
+                self.assertRaisesRegex(
+                    RuntimeError, "attribution ingress is not disabled"
+                ),
+            ):
+                release.disabled_attribution_ingress_probe(
+                    mock.Mock(), facts
+                )
+
+    def test_signed_disabled_probe_rejects_identity_or_global_write(self):
+        values, _ = configured_environment_values()
+        facts = exact_migration_facts(event_count=7, journey_count=3)
+        zero_counts = {
+            "eventId": 0,
+            "receiptId": 0,
+            "nonceHash": 0,
+            "journeyId": 0,
+        }
+        identity_write = dict(zero_counts)
+        identity_write["nonceHash"] = 1
+        for before, after, global_after, message in (
+            (
+                identity_write,
+                zero_counts,
+                facts,
+                "identity is not unique",
+            ),
+            (
+                zero_counts,
+                identity_write,
+                facts,
+                "probe identity was persisted",
+            ),
+            (
+                zero_counts,
+                zero_counts,
+                exact_migration_facts(event_count=8, journey_count=3),
+                "attribution counts changed",
+            ),
+        ):
+            with (
+                self.subTest(message=message),
+                mock.patch.object(
+                    release,
+                    "parse_environment",
+                    return_value=(values, {}),
+                ),
+                mock.patch.object(
+                    release,
+                    "attribution_probe_identity_counts",
+                    side_effect=[before, after],
+                ),
+                mock.patch.object(
+                    release,
+                    "post_signed_attribution_probe",
+                    return_value=404,
+                ) as post,
+                mock.patch.object(
+                    release,
+                    "exact_migration_facts",
+                    return_value=global_after,
+                ),
+                self.assertRaisesRegex(RuntimeError, message),
+            ):
+                release.disabled_attribution_ingress_probe(
+                    mock.Mock(), facts
+                )
+            if before != zero_counts:
+                post.assert_not_called()
+
+    def test_probe_identity_queries_are_parameterized_and_complete(self):
+        mysql = mock.Mock()
+        mysql.scalar.side_effect = [0, 0, 0, 0]
+        identity = {
+            "eventId": "1" * 64,
+            "receiptId": "2" * 64,
+            "nonceHash": "3" * 64,
+            "journeyId": "4" * 64,
+        }
+
+        counts = release.attribution_probe_identity_counts(
+            mysql, identity
+        )
+
+        self.assertEqual(
+            counts,
+            {
+                "eventId": 0,
+                "receiptId": 0,
+                "nonceHash": 0,
+                "journeyId": 0,
+            },
+        )
+        self.assertEqual(mysql.scalar.call_count, 4)
+        for call, expected in zip(
+                mysql.scalar.call_args_list, identity.values()):
+            sql, parameters = call.args
+            self.assertIn("%s", sql)
+            self.assertNotIn(expected, sql)
+            self.assertEqual(parameters, (expected,))
+
+    def test_final_current_read_proves_probe_did_not_write(self):
+        args, _ = release_args("Apply")
+        facts = exact_migration_facts(event_count=7, journey_count=3)
+        final_service = {
+            "activeState": "active",
+            "invocationId": "a" * 32,
+            "jarSha256": args.backend_sha,
+        }
+        with (
+            mock.patch.object(
+                release,
+                "assert_candidate_active",
+                side_effect=[dict(final_service), final_service],
+            ) as active,
+            mock.patch.object(
+                release,
+                "exact_migration_facts",
+                return_value=facts,
+            ),
+            mock.patch.object(
+                release,
+                "disabled_attribution_ingress_probe",
+                return_value=(
+                    final_current_read_evidence(facts)[
+                        "finalDefaultOffCurrentRead"
+                    ]["disabledAttributionIngressProbe"],
+                    dict(facts),
+                ),
+            ),
+        ):
+            service, evidence = release.final_default_off_current_read(
+                args,
+                pathlib.Path("/release"),
+                mock.Mock(),
+                facts,
+            )
+        self.assertEqual(service, final_service)
+        self.assertTrue(evidence["verified"])
+        self.assertTrue(evidence["eventAndJourneyCountsUnchanged"])
+        self.assertEqual(evidence["migrationFactsBeforeProbe"], facts)
+        self.assertEqual(evidence["migrationFactsAfterProbe"], facts)
+        self.assertEqual(active.call_count, 2)
+
+        drifted = exact_migration_facts(event_count=8, journey_count=3)
+        with (
+            mock.patch.object(
+                release,
+                "assert_candidate_active",
+                return_value=final_service,
+            ),
+            mock.patch.object(
+                release,
+                "exact_migration_facts",
+                return_value=facts,
+            ),
+            mock.patch.object(
+                release,
+                "disabled_attribution_ingress_probe",
+                return_value=(
+                    final_current_read_evidence(drifted)[
+                        "finalDefaultOffCurrentRead"
+                    ]["disabledAttributionIngressProbe"],
+                    drifted,
+                ),
+            ),
+            self.assertRaisesRegex(
+                RuntimeError, "changed during final default-off probe"
+            ),
+        ):
+            release.final_default_off_current_read(
+                args,
+                pathlib.Path("/release"),
+                mock.Mock(),
+                facts,
+            )
+
+    def test_apply_repeats_final_current_read_immediately_before_commit(self):
+        source = inspect.getsource(release.apply_release)
+        first_time_apply = source.index("deployment_committed = False")
+        commit = source.index(
+            "atomic_json(deployment_path, receipt)", first_time_apply
+        )
+        final_read = source.rindex(
+            "final_default_off_current_read(", first_time_apply, commit
+        )
+        receipt_rebuild = source.rindex(
+            "receipt = deployment_receipt(", final_read, commit
+        )
+        self.assertLess(final_read, receipt_rebuild)
+        self.assertLess(receipt_rebuild, commit)
+        between = source[receipt_rebuild:commit]
+        self.assertNotIn("validate_release_evidence", between)
+        self.assertNotIn("exact_migration_facts", between)
+
     def test_database_change_receipt_distinguishes_this_run_from_stage(self):
         args, _ = release_args("Apply")
         stage = {"schema": "stage"}
@@ -1497,6 +2344,10 @@ class ReleaseWorkerContractTest(unittest.TestCase):
                 pathlib.Path("/rollback.json"),
                 False,
                 True,
+                final_current_read_evidence(
+                    exact_migration_facts(),
+                    service={"invocationId": None, "jarSha256": None},
+                )["finalDefaultOffCurrentRead"],
             )
         self.assertFalse(
             receipt["productionDatabaseChangedThisRun"]
@@ -1724,6 +2575,8 @@ class ReleaseWorkerContractTest(unittest.TestCase):
             "frontendBuildSha256": args.frontend_tree_sha,
             "runnerSha256": args.runner_sha,
             "workerSha256": args.worker_sha,
+            "adminRootDependencyAdoptionReceiptSha256":
+                args.admin_root_dependency_adoption_receipt_sha,
             "stageApprovalReceiptSha256": "7" * 64,
         }
         with tempfile.TemporaryDirectory() as temporary:

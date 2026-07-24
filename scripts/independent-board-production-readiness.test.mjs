@@ -8,10 +8,60 @@ import { evaluateProductionReadiness } from "./independent-board-production-read
 
 const commit = "a".repeat(40);
 const digest = "b".repeat(64);
+const liveFactsDigest = "c".repeat(64);
+const databaseServerUuid = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 const readinessRunner = fs.readFileSync(
   new URL("./verify-independent-board-production-readiness.ps1", import.meta.url),
   "utf8",
 );
+const releaseWorker = fs.readFileSync(
+  new URL("./u3w-default-off-release-remote.py", import.meta.url),
+  "utf8",
+);
+const javaEventVerifier = fs.readFileSync(
+  new URL(
+    "../FBSir-business/src/main/java/com/wx/fbsir/business/board/"
+      + "attribution/receipt/BoardAttributionEventV1Verifier.java",
+    import.meta.url,
+  ),
+  "utf8",
+);
+
+function embeddedCollectorSource() {
+  const match = readinessRunner.match(
+    /\$remotePython = @'\r?\n([\s\S]*?)\r?\n'@/,
+  );
+  assert.ok(match, "embedded readiness collector must be extractable");
+  return match[1].replace(/__[A-Z0-9_]+__/g, '""');
+}
+
+function pythonExecutable() {
+  const bundledPython = path.join(
+    os.homedir(),
+    ".cache",
+    "codex-runtimes",
+    "codex-primary-runtime",
+    "dependencies",
+    "python",
+    process.platform === "win32" ? "python.exe" : "bin/python",
+  );
+  return process.env.U3W_PYTHON_EXE
+    || (fs.existsSync(bundledPython)
+      ? bundledPython
+      : process.platform === "win32"
+        ? "python.exe"
+        : "python3");
+}
+
+function pythonStringTuple(source, name) {
+  const match = source.match(
+    new RegExp(`${name} = \\(\\r?\\n([\\s\\S]*?)\\r?\\n\\)`),
+  );
+  assert.ok(match, `${name} must be an extractable Python tuple`);
+  return [...match[1].matchAll(/^\s*"([^"]+)",?\s*$/gm)]
+    .map((item) => item[1]);
+}
+
 const schemaFingerprint =
   "fbeb2d4d8bc79f3eb1f3ea715b11437fed33038f9c5bee20fe0e313f2df5d54d";
 const migrations = Array.from(
@@ -39,6 +89,7 @@ const managedEnvironmentNames = [
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY_ID",
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY",
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET",
+  "FBSIR_ENGINE_TOKEN",
 ].sort();
 const migrationDescriptions = {
   public_init_035:
@@ -66,6 +117,10 @@ function readySnapshot() {
       clean: true,
       sourceCommit: commit,
       expectedSourceCommit: commit,
+      branch: "codex/w1-official-attribution-closure",
+      upstreamCommit: commit,
+      originHead: commit,
+      upstreamOriginAligned: true,
       w1a043CompatibilityVersions: ["8.0.30", "8.0.45", "8.4.8"],
       w1a043CompatibilityReceipts: [
         {
@@ -85,6 +140,7 @@ function readySnapshot() {
       preparationSourceCommit: commit,
       preparationCommitAncestorOfSourceCommit: true,
       preparationSourceCommitsConsistent: true,
+      legacyBaselineCommitAncestorOfPreparationSourceCommit: true,
     },
     target: {
       host: "api2.u3w.com",
@@ -108,6 +164,7 @@ function readySnapshot() {
     database: {
       serverVersion: "8.0.30",
       database: "fbsir",
+      databaseServerUuid,
       totalTableCount: 120,
       migrationTableCount: 1,
       migrationVersions: migrations,
@@ -117,6 +174,36 @@ function readySnapshot() {
       boardAttributionTriggerCount: 0,
       boardAttributionPermissionCount: 0,
       boardAttributionInternalReceiptCount: 0,
+      publicInit043AnyReceiptCount: 0,
+      legacyAdminRootDependencyState: "EXACT_CONTROLLED_DEPENDENCY",
+      legacyAdminRootDependencyStateVerified: true,
+      legacyAdminRootDependencyFactsSha256: digest,
+      legacyAdminRootDependencyReceiptCount: 1,
+      legacyAdminRootDependencyVersionCount: 1,
+      legacyAdminRootIdentityCount: 1,
+      legacyAdminRootExactCount: 1,
+      legacyAdminRootRoleBindingCount: 0,
+      legacyAdminRootPageChildCount: 0,
+      legacyForbiddenPublicInit001Through042ReceiptCount: 0,
+      w1a043State: "ABSENT",
+      legacyBaselineReceiptSha256: digest,
+      legacyBaselineBackupBundleReceiptSha256: digest,
+      adminRootDependencyAdoptionReceiptPath:
+        "/opt/fbsir/admin/dependencies/latest/adoption-receipt.json",
+      adminRootDependencyAdoptionReceiptSchema:
+        "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2",
+      adminRootDependencyAdoptionReceiptSha256: digest,
+      adminRootDependencyAdoptionReceiptValid: true,
+      adminRootDependencyAdoptionReceiptAnchorMatched: true,
+      adminRootDependencyAdoptionSourceCommit: commit,
+      adminRootDependencyAdoptionDatabaseServerUuid: databaseServerUuid,
+      adminRootDependencyAdoptionLiveFactsSha256: liveFactsDigest,
+      adminRootDependencyAdoptionPlanReceiptSha256: digest,
+      adminRootDependencyAdoptionDependencyRowsFingerprintSha256: digest,
+      adminRootDependencyAdoptionLiveFactsMatched: true,
+      adminRootDependencyAdoptionBaselineReceiptSha256: digest,
+      adminRootDependencyAdoptionBackupReceiptSha256: digest,
+      adminRootDependencyAdoptionHistoricalBindingsMatched: true,
     },
     portals: {
       meHttpStatus: 404,
@@ -126,7 +213,7 @@ function readySnapshot() {
       adminApiCaptcha: { httpStatus: 404, businessCode: null },
     },
     configuration: {
-      environmentKeyNames: [...flags],
+      environmentKeyNames: [...flags, "FBSIR_ENGINE_TOKEN"],
       explicitFalseKeyNames: [...flags],
       eventKeyEntryCount: 1,
       activeEventKeyPairPresent: true,
@@ -138,16 +225,34 @@ function readySnapshot() {
       environmentFilePathExact: true,
       environmentFileCustodySecure: true,
       cryptographicConfigurationShapeValid: true,
+      adminEngineCredentialValid: true,
+      adminEngineCredentialIndependent: true,
       configurationReceiptValid: true,
       configurationReceiptAnchorMatched: true,
+      configurationReceiptSchema:
+        "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+      engineCounterpartClosureClaimed: false,
       configurationReceiptSourceCommit: commit,
       configurationReceiptSha256: digest,
     },
     backup: {
       receiptPath: "/opt/fbsir/admin/backups/latest/receipt.json",
+      runId: "w1a-20260724T120000Z-0123456789ab",
+      bundleSchema: "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v2",
+      backupReceiptSchema: "fbsir.u3wDatabaseBackupReceipt.v3",
+      restoreReceiptSchema:
+        "fbsir.u3wDatabaseRestoreRehearsalReceipt.v3",
+      externalAnchorSchema:
+        "fbsir.u3wDatabaseBackupRestoreExternalAnchor.v2",
       sourceCommit: commit,
+      sourceDatabaseServerUuid: databaseServerUuid,
+      adminRootDependencyAdoptionReceiptSha256: digest,
       proven: true,
       receiptAnchorMatched: true,
+      externalAnchorVerified: true,
+      adoptionReceiptBindingMatched: true,
+      sourceDatabaseServerUuidMatched: true,
+      sourceRestoredFactsExactlyMatched: true,
       sha256: digest,
       sizeBytes: 10,
       restoreProcedureVerified: true,
@@ -191,6 +296,8 @@ test("accepts one byte-identical ancestor preparation commit", () => {
   const releaseCommit = "c".repeat(40);
   snapshot.local.sourceCommit = releaseCommit;
   snapshot.local.expectedSourceCommit = releaseCommit;
+  snapshot.local.upstreamCommit = releaseCommit;
+  snapshot.local.originHead = releaseCommit;
   snapshot.local.releasePlanSourceCommit = releaseCommit;
   snapshot.local.preparationSourceCommit = commit;
   snapshot.local.preparationCommitAncestorOfSourceCommit = true;
@@ -208,6 +315,59 @@ test("rejects a preparation commit without proven ancestry", () => {
   assert.ok(result.failedGateIds.includes("preparation_source_provenance"));
 });
 
+test("requires config v3, backup v3, and adoption to share one preparation source", () => {
+  for (const mutate of [
+    (snapshot) => {
+      snapshot.configuration.configurationReceiptSchema =
+        "fbsir.u3wDefaultOffConfigurationReceipt.v2";
+    },
+    (snapshot) => {
+      snapshot.configuration.configurationReceiptSourceCommit =
+        "c".repeat(40);
+    },
+    (snapshot) => {
+      snapshot.backup.sourceCommit = "c".repeat(40);
+    },
+    (snapshot) => {
+      snapshot.database.adminRootDependencyAdoptionSourceCommit =
+        "c".repeat(40);
+    },
+  ]) {
+    const snapshot = readySnapshot();
+    mutate(snapshot);
+    const result = evaluateProductionReadiness(snapshot);
+    assert.ok(
+      result.failedGateIds.includes("preparation_source_provenance"),
+    );
+  }
+});
+
+test("allows a historical baseline commit only when it is an ancestor of preparation", () => {
+  const snapshot = readySnapshot();
+  snapshot.database.serverVersion = "8.0.45";
+  snapshot.database.migrationVersions = [];
+  snapshot.database.migrationDescriptions = {};
+  snapshot.database.schemaBaselineMode = "LEGACY_ADOPTED_W1A_V2";
+  snapshot.database.legacyBaselineReceiptValid = true;
+  snapshot.database.legacyBaselineReceiptAnchorMatched = true;
+  snapshot.database.legacyBaselineLiveFactsMatched = true;
+  snapshot.database.legacyBaselineReceiptDigest = digest;
+  snapshot.database.legacyBaselineSourceCommit = "c".repeat(40);
+
+  assert.equal(
+    evaluateProductionReadiness(snapshot).status,
+    "PREPARED_FOR_STAGE",
+  );
+
+  snapshot.local.legacyBaselineCommitAncestorOfPreparationSourceCommit =
+    false;
+  assert.ok(
+    evaluateProductionReadiness(snapshot).failedGateIds.includes(
+      "versioned_schema_baseline",
+    ),
+  );
+});
+
 test("embedded collector has no stale environment_files alias", () => {
   assert.equal(/\benvironment_files\b/.test(readinessRunner), false);
   assert.ok(readinessRunner.includes("environment_file_paths"));
@@ -219,6 +379,24 @@ test("fails closed for a dirty or non-exact source tree", () => {
   snapshot.local.expectedSourceCommit = "c".repeat(40);
   const result = evaluateProductionReadiness(snapshot);
   assert.deepEqual(result.failedGateIds, ["strict_head"]);
+});
+
+test("strict head requires a named branch aligned to upstream and origin", () => {
+  for (const [field, value] of [
+    ["branch", ""],
+    ["upstreamCommit", "d".repeat(40)],
+    ["originHead", "e".repeat(40)],
+    ["upstreamOriginAligned", false],
+  ]) {
+    const snapshot = readySnapshot();
+    snapshot.local[field] = value;
+    assert.ok(
+      evaluateProductionReadiness(snapshot).failedGateIds.includes(
+        "strict_head",
+      ),
+      `${field} drift must fail strict_head`,
+    );
+  }
 });
 
 test("fails closed for an unversioned legacy schema", () => {
@@ -266,6 +444,16 @@ test("accepts only an anchored and verified legacy baseline alternative", () => 
   snapshot.database.legacyBaselineReceiptValid = true;
   snapshot.database.legacyBaselineReceiptAnchorMatched = true;
   snapshot.database.legacyBaselineLiveFactsMatched = true;
+  snapshot.database.legacyAdminRootDependencyState =
+    "EXACT_CONTROLLED_DEPENDENCY";
+  snapshot.database.legacyAdminRootDependencyStateVerified = true;
+  snapshot.database.legacyAdminRootDependencyReceiptCount = 1;
+  snapshot.database.legacyAdminRootDependencyVersionCount = 1;
+  snapshot.database.legacyAdminRootIdentityCount = 1;
+  snapshot.database.legacyAdminRootExactCount = 1;
+  snapshot.database.legacyAdminRootRoleBindingCount = 0;
+  snapshot.database.legacyAdminRootPageChildCount = 0;
+  snapshot.database.legacyForbiddenPublicInit001Through042ReceiptCount = 0;
   snapshot.database.legacyBaselineReceiptDigest = digest;
   snapshot.database.legacyBaselineSourceCommit = commit;
   const accepted = evaluateProductionReadiness(snapshot);
@@ -282,6 +470,38 @@ test("accepts only an anchored and verified legacy baseline alternative", () => 
   assert.ok(
     selfAttestedOnly.failedGateIds.includes("versioned_schema_baseline"),
   );
+  snapshot.database.legacyBaselineLiveFactsMatched = true;
+  snapshot.database.legacyAdminRootDependencyStateVerified = false;
+  const unprovenDependency = evaluateProductionReadiness(snapshot);
+  assert.ok(
+    unprovenDependency.failedGateIds.includes("versioned_schema_baseline"),
+  );
+});
+
+test("rejects a legacy baseline when the required 043 admin root is absent", () => {
+  const snapshot = readySnapshot();
+  snapshot.database.serverVersion = "8.0.45";
+  snapshot.database.migrationVersions = [];
+  snapshot.database.migrationDescriptions = {};
+  snapshot.database.schemaBaselineMode = "LEGACY_ADOPTED_W1A_V2";
+  snapshot.database.legacyBaselineReceiptValid = true;
+  snapshot.database.legacyBaselineReceiptAnchorMatched = true;
+  snapshot.database.legacyBaselineLiveFactsMatched = true;
+  snapshot.database.legacyAdminRootDependencyState = "ABSENT";
+  snapshot.database.legacyAdminRootDependencyStateVerified = true;
+  snapshot.database.legacyAdminRootDependencyReceiptCount = 0;
+  snapshot.database.legacyAdminRootDependencyVersionCount = 0;
+  snapshot.database.legacyAdminRootIdentityCount = 0;
+  snapshot.database.legacyAdminRootExactCount = 0;
+  snapshot.database.legacyAdminRootRoleBindingCount = 0;
+  snapshot.database.legacyAdminRootPageChildCount = 0;
+  snapshot.database.legacyForbiddenPublicInit001Through042ReceiptCount = 0;
+  snapshot.database.legacyBaselineReceiptDigest = digest;
+  snapshot.database.legacyBaselineSourceCommit = commit;
+
+  const result = evaluateProductionReadiness(snapshot);
+
+  assert.ok(result.failedGateIds.includes("versioned_schema_baseline"));
 });
 
 test("fails closed when a migration receipt description drifts", () => {
@@ -354,9 +574,147 @@ test("rejects a restore receipt that only self-attests success", () => {
   assert.ok(result.failedGateIds.includes("backup_restore_anchor"));
 });
 
+test("accepts only the final v3/v3/v2 backup chain and v2 external anchor", () => {
+  for (const [field, staleSchema] of [
+    ["backupReceiptSchema", "fbsir.u3wDatabaseBackupReceipt.v2"],
+    [
+      "restoreReceiptSchema",
+      "fbsir.u3wDatabaseRestoreRehearsalReceipt.v2",
+    ],
+    ["bundleSchema", "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v1"],
+    [
+      "externalAnchorSchema",
+      "fbsir.u3wDatabaseBackupRestoreExternalAnchor.v1",
+    ],
+  ]) {
+    const snapshot = readySnapshot();
+    snapshot.backup[field] = staleSchema;
+    assert.ok(
+      evaluateProductionReadiness(snapshot).failedGateIds.includes(
+        "backup_restore_anchor",
+      ),
+      `${field} must reject ${staleSchema}`,
+    );
+  }
+});
+
+test("rejects a final backup chain when adoption, UUID, facts, or anchor unbind", () => {
+  for (const field of [
+    "externalAnchorVerified",
+    "adoptionReceiptBindingMatched",
+    "sourceDatabaseServerUuidMatched",
+    "sourceRestoredFactsExactlyMatched",
+  ]) {
+    const snapshot = readySnapshot();
+    snapshot.backup[field] = false;
+    assert.ok(
+      evaluateProductionReadiness(snapshot).failedGateIds.includes(
+        "backup_restore_anchor",
+      ),
+      `${field} must fail closed`,
+    );
+  }
+  const adoptionDigestDrift = readySnapshot();
+  adoptionDigestDrift.backup.adminRootDependencyAdoptionReceiptSha256 =
+    "c".repeat(64);
+  assert.ok(
+    evaluateProductionReadiness(
+      adoptionDigestDrift,
+    ).failedGateIds.includes("backup_restore_anchor"),
+  );
+  const uuidDrift = readySnapshot();
+  uuidDrift.backup.sourceDatabaseServerUuid =
+    "ffffffff-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  assert.ok(
+    evaluateProductionReadiness(uuidDrift).failedGateIds.includes(
+      "backup_restore_anchor",
+    ),
+  );
+});
+
+test("requires an externally anchored adoption receipt and exact absent 043 state", () => {
+  const exactSnapshot = readySnapshot();
+  const exactResult = evaluateProductionReadiness(exactSnapshot);
+  assert.equal(exactResult.status, "PREPARED_FOR_STAGE");
+  assert.equal(
+    exactResult.evidence.database
+      .adminRootDependencyAdoptionLiveFactsSha256,
+    liveFactsDigest,
+  );
+  assert.equal(
+    exactResult.evidence.database
+      .adminRootDependencyAdoptionDependencyRowsFingerprintSha256,
+    digest,
+  );
+  assert.equal(
+    exactResult.evidence.database
+      .adminRootDependencyAdoptionPlanReceiptSha256,
+    digest,
+  );
+  for (const field of [
+    "adminRootDependencyAdoptionReceiptValid",
+    "adminRootDependencyAdoptionReceiptAnchorMatched",
+    "adminRootDependencyAdoptionLiveFactsMatched",
+    "adminRootDependencyAdoptionHistoricalBindingsMatched",
+  ]) {
+    const snapshot = readySnapshot();
+    snapshot.database[field] = false;
+    assert.ok(
+      evaluateProductionReadiness(snapshot).failedGateIds.includes(
+        "admin_root_dependency_adoption_anchor",
+      ),
+      `${field} must fail closed`,
+    );
+  }
+  for (const field of [
+    "publicInit043AnyReceiptCount",
+    "boardAttributionInternalReceiptCount",
+    "boardAttributionTableCount",
+    "boardAttributionTriggerCount",
+    "boardAttributionPermissionCount",
+  ]) {
+    const snapshot = readySnapshot();
+    snapshot.database[field] = 1;
+    assert.ok(
+      evaluateProductionReadiness(snapshot).failedGateIds.includes(
+        "admin_root_dependency_adoption_anchor",
+      ),
+      `${field} must prove zero`,
+    );
+  }
+  const fingerprintDrift = readySnapshot();
+  fingerprintDrift.database
+    .adminRootDependencyAdoptionDependencyRowsFingerprintSha256 =
+    "d".repeat(64);
+  assert.ok(
+    evaluateProductionReadiness(fingerprintDrift).failedGateIds.includes(
+      "admin_root_dependency_adoption_anchor",
+    ),
+  );
+  const invalidLiveFactsDigest = readySnapshot();
+  invalidLiveFactsDigest.database
+    .adminRootDependencyAdoptionLiveFactsSha256 = "not-a-sha256";
+  assert.ok(
+    evaluateProductionReadiness(
+      invalidLiveFactsDigest,
+    ).failedGateIds.includes("admin_root_dependency_adoption_anchor"),
+  );
+  const invalidPlanDigest = readySnapshot();
+  invalidPlanDigest.database
+    .adminRootDependencyAdoptionPlanReceiptSha256 = "not-a-sha256";
+  assert.ok(
+    evaluateProductionReadiness(invalidPlanDigest).failedGateIds.includes(
+      "admin_root_dependency_adoption_anchor",
+    ),
+  );
+});
+
 test("requires all production flags to be explicit and false", () => {
   const snapshot = readySnapshot();
-  snapshot.configuration.environmentKeyNames.pop();
+  snapshot.configuration.environmentKeyNames =
+    snapshot.configuration.environmentKeyNames.filter(
+      (name) => name !== flags.at(-1),
+    );
   snapshot.configuration.explicitFalseKeyNames.pop();
   snapshot.configuration.explicitFalseKeyNames.pop();
   const result = evaluateProductionReadiness(snapshot);
@@ -480,11 +838,11 @@ test("requires the active process to use the expected database binding", () => {
   );
 });
 
-test("accepts only exact-loaded or untouched legacy pending-restart runtime configuration", () => {
+test("accepts exact-loaded or fully managed pending-restart runtime configuration", () => {
   const snapshot = readySnapshot();
   snapshot.runtime.processConfiguredEnvironmentMatched = false;
   snapshot.runtime.processConfiguredEnvironmentLoadState =
-    "LEGACY_W1A_PENDING_RESTART";
+    "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART";
   snapshot.runtime.processPendingRestartEnvironmentNames = [
     ...managedEnvironmentNames,
   ];
@@ -509,6 +867,17 @@ test("accepts only exact-loaded or untouched legacy pending-restart runtime conf
       "active_runtime_anchor",
     ),
   );
+  const enginePending = readySnapshot();
+  enginePending.runtime.processConfiguredEnvironmentMatched = false;
+  enginePending.runtime.processConfiguredEnvironmentLoadState =
+    "ENGINE_CREDENTIAL_PENDING_RESTART";
+  enginePending.runtime.processPendingRestartEnvironmentNames = [
+    "FBSIR_ENGINE_TOKEN",
+  ];
+  assert.equal(
+    evaluateProductionReadiness(enginePending).status,
+    "PREPARED_FOR_STAGE",
+  );
 });
 
 test("requires application rollback and forward-only database safety after deployment", () => {
@@ -532,6 +901,7 @@ test("requires application rollback and forward-only database safety after deplo
     adminPortalApiHealthy: true,
     mePortalReleaseMarkerMatched: true,
     adminPortalReleaseMarkerMatched: true,
+    defaultOffIngressProbeVerified: true,
   };
   const result = evaluateProductionReadiness(snapshot);
   assert.equal(result.status, "PREPARED_FOR_STAGE");
@@ -576,6 +946,7 @@ test("deployed state rejects a database down claim or wrong portal health", () =
     adminPortalApiHealthy: true,
     mePortalReleaseMarkerMatched: true,
     adminPortalReleaseMarkerMatched: true,
+    defaultOffIngressProbeVerified: true,
   };
   assert.equal(
     evaluateProductionReadiness(snapshot).status,
@@ -588,6 +959,12 @@ test("deployed state rejects a database down claim or wrong portal health", () =
   );
   snapshot.deploymentChannel.databaseDownClaimed = false;
   snapshot.deploymentChannel.mePortalApiHealthy = false;
+  assert.notEqual(
+    evaluateProductionReadiness(snapshot).status,
+    "DEPLOYED_DEFAULT_OFF",
+  );
+  snapshot.deploymentChannel.mePortalApiHealthy = true;
+  snapshot.deploymentChannel.defaultOffIngressProbeVerified = false;
   assert.notEqual(
     evaluateProductionReadiness(snapshot).status,
     "DEPLOYED_DEFAULT_OFF",
@@ -837,6 +1214,56 @@ test("live collector is pinned, online-only, and verifies actual artifacts", () 
       "not hmac.compare_digest(material, same_binding_material)",
     ),
   );
+  assert.ok(
+    collector.includes(
+      "w1a_043_legacy_admin_root_dependency_20260724_001",
+    ),
+  );
+  assert.ok(
+    collector.includes(
+      "APPLIED:W1A_043_LEGACY_ADMIN_ROOT_DEPENDENCY_V1",
+    ),
+  );
+  assert.ok(collector.includes("for index in range(1, 43)"));
+  assert.ok(
+    collector.includes("E78BACE891A3E4BC9AE7AEA1E79086"),
+  );
+  assert.ok(collector.includes("root_role_binding_count == 0"));
+  assert.ok(collector.includes("root_page_child_count == 0"));
+  assert.ok(
+    collector.includes(
+      "[string]$ExpectedAdminRootDependencyAdoptionReceiptSha256",
+    ),
+  );
+  assert.ok(
+    collector.includes(
+      "/opt/fbsir/admin/dependencies/latest/adoption-receipt.json",
+    ),
+  );
+  for (const schema of [
+    "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2",
+    "fbsir.u3wDatabaseBackupReceipt.v3",
+    "fbsir.u3wDatabaseRestoreRehearsalReceipt.v3",
+    "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v2",
+    "fbsir.u3wDatabaseBackupRestoreExternalAnchor.v2",
+  ]) {
+    assert.ok(collector.includes(schema));
+  }
+  for (const field of [
+    "publicInit043ReceiptCount",
+    "attributionInternalReceiptCount",
+    "attributionTableCount",
+    "attributionTriggerCount",
+    "attributionPermissionCount",
+  ]) {
+    assert.ok(collector.includes(field));
+  }
+  assert.ok(
+    collector.includes(
+      '"legacyAdminRootDependencyStateVerified":\n'
+        + "                dependency_state_verified",
+    ),
+  );
 });
 
 test("live collector independently rehashes the fixed staged release Plan", () => {
@@ -877,34 +1304,266 @@ test("live collector independently rehashes the fixed staged release Plan", () =
   );
 });
 
-test("live collector observes 302 responses without following redirects", () => {
-  const collector = fs.readFileSync(
-    new URL(
-      "./verify-independent-board-production-readiness.ps1",
-      import.meta.url,
+test("live signed probe shares the exact 39-field Java verifier contract", () => {
+  const collector = embeddedCollectorSource();
+  const readinessFields = pythonStringTuple(
+    collector,
+    "ATTRIBUTION_EVENT_SIGNED_STRING_FIELDS",
+  );
+  const releaseFields = pythonStringTuple(
+    releaseWorker,
+    "ATTRIBUTION_EVENT_SIGNED_STRING_FIELDS",
+  );
+  assert.deepEqual(readinessFields, releaseFields);
+
+  const signedFieldsMethod = javaEventVerifier.match(
+    /private Map<String, String> signedFields\([\s\S]*?\{([\s\S]*?)\n    \}/,
+  );
+  assert.ok(signedFieldsMethod, "Java signedFields method must be extractable");
+  const javaFields = [
+    ...signedFieldsMethod[1].matchAll(/values\.put\("([^"]+)"/g),
+  ].map((item) => item[1]);
+  const readinessCanonicalFields = [
+    ...readinessFields,
+    "rawContentStored",
+    "sequenceNo",
+  ];
+  assert.equal(readinessCanonicalFields.length, 39);
+  assert.deepEqual(
+    [...readinessCanonicalFields].sort(),
+    [...javaFields].sort(),
+  );
+  assert.match(collector, /DISABLED_INGRESS_HTTP_STATUS = 404/);
+  assert.equal(
+    /DISABLED_INGRESS_HTTP_STATUSES\s*=/.test(collector),
+    false,
+  );
+  assert.ok(
+    collector.includes(
+      '"acceptedDisabledHttpStatuses":\n'
+        + "            [DISABLED_INGRESS_HTTP_STATUS]",
     ),
-    "utf8",
   );
-  const match = collector.match(
-    /\$remotePython = @'\r?\n([\s\S]*?)\r?\n'@/,
+  const probeFunction = collector.match(
+    /def disabled_attribution_ingress_probe\([\s\S]*?\n\n(?=def )/,
   );
-  assert.ok(match, "embedded readiness collector must be extractable");
-  const pythonSource = match[1].replace(/__[A-Z0-9_]+__/g, '""');
-  const bundledPython = path.join(
-    os.homedir(),
-    ".cache",
-    "codex-runtimes",
-    "codex-primary-runtime",
-    "dependencies",
-    "python",
-    process.platform === "win32" ? "python.exe" : "bin/python",
+  assert.ok(probeFunction, "signed disabled probe must be extractable");
+  const probeSource = probeFunction[0];
+  const identityBefore = probeSource.indexOf("identity_before =");
+  const globalBefore = probeSource.indexOf("global_before =");
+  const post = probeSource.indexOf(
+    "http_status = post_signed_attribution_probe(event)",
   );
-  const python = process.env.U3W_PYTHON_EXE
-    || (fs.existsSync(bundledPython)
-      ? bundledPython
-      : process.platform === "win32"
-        ? "python.exe"
-        : "python3");
+  const identityAfter = probeSource.indexOf("identity_after =");
+  const globalAfter = probeSource.indexOf("global_after =");
+  assert.ok(identityBefore >= 0);
+  assert.ok(identityBefore < globalBefore);
+  assert.ok(globalBefore < post);
+  assert.ok(post < identityAfter);
+  assert.ok(identityAfter < globalAfter);
+});
+
+test("live signed probe accepts only 404 with identity and global zero-write", () => {
+  const pythonSource = embeddedCollectorSource();
+  const harness = String.raw`
+import ast
+import json
+import sys
+
+source = sys.stdin.read()
+tree = ast.parse(source, filename="<u3w-readiness-collector>")
+wanted_assignments = {
+    "EVENT_KEY_ID_NAME",
+    "EVENT_KEY_NAME",
+    "ATTRIBUTION_INGRESS_PATH",
+    "DISABLED_INGRESS_HTTP_STATUS",
+    "ATTRIBUTION_EVENT_SIGNED_STRING_FIELDS",
+}
+wanted_functions = {
+    "canonical_json",
+    "decode_secret_material",
+    "build_signed_attribution_probe_event",
+    "attribution_probe_identity_counts",
+    "attribution_global_counts",
+    "disabled_attribution_ingress_probe",
+}
+selected = []
+for node in tree.body:
+    if isinstance(node, ast.Assign) and any(
+        isinstance(target, ast.Name)
+        and target.id in wanted_assignments
+        for target in node.targets
+    ):
+        selected.append(node)
+    elif isinstance(node, ast.FunctionDef) and node.name in wanted_functions:
+        selected.append(node)
+
+namespace = {}
+prefix = (
+    "import base64\n"
+    "import hashlib\n"
+    "import hmac\n"
+    "import json\n"
+    "import os\n"
+    "import re\n"
+    "from datetime import datetime, timedelta, timezone\n"
+)
+exec(prefix, namespace)
+exec(
+    compile(
+        ast.Module(body=selected, type_ignores=[]),
+        "<u3w-readiness-signed-probe>",
+        "exec",
+    ),
+    namespace,
+)
+
+key_material = b"K" * 32
+environment = {
+    namespace["EVENT_KEY_ID_NAME"]: "w1a-active-key",
+    namespace["EVENT_KEY_NAME"]:
+        "base64:" + namespace["base64"].b64encode(key_material).decode("ascii"),
+}
+namespace["os"].urandom = lambda size: b"P" * size
+observed = namespace["datetime"](
+    2026,
+    7,
+    24,
+    18,
+    0,
+    30,
+    tzinfo=namespace["timezone"].utc,
+)
+event, identity = namespace["build_signed_attribution_probe_event"](
+    environment,
+    observed=observed,
+)
+signed_fields = {
+    name: str(event[name]).strip()
+    for name in namespace["ATTRIBUTION_EVENT_SIGNED_STRING_FIELDS"]
+}
+signed_fields["rawContentStored"] = "false"
+signed_fields["sequenceNo"] = "1"
+assert len(signed_fields) == 39
+expected_signature = "v1=" + namespace["hmac"].new(
+    key_material,
+    namespace["canonical_json"](signed_fields).encode("utf-8"),
+    namespace["hashlib"].sha256,
+).hexdigest()
+assert event["signature"] == expected_signature
+assert event["trafficClass"] == "PROBE"
+
+global_before = {"eventCount": 7, "journeyCount": 3}
+zero_counts = {name: 0 for name in identity}
+def zero_write_query(statement):
+    if " WHERE " in statement:
+        return 0
+    if "fbs_board_attr_event_v1" in statement:
+        return global_before["eventCount"]
+    if "fbs_board_attr_journey_v1" in statement:
+        return global_before["journeyCount"]
+    raise AssertionError("unexpected probe query")
+
+namespace["post_signed_attribution_probe"] = lambda _: 404
+evidence = namespace["disabled_attribution_ingress_probe"](
+    zero_write_query,
+    environment,
+)
+assert evidence["verifiedDisabled"] is True
+assert evidence["acceptedDisabledHttpStatuses"] == [404]
+assert evidence["identityCountsBefore"] == zero_counts
+assert evidence["identityCountsAfter"] == zero_counts
+assert evidence["globalCountsBefore"] == global_before
+assert evidence["globalCountsAfter"] == global_before
+serialized = namespace["canonical_json"](evidence)
+assert event["nonce"] not in serialized
+assert event["signature"] not in serialized
+assert key_material.decode("ascii") not in serialized
+assert evidence["secretsDisclosed"] is False
+
+for status in (200, 202, 400, 401, 403, 405):
+    namespace["post_signed_attribution_probe"] = (
+        lambda _, current=status: current
+    )
+    rejected = namespace["disabled_attribution_ingress_probe"](
+        zero_write_query,
+        environment,
+    )
+    assert rejected["verifiedDisabled"] is False
+
+identity_responses = iter([
+    dict(zero_counts),
+    {**zero_counts, "nonceHash": 1},
+])
+namespace["attribution_probe_identity_counts"] = (
+    lambda *_: next(identity_responses)
+)
+namespace["attribution_global_counts"] = lambda *_: dict(global_before)
+namespace["post_signed_attribution_probe"] = lambda _: 404
+identity_write = namespace["disabled_attribution_ingress_probe"](
+    zero_write_query,
+    environment,
+)
+assert identity_write["verifiedDisabled"] is False
+
+namespace["attribution_probe_identity_counts"] = lambda *_: dict(zero_counts)
+global_responses = iter([
+    dict(global_before),
+    {"eventCount": 8, "journeyCount": 3},
+])
+namespace["attribution_global_counts"] = (
+    lambda *_: next(global_responses)
+)
+global_write = namespace["disabled_attribution_ingress_probe"](
+    zero_write_query,
+    environment,
+)
+assert global_write["verifiedDisabled"] is False
+
+posted = {"called": False}
+namespace["attribution_probe_identity_counts"] = lambda *_: {
+    **zero_counts,
+    "eventId": 1,
+}
+namespace["post_signed_attribution_probe"] = (
+    lambda _: posted.update(called=True) or 404
+)
+try:
+    namespace["disabled_attribution_ingress_probe"](
+        zero_write_query,
+        environment,
+    )
+    raise AssertionError("pre-existing probe identity must fail closed")
+except RuntimeError as error:
+    assert "identity is not unique" in str(error)
+assert posted["called"] is False
+
+print(json.dumps({
+    "status": "PASS",
+    "signedFieldCount": len(signed_fields),
+    "acceptedDisabledHttpStatuses":
+        evidence["acceptedDisabledHttpStatuses"],
+}))
+`;
+  const result = spawnSync(pythonExecutable(), ["-c", harness], {
+    input: pythonSource,
+    encoding: "utf8",
+    timeout: 15_000,
+  });
+  assert.equal(
+    result.status,
+    0,
+    `signed probe harness failed: ${result.stderr || result.stdout}`,
+  );
+  assert.deepEqual(JSON.parse(result.stdout.trim()), {
+    status: "PASS",
+    signedFieldCount: 39,
+    acceptedDisabledHttpStatuses: [404],
+  });
+});
+
+test("live collector observes 302 responses without following redirects", () => {
+  const pythonSource = embeddedCollectorSource();
   const harness = String.raw`
 import ast
 import json
@@ -978,7 +1637,7 @@ finally:
     server.server_close()
 print(json.dumps({"status": "PASS", "followedRedirects": hits["ok"]}))
 `;
-  const result = spawnSync(python, ["-c", harness], {
+  const result = spawnSync(pythonExecutable(), ["-c", harness], {
     input: pythonSource,
     encoding: "utf8",
     timeout: 15_000,

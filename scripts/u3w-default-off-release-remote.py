@@ -46,6 +46,9 @@ NGINX_PATH = pathlib.Path("/etc/nginx/conf.d/u3w-placeholder-sites.conf")
 LATEST_RECEIPT = RELEASE_ROOT / "latest-receipt.json"
 BACKUP_RECEIPT = ADMIN_ROOT / "backups/latest/receipt.json"
 BASELINE_RECEIPT = ADMIN_ROOT / "baselines/latest/adoption-receipt.json"
+ADMIN_ROOT_DEPENDENCY_RECEIPT = (
+    ADMIN_ROOT / "dependencies/latest/adoption-receipt.json"
+)
 CONFIGURATION_RECEIPT = (
     ADMIN_ROOT / "configuration/latest/configuration-receipt.json"
 )
@@ -98,12 +101,59 @@ PREVIOUS_EVENT_KEY_NAME = (
 SAME_BINDING_KEY_NAME = (
     "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET"
 )
+ADMIN_ENGINE_TOKEN_NAME = "FBSIR_ENGINE_TOKEN"
+ATTRIBUTION_INGRESS_PATH = (
+    "/internal/independent-board/attribution/events"
+)
+DISABLED_INGRESS_HTTP_STATUS = 404
+ATTRIBUTION_EVENT_SIGNED_STRING_FIELDS = (
+    "agentName",
+    "channel",
+    "classificationSource",
+    "classifierVersion",
+    "confidenceBucket",
+    "contractId",
+    "embeddedContractVersion",
+    "eventId",
+    "eventType",
+    "expiresAt",
+    "hostClientFamily",
+    "hostVersion",
+    "intentSignal",
+    "issuedAt",
+    "journeyId",
+    "keyId",
+    "listedManifestVersion",
+    "listedSurface",
+    "marketplace",
+    "nonce",
+    "occurredAt",
+    "outcome",
+    "packageId",
+    "previousEventDigest",
+    "productId",
+    "receiptId",
+    "requestSource",
+    "reviewMode",
+    "sameBindingKey",
+    "schemaVersion",
+    "serverBindingId",
+    "signatureAlgorithm",
+    "tenantSubjectDigest",
+    "terminal",
+    "traceparent",
+    "trafficAuthority",
+    "trafficClass",
+)
 MANAGED_W1A_ENVIRONMENT_NAMES = FALSE_FLAGS + (
     EVENT_KEY_ID_NAME,
     EVENT_KEY_NAME,
     PREVIOUS_EVENT_KEY_ID_NAME,
     PREVIOUS_EVENT_KEY_NAME,
     SAME_BINDING_KEY_NAME,
+)
+MANAGED_RESTART_ENVIRONMENT_NAMES = (
+    MANAGED_W1A_ENVIRONMENT_NAMES + (ADMIN_ENGINE_TOKEN_NAME,)
 )
 DATABASE_ENVIRONMENT_NAMES = (
     "WXFBSIR_MYSQL_URL",
@@ -119,6 +169,7 @@ PROCESS_SECURITY_ENVIRONMENT_NAMES = (
     DATABASE_ENVIRONMENT_NAMES
     + DATABASE_ENVIRONMENT_ALIAS_NAMES
     + FALSE_FLAGS
+    + (ADMIN_ENGINE_TOKEN_NAME,)
 )
 FORBIDDEN_RUNTIME_OVERRIDE_NAMES = frozenset(
     (
@@ -343,6 +394,22 @@ def ensure_parent_directory(path, create_mode=0o700):
     return path
 
 
+def acquire_release_lock(descriptor, lock_mode, timeout_seconds=30):
+    deadline = time.monotonic() + timeout_seconds
+    operation = lock_mode | getattr(fcntl, "LOCK_NB", 4)
+    while True:
+        try:
+            fcntl.flock(descriptor, operation)
+            return
+        except BlockingIOError as error:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RuntimeError(
+                    "global release lock acquisition timed out"
+                ) from error
+            time.sleep(min(0.1, remaining))
+
+
 def validate_regular_file(path, parent=None, modes=(0o600, 0o640, 0o644)):
     path = pathlib.Path(path)
     if path.is_symlink() or not path.is_file():
@@ -541,6 +608,31 @@ def parse_environment():
         values[name] = value
     if any(values.get(name) != "false" for name in FALSE_FLAGS):
         raise RuntimeError("all W1A flags must remain explicitly false")
+    engine_credential = str(
+        values.get(ADMIN_ENGINE_TOKEN_NAME, "")
+    ).strip()
+    if re.fullmatch(
+        r"[A-Za-z0-9_-]{43,128}", engine_credential
+    ) is None:
+        raise RuntimeError(
+            "admin Engine credential shape is invalid"
+        )
+    engine_material = engine_credential.encode("utf-8")
+    for name in (
+        EVENT_KEY_NAME,
+        PREVIOUS_EVENT_KEY_NAME,
+        SAME_BINDING_KEY_NAME,
+        "FBSIR_TOKEN_SECRET",
+        "WXFBSIR_TOKEN_SECRET",
+    ):
+        comparison = decode_secret_material(values.get(name))
+        if (
+            comparison is not None
+            and hmac.compare_digest(engine_material, comparison)
+        ):
+            raise RuntimeError(
+                "admin Engine credential is not independent"
+            )
     required = DATABASE_ENVIRONMENT_NAMES
     if any(not values.get(name) for name in required):
         raise RuntimeError("application database credentials are absent")
@@ -1078,7 +1170,8 @@ def security_configuration_evidence(process_values, expected_values):
         name: expected_values.get(name) for name in FALSE_FLAGS
     }
     all_managed_configured = all(
-        name in expected_values for name in MANAGED_W1A_ENVIRONMENT_NAMES
+        name in expected_values
+        for name in MANAGED_RESTART_ENVIRONMENT_NAMES
     )
     flags_configured_false = all(
         configured_flags[name] == "false" for name in FALSE_FLAGS
@@ -1086,18 +1179,27 @@ def security_configuration_evidence(process_values, expected_values):
     if configured_matched and not pending_names and not mismatch_names:
         load_state = "EXACT_CONFIGURED"
     elif (
-        pending_names == sorted(MANAGED_W1A_ENVIRONMENT_NAMES)
+        pending_names == sorted(MANAGED_RESTART_ENVIRONMENT_NAMES)
         and not mismatch_names
         and all_managed_configured
         and flags_configured_false
         and matched
     ):
-        load_state = "LEGACY_W1A_PENDING_RESTART"
+        load_state = "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART"
+    elif (
+        pending_names == [ADMIN_ENGINE_TOKEN_NAME]
+        and not mismatch_names
+        and all_managed_configured
+        and flags_configured_false
+        and matched
+    ):
+        load_state = "ENGINE_CREDENTIAL_PENDING_RESTART"
     else:
         load_state = "INVALID_PARTIAL_OR_DRIFTED"
     pre_stage_compatible = load_state in {
         "EXACT_CONFIGURED",
-        "LEGACY_W1A_PENDING_RESTART",
+        "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART",
+        "ENGINE_CREDENTIAL_PENDING_RESTART",
     }
     return {
         "api2EventKeyManifest": event_key_manifest,
@@ -1805,14 +1907,25 @@ def assert_stage_plan_target_matches(
         planned_target.get("stageEntryTopology", {}).get("state")
         if isinstance(planned_target, dict) else None
     )
-    expected_load_state = {
-        "UNTOUCHED_LEGACY": "LEGACY_W1A_PENDING_RESTART",
-        "EXACT_PRIOR_ROLLBACK_PREDECESSOR": "EXACT_CONFIGURED",
+    allowed_load_states = {
+        "UNTOUCHED_LEGACY": {
+            "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART":
+                sorted(MANAGED_RESTART_ENVIRONMENT_NAMES),
+        },
+        "EXACT_PRIOR_ROLLBACK_PREDECESSOR": {
+            "EXACT_CONFIGURED": [],
+            "ENGINE_CREDENTIAL_PENDING_RESTART": [
+                ADMIN_ENGINE_TOKEN_NAME
+            ],
+        },
     }.get(topology_state)
+    planned_load_state = (
+        planned_target.get("processConfiguredEnvironmentLoadState")
+        if isinstance(planned_target, dict) else None
+    )
     expected_pending_names = (
-        sorted(MANAGED_W1A_ENVIRONMENT_NAMES)
-        if expected_load_state == "LEGACY_W1A_PENDING_RESTART"
-        else []
+        allowed_load_states.get(planned_load_state)
+        if isinstance(allowed_load_states, dict) else None
     )
     if (
         not isinstance(planned_target, dict)
@@ -1833,10 +1946,7 @@ def assert_stage_plan_target_matches(
         or planned_target.get(
             "processConfiguredEnvironmentMismatchNames"
         ) != []
-        or expected_load_state is None
-        or planned_target.get(
-            "processConfiguredEnvironmentLoadState"
-        ) != expected_load_state
+        or expected_pending_names is None
         or planned_target.get(
             "processPendingRestartEnvironmentNames"
         ) != expected_pending_names
@@ -2183,6 +2293,267 @@ def http_json(url, timeout=5):
     return status, parsed
 
 
+def format_probe_timestamp(value):
+    if (
+        not isinstance(value, dt.datetime)
+        or value.tzinfo is None
+    ):
+        raise RuntimeError("attribution probe time is invalid")
+    return (
+        value.astimezone(dt.timezone.utc)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )
+
+
+def build_signed_attribution_probe_event(
+    environment,
+    now=None,
+    entropy=None,
+):
+    if not isinstance(environment, dict):
+        raise RuntimeError("attribution probe environment is invalid")
+    key_id = str(environment.get(EVENT_KEY_ID_NAME, "")).strip()
+    key_material = decode_secret_material(environment.get(EVENT_KEY_NAME))
+    if (
+        re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}", key_id
+        ) is None
+        or key_material is None
+        or len(key_material) < 32
+    ):
+        raise RuntimeError(
+            "attribution probe signing key is invalid"
+        )
+    observed = now or dt.datetime.now(dt.timezone.utc)
+    if not isinstance(observed, dt.datetime) or observed.tzinfo is None:
+        raise RuntimeError("attribution probe time is invalid")
+    observed = observed.astimezone(dt.timezone.utc)
+    seed = os.urandom(32) if entropy is None else entropy
+    if not isinstance(seed, bytes) or len(seed) < 32:
+        raise RuntimeError("attribution probe entropy is invalid")
+
+    def identifier(label):
+        return sha256_bytes(
+            b"fbsir.u3wDefaultOffSignedProbe.v1\0"
+            + label.encode("ascii")
+            + b"\0"
+            + seed
+        )
+
+    nonce = "u3w.default.off.probe." + identifier("nonce")[:32]
+    event = {
+        "schemaVersion": "fbsir.independentBoardAttributionEvent.v1",
+        "eventId": identifier("event"),
+        "receiptId": identifier("receipt"),
+        "contractId": "FBSIR_INDEPENDENT_BOARD_W1A_V1",
+        "eventType": "ENTRY_OBSERVED",
+        "sequenceNo": 1,
+        "occurredAt": format_probe_timestamp(observed),
+        "productId": "fbsir-eight-seat-board",
+        "packageId": "fbsir-eight-seat-board",
+        "agentName": "board-convener",
+        "marketplace": "experts",
+        "listedSurface": "listed_runtime_state",
+        "listedManifestVersion": "26.7.21",
+        "embeddedContractVersion": "26.7.20",
+        "hostClientFamily": "WORKBUDDY",
+        "hostVersion": "UNKNOWN",
+        "terminal": "UNKNOWN",
+        "channel": "OFFICIAL_EXPERTS",
+        "requestSource": "UNKNOWN",
+        "intentSignal": "default_off_probe",
+        "classificationSource": "SERVER_CLASSIFIER",
+        "classifierVersion": "u3w.default.off.probe.v1",
+        "confidenceBucket": "UNKNOWN",
+        "reviewMode": "UNKNOWN",
+        "journeyId": identifier("journey"),
+        "serverBindingId": "srv_" + identifier("binding")[:32],
+        "sameBindingKey": "",
+        "tenantSubjectDigest": identifier("tenant"),
+        "trafficClass": "PROBE",
+        "trafficAuthority": "API2_SERVER_CLASSIFIER_V1",
+        "outcome": "WITHHELD",
+        "previousEventDigest": "",
+        "traceparent": "",
+        "rawContentStored": False,
+        "issuedAt": format_probe_timestamp(observed),
+        "expiresAt": format_probe_timestamp(
+            observed + dt.timedelta(seconds=60)
+        ),
+        "nonce": nonce,
+        "keyId": key_id,
+        "signatureAlgorithm": "hmac-sha256-v1",
+    }
+    signed_fields = {
+        name: str(event[name]).strip()
+        for name in ATTRIBUTION_EVENT_SIGNED_STRING_FIELDS
+    }
+    signed_fields["rawContentStored"] = "false"
+    signed_fields["sequenceNo"] = "1"
+    signature = hmac.new(
+        key_material,
+        canonical_json(signed_fields).encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    event["signature"] = "v1=" + signature
+    identity = {
+        "eventId": event["eventId"],
+        "receiptId": event["receiptId"],
+        "nonceHash": sha256_bytes(nonce.encode("utf-8")),
+        "journeyId": event["journeyId"],
+    }
+    return event, identity
+
+
+def post_signed_attribution_probe(event, timeout=10):
+    if not isinstance(event, dict):
+        raise RuntimeError("signed attribution probe event is invalid")
+
+    class RejectRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(
+            self, request, file_pointer, code, message, headers, new_url
+        ):
+            return None
+
+    url = "http://127.0.0.1:8080" + ATTRIBUTION_INGRESS_PATH
+    request = urllib.request.Request(
+        url,
+        data=canonical_json(event).encode("utf-8"),
+        method="POST",
+        headers={
+            "User-Agent": "u3w-release-signed-disabled-route-verifier/1",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+    )
+    opener = urllib.request.build_opener(RejectRedirect())
+    try:
+        with opener.open(request, timeout=timeout) as response:
+            response.read(1024 * 1024)
+            return response.status
+    except urllib.error.HTTPError as error:
+        error.read(1024 * 1024)
+        return error.code
+    except (OSError, TimeoutError, urllib.error.URLError) as error:
+        raise RuntimeError(
+            "default-off attribution ingress probe failed"
+        ) from error
+
+
+def attribution_probe_identity_counts(mysql, identity):
+    if (
+        not isinstance(identity, dict)
+        or set(identity)
+        != {"eventId", "receiptId", "nonceHash", "journeyId"}
+        or any(
+            not SHA_PATTERN.fullmatch(str(value or ""))
+            for value in identity.values()
+        )
+    ):
+        raise RuntimeError("attribution probe identity is invalid")
+    queries = (
+        (
+            "eventId",
+            "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+            "WHERE event_id=%s",
+        ),
+        (
+            "receiptId",
+            "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+            "WHERE receipt_id=%s",
+        ),
+        (
+            "nonceHash",
+            "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+            "WHERE nonce_hash=%s",
+        ),
+        (
+            "journeyId",
+            "SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+            "WHERE journey_id=%s",
+        ),
+    )
+    return {
+        name: int(mysql.scalar(statement, (identity[name],)))
+        for name, statement in queries
+    }
+
+
+def attribution_global_counts(facts):
+    if (
+        not isinstance(facts, dict)
+        or type(facts.get("eventCount")) is not int
+        or type(facts.get("journeyCount")) is not int
+        or facts["eventCount"] < 0
+        or facts["journeyCount"] < 0
+    ):
+        raise RuntimeError("attribution global counts are invalid")
+    return {
+        "eventCount": facts["eventCount"],
+        "journeyCount": facts["journeyCount"],
+    }
+
+
+def disabled_attribution_ingress_probe(
+    mysql,
+    global_before,
+    now=None,
+    entropy=None,
+):
+    environment, _ = parse_environment()
+    event, identity = build_signed_attribution_probe_event(
+        environment,
+        now=now,
+        entropy=entropy,
+    )
+    zero_identity_counts = {
+        name: 0 for name in identity
+    }
+    identity_before = attribution_probe_identity_counts(mysql, identity)
+    if identity_before != zero_identity_counts:
+        raise RuntimeError(
+            "attribution probe identity is not unique before request"
+        )
+    http_status = post_signed_attribution_probe(event)
+    identity_after = attribution_probe_identity_counts(mysql, identity)
+    global_after = exact_migration_facts(mysql)
+    if http_status != DISABLED_INGRESS_HTTP_STATUS:
+        raise RuntimeError(
+            "attribution ingress is not disabled at the live service"
+        )
+    if identity_after != zero_identity_counts:
+        raise RuntimeError(
+            "attribution probe identity was persisted"
+        )
+    if global_after != global_before:
+        raise RuntimeError(
+            "attribution counts changed during signed default-off probe"
+        )
+    return {
+        "schema": "fbsir.u3wSignedDisabledAttributionIngressProbe.v1",
+        "path": ATTRIBUTION_INGRESS_PATH,
+        "method": "POST",
+        "httpStatus": http_status,
+        "responseDisposition": "ROUTE_NOT_FOUND",
+        "verifiedDisabled": True,
+        "acceptedDisabledHttpStatuses": [DISABLED_INGRESS_HTTP_STATUS],
+        "trafficClass": event["trafficClass"],
+        "signingKeyId": event["keyId"],
+        "signatureAlgorithm": event["signatureAlgorithm"],
+        "probeIdentity": identity,
+        "identityCountsBefore": identity_before,
+        "identityCountsAfter": identity_after,
+        "globalCountsBefore": attribution_global_counts(global_before),
+        "globalCountsAfter": attribution_global_counts(global_after),
+        "rawNonceDisclosed": False,
+        "rawSignatureDisclosed": False,
+        "signingKeyMaterialDisclosed": False,
+        "secretsDisclosed": False,
+        "observedAt": utc_now(),
+    }, global_after
+
+
 def wait_for_u3w_health(timeout=180):
     deadline = time.monotonic() + timeout
     last = None
@@ -2227,6 +2598,7 @@ def validate_approval(args):
         "expectedReleasePlanReceiptSha256",
         "expectedBackupReceiptSha256",
         "expectedLegacyBaselineReceiptSha256",
+        "expectedAdminRootDependencyAdoptionReceiptSha256",
         "expectedConfigurationReceiptSha256",
         "expectedStageReceiptSha256",
         "expectedDeploymentReceiptSha256",
@@ -2260,6 +2632,8 @@ def validate_approval(args):
         "expectedReleasePlanReceiptSha256": args.plan_receipt_sha,
         "expectedBackupReceiptSha256": args.backup_receipt_sha,
         "expectedLegacyBaselineReceiptSha256": args.baseline_receipt_sha,
+        "expectedAdminRootDependencyAdoptionReceiptSha256":
+            args.admin_root_dependency_adoption_receipt_sha,
         "expectedConfigurationReceiptSha256": args.configuration_receipt_sha,
         "expectedStageReceiptSha256": args.stage_receipt_sha,
         "expectedDeploymentReceiptSha256": args.deployment_receipt_sha,
@@ -2305,6 +2679,7 @@ def validate_arguments(args):
         "plan_receipt_sha",
         "backup_receipt_sha",
         "baseline_receipt_sha",
+        "admin_root_dependency_adoption_receipt_sha",
         "configuration_receipt_sha",
         "backend_sha",
         "frontend_tree_sha",
@@ -2320,6 +2695,51 @@ def validate_arguments(args):
     validate_approval(args)
 
 
+def validate_target_plan_time(args, now=None):
+    if args.mode not in {"FinalizeStage", "Apply"}:
+        return
+    root = (
+        incoming_directory(args)
+        if args.mode == "FinalizeStage"
+        else release_directory(args)
+    )
+    path = validate_regular_file(
+        root / "evidence/release-plan.json",
+        root / "evidence",
+        modes=(0o600, 0o644),
+    )
+    if sha256_file(path) != args.plan_receipt_sha:
+        raise RuntimeError("target release Plan digest drifted")
+    plan = read_json(path)
+    if (
+        plan.get("schema") != "fbsir.u3wDefaultOffReleasePlan.v1"
+        or plan.get("releaseId") != args.release_id
+        or plan.get("sourceCommit") != args.source_commit
+    ):
+        raise RuntimeError("target release Plan identity drifted")
+    try:
+        generated = dt.datetime.fromisoformat(
+            str(plan.get("generatedAt") or "").replace("Z", "+00:00")
+        )
+        expires = dt.datetime.fromisoformat(
+            str(plan.get("expiresAt") or "").replace("Z", "+00:00")
+        )
+    except ValueError as error:
+        raise RuntimeError("target release Plan time is invalid") from error
+    current = now or dt.datetime.now(dt.timezone.utc)
+    if (
+        generated.tzinfo is None
+        or expires.tzinfo is None
+        or current.tzinfo is None
+        or generated > current
+        or expires <= generated
+        or expires - generated > dt.timedelta(hours=24)
+    ):
+        raise RuntimeError("target release Plan validity is invalid")
+    if current >= expires:
+        raise RuntimeError("target release Plan expired")
+
+
 def incoming_directory(args):
     return RELEASE_ROOT / (".incoming-" + args.release_id)
 
@@ -2332,6 +2752,11 @@ def validate_preparation_anchors(args):
     checks = (
         (BACKUP_RECEIPT, args.backup_receipt_sha, "backup"),
         (BASELINE_RECEIPT, args.baseline_receipt_sha, "baseline"),
+        (
+            ADMIN_ROOT_DEPENDENCY_RECEIPT,
+            args.admin_root_dependency_adoption_receipt_sha,
+            "admin root dependency adoption",
+        ),
         (
             CONFIGURATION_RECEIPT,
             args.configuration_receipt_sha,
@@ -2353,6 +2778,9 @@ def prepare_stage(args):
         if (
             receipt.is_file()
             and read_json(receipt).get("state") == "STAGED_FOR_SWITCH"
+            and read_json(receipt).get(
+                "adminRootDependencyAdoptionReceiptSha256"
+            ) == args.admin_root_dependency_adoption_receipt_sha
             and not (final / "deployment-receipt.json").exists()
             and not (final / "rollback-receipt.json").exists()
         ):
@@ -2542,6 +2970,156 @@ def w1a_database_state(mysql):
     raise RuntimeError("W1A database state is partial or drifted")
 
 
+def exact_admin_engine_delta_predecessor_sha256(path):
+    raw = pathlib.Path(path).read_bytes()
+    try:
+        current = raw.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise RuntimeError(
+            "admin Engine credential environment is not UTF-8"
+        ) from error
+    match = re.search(
+        r"(?:^|\n)FBSIR_ENGINE_TOKEN="
+        r"(?P<credential>[A-Za-z0-9_-]{43,128})\n\Z",
+        current,
+    )
+    if match is None:
+        raise RuntimeError(
+            "admin Engine credential is not one canonical append-only delta"
+        )
+    predecessor = current[: match.start()]
+    if match.start() > 0:
+        predecessor += "\n"
+    return sha256_bytes(predecessor.encode("utf-8"))
+
+
+def configuration_predecessor_receipt(predecessor_sha):
+    if (
+        not SHA_PATTERN.fullmatch(str(predecessor_sha or ""))
+        or predecessor_sha == "0" * 64
+    ):
+        raise RuntimeError(
+            "configuration predecessor receipt digest is invalid"
+        )
+    root = ADMIN_ROOT / "configuration/w1a"
+    matches = []
+    for run_directory in root.iterdir():
+        if (
+            run_directory.is_symlink()
+            or not run_directory.is_dir()
+            or not re.fullmatch(
+                r"w1a-config-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}",
+                run_directory.name,
+            )
+        ):
+            continue
+        candidate = run_directory / "configuration-receipt.json"
+        if candidate.is_file() and not candidate.is_symlink():
+            try:
+                validate_regular_file(
+                    candidate,
+                    candidate.parent,
+                    modes=(0o600,),
+                )
+            except (OSError, RuntimeError):
+                continue
+            if sha256_file(candidate) == predecessor_sha:
+                matches.append(candidate)
+    if len(matches) != 1:
+        raise RuntimeError(
+            "configuration predecessor receipt is absent or ambiguous"
+        )
+    return read_json(matches[0])
+
+
+def validate_configuration_runtime_anchor(configuration):
+    schema = configuration.get("schema")
+    if (
+        schema
+        not in {
+            "fbsir.u3wDefaultOffConfigurationReceipt.v2",
+            "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+        }
+        or configuration.get("environmentAfterSha256")
+        != sha256_file(ENV_PATH)
+        or configuration.get("api2EventKeyPath")
+        != str(API2_EVENT_KEY_PATH)
+        or configuration.get("stagedKeyMaterialMatched") is not True
+        or configuration.get("serviceRestarted") is not False
+        or configuration.get("productionServiceChanged") is not False
+        or configuration.get("officialExpertsPackageChanged") is not False
+        or configuration.get("secretsDisclosed") is not False
+    ):
+        raise RuntimeError("configuration runtime anchor is invalid")
+    if schema == "fbsir.u3wDefaultOffConfigurationReceipt.v2":
+        return configuration
+    evidence = configuration.get("configurationEvidence")
+    predecessor_sha = configuration.get(
+        "predecessorConfigurationReceiptSha256"
+    )
+    credential_state = configuration.get(
+        "adminEngineCredentialProvisioningState"
+    )
+    if (
+        not isinstance(evidence, dict)
+        or evidence.get("allManagedKeysPresent") is not True
+        or evidence.get(
+            "allDefaultOffFlagsExplicitFalse"
+        ) is not True
+        or evidence.get("activeEventKeyPairValid") is not True
+        or evidence.get(
+            "previousEventKeyPairCompleteAndValid"
+        ) is not True
+        or evidence.get(
+            "sameBindingSecretValidAndIndependent"
+        ) is not True
+        or evidence.get(
+            "api2RawEventKeyMatchesU3wActiveMaterial"
+        ) is not True
+        or evidence.get("adminEngineCredentialValid") is not True
+        or evidence.get(
+            "adminEngineCredentialIndependent"
+        ) is not True
+        or int(
+            evidence.get("adminEngineCredentialMinimumCharacters") or 0
+        ) < 43
+        or evidence.get("secretsDisclosed") is not False
+        or credential_state != "ADOPTED_EXISTING_EXACT_DELTA"
+        or configuration.get("engineCounterpartClosureClaimed") is not False
+        or configuration.get("api2EventKeyProvisioningState")
+        != "REUSED_FROM_PREDECESSOR_RECEIPT"
+        or not SHA_PATTERN.fullmatch(str(predecessor_sha or ""))
+        or predecessor_sha == "0" * 64
+    ):
+        raise RuntimeError(
+            "configuration reconciliation evidence is invalid"
+        )
+    predecessor = configuration_predecessor_receipt(predecessor_sha)
+    created_by_run = False
+    predecessor_environment_matched = (
+        configuration.get("environmentBeforeSha256")
+        == configuration.get("environmentAfterSha256")
+        and predecessor.get("environmentAfterSha256")
+        == exact_admin_engine_delta_predecessor_sha256(ENV_PATH)
+    )
+    if (
+        predecessor.get("schema")
+        != "fbsir.u3wDefaultOffConfigurationReceipt.v2"
+        or not predecessor_environment_matched
+        or predecessor.get("api2EventKeyPath")
+        != str(API2_EVENT_KEY_PATH)
+        or predecessor.get("stagedKeyMaterialMatched") is not True
+        or predecessor.get("officialExpertsPackageChanged") is not False
+        or predecessor.get("secretsDisclosed") is not False
+        or configuration.get("productionConfigurationChanged")
+        is not created_by_run
+    ):
+        raise RuntimeError(
+            "configuration predecessor receipt chain is invalid"
+        )
+    return configuration
+
+
 def database_pre_stage_facts():
     _, connection = parse_environment()
     mysql = Mysql(connection)
@@ -2563,16 +3141,7 @@ def database_pre_stage_facts():
             API2_EVENT_KEY_PATH.parent,
             modes=(0o600,),
         )
-        if (
-            configuration.get("schema")
-            != "fbsir.u3wDefaultOffConfigurationReceipt.v2"
-            or configuration.get("environmentAfterSha256")
-            != sha256_file(ENV_PATH)
-            or configuration.get("api2EventKeyPath")
-            != str(API2_EVENT_KEY_PATH)
-            or configuration.get("stagedKeyMaterialMatched") is not True
-        ):
-            raise RuntimeError("configuration runtime anchor is invalid")
+        validate_configuration_runtime_anchor(configuration)
         facts = {
             "environmentSha256": sha256_file(ENV_PATH),
             "api2EventKeySha256": sha256_file(API2_EVENT_KEY_PATH),
@@ -2782,6 +3351,8 @@ def finalize_stage(args):
             != args.frontend_tree_sha
             or staged.get("runnerSha256") != args.runner_sha
             or staged.get("workerSha256") != args.worker_sha
+            or staged.get("adminRootDependencyAdoptionReceiptSha256")
+                != args.admin_root_dependency_adoption_receipt_sha
             or not SHA_PATTERN.fullmatch(
                 str(staged.get("stageApprovalReceiptSha256") or "")
             )
@@ -3076,6 +3647,8 @@ def finalize_stage(args):
         **plan_target_binding,
         "backupReceiptSha256": args.backup_receipt_sha,
         "legacyBaselineReceiptSha256": args.baseline_receipt_sha,
+        "adminRootDependencyAdoptionReceiptSha256":
+            args.admin_root_dependency_adoption_receipt_sha,
         "configurationReceiptSha256": args.configuration_receipt_sha,
         "preStageRuntimeIdentity": pre_database,
         "backendBuildPath": str(final_backend),
@@ -3543,6 +4116,8 @@ def validate_stage_receipt(args, release):
         or receipt.get("frontendBuildSha256") != args.frontend_tree_sha
         or receipt.get("runnerSha256") != args.runner_sha
         or receipt.get("workerSha256") != args.worker_sha
+        or receipt.get("adminRootDependencyAdoptionReceiptSha256")
+            != args.admin_root_dependency_adoption_receipt_sha
         or not SHA_PATTERN.fullmatch(
             str(receipt.get("stageApprovalReceiptSha256") or "")
         )
@@ -3709,6 +4284,104 @@ def exact_loaded_environment_matches(current, previous):
     )
 
 
+def authorized_admin_engine_configuration_evolution_matches(
+    current,
+    previous,
+):
+    try:
+        configuration = validate_configuration_runtime_anchor(
+            read_json(CONFIGURATION_RECEIPT)
+        )
+        if configuration.get("schema") != (
+            "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+        ):
+            return False
+        predecessor = configuration_predecessor_receipt(
+            configuration.get(
+                "predecessorConfigurationReceiptSha256"
+            )
+        )
+    except (OSError, RuntimeError, ValueError, json.JSONDecodeError):
+        return False
+    previous_manifest = previous.get("environmentFileManifest", [])
+    current_manifest = current.get("environmentFileManifest", [])
+    if len(previous_manifest) != 1 or len(current_manifest) != 1:
+        return False
+    previous_file = dict(previous_manifest[0])
+    current_file = dict(current_manifest[0])
+    previous_file_sha = previous_file.pop("sha256", None)
+    current_file_sha = current_file.pop("sha256", None)
+    previous_names = previous.get("configuredEnvironmentNames", [])
+    current_names = current.get("configuredEnvironmentNames", [])
+    expected_current_names = sorted(
+        list(previous_names) + [ADMIN_ENGINE_TOKEN_NAME]
+    )
+    previous_security_names = previous.get(
+        "expectedSecurityConfigurationNames",
+        [],
+    )
+    expected_current_security_names = sorted(
+        list(previous_security_names) + [ADMIN_ENGINE_TOKEN_NAME]
+    )
+    load_state = current.get(
+        "processConfiguredEnvironmentLoadState"
+    )
+    exact_loaded = bool(
+        load_state == "EXACT_CONFIGURED"
+        and current.get("processConfiguredEnvironmentMatched") is True
+        and current.get("processPendingRestartEnvironmentNames") == []
+        and current.get("processSecurityConfigurationNames")
+            == current.get("expectedSecurityConfigurationNames")
+        and current.get("processSecurityConfigurationHmacSha256")
+            == current.get("expectedSecurityConfigurationHmacSha256")
+    )
+    engine_pending = bool(
+        load_state == "ENGINE_CREDENTIAL_PENDING_RESTART"
+        and current.get("processConfiguredEnvironmentMatched") is False
+        and current.get("processPendingRestartEnvironmentNames")
+            == [ADMIN_ENGINE_TOKEN_NAME]
+    )
+    return bool(
+        configuration.get("adminEngineCredentialProvisioningState")
+            == "ADOPTED_EXISTING_EXACT_DELTA"
+        and configuration.get("engineCounterpartClosureClaimed") is False
+        and predecessor.get("environmentAfterSha256")
+            == previous.get("configuredEnvironmentSha256")
+        and previous_file_sha
+            == previous.get("configuredEnvironmentSha256")
+        and configuration.get("environmentAfterSha256")
+            == current.get("configuredEnvironmentSha256")
+        and current_file_sha
+            == current.get("configuredEnvironmentSha256")
+        and previous_file == current_file
+        and current.get("environmentFilePaths")
+            == previous.get("environmentFilePaths")
+        and ADMIN_ENGINE_TOKEN_NAME not in previous_names
+        and current_names == expected_current_names
+        and ADMIN_ENGINE_TOKEN_NAME not in previous_security_names
+        and current.get("expectedSecurityConfigurationNames")
+            == expected_current_security_names
+        and current.get("api2EventKeyManifest")
+            == previous.get("api2EventKeyManifest")
+        and current.get("configuredFlagValues")
+            == previous.get("configuredFlagValues")
+        and current.get("processDatabaseBindingMatched") is True
+        and current.get(
+            "processConfiguredEnvironmentPreStageCompatible"
+        ) is True
+        and current.get(
+            "processConfiguredEnvironmentMismatchNames"
+        ) == []
+        and current.get("processForbiddenOverrideNames") == []
+        and (exact_loaded or engine_pending)
+        and all(
+            current.get("configuredFlagValues", {}).get(name) == "false"
+            and current.get("processFlagValues", {}).get(name) == "false"
+            for name in FALSE_FLAGS
+        )
+    )
+
+
 def assert_legacy_runtime_contract(release, current):
     previous = predecessor_facts(release)["serviceSnapshotBeforeStage"]
     exact_fields = (
@@ -3761,21 +4434,24 @@ def assert_restored_predecessor_runtime_contract(release, current):
     expected_argv_sha256 = sha256_bytes(
         ("\0".join(expected_argv) + "\0").encode("utf-8")
     )
+    configuration_matches = (
+        exact_loaded_environment_matches(current, previous)
+        or authorized_admin_engine_configuration_evolution_matches(
+            current,
+            previous,
+        )
+    )
     if (
         current.get("user") != previous.get("user")
         or current.get("group") != previous.get("group")
         or current.get("fragmentPath") != previous.get("fragmentPath")
         or current.get("fragmentFileManifest")
             != previous.get("fragmentFileManifest")
-        or current.get("environmentFilePaths")
-            != previous.get("environmentFilePaths")
-        or current.get("environmentFileManifest")
-            != previous.get("environmentFileManifest")
         or current.get("workingDirectory") != str(ADMIN_ROOT)
         or current.get("configuredJarPath") != str(predecessor_path)
         or current.get("processJarPath") != str(predecessor_path)
         or current.get("processArgvSha256") != expected_argv_sha256
-        or not exact_loaded_environment_matches(current, previous)
+        or not configuration_matches
         or current.get("dropInManifest")
             != release_dropin_manifest(
                 release, "rollback-systemd-dropin.conf"
@@ -3919,6 +4595,147 @@ def assert_candidate_active(args, release):
     return current
 
 
+def final_default_off_current_read(
+    args,
+    release,
+    mysql,
+    expected_migration_facts,
+):
+    initial_service = assert_candidate_active(args, release)
+    before_probe = exact_migration_facts(mysql)
+    if before_probe != expected_migration_facts:
+        raise RuntimeError(
+            "043 current-read drifted before final default-off probe"
+        )
+    disabled_probe, after_probe = disabled_attribution_ingress_probe(
+        mysql, before_probe
+    )
+    final_service = assert_candidate_active(args, release)
+    if initial_service != final_service:
+        raise RuntimeError(
+            "candidate service changed during final default-off probe"
+        )
+    if after_probe != before_probe:
+        raise RuntimeError(
+            "attribution counts changed during final default-off probe"
+        )
+    return final_service, {
+        "schema": "fbsir.u3wDefaultOffFinalCurrentRead.v1",
+        "verified": True,
+        "serviceStableDuringProbe": True,
+        "serviceInvocationId": final_service.get("invocationId"),
+        "serviceJarSha256": final_service.get("jarSha256"),
+        "disabledAttributionIngressProbe": disabled_probe,
+        "migrationFactsBeforeProbe": before_probe,
+        "migrationFactsAfterProbe": after_probe,
+        "eventAndJourneyCountsUnchanged": True,
+        "observedAt": utc_now(),
+    }
+
+
+def validate_final_default_off_current_read(
+    evidence,
+    service,
+    migration_facts,
+):
+    probe = (
+        evidence.get("disabledAttributionIngressProbe")
+        if isinstance(evidence, dict) else None
+    )
+    probe_fields = {
+        "schema",
+        "path",
+        "method",
+        "httpStatus",
+        "responseDisposition",
+        "verifiedDisabled",
+        "acceptedDisabledHttpStatuses",
+        "trafficClass",
+        "signingKeyId",
+        "signatureAlgorithm",
+        "probeIdentity",
+        "identityCountsBefore",
+        "identityCountsAfter",
+        "globalCountsBefore",
+        "globalCountsAfter",
+        "rawNonceDisclosed",
+        "rawSignatureDisclosed",
+        "signingKeyMaterialDisclosed",
+        "secretsDisclosed",
+        "observedAt",
+    }
+    probe_identity = (
+        probe.get("probeIdentity") if isinstance(probe, dict) else None
+    )
+    identity_before = (
+        probe.get("identityCountsBefore")
+        if isinstance(probe, dict) else None
+    )
+    identity_after = (
+        probe.get("identityCountsAfter")
+        if isinstance(probe, dict) else None
+    )
+    expected_identity_fields = {
+        "eventId", "receiptId", "nonceHash", "journeyId"
+    }
+    expected_global_counts = {
+        "eventCount": migration_facts.get("eventCount"),
+        "journeyCount": migration_facts.get("journeyCount"),
+    } if isinstance(migration_facts, dict) else None
+    if (
+        not isinstance(evidence, dict)
+        or not isinstance(service, dict)
+        or evidence.get("schema")
+            != "fbsir.u3wDefaultOffFinalCurrentRead.v1"
+        or evidence.get("verified") is not True
+        or evidence.get("serviceStableDuringProbe") is not True
+        or evidence.get("serviceInvocationId")
+            != service.get("invocationId")
+        or evidence.get("serviceJarSha256") != service.get("jarSha256")
+        or evidence.get("migrationFactsBeforeProbe") != migration_facts
+        or evidence.get("migrationFactsAfterProbe") != migration_facts
+        or evidence.get("eventAndJourneyCountsUnchanged") is not True
+        or not isinstance(probe, dict)
+        or set(probe) != probe_fields
+        or probe.get("schema")
+            != "fbsir.u3wSignedDisabledAttributionIngressProbe.v1"
+        or probe.get("path") != ATTRIBUTION_INGRESS_PATH
+        or probe.get("method") != "POST"
+        or probe.get("httpStatus") != DISABLED_INGRESS_HTTP_STATUS
+        or probe.get("responseDisposition") != "ROUTE_NOT_FOUND"
+        or probe.get("verifiedDisabled") is not True
+        or probe.get("acceptedDisabledHttpStatuses")
+            != [DISABLED_INGRESS_HTTP_STATUS]
+        or probe.get("trafficClass") != "PROBE"
+        or re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}",
+            str(probe.get("signingKeyId") or ""),
+        ) is None
+        or probe.get("signatureAlgorithm") != "hmac-sha256-v1"
+        or not isinstance(probe_identity, dict)
+        or set(probe_identity) != expected_identity_fields
+        or any(
+            not SHA_PATTERN.fullmatch(str(value or ""))
+            for value in probe_identity.values()
+        )
+        or identity_before
+            != {name: 0 for name in expected_identity_fields}
+        or identity_after
+            != {name: 0 for name in expected_identity_fields}
+        or probe.get("globalCountsBefore") != expected_global_counts
+        or probe.get("globalCountsAfter") != expected_global_counts
+        or probe.get("rawNonceDisclosed") is not False
+        or probe.get("rawSignatureDisclosed") is not False
+        or probe.get("signingKeyMaterialDisclosed") is not False
+        or probe.get("secretsDisclosed") is not False
+        or not isinstance(probe.get("observedAt"), str)
+    ):
+        raise RuntimeError(
+            "final default-off current-read evidence is invalid"
+        )
+    return evidence
+
+
 def deployment_receipt(
     args,
     stage_path,
@@ -3929,7 +4746,13 @@ def deployment_receipt(
     rollback_execution_path,
     database_changed_this_run,
     database_changed_since_stage,
+    final_current_read,
 ):
+    validate_final_default_off_current_read(
+        final_current_read,
+        after,
+        migration_facts,
+    )
     active_nginx, nginx_dump_sha256 = active_nginx_manifest()
     receipt = dict(stage)
     receipt.update(
@@ -3964,6 +4787,7 @@ def deployment_receipt(
                 database_changed_since_stage,
             "productionServiceChanged": True,
             "configurationLoaded": True,
+            "finalDefaultOffCurrentRead": final_current_read,
             "generatedAt": utc_now(),
         }
     )
@@ -4328,6 +5152,9 @@ def apply_release(args):
             or existing.get("state") != "DEPLOYED_DEFAULT_OFF"
             or existing.get("releaseId") != args.release_id
             or existing.get("sourceCommit") != args.source_commit
+            or existing.get(
+                "adminRootDependencyAdoptionReceiptSha256"
+            ) != args.admin_root_dependency_adoption_receipt_sha
             or existing.get("stageReceiptSha256")
             != sha256_file(stage_path)
             or not SHA_PATTERN.fullmatch(
@@ -4345,6 +5172,11 @@ def apply_release(args):
                 )
         ):
             raise RuntimeError("existing deployment receipt identity drifted")
+        validate_final_default_off_current_read(
+            existing.get("finalDefaultOffCurrentRead"),
+            existing.get("serviceAfter"),
+            existing.get("migrationFacts"),
+        )
         migration_lease = None
         try:
             migration_lease = deployed_migration_lease(
@@ -4368,6 +5200,12 @@ def apply_release(args):
                 raise RuntimeError(
                     "existing deployment database evidence drifted"
                 )
+            final_default_off_current_read(
+                args,
+                release,
+                migration_lease.mysql,
+                current_migration,
+            )
         except Exception as error:
             try:
                 failure_path = write_apply_failure_receipt(
@@ -4508,6 +5346,12 @@ def apply_release(args):
             predecessor_after_rollback,
             after,
         )
+        after, final_current_read = final_default_off_current_read(
+            args,
+            release,
+            migration_lease.mysql,
+            migration_facts,
+        )
         receipt = deployment_receipt(
             args,
             stage_path,
@@ -4518,6 +5362,7 @@ def apply_release(args):
             rollback_execution_path,
             migration_lease.database_changed_this_run,
             migration_lease.database_changed_since_stage,
+            final_current_read,
         )
         validate_release_evidence(
             args, release, receipt, require_execution=True
@@ -4531,6 +5376,24 @@ def apply_release(args):
             raise RuntimeError(
                 "043 final current-read drifted before receipt commit"
             )
+        after, final_current_read = final_default_off_current_read(
+            args,
+            release,
+            migration_lease.mysql,
+            migration_facts,
+        )
+        receipt = deployment_receipt(
+            args,
+            stage_path,
+            stage,
+            migration_facts,
+            before,
+            after,
+            rollback_execution_path,
+            migration_lease.database_changed_this_run,
+            migration_lease.database_changed_since_stage,
+            final_current_read,
+        )
         atomic_json(deployment_path, receipt)
         deployment_committed = True
     except Exception as error:
@@ -4918,6 +5781,8 @@ def validate_deployment_receipt(args, release):
         or receipt.get("state") != "DEPLOYED_DEFAULT_OFF"
         or receipt.get("releaseId") != args.release_id
         or receipt.get("sourceCommit") != args.source_commit
+        or receipt.get("adminRootDependencyAdoptionReceiptSha256")
+            != args.admin_root_dependency_adoption_receipt_sha
         or receipt.get("applicationRollbackProven") is not True
         or receipt.get("databaseRollbackSafetyProven") is not True
         or receipt.get("databaseDownClaimed") is not False
@@ -4934,6 +5799,11 @@ def validate_deployment_receipt(args, release):
             != receipt.get("productionDatabaseChangedSinceStage")
     ):
         raise RuntimeError("deployment receipt identity is invalid")
+    validate_final_default_off_current_read(
+        receipt.get("finalDefaultOffCurrentRead"),
+        receipt.get("serviceAfter"),
+        receipt.get("migrationFacts"),
+    )
     validate_staged_release_artifacts(args, release, receipt)
     validate_release_evidence(
         args, release, receipt, require_execution=True
@@ -4951,6 +5821,12 @@ def verify_release(args):
             args, release, deployment
         )
         migration = migration_lease.facts
+        current, _ = final_default_off_current_read(
+            args,
+            release,
+            migration_lease.mysql,
+            migration,
+        )
         frontend = tree_manifest(release / "frontend")
         verified = bool(
             CURRENT_LINK.resolve() == release.resolve()
@@ -5910,6 +6786,10 @@ def main():
     parser.add_argument("--plan-receipt-sha", required=True)
     parser.add_argument("--backup-receipt-sha", required=True)
     parser.add_argument("--baseline-receipt-sha", required=True)
+    parser.add_argument(
+        "--admin-root-dependency-adoption-receipt-sha",
+        required=True,
+    )
     parser.add_argument("--configuration-receipt-sha", required=True)
     parser.add_argument("--stage-receipt-sha", required=True)
     parser.add_argument("--deployment-receipt-sha", required=True)
@@ -5949,7 +6829,9 @@ def main():
                 os.fchmod(descriptor, 0o600)
             elif status.st_mode & 0o777 != 0o600:
                 raise RuntimeError("global release lock mode is invalid")
-            fcntl.flock(descriptor, lock_mode)
+            acquire_release_lock(descriptor, lock_mode)
+            validate_arguments(args)
+            validate_target_plan_time(args)
             print(canonical_json(execute(args)))
         finally:
             fcntl.flock(descriptor, fcntl.LOCK_UN)

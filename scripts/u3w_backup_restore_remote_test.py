@@ -2,6 +2,7 @@ import base64
 import datetime as dt
 import hashlib
 import importlib.util
+import inspect
 import json
 import os
 import pathlib
@@ -9,12 +10,13 @@ import sys
 import tempfile
 import types
 import unittest
+from unittest import mock
 
 
 HERE = pathlib.Path(__file__).resolve().parent
 if "fcntl" not in sys.modules:
     sys.modules["fcntl"] = types.SimpleNamespace(
-        LOCK_EX=2, LOCK_UN=8, flock=lambda *_: None
+        LOCK_EX=2, LOCK_NB=4, LOCK_UN=8, flock=lambda *_: None
     )
 if "pwd" not in sys.modules:
     sys.modules["pwd"] = types.SimpleNamespace(
@@ -36,6 +38,280 @@ restore = load(
 
 
 class RemoteSafetyTest(unittest.TestCase):
+    def test_workers_harden_shared_lock_and_backup_database_lease(self):
+        backup_lock = inspect.getsource(backup.open_host_change_lock)
+        restore_lock = inspect.getsource(restore.open_host_change_lock)
+        for source in (backup_lock, restore_lock):
+            self.assertIn("O_NOFOLLOW", source)
+            self.assertIn("st_nlink != 1", source)
+            self.assertIn("st_mode & 0o022", source)
+            self.assertIn("st_mode & 0o777 != 0o600", source)
+            self.assertNotIn("os.fchmod", source)
+        backup_flow = inspect.getsource(backup.run_backup)
+        plan_flow = inspect.getsource(backup.run_plan)
+        self.assertIn(
+            '"schema": "fbsir.u3wDatabaseBackupPlan.v2"',
+            plan_flow,
+        )
+        self.assertIn('"plannedDdlProtectionMode"', plan_flow)
+        self.assertIn('"databaseProtectionActive": False', plan_flow)
+        self.assertIn('"sourceSnapshotExactlyMatched": False', plan_flow)
+        self.assertNotIn('"ddlProtectionMode": DDL_PROTECTION_MODE', plan_flow)
+        self.assertLess(
+            backup_flow.index("database_lease.acquire()"),
+            backup_flow.index("identity_before, facts_before"),
+        )
+        self.assertLess(
+            backup_flow.index("database_lease.acquire()"),
+            backup_flow.index("safe_run_directory(args.run_id)"),
+        )
+        self.assertIn(
+            "START TRANSACTION WITH CONSISTENT SNAPSHOT",
+            inspect.getsource(backup.DatabaseProtectionLease.acquire),
+        )
+        self.assertIn(
+            "SELECT 1 FROM {} LIMIT 0",
+            inspect.getsource(backup.DatabaseProtectionLease.acquire),
+        )
+        self.assertNotIn(
+            "LOCK INSTANCE FOR BACKUP",
+            inspect.getsource(backup.DatabaseProtectionLease.acquire),
+        )
+        self.assertIn(
+            "SELECT GET_LOCK(%s,%s)",
+            inspect.getsource(backup.DatabaseProtectionLease.acquire),
+        )
+        self.assertIn(
+            "deadline = monotonic() + LOCK_TIMEOUT_SECONDS",
+            inspect.getsource(backup.DatabaseProtectionLease.acquire),
+        )
+        self.assertIn(
+            "database metadata protection acquisition timed out",
+            inspect.getsource(backup.DatabaseProtectionLease.acquire),
+        )
+        self.assertIn(
+            "acquire_bounded_flock(descriptor)",
+            inspect.getsource(restore.main),
+        )
+        self.assertEqual(
+            backup.DDL_PROTECTION_MODE,
+            "HOST_FLOCK_NAMED_LOCK_READ_ONLY_SNAPSHOT_FULL_OBJECT_MDL_"
+            "PRE_POST_STABILITY_AND_APPROVED_NO_DDL_WINDOW",
+        )
+
+    def test_database_lease_holds_every_existing_object_mdl_until_rollback(
+        self,
+    ):
+        class FakeCursor:
+            def __init__(self, connection):
+                self.connection = connection
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def execute(self, sql, args=None):
+                self.connection.statements.append((sql, args))
+                self.connection.last_sql = sql
+
+            def fetchone(self):
+                if "GET_LOCK" in self.connection.last_sql:
+                    return (1,)
+                if "RELEASE_LOCK" in self.connection.last_sql:
+                    return (1,)
+                raise AssertionError(self.connection.last_sql)
+
+            def fetchall(self):
+                if "information_schema.tables" in self.connection.last_sql:
+                    return (
+                        ("alpha", "BASE TABLE"),
+                        ("odd`name", "VIEW"),
+                    )
+                raise AssertionError(self.connection.last_sql)
+
+        class FakeConnection:
+            def __init__(self):
+                self.statements = []
+                self.last_sql = ""
+                self.rollback_count = 0
+                self.closed = False
+
+            def cursor(self):
+                return FakeCursor(self)
+
+            def rollback(self):
+                self.rollback_count += 1
+
+            def close(self):
+                self.closed = True
+
+        connection = FakeConnection()
+        fake_pymysql = types.SimpleNamespace(
+            connect=mock.Mock(return_value=connection)
+        )
+        with mock.patch.dict(
+            sys.modules, {"pymysql": fake_pymysql}
+        ):
+            lease = backup.DatabaseProtectionLease(
+                {
+                    "host": "127.0.0.1",
+                    "port": "3306",
+                    "user": "not-serialized",
+                    "password": "not-serialized",
+                }
+            )
+            lease.acquire()
+            self.assertEqual(
+                lease.protected_objects,
+                (
+                    ("alpha", "BASE TABLE"),
+                    ("odd`name", "VIEW"),
+                ),
+            )
+            statements = [item[0] for item in connection.statements]
+            self.assertIn(
+                "START TRANSACTION WITH CONSISTENT SNAPSHOT",
+                statements,
+            )
+            self.assertIn("SELECT 1 FROM `alpha` LIMIT 0", statements)
+            self.assertIn(
+                "SELECT 1 FROM `odd``name` LIMIT 0",
+                statements,
+            )
+            lease.close()
+        self.assertEqual(connection.rollback_count, 1)
+        self.assertTrue(connection.closed)
+        self.assertTrue(
+            any(
+                "RELEASE_LOCK" in sql
+                for sql, _ in connection.statements
+            )
+        )
+        fake_pymysql.connect.assert_called_once()
+        self.assertFalse(
+            fake_pymysql.connect.call_args.kwargs["autocommit"]
+        )
+
+    def test_backup_and_restore_independently_bind_dependency_adoption(self):
+        source_uuid = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+        source_version = "8.0.45"
+        source_commit = "b" * 40
+        dependency_facts = {
+            "legacyAdminRootDependencyState":
+                "EXACT_CONTROLLED_DEPENDENCY",
+            "legacyAdminRootDependencyFactsSha256": "1" * 64,
+            "legacyAdminRootDependencyVersionCount": 1,
+            "legacyAdminRootDependencyReceiptCount": 1,
+            "legacyAdminRootIdentityCount": 1,
+            "legacyAdminRootExactCount": 1,
+            "legacyAdminRootRoleBindingCount": 0,
+            "legacyAdminRootPageChildCount": 0,
+            "legacyForbiddenPublicInit001Through042ReceiptCount": 0,
+            "publicInit043AnyReceiptCount": 0,
+            "attributionInternalReceiptCount": 0,
+            "attributionTableCount": 0,
+            "attributionTriggerCount": 0,
+            "attributionPermissionCount": 0,
+            "w1a043State": "ABSENT",
+        }
+        live_facts = {
+            "databaseServerUuid": source_uuid,
+            "serverVersion": source_version,
+            "rootIdentityCount": 1,
+            "exactRootCount": 1,
+            "rootRoleBindingCount": 0,
+            "rootPageChildCount": 0,
+            "dependencyVersionCount": 1,
+            "dependencyReceiptCount": 1,
+            "dependencyRowsFingerprintSha256":
+                dependency_facts[
+                    "legacyAdminRootDependencyFactsSha256"
+                ],
+            "forbiddenPublicInit001Through042ReceiptCount": 0,
+            "publicInit043ReceiptCount": 0,
+            "attributionInternalReceiptCount": 0,
+            "attributionTableCount": 0,
+            "attributionTriggerCount": 0,
+            "attributionPermissionCount": 0,
+        }
+        receipt = {
+            "schema":
+                "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2",
+            "sourceCommit": source_commit,
+            "databaseServerUuid": source_uuid,
+            "serverVersion": source_version,
+            "adoptionState":
+                "ADOPTED_EXISTING_EXACT_DEPENDENCY",
+            "liveFacts": live_facts,
+            "liveFactsSha256": backup.sha256_bytes(
+                backup.canonical_json(live_facts).encode("utf-8")
+            ),
+        }
+        receipt_text = backup.canonical_json(receipt)
+        digest = backup.sha256_bytes(receipt_text.encode("utf-8"))
+
+        class ReceiptPath:
+            def resolve(self, strict=False):
+                return self
+
+            def stat(self):
+                return types.SimpleNamespace(
+                    st_uid=0,
+                    st_gid=0,
+                    st_mode=0o100600,
+                    st_nlink=1,
+                )
+
+            def is_symlink(self):
+                return False
+
+            def is_file(self):
+                return True
+
+            def read_text(self, encoding=None):
+                return receipt_text
+
+        receipt_path = ReceiptPath()
+        args = types.SimpleNamespace(
+            source_commit=source_commit,
+            admin_root_dependency_adoption_receipt_sha=digest,
+        )
+        with (
+            mock.patch.object(
+                backup,
+                "ADMIN_ROOT_DEPENDENCY_RECEIPT",
+                receipt_path,
+            ),
+            mock.patch.object(
+                restore,
+                "ADMIN_ROOT_DEPENDENCY_RECEIPT",
+                receipt_path,
+            ),
+            mock.patch.object(backup, "sha256_file", return_value=digest),
+            mock.patch.object(restore, "sha256_file", return_value=digest),
+        ):
+            backup.validate_admin_root_dependency_adoption(
+                args,
+                [source_version, "Source distribution", source_uuid],
+                dependency_facts,
+            )
+            restore.validate_admin_root_dependency_adoption(
+                args,
+                source_uuid,
+                source_version,
+                dependency_facts,
+            )
+            dependency_facts["attributionTableCount"] = 1
+            with self.assertRaisesRegex(RuntimeError, "facts drifted"):
+                restore.validate_admin_root_dependency_adoption(
+                    args,
+                    source_uuid,
+                    source_version,
+                    dependency_facts,
+                )
+
     def test_atomic_writers_reject_a_stale_hardlink(self):
         for writer in (
             lambda target: backup.atomic_json(target, {"ok": True}),
@@ -74,6 +350,8 @@ class RemoteSafetyTest(unittest.TestCase):
             "productionDatabaseWrite": False,
             "productionServiceChange": False,
             "officialExpertsPackageChange": False,
+            "expectedAdminRootDependencyAdoptionReceiptSha256":
+                "e" * 64,
         }
         payload = (
             json.dumps(approval, separators=(",", ":")) + "\n"
@@ -86,6 +364,7 @@ class RemoteSafetyTest(unittest.TestCase):
             approval_json_base64=base64.b64encode(payload).decode(),
             runner_sha="c" * 64,
             worker_sha="d" * 64,
+            admin_root_dependency_adoption_receipt_sha="e" * 64,
         )
         backup.validate_arguments(args)
         args.approval_sha = "0" * 64

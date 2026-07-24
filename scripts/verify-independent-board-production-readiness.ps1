@@ -5,6 +5,7 @@ param(
     [string]$ExpectedBackupReceiptSha256,
     [string]$ExpectedDeploymentReceiptSha256,
     [string]$ExpectedLegacyBaselineReceiptDigest,
+    [string]$ExpectedAdminRootDependencyAdoptionReceiptSha256,
     [string]$ExpectedConfigurationReceiptSha256,
     [string]$ExpectedReleasePlanReceiptSha256,
     [string]$ExpectedCommit,
@@ -24,6 +25,8 @@ $DatabaseBackupReceiptPath = '/opt/fbsir/admin/backups/latest/receipt.json'
 $DeploymentReceiptPath = '/opt/fbsir/admin/releases/latest-receipt.json'
 $LegacyBaselineReceiptPath =
     '/opt/fbsir/admin/baselines/latest/adoption-receipt.json'
+$AdminRootDependencyAdoptionReceiptPath =
+    '/opt/fbsir/admin/dependencies/latest/adoption-receipt.json'
 $ConfigurationReceiptPath =
     '/opt/fbsir/admin/configuration/latest/configuration-receipt.json'
 $Api2EventKeyPath =
@@ -202,6 +205,7 @@ function Assert-SafeRemoteParameters {
             $ExpectedBackupReceiptSha256,
             $ExpectedDeploymentReceiptSha256,
             $ExpectedLegacyBaselineReceiptDigest,
+            $ExpectedAdminRootDependencyAdoptionReceiptSha256,
             $ExpectedConfigurationReceiptSha256,
             $ExpectedReleasePlanReceiptSha256)) {
         if ($anchor -and $anchor -notmatch '^[0-9a-fA-F]{64}$') {
@@ -223,6 +227,12 @@ function Assert-SafeRemoteParameters {
     }
     if ($effectiveStage -and -not $ExpectedConfigurationReceiptSha256) {
         throw 'PREPARED_FOR_STAGE requires the configuration out-of-band SHA-256 anchor'
+    }
+    if ($effectiveStage -and
+        -not $ExpectedAdminRootDependencyAdoptionReceiptSha256) {
+        throw (
+            'PREPARED_FOR_STAGE requires the admin-root dependency ' +
+            'adoption out-of-band SHA-256 anchor')
     }
     if ($effectiveStage -and -not $ExpectedReleasePlanReceiptSha256) {
         throw 'PREPARED_FOR_STAGE requires the release-plan out-of-band SHA-256 anchor'
@@ -423,6 +433,32 @@ function Get-GitState {
     if ($expected -notmatch '^[0-9a-f]{40}$') {
         throw 'ExpectedCommit must be a 40-hex commit'
     }
+    $branch = (& git -C $RepoRoot branch --show-current).Trim()
+    if ($LASTEXITCODE -ne 0 -or
+        [string]::IsNullOrWhiteSpace($branch)) {
+        throw 'production readiness requires a named branch'
+    }
+    $upstreamCommit = (
+        & git -C $RepoRoot rev-parse '@{upstream}'
+    ).Trim().ToLowerInvariant()
+    if ($LASTEXITCODE -ne 0 -or
+        $upstreamCommit -notmatch '^[0-9a-f]{40}$') {
+        throw 'production readiness requires an exact upstream'
+    }
+    $remoteRows = @(
+        & git -C $RepoRoot ls-remote --exit-code origin (
+            "refs/heads/$branch")
+    )
+    if ($LASTEXITCODE -ne 0 -or $remoteRows.Count -ne 1) {
+        throw 'production readiness cannot resolve the origin branch'
+    }
+    $originHead = (
+        $remoteRows[0] -split '\s+', 2
+    )[0].ToLowerInvariant()
+    $upstreamOriginAligned = (
+        $head -ceq $upstreamCommit -and
+        $head -ceq $originHead
+    )
     $status = & git -C $RepoRoot status --porcelain=v1
     if ($LASTEXITCODE -ne 0) {
         throw 'git status failed'
@@ -628,6 +664,10 @@ function Get-GitState {
         clean = [string]::IsNullOrWhiteSpace(($status -join "`n"))
         sourceCommit = $head
         expectedSourceCommit = $expected
+        branch = $branch
+        upstreamCommit = $upstreamCommit
+        originHead = $originHead
+        upstreamOriginAligned = $upstreamOriginAligned
         w1a043CompatibilityVersions = @($verifiedVersions | Sort-Object)
         w1a043CompatibilityReceipts = @($compatibilityReceipts)
         # Full 035-042 canonical-chain compatibility is intentionally distinct
@@ -667,18 +707,24 @@ import subprocess
 import urllib.error
 import urllib.request
 import zipfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 SERVICE_UNIT = __SERVICE_UNIT__
 TARGET_HOST = __TARGET_HOST__
 BACKUP_RECEIPT_PATH = __BACKUP_RECEIPT_PATH__
 DEPLOYMENT_RECEIPT_PATH = __DEPLOYMENT_RECEIPT_PATH__
 LEGACY_BASELINE_RECEIPT_PATH = __LEGACY_BASELINE_RECEIPT_PATH__
+ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_PATH = (
+    __ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_PATH__
+)
 CONFIGURATION_RECEIPT_PATH = __CONFIGURATION_RECEIPT_PATH__
 API2_EVENT_KEY_PATH = __API2_EVENT_KEY_PATH__
 EXPECTED_BACKUP_RECEIPT_SHA256 = __EXPECTED_BACKUP_RECEIPT_SHA256__
 EXPECTED_DEPLOYMENT_RECEIPT_SHA256 = __EXPECTED_DEPLOYMENT_RECEIPT_SHA256__
 EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST = __EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST__
+EXPECTED_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256 = (
+    __EXPECTED_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256__
+)
 EXPECTED_CONFIGURATION_RECEIPT_SHA256 = __EXPECTED_CONFIGURATION_RECEIPT_SHA256__
 EXPECTED_RELEASE_PLAN_RECEIPT_SHA256 = __EXPECTED_RELEASE_PLAN_RECEIPT_SHA256__
 EXPECTED_SOURCE_COMMIT = __EXPECTED_SOURCE_COMMIT__
@@ -687,6 +733,12 @@ EXPECTED_BACKUP_WORKER_SHA256 = __EXPECTED_BACKUP_WORKER_SHA256__
 EXPECTED_RESTORE_VERIFIER_SHA256 = __EXPECTED_RESTORE_VERIFIER_SHA256__
 EXPECTED_BASELINE_RUNNER_SHA256 = __EXPECTED_BASELINE_RUNNER_SHA256__
 EXPECTED_BASELINE_WORKER_SHA256 = __EXPECTED_BASELINE_WORKER_SHA256__
+EXPECTED_ADMIN_ROOT_DEPENDENCY_RUNNER_SHA256 = (
+    __EXPECTED_ADMIN_ROOT_DEPENDENCY_RUNNER_SHA256__
+)
+EXPECTED_ADMIN_ROOT_DEPENDENCY_WORKER_SHA256 = (
+    __EXPECTED_ADMIN_ROOT_DEPENDENCY_WORKER_SHA256__
+)
 EXPECTED_CONFIGURATION_RUNNER_SHA256 = __EXPECTED_CONFIGURATION_RUNNER_SHA256__
 EXPECTED_CONFIGURATION_WORKER_SHA256 = __EXPECTED_CONFIGURATION_WORKER_SHA256__
 EXPECTED_RELEASE_RUNNER_SHA256 = __EXPECTED_RELEASE_RUNNER_SHA256__
@@ -722,6 +774,7 @@ PROCESS_SECURITY_ENVIRONMENT_NAMES = (
     DATABASE_ENVIRONMENT_NAMES
     + DATABASE_ENVIRONMENT_ALIAS_NAMES
     + FLAG_NAMES
+    + ["FBSIR_ENGINE_TOKEN"]
 )
 EVENT_KEY_ID_NAME = (
     "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_EVENT_KEY_ID"
@@ -736,6 +789,50 @@ PREVIOUS_EVENT_KEY_NAME = (
 SAME_BINDING_KEY_NAME = (
     "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET"
 )
+ADMIN_ENGINE_TOKEN_NAME = "FBSIR_ENGINE_TOKEN"
+ATTRIBUTION_INGRESS_PATH = (
+    "/internal/independent-board/attribution/events"
+)
+DISABLED_INGRESS_HTTP_STATUS = 404
+ATTRIBUTION_EVENT_SIGNED_STRING_FIELDS = (
+    "agentName",
+    "channel",
+    "classificationSource",
+    "classifierVersion",
+    "confidenceBucket",
+    "contractId",
+    "embeddedContractVersion",
+    "eventId",
+    "eventType",
+    "expiresAt",
+    "hostClientFamily",
+    "hostVersion",
+    "intentSignal",
+    "issuedAt",
+    "journeyId",
+    "keyId",
+    "listedManifestVersion",
+    "listedSurface",
+    "marketplace",
+    "nonce",
+    "occurredAt",
+    "outcome",
+    "packageId",
+    "previousEventDigest",
+    "productId",
+    "receiptId",
+    "requestSource",
+    "reviewMode",
+    "sameBindingKey",
+    "schemaVersion",
+    "serverBindingId",
+    "signatureAlgorithm",
+    "tenantSubjectDigest",
+    "terminal",
+    "traceparent",
+    "trafficAuthority",
+    "trafficClass",
+)
 MANAGED_W1A_ENVIRONMENT_NAMES = tuple(
     FLAG_NAMES
     + [
@@ -745,6 +842,9 @@ MANAGED_W1A_ENVIRONMENT_NAMES = tuple(
         PREVIOUS_EVENT_KEY_NAME,
         SAME_BINDING_KEY_NAME,
     ]
+)
+MANAGED_RESTART_ENVIRONMENT_NAMES = (
+    MANAGED_W1A_ENVIRONMENT_NAMES + (ADMIN_ENGINE_TOKEN_NAME,)
 )
 PLAN_TARGET_FIELDS = frozenset(
     (
@@ -829,6 +929,108 @@ def exact_w1a_migration_facts(facts):
         and facts.get("journeyCount") >= 0
         and facts.get("schemaFingerprintSha256")
             == EXPECTED_W1A_SCHEMA_FINGERPRINT
+    )
+
+def recorded_final_default_off_current_read_valid(receipt):
+    evidence = receipt.get("finalDefaultOffCurrentRead")
+    service_after = receipt.get("serviceAfter")
+    migration = receipt.get("migrationFacts")
+    probe = (
+        evidence.get("disabledAttributionIngressProbe")
+        if isinstance(evidence, dict) else None
+    )
+    probe_identity = (
+        probe.get("probeIdentity") if isinstance(probe, dict) else None
+    )
+    identity_before = (
+        probe.get("identityCountsBefore")
+        if isinstance(probe, dict) else None
+    )
+    identity_after = (
+        probe.get("identityCountsAfter")
+        if isinstance(probe, dict) else None
+    )
+    expected_identity_fields = {
+        "eventId",
+        "receiptId",
+        "nonceHash",
+        "journeyId",
+    }
+    expected_global_counts = {
+        "eventCount": migration.get("eventCount"),
+        "journeyCount": migration.get("journeyCount"),
+    } if isinstance(migration, dict) else None
+    return bool(
+        isinstance(evidence, dict)
+        and isinstance(service_after, dict)
+        and exact_w1a_migration_facts(migration)
+        and evidence.get("schema")
+            == "fbsir.u3wDefaultOffFinalCurrentRead.v1"
+        and evidence.get("verified") is True
+        and evidence.get("serviceStableDuringProbe") is True
+        and evidence.get("serviceInvocationId")
+            == service_after.get("invocationId")
+        and evidence.get("serviceJarSha256")
+            == service_after.get("jarSha256")
+        and evidence.get("migrationFactsBeforeProbe") == migration
+        and evidence.get("migrationFactsAfterProbe") == migration
+        and evidence.get("eventAndJourneyCountsUnchanged") is True
+        and isinstance(probe, dict)
+        and set(probe) == {
+            "schema",
+            "path",
+            "method",
+            "httpStatus",
+            "responseDisposition",
+            "verifiedDisabled",
+            "acceptedDisabledHttpStatuses",
+            "trafficClass",
+            "signingKeyId",
+            "signatureAlgorithm",
+            "probeIdentity",
+            "identityCountsBefore",
+            "identityCountsAfter",
+            "globalCountsBefore",
+            "globalCountsAfter",
+            "rawNonceDisclosed",
+            "rawSignatureDisclosed",
+            "signingKeyMaterialDisclosed",
+            "secretsDisclosed",
+            "observedAt",
+        }
+        and probe.get("schema")
+            == "fbsir.u3wSignedDisabledAttributionIngressProbe.v1"
+        and probe.get("path") == ATTRIBUTION_INGRESS_PATH
+        and probe.get("method") == "POST"
+        and probe.get("httpStatus") == DISABLED_INGRESS_HTTP_STATUS
+        and probe.get("responseDisposition") == "ROUTE_NOT_FOUND"
+        and probe.get("verifiedDisabled") is True
+        and probe.get("acceptedDisabledHttpStatuses")
+            == [DISABLED_INGRESS_HTTP_STATUS]
+        and probe.get("trafficClass") == "PROBE"
+        and re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}",
+            str(probe.get("signingKeyId") or ""),
+        ) is not None
+        and probe.get("signatureAlgorithm") == "hmac-sha256-v1"
+        and isinstance(probe_identity, dict)
+        and set(probe_identity) == expected_identity_fields
+        and all(
+            re.fullmatch(r"[0-9a-f]{64}", str(value or ""))
+                is not None
+            for value in probe_identity.values()
+        )
+        and identity_before
+            == {name: 0 for name in expected_identity_fields}
+        and identity_after
+            == {name: 0 for name in expected_identity_fields}
+        and probe.get("globalCountsBefore") == expected_global_counts
+        and probe.get("globalCountsAfter") == expected_global_counts
+        and probe.get("rawNonceDisclosed") is False
+        and probe.get("rawSignatureDisclosed") is False
+        and probe.get("signingKeyMaterialDisclosed") is False
+        and probe.get("secretsDisclosed") is False
+        and isinstance(probe.get("observedAt"), str)
     )
 
 def stable_database_identity_matches(pre_stage, live):
@@ -946,14 +1148,25 @@ def snapshot_default_off(
                 for name in FLAG_NAMES
             )
         )
-    if state == "LEGACY_W1A_PENDING_RESTART":
+    if state == "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART":
         return bool(
             snapshot.get("processConfiguredEnvironmentMatched") is False
             and snapshot.get(
                 "processPendingRestartEnvironmentNames"
-            ) == sorted(MANAGED_W1A_ENVIRONMENT_NAMES)
+            ) == sorted(MANAGED_RESTART_ENVIRONMENT_NAMES)
             and all(
                 process_flags.get(name) is None
+                for name in FLAG_NAMES
+            )
+        )
+    if state == "ENGINE_CREDENTIAL_PENDING_RESTART":
+        return bool(
+            snapshot.get("processConfiguredEnvironmentMatched") is False
+            and snapshot.get(
+                "processPendingRestartEnvironmentNames"
+            ) == [ADMIN_ENGINE_TOKEN_NAME]
+            and all(
+                process_flags.get(name) == "false"
                 for name in FLAG_NAMES
             )
         )
@@ -1023,8 +1236,101 @@ def snapshot_exact_loaded_from_baseline(live, baseline):
             baseline,
             (
                 "EXACT_CONFIGURED",
-                "LEGACY_W1A_PENDING_RESTART",
+                "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART",
+                "ENGINE_CREDENTIAL_PENDING_RESTART",
             ),
+        )
+    )
+
+def authorized_admin_engine_configuration_evolution_matches(
+    live,
+    baseline,
+    configuration,
+    predecessor,
+):
+    if (
+        not isinstance(live, dict)
+        or not isinstance(baseline, dict)
+        or not isinstance(configuration, dict)
+        or not isinstance(predecessor, dict)
+        or configuration.get("schema")
+            != "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+    ):
+        return False
+    previous_manifest = baseline.get("environmentFileManifest", [])
+    current_manifest = live.get("environmentFileManifest", [])
+    if len(previous_manifest) != 1 or len(current_manifest) != 1:
+        return False
+    previous_file = dict(previous_manifest[0])
+    current_file = dict(current_manifest[0])
+    previous_file_sha = previous_file.pop("sha256", None)
+    current_file_sha = current_file.pop("sha256", None)
+    previous_names = baseline.get("configuredEnvironmentNames", [])
+    current_names = live.get("configuredEnvironmentNames", [])
+    expected_current_names = sorted(
+        list(previous_names) + [ADMIN_ENGINE_TOKEN_NAME]
+    )
+    previous_security_names = baseline.get(
+        "expectedSecurityConfigurationNames", []
+    )
+    expected_current_security_names = sorted(
+        list(previous_security_names) + [ADMIN_ENGINE_TOKEN_NAME]
+    )
+    load_state = live.get("processConfiguredEnvironmentLoadState")
+    exact_loaded = bool(
+        load_state == "EXACT_CONFIGURED"
+        and live.get("processConfiguredEnvironmentMatched") is True
+        and live.get("processPendingRestartEnvironmentNames") == []
+        and live.get("processSecurityConfigurationNames")
+            == live.get("expectedSecurityConfigurationNames")
+        and live.get("processSecurityConfigurationHmacSha256")
+            == live.get("expectedSecurityConfigurationHmacSha256")
+    )
+    engine_pending = bool(
+        load_state == "ENGINE_CREDENTIAL_PENDING_RESTART"
+        and live.get("processConfiguredEnvironmentMatched") is False
+        and live.get("processPendingRestartEnvironmentNames")
+            == [ADMIN_ENGINE_TOKEN_NAME]
+    )
+    return bool(
+        configuration.get("adminEngineCredentialProvisioningState")
+            in {
+                "CREATED_BY_RUN",
+                "ADOPTED_EXISTING_EXACT_DELTA",
+            }
+        and predecessor.get("environmentAfterSha256")
+            == baseline.get("configuredEnvironmentSha256")
+        and previous_file_sha
+            == baseline.get("configuredEnvironmentSha256")
+        and configuration.get("environmentAfterSha256")
+            == live.get("configuredEnvironmentSha256")
+        and current_file_sha
+            == live.get("configuredEnvironmentSha256")
+        and previous_file == current_file
+        and live.get("environmentFilePaths")
+            == baseline.get("environmentFilePaths")
+        and ADMIN_ENGINE_TOKEN_NAME not in previous_names
+        and current_names == expected_current_names
+        and ADMIN_ENGINE_TOKEN_NAME not in previous_security_names
+        and live.get("expectedSecurityConfigurationNames")
+            == expected_current_security_names
+        and live.get("api2EventKeyManifest")
+            == baseline.get("api2EventKeyManifest")
+        and live.get("configuredFlagValues")
+            == baseline.get("configuredFlagValues")
+        and live.get("processDatabaseBindingMatched") is True
+        and live.get(
+            "processConfiguredEnvironmentPreStageCompatible"
+        ) is True
+        and live.get(
+            "processConfiguredEnvironmentMismatchNames"
+        ) == []
+        and live.get("processForbiddenOverrideNames") == []
+        and (exact_loaded or engine_pending)
+        and all(
+            live.get("configuredFlagValues", {}).get(name) == "false"
+            and live.get("processFlagValues", {}).get(name) == "false"
+            for name in FLAG_NAMES
         )
     )
 
@@ -1050,7 +1356,8 @@ def staged_predecessor_snapshot_matches(live, baseline):
         (baseline_load_state,)
         if baseline_load_state in {
             "EXACT_CONFIGURED",
-            "LEGACY_W1A_PENDING_RESTART",
+            "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART",
+            "ENGINE_CREDENTIAL_PENDING_RESTART",
         }
         else ()
     )
@@ -1087,6 +1394,28 @@ def decode_secret_material(encoded):
         return value.encode("utf-8")
     except (ValueError, UnicodeError):
         return None
+
+def exact_admin_engine_delta_predecessor_sha256(path):
+    raw = pathlib.Path(path).read_bytes()
+    try:
+        current = raw.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise RuntimeError(
+            "admin Engine credential environment is not UTF-8"
+        ) from error
+    match = re.search(
+        r"(?:^|\n)FBSIR_ENGINE_TOKEN="
+        r"(?P<credential>[A-Za-z0-9_-]{43,128})\n\Z",
+        current,
+    )
+    if match is None:
+        raise RuntimeError(
+            "admin Engine credential is not one canonical append-only delta"
+        )
+    predecessor = current[:match.start()]
+    if match.start() > 0:
+        predecessor += "\n"
+    return hashlib.sha256(predecessor.encode("utf-8")).hexdigest()
 
 def parse_env_file(filename):
     values = {}
@@ -1290,6 +1619,31 @@ def security_configuration_evidence(process_values, expected_values):
         raise RuntimeError(
             "configured event key does not match API2 material"
         )
+    engine_credential = str(
+        expected_values.get(ADMIN_ENGINE_TOKEN_NAME, "")
+    ).strip()
+    if re.fullmatch(
+        r"[A-Za-z0-9_-]{43,128}", engine_credential
+    ) is None:
+        raise RuntimeError(
+            "admin Engine credential shape is invalid"
+        )
+    engine_material = engine_credential.encode("utf-8")
+    for name in (
+        EVENT_KEY_NAME,
+        PREVIOUS_EVENT_KEY_NAME,
+        SAME_BINDING_KEY_NAME,
+        "FBSIR_TOKEN_SECRET",
+        "WXFBSIR_TOKEN_SECRET",
+    ):
+        comparison = decode_secret_material(expected_values.get(name))
+        if (
+            comparison is not None
+            and hmac.compare_digest(engine_material, comparison)
+        ):
+            raise RuntimeError(
+                "admin Engine credential is not independent"
+            )
     expected_names = sorted(
         name for name in PROCESS_SECURITY_ENVIRONMENT_NAMES
         if name in expected_values
@@ -1381,7 +1735,7 @@ def security_configuration_evidence(process_values, expected_values):
     }
     all_managed_configured = all(
         name in expected_values
-        for name in MANAGED_W1A_ENVIRONMENT_NAMES
+        for name in MANAGED_RESTART_ENVIRONMENT_NAMES
     )
     flags_configured_false = all(
         configured_flags[name] == "false" for name in FLAG_NAMES
@@ -1389,13 +1743,21 @@ def security_configuration_evidence(process_values, expected_values):
     if configured_matched and not pending_names and not mismatch_names:
         load_state = "EXACT_CONFIGURED"
     elif (
-        pending_names == sorted(MANAGED_W1A_ENVIRONMENT_NAMES)
+        pending_names == sorted(MANAGED_RESTART_ENVIRONMENT_NAMES)
         and not mismatch_names
         and all_managed_configured
         and flags_configured_false
         and database_matched
     ):
-        load_state = "LEGACY_W1A_PENDING_RESTART"
+        load_state = "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART"
+    elif (
+        pending_names == [ADMIN_ENGINE_TOKEN_NAME]
+        and not mismatch_names
+        and all_managed_configured
+        and flags_configured_false
+        and database_matched
+    ):
+        load_state = "ENGINE_CREDENTIAL_PENDING_RESTART"
     else:
         load_state = "INVALID_PARTIAL_OR_DRIFTED"
     return {
@@ -1420,7 +1782,8 @@ def security_configuration_evidence(process_values, expected_values):
         "processConfiguredEnvironmentPreStageCompatible":
             load_state in {
                 "EXACT_CONFIGURED",
-                "LEGACY_W1A_PENDING_RESTART",
+                "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART",
+                "ENGINE_CREDENTIAL_PENDING_RESTART",
             },
     }
 
@@ -1887,6 +2250,231 @@ def http_json_document(url):
         document = None
     return {"httpStatus": status, "document": document}
 
+def post_signed_attribution_probe(event):
+    if not isinstance(event, dict):
+        raise RuntimeError("signed attribution probe event is invalid")
+    url = "http://127.0.0.1:8080" + ATTRIBUTION_INGRESS_PATH
+    request = urllib.request.Request(
+        url,
+        data=canonical_json(event).encode("utf-8"),
+        method="POST",
+        headers={
+            "User-Agent":
+                "u3w-readiness-signed-disabled-route/1",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+    )
+    try:
+        with NO_REDIRECT_OPENER.open(request, timeout=10) as response:
+            response.read(1024 * 1024)
+            return response.status
+    except urllib.error.HTTPError as error:
+        error.read(1024 * 1024)
+        return error.code
+    except (OSError, TimeoutError, urllib.error.URLError) as error:
+        raise RuntimeError(
+            "signed attribution probe request failed"
+        ) from error
+
+
+def build_signed_attribution_probe_event(environment, observed=None):
+    key_id = str(environment.get(EVENT_KEY_ID_NAME, "")).strip()
+    key_material = decode_secret_material(
+        environment.get(EVENT_KEY_NAME)
+    )
+    if (
+        re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}",
+            key_id,
+        ) is None
+        or key_material is None
+        or len(key_material) < 32
+    ):
+        raise RuntimeError("attribution probe signing key is invalid")
+    observed = observed or datetime.now(timezone.utc)
+    if observed.tzinfo is None:
+        raise RuntimeError("attribution probe time is invalid")
+    observed = observed.astimezone(timezone.utc)
+    entropy = os.urandom(32)
+
+    def identifier(label):
+        return hashlib.sha256(
+            b"fbsir.u3wDefaultOffSignedProbe.v1\0"
+            + label.encode("ascii")
+            + b"\0"
+            + entropy
+        ).hexdigest()
+
+    def timestamp(value):
+        return (
+            value.astimezone(timezone.utc)
+            .isoformat(timespec="milliseconds")
+            .replace("+00:00", "Z")
+        )
+
+    nonce = "u3w.default.off.probe." + identifier("nonce")[:32]
+    event = {
+        "schemaVersion":
+            "fbsir.independentBoardAttributionEvent.v1",
+        "eventId": identifier("event"),
+        "receiptId": identifier("receipt"),
+        "contractId": "FBSIR_INDEPENDENT_BOARD_W1A_V1",
+        "eventType": "ENTRY_OBSERVED",
+        "sequenceNo": 1,
+        "occurredAt": timestamp(observed),
+        "productId": "fbsir-eight-seat-board",
+        "packageId": "fbsir-eight-seat-board",
+        "agentName": "board-convener",
+        "marketplace": "experts",
+        "listedSurface": "listed_runtime_state",
+        "listedManifestVersion": "26.7.21",
+        "embeddedContractVersion": "26.7.20",
+        "hostClientFamily": "WORKBUDDY",
+        "hostVersion": "UNKNOWN",
+        "terminal": "UNKNOWN",
+        "channel": "OFFICIAL_EXPERTS",
+        "requestSource": "UNKNOWN",
+        "intentSignal": "default_off_probe",
+        "classificationSource": "SERVER_CLASSIFIER",
+        "classifierVersion": "u3w.default.off.probe.v1",
+        "confidenceBucket": "UNKNOWN",
+        "reviewMode": "UNKNOWN",
+        "journeyId": identifier("journey"),
+        "serverBindingId": "srv_" + identifier("binding")[:32],
+        "sameBindingKey": "",
+        "tenantSubjectDigest": identifier("tenant"),
+        "trafficClass": "PROBE",
+        "trafficAuthority": "API2_SERVER_CLASSIFIER_V1",
+        "outcome": "WITHHELD",
+        "previousEventDigest": "",
+        "traceparent": "",
+        "rawContentStored": False,
+        "issuedAt": timestamp(observed),
+        "expiresAt": timestamp(observed + timedelta(seconds=60)),
+        "nonce": nonce,
+        "keyId": key_id,
+        "signatureAlgorithm": "hmac-sha256-v1",
+    }
+    signed_fields = {
+        name: str(event[name]).strip()
+        for name in ATTRIBUTION_EVENT_SIGNED_STRING_FIELDS
+    }
+    signed_fields["rawContentStored"] = "false"
+    signed_fields["sequenceNo"] = "1"
+    event["signature"] = "v1=" + hmac.new(
+        key_material,
+        canonical_json(signed_fields).encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    identity = {
+        "eventId": event["eventId"],
+        "receiptId": event["receiptId"],
+        "nonceHash": hashlib.sha256(
+            nonce.encode("utf-8")
+        ).hexdigest(),
+        "journeyId": event["journeyId"],
+    }
+    return event, identity
+
+
+def attribution_probe_identity_counts(query, identity):
+    if (
+        not isinstance(identity, dict)
+        or set(identity)
+            != {"eventId", "receiptId", "nonceHash", "journeyId"}
+        or any(
+            re.fullmatch(r"[0-9a-f]{64}", str(value or ""))
+                is None
+            for value in identity.values()
+        )
+    ):
+        raise RuntimeError("attribution probe identity is invalid")
+    statements = {
+        "eventId":
+            "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+            "WHERE BINARY event_id=BINARY '{}'",
+        "receiptId":
+            "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+            "WHERE BINARY receipt_id=BINARY '{}'",
+        "nonceHash":
+            "SELECT COUNT(*) FROM fbs_board_attr_event_v1 "
+            "WHERE BINARY nonce_hash=BINARY '{}'",
+        "journeyId":
+            "SELECT COUNT(*) FROM fbs_board_attr_journey_v1 "
+            "WHERE BINARY journey_id=BINARY '{}'",
+    }
+    return {
+        name: int(query(statement.format(identity[name])))
+        for name, statement in statements.items()
+    }
+
+
+def attribution_global_counts(query):
+    return {
+        "eventCount": int(query(
+            "SELECT COUNT(*) FROM fbs_board_attr_event_v1"
+        )),
+        "journeyCount": int(query(
+            "SELECT COUNT(*) FROM fbs_board_attr_journey_v1"
+        )),
+    }
+
+
+def disabled_attribution_ingress_probe(
+    query,
+    environment,
+):
+    event, identity = build_signed_attribution_probe_event(
+        environment
+    )
+    zero_counts = {name: 0 for name in identity}
+    identity_before = attribution_probe_identity_counts(
+        query,
+        identity,
+    )
+    if identity_before != zero_counts:
+        raise RuntimeError(
+            "signed attribution probe identity is not unique"
+        )
+    global_before = attribution_global_counts(query)
+    http_status = post_signed_attribution_probe(event)
+    identity_after = attribution_probe_identity_counts(
+        query,
+        identity,
+    )
+    global_after = attribution_global_counts(query)
+    verified = bool(
+        http_status == DISABLED_INGRESS_HTTP_STATUS
+        and identity_after == zero_counts
+        and global_after == global_before
+    )
+    return {
+        "schema": "fbsir.u3wSignedDisabledAttributionIngressProbe.v1",
+        "path": ATTRIBUTION_INGRESS_PATH,
+        "method": "POST",
+        "httpStatus": http_status,
+        "responseDisposition": (
+            "ROUTE_NOT_FOUND" if http_status == 404 else "REJECTED"
+        ),
+        "verifiedDisabled": verified,
+        "acceptedDisabledHttpStatuses":
+            [DISABLED_INGRESS_HTTP_STATUS],
+        "trafficClass": event["trafficClass"],
+        "signingKeyId": event["keyId"],
+        "signatureAlgorithm": event["signatureAlgorithm"],
+        "probeIdentity": identity,
+        "identityCountsBefore": identity_before,
+        "identityCountsAfter": identity_after,
+        "globalCountsBefore": global_before,
+        "globalCountsAfter": global_after,
+        "rawNonceDisclosed": False,
+        "rawSignatureDisclosed": False,
+        "signingKeyMaterialDisclosed": False,
+        "secretsDisclosed": False,
+        "observedAt": datetime.now(timezone.utc).isoformat(),
+    }
+
 def spring_external_config_manifest():
     admin_root = pathlib.Path("/opt/fbsir/admin")
     name_pattern = re.compile(
@@ -2201,6 +2789,8 @@ database = {
     "boardAttributionEventCount": None,
     "boardAttributionJourneyCount": None,
     "publicInit043Applied": None,
+    "publicInit043AnyReceiptCount": None,
+    "w1a043State": None,
     "w1aSchemaFingerprintSha256": None,
     "schemaBaselineMode": None,
     "legacyBaselineReceiptValid": False,
@@ -2208,10 +2798,40 @@ database = {
     # Intentionally false until a controlled runner and this collector
     # independently recompute every receipt field from live artifacts.
     "legacyBaselineLiveFactsMatched": False,
+    "legacyAdminRootDependencyState": None,
+    "legacyAdminRootDependencyStateVerified": False,
+    "legacyAdminRootDependencyFactsSha256": None,
+    "legacyAdminRootDependencyReceiptCount": 0,
+    "legacyAdminRootDependencyVersionCount": 0,
+    "legacyAdminRootIdentityCount": 0,
+    "legacyAdminRootExactCount": 0,
+    "legacyAdminRootRoleBindingCount": 0,
+    "legacyAdminRootPageChildCount": 0,
+    "legacyForbiddenPublicInit001Through042ReceiptCount": 0,
     "legacyBaselineReceiptDigest": None,
     "legacyBaselineReceiptSha256": None,
     "legacyBaselineMigrationCount": 0,
     "legacyBaselineSourceCommit": None,
+    "legacyBaselineBackupBundleReceiptSha256": None,
+    "adminRootDependencyAdoptionReceiptPath":
+        ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_PATH,
+    "adminRootDependencyAdoptionReceiptSchema": None,
+    "adminRootDependencyAdoptionRunId": None,
+    "adminRootDependencyAdoptionReceiptSha256": None,
+    "adminRootDependencyAdoptionReceiptValid": False,
+    "adminRootDependencyAdoptionReceiptAnchorMatched": False,
+    "adminRootDependencyAdoptionSourceCommit": None,
+    "adminRootDependencyAdoptionDatabaseServerUuid": None,
+    "adminRootDependencyAdoptionLiveFactsSha256": None,
+    "adminRootDependencyAdoptionDependencyRowsFingerprintSha256": None,
+    "adminRootDependencyAdoptionPlanReceiptSha256": None,
+    "adminRootDependencyAdoptionApprovalReceiptSha256": None,
+    "adminRootDependencyAdoptionRunnerSha256": None,
+    "adminRootDependencyAdoptionWorkerSha256": None,
+    "adminRootDependencyAdoptionLiveFactsMatched": False,
+    "adminRootDependencyAdoptionBaselineReceiptSha256": None,
+    "adminRootDependencyAdoptionBackupReceiptSha256": None,
+    "adminRootDependencyAdoptionHistoricalBindingsMatched": False,
 }
 jdbc_url = environment.get("WXFBSIR_MYSQL_URL")
 mysql_user = environment.get("WXFBSIR_MYSQL_USERNAME")
@@ -2221,6 +2841,7 @@ database_aliases = (
     environment.get("FBSIR_MYSQL_USERNAME"),
     environment.get("FBSIR_MYSQL_PASSWORD"),
 )
+query = None
 if any(database_aliases) and (
     not all(database_aliases)
     or database_aliases != (jdbc_url, mysql_user, mysql_password)
@@ -2309,6 +2930,10 @@ if jdbc_url and mysql_user is not None and mysql_password is not None:
             database["migrationDescriptions"].get("public_init_043")
             == "APPLIED:Independent Board exact official experts attribution v1"
         )
+        database["publicInit043AnyReceiptCount"] = int(query(
+            "SELECT COUNT(*) FROM u3w_schema_migration "
+            "WHERE version='public_init_043'"
+        ))
         if database["publicInit043Applied"]:
             database["boardAttributionEventCount"] = int(query(
                 "SELECT COUNT(*) FROM fbs_board_attr_event_v1"
@@ -2409,6 +3034,149 @@ ORDER BY BINARY row_value
             database["w1aSchemaFingerprintSha256"] = hashlib.sha256(
                 (fingerprint_rows + "\n").encode("utf-8")
             ).hexdigest()
+        forbidden_public_versions = ",".join(
+            "'public_init_{:03d}'".format(index)
+            for index in range(1, 43)
+        )
+        dependency_version = (
+            "w1a_043_legacy_admin_root_dependency_20260724_001"
+        )
+        dependency_description = (
+            "APPLIED:W1A_043_LEGACY_ADMIN_ROOT_DEPENDENCY_V1"
+        )
+        dependency_version_count = int(query(
+            "SELECT COUNT(*) FROM u3w_schema_migration "
+            "WHERE version='" + dependency_version + "'"
+        ))
+        dependency_receipt_count = int(query(
+            "SELECT COUNT(*) FROM u3w_schema_migration "
+            "WHERE version='" + dependency_version + "' "
+            "AND description='" + dependency_description + "'"
+        ))
+        forbidden_public_history_count = int(query(
+            "SELECT COUNT(*) FROM u3w_schema_migration "
+            "WHERE version IN (" + forbidden_public_versions + ")"
+        ))
+        root_identity_predicate = (
+            "HEX(menu_name)="
+            "'E78BACE891A3E4BC9AE7AEA1E79086' "
+            "OR BINARY path=BINARY 'independent-board-admin' "
+            "OR BINARY route_name=BINARY 'IndependentBoardAdmin'"
+        )
+        exact_root_predicate = (
+            "HEX(menu_name)='E78BACE891A3E4BC9AE7AEA1E79086' "
+            "AND parent_id=0 AND order_num=5 "
+            "AND BINARY path=BINARY 'independent-board-admin' "
+            "AND component IS NULL AND query IS NULL "
+            "AND BINARY route_name=BINARY 'IndependentBoardAdmin' "
+            "AND is_frame=1 AND is_cache=0 "
+            "AND BINARY menu_type=BINARY 'M' "
+            "AND BINARY visible=BINARY '0' "
+            "AND BINARY status=BINARY '0' "
+            "AND BINARY COALESCE(perms,'')=BINARY '' "
+            "AND BINARY icon=BINARY 'peoples'"
+        )
+        root_identity_count = int(query(
+            "SELECT COUNT(*) FROM sys_menu WHERE "
+            + root_identity_predicate
+        )) if sys_menu_table_count == 1 else 0
+        exact_root_count = int(query(
+            "SELECT COUNT(*) FROM sys_menu WHERE "
+            + exact_root_predicate
+        )) if sys_menu_table_count == 1 else 0
+        root_role_binding_count = int(query(
+            "SELECT COUNT(*) FROM sys_role_menu WHERE menu_id IN "
+            "(SELECT menu_id FROM sys_menu WHERE "
+            + exact_root_predicate + ")"
+        )) if sys_menu_table_count == 1 else 0
+        root_page_child_count = int(query(
+            "SELECT COUNT(*) FROM sys_menu WHERE menu_type IN ('M','C') "
+            "AND parent_id IN (SELECT menu_id FROM sys_menu WHERE "
+            + exact_root_predicate + ")"
+        )) if sys_menu_table_count == 1 else 0
+        dependency_fingerprint_rows = query(
+            "SELECT row_value FROM ("
+            "SELECT CONCAT_WS('|','D',HEX(version),HEX(description)) "
+            "row_value FROM u3w_schema_migration WHERE version='"
+            + dependency_version
+            + "' UNION ALL SELECT CONCAT_WS('|','R',menu_id,"
+            "HEX(menu_name),parent_id,order_num,"
+            "HEX(COALESCE(path,'')),"
+            "HEX(COALESCE(component,'<NULL>')),"
+            "HEX(COALESCE(query,'<NULL>')),"
+            "HEX(COALESCE(route_name,'')),is_frame,is_cache,"
+            "HEX(menu_type),HEX(visible),HEX(status),"
+            "HEX(COALESCE(perms,'')),HEX(icon)) "
+            "FROM sys_menu WHERE " + exact_root_predicate
+            + ") rows_ ORDER BY BINARY row_value"
+        )
+        dependency_facts_sha256 = hashlib.sha256(
+            (dependency_fingerprint_rows + "\n").encode("utf-8")
+        ).hexdigest()
+        dependency_absent = bool(
+            dependency_version_count == 0
+            and dependency_receipt_count == 0
+            and root_identity_count == 0
+            and exact_root_count == 0
+            and root_role_binding_count == 0
+            and root_page_child_count == 0
+            and len([
+                row for row in dependency_fingerprint_rows.splitlines()
+                if row
+            ]) == 2
+        )
+        dependency_exact = bool(
+            dependency_version_count == 1
+            and dependency_receipt_count == 1
+            and root_identity_count == 1
+            and exact_root_count == 1
+            and root_role_binding_count == 0
+            and root_page_child_count == 0
+        )
+        dependency_state = (
+            "EXACT_CONTROLLED_DEPENDENCY"
+            if dependency_exact
+            else "ABSENT"
+            if dependency_absent
+            else "INVALID"
+        )
+        dependency_state_verified = bool(
+            forbidden_public_history_count == 0
+            and dependency_state == "EXACT_CONTROLLED_DEPENDENCY"
+        )
+        database.update({
+            "legacyAdminRootDependencyState": dependency_state,
+            "legacyAdminRootDependencyStateVerified":
+                dependency_state_verified,
+            "legacyAdminRootDependencyFactsSha256":
+                dependency_facts_sha256,
+            "legacyAdminRootDependencyReceiptCount":
+                dependency_receipt_count,
+            "legacyAdminRootDependencyVersionCount":
+                dependency_version_count,
+            "legacyAdminRootIdentityCount": root_identity_count,
+            "legacyAdminRootExactCount": exact_root_count,
+            "legacyAdminRootRoleBindingCount": root_role_binding_count,
+            "legacyAdminRootPageChildCount": root_page_child_count,
+            "legacyForbiddenPublicInit001Through042ReceiptCount":
+                forbidden_public_history_count,
+            "w1a043State": (
+                "ABSENT"
+                if database["publicInit043AnyReceiptCount"] == 0
+                and database["boardAttributionInternalReceiptCount"] == 0
+                and database["boardAttributionTableCount"] == 0
+                and database["boardAttributionTriggerCount"] == 0
+                and database["boardAttributionPermissionCount"] == 0
+                else "EXACT_043_RETAINED_DORMANT"
+                if database["publicInit043Applied"] is True
+                and database["publicInit043AnyReceiptCount"] == 1
+                and database["boardAttributionInternalReceiptCount"] == 1
+                and database["boardAttributionTableCount"] == 2
+                and database["boardAttributionTriggerCount"] == 2
+                and database["boardAttributionPermissionCount"] == 1
+                else "INVALID"
+            ),
+        })
         legacy_table_count = int(query(
             "SELECT COUNT(*) FROM information_schema.tables "
             "WHERE table_schema=DATABASE() "
@@ -2615,6 +3383,7 @@ ORDER BY baseline_id
                         and receipt_file_valid
                         and migration_receipt_count == 1
                         and fabricated_history_count == 0
+                        and dependency_state_verified
                     )
                     database.update({
                         "schemaBaselineMode": (
@@ -2638,7 +3407,323 @@ ORDER BY baseline_id
                         "legacyBaselineSourceCommit": payload.get(
                             "sourceCommit"
                         ),
+                        "legacyBaselineBackupBundleReceiptSha256":
+                            payload.get("backupBundleReceiptSha256"),
                     })
+
+    adoption_receipt_path = pathlib.Path(
+        ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_PATH
+    )
+    adoption_receipt_sha256 = None
+    adoption_receipt = {}
+    adoption_receipt_file_valid = False
+    try:
+        resolved_adoption_receipt = adoption_receipt_path.resolve(
+            strict=True
+        )
+        adoption_status = resolved_adoption_receipt.stat()
+        adoption_receipt_sha256 = sha256_file(
+            resolved_adoption_receipt
+        )
+        adoption_receipt = json.loads(
+            resolved_adoption_receipt.read_text(encoding="utf-8")
+        )
+        adoption_receipt_file_valid = bool(
+            resolved_adoption_receipt.is_file()
+            and not resolved_adoption_receipt.is_symlink()
+            and adoption_status.st_uid == 0
+            and adoption_status.st_gid == 0
+            and adoption_status.st_mode & 0o777 == 0o600
+            and adoption_status.st_nlink == 1
+        )
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        adoption_receipt = {}
+
+    adoption_receipt_fields = {
+        "schema",
+        "adoptionState",
+        "adoptionClaim",
+        "runId",
+        "sourceCommit",
+        "targetHost",
+        "database",
+        "databaseEndpoint",
+        "databaseServerUuid",
+        "serverVersion",
+        "databaseProtectionMode",
+        "dependencyMigrationVersion",
+        "dependencyMigrationDescription",
+        "publicInit043Version",
+        "attributionInternal043Version",
+        "liveFacts",
+        "liveFactsSha256",
+        "baselineLatestReceiptPath",
+        "baselineLatestReceiptSha256",
+        "backupLatestReceiptPath",
+        "backupLatestReceiptSha256",
+        "planReceiptSha256",
+        "approvalReceiptSha256",
+        "runnerSha256",
+        "workerSha256",
+        "originalExecutionClaimed",
+        "productionFilesystemChanged",
+        "productionDatabaseChanged",
+        "productionServiceChanged",
+        "officialExpertsPackageChanged",
+        "secretsDisclosed",
+        "observedAt",
+    }
+    adoption_live_fact_fields = {
+        "databaseServerUuid",
+        "serverVersion",
+        "rootIdentityCount",
+        "exactRootCount",
+        "rootProjection",
+        "rootRoleBindingCount",
+        "rootPageChildCount",
+        "dependencyVersionCount",
+        "dependencyReceiptCount",
+        "dependencyRowsFingerprintSha256",
+        "forbiddenPublicInit001Through042ReceiptCount",
+        "publicInit043ReceiptCount",
+        "attributionInternalReceiptCount",
+        "attributionTableCount",
+        "attributionTriggerCount",
+        "attributionPermissionCount",
+    }
+    adoption_root_projection_fields = {
+        "menuId",
+        "menuName",
+        "parentId",
+        "orderNum",
+        "path",
+        "component",
+        "query",
+        "routeName",
+        "isFrame",
+        "isCache",
+        "menuType",
+        "visible",
+        "status",
+        "perms",
+        "icon",
+    }
+    adoption_live_facts = adoption_receipt.get("liveFacts")
+    adoption_live_facts_sha256 = (
+        hashlib.sha256(
+            canonical_json(adoption_live_facts).encode("utf-8")
+        ).hexdigest()
+        if isinstance(adoption_live_facts, dict) else None
+    )
+
+    def historical_receipt_matches(
+        path_value,
+        expected_sha256,
+        root,
+        filename,
+    ):
+        if (
+            not isinstance(path_value, str)
+            or re.fullmatch(
+                r"[0-9a-f]{64}",
+                str(expected_sha256 or ""),
+            ) is None
+        ):
+            return False
+        try:
+            candidate = pathlib.Path(path_value).resolve(strict=True)
+            root = pathlib.Path(root).resolve(strict=True)
+            relative = candidate.relative_to(root)
+            status = candidate.stat()
+            return bool(
+                len(relative.parts) == 2
+                and relative.parts[1] == filename
+                and candidate.is_file()
+                and not candidate.is_symlink()
+                and status.st_uid == 0
+                and status.st_gid == 0
+                and status.st_mode & 0o777 == 0o600
+                and status.st_nlink == 1
+                and sha256_file(candidate) == expected_sha256
+            )
+        except (OSError, RuntimeError, ValueError):
+            return False
+
+    adoption_historical_bindings_matched = bool(
+        historical_receipt_matches(
+            adoption_receipt.get("baselineLatestReceiptPath"),
+            adoption_receipt.get("baselineLatestReceiptSha256"),
+            "/opt/fbsir/admin/baselines/w1a",
+            "adoption-receipt.json",
+        )
+        and historical_receipt_matches(
+            adoption_receipt.get("backupLatestReceiptPath"),
+            adoption_receipt.get("backupLatestReceiptSha256"),
+            "/opt/fbsir/admin/backups/w1a",
+            "receipt.json",
+        )
+        and adoption_receipt.get("baselineLatestReceiptSha256")
+            == database.get("legacyBaselineReceiptSha256")
+        and adoption_receipt.get("baselineLatestReceiptSha256")
+            == EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST
+    )
+    adoption_live_facts_matched = bool(
+        isinstance(adoption_live_facts, dict)
+        and set(adoption_live_facts) == adoption_live_fact_fields
+        and isinstance(
+            adoption_live_facts.get("rootProjection"),
+            dict,
+        )
+        and set(
+            adoption_live_facts.get("rootProjection", {})
+        ) == adoption_root_projection_fields
+        and adoption_receipt.get("liveFactsSha256")
+            == adoption_live_facts_sha256
+        and adoption_live_facts.get("databaseServerUuid")
+            == database.get("databaseServerUuid")
+        and adoption_live_facts.get("serverVersion")
+            == database.get("serverVersion")
+        and adoption_live_facts.get("rootIdentityCount")
+            == database.get("legacyAdminRootIdentityCount")
+        and adoption_live_facts.get("exactRootCount")
+            == database.get("legacyAdminRootExactCount")
+        and adoption_live_facts.get("rootRoleBindingCount")
+            == database.get("legacyAdminRootRoleBindingCount")
+        and adoption_live_facts.get("rootPageChildCount")
+            == database.get("legacyAdminRootPageChildCount")
+        and adoption_live_facts.get("dependencyVersionCount")
+            == database.get(
+                "legacyAdminRootDependencyVersionCount"
+            )
+        and adoption_live_facts.get("dependencyReceiptCount")
+            == database.get(
+                "legacyAdminRootDependencyReceiptCount"
+            )
+        and adoption_live_facts.get(
+            "dependencyRowsFingerprintSha256"
+        ) == database.get("legacyAdminRootDependencyFactsSha256")
+        and adoption_live_facts.get(
+            "forbiddenPublicInit001Through042ReceiptCount"
+        ) == database.get(
+            "legacyForbiddenPublicInit001Through042ReceiptCount"
+        )
+        and adoption_live_facts.get("publicInit043ReceiptCount")
+            == database.get("publicInit043AnyReceiptCount")
+        and adoption_live_facts.get(
+            "attributionInternalReceiptCount"
+        ) == database.get("boardAttributionInternalReceiptCount")
+        and adoption_live_facts.get("attributionTableCount")
+            == database.get("boardAttributionTableCount")
+        and adoption_live_facts.get("attributionTriggerCount")
+            == database.get("boardAttributionTriggerCount")
+        and adoption_live_facts.get("attributionPermissionCount")
+            == database.get("boardAttributionPermissionCount")
+        and database.get("w1a043State") == "ABSENT"
+    )
+    adoption_receipt_valid = bool(
+        adoption_receipt_file_valid
+        and set(adoption_receipt) == adoption_receipt_fields
+        and adoption_receipt.get("schema")
+            == "fbsir.u3wLegacyAdminRootDependencyAdoptionReceipt.v2"
+        and adoption_receipt.get("adoptionState")
+            == "ADOPTED_EXISTING_EXACT_DEPENDENCY"
+        and adoption_receipt.get("adoptionClaim")
+            == "CURRENT_STATE_ONLY_NOT_ORIGINAL_EXECUTION"
+        and re.fullmatch(
+            r"w1a-admin-root-dependency-[0-9]{8}T[0-9]{6}Z-"
+            r"[0-9a-f]{12}",
+            str(adoption_receipt.get("runId") or ""),
+        ) is not None
+        and re.fullmatch(
+            r"[0-9a-f]{40}",
+            str(adoption_receipt.get("sourceCommit") or ""),
+        ) is not None
+        and adoption_receipt.get("targetHost") == TARGET_HOST
+        and adoption_receipt.get("database") == database_name
+        and adoption_receipt.get("databaseEndpoint")
+            == host + ":" + port
+        and adoption_receipt.get("databaseServerUuid")
+            == database.get("databaseServerUuid")
+        and adoption_receipt.get("serverVersion")
+            == database.get("serverVersion")
+        and adoption_receipt.get("databaseProtectionMode")
+            == (
+                "HOST_FLOCK_NAMED_LOCK_REPEATABLE_READ_"
+                "FULL_CONTROL_RANGE_MDL_AND_APPROVED_NO_DDL_WINDOW"
+            )
+        and adoption_receipt.get("dependencyMigrationVersion")
+            == "w1a_043_legacy_admin_root_dependency_20260724_001"
+        and adoption_receipt.get("dependencyMigrationDescription")
+            == "APPLIED:W1A_043_LEGACY_ADMIN_ROOT_DEPENDENCY_V1"
+        and adoption_receipt.get("publicInit043Version")
+            == "public_init_043"
+        and adoption_receipt.get("attributionInternal043Version")
+            == "20260723_independent_board_attribution_v1_043"
+        and re.fullmatch(
+            r"[0-9a-f]{64}",
+            str(adoption_receipt.get("planReceiptSha256") or ""),
+        ) is not None
+        and re.fullmatch(
+            r"[0-9a-f]{64}",
+            str(adoption_receipt.get("approvalReceiptSha256") or ""),
+        ) is not None
+        and adoption_receipt.get("runnerSha256")
+            == EXPECTED_ADMIN_ROOT_DEPENDENCY_RUNNER_SHA256
+        and adoption_receipt.get("workerSha256")
+            == EXPECTED_ADMIN_ROOT_DEPENDENCY_WORKER_SHA256
+        and adoption_receipt.get("originalExecutionClaimed") is False
+        and adoption_receipt.get("productionFilesystemChanged") is True
+        and adoption_receipt.get("productionDatabaseChanged") is False
+        and adoption_receipt.get("productionServiceChanged") is False
+        and adoption_receipt.get("officialExpertsPackageChanged") is False
+        and adoption_receipt.get("secretsDisclosed") is False
+        and adoption_live_facts_matched
+        and adoption_historical_bindings_matched
+    )
+    database.update({
+        "adminRootDependencyAdoptionReceiptSchema":
+            adoption_receipt.get("schema"),
+        "adminRootDependencyAdoptionRunId":
+            adoption_receipt.get("runId"),
+        "adminRootDependencyAdoptionReceiptSha256":
+            adoption_receipt_sha256,
+        "adminRootDependencyAdoptionReceiptValid":
+            adoption_receipt_valid,
+        "adminRootDependencyAdoptionReceiptAnchorMatched": bool(
+            adoption_receipt_valid
+            and EXPECTED_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256
+            and adoption_receipt_sha256
+                == EXPECTED_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256
+        ),
+        "adminRootDependencyAdoptionSourceCommit":
+            adoption_receipt.get("sourceCommit"),
+        "adminRootDependencyAdoptionDatabaseServerUuid":
+            adoption_receipt.get("databaseServerUuid"),
+        "adminRootDependencyAdoptionLiveFactsSha256":
+            adoption_receipt.get("liveFactsSha256"),
+        "adminRootDependencyAdoptionDependencyRowsFingerprintSha256": (
+            adoption_live_facts.get(
+                "dependencyRowsFingerprintSha256"
+            )
+            if isinstance(adoption_live_facts, dict) else None
+        ),
+        "adminRootDependencyAdoptionPlanReceiptSha256":
+            adoption_receipt.get("planReceiptSha256"),
+        "adminRootDependencyAdoptionApprovalReceiptSha256":
+            adoption_receipt.get("approvalReceiptSha256"),
+        "adminRootDependencyAdoptionRunnerSha256":
+            adoption_receipt.get("runnerSha256"),
+        "adminRootDependencyAdoptionWorkerSha256":
+            adoption_receipt.get("workerSha256"),
+        "adminRootDependencyAdoptionLiveFactsMatched":
+            adoption_live_facts_matched,
+        "adminRootDependencyAdoptionBaselineReceiptSha256":
+            adoption_receipt.get("baselineLatestReceiptSha256"),
+        "adminRootDependencyAdoptionBackupReceiptSha256":
+            adoption_receipt.get("backupLatestReceiptSha256"),
+        "adminRootDependencyAdoptionHistoricalBindingsMatched":
+            adoption_historical_bindings_matched,
+    })
 
 key_names = sorted(environment.keys())
 explicit_false = sorted(
@@ -2727,6 +3812,31 @@ cryptographic_shape_valid = bool(
         for material in resolved_event_material.values()
     )
 )
+admin_engine_credential = str(
+    environment.get("FBSIR_ENGINE_TOKEN", "")
+).strip()
+admin_engine_credential_valid = (
+    re.fullmatch(
+        r"[A-Za-z0-9_-]{43,128}",
+        admin_engine_credential,
+    ) is not None
+)
+admin_engine_material = admin_engine_credential.encode("utf-8")
+admin_engine_comparison_material = (
+    active_event_material,
+    previous_event_material,
+    same_binding_material,
+    decode_secret_material(environment.get("FBSIR_TOKEN_SECRET")),
+    decode_secret_material(environment.get("WXFBSIR_TOKEN_SECRET")),
+)
+admin_engine_credential_independent = bool(
+    admin_engine_credential_valid
+    and all(
+        material is None
+        or not hmac.compare_digest(admin_engine_material, material)
+        for material in admin_engine_comparison_material
+    )
+)
 api2_event_key_file = pathlib.Path(API2_EVENT_KEY_PATH)
 api2_event_key_file_custody_secure = False
 api2_event_key_file_matched = False
@@ -2750,6 +3860,8 @@ configuration_receipt_valid = False
 configuration_receipt_anchor_matched = False
 configuration_receipt_sha256 = None
 configuration_receipt_source_commit = None
+configuration_receipt = {}
+configuration_predecessor_receipt = {}
 configuration_receipt_path = pathlib.Path(CONFIGURATION_RECEIPT_PATH)
 if configuration_receipt_path.exists():
     try:
@@ -2791,6 +3903,16 @@ if configuration_receipt_path.exists():
             "configurationLoaded", "officialExpertsPackageChanged",
             "secretsDisclosed", "observedAt",
         }
+        configuration_receipt_schema = configuration_receipt.get("schema")
+        if (
+            configuration_receipt_schema
+            == "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+        ):
+            configuration_receipt_fields.update({
+                "predecessorConfigurationReceiptSha256",
+                "adminEngineCredentialProvisioningState",
+                "engineCounterpartClosureClaimed",
+            })
         backup_path = pathlib.Path(
             str(configuration_receipt.get("environmentBackupPath") or "")
         )
@@ -2826,6 +3948,120 @@ if configuration_receipt_path.exists():
             )
         except OSError:
             backup_valid = False
+        configuration_reconciliation_valid = (
+            configuration_receipt_schema
+            == "fbsir.u3wDefaultOffConfigurationReceipt.v2"
+        )
+        if (
+            configuration_receipt_schema
+            == "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+        ):
+            predecessor_sha = configuration_receipt.get(
+                "predecessorConfigurationReceiptSha256"
+            )
+            predecessor_matches = []
+            configuration_root = pathlib.Path(
+                "/opt/fbsir/admin/configuration/w1a"
+            )
+            if re.fullmatch(
+                r"[0-9a-f]{64}", str(predecessor_sha or "")
+            ) is not None and predecessor_sha != "0" * 64:
+                for run_directory in configuration_root.iterdir():
+                    if (
+                        run_directory.is_symlink()
+                        or not run_directory.is_dir()
+                        or re.fullmatch(
+                            r"w1a-config-[0-9]{8}T[0-9]{6}Z-"
+                            r"[0-9a-f]{12}",
+                            run_directory.name,
+                        ) is None
+                    ):
+                        continue
+                    candidate = (
+                        run_directory / "configuration-receipt.json"
+                    )
+                    if candidate.is_file() and not candidate.is_symlink():
+                        candidate_status = candidate.stat()
+                        if (
+                            candidate_status.st_uid == 0
+                            and candidate_status.st_gid == 0
+                            and candidate_status.st_nlink == 1
+                            and candidate_status.st_mode & 0o777 == 0o600
+                            and sha256_file(candidate) == predecessor_sha
+                        ):
+                            predecessor_matches.append(candidate)
+            predecessor_receipt = (
+                json.loads(
+                    predecessor_matches[0].read_text(encoding="utf-8")
+                )
+                if len(predecessor_matches) == 1 else {}
+            )
+            configuration_predecessor_receipt = predecessor_receipt
+            credential_state = configuration_receipt.get(
+                "adminEngineCredentialProvisioningState"
+            )
+            created_by_run = credential_state == "CREATED_BY_RUN"
+            adopted_existing = (
+                credential_state
+                == "ADOPTED_EXISTING_EXACT_DELTA"
+            )
+            predecessor_environment_matched = bool(
+                predecessor_receipt.get("environmentAfterSha256")
+                == configuration_receipt.get(
+                    "environmentBeforeSha256"
+                )
+                if created_by_run
+                else (
+                    adopted_existing
+                    and configuration_receipt.get(
+                        "environmentBeforeSha256"
+                    ) == configuration_receipt.get(
+                        "environmentAfterSha256"
+                    )
+                    and predecessor_receipt.get(
+                        "environmentAfterSha256"
+                    ) == exact_admin_engine_delta_predecessor_sha256(
+                        "/etc/u3w/fbsir-admin.env"
+                    )
+                )
+            )
+            configuration_reconciliation_valid = bool(
+                len(predecessor_matches) == 1
+                and predecessor_receipt.get("schema")
+                    == "fbsir.u3wDefaultOffConfigurationReceipt.v2"
+                and predecessor_environment_matched
+                and predecessor_receipt.get("api2EventKeyPath")
+                    == API2_EVENT_KEY_PATH
+                and predecessor_receipt.get(
+                    "officialExpertsPackageChanged"
+                ) is False
+                and predecessor_receipt.get("secretsDisclosed") is False
+                and configuration_receipt.get(
+                    "api2EventKeyProvisioningState"
+                ) == "REUSED_FROM_PREDECESSOR_RECEIPT"
+                and configuration_receipt.get(
+                    "adminEngineCredentialProvisioningState"
+                ) == "ADOPTED_EXISTING_EXACT_DELTA"
+                and configuration_receipt.get(
+                    "engineCounterpartClosureClaimed"
+                ) is False
+                and configuration_receipt.get(
+                    "productionConfigurationChanged"
+                ) is False
+                and receipt_evidence.get(
+                    "adminEngineCredentialValid"
+                ) is True
+                and receipt_evidence.get(
+                    "adminEngineCredentialIndependent"
+                ) is True
+                and int(
+                    receipt_evidence.get(
+                        "adminEngineCredentialMinimumCharacters"
+                    ) or 0
+                ) >= 43
+                and admin_engine_credential_valid
+                and admin_engine_credential_independent
+            )
         configuration_receipt_valid = bool(
             set(configuration_receipt) == configuration_receipt_fields
             and
@@ -2835,8 +4071,8 @@ if configuration_receipt_path.exists():
             and receipt_status.st_gid == 0
             and receipt_status.st_mode & 0o777 == 0o600
             and receipt_status.st_nlink == 1
-            and configuration_receipt.get("schema")
-                == "fbsir.u3wDefaultOffConfigurationReceipt.v2"
+            and configuration_receipt_schema
+                == "fbsir.u3wDefaultOffConfigurationReceipt.v3"
             and configuration_receipt.get("mode") == "Apply"
             and configuration_receipt.get("state")
                 == "CONFIGURED_NOT_LOADED"
@@ -2848,7 +4084,13 @@ if configuration_receipt_path.exists():
                 == API2_EVENT_KEY_PATH
             and configuration_receipt.get(
                 "api2EventKeyProvisioningState"
-            ) == "CREATED_BY_RUN"
+            ) == (
+                "REUSED_FROM_PREDECESSOR_RECEIPT"
+                if configuration_receipt_schema
+                    == "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+                else "CREATED_BY_RUN"
+            )
+            and configuration_reconciliation_valid
             and configuration_receipt.get(
                 "stagedKeyMaterialMatched"
             ) is True
@@ -2901,7 +4143,14 @@ if configuration_receipt_path.exists():
             ) is True
             and configuration_receipt.get(
                 "productionConfigurationChanged"
-            ) is True
+            ) is (
+                configuration_receipt.get(
+                    "adminEngineCredentialProvisioningState"
+                ) == "CREATED_BY_RUN"
+                if configuration_receipt_schema
+                    == "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+                else True
+            )
             and configuration_receipt.get(
                 "productionServiceChanged"
             ) is False
@@ -3028,9 +4277,10 @@ def current_backup_schema_facts():
     root_rows = query(
         """SELECT CONCAT_WS('|',HEX(menu_name),parent_id,HEX(COALESCE(path,'')),
         HEX(COALESCE(component,'')),HEX(COALESCE(perms,'')))
-        FROM sys_menu WHERE parent_id=0 AND HEX(menu_name) IN (
-          'E78BACE891A3E4BC9A',
-          '496E646570656E64656E7420426F617264')
+        FROM sys_menu
+        WHERE HEX(menu_name)='E78BACE891A3E4BC9AE7AEA1E79086'
+           OR BINARY path=BINARY 'independent-board-admin'
+           OR BINARY route_name=BINARY 'IndependentBoardAdmin'
         ORDER BY BINARY menu_name,BINARY path"""
     )
     sys_menu_shape = query(
@@ -3039,6 +4289,113 @@ def current_backup_schema_facts():
         HEX(extra)) FROM information_schema.columns
         WHERE table_schema=DATABASE() AND table_name='sys_menu'
         ORDER BY ordinal_position"""
+    )
+    dependency_version = (
+        "w1a_043_legacy_admin_root_dependency_20260724_001"
+    )
+    dependency_description = (
+        "APPLIED:W1A_043_LEGACY_ADMIN_ROOT_DEPENDENCY_V1"
+    )
+    forbidden_versions = ",".join(
+        "'public_init_{:03d}'".format(index)
+        for index in range(1, 43)
+    )
+    exact_root = (
+        "HEX(menu_name)='E78BACE891A3E4BC9AE7AEA1E79086' "
+        "AND parent_id=0 AND order_num=5 "
+        "AND BINARY path=BINARY 'independent-board-admin' "
+        "AND component IS NULL AND query IS NULL "
+        "AND BINARY route_name=BINARY 'IndependentBoardAdmin' "
+        "AND is_frame=1 AND is_cache=0 "
+        "AND BINARY menu_type=BINARY 'M' "
+        "AND BINARY visible=BINARY '0' "
+        "AND BINARY status=BINARY '0' "
+        "AND BINARY COALESCE(perms,'')=BINARY '' "
+        "AND BINARY icon=BINARY 'peoples'"
+    )
+    dependency_fingerprint_rows = query(
+        "SELECT row_value FROM ("
+        "SELECT CONCAT_WS('|','D',HEX(version),HEX(description)) "
+        "row_value FROM u3w_schema_migration WHERE version='"
+        + dependency_version
+        + "' UNION ALL SELECT CONCAT_WS('|','R',menu_id,"
+        "HEX(menu_name),parent_id,order_num,HEX(COALESCE(path,'')),"
+        "HEX(COALESCE(component,'<NULL>')),"
+        "HEX(COALESCE(query,'<NULL>')),"
+        "HEX(COALESCE(route_name,'')),is_frame,is_cache,"
+        "HEX(menu_type),HEX(visible),HEX(status),"
+        "HEX(COALESCE(perms,'')),HEX(icon)) FROM sys_menu WHERE "
+        + exact_root + ") rows_ ORDER BY BINARY row_value"
+    )
+    dependency_version_count = int(query(
+        "SELECT COUNT(*) FROM u3w_schema_migration WHERE version='"
+        + dependency_version + "'"
+    ))
+    dependency_receipt_count = int(query(
+        "SELECT COUNT(*) FROM u3w_schema_migration WHERE version='"
+        + dependency_version + "' AND description='"
+        + dependency_description + "'"
+    ))
+    root_identity_count = len(
+        [row for row in root_rows.splitlines() if row]
+    )
+    exact_root_count = int(query(
+        "SELECT COUNT(*) FROM sys_menu WHERE " + exact_root
+    ))
+    root_role_count = int(query(
+        "SELECT COUNT(*) FROM sys_role_menu WHERE menu_id IN "
+        "(SELECT menu_id FROM sys_menu WHERE " + exact_root + ")"
+    ))
+    root_child_count = int(query(
+        "SELECT COUNT(*) FROM sys_menu WHERE menu_type IN ('M','C') "
+        "AND parent_id IN (SELECT menu_id FROM sys_menu WHERE "
+        + exact_root + ")"
+    ))
+    forbidden_count = int(query(
+        "SELECT COUNT(*) FROM u3w_schema_migration WHERE version IN ("
+        + forbidden_versions + ")"
+    ))
+    public_043_count = int(query(
+        "SELECT COUNT(*) FROM u3w_schema_migration "
+        "WHERE version='public_init_043'"
+    ))
+    internal_043_count = int(query(
+        "SELECT COUNT(*) FROM u3w_schema_migration WHERE version="
+        "'20260723_independent_board_attribution_v1_043'"
+    ))
+    attribution_table_count = int(query(
+        "SELECT COUNT(*) FROM information_schema.tables "
+        "WHERE table_schema=DATABASE() AND table_name IN "
+        "('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')"
+    ))
+    attribution_trigger_count = int(query(
+        "SELECT COUNT(*) FROM information_schema.triggers "
+        "WHERE trigger_schema=DATABASE() AND event_object_table IN "
+        "('fbs_board_attr_journey_v1','fbs_board_attr_event_v1')"
+    ))
+    attribution_permission_count = int(query(
+        "SELECT COUNT(*) FROM sys_menu WHERE "
+        "BINARY perms=BINARY 'board:attribution:query'"
+    ))
+    exact_dependency = bool(
+        dependency_version_count == 1
+        and dependency_receipt_count == 1
+        and root_identity_count == 1
+        and exact_root_count == 1
+        and root_role_count == 0
+        and root_child_count == 0
+        and forbidden_count == 0
+        and len([
+            row for row in dependency_fingerprint_rows.splitlines()
+            if row
+        ]) == 2
+    )
+    absent_043 = bool(
+        public_043_count == 0
+        and internal_043_count == 0
+        and attribution_table_count == 0
+        and attribution_trigger_count == 0
+        and attribution_permission_count == 0
     )
     return {
         "fingerprintAlgorithm": "u3w.mysql-schema-metadata.v2",
@@ -3053,17 +4410,51 @@ def current_backup_schema_facts():
         "triggerCount": int(object_counts[0]),
         "routineCount": int(object_counts[1]),
         "eventCount": int(object_counts[2]),
-        "independentBoardAdminRootCount": len(
-            [row for row in root_rows.splitlines() if row]
+        "independentBoardAdminRootCount": root_identity_count,
+        "legacyAdminRootDependencyState": (
+            "EXACT_CONTROLLED_DEPENDENCY"
+            if exact_dependency else "INVALID"
+        ),
+        "legacyAdminRootDependencyFactsSha256": hashlib.sha256(
+            (dependency_fingerprint_rows + "\n").encode("utf-8")
+        ).hexdigest(),
+        "legacyAdminRootDependencyVersionCount":
+            dependency_version_count,
+        "legacyAdminRootDependencyReceiptCount":
+            dependency_receipt_count,
+        "legacyAdminRootIdentityCount": root_identity_count,
+        "legacyAdminRootExactCount": exact_root_count,
+        "legacyAdminRootRoleBindingCount": root_role_count,
+        "legacyAdminRootPageChildCount": root_child_count,
+        "legacyForbiddenPublicInit001Through042ReceiptCount":
+            forbidden_count,
+        "publicInit043AnyReceiptCount": public_043_count,
+        "attributionInternalReceiptCount": internal_043_count,
+        "attributionTableCount": attribution_table_count,
+        "attributionTriggerCount": attribution_trigger_count,
+        "attributionPermissionCount": attribution_permission_count,
+        "w1a043State": (
+            "ABSENT" if absent_043 else "EXACT_043_RETAINED_DORMANT"
         ),
         "allBaseTablesInnoDB": int(counts[2]) == 0,
     }
 
 backup = {
     "receiptPath": BACKUP_RECEIPT_PATH,
+    "runId": None,
+    "bundleSchema": None,
+    "backupReceiptSchema": None,
+    "restoreReceiptSchema": None,
+    "externalAnchorSchema": None,
     "sourceCommit": None,
+    "sourceDatabaseServerUuid": None,
+    "adminRootDependencyAdoptionReceiptSha256": None,
     "proven": False,
     "receiptAnchorMatched": False,
+    "externalAnchorVerified": False,
+    "adoptionReceiptBindingMatched": False,
+    "sourceDatabaseServerUuidMatched": False,
+    "sourceRestoredFactsExactlyMatched": False,
     "sha256": None,
     "sizeBytes": None,
     "restoreProcedureVerified": False,
@@ -3185,9 +4576,39 @@ if backup_receipt.is_file():
             )
         )
         backup_source_commit = bundle.get("sourceCommit")
+        adoption_receipt_binding_matched = bool(
+            EXPECTED_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256
+            and bundle.get(
+                "adminRootDependencyAdoptionReceiptSha256"
+            ) == EXPECTED_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256
+            and source_receipt.get(
+                "adminRootDependencyAdoptionReceiptSha256"
+            ) == EXPECTED_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256
+            and restore_receipt.get(
+                "adminRootDependencyAdoptionReceiptSha256"
+            ) == EXPECTED_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256
+        )
+        source_database_uuid_matched = bool(
+            re.fullmatch(
+                r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+                r"[0-9a-f]{4}-[0-9a-f]{12}",
+                str(bundle.get("sourceDatabaseServerUuid") or ""),
+            ) is not None
+            and bundle.get("sourceDatabaseServerUuid")
+                == source_receipt.get("sourceDatabaseServerUuid")
+            and bundle.get("sourceDatabaseServerUuid")
+                == restore_receipt.get("sourceDatabaseServerUuid")
+            and bundle.get("sourceDatabaseServerUuid")
+                == database.get("databaseServerUuid")
+        )
+        source_restored_facts_exactly_matched = bool(
+            isinstance(source_receipt.get("sourceFacts"), dict)
+            and source_receipt.get("sourceFacts")
+                == restore_receipt.get("restoredFacts")
+        )
         restore_verified = bool(
             bundle.get("schema")
-                == "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v1"
+                == "fbsir.u3wDatabaseBackupRestoreBundleReceipt.v2"
             and re.fullmatch(
                 r"w1a-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}",
                 str(run_id or ""),
@@ -3205,6 +4626,8 @@ if backup_receipt.is_file():
             and bundle.get("verifierSha256")
                 == EXPECTED_RESTORE_VERIFIER_SHA256
             and bundle.get("productionBusinessStateChanged") is False
+            and adoption_receipt_binding_matched
+            and source_database_uuid_matched
             and bundle.get("backupReceiptSha256")
                 == sha256_file(backup_receipt_file)
             and bundle.get("restoreReceiptSha256")
@@ -3213,7 +4636,7 @@ if backup_receipt.is_file():
             and bundle.get("backupSizeBytes") == actual_size
             and actual_size > 0
             and source_receipt.get("schema")
-                == "fbsir.u3wDatabaseBackupReceipt.v2"
+                == "fbsir.u3wDatabaseBackupReceipt.v3"
             and source_receipt.get("runId") == run_id
             and source_receipt.get("sourceCommit")
                 == backup_source_commit
@@ -3230,9 +4653,13 @@ if backup_receipt.is_file():
             and source_receipt.get("encryptionContract")
                 == "u3w.gnupg-aes256-symmetric.v1"
             and source_receipt.get("ddlProtectionMode")
-                == "PRE_POST_SCHEMA_STABILITY_APPROVED_NO_DDL_WINDOW"
+                == (
+                    "HOST_FLOCK_NAMED_LOCK_READ_ONLY_SNAPSHOT_"
+                    "FULL_OBJECT_MDL_PRE_POST_STABILITY_"
+                    "AND_APPROVED_NO_DDL_WINDOW"
+                )
             and restore_receipt.get("schema")
-                == "fbsir.u3wDatabaseRestoreRehearsalReceipt.v2"
+                == "fbsir.u3wDatabaseRestoreRehearsalReceipt.v3"
             and restore_receipt.get("runId") == run_id
             and restore_receipt.get("sourceCommit")
                 == backup_source_commit
@@ -3241,6 +4668,7 @@ if backup_receipt.is_file():
                 == sha256_file(backup_receipt_file)
             and restore_receipt.get("restoredFacts")
                 == source_receipt.get("sourceFacts")
+            and source_restored_facts_exactly_matched
             and live_backup_facts_compatible
             and source_receipt.get("sourceSnapshotExactlyMatched") is False
             and isinstance(restore_receipt.get("restoredTotalRows"), int)
@@ -3304,6 +4732,16 @@ if backup_receipt.is_file():
             and receipt_fresh
         )
     backup.update({
+        "runId": run_id,
+        "bundleSchema": bundle.get("schema"),
+        "backupReceiptSchema": (
+            source_receipt.get("schema")
+            if "source_receipt" in locals() else None
+        ),
+        "restoreReceiptSchema": (
+            restore_receipt.get("schema")
+            if "restore_receipt" in locals() else None
+        ),
         "proven": restore_verified,
         "sourceCommit": (
             bundle.get("sourceCommit")
@@ -3315,6 +4753,27 @@ if backup_receipt.is_file():
         ),
         "sha256": actual_digest,
         "sizeBytes": actual_size,
+        "sourceDatabaseServerUuid":
+            bundle.get("sourceDatabaseServerUuid"),
+        "adminRootDependencyAdoptionReceiptSha256":
+            bundle.get(
+                "adminRootDependencyAdoptionReceiptSha256"
+            ),
+        "adoptionReceiptBindingMatched": (
+            adoption_receipt_binding_matched
+            if "adoption_receipt_binding_matched" in locals()
+            else False
+        ),
+        "sourceDatabaseServerUuidMatched": (
+            source_database_uuid_matched
+            if "source_database_uuid_matched" in locals()
+            else False
+        ),
+        "sourceRestoredFactsExactlyMatched": (
+            source_restored_facts_exactly_matched
+            if "source_restored_facts_exactly_matched" in locals()
+            else False
+        ),
         "restoreProcedureVerified": restore_verified,
         "restoreLiveFactsMatched": restore_verified,
         "receiptAnchorMatched": (
@@ -3349,6 +4808,8 @@ deployment = {
     "adminPortalApiHealthy": False,
     "mePortalReleaseMarkerMatched": False,
     "adminPortalReleaseMarkerMatched": False,
+    "defaultOffIngressProbeVerified": False,
+    "defaultOffIngressProbe": None,
     "receiptPath": DEPLOYMENT_RECEIPT_PATH,
 }
 deployment_receipt = pathlib.Path(DEPLOYMENT_RECEIPT_PATH)
@@ -3554,8 +5015,19 @@ if deployment_receipt.is_file():
                 key=lambda item: item["path"]
             )
             rollback_live_state_matched = bool(
-                snapshot_exact_loaded_from_baseline(
-                    live_service_snapshot, baseline_snapshot
+                (
+                    snapshot_exact_loaded_from_baseline(
+                        live_service_snapshot, baseline_snapshot
+                    )
+                    or (
+                        configuration_receipt_valid
+                        and authorized_admin_engine_configuration_evolution_matches(
+                            live_service_snapshot,
+                            baseline_snapshot,
+                            configuration_receipt,
+                            configuration_predecessor_receipt,
+                        )
+                    )
                 )
                 and live_service_snapshot.get("activeState") == "active"
                 and live_service_snapshot.get("workingDirectory")
@@ -3878,17 +5350,20 @@ if deployment_receipt.is_file() and not rollback_latest:
         pre_stage_snapshot = application_rollback_assembly.get(
             "serviceSnapshotBeforeStage", {}
         )
+        observed_pre_stage_load_state = pre_stage_snapshot.get(
+            "processConfiguredEnvironmentLoadState"
+        )
         expected_pre_stage_load_state = (
-            "LEGACY_W1A_PENDING_RESTART"
-            if pre_stage_snapshot.get(
-                "processConfiguredEnvironmentLoadState"
-            ) == "LEGACY_W1A_PENDING_RESTART"
+            "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART"
+            if observed_pre_stage_load_state
+                == "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART"
             and prior_rollback_anchor is None
             else (
-                "EXACT_CONFIGURED"
-                if pre_stage_snapshot.get(
-                    "processConfiguredEnvironmentLoadState"
-                ) == "EXACT_CONFIGURED"
+                observed_pre_stage_load_state
+                if observed_pre_stage_load_state in {
+                    "EXACT_CONFIGURED",
+                    "ENGINE_CREDENTIAL_PENDING_RESTART",
+                }
                 and prior_rollback_anchor is not None
                 else None
             )
@@ -4320,6 +5795,10 @@ if deployment_receipt.is_file() and not rollback_latest:
         and deployment_state in {
             "STAGED_FOR_SWITCH", "DEPLOYED_DEFAULT_OFF"
         }
+        and (
+            deployment_state != "DEPLOYED_DEFAULT_OFF"
+            or recorded_final_default_off_current_read_valid(receipt)
+        )
         and re.fullmatch(
             r"w1a-release-[0-9a-f]{12}-[0-9]{8}T[0-9]{6}Z",
             str(receipt.get("releaseId") or ""),
@@ -4352,6 +5831,9 @@ if deployment_receipt.is_file() and not rollback_latest:
             == EXPECTED_BACKUP_RECEIPT_SHA256
         and receipt.get("legacyBaselineReceiptSha256")
             == EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST
+        and receipt.get(
+            "adminRootDependencyAdoptionReceiptSha256"
+        ) == EXPECTED_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256
         and receipt.get("configurationReceiptSha256")
             == EXPECTED_CONFIGURATION_RECEIPT_SHA256
         and receipt.get("releasePlanReceiptSha256")
@@ -4451,6 +5933,84 @@ if deployment_receipt.is_file() and not rollback_latest:
         admin_release_marker["httpStatus"] == 200
         and admin_release_marker["document"] == expected_release_marker
     )
+    default_off_ingress_probe = None
+    default_off_ingress_probe_verified = False
+    if (
+        receipt_validated
+        and deployment_state == "DEPLOYED_DEFAULT_OFF"
+        and callable(query)
+        and database.get("publicInit043Applied") is True
+    ):
+        route_probe = disabled_attribution_ingress_probe(
+            query,
+            environment,
+        )
+        counts_before_probe = route_probe.get("globalCountsBefore")
+        counts_after_probe = attribution_global_counts(query)
+        post_probe_show = run([
+            "systemctl", "show", SERVICE_UNIT,
+            (
+                "--property=ActiveState,SubState,MainPID,InvocationID,"
+                "ExecStart,DropInPaths,EnvironmentFiles"
+            ),
+        ])
+        post_probe_service = {}
+        for line in post_probe_show.splitlines():
+            key, _, value = line.partition("=")
+            post_probe_service[key] = value
+        stable_service_fields = (
+            "ActiveState",
+            "SubState",
+            "MainPID",
+            "InvocationID",
+            "ExecStart",
+            "DropInPaths",
+            "EnvironmentFiles",
+        )
+        service_stable = bool(
+            all(
+                post_probe_service.get(name) == service.get(name)
+                for name in stable_service_fields
+            )
+            and post_probe_service.get("ActiveState") == "active"
+            and post_probe_service.get("SubState") == "running"
+            and jar_path
+            and pathlib.Path(jar_path).is_file()
+            and sha256_file(jar_path) == jar_digest
+        )
+        default_off_ingress_probe_verified = bool(
+            route_probe.get("verifiedDisabled") is True
+            and route_probe.get("httpStatus")
+                == DISABLED_INGRESS_HTTP_STATUS
+            and route_probe.get("identityCountsBefore")
+                == {
+                    name: 0
+                    for name in (
+                        "eventId",
+                        "receiptId",
+                        "nonceHash",
+                        "journeyId",
+                    )
+                }
+            and route_probe.get("identityCountsAfter")
+                == route_probe.get("identityCountsBefore")
+            and route_probe.get("globalCountsBefore")
+                == counts_before_probe
+            and route_probe.get("globalCountsAfter")
+                == counts_after_probe
+            and counts_before_probe == counts_after_probe
+            and service_stable
+        )
+        default_off_ingress_probe = {
+            "path": route_probe.get("path"),
+            "signedProbe": route_probe,
+            "databaseCountsBeforeProbe": counts_before_probe,
+            "databaseCountsAfterProbe": counts_after_probe,
+            "eventAndJourneyCountsUnchanged":
+                counts_before_probe == counts_after_probe,
+            "serviceStableDuringProbe": service_stable,
+            "verified": default_off_ingress_probe_verified,
+        }
     active_artifacts_matched = False
     if receipt_validated and deployment_state == "DEPLOYED_DEFAULT_OFF":
         expected_backend = pathlib.Path(
@@ -4607,6 +6167,7 @@ if deployment_receipt.is_file() and not rollback_latest:
             and admin_api_healthy
             and me_release_marker_matched
             and admin_release_marker_matched
+            and default_off_ingress_probe_verified
         )
     deployment.update({
         "state": deployment_state if receipt_validated else None,
@@ -4662,6 +6223,9 @@ if deployment_receipt.is_file() and not rollback_latest:
         "mePortalReleaseMarkerMatched": me_release_marker_matched,
         "adminPortalReleaseMarkerMatched":
             admin_release_marker_matched,
+        "defaultOffIngressProbeVerified":
+            default_off_ingress_probe_verified,
+        "defaultOffIngressProbe": default_off_ingress_probe,
     })
 
 def release_file_custody(path):
@@ -4989,12 +6553,28 @@ print(json.dumps({
         "environmentFilePathExact": environment_file_path_exact,
         "environmentFileCustodySecure": environment_file_custody_secure,
         "cryptographicConfigurationShapeValid": cryptographic_shape_valid,
+        "adminEngineCredentialValid": bool(
+            admin_engine_credential_valid
+            and receipt_evidence.get("adminEngineCredentialValid") is True
+        ),
+        "adminEngineCredentialIndependent": bool(
+            admin_engine_credential_independent
+            and receipt_evidence.get(
+                "adminEngineCredentialIndependent"
+            ) is True
+        ),
         "configurationReceiptValid": configuration_receipt_valid,
         "configurationReceiptAnchorMatched":
             configuration_receipt_anchor_matched,
         "configurationReceiptSourceCommit":
             configuration_receipt_source_commit,
         "configurationReceiptSha256": configuration_receipt_sha256,
+        "configurationReceiptSchema":
+            configuration_receipt.get("schema"),
+        "engineCounterpartClosureClaimed":
+            configuration_receipt.get(
+                "engineCounterpartClosureClaimed"
+            ),
     },
     "backup": backup,
     "deploymentChannel": deployment,
@@ -5009,6 +6589,11 @@ print(json.dumps({
     } else { '' }
     $legacyBaselineAnchor = if ($ExpectedLegacyBaselineReceiptDigest) {
         $ExpectedLegacyBaselineReceiptDigest.ToLowerInvariant()
+    } else { '' }
+    $adminRootDependencyAdoptionAnchor = if (
+        $ExpectedAdminRootDependencyAdoptionReceiptSha256
+    ) {
+        $ExpectedAdminRootDependencyAdoptionReceiptSha256.ToLowerInvariant()
     } else { '' }
     $configurationAnchor = if ($ExpectedConfigurationReceiptSha256) {
         $ExpectedConfigurationReceiptSha256.ToLowerInvariant()
@@ -5026,6 +6611,10 @@ print(json.dumps({
         'scripts/run-u3w-legacy-baseline.ps1')
     $baselineWorkerSha256 = Get-CommittedFileSha256 (
         'scripts/u3w-legacy-baseline-remote.py')
+    $adminRootDependencyRunnerSha256 = Get-CommittedFileSha256 (
+        'scripts/run-u3w-admin-root-dependency.ps1')
+    $adminRootDependencyWorkerSha256 = Get-CommittedFileSha256 (
+        'scripts/u3w-admin-root-dependency-remote.py')
     $configurationRunnerSha256 = Get-CommittedFileSha256 (
         'scripts/run-u3w-default-off-configuration.ps1')
     $configurationWorkerSha256 = Get-CommittedFileSha256 (
@@ -5040,11 +6629,13 @@ print(json.dumps({
         Replace('__BACKUP_RECEIPT_PATH__', ($DatabaseBackupReceiptPath | ConvertTo-Json -Compress)).
         Replace('__DEPLOYMENT_RECEIPT_PATH__', ($DeploymentReceiptPath | ConvertTo-Json -Compress)).
         Replace('__LEGACY_BASELINE_RECEIPT_PATH__', ($LegacyBaselineReceiptPath | ConvertTo-Json -Compress)).
+        Replace('__ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_PATH__', ($AdminRootDependencyAdoptionReceiptPath | ConvertTo-Json -Compress)).
         Replace('__CONFIGURATION_RECEIPT_PATH__', ($ConfigurationReceiptPath | ConvertTo-Json -Compress)).
         Replace('__API2_EVENT_KEY_PATH__', ($Api2EventKeyPath | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_BACKUP_RECEIPT_SHA256__', ($backupAnchor | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_DEPLOYMENT_RECEIPT_SHA256__', ($deploymentAnchor | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_LEGACY_BASELINE_RECEIPT_DIGEST__', ($legacyBaselineAnchor | ConvertTo-Json -Compress)).
+        Replace('__EXPECTED_ADMIN_ROOT_DEPENDENCY_ADOPTION_RECEIPT_SHA256__', ($adminRootDependencyAdoptionAnchor | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_CONFIGURATION_RECEIPT_SHA256__', ($configurationAnchor | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_RELEASE_PLAN_RECEIPT_SHA256__', ($releasePlanAnchor | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_SOURCE_COMMIT__', ($ExpectedCommit.ToLowerInvariant() | ConvertTo-Json -Compress)).
@@ -5053,6 +6644,8 @@ print(json.dumps({
         Replace('__EXPECTED_RESTORE_VERIFIER_SHA256__', ($restoreVerifierSha256 | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_BASELINE_RUNNER_SHA256__', ($baselineRunnerSha256 | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_BASELINE_WORKER_SHA256__', ($baselineWorkerSha256 | ConvertTo-Json -Compress)).
+        Replace('__EXPECTED_ADMIN_ROOT_DEPENDENCY_RUNNER_SHA256__', ($adminRootDependencyRunnerSha256 | ConvertTo-Json -Compress)).
+        Replace('__EXPECTED_ADMIN_ROOT_DEPENDENCY_WORKER_SHA256__', ($adminRootDependencyWorkerSha256 | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_CONFIGURATION_RUNNER_SHA256__', ($configurationRunnerSha256 | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_CONFIGURATION_WORKER_SHA256__', ($configurationWorkerSha256 | ConvertTo-Json -Compress)).
         Replace('__EXPECTED_RELEASE_RUNNER_SHA256__', ($releaseRunnerSha256 | ConvertTo-Json -Compress)).
@@ -5096,19 +6689,173 @@ if (
 ) {
     throw 'local Git or release-plan state drifted during remote collection'
 }
+$handoffRoot = Split-Path (Split-Path $RepoRoot -Parent) -Parent
+$productionEvidenceDirectory =
+    Join-Path $handoffRoot 'deliverables\production-evidence'
+$backupExternalAnchorVerified = $false
+$backupExternalAnchorSchema = $null
+$backupRunId = [string]$snapshot.backup.runId
+if (
+    $backupRunId -cmatch
+        '^w1a-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$'
+) {
+    $backupAnchorPath = Join-Path $productionEvidenceDirectory (
+        "$backupRunId-anchor.json")
+    $backupReceiptPath = Join-Path $productionEvidenceDirectory (
+        "$backupRunId-receipt.json")
+    if (
+        $ExpectedBackupReceiptSha256 -and
+        $ExpectedAdminRootDependencyAdoptionReceiptSha256 -and
+        (Test-Path -LiteralPath $backupAnchorPath -PathType Leaf) -and
+        (Test-Path -LiteralPath $backupReceiptPath -PathType Leaf)
+    ) {
+        $backupAnchor = Get-Content -Raw -LiteralPath $backupAnchorPath |
+            ConvertFrom-Json
+        $backupAnchorFields = @(
+            $backupAnchor.psobject.Properties.Name | Sort-Object
+        )
+        $expectedBackupAnchorFields = @(
+            'schema', 'runId', 'sourceCommit', 'targetHost',
+            'bundleReceiptPath', 'bundleReceiptSha256',
+            'adminRootDependencyAdoptionReceiptSha256',
+            'sourceDatabaseServerUuid', 'capturedAt'
+        ) | Sort-Object
+        $localBackupReceiptSha256 = (
+            Get-FileHash -LiteralPath $backupReceiptPath -Algorithm SHA256
+        ).Hash.ToLowerInvariant()
+        $backupExternalAnchorSchema = [string]$backupAnchor.schema
+        $backupExternalAnchorVerified = (
+            ($backupAnchorFields -join "`n") -ceq
+                ($expectedBackupAnchorFields -join "`n") -and
+            $backupAnchor.schema -ceq
+                'fbsir.u3wDatabaseBackupRestoreExternalAnchor.v2' -and
+            $backupAnchor.runId -ceq $backupRunId -and
+            $backupAnchor.sourceCommit -ceq
+                [string]$snapshot.backup.sourceCommit -and
+            $backupAnchor.targetHost -ceq 'api2.u3w.com' -and
+            $backupAnchor.bundleReceiptPath -ceq $backupReceiptPath -and
+            $backupAnchor.bundleReceiptSha256 -ceq
+                $localBackupReceiptSha256 -and
+            $localBackupReceiptSha256 -ceq
+                $ExpectedBackupReceiptSha256.ToLowerInvariant() -and
+            $backupAnchor.adminRootDependencyAdoptionReceiptSha256 -ceq
+                $ExpectedAdminRootDependencyAdoptionReceiptSha256.
+                    ToLowerInvariant() -and
+            $backupAnchor.sourceDatabaseServerUuid -ceq
+                [string]$snapshot.backup.sourceDatabaseServerUuid
+        )
+    }
+}
+$snapshot.backup | Add-Member -NotePropertyName externalAnchorSchema `
+    -NotePropertyValue $backupExternalAnchorSchema -Force
+$snapshot.backup | Add-Member -NotePropertyName externalAnchorVerified `
+    -NotePropertyValue $backupExternalAnchorVerified -Force
+
+$adoptionExternalAnchorVerified = $false
+$adoptionRunId =
+    [string]$snapshot.database.adminRootDependencyAdoptionRunId
+if (
+    $adoptionRunId -cmatch
+        '^w1a-admin-root-dependency-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$'
+) {
+    $adoptionAnchorPath = Join-Path $productionEvidenceDirectory (
+        "$adoptionRunId-admin-root-dependency-external-anchor.json")
+    $adoptionReceiptPath = Join-Path $productionEvidenceDirectory (
+        "$adoptionRunId-admin-root-dependency-adoption-receipt.json")
+    if (
+        $ExpectedAdminRootDependencyAdoptionReceiptSha256 -and
+        (Test-Path -LiteralPath $adoptionAnchorPath -PathType Leaf) -and
+        (Test-Path -LiteralPath $adoptionReceiptPath -PathType Leaf)
+    ) {
+        $adoptionAnchor =
+            Get-Content -Raw -LiteralPath $adoptionAnchorPath |
+                ConvertFrom-Json
+        $adoptionAnchorFields = @(
+            $adoptionAnchor.psobject.Properties.Name | Sort-Object
+        )
+        $expectedAdoptionAnchorFields = @(
+            'schema', 'runId', 'sourceCommit', 'targetHost',
+            'adoptionReceiptPath', 'adoptionReceiptSha256',
+            'databaseServerUuid', 'liveFactsSha256',
+            'baselineLatestReceiptSha256',
+            'backupLatestReceiptSha256', 'planReceiptPath',
+            'planReceiptSha256', 'approvalReceiptSha256',
+            'runnerSha256', 'workerSha256', 'capturedAt'
+        ) | Sort-Object
+        $localAdoptionReceiptSha256 = (
+            Get-FileHash -LiteralPath $adoptionReceiptPath -Algorithm SHA256
+        ).Hash.ToLowerInvariant()
+        $planReceiptPath = [string]$adoptionAnchor.planReceiptPath
+        $expectedPlanReceiptPath = Join-Path $productionEvidenceDirectory (
+            "$adoptionRunId-admin-root-dependency-plan.json")
+        $localPlanReceiptSha256 = if (
+            $planReceiptPath -ceq $expectedPlanReceiptPath -and
+            (Test-Path -LiteralPath $planReceiptPath -PathType Leaf)
+        ) {
+            (
+                Get-FileHash -LiteralPath $planReceiptPath -Algorithm SHA256
+            ).Hash.ToLowerInvariant()
+        } else { $null }
+        $adoptionExternalAnchorVerified = (
+            ($adoptionAnchorFields -join "`n") -ceq
+                ($expectedAdoptionAnchorFields -join "`n") -and
+            $adoptionAnchor.schema -ceq
+                'fbsir.u3wAdminRootDependencyExternalAnchor.v2' -and
+            $adoptionAnchor.runId -ceq $adoptionRunId -and
+            $adoptionAnchor.sourceCommit -ceq
+                [string]$snapshot.database.
+                    adminRootDependencyAdoptionSourceCommit -and
+            $adoptionAnchor.targetHost -ceq 'api2.u3w.com' -and
+            $adoptionAnchor.adoptionReceiptPath -ceq
+                $adoptionReceiptPath -and
+            $adoptionAnchor.adoptionReceiptSha256 -ceq
+                $localAdoptionReceiptSha256 -and
+            $localAdoptionReceiptSha256 -ceq
+                $ExpectedAdminRootDependencyAdoptionReceiptSha256.
+                    ToLowerInvariant() -and
+            $adoptionAnchor.databaseServerUuid -ceq
+                [string]$snapshot.database.databaseServerUuid -and
+            $adoptionAnchor.liveFactsSha256 -ceq
+                [string]$snapshot.database.
+                    adminRootDependencyAdoptionLiveFactsSha256 -and
+            $adoptionAnchor.baselineLatestReceiptSha256 -ceq
+                [string]$snapshot.database.
+                    adminRootDependencyAdoptionBaselineReceiptSha256 -and
+            $adoptionAnchor.backupLatestReceiptSha256 -ceq
+                [string]$snapshot.database.
+                    adminRootDependencyAdoptionBackupReceiptSha256 -and
+            $adoptionAnchor.planReceiptPath -ceq
+                $expectedPlanReceiptPath -and
+            $adoptionAnchor.planReceiptSha256 -ceq
+                $localPlanReceiptSha256 -and
+            $adoptionAnchor.planReceiptSha256 -ceq
+                [string]$snapshot.database.
+                    adminRootDependencyAdoptionPlanReceiptSha256 -and
+            $adoptionAnchor.approvalReceiptSha256 -ceq
+                [string]$snapshot.database.
+                    adminRootDependencyAdoptionApprovalReceiptSha256 -and
+            $adoptionAnchor.runnerSha256 -ceq
+                [string]$snapshot.database.
+                    adminRootDependencyAdoptionRunnerSha256 -and
+            $adoptionAnchor.workerSha256 -ceq
+                [string]$snapshot.database.
+                    adminRootDependencyAdoptionWorkerSha256 -and
+            [string]$adoptionAnchor.capturedAt -cmatch
+                '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'
+        )
+    }
+}
+$snapshot.database.adminRootDependencyAdoptionReceiptAnchorMatched = (
+    $snapshot.database.adminRootDependencyAdoptionReceiptAnchorMatched -eq
+        $true -and
+    $adoptionExternalAnchorVerified
+)
 $preparationSourceCommits = @(
     [string]$snapshot.configuration.configurationReceiptSourceCommit,
-    [string]$snapshot.backup.sourceCommit
+    [string]$snapshot.backup.sourceCommit,
+    [string]$snapshot.database.adminRootDependencyAdoptionSourceCommit
 )
-$expectedPreparationReceiptCount = 2
-if (
-    [string]$snapshot.database.schemaBaselineMode -ceq
-        'LEGACY_ADOPTED_W1A_V2'
-) {
-    $preparationSourceCommits +=
-        [string]$snapshot.database.legacyBaselineSourceCommit
-    $expectedPreparationReceiptCount = 3
-}
+$expectedPreparationReceiptCount = 3
 $preparationSourceCommits = @(
     $preparationSourceCommits |
         Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
@@ -5126,16 +6873,27 @@ $preparationSourceCommit = if ($preparationSourcesConsistent) {
     [string]$uniquePreparationSourceCommits[0]
 } else { $null }
 $preparationCommitAncestor = $false
+$legacyBaselineCommitAncestor = $false
 if ($preparationSourceCommit) {
     & git -C $RepoRoot merge-base --is-ancestor `
         $preparationSourceCommit $gitState.sourceCommit 2>$null
     $preparationCommitAncestor = $LASTEXITCODE -eq 0
+    $legacyBaselineSourceCommit =
+        [string]$snapshot.database.legacyBaselineSourceCommit
+    if ($legacyBaselineSourceCommit -cmatch '^[0-9a-f]{40}$') {
+        & git -C $RepoRoot merge-base --is-ancestor `
+            $legacyBaselineSourceCommit $preparationSourceCommit 2>$null
+        $legacyBaselineCommitAncestor = $LASTEXITCODE -eq 0
+    }
 }
 $gitState.preparationSourceCommit = $preparationSourceCommit
 $gitState.preparationCommitAncestorOfSourceCommit =
     $preparationCommitAncestor
 $gitState.preparationSourceCommitsConsistent =
     $preparationSourcesConsistent
+$gitState | Add-Member `
+    -NotePropertyName legacyBaselineCommitAncestorOfPreparationSourceCommit `
+    -NotePropertyValue $legacyBaselineCommitAncestor -Force
 $plannedTarget = $gitState.releasePlanTarget
 $liveTarget = $snapshot.releaseTargetFacts
 $releaseTargetMatched = $false
@@ -5208,7 +6966,8 @@ if ($plannedTarget -and $liveTarget) {
         'FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_EVENT_KEY',
         'FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY_ID',
         'FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY',
-        'FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET'
+        'FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET',
+        'FBSIR_ENGINE_TOKEN'
     ) | Sort-Object
     $liveProcessFlagValues =
         @($liveTarget.processFlagValues.psobject.Properties.Value)
@@ -5223,12 +6982,20 @@ if ($plannedTarget -and $liveTarget) {
             @($liveProcessFlagValues |
                 Where-Object { $_ -cne 'false' }).Count -eq 0
         ) -or (
-            $liveLoadState -ceq 'LEGACY_W1A_PENDING_RESTART' -and
+            $liveLoadState -ceq
+                'LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART' -and
             $liveTarget.processConfiguredEnvironmentMatched -eq $false -and
             (Test-JsonStructuralEquality `
                 -Left $livePendingNames -Right $managedW1aNames) -and
             @($liveProcessFlagValues |
                 Where-Object { $null -ne $_ }).Count -eq 0
+        ) -or (
+            $liveLoadState -ceq 'ENGINE_CREDENTIAL_PENDING_RESTART' -and
+            $liveTarget.processConfiguredEnvironmentMatched -eq $false -and
+            @($livePendingNames).Count -eq 1 -and
+            $livePendingNames[0] -ceq 'FBSIR_ENGINE_TOKEN' -and
+            @($liveProcessFlagValues |
+                Where-Object { $_ -cne 'false' }).Count -eq 0
         )
     )
     $staticIdentityMatched = (
