@@ -312,6 +312,18 @@ test("stage, apply, rollback and verify execute the committed remote worker", ()
   );
 });
 
+test("PrepareStage declares an explicit empty nested-evidence receipt set", () => {
+  const prepareStage = sectionBetween(
+    worker,
+    "def prepare_stage(args):",
+    "\ndef jar_attribution_class_count(",
+  );
+  assert.equal(
+    prepareStage.match(/"evidenceReceipts": \[\]/g)?.length ?? 0,
+    2,
+  );
+});
+
 test("committed remote worker validates the assigned result object only", () => {
   const remoteWorker = sectionBetween(
     runner,

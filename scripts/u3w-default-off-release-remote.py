@@ -2367,6 +2367,7 @@ def prepare_stage(args):
                     read_json(receipt).get(
                         "stageApprovalReceiptSha256"
                     ),
+                "evidenceReceipts": [],
                 "incomingPath": None,
                 "productionFilesystemChanged": False,
                 "productionDatabaseChanged": False,
@@ -2395,6 +2396,7 @@ def prepare_stage(args):
         "releaseId": args.release_id,
         "sourceCommit": args.source_commit,
         "approvalReceiptSha256": args.approval_sha,
+        "evidenceReceipts": [],
         "incomingPath": str(incoming),
         "productionFilesystemChanged": True,
         "productionDatabaseChanged": False,
