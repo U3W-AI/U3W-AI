@@ -660,7 +660,7 @@ def inspect_stage(release, args):
     plan_path = validate_regular_file(
         release / "evidence/release-plan.json",
         release / "evidence",
-        modes=(0o600,),
+        modes=(0o600, 0o644),
     )
     if (
         stage.get("applicationRollbackAssemblyReceiptPath")

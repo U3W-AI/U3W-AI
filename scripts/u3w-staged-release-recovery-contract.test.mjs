@@ -76,6 +76,7 @@ test("remote recovery verifies exact Stage v3 and prior recovery boundaries", ()
     "apply-failure-*.json",
     "preStageRuntimeIdentity",
     "serviceSnapshotBeforeStage",
+    'modes=(0o600, 0o644)',
     'expected["uid"] != 0',
     'expected["gid"] != 0',
     'expected["nlink"] != 1',
