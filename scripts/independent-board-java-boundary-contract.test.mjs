@@ -41,3 +41,17 @@ test('Java attribution writer requires every successful predecessor sequence bef
   assert.match(mapper, /List<Long>\s+selectSuccessfulPriorSequenceNosForUpdate/)
   assert.match(mapperXml, /<select id="selectSuccessfulPriorSequenceNosForUpdate" resultType="long">[\s\S]*challenge_id = #\{challengeId\}[\s\S]*server_binding_id = #\{serverBindingId\}[\s\S]*contract_id = #\{contractId\}[\s\S]*tenant_subject_digest = #\{tenantSubjectDigest\}[\s\S]*outcome = 'success'[\s\S]*entry_surface = 'official_entry'[\s\S]*sequence_no &lt; #\{beforeSequenceNo\}[\s\S]*ORDER BY sequence_no[\s\S]*FOR UPDATE/)
 })
+
+test('W1A idempotency re-read uses a locking read after the journey-head lock', () => {
+  const ingest = fs.readFileSync('FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/service/IndependentBoardAttributionIngestService.java', 'utf8')
+  const mapper = fs.readFileSync('FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/mapper/IndependentBoardAttributionV1Mapper.java', 'utf8')
+  const mapperXml = fs.readFileSync('FBSir-business/src/main/resources/mapper/board/attribution/IndependentBoardAttributionV1Mapper.xml', 'utf8')
+  const lockAt = ingest.indexOf('mapper.selectJourneyHeadForUpdate(sameBindingKey)')
+  const rereadAt = ingest.indexOf('mapper.selectEventByEventIdForUpdate(event.getEventId())')
+  assert.ok(lockAt >= 0 && rereadAt > lockAt)
+  assert.match(ingest, /selectEventByReceiptIdForUpdate\(event\.getReceiptId\(\)\)/)
+  assert.match(mapper, /selectEventByEventIdForUpdate/)
+  assert.match(mapper, /selectEventByReceiptIdForUpdate/)
+  assert.match(mapperXml, /<select id="selectEventByEventIdForUpdate"[\s\S]*FROM fbs_board_attr_event_v1[\s\S]*WHERE event_id = #\{eventId\}[\s\S]*FOR UPDATE/)
+  assert.match(mapperXml, /<select id="selectEventByReceiptIdForUpdate"[\s\S]*FROM fbs_board_attr_event_v1[\s\S]*WHERE receipt_id = #\{receiptId\}[\s\S]*FOR UPDATE/)
+})

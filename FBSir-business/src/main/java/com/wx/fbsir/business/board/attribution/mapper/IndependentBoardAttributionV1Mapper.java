@@ -14,7 +14,13 @@ public interface IndependentBoardAttributionV1Mapper {
     BoardAttributionLedgerEvent selectEventByEventId(
             @Param("eventId") String eventId);
 
+    BoardAttributionLedgerEvent selectEventByEventIdForUpdate(
+            @Param("eventId") String eventId);
+
     BoardAttributionLedgerEvent selectEventByReceiptId(
+            @Param("receiptId") String receiptId);
+
+    BoardAttributionLedgerEvent selectEventByReceiptIdForUpdate(
             @Param("receiptId") String receiptId);
 
     int insertJourneyHeadIfAbsent(BoardAttributionJourneyHead head);

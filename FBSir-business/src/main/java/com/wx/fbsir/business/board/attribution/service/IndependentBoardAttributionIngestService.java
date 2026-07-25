@@ -89,9 +89,9 @@ public class IndependentBoardAttributionIngestService {
         // under the lock so an exact duplicate is a 200 replay rather than a
         // false out-of-order conflict (the API2 outbox relies on this).
         BoardAttributionLedgerEvent committed =
-                mapper.selectEventByEventId(event.getEventId());
+                mapper.selectEventByEventIdForUpdate(event.getEventId());
         if (committed == null) {
-            committed = mapper.selectEventByReceiptId(event.getReceiptId());
+            committed = mapper.selectEventByReceiptIdForUpdate(event.getReceiptId());
         }
         if (committed != null) {
             return replayOrReject(committed, verified, sameBindingKey);

@@ -91,11 +91,27 @@
     WHERE event_id = #{eventId}
   </select>
 
+  <select id="selectEventByEventIdForUpdate" resultMap="LedgerEvent"
+      flushCache="true" useCache="false">
+    SELECT <include refid="LedgerColumns"/>
+    FROM fbs_board_attr_event_v1
+    WHERE event_id = #{eventId}
+    FOR UPDATE
+  </select>
+
   <select id="selectEventByReceiptId" resultMap="LedgerEvent"
       useCache="false">
     SELECT <include refid="LedgerColumns"/>
     FROM fbs_board_attr_event_v1
     WHERE receipt_id = #{receiptId}
+  </select>
+
+  <select id="selectEventByReceiptIdForUpdate" resultMap="LedgerEvent"
+      flushCache="true" useCache="false">
+    SELECT <include refid="LedgerColumns"/>
+    FROM fbs_board_attr_event_v1
+    WHERE receipt_id = #{receiptId}
+    FOR UPDATE
   </select>
 
   <insert id="insertJourneyHeadIfAbsent"
