@@ -537,7 +537,7 @@
     "u3wSourceTruth": {
       "repository": "https://github.com/U3W-AI/U3W-AI.git",
       "candidateBranch": "codex/w1-official-attribution-closure",
-      "candidateState": "committed_clean_local_push_pending_previous_release_deployed_default_off_observation_active_natural_proof_pending",
+      "candidateState": "committed_clean_origin_aligned_candidate_pushed_previous_release_deployed_default_off_observation_active_natural_proof_pending",
       "candidateCommit": "f0133f7f0952e8d97120d7eff7153ec5600d68e7",
       "productionJarSha256": "92e93328af7fdccfbe3a89bbbfd89d46947dfa00794ccfd5aae48116d1ac817b",
       "productionByteIdentity": "deployed_release_13c203a5_default_off_observation_activated_backend_byte_equivalent_to_head"
