@@ -765,6 +765,39 @@ test("plan target captures the full immutable live identity contract", () => {
   }
 });
 
+test("release Plan accepts only the exact token-secret restart mismatch", () => {
+  const collector = sectionBetween(
+    runner,
+    "function Invoke-ReadOnlyRemotePlanSnapshot {",
+    "function Invoke-Plan {",
+  );
+  const plan = sectionBetween(
+    runner,
+    "function Invoke-Plan {",
+    "function Get-ApprovalDigest {",
+  );
+  for (const source of [collector, plan]) {
+    assert.ok(source.includes("TOKEN_SECRET_ROTATION_PENDING_RESTART"));
+    assert.ok(source.includes("FBSIR_TOKEN_SECRET"));
+    assert.ok(source.includes("processConfiguredEnvironmentMismatchNames"));
+    assert.ok(source.includes("processPendingRestartEnvironmentNames"));
+  }
+  assert.ok(collector.includes("mismatch_names == [TOKEN_SECRET_NAME]"));
+  assert.ok(collector.includes("not pending_names"));
+  assert.match(
+    plan,
+    /processConfiguredEnvironmentMismatchNames\s*\r?\n\s*\)\.Count -eq 1/,
+  );
+  assert.match(
+    plan,
+    /processConfiguredEnvironmentMismatchNames\s*\r?\n\s*\)\[0\] -ceq/,
+  );
+  assert.match(
+    plan,
+    /processPendingRestartEnvironmentNames\s*\r?\n\s*\)\.Count -eq 0/,
+  );
+});
+
 test("plan accepts only exact untouched, rollback or interrupted recovery predecessors", () => {
   const collector = sectionBetween(
     runner,

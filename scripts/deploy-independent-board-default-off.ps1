@@ -747,6 +747,7 @@ SAME_BINDING_KEY_NAME = (
     "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET"
 )
 ADMIN_ENGINE_TOKEN_NAME = "FBSIR_ENGINE_TOKEN"
+TOKEN_SECRET_NAME = "FBSIR_TOKEN_SECRET"
 MANAGED_W1A_NAMES = FLAGS + (
     EVENT_KEY_ID_NAME,
     EVENT_KEY_NAME,
@@ -771,7 +772,7 @@ SECURITY_NAMES = (
     DATABASE_NAMES
     + DATABASE_ALIASES
     + FLAGS
-    + (ADMIN_ENGINE_TOKEN_NAME,)
+    + (ADMIN_ENGINE_TOKEN_NAME, TOKEN_SECRET_NAME)
 )
 FORBIDDEN_OVERRIDES = {
     "SPRING_APPLICATION_JSON",
@@ -1300,6 +1301,16 @@ def security_evidence(process_values, configured_values):
         and database_matched
     ):
         load_state = "ENGINE_CREDENTIAL_PENDING_RESTART"
+    elif (
+        not pending_names
+        and mismatch_names == [TOKEN_SECRET_NAME]
+        and all(
+            name in configured_values for name in MANAGED_RESTART_NAMES
+        )
+        and all(configured_flags[name] == "false" for name in FLAGS)
+        and database_matched
+    ):
+        load_state = "TOKEN_SECRET_ROTATION_PENDING_RESTART"
     else:
         load_state = "INVALID_PARTIAL_OR_DRIFTED"
     return {
@@ -1324,6 +1335,7 @@ def security_evidence(process_values, configured_values):
                 "EXACT_CONFIGURED",
                 "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART",
                 "ENGINE_CREDENTIAL_PENDING_RESTART",
+                "TOKEN_SECRET_ROTATION_PENDING_RESTART",
             },
     }
 
@@ -2060,7 +2072,19 @@ if (
     or security[
         "processConfiguredEnvironmentPreStageCompatible"
     ] is not True
-    or security["processConfiguredEnvironmentMismatchNames"] != []
+    or (
+        security["processConfiguredEnvironmentMismatchNames"] != []
+        and not (
+            security["processConfiguredEnvironmentLoadState"]
+                == "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+            and security[
+                "processConfiguredEnvironmentMismatchNames"
+            ] == [TOKEN_SECRET_NAME]
+            and not security[
+                "processPendingRestartEnvironmentNames"
+            ]
+        )
+    )
 ):
     raise RuntimeError("effective process configuration drifted")
 
@@ -2304,8 +2328,26 @@ function Invoke-Plan {
         $remote.processDatabaseBindingMatched -ne $true -or
         $remote.processConfiguredEnvironmentPreStageCompatible -ne
             $true -or
-        @($remote.processConfiguredEnvironmentMismatchNames).Count -ne
-            0 -or
+        -not (
+            @(
+                $remote.processConfiguredEnvironmentMismatchNames
+            ).Count -eq 0 -or
+            (
+                $remote.processConfiguredEnvironmentLoadState -ceq
+                    'TOKEN_SECRET_ROTATION_PENDING_RESTART' -and
+                $remote.processConfiguredEnvironmentMatched -eq
+                    $false -and
+                @(
+                    $remote.processPendingRestartEnvironmentNames
+                ).Count -eq 0 -and
+                @(
+                    $remote.processConfiguredEnvironmentMismatchNames
+                ).Count -eq 1 -and
+                @(
+                    $remote.processConfiguredEnvironmentMismatchNames
+                )[0] -ceq 'FBSIR_TOKEN_SECRET'
+            )
+        ) -or
         @($remote.processForbiddenOverrideNames).Count -ne 0 -or
         @($remote.configuredFlagValues.psobject.Properties.Value |
             Where-Object { $_ -cne 'false' }).Count -ne 0 -or
@@ -2365,6 +2407,21 @@ function Invoke-Plan {
                         @(
                             $remote.processPendingRestartEnvironmentNames
                         )[0] -ceq 'FBSIR_ENGINE_TOKEN'
+                    ) -or
+                    (
+                        $remote.processConfiguredEnvironmentLoadState -ceq
+                            'TOKEN_SECRET_ROTATION_PENDING_RESTART' -and
+                        $remote.processConfiguredEnvironmentMatched -eq
+                            $false -and
+                        @(
+                            $remote.processPendingRestartEnvironmentNames
+                        ).Count -eq 0 -and
+                        @(
+                            $remote.processConfiguredEnvironmentMismatchNames
+                        ).Count -eq 1 -and
+                        @(
+                            $remote.processConfiguredEnvironmentMismatchNames
+                        )[0] -ceq 'FBSIR_TOKEN_SECRET'
                     )
                 ) -or
                 $null -eq $remote.stageEntryTopology.priorRollbackAnchor -or
@@ -2398,6 +2455,21 @@ function Invoke-Plan {
                         @(
                             $remote.processPendingRestartEnvironmentNames
                         )[0] -ceq 'FBSIR_ENGINE_TOKEN'
+                    ) -or
+                    (
+                        $remote.processConfiguredEnvironmentLoadState -ceq
+                            'TOKEN_SECRET_ROTATION_PENDING_RESTART' -and
+                        $remote.processConfiguredEnvironmentMatched -eq
+                            $false -and
+                        @(
+                            $remote.processPendingRestartEnvironmentNames
+                        ).Count -eq 0 -and
+                        @(
+                            $remote.processConfiguredEnvironmentMismatchNames
+                        ).Count -eq 1 -and
+                        @(
+                            $remote.processConfiguredEnvironmentMismatchNames
+                        )[0] -ceq 'FBSIR_TOKEN_SECRET'
                     )
                 ) -or
                 $null -eq $remote.stageEntryTopology.priorRecoveryAnchor -or
