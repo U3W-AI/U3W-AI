@@ -98,23 +98,40 @@
   "api2Production": {
     "host": "api2.u3w.com",
     "healthStatus": 200,
+    "serviceUnit": "fbss-phase1.service",
     "deployedApp": {
-      "path": "/opt/fbsir/admin/FbsSkillMcp",
-      "packageVersion": "2026.5.25",
-      "isGitRepo": false,
-      "srcModules": ["config.js", "index.js", "observability", "services", "utils"],
-      "attributionPublisherModulePresent": false,
-      "outboxWorkerStatus": "deprecated"
+      "serviceName": "fbss-phase1",
+      "path": "/opt/fbss/phase1/current",
+      "currentResolved": "/opt/fbss/phase1/releases/20260725-181736",
+      "releaseId": "20260725-181736",
+      "sourceGitHead": "74aed6fe95826bc4b55cde5042994d28bac4ba91",
+      "trafficCutoverAt": "2026-07-25T10:18:56.451491Z",
+      "attributionModulesPresent": true,
+      "attributionModules": [
+        "fbss-independent-board-official-identity.js",
+        "fbss-six-dimensional-attribution.js",
+        "service-traction-attribution-decision-board.js",
+        "service-traction-observability.js",
+        "service-traction-product-signature-normalizer.js",
+        "service-traction-traffic-classification.js"
+      ]
     },
-    "w1PublisherCandidate": {
-      "repository": "https://github.com/fubangshou/FBSAI.git",
-      "branch": "codex/w1-official-experts-publisher",
-      "candidateCommit": "7b84d4721217cc4d98426b68d7efa31bc62ef5bb",
-      "candidateState": "committed_pushed_clean_strict_head_package_verified_default_off",
-      "deployed": false,
-      "activeReleaseFileHashReadback": false
+    "w1PublisherActivation": {
+      "activationId": "w1a-publisher-20260725T120503Z-d7239dceed47",
+      "activatedAt": "2026-07-25T12:07:50.296Z",
+      "authorization": "explicit-user-authority",
+      "state": "PUBLISHER_ACTIVE",
+      "publisherEnabled": true,
+      "u3wEndpoint": "http://127.0.0.1:8080/internal/independent-board/attribution/events",
+      "eventKeyId": "w1a-20260723-k1",
+      "outboxPath": "/var/lib/fbss-phase1/independent-board-attribution-outbox.json",
+      "healthStatus": "ready",
+      "signingKeyConfigured": true,
+      "workerRunning": true,
+      "exactOfficialIdentityConfigured": true,
+      "productCreditPromoted": false
     },
-    "gap": "The W1 publisher candidate is committed and pushed but NOT deployed. The production FbsSkillMcp is the May version (2026.5.25) without attribution/outbox modules. API2 deployment is the critical blocker for the natural same-binding chain."
+    "note": "CORRECTION from initial Round-1 observation: the W1 publisher IS deployed and activated on the fbss-phase1 service (NOT FbsSkillMcp). The initial Round-1 analysis incorrectly checked FbsSkillMcp (a different, legacy service). The full API2-to-U3W attribution chain is functional: API2 publisher is PUBLISHER_ACTIVE, U3W ingress is observation-activated, shared event key w1a-20260723-k1 is configured on both sides."
   },
   "contractGateStatus": {
     "mode": "Contract",
@@ -131,15 +148,14 @@
     "u3w_production_ledger_probe_only_zero_natural_baseline",
     "u3w_official_experts_package_unchanged",
     "u3w_local_head_origin_aligned_clean_worktree",
-    "api2_w1_publisher_candidate_committed_pushed_not_deployed"
+    "api2_w1_publisher_deployed_and_publisher_active_on_fbss_phase1",
+    "api2_to_u3w_endpoint_configured_shared_event_key",
+    "whoami_call_attributed_to_super_partner_group_not_eight_seat_board"
   ],
   "notProven": [
-    "api2_w1_publisher_production_deployment",
-    "api2_active_release_file_hash_readback",
-    "api2_to_u3w_production_signed_event_receipt",
     "one_real_official_experts_same_binding_three_event_chain",
     "admin_real_traffic_six_dimension_readback_with_natural_traffic",
     "contract_pin_advanced_to_current_production_state"
   ],
-  "singleNextAction": "Deploy the API2 W1 publisher candidate (fubangshou/FBSAI@7b84d472) to production with active release file hash readback, then advance the contract pin from 51dba9ef to the deployed commit by re-running the readiness evaluator, then drive one real official experts same-binding chain and admin six-dimension readback."
+  "singleNextAction": "User opens fbsir-eight-seat-board@26.7.21 in WorkBuddy Expert Center and completes one real session (whoami → scene_pack → decision start card) to produce the natural same-binding ENTRY_OBSERVED/INTENT_CLASSIFIED/FIRST_VALUE_COMPLETED chain. Then verify the ledger has 1 NATURAL journey with 3 events and perform admin six-dimension readback with probe/natural denominator separation."
 }
