@@ -11,6 +11,7 @@ import base64
 import datetime as dt
 import hashlib
 import hmac
+import http.client
 import json
 import os
 import pathlib
@@ -19,8 +20,6 @@ import stat
 import subprocess
 import sys
 import time
-import urllib.error
-import urllib.request
 
 try:
     import fcntl
@@ -459,24 +458,79 @@ def process_environment(pid):
     )
 
 
-def http_status(path, method="GET", body=None):
-    request = urllib.request.Request(
-        "http://127.0.0.1:8080" + path,
-        method=method,
-        data=body,
-        headers={"Content-Type": "application/json"}
-        if body is not None
-        else {},
+class RuntimeExpectationError(RuntimeError):
+    def __init__(self, evidence):
+        super().__init__(
+            "U3W observation runtime did not reach expected state"
+        )
+        self.evidence = evidence
+
+
+def http_probe(path, method="GET", body=None):
+    connection = http.client.HTTPConnection(
+        "127.0.0.1", 8080, timeout=5
     )
     try:
-        with urllib.request.urlopen(request, timeout=5) as response:
-            return response.status
-    except urllib.error.HTTPError as error:
-        return error.code
+        headers = (
+            {"Content-Type": "application/json"}
+            if body is not None
+            else {}
+        )
+        connection.request(method, path, body=body, headers=headers)
+        response = connection.getresponse()
+        return bounded_http_evidence(response, response.status)
+    finally:
+        connection.close()
 
 
-def ingress_state_matches(status, expected_active):
-    return status == (405 if expected_active else 404)
+def bounded_http_evidence(response, status):
+    raw = response.read(4097)
+    too_large = len(raw) > 4096
+    payload = {}
+    if not too_large:
+        try:
+            decoded = json.loads(raw.decode("utf-8"))
+            payload = decoded if isinstance(decoded, dict) else {}
+        except (UnicodeDecodeError, ValueError):
+            payload = {}
+    reason = payload.get("reason", payload.get("msg"))
+    semantic = (
+        "OFFICIAL_IDENTITY_MISMATCH"
+        if reason == "official_identity_mismatch"
+        else "OTHER"
+    )
+    cache_control = str(
+        response.headers.get("Cache-Control", "")
+    ).lower()
+    pragma = str(response.headers.get("Pragma", "")).lower()
+    code = payload.get("code")
+    return {
+        "status": int(status),
+        "jsonCode": code if isinstance(code, int) else None,
+        "semantic": semantic,
+        "cacheControlNoStore": "no-store" in cache_control,
+        "pragmaNoCache": "no-cache" in pragma,
+        "bodyWithinLimit": not too_large,
+    }
+
+
+def ingress_state_matches(probe, expected_active):
+    if not expected_active:
+        return probe.get("status") == 404
+    transport = (
+        probe.get("status") == 400
+        or (
+            probe.get("status") == 200
+            and probe.get("jsonCode") == 500
+        )
+    )
+    return bool(
+        transport
+        and probe.get("semantic")
+        == "OFFICIAL_IDENTITY_MISMATCH"
+        and probe.get("cacheControlNoStore") is True
+        and probe.get("bodyWithinLimit") is True
+    )
 
 
 def wait_for_runtime(expected_active, timeout=180):
@@ -485,10 +539,11 @@ def wait_for_runtime(expected_active, timeout=180):
     while time.monotonic() < deadline:
         try:
             snapshot = service_snapshot()
-            captcha = http_status("/captchaImage")
-            ingress = http_status(
+            captcha = http_probe("/captchaImage")
+            ingress = http_probe(
                 "/internal/independent-board/attribution/events",
-                method="GET",
+                method="POST",
+                body=b"{}",
             )
             environment = process_environment(
                 snapshot["mainPid"]
@@ -504,25 +559,33 @@ def wait_for_runtime(expected_active, timeout=180):
             )
             last = {
                 "service": snapshot,
-                "captchaStatus": captcha,
-                "ingressRouteGetStatus": ingress,
+                "captchaStatus": captcha["status"],
+                "ingressProbe": ingress,
+                "ingressTransportContractCompliant": (
+                    ingress["status"] == 400
+                ),
                 "runtimeFlagsMatch": flags_match,
                 "ingressStateMatch": ingress_match,
+                "probeDatabaseWriteAuthorized": False,
             }
-            if captcha == 200 and flags_match and ingress_match:
+            if (
+                captcha["status"] == 200
+                and flags_match
+                and ingress_match
+            ):
                 return last
         except Exception as error:  # bounded readiness retry
             last = {"errorType": type(error).__name__}
         time.sleep(1)
-    raise RuntimeError(
-        "U3W observation runtime did not reach expected state: "
-        + canonical_json(last)
-    )
+    raise RuntimeExpectationError(last)
 
 
 def restart_and_verify(expected_active):
     run_checked(["systemctl", "restart", SERVICE_UNIT])
-    return wait_for_runtime(expected_active)
+    return wait_for_runtime(
+        expected_active,
+        timeout=60 if expected_active else 180,
+    )
 
 
 def remove_pending(path):
@@ -612,6 +675,11 @@ def mutate_with_automatic_rollback(
             "failureType": type(error).__name__,
             "failureMessageSha256": sha256_bytes(
                 str(error).encode("utf-8", errors="replace")
+            ),
+            "failureEvidence": (
+                error.evidence
+                if isinstance(error, RuntimeExpectationError)
+                else None
             ),
             "environmentBeforeSha256": before_sha,
             "environmentBackupSha256": sha256_file(backup_path),

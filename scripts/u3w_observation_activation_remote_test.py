@@ -102,14 +102,39 @@ class ObservationActivationContractTest(unittest.TestCase):
         self.assertNotIn("eventKeySha256", rendered)
         self.assertNotIn("sameBindingSecretSha256", rendered)
 
-    def test_active_ingress_requires_exact_method_not_allowed(self):
-        self.assertTrue(MODULE.ingress_state_matches(405, True))
-        self.assertFalse(MODULE.ingress_state_matches(200, True))
-        self.assertFalse(MODULE.ingress_state_matches(400, True))
-        self.assertFalse(MODULE.ingress_state_matches(401, True))
-        self.assertFalse(MODULE.ingress_state_matches(500, True))
-        self.assertFalse(MODULE.ingress_state_matches(502, True))
-        self.assertTrue(MODULE.ingress_state_matches(404, False))
+    def test_active_ingress_requires_w1_verifier_semantics(self):
+        current_host_shape = {
+            "status": 200,
+            "jsonCode": 500,
+            "semantic": "OFFICIAL_IDENTITY_MISMATCH",
+            "cacheControlNoStore": True,
+            "bodyWithinLimit": True,
+        }
+        contract_shape = {
+            **current_host_shape,
+            "status": 400,
+            "jsonCode": None,
+        }
+        self.assertTrue(
+            MODULE.ingress_state_matches(current_host_shape, True)
+        )
+        self.assertTrue(
+            MODULE.ingress_state_matches(contract_shape, True)
+        )
+        for changed in (
+            {"status": 500},
+            {"jsonCode": 200},
+            {"semantic": "OTHER"},
+            {"cacheControlNoStore": False},
+            {"bodyWithinLimit": False},
+        ):
+            candidate = {**current_host_shape, **changed}
+            self.assertFalse(
+                MODULE.ingress_state_matches(candidate, True)
+            )
+        self.assertTrue(
+            MODULE.ingress_state_matches({"status": 404}, False)
+        )
 
     def test_atomic_write_preserves_mode_and_replaces_content(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -141,7 +166,12 @@ class ObservationActivationContractTest(unittest.TestCase):
             def restart_then_fail(expected_active):
                 calls.append(expected_active)
                 if expected_active:
-                    raise RuntimeError("simulated_start_failure")
+                    raise MODULE.RuntimeExpectationError({
+                        "ingressProbe": {
+                            "status": 200,
+                            "semantic": "OTHER",
+                        }
+                    })
                 return {
                     "serviceActive": True,
                     "runtimeFlagsMatch": True,
@@ -168,6 +198,12 @@ class ObservationActivationContractTest(unittest.TestCase):
             self.assertEqual(calls, [True, False])
             self.assertEqual(result["state"], "ROLLED_BACK")
             self.assertTrue(result["exactPreimageRestored"])
+            self.assertEqual(
+                result["failureEvidence"]["ingressProbe"][
+                    "semantic"
+                ],
+                "OTHER",
+            )
             self.assertFalse(pending.exists())
             self.assertTrue(terminal.exists())
 
