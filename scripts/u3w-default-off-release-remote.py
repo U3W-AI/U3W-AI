@@ -2668,6 +2668,31 @@ def http_json(url, timeout=5):
     return status, parsed
 
 
+def candidate_portal_http_json(host, endpoint_class):
+    paths = {
+        "api": "/prod-api/captchaImage",
+        "marker": "/w1a-release.json",
+    }
+    if host not in {"me.u3w.com", "admin.u3w.com"}:
+        raise RuntimeError("candidate portal host is invalid")
+    if endpoint_class not in paths:
+        raise RuntimeError("candidate portal endpoint class is invalid")
+    url = "https://{}{}".format(host, paths[endpoint_class])
+    last_error = None
+    for attempt in range(3):
+        try:
+            return http_json(url, timeout=10)
+        except (urllib.error.URLError, TimeoutError) as error:
+            last_error = error
+            if attempt < 2:
+                time.sleep(2)
+    raise RuntimeError(
+        "candidate portal transport failed: {} {}".format(
+            host, endpoint_class
+        )
+    ) from last_error
+
+
 def format_probe_timestamp(value):
     if (
         not isinstance(value, dt.datetime)
@@ -5901,17 +5926,15 @@ def assert_candidate_active(args, release):
     assert_candidate_runtime_contract(args, release, current)
     wait_for_u3w_health()
     for host in ("me.u3w.com", "admin.u3w.com"):
-        status, body = http_json(
-            "https://{}/prod-api/captchaImage".format(host), timeout=10
-        )
+        status, body = candidate_portal_http_json(host, "api")
         if (
             status != 200
             or not isinstance(body, dict)
             or body.get("code") != 200
         ):
             raise RuntimeError(host + " API portal readiness failed")
-        marker_status, marker = http_json(
-            "https://{}/w1a-release.json".format(host), timeout=10
+        marker_status, marker = candidate_portal_http_json(
+            host, "marker"
         )
         if (
             marker_status != 200

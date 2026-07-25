@@ -2914,6 +2914,73 @@ class ReleaseWorkerContractTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "flags"):
                 release.assert_candidate_active(args, candidate)
 
+    def test_candidate_portal_transport_retries_only_transport_failures(self):
+        expected = (200, {"code": 200})
+        with (
+            mock.patch.object(
+                release,
+                "http_json",
+                side_effect=[
+                    release.urllib.error.URLError(
+                        "The handshake operation timed out"
+                    ),
+                    expected,
+                ],
+            ) as request,
+            mock.patch.object(release.time, "sleep") as sleep,
+        ):
+            self.assertEqual(
+                release.candidate_portal_http_json(
+                    "me.u3w.com", "api"
+                ),
+                expected,
+            )
+        self.assertEqual(request.call_count, 2)
+        sleep.assert_called_once_with(2)
+
+        with (
+            mock.patch.object(
+                release,
+                "http_json",
+                return_value=(503, None),
+            ) as request,
+            mock.patch.object(release.time, "sleep") as sleep,
+        ):
+            self.assertEqual(
+                release.candidate_portal_http_json(
+                    "admin.u3w.com", "marker"
+                ),
+                (503, None),
+            )
+        request.assert_called_once_with(
+            "https://admin.u3w.com/w1a-release.json",
+            timeout=10,
+        )
+        sleep.assert_not_called()
+
+    def test_candidate_portal_transport_retry_exhaustion_fails_closed(self):
+        error = release.urllib.error.URLError(
+            "The handshake operation timed out"
+        )
+        with (
+            mock.patch.object(
+                release,
+                "http_json",
+                side_effect=error,
+            ) as request,
+            mock.patch.object(release.time, "sleep") as sleep,
+            self.assertRaisesRegex(
+                RuntimeError,
+                "admin.u3w.com marker",
+            ) as raised,
+        ):
+            release.candidate_portal_http_json(
+                "admin.u3w.com", "marker"
+            )
+        self.assertIs(raised.exception.__cause__, error)
+        self.assertEqual(request.call_count, 3)
+        self.assertEqual(sleep.call_count, 2)
+
     def test_atomic_write_preserves_existing_system_parent_mode(self):
         source = inspect.getsource(release.atomic_bytes)
         self.assertIn("ensure_parent_directory(path.parent)", source)

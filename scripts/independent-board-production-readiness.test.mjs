@@ -1645,6 +1645,17 @@ test("readiness independently accepts only an exact interrupted Apply recovery p
     /prior_recovery_anchor\.get\("schema"\)\s*==\s*"fbsir\.u3wPriorInterruptedApplyRecoveryStageAnchor\.v1"/
       .test(collector),
   );
+  for (const lifecycleGuard of [
+    "prior_recovery_predecessor_live_valid = False",
+    'if deployment_state == "STAGED_FOR_SWITCH":',
+    "interrupted_recovery_lifecycle_valid(",
+    "and prior_recovery_lifecycle_valid",
+  ]) {
+    assert.ok(
+      collector.includes(lifecycleGuard),
+      `recovery predecessor lifecycle must include ${lifecycleGuard}`,
+    );
+  }
   assert.ok(
     collector.includes(
       "and not release_status.st_mode & 0o022",
@@ -1711,6 +1722,51 @@ test("readiness independently accepts only an exact interrupted Apply recovery p
   ]) {
     assert.ok(collector.includes(compatible));
   }
+});
+
+test("interrupted recovery lifecycle requires live predecessor only while staged", () => {
+  const pythonSource = embeddedCollectorSource();
+  const harness = String.raw`
+import ast
+import json
+import sys
+
+source = sys.stdin.read()
+tree = ast.parse(source, filename="<u3w-readiness-collector>")
+selected = [
+    node for node in tree.body
+    if isinstance(node, ast.FunctionDef)
+    and node.name == "interrupted_recovery_lifecycle_valid"
+]
+assert len(selected) == 1
+namespace = {}
+exec(
+    compile(
+        ast.Module(body=selected, type_ignores=[]),
+        "<u3w-readiness-lifecycle>",
+        "exec",
+    ),
+    namespace,
+)
+validate = namespace["interrupted_recovery_lifecycle_valid"]
+assert validate("STAGED_FOR_SWITCH", True) is True
+assert validate("STAGED_FOR_SWITCH", False) is False
+assert validate("DEPLOYED_DEFAULT_OFF", True) is True
+assert validate("DEPLOYED_DEFAULT_OFF", False) is True
+assert validate("UNKNOWN", True) is False
+print(json.dumps({"status": "PASS"}))
+`;
+  const result = spawnSync(pythonExecutable(), ["-c", harness], {
+    input: pythonSource,
+    encoding: "utf8",
+    timeout: 15_000,
+  });
+  assert.equal(
+    result.status,
+    0,
+    `recovery lifecycle harness failed: ${result.stderr || result.stdout}`,
+  );
+  assert.deepEqual(JSON.parse(result.stdout.trim()), { status: "PASS" });
 });
 
 test("embedded recovery validator accepts v2 probe-only 3/1 with boolean DB aggregate", () => {

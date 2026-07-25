@@ -1215,6 +1215,19 @@ def recorded_recovery_migration_matches_live(recorded, live):
     )
 
 
+def interrupted_recovery_lifecycle_valid(
+    deployment_state,
+    predecessor_live_valid,
+):
+    return bool(
+        deployment_state == "DEPLOYED_DEFAULT_OFF"
+        or (
+            deployment_state == "STAGED_FOR_SWITCH"
+            and predecessor_live_valid is True
+        )
+    )
+
+
 def interrupted_recovery_historic_anchors_valid(release, recovery):
     approval_path = (
         release / INTERRUPTED_APPLY_RECOVERY_APPROVAL_NAME
@@ -7538,22 +7551,6 @@ if (
                         allowed_modes=(0o600,),
                     )
                 )
-                active_recovery_dropin = pathlib.Path(
-                    "/etc/systemd/system/fbsir-admin.service.d/"
-                    "20-u3w-default-off-release.conf"
-                )
-                active_recovery_dropin_manifest = (
-                    regular_file_manifest(
-                        active_recovery_dropin,
-                        allowed_modes=(0o644,),
-                    )
-                )
-                active_recovery_nginx = pathlib.Path(
-                    "/etc/nginx/conf.d/u3w-placeholder-sites.conf"
-                )
-                active_recovery_nginx_manifest = (
-                    regular_file_manifest(active_recovery_nginx)
-                )
                 anchored_failure_receipt_manifest = (
                     anchored_recovery.get(
                         "applyFailureReceiptManifest"
@@ -7646,6 +7643,61 @@ if (
                                 "applyFailureReceiptSha256"
                             )
                     ) == 1
+                )
+                prior_recovery_predecessor_live_valid = False
+                if deployment_state == "STAGED_FOR_SWITCH":
+                    active_recovery_dropin = pathlib.Path(
+                        "/etc/systemd/system/fbsir-admin.service.d/"
+                        "20-u3w-default-off-release.conf"
+                    )
+                    active_recovery_dropin_manifest = (
+                        regular_file_manifest(
+                            active_recovery_dropin,
+                            allowed_modes=(0o644,),
+                        )
+                    )
+                    active_recovery_nginx = pathlib.Path(
+                        "/etc/nginx/conf.d/u3w-placeholder-sites.conf"
+                    )
+                    active_recovery_nginx_manifest = (
+                        regular_file_manifest(active_recovery_nginx)
+                    )
+                    prior_recovery_predecessor_live_valid = bool(
+                        active_recovery_dropin_manifest["sha256"]
+                            == anchored_rollback_dropin_manifest["sha256"]
+                        and active_recovery_nginx_manifest["sha256"]
+                            == anchored_predecessor_evidence.get(
+                                "previousNginxSha256"
+                            )
+                        and live_service_snapshot.get("activeState")
+                            == "active"
+                        and live_service_snapshot.get(
+                            "configuredJarSha256"
+                        ) == anchored_predecessor_jar_manifest["sha256"]
+                        and live_service_snapshot.get(
+                            "processJarSha256"
+                        ) == anchored_predecessor_jar_manifest["sha256"]
+                        and live_service_snapshot.get("jarSha256")
+                            == anchored_predecessor_jar_manifest["sha256"]
+                        and snapshot_default_off(
+                            live_service_snapshot,
+                            (
+                                "EXACT_CONFIGURED",
+                                "TOKEN_SECRET_ROTATION_PENDING_RESTART",
+                            ),
+                        )
+                        and not pathlib.Path(
+                            "/opt/fbsir/admin/current"
+                        ).exists()
+                        and not pathlib.Path(
+                            "/opt/fbsir/admin/current"
+                        ).is_symlink()
+                    )
+                prior_recovery_lifecycle_valid = (
+                    interrupted_recovery_lifecycle_valid(
+                        deployment_state,
+                        prior_recovery_predecessor_live_valid,
+                    )
                 )
                 prior_recovery_receipt_valid = bool(
                     set(anchored_recovery)
@@ -7740,33 +7792,7 @@ if (
                         == anchored_predecessor_evidence.get(
                             "previousJarSha256"
                         )
-                    and active_recovery_dropin_manifest["sha256"]
-                        == anchored_rollback_dropin_manifest["sha256"]
-                    and active_recovery_nginx_manifest["sha256"]
-                        == anchored_predecessor_evidence.get(
-                            "previousNginxSha256"
-                        )
-                    and live_service_snapshot.get("activeState")
-                        == "active"
-                    and live_service_snapshot.get("configuredJarSha256")
-                        == anchored_predecessor_jar_manifest["sha256"]
-                    and live_service_snapshot.get("processJarSha256")
-                        == anchored_predecessor_jar_manifest["sha256"]
-                    and live_service_snapshot.get("jarSha256")
-                        == anchored_predecessor_jar_manifest["sha256"]
-                    and snapshot_default_off(
-                        live_service_snapshot,
-                        (
-                            "EXACT_CONFIGURED",
-                            "TOKEN_SECRET_ROTATION_PENDING_RESTART",
-                        ),
-                    )
-                    and not pathlib.Path(
-                        "/opt/fbsir/admin/current"
-                    ).exists()
-                    and not pathlib.Path(
-                        "/opt/fbsir/admin/current"
-                    ).is_symlink()
+                    and prior_recovery_lifecycle_valid
                     and recorded_recovery_migration_matches_live(
                         anchored_recovery.get(
                             "retainedMigrationFacts"
