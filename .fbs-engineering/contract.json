@@ -442,19 +442,20 @@
         "baselineRef": "agent/board-no-package-same-binding-v1-20260719",
         "baselineCommit": "a0834ea5d4c1c3f95be9d25d26913c2d973e09d0",
         "candidateBranch": "codex/w1-official-experts-publisher",
-        "candidateState": "committed_pushed_clean_strict_head_package_verified_default_off",
-        "candidateCommit": "7b84d4721217cc4d98426b68d7efa31bc62ef5bb",
+        "candidateState": "committed_pushed_clean_publisher_active_production_release_20260725_default_off_credit_closed",
+        "candidateCommit": "ce68425846e2b0271ede3569ec7cf2a4e457848c",
         "candidateCriticalDeploySnapshotSha256": "230E5C448CDADC786ADA2022EEC5CB8D36159A08560BAB0F8F2E0A877AA6AE98",
-        "productionDeclaredCommit": "c01891a0ca3e11db0a0fe51828276fab33b862b5",
-        "productionByteIdentity": "not_proven"
+        "productionDeclaredCommit": "74aed6fe95826bc4b55cde5042994d28bac4ba91",
+        "productionReleaseId": "20260725-181736",
+        "productionByteIdentity": "source_git_head_readback_without_strict_package_byte_proof"
       },
       "u3wSourceTruth": {
         "repository": "https://github.com/U3W-AI/U3W-AI.git",
         "candidateBranch": "codex/w1-official-attribution-closure",
-        "candidateState": "committed_clean_live_readonly_gate_strict_head_verified_no_go",
-        "candidateCommit": "51dba9ef842f5fe62198a31cbfb7b237ecffd89b",
+        "candidateState": "committed_clean_origin_aligned_deployed_default_off_observation_active_natural_proof_pending",
+        "candidateCommit": "6da69734e4b5d36f968819238b367860b59a1462",
         "productionJarSha256": "92e93328af7fdccfbe3a89bbbfd89d46947dfa00794ccfd5aae48116d1ac817b",
-        "productionByteIdentity": "legacy_active_jar_readback_only_candidate_not_deployed"
+        "productionByteIdentity": "deployed_release_13c203a5_default_off_observation_activated_backend_byte_equivalent_to_head"
       }
     },
     "controlPlane": {

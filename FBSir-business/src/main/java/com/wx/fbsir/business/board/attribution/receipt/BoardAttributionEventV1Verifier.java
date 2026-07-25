@@ -35,6 +35,13 @@ public final class BoardAttributionEventV1Verifier
     private static final int MIN_SECRET_BYTES = 32;
     private static final int MAX_TTL_SECONDS = 120;
     private static final int MAX_FIELD_CHARS = 256;
+    /**
+     * These two signed dimensions are persisted in VARCHAR(64) columns by
+     * the W1A migration.  Rejecting longer values at the receipt boundary
+     * keeps a valid HMAC from reaching a deterministic database truncation
+     * failure (and an avoidable 500/retry loop).
+     */
+    private static final int MAX_PERSISTED_TOKEN_CHARS = 64;
     private static final int MAX_CANONICAL_CHARS = 32_768;
     private static final long CLOCK_SKEW_SECONDS = 30;
     private static final Pattern HEX_64 = Pattern.compile("[0-9a-f]{64}");
@@ -205,8 +212,8 @@ public final class BoardAttributionEventV1Verifier
                 || !REVIEW_MODES.contains(text(event.getReviewMode()))
                 || !TRAFFIC_CLASSES.contains(text(event.getTrafficClass()))
                 || !OUTCOMES.contains(text(event.getOutcome()))
-                || !safeToken(event.getIntentSignal())
-                || !safeToken(event.getClassifierVersion())
+                || !safeToken(event.getIntentSignal(), MAX_PERSISTED_TOKEN_CHARS)
+                || !safeToken(event.getClassifierVersion(), MAX_PERSISTED_TOKEN_CHARS)
                 || !safeToken(event.getNonce())
                 || !safeToken(event.getKeyId())) {
             reject("finite_dimension_invalid");
@@ -404,8 +411,12 @@ public final class BoardAttributionEventV1Verifier
     }
 
     private static boolean safeToken(String value) {
+        return safeToken(value, MAX_FIELD_CHARS);
+    }
+
+    private static boolean safeToken(String value, int maxChars) {
         String normalized = text(value);
-        return normalized.length() <= MAX_FIELD_CHARS
+        return normalized.length() <= maxChars
                 && SAFE_TOKEN.matcher(normalized).matches();
     }
 

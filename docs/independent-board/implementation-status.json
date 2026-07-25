@@ -19,7 +19,7 @@
     "listingConfirmedOn": "2026-07-21",
     "hostVerifiableListingUrl": null,
     "hostVerifiableListingReceipt": null,
-    "hostVerificationState": "official_entry_detected_runtime_reverify_pending",
+    "hostVerificationState": "official_listing_confirmed_probe_only_host_receipt_and_natural_authority_pending",
     "hostTruthChainReport": "reports/independent-board/host-truth-chain-summary-20260721.json",
     "rolloutMode": "full_listing_without_publisher_gray_control",
     "frozen": true,
@@ -50,7 +50,7 @@
   },
   "activeWave": "W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE",
   "activeSlice": "W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF",
-  "singleNextAction": "Apply the explicit default-off configuration and verified V2 legacy baseline under production approvals, take the final restore-proven backup, then build, plan, stage, apply and verify the strict-HEAD release before API2 byte readback and one real official experts same-binding chain.",
+  "singleNextAction": "Keep natural and credit gates closed; obtain a host-signed exact 26.7.21 listing receipt plus trusted forwarding authority for the same serverBindingId, then run one real official WorkBuddy entry and verify the three-event U3W/admin readback chain.",
   "stage": "fix",
   "phase": "W1D_API2_CLEANROOM_PUBLISHER",
   "authoritativeRoot": {
@@ -537,21 +537,22 @@
     "u3wSourceTruth": {
       "repository": "https://github.com/U3W-AI/U3W-AI.git",
       "candidateBranch": "codex/w1-official-attribution-closure",
-      "candidateState": "committed_clean_live_readonly_gate_strict_head_verified_no_go",
-      "candidateCommit": "51dba9ef842f5fe62198a31cbfb7b237ecffd89b",
+      "candidateState": "committed_clean_origin_aligned_deployed_default_off_observation_active_natural_proof_pending",
+      "candidateCommit": "6da69734e4b5d36f968819238b367860b59a1462",
       "productionJarSha256": "92e93328af7fdccfbe3a89bbbfd89d46947dfa00794ccfd5aae48116d1ac817b",
-      "productionByteIdentity": "legacy_active_jar_readback_only_candidate_not_deployed"
+      "productionByteIdentity": "deployed_release_13c203a5_default_off_observation_activated_backend_byte_equivalent_to_head"
     },
     "api2SourceTruth": {
       "repository": "https://github.com/fubangshou/FBSAI.git",
       "baselineRef": "agent/board-no-package-same-binding-v1-20260719",
       "baselineCommit": "a0834ea5d4c1c3f95be9d25d26913c2d973e09d0",
       "candidateBranch": "codex/w1-official-experts-publisher",
-      "candidateState": "committed_pushed_clean_strict_head_package_verified_default_off",
-      "candidateCommit": "7b84d4721217cc4d98426b68d7efa31bc62ef5bb",
+      "candidateState": "committed_pushed_clean_publisher_active_production_release_20260725_default_off_credit_closed",
+      "candidateCommit": "ce68425846e2b0271ede3569ec7cf2a4e457848c",
       "candidateCriticalDeploySnapshotSha256": "230E5C448CDADC786ADA2022EEC5CB8D36159A08560BAB0F8F2E0A877AA6AE98",
-      "productionDeclaredCommit": "c01891a0ca3e11db0a0fe51828276fab33b862b5",
-      "productionByteIdentity": "not_proven"
+      "productionDeclaredCommit": "74aed6fe95826bc4b55cde5042994d28bac4ba91",
+      "productionReleaseId": "20260725-181736",
+      "productionByteIdentity": "source_git_head_readback_without_strict_package_byte_proof"
     },
     "identityContract": {
       "productId": "fbsir-eight-seat-board",
@@ -569,9 +570,9 @@
     ],
     "optionalConnectorChain": "historical_reuse_only_not_first_value_prerequisite",
     "featureFlags": {
-      "observationWriterEnabled": false,
-      "intentClassifierEnabled": false,
-      "observationAdminReadEnabled": false,
+      "observationWriterEnabled": true,
+      "intentClassifierEnabled": true,
+      "observationAdminReadEnabled": true,
       "productCreditEnabled": false
     },
     "verifiedMysql": [
@@ -713,5 +714,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-23T19:20:00+08:00"
+  "updatedAt": "2026-07-25T21:40:00+08:00"
 }

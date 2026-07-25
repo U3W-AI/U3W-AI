@@ -82,6 +82,20 @@ public class IndependentBoardAttributionIngestService {
         if (head == null) {
             throw new IllegalStateException("journey_head_missing");
         }
+
+        // The initial idempotency lookup happens before the journey-head
+        // lock.  A concurrent retry can therefore miss the first transaction
+        // and arrive here after that transaction has committed.  Re-read
+        // under the lock so an exact duplicate is a 200 replay rather than a
+        // false out-of-order conflict (the API2 outbox relies on this).
+        BoardAttributionLedgerEvent committed =
+                mapper.selectEventByEventId(event.getEventId());
+        if (committed == null) {
+            committed = mapper.selectEventByReceiptId(event.getReceiptId());
+        }
+        if (committed != null) {
+            return replayOrReject(committed, verified, sameBindingKey);
+        }
         verifyHead(head, verified, trafficClass, sameBindingKey);
 
         String intentFamily = nextIntent(head, verified);

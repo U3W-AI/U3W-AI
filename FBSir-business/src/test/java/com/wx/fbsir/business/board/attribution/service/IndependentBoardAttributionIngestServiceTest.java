@@ -95,6 +95,27 @@ class IndependentBoardAttributionIngestServiceTest {
     }
 
     @Test
+    void rechecksForExactReplayAfterTheJourneyHeadLock() {
+        BoardAttributionEventV1 event = event(1, "ENTRY_OBSERVED", "", "unknown");
+        String sameBindingKey = serverKey(event);
+        BoardAttributionLedgerEvent persisted =
+                persisted(event, "a".repeat(64), "UNKNOWN");
+        when(verifier.verify(event, properties)).thenReturn(verified(event, "UNKNOWN"));
+        when(mapper.selectEventByEventId(event.getEventId()))
+                .thenReturn(null, persisted);
+        when(mapper.insertJourneyHeadIfAbsent(any())).thenReturn(1);
+        when(mapper.selectJourneyHeadForUpdate(sameBindingKey))
+                .thenReturn(head(1, "a".repeat(64), "UNKNOWN", 1));
+
+        IndependentBoardAttributionIngestService.IngestResult result =
+                service.ingest(event);
+
+        assertEquals("IDEMPOTENT_REPLAY", result.status());
+        assertFalse(result.productCreditEligible());
+        verify(mapper, never()).insertLedgerEvent(any());
+    }
+
+    @Test
     void derivesBindingInternallyAndRejectsOutOfOrderStageWithZeroWrites() {
         BoardAttributionEventV1 chosen = event(
                 1, "ENTRY_OBSERVED", "", "unknown");

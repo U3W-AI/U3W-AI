@@ -40,6 +40,32 @@
 4. 分离 `observed`、`server_verified`、`product_credit_candidate` 与 `authoritative_product_credit`；客户端声明永不直接晋级。
 5. 运行 release 与内嵌 release 不一致时，候选归因失败关闭并告警。
 
+## 2026-07-25 本地验证确认：独董会专家无连接器集成，自然链不可由专家自身触发
+
+在 API2 发布器已部署（fbss-phase1 release 20260725-181736，PUBLISHER_ACTIVE，
+signingKeyConfigured，workerRunning，U3W endpoint 指向 127.0.0.1:8080）和
+U3W 观测已激活（writer/classifier/admin-read=true，credit/public-route=false）
+的完整链路下，用户在 WorkBuddy 专家中心打开独董会专家并完成一次对话。
+验证结果：
+
+- U3W 事件账本 `fbs_board_attr_event_v1` 未新增任何事件（仍为 1 PROBE journey /
+  3 PROBE events，0 NATURAL）；
+- API2 业务账本 `events.ndjson` 中，用户会话的 whoami 调用被归属为
+  `fbs-bookwriter` 和 `workbuddy_reference`，0 条 `fbsir-eight-seat-board` 事件；
+- 独董会专家 `agents/*.md` 和 `skills/independent-board-core/` 中无任何
+  `whoami`、`skill_consume`、`scene_pack`、`fbs-connector`、`mcp` 或
+  `connector` 引用；`contracts/runtime-capabilities.json` 明确
+  `connectorRequired=false`、`contentTelemetry=false`。
+
+结论：当前官方包 `fbsir-eight-seat-board@26.7.21` 是纯 LLM 专家，
+不调用连接器，因此无法通过专家自身产生 `whoami_emitted → scene_pack_resolved →
+first_value_completed` 服务事实链。自然同绑定链的触发必须依赖 WorkBuddy 宿主
+在专家会话期间拦截并转发服务事实到 API2，而不是依赖专家脚本调用连接器。
+
+这确认了下方"宿主升级需求"的必要性：下一版宿主必须在不向专家脚本开放密钥的
+前提下，由宿主服务层在专家会话期间完成 whoami/scene_pack/first_value 的
+持久化与转发。当前版本无法通过任何专家侧改动补齐此闭环。
+
 ## 2026-07-23 当前宿主闭环缺口
 
 当前官方包 `contracts/runtime-capabilities.json` 明确

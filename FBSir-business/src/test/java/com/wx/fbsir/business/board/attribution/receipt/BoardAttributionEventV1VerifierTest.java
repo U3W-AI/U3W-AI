@@ -88,6 +88,16 @@ class BoardAttributionEventV1VerifierTest {
         overlong.setExpiresAt("2026-07-23T10:02:01Z");
         assertReason("event_expired_or_ttl_invalid",
                 () -> verifier.verify(signed(overlong), properties));
+
+        BoardAttributionEventV1 overlongIntent = validEvent();
+        overlongIntent.setIntentSignal("a".repeat(65));
+        assertReason("finite_dimension_invalid",
+                () -> verifier.verify(signed(overlongIntent), properties));
+
+        BoardAttributionEventV1 overlongClassifier = validEvent();
+        overlongClassifier.setClassifierVersion("a".repeat(65));
+        assertReason("finite_dimension_invalid",
+                () -> verifier.verify(signed(overlongClassifier), properties));
     }
 
     @Test
