@@ -1,0 +1,145 @@
+{
+  "schema": "fbsir.independentBoardProductionFacts.v1",
+  "observedAt": "2026-07-25T13:30:00+08:00",
+  "observer": "workbuddy-round-1-alignment",
+  "authorization": "read_only_production_plus_repo_writable",
+  "purpose": "Document verified production facts observed 2026-07-25 that advance beyond the contract-gated Jul-23 truth sources, without modifying contract-gated files.",
+  "officialIdentity": {
+    "productId": "fbsir-eight-seat-board",
+    "packageId": "fbsir-eight-seat-board",
+    "agentName": "board-convener",
+    "marketplace": "experts",
+    "listedManifestVersion": "26.7.21",
+    "embeddedContractVersion": "26.7.20",
+    "officialExpertsPackageSha256": "57443e8fbcbcd2620736bce35edccc8001e578918e13ee6521f618d983348510",
+    "officialExpertsPackageChanged": false,
+    "localMarketplaceCacheFileCount": 81,
+    "localMarketplaceCacheNote": "82 files on disk = 81 content files + 1 marketplace bookkeeping file (.downloaded_at)"
+  },
+  "gitState": {
+    "branch": "codex/w1-official-attribution-closure",
+    "localHead": "6528a7a852f0080bf228058d313b14c303e0d027",
+    "originHead": "6528a7a852f0080bf228058d313b14c303e0d027",
+    "localOriginAligned": true,
+    "worktreeClean": true,
+    "note": "Verified via git ls-remote and git fetch. Earlier git fetch failed under sandbox; succeeded with network escalation."
+  },
+  "u3wProduction": {
+    "serviceUnit": "fbsir-admin.service",
+    "serviceState": "active",
+    "currentSymlink": "/opt/fbsir/admin/releases/w1a-release-13c203a5c42d-20260725T040706Z",
+    "processJar": "/opt/fbsir/admin/current/backend/fbsir-admin.jar",
+    "deployedRelease": {
+      "releaseId": "w1a-release-13c203a5c42d-20260725T040706Z",
+      "sourceCommit": "13c203a5c42d8a8f977be8a9834c2ad147b62bb8",
+      "deploymentReceiptSha256": "8f7167018a99ba5740418e7693f302a6dbadaae1ac84efe1510bcaab7b1e7731",
+      "deploymentReadinessReceiptSha256": "6735db18c1dddeb72eb926f9df73d85de2e2e1724e310977f664f8326a7ff1c4",
+      "state": "DEPLOYED_DEFAULT_OFF",
+      "generatedAt": "2026-07-25T04:38:14.998Z",
+      "actualActiveArtifactsMatched": true,
+      "applicationRollbackProven": true,
+      "databaseRollbackSafetyProven": true,
+      "finalDefaultOffCurrentReadVerified": true,
+      "officialExpertsPackageChanged": false,
+      "productionDatabaseChanged": false
+    },
+    "observationActivation": {
+      "activationId": "w1a-observe-20260725T111921Z-6528a7a852f0",
+      "activatedAt": "2026-07-25T11:19:59.489Z",
+      "authorization": "explicit-user-authority",
+      "activationReceiptSha256": "7d2e6afe1c0eafe7029352241e210ae87ac5418b744b610e463bcae8b840fe4a",
+      "expectedState": "ACTIVE_OBSERVATION",
+      "flagsMatch": true,
+      "actualFlagValues": {
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_ENABLED": "true",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_WRITER_ENABLED": "true",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_INTENT_CLASSIFIER_ENABLED": "true",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_ADMIN_READ_ENABLED": "true",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PRODUCT_CREDIT_ENABLED": "false",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PUBLIC_ROUTE_ENABLED": "false",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_CANDIDATE_ENABLED": "false",
+        "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_CREDIT_ENABLED": "false"
+      },
+      "api2EventKeyMatches": true,
+      "eventAndBindingSecretsIndependent": true,
+      "secretsDisclosed": false,
+      "officialExpertsPackageChanged": false,
+      "productionDatabaseChanged": false
+    },
+    "attributionLedger": {
+      "probeJourneyCount": 1,
+      "probeEventCount": 3,
+      "probeEvents": [
+        {"trafficClass": "PROBE", "eventType": "ENTRY_OBSERVED", "count": 1},
+        {"trafficClass": "PROBE", "eventType": "INTENT_CLASSIFIED", "count": 1},
+        {"trafficClass": "PROBE", "eventType": "FIRST_VALUE_COMPLETED", "count": 1}
+      ],
+      "naturalJourneyCount": 0,
+      "naturalEventCount": 0,
+      "totalEventCount": 3,
+      "maxSequenceNo": 3,
+      "databaseServerVersion": "8.0.45",
+      "databaseTableCount": 103,
+      "w1aDatabaseState": "EXACT_043_RETAINED_DORMANT"
+    },
+    "headCommitRelationship": {
+      "headCommit": "6528a7a852f0080bf228058d313b14c303e0d027",
+      "deployedSourceCommit": "13c203a5c42d8a8f977be8a9834c2ad147b62bb8",
+      "postReleaseCommits": [
+        "0fda71b2 feat(release): add observation activation cutover",
+        "9edf9257 fix(release): verify active ingress without writes",
+        "6528a7a8 fix(release): attest routed verifier semantics"
+      ],
+      "postReleaseChanges": "scripts/ only (3 files, 1707 insertions, 0 backend changes)",
+      "backendJarByteEquivalent": true,
+      "note": "The deployed JAR was built from 13c203a5. The 3 subsequent commits only added observation activation scripts; no backend source changed, so the deployed JAR remains the exact runtime artifact for HEAD."
+    }
+  },
+  "api2Production": {
+    "host": "api2.u3w.com",
+    "healthStatus": 200,
+    "deployedApp": {
+      "path": "/opt/fbsir/admin/FbsSkillMcp",
+      "packageVersion": "2026.5.25",
+      "isGitRepo": false,
+      "srcModules": ["config.js", "index.js", "observability", "services", "utils"],
+      "attributionPublisherModulePresent": false,
+      "outboxWorkerStatus": "deprecated"
+    },
+    "w1PublisherCandidate": {
+      "repository": "https://github.com/fubangshou/FBSAI.git",
+      "branch": "codex/w1-official-experts-publisher",
+      "candidateCommit": "7b84d4721217cc4d98426b68d7efa31bc62ef5bb",
+      "candidateState": "committed_pushed_clean_strict_head_package_verified_default_off",
+      "deployed": false,
+      "activeReleaseFileHashReadback": false
+    },
+    "gap": "The W1 publisher candidate is committed and pushed but NOT deployed. The production FbsSkillMcp is the May version (2026.5.25) without attribution/outbox modules. API2 deployment is the critical blocker for the natural same-binding chain."
+  },
+  "contractGateStatus": {
+    "mode": "Contract",
+    "passOnHead": true,
+    "exitCode": 0,
+    "note": "The contract gate passes on HEAD because it reads the TRACKED readiness report (reports/independent-board/w1a-production-readiness-latest.json, Jul-23 snapshot with localSourceCommit=51dba9ef) which matches the hardcoded pin. The WORK readiness report (work/, Jul-25 with localSourceCommit=326792b5) is gitignored and not read by the gate.",
+    "driftSummary": "Truth sources (taskboard, implementation-status, verification report) are pinned to Jul-23 state (candidateCommit=51dba9ef, state=...real_same_binding_proof_pending, verification.status=LOCAL_RELEASE_CANDIDATE_*_PRODUCTION_CLOSURE_PENDING). Production has advanced to deployed-default-off + observation-activated. Advancing the contract pin requires re-running the readiness evaluator from the deployed commit, which needs either a fresh release cycle (production-write) or checkout of 13c203a5 + evaluator re-run."
+  },
+  "proves": [
+    "u3w_release_13c203a5_deployed_default_off_with_full_receipts",
+    "u3w_application_rollback_proven_live",
+    "u3w_database_043_retained_dormant_forward_only_safety",
+    "u3w_observation_activation_cutover_explicit_user_authority",
+    "u3w_production_ledger_probe_only_zero_natural_baseline",
+    "u3w_official_experts_package_unchanged",
+    "u3w_local_head_origin_aligned_clean_worktree",
+    "api2_w1_publisher_candidate_committed_pushed_not_deployed"
+  ],
+  "notProven": [
+    "api2_w1_publisher_production_deployment",
+    "api2_active_release_file_hash_readback",
+    "api2_to_u3w_production_signed_event_receipt",
+    "one_real_official_experts_same_binding_three_event_chain",
+    "admin_real_traffic_six_dimension_readback_with_natural_traffic",
+    "contract_pin_advanced_to_current_production_state"
+  ],
+  "singleNextAction": "Deploy the API2 W1 publisher candidate (fubangshou/FBSAI@7b84d472) to production with active release file hash readback, then advance the contract pin from 51dba9ef to the deployed commit by re-running the readiness evaluator, then drive one real official experts same-binding chain and admin six-dimension readback."
+}
