@@ -656,6 +656,8 @@ def configured_environment_values():
         "FBSIR_MYSQL_PASSWORD": "sensitive-password",
         release.ADMIN_ENGINE_TOKEN_NAME:
             "engine-credential-" + ("z" * 40),
+        release.TOKEN_SECRET_NAME:
+            "rotated-token-secret-" + ("t" * 48),
     })
     return values, event_material
 
@@ -833,7 +835,7 @@ class ReleaseWorkerContractTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             environment_path = pathlib.Path(temporary) / "fbsir-admin.env"
 
-            def parse(candidate):
+            def parse(candidate, allow_undersized_token_secret=False):
                 environment_path.write_text(
                     "\n".join(
                         "{}={}".format(name, value)
@@ -849,7 +851,11 @@ class ReleaseWorkerContractTest(unittest.TestCase):
                         return_value=environment_path,
                     ),
                 ):
-                    return release.parse_environment()
+                    return release.parse_environment(
+                        allow_undersized_token_secret=(
+                            allow_undersized_token_secret
+                        )
+                    )
 
             parsed, _ = parse(values)
             self.assertEqual(
@@ -873,6 +879,28 @@ class ReleaseWorkerContractTest(unittest.TestCase):
             reused[release.EVENT_KEY_NAME] = "utf8:" + credential
             with self.assertRaisesRegex(RuntimeError, "independent"):
                 parse(reused)
+
+            legacy_undersized = dict(values)
+            legacy_undersized[release.TOKEN_SECRET_NAME] = (
+                "legacy-token-secret-26-char"
+            )
+            with self.assertRaisesRegex(RuntimeError, "token secret shape"):
+                parse(legacy_undersized)
+            recovered, _ = parse(
+                legacy_undersized,
+                allow_undersized_token_secret=True,
+            )
+            self.assertEqual(
+                recovered[release.TOKEN_SECRET_NAME],
+                legacy_undersized[release.TOKEN_SECRET_NAME],
+            )
+            policy_gap = dict(values)
+            policy_gap[release.TOKEN_SECRET_NAME] = "g" * 32
+            with self.assertRaisesRegex(RuntimeError, "token secret shape"):
+                parse(
+                    policy_gap,
+                    allow_undersized_token_secret=True,
+                )
 
     def test_runtime_anchor_accepts_only_exact_adopted_engine_delta(self):
         credential = "engine-credential-" + ("a" * 40)
@@ -1089,6 +1117,192 @@ class ReleaseWorkerContractTest(unittest.TestCase):
                     previous,
                 )
             )
+
+    def test_prior_recovery_accepts_only_receipt_bound_token_rotation(self):
+        previous_sha = "1" * 64
+        current_sha = "2" * 64
+        previous_hmac = "3" * 64
+        previous_security_hmac = "4" * 64
+        receipt = {
+            "schema": "fbsir.u3wDefaultOffConfigurationReceipt.v4",
+            "environmentBeforeSha256": previous_sha,
+            "environmentAfterSha256": current_sha,
+            "predecessorConfigurationReceiptSha256": "5" * 64,
+            "tokenSecretProvisioningState": "ROTATED_BY_RUN",
+            "adminEngineCredentialProvisioningState":
+                "REUSED_FROM_PREDECESSOR_RECEIPT",
+        }
+        predecessor_receipt = {
+            "schema": "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+            "environmentAfterSha256": previous_sha,
+        }
+        flags = {name: "false" for name in release.FALSE_FLAGS}
+        previous = {
+            "configuredEnvironmentSha256": previous_sha,
+            "configuredEnvironmentHmacSha256": previous_hmac,
+            "environmentFilePaths": [str(release.ENV_PATH)],
+            "environmentFileManifest": [{
+                "path": str(release.ENV_PATH),
+                "sha256": previous_sha,
+                "mode": 0o600,
+                "uid": 0,
+                "gid": 0,
+                "nlink": 1,
+            }],
+            "configuredEnvironmentNames": ["BASE", release.TOKEN_SECRET_NAME],
+            "expectedSecurityConfigurationNames": ["BASE"],
+            "expectedSecurityConfigurationHmacSha256":
+                previous_security_hmac,
+            "processSecurityConfigurationNames": ["BASE"],
+            "processSecurityConfigurationHmacSha256":
+                previous_security_hmac,
+            "api2EventKeyManifest": {"sha256": "6" * 64},
+            "configuredFlagValues": flags,
+            "processFlagValues": flags,
+            "processConfiguredEnvironmentLoadState": "EXACT_CONFIGURED",
+        }
+        current = {
+            **previous,
+            "configuredEnvironmentSha256": current_sha,
+            "configuredEnvironmentHmacSha256": "7" * 64,
+            "environmentFileManifest": [{
+                **previous["environmentFileManifest"][0],
+                "sha256": current_sha,
+            }],
+            "processDatabaseBindingMatched": True,
+            "processConfiguredEnvironmentMatched": False,
+            "processConfiguredEnvironmentPreStageCompatible": True,
+            "processConfiguredEnvironmentMismatchNames": [
+                release.TOKEN_SECRET_NAME
+            ],
+            "processPendingRestartEnvironmentNames": [],
+            "processConfiguredEnvironmentLoadState":
+                "TOKEN_SECRET_ROTATION_PENDING_RESTART",
+            "processForbiddenOverrideNames": [],
+            "expectedSecurityConfigurationNames": [
+                "BASE",
+                release.TOKEN_SECRET_NAME,
+            ],
+            "expectedSecurityConfigurationHmacSha256": "8" * 64,
+            "processSecurityConfigurationNames": [
+                "BASE",
+                release.TOKEN_SECRET_NAME,
+            ],
+            "processSecurityConfigurationHmacSha256": "9" * 64,
+            "processConfiguredEnvironmentHmacSha256": previous_hmac,
+        }
+        with (
+            mock.patch.object(release, "read_json", return_value=receipt),
+            mock.patch.object(
+                release,
+                "validate_configuration_runtime_anchor",
+                return_value=receipt,
+            ),
+            mock.patch.object(
+                release,
+                "configuration_predecessor_receipt",
+                return_value=predecessor_receipt,
+            ),
+        ):
+            self.assertTrue(
+                release
+                .authorized_token_secret_configuration_evolution_matches(
+                    current,
+                    previous,
+                )
+            )
+            for field, drift in (
+                (
+                    "processConfiguredEnvironmentMismatchNames",
+                    [release.ADMIN_ENGINE_TOKEN_NAME],
+                ),
+                ("configuredEnvironmentNames", ["UNRELATED"]),
+                (
+                    "processConfiguredEnvironmentHmacSha256",
+                    "a" * 64,
+                ),
+            ):
+                drifted = dict(current)
+                drifted[field] = drift
+                self.assertFalse(
+                    release
+                    .authorized_token_secret_configuration_evolution_matches(
+                        drifted,
+                        previous,
+                    ),
+                    field,
+                )
+
+    def test_exact_predecessor_accepts_only_legacy_token_measurement_bridge(
+        self,
+    ):
+        flags = {name: "false" for name in release.FALSE_FLAGS}
+        environment_sha = "1" * 64
+        environment_hmac = "2" * 64
+        previous_security_hmac = "3" * 64
+        current_security_hmac = "4" * 64
+        previous = {
+            "environmentFilePaths": [str(release.ENV_PATH)],
+            "environmentFileManifest": [{
+                "path": str(release.ENV_PATH),
+                "sha256": environment_sha,
+            }],
+            "api2EventKeyManifest": {"sha256": "5" * 64},
+            "configuredEnvironmentSha256": environment_sha,
+            "configuredEnvironmentNames": [
+                "BASE",
+                release.TOKEN_SECRET_NAME,
+            ],
+            "configuredEnvironmentHmacSha256": environment_hmac,
+            "configuredFlagValues": flags,
+            "processFlagValues": flags,
+            "expectedSecurityConfigurationNames": ["BASE"],
+            "expectedSecurityConfigurationHmacSha256":
+                previous_security_hmac,
+            "processSecurityConfigurationNames": ["BASE"],
+            "processSecurityConfigurationHmacSha256":
+                previous_security_hmac,
+            "processConfiguredEnvironmentLoadState": "EXACT_CONFIGURED",
+        }
+        current = {
+            **previous,
+            "expectedSecurityConfigurationNames": [
+                "BASE",
+                release.TOKEN_SECRET_NAME,
+            ],
+            "expectedSecurityConfigurationHmacSha256":
+                current_security_hmac,
+            "processSecurityConfigurationNames": [
+                "BASE",
+                release.TOKEN_SECRET_NAME,
+            ],
+            "processSecurityConfigurationHmacSha256":
+                current_security_hmac,
+            "processDatabaseBindingMatched": True,
+            "processConfiguredEnvironmentMatched": True,
+            "processConfiguredEnvironmentPreStageCompatible": True,
+            "processConfiguredEnvironmentMismatchNames": [],
+            "processPendingRestartEnvironmentNames": [],
+            "processConfiguredEnvironmentHmacSha256": environment_hmac,
+            "processForbiddenOverrideNames": [],
+        }
+        self.assertTrue(
+            release.exact_loaded_environment_matches(current, previous)
+        )
+        drifted = dict(current)
+        drifted["expectedSecurityConfigurationNames"] = [
+            "BASE",
+            release.TOKEN_SECRET_NAME,
+            "UNRELATED",
+        ]
+        self.assertFalse(
+            release.exact_loaded_environment_matches(drifted, previous)
+        )
+        drifted = dict(current)
+        drifted["processSecurityConfigurationHmacSha256"] = "6" * 64
+        self.assertFalse(
+            release.exact_loaded_environment_matches(drifted, previous)
+        )
 
     def test_migration_parser_preserves_routines_on_one_locked_session(self):
         migration = (
@@ -1598,6 +1812,10 @@ class ReleaseWorkerContractTest(unittest.TestCase):
             for name, value in expected.items()
             if name != release.ADMIN_ENGINE_TOKEN_NAME
         }
+        token_rotation_pending_process = dict(expected)
+        token_rotation_pending_process[release.TOKEN_SECRET_NAME] = (
+            "legacy-token-secret-26-char"
+        )
         partial_process = dict(legacy_process)
         partial_process[release.FALSE_FLAGS[0]] = "false"
         event_key_path = mock.Mock()
@@ -1627,6 +1845,12 @@ class ReleaseWorkerContractTest(unittest.TestCase):
             )
             engine_pending = release.security_configuration_evidence(
                 engine_pending_process, expected
+            )
+            token_rotation_pending = (
+                release.security_configuration_evidence(
+                    token_rotation_pending_process,
+                    expected,
+                )
             )
         self.assertEqual(
             legacy["processConfiguredEnvironmentLoadState"],
@@ -1666,6 +1890,208 @@ class ReleaseWorkerContractTest(unittest.TestCase):
                 "processConfiguredEnvironmentPreStageCompatible"
             ]
         )
+        self.assertEqual(
+            token_rotation_pending[
+                "processConfiguredEnvironmentLoadState"
+            ],
+            "TOKEN_SECRET_ROTATION_PENDING_RESTART",
+        )
+        self.assertEqual(
+            token_rotation_pending[
+                "processConfiguredEnvironmentMismatchNames"
+            ],
+            [release.TOKEN_SECRET_NAME],
+        )
+        self.assertEqual(
+            token_rotation_pending[
+                "processPendingRestartEnvironmentNames"
+            ],
+            [],
+        )
+        self.assertTrue(
+            token_rotation_pending[
+                "processConfiguredEnvironmentPreStageCompatible"
+            ]
+        )
+
+    def test_token_secret_rotation_delta_is_one_exact_assignment(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            before = root / "before.env"
+            after = root / "after.env"
+            before.write_text(
+                (
+                    "A=1\n"
+                    "FBSIR_TOKEN_SECRET=legacy-token-secret-26-char\n"
+                    "FBSIR_ENGINE_TOKEN="
+                    + "engine-credential-"
+                    + ("e" * 40)
+                    + "\n"
+                ),
+                encoding="utf-8",
+            )
+            after.write_text(
+                (
+                    "A=1\n"
+                    "FBSIR_TOKEN_SECRET="
+                    + "rotated-token-secret-"
+                    + ("r" * 48)
+                    + "\n"
+                    "FBSIR_ENGINE_TOKEN="
+                    + "engine-credential-"
+                    + ("e" * 40)
+                    + "\n"
+                ),
+                encoding="utf-8",
+            )
+            self.assertTrue(
+                release.exact_token_secret_rotation_matches(
+                    before,
+                    after,
+                )
+            )
+            after.write_text(
+                after.read_text(encoding="utf-8") + "EXTRA=drift\n",
+                encoding="utf-8",
+            )
+            self.assertFalse(
+                release.exact_token_secret_rotation_matches(
+                    before,
+                    after,
+                )
+            )
+
+    def test_configuration_v4_anchor_proves_v4_to_v3_to_v2_chain(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            api2_key = root / "event-key"
+            api2_key.write_bytes(b"event-key-material-" + (b"k" * 32))
+            before = root / "before.env"
+            current = root / "current.env"
+            engine = "engine-credential-" + ("e" * 40)
+            before_text = (
+                "A=1\n"
+                "FBSIR_TOKEN_SECRET=legacy-token-secret-26-char\n"
+                f"FBSIR_ENGINE_TOKEN={engine}\n"
+            )
+            current_text = before_text.replace(
+                "legacy-token-secret-26-char",
+                "rotated-token-secret-" + ("r" * 48),
+            )
+            before.write_bytes(before_text.encode("utf-8"))
+            current.write_bytes(current_text.encode("utf-8"))
+            before_sha = release.sha256_file(before)
+            current_sha = release.sha256_file(current)
+            v2_environment_sha = (
+                release.exact_admin_engine_delta_predecessor_sha256(
+                    before
+                )
+            )
+            v2_sha = "2" * 64
+            v3_sha = "3" * 64
+            engine_evidence = {
+                "allManagedKeysPresent": True,
+                "allDefaultOffFlagsExplicitFalse": True,
+                "activeEventKeyPairValid": True,
+                "previousEventKeyPairCompleteAndValid": True,
+                "sameBindingSecretValidAndIndependent": True,
+                "api2RawEventKeyMatchesU3wActiveMaterial": True,
+                "adminEngineCredentialValid": True,
+                "adminEngineCredentialIndependent": True,
+                "adminEngineCredentialMinimumCharacters": 58,
+                "secretsDisclosed": False,
+            }
+            v2 = {
+                "schema":
+                    "fbsir.u3wDefaultOffConfigurationReceipt.v2",
+                "environmentAfterSha256": v2_environment_sha,
+                "api2EventKeyPath": str(api2_key),
+                "stagedKeyMaterialMatched": True,
+                "officialExpertsPackageChanged": False,
+                "secretsDisclosed": False,
+            }
+            v3 = {
+                "schema":
+                    "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+                "environmentBeforeSha256": before_sha,
+                "environmentAfterSha256": before_sha,
+                "api2EventKeyPath": str(api2_key),
+                "api2EventKeyProvisioningState":
+                    "REUSED_FROM_PREDECESSOR_RECEIPT",
+                "predecessorConfigurationReceiptSha256": v2_sha,
+                "adminEngineCredentialProvisioningState":
+                    "ADOPTED_EXISTING_EXACT_DELTA",
+                "engineCounterpartClosureClaimed": False,
+                "configurationEvidence": engine_evidence,
+                "stagedKeyMaterialMatched": True,
+                "productionConfigurationChanged": False,
+                "officialExpertsPackageChanged": False,
+                "secretsDisclosed": False,
+            }
+            v4 = {
+                "schema":
+                    "fbsir.u3wDefaultOffConfigurationReceipt.v4",
+                "environmentBeforeSha256": before_sha,
+                "environmentAfterSha256": current_sha,
+                "environmentBackupPath": str(before),
+                "environmentBackupSha256": before_sha,
+                "api2EventKeyPath": str(api2_key),
+                "api2EventKeyProvisioningState":
+                    "REUSED_FROM_PREDECESSOR_RECEIPT",
+                "predecessorConfigurationReceiptSha256": v3_sha,
+                "adminEngineCredentialProvisioningState":
+                    "REUSED_FROM_PREDECESSOR_RECEIPT",
+                "engineCounterpartClosureClaimed": False,
+                "tokenSecretProvisioningState": "ROTATED_BY_RUN",
+                "configurationEvidence": {
+                    **engine_evidence,
+                    "tokenSecretValid": True,
+                    "tokenSecretIndependent": True,
+                    "tokenSecretMinimumCharacters": 69,
+                },
+                "stagedKeyMaterialMatched": True,
+                "serviceRestarted": False,
+                "productionConfigurationChanged": True,
+                "productionServiceChanged": False,
+                "officialExpertsPackageChanged": False,
+                "secretsDisclosed": False,
+            }
+
+            def predecessor(digest):
+                return {v3_sha: v3, v2_sha: v2}[digest]
+
+            with (
+                mock.patch.object(release, "ENV_PATH", current),
+                mock.patch.object(
+                    release,
+                    "API2_EVENT_KEY_PATH",
+                    api2_key,
+                ),
+                mock.patch.object(
+                    release,
+                    "configuration_predecessor_receipt",
+                    side_effect=predecessor,
+                ),
+                mock.patch.object(
+                    release,
+                    "validate_regular_file",
+                    side_effect=lambda path, *_args, **_kwargs:
+                        pathlib.Path(path),
+                ),
+            ):
+                self.assertEqual(
+                    release.validate_configuration_runtime_anchor(v4),
+                    v4,
+                )
+                drifted = json.loads(json.dumps(v4))
+                drifted["tokenSecretProvisioningState"] = "ADOPTED"
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "token rotation",
+                ):
+                    release.validate_configuration_runtime_anchor(
+                        drifted
+                    )
 
     def test_candidate_runtime_rejects_base_unit_content_drift(self):
         args, _ = release_args("Apply")
@@ -1813,6 +2239,91 @@ class ReleaseWorkerContractTest(unittest.TestCase):
             release.assert_stage_plan_target_matches(
                 args, unexpected, live
             )
+
+    def test_finalize_stage_accepts_only_exact_token_rotation_mismatch(self):
+        args, _ = release_args("FinalizeStage")
+        planned = plan_target_fixture()
+        planned["stageEntryTopology"] = {
+            "state": release.INTERRUPTED_APPLY_RECOVERY_TOPOLOGY_STATE,
+            "priorRollbackAnchor": None,
+            "priorRecoveryAnchor": {"sha256": "a" * 64},
+        }
+        planned["processConfiguredEnvironmentLoadState"] = (
+            "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+        )
+        planned["processPendingRestartEnvironmentNames"] = []
+        planned["processConfiguredEnvironmentMismatchNames"] = [
+            release.TOKEN_SECRET_NAME
+        ]
+        live = json.loads(json.dumps(planned))
+        live["releaseRootExists"] = True
+        with mock.patch.object(
+            release,
+            "stage_owned_release_root_delta_verified",
+            return_value=True,
+        ):
+            release.assert_stage_plan_target_matches(
+                args,
+                planned,
+                live,
+            )
+
+        drifted = json.loads(json.dumps(live))
+        drifted["processConfiguredEnvironmentMismatchNames"] = [
+            release.ADMIN_ENGINE_TOKEN_NAME
+        ]
+        with (
+            mock.patch.object(
+                release,
+                "stage_owned_release_root_delta_verified",
+                return_value=True,
+            ),
+            self.assertRaisesRegex(RuntimeError, "contract|drifted"),
+        ):
+            release.assert_stage_plan_target_matches(
+                args,
+                planned,
+                drifted,
+            )
+
+    def test_pre_stage_environment_mismatch_is_strict(self):
+        exact = {
+            "processConfiguredEnvironmentLoadState": "EXACT_CONFIGURED",
+            "processConfiguredEnvironmentMismatchNames": [],
+            "processPendingRestartEnvironmentNames": [],
+        }
+        self.assertTrue(release.pre_stage_environment_mismatch_valid(exact))
+        exact["processConfiguredEnvironmentMismatchNames"] = [
+            release.TOKEN_SECRET_NAME
+        ]
+        self.assertFalse(release.pre_stage_environment_mismatch_valid(exact))
+
+        rotation = {
+            "processConfiguredEnvironmentLoadState":
+                "TOKEN_SECRET_ROTATION_PENDING_RESTART",
+            "processConfiguredEnvironmentMismatchNames": [
+                release.TOKEN_SECRET_NAME
+            ],
+            "processPendingRestartEnvironmentNames": [],
+        }
+        self.assertTrue(
+            release.pre_stage_environment_mismatch_valid(rotation)
+        )
+        rotation["processConfiguredEnvironmentMismatchNames"] = [
+            release.ADMIN_ENGINE_TOKEN_NAME
+        ]
+        self.assertFalse(
+            release.pre_stage_environment_mismatch_valid(rotation)
+        )
+        rotation["processConfiguredEnvironmentMismatchNames"] = [
+            release.TOKEN_SECRET_NAME
+        ]
+        rotation["processPendingRestartEnvironmentNames"] = [
+            release.TOKEN_SECRET_NAME
+        ]
+        self.assertFalse(
+            release.pre_stage_environment_mismatch_valid(rotation)
+        )
 
     def test_staged_receipt_declares_both_database_change_dimensions(self):
         source = inspect.getsource(release.finalize_stage)
@@ -3351,6 +3862,120 @@ class ReleaseWorkerContractTest(unittest.TestCase):
                 receipt_path,
                 [stage_path],
             )
+
+    def test_interrupted_apply_recovery_accepts_v2_failure_without_database_delta(
+        self,
+    ):
+        args, approval = interrupted_apply_recovery_args()
+        failure_facts = exact_migration_facts(
+            event_count=3,
+            journey_count=1,
+        )
+        failure = {
+            "schema": release.APPLY_FAILURE_RECEIPT_SCHEMA,
+            "state": (
+                "APPLICATION_RESTORED_DATABASE_043_"
+                "RETAINED_OR_FAIL_CLOSED"
+            ),
+            "releaseId": args.target_release_id,
+            "sourceCommit": args.target_source_commit,
+            "applyApprovalReceiptSha256": "8" * 64,
+            "errorType": "RuntimeError",
+            "errorMessageSha256": "9" * 64,
+            "migrationFacts": failure_facts,
+            "applicationStarted": True,
+            "applicationAlreadyCommitted": False,
+            "applicationRestored": True,
+            "topologyRestored": True,
+            "deploymentCommitOutcome": "NOT_COMMITTED",
+            "deploymentReceiptPath": None,
+            "deploymentReceiptSha256": None,
+            "productionFilesystemChanged": True,
+            "productionServiceChangedThisRun": True,
+            "productionDatabaseChangedThisRun": False,
+            "databaseRollbackStrategy":
+                "RETAIN_ADDITIVE_043_DORMANT_NO_DOWN",
+            "databaseDownClaimed": False,
+            "officialExpertsPackageChanged": False,
+            "observedAt": shifted_iso(approval["approvedAt"], -1),
+        }
+        current = {
+            "activeState": "active",
+            "configuredFlagValues": {
+                name: "false" for name in release.FALSE_FLAGS
+            },
+            "processFlagValues": {
+                name: "false" for name in release.FALSE_FLAGS
+            },
+            "processForbiddenOverrideNames": [],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            release_dir = (
+                pathlib.Path(temporary) / args.target_release_id
+            )
+            release_dir.mkdir()
+            failure_path = (
+                release_dir
+                / "apply-failure-20260724T222303164864Z-e9b4b303dbf0.json"
+            )
+            failure_path.write_text(
+                release.canonical_json(failure) + "\n",
+                encoding="utf-8",
+            )
+            args.apply_failure_receipt_sha = release.sha256_file(
+                failure_path
+            )
+            with mock.patch.object(
+                release,
+                "validate_regular_file",
+                side_effect=lambda path, *_args, **_kwargs:
+                    pathlib.Path(path),
+            ):
+                terminal_path, terminal, manifest = (
+                    release.interrupted_apply_failure_manifest(
+                        args,
+                        release_dir,
+                    )
+                )
+
+        self.assertEqual(terminal_path, failure_path)
+        self.assertEqual(terminal, failure)
+        self.assertEqual(manifest[0]["schema"], release.APPLY_FAILURE_RECEIPT_SCHEMA)
+        with mock.patch.object(
+            release,
+            "environment_flags_explicit_false",
+            return_value=True,
+        ):
+            self.assertTrue(
+                release.interrupted_recovery_runtime_matches(
+                    current,
+                    failure_facts,
+                    failure,
+                )
+            )
+        receipt = release.interrupted_recovery_receipt(
+            args,
+            approval,
+            pathlib.Path(args.target_release_id),
+            pathlib.Path("stage.json"),
+            failure_path,
+            failure,
+            manifest,
+            release.sha256_bytes(
+                release.canonical_json(manifest).encode("utf-8")
+            ),
+            failure_facts,
+            shifted_iso(approval["approvedAt"], 1),
+        )
+        self.assertIs(receipt["productionDatabaseChanged"], False)
+        self.assertIs(
+            receipt["productionDatabaseChangedSinceStage"],
+            False,
+        )
+        self.assertIs(
+            receipt["productionDatabaseChangedThisRecoveryRun"],
+            False,
+        )
 
     def test_interrupted_apply_recovery_receipt_creation_is_no_clobber(self):
         source = inspect.getsource(

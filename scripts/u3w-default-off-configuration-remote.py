@@ -41,6 +41,7 @@ COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
 SHA_PATTERN = re.compile(r"[0-9a-f]{64}")
 KEY_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,95}")
 ENGINE_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_-]{43,128}")
+TOKEN_SECRET_PATTERN = re.compile(r"[A-Za-z0-9_-]{43,128}")
 
 REQUIRED_FALSE_FLAGS = (
     "FBSIR_BOARD_ATTRIBUTION_ENABLED",
@@ -70,6 +71,8 @@ SAME_BINDING_KEY_NAME = (
     "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET"
 )
 ADMIN_ENGINE_TOKEN_NAME = "FBSIR_ENGINE_TOKEN"
+TOKEN_SECRET_NAME = "FBSIR_TOKEN_SECRET"
+LEGACY_TOKEN_SECRET_NAME = "WXFBSIR_TOKEN_SECRET"
 MANAGED_KEYS = REQUIRED_FALSE_FLAGS + (
     EVENT_KEY_ID_NAME,
     EVENT_KEY_NAME,
@@ -329,6 +332,144 @@ def assert_configuration_v3_evidence(evidence):
         )
 
 
+def configuration_v4_evidence(values, api2_event_material=None):
+    evidence = configuration_v3_evidence(
+        values,
+        api2_event_material,
+    )
+    secret = str(values.get(TOKEN_SECRET_NAME, "")).strip()
+    secret_bytes = secret.encode("utf-8")
+    comparison_material = [
+        str(values.get(ADMIN_ENGINE_TOKEN_NAME, "")).strip().encode(
+            "utf-8"
+        ),
+        decode_material(values.get(EVENT_KEY_NAME, "")),
+        decode_material(values.get(PREVIOUS_EVENT_KEY_NAME, "")),
+        decode_material(values.get(SAME_BINDING_KEY_NAME, "")),
+    ]
+    independent = bool(
+        secret_bytes
+        and all(
+            material is None
+            or not hmac.compare_digest(secret_bytes, material)
+            for material in comparison_material
+        )
+    )
+    valid = bool(TOKEN_SECRET_PATTERN.fullmatch(secret))
+    evidence.update(
+        {
+            "tokenSecretValid": valid,
+            "tokenSecretIndependent": independent,
+            "tokenSecretMinimumCharacters": (
+                len(secret) if valid else 0
+            ),
+        }
+    )
+    return evidence
+
+
+def assert_configuration_v4_evidence(evidence):
+    assert_configuration_v3_evidence(evidence)
+    if (
+        evidence.get("tokenSecretValid") is not True
+        or evidence.get("tokenSecretIndependent") is not True
+        or int(evidence.get("tokenSecretMinimumCharacters") or 0) < 43
+        or evidence.get("secretsDisclosed") is not False
+    ):
+        raise RuntimeError(
+            "default-off configuration token secret shape is invalid"
+        )
+
+
+def rotate_token_secret_environment(
+    original,
+    secret,
+    api2_event_material,
+):
+    values = parse_environment(original)
+    assert_configuration_v3_evidence(
+        configuration_v3_evidence(values, api2_event_material)
+    )
+    previous = str(values.get(TOKEN_SECRET_NAME, "")).strip()
+    if not previous or len(previous) >= 32:
+        raise RuntimeError(
+            "token secret predecessor is not an undersized configured value"
+        )
+    if (
+        not isinstance(secret, str)
+        or not TOKEN_SECRET_PATTERN.fullmatch(secret)
+    ):
+        raise RuntimeError("generated token secret shape is invalid")
+    candidate = secret.encode("utf-8")
+    comparison_material = [
+        str(values.get(ADMIN_ENGINE_TOKEN_NAME, "")).strip().encode(
+            "utf-8"
+        ),
+        decode_material(values.get(EVENT_KEY_NAME, "")),
+        decode_material(values.get(PREVIOUS_EVENT_KEY_NAME, "")),
+        decode_material(values.get(SAME_BINDING_KEY_NAME, "")),
+        previous.encode("utf-8"),
+    ]
+    if any(
+        material is not None
+        and hmac.compare_digest(candidate, material)
+        for material in comparison_material
+    ):
+        raise RuntimeError("generated token secret is not independent")
+    lines = original.splitlines(keepends=True)
+    matches = []
+    for index, line in enumerate(lines):
+        body = line.rstrip("\r\n")
+        if re.fullmatch(
+            re.escape(TOKEN_SECRET_NAME) + r"=[^\r\n]*",
+            body,
+        ):
+            matches.append(index)
+    if len(matches) != 1:
+        raise RuntimeError(
+            "token secret assignment is not one canonical environment line"
+        )
+    index = matches[0]
+    newline = lines[index][len(lines[index].rstrip("\r\n")):]
+    lines[index] = "{}={}{}".format(
+        TOKEN_SECRET_NAME,
+        secret,
+        newline,
+    )
+    rendered = "".join(lines)
+    reconciled = parse_environment(rendered)
+    if (
+        set(reconciled) != set(values)
+        or any(
+            reconciled.get(name) != value
+            for name, value in values.items()
+            if name != TOKEN_SECRET_NAME
+        )
+        or reconciled.get(TOKEN_SECRET_NAME) == previous
+    ):
+        raise RuntimeError(
+            "configuration changed outside the token secret rotation"
+        )
+    assert_configuration_v4_evidence(
+        configuration_v4_evidence(
+            reconciled,
+            api2_event_material,
+        )
+    )
+    return rendered, "ROTATED_BY_RUN"
+
+
+def canonical_token_secret_assignment(text):
+    return sum(
+        1
+        for line in text.splitlines()
+        if re.fullmatch(
+            re.escape(TOKEN_SECRET_NAME) + r"=[^\r\n]*",
+            line,
+        )
+    ) == 1
+
+
 def reconcile_admin_engine_credential(
     original,
     credential,
@@ -533,6 +674,12 @@ def fsync_directory(path):
         os.close(descriptor)
 
 
+def record_filesystem_mutation(configuration_changed=False):
+    MUTATION_STATE["productionFilesystemChanged"] = True
+    if configuration_changed:
+        MUTATION_STATE["productionConfigurationChanged"] = True
+
+
 def atomic_bytes(path, payload, mode=0o600):
     path = pathlib.Path(path)
     partial = path.with_name(
@@ -548,16 +695,61 @@ def atomic_bytes(path, payload, mode=0o600):
         | getattr(os, "O_NOFOLLOW", 0),
         mode,
     )
+    record_filesystem_mutation()
     try:
-        with os.fdopen(descriptor, "wb", closefd=False) as handle:
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
-    finally:
-        os.close(descriptor)
-    os.chmod(partial, mode)
-    os.replace(partial, path)
-    fsync_directory(path.parent)
+        try:
+            with os.fdopen(descriptor, "wb", closefd=False) as handle:
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+        finally:
+            os.close(descriptor)
+        os.chmod(partial, mode)
+        os.replace(partial, path)
+        if path == pathlib.Path(ENV_PATH):
+            record_filesystem_mutation(configuration_changed=True)
+        fsync_directory(path.parent)
+    except Exception:
+        try:
+            partial.unlink()
+            fsync_directory(path.parent)
+        except FileNotFoundError:
+            pass
+        except OSError:
+            pass
+        raise
+
+
+def atomic_bytes_create_new(path, payload, mode=0o600):
+    path = pathlib.Path(path)
+    descriptor = os.open(
+        path,
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_EXCL
+        | getattr(os, "O_NOFOLLOW", 0),
+        mode,
+    )
+    record_filesystem_mutation()
+    try:
+        try:
+            with os.fdopen(descriptor, "wb", closefd=False) as handle:
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+        finally:
+            os.close(descriptor)
+        os.chmod(path, mode)
+        fsync_directory(path.parent)
+    except Exception:
+        try:
+            path.unlink()
+            fsync_directory(path.parent)
+        except FileNotFoundError:
+            pass
+        except OSError:
+            pass
+        raise
 
 
 def service_snapshot():
@@ -642,6 +834,7 @@ def validate_approval(args, now=None, allow_expired=False):
     }
     recovery = args.mode == "Recover"
     reconcile = args.mode == "Reconcile"
+    rotate_token_secret = args.mode == "RotateTokenSecret"
     if recovery:
         expected_fields.update(
             {
@@ -649,7 +842,7 @@ def validate_approval(args, now=None, allow_expired=False):
                 "originalApprovalReceiptSha256",
             }
         )
-    if reconcile:
+    if reconcile or rotate_token_secret:
         expected_fields.add(
             "expectedPredecessorConfigurationReceiptSha256"
         )
@@ -676,7 +869,11 @@ def validate_approval(args, now=None, allow_expired=False):
             else (
                 "ADOPT_EXISTING_ADMIN_ENGINE_CREDENTIAL_DELTA"
                 if reconcile
-                else "CONFIGURE_W1A_DEFAULT_OFF_CRYPTO_CUSTODY"
+                else (
+                    "ROTATE_FBSIR_TOKEN_SECRET_FOR_W1A_DEFAULT_OFF"
+                    if rotate_token_secret
+                    else "CONFIGURE_W1A_DEFAULT_OFF_CRYPTO_CUSTODY"
+                )
             )
         )
         or approval["targetHost"] != TARGET_HOST
@@ -685,7 +882,11 @@ def validate_approval(args, now=None, allow_expired=False):
         or approval["expectedEnvironmentSha256"]
         != args.expected_environment_sha
         or approval["expectedApi2EventKeyState"]
-        != ("PRESENT_ANCHORED" if reconcile else "ABSENT")
+        != (
+            "PRESENT_ANCHORED"
+            if reconcile or rotate_token_secret
+            else "ABSENT"
+        )
         or approval["runnerSha256"] != args.runner_sha
         or approval["workerSha256"] != args.worker_sha
         or approval["authorizedBy"] != "workspace-user"
@@ -710,7 +911,7 @@ def validate_approval(args, now=None, allow_expired=False):
             )
         )
         or (
-            reconcile
+            (reconcile or rotate_token_secret)
             and (
                 args.expected_predecessor_configuration_receipt_sha
                 == "0" * 64
@@ -804,6 +1005,7 @@ def safe_directory(path, mode=0o700):
                 )
         else:
             os.mkdir(current, mode if current == path else 0o700)
+            record_filesystem_mutation()
     status = path.lstat()
     if (
         not stat.S_ISDIR(status.st_mode)
@@ -811,7 +1013,9 @@ def safe_directory(path, mode=0o700):
         or status.st_gid != 0
     ):
         raise RuntimeError("configuration directory custody is invalid")
-    os.chmod(path, mode)
+    if status.st_mode & 0o777 != mode:
+        os.chmod(path, mode)
+        record_filesystem_mutation()
     return path
 
 
@@ -832,6 +1036,7 @@ def read_or_create_api2_event_key():
         | getattr(os, "O_NOFOLLOW", 0),
         0o600,
     )
+    record_filesystem_mutation()
     try:
         with os.fdopen(descriptor, "wb", closefd=False) as handle:
             handle.write(material)
@@ -857,12 +1062,36 @@ def safe_run_directory(run_id):
 def publish_latest(run_directory):
     parent = CONFIG_LATEST.parent
     safe_directory(parent)
+    if CONFIG_LATEST.is_symlink():
+        status = CONFIG_LATEST.lstat()
+        if status.st_uid != 0 or status.st_gid != 0:
+            raise RuntimeError(
+                "configuration latest pointer custody is invalid"
+            )
+        if CONFIG_LATEST.resolve(strict=True) == pathlib.Path(
+            run_directory
+        ).resolve(strict=True):
+            return False
+    elif CONFIG_LATEST.exists():
+        raise RuntimeError("configuration latest pointer type is invalid")
     temporary = parent / (
         ".latest-{}-{}".format(os.getpid(), secrets.token_hex(6))
     )
-    os.symlink(str(run_directory), temporary)
-    os.replace(temporary, CONFIG_LATEST)
-    fsync_directory(parent)
+    try:
+        os.symlink(str(run_directory), temporary)
+        record_filesystem_mutation()
+        os.replace(temporary, CONFIG_LATEST)
+        fsync_directory(parent)
+    except Exception:
+        try:
+            temporary.unlink()
+            fsync_directory(parent)
+        except FileNotFoundError:
+            pass
+        except OSError:
+            pass
+        raise
+    return True
 
 
 def validate_receipt(payload):
@@ -905,7 +1134,10 @@ def validate_receipt(payload):
         raise RuntimeError("configuration receipt fields are invalid")
     schema = payload.get("schema")
     expected_fields = set(base_fields)
-    if schema == "fbsir.u3wDefaultOffConfigurationReceipt.v3":
+    if schema in {
+        "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+        "fbsir.u3wDefaultOffConfigurationReceipt.v4",
+    }:
         expected_fields.update(
             {
                 "predecessorConfigurationReceiptSha256",
@@ -913,26 +1145,34 @@ def validate_receipt(payload):
                 "engineCounterpartClosureClaimed",
             }
         )
+    if schema == "fbsir.u3wDefaultOffConfigurationReceipt.v4":
+        expected_fields.add("tokenSecretProvisioningState")
     if set(payload) != expected_fields:
         raise RuntimeError("configuration receipt fields are invalid")
     api2_state = (
         "REUSED_FROM_PREDECESSOR_RECEIPT"
-        if schema == "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+        if schema in {
+            "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+            "fbsir.u3wDefaultOffConfigurationReceipt.v4",
+        }
         else "CREATED_BY_RUN"
     )
     credential_state = payload.get(
         "adminEngineCredentialProvisioningState"
     )
     configuration_changed = (
-        credential_state == "CREATED_BY_RUN"
-        if schema == "fbsir.u3wDefaultOffConfigurationReceipt.v3"
-        else True
+        (
+            credential_state == "CREATED_BY_RUN"
+            if schema == "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+            else True
+        )
     )
     if (
         schema
         not in {
             "fbsir.u3wDefaultOffConfigurationReceipt.v2",
             "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+            "fbsir.u3wDefaultOffConfigurationReceipt.v4",
         }
         or payload["mode"] != "Apply"
         or payload["state"] != "CONFIGURED_NOT_LOADED"
@@ -969,7 +1209,15 @@ def validate_receipt(payload):
         or payload["secretsDisclosed"] is not False
     ):
         raise RuntimeError("configuration receipt identity is invalid")
-    if schema == "fbsir.u3wDefaultOffConfigurationReceipt.v3":
+    if schema in {
+        "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+        "fbsir.u3wDefaultOffConfigurationReceipt.v4",
+    }:
+        expected_credential_state = (
+            "REUSED_FROM_PREDECESSOR_RECEIPT"
+            if schema == "fbsir.u3wDefaultOffConfigurationReceipt.v4"
+            else "ADOPTED_EXISTING_EXACT_DELTA"
+        )
         if (
             not SHA_PATTERN.fullmatch(
                 str(
@@ -980,15 +1228,27 @@ def validate_receipt(payload):
             )
             or payload["predecessorConfigurationReceiptSha256"]
             == "0" * 64
-            or credential_state != "ADOPTED_EXISTING_EXACT_DELTA"
+            or credential_state != expected_credential_state
             or payload.get("engineCounterpartClosureClaimed") is not False
         ):
             raise RuntimeError(
                 "configuration reconciliation receipt identity is invalid"
             )
-        assert_configuration_v3_evidence(
-            payload["configurationEvidence"]
-        )
+        if schema == "fbsir.u3wDefaultOffConfigurationReceipt.v4":
+            if payload.get("tokenSecretProvisioningState") != (
+                "ROTATED_BY_RUN"
+            ):
+                raise RuntimeError(
+                    "configuration token rotation receipt identity is "
+                    "invalid"
+                )
+            assert_configuration_v4_evidence(
+                payload["configurationEvidence"]
+            )
+        else:
+            assert_configuration_v3_evidence(
+                payload["configurationEvidence"]
+            )
     else:
         assert_configuration_evidence(payload["configurationEvidence"])
     if payload["serviceSnapshotBefore"] != payload["serviceSnapshotAfter"]:
@@ -1043,15 +1303,18 @@ def existing_receipt(
         raise RuntimeError("existing configuration backup anchor changed")
     event_material = validate_regular_file(API2_EVENT_KEY_PATH).read_bytes()
     values = parse_environment(ENV_PATH.read_text(encoding="utf-8"))
-    evidence = (
-        configuration_v3_evidence(values, event_material)
-        if payload["schema"]
-        == "fbsir.u3wDefaultOffConfigurationReceipt.v3"
-        else configuration_evidence(values, event_material)
-    )
-    if payload["schema"] == "fbsir.u3wDefaultOffConfigurationReceipt.v3":
+    if payload["schema"] == (
+        "fbsir.u3wDefaultOffConfigurationReceipt.v4"
+    ):
+        evidence = configuration_v4_evidence(values, event_material)
+        assert_configuration_v4_evidence(evidence)
+    elif payload["schema"] == (
+        "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+    ):
+        evidence = configuration_v3_evidence(values, event_material)
         assert_configuration_v3_evidence(evidence)
     else:
+        evidence = configuration_evidence(values, event_material)
         assert_configuration_evidence(evidence)
     if evidence != payload["configurationEvidence"]:
         raise RuntimeError("existing configuration live readback changed")
@@ -1059,7 +1322,11 @@ def existing_receipt(
     return payload, path
 
 
-def predecessor_configuration_receipt(args, require_live_environment=True):
+def predecessor_configuration_receipt(
+    args,
+    require_live_environment=True,
+    expected_schema="fbsir.u3wDefaultOffConfigurationReceipt.v2",
+):
     if not CONFIG_LATEST.is_symlink():
         raise RuntimeError(
             "predecessor configuration latest pointer is invalid"
@@ -1104,7 +1371,7 @@ def predecessor_configuration_receipt(args, require_live_environment=True):
         )
     payload = json.loads(receipt_path.read_text(encoding="utf-8"))
     validate_receipt(payload)
-    if payload["schema"] != "fbsir.u3wDefaultOffConfigurationReceipt.v2":
+    if payload["schema"] != expected_schema:
         raise RuntimeError(
             "predecessor configuration is not eligible for reconciliation"
         )
@@ -1116,11 +1383,23 @@ def predecessor_configuration_receipt(args, require_live_environment=True):
             raise RuntimeError(
                 "predecessor configuration live environment drifted"
             )
-        evidence = configuration_evidence(
-            parse_environment(ENV_PATH.read_text(encoding="utf-8")),
-            event_material,
+        values = parse_environment(
+            ENV_PATH.read_text(encoding="utf-8")
         )
-        assert_configuration_evidence(evidence)
+        if expected_schema == (
+            "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+        ):
+            evidence = configuration_v3_evidence(
+                values,
+                event_material,
+            )
+            assert_configuration_v3_evidence(evidence)
+        else:
+            evidence = configuration_evidence(
+                values,
+                event_material,
+            )
+            assert_configuration_evidence(evidence)
         if evidence != payload["configurationEvidence"]:
             raise RuntimeError(
                 "predecessor configuration live evidence drifted"
@@ -1253,6 +1532,129 @@ def load_or_create_reconciliation_journal(
     }
     atomic_bytes(
         journal_path, canonical_json(journal).encode("utf-8")
+    )
+    return journal, journal_path
+
+
+def load_or_create_token_secret_rotation_journal(
+    run_directory,
+    args,
+    environment_before_sha,
+    service_before=None,
+):
+    journal_path = run_directory / "configuration-journal.json"
+    backup_path = pathlib.Path(
+        ENV_BACKUP_ROOT,
+        "{}-{}.env".format(
+            args.run_id,
+            args.expected_environment_sha[:16],
+        ),
+    )
+    expected_fields = {
+        "schema",
+        "runId",
+        "sourceCommit",
+        "targetHost",
+        "serviceUnit",
+        "environmentPath",
+        "environmentBeforeSha256",
+        "environmentBackupPath",
+        "api2EventKeyPath",
+        "api2EventKeyExistedBefore",
+        "predecessorConfigurationReceiptSha256",
+        "tokenSecretBelowMinimumBefore",
+        "receiptObservedAt",
+        "approvalReceiptSha256",
+        "runnerSha256",
+        "workerSha256",
+        "serviceSnapshotBefore",
+        "serviceRestartAuthorized",
+        "productionDatabaseWriteAuthorized",
+        "officialExpertsPackageChangeAuthorized",
+    }
+    if journal_path.exists() or journal_path.is_symlink():
+        validate_regular_file(journal_path)
+        journal = json.loads(journal_path.read_text(encoding="utf-8"))
+        if (
+            set(journal) != expected_fields
+            or journal["schema"] != (
+                "fbsir.u3wTokenSecretRotationJournal.v1"
+            )
+            or journal["runId"] != args.run_id
+            or journal["sourceCommit"] != args.source_commit
+            or journal["targetHost"] != TARGET_HOST
+            or journal["serviceUnit"] != SERVICE_UNIT
+            or journal["environmentPath"] != str(ENV_PATH)
+            or journal["environmentBeforeSha256"]
+                != args.expected_environment_sha
+            or journal["environmentBackupPath"] != str(backup_path)
+            or journal["api2EventKeyPath"]
+                != str(API2_EVENT_KEY_PATH)
+            or journal["api2EventKeyExistedBefore"] is not True
+            or journal[
+                "predecessorConfigurationReceiptSha256"
+            ] != args.expected_predecessor_configuration_receipt_sha
+            or journal["tokenSecretBelowMinimumBefore"] is not True
+            or journal["approvalReceiptSha256"] != args.approval_sha
+            or journal["runnerSha256"] != args.runner_sha
+            or journal["workerSha256"] != args.worker_sha
+            or journal["serviceRestartAuthorized"] is not False
+            or journal[
+                "productionDatabaseWriteAuthorized"
+            ] is not False
+            or journal[
+                "officialExpertsPackageChangeAuthorized"
+            ] is not False
+        ):
+            raise RuntimeError(
+                "token secret rotation journal changed"
+            )
+        try:
+            observed_at = dt.datetime.fromisoformat(
+                journal["receiptObservedAt"].replace("Z", "+00:00")
+            )
+        except (AttributeError, ValueError) as error:
+            raise RuntimeError(
+                "token secret rotation journal time is invalid"
+            ) from error
+        if observed_at.tzinfo is None:
+            raise RuntimeError(
+                "token secret rotation journal time is naive"
+            )
+        return journal, journal_path
+    if (
+        environment_before_sha != args.expected_environment_sha
+        or service_before is None
+    ):
+        raise RuntimeError(
+            "token secret rotation prestate changed without a journal"
+        )
+    journal = {
+        "schema": "fbsir.u3wTokenSecretRotationJournal.v1",
+        "runId": args.run_id,
+        "sourceCommit": args.source_commit,
+        "targetHost": TARGET_HOST,
+        "serviceUnit": SERVICE_UNIT,
+        "environmentPath": str(ENV_PATH),
+        "environmentBeforeSha256": environment_before_sha,
+        "environmentBackupPath": str(backup_path),
+        "api2EventKeyPath": str(API2_EVENT_KEY_PATH),
+        "api2EventKeyExistedBefore": True,
+        "predecessorConfigurationReceiptSha256":
+            args.expected_predecessor_configuration_receipt_sha,
+        "tokenSecretBelowMinimumBefore": True,
+        "receiptObservedAt": utc_now(),
+        "approvalReceiptSha256": args.approval_sha,
+        "runnerSha256": args.runner_sha,
+        "workerSha256": args.worker_sha,
+        "serviceSnapshotBefore": service_before,
+        "serviceRestartAuthorized": False,
+        "productionDatabaseWriteAuthorized": False,
+        "officialExpertsPackageChangeAuthorized": False,
+    }
+    atomic_bytes(
+        journal_path,
+        canonical_json(journal).encode("utf-8"),
     )
     return journal, journal_path
 
@@ -1396,12 +1798,55 @@ def plan(args):
             "serviceSnapshotBefore": journal.get("serviceSnapshotBefore"),
             "secretsDisclosed": False,
         }
+    token_rotation_plan = args.mode == "PlanTokenSecretRotation"
     reconciliation_plan = (
+        not token_rotation_plan
+        and
         args.expected_predecessor_configuration_receipt_sha
         != "0" * 64
     )
     reconciliation_evidence = None
-    if reconciliation_plan:
+    if token_rotation_plan:
+        predecessor, predecessor_path, event_material = (
+            predecessor_configuration_receipt(
+                args,
+                require_live_environment=False,
+                expected_schema=(
+                    "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+                ),
+            )
+        )
+        current_evidence = configuration_v3_evidence(
+            values,
+            event_material,
+        )
+        assert_configuration_v3_evidence(current_evidence)
+        token_secret = str(
+            values.get(TOKEN_SECRET_NAME, "")
+        ).strip()
+        if (
+            sha256_bytes(original)
+                != predecessor["environmentAfterSha256"]
+            or current_evidence != predecessor["configurationEvidence"]
+            or not token_secret
+            or len(token_secret) >= 32
+            or not canonical_token_secret_assignment(original_text)
+        ):
+            raise RuntimeError(
+                "token secret rotation predecessor is invalid"
+            )
+        reconciliation_evidence = {
+            "planPurpose": "ROTATE_UNDERSIZED_FBSIR_TOKEN_SECRET",
+            "tokenSecretPresent": True,
+            "tokenSecretBelowMinimum": True,
+            "canonicalTokenSecretAssignment": True,
+            "predecessorConfigurationReceiptPath":
+                str(predecessor_path),
+            "predecessorConfigurationReceiptSha256":
+                args.expected_predecessor_configuration_receipt_sha,
+            "engineCounterpartClosureClaimed": False,
+        }
+    elif reconciliation_plan:
         predecessor, predecessor_path, event_material = (
             predecessor_configuration_receipt(
                 args,
@@ -1433,11 +1878,19 @@ def plan(args):
         }
     result = {
         "schema": (
-            "fbsir.u3wDefaultOffConfigurationPlan.v2"
-            if reconciliation_plan
-            else "fbsir.u3wDefaultOffConfigurationPlan.v1"
+            "fbsir.u3wDefaultOffConfigurationPlan.v3"
+            if token_rotation_plan
+            else (
+                "fbsir.u3wDefaultOffConfigurationPlan.v2"
+                if reconciliation_plan
+                else "fbsir.u3wDefaultOffConfigurationPlan.v1"
+            )
         ),
-        "mode": "Plan",
+        "mode": (
+            "PlanTokenSecretRotation"
+            if token_rotation_plan
+            else "Plan"
+        ),
         "state": "PLANNED",
         "runId": args.run_id,
         "sourceCommit": args.source_commit,
@@ -1471,20 +1924,29 @@ def verify(args):
     engine_credential_present = bool(
         str(values.get(ADMIN_ENGINE_TOKEN_NAME, "")).strip()
     )
-    evidence = (
-        configuration_v3_evidence(values, event_material)
-        if engine_credential_present
-        else configuration_evidence(values, event_material)
+    token_secret_valid = bool(
+        TOKEN_SECRET_PATTERN.fullmatch(
+            str(values.get(TOKEN_SECRET_NAME, "")).strip()
+        )
     )
-    if engine_credential_present:
+    if engine_credential_present and token_secret_valid:
+        evidence = configuration_v4_evidence(values, event_material)
+        assert_configuration_v4_evidence(evidence)
+    elif engine_credential_present:
+        evidence = configuration_v3_evidence(values, event_material)
         assert_configuration_v3_evidence(evidence)
     else:
+        evidence = configuration_evidence(values, event_material)
         assert_configuration_evidence(evidence)
     return {
         "schema": (
-            "fbsir.u3wDefaultOffConfigurationVerify.v2"
-            if engine_credential_present
-            else "fbsir.u3wDefaultOffConfigurationVerify.v1"
+            "fbsir.u3wDefaultOffConfigurationVerify.v3"
+            if engine_credential_present and token_secret_valid
+            else (
+                "fbsir.u3wDefaultOffConfigurationVerify.v2"
+                if engine_credential_present
+                else "fbsir.u3wDefaultOffConfigurationVerify.v1"
+            )
         ),
         "mode": "Verify",
         "state": "CONFIGURED_NOT_LOADED",
@@ -1604,6 +2066,332 @@ def build_reconciliation_receipt(
     return payload
 
 
+def build_token_secret_rotation_receipt(
+    args,
+    journal,
+    backup_path,
+    after_sha,
+    evidence,
+    after_service,
+):
+    payload = {
+        "schema": "fbsir.u3wDefaultOffConfigurationReceipt.v4",
+        "mode": "Apply",
+        "state": "CONFIGURED_NOT_LOADED",
+        "runId": args.run_id,
+        "sourceCommit": args.source_commit,
+        "targetHost": TARGET_HOST,
+        "serviceUnit": SERVICE_UNIT,
+        "environmentPath": str(ENV_PATH),
+        "environmentBackupPath": str(backup_path),
+        "environmentBackupSha256": sha256_file(backup_path),
+        "environmentBeforeSha256":
+            journal["environmentBeforeSha256"],
+        "environmentAfterSha256": after_sha,
+        "api2EventKeyPath": str(API2_EVENT_KEY_PATH),
+        "api2EventKeyProvisioningState":
+            "REUSED_FROM_PREDECESSOR_RECEIPT",
+        "stagedKeyMaterialMatched": True,
+        "configurationEvidence": evidence,
+        "environmentCustodySecure": True,
+        "api2EventKeyCustodySecure": True,
+        "environmentBackupCustodySecure": True,
+        "serviceSnapshotBefore": journal["serviceSnapshotBefore"],
+        "serviceSnapshotAfter": after_service,
+        "approvalReceiptSha256": journal["approvalReceiptSha256"],
+        "runnerSha256": args.runner_sha,
+        "workerSha256": args.worker_sha,
+        "serviceRestarted": False,
+        "productionDatabaseChanged": False,
+        "productionFilesystemChanged": True,
+        "productionConfigurationChanged": True,
+        "productionServiceChanged": False,
+        "configurationLoaded": False,
+        "officialExpertsPackageChanged": False,
+        "secretsDisclosed": False,
+        "observedAt": journal["receiptObservedAt"],
+        "predecessorConfigurationReceiptSha256":
+            journal["predecessorConfigurationReceiptSha256"],
+        "adminEngineCredentialProvisioningState":
+            "REUSED_FROM_PREDECESSOR_RECEIPT",
+        "engineCounterpartClosureClaimed": False,
+        "tokenSecretProvisioningState": "ROTATED_BY_RUN",
+    }
+    validate_receipt(payload)
+    return payload
+
+
+def token_secret_rotation_run_directory(args, allow_create):
+    if allow_create:
+        return safe_run_directory(args.run_id)
+    run_directory = CONFIG_ROOT / args.run_id
+    try:
+        root = CONFIG_ROOT.resolve(strict=True)
+        resolved = run_directory.resolve(strict=True)
+        status = run_directory.lstat()
+    except OSError as error:
+        raise RuntimeError(
+            "expired token rotation has no existing run directory"
+        ) from error
+    if (
+        resolved.parent != root
+        or run_directory.is_symlink()
+        or not run_directory.is_dir()
+        or status.st_uid != 0
+        or status.st_gid != 0
+        or status.st_mode & 0o022
+    ):
+        raise RuntimeError(
+            "token secret rotation run directory custody is invalid"
+        )
+    return run_directory
+
+
+def rotate_token_secret(args):
+    approval = validate_approval(args, allow_expired=True)
+    if os.geteuid() != 0:
+        raise RuntimeError("token secret rotation requires root")
+    lock_descriptor = open_host_change_lock()
+    try:
+        acquire_host_change_lock(lock_descriptor)
+        approval = validate_approval(args, allow_expired=True)
+        approval_current = approval_is_current(approval)
+        candidate_directory = CONFIG_ROOT / args.run_id
+        run_preexisting = (
+            candidate_directory.exists()
+            or candidate_directory.is_symlink()
+        )
+        if not run_preexisting:
+            if not approval_current:
+                raise RuntimeError(
+                    "expired token rotation cannot create a run"
+                )
+            validate_regular_file(ENV_PATH)
+            preflight = ENV_PATH.read_bytes()
+            if sha256_bytes(preflight) != args.expected_environment_sha:
+                raise RuntimeError(
+                    "approved token rotation environment anchor drifted"
+                )
+            predecessor, _, event_material = (
+                predecessor_configuration_receipt(
+                    args,
+                    require_live_environment=True,
+                    expected_schema=(
+                        "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+                    ),
+                )
+            )
+            values = parse_environment(preflight.decode("utf-8"))
+            secret = str(values.get(TOKEN_SECRET_NAME, "")).strip()
+            evidence = configuration_v3_evidence(
+                values,
+                event_material,
+            )
+            assert_configuration_v3_evidence(evidence)
+            if (
+                predecessor["environmentAfterSha256"]
+                    != args.expected_environment_sha
+                or predecessor["configurationEvidence"] != evidence
+                or not secret
+                or len(secret) >= 32
+                or not canonical_token_secret_assignment(
+                    preflight.decode("utf-8")
+                )
+            ):
+                raise RuntimeError(
+                    "token secret rotation predecessor is invalid"
+                )
+        run_directory = token_secret_rotation_run_directory(
+            args,
+            allow_create=approval_current,
+        )
+        prior = existing_receipt(run_directory, args)
+        if prior is not None:
+            payload, path = prior
+            if (
+                payload["schema"]
+                    != "fbsir.u3wDefaultOffConfigurationReceipt.v4"
+                or payload["predecessorConfigurationReceiptSha256"]
+                    != args.expected_predecessor_configuration_receipt_sha
+            ):
+                raise RuntimeError(
+                    "token secret rotation replay identity changed"
+                )
+            return {
+                "schema":
+                    "fbsir.u3wDefaultOffConfigurationWorkerResult.v4",
+                "mode": "RotateTokenSecret",
+                "state": payload["state"],
+                "runId": args.run_id,
+                "sourceCommit": args.source_commit,
+                "configurationReceiptPath": str(path),
+                "configurationReceiptSha256": sha256_file(path),
+                "productionFilesystemChanged": MUTATION_STATE[
+                    "productionFilesystemChanged"
+                ],
+                "productionConfigurationChanged": MUTATION_STATE[
+                    "productionConfigurationChanged"
+                ],
+                "productionBusinessStateChanged": False,
+                "configurationLoaded": False,
+                "serviceRestarted": False,
+                "secretsDisclosed": False,
+                "idempotentReplay": True,
+            }
+        journal_path = run_directory / "configuration-journal.json"
+        journal_preexisting = (
+            journal_path.exists() or journal_path.is_symlink()
+        )
+        if not approval_current and not journal_preexisting:
+            raise RuntimeError(
+                "expired token rotation has no existing journal"
+            )
+        current = validate_regular_file(ENV_PATH).read_bytes()
+        current_sha = sha256_bytes(current)
+        predecessor, _, event_material = (
+            predecessor_configuration_receipt(
+                args,
+                require_live_environment=not journal_preexisting,
+                expected_schema=(
+                    "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+                ),
+            )
+        )
+        initial_service = (
+            service_snapshot()
+            if not journal_preexisting
+            else None
+        )
+        journal, _ = load_or_create_token_secret_rotation_journal(
+            run_directory,
+            args,
+            current_sha,
+            service_before=initial_service,
+        )
+        before_sha = journal["environmentBeforeSha256"]
+        if (
+            not approval_current
+            and current_sha == before_sha
+        ):
+            raise RuntimeError(
+                "expired token rotation cannot start a new mutation"
+            )
+        if predecessor["environmentAfterSha256"] != before_sha:
+            raise RuntimeError(
+                "token secret predecessor environment anchor drifted"
+            )
+        backup_root_preexisting = (
+            ENV_BACKUP_ROOT.exists() or ENV_BACKUP_ROOT.is_symlink()
+        )
+        backup_directory = safe_directory(ENV_BACKUP_ROOT)
+        backup_path = pathlib.Path(journal["environmentBackupPath"])
+        if current_sha == before_sha:
+            original = current
+            if backup_path.exists() or backup_path.is_symlink():
+                validate_regular_file(backup_path)
+                if (
+                    sha256_file(backup_path) != before_sha
+                    or backup_path.read_bytes() != original
+                ):
+                    raise RuntimeError(
+                        "token rotation immutable backup changed"
+                    )
+            else:
+                atomic_bytes_create_new(
+                    backup_path,
+                    original,
+                    0o600,
+                )
+            generated = secrets.token_urlsafe(48)
+            rendered, state = rotate_token_secret_environment(
+                original.decode("utf-8"),
+                generated,
+                api2_event_material=event_material,
+            )
+            if state != "ROTATED_BY_RUN":
+                raise RuntimeError(
+                    "token secret rotation state drifted"
+                )
+            atomic_bytes(ENV_PATH, rendered.encode("utf-8"))
+        else:
+            validate_regular_file(backup_path)
+            if sha256_file(backup_path) != before_sha:
+                raise RuntimeError(
+                    "token rotation recovery backup anchor mismatch"
+                )
+        after_bytes = validate_regular_file(ENV_PATH).read_bytes()
+        after_values = parse_environment(
+            after_bytes.decode("utf-8")
+        )
+        after_evidence = configuration_v4_evidence(
+            after_values,
+            validate_regular_file(API2_EVENT_KEY_PATH).read_bytes(),
+        )
+        assert_configuration_v4_evidence(after_evidence)
+        expected_after, state = rotate_token_secret_environment(
+            backup_path.read_text(encoding="utf-8"),
+            str(after_values.get(TOKEN_SECRET_NAME, "")).strip(),
+            api2_event_material=event_material,
+        )
+        if (
+            state != "ROTATED_BY_RUN"
+            or expected_after.encode("utf-8") != after_bytes
+        ):
+            raise RuntimeError(
+                "token rotation recovery contains an unauthorized delta"
+            )
+        before_values = parse_environment(
+            backup_path.read_text(encoding="utf-8")
+        )
+        before_evidence = configuration_v3_evidence(
+            before_values,
+            event_material,
+        )
+        assert_configuration_v3_evidence(before_evidence)
+        if before_evidence != predecessor["configurationEvidence"]:
+            raise RuntimeError(
+                "token secret predecessor evidence changed"
+            )
+        after_service = service_snapshot()
+        if journal["serviceSnapshotBefore"] != after_service:
+            raise RuntimeError(
+                "service changed during zero-restart token rotation"
+            )
+        payload = build_token_secret_rotation_receipt(
+            args,
+            journal,
+            backup_path,
+            sha256_bytes(after_bytes),
+            after_evidence,
+            after_service,
+        )
+        receipt_path = run_directory / "configuration-receipt.json"
+        atomic_bytes_create_new(
+            receipt_path,
+            canonical_json(payload).encode("utf-8"),
+        )
+        publish_latest(run_directory)
+        return {
+            "schema":
+                "fbsir.u3wDefaultOffConfigurationWorkerResult.v4",
+            "mode": "RotateTokenSecret",
+            "state": "CONFIGURED_NOT_LOADED",
+            "runId": args.run_id,
+            "sourceCommit": args.source_commit,
+            "configurationReceiptPath": str(receipt_path),
+            "configurationReceiptSha256": sha256_file(receipt_path),
+            "productionFilesystemChanged": True,
+            "productionConfigurationChanged": True,
+            "productionBusinessStateChanged": False,
+            "configurationLoaded": False,
+            "serviceRestarted": False,
+            "secretsDisclosed": False,
+            "idempotentReplay": False,
+        }
+    finally:
+        os.close(lock_descriptor)
+
+
 def reconcile(args):
     approval = validate_approval(args, allow_expired=True)
     if os.geteuid() != 0:
@@ -1706,8 +2494,12 @@ def reconcile(args):
                 "sourceCommit": args.source_commit,
                 "configurationReceiptPath": str(path),
                 "configurationReceiptSha256": sha256_file(path),
-                "productionFilesystemChanged": False,
-                "productionConfigurationChanged": False,
+                "productionFilesystemChanged": MUTATION_STATE[
+                    "productionFilesystemChanged"
+                ],
+                "productionConfigurationChanged": MUTATION_STATE[
+                    "productionConfigurationChanged"
+                ],
                 "productionBusinessStateChanged": False,
                 "configurationLoaded": False,
                 "serviceRestarted": False,
@@ -2027,7 +2819,6 @@ def apply(args):
                 "secretsDisclosed": False,
                 "idempotentReplay": True,
             }
-        MUTATION_STATE["productionFilesystemChanged"] = True
         validate_regular_file(ENV_PATH)
         current = ENV_PATH.read_bytes()
         current_sha = sha256_bytes(current)
@@ -2251,10 +3042,8 @@ def recover(args):
                     "existing configuration recovery receipt changed"
                 )
         else:
-            MUTATION_STATE["productionFilesystemChanged"] = True
             atomic_bytes(receipt_path, encoded)
         publish_latest(run_directory)
-        MUTATION_STATE["productionFilesystemChanged"] = True
         return {
             "schema": "fbsir.u3wDefaultOffConfigurationWorkerResult.v2",
             "mode": "Recover",
@@ -2265,8 +3054,12 @@ def recover(args):
             "configurationReceiptSha256": sha256_file(receipt_path),
             "originalApprovalReceiptSha256": args.original_approval_sha,
             "recoveryApprovalReceiptSha256": args.approval_sha,
-            "productionFilesystemChanged": True,
-            "productionConfigurationChanged": False,
+            "productionFilesystemChanged": MUTATION_STATE[
+                "productionFilesystemChanged"
+            ],
+            "productionConfigurationChanged": MUTATION_STATE[
+                "productionConfigurationChanged"
+            ],
             "productionBusinessStateChanged": False,
             "productionServiceChanged": False,
             "configurationLoaded": False,
@@ -2281,7 +3074,15 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--mode",
-        choices=("Plan", "Apply", "Verify", "Recover", "Reconcile"),
+        choices=(
+            "Plan",
+            "PlanTokenSecretRotation",
+            "Apply",
+            "Verify",
+            "Recover",
+            "Reconcile",
+            "RotateTokenSecret",
+        ),
         required=True,
     )
     parser.add_argument("--run-id", required=True)
@@ -2322,7 +3123,11 @@ def parse_args(argv=None):
             )
         )
         or (
-            args.mode == "Reconcile"
+            args.mode in {
+                "Reconcile",
+                "PlanTokenSecretRotation",
+                "RotateTokenSecret",
+            }
             and args.expected_predecessor_configuration_receipt_sha
             == "0" * 64
         )
@@ -2331,44 +3136,57 @@ def parse_args(argv=None):
     return args
 
 
+def worker_error(args, error):
+    return {
+        "schema": "fbsir.u3wDefaultOffConfigurationWorkerError.v2",
+        "mode": args.mode,
+        "runId": args.run_id,
+        "sourceCommit": args.source_commit,
+        "targetHost": TARGET_HOST,
+        "errorType": type(error).__name__,
+        "errorMessageSha256": sha256_bytes(
+            str(error).encode("utf-8", errors="replace")
+        ),
+        "productionFilesystemChanged": MUTATION_STATE[
+            "productionFilesystemChanged"
+        ],
+        "productionConfigurationChanged": MUTATION_STATE[
+            "productionConfigurationChanged"
+        ],
+        "productionBusinessStateChanged": False,
+        "productionServiceChanged": False,
+        "configurationLoaded": False,
+        "serviceRestarted": False,
+        "officialExpertsPackageChanged": False,
+        "secretsDisclosed": False,
+    }
+
+
 def main(argv=None):
+    MUTATION_STATE.update({
+        "productionFilesystemChanged": False,
+        "productionConfigurationChanged": False,
+    })
     args = parse_args(argv)
-    if args.mode == "Plan":
-        result = plan(args)
-    elif args.mode == "Verify":
-        result = verify(args)
-    elif args.mode == "Recover":
-        result = recover(args)
-    elif args.mode == "Reconcile":
-        result = reconcile(args)
-    else:
-        result = apply(args)
+    try:
+        if args.mode in {"Plan", "PlanTokenSecretRotation"}:
+            result = plan(args)
+        elif args.mode == "Verify":
+            result = verify(args)
+        elif args.mode == "Recover":
+            result = recover(args)
+        elif args.mode == "Reconcile":
+            result = reconcile(args)
+        elif args.mode == "RotateTokenSecret":
+            result = rotate_token_secret(args)
+        else:
+            result = apply(args)
+    except Exception as error:
+        print(canonical_json(worker_error(args, error)))
+        return 1
     print(canonical_json(result))
+    return 0
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as error:
-        print(
-            canonical_json(
-                {
-                    "schema": "fbsir.u3wDefaultOffConfigurationWorkerError.v1",
-                    "errorType": type(error).__name__,
-                    "error": str(error),
-                    "productionFilesystemChanged": MUTATION_STATE[
-                        "productionFilesystemChanged"
-                    ],
-                    "productionConfigurationChanged": MUTATION_STATE[
-                        "productionConfigurationChanged"
-                    ],
-                    "productionBusinessStateChanged": False,
-                    "productionServiceChanged": False,
-                    "configurationLoaded": False,
-                    "serviceRestarted": False,
-                    "secretsDisclosed": False,
-                }
-            ),
-            file=sys.stderr,
-        )
-        raise
+    sys.exit(main())

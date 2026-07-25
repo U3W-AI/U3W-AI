@@ -14,6 +14,10 @@ const configurationRunner = fs.readFileSync(
   new URL("./run-u3w-default-off-configuration.ps1", import.meta.url),
   "utf8",
 );
+const configurationWorker = fs.readFileSync(
+  new URL("./u3w-default-off-configuration-remote.py", import.meta.url),
+  "utf8",
+);
 const baselineRunner = fs.readFileSync(
   new URL("./run-u3w-legacy-baseline.ps1", import.meta.url),
   "utf8",
@@ -69,6 +73,75 @@ test("release runner exposes one explicit fail-closed state machine", () => {
   assert.ok(runner.includes("PREPARED_FOR_STAGE"));
   assert.ok(runner.includes("STAGED_FOR_SWITCH"));
   assert.ok(runner.includes("DEPLOYED_DEFAULT_OFF"));
+});
+
+test("configuration runner exposes an explicit token secret rotation contract", () => {
+  for (const marker of [
+    "'PlanTokenSecretRotation'",
+    "'RotateTokenSecret'",
+    "ROTATE_FBSIR_TOKEN_SECRET_FOR_W1A_DEFAULT_OFF",
+    "fbsir.u3wDefaultOffConfigurationPlan.v3",
+    "fbsir.u3wDefaultOffConfigurationReceipt.v4",
+    "ROTATE_UNDERSIZED_FBSIR_TOKEN_SECRET",
+  ]) {
+    assert.ok(configurationRunner.includes(marker), `missing ${marker}`);
+  }
+  assert.ok(
+    configurationRunner.includes(
+      "expectedPredecessorConfigurationReceiptSha256",
+    ),
+  );
+  assert.ok(
+    configurationRunner.includes(
+      "'fbsir.u3wDefaultOffConfigurationReceipt.v4'",
+    ),
+  );
+});
+
+test("configuration failures preserve bounded mutation truth before throwing", () => {
+  for (const marker of [
+    "fbsir.u3wDefaultOffConfigurationWorkerError.v2",
+    "errorMessageSha256",
+    "productionFilesystemChanged",
+    "productionConfigurationChanged",
+    "sys.exit(main())",
+  ]) {
+    assert.ok(configurationWorker.includes(marker), `missing ${marker}`);
+  }
+  assert.equal(configurationWorker.includes('"error": str(error)'), false);
+  const remote = sectionBetween(
+    configurationRunner,
+    "function Invoke-RemoteWorker {",
+    "function Save-ExternalAnchor {",
+  );
+  const captureExit = remote.indexOf("$remoteExitCode = $LASTEXITCODE");
+  const parseEnvelope = remote.indexOf("$parsed = $json | ConvertFrom-Json");
+  const inspectFailure = remote.lastIndexOf("if ($remoteExitCode -ne 0)");
+  assert.ok(captureExit >= 0);
+  assert.ok(parseEnvelope > captureExit);
+  assert.ok(inspectFailure > parseEnvelope);
+  assert.ok(remote.includes("$nameDrift.Count -ne 0"));
+  assert.ok(remote.includes("$parsed.secretsDisclosed -ne $false"));
+  assert.ok(configurationRunner.includes("$expiredRecoveryEligible"));
+  assert.ok(
+    configurationRunner.includes(
+      "$RunId-default-off-configuration-worker-error-$digest.json",
+    ),
+  );
+  const failureFlow = configurationRunner.slice(
+    configurationRunner.indexOf(
+      "if ($result.schema -eq",
+      configurationRunner.indexOf("$result = Invoke-RemoteWorker"),
+    ),
+  );
+  const persist = failureFlow.indexOf(
+    "Save-ExternalWorkerFailureAnchor -WorkerError $result",
+  );
+  const throwAfterPersist = failureFlow.indexOf(
+    "remote configuration worker failed; external evidence:",
+  );
+  assert.ok(persist >= 0);
+  assert.ok(throwAfterPersist > persist);
 });
 
 test("distribution-bearing release receipts use the v2/v3 contract line", () => {

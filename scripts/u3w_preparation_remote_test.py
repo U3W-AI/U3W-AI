@@ -4,6 +4,7 @@ import datetime as dt
 import hashlib
 import importlib.util
 import inspect
+import io
 import json
 import os
 import pathlib
@@ -93,7 +94,11 @@ def approval(
 
 
 @contextlib.contextmanager
-def reconciliation_harness(existing_credential=None):
+def reconciliation_harness(
+    existing_credential=None,
+    token_secret="utf8:jwt-test-only-secret-material",
+    predecessor_schema="v2",
+):
     with tempfile.TemporaryDirectory() as temporary:
         root = pathlib.Path(temporary).resolve()
         environment_path = root / "etc" / "fbsir-admin.env"
@@ -115,7 +120,7 @@ def reconciliation_harness(existing_credential=None):
                 "WXFBSIR_MYSQL_URL=jdbc:mysql://127.0.0.1:3306/fbsir\n"
                 "WXFBSIR_MYSQL_USERNAME=fbsir\n"
                 "WXFBSIR_MYSQL_PASSWORD=test-only\n"
-                "FBSIR_TOKEN_SECRET=utf8:jwt-test-only-secret-material\n"
+                "FBSIR_TOKEN_SECRET={}\n".format(token_secret)
             ),
             event_key_id="w1a-20260723-k1",
             event_material=event_material,
@@ -135,6 +140,14 @@ def reconciliation_harness(existing_credential=None):
                     "test existing credential fixture is invalid"
                 )
             original = rendered.encode("utf-8")
+        if predecessor_schema == "v3":
+            if existing_credential is None:
+                raise RuntimeError(
+                    "v3 predecessor requires an Engine credential"
+                )
+            predecessor_environment = original
+        elif predecessor_schema != "v2":
+            raise RuntimeError("unsupported test predecessor schema")
         environment_path.write_bytes(original)
         event_key_path.write_bytes(event_material)
         before_sha = configuration.sha256_bytes(original)
@@ -142,14 +155,26 @@ def reconciliation_harness(existing_credential=None):
             predecessor_environment
         )
         predecessor_sha = "e" * 64
+        predecessor_values = configuration.parse_environment(
+            predecessor_environment.decode("utf-8")
+        )
         predecessor = {
-            "schema": "fbsir.u3wDefaultOffConfigurationReceipt.v2",
+            "schema": (
+                "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+                if predecessor_schema == "v3"
+                else "fbsir.u3wDefaultOffConfigurationReceipt.v2"
+            ),
             "environmentAfterSha256": predecessor_environment_sha,
-            "configurationEvidence": configuration.configuration_evidence(
-                configuration.parse_environment(
-                    predecessor_environment.decode("utf-8")
-                ),
-                event_material,
+            "configurationEvidence": (
+                configuration.configuration_v3_evidence(
+                    predecessor_values,
+                    event_material,
+                )
+                if predecessor_schema == "v3"
+                else configuration.configuration_evidence(
+                    predecessor_values,
+                    event_material,
+                )
             ),
         }
         service = {
@@ -202,6 +227,9 @@ def reconciliation_harness(existing_credential=None):
             candidate = pathlib.Path(path)
             candidate.parent.mkdir(parents=True, exist_ok=True)
             candidate.write_bytes(payload)
+            configuration.record_filesystem_mutation(
+                configuration_changed=candidate == environment_path
+            )
             if (
                 candidate == environment_path
                 and controls["failAfterEnvironmentWrite"]
@@ -214,6 +242,7 @@ def reconciliation_harness(existing_credential=None):
         def predecessor_receipt(
             invocation_args,
             require_live_environment=True,
+            expected_schema=None,
         ):
             controls["predecessorRequireLive"].append(
                 require_live_environment
@@ -224,6 +253,11 @@ def reconciliation_harness(existing_credential=None):
                 != predecessor_sha
             ):
                 raise RuntimeError("test predecessor anchor drifted")
+            if (
+                expected_schema is not None
+                and predecessor["schema"] != expected_schema
+            ):
+                raise RuntimeError("test predecessor schema drifted")
             return predecessor, root / "predecessor.json", event_material
 
         def service_snapshot():
@@ -458,6 +492,110 @@ class LegacyBaselineContractTest(unittest.TestCase):
 
 
 class DefaultOffConfigurationContractTest(unittest.TestCase):
+    def test_worker_error_is_single_bounded_stdout_envelope(self):
+        args = types.SimpleNamespace(
+            mode="RotateTokenSecret",
+            run_id="w1a-config-20260724T180000Z-0123456789ab",
+            source_commit="a" * 40,
+        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with (
+            mock.patch.object(
+                configuration,
+                "parse_args",
+                return_value=args,
+            ),
+            mock.patch.object(
+                configuration,
+                "rotate_token_secret",
+                side_effect=RuntimeError("sensitive diagnostic text"),
+            ),
+            contextlib.redirect_stdout(stdout),
+            contextlib.redirect_stderr(stderr),
+        ):
+            exit_code = configuration.main([])
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(stderr.getvalue(), "")
+        self.assertEqual(
+            payload["schema"],
+            "fbsir.u3wDefaultOffConfigurationWorkerError.v2",
+        )
+        self.assertEqual(payload["mode"], args.mode)
+        self.assertEqual(payload["runId"], args.run_id)
+        self.assertEqual(payload["sourceCommit"], args.source_commit)
+        self.assertRegex(payload["errorMessageSha256"], r"^[0-9a-f]{64}$")
+        self.assertNotIn("sensitive diagnostic text", stdout.getvalue())
+        self.assertFalse(payload["secretsDisclosed"])
+
+    def test_atomic_environment_mutation_flags_follow_actual_syscalls(self):
+        original_state = dict(configuration.MUTATION_STATE)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            environment = root / "fbsir-admin.env"
+            environment.write_bytes(b"before")
+            configuration.MUTATION_STATE.update({
+                "productionFilesystemChanged": False,
+                "productionConfigurationChanged": False,
+            })
+            with (
+                mock.patch.object(configuration, "ENV_PATH", environment),
+                mock.patch.object(
+                    configuration.os,
+                    "open",
+                    side_effect=OSError("open failed"),
+                ),
+                self.assertRaisesRegex(OSError, "open failed"),
+            ):
+                configuration.atomic_bytes(environment, b"after")
+            self.assertFalse(
+                configuration.MUTATION_STATE[
+                    "productionFilesystemChanged"
+                ]
+            )
+            self.assertFalse(
+                configuration.MUTATION_STATE[
+                    "productionConfigurationChanged"
+                ]
+            )
+            self.assertEqual(
+                list(root.glob("*.partial")),
+                [],
+            )
+
+            configuration.MUTATION_STATE.update({
+                "productionFilesystemChanged": False,
+                "productionConfigurationChanged": False,
+            })
+            with (
+                mock.patch.object(configuration, "ENV_PATH", environment),
+                mock.patch.object(
+                    configuration.os,
+                    "replace",
+                    side_effect=OSError("replace failed"),
+                ),
+                mock.patch.object(configuration, "fsync_directory"),
+                self.assertRaisesRegex(OSError, "replace failed"),
+            ):
+                configuration.atomic_bytes(environment, b"after")
+            self.assertTrue(
+                configuration.MUTATION_STATE[
+                    "productionFilesystemChanged"
+                ]
+            )
+            self.assertFalse(
+                configuration.MUTATION_STATE[
+                    "productionConfigurationChanged"
+                ]
+            )
+            self.assertEqual(
+                list(root.glob("*.partial")),
+                [],
+            )
+        configuration.MUTATION_STATE.clear()
+        configuration.MUTATION_STATE.update(original_state)
+
     def test_host_change_lock_is_bounded(self):
         with (
             mock.patch.object(
@@ -629,6 +767,312 @@ class DefaultOffConfigurationContractTest(unittest.TestCase):
                 original + "FBSIR_ENGINE_TOKEN=short\n",
                 "engine-credential-" + ("z" * 40),
                 api2_event_material=b"x" * 32,
+            )
+
+    def test_token_secret_rotation_replaces_only_undersized_secret(self):
+        event_material = b"event-material-" + (b"e" * 40)
+        binding_material = b"binding-material-" + (b"b" * 40)
+        original = configuration.render_configuration(
+            (
+                "A=1\n"
+                "FBSIR_TOKEN_SECRET=legacy-token-secret-26-char\n"
+            ),
+            event_key_id="w1a-20260723-k1",
+            event_material=event_material,
+            same_binding_material=binding_material,
+        )
+        original, _ = configuration.reconcile_admin_engine_credential(
+            original,
+            "engine-credential-" + ("e" * 40),
+            api2_event_material=event_material,
+        )
+        new_secret = "rotated-token-secret-" + ("r" * 48)
+
+        rendered, state = (
+            configuration.rotate_token_secret_environment(
+                original,
+                new_secret,
+                api2_event_material=event_material,
+            )
+        )
+
+        before = configuration.parse_environment(original)
+        after = configuration.parse_environment(rendered)
+        self.assertEqual(state, "ROTATED_BY_RUN")
+        self.assertEqual(
+            after[configuration.TOKEN_SECRET_NAME],
+            new_secret,
+        )
+        self.assertNotEqual(
+            before[configuration.TOKEN_SECRET_NAME],
+            after[configuration.TOKEN_SECRET_NAME],
+        )
+        for name, value in before.items():
+            if name != configuration.TOKEN_SECRET_NAME:
+                self.assertEqual(after[name], value)
+        evidence = configuration.configuration_v4_evidence(
+            after,
+            event_material,
+        )
+        configuration.assert_configuration_v4_evidence(evidence)
+        serialized = json.dumps(evidence)
+        self.assertNotIn(new_secret, serialized)
+        self.assertNotIn(
+            before[configuration.TOKEN_SECRET_NAME],
+            serialized,
+        )
+        self.assertNotIn(
+            configuration.sha256_bytes(new_secret.encode()),
+            serialized,
+        )
+
+    def test_token_secret_rotation_rejects_strong_or_reused_material(self):
+        event_material = b"event-material-" + (b"e" * 40)
+        binding_material = b"binding-material-" + (b"b" * 40)
+        original = configuration.render_configuration(
+            "FBSIR_TOKEN_SECRET=legacy-token-secret-26-char\n",
+            event_key_id="w1a-20260723-k1",
+            event_material=event_material,
+            same_binding_material=binding_material,
+        )
+        engine = "engine-credential-" + ("e" * 40)
+        original, _ = configuration.reconcile_admin_engine_credential(
+            original,
+            engine,
+            api2_event_material=event_material,
+        )
+        with self.assertRaisesRegex(RuntimeError, "independent"):
+            configuration.rotate_token_secret_environment(
+                original,
+                engine,
+                api2_event_material=event_material,
+            )
+
+        strong = original.replace(
+            "legacy-token-secret-26-char",
+            "already-strong-token-secret-" + ("s" * 48),
+        )
+        with self.assertRaisesRegex(RuntimeError, "undersized"):
+            configuration.rotate_token_secret_environment(
+                strong,
+                "rotated-token-secret-" + ("r" * 48),
+                api2_event_material=event_material,
+            )
+
+    def test_token_secret_rotation_approval_is_explicit_and_bound(self):
+        args = types.SimpleNamespace(
+            mode="RotateTokenSecret",
+            run_id="w1a-config-20260724T180000Z-0123456789ab",
+            source_commit="a" * 40,
+            approval_sha="",
+            approval_json_base64="",
+            expected_environment_sha="d" * 64,
+            expected_configured_environment_sha="0" * 64,
+            original_approval_sha="0" * 64,
+            expected_predecessor_configuration_receipt_sha="e" * 64,
+            runner_sha="b" * 64,
+            worker_sha="c" * 64,
+        )
+        payload = {
+            "schema": "fbsir.u3wProductionChangeApprovalReceipt.v1",
+            "action": "ROTATE_FBSIR_TOKEN_SECRET_FOR_W1A_DEFAULT_OFF",
+            "targetHost": "api2.u3w.com",
+            "runId": args.run_id,
+            "sourceCommit": args.source_commit,
+            "approvedAt": "2026-07-24T17:50:00Z",
+            "expiresAt": "2026-07-24T18:50:00Z",
+            "authorizedBy": "workspace-user",
+            "concurrentDdlProhibited": True,
+            "productionFilesystemWrite": True,
+            "productionDatabaseWrite": False,
+            "productionServiceChange": False,
+            "officialExpertsPackageChange": False,
+            "expectedEnvironmentSha256": args.expected_environment_sha,
+            "expectedApi2EventKeyState": "PRESENT_ANCHORED",
+            "expectedPredecessorConfigurationReceiptSha256":
+                args.expected_predecessor_configuration_receipt_sha,
+            "runnerSha256": args.runner_sha,
+            "workerSha256": args.worker_sha,
+        }
+        raw = json.dumps(payload, separators=(",", ":")).encode()
+        args.approval_sha = configuration.sha256_bytes(raw)
+        args.approval_json_base64 = base64.b64encode(raw).decode()
+
+        parsed = configuration.validate_approval(
+            args,
+            now=dt.datetime(2026, 7, 24, 18, 0, tzinfo=dt.timezone.utc),
+        )
+
+        self.assertEqual(
+            parsed["action"],
+            "ROTATE_FBSIR_TOKEN_SECRET_FOR_W1A_DEFAULT_OFF",
+        )
+
+    def test_token_secret_rotation_plan_and_receipt_chain_v3_to_v4(self):
+        engine = "engine-credential-" + ("e" * 40)
+        old_secret = "legacy-token-secret-26-char"
+        with reconciliation_harness(
+            existing_credential=engine,
+            token_secret=old_secret,
+            predecessor_schema="v3",
+        ) as harness:
+            harness.args.mode = "PlanTokenSecretRotation"
+            plan = configuration.plan(harness.args)
+            self.assertEqual(
+                plan["schema"],
+                "fbsir.u3wDefaultOffConfigurationPlan.v3",
+            )
+            self.assertEqual(
+                plan["mode"],
+                "PlanTokenSecretRotation",
+            )
+            self.assertEqual(
+                plan["planPurpose"],
+                "ROTATE_UNDERSIZED_FBSIR_TOKEN_SECRET",
+            )
+            self.assertTrue(plan["tokenSecretPresent"])
+            self.assertTrue(plan["tokenSecretBelowMinimum"])
+            self.assertTrue(plan["canonicalTokenSecretAssignment"])
+            self.assertFalse(plan["productionFilesystemChanged"])
+
+            harness.args.mode = "RotateTokenSecret"
+            result = configuration.rotate_token_secret(harness.args)
+            receipt_path = (
+                harness.configuration_root
+                / harness.args.run_id
+                / "configuration-receipt.json"
+            )
+            receipt_raw = receipt_path.read_text(encoding="utf-8")
+            receipt = json.loads(receipt_raw)
+            after_values = configuration.parse_environment(
+                harness.environment_path.read_text(encoding="utf-8")
+            )
+            new_secret = after_values[configuration.TOKEN_SECRET_NAME]
+
+            self.assertEqual(
+                receipt["schema"],
+                "fbsir.u3wDefaultOffConfigurationReceipt.v4",
+            )
+            self.assertEqual(
+                receipt["predecessorConfigurationReceiptSha256"],
+                harness.predecessor_sha,
+            )
+            self.assertEqual(
+                receipt["tokenSecretProvisioningState"],
+                "ROTATED_BY_RUN",
+            )
+            self.assertEqual(
+                receipt["adminEngineCredentialProvisioningState"],
+                "REUSED_FROM_PREDECESSOR_RECEIPT",
+            )
+            self.assertEqual(
+                receipt["environmentBeforeSha256"],
+                configuration.sha256_bytes(harness.original),
+            )
+            self.assertEqual(
+                receipt["environmentAfterSha256"],
+                configuration.sha256_file(harness.environment_path),
+            )
+            self.assertTrue(receipt["productionConfigurationChanged"])
+            self.assertFalse(receipt["serviceRestarted"])
+            self.assertNotEqual(new_secret, old_secret)
+            self.assertGreaterEqual(len(new_secret), 43)
+            self.assertNotIn(old_secret, receipt_raw)
+            self.assertNotIn(new_secret, receipt_raw)
+            self.assertNotIn(
+                configuration.sha256_bytes(new_secret.encode()),
+                receipt_raw,
+            )
+            self.assertTrue(result["productionConfigurationChanged"])
+
+            receipt_before = receipt_path.read_bytes()
+            replay = configuration.rotate_token_secret(harness.args)
+            self.assertTrue(replay["idempotentReplay"])
+            self.assertEqual(receipt_path.read_bytes(), receipt_before)
+
+    def test_token_secret_rotation_recovers_after_atomic_environment_write(self):
+        with reconciliation_harness(
+            existing_credential="engine-credential-" + ("e" * 40),
+            token_secret="legacy-token-secret-26-char",
+            predecessor_schema="v3",
+        ) as harness:
+            harness.args.mode = "RotateTokenSecret"
+            harness.controls["failAfterEnvironmentWrite"] = True
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "injected crash after environment replacement",
+            ):
+                configuration.rotate_token_secret(harness.args)
+            self.assertTrue(
+                configuration.MUTATION_STATE[
+                    "productionFilesystemChanged"
+                ]
+            )
+            self.assertTrue(
+                configuration.MUTATION_STATE[
+                    "productionConfigurationChanged"
+                ]
+            )
+            run_directory = (
+                harness.configuration_root / harness.args.run_id
+            )
+            self.assertTrue(
+                (run_directory / "configuration-journal.json").is_file()
+            )
+            self.assertFalse(
+                (run_directory / "configuration-receipt.json").exists()
+            )
+            rotated = configuration.parse_environment(
+                harness.environment_path.read_text(encoding="utf-8")
+            )[configuration.TOKEN_SECRET_NAME]
+            self.assertGreaterEqual(len(rotated), 43)
+
+            with mock.patch.object(
+                configuration,
+                "approval_is_current",
+                return_value=False,
+            ), mock.patch.object(
+                configuration,
+                "token_secret_rotation_run_directory",
+                return_value=run_directory,
+            ):
+                recovered = configuration.rotate_token_secret(
+                    harness.args
+                )
+            self.assertFalse(recovered["idempotentReplay"])
+            self.assertTrue(
+                (run_directory / "configuration-receipt.json").is_file()
+            )
+            receipt_raw = (
+                run_directory / "configuration-receipt.json"
+            ).read_text(encoding="utf-8")
+            self.assertNotIn(rotated, receipt_raw)
+
+    def test_expired_token_secret_rotation_cannot_start_mutation(self):
+        with reconciliation_harness(
+            existing_credential="engine-credential-" + ("e" * 40),
+            token_secret="legacy-token-secret-26-char",
+            predecessor_schema="v3",
+        ) as harness:
+            harness.args.mode = "RotateTokenSecret"
+            with mock.patch.object(
+                configuration,
+                "approval_is_current",
+                return_value=False,
+            ):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "expired token rotation cannot create",
+                ):
+                    configuration.rotate_token_secret(harness.args)
+            self.assertEqual(
+                harness.environment_path.read_bytes(),
+                harness.original,
+            )
+            self.assertFalse(
+                (
+                    harness.configuration_root / harness.args.run_id
+                ).exists()
             )
 
     def test_engine_reconcile_approval_binds_predecessor_receipt(self):

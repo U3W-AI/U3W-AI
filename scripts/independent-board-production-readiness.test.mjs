@@ -90,6 +90,7 @@ const managedEnvironmentNames = [
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY",
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET",
   "FBSIR_ENGINE_TOKEN",
+  "FBSIR_TOKEN_SECRET",
 ].sort();
 const migrationDescriptions = {
   public_init_035:
@@ -224,7 +225,11 @@ function readySnapshot() {
       adminApiCaptcha: { httpStatus: 404, businessCode: null },
     },
     configuration: {
-      environmentKeyNames: [...flags, "FBSIR_ENGINE_TOKEN"],
+      environmentKeyNames: [
+        ...flags,
+        "FBSIR_ENGINE_TOKEN",
+        "FBSIR_TOKEN_SECRET",
+      ],
       explicitFalseKeyNames: [...flags],
       eventKeyEntryCount: 1,
       activeEventKeyPairPresent: true,
@@ -238,10 +243,13 @@ function readySnapshot() {
       cryptographicConfigurationShapeValid: true,
       adminEngineCredentialValid: true,
       adminEngineCredentialIndependent: true,
+      tokenSecretValid: true,
+      tokenSecretIndependent: true,
       configurationReceiptValid: true,
       configurationReceiptAnchorMatched: true,
       configurationReceiptSchema:
-        "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+        "fbsir.u3wDefaultOffConfigurationReceipt.v4",
+      tokenSecretProvisioningState: "ROTATED_BY_RUN",
       engineCounterpartClosureClaimed: false,
       configurationReceiptSourceCommit: commit,
       configurationReceiptSha256: digest,
@@ -360,7 +368,7 @@ test("rejects a preparation commit without proven ancestry", () => {
   assert.ok(result.failedGateIds.includes("preparation_source_provenance"));
 });
 
-test("requires config v3, backup v4, and adoption to share one preparation source", () => {
+test("requires config v4, backup v4, and adoption to share one preparation source", () => {
   for (const mutate of [
     (snapshot) => {
       snapshot.configuration.configurationReceiptSchema =
@@ -986,6 +994,26 @@ test("accepts exact-loaded or fully managed pending-restart runtime configuratio
   assert.equal(
     evaluateProductionReadiness(enginePending).status,
     "PREPARED_FOR_STAGE",
+  );
+  const tokenRotationPending = readySnapshot();
+  tokenRotationPending.runtime.processConfiguredEnvironmentMatched = false;
+  tokenRotationPending.runtime.processConfiguredEnvironmentLoadState =
+    "TOKEN_SECRET_ROTATION_PENDING_RESTART";
+  tokenRotationPending.runtime.processConfiguredEnvironmentMismatchNames = [
+    "FBSIR_TOKEN_SECRET",
+  ];
+  tokenRotationPending.runtime.processPendingRestartEnvironmentNames = [];
+  assert.equal(
+    evaluateProductionReadiness(tokenRotationPending).status,
+    "PREPARED_FOR_STAGE",
+  );
+  tokenRotationPending.runtime.processConfiguredEnvironmentMismatchNames = [
+    "FBSIR_ENGINE_TOKEN",
+  ];
+  assert.ok(
+    evaluateProductionReadiness(
+      tokenRotationPending,
+    ).failedGateIds.includes("active_runtime_anchor"),
   );
 });
 
@@ -1683,6 +1711,267 @@ test("readiness independently accepts only an exact interrupted Apply recovery p
   ]) {
     assert.ok(collector.includes(compatible));
   }
+});
+
+test("embedded recovery validator accepts v2 probe-only 3/1 with boolean DB aggregate", () => {
+  const pythonSource = embeddedCollectorSource();
+  const harness = String.raw`
+import ast
+import copy
+import json
+import sys
+
+source = sys.stdin.read()
+tree = ast.parse(source, filename="<u3w-readiness-collector>")
+wanted = {
+    "exact_w1a_migration_facts",
+    "legacy_w1a_migration_facts",
+    "interrupted_apply_terminal_failure_valid",
+}
+selected = [
+    node for node in tree.body
+    if isinstance(node, ast.FunctionDef) and node.name in wanted
+]
+namespace = {
+    "EXPECTED_W1A_SCHEMA_FINGERPRINT": "f" * 64,
+    "LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA":
+        "fbsir.u3wDefaultOffReleaseFailureReceipt.v1",
+    "APPLY_FAILURE_RECEIPT_SCHEMA":
+        "fbsir.u3wDefaultOffReleaseFailureReceipt.v2",
+    "LEGACY_MIGRATION_FACT_FIELDS": {
+        "publicReceiptCount", "internalReceiptCount", "tableCount",
+        "triggerCount", "permissionCount", "eventCount",
+        "journeyCount", "schemaFingerprintSha256",
+    },
+    "MIGRATION_FACT_FIELDS": {
+        "publicReceiptCount", "internalReceiptCount", "tableCount",
+        "triggerCount", "permissionCount", "eventCount",
+        "probeEventCount", "naturalEventCount", "nonProbeEventCount",
+        "authoritativeProductCreditCount", "journeyCount",
+        "probeJourneyCount", "naturalJourneyCount",
+        "nonProbeJourneyCount", "schemaFingerprintSha256",
+    },
+    "re": __import__("re"),
+}
+exec(
+    compile(
+        ast.Module(body=selected, type_ignores=[]),
+        "<u3w-recovery-v2>",
+        "exec",
+    ),
+    namespace,
+)
+facts = {
+    "publicReceiptCount": 1,
+    "internalReceiptCount": 1,
+    "tableCount": 2,
+    "triggerCount": 2,
+    "permissionCount": 1,
+    "eventCount": 3,
+    "probeEventCount": 3,
+    "naturalEventCount": 0,
+    "nonProbeEventCount": 0,
+    "authoritativeProductCreditCount": 0,
+    "journeyCount": 1,
+    "probeJourneyCount": 1,
+    "naturalJourneyCount": 0,
+    "nonProbeJourneyCount": 0,
+    "schemaFingerprintSha256": "f" * 64,
+}
+receipt = {
+    "schema": "fbsir.u3wDefaultOffReleaseFailureReceipt.v2",
+    "state": "APPLICATION_RESTORED_DATABASE_043_RETAINED_OR_FAIL_CLOSED",
+    "releaseId": "release",
+    "sourceCommit": "a" * 40,
+    "applicationStarted": True,
+    "applicationAlreadyCommitted": False,
+    "applicationRestored": True,
+    "topologyRestored": True,
+    "deploymentCommitOutcome": "NOT_COMMITTED",
+    "deploymentReceiptPath": None,
+    "deploymentReceiptSha256": None,
+    "databaseRollbackStrategy": "RETAIN_ADDITIVE_043_DORMANT_NO_DOWN",
+    "databaseDownClaimed": False,
+    "officialExpertsPackageChanged": False,
+    "applyApprovalReceiptSha256": "b" * 64,
+    "productionServiceChangedThisRun": True,
+    "productionDatabaseChangedThisRun": False,
+    "migrationFacts": facts,
+}
+validate = namespace["interrupted_apply_terminal_failure_valid"]
+assert validate(receipt, "release", "a" * 40) is True
+drifted = copy.deepcopy(receipt)
+drifted["migrationFacts"]["naturalEventCount"] = 1
+assert validate(drifted, "release", "a" * 40) is False
+legacy = copy.deepcopy(receipt)
+legacy["schema"] = "fbsir.u3wDefaultOffReleaseFailureReceipt.v1"
+legacy.pop("productionServiceChangedThisRun")
+legacy.pop("productionDatabaseChangedThisRun")
+legacy["migrationFacts"] = {
+    key: value
+    for key, value in facts.items()
+    if key in namespace["LEGACY_MIGRATION_FACT_FIELDS"]
+}
+legacy["migrationFacts"]["eventCount"] = 0
+legacy["migrationFacts"]["journeyCount"] = 0
+assert validate(legacy, "release", "a" * 40) is True
+legacy["migrationFacts"]["eventCount"] = 3
+assert validate(legacy, "release", "a" * 40) is False
+print(json.dumps({"status": "PASS"}))
+`;
+  const result = spawnSync(pythonExecutable(), ["-c", harness], {
+    input: pythonSource,
+    encoding: "utf8",
+    timeout: 15_000,
+  });
+  assert.equal(
+    result.status,
+    0,
+    `recovery v2 harness failed: ${result.stderr || result.stdout}`,
+  );
+  assert.deepEqual(JSON.parse(result.stdout.trim()), { status: "PASS" });
+});
+
+test("embedded collector accepts only the exact token-secret rotation evolution", () => {
+  const pythonSource = embeddedCollectorSource();
+  const harness = String.raw`
+import ast
+import copy
+import json
+import sys
+
+source = sys.stdin.read()
+tree = ast.parse(source, filename="<u3w-readiness-collector>")
+wanted = {
+    "snapshot_default_off",
+    "security_measurement_contract_matches",
+    "snapshot_exact_loaded_from_baseline",
+    "authorized_token_secret_configuration_evolution_matches",
+}
+selected = [
+    node for node in tree.body
+    if isinstance(node, ast.FunctionDef) and node.name in wanted
+]
+namespace = {
+    "FLAG_NAMES": ["FLAG"],
+    "TOKEN_SECRET_NAME": "FBSIR_TOKEN_SECRET",
+    "MANAGED_RESTART_ENVIRONMENT_NAMES": ("FLAG",),
+    "re": __import__("re"),
+}
+exec(
+    compile(
+        ast.Module(body=selected, type_ignores=[]),
+        "<u3w-token-rotation-evolution>",
+        "exec",
+    ),
+    namespace,
+)
+
+before_sha = "a" * 64
+after_sha = "b" * 64
+configured_names = ["FBSIR_ENGINE_TOKEN", "FBSIR_TOKEN_SECRET"]
+legacy_security_names = ["FBSIR_ENGINE_TOKEN"]
+environment_path = "/etc/u3w/fbsir-admin.env"
+baseline = {
+    "environmentFileManifest": [{
+        "path": environment_path,
+        "sha256": before_sha,
+        "mode": 384,
+    }],
+    "environmentFilePaths": [environment_path],
+    "configuredEnvironmentSha256": before_sha,
+    "configuredEnvironmentNames": list(configured_names),
+    "configuredEnvironmentHmacSha256": "old-config-hmac",
+    "configuredFlagValues": {"FLAG": "false"},
+    "processFlagValues": {"FLAG": "false"},
+    "expectedSecurityConfigurationNames": list(legacy_security_names),
+    "expectedSecurityConfigurationHmacSha256": "d" * 64,
+    "processSecurityConfigurationNames": list(legacy_security_names),
+    "processSecurityConfigurationHmacSha256": "d" * 64,
+    "processConfiguredEnvironmentHmacSha256": "old-config-hmac",
+    "processConfiguredEnvironmentMatched": True,
+    "processConfiguredEnvironmentMismatchNames": [],
+    "processPendingRestartEnvironmentNames": [],
+    "processConfiguredEnvironmentLoadState": "EXACT_CONFIGURED",
+    "processConfiguredEnvironmentPreStageCompatible": True,
+    "processForbiddenOverrideNames": [],
+    "processDatabaseBindingMatched": True,
+    "api2EventKeyManifest": [{"sha256": "c" * 64}],
+}
+exact_live = copy.deepcopy(baseline)
+exact_live.update({
+    "expectedSecurityConfigurationNames": list(configured_names),
+    "expectedSecurityConfigurationHmacSha256": "e" * 64,
+    "processSecurityConfigurationNames": list(configured_names),
+    "processSecurityConfigurationHmacSha256": "e" * 64,
+})
+assert namespace["snapshot_exact_loaded_from_baseline"](
+    exact_live,
+    baseline,
+) is True
+
+live = copy.deepcopy(baseline)
+live.update({
+    "configuredEnvironmentSha256": after_sha,
+    "configuredEnvironmentHmacSha256": "new-config-hmac",
+    "processConfiguredEnvironmentMatched": False,
+    "processConfiguredEnvironmentMismatchNames": [
+        "FBSIR_TOKEN_SECRET"
+    ],
+    "processConfiguredEnvironmentLoadState":
+        "TOKEN_SECRET_ROTATION_PENDING_RESTART",
+    "expectedSecurityConfigurationNames": list(configured_names),
+    "expectedSecurityConfigurationHmacSha256": "e" * 64,
+    "processSecurityConfigurationNames": list(configured_names),
+    "processSecurityConfigurationHmacSha256": "f" * 64,
+})
+live["environmentFileManifest"][0]["sha256"] = after_sha
+configuration = {
+    "schema": "fbsir.u3wDefaultOffConfigurationReceipt.v4",
+    "tokenSecretProvisioningState": "ROTATED_BY_RUN",
+    "adminEngineCredentialProvisioningState":
+        "REUSED_FROM_PREDECESSOR_RECEIPT",
+    "environmentBeforeSha256": before_sha,
+    "environmentAfterSha256": after_sha,
+}
+predecessor = {
+    "schema": "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+    "environmentAfterSha256": before_sha,
+}
+matches = namespace[
+    "authorized_token_secret_configuration_evolution_matches"
+]
+assert matches(live, baseline, configuration, predecessor) is True
+
+drifted = copy.deepcopy(live)
+drifted["processConfiguredEnvironmentMismatchNames"] = [
+    "FBSIR_ENGINE_TOKEN"
+]
+assert matches(drifted, baseline, configuration, predecessor) is False
+drifted = copy.deepcopy(live)
+drifted["configuredEnvironmentNames"].append("UNAUTHORIZED")
+assert matches(drifted, baseline, configuration, predecessor) is False
+drifted_predecessor = dict(predecessor)
+drifted_predecessor["environmentAfterSha256"] = "d" * 64
+assert matches(
+    live,
+    baseline,
+    configuration,
+    drifted_predecessor,
+) is False
+print(json.dumps({"status": "PASS"}))
+`;
+  const result = spawnSync(pythonExecutable(), ["-c", harness], {
+    input: pythonSource,
+    encoding: "utf8",
+    timeout: 15_000,
+  });
+  assert.equal(
+    result.status,
+    0,
+    `token rotation evolution harness failed: ${result.stderr || result.stdout}`,
+  );
+  assert.deepEqual(JSON.parse(result.stdout.trim()), { status: "PASS" });
 });
 
 test("live signed probe shares the exact 39-field Java verifier contract", () => {

@@ -61,6 +61,7 @@ const MANAGED_W1A_ENVIRONMENT_NAMES = Object.freeze([
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY",
   "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET",
   "FBSIR_ENGINE_TOKEN",
+  "FBSIR_TOKEN_SECRET",
 ].sort());
 
 function hasExactString(value, pattern) {
@@ -135,10 +136,19 @@ export function evaluateProductionReadiness(snapshot) {
     runtimeMismatchNames.length === 0 &&
     JSON.stringify(runtimePendingNames) ===
       JSON.stringify(["FBSIR_ENGINE_TOKEN"]);
+  const tokenSecretRotationPendingRuntimeConfiguration =
+    runtime.processConfiguredEnvironmentLoadState ===
+      "TOKEN_SECRET_ROTATION_PENDING_RESTART" &&
+    runtime.processConfiguredEnvironmentMatched === false &&
+    runtime.processConfiguredEnvironmentPreStageCompatible === true &&
+    JSON.stringify(runtimeMismatchNames) ===
+      JSON.stringify(["FBSIR_TOKEN_SECRET"]) &&
+    runtimePendingNames.length === 0;
   const runtimeConfigurationValid =
     exactRuntimeConfiguration ||
     legacyPendingRuntimeConfiguration ||
-    engineCredentialPendingRuntimeConfiguration;
+    engineCredentialPendingRuntimeConfiguration ||
+    tokenSecretRotationPendingRuntimeConfiguration;
   const w1aSchemaAbsent =
     database.publicInit043Applied !== true &&
     database.w1a043State === "ABSENT" &&
@@ -197,7 +207,7 @@ export function evaluateProductionReadiness(snapshot) {
     local.preparationCommitAncestorOfSourceCommit === true &&
     local.preparationSourceCommitsConsistent === true &&
     configuration.configurationReceiptSchema ===
-      "fbsir.u3wDefaultOffConfigurationReceipt.v3" &&
+      "fbsir.u3wDefaultOffConfigurationReceipt.v4" &&
     configuration.configurationReceiptSourceCommit ===
       local.preparationSourceCommit &&
     backup.sourceCommit === local.preparationSourceCommit &&
@@ -417,10 +427,14 @@ export function evaluateProductionReadiness(snapshot) {
         configuration.cryptographicConfigurationShapeValid === true &&
         configuration.adminEngineCredentialValid === true &&
         configuration.adminEngineCredentialIndependent === true &&
+        configuration.tokenSecretValid === true &&
+        configuration.tokenSecretIndependent === true &&
         configuration.configurationReceiptValid === true &&
         configuration.configurationReceiptAnchorMatched === true &&
         configuration.configurationReceiptSchema ===
-          "fbsir.u3wDefaultOffConfigurationReceipt.v3" &&
+          "fbsir.u3wDefaultOffConfigurationReceipt.v4" &&
+        configuration.tokenSecretProvisioningState ===
+          "ROTATED_BY_RUN" &&
         configuration.engineCounterpartClosureClaimed === false &&
         configuration.configurationReceiptSourceCommit ===
           local.preparationSourceCommit,
@@ -705,6 +719,10 @@ export function evaluateProductionReadiness(snapshot) {
           configuration.adminEngineCredentialValid === true,
         adminEngineCredentialIndependent:
           configuration.adminEngineCredentialIndependent === true,
+        tokenSecretValid:
+          configuration.tokenSecretValid === true,
+        tokenSecretIndependent:
+          configuration.tokenSecretIndependent === true,
         configurationReceiptValid:
           configuration.configurationReceiptValid === true,
         configurationReceiptAnchorMatched:
@@ -715,6 +733,8 @@ export function evaluateProductionReadiness(snapshot) {
           configuration.configurationReceiptSha256 ?? null,
         configurationReceiptSchema:
           configuration.configurationReceiptSchema ?? null,
+        tokenSecretProvisioningState:
+          configuration.tokenSecretProvisioningState ?? null,
         engineCounterpartClosureClaimed:
           configuration.engineCounterpartClosureClaimed ?? null,
       },

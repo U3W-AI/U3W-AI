@@ -283,6 +283,7 @@ SAME_BINDING_KEY_NAME = (
     "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET"
 )
 ADMIN_ENGINE_TOKEN_NAME = "FBSIR_ENGINE_TOKEN"
+TOKEN_SECRET_NAME = "FBSIR_TOKEN_SECRET"
 ATTRIBUTION_INGRESS_PATH = (
     "/internal/independent-board/attribution/events"
 )
@@ -334,7 +335,8 @@ MANAGED_W1A_ENVIRONMENT_NAMES = FALSE_FLAGS + (
     SAME_BINDING_KEY_NAME,
 )
 MANAGED_RESTART_ENVIRONMENT_NAMES = (
-    MANAGED_W1A_ENVIRONMENT_NAMES + (ADMIN_ENGINE_TOKEN_NAME,)
+    MANAGED_W1A_ENVIRONMENT_NAMES
+    + (ADMIN_ENGINE_TOKEN_NAME, TOKEN_SECRET_NAME)
 )
 DATABASE_ENVIRONMENT_NAMES = (
     "WXFBSIR_MYSQL_URL",
@@ -350,7 +352,7 @@ PROCESS_SECURITY_ENVIRONMENT_NAMES = (
     DATABASE_ENVIRONMENT_NAMES
     + DATABASE_ENVIRONMENT_ALIAS_NAMES
     + FALSE_FLAGS
-    + (ADMIN_ENGINE_TOKEN_NAME,)
+    + (ADMIN_ENGINE_TOKEN_NAME, TOKEN_SECRET_NAME)
 )
 FORBIDDEN_RUNTIME_OVERRIDE_NAMES = frozenset(
     (
@@ -811,7 +813,7 @@ def file_anchor_matches(path, expected):
         return False
 
 
-def parse_environment():
+def parse_environment(*, allow_undersized_token_secret=False):
     validate_regular_file(ENV_PATH, ENV_PATH.parent, modes=(0o600,))
     values = {}
     for number, raw in enumerate(
@@ -867,6 +869,34 @@ def parse_environment():
             raise RuntimeError(
                 "admin Engine credential is not independent"
             )
+    token_secret = str(values.get(TOKEN_SECRET_NAME, "")).strip()
+    token_secret_valid = re.fullmatch(
+        r"[A-Za-z0-9_-]{43,128}",
+        token_secret,
+    ) is not None
+    legacy_undersized_token_secret = bool(
+        allow_undersized_token_secret
+        and 0 < len(token_secret) < 32
+    )
+    if not token_secret_valid and not legacy_undersized_token_secret:
+        raise RuntimeError("token secret shape is invalid")
+    token_material = token_secret.encode("utf-8")
+    for name in (
+        ADMIN_ENGINE_TOKEN_NAME,
+        EVENT_KEY_NAME,
+        PREVIOUS_EVENT_KEY_NAME,
+        SAME_BINDING_KEY_NAME,
+    ):
+        comparison = (
+            str(values.get(name, "")).strip().encode("utf-8")
+            if name == ADMIN_ENGINE_TOKEN_NAME
+            else decode_secret_material(values.get(name))
+        )
+        if (
+            comparison is not None
+            and hmac.compare_digest(token_material, comparison)
+        ):
+            raise RuntimeError("token secret is not independent")
     required = DATABASE_ENVIRONMENT_NAMES
     if any(not values.get(name) for name in required):
         raise RuntimeError("application database credentials are absent")
@@ -1428,12 +1458,21 @@ def security_configuration_evidence(process_values, expected_values):
         and matched
     ):
         load_state = "ENGINE_CREDENTIAL_PENDING_RESTART"
+    elif (
+        not pending_names
+        and mismatch_names == [TOKEN_SECRET_NAME]
+        and all_managed_configured
+        and flags_configured_false
+        and matched
+    ):
+        load_state = "TOKEN_SECRET_ROTATION_PENDING_RESTART"
     else:
         load_state = "INVALID_PARTIAL_OR_DRIFTED"
     pre_stage_compatible = load_state in {
         "EXACT_CONFIGURED",
         "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART",
         "ENGINE_CREDENTIAL_PENDING_RESTART",
+        "TOKEN_SECRET_ROTATION_PENDING_RESTART",
     }
     return {
         "api2EventKeyManifest": event_key_manifest,
@@ -1751,7 +1790,11 @@ def dropin_manifest(raw_paths):
     return sorted(manifest, key=lambda item: item["path"])
 
 
-def service_snapshot(require_active=True):
+def service_snapshot(
+    require_active=True,
+    *,
+    allow_undersized_token_secret=False,
+):
     fields = (
         "ActiveState,MainPID,User,Group,FragmentPath,DropInPaths,"
         "EnvironmentFiles,ExecStart,WorkingDirectory,InvocationID,"
@@ -1812,7 +1855,9 @@ def service_snapshot(require_active=True):
                     process_jar = pathlib.Path(argument)
                     break
     process_values = process_environment(main_pid, require_active)
-    expected_environment, _ = parse_environment()
+    expected_environment, _ = parse_environment(
+        allow_undersized_token_secret=allow_undersized_token_secret
+    )
     security_evidence = security_configuration_evidence(
         process_values, expected_environment
     )
@@ -2167,20 +2212,39 @@ def assert_stage_plan_target_matches(
     )
     allowed_load_states = {
         "UNTOUCHED_LEGACY": {
-            "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART":
-                sorted(MANAGED_RESTART_ENVIRONMENT_NAMES),
+            "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART": {
+                "pending":
+                    sorted(MANAGED_RESTART_ENVIRONMENT_NAMES),
+                "mismatch": [],
+            },
         },
         "EXACT_PRIOR_ROLLBACK_PREDECESSOR": {
-            "EXACT_CONFIGURED": [],
-            "ENGINE_CREDENTIAL_PENDING_RESTART": [
-                ADMIN_ENGINE_TOKEN_NAME
-            ],
+            "EXACT_CONFIGURED": {
+                "pending": [],
+                "mismatch": [],
+            },
+            "ENGINE_CREDENTIAL_PENDING_RESTART": {
+                "pending": [ADMIN_ENGINE_TOKEN_NAME],
+                "mismatch": [],
+            },
+            "TOKEN_SECRET_ROTATION_PENDING_RESTART": {
+                "pending": [],
+                "mismatch": [TOKEN_SECRET_NAME],
+            },
         },
         INTERRUPTED_APPLY_RECOVERY_TOPOLOGY_STATE: {
-            "EXACT_CONFIGURED": [],
-            "ENGINE_CREDENTIAL_PENDING_RESTART": [
-                ADMIN_ENGINE_TOKEN_NAME
-            ],
+            "EXACT_CONFIGURED": {
+                "pending": [],
+                "mismatch": [],
+            },
+            "ENGINE_CREDENTIAL_PENDING_RESTART": {
+                "pending": [ADMIN_ENGINE_TOKEN_NAME],
+                "mismatch": [],
+            },
+            "TOKEN_SECRET_ROTATION_PENDING_RESTART": {
+                "pending": [],
+                "mismatch": [TOKEN_SECRET_NAME],
+            },
         },
     }.get(topology_state)
     planned_topology = (
@@ -2211,7 +2275,7 @@ def assert_stage_plan_target_matches(
         planned_target.get("processConfiguredEnvironmentLoadState")
         if isinstance(planned_target, dict) else None
     )
-    expected_pending_names = (
+    expected_load_delta = (
         allowed_load_states.get(planned_load_state)
         if isinstance(allowed_load_states, dict) else None
     )
@@ -2234,11 +2298,15 @@ def assert_stage_plan_target_matches(
         ) is not True
         or planned_target.get(
             "processConfiguredEnvironmentMismatchNames"
-        ) != []
-        or expected_pending_names is None
+        ) != (
+            expected_load_delta.get("mismatch")
+            if isinstance(expected_load_delta, dict)
+            else None
+        )
+        or expected_load_delta is None
         or planned_target.get(
             "processPendingRestartEnvironmentNames"
-        ) != expected_pending_names
+        ) != expected_load_delta.get("pending")
         or planned_target.get("processForbiddenOverrideNames") != []
         or any(
             planned_target.get("configuredFlagValues", {}).get(name)
@@ -2283,6 +2351,24 @@ def assert_stage_plan_target_matches(
         "stageOwnedReleaseRootDeltaVerified":
             release_root_delta_verified,
     }
+
+
+def pre_stage_environment_mismatch_valid(snapshot):
+    state = snapshot.get(
+        "processConfiguredEnvironmentLoadState"
+    )
+    mismatch_names = snapshot.get(
+        "processConfiguredEnvironmentMismatchNames"
+    )
+    pending_names = snapshot.get(
+        "processPendingRestartEnvironmentNames"
+    )
+    if state == "TOKEN_SECRET_ROTATION_PENDING_RESTART":
+        return bool(
+            mismatch_names == [TOKEN_SECRET_NAME]
+            and pending_names == []
+        )
+    return mismatch_names == []
 
 
 def run_checked(arguments, timeout=120):
@@ -3658,6 +3744,47 @@ def exact_admin_engine_delta_predecessor_sha256(path):
     return sha256_bytes(predecessor.encode("utf-8"))
 
 
+def exact_token_secret_rotation_matches(before_path, after_path):
+    try:
+        before_lines = pathlib.Path(before_path).read_text(
+            encoding="utf-8"
+        ).splitlines(keepends=True)
+        after_lines = pathlib.Path(after_path).read_text(
+            encoding="utf-8"
+        ).splitlines(keepends=True)
+    except UnicodeDecodeError:
+        return False
+    if len(before_lines) != len(after_lines):
+        return False
+    changed = [
+        index
+        for index, pair in enumerate(zip(before_lines, after_lines))
+        if pair[0] != pair[1]
+    ]
+    if len(changed) != 1:
+        return False
+    before_line = before_lines[changed[0]].rstrip("\r\n")
+    after_line = after_lines[changed[0]].rstrip("\r\n")
+    before_match = re.fullmatch(
+        re.escape(TOKEN_SECRET_NAME) + r"=(?P<secret>[^\r\n]+)",
+        before_line,
+    )
+    after_match = re.fullmatch(
+        re.escape(TOKEN_SECRET_NAME)
+        + r"=(?P<secret>[A-Za-z0-9_-]{43,128})",
+        after_line,
+    )
+    return bool(
+        before_match is not None
+        and after_match is not None
+        and 0 < len(before_match.group("secret")) < 32
+        and not hmac.compare_digest(
+            before_match.group("secret"),
+            after_match.group("secret"),
+        )
+    )
+
+
 def configuration_predecessor_receipt(predecessor_sha):
     if (
         not SHA_PATTERN.fullmatch(str(predecessor_sha or ""))
@@ -3704,6 +3831,7 @@ def validate_configuration_runtime_anchor(configuration):
         not in {
             "fbsir.u3wDefaultOffConfigurationReceipt.v2",
             "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+            "fbsir.u3wDefaultOffConfigurationReceipt.v4",
         }
         or configuration.get("environmentAfterSha256")
         != sha256_file(ENV_PATH)
@@ -3725,34 +3853,43 @@ def validate_configuration_runtime_anchor(configuration):
     credential_state = configuration.get(
         "adminEngineCredentialProvisioningState"
     )
+    def engine_evidence_valid(value):
+        return bool(
+            isinstance(value, dict)
+            and value.get("allManagedKeysPresent") is True
+            and value.get(
+                "allDefaultOffFlagsExplicitFalse"
+            ) is True
+            and value.get("activeEventKeyPairValid") is True
+            and value.get(
+                "previousEventKeyPairCompleteAndValid"
+            ) is True
+            and value.get(
+                "sameBindingSecretValidAndIndependent"
+            ) is True
+            and value.get(
+                "api2RawEventKeyMatchesU3wActiveMaterial"
+            ) is True
+            and value.get("adminEngineCredentialValid") is True
+            and value.get(
+                "adminEngineCredentialIndependent"
+            ) is True
+            and int(
+                value.get(
+                    "adminEngineCredentialMinimumCharacters"
+                ) or 0
+            ) >= 43
+            and value.get("secretsDisclosed") is False
+        )
+
+    common_engine_evidence_valid = engine_evidence_valid(evidence)
     if (
-        not isinstance(evidence, dict)
-        or evidence.get("allManagedKeysPresent") is not True
-        or evidence.get(
-            "allDefaultOffFlagsExplicitFalse"
-        ) is not True
-        or evidence.get("activeEventKeyPairValid") is not True
-        or evidence.get(
-            "previousEventKeyPairCompleteAndValid"
-        ) is not True
-        or evidence.get(
-            "sameBindingSecretValidAndIndependent"
-        ) is not True
-        or evidence.get(
-            "api2RawEventKeyMatchesU3wActiveMaterial"
-        ) is not True
-        or evidence.get("adminEngineCredentialValid") is not True
-        or evidence.get(
-            "adminEngineCredentialIndependent"
-        ) is not True
-        or int(
-            evidence.get("adminEngineCredentialMinimumCharacters") or 0
-        ) < 43
-        or evidence.get("secretsDisclosed") is not False
-        or credential_state != "ADOPTED_EXISTING_EXACT_DELTA"
-        or configuration.get("engineCounterpartClosureClaimed") is not False
+        not common_engine_evidence_valid
+        or configuration.get(
+            "engineCounterpartClosureClaimed"
+        ) is not False
         or configuration.get("api2EventKeyProvisioningState")
-        != "REUSED_FROM_PREDECESSOR_RECEIPT"
+            != "REUSED_FROM_PREDECESSOR_RECEIPT"
         or not SHA_PATTERN.fullmatch(str(predecessor_sha or ""))
         or predecessor_sha == "0" * 64
     ):
@@ -3760,27 +3897,110 @@ def validate_configuration_runtime_anchor(configuration):
             "configuration reconciliation evidence is invalid"
         )
     predecessor = configuration_predecessor_receipt(predecessor_sha)
-    created_by_run = False
-    predecessor_environment_matched = (
-        configuration.get("environmentBeforeSha256")
-        == configuration.get("environmentAfterSha256")
-        and predecessor.get("environmentAfterSha256")
-        == exact_admin_engine_delta_predecessor_sha256(ENV_PATH)
+    if schema == "fbsir.u3wDefaultOffConfigurationReceipt.v3":
+        predecessor_environment_matched = (
+            configuration.get("environmentBeforeSha256")
+            == configuration.get("environmentAfterSha256")
+            and predecessor.get("environmentAfterSha256")
+            == exact_admin_engine_delta_predecessor_sha256(ENV_PATH)
+        )
+        if (
+            credential_state != "ADOPTED_EXISTING_EXACT_DELTA"
+            or predecessor.get("schema")
+                != "fbsir.u3wDefaultOffConfigurationReceipt.v2"
+            or not predecessor_environment_matched
+            or predecessor.get("api2EventKeyPath")
+                != str(API2_EVENT_KEY_PATH)
+            or predecessor.get("stagedKeyMaterialMatched") is not True
+            or predecessor.get(
+                "officialExpertsPackageChanged"
+            ) is not False
+            or predecessor.get("secretsDisclosed") is not False
+            or configuration.get(
+                "productionConfigurationChanged"
+            ) is not False
+        ):
+            raise RuntimeError(
+                "configuration predecessor receipt chain is invalid"
+            )
+        return configuration
+    backup_path = pathlib.Path(
+        str(configuration.get("environmentBackupPath") or "")
+    )
+    try:
+        validate_regular_file(
+            backup_path,
+            backup_path.parent,
+            modes=(0o600,),
+        )
+    except (OSError, RuntimeError) as error:
+        raise RuntimeError(
+            "token rotation predecessor backup is invalid"
+        ) from error
+    predecessor_v2_sha = predecessor.get(
+        "predecessorConfigurationReceiptSha256"
+    )
+    predecessor_v2 = configuration_predecessor_receipt(
+        predecessor_v2_sha
     )
     if (
-        predecessor.get("schema")
-        != "fbsir.u3wDefaultOffConfigurationReceipt.v2"
-        or not predecessor_environment_matched
-        or predecessor.get("api2EventKeyPath")
-        != str(API2_EVENT_KEY_PATH)
-        or predecessor.get("stagedKeyMaterialMatched") is not True
-        or predecessor.get("officialExpertsPackageChanged") is not False
-        or predecessor.get("secretsDisclosed") is not False
+        credential_state != "REUSED_FROM_PREDECESSOR_RECEIPT"
+        or configuration.get("tokenSecretProvisioningState")
+            != "ROTATED_BY_RUN"
+        or evidence.get("tokenSecretValid") is not True
+        or evidence.get("tokenSecretIndependent") is not True
+        or int(
+            evidence.get("tokenSecretMinimumCharacters") or 0
+        ) < 43
         or configuration.get("productionConfigurationChanged")
-        is not created_by_run
+            is not True
+        or configuration.get("environmentBeforeSha256")
+            == configuration.get("environmentAfterSha256")
+        or configuration.get("environmentBeforeSha256")
+            != predecessor.get("environmentAfterSha256")
+        or configuration.get("environmentBackupSha256")
+            != configuration.get("environmentBeforeSha256")
+        or sha256_file(backup_path)
+            != configuration.get("environmentBeforeSha256")
+        or not exact_token_secret_rotation_matches(
+            backup_path,
+            ENV_PATH,
+        )
+        or predecessor.get("schema")
+            != "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+        or predecessor.get(
+            "adminEngineCredentialProvisioningState"
+        ) != "ADOPTED_EXISTING_EXACT_DELTA"
+        or not engine_evidence_valid(
+            predecessor.get("configurationEvidence")
+        )
+        or predecessor.get("engineCounterpartClosureClaimed") is not False
+        or predecessor.get("productionConfigurationChanged") is not False
+        or predecessor.get("api2EventKeyProvisioningState")
+            != "REUSED_FROM_PREDECESSOR_RECEIPT"
+        or predecessor_v2.get("schema")
+            != "fbsir.u3wDefaultOffConfigurationReceipt.v2"
+        or predecessor_v2.get("environmentAfterSha256")
+            != exact_admin_engine_delta_predecessor_sha256(
+                backup_path
+            )
+        or predecessor.get("environmentBeforeSha256")
+            != predecessor.get("environmentAfterSha256")
+        or predecessor.get("api2EventKeyPath")
+            != str(API2_EVENT_KEY_PATH)
+        or predecessor_v2.get("api2EventKeyPath")
+            != str(API2_EVENT_KEY_PATH)
+        or any(
+            receipt.get("stagedKeyMaterialMatched") is not True
+            or receipt.get(
+                "officialExpertsPackageChanged"
+            ) is not False
+            or receipt.get("secretsDisclosed") is not False
+            for receipt in (predecessor, predecessor_v2)
+        )
     ):
         raise RuntimeError(
-            "configuration predecessor receipt chain is invalid"
+            "token rotation configuration receipt chain is invalid"
         )
     return configuration
 
@@ -4154,9 +4374,7 @@ def finalize_stage(args):
         or before_service.get(
             "processConfiguredEnvironmentPreStageCompatible"
         ) is not True
-        or before_service.get(
-            "processConfiguredEnvironmentMismatchNames"
-        ) != []
+        or not pre_stage_environment_mismatch_valid(before_service)
         or before_service.get("environmentFilePaths")
             != [str(ENV_PATH)]
         or len(before_service.get("environmentFileManifest", [])) != 1
@@ -5063,13 +5281,100 @@ def release_dropin_manifest(release, file_name):
     )
 
 
+def security_measurement_contract_matches(
+    current,
+    previous,
+    *,
+    allow_token_pending=False,
+):
+    previous_expected_names = previous.get(
+        "expectedSecurityConfigurationNames"
+    )
+    previous_process_names = previous.get(
+        "processSecurityConfigurationNames"
+    )
+    current_expected_names = current.get(
+        "expectedSecurityConfigurationNames"
+    )
+    current_process_names = current.get(
+        "processSecurityConfigurationNames"
+    )
+    previous_expected_hmac = previous.get(
+        "expectedSecurityConfigurationHmacSha256"
+    )
+    previous_process_hmac = previous.get(
+        "processSecurityConfigurationHmacSha256"
+    )
+    current_expected_hmac = current.get(
+        "expectedSecurityConfigurationHmacSha256"
+    )
+    current_process_hmac = current.get(
+        "processSecurityConfigurationHmacSha256"
+    )
+    if (
+        not isinstance(previous_expected_names, list)
+        or previous_expected_names
+            != sorted(set(previous_expected_names))
+        or previous_process_names != previous_expected_names
+        or not isinstance(current_expected_names, list)
+        or current_expected_names != sorted(set(current_expected_names))
+        or current_process_names != current_expected_names
+        or not SHA_PATTERN.fullmatch(str(previous_expected_hmac or ""))
+        or not hmac.compare_digest(
+            str(previous_process_hmac or ""),
+            previous_expected_hmac,
+        )
+        or not SHA_PATTERN.fullmatch(str(current_expected_hmac or ""))
+        or not SHA_PATTERN.fullmatch(str(current_process_hmac or ""))
+    ):
+        return False
+    token_pending = (
+        current.get("processConfiguredEnvironmentLoadState")
+        == "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+    )
+    if token_pending:
+        if (
+            not allow_token_pending
+            or current.get("processConfiguredEnvironmentHmacSha256")
+                != previous.get("configuredEnvironmentHmacSha256")
+        ):
+            return False
+    elif not hmac.compare_digest(
+        current_process_hmac,
+        current_expected_hmac,
+    ):
+        return False
+    if current_expected_names == previous_expected_names:
+        return bool(
+            (
+                not token_pending
+                and hmac.compare_digest(
+                    current_expected_hmac,
+                    previous_expected_hmac,
+                )
+            )
+            or (
+                token_pending
+                and hmac.compare_digest(
+                    current_process_hmac,
+                    previous_expected_hmac,
+                )
+            )
+        )
+    return bool(
+        TOKEN_SECRET_NAME
+            in previous.get("configuredEnvironmentNames", [])
+        and TOKEN_SECRET_NAME not in previous_expected_names
+        and current_expected_names
+            == sorted(previous_expected_names + [TOKEN_SECRET_NAME])
+    )
+
+
 def exact_loaded_environment_matches(current, previous):
     static_fields = (
         "environmentFilePaths",
         "environmentFileManifest",
         "api2EventKeyManifest",
-        "expectedSecurityConfigurationNames",
-        "expectedSecurityConfigurationHmacSha256",
         "configuredEnvironmentSha256",
         "configuredEnvironmentNames",
         "configuredEnvironmentHmacSha256",
@@ -5080,6 +5385,7 @@ def exact_loaded_environment_matches(current, previous):
             current.get(field) == previous.get(field)
             for field in static_fields
         )
+        and security_measurement_contract_matches(current, previous)
         and current.get("processDatabaseBindingMatched") is True
         and current.get("processConfiguredEnvironmentMatched") is True
         and current.get(
@@ -5093,10 +5399,6 @@ def exact_loaded_environment_matches(current, previous):
         ) == []
         and current.get("processConfiguredEnvironmentHmacSha256")
             == current.get("configuredEnvironmentHmacSha256")
-        and current.get("processSecurityConfigurationNames")
-            == current.get("expectedSecurityConfigurationNames")
-        and current.get("processSecurityConfigurationHmacSha256")
-            == current.get("expectedSecurityConfigurationHmacSha256")
         and current.get("processForbiddenOverrideNames") == []
         and all(
             current.get("processFlagValues", {}).get(name) == "false"
@@ -5205,6 +5507,100 @@ def authorized_admin_engine_configuration_evolution_matches(
     )
 
 
+def authorized_token_secret_configuration_evolution_matches(
+    current,
+    previous,
+):
+    try:
+        configuration = validate_configuration_runtime_anchor(
+            read_json(CONFIGURATION_RECEIPT)
+        )
+        if configuration.get("schema") != (
+            "fbsir.u3wDefaultOffConfigurationReceipt.v4"
+        ):
+            return False
+        predecessor = configuration_predecessor_receipt(
+            configuration.get(
+                "predecessorConfigurationReceiptSha256"
+            )
+        )
+    except (OSError, RuntimeError, ValueError, json.JSONDecodeError):
+        return False
+    if predecessor.get("schema") != (
+        "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+    ):
+        return False
+    previous_manifest = previous.get("environmentFileManifest", [])
+    current_manifest = current.get("environmentFileManifest", [])
+    if len(previous_manifest) != 1 or len(current_manifest) != 1:
+        return False
+    previous_file = dict(previous_manifest[0])
+    current_file = dict(current_manifest[0])
+    previous_file_sha = previous_file.pop("sha256", None)
+    current_file_sha = current_file.pop("sha256", None)
+    previous_load_state = previous.get(
+        "processConfiguredEnvironmentLoadState"
+    )
+    allowed_previous_states = (
+        "EXACT_CONFIGURED",
+        "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART",
+        "ENGINE_CREDENTIAL_PENDING_RESTART",
+    )
+    return bool(
+        configuration.get("tokenSecretProvisioningState")
+            == "ROTATED_BY_RUN"
+        and configuration.get(
+            "adminEngineCredentialProvisioningState"
+        ) == "REUSED_FROM_PREDECESSOR_RECEIPT"
+        and predecessor.get("environmentAfterSha256")
+            == previous.get("configuredEnvironmentSha256")
+        and configuration.get("environmentBeforeSha256")
+            == previous.get("configuredEnvironmentSha256")
+        and previous_file_sha
+            == previous.get("configuredEnvironmentSha256")
+        and configuration.get("environmentAfterSha256")
+            == current.get("configuredEnvironmentSha256")
+        and current_file_sha
+            == current.get("configuredEnvironmentSha256")
+        and previous_file == current_file
+        and current.get("environmentFilePaths")
+            == previous.get("environmentFilePaths")
+        and current.get("configuredEnvironmentNames")
+            == previous.get("configuredEnvironmentNames")
+        and security_measurement_contract_matches(
+            current,
+            previous,
+            allow_token_pending=True,
+        )
+        and current.get("api2EventKeyManifest")
+            == previous.get("api2EventKeyManifest")
+        and current.get("configuredFlagValues")
+            == previous.get("configuredFlagValues")
+        and current.get("processDatabaseBindingMatched") is True
+        and current.get(
+            "processConfiguredEnvironmentPreStageCompatible"
+        ) is True
+        and current.get("processConfiguredEnvironmentMatched") is False
+        and current.get(
+            "processConfiguredEnvironmentMismatchNames"
+        ) == [TOKEN_SECRET_NAME]
+        and current.get("processPendingRestartEnvironmentNames") == []
+        and current.get("processForbiddenOverrideNames") == []
+        and current.get("processConfiguredEnvironmentLoadState")
+            == "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+        and current.get("processConfiguredEnvironmentHmacSha256")
+            == previous.get("configuredEnvironmentHmacSha256")
+        and previous_load_state in allowed_previous_states
+        and all(
+            previous.get("configuredFlagValues", {}).get(name) == "false"
+            and previous.get("processFlagValues", {}).get(name) == "false"
+            and current.get("configuredFlagValues", {}).get(name) == "false"
+            and current.get("processFlagValues", {}).get(name) == "false"
+            for name in FALSE_FLAGS
+        )
+    )
+
+
 def assert_legacy_runtime_contract(release, current):
     previous = predecessor_facts(release)["serviceSnapshotBeforeStage"]
     exact_fields = (
@@ -5260,6 +5656,10 @@ def assert_restored_predecessor_runtime_contract(release, current):
     configuration_matches = (
         exact_loaded_environment_matches(current, previous)
         or authorized_admin_engine_configuration_evolution_matches(
+            current,
+            previous,
+        )
+        or authorized_token_secret_configuration_evolution_matches(
             current,
             previous,
         )
@@ -6849,10 +7249,29 @@ def interrupted_apply_failure_manifest(args, release):
             "interrupted Apply terminal failure is absent"
         )
     facts = terminal.get("migrationFacts")
+    terminal_schema = terminal.get("schema")
+    migration_facts_valid = (
+        legacy_migration_structure_matches(facts)
+        and facts.get("eventCount") == 0
+        and facts.get("journeyCount") == 0
+        if terminal_schema == LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA
+        else (
+            migration_structure_matches(facts)
+            if terminal_schema == APPLY_FAILURE_RECEIPT_SCHEMA
+            else False
+        )
+    )
+    v2_change_facts_valid = bool(
+        terminal_schema != APPLY_FAILURE_RECEIPT_SCHEMA
+        or (
+            terminal.get("productionServiceChangedThisRun") is True
+            and type(
+                terminal.get("productionDatabaseChangedThisRun")
+            ) is bool
+        )
+    )
     if (
-        terminal.get("schema")
-            != LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA
-        or terminal.get("state")
+        terminal.get("state")
             != (
                 "APPLICATION_RESTORED_DATABASE_043_"
                 "RETAINED_OR_FAIL_CLOSED"
@@ -6867,9 +7286,8 @@ def interrupted_apply_failure_manifest(args, release):
         or terminal.get("databaseRollbackStrategy")
             != "RETAIN_ADDITIVE_043_DORMANT_NO_DOWN"
         or terminal.get("databaseDownClaimed") is not False
-        or not legacy_migration_structure_matches(facts)
-        or facts.get("eventCount") != 0
-        or facts.get("journeyCount") != 0
+        or not migration_facts_valid
+        or not v2_change_facts_valid
     ):
         raise RuntimeError(
             "interrupted Apply terminal failure is not recoverable"
@@ -6900,9 +7318,16 @@ def validate_interrupted_apply_stage(args, release):
     return stage_path, stage
 
 
-def assert_predecessor_owned_topology(release):
+def assert_predecessor_owned_topology(
+    release,
+    *,
+    allow_undersized_token_secret=False,
+):
     previous = predecessor_facts(release)
-    after = service_snapshot(require_active=False)
+    after = service_snapshot(
+        require_active=False,
+        allow_undersized_token_secret=allow_undersized_token_secret,
+    )
     rollback_dropin = release / "evidence/rollback-systemd-dropin.conf"
     if (
         after["jarSha256"] != previous["previousJarSha256"]
@@ -6919,8 +7344,15 @@ def assert_predecessor_owned_topology(release):
     return after
 
 
-def assert_predecessor_active(release):
-    after = assert_predecessor_owned_topology(release)
+def assert_predecessor_active(
+    release,
+    *,
+    allow_undersized_token_secret=False,
+):
+    after = assert_predecessor_owned_topology(
+        release,
+        allow_undersized_token_secret=allow_undersized_token_secret,
+    )
     if after["activeState"] != "active":
         raise RuntimeError("immutable predecessor service is not active")
     assert_restored_predecessor_runtime_contract(release, after)
@@ -6930,7 +7362,9 @@ def assert_predecessor_active(release):
 
 def interrupted_apply_recovery_lease():
     """Hold the 043 named lock until the recovery receipt CAS commits."""
-    _, connection = parse_environment()
+    _, connection = parse_environment(
+        allow_undersized_token_secret=True
+    )
     mysql = Mysql(connection)
     lock_acquired = False
     try:
@@ -6962,14 +7396,24 @@ def interrupted_apply_recovery_lease():
 def interrupted_recovery_runtime_matches(
     service,
     facts,
-    terminal_facts,
+    terminal,
 ):
+    terminal_schema = terminal.get("schema")
+    migration_schema = (
+        LEGACY_DEPLOYMENT_RECEIPT_SCHEMA
+        if terminal_schema == LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA
+        else (
+            DEPLOYMENT_RECEIPT_SCHEMA
+            if terminal_schema == APPLY_FAILURE_RECEIPT_SCHEMA
+            else None
+        )
+    )
     return bool(
         migration_structure_matches(facts)
         and recorded_migration_counts_are_monotonic(
             facts,
-            terminal_facts,
-            LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+            terminal.get("migrationFacts"),
+            migration_schema,
         )
         and service.get("activeState") == "active"
         and service.get("processForbiddenOverrideNames") == []
@@ -7017,6 +7461,15 @@ def interrupted_recovery_receipt(
     facts,
     observed_at,
 ):
+    database_changed_since_stage = (
+        terminal.get("productionDatabaseChangedThisRun")
+        if terminal.get("schema") == APPLY_FAILURE_RECEIPT_SCHEMA
+        else True
+    )
+    if type(database_changed_since_stage) is not bool:
+        raise RuntimeError(
+            "interrupted Apply database change evidence is invalid"
+        )
     return {
         "schema": INTERRUPTED_APPLY_RECOVERY_RECEIPT_SCHEMA,
         "state": INTERRUPTED_APPLY_RECOVERY_STATE,
@@ -7051,9 +7504,10 @@ def interrupted_recovery_receipt(
         "allW1aFlagsExplicitFalse": True,
         "databaseDownClaimed": False,
         "productionFilesystemChanged": True,
-        "productionDatabaseChanged": True,
+        "productionDatabaseChanged": database_changed_since_stage,
         "productionDatabaseChangedThisRecoveryRun": False,
-        "productionDatabaseChangedSinceStage": True,
+        "productionDatabaseChangedSinceStage":
+            database_changed_since_stage,
         "productionServiceChanged": True,
         "productionServiceChangedThisRecoveryRun": False,
         "productionServiceChangedSinceStage": True,
@@ -7151,20 +7605,26 @@ def inspect_interrupted_apply_recovery(args):
         )
     migration_lease = interrupted_apply_recovery_lease()
     try:
-        service_before = assert_predecessor_active(release)
+        service_before = assert_predecessor_active(
+            release,
+            allow_undersized_token_secret=True,
+        )
         facts = exact_migration_facts(migration_lease.mysql)
-        service_after = assert_predecessor_active(release)
+        service_after = assert_predecessor_active(
+            release,
+            allow_undersized_token_secret=True,
+        )
         final_facts = exact_migration_facts(migration_lease.mysql)
         if (
             not interrupted_recovery_runtime_matches(
                 service_before,
                 facts,
-                terminal["migrationFacts"],
+                terminal,
             )
             or not interrupted_recovery_runtime_matches(
                 service_after,
                 final_facts,
-                terminal["migrationFacts"],
+                terminal,
             )
             or not recorded_migration_counts_are_monotonic(
                 final_facts,
@@ -7256,12 +7716,15 @@ def canonicalize_interrupted_apply_recovery(args):
         )
     migration_lease = interrupted_apply_recovery_lease()
     try:
-        service_before = assert_predecessor_active(release)
+        service_before = assert_predecessor_active(
+            release,
+            allow_undersized_token_secret=True,
+        )
         facts_before = exact_migration_facts(migration_lease.mysql)
         if not interrupted_recovery_runtime_matches(
             service_before,
             facts_before,
-            terminal["migrationFacts"],
+            terminal,
         ):
             raise RuntimeError(
                 "interrupted Apply recovered predecessor drifted"
@@ -7322,13 +7785,16 @@ def canonicalize_interrupted_apply_recovery(args):
                 )
             )
 
-        service_after = assert_predecessor_active(release)
+        service_after = assert_predecessor_active(
+            release,
+            allow_undersized_token_secret=True,
+        )
         facts_after = exact_migration_facts(migration_lease.mysql)
         if (
             not interrupted_recovery_runtime_matches(
                 service_after,
                 facts_after,
-                terminal["migrationFacts"],
+                terminal,
             )
             or not recorded_migration_counts_are_monotonic(
                 facts_after,
@@ -7857,13 +8323,15 @@ def validate_prior_interrupted_recovery_stage_entry(current):
         or recovery.get("allW1aFlagsExplicitFalse") is not True
         or recovery.get("databaseDownClaimed") is not False
         or recovery.get("productionFilesystemChanged") is not True
-        or recovery.get("productionDatabaseChanged") is not True
+        or type(recovery.get("productionDatabaseChanged")) is not bool
         or recovery.get(
             "productionDatabaseChangedThisRecoveryRun"
         ) is not False
-        or recovery.get(
-            "productionDatabaseChangedSinceStage"
-        ) is not True
+        or type(
+            recovery.get("productionDatabaseChangedSinceStage")
+        ) is not bool
+        or recovery.get("productionDatabaseChanged")
+            != recovery.get("productionDatabaseChangedSinceStage")
         or recovery.get("productionServiceChanged") is not True
         or recovery.get(
             "productionServiceChangedThisRecoveryRun"

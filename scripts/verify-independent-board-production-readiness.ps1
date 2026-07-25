@@ -941,7 +941,7 @@ PROCESS_SECURITY_ENVIRONMENT_NAMES = (
     DATABASE_ENVIRONMENT_NAMES
     + DATABASE_ENVIRONMENT_ALIAS_NAMES
     + FLAG_NAMES
-    + ["FBSIR_ENGINE_TOKEN"]
+    + ["FBSIR_ENGINE_TOKEN", "FBSIR_TOKEN_SECRET"]
 )
 EVENT_KEY_ID_NAME = (
     "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_EVENT_KEY_ID"
@@ -957,6 +957,7 @@ SAME_BINDING_KEY_NAME = (
     "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET"
 )
 ADMIN_ENGINE_TOKEN_NAME = "FBSIR_ENGINE_TOKEN"
+TOKEN_SECRET_NAME = "FBSIR_TOKEN_SECRET"
 ATTRIBUTION_INGRESS_PATH = (
     "/internal/independent-board/attribution/events"
 )
@@ -1011,7 +1012,8 @@ MANAGED_W1A_ENVIRONMENT_NAMES = tuple(
     ]
 )
 MANAGED_RESTART_ENVIRONMENT_NAMES = (
-    MANAGED_W1A_ENVIRONMENT_NAMES + (ADMIN_ENGINE_TOKEN_NAME,)
+    MANAGED_W1A_ENVIRONMENT_NAMES
+    + (ADMIN_ENGINE_TOKEN_NAME, TOKEN_SECRET_NAME)
 )
 PLAN_TARGET_FIELDS = frozenset(
     (
@@ -1345,6 +1347,63 @@ def interrupted_recovery_historic_anchors_valid(release, recovery):
     )
 
 
+def interrupted_apply_terminal_failure_valid(
+    receipt,
+    release_id,
+    source_commit,
+):
+    if not isinstance(receipt, dict):
+        return False
+    schema = receipt.get("schema")
+    facts = receipt.get("migrationFacts")
+    migration_valid = (
+        legacy_w1a_migration_facts(facts)
+        and facts.get("eventCount") == 0
+        and facts.get("journeyCount") == 0
+        if schema == LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA
+        else (
+            exact_w1a_migration_facts(facts)
+            if schema == APPLY_FAILURE_RECEIPT_SCHEMA
+            else False
+        )
+    )
+    v2_change_facts_valid = bool(
+        schema != APPLY_FAILURE_RECEIPT_SCHEMA
+        or (
+            receipt.get("productionServiceChangedThisRun") is True
+            and type(
+                receipt.get("productionDatabaseChangedThisRun")
+            ) is bool
+        )
+    )
+    return bool(
+        receipt.get("state")
+            == (
+                "APPLICATION_RESTORED_DATABASE_043_"
+                "RETAINED_OR_FAIL_CLOSED"
+            )
+        and receipt.get("releaseId") == release_id
+        and receipt.get("sourceCommit") == source_commit
+        and receipt.get("applicationStarted") is True
+        and receipt.get("applicationAlreadyCommitted") is False
+        and receipt.get("applicationRestored") is True
+        and receipt.get("topologyRestored") is True
+        and receipt.get("deploymentCommitOutcome") == "NOT_COMMITTED"
+        and receipt.get("deploymentReceiptPath") is None
+        and receipt.get("deploymentReceiptSha256") is None
+        and receipt.get("databaseRollbackStrategy")
+            == "RETAIN_ADDITIVE_043_DORMANT_NO_DOWN"
+        and receipt.get("databaseDownClaimed") is False
+        and receipt.get("officialExpertsPackageChanged") is False
+        and re.fullmatch(
+            r"[0-9a-f]{64}",
+            str(receipt.get("applyApprovalReceiptSha256") or ""),
+        ) is not None
+        and migration_valid
+        and v2_change_facts_valid
+    )
+
+
 def recorded_final_default_off_current_read_valid(receipt):
     receipt_schema = receipt.get("schema")
     evidence = receipt.get("finalDefaultOffCurrentRead")
@@ -1606,9 +1665,6 @@ def snapshot_default_off(
         and snapshot.get(
             "processConfiguredEnvironmentPreStageCompatible"
         ) is True
-        and snapshot.get(
-            "processConfiguredEnvironmentMismatchNames"
-        ) == []
         and all(
             configured_flags.get(name) == "false"
             for name in FLAG_NAMES
@@ -1619,6 +1675,9 @@ def snapshot_default_off(
     if state == "EXACT_CONFIGURED":
         return bool(
             snapshot.get("processConfiguredEnvironmentMatched") is True
+            and snapshot.get(
+                "processConfiguredEnvironmentMismatchNames"
+            ) == []
             and snapshot.get(
                 "processPendingRestartEnvironmentNames"
             ) == []
@@ -1641,6 +1700,9 @@ def snapshot_default_off(
         return bool(
             snapshot.get("processConfiguredEnvironmentMatched") is False
             and snapshot.get(
+                "processConfiguredEnvironmentMismatchNames"
+            ) == []
+            and snapshot.get(
                 "processPendingRestartEnvironmentNames"
             ) == sorted(MANAGED_RESTART_ENVIRONMENT_NAMES)
             and all(
@@ -1652,6 +1714,9 @@ def snapshot_default_off(
         return bool(
             snapshot.get("processConfiguredEnvironmentMatched") is False
             and snapshot.get(
+                "processConfiguredEnvironmentMismatchNames"
+            ) == []
+            and snapshot.get(
                 "processPendingRestartEnvironmentNames"
             ) == [ADMIN_ENGINE_TOKEN_NAME]
             and all(
@@ -1659,7 +1724,103 @@ def snapshot_default_off(
                 for name in FLAG_NAMES
             )
         )
+    if state == "TOKEN_SECRET_ROTATION_PENDING_RESTART":
+        return bool(
+            snapshot.get("processConfiguredEnvironmentMatched") is False
+            and snapshot.get(
+                "processConfiguredEnvironmentMismatchNames"
+            ) == [TOKEN_SECRET_NAME]
+            and snapshot.get(
+                "processPendingRestartEnvironmentNames"
+            ) == []
+            and all(
+                process_flags.get(name) == "false"
+                for name in FLAG_NAMES
+            )
+        )
     return False
+
+def security_measurement_contract_matches(
+    live,
+    baseline,
+    *,
+    allow_token_pending=False,
+):
+    previous_expected_names = baseline.get(
+        "expectedSecurityConfigurationNames"
+    )
+    previous_process_names = baseline.get(
+        "processSecurityConfigurationNames"
+    )
+    current_expected_names = live.get(
+        "expectedSecurityConfigurationNames"
+    )
+    current_process_names = live.get(
+        "processSecurityConfigurationNames"
+    )
+    previous_expected_hmac = baseline.get(
+        "expectedSecurityConfigurationHmacSha256"
+    )
+    previous_process_hmac = baseline.get(
+        "processSecurityConfigurationHmacSha256"
+    )
+    current_expected_hmac = live.get(
+        "expectedSecurityConfigurationHmacSha256"
+    )
+    current_process_hmac = live.get(
+        "processSecurityConfigurationHmacSha256"
+    )
+    if (
+        not isinstance(previous_expected_names, list)
+        or previous_expected_names
+            != sorted(set(previous_expected_names))
+        or previous_process_names != previous_expected_names
+        or not isinstance(current_expected_names, list)
+        or current_expected_names != sorted(set(current_expected_names))
+        or current_process_names != current_expected_names
+        or re.fullmatch(
+            r"[0-9a-f]{64}", str(previous_expected_hmac or "")
+        ) is None
+        or previous_process_hmac != previous_expected_hmac
+        or re.fullmatch(
+            r"[0-9a-f]{64}", str(current_expected_hmac or "")
+        ) is None
+        or re.fullmatch(
+            r"[0-9a-f]{64}", str(current_process_hmac or "")
+        ) is None
+    ):
+        return False
+    token_pending = (
+        live.get("processConfiguredEnvironmentLoadState")
+        == "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+    )
+    if token_pending:
+        if (
+            not allow_token_pending
+            or live.get("processConfiguredEnvironmentHmacSha256")
+                != baseline.get("configuredEnvironmentHmacSha256")
+        ):
+            return False
+    elif current_process_hmac != current_expected_hmac:
+        return False
+    if current_expected_names == previous_expected_names:
+        return bool(
+            (
+                not token_pending
+                and current_expected_hmac == previous_expected_hmac
+            )
+            or (
+                token_pending
+                and current_process_hmac == previous_expected_hmac
+            )
+        )
+    return bool(
+        TOKEN_SECRET_NAME
+            in baseline.get("configuredEnvironmentNames", [])
+        and TOKEN_SECRET_NAME not in previous_expected_names
+        and current_expected_names
+            == sorted(previous_expected_names + [TOKEN_SECRET_NAME])
+    )
 
 def snapshot_configuration_matches(
     live, baseline, allowed_load_states=("EXACT_CONFIGURED",)
@@ -1673,10 +1834,6 @@ def snapshot_configuration_matches(
         "environmentFilePaths",
         "environmentFileManifest",
         "processEnvironmentNamesSha256",
-        "processSecurityConfigurationNames",
-        "processSecurityConfigurationHmacSha256",
-        "expectedSecurityConfigurationNames",
-        "expectedSecurityConfigurationHmacSha256",
         "configuredEnvironmentSha256",
         "configuredEnvironmentNames",
         "configuredEnvironmentHmacSha256",
@@ -1695,6 +1852,14 @@ def snapshot_configuration_matches(
         isinstance(live, dict)
         and isinstance(baseline, dict)
         and all(live.get(field) == baseline.get(field) for field in fields)
+        and security_measurement_contract_matches(
+            live,
+            baseline,
+            allow_token_pending=(
+                "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+                in allowed_load_states
+            ),
+        )
         and snapshot_default_off(live, allowed_load_states)
         and snapshot_default_off(baseline, allowed_load_states)
     )
@@ -1704,8 +1869,6 @@ def snapshot_exact_loaded_from_baseline(live, baseline):
         "environmentFilePaths",
         "environmentFileManifest",
         "api2EventKeyManifest",
-        "expectedSecurityConfigurationNames",
-        "expectedSecurityConfigurationHmacSha256",
         "configuredEnvironmentSha256",
         "configuredEnvironmentNames",
         "configuredEnvironmentHmacSha256",
@@ -1720,6 +1883,7 @@ def snapshot_exact_loaded_from_baseline(live, baseline):
             live.get(field) == baseline.get(field)
             for field in static_fields
         )
+        and security_measurement_contract_matches(live, baseline)
         and snapshot_default_off(live, ("EXACT_CONFIGURED",))
         and snapshot_default_off(
             baseline,
@@ -1727,6 +1891,7 @@ def snapshot_exact_loaded_from_baseline(live, baseline):
                 "EXACT_CONFIGURED",
                 "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART",
                 "ENGINE_CREDENTIAL_PENDING_RESTART",
+                "TOKEN_SECRET_ROTATION_PENDING_RESTART",
             ),
         )
     )
@@ -1823,6 +1988,99 @@ def authorized_admin_engine_configuration_evolution_matches(
         )
     )
 
+def authorized_token_secret_configuration_evolution_matches(
+    live,
+    baseline,
+    configuration,
+    predecessor,
+):
+    if (
+        not isinstance(live, dict)
+        or not isinstance(baseline, dict)
+        or not isinstance(configuration, dict)
+        or not isinstance(predecessor, dict)
+        or configuration.get("schema")
+            != "fbsir.u3wDefaultOffConfigurationReceipt.v4"
+        or predecessor.get("schema")
+            != "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+    ):
+        return False
+    previous_manifest = baseline.get("environmentFileManifest", [])
+    current_manifest = live.get("environmentFileManifest", [])
+    if len(previous_manifest) != 1 or len(current_manifest) != 1:
+        return False
+    previous_file = dict(previous_manifest[0])
+    current_file = dict(current_manifest[0])
+    previous_file_sha = previous_file.pop("sha256", None)
+    current_file_sha = current_file.pop("sha256", None)
+    baseline_load_state = baseline.get(
+        "processConfiguredEnvironmentLoadState"
+    )
+    allowed_baseline_states = (
+        "EXACT_CONFIGURED",
+        "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART",
+        "ENGINE_CREDENTIAL_PENDING_RESTART",
+    )
+    return bool(
+        configuration.get("tokenSecretProvisioningState")
+            == "ROTATED_BY_RUN"
+        and configuration.get(
+            "adminEngineCredentialProvisioningState"
+        ) == "REUSED_FROM_PREDECESSOR_RECEIPT"
+        and predecessor.get("environmentAfterSha256")
+            == baseline.get("configuredEnvironmentSha256")
+        and configuration.get("environmentBeforeSha256")
+            == baseline.get("configuredEnvironmentSha256")
+        and previous_file_sha
+            == baseline.get("configuredEnvironmentSha256")
+        and configuration.get("environmentAfterSha256")
+            == live.get("configuredEnvironmentSha256")
+        and current_file_sha
+            == live.get("configuredEnvironmentSha256")
+        and previous_file == current_file
+        and live.get("environmentFilePaths")
+            == baseline.get("environmentFilePaths")
+        and live.get("configuredEnvironmentNames")
+            == baseline.get("configuredEnvironmentNames")
+        and security_measurement_contract_matches(
+            live,
+            baseline,
+            allow_token_pending=True,
+        )
+        and live.get("api2EventKeyManifest")
+            == baseline.get("api2EventKeyManifest")
+        and live.get("configuredFlagValues")
+            == baseline.get("configuredFlagValues")
+        and live.get("processDatabaseBindingMatched") is True
+        and live.get(
+            "processConfiguredEnvironmentPreStageCompatible"
+        ) is True
+        and live.get("processConfiguredEnvironmentMatched") is False
+        and live.get(
+            "processConfiguredEnvironmentMismatchNames"
+        ) == [TOKEN_SECRET_NAME]
+        and live.get("processPendingRestartEnvironmentNames") == []
+        and live.get("processForbiddenOverrideNames") == []
+        and live.get("processConfiguredEnvironmentLoadState")
+            == "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+        and live.get("processConfiguredEnvironmentHmacSha256")
+            == baseline.get("configuredEnvironmentHmacSha256")
+        and baseline_load_state in allowed_baseline_states
+        and snapshot_default_off(
+            baseline,
+            allowed_baseline_states,
+        )
+        and snapshot_default_off(
+            live,
+            ("TOKEN_SECRET_ROTATION_PENDING_RESTART",),
+        )
+        and all(
+            live.get("configuredFlagValues", {}).get(name) == "false"
+            and live.get("processFlagValues", {}).get(name) == "false"
+            for name in FLAG_NAMES
+        )
+    )
+
 def staged_predecessor_snapshot_matches(live, baseline):
     fields = (
         "workingDirectory",
@@ -1847,6 +2105,7 @@ def staged_predecessor_snapshot_matches(live, baseline):
             "EXACT_CONFIGURED",
             "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART",
             "ENGINE_CREDENTIAL_PENDING_RESTART",
+            "TOKEN_SECRET_ROTATION_PENDING_RESTART",
         }
         else ()
     )
@@ -1905,6 +2164,81 @@ def exact_admin_engine_delta_predecessor_sha256(path):
     if match.start() > 0:
         predecessor += "\n"
     return hashlib.sha256(predecessor.encode("utf-8")).hexdigest()
+
+def exact_token_secret_rotation_matches(before_path, after_path):
+    try:
+        before_lines = pathlib.Path(before_path).read_text(
+            encoding="utf-8"
+        ).splitlines(keepends=True)
+        after_lines = pathlib.Path(after_path).read_text(
+            encoding="utf-8"
+        ).splitlines(keepends=True)
+    except UnicodeDecodeError:
+        return False
+    if len(before_lines) != len(after_lines):
+        return False
+    changed = [
+        index
+        for index, pair in enumerate(zip(before_lines, after_lines))
+        if pair[0] != pair[1]
+    ]
+    if len(changed) != 1:
+        return False
+    before_match = re.fullmatch(
+        re.escape(TOKEN_SECRET_NAME) + r"=(?P<secret>[^\r\n]+)",
+        before_lines[changed[0]].rstrip("\r\n"),
+    )
+    after_match = re.fullmatch(
+        re.escape(TOKEN_SECRET_NAME)
+        + r"=(?P<secret>[A-Za-z0-9_-]{43,128})",
+        after_lines[changed[0]].rstrip("\r\n"),
+    )
+    return bool(
+        before_match is not None
+        and after_match is not None
+        and 0 < len(before_match.group("secret")) < 32
+        and not hmac.compare_digest(
+            before_match.group("secret"),
+            after_match.group("secret"),
+        )
+    )
+
+def unique_configuration_receipt_by_sha256(expected_sha):
+    if (
+        re.fullmatch(r"[0-9a-f]{64}", str(expected_sha or ""))
+        is None
+        or expected_sha == "0" * 64
+    ):
+        return {}, None
+    matches = []
+    root = pathlib.Path("/opt/fbsir/admin/configuration/w1a")
+    for run_directory in root.iterdir():
+        if (
+            run_directory.is_symlink()
+            or not run_directory.is_dir()
+            or re.fullmatch(
+                r"w1a-config-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}",
+                run_directory.name,
+            ) is None
+        ):
+            continue
+        candidate = run_directory / "configuration-receipt.json"
+        if candidate.is_file() and not candidate.is_symlink():
+            status = candidate.stat()
+            if (
+                status.st_uid == 0
+                and status.st_gid == 0
+                and status.st_nlink == 1
+                and status.st_mode & 0o777 == 0o600
+                and sha256_file(candidate) == expected_sha
+            ):
+                matches.append(candidate)
+    if len(matches) != 1:
+        return {}, None
+    return (
+        json.loads(matches[0].read_text(encoding="utf-8")),
+        matches[0],
+    )
 
 def parse_env_file(filename):
     values = {}
@@ -2122,7 +2456,7 @@ def security_configuration_evidence(process_values, expected_values):
         EVENT_KEY_NAME,
         PREVIOUS_EVENT_KEY_NAME,
         SAME_BINDING_KEY_NAME,
-        "FBSIR_TOKEN_SECRET",
+        TOKEN_SECRET_NAME,
         "WXFBSIR_TOKEN_SECRET",
     ):
         comparison = decode_secret_material(expected_values.get(name))
@@ -2133,6 +2467,31 @@ def security_configuration_evidence(process_values, expected_values):
             raise RuntimeError(
                 "admin Engine credential is not independent"
             )
+    token_secret = str(
+        expected_values.get(TOKEN_SECRET_NAME, "")
+    ).strip()
+    if re.fullmatch(
+        r"[A-Za-z0-9_-]{43,128}",
+        token_secret,
+    ) is None:
+        raise RuntimeError("token secret shape is invalid")
+    token_material = token_secret.encode("utf-8")
+    for name in (
+        ADMIN_ENGINE_TOKEN_NAME,
+        EVENT_KEY_NAME,
+        PREVIOUS_EVENT_KEY_NAME,
+        SAME_BINDING_KEY_NAME,
+    ):
+        comparison = (
+            str(expected_values.get(name, "")).strip().encode("utf-8")
+            if name == ADMIN_ENGINE_TOKEN_NAME
+            else decode_secret_material(expected_values.get(name))
+        )
+        if (
+            comparison is not None
+            and hmac.compare_digest(token_material, comparison)
+        ):
+            raise RuntimeError("token secret is not independent")
     expected_names = sorted(
         name for name in PROCESS_SECURITY_ENVIRONMENT_NAMES
         if name in expected_values
@@ -2247,6 +2606,14 @@ def security_configuration_evidence(process_values, expected_values):
         and database_matched
     ):
         load_state = "ENGINE_CREDENTIAL_PENDING_RESTART"
+    elif (
+        not pending_names
+        and mismatch_names == [TOKEN_SECRET_NAME]
+        and all_managed_configured
+        and flags_configured_false
+        and database_matched
+    ):
+        load_state = "TOKEN_SECRET_ROTATION_PENDING_RESTART"
     else:
         load_state = "INVALID_PARTIAL_OR_DRIFTED"
     return {
@@ -2273,6 +2640,7 @@ def security_configuration_evidence(process_values, expected_values):
                 "EXACT_CONFIGURED",
                 "LEGACY_MANAGED_CONFIGURATION_PENDING_RESTART",
                 "ENGINE_CREDENTIAL_PENDING_RESTART",
+                "TOKEN_SECRET_ROTATION_PENDING_RESTART",
             },
     }
 
@@ -4497,6 +4865,27 @@ admin_engine_credential_independent = bool(
         for material in admin_engine_comparison_material
     )
 )
+token_secret = str(
+    environment.get(TOKEN_SECRET_NAME, "")
+).strip()
+token_secret_valid = (
+    re.fullmatch(r"[A-Za-z0-9_-]{43,128}", token_secret)
+    is not None
+)
+token_secret_material = token_secret.encode("utf-8")
+token_secret_independent = bool(
+    token_secret_valid
+    and all(
+        material is None
+        or not hmac.compare_digest(token_secret_material, material)
+        for material in (
+            admin_engine_material,
+            active_event_material,
+            previous_event_material,
+            same_binding_material,
+        )
+    )
+)
 api2_event_key_file = pathlib.Path(API2_EVENT_KEY_PATH)
 api2_event_key_file_custody_secure = False
 api2_event_key_file_matched = False
@@ -4564,15 +4953,22 @@ if configuration_receipt_path.exists():
             "secretsDisclosed", "observedAt",
         }
         configuration_receipt_schema = configuration_receipt.get("schema")
-        if (
-            configuration_receipt_schema
-            == "fbsir.u3wDefaultOffConfigurationReceipt.v3"
-        ):
+        if configuration_receipt_schema in {
+            "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+            "fbsir.u3wDefaultOffConfigurationReceipt.v4",
+        }:
             configuration_receipt_fields.update({
                 "predecessorConfigurationReceiptSha256",
                 "adminEngineCredentialProvisioningState",
                 "engineCounterpartClosureClaimed",
             })
+        if (
+            configuration_receipt_schema
+            == "fbsir.u3wDefaultOffConfigurationReceipt.v4"
+        ):
+            configuration_receipt_fields.add(
+                "tokenSecretProvisioningState"
+            )
         backup_path = pathlib.Path(
             str(configuration_receipt.get("environmentBackupPath") or "")
         )
@@ -4619,42 +5015,10 @@ if configuration_receipt_path.exists():
             predecessor_sha = configuration_receipt.get(
                 "predecessorConfigurationReceiptSha256"
             )
-            predecessor_matches = []
-            configuration_root = pathlib.Path(
-                "/opt/fbsir/admin/configuration/w1a"
-            )
-            if re.fullmatch(
-                r"[0-9a-f]{64}", str(predecessor_sha or "")
-            ) is not None and predecessor_sha != "0" * 64:
-                for run_directory in configuration_root.iterdir():
-                    if (
-                        run_directory.is_symlink()
-                        or not run_directory.is_dir()
-                        or re.fullmatch(
-                            r"w1a-config-[0-9]{8}T[0-9]{6}Z-"
-                            r"[0-9a-f]{12}",
-                            run_directory.name,
-                        ) is None
-                    ):
-                        continue
-                    candidate = (
-                        run_directory / "configuration-receipt.json"
-                    )
-                    if candidate.is_file() and not candidate.is_symlink():
-                        candidate_status = candidate.stat()
-                        if (
-                            candidate_status.st_uid == 0
-                            and candidate_status.st_gid == 0
-                            and candidate_status.st_nlink == 1
-                            and candidate_status.st_mode & 0o777 == 0o600
-                            and sha256_file(candidate) == predecessor_sha
-                        ):
-                            predecessor_matches.append(candidate)
-            predecessor_receipt = (
-                json.loads(
-                    predecessor_matches[0].read_text(encoding="utf-8")
+            predecessor_receipt, predecessor_path = (
+                unique_configuration_receipt_by_sha256(
+                    predecessor_sha
                 )
-                if len(predecessor_matches) == 1 else {}
             )
             configuration_predecessor_receipt = predecessor_receipt
             credential_state = configuration_receipt.get(
@@ -4686,7 +5050,7 @@ if configuration_receipt_path.exists():
                 )
             )
             configuration_reconciliation_valid = bool(
-                len(predecessor_matches) == 1
+                predecessor_path is not None
                 and predecessor_receipt.get("schema")
                     == "fbsir.u3wDefaultOffConfigurationReceipt.v2"
                 and predecessor_environment_matched
@@ -4722,6 +5086,137 @@ if configuration_receipt_path.exists():
                 and admin_engine_credential_valid
                 and admin_engine_credential_independent
             )
+        if (
+            configuration_receipt_schema
+            == "fbsir.u3wDefaultOffConfigurationReceipt.v4"
+        ):
+            predecessor_sha = configuration_receipt.get(
+                "predecessorConfigurationReceiptSha256"
+            )
+            predecessor_receipt, predecessor_path = (
+                unique_configuration_receipt_by_sha256(
+                    predecessor_sha
+                )
+            )
+            configuration_predecessor_receipt = predecessor_receipt
+            predecessor_v2_sha = predecessor_receipt.get(
+                "predecessorConfigurationReceiptSha256"
+            )
+            predecessor_v2, predecessor_v2_path = (
+                unique_configuration_receipt_by_sha256(
+                    predecessor_v2_sha
+                )
+            )
+            predecessor_evidence = predecessor_receipt.get(
+                "configurationEvidence", {}
+            )
+            configuration_reconciliation_valid = bool(
+                predecessor_path is not None
+                and predecessor_v2_path is not None
+                and predecessor_receipt.get("schema")
+                    == "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+                and predecessor_v2.get("schema")
+                    == "fbsir.u3wDefaultOffConfigurationReceipt.v2"
+                and configuration_receipt.get(
+                    "environmentBeforeSha256"
+                ) == predecessor_receipt.get(
+                    "environmentAfterSha256"
+                )
+                and configuration_receipt.get(
+                    "environmentBeforeSha256"
+                ) != configuration_receipt.get(
+                    "environmentAfterSha256"
+                )
+                and exact_token_secret_rotation_matches(
+                    backup_path,
+                    "/etc/u3w/fbsir-admin.env",
+                )
+                and predecessor_receipt.get(
+                    "environmentBeforeSha256"
+                ) == predecessor_receipt.get(
+                    "environmentAfterSha256"
+                )
+                and predecessor_v2.get("environmentAfterSha256")
+                    == exact_admin_engine_delta_predecessor_sha256(
+                        backup_path
+                    )
+                and predecessor_receipt.get(
+                    "adminEngineCredentialProvisioningState"
+                ) == "ADOPTED_EXISTING_EXACT_DELTA"
+                and predecessor_receipt.get(
+                    "engineCounterpartClosureClaimed"
+                ) is False
+                and predecessor_receipt.get(
+                    "productionConfigurationChanged"
+                ) is False
+                and predecessor_evidence.get(
+                    "adminEngineCredentialValid"
+                ) is True
+                and predecessor_evidence.get(
+                    "adminEngineCredentialIndependent"
+                ) is True
+                and int(
+                    predecessor_evidence.get(
+                        "adminEngineCredentialMinimumCharacters"
+                    ) or 0
+                ) >= 43
+                and all(
+                    predecessor.get("api2EventKeyPath")
+                        == API2_EVENT_KEY_PATH
+                    and predecessor.get(
+                        "stagedKeyMaterialMatched"
+                    ) is True
+                    and predecessor.get(
+                        "officialExpertsPackageChanged"
+                    ) is False
+                    and predecessor.get("secretsDisclosed") is False
+                    for predecessor in (
+                        predecessor_receipt,
+                        predecessor_v2,
+                    )
+                )
+                and configuration_receipt.get(
+                    "api2EventKeyProvisioningState"
+                ) == "REUSED_FROM_PREDECESSOR_RECEIPT"
+                and configuration_receipt.get(
+                    "adminEngineCredentialProvisioningState"
+                ) == "REUSED_FROM_PREDECESSOR_RECEIPT"
+                and configuration_receipt.get(
+                    "engineCounterpartClosureClaimed"
+                ) is False
+                and configuration_receipt.get(
+                    "tokenSecretProvisioningState"
+                ) == "ROTATED_BY_RUN"
+                and configuration_receipt.get(
+                    "productionConfigurationChanged"
+                ) is True
+                and receipt_evidence.get(
+                    "adminEngineCredentialValid"
+                ) is True
+                and receipt_evidence.get(
+                    "adminEngineCredentialIndependent"
+                ) is True
+                and int(
+                    receipt_evidence.get(
+                        "adminEngineCredentialMinimumCharacters"
+                    ) or 0
+                ) >= 43
+                and receipt_evidence.get(
+                    "tokenSecretValid"
+                ) is True
+                and receipt_evidence.get(
+                    "tokenSecretIndependent"
+                ) is True
+                and int(
+                    receipt_evidence.get(
+                        "tokenSecretMinimumCharacters"
+                    ) or 0
+                ) >= 43
+                and admin_engine_credential_valid
+                and admin_engine_credential_independent
+                and token_secret_valid
+                and token_secret_independent
+            )
         configuration_receipt_valid = bool(
             set(configuration_receipt) == configuration_receipt_fields
             and
@@ -4732,7 +5227,7 @@ if configuration_receipt_path.exists():
             and receipt_status.st_mode & 0o777 == 0o600
             and receipt_status.st_nlink == 1
             and configuration_receipt_schema
-                == "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+                == "fbsir.u3wDefaultOffConfigurationReceipt.v4"
             and configuration_receipt.get("mode") == "Apply"
             and configuration_receipt.get("state")
                 == "CONFIGURED_NOT_LOADED"
@@ -4746,8 +5241,10 @@ if configuration_receipt_path.exists():
                 "api2EventKeyProvisioningState"
             ) == (
                 "REUSED_FROM_PREDECESSOR_RECEIPT"
-                if configuration_receipt_schema
-                    == "fbsir.u3wDefaultOffConfigurationReceipt.v3"
+                if configuration_receipt_schema in {
+                    "fbsir.u3wDefaultOffConfigurationReceipt.v3",
+                    "fbsir.u3wDefaultOffConfigurationReceipt.v4",
+                }
                 else "CREATED_BY_RUN"
             )
             and configuration_reconciliation_valid
@@ -5984,6 +6481,15 @@ if deployment_receipt.is_file():
                         configuration_predecessor_receipt,
                     )
                 )
+                or (
+                    configuration_receipt_valid
+                    and authorized_token_secret_configuration_evolution_matches(
+                        live_service_snapshot,
+                        baseline_snapshot,
+                        configuration_receipt,
+                        configuration_predecessor_receipt,
+                    )
+                )
             )
             committed_receipts_absent = all(
                 not candidate.exists()
@@ -6044,48 +6550,20 @@ if deployment_receipt.is_file():
                 )
                 and snapshot_default_off(
                     live_service_snapshot,
-                    ("EXACT_CONFIGURED",),
+                    (
+                        "EXACT_CONFIGURED",
+                        "TOKEN_SECRET_ROTATION_PENDING_RESTART",
+                    ),
                 )
                 and current_link_absent
                 and committed_receipts_absent
             )
-            terminal_failure_valid = bool(
-                terminal_failure.get("schema")
-                    == LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA
-                and terminal_failure.get("state")
-                    == (
-                        "APPLICATION_RESTORED_DATABASE_043_"
-                        "RETAINED_OR_FAIL_CLOSED"
-                    )
-                and terminal_failure.get("releaseId")
-                    == release_directory.name
-                and terminal_failure.get("sourceCommit")
-                    == recovery.get("sourceCommit")
-                and terminal_failure.get("applicationStarted") is True
-                and terminal_failure.get(
-                    "applicationAlreadyCommitted"
-                ) is False
-                and terminal_failure.get("applicationRestored") is True
-                and terminal_failure.get("topologyRestored") is True
-                and terminal_failure.get("deploymentCommitOutcome")
-                    == "NOT_COMMITTED"
-                and terminal_failure.get("deploymentReceiptPath") is None
-                and terminal_failure.get("deploymentReceiptSha256") is None
-                and terminal_failure.get("databaseRollbackStrategy")
-                    == "RETAIN_ADDITIVE_043_DORMANT_NO_DOWN"
-                and terminal_failure.get("databaseDownClaimed") is False
-                and legacy_w1a_migration_facts(
-                    terminal_failure.get("migrationFacts")
+            terminal_failure_valid = (
+                interrupted_apply_terminal_failure_valid(
+                    terminal_failure,
+                    release_directory.name,
+                    recovery.get("sourceCommit"),
                 )
-                and terminal_failure.get(
-                    "migrationFacts", {}
-                ).get("eventCount") == 0
-                and terminal_failure.get(
-                    "migrationFacts", {}
-                ).get("journeyCount") == 0
-                and terminal_failure.get(
-                    "officialExpertsPackageChanged"
-                ) is False
             )
             stage_valid = bool(
                 stage_path == (
@@ -6239,13 +6717,19 @@ if deployment_receipt.is_file():
                 and recovery.get("allW1aFlagsExplicitFalse") is True
                 and recovery.get("databaseDownClaimed") is False
                 and recovery.get("productionFilesystemChanged") is True
-                and recovery.get("productionDatabaseChanged") is True
+                and type(
+                    recovery.get("productionDatabaseChanged")
+                ) is bool
                 and recovery.get(
                     "productionDatabaseChangedThisRecoveryRun"
                 ) is False
-                and recovery.get(
+                and type(recovery.get(
                     "productionDatabaseChangedSinceStage"
-                ) is True
+                )) is bool
+                and recovery.get("productionDatabaseChanged")
+                    == recovery.get(
+                        "productionDatabaseChangedSinceStage"
+                    )
                 and recovery.get("productionServiceChanged") is True
                 and recovery.get(
                     "productionServiceChangedThisRecoveryRun"
@@ -6500,6 +6984,15 @@ if deployment_receipt.is_file():
                     or (
                         configuration_receipt_valid
                         and authorized_admin_engine_configuration_evolution_matches(
+                            live_service_snapshot,
+                            baseline_snapshot,
+                            configuration_receipt,
+                            configuration_predecessor_receipt,
+                        )
+                    )
+                    or (
+                        configuration_receipt_valid
+                        and authorized_token_secret_configuration_evolution_matches(
                             live_service_snapshot,
                             baseline_snapshot,
                             configuration_receipt,
@@ -7077,6 +7570,11 @@ if (
                     and anchored_failure.get(
                         "officialExpertsPackageChanged"
                     ) is False
+                    and interrupted_apply_terminal_failure_valid(
+                        anchored_failure,
+                        anchored_recovery_release.name,
+                        anchored_recovery.get("sourceCommit"),
+                    )
                     and anchored_failure_manifest_current
                     and anchored_predecessor_evidence_path == (
                         anchored_recovery_release
@@ -7114,7 +7612,10 @@ if (
                         == anchored_predecessor_jar_manifest["sha256"]
                     and snapshot_default_off(
                         live_service_snapshot,
-                        ("EXACT_CONFIGURED",),
+                        (
+                            "EXACT_CONFIGURED",
+                            "TOKEN_SECRET_ROTATION_PENDING_RESTART",
+                        ),
                     )
                     and not pathlib.Path(
                         "/opt/fbsir/admin/current"
@@ -7157,15 +7658,20 @@ if (
                     and anchored_recovery.get(
                         "productionFilesystemChanged"
                     ) is True
-                    and anchored_recovery.get(
+                    and type(anchored_recovery.get(
                         "productionDatabaseChanged"
-                    ) is True
+                    )) is bool
                     and anchored_recovery.get(
                         "productionDatabaseChangedThisRecoveryRun"
                     ) is False
-                    and anchored_recovery.get(
+                    and type(anchored_recovery.get(
                         "productionDatabaseChangedSinceStage"
-                    ) is True
+                    )) is bool
+                    and anchored_recovery.get(
+                        "productionDatabaseChanged"
+                    ) == anchored_recovery.get(
+                        "productionDatabaseChangedSinceStage"
+                    )
                     and anchored_recovery.get(
                         "productionServiceChanged"
                     ) is True
@@ -7269,6 +7775,7 @@ if (
                 if observed_pre_stage_load_state in {
                     "EXACT_CONFIGURED",
                     "ENGINE_CREDENTIAL_PENDING_RESTART",
+                    "TOKEN_SECRET_ROTATION_PENDING_RESTART",
                 }
                 and (
                     prior_rollback_anchor is not None
@@ -8585,6 +9092,14 @@ print(json.dumps({
                 "adminEngineCredentialIndependent"
             ) is True
         ),
+        "tokenSecretValid": bool(
+            token_secret_valid
+            and receipt_evidence.get("tokenSecretValid") is True
+        ),
+        "tokenSecretIndependent": bool(
+            token_secret_independent
+            and receipt_evidence.get("tokenSecretIndependent") is True
+        ),
         "configurationReceiptValid": configuration_receipt_valid,
         "configurationReceiptAnchorMatched":
             configuration_receipt_anchor_matched,
@@ -8593,6 +9108,10 @@ print(json.dumps({
         "configurationReceiptSha256": configuration_receipt_sha256,
         "configurationReceiptSchema":
             configuration_receipt.get("schema"),
+        "tokenSecretProvisioningState":
+            configuration_receipt.get(
+                "tokenSecretProvisioningState"
+            ),
         "engineCounterpartClosureClaimed":
             configuration_receipt.get(
                 "engineCounterpartClosureClaimed"
@@ -9048,7 +9567,8 @@ if ($plannedTarget -and $liveTarget) {
         'FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY_ID',
         'FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PREVIOUS_EVENT_KEY',
         'FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_SAME_BINDING_SECRET',
-        'FBSIR_ENGINE_TOKEN'
+        'FBSIR_ENGINE_TOKEN',
+        'FBSIR_TOKEN_SECRET'
     ) | Sort-Object
     $liveProcessFlagValues =
         @($liveTarget.processFlagValues.psobject.Properties.Value)
@@ -9075,6 +9595,15 @@ if ($plannedTarget -and $liveTarget) {
             $liveTarget.processConfiguredEnvironmentMatched -eq $false -and
             @($livePendingNames).Count -eq 1 -and
             $livePendingNames[0] -ceq 'FBSIR_ENGINE_TOKEN' -and
+            @($liveProcessFlagValues |
+                Where-Object { $_ -cne 'false' }).Count -eq 0
+        ) -or (
+            $liveLoadState -ceq
+                'TOKEN_SECRET_ROTATION_PENDING_RESTART' -and
+            $liveTarget.processConfiguredEnvironmentMatched -eq $false -and
+            @($livePendingNames).Count -eq 0 -and
+            @($liveMismatchNames).Count -eq 1 -and
+            $liveMismatchNames[0] -ceq 'FBSIR_TOKEN_SECRET' -and
             @($liveProcessFlagValues |
                 Where-Object { $_ -cne 'false' }).Count -eq 0
         )
@@ -9151,8 +9680,15 @@ if ($plannedTarget -and $liveTarget) {
             $liveTarget.processConfiguredEnvironmentMatched -and
         (Test-JsonStructuralEquality `
             -Left $plannedMismatchNames -Right $liveMismatchNames) -and
-        @($liveTarget.processConfiguredEnvironmentMismatchNames).Count -eq
-            0 -and
+        (
+            @($liveMismatchNames).Count -eq 0 -or
+            (
+                $liveLoadState -ceq
+                    'TOKEN_SECRET_ROTATION_PENDING_RESTART' -and
+                @($liveMismatchNames).Count -eq 1 -and
+                $liveMismatchNames[0] -ceq 'FBSIR_TOKEN_SECRET'
+            )
+        ) -and
         (Test-JsonStructuralEquality `
             -Left $plannedPendingNames -Right $livePendingNames) -and
         $plannedTarget.processConfiguredEnvironmentLoadState -ceq

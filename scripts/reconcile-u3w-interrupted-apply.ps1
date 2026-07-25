@@ -921,6 +921,10 @@ function Invoke-Reconcile {
         $receipt.releaseDropInMatched -ne $true -or
         $receipt.allW1aFlagsExplicitFalse -ne $true -or
         $receipt.productionDatabaseChangedThisRecoveryRun -ne $false -or
+        $receipt.productionDatabaseChanged -isnot [bool] -or
+        $receipt.productionDatabaseChangedSinceStage -isnot [bool] -or
+        $receipt.productionDatabaseChanged -ne
+            $receipt.productionDatabaseChangedSinceStage -or
         $receipt.productionServiceChangedThisRecoveryRun -ne $false -or
         $receipt.officialExpertsPackageChanged -ne $false
     ) {

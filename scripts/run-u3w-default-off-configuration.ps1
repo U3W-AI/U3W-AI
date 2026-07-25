@@ -1,7 +1,14 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('Plan', 'Apply', 'Verify', 'Recover', 'Reconcile')]
+    [ValidateSet(
+        'Plan',
+        'PlanTokenSecretRotation',
+        'Apply',
+        'Verify',
+        'Recover',
+        'Reconcile',
+        'RotateTokenSecret')]
     [string]$Mode,
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^[0-9a-f]{40}$')]
@@ -214,7 +221,7 @@ function Ensure-KnownHosts {
 }
 
 function Get-ApprovalDigest {
-    if ($Mode -in @('Plan', 'Verify')) {
+    if ($Mode -in @('Plan', 'PlanTokenSecretRotation', 'Verify')) {
         $script:ApprovalBase64 = 'e30='
         return '0' * 64
     }
@@ -237,7 +244,7 @@ function Get-ApprovalDigest {
             'expectedConfiguredEnvironmentSha256',
             'originalApprovalReceiptSha256')
     }
-    if ($Mode -eq 'Reconcile') {
+    if ($Mode -in @('Reconcile', 'RotateTokenSecret')) {
         $expectedFields +=
             'expectedPredecessorConfigurationReceiptSha256'
     }
@@ -248,6 +255,10 @@ function Get-ApprovalDigest {
     }
     $approved = [DateTimeOffset]::Parse($approval.approvedAt)
     $expires = [DateTimeOffset]::Parse($approval.expiresAt)
+    $approvalExpired = $expires -le [DateTimeOffset]::UtcNow
+    $expiredRecoveryEligible = $Mode -in @(
+        'Reconcile',
+        'RotateTokenSecret')
     if (
         $approval.schema -ne
             'fbsir.u3wProductionChangeApprovalReceipt.v1' -or
@@ -256,6 +267,8 @@ function Get-ApprovalDigest {
                     'RECOVER_W1A_DEFAULT_OFF_CONFIGURATION_ANCHOR'
                 } elseif ($Mode -eq 'Reconcile') {
                     'ADOPT_EXISTING_ADMIN_ENGINE_CREDENTIAL_DELTA'
+                } elseif ($Mode -eq 'RotateTokenSecret') {
+                    'ROTATE_FBSIR_TOKEN_SECRET_FOR_W1A_DEFAULT_OFF'
                 } else {
                     'CONFIGURE_W1A_DEFAULT_OFF_CRYPTO_CUSTODY'
                 }) -or
@@ -265,7 +278,7 @@ function Get-ApprovalDigest {
         $approval.expectedEnvironmentSha256 -ne
             $ExpectedEnvironmentSha256 -or
         $approval.expectedApi2EventKeyState -ne
-            $(if ($Mode -eq 'Reconcile') {
+            $(if ($Mode -in @('Reconcile', 'RotateTokenSecret')) {
                     'PRESENT_ANCHORED'
                 } else {
                     'ABSENT'
@@ -279,7 +292,7 @@ function Get-ApprovalDigest {
         $approval.productionServiceChange -ne $false -or
         $approval.officialExpertsPackageChange -ne $false -or
         $approved -gt [DateTimeOffset]::UtcNow -or
-        $expires -le [DateTimeOffset]::UtcNow -or
+        ($approvalExpired -and -not $expiredRecoveryEligible) -or
         ($expires - $approved).TotalHours -gt 24
     ) {
         throw 'approval receipt identity, scope or validity is invalid'
@@ -293,7 +306,7 @@ function Get-ApprovalDigest {
                 $OriginalApprovalReceiptSha256)) {
         throw 'configuration recovery approval anchors are invalid'
     }
-    if ($Mode -eq 'Reconcile' -and (
+    if ($Mode -in @('Reconcile', 'RotateTokenSecret') -and (
             $ExpectedPredecessorConfigurationReceiptSha256 -eq
                 ('0' * 64) -or
             $approval.expectedPredecessorConfigurationReceiptSha256 -ne
@@ -338,14 +351,77 @@ function Invoke-RemoteWorker {
         $remoteCommand
     )
     $output = @($payload | & ssh.exe @sshArguments)
-    if ($LASTEXITCODE -ne 0) {
-        throw 'remote default-off configuration worker failed'
-    }
+    $remoteExitCode = $LASTEXITCODE
     $json = $output -join "`n"
     if (-not $json.Trim()) {
+        if ($remoteExitCode -ne 0) {
+            throw 'remote configuration worker failed without a canonical envelope'
+        }
         throw 'remote configuration worker returned no receipt'
     }
-    return $json | ConvertFrom-Json
+    try {
+        $parsed = $json | ConvertFrom-Json
+    }
+    catch {
+        if ($remoteExitCode -ne 0) {
+            throw 'remote configuration worker failure envelope is not JSON'
+        }
+        throw
+    }
+    if ($remoteExitCode -ne 0) {
+        $expectedNames = @(
+            'schema',
+            'mode',
+            'runId',
+            'sourceCommit',
+            'targetHost',
+            'errorType',
+            'errorMessageSha256',
+            'productionFilesystemChanged',
+            'productionConfigurationChanged',
+            'productionBusinessStateChanged',
+            'productionServiceChanged',
+            'configurationLoaded',
+            'serviceRestarted',
+            'officialExpertsPackageChanged',
+            'secretsDisclosed'
+        ) | Sort-Object
+        $actualNames = @(
+            $parsed.PSObject.Properties.Name
+        ) | Sort-Object
+        $nameDrift = @(Compare-Object $expectedNames $actualNames)
+        if (
+            $nameDrift.Count -ne 0 -or
+            $parsed.schema -ne
+                'fbsir.u3wDefaultOffConfigurationWorkerError.v2' -or
+            $parsed.mode -ne $Mode -or
+            $parsed.runId -ne $RunId -or
+            $parsed.sourceCommit -ne $ExpectedCommit -or
+            $parsed.targetHost -ne 'api2.u3w.com' -or
+            $parsed.errorType -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$' -or
+            $parsed.errorMessageSha256 -notmatch '^[0-9a-f]{64}$' -or
+            $parsed.productionFilesystemChanged -isnot [bool] -or
+            $parsed.productionConfigurationChanged -isnot [bool] -or
+            (
+                $parsed.productionConfigurationChanged -eq $true -and
+                $parsed.productionFilesystemChanged -ne $true
+            ) -or
+            $parsed.productionBusinessStateChanged -ne $false -or
+            $parsed.productionServiceChanged -ne $false -or
+            $parsed.configurationLoaded -ne $false -or
+            $parsed.serviceRestarted -ne $false -or
+            $parsed.officialExpertsPackageChanged -ne $false -or
+            $parsed.secretsDisclosed -ne $false
+        ) {
+            throw 'remote configuration worker failure envelope is invalid'
+        }
+        return $parsed
+    }
+    if ($parsed.schema -eq
+        'fbsir.u3wDefaultOffConfigurationWorkerError.v2') {
+        throw 'remote configuration worker returned an error with exit code zero'
+    }
+    return $parsed
 }
 
 function Save-ExternalAnchor {
@@ -376,7 +452,8 @@ function Save-ExternalAnchor {
         if (
             $receipt.schema -notin @(
                 'fbsir.u3wDefaultOffConfigurationReceipt.v2',
-                'fbsir.u3wDefaultOffConfigurationReceipt.v3') -or
+                'fbsir.u3wDefaultOffConfigurationReceipt.v3',
+                'fbsir.u3wDefaultOffConfigurationReceipt.v4') -or
             $receipt.runId -ne $RunId -or
             $receipt.sourceCommit -ne $ExpectedCommit -or
             $digest -ne $WorkerResult.configurationReceiptSha256 -or
@@ -445,6 +522,45 @@ function Save-ExternalAnchor {
     }
 }
 
+function Save-ExternalWorkerFailureAnchor {
+    param([Parameter(Mandatory = $true)][object]$WorkerError)
+    if (-not (Test-Path -LiteralPath $AnchorOutputDirectory)) {
+        New-Item -ItemType Directory -Path $AnchorOutputDirectory -Force |
+            Out-Null
+    }
+    $resolvedOutput = (Resolve-Path $AnchorOutputDirectory).Path
+    $json = $WorkerError | ConvertTo-Json -Depth 10 -Compress
+    $bytes = [Text.UTF8Encoding]::new($false).GetBytes($json + "`n")
+    $digest = Get-BytesSha256 $bytes
+    $anchorPath = Join-Path $resolvedOutput (
+        "$RunId-default-off-configuration-worker-error-$digest.json")
+    if (Test-Path -LiteralPath $anchorPath) {
+        $existing = [IO.File]::ReadAllBytes(
+            (Resolve-Path -LiteralPath $anchorPath).Path)
+        if ((Get-BytesSha256 $existing) -ne $digest) {
+            throw 'external configuration worker failure anchor changed'
+        }
+    }
+    else {
+        $stream = [IO.File]::Open(
+            $anchorPath,
+            [IO.FileMode]::CreateNew,
+            [IO.FileAccess]::Write,
+            [IO.FileShare]::None)
+        try {
+            $stream.Write($bytes, 0, $bytes.Length)
+            $stream.Flush($true)
+        }
+        finally {
+            $stream.Dispose()
+        }
+    }
+    return [ordered]@{
+        anchorPath = $anchorPath
+        anchorSha256 = $digest
+    }
+}
+
 if (-not $RunId) {
     $RunId = New-RunId
 }
@@ -476,17 +592,29 @@ $result = Invoke-RemoteWorker -Arguments @(
     $ExpectedPredecessorConfigurationReceiptSha256
 ) -WorkerBytes $workerBytes -WorkerSha256 $workerSha
 Assert-StrictHead
-if ($Mode -eq 'Plan') {
+if ($result.schema -eq
+    'fbsir.u3wDefaultOffConfigurationWorkerError.v2') {
+    $failureAnchor = Save-ExternalWorkerFailureAnchor -WorkerError $result
+    throw (
+        "$Mode remote configuration worker failed; external evidence: " +
+        "$($failureAnchor.anchorPath) sha256 " +
+        "$($failureAnchor.anchorSha256)")
+}
+if ($Mode -in @('Plan', 'PlanTokenSecretRotation')) {
+    $isTokenRotationPlan = $Mode -eq 'PlanTokenSecretRotation'
     $isReconciliationPlan = (
+        -not $isTokenRotationPlan -and
         $ExpectedPredecessorConfigurationReceiptSha256 -ne ('0' * 64)
     )
     if (
-        $result.schema -ne $(if ($isReconciliationPlan) {
+        $result.schema -ne $(if ($isTokenRotationPlan) {
+                'fbsir.u3wDefaultOffConfigurationPlan.v3'
+            } elseif ($isReconciliationPlan) {
                 'fbsir.u3wDefaultOffConfigurationPlan.v2'
             } else {
                 'fbsir.u3wDefaultOffConfigurationPlan.v1'
             }) -or
-        $result.mode -ne 'Plan' -or
+        $result.mode -ne $Mode -or
         $result.runId -ne $RunId -or
         $result.sourceCommit -ne $ExpectedCommit -or
         $result.targetHost -ne 'api2.u3w.com' -or
@@ -497,6 +625,22 @@ if ($Mode -eq 'Plan') {
         $result.secretsDisclosed -ne $false
     ) {
         throw 'remote configuration Plan identity or safety is invalid'
+    }
+    if (
+        $isTokenRotationPlan -and (
+            $result.planPurpose -ne
+                'ROTATE_UNDERSIZED_FBSIR_TOKEN_SECRET' -or
+            $result.tokenSecretPresent -ne $true -or
+            $result.tokenSecretBelowMinimum -ne $true -or
+            $result.canonicalTokenSecretAssignment -ne $true -or
+            $result.predecessorConfigurationReceiptSha256 -ne
+                $ExpectedPredecessorConfigurationReceiptSha256 -or
+            $result.engineCounterpartClosureClaimed -ne $false -or
+            $result.api2EventKeyAlreadyProvisioned -ne $true -or
+            $result.api2EventKeyCustodySecure -ne $true
+        )
+    ) {
+        throw 'token secret rotation Plan prerequisite proof is invalid'
     }
     if (
         $isReconciliationPlan -and (
@@ -514,7 +658,11 @@ if ($Mode -eq 'Plan') {
         throw 'configuration Reconcile Plan prerequisite proof is invalid'
     }
 }
-$anchor = if ($Mode -in @('Apply', 'Recover', 'Reconcile')) {
+$anchor = if ($Mode -in @(
+        'Apply',
+        'Recover',
+        'Reconcile',
+        'RotateTokenSecret')) {
     Save-ExternalAnchor -WorkerResult $result
 } else { $null }
 

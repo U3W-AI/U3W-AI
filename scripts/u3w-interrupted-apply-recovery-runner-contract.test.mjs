@@ -220,7 +220,7 @@ test("recovery worker preflights before fixed writes and commits under locks", (
     "current_latest = validated_latest_receipt_target()",
   );
   const secondServiceRead = canonicalizer.lastIndexOf(
-    "assert_predecessor_active(release)",
+    "service_after = assert_predecessor_active(",
   );
   const secondDatabaseRead = canonicalizer.lastIndexOf(
     "exact_migration_facts(migration_lease.mysql)",
