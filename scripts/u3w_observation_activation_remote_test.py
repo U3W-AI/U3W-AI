@@ -102,8 +102,10 @@ class ObservationActivationContractTest(unittest.TestCase):
         self.assertNotIn("eventKeySha256", rendered)
         self.assertNotIn("sameBindingSecretSha256", rendered)
 
-    def test_active_ingress_requires_exact_bad_request_not_any_non_404(self):
-        self.assertTrue(MODULE.ingress_state_matches(400, True))
+    def test_active_ingress_requires_exact_method_not_allowed(self):
+        self.assertTrue(MODULE.ingress_state_matches(405, True))
+        self.assertFalse(MODULE.ingress_state_matches(200, True))
+        self.assertFalse(MODULE.ingress_state_matches(400, True))
         self.assertFalse(MODULE.ingress_state_matches(401, True))
         self.assertFalse(MODULE.ingress_state_matches(500, True))
         self.assertFalse(MODULE.ingress_state_matches(502, True))

@@ -476,7 +476,7 @@ def http_status(path, method="GET", body=None):
 
 
 def ingress_state_matches(status, expected_active):
-    return status == (400 if expected_active else 404)
+    return status == (405 if expected_active else 404)
 
 
 def wait_for_runtime(expected_active, timeout=180):
@@ -488,8 +488,7 @@ def wait_for_runtime(expected_active, timeout=180):
             captcha = http_status("/captchaImage")
             ingress = http_status(
                 "/internal/independent-board/attribution/events",
-                method="POST",
-                body=b"{}",
+                method="GET",
             )
             environment = process_environment(
                 snapshot["mainPid"]
@@ -506,7 +505,7 @@ def wait_for_runtime(expected_active, timeout=180):
             last = {
                 "service": snapshot,
                 "captchaStatus": captcha,
-                "ingressEmptyPostStatus": ingress,
+                "ingressRouteGetStatus": ingress,
                 "runtimeFlagsMatch": flags_match,
                 "ingressStateMatch": ingress_match,
             }
