@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 const runner = fs.readFileSync(
@@ -55,6 +58,35 @@ function sectionBetween(source, startMarker, endMarker) {
   assert.notEqual(end, -1, `missing section end: ${endMarker}`);
   assert.ok(end > start, `invalid section bounds: ${startMarker}`);
   return source.slice(start, end);
+}
+
+function embeddedPlanCollectorSource() {
+  const source = sectionBetween(
+    runner,
+    "function Invoke-ReadOnlyRemotePlanSnapshot {",
+    "function Invoke-Plan {",
+  );
+  const match = source.match(/\$collector = @'\r?\n([\s\S]*?)\r?\n'@/);
+  assert.ok(match, "embedded release Plan collector must be extractable");
+  return match[1];
+}
+
+function pythonExecutable() {
+  const bundledPython = path.join(
+    os.homedir(),
+    ".cache",
+    "codex-runtimes",
+    "codex-primary-runtime",
+    "dependencies",
+    "python",
+    process.platform === "win32" ? "python.exe" : "bin/python",
+  );
+  return process.env.U3W_PYTHON_EXE
+    || (fs.existsSync(bundledPython)
+      ? bundledPython
+      : process.platform === "win32"
+        ? "python.exe"
+        : "python3");
 }
 
 test("release runner exposes one explicit fail-closed state machine", () => {
@@ -796,6 +828,153 @@ test("release Plan accepts only the exact token-secret restart mismatch", () => 
     plan,
     /processPendingRestartEnvironmentNames\s*\r?\n\s*\)\.Count -eq 0/,
   );
+});
+
+test("release Plan accepts the exact v3/v2 recovery with no DB delta", () => {
+  const pythonSource = embeddedPlanCollectorSource();
+  const harness = String.raw`
+import ast
+import copy
+import json
+import re
+import sys
+
+source = sys.stdin.read()
+tree = ast.parse(source, filename="<u3w-release-plan-collector>")
+wanted = {
+    "migration_structure_matches",
+    "legacy_migration_structure_matches",
+    "interrupted_apply_terminal_failure_valid",
+    "interrupted_apply_stage_contract_valid",
+    "interrupted_recovery_database_change_valid",
+}
+selected = [
+    node for node in tree.body
+    if isinstance(node, ast.FunctionDef) and node.name in wanted
+]
+legacy_fields = {
+    "publicReceiptCount", "internalReceiptCount", "tableCount",
+    "triggerCount", "permissionCount", "eventCount",
+    "journeyCount", "schemaFingerprintSha256",
+}
+fact_fields = legacy_fields | {
+    "probeEventCount", "naturalEventCount", "nonProbeEventCount",
+    "authoritativeProductCreditCount", "probeJourneyCount",
+    "naturalJourneyCount", "nonProbeJourneyCount",
+}
+namespace = {
+    "EXPECTED_W1A_SCHEMA_FINGERPRINT": "f" * 64,
+    "LEGACY_MIGRATION_FACT_FIELDS": legacy_fields,
+    "MIGRATION_FACT_FIELDS": fact_fields,
+    "MIGRATION_DORMANT_DATA_FIELDS": fact_fields - {
+        "schemaFingerprintSha256",
+    },
+    "LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA":
+        "fbsir.u3wDefaultOffReleaseFailureReceipt.v1",
+    "APPLY_FAILURE_RECEIPT_SCHEMA":
+        "fbsir.u3wDefaultOffReleaseFailureReceipt.v2",
+    "LEGACY_DEPLOYMENT_RECEIPT_SCHEMA":
+        "fbsir.u3wW1aDeploymentReadinessReceipt.v2",
+    "DEPLOYMENT_RECEIPT_SCHEMA":
+        "fbsir.u3wW1aDeploymentReadinessReceipt.v3",
+    "SHA_PATTERN": re.compile(r"[0-9a-f]{64}"),
+}
+exec(
+    compile(
+        ast.Module(body=selected, type_ignores=[]),
+        "<u3w-release-plan-recovery-v2>",
+        "exec",
+    ),
+    namespace,
+)
+facts = {
+    "publicReceiptCount": 1,
+    "internalReceiptCount": 1,
+    "tableCount": 2,
+    "triggerCount": 2,
+    "permissionCount": 1,
+    "eventCount": 3,
+    "probeEventCount": 3,
+    "naturalEventCount": 0,
+    "nonProbeEventCount": 0,
+    "authoritativeProductCreditCount": 0,
+    "journeyCount": 1,
+    "probeJourneyCount": 1,
+    "naturalJourneyCount": 0,
+    "nonProbeJourneyCount": 0,
+    "schemaFingerprintSha256": "f" * 64,
+}
+terminal = {
+    "schema": "fbsir.u3wDefaultOffReleaseFailureReceipt.v2",
+    "state": "APPLICATION_RESTORED_DATABASE_043_RETAINED_OR_FAIL_CLOSED",
+    "releaseId": "release",
+    "sourceCommit": "a" * 40,
+    "applyApprovalReceiptSha256": "b" * 64,
+    "migrationFacts": facts,
+    "applicationStarted": True,
+    "applicationAlreadyCommitted": False,
+    "applicationRestored": True,
+    "topologyRestored": True,
+    "deploymentCommitOutcome": "NOT_COMMITTED",
+    "deploymentReceiptPath": None,
+    "deploymentReceiptSha256": None,
+    "productionServiceChangedThisRun": True,
+    "productionDatabaseChangedThisRun": False,
+    "databaseRollbackStrategy": "RETAIN_ADDITIVE_043_DORMANT_NO_DOWN",
+    "databaseDownClaimed": False,
+    "officialExpertsPackageChanged": False,
+}
+stage = {
+    "schema": "fbsir.u3wW1aDeploymentReadinessReceipt.v3",
+    "state": "STAGED_FOR_SWITCH",
+    "releaseId": "release",
+    "sourceCommit": "a" * 40,
+    "stageApprovalReceiptSha256": "c" * 64,
+    "databaseRollbackSafetyProven": True,
+    "databaseDownClaimed": False,
+    "actualActiveArtifactsMatched": False,
+    "productionDatabaseChanged": False,
+    "productionDatabaseChangedThisRun": False,
+    "productionDatabaseChangedSinceStage": False,
+    "productionServiceChanged": False,
+    "officialExpertsPackageChanged": False,
+}
+recovery = {
+    "productionDatabaseChanged": False,
+    "productionDatabaseChangedThisRecoveryRun": False,
+    "productionDatabaseChangedSinceStage": False,
+}
+validate_terminal = namespace["interrupted_apply_terminal_failure_valid"]
+validate_stage = namespace["interrupted_apply_stage_contract_valid"]
+validate_db = namespace["interrupted_recovery_database_change_valid"]
+assert validate_terminal(terminal, "release", "a" * 40) is True
+assert validate_stage(stage, "release", "a" * 40) is True
+assert validate_db(recovery, terminal) is True
+
+drifted = copy.deepcopy(terminal)
+drifted["migrationFacts"]["naturalEventCount"] = 1
+assert validate_terminal(drifted, "release", "a" * 40) is False
+drifted = copy.deepcopy(stage)
+drifted["productionDatabaseChangedSinceStage"] = True
+assert validate_stage(drifted, "release", "a" * 40) is False
+drifted = dict(recovery)
+drifted["productionDatabaseChanged"] = True
+assert validate_db(drifted, terminal) is False
+print(json.dumps({"status": "PASS"}))
+`;
+  const result = spawnSync(pythonExecutable(), ["-c", harness], {
+    input: pythonSource,
+    encoding: "utf8",
+    timeout: 15_000,
+  });
+  assert.equal(
+    result.status,
+    0,
+    `release Plan recovery v2 harness failed: ${
+      result.stderr || result.stdout
+    }`,
+  );
+  assert.deepEqual(JSON.parse(result.stdout.trim()), { status: "PASS" });
 });
 
 test("plan accepts only exact untouched, rollback or interrupted recovery predecessors", () => {

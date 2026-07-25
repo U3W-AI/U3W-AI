@@ -1404,6 +1404,68 @@ def interrupted_apply_terminal_failure_valid(
     )
 
 
+def interrupted_apply_stage_contract_valid(
+    stage,
+    release_id,
+    source_commit,
+):
+    if not isinstance(stage, dict):
+        return False
+    schema = stage.get("schema")
+    current_stage_invariants_valid = bool(
+        schema != DEPLOYMENT_RECEIPT_SCHEMA
+        or (
+            stage.get("databaseRollbackSafetyProven") is True
+            and stage.get("actualActiveArtifactsMatched") is False
+            and stage.get("productionDatabaseChangedThisRun") is False
+            and stage.get("productionDatabaseChangedSinceStage") is False
+        )
+    )
+    return bool(
+        schema in {
+            LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+            DEPLOYMENT_RECEIPT_SCHEMA,
+        }
+        and stage.get("state") == "STAGED_FOR_SWITCH"
+        and stage.get("releaseId") == release_id
+        and stage.get("sourceCommit") == source_commit
+        and re.fullmatch(
+            r"[0-9a-f]{64}",
+            str(stage.get("stageApprovalReceiptSha256") or ""),
+        ) is not None
+        and stage.get("databaseDownClaimed") is False
+        and stage.get("productionDatabaseChanged") is False
+        and stage.get("productionServiceChanged") is False
+        and stage.get("officialExpertsPackageChanged") is False
+        and current_stage_invariants_valid
+    )
+
+
+def interrupted_recovery_database_change_valid(recovery, terminal):
+    terminal_schema = terminal.get("schema")
+    expected = (
+        terminal.get("productionDatabaseChangedThisRun")
+        if terminal_schema == APPLY_FAILURE_RECEIPT_SCHEMA
+        else True
+        if terminal_schema == LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA
+        else None
+    )
+    return bool(
+        type(expected) is bool
+        and type(recovery.get("productionDatabaseChanged")) is bool
+        and recovery.get("productionDatabaseChanged") is expected
+        and recovery.get(
+            "productionDatabaseChangedThisRecoveryRun"
+        ) is False
+        and type(recovery.get(
+            "productionDatabaseChangedSinceStage"
+        )) is bool
+        and recovery.get(
+            "productionDatabaseChangedSinceStage"
+        ) is expected
+    )
+
+
 def recorded_final_default_off_current_read_valid(receipt):
     receipt_schema = receipt.get("schema")
     evidence = receipt.get("finalDefaultOffCurrentRead")
@@ -6572,16 +6634,11 @@ if deployment_receipt.is_file():
                 )
                 and stage_manifest["sha256"]
                     == recovery.get("stageReceiptSha256")
-                and stage.get("schema")
-                    == LEGACY_DEPLOYMENT_RECEIPT_SCHEMA
-                and stage.get("state") == "STAGED_FOR_SWITCH"
-                and stage.get("releaseId") == release_directory.name
-                and stage.get("sourceCommit")
-                    == recovery.get("sourceCommit")
-                and stage.get("databaseDownClaimed") is False
-                and stage.get("productionDatabaseChanged") is False
-                and stage.get("productionServiceChanged") is False
-                and stage.get("officialExpertsPackageChanged") is False
+                and interrupted_apply_stage_contract_valid(
+                    stage,
+                    release_directory.name,
+                    recovery.get("sourceCommit"),
+                )
                 and application_assembly_path == (
                     release_directory
                     / "evidence/application-rollback-assembly.json"
@@ -6717,19 +6774,10 @@ if deployment_receipt.is_file():
                 and recovery.get("allW1aFlagsExplicitFalse") is True
                 and recovery.get("databaseDownClaimed") is False
                 and recovery.get("productionFilesystemChanged") is True
-                and type(
-                    recovery.get("productionDatabaseChanged")
-                ) is bool
-                and recovery.get(
-                    "productionDatabaseChangedThisRecoveryRun"
-                ) is False
-                and type(recovery.get(
-                    "productionDatabaseChangedSinceStage"
-                )) is bool
-                and recovery.get("productionDatabaseChanged")
-                    == recovery.get(
-                        "productionDatabaseChangedSinceStage"
-                    )
+                and interrupted_recovery_database_change_valid(
+                    recovery,
+                    terminal_failure,
+                )
                 and recovery.get("productionServiceChanged") is True
                 and recovery.get(
                     "productionServiceChangedThisRecoveryRun"
@@ -7539,14 +7587,11 @@ if (
                         == anchored_recovery.get(
                             "stageReceiptSha256"
                         )
-                    and anchored_stage.get("schema")
-                        == LEGACY_DEPLOYMENT_RECEIPT_SCHEMA
-                    and anchored_stage.get("state")
-                        == "STAGED_FOR_SWITCH"
-                    and anchored_stage.get("releaseId")
-                        == anchored_recovery_release.name
-                    and anchored_stage.get("sourceCommit")
-                        == anchored_recovery.get("sourceCommit")
+                    and interrupted_apply_stage_contract_valid(
+                        anchored_stage,
+                        anchored_recovery_release.name,
+                        anchored_recovery.get("sourceCommit"),
+                    )
                     and anchored_failure_path.parent
                         == anchored_recovery_release
                     and anchored_failure_manifest["sha256"]
@@ -7658,19 +7703,9 @@ if (
                     and anchored_recovery.get(
                         "productionFilesystemChanged"
                     ) is True
-                    and type(anchored_recovery.get(
-                        "productionDatabaseChanged"
-                    )) is bool
-                    and anchored_recovery.get(
-                        "productionDatabaseChangedThisRecoveryRun"
-                    ) is False
-                    and type(anchored_recovery.get(
-                        "productionDatabaseChangedSinceStage"
-                    )) is bool
-                    and anchored_recovery.get(
-                        "productionDatabaseChanged"
-                    ) == anchored_recovery.get(
-                        "productionDatabaseChangedSinceStage"
+                    and interrupted_recovery_database_change_valid(
+                        anchored_recovery,
+                        anchored_failure,
                     )
                     and anchored_recovery.get(
                         "productionServiceChanged"

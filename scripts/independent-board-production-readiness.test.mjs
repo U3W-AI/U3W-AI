@@ -1727,6 +1727,8 @@ wanted = {
     "exact_w1a_migration_facts",
     "legacy_w1a_migration_facts",
     "interrupted_apply_terminal_failure_valid",
+    "interrupted_apply_stage_contract_valid",
+    "interrupted_recovery_database_change_valid",
 }
 selected = [
     node for node in tree.body
@@ -1738,6 +1740,10 @@ namespace = {
         "fbsir.u3wDefaultOffReleaseFailureReceipt.v1",
     "APPLY_FAILURE_RECEIPT_SCHEMA":
         "fbsir.u3wDefaultOffReleaseFailureReceipt.v2",
+    "LEGACY_DEPLOYMENT_RECEIPT_SCHEMA":
+        "fbsir.u3wW1aDeploymentReadinessReceipt.v2",
+    "DEPLOYMENT_RECEIPT_SCHEMA":
+        "fbsir.u3wW1aDeploymentReadinessReceipt.v3",
     "LEGACY_MIGRATION_FACT_FIELDS": {
         "publicReceiptCount", "internalReceiptCount", "tableCount",
         "triggerCount", "permissionCount", "eventCount",
@@ -1817,6 +1823,55 @@ legacy["migrationFacts"]["journeyCount"] = 0
 assert validate(legacy, "release", "a" * 40) is True
 legacy["migrationFacts"]["eventCount"] = 3
 assert validate(legacy, "release", "a" * 40) is False
+stage = {
+    "schema": "fbsir.u3wW1aDeploymentReadinessReceipt.v3",
+    "state": "STAGED_FOR_SWITCH",
+    "releaseId": "release",
+    "sourceCommit": "a" * 40,
+    "stageApprovalReceiptSha256": "c" * 64,
+    "databaseRollbackSafetyProven": True,
+    "databaseDownClaimed": False,
+    "actualActiveArtifactsMatched": False,
+    "productionDatabaseChanged": False,
+    "productionDatabaseChangedThisRun": False,
+    "productionDatabaseChangedSinceStage": False,
+    "productionServiceChanged": False,
+    "officialExpertsPackageChanged": False,
+}
+validate_stage = namespace["interrupted_apply_stage_contract_valid"]
+assert validate_stage(stage, "release", "a" * 40) is True
+drifted_stage = copy.deepcopy(stage)
+drifted_stage["productionDatabaseChangedSinceStage"] = True
+assert validate_stage(drifted_stage, "release", "a" * 40) is False
+legacy_stage = copy.deepcopy(stage)
+legacy_stage["schema"] = "fbsir.u3wW1aDeploymentReadinessReceipt.v2"
+for field in (
+    "databaseRollbackSafetyProven",
+    "actualActiveArtifactsMatched",
+    "productionDatabaseChangedThisRun",
+    "productionDatabaseChangedSinceStage",
+):
+    legacy_stage.pop(field)
+assert validate_stage(legacy_stage, "release", "a" * 40) is True
+validate_db = namespace["interrupted_recovery_database_change_valid"]
+recovery = {
+    "productionDatabaseChanged": False,
+    "productionDatabaseChangedThisRecoveryRun": False,
+    "productionDatabaseChangedSinceStage": False,
+}
+assert validate_db(recovery, receipt) is True
+terminal_db_changed = copy.deepcopy(receipt)
+terminal_db_changed["productionDatabaseChangedThisRun"] = True
+assert validate_db(recovery, terminal_db_changed) is False
+recovery_db_changed = copy.deepcopy(recovery)
+recovery_db_changed["productionDatabaseChanged"] = True
+recovery_db_changed["productionDatabaseChangedSinceStage"] = True
+assert validate_db(recovery_db_changed, terminal_db_changed) is True
+recovery_db_drifted = copy.deepcopy(recovery_db_changed)
+recovery_db_drifted["productionDatabaseChangedSinceStage"] = False
+assert validate_db(recovery_db_drifted, terminal_db_changed) is False
+assert validate_db(recovery_db_changed, legacy) is True
+assert validate_db(recovery, legacy) is False
 print(json.dumps({"status": "PASS"}))
 `;
   const result = spawnSync(pythonExecutable(), ["-c", harness], {

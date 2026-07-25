@@ -790,6 +790,9 @@ FORBIDDEN_OVERRIDES = {
 LEGACY_DEPLOYMENT_RECEIPT_SCHEMA = (
     "fbsir.u3wW1aDeploymentReadinessReceipt.v2"
 )
+DEPLOYMENT_RECEIPT_SCHEMA = (
+    "fbsir.u3wW1aDeploymentReadinessReceipt.v3"
+)
 LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA = (
     "fbsir.u3wDefaultOffReleaseFailureReceipt.v1"
 )
@@ -1560,6 +1563,120 @@ def legacy_migration_structure_matches(facts):
             == EXPECTED_W1A_SCHEMA_FINGERPRINT
     )
 
+def interrupted_apply_terminal_failure_valid(
+    receipt,
+    release_id,
+    source_commit,
+):
+    if not isinstance(receipt, dict):
+        return False
+    schema = receipt.get("schema")
+    facts = receipt.get("migrationFacts")
+    migration_valid = (
+        legacy_migration_structure_matches(facts)
+        and facts.get("eventCount") == 0
+        and facts.get("journeyCount") == 0
+        if schema == LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA
+        else (
+            migration_structure_matches(facts)
+            if schema == APPLY_FAILURE_RECEIPT_SCHEMA
+            else False
+        )
+    )
+    v2_change_facts_valid = bool(
+        schema != APPLY_FAILURE_RECEIPT_SCHEMA
+        or (
+            receipt.get("productionServiceChangedThisRun") is True
+            and type(
+                receipt.get("productionDatabaseChangedThisRun")
+            ) is bool
+        )
+    )
+    return bool(
+        receipt.get("state")
+            == (
+                "APPLICATION_RESTORED_DATABASE_043_"
+                "RETAINED_OR_FAIL_CLOSED"
+            )
+        and receipt.get("releaseId") == release_id
+        and receipt.get("sourceCommit") == source_commit
+        and receipt.get("applicationStarted") is True
+        and receipt.get("applicationAlreadyCommitted") is False
+        and receipt.get("applicationRestored") is True
+        and receipt.get("topologyRestored") is True
+        and receipt.get("deploymentCommitOutcome") == "NOT_COMMITTED"
+        and receipt.get("deploymentReceiptPath") is None
+        and receipt.get("deploymentReceiptSha256") is None
+        and receipt.get("databaseRollbackStrategy")
+            == "RETAIN_ADDITIVE_043_DORMANT_NO_DOWN"
+        and receipt.get("databaseDownClaimed") is False
+        and receipt.get("officialExpertsPackageChanged") is False
+        and SHA_PATTERN.fullmatch(str(
+            receipt.get("applyApprovalReceiptSha256") or ""
+        )) is not None
+        and migration_valid
+        and v2_change_facts_valid
+    )
+
+def interrupted_apply_stage_contract_valid(
+    stage,
+    release_id,
+    source_commit,
+):
+    if not isinstance(stage, dict):
+        return False
+    schema = stage.get("schema")
+    current_stage_invariants_valid = bool(
+        schema != DEPLOYMENT_RECEIPT_SCHEMA
+        or (
+            stage.get("databaseRollbackSafetyProven") is True
+            and stage.get("actualActiveArtifactsMatched") is False
+            and stage.get("productionDatabaseChangedThisRun") is False
+            and stage.get("productionDatabaseChangedSinceStage") is False
+        )
+    )
+    return bool(
+        schema in {
+            LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+            DEPLOYMENT_RECEIPT_SCHEMA,
+        }
+        and stage.get("state") == "STAGED_FOR_SWITCH"
+        and stage.get("releaseId") == release_id
+        and stage.get("sourceCommit") == source_commit
+        and SHA_PATTERN.fullmatch(str(
+            stage.get("stageApprovalReceiptSha256") or ""
+        )) is not None
+        and stage.get("databaseDownClaimed") is False
+        and stage.get("productionDatabaseChanged") is False
+        and stage.get("productionServiceChanged") is False
+        and stage.get("officialExpertsPackageChanged") is False
+        and current_stage_invariants_valid
+    )
+
+def interrupted_recovery_database_change_valid(recovery, terminal):
+    terminal_schema = terminal.get("schema")
+    expected = (
+        terminal.get("productionDatabaseChangedThisRun")
+        if terminal_schema == APPLY_FAILURE_RECEIPT_SCHEMA
+        else True
+        if terminal_schema == LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA
+        else None
+    )
+    return bool(
+        type(expected) is bool
+        and type(recovery.get("productionDatabaseChanged")) is bool
+        and recovery.get("productionDatabaseChanged") is expected
+        and recovery.get(
+            "productionDatabaseChangedThisRecoveryRun"
+        ) is False
+        and type(recovery.get(
+            "productionDatabaseChangedSinceStage"
+        )) is bool
+        and recovery.get(
+            "productionDatabaseChangedSinceStage"
+        ) is expected
+    )
+
 def interrupted_recovery_historic_anchors_valid(release, recovery):
     approval_path = release / INTERRUPTED_APPLY_RECOVERY_APPROVAL_NAME
     plan_path = release / INTERRUPTED_APPLY_RECOVERY_PLAN_NAME
@@ -1773,7 +1890,6 @@ def interrupted_recovery_predecessor_valid(
         actual_failure_manifest_sha = hashlib.sha256(
             canonical_json(actual_failure_manifest).encode("utf-8")
         ).hexdigest()
-        terminal_facts = terminal_failure.get("migrationFacts")
         if (
             not actual_failure_manifest
             or terminal_matches != 1
@@ -1791,34 +1907,11 @@ def interrupted_recovery_predecessor_valid(
                 != terminal_failure.get("schema")
             or recovery.get("applyFailureReceiptState")
                 != terminal_failure.get("state")
-            or terminal_failure.get("schema")
-                != LEGACY_APPLY_FAILURE_RECEIPT_SCHEMA
-            or terminal_failure.get("state") != (
-                "APPLICATION_RESTORED_DATABASE_043_"
-                "RETAINED_OR_FAIL_CLOSED"
+            or not interrupted_apply_terminal_failure_valid(
+                terminal_failure,
+                release.name,
+                recovery.get("sourceCommit"),
             )
-            or terminal_failure.get("releaseId") != release.name
-            or terminal_failure.get("sourceCommit")
-                != recovery.get("sourceCommit")
-            or terminal_failure.get("applicationStarted") is not True
-            or terminal_failure.get(
-                "applicationAlreadyCommitted"
-            ) is not False
-            or terminal_failure.get("applicationRestored") is not True
-            or terminal_failure.get("topologyRestored") is not True
-            or terminal_failure.get("deploymentCommitOutcome")
-                != "NOT_COMMITTED"
-            or terminal_failure.get("deploymentReceiptPath") is not None
-            or terminal_failure.get("deploymentReceiptSha256") is not None
-            or terminal_failure.get("databaseRollbackStrategy")
-                != "RETAIN_ADDITIVE_043_DORMANT_NO_DOWN"
-            or terminal_failure.get("databaseDownClaimed") is not False
-            or not legacy_migration_structure_matches(terminal_facts)
-            or terminal_facts.get("eventCount") != 0
-            or terminal_facts.get("journeyCount") != 0
-            or terminal_failure.get(
-                "officialExpertsPackageChanged"
-            ) is not False
         ):
             return False
 
@@ -1871,19 +1964,11 @@ def interrupted_recovery_predecessor_valid(
                 == release / "deployment-readiness-receipt.json"
             and stage_manifest["sha256"]
                 == recovery.get("stageReceiptSha256")
-            and stage.get("schema")
-                == LEGACY_DEPLOYMENT_RECEIPT_SCHEMA
-            and stage.get("state") == "STAGED_FOR_SWITCH"
-            and stage.get("releaseId") == release.name
-            and stage.get("sourceCommit")
-                == recovery.get("sourceCommit")
-            and SHA_PATTERN.fullmatch(str(
-                stage.get("stageApprovalReceiptSha256") or ""
-            )) is not None
-            and stage.get("databaseDownClaimed") is False
-            and stage.get("productionDatabaseChanged") is False
-            and stage.get("productionServiceChanged") is False
-            and stage.get("officialExpertsPackageChanged") is False
+            and interrupted_apply_stage_contract_valid(
+                stage,
+                release.name,
+                recovery.get("sourceCommit"),
+            )
             and application_assembly_path
                 == release / "evidence/application-rollback-assembly.json"
             and application_assembly_manifest["sha256"]
@@ -1947,13 +2032,10 @@ def interrupted_recovery_predecessor_valid(
             and recovery.get("allW1aFlagsExplicitFalse") is True
             and recovery.get("databaseDownClaimed") is False
             and recovery.get("productionFilesystemChanged") is True
-            and recovery.get("productionDatabaseChanged") is True
-            and recovery.get(
-                "productionDatabaseChangedThisRecoveryRun"
-            ) is False
-            and recovery.get(
-                "productionDatabaseChangedSinceStage"
-            ) is True
+            and interrupted_recovery_database_change_valid(
+                recovery,
+                terminal_failure,
+            )
             and recovery.get("productionServiceChanged") is True
             and recovery.get(
                 "productionServiceChangedThisRecoveryRun"
