@@ -85,6 +85,75 @@ class StagedReleaseRecoveryContractTest(unittest.TestCase):
             worker_sha="2" * 64,
         )
 
+    def prior_recovery(self, *, service_changed=True):
+        return {
+            "schema":
+                "fbsir.u3wDefaultOffInterruptedApplyRecoveryReceipt.v1",
+            "state":
+                "INTERRUPTED_APPLY_RECOVERED_APPLICATION_"
+                "DATABASE_043_RETAINED_DORMANT",
+            "releaseId":
+                "w1a-release-41bbd4fe4c6f-20260724T220633Z",
+            "sourceCommit": "4" * 40,
+            "applicationRestored": True,
+            "topologyRestored": True,
+            "deploymentCommitOutcome": "NOT_COMMITTED",
+            "deploymentReceiptAbsent": True,
+            "rollbackReceiptAbsent": True,
+            "currentLinkAbsent": True,
+            "releaseDropInMatched": True,
+            "allW1aFlagsExplicitFalse": True,
+            "databaseDownClaimed": False,
+            "productionDatabaseChanged": False,
+            "productionDatabaseChangedThisRecoveryRun": False,
+            "productionDatabaseChangedSinceStage": False,
+            "productionServiceChanged": service_changed,
+            "productionServiceChangedThisRecoveryRun": False,
+            "productionServiceChangedSinceStage": service_changed,
+            "officialExpertsPackageChanged": False,
+        }
+
+    def validate_prior_recovery(self, document):
+        release_id = document["releaseId"]
+        receipt = (
+            self.recovery.RELEASE_ROOT
+            / release_id
+            / "interrupted-apply-recovery-receipt.json"
+        )
+        expected_sha = "c" * 64
+        app = {
+            "priorRecoveryAnchor": {
+                "schema":
+                    "fbsir.u3wPriorInterruptedApplyRecoveryStageAnchor.v1",
+                "receiptSchema": document["schema"],
+                "receiptSha256": expected_sha,
+                "releaseId": release_id,
+                "sourceCommit": document["sourceCommit"],
+                "state": document["state"],
+                "receiptPath": str(receipt),
+            }
+        }
+        with (
+            mock.patch.object(
+                self.recovery,
+                "validate_regular_file",
+                return_value=receipt,
+            ),
+            mock.patch.object(
+                self.recovery,
+                "sha256_file",
+                return_value=expected_sha,
+            ),
+            mock.patch.object(
+                self.recovery,
+                "read_json",
+                return_value=document,
+            ),
+        ):
+            return self.recovery.validate_prior_recovery(
+                app, expected_sha
+            )
+
     def test_exact_reconcile_approval_is_accepted(self):
         approval = self.approval()
         raw = canonical_bytes(approval)
@@ -183,6 +252,34 @@ class StagedReleaseRecoveryContractTest(unittest.TestCase):
                 target_release_id=stage["releaseId"],
                 target_source_commit=stage["sourceCommit"],
             )
+
+    def test_prior_recovery_accepts_historical_service_change_only(self):
+        document = self.prior_recovery(service_changed=True)
+        receipt = self.validate_prior_recovery(document)
+        self.assertEqual(
+            receipt,
+            self.recovery.RELEASE_ROOT
+            / document["releaseId"]
+            / "interrupted-apply-recovery-receipt.json",
+        )
+
+    def test_prior_recovery_rejects_service_change_in_recovery_run(self):
+        document = self.prior_recovery(service_changed=True)
+        document["productionServiceChangedThisRecoveryRun"] = True
+        with self.assertRaisesRegex(RuntimeError, "identity"):
+            self.validate_prior_recovery(document)
+
+    def test_prior_recovery_rejects_inconsistent_service_aggregate(self):
+        document = self.prior_recovery(service_changed=False)
+        document["productionServiceChangedSinceStage"] = True
+        with self.assertRaisesRegex(RuntimeError, "identity"):
+            self.validate_prior_recovery(document)
+
+    def test_prior_recovery_rejects_numeric_service_since_stage(self):
+        document = self.prior_recovery(service_changed=True)
+        document["productionServiceChangedSinceStage"] = 1
+        with self.assertRaisesRegex(RuntimeError, "identity"):
+            self.validate_prior_recovery(document)
 
     def test_lexical_latest_target_preserves_dangling_stage_cas(self):
         original = self.recovery.LATEST_RECEIPT

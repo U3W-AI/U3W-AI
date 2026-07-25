@@ -554,8 +554,29 @@ def validate_prior_recovery(app, expected_sha256):
         or document.get("state") != PRIOR_RECOVERY_STATE
         or document.get("releaseId") != anchor.get("releaseId")
         or document.get("sourceCommit") != anchor.get("sourceCommit")
+        or document.get("applicationRestored") is not True
+        or document.get("topologyRestored") is not True
+        or document.get("deploymentCommitOutcome") != "NOT_COMMITTED"
+        or document.get("deploymentReceiptAbsent") is not True
+        or document.get("rollbackReceiptAbsent") is not True
+        or document.get("currentLinkAbsent") is not True
+        or document.get("releaseDropInMatched") is not True
+        or document.get("allW1aFlagsExplicitFalse") is not True
+        or document.get("databaseDownClaimed") is not False
         or document.get("productionDatabaseChanged") is not False
-        or document.get("productionServiceChanged") is not False
+        or document.get(
+            "productionDatabaseChangedThisRecoveryRun"
+        ) is not False
+        or document.get("productionDatabaseChangedSinceStage")
+            is not False
+        or type(document.get("productionServiceChanged")) is not bool
+        or document.get(
+            "productionServiceChangedThisRecoveryRun"
+        ) is not False
+        or type(document.get("productionServiceChangedSinceStage"))
+            is not bool
+        or document.get("productionServiceChangedSinceStage")
+            != document.get("productionServiceChanged")
         or document.get("officialExpertsPackageChanged") is not False
     ):
         raise RuntimeError("prior recovery receipt identity drifted")
