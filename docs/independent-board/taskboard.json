@@ -41,7 +41,9 @@
         "embeddedContractVersion": "26.7.20"
       },
       "u3wCandidateCommit": "be231f229b316472864d40704e66cb0b34ce7e19",
-      "currentObservationReport": "reports/independent-board/w1a-current-observation-20260725T1525Z.json",
+      "currentObservationReport": "reports/independent-board/w1a-current-observation-20260725T2328Z.json",
+      "crossServiceSignalAudit": "reports/independent-board/w1a-cross-service-signal-audit-20260725T2328Z.json",
+      "api2LiveSignalCapture": "reports/independent-board/api2-live-signal-capture-20260725T2328Z.json",
       "currentObservationVerifier": "scripts/verify-w1a-current-observation.ps1",
       "currentObservationStatusMemo": "docs/independent-board/W1-CURRENT-OBSERVATION-STATUS-20260725.md",
       "naturalChain": [
@@ -67,6 +69,9 @@
         "api2_publisher_health_zero_outbox_and_exact_official_identity_verified",
         "api2_active_release_critical_byte_identity_readback_verified",
         "u3w_candidate_be231f22_committed_locking_replay_reread_tested_not_deployed",
+        "api2_runtime_collector_claim_records_same_binding_three_stage_diagnostic_but_is_synthetic_untrusted_and_record_only",
+        "cross_service_audit_records_collector_claimed_api2_digest_differs_from_u3w_probe_digest_not_cross_service_proof",
+        "api2_public_http_raw_bodies_and_runtime_state_sha_captured_with_runtime_projection_record_only",
         "api2_strict_head_production_release_dry_run_verified_without_state_change",
         "u3w_live_read_only_production_readiness_three_stage_gate_and_twenty_two_rule_vectors_verified",
         "unsafe_self_attested_legacy_baseline_runner_removed_after_independent_review",

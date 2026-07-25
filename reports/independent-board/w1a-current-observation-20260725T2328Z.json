@@ -1,0 +1,262 @@
+{
+  "schema": "fbsir.independentBoardW1aCurrentObservation.v1",
+  "observedAt": "2026-07-25T23:28:06.386955Z",
+  "authorization": "read_only_production_and_repo_facts",
+  "officialIdentity": {
+    "productId": "fbsir-eight-seat-board",
+    "agentName": "board-convener",
+    "marketplace": "experts",
+    "listedManifestVersion": "26.7.21",
+    "embeddedContractVersion": "26.7.20",
+    "baselineZipSha256": "57443e8fbcbcd2620736bce35edccc8001e578918e13ee6521f618d983348510",
+    "packageFrozen": true
+  },
+  "u3w": {
+    "readAt": "2026-07-25T22:50:00Z",
+    "serviceUnit": "fbsir-admin.service",
+    "serviceState": "active",
+    "releaseId": "w1a-release-13c203a5c42d-20260725T040706Z",
+    "deployedSourceCommit": "13c203a5c42d8a8f977be8a9834c2ad147b62bb8",
+    "candidateSourceCommit": "be231f229b316472864d40704e66cb0b34ce7e19",
+    "jarSha256": "5b3582e2e4f97ab8a09845a1b6940e334cb2452a2c1970a01aeaf40dd1cc5cc1",
+    "observationFlags": {
+      "writer": true,
+      "intentClassifier": true,
+      "adminRead": true,
+      "productCredit": false,
+      "publicRoute": false
+    },
+    "ledger": {
+      "journeyCount": 1,
+      "eventCount": 3,
+      "naturalJourneyCount": 0,
+      "naturalEventCount": 0,
+      "diagnosticJourneyCount": 0,
+      "diagnosticEventCount": 0,
+      "syntheticJourneyCount": 0,
+      "syntheticEventCount": 0,
+      "probeJourneyCount": 1,
+      "probeEventCount": 3,
+      "sequence": [
+        "ENTRY_OBSERVED",
+        "INTENT_CLASSIFIED",
+        "FIRST_VALUE_COMPLETED"
+      ],
+      "trafficAuthority": "API2_SERVER_CLASSIFIER_V1",
+      "intentTransition": "UNKNOWN_TO_OPERATING_DIAGNOSIS",
+      "outcome": "SUCCESS",
+      "bindingDigestSha256Prefix": "805035bcaee902b1"
+    },
+    "adminReadback": {
+      "summaryRoute": "available_but_unauthenticated_read_returns_401_no_store",
+      "ingressGetProbe": "transport_200_body_code500_method_not_supported",
+      "realPostAppendObserved": false
+    },
+    "logSignals": {
+      "recentOfficialIdentityMismatch": true,
+      "officialIdentityMismatchCount": 2,
+      "officialIdentityMismatchAt": [
+        "2026-07-25T19:19:59+08:00",
+        "2026-07-25T19:20:26+08:00"
+      ],
+      "successfulPostAppendOrReceiptObserved": false,
+      "recentProbe": "GET /internal/independent-board/attribution/events",
+      "currentReleaseStartupError": false
+    },
+    "evidencePath": "reports/independent-board/w1a-current-observation-20260725T2250Z.json",
+    "freshnessNote": "The U3W service, database and log read ended at 22:50:00Z. The API2 public HTTP capture and runtime-state digest scan ended at 23:28:06Z. They are separate read-only windows and do not prove a cross-layer join."
+  },
+  "api2": {
+    "healthHttpStatus": 200,
+    "readAt": "2026-07-25T23:27:29.264Z",
+    "releaseId": "20260725-181736",
+    "sourceGitHead": "74aed6fe95826bc4b55cde5042994d28bac4ba91",
+    "activeReleaseByteProof": {
+      "criticalFileCount": 1279,
+      "packageManifestSha256": "683865a7134cd5b9fe3b80d9fef033461606407e7337076e51719a90b77a7351",
+      "criticalDeploySnapshotSha256": "921001a0ffa1a41d17763f75f642135a43db44377403f8ab72b464cab1e8886b",
+      "candidateCriticalSetRecomputedEqual": true,
+      "controlPlaneScriptCommitIncluded": false
+    },
+    "publisher": {
+      "status": "ready",
+      "enabled": true,
+      "initialized": true,
+      "workerRunning": true,
+      "exactOfficialIdentityConfigured": true,
+      "signingKeyConfigured": true,
+      "strictOutboxDurabilityConfirmed": false,
+      "pendingRecords": 0,
+      "inflightRecords": 0,
+      "deliveredRecords": 0,
+      "deadRecords": 0,
+      "blockedRecords": 0,
+      "lastSuccessAt": null,
+      "productCreditPromoted": false,
+      "outboxFileExists": false
+    },
+    "hostListingReceipt": {
+      "status": "not_ready",
+      "keyringConfigured": false,
+      "registryConfigured": false,
+      "registeredPackageCount": 0,
+      "productCreditEligible": false
+    },
+    "hostForwardingAck": {
+      "status": "observe_only_not_ready",
+      "enforcementMode": "observe_only",
+      "productionReadyFlag": false,
+      "keyringConfigured": false,
+      "challengeJoinEnabled": false,
+      "repositoryProductionReady": true,
+      "repositoryDurable": true,
+      "publicChallengeRoute": false
+    },
+    "runtime": {
+      "eventCount": 51778,
+      "updatedAt": "2026-07-25T23:25:02.256Z"
+    },
+    "independentBoardDiagnosticSignal": {
+      "observed": false,
+      "collectorClaimRecorded": true,
+      "authority": "collector_claim_record_only",
+      "readAt": "2026-07-25T23:28:06.386955Z",
+      "observedFrom": "2026-07-25T12:43:55.660Z",
+      "observedTo": "2026-07-25T12:45:15.741Z",
+      "sequence": [
+        "WHOAMI_EMITTED",
+        "SCENE_PACK_RESOLVED",
+        "FIRST_VALUE_COMPLETED"
+      ],
+      "bindingDigestSha256Prefix": "1bbf264503f95caa",
+      "traceDigestSha256Prefix": "f6dbad91aa32d9c9",
+      "requestSource": "workbuddy",
+      "trafficClass": "DIAGNOSTIC",
+      "isSynthetic": true,
+      "effectiveEvidenceClass": "SYNTHETIC",
+      "productId": "fbsir-eight-seat-board",
+      "productIdSource": "tool_argument_untrusted",
+      "packageVersion": "26.7.2",
+      "packageVersionSources": [
+        "client_or_route_claim_untrusted",
+        "transport_package_version_header_untrusted"
+      ],
+      "serviceProductId": null,
+      "packageName": null,
+      "expertEntryId": null,
+      "entrySurface": "unknown_surface",
+      "exactOfficialIdentityComplete": false,
+      "officialEntryMarkerCount": 0,
+      "officialChannelMarkerCount": 0,
+      "boardConvenerMarkerCount": 0,
+      "productCreditEligible": false
+    },
+    "immutableCapture": {
+      "path": "reports/independent-board/api2-live-signal-capture-20260725T2328Z.json",
+      "sha256": "c77247d1ea0d3ee72ee38dc0531d715bec015975814866c331e9520e02be2230",
+      "healthRawBodySha256": "6852c8976079041fe6ad09642822373690974e9714c2bf5191395d141a4d73b1",
+      "decisionBoardRawBodySha256": "4eb512ac8a7a6e86f1531132f1ef398921c0ae1cfe97d6538b0bb848eeba7a7d",
+      "runtimeStateSha256": "b19ae15501419bef6b2af2fbb0086fde8b31b2dd0a0fc434d5bf043aedd6ca23",
+      "runtimeStateProjectionAuthority": "collector_claim_record_only",
+      "runtimeStateProjectionDerivationProofStored": false,
+      "decisionBoardCutoffAt": "2026-07-25T23:27:29.845Z",
+      "decisionBoardWindowStart24h": "2026-07-24T23:27:29.845Z",
+      "decisionBoardWindowEnd24h": "2026-07-25T23:27:29.845Z"
+    }
+  },
+  "decisionBoard": {
+    "generatedAt": "2026-07-25T23:27:29.845Z",
+    "status": "decision_withheld_no_trusted_natural_denominator",
+    "sourceSnapshot": {
+      "rowCount": 558,
+      "mixedReleaseRowCount": 299,
+      "transportCoverageHours": 0,
+      "crossLayerJoinRate": 0,
+      "retentionComplete": false,
+      "authority": "derived_unverified"
+    },
+    "window15m": {
+      "rowCount": 3,
+      "natural": 0,
+      "unknown": 0,
+      "diagnostic": 0,
+      "probe": 0,
+      "synthetic": 3,
+      "eligibleNaturalSampleCount": 0,
+      "productCreditAllowed": false
+    },
+    "window1h": {
+      "rowCount": 16,
+      "natural": 0,
+      "unknown": 4,
+      "diagnostic": 0,
+      "probe": 0,
+      "synthetic": 12,
+      "eligibleNaturalSampleCount": 0,
+      "productCreditAllowed": false
+    },
+    "window24h": {
+      "rowCount": 558,
+      "natural": 0,
+      "unknown": 251,
+      "diagnostic": 0,
+      "probe": 2,
+      "synthetic": 305,
+      "eligibleNaturalSampleCount": 0,
+      "productCreditAllowed": false
+    },
+    "dataQuality": {
+      "status": "blocked",
+      "crossLayerJoinRate": 0,
+      "classificationAuthorityCoverage": 0,
+      "coreAttributionFieldCoverage": 0.6821,
+      "transportCoverageHours": 0,
+      "retentionComplete": false,
+      "mixedReleaseRowCount": 299,
+      "trustedNaturalDenominator": false
+    }
+  },
+  "connector": {
+    "lastVerifiedReadAt": "2026-07-25T15:25:00.304Z",
+    "freshness": "historical_boundary_not_refreshed_in_this_read",
+    "accessRowCount": 240,
+    "classification": "unknown",
+    "observedBinding": "fbsir-super-partner-group@1.3.0",
+    "boardBindingObserved": false
+  },
+  "crossServiceJoin": {
+    "api2DiagnosticBindingDigestSha256Prefix": "1bbf264503f95caa",
+    "u3wProbeBindingDigestSha256Prefix": "805035bcaee902b1",
+    "collectorClaimMatchesU3wProbeBinding": false,
+    "sameBindingProven": false,
+    "differentBindingProven": false,
+    "publisherDeliveredRecords": 0,
+    "u3wSuccessfulPostAppendOrReceiptObserved": false,
+    "status": "not_proven_record_only_collector_claim"
+  },
+  "proves": [
+    "api2_active_release_critical_byte_identity_readback",
+    "api2_publisher_health_and_zero_outbox_backlog",
+    "api2_public_http_raw_bodies_and_runtime_state_sha_captured_projection_record_only",
+    "api2_decision_board_current_24h_natural_zero_and_credit_withheld",
+    "u3w_observation_writer_classifier_admin_read_active",
+    "u3w_probe_chain_persisted_with_natural_zero",
+    "official_package_identity_and_freeze_unchanged"
+  ],
+  "recordOnlyCollectorClaims": [
+    "api2_independent_board_diagnostic_three_stage_claim_recorded_and_synthetic_quarantined",
+    "collector_claimed_api2_binding_digest_differs_from_u3w_probe_digest_not_cross_service_proof"
+  ],
+  "notProven": [
+    "diagnostic_chain_came_from_the_users_latest_official_entry_interaction",
+    "runtime_state_projection_independently_derived_from_the_captured_sha",
+    "host_signed_exact_listed_receipt",
+    "trusted_forwarding_authority",
+    "real_official_entry_same_binding_chain",
+    "natural_intent_distribution",
+    "admin_natural_six_dimension_readback",
+    "product_credit_or_public_route",
+    "u3w_candidate_be231_production_deployment"
+  ],
+  "singleNextAction": "At API2 ingress, obtain and verify one host-signed listed-product context for experts/fbsir-eight-seat-board@26.7.21 with board-convener on one serverBindingId, then repeat one official WorkBuddy interaction and require publisher delivery plus U3W three-event readback on that same binding."
+}

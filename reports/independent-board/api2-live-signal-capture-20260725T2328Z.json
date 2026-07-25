@@ -1,0 +1,162 @@
+{
+  "schema": "fbsir.api2IndependentBoardLiveSignalCapture.v1",
+  "capturedAt": "2026-07-25T23:28:06.386955Z",
+  "authorization": "read_only_production_capture",
+  "httpCaptures": {
+    "health": {
+      "url": "https://api2.u3w.com/api/fbss/health",
+      "httpStatus": 200,
+      "responseDate": "Sat, 25 Jul 2026 23:27:29 GMT",
+      "contentType": "application/json; charset=utf-8",
+      "cacheControl": "no-store",
+      "rawBodyBytes": 4516,
+      "rawBodySha256": "6852c8976079041fe6ad09642822373690974e9714c2bf5191395d141a4d73b1",
+      "storedBodyEncoding": "gzip+base64",
+      "storedBodyBytes": 1578,
+      "storedBodySha256": "425e7358648fb75c7761108b4f0c2de1dba3ad28769014281101696e2c17aecd",
+      "storedBodyBase64": "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"
+    },
+    "decisionBoard": {
+      "url": "https://api2.u3w.com/api/fbss/v1/attribution/decision-board",
+      "httpStatus": 200,
+      "responseDate": "Sat, 25 Jul 2026 23:27:29 GMT",
+      "contentType": "application/json; charset=utf-8",
+      "cacheControl": "no-store",
+      "rawBodyBytes": 20835,
+      "rawBodySha256": "4eb512ac8a7a6e86f1531132f1ef398921c0ae1cfe97d6538b0bb848eeba7a7d",
+      "storedBodyEncoding": "gzip+base64",
+      "storedBodyBytes": 3204,
+      "storedBodySha256": "40130defbbd0bf4c2fcf3f0625bf3ba0066d42fd86fc506d8c7d3bfe0830b5e4",
+      "storedBodyBase64": "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"
+    }
+  },
+  "runtimeStateCapture": {
+    "readStartedAt": "2026-07-25T23:28:04.817280Z",
+    "readCompletedAt": "2026-07-25T23:28:06.386955Z",
+    "path": "/var/lib/fbss-phase1/runtime-state.json",
+    "bytes": 217613522,
+    "mtime": "2026-07-25T23:27:49.439167Z",
+    "sha256": "b19ae15501419bef6b2af2fbb0086fde8b31b2dd0a0fc434d5bf043aedd6ca23",
+    "projectionAuthority": "collector_claim_record_only",
+    "derivationProof": {
+      "status": "not_captured",
+      "collectorDigest": null,
+      "targetSignedReceipt": null,
+      "limitation": "The redacted projection and whole-file SHA-256 were recorded in the same interactive SSH read, but no reproducible collector digest, target-side signed receipt or inclusion proof was captured. The projection is record-only and is not independently derivable from the stored digest."
+    },
+    "markerCounts": {
+      "productId": 9,
+      "expertEntryIdBoardConvener": 0,
+      "agentNameBoardConvener": 0,
+      "officialRequestSource": 0,
+      "officialChannel": 0
+    },
+    "uniqueDiagnosticStages": [
+      {
+        "createdAt": "2026-07-25T12:43:55.660Z",
+        "eventType": "whoami_emitted",
+        "requestSource": "workbuddy",
+        "trafficClass": "diagnostic",
+        "isSynthetic": true,
+        "productIdSource": "tool_argument_untrusted",
+        "packageVersion": "26.7.2",
+        "packageVersionSource": "client_or_route_claim_untrusted",
+        "serviceProductId": null,
+        "packageName": null,
+        "expertEntryId": null,
+        "entrySurface": "unknown_surface",
+        "serverBindingIdDigest": "1bbf264503f95caa",
+        "traceIdDigest": "f6dbad91aa32d9c9"
+      },
+      {
+        "createdAt": "2026-07-25T12:44:26.794Z",
+        "eventType": "scene_pack_resolved",
+        "requestSource": "workbuddy",
+        "trafficClass": "diagnostic",
+        "isSynthetic": true,
+        "productIdSource": "tool_argument_untrusted",
+        "packageVersion": "26.7.2",
+        "packageVersionSource": "client_or_route_claim_untrusted",
+        "serviceProductId": null,
+        "packageName": null,
+        "expertEntryId": null,
+        "entrySurface": "unknown_surface",
+        "serverBindingIdDigest": "1bbf264503f95caa",
+        "traceIdDigest": "f6dbad91aa32d9c9"
+      },
+      {
+        "createdAt": "2026-07-25T12:45:15.741Z",
+        "eventType": "first_value_completed",
+        "requestSource": "workbuddy",
+        "trafficClass": "diagnostic",
+        "isSynthetic": true,
+        "productIdSource": "tool_argument_untrusted",
+        "packageVersion": "26.7.2",
+        "packageVersionSource": "transport_package_version_header_untrusted",
+        "serviceProductId": null,
+        "packageName": null,
+        "expertEntryId": null,
+        "entrySurface": "unknown_surface",
+        "serverBindingIdDigest": "1bbf264503f95caa",
+        "traceIdDigest": "f6dbad91aa32d9c9"
+      }
+    ],
+    "outboxPath": "/var/lib/fbss-phase1/independent-board-attribution-outbox.json",
+    "outboxExists": false
+  },
+  "selectedProjection": {
+    "api2ReleaseId": "20260725-181736",
+    "api2SourceGitHead": "74aed6fe95826bc4b55cde5042994d28bac4ba91",
+    "publisherStatus": "ready",
+    "publisherDeliveredRecords": 0,
+    "hostListingReceiptStatus": "not_ready",
+    "hostForwardingAckStatus": "observe_only_not_ready",
+    "decisionBoardGeneratedAt": "2026-07-25T23:27:29.845Z",
+    "decisionBoardCutoffAt": "2026-07-25T23:27:29.845Z",
+    "decisionBoardWindowStart24h": "2026-07-24T23:27:29.845Z",
+    "decisionBoardWindowEnd24h": "2026-07-25T23:27:29.845Z",
+    "sourceSnapshotId": "derived-sha256:04e5c51fe186aeffeefeee9d96057777b19e784ada9945291485ffa60a487e31",
+    "sourceSnapshotAuthority": "derived_unverified",
+    "sourceRowCount": 558,
+    "mixedReleaseRowCount": 299,
+    "transportCoverageHours": 0,
+    "crossLayerJoinRate": 0,
+    "retentionComplete": false,
+    "classificationAuthorityCoverage": 0,
+    "coreAttributionFieldCoverage": 0.6821,
+    "window15m": {
+      "rows": 3,
+      "natural": 0,
+      "unknown": 0,
+      "diagnostic": 0,
+      "probe": 0,
+      "synthetic": 3
+    },
+    "window1h": {
+      "rows": 16,
+      "natural": 0,
+      "unknown": 4,
+      "diagnostic": 0,
+      "probe": 0,
+      "synthetic": 12
+    },
+    "window24h": {
+      "rows": 558,
+      "natural": 0,
+      "unknown": 251,
+      "diagnostic": 0,
+      "probe": 2,
+      "synthetic": 305
+    }
+  },
+  "captureBoundary": {
+    "publicHttpBodiesStoredLosslessly": true,
+    "runtimeStateBodyStored": false,
+    "runtimeStateBodyReason": "production_state_minimization",
+    "runtimeStateWholeFileSha256Stored": true,
+    "runtimeStateProjectionAuthority": "collector_claim_record_only",
+    "runtimeStateProjectionDerivationProofStored": false,
+    "rawIdentityValuesStored": false,
+    "productCreditAllowed": false
+  }
+}

@@ -1,0 +1,233 @@
+{
+  "schema": "fbsir.independentBoardCrossServiceSignalAudit.v1",
+  "observedAt": "2026-07-25T23:28:06.386955Z",
+  "authorization": "read_only_production_and_repo_facts",
+  "targetSurface": {
+    "listedSurface": "listed_runtime_state",
+    "trafficSurface": "production_service_traffic",
+    "officialEntry": "WorkBuddy experts/fbsir-eight-seat-board@26.7.21",
+    "packageFrozen": true
+  },
+  "officialIdentity": {
+    "productId": "fbsir-eight-seat-board",
+    "serviceProductId": "fbsir-eight-seat-board",
+    "packageName": "fbsir-eight-seat-board",
+    "expertEntryId": "board-convener",
+    "marketplace": "experts",
+    "listedManifestVersion": "26.7.21",
+    "embeddedContractVersion": "26.7.20",
+    "channel": "OFFICIAL_EXPERTS",
+    "requestSource": "WORKBUDDY_OFFICIAL_ENTRY"
+  },
+  "u3wAttributionService": {
+    "evidencePath": "reports/independent-board/w1a-current-observation-20260725T2250Z.json",
+    "evidenceCommit": "3b482c7b67be22086f873225ef2be324dbd1c4f5",
+    "lastReadAt": "2026-07-25T22:50:00Z",
+    "serviceState": "active",
+    "releaseId": "w1a-release-13c203a5c42d-20260725T040706Z",
+    "deployedSourceCommit": "13c203a5c42d8a8f977be8a9834c2ad147b62bb8",
+    "ledger": {
+      "journeyCount": 1,
+      "eventCount": 3,
+      "natural": 0,
+      "probe": 3,
+      "diagnostic": 0,
+      "synthetic": 0,
+      "eventSequence": [
+        "ENTRY_OBSERVED",
+        "INTENT_CLASSIFIED",
+        "FIRST_VALUE_COMPLETED"
+      ],
+      "trafficAuthority": "API2_SERVER_CLASSIFIER_V1",
+      "productCredit": false,
+      "bindingDigestSha256Prefix": "805035bcaee902b1"
+    },
+    "recentLogs": {
+      "officialIdentityMismatchCount": 2,
+      "officialIdentityMismatchAt": [
+        "2026-07-25T19:19:59+08:00",
+        "2026-07-25T19:20:26+08:00"
+      ],
+      "successfulPostAppendOrReceiptObserved": false
+    }
+  },
+  "api2Service": {
+    "healthReadAt": "2026-07-25T23:27:29.264Z",
+    "healthHttpStatus": 200,
+    "release": {
+      "releaseId": "20260725-181736",
+      "sourceGitHead": "74aed6fe95826bc4b55cde5042994d28bac4ba91",
+      "packageManifestSha256": "683865A7134CD5B9FE3B80D9FEF033461606407E7337076E51719A90B77A7351",
+      "criticalDeploySnapshotSha256": "921001A0FFA1A41D17763F75F642135A43DB44377403F8AB72B464CAB1E8886B"
+    },
+    "publisher": {
+      "status": "ready",
+      "enabled": true,
+      "workerRunning": true,
+      "exactOfficialIdentityConfigured": true,
+      "signingKeyConfigured": true,
+      "strictOutboxDurabilityConfirmed": false,
+      "pendingRecords": 0,
+      "inflightRecords": 0,
+      "deliveredRecords": 0,
+      "deadRecords": 0,
+      "blockedRecords": 0,
+      "lastSuccessAt": null,
+      "productCreditPromoted": false,
+      "outboxFileExists": false
+    },
+    "hostListingReceipt": {
+      "status": "not_ready",
+      "keyringConfigured": false,
+      "registryConfigured": false,
+      "registeredPackageCount": 0,
+      "productCreditEligible": false
+    },
+    "hostForwardingAck": {
+      "status": "observe_only_not_ready",
+      "enforcementMode": "observe_only",
+      "keyringConfigured": false,
+      "challengeJoinEnabled": false,
+      "productionReadyFlag": false,
+      "repositoryProductionReady": true,
+      "repositoryDurable": true,
+      "publicChallengeRoute": false
+    },
+    "decisionBoard": {
+      "generatedAt": "2026-07-25T23:27:29.845Z",
+      "status": "decision_withheld_no_trusted_natural_denominator",
+      "sourceRowCount": 558,
+      "mixedReleaseRowCount": 299,
+      "transportCoverageHours": 0,
+      "crossLayerJoinRate": 0,
+      "retentionComplete": false,
+      "classificationAuthorityCoverage": 0,
+      "coreAttributionFieldCoverage": 0.6821,
+      "windows": {
+        "15m": {
+          "rows": 3,
+          "natural": 0,
+          "unknown": 0,
+          "diagnostic": 0,
+          "probe": 0,
+          "synthetic": 3,
+          "eligibleNatural": 0
+        },
+        "1h": {
+          "rows": 16,
+          "natural": 0,
+          "unknown": 4,
+          "diagnostic": 0,
+          "probe": 0,
+          "synthetic": 12,
+          "eligibleNatural": 0
+        },
+        "24h": {
+          "rows": 558,
+          "natural": 0,
+          "unknown": 251,
+          "diagnostic": 0,
+          "probe": 2,
+          "synthetic": 305,
+          "eligibleNatural": 0
+        }
+      }
+    },
+    "runtimeMarkerScan": {
+      "readAt": "2026-07-25T23:28:06.386955Z",
+      "runtimeStateSha256": "b19ae15501419bef6b2af2fbb0086fde8b31b2dd0a0fc434d5bf043aedd6ca23",
+      "projectionAuthority": "collector_claim_record_only",
+      "projectionDerivationProofStored": false,
+      "productIdMarkerCount": 9,
+      "expertEntryIdBoardConvenerCount": 0,
+      "agentNameBoardConvenerCount": 0,
+      "officialRequestSourceCount": 0,
+      "officialChannelCount": 0,
+      "uniqueDiagnosticChain": {
+        "bindingDigestSha256Prefix": "1bbf264503f95caa",
+        "traceDigestSha256Prefix": "f6dbad91aa32d9c9",
+        "events": [
+          {
+            "createdAt": "2026-07-25T12:43:55.660Z",
+            "eventType": "whoami_emitted"
+          },
+          {
+            "createdAt": "2026-07-25T12:44:26.794Z",
+            "eventType": "scene_pack_resolved"
+          },
+          {
+            "createdAt": "2026-07-25T12:45:15.741Z",
+            "eventType": "first_value_completed"
+          }
+        ],
+        "requestSource": "workbuddy",
+        "trafficClass": "diagnostic",
+        "isSynthetic": true,
+        "effectiveEvidenceClass": "synthetic",
+        "productId": "fbsir-eight-seat-board",
+        "productIdSource": "tool_argument_untrusted",
+        "packageVersion": "26.7.2",
+        "packageVersionSources": [
+          "client_or_route_claim_untrusted",
+          "transport_package_version_header_untrusted"
+        ],
+        "serviceProductId": null,
+        "packageName": null,
+        "expertEntryId": null,
+        "entrySurface": "unknown_surface"
+      }
+    },
+    "immutableCapture": {
+      "path": "reports/independent-board/api2-live-signal-capture-20260725T2328Z.json",
+      "sha256": "c77247d1ea0d3ee72ee38dc0531d715bec015975814866c331e9520e02be2230",
+      "healthRawBodySha256": "6852c8976079041fe6ad09642822373690974e9714c2bf5191395d141a4d73b1",
+      "decisionBoardRawBodySha256": "4eb512ac8a7a6e86f1531132f1ef398921c0ae1cfe97d6538b0bb848eeba7a7d",
+      "decisionBoardCutoffAt": "2026-07-25T23:27:29.845Z",
+      "decisionBoardWindowStart24h": "2026-07-24T23:27:29.845Z",
+      "decisionBoardWindowEnd24h": "2026-07-25T23:27:29.845Z"
+    }
+  },
+  "crossServiceJoin": {
+    "api2DiagnosticBindingDigestSha256Prefix": "1bbf264503f95caa",
+    "u3wProbeBindingDigestSha256Prefix": "805035bcaee902b1",
+    "collectorClaimMatchesU3wProbeBinding": false,
+    "sameBindingProven": false,
+    "differentBindingProven": false,
+    "api2PublisherDeliveredRecords": 0,
+    "u3wSuccessfulPostAppendOrReceiptObserved": false,
+    "status": "not_proven_record_only_collector_claim"
+  },
+  "signalVerdict": {
+    "independentBoardMarkerObserved": false,
+    "diagnosticThreeStageChainObserved": false,
+    "collectorClaimIndependentBoardMarkerRecorded": true,
+    "collectorClaimDiagnosticThreeStageChainRecorded": true,
+    "officialListedNaturalSignalObserved": false,
+    "officialSameBindingClosureObserved": false,
+    "productCreditAllowed": false,
+    "level": "synthetic_quarantined_diagnostic_plus_historical_probe",
+    "reason": "A record-only collector claim contains one internally same-binding diagnostic chain carrying an untrusted productId and an untrusted 26.7.2 version. The projection is not independently derivable from the captured runtime-state SHA-256, so neither the signal nor its difference from the U3W probe binding is promoted to independently proven service evidence. Exact official 26.7.21 identity, signed listing receipt and trusted forwarding context are absent."
+  },
+  "confirmedBlockers": [
+    "api2_exact_official_identity_fields_missing_at_ingress",
+    "api2_untrusted_package_version_26_7_2_conflicts_with_listed_26_7_21",
+    "api2_runtime_snapshot_authority_is_derived_unverified",
+    "api2_runtime_projection_is_collector_claim_record_only",
+    "host_signed_listing_receipt_not_ready",
+    "trusted_host_forwarding_not_ready",
+    "publisher_outbox_has_no_independent_board_record",
+    "u3w_has_no_successful_real_post_or_receipt",
+    "cross_service_same_binding_join_missing"
+  ],
+  "notProven": [
+    "diagnostic_chain_came_from_the_users_latest_official_entry_interaction",
+    "runtime_state_projection_independently_derived_from_the_captured_sha",
+    "official_experts_26_7_21_natural_traffic",
+    "host_signed_exact_listed_receipt",
+    "trusted_forwarding_authority",
+    "natural_intent_distribution",
+    "admin_natural_six_dimension_readback",
+    "product_credit_or_public_route"
+  ],
+  "singleNextAction": "At API2 ingress, obtain and verify one host-signed listed-product context for experts/fbsir-eight-seat-board@26.7.21 with board-convener on one serverBindingId, then repeat one official WorkBuddy interaction and require publisher delivery plus U3W three-event readback on that same binding."
+}
