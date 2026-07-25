@@ -460,9 +460,22 @@ def validate_artifact_manifest(release, stage):
         resolved.relative_to(release)
         status = resolved.stat()
         if (
-            set(expected) != {"mode", "sha256", "sizeBytes"}
+            set(expected) != {
+                "mode",
+                "sha256",
+                "sizeBytes",
+                "uid",
+                "gid",
+                "nlink",
+            }
             or status.st_mode & 0o777 != expected["mode"]
             or status.st_size != expected["sizeBytes"]
+            or status.st_uid != expected["uid"]
+            or status.st_gid != expected["gid"]
+            or status.st_nlink != expected["nlink"]
+            or expected["uid"] != 0
+            or expected["gid"] != 0
+            or expected["nlink"] != 1
             or sha256_file(resolved) != expected["sha256"]
         ):
             raise RuntimeError("Stage artifact manifest drifted")
