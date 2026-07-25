@@ -3977,6 +3977,86 @@ class ReleaseWorkerContractTest(unittest.TestCase):
             False,
         )
 
+    def test_interrupted_apply_recovery_accepts_exact_v3_stage(self):
+        args, _ = interrupted_apply_recovery_args()
+        staged = {
+            "schema": release.DEPLOYMENT_RECEIPT_SCHEMA,
+            "state": "STAGED_FOR_SWITCH",
+            "releaseId": args.target_release_id,
+            "sourceCommit": args.target_source_commit,
+            "stageApprovalReceiptSha256": "7" * 64,
+            "preStageRuntimeIdentity": runtime_identity(
+                "EXACT_043_RETAINED_DORMANT",
+                event_count=3,
+                journey_count=1,
+            ),
+            "databaseRollbackSafetyProven": True,
+            "databaseDownClaimed": False,
+            "actualActiveArtifactsMatched": False,
+            "productionDatabaseChanged": False,
+            "productionDatabaseChangedThisRun": False,
+            "productionDatabaseChangedSinceStage": False,
+            "productionServiceChanged": False,
+            "officialExpertsPackageChanged": False,
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            release_dir = pathlib.Path(temporary)
+            stage_path = (
+                release_dir / "deployment-readiness-receipt.json"
+            )
+            stage_path.write_text(
+                release.canonical_json(staged) + "\n",
+                encoding="utf-8",
+            )
+            args.stage_receipt_sha = release.sha256_file(stage_path)
+            with mock.patch.object(
+                release,
+                "validate_regular_file",
+                side_effect=lambda path, *_args, **_kwargs:
+                    pathlib.Path(path),
+            ):
+                accepted_path, accepted = (
+                    release.validate_interrupted_apply_stage(
+                        args,
+                        release_dir,
+                    )
+                )
+            self.assertEqual(accepted_path, stage_path)
+            self.assertEqual(accepted, staged)
+
+            for field, invalid_value in (
+                ("databaseRollbackSafetyProven", False),
+                ("actualActiveArtifactsMatched", True),
+                ("productionDatabaseChangedThisRun", True),
+                ("productionDatabaseChangedSinceStage", True),
+            ):
+                with self.subTest(field=field):
+                    invalid = dict(staged)
+                    invalid[field] = invalid_value
+                    stage_path.write_text(
+                        release.canonical_json(invalid) + "\n",
+                        encoding="utf-8",
+                    )
+                    args.stage_receipt_sha = release.sha256_file(
+                        stage_path
+                    )
+                    with (
+                        mock.patch.object(
+                            release,
+                            "validate_regular_file",
+                            side_effect=lambda path, *_args, **_kwargs:
+                                pathlib.Path(path),
+                        ),
+                        self.assertRaisesRegex(
+                            RuntimeError,
+                            "Stage identity is invalid",
+                        ),
+                    ):
+                        release.validate_interrupted_apply_stage(
+                            args,
+                            release_dir,
+                        )
+
     def test_interrupted_apply_recovery_receipt_creation_is_no_clobber(self):
         source = inspect.getsource(
             release.canonicalize_interrupted_apply_recovery

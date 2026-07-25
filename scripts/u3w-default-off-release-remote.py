@@ -7301,8 +7301,22 @@ def validate_interrupted_apply_stage(args, release):
     if sha256_file(stage_path) != args.stage_receipt_sha:
         raise RuntimeError("interrupted Apply Stage anchor drifted")
     stage = read_json(stage_path)
+    stage_schema = stage.get("schema")
+    current_stage_invariants_invalid = bool(
+        stage_schema == DEPLOYMENT_RECEIPT_SCHEMA
+        and (
+            stage.get("databaseRollbackSafetyProven") is not True
+            or stage.get("actualActiveArtifactsMatched") is not False
+            or stage.get("productionDatabaseChangedThisRun") is not False
+            or stage.get("productionDatabaseChangedSinceStage") is not False
+        )
+    )
     if (
-        stage.get("schema") != LEGACY_DEPLOYMENT_RECEIPT_SCHEMA
+        stage_schema
+            not in {
+                LEGACY_DEPLOYMENT_RECEIPT_SCHEMA,
+                DEPLOYMENT_RECEIPT_SCHEMA,
+            }
         or stage.get("state") != "STAGED_FOR_SWITCH"
         or stage.get("releaseId") != args.target_release_id
         or stage.get("sourceCommit") != args.target_source_commit
@@ -7313,6 +7327,7 @@ def validate_interrupted_apply_stage(args, release):
         or stage.get("productionDatabaseChanged") is not False
         or stage.get("productionServiceChanged") is not False
         or stage.get("officialExpertsPackageChanged") is not False
+        or current_stage_invariants_invalid
     ):
         raise RuntimeError("interrupted Apply Stage identity is invalid")
     return stage_path, stage
