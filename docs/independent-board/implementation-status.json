@@ -529,7 +529,7 @@
     "dualMysqlReport": "reports/independent-board/w1a-attribution-v1-dual-mysql-latest.json",
     "productionMysqlCompatibilityReport": "reports/independent-board/w1a-attribution-v1-mysql-8.0.45-latest.json",
     "productionReadbackReport": "reports/independent-board/w1a-production-readonly-audit-latest.json",
-    "currentObservationReport": "reports/independent-board/w1a-current-observation-20260725T1445Z.json",
+    "currentObservationReport": "reports/independent-board/w1a-current-observation-20260725T1509Z.json",
     "currentObservationVerifier": "scripts/verify-w1a-current-observation.ps1",
     "currentObservationStatusMemo": "docs/independent-board/W1-CURRENT-OBSERVATION-STATUS-20260725.md",
     "productionReadinessContract": "docs/independent-board/W1A-PRODUCTION-READINESS-GATE.md",
@@ -717,5 +717,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-25T22:50:00+08:00"
+  "updatedAt": "2026-07-25T23:15:00+08:00"
 }

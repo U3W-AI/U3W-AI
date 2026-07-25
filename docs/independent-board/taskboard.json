@@ -41,7 +41,7 @@
         "embeddedContractVersion": "26.7.20"
       },
       "u3wCandidateCommit": "f0133f7f0952e8d97120d7eff7153ec5600d68e7",
-      "currentObservationReport": "reports/independent-board/w1a-current-observation-20260725T1445Z.json",
+      "currentObservationReport": "reports/independent-board/w1a-current-observation-20260725T1509Z.json",
       "currentObservationVerifier": "scripts/verify-w1a-current-observation.ps1",
       "currentObservationStatusMemo": "docs/independent-board/W1-CURRENT-OBSERVATION-STATUS-20260725.md",
       "naturalChain": [

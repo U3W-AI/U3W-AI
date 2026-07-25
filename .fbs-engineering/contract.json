@@ -166,7 +166,7 @@
     "w1aMysql8045CompatibilityReport": "reports/independent-board/w1a-attribution-v1-mysql-8.0.45-latest.json",
     "w1aVerificationReport": "reports/independent-board/w1a-official-experts-attribution-verification-latest.json",
     "w1aProductionReadonlyAudit": "reports/independent-board/w1a-production-readonly-audit-latest.json",
-    "w1aCurrentObservationReport": "reports/independent-board/w1a-current-observation-20260725T1445Z.json",
+    "w1aCurrentObservationReport": "reports/independent-board/w1a-current-observation-20260725T1509Z.json",
     "w1aCurrentObservationVerifier": "scripts/verify-w1a-current-observation.ps1",
     "w1aCurrentObservationStatusMemo": "docs/independent-board/W1-CURRENT-OBSERVATION-STATUS-20260725.md",
     "w1aProductionReadinessContract": "docs/independent-board/W1A-PRODUCTION-READINESS-GATE.md",
