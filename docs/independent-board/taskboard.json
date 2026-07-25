@@ -40,7 +40,10 @@
         "listedManifestVersion": "26.7.21",
         "embeddedContractVersion": "26.7.20"
       },
-      "u3wCandidateCommit": "51dba9ef842f5fe62198a31cbfb7b237ecffd89b",
+      "u3wCandidateCommit": "f0133f7f0952e8d97120d7eff7153ec5600d68e7",
+      "currentObservationReport": "reports/independent-board/w1a-current-observation-20260725T1445Z.json",
+      "currentObservationVerifier": "scripts/verify-w1a-current-observation.ps1",
+      "currentObservationStatusMemo": "docs/independent-board/W1-CURRENT-OBSERVATION-STATUS-20260725.md",
       "naturalChain": [
         "ENTRY_OBSERVED",
         "INTENT_CLASSIFIED",
@@ -60,7 +63,9 @@
         "exact_official_identity_and_stage_true_funnel_adapter",
         "durable_default_off_outbox_with_retry_and_restart_recovery",
         "shared_node_to_java_signature_and_digest_golden_vector",
-        "api2_candidate_7b84d472_committed_pushed_and_clean_strict_head_package_verified",
+        "api2_candidate_ce684258_committed_pushed_clean_publisher_active_default_off_credit_closed",
+        "api2_publisher_health_zero_outbox_and_exact_official_identity_verified",
+        "u3w_candidate_f0133f7f_committed_pushed_origin_aligned_observation_active",
         "api2_strict_head_production_release_dry_run_verified_without_state_change",
         "u3w_live_read_only_production_readiness_three_stage_gate_and_twenty_two_rule_vectors_verified",
         "unsafe_self_attested_legacy_baseline_runner_removed_after_independent_review",
@@ -80,8 +85,10 @@
         "u3w_strict_head_build_plan_prepared_stage_apply_live_rollback_rehearsal_and_verify",
         "api2_active_release_file_hash_readback",
         "api2_strict_head_default_off_production_deployment",
+        "host_signed_exact_listed_26_7_21_receipt_and_trusted_forwarding_authority",
         "one_real_official_experts_same_binding_three_event_receipt",
-        "admin_real_traffic_six_dimension_readback"
+        "admin_real_traffic_six_dimension_readback",
+        "natural_intent_distribution"
       ],
       "connectorRequiredForFirstValue": false,
       "officialExpertsContentWriteAllowed": false

@@ -1,6 +1,6 @@
 # W1 闭环冲刺运行手册：API2 部署 → 自然同绑定链 → admin 六维读回
 
-状态：U3W 已部署默认关闭 + 观测激活；API2 W1 发布器候选已提交推送但未部署。
+状态：U3W 已部署默认关闭 + 观测激活；API2 W1 发布器已在 `fbss-phase1` 生产版本 `20260725-181736` 激活。当前仍无自然同绑定证据。
 本手册覆盖从 API2 部署到取得可追溯同绑定闭环证据的全序列。
 
 ## 前置条件
@@ -8,41 +8,36 @@
 - U3W 生产：release 13c203a5 已上线，观测开关已激活（writer/classifier/admin-read=true，credit/public-route=false）
 - 事件账本：1 PROBE journey / 3 PROBE events，0 NATURAL（干净基线）
 - 官方专家包：fbsir-eight-seat-board@26.7.21 字节未变（sha 57443e8f…）
-- API2 候选：fubangshou/FBSAI@7b84d472 已提交推送，strict-head 包已验证
+- API2 候选：fubangshou/FBSAI@ce68425846e2b0271ede3569ec7cf2a4e457848c 已提交推送；生产 sourceGitHead 为 `74aed6fe95826bc4b55cde5042994d28bac4ba91`
 - 生产 SSH：`ssh api2`（root@api2.u3w.com，密钥 id_ed25519_api2）
 - GitHub SSH：`ssh git@github.com`（密钥 id_ed25519_github_codex）
 
-## 阶段一：API2 W1 发布器生产部署 + active release 哈希读回
+## 阶段一：API2 W1 发布器 active release 只读读回
 
 ### 1.1 准备候选包
 ```powershell
 # 在 U3W 仓内，从 API2 净室候选准备部署包
-# 候选源：fubangshou/FBSAI@7b84d472 (codex/w1-official-experts-publisher)
+# 候选源：fubangshou/FBSAI@ce68425846e2b0271ede3569ec7cf2a4e457848c (codex/w1-official-experts-publisher)
 # 已有净室：work/api2-cleanroom/p1-005-candidate-20260722/
 ```
 
 ### 1.2 部署到生产
 ```bash
-# SSH 到生产，备份当前 FbsSkillMcp，部署候选
-ssh api2 "cp -a /opt/fbsir/admin/FbsSkillMcp /opt/fbsir/admin/FbsSkillMcp.backup-$(date -u +%Y%m%dT%H%M%SZ)"
-# 上传候选包到 /opt/fbsir/admin/FbsSkillMcp-new/
-# 原子切换：mv FbsSkillMcp FbsSkillMcp.old && mv FbsSkillMcp-new FbsSkillMcp
-# 重启服务
-ssh api2 "systemctl restart fbs-skill-mcp.service && systemctl is-active fbs-skill-mcp.service"
+# 生产变更已在授权发布窗口完成；本轮仅允许只读回读，不重复部署或重启。
+ssh api2 "systemctl is-active fbss-phase1.service && curl -fsS http://127.0.0.1:8080/api/fbss/health"
 ```
 
 ### 1.3 active release 文件哈希读回
 ```bash
 # 逐文件 SHA-256 对比部署后文件与候选包
-ssh api2 "cd /opt/fbsir/admin/FbsSkillMcp && find src -type f -exec sha256sum {} \; | sort"
+ssh api2 "readlink -f /opt/fbss/phase1/current && systemctl show -p ActiveState fbss-phase1.service"
 # 与候选包的 manifest 对比，记录 activeReleaseFileHashReadback 回执
 ```
 
 ### 1.4 验证 outbox 与归因模块
 ```bash
-ssh api2 "ls /opt/fbsir/admin/FbsSkillMcp/src/attribution/ 2>/dev/null"
-ssh api2 "ls /opt/fbsir/admin/FbsSkillMcp/outbox/"
-# 确认 outbox 持久化目录存在且可写
+ssh api2 "curl -fsS http://127.0.0.1:8080/api/fbss/health | jq '.independentBoardAttributionPublisher'"
+# 当前事实：publisher ready/workerRunning=true，但 pending/delivered=0；严格 outbox 与 Host Receipt 仍未就绪。
 ```
 
 ## 阶段二：合同 pin 推进
@@ -75,18 +70,18 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 
 ### 2.2 协调更新合同 pin 与真源
 需要同步更新的文件（按依赖顺序）：
-1. `scripts/verify-independent-board-control-plane.ps1` — 硬编码 pin（51dba9ef → 部署提交）
+1. `scripts/verify-w1a-current-observation.ps1` — 当前观测阶段门禁；旧 `verify-independent-board-control-plane.ps1` 保留为准备阶段历史门禁
 2. `reports/independent-board/w1a-production-readiness-latest.json` — 用新评估器输出覆盖
 3. `reports/independent-board/w1a-production-readonly-audit-latest.json` — 重跑只读审计
 4. `docs/independent-board/implementation-status.json` — w1a.state, candidateCommit, featureFlags, notProven
 5. `docs/independent-board/taskboard.json` — W1 wave state, completedSubset, remaining
 6. `reports/independent-board/w1a-official-experts-attribution-verification-latest.json` — status, u3w.*, liveReadback, proves/notProven
 
-### 2.3 合同门禁必须通过
+### 2.3 当前观测门禁必须通过
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass -Force
-.\scripts\verify-independent-board-control-plane.ps1 -Mode Contract
-# 必须输出 PASS exit=0
+.\scripts\verify-w1a-current-observation.ps1
+# 必须输出 schema=fbsir.w1aCurrentObservationVerification.v1, status=PASS
 ```
 
 ## 阶段三：自然同绑定链（用户真实会话）

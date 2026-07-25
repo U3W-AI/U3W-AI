@@ -109,6 +109,11 @@
       "cwd": ".",
       "timeout_ms": 300000
     },
+    "w1a-current-observation": {
+      "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-w1a-current-observation.ps1",
+      "cwd": ".",
+      "timeout_ms": 120000
+    },
     "w1a-staged-release-recovery": {
       "run": "node --test scripts/u3w-staged-release-recovery-contract.test.mjs && python scripts/u3w-staged-release-recovery-remote_test.py",
       "cwd": ".",
@@ -161,6 +166,9 @@
     "w1aMysql8045CompatibilityReport": "reports/independent-board/w1a-attribution-v1-mysql-8.0.45-latest.json",
     "w1aVerificationReport": "reports/independent-board/w1a-official-experts-attribution-verification-latest.json",
     "w1aProductionReadonlyAudit": "reports/independent-board/w1a-production-readonly-audit-latest.json",
+    "w1aCurrentObservationReport": "reports/independent-board/w1a-current-observation-20260725T1445Z.json",
+    "w1aCurrentObservationVerifier": "scripts/verify-w1a-current-observation.ps1",
+    "w1aCurrentObservationStatusMemo": "docs/independent-board/W1-CURRENT-OBSERVATION-STATUS-20260725.md",
     "w1aProductionReadinessContract": "docs/independent-board/W1A-PRODUCTION-READINESS-GATE.md",
     "w1aProductionReadinessEvaluator": "scripts/independent-board-production-readiness.mjs",
     "w1aProductionReadinessRunner": "scripts/verify-independent-board-production-readiness.ps1",
@@ -296,6 +304,7 @@
     "requiredWorkflowCommands": {
       "verify": [
         "contract",
+        "w1a-current-observation",
         "backend",
         "frontend",
         "verify",
@@ -334,6 +343,7 @@
     ],
     "verify": [
       "contract",
+      "w1a-current-observation",
       "backend",
       "frontend",
       "verify",
@@ -454,8 +464,8 @@
         "candidateBranch": "codex/w1-official-attribution-closure",
         "candidateState": "committed_clean_origin_aligned_candidate_pushed_previous_release_deployed_default_off_observation_active_natural_proof_pending",
         "candidateCommit": "f0133f7f0952e8d97120d7eff7153ec5600d68e7",
-        "productionJarSha256": "92e93328af7fdccfbe3a89bbbfd89d46947dfa00794ccfd5aae48116d1ac817b",
-        "productionByteIdentity": "deployed_release_13c203a5_default_off_observation_activated_backend_byte_equivalent_to_head"
+        "productionJarSha256": "5b3582e2e4f97ab8a09845a1b6940e334cb2452a2c1970a01aeaf40dd1cc5cc1",
+        "productionByteIdentity": "deployed_release_13c203a5_default_off_observation_activated_jar_sha_readback_backend_release_precedes_scripts_only_head"
       }
     },
     "controlPlane": {

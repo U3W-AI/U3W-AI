@@ -529,6 +529,9 @@
     "dualMysqlReport": "reports/independent-board/w1a-attribution-v1-dual-mysql-latest.json",
     "productionMysqlCompatibilityReport": "reports/independent-board/w1a-attribution-v1-mysql-8.0.45-latest.json",
     "productionReadbackReport": "reports/independent-board/w1a-production-readonly-audit-latest.json",
+    "currentObservationReport": "reports/independent-board/w1a-current-observation-20260725T1445Z.json",
+    "currentObservationVerifier": "scripts/verify-w1a-current-observation.ps1",
+    "currentObservationStatusMemo": "docs/independent-board/W1-CURRENT-OBSERVATION-STATUS-20260725.md",
     "productionReadinessContract": "docs/independent-board/W1A-PRODUCTION-READINESS-GATE.md",
     "productionReadinessReport": "reports/independent-board/w1a-production-readiness-latest.json",
     "productionReadinessState": "NOT_READY_FOR_PRODUCTION_RELEASE",
@@ -539,8 +542,8 @@
       "candidateBranch": "codex/w1-official-attribution-closure",
       "candidateState": "committed_clean_origin_aligned_candidate_pushed_previous_release_deployed_default_off_observation_active_natural_proof_pending",
       "candidateCommit": "f0133f7f0952e8d97120d7eff7153ec5600d68e7",
-      "productionJarSha256": "92e93328af7fdccfbe3a89bbbfd89d46947dfa00794ccfd5aae48116d1ac817b",
-      "productionByteIdentity": "deployed_release_13c203a5_default_off_observation_activated_backend_byte_equivalent_to_head"
+      "productionJarSha256": "5b3582e2e4f97ab8a09845a1b6940e334cb2452a2c1970a01aeaf40dd1cc5cc1",
+      "productionByteIdentity": "deployed_release_13c203a5_default_off_observation_activated_jar_sha_readback_backend_release_precedes_scripts_only_head"
     },
     "api2SourceTruth": {
       "repository": "https://github.com/fubangshou/FBSAI.git",
@@ -714,5 +717,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-25T21:40:00+08:00"
+  "updatedAt": "2026-07-25T22:50:00+08:00"
 }
