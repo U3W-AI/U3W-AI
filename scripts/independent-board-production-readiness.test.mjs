@@ -1900,6 +1900,7 @@ tree = ast.parse(source, filename="<u3w-readiness-collector>")
 wanted = {
     "snapshot_default_off",
     "security_measurement_contract_matches",
+    "snapshot_configuration_matches",
     "snapshot_exact_loaded_from_baseline",
     "authorized_token_secret_configuration_evolution_matches",
 }
@@ -1936,14 +1937,14 @@ baseline = {
     "environmentFilePaths": [environment_path],
     "configuredEnvironmentSha256": before_sha,
     "configuredEnvironmentNames": list(configured_names),
-    "configuredEnvironmentHmacSha256": "old-config-hmac",
+    "configuredEnvironmentHmacSha256": "1" * 64,
     "configuredFlagValues": {"FLAG": "false"},
     "processFlagValues": {"FLAG": "false"},
     "expectedSecurityConfigurationNames": list(legacy_security_names),
     "expectedSecurityConfigurationHmacSha256": "d" * 64,
     "processSecurityConfigurationNames": list(legacy_security_names),
     "processSecurityConfigurationHmacSha256": "d" * 64,
-    "processConfiguredEnvironmentHmacSha256": "old-config-hmac",
+    "processConfiguredEnvironmentHmacSha256": "1" * 64,
     "processConfiguredEnvironmentMatched": True,
     "processConfiguredEnvironmentMismatchNames": [],
     "processPendingRestartEnvironmentNames": [],
@@ -1968,7 +1969,7 @@ assert namespace["snapshot_exact_loaded_from_baseline"](
 live = copy.deepcopy(baseline)
 live.update({
     "configuredEnvironmentSha256": after_sha,
-    "configuredEnvironmentHmacSha256": "new-config-hmac",
+    "configuredEnvironmentHmacSha256": "2" * 64,
     "processConfiguredEnvironmentMatched": False,
     "processConfiguredEnvironmentMismatchNames": [
         "FBSIR_TOKEN_SECRET"
@@ -2013,6 +2014,85 @@ assert matches(
     baseline,
     configuration,
     drifted_predecessor,
+) is False
+
+stable_pending = copy.deepcopy(live)
+snapshot_matches = namespace["snapshot_configuration_matches"]
+assert namespace["security_measurement_contract_matches"](
+    stable_pending,
+    stable_pending,
+    allow_token_pending=True,
+) is True, "stable pending security measurement"
+assert namespace["snapshot_default_off"](
+    stable_pending,
+    ("TOKEN_SECRET_ROTATION_PENDING_RESTART",),
+) is True, "stable pending default-off shape"
+assert snapshot_matches(
+    stable_pending,
+    stable_pending,
+    ("TOKEN_SECRET_ROTATION_PENDING_RESTART",),
+) is True, "stable pending snapshot"
+assert snapshot_matches(stable_pending, stable_pending) is False
+
+for field, value in (
+    (
+        "expectedSecurityConfigurationHmacSha256",
+        stable_pending["processSecurityConfigurationHmacSha256"],
+    ),
+    (
+        "configuredEnvironmentNames",
+        [
+            name for name in stable_pending["configuredEnvironmentNames"]
+            if name != "FBSIR_TOKEN_SECRET"
+        ],
+    ),
+    ("configuredEnvironmentHmacSha256", "invalid"),
+    ("processConfiguredEnvironmentHmacSha256", None),
+):
+    invalid_pending = copy.deepcopy(stable_pending)
+    invalid_pending[field] = value
+    assert namespace["security_measurement_contract_matches"](
+        invalid_pending,
+        invalid_pending,
+        allow_token_pending=True,
+    ) is False, "pending shape: " + field
+
+for field, value in (
+    ("expectedSecurityConfigurationHmacSha256", "1" * 64),
+    ("processSecurityConfigurationHmacSha256", "2" * 64),
+    ("processConfiguredEnvironmentMismatchNames", ["UNRELATED"]),
+    ("processPendingRestartEnvironmentNames", ["FBSIR_TOKEN_SECRET"]),
+    ("processConfiguredEnvironmentMatched", True),
+):
+    drifted_pending = copy.deepcopy(stable_pending)
+    drifted_pending[field] = value
+    assert snapshot_matches(
+        drifted_pending,
+        stable_pending,
+        ("TOKEN_SECRET_ROTATION_PENDING_RESTART",),
+    ) is False, field
+
+exact_after_restart = copy.deepcopy(stable_pending)
+exact_after_restart.update({
+    "processConfiguredEnvironmentMatched": True,
+    "processConfiguredEnvironmentMismatchNames": [],
+    "processConfiguredEnvironmentHmacSha256":
+        exact_after_restart["configuredEnvironmentHmacSha256"],
+    "processConfiguredEnvironmentLoadState": "EXACT_CONFIGURED",
+    "processSecurityConfigurationHmacSha256":
+        exact_after_restart["expectedSecurityConfigurationHmacSha256"],
+})
+assert namespace["snapshot_exact_loaded_from_baseline"](
+    exact_after_restart,
+    stable_pending,
+) is True
+drifted_after_restart = copy.deepcopy(exact_after_restart)
+drifted_after_restart[
+    "processSecurityConfigurationHmacSha256"
+] = "3" * 64
+assert namespace["snapshot_exact_loaded_from_baseline"](
+    drifted_after_restart,
+    stable_pending,
 ) is False
 print(json.dumps({"status": "PASS"}))
 `;

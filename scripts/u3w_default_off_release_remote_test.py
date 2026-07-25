@@ -1304,6 +1304,150 @@ class ReleaseWorkerContractTest(unittest.TestCase):
             release.exact_loaded_environment_matches(drifted, previous)
         )
 
+    def test_token_pending_baseline_accepts_only_stable_or_loaded_successor(
+        self,
+    ):
+        flags = {name: "false" for name in release.FALSE_FLAGS}
+        environment_sha = "1" * 64
+        configured_environment_hmac = "2" * 64
+        process_environment_hmac = "3" * 64
+        expected_security_hmac = "4" * 64
+        process_security_hmac = "5" * 64
+        security_names = ["BASE", release.TOKEN_SECRET_NAME]
+        previous = {
+            "environmentFilePaths": [str(release.ENV_PATH)],
+            "environmentFileManifest": [{
+                "path": str(release.ENV_PATH),
+                "sha256": environment_sha,
+            }],
+            "api2EventKeyManifest": {"sha256": "6" * 64},
+            "configuredEnvironmentSha256": environment_sha,
+            "configuredEnvironmentNames": list(security_names),
+            "configuredEnvironmentHmacSha256":
+                configured_environment_hmac,
+            "configuredFlagValues": flags,
+            "processFlagValues": flags,
+            "expectedSecurityConfigurationNames":
+                list(security_names),
+            "expectedSecurityConfigurationHmacSha256":
+                expected_security_hmac,
+            "processSecurityConfigurationNames":
+                list(security_names),
+            "processSecurityConfigurationHmacSha256":
+                process_security_hmac,
+            "processDatabaseBindingMatched": True,
+            "processConfiguredEnvironmentMatched": False,
+            "processConfiguredEnvironmentPreStageCompatible": True,
+            "processConfiguredEnvironmentMismatchNames": [
+                release.TOKEN_SECRET_NAME,
+            ],
+            "processPendingRestartEnvironmentNames": [],
+            "processConfiguredEnvironmentLoadState":
+                "TOKEN_SECRET_ROTATION_PENDING_RESTART",
+            "processConfiguredEnvironmentHmacSha256":
+                process_environment_hmac,
+            "processForbiddenOverrideNames": [],
+        }
+        self.assertTrue(
+            release.security_measurement_contract_matches(
+                previous,
+                previous,
+                allow_token_pending=True,
+            )
+        )
+        self.assertFalse(
+            release.security_measurement_contract_matches(
+                previous,
+                previous,
+            )
+        )
+        drifted_pending = dict(previous)
+        drifted_pending[
+            "processSecurityConfigurationHmacSha256"
+        ] = "7" * 64
+        self.assertFalse(
+            release.security_measurement_contract_matches(
+                drifted_pending,
+                previous,
+                allow_token_pending=True,
+            )
+        )
+        for field, value in (
+            (
+                "expectedSecurityConfigurationHmacSha256",
+                process_security_hmac,
+            ),
+            (
+                "configuredEnvironmentNames",
+                ["BASE"],
+            ),
+            ("configuredEnvironmentHmacSha256", "invalid"),
+            ("processConfiguredEnvironmentHmacSha256", None),
+        ):
+            invalid_pending = dict(previous)
+            invalid_pending[field] = value
+            self.assertFalse(
+                release.security_measurement_contract_matches(
+                    invalid_pending,
+                    invalid_pending,
+                    allow_token_pending=True,
+                ),
+                field,
+            )
+
+        current = {
+            **previous,
+            "processConfiguredEnvironmentMatched": True,
+            "processConfiguredEnvironmentMismatchNames": [],
+            "processConfiguredEnvironmentLoadState": "EXACT_CONFIGURED",
+            "processConfiguredEnvironmentHmacSha256":
+                configured_environment_hmac,
+            "processSecurityConfigurationHmacSha256":
+                expected_security_hmac,
+        }
+        self.assertTrue(
+            release.exact_loaded_environment_matches(current, previous)
+        )
+
+        for owner, field, value in (
+            ("previous", "processConfiguredEnvironmentMismatchNames", []),
+            (
+                "previous",
+                "processPendingRestartEnvironmentNames",
+                [release.TOKEN_SECRET_NAME],
+            ),
+            (
+                "previous",
+                "processSecurityConfigurationHmacSha256",
+                "invalid",
+            ),
+            (
+                "current",
+                "expectedSecurityConfigurationHmacSha256",
+                "8" * 64,
+            ),
+            (
+                "current",
+                "processSecurityConfigurationHmacSha256",
+                "9" * 64,
+            ),
+        ):
+            drifted_previous = dict(previous)
+            drifted_current = dict(current)
+            target = (
+                drifted_previous
+                if owner == "previous"
+                else drifted_current
+            )
+            target[field] = value
+            self.assertFalse(
+                release.exact_loaded_environment_matches(
+                    drifted_current,
+                    drifted_previous,
+                ),
+                f"{owner}.{field}",
+            )
+
     def test_migration_parser_preserves_routines_on_one_locked_session(self):
         migration = (
             ROOT.parent

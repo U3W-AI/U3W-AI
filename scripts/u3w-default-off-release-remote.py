@@ -5311,6 +5311,60 @@ def security_measurement_contract_matches(
     current_process_hmac = current.get(
         "processSecurityConfigurationHmacSha256"
     )
+    previous_configured_names = previous.get(
+        "configuredEnvironmentNames"
+    )
+    current_configured_names = current.get(
+        "configuredEnvironmentNames"
+    )
+    previous_configured_environment_hmac = previous.get(
+        "configuredEnvironmentHmacSha256"
+    )
+    previous_process_environment_hmac = previous.get(
+        "processConfiguredEnvironmentHmacSha256"
+    )
+    current_configured_environment_hmac = current.get(
+        "configuredEnvironmentHmacSha256"
+    )
+    current_process_environment_hmac = current.get(
+        "processConfiguredEnvironmentHmacSha256"
+    )
+    previous_load_state = previous.get(
+        "processConfiguredEnvironmentLoadState"
+    )
+    previous_token_pending = bool(
+        previous_load_state
+            == "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+        and TOKEN_SECRET_NAME in (previous_expected_names or [])
+        and TOKEN_SECRET_NAME in (previous_configured_names or [])
+        and SHA_PATTERN.fullmatch(
+            str(previous_expected_hmac or "")
+        ) is not None
+        and SHA_PATTERN.fullmatch(
+            str(previous_process_hmac or "")
+        ) is not None
+        and not hmac.compare_digest(
+            previous_expected_hmac,
+            previous_process_hmac,
+        )
+        and SHA_PATTERN.fullmatch(
+            str(previous_configured_environment_hmac or "")
+        ) is not None
+        and SHA_PATTERN.fullmatch(
+            str(previous_process_environment_hmac or "")
+        ) is not None
+        and not hmac.compare_digest(
+            previous_configured_environment_hmac,
+            previous_process_environment_hmac,
+        )
+        and previous.get("processConfiguredEnvironmentMatched") is False
+        and previous.get(
+            "processConfiguredEnvironmentMismatchNames"
+        ) == [TOKEN_SECRET_NAME]
+        and previous.get(
+            "processPendingRestartEnvironmentNames"
+        ) == []
+    )
     if (
         not isinstance(previous_expected_names, list)
         or previous_expected_names
@@ -5320,23 +5374,73 @@ def security_measurement_contract_matches(
         or current_expected_names != sorted(set(current_expected_names))
         or current_process_names != current_expected_names
         or not SHA_PATTERN.fullmatch(str(previous_expected_hmac or ""))
-        or not hmac.compare_digest(
-            str(previous_process_hmac or ""),
-            previous_expected_hmac,
+        or not SHA_PATTERN.fullmatch(
+            str(previous_process_hmac or "")
+        )
+        or (
+            previous_load_state
+                == "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+            and not previous_token_pending
+        )
+        or (
+            not previous_token_pending
+            and not hmac.compare_digest(
+                previous_process_hmac,
+                previous_expected_hmac,
+            )
         )
         or not SHA_PATTERN.fullmatch(str(current_expected_hmac or ""))
         or not SHA_PATTERN.fullmatch(str(current_process_hmac or ""))
     ):
         return False
-    token_pending = (
-        current.get("processConfiguredEnvironmentLoadState")
-        == "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+    current_load_state = current.get(
+        "processConfiguredEnvironmentLoadState"
     )
+    token_pending = bool(
+        current_load_state
+            == "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+        and TOKEN_SECRET_NAME in current_expected_names
+        and TOKEN_SECRET_NAME in (current_configured_names or [])
+        and not hmac.compare_digest(
+            current_expected_hmac,
+            current_process_hmac,
+        )
+        and SHA_PATTERN.fullmatch(
+            str(current_configured_environment_hmac or "")
+        ) is not None
+        and SHA_PATTERN.fullmatch(
+            str(current_process_environment_hmac or "")
+        ) is not None
+        and not hmac.compare_digest(
+            current_configured_environment_hmac,
+            current_process_environment_hmac,
+        )
+        and current.get("processConfiguredEnvironmentMatched") is False
+        and current.get(
+            "processConfiguredEnvironmentMismatchNames"
+        ) == [TOKEN_SECRET_NAME]
+        and current.get(
+            "processPendingRestartEnvironmentNames"
+        ) == []
+    )
+    if (
+        current_load_state == "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+        and not token_pending
+    ):
+        return False
     if token_pending:
+        expected_process_environment_hmac = (
+            previous.get("processConfiguredEnvironmentHmacSha256")
+            if previous_token_pending
+            else previous.get("configuredEnvironmentHmacSha256")
+        )
         if (
             not allow_token_pending
-            or current.get("processConfiguredEnvironmentHmacSha256")
-                != previous.get("configuredEnvironmentHmacSha256")
+            or SHA_PATTERN.fullmatch(
+                str(expected_process_environment_hmac or "")
+            ) is None
+            or current_process_environment_hmac
+                != expected_process_environment_hmac
         ):
             return False
     elif not hmac.compare_digest(
@@ -5345,22 +5449,28 @@ def security_measurement_contract_matches(
     ):
         return False
     if current_expected_names == previous_expected_names:
-        return bool(
-            (
-                not token_pending
-                and hmac.compare_digest(
+        if not token_pending:
+            return hmac.compare_digest(
+                current_expected_hmac,
+                previous_expected_hmac,
+            )
+        if previous_token_pending:
+            return bool(
+                hmac.compare_digest(
                     current_expected_hmac,
                     previous_expected_hmac,
                 )
-            )
-            or (
-                token_pending
                 and hmac.compare_digest(
                     current_process_hmac,
-                    previous_expected_hmac,
+                    previous_process_hmac,
                 )
             )
+        return hmac.compare_digest(
+            current_process_hmac,
+            previous_expected_hmac,
         )
+    if previous_token_pending:
+        return False
     return bool(
         TOKEN_SECRET_NAME
             in previous.get("configuredEnvironmentNames", [])

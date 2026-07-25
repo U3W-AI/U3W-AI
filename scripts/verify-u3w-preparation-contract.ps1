@@ -59,7 +59,8 @@ try {
         scripts/independent-board-production-readiness.test.mjs `
         scripts/u3w-backup-restore-contract.test.mjs `
         scripts/u3w-interrupted-apply-recovery-runner-contract.test.mjs `
-        scripts/u3w-release-runner-contract.test.mjs
+        scripts/u3w-release-runner-contract.test.mjs `
+        scripts/u3w-staged-release-recovery-contract.test.mjs
     if ($LASTEXITCODE -ne 0) {
         throw 'W1A preparation Node contract tests failed'
     }
@@ -67,7 +68,8 @@ try {
     & $python -m unittest `
         scripts/u3w_backup_restore_remote_test.py `
         scripts/u3w_preparation_remote_test.py `
-        scripts/u3w_default_off_release_remote_test.py
+        scripts/u3w_default_off_release_remote_test.py `
+        scripts/u3w-staged-release-recovery-remote_test.py
     if ($LASTEXITCODE -ne 0) {
         throw 'W1A preparation Python contract tests failed'
     }
@@ -75,6 +77,7 @@ try {
     Assert-PowerShellSyntax -Paths @(
         'scripts/deploy-independent-board-default-off.ps1',
         'scripts/reconcile-u3w-interrupted-apply.ps1',
+        'scripts/reconcile-u3w-staged-release.ps1',
         'scripts/run-u3w-admin-root-dependency.ps1',
         'scripts/run-u3w-default-off-configuration.ps1',
         'scripts/run-u3w-legacy-baseline-control-shape-mysql-it.ps1',
@@ -93,9 +96,9 @@ finally {
     status = 'PASS'
     productionChanged = $false
     tests = [ordered]@{
-        nodeFiles = 4
-        pythonFiles = 3
-        powershellFiles = 9
+        nodeFiles = 5
+        pythonFiles = 4
+        powershellFiles = 10
     }
     observedAt = [DateTime]::UtcNow.ToString('o')
 } | ConvertTo-Json -Depth 5

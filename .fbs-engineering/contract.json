@@ -109,6 +109,11 @@
       "cwd": ".",
       "timeout_ms": 300000
     },
+    "w1a-staged-release-recovery": {
+      "run": "node --test scripts/u3w-staged-release-recovery-contract.test.mjs && python scripts/u3w-staged-release-recovery-remote_test.py",
+      "cwd": ".",
+      "timeout_ms": 120000
+    },
     "w1a-legacy-control-shape-mysql": {
       "run": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-u3w-legacy-baseline-control-shape-mysql-it.ps1 -AllowDestructiveTest",
       "cwd": ".",
@@ -172,6 +177,8 @@
     "w1aDefaultOffConfigurationWorker": "scripts/u3w-default-off-configuration-remote.py",
     "w1aDefaultOffReleaseRunner": "scripts/deploy-independent-board-default-off.ps1",
     "w1aDefaultOffReleaseWorker": "scripts/u3w-default-off-release-remote.py",
+    "w1aStagedReleaseRecoveryRunner": "scripts/reconcile-u3w-staged-release.ps1",
+    "w1aStagedReleaseRecoveryWorker": "scripts/u3w-staged-release-recovery-remote.py",
     "w1aProductionReadinessOutputRoot": "work/production-readiness/",
     "domainInventory": "config/deployment/u3w-domain-inventory.json",
     "migrations": "sql/update_20260720_independent_board_control_plane.sql",

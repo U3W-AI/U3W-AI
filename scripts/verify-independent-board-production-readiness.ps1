@@ -1832,6 +1832,57 @@ def security_measurement_contract_matches(
     current_process_hmac = live.get(
         "processSecurityConfigurationHmacSha256"
     )
+    previous_configured_names = baseline.get(
+        "configuredEnvironmentNames"
+    )
+    current_configured_names = live.get(
+        "configuredEnvironmentNames"
+    )
+    previous_configured_environment_hmac = baseline.get(
+        "configuredEnvironmentHmacSha256"
+    )
+    previous_process_environment_hmac = baseline.get(
+        "processConfiguredEnvironmentHmacSha256"
+    )
+    current_configured_environment_hmac = live.get(
+        "configuredEnvironmentHmacSha256"
+    )
+    current_process_environment_hmac = live.get(
+        "processConfiguredEnvironmentHmacSha256"
+    )
+    previous_load_state = baseline.get(
+        "processConfiguredEnvironmentLoadState"
+    )
+    previous_token_pending = bool(
+        previous_load_state
+            == "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+        and TOKEN_SECRET_NAME in (previous_expected_names or [])
+        and TOKEN_SECRET_NAME in (previous_configured_names or [])
+        and re.fullmatch(
+            r"[0-9a-f]{64}", str(previous_expected_hmac or "")
+        ) is not None
+        and re.fullmatch(
+            r"[0-9a-f]{64}", str(previous_process_hmac or "")
+        ) is not None
+        and previous_expected_hmac != previous_process_hmac
+        and re.fullmatch(
+            r"[0-9a-f]{64}",
+            str(previous_configured_environment_hmac or ""),
+        ) is not None
+        and re.fullmatch(
+            r"[0-9a-f]{64}",
+            str(previous_process_environment_hmac or ""),
+        ) is not None
+        and previous_configured_environment_hmac
+            != previous_process_environment_hmac
+        and baseline.get("processConfiguredEnvironmentMatched") is False
+        and baseline.get(
+            "processConfiguredEnvironmentMismatchNames"
+        ) == [TOKEN_SECRET_NAME]
+        and baseline.get(
+            "processPendingRestartEnvironmentNames"
+        ) == []
+    )
     if (
         not isinstance(previous_expected_names, list)
         or previous_expected_names
@@ -1843,7 +1894,18 @@ def security_measurement_contract_matches(
         or re.fullmatch(
             r"[0-9a-f]{64}", str(previous_expected_hmac or "")
         ) is None
-        or previous_process_hmac != previous_expected_hmac
+        or re.fullmatch(
+            r"[0-9a-f]{64}", str(previous_process_hmac or "")
+        ) is None
+        or (
+            previous_load_state
+                == "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+            and not previous_token_pending
+        )
+        or (
+            not previous_token_pending
+            and previous_process_hmac != previous_expected_hmac
+        )
         or re.fullmatch(
             r"[0-9a-f]{64}", str(current_expected_hmac or "")
         ) is None
@@ -1852,30 +1914,67 @@ def security_measurement_contract_matches(
         ) is None
     ):
         return False
-    token_pending = (
-        live.get("processConfiguredEnvironmentLoadState")
-        == "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+    current_load_state = live.get(
+        "processConfiguredEnvironmentLoadState"
     )
+    token_pending = bool(
+        current_load_state
+            == "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+        and TOKEN_SECRET_NAME in current_expected_names
+        and TOKEN_SECRET_NAME in (current_configured_names or [])
+        and current_expected_hmac != current_process_hmac
+        and re.fullmatch(
+            r"[0-9a-f]{64}",
+            str(current_configured_environment_hmac or ""),
+        ) is not None
+        and re.fullmatch(
+            r"[0-9a-f]{64}",
+            str(current_process_environment_hmac or ""),
+        ) is not None
+        and current_configured_environment_hmac
+            != current_process_environment_hmac
+        and live.get("processConfiguredEnvironmentMatched") is False
+        and live.get(
+            "processConfiguredEnvironmentMismatchNames"
+        ) == [TOKEN_SECRET_NAME]
+        and live.get(
+            "processPendingRestartEnvironmentNames"
+        ) == []
+    )
+    if (
+        current_load_state == "TOKEN_SECRET_ROTATION_PENDING_RESTART"
+        and not token_pending
+    ):
+        return False
     if token_pending:
+        expected_process_environment_hmac = (
+            baseline.get("processConfiguredEnvironmentHmacSha256")
+            if previous_token_pending
+            else baseline.get("configuredEnvironmentHmacSha256")
+        )
         if (
             not allow_token_pending
-            or live.get("processConfiguredEnvironmentHmacSha256")
-                != baseline.get("configuredEnvironmentHmacSha256")
+            or re.fullmatch(
+                r"[0-9a-f]{64}",
+                str(expected_process_environment_hmac or ""),
+            ) is None
+            or current_process_environment_hmac
+                != expected_process_environment_hmac
         ):
             return False
     elif current_process_hmac != current_expected_hmac:
         return False
     if current_expected_names == previous_expected_names:
-        return bool(
-            (
-                not token_pending
-                and current_expected_hmac == previous_expected_hmac
+        if not token_pending:
+            return current_expected_hmac == previous_expected_hmac
+        if previous_token_pending:
+            return bool(
+                current_expected_hmac == previous_expected_hmac
+                and current_process_hmac == previous_process_hmac
             )
-            or (
-                token_pending
-                and current_process_hmac == previous_expected_hmac
-            )
-        )
+        return current_process_hmac == previous_expected_hmac
+    if previous_token_pending:
+        return False
     return bool(
         TOKEN_SECRET_NAME
             in baseline.get("configuredEnvironmentNames", [])
