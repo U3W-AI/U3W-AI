@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.security.SecureRandom;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,9 +40,15 @@ class WebhookSecretCodecTest {
     }
 
     @Test
-    void applicationConstructorFailsClosedWhenCurrentKeyIsMissingOrWeak() {
-        assertThrows(IllegalStateException.class, () -> new WebhookSecretCodec("v1", "", ""));
-        assertThrows(IllegalStateException.class, () -> new WebhookSecretCodec("v1", "too-short", ""));
+    void missingOrWeakCurrentKeyFailsClosedAtFirstSecretOperationWithoutBlockingStartup() {
+        WebhookSecretCodec missing = assertDoesNotThrow(
+                () -> new WebhookSecretCodec("v1", "", ""));
+        WebhookSecretCodec weak = assertDoesNotThrow(
+                () -> new WebhookSecretCodec("v1", "too-short", ""));
+        String url = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=abcdefghijklmnop";
+
+        assertThrows(IllegalStateException.class, () -> missing.encode(url));
+        assertThrows(IllegalStateException.class, () -> weak.encode(url));
     }
 
     @Test

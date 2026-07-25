@@ -35,7 +35,6 @@ public class WebhookSecretCodec {
             @Value("${webhook.crypto.keys.v1:}") String v1,
             @Value("${webhook.crypto.keys.v2:}") String v2) {
         this(currentVersion, versionMap(v1, v2), new SecureRandom());
-        requireKey(currentVersion);
     }
 
     WebhookSecretCodec(String currentVersion, Map<String, String> keys, SecureRandom secureRandom) {
