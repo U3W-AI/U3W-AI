@@ -1,0 +1,165 @@
+{
+  "schema": "fbsir.independentBoardW1aCurrentObservation.v1",
+  "observedAt": "2026-07-25T22:50:00Z",
+  "authorization": "read_only_production_and_repo_facts",
+  "readAt": {
+    "serviceReleaseFlags": "2026-07-25T22:46:05Z",
+    "ingressAdminBoundary": "2026-07-25T22:49:32Z",
+    "databaseLedger": "2026-07-25T22:48:30Z",
+    "logs": "2026-07-25T22:50:00Z"
+  },
+  "officialIdentity": {
+    "productId": "fbsir-eight-seat-board",
+    "agentName": "board-convener",
+    "marketplace": "experts",
+    "listedManifestVersion": "26.7.21",
+    "embeddedContractVersion": "26.7.20",
+    "baselineZipSha256": "57443e8fbcbcd2620736bce35edccc8001e578918e13ee6521f618d983348510",
+    "packageFrozen": true
+  },
+  "u3w": {
+    "host": "api2.u3w.com",
+    "serviceUnit": "fbsir-admin.service",
+    "serviceState": "active",
+    "mainPid": 246566,
+    "activeEnterTimestamp": "2026-07-25T19:19:43+08:00",
+    "currentReleasePath": "/opt/fbsir/admin/releases/w1a-release-13c203a5c42d-20260725T040706Z",
+    "releaseId": "w1a-release-13c203a5c42d-20260725T040706Z",
+    "deployedSourceCommit": "13c203a5c42d8a8f977be8a9834c2ad147b62bb8",
+    "jarSha256": "5b3582e2e4f97ab8a09845a1b6940e334cb2452a2c1970a01aeaf40dd1cc5cc1",
+    "officialExpertsPackageChanged": false,
+    "observationFlags": {
+      "boardAttribution": true,
+      "independentBoardAttribution": true,
+      "writer": true,
+      "intentClassifier": true,
+      "adminRead": true,
+      "candidate": false,
+      "publicRoute": false,
+      "credit": false,
+      "authoritativeCredit": false,
+      "productCredit": false
+    },
+    "ledger": {
+      "journeyCount": 1,
+      "eventCount": 3,
+      "trafficClassCounts": {
+        "PROBE": 3,
+        "NATURAL": 0,
+        "DIAGNOSTIC": 0,
+        "SYNTHETIC": 0
+      },
+      "eventTypes": [
+        "ENTRY_OBSERVED",
+        "INTENT_CLASSIFIED",
+        "FIRST_VALUE_COMPLETED"
+      ],
+      "intentTransition": "UNKNOWN_TO_OPERATING_DIAGNOSIS",
+      "trafficAuthority": "API2_SERVER_CLASSIFIER_V1",
+      "outcome": "SUCCESS",
+      "journeyHead": {
+        "contractId": "FBSIR_INDEPENDENT_BOARD_W1A_V1",
+        "sameBindingKeyPrefix": "a8f886e898f0b217",
+        "serverBindingId": "srv_8dc4cbc54bb881c80cadab62",
+        "journeyIdPrefix": "e53918d0a19924c4",
+        "listedManifestVersion": "26.7.21",
+        "embeddedContractVersion": "26.7.20",
+        "channel": "OFFICIAL_EXPERTS",
+        "trafficClass": "PROBE",
+        "lastSequenceNo": 3,
+        "createdAt": "2026-07-24T18:49:25.871+08:00",
+        "updatedAt": "2026-07-24T18:50:25.335+08:00"
+      },
+      "events": [
+        {
+          "eventId": "c15506353b087f5da2729c9755de76966b50392487ff032042eba6ceb9e58a75",
+          "eventType": "ENTRY_OBSERVED",
+          "sequenceNo": 1,
+          "occurredAt": "2026-07-24T18:49:25.539+08:00",
+          "intentFamily": "UNKNOWN",
+          "trafficClass": "PROBE",
+          "outcome": "SUCCESS",
+          "authoritativeProductCredit": false
+        },
+        {
+          "eventId": "4d4bff8acac53db8a93efa1bc64a6b882edf1dd0b51e4c6a6720e6c79dae4008",
+          "eventType": "INTENT_CLASSIFIED",
+          "sequenceNo": 2,
+          "occurredAt": "2026-07-24T18:50:25.190+08:00",
+          "intentFamily": "OPERATING_DIAGNOSIS",
+          "trafficClass": "PROBE",
+          "outcome": "SUCCESS",
+          "authoritativeProductCredit": false
+        },
+        {
+          "eventId": "d8dd5db4a7e2c67e04b61f8056ecae3e7dcea3c562d1d950e04245e092475e3b",
+          "eventType": "FIRST_VALUE_COMPLETED",
+          "sequenceNo": 3,
+          "occurredAt": "2026-07-24T18:50:25.286+08:00",
+          "intentFamily": "OPERATING_DIAGNOSIS",
+          "trafficClass": "PROBE",
+          "outcome": "SUCCESS",
+          "authoritativeProductCredit": false
+        }
+      ]
+    },
+    "adminReadback": {
+      "localIngressGet": {
+        "httpStatus": 200,
+        "bodyCode": 500,
+        "bodyMessage": "method_not_supported"
+      },
+      "localSummaryUnauthenticated": {
+        "httpStatus": 401,
+        "cacheControl": "no-store, no-cache, must-revalidate, max-age=0",
+        "bodyMessage": "authentication_failed"
+      },
+      "realPostAppendObserved": false,
+      "receiptObserved": false
+    },
+    "logSignals": {
+      "officialIdentityMismatchCountObserved": 2,
+      "officialIdentityMismatchAt": [
+        "2026-07-25T19:19:59+08:00",
+        "2026-07-25T19:20:26+08:00"
+      ],
+      "recentGetProbeObserved": true,
+      "successfulPostAppendOrReceiptObserved": false,
+      "unrelatedWebhookSqlErrorObserved": "2026-07-26T04:30:57+08:00"
+    }
+  },
+  "commandEvidence": [
+    "systemctl status and release marker readback over ssh api2",
+    "sha256sum current fbsir-admin.jar over ssh api2",
+    "redacted attribution flag readback from /etc/u3w/fbsir-admin.env",
+    "local curl ingress GET and unauthenticated admin summary",
+    "read-only MySQL traffic aggregation and latest ledger dimensions",
+    "journalctl filtered attribution identity receipt signals"
+  ],
+  "signalClassification": {
+    "officialNatural": 0,
+    "probe": 3,
+    "diagnostic": 0,
+    "synthetic": 0,
+    "identityMismatchRejected": 2,
+    "getMethodProbes": true
+  },
+  "proves": [
+    "u3w_service_active_and_release_identity_readback",
+    "u3w_observation_writer_classifier_admin_read_active",
+    "u3w_ledger_has_three_probe_events_with_complete_sequence",
+    "natural_diagnostic_synthetic_counts_are_zero",
+    "admin_read_requires_authentication_and_no_store",
+    "official_package_identity_and_freeze_unchanged"
+  ],
+  "notProven": [
+    "host_signed_exact_listed_receipt",
+    "trusted_forwarding_authority",
+    "real_official_entry_same_binding_chain",
+    "natural_intent_distribution",
+    "admin_natural_six_dimension_readback",
+    "successful_post_append_receipt",
+    "product_credit_or_public_route"
+  ],
+  "singleNextAction": "Obtain host-signed exact 26.7.21 listing receipt and trusted forwarding authority for one serverBindingId, then run one real official WorkBuddy entry and verify the three-event U3W/admin readback chain."
+}
