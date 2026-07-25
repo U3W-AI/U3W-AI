@@ -1,11 +1,11 @@
 # W1 当前观测状态（2026-07-25）
 
 本文件覆盖运行手册中历史准备阶段的完成定义，当前事实以
-`reports/independent-board/w1a-current-observation-20260725T1509Z.json` 和
+`reports/independent-board/w1a-current-observation-20260725T1525Z.json` 和
 `scripts/verify-w1a-current-observation.ps1` 为准。
 
-- API2 W1 publisher 已部署并健康运行；15:09Z 决策板 15m/1h/24h 均 `NATURAL=0`，严格 active-release 文件字节证明仍未完成。
-- U3W 账本为 1 个 `PROBE` journey / 3 个 `PROBE` events，`NATURAL=0`。
+- API2 W1 publisher 已部署并健康运行；15:25Z 决策板 15m/1h/24h 均 `NATURAL=0`，active-release critical 1279 文件字节已完成独立回读。
+- U3W 账本在 15:21Z 仍为 1 个 `PROBE` journey / 3 个 `PROBE` events，`NATURAL=0`；候选并发修复已在 `be231f22`，线上 JAR 尚未包含该候选。
 - 自然证据账本未发现 `26.7.21`、`board-convener`、`official_entry`、HostReceipt 或 forwarding ACK；仅有 3 条旧 `26.7.2` diagnostic/probe 命中和 19 条旧董秘入口记录，均不得计入自然信用。
 - 未观察到真实官方入口的三事件成功 POST/追加/receipt；admin 未认证读回返回 401，真实自然流量六维读回尚未完成。
 - `authoritative_product_credit=0`，public route 关闭，官方专家包保持冻结。

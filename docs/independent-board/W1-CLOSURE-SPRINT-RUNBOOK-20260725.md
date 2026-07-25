@@ -8,7 +8,8 @@
 - U3W 生产：release 13c203a5 已上线，观测开关已激活（writer/classifier/admin-read=true，credit/public-route=false）
 - 事件账本：1 PROBE journey / 3 PROBE events，0 NATURAL（干净基线）
 - 官方专家包：fbsir-eight-seat-board@26.7.21 字节未变（sha 57443e8f…）
-- API2 候选：fubangshou/FBSAI@ce68425846e2b0271ede3569ec7cf2a4e457848c 已提交推送；生产 sourceGitHead 为 `74aed6fe95826bc4b55cde5042994d28bac4ba91`
+- API2 候选：fubangshou/FBSAI@ce68425846e2b0271ede3569ec7cf2a4e457848c 已提交推送；生产 sourceGitHead 为 `74aed6fe95826bc4b55cde5042994d28bac4ba91`；active release critical 1279 文件字节已回读并与候选集合重算一致。
+- U3W 候选：U3W-AI@be231f229b316472864d40704e66cb0b34ce7e19；线上仍为旧 JAR `5b3582e2e4f97ab8a09845a1b6940e334cb2452a2c1970a01aeaf40dd1cc5cc1`，候选锁后重放修复尚未部署。
 - 生产 SSH：`ssh api2`（root@api2.u3w.com，密钥 id_ed25519_api2）
 - GitHub SSH：`ssh git@github.com`（密钥 id_ed25519_github_codex）
 
@@ -31,7 +32,10 @@ ssh api2 "systemctl is-active fbss-phase1.service && curl -fsS http://127.0.0.1:
 ```bash
 # 逐文件 SHA-256 对比部署后文件与候选包
 ssh api2 "readlink -f /opt/fbss/phase1/current && systemctl show -p ActiveState fbss-phase1.service"
-# 与候选包的 manifest 对比，记录 activeReleaseFileHashReadback 回执
+# 与候选包的 manifest 对比：packageManifestSha256=
+# 683865A7134CD5B9FE3B80D9FEF033461606407E7337076E51719A90B77A7351
+# criticalDeploySnapshotSha256=
+# 921001A0FFA1A41D17763F75F642135A43DB44377403F8AB72B464CAB1E8886B
 ```
 
 ### 1.4 验证 outbox 与归因模块
@@ -126,9 +130,9 @@ ssh api2 'U=$(grep "^WXFBSIR_MYSQL_USERNAME=" /etc/u3w/fbsir-admin.env | cut -d=
 
 闭环证据要求：
 1. API2 active release 文件哈希读回回执 ✅
-2. 一次真实官方 experts 同绑定三事件回执（NATURAL traffic_class）✅
-3. admin 六维读回定位该会话，probe/natural 分母分离 ✅
-4. authoritative_product_credit = 0 ✅
+2. 一次真实官方 experts 同绑定三事件回执（NATURAL traffic_class）❌ 未取得
+3. admin 六维读回定位该会话，probe/natural 分母分离 ❌ 未取得自然会话
+4. authoritative_product_credit = 0 ✅（fail-closed）
 5. 官方 experts 包字节未变 ✅
-6. 合同 pin 推进到部署提交，合同门禁通过 ✅
+6. 合同 pin 推进到部署提交，合同门禁通过 ❌ U3W 候选仍待发布验证
 7. taskboard/implementation-status/verification 报告同步更新 ✅

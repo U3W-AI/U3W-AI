@@ -1,0 +1,191 @@
+{
+  "schema": "fbsir.independentBoardW1aCurrentObservation.v1",
+  "observedAt": "2026-07-25T15:25:00.304Z",
+  "authorization": "read_only_production_and_repo_facts",
+  "officialIdentity": {
+    "productId": "fbsir-eight-seat-board",
+    "agentName": "board-convener",
+    "marketplace": "experts",
+    "listedManifestVersion": "26.7.21",
+    "embeddedContractVersion": "26.7.20",
+    "baselineZipSha256": "57443e8fbcbcd2620736bce35edccc8001e578918e13ee6521f618d983348510",
+    "packageFrozen": true
+  },
+  "u3w": {
+    "readAt": "2026-07-25T15:21:45Z",
+    "serviceUnit": "fbsir-admin.service",
+    "serviceState": "active",
+    "releaseId": "w1a-release-13c203a5c42d-20260725T040706Z",
+    "deployedSourceCommit": "13c203a5c42d8a8f977be8a9834c2ad147b62bb8",
+    "candidateSourceCommit": "be231f229b316472864d40704e66cb0b34ce7e19",
+    "jarSha256": "5b3582e2e4f97ab8a09845a1b6940e334cb2452a2c1970a01aeaf40dd1cc5cc1",
+    "observationFlags": {
+      "writer": true,
+      "intentClassifier": true,
+      "adminRead": true,
+      "productCredit": false,
+      "publicRoute": false
+    },
+    "ledger": {
+      "journeyCount": 1,
+      "eventCount": 3,
+      "naturalJourneyCount": 0,
+      "naturalEventCount": 0,
+      "diagnosticJourneyCount": 0,
+      "diagnosticEventCount": 0,
+      "syntheticJourneyCount": 0,
+      "syntheticEventCount": 0,
+      "probeJourneyCount": 1,
+      "probeEventCount": 3,
+      "sequence": ["ENTRY_OBSERVED", "INTENT_CLASSIFIED", "FIRST_VALUE_COMPLETED"],
+      "trafficAuthority": "API2_SERVER_CLASSIFIER_V1",
+      "intentTransition": "UNKNOWN_TO_OPERATING_DIAGNOSIS",
+      "outcome": "SUCCESS"
+    },
+    "adminReadback": {
+      "summaryRoute": "available_but_unauthenticated_read_returns_401_no_store",
+      "ingressGetProbe": "transport_200_body_code500_method_not_supported",
+      "realPostAppendObserved": false
+    },
+    "logSignals": {
+      "recentOfficialIdentityMismatch": true,
+      "successfulPostAppendOrReceiptObserved": false,
+      "recentProbe": "GET /internal/independent-board/attribution/events",
+      "currentReleaseStartupError": false
+    },
+    "freshnessNote": "Latest verified U3W read is 15:21:45Z; API2 was read at 15:25:00Z. These are separate read-only windows and do not prove a same-minute cross-layer join."
+  },
+  "api2": {
+    "healthHttpStatus": 200,
+    "readAt": "2026-07-25T15:25:00.304Z",
+    "releaseId": "20260725-181736",
+    "sourceGitHead": "74aed6fe95826bc4b55cde5042994d28bac4ba91",
+    "activeReleaseByteProof": {
+      "criticalFileCount": 1279,
+      "packageManifestSha256": "683865a7134cd5b9fe3b80d9fef033461606407e7337076e51719a90b77a7351",
+      "criticalDeploySnapshotSha256": "921001a0ffa1a41d17763f75f642135a43db44377403f8ab72b464cab1e8886b",
+      "candidateCriticalSetRecomputedEqual": true,
+      "controlPlaneScriptCommitIncluded": false
+    },
+    "publisher": {
+      "status": "ready",
+      "enabled": true,
+      "initialized": true,
+      "workerRunning": true,
+      "exactOfficialIdentityConfigured": true,
+      "signingKeyConfigured": true,
+      "strictOutboxDurabilityConfirmed": false,
+      "pendingRecords": 0,
+      "inflightRecords": 0,
+      "deliveredRecords": 0,
+      "deadRecords": 0,
+      "blockedRecords": 0,
+      "lastSuccessAt": null,
+      "productCreditPromoted": false
+    },
+    "hostListingReceipt": {
+      "status": "not_ready",
+      "registryConfigured": false,
+      "registeredPackageCount": 0,
+      "productCreditEligible": false
+    },
+    "hostForwardingAck": {
+      "status": "observe_only_not_ready",
+      "enforcementMode": "observe_only",
+      "productionReadyFlag": false,
+      "keyringConfigured": false,
+      "challengeJoinEnabled": false,
+      "publicChallengeRoute": false
+    },
+    "runtime": {
+      "eventCount": 51660,
+      "updatedAt": "2026-07-25T15:23:02.507Z"
+    }
+  },
+  "decisionBoard": {
+    "generatedAt": "2026-07-25T15:25:35.642Z",
+    "status": "decision_withheld_no_trusted_natural_denominator",
+    "sourceSnapshot": {
+      "rowCount": 567,
+      "mixedReleaseRowCount": 426,
+      "transportCoverageHours": 0,
+      "crossLayerJoinRate": 0,
+      "retentionComplete": false,
+      "authority": "derived_unverified"
+    },
+    "window15m": {
+      "rowCount": 3,
+      "natural": 0,
+      "unknown": 0,
+      "diagnostic": 0,
+      "probe": 0,
+      "synthetic": 3,
+      "eligibleNaturalSampleCount": 0,
+      "productCreditAllowed": false
+    },
+    "window1h": {
+      "rowCount": 41,
+      "natural": 0,
+      "unknown": 9,
+      "diagnostic": 0,
+      "probe": 2,
+      "synthetic": 30,
+      "eligibleNaturalSampleCount": 0,
+      "productCreditAllowed": false
+    },
+    "window24h": {
+      "rowCount": 567,
+      "natural": 0,
+      "unknown": 260,
+      "diagnostic": 0,
+      "probe": 2,
+      "synthetic": 305,
+      "eligibleNaturalSampleCount": 0,
+      "productCreditAllowed": false
+    },
+    "dataQuality": {
+      "status": "blocked",
+      "crossLayerJoinRate": 0,
+      "classificationAuthorityCoverage": 0,
+      "coreAttributionFieldCoverage": 0.6878,
+      "transportCoverageHours": 0,
+      "retentionComplete": false,
+      "mixedReleaseRowCount": 426,
+      "trustedNaturalDenominator": false
+    },
+    "boardSecretaryDirectSignals": {
+      "lastVerifiedReadAt": "2026-07-25T15:09:32.390Z",
+      "rowCount": 19,
+      "unknown": 7,
+      "synthetic": 12,
+      "candidateEvidenceScore": 42,
+      "rankability": "NR",
+      "candidateDistinctBindingCount": 0,
+      "completeBindingCount": 0
+    }
+  },
+  "connector": {
+    "accessRowCount": 240,
+    "classification": "unknown",
+    "observedBinding": "fbsir-super-partner-group@1.3.0",
+    "boardBindingObserved": false
+  },
+  "proves": [
+    "api2_active_release_critical_byte_identity_readback",
+    "api2_publisher_health_and_zero_outbox_backlog",
+    "api2_decision_board_current_24h_natural_zero_and_credit_withheld",
+    "u3w_observation_writer_classifier_admin_read_active",
+    "probe_chain_persisted_with_natural_zero",
+    "official_package_identity_and_freeze_unchanged"
+  ],
+  "notProven": [
+    "host_signed_exact_listed_receipt",
+    "trusted_forwarding_authority",
+    "real_official_entry_same_binding_chain",
+    "natural_intent_distribution",
+    "admin_natural_six_dimension_readback",
+    "product_credit_or_public_route",
+    "u3w_candidate_be231_production_deployment"
+  ],
+  "singleNextAction": "Obtain the host-signed exact 26.7.21 listing receipt and trusted forwarding authority for one serverBindingId, then run one real official WorkBuddy entry and verify the three-event U3W/admin readback chain."
+}

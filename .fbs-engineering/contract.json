@@ -166,7 +166,7 @@
     "w1aMysql8045CompatibilityReport": "reports/independent-board/w1a-attribution-v1-mysql-8.0.45-latest.json",
     "w1aVerificationReport": "reports/independent-board/w1a-official-experts-attribution-verification-latest.json",
     "w1aProductionReadonlyAudit": "reports/independent-board/w1a-production-readonly-audit-latest.json",
-    "w1aCurrentObservationReport": "reports/independent-board/w1a-current-observation-20260725T1509Z.json",
+    "w1aCurrentObservationReport": "reports/independent-board/w1a-current-observation-20260725T1525Z.json",
     "w1aCurrentObservationVerifier": "scripts/verify-w1a-current-observation.ps1",
     "w1aCurrentObservationStatusMemo": "docs/independent-board/W1-CURRENT-OBSERVATION-STATUS-20260725.md",
     "w1aProductionReadinessContract": "docs/independent-board/W1A-PRODUCTION-READINESS-GATE.md",
@@ -457,13 +457,16 @@
         "candidateCriticalDeploySnapshotSha256": "230E5C448CDADC786ADA2022EEC5CB8D36159A08560BAB0F8F2E0A877AA6AE98",
         "productionDeclaredCommit": "74aed6fe95826bc4b55cde5042994d28bac4ba91",
         "productionReleaseId": "20260725-181736",
-        "productionByteIdentity": "source_git_head_readback_without_strict_package_byte_proof"
+        "productionPackageManifestSha256": "683865a7134cd5b9fe3b80d9fef033461606407e7337076e51719a90b77a7351",
+        "productionCriticalDeploySnapshotSha256": "921001a0ffa1a41d17763f75f642135a43db44377403f8ab72b464cab1e8886b",
+        "productionCriticalFileCount": 1279,
+        "productionByteIdentity": "active_release_critical_set_readback_and_candidate_manifest_recomputed_equal_control_plane_scripts_only_outside_active_set"
       },
       "u3wSourceTruth": {
         "repository": "https://github.com/U3W-AI/U3W-AI.git",
         "candidateBranch": "codex/w1-official-attribution-closure",
         "candidateState": "committed_clean_origin_aligned_candidate_pushed_previous_release_deployed_default_off_observation_active_natural_proof_pending",
-        "candidateCommit": "f0133f7f0952e8d97120d7eff7153ec5600d68e7",
+        "candidateCommit": "be231f229b316472864d40704e66cb0b34ce7e19",
         "productionJarSha256": "5b3582e2e4f97ab8a09845a1b6940e334cb2452a2c1970a01aeaf40dd1cc5cc1",
         "productionByteIdentity": "deployed_release_13c203a5_default_off_observation_activated_jar_sha_readback_backend_release_precedes_scripts_only_head"
       }
