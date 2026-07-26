@@ -114,6 +114,11 @@ Require (-not [string]::IsNullOrWhiteSpace($reviewCandidatePath)) 'status has no
 Require ([string]$contract.artifacts.w1eApi2ConnectorReviewCandidateReceipt -ceq $reviewCandidatePath) 'contract/status API2 review-candidate receipt path drifted'
 Require ([string]$w1Wave[0].api2ReviewCandidateReceipt -ceq $reviewCandidatePath) 'taskboard/status API2 review-candidate receipt path drifted'
 $reviewCandidate = Read-Json $reviewCandidatePath
+$probeReleaseGatePlanPath = [string]$status.w1a.api2ProbeReleaseGatePlanReceipt
+Require (-not [string]::IsNullOrWhiteSpace($probeReleaseGatePlanPath)) 'status has no API2 probe release-gate plan receipt'
+Require ([string]$contract.artifacts.w1gApi2ProbeReleaseGatePlanReceipt -ceq $probeReleaseGatePlanPath) 'contract/status API2 probe release-gate plan receipt path drifted'
+Require ([string]$w1Wave[0].api2ProbeReleaseGatePlanReceipt -ceq $probeReleaseGatePlanPath) 'taskboard/status API2 probe release-gate plan receipt path drifted'
+$probeReleaseGatePlan = Read-Json $probeReleaseGatePlanPath
 $adminReceiptCandidatePath = [string]$status.w1a.adminReceiptReadbackCandidate.receipt
 Require (-not [string]::IsNullOrWhiteSpace($adminReceiptCandidatePath)) 'status has no admin receipt-readback candidate receipt'
 Require ([string]$contract.artifacts.w1eAdminReceiptReadbackCandidateReceipt -ceq $adminReceiptCandidatePath) 'contract/status admin receipt-readback candidate path drifted'
@@ -153,6 +158,31 @@ Require ([string]$status.w1a.api2SourceTruth.reviewCandidate.receipt -ceq $revie
 Require ([string]$contract.contracts.currentMainline.api2SourceTruth.reviewCandidate.receipt -ceq $reviewCandidatePath) 'contract review-candidate receipt drifted'
 Require ([string]$status.w1a.api2SourceTruth.reviewCandidate.commit -ceq [string]$reviewCandidate.source.commit) 'status review-candidate commit drifted'
 Require ([string]$contract.contracts.currentMainline.api2SourceTruth.reviewCandidate.commit -ceq [string]$reviewCandidate.source.commit) 'contract review-candidate commit drifted'
+
+Require ($probeReleaseGatePlan.schema -ceq 'fbsir.independentBoardApi2ProbeReleaseGatePlan.v1') 'API2 probe release-gate plan schema mismatch'
+Require ($probeReleaseGatePlan.status -ceq 'STRICT_HEAD_SERVICE_SIDE_CANDIDATE_NOT_DEPLOYED') 'API2 probe release-gate plan status drifted'
+Require ($probeReleaseGatePlan.scope -ceq 'fbs_service_side') 'API2 probe release-gate plan owner surface drifted'
+Require ($probeReleaseGatePlan.source.branch -ceq 'codex/w1-trusted-ingress-attestation') 'API2 probe release-gate plan branch drifted'
+Require ($probeReleaseGatePlan.source.commit -ceq $probeReleaseGatePlan.source.remoteHead) 'API2 probe release-gate plan remote HEAD drifted'
+Require ($probeReleaseGatePlan.source.remoteAligned -eq $true) 'API2 probe release-gate plan remote alignment is missing'
+Require ($probeReleaseGatePlan.candidateReleaseGate.profile -ceq 'independent_board_probe_contract') 'API2 probe release-gate profile drifted'
+Require ($probeReleaseGatePlan.candidateReleaseGate.status -ceq 'pass') 'API2 probe release-gate did not pass'
+Require ($probeReleaseGatePlan.candidateReleaseGate.recordOnlyPromotionRejected -eq $true) 'API2 probe release-gate permits record-only promotion'
+Require (@($probeReleaseGatePlan.candidateReleaseGate.requiredCheckIds) -join ',' -ceq 'strict_head_clean,package_freshness_and_provenance,controlled_probe_tool_schema,probe_quarantine') 'API2 probe release-gate blocker set drifted'
+Require ($probeReleaseGatePlan.defaultOffPlan.status -ceq 'dry_run') 'API2 probe release-gate plan is not default-off'
+Require ($probeReleaseGatePlan.defaultOffPlan.writesProductionState -eq $false) 'API2 probe release-gate plan writes production state'
+Require ($probeReleaseGatePlan.releaseBoundary.candidateDeployed -eq $false) 'probe release-gate candidate was promoted'
+Require ($probeReleaseGatePlan.releaseBoundary.officialExpertsPackageChanged -eq $false) 'probe release-gate candidate changed the official experts package'
+Require ($probeReleaseGatePlan.releaseBoundary.hostChanged -eq $false) 'probe release-gate candidate changed the host'
+Require ($probeReleaseGatePlan.releaseBoundary.productCreditPromotion -ceq 'blocked') 'probe release-gate candidate promoted product credit'
+Require ($probeReleaseGatePlan.fourProof.executableDeploymentChannel -ceq 'verified_default_off_plan_only') 'API2 probe release-gate executable-channel proof drifted'
+Require ($probeReleaseGatePlan.fourProof.targetScopedAuthorizationReceipt -ceq 'missing') 'API2 probe release-gate authorization proof was overstated'
+Require ($probeReleaseGatePlan.fourProof.exactRollbackAnchor -ceq 'planned_not_executed') 'API2 probe release-gate rollback proof was overstated'
+Require ($probeReleaseGatePlan.fourProof.targetSideCommitBuildDigestReadback -ceq 'missing') 'API2 probe release-gate target digest proof was overstated'
+Require ([string]$status.w1a.api2SourceTruth.probeContractCandidate.commit -ceq [string]$probeReleaseGatePlan.source.commit) 'status probe release-gate candidate commit drifted'
+Require ([string]$contract.contracts.currentMainline.api2SourceTruth.probeContractCandidate.commit -ceq [string]$probeReleaseGatePlan.source.commit) 'contract probe release-gate candidate commit drifted'
+Require ([string]$status.w1a.api2SourceTruth.probeContractCandidate.receipt -ceq $probeReleaseGatePlanPath) 'status probe release-gate candidate receipt drifted'
+Require ([string]$contract.contracts.currentMainline.api2SourceTruth.probeContractCandidate.receipt -ceq $probeReleaseGatePlanPath) 'contract probe release-gate candidate receipt drifted'
 
 Require ($adminReceiptCandidate.schema -ceq 'fbsir.independentBoardAdminReceiptReadbackCandidate.v1') 'admin receipt candidate schema mismatch'
 Require ($adminReceiptCandidate.status -ceq 'LOCAL_SOURCE_CANDIDATE_NOT_DEPLOYED') 'admin receipt candidate status drifted'

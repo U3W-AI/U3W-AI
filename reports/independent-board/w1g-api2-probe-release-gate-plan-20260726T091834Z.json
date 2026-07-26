@@ -1,0 +1,54 @@
+{
+  "schema": "fbsir.independentBoardApi2ProbeReleaseGatePlan.v1",
+  "status": "STRICT_HEAD_SERVICE_SIDE_CANDIDATE_NOT_DEPLOYED",
+  "generatedAt": "2026-07-26T09:18:34.4388029Z",
+  "scope": "fbs_service_side",
+  "predecessorReceipt": {
+    "path": "reports/independent-board/w1f-api2-probe-contract-candidate-20260726T084544Z.json",
+    "sha256": "d2ccd3d3028e4baf315796d29ff17cf6c747bf07133231bf02ab74ebcabe2060"
+  },
+  "source": {
+    "repository": "https://github.com/fubangshou/FBSAI.git",
+    "branch": "codex/w1-trusted-ingress-attestation",
+    "commit": "2728d3fa9f037e623ef26da3d858a50a502a9af0",
+    "remoteHead": "2728d3fa9f037e623ef26da3d858a50a502a9af0",
+    "remoteAligned": true,
+    "worktreeClean": true,
+    "packageManifestSha256": "61b19bb2a331eed91b6e48199f097a11224f9b75947a4bedd8c552d43d8f4795",
+    "criticalDeploySnapshotSha256": "d270308fb43a0e638350357cd3c4088364d92e8b2aaae6c40552b28bc6614853"
+  },
+  "candidateReleaseGate": {
+    "profile": "independent_board_probe_contract",
+    "status": "pass",
+    "requiredCheckIds": [
+      "strict_head_clean",
+      "package_freshness_and_provenance",
+      "controlled_probe_tool_schema",
+      "probe_quarantine"
+    ],
+    "recordOnlyPromotionRejected": true,
+    "report": "reports/api2-independent-board-probe-contract-release-gate-latest.json"
+  },
+  "defaultOffPlan": {
+    "status": "dry_run",
+    "writesProductionState": false,
+    "publicClientPath": "/fbs-mcp/mcp",
+    "previousCurrentTarget": "/opt/fbss/phase1/releases/20260726-124824",
+    "previousActiveReleaseAnchorSha256": "b942fe485f183c4c7fba04bd5309a60fdfaa32852f00057e9fe3d0491c3c0019",
+    "plannedRollbackAnchor": "/opt/fbss/phase1/releases/20260726-171744/rollback/active-service-release.json.before"
+  },
+  "fourProof": {
+    "executableDeploymentChannel": "verified_default_off_plan_only",
+    "targetScopedAuthorizationReceipt": "missing",
+    "exactRollbackAnchor": "planned_not_executed",
+    "targetSideCommitBuildDigestReadback": "missing"
+  },
+  "releaseBoundary": {
+    "productionReleaseCommit": "c02e9677f912a92262e8c02555dc636e51dab283",
+    "candidateDeployed": false,
+    "officialExpertsPackageChanged": false,
+    "hostChanged": false,
+    "productCreditPromotion": "blocked"
+  },
+  "singleNextAction": "Obtain a target-scoped authorization receipt for commit 2728d3f, then apply the API2 profile-gated sidecar release and read back all four deployment proofs before any official-entry sampling."
+}

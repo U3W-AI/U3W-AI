@@ -35,9 +35,13 @@ try {
     $auditPath = [string]$status.w1a.crossServiceSignalAudit
     $capturePath = [string]$status.w1a.api2LiveSignalCapture
     $reviewCandidatePath = [string]$status.w1a.api2ReviewCandidateReceipt
+    $probeReleaseGatePlanPath = [string]$status.w1a.api2ProbeReleaseGatePlanReceipt
     $adminReceiptCandidatePath = [string]$status.w1a.adminReceiptReadbackCandidate.receipt
     if ([string]::IsNullOrWhiteSpace($reviewCandidatePath)) {
         throw 'status is missing the API2 review-candidate receipt path'
+    }
+    if ([string]::IsNullOrWhiteSpace($probeReleaseGatePlanPath)) {
+        throw 'status is missing the API2 probe release-gate plan receipt path'
     }
     if ([string]::IsNullOrWhiteSpace($adminReceiptCandidatePath)) {
         throw 'status is missing the admin receipt-readback candidate path'
@@ -53,6 +57,7 @@ try {
         $auditPath,
         $capturePath,
         $reviewCandidatePath,
+        $probeReleaseGatePlanPath,
         $adminReceiptCandidatePath
     ) | ForEach-Object { Copy-ContractFile $_ }
 
@@ -93,6 +98,34 @@ try {
     }
     Copy-Item -LiteralPath (Join-Path $RepoRoot $reviewCandidatePath) `
         -Destination $reviewCandidateTarget -Force
+
+    $probeReleaseGatePlanTarget = Join-Path $tempRoot $probeReleaseGatePlanPath
+    $probeReleaseGatePlan = Get-Content -Raw -Encoding UTF8 -LiteralPath `
+        $probeReleaseGatePlanTarget | ConvertFrom-Json
+    $probeReleaseGatePlan.releaseBoundary.candidateDeployed = $true
+    $probeReleaseGatePlan | ConvertTo-Json -Depth 100 |
+        Set-Content -Encoding UTF8 -LiteralPath $probeReleaseGatePlanTarget
+    $previousErrorPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $probeReleaseGatePromotionOutput = @(
+            & powershell -NoProfile -ExecutionPolicy Bypass -File $verifier `
+                -RepoRoot $tempRoot 2>&1
+        )
+        $probeReleaseGatePromotionExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorPreference
+    }
+    if (
+        $probeReleaseGatePromotionExitCode -eq 0 -or
+        ($probeReleaseGatePromotionOutput -join [Environment]::NewLine) -notmatch
+            'probe release-gate candidate was promoted'
+    ) {
+        throw 'verifier accepted a probe release-gate candidate as deployed'
+    }
+    Copy-Item -LiteralPath (Join-Path $RepoRoot $probeReleaseGatePlanPath) `
+        -Destination $probeReleaseGatePlanTarget -Force
 
     $adminReceiptCandidateTarget = Join-Path $tempRoot $adminReceiptCandidatePath
     $adminReceiptCandidate = Get-Content -Raw -Encoding UTF8 -LiteralPath `
@@ -402,6 +435,7 @@ try {
         runtimeProjectionAuthorityEscalationRejected = $true
         gzipExpansionStoppedAtLimit = $true
         packagedReviewCandidatePromotionRejected = $true
+        probeReleaseGateCandidatePromotionRejected = $true
         adminReceiptCandidateCreditPromotionRejected = $true
     } | ConvertTo-Json -Depth 4
 }
