@@ -170,6 +170,7 @@
     "w1aCrossServiceSignalAudit": "reports/independent-board/w1a-cross-service-signal-audit-20260725T2328Z.json",
     "w1aApi2LiveSignalCapture": "reports/independent-board/api2-live-signal-capture-20260725T2328Z.json",
     "w1eApi2ConnectorReviewCandidateReceipt": "reports/independent-board/w1e-api2-connector-review-candidate-20260726T073213Z.json",
+    "w1fApi2ProbeContractCandidateReceipt": "reports/independent-board/w1f-api2-probe-contract-candidate-20260726T084544Z.json",
     "w1eAdminReceiptReadbackCandidateReceipt": "reports/independent-board/w1e-admin-receipt-readback-candidate-20260726T0733Z.json",
     "w1aCurrentObservationVerifier": "scripts/verify-w1a-current-observation.ps1",
     "w1aCurrentObservationStatusMemo": "docs/independent-board/W1-CURRENT-OBSERVATION-STATUS-20260725.md",
@@ -487,6 +488,13 @@
           "commit": "503d3de60d8b9e63f4db55c11f68adb363ac8a74",
           "state": "strict_head_identity_clean_connector_review_package_built_remote_aligned_not_deployed",
           "receipt": "reports/independent-board/w1e-api2-connector-review-candidate-20260726T073213Z.json"
+        },
+        "probeContractCandidate": {
+          "ownerSurface": "fbs_service_side",
+          "commit": "804576a81134f07f8c985154e57ab8dfb92c7a44",
+          "state": "strict_head_remote_aligned_packaged_not_deployed",
+          "receipt": "reports/independent-board/w1f-api2-probe-contract-candidate-20260726T084544Z.json",
+          "productCreditPromotion": "blocked"
         },
         "candidateCriticalDeploySnapshotSha256": "56ADE7AC58ED3BE12FC2F26C79B39AFC988C994D6F039FF0227FBDC1D4B63A89",
         "productionDeclaredCommit": "c02e9677f912a92262e8c02555dc636e51dab283",

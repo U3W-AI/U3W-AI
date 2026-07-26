@@ -1,0 +1,66 @@
+{
+  "schema": "fbsir.independentBoardApi2ProbeContractCandidate.v1",
+  "status": "STRICT_HEAD_SERVICE_SIDE_CANDIDATE_NOT_DEPLOYED",
+  "generatedAt": "2026-07-26T08:45:44.058Z",
+  "scope": "fbs_service_side",
+  "source": {
+    "repository": "https://github.com/fubangshou/FBSAI.git",
+    "branch": "codex/w1-trusted-ingress-attestation",
+    "commit": "804576a81134f07f8c985154e57ab8dfb92c7a44",
+    "remoteHead": "804576a81134f07f8c985154e57ab8dfb92c7a44",
+    "remoteAligned": true,
+    "worktreeClean": true
+  },
+  "contract": {
+    "tool": "skill_whoami",
+    "declaredControlledFields": [
+      "clientTrack",
+      "trafficClass",
+      "sourceTrafficClass",
+      "sampleClass",
+      "sourceSampleClass",
+      "testRunId",
+      "fbssTestRoute",
+      "isSynthetic"
+    ],
+    "isSyntheticAcceptedTypes": ["boolean", "string"],
+    "probeHandling": "record_only_quarantined_product_credit_blocked"
+  },
+  "verification": {
+    "unit": "node --test tools/lib/api2-mcp-tool-contract-decoration.test.mjs",
+    "preflight": "node tools/api2-preflight-probe-quarantine-smoke.mjs",
+    "result": "pass"
+  },
+  "artifacts": {
+    "reviewZip": {
+      "path": "D:/w/api2w1/dist/review/fbss-phase1-api2-review.zip",
+      "sha256": "ccd6769e38d48105aa28cfe012064c59c80d3aa362b084b773cc0c83a17edc8a",
+      "bytes": 15363740,
+      "manifestSourceGitHead": "804576a81134f07f8c985154e57ab8dfb92c7a44"
+    },
+    "wrappedZip": {
+      "path": "D:/w/api2w1/dist/review/fbss-phase1-api2-R.zip",
+      "sha256": "d76c20d6c2d44c6af67440d72b75448562c1047145053890ccb0283a4dd9597b",
+      "bytes": 15505630,
+      "manifestSourceGitHead": "804576a81134f07f8c985154e57ab8dfb92c7a44"
+    }
+  },
+  "releaseBoundary": {
+    "productionReleaseCommit": "c02e9677f912a92262e8c02555dc636e51dab283",
+    "productionReleaseId": "20260726-124824",
+    "candidateDeployed": false,
+    "officialExpertsPackageChanged": false,
+    "hostChanged": false,
+    "productCreditPromotion": "blocked"
+  },
+  "knownGaps": [
+    "api2_candidate_deployment_authority_and_execution_receipt_missing",
+    "candidate_specific_target_scope_authorization_missing",
+    "candidate_specific_rollback_anchor_missing",
+    "candidate_specific_production_source_and_manifest_readback_missing",
+    "official_connector_exact_tools_call_not_observed",
+    "real_official_experts_same_binding_chain_not_observed",
+    "authenticated_admin_six_dimension_readback_not_completed"
+  ],
+  "singleNextAction": "Use the API2 service-side release path to obtain candidate-specific deployment authority and four proofs; do not use the U3W default-off runner as a substitute."
+}
