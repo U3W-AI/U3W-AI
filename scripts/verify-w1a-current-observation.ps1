@@ -159,6 +159,8 @@ Require ($adminReceiptCandidate.officialIdentity.productId -ceq 'fbsir-eight-sea
 Require ($adminReceiptCandidate.officialIdentity.packageVersion -ceq '26.7.21') 'admin receipt candidate package version mismatch'
 Require ($adminReceiptCandidate.source.branch -ceq 'codex/w1-natural-ingress-fence') 'admin receipt candidate branch drifted'
 Require ($adminReceiptCandidate.source.commit -ceq '54bf918034e96fb7de483e371757cb8f51fe40b1') 'admin receipt candidate commit drifted'
+Require ($adminReceiptCandidate.source.remoteState -ceq 'aligned_on_enclosing_receipt_commit') 'admin receipt candidate remote alignment drifted'
+Require ($adminReceiptCandidate.source.remoteHead -ceq '4a6021a17162d5e25497679b98f32f3256210d57') 'admin receipt candidate remote head drifted'
 Require ($adminReceiptCandidate.releaseBoundary.deploymentState -ceq 'not_deployed') 'admin receipt candidate was promoted'
 Require ($adminReceiptCandidate.releaseBoundary.officialExpertsPackageChanged -eq $false) 'admin receipt candidate changed the official experts package'
 Require ($adminReceiptCandidate.releaseBoundary.hostChanged -eq $false) 'admin receipt candidate changed the host'
@@ -169,6 +171,8 @@ Require ($adminReceiptCandidate.readContract.neverExposed -contains 'sameBinding
 Require ([string]$contract.contracts.w1eAdminReceiptReadbackCandidate.receipt -ceq $adminReceiptCandidatePath) 'contract admin receipt candidate receipt drifted'
 Require ([string]$status.w1a.adminReceiptReadbackCandidate.commit -ceq [string]$adminReceiptCandidate.source.commit) 'status admin receipt candidate commit drifted'
 Require ([string]$contract.contracts.w1eAdminReceiptReadbackCandidate.commit -ceq [string]$adminReceiptCandidate.source.commit) 'contract admin receipt candidate commit drifted'
+Require ([string]$status.w1a.adminReceiptReadbackCandidate.state -ceq 'committed_pushed_not_deployed') 'status admin receipt candidate state drifted'
+Require ([string]$contract.contracts.w1eAdminReceiptReadbackCandidate.state -ceq 'committed_pushed_not_deployed') 'contract admin receipt candidate state drifted'
 
 Require ($observation.u3w.serviceState -ceq 'active') 'U3W service is not active in current observation'
 # The timestamped observation is immutable. A later legitimate cutover may advance

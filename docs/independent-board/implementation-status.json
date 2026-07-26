@@ -552,7 +552,7 @@
     "adminReceiptReadbackCandidate": {
       "ownerSurface": "fbs_service_side",
       "commit": "54bf918034e96fb7de483e371757cb8f51fe40b1",
-      "state": "local_committed_remote_sync_pending_not_deployed",
+      "state": "committed_pushed_not_deployed",
       "receipt": "reports/independent-board/w1e-admin-receipt-readback-candidate-20260726T0733Z.json",
       "productCreditPromotion": "blocked"
     },

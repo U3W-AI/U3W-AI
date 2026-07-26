@@ -14,7 +14,8 @@
     "repository": "https://github.com/U3W-AI/U3W-AI.git",
     "branch": "codex/w1-natural-ingress-fence",
     "commit": "54bf918034e96fb7de483e371757cb8f51fe40b1",
-    "remoteState": "not_verified_connection_reset",
+    "remoteState": "aligned_on_enclosing_receipt_commit",
+    "remoteHead": "4a6021a17162d5e25497679b98f32f3256210d57",
     "commitMessage": "feat(board): add privacy-safe attribution receipt readback"
   },
   "readContract": {
@@ -66,7 +67,6 @@
     "productCreditPromotion": "blocked"
   },
   "knownGaps": [
-    "remote_git_alignment_pending_after_connection_reset",
     "java_unit_execution_requires_jdk_and_maven",
     "real_official_experts_tools_call_not_observed",
     "authenticated_admin_readback_not_completed"
