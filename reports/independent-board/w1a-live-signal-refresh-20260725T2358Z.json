@@ -1,0 +1,102 @@
+{
+  "schema": "fbsir.independentBoardLiveSignalRefresh.v1",
+  "observedAt": "2026-07-25T23:58:00Z",
+  "authorization": "read_only_production_and_repo_facts",
+  "officialIdentity": {
+    "productId": "fbsir-eight-seat-board",
+    "packageVersion": "26.7.21",
+    "marketplace": "experts",
+    "host": "WorkBuddy",
+    "packageFrozen": true
+  },
+  "u3w": {
+    "readWindow": "2026-07-25T23:54:00Z/2026-07-25T23:58:00Z",
+    "serviceUnit": "fbsir-admin.service",
+    "serviceState": "active",
+    "releaseId": "w1a-release-13c203a5c42d-20260725T040706Z",
+    "deployedSourceCommit": "13c203a5c42d8a8f977be8a9834c2ad147b62bb8",
+    "jarSha256": "5b3582e2e4f97ab8a09845a1b6940e334cb2452a2c1970a01aeaf40dd1cc5cc1",
+    "flags": {
+      "writer": true,
+      "intentClassifier": true,
+      "adminRead": true,
+      "candidateRoute": false,
+      "productCredit": false,
+      "authoritativeProductCredit": false
+    },
+    "ledger": {
+      "journeyCount": 1,
+      "eventCount": 3,
+      "sameBindingKeyCount": 1,
+      "serverBindingIdCount": 1,
+      "trafficClassCounts": {
+        "NATURAL": 0,
+        "PROBE": 3,
+        "DIAGNOSTIC": 0,
+        "SYNTHETIC": 0
+      },
+      "sequence": ["ENTRY_OBSERVED", "INTENT_CLASSIFIED", "FIRST_VALUE_COMPLETED"]
+    },
+    "adminReadback": {
+      "unauthenticatedSummaryStatus": 401,
+      "cacheControl": "no-store",
+      "eventsProbe": "transport_200_body_code500_method_not_supported",
+      "successfulPostAppendOrReceiptObserved": false
+    },
+    "logs": {
+      "newSuccessfulPostOrReceipt": false,
+      "newIdentityMismatch": false,
+      "recentMethodNotSupportedReads": 3,
+      "historicalIdentityMismatchCount": 2
+    }
+  },
+  "api2": {
+    "readAt": "2026-07-25T23:55:34Z",
+    "healthHttpStatus": 200,
+    "releaseId": "20260725-181736",
+    "sourceGitHead": "74aed6fe95826bc4b55cde5042994d28bac4ba91",
+    "publisher": {
+      "ready": true,
+      "outboxPending": 0,
+      "outboxInflight": 0,
+      "outboxDelivered": 0,
+      "outboxDead": 0,
+      "outboxBlocked": 0,
+      "productCreditPromoted": false
+    },
+    "hostListingReceipt": {
+      "status": "not_ready",
+      "keyringConfigured": false,
+      "registryConfigured": false,
+      "productCreditEligible": false
+    },
+    "hostForwardingAck": {
+      "status": "observe_only_not_ready",
+      "keyringConfigured": false,
+      "challengeJoinEnabled": false,
+      "productionReady": false,
+      "publicChallengeRoute": false
+    },
+    "decisionBoard24h": {
+      "natural": 0,
+      "unknown": 256,
+      "diagnostic": 0,
+      "probe": 2,
+      "synthetic": 305,
+      "eligibleNatural": 0,
+      "status": "decision_withheld_no_trusted_natural_denominator"
+    },
+    "officialVersionHits": 0,
+    "hostSignedReceiptCount": 0,
+    "trustedForwardingAckCount": 0
+  },
+  "verdict": {
+    "independentBoardSignalObserved": false,
+    "officialNaturalSignalObserved": false,
+    "sameBindingClosureObserved": false,
+    "adminNaturalSixDimensionReadbackObserved": false,
+    "productCreditAllowed": false,
+    "status": "no_proven_official_signal; keep_default_off"
+  },
+  "singleNextAction": "Obtain a host-signed exact listed context for experts/fbsir-eight-seat-board@26.7.21 and a trusted forwarding ACK on one serverBindingId; then repeat one real official entry and verify API2 delivery plus U3W three-event/admin readback."
+}
