@@ -24,6 +24,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class IndependentBoardAttributionIngestServiceTest {
@@ -63,7 +64,7 @@ class IndependentBoardAttributionIngestServiceTest {
                 service.ingest(event);
 
         assertEquals("APPENDED_REPORT_ONLY", result.status());
-        assertEquals("NATURAL", result.trafficClass());
+        assertEquals("PROBE", result.trafficClass());
         assertEquals("UNKNOWN", result.intentFamily());
         assertFalse(result.idempotentReplay());
         assertFalse(result.naturalClosureEligible());
@@ -147,7 +148,7 @@ class IndependentBoardAttributionIngestServiceTest {
     }
 
     @Test
-    void advancesIntentAtStageTwoAndClosesNaturalValueWithoutCreditAtStageThree() {
+    void advancesIntentAtStageTwoAndClosesProbeValueWithoutNaturalCredit() {
         BoardAttributionEventV1 second = event(
                 2, "INTENT_CLASSIFIED", "b".repeat(64), "operating_diagnosis");
         String secondBindingKey = serverKey(second);
@@ -181,10 +182,28 @@ class IndependentBoardAttributionIngestServiceTest {
 
         IndependentBoardAttributionIngestService.IngestResult closed =
                 service.ingest(third);
-        assertEquals("NATURAL", closed.trafficClass());
+        assertEquals("PROBE", closed.trafficClass());
         assertEquals("OPERATING_DIAGNOSIS", closed.intentFamily());
-        assertEquals(true, closed.naturalClosureEligible());
+        assertFalse(closed.naturalClosureEligible());
         assertFalse(closed.productCreditEligible());
+    }
+
+    @Test
+    void rejectsNaturalBeforeAnyMapperInteractionWithoutVerifiedReceipt() {
+        BoardAttributionEventV1 event =
+                event(1, "ENTRY_OBSERVED", "", "unknown");
+        event.setTrafficClass("NATURAL");
+        when(verifier.verify(event, properties))
+                .thenReturn(verified(event, "UNKNOWN"));
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.ingest(event));
+
+        assertEquals(
+                "natural_requires_verified_host_forwarding_ack",
+                error.getMessage());
+        verifyNoInteractions(mapper);
     }
 
     private IndependentBoardAttributionProperties properties() {
@@ -227,7 +246,7 @@ class IndependentBoardAttributionIngestServiceTest {
         event.setServerBindingId("srv_wave1Binding01");
         event.setTenantSubjectDigest("5".repeat(64));
         event.setSameBindingKey("");
-        event.setTrafficClass("NATURAL");
+        event.setTrafficClass("PROBE");
         event.setTrafficAuthority("API2_SERVER_CLASSIFIER_V1");
         event.setOutcome("SUCCESS");
         event.setPreviousEventDigest(previousDigest);

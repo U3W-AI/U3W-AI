@@ -55,6 +55,11 @@ public class IndependentBoardAttributionIngestService {
         }
         VerifiedBoardAttributionEvent verified =
                 verifier.verify(event, properties);
+        String trafficClass = trafficResolver.resolve(event.getTrafficClass());
+        if ("NATURAL".equals(trafficClass)) {
+            throw new IllegalArgumentException(
+                    "natural_requires_verified_host_forwarding_ack");
+        }
         String sameBindingKey = bindingKeyDeriver.derive(
                 event.getContractId(),
                 event.getTenantSubjectDigest(),
@@ -63,7 +68,6 @@ public class IndependentBoardAttributionIngestService {
                 event.getProductId(),
                 event.getListedManifestVersion());
 
-        String trafficClass = trafficResolver.resolve(event.getTrafficClass());
         BoardAttributionLedgerEvent existing =
                 mapper.selectEventByEventId(event.getEventId());
         if (existing == null) {

@@ -55,3 +55,11 @@ test('W1A idempotency re-read uses a locking read after the journey-head lock', 
   assert.match(mapperXml, /<select id="selectEventByEventIdForUpdate"[\s\S]*FROM fbs_board_attr_event_v1[\s\S]*WHERE event_id = #\{eventId\}[\s\S]*FOR UPDATE/)
   assert.match(mapperXml, /<select id="selectEventByReceiptIdForUpdate"[\s\S]*FROM fbs_board_attr_event_v1[\s\S]*WHERE receipt_id = #\{receiptId\}[\s\S]*FOR UPDATE/)
 })
+
+test('W1A bare event ingest rejects NATURAL before any mapper interaction', () => {
+  const ingest = fs.readFileSync('FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/service/IndependentBoardAttributionIngestService.java', 'utf8')
+  const guardAt = ingest.indexOf('natural_requires_verified_host_forwarding_ack')
+  const firstMapperReadAt = ingest.indexOf('mapper.selectEventByEventId')
+  assert.ok(guardAt >= 0)
+  assert.ok(firstMapperReadAt > guardAt)
+})

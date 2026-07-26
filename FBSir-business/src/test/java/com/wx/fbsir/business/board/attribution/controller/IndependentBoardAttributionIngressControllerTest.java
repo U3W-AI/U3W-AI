@@ -85,11 +85,26 @@ class IndependentBoardAttributionIngressControllerTest {
                         "Cache-Control", containsString("no-store")));
     }
 
+    @Test
+    void rejectsUnverifiedNaturalTrafficWithoutCaching() throws Exception {
+        when(service.ingest(any())).thenThrow(new IllegalArgumentException(
+                "natural_requires_verified_host_forwarding_ack"));
+
+        mvc.perform(post("/internal/independent-board/attribution/events")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(header().string(
+                        "Cache-Control", containsString("no-store")))
+                .andExpect(jsonPath("$.reason").value(
+                        "natural_requires_verified_host_forwarding_ack"));
+    }
+
     private IndependentBoardAttributionIngestService.IngestResult result(
             boolean replay) {
         return new IndependentBoardAttributionIngestService.IngestResult(
                 "1".repeat(64), "2".repeat(64), "3".repeat(64),
                 replay ? "IDEMPOTENT_REPLAY" : "APPENDED_REPORT_ONLY",
-                replay, "NATURAL", "UNKNOWN", false, false);
+                replay, "PROBE", "UNKNOWN", false, false);
     }
 }
