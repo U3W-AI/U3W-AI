@@ -549,6 +549,13 @@
     "crossServiceSignalAudit": "reports/independent-board/w1a-cross-service-signal-audit-20260725T2328Z.json",
     "api2LiveSignalCapture": "reports/independent-board/api2-live-signal-capture-20260725T2328Z.json",
     "api2ReviewCandidateReceipt": "reports/independent-board/w1e-api2-connector-review-candidate-20260726T064345Z.json",
+    "adminReceiptReadbackCandidate": {
+      "ownerSurface": "fbs_service_side",
+      "commit": "54bf918034e96fb7de483e371757cb8f51fe40b1",
+      "state": "local_committed_remote_sync_pending_not_deployed",
+      "receipt": "reports/independent-board/w1e-admin-receipt-readback-candidate-20260726T0733Z.json",
+      "productCreditPromotion": "blocked"
+    },
     "currentObservationVerifier": "scripts/verify-w1a-current-observation.ps1",
     "currentObservationStatusMemo": "docs/independent-board/W1-CURRENT-OBSERVATION-STATUS-20260725.md",
     "currentCutoverStatusMemo": "docs/independent-board/W1D-SERVICE-CUTOVER-STATUS-20260726.md",

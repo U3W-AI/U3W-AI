@@ -35,8 +35,12 @@ try {
     $auditPath = [string]$status.w1a.crossServiceSignalAudit
     $capturePath = [string]$status.w1a.api2LiveSignalCapture
     $reviewCandidatePath = [string]$status.w1a.api2ReviewCandidateReceipt
+    $adminReceiptCandidatePath = [string]$status.w1a.adminReceiptReadbackCandidate.receipt
     if ([string]::IsNullOrWhiteSpace($reviewCandidatePath)) {
         throw 'status is missing the API2 review-candidate receipt path'
+    }
+    if ([string]::IsNullOrWhiteSpace($adminReceiptCandidatePath)) {
+        throw 'status is missing the admin receipt-readback candidate path'
     }
 
     @(
@@ -48,7 +52,8 @@ try {
         $observationPath,
         $auditPath,
         $capturePath,
-        $reviewCandidatePath
+        $reviewCandidatePath,
+        $adminReceiptCandidatePath
     ) | ForEach-Object { Copy-ContractFile $_ }
 
     $verifier = Join-Path $tempRoot (
@@ -88,6 +93,34 @@ try {
     }
     Copy-Item -LiteralPath (Join-Path $RepoRoot $reviewCandidatePath) `
         -Destination $reviewCandidateTarget -Force
+
+    $adminReceiptCandidateTarget = Join-Path $tempRoot $adminReceiptCandidatePath
+    $adminReceiptCandidate = Get-Content -Raw -Encoding UTF8 -LiteralPath `
+        $adminReceiptCandidateTarget | ConvertFrom-Json
+    $adminReceiptCandidate.releaseBoundary.productCreditPromotion = 'eligible'
+    $adminReceiptCandidate | ConvertTo-Json -Depth 100 |
+        Set-Content -Encoding UTF8 -LiteralPath $adminReceiptCandidateTarget
+    $previousErrorPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $adminReceiptPromotionOutput = @(
+            & powershell -NoProfile -ExecutionPolicy Bypass -File $verifier `
+                -RepoRoot $tempRoot 2>&1
+        )
+        $adminReceiptPromotionExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorPreference
+    }
+    if (
+        $adminReceiptPromotionExitCode -eq 0 -or
+        ($adminReceiptPromotionOutput -join [Environment]::NewLine) -notmatch
+            'admin receipt candidate promoted product credit'
+    ) {
+        throw 'verifier accepted an admin receipt candidate with promoted credit'
+    }
+    Copy-Item -LiteralPath (Join-Path $RepoRoot $adminReceiptCandidatePath) `
+        -Destination $adminReceiptCandidateTarget -Force
 
     $observationTarget = Join-Path $tempRoot $observationPath
     $auditTarget = Join-Path $tempRoot $auditPath
@@ -369,6 +402,7 @@ try {
         runtimeProjectionAuthorityEscalationRejected = $true
         gzipExpansionStoppedAtLimit = $true
         packagedReviewCandidatePromotionRejected = $true
+        adminReceiptCandidateCreditPromotionRejected = $true
     } | ConvertTo-Json -Depth 4
 }
 finally {

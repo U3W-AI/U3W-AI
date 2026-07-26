@@ -170,6 +170,7 @@
     "w1aCrossServiceSignalAudit": "reports/independent-board/w1a-cross-service-signal-audit-20260725T2328Z.json",
     "w1aApi2LiveSignalCapture": "reports/independent-board/api2-live-signal-capture-20260725T2328Z.json",
     "w1eApi2ConnectorReviewCandidateReceipt": "reports/independent-board/w1e-api2-connector-review-candidate-20260726T064345Z.json",
+    "w1eAdminReceiptReadbackCandidateReceipt": "reports/independent-board/w1e-admin-receipt-readback-candidate-20260726T0733Z.json",
     "w1aCurrentObservationVerifier": "scripts/verify-w1a-current-observation.ps1",
     "w1aCurrentObservationStatusMemo": "docs/independent-board/W1-CURRENT-OBSERVATION-STATUS-20260725.md",
     "w1dServiceCutoverReport": "reports/independent-board/w1d-api2-service-cutover-20260726.json",
@@ -421,6 +422,13 @@
         "official_listing_to_service_side_closure",
         "zero_attributable_target_signal_to_zero_actual_usage"
       ]
+    },
+    "w1eAdminReceiptReadbackCandidate": {
+      "ownerSurface": "fbs_service_side",
+      "commit": "54bf918034e96fb7de483e371757cb8f51fe40b1",
+      "state": "local_committed_remote_sync_pending_not_deployed",
+      "receipt": "reports/independent-board/w1e-admin-receipt-readback-candidate-20260726T0733Z.json",
+      "productCreditPromotion": "blocked"
     },
     "currentMainline": {
       "wave": "W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE",

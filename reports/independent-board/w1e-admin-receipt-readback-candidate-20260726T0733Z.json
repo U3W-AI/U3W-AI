@@ -1,0 +1,75 @@
+{
+  "schema": "fbsir.independentBoardAdminReceiptReadbackCandidate.v1",
+  "status": "LOCAL_SOURCE_CANDIDATE_NOT_DEPLOYED",
+  "generatedAt": "2026-07-26T07:33:00.000Z",
+  "scope": "fbs_service_side",
+  "officialIdentity": {
+    "productId": "fbsir-eight-seat-board",
+    "packageVersion": "26.7.21",
+    "expertEntryId": "board-convener",
+    "marketplace": "experts",
+    "entrySurface": "listed_runtime_state"
+  },
+  "source": {
+    "repository": "https://github.com/U3W-AI/U3W-AI.git",
+    "branch": "codex/w1-natural-ingress-fence",
+    "commit": "54bf918034e96fb7de483e371757cb8f51fe40b1",
+    "remoteState": "not_verified_connection_reset",
+    "commitMessage": "feat(board): add privacy-safe attribution receipt readback"
+  },
+  "readContract": {
+    "endpoint": "GET /business/independent-board/attribution/receipt?eventId=<64-char-lowercase-hex>",
+    "authorization": "admin role plus board:attribution:query",
+    "transaction": "read_only",
+    "cacheControl": "no-store",
+    "notFound": 404,
+    "invalidInput": 400,
+    "safeFields": [
+      "eventId",
+      "receiptId",
+      "sameBindingFingerprint",
+      "eventType",
+      "sequenceNo",
+      "occurredAt",
+      "productId",
+      "listedManifestVersion",
+      "intentFamily",
+      "trafficClass",
+      "productCreditEligible",
+      "eventWatermark"
+    ],
+    "neverExposed": [
+      "serverBindingId",
+      "journeyId",
+      "tenantSubjectDigest",
+      "sameBindingKey",
+      "signatureHex",
+      "nonceHash",
+      "traceparent"
+    ]
+  },
+  "verification": {
+    "javaBoundaryContract": {
+      "status": "pass",
+      "command": "node --test scripts/independent-board-java-boundary-contract.test.mjs",
+      "testCount": 8
+    },
+    "javaUnitTests": {
+      "status": "pending_local_jdk_maven_unavailable",
+      "command": "mvn -o -pl FBSir-business -Dtest=IndependentBoardAttributionAdminControllerTest,IndependentBoardAttributionAdminReadServiceTest -Dsurefire.failIfNoSpecifiedTests=false -DforkCount=0 test"
+    }
+  },
+  "releaseBoundary": {
+    "deploymentState": "not_deployed",
+    "officialExpertsPackageChanged": false,
+    "hostChanged": false,
+    "productCreditPromotion": "blocked"
+  },
+  "knownGaps": [
+    "remote_git_alignment_pending_after_connection_reset",
+    "java_unit_execution_requires_jdk_and_maven",
+    "real_official_experts_tools_call_not_observed",
+    "authenticated_admin_readback_not_completed"
+  ],
+  "singleNextAction": "After source remote alignment and normal service-side release authorization, use a legitimate admin session to read the three API2 event IDs and compare only their sameBindingFingerprint plus sequence; do not promote product credit."
+}

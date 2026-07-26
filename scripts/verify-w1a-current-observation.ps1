@@ -114,6 +114,11 @@ Require (-not [string]::IsNullOrWhiteSpace($reviewCandidatePath)) 'status has no
 Require ([string]$contract.artifacts.w1eApi2ConnectorReviewCandidateReceipt -ceq $reviewCandidatePath) 'contract/status API2 review-candidate receipt path drifted'
 Require ([string]$w1Wave[0].api2ReviewCandidateReceipt -ceq $reviewCandidatePath) 'taskboard/status API2 review-candidate receipt path drifted'
 $reviewCandidate = Read-Json $reviewCandidatePath
+$adminReceiptCandidatePath = [string]$status.w1a.adminReceiptReadbackCandidate.receipt
+Require (-not [string]::IsNullOrWhiteSpace($adminReceiptCandidatePath)) 'status has no admin receipt-readback candidate receipt'
+Require ([string]$contract.artifacts.w1eAdminReceiptReadbackCandidateReceipt -ceq $adminReceiptCandidatePath) 'contract/status admin receipt-readback candidate path drifted'
+Require ([string]$w1Wave[0].adminReceiptReadbackCandidate.receipt -ceq $adminReceiptCandidatePath) 'taskboard/status admin receipt-readback candidate path drifted'
+$adminReceiptCandidate = Read-Json $adminReceiptCandidatePath
 $memoPath = [string]$status.w1a.currentObservationStatusMemo
 Require (-not [string]::IsNullOrWhiteSpace($memoPath)) 'status has no current observation memo'
 $memo = Read-Text $memoPath
@@ -146,6 +151,24 @@ Require ([string]$status.w1a.api2SourceTruth.reviewCandidate.receipt -ceq $revie
 Require ([string]$contract.contracts.currentMainline.api2SourceTruth.reviewCandidate.receipt -ceq $reviewCandidatePath) 'contract review-candidate receipt drifted'
 Require ([string]$status.w1a.api2SourceTruth.reviewCandidate.commit -ceq [string]$reviewCandidate.source.commit) 'status review-candidate commit drifted'
 Require ([string]$contract.contracts.currentMainline.api2SourceTruth.reviewCandidate.commit -ceq [string]$reviewCandidate.source.commit) 'contract review-candidate commit drifted'
+
+Require ($adminReceiptCandidate.schema -ceq 'fbsir.independentBoardAdminReceiptReadbackCandidate.v1') 'admin receipt candidate schema mismatch'
+Require ($adminReceiptCandidate.status -ceq 'LOCAL_SOURCE_CANDIDATE_NOT_DEPLOYED') 'admin receipt candidate status drifted'
+Require ($adminReceiptCandidate.scope -ceq 'fbs_service_side') 'admin receipt candidate owner surface drifted'
+Require ($adminReceiptCandidate.officialIdentity.productId -ceq 'fbsir-eight-seat-board') 'admin receipt candidate product identity mismatch'
+Require ($adminReceiptCandidate.officialIdentity.packageVersion -ceq '26.7.21') 'admin receipt candidate package version mismatch'
+Require ($adminReceiptCandidate.source.branch -ceq 'codex/w1-natural-ingress-fence') 'admin receipt candidate branch drifted'
+Require ($adminReceiptCandidate.source.commit -ceq '54bf918034e96fb7de483e371757cb8f51fe40b1') 'admin receipt candidate commit drifted'
+Require ($adminReceiptCandidate.releaseBoundary.deploymentState -ceq 'not_deployed') 'admin receipt candidate was promoted'
+Require ($adminReceiptCandidate.releaseBoundary.officialExpertsPackageChanged -eq $false) 'admin receipt candidate changed the official experts package'
+Require ($adminReceiptCandidate.releaseBoundary.hostChanged -eq $false) 'admin receipt candidate changed the host'
+Require ($adminReceiptCandidate.releaseBoundary.productCreditPromotion -ceq 'blocked') 'admin receipt candidate promoted product credit'
+Require ($adminReceiptCandidate.readContract.transaction -ceq 'read_only') 'admin receipt candidate is not read-only'
+Require ($adminReceiptCandidate.readContract.cacheControl -ceq 'no-store') 'admin receipt candidate cache boundary drifted'
+Require ($adminReceiptCandidate.readContract.neverExposed -contains 'sameBindingKey') 'admin receipt candidate exposes raw binding key'
+Require ([string]$contract.contracts.w1eAdminReceiptReadbackCandidate.receipt -ceq $adminReceiptCandidatePath) 'contract admin receipt candidate receipt drifted'
+Require ([string]$status.w1a.adminReceiptReadbackCandidate.commit -ceq [string]$adminReceiptCandidate.source.commit) 'status admin receipt candidate commit drifted'
+Require ([string]$contract.contracts.w1eAdminReceiptReadbackCandidate.commit -ceq [string]$adminReceiptCandidate.source.commit) 'contract admin receipt candidate commit drifted'
 
 Require ($observation.u3w.serviceState -ceq 'active') 'U3W service is not active in current observation'
 # The timestamped observation is immutable. A later legitimate cutover may advance
