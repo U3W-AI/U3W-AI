@@ -110,6 +110,15 @@ GET /business/independent-board/attribution/summary
 
 要求 `admin` 角色和 `board:attribution:query` 权限；窗口必须大于 0 且不超过 24 小时；返回最多 500 个聚合组合及事件高水位。所有成功与失败响应均为 `Cache-Control: no-store`。
 
+单事件同绑定回执读回：
+
+```http
+GET /business/independent-board/attribution/receipt
+    ?eventId=<64-char lowercase hex event id>
+```
+
+同样要求 `admin` 角色和 `board:attribution:query` 权限，仅接受 64 位小写十六进制事件 ID。响应包含事件类型、序号、官方产品/版本、有限意图、流量类、信用标记和事件水位，以及可比较的 `sameBindingFingerprint`；绝不返回 `serverBindingId`、`journeyId`、租户主体、原始 `sameBindingKey`、签名、nonce 或 trace。未找到返回 `404`，无效 ID 返回 `400`，所有成功与失败响应均为 `Cache-Control: no-store`。
+
 ## 7. 开关与故障语义
 
 四个开关默认关闭：

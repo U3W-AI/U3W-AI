@@ -1,6 +1,7 @@
 package com.wx.fbsir.business.board.attribution.service;
 
 import com.wx.fbsir.business.board.attribution.config.IndependentBoardAttributionProperties;
+import com.wx.fbsir.business.board.attribution.domain.BoardAttributionLedgerEvent;
 import com.wx.fbsir.business.board.attribution.domain.BoardAttributionSummaryRow;
 import com.wx.fbsir.business.board.attribution.mapper.IndependentBoardAttributionV1Mapper;
 import org.junit.jupiter.api.Test;
@@ -73,6 +74,45 @@ class IndependentBoardAttributionAdminReadServiceTest {
                 Instant.EPOCH.toString(),
                 Instant.EPOCH.plusSeconds(60).toString(),
                 "ALL"));
+    }
+
+    @Test
+    void returnsPrivacySafeSameBindingReceiptForAValidEventId() {
+        BoardAttributionLedgerEvent row = new BoardAttributionLedgerEvent();
+        row.setEventId("a".repeat(64));
+        row.setReceiptId("b".repeat(64));
+        row.setSameBindingKey("binding-secret");
+        row.setEventType("ENTRY_OBSERVED");
+        row.setSequenceNo(1L);
+        row.setOccurredAt(java.util.Date.from(Instant.parse("2026-07-26T00:00:00Z")));
+        row.setProductId("fbsir-eight-seat-board");
+        row.setListedManifestVersion("26.7.21");
+        row.setIntentFamily("UNKNOWN");
+        row.setTrafficClass("UNKNOWN");
+        row.setProductCreditEligible(false);
+        row.setEventWatermark(7L);
+        when(mapper.selectEventByEventId("a".repeat(64))).thenReturn(row);
+
+        IndependentBoardAttributionAdminReadService.Receipt receipt =
+                service.receipt("a".repeat(64));
+
+        assertEquals("a".repeat(64), receipt.eventId());
+        assertEquals("4a2aee9b4198a7bb5d448b5e31a80db8a2bc0df294f8e1ef9f90549a9e816c1b",
+                receipt.sameBindingFingerprint());
+        assertEquals("ENTRY_OBSERVED", receipt.eventType());
+        assertEquals(1L, receipt.sequenceNo());
+        assertEquals("2026-07-26T00:00:00Z", receipt.occurredAt());
+        assertEquals(false, receipt.productCreditEligible());
+    }
+
+    @Test
+    void rejectsMalformedOrUnknownReceiptLookups() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.receipt("not-an-event-id"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.receipt("A".repeat(64)));
+        assertThrows(java.util.NoSuchElementException.class,
+                () -> service.receipt("a".repeat(64)));
     }
 
     private IndependentBoardAttributionProperties properties() {

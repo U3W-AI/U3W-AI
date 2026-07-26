@@ -39,4 +39,16 @@ public class IndependentBoardAttributionAdminController {
                 .header("Expires", "0")
                 .body(service.summary(windowStart, windowEnd, mode));
     }
+
+    @PreAuthorize(
+            "@ss.hasRole('admin') and @ss.hasPermi('board:attribution:query')")
+    @GetMapping(path = "/receipt", produces = "application/json")
+    public ResponseEntity<IndependentBoardAttributionAdminReadService.Receipt>
+            receipt(@RequestParam String eventId) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header("Pragma", "no-cache")
+                .header("Expires", "0")
+                .body(service.receipt(eventId));
+    }
 }

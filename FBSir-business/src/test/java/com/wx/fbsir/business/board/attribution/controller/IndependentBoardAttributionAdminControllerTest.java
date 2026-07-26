@@ -55,4 +55,40 @@ class IndependentBoardAttributionAdminControllerTest {
                 .andExpect(header().string(
                         "Cache-Control", containsString("no-store")));
     }
+
+    @Test
+    void receiptEndpointIsAdminPermissionBoundGetOnlyAndNoStore() throws Exception {
+        Method method = IndependentBoardAttributionAdminController.class
+                .getMethod("receipt", String.class);
+        PreAuthorize authorization = method.getAnnotation(PreAuthorize.class);
+        assertEquals(
+                "@ss.hasRole('admin') and "
+                        + "@ss.hasPermi('board:attribution:query')",
+                authorization.value());
+
+        IndependentBoardAttributionAdminReadService service =
+                mock(IndependentBoardAttributionAdminReadService.class);
+        when(service.receipt("a".repeat(64)))
+                .thenReturn(new IndependentBoardAttributionAdminReadService.Receipt(
+                        "a".repeat(64), "b".repeat(64), "c".repeat(64),
+                        "ENTRY_OBSERVED", 1L, "2026-07-26T00:00:00Z",
+                        "fbsir-eight-seat-board", "26.7.21", "UNKNOWN",
+                        "UNKNOWN", false, 7L));
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(
+                        new IndependentBoardAttributionAdminController(service))
+                .setControllerAdvice(
+                        new IndependentBoardAttributionAdminExceptionHandler())
+                .addFilters(new IndependentBoardAttributionNoStoreFilter())
+                .build();
+
+        mvc.perform(get("/business/independent-board/attribution/receipt")
+                        .param("eventId", "a".repeat(64)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                        "Cache-Control", containsString("no-store")));
+        mvc.perform(post("/business/independent-board/attribution/receipt"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(header().string(
+                        "Cache-Control", containsString("no-store")));
+    }
 }

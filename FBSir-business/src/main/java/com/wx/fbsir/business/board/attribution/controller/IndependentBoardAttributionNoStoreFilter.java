@@ -19,7 +19,8 @@ public class IndependentBoardAttributionNoStoreFilter
         extends OncePerRequestFilter {
     private static final Set<String> PATHS = Set.of(
             IndependentBoardAttributionIngressController.PATH,
-            "/business/independent-board/attribution/summary");
+            "/business/independent-board/attribution/summary",
+            "/business/independent-board/attribution/receipt");
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
