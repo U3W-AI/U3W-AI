@@ -232,6 +232,31 @@ Require ($currentReleaseObservation.releaseBoundary.officialConnectorChanged -eq
 Require ($currentReleaseObservation.releaseBoundary.naturalSameBindingObserved -eq $false) 'current-release observation promoted natural same-binding'
 Require ($currentReleaseObservation.releaseBoundary.productCreditPromotion -ceq 'blocked') 'current-release observation promoted product credit'
 
+$officialSessionObservationPath = [string]$status.w1a.latestOfficialSessionRecordOnlyObservationReceipt
+Require (-not [string]::IsNullOrWhiteSpace($officialSessionObservationPath)) 'status has no latest official-session record-only observation receipt'
+Require ([string]$contract.artifacts.w1jOfficialSessionRecordOnlyObservationReceipt -ceq $officialSessionObservationPath) 'contract/status official-session record-only receipt path drifted'
+Require ([string]$w1Wave[0].latestOfficialSessionRecordOnlyObservationReceipt -ceq $officialSessionObservationPath) 'taskboard/status official-session record-only receipt path drifted'
+$officialSessionObservation = Read-Json $officialSessionObservationPath
+Require ($officialSessionObservation.schema -ceq 'fbsir.independentBoardOfficialSessionRecordOnlyObservation.v1') 'official-session record-only observation schema mismatch'
+Require ($officialSessionObservation.ownerSurface -ceq 'fbs_connector') 'official-session record-only observation owner drifted'
+Require ($officialSessionObservation.status -ceq 'OFFICIAL_SESSION_PARTIAL_SAME_BINDING_RECORD_ONLY') 'official-session record-only observation status drifted'
+Require ($officialSessionObservation.officialIdentityExpected.productId -ceq 'fbsir-eight-seat-board') 'official-session expected product identity drifted'
+Require ($officialSessionObservation.officialIdentityExpected.expertEntryId -ceq 'board-convener') 'official-session expected expert identity drifted'
+Require ($officialSessionObservation.officialIdentityExpected.listedManifestVersion -ceq '26.7.21') 'official-session expected listed version drifted'
+Require ($officialSessionObservation.observedConnectorIdentity.identityTrust -ceq 'tool_argument_untrusted') 'official-session untrusted identity boundary drifted'
+Require ($officialSessionObservation.sameBinding.whoami -ceq 'observed') 'official-session whoami evidence drifted'
+Require ($officialSessionObservation.sameBinding.scenePack -ceq 'observed') 'official-session scene evidence drifted'
+Require ($officialSessionObservation.sameBinding.consume -ceq 'not_called') 'official-session consume boundary drifted'
+Require ($officialSessionObservation.attribution.naturalEligible -eq $false) 'official-session record-only observation promoted natural traffic'
+Require ($officialSessionObservation.attribution.authoritativeProductCredit -eq $false) 'official-session record-only observation promoted product credit'
+Require ($officialSessionObservation.boundary.officialExpertsPackageChanged -eq $false) 'official-session observation changed frozen official package'
+Require ($officialSessionObservation.boundary.writesProductionState -eq $false) 'official-session observation wrote production state'
+$connectorUpgradeDemandPath = [string]$status.w1a.connectorUpgradeDemand
+Require (-not [string]::IsNullOrWhiteSpace($connectorUpgradeDemandPath)) 'status has no connector upgrade demand'
+Require ([string]$contract.artifacts.w1jConnectorUpgradeDemand -ceq $connectorUpgradeDemandPath) 'contract/status connector upgrade demand path drifted'
+Require ([string]$w1Wave[0].connectorUpgradeDemand -ceq $connectorUpgradeDemandPath) 'taskboard/status connector upgrade demand path drifted'
+Require (Test-Path -LiteralPath (Join-Path $RepoRoot $connectorUpgradeDemandPath)) 'connector upgrade demand is missing'
+
 Require ($adminReceiptCandidate.schema -ceq 'fbsir.independentBoardAdminReceiptReadbackCandidate.v1') 'admin receipt candidate schema mismatch'
 Require ($adminReceiptCandidate.status -ceq 'LOCAL_SOURCE_CANDIDATE_NOT_DEPLOYED') 'admin receipt candidate status drifted'
 Require ($adminReceiptCandidate.scope -ceq 'fbs_service_side') 'admin receipt candidate owner surface drifted'

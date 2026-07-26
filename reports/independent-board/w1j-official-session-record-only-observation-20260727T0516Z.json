@@ -1,0 +1,58 @@
+{
+  "schema": "fbsir.independentBoardOfficialSessionRecordOnlyObservation.v1",
+  "ownerSurface": "fbs_connector",
+  "status": "OFFICIAL_SESSION_PARTIAL_SAME_BINDING_RECORD_ONLY",
+  "observedAt": "2026-07-26T21:16:27Z",
+  "officialIdentityExpected": {
+    "productId": "fbsir-eight-seat-board",
+    "expertEntryId": "board-convener",
+    "marketplace": "experts",
+    "surface": "listed_runtime_state",
+    "listedManifestVersion": "26.7.21"
+  },
+  "observedConnectorIdentity": {
+    "productId": "fbsir-eight-seat-board",
+    "expertEntryId": "fbsir-eight-seat-board",
+    "listedManifestVersion": null,
+    "entrySurface": "unknown_surface",
+    "intentFamily": "general",
+    "trafficClass": "independent_board_attribution_record_only",
+    "identityTrust": "tool_argument_untrusted"
+  },
+  "sameBinding": {
+    "serverBindingIdSha256": "8010896276c1f83fda7eddcc3a4a0b02fcdb36dde06c6a443d95f388aac70d3e",
+    "whoami": "observed",
+    "scenePack": "observed",
+    "consume": "not_called",
+    "completionReason": "official expert correctly refused to claim first-value delivery while the user left the decision-critical fields as placeholders"
+  },
+  "attribution": {
+    "naturalEligible": false,
+    "authoritativeProductCredit": false,
+    "promotion": "blocked",
+    "cannotProve": [
+      "trusted listed-runtime identity",
+      "listed manifest version",
+      "finite independent-board intent",
+      "complete three-event same-binding chain",
+      "U3W append-only receipt",
+      "authenticated admin readback"
+    ]
+  },
+  "sourceEvidence": {
+    "officialSessionJsonlSha256": "6267c58088bc5b256ea3991121e13cf7d4e77cbfcd5fa102d75429a41eb615b8",
+    "whoamiToolResultSha256": "bb664d1d55ab856f8e22dfff615ff65170bfee0c2ce7c43b081d0b6e3100df02",
+    "scenePackToolResultSha256": "2216aa5e9cb1d644d5f7127d2e6aada2efa0650dc0da00cb939104166779546b",
+    "api2ReleaseId": "20260726-172443",
+    "api2SourceGitHead": "2728d3fa9f037e623ef26da3d858a50a502a9af0",
+    "api2CurrentTargetRowCount": 0
+  },
+  "boundary": {
+    "officialExpertsPackageChanged": false,
+    "connectorChanged": false,
+    "serviceChanged": false,
+    "writesProductionState": false,
+    "rawPromptOrSubjectPersisted": false
+  },
+  "singleNextAction": "Implement the connector-owned trusted official-identity carrier or explicit skipped reason; do not promote this record-only partial chain or change the frozen listed package."
+}

@@ -53,7 +53,7 @@
   },
   "activeWave": "W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE",
   "activeSlice": "W1E_CONNECTOR_EXACT_FIRST_TOOL_CALL_AND_REAL_OFFICIAL_ENTRY_PROOF",
-  "singleNextAction": "In the FBS connector, send the exact 13-field independent-board identity on the first skill_whoami call and preserve server actionEnvelope.toolArguments through scene and consume; then verify one real official entry produces one three-event UNKNOWN U3W/admin readback with credit zero.",
+  "singleNextAction": "In the FBS connector, implement a trusted official-identity carrier (or a stable explicit skipped reason) for the listed 26.7.21 identity before forwarding the first skill_whoami actionEnvelope; preserve it through scene and consume, then verify one real official entry produces one three-event UNKNOWN U3W/admin readback with credit zero.",
   "stage": "fix",
   "phase": "W1E_FBS_CONNECTOR_EXACT_FIRST_TOOL_CALL",
   "authoritativeRoot": {
@@ -553,6 +553,8 @@
     "api2ProbeReleaseGatePlanReceipt": "reports/independent-board/w1g-api2-probe-release-gate-plan-20260726T091834Z.json",
     "api2ProbeReleaseAppliedReceipt": "reports/independent-board/w1h-api2-probe-release-applied-20260726T092532Z.json",
     "currentReleaseObservationReceipt": "reports/independent-board/w1i-current-release-observation-20260726T094059Z.json",
+    "latestOfficialSessionRecordOnlyObservationReceipt": "reports/independent-board/w1j-official-session-record-only-observation-20260727T0516Z.json",
+    "connectorUpgradeDemand": "docs/independent-board/FBS-CONNECTOR-UPGRADE-DEMAND-W1J-20260727.md",
     "customConnectorSchemaObservation": "reports/independent-board/w1f-custom-connector-schema-observation-20260726T085708Z.json",
     "adminReceiptReadbackCandidate": {
       "ownerSurface": "fbs_service_side",
