@@ -36,12 +36,16 @@ try {
     $capturePath = [string]$status.w1a.api2LiveSignalCapture
     $reviewCandidatePath = [string]$status.w1a.api2ReviewCandidateReceipt
     $probeReleaseGatePlanPath = [string]$status.w1a.api2ProbeReleaseGatePlanReceipt
+    $probeReleaseAppliedPath = [string]$status.w1a.api2ProbeReleaseAppliedReceipt
     $adminReceiptCandidatePath = [string]$status.w1a.adminReceiptReadbackCandidate.receipt
     if ([string]::IsNullOrWhiteSpace($reviewCandidatePath)) {
         throw 'status is missing the API2 review-candidate receipt path'
     }
     if ([string]::IsNullOrWhiteSpace($probeReleaseGatePlanPath)) {
         throw 'status is missing the API2 probe release-gate plan receipt path'
+    }
+    if ([string]::IsNullOrWhiteSpace($probeReleaseAppliedPath)) {
+        throw 'status is missing the API2 probe release-applied receipt path'
     }
     if ([string]::IsNullOrWhiteSpace($adminReceiptCandidatePath)) {
         throw 'status is missing the admin receipt-readback candidate path'
@@ -58,6 +62,7 @@ try {
         $capturePath,
         $reviewCandidatePath,
         $probeReleaseGatePlanPath,
+        $probeReleaseAppliedPath,
         $adminReceiptCandidatePath
     ) | ForEach-Object { Copy-ContractFile $_ }
 
@@ -126,6 +131,34 @@ try {
     }
     Copy-Item -LiteralPath (Join-Path $RepoRoot $probeReleaseGatePlanPath) `
         -Destination $probeReleaseGatePlanTarget -Force
+
+    $probeReleaseAppliedTarget = Join-Path $tempRoot $probeReleaseAppliedPath
+    $probeReleaseApplied = Get-Content -Raw -Encoding UTF8 -LiteralPath `
+        $probeReleaseAppliedTarget | ConvertFrom-Json
+    $probeReleaseApplied.releaseBoundary.naturalSameBindingObserved = $true
+    $probeReleaseApplied | ConvertTo-Json -Depth 100 |
+        Set-Content -Encoding UTF8 -LiteralPath $probeReleaseAppliedTarget
+    $previousErrorPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $probeReleaseAppliedPromotionOutput = @(
+            & powershell -NoProfile -ExecutionPolicy Bypass -File $verifier `
+                -RepoRoot $tempRoot 2>&1
+        )
+        $probeReleaseAppliedPromotionExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorPreference
+    }
+    if (
+        $probeReleaseAppliedPromotionExitCode -eq 0 -or
+        ($probeReleaseAppliedPromotionOutput -join [Environment]::NewLine) -notmatch
+            'probe release applied candidate promoted natural same-binding'
+    ) {
+        throw 'verifier accepted a probe release-applied candidate with natural credit'
+    }
+    Copy-Item -LiteralPath (Join-Path $RepoRoot $probeReleaseAppliedPath) `
+        -Destination $probeReleaseAppliedTarget -Force
 
     $adminReceiptCandidateTarget = Join-Path $tempRoot $adminReceiptCandidatePath
     $adminReceiptCandidate = Get-Content -Raw -Encoding UTF8 -LiteralPath `
@@ -436,6 +469,7 @@ try {
         gzipExpansionStoppedAtLimit = $true
         packagedReviewCandidatePromotionRejected = $true
         probeReleaseGateCandidatePromotionRejected = $true
+        probeReleaseAppliedNaturalPromotionRejected = $true
         adminReceiptCandidateCreditPromotionRejected = $true
     } | ConvertTo-Json -Depth 4
 }

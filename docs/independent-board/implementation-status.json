@@ -551,6 +551,7 @@
     "api2ReviewCandidateReceipt": "reports/independent-board/w1e-api2-connector-review-candidate-20260726T073213Z.json",
     "api2ProbeContractCandidateReceipt": "reports/independent-board/w1f-api2-probe-contract-candidate-20260726T084544Z.json",
     "api2ProbeReleaseGatePlanReceipt": "reports/independent-board/w1g-api2-probe-release-gate-plan-20260726T091834Z.json",
+    "api2ProbeReleaseAppliedReceipt": "reports/independent-board/w1h-api2-probe-release-applied-20260726T092532Z.json",
     "customConnectorSchemaObservation": "reports/independent-board/w1f-custom-connector-schema-observation-20260726T085708Z.json",
     "adminReceiptReadbackCandidate": {
       "ownerSurface": "fbs_service_side",
@@ -590,14 +591,19 @@
       "baselineRef": "agent/board-no-package-same-binding-v1-20260719",
       "baselineCommit": "a0834ea5d4c1c3f95be9d25d26913c2d973e09d0",
       "candidateBranch": "codex/w1-trusted-ingress-attestation",
-      "candidateState": "committed_pushed_clean_production_release_20260726_public_mcp_and_controlled_synthetic_same_binding_u3w_chain_verified_product_credit_promotion_blocked",
-      "candidateCommit": "c02e9677f912a92262e8c02555dc636e51dab283",
-      "candidateCommitRole": "active_production_release_only_not_the_connector_or_probe_contract_candidate",
+      "candidateState": "active_production_probe_contract_release_record_only_product_credit_promotion_blocked",
+      "candidateCommit": "2728d3fa9f037e623ef26da3d858a50a502a9af0",
+      "candidateCommitRole": "active_production_release_current_probe_contract_candidate",
       "activeRelease": {
-        "commit": "c02e9677f912a92262e8c02555dc636e51dab283",
-        "releaseId": "20260726-124824",
-        "state": "production_declared_health_readback_only"
+        "commit": "2728d3fa9f037e623ef26da3d858a50a502a9af0",
+        "releaseId": "20260726-172443",
+        "state": "target_side_three_digest_readback_verified"
       },
+      "previousActiveRelease": {
+        "commit": "c02e9677f912a92262e8c02555dc636e51dab283",
+        "releaseId": "20260726-124824"
+      },
+      "reviewCandidateProductionBaselineCommit": "c02e9677f912a92262e8c02555dc636e51dab283",
       "reviewCandidate": {
         "commit": "503d3de60d8b9e63f4db55c11f68adb363ac8a74",
         "state": "strict_head_identity_clean_connector_review_package_built_remote_aligned_not_deployed",
@@ -606,18 +612,18 @@
       "probeContractCandidate": {
         "ownerSurface": "fbs_service_side",
         "commit": "2728d3fa9f037e623ef26da3d858a50a502a9af0",
-        "state": "strict_head_remote_aligned_packaged_candidate_release_gate_pass_default_off_plan_verified_not_deployed",
-        "receipt": "reports/independent-board/w1g-api2-probe-release-gate-plan-20260726T091834Z.json",
+        "state": "active_production_release_target_side_three_digest_readback_verified_record_only",
+        "receipt": "reports/independent-board/w1h-api2-probe-release-applied-20260726T092532Z.json",
         "productCreditPromotion": "blocked"
       },
-      "candidateCriticalDeploySnapshotSha256": "56ADE7AC58ED3BE12FC2F26C79B39AFC988C994D6F039FF0227FBDC1D4B63A89",
-      "activeReleaseCriticalDeploySnapshotSha256": "56ADE7AC58ED3BE12FC2F26C79B39AFC988C994D6F039FF0227FBDC1D4B63A89",
-      "productionDeclaredCommit": "c02e9677f912a92262e8c02555dc636e51dab283",
-      "productionReleaseId": "20260726-124824",
-      "productionPackageManifestSha256": "CF0083E368A35DF7B3657D3DB9106817B38F98ACD92922E2A053CCDC2F1C20BD",
-      "productionCriticalDeploySnapshotSha256": "56ADE7AC58ED3BE12FC2F26C79B39AFC988C994D6F039FF0227FBDC1D4B63A89",
-      "productionCriticalFileCount": 1285,
-      "productionByteIdentity": "local_head_origin_branch_active_release_manifest_and_critical_snapshot_aligned_c02e967"
+      "candidateCriticalDeploySnapshotSha256": "D270308FB43A0E638350357CD3C4088364D92E8B2AAAE6C40552B28BC6614853",
+      "activeReleaseCriticalDeploySnapshotSha256": "D270308FB43A0E638350357CD3C4088364D92E8B2AAAE6C40552B28BC6614853",
+      "productionDeclaredCommit": "2728d3fa9f037e623ef26da3d858a50a502a9af0",
+      "productionReleaseId": "20260726-172443",
+      "productionPackageManifestSha256": "61B19BB2A331EED91B6E48199F097A11224F9B75947A4BEDD8C552D43D8F4795",
+      "productionCriticalDeploySnapshotSha256": "D270308FB43A0E638350357CD3C4088364D92E8B2AAAE6C40552B28BC6614853",
+      "productionCriticalFileCount": 1290,
+      "productionByteIdentity": "active_release_target_side_manifest_and_critical_snapshot_aligned_2728d3f"
     },
     "identityContract": {
       "productId": "fbsir-eight-seat-board",

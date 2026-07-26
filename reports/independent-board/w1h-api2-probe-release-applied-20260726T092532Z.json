@@ -1,0 +1,49 @@
+{
+  "schema": "fbsir.independentBoardApi2ProbeReleaseApplied.v1",
+  "status": "DEPLOYED_RECORD_ONLY_PRODUCT_CREDIT_BLOCKED",
+  "generatedAt": "2026-07-26T09:25:32.0171922Z",
+  "scope": "fbs_service_side",
+  "predecessorReceipt": {
+    "path": "reports/independent-board/w1g-api2-probe-release-gate-plan-20260726T091834Z.json",
+    "sha256": "148ac612a13234a2a6bb56fe0f8f1da80fc0bd54fe420acb3fbc802f8bc9bc07"
+  },
+  "source": {
+    "repository": "https://github.com/fubangshou/FBSAI.git",
+    "branch": "codex/w1-trusted-ingress-attestation",
+    "commit": "2728d3fa9f037e623ef26da3d858a50a502a9af0",
+    "packageManifestSha256": "61b19bb2a331eed91b6e48199f097a11224f9b75947a4bedd8c552d43d8f4795",
+    "criticalDeploySnapshotSha256": "d270308fb43a0e638350357cd3c4088364d92e8b2aaae6c40552b28bc6614853"
+  },
+  "deployment": {
+    "releaseId": "20260726-172443",
+    "status": "applied",
+    "previousCurrentTarget": "/opt/fbss/phase1/releases/20260726-124824",
+    "newCurrentTarget": "/opt/fbss/phase1/releases/20260726-172443",
+    "previousActiveReleaseAnchorSha256": "b942fe485f183c4c7fba04bd5309a60fdfaa32852f00057e9fe3d0491c3c0019",
+    "cutoverTerminalStatus": "completed",
+    "rollbackTriggered": false,
+    "postDeployReadonlyPreflight": "passed"
+  },
+  "fourProof": {
+    "executableDeploymentChannel": "verified_and_executed",
+    "targetScopedAuthorizationReceipt": "operator_invocation_with_user_authorized_service_release",
+    "exactRollbackAnchor": "previous_current_target_and_anchor_sha_readbacked",
+    "targetSideCommitBuildDigestReadback": "release_health_and_cutover_receipt_three_digests_match"
+  },
+  "targetReadback": {
+    "healthStatus": "ok",
+    "httpStatus": 200,
+    "sourceGitHead": "2728d3fa9f037e623ef26da3d858a50a502a9af0",
+    "packageManifestSha256": "61b19bb2a331eed91b6e48199f097a11224f9b75947a4bedd8c552d43d8f4795",
+    "criticalDeploySnapshotSha256": "d270308fb43a0e638350357cd3c4088364d92e8b2aaae6c40552b28bc6614853",
+    "criticalDeployFileCount": 1290
+  },
+  "releaseBoundary": {
+    "officialExpertsPackageChanged": false,
+    "hostChanged": false,
+    "officialConnectorChanged": false,
+    "naturalSameBindingObserved": false,
+    "productCreditPromotion": "blocked"
+  },
+  "singleNextAction": "Use the listed official fbs-connector and exact 26.7.21 identity to observe one real same-binding whoami -> scene_pack -> consume chain; classify the first readback as record-only unless trusted ingress authority is present."
+}

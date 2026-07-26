@@ -29,7 +29,7 @@
     },
     {
       "id": "W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE",
-      "state": "controlled_synthetic_service_transport_verified_connector_exact_tools_call_and_authenticated_admin_readback_pending",
+      "state": "api2_probe_contract_release_deployed_record_only_connector_exact_tools_call_and_authenticated_admin_readback_pending",
       "activeSlice": "W1E_CONNECTOR_EXACT_FIRST_TOOL_CALL_AND_REAL_OFFICIAL_ENTRY_PROOF",
       "officialIdentity": {
         "productId": "fbsir-eight-seat-board",
@@ -51,6 +51,7 @@
       "api2ReviewCandidateReceipt": "reports/independent-board/w1e-api2-connector-review-candidate-20260726T073213Z.json",
       "api2ProbeContractCandidateReceipt": "reports/independent-board/w1f-api2-probe-contract-candidate-20260726T084544Z.json",
       "api2ProbeReleaseGatePlanReceipt": "reports/independent-board/w1g-api2-probe-release-gate-plan-20260726T091834Z.json",
+      "api2ProbeReleaseAppliedReceipt": "reports/independent-board/w1h-api2-probe-release-applied-20260726T092532Z.json",
       "customConnectorSchemaObservation": "reports/independent-board/w1f-custom-connector-schema-observation-20260726T085708Z.json",
       "adminReceiptReadbackCandidate": {
         "ownerSurface": "fbs_service_side",
