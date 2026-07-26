@@ -169,7 +169,7 @@
     "w1aCurrentObservationReport": "reports/independent-board/w1a-current-observation-20260725T2328Z.json",
     "w1aCrossServiceSignalAudit": "reports/independent-board/w1a-cross-service-signal-audit-20260725T2328Z.json",
     "w1aApi2LiveSignalCapture": "reports/independent-board/api2-live-signal-capture-20260725T2328Z.json",
-    "w1eApi2ConnectorReviewCandidateReceipt": "reports/independent-board/w1e-api2-connector-review-candidate-20260726T064345Z.json",
+    "w1eApi2ConnectorReviewCandidateReceipt": "reports/independent-board/w1e-api2-connector-review-candidate-20260726T073213Z.json",
     "w1eAdminReceiptReadbackCandidateReceipt": "reports/independent-board/w1e-admin-receipt-readback-candidate-20260726T0733Z.json",
     "w1aCurrentObservationVerifier": "scripts/verify-w1a-current-observation.ps1",
     "w1aCurrentObservationStatusMemo": "docs/independent-board/W1-CURRENT-OBSERVATION-STATUS-20260725.md",
@@ -484,9 +484,9 @@
         "candidateState": "committed_pushed_clean_production_release_20260726_public_mcp_and_controlled_synthetic_same_binding_u3w_chain_verified_product_credit_promotion_blocked",
         "candidateCommit": "c02e9677f912a92262e8c02555dc636e51dab283",
         "reviewCandidate": {
-          "commit": "53b337ac3b65c766ba4dabc460ce59ec7fdf2de8",
-          "state": "strict_head_review_package_built_remote_aligned_not_deployed",
-          "receipt": "reports/independent-board/w1e-api2-connector-review-candidate-20260726T064345Z.json"
+          "commit": "503d3de60d8b9e63f4db55c11f68adb363ac8a74",
+          "state": "strict_head_identity_clean_connector_review_package_built_remote_aligned_not_deployed",
+          "receipt": "reports/independent-board/w1e-api2-connector-review-candidate-20260726T073213Z.json"
         },
         "candidateCriticalDeploySnapshotSha256": "56ADE7AC58ED3BE12FC2F26C79B39AFC988C994D6F039FF0227FBDC1D4B63A89",
         "productionDeclaredCommit": "c02e9677f912a92262e8c02555dc636e51dab283",

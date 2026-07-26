@@ -1,0 +1,82 @@
+{
+  "schema": "fbsir.independentBoardApi2ConnectorReviewCandidate.v1",
+  "status": "PACKAGED_REVIEW_CANDIDATE_NOT_DEPLOYED",
+  "generatedAt": "2026-07-26T07:32:13.726Z",
+  "scope": "fbs_connector",
+  "officialIdentity": {
+    "productId": "fbsir-eight-seat-board",
+    "packageVersion": "26.7.21",
+    "expertEntryId": "board-convener",
+    "marketplace": "experts",
+    "entrySurface": "listed_runtime_state"
+  },
+  "source": {
+    "repository": "https://github.com/fubangshou/FBSAI.git",
+    "branch": "codex/w1-trusted-ingress-attestation",
+    "commit": "503d3de60d8b9e63f4db55c11f68adb363ac8a74",
+    "remoteHead": "503d3de60d8b9e63f4db55c11f68adb363ac8a74",
+    "remoteAligned": true,
+    "commitMessage": "fix(connector): remove stale expert identity headers"
+  },
+  "reviewBuild": {
+    "entry": "tools/build-api2-review-package.mjs",
+    "manifestSha256": "b30abce29cbbdb91c301799184432c37a7125dd4e23fc5ba810c51173dbbd7cd",
+    "connectorPackageVersion": "26.7.4",
+    "connectorContractVersion": "1.2.9",
+    "recommendedSubmissionZip": {
+      "path": "dist/review/fbs-connector-26.7.4-R.zip",
+      "sha256": "b2d805cdf52bdd1b3c69d21d47f6eb787b392cca0880c45f23f26be30eca0223",
+      "bytes": 7422
+    },
+    "connectorWorkBuddyZip": {
+      "path": "dist/review/fbs-connector-26.7.4-workbuddy.zip",
+      "sha256": "29eae5b93c0518db12559a8c6b960377f7a8d0ba0f416097a0f8ae298d441f13",
+      "bytes": 7178
+    },
+    "connectorIconSha256": "060a6394371864e29689116a087fc5f0e66ecd3cf50d0b67b6e593633a53310e",
+    "requiredEntries": [
+      "connector-meta.json",
+      "icon.png",
+      "mcp.json",
+      "skills/SKILL.md"
+    ],
+    "publicMcpUrl": "https://api2.u3w.com/fbs-mcp/mcp",
+    "staticProductIdentityHeaders": "absent"
+  },
+  "verification": {
+    "reviewPackageContract": "pass",
+    "submissionChecklist": "ready_for_manual_review",
+    "bindingHintIsolation": "pass",
+    "exactOfficialRoute": {
+      "status": "pass",
+      "testCount": 10
+    },
+    "localApi2ToMockU3w": {
+      "status": "pass",
+      "sequence": [
+        "ENTRY_OBSERVED",
+        "INTENT_CLASSIFIED",
+        "FIRST_VALUE_COMPLETED"
+      ],
+      "signedEventsDelivered": 3,
+      "trafficPromotion": "blocked_record_only",
+      "productCreditEligible": false
+    }
+  },
+  "releaseBoundary": {
+    "deploymentState": "not_deployed",
+    "productionReleaseCommit": "c02e9677f912a92262e8c02555dc636e51dab283",
+    "productionReleaseId": "20260726-124824",
+    "candidateAheadOfProduction": true,
+    "officialExpertsPackageChanged": false,
+    "hostChanged": false,
+    "productCreditPromotion": "blocked"
+  },
+  "knownGaps": [
+    "official_connector_marketplace_publish_activate_rollback_channel_not_available_in_repository",
+    "official_connector_exact_tools_call_not_observed",
+    "real_official_experts_same_binding_chain_not_observed",
+    "authenticated_admin_six_dimension_readback_not_completed"
+  ],
+  "singleNextAction": "Submit this immutable connector candidate only through the FBS connector release surface, then capture one real official tools/call and the matching authenticated U3W receipt and summary readback without promoting product credit."
+}
