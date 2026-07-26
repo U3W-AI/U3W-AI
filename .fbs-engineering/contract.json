@@ -171,6 +171,7 @@
     "w1aApi2LiveSignalCapture": "reports/independent-board/api2-live-signal-capture-20260725T2328Z.json",
     "w1eApi2ConnectorReviewCandidateReceipt": "reports/independent-board/w1e-api2-connector-review-candidate-20260726T073213Z.json",
     "w1fApi2ProbeContractCandidateReceipt": "reports/independent-board/w1f-api2-probe-contract-candidate-20260726T084544Z.json",
+    "w1fCustomConnectorSchemaObservation": "reports/independent-board/w1f-custom-connector-schema-observation-20260726T085708Z.json",
     "w1eAdminReceiptReadbackCandidateReceipt": "reports/independent-board/w1e-admin-receipt-readback-candidate-20260726T0733Z.json",
     "w1aCurrentObservationVerifier": "scripts/verify-w1a-current-observation.ps1",
     "w1aCurrentObservationStatusMemo": "docs/independent-board/W1-CURRENT-OBSERVATION-STATUS-20260725.md",

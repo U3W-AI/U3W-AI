@@ -1,0 +1,41 @@
+{
+  "schema": "fbsir.independentBoardCustomConnectorSchemaObservation.v1",
+  "status": "RECORD_ONLY_CUSTOM_CONNECTOR_OBSERVATION",
+  "observedAt": "2026-07-26T08:57:08Z",
+  "ownerSurface": "fbs_connector",
+  "customConnector": {
+    "name": "fbsir-official-26.7.21-probe-26.7.4",
+    "enabledDuringCall": true,
+    "disabledAfterCall": true,
+    "tool": "mcp__fbs-connector__skill_whoami",
+    "toolCalls": 1
+  },
+  "rawReceipt": {
+    "path": "C:/Users/10171/.workbuddy/projects/c-Users-10171-WorkBuddy-2026-07-26-16-16-19/8076cfa8-f526-40c3-9e0a-020e1572d314/tool-results/mcp-connector-proxy-fbs-connector_skill_whoami-1785056228177-bc4466.txt",
+    "sha256": "843d801046509c70fd94db9ad6a5b57e7ebc4bc370fb08dcedfff97e76c970a3",
+    "bytes": 93913
+  },
+  "observedBinding": {
+    "entrySurface": "custom_connector_probe",
+    "requestSource": "workbuddy",
+    "sourceRequestSource": "workbuddy_custom_connector_probe",
+    "trafficClass": null,
+    "sourceTrafficClass": null,
+    "productTrustStatus": "incomplete",
+    "productTrustedForAttribution": false,
+    "hostVersionStatus": "untrusted",
+    "packageVersionUnknownReason": "package_version_missing_at_ingress"
+  },
+  "schemaBoundary": {
+    "additionalProperties": false,
+    "accepted": ["hostType", "channel", "entryId", "entrySurface", "entryPromptCode", "requestSource"],
+    "rejected": ["clientTrack", "trafficClass", "sourceTrafficClass", "sampleClass", "isSynthetic", "fbssTestRoute", "testRunId"]
+  },
+  "promotion": {
+    "officialExpertsEntryProven": false,
+    "naturalTrafficProven": false,
+    "sameBindingThreeEventChainProven": false,
+    "productCreditEligible": false
+  },
+  "decision": "This confirms current production schema rejects controlled probe classification fields. It is evidence for the undeployed API2 service-side candidate 804576a, not evidence of its deployment or official attribution."
+}
