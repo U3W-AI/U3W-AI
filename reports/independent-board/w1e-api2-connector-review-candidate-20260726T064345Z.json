@@ -1,0 +1,87 @@
+{
+  "schema": "fbsir.independentBoardApi2ConnectorReviewCandidate.v1",
+  "status": "PACKAGED_REVIEW_CANDIDATE_NOT_DEPLOYED",
+  "generatedAt": "2026-07-26T06:43:45.379Z",
+  "scope": "fbs_service_side_and_fbs_connector_review_package",
+  "officialIdentity": {
+    "productId": "fbsir-eight-seat-board",
+    "packageVersion": "26.7.21",
+    "expertEntryId": "board-convener",
+    "marketplace": "experts",
+    "entrySurface": "listed_runtime_state"
+  },
+  "source": {
+    "repository": "https://github.com/fubangshou/FBSAI.git",
+    "branch": "codex/w1-trusted-ingress-attestation",
+    "commit": "53b337ac3b65c766ba4dabc460ce59ec7fdf2de8",
+    "remoteHead": "53b337ac3b65c766ba4dabc460ce59ec7fdf2de8",
+    "remoteAligned": true,
+    "commitMessage": "fix(connector): embed deterministic review icon"
+  },
+  "reviewBuild": {
+    "entry": "tools/build-api2-review-package.mjs",
+    "manifestSha256": "dc23f0a2ab7b4c6d0da9a2cd7a8ec615a0777e353a8e42d44fb47924328a7479",
+    "connectorPackageVersion": "26.7.2",
+    "connectorContractVersion": "1.2.9",
+    "recommendedSubmissionZip": {
+      "path": "dist/review/fbs-connector-26.7.2-R.zip",
+      "sha256": "7ac2e393be1bb4c22d7ecc65d19c5b9c6f7e54b1081ac90632af823701a656e7",
+      "bytes": 7498
+    },
+    "connectorWorkBuddyZip": {
+      "path": "dist/review/fbs-connector-26.7.2-workbuddy.zip",
+      "sha256": "d55d1a6e8372e6af0c40bd3f67606f6a5598501efa80f7c1350173da59a208de",
+      "bytes": 7254
+    },
+    "connectorIconSha256": "060a6394371864e29689116a087fc5f0e66ecd3cf50d0b67b6e593633a53310e",
+    "requiredEntries": [
+      "connector-meta.json",
+      "icon.png",
+      "mcp.json",
+      "skills/SKILL.md"
+    ],
+    "publicMcpUrl": "https://api2.u3w.com/fbs-mcp/mcp"
+  },
+  "verification": {
+    "listedProductTrustContext": {
+      "status": "pass",
+      "assertions": 49
+    },
+    "exactOfficialRoute": {
+      "status": "pass",
+      "testCount": 5
+    },
+    "signedPublisherAndDurability": {
+      "status": "pass",
+      "testCount": 33
+    },
+    "publisherActivationContract": "pass",
+    "localApi2ToMockU3w": {
+      "status": "pass",
+      "sequence": [
+        "ENTRY_OBSERVED",
+        "INTENT_CLASSIFIED",
+        "FIRST_VALUE_COMPLETED"
+      ],
+      "signedEventsDelivered": 3,
+      "trafficPromotion": "blocked_record_only",
+      "productCreditEligible": false
+    }
+  },
+  "releaseBoundary": {
+    "deploymentState": "not_deployed",
+    "productionReleaseCommit": "c02e9677f912a92262e8c02555dc636e51dab283",
+    "productionReleaseId": "20260726-124824",
+    "candidateAheadOfProduction": true,
+    "officialExpertsPackageChanged": false,
+    "hostChanged": false,
+    "productCreditPromotion": "blocked"
+  },
+  "knownGaps": [
+    "official_connector_exact_tools_call_not_observed",
+    "real_official_experts_same_binding_chain_not_observed",
+    "authenticated_admin_six_dimension_readback_not_completed",
+    "generic_api2_release_candidate_gate_is_cross_product_and_not_board_scoped"
+  ],
+  "singleNextAction": "Submit or activate this connector candidate only through the FBS connector release surface, then capture one real official tools/call and the matching authenticated U3W admin readback without promoting product credit."
+}

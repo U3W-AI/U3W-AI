@@ -109,6 +109,11 @@ Require ([string]$contract.artifacts.w1aApi2LiveSignalCapture -ceq $capturePath)
 Require ([string]$w1Wave[0].api2LiveSignalCapture -ceq $capturePath) 'taskboard/status API2 capture path drifted'
 $capture = Read-Json $capturePath
 $captureSha256 = Get-FileSha256 $capturePath
+$reviewCandidatePath = [string]$status.w1a.api2ReviewCandidateReceipt
+Require (-not [string]::IsNullOrWhiteSpace($reviewCandidatePath)) 'status has no API2 review-candidate receipt'
+Require ([string]$contract.artifacts.w1eApi2ConnectorReviewCandidateReceipt -ceq $reviewCandidatePath) 'contract/status API2 review-candidate receipt path drifted'
+Require ([string]$w1Wave[0].api2ReviewCandidateReceipt -ceq $reviewCandidatePath) 'taskboard/status API2 review-candidate receipt path drifted'
+$reviewCandidate = Read-Json $reviewCandidatePath
 $memoPath = [string]$status.w1a.currentObservationStatusMemo
 Require (-not [string]::IsNullOrWhiteSpace($memoPath)) 'status has no current observation memo'
 $memo = Read-Text $memoPath
@@ -119,6 +124,28 @@ Require ($observation.officialIdentity.productId -ceq 'fbsir-eight-seat-board') 
 Require ($observation.officialIdentity.listedManifestVersion -ceq '26.7.21') 'listed manifest version mismatch'
 Require ($observation.officialIdentity.embeddedContractVersion -ceq '26.7.20') 'embedded contract version mismatch'
 Require ($observation.officialIdentity.packageFrozen -eq $true) 'official package freeze is not asserted'
+
+Require ($reviewCandidate.schema -ceq 'fbsir.independentBoardApi2ConnectorReviewCandidate.v1') 'API2 review-candidate schema mismatch'
+Require ($reviewCandidate.status -ceq 'PACKAGED_REVIEW_CANDIDATE_NOT_DEPLOYED') 'API2 review candidate status drifted'
+Require ($reviewCandidate.officialIdentity.productId -ceq 'fbsir-eight-seat-board') 'API2 review candidate product identity mismatch'
+Require ($reviewCandidate.officialIdentity.packageVersion -ceq '26.7.21') 'API2 review candidate package version mismatch'
+Require ($reviewCandidate.source.branch -ceq 'codex/w1-trusted-ingress-attestation') 'API2 review candidate branch drifted'
+Require ($reviewCandidate.source.commit -ceq '53b337ac3b65c766ba4dabc460ce59ec7fdf2de8') 'API2 review candidate commit drifted'
+Require ($reviewCandidate.source.remoteHead -ceq $reviewCandidate.source.commit) 'API2 review candidate remote HEAD drifted'
+Require ($reviewCandidate.source.remoteAligned -eq $true) 'API2 review candidate remote alignment is missing'
+Require ($reviewCandidate.reviewBuild.recommendedSubmissionZip.path -ceq 'dist/review/fbs-connector-26.7.2-R.zip') 'API2 review candidate submission ZIP drifted'
+Require ($reviewCandidate.reviewBuild.connectorIconSha256 -ceq '060a6394371864e29689116a087fc5f0e66ecd3cf50d0b67b6e593633a53310e') 'API2 review candidate icon digest drifted'
+Require ($reviewCandidate.releaseBoundary.deploymentState -ceq 'not_deployed') 'API2 review candidate was promoted'
+Require ($reviewCandidate.releaseBoundary.productionReleaseCommit -ceq [string]$status.w1a.api2SourceTruth.productionDeclaredCommit) 'API2 review candidate production commit drifted'
+Require ($reviewCandidate.releaseBoundary.officialExpertsPackageChanged -eq $false) 'API2 review candidate changed the official experts package'
+Require ($reviewCandidate.releaseBoundary.hostChanged -eq $false) 'API2 review candidate changed the host'
+Require ($reviewCandidate.releaseBoundary.productCreditPromotion -ceq 'blocked') 'API2 review candidate promoted product credit'
+Require ($reviewCandidate.verification.localApi2ToMockU3w.status -ceq 'pass') 'API2 review candidate mock U3W verification failed'
+Require ($reviewCandidate.verification.localApi2ToMockU3w.productCreditEligible -eq $false) 'API2 review candidate mock U3W verification promoted credit'
+Require ([string]$status.w1a.api2SourceTruth.reviewCandidate.receipt -ceq $reviewCandidatePath) 'status review-candidate receipt drifted'
+Require ([string]$contract.contracts.currentMainline.api2SourceTruth.reviewCandidate.receipt -ceq $reviewCandidatePath) 'contract review-candidate receipt drifted'
+Require ([string]$status.w1a.api2SourceTruth.reviewCandidate.commit -ceq [string]$reviewCandidate.source.commit) 'status review-candidate commit drifted'
+Require ([string]$contract.contracts.currentMainline.api2SourceTruth.reviewCandidate.commit -ceq [string]$reviewCandidate.source.commit) 'contract review-candidate commit drifted'
 
 Require ($observation.u3w.serviceState -ceq 'active') 'U3W service is not active in current observation'
 # The timestamped observation is immutable. A later legitimate cutover may advance

@@ -34,6 +34,10 @@ try {
     $observationPath = [string]$status.w1a.currentObservationReport
     $auditPath = [string]$status.w1a.crossServiceSignalAudit
     $capturePath = [string]$status.w1a.api2LiveSignalCapture
+    $reviewCandidatePath = [string]$status.w1a.api2ReviewCandidateReceipt
+    if ([string]::IsNullOrWhiteSpace($reviewCandidatePath)) {
+        throw 'status is missing the API2 review-candidate receipt path'
+    }
 
     @(
         '.fbs-engineering/contract.json',
@@ -43,7 +47,8 @@ try {
         'scripts/verify-w1a-current-observation.ps1',
         $observationPath,
         $auditPath,
-        $capturePath
+        $capturePath,
+        $reviewCandidatePath
     ) | ForEach-Object { Copy-ContractFile $_ }
 
     $verifier = Join-Path $tempRoot (
@@ -55,6 +60,34 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "baseline verifier failed: $($baselineOutput -join [Environment]::NewLine)"
     }
+
+    $reviewCandidateTarget = Join-Path $tempRoot $reviewCandidatePath
+    $reviewCandidate = Get-Content -Raw -Encoding UTF8 -LiteralPath $reviewCandidateTarget |
+        ConvertFrom-Json
+    $reviewCandidate.releaseBoundary.deploymentState = 'deployed'
+    $reviewCandidate | ConvertTo-Json -Depth 100 |
+        Set-Content -Encoding UTF8 -LiteralPath $reviewCandidateTarget
+    $previousErrorPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $candidatePromotionOutput = @(
+            & powershell -NoProfile -ExecutionPolicy Bypass -File $verifier `
+                -RepoRoot $tempRoot 2>&1
+        )
+        $candidatePromotionExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorPreference
+    }
+    if (
+        $candidatePromotionExitCode -eq 0 -or
+        ($candidatePromotionOutput -join [Environment]::NewLine) -notmatch
+            'review candidate was promoted'
+    ) {
+        throw 'verifier accepted a packaged API2 review candidate as deployed'
+    }
+    Copy-Item -LiteralPath (Join-Path $RepoRoot $reviewCandidatePath) `
+        -Destination $reviewCandidateTarget -Force
 
     $observationTarget = Join-Path $tempRoot $observationPath
     $auditTarget = Join-Path $tempRoot $auditPath
@@ -335,6 +368,7 @@ try {
         captureProjectionDriftRejected = $true
         runtimeProjectionAuthorityEscalationRejected = $true
         gzipExpansionStoppedAtLimit = $true
+        packagedReviewCandidatePromotionRejected = $true
     } | ConvertTo-Json -Depth 4
 }
 finally {
