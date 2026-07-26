@@ -1,0 +1,117 @@
+{
+  "schema": "fbsir.independentBoardW1dServiceCutover.v1",
+  "observedAt": "2026-07-26T02:39:51.139Z",
+  "authorization": "api2_atomic_cutover_and_production_read_only_verification",
+  "scope": "official WorkBuddy experts/fbsir-eight-seat-board@26.7.21 exact-route signed record-only attribution",
+  "officialExpertsBaseline": {
+    "path": "D:\\ddh\\DDH-Codex-Handoff-20260721-f28f8ad1\\deliverables\\packages\\fbsir-eight-seat-board-26.7.21-official-experts-baseline.zip",
+    "sha256": "57443E8FBCBCD2620736BCE35EDCCC8001E578918E13EE6521F618D983348510",
+    "modified": false
+  },
+  "api2": {
+    "repository": "https://github.com/fubangshou/FBSAI.git",
+    "branch": "codex/w1-trusted-ingress-attestation",
+    "sourceCommit": "016980eb5a20fb252d5a5315ac54b0ff841cfa0a",
+    "remoteAligned": true,
+    "workingTreeClean": true,
+    "release": {
+      "releaseId": "20260726-103012",
+      "trafficCutoverAt": "2026-07-26T02:30:32.177586Z",
+      "target": "/opt/fbss/phase1/releases/20260726-103012",
+      "serviceState": "active",
+      "packageManifestSha256": "965FD69983B38BE6137B87DA4A20637CEF666CFB6C13733C5E58BFCB5CB46178",
+      "criticalDeploySnapshotSha256": "86623BB36AADA58FC49DCDEC745AF00FD4D4CA8044A007060834D977FF2C762A",
+      "rollbackTriggered": false
+    },
+    "focusedGates": {
+      "trustSmokeAssertions": 49,
+      "nodeTests": "33/33",
+      "activationContract": "PASS",
+      "dualProcessIndependentBoardE2e": {
+        "signedKeyringEvents": 3,
+        "recordOnlyEvents": 3,
+        "noListingKeyringOrRegistryRecordOnlyEvents": 3,
+        "hmacDeliveryVerified": true,
+        "productCreditEligible": false
+      },
+      "sp26715DefaultRuntimeRegression": "PASS",
+      "hostAckRequiredNoWriteRegression": "PASS",
+      "currentReleaseSpineRegression": "PASS"
+    },
+    "publisher": {
+      "status": "ready",
+      "enabled": true,
+      "initialized": true,
+      "workerRunning": true,
+      "strictOutboxDurabilityConfirmed": true,
+      "pendingRecords": 0,
+      "inflightRecords": 0,
+      "deliveredRecords": 0,
+      "deadRecords": 0,
+      "blockedRecords": 0,
+      "productCreditPromoted": false
+    },
+    "listingTrust": {
+      "status": "not_ready",
+      "keyringConfigured": false,
+      "registryConfigured": false,
+      "productCreditEligible": false,
+      "recordOnlyFallbackEnabledForExactOfficialRoute": true
+    },
+    "runtimeReadback": {
+      "runtimeEventCount": 51873,
+      "latestRuntimeCreatedAt": "2026-07-26T02:38:01.997Z",
+      "exactOfficialRouteTotal": 0,
+      "exactOfficialRoutePostCutover": 0,
+      "recordOnlyPostCutover": 0
+    }
+  },
+  "u3w": {
+    "repositoryBranch": "codex/w1-natural-ingress-fence",
+    "candidateCommit": "ccec982de8d6542c7b0a1791ef16069373db93fa",
+    "candidateRemoteAligned": true,
+    "candidateWorkingTreeClean": true,
+    "candidateGuard": "reject_unverified_natural_board_attribution",
+    "candidateDeployed": false,
+    "production": {
+      "serviceUnit": "fbsir-admin.service",
+      "serviceState": "active",
+      "activeSince": "2026-07-25 19:19:43 CST",
+      "releaseId": "w1a-release-13c203a5c42d-20260725T040706Z",
+      "deployedSourceCommit": "13c203a5c42d8a8f977be8a9834c2ad147b62bb8",
+      "jarSha256": "5b3582e2e4f97ab8a09845a1b6940e334cb2452a2c1970a01aeaf40dd1cc5cc1"
+    },
+    "ledger": {
+      "journeyCount": 1,
+      "eventCount": 3,
+      "sameBindingKeyCount": 1,
+      "serverBindingIdCount": 1,
+      "trafficClassCounts": {
+        "PROBE": 3,
+        "NATURAL": 0,
+        "UNKNOWN": 0
+      },
+      "postApi2CutoverEventCount": 0,
+      "authoritativeProductCreditSum": 0,
+      "latestCreatedAt": "2026-07-24T18:50:25.332000Z"
+    },
+    "nonBlockingDebt": {
+      "component": "WebhookDeliveryReconciliationTask",
+      "symptom": "BadSqlGrammarException once per minute",
+      "observedAfterApi2Cutover": true,
+      "independentBoardAttributionCouplingObserved": false
+    }
+  },
+  "verdict": {
+    "api2AtomicCutoverComplete": true,
+    "exactRouteRecordOnlyPathLocallyProven": true,
+    "productionPublisherReady": true,
+    "officialLiveSignalObservedAfterCutover": false,
+    "u3wLiveThreeEventReceiptObservedAfterCutover": false,
+    "naturalOrProductCreditPromoted": false,
+    "phaseOneOperationalClosureComplete": false,
+    "status": "service_ready_awaiting_one_post_cutover_official_workbuddy_interaction"
+  },
+  "knownGateCaveat": "The legacy aggregate api2-release-candidate-gate is not self-contained in this worktree and failed stale unrelated environment/artifact checks; focused release gates and atomic postdeploy preflight are the release authority for this cutover.",
+  "singleNextAction": "Send one real question through the listed WorkBuddy independent-board expert, then verify the same binding produces three signed UNKNOWN record-only events in U3W with authoritative_product_credit=0."
+}
