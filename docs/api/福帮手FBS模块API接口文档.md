@@ -220,7 +220,7 @@ API Key 必须绑定用户；新记录的 `userId` 始终取自绑定，不信�
 { "code": 410, "msg": "SKILL_POINTS_EARN_DISABLED" }
 ```
 
-调用方不得重试或回退到 `/points/changePoints`。下一版宿主升级需求见 `docs/independent-board/HOST-UPGRADE-DEMAND-CREDIT-LEDGER.md`。
+调用方不得重试或回退到 `/points/changePoints`。福帮手连接器与服务侧升级需求见 `docs/independent-board/FBS-CONNECTOR-SERVICE-UPGRADE-DEMAND-CREDIT-LEDGER.md`。
 
 ---
 

@@ -50,7 +50,7 @@
   },
   "activeWave": "W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE",
   "activeSlice": "W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF",
-  "singleNextAction": "Keep natural and credit gates closed; obtain a host-signed exact 26.7.21 listing receipt plus trusted forwarding authority for the same serverBindingId, then run one real official WorkBuddy entry and verify the three-event U3W/admin readback chain.",
+  "singleNextAction": "Keep natural and credit gates closed; configure the FBS connector to carry signed exact 26.7.21 official-entry identity into API2 on the supported connector surface, verify service-side same-binding evidence, then run one real official WorkBuddy entry and verify the three-event U3W/admin readback chain.",
   "stage": "fix",
   "phase": "W1D_API2_CLEANROOM_PUBLISHER",
   "authoritativeRoot": {
@@ -133,8 +133,9 @@
     "reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json",
     "reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json",
     "docs/independent-board/API2-INDEPENDENT-BOARD-24H-TRAFFIC-ATTRIBUTION-20260721.md",
-    "docs/independent-board/HOST-UPGRADE-DEMAND-INDEPENDENT-BOARD-ATTRIBUTION.md",
-    "docs/independent-board/HOST-UPGRADE-DEMAND-CREDIT-LEDGER.md",
+    "docs/independent-board/FBS-CONNECTOR-SERVICE-UPGRADE-DEMAND-INDEPENDENT-BOARD-ATTRIBUTION.md",
+    "docs/independent-board/FBS-CONNECTOR-SERVICE-UPGRADE-DEMAND-CREDIT-LEDGER.md",
+    "docs/independent-board/FBS-CONNECTOR-SERVICE-UPGRADE-DEMAND-20260726-REFRESH.md",
     "reports/independent-board/points-mutation-security-closure-20260722.json",
     "reports/independent-board/api-key-pack-scope-verification-20260722.json",
     "docs/independent-board/W3F-CREDIT-LEDGER-CONTRACT.md",
@@ -722,5 +723,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-25T23:35:00+08:00"
+  "updatedAt": "2026-07-26T11:31:00+08:00"
 }

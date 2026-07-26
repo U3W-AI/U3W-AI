@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Close service attribution, finite intent classification and first-value readback for the exact WorkBuddy listed fbsir-eight-seat-board@26.7.21 identity without modifying the official experts content tree.",
-  "singleNextAction": "Keep natural and credit gates closed; obtain a host-signed exact 26.7.21 listing receipt plus trusted forwarding authority for the same serverBindingId, then run one real official WorkBuddy entry and verify the three-event U3W/admin readback chain.",
+  "singleNextAction": "Keep natural and credit gates closed; configure the FBS connector to carry signed exact 26.7.21 official-entry identity into API2 on the supported connector surface, verify service-side same-binding evidence, then run one real official WorkBuddy entry and verify the three-event U3W/admin readback chain.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -299,7 +299,7 @@
         "entryGates": [
           "w4b2c_default_off_runtime_mount_report_verified",
           "api2_fixed_24h_attribution_report_records_zero_target_signal_and_projection_debt",
-          "host_upgrade_demand_records_fields_that_cannot_be_closed_without_next_host_release"
+          "fbs_connector_upgrade_demand_records_identity_carrier_fields_with_fbs_service_side_verification_dependencies"
         ]
       },
       "databaseSupport": {
@@ -413,6 +413,6 @@
     "Natural, probe, diagnostic, synthetic and unknown traffic denominators must remain separate.",
     "User-confirmed official listing remains distinct from host-verifiable listing evidence, natural invocation, business attribution and service-side closure.",
     "No external acceptance or HTTP success may be promoted to business confirmation.",
-    "Review suggestions for host-side products go to next-version demand ledgers."
+    "Every upgrade demand must have exactly one owner among fbs_expert_package, fbs_connector and fbs_service_side; host-side observations are external constraints or acceptance evidence only."
   ]
 }

@@ -47,7 +47,10 @@ API2 Git 真源已定位为 `fubangshou/FBSAI`，当前开发基线为
 - 在 API2 候选提交、推送、闭包打包和生产逐文件回读完成前，不能宣称
   strict-HEAD 可发布；
 - 本地与双 MySQL 通过仍不能证明真实自然流量；
-- 若服务侧无法从现有 WorkBuddy 请求上下文取得稳定 journey/binding，才需要把字段需求写入下一版宿主升级清单。
+- 若服务侧无法从现有 WorkBuddy 请求上下文取得稳定 journey/binding，缺失的身份载体归入
+  `fbs_connector`，解析、签名、same-binding 与账本能力归入 `fbs_service_side`；若必须新增
+  工具绑定，则另建 `fbs_expert_package` 候选需求。WorkBuddy 只作为外部约束和验收面，
+  不成为升级 owner、backlog 或交付落点。
 
 ## 不采用的方案
 

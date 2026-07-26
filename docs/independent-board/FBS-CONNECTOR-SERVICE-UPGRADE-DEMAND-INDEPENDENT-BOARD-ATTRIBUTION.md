@@ -1,6 +1,9 @@
-# 宿主升级需求：独董会官方入口归因闭环
+# 福帮手连接器与服务侧升级需求：独董会官方入口归因闭环
 
-- 状态：宿主升级需求已确认；官方 experts 内容包继续只读
+- `ownerSurface`: `fbs_connector`
+- `dependencyOwners`: `fbs_service_side`
+- `externalConstraintSurfaces`: WorkBuddy listed runtime、官方 experts 会话上下文
+- 状态：福帮手连接器身份载体需求已确认；福帮手服务侧验证为配套依赖；官方 experts 内容包继续只读
 - 当前唯一官方基线：WorkBuddy listed
   `fbsir-eight-seat-board@26.7.21`；包内 `26.7.20` 仅为嵌入合同元数据，
   不是兼容目标，禁止修改或写回
@@ -13,7 +16,7 @@
 
 当前宿主、连接器和 API2 各自能观察到部分客户端、入口和工具事件，但权威产品身份、版本、渠道、宿主路线、服务端 binding 与回执验证没有形成一个可连接合同。结果是官方入口量很大，独董会可归因量仍只能报告为 0/unknown；receipt “observed”也不能代替服务端 verified。
 
-## 下一版宿主必须转发的合同
+## 福帮手连接器必须承载、服务侧必须验证的合同
 
 | 字段 | 约束 | 用途 |
 |---|---|---|
@@ -30,7 +33,7 @@
 | `hostForwardingAckChallenge*` | challenge 与 binding 同库持久化 | receipt 防伪和同 binding join |
 | `serviceClosure*` | 明确 closure 成功事件，继承同一宿主路线 | continued use / 闭环 |
 
-宿主不得发送 token、cookie、authorization code、PKCE verifier、原始主体标识、邮箱、手机号或自由文本作为维度。主体只允许服务端 HMAC/opaque reference；渠道、终端、意图、宿主和来源使用有限枚举。
+福帮手连接器不得从运行上下文转发 token、cookie、authorization code、PKCE verifier、原始主体标识、邮箱、手机号或自由文本作为维度。主体只允许服务端 HMAC/opaque reference；渠道、终端、意图、宿主和来源使用有限枚举。
 
 ## 连接器与 API2 配套
 
@@ -59,21 +62,23 @@ U3W 观测已激活（writer/classifier/admin-read=true，credit/public-route=fa
 
 结论：当前官方包 `fbsir-eight-seat-board@26.7.21` 是纯 LLM 专家，
 不调用连接器，因此无法通过专家自身产生 `whoami_emitted → scene_pack_resolved →
-first_value_completed` 服务事实链。自然同绑定链的触发必须依赖 WorkBuddy 宿主
-在专家会话期间拦截并转发服务事实到 API2，而不是依赖专家脚本调用连接器。
+first_value_completed` 服务事实链。这是 WorkBuddy listed runtime 上的外部事实，
+不构成对宿主的升级归属，也不授权修改当前官方专家包。
 
-这确认了下方"宿主升级需求"的必要性：下一版宿主必须在不向专家脚本开放密钥的
-前提下，由宿主服务层在专家会话期间完成 whoami/scene_pack/first_value 的
-持久化与转发。当前版本无法通过任何专家侧改动补齐此闭环。
+合法闭环只能落在福帮手三面：福帮手连接器通过官方支持的连接器/MCP 接口取得并
+承载有界的官方会话身份，福帮手服务侧完成签名验证、same-binding 和追加写入；若
+当前官方接口不能提供所需上下文，则连接器需求保持 `not_proven`，另行评估下一版
+福帮手专家包的工具绑定需求，不得把 backlog 或交付责任转移给宿主。
 
-## 2026-07-23 当前宿主闭环缺口
+## 2026-07-23 当前福帮手连接器载体缺口
 
 当前官方包 `contracts/runtime-capabilities.json` 明确
 `connectorRequired=false`、`contentTelemetry=false`，且包本身没有 API2/U3W
 网络写入能力。这是正确的内容隐私边界，但也意味着不能靠修改已上架专家包补齐
 服务归因。
 
-下一版 WorkBuddy 宿主需要在不向专家脚本开放密钥的前提下，由宿主服务层完成：
+福帮手连接器需要在不向专家脚本开放密钥的前提下，通过官方支持的连接器/MCP
+能力完成：
 
 1. 官方入口首次进入时生成服务器签名的
    `serverVerifiedHostListingReceipt + listedProductTrustContext`，精确覆盖
@@ -88,28 +93,32 @@ first_value_completed` 服务事实链。自然同绑定链的触发必须依赖
    `SYNTHETIC > PROBE > DIAGNOSTIC > UNKNOWN > NATURAL`；
 6. 支持回执丢失后的同业务事件重签重放，不把 120 秒运输 TTL 当成旅程时限。
 
-若现有 WorkBuddy 5.3.3.0 已能提供上述宿主事件，只需配置和真机回读，不需要
-升级专家包；若不能，则将本节纳入下一版 WorkBuddy 宿主提审需求。
+若当前官方连接器接口已经提供上述会话上下文，只需配置福帮手连接器并真机回读，
+不需要升级专家包；若不能，则本需求继续归 `fbs_connector` 并保持 `not_proven`，
+同时把“下一版专家包声明工具绑定”作为独立 `fbs_expert_package` 候选需求评估。
+任何情况下都不得创建 WorkBuddy 宿主升级 backlog。
 
-## 2026-07-23 安全增补：宿主日志必须脱敏连接器凭据
+## 2026-07-23 安全增补：福帮手连接器与服务侧凭据治理
 
 只读审计发现，当前 WorkBuddy 主进程日志和 sandbox 命令日志会把
 connector-proxy 的 `Authorization: Bearer ...` 作为命令环境内容明文记录。
-交付证据不得复制该值；本问题按宿主凭据暴露风险处理，不通过修改官方 experts
-包修复。
+交付证据不得复制该值。该现象只作为外部暴露面：升级主归属为
+`fbs_connector` 的凭据注入与最小暴露，配套依赖为 `fbs_service_side` 的轮换、
+撤销和审计；不通过修改当前官方 experts 包修复，也不归入宿主。
 
-下一版宿主必须：
+福帮手连接器与服务侧必须：
 
-1. 在进入主日志、sandbox 日志、命令审计、异常栈和诊断包之前，对
-   `Authorization`、`Cookie`、token、API key、client secret 及其常见环境变量
-   做结构化 redaction；禁止只依赖字符串截断；
-2. 日志只记录凭据类型、来源组件、是否配置和不可逆短摘要，不记录原值；
-3. sandbox 执行记录采用环境变量 allowlist，默认不序列化完整进程环境；
-4. 增加带 sentinel secret 的自动化负向测试，扫描主日志、sandbox 日志和导出诊断包，
+1. 连接器不得把 bearer、API key 或 client secret 放入命令参数、通用环境转储、
+   请求诊断字段或可序列化工具参数；只能使用官方受管密钥通道，否则失败关闭；
+2. 连接器和服务侧日志只记录凭据类型、来源组件、是否配置和不可逆短摘要，不记录原值；
+3. 服务侧对连接器凭据实施最小权限、短有效期、可撤销和受审计轮换；
+4. 增加带 sentinel secret 的自动化负向测试，扫描连接器与 API2/U3W 日志及导出证据，
    发现 sentinel 即失败；
-5. 对已暴露凭据执行宿主侧轮换和旧日志访问/保留处置，并生成不含秘密的安全回执。
+5. 对已暴露凭据执行服务侧轮换、撤销和访问审计，并生成不含秘密的安全回执。
 
-在凭据完成轮换前，不得把含原值的日志作为归因、发布或问题排查附件传播。
+在凭据完成轮换前，不得把含原值的任何外部或福帮手侧日志作为归因、发布或问题排查
+附件传播。外部日志留存与清理由外部主体自行处置，只作为验收条件，不成为福帮手升级
+需求的 owner 或交付落点。
 
 ## P1-005 服务侧注册与清洁发布补充
 
@@ -118,7 +127,7 @@ connector-proxy 的 `Authorization: Bearer ...` 作为命令环境内容明文�
 - API2 固定 24 小时窗口（2026-07-20 18:19:54Z 至 2026-07-21 18:25:34Z）共 2,657,326 条结构化日志，精确 `fbsir-eight-seat-board@26.7.20` 及独董会别名均为 0；旧独董秘书助手 23 条与独董会严格隔离。
 - 当前证据只能说明“没有可信的独董会产品信号”，不能推出实际使用量为 0；旧产品 23 条均 `hostReceiptVerified=false`、`trafficAuthority=unknown`、业务/产品 credit 均 withheld。
 - P1-005A 已在本地 cleanroom 构建 report-only 候选：精确产品/版本门禁、错误版本拒绝、独董秘书隔离、伪造注册拒绝均通过；`PENDING_HOST_REGISTRATION`、`candidateEnabled=0`、`publicRouteEnabled=0`、`authoritativeCreditEnabled=0`，独董会自然分母权重为 0。
-- 当前仍为 `NO_GO`：active-release 元数据存在漂移，候选基础捕获缺少可证明 Git HEAD，尚未取得签名精确宿主注册回执，也未完成完整 serve 依赖闭包、健康切换与回滚证据。P1-005B 只允许复用现有签名 API2 service receipt/replay verifier，禁止以客户端布尔值升权。
+- 当前仍为 `NO_GO`：active-release 元数据存在漂移，候选基础捕获缺少可证明 Git HEAD，尚未取得签名精确官方入口注册回执，也未完成完整 serve 依赖闭包、健康切换与回滚证据。P1-005B 只允许复用现有签名 API2 service receipt/replay verifier，禁止以客户端布尔值升权。
 
 本轮只读复查确认 API2 当前 host-forwarding 结果不是 boolean，而是对象：
 
@@ -146,12 +155,12 @@ P1-005 不得从 active release 目录直接热补丁。必须以可证明的 cl
 
 ## 完成定义
 
-完成不等于某个接口 HTTP 200。必须同时取得宿主 receipt、不可变固定窗口、同 binding 链、服务闭环和发布身份对齐证据；否则继续保持 `not_proven`。本需求只进入下一版本 WorkBuddy 宿主计划；除非宿主接口规范要求新增声明字段，否则不升级专家内容包。无论如何不改变当前 listed 26.7.21 官方工件。
+完成不等于某个接口 HTTP 200。必须同时取得官方入口 receipt、不可变固定窗口、同 binding 链、服务闭环和发布身份对齐证据；否则继续保持 `not_proven`。本需求只进入福帮手连接器升级计划，福帮手服务侧承担签名验证、账本和读回依赖；若必须新增专家包声明，则另建 `fbs_expert_package` 需求并等待下一版，不得修改当前 listed 26.7.21 官方工件，也不得转移为宿主计划。
 
 ## 2026-07-22 增补：v2 回执与 U3W 租户绑定
 
 - API2 cleanroom 的权威输入是 `fbss.hostForwardingAck.v2`（HMAC-SHA256、受管 keyring、nonce replay、`requestDigest`/`actionEnvelopeDigest`/`toolArgumentsDigest`、服务端 binding）；仓内 `fbss.hostForwardingAckVerification.v1` 只是 API2 已验证结果的 wrapper，不能把其中的 boolean 当作 U3W 可信回执。
 - v2 ack 不携带 U3W `tenantSubjectDigest`。U3W 必须以自己签发并锁定的 challenge/session 期望值注入 verifier，并同时比较 tenant、serverBindingId、challengeId、requestDigest，禁止从 ack 自报租户。
 - Java writer 在 verifier/adapter/keyring 未落地前必须 fail-closed；本轮仅补齐 challenge nonce 绑定与严格 `expiresAt > issuedAt` 静态护栏，不能宣称 API2 加密回执闭环。
-- 下一版宿主升级需求：提供完整 v2 ack DTO、受管 key resolver（最少 32 bytes）、canonical JSON/HMAC 常量时间校验、nonce replay 存储，以及由唯一工厂生成 `VerifiedApi2Receipt` 后才允许写入证据端口。
+- 福帮手服务侧配套需求：提供完整 v2 ack DTO、受管 key resolver（最少 32 bytes）、canonical JSON/HMAC 常量时间校验、nonce replay 存储，以及由唯一工厂生成 `VerifiedApi2Receipt` 后才允许写入证据端口。
 - 本轮补充：Java writer 先锁 challenge 并验证独董会前序链，再执行 v2 verifier；verifier 的验签/nonce replay 预留必须保持无副作用，直到 append/seal 事务接受证据，避免乱序或拒绝事件消耗 replay 状态。

@@ -194,7 +194,9 @@ function Invoke-ContractChecks {
         'docs\decisions\ADR-001-independent-board-default-off-portal-read-boundary.md',
         'docs\decisions\ADR-002-independent-board-w4b2c-runtime-mount-and-attribution-boundary.md',
         'docs\independent-board\API2-INDEPENDENT-BOARD-24H-TRAFFIC-ATTRIBUTION-20260721.md',
-        'docs\independent-board\HOST-UPGRADE-DEMAND-INDEPENDENT-BOARD-ATTRIBUTION.md',
+        'docs\independent-board\FBS-CONNECTOR-SERVICE-UPGRADE-DEMAND-INDEPENDENT-BOARD-ATTRIBUTION.md',
+        'docs\independent-board\FBS-CONNECTOR-SERVICE-UPGRADE-DEMAND-CREDIT-LEDGER.md',
+        'docs\independent-board\FBS-CONNECTOR-SERVICE-UPGRADE-DEMAND-20260726-REFRESH.md',
         'docs\independent-board\prototypes\portals\index.html',
         'sql\update_20260720_independent_board_control_plane.sql',
         'sql\update_20260720_independent_board_me_menu.sql',
@@ -1985,7 +1987,9 @@ function Invoke-ContractChecks {
             -or $engineeringContract.artifacts.w4b2cRuntimeMountVerificationReport -cne 'reports/independent-board/w4b2c-default-off-runtime-mount-verification-20260721.json' `
             -or $engineeringContract.artifacts.w4b2cRuntimeAndAttributionAdr -cne 'docs/decisions/ADR-002-independent-board-w4b2c-runtime-mount-and-attribution-boundary.md' `
             -or $engineeringContract.artifacts.api2IndependentBoardTrafficAttributionReport -cne 'reports/independent-board/api2-independent-board-24h-traffic-attribution-20260721.json' `
-            -or $engineeringContract.artifacts.hostUpgradeDemandIndependentBoardAttribution -cne 'docs/independent-board/HOST-UPGRADE-DEMAND-INDEPENDENT-BOARD-ATTRIBUTION.md' `
+            -or $engineeringContract.artifacts.fbsConnectorServiceUpgradeDemandIndependentBoardAttribution -cne 'docs/independent-board/FBS-CONNECTOR-SERVICE-UPGRADE-DEMAND-INDEPENDENT-BOARD-ATTRIBUTION.md' `
+            -or $engineeringContract.artifacts.fbsConnectorServiceUpgradeDemandCreditLedger -cne 'docs/independent-board/FBS-CONNECTOR-SERVICE-UPGRADE-DEMAND-CREDIT-LEDGER.md' `
+            -or $engineeringContract.artifacts.fbsConnectorServiceUpgradeDemandCurrentRefresh -cne 'docs/independent-board/FBS-CONNECTOR-SERVICE-UPGRADE-DEMAND-20260726-REFRESH.md' `
             -or $contractW4b.state -cne 'w4b1_internal_oauth_chain_verified_w4b2_default_off_runtime_candidate_verified_local' `
             -or $contractW4b.nextSlice -cne $canonicalNextSliceId `
             -or $contractW4b.detailedUiPrototype.implementationState -cne 'default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions' `
