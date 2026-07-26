@@ -19,14 +19,14 @@
     "listingConfirmedOn": "2026-07-21",
     "hostVerifiableListingUrl": null,
     "hostVerifiableListingReceipt": null,
-    "hostVerificationState": "official_listing_confirmed_probe_only_host_receipt_and_natural_authority_pending",
+    "hostVerificationState": "official_connector_transport_observed_exact_tools_call_pending",
     "hostTruthChainReport": "reports/independent-board/host-truth-chain-summary-20260721.json",
     "rolloutMode": "full_listing_without_publisher_gray_control",
     "frozen": true,
     "writePolicy": "frozen_post_listing_observation_no_writeback"
   },
   "postListingObservation": {
-    "state": "active_official_entry_detected_runtime_reverify_pending",
+    "state": "controlled_synthetic_service_transport_verified_connector_exact_tools_call_pending",
     "wave": "WL_POST_LISTING_OBSERVATION",
     "requiredGates": [
       "same_session_official_marketplace_entry_readback",
@@ -39,7 +39,9 @@
       "user_confirmed_official_listing",
       "official_experts_plugin_directory_detected",
       "official_runtime_payload_matches_final_R_artifact_81_of_81_files",
-      "api2_fixed_24h_scanned_available_application_evidence_has_zero_target_signature_with_official_entry_projection_gap"
+      "api2_release_20260726_124824_c02e967_public_mcp_contract_verified",
+      "api2_to_u3w_controlled_synthetic_same_binding_three_event_chain_verified_credit_zero",
+      "workbuddy_fbs_connector_transport_observed_without_tools_call_or_exact_official_tuple"
     ],
     "noPromotionRules": [
       "official_listing_does_not_prove_natural_invocation",
@@ -49,10 +51,10 @@
     ]
   },
   "activeWave": "W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE",
-  "activeSlice": "W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF",
-  "singleNextAction": "Keep natural and credit gates closed; configure the FBS connector to carry signed exact 26.7.21 official-entry identity into API2 on the supported connector surface, verify service-side same-binding evidence, then run one real official WorkBuddy entry and verify the three-event U3W/admin readback chain.",
+  "activeSlice": "W1E_CONNECTOR_EXACT_FIRST_TOOL_CALL_AND_REAL_OFFICIAL_ENTRY_PROOF",
+  "singleNextAction": "In the FBS connector, send the exact 13-field independent-board identity on the first skill_whoami call and preserve server actionEnvelope.toolArguments through scene and consume; then verify one real official entry produces one three-event UNKNOWN U3W/admin readback with credit zero.",
   "stage": "fix",
-  "phase": "W1D_API2_CLEANROOM_PUBLISHER",
+  "phase": "W1E_FBS_CONNECTOR_EXACT_FIRST_TOOL_CALL",
   "authoritativeRoot": {
     "mode": "standalone_git_repository",
     "externalDirectoryDependency": "forbidden",
@@ -61,6 +63,9 @@
   "truthSources": [
     ".fbs-engineering/contract.json",
     "docs/independent-board/taskboard.json",
+    "docs/independent-board/W1D-SERVICE-CUTOVER-STATUS-20260726.md",
+    "reports/independent-board/w1d-api2-service-cutover-20260726.json",
+    "reports/independent-board/w1d-controlled-synthetic-delivery-receipt-20260726T054427Z.json",
     "docs/independent-board/W1A-OFFICIAL-EXPERTS-ATTRIBUTION-CONTRACT.md",
     "docs/decisions/ADR-007-independent-board-official-experts-attribution-spine.md",
     "sql/update_20260723_independent_board_attribution_v1.sql",
@@ -321,13 +326,23 @@
     "w4b5b_skill_consume_v2_internal_writer_and_requires_new_transaction_contract_verified",
     "w4b5c_skill_consume_v2_dual_mysql_application_transaction_and_038_042_mutual_exclusion_verified",
     "w4b5d_default_off_host_consume_delegation_zero_legacy_fallback_and_dual_mysql_5_of_5_each_verified",
-    "w4b5e_nontransactional_dispatcher_ambient_transaction_guard_nullable_host_session_and_dual_mysql_6_of_6_each_verified"
+    "w4b5e_nontransactional_dispatcher_ambient_transaction_guard_nullable_host_session_and_dual_mysql_6_of_6_each_verified",
+    "api2_c02e967_local_origin_and_production_release_20260726_124824_aligned",
+    "api2_public_mcp_initialize_and_eleven_tool_contract_verified",
+    "api2_expert_package_26_7_21_and_connector_package_26_7_2_versions_separated",
+    "api2_lightweight_release_guard_passed_without_heavy_baseline_dependency",
+    "controlled_synthetic_public_mcp_exact_identity_tuple_same_binding_three_stage_chain_verified",
+    "api2_publisher_delivered_three_signed_synthetic_events_with_pending_dead_blocked_zero",
+    "u3w_append_only_ledger_readback_watermarks_5_6_7_same_journey_credit_zero",
+    "controlled_synthetic_delivery_receipt_96ba9afeb24a_anchors_outbox_and_database_readback",
+    "post_cutover_natural_probe_diagnostic_unknown_and_authoritative_credit_remained_zero",
+    "workbuddy_connector_transport_observed_without_tools_call_or_exact_official_tuple"
   ],
   "notProven": [
-    "w1a_api2_git_backed_source_truth",
-    "w1a_api2_to_u3w_signed_production_receipt",
+    "fbs_connector_exact_official_tuple_first_tools_call_and_action_envelope_followthrough",
     "w1a_real_official_experts_same_binding_three_event_chain",
-    "w1a_real_intent_distribution_and_admin_six_dimension_readback",
+    "w1a_authenticated_admin_real_traffic_six_dimension_readback",
+    "w1a_trusted_ingress_authority_before_natural_intent_distribution",
     "oauth_public_routes",
     "oauth_end_to_end",
     "workbuddy_host_verifiable_listing_url_or_receipt",
@@ -336,13 +351,10 @@
     "listed_runtime_same_binding_business_attribution",
     "listed_runtime_service_side_closure",
     "api2_exact_product_binding_and_immutable_26h_evidence_contract",
-    "api2_clean_release_source_provenance",
     "api2_p1_005_package_target_and_module_closure_update",
     "api2_p1_005_full_serve_dependency_closure",
-    "api2_p1_005_cleanroom_critical_inventory_and_deploy_closure",
     "api2_p1_005_signed_exact_host_registration_receipt",
     "api2_java_api2_receipt_verifier_implementation_and_trusted_keyring",
-    "api2_active_release_metadata_alignment_and_strict_git_provenance",
     "api2_schema_constraint_and_trigger_body_current_read",
     "real_official_entry_same_binding_target_candidate",
     "production_database_migration",
@@ -523,7 +535,7 @@
     "decisionRole": "watch_only"
   },
   "w1a": {
-    "state": "u3w_release_state_machine_and_initial_restore_backup_verified_local_production_apply_and_real_same_binding_proof_pending",
+    "state": "controlled_synthetic_service_transport_verified_connector_exact_tools_call_and_authenticated_admin_readback_pending",
     "contract": "docs/independent-board/W1A-OFFICIAL-EXPERTS-ATTRIBUTION-CONTRACT.md",
     "adr": "docs/decisions/ADR-007-independent-board-official-experts-attribution-spine.md",
     "verificationReport": "reports/independent-board/w1a-official-experts-attribution-verification-latest.json",
@@ -531,37 +543,50 @@
     "productionMysqlCompatibilityReport": "reports/independent-board/w1a-attribution-v1-mysql-8.0.45-latest.json",
     "productionReadbackReport": "reports/independent-board/w1a-production-readonly-audit-latest.json",
     "currentObservationReport": "reports/independent-board/w1a-current-observation-20260725T2328Z.json",
+    "currentCutoverReport": "reports/independent-board/w1d-api2-service-cutover-20260726.json",
+    "currentCutoverReceipt": "reports/independent-board/w1d-controlled-synthetic-delivery-receipt-20260726T054427Z.json",
     "crossServiceSignalAudit": "reports/independent-board/w1a-cross-service-signal-audit-20260725T2328Z.json",
     "api2LiveSignalCapture": "reports/independent-board/api2-live-signal-capture-20260725T2328Z.json",
     "currentObservationVerifier": "scripts/verify-w1a-current-observation.ps1",
     "currentObservationStatusMemo": "docs/independent-board/W1-CURRENT-OBSERVATION-STATUS-20260725.md",
+    "currentCutoverStatusMemo": "docs/independent-board/W1D-SERVICE-CUTOVER-STATUS-20260726.md",
     "productionReadinessContract": "docs/independent-board/W1A-PRODUCTION-READINESS-GATE.md",
     "productionReadinessReport": "reports/independent-board/w1a-production-readiness-latest.json",
-    "productionReadinessState": "NOT_READY_FOR_PRODUCTION_RELEASE",
+    "productionReadinessState": "SERVICE_TRANSPORT_READY_OFFICIAL_CONNECTOR_ENTRY_PENDING",
     "migration": "public_init_043",
     "eventSchemaVersion": "fbsir.independentBoardAttributionEvent.v1",
     "u3wSourceTruth": {
       "repository": "https://github.com/U3W-AI/U3W-AI.git",
-      "candidateBranch": "codex/w1-official-attribution-closure",
-      "candidateState": "committed_clean_origin_aligned_candidate_pushed_previous_release_deployed_default_off_observation_active_natural_proof_pending",
-      "candidateCommit": "be231f229b316472864d40704e66cb0b34ce7e19",
+      "candidateBranch": "codex/w1-natural-ingress-fence",
+      "candidateState": "undeployed_code_baseline_origin_aligned_controlled_synthetic_production_readback_recorded_in_enclosing_fact_snapshot_natural_events_zero_credit_zero_real_official_entry_pending",
+      "candidateCommit": "bf6454762bdc0afa3e31ca5b1a891b2cf765bd59",
+      "candidateCommitRole": "undeployed_code_baseline_excludes_enclosing_fact_snapshot",
+      "undeployedBackendCommits": [
+        "f0133f7f",
+        "be231f22",
+        "ccec982d"
+      ],
       "productionJarSha256": "5b3582e2e4f97ab8a09845a1b6940e334cb2452a2c1970a01aeaf40dd1cc5cc1",
-      "productionByteIdentity": "deployed_release_13c203a5_default_off_observation_activated_jar_sha_readback_backend_release_precedes_scripts_only_head"
+      "productionByteIdentity": "deployed_release_13c203a5_jar_exact_candidate_bf645_not_deployed_and_contains_backend_changes",
+      "controlledSyntheticDeliveryReceipt": {
+        "path": "reports/independent-board/w1d-controlled-synthetic-delivery-receipt-20260726T054427Z.json",
+        "sha256": "96ba9afeb24ab801e289a92ee0a5929ff90ad94200c19a2022f97371b1465ba4"
+      }
     },
     "api2SourceTruth": {
       "repository": "https://github.com/fubangshou/FBSAI.git",
       "baselineRef": "agent/board-no-package-same-binding-v1-20260719",
       "baselineCommit": "a0834ea5d4c1c3f95be9d25d26913c2d973e09d0",
-      "candidateBranch": "codex/w1-official-experts-publisher",
-      "candidateState": "committed_pushed_clean_publisher_active_production_release_20260725_default_off_credit_closed",
-      "candidateCommit": "ce68425846e2b0271ede3569ec7cf2a4e457848c",
-      "candidateCriticalDeploySnapshotSha256": "230E5C448CDADC786ADA2022EEC5CB8D36159A08560BAB0F8F2E0A877AA6AE98",
-      "productionDeclaredCommit": "74aed6fe95826bc4b55cde5042994d28bac4ba91",
-      "productionReleaseId": "20260725-181736",
-      "productionPackageManifestSha256": "683865a7134cd5b9fe3b80d9fef033461606407e7337076e51719a90b77a7351",
-      "productionCriticalDeploySnapshotSha256": "921001a0ffa1a41d17763f75f642135a43db44377403f8ab72b464cab1e8886b",
-      "productionCriticalFileCount": 1279,
-      "productionByteIdentity": "active_release_critical_set_readback_and_candidate_manifest_recomputed_equal_control_plane_scripts_only_outside_active_set"
+      "candidateBranch": "codex/w1-trusted-ingress-attestation",
+      "candidateState": "committed_pushed_clean_production_release_20260726_public_mcp_and_controlled_synthetic_same_binding_u3w_chain_verified_product_credit_promotion_blocked",
+      "candidateCommit": "c02e9677f912a92262e8c02555dc636e51dab283",
+      "candidateCriticalDeploySnapshotSha256": "56ADE7AC58ED3BE12FC2F26C79B39AFC988C994D6F039FF0227FBDC1D4B63A89",
+      "productionDeclaredCommit": "c02e9677f912a92262e8c02555dc636e51dab283",
+      "productionReleaseId": "20260726-124824",
+      "productionPackageManifestSha256": "CF0083E368A35DF7B3657D3DB9106817B38F98ACD92922E2A053CCDC2F1C20BD",
+      "productionCriticalDeploySnapshotSha256": "56ADE7AC58ED3BE12FC2F26C79B39AFC988C994D6F039FF0227FBDC1D4B63A89",
+      "productionCriticalFileCount": 1285,
+      "productionByteIdentity": "local_head_origin_branch_active_release_manifest_and_critical_snapshot_aligned_c02e967"
     },
     "identityContract": {
       "productId": "fbsir-eight-seat-board",
@@ -577,7 +602,7 @@
       "INTENT_CLASSIFIED",
       "FIRST_VALUE_COMPLETED"
     ],
-    "optionalConnectorChain": "historical_reuse_only_not_first_value_prerequisite",
+    "optionalConnectorChain": "fbs_connector_required_for_official_entry_identity_carrier_not_service_first_value_prerequisite",
     "featureFlags": {
       "observationWriterEnabled": true,
       "intentClassifierEnabled": true,
@@ -609,17 +634,38 @@
     },
     "releaseReady": false,
     "productionAuthority": false,
+    "productionEvidence": {
+      "api2ReleaseId": "20260726-124824",
+      "api2SourceCommit": "c02e9677f912a92262e8c02555dc636e51dab283",
+      "publicMcpToolCount": 11,
+      "controlledCompleteServerBindingIdSha256Prefix": "23edd77a4421685d38c3",
+      "controlledCompleteJourneyIdSha256Prefix": "62f56df6a75baa2fba20",
+      "controlledTrafficClass": "SYNTHETIC",
+      "controlledOriginAuthority": "synthetic_probe",
+      "officialWorkBuddyRouteObserved": false,
+      "controlledSyntheticDeliveryReceiptSha256": "96ba9afeb24ab801e289a92ee0a5929ff90ad94200c19a2022f97371b1465ba4",
+      "controlledSequence": [
+        "ENTRY_OBSERVED",
+        "INTENT_CLASSIFIED",
+        "FIRST_VALUE_COMPLETED"
+      ],
+      "publisherPending": 0,
+      "publisherDead": 0,
+      "publisherBlocked": 0,
+      "u3wPostCutoverNaturalEvents": 0,
+      "u3wPostCutoverAuthoritativeProductCredit": 0,
+      "officialWorkBuddyToolsCallObserved": false,
+      "authenticatedAdminHttpReadbackCompleted": false
+    },
     "notProven": [
       "legacy_baseline_v2_production_apply_and_live_readback",
       "default_off_configuration_and_crypto_custody_production_apply",
       "final_post_adoption_backup_and_isolated_restore",
       "strict_head_build_plan_prepared_stage_apply_live_rollback_rehearsal_and_verify",
-      "api2_active_release_file_byte_identity",
-      "api2_default_off_production_deployment",
-      "api2_to_u3w_production_receipt",
+      "fbs_connector_exact_official_tuple_first_tools_call_and_action_envelope_followthrough",
       "real_official_experts_same_binding_chain",
-      "real_intent_distribution",
-      "production_admin_six_dimension_readback"
+      "trusted_ingress_authority_before_real_intent_distribution",
+      "authenticated_production_admin_six_dimension_readback"
     ]
   },
   "ui": {
@@ -723,5 +769,5 @@
     "detailedUiProductionImplementation": "default_off_dynamic_menu_and_router_runtime_candidate_verified_local_without_production_activation_public_routes_or_write_actions",
     "nextSlice": "W4b_2d_api2_exact_product_binding_and_immutable_evidence_contract"
   },
-  "updatedAt": "2026-07-26T11:31:00+08:00"
+  "updatedAt": "2026-07-26T13:25:00+08:00"
 }

@@ -121,7 +121,10 @@ Require ($observation.officialIdentity.embeddedContractVersion -ceq '26.7.20') '
 Require ($observation.officialIdentity.packageFrozen -eq $true) 'official package freeze is not asserted'
 
 Require ($observation.u3w.serviceState -ceq 'active') 'U3W service is not active in current observation'
-Require ($observation.u3w.jarSha256 -ceq [string]$status.w1a.u3wSourceTruth.productionJarSha256) 'U3W production JAR hash drifted from status truth'
+# The timestamped observation is immutable. A later legitimate cutover may advance
+# current source truth, so the snapshot must be joined to its own audit/capture
+# below instead of being forced to equal the mutable current HEAD.
+Require ([string]$observation.u3w.jarSha256 -cmatch '^[0-9a-f]{64}$') 'U3W observation JAR hash is invalid'
 Require ($observation.u3w.observationFlags.writer -eq $true) 'U3W observation writer is not active'
 Require ($observation.u3w.observationFlags.intentClassifier -eq $true) 'U3W intent classifier is not active'
 Require ($observation.u3w.observationFlags.adminRead -eq $true) 'U3W admin read is not active'
@@ -138,7 +141,7 @@ Require ($observation.u3w.adminReadback.summaryRoute -ceq 'available_but_unauthe
 Require ($observation.u3w.adminReadback.realPostAppendObserved -eq $false) 'U3W current observation unexpectedly contains a write'
 
 Require ($observation.api2.healthHttpStatus -eq 200) 'API2 health is not HTTP 200'
-Require ($observation.api2.sourceGitHead -ceq [string]$status.w1a.api2SourceTruth.productionDeclaredCommit) 'API2 production source head drifted from status truth'
+Require ([string]$observation.api2.sourceGitHead -cmatch '^[0-9a-f]{40}$') 'API2 observation source head is invalid'
 Require ($observation.api2.publisher.status -ceq 'ready') 'API2 publisher is not ready'
 Require ($observation.api2.publisher.enabled -eq $true) 'API2 publisher is disabled'
 Require ($observation.api2.publisher.workerRunning -eq $true) 'API2 publisher worker is not running'
@@ -217,6 +220,8 @@ Require ($audit.targetSurface.packageFrozen -eq $true) 'cross-service audit pack
 Require ($audit.officialIdentity.productId -ceq $observation.officialIdentity.productId) 'cross-service audit product identity drifted'
 Require ($audit.officialIdentity.listedManifestVersion -ceq $observation.officialIdentity.listedManifestVersion) 'cross-service audit listed version drifted'
 Require ([string]$audit.u3wAttributionService.evidencePath -ceq [string]$observation.u3w.evidencePath) 'cross-service audit U3W evidence path drifted'
+Require ([string]$audit.u3wAttributionService.releaseId -ceq [string]$observation.u3w.releaseId) 'cross-service audit U3W release drifted'
+Require ([string]$audit.u3wAttributionService.deployedSourceCommit -ceq [string]$observation.u3w.deployedSourceCommit) 'cross-service audit U3W source drifted'
 Require ([string]$audit.u3wAttributionService.ledger.bindingDigestSha256Prefix -ceq [string]$observation.u3w.ledger.bindingDigestSha256Prefix) 'cross-service audit U3W binding digest drifted'
 Require ([string]$audit.api2Service.release.releaseId -ceq [string]$observation.api2.releaseId) 'cross-service audit API2 release drifted'
 Require ([string]$audit.api2Service.release.sourceGitHead -ceq [string]$observation.api2.sourceGitHead) 'cross-service audit API2 source drifted'

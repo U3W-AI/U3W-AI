@@ -1,7 +1,7 @@
 {
   "schema": "fbsir.independent-board-taskboard/v1",
   "objective": "Close service attribution, finite intent classification and first-value readback for the exact WorkBuddy listed fbsir-eight-seat-board@26.7.21 identity without modifying the official experts content tree.",
-  "singleNextAction": "Keep natural and credit gates closed; configure the FBS connector to carry signed exact 26.7.21 official-entry identity into API2 on the supported connector surface, verify service-side same-binding evidence, then run one real official WorkBuddy entry and verify the three-event U3W/admin readback chain.",
+  "singleNextAction": "In the FBS connector, send the exact 13-field independent-board identity on the first skill_whoami call and preserve server actionEnvelope.toolArguments through scene and consume; then verify one real official entry produces one three-event UNKNOWN U3W/admin readback with credit zero.",
   "waves": [
     {
       "id": "W0_FOUNDATION",
@@ -29,8 +29,8 @@
     },
     {
       "id": "W1_OFFICIAL_EXPERTS_SERVICE_ATTRIBUTION_INTENT_CLOSURE",
-      "state": "u3w_release_state_machine_and_initial_restore_backup_verified_local_production_apply_and_real_same_binding_proof_pending",
-      "activeSlice": "W1D_API2_CLEANROOM_PUBLISHER_AND_REAL_SAME_BINDING_PROOF",
+      "state": "controlled_synthetic_service_transport_verified_connector_exact_tools_call_and_authenticated_admin_readback_pending",
+      "activeSlice": "W1E_CONNECTOR_EXACT_FIRST_TOOL_CALL_AND_REAL_OFFICIAL_ENTRY_PROOF",
       "officialIdentity": {
         "productId": "fbsir-eight-seat-board",
         "packageId": "fbsir-eight-seat-board",
@@ -40,12 +40,17 @@
         "listedManifestVersion": "26.7.21",
         "embeddedContractVersion": "26.7.20"
       },
-      "u3wCandidateCommit": "be231f229b316472864d40704e66cb0b34ce7e19",
+      "u3wCandidateCommit": "bf6454762bdc0afa3e31ca5b1a891b2cf765bd59",
+      "u3wCandidateCommitRole": "undeployed_code_baseline_excludes_enclosing_fact_snapshot",
       "currentObservationReport": "reports/independent-board/w1a-current-observation-20260725T2328Z.json",
+      "currentCutoverReport": "reports/independent-board/w1d-api2-service-cutover-20260726.json",
+      "currentCutoverReceipt": "reports/independent-board/w1d-controlled-synthetic-delivery-receipt-20260726T054427Z.json",
+      "currentCutoverReceiptSha256": "96ba9afeb24ab801e289a92ee0a5929ff90ad94200c19a2022f97371b1465ba4",
       "crossServiceSignalAudit": "reports/independent-board/w1a-cross-service-signal-audit-20260725T2328Z.json",
       "api2LiveSignalCapture": "reports/independent-board/api2-live-signal-capture-20260725T2328Z.json",
       "currentObservationVerifier": "scripts/verify-w1a-current-observation.ps1",
       "currentObservationStatusMemo": "docs/independent-board/W1-CURRENT-OBSERVATION-STATUS-20260725.md",
+      "currentCutoverStatusMemo": "docs/independent-board/W1D-SERVICE-CUTOVER-STATUS-20260726.md",
       "naturalChain": [
         "ENTRY_OBSERVED",
         "INTENT_CLASSIFIED",
@@ -65,10 +70,10 @@
         "exact_official_identity_and_stage_true_funnel_adapter",
         "durable_default_off_outbox_with_retry_and_restart_recovery",
         "shared_node_to_java_signature_and_digest_golden_vector",
-        "api2_candidate_ce684258_committed_pushed_clean_publisher_active_default_off_credit_closed",
+        "historical_api2_candidate_ce684258_committed_pushed_clean_publisher_active_default_off_credit_closed",
         "api2_publisher_health_zero_outbox_and_exact_official_identity_verified",
         "api2_active_release_critical_byte_identity_readback_verified",
-        "u3w_candidate_be231f22_committed_locking_replay_reread_tested_not_deployed",
+        "historical_u3w_candidate_be231f22_committed_locking_replay_reread_tested_not_deployed",
         "api2_runtime_collector_claim_records_same_binding_three_stage_diagnostic_but_is_synthetic_untrusted_and_record_only",
         "cross_service_audit_records_collector_claimed_api2_digest_differs_from_u3w_probe_digest_not_cross_service_proof",
         "api2_public_http_raw_bodies_and_runtime_state_sha_captured_with_runtime_projection_record_only",
@@ -82,20 +87,26 @@
         "u3w_strict_head_build_plan_stage_apply_rollback_verify_state_machine_verified_local",
         "u3w_stage_rollback_assembly_distinguished_from_live_apply_rollback_execution",
         "u3w_actual_process_argv_environ_dropin_additional_config_and_portal_release_marker_gate_verified_local",
-        "u3w_remote_worker_result_and_target_receipt_bytes_independently_downloaded_and_sha_anchored"
+        "u3w_remote_worker_result_and_target_receipt_bytes_independently_downloaded_and_sha_anchored",
+        "api2_c02e967_local_origin_and_production_release_20260726_124824_aligned",
+        "api2_public_mcp_initialize_and_eleven_tool_contract_verified",
+        "api2_expert_package_26_7_21_and_connector_package_26_7_2_versions_separated",
+        "api2_lightweight_release_guard_passed_without_heavy_baseline_dependency",
+        "controlled_synthetic_public_mcp_exact_identity_tuple_same_binding_three_stage_chain_verified",
+        "api2_publisher_delivered_three_signed_synthetic_events_with_pending_dead_blocked_zero",
+        "u3w_append_only_ledger_readback_watermarks_5_6_7_same_journey_credit_zero",
+        "controlled_synthetic_delivery_receipt_96ba9afeb24a_anchors_outbox_and_database_readback",
+        "post_cutover_natural_probe_diagnostic_unknown_and_authoritative_credit_remained_zero",
+        "workbuddy_connector_transport_observed_without_tools_call_or_exact_official_tuple"
       ],
       "remaining": [
-        "u3w_legacy_baseline_v2_production_apply_and_live_readback",
-        "u3w_default_off_configuration_and_crypto_custody_production_apply",
-        "u3w_final_post_adoption_backup_and_isolated_restore",
-        "u3w_strict_head_build_plan_prepared_stage_apply_live_rollback_rehearsal_and_verify",
-        "api2_strict_head_default_off_production_deployment",
-        "host_signed_exact_listed_26_7_21_receipt_and_trusted_forwarding_authority",
+        "fbs_connector_exact_official_tuple_first_tools_call_and_action_envelope_followthrough",
         "one_real_official_experts_same_binding_three_event_receipt",
-        "admin_real_traffic_six_dimension_readback",
-        "natural_intent_distribution"
+        "authenticated_admin_real_traffic_six_dimension_readback",
+        "trusted_ingress_authority_before_any_natural_intent_distribution"
       ],
       "connectorRequiredForFirstValue": false,
+      "connectorRequiredForOfficialEntryAttribution": true,
       "officialExpertsContentWriteAllowed": false
     },
     {
@@ -334,7 +345,7 @@
     },
     {
       "id": "WL_POST_LISTING_OBSERVATION",
-      "state": "active_official_entry_detected_runtime_reverify_pending",
+      "state": "controlled_synthetic_service_transport_verified_connector_exact_tools_call_pending",
       "listingFact": {
         "state": "officially_listed_user_confirmed",
         "productId": "fbsir-eight-seat-board",
@@ -349,7 +360,7 @@
         "hostVerifiableListingUrl": null,
         "hostVerifiableListingReceipt": null,
         "hostTruthChainReport": "reports/independent-board/host-truth-chain-summary-20260721.json",
-        "hostVerificationState": "official_entry_detected_runtime_reverify_pending",
+        "hostVerificationState": "official_connector_transport_observed_exact_tools_call_pending",
         "rolloutMode": "full_listing_without_publisher_gray_control"
       },
       "packagePolicy": "frozen_post_listing_observation_no_writeback",
@@ -363,7 +374,10 @@
       "currentEvidence": [
         "user_confirmed_official_listing",
         "official_experts_plugin_directory_detected",
-        "official_runtime_payload_matches_final_R_artifact_81_of_81_files"
+        "official_runtime_payload_matches_final_R_artifact_81_of_81_files",
+        "api2_release_20260726_124824_public_mcp_contract_verified",
+        "controlled_synthetic_same_binding_three_event_u3w_chain_verified_credit_zero",
+        "workbuddy_fbs_connector_initialize_ping_prompts_list_observed_without_tools_call"
       ],
       "nonInference": [
         "official_listing_is_not_natural_invocation_proof",

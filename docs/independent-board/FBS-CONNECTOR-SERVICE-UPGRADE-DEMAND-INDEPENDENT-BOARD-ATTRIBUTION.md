@@ -3,11 +3,14 @@
 - `ownerSurface`: `fbs_connector`
 - `dependencyOwners`: `fbs_service_side`
 - `externalConstraintSurfaces`: WorkBuddy listed runtime、官方 experts 会话上下文
-- 状态：福帮手连接器身份载体需求已确认；福帮手服务侧验证为配套依赖；官方 experts 内容包继续只读
+- 状态：福帮手服务侧受控合成传输链已验证；福帮手连接器首个 `tools/call`
+  精确身份载体仍待实现；
+  官方 experts 内容包继续只读
 - 当前唯一官方基线：WorkBuddy listed
   `fbsir-eight-seat-board@26.7.21`；包内 `26.7.20` 仅为嵌入合同元数据，
   不是兼容目标，禁止修改或写回
-- 触发证据：API2 固定 24 小时审计无法从官方入口总量还原独董会产品、同 binding 与闭环
+- 当前触发证据：WorkBuddy 已触达正式连接器公网入口并完成 initialize/ping/prompts/list，
+  但没有发出 `tools/call` 或独董会 13 项精确身份
 
 > 本文中 P1-005、`26.7.20` 上架身份和 Connector 四阶段链描述属于
 > 2026-07-22 历史调查记录，已被 W1A/ADR-007 的当前合同取代，不进入支持矩阵。
@@ -42,6 +45,46 @@
 3. 结构化原始证据保留至少 26 小时；固定窗口生成不可变快照、SHA-256、row count、`asOf`、runtime release 和 embedded release。
 4. 分离 `observed`、`server_verified`、`product_credit_candidate` 与 `authoritative_product_credit`；客户端声明永不直接晋级。
 5. 运行 release 与内嵌 release 不一致时，候选归因失败关闭并告警。
+
+## 2026-07-26 生产验证：受控合成服务链已验证，连接器首跳仍缺失
+
+API2 已切流到 release `20260726-124824`、提交
+`c02e9677f912a92262e8c02555dc636e51dab283`。正式公网 MCP
+`https://api2.u3w.com/fbs-mcp/mcp` 的 initialize 与 11 工具 tools/list 已通过，
+并完成一条隔离的
+`skill_whoami → fbs_scene_pack_query → skill_consume` 同绑定链。
+
+受控完整链 server binding ID SHA-256 前缀为 `23edd77a4421685d38c3`，U3W
+追加账本形成
+watermark 5/6/7 的 `ENTRY_OBSERVED / INTENT_CLASSIFIED /
+FIRST_VALUE_COMPLETED`。三条均为 `SYNTHETIC`，原文不落库，
+`authoritative_product_credit=0`，API2 publisher pending/dead/blocked 均为 0。
+这只证明 `fbs_service_side` 的公网入口、受控合成同绑定运行时、HMAC outbox 和 U3W
+入账链已经可用，不证明真实官方入口。独立只读回执为
+`reports/independent-board/w1d-controlled-synthetic-delivery-receipt-20260726T054427Z.json`，
+SHA-256 为
+`96ba9afeb24ab801e289a92ee0a5929ff90ad94200c19a2022f97371b1465ba4`。
+
+同一切流窗口内，用户在 WorkBuddy 已上架独董会中的操作触达了正式福帮手连接器，
+日志出现 initialize、ping、prompts/list，但 `tools/call=0`，独董会 13 项精确身份
+命中为 0。因此剩余需求唯一归 `fbs_connector`：
+
+1. 首个 `skill_whoami` 必须承载
+   `productId/serviceProductId/packageName=fbsir-eight-seat-board`、
+   `expertEntryId=board-convener`、`packageVersion=26.7.21`、
+   `marketplace=experts`、`hostType=WorkBuddy`、
+   `channelTrack=official_experts`、`entrySurface=listed_runtime_state`、
+   `entryPromptCode=decision_start_card`、
+   `packCode=fbsir-independent-review-board-v2`、
+   `scenePackId=decision_start_card`、`assetType=ai-expert-team`；
+2. 后两跳必须原样透传服务端 `actionEnvelope.toolArguments`，不得自造 binding；
+3. 真实入口没有可信自然 authority 前只形成 `UNKNOWN` record-only，不得提升为
+   NATURAL 或产品积分；
+4. 不发送 prompt、对话、主体原值、token 或 cookie。
+
+本结论不产生宿主升级需求。WorkBuddy/WorkBuddyAI 只作为外部事实与验收面；
+若连接器官方能力最终无法承载首跳，才另建下一版
+`fbs_expert_package` 工具绑定候选需求，仍不得修改当前已上架 26.7.21 包。
 
 ## 2026-07-25 本地验证确认：独董会专家无连接器集成，自然链不可由专家自身触发
 

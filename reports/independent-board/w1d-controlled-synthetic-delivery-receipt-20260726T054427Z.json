@@ -1,0 +1,171 @@
+{
+  "schema": "fbsir.independentBoardControlledSyntheticDeliveryReceipt.v1",
+  "capturedAt": "2026-07-26T05:44:27.972166Z",
+  "authorization": "production_read_only_outbox_and_database_evidence_capture",
+  "evidenceBoundary": {
+    "originAuthority": "synthetic_probe",
+    "officialWorkBuddyRouteObserved": false,
+    "naturalPromotionAllowed": false,
+    "productCreditAllowed": false,
+    "rawContentStored": false
+  },
+  "officialIdentityTuple": {
+    "productId": "fbsir-eight-seat-board",
+    "packageId": "fbsir-eight-seat-board",
+    "agentName": "board-convener",
+    "marketplace": "experts",
+    "listedSurface": "listed_runtime_state",
+    "listedManifestVersion": "26.7.21",
+    "embeddedContractVersion": "26.7.20",
+    "hostClientFamily": "WORKBUDDY",
+    "hostVersion": "UNKNOWN",
+    "terminal": "UNKNOWN",
+    "channel": "OFFICIAL_EXPERTS",
+    "requestSource": "UNKNOWN"
+  },
+  "api2Production": {
+    "releaseId": "20260726-124824",
+    "sourceCommit": "c02e9677f912a92262e8c02555dc636e51dab283",
+    "packageManifestSha256": "CF0083E368A35DF7B3657D3DB9106817B38F98ACD92922E2A053CCDC2F1C20BD",
+    "criticalDeploySnapshotSha256": "56ADE7AC58ED3BE12FC2F26C79B39AFC988C994D6F039FF0227FBDC1D4B63A89",
+    "outbox": {
+      "pathClass": "managed_service_state",
+      "fileSha256": "f1f97b767aa8e7aeddeab1e72e1589aa7b2567d82aa4c0cc81c3d82fbdbea771",
+      "revision": 13,
+      "itemCount": 4,
+      "selectedJourneyId": "b3f2bd547720fac1f23216fa51af1029109d2641649e9c7fb606581a8231f2f2",
+      "selectedJourneyIdSha256": "62f56df6a75baa2fba203380d631c33d368098730c5c212e6d27c177084e9bc8",
+      "events": [
+        {
+          "eventId": "d9e010055adbff20cd5ec35f60bf14afd68c39414dc8ad23319d81a0727c4973",
+          "receiptId": "ee0492a92dc370bcca306323c17ac7f8bda3983f38d92cf11446ab49db9c3416",
+          "eventDigest": "8849d1c83aa3316f5e26a12ce2e094afcf01c88c0a293ca970406ea88c0a0c92",
+          "eventType": "ENTRY_OBSERVED",
+          "sequenceNo": 1,
+          "occurredAt": "2026-07-26T05:08:05.373Z",
+          "intentSignal": "unknown",
+          "status": "DELIVERED_202",
+          "attempts": 1,
+          "lastHttpStatus": 202,
+          "deliveredAt": "2026-07-26T05:08:07.324Z"
+        },
+        {
+          "eventId": "f4a53e1147f17ce7e44cf28f61335633f3657f8805eb0bc00bbc71082cea2319",
+          "receiptId": "ae5ace2a9ca3d5ecbb49d86094d7ffee8d722919330b0010e06fe0965e0969d1",
+          "eventDigest": "c6fb98f80e078ce37f180a44b1715bc0520fdeab9a1889acf7a55968cf7db25d",
+          "eventType": "INTENT_CLASSIFIED",
+          "sequenceNo": 2,
+          "occurredAt": "2026-07-26T05:08:12.416Z",
+          "intentSignal": "operating_diagnosis",
+          "status": "DELIVERED_202",
+          "attempts": 1,
+          "lastHttpStatus": 202,
+          "deliveredAt": "2026-07-26T05:08:14.265Z"
+        },
+        {
+          "eventId": "fc89d44f589c0f059c65b4f28fc705baf0048754ec1d609337c318606a867e9b",
+          "receiptId": "e31c966bb729e0584064cad4870771ccc587ebc764fb618799e5d8e93a751c9d",
+          "eventDigest": "ab1c9fa5b92b2dc281e3a0c6ab1a6c0aafb897f840dd324728c7b2b5269e2251",
+          "eventType": "FIRST_VALUE_COMPLETED",
+          "sequenceNo": 3,
+          "occurredAt": "2026-07-26T05:08:25.604Z",
+          "intentSignal": "operating_diagnosis",
+          "status": "DELIVERED_202",
+          "attempts": 1,
+          "lastHttpStatus": 202,
+          "deliveredAt": "2026-07-26T05:08:27.612Z"
+        }
+      ]
+    }
+  },
+  "u3wProduction": {
+    "releaseId": "w1a-release-13c203a5c42d-20260725T040706Z",
+    "sourceCommit": "13c203a5c42d8a8f977be8a9834c2ad147b62bb8",
+    "jarSha256": "5b3582e2e4f97ab8a09845a1b6940e334cb2452a2c1970a01aeaf40dd1cc5cc1",
+    "database": {
+      "identitySha256": "ef523ebd548d63c1145f2cce4900bfae3dca1bdf2477683600685182d9f23648",
+      "version": "8.0.45",
+      "name": "fbsir",
+      "querySha256": "cbae8916660e581d552a3eee20fc95ab434a6741beb49a82983b93df9f4c043e",
+      "rowCount": 3,
+      "sameBindingKeySha256": "3ffebba164ce54f223579be601e5a8e04dab87f7c32481f6ea20cfc9fcc23ac8",
+      "serverBindingIdSha256": "23edd77a4421685d38c3f49527eb70cfaf2393a79c1fdd03e98093febf06c004",
+      "journeyId": "b3f2bd547720fac1f23216fa51af1029109d2641649e9c7fb606581a8231f2f2",
+      "events": [
+        {
+          "eventId": "d9e010055adbff20cd5ec35f60bf14afd68c39414dc8ad23319d81a0727c4973",
+          "receiptId": "ee0492a92dc370bcca306323c17ac7f8bda3983f38d92cf11446ab49db9c3416",
+          "eventDigest": "8849d1c83aa3316f5e26a12ce2e094afcf01c88c0a293ca970406ea88c0a0c92",
+          "canonicalDigest": "f2e8c2376317cbc1e9f42314a28a8e8e9cf5965765f9dd1c19b2cc6e132a27ee",
+          "previousEventDigest": "",
+          "eventType": "ENTRY_OBSERVED",
+          "sequenceNo": 1,
+          "intentFamily": "UNKNOWN",
+          "trafficClass": "SYNTHETIC",
+          "trafficAuthority": "API2_SERVER_CLASSIFIER_V1",
+          "signerKeyId": "w1a-20260723-k1",
+          "signatureSha256": "4c76a659005aa53226f7b2d25051c85777355cec63e9f82a76a2f92b780c5092",
+          "nonceHash": "c3f99089944bf84ed94041468cc99d7b1c4f6bd51bc5ad751b84eaf875eefad4",
+          "authoritativeProductCredit": 0,
+          "eventWatermark": 5,
+          "createdAtDb": "2026-07-26 13:08:07.312"
+        },
+        {
+          "eventId": "f4a53e1147f17ce7e44cf28f61335633f3657f8805eb0bc00bbc71082cea2319",
+          "receiptId": "ae5ace2a9ca3d5ecbb49d86094d7ffee8d722919330b0010e06fe0965e0969d1",
+          "eventDigest": "c6fb98f80e078ce37f180a44b1715bc0520fdeab9a1889acf7a55968cf7db25d",
+          "canonicalDigest": "48a092dece9360c3bd0fa31f493037fad6142329634782c49b5fb49e603cbc19",
+          "previousEventDigest": "8849d1c83aa3316f5e26a12ce2e094afcf01c88c0a293ca970406ea88c0a0c92",
+          "eventType": "INTENT_CLASSIFIED",
+          "sequenceNo": 2,
+          "intentFamily": "OPERATING_DIAGNOSIS",
+          "trafficClass": "SYNTHETIC",
+          "trafficAuthority": "API2_SERVER_CLASSIFIER_V1",
+          "signerKeyId": "w1a-20260723-k1",
+          "signatureSha256": "737bbf068e5b88c3ae72149d3fb30b69b6bd8ebdf2d5f12eae605d0273e306b4",
+          "nonceHash": "5c1ee9ea5f713cf2fbe2d91414ceb4926ad7a94742b26f8752959142013680c3",
+          "authoritativeProductCredit": 0,
+          "eventWatermark": 6,
+          "createdAtDb": "2026-07-26 13:08:14.256"
+        },
+        {
+          "eventId": "fc89d44f589c0f059c65b4f28fc705baf0048754ec1d609337c318606a867e9b",
+          "receiptId": "e31c966bb729e0584064cad4870771ccc587ebc764fb618799e5d8e93a751c9d",
+          "eventDigest": "ab1c9fa5b92b2dc281e3a0c6ab1a6c0aafb897f840dd324728c7b2b5269e2251",
+          "canonicalDigest": "d08f7bceb6c75669760c5f70a1733b685713f1614b2d8e2ff44728039fb92852",
+          "previousEventDigest": "c6fb98f80e078ce37f180a44b1715bc0520fdeab9a1889acf7a55968cf7db25d",
+          "eventType": "FIRST_VALUE_COMPLETED",
+          "sequenceNo": 3,
+          "intentFamily": "OPERATING_DIAGNOSIS",
+          "trafficClass": "SYNTHETIC",
+          "trafficAuthority": "API2_SERVER_CLASSIFIER_V1",
+          "signerKeyId": "w1a-20260723-k1",
+          "signatureSha256": "a11eefa3bafa436194edc1ddad7d9c2fea4a28d2a8a5f0be391da8e27f410823",
+          "nonceHash": "2783f9ed6f109698d737db346c8de161246a9430182db4aedb882e42c1fc3281",
+          "authoritativeProductCredit": 0,
+          "eventWatermark": 7,
+          "createdAtDb": "2026-07-26 13:08:27.597"
+        }
+      ]
+    }
+  },
+  "crossServiceChecks": {
+    "eventIdsExact": true,
+    "receiptIdsExact": true,
+    "eventDigestsExact": true,
+    "singleOutboxJourney": true,
+    "singleDatabaseJourney": true,
+    "singleBinding": true,
+    "sequenceExact": true,
+    "allDelivered202Once": true,
+    "allSynthetic": true,
+    "allAuthoritativeProductCreditZero": true
+  },
+  "conclusion": {
+    "controlledSyntheticSignedDeliveryObserved": true,
+    "u3wAppendOnlyDatabaseReadbackObserved": true,
+    "officialWorkBuddyToolsCallObserved": false,
+    "realOfficialEntryClosureProven": false,
+    "authenticatedAdminHttpReadbackProven": false
+  }
+}
