@@ -208,6 +208,29 @@ Require ([string]$status.w1a.api2SourceTruth.probeContractCandidate.commit -ceq 
 Require ([string]$contract.contracts.currentMainline.api2SourceTruth.probeContractCandidate.commit -ceq [string]$probeReleaseApplied.source.commit) 'contract probe release-applied candidate commit drifted'
 Require ([string]$status.w1a.api2SourceTruth.probeContractCandidate.receipt -ceq $probeReleaseAppliedPath) 'status probe release-applied candidate receipt drifted'
 Require ([string]$contract.contracts.currentMainline.api2SourceTruth.probeContractCandidate.receipt -ceq $probeReleaseAppliedPath) 'contract probe release-applied candidate receipt drifted'
+$currentReleaseObservationPath = [string]$status.w1a.currentReleaseObservationReceipt
+Require (-not [string]::IsNullOrWhiteSpace($currentReleaseObservationPath)) 'status has no current-release observation receipt'
+Require ([string]$contract.artifacts.w1iCurrentReleaseObservationReceipt -ceq $currentReleaseObservationPath) 'contract/status current-release observation receipt path drifted'
+Require ([string]$w1Wave[0].currentReleaseObservationReceipt -ceq $currentReleaseObservationPath) 'taskboard/status current-release observation receipt path drifted'
+$currentReleaseObservation = Read-Json $currentReleaseObservationPath
+Require ($currentReleaseObservation.schema -ceq 'fbsir.independentBoardCurrentReleaseObservation.v1') 'current-release observation schema mismatch'
+Require ($currentReleaseObservation.status -ceq 'CURRENT_RELEASE_TARGET_SIGNAL_ABSENT_RECORD_ONLY') 'current-release observation status drifted'
+Require ($currentReleaseObservation.scope -ceq 'fbs_service_side') 'current-release observation owner surface drifted'
+Require ($currentReleaseObservation.currentRelease.releaseId -ceq $probeReleaseApplied.deployment.releaseId) 'current-release observation release id drifted'
+Require ($currentReleaseObservation.currentRelease.sourceGitHead -ceq $probeReleaseApplied.source.commit) 'current-release observation source digest drifted'
+Require ($currentReleaseObservation.currentRelease.packageManifestSha256 -ceq $probeReleaseApplied.source.packageManifestSha256) 'current-release observation manifest digest drifted'
+Require ($currentReleaseObservation.currentRelease.criticalDeploySnapshotSha256 -ceq $probeReleaseApplied.source.criticalDeploySnapshotSha256) 'current-release observation critical snapshot drifted'
+Require ($currentReleaseObservation.officialIdentity.productId -ceq 'fbsir-eight-seat-board') 'current-release observation product identity drifted'
+Require ($currentReleaseObservation.officialIdentity.expertEntryId -ceq 'board-convener') 'current-release observation expert identity drifted'
+Require ($currentReleaseObservation.officialIdentity.listedManifestVersion -ceq '26.7.21') 'current-release observation listed version drifted'
+Require ([int]$currentReleaseObservation.currentWindow.targetRowCount -eq 0) 'current-release observation target rows were unexpectedly promoted'
+Require ([int]$currentReleaseObservation.currentWindow.completeBindingCount -eq 0) 'current-release observation complete bindings were unexpectedly promoted'
+Require ([int]$currentReleaseObservation.currentWindow.naturalEligibleBindingCount -eq 0) 'current-release observation natural eligible bindings were unexpectedly promoted'
+Require ($currentReleaseObservation.releaseBoundary.writesProductionState -eq $false) 'current-release observation writes production state'
+Require ($currentReleaseObservation.releaseBoundary.officialExpertsPackageChanged -eq $false) 'current-release observation changed the official experts package'
+Require ($currentReleaseObservation.releaseBoundary.officialConnectorChanged -eq $false) 'current-release observation changed the official connector'
+Require ($currentReleaseObservation.releaseBoundary.naturalSameBindingObserved -eq $false) 'current-release observation promoted natural same-binding'
+Require ($currentReleaseObservation.releaseBoundary.productCreditPromotion -ceq 'blocked') 'current-release observation promoted product credit'
 
 Require ($adminReceiptCandidate.schema -ceq 'fbsir.independentBoardAdminReceiptReadbackCandidate.v1') 'admin receipt candidate schema mismatch'
 Require ($adminReceiptCandidate.status -ceq 'LOCAL_SOURCE_CANDIDATE_NOT_DEPLOYED') 'admin receipt candidate status drifted'
@@ -510,6 +533,12 @@ Require ($memo.Contains('publisher delivered=0')) 'current observation memo lost
     api2LiveSignalCapture = $capturePath
     api2LiveSignalCaptureSha256 = $captureSha256
     api2ReleaseId = $observation.api2.releaseId
+    currentReleaseObservationReceipt = $currentReleaseObservationPath
+    currentReleaseId = $currentReleaseObservation.currentRelease.releaseId
+    currentReleaseTargetRows = $currentReleaseObservation.currentWindow.targetRowCount
+    currentReleaseCompleteBindings = $currentReleaseObservation.currentWindow.completeBindingCount
+    currentReleaseNaturalEligibleBindings = $currentReleaseObservation.currentWindow.naturalEligibleBindingCount
+    currentReleaseProductCreditPromotion = $currentReleaseObservation.releaseBoundary.productCreditPromotion
     u3wReleaseId = $observation.u3w.releaseId
     hostListingReceipt = $observation.api2.hostListingReceipt.status
     hostForwardingAck = $observation.api2.hostForwardingAck.status

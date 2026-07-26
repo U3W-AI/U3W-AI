@@ -1,0 +1,47 @@
+{
+  "schema": "fbsir.independentBoardCurrentReleaseObservation.v1",
+  "status": "CURRENT_RELEASE_TARGET_SIGNAL_ABSENT_RECORD_ONLY",
+  "generatedAt": "2026-07-26T09:40:59.289Z",
+  "scope": "fbs_service_side",
+  "predecessorReceipt": {
+    "path": "reports/independent-board/w1h-api2-probe-release-applied-20260726T092532Z.json",
+    "sha256": "7bd8743abca742e767c313c9e6c8c0003a9cc91aeb4b87ffa778942554938541"
+  },
+  "observationTool": {
+    "repository": "https://github.com/fubangshou/FBSAI.git",
+    "commit": "7c117e63ee55e801db0962a152ececc06f09f7c5",
+    "state": "committed_pushed_not_deployed_readonly_observer"
+  },
+  "currentRelease": {
+    "releaseId": "20260726-172443",
+    "trafficCutoverAt": "2026-07-26T09:25:03.618153Z",
+    "sourceGitHead": "2728d3fa9f037e623ef26da3d858a50a502a9af0",
+    "packageManifestSha256": "61b19bb2a331eed91b6e48199f097a11224f9b75947a4bedd8c552d43d8f4795",
+    "criticalDeploySnapshotSha256": "d270308fb43a0e638350357cd3c4088364d92e8b2aaae6c40552b28bc6614853"
+  },
+  "officialIdentity": {
+    "productId": "fbsir-eight-seat-board",
+    "expertEntryId": "board-convener",
+    "listedManifestVersion": "26.7.21"
+  },
+  "currentWindow": {
+    "targetRowCount": 0,
+    "whoami": 0,
+    "scenePack": 0,
+    "consume": 0,
+    "completeBindingCount": 0,
+    "naturalEligibleBindingCount": 0
+  },
+  "sources": {
+    "healthBodySha256": "9db8a54eb287441c2052308b36346a536ca08961900bdd2f850c3c377538239d",
+    "naturalEvidenceLedgerBodySha256": "8f8560d9b75330ac2d9badcf32d2a0e236952069a781d01da8cba2ebebd88bbb"
+  },
+  "releaseBoundary": {
+    "writesProductionState": false,
+    "officialExpertsPackageChanged": false,
+    "officialConnectorChanged": false,
+    "naturalSameBindingObserved": false,
+    "productCreditPromotion": "blocked"
+  },
+  "singleNextAction": "Wait for one listed official Experts session and then refresh this current-release observation before checking the U3W append-only same-binding receipt."
+}

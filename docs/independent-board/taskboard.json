@@ -52,6 +52,7 @@
       "api2ProbeContractCandidateReceipt": "reports/independent-board/w1f-api2-probe-contract-candidate-20260726T084544Z.json",
       "api2ProbeReleaseGatePlanReceipt": "reports/independent-board/w1g-api2-probe-release-gate-plan-20260726T091834Z.json",
       "api2ProbeReleaseAppliedReceipt": "reports/independent-board/w1h-api2-probe-release-applied-20260726T092532Z.json",
+      "currentReleaseObservationReceipt": "reports/independent-board/w1i-current-release-observation-20260726T094059Z.json",
       "customConnectorSchemaObservation": "reports/independent-board/w1f-custom-connector-schema-observation-20260726T085708Z.json",
       "adminReceiptReadbackCandidate": {
         "ownerSurface": "fbs_service_side",

@@ -173,6 +173,7 @@
     "w1fApi2ProbeContractCandidateReceipt": "reports/independent-board/w1f-api2-probe-contract-candidate-20260726T084544Z.json",
     "w1gApi2ProbeReleaseGatePlanReceipt": "reports/independent-board/w1g-api2-probe-release-gate-plan-20260726T091834Z.json",
     "w1hApi2ProbeReleaseAppliedReceipt": "reports/independent-board/w1h-api2-probe-release-applied-20260726T092532Z.json",
+    "w1iCurrentReleaseObservationReceipt": "reports/independent-board/w1i-current-release-observation-20260726T094059Z.json",
     "w1fCustomConnectorSchemaObservation": "reports/independent-board/w1f-custom-connector-schema-observation-20260726T085708Z.json",
     "w1eAdminReceiptReadbackCandidateReceipt": "reports/independent-board/w1e-admin-receipt-readback-candidate-20260726T0733Z.json",
     "w1aCurrentObservationVerifier": "scripts/verify-w1a-current-observation.ps1",

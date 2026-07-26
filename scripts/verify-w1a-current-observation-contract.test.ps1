@@ -37,6 +37,7 @@ try {
     $reviewCandidatePath = [string]$status.w1a.api2ReviewCandidateReceipt
     $probeReleaseGatePlanPath = [string]$status.w1a.api2ProbeReleaseGatePlanReceipt
     $probeReleaseAppliedPath = [string]$status.w1a.api2ProbeReleaseAppliedReceipt
+    $currentReleaseObservationPath = [string]$status.w1a.currentReleaseObservationReceipt
     $adminReceiptCandidatePath = [string]$status.w1a.adminReceiptReadbackCandidate.receipt
     if ([string]::IsNullOrWhiteSpace($reviewCandidatePath)) {
         throw 'status is missing the API2 review-candidate receipt path'
@@ -46,6 +47,9 @@ try {
     }
     if ([string]::IsNullOrWhiteSpace($probeReleaseAppliedPath)) {
         throw 'status is missing the API2 probe release-applied receipt path'
+    }
+    if ([string]::IsNullOrWhiteSpace($currentReleaseObservationPath)) {
+        throw 'status is missing the current-release observation receipt path'
     }
     if ([string]::IsNullOrWhiteSpace($adminReceiptCandidatePath)) {
         throw 'status is missing the admin receipt-readback candidate path'
@@ -63,6 +67,7 @@ try {
         $reviewCandidatePath,
         $probeReleaseGatePlanPath,
         $probeReleaseAppliedPath,
+        $currentReleaseObservationPath,
         $adminReceiptCandidatePath
     ) | ForEach-Object { Copy-ContractFile $_ }
 
@@ -159,6 +164,34 @@ try {
     }
     Copy-Item -LiteralPath (Join-Path $RepoRoot $probeReleaseAppliedPath) `
         -Destination $probeReleaseAppliedTarget -Force
+
+    $currentReleaseObservationTarget = Join-Path $tempRoot $currentReleaseObservationPath
+    $currentReleaseObservation = Get-Content -Raw -Encoding UTF8 -LiteralPath `
+        $currentReleaseObservationTarget | ConvertFrom-Json
+    $currentReleaseObservation.releaseBoundary.naturalSameBindingObserved = $true
+    $currentReleaseObservation | ConvertTo-Json -Depth 100 |
+        Set-Content -Encoding UTF8 -LiteralPath $currentReleaseObservationTarget
+    $previousErrorPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $currentReleaseObservationPromotionOutput = @(
+            & powershell -NoProfile -ExecutionPolicy Bypass -File $verifier `
+                -RepoRoot $tempRoot 2>&1
+        )
+        $currentReleaseObservationPromotionExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorPreference
+    }
+    if (
+        $currentReleaseObservationPromotionExitCode -eq 0 -or
+        ($currentReleaseObservationPromotionOutput -join [Environment]::NewLine) -notmatch
+            'current-release observation promoted natural same-binding'
+    ) {
+        throw 'verifier accepted promotion of an empty current-release observation'
+    }
+    Copy-Item -LiteralPath (Join-Path $RepoRoot $currentReleaseObservationPath) `
+        -Destination $currentReleaseObservationTarget -Force
 
     $adminReceiptCandidateTarget = Join-Path $tempRoot $adminReceiptCandidatePath
     $adminReceiptCandidate = Get-Content -Raw -Encoding UTF8 -LiteralPath `
@@ -470,6 +503,7 @@ try {
         packagedReviewCandidatePromotionRejected = $true
         probeReleaseGateCandidatePromotionRejected = $true
         probeReleaseAppliedNaturalPromotionRejected = $true
+        currentReleaseObservationNaturalPromotionRejected = $true
         adminReceiptCandidateCreditPromotionRejected = $true
     } | ConvertTo-Json -Depth 4
 }
