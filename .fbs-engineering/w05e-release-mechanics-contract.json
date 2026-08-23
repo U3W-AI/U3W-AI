@@ -16,6 +16,13 @@
       "timeout_ms": 120000,
       "existsAtContractRevision": true,
       "purpose": "Proves the candidate is the exact active snippet prefix plus one exact 404/no-store readback deny with no proxy path."
+    },
+    "nginx-deny-runner-test": {
+      "run": "python scripts/w05e_nginx_public_deny_test.py",
+      "cwd": ".",
+      "timeout_ms": 120000,
+      "existsAtContractRevision": true,
+      "purpose": "Pure adapter and negative tests for read-only plan, explicit production authorization, exact preimage, atomic rollback, effective dump and GET/POST deny probes."
     }
   },
   "plannedGates": {
@@ -41,13 +48,15 @@
     "contract": ".fbs-engineering/w05e-release-mechanics-contract.json",
     "runbook": "docs/independent-board/W05E-RELEASE-MECHANICS.md",
     "nginxCandidate": "ops/api2/nginx/api2-fbss-w05e.conf",
-    "nginxContractTest": "scripts/w05e-nginx-public-deny-contract.test.mjs"
+    "nginxContractTest": "scripts/w05e-nginx-public-deny-contract.test.mjs",
+    "nginxRunner": "scripts/w05e-nginx-public-deny.py",
+    "nginxRunnerTest": "scripts/w05e_nginx_public_deny_test.py"
   },
   "policy": {
     "productionReleaseAllowedAtThisRevision": false,
     "productionReleaseBlockReason": "the target Nginx parse/readback, W05E versioned builder/shadow/release/rollback, current Ed25519 authority receipt and API2 four-cell receipts do not yet exist",
-    "releaseBlockers": ["nginx-deny-contract"],
-    "requiredReleaseBlockers": ["nginx-deny-contract"],
+    "releaseBlockers": ["nginx-deny-contract", "nginx-deny-runner-test"],
+    "requiredReleaseBlockers": ["nginx-deny-contract", "nginx-deny-runner-test"],
     "plannedGatesMustBePromotedBeforeRelease": true,
     "sourceBuiltCandidateRequired": true,
     "remoteCommitEqualsCandidateCommitRequired": true,
@@ -70,6 +79,8 @@
         "docs/independent-board/W05E-RELEASE-MECHANICS.md",
         "ops/api2/nginx/api2-fbss-w05e.conf",
         "scripts/w05e-nginx-public-deny-contract.test.mjs",
+        "scripts/w05e-nginx-public-deny.py",
+        "scripts/w05e_nginx_public_deny_test.py",
         "scripts/w05e-*release*",
         "scripts/w05e-*shadow*"
       ],
