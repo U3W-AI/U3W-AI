@@ -68,7 +68,7 @@ try {
     $gitHeadAfter = (& git -C $repoRoot rev-parse HEAD).Trim()
     $dirtyAfter = @(& git -C $repoRoot status --porcelain=v1 | Sort-Object)
     if ($gitHeadAfter -cne $gitHead -or
-        (Compare-Object -ReferenceObject $dirtyBefore -DifferenceObject $dirtyAfter).Count -ne 0) {
+        @(Compare-Object -ReferenceObject $dirtyBefore -DifferenceObject $dirtyAfter).Count -ne 0) {
         throw 'Source HEAD or worktree state changed during the two builds.'
     }
 
