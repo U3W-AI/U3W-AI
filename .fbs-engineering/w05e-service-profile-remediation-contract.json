@@ -1,0 +1,142 @@
+{
+  "surface": "u3w-w05e-java-partial-receiver-service-profile-remediation",
+  "id": "w05e-service-profile-remediation-contract-20260823",
+  "summary": "Disable the legacy webhook reconciliation sweep in the Java partial-receiver production profile without changing the active release, JAR, database, Node service, traffic, connector packages, or product credit.",
+  "stage": "fix",
+  "versionSource": ".fbs-engineering/w05e-service-profile-remediation-contract.json",
+  "source": {
+    "repository": "https://github.com/U3W-AI/U3W-AI.git",
+    "worktreeBranch": "codex/w05e-service-profile-remediation-20260823",
+    "worktreeBaseCommit": "60b22dbaa205c5416fc95d935e5b1d510da4dd18",
+    "expectedActiveReceiverSourceCommit": "5d0769c2dad843b1c800c62cab8d9a5a91631b40"
+  },
+  "commands": {
+    "pure-tests": {
+      "run": "python scripts/u3w_w05e_service_profile_remediation_test.py",
+      "cwd": ".",
+      "timeout_ms": 120000,
+      "existsAtContractRevision": true,
+      "purpose": "Offline fake-runtime coverage for plan, apply, verify, rollback, drift, line endings, secret redaction and restart budgets."
+    },
+    "syntax": {
+      "run": "python -m py_compile scripts/u3w-w05e-service-profile-remediation.py scripts/u3w_w05e_service_profile_remediation_test.py",
+      "cwd": ".",
+      "timeout_ms": 120000,
+      "existsAtContractRevision": true,
+      "purpose": "Python syntax gate without production access."
+    }
+  },
+  "artifacts": {
+    "contract": ".fbs-engineering/w05e-service-profile-remediation-contract.json",
+    "runbook": "docs/independent-board/W05E-SERVICE-PROFILE-REMEDIATION.md",
+    "profileTemplate": "ops/api2/w05e-receiver-partial-profile.env",
+    "worker": "scripts/u3w-w05e-service-profile-remediation.py",
+    "workerTests": "scripts/u3w_w05e_service_profile_remediation_test.py"
+  },
+  "policy": {
+    "defaultStage": "assess",
+    "targetStage": "release",
+    "productionExecutionPerformedByThisRevision": false,
+    "productionExecutionRequiresExplicitFlag": true,
+    "productionExecutionRequiresSingleUseAuthorization": true,
+    "productionExecutionRequiresRoot": true,
+    "databaseWritesForbidden": true,
+    "activeReleaseSwitchForbidden": true,
+    "activeJarMutationForbidden": true,
+    "nodeMutationForbidden": true,
+    "connectorOrListedPackageMutationForbidden": true,
+    "productCreditPromotionForbidden": true,
+    "maximumForwardJavaRestarts": 1,
+    "maximumRollbackJavaRestarts": 1
+  },
+  "contracts": {
+    "objective": {
+      "problem": "The partial receiver profile retains the legacy webhook delivery reconciliation scheduler even though its scoped production database intentionally contains only Independent Board attribution schema and no wc_webhook tables, producing recurring BadSqlGrammar noise.",
+      "proofGap": "No single-key, hash-bound, reversible service-profile transaction currently proves the sweep is disabled while Java release/JAR, Node, database state and credit remain unchanged.",
+      "stopCondition": "Stop this revision when the contract, one-key template, worker and pure tests are executable; do not connect to or mutate production, submit, push, deploy, restart or cut traffic."
+    },
+    "writableBoundary": {
+      "allowed": [
+        ".fbs-engineering/w05e-service-profile-remediation-contract.json",
+        "docs/independent-board/W05E-SERVICE-PROFILE-REMEDIATION.md",
+        "ops/api2/w05e-receiver-partial-profile.env",
+        "scripts/u3w-w05e-service-profile-remediation.py",
+        "scripts/u3w_w05e_service_profile_remediation_test.py"
+      ],
+      "forbidden": [
+        "existing Java, Node, SQL, migration, release, shadow, connector or package files",
+        "production host state during this implementation revision",
+        "Git commit or push"
+      ]
+    },
+    "truthSurface": {
+      "targetHost": "api2.u3w.com",
+      "targetUnit": "fbsir-admin.service",
+      "nodeUnit": "fbss-phase1.service",
+      "activeSymlink": "/opt/fbsir/admin/current",
+      "activeJarRelativePath": "backend/fbsir-admin.jar",
+      "environmentFile": "/etc/u3w/fbsir-admin.env",
+      "replayDropin": "/etc/systemd/system/fbsir-admin.service.d/30-w05-replay.conf",
+      "stateRoot": "/opt/fbsir/admin/state/w05e-service-profile-remediation"
+    },
+    "allowedChange": {
+      "environmentKey": "FBSIR_WEBHOOK_SWEEP_ENABLED",
+      "environmentValue": "false",
+      "maximumChangedEnvironmentKeys": 1,
+      "duplicateKeyOutcome": "fail_closed",
+      "lineEndings": ["LF", "CRLF"],
+      "mixedLineEndingsOutcome": "fail_closed"
+    },
+    "databaseReadOnlyPrecondition": {
+      "transaction": "START TRANSACTION READ ONLY",
+      "scopedMigrationReceiptsExactly": ["public_init_043", "public_init_044"],
+      "forbiddenTables": ["wc_webhook_url", "wc_webhook_delivery"],
+      "authoritativeProductCreditRows": 0,
+      "databaseWrites": 0,
+      "schemaMigrationWrites": 0
+    },
+    "replayDropinLifecycle": {
+      "removalAllowedOnlyWhenExpired": true,
+      "removalRequiresExactPreimageSha256": true,
+      "environmentReferenceMustStayUnderActiveRelease": true,
+      "notExpiredOutcome": "retain_unchanged",
+      "absentOutcome": "retain_absent"
+    },
+    "transaction": {
+      "modes": ["plan", "apply", "verify", "rollback"],
+      "planIsReadOnly": true,
+      "applyAuthorizationValidityMinutes": 15,
+      "authorizationSingleUse": true,
+      "authorizationConsumptionPoint": "after preflight and byte-exact backups, immediately before the first production configuration write",
+      "idempotentNoopAvoidsRestart": true,
+      "backupDirectoryMode": "0700",
+      "backupFileMode": "0600",
+      "daemonReloadRequiredAfterConfigChange": true,
+      "productionObservationSettleSeconds": {
+        "minimum": 65,
+        "default": 70,
+        "maximum": 120
+      },
+      "forwardJavaRestartBudget": 1,
+      "rollbackJavaRestartBudget": 1,
+      "automaticRollbackOnPostconditionFailure": true,
+      "secretValuesInReceiptsOrErrorsForbidden": true
+    },
+    "postconditions": {
+      "activeSymlinkUnchanged": true,
+      "activeJarSha256Unchanged": true,
+      "activeReceiverSourceCommitUnchanged": true,
+      "nodeSnapshotUnchanged": true,
+      "databaseSnapshotUnchanged": true,
+      "newWebhookReconciliationErrors": 0,
+      "productCreditEligible": false,
+      "productCreditPromoted": false,
+      "naturalTrafficPromoted": false
+    },
+    "cannotProve": [
+      "Pure tests do not prove current production preimages or a successful production transaction.",
+      "Disabling an inapplicable scheduler does not prove natural traffic, product credit, same-binding attribution or business closure.",
+      "A plan receipt is read-only evidence and never authorizes apply or rollback."
+    ]
+  }
+}
