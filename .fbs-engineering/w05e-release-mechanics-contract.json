@@ -1,0 +1,106 @@
+{
+  "surface": "u3w-w05e-authoritative-readback-release-mechanics",
+  "id": "w05e-release-mechanics-contract-20260823",
+  "summary": "Version the exact public deny and the still-pending W05E build, shadow, authority, cutover and rollback gates without authorizing production release.",
+  "stage": "implementation",
+  "versionSource": ".fbs-engineering/w05e-release-mechanics-contract.json",
+  "source": {
+    "repository": "https://github.com/U3W-AI/U3W-AI.git",
+    "branch": "codex/w05e-service-profile-remediation-20260823",
+    "baseCommit": "516146d6ee694066cf520e28240473b9455fb860"
+  },
+  "commands": {
+    "nginx-deny-contract": {
+      "run": "node --test scripts/w05e-nginx-public-deny-contract.test.mjs",
+      "cwd": ".",
+      "timeout_ms": 120000,
+      "existsAtContractRevision": true,
+      "purpose": "Proves the candidate is the exact active snippet prefix plus one exact 404/no-store readback deny with no proxy path."
+    }
+  },
+  "plannedGates": {
+    "status": "planned_not_executable_at_contract_revision",
+    "notCommandKeys": true,
+    "enforceWritableBoundary": true,
+    "items": [
+      {
+        "id": "target-nginx-parse-and-effective-dump",
+        "gateKind": "EXTERNAL_GATE",
+        "executor": "target Linux nginx -t and nginx -T plus GET/POST public negative probe",
+        "acceptance": "installed bytes equal candidate; exact location wins over /prod-api/; public GET and POST are 404; loopback Java route remains separately signed"
+      },
+      {
+        "id": "w05e-versioned-build-shadow-release",
+        "gateKind": "LOCAL_PLANNED_GATE",
+        "plannedIntegrationTarget": "scripts/w05e-*release* and scripts/w05e-*shadow*",
+        "acceptance": "pushed clean commit, reproducible JAR, isolated MySQL, candidate manifest, shadow, authority, one-restart cutover, rollback and post-readback all bind one release"
+      }
+    ]
+  },
+  "artifacts": {
+    "contract": ".fbs-engineering/w05e-release-mechanics-contract.json",
+    "runbook": "docs/independent-board/W05E-RELEASE-MECHANICS.md",
+    "nginxCandidate": "ops/api2/nginx/api2-fbss-w05e.conf",
+    "nginxContractTest": "scripts/w05e-nginx-public-deny-contract.test.mjs"
+  },
+  "policy": {
+    "productionReleaseAllowedAtThisRevision": false,
+    "productionReleaseBlockReason": "the target Nginx parse/readback, W05E versioned builder/shadow/release/rollback, current Ed25519 authority receipt and API2 four-cell receipts do not yet exist",
+    "releaseBlockers": ["nginx-deny-contract"],
+    "requiredReleaseBlockers": ["nginx-deny-contract"],
+    "plannedGatesMustBePromotedBeforeRelease": true,
+    "sourceBuiltCandidateRequired": true,
+    "remoteCommitEqualsCandidateCommitRequired": true,
+    "cleanWorktreeRequired": true,
+    "shadowBeforeReleaseRequired": true,
+    "productionWriteRequiresApproval": true,
+    "databaseMigrationForbidden": true,
+    "connectorOrListedPackageMutationForbidden": true,
+    "productCreditPromotionForbidden": true
+  },
+  "contracts": {
+    "objective": {
+      "problem": "The broad public /prod-api/ proxy would reach the internal readback path unless an exact Nginx deny wins location matching.",
+      "proofGap": "The current target snippet has no readback occurrence and no Git owner; the Java feature remains off, but default-off is not a network-boundary receipt.",
+      "stopCondition": "Stop this revision after an exact byte-derived candidate, static negative gate and release plan exist; do not install, reload Nginx, deploy Java, cut traffic or promote credit."
+    },
+    "writableBoundary": {
+      "allowedAtContractRevision": [
+        ".fbs-engineering/w05e-release-mechanics-contract.json",
+        "docs/independent-board/W05E-RELEASE-MECHANICS.md",
+        "ops/api2/nginx/api2-fbss-w05e.conf",
+        "scripts/w05e-nginx-public-deny-contract.test.mjs",
+        "scripts/w05e-*release*",
+        "scripts/w05e-*shadow*"
+      ],
+      "forbiddenAtContractRevision": [
+        "production Nginx/systemd/service/traffic",
+        "Java or Node source/JAR/runtime state",
+        "SQL/database",
+        "connector/listed runtime/frozen package"
+      ]
+    },
+    "nginxPublicDeny": {
+      "target": "/etc/nginx/snippets/api2-fbss.conf",
+      "preimageSha256": "21f7f6d12c94d2e7437bc5878a8fbd48073acad17b37cf6a8d8fb047180b5cd5",
+      "preimageBytes": 3591,
+      "candidateSha256": "357cfadc900f576ce0f0ab8ddc93f8e79e79469d075bb0203ea012d398e5cb32",
+      "candidateBytes": 3896,
+      "preimageIsExactCandidatePrefix": true,
+      "method": "all",
+      "path": "/prod-api/internal/independent-board/attribution/events/readback",
+      "locationMatch": "exact",
+      "httpStatus": 404,
+      "cacheControl": "no-store",
+      "proxyPassForbidden": true,
+      "targetNginxTestRequired": true,
+      "effectiveDumpHashRequired": true,
+      "automaticRollbackRequired": true
+    },
+    "creditBoundary": {
+      "naturalTrafficPromoted": false,
+      "productCreditPromoted": false,
+      "denyProbeIsDiagnosticOnly": true
+    }
+  }
+}
