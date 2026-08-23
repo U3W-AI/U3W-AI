@@ -106,12 +106,12 @@ class ShadowMysql:
 
     def start(self):
         self.data.mkdir(parents=True, mode=0o700)
+        shutil.chown(self.root, user="mysql", group="mysql")
+        shutil.chown(self.data, user="mysql", group="mysql")
         run([
             self.mysqld, "--no-defaults", "--initialize-insecure",
             "--user=mysql", f"--datadir={self.data}",
         ], timeout=180)
-        shutil.chown(self.root, user="mysql", group="mysql")
-        shutil.chown(self.data, user="mysql", group="mysql")
         self.process = subprocess.Popen(
             [
                 "/usr/sbin/runuser", "-u", "mysql", "--", self.mysqld,
