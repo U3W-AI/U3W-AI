@@ -3,6 +3,8 @@ package com.wx.fbsir.business.board.attribution.config;
 import com.wx.fbsir.business.board.attribution.binding.BoardSameBindingKeyDeriver;
 import com.wx.fbsir.business.board.attribution.receipt.BoardAttributionEventV1Verifier;
 import com.wx.fbsir.business.board.attribution.receipt.BoardAttributionEventVerifier;
+import com.wx.fbsir.business.board.attribution.receipt.BoardAttributionReadbackRequestV1Verifier;
+import com.wx.fbsir.business.board.attribution.receipt.BoardAttributionReadbackRequestVerifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,5 +37,24 @@ public class IndependentBoardAttributionV1Configuration {
             IndependentBoardAttributionProperties properties) {
         return new BoardSameBindingKeyDeriver(
                 properties.getSameBindingSecret());
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = "fbsir.independent-board.attribution",
+            name = "authoritative-readback-enabled",
+            havingValue = "true",
+            matchIfMissing = false)
+    public BoardAttributionReadbackRequestVerifier
+            boardAttributionReadbackRequestVerifier(
+                    IndependentBoardAttributionProperties properties) {
+        BoardAttributionReadbackRequestV1Verifier verifier =
+                new BoardAttributionReadbackRequestV1Verifier(
+                        properties.getResolvedEventKeys(), Clock.systemUTC());
+        if (!verifier.isConfigured()) {
+            throw new IllegalStateException(
+                    "attribution_readback_keyring_unconfigured");
+        }
+        return verifier;
     }
 }

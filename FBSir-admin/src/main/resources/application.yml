@@ -65,6 +65,13 @@ fbsir:
       observation-writer-enabled: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_WRITER_ENABLED:false}
       intent-classifier-enabled: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_INTENT_CLASSIFIER_ENABLED:false}
       observation-admin-read-enabled: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_ADMIN_READ_ENABLED:false}
+      authoritative-readback-enabled: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_READBACK_ENABLED:false}
+      authoritative-readback-ttl-seconds: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_READBACK_TTL_SECONDS:60}
+      authoritative-readback-receiver-release-id: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_READBACK_RECEIVER_RELEASE_ID:}
+      authoritative-readback-receiver-jar-sha256: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_READBACK_RECEIVER_JAR_SHA256:}
+      authoritative-readback-receiver-jar-path: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_READBACK_RECEIVER_JAR_PATH:}
+      authoritative-readback-maximum-concurrent: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_READBACK_MAXIMUM_CONCURRENT:4}
+      authoritative-readback-maximum-requests-per-minute: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_READBACK_MAXIMUM_REQUESTS_PER_MINUTE:120}
       product-credit-enabled: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_PRODUCT_CREDIT_ENABLED:false}
       # Active and previous keys allow bounded rotation without dynamic env-map ambiguity.
       active-event-key-id: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_EVENT_KEY_ID:}

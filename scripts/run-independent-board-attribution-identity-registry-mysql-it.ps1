@@ -3,6 +3,7 @@ param(
     [switch]$AllowDestructiveTest,
     [ValidateSet('8.0.30', '8.0.45', '8.4.8')]
     [string[]]$Versions = @('8.0.30', '8.4.8'),
+    [switch]$ReadbackZeroWrite,
     [string]$ReceiptPath = ''
 )
 
@@ -214,6 +215,156 @@ VALUES
    '2026-08-23 05:00:00.000','2026-08-23 05:02:00.000',$ProductCredit);
 COMMIT;
 "@
+}
+
+function Invoke-ReadbackZeroWrite {
+    param(
+        [Parameter(Mandatory = $true)]$Profile,
+        [Parameter(Mandatory = $true)][string]$Database,
+        [Parameter(Mandatory = $true)][string]$Version
+    )
+    $envNames = @(
+        'INDEPENDENT_BOARD_MYSQL_IT_URL',
+        'INDEPENDENT_BOARD_MYSQL_IT_USERNAME',
+        'INDEPENDENT_BOARD_MYSQL_IT_PASSWORD',
+        'INDEPENDENT_BOARD_MYSQL_IT_ALLOW_DROP',
+        'INDEPENDENT_BOARD_MYSQL_IT_VERSION')
+    $snapshot = @{}
+    $processEnvironment = [Environment]::GetEnvironmentVariables('Process')
+    foreach ($name in $envNames) {
+        $snapshot[$name] = [pscustomobject]@{
+            exists = $processEnvironment.Contains($name)
+            value = [Environment]::GetEnvironmentVariable($name, 'Process')
+        }
+    }
+    $reportRoot = Join-Path $repoRoot 'FBSir-business\target\surefire-reports'
+    $startedAt = [DateTimeOffset]::UtcNow
+    try {
+        $null = Invoke-Client -Profile $Profile -Database $Database -Sql @"
+CREATE TABLE w05e_readback_snapshot_probe (
+  id INT NOT NULL PRIMARY KEY,
+  probe_value INT NOT NULL
+) ENGINE=InnoDB;
+INSERT INTO w05e_readback_snapshot_probe(id,probe_value) VALUES (1,0);
+"@
+        $serverReadOnlyFailure = Invoke-Client -Profile $Profile `
+            -Database $Database -ExpectFailure -Sql @"
+START TRANSACTION READ ONLY;
+UPDATE fbs_board_attr_event_v1 SET event_id=event_id LIMIT 1;
+"@
+        if ($serverReadOnlyFailure -notmatch '(?is)ERROR\s+1792\s*\(25006\)') {
+            throw "MySQL $Version did not enforce server read-only DML with ERROR 1792 (25006): $serverReadOnlyFailure"
+        }
+        [Environment]::SetEnvironmentVariable(
+            'INDEPENDENT_BOARD_MYSQL_IT_URL',
+            "jdbc:mysql://127.0.0.1:$($Profile.Port)/${Database}?useAffectedRows=false&connectionTimeZone=Asia%2FShanghai&useSSL=false&allowPublicKeyRetrieval=true",
+            'Process')
+        [Environment]::SetEnvironmentVariable('INDEPENDENT_BOARD_MYSQL_IT_USERNAME', 'root', 'Process')
+        [Environment]::SetEnvironmentVariable('INDEPENDENT_BOARD_MYSQL_IT_PASSWORD', '', 'Process')
+        [Environment]::SetEnvironmentVariable('INDEPENDENT_BOARD_MYSQL_IT_ALLOW_DROP', 'true', 'Process')
+        [Environment]::SetEnvironmentVariable('INDEPENDENT_BOARD_MYSQL_IT_VERSION', $Version, 'Process')
+        Write-Host "Running W05E MySQL zero-write readback IT on $Version"
+        $mavenOutput = & mvn -pl FBSir-business -am `
+            '-Dtest=IndependentBoardAttributionReadbackMysqlIT' `
+            '-Dsurefire.failIfNoSpecifiedTests=false' test
+        $mavenOutput | Write-Host
+        if ($LASTEXITCODE -ne 0) {
+            throw "W05E readback MySQL IT failed for ${Version} with Maven exit code $LASTEXITCODE"
+        }
+        $markerLines = [Collections.Generic.List[string]]::new()
+        if (Test-Path -LiteralPath $reportRoot -PathType Container) {
+            $reports = Get-ChildItem -LiteralPath $reportRoot -File | Where-Object {
+                $_.LastWriteTimeUtc -ge $startedAt.UtcDateTime.AddSeconds(-2)
+            }
+            foreach ($report in $reports) {
+                $content = Get-Content -LiteralPath $report.FullName -Raw -Encoding UTF8
+                foreach ($match in [regex]::Matches($content, 'W05E_ZERO_WRITE_JSON=(\{.*?\})(?:\r?\n|<|$)')) {
+                    $markerLines.Add($match.Groups[1].Value)
+                }
+            }
+        }
+        if ($markerLines.Count -ne 7) {
+            throw "W05E readback marker count for $Version must be exactly 7, got $($markerLines.Count)."
+        }
+        $cases = @($markerLines | ForEach-Object {
+            try { $_ | ConvertFrom-Json }
+            catch { throw "W05E readback marker is invalid JSON: $_" }
+        })
+        $expected = @('exact', 'not_found', 'collision_cross_row', 'collision_digest',
+            'invalid_signature', 'unavailable_after_first_read', 'repeatable_snapshot')
+        $actual = @($cases | ForEach-Object { [string]$_.id })
+        if (($actual -join '|') -cne ($expected -join '|')) {
+            throw "W05E readback case order/set drifted for ${Version}: $($actual -join ',')"
+        }
+        foreach ($case in $cases) {
+            if (-not [bool]$case.projectionEqual -or [int]$case.dmlStatementCount -ne 0 -or
+                [int]$case.ddlStatementCount -ne 0 -or [bool]$case.productCreditEligible -or
+                [int]$case.nonDatabase.sensitiveLogMatchCount -ne 0 -or
+                [bool]$case.nonDatabase.redisCapabilityReachable -or
+                -not [bool]$case.nonDatabase.filesystemStateEqual -or
+                [bool]$case.nonDatabase.journalCapabilityReachable -or
+                [bool]$case.nonDatabase.publisherOutboxCapabilityReachable) {
+                throw "W05E zero-write assertions failed for $Version case $($case.id)."
+            }
+            $invalidSignature = [string]$case.id -eq 'invalid_signature'
+            if ($invalidSignature) {
+                if ([int]$case.eventSelectCount -ne 0 -or
+                    [int]$case.receiptSelectCount -ne 0 -or
+                    [bool]$case.connectionReadOnly -or
+                    [bool]$case.repeatableRead) {
+                    throw "Invalid-signature case reached the database for $Version."
+                }
+            }
+            elseif ([int]$case.eventSelectCount -ne 1 -or
+                [int]$case.receiptSelectCount -ne 1 -or
+                -not [bool]$case.readOnlyTransactionObserved -or
+                -not [bool]$case.readOnlyConnectionObserved -or
+                -not [bool]$case.connectionReadOnly -or
+                -not [bool]$case.repeatableRead) {
+                throw "Readback transaction evidence is incomplete for $Version case $($case.id)."
+            }
+            if ([string]$case.id -eq 'repeatable_snapshot' -and
+                (-not [bool]$case.concurrentCommitObserved -or
+                 -not [bool]$case.sameSnapshotObserved -or
+                 [int]$case.externalFixtureWriteCount -ne 2)) {
+                throw "Repeatable-snapshot concurrency proof failed for $Version."
+            }
+        }
+        return [ordered]@{
+            schemaVersion = 'fbsir.independentBoardAuthoritativeReadbackMysqlZeroWrite.v1'
+            mysqlVersion = $Version
+            transactionIsolation = 'REPEATABLE-READ'
+            serverReadOnlyDmlErrorCode = 1792
+            serverReadOnlyDmlSqlState = '25006'
+            cases = $cases
+            cleanup = [ordered]@{
+                ownedByOuterRunner = $true
+                serverProcessStopped = $false
+                portClosed = $false
+                workDirectoryCleaned = $false
+                processEnvironmentRestored = $true
+            }
+            databaseMigrationAdded = $false
+            productionChanged = $false
+            status = 'PASS'
+        }
+    }
+    finally {
+        foreach ($name in $envNames) {
+            $entry = $snapshot[$name]
+            [Environment]::SetEnvironmentVariable(
+                $name,
+                $(if ([bool]$entry.exists) { [string]$entry.value } else { $null }),
+                'Process')
+        }
+        foreach ($name in $envNames) {
+            $entry = $snapshot[$name]
+            $actualValue = [Environment]::GetEnvironmentVariable($name, 'Process')
+            if ([string]$actualValue -cne [string]$entry.value) {
+                throw "W05E readback environment restoration failed for $name."
+            }
+        }
+    }
 }
 
 $results = [Collections.Generic.List[object]]::new()
@@ -432,7 +583,13 @@ SELECT CONCAT_WS('|',
             throw "MySQL $version partial-DDL recovery failed: $partialProof"
         }
 
-        $results.Add([pscustomobject]@{
+        $zeroWriteReceipt = $null
+        if ($ReadbackZeroWrite) {
+            $zeroWriteReceipt = Invoke-ReadbackZeroWrite -Profile $profile `
+                -Database $database -Version $version
+        }
+
+        $resultRecord = [pscustomobject]@{
             version = $version
             acceptedProfiles = 3
             rejectedProfiles = $negativeCases.Count
@@ -446,7 +603,8 @@ SELECT CONCAT_WS('|',
             successorCheckClauseSqlSha256 = $successorCheckSqlSha
             partialCheckClauseSqlSha256 = $partialCheckSqlShaBefore
             checkClauses = @($checkRows -split "`r?`n")
-        })
+            readbackZeroWrite = $zeroWriteReceipt
+        }
     }
     finally {
         if ($null -ne $process -and -not $process.HasExited) {
@@ -465,6 +623,31 @@ SELECT CONCAT_WS('|',
             Remove-Item -LiteralPath $resolved -Recurse -Force
         }
     }
+    $processStopped = $null -eq $process -or $process.HasExited
+    $portClosed = $false
+    $probe = [Net.Sockets.TcpClient]::new()
+    try {
+        $connect = $probe.ConnectAsync('127.0.0.1', $port)
+        $portClosed = -not $connect.Wait(500) -or -not $probe.Connected
+    }
+    catch { $portClosed = $true }
+    finally { $probe.Dispose() }
+    $workDirectoryCleaned = -not (Test-Path -LiteralPath $runRoot)
+    if (-not $processStopped -or -not $portClosed -or
+        -not $workDirectoryCleaned) {
+        throw "MySQL $version cleanup failed: processStopped=$processStopped portClosed=$portClosed workDirectoryCleaned=$workDirectoryCleaned"
+    }
+    if ($null -ne $resultRecord.readbackZeroWrite) {
+        $resultRecord.readbackZeroWrite.cleanup.serverProcessStopped = $processStopped
+        $resultRecord.readbackZeroWrite.cleanup.portClosed = $portClosed
+        $resultRecord.readbackZeroWrite.cleanup.workDirectoryCleaned = $workDirectoryCleaned
+    }
+    $resultRecord | Add-Member -NotePropertyName cleanup -NotePropertyValue ([ordered]@{
+        serverProcessStopped = $processStopped
+        portClosed = $portClosed
+        workDirectoryCleaned = $workDirectoryCleaned
+    })
+    $results.Add($resultRecord)
 }
 
 $report = [ordered]@{

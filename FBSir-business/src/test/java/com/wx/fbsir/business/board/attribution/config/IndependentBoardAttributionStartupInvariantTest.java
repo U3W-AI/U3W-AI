@@ -163,6 +163,71 @@ class IndependentBoardAttributionStartupInvariantTest {
                 allowlistError.getMessage());
     }
 
+    @Test
+    void authoritativeReadbackRequiresReportOnlyWriterAndExactRuntimeBinding() {
+        IndependentBoardAttributionProperties properties = readback();
+        assertDoesNotThrow(() -> validate(properties));
+
+        properties.setObservationWriterEnabled(false);
+        IllegalStateException writerError = assertThrows(
+                IllegalStateException.class, () -> validate(properties));
+        assertEquals(
+                "attribution_readback_requires_report_only_writer",
+                writerError.getMessage());
+
+        properties.setObservationWriterEnabled(true);
+        properties.setProductCreditEnabled(true);
+        IllegalStateException creditError = assertThrows(
+                IllegalStateException.class, () -> validate(properties));
+        assertEquals(
+                "attribution_readback_requires_report_only_writer",
+                creditError.getMessage());
+    }
+
+    @Test
+    void authoritativeReadbackRejectsTtlBindingAndActiveKeyDrift() {
+        IndependentBoardAttributionProperties ttlProperties = readback();
+        ttlProperties.setAuthoritativeReadbackTtlSeconds(61);
+        IllegalStateException ttlError = assertThrows(
+                IllegalStateException.class,
+                () -> validate(ttlProperties));
+        assertEquals("attribution_readback_ttl_invalid",
+                ttlError.getMessage());
+
+        IndependentBoardAttributionProperties bindingProperties = readback();
+        bindingProperties.setAuthoritativeReadbackReceiverJarSha256("bad");
+        IllegalStateException bindingError = assertThrows(
+                IllegalStateException.class,
+                () -> validate(bindingProperties));
+        assertEquals("attribution_readback_receiver_binding_invalid",
+                bindingError.getMessage());
+
+        IndependentBoardAttributionProperties pathProperties = readback();
+        pathProperties.setAuthoritativeReadbackReceiverJarPath("relative.jar");
+        IllegalStateException pathError = assertThrows(
+                IllegalStateException.class,
+                () -> validate(pathProperties));
+        assertEquals("attribution_readback_receiver_binding_invalid",
+                pathError.getMessage());
+
+        IndependentBoardAttributionProperties keyProperties = readback();
+        keyProperties.setActiveEventKeyId("");
+        keyProperties.setActiveEventKey("");
+        IllegalStateException keyError = assertThrows(
+                IllegalStateException.class,
+                () -> validate(keyProperties));
+        assertEquals("attribution_readback_active_key_invalid",
+                keyError.getMessage());
+
+        IndependentBoardAttributionProperties budgetProperties = readback();
+        budgetProperties.setAuthoritativeReadbackMaximumConcurrent(0);
+        IllegalStateException budgetError = assertThrows(
+                IllegalStateException.class,
+                () -> validate(budgetProperties));
+        assertEquals("attribution_readback_admission_budget_invalid",
+                budgetError.getMessage());
+    }
+
     private static IndependentBoardAttributionProperties keys() {
         IndependentBoardAttributionProperties properties =
                 new IndependentBoardAttributionProperties();
@@ -174,6 +239,23 @@ class IndependentBoardAttributionStartupInvariantTest {
                 "utf8:previous-secret-material-at-least-32-bytes");
         properties.setSameBindingSecret(
                 "utf8:binding-secret-material-at-least-32-bytes");
+        return properties;
+    }
+
+    private static IndependentBoardAttributionProperties readback() {
+        IndependentBoardAttributionProperties properties = keys();
+        properties.setEnabled(true);
+        properties.setObservationWriterEnabled(true);
+        properties.setAuthoritativeReadbackEnabled(true);
+        properties.setAuthoritativeReadbackTtlSeconds(60);
+        properties.setAuthoritativeReadbackReceiverReleaseId(
+                "w05e-readback-test");
+        properties.setAuthoritativeReadbackReceiverJarSha256(
+                "a".repeat(64));
+        properties.setAuthoritativeReadbackReceiverJarPath(
+                java.nio.file.Path.of(
+                        System.getProperty("java.io.tmpdir"),
+                        "receiver.jar").toAbsolutePath().toString());
         return properties;
     }
 

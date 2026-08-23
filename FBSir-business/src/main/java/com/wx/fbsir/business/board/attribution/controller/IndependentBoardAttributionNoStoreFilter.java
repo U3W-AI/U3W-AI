@@ -19,6 +19,7 @@ public class IndependentBoardAttributionNoStoreFilter
         extends OncePerRequestFilter {
     private static final Set<String> PATHS = Set.of(
             IndependentBoardAttributionIngressController.PATH,
+            IndependentBoardAttributionReadbackController.PATH,
             "/business/independent-board/attribution/summary");
 
     @Override

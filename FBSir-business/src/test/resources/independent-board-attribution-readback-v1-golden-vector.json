@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "fbsir.independentBoardAttributionReadbackGoldenVector.v1",
+  "encodedSecret": "utf8:0123456789abcdef0123456789abcdef",
+  "verificationClock": "2026-08-23T08:40:30Z",
+  "request": {
+    "schemaVersion": "fbsir.independentBoardAttributionReadbackRequest.v1",
+    "eventId": "1111111111111111111111111111111111111111111111111111111111111111",
+    "receiptId": "2222222222222222222222222222222222222222222222222222222222222222",
+    "eventDigest": "3333333333333333333333333333333333333333333333333333333333333333",
+    "issuedAt": "2026-08-23T08:40:00Z",
+    "expiresAt": "2026-08-23T08:41:00Z",
+    "nonce": "readback-nonce-0001",
+    "keyId": "readback-k1",
+    "signature": "ac79659fea63f8d161177805c5bc4c4d7ecf96955a49eb647872ed95cea40b35"
+  },
+  "response": {
+    "schemaVersion": "fbsir.independentBoardAttributionReadbackResponse.v1",
+    "status": "COMMITTED_EXACT",
+    "eventId": "1111111111111111111111111111111111111111111111111111111111111111",
+    "receiptId": "2222222222222222222222222222222222222222222222222222222222222222",
+    "eventDigest": "3333333333333333333333333333333333333333333333333333333333333333",
+    "authoritativeRead": true,
+    "httpStatus": 200,
+    "requestDigest": "ea6793f490670c8fc0baf9d6e7a677f7bb1d73492ace2f2db21bdaa9180187a1",
+    "requestNonceHash": "722e6a765648c9a7b2e8a55233a23b012197b15356de261325b65a7000854c2d",
+    "readAt": "2026-08-23T08:40:30Z",
+    "expiresAt": "2026-08-23T08:41:30Z",
+    "receiverReleaseId": "w05e-readback-test",
+    "receiverJarSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "productCreditEligible": false,
+    "keyId": "readback-k1",
+    "signature": "ad1e286a21ecb56d769493c690aa88c0d21a0a8013a2dcaff5250669679da10a"
+  }
+}

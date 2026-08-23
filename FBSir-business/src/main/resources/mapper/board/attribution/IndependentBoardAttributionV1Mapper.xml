@@ -84,6 +84,11 @@
     authoritative_product_credit, event_watermark, created_at
   </sql>
 
+  <select id="selectTransactionReadOnlyState" resultType="int"
+      useCache="false">
+    SELECT @@transaction_read_only
+  </select>
+
   <select id="selectEventByEventId" resultMap="LedgerEvent"
       useCache="false">
     SELECT <include refid="LedgerColumns"/>

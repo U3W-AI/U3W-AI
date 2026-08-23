@@ -731,6 +731,9 @@ $artifactPathMap = [ordered]@{
     refreshAuthorityLease = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\service\BoardOAuthRefreshAuthorityLease.java'
     firstProtectedTransactionRunner = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\service\IndependentBoardOAuthFirstProtectedRequestTransactionRunner.java'
     firstProtectedFacade = 'FBSir-business\src\main\java\com\wx\fbsir\business\board\service\IndependentBoardOAuthFirstProtectedRequestFacade.java'
+    identityRegistryMysqlRunner = 'scripts\run-independent-board-attribution-identity-registry-mysql-it.ps1'
+    readbackZeroWriteMysqlTest = 'FBSir-business\src\test\java\com\wx\fbsir\business\board\attribution\integration\IndependentBoardAttributionReadbackMysqlIT.java'
+    readbackContract = '.fbs-engineering\w05e-authoritative-readback-contract.json'
 }
 $expectedArtifactSha256 = [ordered]@{
     oauthConsentIntentMigration = '55dc772d54a4a457f00711a45266b2d0042522d63ed0d5a8e408d35a8ecaf560'
@@ -790,6 +793,7 @@ $runtimeProfile = $null
 $directEvidence = $null
 $refreshSecurityEvidence = $null
 $canonicalEvidence = $null
+$identityRegistryReceipt = $null
 $serverProcessStopped = $false
 $workDirectoryCleaned = $false
 $portClosed = $false
@@ -1133,9 +1137,51 @@ SELECT CONCAT_WS('|',
         refreshHelperProcedures = 0
         refreshTestTriggers = 0
     }
+
     }
     else {
         Write-Host 'DirectOnly requested; canonical initializer phase remains intentionally unexecuted.'
+    }
+
+    if (-not $DirectOnly) {
+        $identityScript = Join-Path $repoRoot $artifactPathMap.identityRegistryMysqlRunner
+        $identityReceiptPath = Join-Path $diagnosticsRoot ("w05e-identity-registry-{0}.json" -f $runId)
+        New-Item -ItemType Directory -Force -Path $diagnosticsRoot | Out-Null
+        Write-Host 'Running the dual-MySQL W05E authoritative readback zero-write child gate'
+        $childOutput = & $identityScript -AllowDestructiveTest `
+            -Versions @('8.0.30', '8.4.8') -ReadbackZeroWrite `
+            -ReceiptPath $identityReceiptPath 2>&1
+        $childSucceeded = $?
+        if (-not $childSucceeded -or
+            -not (Test-Path -LiteralPath $identityReceiptPath -PathType Leaf)) {
+            throw "W05E dual-MySQL child gate failed: $($childOutput -join ' ')"
+        }
+        try {
+            $identityRegistryReceipt = Get-Content -LiteralPath $identityReceiptPath -Raw -Encoding UTF8 |
+                ConvertFrom-Json
+        }
+        catch {
+            throw "W05E child receipt is not valid JSON: $($_.Exception.Message)"
+        }
+        if ([string]$identityRegistryReceipt.status -ne 'PASS' -or
+            @($identityRegistryReceipt.results).Count -ne 2) {
+            throw 'W05E child receipt must contain exactly two passing MySQL runtime results.'
+        }
+        foreach ($childResult in @($identityRegistryReceipt.results)) {
+            if ($null -eq $childResult.readbackZeroWrite -or
+                [string]$childResult.readbackZeroWrite.status -ne 'PASS' -or
+                @($childResult.readbackZeroWrite.cases).Count -ne 7 -or
+                [int]$childResult.readbackZeroWrite.serverReadOnlyDmlErrorCode -ne 1792 -or
+                [string]$childResult.readbackZeroWrite.serverReadOnlyDmlSqlState -cne '25006' -or
+                -not [bool]$childResult.readbackZeroWrite.cleanup.serverProcessStopped -or
+                -not [bool]$childResult.readbackZeroWrite.cleanup.portClosed -or
+                -not [bool]$childResult.readbackZeroWrite.cleanup.workDirectoryCleaned -or
+                -not [bool]$childResult.readbackZeroWrite.cleanup.processEnvironmentRestored -or
+                [string]$childResult.readbackZeroWrite.schemaVersion -ne
+                    'fbsir.independentBoardAuthoritativeReadbackMysqlZeroWrite.v1') {
+                throw "W05E child receipt lacks a complete zero-write readback result for $($childResult.version)."
+            }
+        }
     }
 
     foreach ($artifactName in $artifactPathMap.Keys) {
@@ -1199,7 +1245,7 @@ if ($testPassed) {
         throw "Disposable MySQL cleanup did not close every boundary: processStopped=$serverProcessStopped workDirectoryCleaned=$workDirectoryCleaned portClosed=$portClosed environmentRestored=$environmentRestored"
     }
     $summary = [ordered]@{
-        schemaVersion = 3
+        schemaVersion = 4
         test = 'IndependentBoardMysqlTransactionIT'
         result = 'PASS'
         mode = if ($DirectOnly) { 'direct_only' } else { 'direct_and_canonical' }
@@ -1216,6 +1262,7 @@ if ($testPassed) {
         directIntegration = $directEvidence
         refreshSecurityIntegration = $refreshSecurityEvidence
         canonicalInitializer = $canonicalEvidence
+        readbackZeroWrite = $identityRegistryReceipt
         destructiveTestConsent = $true
         productionConnectionUsed = $false
         cleanup = [ordered]@{

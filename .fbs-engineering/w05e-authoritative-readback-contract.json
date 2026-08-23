@@ -1,0 +1,567 @@
+{
+  "surface": "u3w-independent-board-attribution-authoritative-readback",
+  "id": "w05e-authoritative-readback-contract-20260823",
+  "summary": "Add a default-off, signed, zero-business-write authoritative readback route for the Independent Board attribution receiver without changing the v1 ingest contract, database schema, product credit, connector packages, or public MCP surfaces.",
+  "stage": "implementation",
+  "versionSource": ".fbs-engineering/w05e-authoritative-readback-contract.json",
+  "source": {
+    "repository": "https://github.com/U3W-AI/U3W-AI.git",
+    "baseCommit": "5d0769c2dad843b1c800c62cab8d9a5a91631b40",
+    "baseBranch": "codex/w05-receiver-contract-20260823",
+    "worktree": "E:/820/w05e-u3w-readback",
+    "worktreeBranch": "codex/w05e-authoritative-readback-20260823",
+    "cleanAtContractStart": true
+  },
+  "commands": {
+    "focused": {
+      "run": "mvn -pl FBSir-admin -am \"-Dtest=BoardAttributionEventV1VerifierTest,BoardAttributionReadbackRequestV1VerifierTest,IndependentBoardAttributionStartupInvariantTest,IndependentBoardAttributionReadbackRuntimeInvariantTest,IndependentBoardAttributionV1PersistenceContractTest,IndependentBoardAttributionIdentityRegistryContractTest,IndependentBoardAttributionIngestServiceTest,IndependentBoardAttributionReadbackServiceTest,IndependentBoardAttributionReadbackSpringProxyContractTest,IndependentBoardAttributionReadbackAdmissionTest,IndependentBoardAttributionIngressControllerTest,IndependentBoardAttributionReadbackControllerTest,IndependentBoardAttributionReadbackProtocolFilterTest,IndependentBoardAttributionIngressHttpAdviceIntegrationTest,IndependentBoardAttributionIngressProtocolFilterConditionTest,IndependentBoardAttributionReadbackHttpSecurityIntegrationTest,IndependentBoardAttributionReadbackSurfaceConditionTest,GlobalExceptionHandlerTest\" \"-Dsurefire.failIfNoSpecifiedTests=false\" test",
+      "cwd": ".",
+      "timeout_ms": 600000,
+      "existsAtContractRevision": true,
+      "purpose": "Stable legacy receiver plus signed readback request/response, strict body, runtime JAR, controller, default-off and production SecurityFilterChain regression gate."
+    },
+    "full": {
+      "run": "mvn -q -f pom.xml -pl FBSir-admin -am test",
+      "cwd": ".",
+      "timeout_ms": 900000,
+      "existsAtContractRevision": true,
+      "purpose": "Stable full backend gate; automatically includes future readback tests when their classes are added."
+    },
+    "java-boundary": {
+      "run": "node --test scripts/independent-board-java-boundary-contract.test.mjs",
+      "cwd": ".",
+      "timeout_ms": 120000,
+      "existsAtContractRevision": true,
+      "purpose": "Stable Java/API2 boundary regression gate."
+    },
+    "wire-contract": {
+      "run": "node --test scripts/w05e-readback-wire-contract.test.mjs",
+      "cwd": ".",
+      "timeout_ms": 120000,
+      "existsAtContractRevision": true,
+      "purpose": "Node verifier and shared Java/Node golden-vector gate for all signed 200/404/409/503 outcomes and mutation negatives."
+    },
+    "readback-java-boundary": {
+      "run": "node --test scripts/w05e-readback-java-boundary.test.mjs",
+      "cwd": ".",
+      "timeout_ms": 120000,
+      "existsAtContractRevision": true,
+      "purpose": "Static exact-route, bidirectional signature, server-read-only, no-side-effect dependency, bounded-body, runtime-JAR and SecurityConfig boundary gate."
+    },
+    "authority-tool": {
+      "run": "py -3 -m unittest discover -s scripts -p 'w05e_authoritative_readback_authority_test.py'",
+      "cwd": ".",
+      "timeout_ms": 120000,
+      "existsAtContractRevision": true,
+      "purpose": "Offline Ed25519 v2 materializer/verifier, asymmetric custody and evidence-binding negative gate."
+    },
+    "implementation-boundary": {
+      "run": "py -3 -B scripts/w05e-implementation-boundary-gate.py",
+      "cwd": ".",
+      "timeout_ms": 120000,
+      "existsAtContractRevision": true,
+      "purpose": "Opt-in dirty implementation gate: every changed path stays inside the declared writable boundary, SQL/connector paths remain frozen, diff check passes and production release stays disabled."
+    },
+    "database-manifest": {
+      "run": "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/verify-database-manifest.ps1 -Json",
+      "cwd": ".",
+      "timeout_ms": 300000,
+      "existsAtContractRevision": true,
+      "purpose": "Proves the existing schema manifest remains valid; W05E adds no migration."
+    },
+    "mysql-shadow": {
+      "run": "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-mysql-transaction-it.ps1 -AllowDestructiveTest",
+      "cwd": ".",
+      "timeout_ms": 1200000,
+      "existsAtContractRevision": true,
+      "testDatabaseOnly": true,
+      "purpose": "Stable isolated-MySQL transaction command: 57 direct tests, 3 refresh tests, 44-step canonical initializer, and mandatory 8.0.30/8.4.8 seven-case readback zero-write, error-1792 and repeatable-snapshot child receipts."
+    },
+    "release-worker-contract": {
+      "run": "python scripts/u3w_w05_receiver_release_test.py",
+      "cwd": ".",
+      "timeout_ms": 120000,
+      "existsAtContractRevision": true,
+      "purpose": "Stable release and shadow worker regression gate."
+    },
+    "reproducible-build": {
+      "run": "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/verify-w05-reproducible-build.ps1",
+      "cwd": ".",
+      "timeout_ms": 1200000,
+      "existsAtContractRevision": true,
+      "purpose": "Stable clean double-build JAR equality gate."
+    }
+  },
+  "plannedGates": {
+    "status": "planned_not_executable_at_contract_revision",
+    "notCommandKeys": true,
+    "enforceWritableBoundary": true,
+    "promotionRule": "Each LOCAL_PLANNED_GATE must receive a stable repository command and each EXTERNAL_GATE must receive a stable owner harness plus a bound receipt. Both kinds must then be promoted into the release contract and required release evidence by a committed revision before production release.",
+    "items": [
+      {
+        "id": "current-ed25519-authority-receipt",
+        "gateKind": "LOCAL_PLANNED_GATE",
+        "plannedArtifact": "fbsir.independentBoardAuthoritativeReadbackAuthorityReceipt.v2",
+        "executor": "scripts/w05e-authoritative-readback-authority.py",
+        "acceptance": "a current offline-Ed25519 receipt binds source, JAR, route contract, configuration, public deny, zero-write shadow and active target readback; verifier holds public key only"
+      },
+      {
+        "id": "api2-mcp-connector-four-cell",
+        "gateKind": "EXTERNAL_GATE",
+        "executor": "external API2 W0 release harness, not present in this Java repository",
+        "acceptance": "all four MCP protocol by connector package cells pass with unchanged public tool contracts and zero negative writes"
+      }
+    ]
+  },
+  "artifacts": {
+    "contract": ".fbs-engineering/w05e-authoritative-readback-contract.json",
+    "runbook": "docs/independent-board/W05E-AUTHORITATIVE-READBACK-RUNBOOK.md",
+    "existingIngressController": "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/controller/IndependentBoardAttributionIngressController.java",
+    "existingIngressAdvice": "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/controller/IndependentBoardAttributionIngressExceptionHandler.java",
+    "existingIngressProtocolFilter": "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/controller/IndependentBoardAttributionIngressProtocolFilter.java",
+    "existingIngestService": "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/service/IndependentBoardAttributionIngestService.java",
+    "existingMapper": "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/mapper/IndependentBoardAttributionV1Mapper.java",
+    "existingMapperXml": "FBSir-business/src/main/resources/mapper/board/attribution/IndependentBoardAttributionV1Mapper.xml",
+    "existingProperties": "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/config/IndependentBoardAttributionProperties.java",
+    "existingStartupInvariant": "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/config/IndependentBoardAttributionStartupInvariant.java",
+    "existingApplicationConfig": "FBSir-admin/src/main/resources/application.yml",
+    "existingReleaseWorker": "scripts/u3w-w05-receiver-release.py",
+    "existingShadowWorker": "scripts/u3w-w05-receiver-shadow.py",
+    "existingReleaseWorkerTests": "scripts/u3w_w05_receiver_release_test.py",
+    "existingCandidateBuilder": "scripts/Build-W05ReceiverCandidate.ps1",
+    "readbackProductionSources": "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/**/*Readback*.java",
+    "readbackTests": "FBSir-*/src/test/java/com/wx/fbsir/business/board/attribution/**/*Readback*Test.java",
+    "wireContract": "scripts/w05e-readback-wire-contract.mjs",
+    "wireContractTests": "scripts/w05e-readback-wire-contract.test.mjs",
+    "readbackJavaBoundaryTests": "scripts/w05e-readback-java-boundary.test.mjs",
+    "implementationBoundaryGate": "scripts/w05e-implementation-boundary-gate.py",
+    "wireGoldenVector": "FBSir-business/src/test/resources/independent-board-attribution-readback-v1-golden-vector.json",
+    "authorityTool": "scripts/w05e-authoritative-readback-authority.py",
+    "authorityToolTests": "scripts/w05e_authoritative_readback_authority_test.py",
+    "readbackMysqlIt": "FBSir-business/src/test/java/com/wx/fbsir/business/board/attribution/integration/IndependentBoardAttributionReadbackMysqlIT.java",
+    "readbackDualMysqlRunner": "scripts/run-independent-board-attribution-identity-registry-mysql-it.ps1",
+    "readbackStableMysqlRunner": "scripts/run-independent-board-mysql-transaction-it.ps1"
+  },
+  "policy": {
+    "defaultStage": "assess",
+    "requiresContractDrivenFlow": true,
+    "productionReleaseAllowedAtThisRevision": false,
+    "productionReleaseBlockReason": "the implementation is locally validated but no pushed clean candidate, reproducible W05E JAR, public-deny readback, candidate/shadow/active-runtime evidence, current independent authority receipt or external API2 four-cell receipt exists yet",
+    "releaseBlockers": [
+      "focused",
+      "full",
+      "java-boundary",
+      "wire-contract",
+      "readback-java-boundary",
+      "authority-tool",
+      "implementation-boundary",
+      "database-manifest",
+      "mysql-shadow",
+      "release-worker-contract",
+      "reproducible-build"
+    ],
+    "requiredReleaseBlockers": [
+      "focused",
+      "full",
+      "java-boundary",
+      "wire-contract",
+      "readback-java-boundary",
+      "authority-tool",
+      "implementation-boundary",
+      "database-manifest",
+      "mysql-shadow",
+      "release-worker-contract",
+      "reproducible-build"
+    ],
+    "plannedGatesMustBePromotedBeforeRelease": true,
+    "sourceBuiltCandidateRequired": true,
+    "remoteCommitEqualsCandidateCommitRequired": true,
+    "cleanWorktreeRequired": true,
+    "shadowBeforeReleaseRequired": true,
+    "authorityReceiptRequired": true,
+    "rollbackRequired": true,
+    "productionWriteRequiresApproval": true,
+    "databaseMigrationForbidden": true,
+    "directProductionJarPatchForbidden": true,
+    "directOutboxMutationForbidden": true,
+    "connectorOrListedPackageMutationForbidden": true,
+    "productCreditPromotionForbidden": true
+  },
+  "contracts": {
+    "objective": {
+      "problem": "The Node publisher cannot distinguish a committed event with a lost or malformed response from an uncommitted event, an identity collision, or an event that is now outside receiver retention.",
+      "proofGap": "The receiver has internal exact event and receipt queries but exposes only the mutating v1 POST ingress and aggregate admin summary, not a signed per-event authoritative readback.",
+      "stopCondition": "Stop this implementation revision only after the default-off Java readback, exact negative tests, zero-write MySQL shadow integration and authority-receipt tooling are executable; do not perform SQL migration, Nginx activation, deployment, production probe, Node or connector changes."
+    },
+    "writableBoundary": {
+      "allowedAtContractRevision": [
+        ".fbs-engineering/w05e-authoritative-readback-contract.json",
+        "docs/independent-board/W05E-AUTHORITATIVE-READBACK-RUNBOOK.md",
+        "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/config/**",
+        "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/controller/**",
+        "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/mapper/IndependentBoardAttributionV1Mapper.java",
+        "FBSir-business/src/main/resources/mapper/board/attribution/IndependentBoardAttributionV1Mapper.xml",
+        "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/receipt/**",
+        "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/service/**",
+        "FBSir-business/src/test/java/com/wx/fbsir/business/board/attribution/**",
+        "FBSir-business/src/test/resources/independent-board-attribution-readback-v1-golden-vector.json",
+        "FBSir-admin/src/main/resources/application.yml",
+        "FBSir-admin/src/test/java/com/wx/fbsir/business/board/attribution/**",
+        "FBSir-framework/src/main/java/com/wx/fbsir/framework/config/SecurityConfig.java",
+        "scripts/w05e-*",
+        "scripts/*w05e*",
+        "scripts/run-independent-board-mysql-transaction-it.ps1",
+        "scripts/run-independent-board-attribution-identity-registry-mysql-it.ps1"
+      ],
+      "forbiddenAtContractRevision": [
+        "SQL or database manifest",
+        "existing W0.5 release and shadow runners until a versioned W0.5-E runner revision is separately contracted",
+        "Nginx configuration",
+        "production configuration, JAR, database, service or traffic",
+        "Node publisher or outbox",
+        "connector, listed runtime or expert package"
+      ]
+    },
+    "featureGate": {
+      "property": "fbsir.independent-board.attribution.authoritative-readback-enabled",
+      "environment": "FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_AUTHORITATIVE_READBACK_ENABLED",
+      "defaultEnabled": false,
+      "routeAbsentWhenDisabled": true,
+      "requiresMasterAttributionEnabled": true,
+      "requiresObservationWriterEnabled": true,
+      "cannotEnableProductCredit": true
+    },
+    "route": {
+      "method": "POST",
+      "path": "/internal/independent-board/attribution/events/readback",
+      "consumes": "application/json",
+      "produces": "application/json",
+      "getForbidden": true,
+      "queryStringIdentityForbidden": true,
+      "cacheControl": "no-store, no-cache, must-revalidate, max-age=0",
+      "pragma": "no-cache",
+      "expires": "0",
+      "maximumRequestBytes": 16384,
+      "maximumResponseBytes": 16384,
+      "boundedBodyRule": "read at most maximumRequestBytes plus one before Jackson binding even when Content-Length is absent or HTTP/2 is used",
+      "unknownJsonFieldsForbidden": true,
+      "duplicateJsonFieldsForbidden": true
+    },
+    "signedRequest": {
+      "schemaVersion": "fbsir.independentBoardAttributionReadbackRequest.v1",
+      "domainTag": "FBSIR_INDEPENDENT_BOARD_READBACK_V1",
+      "canonicalFieldsInOrder": [
+        "method",
+        "path",
+        "schemaVersion",
+        "eventId",
+        "receiptId",
+        "eventDigest",
+        "issuedAt",
+        "expiresAt",
+        "nonce",
+        "keyId"
+      ],
+      "signatureField": "signature",
+      "signatureAlgorithm": "HMAC-SHA-256",
+      "hexDigestFields": ["eventId", "receiptId", "eventDigest"],
+      "keyring": "reuse the current and previous attribution event keys but with the distinct readback domain tag",
+      "maximumTtlSeconds": 60,
+      "keySemantics": "active event HMAC key reused only through the distinct response domain; this proves transport integrity, not independent receiver identity",
+      "independentReceiverIdentitySource": "separately signed authority receipt",
+      "maximumClockSkewSeconds": 30,
+      "timestampCanonicalForm": "UTC Z only with zero to three fractional second digits",
+      "nonceRequired": true,
+      "noncePersistenceForbiddenByZeroWriteContract": true,
+      "nonceSemantics": "freshness and signed response correlation only; the read-only route does not claim durable anti-replay",
+      "replayAmplificationBoundary": {
+        "processLocalMaximumConcurrentDefault": 4,
+        "perVerifiedKeyMaximumRequestsPerMinuteDefault": 120,
+        "budgetStateContainsRequestIdentifiers": false,
+        "exhaustedOutcome": "signed HTTP 503 READBACK_UNAVAILABLE with Retry-After",
+        "doesNotReplaceListenerFirewallOrExternalRateLimit": true
+      },
+      "rawTenantBindingOrPayloadForbidden": true,
+      "invalidSignatureOutcome": "HTTP 400 with stable generic reason and zero data lookup"
+    },
+    "signedResponse": {
+      "schemaVersion": "fbsir.independentBoardAttributionReadbackResponse.v1",
+      "domainTag": "FBSIR_INDEPENDENT_BOARD_READBACK_RESPONSE_V1",
+      "requiredForHttpStatuses": [200, 404, 409, 503],
+      "binds": [
+        "actual HTTP status",
+        "request canonical digest",
+        "request nonce hash",
+        "eventId",
+        "receiptId",
+        "eventDigest",
+        "authoritativeRead",
+        "readAt and expiresAt",
+        "receiver release id and physical JAR SHA-256",
+        "product credit remains false",
+        "active response key id"
+      ],
+      "maximumTtlSeconds": 60,
+      "timestampCanonicalForm": "UTC Z only with zero to three fractional second digits",
+      "maximumSerializedBytes": 16384,
+      "nodeDecisionRule": "no outbox decision may use a response until its HMAC, request binding, HTTP status and independent authority receipt all verify",
+      "unsignedOrInvalidOutcome": "UNKNOWN_RETRY: retain the outbox item with bounded retry/backoff; never infer not-found, acknowledge, delete, dead-letter as a business decision, or promote credit",
+      "featureOff404CannotBeAuthoritative": true
+    },
+    "authoritativeRead": {
+      "datasource": "primary current FBSir MySQL datasource",
+      "transaction": "REPEATABLE_READ and server-enforced read-only",
+      "transactionReadOnlyStateMustEqual": 1,
+      "shadowWriteAttemptMustFailWithMysqlError": 1792,
+      "myBatisCache": false,
+      "lookupOrder": ["eventId", "receiptId"],
+      "exactRequires": [
+        "both keys resolve to the same row",
+        "row.eventId equals request.eventId",
+        "row.receiptId equals request.receiptId",
+        "row.eventDigest equals request.eventDigest"
+      ],
+      "notFoundRequires": "both key lookups are absent in the same successful primary read transaction",
+      "collisionRequires": "either key resolves but the exact tuple does not match",
+      "unavailableRequires": "primary read or receiver state cannot establish exact, not-found or collision",
+      "replicaOrCacheReadForbidden": true,
+      "crossRequestInferenceForbidden": true
+    },
+    "outcomes": {
+      "exact": {
+        "httpStatus": 200,
+        "status": "COMMITTED_EXACT",
+        "authoritativeRead": true,
+        "requiredResponseFields": [
+          "schemaVersion",
+          "status",
+          "eventId",
+          "receiptId",
+          "eventDigest",
+          "authoritativeRead",
+          "readAt",
+          "receiverReleaseId",
+          "receiverJarSha256",
+          "productCreditEligible"
+        ],
+        "productCreditEligible": false
+      },
+      "notFound": {
+        "httpStatus": 404,
+        "status": "NOT_FOUND_AUTHORITATIVE",
+        "authoritativeRead": true,
+        "productCreditEligible": false
+      },
+      "collision": {
+        "httpStatus": 409,
+        "status": "IDENTITY_COLLISION",
+        "authoritativeRead": true,
+        "collisionDetailDisclosureForbidden": true,
+        "productCreditEligible": false
+      },
+      "unavailable": {
+        "httpStatus": 503,
+        "status": "READBACK_UNAVAILABLE",
+        "authoritativeRead": false,
+        "genericReasonOnly": true,
+        "retryAfterAllowed": true,
+        "productCreditEligible": false
+      }
+    },
+    "zeroWrite": {
+      "databaseWrites": 0,
+      "journeyHeadWrites": 0,
+      "eventLedgerWrites": 0,
+      "creditWrites": 0,
+      "schemaMigrationWrites": 0,
+      "redisWrites": 0,
+      "filesystemStateWrites": 0,
+      "publisherOutboxWrites": 0,
+      "businessOrRuntimeJournalWrites": 0,
+      "operationalAccessLogsOutsideContractMayExist": true,
+      "sensitiveIdentifiersInLogsForbidden": true,
+      "mysqlShadowMustCompare": [
+        "row counts",
+        "journey head versions",
+        "event high watermark",
+        "authoritative product credit bits",
+        "schema migration receipts"
+      ]
+    },
+    "database": {
+      "migrationRequired": false,
+      "newSqlFilesAllowed": false,
+      "minimumSchema": "public_init_044 already applied",
+      "usesExistingTables": [
+        "fbs_board_attr_event_v1",
+        "fbs_board_attr_journey_v1"
+      ],
+      "usesExistingMapperQueries": [
+        "selectEventByEventId",
+        "selectEventByReceiptId"
+      ],
+      "newReadOnlyMapperAssertionAllowed": "selectTransactionReadOnlyState",
+      "rollback": "application-only; retain compatible 044 schema"
+    },
+    "runtimeJarBinding": {
+      "configuredPathMustBeAbsolute": true,
+      "configuredRealPathMustEqualActualApplicationHomeRealPath": true,
+      "actualRuntimeMustBePackagedJar": true,
+      "configuredAndActualJarSha256MustEqualResponseJarSha256": true,
+      "explodedClassesAllowedWhenFeatureEnabled": false,
+      "externalAuthorityReceiptMustStillBindProcessAndActiveSymlink": true
+    },
+    "publicBoundary": {
+      "directPublicExposureAllowed": false,
+      "requiredNginxDeny": "/prod-api/internal/independent-board/attribution/events/readback",
+      "publicDenyEvidenceRequiredBeforeEnable": true,
+      "applicationSignatureStillRequiredOnLoopback": true,
+      "anonymousUnsignedReadForbidden": true,
+      "responseMustNotExpose": [
+        "raw request nonce",
+        "tenant subject digest",
+        "same binding key",
+        "server binding id",
+        "raw event payload",
+        "database identifiers",
+        "secrets or internal exception messages"
+      ],
+      "responseSignatureIsRequiredAndIsNotASecret": true
+    },
+    "legacyPostCompatibility": {
+      "path": "/internal/independent-board/attribution/events",
+      "method": "POST",
+      "eventSchemaVersion": "fbsir.independentBoardAttributionEvent.v1",
+      "firstAppend": "HTTP 202 APPENDED_REPORT_ONLY",
+      "exactReplay": "HTTP 200 IDEMPOTENT_REPLAY with idempotentReplay true",
+      "identityConflict": "HTTP 409 stable reason",
+      "validationFailure": "HTTP 400 stable reason",
+      "persistenceUnavailable": "HTTP 503 generic reason",
+      "unexpectedRuntime": "HTTP 500 generic reason",
+      "requestOrResponseSchemaChangeAllowed": false,
+      "historicalSyntheticReplaySemanticsChangeAllowed": false,
+      "identityRegistryChangeAllowed": false
+    },
+    "receiverAuthorityReceipt": {
+      "plannedSchemaVersion": "fbsir.independentBoardAuthoritativeReadbackAuthorityReceipt.v2",
+      "selfAssertedReceiverReceiptInsufficient": true,
+      "independentTrustVerifiedRequired": true,
+      "signatureAlgorithm": "Ed25519",
+      "signatureDomain": "FBSIR_INDEPENDENT_BOARD_AUTHORITY_RECEIPT_V2",
+      "signerPrivateKeyCustody": "offline authority only; absent from API2, Java receiver and Node publisher hosts",
+      "verifierMaterial": "pinned Ed25519 public key and SHA-256 SPKI fingerprint only",
+      "hmacAuthorityReceiptForbidden": true,
+      "receiverTransportHmacIsNotAuthority": true,
+      "toolDependency": "Python cryptography>=41 with Ed25519 support; missing dependency fails closed before materialize or verify",
+      "mustBind": [
+        "repository and pushed source commit",
+        "clean source tree",
+        "two reproducible JAR builds and exact JAR SHA-256",
+        "readback request and response contract digest",
+        "default-off configuration digest",
+        "zero-write MySQL shadow receipt",
+        "public deny configuration readback",
+        "candidate manifest and shadow receipt",
+        "production active symlink and systemd process readback",
+        "receiver release ID and JAR SHA-256 returned by readback",
+        "validity window and independent signer fingerprint",
+        "product credit remains false"
+      ],
+      "maximumValidityHours": 24,
+      "invalidatedBy": [
+        "receiver release change",
+        "JAR byte change",
+        "route contract change",
+        "Nginx deny change",
+        "database schema contract change",
+        "keyring change",
+        "expiry"
+      ],
+      "nodeActivationMayTrustOnlyThisIndependentReceipt": true
+    },
+    "mcpConnectorCompatibility": {
+      "javaRouteIsInternalAndNotAnMcpTool": true,
+      "protocolVersions": ["2025-11-25", "2026-07-28"],
+      "connectorPackageVersions": ["26.7.2", "26.8.20"],
+      "matrix": [
+        {"protocolVersion": "2025-11-25", "connectorPackageVersion": "26.7.2"},
+        {"protocolVersion": "2026-07-28", "connectorPackageVersion": "26.7.2"},
+        {"protocolVersion": "2025-11-25", "connectorPackageVersion": "26.8.20"},
+        {"protocolVersion": "2026-07-28", "connectorPackageVersion": "26.8.20"}
+      ],
+      "externalReceiptRequired": true,
+      "externalExecutorNotPresentInThisRepository": true,
+      "acceptance": {
+        "httpStatus200CellCount": 4,
+        "coreToolNamesUnchanged": true,
+        "coreInputSchemasEqualAcrossCells": true,
+        "lebaoDropVisibleCellCount": 0,
+        "metadataLeakCellCount": 0,
+        "negativeRuntimeBusinessWriteCount": 0,
+        "negativeRuntimeJournalWriteCount": 0,
+        "productCreditPromoted": false
+      },
+      "versionSeparationRule": "connector package versions are not the Independent Board listedManifestVersion or embeddedContractVersion identity tuple"
+    },
+    "creditBoundary": {
+      "recordOnly": true,
+      "productCreditEligible": false,
+      "authoritativeProductCreditPromotionAllowed": false,
+      "naturalTrafficPromotionAllowed": false,
+      "readbackCanProveCommitButCannotProveNaturalBusinessClosure": true,
+      "readbackCanProveCommitButCannotPromoteProductCredit": true
+    },
+    "releaseSafety": {
+      "javaFirstNodeSecond": true,
+      "shadowUsesIsolatedMysql": true,
+      "shadowProductionBusinessWrites": 0,
+      "applicationReleaseRoot": "/opt/fbsir/admin/releases/<w05e-receiver-release-id>",
+      "rollbackTarget": "/opt/fbsir/admin/releases/w05-receiver-5d0769c2dad8-20260823T074133Z",
+      "systemdUnit": "fbsir-admin.service",
+      "databaseRollback": "none; no migration",
+      "maximumForwardRestartCount": 1,
+      "maximumRollbackRestartCount": 1,
+      "stopOn": [
+        "source, manifest, JAR, active target or authorization drift",
+        "feature enabled without an independent authority receipt",
+        "public deny missing",
+        "any readback business-state write",
+        "legacy POST regression",
+        "any MCP by connector matrix failure",
+        "any product credit or natural promotion",
+        "service not active or unexpected restart",
+        "readback response cannot bind the active receiver release and JAR"
+      ]
+    },
+    "gateLifecycle": {
+      "contractRevision": {
+        "required": [
+          "valid JSON",
+          "all command paths exist",
+          "focused and full current regressions pass",
+          "planned gates remain explicitly non-executable",
+          "productionReleaseAllowedAtThisRevision is false"
+        ]
+      },
+      "implementationRevision": {
+        "required": [
+          "planned Java classes and tests exist",
+          "focused command is revised to include exact readback tests",
+          "zero-write assertions are integrated into the stable MySQL shadow command",
+          "authority receipt materializer and verifier have stable tests",
+          "all repository-local implementation gates are promoted into commands and requiredReleaseBlockers; evidence-dependent and external release gates remain explicit planned items until their owner harnesses and current receipts exist"
+        ]
+      },
+      "releaseRevision": {
+        "required": [
+          "all repository requiredReleaseBlockers pass from a pushed clean commit",
+          "reproducible JAR and isolated MySQL shadow receipts pass",
+          "independent receiver authority receipt is current",
+          "public deny readback passes",
+          "external API2 four-cell receipt passes",
+          "explicit production authorization, automatic rollback and post-cutover observation are present"
+        ]
+      }
+    }
+  }
+}

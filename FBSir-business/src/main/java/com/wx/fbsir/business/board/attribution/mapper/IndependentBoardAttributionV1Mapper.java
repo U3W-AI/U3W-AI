@@ -11,6 +11,8 @@ import java.util.List;
 
 @Mapper
 public interface IndependentBoardAttributionV1Mapper {
+    int selectTransactionReadOnlyState();
+
     BoardAttributionLedgerEvent selectEventByEventId(
             @Param("eventId") String eventId);
 

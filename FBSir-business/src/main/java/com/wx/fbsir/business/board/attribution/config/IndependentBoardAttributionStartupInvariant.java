@@ -33,10 +33,13 @@ public class IndependentBoardAttributionStartupInvariant
         boolean writer = properties.isObservationWriterEnabled();
         boolean intent = properties.isIntentClassifierEnabled();
         boolean adminRead = properties.isObservationAdminReadEnabled();
+        boolean authoritativeReadback =
+                properties.isAuthoritativeReadbackEnabled();
         boolean productCredit = properties.isProductCreditEnabled();
         boolean historicalSyntheticReplay =
                 properties.isHistoricalSyntheticReplayEnabled();
-        boolean anyW1aSurface = writer || intent || adminRead || productCredit
+        boolean anyW1aSurface = writer || intent || adminRead
+                || authoritativeReadback || productCredit
                 || historicalSyntheticReplay;
 
         if (anyW1aSurface && !properties.isEnabled()) {
@@ -46,6 +49,11 @@ public class IndependentBoardAttributionStartupInvariant
         if (intent && !writer) {
             throw new IllegalStateException(
                     "attribution_intent_requires_writer");
+        }
+        if (authoritativeReadback && (!writer || productCredit
+                || properties.isAuthoritativeCreditEnabled())) {
+            throw new IllegalStateException(
+                    "attribution_readback_requires_report_only_writer");
         }
         if (productCredit && (!writer || !intent
                 || !properties.isAuthoritativeCreditEnabled())) {
@@ -91,6 +99,42 @@ public class IndependentBoardAttributionStartupInvariant
         }
 
         Map<String, String> eventKeys = properties.getResolvedEventKeys();
+        if (authoritativeReadback) {
+            int ttl = properties.getAuthoritativeReadbackTtlSeconds();
+            String releaseId = normalized(
+                    properties.getAuthoritativeReadbackReceiverReleaseId());
+            String jarSha256 = normalized(
+                    properties.getAuthoritativeReadbackReceiverJarSha256());
+            String jarPath = normalized(
+                    properties.getAuthoritativeReadbackReceiverJarPath());
+            String activeKeyId = normalized(properties.getActiveEventKeyId());
+            int maximumConcurrent =
+                    properties.getAuthoritativeReadbackMaximumConcurrent();
+            int maximumRequestsPerMinute = properties
+                    .getAuthoritativeReadbackMaximumRequestsPerMinute();
+            if (ttl < 1 || ttl > 60) {
+                throw new IllegalStateException(
+                        "attribution_readback_ttl_invalid");
+            }
+            if (!releaseId.matches(
+                    "[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
+                    || !jarSha256.matches("[0-9a-f]{64}")
+                    || jarPath.isEmpty()
+                    || !java.nio.file.Path.of(jarPath).isAbsolute()) {
+                throw new IllegalStateException(
+                        "attribution_readback_receiver_binding_invalid");
+            }
+            if (activeKeyId.isEmpty() || !eventKeys.containsKey(activeKeyId)) {
+                throw new IllegalStateException(
+                        "attribution_readback_active_key_invalid");
+            }
+            if (maximumConcurrent < 1 || maximumConcurrent > 32
+                    || maximumRequestsPerMinute < 1
+                    || maximumRequestsPerMinute > 10_000) {
+                throw new IllegalStateException(
+                        "attribution_readback_admission_budget_invalid");
+            }
+        }
         String bindingValue = normalized(properties.getSameBindingSecret());
         if (eventKeys.isEmpty() && bindingValue.isEmpty()) {
             return;

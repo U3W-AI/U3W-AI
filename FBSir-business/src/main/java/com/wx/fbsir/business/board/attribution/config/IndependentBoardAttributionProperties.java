@@ -24,6 +24,20 @@ public class IndependentBoardAttributionProperties {
     private boolean intentClassifierEnabled = false;
     /** Bounded admin-only aggregate readback. */
     private boolean observationAdminReadEnabled = false;
+    /** Signed, exact, internal event/receipt/digest readback. */
+    private boolean authoritativeReadbackEnabled = false;
+    /** Maximum signed readback request lifetime, hard-capped at 60 seconds. */
+    private int authoritativeReadbackTtlSeconds = 60;
+    /** Immutable release id returned by the readback response. */
+    private String authoritativeReadbackReceiverReleaseId = "";
+    /** Active receiver JAR SHA-256 bound by the independent authority receipt. */
+    private String authoritativeReadbackReceiverJarSha256 = "";
+    /** Physical JAR path whose bytes must match before the route can start. */
+    private String authoritativeReadbackReceiverJarPath = "";
+    /** Process-local concurrency fence; it does not persist nonce state. */
+    private int authoritativeReadbackMaximumConcurrent = 4;
+    /** Per verified signing key, process-local one-minute query budget. */
+    private int authoritativeReadbackMaximumRequestsPerMinute = 120;
     /** Remains off until natural-traffic evidence is independently approved. */
     private boolean productCreditEnabled = false;
     /** API2 event signing keys by key id. Values use utf8:/hex:/base64:. */
