@@ -133,6 +133,7 @@ class W05ENginxPublicDenyTests(unittest.TestCase):
         self.assertIn('"--noproxy", "*"', source)
         self.assertIn('f"{TARGET_HOST}:443:127.0.0.1"', source)
         self.assertIn("statuses[-1]", source)
+        self.assertIn("time.sleep(2)", source)
 
     def test_preimage_drift_and_identity_drift_stop_before_write(self):
         self.runtime.target = b"drift"

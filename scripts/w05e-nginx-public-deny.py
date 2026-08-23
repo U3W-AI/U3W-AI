@@ -575,6 +575,10 @@ class LiveRuntime:
 
     def reload_nginx(self) -> None:
         self._run(["/usr/bin/systemctl", "reload", NGINX_UNIT], timeout=60)
+        # systemctl confirms the master accepted the reload signal, but old
+        # workers may still win an immediate connection. Give the new worker
+        # generation a bounded handover interval before public probes.
+        time.sleep(2)
 
     def effective_dump(self) -> bytes:
         result = self._run(["/usr/sbin/nginx", "-T"], timeout=60)
