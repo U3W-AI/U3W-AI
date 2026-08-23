@@ -367,11 +367,30 @@ $requiredTail = @{
     public_init_041 = "update_20260723_independent_board_plan_policy_authority.sql"
     public_init_042 = "update_20260723_skill_consume_credit_ledger_v2.sql"
     public_init_043 = "update_20260723_independent_board_attribution_v1.sql"
+    public_init_044 = "update_20260823_independent_board_attribution_identity_registry.sql"
 }
 foreach ($version in $requiredTail.Keys) {
     $matches = @($manifest.steps | Where-Object { $_.version -eq $version -and $_.file -eq $requiredTail[$version] })
     if ($matches.Count -ne 1) {
         $errors.Add("required migration mapping is missing: $version -> $($requiredTail[$version])")
+    }
+}
+$identityRegistryPath = Join-Path $sqlRoot 'update_20260823_independent_board_attribution_identity_registry.sql'
+$identityRegistrySha256 = ''
+$identityRegistrySteps = @($declarativeManifest.steps | Where-Object {
+    [string]$_.version -eq 'public_init_044'
+})
+if ($identityRegistrySteps.Count -ne 1 -or
+    -not (Test-Path -LiteralPath $identityRegistryPath -PathType Leaf)) {
+    $errors.Add('public_init_044 identity-registry migration and manifest entry must exist exactly once')
+}
+else {
+    $identityRegistrySha256 = (Get-FileHash -LiteralPath $identityRegistryPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $step = $identityRegistrySteps[0]
+    if ([string]$step.description -cne 'Independent Board exact legacy and current attribution identity registry' -or
+        [string]$step.file -cne 'update_20260823_independent_board_attribution_identity_registry.sql' -or
+        -not [string]::Equals([string]$step.sha256, $identityRegistrySha256, [StringComparison]::Ordinal)) {
+        $errors.Add('public_init_044 identity-registry description, file or exact SHA-256 has drifted')
     }
 }
 
@@ -2748,7 +2767,7 @@ $requiredOauthInitializerIntegrationNeedles = @(
 )
 $requiredCreditLedgerInitializerNeedles = @(
     'New-Step "public_init_038" "Independent Board USER_GLOBAL FBS_POINTS immutable shadow ledger" (Resolve-SqlFile "update_20260722_independent_board_credit_ledger.sql")',
-    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041', 'public_init_042', 'public_init_043')",
+    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041', 'public_init_042', 'public_init_043', 'public_init_044')",
     'function Assert-IndependentBoardCreditLedgerCurrentState',
     '$serverProfile = Assert-IndependentBoardOauthServerProfile',
     '$expected = @(3,3,45,45,45,20,20,4,4,9,9,22,22,6,6,1,1,5,0)',
@@ -2844,7 +2863,7 @@ foreach ($needle in $requiredSkillConsumeCreditLedgerV2InitializerNeedles) {
 }
 $requiredPlanPolicyInitializerNeedles = @(
     'New-Step "public_init_039" "Independent Board immutable plan policy revisions and operation lineage" (Resolve-SqlFile "update_20260722_independent_board_plan_policy.sql")',
-    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041', 'public_init_042', 'public_init_043')",
+    "@('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041', 'public_init_042', 'public_init_043', 'public_init_044')",
     '[switch]$PlanPolicyCurrentReadOnly',
     'function Assert-IndependentBoardPlanPolicyCurrentState',
     '$resumeRunningPlanPolicy',
@@ -3162,6 +3181,8 @@ $result = [pscustomobject]@{
     planPolicyVersion = "public_init_039"
     planPolicyMonotonicChainVersion = "public_init_040"
     skillConsumeCreditLedgerV2Version = "public_init_042"
+    attributionIdentityRegistryVersion = "public_init_044"
+    attributionIdentityRegistrySha256 = $identityRegistrySha256
     oauthFoundationSha256 = $oauthFoundationSha256
     oauthProvenanceSha256 = $oauthProvenanceSha256
     oauthConsentIntentSha256 = $oauthConsentIntentSha256

@@ -16,6 +16,7 @@
         <fbsir.version>1.0.0</fbsir.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <project.build.outputTimestamp>2026-08-23T05:00:00Z</project.build.outputTimestamp>
         <java.version>17</java.version>
         <maven-jar-plugin.version>3.1.1</maven-jar-plugin.version>
         <mybatis-spring-boot.version>3.0.4</mybatis-spring-boot.version>

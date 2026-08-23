@@ -231,11 +231,12 @@ function Restore-ProcessEnvironment {
 
     foreach ($name in $Snapshot.Keys) {
         $entry = $Snapshot[$name]
+        $environmentPath = "Env:\$name"
         if ($entry.Exists) {
-            [Environment]::SetEnvironmentVariable($name, $entry.Value, 'Process')
+            Set-Item -LiteralPath $environmentPath -Value $entry.Value
         }
         else {
-            [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+            Remove-Item -LiteralPath $environmentPath -ErrorAction SilentlyContinue
         }
     }
 }
@@ -248,10 +249,12 @@ function Test-ProcessEnvironmentMatchesSnapshot {
         $entry = $Snapshot[$name]
         $exists = $current.Contains($name)
         if ($exists -ne $entry.Exists) {
+            Write-Warning "Process environment existence did not restore for $name (expected=$($entry.Exists), actual=$exists)."
             return $false
         }
         if ($exists -and -not [string]::Equals(
                 [string]$current[$name], [string]$entry.Value, [StringComparison]::Ordinal)) {
+            Write-Warning "Process environment value did not restore for $name."
             return $false
         }
     }
@@ -1031,17 +1034,25 @@ ORDER BY tc.table_name, tc.constraint_name;
             throw "Canonical Independent Board phase drifted at position $($index + 1)."
         }
     }
-    if (-not ([string]$canonicalPhases[0].output).Contains('APPLY public_init_043:') -or
-        -not ([string]$canonicalPhases[1].output).Contains('SKIP public_init_043 (already applied)') -or
-        -not ([string]$canonicalPhases[2].output).Contains(
-            'PASS Independent Board OAuth refresh-security exact S3 current-read') -or
-        -not ([string]$canonicalPhases[2].output).Contains(
-            'PASS Independent Board attribution evidence exact current-read') -or
-        -not ([string]$canonicalPhases[2].output).Contains(
-            'PASS Independent Board official experts attribution v1 current-read') -or
-        -not ([string]$canonicalPhases[2].output).Contains(
-            'PASS public database manifest exact current-read (43 APPLIED receipts with exact descriptions).')) {
-        throw 'Canonical Independent Board phases did not prove public_init_043 first apply, completed rerun, exact official-experts attribution current-read and exact 43-step read-only current-read.'
+    $canonicalOutputExpectations = @(
+        [pscustomobject]@{ phase = 0; needle = 'APPLY public_init_043:' },
+        [pscustomobject]@{ phase = 0; needle = 'APPLY public_init_044:' },
+        [pscustomobject]@{ phase = 1; needle = 'SKIP public_init_043 (already applied)' },
+        [pscustomobject]@{ phase = 1; needle = 'SKIP public_init_044 (already applied)' },
+        [pscustomobject]@{ phase = 2; needle = 'PASS Independent Board OAuth refresh-security exact S3 current-read' },
+        [pscustomobject]@{ phase = 2; needle = 'PASS Independent Board attribution evidence exact current-read' },
+        [pscustomobject]@{ phase = 2; needle = 'PASS Independent Board official experts attribution v1 current-read' },
+        [pscustomobject]@{ phase = 2; needle = 'PASS Independent Board attribution identity registry current-read' },
+        [pscustomobject]@{ phase = 2; needle = 'PASS public database manifest exact current-read (44 APPLIED receipts with exact descriptions).' }
+    )
+    $missingCanonicalEvidence = @($canonicalOutputExpectations | Where-Object {
+        -not ([string]$canonicalPhases[$_.phase].output).Contains($_.needle)
+    })
+    if ($missingCanonicalEvidence.Count -ne 0) {
+        $missingSummary = @($missingCanonicalEvidence | ForEach-Object {
+            "phase=$($_.phase):$($_.needle)"
+        }) -join '; '
+        throw "Canonical Independent Board phases are missing required evidence: $missingSummary"
     }
 
     $canonicalReceiptState = Invoke-DisposableMySqlText -TargetDatabase $canonicalDatabase -Sql @"
@@ -1073,7 +1084,7 @@ SELECT CONCAT_WS('|',
    WHERE version REGEXP '^public_init_[0-9]{3}$' AND description LIKE 'APPLIED:%')
 );
 "@
-    if (-not [string]::Equals($canonicalReceiptState, '1|1|1|1|1|1|1|43|43', [StringComparison]::Ordinal)) {
+    if (-not [string]::Equals($canonicalReceiptState, '1|1|1|1|1|1|1|44|44', [StringComparison]::Ordinal)) {
         throw "Canonical Independent Board public_init receipt state drifted: '$canonicalReceiptState'."
     }
     $canonicalSuccessorState = Get-OauthSuccessorState -TargetDatabase $canonicalDatabase
@@ -1100,8 +1111,8 @@ SELECT CONCAT_WS('|',
                 outputSha256 = Get-StringSha256 -Value ([string]$_.output)
             }
         })
-        publicManifestReceipts = 43
-        publicAppliedReceipts = 43
+        publicManifestReceipts = 44
+        publicAppliedReceipts = 44
         oauthFoundationReceipt = 1
         oauthProvenanceReceipt = 1
         oauthConsentIntentReceipt = 1

@@ -57,6 +57,10 @@ fbsir:
       key-ref: ${FBSIR_BOARD_ATTRIBUTION_KEY_REF:fbs.w4b2d.api2.keyring}
       receipt-ttl-seconds: ${FBSIR_BOARD_ATTRIBUTION_RECEIPT_TTL_SECONDS:120}
       retention-hours: ${FBSIR_BOARD_ATTRIBUTION_RETENTION_HOURS:26}
+      historical-synthetic-replay-enabled: ${FBSIR_BOARD_ATTRIBUTION_HISTORICAL_SYNTHETIC_REPLAY_ENABLED:false}
+      historical-synthetic-replay-max-age-hours: ${FBSIR_BOARD_ATTRIBUTION_HISTORICAL_SYNTHETIC_REPLAY_MAX_AGE_HOURS:168}
+      historical-synthetic-replay-not-after: ${FBSIR_BOARD_ATTRIBUTION_HISTORICAL_SYNTHETIC_REPLAY_NOT_AFTER:}
+      historical-synthetic-replay-event-digests: ${FBSIR_BOARD_ATTRIBUTION_HISTORICAL_SYNTHETIC_REPLAY_EVENT_DIGESTS:}
       # W1A listed experts attribution remains independently default-off.
       observation-writer-enabled: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_OBSERVATION_WRITER_ENABLED:false}
       intent-classifier-enabled: ${FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_INTENT_CLASSIFIER_ENABLED:false}

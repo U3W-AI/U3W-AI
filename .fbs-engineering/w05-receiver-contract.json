@@ -1,0 +1,241 @@
+{
+  "surface": "u3w-independent-board-attribution-receiver",
+  "id": "w05-receiver-contract-drift-repair-20260823",
+  "summary": "Restore exact legacy/current Independent Board attribution compatibility across Java, HTTP and MySQL; drain four authorized historical synthetic events with a digest-bound expiring gate; release from pushed source with byte-bound shadow and rollback evidence.",
+  "versionSource": "FBSir-business/src/main/resources/contracts/independent-board-attribution-identity-registry-v1.json",
+  "commands": {
+    "focused": {
+      "run": "mvn -pl FBSir-admin -am -Dtest=BoardAttributionEventV1VerifierTest,IndependentBoardAttributionStartupInvariantTest,IndependentBoardAttributionV1PersistenceContractTest,IndependentBoardAttributionIdentityRegistryContractTest,IndependentBoardAttributionIngestServiceTest,IndependentBoardAttributionIngressControllerTest,IndependentBoardAttributionIngressHttpAdviceIntegrationTest,IndependentBoardAttributionIngressProtocolFilterConditionTest,GlobalExceptionHandlerTest -Dsurefire.failIfNoSpecifiedTests=false test",
+      "cwd": ".",
+      "timeout_ms": 600000
+    },
+    "http-competition": {
+      "run": "mvn -pl FBSir-admin -am -Dtest=IndependentBoardAttributionIngressHttpAdviceIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false test",
+      "cwd": ".",
+      "timeout_ms": 600000
+    },
+    "database-manifest": {
+      "run": "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/verify-database-manifest.ps1 -Json",
+      "cwd": ".",
+      "timeout_ms": 300000
+    },
+    "identity-registry-mysql": {
+      "run": "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-attribution-identity-registry-mysql-it.ps1 -AllowDestructiveTest",
+      "cwd": ".",
+      "timeout_ms": 900000
+    },
+    "reproducible-build": {
+      "run": "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/verify-w05-reproducible-build.ps1",
+      "cwd": ".",
+      "timeout_ms": 1200000
+    },
+    "canonical-database": {
+      "run": "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/run-independent-board-mysql-transaction-it.ps1 -AllowDestructiveTest",
+      "cwd": ".",
+      "timeout_ms": 1200000
+    },
+    "release-worker-contract": {
+      "run": "python scripts/u3w_w05_receiver_release_test.py",
+      "cwd": ".",
+      "timeout_ms": 120000
+    },
+    "historical-full": {
+      "run": "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/verify-independent-board-control-plane.ps1 -Mode All",
+      "cwd": ".",
+      "timeout_ms": 1200000
+    }
+  },
+  "artifacts": {
+    "roundPlan": "docs/independent-board/W05-RECEIVER-CONTRACT-DRIFT-REPAIR.md",
+    "canonicalIdentityRegistry": "FBSir-business/src/main/resources/contracts/independent-board-attribution-identity-registry-v1.json",
+    "identityVerifier": "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/receipt/BoardAttributionEventV1Verifier.java",
+    "ingressAdvice": "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/controller/IndependentBoardAttributionIngressExceptionHandler.java",
+    "ingressNoStoreFilter": "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/controller/IndependentBoardAttributionNoStoreFilter.java",
+    "ingressProtocolFilter": "FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution/controller/IndependentBoardAttributionIngressProtocolFilter.java",
+    "ingressProtocolFilterConditionTest": "FBSir-admin/src/test/java/com/wx/fbsir/business/board/attribution/IndependentBoardAttributionIngressProtocolFilterConditionTest.java",
+    "identityRegistryMigration": "sql/update_20260823_independent_board_attribution_identity_registry.sql",
+    "databaseManifest": "sql/init-manifest.json",
+    "identityRegistryMysqlGate": "scripts/run-independent-board-attribution-identity-registry-mysql-it.ps1",
+    "identityRegistryMysqlReceipt": "reports/independent-board/w05-attribution-identity-registry-dual-mysql-latest.json",
+    "reproducibleBuildGate": "scripts/verify-w05-reproducible-build.ps1",
+    "developmentReproducibilityReceipt": "reports/independent-board/w05-reproducible-build-latest.json",
+    "currentWorkBuddyAiGoldenVector": "FBSir-business/src/test/resources/independent-board-attribution-v1-current-workbuddyai-golden-vector.json",
+    "releaseWorker": "scripts/u3w-w05-receiver-release.py",
+    "shadowWorker": "scripts/u3w-w05-receiver-shadow.py",
+    "releaseWorkerTests": "scripts/u3w_w05_receiver_release_test.py",
+    "candidateBuilder": "scripts/Build-W05ReceiverCandidate.ps1",
+    "verifierTests": "FBSir-business/src/test/java/com/wx/fbsir/business/board/attribution/receipt/BoardAttributionEventV1VerifierTest.java",
+    "controllerTests": "FBSir-business/src/test/java/com/wx/fbsir/business/board/attribution/controller/IndependentBoardAttributionIngressControllerTest.java"
+  },
+  "policy": {
+    "defaultStage": "fix",
+    "releaseBlockers": [
+      "focused",
+      "http-competition",
+      "database-manifest",
+      "identity-registry-mysql",
+      "reproducible-build",
+      "canonical-database",
+      "release-worker-contract"
+    ],
+    "requiredReleaseBlockers": [
+      "focused",
+      "http-competition",
+      "database-manifest",
+      "identity-registry-mysql",
+      "reproducible-build",
+      "canonical-database",
+      "release-worker-contract"
+    ],
+    "requiresContractDrivenFlow": true,
+    "productionWriteRequiresApproval": true,
+    "sourceBuiltCandidateRequired": true,
+    "shadowBeforeReleaseRequired": true,
+    "rollbackRequired": true,
+    "directOutboxMutationForbidden": true,
+    "jarBinaryPatchForbidden": true
+  },
+  "contracts": {
+    "truthSurface": {
+      "repository": "https://github.com/U3W-AI/U3W-AI.git",
+      "sourceBranchBase": "origin/codex/w1-official-attribution-closure",
+      "sourceHeadAtRoundStart": "5838f8a5eaa3116bcf734511d8f90cd03af2130d",
+      "inheritedCommitCountFromProduction": 16,
+      "inheritedRuntimeDeltaMustBeManifested": true,
+      "productionSourceCommit": "13c203a5c42d8a8f977be8a9834c2ad147b62bb8",
+      "productionJarSha256": "5b3582e2e4f97ab8a09845a1b6940e334cb2452a2c1970a01aeaf40dd1cc5cc1",
+      "productionRelease": "/opt/fbsir/admin/releases/w1a-release-13c203a5c42d-20260725T040706Z"
+    },
+    "writableBoundary": {
+      "worktree": "E:/820/w05-u3w-receiver",
+      "branch": "codex/w05-receiver-contract-20260823",
+      "allowed": [
+        "receiver identity verification",
+        "receiver-scoped error mapping",
+        "public_init_044 additive schema successor",
+        "default-off digest-bound historical synthetic replay grace",
+        "successor-aware database manifest and current-read verification",
+        "tests and release evidence",
+        "new source-built receiver candidate and independent release"
+      ],
+      "forbidden": [
+        "direct edit of production outbox",
+        "binary patch or decompile-and-rebuild of production JAR",
+        "product credit promotion",
+        "connector package or listed runtime mutation",
+        "combining API2 publisher hardening into the receiver cutover"
+      ]
+    },
+    "acceptedIdentityRegistry": {
+      "canonicalRegistry": "FBSir-business/src/main/resources/contracts/independent-board-attribution-identity-registry-v1.json",
+      "javaLoadsCanonicalRegistry": true,
+      "sqlParityTestRequired": true,
+      "commonExactFields": {
+        "schemaVersion": "fbsir.independentBoardAttributionEvent.v1",
+        "contractId": "FBSIR_INDEPENDENT_BOARD_W1A_V1",
+        "productId": "fbsir-eight-seat-board",
+        "packageId": "fbsir-eight-seat-board",
+        "agentName": "board-convener",
+        "marketplace": "experts",
+        "listedSurface": "listed_runtime_state"
+      },
+      "profiles": [
+        {
+          "name": "legacy_replay",
+          "hostClientFamilies": ["WORKBUDDY"],
+          "listedManifestVersion": "26.7.21",
+          "embeddedContractVersion": "26.7.20"
+        },
+        {
+          "name": "current_listed_runtime",
+          "hostClientFamilies": ["WORKBUDDY", "WORKBUDDYAI"],
+          "listedManifestVersion": "26.8.19",
+          "embeddedContractVersion": "26.8.19"
+        }
+      ],
+      "unknownHostOrVersion": "fail_closed"
+    },
+    "wireContract": {
+      "firstAppend": "HTTP 202 plus status APPENDED_REPORT_ONLY",
+      "exactReplay": "HTTP 200 plus status IDEMPOTENT_REPLAY and idempotentReplay true",
+      "identityRejection": "HTTP 409 plus stable reason code and no-store headers",
+      "otherValidationRejection": "HTTP 400 plus stable reason code and no-store headers",
+      "methodRejection": "HTTP 405 plus Allow POST",
+      "mediaRejection": "HTTP 406 or 415 with no-store headers",
+      "persistenceUnavailable": "HTTP 503 with generic non-secret reason",
+      "unexpectedRuntime": "HTTP 500 with generic non-secret reason",
+      "productCreditEligible": false
+    },
+    "historicalSyntheticReplay": {
+      "defaultEnabled": false,
+      "trafficClass": "SYNTHETIC",
+      "ordinaryRetentionHours": 26,
+      "maximumAgeHours": 168,
+      "actualPendingAgeAtDiagnosisHours": "135.33_to_135.38",
+      "eventDigestAllowlistRequired": true,
+      "maximumAllowlistSize": 16,
+      "absoluteNotAfterRequired": true,
+      "naturalProbeDiagnosticAllowed": false,
+      "outboxMutationAllowed": false,
+      "occurredAtRewriteAllowed": false,
+      "productCreditEligible": false,
+      "releaseReceiptMustExpose": [
+        "allowlist_count",
+        "sorted_allowlist_digest_sha256",
+        "not_after",
+        "max_age_hours",
+        "automatic_expiry_probe"
+      ]
+    },
+    "databaseSuccessor": {
+      "version": "public_init_044",
+      "migrationSha256": "ae2f06309080cda632fbd347bde04f28f7594fb58702b5756adc7b0cb3fc3b93",
+      "predecessor": "public_init_043",
+      "supportedMySql": ["8.0.30", "8.4.8"],
+      "checkClauseSha256": "f6f7901b4b5a8a21bbacad458430bf48fe146451d1b3cb24943e57961fd7fd06",
+      "duplicateApplyRequired": true,
+      "partialDdlRecoveryRequired": true,
+      "legacyRowsMustRemainByteSemanticEquivalent": true,
+      "schemaRollback": "forward_only_compatible_with_old_jar"
+    },
+    "releaseSafety": {
+      "candidateMustBind": [
+        "source commit",
+        "remote branch tip equals source commit",
+        "clean worktree",
+        "full inherited runtime delta from production commit",
+        "JAR SHA-256",
+        "two clean builds with identical JAR SHA-256",
+        "public_init_044 SHA-256",
+        "historical replay configuration digest without exposing event digests",
+        "manifest SHA-256",
+        "test receipt",
+        "shadow receipt",
+        "rollback JAR and current symlink preimage"
+      ],
+      "shadowMatrix": [
+        "legacy WorkBuddy append and replay",
+        "current WorkBuddy append and replay",
+        "current WorkBuddyAI append and replay",
+        "unknown host rejection",
+        "unknown version rejection",
+        "global-advice competition",
+        "real 405 406 415 500 and 503 transport statuses",
+        "three database profiles accepted and mixed profiles rejected",
+        "four authorized old synthetic digests accepted",
+        "unlisted digest natural traffic and expired grace rejected",
+        "no credit promotion"
+      ],
+      "postReleaseStop": [
+        "publisher pendingRecords equals 0 by natural retry",
+        "publisher status equals ready",
+        "publisher lastFailureCode is null",
+        "publisher deadRecords equals 0",
+        "database added exactly four synthetic rows for the allowlisted digests",
+        "historical replay gate expires and rejects a non-allowlisted old event",
+        "receiver identity mismatch count equals 0 in the fixed observation window",
+        "product credit remains false"
+      ]
+    }
+  }
+}

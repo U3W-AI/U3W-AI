@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "fbsir.independentBoardAttributionIdentityRegistry.v1",
+  "commonIdentity": {
+    "eventSchemaVersion": "fbsir.independentBoardAttributionEvent.v1",
+    "contractId": "FBSIR_INDEPENDENT_BOARD_W1A_V1",
+    "productId": "fbsir-eight-seat-board",
+    "packageId": "fbsir-eight-seat-board",
+    "agentName": "board-convener",
+    "marketplace": "experts",
+    "listedSurface": "listed_runtime_state"
+  },
+  "profiles": [
+    {
+      "profileId": "legacy_workbuddy_replay",
+      "hostClientFamily": "WORKBUDDY",
+      "listedManifestVersion": "26.7.21",
+      "embeddedContractVersion": "26.7.20",
+      "officialEntryRequestSource": "WORKBUDDY_OFFICIAL_ENTRY"
+    },
+    {
+      "profileId": "current_workbuddy",
+      "hostClientFamily": "WORKBUDDY",
+      "listedManifestVersion": "26.8.19",
+      "embeddedContractVersion": "26.8.19",
+      "officialEntryRequestSource": "WORKBUDDY_OFFICIAL_ENTRY"
+    },
+    {
+      "profileId": "current_workbuddyai",
+      "hostClientFamily": "WORKBUDDYAI",
+      "listedManifestVersion": "26.8.19",
+      "embeddedContractVersion": "26.8.19",
+      "officialEntryRequestSource": "WORKBUDDYAI_OFFICIAL_ENTRY"
+    }
+  ],
+  "sharedRequestSources": [
+    "HOST_FORWARDING",
+    "UNKNOWN"
+  ],
+  "productCreditEligible": false
+}

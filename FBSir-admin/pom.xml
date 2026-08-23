@@ -80,6 +80,7 @@
                 <version>3.5.4</version>
                 <configuration>
                     <addResources>true</addResources>
+                    <outputTimestamp>${project.build.outputTimestamp}</outputTimestamp>
                 </configuration>
                 <executions>
                     <execution>

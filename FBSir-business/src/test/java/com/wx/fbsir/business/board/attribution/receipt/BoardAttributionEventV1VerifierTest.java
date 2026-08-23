@@ -33,7 +33,7 @@ class BoardAttributionEventV1VerifierTest {
                     Map.of(KEY_ID, "utf8:" + SECRET), CLOCK);
 
     @Test
-    void verifiesCurrentOfficialDualVersionIdentityAndReturnsPrivacySafeDigests() {
+    void verifiesLegacyReplayIdentityAndReturnsPrivacySafeDigests() {
         BoardAttributionEventV1 event = signed(validEvent());
 
         VerifiedBoardAttributionEvent verified = verifier.verify(event, properties);
@@ -48,9 +48,67 @@ class BoardAttributionEventV1VerifierTest {
     }
 
     @Test
+    void verifiesCurrentWorkBuddyAndWorkBuddyAiIdentityProfiles() {
+        BoardAttributionEventV1 workBuddy = validEvent();
+        workBuddy.setListedManifestVersion("26.8.19");
+        workBuddy.setEmbeddedContractVersion("26.8.19");
+        VerifiedBoardAttributionEvent verifiedWorkBuddy =
+                verifier.verify(signed(workBuddy), properties);
+        assertEquals("WORKBUDDY",
+                verifiedWorkBuddy.rawEvent().getHostClientFamily());
+
+        BoardAttributionEventV1 workBuddyAi = validEvent();
+        workBuddyAi.setHostClientFamily("WORKBUDDYAI");
+        workBuddyAi.setListedManifestVersion("26.8.19");
+        workBuddyAi.setEmbeddedContractVersion("26.8.19");
+        workBuddyAi.setTerminal("WORKBUDDYAI");
+        workBuddyAi.setRequestSource("WORKBUDDYAI_OFFICIAL_ENTRY");
+        VerifiedBoardAttributionEvent verifiedWorkBuddyAi =
+                verifier.verify(signed(workBuddyAi), properties);
+        assertEquals("WORKBUDDYAI",
+                verifiedWorkBuddyAi.rawEvent().getHostClientFamily());
+    }
+
+    @Test
+    void rejectsUnregisteredHostAndMixedVersionProfiles() {
+        BoardAttributionEventV1 unknownHost = validEvent();
+        unknownHost.setHostClientFamily("UNREGISTERED_HOST");
+        assertReason("official_identity_mismatch",
+                () -> verifier.verify(signed(unknownHost), properties));
+
+        BoardAttributionEventV1 legacyWorkBuddyAi = validEvent();
+        legacyWorkBuddyAi.setHostClientFamily("WORKBUDDYAI");
+        assertReason("listed_identity_mismatch",
+                () -> verifier.verify(signed(legacyWorkBuddyAi), properties));
+
+        BoardAttributionEventV1 mixedVersions = validEvent();
+        mixedVersions.setListedManifestVersion("26.8.19");
+        mixedVersions.setEmbeddedContractVersion("26.7.20");
+        assertReason("listed_identity_mismatch",
+                () -> verifier.verify(signed(mixedVersions), properties));
+
+        BoardAttributionEventV1 crossedWorkBuddySource = validEvent();
+        crossedWorkBuddySource.setListedManifestVersion("26.8.19");
+        crossedWorkBuddySource.setEmbeddedContractVersion("26.8.19");
+        crossedWorkBuddySource.setRequestSource(
+                "WORKBUDDYAI_OFFICIAL_ENTRY");
+        assertReason("host_projection_mismatch",
+                () -> verifier.verify(
+                        signed(crossedWorkBuddySource), properties));
+
+        BoardAttributionEventV1 crossedWorkBuddyAiSource = validEvent();
+        crossedWorkBuddyAiSource.setHostClientFamily("WORKBUDDYAI");
+        crossedWorkBuddyAiSource.setListedManifestVersion("26.8.19");
+        crossedWorkBuddyAiSource.setEmbeddedContractVersion("26.8.19");
+        assertReason("host_projection_mismatch",
+                () -> verifier.verify(
+                        signed(crossedWorkBuddyAiSource), properties));
+    }
+
+    @Test
     void rejectsTamperingWrongOfficialIdentityAndUntrustedNaturalAuthority() {
         BoardAttributionEventV1 tampered = signed(validEvent());
-        tampered.setTerminal("WORKBUDDYAI");
+        tampered.setOutcome("FAILED");
         assertReason("signature_mismatch", () -> verifier.verify(tampered, properties));
 
         BoardAttributionEventV1 wrongVersion = validEvent();
@@ -98,6 +156,22 @@ class BoardAttributionEventV1VerifierTest {
         overlongClassifier.setClassifierVersion("a".repeat(65));
         assertReason("finite_dimension_invalid",
                 () -> verifier.verify(signed(overlongClassifier), properties));
+
+        BoardAttributionEventV1 overlongHostVersion = validEvent();
+        overlongHostVersion.setHostVersion("1".repeat(31) + ".1");
+        assertReason("finite_dimension_invalid",
+                () -> verifier.verify(
+                        signed(overlongHostVersion), properties));
+
+        BoardAttributionEventV1 overlongKeyId = validEvent();
+        overlongKeyId.setKeyId("k".repeat(97));
+        assertReason("finite_dimension_invalid",
+                () -> verifier.verify(signed(overlongKeyId), properties));
+
+        BoardAttributionEventV1 paddedIdentity = validEvent();
+        paddedIdentity.setHostVersion(" 5.3.3.0");
+        assertReason("noncanonical_text",
+                () -> verifier.verify(signed(paddedIdentity), properties));
     }
 
     @Test
@@ -148,12 +222,74 @@ class BoardAttributionEventV1VerifierTest {
     }
 
     @Test
+    void boundedGraceAcceptsOnlyHistoricalSyntheticReplay() {
+        BoardAttributionEventV1 historicalSynthetic = validEvent();
+        historicalSynthetic.setOccurredAt("2026-07-18T10:00:31Z");
+        historicalSynthetic.setTrafficClass("SYNTHETIC");
+
+        assertReason("event_occurred_at_outside_retention",
+                () -> verifier.verify(
+                        signed(historicalSynthetic), properties));
+
+        properties.setHistoricalSyntheticReplayEnabled(true);
+        properties.setHistoricalSyntheticReplayMaxAgeHours(168);
+        properties.setHistoricalSyntheticReplayNotAfter(
+                "2026-07-23T10:05:00Z");
+        properties.setHistoricalSyntheticReplayEventDigests(
+                java.util.Set.of("f".repeat(64)));
+        assertReason("event_occurred_at_outside_retention",
+                () -> verifier.verify(
+                        signed(historicalSynthetic), properties));
+        properties.setHistoricalSyntheticReplayEventDigests(
+                java.util.Set.of(eventDigest(historicalSynthetic)));
+        verifier.verify(signed(historicalSynthetic), properties);
+
+        BoardAttributionEventV1 historicalNatural = validEvent();
+        historicalNatural.setOccurredAt("2026-07-18T10:00:31Z");
+        assertReason("event_occurred_at_outside_retention",
+                () -> verifier.verify(signed(historicalNatural), properties));
+
+        properties.setHistoricalSyntheticReplayNotAfter(
+                "2026-07-23T10:00:29Z");
+        assertReason("event_occurred_at_outside_retention",
+                () -> verifier.verify(
+                        signed(historicalSynthetic), properties));
+    }
+
+    @Test
     void verifiesTheSharedNodeToJavaGoldenVector() throws Exception {
+        VerifiedBoardAttributionEvent verified = verifyGoldenVector(
+                "independent-board-attribution-v1-golden-vector.json");
+
+        assertEquals("WORKBUDDY",
+                verified.rawEvent().getHostClientFamily());
+        assertEquals("WORKBUDDY_OFFICIAL_ENTRY",
+                verified.rawEvent().getRequestSource());
+    }
+
+    @Test
+    void verifiesCurrentWorkBuddyAiVectorAgainstBoundApi2AdapterBytes()
+            throws Exception {
+        VerifiedBoardAttributionEvent verified = verifyGoldenVector(
+                "independent-board-attribution-v1-current-workbuddyai-golden-vector.json");
+
+        assertEquals("WORKBUDDYAI",
+                verified.rawEvent().getHostClientFamily());
+        assertEquals("WORKBUDDYAI_OFFICIAL_ENTRY",
+                verified.rawEvent().getRequestSource());
+        assertEquals("26.8.19",
+                verified.rawEvent().getListedManifestVersion());
+        assertEquals("SYNTHETIC", verified.rawEvent().getTrafficClass());
+    }
+
+    private VerifiedBoardAttributionEvent verifyGoldenVector(String resource)
+            throws Exception {
         JsonNode vector;
         try (var input = getClass().getClassLoader().getResourceAsStream(
-                "independent-board-attribution-v1-golden-vector.json")) {
+                resource)) {
             if (input == null) {
-                throw new IllegalStateException("golden vector missing");
+                throw new IllegalStateException(
+                        "golden vector missing: " + resource);
             }
             vector = JSON.readTree(input);
         }
@@ -178,6 +314,7 @@ class BoardAttributionEventV1VerifierTest {
         assertEquals(
                 vector.path("expected").path("eventDigest").asText(),
                 verified.eventDigest());
+        return verified;
     }
 
     private IndependentBoardAttributionProperties properties() {
@@ -292,6 +429,27 @@ class BoardAttributionEventV1VerifierTest {
                     SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
             return HexFormat.of().formatHex(
                     mac.doFinal(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception error) {
+            throw new IllegalStateException(error);
+        }
+    }
+
+    private String eventDigest(BoardAttributionEventV1 event) {
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, String> values = JSON.readValue(
+                    canonical(event), TreeMap.class);
+            values.remove("issuedAt");
+            values.remove("expiresAt");
+            values.remove("nonce");
+            values.remove("keyId");
+            String businessCanonical = JSON.writeValueAsString(
+                    new TreeMap<>(values));
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(
+                            ("FBSIR_INDEPENDENT_BOARD_EVENT_DIGEST_V1\n"
+                                    + businessCanonical)
+                                    .getBytes(StandardCharsets.UTF_8)));
         } catch (Exception error) {
             throw new IllegalStateException(error);
         }

@@ -102,7 +102,9 @@ class IndependentBoardAttributionIngestServiceTest {
                 persisted(event, "a".repeat(64), "UNKNOWN");
         when(verifier.verify(event, properties)).thenReturn(verified(event, "UNKNOWN"));
         when(mapper.selectEventByEventId(event.getEventId()))
-                .thenReturn(null, persisted);
+                .thenReturn(null);
+        when(mapper.selectEventByEventIdForUpdate(event.getEventId()))
+                .thenReturn(persisted);
         when(mapper.insertJourneyHeadIfAbsent(any())).thenReturn(1);
         when(mapper.selectJourneyHeadForUpdate(sameBindingKey))
                 .thenReturn(head(1, "a".repeat(64), "UNKNOWN", 1));

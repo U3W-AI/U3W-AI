@@ -5,7 +5,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 
 /** W4b.2d internal evidence writer settings. Public routes are intentionally absent. */
 @Data
@@ -39,6 +41,18 @@ public class IndependentBoardAttributionProperties {
     private String keyRef = "fbs.w4b2d.api2.keyring";
     private int receiptTtlSeconds = 120;
     private int retentionHours = 26;
+    /**
+     * Default-off, time-bounded recovery gate for already durable historical
+     * synthetic events. It never applies to natural, probe or diagnostic rows.
+     */
+    private boolean historicalSyntheticReplayEnabled = false;
+    /** Absolute hard cap is enforced by the startup invariant and verifier. */
+    private int historicalSyntheticReplayMaxAgeHours = 168;
+    /** ISO-8601 instant; an empty value is invalid whenever the gate is on. */
+    private String historicalSyntheticReplayNotAfter = "";
+    /** Exact stable business digests authorized for the bounded recovery. */
+    private Set<String> historicalSyntheticReplayEventDigests =
+            new LinkedHashSet<>();
 
     /**
      * Resolves the map-bound compatibility surface plus the two explicit

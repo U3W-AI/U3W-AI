@@ -1,12 +1,15 @@
 package com.wx.fbsir.business.board.attribution.receipt;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wx.fbsir.business.board.attribution.config.IndependentBoardAttributionProperties;
 import com.wx.fbsir.business.board.attribution.intent.BoardIntentClassifier;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
@@ -16,14 +19,19 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 
 /**
- * Side-effect-free verifier for the exact currently listed WorkBuddy package.
- * There is no compatibility branch for an older listed version.
+ * Side-effect-free verifier for the exact registered listed-package identities.
+ *
+ * <p>The registry deliberately contains full host/version tuples instead of
+ * semver ranges.  This keeps historical durable-outbox replay compatible while
+ * preventing an unreviewed host or package version from becoming authoritative
+ * by accident.</p>
  */
 public final class BoardAttributionEventV1Verifier
         implements BoardAttributionEventVerifier {
@@ -42,8 +50,11 @@ public final class BoardAttributionEventV1Verifier
      * failure (and an avoidable 500/retry loop).
      */
     private static final int MAX_PERSISTED_TOKEN_CHARS = 64;
+    private static final int MAX_HOST_VERSION_CHARS = 32;
+    private static final int MAX_SIGNER_KEY_ID_CHARS = 96;
     private static final int MAX_CANONICAL_CHARS = 32_768;
     private static final long CLOCK_SKEW_SECONDS = 30;
+    private static final int MAX_HISTORICAL_SYNTHETIC_REPLAY_HOURS = 168;
     private static final Pattern HEX_64 = Pattern.compile("[0-9a-f]{64}");
     private static final Pattern BINDING = Pattern.compile(
             "(?:[0-9a-f]{64}|srv_[A-Za-z0-9_-]{12,80})");
@@ -53,12 +64,15 @@ public final class BoardAttributionEventV1Verifier
             "[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}");
     private static final Pattern TRACEPARENT = Pattern.compile(
             "00-(?!0{32})[0-9a-f]{32}-(?!0{16})[0-9a-f]{16}-[0-9a-f]{2}");
+    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final IdentityRegistry IDENTITY_REGISTRY =
+            loadIdentityRegistry();
     private static final Set<String> TERMINALS = Set.of(
             "WORKBUDDY_WINDOWS", "WORKBUDDY_MACOS", "WORKBUDDYAI", "UNKNOWN");
     private static final Set<String> CHANNELS =
             Set.of("OFFICIAL_EXPERTS", "UNKNOWN");
     private static final Set<String> REQUEST_SOURCES =
-            Set.of("WORKBUDDY_OFFICIAL_ENTRY", "HOST_FORWARDING", "UNKNOWN");
+            IDENTITY_REGISTRY.requestSources();
     private static final Set<String> CLASSIFICATION_SOURCES =
             Set.of("PACKAGE_SCENE_ROUTER", "SERVER_CLASSIFIER", "UNKNOWN");
     private static final Set<String> CONFIDENCE_BUCKETS =
@@ -69,7 +83,10 @@ public final class BoardAttributionEventV1Verifier
             Set.of("NATURAL", "PROBE", "DIAGNOSTIC", "SYNTHETIC", "UNKNOWN");
     private static final Set<String> OUTCOMES =
             Set.of("SUCCESS", "FAILED", "WITHHELD");
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final Set<String> REGISTERED_HOST_CLIENT_FAMILIES =
+            IDENTITY_REGISTRY.hostClientFamilies();
+    private static final Set<OfficialIdentityProfile> OFFICIAL_IDENTITY_PROFILES =
+            IDENTITY_REGISTRY.profiles();
 
     private final Map<String, byte[]> keyring;
     private final Clock clock;
@@ -105,6 +122,7 @@ public final class BoardAttributionEventV1Verifier
         if (properties == null) {
             reject("properties_required");
         }
+        verifyCanonicalWireText(event);
         verifyIdentity(event);
         verifyFiniteDimensions(event);
         verifySequence(event);
@@ -128,13 +146,6 @@ public final class BoardAttributionEventV1Verifier
                 || now.isAfter(expiresAt)) {
             reject("event_expired_or_ttl_invalid");
         }
-        long retentionSeconds = Math.max(1L, properties.getRetentionHours())
-                * 60L * 60L;
-        if (occurredAt.isBefore(now.minusSeconds(retentionSeconds))
-                || occurredAt.isAfter(now.plusSeconds(CLOCK_SKEW_SECONDS))) {
-            reject("event_occurred_at_outside_retention");
-        }
-
         if (!isConfigured()) {
             reject("event_signature_keyring_unconfigured");
         }
@@ -168,10 +179,50 @@ public final class BoardAttributionEventV1Verifier
         String eventDigest = sha256Hex(
                 ("FBSIR_INDEPENDENT_BOARD_EVENT_DIGEST_V1\n"
                         + businessCanonical).getBytes(StandardCharsets.UTF_8));
+        long retentionSeconds = Math.max(1L, properties.getRetentionHours())
+                * 60L * 60L;
+        boolean outsideOrdinaryRetention =
+                occurredAt.isBefore(now.minusSeconds(retentionSeconds));
+        if ((outsideOrdinaryRetention
+                && !historicalSyntheticReplayAllowed(
+                        event, eventDigest, occurredAt, now, properties))
+                || occurredAt.isAfter(now.plusSeconds(CLOCK_SKEW_SECONDS))) {
+            reject("event_occurred_at_outside_retention");
+        }
         return new VerifiedBoardAttributionEvent(
                 event, issuedAt, expiresAt, canonicalDigest, supplied,
                 nonceHash, eventDigest,
                 intentClassifier.classify(event.getIntentSignal()));
+    }
+
+    private void verifyCanonicalWireText(BoardAttributionEventV1 event) {
+        Object[] values = {
+                event.getSchemaVersion(), event.getEventId(),
+                event.getReceiptId(), event.getContractId(),
+                event.getEventType(), event.getOccurredAt(),
+                event.getProductId(), event.getPackageId(),
+                event.getAgentName(), event.getMarketplace(),
+                event.getListedSurface(), event.getListedManifestVersion(),
+                event.getEmbeddedContractVersion(),
+                event.getHostClientFamily(), event.getHostVersion(),
+                event.getTerminal(), event.getChannel(),
+                event.getRequestSource(), event.getIntentSignal(),
+                event.getClassificationSource(), event.getClassifierVersion(),
+                event.getConfidenceBucket(), event.getReviewMode(),
+                event.getJourneyId(), event.getServerBindingId(),
+                event.getSameBindingKey(), event.getTenantSubjectDigest(),
+                event.getTrafficClass(), event.getTrafficAuthority(),
+                event.getOutcome(), event.getPreviousEventDigest(),
+                event.getTraceparent(), event.getIssuedAt(),
+                event.getExpiresAt(), event.getNonce(), event.getKeyId(),
+                event.getSignatureAlgorithm(), event.getSignature()
+        };
+        for (Object value : values) {
+            if (value instanceof String supplied
+                    && !supplied.equals(supplied.trim())) {
+                reject("noncanonical_text");
+            }
+        }
     }
 
     private void verifyIdentity(BoardAttributionEventV1 event) {
@@ -181,14 +232,25 @@ public final class BoardAttributionEventV1Verifier
                 || !"fbsir-eight-seat-board".equals(text(event.getPackageId()))
                 || !"board-convener".equals(text(event.getAgentName()))
                 || !"experts".equals(text(event.getMarketplace()))
-                || !"listed_runtime_state".equals(text(event.getListedSurface()))
-                || !"WORKBUDDY".equals(text(event.getHostClientFamily()))) {
+                || !"listed_runtime_state".equals(text(event.getListedSurface()))) {
             reject("official_identity_mismatch");
         }
-        if (!"26.7.21".equals(text(event.getListedManifestVersion()))
-                || !"26.7.20".equals(text(event.getEmbeddedContractVersion()))) {
+        String hostClientFamily = text(event.getHostClientFamily());
+        if (!REGISTERED_HOST_CLIENT_FAMILIES.contains(hostClientFamily)) {
+            reject("official_identity_mismatch");
+        }
+        OfficialIdentityProfile suppliedProfile = OFFICIAL_IDENTITY_PROFILES
+                .stream()
+                .filter(profile -> profile.matches(
+                        hostClientFamily,
+                        text(event.getListedManifestVersion()),
+                        text(event.getEmbeddedContractVersion())))
+                .findFirst()
+                .orElse(null);
+        if (suppliedProfile == null) {
             reject("listed_identity_mismatch");
         }
+        verifyHostProjection(event, suppliedProfile);
         if (!sha256(event.getEventId()) || !sha256(event.getReceiptId())
                 || !sha256(event.getJourneyId())
                 || !BINDING.matcher(text(event.getServerBindingId())).matches()
@@ -201,7 +263,9 @@ public final class BoardAttributionEventV1Verifier
     }
 
     private void verifyFiniteDimensions(BoardAttributionEventV1 event) {
-        if (!HOST_VERSION.matcher(text(event.getHostVersion())).matches()
+        String hostVersion = text(event.getHostVersion());
+        if (hostVersion.length() > MAX_HOST_VERSION_CHARS
+                || !HOST_VERSION.matcher(hostVersion).matches()
                 || !TERMINALS.contains(text(event.getTerminal()))
                 || !CHANNELS.contains(text(event.getChannel()))
                 || !REQUEST_SOURCES.contains(text(event.getRequestSource()))
@@ -215,7 +279,7 @@ public final class BoardAttributionEventV1Verifier
                 || !safeToken(event.getIntentSignal(), MAX_PERSISTED_TOKEN_CHARS)
                 || !safeToken(event.getClassifierVersion(), MAX_PERSISTED_TOKEN_CHARS)
                 || !safeToken(event.getNonce())
-                || !safeToken(event.getKeyId())) {
+                || !safeToken(event.getKeyId(), MAX_SIGNER_KEY_ID_CHARS)) {
             reject("finite_dimension_invalid");
         }
         if ("NATURAL".equals(text(event.getTrafficClass()))
@@ -227,6 +291,56 @@ public final class BoardAttributionEventV1Verifier
                 text(event.getTrafficAuthority()))) {
             reject("traffic_authority_invalid");
         }
+    }
+
+    private void verifyHostProjection(
+            BoardAttributionEventV1 event,
+            OfficialIdentityProfile suppliedProfile) {
+        String hostClientFamily = suppliedProfile.hostClientFamily();
+        String requestSource = text(event.getRequestSource());
+        if ((!IDENTITY_REGISTRY.sharedRequestSources().contains(requestSource)
+                    && !suppliedProfile.officialEntryRequestSource()
+                        .equals(requestSource))
+                || ("WORKBUDDYAI".equals(text(event.getTerminal()))
+                    && !"WORKBUDDYAI".equals(hostClientFamily))) {
+            reject("host_projection_mismatch");
+        }
+    }
+
+    private boolean historicalSyntheticReplayAllowed(
+            BoardAttributionEventV1 event,
+            String eventDigest,
+            Instant occurredAt,
+            Instant now,
+            IndependentBoardAttributionProperties properties) {
+        if (!properties.isHistoricalSyntheticReplayEnabled()
+                || !"SYNTHETIC".equals(text(event.getTrafficClass()))) {
+            return false;
+        }
+        int maxAgeHours = properties.getHistoricalSyntheticReplayMaxAgeHours();
+        if (maxAgeHours < properties.getRetentionHours()
+                || maxAgeHours > MAX_HISTORICAL_SYNTHETIC_REPLAY_HOURS) {
+            return false;
+        }
+        Instant notAfter;
+        try {
+            notAfter = Instant.parse(text(
+                    properties.getHistoricalSyntheticReplayNotAfter()));
+        } catch (DateTimeException error) {
+            return false;
+        }
+        long maxAgeSeconds;
+        try {
+            maxAgeSeconds = Math.multiplyExact((long) maxAgeHours, 3_600L);
+        } catch (ArithmeticException error) {
+            return false;
+        }
+        return !now.isAfter(notAfter)
+                && !occurredAt.isBefore(now.minusSeconds(maxAgeSeconds))
+                && properties.getHistoricalSyntheticReplayEventDigests()
+                    != null
+                && properties.getHistoricalSyntheticReplayEventDigests()
+                    .contains(eventDigest);
     }
 
     private void verifySequence(BoardAttributionEventV1 event) {
@@ -426,5 +540,106 @@ public final class BoardAttributionEventV1Verifier
 
     private static void reject(String reason) {
         throw new IllegalArgumentException(reason);
+    }
+
+    private static IdentityRegistry loadIdentityRegistry() {
+        String resource =
+                "/contracts/independent-board-attribution-identity-registry-v1.json";
+        try (InputStream input =
+                BoardAttributionEventV1Verifier.class.getResourceAsStream(
+                        resource)) {
+            if (input == null) {
+                throw new IllegalStateException(
+                        "attribution_identity_registry_missing");
+            }
+            JsonNode root = JSON.readTree(input);
+            JsonNode common = root.path("commonIdentity");
+            if (!"fbsir.independentBoardAttributionIdentityRegistry.v1"
+                    .equals(root.path("schemaVersion").asText())
+                    || !SCHEMA_VERSION.equals(
+                        common.path("eventSchemaVersion").asText())
+                    || !CONTRACT_ID.equals(common.path("contractId").asText())
+                    || !"fbsir-eight-seat-board".equals(
+                        common.path("productId").asText())
+                    || !"fbsir-eight-seat-board".equals(
+                        common.path("packageId").asText())
+                    || !"board-convener".equals(
+                        common.path("agentName").asText())
+                    || !"experts".equals(common.path("marketplace").asText())
+                    || !"listed_runtime_state".equals(
+                        common.path("listedSurface").asText())
+                    || root.path("productCreditEligible").asBoolean(true)) {
+                throw new IllegalStateException(
+                        "attribution_identity_registry_common_identity_invalid");
+            }
+            Set<OfficialIdentityProfile> profiles = new LinkedHashSet<>();
+            Set<String> profileIds = new LinkedHashSet<>();
+            Set<String> hosts = new LinkedHashSet<>();
+            Set<String> sharedSources = new LinkedHashSet<>();
+            for (JsonNode source : root.path("sharedRequestSources")) {
+                sharedSources.add(source.asText());
+            }
+            for (JsonNode node : root.path("profiles")) {
+                String profileId = node.path("profileId").asText();
+                OfficialIdentityProfile profile = new OfficialIdentityProfile(
+                        node.path("hostClientFamily").asText(),
+                        node.path("listedManifestVersion").asText(),
+                        node.path("embeddedContractVersion").asText(),
+                        node.path("officialEntryRequestSource").asText());
+                if (!SAFE_TOKEN.matcher(profileId).matches()
+                        || !profileIds.add(profileId)
+                        || !profiles.add(profile)
+                        || !SAFE_TOKEN.matcher(
+                            profile.hostClientFamily()).matches()
+                        || !SAFE_TOKEN.matcher(
+                            profile.listedManifestVersion()).matches()
+                        || !SAFE_TOKEN.matcher(
+                            profile.embeddedContractVersion()).matches()
+                        || !SAFE_TOKEN.matcher(
+                            profile.officialEntryRequestSource()).matches()) {
+                    throw new IllegalStateException(
+                            "attribution_identity_registry_profile_invalid");
+                }
+                hosts.add(profile.hostClientFamily());
+            }
+            if (profiles.size() != 3
+                    || !sharedSources.equals(Set.of(
+                        "HOST_FORWARDING", "UNKNOWN"))) {
+                throw new IllegalStateException(
+                        "attribution_identity_registry_cardinality_invalid");
+            }
+            Set<String> requestSources = new LinkedHashSet<>(sharedSources);
+            profiles.forEach(profile -> requestSources.add(
+                    profile.officialEntryRequestSource()));
+            return new IdentityRegistry(
+                    Set.copyOf(profiles), Set.copyOf(hosts),
+                    Set.copyOf(sharedSources), Set.copyOf(requestSources));
+        } catch (IOException error) {
+            throw new IllegalStateException(
+                    "attribution_identity_registry_unreadable", error);
+        }
+    }
+
+    private record OfficialIdentityProfile(
+            String hostClientFamily,
+            String listedManifestVersion,
+            String embeddedContractVersion,
+            String officialEntryRequestSource) {
+        private boolean matches(
+                String suppliedHost,
+                String suppliedListedVersion,
+                String suppliedEmbeddedVersion) {
+            return hostClientFamily.equals(suppliedHost)
+                    && listedManifestVersion.equals(suppliedListedVersion)
+                    && embeddedContractVersion.equals(
+                        suppliedEmbeddedVersion);
+        }
+    }
+
+    private record IdentityRegistry(
+            Set<OfficialIdentityProfile> profiles,
+            Set<String> hostClientFamilies,
+            Set<String> sharedRequestSources,
+            Set<String> requestSources) {
     }
 }

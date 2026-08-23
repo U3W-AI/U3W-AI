@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "fbsir.independentBoardAttributionIdentityRegistryMysqlIt.v1",
+  "generatedAt": "2026-08-23T06:20:29.4567349Z",
+  "migration": "public_init_044",
+  "predecessorMigrationSha256": "ca9c86c79617543c19bc9a6141afef18918320c65091b418f761ece19b5c6055",
+  "migrationSha256": "ae2f06309080cda632fbd347bde04f28f7594fb58702b5756adc7b0cb3fc3b93",
+  "results": [
+    {
+      "version": "8.0.30",
+      "acceptedProfiles": 3,
+      "rejectedProfiles": 4,
+      "legacyRowPreserved": true,
+      "duplicateApply": "PASS",
+      "partialDdlRecovery": "PASS",
+      "productCreditMax": 0,
+      "exactShape": "3|3|3|4|contract_id,tenant_subject_digest,server_binding_id,journey_id,product_id,listed_manifest_version,embedded_contract_version",
+      "checkClauseSha256": "f6f7901b4b5a8a21bbacad458430bf48fe146451d1b3cb24943e57961fd7fd06",
+      "predecessorCheckClauseSqlSha256": "b4a819eb9050889bdcc6f01a9d86163663ef5eeea603a378fe5d706a30d2e717",
+      "successorCheckClauseSqlSha256": "e4874cace1b0c1211be58e1ad650371db62e4f49e12e2faf8012f75bd3902f6d",
+      "partialCheckClauseSqlSha256": "e1a3fff0186f4b0fbf099c36283ebcb7ca6ba1116a47a04f4bfbd8a6a99ebe71",
+      "checkClauses": [
+        "fbs_board_attr_event_v1|(((`host_client_family` = _utf8mb4\\\\'WORKBUDDY\\\\') and (`listed_manifest_version` = _utf8mb4\\\\'26.7.21\\\\') and (`embedded_contract_version` = _utf8mb4\\\\'26.7.20\\\\')) or ((`host_client_family` in (_utf8mb4\\\\'WORKBUDDY\\\\',_utf8mb4\\\\'WORKBUDDYAI\\\\')) and (`listed_manifest_version` = _utf8mb4\\\\'26.8.19\\\\') and (`embedded_contract_version` = _utf8mb4\\\\'26.8.19\\\\')))",
+        "fbs_board_attr_journey_v1|(((`listed_manifest_version` = _utf8mb4\\\\'26.7.21\\\\') and (`embedded_contract_version` = _utf8mb4\\\\'26.7.20\\\\')) or ((`listed_manifest_version` = _utf8mb4\\\\'26.8.19\\\\') and (`embedded_contract_version` = _utf8mb4\\\\'26.8.19\\\\')))"
+      ]
+    },
+    {
+      "version": "8.4.8",
+      "acceptedProfiles": 3,
+      "rejectedProfiles": 4,
+      "legacyRowPreserved": true,
+      "duplicateApply": "PASS",
+      "partialDdlRecovery": "PASS",
+      "productCreditMax": 0,
+      "exactShape": "3|3|3|4|contract_id,tenant_subject_digest,server_binding_id,journey_id,product_id,listed_manifest_version,embedded_contract_version",
+      "checkClauseSha256": "f6f7901b4b5a8a21bbacad458430bf48fe146451d1b3cb24943e57961fd7fd06",
+      "predecessorCheckClauseSqlSha256": "b4a819eb9050889bdcc6f01a9d86163663ef5eeea603a378fe5d706a30d2e717",
+      "successorCheckClauseSqlSha256": "e4874cace1b0c1211be58e1ad650371db62e4f49e12e2faf8012f75bd3902f6d",
+      "partialCheckClauseSqlSha256": "e1a3fff0186f4b0fbf099c36283ebcb7ca6ba1116a47a04f4bfbd8a6a99ebe71",
+      "checkClauses": [
+        "fbs_board_attr_event_v1|(((`host_client_family` = _utf8mb4\\\\'WORKBUDDY\\\\') and (`listed_manifest_version` = _utf8mb4\\\\'26.7.21\\\\') and (`embedded_contract_version` = _utf8mb4\\\\'26.7.20\\\\')) or ((`host_client_family` in (_utf8mb4\\\\'WORKBUDDY\\\\',_utf8mb4\\\\'WORKBUDDYAI\\\\')) and (`listed_manifest_version` = _utf8mb4\\\\'26.8.19\\\\') and (`embedded_contract_version` = _utf8mb4\\\\'26.8.19\\\\')))",
+        "fbs_board_attr_journey_v1|(((`listed_manifest_version` = _utf8mb4\\\\'26.7.21\\\\') and (`embedded_contract_version` = _utf8mb4\\\\'26.7.20\\\\')) or ((`listed_manifest_version` = _utf8mb4\\\\'26.8.19\\\\') and (`embedded_contract_version` = _utf8mb4\\\\'26.8.19\\\\')))"
+      ]
+    }
+  ],
+  "status": "PASS",
+  "productionChanged": false
+}

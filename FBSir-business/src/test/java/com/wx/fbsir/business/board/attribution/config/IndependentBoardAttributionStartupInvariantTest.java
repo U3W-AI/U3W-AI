@@ -121,6 +121,48 @@ class IndependentBoardAttributionStartupInvariantTest {
         assertEquals("attribution_master_gate_required", error.getMessage());
     }
 
+    @Test
+    void historicalSyntheticReplayIsBoundedAndReportOnly() {
+        IndependentBoardAttributionProperties properties = keys();
+        properties.setEnabled(true);
+        properties.setObservationWriterEnabled(true);
+        properties.setHistoricalSyntheticReplayEnabled(true);
+        properties.setHistoricalSyntheticReplayMaxAgeHours(169);
+        properties.setHistoricalSyntheticReplayNotAfter(
+                "2026-08-24T00:00:00Z");
+        properties.setHistoricalSyntheticReplayEventDigests(
+                java.util.Set.of("a".repeat(64)));
+        IllegalStateException ageError = assertThrows(
+                IllegalStateException.class, () -> validate(properties));
+        assertEquals("historical_synthetic_replay_max_age_invalid",
+                ageError.getMessage());
+
+        properties.setHistoricalSyntheticReplayMaxAgeHours(168);
+        properties.setHistoricalSyntheticReplayNotAfter("not-an-instant");
+        IllegalStateException timeError = assertThrows(
+                IllegalStateException.class, () -> validate(properties));
+        assertEquals("historical_synthetic_replay_not_after_invalid",
+                timeError.getMessage());
+
+        properties.setHistoricalSyntheticReplayNotAfter(
+                "2026-08-24T00:00:00Z");
+        properties.setAuthoritativeCreditEnabled(true);
+        IllegalStateException creditError = assertThrows(
+                IllegalStateException.class, () -> validate(properties));
+        assertEquals(
+                "historical_synthetic_replay_requires_report_only_writer",
+                creditError.getMessage());
+
+        properties.setAuthoritativeCreditEnabled(false);
+        properties.setHistoricalSyntheticReplayEventDigests(
+                java.util.Set.of());
+        IllegalStateException allowlistError = assertThrows(
+                IllegalStateException.class, () -> validate(properties));
+        assertEquals(
+                "historical_synthetic_replay_digest_allowlist_invalid",
+                allowlistError.getMessage());
+    }
+
     private static IndependentBoardAttributionProperties keys() {
         IndependentBoardAttributionProperties properties =
                 new IndependentBoardAttributionProperties();

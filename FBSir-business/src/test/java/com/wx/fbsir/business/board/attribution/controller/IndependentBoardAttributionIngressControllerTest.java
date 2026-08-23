@@ -85,6 +85,33 @@ class IndependentBoardAttributionIngressControllerTest {
                         "Cache-Control", containsString("no-store")));
     }
 
+    @Test
+    void mapsIdentityProfileRejectionsToStructured409() throws Exception {
+        when(service.ingest(any()))
+                .thenThrow(new IllegalArgumentException(
+                        "official_identity_mismatch"));
+        mvc.perform(post("/internal/independent-board/attribution/events")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isConflict())
+                .andExpect(header().string(
+                        "Cache-Control", containsString("no-store")))
+                .andExpect(jsonPath("$.status").value("CONFLICT"))
+                .andExpect(jsonPath("$.reason")
+                        .value("official_identity_mismatch"));
+
+        reset(service);
+        when(service.ingest(any()))
+                .thenThrow(new IllegalArgumentException(
+                        "listed_identity_mismatch"));
+        mvc.perform(post("/internal/independent-board/attribution/events")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.reason")
+                        .value("listed_identity_mismatch"));
+    }
+
     private IndependentBoardAttributionIngestService.IngestResult result(
             boolean replay) {
         return new IndependentBoardAttributionIngestService.IngestResult(

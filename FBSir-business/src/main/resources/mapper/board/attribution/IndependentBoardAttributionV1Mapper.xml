@@ -116,7 +116,7 @@
 
   <insert id="insertJourneyHeadIfAbsent"
       parameterType="com.wx.fbsir.business.board.attribution.domain.BoardAttributionJourneyHead">
-    INSERT IGNORE INTO fbs_board_attr_journey_v1
+    INSERT INTO fbs_board_attr_journey_v1
       (same_binding_key, contract_id, tenant_subject_digest, server_binding_id,
        journey_id, product_id, listed_manifest_version,
        embedded_contract_version, channel, terminal, host_version,
@@ -128,6 +128,8 @@
        #{listedManifestVersion}, #{embeddedContractVersion}, #{channel},
        #{terminal}, #{hostVersion}, #{trafficClass}, #{intentFamily},
        #{lastSequenceNo}, #{lastEventDigest}, #{headVersion})
+    ON DUPLICATE KEY UPDATE
+      same_binding_key = fbs_board_attr_journey_v1.same_binding_key
   </insert>
 
   <select id="selectJourneyHeadForUpdate" resultMap="JourneyHead"

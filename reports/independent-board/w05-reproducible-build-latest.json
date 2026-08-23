@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "fbsir.w05ReproducibleBuildReceipt.v1",
+  "generatedAt": "2026-08-23T06:13:59.3410085Z",
+  "gitHead": "5838f8a5eaa3116bcf734511d8f90cd03af2130d",
+  "dirtyEntryCount": 28,
+  "dirtyAllowedForDevelopmentProof": true,
+  "command": "mvn -q clean package -DskipTests -pl FBSir-admin -am",
+  "outputTimestamp": "2026-08-23T05:00:00Z",
+  "first": {
+    "sizeBytes": 91712262,
+    "sha256": "c6b8d7f96c9e9f5d310b7cc4561dd1aa3d35b736f4675e4854328a537ebdb74d"
+  },
+  "second": {
+    "sizeBytes": 91712262,
+    "sha256": "c6b8d7f96c9e9f5d310b7cc4561dd1aa3d35b736f4675e4854328a537ebdb74d"
+  },
+  "identical": true,
+  "rootPomSha256": "38cc36c6dbc1eb3926d3c5a642691ea1323a18b6ff26929a4445e4005e610a42",
+  "adminPomSha256": "c563d5f9d9054714e5bc5eb0850cedf1227c6c971380e79efc05397c8b38dfd2",
+  "productionChanged": false,
+  "status": "PASS"
+}

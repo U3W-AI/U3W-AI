@@ -107,6 +107,7 @@ $steps = @(
     New-Step "public_init_041" "Independent Board plan policy controlled procedure authority" (Resolve-SqlFile "update_20260723_independent_board_plan_policy_authority.sql")
     New-Step "public_init_042" "Independent Board default-off skill-consume v2 credit ledger" (Resolve-SqlFile "update_20260723_skill_consume_credit_ledger_v2.sql")
     New-Step "public_init_043" "Independent Board exact official experts attribution v1" (Resolve-SqlFile "update_20260723_independent_board_attribution_v1.sql")
+    New-Step "public_init_044" "Independent Board exact legacy and current attribution identity registry" (Resolve-SqlFile "update_20260823_independent_board_attribution_identity_registry.sql")
 )
 
 if (-not (Test-Path -LiteralPath $DeclarativeManifestPath -PathType Leaf)) {
@@ -133,7 +134,7 @@ for ($index = 0; $index -lt $steps.Count; $index++) {
         [string]$declared.file -ne $executable.File.Name) {
         throw "Declarative manifest drift at position $($index + 1): expected '$($executable.Version)|$($executable.Description)|$($executable.File.Name)'."
     }
-    if ($executable.Version -in @('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041', 'public_init_042', 'public_init_043')) {
+    if ($executable.Version -in @('public_init_035', 'public_init_036', 'public_init_037', 'public_init_038', 'public_init_039', 'public_init_040', 'public_init_041', 'public_init_042', 'public_init_043', 'public_init_044')) {
         $declaredSha256 = [string]$declared.sha256
         $actualSha256 = (Get-FileHash -LiteralPath $executable.File.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($declaredSha256 -notmatch '^[0-9a-f]{64}$' -or
@@ -141,6 +142,13 @@ for ($index = 0; $index -lt $steps.Count; $index++) {
             throw "$($executable.Version) byte contract drifted: expected SHA-256 '$declaredSha256', found '$actualSha256'."
         }
     }
+}
+
+function Get-Utf8TextSha256 {
+    param([Parameter(Mandatory = $true)][string]$Text)
+    $bytes = [Text.UTF8Encoding]::new($false).GetBytes($Text)
+    return [Convert]::ToHexString(
+        [Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant()
 }
 
 $manualMigrations = @()
@@ -161,7 +169,8 @@ foreach ($declared in @($declarativeManifest.manualMigrations)) {
         -not $hasDefaultApplied -or
         [bool]$declared.defaultApplied -or
         $optInSessionVariable -notmatch '^@[A-Za-z0-9_]+$' -or
-        $requiredValue -isnot [int] -or
+        ($requiredValue -isnot [int] -and
+         $requiredValue -isnot [long]) -or
         [int]$requiredValue -ne 1 -or
         $sha256 -notmatch '^[0-9a-f]{64}$') {
         throw "Manual migration contract is invalid: '$id'."
@@ -2315,6 +2324,76 @@ SELECT CONCAT_WS('|',
     Write-Host "PASS Independent Board official experts attribution v1 current-read (two ledger tables, exactly two immutable triggers, restrictive FK, exact admin permission and public/internal receipts)."
 }
 
+function Assert-IndependentBoardAttributionIdentityRegistryCurrentState {
+    param([switch]$AllowPublicRunning)
+
+    $null = Assert-IndependentBoardOauthServerProfile
+    $publicDescription = if ($AllowPublicRunning) {
+        'RUNNING:Independent Board exact legacy and current attribution identity registry'
+    }
+    else {
+        'APPLIED:Independent Board exact legacy and current attribution identity registry'
+    }
+    $checkRows = Invoke-MySqlText -Sql @"
+SELECT CONCAT(tc.table_name,'|',cc.check_clause)
+FROM information_schema.table_constraints tc
+INNER JOIN information_schema.check_constraints cc
+  ON cc.constraint_schema=tc.constraint_schema
+ AND cc.constraint_name=tc.constraint_name
+WHERE tc.constraint_schema=DATABASE()
+  AND tc.constraint_type='CHECK' AND tc.enforced='YES'
+  AND tc.constraint_name IN
+    ('chk_board_attr_journey_versions','chk_board_attr_event_versions')
+ORDER BY tc.table_name,tc.constraint_name;
+"@
+    $checkCanonical = (($checkRows -split "`r?`n") -join "`n") + "`n"
+    $checkSha256 = Get-Utf8TextSha256 -Text $checkCanonical
+    if ($checkSha256 -cne
+            'f6f7901b4b5a8a21bbacad458430bf48fe146451d1b3cb24943e57961fd7fd06') {
+        throw "Independent Board attribution identity-registry CHECK contract drifted: '$checkSha256'."
+    }
+    $state = Invoke-MySqlText -Sql @"
+SELECT CONCAT_WS('|',
+  (SELECT COUNT(*) FROM information_schema.table_constraints
+   WHERE constraint_schema=DATABASE()
+     AND constraint_type='CHECK' AND enforced='YES'
+     AND ((table_name='fbs_board_attr_journey_v1'
+           AND constraint_name='chk_board_attr_journey_versions')
+       OR (table_name='fbs_board_attr_event_v1'
+           AND constraint_name='chk_board_attr_event_versions'))),
+  (SELECT COUNT(*) FROM (
+     SELECT index_name, non_unique,
+       GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',') AS columns_in_order
+     FROM information_schema.statistics
+     WHERE table_schema=DATABASE()
+       AND table_name='fbs_board_attr_journey_v1'
+       AND index_name='uk_board_attr_journey_identity'
+     GROUP BY index_name,non_unique
+     HAVING non_unique=0
+       AND columns_in_order=
+         'contract_id,tenant_subject_digest,server_binding_id,journey_id,product_id,listed_manifest_version,embedded_contract_version'
+   ) exact_identity_index),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='public_init_044'
+     AND BINARY description=BINARY '$publicDescription'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE version='20260823_independent_board_attribution_identity_registry_044'
+     AND BINARY description=BINARY
+       'APPLIED:exact legacy and current WorkBuddy attribution identity registry'),
+  (SELECT COUNT(*) FROM u3w_schema_migration
+   WHERE (version='public_init_043'
+       AND BINARY description=BINARY
+         'APPLIED:Independent Board exact official experts attribution v1')
+      OR (version='20260723_independent_board_attribution_v1_043'
+       AND BINARY description=BINARY
+         'APPLIED:exact WorkBuddy experts 26.7.21 attribution journey and append-only event ledger')));
+"@
+    if ($state -ne '2|1|1|1|2') {
+        throw "Independent Board attribution identity registry current-read drifted: '$state'."
+    }
+    Write-Host 'PASS Independent Board attribution identity registry current-read (two enforced CHECKs, version-aligned journey identity index, exact 043 predecessor and 044 public/internal receipts).'
+}
+
 function Assert-IndependentBoardCreditLedgerCurrentState {
     $serverProfile = Assert-IndependentBoardOauthServerProfile
     $state = Invoke-MySqlText -Sql @"
@@ -3036,6 +3115,7 @@ SELECT CONCAT_WS('|', @u3w_manifest_lock_name, CHAR_LENGTH(@u3w_manifest_lock_na
             Assert-IndependentBoardCreditLedgerCurrentState
             Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState
             Assert-IndependentBoardAttributionV1CurrentState
+            Assert-IndependentBoardAttributionIdentityRegistryCurrentState
             Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChain
             Assert-IndependentBoardPlanPolicyAuthorityCurrentState
             Assert-PublicDatabaseManifestCurrentState
@@ -3134,6 +3214,9 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
         $resumeRunningBoardAttributionV1 =
             $step.Version -eq 'public_init_043' -and
             $state -eq "RUNNING:$($step.Description)"
+        $resumeRunningBoardAttributionIdentityRegistry =
+            $step.Version -eq 'public_init_044' -and
+            $state -eq "RUNNING:$($step.Description)"
         $resumeRunningOauthAdditive =
             $resumeRunningOauthProvenance -or
             $resumeRunningOauthConsentIntent -or
@@ -3146,7 +3229,8 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             $resumeRunningPlanPolicyMonotonicChain -or
             $resumeRunningPlanPolicyAuthority -or
             $resumeRunningSkillConsumeCreditLedgerV2 -or
-            $resumeRunningBoardAttributionV1
+            $resumeRunningBoardAttributionV1 -or
+            $resumeRunningBoardAttributionIdentityRegistry
         if ($state -and -not $resumeRunningAdditive) {
             throw "Step $($step.Version) is in state '$state'. Do not retry a partially applied DDL step; use a fresh database or reviewed recovery."
         }
@@ -3217,6 +3301,10 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
         if ($step.Version -eq 'public_init_043') {
             $null = Assert-IndependentBoardOauthServerProfile
         }
+        if ($step.Version -eq 'public_init_044') {
+            $null = Assert-IndependentBoardOauthServerProfile
+            Assert-IndependentBoardAttributionV1CurrentState
+        }
 
         try {
             if (-not $resumeRunningAdditive) {
@@ -3270,6 +3358,10 @@ CREATE TABLE IF NOT EXISTS $Database.u3w_schema_migration (
             }
             if ($step.Version -eq 'public_init_043') {
                 Assert-IndependentBoardAttributionV1CurrentState `
+                    -AllowPublicRunning
+            }
+            if ($step.Version -eq 'public_init_044') {
+                Assert-IndependentBoardAttributionIdentityRegistryCurrentState `
                     -AllowPublicRunning
             }
             Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
@@ -3512,6 +3604,19 @@ DROP PROCEDURE IF EXISTS u3w_finalize_ib_plan_policy_authority_20260723;
                     Write-Warning "Independent Board attribution v1 exact bounded replay did not pass; recording FAILED."
                 }
             }
+            if ($step.Version -eq 'public_init_044') {
+                try {
+                    Invoke-MySqlFile -File $step.File
+                    Assert-IndependentBoardAttributionIdentityRegistryCurrentState `
+                        -AllowPublicRunning
+                    Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='APPLIED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
+                    Write-Warning "Reconciled $($step.Version) from its exact identity-registry successor state after one bounded replay."
+                    continue
+                }
+                catch {
+                    Write-Warning "Independent Board attribution identity-registry exact bounded replay did not pass; recording FAILED."
+                }
+            }
             try {
                 Invoke-MySqlText -Sql "UPDATE u3w_schema_migration SET description='FAILED:$($step.Description)', applied_at=CURRENT_TIMESTAMP WHERE version='$($step.Version)';" | Out-Null
             }
@@ -3534,6 +3639,7 @@ DROP PROCEDURE IF EXISTS u3w_finalize_ib_plan_policy_authority_20260723;
     Assert-IndependentBoardCreditLedgerCurrentState
     Assert-IndependentBoardSkillConsumeCreditLedgerV2CurrentState
     Assert-IndependentBoardAttributionV1CurrentState
+    Assert-IndependentBoardAttributionIdentityRegistryCurrentState
     Assert-IndependentBoardPlanPolicyCurrentState -AllowMonotonicChain
     Assert-IndependentBoardPlanPolicyAuthorityCurrentState
 

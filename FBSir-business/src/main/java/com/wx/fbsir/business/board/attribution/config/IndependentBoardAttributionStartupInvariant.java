@@ -5,6 +5,8 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.DateTimeException;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Map;
@@ -17,6 +19,8 @@ import java.util.Map;
 public class IndependentBoardAttributionStartupInvariant
         implements InitializingBean {
     private static final int MIN_SECRET_BYTES = 32;
+    private static final int MAX_HISTORICAL_SYNTHETIC_REPLAY_HOURS = 168;
+    private static final int MAX_HISTORICAL_SYNTHETIC_REPLAY_EVENTS = 16;
     private final IndependentBoardAttributionProperties properties;
 
     public IndependentBoardAttributionStartupInvariant(
@@ -30,7 +34,10 @@ public class IndependentBoardAttributionStartupInvariant
         boolean intent = properties.isIntentClassifierEnabled();
         boolean adminRead = properties.isObservationAdminReadEnabled();
         boolean productCredit = properties.isProductCreditEnabled();
-        boolean anyW1aSurface = writer || intent || adminRead || productCredit;
+        boolean historicalSyntheticReplay =
+                properties.isHistoricalSyntheticReplayEnabled();
+        boolean anyW1aSurface = writer || intent || adminRead || productCredit
+                || historicalSyntheticReplay;
 
         if (anyW1aSurface && !properties.isEnabled()) {
             throw new IllegalStateException(
@@ -49,6 +56,38 @@ public class IndependentBoardAttributionStartupInvariant
                 || properties.isPublicRouteEnabled())) {
             throw new IllegalStateException(
                     "attribution_w1a_writer_requires_legacy_routes_off");
+        }
+        if (historicalSyntheticReplay) {
+            if (!writer || productCredit
+                    || properties.isAuthoritativeCreditEnabled()) {
+                throw new IllegalStateException(
+                        "historical_synthetic_replay_requires_report_only_writer");
+            }
+            int maxAgeHours =
+                    properties.getHistoricalSyntheticReplayMaxAgeHours();
+            if (maxAgeHours < properties.getRetentionHours()
+                    || maxAgeHours > MAX_HISTORICAL_SYNTHETIC_REPLAY_HOURS) {
+                throw new IllegalStateException(
+                        "historical_synthetic_replay_max_age_invalid");
+            }
+            try {
+                Instant.parse(normalized(
+                        properties.getHistoricalSyntheticReplayNotAfter()));
+            } catch (DateTimeException error) {
+                throw new IllegalStateException(
+                        "historical_synthetic_replay_not_after_invalid", error);
+            }
+            var replayDigests =
+                    properties.getHistoricalSyntheticReplayEventDigests();
+            if (replayDigests == null || replayDigests.isEmpty()
+                    || replayDigests.size()
+                    > MAX_HISTORICAL_SYNTHETIC_REPLAY_EVENTS
+                    || replayDigests.stream().anyMatch(value ->
+                        value == null
+                            || !value.matches("[0-9a-f]{64}"))) {
+                throw new IllegalStateException(
+                        "historical_synthetic_replay_digest_allowlist_invalid");
+            }
         }
 
         Map<String, String> eventKeys = properties.getResolvedEventKeys();
