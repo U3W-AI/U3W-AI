@@ -16,16 +16,17 @@ $outputRootFull = [IO.Path]::GetFullPath($OutputRoot)
 $commit = (& git -C $repoRoot rev-parse HEAD).Trim()
 $tree = (& git -C $repoRoot rev-parse 'HEAD^{tree}').Trim()
 $branch = (& git -C $repoRoot branch --show-current).Trim()
+$sourceBranch = 'codex/w05-receiver-contract-20260823'
 $dirty = @(& git -C $repoRoot status --porcelain=v1)
 if ($dirty.Count -ne 0) {
     throw "Candidate build requires a clean worktree; found $($dirty.Count) entries."
 }
-if ($branch -cne 'codex/w05-receiver-contract-20260823') {
+if ($branch -and $branch -cne $sourceBranch) {
     throw "Candidate branch is unexpected: $branch"
 }
-$remoteLine = (& git -C $repoRoot ls-remote --heads origin "refs/heads/$branch").Trim()
+$remoteLine = (& git -C $repoRoot ls-remote --heads origin "refs/heads/$sourceBranch").Trim()
 if ($LASTEXITCODE -ne 0 -or -not $remoteLine) {
-    throw "Remote candidate branch does not exist: $branch"
+    throw "Remote candidate branch does not exist: $sourceBranch"
 }
 $remoteCommit = $remoteLine.Split("`t")[0]
 if ($remoteCommit -cne $commit) {
@@ -191,7 +192,8 @@ try {
         schemaVersion = 'fbsir.w05SourceManifest.v1'
         generatedAt = [DateTime]::UtcNow.ToString('o')
         repository = 'https://github.com/U3W-AI/U3W-AI.git'
-        branch = $branch
+        branch = $sourceBranch
+        localCheckoutMode = if ($branch) { 'named_branch' } else { 'detached_head' }
         sourceCommit = $commit
         sourceTree = $tree
         remoteCommit = $remoteCommit
@@ -248,7 +250,8 @@ try {
         generatedAt = [DateTime]::UtcNow.ToString('o')
         releaseId = $ReleaseId
         repository = 'https://github.com/U3W-AI/U3W-AI.git'
-        branch = $branch
+        branch = $sourceBranch
+        localCheckoutMode = if ($branch) { 'named_branch' } else { 'detached_head' }
         sourceCommit = $commit
         sourceTree = $tree
         remoteCommit = $remoteCommit
