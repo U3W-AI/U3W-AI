@@ -159,46 +159,91 @@ class ShadowMysql:
             self.process.wait(timeout=10)
 
 
-def initialize_manifest(mysql: ShadowMysql, sql_root: pathlib.Path):
-    manifest = json.loads((sql_root / "init-manifest.json").read_text())
-    steps = manifest["steps"]
-    if len(steps) != 44 or steps[-1]["version"] != "public_init_044":
-        raise RuntimeError("shadow SQL manifest is not exact 44")
+def initialize_from_production_schema(
+    mysql: ShadowMysql, release: pathlib.Path
+):
+    production = WORKER.Mysql()
+    dump_arguments = [
+        "/usr/bin/mysqldump",
+        "--protocol=TCP",
+        f"--host={production.host}",
+        f"--port={production.port}",
+        f"--user={production.user}",
+        "--default-character-set=utf8mb4",
+        "--no-data",
+        "--skip-lock-tables",
+        "--triggers",
+        "--no-tablespaces",
+        "--set-gtid-purged=OFF",
+        production.database,
+    ]
+    schema = run(
+        dump_arguments,
+        env=production.environment(),
+        timeout=300,
+    ).stdout
+    lowered = schema.lower()
+    if b"insert into" in lowered or len(schema) < 100_000:
+        raise RuntimeError("production schema-only dump is invalid or contains data")
     mysql.query("CREATE DATABASE wxfbsir CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
+    run(mysql.args("wxfbsir"), input_bytes=schema, timeout=600)
+    mysql.query("DELETE FROM u3w_schema_migration;", "wxfbsir")
     mysql.query(
-        "CREATE TABLE u3w_schema_migration (version VARCHAR(128) NOT NULL,"
-        "description VARCHAR(512) NOT NULL,applied_at DATETIME NOT NULL DEFAULT "
-        "CURRENT_TIMESTAMP,PRIMARY KEY(version)) ENGINE=InnoDB;",
+        "INSERT INTO u3w_schema_migration(version,description) VALUES "
+        "('public_init_043','APPLIED:Independent Board exact official experts attribution v1'),"
+        "('20260723_independent_board_attribution_v1_043',"
+        "'APPLIED:exact WorkBuddy experts 26.7.21 attribution journey and append-only event ledger'),"
+        "('public_init_044','RUNNING:Independent Board exact legacy and current attribution identity registry');",
         "wxfbsir",
     )
-    for step in steps:
-        version = step["version"]
-        description = step["description"].replace("'", "''")
-        path = sql_root / step["file"]
-        if not path.is_file():
-            raise RuntimeError(f"shadow migration missing: {path.name}")
-        expected_sha = step.get("sha256")
-        if expected_sha and WORKER.sha256_file(path) != expected_sha:
-            raise RuntimeError(f"shadow migration hash drifted: {path.name}")
-        mysql.query(
-            "INSERT INTO u3w_schema_migration(version,description) VALUES "
-            f"('{version}','RUNNING:{description}');",
-            "wxfbsir",
-        )
-        mysql.source(path)
-        mysql.query(
-            "UPDATE u3w_schema_migration SET description="
-            f"'APPLIED:{description}',applied_at=CURRENT_TIMESTAMP "
-            f"WHERE version='{version}';",
-            "wxfbsir",
-        )
-    applied = mysql.query(
-        "SELECT COUNT(*) FROM u3w_schema_migration WHERE version LIKE "
-        "'public_init_%' AND description LIKE 'APPLIED:%';",
+    predecessor = mysql.query(
+        "SELECT CONCAT_WS('|',"
+        "(SELECT COUNT(*) FROM information_schema.table_constraints "
+        "WHERE constraint_schema=DATABASE() AND enforced='YES' AND constraint_name IN "
+        "('chk_board_attr_journey_versions','chk_board_attr_event_versions')) ,"
+        "(SELECT GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',') "
+        "FROM information_schema.statistics WHERE table_schema=DATABASE() "
+        "AND table_name='fbs_board_attr_journey_v1' "
+        "AND index_name='uk_board_attr_journey_identity'));",
         "wxfbsir",
     )
-    if applied != "44":
-        raise RuntimeError("shadow canonical manifest did not reach 44 APPLIED")
+    if predecessor != (
+        "2|contract_id,tenant_subject_digest,server_binding_id,journey_id"
+    ):
+        raise RuntimeError("schema-only shadow is not the exact 043 predecessor")
+    migration = release / "sql/public_init_044.sql"
+    if WORKER.sha256_file(migration) != release_manifest(release)[
+        "migration044Sha256"
+    ]:
+        raise RuntimeError("shadow 044 migration hash drifted")
+    mysql.source(migration)
+    mysql.query(
+        "UPDATE u3w_schema_migration SET description="
+        "'APPLIED:Independent Board exact legacy and current attribution identity registry',"
+        "applied_at=CURRENT_TIMESTAMP WHERE version='public_init_044' AND description="
+        "'RUNNING:Independent Board exact legacy and current attribution identity registry';",
+        "wxfbsir",
+    )
+    successor = mysql.query(
+        "SELECT CONCAT_WS('|',"
+        "(SELECT COUNT(*) FROM u3w_schema_migration WHERE version IN "
+        "('public_init_044','20260823_independent_board_attribution_identity_registry_044') "
+        "AND description LIKE 'APPLIED:%'),"
+        "(SELECT GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',') "
+        "FROM information_schema.statistics WHERE table_schema=DATABASE() "
+        "AND table_name='fbs_board_attr_journey_v1' "
+        "AND index_name='uk_board_attr_journey_identity'));",
+        "wxfbsir",
+    )
+    if successor != (
+        "2|contract_id,tenant_subject_digest,server_binding_id,journey_id,"
+        "product_id,listed_manifest_version,embedded_contract_version"
+    ):
+        raise RuntimeError("schema-only shadow did not reach exact 044")
+
+
+def release_manifest(release: pathlib.Path) -> dict:
+    return json.loads((release / "w05-candidate-manifest.json").read_text())
 
 
 def canonical_map(event: dict, business: bool = False) -> dict[str, str]:
@@ -402,7 +447,7 @@ def main() -> int:
     started = WORKER.iso()
     try:
         mysql.start()
-        initialize_manifest(mysql, release / "shadow/sql")
+        initialize_from_production_schema(mysql, release)
         redis_log = (root / "redis.log").open("ab")
         redis = subprocess.Popen(
             [
@@ -510,7 +555,8 @@ def main() -> int:
             "oldJarRetained044LegacyReplay": True,
             "oldJarSha256": WORKER.sha256_file(old_jar),
             "candidateJarSha256": WORKER.sha256_file(release / "backend/fbsir-admin.jar"),
-            "productionDatabaseUsed": False,
+            "productionDatabaseDataUsed": False,
+            "productionDatabaseSchemaReadOnly": True,
             "productionOutboxModified": False,
             "productCreditPromoted": False,
             "status": "PASS",
