@@ -22,6 +22,21 @@ $dirtyBefore = @($dirty | Sort-Object)
 if (-not $AllowDirty -and $dirty.Count -ne 0) {
     throw "Reproducible candidate build requires a clean worktree; found $($dirty.Count) entries."
 }
+$eolPaths = @(
+    'pom.xml',
+    'FBSir-admin/pom.xml',
+    'FBSir-admin/src/main/resources/application.yml',
+    'FBSir-business/src/main/java/com/wx/fbsir/business/board/attribution',
+    'FBSir-business/src/main/resources/contracts',
+    'FBSir-business/src/main/resources/mapper/board/attribution'
+)
+$eolState = @(& git -C $repoRoot ls-files --eol -- @eolPaths)
+$nonCanonicalEol = @($eolState | Where-Object {
+    $_ -match 'w/(crlf|mixed)' -and $_ -match 'attr/text eol=lf'
+})
+if ($nonCanonicalEol.Count -ne 0) {
+    throw "Candidate build inputs are not checked out with canonical LF endings: $($nonCanonicalEol.Count) file(s). Use a fresh checkout of the bound commit."
+}
 
 $rootPom = Join-Path $repoRoot 'pom.xml'
 $adminPom = Join-Path $repoRoot 'FBSir-admin\pom.xml'
@@ -87,6 +102,7 @@ try {
         identical = $true
         gitHeadAfter = $gitHeadAfter
         worktreeStableDuringBuild = $true
+        canonicalLfBuildInputs = $true
         rootPomSha256 = (Get-FileHash -LiteralPath $rootPom -Algorithm SHA256).Hash.ToLowerInvariant()
         adminPomSha256 = (Get-FileHash -LiteralPath $adminPom -Algorithm SHA256).Hash.ToLowerInvariant()
         productionChanged = $false
