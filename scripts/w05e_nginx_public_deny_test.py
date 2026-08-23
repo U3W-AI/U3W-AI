@@ -128,6 +128,12 @@ class W05ENginxPublicDenyTests(unittest.TestCase):
         with self.assertRaises(MODULE.RunnerError):
             MODULE.validate_effective_dump(self.candidate.replace(b"return 404;", b"proxy_pass http://127.0.0.1:1;", 1))
 
+    def test_live_probe_is_loopback_bound_and_uses_last_http_status(self):
+        source = pathlib.Path(MODULE.__file__).read_text(encoding="utf-8")
+        self.assertIn('"--noproxy", "*"', source)
+        self.assertIn('f"{TARGET_HOST}:443:127.0.0.1"', source)
+        self.assertIn("statuses[-1]", source)
+
     def test_preimage_drift_and_identity_drift_stop_before_write(self):
         self.runtime.target = b"drift"
         with self.assertRaises(MODULE.RunnerError) as context:

@@ -581,11 +581,16 @@ class LiveRuntime:
         return result.stdout + result.stderr
 
     def probe(self, method: str, path: str) -> dict[str, Any]:
-        result = self._run(["/usr/bin/curl", "--silent", "--show-error", "--insecure", "--max-time", "15", "--dump-header", "-", "--output", "/dev/null", "--request", method, f"https://{TARGET_HOST}{path}"], timeout=30)
+        result = self._run([
+            "/usr/bin/curl", "--silent", "--show-error", "--insecure",
+            "--noproxy", "*", "--resolve", f"{TARGET_HOST}:443:127.0.0.1",
+            "--max-time", "15", "--dump-header", "-", "--output", "/dev/null",
+            "--request", method, f"https://{TARGET_HOST}{path}",
+        ], timeout=30)
         text = result.stdout.decode("iso-8859-1", "strict")
-        status_match = re.search(r"HTTP/\d(?:\.\d)?\s+(\d{3})", text)
+        statuses = re.findall(r"HTTP/\d(?:\.\d)?\s+(\d{3})", text)
         cache = re.search(r"^Cache-Control:\s*([^\r\n]+)", text, re.IGNORECASE | re.MULTILINE)
-        return {"status": int(status_match.group(1)) if status_match else None, "cacheControlNoStore": bool(cache and "no-store" in cache.group(1).lower())}
+        return {"status": int(statuses[-1]) if statuses else None, "cacheControlNoStore": bool(cache and "no-store" in cache.group(1).lower())}
 
 
 def consume_auth_file(path: pathlib.Path, authorization_id: str) -> None:
