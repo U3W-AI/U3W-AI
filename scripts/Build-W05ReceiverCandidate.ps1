@@ -15,7 +15,8 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
 $outputRootFull = [IO.Path]::GetFullPath($OutputRoot)
 $commit = (& git -C $repoRoot rev-parse HEAD).Trim()
 $tree = (& git -C $repoRoot rev-parse 'HEAD^{tree}').Trim()
-$branch = [string](& git -C $repoRoot branch --show-current)
+$branchOutput = & git -C $repoRoot branch --show-current
+$branch = if ($null -eq $branchOutput) { '' } else { [string]$branchOutput }
 $branch = $branch.Trim()
 $sourceBranch = 'codex/w05-receiver-contract-20260823'
 $dirty = @(& git -C $repoRoot status --porcelain=v1)
