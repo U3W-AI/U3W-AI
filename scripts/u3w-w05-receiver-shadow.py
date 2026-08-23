@@ -36,6 +36,8 @@ REDIS_PORT = 16379
 EVENT_KEY_ID = "w05-shadow-k1"
 EVENT_SECRET = b"shadow-event-secret-material-at-least-32-bytes"
 BINDING_SECRET = "shadow-binding-secret-material-at-least-32-bytes"
+SHADOW_DB_USER = "w05_shadow"
+SHADOW_DB_PASSWORD = "w05-shadow-db-password-20260823"
 SIGNED_FIELDS = (
     "agentName", "channel", "classificationSource", "classifierVersion",
     "confidenceBucket", "contractId", "embeddedContractVersion", "eventId",
@@ -358,17 +360,28 @@ def http(method: str, path: str, body=None, headers=None) -> tuple[int, dict]:
     return status, value
 
 
-def app_environment(mysql_port: int, redis_port: int, allowed: list[str], not_after: dt.datetime):
+def app_environment(
+    mysql_port: int,
+    redis_port: int,
+    allowed: list[str],
+    not_after: dt.datetime,
+    root: pathlib.Path,
+):
+    file_root = root / "files"
+    file_root.mkdir(mode=0o700)
     result = os.environ.copy()
     result.update(
         FBSIR_MYSQL_URL=f"jdbc:mysql://127.0.0.1:{mysql_port}/wxfbsir?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC",
-        FBSIR_MYSQL_USERNAME="root",
-        FBSIR_MYSQL_PASSWORD="",
+        FBSIR_MYSQL_USERNAME=SHADOW_DB_USER,
+        FBSIR_MYSQL_PASSWORD=SHADOW_DB_PASSWORD,
         FBSIR_REDIS_HOST="127.0.0.1",
         FBSIR_REDIS_PORT=str(redis_port),
         FBSIR_REDIS_DATABASE="15",
         FBSIR_TOKEN_SECRET="shadow-token-secret-material-at-least-32-bytes",
         FBSIR_AES_SECRET_KEY="shadow-aes-secret-material-32bytes",
+        FBSIR_ENGINE_TOKEN="shadow-engine-token-material-at-least-32-bytes",
+        FBSIR_DOMAIN=f"http://127.0.0.1:{APP_PORT}",
+        FBSIR_FILE_PATH=str(file_root),
         FBSIR_DRUID_USERNAME="shadow",
         FBSIR_DRUID_PASSWORD="shadow-password",
         FBSIR_INDEPENDENT_BOARD_ATTRIBUTION_ENABLED="true",
@@ -448,6 +461,11 @@ def main() -> int:
     try:
         mysql.start()
         initialize_from_production_schema(mysql, release)
+        mysql.query(
+            f"CREATE USER '{SHADOW_DB_USER}'@'127.0.0.1' IDENTIFIED BY "
+            f"'{SHADOW_DB_PASSWORD}'; GRANT ALL PRIVILEGES ON wxfbsir.* TO "
+            f"'{SHADOW_DB_USER}'@'127.0.0.1'; FLUSH PRIVILEGES;"
+        )
         redis_log = (root / "redis.log").open("ab")
         redis = subprocess.Popen(
             [
@@ -469,7 +487,13 @@ def main() -> int:
         ordinary = [event(profile, f"profile-{index}", observed) for index, profile in enumerate(profiles)]
         historical = event(profiles[2], "historical-authorized", observed - dt.timedelta(hours=136))
         allowed = [business_digest(historical)]
-        environment = app_environment(MYSQL_PORT, REDIS_PORT, allowed, observed + dt.timedelta(minutes=20))
+        environment = app_environment(
+            MYSQL_PORT,
+            REDIS_PORT,
+            allowed,
+            observed + dt.timedelta(minutes=20),
+            root,
+        )
         app = start_app(release / "backend/fbsir-admin.jar", root, environment)
         path = "/internal/independent-board/attribution/events"
         checks = []
@@ -567,6 +591,35 @@ def main() -> int:
         receipt["receiptSha256"] = WORKER.sha256_file(output)
         print(json.dumps(receipt, sort_keys=True))
         return 0
+    except BaseException as error:
+        log_tails = {}
+        for log in sorted(root.glob("*.log")):
+            with contextlib.suppress(Exception):
+                text = log.read_text(encoding="utf-8", errors="replace")[-20_000:]
+                text = text.replace(EVENT_SECRET.decode(), "<redacted-event-key>")
+                text = text.replace(BINDING_SECRET, "<redacted-binding-key>")
+                text = text.replace(SHADOW_DB_PASSWORD, "<redacted-db-password>")
+                log_tails[log.name] = text
+        failure = {
+            "schemaVersion": "fbsir.w05ShadowFailure.v1",
+            "failedAt": WORKER.iso(),
+            "releaseId": release.name,
+            "manifestSha256": manifest_sha,
+            "errorType": type(error).__name__,
+            "error": str(error)[:1000],
+            "logTails": log_tails,
+            "productionDatabaseDataUsed": False,
+            "productionDatabaseSchemaReadOnly": True,
+            "productionOutboxModified": False,
+            "productCreditPromoted": False,
+            "status": "FAIL",
+        }
+        output = pathlib.Path("/opt/fbsir/admin/state/w05/receipts") / (
+            f"{release.name}.shadow-failure-{int(time.time())}.json"
+        )
+        with contextlib.suppress(Exception):
+            WORKER.atomic_json(output, failure)
+        raise
     finally:
         stop_process(old_app)
         stop_process(app)
