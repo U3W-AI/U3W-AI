@@ -106,10 +106,10 @@
         "acceptance": "a current offline-Ed25519 receipt binds source, JAR, route contract, configuration, public deny, zero-write shadow and active target readback; verifier holds public key only"
       },
       {
-        "id": "api2-mcp-connector-four-cell",
+        "id": "api2-mcp-connector-era-separated-four-cell",
         "gateKind": "EXTERNAL_GATE",
         "executor": "external API2 W0 release harness, not present in this Java repository",
-        "acceptance": "all four MCP protocol by connector package cells pass with unchanged public tool contracts and zero negative writes"
+        "acceptance": "two official WorkBuddy 2025-11-25 connector cells and two API2 synthetic-only 2026-07-28 cells pass with unchanged public tool contracts and zero negative writes; synthetic cells cannot prove official host or listed runtime"
       }
     ]
   },
@@ -146,7 +146,7 @@
     "defaultStage": "assess",
     "requiresContractDrivenFlow": true,
     "productionReleaseAllowedAtThisRevision": false,
-    "productionReleaseBlockReason": "the implementation is locally validated but no pushed clean candidate, reproducible W05E JAR, public-deny readback, candidate/shadow/active-runtime evidence, current independent authority receipt or external API2 four-cell receipt exists yet",
+    "productionReleaseBlockReason": "the implementation is locally validated but no pushed clean candidate, reproducible W05E JAR, public-deny readback, candidate/shadow/active-runtime evidence, current independent authority receipt or external era-separated API2 four-cell receipt exists yet",
     "releaseBlockers": [
       "focused",
       "full",
@@ -483,25 +483,70 @@
       "javaRouteIsInternalAndNotAnMcpTool": true,
       "protocolVersions": ["2025-11-25", "2026-07-28"],
       "connectorPackageVersions": ["26.7.2", "26.8.20"],
+      "evidenceBoundary": {
+        "officialWorkBuddyConnectorMcpVersion": "2025-11-25",
+        "officialWorkBuddyConnectorSpecModernEnabled": false,
+        "serviceSyntheticCompatibilityMcpVersion": "2026-07-28",
+        "serviceModernSyntheticOnly": true,
+        "officialHostOrListedRuntimeModernMcpProven": false,
+        "syntheticCompatibilityCanPromoteNaturalOrProductCredit": false
+      },
       "matrix": [
-        {"protocolVersion": "2025-11-25", "connectorPackageVersion": "26.7.2"},
-        {"protocolVersion": "2026-07-28", "connectorPackageVersion": "26.7.2"},
-        {"protocolVersion": "2025-11-25", "connectorPackageVersion": "26.8.20"},
-        {"protocolVersion": "2026-07-28", "connectorPackageVersion": "26.8.20"}
+        {
+          "protocolVersion": "2025-11-25",
+          "connectorPackageVersion": "26.7.2",
+          "evidenceClass": "official_workbuddy_connector_contract",
+          "hostSurface": "official_workbuddy",
+          "syntheticOnly": false,
+          "officialHostProofEligible": true,
+          "officialHostProven": false
+        },
+        {
+          "protocolVersion": "2026-07-28",
+          "connectorPackageVersion": "26.7.2",
+          "evidenceClass": "api2_independent_synthetic_compatibility",
+          "hostSurface": "api2_synthetic",
+          "syntheticOnly": true,
+          "officialHostProofEligible": false,
+          "officialHostProven": false
+        },
+        {
+          "protocolVersion": "2025-11-25",
+          "connectorPackageVersion": "26.8.20",
+          "evidenceClass": "official_workbuddy_connector_contract",
+          "hostSurface": "official_workbuddy",
+          "syntheticOnly": false,
+          "officialHostProofEligible": true,
+          "officialHostProven": false
+        },
+        {
+          "protocolVersion": "2026-07-28",
+          "connectorPackageVersion": "26.8.20",
+          "evidenceClass": "api2_independent_synthetic_compatibility",
+          "hostSurface": "api2_synthetic",
+          "syntheticOnly": true,
+          "officialHostProofEligible": false,
+          "officialHostProven": false
+        }
       ],
       "externalReceiptRequired": true,
       "externalExecutorNotPresentInThisRepository": true,
       "acceptance": {
+        "totalCellCount": 4,
+        "official20251125CellCount": 2,
+        "synthetic20260728CellCount": 2,
         "httpStatus200CellCount": 4,
+        "officialHostProvenModernCellCount": 0,
         "coreToolNamesUnchanged": true,
         "coreInputSchemasEqualAcrossCells": true,
         "lebaoDropVisibleCellCount": 0,
         "metadataLeakCellCount": 0,
         "negativeRuntimeBusinessWriteCount": 0,
         "negativeRuntimeJournalWriteCount": 0,
-        "productCreditPromoted": false
+        "productCreditPromoted": false,
+        "syntheticCompatibilityCanPromoteNaturalOrProductCredit": false
       },
-      "versionSeparationRule": "connector package versions are not the Independent Board listedManifestVersion or embeddedContractVersion identity tuple"
+      "versionSeparationRule": "connector package versions are not the Independent Board listedManifestVersion or embeddedContractVersion identity tuple; 2026-07-28 API2 synthetic compatibility cannot substitute for official WorkBuddy host, listed runtime, natural traffic, same-binding or product credit evidence"
     },
     "creditBoundary": {
       "recordOnly": true,
@@ -558,7 +603,7 @@
           "reproducible JAR and isolated MySQL shadow receipts pass",
           "independent receiver authority receipt is current",
           "public deny readback passes",
-          "external API2 four-cell receipt passes",
+          "external era-separated API2 four-cell receipt passes without treating 2026-07-28 synthetic cells as official WorkBuddy evidence",
           "explicit production authorization, automatic rollback and post-cutover observation are present"
         ]
       }

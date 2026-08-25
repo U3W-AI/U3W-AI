@@ -186,29 +186,29 @@ python scripts/u3w_w05_receiver_release_test.py
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/verify-w05-reproducible-build.ps1
 ```
 
-The MySQL command is test-database-only. Passing these commands proves the implementation boundary; it does not authorize W05E release because the clean pushed candidate, reproducible W05E JAR receipt, public deny, candidate/shadow/active-runtime evidence, current independent authority receipt and external four-cell receipt do not yet exist.
+The MySQL command is test-database-only. Passing these commands proves the implementation boundary; it does not authorize W05E release because the clean pushed candidate, reproducible W05E JAR receipt, public deny, candidate/shadow/active-runtime evidence, current independent authority receipt and external era-separated four-cell receipt do not yet exist.
 
 ### Evidence-dependent and external release gates
 
 The following remain explicit planned items and are not misrepresented as already passing repository commands:
 
 - a current Ed25519 authority receipt bound to the pushed commit, reproducible JAR, public deny, isolated shadow and active runtime;
-- the external API2 MCP-by-connector four-cell harness and receipt.
+- the external API2 MCP-by-connector era-separated four-cell harness and receipt.
 
 The local receipt gate must first become a stable release command; the external gate must first gain a stable owner harness. Both must be promoted into the committed release contract and required evidence before cutover. Until then, `productionReleaseAllowedAtThisRevision=false` is authoritative.
 
 ## MCP and connector compatibility
 
-The Java readback route is internal and is not an MCP tool. Nevertheless the release requires an external API2 receipt for all four cells:
+The Java readback route is internal and is not an MCP tool. Nevertheless the release requires an external API2 receipt for four explicitly classified cells. The two `2025-11-25` cells belong to the official WorkBuddy connector contract. The two `2026-07-28` cells are API2 independent synthetic compatibility only and cannot prove official host, listed runtime, natural traffic, same-binding or product credit.
 
-| MCP protocol | Connector package |
-|---|---|
-| `2025-11-25` | `26.7.2` |
-| `2026-07-28` | `26.7.2` |
-| `2025-11-25` | `26.8.20` |
-| `2026-07-28` | `26.8.20` |
+| MCP protocol | Connector package | Evidence class | Host surface | Official-host proof eligible |
+|---|---|---|---|---|
+| `2025-11-25` | `26.7.2` | `official_workbuddy_connector_contract` | `official_workbuddy` | yes, only after the external receipt passes |
+| `2026-07-28` | `26.7.2` | `api2_independent_synthetic_compatibility` | `api2_synthetic` | no |
+| `2025-11-25` | `26.8.20` | `official_workbuddy_connector_contract` | `official_workbuddy` | yes, only after the external receipt passes |
+| `2026-07-28` | `26.8.20` | `api2_independent_synthetic_compatibility` | `api2_synthetic` | no |
 
-Acceptance is 4/4 HTTP 200, unchanged public tool names and core input schemas, zero `lebao_drop` visibility, zero metadata leak, zero negative Runtime/Business/journal writes, and no product credit promotion.
+Acceptance is 4/4 HTTP 200 with `official20251125CellCount=2`, `synthetic20260728CellCount=2`, unchanged public tool names and core input schemas, zero `lebao_drop` visibility, zero metadata leak, zero negative Runtime/Business/journal writes, zero modern official-host proof, and no natural or product-credit promotion from synthetic cells.
 
 Connector package versions are not the Independent Board `listedManifestVersion` or `embeddedContractVersion`; the two version families must remain separate.
 
@@ -223,10 +223,10 @@ Connector package versions are not the Independent Board `listedManifestVersion`
 7. Cut over Java first under one forward restart and automatic rollback.
 8. Materialize and independently verify the short-lived authority receipt.
 9. Only then may Node Slice B consume the readback contract.
-10. Run the external API2 four-cell gate and a fixed post-cutover observation window without promoting natural traffic or credit.
+10. Run the external API2 era-separated four-cell gate and a fixed post-cutover observation window without promoting synthetic compatibility into official-host, natural-traffic or product-credit evidence.
 
 Rollback target is `/opt/fbsir/admin/releases/w05-receiver-5d0769c2dad8-20260823T074133Z`; `public_init_044` remains in place because W05E has no database migration. Maximum forward and rollback restart count is one each.
 
 ## Stop conditions
 
-Stop or roll back on any source/JAR/manifest/active-target drift, missing or expired authority receipt, absent public deny, any business-state write, any legacy POST regression, any four-cell failure, any product credit or natural promotion, unexpected service restart, or inability to bind a readback response to the active receiver release and JAR.
+Stop or roll back on any source/JAR/manifest/active-target drift, missing or expired authority receipt, absent public deny, any business-state write, any legacy POST regression, any four-cell failure or evidence-class confusion, any product credit or natural promotion, unexpected service restart, or inability to bind a readback response to the active receiver release and JAR.

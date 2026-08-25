@@ -33,6 +33,8 @@ const proxyTest = read(
   'FBSir-business/src/test/java/com/wx/fbsir/business/board/' +
     'attribution/service/' +
     'IndependentBoardAttributionReadbackSpringProxyContractTest.java')
+const engineeringContract = JSON.parse(read(
+  '.fbs-engineering/w05e-authoritative-readback-contract.json'))
 
 test('route is exact, POST-only, anonymous-HMAC and default-off', () => {
   assert.match(controller, /@Anonymous/)
@@ -107,4 +109,51 @@ test('security permits only the two exact HMAC routes', () => {
     /"\/internal\/independent-board\/attribution\/events",\s*"\/internal\/independent-board\/attribution\/events\/readback"/s)
   assert.doesNotMatch(security,
     /\/internal\/independent-board\/attribution\/\*\*/)
+})
+
+test('official WorkBuddy and API2 synthetic MCP eras remain evidence-separated', () => {
+  const compatibility =
+    engineeringContract.contracts.mcpConnectorCompatibility
+  assert.deepEqual(compatibility.evidenceBoundary, {
+    officialWorkBuddyConnectorMcpVersion: '2025-11-25',
+    officialWorkBuddyConnectorSpecModernEnabled: false,
+    serviceSyntheticCompatibilityMcpVersion: '2026-07-28',
+    serviceModernSyntheticOnly: true,
+    officialHostOrListedRuntimeModernMcpProven: false,
+    syntheticCompatibilityCanPromoteNaturalOrProductCredit: false
+  })
+  assert.equal(compatibility.matrix.length, 4)
+  const official = compatibility.matrix.filter(cell =>
+    cell.evidenceClass === 'official_workbuddy_connector_contract')
+  const synthetic = compatibility.matrix.filter(cell =>
+    cell.evidenceClass === 'api2_independent_synthetic_compatibility')
+  assert.equal(official.length, 2)
+  assert.equal(synthetic.length, 2)
+  assert.equal(official.every(cell =>
+    cell.protocolVersion === '2025-11-25' &&
+    cell.hostSurface === 'official_workbuddy' &&
+    cell.syntheticOnly === false &&
+    cell.officialHostProofEligible === true &&
+    cell.officialHostProven === false), true)
+  assert.equal(synthetic.every(cell =>
+    cell.protocolVersion === '2026-07-28' &&
+    cell.hostSurface === 'api2_synthetic' &&
+    cell.syntheticOnly === true &&
+    cell.officialHostProofEligible === false &&
+    cell.officialHostProven === false), true)
+  assert.deepEqual(compatibility.acceptance, {
+    totalCellCount: 4,
+    official20251125CellCount: 2,
+    synthetic20260728CellCount: 2,
+    httpStatus200CellCount: 4,
+    officialHostProvenModernCellCount: 0,
+    coreToolNamesUnchanged: true,
+    coreInputSchemasEqualAcrossCells: true,
+    lebaoDropVisibleCellCount: 0,
+    metadataLeakCellCount: 0,
+    negativeRuntimeBusinessWriteCount: 0,
+    negativeRuntimeJournalWriteCount: 0,
+    productCreditPromoted: false,
+    syntheticCompatibilityCanPromoteNaturalOrProductCredit: false
+  })
 })
